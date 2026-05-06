@@ -1,0 +1,13 @@
+full_name,nickname,email,phone_wa,role,tier,default_fee_override,bank_account,joined_date,is_active,notes
+"Muhamad Ramadan Saputra",Rama,rama@gmail.com,+6281234567890,super_admin,,,"BCA 0954965224",2023-01-01,true,"Owner & founder Tetra Photobooth"
+Fahmi,Fahmi,fahmi@gmail.com,+6281234567891,owner,,,,2023-01-01,true,"Co-owner"
+Acuy,Acuy,acuy@gmail.com,+6281234567892,owner,,,,2023-01-01,true,"Co-owner"
+Iqbal,Iqbal,iqbal@gmail.com,+6281234567893,owner,,,,2023-01-01,true,"Co-owner"
+Mou,Mou,mou.crew@gmail.com,+6281234567894,crew,senior,,,2023-03-15,true,"Senior crew - lead operator"
+Ceca,Ceca,ceca.crew@gmail.com,+6281234567895,crew,senior,,,2023-04-01,true,"Senior crew"
+"Crew 3 Senior",Crew3,crew3@gmail.com,+6281234567896,crew,senior,,,2024-01-10,true,"Senior crew"
+"Crew 4 Junior",Crew4,crew4@gmail.com,+6281234567897,crew,junior,,,2024-02-15,true,"Junior crew"
+"Crew 5 Junior",Crew5,crew5@gmail.com,+6281234567898,crew,junior,,,2024-04-20,true,"Junior crew"
+"Crew 6 Junior",Crew6,crew6@gmail.com,+6281234567899,crew,junior,,,2024-06-10,true,"Junior crew"
+"Crew 7 Junior",Crew7,crew7@gmail.com,+6281234567900,crew,junior,,,2024-09-05,true,"Junior crew"
+"Crew 8 Junior",Crew8,crew8@gmail.com,+6281234567901,crew,junior,,,2025-01-15,true,"Junior crew - paling baru"

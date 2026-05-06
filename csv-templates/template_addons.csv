@@ -1,0 +1,8 @@
+name,unit,price,category,requires_extra_crew,is_active
+"Voucher Photobooth","100 pcs",25000,voucher,false,true
+"Guest Books Photo","25 lembar",200000,experience,false,true
+"Photomagnet","50 cetak",350000,print_extras,false,true
+"Break Time / 1 Jam","1 Jam",150000,time_extras,false,true
+"Album Photostripe","20 halaman",100000,experience,false,true
+"Costume Sleeve","1000 lembar",1500000,costume,false,true
+"Keychain Photobooth Station",pcs,10000,experience,true,true
