@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,6 +12,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { type Theme, toggleTheme } from "@/lib/actions/theme";
 import { createClient } from "@/lib/supabase/client";
 
 function initialsOf(name: string) {
@@ -28,19 +29,29 @@ export function UserMenu({
 	name,
 	email,
 	role,
+	theme,
 }: {
 	name: string;
 	email: string;
 	role: string;
+	theme: Theme;
 }) {
 	const router = useRouter();
-	const [pending, startTransition] = useTransition();
+	const [signingOut, startSignOut] = useTransition();
+	const [, startThemeToggle] = useTransition();
 
 	function handleSignOut() {
-		startTransition(async () => {
+		startSignOut(async () => {
 			const supabase = createClient();
 			await supabase.auth.signOut();
 			router.push("/login");
+			router.refresh();
+		});
+	}
+
+	function handleToggleTheme() {
+		startThemeToggle(async () => {
+			await toggleTheme(theme);
 			router.refresh();
 		});
 	}
@@ -64,12 +75,24 @@ export function UserMenu({
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
+					onClick={handleToggleTheme}
+					className="cursor-pointer"
+				>
+					{theme === "dark" ? (
+						<Sun className="mr-2 h-4 w-4" />
+					) : (
+						<Moon className="mr-2 h-4 w-4" />
+					)}
+					{theme === "dark" ? "Switch to light" : "Switch to dark"}
+				</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem
 					onClick={handleSignOut}
-					disabled={pending}
+					disabled={signingOut}
 					className="cursor-pointer"
 				>
 					<LogOut className="mr-2 h-4 w-4" />
-					{pending ? "Signing out…" : "Sign out"}
+					{signingOut ? "Signing out…" : "Sign out"}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

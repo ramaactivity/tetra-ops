@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,15 +26,18 @@ export const metadata: Metadata = {
 	description: "Internal operating system for Tetra Photobooth",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const cookieStore = await cookies();
+	const theme = cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+
 	return (
 		<html
 			lang="id"
-			className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
+			className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
 		>
 			<body className="bg-background text-foreground flex min-h-full flex-col">
 				{children}
