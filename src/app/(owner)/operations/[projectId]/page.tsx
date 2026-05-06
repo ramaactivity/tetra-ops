@@ -41,9 +41,11 @@ export default async function EventDetailPage({
 			id, project_id, status, channel, client_name, client_wa, client_email,
 			service_type, frame_size, package_id, event_category, event_date,
 			setup_time, start_time, end_time, venue_name, venue_address, venue_city,
+			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
-			created_at, updated_at,
-			package:packages(id, name, base_price, duration_hours)
+			crew_notes, created_at, updated_at,
+			package:packages(id, name, base_price, duration_hours),
+			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category))
 		`,
 		)
 		.eq("project_id", projectId)
@@ -64,6 +66,15 @@ export default async function EventDetailPage({
 	if (!event) notFound();
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
+	const eventAddons = (event.event_addons ?? []) as Array<{
+		quantity: number;
+		unit_price: number;
+		total_price: number;
+		addon:
+			| { name: string; unit: string; category: string }
+			| Array<{ name: string; unit: string; category: string }>
+			| null;
+	}>;
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 md:px-8">
@@ -155,9 +166,64 @@ export default async function EventDetailPage({
 					<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
 				</DetailCard>
 
+				{eventAddons.length > 0 && (
+					<DetailCard title="Add-ons" className="md:col-span-2">
+						<div className="space-y-1">
+							{eventAddons.map((row, idx) => {
+								const addon = Array.isArray(row.addon)
+									? row.addon[0]
+									: row.addon;
+								return (
+									<div
+										key={`${addon?.name ?? "addon"}-${idx}`}
+										className="flex items-baseline justify-between gap-3 text-sm"
+									>
+										<div>
+											<span className="font-medium">
+												{addon?.name ?? "—"}
+											</span>
+											<span className="text-muted-foreground">
+												{" "}
+												· {row.quantity} {addon?.unit ?? ""}
+											</span>
+										</div>
+										<span className="tabular">
+											{formatRupiah(row.total_price)}
+										</span>
+									</div>
+								);
+							})}
+						</div>
+					</DetailCard>
+				)}
+
 				<DetailCard title="Financial" className="md:col-span-2">
+					<DetailRow label="Base Price">
+						<span className="tabular">
+							{event.base_price ? formatRupiah(event.base_price) : "—"}
+						</span>
+					</DetailRow>
+					<DetailRow label="Add-ons">
+						<span className="tabular">
+							{event.addons_total ? formatRupiah(event.addons_total) : "—"}
+						</span>
+					</DetailRow>
+					<DetailRow label="Discount">
+						<span className="tabular">
+							{event.discount_amount
+								? `−${formatRupiah(event.discount_amount)}`
+								: "—"}
+						</span>
+					</DetailRow>
+					<DetailRow label="Gross-up PPh">
+						<span className="tabular">
+							{event.gross_up_pph_amount
+								? formatRupiah(event.gross_up_pph_amount)
+								: "—"}
+						</span>
+					</DetailRow>
 					<DetailRow label="Grand Total">
-						<span className="tabular font-medium">
+						<span className="tabular text-foreground font-semibold">
 							{event.grand_total ? formatRupiah(event.grand_total) : "—"}
 						</span>
 					</DetailRow>
@@ -178,6 +244,14 @@ export default async function EventDetailPage({
 							event.payment_status}
 					</DetailRow>
 				</DetailCard>
+
+				{event.crew_notes && (
+					<DetailCard title="Catatan untuk Crew" className="md:col-span-2">
+						<p className="text-foreground whitespace-pre-wrap text-sm">
+							{event.crew_notes}
+						</p>
+					</DetailCard>
+				)}
 			</div>
 
 			<div className="border-border bg-card rounded-xl border border-dashed p-6 text-center">

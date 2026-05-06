@@ -7,6 +7,7 @@ import type {
 	BookingInput,
 } from "@/lib/actions/bookings";
 import {
+	ADDON_CATEGORY_LABELS,
 	CHANNEL_TYPE_LABELS,
 	FRAME_SIZE_LABELS,
 	formatRupiah,
@@ -42,6 +43,16 @@ export type PackageOption = {
 	base_price: number;
 };
 
+export type AddonOption = {
+	id: string;
+	name: string;
+	category: string;
+	unit: string;
+	price: number;
+};
+
+export type AddonSelection = { addon_id: string; quantity: number };
+
 export type BookingFormDefaults = Partial<{
 	channel: string;
 	client_name: string;
@@ -65,16 +76,19 @@ export type BookingFormDefaults = Partial<{
 	discount_amount: number;
 	gross_up_pph_amount: number;
 	crew_notes: string;
+	addons: AddonSelection[];
 }>;
 
 export function BookingForm({
 	action,
 	packages,
+	addons,
 	defaults,
 	submitLabel = "Save as draft",
 }: {
 	action: Action;
 	packages: PackageOption[];
+	addons: AddonOption[];
 	defaults?: BookingFormDefaults;
 	submitLabel?: string;
 }) {
@@ -109,10 +123,60 @@ export function BookingForm({
 	const [discount, setDiscount] = useState(initialDiscount);
 	const [grossUp, setGrossUp] = useState(initialGrossUp);
 
-	const grandTotal = useMemo(
-		() => Math.max(0, basePrice - discount + grossUp),
-		[basePrice, discount, grossUp],
+	const initialAddons = useMemo(() => {
+		const map: Record<string, number> = {};
+		for (const a of defaults?.addons ?? []) map[a.addon_id] = a.quantity;
+		return map;
+	}, [defaults?.addons]);
+
+	const [selectedAddons, setSelectedAddons] =
+		useState<Record<string, number>>(initialAddons);
+
+	const addonsByCategory = useMemo(() => {
+		const groups = new Map<string, AddonOption[]>();
+		for (const a of addons) {
+			if (!groups.has(a.category)) groups.set(a.category, []);
+			groups.get(a.category)!.push(a);
+		}
+		return Array.from(groups.entries());
+	}, [addons]);
+
+	const addonsTotal = useMemo(() => {
+		let sum = 0;
+		for (const a of addons) {
+			const qty = selectedAddons[a.id];
+			if (qty) sum += a.price * qty;
+		}
+		return sum;
+	}, [addons, selectedAddons]);
+
+	const addonsJson = useMemo(
+		() =>
+			JSON.stringify(
+				Object.entries(selectedAddons)
+					.filter(([, qty]) => qty > 0)
+					.map(([addon_id, quantity]) => ({ addon_id, quantity })),
+			),
+		[selectedAddons],
 	);
+
+	const grandTotal = useMemo(
+		() => Math.max(0, basePrice + addonsTotal - discount + grossUp),
+		[basePrice, addonsTotal, discount, grossUp],
+	);
+
+	function toggleAddon(id: string, enabled: boolean) {
+		setSelectedAddons((prev) => {
+			const next = { ...prev };
+			if (enabled) next[id] = next[id] || 1;
+			else delete next[id];
+			return next;
+		});
+	}
+
+	function setAddonQty(id: string, qty: number) {
+		setSelectedAddons((prev) => ({ ...prev, [id]: Math.max(1, qty) }));
+	}
 
 	function handlePackageChange(id: string) {
 		setPackageId(id);
@@ -444,6 +508,82 @@ export function BookingForm({
 				</div>
 			</Section>
 
+			<Section title="Add-ons" description="Voucher, print extras, costume, dll">
+				<input type="hidden" name="addons_json" value={addonsJson} />
+				{addons.length === 0 ? (
+					<p className="text-muted-foreground text-sm italic">
+						Belum ada add-on aktif. Tambah dari Settings → Add-ons.
+					</p>
+				) : (
+					<div className="space-y-4">
+						{addonsByCategory.map(([category, items]) => (
+							<div key={category} className="space-y-2">
+								<h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
+									{ADDON_CATEGORY_LABELS[category] ?? category}
+								</h4>
+								<div className="space-y-1">
+									{items.map((addon) => {
+										const qty = selectedAddons[addon.id];
+										const enabled = qty !== undefined;
+										return (
+											<label
+												key={addon.id}
+												className="border-border bg-card hover:bg-muted/30 flex items-center gap-3 rounded-md border p-3 cursor-pointer"
+											>
+												<input
+													type="checkbox"
+													checked={enabled}
+													onChange={(e) =>
+														toggleAddon(addon.id, e.target.checked)
+													}
+													className="text-primary h-4 w-4 rounded shrink-0"
+												/>
+												<div className="min-w-0 flex-1">
+													<div className="text-sm font-medium truncate">
+														{addon.name}
+													</div>
+													<div className="text-muted-foreground text-xs">
+														{formatRupiah(addon.price)} per {addon.unit}
+													</div>
+												</div>
+												{enabled ? (
+													<>
+														<input
+															type="number"
+															min={1}
+															max={99}
+															value={qty}
+															onChange={(e) =>
+																setAddonQty(addon.id, Number(e.target.value))
+															}
+															onClick={(e) => e.stopPropagation()}
+															className={`${inputClass} tabular h-8 w-16 shrink-0 text-right`}
+														/>
+														<span className="tabular text-foreground w-28 shrink-0 text-right text-sm font-medium">
+															{formatRupiah(addon.price * qty)}
+														</span>
+													</>
+												) : (
+													<span className="text-muted-foreground w-44 shrink-0 text-right text-xs">
+														Klik untuk pilih
+													</span>
+												)}
+											</label>
+										);
+									})}
+								</div>
+							</div>
+						))}
+						<div className="bg-muted flex items-center justify-between rounded-md px-4 py-2 text-sm">
+							<span className="text-muted-foreground">Add-ons subtotal</span>
+							<span className="tabular font-medium">
+								{formatRupiah(addonsTotal)}
+							</span>
+						</div>
+					</div>
+				)}
+			</Section>
+
 			<Section title="Financial" description="Harga dan modifier">
 				<Field
 					label="Base Price (IDR)"
@@ -530,6 +670,7 @@ export function BookingForm({
 					</div>
 					<div className="text-muted-foreground text-xs">
 						{formatRupiah(basePrice)}
+						{addonsTotal > 0 && <> + {formatRupiah(addonsTotal)} addons</>}
 						{discount > 0 && <> − {formatRupiah(discount)}</>}
 						{grossUp > 0 && <> + {formatRupiah(grossUp)} PPh</>}
 					</div>

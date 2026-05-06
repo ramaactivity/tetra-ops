@@ -2,6 +2,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+	type AddonOption,
 	BookingForm,
 	type PackageOption,
 } from "@/components/booking/booking-form";
@@ -16,26 +17,35 @@ export default async function EditBookingPage({
 	const { projectId } = await params;
 	const supabase = await createClient();
 
-	const [{ data: event, error }, { data: packages }] = await Promise.all([
-		supabase
-			.from("events")
-			.select(
-				`id, project_id, channel, client_name, client_wa, client_email,
+	const [{ data: event, error }, { data: packages }, { data: addons }] =
+		await Promise.all([
+			supabase
+				.from("events")
+				.select(
+					`id, project_id, channel, client_name, client_wa, client_email,
 				service_type, package_id, frame_size, event_category, event_date,
 				setup_time, start_time, end_time, venue_name, venue_address, venue_city,
 				backdrop_source, backdrop_color, include_flashdisk_pouch,
-				base_price, discount_amount, gross_up_pph_amount, crew_notes`,
-			)
-			.eq("project_id", projectId)
-			.maybeSingle(),
-		supabase
-			.from("packages")
-			.select("id, name, category, frame_size, duration_hours, base_price")
-			.eq("is_active", true)
-			.is("deleted_at", null)
-			.order("category", { ascending: true })
-			.order("base_price", { ascending: true }),
-	]);
+				base_price, discount_amount, gross_up_pph_amount, crew_notes,
+				event_addons(addon_id, quantity)`,
+				)
+				.eq("project_id", projectId)
+				.maybeSingle(),
+			supabase
+				.from("packages")
+				.select("id, name, category, frame_size, duration_hours, base_price")
+				.eq("is_active", true)
+				.is("deleted_at", null)
+				.order("category", { ascending: true })
+				.order("base_price", { ascending: true }),
+			supabase
+				.from("addons")
+				.select("id, name, category, unit, price")
+				.eq("is_active", true)
+				.is("deleted_at", null)
+				.order("category", { ascending: true })
+				.order("price", { ascending: true }),
+		]);
 
 	if (error) {
 		return (
@@ -79,6 +89,7 @@ export default async function EditBookingPage({
 				<BookingForm
 					action={action}
 					packages={(packages ?? []) as PackageOption[]}
+					addons={(addons ?? []) as AddonOption[]}
 					submitLabel="Save changes"
 					defaults={{
 						channel: event.channel,
@@ -103,6 +114,15 @@ export default async function EditBookingPage({
 						discount_amount: event.discount_amount ?? 0,
 						gross_up_pph_amount: event.gross_up_pph_amount ?? 0,
 						crew_notes: event.crew_notes ?? "",
+						addons: (
+							(event.event_addons ?? []) as Array<{
+								addon_id: string;
+								quantity: number;
+							}>
+						).map((a) => ({
+							addon_id: a.addon_id,
+							quantity: a.quantity,
+						})),
 					}}
 				/>
 			</div>

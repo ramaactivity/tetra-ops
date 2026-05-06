@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import {
+	type AddonOption,
 	BookingForm,
 	type PackageOption,
 } from "@/components/booking/booking-form";
@@ -9,13 +10,22 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function NewBookingPage() {
 	const supabase = await createClient();
-	const { data: packages } = await supabase
-		.from("packages")
-		.select("id, name, category, frame_size, duration_hours, base_price")
-		.eq("is_active", true)
-		.is("deleted_at", null)
-		.order("category", { ascending: true })
-		.order("base_price", { ascending: true });
+	const [{ data: packages }, { data: addons }] = await Promise.all([
+		supabase
+			.from("packages")
+			.select("id, name, category, frame_size, duration_hours, base_price")
+			.eq("is_active", true)
+			.is("deleted_at", null)
+			.order("category", { ascending: true })
+			.order("base_price", { ascending: true }),
+		supabase
+			.from("addons")
+			.select("id, name, category, unit, price")
+			.eq("is_active", true)
+			.is("deleted_at", null)
+			.order("category", { ascending: true })
+			.order("price", { ascending: true }),
+	]);
 
 	return (
 		<div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
@@ -32,8 +42,8 @@ export default async function NewBookingPage() {
 						New Booking
 					</h1>
 					<p className="text-muted-foreground text-sm">
-						Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew,
-						addons, dan DP setelah save.
+						Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew
+						dan DP setelah save.
 					</p>
 				</div>
 			</div>
@@ -41,6 +51,7 @@ export default async function NewBookingPage() {
 				<BookingForm
 					action={createBooking}
 					packages={(packages ?? []) as PackageOption[]}
+					addons={(addons ?? []) as AddonOption[]}
 				/>
 			</div>
 		</div>

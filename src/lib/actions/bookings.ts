@@ -156,6 +156,59 @@ async function requireOwnerLevel() {
 	return user;
 }
 
+const AddonInputSchema = z.array(
+	z.object({
+		addon_id: z.uuid(),
+		quantity: z.coerce.number().int().positive().max(99),
+	}),
+);
+
+function parseAddonsJson(formData: FormData) {
+	const raw = formData.get("addons_json");
+	if (!raw || typeof raw !== "string" || raw === "") return [];
+	try {
+		return AddonInputSchema.parse(JSON.parse(raw));
+	} catch {
+		return [];
+	}
+}
+
+async function snapshotAddons(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	raw: Array<{ addon_id: string; quantity: number }>,
+): Promise<{
+	rows: Array<{
+		addon_id: string;
+		quantity: number;
+		unit_price: number;
+		total_price: number;
+	}>;
+	total: number;
+}> {
+	if (raw.length === 0) return { rows: [], total: 0 };
+	const ids = raw.map((r) => r.addon_id);
+	const { data } = await supabase
+		.from("addons")
+		.select("id, price")
+		.in("id", ids);
+	const priceMap = new Map(
+		(data ?? []).map((a) => [a.id as string, Number(a.price)]),
+	);
+	const rows = raw
+		.map((r) => {
+			const unit_price = priceMap.get(r.addon_id) ?? 0;
+			return {
+				addon_id: r.addon_id,
+				quantity: r.quantity,
+				unit_price,
+				total_price: unit_price * r.quantity,
+			};
+		})
+		.filter((r) => r.unit_price > 0);
+	const total = rows.reduce((sum, r) => sum + r.total_price, 0);
+	return { rows, total };
+}
+
 async function resolveBasePrice(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	input: BookingInput,
@@ -191,10 +244,14 @@ function computeGrandTotal({
 	);
 }
 
-function buildEventPayload(input: BookingInput, basePrice: number) {
+function buildEventPayload(
+	input: BookingInput,
+	basePrice: number,
+	addonsTotal: number,
+) {
 	const grandTotal = computeGrandTotal({
 		base_price: basePrice,
-		addons_total: 0, // junction table will land in next commit
+		addons_total: addonsTotal,
 		discount_amount: input.discount_amount,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 	});
@@ -219,6 +276,7 @@ function buildEventPayload(input: BookingInput, basePrice: number) {
 		backdrop_color: input.backdrop_color,
 		include_flashdisk_pouch: input.include_flashdisk_pouch,
 		base_price: basePrice,
+		addons_total: addonsTotal,
 		discount_amount: input.discount_amount,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 		grand_total: grandTotal,
@@ -243,19 +301,47 @@ export async function createBooking(
 
 	const supabase = await createClient();
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
+	const addonsRaw = parseAddonsJson(formData);
+	const { rows: addonRows, total: addonsTotal } = await snapshotAddons(
+		supabase,
+		addonsRaw,
+	);
 	const projectId = generateProjectId(parsed.data.event_date);
 
-	const { error } = await supabase.from("events").insert({
-		project_id: projectId,
-		status: "draft",
-		...buildEventPayload(parsed.data, basePrice),
-	});
+	const { data: inserted, error } = await supabase
+		.from("events")
+		.insert({
+			project_id: projectId,
+			status: "draft",
+			...buildEventPayload(parsed.data, basePrice, addonsTotal),
+		})
+		.select("id")
+		.single();
 
 	if (error) {
 		return {
 			errors: { _form: [error.message] },
 			values: snapshotValues(formData),
 		};
+	}
+
+	if (addonRows.length > 0 && inserted?.id) {
+		const { error: addonsError } = await supabase
+			.from("event_addons")
+			.insert(
+				addonRows.map((r) => ({ event_id: inserted.id as string, ...r })),
+			);
+		if (addonsError) {
+			// Event already created; surface error but don't roll back.
+			return {
+				errors: {
+					_form: [
+						`Event tersimpan, tapi gagal menyimpan add-ons: ${addonsError.message}`,
+					],
+				},
+				values: snapshotValues(formData),
+			};
+		}
 	}
 
 	revalidatePath("/operations");
@@ -279,10 +365,15 @@ export async function updateBooking(
 
 	const supabase = await createClient();
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
+	const addonsRaw = parseAddonsJson(formData);
+	const { rows: addonRows, total: addonsTotal } = await snapshotAddons(
+		supabase,
+		addonsRaw,
+	);
 
 	const { data: updated, error } = await supabase
 		.from("events")
-		.update(buildEventPayload(parsed.data, basePrice))
+		.update(buildEventPayload(parsed.data, basePrice, addonsTotal))
 		.eq("id", id)
 		.select("project_id")
 		.single();
@@ -292,6 +383,31 @@ export async function updateBooking(
 			errors: { _form: [error.message] },
 			values: snapshotValues(formData),
 		};
+	}
+
+	// Replace existing addons with the current selection.
+	const { error: deleteError } = await supabase
+		.from("event_addons")
+		.delete()
+		.eq("event_id", id);
+	if (deleteError) {
+		return {
+			errors: { _form: [`Gagal menghapus add-ons lama: ${deleteError.message}`] },
+			values: snapshotValues(formData),
+		};
+	}
+	if (addonRows.length > 0) {
+		const { error: addonsError } = await supabase
+			.from("event_addons")
+			.insert(addonRows.map((r) => ({ event_id: id, ...r })));
+		if (addonsError) {
+			return {
+				errors: {
+					_form: [`Gagal menyimpan add-ons baru: ${addonsError.message}`],
+				},
+				values: snapshotValues(formData),
+			};
+		}
 	}
 
 	revalidatePath("/operations");
