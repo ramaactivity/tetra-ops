@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -73,9 +74,11 @@ export function CrewRoleMenu({
 					<ChevronDown className="h-3.5 w-3.5" />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-52">
-					<DropdownMenuLabel className="text-muted-foreground text-xs">
-						Set role for {userName}
-					</DropdownMenuLabel>
+					<DropdownMenuGroup>
+						<DropdownMenuLabel className="text-muted-foreground text-xs">
+							Set role for {userName}
+						</DropdownMenuLabel>
+					</DropdownMenuGroup>
 					<DropdownMenuSeparator />
 					{ROLE_OPTIONS.map((opt) => {
 						const isCurrent =

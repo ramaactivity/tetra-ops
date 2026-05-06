@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -67,9 +68,11 @@ export function StatusMenu({
 					<ChevronDown className="h-3.5 w-3.5" />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-56">
-					<DropdownMenuLabel className="text-muted-foreground text-xs">
-						Set event status
-					</DropdownMenuLabel>
+					<DropdownMenuGroup>
+						<DropdownMenuLabel className="text-muted-foreground text-xs">
+							Set event status
+						</DropdownMenuLabel>
+					</DropdownMenuGroup>
 					<DropdownMenuSeparator />
 					{STATUS_OPTIONS.map((opt) => (
 						<DropdownMenuItem
