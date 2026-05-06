@@ -1,6 +1,7 @@
 import { ChevronLeft, ExternalLink, Pencil, Receipt, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StatusMenu } from "@/components/booking/status-menu";
 import { Badge } from "@/components/ui/badge";
 import {
 	CHANNEL_TYPE_LABELS,
@@ -109,13 +110,20 @@ export default async function EventDetailPage({
 							{event.project_id}
 						</p>
 					</div>
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 						<Badge variant={STATUS_VARIANT[event.status] ?? "outline"}>
 							{EVENT_STATUS_LABELS[event.status] ?? event.status}
 						</Badge>
 						<Badge variant="outline">
 							{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
 						</Badge>
+						<StatusMenu
+							projectId={event.project_id}
+							eventId={event.id}
+							currentStatus={
+								event.status as Parameters<typeof StatusMenu>[0]["currentStatus"]
+							}
+						/>
 						<Link
 							href={`/operations/${event.project_id}/edit`}
 							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
