@@ -1,4 +1,4 @@
-import { ChevronLeft, ExternalLink, Pencil, Users } from "lucide-react";
+import { ChevronLeft, ExternalLink, Pencil, Receipt, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -258,7 +258,18 @@ export default async function EventDetailPage({
 					</DetailCard>
 				)}
 
-				<DetailCard title="Financial" className="md:col-span-2">
+				<div className="border-border bg-card md:col-span-2 space-y-3 rounded-xl border p-5">
+					<div className="flex items-center justify-between">
+						<h3 className="text-sm font-semibold tracking-tight">Financial</h3>
+						<Link
+							href={`/operations/${event.project_id}/payments`}
+							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+						>
+							<Receipt className="h-3.5 w-3.5" />
+							Manage payments
+						</Link>
+					</div>
+					<dl className="space-y-2">
 					<DetailRow label="Base Price">
 						<span className="tabular">
 							{event.base_price ? formatRupiah(event.base_price) : "—"}
@@ -304,7 +315,8 @@ export default async function EventDetailPage({
 						{PAYMENT_STATUS_LABELS[event.payment_status] ??
 							event.payment_status}
 					</DetailRow>
-				</DetailCard>
+					</dl>
+				</div>
 
 				{event.crew_notes && (
 					<DetailCard title="Catatan untuk Crew" className="md:col-span-2">
