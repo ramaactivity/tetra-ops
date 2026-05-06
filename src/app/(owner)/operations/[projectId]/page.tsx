@@ -1,4 +1,4 @@
-import { ChevronLeft, ExternalLink, Pencil } from "lucide-react";
+import { ChevronLeft, ExternalLink, Pencil, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +45,8 @@ export default async function EventDetailPage({
 			grand_total, total_paid, remaining_balance, payment_status,
 			crew_notes, created_at, updated_at,
 			package:packages(id, name, base_price, duration_hours),
-			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category))
+			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
+			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users(full_name, tier))
 		`,
 		)
 		.eq("project_id", projectId)
@@ -75,6 +76,19 @@ export default async function EventDetailPage({
 			| Array<{ name: string; unit: string; category: string }>
 			| null;
 	}>;
+	const crewAssignments = (event.crew_assignments ?? []) as Array<{
+		role_in_event: string;
+		fee_amount: number;
+		user:
+			| { full_name: string; tier: string | null }
+			| Array<{ full_name: string; tier: string | null }>
+			| null;
+	}>;
+	const ROLE_LABELS: Record<string, string> = {
+		lead: "Lead",
+		asisten: "Asisten",
+		crew_c: "Crew C",
+	};
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 md:px-8">
@@ -165,6 +179,53 @@ export default async function EventDetailPage({
 					<DetailRow label="Alamat">{event.venue_address ?? "—"}</DetailRow>
 					<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
 				</DetailCard>
+
+				<div className="border-border bg-card space-y-3 rounded-xl border p-5 md:col-span-2">
+					<div className="flex items-center justify-between">
+						<h3 className="text-sm font-semibold tracking-tight">Crew</h3>
+						<Link
+							href={`/operations/${event.project_id}/crew`}
+							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+						>
+							<Users className="h-3.5 w-3.5" />
+							Manage
+						</Link>
+					</div>
+					{crewAssignments.length === 0 ? (
+						<p className="text-muted-foreground text-sm italic">
+							Belum ada crew di-assign.
+						</p>
+					) : (
+						<div className="space-y-1">
+							{crewAssignments.map((row, idx) => {
+								const u = Array.isArray(row.user) ? row.user[0] : row.user;
+								return (
+									<div
+										key={`${u?.full_name ?? "crew"}-${idx}`}
+										className="flex items-baseline justify-between gap-3 text-sm"
+									>
+										<div>
+											<span className="font-medium">{u?.full_name ?? "—"}</span>
+											{u?.tier && (
+												<span className="text-muted-foreground">
+													{" "}
+													· {u.tier}
+												</span>
+											)}
+											<span className="text-muted-foreground">
+												{" "}
+												· {ROLE_LABELS[row.role_in_event] ?? row.role_in_event}
+											</span>
+										</div>
+										<span className="tabular text-muted-foreground">
+											{formatRupiah(row.fee_amount)}
+										</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
+				</div>
 
 				{eventAddons.length > 0 && (
 					<DetailCard title="Add-ons" className="md:col-span-2">
