@@ -27,3 +27,38 @@ export const ADDON_CATEGORY_LABELS: Record<string, string> = {
 	experience: "Experience",
 	costume: "Costume",
 };
+
+export const ITEM_CATEGORY_LABELS: Record<string, string> = {
+	consumable: "Consumable",
+	equipment: "Equipment",
+};
+
+export const EQUIPMENT_CONDITION_LABELS: Record<string, string> = {
+	normal: "Normal",
+	service: "Service",
+	damaged: "Damaged",
+	lost: "Lost",
+};
+
+export const EQUIPMENT_LOCATION_LABELS: Record<string, string> = {
+	gudang_pusat: "Gudang",
+	event: "On Event",
+	service_center: "Service Center",
+	crew_carry: "Crew Carry",
+	lost: "Lost",
+};
+
+export const USER_ROLE_LABELS: Record<string, string> = {
+	super_admin: "Super Admin",
+	owner: "Owner",
+	crew: "Crew",
+	pending_approval: "Pending",
+};
+
+export function formatDateID(iso: string): string {
+	return new Date(iso).toLocaleDateString("id-ID", {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+	});
+}
