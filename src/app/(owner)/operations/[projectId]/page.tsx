@@ -1,4 +1,4 @@
-import { ChevronLeft, ExternalLink } from "lucide-react";
+import { ChevronLeft, ExternalLink, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +91,13 @@ export default async function EventDetailPage({
 						<Badge variant="outline">
 							{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
 						</Badge>
+						<Link
+							href={`/operations/${event.project_id}/edit`}
+							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+						>
+							<Pencil className="h-3.5 w-3.5" />
+							Edit
+						</Link>
 					</div>
 				</div>
 			</div>

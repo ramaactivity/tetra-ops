@@ -17,6 +17,17 @@ const SERVICE_TYPES = [
 	"photostage_combo",
 ] as const;
 const FRAME_SIZES = ["2R", "4R", "polaroid", "none"] as const;
+const BACKDROP_SOURCES = ["basic_tetra", "custom"] as const;
+const BACKDROP_COLORS = ["merah", "gold", "putih", "silver", "custom"] as const;
+
+const optionalString = (max: number) =>
+	z
+		.string()
+		.trim()
+		.max(max)
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null));
 
 export const BookingInputSchema = z.object({
 	channel: z.enum(CHANNELS),
@@ -50,20 +61,29 @@ export const BookingInputSchema = z.object({
 	start_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
 	end_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
 	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
-	venue_address: z
-		.string()
-		.trim()
-		.max(255)
+	venue_address: optionalString(255),
+	venue_city: optionalString(60),
+	// Customization
+	backdrop_source: z.enum(BACKDROP_SOURCES).default("basic_tetra"),
+	backdrop_color: z
+		.enum(BACKDROP_COLORS)
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
-	venue_city: z
-		.string()
-		.trim()
-		.max(60)
-		.optional()
-		.or(z.literal(""))
-		.transform((v) => (v ? v : null)),
+	include_flashdisk_pouch: z.coerce.boolean(),
+	// Financial
+	base_price: z.coerce.number().int().min(0, "Tidak boleh negatif").default(0),
+	discount_amount: z.coerce
+		.number()
+		.int()
+		.min(0, "Tidak boleh negatif")
+		.default(0),
+	gross_up_pph_amount: z.coerce
+		.number()
+		.int()
+		.min(0, "Tidak boleh negatif")
+		.default(0),
+	crew_notes: optionalString(500),
 });
 
 export type BookingInput = z.infer<typeof BookingInputSchema>;
@@ -77,47 +97,48 @@ export type BookingFormState =
 	  }
 	| undefined;
 
+const FORM_KEYS = [
+	"channel",
+	"client_name",
+	"client_wa",
+	"client_email",
+	"service_type",
+	"package_id",
+	"frame_size",
+	"event_category",
+	"event_date",
+	"setup_time",
+	"start_time",
+	"end_time",
+	"venue_name",
+	"venue_address",
+	"venue_city",
+	"backdrop_source",
+	"backdrop_color",
+	"base_price",
+	"discount_amount",
+	"gross_up_pph_amount",
+	"crew_notes",
+] as const;
+
 function parseFormData(formData: FormData) {
+	const raw = Object.fromEntries(
+		FORM_KEYS.map((k) => [k, formData.get(k)]),
+	);
 	return BookingInputSchema.safeParse({
-		channel: formData.get("channel"),
-		client_name: formData.get("client_name"),
-		client_wa: formData.get("client_wa"),
-		client_email: formData.get("client_email"),
-		service_type: formData.get("service_type"),
-		package_id: formData.get("package_id"),
-		frame_size: formData.get("frame_size"),
-		event_category: formData.get("event_category"),
-		event_date: formData.get("event_date"),
-		setup_time: formData.get("setup_time"),
-		start_time: formData.get("start_time"),
-		end_time: formData.get("end_time"),
-		venue_name: formData.get("venue_name"),
-		venue_address: formData.get("venue_address"),
-		venue_city: formData.get("venue_city"),
+		...raw,
+		include_flashdisk_pouch: formData.get("include_flashdisk_pouch") === "on",
 	});
 }
 
 function snapshotValues(formData: FormData): Record<string, string> {
-	const keys = [
-		"channel",
-		"client_name",
-		"client_wa",
-		"client_email",
-		"service_type",
-		"package_id",
-		"frame_size",
-		"event_category",
-		"event_date",
-		"setup_time",
-		"start_time",
-		"end_time",
-		"venue_name",
-		"venue_address",
-		"venue_city",
-	];
-	return Object.fromEntries(
-		keys.map((k) => [k, String(formData.get(k) ?? "")]),
-	);
+	return {
+		...Object.fromEntries(
+			FORM_KEYS.map((k) => [k, String(formData.get(k) ?? "")]),
+		),
+		include_flashdisk_pouch:
+			formData.get("include_flashdisk_pouch") === "on" ? "on" : "",
+	};
 }
 
 function generateProjectId(eventDateISO: string): string {
@@ -135,6 +156,77 @@ async function requireOwnerLevel() {
 	return user;
 }
 
+async function resolveBasePrice(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	input: BookingInput,
+): Promise<number> {
+	// Explicit base_price wins (user override, edit case)
+	if (input.base_price > 0) return input.base_price;
+	// Snapshot from selected package
+	if (input.package_id) {
+		const { data: pkg } = await supabase
+			.from("packages")
+			.select("base_price")
+			.eq("id", input.package_id)
+			.maybeSingle();
+		if (pkg?.base_price) return pkg.base_price as number;
+	}
+	return 0;
+}
+
+function computeGrandTotal({
+	base_price,
+	addons_total,
+	discount_amount,
+	gross_up_pph_amount,
+}: {
+	base_price: number;
+	addons_total: number;
+	discount_amount: number;
+	gross_up_pph_amount: number;
+}): number {
+	return Math.max(
+		0,
+		base_price + addons_total - discount_amount + gross_up_pph_amount,
+	);
+}
+
+function buildEventPayload(input: BookingInput, basePrice: number) {
+	const grandTotal = computeGrandTotal({
+		base_price: basePrice,
+		addons_total: 0, // junction table will land in next commit
+		discount_amount: input.discount_amount,
+		gross_up_pph_amount: input.gross_up_pph_amount,
+	});
+
+	return {
+		channel: input.channel,
+		client_name: input.client_name,
+		client_wa: input.client_wa,
+		client_email: input.client_email,
+		service_type: input.service_type,
+		package_id: input.package_id,
+		frame_size: input.frame_size,
+		event_category: input.event_category,
+		event_date: input.event_date,
+		setup_time: input.setup_time,
+		start_time: input.start_time,
+		end_time: input.end_time,
+		venue_name: input.venue_name,
+		venue_address: input.venue_address,
+		venue_city: input.venue_city,
+		backdrop_source: input.backdrop_source,
+		backdrop_color: input.backdrop_color,
+		include_flashdisk_pouch: input.include_flashdisk_pouch,
+		base_price: basePrice,
+		discount_amount: input.discount_amount,
+		gross_up_pph_amount: input.gross_up_pph_amount,
+		grand_total: grandTotal,
+		remaining_balance: grandTotal,
+		crew_notes: input.crew_notes,
+	};
+}
+
 export async function createBooking(
 	_prev: BookingFormState,
 	formData: FormData,
@@ -150,26 +242,13 @@ export async function createBooking(
 	}
 
 	const supabase = await createClient();
+	const basePrice = await resolveBasePrice(supabase, parsed.data);
 	const projectId = generateProjectId(parsed.data.event_date);
 
 	const { error } = await supabase.from("events").insert({
 		project_id: projectId,
 		status: "draft",
-		channel: parsed.data.channel,
-		client_name: parsed.data.client_name,
-		client_wa: parsed.data.client_wa,
-		client_email: parsed.data.client_email,
-		service_type: parsed.data.service_type,
-		package_id: parsed.data.package_id,
-		frame_size: parsed.data.frame_size,
-		event_category: parsed.data.event_category,
-		event_date: parsed.data.event_date,
-		setup_time: parsed.data.setup_time,
-		start_time: parsed.data.start_time,
-		end_time: parsed.data.end_time,
-		venue_name: parsed.data.venue_name,
-		venue_address: parsed.data.venue_address,
-		venue_city: parsed.data.venue_city,
+		...buildEventPayload(parsed.data, basePrice),
 	});
 
 	if (error) {
@@ -180,5 +259,42 @@ export async function createBooking(
 	}
 
 	revalidatePath("/operations");
-	redirect("/operations");
+	redirect(`/operations/${projectId}`);
+}
+
+export async function updateBooking(
+	id: string,
+	_prev: BookingFormState,
+	formData: FormData,
+): Promise<BookingFormState> {
+	await requireOwnerLevel();
+
+	const parsed = parseFormData(formData);
+	if (!parsed.success) {
+		return {
+			errors: parsed.error.flatten().fieldErrors as BookingErrors,
+			values: snapshotValues(formData),
+		};
+	}
+
+	const supabase = await createClient();
+	const basePrice = await resolveBasePrice(supabase, parsed.data);
+
+	const { data: updated, error } = await supabase
+		.from("events")
+		.update(buildEventPayload(parsed.data, basePrice))
+		.eq("id", id)
+		.select("project_id")
+		.single();
+
+	if (error) {
+		return {
+			errors: { _form: [error.message] },
+			values: snapshotValues(formData),
+		};
+	}
+
+	revalidatePath("/operations");
+	revalidatePath(`/operations/${updated.project_id}`);
+	redirect(`/operations/${updated.project_id}`);
 }
