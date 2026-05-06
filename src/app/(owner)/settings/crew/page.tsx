@@ -1,3 +1,4 @@
+import { CrewRoleMenu } from "@/components/crew/role-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,8 +9,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, USER_ROLE_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+
+type Role = "super_admin" | "owner" | "crew" | "pending_approval";
 
 type UserRow = {
 	id: string;
@@ -17,8 +21,8 @@ type UserRow = {
 	full_name: string;
 	nickname: string | null;
 	phone_wa: string | null;
-	role: string;
-	tier: string | null;
+	role: Role;
+	tier: "senior" | "junior" | null;
 	is_active: boolean;
 	joined_date: string;
 };
@@ -42,6 +46,7 @@ function initialsOf(name: string) {
 }
 
 export default async function MasterCrewPage() {
+	const me = await getCurrentUser();
 	const supabase = await createClient();
 	const { data, error } = await supabase
 		.from("users")
@@ -66,6 +71,7 @@ export default async function MasterCrewPage() {
 	const pendingCount = users.filter(
 		(u) => u.role === "pending_approval",
 	).length;
+	const isSuperAdmin = me?.profile.role === "super_admin";
 
 	return (
 		<div className="space-y-4">
@@ -96,7 +102,10 @@ export default async function MasterCrewPage() {
 							<TableHead>Role</TableHead>
 							<TableHead>Tier</TableHead>
 							<TableHead>Joined</TableHead>
-							<TableHead className="text-right">Status</TableHead>
+							<TableHead>Status</TableHead>
+							{isSuperAdmin && (
+								<TableHead className="text-right">Actions</TableHead>
+							)}
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -138,13 +147,24 @@ export default async function MasterCrewPage() {
 								<TableCell className="tabular text-muted-foreground text-sm">
 									{formatDateID(u.joined_date)}
 								</TableCell>
-								<TableCell className="text-right">
+								<TableCell>
 									{u.is_active ? (
 										<Badge variant="default">Active</Badge>
 									) : (
 										<Badge variant="secondary">Inactive</Badge>
 									)}
 								</TableCell>
+								{isSuperAdmin && (
+									<TableCell className="text-right">
+										<CrewRoleMenu
+											userId={u.id}
+											userName={u.full_name}
+											currentRole={u.role}
+											currentTier={u.tier}
+											disabled={u.id === me?.authId}
+										/>
+									</TableCell>
+								)}
 							</TableRow>
 						))}
 					</TableBody>
