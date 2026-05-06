@@ -14,7 +14,7 @@ export default async function CrewLayout({
 	if (role === "pending_approval") redirect("/pending");
 
 	return (
-		<div className="flex min-h-screen flex-1 flex-col bg-zinc-50 dark:bg-black">
+		<div className="bg-background flex min-h-screen flex-1 flex-col">
 			{children}
 		</div>
 	);

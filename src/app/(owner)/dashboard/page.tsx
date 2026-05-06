@@ -8,26 +8,29 @@ export default async function DashboardPage() {
 	const { profile } = result;
 
 	return (
-		<main className="mx-auto w-full max-w-4xl flex-1 p-8">
-			<div className="space-y-6">
+		<main className="mx-auto w-full max-w-5xl flex-1 px-8 py-10">
+			<div className="space-y-8">
 				<header className="flex items-center justify-between">
-					<div>
-						<h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-						<p className="text-sm text-zinc-600 dark:text-zinc-400">
-							{profile.full_name} · {profile.role}
+					<div className="space-y-1">
+						<h1 className="text-3xl font-semibold tracking-tight">
+							Dashboard
+						</h1>
+						<p className="text-muted-foreground text-sm">
+							{profile.full_name} ·{" "}
+							<span className="text-primary font-medium">{profile.role}</span>
 						</p>
 					</div>
 					<form action={signOut}>
 						<button
 							type="submit"
-							className="h-9 rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"
+							className="border-border bg-card hover:bg-muted h-9 rounded-md border px-4 text-sm font-medium"
 						>
 							Sign out
 						</button>
 					</form>
 				</header>
-				<div className="rounded-lg border border-dashed border-zinc-300 bg-white p-12 text-center dark:border-zinc-700 dark:bg-zinc-900">
-					<p className="text-sm text-zinc-500 dark:text-zinc-400">
+				<div className="border-border bg-card rounded-xl border border-dashed p-12 text-center">
+					<p className="text-muted-foreground text-sm">
 						Owner dashboard placeholder. Real KPIs, anomaly radar, and ops
 						snapshot land in Phase 1 Week 4.
 					</p>

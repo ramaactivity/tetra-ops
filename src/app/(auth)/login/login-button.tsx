@@ -29,15 +29,13 @@ export function LoginButton() {
 				type="button"
 				onClick={signInWithGoogle}
 				disabled={loading}
-				className="flex h-11 w-full items-center justify-center gap-3 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"
+				className="border-border bg-card hover:bg-muted text-foreground flex h-11 w-full items-center justify-center gap-3 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				<GoogleIcon />
 				{loading ? "Redirecting…" : "Continue with Google"}
 			</button>
 			{error && (
-				<p className="text-center text-sm text-red-600 dark:text-red-400">
-					{error}
-				</p>
+				<p className="text-destructive text-center text-sm">{error}</p>
 			)}
 		</>
 	);

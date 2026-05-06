@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LoginButton } from "./login-button";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -14,18 +15,26 @@ export default async function LoginPage({
 	const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
 
 	return (
-		<div className="w-full max-w-sm space-y-6 rounded-lg border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-			<div className="space-y-2 text-center">
-				<h1 className="text-2xl font-semibold tracking-tight">Tetra Ops</h1>
-				<p className="text-sm text-zinc-600 dark:text-zinc-400">
-					Sign in to continue
-				</p>
+		<div className="bg-card border-border w-full max-w-sm space-y-8 rounded-xl border p-8 shadow-lg">
+			<div className="flex flex-col items-center space-y-4 text-center">
+				<Image
+					src="/brand/logo-monochrome-light.png"
+					alt="Tetra Photobooth"
+					width={200}
+					height={60}
+					className="h-10 w-auto"
+					priority
+				/>
+				<div className="space-y-1.5">
+					<h1 className="font-display text-3xl tracking-tight">Tetra Ops</h1>
+					<p className="text-muted-foreground text-sm">
+						Sign in to continue
+					</p>
+				</div>
 			</div>
 			<LoginButton />
 			{errorMessage && (
-				<p className="text-center text-sm text-red-600 dark:text-red-400">
-					{errorMessage}
-				</p>
+				<p className="text-destructive text-center text-sm">{errorMessage}</p>
 			)}
 		</div>
 	);
