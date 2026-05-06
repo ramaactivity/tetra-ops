@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const PAYMENT_TYPES = ["dp", "partial", "pelunasan"] as const;
 
-export const PaymentInputSchema = z.object({
+const PaymentInputSchema = z.object({
 	amount: z.coerce.number().int().positive("Jumlah harus lebih dari 0"),
 	payment_date: z.iso.date("Format tanggal tidak valid"),
 	bank_account_id: z.uuid("Pilih bank account"),

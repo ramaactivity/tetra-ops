@@ -29,7 +29,7 @@ const optionalString = (max: number) =>
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null));
 
-export const BookingInputSchema = z.object({
+const BookingInputSchema = z.object({
 	channel: z.enum(CHANNELS),
 	client_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
 	client_wa: z

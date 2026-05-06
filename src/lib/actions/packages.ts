@@ -17,7 +17,7 @@ const SERVICE_TYPES = [
 
 const FRAME_SIZES = ["2R", "4R", "polaroid", "none"] as const;
 
-export const PackageInputSchema = z.object({
+const PackageInputSchema = z.object({
 	name: z
 		.string()
 		.trim()
