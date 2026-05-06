@@ -121,7 +121,12 @@ export default async function OperationsListPage() {
 							{events.map((ev) => (
 								<TableRow key={ev.id}>
 									<TableCell className="tabular text-xs font-medium">
-										{ev.project_id}
+										<Link
+											href={`/operations/${ev.project_id}`}
+											className="text-primary hover:underline"
+										>
+											{ev.project_id}
+										</Link>
 									</TableCell>
 									<TableCell>{ev.client_name}</TableCell>
 									<TableCell className="tabular text-muted-foreground text-sm">
