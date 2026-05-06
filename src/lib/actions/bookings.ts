@@ -289,7 +289,7 @@ export async function createBooking(
 	_prev: BookingFormState,
 	formData: FormData,
 ): Promise<BookingFormState> {
-	await requireOwnerLevel();
+	const me = await requireOwnerLevel();
 
 	const parsed = parseFormData(formData);
 	if (!parsed.success) {
@@ -313,6 +313,7 @@ export async function createBooking(
 		.insert({
 			project_id: projectId,
 			status: "draft",
+			created_by: me.authId,
 			...buildEventPayload(parsed.data, basePrice, addonsTotal),
 		})
 		.select("id")
