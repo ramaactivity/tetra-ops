@@ -19,3 +19,11 @@ export const FRAME_SIZE_LABELS: Record<string, string> = {
 	polaroid: "Polaroid",
 	none: "—",
 };
+
+export const ADDON_CATEGORY_LABELS: Record<string, string> = {
+	voucher: "Voucher",
+	print_extras: "Print Extras",
+	time_extras: "Time Extras",
+	experience: "Experience",
+	costume: "Costume",
+};
