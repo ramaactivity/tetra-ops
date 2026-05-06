@@ -1,3 +1,6 @@
+import { Pencil, Plus } from "lucide-react";
+import Link from "next/link";
+import { ArchivePackageButton } from "@/components/packages/archive-button";
 import { Badge } from "@/components/ui/badge";
 import {
 	Table,
@@ -53,10 +56,16 @@ export default async function PackagesListPage() {
 				<div>
 					<h2 className="text-xl font-semibold tracking-tight">Packages</h2>
 					<p className="text-muted-foreground text-sm">
-						{packages.length} paket tersedia · seeded dari pricelist Tetra 2026
+						{packages.length} paket tersedia
 					</p>
 				</div>
-				{/* TODO: "+ New package" button — Phase 1 Week 2 */}
+				<Link
+					href="/settings/packages/new"
+					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
+				>
+					<Plus className="h-4 w-4" />
+					New package
+				</Link>
 			</div>
 
 			<div className="border-border bg-card overflow-hidden rounded-lg border">
@@ -68,7 +77,8 @@ export default async function PackagesListPage() {
 							<TableHead>Frame</TableHead>
 							<TableHead className="text-right">Duration</TableHead>
 							<TableHead className="text-right">Base Price</TableHead>
-							<TableHead className="text-right">Status</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead className="w-[80px] text-right">Actions</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -87,12 +97,24 @@ export default async function PackagesListPage() {
 								<TableCell className="tabular text-right font-medium">
 									{formatRupiah(pkg.base_price)}
 								</TableCell>
-								<TableCell className="text-right">
+								<TableCell>
 									{pkg.is_active ? (
 										<Badge variant="default">Active</Badge>
 									) : (
 										<Badge variant="secondary">Inactive</Badge>
 									)}
+								</TableCell>
+								<TableCell>
+									<div className="flex items-center justify-end gap-1">
+										<Link
+											href={`/settings/packages/${pkg.id}/edit`}
+											title="Edit"
+											className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+										>
+											<Pencil className="h-4 w-4" />
+										</Link>
+										<ArchivePackageButton id={pkg.id} name={pkg.name} />
+									</div>
 								</TableCell>
 							</TableRow>
 						))}
