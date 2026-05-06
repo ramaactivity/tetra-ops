@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { OwnerSidebar } from "@/components/layouts/owner-sidebar";
+import { TopBar } from "@/components/layouts/topbar";
 import { getCurrentUser } from "@/lib/auth/get-user";
 
 export default async function OwnerLayout({
@@ -9,13 +11,21 @@ export default async function OwnerLayout({
 	const result = await getCurrentUser();
 	if (!result) redirect("/login");
 
-	const { role } = result.profile;
-	if (role === "crew") redirect("/crew");
-	if (role === "pending_approval") redirect("/pending");
+	const { profile } = result;
+	if (profile.role === "crew") redirect("/crew");
+	if (profile.role === "pending_approval") redirect("/pending");
 
 	return (
-		<div className="bg-background flex min-h-screen flex-1 flex-col">
-			{children}
+		<div className="bg-background flex min-h-screen flex-col">
+			<TopBar
+				name={profile.full_name}
+				email={result.email}
+				role={profile.role}
+			/>
+			<div className="flex flex-1">
+				<OwnerSidebar />
+				<main className="flex-1">{children}</main>
+			</div>
 		</div>
 	);
 }
