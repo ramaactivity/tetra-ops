@@ -62,3 +62,30 @@ export function formatDateID(iso: string): string {
 		year: "numeric",
 	});
 }
+
+export const CHANNEL_TYPE_LABELS: Record<string, string> = {
+	direct: "Direct",
+	vendor: "Vendor",
+	relasi: "Relasi",
+};
+
+export const EVENT_STATUS_LABELS: Record<string, string> = {
+	draft: "Draft",
+	confirmed: "Confirmed",
+	design_brief: "Design Brief",
+	design_approved: "Design Approved",
+	upcoming: "Upcoming",
+	in_progress: "In Progress",
+	awaiting_settlement: "Awaiting Settlement",
+	completed: "Completed",
+	cancelled: "Cancelled",
+	archived: "Archived",
+};
+
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+	unpaid: "Unpaid",
+	dp: "DP",
+	paid: "Lunas",
+	overpaid: "Overpaid",
+	overdue: "Overdue",
+};
