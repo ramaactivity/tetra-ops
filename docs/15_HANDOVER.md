@@ -70,6 +70,7 @@
 7. `20260507_event_category_fk.sql` — FK events.event_category → event_types.code
 8. `20260507_event_reminders_log.sql` — manual WA reminder click log + RLS
 9. `20260507_push_subscriptions.sql` — Web Push subscriptions per user + RLS
+10. `20260507_event_drive_folder.sql` — events.drive_folder_id/url/created_at columns
 
 ### Real production data status
 
@@ -127,12 +128,14 @@ Reference: `docs/08_IMPLEMENTATION_PLAN.md`
 - 🟡 PDFs cross-tested di browser (perlu ujicoba lebih lanjut)
 - ❌ Storage of generated PDFs to Drive (Phase 3 Week 14 dependency)
 
-**Week 14: Drive Integration — ❌ NOT STARTED**
-- ❌ Google Drive OAuth flow (one-time setup by Rama)
-- ❌ Auto-create event folders on event creation
-- ❌ Move file uploads to Drive (rekap photos, equipment incident photos, payment proofs)
-- ❌ "Open in Drive" links throughout app
-- ❌ Mobile UX final pass
+**Week 14: Drive Integration — 🟡 PHASE 1 DONE (folder auto-create)**
+- ✅ Google Drive OAuth refresh-token flow (`scripts/get-drive-refresh-token.mjs`)
+- ✅ Auto-create event folders on event creation (best-effort hook in `createBooking`)
+- ✅ "Buka folder Drive" button on event detail (`<EventDriveCard>`)
+- ✅ `drive_folder_id`, `drive_folder_url`, `drive_folder_created_at` columns on events
+- ❌ Move file uploads to Drive (rekap photos, equipment incident photos, payment proofs) — Phase 2
+- ❌ Auto-archive generated PDFs to event folder — Phase 2
+- ❌ Mobile UX final pass — Phase 2
 
 ### ⏳ Phase 4 — Polish & Optimization
 
@@ -299,7 +302,7 @@ Ordered by impact untuk go-live + remaining roadmap:
 
 ### Round 1: Phase 3 finishing
 1. ✅ **WhatsApp reminder scheduler UI** (Week 12 closure) — DONE. `/reminders` page dengan 4 bucket (H-3 pelunasan, H-7 belum DP, H-1 konfirmasi, overdue), checkbox batch-select, sequenced wa.me opens, `event_reminders_log` tracking. Migration: `20260507_event_reminders_log.sql`.
-2. **Drive integration** (Week 14) — OAuth flow + auto-create event folder + uploadFile helper. Replace existing drive_url text fields with proper file storage. ~1-2 hari (multi-step). Big infra piece. **BLOCKED on Rama: `GOOGLE_DRIVE_CLIENT_ID/SECRET` env vars.**
+2. 🟡 **Drive integration** (Week 14) — Phase 1 DONE (folder auto-create on event creation + manual create button on event detail). `@googleapis/drive` + `google-auth-library` (split packages, not full `googleapis` — that one OOM'd build). Migration `20260507_event_drive_folder.sql`. Pending: file uploads (Phase 2). **Pending Rama: 4 env vars** (`GOOGLE_DRIVE_CLIENT_ID`, `_SECRET`, `_REFRESH_TOKEN`, `_PARENT_FOLDER_ID`) via `node scripts/get-drive-refresh-token.mjs`.
 3. ✅ **Web Push API** (Week 11 closure) — DONE. Service worker `/public/sw.js`, `push_subscriptions` table, VAPID dispatch via `web-push` package, subscribe button at `/notifications`, auto-fire dari anomaly scanner. Migration `20260507_push_subscriptions.sql`. Rama runs `node scripts/generate-vapid-keys.mjs` + sets 3 env vars di Vercel.
 
 ### Round 2: Phase 4 polish dipriortiaskan untuk go-live
@@ -345,8 +348,13 @@ Pending Rama action — Web Push:
 - ❌ `VAPID_PRIVATE_KEY` (same generator output — KEEP SECRET)
 - ❌ `VAPID_CONTACT_EMAIL` (default `tetraphotobooth@gmail.com`)
 
+Pending Rama action — Drive integration:
+- ❌ `GOOGLE_DRIVE_CLIENT_ID` (from Google Cloud Console → Credentials → Web client)
+- ❌ `GOOGLE_DRIVE_CLIENT_SECRET` (same)
+- ❌ `GOOGLE_DRIVE_REFRESH_TOKEN` (run `node scripts/get-drive-refresh-token.mjs` once, sign in as tetraphotobooth@gmail.com)
+- ❌ `GOOGLE_DRIVE_PARENT_FOLDER_ID` (manually create "Tetra Ops Events" folder in Drive, copy ID from URL)
+
 Future (when implementing):
-- `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` (Phase 3 Week 14)
 - `WHATSAPP_API_TOKEN` (if/when adopting WA Business API)
 
 ---

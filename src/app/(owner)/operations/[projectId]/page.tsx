@@ -21,11 +21,13 @@ import {
 	type WhatsAppTemplate,
 } from "@/components/booking/send-wa-button";
 import { StatusMenu } from "@/components/booking/status-menu";
+import { EventDriveCard } from "@/components/drive/event-drive-card";
 import { DesignCard } from "@/components/event-design/design-card";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
 import { PdfDownloadMenu } from "@/components/pdf/download-menu";
 import { Badge } from "@/components/ui/badge";
+import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	CHANNEL_TYPE_LABELS,
@@ -51,6 +53,7 @@ export default async function EventDetailPage({
 		{ data: event, error },
 		{ data: templatesData },
 		{ data: eventTypesData },
+		driveStatus,
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -67,6 +70,7 @@ export default async function EventDetailPage({
 			booker_contact:contacts!events_booker_contact_id_fkey(id, name, phone, type, legacy_contact_id),
 			pic_contact:contacts!events_pic_contact_id_fkey(id, name, phone, type, legacy_contact_id),
 			design_brief_at, design_approved_at, design_drive_folder_url,
+			drive_folder_id, drive_folder_url, drive_folder_created_at,
 			backdrop_id, vendor_decor_markup,
 			backdrop:backdrops(name, type, rental_price),
 			package:packages(id, name, base_price, duration_hours),
@@ -86,10 +90,8 @@ export default async function EventDetailPage({
 			.select("code, name, description, template_body")
 			.eq("is_active", true)
 			.order("display_order", { ascending: true }),
-		supabase
-			.from("event_types")
-			.select("code, label")
-			.eq("is_active", true),
+		supabase.from("event_types").select("code, label").eq("is_active", true),
+		getDriveStatus(),
 	]);
 
 	if (error) {
@@ -324,9 +326,9 @@ export default async function EventDetailPage({
 								Migrated from Phase-2 (read-only archive)
 							</p>
 							<p className="text-amber-800/80 dark:text-amber-300/80">
-								Event ini di-import dari sistem lama untuk referensi
-								historis. Tidak ada records payments / settlement / journal /
-								earnings — kalau perlu adjust angka, edit langsung kolom event.
+								Event ini di-import dari sistem lama untuk referensi historis.
+								Tidak ada records payments / settlement / journal / earnings —
+								kalau perlu adjust angka, edit langsung kolom event.
 								{event.legacy_invoice_number && (
 									<>
 										{" "}
@@ -638,6 +640,15 @@ export default async function EventDetailPage({
 						</p>
 					</DetailCard>
 				)}
+
+				<EventDriveCard
+					projectId={event.project_id}
+					folderUrl={event.drive_folder_url ?? null}
+					folderCreatedAt={event.drive_folder_created_at ?? null}
+					canEdit={canEdit}
+					driveConfigured={driveStatus.configured}
+					driveConfigMissing={driveStatus.missing}
+				/>
 
 				<DesignCard
 					eventId={event.id}

@@ -11,6 +11,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.4.1
         version: 1.4.1(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@googleapis/drive':
+        specifier: ^20.1.0
+        version: 20.1.0
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.75.0(react@19.2.4))
@@ -35,6 +38,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      google-auth-library:
+        specifier: ^10.6.2
+        version: 10.6.2
       lucide-react:
         specifier: ^1.14.0
         version: 1.14.0(react@19.2.4)
@@ -919,6 +925,10 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@googleapis/drive@20.1.0':
+    resolution: {integrity: sha512-8/gapeLuZ3igooEGLE1AL3Zp5fjqigZQNmyjehb4QF7JVJh6FXF+72AcQGGsFypwJb2S68HIuQFomHBw4RJSOg==}
+    engines: {node: '>=12.0.0'}
 
   '@hono/node-server@1.19.14':
     resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
@@ -2430,6 +2440,9 @@ packages:
   big.js@5.2.2:
     resolution: {integrity: sha512-vyL2OymJxmarO8gxMr0mhChsO9QGwhynfuu4+MHTAW6czfq9humCB7rKpUjDd9YUiDPU4mzpyupFSvOClAwbmQ==}
 
+  bignumber.js@9.3.1:
+    resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
+
   bin-links@6.0.0:
     resolution: {integrity: sha512-X4CiKlcV2GjnCMwnKAfbVWpHa++65th9TuzAEYtZoATiOE2DQKhSp4CJlyLoTqdhBKlXjpXjCTYPNNFS33Fi6w==}
     engines: {node: ^20.17.0 || >=22.9.0}
@@ -2890,6 +2903,9 @@ packages:
     resolution: {integrity: sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==}
     engines: {node: '>= 18'}
 
+  extend@3.0.2:
+    resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -3002,6 +3018,14 @@ packages:
   fuzzysort@3.1.0:
     resolution: {integrity: sha512-sR9BNCjBg6LNgwvxlBd0sBABvQitkLzoVY9MYYROQVX/FvfJ4Mai9LsGhDgd8qYdds0bY77VzYd5iuB+v5rwQQ==}
 
+  gaxios@7.1.4:
+    resolution: {integrity: sha512-bTIgTsM2bWn3XklZISBTQX7ZSddGW+IO3bMdGaemHZ3tbqExMENHLx6kKZ/KlejgrMtj8q7wBItt51yegqalrA==}
+    engines: {node: '>=18'}
+
+  gcp-metadata@8.1.2:
+    resolution: {integrity: sha512-zV/5HKTfCeKWnxG0Dmrw51hEWFGfcF2xiXqcA3+J90WDuP0SvoiSO5ORvcBsifmx/FoIjgQN3oNOGaQ5PhLFkg==}
+    engines: {node: '>=18'}
+
   generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
     engines: {node: '>= 0.4'}
@@ -3074,6 +3098,18 @@ packages:
   globby@6.1.0:
     resolution: {integrity: sha512-KVbFv2TQtbzCoxAnfD6JcHZTYCzyliEaaeM/gH8qQdkKr5s0OP9scEgvdcngyk7AVdY6YVW/TJHd+lQ/Df3Daw==}
     engines: {node: '>=0.10.0'}
+
+  google-auth-library@10.6.2:
+    resolution: {integrity: sha512-e27Z6EThmVNNvtYASwQxose/G57rkRuaRbQyxM2bvYLLX/GqWZ5chWq2EBoUchJbCc57eC9ArzO5wMsEmWftCw==}
+    engines: {node: '>=18'}
+
+  google-logging-utils@1.1.3:
+    resolution: {integrity: sha512-eAmLkjDjAFCVXg7A1unxHsLf961m6y17QFqXqAXGj/gVkKFrEICfStRfwUlGNfeCEjNRa32JEWOUTlYXPyyKvA==}
+    engines: {node: '>=14'}
+
+  googleapis-common@8.0.1:
+    resolution: {integrity: sha512-eCzNACUXPb1PW5l0ULTzMHaL/ltPRADoPgjBlT8jWsTbxkCp6siv+qKJ/1ldaybCthGwsYFYallF7u9AkU4L+A==}
+    engines: {node: '>=18.0.0'}
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -3427,6 +3463,9 @@ packages:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
     hasBin: true
+
+  json-bigint@1.0.0:
+    resolution: {integrity: sha512-SiPv/8VpZuWbvLSMtTDU8hEfrZWg/mH/nV/b4o0CYbSxu1UIQPLdwKOCIyLQX+VIPO5vrLX3i8qtqFyhdPSUSQ==}
 
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
@@ -4582,6 +4621,9 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
+  url-template@2.0.8:
+    resolution: {integrity: sha512-XdVKMF4SJ0nP/O7XIPB0JwAEuT9lDIYnNsK8yGVe43y0AWoKeJNdv3ZNWh7ksJ6KqQFjOO6ox/VEitLnaVNufw==}
+
   use-callback-ref@1.3.3:
     resolution: {integrity: sha512-jQL3lRnocaFtu3V00JToYz/4QkNWswxijDaCVNZRiRTO3HQDLsdu1ZtmIUvV4yPp+rvWm5j0y0TG/S61cuijTg==}
     engines: {node: '>=10'}
@@ -5707,6 +5749,12 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@googleapis/drive@20.1.0':
+    dependencies:
+      googleapis-common: 8.0.1
+    transitivePeerDependencies:
+      - supports-color
 
   '@hono/node-server@1.19.14(hono@4.12.18)':
     dependencies:
@@ -7277,6 +7325,8 @@ snapshots:
 
   big.js@5.2.2: {}
 
+  bignumber.js@9.3.1: {}
+
   bin-links@6.0.0:
     dependencies:
       cmd-shim: 8.0.0
@@ -7802,6 +7852,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  extend@3.0.2: {}
+
   fast-deep-equal@3.1.3: {}
 
   fast-glob@3.3.3:
@@ -7932,6 +7984,22 @@ snapshots:
 
   fuzzysort@3.1.0: {}
 
+  gaxios@7.1.4:
+    dependencies:
+      extend: 3.0.2
+      https-proxy-agent: 7.0.6
+      node-fetch: 3.3.2
+    transitivePeerDependencies:
+      - supports-color
+
+  gcp-metadata@8.1.2:
+    dependencies:
+      gaxios: 7.1.4
+      google-logging-utils: 1.1.3
+      json-bigint: 1.0.0
+    transitivePeerDependencies:
+      - supports-color
+
   generator-function@2.0.1: {}
 
   gensync@1.0.0-beta.2: {}
@@ -8017,6 +8085,29 @@ snapshots:
       object-assign: 4.1.1
       pify: 2.3.0
       pinkie-promise: 2.0.1
+
+  google-auth-library@10.6.2:
+    dependencies:
+      base64-js: 1.5.1
+      ecdsa-sig-formatter: 1.0.11
+      gaxios: 7.1.4
+      gcp-metadata: 8.1.2
+      google-logging-utils: 1.1.3
+      jws: 4.0.1
+    transitivePeerDependencies:
+      - supports-color
+
+  google-logging-utils@1.1.3: {}
+
+  googleapis-common@8.0.1:
+    dependencies:
+      extend: 3.0.2
+      gaxios: 7.1.4
+      google-auth-library: 10.6.2
+      qs: 6.15.1
+      url-template: 2.0.8
+    transitivePeerDependencies:
+      - supports-color
 
   gopd@1.2.0: {}
 
@@ -8324,6 +8415,10 @@ snapshots:
       argparse: 2.0.1
 
   jsesc@3.1.0: {}
+
+  json-bigint@1.0.0:
+    dependencies:
+      bignumber.js: 9.3.1
 
   json-parse-even-better-errors@2.3.1: {}
 
@@ -9588,6 +9683,8 @@ snapshots:
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
+
+  url-template@2.0.8: {}
 
   use-callback-ref@1.3.3(@types/react@19.2.14)(react@19.2.4):
     dependencies:

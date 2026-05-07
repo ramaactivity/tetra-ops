@@ -4,7 +4,9 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { createEventFolderInternal } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { isDriveConfigured } from "@/lib/drive/client";
 import { createClient } from "@/lib/supabase/server";
 
 const CHANNELS = ["direct", "vendor", "relasi"] as const;
@@ -372,6 +374,15 @@ export async function createBooking(
 				},
 				values: snapshotValues(formData),
 			};
+		}
+	}
+
+	// Best-effort: auto-create Drive folder. Failures don't block event creation.
+	if (inserted?.id && isDriveConfigured()) {
+		try {
+			await createEventFolderInternal(inserted.id as string);
+		} catch {
+			// silent — folder can be created manually from event detail
 		}
 	}
 
