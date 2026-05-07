@@ -1,10 +1,4 @@
-import {
-	ArrowRight,
-	Briefcase,
-	CalendarDays,
-	HardHat,
-	Wallet,
-} from "lucide-react";
+import { ArrowUpRight, Briefcase, HardHat, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,8 +6,6 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 
 export default async function HomePage() {
 	const result = await getCurrentUser();
-
-	// If signed in, route to the appropriate app surface
 	if (result) {
 		switch (result.profile.role) {
 			case "super_admin":
@@ -27,199 +19,153 @@ export default async function HomePage() {
 	}
 
 	return (
-		<div className="bg-background min-h-screen">
-			<div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-8 sm:px-8 sm:py-12">
+		<div className="bg-background relative min-h-screen overflow-hidden">
+			{/* Decorative background — subtle gradient orbs */}
+			<div
+				aria-hidden="true"
+				className="pointer-events-none absolute inset-0 -z-10"
+			>
+				<div className="absolute -top-40 -right-32 h-[42rem] w-[42rem] rounded-full bg-gradient-to-br from-rose-100 to-amber-100 opacity-50 blur-3xl dark:from-rose-950 dark:to-amber-950 dark:opacity-30" />
+				<div className="absolute -bottom-32 -left-32 h-[36rem] w-[36rem] rounded-full bg-gradient-to-tr from-sky-100 to-indigo-100 opacity-40 blur-3xl dark:from-sky-950 dark:to-indigo-950 dark:opacity-25" />
+			</div>
+
+			<div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-8 sm:py-10">
+				{/* Top bar */}
 				<header className="flex items-center justify-between">
-					<Image
-						src="/brand/logo-monochrome-light.png"
-						alt="Tetra Photobooth"
-						width={200}
-						height={60}
-						className="h-7 w-auto sm:h-9 dark:hidden"
-						priority
-					/>
-					<Image
-						src="/brand/logo-monochrome-dark.png"
-						alt="Tetra Photobooth"
-						width={200}
-						height={60}
-						className="hidden h-7 w-auto sm:h-9 dark:block"
-						priority
-					/>
+					<div className="flex items-center gap-2.5">
+						<Image
+							src="/brand/logomark-only.png"
+							alt="Tetra"
+							width={32}
+							height={32}
+							className="h-8 w-auto"
+							priority
+						/>
+						<span className="text-foreground text-sm font-semibold tracking-tight">
+							Tetra Ops
+						</span>
+					</div>
+					<span className="border-border bg-card/80 text-muted-foreground hidden h-7 items-center gap-1 rounded-full border px-2.5 text-[11px] font-medium backdrop-blur sm:inline-flex">
+						<Sparkles className="h-3 w-3" />
+						v1.0 · Internal
+					</span>
 				</header>
 
-				<main className="flex flex-1 flex-col justify-center py-12 sm:py-20">
-					<div className="space-y-12 sm:space-y-16">
-						{/* Hero */}
-						<div className="space-y-3 sm:space-y-4">
-							<p className="text-primary text-xs font-medium uppercase tracking-widest sm:text-sm">
-								Tetra Ops
-							</p>
-							<h1 className="text-foreground font-display text-4xl leading-tight tracking-tight sm:text-5xl md:text-6xl">
-								Operating system
-								<br />
-								<span className="text-muted-foreground">
-									buat tim photobooth.
+				{/* Hero + role choice */}
+				<main className="flex flex-1 flex-col justify-center py-10 sm:py-14">
+					<div className="space-y-10 sm:space-y-12">
+						{/* Eyebrow + heading */}
+						<div className="space-y-5 sm:space-y-6">
+							<div className="bg-foreground/5 border-foreground/10 text-muted-foreground inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium uppercase tracking-wider backdrop-blur">
+								<span className="bg-emerald-500 inline-block h-1.5 w-1.5 rounded-full" />
+								Live in production
+							</div>
+							<h1 className="text-foreground font-display max-w-3xl text-5xl leading-[1.05] tracking-tight sm:text-6xl md:text-7xl">
+								Operating system buat tim{" "}
+								<span className="relative inline-block">
+									<span className="from-rose-600 to-amber-600 dark:from-rose-400 dark:to-amber-400 bg-gradient-to-r bg-clip-text text-transparent">
+										photobooth
+									</span>
 								</span>
+								.
 							</h1>
-							<p className="text-muted-foreground max-w-xl text-base leading-relaxed sm:text-lg">
-								Satu sistem buat owner kelola event end-to-end + crew tahu
-								jadwal, alat, dan fee dari HP.
+							<p className="text-muted-foreground max-w-xl text-lg leading-relaxed sm:text-xl">
+								Owner kelola event dari booking sampai settle. Crew tahu
+								jadwal, alat, dan fee dari HP. Satu sistem, dua surface.
 							</p>
 						</div>
 
 						{/* Two paths */}
 						<div className="grid gap-4 md:grid-cols-2 md:gap-5">
-							<PathCard
+							<RoleCard
 								role="owner"
-								title="Owner / Manajemen"
-								tagline="Login pakai akun yang sudah terdaftar."
-								features={[
-									{
-										icon: CalendarDays,
-										label: "Operations: list, calendar, board, design hub",
-									},
-									{
-										icon: Wallet,
-										label: "Settlement engine + finance + warehouse",
-									},
-									{
-										icon: Briefcase,
-										label: "Master data: package, crew, items, banks",
-									},
-								]}
-								cta="Login sebagai Owner"
+								eyebrow="Owner / Manajemen"
+								title="Masuk halaman owner"
+								description="Operations, settlement, finance, master data, reports."
 								href="/login"
-								primary
 							/>
-
-							<PathCard
+							<RoleCard
 								role="crew"
-								title="Crew / Tim Lapangan"
-								tagline="Daftar pakai Gmail. Akun di-verifikasi owner sebelum bisa akses jadwal."
-								features={[
-									{
-										icon: CalendarDays,
-										label: "Jadwal event lo + PIC contact + venue Maps",
-									},
-									{
-										icon: HardHat,
-										label: "Alat ke-checkout per event + kondisi",
-									},
-									{
-										icon: Wallet,
-										label: "Histori fee, status paid/unpaid",
-									},
-								]}
-								cta="Daftar sebagai Crew"
-								href="/register"
-								secondaryHref="/login"
-								secondaryLabel="Sudah terdaftar? Login"
+								eyebrow="Crew / Tim Lapangan"
+								title="Masuk halaman crew"
+								description="Login akun yang sudah verified, atau daftar baru — owner yang verifikasi."
+								href="/crew-portal"
 							/>
 						</div>
 					</div>
 				</main>
 
-				<footer className="text-muted-foreground/70 flex flex-wrap items-center justify-between gap-2 pt-8 text-xs">
-					<p>
-						© {new Date().getFullYear()} Tetra Photobooth. Internal ops
-						system.
-					</p>
-					<p className="tabular">v1.0</p>
+				{/* Footer */}
+				<footer className="text-muted-foreground/70 flex flex-wrap items-center justify-between gap-2 pt-6 text-[11px]">
+					<p>© {new Date().getFullYear()} Tetra Photobooth.</p>
+					<p className="tabular">Built for go-live · Bogor, Indonesia</p>
 				</footer>
 			</div>
 		</div>
 	);
 }
 
-function PathCard({
+function RoleCard({
 	role,
+	eyebrow,
 	title,
-	tagline,
-	features,
-	cta,
+	description,
 	href,
-	secondaryHref,
-	secondaryLabel,
-	primary,
 }: {
 	role: "owner" | "crew";
+	eyebrow: string;
 	title: string;
-	tagline: string;
-	features: Array<{ icon: typeof Briefcase; label: string }>;
-	cta: string;
+	description: string;
 	href: string;
-	secondaryHref?: string;
-	secondaryLabel?: string;
-	primary?: boolean;
 }) {
+	const Icon = role === "owner" ? Briefcase : HardHat;
 	return (
-		<div
-			className={`group border-border bg-card relative flex flex-col gap-5 overflow-hidden rounded-2xl border p-6 sm:p-7 ${
-				primary
-					? "ring-primary/0 hover:ring-primary/20 ring-2 transition-all"
-					: ""
-			}`}
+		<Link
+			href={href}
+			className="group border-border bg-card/60 hover:border-foreground/20 hover:bg-card relative flex flex-col gap-6 overflow-hidden rounded-2xl border p-6 backdrop-blur-sm transition-all sm:p-8"
 		>
-			{/* Subtle role accent */}
-			<div className="flex items-center gap-2">
-				<span
-					className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold uppercase tracking-wider ${
+			{/* Hover accent gradient */}
+			<div
+				aria-hidden="true"
+				className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r opacity-0 transition-opacity group-hover:opacity-100 ${
+					role === "owner"
+						? "from-transparent via-rose-500 to-transparent"
+						: "from-transparent via-amber-500 to-transparent"
+				}`}
+			/>
+
+			{/* Icon + eyebrow */}
+			<div className="flex items-center justify-between">
+				<div
+					className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
 						role === "owner"
-							? "bg-primary/10 text-primary"
-							: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+							? "bg-rose-500/10 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+							: "bg-amber-500/10 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
 					}`}
 				>
-					{role === "owner" ? <Briefcase className="h-3 w-3" /> : <HardHat className="h-3 w-3" />}
-					{role === "owner" ? "OWNER" : "CREW"}
-				</span>
+					<Icon className="h-5 w-5" />
+				</div>
+				<div
+					className={`text-muted-foreground inline-flex h-7 w-7 items-center justify-center rounded-full transition-all group-hover:bg-foreground group-hover:text-background ${
+						role === "owner" ? "" : ""
+					}`}
+				>
+					<ArrowUpRight className="h-4 w-4 transition-transform group-hover:scale-110" />
+				</div>
 			</div>
 
-			<div className="space-y-1.5">
-				<h2 className="text-foreground text-xl font-semibold tracking-tight sm:text-2xl">
+			{/* Text */}
+			<div className="space-y-2">
+				<p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest">
+					{eyebrow}
+				</p>
+				<h2 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">
 					{title}
 				</h2>
 				<p className="text-muted-foreground text-sm leading-relaxed">
-					{tagline}
+					{description}
 				</p>
 			</div>
-
-			<ul className="space-y-2">
-				{features.map((f) => {
-					const Icon = f.icon;
-					return (
-						<li
-							key={f.label}
-							className="text-foreground/80 flex items-start gap-2.5 text-sm"
-						>
-							<Icon className="text-muted-foreground/70 mt-0.5 h-4 w-4 shrink-0" />
-							<span>{f.label}</span>
-						</li>
-					);
-				})}
-			</ul>
-
-			<div className="flex flex-col gap-2 pt-1">
-				<Link
-					href={href}
-					className={`inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition-colors ${
-						primary
-							? "bg-primary text-primary-foreground hover:bg-primary/90"
-							: "border-foreground/15 bg-foreground text-background hover:bg-foreground/90 border"
-					}`}
-				>
-					{cta}
-					<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-				</Link>
-				{secondaryHref && secondaryLabel && (
-					<Link
-						href={secondaryHref}
-						className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center justify-center text-xs font-medium transition-colors"
-					>
-						{secondaryLabel}
-					</Link>
-				)}
-			</div>
-		</div>
+		</Link>
 	);
 }
