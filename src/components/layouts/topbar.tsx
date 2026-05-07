@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cookies } from "next/headers";
+import { NotificationBell } from "@/components/layouts/notification-bell";
 import { UserMenu } from "@/components/layouts/user-menu";
 import type { Theme } from "@/lib/actions/theme";
 
@@ -42,7 +43,10 @@ export async function TopBar({
 						Operations
 					</span>
 				</div>
-				<UserMenu name={name} email={email} role={role} theme={theme} />
+				<div className="flex items-center gap-1.5">
+					<NotificationBell />
+					<UserMenu name={name} email={email} role={role} theme={theme} />
+				</div>
 			</div>
 		</header>
 	);
