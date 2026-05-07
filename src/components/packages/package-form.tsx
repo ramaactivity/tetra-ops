@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import type {
 	PackageFormState,
 	PackageInput,
@@ -76,21 +77,10 @@ export function PackageForm({
 
 			<div className="grid gap-6 md:grid-cols-2">
 				<Field label="Kategori" name="category" error={err("category")} required>
-					<select
-						name="category"
-						required
+					<PkgCategorySelect
 						defaultValue={get("category", defaults?.category ?? "")}
-						className={selectClass}
-					>
-						<option value="" disabled>
-							Pilih kategori…
-						</option>
-						{SERVICE_TYPE_OPTIONS.map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
+						error={!!err("category")}
+					/>
 				</Field>
 
 				<Field
@@ -99,21 +89,10 @@ export function PackageForm({
 					error={err("frame_size")}
 					required
 				>
-					<select
-						name="frame_size"
-						required
+					<PkgFrameSizeSelect
 						defaultValue={get("frame_size", defaults?.frame_size ?? "")}
-						className={selectClass}
-					>
-						<option value="" disabled>
-							Pilih frame…
-						</option>
-						{FRAME_SIZE_OPTIONS.map(([value, label]) => (
-							<option key={value} value={value}>
-								{label === "—" ? "None" : label}
-							</option>
-						))}
-					</select>
+						error={!!err("frame_size")}
+					/>
 				</Field>
 			</div>
 
@@ -218,6 +197,58 @@ const inputClass =
 	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 
 const selectClass = `${inputClass} appearance-none`;
+
+function PkgCategorySelect({
+	defaultValue,
+	error,
+}: {
+	defaultValue: string;
+	error: boolean;
+}) {
+	const [category, setCategory] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={category}
+				onValueChange={setCategory}
+				placeholder="Pilih kategori…"
+				options={SERVICE_TYPE_OPTIONS.map(([value, label]) => ({
+					value,
+					label,
+				}))}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input type="hidden" name="category" value={category} required />
+		</>
+	);
+}
+
+function PkgFrameSizeSelect({
+	defaultValue,
+	error,
+}: {
+	defaultValue: string;
+	error: boolean;
+}) {
+	const [frameSize, setFrameSize] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={frameSize}
+				onValueChange={setFrameSize}
+				placeholder="Pilih frame…"
+				options={FRAME_SIZE_OPTIONS.map(([value, label]) => ({
+					value,
+					label: label === "—" ? "None" : label,
+				}))}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input type="hidden" name="frame_size" value={frameSize} required />
+		</>
+	);
+}
 
 function Field({
 	label,

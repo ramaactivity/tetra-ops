@@ -2,6 +2,7 @@
 
 import { Loader2, UserPlus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	createCrewInvitation,
 	type InvitationFormState,
@@ -88,15 +89,7 @@ export function InviteCrewForm() {
 			</Field>
 
 			<Field label="Tier" required>
-				<select
-					name="tier"
-					required
-					defaultValue="junior"
-					className="border-border-default bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-				>
-					<option value="senior">Senior</option>
-					<option value="junior">Junior</option>
-				</select>
+				<TierSelect />
 			</Field>
 
 			<Field label="Default fee override (opsional)">
@@ -148,6 +141,24 @@ export function InviteCrewForm() {
 				</button>
 			</div>
 		</form>
+	);
+}
+
+function TierSelect() {
+	const [tier, setTier] = useState("junior");
+	return (
+		<>
+			<NativeSelect
+				value={tier}
+				onValueChange={setTier}
+				options={[
+					{ value: "senior", label: "Senior" },
+					{ value: "junior", label: "Junior" },
+				]}
+				triggerClassName="w-full"
+			/>
+			<input type="hidden" name="tier" value={tier} required />
+		</>
 	);
 }
 

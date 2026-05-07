@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	type RuleFormState,
 	updateNotificationRule,
@@ -95,18 +96,7 @@ export function NotificationRuleForm({
 			</Field>
 
 			<Field label="Severity" name="severity" error={err("severity")} required>
-				<select
-					name="severity"
-					required
-					defaultValue={get("severity")}
-					className={selectClass}
-				>
-					{SEVERITY_OPTIONS.map((s) => (
-						<option key={s.value} value={s.value}>
-							{s.label}
-						</option>
-					))}
-				</select>
+				<RuleSeveritySelect defaultValue={get("severity")} error={!!err("severity")} />
 			</Field>
 
 			<fieldset className="space-y-2">
@@ -206,6 +196,31 @@ export function NotificationRuleForm({
 const inputClass =
 	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;
+
+function RuleSeveritySelect({
+	defaultValue,
+	error,
+}: {
+	defaultValue: string;
+	error: boolean;
+}) {
+	const [severity, setSeverity] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={severity}
+				onValueChange={setSeverity}
+				options={SEVERITY_OPTIONS.map((s) => ({
+					value: s.value,
+					label: s.label,
+				}))}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input type="hidden" name="severity" value={severity} required />
+		</>
+	);
+}
 
 function Field({
 	label,

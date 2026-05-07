@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { AddonFormState, AddonInput } from "@/lib/actions/addons";
 import { ADDON_CATEGORY_LABELS } from "@/lib/format";
 
@@ -71,21 +72,10 @@ export function AddonForm({
 					error={err("category")}
 					required
 				>
-					<select
-						name="category"
-						required
+					<AddonCategorySelect
 						defaultValue={get("category")}
-						className={selectClass}
-					>
-						<option value="" disabled>
-							Pilih kategori…
-						</option>
-						{CATEGORY_OPTIONS.map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
+						error={!!err("category")}
+					/>
 				</Field>
 
 				<Field label="Unit" name="unit" error={err("unit")} required>
@@ -179,6 +169,32 @@ export function AddonForm({
 const inputClass =
 	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;
+
+function AddonCategorySelect({
+	defaultValue,
+	error,
+}: {
+	defaultValue: string;
+	error: boolean;
+}) {
+	const [category, setCategory] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={category}
+				onValueChange={setCategory}
+				placeholder="Pilih kategori…"
+				options={CATEGORY_OPTIONS.map(([value, label]) => ({
+					value,
+					label,
+				}))}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input type="hidden" name="category" value={category} required />
+		</>
+	);
+}
 
 function Field({
 	label,

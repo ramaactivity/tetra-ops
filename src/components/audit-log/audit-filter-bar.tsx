@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export function AuditFilterBar({
 	actions,
@@ -22,7 +23,7 @@ export function AuditFilterBar({
 		const params = new URLSearchParams(searchParams.toString());
 		if (value) params.set(key, value);
 		else params.delete(key);
-		params.delete("page"); // reset pagination on filter change
+		params.delete("page");
 		startTransition(() => {
 			router.push(`/settings/audit-log?${params.toString()}`);
 		});
@@ -38,42 +39,36 @@ export function AuditFilterBar({
 
 	return (
 		<div className="flex flex-wrap items-center gap-2">
-			<select
-				name="action"
-				defaultValue={defaultAction ?? ""}
-				onChange={(e) => update("action", e.target.value)}
+			<NativeSelect
+				value={defaultAction ?? ""}
+				onValueChange={(v) => update("action", v)}
+				placeholder="Semua action"
+				options={[
+					{ value: "", label: "Semua action" },
+					...actions.map((a) => ({ value: a, label: a })),
+				]}
 				disabled={pending}
-				className="border-border-default bg-background h-9 rounded-md border px-3 text-sm"
-			>
-				<option value="">Semua action</option>
-				{actions.map((a) => (
-					<option key={a} value={a}>
-						{a}
-					</option>
-				))}
-			</select>
+				aria-label="Filter action"
+			/>
 
-			<select
-				name="entity"
-				defaultValue={defaultEntity ?? ""}
-				onChange={(e) => update("entity", e.target.value)}
+			<NativeSelect
+				value={defaultEntity ?? ""}
+				onValueChange={(v) => update("entity", v)}
+				placeholder="Semua entity"
+				options={[
+					{ value: "", label: "Semua entity" },
+					...entityTypes.map((e) => ({ value: e, label: e })),
+				]}
 				disabled={pending}
-				className="border-border-default bg-background h-9 rounded-md border px-3 text-sm"
-			>
-				<option value="">Semua entity</option>
-				{entityTypes.map((e) => (
-					<option key={e} value={e}>
-						{e}
-					</option>
-				))}
-			</select>
+				aria-label="Filter entity"
+			/>
 
 			{hasFilter && (
 				<button
 					type="button"
 					onClick={clear}
 					disabled={pending}
-					className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+					className="text-fluid-caption text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
 				>
 					Reset
 				</button>

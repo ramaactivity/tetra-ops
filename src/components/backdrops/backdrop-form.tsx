@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	type BackdropFormState,
 	createBackdrop,
@@ -123,19 +124,17 @@ export function BackdropForm({
 			</div>
 
 			<Field label="Tipe" name="type" error={err("type")} required>
-				<select
-					name="type"
-					required
+				<NativeSelect
 					value={type}
-					onChange={(e) => setType(e.target.value as BackdropType)}
-					className={selectClass}
-				>
-					{TYPE_OPTIONS.map((t) => (
-						<option key={t.value} value={t.value}>
-							{t.label}
-						</option>
-					))}
-				</select>
+					onValueChange={(v) => setType(v as BackdropType)}
+					options={TYPE_OPTIONS.map((t) => ({
+						value: t.value,
+						label: t.label,
+					}))}
+					triggerClassName="w-full"
+					aria-invalid={!!err("type")}
+				/>
+				<input type="hidden" name="type" value={type} required />
 				<p className="text-muted-foreground text-xs mt-1.5">
 					{TYPE_OPTIONS.find((t) => t.value === type)?.hint}
 				</p>
