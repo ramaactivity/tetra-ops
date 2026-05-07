@@ -1,266 +1,392 @@
-# 15 — Session Handover & Phase-2 Migration Plan
+# 15 — Session Handover & Implementation Plan Status
 
-**Tanggal handover:** 2026-05-07
-**Build status:** ✅ green · 30+ routes deployed · 2 migrations live di Supabase
-**Last commit:** `f5d8661` — Phase-3 master data (backdrops + event types + investor share + items CSV import)
-
-Dokumen ini buat orient sesi chat Claude berikutnya. Bukan spec — ini *snapshot* state saat ini + konsep yang sudah dirumuskan + rekomendasi langkah berikutnya.
+**Last updated:** 2026-05-07 (sesi 3 closure)
+**Last commit:** `9de2ebb` — Reports module live
+**Production URL:** https://tetra-ops.vercel.app
+**GitHub:** https://github.com/ramaactivity/tetra-ops
 
 ---
 
 ## 1. State sekarang — apa yang sudah jadi
 
-### Owner-side (sudah lengkap)
-- **Auth + role routing** (super_admin / owner / crew / pending)
-- **Dashboard** (KPIs, pipeline, today/tomorrow, recent activity)
-- **Operations** dengan 4 view: List, Calendar, Board, Design Hub
-- **Event detail** dengan: Klien card, Service card (with backdrop), Event card, Lokasi card, Crew card, Add-ons card, Financial card, Settlement summary card, **Event Readiness checklist (H-N)**, Activity feed (audit_log timeline), Design card, Settlement summary
-- **Booking form**: backdrop dropdown (rental auto-add Rp 500k, vendor markup field), event type dropdown, package picker, addon selector, financial breakdown
-- **Equipment per event**: check-out/check-in flow + incident reports per row
-- **Crew rekap submission** (owner-side) + review/approve flow + auto-display di settle page
-- **Per-crew WA reminder** (button per assignment row)
-- **Settlement engine** dengan atomic RPC: snapshot P&L, sinking fund deposits, **proportional owner pool** (share-based dari users.share_pct, fallback flat)
-- **Billing dashboard** (KPIs + invoice list + payment logging)
-- **Warehouse**: real stock tracking, Quick Adjust dialog, Movements log
-- **Settings** (semua tab functional):
-  - System Configuration (categorized key-value editor)
-  - Packages CRUD
-  - Add-ons CRUD
-  - **Backdrops CRUD** (8 seeded)
-  - Items CRUD + **Bulk paste-CSV importer**
-  - Bank Accounts
-  - Master Crew + **Investor Capital & Share editor** (super_admin only)
-  - Sinking Funds CRUD + per-fund movements page
-  - WhatsApp Templates CRUD (with insert-variable chips + live preview)
-  - Notification Rules editor (read-only trigger_condition)
-  - Audit Log viewer (filterable, paginated)
+### Owner-side (lengkap, production-ready)
 
-### Crew-side
-- **Stub only** — `/crew` cuma ada home + bottom nav. Jadwal, alat, fee, profile pages belum dibikin. Crew app fully-functional adalah blocker terbesar buat go-live tim.
+- **Auth + role routing** (super_admin / owner / crew / pending_approval)
+- **Landing surface** — `/` public dengan 2-path (Owner login / Crew portal), polished login + register + pending pages
+- **Crew invitations** — pre-register email + tier; auto-promote on first Google sign-in (skip pending_approval review)
+- **Crew CRUD on `/settings/crew`** — invite form, bulk import wizard, edit drawer (full_name, nickname, phone_wa, fee_override, notes), deactivate/reactivate
+- **Onboarding flow** — `/onboarding` step buat crew yang self-register; isi nama + nickname + WA dulu
+- **Dashboard** — KPIs + pipeline + today/tomorrow + activity feed + **anomaly radar widget** (top 3 unread alerts)
+- **Operations** (5 views via tab switcher):
+    - List dengan crew avatar chips per row + per-crew filter dropdown + Show archived chip
+    - Calendar view
+    - Board (Kanban by status)
+    - Design hub
+    - **Team schedule grid** (`/operations/team`) — rows = crew, cols = next 14 days, color-coded by role + conflict highlight
+- **Event detail** — full feature dengan Readiness checklist, Activity feed, Design card, Settlement summary, Equipment + Rekap actions, Klien & Kontak card (booker + PIC dengan WA shortcut), **PDF download menu** (Invoice / Quotation / BAST), Migrated/Imported badges
+- **Booking form** — full dengan backdrop dropdown, event-type dropdown, package picker, addons, financial breakdown
+- **Equipment per event** — check-out/check-in + incident reports
+- **Crew rekap** — owner submit + review/approve, per-crew WA reminder
+- **Settlement engine** — atomic RPC, proportional owner pool by share_pct
+- **Billing dashboard** + payment logging
+- **Warehouse** dengan real stock from movements log
+- **Finance** — Cash flow MTD + delta, P&L breakdown, sinking funds dengan progress bar, owner pool table dengan **withdrawal flow modal**, recent settlements
+- **Vendor master** (`/finance/vendors`) — aggregate komisi vendor dari events, cross-ref dengan contacts, click-to-WA
+- **Reports** (`/reports`) — 3 tab dengan month picker:
+    - **Monthly P&L** — full vertical statement Revenue → HPP → Gross → OpEx (with sub-rows) → Operating → Sinking → Owner pool → Net Profit; bookings per channel; settled events list
+    - **Crew Performance** — per-crew table: events, lead/asisten split, rekap submission rate (color-coded), fee earned/paid/outstanding
+    - **Owner Statement** (super_admin only) — per-owner: share %, capital, MTD/lifetime earned/withdrawn/balance
+- **Notifications inbox** (`/notifications`) — bell badge di topbar, filter chips (severity + category), unread/all toggle, mark-read + dismiss actions, **manual "Run scan" button**
+- **Anomaly scanner** — evaluates 12 seeded rules (H-2 no crew, H-1 no design, H-3 not paid, H-7 no DP, invoice overdue 1d/7d, loss event, pending user 24h, stock critical/zero, crew double-booked, equipment missing). Dedup via existing unread match
+- **Vercel Cron** (`vercel.json`) — daily 06:00 WIB status auto-transition (confirmed→upcoming→in_progress→awaiting_settlement) + 06:30 WIB anomaly scan
+- **PDF generation** (`@react-pdf/renderer`) — Invoice / Quotation / BAST branded Tetra. API routes `/api/pdf/{invoice,quotation,bast}/[projectId]` return inline PDF
+- **Settings** (every tab functional): System Config, Packages, Add-ons, Backdrops, Items + bulk CSV import wizard, Banks, Crew + Investor Capital editor + invitations, Contacts, Sinking Funds + movements, WA Templates with variable insert, Notification Rules editor, Audit Log viewer
+- **CSV importers** (4-step wizard pattern: Upload → Map → Preview dengan duplicate check → Done dengan progress bar):
+    - `/settings/items/import` — SYS_ITEMS.csv
+    - `/settings/contacts/import` — DB_CONTACTS.csv
+    - `/settings/operations/import-projects` — DB_PROJECTS.csv (Phase-2 cut-off)
+    - `/settings/crew/invitations/import` — bulk invite crew
+- **Resilient import infrastructure** — `withRetry()` + `withTimeout()` + `runWithConcurrency()`, batch 5/batch, max 2 retry per batch, per-batch 50s timeout (Vercel-safe)
 
-### Mobile / PWA
-- iOS HIG pass complete: bottom tab bar (Dashboard/Operations/Billing/More), safe-area insets (Dynamic Island/notch), 44pt touch targets, manifest.json, "Add to Home Screen" feel native
-- Crew bottom nav exists tapi page-nya stub
+### Crew-side (functional, mobile-first)
+
+- **`/crew` (Home)** — today/tomorrow agenda, KPI tiles, quick links
+- **`/crew/jadwal`** — Upcoming/Past tabs, list view with role + venue + fee
+- **`/crew/jadwal/[projectId]`** — Event detail dengan PIC kontak (amber card, WA shortcut), Booker, venue Maps, spec, crew partner, equipment list, design Drive link, crew_notes, **rekap CTA card** (status-aware), fee breakdown
+- **`/crew/jadwal/[projectId]/rekap`** — submit/edit rekap dari HP, 4-state UI (approved/pending/rejected/empty)
+- **`/crew/alat`** — equipment ke-checkout per event upcoming, condition badge
+- **`/crew/fee`** — fee history Outstanding + Paid sections, per-row paid_at + paid_via
+- **`/crew/profile`** — avatar, role + tier badges, lifetime events, member since, **edit profile form** (full_name + nickname + phone_wa via OnboardingForm), sign out
 
 ### Database state
-- **Schema lengkap** (`05_DATABASE_SCHEMA.sql`) sudah di-apply ke Supabase production
-- **2 migration tambahan** sudah di-apply manual oleh Rama di Supabase Dashboard:
-  1. `20260507_settlement_close_function.sql` — atomic RPC + reopen
-  2. `20260507_backdrops_event_types_investors.sql` — backdrops, event_types, users.share_pct, events.backdrop_id, RPC v2 dengan proportional distribution
-- **Tabel master sudah seeded:** sinking_funds (4), notification_rules (~15), whatsapp_templates (~5), backdrops (8), event_types (8), system_config (~25)
+
+**Migrations applied to Supabase production:**
+1. `20260507_settlement_close_function.sql` — atomic settle RPC + reopen
+2. `20260507_backdrops_event_types_investors.sql` — backdrops + event_types + users.share_pct + events.backdrop_id + RPC v2 (proportional)
+3. `20260507_legacy_import_columns.sql` — events.is_migrated_legacy + events.legacy_invoice_number
+4. `20260507_contacts.sql` — contacts table + booker_contact_id + pic_contact_id FKs on events
+5. `20260507_contacts_rls.sql` — RLS policies for contacts
+6. `20260507_crew_invitations.sql` — crew_invitations table + RLS
+7. `20260507_event_category_fk.sql` — FK events.event_category → event_types.code
 
 ### Real production data status
-- 1 event live: `PRJ-20260822-7378` Maman Sudarman — sudah di-settle, `payment_status=Unpaid` (Rp 1.8jt outstanding)
-- Inventory items belum di-import dari `SYS_ITEMS.csv` — siap diimport via `/settings/items/import`
-- Crew belum di-tambah secara penuh (Rama udah ada sebagai super_admin; perlu add Fahmi, Acuy, Iqbal, Mou, Kuku, Ceca, Weni, Bona, Rangga)
-- Investor share belum di-set — semua owner masih flat distribution
+
+- ✅ **Live event:** PRJ-20260822-7378 Maman Sudarman (settled, loss test event)
+- ✅ **Master data seeded:** backdrops (8), event_types (8), sinking_funds (4), notification_rules (13), wa_templates (~5), system_config (~25)
+- ✅ **Items imported:** 71 dari SYS_ITEMS.csv via `/settings/items/import`
+- ✅ **Contacts imported:** 141 dari DB_CONTACTS.csv via `/settings/contacts/import`
+- ❌ **DB_PROJECTS.csv:** belum di-import (~120 row pending)
+- ❌ **Crew invitations:** belum di-create — Rama belum invite 12 crew
+- ❌ **Investor share_pct:** belum di-set (perlu 36.65 / 28.16 / 18.20 / 16.99 untuk 4 owner)
+- ❌ **CRON_SECRET env var:** belum di-set di Vercel — cron endpoints terbuka tanpa auth (low risk karena cuma idempotent reads + safe transitions, tapi best-practice)
+
+### Current users in system
+
+- `tetraphotobooth@gmail.com` — Tetra Photobooth (Owner) → role super_admin
+- `imhaf720@gmail.com` — Fahmi 720 → role owner
+- `muhammadfarhanmauludi@gmail.com` — M Farhan Mauludi (MOU) → role crew, tier senior
 
 ---
 
-## 2. Konsep cut-off untuk Phase-2 migration (REFINED)
+## 2. Implementation plan status — apa yang masih perlu
 
-Rama mau import `DB_PROJECTS.csv` dari sistem lama (~120 events, 2024-2026). Ide awal: "import buat rekam jejak, tapi finance fresh start". Saya refine jadi tiga kategori cut-off yang precise:
+Reference: `docs/08_IMPLEMENTATION_PLAN.md`
 
-### Kategori A — Past events (closed, archive-only)
-**Definisi:** `event_date < today` AND `Status_Project IN (Done, Lunas)`
+### ✅ Phase 1 — Core Operations (Weeks 1-6) — COMPLETE
+- Auth, master data, booking, operations, billing, crew app MVP
 
-- Insert ke `events` dengan flag `is_migrated_legacy = true` (kolom baru)
-- Status di-set ke `archived` (atau `completed` jika mau muncul di Operations List default — perlu decide)
-- `total_paid = grand_total`, `remaining_balance = 0`, `payment_status = paid` — di-mark "lunas historis"
-- **JANGAN insert ke tables ini (financial cut-off):**
-  - `payments` — no historical payment trail
-  - `event_settlements` — no historical P&L
-  - `journal_entries` / `journal_lines` — no historical bookkeeping
-  - `owner_earnings` — no historical share distribution
-  - `sinking_fund_movements` — no historical fund deposits
-  - `stock_movements` — no historical inventory consumption
-  - `crew_rekap` — no historical rekap forms
-- **Boleh insert (operational track record):**
-  - `events` row dengan basic data (project_id, client_name, event_date, venue, package_id mapped, base_price, grand_total, channel, event_category, design status)
-  - `crew_assignments` jika nama crew bisa di-resolve (best-effort match by full_name)
-- Visual: badge "📦 Migrated" di event detail + filter di Operations List
-- Read-only: tidak bisa di-edit / di-settle / di-payment / di-rekap
+### ✅ Phase 2 — Finance & Inventory (Weeks 7-10) — COMPLETE
+- Smart warehouse, settlement engine, crew rekap, omni finance, owner earnings
 
-### Kategori B — Future / in-progress events (live)
-**Definisi:** `event_date >= today` OR `Status_Project IN (Upcoming, In Progress)` AND DP/Lunas
+### 🟡 Phase 3 — Smart Features (Weeks 11-14) — MOSTLY DONE
 
-- Insert ke `events` sebagai live booking, `is_migrated_legacy = false`
-- Status di-map dari kombinasi:
-  - `Status_Project = Upcoming` + `Payment_Status = DP` → `confirmed` atau `upcoming` (tergantung H-N)
-  - `Payment_Status = Unpaid` + future date → `draft`
-  - `Status_Project = In Progress` → `in_progress`
-- **Insert ke tables ini (live data):**
-  - `payments` row tunggal jika `Paid > 0` — sebagai "DP migration" dengan note "Migrated from Phase 2"
-  - `crew_assignments` (best-effort)
-- **JANGAN insert** event_settlements / owner_earnings / sinking_fund_movements / stock_movements / journal_entries — itu akan tercipta natural saat owner settle event di sistem baru
-- Visual: badge kecil "📥 Imported" — tapi tetap fully editable
+**Week 11: Notifications & Anomaly Radar — ✅ DONE**
+- ✅ Notifications inbox + bell + filter chips
+- ✅ Anomaly detection rules engine (12 rules)
+- ✅ Daily cron: anomaly scan (Vercel cron 06:30 WIB)
+- ✅ Daily cron: auto status transition (Vercel cron 06:00 WIB)
+- ✅ Dashboard anomaly radar widget
+- ❌ **Web Push API for PWA** — service worker + push subscription (mobile push when app off-device)
 
-### Kategori C — Cut-off financial baseline
-- **Tanggal cut-off:** hari migration dijalankan (let's call it `MIGRATION_DATE`)
-- Semua event yang event_date < MIGRATION_DATE dan masih belum lunas → owner decide manual: drop atau treat as Kategori A (anggap lunas)
-- Sistem tidak auto-backfill historical financial data
-- Reports/KPIs di Dashboard sudah filter `is_migrated_legacy = false` untuk:
-  - This Month Revenue
-  - Outstanding
-  - Net Profit MTD
-  - Cash position
-- Tapi tampilkan Kategori A di Operations history viewer (read-only listing) untuk track record
+**Week 12: WhatsApp Integration — 🟡 PARTIAL**
+- ✅ WhatsApp template management UI (existing /settings/whatsapp-templates)
+- ✅ Variable resolution + wa.me link generation
+- ✅ "Send WA" buttons on event detail (existing SendWhatsAppButton)
+- ✅ Per-crew WA reminder
+- ❌ **Manual reminder scheduler UI** — batch send H-3 reminder buat events
+- ❌ **WA template editor improvements** — preview pane, validation hints
 
-### Field mapping (Phase 2 → Phase 3)
+**Week 13: PDF Generation — ✅ DONE**
+- ✅ Invoice PDF (Tetra-branded)
+- ✅ Quotation PDF
+- ✅ BAST PDF (Berita Acara Serah Terima)
+- ❌ **Monthly Report PDF** — generate /reports tab as PDF
+- ❌ **P&L Report PDF** — printable version of Reports → P&L tab
+- 🟡 PDFs cross-tested di browser (perlu ujicoba lebih lanjut)
+- ❌ Storage of generated PDFs to Drive (Phase 3 Week 14 dependency)
 
-| Old (DB_PROJECTS) | New (events) | Catatan |
-|---|---|---|
-| `Project_Id` | `project_id` | as-is, tapi pastikan unique |
-| `Invoice_Number` | `legacy_invoice_number` (NEW column) | back-compat reference |
-| `Booker_Contact_ID` / `PIC_Contact_ID` | — | skip (no contacts table) |
-| `Client_or_Event_Name` | `client_name` | |
-| `EventType` | `event_category` | uppercase → lowercase + match ke event_types code |
-| `EventDate` | `event_date` | normalize "12/18/2024" → "2024-12-18" |
-| `Setup_Time/StartTime/EndTime` | `setup_time/start_time/end_time` | "10:00" → "10:00:00" |
-| `Sleeve_Type` | `frame_size` | "2R"→"2R", "4R"→"4R", "PR"→"polaroid" |
-| `Package_Name` | `package_id` (resolved) | match by name; null kalau "Custom Package" |
-| `Base_Price_Rp` | `base_price` | |
-| `Background_Type` | `backdrop_id` (resolved) + `vendor_decor_markup` | "Klien / Dekor" → vendor_decor + markup; "Tetra Gold" → BG-BASIC-GOLD; etc. |
-| `Include_Flashdisk` | `include_flashdisk_pouch` | "TRUE"/"Ya"→true |
-| `Payment_Status` | `payment_status` | "Lunas"→paid, "DP"→partial, "Unpaid"→unpaid |
-| `Payment_Due_Date` | `due_date` | |
-| `Balance_Due` | `remaining_balance` | sanity-check: paid + balance == grand_total |
-| `Paid` | `total_paid` | |
-| `Komisi_Rp` | (skip — financial cut-off) | |
-| `Discount` | `discount_amount` | empty/No → 0 |
-| `Gross_Up` | `gross_up_pph_amount` | empty → 0 |
-| `Tax` | (skip atau lump ke gross_up) | |
-| `Total_Price` | `grand_total` | |
-| `Crew_Assigned_A` | `crew_assignments` row (lead) | match by users.full_name (case-insensitive contains) |
-| `Crew_Assigned_B` | `crew_assignments` row (asisten) | sama |
-| `Venue` | `venue_name` | |
-| `City` | `venue_city` | |
-| `Location_Maps_URL` | `venue_address` (atau new `venue_maps_url`) | |
-| `Channel_Code` | `channel` | "Direct"→direct, "Vendor"→vendor, "Relasi"→relasi |
-| `Vendor_ID` | (skip atau ke notes) | no vendor master yet |
-| `Design_Status` | `design_brief_at` / `design_approved_at` | "Desain ACC"→both timestamps; "Brief Masuk"→brief_at only; "Menunggu ACC"→brief_at; "Diproses"→none |
-| `Design_Link` | `design_drive_folder_url` | |
-| `Status_Project` | `status` | mapping: Done→archived (or completed), Upcoming→upcoming, In Progress→in_progress |
-| `Notes` | `crew_notes` | strip "*Migrasi Historis*" suffix |
+**Week 14: Drive Integration — ❌ NOT STARTED**
+- ❌ Google Drive OAuth flow (one-time setup by Rama)
+- ❌ Auto-create event folders on event creation
+- ❌ Move file uploads to Drive (rekap photos, equipment incident photos, payment proofs)
+- ❌ "Open in Drive" links throughout app
+- ❌ Mobile UX final pass
 
-### Edge cases
-- **Crew name mismatch:** old uses "Eman", "Wahab", "Surya" — gak ada di SYS_CREW. Skip assignment, log ke import report. Owner manual fix later.
-- **Empty Package_Name:** insert dengan `package_id=null` + `base_price=0`
-- **Custom Package:** insert dengan `package_id=null` + base_price as-is
-- **Empty crew names** (kosong di banyak future rows): skip assignment
-- **Date format inconsistency:** beberapa "12/18/2024" beberapa "2024-12-18". Parser harus handle keduanya.
-- **Tetra Silver/Putih/Merah/Hitam** → match ke BG-BASIC-* by color suffix
-- **"Klien / Decor (Sedia Sendiri)"** = vendor_decor type, markup default Rp 0 (klien sediakan sendiri)
+### ⏳ Phase 4 — Polish & Optimization
+
+Specific Phase 4 features documented but deferred:
+- ❌ Operations Board drag-and-drop (status update via DnD)
+- ❌ Advanced inventory: PO workflow, vendor management beyond current
+- ❌ Recurring events (corporate clients)
+- ❌ Quotation-to-booking conversion flow
+- ❌ Stock take audit mode UI
+- ❌ Advanced reports (multi-month comparisons, cohort analysis)
+- ❌ Bulk operations refinements
+- ❌ E2E tests for critical paths (Playwright)
+- ❌ Lighthouse score optimization
+- ❌ Equipment self-checkin from /crew side (currently owner-only)
+
+### Onboarding wizard (FSD §14, Lower priority)
+
+- ❌ `/onboarding-wizard` for fresh-install: step-by-step setup of bank accounts, default packages, owner shares, etc.
+- Note: NOT the same as `/onboarding` (which is per-crew profile completion)
 
 ---
 
-## 3. Yang sudah dibikin tapi belum di-deploy/applied
+## 3. Yang harus dilakukan Rama untuk go-live
 
-Tidak ada — semua up-to-date di main + production.
+Pre-requisite untuk benar-benar pakai sistem live dengan tim 8+:
 
----
+### Wajib
 
-## 4. Roadmap berikutnya — by priority
+1. **Set CRON_SECRET di Vercel** — Project Settings → Environment Variables → add `CRON_SECRET` dengan random long string (e.g., `openssl rand -hex 32`). Without this, cron endpoints accept any GET request.
+2. **Invite 12 crew** lewat `/settings/crew` → "Invite crew" form atau bulk import. Kandidat dari handover sebelumnya: Aminah, Ceca, Bona, Weni, Rangga, Wahab, Eman, Mou (sudah ada), Kuku, Iqbal, Acuy, Fahmi (sudah ada sebagai owner).
+3. **Set investor share_pct** di `/settings/crew` → Investor Capital section: 36.65 / 28.16 / 18.20 / 16.99 = 100%. Tanpa ini settlement engine pakai flat distribution.
+4. **Import DB_PROJECTS** lewat `/settings/operations/import-projects` setelah semua crew sudah accept invitation (biar nama crew match ke crew_assignments).
 
-### Highest impact
-1. **DB_PROJECTS migration tool** (sesuai konsep cut-off di atas) — `/settings/operations/import-projects` super_admin only
-2. **Crew App functional** — tim 8 crew belum bisa pakai. Blocker terbesar untuk go-live adoption
-3. **Crew + Packages CSV bulk importer** — pattern sama dengan Items, gampang
-4. **Notifications inbox + bell** — owner dapat anomaly alerts (rules sudah seeded)
+### Optional / nice-to-have
 
-### Medium impact
-5. **Vendor / Partner Organizer master** — Mba Rahma, Pojok Kreatif, Fervida Planner dari DB_PROJECTS dijadiin entity → dropdown saat channel=vendor
-6. **PDF generation** — Invoice, Quotation, BAST (FSD §13)
-7. **Status auto-transition cron** — H-7 confirmed→upcoming, on event_day→in_progress, after event_day→awaiting_settlement
-8. **Anomaly scanner cron** — fire notifications dari rules yang sudah aktif
-
-### Lower priority
-9. **Onboarding wizard** untuk fresh install (FSD §14)
-10. **Drive integration** untuk auto-create event folders
-11. **Fixed asset depreciation engine** (computed monthly dari useful_life_months)
-12. **Reports module** (monthly P&L, owner earnings statement, crew performance)
+5. Set up Google Drive OAuth (kalau mau Phase-3 Week 14 jalan)
+6. Configure WA Business API kalau mau auto-send (sekarang manual via wa.me link)
+7. Configure push notification VAPID keys kalau implement Web Push
 
 ---
 
-## 5. Konvensi & gotchas yang sudah established
+## 4. Konvensi & gotchas yang sudah established
 
-- **Migration approach:** semua migration baru → tulis SQL file di `supabase/migrations/`, instruct user paste ke Supabase Dashboard SQL Editor. Aplikasi bukan auto-applied.
-- **No new doc files unless requested:** user prefer existing docs di `docs/` jadi rujukan, tidak suka spawn doc baru tanpa permintaan eksplisit.
-- **Feedback memori penting:** lihat `~/.claude/projects/-Users-macbookpro-Desktop-tetra-ops/memory/MEMORY.md`. Khususnya:
-  - **Always read** `docs/04_DESIGN_SYSTEM.md` + PRD/FSD/TSD before writing UI code; pakai semantic tokens (bg-card, text-foreground, border-border, dst.) — JANGAN hard-code zinc/slate
-  - **Pre-push protocol:** always `pnpm build` + smoke-test new INSERT/UPDATE actions before push. Next.js `'use server'` files cannot export non-async-functions (constants must live in separate non-server module). NOT NULL columns harus di-populate.
-- **Permission settings** (`~/.claude/settings.json`): `git push` ke main sudah whitelisted setelah Rama explicit approval
-- **Auto mode:** Rama prefer execute-action over plan-and-ask. Tapi tetap pause sebelum risky/destructive operations.
-- **Code style:** Biome formatter (4-space indent, double quotes), 'use server'/'use client' directives correct, semantic colors, tabular nums for numbers, `formatRupiah()` helper for IDR.
-- **Components grouped per domain:** `src/components/{settlement,backdrops,booking,event-design,event-equipment,investors,items,notification-rules,operations,rekap,sinking-funds,system-config,whatsapp-templates,layouts,ui,...}` — keep this pattern.
-- **No mock data, no fake user data** kecuali untuk preview/template (e.g. PREVIEW_VALUES di template editor).
+### Migration approach
+- Tulis SQL file di `supabase/migrations/`
+- Instruct user paste ke Supabase Dashboard SQL Editor
+- **Idempotent**: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, DO blocks dengan pg_constraint guard
+- App is NOT auto-applied — Rama always runs manually
+
+### Pre-push protocol (memori penting)
+- Selalu `pnpm build` + smoke-test sebelum `git push`
+- `tsc` alone tidak cukup — Next.js `'use server'` files cannot export non-async-function values (constants harus di file terpisah)
+- Cek NOT NULL columns saat insert
+- Test INSERT/UPDATE actions after schema change
+
+### Code style
+- Biome formatter (4-space indent, double quotes)
+- Semantic tokens only: `bg-card`, `text-foreground`, `border-border`, `bg-destructive/10`, `text-emerald-600 dark:text-emerald-400` — JANGAN hard-code zinc/slate
+- `'use server'` / `'use client'` directives correct
+- `tabular` class for numbers, `formatRupiah()` helper for IDR
+- Shared CSV import wizard — reuse `<CsvImportWizard config={...}>` for any new bulk import need
+- Resilience helpers `withRetry/withTimeout/runWithConcurrency` already exist for any new server action that does bulk DB ops
+
+### Components grouped per domain
+`src/components/{settlement, backdrops, booking, csv-import, dashboard, event-design, event-equipment, finance, investors, items, layouts, notifications, operations, pdf, rekap, sinking-funds, system-config, whatsapp-templates, ui, ...}` — keep this pattern.
+
+### Auth model
+- 4 roles: super_admin, owner, crew, pending_approval
+- super_admin = invitation-aware promotions, withdrawal authority
+- owner = read most; can review rekap; CANNOT promote roles
+- crew = mobile app only; sees own assignments; can submit rekap + edit own profile
+- pending_approval = waiting room; redirected to `/onboarding` if profile incomplete, else `/pending`
+- Auth middleware (`src/proxy.ts`): PUBLIC_PATHS = `["/", "/login", "/register", "/crew-portal", "/auth"]`; AUTH_ENTRY_PATHS = same minus `/`
+
+### PDF generation
+- `@react-pdf/renderer` server-side
+- Doc base components in `src/components/pdf/document-base.tsx`
+- Each doc: `src/components/pdf/{invoice,quotation,bast}-document.tsx`
+- API routes return `application/pdf` inline (browser preview)
+- Doc number convention: `legacy_invoice_number` if present, else derived from project_id
+
+### Cron endpoints
+- `vercel.json` declares 2 cron jobs at 23:00 / 23:30 UTC (= 06:00 / 06:30 WIB)
+- `src/lib/cron-auth.ts` validates `Authorization: Bearer ${CRON_SECRET}`
+- Without CRON_SECRET set, auth is skipped (so dev/preview work)
+- Each cron action has internal/external variant: `runStatusTransition` (auth-gated for manual UI) vs `runStatusTransitionInternal` (no-auth for cron)
+
+### CSV importer wizard
+- Single shared component `<CsvImportWizard config={...}>` in `src/components/csv-import/wizard.tsx`
+- 4 steps: Upload (drag-drop) → Map (auto-detect headers via aliases) → Preview (duplicate check) → Done (with progress bar + cancel)
+- Server action expects `(rows: Record<string,string>[], rowOffset: number) => Promise<ImportResult>`
+- Header alias maps live in `src/lib/csv-import/{items,contacts,projects,invitations}-aliases.ts`
 
 ---
 
-## 6. Files yang baru-baru dibuat (untuk awareness)
+## 5. Files yang baru-baru dibuat (untuk awareness)
+
+Penting untuk dikenali kalau perlu modifikasi:
 
 ```
-supabase/migrations/
-├── 20260507_settlement_close_function.sql       (applied)
-└── 20260507_backdrops_event_types_investors.sql (applied)
+src/lib/actions/
+├── anomaly-scanner.ts            (12-rule scanner + Internal variant)
+├── contacts-import.ts             (DB_CONTACTS bulk)
+├── crew-invitations.ts            (invite + bulk + check dupes)
+├── notifications.ts               (markRead, dismiss)
+├── owner-withdrawal.ts            (record withdrawal)
+├── profile-onboarding.ts          (crew profile complete)
+├── projects-import.ts             (DB_PROJECTS bulk)
+├── status-transition.ts           (auto-transition + Internal)
+├── crew.ts                        (role + profile + active)
 
-src/
-├── lib/actions/
-│   ├── backdrops.ts
-│   ├── event-design.ts
-│   ├── event-equipment.ts
-│   ├── investors.ts
-│   ├── items-import.ts
-│   ├── items.ts
-│   ├── notification-rules.ts
-│   ├── rekap.ts
-│   ├── settlements.ts
-│   ├── sinking-funds.ts
-│   ├── stock-movements.ts
-│   ├── system-config.ts
-│   └── whatsapp-templates.ts
-├── components/
-│   ├── audit-log/
-│   ├── backdrops/
-│   ├── event-design/
-│   ├── event-equipment/
-│   ├── investors/
-│   ├── items/
-│   ├── notification-rules/
-│   ├── operations/  (activity-feed, readiness-card, view-switcher, kpi-card, filter-bar, pipeline-card)
-│   ├── rekap/
-│   ├── settlement/
-│   ├── sinking-funds/
-│   ├── system-config/
-│   └── whatsapp-templates/
-└── app/(owner)/
-    ├── operations/
-    │   ├── board/page.tsx
-    │   ├── calendar/page.tsx
-    │   ├── design/page.tsx
-    │   └── [projectId]/{equipment,rekap,settle}/page.tsx
-    └── settings/
-        ├── backdrops/{[id]/edit, new, page}.tsx
-        ├── items/{[id]/edit, import, new, page}.tsx
-        ├── notification-rules/[id]/edit/page.tsx
-        ├── sinking-funds/{[id]/{edit,movements}, new, page}.tsx
-        └── whatsapp-templates/{[id]/edit, new, page}.tsx
+src/lib/csv-import/
+├── parser.ts                      (shared CSV parser)
+├── resilience.ts                  (retry, timeout, concurrency)
+├── types.ts                       (TargetField, ImportResult)
+├── *-aliases.ts                   (per-importer header mappings)
+
+src/lib/pdf/
+├── event-data.ts                  (shared fetcher + line-item builder)
+
+src/components/
+├── csv-import/wizard.tsx          (4-step wizard)
+├── pdf/{document-base,invoice,quotation,bast,download-menu}.tsx
+├── notifications/{run-scanner-button,row-actions}.tsx
+├── dashboard/anomaly-radar.tsx
+├── crew/{invite-form,invitation-row-actions,edit-crew-drawer}.tsx
+├── auth/onboarding-form.tsx
+├── finance/withdrawal-button.tsx
+
+src/app/(owner)/
+├── reports/page.tsx               (P&L / Crew / Owner tabs)
+├── finance/page.tsx + finance/vendors/page.tsx
+├── notifications/page.tsx
+├── operations/team/page.tsx       (crew schedule grid)
+├── settings/contacts/{page,import}/page.tsx
+├── settings/crew/{page,invitations/import}/page.tsx
+├── settings/operations/import-projects/page.tsx
+
+src/app/(crew)/crew/
+├── page.tsx                       (home)
+├── jadwal/{page,[projectId]/{page,rekap/page}}.tsx
+├── alat/page.tsx, fee/page.tsx, profile/page.tsx
+
+src/app/(auth)/
+├── login/page.tsx, register/page.tsx (redirects)
+├── crew-portal/page.tsx
+├── onboarding/page.tsx, pending/page.tsx
+
+src/app/api/
+├── cron/{anomaly-scan,status-transition}/route.ts
+├── pdf/{invoice,quotation,bast}/[projectId]/route.ts
+
+src/app/page.tsx                   (public landing)
+src/app/auth/callback/route.ts     (post-OAuth direct redirect)
+
+vercel.json                        (cron schedule)
 ```
+
+---
+
+## 6. Priority backlog untuk sesi berikutnya
+
+Ordered by impact untuk go-live + remaining roadmap:
+
+### Round 1: Phase 3 finishing
+1. **WhatsApp reminder scheduler UI** (Week 12 closure) — owner buka batch reminder page, pilih event H-3, klik "Send all WA reminders" → buka satu wa.me link per row dengan template resolved. ~2-3 jam.
+2. **Drive integration** (Week 14) — OAuth flow + auto-create event folder + uploadFile helper. Replace existing drive_url text fields with proper file storage. ~1-2 hari (multi-step). Big infra piece.
+3. **Web Push API** (Week 11 closure) — service worker + push subscription endpoint + send notif when anomaly fires. ~1 hari.
+
+### Round 2: Phase 4 polish dipriortiaskan untuk go-live
+4. **Equipment self-checkin from /crew** — crew tandai alat balik dari HP. Builds on existing equipment movement actions. ~3 jam.
+5. **Operations Board drag-and-drop** — status update via DnD di Kanban. UX upgrade. ~2-3 jam.
+6. **Onboarding wizard fresh-install** (FSD §14) — step-by-step buat owner first-time setup: bank account, default packages, owner shares. Only useful kalau Tetra di-roll-out ke ops lain (multi-tenant). Lower priority untuk Tetra sendiri.
+
+### Round 3: Reports + analytics deepening
+7. **Monthly P&L PDF export** — render Reports → P&L tab as PDF using existing pdf infra. ~1 jam.
+8. **Multi-month comparison** — Reports tab "Compare months" dengan bar chart. ~2 jam.
+9. **Cohort analysis** — vendor cohort retention, crew cohort productivity. ~3-4 jam.
+
+### Lower priority / explicitly deferred
+- Fixed asset depreciation engine (DR-006: skipped)
+- Multi-tenant SaaS architecture
+- Native mobile app (PWA path chosen)
 
 ---
 
 ## 7. Production env
 
-- **App:** https://tetra-ops.vercel.app (auto-deploy on push to main)
-- **Repo:** https://github.com/ramaactivity/tetra-ops
-- **Supabase project:** `rdrkzwesykebhibcwcsj` (ramaactivity, FREE tier)
-- **DB:** Asia/Singapore region
+- Vercel project: `tetra-ops` (Hobby tier free)
+- Domain: `tetra-ops.vercel.app`
+- Region: SIN1 (Singapore)
+- Supabase project: `tetra-ops` (Free tier)
+- Supabase URL: `https://rdrkzwesykebhibcwcsj.supabase.co`
+- Auth provider: Google OAuth (only)
+- Cron: 2 jobs configured (within Hobby tier limit)
+- Storage: Supabase Storage (not yet used; reserved for future Drive replacement)
+
+### Env vars
+
+Already set (working):
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Pending Rama action:
+- ❌ `CRON_SECRET` — set this so cron endpoints reject unauthorized callers
+
+Future (when implementing):
+- `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` (Phase 3 Week 14)
+- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push)
+- `WHATSAPP_API_TOKEN` (if/when adopting WA Business API)
 
 ---
 
 ## 8. Open decisions
 
-- **Past-event status:** `archived` (hidden from default list) vs `completed` (visible). Saya prefer `archived` + filter chip "Show archived" supaya operations list bersih, tapi rekam jejak tetap accessible.
-- **Vendor master:** belum ada. Untuk sekarang vendor name di-store di `crew_notes` atau `events.notes`. Kalau ada banyak event vendor, dedicated vendor master worth it.
-- **Old `backdrop_source` + `backdrop_color` columns** di events table: masih ada untuk back-compat. Suatu saat bisa di-drop kalau confirmed gak ada referensi.
-- **Investor pool default Rp 50k** vs proporsional: sekarang RPC sudah support both. Kalau Rama input share_pct di Master Crew, otomatis switch ke proportional.
+- **DR-006: Skip historical data migration** — RESOLVED. Phase-2 cut-off implemented; archive marked `is_migrated_legacy=true`.
+- **PWA vs native app** — RESOLVED, PWA path. Service worker pending.
+- **Single tenant vs SaaS** — Single tenant for Tetra. Future fork if rolling out to other photobooths.
+- **Free tier vs paid** — Currently Hobby. Will likely need to upgrade Vercel to Pro for >2 cron jobs OR if hitting function timeouts under load.
+- **Storage backend (Drive vs Supabase Storage)** — Originally Drive. Could pivot to Supabase Storage to avoid OAuth complexity. Decision pending until Week 14 work begins.
+
+---
+
+## 9. Starter prompt untuk sesi baru
+
+Copy-paste prompt berikut untuk mulai sesi chat baru:
+
+---
+
+> **Lanjutkan kerjaan Tetra Ops. Sesi sebelumnya sudah panjang, sudah closure dengan handover doc.**
+>
+> **Read these first:**
+> - `docs/15_HANDOVER.md` — comprehensive state snapshot, what's done vs pending
+> - `docs/08_IMPLEMENTATION_PLAN.md` §5-6 — Phase 3-4 roadmap
+> - Memory files: `project_state_2026-05-07`, `feedback_design_system_first`, `feedback_pre_push_protocol`, `feedback_migration_approach`
+>
+> **Fokus sesi ini: selesaikan implementation plan sesuai roadmap, baru polish belakangan.**
+>
+> Berdasarkan `docs/15_HANDOVER.md` §6 (Priority backlog), Round 1 yang masih outstanding di Phase 3:
+>
+> 1. **WhatsApp reminder scheduler UI** — manual batch send H-3 reminder pakai existing WA templates + wa.me links
+> 2. **Drive integration** — Google Drive OAuth + auto-create event folders + replace existing drive_url text fields dengan proper file storage
+> 3. **Web Push API for PWA** — service worker + push subscription + send notif saat anomaly fires
+>
+> **Auto mode boleh dipakai. Mulai dengan rekomendasi singkat (2-3 kalimat) — pilih item mana yang paling impactful + scopable buat sesi ini, lalu eksekusi.**
+>
+> **Konvensi penting:**
+> - Migration SQL idempotent, tulis di `supabase/migrations/`, instruct user paste ke Supabase
+> - Pre-push: `pnpm build` + smoke-test sebelum git push
+> - Semantic tokens (bg-card, text-foreground), tidak hard-code zinc/slate
+> - Server actions tidak boleh export non-async functions; constants di file terpisah
+> - Reuse existing infra: `<CsvImportWizard>`, `withRetry/withTimeout`, PDF base components
+>
+> **Pending Rama action (independent dari coding):**
+> - Set `CRON_SECRET` di Vercel env (lihat handover §7)
+> - Invite 12 crew via `/settings/crew`
+> - Set investor `share_pct` di `/settings/crew`
+> - Import DB_PROJECTS.csv (setelah crew sudah accept)
