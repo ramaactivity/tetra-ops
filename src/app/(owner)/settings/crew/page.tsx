@@ -1,3 +1,7 @@
+import { Clock, FileSpreadsheet, Mail } from "lucide-react";
+import Link from "next/link";
+import { InvitationDeleteButton } from "@/components/crew/invitation-row-actions";
+import { InviteCrewForm } from "@/components/crew/invite-form";
 import { CrewRoleMenu } from "@/components/crew/role-menu";
 import {
 	type InvestorRow,
@@ -16,6 +20,17 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, USER_ROLE_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+
+type InvitationRow = {
+	id: string;
+	email: string;
+	full_name: string;
+	nickname: string | null;
+	phone_wa: string | null;
+	tier: "senior" | "junior";
+	notes: string | null;
+	invited_at: string;
+};
 
 type Role = "super_admin" | "owner" | "crew" | "pending_approval";
 
@@ -55,14 +70,23 @@ function initialsOf(name: string) {
 export default async function MasterCrewPage() {
 	const me = await getCurrentUser();
 	const supabase = await createClient();
-	const { data, error } = await supabase
-		.from("users")
-		.select(
-			"id, email, full_name, nickname, phone_wa, role, tier, is_active, joined_date, share_pct, capital_contributed, capital_contributed_at",
-		)
-		.is("deleted_at", null)
-		.order("role", { ascending: true })
-		.order("joined_date", { ascending: false });
+	const [{ data, error }, { data: invitationData }] = await Promise.all([
+		supabase
+			.from("users")
+			.select(
+				"id, email, full_name, nickname, phone_wa, role, tier, is_active, joined_date, share_pct, capital_contributed, capital_contributed_at",
+			)
+			.is("deleted_at", null)
+			.order("role", { ascending: true })
+			.order("joined_date", { ascending: false }),
+		supabase
+			.from("crew_invitations")
+			.select(
+				"id, email, full_name, nickname, phone_wa, tier, notes, invited_at",
+			)
+			.is("accepted_at", null)
+			.order("invited_at", { ascending: false }),
+	]);
 
 	if (error) {
 		return (
@@ -75,6 +99,7 @@ export default async function MasterCrewPage() {
 	}
 
 	const users = (data ?? []) as UserRow[];
+	const invitations = (invitationData ?? []) as InvitationRow[];
 	const pendingCount = users.filter(
 		(u) => u.role === "pending_approval",
 	).length;
@@ -93,8 +118,8 @@ export default async function MasterCrewPage() {
 		}));
 
 	return (
-		<div className="space-y-4">
-			<div className="flex items-end justify-between">
+		<div className="space-y-6">
+			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div>
 					<h2 className="text-xl font-semibold tracking-tight">Master Crew</h2>
 					<p className="text-muted-foreground text-sm">
@@ -107,9 +132,99 @@ export default async function MasterCrewPage() {
 								</span>
 							</>
 						)}
+						{invitations.length > 0 && (
+							<>
+								{" · "}
+								<span className="text-amber-700 dark:text-amber-400 font-medium">
+									{invitations.length} undangan menunggu
+								</span>
+							</>
+						)}
 					</p>
 				</div>
+				{isSuperAdmin && (
+					<div className="flex items-center gap-2">
+						<Link
+							href="/settings/crew/invitations/import"
+							className="border-border text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+						>
+							<FileSpreadsheet className="h-4 w-4" />
+							Bulk import
+						</Link>
+						<InviteCrewForm />
+					</div>
+				)}
 			</div>
+
+			{isSuperAdmin && invitations.length > 0 && (
+				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-3 rounded-xl border p-4">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<Clock className="text-amber-700 dark:text-amber-400 h-4 w-4" />
+							<h3 className="text-sm font-semibold">
+								Undangan menunggu ({invitations.length})
+							</h3>
+						</div>
+						<p className="text-muted-foreground text-xs">
+							Dia akan auto-promote ke crew + tier saat login pakai Gmail di
+							bawah ini.
+						</p>
+					</div>
+					<div className="border-border bg-card overflow-x-auto rounded-lg border">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Person</TableHead>
+									<TableHead>Email (Gmail)</TableHead>
+									<TableHead>Tier</TableHead>
+									<TableHead>WA</TableHead>
+									<TableHead>Diundang</TableHead>
+									<TableHead className="text-right">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{invitations.map((inv) => (
+									<TableRow key={inv.id}>
+										<TableCell>
+											<div className="space-y-0.5">
+												<p className="text-foreground text-sm font-medium">
+													{inv.full_name}
+												</p>
+												{inv.nickname && (
+													<p className="text-muted-foreground text-xs">
+														{inv.nickname}
+													</p>
+												)}
+											</div>
+										</TableCell>
+										<TableCell className="text-muted-foreground inline-flex items-center gap-1 text-sm">
+											<Mail className="h-3 w-3" />
+											{inv.email}
+										</TableCell>
+										<TableCell>
+											<Badge
+												variant="outline"
+												className="text-[11px] uppercase"
+											>
+												{inv.tier}
+											</Badge>
+										</TableCell>
+										<TableCell className="tabular text-muted-foreground text-sm">
+											{inv.phone_wa ?? "—"}
+										</TableCell>
+										<TableCell className="tabular text-muted-foreground text-xs">
+											{formatDateID(inv.invited_at.slice(0, 10))}
+										</TableCell>
+										<TableCell className="text-right">
+											<InvitationDeleteButton id={inv.id} email={inv.email} />
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</div>
+				</section>
+			)}
 
 			<div className="border-border bg-card overflow-x-auto rounded-lg border">
 				<Table>

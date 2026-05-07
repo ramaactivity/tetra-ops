@@ -28,17 +28,58 @@ export async function GET(request: Request) {
 			user.email ??
 			"Unnamed User";
 
-		await admin.from("users").upsert(
-			{
-				id: user.id,
-				email: user.email,
-				full_name: fullName,
-				role: "pending_approval",
-				joined_date: new Date().toISOString().split("T")[0],
-				is_active: true,
-			},
-			{ onConflict: "id", ignoreDuplicates: true },
-		);
+		// Check if this email has a pending crew invitation. If yes, the
+		// invitation provides full_name + tier + role=crew so they skip the
+		// pending_approval review step entirely.
+		const normalizedEmail = (user.email ?? "").toLowerCase();
+		const { data: invitation } = normalizedEmail
+			? await admin
+					.from("crew_invitations")
+					.select(
+						"id, full_name, nickname, phone_wa, tier, default_fee_override, notes, accepted_at",
+					)
+					.eq("email", normalizedEmail)
+					.is("accepted_at", null)
+					.maybeSingle()
+			: { data: null };
+
+		const userRow: Record<string, unknown> = invitation
+			? {
+					id: user.id,
+					email: user.email,
+					full_name: invitation.full_name,
+					nickname: invitation.nickname,
+					phone_wa: invitation.phone_wa,
+					role: "crew",
+					tier: invitation.tier,
+					default_fee_override: invitation.default_fee_override,
+					notes: invitation.notes,
+					joined_date: new Date().toISOString().split("T")[0],
+					is_active: true,
+				}
+			: {
+					id: user.id,
+					email: user.email,
+					full_name: fullName,
+					role: "pending_approval",
+					joined_date: new Date().toISOString().split("T")[0],
+					is_active: true,
+				};
+
+		await admin
+			.from("users")
+			.upsert(userRow, { onConflict: "id", ignoreDuplicates: true });
+
+		// Mark invitation accepted (after user upsert so FK is valid)
+		if (invitation) {
+			await admin
+				.from("crew_invitations")
+				.update({
+					accepted_at: new Date().toISOString(),
+					accepted_user_id: user.id,
+				})
+				.eq("id", invitation.id);
+		}
 	}
 
 	return NextResponse.redirect(`${origin}${next}`);
