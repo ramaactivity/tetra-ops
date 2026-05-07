@@ -1,7 +1,7 @@
 # 15 — Session Handover & Implementation Plan Status
 
-**Last updated:** 2026-05-07 (sesi 3 closure)
-**Last commit:** `9de2ebb` — Reports module live
+**Last updated:** 2026-05-07 (sesi 4 — WA reminder scheduler shipped)
+**Last commit:** `9de2ebb` — Reports module live (sesi 3); sesi 4 menambah WA reminder scheduler
 **Production URL:** https://tetra-ops.vercel.app
 **GitHub:** https://github.com/ramaactivity/tetra-ops
 
@@ -68,6 +68,7 @@
 5. `20260507_contacts_rls.sql` — RLS policies for contacts
 6. `20260507_crew_invitations.sql` — crew_invitations table + RLS
 7. `20260507_event_category_fk.sql` — FK events.event_category → event_types.code
+8. `20260507_event_reminders_log.sql` — manual WA reminder click log + RLS
 
 ### Real production data status
 
@@ -108,13 +109,13 @@ Reference: `docs/08_IMPLEMENTATION_PLAN.md`
 - ✅ Dashboard anomaly radar widget
 - ❌ **Web Push API for PWA** — service worker + push subscription (mobile push when app off-device)
 
-**Week 12: WhatsApp Integration — 🟡 PARTIAL**
+**Week 12: WhatsApp Integration — ✅ DONE**
 - ✅ WhatsApp template management UI (existing /settings/whatsapp-templates)
 - ✅ Variable resolution + wa.me link generation
 - ✅ "Send WA" buttons on event detail (existing SendWhatsAppButton)
 - ✅ Per-crew WA reminder
-- ❌ **Manual reminder scheduler UI** — batch send H-3 reminder buat events
-- ❌ **WA template editor improvements** — preview pane, validation hints
+- ✅ **Manual reminder scheduler UI** (`/reminders`) — 4 buckets (H-3 pelunasan, H-7 belum DP, H-1 konfirmasi, overdue), checkbox batch-select, sequenced wa.me opens, `event_reminders_log` table tracks intent + last-sent timestamp + reminder count per event
+- ❌ **WA template editor improvements** — preview pane, validation hints (lower priority)
 
 **Week 13: PDF Generation — ✅ DONE**
 - ✅ Invoice PDF (Tetra-branded)
@@ -296,9 +297,9 @@ vercel.json                        (cron schedule)
 Ordered by impact untuk go-live + remaining roadmap:
 
 ### Round 1: Phase 3 finishing
-1. **WhatsApp reminder scheduler UI** (Week 12 closure) — owner buka batch reminder page, pilih event H-3, klik "Send all WA reminders" → buka satu wa.me link per row dengan template resolved. ~2-3 jam.
-2. **Drive integration** (Week 14) — OAuth flow + auto-create event folder + uploadFile helper. Replace existing drive_url text fields with proper file storage. ~1-2 hari (multi-step). Big infra piece.
-3. **Web Push API** (Week 11 closure) — service worker + push subscription endpoint + send notif when anomaly fires. ~1 hari.
+1. ✅ **WhatsApp reminder scheduler UI** (Week 12 closure) — DONE. `/reminders` page dengan 4 bucket (H-3 pelunasan, H-7 belum DP, H-1 konfirmasi, overdue), checkbox batch-select, sequenced wa.me opens, `event_reminders_log` tracking. Migration: `20260507_event_reminders_log.sql`.
+2. **Drive integration** (Week 14) — OAuth flow + auto-create event folder + uploadFile helper. Replace existing drive_url text fields with proper file storage. ~1-2 hari (multi-step). Big infra piece. **BLOCKED on Rama: `GOOGLE_DRIVE_CLIENT_ID/SECRET` env vars.**
+3. **Web Push API** (Week 11 closure) — service worker + push subscription endpoint + send notif when anomaly fires. ~1 hari. **Partial-blocked on Rama: VAPID keys.**
 
 ### Round 2: Phase 4 polish dipriortiaskan untuk go-live
 4. **Equipment self-checkin from /crew** — crew tandai alat balik dari HP. Builds on existing equipment movement actions. ~3 jam.
