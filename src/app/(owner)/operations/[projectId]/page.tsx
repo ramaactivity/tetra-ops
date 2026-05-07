@@ -212,10 +212,10 @@ export default async function EventDetailPage({
 				</Link>
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="space-y-1">
-						<h1 className="text-2xl font-semibold tracking-tight">
+						<h1 className="text-fluid-h1 font-semibold tracking-tight">
 							{event.client_name}
 						</h1>
-						<p className="text-muted-foreground tabular text-sm">
+						<p className="tabular text-fluid-caption text-muted-foreground">
 							{event.project_id}
 						</p>
 					</div>
@@ -257,7 +257,7 @@ export default async function EventDetailPage({
 								/>
 								<Link
 									href={`/operations/${event.project_id}/equipment`}
-									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+									className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
 								>
 									<Package className="h-3.5 w-3.5" />
 									Equipment
@@ -269,7 +269,7 @@ export default async function EventDetailPage({
 								</Link>
 								<Link
 									href={`/operations/${event.project_id}/rekap`}
-									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+									className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
 								>
 									<ClipboardList className="h-3.5 w-3.5" />
 									Rekap
@@ -300,7 +300,7 @@ export default async function EventDetailPage({
 								/>
 								<Link
 									href={`/operations/${event.project_id}/edit`}
-									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+									className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
 								>
 									<Pencil className="h-3.5 w-3.5" />
 									Edit
@@ -498,12 +498,12 @@ export default async function EventDetailPage({
 					<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
 				</DetailCard>
 
-				<div className="border-border bg-card space-y-3 rounded-xl border p-5 md:col-span-2">
+				<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-5 md:col-span-2">
 					<div className="flex items-center justify-between">
 						<h3 className="text-sm font-semibold tracking-tight">Crew</h3>
 						<Link
 							href={`/operations/${event.project_id}/crew`}
-							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+							className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
 						>
 							<Users className="h-3.5 w-3.5" />
 							Manage
@@ -574,12 +574,12 @@ export default async function EventDetailPage({
 					</DetailCard>
 				)}
 
-				<div className="border-border bg-card md:col-span-2 space-y-3 rounded-xl border p-5">
+				<div className="md:col-span-2 space-y-3 rounded-xl border border-border-default bg-surface-2 p-5">
 					<div className="flex items-center justify-between">
 						<h3 className="text-sm font-semibold tracking-tight">Financial</h3>
 						<Link
 							href={`/operations/${event.project_id}/payments`}
-							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+							className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
 						>
 							<Receipt className="h-3.5 w-3.5" />
 							Manage payments
@@ -663,7 +663,7 @@ export default async function EventDetailPage({
 			</div>
 
 			{settlement && (
-				<div className="border-border bg-card space-y-4 rounded-xl border p-5">
+				<div className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 					<div className="flex flex-wrap items-baseline justify-between gap-2">
 						<div className="space-y-0.5">
 							<h3 className="text-base font-semibold tracking-tight">
@@ -698,7 +698,7 @@ export default async function EventDetailPage({
 								label="Total Biaya"
 								value={`−${formatRupiah(settlement.total_biaya)}`}
 							/>
-							<div className="flex items-baseline justify-between border-t border-border pt-2 text-sm font-semibold">
+							<div className="flex items-baseline justify-between border-t border-border-default pt-2 text-sm font-semibold">
 								<dt>Net Profit</dt>
 								<dd
 									className={
@@ -724,7 +724,7 @@ export default async function EventDetailPage({
 									)})`}
 									value={formatRupiah(settlement.owner_pool_total)}
 								/>
-								<div className="flex items-baseline justify-between border-t border-border pt-2 text-sm font-semibold">
+								<div className="flex items-baseline justify-between border-t border-border-default pt-2 text-sm font-semibold">
 									<dt>Operating Cash</dt>
 									<dd className="tabular text-foreground">
 										{formatRupiah(settlement.operating_cash_kept)}
@@ -759,7 +759,7 @@ function DetailCard({
 }) {
 	return (
 		<div
-			className={`border-border bg-card space-y-3 rounded-xl border p-5 ${className ?? ""}`}
+			className={`space-y-3 rounded-xl border border-border-default bg-surface-2 p-5 ${className ?? ""}`}
 		>
 			<h3 className="text-sm font-semibold tracking-tight">{title}</h3>
 			<dl className="space-y-2">{children}</dl>

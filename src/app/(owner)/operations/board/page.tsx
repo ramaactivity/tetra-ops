@@ -190,7 +190,7 @@ function BoardCard({ event }: { event: EventRow }) {
 	return (
 		<Link
 			href={`/operations/${event.project_id}`}
-			className="border-border bg-card hover:border-primary/40 hover:bg-card/80 block space-y-2 rounded-lg border p-2.5 text-left transition-colors"
+			className="border-border bg-surface-2 hover:border-primary/40 hover:bg-surface-2/80 block space-y-2 rounded-lg border p-2.5 text-left transition-colors"
 		>
 			<div className="space-y-0.5">
 				<div className="flex items-baseline justify-between gap-2">

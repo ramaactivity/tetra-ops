@@ -146,7 +146,7 @@ export default async function OperationsCalendarPage({
 				</div>
 			</div>
 
-			<div className="border-border bg-card flex items-center justify-between gap-3 rounded-lg border p-3">
+			<div className="border-border bg-surface-2 flex items-center justify-between gap-3 rounded-lg border p-3">
 				<div className="flex items-center gap-1">
 					<Link
 						href={`/operations/calendar?month=${fmt(prevYear, prevMonth)}`}
@@ -180,7 +180,7 @@ export default async function OperationsCalendarPage({
 				</div>
 			</div>
 
-			<div className="border-border bg-card overflow-hidden rounded-lg border">
+			<div className="border-border bg-surface-2 overflow-hidden rounded-lg border">
 				<div className="grid grid-cols-7 border-b border-border">
 					{DAY_HEADERS.map((d) => (
 						<div

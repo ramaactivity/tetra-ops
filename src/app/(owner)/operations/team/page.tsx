@@ -187,7 +187,7 @@ export default async function CrewScheduleView({
 					</NavLink>
 					<Link
 						href="/operations/team"
-						className="border-border bg-card hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
+						className="border-border bg-surface-2 hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
 					>
 						<CalendarDays className="h-3.5 w-3.5" />
 						Today
@@ -199,7 +199,7 @@ export default async function CrewScheduleView({
 			</div>
 
 			{crew.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<UsersRound className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">Belum ada crew</h3>
@@ -209,7 +209,7 @@ export default async function CrewScheduleView({
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-xl border">
+				<div className="border-border bg-surface-2 overflow-x-auto rounded-xl border">
 					<table className="w-full text-xs">
 						<thead className="bg-muted/40 sticky top-0">
 							<tr>
@@ -256,7 +256,7 @@ export default async function CrewScheduleView({
 								const conflicts = conflictsByCrew.get(c.id) ?? 0;
 								return (
 									<tr key={c.id} className="hover:bg-muted/20">
-										<td className="bg-card sticky left-0 z-[5] px-3 py-2">
+										<td className="bg-surface-2 sticky left-0 z-[5] px-3 py-2">
 											<div className="flex items-center gap-2">
 												<div className="bg-muted text-muted-foreground inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold">
 													{(c.nickname ?? c.full_name)
@@ -403,7 +403,7 @@ function NavLink({
 		<Link
 			href={href}
 			aria-label={dir === "prev" ? "Previous window" : "Next window"}
-			className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground inline-flex h-9 w-9 items-center justify-center rounded-md border"
+			className="border-border bg-surface-2 hover:bg-muted text-muted-foreground hover:text-foreground inline-flex h-9 w-9 items-center justify-center rounded-md border"
 		>
 			{children}
 		</Link>

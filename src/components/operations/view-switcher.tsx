@@ -8,6 +8,13 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+/**
+ * <OperationsViewSwitcher /> — segmented control for Ops view modes.
+ *
+ * A4 refactor (sesi 5): surface-2 base, primary fill on active, fluid
+ * type for labels, transitions tokenized.
+ */
+
 export type OperationsView =
 	| "list"
 	| "calendar"
@@ -55,7 +62,7 @@ export function OperationsViewSwitcher({
 }) {
 	return (
 		<div
-			className="border-border bg-card inline-flex items-center rounded-md border p-0.5"
+			className="inline-flex items-center rounded-md border border-border-default bg-surface-2 p-0.5"
 			role="tablist"
 			aria-label="View"
 		>
@@ -69,14 +76,14 @@ export function OperationsViewSwitcher({
 						role="tab"
 						aria-selected={active}
 						className={cn(
-							"inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors",
+							"inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
 							active
 								? "bg-primary text-primary-foreground"
-								: "text-muted-foreground hover:bg-muted hover:text-foreground",
+								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
 						)}
 					>
-						<Icon className="h-3.5 w-3.5" />
-						{v.label}
+						<Icon className="size-3.5" aria-hidden />
+						<span className="hidden sm:inline">{v.label}</span>
 					</Link>
 				);
 			})}

@@ -4,7 +4,19 @@ import { Archive, Search, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { MonthPicker } from "@/components/ui/month-picker";
+import { NativeSelect } from "@/components/ui/native-select";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
+
+/**
+ * <OperationsFilterBar /> — search + status + month + crew filters.
+ *
+ * A4 refactor (sesi 5):
+ * - Raw <select> × 2 → <NativeSelect> (status, crew)
+ * - <input type="month"> → <MonthPicker> primitive
+ * - Surface tokens, fluid type, transition tokens
+ * - "Show archived" toggle keeps amber semantic tone for state clarity
+ */
 
 const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
 	"draft",
@@ -75,84 +87,97 @@ export function OperationsFilterBar({
 		router.push(buildHref({ q }));
 	}
 
+	const statusOptions = [
+		{ value: "", label: "Semua status" },
+		...STATUS_FILTER_ORDER.map((s) => ({
+			value: String(s),
+			label: EVENT_STATUS_LABELS[s] ?? String(s),
+		})),
+	];
+
+	const crewSelectOptions = [
+		{ value: "", label: "Semua crew" },
+		...crewOptions.map((c) => ({
+			value: c.id,
+			label: `${c.nickname ?? c.full_name}${c.tier ? ` · ${c.tier}` : ""}`,
+		})),
+	];
+
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			<form
 				onSubmit={handleSubmit}
 				className="relative min-w-[200px] flex-1 sm:max-w-xs"
 			>
-				<Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+				<Search
+					className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					aria-hidden
+				/>
 				<input
 					type="search"
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
 					placeholder="Cari nama klien…"
-					className="border-border bg-card focus-visible:ring-ring placeholder:text-muted-foreground/60 h-9 w-full rounded-md border pl-9 pr-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 				/>
 			</form>
 
-			<select
+			<NativeSelect
 				value={defaultStatus}
-				onChange={(e) => router.push(buildHref({ status: e.target.value }))}
-				className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-			>
-				<option value="">Semua status</option>
-				{STATUS_FILTER_ORDER.map((s) => (
-					<option key={s} value={s}>
-						{EVENT_STATUS_LABELS[s] ?? s}
-					</option>
-				))}
-			</select>
-
-			<input
-				type="month"
-				value={defaultMonth}
-				onChange={(e) => router.push(buildHref({ month: e.target.value }))}
-				className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+				onValueChange={(value) => router.push(buildHref({ status: value }))}
+				placeholder="Semua status"
+				options={statusOptions}
+				aria-label="Filter status"
 			/>
+
+			<div className="w-[180px]">
+				<MonthPicker
+					value={defaultMonth}
+					onValueChange={(value) => router.push(buildHref({ month: value }))}
+					placeholder="Semua bulan"
+					aria-label="Filter bulan"
+				/>
+			</div>
 
 			{crewOptions.length > 0 && (
 				<div className="relative">
-					<Users className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
-					<select
+					<Users
+						className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+						aria-hidden
+					/>
+					<NativeSelect
 						value={defaultCrew}
-						onChange={(e) => router.push(buildHref({ crew: e.target.value }))}
-						className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border pl-7 pr-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-						aria-label="Filter by crew"
-					>
-						<option value="">Semua crew</option>
-						{crewOptions.map((c) => (
-							<option key={c.id} value={c.id}>
-								{c.nickname ?? c.full_name}
-								{c.tier ? ` · ${c.tier}` : ""}
-							</option>
-						))}
-					</select>
+						onValueChange={(value) => router.push(buildHref({ crew: value }))}
+						placeholder="Semua crew"
+						options={crewSelectOptions}
+						aria-label="Filter crew"
+						triggerClassName="pl-7"
+					/>
 				</div>
 			)}
 
 			<Link
 				href={buildHref({ show_archived: defaultShowArchived ? "" : "1" })}
-				className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors ${
+				className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo ${
 					defaultShowArchived
-						? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
-						: "border-border bg-card text-muted-foreground hover:text-foreground"
+						? "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
+						: "border-border-default bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 				}`}
 				aria-pressed={defaultShowArchived}
 			>
-				<Archive className="h-3.5 w-3.5" />
+				<Archive className="size-3.5" aria-hidden />
 				Show archived
 				{archivedCount > 0 && (
-					<span className="tabular text-xs opacity-70">({archivedCount})</span>
+					<span className="tabular opacity-70">({archivedCount})</span>
 				)}
 			</Link>
 
 			{hasFilters && (
 				<Link
 					href="/operations"
-					className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 rounded-md px-2 text-xs font-medium"
+					className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
 				>
-					<X className="h-3.5 w-3.5" />
+					<X className="size-3.5" aria-hidden />
 					Clear
 				</Link>
 			)}

@@ -202,7 +202,7 @@ function DesignCardItem({ event }: { event: DesignEvent }) {
 	return (
 		<Link
 			href={`/operations/${event.project_id}`}
-			className="border-border bg-card hover:border-primary/40 block space-y-2 rounded-lg border p-3 transition-colors"
+			className="border-border bg-surface-2 hover:border-primary/40 block space-y-2 rounded-lg border p-3 transition-colors"
 		>
 			<div className="flex items-baseline justify-between gap-2">
 				<p className="text-sm font-semibold leading-tight">

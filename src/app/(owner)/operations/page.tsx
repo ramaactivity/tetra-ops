@@ -15,9 +15,13 @@ import {
 	EventStatusBadge,
 	PaymentStatusBadge,
 } from "@/components/badges/status-badge";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsFilterBar } from "@/components/operations/filter-bar";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -79,7 +83,6 @@ export default async function OperationsListPage({
 	const me = await getCurrentUser();
 	const supabase = await createClient();
 
-	// If crew filter is set, fetch event_ids assigned to that crew first
 	let crewEventIds: string[] | null = null;
 	if (crewFilter) {
 		const { data: crewEvents } = await supabase
@@ -99,7 +102,9 @@ export default async function OperationsListPage({
 		.limit(100);
 
 	if (!showArchived) {
-		listQuery = listQuery.eq("is_migrated_legacy", false).neq("status", "archived");
+		listQuery = listQuery
+			.eq("is_migrated_legacy", false)
+			.neq("status", "archived");
 	}
 
 	if (q) listQuery = listQuery.ilike("client_name", `%${q}%`);
@@ -111,7 +116,6 @@ export default async function OperationsListPage({
 		listQuery = listQuery.gte("event_date", start).lte("event_date", end);
 	}
 	if (crewEventIds !== null) {
-		// If crew has no assignments, force empty result
 		if (crewEventIds.length === 0) {
 			listQuery = listQuery.eq("id", "00000000-0000-0000-0000-000000000000");
 		} else {
@@ -175,19 +179,18 @@ export default async function OperationsListPage({
 
 	if (listResult.error) {
 		return (
-			<div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-				<div className="border-destructive bg-destructive/10 rounded-md border p-4">
-					<p className="text-destructive text-sm font-medium">
+			<Container size="xl">
+				<div className="rounded-md border border-destructive/40 bg-destructive/10 p-4">
+					<p className="text-fluid-body font-medium text-destructive">
 						Gagal memuat events: {listResult.error.message}
 					</p>
 				</div>
-			</div>
+			</Container>
 		);
 	}
 
 	const events = (listResult.data ?? []) as EventRow[];
 
-	// Fetch crew assignments for these events in one round-trip → group by event_id
 	const crewByEvent = new Map<string, CrewChip[]>();
 	if (events.length > 0) {
 		const { data: crewRows } = await supabase
@@ -231,7 +234,6 @@ export default async function OperationsListPage({
 			});
 			crewByEvent.set(row.event_id, list);
 		}
-		// Sort each event's crew: lead first, then asisten
 		for (const [k, list] of crewByEvent.entries()) {
 			list.sort((a, b) => {
 				if (a.role_in_event === b.role_in_event) return 0;
@@ -267,37 +269,35 @@ export default async function OperationsListPage({
 		: null;
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
-					<p className="text-muted-foreground text-sm">
-						Kelola event dari draft sampai pelunasan.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<OperationsViewSwitcher current="list" />
-					{isSuperAdmin && (
+		<Container size="xl" className="space-y-6">
+			<SectionHeader
+				title="Operations"
+				description="Kelola event dari draft sampai pelunasan."
+				actions={
+					<>
+						<OperationsViewSwitcher current="list" />
+						{isSuperAdmin && (
+							<Link
+								href="/settings/operations/import-projects"
+								title="Bulk-import projects from old Apps Script v1"
+								className={buttonVariants({ variant: "ghost", size: "sm" })}
+							>
+								<Upload className="size-4" />
+								<span className="hidden sm:inline">Import legacy</span>
+							</Link>
+						)}
 						<Link
-							href="/settings/operations/import-projects"
-							className="text-muted-foreground hover:text-foreground inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-sm font-medium"
-							title="Bulk-import projects from old Apps Script v1"
+							href="/operations/new"
+							className={buttonVariants({ variant: "default" })}
 						>
-							<Upload className="h-4 w-4" />
-							Import legacy
+							<Plus className="size-4" />
+							<span className="hidden sm:inline">New booking</span>
 						</Link>
-					)}
-					<Link
-						href="/operations/new"
-						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
-					>
-						<Plus className="h-4 w-4" />
-						New booking
-					</Link>
-				</div>
-			</div>
+					</>
+				}
+			/>
 
-			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<KpiCard
 					label="Total Events"
 					value={totalCount.toLocaleString("id-ID")}
@@ -339,20 +339,20 @@ export default async function OperationsListPage({
 				/>
 
 				{selectedCrew && (
-					<div className="border-primary/20 bg-primary/5 flex items-center gap-2 rounded-md border px-3 py-2">
-						<Users className="text-primary h-3.5 w-3.5" />
-						<span className="text-foreground text-xs">
+					<div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+						<Users className="size-3.5 text-primary" aria-hidden />
+						<span className="text-fluid-caption text-foreground">
 							Filtering by crew:{" "}
 							<span className="font-medium">{selectedCrew.full_name}</span>
 							{selectedCrew.tier && (
-								<span className="text-muted-foreground ml-1 uppercase">
+								<span className="ml-1 uppercase text-muted-foreground">
 									· {selectedCrew.tier}
 								</span>
 							)}
 						</span>
 						<Link
 							href="/operations"
-							className="text-muted-foreground hover:text-foreground ml-auto text-xs"
+							className="ml-auto text-fluid-caption text-muted-foreground hover:text-foreground"
 						>
 							Clear
 						</Link>
@@ -360,23 +360,32 @@ export default async function OperationsListPage({
 				)}
 
 				{events.length === 0 ? (
-					<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-						<CalendarPlus className="text-muted-foreground h-10 w-10" />
-						<div className="space-y-1">
-							<h3 className="font-medium">
-								{hasFilters
-									? "Tidak ada event yang cocok"
-									: "Belum ada booking"}
-							</h3>
-							<p className="text-muted-foreground text-sm">
-								{hasFilters
-									? "Coba ubah atau hapus filter."
-									: "Klik New booking untuk bikin event pertama."}
-							</p>
-						</div>
-					</div>
+					<EmptyState
+						icon={CalendarPlus}
+						title={
+							hasFilters
+								? "Tidak ada event yang cocok"
+								: "Belum ada booking"
+						}
+						description={
+							hasFilters
+								? "Coba ubah atau hapus filter di atas."
+								: "Klik New booking buat bikin event pertama. Bookingan masuk akan muncul di sini."
+						}
+						action={
+							!hasFilters ? (
+								<Link
+									href="/operations/new"
+									className={buttonVariants({ variant: "default" })}
+								>
+									<Plus className="size-4" />
+									New booking
+								</Link>
+							) : undefined
+						}
+					/>
 				) : (
-					<div className="border-border bg-card overflow-x-auto rounded-lg border">
+					<div className="overflow-x-auto rounded-lg border border-border-default bg-surface-2">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -394,7 +403,7 @@ export default async function OperationsListPage({
 							<TableBody>
 								{events.map((ev) => (
 									<TableRow key={ev.id}>
-										<TableCell className="tabular text-xs font-medium">
+										<TableCell className="tabular text-fluid-caption font-medium">
 											<div className="flex items-center gap-1.5">
 												<Link
 													href={`/operations/${ev.project_id}`}
@@ -404,27 +413,28 @@ export default async function OperationsListPage({
 												</Link>
 												{ev.is_migrated_legacy && (
 													<span
-														className="inline-flex h-4 items-center rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+														className="inline-flex h-4 items-center rounded bg-amber-500/15 px-1 text-[10px] font-medium text-amber-700 dark:text-amber-300"
 														title="Migrated from Phase-2 (read-only)"
 													>
-														<Archive className="h-2.5 w-2.5" />
+														<Archive className="size-2.5" />
 													</span>
 												)}
-												{!ev.is_migrated_legacy && ev.legacy_invoice_number && (
-													<span
-														className="border-border text-muted-foreground inline-flex h-4 items-center rounded border px-1 text-[10px] font-medium"
-														title={`Imported from Phase-2 (invoice ${ev.legacy_invoice_number})`}
-													>
-														<Inbox className="h-2.5 w-2.5" />
-													</span>
-												)}
+												{!ev.is_migrated_legacy &&
+													ev.legacy_invoice_number && (
+														<span
+															className="inline-flex h-4 items-center rounded border border-border-default px-1 text-[10px] font-medium text-muted-foreground"
+															title={`Imported from Phase-2 (invoice ${ev.legacy_invoice_number})`}
+														>
+															<Inbox className="size-2.5" />
+														</span>
+													)}
 											</div>
 										</TableCell>
 										<TableCell>{ev.client_name}</TableCell>
-										<TableCell className="tabular text-muted-foreground text-sm">
+										<TableCell className="tabular text-fluid-caption text-muted-foreground">
 											{formatDateID(ev.event_date)}
 										</TableCell>
-										<TableCell className="text-muted-foreground truncate text-sm">
+										<TableCell className="truncate text-fluid-caption text-muted-foreground">
 											{ev.venue_name}
 											{ev.venue_city && (
 												<span className="text-muted-foreground/60">
@@ -439,7 +449,7 @@ export default async function OperationsListPage({
 												highlightUserId={crewFilter || undefined}
 											/>
 										</TableCell>
-										<TableCell className="text-muted-foreground text-xs">
+										<TableCell className="text-fluid-caption text-muted-foreground">
 											{CHANNEL_TYPE_LABELS[ev.channel] ?? ev.channel}
 										</TableCell>
 										<TableCell>
@@ -458,7 +468,7 @@ export default async function OperationsListPage({
 					</div>
 				)}
 			</div>
-		</div>
+		</Container>
 	);
 }
 
@@ -470,7 +480,7 @@ function CrewChips({
 	highlightUserId?: string;
 }) {
 	if (crew.length === 0) {
-		return <span className="text-muted-foreground/60 text-xs">—</span>;
+		return <span className="text-fluid-caption text-muted-foreground/60">—</span>;
 	}
 	const visible = crew.slice(0, 3);
 	const overflow = crew.length - visible.length;
@@ -489,16 +499,16 @@ function CrewChips({
 					<span
 						key={c.user_id}
 						title={`${c.full_name}${c.tier ? ` · ${c.tier}` : ""} · ${c.role_in_event}`}
-						className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ${
+						className={`inline-flex size-6 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ${
 							highlighted
 								? "ring-primary"
 								: isLead
-									? "ring-emerald-200 dark:ring-emerald-900"
-									: "ring-sky-200 dark:ring-sky-900"
+									? "ring-emerald-500/30"
+									: "ring-sky-500/30"
 						} ${
 							isLead
-								? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-								: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
+								? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+								: "bg-sky-500/15 text-sky-700 dark:text-sky-300"
 						}`}
 					>
 						{initials || "?"}
@@ -508,7 +518,7 @@ function CrewChips({
 			{overflow > 0 && (
 				<span
 					title={`${overflow} crew lainnya`}
-					className="bg-muted text-muted-foreground inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold"
+					className="inline-flex size-6 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-muted-foreground"
 				>
 					+{overflow}
 				</span>
