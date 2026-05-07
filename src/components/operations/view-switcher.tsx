@@ -1,8 +1,19 @@
-import { Calendar, KanbanSquare, List, Palette } from "lucide-react";
+import {
+	Calendar,
+	KanbanSquare,
+	List,
+	Palette,
+	UsersRound,
+} from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export type OperationsView = "list" | "calendar" | "board" | "design";
+export type OperationsView =
+	| "list"
+	| "calendar"
+	| "board"
+	| "design"
+	| "team";
 
 const VIEWS: Array<{
 	value: OperationsView;
@@ -28,6 +39,12 @@ const VIEWS: Array<{
 		label: "Design",
 		href: "/operations/design",
 		icon: Palette,
+	},
+	{
+		value: "team",
+		label: "Team",
+		href: "/operations/team",
+		icon: UsersRound,
 	},
 ];
 

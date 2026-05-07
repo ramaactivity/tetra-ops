@@ -7,6 +7,7 @@ import {
 	Inbox,
 	Plus,
 	Upload,
+	Users,
 	Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -44,6 +45,14 @@ type EventRow = {
 	legacy_invoice_number: string | null;
 };
 
+type CrewChip = {
+	user_id: string;
+	full_name: string;
+	nickname: string | null;
+	tier: "senior" | "junior" | null;
+	role_in_event: string;
+};
+
 function lastDayOfMonth(year: number, month: number): string {
 	const d = new Date(year, month, 0).getDate();
 	return `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -57,6 +66,7 @@ export default async function OperationsListPage({
 		status?: string;
 		month?: string;
 		show_archived?: string;
+		crew?: string;
 	}>;
 }) {
 	const params = await searchParams;
@@ -64,9 +74,20 @@ export default async function OperationsListPage({
 	const status = params.status?.trim() ?? "";
 	const month = params.month?.trim() ?? "";
 	const showArchived = params.show_archived === "1";
+	const crewFilter = params.crew?.trim() ?? "";
 
 	const me = await getCurrentUser();
 	const supabase = await createClient();
+
+	// If crew filter is set, fetch event_ids assigned to that crew first
+	let crewEventIds: string[] | null = null;
+	if (crewFilter) {
+		const { data: crewEvents } = await supabase
+			.from("crew_assignments")
+			.select("event_id")
+			.eq("user_id", crewFilter);
+		crewEventIds = (crewEvents ?? []).map((c) => c.event_id as string);
+	}
 
 	let listQuery = supabase
 		.from("events")
@@ -89,6 +110,14 @@ export default async function OperationsListPage({
 		const end = lastDayOfMonth(y, m);
 		listQuery = listQuery.gte("event_date", start).lte("event_date", end);
 	}
+	if (crewEventIds !== null) {
+		// If crew has no assignments, force empty result
+		if (crewEventIds.length === 0) {
+			listQuery = listQuery.eq("id", "00000000-0000-0000-0000-000000000000");
+		} else {
+			listQuery = listQuery.in("id", crewEventIds);
+		}
+	}
 
 	const today = new Date();
 	const ymStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
@@ -101,6 +130,7 @@ export default async function OperationsListPage({
 		awaitingCountResult,
 		outstandingResult,
 		archivedCountResult,
+		crewListResult,
 	] = await Promise.all([
 		listQuery,
 		supabase
@@ -134,6 +164,13 @@ export default async function OperationsListPage({
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
 			.or("is_migrated_legacy.eq.true,status.eq.archived"),
+		supabase
+			.from("users")
+			.select("id, full_name, nickname, tier")
+			.eq("role", "crew")
+			.eq("is_active", true)
+			.is("deleted_at", null)
+			.order("full_name", { ascending: true }),
 	]);
 
 	if (listResult.error) {
@@ -149,6 +186,70 @@ export default async function OperationsListPage({
 	}
 
 	const events = (listResult.data ?? []) as EventRow[];
+
+	// Fetch crew assignments for these events in one round-trip → group by event_id
+	const crewByEvent = new Map<string, CrewChip[]>();
+	if (events.length > 0) {
+		const { data: crewRows } = await supabase
+			.from("crew_assignments")
+			.select(
+				`event_id, role_in_event,
+				user:users!crew_assignments_user_id_fkey(id, full_name, nickname, tier)`,
+			)
+			.in(
+				"event_id",
+				events.map((e) => e.id),
+			);
+
+		for (const row of (crewRows ?? []) as Array<{
+			event_id: string;
+			role_in_event: string;
+			user:
+				| {
+						id: string;
+						full_name: string;
+						nickname: string | null;
+						tier: "senior" | "junior" | null;
+					}
+				| Array<{
+						id: string;
+						full_name: string;
+						nickname: string | null;
+						tier: "senior" | "junior" | null;
+					}>
+				| null;
+		}>) {
+			const u = Array.isArray(row.user) ? row.user[0] : row.user;
+			if (!u) continue;
+			const list = crewByEvent.get(row.event_id) ?? [];
+			list.push({
+				user_id: u.id,
+				full_name: u.full_name,
+				nickname: u.nickname,
+				tier: u.tier,
+				role_in_event: row.role_in_event,
+			});
+			crewByEvent.set(row.event_id, list);
+		}
+		// Sort each event's crew: lead first, then asisten
+		for (const [k, list] of crewByEvent.entries()) {
+			list.sort((a, b) => {
+				if (a.role_in_event === b.role_in_event) return 0;
+				if (a.role_in_event === "lead") return -1;
+				if (b.role_in_event === "lead") return 1;
+				return 0;
+			});
+			crewByEvent.set(k, list);
+		}
+	}
+
+	const crewList = (crewListResult.data ?? []) as Array<{
+		id: string;
+		full_name: string;
+		nickname: string | null;
+		tier: "senior" | "junior" | null;
+	}>;
+
 	const totalCount = totalCountResult.count ?? 0;
 	const thisMonthCount = thisMonthCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
@@ -158,8 +259,12 @@ export default async function OperationsListPage({
 	);
 	const archivedCount = archivedCountResult.count ?? 0;
 
-	const hasFilters = Boolean(q || status || month || showArchived);
+	const hasFilters = Boolean(q || status || month || showArchived || crewFilter);
 	const isSuperAdmin = me?.profile.role === "super_admin";
+
+	const selectedCrew = crewFilter
+		? crewList.find((c) => c.id === crewFilter)
+		: null;
 
 	return (
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
@@ -229,7 +334,30 @@ export default async function OperationsListPage({
 					defaultMonth={month}
 					defaultShowArchived={showArchived}
 					archivedCount={archivedCount}
+					defaultCrew={crewFilter}
+					crewOptions={crewList}
 				/>
+
+				{selectedCrew && (
+					<div className="border-primary/20 bg-primary/5 flex items-center gap-2 rounded-md border px-3 py-2">
+						<Users className="text-primary h-3.5 w-3.5" />
+						<span className="text-foreground text-xs">
+							Filtering by crew:{" "}
+							<span className="font-medium">{selectedCrew.full_name}</span>
+							{selectedCrew.tier && (
+								<span className="text-muted-foreground ml-1 uppercase">
+									· {selectedCrew.tier}
+								</span>
+							)}
+						</span>
+						<Link
+							href="/operations"
+							className="text-muted-foreground hover:text-foreground ml-auto text-xs"
+						>
+							Clear
+						</Link>
+					</div>
+				)}
 
 				{events.length === 0 ? (
 					<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
@@ -256,6 +384,7 @@ export default async function OperationsListPage({
 									<TableHead>Client</TableHead>
 									<TableHead>Event Date</TableHead>
 									<TableHead>Venue</TableHead>
+									<TableHead>Crew</TableHead>
 									<TableHead>Channel</TableHead>
 									<TableHead>Status</TableHead>
 									<TableHead className="text-right">Grand Total</TableHead>
@@ -304,6 +433,12 @@ export default async function OperationsListPage({
 												</span>
 											)}
 										</TableCell>
+										<TableCell>
+											<CrewChips
+												crew={crewByEvent.get(ev.id) ?? []}
+												highlightUserId={crewFilter || undefined}
+											/>
+										</TableCell>
 										<TableCell className="text-muted-foreground text-xs">
 											{CHANNEL_TYPE_LABELS[ev.channel] ?? ev.channel}
 										</TableCell>
@@ -323,6 +458,61 @@ export default async function OperationsListPage({
 					</div>
 				)}
 			</div>
+		</div>
+	);
+}
+
+function CrewChips({
+	crew,
+	highlightUserId,
+}: {
+	crew: CrewChip[];
+	highlightUserId?: string;
+}) {
+	if (crew.length === 0) {
+		return <span className="text-muted-foreground/60 text-xs">—</span>;
+	}
+	const visible = crew.slice(0, 3);
+	const overflow = crew.length - visible.length;
+	return (
+		<div className="flex items-center gap-1">
+			{visible.map((c) => {
+				const isLead = c.role_in_event === "lead";
+				const initials = (c.nickname ?? c.full_name)
+					.split(/\s+/)
+					.slice(0, 2)
+					.map((p) => p[0])
+					.join("")
+					.toUpperCase();
+				const highlighted = highlightUserId === c.user_id;
+				return (
+					<span
+						key={c.user_id}
+						title={`${c.full_name}${c.tier ? ` · ${c.tier}` : ""} · ${c.role_in_event}`}
+						className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold ring-2 ${
+							highlighted
+								? "ring-primary"
+								: isLead
+									? "ring-emerald-200 dark:ring-emerald-900"
+									: "ring-sky-200 dark:ring-sky-900"
+						} ${
+							isLead
+								? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+								: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300"
+						}`}
+					>
+						{initials || "?"}
+					</span>
+				);
+			})}
+			{overflow > 0 && (
+				<span
+					title={`${overflow} crew lainnya`}
+					className="bg-muted text-muted-foreground inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold"
+				>
+					+{overflow}
+				</span>
+			)}
 		</div>
 	);
 }

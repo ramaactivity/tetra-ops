@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Search, X } from "lucide-react";
+import { Archive, Search, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -19,23 +19,38 @@ const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
 	"archived",
 ];
 
+export type CrewOption = {
+	id: string;
+	full_name: string;
+	nickname: string | null;
+	tier: "senior" | "junior" | null;
+};
+
 export function OperationsFilterBar({
 	defaultQ,
 	defaultStatus,
 	defaultMonth,
 	defaultShowArchived = false,
 	archivedCount = 0,
+	defaultCrew = "",
+	crewOptions = [],
 }: {
 	defaultQ: string;
 	defaultStatus: string;
 	defaultMonth: string;
 	defaultShowArchived?: boolean;
 	archivedCount?: number;
+	defaultCrew?: string;
+	crewOptions?: CrewOption[];
 }) {
 	const router = useRouter();
 	const [q, setQ] = useState(defaultQ);
 	const hasFilters = Boolean(
-		defaultQ || defaultStatus || defaultMonth || defaultShowArchived,
+		defaultQ ||
+			defaultStatus ||
+			defaultMonth ||
+			defaultShowArchived ||
+			defaultCrew,
 	);
 
 	function buildHref(updates: Record<string, string>) {
@@ -45,6 +60,7 @@ export function OperationsFilterBar({
 			status: defaultStatus,
 			month: defaultMonth,
 			show_archived: defaultShowArchived ? "1" : "",
+			crew: defaultCrew,
 			...updates,
 		};
 		for (const [k, v] of Object.entries(merged)) {
@@ -94,6 +110,26 @@ export function OperationsFilterBar({
 				onChange={(e) => router.push(buildHref({ month: e.target.value }))}
 				className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 			/>
+
+			{crewOptions.length > 0 && (
+				<div className="relative">
+					<Users className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
+					<select
+						value={defaultCrew}
+						onChange={(e) => router.push(buildHref({ crew: e.target.value }))}
+						className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border pl-7 pr-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+						aria-label="Filter by crew"
+					>
+						<option value="">Semua crew</option>
+						{crewOptions.map((c) => (
+							<option key={c.id} value={c.id}>
+								{c.nickname ?? c.full_name}
+								{c.tier ? ` · ${c.tier}` : ""}
+							</option>
+						))}
+					</select>
+				</div>
+			)}
 
 			<Link
 				href={buildHref({ show_archived: defaultShowArchived ? "" : "1" })}
