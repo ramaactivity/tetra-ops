@@ -1,4 +1,11 @@
-import { ChevronLeft, ExternalLink, Pencil, Receipt, Users } from "lucide-react";
+import {
+	CalculatorIcon,
+	ChevronLeft,
+	ExternalLink,
+	Pencil,
+	Receipt,
+	Users,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -30,9 +37,9 @@ export default async function EventDetailPage({
 
 	const [{ data: event, error }, { data: templatesData }] = await Promise.all([
 		supabase
-		.from("events")
-		.select(
-			`
+			.from("events")
+			.select(
+				`
 			id, project_id, status, channel, client_name, client_wa, client_email,
 			service_type, frame_size, package_id, event_category, event_date,
 			setup_time, start_time, end_time, venue_name, venue_address, venue_city,
@@ -41,11 +48,16 @@ export default async function EventDetailPage({
 			crew_notes, created_at, updated_at,
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
-			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier))
+			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier)),
+			settlement:event_settlements(
+				id, revenue_net, hpp_total, opex_total, total_biaya, net_profit,
+				margin_percentage, is_loss, sinking_total, owner_pool_total,
+				owner_pool_per_person, operating_cash_kept, closed_at
+			)
 		`,
-		)
-		.eq("project_id", projectId)
-		.maybeSingle(),
+			)
+			.eq("project_id", projectId)
+			.maybeSingle(),
 		supabase
 			.from("whatsapp_templates")
 			.select("code, name, description, template_body")
@@ -92,6 +104,12 @@ export default async function EventDetailPage({
 	};
 
 	const templates = (templatesData ?? []) as WhatsAppTemplate[];
+	const settlement = Array.isArray(event.settlement)
+		? event.settlement[0]
+		: event.settlement;
+	const canSettle =
+		!settlement &&
+		(event.status === "in_progress" || event.status === "awaiting_settlement");
 
 	function crewByRole(role: string) {
 		const ca = crewAssignments.find((a) => a.role_in_event === role);
@@ -145,7 +163,9 @@ export default async function EventDetailPage({
 							projectId={event.project_id}
 							eventId={event.id}
 							currentStatus={
-								event.status as Parameters<typeof StatusMenu>[0]["currentStatus"]
+								event.status as Parameters<
+									typeof StatusMenu
+								>[0]["currentStatus"]
 							}
 						/>
 						<SendWhatsAppButton
@@ -160,6 +180,15 @@ export default async function EventDetailPage({
 							<Pencil className="h-3.5 w-3.5" />
 							Edit
 						</Link>
+						{canSettle && (
+							<Link
+								href={`/operations/${event.project_id}/settle`}
+								className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-semibold"
+							>
+								<CalculatorIcon className="h-3.5 w-3.5" />
+								Settle Event
+							</Link>
+						)}
 					</div>
 				</div>
 			</div>
@@ -198,14 +227,18 @@ export default async function EventDetailPage({
 								</span>
 							</span>
 						) : (
-							<span className="text-muted-foreground">Custom / belum dipilih</span>
+							<span className="text-muted-foreground">
+								Custom / belum dipilih
+							</span>
 						)}
 					</DetailRow>
 				</DetailCard>
 
 				<DetailCard title="Event">
 					<DetailRow label="Kategori">{event.event_category}</DetailRow>
-					<DetailRow label="Tanggal">{formatDateID(event.event_date)}</DetailRow>
+					<DetailRow label="Tanggal">
+						{formatDateID(event.event_date)}
+					</DetailRow>
 					<DetailRow label="Setup">{event.setup_time}</DetailRow>
 					<DetailRow label="Start">{event.start_time}</DetailRow>
 					<DetailRow label="End">{event.end_time}</DetailRow>
@@ -277,9 +310,7 @@ export default async function EventDetailPage({
 										className="flex items-baseline justify-between gap-3 text-sm"
 									>
 										<div>
-											<span className="font-medium">
-												{addon?.name ?? "—"}
-											</span>
+											<span className="font-medium">{addon?.name ?? "—"}</span>
 											<span className="text-muted-foreground">
 												{" "}
 												· {row.quantity} {addon?.unit ?? ""}
@@ -307,50 +338,50 @@ export default async function EventDetailPage({
 						</Link>
 					</div>
 					<dl className="space-y-2">
-					<DetailRow label="Base Price">
-						<span className="tabular">
-							{event.base_price ? formatRupiah(event.base_price) : "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Add-ons">
-						<span className="tabular">
-							{event.addons_total ? formatRupiah(event.addons_total) : "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Discount">
-						<span className="tabular">
-							{event.discount_amount
-								? `−${formatRupiah(event.discount_amount)}`
-								: "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Gross-up PPh">
-						<span className="tabular">
-							{event.gross_up_pph_amount
-								? formatRupiah(event.gross_up_pph_amount)
-								: "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Grand Total">
-						<span className="tabular text-foreground font-semibold">
-							{event.grand_total ? formatRupiah(event.grand_total) : "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Total Paid">
-						<span className="tabular">
-							{event.total_paid ? formatRupiah(event.total_paid) : "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Remaining">
-						<span className="tabular">
-							{event.remaining_balance
-								? formatRupiah(event.remaining_balance)
-								: "—"}
-						</span>
-					</DetailRow>
-					<DetailRow label="Payment Status">
-						<PaymentStatusBadge status={event.payment_status} />
-					</DetailRow>
+						<DetailRow label="Base Price">
+							<span className="tabular">
+								{event.base_price ? formatRupiah(event.base_price) : "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Add-ons">
+							<span className="tabular">
+								{event.addons_total ? formatRupiah(event.addons_total) : "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Discount">
+							<span className="tabular">
+								{event.discount_amount
+									? `−${formatRupiah(event.discount_amount)}`
+									: "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Gross-up PPh">
+							<span className="tabular">
+								{event.gross_up_pph_amount
+									? formatRupiah(event.gross_up_pph_amount)
+									: "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Grand Total">
+							<span className="tabular text-foreground font-semibold">
+								{event.grand_total ? formatRupiah(event.grand_total) : "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Total Paid">
+							<span className="tabular">
+								{event.total_paid ? formatRupiah(event.total_paid) : "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Remaining">
+							<span className="tabular">
+								{event.remaining_balance
+									? formatRupiah(event.remaining_balance)
+									: "—"}
+							</span>
+						</DetailRow>
+						<DetailRow label="Payment Status">
+							<PaymentStatusBadge status={event.payment_status} />
+						</DetailRow>
 					</dl>
 				</div>
 
@@ -363,12 +394,88 @@ export default async function EventDetailPage({
 				)}
 			</div>
 
-			<div className="border-border bg-card rounded-xl border border-dashed p-6 text-center">
-				<p className="text-muted-foreground text-sm">
-					Edit event, addons, crew assignment, payment logging — Phase 1
-					Week 3+ lanjutan.
-				</p>
-			</div>
+			{settlement && (
+				<div className="border-border bg-card space-y-4 rounded-xl border p-5">
+					<div className="flex flex-wrap items-baseline justify-between gap-2">
+						<div className="space-y-0.5">
+							<h3 className="text-base font-semibold tracking-tight">
+								Settlement
+							</h3>
+							<p className="text-muted-foreground text-xs">
+								Ditutup {formatDateID(settlement.closed_at)}
+							</p>
+						</div>
+						<Badge variant={settlement.is_loss ? "destructive" : "default"}>
+							{settlement.is_loss
+								? `RUGI · ${settlement.margin_percentage}%`
+								: `PROFIT · ${settlement.margin_percentage}%`}
+						</Badge>
+					</div>
+
+					<div className="grid gap-4 sm:grid-cols-2">
+						<dl className="space-y-2">
+							<SettlementRow
+								label="Revenue Net"
+								value={formatRupiah(settlement.revenue_net)}
+							/>
+							<SettlementRow
+								label="HPP"
+								value={`−${formatRupiah(settlement.hpp_total)}`}
+							/>
+							<SettlementRow
+								label="OpEx"
+								value={`−${formatRupiah(settlement.opex_total)}`}
+							/>
+							<SettlementRow
+								label="Total Biaya"
+								value={`−${formatRupiah(settlement.total_biaya)}`}
+							/>
+							<div className="flex items-baseline justify-between border-t border-border pt-2 text-sm font-semibold">
+								<dt>Net Profit</dt>
+								<dd
+									className={
+										settlement.is_loss
+											? "tabular text-rose-500"
+											: "tabular text-emerald-500"
+									}
+								>
+									{formatRupiah(settlement.net_profit)}
+								</dd>
+							</div>
+						</dl>
+
+						{!settlement.is_loss && (
+							<dl className="space-y-2">
+								<SettlementRow
+									label="Sinking Funds"
+									value={formatRupiah(settlement.sinking_total)}
+								/>
+								<SettlementRow
+									label={`Owner Pool (× ${formatRupiah(
+										settlement.owner_pool_per_person,
+									)})`}
+									value={formatRupiah(settlement.owner_pool_total)}
+								/>
+								<div className="flex items-baseline justify-between border-t border-border pt-2 text-sm font-semibold">
+									<dt>Operating Cash</dt>
+									<dd className="tabular text-foreground">
+										{formatRupiah(settlement.operating_cash_kept)}
+									</dd>
+								</div>
+							</dl>
+						)}
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function SettlementRow({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="flex items-baseline justify-between gap-3 text-sm">
+			<dt className="text-muted-foreground">{label}</dt>
+			<dd className="text-foreground tabular">{value}</dd>
 		</div>
 	);
 }
