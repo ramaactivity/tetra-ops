@@ -1,0 +1,13 @@
+{
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"crons": [
+		{
+			"path": "/api/cron/status-transition",
+			"schedule": "0 23 * * *"
+		},
+		{
+			"path": "/api/cron/anomaly-scan",
+			"schedule": "30 23 * * *"
+		}
+	]
+}

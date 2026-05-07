@@ -51,7 +51,15 @@ export async function runAnomalyScanner(): Promise<ScanResult> {
 	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
 		throw new Error("Forbidden — owner-level only");
 	}
+	return runAnomalyScannerInternal();
+}
 
+/**
+ * Internal variant — no auth. Use ONLY from authenticated server actions
+ * (which gate auth themselves) or from the Vercel cron endpoint
+ * (which gates via CRON_SECRET).
+ */
+export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 	const admin = createAdminClient();
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
