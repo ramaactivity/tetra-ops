@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	type IncidentFormState,
 	reportEquipmentIncident,
@@ -37,6 +38,11 @@ export function IncidentDialog({
 
 	const get = (key: string, fallback?: string) =>
 		state?.values?.[key] ?? fallback ?? "";
+
+	const [severity, setSeverity] = useState<string>(get("severity", "minor"));
+	const [markCondition, setMarkCondition] = useState<string>(
+		get("mark_condition", ""),
+	);
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
@@ -80,34 +86,54 @@ export function IncidentDialog({
 								Severity
 								<span className="text-primary ml-0.5">*</span>
 							</label>
-							<select
-								id="severity"
+							<NativeSelect
+								value={severity}
+								onValueChange={setSeverity}
+								options={[
+									{
+										value: "minor",
+										label: "Minor — masih bisa dipakai",
+									},
+									{ value: "major", label: "Major — perlu service" },
+									{
+										value: "total",
+										label: "Total — rusak/hilang permanen",
+									},
+								]}
+								triggerClassName="w-full"
+							/>
+							<input
+								type="hidden"
 								name="severity"
+								value={severity}
 								required
-								defaultValue={get("severity", "minor")}
-								className={selectClass}
-							>
-								<option value="minor">Minor — masih bisa dipakai</option>
-								<option value="major">Major — perlu service</option>
-								<option value="total">Total — rusak/hilang permanen</option>
-							</select>
+							/>
 						</div>
 
 						<div className="space-y-1.5">
 							<label htmlFor="mark_condition" className="text-sm font-medium">
 								Update Kondisi Item
 							</label>
-							<select
-								id="mark_condition"
+							<NativeSelect
+								value={markCondition}
+								onValueChange={setMarkCondition}
+								placeholder="Tidak diubah"
+								options={[
+									{ value: "", label: "Tidak diubah" },
+									{
+										value: "service",
+										label: "Service (perlu perbaikan)",
+									},
+									{ value: "damaged", label: "Damaged" },
+									{ value: "lost", label: "Lost" },
+								]}
+								triggerClassName="w-full"
+							/>
+							<input
+								type="hidden"
 								name="mark_condition"
-								defaultValue={get("mark_condition", "")}
-								className={selectClass}
-							>
-								<option value="">Tidak diubah</option>
-								<option value="service">Service (perlu perbaikan)</option>
-								<option value="damaged">Damaged</option>
-								<option value="lost">Lost</option>
-							</select>
+								value={markCondition}
+							/>
 						</div>
 					</div>
 

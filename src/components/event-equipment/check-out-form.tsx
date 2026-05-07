@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	Dialog,
 	DialogClose,
@@ -111,46 +112,46 @@ export function CheckOutDialog({
 							Equipment
 							<span className="text-primary ml-0.5">*</span>
 						</label>
-						<select
-							id="item_id"
-							required
+						<NativeSelect
 							value={selectedItem}
-							onChange={(e) => setSelectedItem(e.target.value)}
-							className={selectClass}
-						>
-							<option value="" disabled>
-								{availableItems.length === 0
+							onValueChange={setSelectedItem}
+							placeholder={
+								availableItems.length === 0
 									? "Tidak ada equipment available di gudang"
-									: "Pilih equipment…"}
-							</option>
-							{availableItems.map((it) => (
-								<option key={it.id} value={it.id}>
-									{it.sku} · {it.name}
-									{it.condition && it.condition !== "normal"
+									: "Pilih equipment…"
+							}
+							options={availableItems.map((it) => ({
+								value: it.id,
+								label: `${it.sku} · ${it.name}${
+									it.condition && it.condition !== "normal"
 										? ` (${it.condition})`
-										: ""}
-								</option>
-							))}
-						</select>
+										: ""
+								}`,
+							}))}
+							triggerClassName="w-full"
+						/>
 					</div>
 
 					<div className="space-y-1.5">
 						<label htmlFor="to_crew_id" className="text-sm font-medium">
 							Dibawa oleh
 						</label>
-						<select
-							id="to_crew_id"
+						<NativeSelect
 							value={crewId}
-							onChange={(e) => setCrewId(e.target.value)}
-							className={selectClass}
-						>
-							<option value="">Disimpan di event (tanpa crew carry)</option>
-							{assignedCrew.map((c) => (
-								<option key={c.id} value={c.id}>
-									{c.full_name} · {c.role_in_event}
-								</option>
-							))}
-						</select>
+							onValueChange={setCrewId}
+							placeholder="Disimpan di event (tanpa crew carry)"
+							options={[
+								{
+									value: "",
+									label: "Disimpan di event (tanpa crew carry)",
+								},
+								...assignedCrew.map((c) => ({
+									value: c.id,
+									label: `${c.full_name} · ${c.role_in_event}`,
+								})),
+							]}
+							triggerClassName="w-full"
+						/>
 						<p className="text-muted-foreground text-xs">
 							Pilih kalau crew yang bawa langsung dari gudang
 						</p>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	createItem,
 	type ItemFormState,
@@ -73,6 +75,13 @@ export function ItemForm({
 	const [category, setCategory] = useState<"consumable" | "equipment">(
 		defaults.category,
 	);
+	const [condition, setCondition] = useState<string>(defaults.condition);
+	const [currentLocation, setCurrentLocation] = useState<string>(
+		defaults.current_location,
+	);
+	const [purchaseDate, setPurchaseDate] = useState<string>(
+		defaults.purchase_date,
+	);
 
 	const get = (key: keyof Defaults, fallback?: string) => {
 		const v = state?.values?.[key as string];
@@ -121,18 +130,24 @@ export function ItemForm({
 					error={err("category")}
 					required
 				>
-					<select
-						name="category"
-						required
+					<NativeSelect
 						value={category}
-						onChange={(e) =>
-							setCategory(e.target.value as "consumable" | "equipment")
+						onValueChange={(v) =>
+							setCategory(v as "consumable" | "equipment")
 						}
-						className={selectClass}
-					>
-						<option value="consumable">Consumable</option>
-						<option value="equipment">Equipment</option>
-					</select>
+						options={[
+							{ value: "consumable", label: "Consumable" },
+							{ value: "equipment", label: "Equipment" },
+						]}
+						triggerClassName="w-full"
+						aria-invalid={!!err("category")}
+					/>
+					<input
+						type="hidden"
+						name="category"
+						value={category}
+						required
+					/>
 				</Field>
 			</div>
 
@@ -239,11 +254,16 @@ export function ItemForm({
 							name="purchase_date"
 							error={err("purchase_date")}
 						>
+							<DatePicker
+								value={purchaseDate}
+								onValueChange={setPurchaseDate}
+								placeholder="Pilih tanggal"
+								aria-invalid={!!err("purchase_date")}
+							/>
 							<input
-								type="date"
+								type="hidden"
 								name="purchase_date"
-								defaultValue={get("purchase_date")}
-								className={inputClass}
+								value={purchaseDate}
 							/>
 						</Field>
 
@@ -266,17 +286,20 @@ export function ItemForm({
 
 					<div className="grid gap-4 sm:grid-cols-2">
 						<Field label="Kondisi" name="condition" error={err("condition")}>
-							<select
+							<NativeSelect
+								value={condition}
+								onValueChange={setCondition}
+								options={CONDITION_OPTIONS.map(([v, l]) => ({
+									value: v,
+									label: l,
+								}))}
+								triggerClassName="w-full"
+							/>
+							<input
+								type="hidden"
 								name="condition"
-								defaultValue={get("condition", "normal")}
-								className={selectClass}
-							>
-								{CONDITION_OPTIONS.map(([v, l]) => (
-									<option key={v} value={v}>
-										{l}
-									</option>
-								))}
-							</select>
+								value={condition}
+							/>
 						</Field>
 
 						<Field
@@ -284,17 +307,20 @@ export function ItemForm({
 							name="current_location"
 							error={err("current_location")}
 						>
-							<select
+							<NativeSelect
+								value={currentLocation}
+								onValueChange={setCurrentLocation}
+								options={LOCATION_OPTIONS.map(([v, l]) => ({
+									value: v,
+									label: l,
+								}))}
+								triggerClassName="w-full"
+							/>
+							<input
+								type="hidden"
 								name="current_location"
-								defaultValue={get("current_location", "gudang_pusat")}
-								className={selectClass}
-							>
-								{LOCATION_OPTIONS.map(([v, l]) => (
-									<option key={v} value={v}>
-										{l}
-									</option>
-								))}
-							</select>
+								value={currentLocation}
+							/>
 						</Field>
 					</div>
 				</div>
