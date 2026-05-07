@@ -99,6 +99,48 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* === Surface hierarchy — 4 levels for proper depth stacking ===
+     Rule: never stack same-level surfaces. Card-on-card → L2 + L3.
+     Popover always L3 with L4 hover row. */
+  --color-surface-1: var(--surface-1); /* App shell, sidebar */
+  --color-surface-2: var(--surface-2); /* Default card */
+  --color-surface-3: var(--surface-3); /* Popover, dialog, sheet, elevated card */
+  --color-surface-4: var(--surface-4); /* Selected row, hover-elevated chip */
+
+  /* === Border hierarchy === */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* === Motion tokens — view-transitions-friendly easings + standard durations ===
+     Only animate transform/opacity/filter. Never width/height/font-size/color. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* === Branded glows — for primary CTAs, KPI hero, achievement states === */
+  --shadow-glow-crimson:
+    0 0 24px -4px rgb(220 41 84 / 0.45),
+    0 0 48px -8px rgb(220 41 84 / 0.25);
+  --shadow-glow-aurora:
+    0 0 24px -4px rgb(217 70 239 / 0.45),
+    0 0 48px -8px rgb(139 92 246 / 0.25);
+  --shadow-glow-sunrise:
+    0 0 24px -4px rgb(245 158 11 / 0.4),
+    0 0 48px -8px rgb(220 41 84 / 0.25);
+
+  /* === Fluid type scale — mobile shrinkage via clamp() ===
+     Mobile: 11/13/16/18/22/28 → Desktop: 12/16/20/24/32/48 */
+  --text-fluid-caption: clamp(0.6875rem, 0.66rem + 0.18vw, 0.75rem);
+  --text-fluid-body: clamp(0.8125rem, 0.78rem + 0.22vw, 1rem);
+  --text-fluid-h3: clamp(1rem, 0.94rem + 0.4vw, 1.25rem);
+  --text-fluid-h2: clamp(1.125rem, 1.04rem + 0.55vw, 1.5rem);
+  --text-fluid-h1: clamp(1.375rem, 1.1rem + 1.4vw, 2rem);
+  --text-fluid-display: clamp(1.75rem, 1.4rem + 1.8vw, 3rem);
+
   /* Radius */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -137,6 +179,24 @@
   --sidebar-accent-foreground: #18181D;
   --sidebar-border: #E7E7E5;
   --sidebar-ring: #DC2954;
+
+  /* 4-surface hierarchy (light) */
+  --surface-1: #FFFFFF;
+  --surface-2: #FCFCFB;
+  --surface-3: #F4F4F2;
+  --surface-4: #E7E7E5;
+
+  /* Border hierarchy (light) */
+  --border-subtle: #F0F0EE;
+  --border-default: #E7E7E5;
+  --border-strong: #D4D4D2;
+
+  /* Branded gradients — same in both themes (hero/empty/login/KPI/PDF cover only) */
+  --gradient-sunrise: linear-gradient(135deg, #DC2954 0%, #F59E0B 55%, #DEB57F 100%);
+  --gradient-aurora: linear-gradient(135deg, #8B5CF6 0%, #D946EF 50%, #FB7185 100%);
+  --gradient-sunrise-radial: radial-gradient(120% 80% at 0% 0%, #DC2954 0%, #F59E0B 50%, transparent 100%);
+  --gradient-aurora-radial: radial-gradient(120% 80% at 100% 0%, #8B5CF6 0%, #D946EF 50%, transparent 100%);
+  --gradient-mesh-warm: conic-gradient(from 180deg at 50% 50%, #DC2954 0deg, #F59E0B 90deg, #DEB57F 180deg, #DC2954 360deg);
 }
 
 /* Dark mode (default for Tetra Ops) */
@@ -167,6 +227,49 @@
   --sidebar-accent-foreground: #FAFAF9;
   --sidebar-border: #2A2A2F;
   --sidebar-ring: #DC2954;
+
+  /* 4-surface hierarchy (dark) */
+  --surface-1: #121218;
+  --surface-2: #18181D;
+  --surface-3: #22222A;
+  --surface-4: #2C2C36;
+
+  /* Border hierarchy (dark) */
+  --border-subtle: #1F1F26;
+  --border-default: #2A2A2F;
+  --border-strong: #404044;
+}
+
+/* === Branded gradient utilities ===
+   Use SPARINGLY: hero, empty-state, login/splash, KPI hero, PDF cover, FAB primary.
+   NEVER on cards in lists. */
+@utility bg-gradient-sunrise {
+  background-image: var(--gradient-sunrise);
+}
+@utility bg-gradient-aurora {
+  background-image: var(--gradient-aurora);
+}
+@utility bg-gradient-sunrise-radial {
+  background-image: var(--gradient-sunrise-radial);
+}
+@utility bg-gradient-aurora-radial {
+  background-image: var(--gradient-aurora-radial);
+}
+@utility bg-gradient-mesh-warm {
+  background-image: var(--gradient-mesh-warm);
+}
+/* Text-clipped gradients — for "Selamat datang kembali"-style branded headlines */
+@utility text-gradient-sunrise {
+  background-image: var(--gradient-sunrise);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+@utility text-gradient-aurora {
+  background-image: var(--gradient-aurora);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 @layer base {
