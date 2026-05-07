@@ -17,8 +17,6 @@ const SERVICE_TYPES = [
 	"photostage_combo",
 ] as const;
 const FRAME_SIZES = ["2R", "4R", "polaroid", "none"] as const;
-const BACKDROP_SOURCES = ["basic_tetra", "custom"] as const;
-const BACKDROP_COLORS = ["merah", "gold", "putih", "silver", "custom"] as const;
 
 const optionalString = (max: number) =>
 	z
@@ -55,21 +53,24 @@ const BookingInputSchema = z.object({
 	frame_size: z.enum(FRAME_SIZES),
 	event_category: z.string().trim().min(2, "Minimal 2 karakter").max(60),
 	event_date: z.iso.date("Format tanggal tidak valid"),
-	setup_time: z
-		.string()
-		.regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
+	setup_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
 	start_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
 	end_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
 	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
 	venue_address: optionalString(255),
 	venue_city: optionalString(60),
-	// Customization
-	backdrop_source: z.enum(BACKDROP_SOURCES).default("basic_tetra"),
-	backdrop_color: z
-		.enum(BACKDROP_COLORS)
+	// Customization (new model — backdrop master)
+	backdrop_id: z
+		.string()
+		.uuid()
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
+	vendor_decor_markup: z.coerce
+		.number()
+		.int()
+		.min(0, "Tidak boleh negatif")
+		.default(0),
 	include_flashdisk_pouch: z.coerce.boolean(),
 	// Financial
 	base_price: z.coerce.number().int().min(0, "Tidak boleh negatif").default(0),
@@ -113,8 +114,8 @@ const FORM_KEYS = [
 	"venue_name",
 	"venue_address",
 	"venue_city",
-	"backdrop_source",
-	"backdrop_color",
+	"backdrop_id",
+	"vendor_decor_markup",
 	"base_price",
 	"discount_amount",
 	"gross_up_pph_amount",
@@ -122,9 +123,7 @@ const FORM_KEYS = [
 ] as const;
 
 function parseFormData(formData: FormData) {
-	const raw = Object.fromEntries(
-		FORM_KEYS.map((k) => [k, formData.get(k)]),
-	);
+	const raw = Object.fromEntries(FORM_KEYS.map((k) => [k, formData.get(k)]));
 	return BookingInputSchema.safeParse({
 		...raw,
 		include_flashdisk_pouch: formData.get("include_flashdisk_pouch") === "on",
@@ -248,10 +247,12 @@ function buildEventPayload(
 	input: BookingInput,
 	basePrice: number,
 	addonsTotal: number,
+	backdropContribution: number,
 ) {
+	const effectiveAddonsTotal = addonsTotal + backdropContribution;
 	const grandTotal = computeGrandTotal({
 		base_price: basePrice,
-		addons_total: addonsTotal,
+		addons_total: effectiveAddonsTotal,
 		discount_amount: input.discount_amount,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 	});
@@ -272,17 +273,37 @@ function buildEventPayload(
 		venue_name: input.venue_name,
 		venue_address: input.venue_address,
 		venue_city: input.venue_city,
-		backdrop_source: input.backdrop_source,
-		backdrop_color: input.backdrop_color,
+		backdrop_id: input.backdrop_id,
+		vendor_decor_markup: input.vendor_decor_markup,
+		// Legacy columns retained on the events table for back-compat with
+		// historical data; new bookings populate them with neutral defaults.
+		backdrop_source: "basic_tetra",
+		backdrop_color: null,
 		include_flashdisk_pouch: input.include_flashdisk_pouch,
 		base_price: basePrice,
-		addons_total: addonsTotal,
+		addons_total: effectiveAddonsTotal,
 		discount_amount: input.discount_amount,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 		grand_total: grandTotal,
 		remaining_balance: grandTotal,
 		crew_notes: input.crew_notes,
 	};
+}
+
+async function resolveBackdropContribution(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	input: BookingInput,
+): Promise<number> {
+	let rental = 0;
+	if (input.backdrop_id) {
+		const { data: bg } = await supabase
+			.from("backdrops")
+			.select("type, rental_price")
+			.eq("id", input.backdrop_id)
+			.maybeSingle();
+		if (bg && bg.type === "rental_owned") rental = Number(bg.rental_price ?? 0);
+	}
+	return rental + (input.vendor_decor_markup ?? 0);
 }
 
 export async function createBooking(
@@ -306,6 +327,10 @@ export async function createBooking(
 		supabase,
 		addonsRaw,
 	);
+	const backdropContribution = await resolveBackdropContribution(
+		supabase,
+		parsed.data,
+	);
 	const projectId = generateProjectId(parsed.data.event_date);
 
 	const { data: inserted, error } = await supabase
@@ -314,7 +339,12 @@ export async function createBooking(
 			project_id: projectId,
 			status: "draft",
 			created_by: me.authId,
-			...buildEventPayload(parsed.data, basePrice, addonsTotal),
+			...buildEventPayload(
+				parsed.data,
+				basePrice,
+				addonsTotal,
+				backdropContribution,
+			),
 		})
 		.select("id")
 		.single();
@@ -371,10 +401,21 @@ export async function updateBooking(
 		supabase,
 		addonsRaw,
 	);
+	const backdropContribution = await resolveBackdropContribution(
+		supabase,
+		parsed.data,
+	);
 
 	const { data: updated, error } = await supabase
 		.from("events")
-		.update(buildEventPayload(parsed.data, basePrice, addonsTotal))
+		.update(
+			buildEventPayload(
+				parsed.data,
+				basePrice,
+				addonsTotal,
+				backdropContribution,
+			),
+		)
 		.eq("id", id)
 		.select("project_id")
 		.single();
@@ -393,7 +434,9 @@ export async function updateBooking(
 		.eq("event_id", id);
 	if (deleteError) {
 		return {
-			errors: { _form: [`Gagal menghapus add-ons lama: ${deleteError.message}`] },
+			errors: {
+				_form: [`Gagal menghapus add-ons lama: ${deleteError.message}`],
+			},
 			values: snapshotValues(formData),
 		};
 	}

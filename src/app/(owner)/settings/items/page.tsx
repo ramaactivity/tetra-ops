@@ -1,4 +1,4 @@
-import { Package, Pencil, Plus } from "lucide-react";
+import { FileSpreadsheet, Package, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { ArchiveItemButton } from "@/components/items/archive-button";
 import { Badge } from "@/components/ui/badge";
@@ -84,13 +84,22 @@ export default async function ItemsListPage({
 						{equipmentCount} equipment
 					</p>
 				</div>
-				<Link
-					href="/settings/items/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New item
-				</Link>
+				<div className="flex items-center gap-2">
+					<Link
+						href="/settings/items/import"
+						className="border-border bg-card hover:bg-muted text-foreground inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+					>
+						<FileSpreadsheet className="h-4 w-4" />
+						Bulk import
+					</Link>
+					<Link
+						href="/settings/items/new"
+						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
+					>
+						<Plus className="h-4 w-4" />
+						New item
+					</Link>
+				</div>
 			</div>
 
 			<div className="flex items-center gap-1">

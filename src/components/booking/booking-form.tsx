@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import type {
-	BookingFormState,
-	BookingInput,
-} from "@/lib/actions/bookings";
+import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
 import {
 	ADDON_CATEGORY_LABELS,
 	CHANNEL_TYPE_LABELS,
@@ -17,17 +14,12 @@ import {
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
 const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS);
 const FRAME_SIZE_OPTIONS = Object.entries(FRAME_SIZE_LABELS);
-const BACKDROP_SOURCE_OPTIONS: Array<[string, string]> = [
-	["basic_tetra", "Basic Tetra (in-house)"],
-	["custom", "Custom design"],
-];
-const BACKDROP_COLOR_OPTIONS: Array<[string, string]> = [
-	["merah", "Merah"],
-	["gold", "Gold"],
-	["putih", "Putih"],
-	["silver", "Silver"],
-	["custom", "Custom color"],
-];
+
+const BACKDROP_TYPE_LABEL: Record<string, string> = {
+	basic_included: "Basic (gratis)",
+	rental_owned: "Rental",
+	vendor_decor: "Vendor Decor",
+};
 
 type Action = (
 	prev: BookingFormState,
@@ -51,6 +43,19 @@ export type AddonOption = {
 	price: number;
 };
 
+export type BackdropOption = {
+	id: string;
+	code: string;
+	name: string;
+	type: "basic_included" | "rental_owned" | "vendor_decor";
+	rental_price: number;
+};
+
+export type EventTypeOption = {
+	code: string;
+	label: string;
+};
+
 export type AddonSelection = { addon_id: string; quantity: number };
 
 export type BookingFormDefaults = Partial<{
@@ -69,8 +74,8 @@ export type BookingFormDefaults = Partial<{
 	venue_name: string;
 	venue_address: string;
 	venue_city: string;
-	backdrop_source: string;
-	backdrop_color: string;
+	backdrop_id: string;
+	vendor_decor_markup: number;
 	include_flashdisk_pouch: boolean;
 	base_price: number;
 	discount_amount: number;
@@ -83,12 +88,16 @@ export function BookingForm({
 	action,
 	packages,
 	addons,
+	backdrops,
+	eventTypes,
 	defaults,
 	submitLabel = "Save as draft",
 }: {
 	action: Action;
 	packages: PackageOption[];
 	addons: AddonOption[];
+	backdrops: BackdropOption[];
+	eventTypes: EventTypeOption[];
 	defaults?: BookingFormDefaults;
 	submitLabel?: string;
 }) {
@@ -96,18 +105,18 @@ export function BookingForm({
 
 	const get = (key: keyof BookingInput, fallback?: string) =>
 		state?.values?.[key] ??
-		(defaults?.[key as keyof BookingFormDefaults] as
-			| string
-			| number
-			| undefined
+		(
+			defaults?.[key as keyof BookingFormDefaults] as
+				| string
+				| number
+				| undefined
 		)?.toString() ??
 		fallback ??
 		"";
 
 	const err = (key: keyof BookingInput) => state?.errors?.[key]?.[0];
 
-	const initialPkgId =
-		state?.values?.package_id ?? defaults?.package_id ?? "";
+	const initialPkgId = state?.values?.package_id ?? defaults?.package_id ?? "";
 	const initialBase = Number(
 		state?.values?.base_price ?? defaults?.base_price ?? 0,
 	);
@@ -122,6 +131,30 @@ export function BookingForm({
 	const [basePrice, setBasePrice] = useState(initialBase);
 	const [discount, setDiscount] = useState(initialDiscount);
 	const [grossUp, setGrossUp] = useState(initialGrossUp);
+
+	const initialBackdropId =
+		state?.values?.backdrop_id ?? defaults?.backdrop_id ?? "";
+	const initialVendorMarkup = Number(
+		state?.values?.vendor_decor_markup ?? defaults?.vendor_decor_markup ?? 0,
+	);
+	const [backdropId, setBackdropId] = useState<string>(initialBackdropId);
+	const [vendorMarkup, setVendorMarkup] = useState<number>(initialVendorMarkup);
+
+	const selectedBackdrop = useMemo(
+		() => backdrops.find((b) => b.id === backdropId),
+		[backdrops, backdropId],
+	);
+	const isVendorDecor = selectedBackdrop?.type === "vendor_decor";
+	const backdropContribution = useMemo(() => {
+		if (!selectedBackdrop) return 0;
+		if (selectedBackdrop.type === "rental_owned") {
+			return selectedBackdrop.rental_price + (isVendorDecor ? vendorMarkup : 0);
+		}
+		if (selectedBackdrop.type === "vendor_decor") {
+			return vendorMarkup;
+		}
+		return 0;
+	}, [selectedBackdrop, isVendorDecor, vendorMarkup]);
 
 	const initialAddons = useMemo(() => {
 		const map: Record<string, number> = {};
@@ -161,8 +194,12 @@ export function BookingForm({
 	);
 
 	const grandTotal = useMemo(
-		() => Math.max(0, basePrice + addonsTotal - discount + grossUp),
-		[basePrice, addonsTotal, discount, grossUp],
+		() =>
+			Math.max(
+				0,
+				basePrice + addonsTotal + backdropContribution - discount + grossUp,
+			),
+		[basePrice, addonsTotal, backdropContribution, discount, grossUp],
 	);
 
 	function toggleAddon(id: string, enabled: boolean) {
@@ -198,8 +235,16 @@ export function BookingForm({
 				</div>
 			)}
 
-			<Section title="Channel & Client" description="Sumber booking dan kontak klien">
-				<Field label="Sales Channel" name="channel" error={err("channel")} required>
+			<Section
+				title="Channel & Client"
+				description="Sumber booking dan kontak klien"
+			>
+				<Field
+					label="Sales Channel"
+					name="channel"
+					error={err("channel")}
+					required
+				>
 					<select
 						name="channel"
 						required
@@ -215,7 +260,12 @@ export function BookingForm({
 				</Field>
 
 				<div className="grid gap-6 md:grid-cols-2">
-					<Field label="Nama Klien" name="client_name" error={err("client_name")} required>
+					<Field
+						label="Nama Klien"
+						name="client_name"
+						error={err("client_name")}
+						required
+					>
 						<input
 							type="text"
 							name="client_name"
@@ -333,45 +383,66 @@ export function BookingForm({
 			</Section>
 
 			<Section title="Customization" description="Backdrop dan add-on standar">
-				<div className="grid gap-6 md:grid-cols-2">
-					<Field
-						label="Sumber Backdrop"
-						name="backdrop_source"
-						error={err("backdrop_source")}
+				<Field
+					label="Backdrop"
+					name="backdrop_id"
+					error={err("backdrop_id" as keyof BookingInput)}
+					hint={
+						selectedBackdrop?.type === "rental_owned"
+							? `Auto-add ${formatRupiah(selectedBackdrop.rental_price)} sewa ke grand total`
+							: selectedBackdrop?.type === "vendor_decor"
+								? "Klien pakai vendor decor — isi markup di field bawah"
+								: selectedBackdrop?.type === "basic_included"
+									? "Gratis (basic Tetra)"
+									: "Pilih backdrop dari katalog"
+					}
+				>
+					<select
+						name="backdrop_id"
+						value={backdropId}
+						onChange={(e) => setBackdropId(e.target.value)}
+						className={selectClass}
 					>
-						<select
-							name="backdrop_source"
-							defaultValue={get("backdrop_source", "basic_tetra")}
-							className={selectClass}
-						>
-							{BACKDROP_SOURCE_OPTIONS.map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
-					</Field>
+						<option value="">— Belum dipilih —</option>
+						{backdrops.map((b) => (
+							<option key={b.id} value={b.id}>
+								{b.name} · {BACKDROP_TYPE_LABEL[b.type] ?? b.type}
+								{b.type === "rental_owned" && b.rental_price > 0
+									? ` · ${formatRupiah(b.rental_price)}`
+									: ""}
+							</option>
+						))}
+					</select>
+				</Field>
 
+				{isVendorDecor && (
 					<Field
-						label="Warna Backdrop"
-						name="backdrop_color"
-						error={err("backdrop_color")}
-						hint="Optional bila custom design"
+						label="Markup Vendor Decor (Rp)"
+						name="vendor_decor_markup"
+						error={err("vendor_decor_markup" as keyof BookingInput)}
+						hint="Otomatis ditambahkan ke grand total. Default Rp 300k baseline."
 					>
-						<select
-							name="backdrop_color"
-							defaultValue={get("backdrop_color")}
-							className={selectClass}
-						>
-							<option value="">—</option>
-							{BACKDROP_COLOR_OPTIONS.map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
+						<input
+							type="number"
+							name="vendor_decor_markup"
+							min={0}
+							step={1}
+							value={vendorMarkup === 0 ? "" : vendorMarkup}
+							onChange={(e) =>
+								setVendorMarkup(Math.max(0, Number(e.target.value || 0)))
+							}
+							placeholder="300000"
+							className={`${inputClass} tabular`}
+						/>
 					</Field>
-				</div>
+				)}
+				{!isVendorDecor && (
+					<input
+						type="hidden"
+						name="vendor_decor_markup"
+						value={String(vendorMarkup || 0)}
+					/>
+				)}
 
 				<label className="border-border bg-card flex items-center gap-3 rounded-md border p-4">
 					<input
@@ -399,17 +470,23 @@ export function BookingForm({
 						label="Kategori Event"
 						name="event_category"
 						error={err("event_category")}
-						hint="cth. pernikahan, corporate, ulang tahun"
 						required
 					>
-						<input
-							type="text"
+						<select
 							name="event_category"
 							required
 							defaultValue={get("event_category")}
-							placeholder="pernikahan"
-							className={inputClass}
-						/>
+							className={selectClass}
+						>
+							<option value="" disabled>
+								— Pilih kategori —
+							</option>
+							{eventTypes.map((t) => (
+								<option key={t.code} value={t.code}>
+									{t.label}
+								</option>
+							))}
+						</select>
 					</Field>
 
 					<Field
@@ -429,7 +506,12 @@ export function BookingForm({
 				</div>
 
 				<div className="grid gap-6 md:grid-cols-3">
-					<Field label="Setup" name="setup_time" error={err("setup_time")} required>
+					<Field
+						label="Setup"
+						name="setup_time"
+						error={err("setup_time")}
+						required
+					>
 						<input
 							type="time"
 							name="setup_time"
@@ -438,7 +520,12 @@ export function BookingForm({
 							className={inputClass}
 						/>
 					</Field>
-					<Field label="Mulai" name="start_time" error={err("start_time")} required>
+					<Field
+						label="Mulai"
+						name="start_time"
+						error={err("start_time")}
+						required
+					>
 						<input
 							type="time"
 							name="start_time"
@@ -447,7 +534,12 @@ export function BookingForm({
 							className={inputClass}
 						/>
 					</Field>
-					<Field label="Selesai" name="end_time" error={err("end_time")} required>
+					<Field
+						label="Selesai"
+						name="end_time"
+						error={err("end_time")}
+						required
+					>
 						<input
 							type="time"
 							name="end_time"
@@ -508,7 +600,10 @@ export function BookingForm({
 				</div>
 			</Section>
 
-			<Section title="Add-ons" description="Voucher, print extras, costume, dll">
+			<Section
+				title="Add-ons"
+				description="Voucher, print extras, costume, dll"
+			>
 				<input type="hidden" name="addons_json" value={addonsJson} />
 				{addons.length === 0 ? (
 					<p className="text-muted-foreground text-sm italic">
@@ -671,6 +766,9 @@ export function BookingForm({
 					<div className="text-muted-foreground text-xs">
 						{formatRupiah(basePrice)}
 						{addonsTotal > 0 && <> + {formatRupiah(addonsTotal)} addons</>}
+						{backdropContribution > 0 && (
+							<> + {formatRupiah(backdropContribution)} backdrop</>
+						)}
 						{discount > 0 && <> − {formatRupiah(discount)}</>}
 						{grossUp > 0 && <> + {formatRupiah(grossUp)} PPh</>}
 					</div>

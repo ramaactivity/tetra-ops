@@ -1,4 +1,8 @@
 import { CrewRoleMenu } from "@/components/crew/role-menu";
+import {
+	type InvestorRow,
+	InvestorShareTable,
+} from "@/components/investors/share-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +29,9 @@ type UserRow = {
 	tier: "senior" | "junior" | null;
 	is_active: boolean;
 	joined_date: string;
+	share_pct: number | null;
+	capital_contributed: number | null;
+	capital_contributed_at: string | null;
 };
 
 const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline"> =
@@ -51,7 +58,7 @@ export default async function MasterCrewPage() {
 	const { data, error } = await supabase
 		.from("users")
 		.select(
-			"id, email, full_name, nickname, phone_wa, role, tier, is_active, joined_date",
+			"id, email, full_name, nickname, phone_wa, role, tier, is_active, joined_date, share_pct, capital_contributed, capital_contributed_at",
 		)
 		.is("deleted_at", null)
 		.order("role", { ascending: true })
@@ -72,6 +79,18 @@ export default async function MasterCrewPage() {
 		(u) => u.role === "pending_approval",
 	).length;
 	const isSuperAdmin = me?.profile.role === "super_admin";
+
+	const investors = users
+		.filter((u) => u.role === "super_admin" || u.role === "owner")
+		.filter((u) => u.is_active)
+		.map<InvestorRow>((u) => ({
+			id: u.id,
+			full_name: u.full_name,
+			role: u.role,
+			share_pct: u.share_pct,
+			capital_contributed: u.capital_contributed,
+			capital_contributed_at: u.capital_contributed_at,
+		}));
 
 	return (
 		<div className="space-y-4">
@@ -169,6 +188,10 @@ export default async function MasterCrewPage() {
 						))}
 					</TableBody>
 				</Table>
+			</div>
+
+			<div className="border-border bg-card space-y-4 rounded-xl border p-5">
+				<InvestorShareTable rows={investors} canEdit={isSuperAdmin} />
 			</div>
 		</div>
 	);

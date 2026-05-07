@@ -8,6 +8,7 @@ const TABS = [
 	{ href: "/settings", label: "System", exact: true },
 	{ href: "/settings/packages", label: "Packages" },
 	{ href: "/settings/addons", label: "Add-ons" },
+	{ href: "/settings/backdrops", label: "Backdrops" },
 	{ href: "/settings/items", label: "Items" },
 	{ href: "/settings/bank-accounts", label: "Banks" },
 	{ href: "/settings/crew", label: "Crew" },

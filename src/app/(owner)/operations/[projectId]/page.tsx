@@ -56,6 +56,9 @@ export default async function EventDetailPage({
 			grand_total, total_paid, remaining_balance, payment_status,
 			crew_notes, created_at, updated_at,
 			design_brief_at, design_approved_at, design_drive_folder_url,
+			backdrop_id, vendor_decor_markup,
+			backdrop:backdrops(name, type, rental_price),
+			event_type:event_types(label),
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier)),
@@ -297,10 +300,46 @@ export default async function EventDetailPage({
 							</span>
 						)}
 					</DetailRow>
+					<DetailRow label="Backdrop">
+						{(() => {
+							const bg = Array.isArray(event.backdrop)
+								? event.backdrop[0]
+								: event.backdrop;
+							if (!bg)
+								return (
+									<span className="text-muted-foreground">— belum dipilih</span>
+								);
+							const markup = event.vendor_decor_markup ?? 0;
+							return (
+								<span>
+									{bg.name}
+									{bg.type === "rental_owned" && bg.rental_price > 0 && (
+										<span className="text-muted-foreground">
+											{" · "}
+											sewa {formatRupiah(bg.rental_price)}
+										</span>
+									)}
+									{bg.type === "vendor_decor" && markup > 0 && (
+										<span className="text-muted-foreground">
+											{" · "}
+											markup {formatRupiah(markup)}
+										</span>
+									)}
+								</span>
+							);
+						})()}
+					</DetailRow>
 				</DetailCard>
 
 				<DetailCard title="Event">
-					<DetailRow label="Kategori">{event.event_category}</DetailRow>
+					<DetailRow label="Kategori">
+						{(() => {
+							const t = Array.isArray(event.event_type)
+								? event.event_type[0]
+								: event.event_type;
+							return t?.label ?? event.event_category;
+						})()}
+					</DetailRow>
 					<DetailRow label="Tanggal">
 						{formatDateID(event.event_date)}
 					</DetailRow>
