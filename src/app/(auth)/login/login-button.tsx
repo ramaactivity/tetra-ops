@@ -4,8 +4,14 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+/**
+ * Google OAuth sign-in button.
+ *
+ * A2 refactor (sesi 5): glow-crimson on idle, press-down on tap, fluid
+ * type. No native confirm/alert — error renders inline.
+ */
 export function LoginButton({
-	label = "Continue with Google",
+	label = "Masuk dengan Google",
 }: {
 	label?: string;
 }) {
@@ -20,7 +26,6 @@ export function LoginButton({
 			provider: "google",
 			options: {
 				redirectTo: `${window.location.origin}/auth/callback`,
-				// Smaller payload, faster handshake
 				queryParams: {
 					access_type: "offline",
 					prompt: "select_account",
@@ -31,8 +36,7 @@ export function LoginButton({
 			setError(oauthError.message);
 			setLoading(false);
 		}
-		// On success, browser navigates to Google. No need to setLoading(false) —
-		// keep the button in the loading state until navigation completes.
+		// On success, browser navigates to Google. Keep loading state.
 	}
 
 	return (
@@ -42,11 +46,11 @@ export function LoginButton({
 				onClick={signInWithGoogle}
 				disabled={loading}
 				aria-busy={loading}
-				className="border-border bg-card hover:bg-muted text-foreground active:scale-[0.99] disabled:cursor-progress relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border text-sm font-medium transition-all disabled:opacity-90"
+				className="press-down relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-border-default bg-primary text-fluid-body font-medium text-primary-foreground shadow-glow-crimson transition-all hover:bg-primary/90 disabled:cursor-progress disabled:opacity-90"
 			>
 				{loading ? (
 					<>
-						<Loader2 className="h-4 w-4 animate-spin" />
+						<Loader2 className="size-4 animate-spin" />
 						<span>Mengarahkan ke Google…</span>
 					</>
 				) : (
@@ -57,7 +61,9 @@ export function LoginButton({
 				)}
 			</button>
 			{error && (
-				<p className="text-destructive text-center text-xs">{error}</p>
+				<p className="text-center text-fluid-caption text-destructive">
+					{error}
+				</p>
 			)}
 		</>
 	);

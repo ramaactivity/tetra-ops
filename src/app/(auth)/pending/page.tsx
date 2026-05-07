@@ -12,6 +12,15 @@ import { signOut } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/**
+ * Pending verification screen — shown to crew who registered but
+ * haven't been approved yet.
+ *
+ * A2 refactor (sesi 5):
+ * - Hero band uses warm amber accent for the "waiting" tone (semantic
+ *   color, not the brand gradient — communicates state clearly).
+ * - Surface tokens, fluid type, no hard-coded gradient stops.
+ */
 export default async function PendingPage() {
 	const result = await getCurrentUser();
 	if (!result) redirect("/login");
@@ -35,33 +44,32 @@ export default async function PendingPage() {
 	const firstName = profile.full_name.split(" ")[0];
 
 	return (
-		<div className="bg-card border-border w-full max-w-md overflow-hidden rounded-2xl border shadow-xl">
-			{/* Hero strip */}
-			<div className="bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent dark:from-amber-500/20 dark:via-amber-500/5 border-amber-200/40 dark:border-amber-900/40 relative border-b px-7 pb-6 pt-7">
-				<form action={signOut} className="absolute right-7 top-7">
+		<div className="w-full max-w-md overflow-hidden rounded-2xl border border-border-default bg-surface-2 shadow-xl">
+			<div className="relative border-b border-border-subtle bg-amber-500/[0.06] px-6 pb-5 pt-6 sm:px-7 dark:bg-amber-500/[0.10]">
+				<form action={signOut} className="absolute right-6 top-6 sm:right-7">
 					<button
 						type="submit"
-						className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs font-medium"
+						className="inline-flex items-center gap-1 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
 					>
-						<LogOut className="h-3.5 w-3.5" />
+						<LogOut className="size-3.5" />
 						Sign out
 					</button>
 				</form>
 
 				<div className="space-y-3 pt-1">
-					<div className="bg-amber-500/15 text-amber-700 dark:text-amber-300 inline-flex h-12 w-12 items-center justify-center rounded-2xl">
-						<Hourglass className="h-5 w-5" />
+					<div className="grid size-12 place-items-center rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300">
+						<Hourglass className="size-5" />
 					</div>
 					<div className="space-y-1">
-						<p className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold uppercase tracking-widest">
+						<p className="text-fluid-caption font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
 							Menunggu verifikasi
 						</p>
-						<h1 className="text-foreground text-2xl font-semibold leading-tight tracking-tight">
+						<h1 className="font-display text-fluid-h1 font-semibold leading-tight tracking-tight text-foreground">
 							Halo, {firstName}.
 						</h1>
-						<p className="text-muted-foreground text-sm leading-relaxed">
+						<p className="text-fluid-body leading-relaxed text-muted-foreground">
 							Akun{" "}
-							<span className="text-foreground tabular font-medium">
+							<span className="tabular font-medium text-foreground">
 								{email}
 							</span>{" "}
 							sudah berhasil daftar. Owner perlu approve dulu sebelum lo bisa
@@ -71,9 +79,8 @@ export default async function PendingPage() {
 				</div>
 			</div>
 
-			{/* Steps */}
-			<div className="space-y-4 px-7 py-6">
-				<p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest">
+			<div className="space-y-4 px-6 py-6 sm:px-7">
+				<p className="text-fluid-caption font-semibold uppercase tracking-widest text-muted-foreground">
 					Yang perlu lo lakuin
 				</p>
 				<ol className="space-y-3">
@@ -98,8 +105,7 @@ export default async function PendingPage() {
 				</ol>
 			</div>
 
-			{/* Actions */}
-			<div className="space-y-2 px-7 pb-6">
+			<div className="space-y-2 px-6 pb-6 sm:px-7">
 				{ownerContact?.phone_wa && (
 					<a
 						href={`https://wa.me/${ownerContact.phone_wa.replace(/^\+|^0/, "62")}?text=${encodeURIComponent(
@@ -107,23 +113,22 @@ export default async function PendingPage() {
 						)}`}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-sm transition-colors"
+						className="press-down flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 text-fluid-body font-semibold text-white shadow-md transition-colors hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600"
 					>
-						<MessageCircle className="h-4 w-4" />
+						<MessageCircle className="size-4" />
 						Chat owner via WhatsApp
 					</a>
 				)}
 				<a
 					href="/pending"
-					className="border-border bg-card hover:bg-muted text-foreground flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-medium transition-colors"
+					className="press-down flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-2 text-fluid-body font-medium text-foreground transition-colors hover:bg-surface-3"
 				>
-					<RefreshCw className="h-3.5 w-3.5" />
+					<RefreshCw className="size-3.5" />
 					Refresh status
 				</a>
 			</div>
 
-			{/* Brand */}
-			<div className="border-border bg-muted/30 flex items-center justify-center border-t py-3">
+			<div className="flex items-center justify-center border-t border-border-subtle bg-surface-3/50 py-3">
 				<Image
 					src="/brand/logomark-only.png"
 					alt="Tetra"
@@ -151,28 +156,30 @@ function TimelineStep({
 		state === "done"
 			? "bg-emerald-500 text-white"
 			: state === "active"
-				? "bg-amber-500 text-white ring-amber-500/20 ring-4"
-				: "bg-muted text-muted-foreground border-border border";
+				? "bg-amber-500 text-white ring-4 ring-amber-500/20"
+				: "border border-border-default bg-surface-3 text-muted-foreground";
 
 	return (
 		<li className="flex items-start gap-3">
 			<div
-				className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold tabular ${dotCls}`}
+				className={`mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold tabular ${dotCls}`}
 			>
-				{state === "done" ? <CheckCircle2 className="h-3.5 w-3.5" /> : n}
+				{state === "done" ? <CheckCircle2 className="size-3.5" /> : n}
 			</div>
 			<div className="flex-1 space-y-0.5">
 				<p
-					className={`text-sm font-medium leading-tight ${
+					className={`text-fluid-body font-medium leading-tight ${
 						state === "pending" ? "text-muted-foreground" : "text-foreground"
 					}`}
 				>
 					{title}
 				</p>
-				<p className="text-muted-foreground text-xs leading-snug">{body}</p>
+				<p className="text-fluid-caption leading-snug text-muted-foreground">
+					{body}
+				</p>
 				{state === "active" && (
-					<p className="text-amber-700 dark:text-amber-400 inline-flex items-center gap-1 text-[10px] font-medium">
-						<Clock className="h-2.5 w-2.5" />
+					<p className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+						<Clock className="size-2.5" />
 						In progress
 					</p>
 				)}

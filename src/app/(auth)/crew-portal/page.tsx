@@ -5,11 +5,20 @@ import {
 	HardHat,
 	LogIn,
 	UserPlus,
-	Wallet,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { LoginButton } from "../login/login-button";
+
+/**
+ * Crew portal — combined Login + Register tabbed flow.
+ *
+ * A2 refactor (sesi 5):
+ * - Header band uses subtle Sunrise gradient instead of hand-rolled
+ *   amber blend.
+ * - Surface tokens, fluid type, glow CTA via shared LoginButton.
+ * - Tab indicator uses primary token, transitions tokenized.
+ */
 
 const ERROR_MESSAGES: Record<string, string> = {
 	auth_failed: "Login gagal. Coba lagi.",
@@ -28,36 +37,38 @@ export default async function CrewPortalPage({
 	const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
 
 	return (
-		<div className="bg-card border-border w-full max-w-md overflow-hidden rounded-2xl border shadow-xl">
-			{/* Header strip */}
-			<div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/15 dark:via-amber-500/5 border-amber-200/40 dark:border-amber-900/40 relative border-b px-7 pb-6 pt-7">
+		<div className="w-full max-w-md overflow-hidden rounded-2xl border border-border-default bg-surface-2 shadow-xl">
+			<div className="relative border-b border-border-subtle px-6 pb-5 pt-6 sm:px-7">
+				<div
+					aria-hidden
+					className="absolute inset-0 -z-10 bg-gradient-sunrise-radial opacity-[0.08] dark:opacity-[0.12]"
+				/>
 				<Link
 					href="/"
-					className="text-muted-foreground hover:text-foreground absolute left-7 top-7 inline-flex items-center gap-1 text-xs font-medium"
+					className="absolute left-6 top-6 inline-flex items-center gap-1 text-fluid-caption font-medium text-muted-foreground hover:text-foreground sm:left-7"
 				>
-					<ArrowLeft className="h-3.5 w-3.5" />
+					<ArrowLeft className="size-3.5" />
 					Landing
 				</Link>
 				<div className="space-y-3 pt-6">
-					<div className="bg-amber-500/15 text-amber-700 dark:text-amber-300 inline-flex h-11 w-11 items-center justify-center rounded-xl">
-						<HardHat className="h-5 w-5" />
+					<div className="grid size-11 place-items-center rounded-xl bg-primary/15 text-primary">
+						<HardHat className="size-5" />
 					</div>
 					<div className="space-y-1">
-						<p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest">
+						<p className="text-fluid-caption font-semibold uppercase tracking-widest text-muted-foreground">
 							Crew Portal
 						</p>
-						<h1 className="text-foreground text-2xl font-semibold tracking-tight">
+						<h1 className="font-display text-fluid-h1 font-semibold tracking-tight text-foreground">
 							Halo, crew Tetra
 						</h1>
-						<p className="text-muted-foreground text-sm leading-relaxed">
+						<p className="text-fluid-body leading-relaxed text-muted-foreground">
 							Akun lo udah verified? Login. Belum? Daftar dulu, owner verifikasi.
 						</p>
 					</div>
 				</div>
 			</div>
 
-			{/* Tab switcher */}
-			<div className="border-border flex border-b">
+			<div className="flex border-b border-border-subtle">
 				<TabLink
 					href="/crew-portal?mode=login"
 					label="Login"
@@ -72,19 +83,17 @@ export default async function CrewPortalPage({
 				/>
 			</div>
 
-			{/* Tab content */}
-			<div className="space-y-5 px-7 py-6 sm:py-7">
+			<div className="space-y-5 px-6 py-6 sm:px-7 sm:py-7">
 				{mode === "login" ? <LoginPanel /> : <RegisterPanel />}
 
 				{errorMessage && (
-					<p className="border-destructive/30 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-center text-xs font-medium">
+					<p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-fluid-caption font-medium text-destructive">
 						{errorMessage}
 					</p>
 				)}
 			</div>
 
-			{/* Footer */}
-			<div className="border-border bg-muted/30 flex items-center justify-between gap-2 border-t px-7 py-3">
+			<div className="flex items-center justify-between gap-2 border-t border-border-subtle bg-surface-3/50 px-6 py-3 sm:px-7">
 				<Image
 					src="/brand/logomark-only.png"
 					alt="Tetra"
@@ -92,7 +101,7 @@ export default async function CrewPortalPage({
 					height={32}
 					className="h-5 w-auto opacity-60"
 				/>
-				<p className="text-muted-foreground/70 text-[10px]">
+				<p className="text-fluid-caption text-muted-foreground/80">
 					Tetra Ops · Crew Portal
 				</p>
 			</div>
@@ -104,22 +113,22 @@ function LoginPanel() {
 	return (
 		<>
 			<div className="space-y-1.5">
-				<h2 className="text-foreground text-base font-semibold">
+				<h2 className="text-fluid-h3 font-semibold text-foreground">
 					Login akun crew
 				</h2>
-				<p className="text-muted-foreground text-xs leading-relaxed">
+				<p className="text-fluid-caption leading-relaxed text-muted-foreground">
 					Sudah pernah daftar dan owner sudah approve? Masuk pakai Gmail yang
 					lo daftarin.
 				</p>
 			</div>
 			<LoginButton />
-			<div className="text-muted-foreground space-y-1 text-center text-[11px] leading-relaxed">
+			<div className="space-y-1 text-center text-fluid-caption leading-relaxed text-muted-foreground">
 				<p>Akun belum diverifikasi → bakal landing di halaman tunggu.</p>
 				<p>
 					Belum punya akun?{" "}
 					<Link
 						href="/crew-portal?mode=register"
-						className="text-primary font-medium hover:underline"
+						className="font-medium text-primary hover:underline"
 					>
 						Daftar di sini
 					</Link>
@@ -133,10 +142,10 @@ function RegisterPanel() {
 	return (
 		<>
 			<div className="space-y-1.5">
-				<h2 className="text-foreground text-base font-semibold">
+				<h2 className="text-fluid-h3 font-semibold text-foreground">
 					Buat akun crew Tetra
 				</h2>
-				<p className="text-muted-foreground text-xs leading-relaxed">
+				<p className="text-fluid-caption leading-relaxed text-muted-foreground">
 					Login pakai Gmail lo. Owner verifikasi akun, baru lo bisa akses
 					jadwal dari HP.
 				</p>
@@ -163,13 +172,13 @@ function RegisterPanel() {
 				/>
 			</ol>
 
-			<LoginButton />
+			<LoginButton label="Daftar dengan Google" />
 
-			<p className="text-muted-foreground text-center text-[11px]">
+			<p className="text-center text-fluid-caption text-muted-foreground">
 				Sudah pernah daftar?{" "}
 				<Link
 					href="/crew-portal?mode=login"
-					className="text-primary font-medium hover:underline"
+					className="font-medium text-primary hover:underline"
 				>
 					Login di sini
 				</Link>
@@ -192,16 +201,16 @@ function TabLink({
 	return (
 		<Link
 			href={href}
-			className={`relative inline-flex flex-1 items-center justify-center gap-2 px-4 py-3.5 text-sm font-medium transition-colors ${
+			className={`relative inline-flex flex-1 items-center justify-center gap-2 px-4 py-3.5 text-fluid-body font-medium transition-colors duration-fast ease-out-expo ${
 				active
 					? "text-foreground"
 					: "text-muted-foreground hover:text-foreground"
 			}`}
 		>
-			<Icon className="h-4 w-4" />
+			<Icon className="size-4" />
 			{label}
 			{active && (
-				<span className="bg-primary absolute inset-x-3 bottom-0 h-0.5 rounded-full" />
+				<span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary" />
 			)}
 		</Link>
 	);
@@ -220,19 +229,21 @@ function Step({
 }) {
 	return (
 		<li className="flex items-start gap-3">
-			<div className="bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-				<Icon className="h-4 w-4" />
+			<div className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+				<Icon className="size-4" />
 			</div>
 			<div className="flex-1 space-y-0.5">
 				<div className="flex items-baseline gap-2">
-					<span className="text-foreground text-sm font-medium leading-tight">
+					<span className="text-fluid-body font-medium leading-tight text-foreground">
 						{title}
 					</span>
-					<span className="text-muted-foreground/60 tabular text-[10px]">
+					<span className="tabular text-fluid-caption text-muted-foreground/60">
 						{n}/3
 					</span>
 				</div>
-				<p className="text-muted-foreground text-xs leading-snug">{body}</p>
+				<p className="text-fluid-caption leading-snug text-muted-foreground">
+					{body}
+				</p>
 			</div>
 		</li>
 	);
