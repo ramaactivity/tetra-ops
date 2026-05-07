@@ -73,7 +73,7 @@ export function MobileNavSheet() {
 						type="button"
 						aria-label="Close menu"
 						onClick={() => setOpen(false)}
-						className="bg-foreground/40 fixed inset-0 z-40 backdrop-blur-sm md:hidden"
+						className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden"
 					/>
 					<aside className="bg-background border-border fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r shadow-xl md:hidden">
 						<div className="border-border flex h-14 items-center justify-between border-b px-4">

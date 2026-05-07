@@ -68,7 +68,7 @@ export default async function PackagesListPage() {
 				</Link>
 			</div>
 
-			<div className="border-border bg-card overflow-hidden rounded-lg border">
+			<div className="border-border bg-card overflow-x-auto rounded-lg border">
 				<Table>
 					<TableHeader>
 						<TableRow>
