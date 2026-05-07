@@ -107,12 +107,12 @@ export default async function BillingPage({
 		tabCountsResult,
 	] = await Promise.all([
 		listQuery,
-		// Hanging = remaining > 0 (unpaid/dp/partial/overdue)
+		// Hanging = remaining > 0 (anything not paid)
 		supabase
 			.from("events")
 			.select("remaining_balance")
 			.is("deleted_at", null)
-			.in("payment_status", ["unpaid", "dp", "partial", "overdue"])
+			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
 		// Overdue specifically
 		supabase
