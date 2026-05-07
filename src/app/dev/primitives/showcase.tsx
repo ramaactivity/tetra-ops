@@ -8,6 +8,9 @@ import {
 	ShieldAlertIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { Cluster } from "@/components/layout/cluster";
+import { SectionHeader } from "@/components/layout/section-header";
+import { Stack } from "@/components/layout/stack";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -136,6 +139,45 @@ export function PrimitivesShowcase() {
 							<p className="text-fluid-caption uppercase tracking-wider text-muted-foreground">
 								caption — clamp 11→12
 							</p>
+						</div>
+					</Section>
+
+					<Section title="Layout primitives (F4) — Container, Stack, Cluster, SectionHeader">
+						<div className="space-y-4">
+							<div className="rounded-lg border border-border-default bg-surface-2 p-3">
+								<DemoSectionHeader />
+							</div>
+							<div className="grid gap-3 md:grid-cols-2">
+								<div className="rounded-lg border border-dashed border-border-default p-3 text-sm">
+									<p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+										Stack (vertical, gap=md)
+									</p>
+									<DemoStack />
+								</div>
+								<div className="rounded-lg border border-dashed border-border-default p-3 text-sm">
+									<p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+										Cluster (horizontal, wrap)
+									</p>
+									<DemoCluster />
+								</div>
+							</div>
+						</div>
+					</Section>
+
+					<Section title="Microinteractions (F4) — press-down, lift-on-hover, fade-in-on-mount">
+						<div className="flex flex-wrap gap-3">
+							<button
+								type="button"
+								className="press-down rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+							>
+								Press me (scale 0.97)
+							</button>
+							<div className="lift-on-hover cursor-pointer rounded-lg border border-border-default bg-surface-2 px-4 py-3 text-sm">
+								Hover me (translateY -2)
+							</div>
+							<div className="fade-in-on-mount rounded-lg bg-surface-3 px-4 py-3 text-sm">
+								Just appeared (fade-in via @starting-style)
+							</div>
 						</div>
 					</Section>
 
@@ -488,6 +530,51 @@ export function PrimitivesShowcase() {
 				</div>
 			</div>
 		</TooltipProvider>
+	);
+}
+
+function DemoSectionHeader() {
+	return (
+		<SectionHeader
+			eyebrow="Module"
+			title="Operations"
+			description="Semua event yang sedang berjalan dan upcoming."
+			actions={
+				<>
+					<Button variant="outline" size="sm">
+						Filter
+					</Button>
+					<Button size="sm">Buat event</Button>
+				</>
+			}
+		/>
+	);
+}
+
+function DemoStack() {
+	return (
+		<Stack gap="md">
+			<div className="rounded-md bg-surface-3 p-2 text-xs">item 1</div>
+			<div className="rounded-md bg-surface-3 p-2 text-xs">item 2</div>
+			<div className="rounded-md bg-surface-3 p-2 text-xs">item 3</div>
+		</Stack>
+	);
+}
+
+function DemoCluster() {
+	return (
+		<Cluster gap="sm">
+			{["wedding", "birthday", "corporate", "engagement", "anniversary"].map(
+				(tag) => (
+					<span
+						key={tag}
+						className="rounded-full bg-surface-3 px-2.5 py-0.5 text-xs"
+					>
+						{tag}
+					</span>
+				),
+			)}
+		</Cluster>
 	);
 }
 

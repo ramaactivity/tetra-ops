@@ -314,7 +314,149 @@
   100% { transform: translateX(100%); }
 }
 
+/* View Transitions — page navigation animations (F4).
+   Activated when next.config.ts has experimental.viewTransition: true and
+   <PageTransition> wraps page content. Reduced-motion guard at the bottom. */
+
+::view-transition-group(.morph) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out-expo);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: morph-blur;
+}
+
+@keyframes morph-blur {
+  30% { filter: blur(3px); }
+}
+
+/* Default crossfade (used by PageTransition default + when share="auto") */
+::view-transition-old(.fade) {
+  animation: var(--duration-fast) var(--ease-out-expo) both vt-fade-out;
+}
+::view-transition-new(.fade) {
+  animation: var(--duration-base) var(--ease-out-expo) var(--duration-fast) both vt-fade-in;
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; filter: blur(2px); }
+  to { opacity: 1; filter: blur(0); }
+}
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Directional slides — forward (deeper into nav) + back. */
+::view-transition-old(.nav-forward) {
+  --vt-slide-offset: -40px;
+  animation:
+    var(--duration-fast) var(--ease-out-expo) both vt-fade-out,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-slide-offset: 40px;
+  animation:
+    var(--duration-base) var(--ease-out-expo) var(--duration-fast) both vt-fade-in,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x;
+}
+::view-transition-old(.nav-back) {
+  --vt-slide-offset: 40px;
+  animation:
+    var(--duration-fast) var(--ease-out-expo) both vt-fade-out,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-slide-offset: -40px;
+  animation:
+    var(--duration-base) var(--ease-out-expo) var(--duration-fast) both vt-fade-in,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x;
+}
+
+@keyframes vt-slide-x {
+  from { translate: var(--vt-slide-offset); }
+  to { translate: 0; }
+}
+
+/* Anchor app-shell elements so they don't morph during nav. Apply
+   viewTransitionName="site-header" / "site-bottom-nav" via inline style
+   on the topbar + bottom nav components in A1. */
+::view-transition-group(site-header),
+::view-transition-group(site-bottom-nav),
+::view-transition-group(site-sidebar) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header),
+::view-transition-old(site-bottom-nav),
+::view-transition-old(site-sidebar) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(site-bottom-nav),
+::view-transition-new(site-sidebar) {
+  animation: none;
+}
+
+/* Reduced-motion guard for view transitions — instant swap. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
 @layer utilities {
+  /* === Microinteraction utility classes (F4) ===
+     Pair these with transition utilities — they don't add transition by
+     default to keep them composable with explicit duration/ease tokens. */
+  .press-down {
+    transition: transform var(--duration-fast) var(--ease-out-expo);
+  }
+  .press-down:active {
+    transform: scale(0.97);
+  }
+
+  .lift-on-hover {
+    transition: transform var(--duration-fast) var(--ease-out-expo),
+                box-shadow var(--duration-fast) var(--ease-out-expo);
+  }
+  @media (hover: hover) {
+    .lift-on-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  /* Pure CSS fade-in on first mount — no JS state needed. */
+  .fade-in-on-mount {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity var(--duration-base) var(--ease-out-expo),
+                transform var(--duration-base) var(--ease-out-expo);
+  }
+  @starting-style {
+    .fade-in-on-mount {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  /* Reduced motion — kill any custom transitions on these utilities */
+  @media (prefers-reduced-motion: reduce) {
+    .press-down,
+    .lift-on-hover,
+    .fade-in-on-mount {
+      transition: none !important;
+    }
+    .press-down:active,
+    .lift-on-hover:hover {
+      transform: none !important;
+    }
+  }
+
   /* Safe-area helpers — iOS notch / Dynamic Island / home indicator */
   .pt-safe { padding-top: env(safe-area-inset-top); }
   .pr-safe { padding-right: env(safe-area-inset-right); }
