@@ -75,55 +75,62 @@ export default async function DashboardPage() {
 			.eq("is_reversed", false)
 			.gte("payment_date", ymStart)
 			.lte("payment_date", ymEnd),
-		// Outstanding (sum of remaining_balance for non-paid events)
+		// Outstanding (sum of remaining_balance for non-paid events) — exclude legacy archive
 		supabase
 			.from("events")
 			.select("remaining_balance")
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
-		// Total events this month
+		// Total events this month — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
-		// Awaiting settlement
+		// Awaiting settlement — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.eq("status", "awaiting_settlement"),
-		// Pipeline: upcoming next 7 days
+		// Pipeline: upcoming next 7 days — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.in("status", ["confirmed", "upcoming"])
 			.gte("event_date", todayISO)
 			.lte("event_date", sevenFromNowISO),
-		// In progress
+		// In progress — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.eq("status", "in_progress"),
-		// Completed this month
+		// Completed this month — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.eq("status", "completed")
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
-		// Today + tomorrow event list
+		// Today + tomorrow event list — exclude legacy archive
 		supabase
 			.from("events")
 			.select(
 				"id, project_id, status, client_name, event_date, setup_time, start_time, venue_name, venue_city",
 			)
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.gte("event_date", todayISO)
 			.lte("event_date", tomorrowISO)
 			.order("event_date", { ascending: true })

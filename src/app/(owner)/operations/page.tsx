@@ -1,9 +1,12 @@
 import {
 	AlertCircle,
+	Archive,
 	Briefcase,
 	CalendarClock,
 	CalendarPlus,
+	Inbox,
 	Plus,
+	Upload,
 	Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +25,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,6 +40,8 @@ type EventRow = {
 	venue_city: string | null;
 	grand_total: number;
 	payment_status: string;
+	is_migrated_legacy: boolean | null;
+	legacy_invoice_number: string | null;
 };
 
 function lastDayOfMonth(year: number, month: number): string {
@@ -46,23 +52,34 @@ function lastDayOfMonth(year: number, month: number): string {
 export default async function OperationsListPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ q?: string; status?: string; month?: string }>;
+	searchParams: Promise<{
+		q?: string;
+		status?: string;
+		month?: string;
+		show_archived?: string;
+	}>;
 }) {
 	const params = await searchParams;
 	const q = params.q?.trim() ?? "";
 	const status = params.status?.trim() ?? "";
 	const month = params.month?.trim() ?? "";
+	const showArchived = params.show_archived === "1";
 
+	const me = await getCurrentUser();
 	const supabase = await createClient();
 
 	let listQuery = supabase
 		.from("events")
 		.select(
-			"id, project_id, status, channel, client_name, event_date, venue_name, venue_city, grand_total, payment_status",
+			"id, project_id, status, channel, client_name, event_date, venue_name, venue_city, grand_total, payment_status, is_migrated_legacy, legacy_invoice_number",
 		)
 		.is("deleted_at", null)
 		.order("event_date", { ascending: false })
 		.limit(100);
+
+	if (!showArchived) {
+		listQuery = listQuery.eq("is_migrated_legacy", false).neq("status", "archived");
+	}
 
 	if (q) listQuery = listQuery.ilike("client_name", `%${q}%`);
 	if (status) listQuery = listQuery.eq("status", status);
@@ -83,16 +100,19 @@ export default async function OperationsListPage({
 		thisMonthCountResult,
 		awaitingCountResult,
 		outstandingResult,
+		archivedCountResult,
 	] = await Promise.all([
 		listQuery,
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null),
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd)
 			.in("status", ["confirmed", "upcoming", "in_progress"]),
@@ -100,13 +120,20 @@ export default async function OperationsListPage({
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.eq("status", "awaiting_settlement"),
 		supabase
 			.from("events")
 			.select("remaining_balance")
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.or("is_migrated_legacy.eq.true,status.eq.archived"),
 	]);
 
 	if (listResult.error) {
@@ -129,8 +156,10 @@ export default async function OperationsListPage({
 		(sum, r) => sum + (r.remaining_balance ?? 0),
 		0,
 	);
+	const archivedCount = archivedCountResult.count ?? 0;
 
-	const hasFilters = Boolean(q || status || month);
+	const hasFilters = Boolean(q || status || month || showArchived);
+	const isSuperAdmin = me?.profile.role === "super_admin";
 
 	return (
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
@@ -143,6 +172,16 @@ export default async function OperationsListPage({
 				</div>
 				<div className="flex items-center gap-2">
 					<OperationsViewSwitcher current="list" />
+					{isSuperAdmin && (
+						<Link
+							href="/settings/operations/import-projects"
+							className="text-muted-foreground hover:text-foreground inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-sm font-medium"
+							title="Bulk-import projects from old Apps Script v1"
+						>
+							<Upload className="h-4 w-4" />
+							Import legacy
+						</Link>
+					)}
 					<Link
 						href="/operations/new"
 						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
@@ -188,6 +227,8 @@ export default async function OperationsListPage({
 					defaultQ={q}
 					defaultStatus={status}
 					defaultMonth={month}
+					defaultShowArchived={showArchived}
+					archivedCount={archivedCount}
 				/>
 
 				{events.length === 0 ? (
@@ -225,12 +266,30 @@ export default async function OperationsListPage({
 								{events.map((ev) => (
 									<TableRow key={ev.id}>
 										<TableCell className="tabular text-xs font-medium">
-											<Link
-												href={`/operations/${ev.project_id}`}
-												className="text-primary hover:underline"
-											>
-												{ev.project_id}
-											</Link>
+											<div className="flex items-center gap-1.5">
+												<Link
+													href={`/operations/${ev.project_id}`}
+													className="text-primary hover:underline"
+												>
+													{ev.project_id}
+												</Link>
+												{ev.is_migrated_legacy && (
+													<span
+														className="inline-flex h-4 items-center rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+														title="Migrated from Phase-2 (read-only)"
+													>
+														<Archive className="h-2.5 w-2.5" />
+													</span>
+												)}
+												{!ev.is_migrated_legacy && ev.legacy_invoice_number && (
+													<span
+														className="border-border text-muted-foreground inline-flex h-4 items-center rounded border px-1 text-[10px] font-medium"
+														title={`Imported from Phase-2 (invoice ${ev.legacy_invoice_number})`}
+													>
+														<Inbox className="h-2.5 w-2.5" />
+													</span>
+												)}
+											</div>
 										</TableCell>
 										<TableCell>{ev.client_name}</TableCell>
 										<TableCell className="tabular text-muted-foreground text-sm">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { Archive, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -23,21 +23,28 @@ export function OperationsFilterBar({
 	defaultQ,
 	defaultStatus,
 	defaultMonth,
+	defaultShowArchived = false,
+	archivedCount = 0,
 }: {
 	defaultQ: string;
 	defaultStatus: string;
 	defaultMonth: string;
+	defaultShowArchived?: boolean;
+	archivedCount?: number;
 }) {
 	const router = useRouter();
 	const [q, setQ] = useState(defaultQ);
-	const hasFilters = Boolean(defaultQ || defaultStatus || defaultMonth);
+	const hasFilters = Boolean(
+		defaultQ || defaultStatus || defaultMonth || defaultShowArchived,
+	);
 
 	function buildHref(updates: Record<string, string>) {
 		const params = new URLSearchParams();
-		const merged = {
+		const merged: Record<string, string> = {
 			q: defaultQ,
 			status: defaultStatus,
 			month: defaultMonth,
+			show_archived: defaultShowArchived ? "1" : "",
 			...updates,
 		};
 		for (const [k, v] of Object.entries(merged)) {
@@ -64,7 +71,7 @@ export function OperationsFilterBar({
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
 					placeholder="Cari nama klien…"
-					className="border-border bg-card focus-visible:ring-ring h-9 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border bg-card focus-visible:ring-ring placeholder:text-muted-foreground/60 h-9 w-full rounded-md border pl-9 pr-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</form>
 
@@ -87,6 +94,22 @@ export function OperationsFilterBar({
 				onChange={(e) => router.push(buildHref({ month: e.target.value }))}
 				className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 			/>
+
+			<Link
+				href={buildHref({ show_archived: defaultShowArchived ? "" : "1" })}
+				className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors ${
+					defaultShowArchived
+						? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+						: "border-border bg-card text-muted-foreground hover:text-foreground"
+				}`}
+				aria-pressed={defaultShowArchived}
+			>
+				<Archive className="h-3.5 w-3.5" />
+				Show archived
+				{archivedCount > 0 && (
+					<span className="tabular text-xs opacity-70">({archivedCount})</span>
+				)}
+			</Link>
 
 			{hasFilters && (
 				<Link

@@ -1,8 +1,10 @@
 import {
+	Archive,
 	CalculatorIcon,
 	ChevronLeft,
 	ClipboardList,
 	ExternalLink,
+	Inbox,
 	Package,
 	Pencil,
 	Receipt,
@@ -55,6 +57,7 @@ export default async function EventDetailPage({
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			crew_notes, created_at, updated_at,
+			is_migrated_legacy, legacy_invoice_number,
 			design_brief_at, design_approved_at, design_drive_folder_url,
 			backdrop_id, vendor_decor_markup,
 			backdrop:backdrops(name, type, rental_price),
@@ -120,7 +123,10 @@ export default async function EventDetailPage({
 	const settlement = Array.isArray(event.settlement)
 		? event.settlement[0]
 		: event.settlement;
+	const isMigratedLegacy = !!event.is_migrated_legacy;
+	const isImportedLive = !isMigratedLegacy && !!event.legacy_invoice_number;
 	const canSettle =
+		!isMigratedLegacy &&
 		!settlement &&
 		(event.status === "in_progress" || event.status === "awaiting_settlement");
 	const [{ count: equipmentCountRaw }, { data: rekapData }] = await Promise.all(
@@ -188,62 +194,106 @@ export default async function EventDetailPage({
 						<Badge variant="outline">
 							{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
 						</Badge>
-						<StatusMenu
-							projectId={event.project_id}
-							eventId={event.id}
-							currentStatus={
-								event.status as Parameters<
-									typeof StatusMenu
-								>[0]["currentStatus"]
-							}
-						/>
-						<SendWhatsAppButton
-							event={eventForWA}
-							templates={templates}
-							size="sm"
-						/>
-						<Link
-							href={`/operations/${event.project_id}/equipment`}
-							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
-						>
-							<Package className="h-3.5 w-3.5" />
-							Equipment
-							{equipmentCount > 0 && (
-								<span className="bg-primary/15 text-primary tabular ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-									{equipmentCount}
-								</span>
-							)}
-						</Link>
-						<Link
-							href={`/operations/${event.project_id}/rekap`}
-							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
-						>
-							<ClipboardList className="h-3.5 w-3.5" />
-							Rekap
-							{rekapSubmitted && (
-								<span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-									✓
-								</span>
-							)}
-						</Link>
-						<Link
-							href={`/operations/${event.project_id}/edit`}
-							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
-						>
-							<Pencil className="h-3.5 w-3.5" />
-							Edit
-						</Link>
-						{canSettle && (
-							<Link
-								href={`/operations/${event.project_id}/settle`}
-								className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-semibold"
+						{isMigratedLegacy && (
+							<Badge
+								variant="secondary"
+								className="border-amber-200 bg-amber-100 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
 							>
-								<CalculatorIcon className="h-3.5 w-3.5" />
-								Settle Event
-							</Link>
+								<Archive className="mr-1 h-3 w-3" />
+								Migrated
+							</Badge>
+						)}
+						{isImportedLive && (
+							<Badge variant="outline" className="text-muted-foreground">
+								<Inbox className="mr-1 h-3 w-3" />
+								Imported
+							</Badge>
+						)}
+						{!isMigratedLegacy && (
+							<>
+								<StatusMenu
+									projectId={event.project_id}
+									eventId={event.id}
+									currentStatus={
+										event.status as Parameters<
+											typeof StatusMenu
+										>[0]["currentStatus"]
+									}
+								/>
+								<SendWhatsAppButton
+									event={eventForWA}
+									templates={templates}
+									size="sm"
+								/>
+								<Link
+									href={`/operations/${event.project_id}/equipment`}
+									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								>
+									<Package className="h-3.5 w-3.5" />
+									Equipment
+									{equipmentCount > 0 && (
+										<span className="bg-primary/15 text-primary tabular ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+											{equipmentCount}
+										</span>
+									)}
+								</Link>
+								<Link
+									href={`/operations/${event.project_id}/rekap`}
+									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								>
+									<ClipboardList className="h-3.5 w-3.5" />
+									Rekap
+									{rekapSubmitted && (
+										<span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+											✓
+										</span>
+									)}
+								</Link>
+								<Link
+									href={`/operations/${event.project_id}/edit`}
+									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								>
+									<Pencil className="h-3.5 w-3.5" />
+									Edit
+								</Link>
+								{canSettle && (
+									<Link
+										href={`/operations/${event.project_id}/settle`}
+										className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-semibold"
+									>
+										<CalculatorIcon className="h-3.5 w-3.5" />
+										Settle Event
+									</Link>
+								)}
+							</>
 						)}
 					</div>
 				</div>
+				{isMigratedLegacy && (
+					<div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+						<Archive className="mt-0.5 h-4 w-4 shrink-0" />
+						<div className="space-y-0.5">
+							<p className="font-medium">
+								Migrated from Phase-2 (read-only archive)
+							</p>
+							<p className="text-amber-800/80 dark:text-amber-300/80">
+								Event ini di-import dari sistem lama untuk referensi
+								historis. Tidak ada records payments / settlement / journal /
+								earnings — kalau perlu adjust angka, edit langsung kolom event.
+								{event.legacy_invoice_number && (
+									<>
+										{" "}
+										Original invoice:{" "}
+										<span className="tabular font-mono">
+											{event.legacy_invoice_number}
+										</span>
+										.
+									</>
+								)}
+							</p>
+						</div>
+					</div>
+				)}
 			</div>
 
 			<div className="grid gap-4 md:grid-cols-2">

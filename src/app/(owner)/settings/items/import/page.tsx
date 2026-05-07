@@ -1,30 +1,54 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
-import { ItemsImportForm } from "@/components/items/import-form";
+import { CsvImportWizard } from "@/components/csv-import/wizard";
+import {
+	checkItemDuplicates,
+	commitItemImport,
+} from "@/lib/actions/items-import";
+import { ITEM_HEADER_ALIASES } from "@/lib/csv-import/items-aliases";
+import type { TargetField } from "@/lib/csv-import/types";
+
+const ITEM_TARGET_FIELDS: TargetField[] = [
+	{ key: "sku", label: "SKU", required: true },
+	{ key: "name", label: "Name", required: true },
+	{
+		key: "category",
+		label: "Category",
+		required: true,
+		description: "consumable / equipment",
+	},
+	{ key: "unit", label: "Unit", description: "pcs, box, dll" },
+	{ key: "min_stock_alert", label: "Min stock alert" },
+	{ key: "purchase_price_avg", label: "Purchase price (avg)" },
+	{ key: "purchase_price", label: "Purchase price (latest)" },
+	{ key: "useful_life_months", label: "Useful life (months)" },
+	{ key: "notes", label: "Notes" },
+	{ key: "is_active", label: "Is active" },
+];
+
+const SAMPLE_ITEM_CSV = `sku,name,category,unit,min_stock_alert,purchase_price_avg,is_active
+ITM-SLEEVE-2R,Sleeve 2R,consumable,Pcs,1000,500,TRUE
+ITM-PCS-4R,Media Set (4R/2R),consumable,Pcs,700,941,TRUE
+EQ-MONITOR,Monitor,equipment,unit,0,0,TRUE`;
 
 export default function ItemsImportPage() {
 	return (
-		<div className="space-y-4">
-			<Link
-				href="/settings/items"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Items
-			</Link>
-			<div>
-				<h2 className="text-xl font-semibold tracking-tight">
-					Bulk Import Items
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Tempel CSV dari Google Sheets / Excel. SKU yang sudah ada akan
-					di-update, yang baru di-insert. Validation per baris — error tidak
-					menghentikan proses.
-				</p>
-			</div>
-			<div className="border-border bg-card max-w-4xl rounded-xl border p-5">
-				<ItemsImportForm />
-			</div>
+		<div className="max-w-4xl">
+			<CsvImportWizard
+				config={{
+					title: "Bulk Import Items",
+					description:
+						"Upload CSV inventory items dari Google Sheets / Excel. SKU yang sudah ada akan di-update; SKU baru di-insert.",
+					primaryKeyField: "sku",
+					primaryKeyLabel: "SKU",
+					duplicateStrategy: "update",
+					targetFields: ITEM_TARGET_FIELDS,
+					headerAliases: ITEM_HEADER_ALIASES,
+					checkDuplicates: checkItemDuplicates,
+					commit: commitItemImport,
+					backHref: "/settings/items",
+					backLabel: "Items",
+					sampleCsv: SAMPLE_ITEM_CSV,
+				}}
+			/>
 		</div>
 	);
 }
