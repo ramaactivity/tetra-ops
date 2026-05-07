@@ -11,11 +11,12 @@ import {
 	FileSpreadsheet,
 	Inbox,
 	Loader2,
+	StopCircle,
 	Upload,
 	XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { normalizeHeaderKey, parseCsv } from "@/lib/csv-import/parser";
 import type {
 	ImportResult,
@@ -26,7 +27,9 @@ import type {
 type Step = 1 | 2 | 3 | 4;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const BATCH_SIZE = 10; // rows per server roundtrip
+const BATCH_SIZE = 5; // rows per server roundtrip — small enough to survive
+                      // Vercel free-tier 10s timeout even on slow days
+const MAX_BATCH_RETRIES = 2; // retry a failed batch up to 2 extra times
 
 type ImportProgress = {
 	processed: number;
@@ -49,6 +52,7 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 	const [isPending, startTransition] = useTransition();
 	const [isImporting, setIsImporting] = useState(false);
 	const [progress, setProgress] = useState<ImportProgress | null>(null);
+	const cancelRef = useRef(false);
 
 	const handleFile = useCallback(
 		(file: File) => {
@@ -170,6 +174,7 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 
 	const commit = useCallback(async () => {
 		setError(null);
+		cancelRef.current = false;
 		const mapped = buildMappedRows();
 		const total = mapped.length;
 		const totalBatches = Math.ceil(total / BATCH_SIZE);
@@ -190,51 +195,89 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 			rows: [],
 		};
 
-		try {
-			for (let i = 0; i < total; i += BATCH_SIZE) {
-				const batch = mapped.slice(i, i + BATCH_SIZE);
-				const batchResult = await config.commit(batch, i);
+		let aborted = false;
+		let lastErrorMsg: string | null = null;
 
-				accumulated.rows.push(...batchResult.rows);
-				for (const stat of batchResult.stats) {
-					const existing = accumulated.stats.find(
-						(s) => s.label === stat.label,
-					);
-					if (existing) {
-						existing.value += stat.value;
-					} else {
-						accumulated.stats.push({ ...stat });
+		batchLoop: for (let i = 0; i < total; i += BATCH_SIZE) {
+			if (cancelRef.current) {
+				aborted = true;
+				lastErrorMsg = "Import dibatalkan oleh user.";
+				break;
+			}
+
+			const batch = mapped.slice(i, i + BATCH_SIZE);
+			let batchResult: ImportResult | null = null;
+			let lastErr: unknown = null;
+
+			for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt++) {
+				if (cancelRef.current) {
+					aborted = true;
+					lastErrorMsg = "Import dibatalkan oleh user.";
+					break batchLoop;
+				}
+				try {
+					batchResult = await config.commit(batch, i);
+					break; // success, exit retry loop
+				} catch (err) {
+					lastErr = err;
+					// Bail immediately on auth/permission errors
+					const msg = err instanceof Error ? err.message : "";
+					if (/Unauthorized|Forbidden/i.test(msg)) break;
+					if (attempt < MAX_BATCH_RETRIES) {
+						// Exponential backoff: 500ms → 1500ms
+						await new Promise((r) =>
+							setTimeout(r, 500 * 3 ** attempt),
+						);
 					}
 				}
-
-				const processed = Math.min(i + batch.length, total);
-				setProgress({
-					processed,
-					total,
-					currentBatch: Math.ceil(processed / BATCH_SIZE),
-					totalBatches,
-					stats: accumulated.stats.map((s) => ({ ...s })),
-					elapsedMs: Date.now() - startMs,
-				});
 			}
 
-			setResult(accumulated);
-			setIsImporting(false);
-			setStep(4);
-		} catch (err) {
-			setIsImporting(false);
-			setError(
-				`Import gagal di batch ${progress?.currentBatch ?? "?"}: ${
-					err instanceof Error ? err.message : "unknown"
-				}. ${accumulated.rows.length} baris sudah ter-process sebelum error.`,
-			);
-			// If at least one row was processed, show partial result on Done step
-			if (accumulated.rows.length > 0) {
-				setResult(accumulated);
-				setStep(4);
+			if (!batchResult) {
+				aborted = true;
+				lastErrorMsg = `Batch ${Math.floor(i / BATCH_SIZE) + 1}/${totalBatches} gagal setelah ${MAX_BATCH_RETRIES + 1} percobaan: ${
+					lastErr instanceof Error ? lastErr.message : "unknown"
+				}`;
+				break;
 			}
+
+			accumulated.rows.push(...batchResult.rows);
+			for (const stat of batchResult.stats) {
+				const existing = accumulated.stats.find((s) => s.label === stat.label);
+				if (existing) {
+					existing.value += stat.value;
+				} else {
+					accumulated.stats.push({ ...stat });
+				}
+			}
+
+			const processed = Math.min(i + batch.length, total);
+			setProgress({
+				processed,
+				total,
+				currentBatch: Math.ceil(processed / BATCH_SIZE),
+				totalBatches,
+				stats: accumulated.stats.map((s) => ({ ...s })),
+				elapsedMs: Date.now() - startMs,
+			});
 		}
-	}, [buildMappedRows, config, progress?.currentBatch]);
+
+		setIsImporting(false);
+
+		if (aborted) {
+			setError(
+				`${lastErrorMsg ?? "Import dihentikan."} ${accumulated.rows.length} baris sudah ter-process — sisa bisa di-resume di import berikutnya (duplicate akan otomatis di-skip / di-update).`,
+			);
+		}
+
+		if (accumulated.rows.length > 0) {
+			setResult(accumulated);
+			setStep(4);
+		}
+	}, [buildMappedRows, config]);
+
+	const cancel = useCallback(() => {
+		cancelRef.current = true;
+	}, []);
 
 	const reset = useCallback(() => {
 		setStep(1);
@@ -309,6 +352,7 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 						duplicateStrategy={config.duplicateStrategy}
 						onBack={() => setStep(2)}
 						onCommit={commit}
+						onCancel={cancel}
 						isImporting={isImporting}
 						progress={progress}
 					/>
@@ -690,6 +734,7 @@ function PreviewStep({
 	duplicateStrategy,
 	onBack,
 	onCommit,
+	onCancel,
 	isImporting,
 	progress,
 }: {
@@ -703,6 +748,7 @@ function PreviewStep({
 	duplicateStrategy: "skip" | "update";
 	onBack: () => void;
 	onCommit: () => void;
+	onCancel: () => void;
 	isImporting: boolean;
 	progress: ImportProgress | null;
 }) {
@@ -827,7 +873,7 @@ function PreviewStep({
 			)}
 
 			{isImporting && progress ? (
-				<ProgressPanel progress={progress} />
+				<ProgressPanel progress={progress} onCancel={onCancel} />
 			) : (
 				<div className="flex items-center justify-between">
 					<button
@@ -852,7 +898,18 @@ function PreviewStep({
 	);
 }
 
-function ProgressPanel({ progress }: { progress: ImportProgress }) {
+function ProgressPanel({
+	progress,
+	onCancel,
+}: {
+	progress: ImportProgress;
+	onCancel: () => void;
+}) {
+	const [cancelRequested, setCancelRequested] = useState(false);
+	const handleCancel = () => {
+		setCancelRequested(true);
+		onCancel();
+	};
 	const pct =
 		progress.total > 0
 			? Math.round((progress.processed / progress.total) * 100)
@@ -912,9 +969,20 @@ function ProgressPanel({ progress }: { progress: ImportProgress }) {
 				</div>
 			)}
 
-			<p className="text-muted-foreground text-xs italic">
-				Jangan refresh halaman — tunggu sampai selesai.
-			</p>
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-muted-foreground text-xs italic">
+					Jangan refresh halaman — tunggu sampai selesai.
+				</p>
+				<button
+					type="button"
+					onClick={handleCancel}
+					disabled={cancelRequested}
+					className="border-border text-muted-foreground hover:bg-muted hover:text-rose-600 dark:hover:text-rose-400 inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+				>
+					<StopCircle className="h-3.5 w-3.5" />
+					{cancelRequested ? "Cancelling…" : "Cancel"}
+				</button>
+			</div>
 		</div>
 	);
 }
@@ -961,16 +1029,47 @@ function DoneStep({
 	result: ImportResult;
 	onReset: () => void;
 }) {
+	const errorRows = result.rows.filter((r) => r.status === "error");
+	const errorGroups = useMemo(() => {
+		const map = new Map<string, number>();
+		for (const r of errorRows) {
+			const key = (r.message ?? "Unknown error")
+				.split(":")[0]
+				.split(";")[0]
+				.trim()
+				.slice(0, 60);
+			map.set(key, (map.get(key) ?? 0) + 1);
+		}
+		return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+	}, [errorRows]);
+
+	const allGood = errorRows.length === 0;
+
 	return (
 		<div className="space-y-5">
 			<div className="flex items-center gap-3">
-				<div className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex h-12 w-12 items-center justify-center rounded-xl">
+				<div
+					className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+						allGood
+							? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+							: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+					}`}
+				>
 					<CheckCircle2 className="h-6 w-6" />
 				</div>
 				<div>
 					<h3 className="text-base font-semibold">Import selesai</h3>
 					<p className="text-muted-foreground text-sm">
-						{result.totalRows.toLocaleString("id-ID")} baris diproses.
+						{result.totalRows.toLocaleString("id-ID")} baris diproses
+						{!allGood && (
+							<>
+								{" · "}
+								<span className="text-rose-600 dark:text-rose-400 font-medium">
+									{errorRows.length} error
+								</span>
+							</>
+						)}
+						.
 					</p>
 				</div>
 			</div>
@@ -986,6 +1085,27 @@ function DoneStep({
 					/>
 				))}
 			</div>
+
+			{errorGroups.length > 0 && (
+				<div className="border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30 space-y-2 rounded-lg border p-3">
+					<p className="text-rose-900 dark:text-rose-200 text-xs font-semibold uppercase tracking-wider">
+						Error breakdown
+					</p>
+					<ul className="space-y-1 text-xs">
+						{errorGroups.map(([msg, count]) => (
+							<li
+								key={msg}
+								className="text-rose-900 dark:text-rose-200 tabular flex items-baseline gap-2"
+							>
+								<span className="bg-rose-200 dark:bg-rose-900 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded px-1 text-[10px] font-bold">
+									{count}
+								</span>
+								<span className="font-mono">{msg}</span>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 
 			<details className="space-y-2">
 				<summary className="text-foreground cursor-pointer text-sm font-medium">

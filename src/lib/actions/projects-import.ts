@@ -4,6 +4,11 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	PER_BATCH_TIMEOUT_MS,
+	withRetry,
+	withTimeout,
+} from "@/lib/csv-import/resilience";
 import type { ImportResult } from "@/lib/csv-import/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -334,6 +339,17 @@ export async function commitProjectImport(
 	rows: Record<string, string>[],
 	rowOffset = 0,
 ): Promise<ImportResult> {
+	return withTimeout(
+		() => commitProjectImportInner(rows, rowOffset),
+		PER_BATCH_TIMEOUT_MS,
+		"projects batch import",
+	);
+}
+
+async function commitProjectImportInner(
+	rows: Record<string, string>[],
+	rowOffset = 0,
+): Promise<ImportResult> {
 	const me = await requireSuperAdmin();
 	const supabase = await createClient();
 
@@ -346,6 +362,12 @@ export async function commitProjectImport(
 		if (p) neededContactIds.add(p);
 	}
 
+	// Pre-fetch project_ids that already exist in this batch — avoids N+1
+	// .maybeSingle() round-trips inside the per-row loop.
+	const projectIdsInBatch = rows
+		.map((r) => (r.project_id ?? "").trim())
+		.filter(Boolean);
+
 	const [
 		{ data: backdropRows },
 		{ data: typeRows },
@@ -353,26 +375,51 @@ export async function commitProjectImport(
 		{ data: crewRows },
 		{ data: bankRows },
 		{ data: contactRows },
+		{ data: existingProjectRows },
 	] = await Promise.all([
-		supabase.from("backdrops").select("id, code, name"),
-		supabase.from("event_types").select("code, label").eq("is_active", true),
-		supabase.from("packages").select("id, name"),
-		supabase
-			.from("users")
-			.select("id, full_name")
-			.in("role", ["crew", "owner", "super_admin"])
-			.eq("is_active", true),
-		supabase
-			.from("bank_accounts")
-			.select("id, is_default_receive, is_active")
-			.eq("is_active", true),
+		withRetry(() => supabase.from("backdrops").select("id, code, name")),
+		withRetry(() =>
+			supabase
+				.from("event_types")
+				.select("code, label")
+				.eq("is_active", true),
+		),
+		withRetry(() => supabase.from("packages").select("id, name")),
+		withRetry(() =>
+			supabase
+				.from("users")
+				.select("id, full_name")
+				.in("role", ["crew", "owner", "super_admin"])
+				.eq("is_active", true),
+		),
+		withRetry(() =>
+			supabase
+				.from("bank_accounts")
+				.select("id, is_default_receive, is_active")
+				.eq("is_active", true),
+		),
 		neededContactIds.size > 0
-			? supabase
-					.from("contacts")
-					.select("id, legacy_contact_id, name, phone")
-					.in("legacy_contact_id", Array.from(neededContactIds))
+			? withRetry(() =>
+					supabase
+						.from("contacts")
+						.select("id, legacy_contact_id, name, phone")
+						.in("legacy_contact_id", Array.from(neededContactIds)),
+				)
 			: Promise.resolve({ data: [] as Contact[] }),
+		projectIdsInBatch.length > 0
+			? withRetry(() =>
+					supabase
+						.from("events")
+						.select("project_id")
+						.in("project_id", projectIdsInBatch),
+				)
+			: Promise.resolve({ data: [] as Array<{ project_id: string }> }),
 	]);
+
+	const existingProjectIds = new Set<string>();
+	for (const r of (existingProjectRows ?? []) as Array<{ project_id: string }>) {
+		existingProjectIds.add(r.project_id);
+	}
 
 	const backdrops: Backdrop[] = backdropRows ?? [];
 	const eventTypes: EventType[] = typeRows ?? [];
@@ -450,12 +497,7 @@ export async function commitProjectImport(
 			continue;
 		}
 
-		const { data: existing } = await supabase
-			.from("events")
-			.select("id")
-			.eq("project_id", projectId)
-			.maybeSingle();
-		if (existing) {
+		if (existingProjectIds.has(projectId)) {
 			skippedCount++;
 			resultRows.push({
 				row: rowNum,
@@ -589,11 +631,9 @@ export async function commitProjectImport(
 			created_by: me.authId,
 		};
 
-		const { data: insertedEvent, error: insertErr } = await supabase
-			.from("events")
-			.insert(eventPayload)
-			.select("id")
-			.single();
+		const { data: insertedEvent, error: insertErr } = await withRetry(() =>
+			supabase.from("events").insert(eventPayload).select("id").single(),
+		);
 
 		if (insertErr || !insertedEvent) {
 			errorCount++;
@@ -642,9 +682,9 @@ export async function commitProjectImport(
 			});
 		}
 		if (crewInserts.length > 0) {
-			const { error: crewErr } = await supabase
-				.from("crew_assignments")
-				.insert(crewInserts);
+			const { error: crewErr } = await withRetry(() =>
+				supabase.from("crew_assignments").insert(crewInserts),
+			);
 			if (crewErr) warnings.push(`crew_assignments: ${crewErr.message}`);
 		}
 
@@ -654,16 +694,18 @@ export async function commitProjectImport(
 					"no default bank account — DP not recorded; create a bank in /settings/bank-accounts then re-import",
 				);
 			} else {
-				const { error: payErr } = await supabase.from("payments").insert({
-					ref_id: generatePaymentRefId(today),
-					event_id: eventId,
-					amount: paid,
-					payment_date: today,
-					bank_account_id: defaultBankId,
-					payment_type: "dp",
-					notes: "Migrated DP from Phase 2",
-					recorded_by: me.authId,
-				});
+				const { error: payErr } = await withRetry(() =>
+					supabase.from("payments").insert({
+						ref_id: generatePaymentRefId(today),
+						event_id: eventId,
+						amount: paid,
+						payment_date: today,
+						bank_account_id: defaultBankId,
+						payment_type: "dp",
+						notes: "Migrated DP from Phase 2",
+						recorded_by: me.authId,
+					}),
+				);
 				if (payErr) warnings.push(`payments insert: ${payErr.message}`);
 			}
 		}
