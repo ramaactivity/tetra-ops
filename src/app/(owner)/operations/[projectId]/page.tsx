@@ -47,7 +47,7 @@ export default async function EventDetailPage({
 			crew_notes, created_at, updated_at,
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
-			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users(full_name, tier))
+			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier))
 		`,
 		)
 		.eq("project_id", projectId)

@@ -39,7 +39,7 @@ export default async function ManageCrewPage({
 	const { data: assignmentsData } = await supabase
 		.from("crew_assignments")
 		.select(
-			"id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users(full_name, tier)",
+			"id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier)",
 		)
 		.eq("event_id", event.id);
 
