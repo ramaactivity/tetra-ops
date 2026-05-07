@@ -7,16 +7,37 @@ import {
 	FileText,
 	LayoutDashboard,
 	type LucideIcon,
+	MessageCircle,
 	Package,
 	Receipt,
 	Settings,
 	Wallet,
-	X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+
+/**
+ * <OwnerBottomNav /> — sticky bottom nav for owner mobile.
+ *
+ * A1 refactor (sesi 5):
+ * - bg-surface-1 (was bg-background — same L0/L0 problem as sidebar).
+ * - View Transitions anchor: viewTransitionName="site-bottom-nav".
+ * - More-button overlay rebuilt on top of F3a <Sheet> primitive instead
+ *   of bespoke modal logic. Sheet handles a11y, escape-to-close, body
+ *   scroll lock, focus trap, and animation tokens automatically.
+ * - 3 primary tabs (Dashboard, Operations, Billing) plus Reminders are
+ *   surfaced from the More sheet.
+ *
+ * Hidden on md+; desktop owners use the sidebar.
+ */
 
 type NavItem = {
 	href: string;
@@ -33,6 +54,7 @@ const PRIMARY: NavItem[] = [
 const MORE: NavItem[] = [
 	{ href: "/warehouse", label: "Warehouse", icon: Package },
 	{ href: "/finance", label: "Finance", icon: Wallet },
+	{ href: "/reminders", label: "Reminders", icon: MessageCircle },
 	{ href: "/notifications", label: "Notifications", icon: Bell },
 	{ href: "/reports", label: "Reports", icon: FileText },
 	{ href: "/settings", label: "Settings", icon: Settings },
@@ -48,28 +70,17 @@ export function OwnerBottomNav() {
 
 	const moreActive = MORE.some((item) => isActive(pathname, item.href));
 
+	// Close the sheet whenever route changes (post-navigation).
 	useEffect(() => {
 		setMoreOpen(false);
 	}, [pathname]);
-
-	useEffect(() => {
-		if (!moreOpen) return;
-		function onKey(e: KeyboardEvent) {
-			if (e.key === "Escape") setMoreOpen(false);
-		}
-		document.addEventListener("keydown", onKey);
-		document.body.style.overflow = "hidden";
-		return () => {
-			document.removeEventListener("keydown", onKey);
-			document.body.style.overflow = "";
-		};
-	}, [moreOpen]);
 
 	return (
 		<>
 			<nav
 				aria-label="Primary"
-				className="bg-background/85 border-border supports-[backdrop-filter]:bg-background/70 fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t backdrop-blur-xl pb-safe md:hidden"
+				style={{ viewTransitionName: "site-bottom-nav" }}
+				className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-border-default bg-surface-1/85 supports-[backdrop-filter]:bg-surface-1/65 backdrop-blur-xl pb-safe md:hidden"
 			>
 				{PRIMARY.map((item) => {
 					const active = isActive(pathname, item.href);
@@ -80,14 +91,14 @@ export function OwnerBottomNav() {
 							href={item.href}
 							aria-current={active ? "page" : undefined}
 							className={cn(
-								"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-medium transition-colors",
+								"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
 								active
 									? "text-primary"
-									: "text-muted-foreground hover:text-foreground",
+									: "text-muted-foreground active:text-foreground",
 							)}
 						>
 							<Icon
-								className="h-6 w-6"
+								className="size-6"
 								strokeWidth={active ? 2.25 : 1.75}
 								aria-hidden="true"
 							/>
@@ -102,14 +113,14 @@ export function OwnerBottomNav() {
 					aria-expanded={moreOpen}
 					aria-haspopup="dialog"
 					className={cn(
-						"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-medium transition-colors",
+						"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
 						moreActive || moreOpen
 							? "text-primary"
-							: "text-muted-foreground hover:text-foreground",
+							: "text-muted-foreground active:text-foreground",
 					)}
 				>
 					<Ellipsis
-						className="h-6 w-6"
+						className="size-6"
 						strokeWidth={moreActive || moreOpen ? 2.25 : 1.75}
 						aria-hidden="true"
 					/>
@@ -117,67 +128,41 @@ export function OwnerBottomNav() {
 				</button>
 			</nav>
 
-			{moreOpen && (
-				<>
-					<button
-						type="button"
-						aria-label="Close menu"
-						onClick={() => setMoreOpen(false)}
-						className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-					/>
-					<div
-						role="dialog"
-						aria-modal="true"
-						aria-label="More options"
-						className="bg-card border-border fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t shadow-2xl pb-safe md:hidden"
-					>
-						<div className="flex items-center justify-center pt-2 pb-1">
-							<div className="bg-muted-foreground/30 h-1 w-10 rounded-full" />
-						</div>
-						<div className="flex items-center justify-between px-4 pb-2">
-							<span className="text-foreground text-base font-semibold">
-								More
-							</span>
-							<button
-								type="button"
-								onClick={() => setMoreOpen(false)}
-								aria-label="Close"
-								className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-						<nav className="flex flex-col px-2 pt-1 pb-2">
-							{MORE.map((item) => {
-								const active = isActive(pathname, item.href);
-								const Icon = item.icon;
-								return (
-									<Link
-										key={item.href}
-										href={item.href}
-										aria-current={active ? "page" : undefined}
+			<Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+				<SheetContent side="bottom" className="md:hidden">
+					<SheetHeader>
+						<SheetTitle>More</SheetTitle>
+					</SheetHeader>
+					<nav className="flex flex-col gap-0.5">
+						{MORE.map((item) => {
+							const active = isActive(pathname, item.href);
+							const Icon = item.icon;
+							return (
+								<Link
+									key={item.href}
+									href={item.href}
+									aria-current={active ? "page" : undefined}
+									className={cn(
+										"flex min-h-[3rem] items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors duration-fast ease-out-expo",
+										active
+											? "bg-accent text-foreground"
+											: "text-foreground active:bg-surface-4",
+									)}
+								>
+									<Icon
 										className={cn(
-											"flex min-h-[3rem] items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors",
-											active
-												? "bg-accent text-accent-foreground"
-												: "text-foreground hover:bg-muted",
+											"size-5",
+											active ? "text-primary" : "text-muted-foreground",
 										)}
-									>
-										<Icon
-											className={cn(
-												"h-5 w-5",
-												active ? "text-primary" : "text-muted-foreground",
-											)}
-											aria-hidden="true"
-										/>
-										{item.label}
-									</Link>
-								);
-							})}
-						</nav>
-					</div>
-				</>
-			)}
+										aria-hidden="true"
+									/>
+									{item.label}
+								</Link>
+							);
+						})}
+					</nav>
+				</SheetContent>
+			</Sheet>
 		</>
 	);
 }

@@ -12,6 +12,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+/**
+ * <CrewBottomNav /> — sticky bottom nav for crew mobile (also visible
+ * on tablet — crew side is mobile-first).
+ *
+ * A1 refactor (sesi 5):
+ * - bg-surface-1 with backdrop blur (was bg-background — L0/L0 stack).
+ * - View Transitions anchor: viewTransitionName="site-bottom-nav".
+ * - Active strokeWidth bump for visual emphasis at small sizes.
+ */
+
 type NavItem = {
 	href: string;
 	label: string;
@@ -32,7 +42,8 @@ export function CrewBottomNav() {
 	return (
 		<nav
 			aria-label="Primary"
-			className="bg-background/85 border-border supports-[backdrop-filter]:bg-background/70 fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t backdrop-blur-xl pb-safe"
+			style={{ viewTransitionName: "site-bottom-nav" }}
+			className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-border-default bg-surface-1/85 supports-[backdrop-filter]:bg-surface-1/65 backdrop-blur-xl pb-safe"
 		>
 			{NAV_ITEMS.map((item) => {
 				const isActive =
@@ -46,14 +57,14 @@ export function CrewBottomNav() {
 						href={item.href}
 						aria-current={isActive ? "page" : undefined}
 						className={cn(
-							"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-medium transition-colors",
+							"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
 							isActive
 								? "text-primary"
-								: "text-muted-foreground hover:text-foreground",
+								: "text-muted-foreground active:text-foreground",
 						)}
 					>
 						<Icon
-							className="h-6 w-6"
+							className="size-6"
 							strokeWidth={isActive ? 2.25 : 1.75}
 							aria-hidden="true"
 						/>

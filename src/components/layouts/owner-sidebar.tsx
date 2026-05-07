@@ -16,6 +16,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+/**
+ * <OwnerSidebar /> — desktop primary navigation.
+ *
+ * A1 refactor (sesi 5):
+ * - bg-surface-1 (proper L1 surface — was bg-background which is L0,
+ *   created flat-feeling stack of L0+L0).
+ * - View Transitions anchor: viewTransitionName="site-sidebar".
+ * - Active state uses bg-accent + border-l-2 crimson for stronger
+ *   readability across long sessions.
+ * - Hover transitions tokenized via duration-fast + ease-out-expo.
+ *
+ * Mobile users: this component is hidden (md:block). Primary nav on
+ * mobile is <OwnerBottomNav>.
+ */
+
 type NavItem = {
 	href: string;
 	label: string;
@@ -38,7 +53,10 @@ export function OwnerSidebar() {
 	const pathname = usePathname();
 
 	return (
-		<aside className="border-border bg-background hidden w-60 shrink-0 border-r md:block">
+		<aside
+			style={{ viewTransitionName: "site-sidebar" }}
+			className="hidden w-60 shrink-0 border-r border-border-default bg-surface-1 md:block"
+		>
 			<nav className="flex flex-col gap-0.5 p-3">
 				{NAV_ITEMS.map((item) => {
 					const isActive =
@@ -48,14 +66,18 @@ export function OwnerSidebar() {
 						<Link
 							key={item.href}
 							href={item.href}
+							aria-current={isActive ? "page" : undefined}
 							className={cn(
-								"flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+								"relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-fast ease-out-expo",
 								isActive
-									? "bg-accent text-accent-foreground"
-									: "text-muted-foreground hover:bg-muted hover:text-foreground",
+									? "bg-accent text-foreground before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
+									: "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
 							)}
 						>
-							<Icon className="h-4 w-4" />
+							<Icon
+								className={cn("h-4 w-4", isActive && "text-primary")}
+								aria-hidden
+							/>
 							{item.label}
 						</Link>
 					);
