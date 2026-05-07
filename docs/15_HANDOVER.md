@@ -1,9 +1,10 @@
 # 15 — Session Handover & Implementation Plan Status
 
-**Last updated:** 2026-05-07 (sesi 4 — WA reminder scheduler shipped)
-**Last commit:** `9de2ebb` — Reports module live (sesi 3); sesi 4 menambah WA reminder scheduler
+**Last updated:** 2026-05-08 (sesi 4 closure — Phase 3 complete + redesign plan locked)
+**Last commit:** `880b12d` — fix(push): timeout option is milliseconds (sesi 4 final fix)
 **Production URL:** https://tetra-ops.vercel.app
 **GitHub:** https://github.com/ramaactivity/tetra-ops
+**Next session plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` — UI/UX redesign master plan (~125h across ~22 sessions)
 
 ---
 
@@ -300,25 +301,36 @@ vercel.json                        (cron schedule)
 
 Ordered by impact untuk go-live + remaining roadmap:
 
-### Round 1: Phase 3 finishing
-1. ✅ **WhatsApp reminder scheduler UI** (Week 12 closure) — DONE. `/reminders` page dengan 4 bucket (H-3 pelunasan, H-7 belum DP, H-1 konfirmasi, overdue), checkbox batch-select, sequenced wa.me opens, `event_reminders_log` tracking. Migration: `20260507_event_reminders_log.sql`.
-2. 🟡 **Drive integration** (Week 14) — Phase 1 DONE (folder auto-create on event creation + manual create button on event detail). `@googleapis/drive` + `google-auth-library` (split packages, not full `googleapis` — that one OOM'd build). Migration `20260507_event_drive_folder.sql`. Pending: file uploads (Phase 2). **Pending Rama: 4 env vars** (`GOOGLE_DRIVE_CLIENT_ID`, `_SECRET`, `_REFRESH_TOKEN`, `_PARENT_FOLDER_ID`) via `node scripts/get-drive-refresh-token.mjs`.
-3. ✅ **Web Push API** (Week 11 closure) — DONE. Service worker `/public/sw.js`, `push_subscriptions` table, VAPID dispatch via `web-push` package, subscribe button at `/notifications`, auto-fire dari anomaly scanner. Migration `20260507_push_subscriptions.sql`. Rama runs `node scripts/generate-vapid-keys.mjs` + sets 3 env vars di Vercel.
+### ✅ Round 1: Phase 3 — COMPLETE end of sesi 4
+1. ✅ **WhatsApp reminder scheduler UI** (Week 12) — DONE. Commit `7a89f06`. Migration `20260507_event_reminders_log.sql`. `/reminders` page dengan 4 bucket (H-3 pelunasan, H-7 belum DP, H-1 konfirmasi, overdue), checkbox batch-select, sequenced wa.me opens, `event_reminders_log` tracking. Migration applied + verified prod.
+2. ✅ **Drive integration Phase 1** (Week 14) — DONE. Commit `2d84cea`. Migration `20260507_event_drive_folder.sql`. Folder auto-create on event creation + manual create button on event detail. `@googleapis/drive` + `google-auth-library` (split packages — full `googleapis` OOM'd build at type-check). VAPID + Drive env vars set in Vercel + verified prod (folder `PRJ-20260822-7378 Maman` auto-created in `Tetra Ops Events/`). Phase 2 (file uploads, PDF auto-archive) deferred.
+3. ✅ **Web Push API** (Week 11) — DONE. Commits `2b2c468`, `3b40892`, `880b12d`. Migration `20260507_push_subscriptions.sql`. Service worker `/public/sw.js`, `push_subscriptions` table, VAPID dispatch via `web-push` package, subscribe button at `/notifications`, auto-fire dari anomaly scanner. iPhone PWA + 2 desktop subscribed, test push delivered to lockscreen. **Two non-obvious bugs fixed during integration:** (a) `web-push` `timeout` is milliseconds not seconds (was passing 8 → caused socket-timeout-before-handshake), (b) iOS Safari Web Push only works inside installed PWA (Home Screen). Memory: `feedback_web_push_gotchas.md`.
 
-### Round 2: Phase 4 polish dipriortiaskan untuk go-live
-4. **Equipment self-checkin from /crew** — crew tandai alat balik dari HP. Builds on existing equipment movement actions. ~3 jam.
-5. **Operations Board drag-and-drop** — status update via DnD di Kanban. UX upgrade. ~2-3 jam.
-6. **Onboarding wizard fresh-install** (FSD §14) — step-by-step buat owner first-time setup: bank account, default packages, owner shares. Only useful kalau Tetra di-roll-out ke ops lain (multi-tenant). Lower priority untuk Tetra sendiri.
+### 🎨 Round 2 (sesi 5+): UI/UX REDESIGN — locked + planned
+**Master plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md`
 
-### Round 3: Reports + analytics deepening
-7. **Monthly P&L PDF export** — render Reports → P&L tab as PDF using existing pdf infra. ~1 jam.
-8. **Multi-month comparison** — Reports tab "Compare months" dengan bar chart. ~2 jam.
-9. **Cohort analysis** — vendor cohort retention, crew cohort productivity. ~3-4 jam.
+Direction: **Crimson + Dual Accent Gradient** (Sunrise warm + Aurora cool) + 4-level surface hierarchy + Next.js 16 View Transitions (no framer-motion) + mobile shrinkage type/spacing + custom primitives to replace 67× browser-native violations.
+
+Sequencing across ~22 sessions, ~125h total:
+- **Foundation** (~28h): F1 token revamp → F2 design system doc rewrite → F3 custom primitive library → F4 motion + responsive infra
+- **Application** (~66h): A1 app shell → A2 auth+landing → A3 dashboard → A4 operations → A5-A11 admin pages + crew app
+- **Polish** (~23h): P1 skeletons → P2 error boundaries → P3 empty states → P4 microinteractions → P5 light mode → P6 view transitions → P7 perf+a11y audit
+
+5 open questions for Rama in plan file (light mode priority, brand photography, login branding, empty state copy, illustrations).
+
+### Round 3: Phase 4 polish (post-redesign)
+4. **Equipment self-checkin from /crew** — ~3 jam
+5. **Operations Board drag-and-drop** — ~2-3 jam
+6. **Onboarding wizard fresh-install** — lower priority
+7. **Monthly P&L PDF export** — ~1 jam
+8. **Multi-month comparison** — ~2 jam
+9. **Cohort analysis** — ~3-4 jam
 
 ### Lower priority / explicitly deferred
 - Fixed asset depreciation engine (DR-006: skipped)
 - Multi-tenant SaaS architecture
 - Native mobile app (PWA path chosen)
+- Drive Phase 2: file uploads (rekap photos, payment proofs, PDF auto-archive)
 
 ---
 
@@ -343,16 +355,9 @@ Already set (working):
 Pending Rama action:
 - ❌ `CRON_SECRET` — set this so cron endpoints reject unauthorized callers
 
-Pending Rama action — Web Push:
-- ❌ `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (run `node scripts/generate-vapid-keys.mjs` once)
-- ❌ `VAPID_PRIVATE_KEY` (same generator output — KEEP SECRET)
-- ❌ `VAPID_CONTACT_EMAIL` (default `tetraphotobooth@gmail.com`)
-
-Pending Rama action — Drive integration:
-- ❌ `GOOGLE_DRIVE_CLIENT_ID` (from Google Cloud Console → Credentials → Web client)
-- ❌ `GOOGLE_DRIVE_CLIENT_SECRET` (same)
-- ❌ `GOOGLE_DRIVE_REFRESH_TOKEN` (run `node scripts/get-drive-refresh-token.mjs` once, sign in as tetraphotobooth@gmail.com)
-- ❌ `GOOGLE_DRIVE_PARENT_FOLDER_ID` (manually create "Tetra Ops Events" folder in Drive, copy ID from URL)
+✅ Set in Vercel (sesi 4 closure):
+- ✓ `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT_EMAIL`
+- ✓ `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REFRESH_TOKEN`, `GOOGLE_DRIVE_PARENT_FOLDER_ID`
 
 Future (when implementing):
 - `WHATSAPP_API_TOKEN` (if/when adopting WA Business API)
@@ -369,38 +374,45 @@ Future (when implementing):
 
 ---
 
-## 9. Starter prompt untuk sesi baru
+## 9. Starter prompt untuk sesi 5 — UI/UX REDESIGN
 
 Copy-paste prompt berikut untuk mulai sesi chat baru:
 
 ---
 
-> **Lanjutkan kerjaan Tetra Ops. Sesi sebelumnya sudah panjang, sudah closure dengan handover doc.**
+> **Lanjutkan kerjaan Tetra Ops dari sesi 4. Phase 3 (WA reminder + Web Push + Drive Phase 1) sudah live dan verified di production. Sekarang fokus pindah ke UI/UX redesign full system.**
 >
-> **Read these first:**
-> - `docs/15_HANDOVER.md` — comprehensive state snapshot, what's done vs pending
-> - `docs/08_IMPLEMENTATION_PLAN.md` §5-6 — Phase 3-4 roadmap
-> - Memory files: `project_state_2026-05-07`, `feedback_design_system_first`, `feedback_pre_push_protocol`, `feedback_migration_approach`
+> **BACA INI DULU sebelum mulai apa-apa:**
 >
-> **Fokus sesi ini: selesaikan implementation plan sesuai roadmap, baru polish belakangan.**
+> 1. `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` — master plan redesign, phase-by-phase. Foundation → Application → Polish. Total ~125 jam, ~22 sesi.
+> 2. `docs/15_HANDOVER.md` — comprehensive state snapshot.
+> 3. Memory files: `project_state_2026-05-07`, `feedback_design_system_first`, `feedback_pre_push_protocol`, `feedback_migration_approach`, `feedback_web_push_gotchas` (sesi 4 baru), `feedback_redesign_direction` (sesi 4 baru), `project_shared_infra`
 >
-> Berdasarkan `docs/15_HANDOVER.md` §6 (Priority backlog), Round 1 yang masih outstanding di Phase 3:
+> **KONTEKS DESAIN (sudah locked di plan):**
+> - **Crimson + Dual Accent Gradient** (Sunrise warm + Aurora cool) dengan 4-level surface hierarchy
+> - **Motion**: Next.js 16 View Transitions API + CSS keyframes. **JANGAN install framer-motion**
+> - **Mobile**: shrinkage type scale + p-4 max + `<ResponsiveTable>` + bottom nav for owner mobile (mirror crew)
+> - **NO browser-native pickers**. 67 violations sudah di-audit (34× `<select>`, 19× window.alert/confirm, 4× native date, 3× native time, dll). Replace pakai custom primitives di Phase F3
+> - **Sonner sudah installed**, never imported. Wire untuk replace 19× window.alert/confirm
 >
-> 1. **WhatsApp reminder scheduler UI** — manual batch send H-3 reminder pakai existing WA templates + wa.me links
-> 2. **Drive integration** — Google Drive OAuth + auto-create event folders + replace existing drive_url text fields dengan proper file storage
-> 3. **Web Push API for PWA** — service worker + push subscription + send notif saat anomaly fires
+> **SKILL INSTALLS:**
+> Sebelum mulai, install/aktifkan skills design yang relevan: `/refactoring-ui` `/ux-heuristics` `/hooked-ux` `/top-design` `/ios-hig-design`
+> Plus pertimbangkan web-fetch untuk: Vercel Geist tokens, Linear redesign post-mortem, Material 3 Expressive guidelines, Apple HIG iOS 19 Liquid Glass.
 >
-> **Auto mode boleh dipakai. Mulai dengan rekomendasi singkat (2-3 kalimat) — pilih item mana yang paling impactful + scopable buat sesi ini, lalu eksekusi.**
+> **MULAI DENGAN:** Phase F1 (Token revamp). Estimate 5 jam. Goal: 4-surface hierarchy + accent gradients + motion tokens + mobile fluid type scale. File: `src/app/globals.css` + `src/lib/tokens.ts` (NEW). Acceptance lihat plan F1 section.
 >
-> **Konvensi penting:**
-> - Migration SQL idempotent, tulis di `supabase/migrations/`, instruct user paste ke Supabase
+> **KONVENSI YANG MASIH BERLAKU:**
+> - Migration SQL idempotent, tulis di `supabase/migrations/`, instruct paste ke Supabase dashboard
 > - Pre-push: `pnpm build` + smoke-test sebelum git push
 > - Semantic tokens (bg-card, text-foreground), tidak hard-code zinc/slate
 > - Server actions tidak boleh export non-async functions; constants di file terpisah
-> - Reuse existing infra: `<CsvImportWizard>`, `withRetry/withTimeout`, PDF base components
+> - Reuse existing infra: `<CsvImportWizard>`, `withRetry/withTimeout`, PDF base components, Base UI primitives
+> - Push to main langsung deploy ke Vercel (Rama sudah izinkan)
 >
-> **Pending Rama action (independent dari coding):**
-> - Set `CRON_SECRET` di Vercel env (lihat handover §7)
+> **PENDING RAMA ACTION (independent dari coding, masih outstanding):**
+> - Set `CRON_SECRET` di Vercel env
 > - Invite 12 crew via `/settings/crew`
-> - Set investor `share_pct` di `/settings/crew`
-> - Import DB_PROJECTS.csv (setelah crew sudah accept)
+> - Set investor `share_pct` (4 owners → 100%)
+> - Import DB_PROJECTS.csv setelah crew accept
+>
+> **Mulai dengan rekomendasi singkat (2-3 kalimat):** apakah langsung F1, atau ada item foundation yang lebih urgent dulu (misalnya F2 doc rewrite biar ada source of truth dulu sebelum modify globals.css)? Setelah Rama setuju, langsung eksekusi. Auto mode boleh dipakai.
