@@ -1,7 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// Routes that don't require auth — accessible to anyone, including the
+// landing page and the crew self-register flow. Any path matching one of
+// these (exactly OR starting with `${p}/`) is allowed through.
+const PUBLIC_PATHS = ["/", "/login", "/register", "/crew-portal", "/auth"];
+
+// Auth pages — if user is already signed in, bounce to root (which then
+// dispatches to /dashboard | /crew | /pending based on role).
+const AUTH_ENTRY_PATHS = ["/login", "/register", "/crew-portal"];
 
 export async function updateSession(request: NextRequest) {
 	let response = NextResponse.next({ request });
@@ -33,7 +40,9 @@ export async function updateSession(request: NextRequest) {
 	} = await supabase.auth.getUser();
 
 	const path = request.nextUrl.pathname;
-	const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+	const isPublic = PUBLIC_PATHS.some(
+		(p) => path === p || path.startsWith(`${p}/`),
+	);
 
 	if (!user && !isPublic) {
 		const url = request.nextUrl.clone();
@@ -41,7 +50,9 @@ export async function updateSession(request: NextRequest) {
 		return NextResponse.redirect(url);
 	}
 
-	if (user && path === "/login") {
+	// Already signed-in users shouldn't see the login / register / crew-portal
+	// pages — punt to root which dispatches by role.
+	if (user && AUTH_ENTRY_PATHS.includes(path)) {
 		const url = request.nextUrl.clone();
 		url.pathname = "/";
 		return NextResponse.redirect(url);
