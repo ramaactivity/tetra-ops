@@ -52,12 +52,15 @@ export default async function EventDetailPage({
 			.select(
 				`
 			id, project_id, status, channel, client_name, client_wa, client_email,
+			pic_name, pic_wa,
 			service_type, frame_size, package_id, event_category, event_date,
 			setup_time, start_time, end_time, venue_name, venue_address, venue_city,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			crew_notes, created_at, updated_at,
 			is_migrated_legacy, legacy_invoice_number,
+			booker_contact:contacts!events_booker_contact_id_fkey(id, name, phone, type, legacy_contact_id),
+			pic_contact:contacts!events_pic_contact_id_fkey(id, name, phone, type, legacy_contact_id),
 			design_brief_at, design_approved_at, design_drive_folder_url,
 			backdrop_id, vendor_decor_markup,
 			backdrop:backdrops(name, type, rental_price),
@@ -129,6 +132,15 @@ export default async function EventDetailPage({
 		!isMigratedLegacy &&
 		!settlement &&
 		(event.status === "in_progress" || event.status === "awaiting_settlement");
+
+	const bookerContact = Array.isArray(event.booker_contact)
+		? event.booker_contact[0]
+		: event.booker_contact;
+	const picContact = Array.isArray(event.pic_contact)
+		? event.pic_contact[0]
+		: event.pic_contact;
+	const picDisplayName = picContact?.name ?? event.pic_name ?? null;
+	const picDisplayPhone = picContact?.phone ?? event.pic_wa ?? null;
 	const [{ count: equipmentCountRaw }, { data: rekapData }] = await Promise.all(
 		[
 			supabase
@@ -312,20 +324,69 @@ export default async function EventDetailPage({
 					rekapSubmitted={rekapSubmitted}
 				/>
 
-				<DetailCard title="Klien">
-					<DetailRow label="Nama">{event.client_name}</DetailRow>
-					<DetailRow label="WA">
-						<a
-							href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-primary hover:underline tabular inline-flex items-center gap-1"
-						>
-							{event.client_wa}
-							<ExternalLink className="h-3 w-3" />
-						</a>
+				<DetailCard title="Klien & Kontak">
+					<DetailRow label="Klien">{event.client_name}</DetailRow>
+					<DetailRow label="WA Klien">
+						{event.client_wa && event.client_wa !== "-" ? (
+							<a
+								href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-primary hover:underline tabular inline-flex items-center gap-1"
+							>
+								{event.client_wa}
+								<ExternalLink className="h-3 w-3" />
+							</a>
+						) : (
+							<span className="text-muted-foreground">—</span>
+						)}
 					</DetailRow>
-					<DetailRow label="Email">{event.client_email ?? "—"}</DetailRow>
+					{event.client_email && (
+						<DetailRow label="Email">{event.client_email}</DetailRow>
+					)}
+					{bookerContact && (
+						<DetailRow label="Booker">
+							<span className="space-y-0.5">
+								<span className="block">{bookerContact.name}</span>
+								{bookerContact.phone && (
+									<a
+										href={`https://wa.me/${bookerContact.phone.replace(/^\+|^0/, "62")}`}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-primary hover:underline tabular inline-flex items-center gap-1 text-xs"
+									>
+										{bookerContact.phone}
+										<ExternalLink className="h-3 w-3" />
+									</a>
+								)}
+							</span>
+						</DetailRow>
+					)}
+					{(picDisplayName || picDisplayPhone) && (
+						<DetailRow label="PIC Event">
+							<span className="space-y-0.5">
+								{picDisplayName && (
+									<span className="block font-medium text-amber-700 dark:text-amber-400">
+										{picDisplayName}
+									</span>
+								)}
+								{picDisplayPhone && (
+									<a
+										href={`https://wa.me/${picDisplayPhone.replace(/^\+|^0/, "62")}`}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-primary hover:underline tabular inline-flex items-center gap-1 text-xs"
+									>
+										{picDisplayPhone}
+										<ExternalLink className="h-3 w-3" />
+									</a>
+								)}
+								<span className="text-muted-foreground block text-[10px]">
+									Crew kontak orang ini di hari H
+								</span>
+							</span>
+						</DetailRow>
+					)}
 				</DetailCard>
 
 				<DetailCard title="Service">

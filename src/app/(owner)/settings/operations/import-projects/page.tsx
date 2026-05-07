@@ -11,6 +11,8 @@ import type { TargetField } from "@/lib/csv-import/types";
 const PROJECT_TARGET_FIELDS: TargetField[] = [
 	{ key: "project_id", label: "Project ID", required: true },
 	{ key: "invoice_number", label: "Invoice Number" },
+	{ key: "booker_contact_id", label: "Booker Contact ID (CT-XXX)" },
+	{ key: "pic_contact_id", label: "PIC Contact ID (CT-XXX)" },
 	{ key: "client_name", label: "Client / Event Name", required: true },
 	{ key: "event_type", label: "Event Type" },
 	{ key: "event_date", label: "Event Date", required: true },

@@ -4,6 +4,8 @@
 export const PROJECT_HEADER_ALIASES: Record<string, string> = {
 	project_id: "project_id",
 	invoice_number: "invoice_number",
+	booker_contact_id: "booker_contact_id",
+	pic_contact_id: "pic_contact_id",
 	client_or_event_name: "client_name",
 	client_name: "client_name",
 	eventtype: "event_type",

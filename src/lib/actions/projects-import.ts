@@ -152,6 +152,12 @@ type Backdrop = { id: string; code: string; name: string };
 type EventType = { code: string; label: string };
 type Pkg = { id: string; name: string };
 type CrewUser = { id: string; full_name: string };
+type Contact = {
+	id: string;
+	legacy_contact_id: string | null;
+	name: string;
+	phone: string | null;
+};
 
 function resolveBackdrop(
 	raw: string | undefined,
@@ -331,12 +337,22 @@ export async function commitProjectImport(
 	const me = await requireSuperAdmin();
 	const supabase = await createClient();
 
+	// Collect Contact_IDs needed by this batch so we only fetch matching ones
+	const neededContactIds = new Set<string>();
+	for (const row of rows) {
+		const b = (row.booker_contact_id ?? "").trim();
+		const p = (row.pic_contact_id ?? "").trim();
+		if (b) neededContactIds.add(b);
+		if (p) neededContactIds.add(p);
+	}
+
 	const [
 		{ data: backdropRows },
 		{ data: typeRows },
 		{ data: pkgRows },
 		{ data: crewRows },
 		{ data: bankRows },
+		{ data: contactRows },
 	] = await Promise.all([
 		supabase.from("backdrops").select("id, code, name"),
 		supabase.from("event_types").select("code, label").eq("is_active", true),
@@ -350,6 +366,12 @@ export async function commitProjectImport(
 			.from("bank_accounts")
 			.select("id, is_default_receive, is_active")
 			.eq("is_active", true),
+		neededContactIds.size > 0
+			? supabase
+					.from("contacts")
+					.select("id, legacy_contact_id, name, phone")
+					.in("legacy_contact_id", Array.from(neededContactIds))
+			: Promise.resolve({ data: [] as Contact[] }),
 	]);
 
 	const backdrops: Backdrop[] = backdropRows ?? [];
@@ -360,6 +382,12 @@ export async function commitProjectImport(
 		(bankRows ?? []).find((b) => b.is_default_receive)?.id ??
 		(bankRows ?? [])[0]?.id ??
 		null;
+
+	// Build Map<legacy_contact_id, Contact> for O(1) lookup
+	const contactsByLegacy = new Map<string, Contact>();
+	for (const c of (contactRows ?? []) as Contact[]) {
+		if (c.legacy_contact_id) contactsByLegacy.set(c.legacy_contact_id, c);
+	}
 
 	const today = new Date().toISOString().slice(0, 10);
 
@@ -441,6 +469,22 @@ export async function commitProjectImport(
 
 		const { isPast, mappedStatus } = classify(eventDate, obj.status_project, today);
 
+		// Resolve Booker + PIC contacts via legacy CT-XXX id
+		const bookerLegacyId = (obj.booker_contact_id ?? "").trim();
+		const picLegacyId = (obj.pic_contact_id ?? "").trim();
+		const bookerContact = bookerLegacyId
+			? contactsByLegacy.get(bookerLegacyId)
+			: undefined;
+		const picContact = picLegacyId ? contactsByLegacy.get(picLegacyId) : undefined;
+		if (bookerLegacyId && !bookerContact) {
+			warnings.push(
+				`booker contact "${bookerLegacyId}" not in contacts master`,
+			);
+		}
+		if (picLegacyId && !picContact) {
+			warnings.push(`pic contact "${picLegacyId}" not in contacts master`);
+		}
+
 		const channel = resolveChannel(obj.channel);
 		const frameSize = resolveFrameSize(obj.sleeve_type);
 		const eventCategory = resolveEventCategory(obj.event_type, eventTypes);
@@ -492,12 +536,21 @@ export async function commitProjectImport(
 					? "partial"
 					: resolvePaymentStatus(obj.payment_status);
 
+		// client_wa default fallback "-" — overridden if booker contact has phone
+		const resolvedClientWa = bookerContact?.phone || "-";
+		const resolvedPicName = picContact?.name ?? null;
+		const resolvedPicWa = picContact?.phone ?? null;
+
 		const eventPayload: Record<string, unknown> = {
 			project_id: projectId,
 			status: mappedStatus,
 			channel,
 			client_name: clientName,
-			client_wa: "-",
+			client_wa: resolvedClientWa,
+			pic_name: resolvedPicName,
+			pic_wa: resolvedPicWa,
+			booker_contact_id: bookerContact?.id ?? null,
+			pic_contact_id: picContact?.id ?? null,
 			service_type: "photobooth_classic",
 			package_id: packageId,
 			custom_package_name: packageId ? null : obj.package_name || null,
