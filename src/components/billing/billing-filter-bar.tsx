@@ -4,6 +4,7 @@ import { Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { MonthPicker } from "@/components/ui/month-picker";
 
 export function BillingFilterBar({
 	defaultQ,
@@ -38,29 +39,34 @@ export function BillingFilterBar({
 				onSubmit={handleSubmit}
 				className="relative min-w-[200px] flex-1 sm:max-w-xs"
 			>
-				<Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+				<Search
+					className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					aria-hidden
+				/>
 				<input
 					type="search"
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
 					placeholder="Cari nama klien…"
-					className="border-border-default bg-surface-2 focus-visible:ring-ring h-9 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
+					className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 				/>
 			</form>
 
-			<input
-				type="month"
-				value={defaultMonth}
-				onChange={(e) => router.push(buildHref({ month: e.target.value }))}
-				className="border-border-default bg-surface-2 focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-			/>
+			<div className="w-[180px]">
+				<MonthPicker
+					value={defaultMonth}
+					onValueChange={(value) => router.push(buildHref({ month: value }))}
+					placeholder="Semua bulan"
+					aria-label="Filter bulan"
+				/>
+			</div>
 
 			{hasFilters && (
 				<Link
 					href="/billing"
-					className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 rounded-md px-2 text-xs font-medium"
+					className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
 				>
-					<X className="h-3.5 w-3.5" />
+					<X className="size-3.5" aria-hidden />
 					Clear
 				</Link>
 			)}

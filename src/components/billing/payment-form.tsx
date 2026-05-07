@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { NativeSelect } from "@/components/ui/native-select";
 import { logPayment, type PaymentFormState } from "@/lib/actions/payments";
 
 const PAYMENT_TYPE_OPTIONS: Array<[string, string]> = [
@@ -39,11 +41,19 @@ export function PaymentForm({
 		state?.values?.[key] ?? fallback ?? "";
 
 	const err = (key: string) =>
-		(state?.errors?.[key as keyof typeof state.errors] as string[] | undefined)?.[0];
+		(state?.errors?.[key as keyof typeof state.errors] as
+			| string[]
+			| undefined)?.[0];
+
+	const [paymentDate, setPaymentDate] = useState(
+		get("payment_date", defaultDate),
+	);
+	const [paymentType, setPaymentType] = useState(get("payment_type", "dp"));
+	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
 
 	if (bankAccounts.length === 0) {
 		return (
-			<p className="text-muted-foreground text-sm italic">
+			<p className="text-fluid-body italic text-muted-foreground">
 				Belum ada bank account aktif. Tambah dari Settings → Banks.
 			</p>
 		);
@@ -52,8 +62,8 @@ export function PaymentForm({
 	return (
 		<form action={formAction} className="space-y-4">
 			{state?.errors?._form && (
-				<div className="border-destructive bg-destructive/10 rounded-md border p-3">
-					<p className="text-destructive text-sm font-medium">
+				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+					<p className="text-fluid-body font-medium text-destructive">
 						{state.errors._form[0]}
 					</p>
 				</div>
@@ -79,12 +89,17 @@ export function PaymentForm({
 					error={err("payment_date")}
 					required
 				>
+					<DatePicker
+						value={paymentDate}
+						onValueChange={setPaymentDate}
+						placeholder="Pilih tanggal"
+						aria-invalid={!!err("payment_date")}
+					/>
 					<input
-						type="date"
+						type="hidden"
 						name="payment_date"
+						value={paymentDate}
 						required
-						defaultValue={get("payment_date", defaultDate)}
-						className={inputClass}
 					/>
 				</Field>
 
@@ -94,18 +109,22 @@ export function PaymentForm({
 					error={err("payment_type")}
 					required
 				>
-					<select
+					<NativeSelect
+						value={paymentType}
+						onValueChange={setPaymentType}
+						options={PAYMENT_TYPE_OPTIONS.map(([value, label]) => ({
+							value,
+							label,
+						}))}
+						triggerClassName="w-full"
+						aria-invalid={!!err("payment_type")}
+					/>
+					<input
+						type="hidden"
 						name="payment_type"
+						value={paymentType}
 						required
-						defaultValue={get("payment_type", "dp")}
-						className={selectClass}
-					>
-						{PAYMENT_TYPE_OPTIONS.map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
+					/>
 				</Field>
 			</div>
 
@@ -115,23 +134,23 @@ export function PaymentForm({
 				error={err("bank_account_id")}
 				required
 			>
-				<select
+				<NativeSelect
+					value={bankAccountId}
+					onValueChange={setBankAccountId}
+					placeholder="Pilih bank…"
+					options={bankAccounts.map((b) => ({
+						value: b.id,
+						label: `${b.bank_name}${b.account_number ? ` · ${b.account_number}` : ""}${b.account_holder ? ` · ${b.account_holder}` : ""}`,
+					}))}
+					triggerClassName="w-full"
+					aria-invalid={!!err("bank_account_id")}
+				/>
+				<input
+					type="hidden"
 					name="bank_account_id"
+					value={bankAccountId}
 					required
-					defaultValue={get("bank_account_id")}
-					className={selectClass}
-				>
-					<option value="" disabled>
-						Pilih bank…
-					</option>
-					{bankAccounts.map((b) => (
-						<option key={b.id} value={b.id}>
-							{b.bank_name}
-							{b.account_number ? ` · ${b.account_number}` : ""}
-							{b.account_holder ? ` · ${b.account_holder}` : ""}
-						</option>
-					))}
-				</select>
+				/>
 			</Field>
 
 			<Field
@@ -168,7 +187,7 @@ export function PaymentForm({
 				<button
 					type="submit"
 					disabled={pending}
-					className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-md px-4 text-sm font-medium disabled:opacity-60"
+					className="press-down h-10 rounded-md bg-primary px-4 text-fluid-body font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
 				>
 					{pending ? "Menyimpan…" : "Log payment"}
 				</button>
@@ -178,8 +197,7 @@ export function PaymentForm({
 }
 
 const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
-const selectClass = `${inputClass} appearance-none`;
+	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-fluid-body text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 function Field({
 	label,
@@ -198,15 +216,15 @@ function Field({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
+			<label htmlFor={name} className="text-fluid-body font-medium">
 				{label}
-				{required && <span className="text-primary ml-0.5">*</span>}
+				{required && <span className="ml-0.5 text-primary">*</span>}
 			</label>
 			{children}
 			{error ? (
-				<p className="text-destructive text-xs">{error}</p>
+				<p className="text-fluid-caption text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-muted-foreground text-xs">{hint}</p>
+				<p className="text-fluid-caption text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
 	);

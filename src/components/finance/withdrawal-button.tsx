@@ -2,6 +2,7 @@
 
 import { ArrowDownToLine, Loader2, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	recordOwnerWithdrawal,
 	type WithdrawalFormState,
@@ -99,19 +100,21 @@ export function WithdrawalButton({
 							className="space-y-4 px-6 py-5"
 						>
 							<Field label="Owner" required>
-								<select
-									name="owner_user_id"
-									required
+								<NativeSelect
 									value={selectedOwner}
-									onChange={(e) => setSelectedOwner(e.target.value)}
-									className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-								>
-									{owners.map((o) => (
-										<option key={o.id} value={o.id}>
-											{o.full_name} · saldo {formatRupiah(o.balance)}
-										</option>
-									))}
-								</select>
+									onValueChange={setSelectedOwner}
+									options={owners.map((o) => ({
+										value: o.id,
+										label: `${o.full_name} · saldo ${formatRupiah(o.balance)}`,
+									}))}
+									triggerClassName="w-full"
+								/>
+								<input
+									type="hidden"
+									name="owner_user_id"
+									value={selectedOwner}
+									required
+								/>
 							</Field>
 
 							{owner && (
@@ -146,15 +149,7 @@ export function WithdrawalButton({
 
 							<div className="grid gap-3 sm:grid-cols-2">
 								<Field label="Method" required>
-									<select
-										name="withdrawal_method"
-										required
-										defaultValue="transfer"
-										className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-									>
-										<option value="transfer">Transfer</option>
-										<option value="cash">Cash</option>
-									</select>
+									<WithdrawalMethodSelect />
 								</Field>
 								<Field label="Account / detail">
 									<input
@@ -222,6 +217,29 @@ export function WithdrawalButton({
 					</div>
 				</div>
 			)}
+		</>
+	);
+}
+
+function WithdrawalMethodSelect() {
+	const [method, setMethod] = useState("transfer");
+	return (
+		<>
+			<NativeSelect
+				value={method}
+				onValueChange={setMethod}
+				options={[
+					{ value: "transfer", label: "Transfer" },
+					{ value: "cash", label: "Cash" },
+				]}
+				triggerClassName="w-full"
+			/>
+			<input
+				type="hidden"
+				name="withdrawal_method"
+				value={method}
+				required
+			/>
 		</>
 	);
 }
