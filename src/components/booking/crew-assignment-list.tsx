@@ -3,6 +3,7 @@
 import { MessageCircle, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/toaster";
 import {
 	unassignCrew,
 	updateCrewAssignment,
@@ -162,7 +163,7 @@ function AssignmentItem({
 	function handleSendWa() {
 		const phone = row.user.phone_wa;
 		if (!phone) {
-			window.alert(
+			toast.warning(
 				`${row.user.full_name} belum punya nomor WA — set di Settings → Master Crew.`,
 			);
 			return;

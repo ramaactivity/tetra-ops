@@ -1,7 +1,9 @@
 "use client";
 
 import { CheckCircle2, ExternalLink, Palette, Sparkles } from "lucide-react";
-import { useActionState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/toaster";
 import {
 	approveDesign,
 	type DesignFormState,
@@ -29,16 +31,7 @@ export function DesignCard({
 		FormData
 	>(action, undefined);
 
-	const [approving, startApprove] = useTransition();
-
-	function onApprove() {
-		const ok = window.confirm("Approve design ini? Status event auto-promote.");
-		if (!ok) return;
-		startApprove(async () => {
-			const result = await approveDesign(eventId, projectId);
-			if (result.error) window.alert(result.error);
-		});
-	}
+	const [approveOpen, setApproveOpen] = useState(false);
 
 	const initialUrl = state?.values?.design_drive_folder_url ?? driveUrl ?? "";
 
@@ -123,15 +116,31 @@ export function DesignCard({
 			)}
 
 			{canEdit && driveUrl && !approvedAt && (
-				<button
-					type="button"
-					onClick={onApprove}
-					disabled={approving}
-					className="bg-emerald-600 text-white hover:bg-emerald-700 inline-flex h-10 items-center gap-1.5 rounded-md px-4 text-sm font-medium disabled:opacity-60"
-				>
-					<CheckCircle2 className="h-4 w-4" />
-					{approving ? "Memproses…" : "Approve design"}
-				</button>
+				<>
+					<button
+						type="button"
+						onClick={() => setApproveOpen(true)}
+						className="press-down inline-flex h-10 items-center gap-1.5 rounded-md bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+					>
+						<CheckCircle2 className="size-4" />
+						Approve design
+					</button>
+					<ConfirmDialog
+						open={approveOpen}
+						onOpenChange={setApproveOpen}
+						title="Approve design?"
+						description="Status event akan auto-promote ke Design Approved."
+						confirmLabel="Approve"
+						onConfirm={async () => {
+							const result = await approveDesign(eventId, projectId);
+							if (result.error) {
+								toast.error(result.error);
+								throw new Error(result.error);
+							}
+							toast.success("Design di-approve");
+						}}
+					/>
+				</>
 			)}
 		</div>
 	);

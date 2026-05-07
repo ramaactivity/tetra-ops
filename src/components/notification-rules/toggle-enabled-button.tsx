@@ -1,7 +1,9 @@
 "use client";
 
 import { Power } from "lucide-react";
-import { useTransition } from "react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/toaster";
 import { toggleNotificationRuleEnabled } from "@/lib/actions/notification-rules";
 
 export function ToggleRuleEnabledButton({
@@ -13,31 +15,40 @@ export function ToggleRuleEnabledButton({
 	isEnabled: boolean;
 	name: string;
 }) {
-	const [pending, startTransition] = useTransition();
-
-	function onClick() {
-		const action = isEnabled ? "menonaktifkan" : "mengaktifkan";
-		const ok = window.confirm(`${action} rule "${name}"?`);
-		if (!ok) return;
-		startTransition(async () => {
-			try {
-				await toggleNotificationRuleEnabled(id, !isEnabled);
-			} catch (e) {
-				const msg = e instanceof Error ? e.message : "Gagal toggle";
-				window.alert(msg);
-			}
-		});
-	}
+	const [open, setOpen] = useState(false);
 
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={pending}
-			title={isEnabled ? "Nonaktifkan" : "Aktifkan"}
-			className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:opacity-50"
-		>
-			<Power className="h-4 w-4" />
-		</button>
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				title={isEnabled ? "Nonaktifkan" : "Aktifkan"}
+				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+			>
+				<Power className="size-4" />
+			</button>
+			<ConfirmDialog
+				open={open}
+				onOpenChange={setOpen}
+				title={isEnabled ? "Nonaktifkan rule?" : "Aktifkan rule?"}
+				description={`Rule "${name}" akan ${isEnabled ? "berhenti dijalankan oleh anomaly scanner" : "mulai aktif lagi"}.`}
+				confirmLabel={isEnabled ? "Nonaktifkan" : "Aktifkan"}
+				variant={isEnabled ? "destructive" : "default"}
+				onConfirm={async () => {
+					try {
+						await toggleNotificationRuleEnabled(id, !isEnabled);
+						toast.success(
+							isEnabled
+								? `Rule "${name}" dinonaktifkan`
+								: `Rule "${name}" diaktifkan`,
+						);
+					} catch (e) {
+						const msg = e instanceof Error ? e.message : "Gagal toggle";
+						toast.error(msg);
+						throw e;
+					}
+				}}
+			/>
+		</>
 	);
 }

@@ -1,36 +1,42 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useTransition } from "react";
+import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/toaster";
 import { archiveItem } from "@/lib/actions/items";
 
 export function ArchiveItemButton({ id, name }: { id: string; name: string }) {
-	const [pending, startTransition] = useTransition();
-
-	function onClick() {
-		const ok = window.confirm(
-			`Arsip item "${name}"? Item akan disembunyikan dari list & lookup.`,
-		);
-		if (!ok) return;
-		startTransition(async () => {
-			try {
-				await archiveItem(id);
-			} catch (e) {
-				const msg = e instanceof Error ? e.message : "Gagal arsip";
-				window.alert(msg);
-			}
-		});
-	}
+	const [open, setOpen] = useState(false);
 
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={pending}
-			title="Arsipkan"
-			className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:opacity-50"
-		>
-			<Trash2 className="h-4 w-4" />
-		</button>
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				title="Arsipkan"
+				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+			>
+				<Trash2 className="size-4" />
+			</button>
+			<ConfirmDialog
+				open={open}
+				onOpenChange={setOpen}
+				title="Arsipkan item?"
+				description={`Item "${name}" akan disembunyikan dari list & lookup. Bisa dibuka lagi via filter "Show archived".`}
+				confirmLabel="Arsipkan"
+				variant="destructive"
+				onConfirm={async () => {
+					try {
+						await archiveItem(id);
+						toast.success(`Item "${name}" diarsipkan`);
+					} catch (e) {
+						const msg = e instanceof Error ? e.message : "Gagal arsip";
+						toast.error(msg);
+						throw e;
+					}
+				}}
+			/>
+		</>
 	);
 }

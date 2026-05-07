@@ -2,6 +2,7 @@
 
 import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { useState, useTransition } from "react";
+import { toast } from "@/components/ui/toaster";
 import { reviewRekap } from "@/lib/actions/rekap";
 
 export function RekapReviewButtons({
@@ -20,28 +21,37 @@ export function RekapReviewButtons({
 	function approve() {
 		startTransition(async () => {
 			const result = await reviewRekap(rekapId, projectId, true, notes);
-			if (result.error) window.alert(result.error);
+			if (result.error) {
+				toast.error(result.error);
+			} else {
+				toast.success("Rekap di-approve");
+			}
 		});
 	}
 
 	function reject() {
 		if (!notes.trim()) {
-			window.alert("Wajib isi catatan kalau reject");
+			toast.warning("Wajib isi catatan kalau reject");
 			return;
 		}
 		startTransition(async () => {
 			const result = await reviewRekap(rekapId, projectId, false, notes);
-			if (result.error) window.alert(result.error);
+			if (result.error) {
+				toast.error(result.error);
+			} else {
+				toast.info("Rekap dikembalikan ke crew untuk revisi");
+			}
 		});
 	}
 
 	function reset() {
 		startTransition(async () => {
 			const result = await reviewRekap(rekapId, projectId, false, "");
-			// trick: set is_approved=false, but we want NULL → use direct approach
-			// For simplicity, treat reset as un-review. Action above sets is_approved=false.
-			// User can fix by re-submitting or super_admin via DB.
-			if (result.error) window.alert(result.error);
+			if (result.error) {
+				toast.error(result.error);
+			} else {
+				toast.info("Rekap di-reopen");
+			}
 		});
 	}
 
