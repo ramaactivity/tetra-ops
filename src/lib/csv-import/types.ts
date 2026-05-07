@@ -39,7 +39,10 @@ export type WizardConfig = {
 	targetFields: TargetField[];
 	headerAliases: Record<string, string>;
 	checkDuplicates: (primaryKeys: string[]) => Promise<string[]>;
-	commit: (rows: Record<string, string>[]) => Promise<ImportResult>;
+	commit: (
+		rows: Record<string, string>[],
+		rowOffset: number,
+	) => Promise<ImportResult>;
 	backHref?: string;
 	backLabel?: string;
 	sampleCsv?: string;

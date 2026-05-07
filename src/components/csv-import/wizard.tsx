@@ -26,6 +26,16 @@ import type {
 type Step = 1 | 2 | 3 | 4;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const BATCH_SIZE = 10; // rows per server roundtrip
+
+type ImportProgress = {
+	processed: number;
+	total: number;
+	currentBatch: number;
+	totalBatches: number;
+	stats: ImportStat[];
+	elapsedMs: number;
+};
 
 export function CsvImportWizard({ config }: { config: WizardConfig }) {
 	const [step, setStep] = useState<Step>(1);
@@ -37,6 +47,8 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 	const [result, setResult] = useState<ImportResult | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
+	const [isImporting, setIsImporting] = useState(false);
+	const [progress, setProgress] = useState<ImportProgress | null>(null);
 
 	const handleFile = useCallback(
 		(file: File) => {
@@ -156,21 +168,73 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 		});
 	}, [missingRequired, buildMappedRows, config, startTransition]);
 
-	const commit = useCallback(() => {
+	const commit = useCallback(async () => {
 		setError(null);
 		const mapped = buildMappedRows();
-		startTransition(async () => {
-			try {
-				const r = await config.commit(mapped);
-				setResult(r);
-				setStep(4);
-			} catch (err) {
-				setError(
-					`Import gagal: ${err instanceof Error ? err.message : "unknown"}`,
-				);
-			}
+		const total = mapped.length;
+		const totalBatches = Math.ceil(total / BATCH_SIZE);
+		const startMs = Date.now();
+		setIsImporting(true);
+		setProgress({
+			processed: 0,
+			total,
+			currentBatch: 0,
+			totalBatches,
+			stats: [],
+			elapsedMs: 0,
 		});
-	}, [buildMappedRows, config, startTransition]);
+
+		const accumulated: ImportResult = {
+			totalRows: total,
+			stats: [],
+			rows: [],
+		};
+
+		try {
+			for (let i = 0; i < total; i += BATCH_SIZE) {
+				const batch = mapped.slice(i, i + BATCH_SIZE);
+				const batchResult = await config.commit(batch, i);
+
+				accumulated.rows.push(...batchResult.rows);
+				for (const stat of batchResult.stats) {
+					const existing = accumulated.stats.find(
+						(s) => s.label === stat.label,
+					);
+					if (existing) {
+						existing.value += stat.value;
+					} else {
+						accumulated.stats.push({ ...stat });
+					}
+				}
+
+				const processed = Math.min(i + batch.length, total);
+				setProgress({
+					processed,
+					total,
+					currentBatch: Math.ceil(processed / BATCH_SIZE),
+					totalBatches,
+					stats: accumulated.stats.map((s) => ({ ...s })),
+					elapsedMs: Date.now() - startMs,
+				});
+			}
+
+			setResult(accumulated);
+			setIsImporting(false);
+			setStep(4);
+		} catch (err) {
+			setIsImporting(false);
+			setError(
+				`Import gagal di batch ${progress?.currentBatch ?? "?"}: ${
+					err instanceof Error ? err.message : "unknown"
+				}. ${accumulated.rows.length} baris sudah ter-process sebelum error.`,
+			);
+			// If at least one row was processed, show partial result on Done step
+			if (accumulated.rows.length > 0) {
+				setResult(accumulated);
+				setStep(4);
+			}
+		}
+	}, [buildMappedRows, config, progress?.currentBatch]);
 
 	const reset = useCallback(() => {
 		setStep(1);
@@ -181,6 +245,8 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 		setDuplicates(new Set());
 		setResult(null);
 		setError(null);
+		setProgress(null);
+		setIsImporting(false);
 	}, []);
 
 	return (
@@ -243,7 +309,8 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 						duplicateStrategy={config.duplicateStrategy}
 						onBack={() => setStep(2)}
 						onCommit={commit}
-						isPending={isPending}
+						isImporting={isImporting}
+						progress={progress}
 					/>
 				)}
 				{step === 4 && result && (
@@ -623,7 +690,8 @@ function PreviewStep({
 	duplicateStrategy,
 	onBack,
 	onCommit,
-	isPending,
+	isImporting,
+	progress,
 }: {
 	headers: string[];
 	rows: string[][];
@@ -635,7 +703,8 @@ function PreviewStep({
 	duplicateStrategy: "skip" | "update";
 	onBack: () => void;
 	onCommit: () => void;
-	isPending: boolean;
+	isImporting: boolean;
+	progress: ImportProgress | null;
 }) {
 	const mappedCols = useMemo(() => {
 		const cols: { idx: number; key: string; label: string }[] = [];
@@ -757,35 +826,126 @@ function PreviewStep({
 				</div>
 			)}
 
-			<div className="flex items-center justify-between">
-				<button
-					type="button"
-					onClick={onBack}
-					disabled={isPending}
-					className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 px-3 text-sm font-medium disabled:opacity-50"
-				>
-					<ArrowLeft className="h-4 w-4" />
-					Back to mapping
-				</button>
-				<button
-					type="button"
-					onClick={onCommit}
-					disabled={isPending}
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
-				>
-					{isPending ? (
-						<>
-							<Loader2 className="h-4 w-4 animate-spin" />
-							Mengimport…
-						</>
-					) : (
-						<>
-							<FileSpreadsheet className="h-4 w-4" />
-							Confirm & Import
-						</>
-					)}
-				</button>
+			{isImporting && progress ? (
+				<ProgressPanel progress={progress} />
+			) : (
+				<div className="flex items-center justify-between">
+					<button
+						type="button"
+						onClick={onBack}
+						className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 px-3 text-sm font-medium"
+					>
+						<ArrowLeft className="h-4 w-4" />
+						Back to mapping
+					</button>
+					<button
+						type="button"
+						onClick={onCommit}
+						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
+					>
+						<FileSpreadsheet className="h-4 w-4" />
+						Confirm & Import
+					</button>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function ProgressPanel({ progress }: { progress: ImportProgress }) {
+	const pct =
+		progress.total > 0
+			? Math.round((progress.processed / progress.total) * 100)
+			: 0;
+	const elapsedSec = (progress.elapsedMs / 1000).toFixed(1);
+	const ratePerSec =
+		progress.elapsedMs > 0
+			? (progress.processed / (progress.elapsedMs / 1000)).toFixed(1)
+			: "0";
+	const remainingSec =
+		progress.processed > 0 && progress.processed < progress.total
+			? Math.round(
+					((progress.total - progress.processed) / progress.processed) *
+						(progress.elapsedMs / 1000),
+				)
+			: 0;
+
+	return (
+		<div className="border-primary/20 bg-primary/5 space-y-3 rounded-xl border p-4">
+			<div className="flex items-baseline justify-between gap-3">
+				<div className="flex items-center gap-2">
+					<Loader2 className="text-primary h-4 w-4 animate-spin" />
+					<span className="text-foreground text-sm font-medium">
+						Mengimport {progress.processed.toLocaleString("id-ID")} /{" "}
+						{progress.total.toLocaleString("id-ID")} baris
+					</span>
+				</div>
+				<span className="text-primary tabular text-2xl font-semibold">
+					{pct}%
+				</span>
 			</div>
+
+			<div className="bg-card border-border h-2.5 w-full overflow-hidden rounded-full border">
+				<div
+					className="bg-primary h-full transition-all duration-300 ease-out"
+					style={{ width: `${pct}%` }}
+				/>
+			</div>
+
+			<div className="text-muted-foreground tabular flex flex-wrap items-center justify-between gap-2 text-xs">
+				<span>
+					Batch {progress.currentBatch} / {progress.totalBatches}
+				</span>
+				<span>
+					{elapsedSec}s · {ratePerSec} rows/s
+					{remainingSec > 0 && progress.processed < progress.total && (
+						<> · ~{remainingSec}s remaining</>
+					)}
+				</span>
+			</div>
+
+			{progress.stats.length > 0 && (
+				<div className="border-primary/10 grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-4">
+					{progress.stats.map((s) => (
+						<MiniStat key={s.label} label={s.label} value={s.value} tone={s.tone} />
+					))}
+				</div>
+			)}
+
+			<p className="text-muted-foreground text-xs italic">
+				Jangan refresh halaman — tunggu sampai selesai.
+			</p>
+		</div>
+	);
+}
+
+function MiniStat({
+	label,
+	value,
+	tone,
+}: {
+	label: string;
+	value: number;
+	tone?: "muted" | "primary" | "emerald" | "amber" | "rose";
+}) {
+	const cls =
+		tone === "primary"
+			? "text-primary"
+			: tone === "emerald"
+				? "text-emerald-600 dark:text-emerald-400"
+				: tone === "rose"
+					? "text-rose-600 dark:text-rose-400"
+					: tone === "amber"
+						? "text-amber-600 dark:text-amber-400"
+						: "text-muted-foreground";
+	return (
+		<div className="space-y-0.5">
+			<dt className="text-muted-foreground text-[10px] uppercase tracking-wider">
+				{label}
+			</dt>
+			<dd className={`tabular text-base font-semibold ${cls}`}>
+				{value.toLocaleString("id-ID")}
+			</dd>
 		</div>
 	);
 }

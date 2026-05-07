@@ -90,6 +90,7 @@ export async function checkItemDuplicates(skus: string[]): Promise<string[]> {
 
 export async function commitItemImport(
 	rows: Record<string, string>[],
+	rowOffset = 0,
 ): Promise<ImportResult> {
 	await requireOwnerLevel();
 	const supabase = await createClient();
@@ -101,7 +102,7 @@ export async function commitItemImport(
 	const resultRows: ImportResult["rows"] = [];
 
 	for (let i = 0; i < rows.length; i++) {
-		const rowNum = i + 2;
+		const rowNum = rowOffset + i + 2;
 		const obj = rows[i];
 		const sku = (obj.sku ?? "").trim();
 		const name = (obj.name ?? "").trim();

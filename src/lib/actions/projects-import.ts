@@ -326,6 +326,7 @@ export async function checkProjectDuplicates(
 
 export async function commitProjectImport(
 	rows: Record<string, string>[],
+	rowOffset = 0,
 ): Promise<ImportResult> {
 	const me = await requireSuperAdmin();
 	const supabase = await createClient();
@@ -369,7 +370,7 @@ export async function commitProjectImport(
 	const resultRows: ImportResult["rows"] = [];
 
 	for (let i = 0; i < rows.length; i++) {
-		const rowNum = i + 2;
+		const rowNum = rowOffset + i + 2;
 		const obj = rows[i];
 		const projectId = (obj.project_id ?? "").trim() || null;
 		const clientName = (obj.client_name ?? "").trim() || null;
