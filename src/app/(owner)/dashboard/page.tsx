@@ -14,8 +14,11 @@ import {
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { PipelineCard } from "@/components/operations/pipeline-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -69,14 +72,12 @@ export default async function DashboardPage() {
 		completedThisMonthCountResult,
 		nextEventsResult,
 	] = await Promise.all([
-		// This month revenue (sum of non-reversed payments)
 		supabase
 			.from("payments")
 			.select("amount")
 			.eq("is_reversed", false)
 			.gte("payment_date", ymStart)
 			.lte("payment_date", ymEnd),
-		// Outstanding (sum of remaining_balance for non-paid events) — exclude legacy archive
 		supabase
 			.from("events")
 			.select("remaining_balance")
@@ -84,7 +85,6 @@ export default async function DashboardPage() {
 			.eq("is_migrated_legacy", false)
 			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
-		// Total events this month — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
@@ -92,14 +92,12 @@ export default async function DashboardPage() {
 			.eq("is_migrated_legacy", false)
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
-		// Awaiting settlement — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
 			.eq("status", "awaiting_settlement"),
-		// Pipeline: upcoming next 7 days — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
@@ -108,14 +106,12 @@ export default async function DashboardPage() {
 			.in("status", ["confirmed", "upcoming"])
 			.gte("event_date", todayISO)
 			.lte("event_date", sevenFromNowISO),
-		// In progress — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
 			.eq("status", "in_progress"),
-		// Completed this month — exclude legacy archive
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
@@ -124,7 +120,6 @@ export default async function DashboardPage() {
 			.eq("status", "completed")
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
-		// Today + tomorrow event list — exclude legacy archive
 		supabase
 			.from("events")
 			.select(
@@ -167,19 +162,16 @@ export default async function DashboardPage() {
 	const firstName = userResult.profile.full_name.split(" ")[0];
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 md:px-8">
-			<div className="space-y-1">
-				<h1 className="text-3xl font-semibold tracking-tight">
-					Halo, {firstName}.
-				</h1>
-				<p className="text-muted-foreground text-sm">
-					{ID_DATE_FULL.format(today)}
-				</p>
-			</div>
+		<Container size="xl" className="space-y-6 md:space-y-8">
+			<SectionHeader
+				title={`Halo, ${firstName}.`}
+				description={ID_DATE_FULL.format(today)}
+			/>
 
-			{/* Section A — Hero KPIs */}
-			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			{/* Hero KPIs — first card gets the gradient hero treatment per design system §12 */}
+			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<KpiCard
+					variant="hero"
 					label="Bulan Ini"
 					value={monthCount.toLocaleString("id-ID")}
 					hint="Total event di bulan berjalan"
@@ -215,18 +207,16 @@ export default async function DashboardPage() {
 				/>
 			</dl>
 
-			{/* Anomaly radar */}
 			<AnomalyRadarWidget />
 
-			{/* Section B — Event Pipeline */}
 			<section className="space-y-3">
 				<div className="flex items-baseline justify-between">
-					<h2 className="text-base font-semibold tracking-tight">
+					<h2 className="text-fluid-h3 font-semibold tracking-tight">
 						Pipeline Event
 					</h2>
 					<Link
 						href="/operations"
-						className="text-muted-foreground hover:text-foreground text-xs font-medium"
+						className="text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
 					>
 						Lihat semua →
 					</Link>
@@ -264,18 +254,16 @@ export default async function DashboardPage() {
 			</section>
 
 			<div className="grid gap-6 lg:grid-cols-3">
-				{/* Section D — Today & Tomorrow */}
 				<section className="space-y-3 lg:col-span-2">
-					<h2 className="text-base font-semibold tracking-tight">
+					<h2 className="text-fluid-h3 font-semibold tracking-tight">
 						Hari Ini & Besok
 					</h2>
 					{nextEvents.length === 0 ? (
-						<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-10 text-center">
-							<CalendarClock className="text-muted-foreground h-7 w-7" />
-							<p className="text-muted-foreground text-sm">
-								Tidak ada event hari ini atau besok.
-							</p>
-						</div>
+						<EmptyState
+							icon={CalendarClock}
+							title="Tidak ada event hari ini atau besok."
+							description="Free time. Kalau ada booking baru, akan muncul di sini otomatis."
+						/>
 					) : (
 						<div className="space-y-2">
 							{nextEvents.map((ev) => {
@@ -284,34 +272,32 @@ export default async function DashboardPage() {
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="group border-border bg-card hover:border-foreground/20 flex items-start gap-4 rounded-xl border p-4 transition-colors"
+										className="lift-on-hover group flex items-start gap-4 rounded-xl border border-border-default bg-surface-2 p-4 transition-colors hover:bg-surface-3"
 									>
 										<div className="flex w-16 shrink-0 flex-col items-center gap-0.5">
 											<span
-												className={`text-xs font-medium uppercase tracking-wider ${
-													isToday
-														? "text-primary"
-														: "text-muted-foreground"
+												className={`text-fluid-caption font-medium uppercase tracking-wider ${
+													isToday ? "text-primary" : "text-muted-foreground"
 												}`}
 											>
 												{isToday ? "Hari ini" : "Besok"}
 											</span>
-											<span className="tabular text-foreground text-base font-semibold">
+											<span className="tabular text-fluid-body font-semibold text-foreground">
 												{ID_TIME(ev.start_time)}
 											</span>
 										</div>
 										<div className="min-w-0 flex-1 space-y-1">
 											<div className="flex items-baseline gap-2">
-												<span className="truncate text-sm font-medium">
+												<span className="truncate text-fluid-body font-medium">
 													{ev.client_name}
 												</span>
 												<EventStatusBadge status={ev.status} />
 											</div>
-											<p className="text-muted-foreground truncate text-xs">
+											<p className="truncate text-fluid-caption text-muted-foreground">
 												{ev.venue_name}
 												{ev.venue_city && ` · ${ev.venue_city}`}
 											</p>
-											<p className="text-muted-foreground tabular text-xs">
+											<p className="tabular text-fluid-caption text-muted-foreground">
 												{ev.project_id} · setup {ID_TIME(ev.setup_time)}
 											</p>
 										</div>
@@ -322,12 +308,11 @@ export default async function DashboardPage() {
 					)}
 				</section>
 
-				{/* Section C — Quick Actions */}
 				<section className="space-y-3">
-					<h2 className="text-base font-semibold tracking-tight">
+					<h2 className="text-fluid-h3 font-semibold tracking-tight">
 						Quick Actions
 					</h2>
-					<div className="border-border bg-card grid gap-2 rounded-xl border p-3">
+					<div className="grid gap-2 rounded-xl border border-border-default bg-surface-2 p-3">
 						<QuickAction
 							href="/operations/new"
 							icon={PlusCircle}
@@ -361,7 +346,7 @@ export default async function DashboardPage() {
 					</div>
 				</section>
 			</div>
-		</div>
+		</Container>
 	);
 }
 
@@ -379,14 +364,14 @@ function QuickAction({
 	return (
 		<Link
 			href={href}
-			className="group hover:bg-muted flex items-center gap-3 rounded-lg p-3 transition-colors"
+			className="group flex items-center gap-3 rounded-lg p-3 transition-colors duration-fast ease-out-expo hover:bg-surface-3"
 		>
-			<div className="bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors">
-				<Icon className="h-4 w-4" />
+			<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-3 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+				<Icon className="size-4" />
 			</div>
 			<div className="min-w-0 flex-1">
-				<div className="text-sm font-medium">{label}</div>
-				<div className="text-muted-foreground text-xs">{hint}</div>
+				<div className="text-fluid-body font-medium">{label}</div>
+				<div className="text-fluid-caption text-muted-foreground">{hint}</div>
 			</div>
 		</Link>
 	);

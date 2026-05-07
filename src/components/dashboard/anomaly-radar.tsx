@@ -10,6 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * <AnomalyRadarWidget /> — top-3 unread anomaly notifications on
+ * dashboard.
+ *
+ * A3 refactor (sesi 5):
+ * - Surface tokens (was bg-card). Severity tones still semantic
+ *   (rose/amber/sky/emerald) for clear state mapping but use ring tokens.
+ * - Empty state uses fluid type. Cards use lift-on-hover.
+ */
+
 type Severity = "alert" | "warning" | "info" | "success";
 
 const SEVERITY_TONES: Record<
@@ -17,30 +27,30 @@ const SEVERITY_TONES: Record<
 	{ ring: string; bg: string; text: string; icon: typeof Info; label: string }
 > = {
 	alert: {
-		ring: "ring-rose-200 dark:ring-rose-900",
-		bg: "bg-rose-100 dark:bg-rose-950",
-		text: "text-rose-700 dark:text-rose-300",
+		ring: "ring-rose-500/20",
+		bg: "bg-rose-500/10",
+		text: "text-rose-500",
 		icon: AlertTriangle,
 		label: "Alert",
 	},
 	warning: {
-		ring: "ring-amber-200 dark:ring-amber-900",
-		bg: "bg-amber-100 dark:bg-amber-950",
-		text: "text-amber-700 dark:text-amber-300",
+		ring: "ring-amber-500/20",
+		bg: "bg-amber-500/10",
+		text: "text-amber-500",
 		icon: AlertTriangle,
 		label: "Warning",
 	},
 	info: {
-		ring: "ring-sky-200 dark:ring-sky-900",
-		bg: "bg-sky-100 dark:bg-sky-950",
-		text: "text-sky-700 dark:text-sky-300",
+		ring: "ring-sky-500/20",
+		bg: "bg-sky-500/10",
+		text: "text-sky-500",
 		icon: Info,
 		label: "Info",
 	},
 	success: {
-		ring: "ring-emerald-200 dark:ring-emerald-900",
-		bg: "bg-emerald-100 dark:bg-emerald-950",
-		text: "text-emerald-700 dark:text-emerald-300",
+		ring: "ring-emerald-500/20",
+		bg: "bg-emerald-500/10",
+		text: "text-emerald-500",
 		icon: CheckCircle2,
 		label: "Success",
 	},
@@ -81,7 +91,6 @@ export async function AnomalyRadarWidget() {
 		created_at: string;
 	}>;
 
-	// Sort by severity rank then date desc
 	items.sort((a, b) => {
 		const r = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
 		if (r !== 0) return r;
@@ -93,32 +102,32 @@ export async function AnomalyRadarWidget() {
 	return (
 		<section className="space-y-3">
 			<div className="flex items-baseline justify-between">
-				<h2 className="text-base font-semibold tracking-tight">
+				<h2 className="text-fluid-h3 font-semibold tracking-tight">
 					Anomaly radar
 					{total > 0 && (
-						<span className="text-muted-foreground tabular ml-2 text-xs font-normal">
+						<span className="ml-2 tabular text-fluid-caption font-normal text-muted-foreground">
 							{total} unread
 						</span>
 					)}
 				</h2>
 				<Link
 					href="/notifications"
-					className="text-muted-foreground hover:text-foreground text-xs font-medium"
+					className="text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
 				>
 					Lihat semua →
 				</Link>
 			</div>
 
 			{top.length === 0 ? (
-				<div className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20 flex items-center gap-3 rounded-xl border p-4">
-					<div className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-						<BellOff className="h-4 w-4" />
+				<div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 dark:bg-emerald-500/[0.08]">
+					<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-500">
+						<BellOff className="size-4" />
 					</div>
 					<div className="space-y-0.5">
-						<p className="text-foreground text-sm font-medium">
+						<p className="text-fluid-body font-medium text-foreground">
 							Semua aman
 						</p>
-						<p className="text-muted-foreground text-xs">
+						<p className="text-fluid-caption text-muted-foreground">
 							Belum ada anomaly. Cron scan jalan tiap pagi 06:30 WIB.
 						</p>
 					</div>
@@ -130,18 +139,20 @@ export async function AnomalyRadarWidget() {
 						const Icon = tone.icon;
 						const card = (
 							<div
-								className={`border-border bg-card hover:border-foreground/20 group flex items-start gap-3 rounded-xl border p-3.5 transition-colors ${
-									n.severity === "alert" ? "ring-1 ring-rose-200/50 dark:ring-rose-900/50" : ""
+								className={`lift-on-hover group flex items-start gap-3 rounded-xl border border-border-default bg-surface-2 p-3.5 transition-colors hover:bg-surface-3 ${
+									n.severity === "alert"
+										? "ring-1 ring-rose-500/20"
+										: ""
 								}`}
 							>
 								<div
-									className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-2 ${tone.ring} ${tone.bg} ${tone.text}`}
+									className={`grid size-9 shrink-0 place-items-center rounded-lg ring-2 ${tone.ring} ${tone.bg} ${tone.text}`}
 								>
-									<Icon className="h-4 w-4" />
+									<Icon className="size-4" />
 								</div>
 								<div className="min-w-0 flex-1 space-y-1">
 									<div className="flex items-baseline gap-2">
-										<p className="text-foreground text-sm font-medium leading-tight">
+										<p className="text-fluid-body font-medium leading-tight text-foreground">
 											{n.title}
 										</p>
 										<Badge
@@ -151,12 +162,12 @@ export async function AnomalyRadarWidget() {
 											{tone.label}
 										</Badge>
 									</div>
-									<p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+									<p className="line-clamp-2 text-fluid-caption leading-relaxed text-muted-foreground">
 										{n.body}
 									</p>
 								</div>
 								{n.action_url && (
-									<ChevronRight className="text-muted-foreground/60 h-4 w-4 self-center" />
+									<ChevronRight className="size-4 self-center text-muted-foreground/60" />
 								)}
 							</div>
 						);
