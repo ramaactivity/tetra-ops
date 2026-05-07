@@ -1,5 +1,6 @@
 import { Clock, FileSpreadsheet, Mail } from "lucide-react";
 import Link from "next/link";
+import { EditCrewDrawer } from "@/components/crew/edit-crew-drawer";
 import { InvitationDeleteButton } from "@/components/crew/invitation-row-actions";
 import { InviteCrewForm } from "@/components/crew/invite-form";
 import { CrewRoleMenu } from "@/components/crew/role-menu";
@@ -42,6 +43,8 @@ type UserRow = {
 	phone_wa: string | null;
 	role: Role;
 	tier: "senior" | "junior" | null;
+	default_fee_override: number | null;
+	notes: string | null;
 	is_active: boolean;
 	joined_date: string;
 	share_pct: number | null;
@@ -77,7 +80,7 @@ export default async function MasterCrewPage() {
 		supabase
 			.from("users")
 			.select(
-				"id, email, full_name, nickname, phone_wa, role, tier, is_active, joined_date, share_pct, capital_contributed, capital_contributed_at",
+				"id, email, full_name, nickname, phone_wa, role, tier, default_fee_override, notes, is_active, joined_date, share_pct, capital_contributed, capital_contributed_at",
 			)
 			.is("deleted_at", null)
 			.order("role", { ascending: true })
@@ -313,13 +316,28 @@ export default async function MasterCrewPage() {
 								</TableCell>
 								{isSuperAdmin && (
 									<TableCell className="text-right">
-										<CrewRoleMenu
-											userId={u.id}
-											userName={u.full_name}
-											currentRole={u.role}
-											currentTier={u.tier}
-											disabled={u.id === me?.authId}
-										/>
+										<div className="inline-flex items-center gap-1.5">
+											<CrewRoleMenu
+												userId={u.id}
+												userName={u.full_name}
+												currentRole={u.role}
+												currentTier={u.tier}
+												disabled={u.id === me?.authId}
+											/>
+											<EditCrewDrawer
+												user={{
+													id: u.id,
+													full_name: u.full_name,
+													nickname: u.nickname,
+													phone_wa: u.phone_wa,
+													role: u.role,
+													default_fee_override: u.default_fee_override,
+													notes: u.notes,
+													is_active: u.is_active,
+												}}
+												disabled={u.id === me?.authId}
+											/>
+										</div>
 									</TableCell>
 								)}
 							</TableRow>

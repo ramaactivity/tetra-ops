@@ -1,9 +1,14 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function LoginButton() {
+export function LoginButton({
+	label = "Continue with Google",
+}: {
+	label?: string;
+}) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -15,12 +20,19 @@ export function LoginButton() {
 			provider: "google",
 			options: {
 				redirectTo: `${window.location.origin}/auth/callback`,
+				// Smaller payload, faster handshake
+				queryParams: {
+					access_type: "offline",
+					prompt: "select_account",
+				},
 			},
 		});
 		if (oauthError) {
 			setError(oauthError.message);
 			setLoading(false);
 		}
+		// On success, browser navigates to Google. No need to setLoading(false) —
+		// keep the button in the loading state until navigation completes.
 	}
 
 	return (
@@ -29,13 +41,23 @@ export function LoginButton() {
 				type="button"
 				onClick={signInWithGoogle}
 				disabled={loading}
-				className="border-border bg-card hover:bg-muted text-foreground flex h-11 w-full items-center justify-center gap-3 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+				aria-busy={loading}
+				className="border-border bg-card hover:bg-muted text-foreground active:scale-[0.99] disabled:cursor-progress relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border text-sm font-medium transition-all disabled:opacity-90"
 			>
-				<GoogleIcon />
-				{loading ? "Redirecting…" : "Continue with Google"}
+				{loading ? (
+					<>
+						<Loader2 className="h-4 w-4 animate-spin" />
+						<span>Mengarahkan ke Google…</span>
+					</>
+				) : (
+					<>
+						<GoogleIcon />
+						<span>{label}</span>
+					</>
+				)}
 			</button>
 			{error && (
-				<p className="text-destructive text-center text-sm">{error}</p>
+				<p className="text-destructive text-center text-xs">{error}</p>
 			)}
 		</>
 	);
