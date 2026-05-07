@@ -70,7 +70,10 @@ function initialsOf(name: string) {
 export default async function MasterCrewPage() {
 	const me = await getCurrentUser();
 	const supabase = await createClient();
-	const [{ data, error }, { data: invitationData }] = await Promise.all([
+	const [
+		{ data, error },
+		{ data: invitationData, error: invitationError },
+	] = await Promise.all([
 		supabase
 			.from("users")
 			.select(
@@ -98,8 +101,12 @@ export default async function MasterCrewPage() {
 		);
 	}
 
+	// Don't fail the whole page if invitations query errors (e.g., migration
+	// not applied yet). Surface a non-fatal warning instead so the page is
+	// still usable for managing existing users.
 	const users = (data ?? []) as UserRow[];
 	const invitations = (invitationData ?? []) as InvitationRow[];
+	const invitationsErrorMessage = invitationError?.message ?? null;
 	const pendingCount = users.filter(
 		(u) => u.role === "pending_approval",
 	).length;
@@ -155,6 +162,22 @@ export default async function MasterCrewPage() {
 					</div>
 				)}
 			</div>
+
+			{isSuperAdmin && invitationsErrorMessage && (
+				<div className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 rounded-md border p-3">
+					<p className="text-amber-900 dark:text-amber-200 text-xs font-medium">
+						⚠ Tabel <code className="font-mono">crew_invitations</code> belum
+						bisa dibaca: {invitationsErrorMessage}.
+					</p>
+					<p className="text-amber-800/80 dark:text-amber-300/80 mt-1 text-xs">
+						Pastikan migration{" "}
+						<code className="font-mono">
+							supabase/migrations/20260507_crew_invitations.sql
+						</code>{" "}
+						sudah di-paste ke Supabase Dashboard → SQL Editor.
+					</p>
+				</div>
+			)}
 
 			{isSuperAdmin && invitations.length > 0 && (
 				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-3 rounded-xl border p-4">
