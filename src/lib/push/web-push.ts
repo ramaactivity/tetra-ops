@@ -73,7 +73,7 @@ export async function dispatchPushToSubscription(
 				keys: { p256dh: sub.p256dh_key, auth: sub.auth_key },
 			},
 			JSON.stringify(payload),
-			{ TTL: 60 * 60 * 24, timeout: Math.floor(timeoutMs / 1000) },
+			{ TTL: 60 * 60 * 24, timeout: timeoutMs },
 		);
 		return { id: sub.id, ok: true, statusCode: result.statusCode, gone: false };
 	} catch (err) {
@@ -93,13 +93,12 @@ export async function dispatchPushToSubscription(
 export async function dispatchPushToMany(
 	subs: PushSubscriptionRow[],
 	payload: PushPayload,
-	overallBudgetMs = 10000,
+	overallBudgetMs = 25000,
 ): Promise<DispatchOutcome[]> {
 	if (subs.length === 0) return [];
-	const perSubTimeout = Math.max(
-		2000,
-		Math.floor(overallBudgetMs / subs.length),
-	);
+	// Run all dispatches in parallel; each gets the full budget since
+	// they share wall-clock time (Promise.all waits for slowest).
+	const perSubTimeout = Math.max(5000, overallBudgetMs);
 	const results = await Promise.all(
 		subs.map((s) => dispatchPushToSubscription(s, payload, perSubTimeout)),
 	);
