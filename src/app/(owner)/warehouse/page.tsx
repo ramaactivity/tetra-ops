@@ -1,11 +1,15 @@
 import {
 	AlertOctagon,
 	AlertTriangle,
+	ArrowDownToLine,
+	ArrowUpFromLine,
+	Equal,
 	Layers,
 	Package,
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
+import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import {
 	Table,
@@ -15,13 +19,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { KpiCard } from "@/components/operations/kpi-card";
+import { StockAdjustDialog } from "@/components/warehouse/stock-adjust-dialog";
 import { WarehouseTabs } from "@/components/warehouse/warehouse-tabs";
 import {
 	EQUIPMENT_CONDITION_LABELS,
 	EQUIPMENT_LOCATION_LABELS,
+	formatDateID,
 	formatRupiah,
-	ITEM_CATEGORY_LABELS,
 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -45,6 +49,46 @@ type EquipmentRow = {
 	is_active: boolean;
 };
 
+type MovementAgg = {
+	item_id: string;
+	direction: "in" | "out" | "adjustment";
+	quantity: number;
+};
+
+type MovementRow = {
+	id: string;
+	ref_id: string;
+	item_id: string;
+	direction: "in" | "out" | "adjustment";
+	quantity: number;
+	source: string;
+	notes: string | null;
+	created_at: string;
+	performed_by_user: { full_name: string } | null;
+	item: { name: string; sku: string; unit: string } | null;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+	settlement: "Settlement",
+	purchase: "Purchase",
+	manual_adjust: "Manual",
+	damage: "Damage",
+	loss: "Loss",
+	stock_take: "Stock Take",
+	transfer: "Transfer",
+};
+
+function computeStock(itemId: string, movements: MovementAgg[]): number {
+	let stock = 0;
+	for (const m of movements) {
+		if (m.item_id !== itemId) continue;
+		if (m.direction === "in") stock += m.quantity;
+		else if (m.direction === "out") stock -= m.quantity;
+		else stock += m.quantity; // adjustment treated additive (caller signs)
+	}
+	return stock;
+}
+
 export default async function WarehousePage({
 	searchParams,
 }: {
@@ -55,46 +99,71 @@ export default async function WarehousePage({
 
 	const supabase = await createClient();
 
-	const [
-		consumablesResult,
-		equipmentResult,
-		totalSkusResult,
-		hppResult,
-	] = await Promise.all([
-		supabase
-			.from("inventory_items")
-			.select(
-				"id, sku, name, unit, min_stock_alert, purchase_price_avg, is_active",
-			)
-			.eq("category", "consumable")
-			.order("name", { ascending: true }),
-		supabase
-			.from("inventory_items")
-			.select(
-				"id, sku, name, purchase_price, condition, current_location, is_active",
-			)
-			.eq("category", "equipment")
-			.order("name", { ascending: true }),
-		supabase
-			.from("inventory_items")
-			.select("id", { count: "exact", head: true }),
-		supabase
-			.from("inventory_items")
-			.select("purchase_price_avg, category"),
-	]);
+	const [consumablesResult, equipmentResult, movementsAggResult] =
+		await Promise.all([
+			supabase
+				.from("inventory_items")
+				.select(
+					"id, sku, name, unit, min_stock_alert, purchase_price_avg, is_active",
+				)
+				.eq("category", "consumable")
+				.order("name", { ascending: true }),
+			supabase
+				.from("inventory_items")
+				.select(
+					"id, sku, name, purchase_price, condition, current_location, is_active",
+				)
+				.eq("category", "equipment")
+				.order("name", { ascending: true }),
+			supabase.from("stock_movements").select("item_id, direction, quantity"),
+		]);
 
 	const consumables = (consumablesResult.data ?? []) as ConsumableRow[];
 	const equipment = (equipmentResult.data ?? []) as EquipmentRow[];
-	const totalSkus = totalSkusResult.count ?? 0;
-	const totalHpp = (hppResult.data ?? [])
-		.filter((r) => r.category === "consumable")
-		.reduce((s, r) => s + (r.purchase_price_avg ?? 0), 0);
+	const movementsAgg = (movementsAggResult.data ?? []) as MovementAgg[];
 
-	// Stock criticality requires get_current_stock(item_id) RPC for live values.
-	// Until stock_movements UI lands, we surface min_stock_alert as a proxy: any
-	// item with min_stock_alert > 0 is "tracked" but live count is 0 (no stock_movements).
-	const criticalCount = 0;
-	const emptyCount = consumables.length; // all consumables have 0 stock since no movements yet
+	// Compute current stock per consumable item
+	const stockByItem = new Map<string, number>();
+	for (const item of consumables) {
+		stockByItem.set(item.id, computeStock(item.id, movementsAgg));
+	}
+
+	const totalSkus = consumables.length + equipment.length;
+	const totalHpp = consumables.reduce(
+		(s, c) => s + (stockByItem.get(c.id) ?? 0) * (c.purchase_price_avg ?? 0),
+		0,
+	);
+
+	let criticalCount = 0;
+	let emptyCount = 0;
+	for (const c of consumables) {
+		const s = stockByItem.get(c.id) ?? 0;
+		if (s <= 0) emptyCount++;
+		else if (c.min_stock_alert > 0 && s <= c.min_stock_alert) criticalCount++;
+	}
+
+	// Movements log query (only when tab=movements)
+	let movementsLog: MovementRow[] = [];
+	if (tab === "movements") {
+		const { data } = await supabase
+			.from("stock_movements")
+			.select(
+				`
+				id, ref_id, item_id, direction, quantity, source, notes, created_at,
+				performed_by_user:users!stock_movements_performed_by_fkey(full_name),
+				item:inventory_items!stock_movements_item_id_fkey(name, sku, unit)
+			`,
+			)
+			.order("created_at", { ascending: false })
+			.limit(100);
+		movementsLog = (data ?? []).map((m) => ({
+			...m,
+			performed_by_user: Array.isArray(m.performed_by_user)
+				? m.performed_by_user[0]
+				: m.performed_by_user,
+			item: Array.isArray(m.item) ? m.item[0] : m.item,
+		})) as MovementRow[];
+	}
 
 	return (
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
@@ -109,7 +178,7 @@ export default async function WarehousePage({
 				<KpiCard
 					label="Total Valuasi HPP"
 					value={formatRupiah(totalHpp)}
-					hint="Sum harga beli avg consumables"
+					hint="Stok × harga avg"
 					icon={Wallet2}
 					accent="primary"
 				/>
@@ -123,14 +192,14 @@ export default async function WarehousePage({
 				<KpiCard
 					label="Stok Kritis"
 					value={criticalCount.toLocaleString("id-ID")}
-					hint="Below min_stock_alert"
+					hint="≤ min_stock_alert"
 					icon={AlertTriangle}
 					accent="amber"
 				/>
 				<KpiCard
 					label="Stok Habis"
 					value={emptyCount.toLocaleString("id-ID")}
-					hint="Item dengan stok 0 (movements belum ada)"
+					hint="Stok ≤ 0"
 					icon={AlertOctagon}
 					accent="rose"
 				/>
@@ -140,16 +209,22 @@ export default async function WarehousePage({
 				<WarehouseTabs current={tab} />
 
 				{tab === "consumables" && (
-					<ConsumablesTable rows={consumables} />
+					<ConsumablesTable rows={consumables} stockByItem={stockByItem} />
 				)}
 				{tab === "equipment" && <EquipmentTable rows={equipment} />}
-				{tab === "movements" && <MovementsPlaceholder />}
+				{tab === "movements" && <MovementsLog rows={movementsLog} />}
 			</div>
 		</div>
 	);
 }
 
-function ConsumablesTable({ rows }: { rows: ConsumableRow[] }) {
+function ConsumablesTable({
+	rows,
+	stockByItem,
+}: {
+	rows: ConsumableRow[];
+	stockByItem: Map<string, number>;
+}) {
 	if (rows.length === 0) {
 		return (
 			<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
@@ -164,7 +239,7 @@ function ConsumablesTable({ rows }: { rows: ConsumableRow[] }) {
 						>
 							Settings → Items
 						</Link>
-						. Stock movement UI menyusul.
+						.
 					</p>
 				</div>
 			</div>
@@ -179,38 +254,72 @@ function ConsumablesTable({ rows }: { rows: ConsumableRow[] }) {
 						<TableHead>SKU</TableHead>
 						<TableHead>Name</TableHead>
 						<TableHead>Unit</TableHead>
-						<TableHead className="text-right">Min Stock</TableHead>
+						<TableHead className="text-right">Stok</TableHead>
+						<TableHead className="text-right">Min Alert</TableHead>
 						<TableHead className="text-right">Avg Cost</TableHead>
-						<TableHead className="text-right">Status</TableHead>
+						<TableHead className="w-[120px] text-right">Actions</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{rows.map((r) => (
-						<TableRow key={r.id}>
-							<TableCell className="tabular text-muted-foreground text-xs">
-								{r.sku}
-							</TableCell>
-							<TableCell className="font-medium">{r.name}</TableCell>
-							<TableCell className="text-muted-foreground">
-								{r.unit}
-							</TableCell>
-							<TableCell className="tabular text-right">
-								{r.min_stock_alert}
-							</TableCell>
-							<TableCell className="tabular text-right">
-								{r.purchase_price_avg
-									? formatRupiah(r.purchase_price_avg)
-									: "—"}
-							</TableCell>
-							<TableCell className="text-right">
-								{r.is_active ? (
-									<Badge variant="default">Active</Badge>
-								) : (
-									<Badge variant="secondary">Inactive</Badge>
-								)}
-							</TableCell>
-						</TableRow>
-					))}
+					{rows.map((r) => {
+						const stock = stockByItem.get(r.id) ?? 0;
+						const isEmpty = stock <= 0;
+						const isCritical =
+							!isEmpty && r.min_stock_alert > 0 && stock <= r.min_stock_alert;
+						return (
+							<TableRow key={r.id}>
+								<TableCell className="tabular text-muted-foreground text-xs">
+									{r.sku}
+								</TableCell>
+								<TableCell className="font-medium">
+									<div className="flex items-center gap-2">
+										{r.name}
+										{!r.is_active && (
+											<Badge variant="secondary">Inactive</Badge>
+										)}
+									</div>
+								</TableCell>
+								<TableCell className="text-muted-foreground text-sm">
+									{r.unit}
+								</TableCell>
+								<TableCell className="text-right">
+									<span
+										className={`tabular font-semibold ${
+											isEmpty
+												? "text-rose-500"
+												: isCritical
+													? "text-amber-500"
+													: "text-foreground"
+										}`}
+									>
+										{stock.toLocaleString("id-ID")}
+									</span>
+									{(isEmpty || isCritical) && (
+										<div className="text-muted-foreground text-[10px] uppercase tracking-wider">
+											{isEmpty ? "habis" : "kritis"}
+										</div>
+									)}
+								</TableCell>
+								<TableCell className="tabular text-muted-foreground text-right text-sm">
+									{r.min_stock_alert || "—"}
+								</TableCell>
+								<TableCell className="tabular text-muted-foreground text-right text-sm">
+									{r.purchase_price_avg
+										? formatRupiah(r.purchase_price_avg)
+										: "—"}
+								</TableCell>
+								<TableCell className="text-right">
+									<StockAdjustDialog
+										itemId={r.id}
+										itemName={r.name}
+										itemUnit={r.unit}
+										currentStock={stock}
+										avgCost={r.purchase_price_avg ?? 0}
+									/>
+								</TableCell>
+							</TableRow>
+						);
+					})}
 				</TableBody>
 			</Table>
 		</div>
@@ -258,18 +367,18 @@ function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 								{r.sku}
 							</TableCell>
 							<TableCell className="font-medium">{r.name}</TableCell>
-							<TableCell className="text-muted-foreground">
+							<TableCell className="text-muted-foreground text-sm">
 								{r.current_location
 									? (EQUIPMENT_LOCATION_LABELS[r.current_location] ??
 										r.current_location)
 									: "—"}
 							</TableCell>
-							<TableCell className="text-muted-foreground">
+							<TableCell className="text-muted-foreground text-sm">
 								{r.condition
 									? (EQUIPMENT_CONDITION_LABELS[r.condition] ?? r.condition)
 									: "—"}
 							</TableCell>
-							<TableCell className="tabular text-right">
+							<TableCell className="tabular text-right text-sm">
 								{r.purchase_price ? formatRupiah(r.purchase_price) : "—"}
 							</TableCell>
 						</TableRow>
@@ -280,16 +389,92 @@ function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 	);
 }
 
-function MovementsPlaceholder() {
-	return (
-		<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-			<Layers className="text-muted-foreground h-10 w-10" />
-			<div className="space-y-1">
-				<h3 className="font-medium">Log mutasi belum aktif</h3>
-				<p className="text-muted-foreground text-sm">
-					Movement tracking + quick stock adjust akan landing di Phase 1 Week 6.
-				</p>
+function MovementsLog({ rows }: { rows: MovementRow[] }) {
+	if (rows.length === 0) {
+		return (
+			<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<Layers className="text-muted-foreground h-10 w-10" />
+				<div className="space-y-1">
+					<h3 className="font-medium">Belum ada mutasi</h3>
+					<p className="text-muted-foreground text-sm">
+						Klik <span className="font-medium">Adjust</span> di tab Consumables
+						untuk catat movement pertama.
+					</p>
+				</div>
 			</div>
+		);
+	}
+
+	return (
+		<div className="border-border bg-card overflow-x-auto rounded-lg border">
+			<Table>
+				<TableHeader>
+					<TableRow>
+						<TableHead>Ref</TableHead>
+						<TableHead>Tanggal</TableHead>
+						<TableHead>Item</TableHead>
+						<TableHead>Direction</TableHead>
+						<TableHead className="text-right">Qty</TableHead>
+						<TableHead>Sumber</TableHead>
+						<TableHead>Catatan</TableHead>
+						<TableHead>Oleh</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{rows.map((m) => (
+						<TableRow key={m.id}>
+							<TableCell className="text-muted-foreground tabular text-xs">
+								{m.ref_id}
+							</TableCell>
+							<TableCell className="text-muted-foreground tabular text-sm">
+								{formatDateID(m.created_at)}
+							</TableCell>
+							<TableCell>
+								<div className="font-medium">{m.item?.name ?? "—"}</div>
+								<div className="text-muted-foreground text-xs">
+									{m.item?.sku ?? "—"}
+								</div>
+							</TableCell>
+							<TableCell>
+								{m.direction === "in" ? (
+									<span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1 text-sm font-medium">
+										<ArrowDownToLine className="h-3.5 w-3.5" /> Masuk
+									</span>
+								) : m.direction === "out" ? (
+									<span className="text-rose-600 dark:text-rose-400 inline-flex items-center gap-1 text-sm font-medium">
+										<ArrowUpFromLine className="h-3.5 w-3.5" /> Keluar
+									</span>
+								) : (
+									<span className="text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 text-sm font-medium">
+										<Equal className="h-3.5 w-3.5" /> Koreksi
+									</span>
+								)}
+							</TableCell>
+							<TableCell
+								className={`tabular text-right font-medium ${
+									m.direction === "in"
+										? "text-emerald-600 dark:text-emerald-400"
+										: m.direction === "out"
+											? "text-rose-600 dark:text-rose-400"
+											: "text-foreground"
+								}`}
+							>
+								{m.direction === "in" ? "+" : m.direction === "out" ? "−" : ""}
+								{m.quantity.toLocaleString("id-ID")} {m.item?.unit ?? ""}
+							</TableCell>
+							<TableCell className="text-muted-foreground text-xs">
+								{SOURCE_LABELS[m.source] ?? m.source}
+							</TableCell>
+							<TableCell className="text-muted-foreground max-w-xs text-xs">
+								{m.notes ?? "—"}
+							</TableCell>
+							<TableCell className="text-muted-foreground text-sm">
+								{m.performed_by_user?.full_name ?? "—"}
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
 		</div>
 	);
 }

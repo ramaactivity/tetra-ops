@@ -31,6 +31,28 @@ export function whatsappUrl(phone: string, message: string): string {
 	return `https://wa.me/${toWaPhone(phone)}?text=${encodeURIComponent(message)}`;
 }
 
+/**
+ * All variable keys supported by buildEventVars. Used by the template editor
+ * to surface insertable placeholders to the user.
+ */
+export const SUPPORTED_WA_VARIABLES = [
+	"project_id",
+	"client_name",
+	"event_date",
+	"setup_time",
+	"start_time",
+	"venue_name",
+	"due_date",
+	"dp_amount",
+	"remaining_balance",
+	"package_name",
+	"duration_hours",
+	"crew_lead",
+	"crew_asisten",
+	"drive_link",
+	"reminder_count",
+] as const;
+
 export type EventForWA = {
 	project_id: string;
 	client_name: string;
@@ -49,8 +71,7 @@ export type EventForWA = {
 	drive_link?: string | null;
 };
 
-const trimTime = (t: string | null | undefined) =>
-	t ? t.slice(0, 5) : "—";
+const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "—");
 
 /**
  * Build the variables map a WhatsApp template expects from event row data.

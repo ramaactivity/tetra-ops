@@ -17,6 +17,7 @@ import {
 	type WhatsAppTemplate,
 } from "@/components/booking/send-wa-button";
 import { StatusMenu } from "@/components/booking/status-menu";
+import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { Badge } from "@/components/ui/badge";
 import {
 	CHANNEL_TYPE_LABELS,
@@ -392,6 +393,8 @@ export default async function EventDetailPage({
 						</p>
 					</DetailCard>
 				)}
+
+				<EventActivityFeed eventId={event.id} />
 			</div>
 
 			{settlement && (
