@@ -307,6 +307,13 @@
   }
 }
 
+/* === Component microinteraction keyframes ===
+   Compositor-friendly: only translate/opacity/transform. */
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 @layer utilities {
   /* Safe-area helpers — iOS notch / Dynamic Island / home indicator */
   .pt-safe { padding-top: env(safe-area-inset-top); }
