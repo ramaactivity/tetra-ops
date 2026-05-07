@@ -146,8 +146,25 @@ export function PushSubscribeButton({
 				setTestStatus(null);
 				return;
 			}
-			setTestStatus(`✓ Sent to ${r.sent ?? 0} device(s)`);
-			window.setTimeout(() => setTestStatus(null), 3000);
+			const sent = r.sent ?? 0;
+			const failed = r.failed ?? 0;
+			const pruned = r.pruned ?? 0;
+			if (sent > 0) {
+				setTestStatus(`✓ Sent to ${sent} device(s)`);
+				window.setTimeout(() => setTestStatus(null), 4000);
+			} else {
+				const reason = r.failureReason ?? "no devices reachable";
+				setError(
+					`Push gagal terkirim: ${reason}. Cek VAPID keys cocok antara Vercel env vs subscribe time. Coba unsubscribe + re-subscribe.`,
+				);
+				setTestStatus(null);
+				if (pruned > 0) {
+					setError(
+						(prev) =>
+							`${prev}\n${pruned} subscription expired (auto-pruned).`,
+					);
+				}
+			}
 		});
 	}
 

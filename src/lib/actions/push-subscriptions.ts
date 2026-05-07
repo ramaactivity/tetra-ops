@@ -107,6 +107,8 @@ export async function sendTestPushToMyDevices(): Promise<{
 	error?: string;
 	sent?: number;
 	pruned?: number;
+	failed?: number;
+	failureReason?: string;
 }> {
 	try {
 		const me = await getCurrentUser();
@@ -133,6 +135,8 @@ export async function sendTestPushToMyDevices(): Promise<{
 
 		let sent = 0;
 		let pruned = 0;
+		let failed = 0;
+		let lastFailure: string | null = null;
 		for (const sub of subs) {
 			const r = await dispatchPushToSubscription(sub, {
 				title: "Test push dari Tetra Ops",
@@ -140,17 +144,27 @@ export async function sendTestPushToMyDevices(): Promise<{
 				url: "/notifications",
 				severity: "info",
 			});
-			if (r.ok) sent++;
-			else if (r.gone) {
+			if (r.ok) {
+				sent++;
+			} else if (r.gone) {
 				await supabase
 					.from("push_subscriptions")
 					.update({ is_active: false, failed_attempts: 99 })
 					.eq("id", sub.id);
 				pruned++;
+			} else {
+				failed++;
+				lastFailure = `${r.statusCode ?? "?"}: ${r.error ?? "unknown"}`;
 			}
 		}
 
-		return { ok: true, sent, pruned };
+		return {
+			ok: true,
+			sent,
+			pruned,
+			failed,
+			failureReason: lastFailure ?? undefined,
+		};
 	} catch (err) {
 		return { error: err instanceof Error ? err.message : "Unknown error" };
 	}
