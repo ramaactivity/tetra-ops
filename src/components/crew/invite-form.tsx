@@ -39,7 +39,7 @@ export function InviteCrewForm() {
 		<form
 			ref={formRef}
 			action={formAction}
-			className="border-border bg-card grid gap-3 rounded-xl border p-4 sm:grid-cols-2"
+			className="border-border-default bg-surface-2 grid gap-3 rounded-xl border p-4 sm:grid-cols-2"
 		>
 			<div className="space-y-1 sm:col-span-2">
 				<h3 className="text-base font-semibold">Invite crew baru</h3>
@@ -55,7 +55,7 @@ export function InviteCrewForm() {
 					type="email"
 					required
 					placeholder="contoh@gmail.com"
-					className="border-border bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -65,7 +65,7 @@ export function InviteCrewForm() {
 					type="text"
 					required
 					placeholder="Aminah Salsabila"
-					className="border-border bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -74,7 +74,7 @@ export function InviteCrewForm() {
 					name="nickname"
 					type="text"
 					placeholder="Aminah"
-					className="border-border bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -83,7 +83,7 @@ export function InviteCrewForm() {
 					name="phone_wa"
 					type="tel"
 					placeholder="+628..."
-					className="border-border bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -92,7 +92,7 @@ export function InviteCrewForm() {
 					name="tier"
 					required
 					defaultValue="junior"
-					className="border-border bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				>
 					<option value="senior">Senior</option>
 					<option value="junior">Junior</option>
@@ -106,7 +106,7 @@ export function InviteCrewForm() {
 					min="0"
 					step="50000"
 					placeholder="biarin kosong = pakai tier rate"
-					className="border-border bg-background focus-visible:ring-ring tabular h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring tabular h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -115,7 +115,7 @@ export function InviteCrewForm() {
 					name="notes"
 					rows={2}
 					placeholder="Catatan internal"
-					className="border-border bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 

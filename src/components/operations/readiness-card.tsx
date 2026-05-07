@@ -198,7 +198,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 	else dayLabel = `${Math.abs(days)} hari setelah event`;
 
 	return (
-		<div className="border-border bg-card md:col-span-2 space-y-3 rounded-xl border p-5">
+		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-3 rounded-xl border p-5">
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
 				<div>
 					<h3 className="text-sm font-semibold tracking-tight">
@@ -239,7 +239,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 					return (
 						<li
 							key={item.id}
-							className="flex items-start gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
+							className="flex items-start gap-3 border-t border-border-default/60 pt-2 first:border-t-0 first:pt-0"
 						>
 							<Icon className={`${tone} mt-0.5 h-4 w-4 shrink-0`} />
 							<div className="flex flex-1 flex-wrap items-baseline justify-between gap-2">

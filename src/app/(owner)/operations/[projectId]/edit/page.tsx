@@ -92,7 +92,7 @@ export default async function EditBookingPage({
 					{event.project_id}
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">
 						Edit: {event.client_name}
 					</h1>
 					<p className="text-muted-foreground tabular text-sm">

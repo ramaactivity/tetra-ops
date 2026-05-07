@@ -120,14 +120,14 @@ export default async function ManageCrewPage({
 					{event.project_id}
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">Manage Crew</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Manage Crew</h1>
 					<p className="text-muted-foreground text-sm">
 						{event.client_name} · {event.event_date}
 					</p>
 				</div>
 			</div>
 
-			<div className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<h2 className="text-base font-semibold">Assignments saat ini</h2>
 				<CrewAssignmentList
 					projectId={event.project_id}
@@ -136,7 +136,7 @@ export default async function ManageCrewPage({
 				/>
 			</div>
 
-			<div className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div>
 					<h2 className="text-base font-semibold">Tambah crew</h2>
 					<p className="text-muted-foreground text-xs">

@@ -21,7 +21,7 @@ export default function NewAddonPage() {
 					</p>
 				</div>
 			</div>
-			<div className="border-border bg-card rounded-xl border p-6">
+			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<AddonForm action={createAddon} submitLabel="Create add-on" />
 			</div>
 		</div>

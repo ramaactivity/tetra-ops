@@ -56,7 +56,7 @@ export default async function EditItemPage({
 				</h2>
 				<p className="text-muted-foreground tabular text-sm">{item.sku}</p>
 			</div>
-			<div className="border-border bg-card max-w-3xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
 				<ItemForm mode="edit" id={item.id} defaults={defaults} />
 			</div>
 		</div>

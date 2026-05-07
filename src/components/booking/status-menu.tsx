@@ -62,7 +62,7 @@ export function StatusMenu({
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					disabled={pending}
-					className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+					className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
 				>
 					{pending ? "Updating…" : "Change status"}
 					<ChevronDown className="h-3.5 w-3.5" />

@@ -318,7 +318,7 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 				</div>
 			)}
 
-			<div className="border-border bg-card rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 rounded-xl border p-5">
 				{step === 1 && (
 					<UploadStep
 						onFile={handleFile}
@@ -390,7 +390,7 @@ function StepIndicator({ current }: { current: Step }) {
 										? "bg-primary text-primary-foreground"
 										: isActive
 											? "bg-primary text-primary-foreground ring-primary/20 ring-4"
-											: "border-border bg-card text-muted-foreground border"
+											: "border-border-default bg-surface-2 text-muted-foreground border"
 								}`}
 							>
 								{isDone ? <CheckCircle2 className="h-4 w-4" /> : s.num}
@@ -465,7 +465,7 @@ function UploadStep({
 					className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
 						dragActive
 							? "border-primary bg-primary/5"
-							: "border-border bg-background hover:border-foreground/30"
+							: "border-border-default bg-background hover:border-foreground/30"
 					}`}
 				>
 					<div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded-xl">
@@ -507,7 +507,7 @@ function UploadStep({
 						value={pasteText}
 						onChange={(e) => setPasteText(e.target.value)}
 						placeholder={sampleCsv}
-						className="border-border bg-background text-foreground focus-visible:ring-ring placeholder:text-muted-foreground/50 w-full rounded-md border px-3 py-2 font-mono text-xs leading-relaxed focus-visible:ring-2 focus-visible:outline-none"
+						className="border-border-default bg-background text-foreground focus-visible:ring-ring placeholder:text-muted-foreground/50 w-full rounded-md border px-3 py-2 font-mono text-xs leading-relaxed focus-visible:ring-2 focus-visible:outline-none"
 					/>
 					<div className="flex justify-end gap-2">
 						<button
@@ -593,7 +593,7 @@ function MapStep({
 				</p>
 			</div>
 
-			<div className="border-border overflow-hidden rounded-md border">
+			<div className="border-border-default overflow-hidden rounded-md border">
 				<table className="w-full text-sm">
 					<thead className="bg-muted/50">
 						<tr>
@@ -624,7 +624,7 @@ function MapStep({
 											onChange={(e) =>
 												setMapping({ ...mapping, [idx]: e.target.value })
 											}
-											className="border-border bg-background focus-visible:ring-ring h-8 w-full rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+											className="border-border-default bg-background focus-visible:ring-ring h-8 w-full rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<option value="skip">— Skip kolom ini —</option>
 											{targetFields.map((f) => (
@@ -665,7 +665,7 @@ function MapStep({
 								{isMapped ? (
 									<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 h-3 w-3 shrink-0" />
 								) : (
-									<span className="border-border h-3 w-3 shrink-0 rounded-full border" />
+									<span className="border-border-default h-3 w-3 shrink-0 rounded-full border" />
 								)}
 								<span
 									className={
@@ -819,7 +819,7 @@ function PreviewStep({
 					<p className="text-muted-foreground text-xs">
 						Preview baris pertama ({previewRows.length} dari {rows.length}):
 					</p>
-					<div className="border-border max-h-72 overflow-auto rounded-md border">
+					<div className="border-border-default max-h-72 overflow-auto rounded-md border">
 						<table className="w-full text-xs">
 							<thead className="bg-muted/50 sticky top-0">
 								<tr>
@@ -847,7 +847,7 @@ function PreviewStep({
 									const isDupe = pk ? duplicates.has(pk) : false;
 									return (
 										<tr key={`row-${rIdx}`} className={isDupe ? "bg-amber-50 dark:bg-amber-950/30" : ""}>
-											<td className="text-muted-foreground sticky left-0 bg-card px-2 py-1 font-mono">
+											<td className="text-muted-foreground sticky left-0 bg-surface-2 px-2 py-1 font-mono">
 												{rIdx + 2}
 												{isDupe && (
 													<span className="ml-1" title="Duplicate">
@@ -942,7 +942,7 @@ function ProgressPanel({
 				</span>
 			</div>
 
-			<div className="bg-card border-border h-2.5 w-full overflow-hidden rounded-full border">
+			<div className="bg-surface-2 border-border-default h-2.5 w-full overflow-hidden rounded-full border">
 				<div
 					className="bg-primary h-full transition-all duration-300 ease-out"
 					style={{ width: `${pct}%` }}
@@ -977,7 +977,7 @@ function ProgressPanel({
 					type="button"
 					onClick={handleCancel}
 					disabled={cancelRequested}
-					className="border-border text-muted-foreground hover:bg-muted hover:text-rose-600 dark:hover:text-rose-400 inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+					className="border-border-default text-muted-foreground hover:bg-muted hover:text-rose-600 dark:hover:text-rose-400 inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
 				>
 					<StopCircle className="h-3.5 w-3.5" />
 					{cancelRequested ? "Cancelling…" : "Cancel"}
@@ -1110,7 +1110,7 @@ function DoneStep({
 				<summary className="text-foreground cursor-pointer text-sm font-medium">
 					Lihat detail per baris ({result.rows.length})
 				</summary>
-				<div className="border-border max-h-96 overflow-auto rounded-md border">
+				<div className="border-border-default max-h-96 overflow-auto rounded-md border">
 					<table className="w-full text-xs">
 						<thead className="bg-muted/50 sticky top-0">
 							<tr>
@@ -1157,7 +1157,7 @@ function DoneStep({
 				<button
 					type="button"
 					onClick={onReset}
-					className="border-border text-foreground hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
+					className="border-border-default text-foreground hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-4 text-sm font-medium"
 				>
 					Import another
 				</button>
@@ -1188,7 +1188,7 @@ function Stat({
 						? "text-amber-600 dark:text-amber-400"
 						: "text-muted-foreground";
 	return (
-		<div className="border-border bg-background space-y-0.5 rounded-md border p-3">
+		<div className="border-border-default bg-background space-y-0.5 rounded-md border p-3">
 			<dt className="text-muted-foreground text-xs uppercase tracking-wider">
 				{label}
 			</dt>
@@ -1280,7 +1280,7 @@ function DownloadReportButton({ result }: { result: ImportResult }) {
 		<button
 			type="button"
 			onClick={handleClick}
-			className="border-border text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+			className="border-border-default text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium"
 		>
 			<Download className="h-4 w-4" />
 			Download report

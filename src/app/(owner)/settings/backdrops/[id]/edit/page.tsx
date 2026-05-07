@@ -47,7 +47,7 @@ export default async function EditBackdropPage({
 				</h2>
 				<p className="text-muted-foreground tabular text-sm">{bg.code}</p>
 			</div>
-			<div className="border-border bg-card max-w-2xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<BackdropForm mode="edit" id={bg.id} defaults={defaults} />
 			</div>
 		</div>

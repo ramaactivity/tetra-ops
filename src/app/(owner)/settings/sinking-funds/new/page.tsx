@@ -18,7 +18,7 @@ export default function NewSinkingFundPage() {
 					Bikin sinking fund baru untuk alokasi otomatis dari settlement.
 				</p>
 			</div>
-			<div className="border-border bg-card max-w-2xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<SinkingFundForm mode="create" />
 			</div>
 		</div>

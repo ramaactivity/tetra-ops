@@ -292,7 +292,7 @@ export default async function RemindersPage({
 								"inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
 								isActive
 									? "border-foreground bg-foreground text-background"
-									: "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+									: "border-border-default bg-surface-2 text-muted-foreground hover:bg-muted hover:text-foreground",
 							)}
 						>
 							<Icon className="h-3.5 w-3.5" />
@@ -313,7 +313,7 @@ export default async function RemindersPage({
 			</div>
 
 			{/* Suggested template panel */}
-			<div className="border-border bg-card mb-4 rounded-lg border p-4">
+			<div className="border-border-default bg-surface-2 mb-4 rounded-lg border p-4">
 				<div className="mb-2 flex items-center gap-2">
 					<MessageCircle className="text-muted-foreground h-4 w-4" />
 					<span className="text-foreground text-sm font-medium">
@@ -348,7 +348,7 @@ export default async function RemindersPage({
 
 			{/* Events list + batch send */}
 			{eventsInBucket.length === 0 ? (
-				<div className="border-border bg-card rounded-lg border p-8 text-center">
+				<div className="border-border-default bg-surface-2 rounded-lg border p-8 text-center">
 					<CheckCircle2 className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
 					<p className="text-foreground text-sm font-medium">
 						Tidak ada event di bucket ini

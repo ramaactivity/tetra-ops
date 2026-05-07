@@ -104,13 +104,13 @@ export default async function CrewSchedulePage({
 	return (
 		<div className="mx-auto w-full max-w-md space-y-4 px-4 py-6">
 			<header>
-				<h1 className="text-2xl font-semibold tracking-tight">Jadwal</h1>
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">Jadwal</h1>
 				<p className="text-muted-foreground text-sm">
 					Event yang lo di-assign sebagai crew.
 				</p>
 			</header>
 
-			<div className="border-border flex gap-1 border-b">
+			<div className="border-border-default flex gap-1 border-b">
 				<TabLink
 					href="/crew/jadwal"
 					label="Upcoming"
@@ -126,7 +126,7 @@ export default async function CrewSchedulePage({
 			</div>
 
 			{assignments.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
 					<CalendarPlus className="text-muted-foreground h-8 w-8" />
 					<p className="text-muted-foreground text-sm">
 						{tab === "upcoming"
@@ -143,7 +143,7 @@ export default async function CrewSchedulePage({
 							<Link
 								key={`${ev.id}-${i}`}
 								href={`/crew/jadwal/${ev.project_id}`}
-								className="border-border bg-card hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+								className="border-border-default bg-surface-2 hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
 							>
 								<div className="flex w-16 shrink-0 flex-col items-center justify-center">
 									<span className="text-muted-foreground text-[10px] font-medium uppercase">

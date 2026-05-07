@@ -63,7 +63,7 @@ export default async function SettlePage({
 					<ChevronLeft className="h-4 w-4" />
 					{projectId}
 				</Link>
-				<div className="border-border bg-card flex items-start gap-3 rounded-xl border p-5">
+				<div className="border-border-default bg-surface-2 flex items-start gap-3 rounded-xl border p-5">
 					<Lock className="text-muted-foreground mt-0.5 h-5 w-5 shrink-0" />
 					<div className="space-y-1">
 						<h2 className="text-base font-semibold">
@@ -137,7 +137,7 @@ export default async function SettlePage({
 					{projectId}
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">
 						Settle Event
 					</h1>
 					<p className="text-muted-foreground text-sm">
@@ -194,7 +194,7 @@ export default async function SettlePage({
 					</p>
 				</div>
 			) : (
-				<div className="border-border bg-muted/40 flex items-baseline justify-between gap-2 rounded-md border p-3">
+				<div className="border-border-default bg-muted/40 flex items-baseline justify-between gap-2 rounded-md border p-3">
 					<p className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
 						<ClipboardList className="h-3.5 w-3.5" />
 						Belum ada rekap untuk event ini

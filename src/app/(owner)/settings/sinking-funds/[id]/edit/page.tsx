@@ -49,7 +49,7 @@ export default async function EditSinkingFundPage({
 				</h2>
 				<p className="text-muted-foreground tabular text-sm">{fund.code}</p>
 			</div>
-			<div className="border-border bg-card max-w-2xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<SinkingFundForm mode="edit" id={fund.id} defaults={defaults} />
 			</div>
 		</div>

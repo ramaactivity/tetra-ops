@@ -71,7 +71,7 @@ export function RekapForm({
 				</div>
 			)}
 
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div>
 					<h3 className="text-base font-semibold tracking-tight">Cetak</h3>
 					<p className="text-muted-foreground text-xs">
@@ -102,7 +102,7 @@ export function RekapForm({
 				</div>
 			</section>
 
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div>
 					<h3 className="text-base font-semibold tracking-tight">
 						Flashdisk & Pouch
@@ -127,7 +127,7 @@ export function RekapForm({
 				</div>
 			</section>
 
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div>
 					<h3 className="text-base font-semibold tracking-tight">Add-on</h3>
 					<p className="text-muted-foreground text-xs">
@@ -150,7 +150,7 @@ export function RekapForm({
 				</div>
 			</section>
 
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div>
 					<h3 className="text-base font-semibold tracking-tight">Bukti</h3>
 					<p className="text-muted-foreground text-xs">
@@ -254,4 +254,4 @@ function NumField({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";

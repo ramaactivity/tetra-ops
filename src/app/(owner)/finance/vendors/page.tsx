@@ -191,7 +191,7 @@ export default async function VendorsPage() {
 					Finance
 				</Link>
 				<div>
-					<h1 className="text-3xl font-semibold tracking-tight">
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">
 						Vendor / Partner Organizer
 					</h1>
 					<p className="text-muted-foreground text-sm">
@@ -229,7 +229,7 @@ export default async function VendorsPage() {
 			</dl>
 
 			{vendors.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<Handshake className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">Belum ada vendor</h3>
@@ -246,7 +246,7 @@ export default async function VendorsPage() {
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 					<table className="w-full text-sm">
 						<thead className="bg-muted/40">
 							<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -338,7 +338,7 @@ export default async function VendorsPage() {
 				</div>
 			)}
 
-			<div className="border-border bg-muted/30 text-muted-foreground rounded-lg border p-3 text-xs">
+			<div className="border-border-default bg-muted/30 text-muted-foreground rounded-lg border p-3 text-xs">
 				<p className="flex items-start gap-2">
 					<UsersRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
 					<span>
@@ -375,7 +375,7 @@ function SummaryCard({
 					? "text-amber-600 dark:text-amber-400"
 					: "text-foreground";
 	return (
-		<div className="border-border bg-card space-y-1 rounded-xl border p-4">
+		<div className="border-border-default bg-surface-2 space-y-1 rounded-xl border p-4">
 			<dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
 				{label}
 			</dt>

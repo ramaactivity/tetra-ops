@@ -109,7 +109,7 @@ export function RekapReviewButtons({
 					value={notes}
 					onChange={(e) => setNotes(e.target.value)}
 					placeholder="Misal: angka cetak ngga sesuai counter mesin"
-					className="border-border bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none resize-none"
+					className="border-border-default bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none resize-none"
 				/>
 			</div>
 			<div className="flex flex-wrap items-center justify-end gap-2">

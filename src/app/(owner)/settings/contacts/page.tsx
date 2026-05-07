@@ -112,7 +112,7 @@ export default async function ContactsListPage({
 						name="q"
 						defaultValue={q}
 						placeholder="Cari nama…"
-						className="border-border bg-card focus-visible:ring-ring placeholder:text-muted-foreground/60 h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+						className="border-border-default bg-surface-2 focus-visible:ring-ring placeholder:text-muted-foreground/60 h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 					/>
 					{typeFilter && <input type="hidden" name="type" value={typeFilter} />}
 				</form>
@@ -136,7 +136,7 @@ export default async function ContactsListPage({
 			</div>
 
 			{contacts.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-12 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-12 text-center">
 					<Users className="text-muted-foreground h-8 w-8" />
 					<div className="space-y-1">
 						<p className="font-medium">Belum ada contacts</p>
@@ -146,7 +146,7 @@ export default async function ContactsListPage({
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-lg border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -227,7 +227,7 @@ function TypeChip({
 			className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors ${
 				active
 					? "border-primary/40 bg-primary/10 text-primary"
-					: "border-border bg-card text-muted-foreground hover:text-foreground"
+					: "border-border-default bg-surface-2 text-muted-foreground hover:text-foreground"
 			}`}
 		>
 			{label}

@@ -197,7 +197,7 @@ export function IncidentDialog({
 					</div>
 
 					<DialogFooter>
-						<DialogClose className="border-border bg-card hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
+						<DialogClose className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
 							Batal
 						</DialogClose>
 						<button
@@ -215,5 +215,5 @@ export function IncidentDialog({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;

@@ -156,7 +156,7 @@ export default async function MasterCrewPage() {
 					<div className="flex items-center gap-2">
 						<Link
 							href="/settings/crew/invitations/import"
-							className="border-border text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+							className="border-border-default text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
 						>
 							<FileSpreadsheet className="h-4 w-4" />
 							Bulk import
@@ -196,7 +196,7 @@ export default async function MasterCrewPage() {
 							bawah ini.
 						</p>
 					</div>
-					<div className="border-border bg-card overflow-x-auto rounded-lg border">
+					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -252,7 +252,7 @@ export default async function MasterCrewPage() {
 				</section>
 			)}
 
-			<div className="border-border bg-card overflow-x-auto rounded-lg border">
+			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -346,7 +346,7 @@ export default async function MasterCrewPage() {
 				</Table>
 			</div>
 
-			<div className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<InvestorShareTable rows={investors} canEdit={isSuperAdmin} />
 			</div>
 		</div>

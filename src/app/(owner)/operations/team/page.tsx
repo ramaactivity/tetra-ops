@@ -164,7 +164,7 @@ export default async function CrewScheduleView({
 		<div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Operations</h1>
 					<p className="text-muted-foreground text-sm">
 						Crew schedule {HORIZON_DAYS} hari ke depan. Cell merah = bentrok
 						(2+ event di tanggal sama).
@@ -187,7 +187,7 @@ export default async function CrewScheduleView({
 					</NavLink>
 					<Link
 						href="/operations/team"
-						className="border-border bg-surface-2 hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
+						className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
 					>
 						<CalendarDays className="h-3.5 w-3.5" />
 						Today
@@ -199,7 +199,7 @@ export default async function CrewScheduleView({
 			</div>
 
 			{crew.length === 0 ? (
-				<div className="border-border bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<UsersRound className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">Belum ada crew</h3>
@@ -209,7 +209,7 @@ export default async function CrewScheduleView({
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-surface-2 overflow-x-auto rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 					<table className="w-full text-xs">
 						<thead className="bg-muted/40 sticky top-0">
 							<tr>
@@ -403,7 +403,7 @@ function NavLink({
 		<Link
 			href={href}
 			aria-label={dir === "prev" ? "Previous window" : "Next window"}
-			className="border-border bg-surface-2 hover:bg-muted text-muted-foreground hover:text-foreground inline-flex h-9 w-9 items-center justify-center rounded-md border"
+			className="border-border-default bg-surface-2 hover:bg-muted text-muted-foreground hover:text-foreground inline-flex h-9 w-9 items-center justify-center rounded-md border"
 		>
 			{children}
 		</Link>

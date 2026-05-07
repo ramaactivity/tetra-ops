@@ -222,13 +222,13 @@ export function ReminderBatchClient({
 	return (
 		<div className="space-y-4">
 			{/* Toolbar */}
-			<div className="border-border bg-card flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between">
+			<div className="border-border-default bg-surface-2 flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between">
 				<div className="flex flex-1 flex-wrap items-center gap-2">
 					<span className="text-muted-foreground text-xs font-medium">
 						Template:
 					</span>
 					<DropdownMenu>
-						<DropdownMenuTrigger className="border-border bg-background hover:bg-muted text-foreground inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium">
+						<DropdownMenuTrigger className="border-border-default bg-background hover:bg-muted text-foreground inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium">
 							<MessageCircle className="h-3.5 w-3.5" />
 							{selectedTemplate?.name ?? "Pilih template"}
 							<ChevronDown className="h-3 w-3" />
@@ -285,7 +285,7 @@ export function ReminderBatchClient({
 				</div>
 			)}
 
-			<div className="border-border bg-card overflow-x-auto rounded-lg border">
+			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<table className="w-full text-sm">
 					<thead className="bg-muted/50">
 						<tr className="border-b">
@@ -411,7 +411,7 @@ export function ReminderBatchClient({
 													onClick={() =>
 														setPreviewId(isPreviewing ? null : meta.id)
 													}
-													className="border-border bg-background hover:bg-muted text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium"
+													className="border-border-default bg-background hover:bg-muted text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium"
 													disabled={!selectedTemplate}
 												>
 													Preview
@@ -435,7 +435,7 @@ export function ReminderBatchClient({
 													<span className="text-muted-foreground text-xs font-medium">
 														Preview pesan untuk {meta.client_name}
 													</span>
-													<pre className="text-foreground bg-background border-border rounded-md border p-3 text-xs whitespace-pre-wrap">
+													<pre className="text-foreground bg-background border-border-default rounded-md border p-3 text-xs whitespace-pre-wrap">
 														{previewMessageFor(meta.id)}
 													</pre>
 												</div>

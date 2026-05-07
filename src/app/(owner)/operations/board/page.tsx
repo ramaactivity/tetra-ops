@@ -114,7 +114,7 @@ export default async function OperationsBoardPage() {
 		<div className="mx-auto w-full max-w-[100rem] space-y-6 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Operations</h1>
 					<p className="text-muted-foreground text-sm">
 						{events.length} event aktif (selain cancelled / archived). Scroll
 						horizontal untuk lihat status lain.
@@ -142,10 +142,10 @@ export default async function OperationsBoardPage() {
 								className={`flex h-full flex-col rounded-xl border ${col.tone}`}
 								aria-label={col.label}
 							>
-								<header className="border-b border-border/60 px-3 py-3">
+								<header className="border-b border-border-default/60 px-3 py-3">
 									<div className="flex items-baseline justify-between">
 										<h3 className="text-sm font-semibold">{col.label}</h3>
-										<span className="bg-background/70 text-foreground tabular rounded-full border border-border px-2 py-0.5 text-[10px] font-medium">
+										<span className="bg-background/70 text-foreground tabular rounded-full border border-border-default px-2 py-0.5 text-[10px] font-medium">
 											{items.length}
 										</span>
 									</div>
@@ -190,7 +190,7 @@ function BoardCard({ event }: { event: EventRow }) {
 	return (
 		<Link
 			href={`/operations/${event.project_id}`}
-			className="border-border bg-surface-2 hover:border-primary/40 hover:bg-surface-2/80 block space-y-2 rounded-lg border p-2.5 text-left transition-colors"
+			className="border-border-default bg-surface-2 hover:border-primary/40 hover:bg-surface-2/80 block space-y-2 rounded-lg border p-2.5 text-left transition-colors"
 		>
 			<div className="space-y-0.5">
 				<div className="flex items-baseline justify-between gap-2">
@@ -230,7 +230,7 @@ function BoardCard({ event }: { event: EventRow }) {
 				<PaymentStatusBadge status={event.payment_status} />
 			</div>
 
-			<p className="tabular text-foreground border-t border-border/60 pt-1.5 text-xs font-semibold">
+			<p className="tabular text-foreground border-t border-border-default/60 pt-1.5 text-xs font-semibold">
 				{event.grand_total ? formatRupiah(event.grand_total) : "—"}
 			</p>
 		</Link>

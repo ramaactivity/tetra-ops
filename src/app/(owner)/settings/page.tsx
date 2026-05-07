@@ -26,7 +26,7 @@ export default async function SystemConfigPage() {
 
 	if (entries.length === 0) {
 		return (
-			<div className="border-border bg-card rounded-xl border border-dashed p-12 text-center">
+			<div className="border-border-default bg-surface-2 rounded-xl border border-dashed p-12 text-center">
 				<p className="text-muted-foreground text-sm">
 					Belum ada system config. Jalankan onboarding wizard atau seed data
 					awal.

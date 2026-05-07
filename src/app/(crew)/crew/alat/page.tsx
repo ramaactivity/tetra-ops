@@ -96,7 +96,7 @@ export default async function CrewEquipmentPage() {
 	return (
 		<div className="mx-auto w-full max-w-md space-y-4 px-4 py-6">
 			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold tracking-tight">Alat</h1>
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">Alat</h1>
 				<p className="text-muted-foreground text-sm">
 					Equipment yang ke-checkout buat event-event lo. Checkout/check-in
 					di-handle owner via Operations.
@@ -104,14 +104,14 @@ export default async function CrewEquipmentPage() {
 			</header>
 
 			{eventList.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
 					<Package2 className="text-muted-foreground h-8 w-8" />
 					<p className="text-muted-foreground text-sm">
 						Belum ada event upcoming.
 					</p>
 				</div>
 			) : totalCheckedOut === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
 					<Package2 className="text-muted-foreground h-8 w-8" />
 					<p className="text-muted-foreground text-sm">
 						Belum ada alat ke-checkout buat event upcoming lo. Tunggu owner
@@ -126,7 +126,7 @@ export default async function CrewEquipmentPage() {
 						return (
 							<div
 								key={ev.id}
-								className="border-border bg-card overflow-hidden rounded-xl border"
+								className="border-border-default bg-surface-2 overflow-hidden rounded-xl border"
 							>
 								<Link
 									href={`/crew/jadwal/${ev.project_id}`}

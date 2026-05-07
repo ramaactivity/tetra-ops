@@ -43,7 +43,7 @@ export function AuditFilterBar({
 				defaultValue={defaultAction ?? ""}
 				onChange={(e) => update("action", e.target.value)}
 				disabled={pending}
-				className="border-border bg-background h-9 rounded-md border px-3 text-sm"
+				className="border-border-default bg-background h-9 rounded-md border px-3 text-sm"
 			>
 				<option value="">Semua action</option>
 				{actions.map((a) => (
@@ -58,7 +58,7 @@ export function AuditFilterBar({
 				defaultValue={defaultEntity ?? ""}
 				onChange={(e) => update("entity", e.target.value)}
 				disabled={pending}
-				className="border-border bg-background h-9 rounded-md border px-3 text-sm"
+				className="border-border-default bg-background h-9 rounded-md border px-3 text-sm"
 			>
 				<option value="">Semua entity</option>
 				{entityTypes.map((e) => (

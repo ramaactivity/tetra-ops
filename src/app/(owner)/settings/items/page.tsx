@@ -87,7 +87,7 @@ export default async function ItemsListPage({
 				<div className="flex items-center gap-2">
 					<Link
 						href="/settings/items/import"
-						className="border-border bg-card hover:bg-muted text-foreground inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
+						className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
 					>
 						<FileSpreadsheet className="h-4 w-4" />
 						Bulk import
@@ -117,7 +117,7 @@ export default async function ItemsListPage({
 			</div>
 
 			{items.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<Package className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">
@@ -130,7 +130,7 @@ export default async function ItemsListPage({
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-lg border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -236,7 +236,7 @@ function FilterChip({
 				"inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium transition-colors",
 				active
 					? "border-primary bg-primary/10 text-primary"
-					: "border-border bg-card text-muted-foreground hover:bg-muted",
+					: "border-border-default bg-surface-2 text-muted-foreground hover:bg-muted",
 			)}
 		>
 			{label}

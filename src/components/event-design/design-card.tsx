@@ -43,7 +43,7 @@ export function DesignCard({
 	const initialUrl = state?.values?.design_drive_folder_url ?? driveUrl ?? "";
 
 	return (
-		<div className="border-border bg-card md:col-span-2 space-y-4 rounded-xl border p-5">
+		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-4 rounded-xl border p-5">
 			<div className="flex items-baseline justify-between gap-2">
 				<div className="flex items-center gap-2">
 					<Palette className="text-primary h-4 w-4" />
@@ -77,7 +77,7 @@ export function DesignCard({
 					href={driveUrl}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="border-border bg-background hover:bg-muted text-primary flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
+					className="border-border-default bg-background hover:bg-muted text-primary flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
 				>
 					<span className="truncate font-mono">{driveUrl}</span>
 					<ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -105,7 +105,7 @@ export function DesignCard({
 							type="url"
 							defaultValue={initialUrl}
 							placeholder="https://drive.google.com/drive/folders/..."
-							className="border-border bg-background text-foreground focus-visible:ring-ring tabular h-10 flex-1 rounded-md border px-3 text-xs placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
+							className="border-border-default bg-background text-foreground focus-visible:ring-ring tabular h-10 flex-1 rounded-md border px-3 text-xs placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
 						/>
 						<button
 							type="submit"

@@ -48,7 +48,7 @@ export function ManualMovementForm({
 				</div>
 			)}
 
-			<div className="border-border bg-muted/30 grid grid-cols-2 gap-1 rounded-md border p-1">
+			<div className="border-border-default bg-muted/30 grid grid-cols-2 gap-1 rounded-md border p-1">
 				<TypeOption
 					selected={type === "deposit"}
 					onClick={() => setType("deposit")}
@@ -192,7 +192,7 @@ function TypeOption({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;
 
 function Field({

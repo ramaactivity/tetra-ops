@@ -444,7 +444,7 @@ export function BookingForm({
 					/>
 				)}
 
-				<label className="border-border bg-card flex items-center gap-3 rounded-md border p-4">
+				<label className="border-border-default bg-surface-2 flex items-center gap-3 rounded-md border p-4">
 					<input
 						type="checkbox"
 						name="include_flashdisk_pouch"
@@ -623,7 +623,7 @@ export function BookingForm({
 										return (
 											<label
 												key={addon.id}
-												className="border-border bg-card hover:bg-muted/30 flex items-center gap-3 rounded-md border p-3 cursor-pointer"
+												className="border-border-default bg-surface-2 hover:bg-muted/30 flex items-center gap-3 rounded-md border p-3 cursor-pointer"
 											>
 												<input
 													type="checkbox"
@@ -753,7 +753,7 @@ export function BookingForm({
 				</Field>
 			</Section>
 
-			<div className="border-border bg-card sticky bottom-0 -mx-4 flex flex-col gap-3 border-t px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:flex-row sm:items-center sm:justify-between md:-mx-8 md:px-8">
+			<div className="border-border-default bg-surface-2 sticky bottom-0 -mx-4 flex flex-col gap-3 border-t px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface-2/85 sm:flex-row sm:items-center sm:justify-between md:-mx-8 md:px-8">
 				<dl className="flex items-baseline gap-6 text-sm">
 					<div>
 						<dt className="text-muted-foreground text-xs uppercase tracking-wider">
@@ -776,7 +776,7 @@ export function BookingForm({
 				<div className="flex items-center gap-3">
 					<Link
 						href="/operations"
-						className="border-border bg-card hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
+						className="border-border-default bg-surface-2 hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
 					>
 						Cancel
 					</Link>
@@ -794,7 +794,7 @@ export function BookingForm({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 
 const selectClass = `${inputClass} appearance-none`;
 

@@ -148,7 +148,7 @@ export default async function CrewHomePage() {
 	return (
 		<div className="mx-auto w-full max-w-md space-y-6 px-4 py-6">
 			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold tracking-tight">
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">
 					Halo, {firstName}
 				</h1>
 				<p className="text-muted-foreground text-sm">
@@ -194,7 +194,7 @@ export default async function CrewHomePage() {
 					Hari ini & Besok
 				</h2>
 				{nextAssignments.length === 0 ? (
-					<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-8 text-center">
+					<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-8 text-center">
 						<CalendarClock className="text-muted-foreground h-7 w-7" />
 						<p className="text-muted-foreground text-sm">
 							Tidak ada event hari ini atau besok. Cek tab Jadwal untuk yang
@@ -211,7 +211,7 @@ export default async function CrewHomePage() {
 								<Link
 									key={ev.id}
 									href={`/crew/jadwal/${ev.project_id}`}
-									className="border-border bg-card hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+									className="border-border-default bg-surface-2 hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
 								>
 									<div className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5">
 										<span
@@ -320,14 +320,14 @@ function StatCard({
 		return (
 			<Link
 				href={href}
-				className="border-border bg-card hover:border-foreground/20 space-y-1 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+				className="border-border-default bg-surface-2 hover:border-foreground/20 space-y-1 rounded-xl border p-3 transition-colors active:scale-[0.99]"
 			>
 				{inner}
 			</Link>
 		);
 	}
 	return (
-		<div className="border-border bg-card space-y-1 rounded-xl border p-3">
+		<div className="border-border-default bg-surface-2 space-y-1 rounded-xl border p-3">
 			{inner}
 		</div>
 	);

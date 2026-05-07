@@ -103,7 +103,7 @@ export default async function ReportsPage({
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Reports</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Reports</h1>
 					<p className="text-muted-foreground text-sm">
 						Monthly P&amp;L, crew performance, owner statement.
 					</p>
@@ -111,7 +111,7 @@ export default async function ReportsPage({
 				<MonthSwitcher ym={ym} tab={tab} />
 			</div>
 
-			<div className="border-border flex gap-1 border-b">
+			<div className="border-border-default flex gap-1 border-b">
 				<TabLink
 					href={`/reports?tab=pnl&month=${ym}`}
 					label="Monthly P&L"
@@ -159,7 +159,7 @@ function MonthSwitcher({ ym, tab }: { ym: string; tab: Tab }) {
 	const next = shiftMonth(ym, +1);
 	const [year, month] = ym.split("-").map(Number);
 	return (
-		<div className="border-border bg-card flex items-center gap-1 rounded-md border p-0.5">
+		<div className="border-border-default bg-surface-2 flex items-center gap-1 rounded-md border p-0.5">
 			<Link
 				href={`/reports?tab=${tab}&month=${prev}`}
 				aria-label="Previous month"
@@ -373,7 +373,7 @@ async function PnlSection({
 				<h2 className="text-base font-semibold tracking-tight">
 					Profit &amp; Loss · {monthLabel}
 				</h2>
-				<div className="border-border bg-card overflow-hidden rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-hidden rounded-xl border">
 					<dl>
 						<PnlRow
 							label="Revenue Net"
@@ -418,13 +418,13 @@ async function PnlSection({
 					{Object.keys(channelBreakdown).length === 0 ? (
 						<EmptyMini text="Belum ada event di bulan ini." />
 					) : (
-						<div className="border-border bg-card divide-border overflow-hidden rounded-xl border">
+						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-xl border">
 							{Object.entries(channelBreakdown)
 								.sort((a, b) => b[1] - a[1])
 								.map(([channel, count]) => (
 									<div
 										key={channel}
-										className="border-border flex items-center justify-between border-b px-4 py-3 last:border-b-0"
+										className="border-border-default flex items-center justify-between border-b px-4 py-3 last:border-b-0"
 									>
 										<div className="space-y-0.5">
 											<p className="text-foreground text-sm font-medium capitalize">
@@ -451,7 +451,7 @@ async function PnlSection({
 					{rows.length === 0 ? (
 						<EmptyMini text="Belum ada settlement bulan ini." />
 					) : (
-						<div className="border-border bg-card max-h-96 overflow-auto rounded-xl border">
+						<div className="border-border-default bg-surface-2 max-h-96 overflow-auto rounded-xl border">
 							{rows.map((r) => {
 								const ev = Array.isArray(r.event) ? r.event[0] : r.event;
 								if (!ev) return null;
@@ -459,7 +459,7 @@ async function PnlSection({
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="border-border hover:bg-muted/40 flex items-center justify-between gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
+										className="border-border-default hover:bg-muted/40 flex items-center justify-between gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
 									>
 										<div className="min-w-0 flex-1 space-y-0.5">
 											<p className="text-foreground truncate text-sm font-medium">
@@ -526,7 +526,7 @@ function PnlRow({
 				: "text-foreground";
 	return (
 		<div
-			className={`border-border flex items-center justify-between border-b px-4 last:border-b-0 ${
+			className={`border-border-default flex items-center justify-between border-b px-4 last:border-b-0 ${
 				grand
 					? "bg-muted/40 border-foreground/30 border-t-2 py-4"
 					: strong || muted
@@ -549,7 +549,7 @@ function PnlRow({
 
 function PnlSubRow({ label, value }: { label: string; value: number }) {
 	return (
-		<div className="border-border flex items-center justify-between border-b px-4 py-1.5 last:border-b-0">
+		<div className="border-border-default flex items-center justify-between border-b px-4 py-1.5 last:border-b-0">
 			<dt className="text-muted-foreground/80 pl-10 text-xs">{label}</dt>
 			<dd className="text-muted-foreground tabular text-xs">
 				{formatRupiah(value)}
@@ -746,7 +746,7 @@ async function CrewSection({
 				{enriched.length === 0 ? (
 					<EmptyMini text="Belum ada crew aktif." />
 				) : (
-					<div className="border-border bg-card overflow-x-auto rounded-xl border">
+					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 						<table className="w-full text-sm">
 							<thead className="bg-muted/40">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -991,7 +991,7 @@ async function OwnerSection({
 				<h2 className="text-base font-semibold tracking-tight">
 					Owner statement · {monthLabel}
 				</h2>
-				<div className="border-border bg-card overflow-x-auto rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 					<table className="w-full text-sm">
 						<thead className="bg-muted/40">
 							<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -1115,7 +1115,7 @@ function KpiCard({
 						? "text-amber-600 dark:text-amber-400"
 						: "text-foreground";
 	return (
-		<div className="border-border bg-card relative space-y-1 rounded-xl border p-4">
+		<div className="border-border-default bg-surface-2 relative space-y-1 rounded-xl border p-4">
 			<div className="flex items-center justify-between">
 				<dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
 					{label}
@@ -1132,7 +1132,7 @@ function KpiCard({
 
 function EmptyMini({ text }: { text: string }) {
 	return (
-		<div className="border-border bg-card rounded-xl border border-dashed p-8 text-center">
+		<div className="border-border-default bg-surface-2 rounded-xl border border-dashed p-8 text-center">
 			<p className="text-muted-foreground text-sm">{text}</p>
 		</div>
 	);

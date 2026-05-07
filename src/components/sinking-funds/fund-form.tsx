@@ -227,7 +227,7 @@ export function SinkingFundForm({
 							? state.values.is_active === "on"
 							: defaults.is_active
 					}
-					className="border-border accent-primary h-4 w-4 rounded"
+					className="border-border-default accent-primary h-4 w-4 rounded"
 				/>
 				<span className="font-medium">Aktif</span>
 				<span className="text-muted-foreground text-xs">
@@ -253,7 +253,7 @@ export function SinkingFundForm({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none read-only:opacity-70";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none read-only:opacity-70";
 const selectClass = `${inputClass} appearance-none`;
 
 function Field({

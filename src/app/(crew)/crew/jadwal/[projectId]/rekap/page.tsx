@@ -164,7 +164,7 @@ export default async function CrewRekapPage({
 			)}
 
 			{rekap?.is_approved === true ? (
-				<div className="border-border bg-card space-y-3 rounded-xl border p-4">
+				<div className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-4">
 					<div className="flex items-center gap-2">
 						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 h-4 w-4" />
 						<p className="text-foreground text-sm font-medium">
@@ -217,7 +217,7 @@ export default async function CrewRekapPage({
 					</p>
 				</div>
 			) : (
-				<div className="border-border bg-card rounded-xl border p-4">
+				<div className="border-border-default bg-surface-2 rounded-xl border p-4">
 					<RekapForm
 						eventId={event.id}
 						projectId={event.project_id}

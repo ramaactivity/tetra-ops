@@ -19,7 +19,7 @@ export default function NewItemPage() {
 					printer, light) ke master inventory.
 				</p>
 			</div>
-			<div className="border-border bg-card max-w-3xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
 				<ItemForm mode="create" />
 			</div>
 		</div>

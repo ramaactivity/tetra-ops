@@ -173,7 +173,7 @@ export default async function NotificationsPage({
 		<div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">
 						Notifications
 					</h1>
 					<p className="text-muted-foreground text-sm">
@@ -195,7 +195,7 @@ export default async function NotificationsPage({
 			</div>
 
 			{/* Push notifications subscribe */}
-			<div className="border-border bg-card flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+			<div className="border-border-default bg-surface-2 flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-0.5">
 					<p className="text-foreground text-sm font-medium">
 						Push notification ke device ini
@@ -211,7 +211,7 @@ export default async function NotificationsPage({
 			</div>
 
 			{/* Show / unread toggle */}
-			<div className="border-border bg-card inline-flex items-center rounded-md border p-0.5">
+			<div className="border-border-default bg-surface-2 inline-flex items-center rounded-md border p-0.5">
 				<TabLink
 					href={buildQs({ show: "", severity: sev, category: cat })}
 					label={`Unread${totalUnread > 0 ? ` (${totalUnread})` : ""}`}
@@ -280,7 +280,7 @@ export default async function NotificationsPage({
 			</div>
 
 			{rows.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<BellOff className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="text-foreground font-medium">
@@ -315,7 +315,7 @@ function NotificationItem({ n }: { n: NotifRow }) {
 
 	return (
 		<li
-			className={`border-border bg-card hover:border-foreground/20 group flex items-start gap-3 rounded-xl border p-4 transition-colors ${
+			className={`border-border-default bg-surface-2 hover:border-foreground/20 group flex items-start gap-3 rounded-xl border p-4 transition-colors ${
 				!n.is_read ? "ring-primary/30 ring-1" : ""
 			}`}
 		>
@@ -429,7 +429,7 @@ function ChipLink({
 			className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors ${
 				active
 					? "border-primary/40 bg-primary/10 text-primary"
-					: `border-border bg-card hover:bg-muted ${tone ?? "text-muted-foreground"}`
+					: `border-border-default bg-surface-2 hover:bg-muted ${tone ?? "text-muted-foreground"}`
 			}`}
 		>
 			{label}

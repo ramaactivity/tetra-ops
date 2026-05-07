@@ -221,7 +221,7 @@ export function PushSubscribeButton({
 							type="button"
 							onClick={handleUnsubscribe}
 							disabled={pending}
-							className="border-border bg-card hover:bg-muted text-foreground inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+							className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
 						>
 							{pending ? (
 								<Loader2 className="h-3.5 w-3.5 animate-spin" />

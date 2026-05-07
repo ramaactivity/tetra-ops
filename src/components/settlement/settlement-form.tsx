@@ -224,7 +224,7 @@ export function SettlementForm({
 			)}
 
 			{/* Revenue Card */}
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div className="flex items-center justify-between">
 					<h2 className="text-base font-semibold tracking-tight">Revenue</h2>
 					<span className="tabular text-foreground text-sm font-semibold">
@@ -250,7 +250,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Stage 1: HPP */}
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div className="space-y-1">
 					<div className="flex items-baseline justify-between">
 						<h2 className="text-base font-semibold tracking-tight">
@@ -280,7 +280,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Stage 2: OpEx */}
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div className="flex items-baseline justify-between">
 					<h2 className="text-base font-semibold tracking-tight">
 						SDM & Operasional
@@ -304,7 +304,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Allocation Preview */}
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div className="flex items-baseline justify-between">
 					<h2 className="text-base font-semibold tracking-tight">
 						Alokasi (preview)
@@ -348,7 +348,7 @@ export function SettlementForm({
 								</dd>
 							</div>
 						))}
-						<div className="flex items-baseline justify-between border-t border-border pt-2 text-sm">
+						<div className="flex items-baseline justify-between border-t border-border-default pt-2 text-sm">
 							<dt className="text-muted-foreground">
 								Bagi Hasil Owner ({ownerCount} owner ×{" "}
 								{formatRupiah(values.owner_pool_per_person)})
@@ -357,7 +357,7 @@ export function SettlementForm({
 								{formatRupiah(totals.owner_pool_total)}
 							</dd>
 						</div>
-						<div className="flex items-baseline justify-between border-t border-border pt-2 text-sm font-medium">
+						<div className="flex items-baseline justify-between border-t border-border-default pt-2 text-sm font-medium">
 							<dt>Operating Cash</dt>
 							<dd className="tabular text-foreground">
 								{formatRupiah(totals.operating_cash)}
@@ -376,7 +376,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Sticky footer */}
-			<div className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/85 fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t backdrop-blur md:bottom-0">
+			<div className="border-border-default bg-background/95 supports-[backdrop-filter]:bg-background/85 fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t backdrop-blur md:bottom-0">
 				<div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between md:px-8 md:py-4">
 					<dl className="grid grid-cols-3 gap-3 text-xs sm:gap-4">
 						<div className="space-y-0.5">
@@ -456,7 +456,7 @@ function NumberField({
 					value={value === 0 ? "" : value}
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="0"
-					className="border-border bg-background text-foreground focus-visible:ring-ring tabular h-10 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background text-foreground focus-visible:ring-ring tabular h-10 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</div>
 			{hint && <p className="text-muted-foreground text-xs">{hint}</p>}

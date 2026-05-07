@@ -98,7 +98,7 @@ function AssignmentItem({
 		return (
 			<form
 				action={handleUpdate}
-				className="border-border bg-card space-y-3 rounded-md border p-3"
+				className="border-border-default bg-surface-2 space-y-3 rounded-md border p-3"
 			>
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-sm font-medium">{row.user.full_name}</span>
@@ -179,7 +179,7 @@ function AssignmentItem({
 	}
 
 	return (
-		<div className="border-border bg-card flex items-center gap-2 rounded-md border p-3">
+		<div className="border-border-default bg-surface-2 flex items-center gap-2 rounded-md border p-3">
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline gap-2">
 					<span className="text-sm font-medium">{row.user.full_name}</span>
@@ -233,5 +233,5 @@ function AssignmentItem({
 }
 
 const inputClass =
-	"border-border bg-background h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;

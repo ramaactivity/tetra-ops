@@ -76,7 +76,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={disabled}
-				className="border-border bg-card text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium"
+				className="border-border-default bg-surface-2 text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium"
 			>
 				<MoreHorizontal className="h-3.5 w-3.5" />
 				Manage
@@ -97,8 +97,8 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 					/>
 
 					{/* Drawer body */}
-					<div className="bg-card border-border relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl">
-						<div className="border-border flex items-start justify-between gap-3 border-b px-6 py-4">
+					<div className="bg-surface-2 border-border-default relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl">
+						<div className="border-border-default flex items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">
 									Edit crew
@@ -131,7 +131,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 										required
 										defaultValue={user.full_name}
 										maxLength={120}
-										className="border-border bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 									/>
 								</Field>
 								<Field label="Nickname">
@@ -140,7 +140,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 										type="text"
 										defaultValue={user.nickname ?? ""}
 										maxLength={60}
-										className="border-border bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 									/>
 								</Field>
 								<Field label="WhatsApp / Phone">
@@ -150,7 +150,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 										defaultValue={user.phone_wa ?? ""}
 										maxLength={40}
 										placeholder="+628..."
-										className="border-border bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 									/>
 								</Field>
 								<Field
@@ -163,7 +163,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 										min="0"
 										step="50000"
 										defaultValue={user.default_fee_override ?? ""}
-										className="border-border bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 									/>
 								</Field>
 							</div>
@@ -175,7 +175,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 									defaultValue={user.notes ?? ""}
 									maxLength={500}
 									placeholder="Catatan internal — area standby, kemampuan, dll."
-									className="border-border bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									className="border-border-default bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
 								/>
 							</Field>
 
@@ -187,7 +187,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 								</div>
 							)}
 
-							<div className="border-border flex items-center justify-between gap-3 border-t pt-4">
+							<div className="border-border-default flex items-center justify-between gap-3 border-t pt-4">
 								<button
 									type="button"
 									onClick={toggleActive}

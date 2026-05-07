@@ -118,14 +118,14 @@ export function NotificationRuleForm({
 					{ROLE_OPTIONS.map((r) => (
 						<label
 							key={r.value}
-							className="border-border bg-background hover:bg-muted/50 flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+							className="border-border-default bg-background hover:bg-muted/50 flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
 						>
 							<input
 								type="checkbox"
 								name="recipient_roles"
 								value={r.value}
 								defaultChecked={checkedRoles.includes(r.value)}
-								className="border-border accent-primary h-4 w-4 rounded"
+								className="border-border-default accent-primary h-4 w-4 rounded"
 							/>
 							{r.label}
 						</label>
@@ -137,7 +137,7 @@ export function NotificationRuleForm({
 			</fieldset>
 
 			<div className="grid gap-3 sm:grid-cols-2">
-				<label className="border-border bg-card flex items-start gap-3 rounded-md border p-3">
+				<label className="border-border-default bg-surface-2 flex items-start gap-3 rounded-md border p-3">
 					<input
 						type="checkbox"
 						name="send_push"
@@ -146,7 +146,7 @@ export function NotificationRuleForm({
 								? state.values.send_push === "on"
 								: defaults.send_push
 						}
-						className="border-border accent-primary mt-0.5 h-4 w-4 rounded"
+						className="border-border-default accent-primary mt-0.5 h-4 w-4 rounded"
 					/>
 					<div>
 						<div className="text-sm font-medium">Send Push Notification</div>
@@ -156,7 +156,7 @@ export function NotificationRuleForm({
 					</div>
 				</label>
 
-				<label className="border-border bg-card flex items-start gap-3 rounded-md border p-3">
+				<label className="border-border-default bg-surface-2 flex items-start gap-3 rounded-md border p-3">
 					<input
 						type="checkbox"
 						name="is_enabled"
@@ -165,7 +165,7 @@ export function NotificationRuleForm({
 								? state.values.is_enabled === "on"
 								: defaults.is_enabled
 						}
-						className="border-border accent-primary mt-0.5 h-4 w-4 rounded"
+						className="border-border-default accent-primary mt-0.5 h-4 w-4 rounded"
 					/>
 					<div>
 						<div className="text-sm font-medium">Rule Aktif</div>
@@ -177,7 +177,7 @@ export function NotificationRuleForm({
 			</div>
 
 			{triggerCondition && (
-				<div className="border-border bg-muted/40 rounded-md border p-3">
+				<div className="border-border-default bg-muted/40 rounded-md border p-3">
 					<p className="text-muted-foreground mb-1 text-xs uppercase tracking-wider">
 						Trigger Condition (read-only)
 					</p>
@@ -204,7 +204,7 @@ export function NotificationRuleForm({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;
 
 function Field({

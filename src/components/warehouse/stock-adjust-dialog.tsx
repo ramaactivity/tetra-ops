@@ -67,7 +67,7 @@ export function StockAdjustDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger
-				className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-md border border-border bg-card px-2 text-xs font-medium transition-colors"
+				className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 text-xs font-medium transition-colors"
 				title="Adjust stock"
 			>
 				<Sliders className="h-3.5 w-3.5" />
@@ -100,7 +100,7 @@ export function StockAdjustDialog({
 						</div>
 					)}
 
-					<div className="border-border bg-muted/30 grid grid-cols-3 gap-1 rounded-md border p-1">
+					<div className="border-border-default bg-muted/30 grid grid-cols-3 gap-1 rounded-md border p-1">
 						<DirOption
 							selected={direction === "in"}
 							onClick={() => setDirection("in")}
@@ -199,7 +199,7 @@ export function StockAdjustDialog({
 					</Field>
 
 					<DialogFooter>
-						<DialogClose className="border-border bg-card hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
+						<DialogClose className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
 							Batal
 						</DialogClose>
 						<button
@@ -252,7 +252,7 @@ function DirOption({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;
 
 function Field({

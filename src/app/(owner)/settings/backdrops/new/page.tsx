@@ -18,7 +18,7 @@ export default function NewBackdropPage() {
 					Tambah backdrop ke katalog supaya muncul di booking form.
 				</p>
 			</div>
-			<div className="border-border bg-card max-w-2xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<BackdropForm mode="create" />
 			</div>
 		</div>

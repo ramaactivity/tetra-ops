@@ -130,7 +130,7 @@ export default async function NotificationRulesListPage() {
 			</div>
 
 			{rules.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<Bell className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">Belum ada rule</h3>
@@ -165,7 +165,7 @@ export default async function NotificationRulesListPage() {
 										return (
 											<div
 												key={r.id}
-												className="border-border bg-card flex items-start justify-between gap-3 rounded-lg border p-4"
+												className="border-border-default bg-surface-2 flex items-start justify-between gap-3 rounded-lg border p-4"
 											>
 												<div className="flex-1 space-y-2">
 													<div className="flex flex-wrap items-baseline gap-2">
@@ -197,7 +197,7 @@ export default async function NotificationRulesListPage() {
 														{r.recipient_roles.map((role) => (
 															<span
 																key={role}
-																className="border-border bg-muted/50 rounded-full border px-2 py-0.5 font-medium"
+																className="border-border-default bg-muted/50 rounded-full border px-2 py-0.5 font-medium"
 															>
 																{ROLE_LABELS[role] ?? role}
 															</span>

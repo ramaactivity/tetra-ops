@@ -148,7 +148,7 @@ export default async function AuditLogPage({
 			/>
 
 			{rows.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<History className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">Tidak ada entri</h3>
@@ -160,9 +160,9 @@ export default async function AuditLogPage({
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-lg border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<table className="w-full">
-						<thead className="border-border bg-muted/30 border-b">
+						<thead className="border-border-default bg-muted/30 border-b">
 							<tr className="text-muted-foreground text-xs uppercase tracking-wider">
 								<th className="px-3 py-2 text-left font-medium">Waktu</th>
 								<th className="px-3 py-2 text-left font-medium">Actor</th>
@@ -232,7 +232,7 @@ export default async function AuditLogPage({
 						{page > 1 ? (
 							<Link
 								href={buildPageHref(page - 1)}
-								className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
 							>
 								<ChevronLeft className="h-3.5 w-3.5" /> Prev
 							</Link>
@@ -240,7 +240,7 @@ export default async function AuditLogPage({
 							<button
 								type="button"
 								disabled
-								className="border-border bg-card text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium opacity-50"
+								className="border-border-default bg-surface-2 text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium opacity-50"
 							>
 								<ChevronLeft className="h-3.5 w-3.5" /> Prev
 							</button>
@@ -248,7 +248,7 @@ export default async function AuditLogPage({
 						{page < totalPages ? (
 							<Link
 								href={buildPageHref(page + 1)}
-								className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
 							>
 								Next <ChevronRight className="h-3.5 w-3.5" />
 							</Link>
@@ -256,7 +256,7 @@ export default async function AuditLogPage({
 							<button
 								type="button"
 								disabled
-								className="border-border bg-card text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium opacity-50"
+								className="border-border-default bg-surface-2 text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium opacity-50"
 							>
 								Next <ChevronRight className="h-3.5 w-3.5" />
 							</button>

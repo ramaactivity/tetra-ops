@@ -55,7 +55,7 @@ export default async function EditPackagePage({
 					</p>
 				</div>
 			</div>
-			<div className="border-border bg-card rounded-xl border p-6">
+			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<PackageForm
 					action={action}
 					submitLabel="Save changes"

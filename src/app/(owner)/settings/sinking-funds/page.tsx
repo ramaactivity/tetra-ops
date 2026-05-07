@@ -98,7 +98,7 @@ export default async function SinkingFundsListPage() {
 			</div>
 
 			{funds.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 					<ScrollText className="text-muted-foreground h-10 w-10" />
 					<div className="space-y-1">
 						<h3 className="font-medium">Belum ada sinking fund</h3>
@@ -108,7 +108,7 @@ export default async function SinkingFundsListPage() {
 					</div>
 				</div>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-lg border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>
 						<TableHeader>
 							<TableRow>

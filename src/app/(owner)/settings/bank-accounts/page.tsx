@@ -54,7 +54,7 @@ export default async function BankAccountsListPage() {
 				</div>
 			</div>
 
-			<div className="border-border bg-card overflow-x-auto rounded-lg border">
+			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<Table>
 					<TableHeader>
 						<TableRow>

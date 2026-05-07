@@ -86,7 +86,7 @@ export function InvestorShareTable({
 					tabel Master Crew di atas.
 				</p>
 			) : (
-				<div className="border-border bg-card overflow-x-auto rounded-lg border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -186,7 +186,7 @@ function InvestorRowEditor({
 					value={share}
 					onChange={(e) => setShare(e.target.value)}
 					placeholder="0"
-					className="border-border bg-background text-foreground focus-visible:ring-ring tabular h-8 w-20 rounded-md border px-2 text-right text-xs focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background text-foreground focus-visible:ring-ring tabular h-8 w-20 rounded-md border px-2 text-right text-xs focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</TableCell>
 			<TableCell className="text-right">
@@ -197,7 +197,7 @@ function InvestorRowEditor({
 					value={capital}
 					onChange={(e) => setCapital(e.target.value)}
 					placeholder="0"
-					className="border-border bg-background text-foreground focus-visible:ring-ring tabular h-8 w-32 rounded-md border px-2 text-right text-xs focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background text-foreground focus-visible:ring-ring tabular h-8 w-32 rounded-md border px-2 text-right text-xs focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</TableCell>
 			<TableCell>
@@ -205,7 +205,7 @@ function InvestorRowEditor({
 					type="date"
 					value={date}
 					onChange={(e) => setDate(e.target.value)}
-					className="border-border bg-background text-foreground focus-visible:ring-ring h-8 rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background text-foreground focus-visible:ring-ring h-8 rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</TableCell>
 			<TableCell className="text-right">

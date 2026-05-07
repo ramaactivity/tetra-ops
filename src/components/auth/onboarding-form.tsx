@@ -32,7 +32,7 @@ export function OnboardingForm({
 					required
 					defaultValue={defaultFullName}
 					maxLength={120}
-					className="border-border bg-background focus-visible:ring-ring h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -43,7 +43,7 @@ export function OnboardingForm({
 					defaultValue={defaultNickname ?? ""}
 					maxLength={60}
 					placeholder="Aminah"
-					className="border-border bg-background focus-visible:ring-ring h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 
@@ -60,7 +60,7 @@ export function OnboardingForm({
 					placeholder="+628..."
 					inputMode="tel"
 					autoComplete="tel"
-					className="border-border bg-background focus-visible:ring-ring tabular h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-background focus-visible:ring-ring tabular h-11 w-full rounded-lg border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</Field>
 

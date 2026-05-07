@@ -207,7 +207,7 @@ export default async function BillingPage({
 	return (
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
 			<div className="space-y-1">
-				<h1 className="text-3xl font-semibold tracking-tight">Billing</h1>
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">Billing</h1>
 				<p className="text-muted-foreground text-sm">
 					Track pembayaran dan piutang dari semua event.
 				</p>
@@ -250,7 +250,7 @@ export default async function BillingPage({
 				<BillingFilterBar defaultQ={q} defaultMonth={month} />
 
 				{events.length === 0 ? (
-					<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+					<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 						<FileText className="text-muted-foreground h-10 w-10" />
 						<div className="space-y-1">
 							<h3 className="font-medium">Tidak ada invoice</h3>
@@ -262,7 +262,7 @@ export default async function BillingPage({
 						</div>
 					</div>
 				) : (
-					<div className="border-border bg-card overflow-x-auto rounded-lg border">
+					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 						<Table>
 							<TableHeader>
 								<TableRow>
@@ -354,7 +354,7 @@ export default async function BillingPage({
 													<Link
 														href={`/operations/${ev.project_id}/payments`}
 														title="Log payment / lihat history"
-														className="border-border bg-card hover:bg-muted text-foreground inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium"
+														className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium"
 													>
 														<Receipt className="h-3.5 w-3.5" />
 														Payments

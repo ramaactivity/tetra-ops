@@ -317,14 +317,14 @@ export default async function FinancePage() {
 		<div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Finance</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Finance</h1>
 					<p className="text-muted-foreground text-sm">
 						Cash flow, profit, sinking funds, dan owner pool · {monthLabel}
 					</p>
 				</div>
 				<Link
 					href="/finance/vendors"
-					className="border-border bg-card hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium"
+					className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium"
 				>
 					<Handshake className="h-4 w-4" />
 					Vendor commissions
@@ -392,7 +392,7 @@ export default async function FinancePage() {
 						{settlementsMtd.length !== 1 ? "s" : ""}
 					</span>
 				</div>
-				<div className="border-border bg-card overflow-hidden rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-hidden rounded-xl border">
 					<dl className="divide-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5 lg:divide-y-0">
 						<BreakdownStat
 							label="Revenue net"
@@ -449,13 +449,13 @@ export default async function FinancePage() {
 							hint="Tambah di /settings/bank-accounts"
 						/>
 					) : (
-						<div className="border-border bg-card divide-border overflow-hidden rounded-xl border">
+						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-xl border">
 							{banks.map((b) => {
 								const inflow = inflowByBank.get(b.id) ?? 0;
 								return (
 									<div
 										key={b.id}
-										className="border-border flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"
+										className="border-border-default flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"
 									>
 										<div className="min-w-0 flex-1 space-y-0.5">
 											<p className="text-foreground truncate text-sm font-medium">
@@ -507,7 +507,7 @@ export default async function FinancePage() {
 							hint="Bikin di /settings/sinking-funds"
 						/>
 					) : (
-						<div className="border-border bg-card divide-border overflow-hidden rounded-xl border">
+						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-xl border">
 							{funds.map((f) => {
 								const balance = balanceById.get(f.id) ?? 0;
 								const target = f.target_balance ?? 0;
@@ -517,7 +517,7 @@ export default async function FinancePage() {
 									<Link
 										key={f.id}
 										href={`/settings/sinking-funds/${f.id}/movements`}
-										className="border-border hover:bg-muted/40 flex items-center gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
+										className="border-border-default hover:bg-muted/40 flex items-center gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
 									>
 										<div className="min-w-0 flex-1 space-y-1">
 											<div className="flex items-center justify-between gap-2">
@@ -575,7 +575,7 @@ export default async function FinancePage() {
 							</Link>
 						</div>
 					</div>
-					<div className="border-border bg-card overflow-x-auto rounded-xl border">
+					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 						<table className="w-full text-sm">
 							<thead className="bg-muted/40">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -657,7 +657,7 @@ export default async function FinancePage() {
 						hint="Settle event pertama via /operations/[id]/settle"
 					/>
 				) : (
-					<div className="border-border bg-card overflow-hidden rounded-xl border">
+					<div className="border-border-default bg-surface-2 overflow-hidden rounded-xl border">
 						<table className="w-full text-xs">
 							<thead className="bg-muted/40">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -779,7 +779,7 @@ function EmptyCard({
 	hint: string;
 }) {
 	return (
-		<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-8 text-center">
+		<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-8 text-center">
 			<Icon className="text-muted-foreground h-7 w-7" />
 			<div className="space-y-0.5">
 				<p className="text-foreground text-sm font-medium">{title}</p>

@@ -96,9 +96,9 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 				return (
 					<section
 						key={cat}
-						className="border-border bg-card rounded-xl border p-5"
+						className="border-border-default bg-surface-2 rounded-xl border p-5"
 					>
-						<header className="mb-5 space-y-1 border-b border-border pb-4">
+						<header className="mb-5 space-y-1 border-b border-border-default pb-4">
 							<h3 className="text-base font-semibold tracking-tight">
 								{CATEGORY_LABELS[cat] ?? cat}
 							</h3>
@@ -119,7 +119,7 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 			})}
 
 			{/* Sticky footer */}
-			<div className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/85 fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t backdrop-blur md:bottom-0">
+			<div className="border-border-default bg-background/95 supports-[backdrop-filter]:bg-background/85 fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t backdrop-blur md:bottom-0">
 				<div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-4">
 					<div className="text-xs text-muted-foreground">
 						{state?.updated && state.updated > 0 ? (
@@ -192,7 +192,7 @@ function ConfigInput({
 					type="checkbox"
 					name={name}
 					defaultChecked={checked}
-					className="border-border accent-primary h-4 w-4 rounded"
+					className="border-border-default accent-primary h-4 w-4 rounded"
 				/>
 				<span className="text-muted-foreground">
 					{checked ? "true" : "false"}
@@ -251,4 +251,4 @@ function ConfigInput({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";

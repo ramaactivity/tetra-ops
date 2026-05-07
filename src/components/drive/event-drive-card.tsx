@@ -36,7 +36,7 @@ export function EventDriveCard({
 	}
 
 	return (
-		<div className="border-border bg-card md:col-span-2 space-y-3 rounded-xl border p-5">
+		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-3 rounded-xl border p-5">
 			<div className="flex items-baseline justify-between gap-2">
 				<div className="flex items-center gap-2">
 					<FolderOpen className="text-primary h-4 w-4" />
@@ -56,7 +56,7 @@ export function EventDriveCard({
 					href={folderUrl}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="border-border bg-background hover:bg-muted text-primary flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
+					className="border-border-default bg-background hover:bg-muted text-primary flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
 				>
 					<span className="inline-flex items-center gap-2 truncate">
 						<FolderOpen className="h-3.5 w-3.5 shrink-0" />
@@ -88,7 +88,7 @@ export function EventDriveCard({
 							{pending ? "Membuat folder…" : "Create Drive folder"}
 						</button>
 					) : (
-						<div className="border-border bg-muted/50 rounded-md border p-3">
+						<div className="border-border-default bg-muted/50 rounded-md border p-3">
 							<p className="text-foreground text-xs font-medium">
 								Drive belum di-set di env
 							</p>

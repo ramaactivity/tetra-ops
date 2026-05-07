@@ -173,14 +173,14 @@ export default async function EventEquipmentPage({
 					{projectId}
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">Equipment</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Equipment</h1>
 					<p className="text-muted-foreground text-sm">
 						{event.client_name} · {formatDateID(event.event_date)}
 					</p>
 				</div>
 			</div>
 
-			<section className="border-border bg-card space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
 						<h2 className="text-base font-semibold tracking-tight">
@@ -199,7 +199,7 @@ export default async function EventEquipmentPage({
 				</div>
 
 				{assigned.length === 0 ? (
-					<div className="border-border bg-muted/20 flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
+					<div className="border-border-default bg-muted/20 flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
 						<Package className="text-muted-foreground h-8 w-8" />
 						<p className="text-muted-foreground text-sm">
 							Belum ada equipment di-check-out untuk event ini.
@@ -273,7 +273,7 @@ export default async function EventEquipmentPage({
 			</section>
 
 			{incidents.length > 0 && (
-				<section className="border-border bg-card space-y-3 rounded-xl border p-5">
+				<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-5">
 					<div className="flex items-baseline gap-2">
 						<AlertTriangle className="text-amber-500 h-4 w-4" />
 						<h2 className="text-base font-semibold tracking-tight">

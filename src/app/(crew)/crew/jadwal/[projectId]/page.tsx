@@ -197,7 +197,7 @@ export default async function CrewEventDetailPage({
 			</header>
 
 			{/* Time & venue card */}
-			<section className="border-border bg-card space-y-3 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-4">
 				<div className="flex items-start gap-3">
 					<Calendar className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
 					<div className="flex-1 space-y-0.5">
@@ -280,7 +280,7 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Service spec card */}
-			<section className="border-border bg-card space-y-2 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 					Spec
 				</h2>
@@ -313,7 +313,7 @@ export default async function CrewEventDetailPage({
 
 			{/* Crew partner card */}
 			{partnerAssignments.length > 0 && (
-				<section className="border-border bg-card space-y-2 rounded-xl border p-4">
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
 					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<Users className="h-3.5 w-3.5" />
 						Crew partner
@@ -340,7 +340,7 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Equipment card */}
-			<section className="border-border bg-card space-y-2 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
 				<h2 className="text-muted-foreground flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
 					<span className="flex items-center gap-1.5">
 						<Package className="h-3.5 w-3.5" />
@@ -375,7 +375,7 @@ export default async function CrewEventDetailPage({
 
 			{/* Design link */}
 			{event.design_drive_folder_url && (
-				<section className="border-border bg-card space-y-2 rounded-xl border p-4">
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
 					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<FileText className="h-3.5 w-3.5" />
 						Desain
@@ -421,7 +421,7 @@ export default async function CrewEventDetailPage({
 								? "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20"
 								: isPastOrToday
 									? "border-primary/30 bg-primary/5 hover:bg-primary/10"
-									: "border-border bg-card hover:bg-muted/40"
+									: "border-border-default bg-surface-2 hover:bg-muted/40"
 					}`}
 				>
 					<div
@@ -470,7 +470,7 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Fee for me */}
-			<section className="border-border bg-card space-y-2 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 					Fee gw
 				</h2>

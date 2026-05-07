@@ -71,8 +71,8 @@ function PaymentItem({
 
 	return (
 		<div
-			className={`border-border flex items-start gap-3 rounded-md border p-3 ${
-				payment.is_reversed ? "bg-muted/30" : "bg-card"
+			className={`border-border-default flex items-start gap-3 rounded-md border p-3 ${
+				payment.is_reversed ? "bg-muted/30" : "bg-surface-2"
 			}`}
 		>
 			<div className="min-w-0 flex-1 space-y-1">

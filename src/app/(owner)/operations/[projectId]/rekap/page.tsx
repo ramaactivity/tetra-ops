@@ -103,7 +103,7 @@ export default async function EventRekapPage({
 					{projectId}
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">Rekap Crew</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Rekap Crew</h1>
 					<p className="text-muted-foreground text-sm">
 						{event.client_name} · {formatDateID(event.event_date)}
 					</p>
@@ -111,7 +111,7 @@ export default async function EventRekapPage({
 			</div>
 
 			{rekap && (
-				<section className="border-border bg-card space-y-3 rounded-xl border p-5">
+				<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-5">
 					<div className="flex flex-wrap items-baseline justify-between gap-2">
 						<h2 className="text-base font-semibold tracking-tight">Status</h2>
 						<p className="text-muted-foreground text-xs">
@@ -132,7 +132,7 @@ export default async function EventRekapPage({
 					</div>
 
 					{rekap.review_notes && (
-						<div className="border-border bg-muted/40 rounded-md border p-3">
+						<div className="border-border-default bg-muted/40 rounded-md border p-3">
 							<p className="text-muted-foreground mb-1 text-xs uppercase tracking-wider">
 								Catatan owner
 							</p>
@@ -151,7 +151,7 @@ export default async function EventRekapPage({
 			)}
 
 			{rekap && !canEdit && (
-				<section className="border-border bg-card space-y-3 rounded-xl border p-5">
+				<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-5">
 					<h2 className="text-base font-semibold tracking-tight">
 						Data tersubmit
 					</h2>
@@ -185,7 +185,7 @@ export default async function EventRekapPage({
 						/>
 					</dl>
 					{rekap.crew_notes && (
-						<div className="border-border bg-muted/40 rounded-md border p-3">
+						<div className="border-border-default bg-muted/40 rounded-md border p-3">
 							<p className="text-muted-foreground mb-1 text-xs uppercase tracking-wider">
 								Catatan crew
 							</p>
@@ -241,7 +241,7 @@ function RekapStat({
 	unit: string;
 }) {
 	return (
-		<div className="flex items-baseline justify-between border-b border-border/60 pb-2 text-sm">
+		<div className="flex items-baseline justify-between border-b border-border-default/60 pb-2 text-sm">
 			<dt className="text-muted-foreground text-xs uppercase tracking-wider">
 				{label}
 			</dt>

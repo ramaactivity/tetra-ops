@@ -44,7 +44,7 @@ export function BillingFilterBar({
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
 					placeholder="Cari nama klien…"
-					className="border-border bg-card focus-visible:ring-ring h-9 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
+					className="border-border-default bg-surface-2 focus-visible:ring-ring h-9 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
 				/>
 			</form>
 
@@ -52,7 +52,7 @@ export function BillingFilterBar({
 				type="month"
 				value={defaultMonth}
 				onChange={(e) => router.push(buildHref({ month: e.target.value }))}
-				className="border-border bg-card focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+				className="border-border-default bg-surface-2 focus-visible:ring-ring h-9 rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 			/>
 
 			{hasFilters && (

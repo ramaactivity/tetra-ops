@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
  * dashboard.
  *
  * A3 refactor (sesi 5):
- * - Surface tokens (was bg-card). Severity tones still semantic
+ * - Surface tokens (was bg-surface-2). Severity tones still semantic
  *   (rose/amber/sky/emerald) for clear state mapping but use ring tokens.
  * - Empty state uses fluid type. Cards use lift-on-hover.
  */

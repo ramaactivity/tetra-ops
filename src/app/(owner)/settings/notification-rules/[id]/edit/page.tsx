@@ -50,7 +50,7 @@ export default async function EditNotificationRulePage({
 					{rule.code} · {rule.category}
 				</p>
 			</div>
-			<div className="border-border bg-card max-w-2xl rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<NotificationRuleForm
 					id={rule.id}
 					defaults={defaults}

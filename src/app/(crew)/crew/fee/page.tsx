@@ -72,7 +72,7 @@ export default async function CrewFeePage() {
 	return (
 		<div className="mx-auto w-full max-w-md space-y-4 px-4 py-6">
 			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold tracking-tight">Fee</h1>
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">Fee</h1>
 				<p className="text-muted-foreground text-sm">
 					Histori fee per event. Owner yang tandai paid setelah transfer.
 				</p>
@@ -89,7 +89,7 @@ export default async function CrewFeePage() {
 			</dl>
 
 			{rows.length === 0 ? (
-				<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
+				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
 					<Wallet className="text-muted-foreground h-8 w-8" />
 					<p className="text-muted-foreground text-sm">
 						Belum ada fee tercatat.
@@ -135,7 +135,7 @@ function FeeRow({ row }: { row: AssignmentRow }) {
 	return (
 		<Link
 			href={`/crew/jadwal/${ev.project_id}`}
-			className="border-border bg-card hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+			className="border-border-default bg-surface-2 hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
 		>
 			<div className="min-w-0 flex-1 space-y-1">
 				<p className="text-foreground truncate text-sm font-medium">
@@ -198,7 +198,7 @@ function SummaryStat({
 					? "text-amber-600 dark:text-amber-400"
 					: "text-muted-foreground";
 	return (
-		<div className="border-border bg-card space-y-0.5 rounded-xl border p-3 text-center">
+		<div className="border-border-default bg-surface-2 space-y-0.5 rounded-xl border p-3 text-center">
 			<dt className="text-muted-foreground text-[10px] uppercase tracking-wider">
 				{label}
 			</dt>

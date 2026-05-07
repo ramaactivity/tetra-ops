@@ -168,7 +168,7 @@ export default async function WarehousePage({
 	return (
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
 			<div className="space-y-1">
-				<h1 className="text-3xl font-semibold tracking-tight">Warehouse</h1>
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">Warehouse</h1>
 				<p className="text-muted-foreground text-sm">
 					Track stok consumables, equipment, dan log mutasi.
 				</p>
@@ -227,7 +227,7 @@ function ConsumablesTable({
 }) {
 	if (rows.length === 0) {
 		return (
-			<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+			<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 				<Package className="text-muted-foreground h-10 w-10" />
 				<div className="space-y-1">
 					<h3 className="font-medium">Belum ada consumable</h3>
@@ -247,7 +247,7 @@ function ConsumablesTable({
 	}
 
 	return (
-		<div className="border-border bg-card overflow-x-auto rounded-lg border">
+		<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -329,7 +329,7 @@ function ConsumablesTable({
 function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 	if (rows.length === 0) {
 		return (
-			<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+			<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 				<Package className="text-muted-foreground h-10 w-10" />
 				<div className="space-y-1">
 					<h3 className="font-medium">Belum ada equipment</h3>
@@ -349,7 +349,7 @@ function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 	}
 
 	return (
-		<div className="border-border bg-card overflow-x-auto rounded-lg border">
+		<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -392,7 +392,7 @@ function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 function MovementsLog({ rows }: { rows: MovementRow[] }) {
 	if (rows.length === 0) {
 		return (
-			<div className="border-border bg-card flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
+			<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
 				<Layers className="text-muted-foreground h-10 w-10" />
 				<div className="space-y-1">
 					<h3 className="font-medium">Belum ada mutasi</h3>
@@ -406,7 +406,7 @@ function MovementsLog({ rows }: { rows: MovementRow[] }) {
 	}
 
 	return (
-		<div className="border-border bg-card overflow-x-auto rounded-lg border">
+		<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 			<Table>
 				<TableHeader>
 					<TableRow>

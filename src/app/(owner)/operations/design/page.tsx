@@ -82,7 +82,7 @@ export default async function OperationsDesignHubPage() {
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Design Hub</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Design Hub</h1>
 					<p className="text-muted-foreground text-sm">
 						{events.length} event aktif perlu attention design ·{" "}
 						{needBrief.length} belum brief · {briefUploaded.length} pending
@@ -165,7 +165,7 @@ function DesignColumn({
 						<span className={`${dot} h-2 w-2 rounded-full`} />
 						<h2 className="text-base font-semibold">{title}</h2>
 					</div>
-					<span className="bg-background/70 text-foreground tabular rounded-full border border-border px-2 py-0.5 text-[10px] font-medium">
+					<span className="bg-background/70 text-foreground tabular rounded-full border border-border-default px-2 py-0.5 text-[10px] font-medium">
 						{events.length}
 					</span>
 				</div>
@@ -202,7 +202,7 @@ function DesignCardItem({ event }: { event: DesignEvent }) {
 	return (
 		<Link
 			href={`/operations/${event.project_id}`}
-			className="border-border bg-surface-2 hover:border-primary/40 block space-y-2 rounded-lg border p-3 transition-colors"
+			className="border-border-default bg-surface-2 hover:border-primary/40 block space-y-2 rounded-lg border p-3 transition-colors"
 		>
 			<div className="flex items-baseline justify-between gap-2">
 				<p className="text-sm font-semibold leading-tight">

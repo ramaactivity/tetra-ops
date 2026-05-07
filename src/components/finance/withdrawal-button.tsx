@@ -56,7 +56,7 @@ export function WithdrawalButton({
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={disabled || owners.length === 0}
-				className="border-border bg-card text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
+				className="border-border-default bg-surface-2 text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
 			>
 				<ArrowDownToLine className="h-3.5 w-3.5" />
 				Record withdrawal
@@ -74,8 +74,8 @@ export function WithdrawalButton({
 						onClick={() => setOpen(false)}
 						className="absolute inset-0 bg-black/40 backdrop-blur-sm"
 					/>
-					<div className="bg-card border-border relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl">
-						<div className="border-border flex items-start justify-between gap-3 border-b px-6 py-4">
+					<div className="bg-surface-2 border-border-default relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl">
+						<div className="border-border-default flex items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">
 									Record owner withdrawal
@@ -104,7 +104,7 @@ export function WithdrawalButton({
 									required
 									value={selectedOwner}
 									onChange={(e) => setSelectedOwner(e.target.value)}
-									className="border-border bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 								>
 									{owners.map((o) => (
 										<option key={o.id} value={o.id}>
@@ -115,7 +115,7 @@ export function WithdrawalButton({
 							</Field>
 
 							{owner && (
-								<div className="border-border bg-muted/30 rounded-md border px-3 py-2">
+								<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
 									<p className="text-muted-foreground text-[11px]">
 										Saldo tersedia
 									</p>
@@ -140,7 +140,7 @@ export function WithdrawalButton({
 									step="50000"
 									max={owner?.balance ?? undefined}
 									placeholder="500000"
-									className="border-border bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 								/>
 							</Field>
 
@@ -150,7 +150,7 @@ export function WithdrawalButton({
 										name="withdrawal_method"
 										required
 										defaultValue="transfer"
-										className="border-border bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 									>
 										<option value="transfer">Transfer</option>
 										<option value="cash">Cash</option>
@@ -162,7 +162,7 @@ export function WithdrawalButton({
 										type="text"
 										maxLength={120}
 										placeholder="BCA xxx-xxx (opsional)"
-										className="border-border bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 									/>
 								</Field>
 							</div>
@@ -173,7 +173,7 @@ export function WithdrawalButton({
 									type="text"
 									maxLength={120}
 									placeholder="Bukti transfer ID, dll."
-									className="border-border bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
 								/>
 							</Field>
 
@@ -184,7 +184,7 @@ export function WithdrawalButton({
 									rows={2}
 									maxLength={500}
 									placeholder="Withdraw bulan ini, dll."
-									className="border-border bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									className="border-border-default bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
 								/>
 							</Field>
 
@@ -196,7 +196,7 @@ export function WithdrawalButton({
 								</div>
 							)}
 
-							<div className="border-border flex items-center justify-end gap-2 border-t pt-4">
+							<div className="border-border-default flex items-center justify-end gap-2 border-t pt-4">
 								<button
 									type="button"
 									onClick={() => setOpen(false)}

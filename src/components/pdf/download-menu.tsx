@@ -47,7 +47,7 @@ export function PdfDownloadMenu({
 				onClick={() => setOpen((v) => !v)}
 				aria-haspopup="menu"
 				aria-expanded={open}
-				className="border-border bg-card hover:bg-muted text-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+				className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
 			>
 				<FileText className="h-3.5 w-3.5" />
 				{label}
@@ -55,7 +55,7 @@ export function PdfDownloadMenu({
 			</button>
 			{open && (
 				<div
-					className="border-border bg-card absolute right-0 top-9 z-30 w-56 overflow-hidden rounded-md border shadow-lg"
+					className="border-border-default bg-surface-2 absolute right-0 top-9 z-30 w-56 overflow-hidden rounded-md border shadow-lg"
 					role="menu"
 				>
 					{options.map((o) => (

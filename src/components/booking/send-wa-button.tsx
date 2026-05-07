@@ -50,7 +50,7 @@ export function SendWhatsAppButton({
 			<button
 				type="button"
 				disabled
-				className={`border-border bg-card text-muted-foreground inline-flex items-center rounded-md border font-medium ${sizeClass} disabled:cursor-not-allowed disabled:opacity-60`}
+				className={`border-border-default bg-surface-2 text-muted-foreground inline-flex items-center rounded-md border font-medium ${sizeClass} disabled:cursor-not-allowed disabled:opacity-60`}
 				title="Belum ada WA template"
 			>
 				<MessageCircle className="h-3.5 w-3.5" />
@@ -62,7 +62,7 @@ export function SendWhatsAppButton({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
-				className={`border-border bg-card hover:bg-muted text-foreground inline-flex items-center rounded-md border font-medium ${sizeClass}`}
+				className={`border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex items-center rounded-md border font-medium ${sizeClass}`}
 			>
 				<MessageCircle className="h-3.5 w-3.5" />
 				Send WA

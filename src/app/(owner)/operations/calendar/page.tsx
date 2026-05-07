@@ -129,7 +129,7 @@ export default async function OperationsCalendarPage({
 		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="space-y-1">
-					<h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">Operations</h1>
 					<p className="text-muted-foreground text-sm">
 						{events.length} event di window kalender · klik kartu untuk detail.
 					</p>
@@ -146,7 +146,7 @@ export default async function OperationsCalendarPage({
 				</div>
 			</div>
 
-			<div className="border-border bg-surface-2 flex items-center justify-between gap-3 rounded-lg border p-3">
+			<div className="border-border-default bg-surface-2 flex items-center justify-between gap-3 rounded-lg border p-3">
 				<div className="flex items-center gap-1">
 					<Link
 						href={`/operations/calendar?month=${fmt(prevYear, prevMonth)}`}
@@ -180,12 +180,12 @@ export default async function OperationsCalendarPage({
 				</div>
 			</div>
 
-			<div className="border-border bg-surface-2 overflow-hidden rounded-lg border">
-				<div className="grid grid-cols-7 border-b border-border">
+			<div className="border-border-default bg-surface-2 overflow-hidden rounded-lg border">
+				<div className="grid grid-cols-7 border-b border-border-default">
 					{DAY_HEADERS.map((d) => (
 						<div
 							key={d}
-							className="text-muted-foreground bg-muted/30 border-r border-border px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider last:border-r-0"
+							className="text-muted-foreground bg-muted/30 border-r border-border-default px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider last:border-r-0"
 						>
 							{d}
 						</div>
@@ -204,7 +204,7 @@ export default async function OperationsCalendarPage({
 							<div
 								key={key}
 								className={cn(
-									"border-b border-r border-border p-2 transition-colors last-of-type:border-r-0 [&:nth-child(7n)]:border-r-0",
+									"border-b border-r border-border-default p-2 transition-colors last-of-type:border-r-0 [&:nth-child(7n)]:border-r-0",
 									"min-h-[110px] sm:min-h-[120px]",
 									!inMonth && "bg-muted/20",
 									isWeekendCol && inMonth && "bg-muted/10",

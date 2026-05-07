@@ -176,7 +176,7 @@ export function PackageForm({
 				/>
 			</Field>
 
-			<label className="border-border bg-card flex items-center gap-3 rounded-md border p-4">
+			<label className="border-border-default bg-surface-2 flex items-center gap-3 rounded-md border p-4">
 				<input
 					type="checkbox"
 					name="is_active"
@@ -195,10 +195,10 @@ export function PackageForm({
 				</div>
 			</label>
 
-			<div className="flex items-center justify-end gap-3 border-t border-border pt-6">
+			<div className="flex items-center justify-end gap-3 border-t border-border-default pt-6">
 				<Link
 					href="/settings/packages"
-					className="border-border bg-card hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
+					className="border-border-default bg-surface-2 hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
 				>
 					Cancel
 				</Link>
@@ -215,7 +215,7 @@ export function PackageForm({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 
 const selectClass = `${inputClass} appearance-none`;
 

@@ -31,7 +31,7 @@ export function RunScannerButton() {
 				type="button"
 				onClick={handle}
 				disabled={pending}
-				className="border-border bg-card text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
+				className="border-border-default bg-surface-2 text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
 			>
 				{pending ? (
 					<Loader2 className="h-3.5 w-3.5 animate-spin" />

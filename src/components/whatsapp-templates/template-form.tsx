@@ -186,7 +186,7 @@ export function WhatsAppTemplateForm({
 								key={v}
 								type="button"
 								onClick={() => insertVariable(v)}
-								className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors"
+								className="border-border-default bg-surface-2 hover:bg-muted text-muted-foreground hover:text-foreground inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors"
 							>
 								{`{${v}}`}
 							</button>
@@ -225,7 +225,7 @@ export function WhatsAppTemplateForm({
 
 			<div
 				id={previewId}
-				className="border-border bg-muted/40 space-y-2 rounded-md border p-3"
+				className="border-border-default bg-muted/40 space-y-2 rounded-md border p-3"
 			>
 				<p className="text-muted-foreground text-xs uppercase tracking-wider">
 					Preview (dummy data)
@@ -272,7 +272,7 @@ export function WhatsAppTemplateForm({
 								? state.values.is_active === "on"
 								: defaults.is_active
 						}
-						className="border-border accent-primary h-4 w-4 rounded"
+						className="border-border-default accent-primary h-4 w-4 rounded"
 					/>
 					<span className="font-medium">Aktif</span>
 					<span className="text-muted-foreground text-xs">
@@ -299,7 +299,7 @@ export function WhatsAppTemplateForm({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none read-only:opacity-70";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none read-only:opacity-70";
 
 function Field({
 	label,

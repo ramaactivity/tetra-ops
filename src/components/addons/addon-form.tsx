@@ -119,7 +119,7 @@ export function AddonForm({
 				/>
 			</Field>
 
-			<label className="border-border bg-card flex items-center gap-3 rounded-md border p-3">
+			<label className="border-border-default bg-surface-2 flex items-center gap-3 rounded-md border p-3">
 				<input
 					type="checkbox"
 					name="requires_extra_crew"
@@ -138,7 +138,7 @@ export function AddonForm({
 				</div>
 			</label>
 
-			<label className="border-border bg-card flex items-center gap-3 rounded-md border p-3">
+			<label className="border-border-default bg-surface-2 flex items-center gap-3 rounded-md border p-3">
 				<input
 					type="checkbox"
 					name="is_active"
@@ -157,10 +157,10 @@ export function AddonForm({
 				</div>
 			</label>
 
-			<div className="border-border flex items-center justify-end gap-3 border-t pt-5">
+			<div className="border-border-default flex items-center justify-end gap-3 border-t pt-5">
 				<Link
 					href="/settings/addons"
-					className="border-border bg-card hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
+					className="border-border-default bg-surface-2 hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
 				>
 					Cancel
 				</Link>
@@ -177,7 +177,7 @@ export function AddonForm({
 }
 
 const inputClass =
-	"border-border bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;
 
 function Field({

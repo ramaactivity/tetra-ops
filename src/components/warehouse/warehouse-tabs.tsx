@@ -23,7 +23,7 @@ export function WarehouseTabs({ current }: { current: string }) {
 	}
 
 	return (
-		<nav className="border-border flex gap-1 overflow-x-auto border-b">
+		<nav className="border-border-default flex gap-1 overflow-x-auto border-b">
 			{TABS.map((tab) => {
 				const isActive = current === tab.value;
 				return (

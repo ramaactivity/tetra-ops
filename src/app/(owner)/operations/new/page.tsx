@@ -55,7 +55,7 @@ export default async function NewBookingPage() {
 					Operations
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">New Booking</h1>
+					<h1 className="text-fluid-h1 font-semibold tracking-tight">New Booking</h1>
 					<p className="text-muted-foreground text-sm">
 						Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew
 						dan DP setelah save.

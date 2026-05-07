@@ -56,10 +56,10 @@ export default async function CrewProfilePage() {
 	return (
 		<div className="mx-auto w-full max-w-md space-y-5 px-4 py-6">
 			<header className="space-y-1">
-				<h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+				<h1 className="text-fluid-h1 font-semibold tracking-tight">Profile</h1>
 			</header>
 
-			<section className="border-border bg-card flex items-center gap-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 flex items-center gap-4 rounded-xl border p-5">
 				<div className="bg-primary/15 text-primary flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-semibold">
 					{initials || "?"}
 				</div>
@@ -72,12 +72,12 @@ export default async function CrewProfilePage() {
 						{me.email}
 					</p>
 					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="border-border bg-background text-muted-foreground inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+						<span className="border-border-default bg-background text-muted-foreground inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
 							<Shield className="h-2.5 w-2.5" />
 							{ROLE_LABELS[me.profile.role] ?? me.profile.role}
 						</span>
 						{tier && (
-							<span className="border-border bg-background text-muted-foreground inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+							<span className="border-border-default bg-background text-muted-foreground inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
 								{TIER_LABELS[tier] ?? tier}
 							</span>
 						)}
@@ -85,7 +85,7 @@ export default async function CrewProfilePage() {
 				</div>
 			</section>
 
-			<section className="border-border bg-card grid grid-cols-2 divide-x rounded-xl border">
+			<section className="border-border-default bg-surface-2 grid grid-cols-2 divide-x rounded-xl border">
 				<div className="space-y-0.5 p-4 text-center">
 					<dt className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
 						Lifetime events
@@ -108,7 +108,7 @@ export default async function CrewProfilePage() {
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 					Edit profil
 				</h2>
-				<div className="border-border bg-card rounded-xl border p-4">
+				<div className="border-border-default bg-surface-2 rounded-xl border p-4">
 					<OnboardingForm
 						defaultFullName={me.profile.full_name}
 						defaultNickname={nickname}
@@ -128,7 +128,7 @@ export default async function CrewProfilePage() {
 				<form action={signOut}>
 					<button
 						type="submit"
-						className="border-border bg-card text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
+						className="border-border-default bg-surface-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
 					>
 						<LogOut className="h-4 w-4" />
 						Sign out
