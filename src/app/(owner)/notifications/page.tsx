@@ -15,6 +15,7 @@ import {
 	MarkAllReadButton,
 	MarkReadButton,
 } from "@/components/notifications/notification-row-actions";
+import { RunScannerButton } from "@/components/notifications/run-scanner-button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -186,7 +187,10 @@ export default async function NotificationsPage({
 						)}
 					</p>
 				</div>
-				<MarkAllReadButton disabled={totalUnread === 0} />
+				<div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+					<RunScannerButton />
+					<MarkAllReadButton disabled={totalUnread === 0} />
+				</div>
 			</div>
 
 			{/* Show / unread toggle */}
