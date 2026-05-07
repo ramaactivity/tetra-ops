@@ -69,3 +69,40 @@ COMMENT ON COLUMN events.booker_contact_id IS
 COMMENT ON COLUMN events.pic_contact_id IS
   'FK ke contacts. PIC Event = penanggung jawab di lapangan saat hari H. Crew akan kontak orang ini. Diresolve dari PIC_Contact_ID di DB_PROJECTS legacy import.';
 
+-- ─────────────────────────────────────────────────────────────────────────
+-- 3) RLS — same pattern as backdrops/event_types
+--    SELECT: any authenticated user (crew need to read PIC info on event detail)
+--    INSERT / UPDATE / DELETE: super_admin or owner only
+--
+-- NOTE: This section also lives standalone in 20260507_contacts_rls.sql for
+-- DBs that already applied this migration before RLS was added.
+-- ─────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "contacts_read_authn" ON contacts;
+CREATE POLICY "contacts_read_authn"
+  ON contacts
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "contacts_write_owner" ON contacts;
+CREATE POLICY "contacts_write_owner"
+  ON contacts
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND u.role IN ('super_admin', 'owner')
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM users u
+      WHERE u.id = auth.uid()
+        AND u.role IN ('super_admin', 'owner')
+    )
+  );
