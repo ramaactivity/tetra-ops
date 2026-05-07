@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claude code session-local state (scheduled wakeups, etc.)
+.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
