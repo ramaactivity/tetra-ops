@@ -1,4 +1,5 @@
-import { LogOut, Mail, Shield, User as UserIcon } from "lucide-react";
+import { LogOut, Mail, Shield } from "lucide-react";
+import { OnboardingForm } from "@/components/auth/onboarding-form";
 import { signOut } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -21,12 +22,12 @@ export default async function CrewProfilePage() {
 
 	const supabase = await createClient();
 
-	// Fetch tier + lifetime stats
+	// Fetch tier + lifetime stats + editable fields
 	const [{ data: profileExtra }, { count: lifetimeEventsCount }] =
 		await Promise.all([
 			supabase
 				.from("users")
-				.select("tier, created_at")
+				.select("tier, created_at, nickname, phone_wa")
 				.eq("id", me.profile.id)
 				.maybeSingle(),
 			supabase
@@ -36,6 +37,8 @@ export default async function CrewProfilePage() {
 		]);
 
 	const tier = profileExtra?.tier ?? null;
+	const nickname = profileExtra?.nickname ?? null;
+	const phoneWa = profileExtra?.phone_wa ?? null;
 	const memberSince = profileExtra?.created_at
 		? new Date(profileExtra.created_at).toLocaleDateString("id-ID", {
 				month: "long",
@@ -99,6 +102,23 @@ export default async function CrewProfilePage() {
 						{memberSince ?? "—"}
 					</dd>
 				</div>
+			</section>
+
+			<section className="space-y-2">
+				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+					Edit profil
+				</h2>
+				<div className="border-border bg-card rounded-xl border p-4">
+					<OnboardingForm
+						defaultFullName={me.profile.full_name}
+						defaultNickname={nickname}
+						defaultPhoneWa={phoneWa}
+						submitLabel="Simpan perubahan"
+					/>
+				</div>
+				<p className="text-muted-foreground text-[11px] leading-relaxed">
+					Tier &amp; fee di-set owner. Hubungi owner kalau perlu update.
+				</p>
 			</section>
 
 			<section className="space-y-2">

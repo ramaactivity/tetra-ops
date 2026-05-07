@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { PipelineCard } from "@/components/operations/pipeline-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -213,6 +214,9 @@ export default async function DashboardPage() {
 					accent="amber"
 				/>
 			</dl>
+
+			{/* Anomaly radar */}
+			<AnomalyRadarWidget />
 
 			{/* Section B — Event Pipeline */}
 			<section className="space-y-3">

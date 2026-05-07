@@ -3,6 +3,7 @@ import {
 	ArrowDownRight,
 	ArrowUpRight,
 	ChevronRight,
+	Handshake,
 	PiggyBank,
 	Receipt,
 	TrendingDown,
@@ -11,6 +12,10 @@ import {
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
+import {
+	type Owner,
+	WithdrawalButton,
+} from "@/components/finance/withdrawal-button";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -310,11 +315,20 @@ export default async function FinancePage() {
 
 	return (
 		<div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 md:px-8">
-			<div className="space-y-1">
-				<h1 className="text-3xl font-semibold tracking-tight">Finance</h1>
-				<p className="text-muted-foreground text-sm">
-					Cash flow, profit, sinking funds, dan owner pool · {monthLabel}
-				</p>
+			<div className="flex flex-wrap items-end justify-between gap-3">
+				<div className="space-y-1">
+					<h1 className="text-3xl font-semibold tracking-tight">Finance</h1>
+					<p className="text-muted-foreground text-sm">
+						Cash flow, profit, sinking funds, dan owner pool · {monthLabel}
+					</p>
+				</div>
+				<Link
+					href="/finance/vendors"
+					className="border-border bg-card hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium"
+				>
+					<Handshake className="h-4 w-4" />
+					Vendor commissions
+				</Link>
 			</div>
 
 			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -540,16 +554,26 @@ export default async function FinancePage() {
 
 			{isSuperAdmin && ownerBreakdown.length > 0 && (
 				<section className="space-y-3">
-					<div className="flex items-baseline justify-between">
+					<div className="flex flex-wrap items-baseline justify-between gap-2">
 						<h2 className="text-base font-semibold tracking-tight">
 							Owner pool & earnings
 						</h2>
-						<Link
-							href="/settings/crew"
-							className="text-muted-foreground hover:text-foreground text-xs"
-						>
-							Investor share →
-						</Link>
+						<div className="flex items-center gap-2">
+							<WithdrawalButton
+								owners={ownerBreakdown.map<Owner>((o) => ({
+									id: o.id,
+									full_name: o.full_name,
+									role: o.role,
+									balance: o.balance,
+								}))}
+							/>
+							<Link
+								href="/settings/crew"
+								className="text-muted-foreground hover:text-foreground text-xs"
+							>
+								Investor share →
+							</Link>
+						</div>
 					</div>
 					<div className="border-border bg-card overflow-x-auto rounded-xl border">
 						<table className="w-full text-sm">
