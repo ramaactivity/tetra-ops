@@ -19,12 +19,16 @@ import {
 	AlertDialogTrigger,
 	Button,
 	ConfirmDialog,
+	DataTable,
+	DatePicker,
 	Disclosure,
 	DisclosurePanel,
 	DisclosureTrigger,
 	EmptyState,
 	FileDrop,
+	MonthPicker,
 	NativeSelect,
+	ResponsiveTable,
 	Sheet,
 	SheetContent,
 	SheetDescription,
@@ -32,6 +36,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 	Skeleton,
+	TimePicker,
 	toast,
 	Tooltip,
 	TooltipContent,
@@ -367,6 +372,74 @@ export function PrimitivesShowcase() {
 						</div>
 					</Section>
 
+					<Section title="Date / Time / Month picker (F3c)">
+						<div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+							<div className="flex flex-col gap-1">
+								<label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+									Tanggal event
+								</label>
+								<DatePicker placeholder="Pilih tanggal" />
+							</div>
+							<div className="flex flex-col gap-1">
+								<label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+									Bulan laporan
+								</label>
+								<MonthPicker placeholder="Pilih bulan" />
+							</div>
+							<div className="flex flex-col gap-1">
+								<label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+									Jam mulai
+								</label>
+								<TimePicker defaultValue="14:00" />
+							</div>
+						</div>
+					</Section>
+
+					<Section title="Responsive table (F3c) — table on desktop, card list on mobile">
+						<ResponsiveTable
+							columns={[
+								{ key: "client", header: "Klien" },
+								{ key: "date", header: "Tanggal" },
+								{ key: "venue", header: "Venue", className: "hidden lg:table-cell" },
+								{
+									key: "status",
+									header: "Status",
+									align: "right",
+									render: (row: SampleRow) => (
+										<span className="rounded-md bg-surface-3 px-2 py-0.5 text-xs">
+											{row.status}
+										</span>
+									),
+								},
+							]}
+							rows={sampleRows}
+							keyExtractor={(r) => r.id}
+						/>
+					</Section>
+
+					<Section title="Data table (F3c) — search + paginate">
+						<DataTable
+							columns={[
+								{ key: "client", header: "Klien" },
+								{ key: "date", header: "Tanggal" },
+								{
+									key: "status",
+									header: "Status",
+									render: (row: SampleRow) => (
+										<span className="rounded-md bg-surface-3 px-2 py-0.5 text-xs">
+											{row.status}
+										</span>
+									),
+								},
+							]}
+							rows={sampleRows}
+							keyExtractor={(r) => r.id}
+							searchKeys={["client", "venue"]}
+							searchPlaceholder="Cari klien atau venue…"
+							pageSize={3}
+						/>
+					</Section>
+
 					<Section title="Sheet (F3a) — bottom + right">
 						<div className="flex gap-2">
 							<Sheet>
@@ -417,6 +490,52 @@ export function PrimitivesShowcase() {
 		</TooltipProvider>
 	);
 }
+
+interface SampleRow {
+	id: string;
+	client: string;
+	date: string;
+	venue: string;
+	status: string;
+}
+
+const sampleRows: SampleRow[] = [
+	{
+		id: "1",
+		client: "Maman Sudarman",
+		date: "22 Aug 2026",
+		venue: "Hotel Indonesia",
+		status: "Confirmed",
+	},
+	{
+		id: "2",
+		client: "Aulia Wedding",
+		date: "5 Sep 2026",
+		venue: "Bali Beach",
+		status: "Settled",
+	},
+	{
+		id: "3",
+		client: "PT Karya Indah",
+		date: "12 Sep 2026",
+		venue: "JCC",
+		status: "Pending",
+	},
+	{
+		id: "4",
+		client: "Cahaya Bersama",
+		date: "20 Sep 2026",
+		venue: "Hotel Mulia",
+		status: "Confirmed",
+	},
+	{
+		id: "5",
+		client: "Dewi Lestari",
+		date: "1 Oct 2026",
+		venue: "Sentul",
+		status: "Draft",
+	},
+];
 
 function Section({
 	title,

@@ -44,7 +44,13 @@ export * from "./file-drop";
 export * from "./native-select";
 export * from "./toaster";
 
+// F3c — sesi 5
+export * from "./data-table";
+export * from "./date-picker";
+export * from "./month-picker";
+export * from "./responsive-table";
+export * from "./time-picker";
+
 // NOTE: textarea + radio-group are NOT separate primitives in this repo
 // (yet). textarea uses a styled <input> wrapped via Form; radio is via
-// Base UI's @base-ui/react/radio used directly where needed. If we want
-// them as standalone primitives, add in F3c.
+// Base UI's @base-ui/react/radio used directly where needed.
