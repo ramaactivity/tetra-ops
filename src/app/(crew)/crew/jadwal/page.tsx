@@ -1,0 +1,225 @@
+import {
+	CalendarDays,
+	CalendarPlus,
+	ChevronRight,
+	History,
+	MapPin,
+} from "lucide-react";
+import Link from "next/link";
+import { EventStatusBadge } from "@/components/badges/status-badge";
+import { getCurrentUser } from "@/lib/auth/get-user";
+import { formatDateID, formatRupiah } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
+
+const ROLE_LABELS: Record<string, string> = {
+	lead: "Lead",
+	asisten: "Asisten",
+	crew_c: "Crew C",
+};
+
+const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
+
+function isoDate(d: Date): string {
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+type AssignedEvent = {
+	id: string;
+	project_id: string;
+	status: string;
+	client_name: string;
+	event_date: string;
+	setup_time: string | null;
+	start_time: string | null;
+	venue_name: string;
+	venue_city: string | null;
+	is_migrated_legacy: boolean | null;
+};
+
+type AssignmentRow = {
+	role_in_event: string;
+	fee_amount: number;
+	bonus_amount: number;
+	is_paid: boolean;
+	event: AssignedEvent | AssignedEvent[] | null;
+};
+
+export default async function CrewSchedulePage({
+	searchParams,
+}: {
+	searchParams: Promise<{ tab?: string }>;
+}) {
+	const params = await searchParams;
+	const tab = params.tab === "past" ? "past" : "upcoming";
+
+	const me = await getCurrentUser();
+	if (!me) return null;
+
+	const todayISO = isoDate(new Date());
+
+	const supabase = await createClient();
+
+	let query = supabase
+		.from("crew_assignments")
+		.select(
+			`role_in_event, fee_amount, bonus_amount, is_paid,
+			event:events!inner(
+				id, project_id, status, client_name, event_date,
+				setup_time, start_time, venue_name, venue_city,
+				is_migrated_legacy
+			)`,
+		)
+		.eq("user_id", me.profile.id);
+
+	if (tab === "upcoming") {
+		query = query.gte("event.event_date", todayISO);
+	} else {
+		query = query.lt("event.event_date", todayISO);
+	}
+
+	const { data, error } = await query;
+
+	if (error) {
+		return (
+			<div className="mx-auto w-full max-w-md px-4 py-6">
+				<div className="border-destructive bg-destructive/10 rounded-md border p-3">
+					<p className="text-destructive text-sm">{error.message}</p>
+				</div>
+			</div>
+		);
+	}
+
+	const assignments = ((data ?? []) as AssignmentRow[]).filter((a) => a.event);
+
+	// Sort: upcoming asc by date+time, past desc
+	assignments.sort((a, b) => {
+		const ea = Array.isArray(a.event) ? a.event[0] : a.event;
+		const eb = Array.isArray(b.event) ? b.event[0] : b.event;
+		if (!ea || !eb) return 0;
+		const dCompare = ea.event_date.localeCompare(eb.event_date);
+		if (dCompare !== 0) return tab === "upcoming" ? dCompare : -dCompare;
+		return (ea.start_time ?? "").localeCompare(eb.start_time ?? "");
+	});
+
+	return (
+		<div className="mx-auto w-full max-w-md space-y-4 px-4 py-6">
+			<header>
+				<h1 className="text-2xl font-semibold tracking-tight">Jadwal</h1>
+				<p className="text-muted-foreground text-sm">
+					Event yang lo di-assign sebagai crew.
+				</p>
+			</header>
+
+			<div className="border-border flex gap-1 border-b">
+				<TabLink
+					href="/crew/jadwal"
+					label="Upcoming"
+					icon={CalendarDays}
+					active={tab === "upcoming"}
+				/>
+				<TabLink
+					href="/crew/jadwal?tab=past"
+					label="Past"
+					icon={History}
+					active={tab === "past"}
+				/>
+			</div>
+
+			{assignments.length === 0 ? (
+				<div className="border-border bg-card flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
+					<CalendarPlus className="text-muted-foreground h-8 w-8" />
+					<p className="text-muted-foreground text-sm">
+						{tab === "upcoming"
+							? "Belum ada event upcoming. Tunggu di-assign owner."
+							: "Belum ada event past."}
+					</p>
+				</div>
+			) : (
+				<div className="space-y-2">
+					{assignments.map((a, i) => {
+						const ev = Array.isArray(a.event) ? a.event[0] : a.event;
+						if (!ev) return null;
+						return (
+							<Link
+								key={`${ev.id}-${i}`}
+								href={`/crew/jadwal/${ev.project_id}`}
+								className="border-border bg-card hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+							>
+								<div className="flex w-16 shrink-0 flex-col items-center justify-center">
+									<span className="text-muted-foreground text-[10px] font-medium uppercase">
+										{formatDateID(ev.event_date).split(" ").slice(0, 2).join(" ")}
+									</span>
+									<span className="tabular text-foreground text-base font-semibold">
+										{ID_TIME(ev.start_time)}
+									</span>
+								</div>
+								<div className="min-w-0 flex-1 space-y-1">
+									<div className="flex flex-wrap items-baseline gap-1.5">
+										<span className="truncate text-sm font-medium">
+											{ev.client_name}
+										</span>
+										<EventStatusBadge status={ev.status} />
+									</div>
+									<p className="text-muted-foreground flex items-center gap-1 text-xs">
+										<MapPin className="h-3 w-3 shrink-0" />
+										<span className="truncate">
+											{ev.venue_name}
+											{ev.venue_city && ` · ${ev.venue_city}`}
+										</span>
+									</p>
+									<div className="text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]">
+										<span className="text-[10px] uppercase tracking-wider">
+											{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
+										</span>
+										<span className="tabular">
+											fee {formatRupiah(a.fee_amount + a.bonus_amount)}
+										</span>
+										{a.is_paid ? (
+											<span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-medium">
+												✓ paid
+											</span>
+										) : (
+											<span className="text-amber-600 dark:text-amber-400 text-[10px] font-medium">
+												• unpaid
+											</span>
+										)}
+									</div>
+								</div>
+								<ChevronRight className="text-muted-foreground/60 h-4 w-4 self-center" />
+							</Link>
+						);
+					})}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function TabLink({
+	href,
+	label,
+	icon: Icon,
+	active,
+}: {
+	href: string;
+	label: string;
+	icon: typeof CalendarDays;
+	active: boolean;
+}) {
+	return (
+		<Link
+			href={href}
+			className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+				active
+					? "text-foreground"
+					: "text-muted-foreground hover:text-foreground"
+			}`}
+		>
+			<Icon className="h-4 w-4" />
+			{label}
+			{active && (
+				<span className="bg-primary absolute inset-x-0 bottom-0 h-0.5" />
+			)}
+		</Link>
+	);
+}
