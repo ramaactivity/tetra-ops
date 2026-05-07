@@ -45,11 +45,12 @@ export default async function CrewEventDetailPage({
 
 	const supabase = await createClient();
 
-	const { data: event, error } = await supabase
-		.from("events")
-		.select(
-			`
-			id, project_id, status, client_name,
+	const [{ data: event, error }, { data: eventTypesData }] = await Promise.all([
+		supabase
+			.from("events")
+			.select(
+				`
+			id, project_id, status, client_name, event_category,
 			pic_name, pic_wa,
 			frame_size, event_date, setup_time, start_time, end_time,
 			venue_name, venue_address, venue_city, google_maps_url,
@@ -58,16 +59,20 @@ export default async function CrewEventDetailPage({
 			booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
 			package:packages(name, duration_hours),
 			backdrop:backdrops(name, type),
-			event_type:event_types(label),
 			crew_assignments:crew_assignments!inner(
 				role_in_event, fee_amount, bonus_amount, is_paid,
 				user:users!crew_assignments_user_id_fkey(id, full_name, tier)
 			),
 			design_brief_at, design_approved_at, design_drive_folder_url
 		`,
-		)
-		.eq("project_id", projectId)
-		.maybeSingle();
+			)
+			.eq("project_id", projectId)
+			.maybeSingle(),
+		supabase
+			.from("event_types")
+			.select("code, label")
+			.eq("is_active", true),
+	]);
 
 	if (error) {
 		return (
@@ -132,9 +137,14 @@ export default async function CrewEventDetailPage({
 	const backdrop = Array.isArray(event.backdrop)
 		? event.backdrop[0]
 		: event.backdrop;
-	const eventType = Array.isArray(event.event_type)
-		? event.event_type[0]
-		: event.event_type;
+	const eventTypeLabelByCode = new Map(
+		((eventTypesData ?? []) as Array<{ code: string; label: string }>).map(
+			(t) => [t.code, t.label],
+		),
+	);
+	const eventType = event.event_category
+		? { label: eventTypeLabelByCode.get(event.event_category) ?? event.event_category }
+		: null;
 	const picContact = Array.isArray(event.pic_contact)
 		? event.pic_contact[0]
 		: event.pic_contact;

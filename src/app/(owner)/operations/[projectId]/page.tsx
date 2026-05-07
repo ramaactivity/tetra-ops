@@ -47,7 +47,11 @@ export default async function EventDetailPage({
 	const canEdit =
 		me?.profile.role === "super_admin" || me?.profile.role === "owner";
 
-	const [{ data: event, error }, { data: templatesData }] = await Promise.all([
+	const [
+		{ data: event, error },
+		{ data: templatesData },
+		{ data: eventTypesData },
+	] = await Promise.all([
 		supabase
 			.from("events")
 			.select(
@@ -65,7 +69,6 @@ export default async function EventDetailPage({
 			design_brief_at, design_approved_at, design_drive_folder_url,
 			backdrop_id, vendor_decor_markup,
 			backdrop:backdrops(name, type, rental_price),
-			event_type:event_types(label),
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier)),
@@ -83,6 +86,10 @@ export default async function EventDetailPage({
 			.select("code, name, description, template_body")
 			.eq("is_active", true)
 			.order("display_order", { ascending: true }),
+		supabase
+			.from("event_types")
+			.select("code, label")
+			.eq("is_active", true),
 	]);
 
 	if (error) {
@@ -98,6 +105,14 @@ export default async function EventDetailPage({
 	}
 
 	if (!event) notFound();
+
+	// Build lookup map for event_types since events.event_category isn't a
+	// proper FK to event_types.code (no constraint defined in DB).
+	const eventTypeLabelByCode = new Map(
+		((eventTypesData ?? []) as Array<{ code: string; label: string }>).map(
+			(t) => [t.code, t.label],
+		),
+	);
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
 	const eventAddons = (event.event_addons ?? []) as Array<{
@@ -464,12 +479,8 @@ export default async function EventDetailPage({
 
 				<DetailCard title="Event">
 					<DetailRow label="Kategori">
-						{(() => {
-							const t = Array.isArray(event.event_type)
-								? event.event_type[0]
-								: event.event_type;
-							return t?.label ?? event.event_category;
-						})()}
+						{eventTypeLabelByCode.get(event.event_category) ??
+							event.event_category}
 					</DetailRow>
 					<DetailRow label="Tanggal">
 						{formatDateID(event.event_date)}
