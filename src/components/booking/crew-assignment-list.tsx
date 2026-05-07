@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { MessageCircle, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,6 +8,11 @@ import {
 	updateCrewAssignment,
 } from "@/lib/actions/crew-assignments";
 import { formatRupiah } from "@/lib/format";
+import {
+	buildCrewReminderMessage,
+	type EventForWA,
+	whatsappUrl,
+} from "@/lib/whatsapp";
 
 const ROLE_LABELS: Record<string, string> = {
 	lead: "Lead",
@@ -19,7 +24,7 @@ const ROLE_OPTIONS = ["lead", "asisten", "crew_c"];
 
 export type AssignmentRow = {
 	id: string;
-	user: { full_name: string; tier: string | null };
+	user: { full_name: string; tier: string | null; phone_wa: string | null };
 	role_in_event: string;
 	fee_amount: number;
 	bonus_amount: number;
@@ -29,9 +34,11 @@ export type AssignmentRow = {
 export function CrewAssignmentList({
 	projectId,
 	assignments,
+	event,
 }: {
 	projectId: string;
 	assignments: AssignmentRow[];
+	event: EventForWA;
 }) {
 	if (assignments.length === 0) {
 		return (
@@ -44,7 +51,12 @@ export function CrewAssignmentList({
 	return (
 		<div className="space-y-2">
 			{assignments.map((row) => (
-				<AssignmentItem key={row.id} projectId={projectId} row={row} />
+				<AssignmentItem
+					key={row.id}
+					projectId={projectId}
+					row={row}
+					event={event}
+				/>
 			))}
 		</div>
 	);
@@ -53,9 +65,11 @@ export function CrewAssignmentList({
 function AssignmentItem({
 	projectId,
 	row,
+	event,
 }: {
 	projectId: string;
 	row: AssignmentRow;
+	event: EventForWA;
 }) {
 	const [editing, setEditing] = useState(false);
 	const [pending, startTransition] = useTransition();
@@ -145,10 +159,29 @@ function AssignmentItem({
 		);
 	}
 
+	function handleSendWa() {
+		const phone = row.user.phone_wa;
+		if (!phone) {
+			window.alert(
+				`${row.user.full_name} belum punya nomor WA — set di Settings → Master Crew.`,
+			);
+			return;
+		}
+		const body = buildCrewReminderMessage({
+			crew_name: row.user.full_name,
+			role_in_event: row.role_in_event,
+			fee_amount: row.fee_amount,
+			bonus_amount: row.bonus_amount,
+			event,
+		});
+		const url = whatsappUrl(phone, body);
+		window.open(url, "_blank", "noopener,noreferrer");
+	}
+
 	return (
-		<div className="border-border bg-card flex items-center gap-3 rounded-md border p-3">
+		<div className="border-border bg-card flex items-center gap-2 rounded-md border p-3">
 			<div className="min-w-0 flex-1">
-				<div className="flex items-baseline gap-2">
+				<div className="flex flex-wrap items-baseline gap-2">
 					<span className="text-sm font-medium">{row.user.full_name}</span>
 					{row.user.tier && (
 						<span className="text-muted-foreground text-xs">
@@ -166,6 +199,19 @@ function AssignmentItem({
 				</div>
 				{error && <p className="text-destructive text-xs">{error}</p>}
 			</div>
+			<button
+				type="button"
+				onClick={handleSendWa}
+				title={
+					row.user.phone_wa
+						? `Send WA reminder ke ${row.user.full_name}`
+						: "Belum ada nomor WA — set di Master Crew"
+				}
+				className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium transition-colors disabled:opacity-50"
+			>
+				<MessageCircle className="h-3.5 w-3.5" />
+				WA
+			</button>
 			<button
 				type="button"
 				onClick={() => setEditing(true)}

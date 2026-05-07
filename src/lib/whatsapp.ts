@@ -32,6 +32,46 @@ export function whatsappUrl(phone: string, message: string): string {
 }
 
 /**
+ * Build a crew-side reminder message tied to an event assignment.
+ * Used by the per-crew "Send WA" button on /operations/[projectId]/crew.
+ */
+export type CrewReminderInput = {
+	crew_name: string;
+	role_in_event: string;
+	fee_amount: number;
+	bonus_amount: number;
+	event: EventForWA;
+};
+
+const ROLE_LABELS: Record<string, string> = {
+	lead: "Lead",
+	asisten: "Asisten",
+	crew_c: "Crew C",
+};
+
+export function buildCrewReminderMessage(input: CrewReminderInput): string {
+	const time = (t: string | null | undefined) => (t ? t.slice(0, 5) : "—");
+	const date = formatDateID(input.event.event_date);
+	const role = ROLE_LABELS[input.role_in_event] ?? input.role_in_event;
+	const totalFee = input.fee_amount + (input.bonus_amount ?? 0);
+	const lines = [
+		`Hai ${input.crew_name}! Reminder event:`,
+		"",
+		`📅 ${date}`,
+		`🕓 Setup ${time(input.event.setup_time)} · Start ${time(input.event.start_time)}`,
+		`📍 ${input.event.venue_name}`,
+		`🎯 Role: ${role}`,
+		`💰 Fee: ${formatRupiah(totalFee)}`,
+		"",
+		`Project: ${input.event.project_id}`,
+		`Client: ${input.event.client_name}`,
+		"",
+		"Mohon konfirm kalau bisa standby. Terima kasih!",
+	];
+	return lines.join("\n");
+}
+
+/**
  * All variable keys supported by buildEventVars. Used by the template editor
  * to surface insertable placeholders to the user.
  */

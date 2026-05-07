@@ -1,4 +1,4 @@
-import { ChevronLeft, Lock } from "lucide-react";
+import { ChevronLeft, ClipboardList, Lock } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
@@ -82,19 +82,29 @@ export default async function SettlePage({
 		);
 	}
 
-	// Load sinking funds + active owners count (in parallel)
-	const [{ data: fundsData }, { count: ownerCount }] = await Promise.all([
-		supabase
-			.from("sinking_funds")
-			.select("id, code, name, allocation_type, allocation_value")
-			.eq("is_active", true)
-			.order("display_order", { ascending: true }),
-		supabase
-			.from("users")
-			.select("id", { count: "exact", head: true })
-			.in("role", ["super_admin", "owner"])
-			.eq("is_active", true),
-	]);
+	// Load sinking funds + active owners count + rekap (in parallel)
+	const [{ data: fundsData }, { count: ownerCount }, { data: rekap }] =
+		await Promise.all([
+			supabase
+				.from("sinking_funds")
+				.select("id, code, name, allocation_type, allocation_value")
+				.eq("is_active", true)
+				.order("display_order", { ascending: true }),
+			supabase
+				.from("users")
+				.select("id", { count: "exact", head: true })
+				.in("role", ["super_admin", "owner"])
+				.eq("is_active", true),
+			supabase
+				.from("crew_rekap")
+				.select(
+					`cetak_total, media_set_used, sleeve_used,
+					flashdisk_used, pouch_used, photomagnet_used, keychain_used,
+					is_approved`,
+				)
+				.eq("event_id", event.id)
+				.maybeSingle(),
+		]);
 
 	const funds = (fundsData ?? []) as SinkingFundConfig[];
 
@@ -139,6 +149,65 @@ export default async function SettlePage({
 				</div>
 			</div>
 
+			{rekap ? (
+				<div
+					className={`rounded-md border p-3 ${
+						rekap.is_approved
+							? "border-emerald-500/30 bg-emerald-500/10"
+							: "border-amber-500/30 bg-amber-500/10"
+					}`}
+				>
+					<div className="flex flex-wrap items-baseline justify-between gap-2">
+						<p
+							className={`inline-flex items-center gap-1.5 text-sm font-medium ${
+								rekap.is_approved
+									? "text-emerald-700 dark:text-emerald-300"
+									: "text-amber-700 dark:text-amber-300"
+							}`}
+						>
+							<ClipboardList className="h-3.5 w-3.5" />
+							Rekap{" "}
+							{rekap.is_approved
+								? "approved"
+								: rekap.is_approved === false
+									? "perlu revisi"
+									: "menunggu review"}
+						</p>
+						<Link
+							href={`/operations/${projectId}/rekap`}
+							className="text-foreground text-xs underline-offset-2 hover:underline"
+						>
+							Buka rekap →
+						</Link>
+					</div>
+					<dl className="mt-2 grid grid-cols-3 gap-2 text-xs sm:grid-cols-7">
+						<RekapTinyStat label="Cetak" value={rekap.cetak_total} />
+						<RekapTinyStat label="Media" value={rekap.media_set_used} />
+						<RekapTinyStat label="Sleeve" value={rekap.sleeve_used} />
+						<RekapTinyStat label="FD" value={rekap.flashdisk_used} />
+						<RekapTinyStat label="Pouch" value={rekap.pouch_used} />
+						<RekapTinyStat label="Magnet" value={rekap.photomagnet_used} />
+						<RekapTinyStat label="Keychain" value={rekap.keychain_used} />
+					</dl>
+					<p className="text-muted-foreground mt-2 text-xs">
+						Pakai angka qty di atas × harga avg di Warehouse untuk isi HPP.
+					</p>
+				</div>
+			) : (
+				<div className="border-border bg-muted/40 flex items-baseline justify-between gap-2 rounded-md border p-3">
+					<p className="text-muted-foreground inline-flex items-center gap-1.5 text-sm">
+						<ClipboardList className="h-3.5 w-3.5" />
+						Belum ada rekap untuk event ini
+					</p>
+					<Link
+						href={`/operations/${projectId}/rekap`}
+						className="text-primary text-xs font-medium underline-offset-2 hover:underline"
+					>
+						Input rekap →
+					</Link>
+				</div>
+			)}
+
 			<SettlementForm
 				eventId={event.id}
 				projectId={projectId}
@@ -146,6 +215,19 @@ export default async function SettlePage({
 				sinkingFunds={funds}
 				ownerCount={ownerCount ?? 0}
 			/>
+		</div>
+	);
+}
+
+function RekapTinyStat({ label, value }: { label: string; value: number }) {
+	return (
+		<div className="space-y-0">
+			<dt className="text-muted-foreground text-[9px] uppercase tracking-wider">
+				{label}
+			</dt>
+			<dd className="tabular text-foreground text-sm font-semibold">
+				{value.toLocaleString("id-ID")}
+			</dd>
 		</div>
 	);
 }

@@ -1,6 +1,7 @@
 import {
 	CalculatorIcon,
 	ChevronLeft,
+	ClipboardList,
 	ExternalLink,
 	Package,
 	Pencil,
@@ -20,6 +21,7 @@ import {
 import { StatusMenu } from "@/components/booking/status-menu";
 import { DesignCard } from "@/components/event-design/design-card";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
+import { EventReadinessCard } from "@/components/operations/readiness-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
@@ -118,12 +120,22 @@ export default async function EventDetailPage({
 	const canSettle =
 		!settlement &&
 		(event.status === "in_progress" || event.status === "awaiting_settlement");
-	const { count: equipmentCountRaw } = await supabase
-		.from("inventory_items")
-		.select("id", { count: "exact", head: true })
-		.eq("category", "equipment")
-		.eq("current_event_id", event.id);
+	const [{ count: equipmentCountRaw }, { data: rekapData }] = await Promise.all(
+		[
+			supabase
+				.from("inventory_items")
+				.select("id", { count: "exact", head: true })
+				.eq("category", "equipment")
+				.eq("current_event_id", event.id),
+			supabase
+				.from("crew_rekap")
+				.select("id, is_approved")
+				.eq("event_id", event.id)
+				.maybeSingle(),
+		],
+	);
 	const equipmentCount = equipmentCountRaw ?? 0;
+	const rekapSubmitted = !!rekapData;
 
 	function crewByRole(role: string) {
 		const ca = crewAssignments.find((a) => a.role_in_event === role);
@@ -200,6 +212,18 @@ export default async function EventDetailPage({
 							)}
 						</Link>
 						<Link
+							href={`/operations/${event.project_id}/rekap`}
+							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+						>
+							<ClipboardList className="h-3.5 w-3.5" />
+							Rekap
+							{rekapSubmitted && (
+								<span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+									✓
+								</span>
+							)}
+						</Link>
+						<Link
 							href={`/operations/${event.project_id}/edit`}
 							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
 						>
@@ -220,6 +244,21 @@ export default async function EventDetailPage({
 			</div>
 
 			<div className="grid gap-4 md:grid-cols-2">
+				<EventReadinessCard
+					projectId={event.project_id}
+					eventId={event.id}
+					eventDate={event.event_date}
+					status={event.status}
+					paymentStatus={event.payment_status}
+					totalPaid={event.total_paid ?? 0}
+					remainingBalance={event.remaining_balance ?? 0}
+					crewCount={crewAssignments.length}
+					designApprovedAt={event.design_approved_at}
+					designDriveUrl={event.design_drive_folder_url}
+					equipmentCount={equipmentCount}
+					rekapSubmitted={rekapSubmitted}
+				/>
+
 				<DetailCard title="Klien">
 					<DetailRow label="Nama">{event.client_name}</DetailRow>
 					<DetailRow label="WA">

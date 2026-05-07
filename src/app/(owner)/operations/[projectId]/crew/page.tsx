@@ -21,7 +21,9 @@ export default async function ManageCrewPage({
 
 	const { data: event } = await supabase
 		.from("events")
-		.select("id, project_id, client_name, event_date")
+		.select(
+			"id, project_id, client_name, client_wa, event_date, setup_time, start_time, venue_name, due_date, total_paid, remaining_balance",
+		)
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (!event) notFound();
@@ -39,7 +41,7 @@ export default async function ManageCrewPage({
 	const { data: assignmentsData } = await supabase
 		.from("crew_assignments")
 		.select(
-			"id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier)",
+			"id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)",
 		)
 		.eq("event_id", event.id);
 
@@ -51,6 +53,19 @@ export default async function ManageCrewPage({
 		fee_override_reason: a.fee_override_reason as string | null,
 		user: Array.isArray(a.user) ? a.user[0] : a.user,
 	})) as AssignmentRow[];
+
+	const eventForWa = {
+		project_id: event.project_id,
+		client_name: event.client_name,
+		client_wa: event.client_wa ?? "",
+		event_date: event.event_date,
+		setup_time: event.setup_time,
+		start_time: event.start_time,
+		venue_name: event.venue_name,
+		due_date: event.due_date ?? null,
+		total_paid: event.total_paid ?? null,
+		remaining_balance: event.remaining_balance ?? null,
+	};
 
 	const { data: assignedRaw } = await supabase
 		.from("crew_assignments")
@@ -79,9 +94,13 @@ export default async function ManageCrewPage({
 		);
 	}
 
-	const availableCrew: CrewOption[] = ((allCrew as
-		| Array<{ id: string; full_name: string; tier: string | null }>
-		| null) ?? [])
+	const availableCrew: CrewOption[] = (
+		(allCrew as Array<{
+			id: string;
+			full_name: string;
+			tier: string | null;
+		}> | null) ?? []
+	)
 		.filter((c) => !assignedSet.has(c.id))
 		.map((c) => ({
 			id: c.id,
@@ -101,9 +120,7 @@ export default async function ManageCrewPage({
 					{event.project_id}
 				</Link>
 				<div>
-					<h1 className="text-2xl font-semibold tracking-tight">
-						Manage Crew
-					</h1>
+					<h1 className="text-2xl font-semibold tracking-tight">Manage Crew</h1>
 					<p className="text-muted-foreground text-sm">
 						{event.client_name} · {event.event_date}
 					</p>
@@ -115,6 +132,7 @@ export default async function ManageCrewPage({
 				<CrewAssignmentList
 					projectId={event.project_id}
 					assignments={assignments}
+					event={eventForWa}
 				/>
 			</div>
 
@@ -122,8 +140,8 @@ export default async function ManageCrewPage({
 				<div>
 					<h2 className="text-base font-semibold">Tambah crew</h2>
 					<p className="text-muted-foreground text-xs">
-						Fee otomatis dari tier (senior / junior). Tanda ⚠ = crew ini
-						punya assignment lain di tanggal sama.
+						Fee otomatis dari tier (senior / junior). Tanda ⚠ = crew ini punya
+						assignment lain di tanggal sama.
 					</p>
 				</div>
 				<AssignCrewForm
