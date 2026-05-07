@@ -2,6 +2,7 @@ import {
 	CalculatorIcon,
 	ChevronLeft,
 	ExternalLink,
+	Package,
 	Pencil,
 	Receipt,
 	Users,
@@ -17,8 +18,10 @@ import {
 	type WhatsAppTemplate,
 } from "@/components/booking/send-wa-button";
 import { StatusMenu } from "@/components/booking/status-menu";
+import { DesignCard } from "@/components/event-design/design-card";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { Badge } from "@/components/ui/badge";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	CHANNEL_TYPE_LABELS,
 	FRAME_SIZE_LABELS,
@@ -35,6 +38,9 @@ export default async function EventDetailPage({
 }) {
 	const { projectId } = await params;
 	const supabase = await createClient();
+	const me = await getCurrentUser();
+	const canEdit =
+		me?.profile.role === "super_admin" || me?.profile.role === "owner";
 
 	const [{ data: event, error }, { data: templatesData }] = await Promise.all([
 		supabase
@@ -47,6 +53,7 @@ export default async function EventDetailPage({
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			crew_notes, created_at, updated_at,
+			design_brief_at, design_approved_at, design_drive_folder_url,
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier)),
@@ -111,6 +118,12 @@ export default async function EventDetailPage({
 	const canSettle =
 		!settlement &&
 		(event.status === "in_progress" || event.status === "awaiting_settlement");
+	const { count: equipmentCountRaw } = await supabase
+		.from("inventory_items")
+		.select("id", { count: "exact", head: true })
+		.eq("category", "equipment")
+		.eq("current_event_id", event.id);
+	const equipmentCount = equipmentCountRaw ?? 0;
 
 	function crewByRole(role: string) {
 		const ca = crewAssignments.find((a) => a.role_in_event === role);
@@ -174,6 +187,18 @@ export default async function EventDetailPage({
 							templates={templates}
 							size="sm"
 						/>
+						<Link
+							href={`/operations/${event.project_id}/equipment`}
+							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+						>
+							<Package className="h-3.5 w-3.5" />
+							Equipment
+							{equipmentCount > 0 && (
+								<span className="bg-primary/15 text-primary tabular ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+									{equipmentCount}
+								</span>
+							)}
+						</Link>
 						<Link
 							href={`/operations/${event.project_id}/edit`}
 							className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
@@ -393,6 +418,15 @@ export default async function EventDetailPage({
 						</p>
 					</DetailCard>
 				)}
+
+				<DesignCard
+					eventId={event.id}
+					projectId={event.project_id}
+					driveUrl={event.design_drive_folder_url}
+					briefAt={event.design_brief_at}
+					approvedAt={event.design_approved_at}
+					canEdit={canEdit}
+				/>
 
 				<EventActivityFeed eventId={event.id} />
 			</div>
