@@ -5,6 +5,10 @@ import {
 	EventStatusBadge,
 	PaymentStatusBadge,
 } from "@/components/badges/status-badge";
+import {
+	SendWhatsAppButton,
+	type WhatsAppTemplate,
+} from "@/components/booking/send-wa-button";
 import { StatusMenu } from "@/components/booking/status-menu";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,7 +28,8 @@ export default async function EventDetailPage({
 	const { projectId } = await params;
 	const supabase = await createClient();
 
-	const { data: event, error } = await supabase
+	const [{ data: event, error }, { data: templatesData }] = await Promise.all([
+		supabase
 		.from("events")
 		.select(
 			`
@@ -40,7 +45,13 @@ export default async function EventDetailPage({
 		`,
 		)
 		.eq("project_id", projectId)
-		.maybeSingle();
+		.maybeSingle(),
+		supabase
+			.from("whatsapp_templates")
+			.select("code, name, description, template_body")
+			.eq("is_active", true)
+			.order("display_order", { ascending: true }),
+	]);
 
 	if (error) {
 		return (
@@ -80,6 +91,32 @@ export default async function EventDetailPage({
 		crew_c: "Crew C",
 	};
 
+	const templates = (templatesData ?? []) as WhatsAppTemplate[];
+
+	function crewByRole(role: string) {
+		const ca = crewAssignments.find((a) => a.role_in_event === role);
+		if (!ca) return null;
+		const u = Array.isArray(ca.user) ? ca.user[0] : ca.user;
+		return u?.full_name ?? null;
+	}
+
+	const eventForWA = {
+		project_id: event.project_id,
+		client_name: event.client_name,
+		client_wa: event.client_wa,
+		event_date: event.event_date,
+		setup_time: event.setup_time,
+		start_time: event.start_time,
+		venue_name: event.venue_name,
+		due_date: null,
+		total_paid: event.total_paid,
+		remaining_balance: event.remaining_balance,
+		package_name: pkg?.name ?? null,
+		duration_hours: pkg?.duration_hours ?? null,
+		crew_lead: crewByRole("lead"),
+		crew_asisten: crewByRole("asisten"),
+	};
+
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 md:px-8">
 			<div className="space-y-2">
@@ -110,6 +147,11 @@ export default async function EventDetailPage({
 							currentStatus={
 								event.status as Parameters<typeof StatusMenu>[0]["currentStatus"]
 							}
+						/>
+						<SendWhatsAppButton
+							event={eventForWA}
+							templates={templates}
+							size="sm"
 						/>
 						<Link
 							href={`/operations/${event.project_id}/edit`}

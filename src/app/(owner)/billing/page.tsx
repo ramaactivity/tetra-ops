@@ -9,6 +9,10 @@ import Link from "next/link";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
 import { BillingFilterBar } from "@/components/billing/billing-filter-bar";
 import { BillingTabs } from "@/components/billing/billing-tabs";
+import {
+	SendWhatsAppButton,
+	type WhatsAppTemplate,
+} from "@/components/booking/send-wa-button";
 import { KpiCard } from "@/components/operations/kpi-card";
 import {
 	Table,
@@ -31,7 +35,11 @@ type EventBillingRow = {
 	id: string;
 	project_id: string;
 	client_name: string;
+	client_wa: string;
 	event_date: string;
+	setup_time: string | null;
+	start_time: string | null;
+	venue_name: string;
 	due_date: string | null;
 	grand_total: number;
 	total_paid: number;
@@ -75,7 +83,7 @@ export default async function BillingPage({
 	let listQuery = supabase
 		.from("events")
 		.select(
-			"id, project_id, client_name, event_date, due_date, grand_total, total_paid, remaining_balance, payment_status",
+			"id, project_id, client_name, client_wa, event_date, setup_time, start_time, venue_name, due_date, grand_total, total_paid, remaining_balance, payment_status",
 		)
 		.is("deleted_at", null)
 		.order("event_date", { ascending: false })
@@ -105,6 +113,7 @@ export default async function BillingPage({
 		collectedResult,
 		monthOmzetResult,
 		tabCountsResult,
+		templatesResult,
 	] = await Promise.all([
 		listQuery,
 		// Hanging = remaining > 0 (anything not paid)
@@ -139,6 +148,12 @@ export default async function BillingPage({
 			.from("events")
 			.select("payment_status")
 			.is("deleted_at", null),
+		// WhatsApp templates
+		supabase
+			.from("whatsapp_templates")
+			.select("code, name, description, template_body")
+			.eq("is_active", true)
+			.order("display_order", { ascending: true }),
 	]);
 
 	if (listResult.error) {
@@ -154,6 +169,7 @@ export default async function BillingPage({
 	}
 
 	const events = (listResult.data ?? []) as EventBillingRow[];
+	const templates = (templatesResult.data ?? []) as WhatsAppTemplate[];
 
 	const hanging = (hangingResult.data ?? []).reduce(
 		(s, r) => s + (r.remaining_balance ?? 0),
@@ -319,6 +335,22 @@ export default async function BillingPage({
 											</TableCell>
 											<TableCell>
 												<div className="flex items-center justify-end gap-1">
+													<SendWhatsAppButton
+														event={{
+															project_id: ev.project_id,
+															client_name: ev.client_name,
+															client_wa: ev.client_wa,
+															event_date: ev.event_date,
+															setup_time: ev.setup_time,
+															start_time: ev.start_time,
+															venue_name: ev.venue_name,
+															due_date: ev.due_date,
+															total_paid: ev.total_paid,
+															remaining_balance: ev.remaining_balance,
+														}}
+														templates={templates}
+														size="sm"
+													/>
 													<Link
 														href={`/operations/${ev.project_id}/payments`}
 														title="Log payment / lihat history"
