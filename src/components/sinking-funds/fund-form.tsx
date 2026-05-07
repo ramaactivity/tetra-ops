@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	createSinkingFund,
 	type FundFormState,
@@ -125,18 +126,27 @@ export function SinkingFundForm({
 					error={err("allocation_type")}
 					required
 				>
-					<select
-						name="allocation_type"
-						required
+					<NativeSelect
 						value={allocType}
-						onChange={(e) =>
-							setAllocType(e.target.value as "percentage" | "flat")
+						onValueChange={(v) =>
+							setAllocType(v as "percentage" | "flat")
 						}
-						className={selectClass}
-					>
-						<option value="percentage">Percentage (% dari net profit)</option>
-						<option value="flat">Flat (Rupiah tetap per event)</option>
-					</select>
+						options={[
+							{
+								value: "percentage",
+								label: "Percentage (% dari net profit)",
+							},
+							{ value: "flat", label: "Flat (Rupiah tetap per event)" },
+						]}
+						triggerClassName="w-full"
+						aria-invalid={!!err("allocation_type")}
+					/>
+					<input
+						type="hidden"
+						name="allocation_type"
+						value={allocType}
+						required
+					/>
 				</Field>
 
 				<Field

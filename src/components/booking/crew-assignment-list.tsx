@@ -3,6 +3,7 @@
 import { MessageCircle, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import {
 	unassignCrew,
@@ -112,17 +113,7 @@ function AssignmentItem({
 					</button>
 				</div>
 				<div className="grid gap-3 sm:grid-cols-3">
-					<select
-						name="role_in_event"
-						defaultValue={row.role_in_event}
-						className={selectClass}
-					>
-						{ROLE_OPTIONS.map((r) => (
-							<option key={r} value={r}>
-								{ROLE_LABELS[r]}
-							</option>
-						))}
-					</select>
+					<RoleSelect defaultValue={row.role_in_event} />
 					<input
 						type="number"
 						name="fee_amount"
@@ -230,6 +221,24 @@ function AssignmentItem({
 				<Trash2 className="h-4 w-4" />
 			</button>
 		</div>
+	);
+}
+
+function RoleSelect({ defaultValue }: { defaultValue: string }) {
+	const [role, setRole] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={role}
+				onValueChange={setRole}
+				options={ROLE_OPTIONS.map((r) => ({
+					value: r,
+					label: ROLE_LABELS[r],
+				}))}
+				triggerClassName="w-full"
+			/>
+			<input type="hidden" name="role_in_event" value={role} />
+		</>
 	);
 }
 

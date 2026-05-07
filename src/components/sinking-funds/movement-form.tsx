@@ -2,6 +2,7 @@
 
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { useActionState, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	addManualMovement,
 	type MovementFormState,
@@ -89,22 +90,11 @@ export function ManualMovementForm({
 						error={err("target_bank_account_id")}
 						required
 					>
-						<select
-							name="target_bank_account_id"
-							required
+						<BankSelect
 							defaultValue={get("target_bank_account_id")}
-							className={selectClass}
-						>
-							<option value="" disabled>
-								Pilih bank…
-							</option>
-							{bankAccounts.map((b) => (
-								<option key={b.id} value={b.id}>
-									{b.bank_name}
-									{b.account_number ? ` · ${b.account_number}` : ""}
-								</option>
-							))}
-						</select>
+							error={!!err("target_bank_account_id")}
+							bankAccounts={bankAccounts}
+						/>
 					</Field>
 				) : (
 					<div />
@@ -150,6 +140,44 @@ export function ManualMovementForm({
 				</button>
 			</div>
 		</form>
+	);
+}
+
+function BankSelect({
+	defaultValue,
+	error,
+	bankAccounts,
+}: {
+	defaultValue: string;
+	error: boolean;
+	bankAccounts: Array<{
+		id: string;
+		bank_name: string;
+		account_number: string | null;
+		account_holder?: string | null;
+	}>;
+}) {
+	const [bank, setBank] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={bank}
+				onValueChange={setBank}
+				placeholder="Pilih bank…"
+				options={bankAccounts.map((b) => ({
+					value: b.id,
+					label: `${b.bank_name}${b.account_number ? ` · ${b.account_number}` : ""}${b.account_holder ? ` · ${b.account_holder}` : ""}`,
+				}))}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input
+				type="hidden"
+				name="target_bank_account_id"
+				value={bank}
+				required
+			/>
+		</>
 	);
 }
 

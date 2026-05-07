@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import { assignCrew } from "@/lib/actions/crew-assignments";
 
 export type CrewOption = {
@@ -28,12 +29,13 @@ export function AssignCrewForm({
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
 	const [selectedUser, setSelectedUser] = useState<string>("");
+	const [role, setRole] = useState<string>("asisten");
 
 	const conflict = availableCrew.find((c) => c.id === selectedUser)?.hasConflict;
 
 	if (availableCrew.length === 0) {
 		return (
-			<p className="text-muted-foreground text-sm italic">
+			<p className="text-fluid-body italic text-muted-foreground">
 				Belum ada crew terdaftar. Tambah dari Settings → Master Crew.
 			</p>
 		);
@@ -52,48 +54,51 @@ export function AssignCrewForm({
 	return (
 		<form action={handleSubmit} className="space-y-3">
 			<div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-				<select
-					name="user_id"
-					value={selectedUser}
-					onChange={(e) => setSelectedUser(e.target.value)}
-					required
-					className={selectClass}
-				>
-					<option value="" disabled>
-						Pilih crew…
-					</option>
-					{availableCrew.map((c) => (
-						<option key={c.id} value={c.id}>
-							{c.full_name}
-							{c.tier && ` · ${c.tier}`}
-							{c.hasConflict && " ⚠"}
-						</option>
-					))}
-				</select>
-				<select name="role_in_event" defaultValue="asisten" className={selectClass}>
-					{ROLE_OPTIONS.map(([value, label]) => (
-						<option key={value} value={value}>
-							{label}
-						</option>
-					))}
-				</select>
+				<div>
+					<NativeSelect
+						value={selectedUser}
+						onValueChange={setSelectedUser}
+						placeholder="Pilih crew…"
+						options={availableCrew.map((c) => ({
+							value: c.id,
+							label: `${c.full_name}${c.tier ? ` · ${c.tier}` : ""}${
+								c.hasConflict ? " ⚠" : ""
+							}`,
+						}))}
+						triggerClassName="w-full"
+					/>
+					<input type="hidden" name="user_id" value={selectedUser} required />
+				</div>
+				<div>
+					<NativeSelect
+						value={role}
+						onValueChange={setRole}
+						options={ROLE_OPTIONS.map(([value, label]) => ({
+							value,
+							label,
+						}))}
+					/>
+					<input
+						type="hidden"
+						name="role_in_event"
+						value={role}
+						required
+					/>
+				</div>
 				<button
 					type="submit"
 					disabled={pending || !selectedUser}
-					className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-3 text-sm font-medium disabled:opacity-60"
+					className="press-down h-9 rounded-md bg-primary px-3 text-fluid-body font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
 				>
 					{pending ? "Adding…" : "Assign"}
 				</button>
 			</div>
 			{conflict && (
-				<p className="text-amber-500 text-xs">
+				<p className="text-fluid-caption text-amber-500">
 					⚠ Crew ini sudah punya assignment lain di tanggal yang sama
 				</p>
 			)}
-			{error && <p className="text-destructive text-xs">{error}</p>}
+			{error && <p className="text-fluid-caption text-destructive">{error}</p>}
 		</form>
 	);
 }
-
-const selectClass =
-	"border-border-default bg-background h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none appearance-none";

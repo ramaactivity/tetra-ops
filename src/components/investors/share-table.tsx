@@ -2,6 +2,7 @@
 
 import { Save } from "lucide-react";
 import { useState, useTransition } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Table,
 	TableBody,
@@ -201,11 +202,10 @@ function InvestorRowEditor({
 				/>
 			</TableCell>
 			<TableCell>
-				<input
-					type="date"
+				<DatePicker
 					value={date}
-					onChange={(e) => setDate(e.target.value)}
-					className="border-border-default bg-background text-foreground focus-visible:ring-ring h-8 rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+					onValueChange={setDate}
+					placeholder="Pilih tanggal"
 				/>
 			</TableCell>
 			<TableCell className="text-right">

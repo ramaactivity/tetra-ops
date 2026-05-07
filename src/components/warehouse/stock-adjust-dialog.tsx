@@ -2,6 +2,7 @@
 
 import { ArrowDownToLine, ArrowUpFromLine, Equal, Sliders } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	Dialog,
 	DialogClose,
@@ -146,21 +147,13 @@ export function StockAdjustDialog({
 						</Field>
 
 						<Field label="Sumber" name="source" error={err("source")} required>
-							<select
-								name="source"
-								required
+							<SourceSelect
 								defaultValue={get(
 									"source",
 									direction === "in" ? "purchase" : "manual_adjust",
 								)}
-								className={selectClass}
-							>
-								{SOURCES.map((s) => (
-									<option key={s.value} value={s.value}>
-										{s.label}
-									</option>
-								))}
-							</select>
+								error={!!err("source")}
+							/>
 						</Field>
 					</div>
 
@@ -213,6 +206,28 @@ export function StockAdjustDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function SourceSelect({
+	defaultValue,
+	error,
+}: {
+	defaultValue: string;
+	error: boolean;
+}) {
+	const [source, setSource] = useState(defaultValue);
+	return (
+		<>
+			<NativeSelect
+				value={source}
+				onValueChange={setSource}
+				options={SOURCES.map((s) => ({ value: s.value, label: s.label }))}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input type="hidden" name="source" value={source} required />
+		</>
 	);
 }
 
