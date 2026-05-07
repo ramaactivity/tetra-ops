@@ -1,7 +1,14 @@
 # 04 — Design System
 
 **Project:** Tetra Ops
-**Direction:** "Refined Operator" — Professional foundation with brand personality at the right moments.
+**Direction:** "Refined Operator" — Professional foundation with brand personality at the right moments. As of sesi 5 (2026-05-08), the system is mid-redesign per the master plan at `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md`. Token foundation (F1) shipped commit `c273b51`; this doc is the as-built record.
+
+> **Last verified against** `src/app/globals.css` at commit `c273b51` (2026-05-08).
+> When tokens change in `globals.css`, update this doc in the same PR. Type-safe mirror lives at `src/lib/tokens.ts`.
+
+> **Companion docs:**
+> - `docs/04a_MOTION_GUIDELINES.md` — durations, easings, View Transitions API patterns, what NEVER to animate.
+> - `docs/12_DECISION_LOG.md` — DR-023 (light mode parked at P5), DR-024 (no brand photography), DR-025 (Claude generates empty-state copy).
 
 ---
 
@@ -20,13 +27,17 @@ Like Apple Music's editorial cover art moments, Linear's marketing site. The das
 
 ### 1.2 Anti-Patterns We Reject
 
-- Heavy gradients on every card (looks dated)
-- Drop shadows on everything (looks cheap)
+- Gradients on every card (only on hero/empty/login/KPI/PDF cover/FAB — never list cards)
+- Drop shadows on everything in dark mode (use surface-level lift instead)
 - Glassmorphism on data tables (illegible)
 - Cute illustrations on every empty state (slows perception)
 - Excessive animation (kills perceived performance)
 - Color overload (more than 3 semantic colors per page)
 - Decorative borders on cards (use elevation instead)
+- Browser-native UI primitives — `<select>`, `window.alert/confirm/prompt`, `<input type="date|time|month">`, `<details>` — replaced with custom Base UI primitives (see §17). 67 violations audited at sesi 4; getting eliminated phase by phase.
+- `framer-motion` library (rejected sesi 5; redundant with Next.js 16 View Transitions API + CSS keyframes; ~50KB bloat)
+- Stacking same-level surfaces (card-on-card must be L2 + L3 — see §2.3)
+- Animating `width`, `height`, `font-size`, `color` (use `transform`, `opacity`, `filter` only — see §11 + 04a)
 
 ---
 
@@ -127,45 +138,96 @@ sage-700     #5A7B62
 - Pure white (`#FFF`) — feels sterile, use slate-50
 - More than 3 semantic colors on one screen
 
-### 2.3 Dark Mode (Default)
+### 2.3 Surface Hierarchy — 4 Levels
 
-App defaults to dark mode because:
-- Owner often works at night
-- Easier on eyes during long sessions
-- Premium feel
-- Better OLED battery on phone
+**Old system** (pre-sesi 5) had only 2 dark levels (`slate-950` page + `slate-900` card), producing flat-feeling stacks. **New system** (F1, commit `c273b51`) has 4 levels for proper depth and a no-stacking rule.
 
-**Background hierarchy in dark:**
-- Page bg: `slate-950`
-- Card bg: `slate-900`
-- Card elevated: `slate-800`
-- Hover surface: `slate-800`
-- Active surface: `slate-700`
-- Border: `slate-800` (subtle) or `slate-700` (visible)
+**Tailwind utility:** `bg-surface-1` … `bg-surface-4`. Tokens auto-switch with `.dark` class.
+
+| Level | Token | Dark | Light | Usage |
+|---|---|---|---|---|
+| L0 | `bg-background` | `#0A0A0F` | `#FAFAF9` | True page background. Body element only. |
+| L1 | `bg-surface-1` | `#121218` | `#FFFFFF` | App shell, sidebar, sticky topbar |
+| L2 | `bg-surface-2` | `#18181D` | `#FCFCFB` | Default card |
+| L3 | `bg-surface-3` | `#22222A` | `#F4F4F2` | Popover, dialog, sheet, elevated card, dropdown |
+| L4 | `bg-surface-4` | `#2C2C36` | `#E7E7E5` | Selected row, hover-elevated chip |
+
+**Hard rule:** never stack same-level surfaces.
+- ✅ Card on page → L2 on L0
+- ✅ Card on sidebar → L2 on L1
+- ✅ Popover with hover row → L3 + L4 hover row
+- ❌ Card-on-card same level → use L2 + L3 instead
+- ❌ Popover at L2 (same as default card) → must be L3
+
+**Borders** — three tones tied to `bg-border-{subtle|default|strong}`:
+
+| Token | Dark | Light | Usage |
+|---|---|---|---|
+| `border-subtle` | `#1F1F26` | `#F0F0EE` | Hairline divisions inside a section |
+| `border-default` | `#2A2A2F` | `#E7E7E5` | Card borders, table row borders |
+| `border-strong` | `#404044` | `#D4D4D2` | Focus rings, primary dividers |
 
 **Text in dark:**
-- Heading: `slate-50`
-- Body: `slate-200`
-- Muted: `slate-400`
-- Disabled: `slate-600`
-
-### 2.4 Light Mode
-
-Toggle available in user menu.
-
-**Background hierarchy in light:**
-- Page bg: `slate-50`
-- Card bg: white
-- Card elevated: white with shadow-sm
-- Hover surface: `slate-100`
-- Active surface: `slate-200`
-- Border: `slate-200`
+- Heading: `text-foreground` (`#FAFAF9`)
+- Body: `text-foreground` (or `text-muted-foreground` for secondary)
+- Muted: `text-muted-foreground` (`#A8A8A6`)
 
 **Text in light:**
-- Heading: `slate-900`
-- Body: `slate-700`
-- Muted: `slate-500`
-- Disabled: `slate-300`
+- Heading: `text-foreground` (`#18181D`)
+- Body: `text-foreground` (or `text-muted-foreground`)
+- Muted: `text-muted-foreground` (`#737371`)
+
+**Why dark mode default:** owners often work at night, reduces eye strain across long sessions, premium feel, better OLED battery on phone. Light mode polish is parked at Phase P5 per DR-023.
+
+### 2.4 Branded Gradients — Sunrise + Aurora
+
+Two confident gradient accents, used SPARINGLY. Reject Y2K maximalism (gradients-on-everything) and reject timid even-distribution. The 70/20/10 split (info/mobility/brand) holds; the 10% just goes harder.
+
+| Gradient | Stops | Token / Utility |
+|---|---|---|
+| **Sunrise** (warm) | crimson-500 → amber-500 → gold-300 | `bg-gradient-sunrise`, `text-gradient-sunrise`, `bg-gradient-sunrise-radial` |
+| **Aurora** (cool) | violet-500 → fuchsia-500 → rose-400 | `bg-gradient-aurora`, `text-gradient-aurora`, `bg-gradient-aurora-radial` |
+| **Mesh-warm** (cinematic) | conic crimson↔amber↔gold | `bg-gradient-mesh-warm` (use rarely, reserved for splash/empty-state hero) |
+
+**Where to use:**
+- ✅ Login / splash hero background
+- ✅ Dashboard primary KPI hero (single hero per page)
+- ✅ Empty-state primary CTA (FAB-style button)
+- ✅ Premium PDF cover band
+- ✅ Achievement / completion moments
+- ✅ Branded headlines like "Selamat datang kembali" via `text-gradient-sunrise`
+
+**Where NOT to use:**
+- ❌ Cards in lists (every event card with a gradient → maximalist chaos)
+- ❌ Dashboard backgrounds globally
+- ❌ Form fields, inputs, buttons (except the FAB primary on empty state)
+- ❌ Tables, table rows, table headers
+- ❌ Sidebar, topbar (use L1 surface only)
+
+**Category color mapping** (icon glyph + 1px section header border ONLY — never card backgrounds):
+
+| Category | Color | Why |
+|---|---|---|
+| Operations | `violet-300` | Active, in-flight |
+| Finance | `emerald-300` | Money, growth |
+| Warehouse | `sky-300` | Inventory, calm |
+| Design | `gold-300` | Creative, premium |
+| Reminders | `fuchsia-300` | Attention, alert |
+| Reports | `cyan-300` | Analytical, cool |
+
+These rely on Tailwind v4 default palette; not redefined in our `@theme` block.
+
+### 2.5 Glow Shadows — Branded Lift Moments
+
+Three branded glow shadows for primary CTAs, KPI hero tiles, and achievement states. Used over a darker surface to create a halo. Don't combine with `shadow-md/lg` (double-shadow looks muddy).
+
+| Token | Hex (compositor) | Usage |
+|---|---|---|
+| `shadow-glow-crimson` | crimson @ 0.45/0.25 alpha | Primary CTA, KPI hero default |
+| `shadow-glow-aurora` | fuchsia + violet @ 0.45/0.25 | Achievement / report hero |
+| `shadow-glow-sunrise` | amber + crimson @ 0.4/0.25 | Premium / paid moments |
+
+**Why no glow on light mode:** glows wash out on `#FAFAF9`. Only used in dark mode. In light mode, primary CTAs lift via `shadow-md` + crimson border instead.
 
 ---
 
@@ -230,6 +292,43 @@ Toggle available in user menu.
 - Long client names: truncate with ellipsis after 25 chars in lists
 - Show full on hover (tooltip)
 
+### 3.4 Fluid Type Scale — Mobile Shrinkage via `clamp()`
+
+Owner phones range from compact (~360 logical px wide) to large iPhone Pro Max. Fixed-px headlines force horizontal scroll on the small end and look anemic on the large end. Solution: `clamp(min, preferred, max)` so each step naturally interpolates with viewport width.
+
+Defined in `src/app/globals.css` as `--text-fluid-*` tokens. Tailwind v4 picks them up as `text-fluid-*` utilities.
+
+| Utility | Mobile (~360px) | Desktop (~1440px) | Use for |
+|---|---|---|---|
+| `text-fluid-caption` | 11px | 12px | Micro labels, table headers |
+| `text-fluid-body` | 13px | 16px | Default body, form values |
+| `text-fluid-h3` | 16px | 20px | Card titles, modal headers |
+| `text-fluid-h2` | 18px | 24px | Section titles |
+| `text-fluid-h1` | 22px | 32px | Page hero — REPLACES old `text-3xl` h1 |
+| `text-fluid-display` | 28px | 48px | Login/splash only |
+
+**Pages should adopt fluid utilities by default in the application phases (A1-A11)** — fixed `text-3xl`, `text-2xl` etc still work but the fluid versions are the new convention.
+
+### 3.5 Mobile Shrinkage Rules
+
+**Why this exists:** sesi 5 friend feedback was that phone view felt scroll-heavy and oversized. Owners are Gen Z; mobile must feel like a native app, not a desktop site shrunk.
+
+**Type:**
+- Body: `text-fluid-body` (13px → 16px)
+- H1: `text-fluid-h1` (22px → 32px). NEVER `text-3xl` (30px fixed) on mobile.
+- H2: `text-fluid-h2`. H3: `text-fluid-h3`. Captions: `text-fluid-caption`.
+
+**Spacing (mobile):**
+- Cards: `p-3` (12px) — never `p-6` / `p-8`
+- Page screens: `px-4 py-3` (16/12) — never `p-8`
+- Section gaps: `gap-4` (16px), not `gap-8`
+
+**Layout:**
+- Tables collapse to vertical card list at `<md` via `<ResponsiveTable>` (F3 primitive)
+- Owner sticky bottom nav (mirrors crew, see §9.2 — added in A1)
+- Topbar collapses to 44px sticky bar on mobile (was 56px)
+- Container queries (`@container`) on cards adapt to sidebar collapse, not just viewport breakpoint
+
 ---
 
 ## 4. Spacing System
@@ -258,18 +357,21 @@ Toggle available in user menu.
 ### 4.2 Layout Rules
 
 **Page padding:**
-- Mobile: `px-4` (16px)
+- Mobile: `px-4 py-3` (16/12) — HARD CAP
 - Tablet: `px-6` (24px)
 - Desktop: `px-8` (32px)
 
 **Section spacing:**
-- Between major sections: `mb-8` (32px) or `mb-12` (48px)
-- Between subsections: `mb-6` (24px)
+- Mobile: `mb-4` between sections, `gap-4` for stacks
+- Desktop: `mb-8` (32px) or `mb-12` (48px) between major sections, `mb-6` (24px) between subsections
 
 **Card padding:**
-- Default: `p-6` (24px)
-- Compact (lists): `p-4` (16px)
-- Hero: `p-8` (32px)
+- Mobile: `p-3` (12px) — HARD CAP, even for hero cards
+- Desktop default: `p-6` (24px)
+- Desktop compact (lists): `p-4` (16px)
+- Desktop hero: `p-8` (32px)
+
+**Why the mobile cap:** ~360px viewport with `p-6` leaves ~312px of usable width per card. Halving the padding to `p-3` gives ~336px — measurable difference for content-dense screens. Verified with redesign feedback at sesi 5.
 
 **Form field spacing:**
 - Between fields: `gap-4` (16px)
@@ -286,49 +388,55 @@ Toggle available in user menu.
 
 ## 5. Elevation & Shadows
 
-Subtle, only where needed for visual hierarchy.
+Subtle, only where needed for visual hierarchy. **Tailwind v4 default scale** (`shadow-sm`, `shadow-md`, `shadow-lg`, `shadow-xl`) handles light-mode lift. Dark mode lifts via surface-level steps (§2.3) plus optional **glow shadows** (§2.5) for branded moments.
 
-```
-shadow-xs    0 1px 2px rgba(0,0,0,0.04)        — Subtle card lift
-shadow-sm    0 2px 4px rgba(0,0,0,0.05)        — Default cards (light mode)
-shadow-md    0 4px 8px rgba(0,0,0,0.08)        — Hover state
-shadow-lg    0 10px 20px rgba(0,0,0,0.10)      — Modals, popovers
-shadow-xl    0 20px 40px rgba(0,0,0,0.15)      — Major modals
-```
+**Light mode** — use Tailwind defaults:
+- `shadow-sm` — default card
+- `shadow-md` — hover state, dropdown
+- `shadow-lg` — popover, dialog
+- `shadow-xl` — fullscreen modal
 
-**Dark mode:** Shadows less visible on dark bg. Use border + subtle bg-color instead.
+**Dark mode** — shadows wash out on `#0A0A0F`. Lift via:
+1. Move to higher surface level (L2 → L3)
+2. Add `border-default` or `border-strong`
+3. For branded "wow" moments only: `shadow-glow-crimson` / `shadow-glow-aurora` / `shadow-glow-sunrise`
 
 ```css
-/* Dark mode card */
-.card-dark {
-  background: slate-900;
-  border: 1px solid slate-800;
-  /* No shadow needed */
-}
+/* Dark default card */
+.card { background: var(--surface-2); border: 1px solid var(--border-default); }
 
-/* Dark mode elevated */
-.card-elevated-dark {
-  background: slate-800;
-  border: 1px solid slate-700;
-}
+/* Dark elevated card (popover, dialog) */
+.popover { background: var(--surface-3); border: 1px solid var(--border-default); }
+
+/* Dark hover row inside popover */
+.popover-row[data-hover] { background: var(--surface-4); }
+
+/* Dark primary CTA glow (use sparingly) */
+.cta-primary { box-shadow: var(--shadow-glow-crimson); }
 ```
+
+**Anti-pattern:** stacking `shadow-md` + `shadow-glow-crimson` on the same element. Pick one elevation strategy per element.
 
 ---
 
 ## 6. Border Radius
 
-```
-rounded-none   0
-rounded-sm     4px      — small elements (badges, chips)
-rounded        6px      — buttons, inputs (default)
-rounded-md     8px      — cards (default)
-rounded-lg     12px     — modals, large cards
-rounded-xl     16px     — hero cards
-rounded-2xl    24px     — special premium cards
-rounded-full              — avatars, circular buttons
-```
+Centralized via `--radius: 0.5rem` (8px) in `globals.css`. Tailwind utilities derive from it.
 
-Default for most things: `rounded-md` (8px) — modern, not too sharp, not too soft.
+| Utility | Px | Use for |
+|---|---|---|
+| `rounded-none` | 0 | Decorative dividers |
+| `rounded-sm` | ~5px | Small chips, badges (`calc(--radius * 0.6)`) |
+| `rounded-md` | ~6px | Buttons, inputs (`calc(--radius * 0.8)`) |
+| `rounded-lg` | 8px | **Cards default** (`--radius`) |
+| `rounded-xl` | ~11px | Modals, sheets (`calc(--radius * 1.4)`) |
+| `rounded-2xl` | ~14px | Hero cards (`calc(--radius * 1.8)`) |
+| `rounded-3xl` | ~18px | Premium / FAB (`calc(--radius * 2.2)`) |
+| `rounded-full` | — | Avatars, circular buttons |
+
+**Default for most things: `rounded-lg` (8px)** — modern, not too sharp, not too soft.
+
+Mobile shrinkage rule: keep cards on `rounded-lg`. Don't shrink to `rounded-md` on mobile — radius reads thinner on smaller surfaces and the corner-curve disappears.
 
 ---
 
@@ -513,18 +621,18 @@ Mobile: tables collapse to card list (each row becomes a card).
 
 ```
 ┌─────────────────────────────┐
-│ Top Bar                     │
+│ Top Bar (collapsed, h-11)   │ ← 44px sticky on mobile
 ├─────────────────────────────┤
 │                             │
-│ Main Content (px-4)         │
+│ Main Content (px-4 py-3)    │ ← p-4 hard cap
 │ Single column               │
 │                             │
 ├─────────────────────────────┤
-│ Bottom Nav (h-16)           │ ← optional for owner mobile
+│ Bottom Nav (h-16, sticky)   │ ← REQUIRED for owner mobile (A1 phase)
 └─────────────────────────────┘
 ```
 
-Sidebar replaced with hamburger menu → drawer from left.
+Owner mobile gets a sticky bottom nav mirroring the crew app pattern (5 tabs: Dashboard, Operations, Finance, Reminders, More). Topbar collapses to 44px. Sidebar → hamburger menu → sheet from left (`<Sheet>` primitive, F3).
 
 ### 9.3 Crew Mobile Layout
 
@@ -585,76 +693,92 @@ xl   1280px  — desktops
 
 ## 11. Motion & Animation
 
+This section is the high-level summary. Full details — keyframes, View Transitions API patterns, sample code, what NEVER to animate — are in **`docs/04a_MOTION_GUIDELINES.md`**.
+
 ### 11.1 Principles
 
-- **Purposeful:** Every animation has a reason (feedback, hierarchy, delight)
-- **Fast:** 150-300ms most transitions, never >500ms
-- **Eased:** `ease-out` for entrances, `ease-in` for exits
-- **Reduced motion:** Respect `prefers-reduced-motion`, disable animations
+- **Purposeful:** every animation has a reason (feedback, hierarchy, delight)
+- **Fast:** mostly 120-320ms; never >500ms
+- **Compositor-only:** animate `transform`, `opacity`, `filter`. **NEVER** `width`, `height`, `font-size`, `color` (force layout/paint, jank)
+- **Reduced motion:** respect `prefers-reduced-motion`, disable non-essential animations
+- **Zero-JS bloat:** Next.js 16 View Transitions API (page-level) + CSS keyframes / `@starting-style` (component-level) + `tw-animate-css`. Reject `framer-motion` (~50KB, redundant).
 
-### 11.2 Common Animations
+### 11.2 Motion Tokens (defined in `globals.css` F1)
 
 ```
-fade-in       opacity 0 → 1, 200ms ease-out
-slide-up      translateY(8px) opacity 0 → 1, 250ms ease-out
-slide-down    inverse, for exits
-scale-in      scale 0.95 → 1, opacity 0 → 1, 200ms ease-out
-spin          for loading spinners, 800ms linear infinite
-pulse         for skeleton, 1.5s ease-in-out infinite
+--duration-fast    120ms      Microinteractions, hover states
+--duration-base    200ms      Default transitions, dialogs
+--duration-slow    320ms      Page-level transitions, hero reveals
+
+--ease-out-expo    cubic-bezier(0.16, 1, 0.3, 1)    Entrances (default)
+--ease-out-quart   cubic-bezier(0.25, 1, 0.5, 1)    Subtle entrances
+--ease-spring      cubic-bezier(0.34, 1.56, 0.64, 1) Playful overshoot
 ```
 
-### 11.3 Where to Animate
+Tailwind v4 picks these up as `duration-fast`, `duration-base`, `duration-slow`, `ease-out-expo` etc. utilities.
+
+### 11.3 View Transitions API (Page-Level)
+
+Activated via `experimental.viewTransition: true` in `next.config.ts` (F4). Wrap shared elements (event-card → event-detail hero) with matching `view-transition-name` CSS to get cross-fade / morph for free. **2-3× perceived speedup** vs. JS routers on low-end devices.
+
+### 11.4 Where to Animate
 
 **Yes:**
-- Modal open/close (slide up)
-- Toast appearance (slide in from edge)
-- Page transitions (fade)
-- Button press (subtle scale 0.98)
-- Skeleton → content swap (fade)
-- Number counters (when meaningful, e.g., dashboard load)
+- Modal / sheet open/close (slide-up + fade, `duration-base`, `ease-out-expo`)
+- Toast appearance (slide in from edge, `duration-base`)
+- Page transitions (View Transitions API, `duration-slow`)
+- Button press (`active:scale-[0.97]`, `duration-fast`)
+- Skeleton → content swap (fade, `duration-base`)
+- KPI number counters (when meaningful — dashboard load only)
 
 **No:**
-- Every button hover (overkill)
+- Every button hover (overkill, kills compositor budget)
 - Color transitions on every element
 - Auto-rotating carousels
 - Decorative spinning icons
 - Bouncing CTA buttons (annoying)
+- Animating gradient stops (forces paint)
 
 ---
 
 ## 12. Branded Touchpoints (10% Brand Layer)
 
-These specific surfaces use full brand identity:
+Specific surfaces that get full brand identity. Per **DR-024**, brand photography is rejected — these moments use **gradients + iconography only** (no photo assets).
 
 ### 12.1 Login Screen
 
-Background: warm gradient (crimson-50 to gold-300)
-Logo: Tetra Photobooth full color (large, top-left)
-Headline: Playfair Display "Selamat datang kembali"
-CTA: solid crimson with white text "Masuk dengan Google"
+- Background: `bg-gradient-sunrise-radial` from top-left, fades to L0 surface
+- Logo: Tetra Photobooth full color (centered, ~200px wide)
+- Headline: Playfair Display "Selamat datang kembali" via `text-gradient-sunrise`
+- CTA: solid crimson + `shadow-glow-crimson` — "Masuk dengan Google"
+- Mobile: `text-fluid-display` headline, `p-4` content padding
 
 ### 12.2 Splash / Onboarding
 
-Background: crimson-50 light texture (similar to PDF cover)
-Headlines: Playfair Display
-Body: Inter
-Photography: Tetra brand photos (uploaded separately)
+- Background: `bg-gradient-mesh-warm` (conic mesh) at low opacity (~30%) over L0
+- Headlines: Playfair Display
+- Body: Inter
+- **No photography** (DR-024 — gradient + iconography only)
 
 ### 12.3 PDF Documents (Invoice, Quotation, BAST, Reports)
 
-Header band: crimson-500 with gold-500 accent line
-Title: Playfair Display 36pt
-Tetra logo: top-right
-Body: Inter 11pt
-Footer: gold accent + contact info
-Watermark: subtle Tetra logo at 5% opacity
+- Header band: solid crimson-500 with gold-500 1px accent line
+- Title: Playfair Display 36pt
+- Tetra logo: top-right
+- Body: Inter 11pt
+- Footer: gold accent + contact info
+- Watermark: subtle Tetra logo at 5% opacity
 
-### 12.4 Empty States (Premium Moments)
+PDF generation via `@react-pdf/renderer`. Component base in `src/components/pdf/`.
 
-Use editorial illustration style:
-- Hand-drawn feel (Storyset, unDraw with custom palette)
-- Crimson + Gold color overlay
-- Encouraging copy in slight serif
+### 12.4 Empty States
+
+Per **DR-025**, empty-state copy is generated by Claude in Indonesian-Tetra voice (warm, ops-team practical, never cute) during the relevant Application phase.
+
+- **Visual**: `<EmptyState>` primitive (F3) — large Lucide icon + headline + body + primary CTA
+- **No illustrations** — earlier plan mentioned Storyset/unDraw illustrations; deferred indefinitely. Icon + gradient + typography is enough.
+- **Primary CTA**: filled crimson button + `shadow-glow-crimson` if it's the only action; ghost button if multiple actions on screen.
+- **Optional decorative**: subtle `bg-gradient-sunrise-radial` at 5-10% opacity behind the icon, only on hero empty states (e.g. dashboard zero-events).
 
 ### 12.5 Email Templates (Future)
 
@@ -705,83 +829,81 @@ Tools: contrast checker run on every new component.
 
 ---
 
-## 14. Tailwind Configuration (Practical)
+## 14. Tailwind Configuration
 
-### 14.1 Custom Theme Extension
+We use **Tailwind v4** with the `@theme inline` directive. **There is no `tailwind.config.ts`.** All theme tokens live in `src/app/globals.css` and are picked up automatically.
 
-```ts
-// tailwind.config.ts (simplified)
-export default {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        crimson: { /* full ramp */ },
-        slate: { /* warm-leaning ramp */ },
-        gold: { /* accent */ },
-        sage: { /* accent */ },
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Playfair Display', 'serif'],
-        mono: ['JetBrains Mono', 'monospace'],
-      },
-      fontSize: {
-        // matches our type scale tokens
-      },
-      borderRadius: {
-        // standard scale
-      },
-      animation: {
-        'slide-up': 'slideUp 250ms ease-out',
-        'fade-in': 'fadeIn 200ms ease-out',
-      },
-    },
-  },
-};
-```
+### 14.1 How tokens become utilities
 
-### 14.2 CSS Variables for Dark Mode
+Tailwind v4 namespace prefixes auto-generate utilities:
+
+| Token prefix | Utility namespace | Example |
+|---|---|---|
+| `--color-*` | `bg-*`, `text-*`, `border-*` | `--color-surface-2` → `bg-surface-2` |
+| `--text-*` | `text-*` (font-size) | `--text-fluid-h1` → `text-fluid-h1` |
+| `--font-*` | `font-*` | `--font-display` → `font-display` |
+| `--shadow-*` | `shadow-*` | `--shadow-glow-crimson` → `shadow-glow-crimson` |
+| `--ease-*` | `ease-*` | `--ease-out-expo` → `ease-out-expo` |
+| `--duration-*` | `duration-*` | `--duration-fast` → `duration-fast` |
+| `--radius-*` | `rounded-*` | `--radius-lg` → `rounded-lg` |
+
+For tokens NOT in a v4 namespace (gradients, etc), define them as plain CSS vars and expose via `@utility` block. Example from `globals.css`:
 
 ```css
-:root {
-  --color-bg: theme('colors.slate.50');
-  --color-surface: theme('colors.white');
-  --color-text: theme('colors.slate.900');
-  /* ... */
-}
-
-.dark {
-  --color-bg: theme('colors.slate.950');
-  --color-surface: theme('colors.slate.900');
-  --color-text: theme('colors.slate.50');
-  /* ... */
+@utility bg-gradient-sunrise {
+  background-image: var(--gradient-sunrise);
 }
 ```
 
-Use via `bg-[var(--color-bg)]` for clean theme switching.
+### 14.2 Theme switching pattern
+
+Semantic tokens use the `var()` indirection so values resolve per-theme:
+
+```css
+@theme inline {
+  --color-surface-2: var(--surface-2);   /* var → resolves at runtime */
+}
+:root  { --surface-2: #FCFCFB; }          /* light mode value */
+.dark  { --surface-2: #18181D; }          /* dark mode value */
+```
+
+This means `bg-surface-2` in JSX automatically switches when `.dark` is on the `<html>`. No conditional className needed.
 
 ---
 
-## 15. Design Tokens File
+## 15. Design Tokens File (TS Mirror)
 
-Tokens exposed as TypeScript constants for programmatic use:
+Type-safe TS mirror at **`src/lib/tokens.ts`**. The CSS file is the source of truth; this file exposes names so CVA variants and component prop types catch drift at compile time.
 
 ```ts
-// lib/design-tokens.ts
-export const tokens = {
-  colors: {
-    primary: 'hsl(346 76% 51%)',  // crimson-500
-    surface: { light: 'hsl(60 9% 98%)', dark: 'hsl(240 11% 5%)' },
-    // ...
-  },
-  spacing: { /* 4px scale */ },
-  typography: { /* type scale */ },
-  motion: { duration: { fast: '150ms', base: '250ms', slow: '400ms' } },
+// src/lib/tokens.ts (excerpt)
+export const surfaceLevels = ["1", "2", "3", "4"] as const;
+export type SurfaceLevel = typeof surfaceLevels[number];
+
+export const durations = ["fast", "base", "slow"] as const;
+export const easings = ["out-expo", "out-quart", "spring"] as const;
+export const gradients = ["sunrise", "aurora", "sunrise-radial", ...] as const;
+
+export const cssVar = {
+  surface: (level: SurfaceLevel) => `var(--surface-${level})`,
+  gradient: (g: Gradient) => `var(--gradient-${g})`,
+  duration: (d: Duration) => `var(--duration-${d})`,
 };
 ```
 
-Use in inline styles when Tailwind utility insufficient (rare).
+Use the TS object when applying tokens via inline `style={{ ... }}` (rare — usually Tailwind utility is enough). Use the type unions for CVA variants:
+
+```ts
+const cardVariants = cva("rounded-lg border", {
+  variants: {
+    surface: {
+      "1": "bg-surface-1",
+      "2": "bg-surface-2",
+      "3": "bg-surface-3",
+    } satisfies Record<SurfaceLevel, string>,  // catches drift
+  },
+});
+```
 
 ---
 
@@ -826,38 +948,108 @@ Don't:
 
 ---
 
-## 17. Component Library Approach
+## 17. Custom Primitive Library
 
-We use **shadcn/ui** as foundation (copy-paste components, owned in repo).
+Foundation built on **`@base-ui/react`** (Base UI — the underlying primitive lib that shadcn/ui wraps). We don't add `shadcn` components via the CLI; we copy patterns from `node_modules/shadcn/dist/registry/` when needed and adapt to our tokens.
 
-**Components to install (Phase 1):**
-- Button
-- Input, Textarea, Select
-- Form (with React Hook Form integration)
-- Dialog (modal)
-- Drawer (mobile bottom sheet)
-- Dropdown Menu
-- Toast (Sonner)
-- Card
-- Badge
-- Avatar
-- Tabs
-- Table
+### 17.1 Existing primitives at `src/components/ui/`
 
-**Custom components (built on top):**
-- `<DataTable>` — with sorting, filtering, pagination
+13 primitives shipped pre-sesi 5: `accordion`, `avatar`, `badge`, `button`, `card`, `dialog`, `dropdown-menu`, `form` (RHF wrapper), `input`, `label`, `radio-group`, `select`, `tabs`, `textarea`. All token-aware.
+
+### 17.2 NEW primitives shipping in Phase F3 (15 files)
+
+To eliminate the 67 browser-native UI violations audited at sesi 4:
+
+| File | Replaces | Phase |
+|---|---|---|
+| `alert-dialog.tsx` | (new — destructive confirmations) | F3a |
+| `confirm-dialog.tsx` | 19× `window.confirm/alert/prompt` | F3a |
+| `disclosure.tsx` | 4× `<details>/<summary>` | F3a |
+| `tooltip.tsx` | (new) | F3a |
+| `sheet.tsx` | (new — mobile bottom sheet for forms/menus) | F3a |
+| `skeleton.tsx` | (new — used by all `loading.tsx`) | F3a |
+| `empty-state.tsx` | scattered inline empty messages | F3a |
+| `native-select.tsx` (or extend `select.tsx`) | 34× raw `<select>` | F3b |
+| `file-drop.tsx` | 1× `<input type="file">` (csv-import) + drag-drop | F3b |
+| `toast.tsx` | wire **sonner** (already installed, never imported) | F3b |
+| `date-picker.tsx` | 4× `<input type="date">` | F3c |
+| `time-picker.tsx` | 3× `<input type="time">` | F3c |
+| `month-picker.tsx` | 2× `<input type="month">` | F3c |
+| `responsive-table.tsx` | `<table>` mobile horizontal-scroll problem | F3c |
+| `data-table.tsx` | per-page table+filter+pagination boilerplate | F3c |
+
+Plus barrel export at `src/components/ui/index.ts` and a dev-only showcase route at `src/app/dev/primitives/page.tsx` (gated by `NODE_ENV !== "production"`) rendering every primitive in light + dark + mobile + desktop variants.
+
+### 17.3 Layout primitives at `src/components/layout/` (Phase F4, NEW)
+
+- `<Container size="sm|md|lg|xl">` — adaptive padding wrapper
+- `<Stack gap="...">` — vertical flow
+- `<Cluster gap="...">` — horizontal flow with wrap
+- `<SectionHeader title actions />` — REPLACES every ad-hoc page-top `text-3xl` h1
+
+### 17.4 Domain custom components at `src/components/`
+
+Existing reusable patterns (don't rebuild):
+- `<CsvImportWizard>` — 4-step wizard pattern (used by 4 importers)
+- `<DataTable>` — sortable / filterable / paginated (in F3c)
 - `<KPICard>` — dashboard metric card
-- `<EventCard>` — event list/card representation
-- `<EmptyState>` — branded empty state
-- `<PageHeader>` — page title + breadcrumb + action buttons
-- `<MobileBottomNav>` — crew mobile nav
-- `<RoleBadge>` — for crew tier indicators
-- `<MoneyDisplay>` — formatted IDR with proper alignment
+- `<EventCard>` — event list/card
+- `<MoneyDisplay>` — formatted IDR (`Rp 1.500.000`) with `.tabular` font feature
+- `<RoleBadge>` — crew tier indicators
 
-All custom components in `components/custom/` folder.
+### 17.5 Why Base UI not direct shadcn install
+
+Base UI gives us better mobile-touch behavior and accessibility primitives without a CLI dependency. shadcn-style copy-paste is fine for individual patterns; the `shadcn` package in `node_modules/` provides the design tokens via `@import "shadcn/tailwind.css"` at the top of `globals.css`.
+
+---
+
+## 18. Anti-Patterns 2026 (Quick Reject List)
+
+When reviewing PRs, reject any of these on sight:
+
+| Pattern | Why reject | Use instead |
+|---|---|---|
+| `<select>` (raw HTML) | Mobile UX is platform-default and clashes with our design | `<Select>` from `ui/select.tsx` |
+| `window.alert/confirm/prompt` | Blocks JS thread, no styling, jarring | `<ConfirmDialog>` + `toast.promise()` |
+| `<input type="date|time|month">` | Mobile-only OS picker, can't style | `<DatePicker>` / `<TimePicker>` / `<MonthPicker>` (F3c) |
+| `<input type="file">` | No drag-drop, no preview | `<FileDrop>` (F3b) |
+| `<details>/<summary>` | Limited a11y, no transitions | `<Disclosure>` (F3a) |
+| `framer-motion` import | ~50KB redundant with View Transitions API | Next.js 16 View Transitions + CSS keyframes |
+| Hard-coded `bg-zinc-*` / `bg-slate-900` | Bypasses theme switching | Semantic tokens: `bg-card`, `bg-surface-2`, `text-foreground` |
+| `text-3xl` h1 on mobile | Pre-shrinkage; oversized on phones | `text-fluid-h1` (22px → 32px) |
+| `p-6` / `p-8` on mobile cards | Wastes ~80px per card | `p-3` mobile-first, `md:p-6` for desktop |
+| `shadow-md` + `shadow-glow-crimson` together | Muddy double-shadow | Pick one elevation strategy |
+| Same-level surface stack (card on card same color) | Flat depth | L2 + L3 instead |
+| Auto-rotating carousels | User has no control, breaks scroll | Static grid with manual scroll |
+| Animating `width`/`height`/`color` | Forces layout/paint, jank on mobile | `transform` / `opacity` / `filter` |
+| Brand photography in hero (DR-024) | Adds LCP weight, photo-quality fragility | Gradient + iconography only |
+
+---
+
+## 19. Design Skills + Slash Commands (sesi 5)
+
+Available globally at `~/.claude/skills/` for use during the redesign:
+
+| Command | Skill | Use for |
+|---|---|---|
+| `/refactoring-ui` | refactoring-ui | Visual hierarchy / spacing / color audit. Grayscale-first thinking. |
+| `/impeccable [craft\|shape\|critique\|audit\|polish\|...]` | impeccable | Process-oriented design ops. 23 sub-commands. Run `/impeccable polish <feature>` before shipping. |
+| `/frontend-design` | frontend-design | Bold creative direction. Avoid "AI-slop" aesthetics (Inter everywhere, purple-blue gradients). |
+| `/ux-heuristics` | ux-heuristics | Nielsen 10 + cognitive walkthrough on a page. |
+| `/ios-hig-design` | ios-hig-design | Native-app feel patterns (sheets, safe areas, SF Symbols equivalents) |
+| `/top-design` | top-design | Premium / Awwwards-tier moments — login, splash, dashboard hero |
+| `/hooked-ux` | hooked-ux | Engagement loops, notification UX, streak/progress systems |
+| `/playwright-cli` | playwright-cli | Visual smoke-test flows during application phases |
+
+**Recommended pattern per phase:**
+
+1. `/refactoring-ui` audit before starting
+2. Implement
+3. `/impeccable polish <area>` before commit
+4. `/playwright-cli` smoke-test critical flow on real device emulation
 
 ---
 
 **End of Design System**
 
-*Next document: [05_DATABASE_SCHEMA.sql](./05_DATABASE_SCHEMA.sql) — Complete Database Schema*
+*Next document: [04a_MOTION_GUIDELINES.md](./04a_MOTION_GUIDELINES.md) — Motion patterns, View Transitions API, microinteraction utilities*
