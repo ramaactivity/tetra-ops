@@ -4,8 +4,8 @@ import {
 	CheckCircle2,
 	ChevronRight,
 	Coins,
-	Info,
 	Inbox,
+	Info,
 	Package,
 	Settings,
 } from "lucide-react";
@@ -16,6 +16,7 @@ import {
 	MarkReadButton,
 } from "@/components/notifications/notification-row-actions";
 import { RunScannerButton } from "@/components/notifications/run-scanner-button";
+import { PushSubscribeButton } from "@/components/push/subscribe-button";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -191,6 +192,22 @@ export default async function NotificationsPage({
 					<RunScannerButton />
 					<MarkAllReadButton disabled={totalUnread === 0} />
 				</div>
+			</div>
+
+			{/* Push notifications subscribe */}
+			<div className="border-border bg-card flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+				<div className="space-y-0.5">
+					<p className="text-foreground text-sm font-medium">
+						Push notification ke device ini
+					</p>
+					<p className="text-muted-foreground text-xs">
+						Aktifkan biar dapat alert OS-level (Android lockscreen, macOS, dll)
+						saat anomaly fires — tidak perlu app terbuka.
+					</p>
+				</div>
+				<PushSubscribeButton
+					vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+				/>
 			</div>
 
 			{/* Show / unread toggle */}

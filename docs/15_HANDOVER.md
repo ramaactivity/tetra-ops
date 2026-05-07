@@ -69,6 +69,7 @@
 6. `20260507_crew_invitations.sql` — crew_invitations table + RLS
 7. `20260507_event_category_fk.sql` — FK events.event_category → event_types.code
 8. `20260507_event_reminders_log.sql` — manual WA reminder click log + RLS
+9. `20260507_push_subscriptions.sql` — Web Push subscriptions per user + RLS
 
 ### Real production data status
 
@@ -107,7 +108,7 @@ Reference: `docs/08_IMPLEMENTATION_PLAN.md`
 - ✅ Daily cron: anomaly scan (Vercel cron 06:30 WIB)
 - ✅ Daily cron: auto status transition (Vercel cron 06:00 WIB)
 - ✅ Dashboard anomaly radar widget
-- ❌ **Web Push API for PWA** — service worker + push subscription (mobile push when app off-device)
+- ✅ **Web Push API for PWA** — service worker (`/public/sw.js`) + `push_subscriptions` table + VAPID-based dispatch (`web-push` lib) + subscribe/unsubscribe UI on `/notifications` + auto-dispatch from anomaly scanner per rule's `send_push` flag. Multi-device per user. Auto-prune 410 Gone subscriptions.
 
 **Week 12: WhatsApp Integration — ✅ DONE**
 - ✅ WhatsApp template management UI (existing /settings/whatsapp-templates)
@@ -299,7 +300,7 @@ Ordered by impact untuk go-live + remaining roadmap:
 ### Round 1: Phase 3 finishing
 1. ✅ **WhatsApp reminder scheduler UI** (Week 12 closure) — DONE. `/reminders` page dengan 4 bucket (H-3 pelunasan, H-7 belum DP, H-1 konfirmasi, overdue), checkbox batch-select, sequenced wa.me opens, `event_reminders_log` tracking. Migration: `20260507_event_reminders_log.sql`.
 2. **Drive integration** (Week 14) — OAuth flow + auto-create event folder + uploadFile helper. Replace existing drive_url text fields with proper file storage. ~1-2 hari (multi-step). Big infra piece. **BLOCKED on Rama: `GOOGLE_DRIVE_CLIENT_ID/SECRET` env vars.**
-3. **Web Push API** (Week 11 closure) — service worker + push subscription endpoint + send notif when anomaly fires. ~1 hari. **Partial-blocked on Rama: VAPID keys.**
+3. ✅ **Web Push API** (Week 11 closure) — DONE. Service worker `/public/sw.js`, `push_subscriptions` table, VAPID dispatch via `web-push` package, subscribe button at `/notifications`, auto-fire dari anomaly scanner. Migration `20260507_push_subscriptions.sql`. Rama runs `node scripts/generate-vapid-keys.mjs` + sets 3 env vars di Vercel.
 
 ### Round 2: Phase 4 polish dipriortiaskan untuk go-live
 4. **Equipment self-checkin from /crew** — crew tandai alat balik dari HP. Builds on existing equipment movement actions. ~3 jam.
@@ -339,9 +340,13 @@ Already set (working):
 Pending Rama action:
 - ❌ `CRON_SECRET` — set this so cron endpoints reject unauthorized callers
 
+Pending Rama action — Web Push:
+- ❌ `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (run `node scripts/generate-vapid-keys.mjs` once)
+- ❌ `VAPID_PRIVATE_KEY` (same generator output — KEEP SECRET)
+- ❌ `VAPID_CONTACT_EMAIL` (default `tetraphotobooth@gmail.com`)
+
 Future (when implementing):
 - `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET` (Phase 3 Week 14)
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (Web Push)
 - `WHATSAPP_API_TOKEN` (if/when adopting WA Business API)
 
 ---

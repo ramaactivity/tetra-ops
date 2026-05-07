@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type Severity = "alert" | "warning" | "info" | "success";
@@ -24,6 +25,7 @@ type Rule = {
 	trigger_condition: Record<string, unknown>;
 	recipient_roles: string[];
 	is_enabled: boolean;
+	send_push: boolean;
 };
 
 type ScanResult = {
@@ -79,7 +81,7 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 		admin
 			.from("notification_rules")
 			.select(
-				"id, code, name, category, severity, trigger_condition, recipient_roles, is_enabled",
+				"id, code, name, category, severity, trigger_condition, recipient_roles, is_enabled, send_push",
 			)
 			.eq("is_enabled", true),
 		admin
@@ -90,7 +92,7 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 	]);
 
 	const rules = (rulesData ?? []) as Rule[];
-	const users = ((usersData ?? []) as Array<{ id: string; role: string }>);
+	const users = (usersData ?? []) as Array<{ id: string; role: string }>;
 	result.scanned = rules.length;
 
 	if (rules.length === 0) return result;
@@ -196,15 +198,15 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 				.in("user_id", userIds)
 				.in("entity_id", entityIds);
 
-			const dupKey = (
-				userId: string,
-				entityId: string,
-			) => `${userId}::${entityId}`;
+			const dupKey = (userId: string, entityId: string) =>
+				`${userId}::${entityId}`;
 			const dupSet = new Set(
-				((existingDups ?? []) as Array<{
-					user_id: string;
-					entity_id: string;
-				}>).map((d) => dupKey(d.user_id, d.entity_id)),
+				(
+					(existingDups ?? []) as Array<{
+						user_id: string;
+						entity_id: string;
+					}>
+				).map((d) => dupKey(d.user_id, d.entity_id)),
 			);
 
 			const toInsert = proposed.filter(
@@ -252,6 +254,73 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 				matched: matches.length,
 				created: rows.length,
 			});
+
+			// Fire web push (best-effort; failures don't fail the scan)
+			if (rule.send_push && isVapidConfigured()) {
+				try {
+					const recipientIds = Array.from(
+						new Set(toInsert.map((p) => p.user_id)),
+					);
+					const { data: subs } = await admin
+						.from("push_subscriptions")
+						.select("id, endpoint, p256dh_key, auth_key, user_id")
+						.in("user_id", recipientIds)
+						.eq("is_active", true);
+
+					const subsByUser = new Map<
+						string,
+						Array<{
+							id: string;
+							endpoint: string;
+							p256dh_key: string;
+							auth_key: string;
+						}>
+					>();
+					for (const s of (subs ?? []) as Array<{
+						id: string;
+						endpoint: string;
+						p256dh_key: string;
+						auth_key: string;
+						user_id: string;
+					}>) {
+						const arr = subsByUser.get(s.user_id) ?? [];
+						arr.push({
+							id: s.id,
+							endpoint: s.endpoint,
+							p256dh_key: s.p256dh_key,
+							auth_key: s.auth_key,
+						});
+						subsByUser.set(s.user_id, arr);
+					}
+
+					const goneIds: string[] = [];
+					for (const p of toInsert) {
+						const userSubs = subsByUser.get(p.user_id) ?? [];
+						if (userSubs.length === 0) continue;
+						const outcomes = await dispatchPushToMany(userSubs, {
+							title: p.title,
+							body: p.body,
+							url: p.action_url ?? "/notifications",
+							tag: `${rule.code}:${p.entity_id}`,
+							severity: rule.severity,
+						});
+						for (const o of outcomes) {
+							if (o.gone) goneIds.push(o.id);
+						}
+					}
+
+					if (goneIds.length > 0) {
+						await admin
+							.from("push_subscriptions")
+							.update({ is_active: false })
+							.in("id", goneIds);
+					}
+				} catch (pushErr) {
+					result.errors.push(
+						`${rule.code} push: ${pushErr instanceof Error ? pushErr.message : "unknown"}`,
+					);
+				}
+			}
 		} catch (err) {
 			result.errors.push(
 				`${rule.code}: ${err instanceof Error ? err.message : "unknown"}`,
@@ -302,13 +371,15 @@ async function checkHMinusNoCrew(
 		((assignments ?? []) as Array<{ event_id: string }>).map((a) => a.event_id),
 	);
 
-	return (events as Array<{
-		id: string;
-		project_id: string;
-		client_name: string;
-		event_date: string;
-		venue_name: string;
-	}>)
+	return (
+		events as Array<{
+			id: string;
+			project_id: string;
+			client_name: string;
+			event_date: string;
+			venue_name: string;
+		}>
+	)
 		.filter((e) => !haveCrew.has(e.id))
 		.map((e) => ({
 			entity_type: "event",
@@ -333,13 +404,15 @@ async function checkHMinusNoDesign(
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
 		.is("design_approved_at", null);
-	return ((events ?? []) as Array<{
-		id: string;
-		project_id: string;
-		client_name: string;
-		event_date: string;
-		venue_name: string;
-	}>).map((e) => ({
+	return (
+		(events ?? []) as Array<{
+			id: string;
+			project_id: string;
+			client_name: string;
+			event_date: string;
+			venue_name: string;
+		}>
+	).map((e) => ({
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Event H-1 desain belum ACC: ${e.client_name}`,
@@ -360,13 +433,15 @@ async function checkHMinusNotPaid(
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
 		.gt("remaining_balance", 0);
-	return ((events ?? []) as Array<{
-		id: string;
-		project_id: string;
-		client_name: string;
-		event_date: string;
-		remaining_balance: number;
-	}>).map((e) => ({
+	return (
+		(events ?? []) as Array<{
+			id: string;
+			project_id: string;
+			client_name: string;
+			event_date: string;
+			remaining_balance: number;
+		}>
+	).map((e) => ({
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Event H-3 belum lunas: ${e.client_name}`,
@@ -387,12 +462,14 @@ async function checkHMinusNoDP(
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
 		.eq("total_paid", 0);
-	return ((events ?? []) as Array<{
-		id: string;
-		project_id: string;
-		client_name: string;
-		event_date: string;
-	}>).map((e) => ({
+	return (
+		(events ?? []) as Array<{
+			id: string;
+			project_id: string;
+			client_name: string;
+			event_date: string;
+		}>
+	).map((e) => ({
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Event H-7 belum DP: ${e.client_name}`,
@@ -418,13 +495,15 @@ async function checkInvoiceOverdue(
 		.gt("remaining_balance", 0)
 		.lte("due_date", cutoff)
 		.not("due_date", "is", null);
-	return ((events ?? []) as Array<{
-		id: string;
-		project_id: string;
-		client_name: string;
-		due_date: string;
-		remaining_balance: number;
-	}>).map((e) => ({
+	return (
+		(events ?? []) as Array<{
+			id: string;
+			project_id: string;
+			client_name: string;
+			due_date: string;
+			remaining_balance: number;
+		}>
+	).map((e) => ({
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Invoice overdue ${daysAfter}d: ${e.client_name}`,
@@ -442,15 +521,17 @@ async function checkLossEvent(admin: AdminClient): Promise<Match[]> {
 		)
 		.eq("is_loss", true)
 		.eq("is_reopened", false);
-	return ((settlements ?? []) as Array<{
-		event_id: string;
-		net_profit: number;
-		closed_at: string;
-		event:
-			| { id: string; project_id: string; client_name: string }
-			| Array<{ id: string; project_id: string; client_name: string }>
-			| null;
-	}>)
+	return (
+		(settlements ?? []) as Array<{
+			event_id: string;
+			net_profit: number;
+			closed_at: string;
+			event:
+				| { id: string; project_id: string; client_name: string }
+				| Array<{ id: string; project_id: string; client_name: string }>
+				| null;
+		}>
+	)
 		.map((s) => {
 			const ev = Array.isArray(s.event) ? s.event[0] : s.event;
 			if (!ev) return null;
@@ -474,11 +555,13 @@ async function checkPendingUser24h(admin: AdminClient): Promise<Match[]> {
 		.eq("role", "pending_approval")
 		.is("deleted_at", null)
 		.lte("created_at", cutoff.toISOString());
-	return ((users ?? []) as Array<{
-		id: string;
-		full_name: string;
-		email: string;
-	}>).map((u) => ({
+	return (
+		(users ?? []) as Array<{
+			id: string;
+			full_name: string;
+			email: string;
+		}>
+	).map((u) => ({
 		entity_type: "user",
 		entity_id: u.id,
 		title: `Pending approval >24h: ${u.full_name}`,
@@ -570,13 +653,18 @@ async function checkCrewDoubleBooked(admin: AdminClient): Promise<Match[]> {
 	type Row = {
 		user_id: string;
 		event:
-			| { id: string; project_id: string; client_name: string; event_date: string }
+			| {
+					id: string;
+					project_id: string;
+					client_name: string;
+					event_date: string;
+			  }
 			| Array<{
 					id: string;
 					project_id: string;
 					client_name: string;
 					event_date: string;
-				}>
+			  }>
 			| null;
 	};
 
@@ -605,9 +693,10 @@ async function checkCrewDoubleBooked(admin: AdminClient): Promise<Match[]> {
 				.in("id", Array.from(conflictUserIds))
 		: { data: [] as Array<{ id: string; full_name: string }> };
 	const nameById = new Map(
-		((usersData ?? []) as Array<{ id: string; full_name: string }>).map(
-			(u) => [u.id, u.full_name],
-		),
+		((usersData ?? []) as Array<{ id: string; full_name: string }>).map((u) => [
+			u.id,
+			u.full_name,
+		]),
 	);
 
 	const matches: Match[] = [];
@@ -623,9 +712,7 @@ async function checkCrewDoubleBooked(admin: AdminClient): Promise<Match[]> {
 			entity_type: "crew_assignment",
 			entity_id: `${userId}-${date}`,
 			title: `Crew double-booked: ${name} · ${date}`,
-			body: events
-				.map((e) => `${e.client_name} (${e.project_id})`)
-				.join(" + "),
+			body: events.map((e) => `${e.client_name} (${e.project_id})`).join(" + "),
 			action_url: firstEvent
 				? `/operations/${firstEvent.project_id}/crew`
 				: `/operations/team`,
@@ -653,25 +740,27 @@ async function checkEquipmentMissing(
 		.eq("category", "equipment")
 		.not("current_event_id", "is", null);
 
-	return ((items ?? []) as Array<{
-		id: string;
-		sku: string;
-		name: string;
-		event:
-			| {
-					id: string;
-					project_id: string;
-					client_name: string;
-					event_date: string;
-				}
-			| Array<{
-					id: string;
-					project_id: string;
-					client_name: string;
-					event_date: string;
-				}>
-			| null;
-	}>)
+	return (
+		(items ?? []) as Array<{
+			id: string;
+			sku: string;
+			name: string;
+			event:
+				| {
+						id: string;
+						project_id: string;
+						client_name: string;
+						event_date: string;
+				  }
+				| Array<{
+						id: string;
+						project_id: string;
+						client_name: string;
+						event_date: string;
+				  }>
+				| null;
+		}>
+	)
 		.map((i) => {
 			const ev = Array.isArray(i.event) ? i.event[0] : i.event;
 			if (!ev) return null;
