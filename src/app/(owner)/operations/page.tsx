@@ -13,6 +13,7 @@ import {
 } from "@/components/badges/status-badge";
 import { OperationsFilterBar } from "@/components/operations/filter-bar";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import {
 	Table,
 	TableBody,
@@ -21,11 +22,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import {
-	CHANNEL_TYPE_LABELS,
-	formatDateID,
-	formatRupiah,
-} from "@/lib/format";
+import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type EventRow = {
@@ -144,13 +141,16 @@ export default async function OperationsListPage({
 						Kelola event dari draft sampai pelunasan.
 					</p>
 				</div>
-				<Link
-					href="/operations/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New booking
-				</Link>
+				<div className="flex items-center gap-2">
+					<OperationsViewSwitcher current="list" />
+					<Link
+						href="/operations/new"
+						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
+					>
+						<Plus className="h-4 w-4" />
+						New booking
+					</Link>
+				</div>
 			</div>
 
 			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -195,7 +195,9 @@ export default async function OperationsListPage({
 						<CalendarPlus className="text-muted-foreground h-10 w-10" />
 						<div className="space-y-1">
 							<h3 className="font-medium">
-								{hasFilters ? "Tidak ada event yang cocok" : "Belum ada booking"}
+								{hasFilters
+									? "Tidak ada event yang cocok"
+									: "Belum ada booking"}
 							</h3>
 							<p className="text-muted-foreground text-sm">
 								{hasFilters
