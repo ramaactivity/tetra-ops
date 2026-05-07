@@ -1033,11 +1033,10 @@ function DoneStep({
 	const errorGroups = useMemo(() => {
 		const map = new Map<string, number>();
 		for (const r of errorRows) {
-			const key = (r.message ?? "Unknown error")
-				.split(":")[0]
-				.split(";")[0]
-				.trim()
-				.slice(0, 60);
+			// Group by full message (truncated). Splitting on ":" loses the
+			// actual error reason (e.g. "email: Invalid format" → "email")
+			// and makes the grouping meaningless.
+			const key = (r.message ?? "Unknown error").trim().slice(0, 100);
 			map.set(key, (map.get(key) ?? 0) + 1);
 		}
 		return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);

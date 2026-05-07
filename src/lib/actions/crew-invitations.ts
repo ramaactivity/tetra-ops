@@ -24,33 +24,77 @@ async function requireSuperAdmin() {
 
 const TIERS = ["senior", "junior"] as const;
 
+// Lenient email regex — accepts any non-whitespace local + domain + TLD.
+// Strict zod .email() rejects edge cases like emails with + or dots that
+// are actually valid in Gmail (e.g. user.name+tag@gmail.com).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(raw: unknown): string {
+	if (typeof raw !== "string") return "";
+	return raw.trim().toLowerCase();
+}
+
+function normalizeTier(raw: unknown): "senior" | "junior" {
+	const v = (typeof raw === "string" ? raw : "").trim().toLowerCase();
+	return v === "senior" ? "senior" : "junior";
+}
+
 const InvitationSchema = z.object({
-	email: z.string().trim().toLowerCase().email("Email tidak valid"),
-	full_name: z.string().trim().min(1).max(120),
+	email: z
+		.string()
+		.min(1, "email kosong")
+		.refine((v) => EMAIL_REGEX.test(v), {
+			message: "email format invalid",
+		}),
+	full_name: z.string().trim().min(1, "full_name kosong").max(120),
 	nickname: z
 		.string()
 		.trim()
 		.max(60)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 	phone_wa: z
 		.string()
 		.trim()
 		.max(40)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 	tier: z.enum(TIERS),
 	default_fee_override: z
 		.union([z.coerce.number().int().nonnegative(), z.literal("")])
-		.optional()
+		.nullish()
 		.transform((v) => (typeof v === "number" ? v : null)),
 	notes: z
 		.string()
 		.trim()
 		.max(500)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 });
+
+// Pre-process raw row → normalized payload before zod validation.
+// Returns null if email is hopelessly malformed (caller can short-circuit
+// with a clearer error than zod's generic "format invalid").
+function preprocessRow(obj: Record<string, string>): {
+	error?: string;
+	data?: z.input<typeof InvitationSchema>;
+} {
+	const email = normalizeEmail(obj.email ?? "");
+	if (!email) return { error: "email kosong" };
+	if (!EMAIL_REGEX.test(email))
+		return { error: `email "${email}" format invalid` };
+	return {
+		data: {
+			email,
+			full_name: (obj.full_name ?? "").trim(),
+			nickname: obj.nickname ?? "",
+			phone_wa: obj.phone_wa ?? "",
+			tier: normalizeTier(obj.tier),
+			default_fee_override: obj.default_fee_override ?? "",
+			notes: obj.notes ?? "",
+		},
+	};
+}
 
 export type InvitationFormState =
 	| { error?: string; ok?: boolean }
@@ -66,15 +110,20 @@ export async function createCrewInvitation(
 ): Promise<InvitationFormState> {
 	try {
 		const me = await requireSuperAdmin();
-		const parsed = InvitationSchema.safeParse({
-			email: formData.get("email"),
-			full_name: formData.get("full_name"),
-			nickname: formData.get("nickname") ?? "",
-			phone_wa: formData.get("phone_wa") ?? "",
-			tier: formData.get("tier"),
-			default_fee_override: formData.get("default_fee_override") ?? "",
-			notes: formData.get("notes") ?? "",
-		});
+		const raw: Record<string, string> = {
+			email: String(formData.get("email") ?? ""),
+			full_name: String(formData.get("full_name") ?? ""),
+			nickname: String(formData.get("nickname") ?? ""),
+			phone_wa: String(formData.get("phone_wa") ?? ""),
+			tier: String(formData.get("tier") ?? ""),
+			default_fee_override: String(formData.get("default_fee_override") ?? ""),
+			notes: String(formData.get("notes") ?? ""),
+		};
+		const pre = preprocessRow(raw);
+		if (pre.error || !pre.data) {
+			return { error: pre.error ?? "Invalid input" };
+		}
+		const parsed = InvitationSchema.safeParse(pre.data);
 		if (!parsed.success) {
 			return {
 				error: parsed.error.issues
@@ -211,19 +260,21 @@ export async function commitInvitationImport(
 			const tasks = rows.map(
 				(obj, i) => async (): Promise<ImportResultRow> => {
 					const rowNum = rowOffset + i + 2;
-					const validation = InvitationSchema.safeParse({
-						email: obj.email ?? "",
-						full_name: obj.full_name ?? "",
-						nickname: obj.nickname ?? "",
-						phone_wa: obj.phone_wa ?? "",
-						tier: (obj.tier ?? "junior").toLowerCase(),
-						default_fee_override: obj.default_fee_override ?? "",
-						notes: obj.notes ?? "",
-					});
-					if (!validation.success) {
+					const pre = preprocessRow(obj);
+					if (pre.error || !pre.data) {
 						return {
 							row: rowNum,
 							primaryKey: obj.email ?? null,
+							label: obj.full_name ?? null,
+							status: "error",
+							message: pre.error ?? "preprocess gagal",
+						};
+					}
+					const validation = InvitationSchema.safeParse(pre.data);
+					if (!validation.success) {
+						return {
+							row: rowNum,
+							primaryKey: pre.data.email,
 							label: obj.full_name ?? null,
 							status: "error",
 							message: validation.error.issues
