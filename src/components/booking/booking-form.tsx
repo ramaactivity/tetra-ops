@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { NativeSelect } from "@/components/ui/native-select";
+import { TimePicker } from "@/components/ui/time-picker";
 import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
 import {
 	ADDON_CATEGORY_LABELS,
@@ -140,6 +143,18 @@ export function BookingForm({
 	const [backdropId, setBackdropId] = useState<string>(initialBackdropId);
 	const [vendorMarkup, setVendorMarkup] = useState<number>(initialVendorMarkup);
 
+	// Controlled state for form values that used native <select> / <input type=date|time>.
+	// Each is mirrored via a hidden <input name="..."> so the FormData submission
+	// pipeline (server action) keeps working unchanged.
+	const [channel, setChannel] = useState(get("channel", "direct"));
+	const [serviceType, setServiceType] = useState(get("service_type", ""));
+	const [frameSize, setFrameSize] = useState(get("frame_size", ""));
+	const [eventCategory, setEventCategory] = useState(get("event_category", ""));
+	const [eventDate, setEventDate] = useState(get("event_date", ""));
+	const [setupTime, setSetupTime] = useState(get("setup_time", "16:00"));
+	const [startTime, setStartTime] = useState(get("start_time", "18:00"));
+	const [endTime, setEndTime] = useState(get("end_time", "22:00"));
+
 	const selectedBackdrop = useMemo(
 		() => backdrops.find((b) => b.id === backdropId),
 		[backdrops, backdropId],
@@ -245,18 +260,17 @@ export function BookingForm({
 					error={err("channel")}
 					required
 				>
-					<select
-						name="channel"
-						required
-						defaultValue={get("channel", "direct")}
-						className={selectClass}
-					>
-						{CHANNEL_OPTIONS.map(([value, label]) => (
-							<option key={value} value={value}>
-								{label}
-							</option>
-						))}
-					</select>
+					<NativeSelect
+						value={channel}
+						onValueChange={setChannel}
+						options={CHANNEL_OPTIONS.map(([value, label]) => ({
+							value,
+							label,
+						}))}
+						triggerClassName="w-full"
+						aria-invalid={!!err("channel")}
+					/>
+					<input type="hidden" name="channel" value={channel} required />
 				</Field>
 
 				<div className="grid gap-6 md:grid-cols-2">
@@ -318,21 +332,23 @@ export function BookingForm({
 						error={err("service_type")}
 						required
 					>
-						<select
+						<NativeSelect
+							value={serviceType}
+							onValueChange={setServiceType}
+							placeholder="Pilih service…"
+							options={SERVICE_TYPE_OPTIONS.map(([value, label]) => ({
+								value,
+								label,
+							}))}
+							triggerClassName="w-full"
+							aria-invalid={!!err("service_type")}
+						/>
+						<input
+							type="hidden"
 							name="service_type"
+							value={serviceType}
 							required
-							defaultValue={get("service_type", "")}
-							className={selectClass}
-						>
-							<option value="" disabled>
-								Pilih service…
-							</option>
-							{SERVICE_TYPE_OPTIONS.map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
+						/>
 					</Field>
 
 					<Field
@@ -341,21 +357,23 @@ export function BookingForm({
 						error={err("frame_size")}
 						required
 					>
-						<select
+						<NativeSelect
+							value={frameSize}
+							onValueChange={setFrameSize}
+							placeholder="Pilih frame…"
+							options={FRAME_SIZE_OPTIONS.map(([value, label]) => ({
+								value,
+								label: label === "—" ? "None" : label,
+							}))}
+							triggerClassName="w-full"
+							aria-invalid={!!err("frame_size")}
+						/>
+						<input
+							type="hidden"
 							name="frame_size"
+							value={frameSize}
 							required
-							defaultValue={get("frame_size", "")}
-							className={selectClass}
-						>
-							<option value="" disabled>
-								Pilih frame…
-							</option>
-							{FRAME_SIZE_OPTIONS.map(([value, label]) => (
-								<option key={value} value={value}>
-									{label === "—" ? "None" : label}
-								</option>
-							))}
-						</select>
+						/>
 					</Field>
 				</div>
 
@@ -365,20 +383,20 @@ export function BookingForm({
 					error={err("package_id")}
 					hint="Pilih dari pricelist; base price akan auto-fill"
 				>
-					<select
-						name="package_id"
+					<NativeSelect
 						value={packageId}
-						onChange={(e) => handlePackageChange(e.target.value)}
-						className={selectClass}
-					>
-						<option value="">— Custom / belum dipilih —</option>
-						{packages.map((pkg) => (
-							<option key={pkg.id} value={pkg.id}>
-								{pkg.name} · {pkg.duration_hours}j ·{" "}
-								{formatRupiah(pkg.base_price)}
-							</option>
-						))}
-					</select>
+						onValueChange={(value) => handlePackageChange(value)}
+						placeholder="— Custom / belum dipilih —"
+						options={[
+							{ value: "", label: "— Custom / belum dipilih —" },
+							...packages.map((pkg) => ({
+								value: pkg.id,
+								label: `${pkg.name} · ${pkg.duration_hours}j · ${formatRupiah(pkg.base_price)}`,
+							})),
+						]}
+						triggerClassName="w-full"
+					/>
+					<input type="hidden" name="package_id" value={packageId} />
 				</Field>
 			</Section>
 
@@ -397,22 +415,24 @@ export function BookingForm({
 									: "Pilih backdrop dari katalog"
 					}
 				>
-					<select
-						name="backdrop_id"
+					<NativeSelect
 						value={backdropId}
-						onChange={(e) => setBackdropId(e.target.value)}
-						className={selectClass}
-					>
-						<option value="">— Belum dipilih —</option>
-						{backdrops.map((b) => (
-							<option key={b.id} value={b.id}>
-								{b.name} · {BACKDROP_TYPE_LABEL[b.type] ?? b.type}
-								{b.type === "rental_owned" && b.rental_price > 0
-									? ` · ${formatRupiah(b.rental_price)}`
-									: ""}
-							</option>
-						))}
-					</select>
+						onValueChange={setBackdropId}
+						placeholder="— Belum dipilih —"
+						options={[
+							{ value: "", label: "— Belum dipilih —" },
+							...backdrops.map((b) => ({
+								value: b.id,
+								label: `${b.name} · ${BACKDROP_TYPE_LABEL[b.type] ?? b.type}${
+									b.type === "rental_owned" && b.rental_price > 0
+										? ` · ${formatRupiah(b.rental_price)}`
+										: ""
+								}`,
+							})),
+						]}
+						triggerClassName="w-full"
+					/>
+					<input type="hidden" name="backdrop_id" value={backdropId} />
 				</Field>
 
 				{isVendorDecor && (
@@ -472,21 +492,23 @@ export function BookingForm({
 						error={err("event_category")}
 						required
 					>
-						<select
+						<NativeSelect
+							value={eventCategory}
+							onValueChange={setEventCategory}
+							placeholder="— Pilih kategori —"
+							options={eventTypes.map((t) => ({
+								value: t.code,
+								label: t.label,
+							}))}
+							triggerClassName="w-full"
+							aria-invalid={!!err("event_category")}
+						/>
+						<input
+							type="hidden"
 							name="event_category"
+							value={eventCategory}
 							required
-							defaultValue={get("event_category")}
-							className={selectClass}
-						>
-							<option value="" disabled>
-								— Pilih kategori —
-							</option>
-							{eventTypes.map((t) => (
-								<option key={t.code} value={t.code}>
-									{t.label}
-								</option>
-							))}
-						</select>
+						/>
 					</Field>
 
 					<Field
@@ -495,12 +517,17 @@ export function BookingForm({
 						error={err("event_date")}
 						required
 					>
+						<DatePicker
+							value={eventDate}
+							onValueChange={setEventDate}
+							placeholder="Pilih tanggal"
+							aria-invalid={!!err("event_date")}
+						/>
 						<input
-							type="date"
+							type="hidden"
 							name="event_date"
+							value={eventDate}
 							required
-							defaultValue={get("event_date")}
-							className={inputClass}
 						/>
 					</Field>
 				</div>
@@ -512,12 +539,16 @@ export function BookingForm({
 						error={err("setup_time")}
 						required
 					>
+						<TimePicker
+							value={setupTime}
+							onValueChange={setSetupTime}
+							aria-invalid={!!err("setup_time")}
+						/>
 						<input
-							type="time"
+							type="hidden"
 							name="setup_time"
+							value={setupTime}
 							required
-							defaultValue={get("setup_time", "16:00")}
-							className={inputClass}
 						/>
 					</Field>
 					<Field
@@ -526,12 +557,16 @@ export function BookingForm({
 						error={err("start_time")}
 						required
 					>
+						<TimePicker
+							value={startTime}
+							onValueChange={setStartTime}
+							aria-invalid={!!err("start_time")}
+						/>
 						<input
-							type="time"
+							type="hidden"
 							name="start_time"
+							value={startTime}
 							required
-							defaultValue={get("start_time", "18:00")}
-							className={inputClass}
 						/>
 					</Field>
 					<Field
@@ -540,13 +575,12 @@ export function BookingForm({
 						error={err("end_time")}
 						required
 					>
-						<input
-							type="time"
-							name="end_time"
-							required
-							defaultValue={get("end_time", "22:00")}
-							className={inputClass}
+						<TimePicker
+							value={endTime}
+							onValueChange={setEndTime}
+							aria-invalid={!!err("end_time")}
 						/>
+						<input type="hidden" name="end_time" value={endTime} required />
 					</Field>
 				</div>
 			</Section>
