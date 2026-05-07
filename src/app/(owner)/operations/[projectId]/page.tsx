@@ -24,6 +24,7 @@ import { StatusMenu } from "@/components/booking/status-menu";
 import { DesignCard } from "@/components/event-design/design-card";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
+import { PdfDownloadMenu } from "@/components/pdf/download-menu";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
@@ -261,6 +262,25 @@ export default async function EventDetailPage({
 										</span>
 									)}
 								</Link>
+								<PdfDownloadMenu
+									options={[
+										{
+											label: "Invoice",
+											href: `/api/pdf/invoice/${event.project_id}`,
+											hint: "Tagihan ke klien",
+										},
+										{
+											label: "Quotation",
+											href: `/api/pdf/quotation/${event.project_id}`,
+											hint: "Estimasi pre-DP",
+										},
+										{
+											label: "BAST",
+											href: `/api/pdf/bast/${event.project_id}`,
+											hint: "Berita Acara Serah Terima",
+										},
+									]}
+								/>
 								<Link
 									href={`/operations/${event.project_id}/edit`}
 									className="border-border bg-card hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
