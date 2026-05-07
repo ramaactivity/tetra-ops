@@ -24,7 +24,9 @@ export default async function CrewLayout({
 				email={result.email}
 				role={profile.role}
 			/>
-			<main className="flex-1 pb-20">{children}</main>
+			<main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
+				{children}
+			</main>
 			<CrewBottomNav />
 		</div>
 	);

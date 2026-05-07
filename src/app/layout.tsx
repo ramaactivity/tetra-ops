@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
@@ -24,6 +24,32 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
 	title: "Tetra Ops",
 	description: "Internal operating system for Tetra Photobooth",
+	manifest: "/manifest.json",
+	appleWebApp: {
+		capable: true,
+		title: "Tetra Ops",
+		statusBarStyle: "black-translucent",
+	},
+	icons: {
+		icon: [
+			{ url: "/pwa-icons/icon-192.png", sizes: "192x192", type: "image/png" },
+			{ url: "/pwa-icons/icon-512.png", sizes: "512x512", type: "image/png" },
+		],
+		apple: [{ url: "/pwa-icons/icon-192.png", sizes: "192x192" }],
+	},
+	formatDetection: {
+		telephone: false,
+	},
+};
+
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+	viewportFit: "cover",
+	themeColor: [
+		{ media: "(prefers-color-scheme: light)", color: "#FAFAF9" },
+		{ media: "(prefers-color-scheme: dark)", color: "#0A0A0F" },
+	],
 };
 
 export default async function RootLayout({

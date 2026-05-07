@@ -172,16 +172,56 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    @apply font-sans;
+    /* Prevent rubber-band overscroll showing white above status bar in PWA */
+    background-color: var(--background);
+    /* iOS pinch-to-zoom is governed by viewport meta; this keeps text crisp */
+    -webkit-text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-  }
-  html {
-    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Momentum scroll for iOS Safari */
+    -webkit-overflow-scrolling: touch;
+    /* Disable text size adjust on rotation */
+    text-size-adjust: 100%;
   }
   /* Tabular numbers for financial figures */
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* Reusable focus ring that meets WCAG without breaking aesthetic */
+  :focus-visible {
+    @apply outline-ring;
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers — iOS notch / Dynamic Island / home indicator */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .py-safe {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Compose with existing padding via max() */
+  .pt-safe-or-4 { padding-top: max(env(safe-area-inset-top), 1rem); }
+  .pb-safe-or-4 { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
+  /* Min-height that includes safe-area, useful for sticky headers/footers */
+  .h-safe-bottom-nav { height: calc(3.5rem + env(safe-area-inset-bottom)); }
+  .h-safe-topbar { height: calc(3.5rem + env(safe-area-inset-top)); }
 }

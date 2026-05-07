@@ -30,7 +30,10 @@ export function CrewBottomNav() {
 	const pathname = usePathname();
 
 	return (
-		<nav className="bg-background/95 border-border supports-[backdrop-filter]:bg-background/80 fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t backdrop-blur">
+		<nav
+			aria-label="Primary"
+			className="bg-background/85 border-border supports-[backdrop-filter]:bg-background/70 fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t backdrop-blur-xl pb-safe"
+		>
 			{NAV_ITEMS.map((item) => {
 				const isActive =
 					item.href === "/crew"
@@ -41,15 +44,20 @@ export function CrewBottomNav() {
 					<Link
 						key={item.href}
 						href={item.href}
+						aria-current={isActive ? "page" : undefined}
 						className={cn(
-							"flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors",
+							"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-medium transition-colors",
 							isActive
 								? "text-primary"
 								: "text-muted-foreground hover:text-foreground",
 						)}
 					>
-						<Icon className="h-5 w-5" />
-						{item.label}
+						<Icon
+							className="h-6 w-6"
+							strokeWidth={isActive ? 2.25 : 1.75}
+							aria-hidden="true"
+						/>
+						<span className="leading-none">{item.label}</span>
 					</Link>
 				);
 			})}

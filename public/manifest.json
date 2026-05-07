@@ -1,0 +1,30 @@
+{
+	"name": "Tetra Ops",
+	"short_name": "Tetra Ops",
+	"description": "Internal operating system for Tetra Photobooth",
+	"start_url": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#0A0A0F",
+	"theme_color": "#0A0A0F",
+	"icons": [
+		{
+			"src": "/pwa-icons/icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/pwa-icons/icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/pwa-icons/icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}

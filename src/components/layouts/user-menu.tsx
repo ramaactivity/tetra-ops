@@ -59,7 +59,10 @@ export function UserMenu({
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger className="hover:bg-muted focus-visible:ring-ring rounded-full focus-visible:ring-2 focus-visible:outline-none">
+			<DropdownMenuTrigger
+				aria-label="Account menu"
+				className="hover:bg-muted focus-visible:ring-ring inline-flex h-11 w-11 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
+			>
 				<Avatar className="h-9 w-9">
 					<AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
 						{initialsOf(name)}
