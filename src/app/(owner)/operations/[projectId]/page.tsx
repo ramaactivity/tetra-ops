@@ -1,31 +1,20 @@
 import { ChevronLeft, ExternalLink, Pencil, Receipt, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+	EventStatusBadge,
+	PaymentStatusBadge,
+} from "@/components/badges/status-badge";
 import { StatusMenu } from "@/components/booking/status-menu";
 import { Badge } from "@/components/ui/badge";
 import {
 	CHANNEL_TYPE_LABELS,
-	EVENT_STATUS_LABELS,
 	FRAME_SIZE_LABELS,
 	formatDateID,
 	formatRupiah,
-	PAYMENT_STATUS_LABELS,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-
-const STATUS_VARIANT: Record<
-	string,
-	"default" | "secondary" | "outline" | "destructive"
-> = {
-	draft: "outline",
-	confirmed: "default",
-	upcoming: "default",
-	in_progress: "default",
-	completed: "secondary",
-	cancelled: "destructive",
-	archived: "outline",
-};
 
 export default async function EventDetailPage({
 	params,
@@ -111,9 +100,7 @@ export default async function EventDetailPage({
 						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
-						<Badge variant={STATUS_VARIANT[event.status] ?? "outline"}>
-							{EVENT_STATUS_LABELS[event.status] ?? event.status}
-						</Badge>
+						<EventStatusBadge status={event.status} />
 						<Badge variant="outline">
 							{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
 						</Badge>
@@ -320,8 +307,7 @@ export default async function EventDetailPage({
 						</span>
 					</DetailRow>
 					<DetailRow label="Payment Status">
-						{PAYMENT_STATUS_LABELS[event.payment_status] ??
-							event.payment_status}
+						<PaymentStatusBadge status={event.payment_status} />
 					</DetailRow>
 					</dl>
 				</div>
