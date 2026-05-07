@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { cookies } from "next/headers";
 import { ServiceWorkerRegister } from "@/components/push/sw-register";
+import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
 const inter = Inter({
@@ -69,6 +70,7 @@ export default async function RootLayout({
 			<body className="bg-background text-foreground flex min-h-full flex-col">
 				<ServiceWorkerRegister />
 				{children}
+				<Toaster />
 			</body>
 		</html>
 	);

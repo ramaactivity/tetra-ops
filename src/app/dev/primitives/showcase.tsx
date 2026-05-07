@@ -11,7 +11,6 @@ import { useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
-	AlertDialogCancel,
 	AlertDialogContent,
 	AlertDialogDescription,
 	AlertDialogFooter,
@@ -24,6 +23,8 @@ import {
 	DisclosurePanel,
 	DisclosureTrigger,
 	EmptyState,
+	FileDrop,
+	NativeSelect,
 	Sheet,
 	SheetContent,
 	SheetDescription,
@@ -31,6 +32,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 	Skeleton,
+	toast,
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
@@ -278,6 +280,90 @@ export function PrimitivesShowcase() {
 									await new Promise((r) => setTimeout(r, 600));
 								}}
 							/>
+						</div>
+					</Section>
+
+					<Section title="Native select (F3b) — drop-in for raw <select>">
+						<div className="flex flex-wrap items-center gap-3">
+							<NativeSelect
+								placeholder="Pilih kategori"
+								options={[
+									{ value: "wedding", label: "Wedding" },
+									{ value: "birthday", label: "Ulang tahun" },
+									{ value: "corporate", label: "Corporate" },
+									{ value: "engagement", label: "Engagement", disabled: true },
+								]}
+							/>
+							<NativeSelect
+								size="sm"
+								placeholder="Status"
+								options={[
+									{ value: "draft", label: "Draft" },
+									{ value: "confirmed", label: "Confirmed" },
+									{ value: "settled", label: "Settled" },
+								]}
+							/>
+						</div>
+					</Section>
+
+					<Section title="File drop (F3b) — drag-drop file input">
+						<div className="grid gap-4 md:grid-cols-2">
+							<FileDrop
+								accept=".csv"
+								hint="CSV up to 10 MB"
+								maxSizeBytes={10 * 1024 * 1024}
+							/>
+							<FileDrop
+								accept="image/*"
+								multiple
+								hint="Gambar (jpg, png, webp). Multi-select."
+							/>
+						</div>
+					</Section>
+
+					<Section title="Toast (F3b) — sonner wired with token theme">
+						<div className="flex flex-wrap gap-2">
+							<Button
+								variant="outline"
+								onClick={() => toast.success("Berhasil disimpan")}
+							>
+								Success
+							</Button>
+							<Button
+								variant="outline"
+								onClick={() => toast.error("Gagal: koneksi terputus")}
+							>
+								Error
+							</Button>
+							<Button
+								variant="outline"
+								onClick={() => toast.info("Sinkronisasi dimulai")}
+							>
+								Info
+							</Button>
+							<Button
+								variant="outline"
+								onClick={() =>
+									toast.warning("Stok backdrop hampir habis (3 tersisa)")
+								}
+							>
+								Warning
+							</Button>
+							<Button
+								variant="outline"
+								onClick={() =>
+									toast.promise(
+										new Promise((resolve) => setTimeout(resolve, 1500)),
+										{
+											loading: "Menyimpan event…",
+											success: "Event tersimpan",
+											error: "Gagal menyimpan",
+										},
+									)
+								}
+							>
+								Promise
+							</Button>
 						</div>
 					</Section>
 

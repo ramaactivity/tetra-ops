@@ -39,7 +39,12 @@ export * from "./sheet";
 export * from "./skeleton";
 export * from "./tooltip";
 
+// F3b — sesi 5
+export * from "./file-drop";
+export * from "./native-select";
+export * from "./toaster";
+
 // NOTE: textarea + radio-group are NOT separate primitives in this repo
 // (yet). textarea uses a styled <input> wrapped via Form; radio is via
 // Base UI's @base-ui/react/radio used directly where needed. If we want
-// them as standalone primitives, add in F3b/c.
+// them as standalone primitives, add in F3c.
