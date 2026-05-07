@@ -1,6 +1,9 @@
 import {
 	Calendar,
+	CheckCircle2,
 	ChevronLeft,
+	ChevronRight,
+	ClipboardList,
 	Clock,
 	ExternalLink,
 	FileText,
@@ -114,6 +117,16 @@ export default async function CrewEventDetailPage({
 		category: string;
 		condition: string | null;
 	}>;
+
+	// Rekap status for this event
+	const { data: rekapData } = await supabase
+		.from("crew_rekap")
+		.select("id, is_approved")
+		.eq("event_id", event.id)
+		.maybeSingle();
+	const rekap = rekapData as { id: string; is_approved: boolean | null } | null;
+	const todayISO = new Date().toISOString().slice(0, 10);
+	const isPastOrToday = event.event_date <= todayISO;
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
 	const backdrop = Array.isArray(event.backdrop)
@@ -385,6 +398,65 @@ export default async function CrewEventDetailPage({
 						{event.crew_notes}
 					</p>
 				</section>
+			)}
+
+			{/* Rekap CTA / status */}
+			{!event.is_migrated_legacy && (
+				<Link
+					href={`/crew/jadwal/${event.project_id}/rekap`}
+					className={`group flex items-center gap-3 rounded-xl border p-4 transition-colors active:scale-[0.99] ${
+						rekap?.is_approved === true
+							? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
+							: rekap
+								? "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20"
+								: isPastOrToday
+									? "border-primary/30 bg-primary/5 hover:bg-primary/10"
+									: "border-border bg-card hover:bg-muted/40"
+					}`}
+				>
+					<div
+						className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+							rekap?.is_approved === true
+								? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+								: rekap
+									? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+									: isPastOrToday
+										? "bg-primary/15 text-primary"
+										: "bg-muted text-muted-foreground"
+						}`}
+					>
+						{rekap?.is_approved === true ? (
+							<CheckCircle2 className="h-5 w-5" />
+						) : (
+							<ClipboardList className="h-5 w-5" />
+						)}
+					</div>
+					<div className="min-w-0 flex-1 space-y-0.5">
+						<p className="text-foreground text-sm font-semibold leading-tight">
+							{rekap?.is_approved === true
+								? "Rekap sudah approved"
+								: rekap?.is_approved === false
+									? "Rekap perlu revisi"
+									: rekap
+										? "Rekap menunggu review owner"
+										: isPastOrToday
+											? "Submit rekap event"
+											: "Rekap (submit setelah event selesai)"}
+						</p>
+						<p className="text-muted-foreground text-xs leading-snug">
+							{rekap?.is_approved === true
+								? "Owner sudah approve. Lihat detail."
+								: rekap?.is_approved === false
+									? "Owner minta revisi — buka untuk update."
+									: rekap
+										? "Sedang di-review owner. Lihat data submit."
+										: isPastOrToday
+											? "Tap untuk isi cetak, alat terpakai, foto bukti."
+											: "Buka form sekarang, submit nanti pas event beres."}
+						</p>
+					</div>
+					<ChevronRight className="text-muted-foreground/60 h-4 w-4 self-center" />
+				</Link>
 			)}
 
 			{/* Fee for me */}

@@ -110,12 +110,43 @@ export async function submitRekap(
 
 	const supabase = await createClient();
 
+	// Authorization: crew can only submit rekap for events they're assigned
+	// to. Owner-level can submit for any event (e.g. retroactive entries).
+	if (me.profile.role === "crew") {
+		const { data: assignment } = await supabase
+			.from("crew_assignments")
+			.select("id")
+			.eq("event_id", eventId)
+			.eq("user_id", me.profile.id)
+			.maybeSingle();
+		if (!assignment) {
+			return {
+				errors: {
+					_form: ["Lo gak di-assign ke event ini, gak bisa submit rekap."],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+	}
+
 	// Upsert by event_id (UNIQUE)
 	const { data: existing } = await supabase
 		.from("crew_rekap")
-		.select("id")
+		.select("id, is_approved")
 		.eq("event_id", eventId)
 		.maybeSingle();
+
+	// Block edits to already-approved rekaps (owner can re-open via reject)
+	if (existing && existing.is_approved === true) {
+		return {
+			errors: {
+				_form: [
+					"Rekap sudah di-approve owner. Hubungi owner kalau perlu revisi.",
+				],
+			},
+			values: snapshotValues(formData),
+		};
+	}
 
 	const payload = {
 		event_id: eventId,
