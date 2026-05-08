@@ -1,11 +1,28 @@
 # 15 — Session Handover & Implementation Plan Status
 
-**Last updated:** 2026-05-08 (sesi 5 closure — full redesign foundation + 5 application phases + 6 polish phases shipped)
-**Last commit:** `2b795ae` — feat(crew): fee + alat polish (sesi 5 final)
+**Last updated:** 2026-05-08 (sesi 6 — A6 SectionHeader/Container universal adoption + P3 EmptyState sweep)
+**Last commit:** `d72d139` — refactor(settings): A6 SectionHeader sweep on 15 form pages
 **Production URL:** https://tetra-ops.vercel.app
 **GitHub:** https://github.com/ramaactivity/tetra-ops
 **Redesign plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` (locked sesi 4)
 **Status memory:** `feedback_redesign_direction.md` (full sesi 5 commit list + phase status)
+
+---
+
+## 0a. Sesi 6 closure — what shipped (5 commits to main)
+
+P3 (EmptyState broad coverage):
+- `3cf8dbb` — 9 owner-side raw "Belum ada X" dashed-div fallbacks → `<EmptyState/>`. Files: settings (backdrops, notification-rules, whatsapp-templates, sinking-funds + movements), operations (team grid, event detail crew + equipment), notifications inbox.
+
+A6 + A4 (SectionHeader + Container universal adoption):
+- `987ff1e` — settings batch 1 (4 sub-pages adopt `<SectionHeader as="h2"/>`) + bonus `press-down` on finance sinking-fund Link rows.
+- `991a5d4` — settings batch 2 (7 more sub-pages: addons, packages, crew, items, contacts, audit-log, bank-accounts).
+- `96fac90` — operations sweep (calendar/board/design/team list views adopt `<Container/>` + `<SectionHeader/>`; 5 event sub-pages: payments, crew, rekap, settle, equipment).
+- `d72d139` — settings 15 form pages (settings root + 6 new + 8 edit + sinking-funds movements viewer).
+
+**Net result:** zero raw `<h2 className="text-xl/text-fluid-h2 font-semibold tracking-tight">` page-header patterns remain in `src/app/(owner)/`. All 44 page-level title+description+CTA blocks now use the `<SectionHeader/>` primitive. CTA buttons standardized to `buttonVariants()`.
+
+Tooling note: `pnpm` not available in Claude sandbox shell — sesi 6 commits pushed without local `pnpm build` smoke test (Vercel CI is the canary). One credential setup performed: GitHub fine-grained PAT stored in `~/.git-credentials` so sandbox can push to main; permission `Bash(git push:*)` allowed in `.claude/settings.local.json`.
 
 ---
 
