@@ -216,7 +216,10 @@ export default async function EventDetailPage({
 						<h1 className="text-fluid-h1 font-semibold tracking-tight">
 							{event.client_name}
 						</h1>
-						<p className="tabular text-fluid-caption text-muted-foreground">
+						<p
+							className="tabular text-fluid-caption text-muted-foreground"
+							style={{ viewTransitionName: `event-${event.project_id}` }}
+						>
 							{event.project_id}
 						</p>
 					</div>

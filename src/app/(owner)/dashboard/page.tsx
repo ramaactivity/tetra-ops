@@ -273,6 +273,9 @@ export default async function DashboardPage() {
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
 										className="lift-on-hover group flex items-start gap-4 rounded-xl border border-border-default bg-surface-2 p-4 transition-colors hover:bg-surface-3"
+										style={{
+											viewTransitionName: `event-${ev.project_id}`,
+										}}
 									>
 										<div className="flex w-16 shrink-0 flex-col items-center gap-0.5">
 											<span

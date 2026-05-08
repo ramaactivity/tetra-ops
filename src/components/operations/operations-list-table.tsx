@@ -68,6 +68,7 @@ export function OperationsListTable({
 					<Link
 						href={`/operations/${ev.project_id}`}
 						className="text-primary hover:underline"
+						style={{ viewTransitionName: `event-${ev.project_id}` }}
 					>
 						{ev.project_id}
 					</Link>
