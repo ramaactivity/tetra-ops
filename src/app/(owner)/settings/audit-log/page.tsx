@@ -1,54 +1,14 @@
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import Link from "next/link";
 import { AuditFilterBar } from "@/components/audit-log/audit-filter-bar";
-import { Badge } from "@/components/ui/badge";
+import {
+	AuditListTable,
+	type AuditRow,
+} from "@/components/audit-log/audit-list-table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 
 const PAGE_SIZE = 50;
-
-type AuditRow = {
-	id: string;
-	actor_id: string | null;
-	actor_email: string | null;
-	action: string;
-	entity_type: string;
-	entity_id: string | null;
-	changes: Record<string, unknown> | null;
-	metadata: Record<string, unknown> | null;
-	created_at: string;
-	actor: { full_name: string } | null;
-};
-
-const ACTION_TONE: Record<string, "default" | "secondary" | "destructive"> = {
-	insert: "default",
-	create: "default",
-	settlement_close: "default",
-	update: "secondary",
-	delete: "destructive",
-	settlement_reopen: "destructive",
-	role_change: "secondary",
-};
-
-function formatDateTime(iso: string): string {
-	return new Date(iso).toLocaleString("id-ID", {
-		dateStyle: "short",
-		timeStyle: "short",
-	});
-}
-
-function summarizeMetadata(meta: Record<string, unknown> | null): string {
-	if (!meta || Object.keys(meta).length === 0) return "";
-	// Cherry-pick a few human-friendly keys
-	const parts: string[] = [];
-	if (meta.project_id) parts.push(`project=${String(meta.project_id)}`);
-	if (meta.net_profit !== undefined) {
-		parts.push(`profit=${Number(meta.net_profit).toLocaleString("id-ID")}`);
-	}
-	if (meta.is_loss) parts.push("LOSS");
-	if (meta.reason) parts.push(`reason="${String(meta.reason)}"`);
-	if (parts.length > 0) return parts.join(" · ");
-	return JSON.stringify(meta).slice(0, 80);
-}
 
 export default async function AuditLogPage({
 	searchParams,
@@ -63,7 +23,6 @@ export default async function AuditLogPage({
 
 	const supabase = await createClient();
 
-	// Build filtered query
 	let query = supabase
 		.from("audit_log")
 		.select(
@@ -80,7 +39,6 @@ export default async function AuditLogPage({
 	if (action) query = query.eq("action", action);
 	if (entity) query = query.eq("entity_type", entity);
 
-	// Distinct values for filter dropdowns (top 200 rows scan — sufficient for MVP)
 	const [{ data: rowsData, count, error }, { data: distinctData }] =
 		await Promise.all([
 			query,
@@ -93,8 +51,8 @@ export default async function AuditLogPage({
 
 	if (error) {
 		return (
-			<div className="border-destructive bg-destructive/10 rounded-md border p-4">
-				<p className="text-destructive text-sm font-medium">
+			<div className="rounded-md border border-destructive bg-destructive/10 p-4">
+				<p className="text-fluid-body font-medium text-destructive">
 					Gagal memuat audit log: {error.message}
 				</p>
 			</div>
@@ -129,11 +87,13 @@ export default async function AuditLogPage({
 	return (
 		<div className="space-y-4">
 			<div className="space-y-1">
-				<h2 className="text-xl font-semibold tracking-tight">Audit Log</h2>
-				<p className="text-muted-foreground text-sm">
+				<h2 className="text-fluid-h2 font-semibold tracking-tight">
+					Audit Log
+				</h2>
+				<p className="text-fluid-caption text-muted-foreground">
 					Riwayat perubahan data penting (event, payment, settlement, user
 					role).{" "}
-					<span className="text-foreground font-medium">
+					<span className="font-medium text-foreground">
 						{totalCount.toLocaleString("id-ID")}
 					</span>{" "}
 					entri.
@@ -148,82 +108,25 @@ export default async function AuditLogPage({
 			/>
 
 			{rows.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<History className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Tidak ada entri</h3>
-						<p className="text-muted-foreground text-sm">
-							{action || entity
-								? "Coba ubah atau hapus filter."
-								: "Belum ada audit yang ter-capture."}
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={History}
+					title="Tidak ada entri"
+					description={
+						action || entity
+							? "Coba ubah atau hapus filter."
+							: "Belum ada audit yang ter-capture."
+					}
+				/>
 			) : (
-				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
-					<table className="w-full">
-						<thead className="border-border-default bg-muted/30 border-b">
-							<tr className="text-muted-foreground text-xs uppercase tracking-wider">
-								<th className="px-3 py-2 text-left font-medium">Waktu</th>
-								<th className="px-3 py-2 text-left font-medium">Actor</th>
-								<th className="px-3 py-2 text-left font-medium">Action</th>
-								<th className="px-3 py-2 text-left font-medium">Entity</th>
-								<th className="px-3 py-2 text-left font-medium">Detail</th>
-							</tr>
-						</thead>
-						<tbody className="divide-border divide-y">
-							{rows.map((r) => {
-								const actorName =
-									r.actor?.full_name ?? r.actor_email ?? "system";
-								const tone = ACTION_TONE[r.action] ?? "secondary";
-								const meta = summarizeMetadata(r.metadata);
-								return (
-									<tr
-										key={r.id}
-										className="hover:bg-muted/30 text-sm transition-colors"
-									>
-										<td className="text-muted-foreground tabular px-3 py-2 text-xs whitespace-nowrap">
-											{formatDateTime(r.created_at)}
-										</td>
-										<td className="px-3 py-2 whitespace-nowrap">
-											<div className="font-medium">{actorName}</div>
-											{r.actor_email && r.actor && (
-												<div className="text-muted-foreground text-xs">
-													{r.actor_email}
-												</div>
-											)}
-										</td>
-										<td className="px-3 py-2">
-											<Badge variant={tone}>{r.action}</Badge>
-										</td>
-										<td className="px-3 py-2">
-											<div className="font-mono text-xs">{r.entity_type}</div>
-											{r.entity_id && (
-												<div className="text-muted-foreground/70 truncate font-mono text-[10px]">
-													{r.entity_id.slice(0, 8)}…
-												</div>
-											)}
-										</td>
-										<td className="text-muted-foreground max-w-md px-3 py-2 text-xs">
-											{meta || (
-												<span className="text-muted-foreground/60 italic">
-													—
-												</span>
-											)}
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-					</table>
-				</div>
+				<AuditListTable rows={rows} />
 			)}
 
 			{totalPages > 1 && (
 				<div className="flex items-center justify-between gap-3 pt-2">
-					<p className="text-muted-foreground text-xs">
-						Halaman <span className="text-foreground font-medium">{page}</span>{" "}
-						dari {totalPages} ·{" "}
+					<p className="text-fluid-caption text-muted-foreground">
+						Halaman{" "}
+						<span className="font-medium text-foreground">{page}</span> dari{" "}
+						{totalPages} ·{" "}
 						{((page - 1) * PAGE_SIZE + 1).toLocaleString("id-ID")}–
 						{Math.min(page * PAGE_SIZE, totalCount).toLocaleString("id-ID")}{" "}
 						dari {totalCount.toLocaleString("id-ID")}
@@ -232,33 +135,33 @@ export default async function AuditLogPage({
 						{page > 1 ? (
 							<Link
 								href={buildPageHref(page - 1)}
-								className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium transition-colors hover:bg-surface-3"
 							>
-								<ChevronLeft className="h-3.5 w-3.5" /> Prev
+								<ChevronLeft className="size-3.5" /> Prev
 							</Link>
 						) : (
 							<button
 								type="button"
 								disabled
-								className="border-border-default bg-surface-2 text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium opacity-50"
+								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium text-muted-foreground opacity-50"
 							>
-								<ChevronLeft className="h-3.5 w-3.5" /> Prev
+								<ChevronLeft className="size-3.5" /> Prev
 							</button>
 						)}
 						{page < totalPages ? (
 							<Link
 								href={buildPageHref(page + 1)}
-								className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium"
+								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium transition-colors hover:bg-surface-3"
 							>
-								Next <ChevronRight className="h-3.5 w-3.5" />
+								Next <ChevronRight className="size-3.5" />
 							</Link>
 						) : (
 							<button
 								type="button"
 								disabled
-								className="border-border-default bg-surface-2 text-muted-foreground inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium opacity-50"
+								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium text-muted-foreground opacity-50"
 							>
-								Next <ChevronRight className="h-3.5 w-3.5" />
+								Next <ChevronRight className="size-3.5" />
 							</button>
 						)}
 					</div>

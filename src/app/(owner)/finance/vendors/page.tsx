@@ -1,11 +1,13 @@
-import {
-	ChevronLeft,
-	ExternalLink,
-	Handshake,
-	UsersRound,
-} from "lucide-react";
+import { ChevronLeft, Handshake, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { formatDateID, formatRupiah } from "@/lib/format";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
+import {
+	type VendorStats,
+	VendorsListTable,
+} from "@/components/finance/vendors-list-table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const ID_MONTH_NAMES = [
@@ -43,17 +45,6 @@ type VendorEvent = {
 	is_migrated_legacy: boolean | null;
 };
 
-type VendorStats = {
-	name: string;
-	contactId: string | null;
-	contactPhone: string | null;
-	totalEvents: number;
-	totalCommission: number;
-	mtdCommission: number;
-	lastEventDate: string | null;
-	upcomingCount: number;
-};
-
 export default async function VendorsPage() {
 	const supabase = await createClient();
 	const today = new Date();
@@ -82,11 +73,11 @@ export default async function VendorsPage() {
 
 	if (error) {
 		return (
-			<div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-				<div className="border-destructive bg-destructive/10 rounded-md border p-4">
-					<p className="text-destructive text-sm">{error.message}</p>
+			<Container size="xl">
+				<div className="rounded-md border border-destructive bg-destructive/10 p-4">
+					<p className="text-fluid-body text-destructive">{error.message}</p>
 				</div>
-			</div>
+			</Container>
 		);
 	}
 
@@ -98,12 +89,10 @@ export default async function VendorsPage() {
 		type: string;
 	}>;
 
-	// Build name → contact map for cross-reference
 	const contactByName = new Map(
 		contacts.map((c) => [c.name.trim().toLowerCase(), c]),
 	);
 
-	// Aggregate by vendor_name
 	const vendorMap = new Map<string, VendorStats>();
 	for (const e of events) {
 		if (!e.vendor_name) continue;
@@ -126,10 +115,7 @@ export default async function VendorsPage() {
 			existing.totalCommission += commission;
 			if (isThisMonth) existing.mtdCommission += commission;
 			if (isUpcoming) existing.upcomingCount += 1;
-			if (
-				!existing.lastEventDate ||
-				e.event_date > existing.lastEventDate
-			) {
+			if (!existing.lastEventDate || e.event_date > existing.lastEventDate) {
 				existing.lastEventDate = e.event_date;
 			}
 		} else {
@@ -147,7 +133,6 @@ export default async function VendorsPage() {
 		}
 	}
 
-	// Also add vendors from contacts that don't have any events yet
 	for (const c of contacts) {
 		const key = c.name.trim().toLowerCase();
 		if (!vendorMap.has(key) && c.name.trim()) {
@@ -168,40 +153,31 @@ export default async function VendorsPage() {
 		(a, b) => b.totalCommission - a.totalCommission,
 	);
 
-	// Aggregate stats
 	const totalCommissionAll = vendors.reduce(
 		(s, v) => s + v.totalCommission,
 		0,
 	);
-	const totalCommissionMtd = vendors.reduce(
-		(s, v) => s + v.mtdCommission,
-		0,
-	);
+	const totalCommissionMtd = vendors.reduce((s, v) => s + v.mtdCommission, 0);
 	const totalEvents = vendors.reduce((s, v) => s + v.totalEvents, 0);
 	const totalUpcoming = vendors.reduce((s, v) => s + v.upcomingCount, 0);
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="xl" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href="/finance"
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+					className="inline-flex items-center gap-1 text-fluid-caption text-muted-foreground hover:text-foreground"
 				>
-					<ChevronLeft className="h-4 w-4" />
+					<ChevronLeft className="size-4" />
 					Finance
 				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">
-						Vendor / Partner Organizer
-					</h1>
-					<p className="text-muted-foreground text-sm">
-						Aggregate komisi vendor dari semua event channel=vendor.
-					</p>
-				</div>
+				<SectionHeader
+					title="Vendor / Partner Organizer"
+					description="Aggregate komisi vendor dari semua event channel=vendor."
+				/>
 			</div>
 
-			{/* Summary stats */}
-			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<SummaryCard
 					label="Total komisi"
 					value={formatRupiah(totalCommissionAll)}
@@ -229,11 +205,11 @@ export default async function VendorsPage() {
 			</dl>
 
 			{vendors.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<Handshake className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Belum ada vendor</h3>
-						<p className="text-muted-foreground text-sm">
+				<EmptyState
+					icon={Handshake}
+					title="Belum ada vendor"
+					description={
+						<>
 							Tambah lewat{" "}
 							<Link
 								href="/settings/contacts"
@@ -242,105 +218,16 @@ export default async function VendorsPage() {
 								Contacts
 							</Link>{" "}
 							dengan type=Vendor, atau bikin event channel=vendor.
-						</p>
-					</div>
-				</div>
+						</>
+					}
+				/>
 			) : (
-				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
-					<table className="w-full text-sm">
-						<thead className="bg-muted/40">
-							<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
-								<th className="px-4 py-3 text-left font-medium">Vendor</th>
-								<th className="px-4 py-3 text-right font-medium">
-									Total event
-								</th>
-								<th className="px-4 py-3 text-right font-medium">Upcoming</th>
-								<th className="px-4 py-3 text-right font-medium">
-									Komisi MTD
-								</th>
-								<th className="px-4 py-3 text-right font-medium">
-									Komisi total
-								</th>
-								<th className="px-4 py-3 text-left font-medium">
-									Last event
-								</th>
-								<th className="px-4 py-3 text-left font-medium">Contact</th>
-							</tr>
-						</thead>
-						<tbody className="divide-border divide-y">
-							{vendors.map((v) => (
-								<tr key={v.name} className="hover:bg-muted/20">
-									<td className="px-4 py-3">
-										<div className="space-y-0.5">
-											<Link
-												href={`/operations?q=${encodeURIComponent(v.name)}`}
-												className="text-foreground text-sm font-medium hover:underline"
-											>
-												{v.name}
-											</Link>
-											{v.contactId && (
-												<p className="text-muted-foreground text-[10px]">
-													Linked contact: yes
-												</p>
-											)}
-										</div>
-									</td>
-									<td className="text-foreground tabular px-4 py-3 text-right">
-										{v.totalEvents}
-									</td>
-									<td
-										className={`tabular px-4 py-3 text-right ${
-											v.upcomingCount > 0
-												? "text-amber-600 dark:text-amber-400 font-semibold"
-												: "text-muted-foreground"
-										}`}
-									>
-										{v.upcomingCount > 0 ? v.upcomingCount : "—"}
-									</td>
-									<td
-										className={`tabular px-4 py-3 text-right ${
-											v.mtdCommission > 0
-												? "text-emerald-600 dark:text-emerald-400 font-medium"
-												: "text-muted-foreground"
-										}`}
-									>
-										{v.mtdCommission > 0 ? formatRupiah(v.mtdCommission) : "—"}
-									</td>
-									<td className="text-foreground tabular px-4 py-3 text-right font-semibold">
-										{v.totalCommission > 0
-											? formatRupiah(v.totalCommission)
-											: "—"}
-									</td>
-									<td className="text-muted-foreground tabular px-4 py-3 text-xs">
-										{v.lastEventDate ? formatDateID(v.lastEventDate) : "—"}
-									</td>
-									<td className="px-4 py-3">
-										{v.contactPhone ? (
-											<a
-												href={`https://wa.me/${v.contactPhone.replace(/^\+|^0/, "62")}`}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="text-primary tabular inline-flex items-center gap-1 text-xs hover:underline"
-											>
-												{v.contactPhone}
-												<ExternalLink className="h-3 w-3" />
-											</a>
-										) : (
-											<span className="text-muted-foreground/60 text-xs">
-												—
-											</span>
-										)}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
+				<VendorsListTable vendors={vendors} />
 			)}
 
-			<div className="border-border-default bg-muted/30 text-muted-foreground rounded-lg border p-3 text-xs">
+			<div className="rounded-lg border border-border-default bg-surface-3/40 p-3 text-fluid-caption text-muted-foreground">
 				<p className="flex items-start gap-2">
-					<UsersRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+					<UsersRound className="mt-0.5 size-3.5 shrink-0" aria-hidden />
 					<span>
 						Data diaggregat dari <code>events.vendor_name</code> +{" "}
 						<code>contacts.type=vendor</code>. Klik nama vendor → filter
@@ -351,7 +238,7 @@ export default async function VendorsPage() {
 					</span>
 				</p>
 			</div>
-		</div>
+		</Container>
 	);
 }
 
@@ -375,12 +262,12 @@ function SummaryCard({
 					? "text-amber-600 dark:text-amber-400"
 					: "text-foreground";
 	return (
-		<div className="border-border-default bg-surface-2 space-y-1 rounded-xl border p-4">
-			<dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+		<div className="space-y-1 rounded-xl border border-border-default bg-surface-2 p-4">
+			<dt className="text-fluid-caption font-medium uppercase tracking-wider text-muted-foreground">
 				{label}
 			</dt>
-			<dd className={`tabular text-xl font-semibold ${cls}`}>{value}</dd>
-			<p className="text-muted-foreground text-[10px]">{hint}</p>
+			<dd className={`tabular text-fluid-h2 font-semibold ${cls}`}>{value}</dd>
+			<p className="text-[10px] text-muted-foreground">{hint}</p>
 		</div>
 	);
 }
