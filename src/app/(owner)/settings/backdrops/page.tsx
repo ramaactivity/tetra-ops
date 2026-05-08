@@ -1,7 +1,9 @@
 import { Image as ImageIcon, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ToggleBackdropActiveButton } from "@/components/backdrops/toggle-active-button";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
@@ -77,22 +79,20 @@ export default async function BackdropsListPage() {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">Backdrops</h2>
-					<p className="text-muted-foreground text-sm">
-						{rows.length} backdrop · {activeCount} aktif · {basicCount} basic ·{" "}
-						{rentalCount} rental.
-					</p>
-				</div>
-				<Link
-					href="/settings/backdrops/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New backdrop
-				</Link>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Backdrops"
+				description={`${rows.length} backdrop · ${activeCount} aktif · ${basicCount} basic · ${rentalCount} rental.`}
+				actions={
+					<Link
+						href="/settings/backdrops/new"
+						className={buttonVariants({ variant: "default" })}
+					>
+						<Plus className="size-4" />
+						New backdrop
+					</Link>
+				}
+			/>
 
 			{rows.length === 0 ? (
 				<EmptyState

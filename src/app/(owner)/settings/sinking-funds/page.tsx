@@ -1,7 +1,9 @@
 import { Pencil, Plus, ScrollText } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ToggleActiveButton } from "@/components/sinking-funds/toggle-active-button";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
@@ -77,26 +79,27 @@ export default async function SinkingFundsListPage() {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">
-						Sinking Funds
-					</h2>
-					<p className="text-muted-foreground text-sm">
+			<SectionHeader
+				as="h2"
+				title="Sinking Funds"
+				description={
+					<>
 						{funds.length} fund · {activeCount} aktif · total saldo{" "}
 						<span className="tabular text-foreground font-medium">
 							{formatRupiah(totalBalance)}
 						</span>
-					</p>
-				</div>
-				<Link
-					href="/settings/sinking-funds/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New fund
-				</Link>
-			</div>
+					</>
+				}
+				actions={
+					<Link
+						href="/settings/sinking-funds/new"
+						className={buttonVariants({ variant: "default" })}
+					>
+						<Plus className="size-4" />
+						New fund
+					</Link>
+				}
+			/>
 
 			{funds.length === 0 ? (
 				<EmptyState

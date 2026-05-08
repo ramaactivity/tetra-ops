@@ -7,6 +7,7 @@ import {
 	Warehouse,
 } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ToggleRuleEnabledButton } from "@/components/notification-rules/toggle-enabled-button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -120,15 +121,11 @@ export default async function NotificationRulesListPage() {
 
 	return (
 		<div className="space-y-6">
-			<div className="space-y-1">
-				<h2 className="text-xl font-semibold tracking-tight">
-					Notification Rules
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					{rules.length} rule · {enabledCount} aktif. Anomaly scanner
-					mengevaluasi rules aktif (cron Phase 3) plus on-demand triggers.
-				</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Notification Rules"
+				description={`${rules.length} rule · ${enabledCount} aktif. Anomaly scanner mengevaluasi rules aktif (cron Phase 3) plus on-demand triggers.`}
+			/>
 
 			{rules.length === 0 ? (
 				<EmptyState

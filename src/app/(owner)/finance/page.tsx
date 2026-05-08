@@ -518,7 +518,7 @@ export default async function FinancePage() {
 									<Link
 										key={f.id}
 										href={`/settings/sinking-funds/${f.id}/movements`}
-										className="border-border-default hover:bg-muted/40 flex items-center gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
+										className="press-down border-border-default hover:bg-muted/40 flex items-center gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
 									>
 										<div className="min-w-0 flex-1 space-y-1">
 											<div className="flex items-center justify-between gap-2">

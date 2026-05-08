@@ -1,6 +1,8 @@
 import { MessageCircle, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
@@ -54,26 +56,27 @@ export default async function WhatsAppTemplatesListPage() {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">
-						WhatsApp Templates
-					</h2>
-					<p className="text-muted-foreground text-sm">
+			<SectionHeader
+				as="h2"
+				title="WhatsApp Templates"
+				description={
+					<>
 						{templates.length} template · {activeCount} aktif · muncul di
 						dropdown{" "}
 						<span className="text-foreground font-medium">Send WA</span> pada
 						event detail.
-					</p>
-				</div>
-				<Link
-					href="/settings/whatsapp-templates/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New template
-				</Link>
-			</div>
+					</>
+				}
+				actions={
+					<Link
+						href="/settings/whatsapp-templates/new"
+						className={buttonVariants({ variant: "default" })}
+					>
+						<Plus className="size-4" />
+						New template
+					</Link>
+				}
+			/>
 
 			{templates.length === 0 ? (
 				<EmptyState
