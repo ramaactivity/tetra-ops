@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 
 const HORIZON_DAYS = 14; // 2 weeks rolling window
@@ -199,15 +200,22 @@ export default async function CrewScheduleView({
 			</div>
 
 			{crew.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<UsersRound className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Belum ada crew</h3>
-						<p className="text-muted-foreground text-sm">
-							Tambah crew dulu via <Link href="/settings/crew" className="text-primary hover:underline">/settings/crew</Link>.
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={UsersRound}
+					title="Belum ada crew"
+					description={
+						<>
+							Tambah crew dulu via{" "}
+							<Link
+								href="/settings/crew"
+								className="text-primary hover:underline"
+							>
+								/settings/crew
+							</Link>
+							.
+						</>
+					}
+				/>
 			) : (
 				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 					<table className="w-full text-xs">

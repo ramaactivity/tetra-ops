@@ -1,6 +1,7 @@
 import { MessageCircle, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -75,15 +76,11 @@ export default async function WhatsAppTemplatesListPage() {
 			</div>
 
 			{templates.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<MessageCircle className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Belum ada template</h3>
-						<p className="text-muted-foreground text-sm">
-							Buat template pertama untuk speed-up komunikasi WA dengan klien.
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={MessageCircle}
+					title="Belum ada template"
+					description="Buat template pertama untuk speed-up komunikasi WA dengan klien."
+				/>
 			) : (
 				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>

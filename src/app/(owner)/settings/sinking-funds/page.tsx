@@ -2,6 +2,7 @@ import { Pencil, Plus, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { ToggleActiveButton } from "@/components/sinking-funds/toggle-active-button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -98,15 +99,11 @@ export default async function SinkingFundsListPage() {
 			</div>
 
 			{funds.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<ScrollText className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Belum ada sinking fund</h3>
-						<p className="text-muted-foreground text-sm">
-							Bikin fund pertama agar settlement bisa alokasi otomatis.
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={ScrollText}
+					title="Belum ada sinking fund"
+					description="Bikin fund pertama agar settlement bisa alokasi otomatis."
+				/>
 			) : (
 				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>

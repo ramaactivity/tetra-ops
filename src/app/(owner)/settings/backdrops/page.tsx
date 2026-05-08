@@ -2,6 +2,7 @@ import { Image as ImageIcon, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { ToggleBackdropActiveButton } from "@/components/backdrops/toggle-active-button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -94,16 +95,11 @@ export default async function BackdropsListPage() {
 			</div>
 
 			{rows.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<ImageIcon className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Belum ada backdrop</h3>
-						<p className="text-muted-foreground text-sm">
-							Bikin backdrop pertama (basic / rental / vendor) supaya muncul di
-							booking form.
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={ImageIcon}
+					title="Belum ada backdrop"
+					description="Bikin backdrop pertama (basic / rental / vendor) supaya muncul di booking form."
+				/>
 			) : (
 				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<Table>

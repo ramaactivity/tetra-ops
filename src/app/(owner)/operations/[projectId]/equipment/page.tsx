@@ -10,6 +10,7 @@ import {
 } from "@/components/event-equipment/check-out-form";
 import { IncidentDialog } from "@/components/event-equipment/incident-form";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -200,12 +201,12 @@ export default async function EventEquipmentPage({
 				</div>
 
 				{assigned.length === 0 ? (
-					<div className="border-border-default bg-muted/20 flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
-						<Package className="text-muted-foreground h-8 w-8" />
-						<p className="text-muted-foreground text-sm">
-							Belum ada equipment di-check-out untuk event ini.
-						</p>
-					</div>
+					<EmptyState
+						icon={Package}
+						title="Belum ada equipment"
+						description="Klik Check out untuk assign equipment dari warehouse ke event ini."
+						size="sm"
+					/>
 				) : (
 					<div className="overflow-x-auto">
 						<Table>

@@ -1,10 +1,16 @@
-import { ArrowDownToLine, ArrowUpFromLine, ChevronLeft } from "lucide-react";
+import {
+	ArrowDownToLine,
+	ArrowUpFromLine,
+	ChevronLeft,
+	History,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
 	type BankOption,
 	ManualMovementForm,
 } from "@/components/sinking-funds/movement-form";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -142,9 +148,12 @@ export default async function SinkingFundMovementsPage({
 					</span>
 				</h3>
 				{movements.length === 0 ? (
-					<p className="text-muted-foreground text-sm italic">
-						Belum ada movement.
-					</p>
+					<EmptyState
+						icon={History}
+						title="Belum ada movement"
+						description="Catat movement pertama lewat form di atas."
+						size="sm"
+					/>
 				) : (
 					<div className="overflow-x-auto">
 						<Table>

@@ -28,6 +28,7 @@ import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
 import { PdfDownloadMenu } from "@/components/pdf/download-menu";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
@@ -514,9 +515,12 @@ export default async function EventDetailPage({
 						</Link>
 					</div>
 					{crewAssignments.length === 0 ? (
-						<p className="text-muted-foreground text-sm italic">
-							Belum ada crew di-assign.
-						</p>
+						<EmptyState
+							icon={Users}
+							title="Belum ada crew di-assign"
+							description="Klik Manage untuk assign lead, asisten, dan crew C."
+							size="sm"
+						/>
 					) : (
 						<div className="space-y-1">
 							{crewAssignments.map((row, idx) => {

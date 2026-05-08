@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { ToggleRuleEnabledButton } from "@/components/notification-rules/toggle-enabled-button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 
 type RuleRow = {
@@ -130,15 +131,11 @@ export default async function NotificationRulesListPage() {
 			</div>
 
 			{rules.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<Bell className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="font-medium">Belum ada rule</h3>
-						<p className="text-muted-foreground text-sm">
-							Rules biasanya di-seed saat install schema awal.
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={Bell}
+					title="Belum ada rule"
+					description="Rules biasanya di-seed saat install schema awal."
+				/>
 			) : (
 				<div className="space-y-6">
 					{categories.map((cat) => {

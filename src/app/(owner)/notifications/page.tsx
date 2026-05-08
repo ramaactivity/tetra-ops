@@ -20,6 +20,7 @@ import {
 import { RunScannerButton } from "@/components/notifications/run-scanner-button";
 import { PushSubscribeButton } from "@/components/push/subscribe-button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -282,23 +283,21 @@ export default async function NotificationsPage({
 			</div>
 
 			{rows.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-					<BellOff className="text-muted-foreground h-10 w-10" />
-					<div className="space-y-1">
-						<h3 className="text-foreground font-medium">
-							{showAll
-								? "Belum ada notification"
-								: totalUnread === 0
-									? "Inbox kosong, semua sudah read"
-									: "Tidak ada notification cocok filter"}
-						</h3>
-						<p className="text-muted-foreground text-sm">
-							{showAll
-								? "Anomaly scanner & event triggers akan ngirim notif ke sini."
-								: "Klik 'Semua' kalau mau lihat yang sudah read."}
-						</p>
-					</div>
-				</div>
+				<EmptyState
+					icon={BellOff}
+					title={
+						showAll
+							? "Belum ada notification"
+							: totalUnread === 0
+								? "Inbox kosong, semua sudah read"
+								: "Tidak ada notification cocok filter"
+					}
+					description={
+						showAll
+							? "Anomaly scanner & event triggers akan ngirim notif ke sini."
+							: "Klik 'Semua' kalau mau lihat yang sudah read."
+					}
+				/>
 			) : (
 				<ul className="space-y-2">
 					{rows.map((n) => (
