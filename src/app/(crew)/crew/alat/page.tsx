@@ -1,5 +1,6 @@
 import { ChevronRight, Package2 } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -104,20 +105,17 @@ export default async function CrewEquipmentPage() {
 			</header>
 
 			{eventList.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
-					<Package2 className="text-muted-foreground h-8 w-8" />
-					<p className="text-muted-foreground text-sm">
-						Belum ada event upcoming.
-					</p>
-				</div>
+				<EmptyState
+					icon={Package2}
+					title="Belum ada event upcoming"
+					description="Begitu lo dapet jadwal baru, daftar alat bakal muncul di sini."
+				/>
 			) : totalCheckedOut === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
-					<Package2 className="text-muted-foreground h-8 w-8" />
-					<p className="text-muted-foreground text-sm">
-						Belum ada alat ke-checkout buat event upcoming lo. Tunggu owner
-						checkout sebelum hari H.
-					</p>
-				</div>
+				<EmptyState
+					icon={Package2}
+					title="Belum ada alat ke-checkout"
+					description="Tunggu owner checkout alat sebelum hari H. Listnya bakal muncul otomatis."
+				/>
 			) : (
 				<div className="space-y-3">
 					{eventList.map((ev) => {

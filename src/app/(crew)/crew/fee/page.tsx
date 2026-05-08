@@ -1,5 +1,6 @@
 import { CheckCircle2, ChevronRight, Wallet } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -89,12 +90,11 @@ export default async function CrewFeePage() {
 			</dl>
 
 			{rows.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
-					<Wallet className="text-muted-foreground h-8 w-8" />
-					<p className="text-muted-foreground text-sm">
-						Belum ada fee tercatat.
-					</p>
-				</div>
+				<EmptyState
+					icon={Wallet}
+					title="Belum ada fee tercatat"
+					description="Fee bakal muncul di sini begitu lo ikut event pertama."
+				/>
 			) : (
 				<>
 					{unpaid.length > 0 && (
@@ -135,7 +135,7 @@ function FeeRow({ row }: { row: AssignmentRow }) {
 	return (
 		<Link
 			href={`/crew/jadwal/${ev.project_id}`}
-			className="border-border-default bg-surface-2 hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+			className="lift-on-hover press-down flex items-stretch gap-3 rounded-xl border border-border-default bg-surface-2 p-3 transition-colors hover:border-foreground/20 hover:bg-surface-3"
 		>
 			<div className="min-w-0 flex-1 space-y-1">
 				<p className="text-foreground truncate text-sm font-medium">
