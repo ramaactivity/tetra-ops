@@ -1,10 +1,44 @@
 # 15 — Session Handover & Implementation Plan Status
 
-**Last updated:** 2026-05-08 (sesi 4 closure — Phase 3 complete + redesign plan locked)
-**Last commit:** `880b12d` — fix(push): timeout option is milliseconds (sesi 4 final fix)
+**Last updated:** 2026-05-08 (sesi 5 closure — full redesign foundation + 5 application phases + 6 polish phases shipped)
+**Last commit:** `2b795ae` — feat(crew): fee + alat polish (sesi 5 final)
 **Production URL:** https://tetra-ops.vercel.app
 **GitHub:** https://github.com/ramaactivity/tetra-ops
-**Next session plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` — UI/UX redesign master plan (~125h across ~22 sessions)
+**Redesign plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` (locked sesi 4)
+**Status memory:** `feedback_redesign_direction.md` (full sesi 5 commit list + phase status)
+
+---
+
+## 0. Sesi 5 closure — what shipped (39 commits to main)
+
+Foundation (F1-F4):
+- F1 token revamp (4-surface, gradients, motion, fluid type, glow shadows)
+- F2 design system + motion guidelines docs
+- F3 15 custom primitives (alert/confirm/disclosure/tooltip/sheet/skeleton/empty-state, native-select/file-drop/sonner-toaster, date/time/month-picker/responsive-table/data-table)
+- F4 View Transitions API + 4 layout primitives + microinteraction CSS
+
+Application (A1-A11 partial):
+- A1 app shell (TopBar, OwnerSidebar, OwnerBottomNav with Sheet, CrewBottomNav, view-transition anchors)
+- A2 auth + landing
+- A3 dashboard (hero KPI with Sunrise gradient + glow)
+- A4 operations (list with filter-bar primitives + ResponsiveTable client wrapper, event detail token sweep)
+- A5/A8/A9 main pages adopt Container + SectionHeader (finance, reminders, reports, notifications)
+- A11 crew app polish (home, jadwal, fee, alat — empty-states + microinteractions + view-transition shared elements)
+
+Mass token sweep + browser-native UI elimination:
+- 101 files mass-swept (bg-card→bg-surface-2, border-border→border-border-default, h1 text-3xl→text-fluid-h1)
+- 65/67 browser-native UI killed (97%): 19 alerts/confirms→ConfirmDialog+toast, 32 selects/dates→primitives, 4 details→Disclosure, 3 month→MonthPicker, 4 date→DatePicker, 3 time→TimePicker. Remaining 2 intentionally kept (csv-import file input UX-customized)
+
+Polish (P0/P1/P2/P6):
+- P0 viewport fit (overflow-x clip + min-w-0 + min-h-dvh) + ResponsiveTable migration on all 6 owner list pages (operations, billing, warehouse 3 tables, items, contacts, audit-log, vendors)
+- P1 loading.tsx skeletons on 16 route segments
+- P2 error.tsx + not-found.tsx for owner/crew/global boundaries
+- P6 view-transition shared elements: event card ↔ detail hero (operations list, dashboard, crew home, crew jadwal)
+
+Hotfix:
+- `4a3bda8` — server↔client function-prop boundary fix. Pattern documented in DS §17.x. Memory updated in feedback_pre_push_protocol.md bullet 3.
+
+---
 
 ---
 
