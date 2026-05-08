@@ -41,11 +41,11 @@ const emptyStateVariants = cva(
 );
 
 interface EmptyStateProps
-	extends React.ComponentProps<"div">,
+	extends Omit<React.ComponentProps<"div">, "title">,
 		VariantProps<typeof emptyStateVariants> {
 	icon?: LucideIcon;
-	title: string;
-	description?: string;
+	title: React.ReactNode;
+	description?: React.ReactNode;
 	action?: React.ReactNode;
 }
 
