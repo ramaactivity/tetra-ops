@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ItemForm } from "@/components/items/item-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,12 +51,11 @@ export default async function EditItemPage({
 				<ChevronLeft className="h-4 w-4" />
 				Items
 			</Link>
-			<div>
-				<h2 className="text-xl font-semibold tracking-tight">
-					Edit: {item.name}
-				</h2>
-				<p className="text-muted-foreground tabular text-sm">{item.sku}</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title={`Edit: ${item.name}`}
+				description={<span className="tabular">{item.sku}</span>}
+			/>
 			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
 				<ItemForm mode="edit" id={item.id} defaults={defaults} />
 			</div>

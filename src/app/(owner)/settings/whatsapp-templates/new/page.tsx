@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { WhatsAppTemplateForm } from "@/components/whatsapp-templates/template-form";
 
 export default function NewWhatsAppTemplatePage() {
@@ -12,12 +13,11 @@ export default function NewWhatsAppTemplatePage() {
 				<ChevronLeft className="h-4 w-4" />
 				WhatsApp Templates
 			</Link>
-			<div>
-				<h2 className="text-xl font-semibold tracking-tight">New Template</h2>
-				<p className="text-muted-foreground text-sm">
-					Buat template pesan reusable untuk komunikasi standar dengan klien.
-				</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="New Template"
+				description="Buat template pesan reusable untuk komunikasi standar dengan klien."
+			/>
 			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
 				<WhatsAppTemplateForm mode="create" />
 			</div>

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type BankOption,
 	ManualMovementForm,
@@ -106,10 +107,11 @@ export default async function SinkingFundMovementsPage({
 					<ChevronLeft className="h-4 w-4" />
 					Sinking Funds
 				</Link>
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">{fund.name}</h2>
-					<p className="text-muted-foreground tabular text-sm">{fund.code}</p>
-				</div>
+				<SectionHeader
+					as="h2"
+					title={fund.name}
+					description={<span className="tabular">{fund.code}</span>}
+				/>
 			</div>
 
 			<div className="border-border-default bg-surface-2 grid gap-4 rounded-xl border p-5 sm:grid-cols-3">

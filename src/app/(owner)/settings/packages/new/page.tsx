@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { SectionHeader } from "@/components/layout/section-header";
 import { PackageForm } from "@/components/packages/package-form";
 import { createPackage } from "@/lib/actions/packages";
 
@@ -14,12 +15,11 @@ export default function NewPackagePage() {
 					<ChevronLeft className="h-4 w-4" />
 					Packages
 				</Link>
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">New Package</h2>
-					<p className="text-muted-foreground text-sm">
-						Tambah paket baru ke pricelist Tetra.
-					</p>
-				</div>
+				<SectionHeader
+					as="h2"
+					title="New Package"
+					description="Tambah paket baru ke pricelist Tetra."
+				/>
 			</div>
 			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<PackageForm action={createPackage} submitLabel="Create package" />

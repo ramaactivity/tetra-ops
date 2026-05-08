@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/layout/section-header";
 import { WhatsAppTemplateForm } from "@/components/whatsapp-templates/template-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,12 +42,11 @@ export default async function EditWhatsAppTemplatePage({
 				<ChevronLeft className="h-4 w-4" />
 				WhatsApp Templates
 			</Link>
-			<div>
-				<h2 className="text-xl font-semibold tracking-tight">
-					Edit: {tpl.name}
-				</h2>
-				<p className="text-muted-foreground tabular text-sm">{tpl.code}</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title={`Edit: ${tpl.name}`}
+				description={<span className="tabular">{tpl.code}</span>}
+			/>
 			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
 				<WhatsAppTemplateForm mode="edit" id={tpl.id} defaults={defaults} />
 			</div>

@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { SinkingFundForm } from "@/components/sinking-funds/fund-form";
 
 export default function NewSinkingFundPage() {
@@ -12,12 +13,11 @@ export default function NewSinkingFundPage() {
 				<ChevronLeft className="h-4 w-4" />
 				Sinking Funds
 			</Link>
-			<div>
-				<h2 className="text-xl font-semibold tracking-tight">New Fund</h2>
-				<p className="text-muted-foreground text-sm">
-					Bikin sinking fund baru untuk alokasi otomatis dari settlement.
-				</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="New Fund"
+				description="Bikin sinking fund baru untuk alokasi otomatis dari settlement."
+			/>
 			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<SinkingFundForm mode="create" />
 			</div>

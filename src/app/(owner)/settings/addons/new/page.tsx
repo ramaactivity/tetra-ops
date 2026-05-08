@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { AddonForm } from "@/components/addons/addon-form";
 import { createAddon } from "@/lib/actions/addons";
 
@@ -14,12 +15,11 @@ export default function NewAddonPage() {
 					<ChevronLeft className="h-4 w-4" />
 					Add-ons
 				</Link>
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">New Add-on</h2>
-					<p className="text-muted-foreground text-sm">
-						Tambah add-on yang bisa dipilih saat booking.
-					</p>
-				</div>
+				<SectionHeader
+					as="h2"
+					title="New Add-on"
+					description="Tambah add-on yang bisa dipilih saat booking."
+				/>
 			</div>
 			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<AddonForm action={createAddon} submitLabel="Create add-on" />

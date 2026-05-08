@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/layout/section-header";
 import { NotificationRuleForm } from "@/components/notification-rules/rule-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,14 +43,15 @@ export default async function EditNotificationRulePage({
 				<ChevronLeft className="h-4 w-4" />
 				Notification Rules
 			</Link>
-			<div>
-				<h2 className="text-xl font-semibold tracking-tight">
-					Edit: {rule.name}
-				</h2>
-				<p className="text-muted-foreground tabular text-sm">
-					{rule.code} · {rule.category}
-				</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title={`Edit: ${rule.name}`}
+				description={
+					<span className="tabular">
+						{rule.code} · {rule.category}
+					</span>
+				}
+			/>
 			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<NotificationRuleForm
 					id={rule.id}

@@ -1,7 +1,10 @@
+import { Settings as SettingsIcon } from "lucide-react";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type ConfigEntry,
 	SystemConfigForm,
 } from "@/components/system-config/config-form";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function SystemConfigPage() {
@@ -26,26 +29,21 @@ export default async function SystemConfigPage() {
 
 	if (entries.length === 0) {
 		return (
-			<div className="border-border-default bg-surface-2 rounded-xl border border-dashed p-12 text-center">
-				<p className="text-muted-foreground text-sm">
-					Belum ada system config. Jalankan onboarding wizard atau seed data
-					awal.
-				</p>
-			</div>
+			<EmptyState
+				icon={SettingsIcon}
+				title="Belum ada system config"
+				description="Jalankan onboarding wizard atau seed data awal."
+			/>
 		);
 	}
 
 	return (
 		<div className="space-y-4">
-			<div className="space-y-1">
-				<h2 className="text-xl font-semibold tracking-tight">
-					System Configuration
-				</h2>
-				<p className="text-muted-foreground text-sm">
-					Default value yang dipakai booking, settlement, dan WA template.
-					Hati-hati ubah — pengaruh ke event yang lagi berjalan.
-				</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="System Configuration"
+				description="Default value yang dipakai booking, settlement, dan WA template. Hati-hati ubah — pengaruh ke event yang lagi berjalan."
+			/>
 
 			<SystemConfigForm entries={entries} />
 		</div>

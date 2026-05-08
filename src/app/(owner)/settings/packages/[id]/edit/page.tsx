@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/layout/section-header";
 import { PackageForm } from "@/components/packages/package-form";
 import { updatePackage } from "@/lib/actions/packages";
 import { createClient } from "@/lib/supabase/server";
@@ -45,15 +46,11 @@ export default async function EditPackagePage({
 					<ChevronLeft className="h-4 w-4" />
 					Packages
 				</Link>
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">
-						Edit: {pkg.name}
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						Perubahan harga TIDAK menyentuh booking yang sudah ada (event punya
-						snapshot harga sendiri).
-					</p>
-				</div>
+				<SectionHeader
+					as="h2"
+					title={`Edit: ${pkg.name}`}
+					description="Perubahan harga TIDAK menyentuh booking yang sudah ada (event punya snapshot harga sendiri)."
+				/>
 			</div>
 			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<PackageForm

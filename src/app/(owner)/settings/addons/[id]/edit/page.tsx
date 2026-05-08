@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SectionHeader } from "@/components/layout/section-header";
 import { AddonForm } from "@/components/addons/addon-form";
 import { updateAddon } from "@/lib/actions/addons";
 import { createClient } from "@/lib/supabase/server";
@@ -45,14 +46,11 @@ export default async function EditAddonPage({
 					<ChevronLeft className="h-4 w-4" />
 					Add-ons
 				</Link>
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">
-						Edit: {addon.name}
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						Perubahan harga TIDAK menyentuh booking yang sudah ada.
-					</p>
-				</div>
+				<SectionHeader
+					as="h2"
+					title={`Edit: ${addon.name}`}
+					description="Perubahan harga TIDAK menyentuh booking yang sudah ada."
+				/>
 			</div>
 			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<AddonForm
