@@ -23,13 +23,9 @@ import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+	ResponsiveTable,
+	type ResponsiveTableColumn,
+} from "@/components/ui/responsive-table";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -385,91 +381,131 @@ export default async function OperationsListPage({
 						}
 					/>
 				) : (
-					<div className="overflow-x-auto rounded-lg border border-border-default bg-surface-2">
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Project ID</TableHead>
-									<TableHead>Client</TableHead>
-									<TableHead>Event Date</TableHead>
-									<TableHead>Venue</TableHead>
-									<TableHead>Crew</TableHead>
-									<TableHead>Channel</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead className="text-right">Grand Total</TableHead>
-									<TableHead>Payment</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{events.map((ev) => (
-									<TableRow key={ev.id}>
-										<TableCell className="tabular text-fluid-caption font-medium">
-											<div className="flex items-center gap-1.5">
-												<Link
-													href={`/operations/${ev.project_id}`}
-													className="text-primary hover:underline"
-												>
-													{ev.project_id}
-												</Link>
-												{ev.is_migrated_legacy && (
-													<span
-														className="inline-flex h-4 items-center rounded bg-amber-500/15 px-1 text-[10px] font-medium text-amber-700 dark:text-amber-300"
-														title="Migrated from Phase-2 (read-only)"
-													>
-														<Archive className="size-2.5" />
-													</span>
-												)}
-												{!ev.is_migrated_legacy &&
-													ev.legacy_invoice_number && (
-														<span
-															className="inline-flex h-4 items-center rounded border border-border-default px-1 text-[10px] font-medium text-muted-foreground"
-															title={`Imported from Phase-2 (invoice ${ev.legacy_invoice_number})`}
-														>
-															<Inbox className="size-2.5" />
-														</span>
-													)}
-											</div>
-										</TableCell>
-										<TableCell>{ev.client_name}</TableCell>
-										<TableCell className="tabular text-fluid-caption text-muted-foreground">
-											{formatDateID(ev.event_date)}
-										</TableCell>
-										<TableCell className="truncate text-fluid-caption text-muted-foreground">
-											{ev.venue_name}
-											{ev.venue_city && (
-												<span className="text-muted-foreground/60">
-													{" · "}
-													{ev.venue_city}
-												</span>
-											)}
-										</TableCell>
-										<TableCell>
-											<CrewChips
-												crew={crewByEvent.get(ev.id) ?? []}
-												highlightUserId={crewFilter || undefined}
-											/>
-										</TableCell>
-										<TableCell className="text-fluid-caption text-muted-foreground">
-											{CHANNEL_TYPE_LABELS[ev.channel] ?? ev.channel}
-										</TableCell>
-										<TableCell>
-											<EventStatusBadge status={ev.status} />
-										</TableCell>
-										<TableCell className="tabular text-right font-medium">
-											{ev.grand_total ? formatRupiah(ev.grand_total) : "—"}
-										</TableCell>
-										<TableCell>
-											<PaymentStatusBadge status={ev.payment_status} />
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+					<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+						<ResponsiveTable<EventRow>
+							keyExtractor={(ev) => ev.id}
+							rows={events}
+							columns={buildOperationsColumns({ crewByEvent, crewFilter })}
+						/>
 					</div>
 				)}
 			</div>
 		</Container>
 	);
+}
+
+function buildOperationsColumns({
+	crewByEvent,
+	crewFilter,
+}: {
+	crewByEvent: Map<string, CrewChip[]>;
+	crewFilter: string;
+}): ResponsiveTableColumn<EventRow>[] {
+	return [
+		{
+			key: "project_id",
+			header: "Project ID",
+			mobileLabel: "ID",
+			render: (ev) => (
+				<div className="flex items-center gap-1.5 tabular text-fluid-caption font-medium">
+					<Link
+						href={`/operations/${ev.project_id}`}
+						className="text-primary hover:underline"
+					>
+						{ev.project_id}
+					</Link>
+					{ev.is_migrated_legacy && (
+						<span
+							className="inline-flex h-4 items-center rounded bg-amber-500/15 px-1 text-[10px] font-medium text-amber-700 dark:text-amber-300"
+							title="Migrated from Phase-2 (read-only)"
+						>
+							<Archive className="size-2.5" />
+						</span>
+					)}
+					{!ev.is_migrated_legacy && ev.legacy_invoice_number && (
+						<span
+							className="inline-flex h-4 items-center rounded border border-border-default px-1 text-[10px] font-medium text-muted-foreground"
+							title={`Imported from Phase-2 (invoice ${ev.legacy_invoice_number})`}
+						>
+							<Inbox className="size-2.5" />
+						</span>
+					)}
+				</div>
+			),
+		},
+		{
+			key: "client_name",
+			header: "Client",
+			mobileLabel: "Klien",
+		},
+		{
+			key: "event_date",
+			header: "Event Date",
+			mobileLabel: "Tanggal",
+			render: (ev) => (
+				<span className="tabular text-fluid-caption text-muted-foreground">
+					{formatDateID(ev.event_date)}
+				</span>
+			),
+		},
+		{
+			key: "venue",
+			header: "Venue",
+			hideOnMobile: true,
+			render: (ev) => (
+				<span className="truncate text-fluid-caption text-muted-foreground">
+					{ev.venue_name}
+					{ev.venue_city && (
+						<span className="text-muted-foreground/60">
+							{" · "}
+							{ev.venue_city}
+						</span>
+					)}
+				</span>
+			),
+		},
+		{
+			key: "crew",
+			header: "Crew",
+			render: (ev) => (
+				<CrewChips
+					crew={crewByEvent.get(ev.id) ?? []}
+					highlightUserId={crewFilter || undefined}
+				/>
+			),
+		},
+		{
+			key: "channel",
+			header: "Channel",
+			hideOnMobile: true,
+			render: (ev) => (
+				<span className="text-fluid-caption text-muted-foreground">
+					{CHANNEL_TYPE_LABELS[ev.channel] ?? ev.channel}
+				</span>
+			),
+		},
+		{
+			key: "status",
+			header: "Status",
+			render: (ev) => <EventStatusBadge status={ev.status} />,
+		},
+		{
+			key: "grand_total",
+			header: "Grand Total",
+			align: "right",
+			render: (ev) => (
+				<span className="tabular font-medium">
+					{ev.grand_total ? formatRupiah(ev.grand_total) : "—"}
+				</span>
+			),
+		},
+		{
+			key: "payment_status",
+			header: "Payment",
+			mobileLabel: "Pembayaran",
+			render: (ev) => <PaymentStatusBadge status={ev.payment_status} />,
+		},
+	];
 }
 
 function CrewChips({
