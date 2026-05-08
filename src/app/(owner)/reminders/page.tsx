@@ -8,6 +8,8 @@ import {
 	Users,
 } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ReminderBatchClient } from "@/components/reminders/batch-client";
 import {
 	BUCKET_LABELS,
@@ -260,24 +262,17 @@ export default async function RemindersPage({
 		counts.h3_pelunasan + counts.h7_dp + counts.h1_konfirmasi + counts.overdue;
 
 	return (
-		<div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">
-			<div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-				<div>
-					<h1 className="text-foreground text-2xl font-semibold tracking-tight md:text-3xl">
-						WA Reminder Scheduler
-					</h1>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Kirim reminder WhatsApp manual via wa.me — pilih bucket, centang
-						event, klik kirim.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
+		<Container size="xl" className="space-y-6">
+			<SectionHeader
+				title="WA Reminder Scheduler"
+				description="Kirim reminder WhatsApp manual via wa.me — pilih bucket, centang event, klik kirim."
+				actions={
 					<Badge variant="outline" className="gap-1.5">
-						<Inbox className="h-3.5 w-3.5" />
+						<Inbox className="size-3.5" />
 						{totalCount} event butuh reminder
 					</Badge>
-				</div>
-			</div>
+				}
+			/>
 
 			{/* Bucket tabs */}
 			<div className="mb-4 flex flex-wrap gap-2">
@@ -395,6 +390,6 @@ export default async function RemindersPage({
 					}))}
 				/>
 			)}
-		</div>
+		</Container>
 	);
 }

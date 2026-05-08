@@ -10,6 +10,8 @@ import {
 	Settings,
 } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	DismissButton,
 	MarkAllReadButton,
@@ -170,29 +172,29 @@ export default async function NotificationsPage({
 	const totalUnread = unreadCount ?? 0;
 
 	return (
-		<div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">
-						Notifications
-					</h1>
-					<p className="text-muted-foreground text-sm">
+		<Container size="md" className="space-y-5">
+			<SectionHeader
+				title="Notifications"
+				description={
+					<>
 						Anomaly radar, operational alerts, sistem updates.
 						{totalUnread > 0 && (
 							<>
 								{" · "}
-								<span className="text-rose-600 dark:text-rose-400 tabular font-medium">
+								<span className="tabular font-medium text-rose-600 dark:text-rose-400">
 									{totalUnread} unread
 								</span>
 							</>
 						)}
-					</p>
-				</div>
-				<div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-					<RunScannerButton />
-					<MarkAllReadButton disabled={totalUnread === 0} />
-				</div>
-			</div>
+					</>
+				}
+				actions={
+					<>
+						<RunScannerButton />
+						<MarkAllReadButton disabled={totalUnread === 0} />
+					</>
+				}
+			/>
 
 			{/* Push notifications subscribe */}
 			<div className="border-border-default bg-surface-2 flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
@@ -304,7 +306,7 @@ export default async function NotificationsPage({
 					))}
 				</ul>
 			)}
-		</div>
+		</Container>
 	);
 }
 

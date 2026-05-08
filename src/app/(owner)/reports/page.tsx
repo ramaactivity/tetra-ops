@@ -12,6 +12,8 @@ import {
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatRupiah } from "@/lib/format";
@@ -100,16 +102,12 @@ export default async function ReportsPage({
 	const isSuperAdmin = me?.profile.role === "super_admin";
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Reports</h1>
-					<p className="text-muted-foreground text-sm">
-						Monthly P&amp;L, crew performance, owner statement.
-					</p>
-				</div>
-				<MonthSwitcher ym={ym} tab={tab} />
-			</div>
+		<Container size="xl" className="space-y-6">
+			<SectionHeader
+				title="Reports"
+				description="Monthly P&L, crew performance, owner statement."
+				actions={<MonthSwitcher ym={ym} tab={tab} />}
+			/>
 
 			<div className="border-border-default flex gap-1 border-b">
 				<TabLink
@@ -150,7 +148,7 @@ export default async function ReportsPage({
 					</p>
 				</div>
 			)}
-		</div>
+		</Container>
 	);
 }
 

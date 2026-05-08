@@ -16,8 +16,11 @@ import {
 	type Owner,
 	WithdrawalButton,
 } from "@/components/finance/withdrawal-button";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -314,22 +317,20 @@ export default async function FinancePage() {
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Finance</h1>
-					<p className="text-muted-foreground text-sm">
-						Cash flow, profit, sinking funds, dan owner pool · {monthLabel}
-					</p>
-				</div>
-				<Link
-					href="/finance/vendors"
-					className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium"
-				>
-					<Handshake className="h-4 w-4" />
-					Vendor commissions
-				</Link>
-			</div>
+		<Container size="xl" className="space-y-6 md:space-y-8">
+			<SectionHeader
+				title="Finance"
+				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
+				actions={
+					<Link
+						href="/finance/vendors"
+						className={buttonVariants({ variant: "outline", size: "sm" })}
+					>
+						<Handshake className="size-4" />
+						<span className="hidden sm:inline">Vendor commissions</span>
+					</Link>
+				}
+			/>
 
 			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<KpiCard
@@ -728,7 +729,7 @@ export default async function FinancePage() {
 					</div>
 				)}
 			</section>
-		</div>
+		</Container>
 	);
 }
 
