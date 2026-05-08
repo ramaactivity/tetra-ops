@@ -1,3 +1,4 @@
+import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
 import {
 	Table,
@@ -43,16 +44,11 @@ export default async function BankAccountsListPage() {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-end justify-between">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">
-						Bank Accounts
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						{accounts.length} akun · default penerima ditandai
-					</p>
-				</div>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Bank Accounts"
+				description={`${accounts.length} akun · default penerima ditandai`}
+			/>
 
 			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<Table>

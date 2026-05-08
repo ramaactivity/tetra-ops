@@ -1,5 +1,6 @@
 import { Clock, FileSpreadsheet, Mail } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { EditCrewDrawer } from "@/components/crew/edit-crew-drawer";
 import { InvitationDeleteButton } from "@/components/crew/invitation-row-actions";
 import { InviteCrewForm } from "@/components/crew/invite-form";
@@ -10,6 +11,7 @@ import {
 } from "@/components/investors/share-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -129,10 +131,11 @@ export default async function MasterCrewPage() {
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">Master Crew</h2>
-					<p className="text-muted-foreground text-sm">
+			<SectionHeader
+				as="h2"
+				title="Master Crew"
+				description={
+					<>
 						{users.length} terdaftar
 						{pendingCount > 0 && (
 							<>
@@ -150,21 +153,23 @@ export default async function MasterCrewPage() {
 								</span>
 							</>
 						)}
-					</p>
-				</div>
-				{isSuperAdmin && (
-					<div className="flex items-center gap-2">
-						<Link
-							href="/settings/crew/invitations/import"
-							className="border-border-default text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium"
-						>
-							<FileSpreadsheet className="h-4 w-4" />
-							Bulk import
-						</Link>
-						<InviteCrewForm />
-					</div>
-				)}
-			</div>
+					</>
+				}
+				actions={
+					isSuperAdmin ? (
+						<>
+							<Link
+								href="/settings/crew/invitations/import"
+								className={buttonVariants({ variant: "outline" })}
+							>
+								<FileSpreadsheet className="size-4" />
+								Bulk import
+							</Link>
+							<InviteCrewForm />
+						</>
+					) : undefined
+				}
+			/>
 
 			{isSuperAdmin && invitationsErrorMessage && (
 				<div className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 rounded-md border p-3">

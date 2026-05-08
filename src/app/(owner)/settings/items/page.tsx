@@ -1,5 +1,6 @@
 import { FileSpreadsheet, Package, Plus } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type ItemRow,
 	ItemsListTable,
@@ -51,33 +52,29 @@ export default async function ItemsListPage({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 className="text-fluid-h2 font-semibold tracking-tight">
-						Inventory Items
-					</h2>
-					<p className="text-fluid-caption text-muted-foreground">
-						{items.length} item · {consumablesCount} consumable ·{" "}
-						{equipmentCount} equipment
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<Link
-						href="/settings/items/import"
-						className={buttonVariants({ variant: "outline", size: "sm" })}
-					>
-						<FileSpreadsheet className="size-4" />
-						<span className="hidden sm:inline">Bulk import</span>
-					</Link>
-					<Link
-						href="/settings/items/new"
-						className={buttonVariants({ variant: "default", size: "sm" })}
-					>
-						<Plus className="size-4" />
-						<span className="hidden sm:inline">New item</span>
-					</Link>
-				</div>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Inventory Items"
+				description={`${items.length} item · ${consumablesCount} consumable · ${equipmentCount} equipment`}
+				actions={
+					<>
+						<Link
+							href="/settings/items/import"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<FileSpreadsheet className="size-4" />
+							<span className="hidden sm:inline">Bulk import</span>
+						</Link>
+						<Link
+							href="/settings/items/new"
+							className={buttonVariants({ variant: "default", size: "sm" })}
+						>
+							<Plus className="size-4" />
+							<span className="hidden sm:inline">New item</span>
+						</Link>
+					</>
+				}
+			/>
 
 			<div className="flex items-center gap-1">
 				<FilterChip href="/settings/items" active={!category} label="Semua" />

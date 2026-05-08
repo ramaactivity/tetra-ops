@@ -1,5 +1,6 @@
 import { FileSpreadsheet, Users } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type ContactRow,
 	ContactsListTable,
@@ -59,24 +60,20 @@ export default async function ContactsListPage({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div>
-					<h2 className="text-fluid-h2 font-semibold tracking-tight">
-						Contacts
-					</h2>
-					<p className="text-fluid-caption text-muted-foreground">
-						Master kontak: bookers, clients, PIC event, vendor. Diresolve
-						otomatis saat import projects via Contact_ID legacy.
-					</p>
-				</div>
-				<Link
-					href="/settings/contacts/import"
-					className={buttonVariants({ variant: "default", size: "sm" })}
-				>
-					<FileSpreadsheet className="size-4" />
-					<span className="hidden sm:inline">Bulk Import</span>
-				</Link>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Contacts"
+				description="Master kontak: bookers, clients, PIC event, vendor. Diresolve otomatis saat import projects via Contact_ID legacy."
+				actions={
+					<Link
+						href="/settings/contacts/import"
+						className={buttonVariants({ variant: "default", size: "sm" })}
+					>
+						<FileSpreadsheet className="size-4" />
+						<span className="hidden sm:inline">Bulk Import</span>
+					</Link>
+				}
+			/>
 
 			<div className="flex flex-wrap items-center gap-2">
 				<form

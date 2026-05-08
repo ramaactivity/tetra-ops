@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { AuditFilterBar } from "@/components/audit-log/audit-filter-bar";
 import {
 	AuditListTable,
@@ -86,19 +87,20 @@ export default async function AuditLogPage({
 
 	return (
 		<div className="space-y-4">
-			<div className="space-y-1">
-				<h2 className="text-fluid-h2 font-semibold tracking-tight">
-					Audit Log
-				</h2>
-				<p className="text-fluid-caption text-muted-foreground">
-					Riwayat perubahan data penting (event, payment, settlement, user
-					role).{" "}
-					<span className="font-medium text-foreground">
-						{totalCount.toLocaleString("id-ID")}
-					</span>{" "}
-					entri.
-				</p>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Audit Log"
+				description={
+					<>
+						Riwayat perubahan data penting (event, payment, settlement, user
+						role).{" "}
+						<span className="font-medium text-foreground">
+							{totalCount.toLocaleString("id-ID")}
+						</span>{" "}
+						entri.
+					</>
+				}
+			/>
 
 			<AuditFilterBar
 				actions={actions}

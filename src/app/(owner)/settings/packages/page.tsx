@@ -1,7 +1,9 @@
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ArchivePackageButton } from "@/components/packages/archive-button";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -52,21 +54,20 @@ export default async function PackagesListPage() {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-end justify-between">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">Packages</h2>
-					<p className="text-muted-foreground text-sm">
-						{packages.length} paket tersedia
-					</p>
-				</div>
-				<Link
-					href="/settings/packages/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New package
-				</Link>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Packages"
+				description={`${packages.length} paket tersedia`}
+				actions={
+					<Link
+						href="/settings/packages/new"
+						className={buttonVariants({ variant: "default" })}
+					>
+						<Plus className="size-4" />
+						New package
+					</Link>
+				}
+			/>
 
 			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<Table>

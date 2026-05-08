@@ -1,7 +1,9 @@
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { SectionHeader } from "@/components/layout/section-header";
 import { ArchiveAddonButton } from "@/components/addons/archive-button";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -46,21 +48,20 @@ export default async function AddonsListPage() {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-end justify-between">
-				<div>
-					<h2 className="text-xl font-semibold tracking-tight">Add-ons</h2>
-					<p className="text-muted-foreground text-sm">
-						{addons.length} add-on tersedia
-					</p>
-				</div>
-				<Link
-					href="/settings/addons/new"
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
-				>
-					<Plus className="h-4 w-4" />
-					New add-on
-				</Link>
-			</div>
+			<SectionHeader
+				as="h2"
+				title="Add-ons"
+				description={`${addons.length} add-on tersedia`}
+				actions={
+					<Link
+						href="/settings/addons/new"
+						className={buttonVariants({ variant: "default" })}
+					>
+						<Plus className="size-4" />
+						New add-on
+					</Link>
+				}
+			/>
 
 			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<Table>
