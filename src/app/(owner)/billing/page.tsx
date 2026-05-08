@@ -13,15 +13,14 @@ import {
 	SendWhatsAppButton,
 	type WhatsAppTemplate,
 } from "@/components/booking/send-wa-button";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+	ResponsiveTable,
+	type ResponsiveTableColumn,
+} from "@/components/ui/responsive-table";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -158,13 +157,13 @@ export default async function BillingPage({
 
 	if (listResult.error) {
 		return (
-			<div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
-				<div className="border-destructive bg-destructive/10 rounded-md border p-4">
-					<p className="text-destructive text-sm font-medium">
+			<Container size="xl">
+				<div className="rounded-md border border-destructive bg-destructive/10 p-4">
+					<p className="text-fluid-body font-medium text-destructive">
 						Gagal memuat billing: {listResult.error.message}
 					</p>
 				</div>
-			</div>
+			</Container>
 		);
 	}
 
@@ -205,15 +204,13 @@ export default async function BillingPage({
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
-			<div className="space-y-1">
-				<h1 className="text-fluid-h1 font-semibold tracking-tight">Billing</h1>
-				<p className="text-muted-foreground text-sm">
-					Track pembayaran dan piutang dari semua event.
-				</p>
-			</div>
+		<Container size="xl" className="space-y-6">
+			<SectionHeader
+				title="Billing"
+				description="Track pembayaran dan piutang dari semua event."
+			/>
 
-			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<KpiCard
 					label="Uang Menggantung"
 					value={formatRupiah(hanging)}
@@ -250,125 +247,150 @@ export default async function BillingPage({
 				<BillingFilterBar defaultQ={q} defaultMonth={month} />
 
 				{events.length === 0 ? (
-					<div className="border-border-default bg-surface-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-16 text-center">
-						<FileText className="text-muted-foreground h-10 w-10" />
-						<div className="space-y-1">
-							<h3 className="font-medium">Tidak ada invoice</h3>
-							<p className="text-muted-foreground text-sm">
-								{q || month || tab !== "all"
-									? "Coba ubah filter atau ganti tab."
-									: "Bikin event dulu di Operations untuk mulai billing."}
-							</p>
-						</div>
-					</div>
+					<EmptyState
+						icon={FileText}
+						title="Tidak ada invoice"
+						description={
+							q || month || tab !== "all"
+								? "Coba ubah filter atau ganti tab."
+								: "Bikin event dulu di Operations untuk mulai billing."
+						}
+					/>
 				) : (
-					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Klien</TableHead>
-									<TableHead>Event Date</TableHead>
-									<TableHead>Due Date</TableHead>
-									<TableHead className="text-right">Total</TableHead>
-									<TableHead className="text-right">Paid</TableHead>
-									<TableHead className="text-right">Sisa</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead className="w-[120px] text-right">
-										Actions
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{events.map((ev) => {
-									const due = ev.due_date ?? ev.event_date;
-									return (
-										<TableRow key={ev.id}>
-											<TableCell>
-												<div className="space-y-0.5">
-													<div className="text-sm font-medium">
-														{ev.client_name}
-													</div>
-													<Link
-														href={`/operations/${ev.project_id}`}
-														className="text-primary tabular text-xs hover:underline"
-													>
-														{ev.project_id}
-													</Link>
-												</div>
-											</TableCell>
-											<TableCell className="tabular text-muted-foreground text-sm">
-												{formatDateID(ev.event_date)}
-											</TableCell>
-											<TableCell
-												className={cn(
-													"tabular text-sm",
-													dueDateColor(
-														ev.due_date,
-														ev.event_date,
-														ev.payment_status,
-													),
-												)}
-											>
-												{due ? formatDateID(due) : "—"}
-											</TableCell>
-											<TableCell className="tabular text-right text-sm font-medium">
-												{ev.grand_total
-													? formatRupiah(ev.grand_total)
-													: "—"}
-											</TableCell>
-											<TableCell className="tabular text-emerald-500 text-right text-sm">
-												{ev.total_paid > 0
-													? formatRupiah(ev.total_paid)
-													: "—"}
-											</TableCell>
-											<TableCell className="tabular text-right text-sm font-medium">
-												{ev.remaining_balance > 0 ? (
-													<span className="text-foreground">
-														{formatRupiah(ev.remaining_balance)}
-													</span>
-												) : (
-													<span className="text-muted-foreground">—</span>
-												)}
-											</TableCell>
-											<TableCell>
-												<PaymentStatusBadge status={ev.payment_status} />
-											</TableCell>
-											<TableCell>
-												<div className="flex items-center justify-end gap-1">
-													<SendWhatsAppButton
-														event={{
-															project_id: ev.project_id,
-															client_name: ev.client_name,
-															client_wa: ev.client_wa,
-															event_date: ev.event_date,
-															setup_time: ev.setup_time,
-															start_time: ev.start_time,
-															venue_name: ev.venue_name,
-															due_date: ev.due_date,
-															total_paid: ev.total_paid,
-															remaining_balance: ev.remaining_balance,
-														}}
-														templates={templates}
-														size="sm"
-													/>
-													<Link
-														href={`/operations/${ev.project_id}/payments`}
-														title="Log payment / lihat history"
-														className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium"
-													>
-														<Receipt className="h-3.5 w-3.5" />
-														Payments
-													</Link>
-												</div>
-											</TableCell>
-										</TableRow>
-									);
-								})}
-							</TableBody>
-						</Table>
+					<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+						<ResponsiveTable<EventBillingRow>
+							keyExtractor={(ev) => ev.id}
+							rows={events}
+							columns={buildBillingColumns({ templates })}
+						/>
 					</div>
 				)}
 			</div>
-		</div>
+		</Container>
 	);
+}
+
+function buildBillingColumns({
+	templates,
+}: {
+	templates: WhatsAppTemplate[];
+}): ResponsiveTableColumn<EventBillingRow>[] {
+	return [
+		{
+			key: "client",
+			header: "Klien",
+			render: (ev) => (
+				<div className="space-y-0.5">
+					<div className="text-fluid-body font-medium">{ev.client_name}</div>
+					<Link
+						href={`/operations/${ev.project_id}`}
+						className="tabular text-fluid-caption text-primary hover:underline"
+					>
+						{ev.project_id}
+					</Link>
+				</div>
+			),
+		},
+		{
+			key: "event_date",
+			header: "Event Date",
+			mobileLabel: "Tanggal",
+			render: (ev) => (
+				<span className="tabular text-fluid-caption text-muted-foreground">
+					{formatDateID(ev.event_date)}
+				</span>
+			),
+		},
+		{
+			key: "due_date",
+			header: "Due Date",
+			mobileLabel: "Jatuh Tempo",
+			render: (ev) => {
+				const due = ev.due_date ?? ev.event_date;
+				return (
+					<span
+						className={cn(
+							"tabular text-fluid-caption",
+							dueDateColor(ev.due_date, ev.event_date, ev.payment_status),
+						)}
+					>
+						{due ? formatDateID(due) : "—"}
+					</span>
+				);
+			},
+		},
+		{
+			key: "grand_total",
+			header: "Total",
+			align: "right",
+			hideOnMobile: true,
+			render: (ev) => (
+				<span className="tabular font-medium">
+					{ev.grand_total ? formatRupiah(ev.grand_total) : "—"}
+				</span>
+			),
+		},
+		{
+			key: "total_paid",
+			header: "Paid",
+			align: "right",
+			hideOnMobile: true,
+			render: (ev) => (
+				<span className="tabular text-emerald-500">
+					{ev.total_paid > 0 ? formatRupiah(ev.total_paid) : "—"}
+				</span>
+			),
+		},
+		{
+			key: "remaining_balance",
+			header: "Sisa",
+			align: "right",
+			render: (ev) =>
+				ev.remaining_balance > 0 ? (
+					<span className="tabular font-medium text-foreground">
+						{formatRupiah(ev.remaining_balance)}
+					</span>
+				) : (
+					<span className="tabular text-muted-foreground">—</span>
+				),
+		},
+		{
+			key: "payment_status",
+			header: "Status",
+			render: (ev) => <PaymentStatusBadge status={ev.payment_status} />,
+		},
+		{
+			key: "actions",
+			header: "Actions",
+			align: "right",
+			render: (ev) => (
+				<div className="flex items-center justify-end gap-1">
+					<SendWhatsAppButton
+						event={{
+							project_id: ev.project_id,
+							client_name: ev.client_name,
+							client_wa: ev.client_wa,
+							event_date: ev.event_date,
+							setup_time: ev.setup_time,
+							start_time: ev.start_time,
+							venue_name: ev.venue_name,
+							due_date: ev.due_date,
+							total_paid: ev.total_paid,
+							remaining_balance: ev.remaining_balance,
+						}}
+						templates={templates}
+						size="sm"
+					/>
+					<Link
+						href={`/operations/${ev.project_id}/payments`}
+						title="Log payment / lihat history"
+						className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-fluid-caption font-medium text-foreground transition-colors hover:bg-surface-3"
+					>
+						<Receipt className="size-3.5" />
+						Payments
+					</Link>
+				</div>
+			),
+		},
+	];
 }
