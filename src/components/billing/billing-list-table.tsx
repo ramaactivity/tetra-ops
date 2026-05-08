@@ -67,6 +67,7 @@ export function BillingListTable({ events, templates }: Props) {
 					<Link
 						href={`/operations/${ev.project_id}`}
 						className="tabular text-fluid-caption text-primary hover:underline"
+						style={{ viewTransitionName: `event-${ev.project_id}` }}
 					>
 						{ev.project_id}
 					</Link>
