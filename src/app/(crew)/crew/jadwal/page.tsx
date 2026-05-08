@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -126,14 +127,19 @@ export default async function CrewSchedulePage({
 			</div>
 
 			{assignments.length === 0 ? (
-				<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-12 text-center">
-					<CalendarPlus className="text-muted-foreground h-8 w-8" />
-					<p className="text-muted-foreground text-sm">
-						{tab === "upcoming"
-							? "Belum ada event upcoming. Tunggu di-assign owner."
-							: "Belum ada event past."}
-					</p>
-				</div>
+				<EmptyState
+					icon={CalendarPlus}
+					title={
+						tab === "upcoming"
+							? "Belum ada event upcoming"
+							: "Belum ada event past"
+					}
+					description={
+						tab === "upcoming"
+							? "Tunggu di-assign owner. Notif WA bakal masuk pas lo dapat schedule baru."
+							: "Riwayat event yang udah selesai bakal muncul di sini."
+					}
+				/>
 			) : (
 				<div className="space-y-2">
 					{assignments.map((a, i) => {
@@ -143,7 +149,10 @@ export default async function CrewSchedulePage({
 							<Link
 								key={`${ev.id}-${i}`}
 								href={`/crew/jadwal/${ev.project_id}`}
-								className="border-border-default bg-surface-2 hover:border-foreground/20 flex items-stretch gap-3 rounded-xl border p-3 transition-colors active:scale-[0.99]"
+								className="lift-on-hover press-down flex items-stretch gap-3 rounded-xl border border-border-default bg-surface-2 p-3 transition-colors hover:border-foreground/20 hover:bg-surface-3"
+								style={{
+									viewTransitionName: `crew-event-${ev.project_id}`,
+								}}
 							>
 								<div className="flex w-16 shrink-0 flex-col items-center justify-center">
 									<span className="text-muted-foreground text-[10px] font-medium uppercase">

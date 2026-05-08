@@ -165,14 +165,17 @@ export default async function CrewEventDetailPage({
 				Jadwal
 			</Link>
 
-			<header className="space-y-2">
+			<header
+				className="space-y-2"
+				style={{ viewTransitionName: `crew-event-${event.project_id}` }}
+			>
 				<div className="flex flex-wrap items-start justify-between gap-2">
-					<h1 className="text-xl font-semibold leading-tight tracking-tight">
+					<h1 className="text-fluid-h1 font-semibold leading-tight tracking-tight">
 						{event.client_name}
 					</h1>
 					<EventStatusBadge status={event.status} />
 				</div>
-				<p className="text-muted-foreground tabular text-xs">
+				<p className="tabular text-fluid-caption text-muted-foreground">
 					{event.project_id}
 				</p>
 				<div className="flex flex-wrap gap-1.5">
