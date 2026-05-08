@@ -987,6 +987,19 @@ Plus barrel export at `src/components/ui/index.ts` and a dev-only showcase route
 - `<Cluster gap="...">` — horizontal flow with wrap
 - `<SectionHeader title actions />` — REPLACES every ad-hoc page-top `text-3xl` h1
 
+### 17.x Server→Client boundary rule for tables
+
+`<ResponsiveTable>` is a client component (`"use client"`) because it attaches optional `onRowClick` event handlers. **Never pass column `render` functions or `keyExtractor` to it directly from a server component** — Next.js will throw a runtime 500 because functions don't serialize across the server→client boundary.
+
+**Pattern:** create a per-page client wrapper that takes only serializable props (plain arrays, primitives, dates as ISO strings). Build the columns + render closures INSIDE the wrapper. Reference:
+
+- `src/components/operations/operations-list-table.tsx`
+- `src/components/billing/billing-list-table.tsx`
+
+Server page calls: `<OperationsListTable events={events} crewByEventEntries={Array.from(map.entries())} crewFilter={crewFilter} />`. The wrapper reconstructs the Map and renders ResponsiveTable.
+
+This was hit in production at sesi 5 closure (commit `4a3bda8`). Adopt the wrapper pattern for any future page migrating to ResponsiveTable.
+
 ### 17.4 Domain custom components at `src/components/`
 
 Existing reusable patterns (don't rebuild):
