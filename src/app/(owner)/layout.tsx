@@ -17,7 +17,7 @@ export default async function OwnerLayout({
 	if (profile.role === "pending_approval") redirect("/pending");
 
 	return (
-		<div className="bg-background flex min-h-screen flex-col">
+		<div className="flex min-h-dvh flex-col bg-background">
 			<TopBar
 				name={profile.full_name}
 				email={result.email}
@@ -26,7 +26,10 @@ export default async function OwnerLayout({
 			/>
 			<div className="flex flex-1">
 				<OwnerSidebar />
-				<main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+				{/* min-w-0 on <main> is REQUIRED so the flex item shrinks below
+				    intrinsic content width on smaller laptops — otherwise the
+				    Container/max-w-* caps push past the viewport. (P0 fix). */}
+				<main className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
 					{children}
 				</main>
 			</div>

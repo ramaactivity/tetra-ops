@@ -67,7 +67,7 @@ export default async function RootLayout({
 			lang="id"
 			className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
 		>
-			<body className="bg-background text-foreground flex min-h-full flex-col">
+			<body className="flex min-h-dvh flex-col bg-background text-foreground">
 				<ServiceWorkerRegister />
 				{children}
 				<Toaster />

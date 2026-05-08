@@ -283,6 +283,10 @@
     background-color: var(--background);
     /* iOS pinch-to-zoom is governed by viewport meta; this keeps text crisp */
     -webkit-text-size-adjust: 100%;
+    /* P0 viewport-fit: kill horizontal page scroll. Tables / wide content
+       must use their own overflow-x-auto wrapper. Pinch zoom still works
+       (a11y) but content can't bleed out of the viewport. */
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground;
@@ -293,6 +297,13 @@
     -webkit-overflow-scrolling: touch;
     /* Disable text size adjust on rotation */
     text-size-adjust: 100%;
+    /* P0 viewport-fit: clip horizontal bleed at body too (defense in
+       depth — sticky/fixed elements still position correctly because
+       `clip` doesn't establish a new scroll container). */
+    overflow-x: clip;
+    /* Prevent left-right rubber band on iOS Safari + Android Chrome
+       so users can't see "the void" past the page edges. */
+    overscroll-behavior-x: contain;
   }
   /* Tabular numbers for financial figures */
   .tabular {
