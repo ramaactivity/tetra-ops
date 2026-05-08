@@ -7,6 +7,8 @@ import {
 	UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
@@ -162,17 +164,12 @@ export default async function CrewScheduleView({
 	const todayStart = isoDate(today);
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Operations</h1>
-					<p className="text-muted-foreground text-sm">
-						Crew schedule {HORIZON_DAYS} hari ke depan. Cell merah = bentrok
-						(2+ event di tanggal sama).
-					</p>
-				</div>
-				<OperationsViewSwitcher current="team" />
-			</div>
+		<Container size="xl" className="space-y-5">
+			<SectionHeader
+				title="Operations"
+				description={`Crew schedule ${HORIZON_DAYS} hari ke depan. Cell merah = bentrok (2+ event di tanggal sama).`}
+				actions={<OperationsViewSwitcher current="team" />}
+			/>
 
 			{/* Window navigation */}
 			<div className="flex flex-wrap items-center justify-between gap-2">
@@ -394,7 +391,7 @@ export default async function CrewScheduleView({
 					Bentrok
 				</span>
 			</div>
-		</div>
+		</Container>
 	);
 }
 

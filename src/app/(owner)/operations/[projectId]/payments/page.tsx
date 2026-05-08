@@ -2,6 +2,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type BankAccountOption,
 	PaymentForm,
@@ -64,10 +65,7 @@ export default async function ManagePaymentsPage({
 					<ChevronLeft className="h-4 w-4" />
 					{event.project_id}
 				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Payments</h1>
-					<p className="text-muted-foreground text-sm">{event.client_name}</p>
-				</div>
+				<SectionHeader title="Payments" description={event.client_name} />
 			</div>
 
 			<div className="border-border-default bg-surface-2 grid gap-4 rounded-xl border p-5 sm:grid-cols-4">

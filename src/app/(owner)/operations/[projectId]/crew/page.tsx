@@ -10,6 +10,7 @@ import {
 	CrewAssignmentList,
 } from "@/components/booking/crew-assignment-list";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ManageCrewPage({
@@ -120,12 +121,10 @@ export default async function ManageCrewPage({
 					<ChevronLeft className="h-4 w-4" />
 					{event.project_id}
 				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Manage Crew</h1>
-					<p className="text-muted-foreground text-sm">
-						{event.client_name} · {event.event_date}
-					</p>
-				</div>
+				<SectionHeader
+					title="Manage Crew"
+					description={`${event.client_name} · ${event.event_date}`}
+				/>
 			</div>
 
 			<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">

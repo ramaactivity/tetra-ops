@@ -6,7 +6,10 @@ import {
 	Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
+import { buttonVariants } from "@/components/ui/button";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -79,27 +82,23 @@ export default async function OperationsDesignHubPage() {
 	const approved = events.filter((e) => e.design_approved_at);
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Design Hub</h1>
-					<p className="text-muted-foreground text-sm">
-						{events.length} event aktif perlu attention design ·{" "}
-						{needBrief.length} belum brief · {briefUploaded.length} pending
-						review · {approved.length} approved.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<OperationsViewSwitcher current="design" />
-					<Link
-						href="/operations/new"
-						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
-					>
-						<Plus className="h-4 w-4" />
-						New booking
-					</Link>
-				</div>
-			</div>
+		<Container size="xl" className="space-y-6">
+			<SectionHeader
+				title="Design Hub"
+				description={`${events.length} event aktif perlu attention design · ${needBrief.length} belum brief · ${briefUploaded.length} pending review · ${approved.length} approved.`}
+				actions={
+					<>
+						<OperationsViewSwitcher current="design" />
+						<Link
+							href="/operations/new"
+							className={buttonVariants({ variant: "default" })}
+						>
+							<Plus className="size-4" />
+							New booking
+						</Link>
+					</>
+				}
+			/>
 
 			<div className="grid gap-6 lg:grid-cols-3">
 				<DesignColumn
@@ -124,7 +123,7 @@ export default async function OperationsDesignHubPage() {
 					emptyLabel="Belum ada design approved"
 				/>
 			</div>
-		</div>
+		</Container>
 	);
 }
 

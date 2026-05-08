@@ -2,6 +2,7 @@ import { ChevronLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -103,12 +104,10 @@ export default async function EventRekapPage({
 					<ChevronLeft className="h-4 w-4" />
 					{projectId}
 				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Rekap Crew</h1>
-					<p className="text-muted-foreground text-sm">
-						{event.client_name} · {formatDateID(event.event_date)}
-					</p>
-				</div>
+				<SectionHeader
+					title="Rekap Crew"
+					description={`${event.client_name} · ${formatDateID(event.event_date)}`}
+				/>
 			</div>
 
 			{rekap && (

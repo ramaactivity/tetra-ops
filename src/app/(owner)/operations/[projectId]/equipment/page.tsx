@@ -8,6 +8,7 @@ import {
 	CheckOutDialog,
 	type CrewOption,
 } from "@/components/event-equipment/check-out-form";
+import { SectionHeader } from "@/components/layout/section-header";
 import { IncidentDialog } from "@/components/event-equipment/incident-form";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -174,12 +175,10 @@ export default async function EventEquipmentPage({
 					<ChevronLeft className="h-4 w-4" />
 					{projectId}
 				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Equipment</h1>
-					<p className="text-muted-foreground text-sm">
-						{event.client_name} · {formatDateID(event.event_date)}
-					</p>
-				</div>
+				<SectionHeader
+					title="Equipment"
+					description={`${event.client_name} · ${formatDateID(event.event_date)}`}
+				/>
 			</div>
 
 			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">

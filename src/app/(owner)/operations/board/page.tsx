@@ -1,7 +1,10 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
+import { buttonVariants } from "@/components/ui/button";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -111,26 +114,23 @@ export default async function OperationsBoardPage() {
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-[100rem] space-y-6 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Operations</h1>
-					<p className="text-muted-foreground text-sm">
-						{events.length} event aktif (selain cancelled / archived). Scroll
-						horizontal untuk lihat status lain.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<OperationsViewSwitcher current="board" />
-					<Link
-						href="/operations/new"
-						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
-					>
-						<Plus className="h-4 w-4" />
-						New booking
-					</Link>
-				</div>
-			</div>
+		<Container size="full" className="space-y-6">
+			<SectionHeader
+				title="Operations"
+				description={`${events.length} event aktif (selain cancelled / archived). Scroll horizontal untuk lihat status lain.`}
+				actions={
+					<>
+						<OperationsViewSwitcher current="board" />
+						<Link
+							href="/operations/new"
+							className={buttonVariants({ variant: "default" })}
+						>
+							<Plus className="size-4" />
+							New booking
+						</Link>
+					</>
+				}
+			/>
 
 			<div className="overflow-x-auto pb-4">
 				<div className="grid min-w-[1100px] grid-cols-6 gap-3">
@@ -169,7 +169,7 @@ export default async function OperationsBoardPage() {
 					})}
 				</div>
 			</div>
-		</div>
+		</Container>
 	);
 }
 

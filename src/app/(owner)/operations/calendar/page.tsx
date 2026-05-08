@@ -1,6 +1,9 @@
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
+import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -126,25 +129,23 @@ export default async function OperationsCalendarPage({
 	const fmt = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
 
 	return (
-		<div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-8 md:px-8">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="space-y-1">
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">Operations</h1>
-					<p className="text-muted-foreground text-sm">
-						{events.length} event di window kalender · klik kartu untuk detail.
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<OperationsViewSwitcher current="calendar" />
-					<Link
-						href="/operations/new"
-						className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
-					>
-						<Plus className="h-4 w-4" />
-						New booking
-					</Link>
-				</div>
-			</div>
+		<Container size="xl" className="space-y-6">
+			<SectionHeader
+				title="Operations"
+				description={`${events.length} event di window kalender · klik kartu untuk detail.`}
+				actions={
+					<>
+						<OperationsViewSwitcher current="calendar" />
+						<Link
+							href="/operations/new"
+							className={buttonVariants({ variant: "default" })}
+						>
+							<Plus className="size-4" />
+							New booking
+						</Link>
+					</>
+				}
+			/>
 
 			<div className="border-border-default bg-surface-2 flex items-center justify-between gap-3 rounded-lg border p-3">
 				<div className="flex items-center gap-1">
@@ -258,7 +259,7 @@ export default async function OperationsCalendarPage({
 					})}
 				</div>
 			</div>
-		</div>
+		</Container>
 	);
 }
 

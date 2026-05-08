@@ -2,6 +2,7 @@ import { ChevronLeft, ClipboardList, Lock } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	SettlementForm,
 	type SinkingFundConfig,
@@ -137,17 +138,18 @@ export default async function SettlePage({
 					<ChevronLeft className="h-4 w-4" />
 					{projectId}
 				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">
-						Settle Event
-					</h1>
-					<p className="text-muted-foreground text-sm">
-						{event.client_name} · {formatDateID(event.event_date)} · Grand Total{" "}
-						<span className="tabular">
-							{formatRupiah(event.grand_total ?? 0)}
-						</span>
-					</p>
-				</div>
+				<SectionHeader
+					title="Settle Event"
+					description={
+						<>
+							{event.client_name} · {formatDateID(event.event_date)} · Grand
+							Total{" "}
+							<span className="tabular">
+								{formatRupiah(event.grand_total ?? 0)}
+							</span>
+						</>
+					}
+				/>
 			</div>
 
 			{rekap ? (
