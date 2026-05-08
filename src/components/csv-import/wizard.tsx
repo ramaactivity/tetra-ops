@@ -17,6 +17,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import {
+	Disclosure,
+	DisclosurePanel,
+	DisclosureTrigger,
+} from "@/components/ui/disclosure";
+import { NativeSelect } from "@/components/ui/native-select";
 import { normalizeHeaderKey, parseCsv } from "@/lib/csv-import/parser";
 import type {
 	ImportResult,
@@ -619,21 +625,21 @@ function MapStep({
 										{h || <span className="text-muted-foreground">(empty)</span>}
 									</td>
 									<td className="px-3 py-2">
-										<select
+										<NativeSelect
 											value={mapping[idx] ?? "skip"}
-											onChange={(e) =>
-												setMapping({ ...mapping, [idx]: e.target.value })
+											onValueChange={(value) =>
+												setMapping({ ...mapping, [idx]: value })
 											}
-											className="border-border-default bg-background focus-visible:ring-ring h-8 w-full rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
-										>
-											<option value="skip">— Skip kolom ini —</option>
-											{targetFields.map((f) => (
-												<option key={f.key} value={f.key}>
-													{f.label}
-													{f.required ? " *" : ""}
-												</option>
-											))}
-										</select>
+											options={[
+												{ value: "skip", label: "— Skip kolom ini —" },
+												...targetFields.map((f) => ({
+													value: f.key,
+													label: `${f.label}${f.required ? " *" : ""}`,
+												})),
+											]}
+											size="sm"
+											triggerClassName="w-full"
+										/>
 										{usedElsewhere && mapping[idx] && (
 											<p className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
 												⚠ Field ini sudah ter-map ke kolom lain
@@ -650,18 +656,19 @@ function MapStep({
 				</table>
 			</div>
 
-			<details className="text-muted-foreground text-xs">
-				<summary className="text-foreground cursor-pointer font-medium">
+			<Disclosure>
+				<DisclosureTrigger>
 					Field tujuan yang tersedia ({targetFields.length})
-				</summary>
-				<dl className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-					{targetFields.map((f) => {
-						const isMapped = Object.values(mapping).includes(f.key);
-						return (
-							<div
-								key={f.key}
-								className="flex items-baseline gap-1.5"
-							>
+				</DisclosureTrigger>
+				<DisclosurePanel>
+					<dl className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+						{targetFields.map((f) => {
+							const isMapped = Object.values(mapping).includes(f.key);
+							return (
+								<div
+									key={f.key}
+									className="flex items-baseline gap-1.5"
+								>
 								{isMapped ? (
 									<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 h-3 w-3 shrink-0" />
 								) : (
@@ -683,7 +690,8 @@ function MapStep({
 						);
 					})}
 				</dl>
-			</details>
+				</DisclosurePanel>
+			</Disclosure>
 
 			<div className="flex items-center justify-between">
 				<button
@@ -1106,10 +1114,11 @@ function DoneStep({
 				</div>
 			)}
 
-			<details className="space-y-2">
-				<summary className="text-foreground cursor-pointer text-sm font-medium">
+			<Disclosure>
+				<DisclosureTrigger>
 					Lihat detail per baris ({result.rows.length})
-				</summary>
+				</DisclosureTrigger>
+				<DisclosurePanel>
 				<div className="border-border-default max-h-96 overflow-auto rounded-md border">
 					<table className="w-full text-xs">
 						<thead className="bg-muted/50 sticky top-0">
@@ -1150,7 +1159,8 @@ function DoneStep({
 						</tbody>
 					</table>
 				</div>
-			</details>
+				</DisclosurePanel>
+			</Disclosure>
 
 			<div className="flex items-center justify-between">
 				<DownloadReportButton result={result} />
