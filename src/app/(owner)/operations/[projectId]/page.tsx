@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import {
 	EventStatusBadge,
 	PaymentStatusBadge,
@@ -201,7 +202,7 @@ export default async function EventDetailPage({
 	};
 
 	return (
-		<div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="md" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href="/operations"
@@ -735,7 +736,7 @@ export default async function EventDetailPage({
 					</div>
 				</div>
 			)}
-		</div>
+		</Container>
 	);
 }
 

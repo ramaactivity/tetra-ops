@@ -8,6 +8,7 @@ import {
 	type EventTypeOption,
 	type PackageOption,
 } from "@/components/booking/booking-form";
+import { Container } from "@/components/layout/container";
 import { updateBooking } from "@/lib/actions/bookings";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,13 +67,13 @@ export default async function EditBookingPage({
 
 	if (error) {
 		return (
-			<div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
+			<Container size="sm">
 				<div className="border-destructive bg-destructive/10 rounded-md border p-4">
 					<p className="text-destructive text-sm font-medium">
 						Gagal memuat event: {error.message}
 					</p>
 				</div>
-			</div>
+			</Container>
 		);
 	}
 
@@ -82,7 +83,7 @@ export default async function EditBookingPage({
 	const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
 	return (
-		<div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
+		<Container size="sm">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${event.project_id}`}
@@ -143,6 +144,6 @@ export default async function EditBookingPage({
 					}}
 				/>
 			</div>
-		</div>
+		</Container>
 	);
 }

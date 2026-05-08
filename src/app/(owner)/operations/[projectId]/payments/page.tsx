@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import {
 	type BankAccountOption,
 	PaymentForm,
@@ -54,7 +55,7 @@ export default async function ManagePaymentsPage({
 	const remaining = event.remaining_balance as number;
 
 	return (
-		<div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="sm" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${event.project_id}`}
@@ -115,7 +116,7 @@ export default async function ManagePaymentsPage({
 					/>
 				</div>
 			)}
-		</div>
+		</Container>
 	);
 }
 

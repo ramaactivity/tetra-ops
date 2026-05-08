@@ -1,6 +1,7 @@
 import { ChevronLeft, ClipboardList, Lock } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import {
 	SettlementForm,
 	type SinkingFundConfig,
@@ -55,7 +56,7 @@ export default async function SettlePage({
 		event.status !== "awaiting_settlement"
 	) {
 		return (
-			<div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-8 md:px-8">
+			<Container size="sm" className="space-y-4">
 				<Link
 					href={`/operations/${projectId}`}
 					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
@@ -78,7 +79,7 @@ export default async function SettlePage({
 						</p>
 					</div>
 				</div>
-			</div>
+			</Container>
 		);
 	}
 
@@ -127,7 +128,7 @@ export default async function SettlePage({
 	};
 
 	return (
-		<div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="sm" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${projectId}`}
@@ -215,7 +216,7 @@ export default async function SettlePage({
 				sinkingFunds={funds}
 				ownerCount={ownerCount ?? 0}
 			/>
-		</div>
+		</Container>
 	);
 }
 

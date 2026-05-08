@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronLeft, Package } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckInButton } from "@/components/event-equipment/check-in-button";
+import { Container } from "@/components/layout/container";
 import {
 	type AvailableItem,
 	CheckOutDialog,
@@ -163,7 +164,7 @@ export default async function EventEquipmentPage({
 	})) as IncidentRow[];
 
 	return (
-		<div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="md" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${projectId}`}
@@ -332,6 +333,6 @@ export default async function EventEquipmentPage({
 					</div>
 				</section>
 			)}
-		</div>
+		</Container>
 	);
 }

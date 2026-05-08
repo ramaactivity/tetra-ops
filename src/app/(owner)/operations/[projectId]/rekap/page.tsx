@@ -1,6 +1,7 @@
 import { ChevronLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -93,7 +94,7 @@ export default async function EventRekapPage({
 	const canEdit = !rekap || rekap.is_approved !== true;
 
 	return (
-		<div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="md" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${projectId}`}
@@ -227,7 +228,7 @@ export default async function EventRekapPage({
 					mode={rekap ? "update" : "create"}
 				/>
 			)}
-		</div>
+		</Container>
 	);
 }
 

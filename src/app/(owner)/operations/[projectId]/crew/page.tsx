@@ -9,6 +9,7 @@ import {
 	type AssignmentRow,
 	CrewAssignmentList,
 } from "@/components/booking/crew-assignment-list";
+import { Container } from "@/components/layout/container";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ManageCrewPage({
@@ -110,7 +111,7 @@ export default async function ManageCrewPage({
 		}));
 
 	return (
-		<div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 md:px-8">
+		<Container size="sm" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${event.project_id}`}
@@ -150,6 +151,6 @@ export default async function ManageCrewPage({
 					availableCrew={availableCrew}
 				/>
 			</div>
-		</div>
+		</Container>
 	);
 }
