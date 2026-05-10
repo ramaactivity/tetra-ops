@@ -1,5 +1,6 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import {
 	closeSettlement,
@@ -97,18 +98,30 @@ function num(v: string | number | undefined | null): number {
 	return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
 }
 
+const ZERO_HPP: Record<HppKey, number> = {
+	mediaset: 0,
+	sleeve: 0,
+	flashdisk: 0,
+	pouch: 0,
+	photomagnet: 0,
+	keychain: 0,
+	other: 0,
+};
+
 export function SettlementForm({
 	eventId,
 	projectId,
 	defaults,
 	sinkingFunds,
 	ownerCount,
+	autoHpp = ZERO_HPP,
 }: {
 	eventId: string;
 	projectId: string;
 	defaults: Defaults;
 	sinkingFunds: SinkingFundConfig[];
 	ownerCount: number;
+	autoHpp?: Record<HppKey, number>;
 }) {
 	const action = closeSettlement.bind(null, eventId, projectId);
 	const [state, formAction, pending] = useActionState<
@@ -120,15 +133,7 @@ export function SettlementForm({
 		revenue_gross: defaults.revenue_gross,
 		discount_total: defaults.discount_total,
 		owner_pool_per_person: defaults.owner_pool_per_person,
-		hpp: {
-			mediaset: 0,
-			sleeve: 0,
-			flashdisk: 0,
-			pouch: 0,
-			photomagnet: 0,
-			keychain: 0,
-			other: 0,
-		},
+		hpp: { ...autoHpp },
 		opex: {
 			fee_lead: defaults.fee_lead,
 			fee_asisten: defaults.fee_asisten,
@@ -145,6 +150,18 @@ export function SettlementForm({
 			diskon_tambahan: 0,
 		},
 	}));
+
+	const autoTotal = useMemo(
+		() => Object.values(autoHpp).reduce((a, b) => a + b, 0),
+		[autoHpp],
+	);
+
+	const hppWasOverridden = useMemo(() => {
+		if (autoTotal === 0) return false;
+		return (Object.keys(values.hpp) as HppKey[]).some(
+			(k) => (values.hpp[k] ?? 0) !== (autoHpp[k] ?? 0),
+		);
+	}, [values.hpp, autoHpp, autoTotal]);
 
 	const totals = useMemo(() => {
 		const revenue_net = Math.max(
@@ -260,22 +277,54 @@ export function SettlementForm({
 							{formatRupiah(totals.hpp_total)}
 						</span>
 					</div>
-					<p className="text-muted-foreground text-xs">
-						Input total Rupiah per kategori (qty × harga avg). Cek harga di
-						Warehouse.
-					</p>
+					{Object.values(autoHpp).some((v) => v > 0) ? (
+						<div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-2.5 text-[11px] text-foreground">
+							<Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+							<p>
+								<span className="font-medium">Auto-derived</span> dari rekap ×
+								avg-cost stok ({formatRupiah(autoTotal)} total). Edit kalau ada
+								koreksi — manual override akan ditandai badge.
+							</p>
+						</div>
+					) : (
+						<p className="text-muted-foreground text-xs">
+							Auto-prefill kosong — pastikan rekap udah di-approve dan{" "}
+							<a
+								href="/settings/items/mapping"
+								className="text-primary hover:underline"
+							>
+								mapping items
+							</a>{" "}
+							udah lengkap.
+						</p>
+					)}
 				</div>
 				<div className="grid gap-4 sm:grid-cols-2">
-					{HPP_FIELDS.map((f) => (
-						<NumberField
-							key={f.key}
-							label={f.label}
-							name={`hpp_${f.key}`}
-							value={values.hpp[f.key]}
-							onChange={(v) => updateHpp(f.key, v)}
-							hint={f.hint}
-						/>
-					))}
+					{HPP_FIELDS.map((f) => {
+						const auto = autoHpp[f.key] ?? 0;
+						const current = values.hpp[f.key] ?? 0;
+						const overridden = auto > 0 && current !== auto;
+						return (
+							<NumberField
+								key={f.key}
+								label={f.label}
+								name={`hpp_${f.key}`}
+								value={values.hpp[f.key]}
+								onChange={(v) => updateHpp(f.key, v)}
+								hint={
+									auto > 0
+										? `Auto: ${formatRupiah(auto)}${overridden ? " · MANUAL OVERRIDE" : ""}`
+										: f.hint
+								}
+								tone={overridden ? "amber" : auto > 0 ? "primary" : "default"}
+								onResetToAuto={
+									auto > 0 && overridden
+										? () => updateHpp(f.key, String(auto))
+										: undefined
+								}
+							/>
+						);
+					})}
 				</div>
 			</section>
 
@@ -420,6 +469,18 @@ export function SettlementForm({
 					</button>
 				</div>
 			</div>
+
+			{/* Auto-HPP snapshot + override flag — passed to RPC as audit trail */}
+			<input
+				type="hidden"
+				name="hpp_auto_snapshot"
+				value={JSON.stringify(autoHpp)}
+			/>
+			<input
+				type="hidden"
+				name="hpp_was_overridden"
+				value={hppWasOverridden ? "true" : "false"}
+			/>
 		</form>
 	);
 }
@@ -430,18 +491,43 @@ function NumberField({
 	value,
 	onChange,
 	hint,
+	tone = "default",
+	onResetToAuto,
 }: {
 	label: string;
 	name: string;
 	value: number;
 	onChange: (v: string) => void;
 	hint?: string;
+	tone?: "default" | "primary" | "amber";
+	onResetToAuto?: () => void;
 }) {
+	const borderClass =
+		tone === "amber"
+			? "border-amber-500/40"
+			: tone === "primary"
+				? "border-primary/30"
+				: "border-border-default";
+	const hintClass =
+		tone === "amber"
+			? "text-amber-700 dark:text-amber-400"
+			: "text-muted-foreground";
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
-				{label}
-			</label>
+			<div className="flex items-baseline justify-between gap-2">
+				<label htmlFor={name} className="text-sm font-medium">
+					{label}
+				</label>
+				{onResetToAuto && (
+					<button
+						type="button"
+						onClick={onResetToAuto}
+						className="text-[10px] font-medium uppercase tracking-wider text-primary hover:underline"
+					>
+						Reset ke auto
+					</button>
+				)}
+			</div>
 			<div className="relative">
 				<span className="text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 text-sm">
 					Rp
@@ -456,10 +542,10 @@ function NumberField({
 					value={value === 0 ? "" : value}
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="0"
-					className="border-border-default bg-background text-foreground focus-visible:ring-ring tabular h-10 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:outline-none"
+					className={`bg-background text-foreground focus-visible:ring-ring tabular h-10 w-full rounded-md border pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:outline-none ${borderClass}`}
 				/>
 			</div>
-			{hint && <p className="text-muted-foreground text-xs">{hint}</p>}
+			{hint && <p className={`text-xs ${hintClass}`}>{hint}</p>}
 		</div>
 	);
 }

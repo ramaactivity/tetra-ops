@@ -10,6 +10,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { SETTLEMENT_DEFAULTS } from "@/lib/constants/settlement";
 import { formatDateID, formatRupiah } from "@/lib/format";
+import { getAutoHpp } from "@/lib/actions/settlement-prefill";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function SettlePage({
@@ -128,6 +129,9 @@ export default async function SettlePage({
 		owner_pool_per_person: SETTLEMENT_DEFAULTS.OWNER_POOL_PER_PERSON,
 	};
 
+	// Phase C: derive HPP defaults from rekap × stok avg-cost
+	const autoHpp = await getAutoHpp(event.id);
+
 	return (
 		<Container size="sm" className="space-y-6">
 			<div className="space-y-2">
@@ -217,6 +221,7 @@ export default async function SettlePage({
 				defaults={defaults}
 				sinkingFunds={funds}
 				ownerCount={ownerCount ?? 0}
+				autoHpp={autoHpp}
 			/>
 		</Container>
 	);
