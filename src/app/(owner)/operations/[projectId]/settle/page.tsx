@@ -132,6 +132,19 @@ export default async function SettlePage({
 	// Phase C: derive HPP defaults from rekap × stok avg-cost
 	const autoHpp = await getAutoHpp(event.id);
 
+	// Phase D: hard-gate rekap approval if config flag is on
+	const { data: gateConfig } = await supabase
+		.from("system_config")
+		.select("value")
+		.eq("key", "settlement.require_approved_rekap")
+		.maybeSingle();
+	const requireApprovedRekap =
+		gateConfig?.value === true ||
+		gateConfig?.value === "true" ||
+		(gateConfig?.value === undefined ? true : false);
+	const rekapApproved = rekap?.is_approved === true;
+	const isHardBlocked = requireApprovedRekap && !rekapApproved;
+
 	return (
 		<Container size="sm" className="space-y-6">
 			<div className="space-y-2">
@@ -215,14 +228,50 @@ export default async function SettlePage({
 				</div>
 			)}
 
-			<SettlementForm
-				eventId={event.id}
-				projectId={projectId}
-				defaults={defaults}
-				sinkingFunds={funds}
-				ownerCount={ownerCount ?? 0}
-				autoHpp={autoHpp}
-			/>
+			{isHardBlocked ? (
+				<div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-5 space-y-3">
+					<div className="flex items-start gap-3">
+						<Lock className="mt-0.5 h-5 w-5 shrink-0 text-rose-700 dark:text-rose-300" />
+						<div className="space-y-1">
+							<p className="text-base font-semibold text-rose-700 dark:text-rose-300">
+								Settlement diblokir — rekap belum di-approve
+							</p>
+							<p className="text-sm text-rose-700/80 dark:text-rose-300/80">
+								System policy{" "}
+								<span className="font-mono text-xs">
+									settlement.require_approved_rekap
+								</span>{" "}
+								= true. Approve rekap dulu di halaman Rekap, atau toggle policy
+								di /settings → integrity.
+							</p>
+						</div>
+					</div>
+					<div className="flex flex-wrap items-center gap-2 pl-8">
+						<Link
+							href={`/operations/${projectId}/rekap`}
+							className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90"
+						>
+							<ClipboardList className="h-3.5 w-3.5" />
+							Buka Rekap → Approve
+						</Link>
+						<Link
+							href="/settings"
+							className="text-fluid-caption text-rose-700 dark:text-rose-300 underline-offset-2 hover:underline"
+						>
+							Toggle policy di settings
+						</Link>
+					</div>
+				</div>
+			) : (
+				<SettlementForm
+					eventId={event.id}
+					projectId={projectId}
+					defaults={defaults}
+					sinkingFunds={funds}
+					ownerCount={ownerCount ?? 0}
+					autoHpp={autoHpp}
+				/>
+			)}
 		</Container>
 	);
 }

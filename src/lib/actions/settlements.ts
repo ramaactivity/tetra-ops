@@ -97,6 +97,27 @@ function parseFormData(formData: FormData) {
 	};
 }
 
+function parseAutoSnapshot(formData: FormData): {
+	snapshot: Record<string, number> | null;
+	wasOverridden: boolean;
+} {
+	const raw = formData.get("hpp_auto_snapshot");
+	let snapshot: Record<string, number> | null = null;
+	if (typeof raw === "string" && raw.trim().length > 0) {
+		try {
+			const parsed = JSON.parse(raw);
+			if (parsed && typeof parsed === "object") {
+				snapshot = parsed as Record<string, number>;
+			}
+		} catch {
+			snapshot = null;
+		}
+	}
+	const overrideRaw = formData.get("hpp_was_overridden");
+	const wasOverridden = overrideRaw === "true" || overrideRaw === "1";
+	return { snapshot, wasOverridden };
+}
+
 function snapshotFormValues(formData: FormData): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const [key, val] of formData.entries()) {
@@ -138,6 +159,7 @@ export async function closeSettlement(
 	}
 
 	const ownerIds = (owners ?? []).map((o) => o.id);
+	const { snapshot, wasOverridden } = parseAutoSnapshot(formData);
 
 	const { error: rpcError } = await supabase.rpc("close_event_settlement", {
 		p_event_id: eventId,
@@ -148,6 +170,8 @@ export async function closeSettlement(
 		p_owner_user_ids: ownerIds,
 		p_owner_pool_per_person: parsed.data.owner_pool_per_person,
 		p_closed_by: me.authId,
+		p_hpp_auto_snapshot: snapshot,
+		p_hpp_was_overridden: wasOverridden,
 	});
 
 	if (rpcError) {
