@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
 	type AssetType,
 	ASSET_TYPE_LABELS,
-} from "@/lib/actions/event-assets";
+} from "@/lib/event-assets/types";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 

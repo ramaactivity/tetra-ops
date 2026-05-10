@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import {
 	type AssetType,
 	ASSET_TYPES,
-} from "@/lib/actions/event-assets";
+} from "@/lib/event-assets/types";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";

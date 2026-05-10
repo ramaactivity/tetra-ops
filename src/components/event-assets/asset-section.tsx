@@ -16,10 +16,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import {
 	addEventAsset,
-	type AssetType,
 	deleteEventAsset,
 	updateEventAsset,
 } from "@/lib/actions/event-assets";
+import type { AssetType } from "@/lib/event-assets/types";
 
 export type AssetRow = {
 	id: string;
