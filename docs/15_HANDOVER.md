@@ -1,11 +1,98 @@
 # 15 — Session Handover & Implementation Plan Status
 
-**Last updated:** 2026-05-10 (sesi 7 — Tetra-ERP-style: ops list + dashboard hero + visual asset hub)
-**Last commit:** `a7158e2` — feat(design): Visual Asset Hub — dedicated /design top-level route
+**Last updated:** 2026-05-10 (sesi 8 — Rekap → Inventory → HPP → Settlement integrity)
+**Last commit:** `9727e14` — feat(settlement): hard-gate rekap + share_pct distribution + auto-snapshot
 **Production URL:** https://tetra-ops.vercel.app
 **GitHub:** https://github.com/ramaactivity/tetra-ops
-**Redesign plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` (locked sesi 4)
+**Active plan file:** `~/.claude/plans/sekarang-saya-ingin-fokus-zazzy-starlight.md` (sesi 8)
+**Prior redesign plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` (locked sesi 4)
 **Status memory:** `feedback_redesign_direction.md` (full sesi 5 commit list + phase status)
+
+---
+
+## 0c. Sesi 8 closure — Rekap → Inventory → HPP integrity (6 commits + docs)
+
+Goal: every P&L number traces from physical reality (crew rekap) → inventory cost
+→ HPP → settlement → reports. Owner doesn't retype numbers that should auto-derive.
+
+Phase A — Foundation (additive, zero behavior change):
+- `f5c52c7` — Fix `purchase_price_avg` weighted-average bug. Was overwriting
+  with the new unit_cost on each purchase movement; now does proper
+  `(old_stock × old_avg + new_qty × new_cost) / total` formula in
+  src/lib/actions/stock-movements.ts. Affects only future restocks.
+- `bf7b921` — `rekap_field_mapping` table + /settings/items/mapping page.
+  Maps crew_rekap fields (cetak_total, media_set_used, sleeve_used,
+  flashdisk_used, pouch_used, photomagnet_used, keychain_used) to
+  inventory_items SKUs with qty_per_unit multiplier. Inline edit, per-row
+  save with "Saved" tick. Constants split to src/lib/rekap-mapping/types.ts.
+- `8f1d01f` — Stock-take workflow at /warehouse/stock-take. New tables
+  stock_takes + stock_take_lines + RPC commit_stock_take(). List page,
+  per-take line-edit grid sorted by variance, Commit + Cancel actions
+  behind ConfirmDialog. Generates one adjustment stock_movement per
+  non-zero variance on commit.
+
+Phase B — Auto-deduct stock on rekap approval:
+- `c8f618c` — reviewRekap extended. ALTER TYPE movement_source ADD VALUE
+  'rekap_consumption'. crew_rekap gains stock_committed_at +
+  stock_movement_batch_id columns. On approval transition: insert N out-
+  movements (qty=rekap×qty_per_unit, unit_cost=item.purchase_price_avg).
+  On reject after prior approval: insert reversing 'in' movements with
+  "Reversal" notes. Idempotent — re-approval without reject is no-op for
+  stock. New `<RekapApprovalPreview/>` shows deduction plan before owner
+  clicks Approve, with missing-mapping warnings + link to mapping page.
+  system_config seeds: `rekap.auto_deduct_stock=true`,
+  `settlement.require_approved_rekap=true`,
+  `settlement.owner_pool_distribution_mode='equal'`.
+
+Phase C — Auto-prefill HPP from rekap × stok avg-cost:
+- `41cef34` — New action `getAutoHpp(eventId)` reads rekap × mapping ×
+  purchase_price_avg, returns per-bucket auto cost
+  ({mediaset, sleeve, flashdisk, pouch, photomagnet, keychain, other}).
+  custom_materials JSONB → "other" bucket. Settle form hydrates HPP
+  defaults from autoHpp prop. NumberField gains tone (primary/amber) +
+  "Reset ke auto" button. Manual-override fields show amber border +
+  hint "Auto: Rp X · MANUAL OVERRIDE". Hidden inputs `hpp_auto_snapshot`
+  + `hpp_was_overridden` carry audit values to RPC. event_settlements
+  gains both columns.
+
+Phase D — Hard gate + share_pct distribution:
+- `9727e14` — close_event_settlement RPC v3. Reads
+  `settlement.require_approved_rekap` flag — RAISES P0001 if rekap not
+  approved. Reads `settlement.owner_pool_distribution_mode` — 'equal'
+  (default) keeps per-person split; 'proportional' distributes by
+  users.share_pct (validates SUM≈100 ±0.5 + no NULL, else fallback to
+  equal + audit_log warning). Persists hpp_auto_snapshot +
+  hpp_was_overridden into event_settlements. Audit log includes
+  distribution_mode + hpp_was_overridden. Settle page hard-blocks UI
+  with rose card "Settlement diblokir — rekap belum di-approve" instead
+  of soft warning when flag is on.
+
+⚠️ Manual steps Rama (urutan):
+1. Paste migrations to Supabase SQL Editor (urutan strict):
+   - `20260511_rekap_item_mapping.sql`
+   - `20260511_rekap_consumption_link.sql` (run as standalone — ALTER TYPE
+     ADD VALUE cannot be inside transaction block)
+   - `20260511_stock_take.sql`
+   - `20260511_settlement_auto_hpp.sql`
+   - `20260511_integrity_flags.sql`
+   - `20260511_settlement_close_v3.sql` (must be last — uses both columns + flags)
+2. Buka /settings/items/mapping → pilih SKU per rekap field, set qty_per_unit
+   (mediaset biasanya 1 set = 2 cetak → qty_per_unit=2 atau leave 1 if
+   mapping → cetak SKU directly).
+3. Smoke test rekap → settle flow:
+   - Approve rekap di /operations/PRJ-X/rekap → cek 7+ stock_movements
+     muncul dengan source='rekap_consumption'.
+   - Buka /operations/PRJ-X/settle → form HPP auto-prefilled.
+   - Submit → cek event_settlements.hpp_auto_snapshot + hpp_was_overridden.
+   - Test reject after approval → cek reversal movements muncul.
+   - Test settle without approval (turn off via /settings flag) → ok.
+4. (Optional) Toggle owner_pool_distribution_mode='proportional' di
+   /settings setelah set users.share_pct untuk semua owner = 100 total.
+
+Tooling note: pre-push protocol now includes `node_modules/.bin/tsc
+--noEmit` lokal (sandbox can run tsc, just not next build / biome). Ran
+sebelum setiap commit Phase A-D — caught zero TS errors after the edits.
+Memory file `feedback_use_server_constants.md` updated.
 
 ---
 
