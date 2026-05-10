@@ -63,7 +63,12 @@ export default async function OperationsListPage({
 	let listQuery = supabase
 		.from("events")
 		.select(
-			"id, project_id, status, channel, client_name, event_date, venue_name, venue_city, grand_total, payment_status, is_migrated_legacy, legacy_invoice_number",
+			`id, project_id, status, channel, client_name, event_date,
+			 setup_time, start_time, end_time,
+			 frame_size, backdrop_color, include_flashdisk_pouch,
+			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
+			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
+			 package:packages(name, duration_hours)`,
 		)
 		.is("deleted_at", null)
 		.order("event_date", { ascending: false })
@@ -157,7 +162,42 @@ export default async function OperationsListPage({
 		);
 	}
 
-	const events = (listResult.data ?? []) as EventRow[];
+	type RawEventRow = Omit<EventRow, "package_name" | "package_duration_hours"> & {
+		package?:
+			| { name: string | null; duration_hours: number | null }
+			| Array<{ name: string | null; duration_hours: number | null }>
+			| null;
+		custom_package_name?: string | null;
+	};
+	const events: EventRow[] = (
+		(listResult.data ?? []) as RawEventRow[]
+	).map((row) => {
+		const pkg = Array.isArray(row.package) ? row.package[0] : row.package;
+		const customName = row.custom_package_name;
+		return {
+			id: row.id,
+			project_id: row.project_id,
+			status: row.status,
+			channel: row.channel,
+			client_name: row.client_name,
+			event_date: row.event_date,
+			setup_time: row.setup_time,
+			start_time: row.start_time,
+			end_time: row.end_time,
+			frame_size: row.frame_size,
+			backdrop_color: row.backdrop_color,
+			include_flashdisk_pouch: row.include_flashdisk_pouch,
+			venue_name: row.venue_name,
+			venue_city: row.venue_city,
+			grand_total: row.grand_total,
+			remaining_balance: row.remaining_balance,
+			payment_status: row.payment_status,
+			is_migrated_legacy: row.is_migrated_legacy,
+			legacy_invoice_number: row.legacy_invoice_number,
+			package_name: pkg?.name ?? customName ?? null,
+			package_duration_hours: pkg?.duration_hours ?? null,
+		};
+	});
 
 	const crewByEvent = new Map<string, CrewChip[]>();
 	if (events.length > 0) {
