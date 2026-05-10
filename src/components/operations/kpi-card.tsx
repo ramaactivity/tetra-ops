@@ -27,7 +27,7 @@ const ACCENT_BG: Record<Accent, string> = {
 };
 
 const cardVariants = cva(
-	"lift-on-hover relative flex items-start gap-4 overflow-hidden rounded-xl border p-4 sm:p-5",
+	"lift-on-hover relative flex items-start gap-3 overflow-hidden rounded-xl border p-3.5 sm:p-4",
 	{
 		variants: {
 			variant: {
@@ -68,22 +68,24 @@ export function KpiCard({
 			{Icon && (
 				<div
 					className={cn(
-						"grid size-10 shrink-0 place-items-center rounded-lg",
+						"grid size-9 shrink-0 place-items-center rounded-lg",
 						ACCENT_BG[accent],
 					)}
 				>
-					<Icon className="size-5" aria-hidden />
+					<Icon className="size-4" aria-hidden />
 				</div>
 			)}
 			<div className="min-w-0 flex-1 space-y-0.5">
-				<dt className="text-fluid-caption font-medium uppercase tracking-wider text-muted-foreground">
+				<dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
 					{label}
 				</dt>
-				<dd className="tabular truncate text-fluid-h2 font-semibold text-foreground">
+				<dd className="tabular truncate text-2xl font-bold text-foreground sm:text-[1.6rem]">
 					{value}
 				</dd>
 				{hint && (
-					<p className="text-fluid-caption text-muted-foreground">{hint}</p>
+					<p className="text-[11px] leading-tight text-muted-foreground">
+						{hint}
+					</p>
 				)}
 			</div>
 		</div>

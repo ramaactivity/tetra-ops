@@ -1,13 +1,20 @@
 "use client";
 
-import { Archive, ChevronRight, HardDrive, Inbox, Wallet } from "lucide-react";
+import {
+	Archive,
+	ChevronRight,
+	Clock,
+	HardDrive,
+	Inbox,
+	MapPin,
+	Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import {
 	EventStatusBadge,
 	PaymentStatusBadge,
 } from "@/components/badges/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
@@ -16,8 +23,8 @@ import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 
 /**
  * <OperationsListTable /> — client wrapper around <ResponsiveTable> for
- * the operations list. Server passes serializable EventRow + crew chip
- * entries; this component owns the column render functions.
+ * the operations list. Compact-density variant per Rama (sesi 7+):
+ * single-line crew, inline chips, icon-only chevron action button.
  */
 
 export type EventRow = {
@@ -82,8 +89,9 @@ function formatTime(t: string | null): string {
 	return t ? t.slice(0, 5) : "—";
 }
 
-function formatDayName(iso: string): string {
-	return new Date(iso).toLocaleDateString("id-ID", { weekday: "short" });
+function formatDayDate(iso: string): string {
+	const day = new Date(iso).toLocaleDateString("id-ID", { weekday: "short" });
+	return `${day}, ${formatDateID(iso)}`;
 }
 
 export function OperationsListTable({
@@ -98,17 +106,20 @@ export function OperationsListTable({
 			key: "project_client",
 			header: "Project & Klien",
 			mobileLabel: "Project",
+			className: "min-w-[14rem]",
 			render: (ev) => (
-				<div className="flex flex-col gap-1.5">
+				<div className="flex flex-col gap-0.5">
 					<Link
 						href={`/operations/${ev.project_id}`}
-						className="group/title space-y-0.5"
+						className="group/title min-w-0"
 						style={{ viewTransitionName: `event-${ev.project_id}` }}
 					>
-						<div className="text-fluid-body font-medium text-foreground group-hover/title:text-primary transition-colors">
+						<div className="truncate text-sm font-semibold text-foreground group-hover/title:text-primary transition-colors">
 							{ev.client_name}
 						</div>
-						<div className="tabular text-[11px] text-muted-foreground inline-flex items-center gap-1">
+					</Link>
+					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px]">
+						<span className="tabular text-muted-foreground inline-flex items-center gap-1">
 							{ev.project_id}
 							{ev.is_migrated_legacy && (
 								<Archive
@@ -122,53 +133,56 @@ export function OperationsListTable({
 									aria-label={`Imported (${ev.legacy_invoice_number})`}
 								/>
 							)}
-						</div>
-					</Link>
-					<div className="flex flex-wrap items-center gap-1">
-						{(ev.remaining_balance ?? 0) > 0 && (
-							<Badge
-								variant="outline"
-								className="h-5 gap-1 border-rose-500/30 bg-rose-500/10 px-1.5 text-[10px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300"
-								title={`Sisa tagihan ${formatRupiah(ev.remaining_balance ?? 0)}`}
-							>
-								<Wallet className="size-2.5" />
-								Sisa Tagihan
-							</Badge>
-						)}
-						<Badge
-							variant="outline"
-							className={`h-5 px-1.5 text-[10px] font-medium uppercase tracking-wide ${CHANNEL_TONE[ev.channel] ?? ""}`}
+						</span>
+						<span className="text-muted-foreground/40">·</span>
+						<span
+							className={`inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium uppercase tracking-wider ${
+								CHANNEL_TONE[ev.channel] ?? ""
+							}`}
 						>
 							{CHANNEL_TYPE_LABELS[ev.channel] ?? ev.channel}
-						</Badge>
+						</span>
+						{(ev.remaining_balance ?? 0) > 0 && (
+							<span
+								className="inline-flex h-4 items-center gap-0.5 rounded border border-rose-500/30 bg-rose-500/10 px-1.5 text-[10px] font-medium uppercase tracking-wider text-rose-700 dark:text-rose-300"
+								title={`Sisa ${formatRupiah(ev.remaining_balance ?? 0)}`}
+							>
+								<Wallet className="size-2.5" />
+								Sisa
+							</span>
+						)}
 					</div>
 				</div>
 			),
 		},
 		{
 			key: "schedule",
-			header: "Jadwal & Waktu",
+			header: "Jadwal",
 			mobileLabel: "Jadwal",
+			className: "min-w-[9rem]",
 			render: (ev) => (
-				<div className="flex flex-col gap-0.5 tabular">
-					<div className="text-fluid-caption font-medium text-foreground">
-						{formatDayName(ev.event_date)}, {formatDateID(ev.event_date)}
+				<div className="flex flex-col gap-0.5 tabular text-[11px]">
+					<div className="text-foreground font-medium">
+						{formatDayDate(ev.event_date)}
 					</div>
-					{ev.setup_time && (
-						<div className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
-							<span className="rounded bg-muted/60 px-1 text-[9px] font-semibold uppercase">
-								Setup
-							</span>
-							{formatTime(ev.setup_time)}
-						</div>
-					)}
-					{(ev.start_time || ev.end_time) && (
-						<div className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
-							<span className="rounded bg-primary/10 px-1 text-[9px] font-semibold uppercase text-primary">
-								Mulai
-							</span>
-							{formatTime(ev.start_time)}
-							{ev.end_time && ` - ${formatTime(ev.end_time)}`}
+					{(ev.setup_time || ev.start_time) && (
+						<div className="text-muted-foreground inline-flex items-center gap-1">
+							<Clock className="size-2.5 shrink-0" aria-hidden />
+							{ev.setup_time && (
+								<>
+									<span className="text-muted-foreground/70">setup</span>
+									<span>{formatTime(ev.setup_time)}</span>
+								</>
+							)}
+							{ev.start_time && (
+								<>
+									<span className="text-muted-foreground/40">·</span>
+									<span className="text-primary">
+										{formatTime(ev.start_time)}
+										{ev.end_time && `–${formatTime(ev.end_time)}`}
+									</span>
+								</>
+							)}
 						</div>
 					)}
 				</div>
@@ -176,53 +190,59 @@ export function OperationsListTable({
 		},
 		{
 			key: "spec_venue",
-			header: "Spesifikasi & Lokasi",
+			header: "Spesifikasi",
 			hideOnMobile: true,
+			className: "min-w-[12rem]",
 			render: (ev) => {
 				const spec = [
 					ev.frame_size,
 					ev.package_duration_hours
-						? `${ev.package_duration_hours} Jam`
+						? `${ev.package_duration_hours}j`
 						: null,
 				]
 					.filter(Boolean)
-					.join(" Unlimited ");
+					.join(" · ");
 				return (
-					<div className="flex flex-col gap-1">
-						{spec && (
-							<div className="text-fluid-caption font-medium text-foreground">
-								{spec}
-							</div>
-						)}
-						<div className="text-[11px] text-muted-foreground truncate">
-							{ev.venue_name}
-							{ev.venue_city && ` · ${ev.venue_city}`}
-						</div>
-						<div className="flex flex-wrap items-center gap-1">
+					<div className="flex flex-col gap-0.5 text-[11px]">
+						<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+							{spec && (
+								<span className="font-medium text-foreground">{spec}</span>
+							)}
 							{ev.include_flashdisk_pouch && (
-								<Badge
-									variant="outline"
-									className="h-5 gap-1 px-1.5 text-[10px] font-medium uppercase tracking-wide border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+								<span
+									className="inline-flex h-4 items-center gap-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 px-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
+									title="Include flashdisk pouch"
 								>
 									<HardDrive className="size-2.5" />
-									Flashdisk
-								</Badge>
+									FD
+								</span>
 							)}
 							{ev.package_name && (
-								<Badge
-									variant="outline"
-									className={`h-5 px-1.5 text-[10px] font-medium uppercase tracking-wide ${
+								<span
+									className={`inline-flex h-4 items-center rounded px-1.5 text-[10px] font-medium uppercase tracking-wide ${
 										ev.backdrop_color
 											? (BACKDROP_TONE[ev.backdrop_color] ?? "")
-											: "border-primary/30 bg-primary/10 text-primary"
+											: "border border-primary/30 bg-primary/10 text-primary"
 									}`}
 								>
 									{ev.package_name}
 									{ev.backdrop_color &&
 										ev.backdrop_color !== "custom" &&
 										` · ${ev.backdrop_color}`}
-								</Badge>
+								</span>
 							)}
+						</div>
+						<div className="text-muted-foreground inline-flex items-center gap-1 truncate">
+							<MapPin className="size-2.5 shrink-0" aria-hidden />
+							<span className="truncate">
+								{ev.venue_name}
+								{ev.venue_city && (
+									<span className="text-muted-foreground/60">
+										{" · "}
+										{ev.venue_city}
+									</span>
+								)}
+							</span>
 						</div>
 					</div>
 				);
@@ -230,10 +250,11 @@ export function OperationsListTable({
 		},
 		{
 			key: "crew",
-			header: "Kru Lapangan",
+			header: "Crew",
 			mobileLabel: "Crew",
+			className: "min-w-[10rem]",
 			render: (ev) => (
-				<CrewChips
+				<CrewLine
 					crew={crewByEvent.get(ev.id) ?? []}
 					highlightUserId={crewFilter || undefined}
 				/>
@@ -241,21 +262,23 @@ export function OperationsListTable({
 		},
 		{
 			key: "actions",
-			header: "Aksi & Status",
+			header: "Status",
 			align: "right",
+			className: "w-[8rem]",
 			render: (ev) => (
-				<div className="flex flex-col items-stretch gap-1.5 sm:items-end">
-					<Link
-						href={`/operations/${ev.project_id}`}
-						className={`${buttonVariants({ variant: "outline", size: "sm" })} press-down justify-center sm:min-w-[7rem]`}
-					>
-						Edit
-						<ChevronRight className="size-3.5" />
-					</Link>
-					<div className="flex items-center justify-center gap-1 sm:justify-end">
+				<div className="flex items-center justify-end gap-1.5">
+					<div className="flex flex-col items-end gap-0.5">
 						<EventStatusBadge status={ev.status} />
 						<PaymentStatusBadge status={ev.payment_status} />
 					</div>
+					<Link
+						href={`/operations/${ev.project_id}`}
+						className="press-down inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border-default bg-surface-2 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+						aria-label={`Buka ${ev.project_id}`}
+						title="Buka detail"
+					>
+						<ChevronRight className="size-4" />
+					</Link>
 				</div>
 			),
 		},
@@ -270,7 +293,7 @@ export function OperationsListTable({
 	);
 }
 
-function CrewChips({
+function CrewLine({
 	crew,
 	highlightUserId,
 }: {
@@ -279,63 +302,52 @@ function CrewChips({
 }) {
 	if (crew.length === 0) {
 		return (
-			<span className="text-fluid-caption text-muted-foreground/60">—</span>
+			<span className="text-[11px] text-muted-foreground/60 italic">—</span>
 		);
 	}
 	const lead = crew.find((c) => c.role_in_event === "lead");
 	const others = crew.filter((c) => c.role_in_event !== "lead");
 
-	return (
-		<div className="flex flex-col gap-1 tabular text-[11px]">
-			{lead && <CrewLine c={lead} prefix="L" highlight={highlightUserId} />}
-			{others.length > 0 ? (
-				<CrewLine
-					c={others[0]}
-					prefix="A"
-					highlight={highlightUserId}
-					extra={others.length > 1 ? others.length - 1 : 0}
-				/>
-			) : (
-				<span className="inline-flex items-center gap-1.5 text-muted-foreground/60">
-					<span className="font-semibold text-muted-foreground/80">A:</span>—
-				</span>
-			)}
-		</div>
-	);
-}
+	const leadName = lead?.nickname ?? lead?.full_name ?? null;
+	const asistenName = others[0]?.nickname ?? others[0]?.full_name ?? null;
+	const extra = others.length > 1 ? others.length - 1 : 0;
+	const isHighlight = (uid?: string) => highlightUserId === uid;
 
-function CrewLine({
-	c,
-	prefix,
-	highlight,
-	extra,
-}: {
-	c: CrewChip;
-	prefix: string;
-	highlight?: string;
-	extra?: number;
-}) {
-	const name = c.nickname ?? c.full_name;
-	const isHighlight = highlight === c.user_id;
-	const tone =
-		prefix === "L"
-			? "text-emerald-700 dark:text-emerald-400"
-			: "text-sky-700 dark:text-sky-400";
 	return (
-		<span
-			className={`inline-flex items-baseline gap-1.5 ${
-				isHighlight ? "font-semibold text-foreground" : "text-foreground/90"
-			}`}
-		>
-			<span className={`text-[9px] font-bold uppercase ${tone}`}>
-				{prefix}:
+		<div className="flex flex-col gap-0 tabular text-[11px] leading-tight">
+			<span className="inline-flex items-baseline gap-1.5">
+				<span className="text-[9px] font-bold uppercase text-emerald-700 dark:text-emerald-400">
+					L:
+				</span>
+				{leadName ? (
+					<span
+						className={`truncate ${isHighlight(lead?.user_id) ? "font-semibold text-foreground" : "text-foreground/90"}`}
+						title={lead?.full_name}
+					>
+						{leadName}
+					</span>
+				) : (
+					<span className="text-muted-foreground/60">—</span>
+				)}
 			</span>
-			<span className="truncate" title={c.full_name}>
-				{name}
+			<span className="inline-flex items-baseline gap-1.5">
+				<span className="text-[9px] font-bold uppercase text-sky-700 dark:text-sky-400">
+					A:
+				</span>
+				{asistenName ? (
+					<span
+						className={`truncate ${isHighlight(others[0]?.user_id) ? "font-semibold text-foreground" : "text-foreground/90"}`}
+						title={others[0]?.full_name}
+					>
+						{asistenName}
+						{extra > 0 && (
+							<span className="text-muted-foreground/70"> +{extra}</span>
+						)}
+					</span>
+				) : (
+					<span className="text-muted-foreground/60">—</span>
+				)}
 			</span>
-			{extra && extra > 0 ? (
-				<span className="text-muted-foreground/70">+{extra}</span>
-			) : null}
-		</span>
+		</div>
 	);
 }
