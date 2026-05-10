@@ -1,4 +1,4 @@
-import { FileSpreadsheet, Package, Plus } from "lucide-react";
+import { FileSpreadsheet, Layers, Package, Plus } from "lucide-react";
 import Link from "next/link";
 import { SectionHeader } from "@/components/layout/section-header";
 import {
@@ -58,6 +58,14 @@ export default async function ItemsListPage({
 				description={`${items.length} item · ${consumablesCount} consumable · ${equipmentCount} equipment`}
 				actions={
 					<>
+						<Link
+							href="/settings/items/mapping"
+							className={buttonVariants({ variant: "ghost", size: "sm" })}
+							title="Map rekap fields to inventory SKUs"
+						>
+							<Layers className="size-4" />
+							<span className="hidden sm:inline">Rekap Mapping</span>
+						</Link>
 						<Link
 							href="/settings/items/import"
 							className={buttonVariants({ variant: "outline", size: "sm" })}
