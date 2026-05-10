@@ -1,12 +1,15 @@
 import {
+	Activity,
 	CalendarCheck,
 	CalendarClock,
 	CheckCircle2,
+	FileText,
 	Hourglass,
 	Package,
 	PlusCircle,
 	Receipt,
 	Settings as SettingsIcon,
+	Target,
 	Users,
 	Wallet,
 	Wallet2,
@@ -15,6 +18,8 @@ import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
 import { HeroKpiCard } from "@/components/dashboard/hero-kpi-card";
+import { StatusGroupCard } from "@/components/dashboard/status-group-card";
+import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { PipelineCard } from "@/components/operations/pipeline-card";
@@ -61,6 +66,8 @@ export default async function DashboardPage() {
 
 	const ymStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
+	const yearStart = `${today.getFullYear()}-01-01`;
+	const yearEnd = `${today.getFullYear()}-12-31`;
 
 	const [
 		monthRevenueResult,
@@ -71,6 +78,13 @@ export default async function DashboardPage() {
 		inProgressCountResult,
 		completedThisMonthCountResult,
 		nextEventsResult,
+		yearCountResult,
+		monthCancelledResult,
+		monthUpcomingResult,
+		invoicePaidResult,
+		invoicePartialResult,
+		invoiceUnpaidResult,
+		targetsResult,
 	] = await Promise.all([
 		supabase
 			.from("payments")
@@ -131,6 +145,51 @@ export default async function DashboardPage() {
 			.lte("event_date", tomorrowISO)
 			.order("event_date", { ascending: true })
 			.order("start_time", { ascending: true }),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.gte("event_date", yearStart)
+			.lte("event_date", yearEnd),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.gte("event_date", ymStart)
+			.lte("event_date", ymEnd)
+			.eq("status", "cancelled"),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.gte("event_date", ymStart)
+			.lte("event_date", ymEnd)
+			.in("status", ["confirmed", "upcoming", "in_progress"]),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.eq("payment_status", "paid"),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.eq("payment_status", "partial"),
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.eq("payment_status", "unpaid"),
+		supabase
+			.from("system_config")
+			.select("key, value")
+			.in("key", ["event_target_monthly", "event_target_yearly"]),
 	]);
 
 	const thisMonthRevenue = (monthRevenueResult.data ?? []).reduce(
@@ -146,6 +205,26 @@ export default async function DashboardPage() {
 	const upcoming7dCount = upcoming7dCountResult.count ?? 0;
 	const inProgressCount = inProgressCountResult.count ?? 0;
 	const completedThisMonthCount = completedThisMonthCountResult.count ?? 0;
+	const yearCount = yearCountResult.count ?? 0;
+	const monthCancelled = monthCancelledResult.count ?? 0;
+	const monthUpcoming = monthUpcomingResult.count ?? 0;
+	const invoicePaid = invoicePaidResult.count ?? 0;
+	const invoicePartial = invoicePartialResult.count ?? 0;
+	const invoiceUnpaid = invoiceUnpaidResult.count ?? 0;
+
+	type ConfigRow = { key: string; value: number | string | null };
+	const targets = ((targetsResult.data ?? []) as ConfigRow[]).reduce<{
+		monthly: number;
+		yearly: number;
+	}>(
+		(acc, r) => {
+			const v = typeof r.value === "number" ? r.value : Number(r.value ?? 0);
+			if (r.key === "event_target_monthly") acc.monthly = v || 10;
+			if (r.key === "event_target_yearly") acc.yearly = v || 100;
+			return acc;
+		},
+		{ monthly: 10, yearly: 100 },
+	);
 
 	const nextEvents = (nextEventsResult.data ?? []) as Array<{
 		id: string;
@@ -199,6 +278,44 @@ export default async function DashboardPage() {
 					accent="amber"
 				/>
 			</dl>
+
+			{/* Targets + status overview — Tetra ERP exec-summary mid-strip */}
+			<section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+				<TargetProgressCard
+					label="Target Bulanan"
+					current={monthCount}
+					target={targets.monthly}
+					icon={Target}
+				/>
+				<TargetProgressCard
+					label="Target Tahunan"
+					current={yearCount}
+					target={targets.yearly}
+					icon={Target}
+				/>
+				<StatusGroupCard
+					title="Status Operasional"
+					icon={Activity}
+					stats={[
+						{ label: "Upcoming", value: monthUpcoming, tone: "sky" },
+						{
+							label: "Selesai",
+							value: completedThisMonthCount,
+							tone: "emerald",
+						},
+						{ label: "Batal", value: monthCancelled, tone: "rose" },
+					]}
+				/>
+				<StatusGroupCard
+					title="Status Invoice"
+					icon={FileText}
+					stats={[
+						{ label: "Lunas", value: invoicePaid, tone: "emerald" },
+						{ label: "DP", value: invoicePartial, tone: "amber" },
+						{ label: "Unpaid", value: invoiceUnpaid, tone: "rose" },
+					]}
+				/>
+			</section>
 
 			<AnomalyRadarWidget />
 
