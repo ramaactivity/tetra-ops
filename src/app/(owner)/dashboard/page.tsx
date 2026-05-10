@@ -14,9 +14,9 @@ import {
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
+import { HeroKpiCard } from "@/components/dashboard/hero-kpi-card";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { KpiCard } from "@/components/operations/kpi-card";
 import { PipelineCard } from "@/components/operations/pipeline-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -168,37 +168,30 @@ export default async function DashboardPage() {
 				description={ID_DATE_FULL.format(today)}
 			/>
 
-			{/* Hero KPIs — first card gets the gradient hero treatment per design system §12 */}
+			{/* Hero KPIs — Tetra ERP exec-summary style: 4 dark-gradient cards */}
 			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<KpiCard
-					variant="hero"
-					label="Bulan Ini"
+				<HeroKpiCard
+					label="Event Bulan Ini"
 					value={monthCount.toLocaleString("id-ID")}
-					hint="Total event di bulan berjalan"
+					hint="Total booking di bulan berjalan"
 					icon={CalendarCheck}
 					accent="primary"
 				/>
-				<KpiCard
+				<HeroKpiCard
 					label="Revenue MTD"
 					value={formatRupiah(thisMonthRevenue)}
-					hint="Total payment terverifikasi"
+					hint="Payment masuk terverifikasi"
 					icon={Wallet2}
 					accent="emerald"
 				/>
-				<KpiCard
+				<HeroKpiCard
 					label="Outstanding"
 					value={formatRupiah(outstanding)}
 					hint="Total piutang aktif"
 					icon={Wallet}
-					accent={
-						outstanding >= 15_000_000
-							? "rose"
-							: outstanding >= 5_000_000
-								? "amber"
-								: "sky"
-					}
+					accent={outstanding >= 5_000_000 ? "rose" : "amber"}
 				/>
-				<KpiCard
+				<HeroKpiCard
 					label="Awaiting Settlement"
 					value={awaitingCount.toLocaleString("id-ID")}
 					hint="Event selesai, belum di-settle"
