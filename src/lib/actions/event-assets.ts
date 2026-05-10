@@ -72,7 +72,7 @@ export async function addEventAsset(
 		label,
 		url,
 		notes,
-		uploaded_by: me.id,
+		uploaded_by: me.profile.id,
 	});
 	if (error) return { ok: false, error: error.message };
 
