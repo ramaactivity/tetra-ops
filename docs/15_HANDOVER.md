@@ -1,11 +1,61 @@
 # 15 — Session Handover & Implementation Plan Status
 
-**Last updated:** 2026-05-08 (sesi 6 — A6 SectionHeader/Container universal adoption + P3 EmptyState sweep)
-**Last commit:** `d72d139` — refactor(settings): A6 SectionHeader sweep on 15 form pages
+**Last updated:** 2026-05-10 (sesi 7 — Tetra-ERP-style: ops list + dashboard hero + visual asset hub)
+**Last commit:** `a7158e2` — feat(design): Visual Asset Hub — dedicated /design top-level route
 **Production URL:** https://tetra-ops.vercel.app
 **GitHub:** https://github.com/ramaactivity/tetra-ops
 **Redesign plan:** `~/.claude/plans/saya-mau-fokus-polish-eventual-gem.md` (locked sesi 4)
 **Status memory:** `feedback_redesign_direction.md` (full sesi 5 commit list + phase status)
+
+---
+
+## 0b. Sesi 7 closure — Tetra ERP parity (4 commits to main)
+
+Driven by Rama's request to mirror UX wins from the Tetra ERP fase-2 system
+(screenshots: Operation Command, Executive Summary, Design Hub).
+
+Phase 1 — visible polish (zero schema):
+- `f6d5f67` — Operations list richer rows. 5 dense columns:
+  Project & Klien (client_name + project_id, both clickable), Jadwal
+  (day name + setup/mulai time), Spesifikasi (frame_size + duration +
+  flashdisk + package chip toned by backdrop_color), Kru Lapangan
+  (L:/A: dual-line), Aksi (Edit button + status badges stacked).
+  Multi-click target: client name + project_id + Edit all navigate
+  to detail.
+- `2cd1436` — Dashboard hero strip: <HeroKpiCard/> primitive with
+  dark accent gradients (navy/rose/amber/emerald/primary), glassy
+  icon pill, optional badge slot, accent glow shadow. Used for the
+  4-card top strip on /dashboard.
+
+Phase 2 — target system + status overview (small schema):
+- `9801f05` — <TargetProgressCard/> + <StatusGroupCard/> primitives.
+  Migration `20260510_event_targets_config.sql` seeds system_config
+  keys event_target_monthly (default 10) + event_target_yearly
+  (default 100), category="targets" so they group cleanly in the
+  /settings system config form. Dashboard mid-strip now shows 4
+  cards: Target Bulanan, Target Tahunan, Status Operasional
+  (Upcoming/Selesai/Batal — bulan ini), Status Invoice (Lunas/DP/
+  Unpaid — all-time).
+
+Phase 3 — Visual Asset Hub (new schema, new route):
+- `a7158e2` — Migration `20260510_event_assets.sql` creates
+  event_assets table. asset_type CHECK ∈ {design_frame,
+  footage_crew, softfile_photo, softfile_video}. RLS: owners full,
+  crew can read assigned events + insert/delete own footage_crew.
+  New /design top-level route in sidebar: global hub listing all
+  events with per-event 4-chip asset coverage. /design/[projectId]
+  per-event manager with 4 sections (one per asset type), inline
+  add/edit/delete via <AssetSection/>. Replaces ad-hoc Drive
+  digging — owner+crew can answer "where's the photobooth gallery
+  for X event?" in one click.
+
+⚠️ Pending Rama action sesi 7:
+- Paste 2 migration files ke Supabase: `20260510_event_targets_config.sql`
+  + `20260510_event_assets.sql`.
+- Set target bulanan/tahunan di /settings → System Config → Targets.
+
+Tooling note: `pnpm` still not on Claude sandbox PATH — sesi 7 commits
+pushed without local build smoke. Vercel CI is the canary.
 
 ---
 
