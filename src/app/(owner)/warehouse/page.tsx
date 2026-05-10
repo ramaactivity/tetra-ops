@@ -1,12 +1,15 @@
 import {
 	AlertOctagon,
 	AlertTriangle,
+	ClipboardCheck,
 	Layers,
 	Wallet2,
 } from "lucide-react";
+import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { buttonVariants } from "@/components/ui/button";
 import {
 	type ConsumableRow,
 	ConsumablesTable,
@@ -115,6 +118,15 @@ export default async function WarehousePage({
 			<SectionHeader
 				title="Warehouse"
 				description="Track stok consumables, equipment, dan log mutasi."
+				actions={
+					<Link
+						href="/warehouse/stock-take"
+						className={buttonVariants({ variant: "outline", size: "sm" })}
+					>
+						<ClipboardCheck className="size-4" />
+						Stock Take
+					</Link>
+				}
 			/>
 
 			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
