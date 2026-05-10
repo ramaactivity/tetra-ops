@@ -89,6 +89,34 @@ export async function addStockMovement(
 	const supabase = await createClient();
 	const refId = buildRefId(parsed.data.direction);
 
+	// For purchase-direction-in with unit_cost, compute weighted-average cost
+	// BEFORE inserting the movement (need pre-insert stock count).
+	const isPurchaseIn =
+		parsed.data.direction === "in" &&
+		parsed.data.source === "purchase" &&
+		parsed.data.unit_cost !== null;
+
+	let weightedAvg: number | null = null;
+	if (isPurchaseIn) {
+		const [stockRes, itemRes] = await Promise.all([
+			supabase.rpc("get_current_stock", { p_item_id: itemId }),
+			supabase
+				.from("inventory_items")
+				.select("purchase_price_avg")
+				.eq("id", itemId)
+				.maybeSingle(),
+		]);
+		const oldStock = Math.max(0, Number(stockRes.data ?? 0));
+		const oldAvg = Number(itemRes.data?.purchase_price_avg ?? 0);
+		const newQty = parsed.data.quantity;
+		const newCost = parsed.data.unit_cost ?? 0;
+		const totalStock = oldStock + newQty;
+		weightedAvg =
+			totalStock > 0
+				? Math.round((oldStock * oldAvg + newQty * newCost) / totalStock)
+				: newCost;
+	}
+
 	const { error } = await supabase.from("stock_movements").insert({
 		ref_id: refId,
 		item_id: parsed.data.item_id,
@@ -108,18 +136,11 @@ export async function addStockMovement(
 		};
 	}
 
-	// Update item's purchase_price_avg if it's a 'purchase' direction in
-	// (rolling-avg behavior: weighted average between existing stock and new lot).
-	// For MVP we keep this simple: only update if explicit unit_cost provided.
-	if (
-		parsed.data.direction === "in" &&
-		parsed.data.source === "purchase" &&
-		parsed.data.unit_cost !== null
-	) {
+	if (isPurchaseIn && weightedAvg !== null) {
 		await supabase
 			.from("inventory_items")
 			.update({
-				purchase_price_avg: parsed.data.unit_cost,
+				purchase_price_avg: weightedAvg,
 				updated_at: new Date().toISOString(),
 			})
 			.eq("id", itemId);
