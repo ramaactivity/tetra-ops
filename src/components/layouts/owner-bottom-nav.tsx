@@ -9,6 +9,7 @@ import {
 	type LucideIcon,
 	MessageCircle,
 	Package,
+	Palette,
 	Receipt,
 	Settings,
 	Wallet,
@@ -52,6 +53,7 @@ const PRIMARY: NavItem[] = [
 ];
 
 const MORE: NavItem[] = [
+	{ href: "/design", label: "Design", icon: Palette },
 	{ href: "/warehouse", label: "Warehouse", icon: Package },
 	{ href: "/finance", label: "Finance", icon: Wallet },
 	{ href: "/reminders", label: "Reminders", icon: MessageCircle },

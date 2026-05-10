@@ -8,6 +8,7 @@ import {
 	type LucideIcon,
 	MessageCircle,
 	Package,
+	Palette,
 	Receipt,
 	Settings,
 	Wallet,
@@ -40,6 +41,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
 	{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 	{ href: "/operations", label: "Operations", icon: Briefcase },
+	{ href: "/design", label: "Design", icon: Palette },
 	{ href: "/billing", label: "Billing", icon: Receipt },
 	{ href: "/warehouse", label: "Warehouse", icon: Package },
 	{ href: "/finance", label: "Finance", icon: Wallet },
