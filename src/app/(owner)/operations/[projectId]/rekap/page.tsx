@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -23,6 +24,8 @@ type RekapRow = {
 	is_approved: boolean | null;
 	reviewed_at: string | null;
 	review_notes: string | null;
+	stock_committed_at: string | null;
+	stock_movement_batch_id: string | null;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
 };
@@ -59,6 +62,7 @@ export default async function EventRekapPage({
 			`id, cetak_total, media_set_used, sleeve_used,
 			flashdisk_used, pouch_used, photomagnet_used, keychain_used,
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
+			stock_committed_at, stock_movement_batch_id,
 			submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 			reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 		)
@@ -141,11 +145,17 @@ export default async function EventRekapPage({
 					)}
 
 					{isOwnerLevel && (
-						<RekapReviewButtons
-							rekapId={rekap.id}
-							projectId={projectId}
-							currentApproved={rekap.is_approved}
-						/>
+						<>
+							{rekap.is_approved !== true && (
+								<RekapApprovalPreview rekapId={rekap.id} />
+							)}
+							<RekapReviewButtons
+								rekapId={rekap.id}
+								projectId={projectId}
+								currentApproved={rekap.is_approved}
+								stockCommittedAt={rekap.stock_committed_at ?? null}
+							/>
+						</>
 					)}
 				</section>
 			)}

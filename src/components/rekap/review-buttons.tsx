@@ -9,10 +9,12 @@ export function RekapReviewButtons({
 	rekapId,
 	projectId,
 	currentApproved,
+	stockCommittedAt = null,
 }: {
 	rekapId: string;
 	projectId: string;
 	currentApproved: boolean | null;
+	stockCommittedAt?: string | null;
 }) {
 	const [pending, startTransition] = useTransition();
 	const [showReject, setShowReject] = useState(false);
@@ -65,6 +67,9 @@ export function RekapReviewButtons({
 					</p>
 					<p className="text-emerald-700/80 dark:text-emerald-300/80 text-xs">
 						Settlement bisa di-tutup buku dengan data ini.
+						{stockCommittedAt
+							? " 📦 Stock auto-deducted on approval."
+							: " (Stock movements tidak ter-emit — auto-deduct off atau mapping kosong saat approval.)"}
 					</p>
 				</div>
 				<button
