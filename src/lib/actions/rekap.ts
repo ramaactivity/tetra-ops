@@ -114,6 +114,7 @@ export type RekapContextItem = {
 
 export type RekapContextMapping = {
 	rekap_field: RekapField;
+	frame_size: string; // '' = default fallback
 	item_id: string | null;
 	qty_per_unit: number;
 	item: RekapContextItem | null;
@@ -172,10 +173,12 @@ export async function getRekapContext(
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
 
-	// 2) Mapping + inventory lookup (batch)
+	// 2) Mapping + inventory lookup (batch). Multiple rows per rekap_field
+	// (one per frame_size override + a '' default). Caller resolves which
+	// row applies via resolveMapping(field, event.frame_size, mappings).
 	const { data: mappingsRaw } = await supabase
 		.from("rekap_field_mapping")
-		.select("rekap_field, item_id, qty_per_unit, is_active")
+		.select("rekap_field, frame_size, item_id, qty_per_unit, is_active")
 		.eq("is_active", true);
 
 	const mappedItemIds = ((mappingsRaw ?? []) as Array<{ item_id: string | null }>)
@@ -245,13 +248,15 @@ export async function getRekapContext(
 	const mappings: RekapContextMapping[] = (
 		(mappingsRaw ?? []) as Array<{
 			rekap_field: RekapField;
+			frame_size: string | null;
 			item_id: string | null;
-			qty_per_unit: number;
+			qty_per_unit: number | string;
 		}>
 	).map((m) => ({
 		rekap_field: m.rekap_field,
+		frame_size: m.frame_size ?? "",
 		item_id: m.item_id,
-		qty_per_unit: m.qty_per_unit,
+		qty_per_unit: Number(m.qty_per_unit) || 1,
 		item: m.item_id ? (itemsById.get(m.item_id) ?? null) : null,
 	}));
 
@@ -525,19 +530,51 @@ async function planRekapDeduction(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	rekap: RekapStockSnapshot,
 ): Promise<{ lines: DeductionLine[]; missingMappings: RekapField[] }> {
-	const { data: mappings } = await supabase
-		.from("rekap_field_mapping")
-		.select("rekap_field, item_id, qty_per_unit, is_active");
+	// v3: frame-size-aware. Fetch event.frame_size to resolve correct mapping
+	// row (e.g. media_set_used + 2R uses qty_per_unit=0.5 for cut sheets).
+	const [{ data: event }, { data: mappings }] = await Promise.all([
+		supabase
+			.from("events")
+			.select("frame_size")
+			.eq("id", rekap.event_id)
+			.maybeSingle(),
+		supabase
+			.from("rekap_field_mapping")
+			.select("rekap_field, frame_size, item_id, qty_per_unit, is_active"),
+	]);
+	const frameSize = ((event?.frame_size as string | null) ?? "").trim();
 
-	const activeMappings = ((mappings ?? []) as Array<{
+	const allMappings = ((mappings ?? []) as Array<{
 		rekap_field: RekapField;
+		frame_size: string | null;
 		item_id: string | null;
-		qty_per_unit: number;
+		qty_per_unit: number | string;
 		is_active: boolean;
-	}>).filter((m) => m.is_active);
+	}>).map((m) => ({
+		rekap_field: m.rekap_field,
+		frame_size: m.frame_size ?? "",
+		item_id: m.item_id,
+		qty_per_unit: Number(m.qty_per_unit) || 1,
+		is_active: m.is_active,
+	}));
+
+	// Resolve which row applies for each field given event's frame_size.
+	// Exact match wins, falls back to '' default row.
+	const resolved = new Map<RekapField, (typeof allMappings)[number]>();
+	const allFields = new Set(allMappings.map((m) => m.rekap_field));
+	for (const field of allFields) {
+		const candidates = allMappings.filter(
+			(m) => m.rekap_field === field && m.is_active,
+		);
+		if (candidates.length === 0) continue;
+		const exact = candidates.find((m) => m.frame_size === frameSize);
+		const fallback = candidates.find((m) => m.frame_size === "");
+		const picked = exact ?? fallback;
+		if (picked) resolved.set(field, picked);
+	}
 
 	const itemIdsNeeded = new Set<string>();
-	for (const m of activeMappings) {
+	for (const m of resolved.values()) {
 		if (m.item_id) itemIdsNeeded.add(m.item_id);
 	}
 	// Also custom materials by SKU
@@ -571,16 +608,16 @@ async function planRekapDeduction(
 	const lines: DeductionLine[] = [];
 	const missingMappings: RekapField[] = [];
 
-	for (const m of activeMappings) {
-		const qtyRekap = Number(rekap[m.rekap_field] ?? 0);
+	for (const [field, m] of resolved) {
+		const qtyRekap = Number(rekap[field] ?? 0);
 		if (qtyRekap <= 0) continue;
 		if (!m.item_id) {
-			missingMappings.push(m.rekap_field);
+			missingMappings.push(field);
 			continue;
 		}
 		const item = itemsById.get(m.item_id);
 		if (!item) {
-			missingMappings.push(m.rekap_field);
+			missingMappings.push(field);
 			continue;
 		}
 		const finalQty = qtyRekap * (m.qty_per_unit ?? 1);
@@ -590,7 +627,7 @@ async function planRekapDeduction(
 			name: item.name,
 			qty: finalQty,
 			unit_cost: Number(item.purchase_price_avg ?? 0),
-			source_label: m.rekap_field,
+			source_label: field,
 		});
 	}
 

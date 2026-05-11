@@ -60,27 +60,57 @@ export async function getAutoHpp(eventId: string): Promise<AutoHpp> {
 	}
 
 	const supabase = await createClient();
-	const { data: rekap } = await supabase
-		.from("crew_rekap")
-		.select(
-			"event_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
-		)
-		.eq("event_id", eventId)
-		.maybeSingle();
+	const [{ data: rekap }, { data: event }, { data: mappings }] = await Promise.all([
+		supabase
+			.from("crew_rekap")
+			.select(
+				"event_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			)
+			.eq("event_id", eventId)
+			.maybeSingle(),
+		supabase
+			.from("events")
+			.select("frame_size")
+			.eq("id", eventId)
+			.maybeSingle(),
+		supabase
+			.from("rekap_field_mapping")
+			.select("rekap_field, frame_size, item_id, qty_per_unit, is_active"),
+	]);
 
 	if (!rekap) return ZERO_HPP;
 
-	const { data: mappings } = await supabase
-		.from("rekap_field_mapping")
-		.select("rekap_field, item_id, qty_per_unit, is_active");
+	const frameSize = ((event?.frame_size as string | null) ?? "").trim();
 
-	const activeWithItem = ((mappings ?? []) as Array<{
+	// v3: size-aware resolver — pick exact match on frame_size, fall back to ''
+	const allMappings = ((mappings ?? []) as Array<{
 		rekap_field: RekapField;
+		frame_size: string | null;
 		item_id: string | null;
-		qty_per_unit: number;
+		qty_per_unit: number | string;
 		is_active: boolean;
-	}>).filter((m) => m.is_active && m.item_id !== null);
+	}>).map((m) => ({
+		rekap_field: m.rekap_field,
+		frame_size: m.frame_size ?? "",
+		item_id: m.item_id,
+		qty_per_unit: Number(m.qty_per_unit) || 1,
+		is_active: m.is_active,
+	}));
 
+	const resolved = new Map<RekapField, (typeof allMappings)[number]>();
+	const allFields = new Set(allMappings.map((m) => m.rekap_field));
+	for (const field of allFields) {
+		const candidates = allMappings.filter(
+			(m) => m.rekap_field === field && m.is_active && m.item_id !== null,
+		);
+		if (candidates.length === 0) continue;
+		const exact = candidates.find((m) => m.frame_size === frameSize);
+		const fallback = candidates.find((m) => m.frame_size === "");
+		const picked = exact ?? fallback;
+		if (picked) resolved.set(field, picked);
+	}
+
+	const activeWithItem = Array.from(resolved.values());
 	const itemIds = activeWithItem
 		.map((m) => m.item_id as string)
 		.filter((v, i, a) => a.indexOf(v) === i);

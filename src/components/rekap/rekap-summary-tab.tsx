@@ -48,6 +48,7 @@ export function RekapSummaryTab({
 		.filter((m) => m.item)
 		.map((m) => ({
 			rekap_field: m.rekap_field,
+			frame_size: m.frame_size,
 			item_id: m.item_id ?? "",
 			qty_per_unit: m.qty_per_unit,
 			purchase_price_avg: m.item?.purchase_price_avg ?? 0,
@@ -76,16 +77,25 @@ export function RekapSummaryTab({
 		};
 	});
 
+	const frameSize = context.pkg.frame_size ?? "";
 	const buckets = computeRekapCost(
 		quantities,
 		mappedItems,
 		bonusLines,
 		customLines,
+		frameSize,
 	);
 	const total = sumBuckets(buckets);
 
 	function costFor(field: RekapField, qty: number): number {
-		const map = context.mappings.find((m) => m.rekap_field === field);
+		// Size-aware: exact match on frame_size wins, fallback to ''
+		const exact = context.mappings.find(
+			(m) => m.rekap_field === field && m.frame_size === frameSize,
+		);
+		const fallback = context.mappings.find(
+			(m) => m.rekap_field === field && m.frame_size === "",
+		);
+		const map = exact ?? fallback;
 		if (!map?.item) return 0;
 		return Math.round(qty * map.qty_per_unit * map.item.purchase_price_avg);
 	}

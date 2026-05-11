@@ -194,6 +194,7 @@ export function RekapForm({
 			.filter((m) => m.item)
 			.map((m) => ({
 				rekap_field: m.rekap_field,
+				frame_size: m.frame_size,
 				item_id: m.item_id ?? "",
 				qty_per_unit: m.qty_per_unit,
 				purchase_price_avg: m.item?.purchase_price_avg ?? 0,
@@ -224,17 +225,35 @@ export function RekapForm({
 	}, [customMaterials, customInventoryBySku]);
 
 	const buckets = useMemo(
-		() => computeRekapCost(quantities, mappedItems, bonusLines, customLines),
+		() =>
+			computeRekapCost(
+				quantities,
+				mappedItems,
+				bonusLines,
+				customLines,
+				context.pkg.frame_size ?? "",
+			),
 		[quantities, mappedItems, bonusLines, customLines],
 	);
 	const hppTotal = sumBuckets(buckets);
 
-	// Helpers for per-field HPP chip
+	// Helpers for per-field HPP chip — size-aware mapping resolution
+	const frameSize = context.pkg.frame_size ?? "";
 	const mappingByField = useMemo(() => {
 		const m = new Map<RekapField, (typeof context.mappings)[number]>();
-		for (const x of context.mappings) m.set(x.rekap_field, x);
+		// Group by field; pick exact frame_size match first, else '' fallback
+		const fields = new Set(context.mappings.map((x) => x.rekap_field));
+		for (const field of fields) {
+			const candidates = context.mappings.filter(
+				(x) => x.rekap_field === field,
+			);
+			const exact = candidates.find((x) => x.frame_size === frameSize);
+			const fallback = candidates.find((x) => x.frame_size === "");
+			const picked = exact ?? fallback;
+			if (picked) m.set(field, picked);
+		}
 		return m;
-	}, [context.mappings]);
+	}, [context.mappings, frameSize]);
 
 	function fieldCost(field: RekapField, value: number): number {
 		const map = mappingByField.get(field);
