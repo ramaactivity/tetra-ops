@@ -17,15 +17,22 @@ import { LoginButton } from "./login-button";
 const ERROR_MESSAGES: Record<string, string> = {
 	auth_failed: "Login gagal. Coba lagi.",
 	no_code: "Login gagal — tidak ada authorization code dari Google.",
+	access_denied: "Lo cancel di consent screen Google. Coba lagi.",
+	server_error:
+		"Google error saat handshake. Coba beberapa saat lagi atau cek konfigurasi OAuth.",
 };
 
 export default async function LoginPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ error?: string }>;
+	searchParams: Promise<{ error?: string; detail?: string }>;
 }) {
 	const params = await searchParams;
-	const errorMessage = params.error ? ERROR_MESSAGES[params.error] : null;
+	const errorMessage = params.error
+		? (ERROR_MESSAGES[params.error] ??
+			`Login gagal (${params.error}). Coba lagi.`)
+		: null;
+	const errorDetail = params.detail ?? null;
 
 	return (
 		<div className="w-full max-w-md overflow-hidden rounded-2xl border border-border-default bg-surface-2 shadow-xl">
@@ -75,9 +82,16 @@ export default async function LoginPage({
 				<LoginButton />
 
 				{errorMessage && (
-					<p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-fluid-caption font-medium text-destructive">
-						{errorMessage}
-					</p>
+					<div className="space-y-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center">
+						<p className="text-fluid-caption font-medium text-destructive">
+							{errorMessage}
+						</p>
+						{errorDetail && (
+							<p className="break-words text-[11px] italic text-destructive/80">
+								{errorDetail}
+							</p>
+						)}
+					</div>
 				)}
 			</div>
 

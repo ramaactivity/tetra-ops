@@ -6,14 +6,32 @@ export async function GET(request: Request) {
 	const { searchParams, origin } = new URL(request.url);
 	const code = searchParams.get("code");
 
-	if (!code) {
-		return NextResponse.redirect(`${origin}/login?error=no_code`);
+	// When Supabase fails the upstream Google handshake (e.g. provider has
+	// stale client_secret, redirect URI mismatch, user denies consent), it
+	// redirects here with `error` / `error_description` instead of `code`.
+	// Surface the upstream reason so the login screen can show something
+	// more useful than a generic "no auth code".
+	const upstreamError = searchParams.get("error");
+	const upstreamErrorDesc = searchParams.get("error_description");
+	if (upstreamError || !code) {
+		console.error("[auth/callback] OAuth failed:", {
+			upstreamError,
+			upstreamErrorDesc,
+		});
+		const params = new URLSearchParams();
+		params.set("error", upstreamError ?? "no_code");
+		if (upstreamErrorDesc) params.set("detail", upstreamErrorDesc);
+		return NextResponse.redirect(`${origin}/login?${params.toString()}`);
 	}
 
 	const supabase = await createClient();
 	const { error } = await supabase.auth.exchangeCodeForSession(code);
 	if (error) {
-		return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+		console.error("[auth/callback] exchangeCodeForSession failed:", error);
+		const params = new URLSearchParams();
+		params.set("error", "auth_failed");
+		params.set("detail", error.message);
+		return NextResponse.redirect(`${origin}/login?${params.toString()}`);
 	}
 
 	const {
