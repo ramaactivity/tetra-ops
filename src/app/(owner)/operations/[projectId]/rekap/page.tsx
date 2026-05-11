@@ -1,14 +1,22 @@
-import { ChevronLeft, ExternalLink } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
+import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
 import { RekapForm } from "@/components/rekap/rekap-form";
+import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
+import { RekapProofGallery } from "@/components/rekap/rekap-proof-gallery";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
+import { RekapSummaryTab } from "@/components/rekap/rekap-summary-tab";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@/components/ui/tabs";
 import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -20,6 +28,7 @@ type RekapRow = {
 	pouch_used: number;
 	photomagnet_used: number;
 	keychain_used: number;
+	custom_materials: Record<string, number> | null;
 	proof_photo_urls: string[];
 	crew_notes: string | null;
 	is_approved: boolean | null;
@@ -27,6 +36,7 @@ type RekapRow = {
 	review_notes: string | null;
 	stock_committed_at: string | null;
 	stock_movement_batch_id: string | null;
+	created_at: string;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
 };
@@ -51,7 +61,7 @@ export default async function EventRekapPage({
 
 	const { data: event } = await supabase
 		.from("events")
-		.select("id, project_id, client_name, event_date, status")
+		.select("id, project_id, client_name, event_date, venue_name, status")
 		.eq("project_id", projectId)
 		.maybeSingle();
 
@@ -64,7 +74,7 @@ export default async function EventRekapPage({
 			flashdisk_used, pouch_used, photomagnet_used, keychain_used,
 			custom_materials,
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
-			stock_committed_at, stock_movement_batch_id,
+			stock_committed_at, stock_movement_batch_id, created_at,
 			submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 			reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 		)
@@ -105,10 +115,7 @@ export default async function EventRekapPage({
 				pouch_used: String(rekap.pouch_used),
 				photomagnet_used: String(rekap.photomagnet_used),
 				keychain_used: String(rekap.keychain_used),
-				custom_materials: JSON.stringify(
-					(rekap as { custom_materials?: Record<string, number> | null })
-						.custom_materials ?? {},
-				),
+				custom_materials: JSON.stringify(rekap.custom_materials ?? {}),
 				proof_photo_urls: (rekap.proof_photo_urls ?? []).join("\n"),
 				crew_notes: rekap.crew_notes ?? "",
 			}
@@ -116,171 +123,165 @@ export default async function EventRekapPage({
 
 	// Owner can always edit; rekap stays editable until approved
 	const canEdit = !rekap || rekap.is_approved !== true;
+	const showApprovalUi =
+		rekap !== null && rekap.is_approved !== true;
+	const showTabsView = rekap !== null;
 
 	return (
-		<Container size="md" className="space-y-6">
-			<div className="space-y-2">
-				<Link
-					href={`/operations/${projectId}`}
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					{projectId}
-				</Link>
-				<SectionHeader
-					title="Rekap Crew"
-					description={`${event.client_name} · ${formatDateID(event.event_date)}`}
-				/>
-			</div>
+		<Container size="md" className="space-y-5 pb-32">
+			<Link
+				href={`/operations/${projectId}`}
+				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+			>
+				<ChevronLeft className="h-4 w-4" />
+				{projectId}
+			</Link>
+
+			<RekapHeroCard
+				clientName={event.client_name}
+				projectId={event.project_id}
+				eventDate={event.event_date}
+				venueName={event.venue_name}
+				pkg={context.pkg}
+				isApproved={rekap?.is_approved}
+				submitted={Boolean(rekap)}
+			/>
 
 			{rekap && (
-				<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-5">
-					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<h2 className="text-base font-semibold tracking-tight">Status</h2>
-						<p className="text-muted-foreground text-xs">
-							Submitted by{" "}
-							<span className="text-foreground font-medium">
-								{rekap.submitted_by_user?.full_name ?? "—"}
-							</span>
-							{rekap.reviewed_at && rekap.reviewer?.full_name && (
-								<>
-									{" · "}
-									reviewed by{" "}
-									<span className="text-foreground font-medium">
-										{rekap.reviewer.full_name}
-									</span>
-								</>
-							)}
-						</p>
-					</div>
-
-					{rekap.review_notes && (
-						<div className="border-border-default bg-muted/40 rounded-md border p-3">
-							<p className="text-muted-foreground mb-1 text-xs uppercase tracking-wider">
-								Catatan owner
-							</p>
-							<p className="text-foreground text-sm">{rekap.review_notes}</p>
-						</div>
-					)}
-
-					{isOwnerLevel && (
+				<p className="text-fluid-caption text-muted-foreground">
+					Submitted by{" "}
+					<span className="font-medium text-foreground">
+						{rekap.submitted_by_user?.full_name ?? "—"}
+					</span>
+					{rekap.reviewed_at && rekap.reviewer?.full_name && (
 						<>
-							{rekap.is_approved !== true && (
-								<RekapApprovalPreview rekapId={rekap.id} />
-							)}
+							{" · "}reviewed by{" "}
+							<span className="font-medium text-foreground">
+								{rekap.reviewer.full_name}
+							</span>
+						</>
+					)}
+				</p>
+			)}
+
+			{/* === Editable form (for not-yet-approved or absent rekap) === */}
+			{canEdit && !rekap && (
+				<>
+					<div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs leading-relaxed text-foreground/80 dark:border-amber-900 dark:bg-amber-950/20">
+						Crew belum submit rekap. Owner bisa input data ini retroaktif
+						kalau perlu.
+					</div>
+					<RekapForm
+						eventId={event.id}
+						projectId={projectId}
+						defaults={defaults}
+						mode="create"
+						context={context}
+					/>
+				</>
+			)}
+
+			{canEdit && rekap && (
+				<details className="rounded-xl border border-border-default bg-surface-2">
+					<summary className="cursor-pointer px-5 py-3 text-sm font-semibold tracking-tight hover:bg-muted/30">
+						Edit rekap (owner override)
+					</summary>
+					<div className="border-t border-border-default p-5">
+						<RekapForm
+							eventId={event.id}
+							projectId={projectId}
+							defaults={defaults}
+							mode={rekap ? "update" : "create"}
+							context={context}
+						/>
+					</div>
+				</details>
+			)}
+
+			{/* === Tabs view (submitted rekap) === */}
+			{showTabsView && rekap && (
+				<Tabs defaultValue="ringkasan">
+					<TabsList>
+						<TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
+						<TabsTrigger value="stok">Stok</TabsTrigger>
+						<TabsTrigger value="bukti">
+							Bukti ({rekap.proof_photo_urls?.length ?? 0})
+						</TabsTrigger>
+						<TabsTrigger value="audit">Audit</TabsTrigger>
+					</TabsList>
+
+					<TabsContent value="ringkasan">
+						<RekapSummaryTab rekap={rekap} context={context} />
+						{rekap.crew_notes && (
+							<div className="mt-4 space-y-1 rounded-lg border border-border-default bg-surface-2 p-4">
+								<p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									Catatan crew
+								</p>
+								<p className="text-foreground whitespace-pre-wrap text-sm">
+									{rekap.crew_notes}
+								</p>
+							</div>
+						)}
+					</TabsContent>
+
+					<TabsContent value="stok">
+						<RekapApprovalPreview rekapId={rekap.id} />
+					</TabsContent>
+
+					<TabsContent value="bukti">
+						<RekapProofGallery urls={rekap.proof_photo_urls ?? []} />
+					</TabsContent>
+
+					<TabsContent value="audit">
+						<RekapAuditTab
+							submittedAt={rekap.created_at}
+							submittedBy={rekap.submitted_by_user?.full_name ?? null}
+							reviewedAt={rekap.reviewed_at}
+							reviewedBy={rekap.reviewer?.full_name ?? null}
+							isApproved={rekap.is_approved}
+							reviewNotes={rekap.review_notes}
+							stockCommittedAt={rekap.stock_committed_at}
+							stockMovementBatchId={rekap.stock_movement_batch_id}
+						/>
+					</TabsContent>
+				</Tabs>
+			)}
+
+			{/* === Sticky review action bar === */}
+			{showApprovalUi && rekap && (
+				<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 px-4 py-3 backdrop-blur-md shadow-lg">
+					<div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+						<div className="hidden flex-1 sm:block">
+							<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+								Decision
+							</p>
+							<p className="text-fluid-caption text-foreground">
+								Approve untuk commit deduksi stok ke warehouse.
+							</p>
+						</div>
+						<div className="flex-1 sm:flex-none">
 							<RekapReviewButtons
 								rekapId={rekap.id}
 								projectId={projectId}
 								currentApproved={rekap.is_approved}
 								stockCommittedAt={rekap.stock_committed_at ?? null}
 							/>
-						</>
-					)}
-				</section>
+						</div>
+					</div>
+				</div>
 			)}
 
-			{rekap && !canEdit && (
-				<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-5">
-					<h2 className="text-base font-semibold tracking-tight">
-						Data tersubmit
-					</h2>
-					<dl className="grid gap-3 sm:grid-cols-2">
-						<RekapStat
-							label="Total cetak"
-							value={rekap.cetak_total}
-							unit="pcs"
-						/>
-						<RekapStat
-							label="Media set"
-							value={rekap.media_set_used}
-							unit="set"
-						/>
-						<RekapStat label="Sleeve" value={rekap.sleeve_used} unit="pcs" />
-						<RekapStat
-							label="Flashdisk"
-							value={rekap.flashdisk_used}
-							unit="pcs"
-						/>
-						<RekapStat label="Pouch" value={rekap.pouch_used} unit="pcs" />
-						<RekapStat
-							label="Photomagnet"
-							value={rekap.photomagnet_used}
-							unit="pcs"
-						/>
-						<RekapStat
-							label="Keychain"
-							value={rekap.keychain_used}
-							unit="pcs"
-						/>
-					</dl>
-					{rekap.crew_notes && (
-						<div className="border-border-default bg-muted/40 rounded-md border p-3">
-							<p className="text-muted-foreground mb-1 text-xs uppercase tracking-wider">
-								Catatan crew
-							</p>
-							<p className="text-foreground whitespace-pre-wrap text-sm">
-								{rekap.crew_notes}
-							</p>
-						</div>
-					)}
-					{rekap.proof_photo_urls && rekap.proof_photo_urls.length > 0 && (
-						<div className="space-y-1.5">
-							<p className="text-muted-foreground text-xs uppercase tracking-wider">
-								Foto bukti
-							</p>
-							<ul className="space-y-1">
-								{rekap.proof_photo_urls.map((url) => (
-									<li key={url}>
-										<a
-											href={url}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-primary hover:underline inline-flex items-center gap-1 font-mono text-xs"
-										>
-											{url}
-											<ExternalLink className="h-3 w-3" />
-										</a>
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
-				</section>
-			)}
-
-			{canEdit && (
-				<RekapForm
-					eventId={event.id}
-					projectId={projectId}
-					defaults={defaults}
-					mode={rekap ? "update" : "create"}
-					context={context}
-				/>
+			{/* When already approved/rejected, show review controls inline (no sticky bar) */}
+			{rekap && !showApprovalUi && (
+				<div className="rounded-xl border border-border-default bg-surface-2 p-4">
+					<RekapReviewButtons
+						rekapId={rekap.id}
+						projectId={projectId}
+						currentApproved={rekap.is_approved}
+						stockCommittedAt={rekap.stock_committed_at ?? null}
+					/>
+				</div>
 			)}
 		</Container>
-	);
-}
-
-function RekapStat({
-	label,
-	value,
-	unit,
-}: {
-	label: string;
-	value: number;
-	unit: string;
-}) {
-	return (
-		<div className="flex items-baseline justify-between border-b border-border-default/60 pb-2 text-sm">
-			<dt className="text-muted-foreground text-xs uppercase tracking-wider">
-				{label}
-			</dt>
-			<dd className="tabular text-foreground font-medium">
-				{value.toLocaleString("id-ID")}{" "}
-				<span className="text-muted-foreground/70 text-xs font-normal">
-					{unit}
-				</span>
-			</dd>
-		</div>
 	);
 }
