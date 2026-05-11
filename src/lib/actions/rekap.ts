@@ -236,6 +236,10 @@ async function readAutoDeductFlag(
  * Compute the deduction plan for a rekap: which items, how much, at what
  * unit cost. Pure read — no side effects. Used by the approval preview
  * dialog and by the actual approval flow inside reviewRekap.
+ *
+ * v2 (2026-05-17): Sekarang juga include event_bonuses untuk auto-deduct
+ * stok item gratis yang kita kasih ke klien. Addon → inventory_item
+ * lookup via addons.inventory_item_id (NULL = skip, no stock tracking).
  */
 async function planRekapDeduction(
 	supabase: Awaited<ReturnType<typeof createClient>>,
@@ -325,6 +329,76 @@ async function planRekapDeduction(
 				source_label: `extra: ${sku}`,
 			});
 		}
+	}
+
+	// Bonuses — item gratis yang kasih ke klien (event_bonuses).
+	// Lookup chain: event_bonuses.addon_id → addons.inventory_item_id →
+	// inventory_items. Addons tanpa inventory_item_id silently skipped.
+	const { data: bonusRows } = await supabase
+		.from("event_bonuses")
+		.select(
+			"quantity, addon:addons(name, inventory_item_id, inventory_item:inventory_items(id, sku, name, purchase_price_avg))",
+		)
+		.eq("event_id", rekap.event_id);
+
+	type BonusRow = {
+		quantity: number;
+		addon:
+			| {
+					name: string;
+					inventory_item_id: string | null;
+					inventory_item:
+						| {
+								id: string;
+								sku: string;
+								name: string;
+								purchase_price_avg: number | null;
+						  }
+						| Array<{
+								id: string;
+								sku: string;
+								name: string;
+								purchase_price_avg: number | null;
+						  }>
+						| null;
+			  }
+			| Array<{
+					name: string;
+					inventory_item_id: string | null;
+					inventory_item:
+						| {
+								id: string;
+								sku: string;
+								name: string;
+								purchase_price_avg: number | null;
+						  }
+						| Array<{
+								id: string;
+								sku: string;
+								name: string;
+								purchase_price_avg: number | null;
+						  }>
+						| null;
+			  }>
+			| null;
+	};
+	for (const row of (bonusRows ?? []) as unknown as BonusRow[]) {
+		const addon = Array.isArray(row.addon) ? row.addon[0] : row.addon;
+		if (!addon) continue;
+		const invItem = Array.isArray(addon.inventory_item)
+			? addon.inventory_item[0]
+			: addon.inventory_item;
+		if (!invItem) continue; // addon not linked to inventory — no stock track
+		const qty = Number(row.quantity ?? 0);
+		if (qty <= 0) continue;
+		lines.push({
+			item_id: invItem.id,
+			sku: invItem.sku,
+			name: invItem.name,
+			qty,
+			unit_cost: Number(invItem.purchase_price_avg ?? 0),
+			source_label: `bonus: ${addon.name}`,
+		});
 	}
 
 	return { lines, missingMappings };

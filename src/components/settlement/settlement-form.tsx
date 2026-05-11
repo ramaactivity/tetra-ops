@@ -33,6 +33,11 @@ const HPP_FIELDS: Array<{ key: HppKey; label: string; hint?: string }> = [
 	{ key: "pouch", label: "Pouch" },
 	{ key: "photomagnet", label: "Photomagnet (jika ada)" },
 	{ key: "keychain", label: "Keychain (jika ada)" },
+	{
+		key: "bonus",
+		label: "Freebie (Bonus untuk Klien)",
+		hint: "Item gratis × harga avg. Internal cost.",
+	},
 	{ key: "other", label: "Lainnya", hint: "Material tambahan" },
 ];
 
@@ -67,6 +72,7 @@ type HppKey =
 	| "pouch"
 	| "photomagnet"
 	| "keychain"
+	| "bonus"
 	| "other";
 
 type OpexKey =
@@ -105,6 +111,7 @@ const ZERO_HPP: Record<HppKey, number> = {
 	pouch: 0,
 	photomagnet: 0,
 	keychain: 0,
+	bonus: 0,
 	other: 0,
 };
 

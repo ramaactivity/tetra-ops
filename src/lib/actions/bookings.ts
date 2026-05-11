@@ -619,3 +619,59 @@ export async function updateBooking(
 	revalidatePath(`/operations/${updated.project_id}`);
 	return { ok: true, projectId: updated.project_id, isUpdate: true };
 }
+
+export type DeleteEventResult =
+	| { ok: true; projectId: string }
+	| { ok: false; error: string };
+
+/**
+ * Soft-delete event by setting deleted_at. Blocks deletion when event
+ * is already settled (event_settlements row exists) — settled records
+ * are audit-relevant and shouldn't disappear from reports.
+ *
+ * Owner-level only. Pattern matches addons/packages/items soft-delete.
+ */
+export async function deleteEvent(id: string): Promise<DeleteEventResult> {
+	await requireOwnerLevel();
+
+	const supabase = await createClient();
+
+	const { data: event, error: fetchErr } = await supabase
+		.from("events")
+		.select("project_id, status, deleted_at")
+		.eq("id", id)
+		.maybeSingle();
+
+	if (fetchErr || !event) {
+		return { ok: false, error: fetchErr?.message ?? "Event tidak ditemukan." };
+	}
+	if (event.deleted_at) {
+		return { ok: false, error: "Event sudah dihapus sebelumnya." };
+	}
+
+	// Block delete kalau sudah settled — laporan keuangan bergantung sama
+	// row event ini. Owner harus reopen settlement dulu kalau mau hapus.
+	const { data: settlement } = await supabase
+		.from("event_settlements")
+		.select("id")
+		.eq("event_id", id)
+		.maybeSingle();
+	if (settlement) {
+		return {
+			ok: false,
+			error:
+				"Event sudah di-settle. Reopen settlement dulu sebelum hapus (atau biarkan untuk audit trail).",
+		};
+	}
+
+	const { error } = await supabase
+		.from("events")
+		.update({ deleted_at: new Date().toISOString() })
+		.eq("id", id);
+
+	if (error) return { ok: false, error: error.message };
+
+	revalidatePath("/operations");
+	revalidatePath(`/operations/${event.project_id}`);
+	return { ok: true, projectId: event.project_id };
+}

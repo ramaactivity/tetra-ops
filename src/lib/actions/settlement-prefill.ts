@@ -15,6 +15,7 @@ export type AutoHppKey =
 	| "pouch"
 	| "photomagnet"
 	| "keychain"
+	| "bonus"
 	| "other";
 
 export type AutoHpp = Record<AutoHppKey, number>;
@@ -40,6 +41,7 @@ const ZERO_HPP: AutoHpp = {
 	pouch: 0,
 	photomagnet: 0,
 	keychain: 0,
+	bonus: 0,
 	other: 0,
 };
 
@@ -135,6 +137,46 @@ export async function getAutoHpp(eventId: string): Promise<AutoHpp> {
 			auto.other =
 				(auto.other ?? 0) + Math.round(qty * Number(it.purchase_price_avg ?? 0));
 		}
+	}
+
+	// Bonus cost — item gratis untuk klien (event_bonuses × purchase_price_avg
+	// dari inventory_item yang di-link via addons.inventory_item_id). Bucket
+	// terpisah dari "other" supaya owner bisa lihat freebie cost di P&L.
+	const { data: bonusRows } = await supabase
+		.from("event_bonuses")
+		.select(
+			"quantity, addon:addons(inventory_item:inventory_items(purchase_price_avg))",
+		)
+		.eq("event_id", eventId);
+
+	type BonusPriceRow = {
+		quantity: number;
+		addon:
+			| {
+					inventory_item:
+						| { purchase_price_avg: number | null }
+						| Array<{ purchase_price_avg: number | null }>
+						| null;
+			  }
+			| Array<{
+					inventory_item:
+						| { purchase_price_avg: number | null }
+						| Array<{ purchase_price_avg: number | null }>
+						| null;
+			  }>
+			| null;
+	};
+	for (const row of (bonusRows ?? []) as unknown as BonusPriceRow[]) {
+		const addon = Array.isArray(row.addon) ? row.addon[0] : row.addon;
+		if (!addon) continue;
+		const invItem = Array.isArray(addon.inventory_item)
+			? addon.inventory_item[0]
+			: addon.inventory_item;
+		if (!invItem) continue; // addon not linked → no cost tracking
+		const qty = Number(row.quantity ?? 0);
+		if (qty <= 0) continue;
+		auto.bonus =
+			(auto.bonus ?? 0) + Math.round(qty * Number(invItem.purchase_price_avg ?? 0));
 	}
 
 	return auto;

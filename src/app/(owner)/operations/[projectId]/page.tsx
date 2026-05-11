@@ -17,6 +17,7 @@ import {
 	EventStatusBadge,
 	PaymentStatusBadge,
 } from "@/components/badges/status-badge";
+import { DeleteEventButton } from "@/components/booking/delete-event-button";
 import {
 	SendWhatsAppButton,
 	type WhatsAppTemplate,
@@ -319,6 +320,13 @@ export default async function EventDetailPage({
 									<Pencil className="h-3.5 w-3.5" />
 									Edit
 								</Link>
+								{!settlement && (
+									<DeleteEventButton
+										eventId={event.id}
+										projectId={event.project_id}
+										clientName={event.client_name}
+									/>
+								)}
 								{canSettle && (
 									<Link
 										href={`/operations/${event.project_id}/settle`}

@@ -230,7 +230,7 @@ async function PnlSection({
 		supabase
 			.from("event_settlements")
 			.select(
-				`net_profit, revenue_net, hpp_total, opex_total, sinking_total,
+				`net_profit, revenue_net, hpp_total, hpp_bonus, opex_total, sinking_total,
 				owner_pool_total, fee_lead, fee_asisten, fee_crew_c, fee_extra,
 				transport_bbm, sewa_alat, perawatan, konsumsi,
 				komisi_vendor, komisi_relasi, komisi_sales_direct,
@@ -260,6 +260,7 @@ async function PnlSection({
 		net_profit: number;
 		revenue_net: number;
 		hpp_total: number;
+		hpp_bonus: number;
 		opex_total: number;
 		sinking_total: number;
 		owner_pool_total: number;
@@ -299,6 +300,7 @@ async function PnlSection({
 
 	const revenue = sum("revenue_net");
 	const hpp = sum("hpp_total");
+	const hppBonus = sum("hpp_bonus");
 	const opex = sum("opex_total");
 	const sinking = sum("sinking_total");
 	const ownerPool = sum("owner_pool_total");
@@ -381,6 +383,12 @@ async function PnlSection({
 							strong
 						/>
 						<PnlRow label="HPP (Cost of Goods Sold)" value={-hpp} indent />
+						{hppBonus > 0 && (
+							<PnlSubRow
+								label="↳ Freebie cost (bonus untuk klien)"
+								value={hppBonus}
+							/>
+						)}
 						<PnlRow label="Gross Profit" value={revenue - hpp} strong muted />
 						<PnlRow label="OpEx" value={-opex} sign="−" />
 						<PnlSubRow label="Fee crew" value={opexBreakdown.fee_crew} />
