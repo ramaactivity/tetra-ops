@@ -53,7 +53,11 @@ export type BackdropOption = {
 	id: string;
 	code: string;
 	name: string;
-	type: "basic_included" | "rental_owned" | "vendor_decor";
+	type:
+		| "basic_included"
+		| "rental_owned"
+		| "vendor_decor"
+		| "client_provided";
 	rental_price: number;
 };
 
@@ -1002,12 +1006,14 @@ export function BookingForm({
 					name="backdrop_id"
 					hint={
 						selectedBackdrop?.type === "rental_owned"
-							? `Auto-add ${formatRupiah(selectedBackdrop.rental_price)} sewa ke grand total`
+							? `Premium rental Tetra — auto-add ${formatRupiah(selectedBackdrop.rental_price)} ke grand total`
 							: selectedBackdrop?.type === "vendor_decor"
-								? "Klien pakai vendor decor — isi markup di field bawah"
-								: selectedBackdrop?.type === "basic_included"
-									? "Gratis (basic Tetra)"
-									: "Kosongkan kalau belum ditentukan — sistem akan reminder mendekati H"
+								? "Custom request — Tetra cariin vendor rekanan. Isi markup Tetra di field bawah (vendor charge belum termasuk)."
+								: selectedBackdrop?.type === "client_provided"
+									? "Klien bawa vendor dekorasi sendiri — Tetra cuma execute, tanpa markup."
+									: selectedBackdrop?.type === "basic_included"
+										? "Backdrop standar Tetra (gratis bundled di paket)"
+										: "Kosongkan kalau belum ditentukan — sistem akan reminder H-7 + H-3"
 					}
 				>
 					<NativeSelect

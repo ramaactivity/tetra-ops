@@ -104,7 +104,12 @@ export function NativeSelect({
 				size={size}
 				{...ariaProps}
 			>
-				<SelectValue placeholder={placeholder} />
+				<SelectValue placeholder={placeholder}>
+					{(v) => {
+						const matched = options.find((opt) => opt.value === v);
+						return matched?.label ?? placeholder ?? "";
+					}}
+				</SelectValue>
 			</SelectTrigger>
 			<SelectContent>
 				{options.map((option) => (
