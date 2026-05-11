@@ -9,6 +9,31 @@ import { createClient } from "@/lib/supabase/server";
 
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
 
+const CustomMaterialsSchema = z
+	.string()
+	.trim()
+	.optional()
+	.transform((v): Record<string, number> => {
+		if (!v) return {};
+		try {
+			const parsed = JSON.parse(v);
+			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+				return {};
+			}
+			const out: Record<string, number> = {};
+			for (const [sku, qty] of Object.entries(
+				parsed as Record<string, unknown>,
+			)) {
+				const n = Number(qty);
+				if (!Number.isFinite(n) || n <= 0) continue;
+				out[sku] = Math.floor(n);
+			}
+			return out;
+		} catch {
+			return {};
+		}
+	});
+
 const RekapInputSchema = z.object({
 	cetak_total: NonNegInt,
 	media_set_used: NonNegInt,
@@ -17,6 +42,7 @@ const RekapInputSchema = z.object({
 	pouch_used: NonNegInt,
 	photomagnet_used: NonNegInt,
 	keychain_used: NonNegInt,
+	custom_materials: CustomMaterialsSchema,
 	proof_photo_urls: z
 		.string()
 		.trim()
@@ -67,6 +93,257 @@ async function requireOwnerLevel() {
 	return me;
 }
 
+/**
+ * Hydrate everything UI needs for crew + owner rekap pages in a single call:
+ *  - paket spec (name, frame_size, duration_hours, include_flashdisk_pouch)
+ *  - paid add-ons + bonus list (with inventory item link if any)
+ *  - rekap_field_mapping with current stock + avg cost per linked item
+ *  - inventory pool for "Tambah item lain" Combobox picker
+ *
+ * Pure read — no side effects. Owner-or-crew gate (rekap pages are
+ * authorized at page level via the existing notFound() checks).
+ */
+export type RekapContextItem = {
+	id: string;
+	sku: string;
+	name: string;
+	unit: string;
+	purchase_price_avg: number;
+	current_stock: number;
+};
+
+export type RekapContextMapping = {
+	rekap_field: RekapField;
+	item_id: string | null;
+	qty_per_unit: number;
+	item: RekapContextItem | null;
+};
+
+export type RekapContextAddon = {
+	addon_id: string;
+	name: string;
+	unit: string;
+	quantity: number;
+	unit_price: number;
+	inventory_item: RekapContextItem | null;
+};
+
+export type RekapContextBonus = {
+	addon_id: string;
+	name: string;
+	unit: string;
+	quantity: number;
+	notes: string | null;
+	inventory_item: RekapContextItem | null;
+};
+
+export type RekapContext = {
+	pkg: {
+		name: string | null;
+		frame_size: string | null;
+		duration_hours: number | null;
+		include_flashdisk_pouch: boolean | null;
+	};
+	paid_addons: RekapContextAddon[];
+	bonuses: RekapContextBonus[];
+	mappings: RekapContextMapping[];
+	custom_inventory: RekapContextItem[];
+};
+
+export async function getRekapContext(
+	eventId: string,
+): Promise<RekapContext | { error: string }> {
+	await requireOwnerOrCrew();
+	const supabase = await createClient();
+
+	// 1) Event + paket + include_flashdisk_pouch
+	const { data: event, error: evErr } = await supabase
+		.from("events")
+		.select(
+			`id, include_flashdisk_pouch, frame_size,
+			package:packages(name, duration_hours),
+			event_addons:event_addons(quantity, unit_price, addon:addons(id, name, unit, inventory_item_id)),
+			event_bonuses:event_bonuses(quantity, notes, addon:addons(id, name, unit, inventory_item_id))`,
+		)
+		.eq("id", eventId)
+		.maybeSingle();
+	if (evErr) return { error: evErr.message };
+	if (!event) return { error: "Event tidak ditemukan." };
+
+	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
+
+	// 2) Mapping + inventory lookup (batch)
+	const { data: mappingsRaw } = await supabase
+		.from("rekap_field_mapping")
+		.select("rekap_field, item_id, qty_per_unit, is_active")
+		.eq("is_active", true);
+
+	const mappedItemIds = ((mappingsRaw ?? []) as Array<{ item_id: string | null }>)
+		.map((m) => m.item_id)
+		.filter((v): v is string => Boolean(v));
+
+	// Collect addon-linked inventory IDs too (paid + bonuses)
+	const addonInventoryIds = new Set<string>();
+	type AddonRow = {
+		quantity: number;
+		unit_price?: number;
+		notes?: string | null;
+		addon:
+			| {
+					id: string;
+					name: string;
+					unit: string;
+					inventory_item_id: string | null;
+			  }
+			| Array<{
+					id: string;
+					name: string;
+					unit: string;
+					inventory_item_id: string | null;
+			  }>
+			| null;
+	};
+	const paidAddonRows = ((event.event_addons ?? []) as unknown as AddonRow[]) ?? [];
+	const bonusAddonRows = ((event.event_bonuses ?? []) as unknown as AddonRow[]) ?? [];
+	for (const row of [...paidAddonRows, ...bonusAddonRows]) {
+		const a = Array.isArray(row.addon) ? row.addon[0] : row.addon;
+		if (a?.inventory_item_id) addonInventoryIds.add(a.inventory_item_id);
+	}
+
+	const allItemIds = Array.from(
+		new Set([...mappedItemIds, ...Array.from(addonInventoryIds)]),
+	);
+
+	const itemsById = new Map<string, RekapContextItem>();
+	if (allItemIds.length > 0) {
+		const { data: items } = await supabase
+			.from("inventory_items")
+			.select("id, sku, name, unit, purchase_price_avg")
+			.in("id", allItemIds);
+		// Fetch stock in parallel via RPC per item (no batch RPC available)
+		const stockPairs = await Promise.all(
+			(items ?? []).map(async (it) => {
+				const { data: stock } = await supabase.rpc("get_current_stock", {
+					p_item_id: it.id as string,
+				});
+				return [it.id as string, Number(stock ?? 0)] as const;
+			}),
+		);
+		const stockMap = new Map(stockPairs);
+		for (const it of items ?? []) {
+			itemsById.set(it.id as string, {
+				id: it.id as string,
+				sku: it.sku as string,
+				name: it.name as string,
+				unit: (it.unit as string | null) ?? "pcs",
+				purchase_price_avg: Number(it.purchase_price_avg ?? 0),
+				current_stock: stockMap.get(it.id as string) ?? 0,
+			});
+		}
+	}
+
+	const mappings: RekapContextMapping[] = (
+		(mappingsRaw ?? []) as Array<{
+			rekap_field: RekapField;
+			item_id: string | null;
+			qty_per_unit: number;
+		}>
+	).map((m) => ({
+		rekap_field: m.rekap_field,
+		item_id: m.item_id,
+		qty_per_unit: m.qty_per_unit,
+		item: m.item_id ? (itemsById.get(m.item_id) ?? null) : null,
+	}));
+
+	const paid_addons: RekapContextAddon[] = paidAddonRows
+		.map((row) => {
+			const a = Array.isArray(row.addon) ? row.addon[0] : row.addon;
+			if (!a) return null;
+			return {
+				addon_id: a.id,
+				name: a.name,
+				unit: a.unit,
+				quantity: Number(row.quantity ?? 0),
+				unit_price: Number(row.unit_price ?? 0),
+				inventory_item: a.inventory_item_id
+					? (itemsById.get(a.inventory_item_id) ?? null)
+					: null,
+			};
+		})
+		.filter((v): v is RekapContextAddon => Boolean(v));
+
+	const bonuses: RekapContextBonus[] = bonusAddonRows
+		.map((row) => {
+			const a = Array.isArray(row.addon) ? row.addon[0] : row.addon;
+			if (!a) return null;
+			return {
+				addon_id: a.id,
+				name: a.name,
+				unit: a.unit,
+				quantity: Number(row.quantity ?? 0),
+				notes: row.notes ?? null,
+				inventory_item: a.inventory_item_id
+					? (itemsById.get(a.inventory_item_id) ?? null)
+					: null,
+			};
+		})
+		.filter((v): v is RekapContextBonus => Boolean(v));
+
+	// 3) Custom inventory pool: all consumable items not yet covered by
+	// mappings (those have dedicated fields). User picks from this list to
+	// record "kami pakai 50× sticker X dari stok lain".
+	const mappedSet = new Set(allItemIds);
+	const { data: poolRaw } = await supabase
+		.from("inventory_items")
+		.select("id, sku, name, unit, purchase_price_avg")
+		.eq("category", "consumable")
+		.eq("is_active", true)
+		.is("deleted_at", null)
+		.order("sku", { ascending: true });
+
+	const custom_inventory: RekapContextItem[] = [];
+	for (const it of (poolRaw ?? []) as Array<{
+		id: string;
+		sku: string;
+		name: string;
+		unit: string | null;
+		purchase_price_avg: number | null;
+	}>) {
+		if (mappedSet.has(it.id)) continue; // skip — covered by mapping
+		const cached = itemsById.get(it.id);
+		// Fetch stock only for items not already in itemsById
+		let stock = cached?.current_stock ?? 0;
+		if (!cached) {
+			const { data: s } = await supabase.rpc("get_current_stock", {
+				p_item_id: it.id,
+			});
+			stock = Number(s ?? 0);
+		}
+		custom_inventory.push({
+			id: it.id,
+			sku: it.sku,
+			name: it.name,
+			unit: it.unit ?? "pcs",
+			purchase_price_avg: Number(it.purchase_price_avg ?? 0),
+			current_stock: stock,
+		});
+	}
+
+	return {
+		pkg: {
+			name: pkg?.name ?? null,
+			frame_size: (event.frame_size as string | null) ?? null,
+			duration_hours: pkg?.duration_hours ?? null,
+			include_flashdisk_pouch:
+				(event.include_flashdisk_pouch as boolean | null) ?? null,
+		},
+		paid_addons,
+		bonuses,
+		mappings,
+		custom_inventory,
+	};
+}
+
 function snapshotValues(formData: FormData): Record<string, string> {
 	const keys = [
 		"cetak_total",
@@ -76,6 +353,7 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		"pouch_used",
 		"photomagnet_used",
 		"keychain_used",
+		"custom_materials",
 		"proof_photo_urls",
 		"crew_notes",
 	];
@@ -100,6 +378,7 @@ export async function submitRekap(
 		pouch_used: formData.get("pouch_used"),
 		photomagnet_used: formData.get("photomagnet_used"),
 		keychain_used: formData.get("keychain_used"),
+		custom_materials: formData.get("custom_materials"),
 		proof_photo_urls: formData.get("proof_photo_urls"),
 		crew_notes: formData.get("crew_notes"),
 	});
@@ -152,7 +431,7 @@ export async function submitRekap(
 
 	const payload = {
 		event_id: eventId,
-		submitted_by: me.authId,
+		submitted_by: me.profile.id,
 		cetak_total: parsed.data.cetak_total,
 		media_set_used: parsed.data.media_set_used,
 		sleeve_used: parsed.data.sleeve_used,
@@ -160,6 +439,7 @@ export async function submitRekap(
 		pouch_used: parsed.data.pouch_used,
 		photomagnet_used: parsed.data.photomagnet_used,
 		keychain_used: parsed.data.keychain_used,
+		custom_materials: parsed.data.custom_materials,
 		proof_photo_urls: parsed.data.proof_photo_urls,
 		crew_notes: parsed.data.crew_notes,
 	};
@@ -482,7 +762,7 @@ export async function reviewRekap(
 	// 1. UPDATE the rekap row first (review fields)
 	const updatePayload: Record<string, unknown> = {
 		is_approved: approved,
-		reviewed_by: me.authId,
+		reviewed_by: me.profile.id,
 		reviewed_at: new Date().toISOString(),
 		review_notes: notes.trim() || null,
 	};
@@ -511,7 +791,7 @@ export async function reviewRekap(
 				source_id: existing.event_id,
 				source_description: `Rekap approved (${l.source_label})`,
 				notes: `Auto-deduct from rekap approval — batch ${batchId.slice(0, 8)}`,
-				performed_by: me.authId,
+				performed_by: me.profile.id,
 			}));
 			const { error: insErr } = await supabase
 				.from("stock_movements")
@@ -542,7 +822,7 @@ export async function reviewRekap(
 				source_id: existing.event_id,
 				source_description: `Reversal: rekap rejected (${m.source_description ?? ""})`,
 				notes: "Auto-reversal: rekap rejected after prior approval",
-				performed_by: me.authId,
+				performed_by: me.profile.id,
 			}));
 			const { error: revErr } = await supabase
 				.from("stock_movements")

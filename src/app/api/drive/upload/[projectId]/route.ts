@@ -83,6 +83,35 @@ function buildPaymentProofName(
 	return `${safe}.${ext}`;
 }
 
+/**
+ * Rekap proof naming: `{PRJ-ID} - REKAP - {YYYY-MM-DD} - {seq}.{ext}`
+ * - date defaults to today (upload time, in WIB-relevant local zone via ISO)
+ * - seq is supplied by client (multi-file upload session counter); falls back
+ *   to HHMMSS timestamp when missing to guarantee uniqueness
+ */
+function buildRekapProofName(
+	meta: {
+		projectId: string;
+		eventDate: string | null;
+		seq: string | null;
+	},
+	ext: string,
+): string {
+	const parts: string[] = [safeSegment(meta.projectId, 30), "REKAP"];
+	const dateStr = formatPaymentDate(meta.eventDate) ?? formatPaymentDate(new Date().toISOString());
+	if (dateStr) parts.push(dateStr);
+	const seqClean = meta.seq?.replace(/\D/g, "").padStart(2, "0").slice(0, 4);
+	if (seqClean && seqClean !== "00") {
+		parts.push(seqClean);
+	} else {
+		const now = new Date();
+		const hhmmss = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+		parts.push(hhmmss);
+	}
+	const name = parts.join(" - ").slice(0, 180).trim();
+	return `${name}.${ext}`;
+}
+
 export async function POST(
 	req: NextRequest,
 	ctx: { params: Promise<{ projectId: string }> },
@@ -91,9 +120,17 @@ export async function POST(
 	if (!me) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
-	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
+	// Auth gate moved below the multipart parse so we can branch on `kind`:
+	// payment proofs are owner-only, rekap proofs allow crew (assigned to the
+	// event). We can't read formData before the auth check fully, but role-
+	// based check happens here for non-crew roles. Crew authorization for
+	// rekap_proof is verified after we parse the kind.
+	const isOwnerLevel =
+		me.profile.role === "super_admin" || me.profile.role === "owner";
+	const isCrew = me.profile.role === "crew";
+	if (!isOwnerLevel && !isCrew) {
 		return NextResponse.json(
-			{ error: "Forbidden — owner-level only" },
+			{ error: "Forbidden — owner or crew only" },
 			{ status: 403 },
 		);
 	}
@@ -112,11 +149,13 @@ export async function POST(
 		return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
 	}
 
-	// Resolve event (incl. client_name for filename)
+	// Resolve event (incl. client_name + event_date for filename)
 	const supabase = await createClient();
 	const { data: event, error: evErr } = await supabase
 		.from("events")
-		.select("id, project_id, client_name, drive_folder_id, drive_folder_url")
+		.select(
+			"id, project_id, client_name, event_date, drive_folder_id, drive_folder_url",
+		)
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (evErr) {
@@ -148,7 +187,7 @@ export async function POST(
 
 	// Optional metadata fields used to build a descriptive filename.
 	// Posted alongside the file when called from PaymentForm.
-	const kindRaw = formData.get("kind"); // e.g. "payment_proof"
+	const kindRaw = formData.get("kind"); // e.g. "payment_proof" | "rekap_proof"
 	const kind = typeof kindRaw === "string" ? kindRaw.trim() : "";
 	const paymentTypeRaw = formData.get("payment_type");
 	const paymentType =
@@ -161,6 +200,36 @@ export async function POST(
 		typeof amountRaw === "string" && amountRaw.trim()
 			? Number(amountRaw)
 			: null;
+	const seqRaw = formData.get("seq");
+	const seq = typeof seqRaw === "string" ? seqRaw.trim() : null;
+
+	// Authorization branch per kind:
+	// - payment_proof: owner-level only (financial data sensitivity)
+	// - rekap_proof: crew assigned to event OR owner
+	// - other: owner only
+	if (kind === "rekap_proof") {
+		if (isCrew) {
+			const { data: assignment } = await supabase
+				.from("crew_assignments")
+				.select("id")
+				.eq("event_id", event.id as string)
+				.eq("user_id", me.profile.id)
+				.maybeSingle();
+			if (!assignment) {
+				return NextResponse.json(
+					{ error: "Lo gak di-assign ke event ini." },
+					{ status: 403 },
+				);
+			}
+		}
+	} else {
+		if (!isOwnerLevel) {
+			return NextResponse.json(
+				{ error: "Forbidden — owner-level only untuk upload ini." },
+				{ status: 403 },
+			);
+		}
+	}
 
 	if (!(file instanceof File)) {
 		return NextResponse.json(
@@ -201,6 +270,15 @@ export async function POST(
 				paymentType,
 				paymentDate,
 				amount: amount && Number.isFinite(amount) ? amount : null,
+			},
+			ext,
+		);
+	} else if (kind === "rekap_proof") {
+		finalName = buildRekapProofName(
+			{
+				projectId: event.project_id as string,
+				eventDate: (event.event_date as string | null) ?? null,
+				seq,
 			},
 			ext,
 		);
