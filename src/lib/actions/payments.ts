@@ -75,48 +75,61 @@ export async function logPayment(
 	_prev: PaymentFormState,
 	formData: FormData,
 ): Promise<PaymentFormState> {
-	const me = await requireOwnerLevel();
+	try {
+		const me = await requireOwnerLevel();
 
-	const parsed = PaymentInputSchema.safeParse({
-		amount: formData.get("amount"),
-		payment_date: formData.get("payment_date"),
-		bank_account_id: formData.get("bank_account_id"),
-		payment_type: formData.get("payment_type"),
-		proof_url: formData.get("proof_url"),
-		notes: formData.get("notes"),
-	});
-	if (!parsed.success) {
+		const parsed = PaymentInputSchema.safeParse({
+			amount: formData.get("amount"),
+			payment_date: formData.get("payment_date"),
+			bank_account_id: formData.get("bank_account_id"),
+			payment_type: formData.get("payment_type"),
+			proof_url: formData.get("proof_url") ?? "",
+			notes: formData.get("notes") ?? "",
+		});
+		if (!parsed.success) {
+			return {
+				errors: parsed.error.flatten().fieldErrors as PaymentErrors,
+				values: snapshotValues(formData),
+			};
+		}
+
+		const supabase = await createClient();
+		const refId = generatePaymentRefId(parsed.data.payment_date);
+
+		const { error } = await supabase.from("payments").insert({
+			ref_id: refId,
+			event_id: eventId,
+			amount: parsed.data.amount,
+			payment_date: parsed.data.payment_date,
+			bank_account_id: parsed.data.bank_account_id,
+			payment_type: parsed.data.payment_type,
+			proof_url: parsed.data.proof_url,
+			notes: parsed.data.notes,
+			recorded_by: me.profile.id,
+		});
+
+		if (error) {
+			console.error("[logPayment] supabase insert error:", error);
+			return {
+				errors: { _form: [`DB: ${error.message}`] },
+				values: snapshotValues(formData),
+			};
+		}
+
+		revalidatePath(`/operations/${projectId}`);
+		revalidatePath(`/operations/${projectId}/payments`);
+		return undefined;
+	} catch (err) {
+		// Catch-all so an unhandled throw never bubbles to the global error
+		// boundary (which shows the generic "Ada yang ngga beres" page). Surface
+		// the actual message inline so user can react. Also logs to Vercel.
+		console.error("[logPayment] unexpected throw:", err);
+		const message = err instanceof Error ? err.message : String(err);
 		return {
-			errors: parsed.error.flatten().fieldErrors as PaymentErrors,
+			errors: { _form: [`Unexpected: ${message}`] },
 			values: snapshotValues(formData),
 		};
 	}
-
-	const supabase = await createClient();
-	const refId = generatePaymentRefId(parsed.data.payment_date);
-
-	const { error } = await supabase.from("payments").insert({
-		ref_id: refId,
-		event_id: eventId,
-		amount: parsed.data.amount,
-		payment_date: parsed.data.payment_date,
-		bank_account_id: parsed.data.bank_account_id,
-		payment_type: parsed.data.payment_type,
-		proof_url: parsed.data.proof_url,
-		notes: parsed.data.notes,
-		recorded_by: me.authId,
-	});
-
-	if (error) {
-		return {
-			errors: { _form: [error.message] },
-			values: snapshotValues(formData),
-		};
-	}
-
-	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/payments`);
-	return undefined;
 }
 
 export async function reversePayment(
@@ -124,22 +137,32 @@ export async function reversePayment(
 	id: string,
 	reason: string,
 ): Promise<{ error?: string }> {
-	const me = await requireOwnerLevel();
+	try {
+		const me = await requireOwnerLevel();
 
-	const supabase = await createClient();
-	const { error } = await supabase
-		.from("payments")
-		.update({
-			is_reversed: true,
-			reversed_at: new Date().toISOString(),
-			reversed_by: me.authId,
-			reversal_reason: reason,
-		})
-		.eq("id", id);
+		const supabase = await createClient();
+		const { error } = await supabase
+			.from("payments")
+			.update({
+				is_reversed: true,
+				reversed_at: new Date().toISOString(),
+				reversed_by: me.profile.id,
+				reversal_reason: reason,
+			})
+			.eq("id", id);
 
-	if (error) return { error: error.message };
+		if (error) {
+			console.error("[reversePayment] supabase error:", error);
+			return { error: error.message };
+		}
 
-	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/payments`);
-	return {};
+		revalidatePath(`/operations/${projectId}`);
+		revalidatePath(`/operations/${projectId}/payments`);
+		return {};
+	} catch (err) {
+		console.error("[reversePayment] unexpected throw:", err);
+		return {
+			error: err instanceof Error ? err.message : String(err),
+		};
+	}
 }
