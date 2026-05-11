@@ -49,26 +49,114 @@ const ROLE_LABELS: Record<string, string> = {
 	crew_c: "Crew C",
 };
 
+const BACKDROP_LABELS: Record<string, string> = {
+	merah: "Merah",
+	gold: "Gold",
+	putih: "Putih",
+	silver: "Silver",
+	custom: "Custom (lihat brief)",
+};
+
 export function buildCrewReminderMessage(input: CrewReminderInput): string {
-	const time = (t: string | null | undefined) => (t ? t.slice(0, 5) : "—");
-	const date = formatDateID(input.event.event_date);
+	const ev = input.event;
+	const time = (t: string | null | undefined) => (t ? t.slice(0, 5) : null);
+	const date = formatDateID(ev.event_date);
 	const role = ROLE_LABELS[input.role_in_event] ?? input.role_in_event;
 	const totalFee = input.fee_amount + (input.bonus_amount ?? 0);
-	const lines = [
-		`Hai ${input.crew_name}! Reminder event:`,
-		"",
-		`📅 ${date}`,
-		`🕓 Setup ${time(input.event.setup_time)} · Start ${time(input.event.start_time)}`,
-		`📍 ${input.event.venue_name}`,
-		`🎯 Role: ${role}`,
-		`💰 Fee: ${formatRupiah(totalFee)}`,
-		"",
-		`Project: ${input.event.project_id}`,
-		`Client: ${input.event.client_name}`,
-		"",
-		"Mohon konfirm kalau bisa standby. Terima kasih!",
-	];
-	return lines.join("\n");
+
+	const setupT = time(ev.setup_time);
+	const startT = time(ev.start_time);
+	const endT = time(ev.end_time);
+
+	const sections: string[] = [];
+
+	// Greeting
+	sections.push(`Halo *${input.crew_name}*! 👋`);
+	sections.push("Berikut detail assignment kamu di event berikutnya:");
+
+	// Event identity
+	const eventBlock = [`🎬 *EVENT*`, ev.client_name, ev.project_id];
+	sections.push(eventBlock.join("\n"));
+
+	// Role + fee
+	sections.push(
+		[
+			`🎯 *ROLE KAMU*`,
+			role,
+			`💰 Fee: ${formatRupiah(totalFee)}` +
+				(input.bonus_amount > 0
+					? ` (termasuk bonus ${formatRupiah(input.bonus_amount)})`
+					: ""),
+		].join("\n"),
+	);
+
+	// Schedule
+	const scheduleLines = [`📅 *JADWAL*`, date];
+	if (setupT) scheduleLines.push(`🛠 Setup: ${setupT}`);
+	if (startT) {
+		scheduleLines.push(
+			`🎥 Mulai: ${startT}${endT ? ` - ${endT}` : ""}`,
+		);
+	}
+	sections.push(scheduleLines.join("\n"));
+
+	// Location
+	const venueLine = ev.venue_city
+		? `${ev.venue_name}, ${ev.venue_city}`
+		: ev.venue_name;
+	const locLines = [`📍 *LOKASI*`, venueLine];
+	if (ev.google_maps_url) {
+		locLines.push(`🗺 ${ev.google_maps_url}`);
+	}
+	sections.push(locLines.join("\n"));
+
+	// PIC
+	if (ev.pic_name) {
+		const picLines = [`👤 *PIC DI LOKASI*`, ev.pic_name];
+		if (ev.pic_wa) {
+			picLines.push(`📞 wa.me/${toWaPhone(ev.pic_wa)}`);
+		}
+		sections.push(picLines.join("\n"));
+	}
+
+	// Package + spec
+	if (ev.package_name || ev.frame_size || ev.backdrop_color) {
+		const pkgLines: string[] = [`📦 *PAKET*`];
+		const specBits: string[] = [];
+		if (ev.package_name) specBits.push(ev.package_name);
+		if (ev.frame_size) specBits.push(ev.frame_size);
+		if (ev.duration_hours) specBits.push(`${ev.duration_hours} jam`);
+		if (specBits.length) pkgLines.push(specBits.join(" · "));
+		if (ev.backdrop_color) {
+			pkgLines.push(
+				`🎨 Backdrop: ${BACKDROP_LABELS[ev.backdrop_color] ?? ev.backdrop_color}`,
+			);
+		}
+		if (ev.include_flashdisk_pouch) {
+			pkgLines.push("📁 Include flashdisk + pouch");
+		}
+		sections.push(pkgLines.join("\n"));
+	}
+
+	// Add-ons
+	if (ev.addons_list && ev.addons_list.length > 0) {
+		const addonLines = [`➕ *ADD-ONS*`, ...ev.addons_list.map((a) => `• ${a}`)];
+		sections.push(addonLines.join("\n"));
+	}
+
+	// Crew notes / special requests
+	if (ev.crew_notes && ev.crew_notes.trim()) {
+		sections.push(
+			[`📝 *CATATAN KHUSUS*`, ev.crew_notes.trim()].join("\n"),
+		);
+	}
+
+	// Footer
+	sections.push(
+		"—\nKonfirm di chat ini ya. Kalau ada kendala/pertanyaan langsung kabarin owner. Makasih banyak 🙏",
+	);
+
+	return sections.join("\n\n");
 }
 
 /**
@@ -100,12 +188,22 @@ export type EventForWA = {
 	event_date: string;
 	setup_time: string | null;
 	start_time: string | null;
+	end_time?: string | null;
 	venue_name: string;
+	venue_city?: string | null;
+	google_maps_url?: string | null;
+	pic_name?: string | null;
+	pic_wa?: string | null;
 	due_date?: string | null;
 	total_paid?: number | null;
 	remaining_balance?: number | null;
 	package_name?: string | null;
+	frame_size?: string | null;
 	duration_hours?: number | null;
+	backdrop_color?: string | null;
+	include_flashdisk_pouch?: boolean | null;
+	addons_list?: string[] | null;
+	crew_notes?: string | null;
 	crew_lead?: string | null;
 	crew_asisten?: string | null;
 	drive_link?: string | null;
