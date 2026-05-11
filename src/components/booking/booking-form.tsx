@@ -296,6 +296,26 @@ export function BookingForm({
 		[packageId, packages],
 	);
 
+	// Filter packages by service_type + frame_size — owner only sees relevant
+	// paket. If service_type or frame_size empty, show all (initial state).
+	const filteredPackages = useMemo(() => {
+		return packages.filter((p) => {
+			if (serviceType && p.category !== serviceType) return false;
+			if (frameSize && p.frame_size !== frameSize && p.frame_size !== "none")
+				return false;
+			return true;
+		});
+	}, [packages, serviceType, frameSize]);
+
+	// If currently selected paket no longer in filter, clear it
+	useEffect(() => {
+		if (!packageId) return;
+		const stillVisible = filteredPackages.some((p) => p.id === packageId);
+		if (!stillVisible) {
+			setPackageId("");
+		}
+	}, [filteredPackages, packageId]);
+
 	// === Schedule (auto-fill setup/end)
 	const [eventDate, setEventDate] = useState(get("event_date", ""));
 	const [setupTime, setSetupTime] = useState(get("setup_time", ""));
@@ -352,8 +372,24 @@ export function BookingForm({
 
 	// === Contacts
 	const [clientWa, setClientWa] = useState(get("client_wa"));
+	const [bookerName, setBookerName] = useState(get("booker_name"));
+	const [bookerSameAsClient, setBookerSameAsClient] = useState(false);
 	const [picName, setPicName] = useState(get("pic_name"));
 	const [picWa, setPicWa] = useState(get("pic_wa"));
+	const [picSameAsBooker, setPicSameAsBooker] = useState(false);
+
+	// Toggle: pembooking sama dengan klien (yang punya acara)
+	useEffect(() => {
+		if (bookerSameAsClient) setBookerName(clientName);
+	}, [bookerSameAsClient, clientName]);
+
+	// Toggle: PIC sama dengan pembooking
+	useEffect(() => {
+		if (picSameAsBooker) {
+			setPicName(bookerName || clientName);
+			setPicWa(clientWa);
+		}
+	}, [picSameAsBooker, bookerName, clientName, clientWa]);
 
 	// === Financial
 	const initialDiscount = Number(
@@ -883,7 +919,13 @@ export function BookingForm({
 				<Field
 					label="Paket"
 					name="package_id"
-					hint="Pilih dari pricelist; base price auto-fill"
+					hint={
+						!serviceType || !frameSize
+							? "Pilih Service Type + Frame Size dulu buat filter paket."
+							: filteredPackages.length === 0
+								? "Tidak ada paket yang cocok dengan kombinasi ini — pakai custom."
+								: `${filteredPackages.length} paket cocok. Pilih untuk auto-fill base price.`
+					}
 				>
 					<NativeSelect
 						value={packageId}
@@ -891,7 +933,7 @@ export function BookingForm({
 						placeholder="— custom / belum dipilih —"
 						options={[
 							{ value: "", label: "— custom / belum dipilih —" },
-							...packages.map((pkg) => ({
+							...filteredPackages.map((pkg) => ({
 								value: pkg.id,
 								label: `${pkg.name} · ${pkg.duration_hours}j · ${formatRupiah(pkg.base_price)}`,
 							})),
@@ -1086,14 +1128,36 @@ export function BookingForm({
 			<Section
 				step={showReferrerBlock ? 8 : 7}
 				title="Kontak"
-				description="Klien (yang booking) + PIC di lapangan untuk koordinasi crew hari-H."
+				description="Pembooking (yang booking + utama untuk billing) + PIC di lapangan untuk koordinasi crew hari-H."
 			>
 				<div className="grid gap-6 md:grid-cols-2">
 					<Field
-						label="WA Klien (yang booking)"
+						label="Nama Pembooking"
+						name="booker_name"
+						hint={
+							bookerSameAsClient
+								? `Auto: sama dengan klien (${clientName || "—"})`
+								: "Yang booking — bisa pengantin sendiri, kakak, panitia, dll"
+						}
+					>
+						<input
+							type="text"
+							value={bookerName}
+							onChange={(e) => {
+								setBookerName(e.target.value);
+								setBookerSameAsClient(false);
+							}}
+							placeholder="cth. Andi (kakak pengantin)"
+							disabled={bookerSameAsClient}
+							className={`${inputClass} ${bookerSameAsClient ? "opacity-60" : ""}`}
+						/>
+						<input type="hidden" name="booker_name" value={bookerName} />
+					</Field>
+					<Field
+						label="WA Pembooking"
 						name="client_wa"
 						error={err("client_wa")}
-						hint="Format: 08xxxxxxxxxx atau +628xxxxxxxxxx"
+						hint="Primary contact untuk billing + reminder. Format: 08xxxxxxxxxx"
 						required
 					>
 						<input
@@ -1106,34 +1170,64 @@ export function BookingForm({
 						/>
 						<input type="hidden" name="client_wa" value={clientWa} required />
 					</Field>
-					<Field label="Email Klien" name="client_email" hint="Opsional">
-						<input
-							type="email"
-							name="client_email"
-							defaultValue={get("client_email")}
-							placeholder="andi@email.com"
-							className={inputClass}
-						/>
-					</Field>
 				</div>
 
-				<div className="rounded-lg border border-border-default bg-surface-2 p-4 space-y-3">
-					<div className="flex items-center gap-2 text-fluid-body font-medium">
-						<Users className="size-4 text-primary" />
-						PIC di Lokasi (WO / EO / Panitia)
+				<label className="flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-2 text-fluid-caption">
+					<input
+						type="checkbox"
+						checked={bookerSameAsClient}
+						onChange={(e) => setBookerSameAsClient(e.target.checked)}
+						className="h-4 w-4 rounded text-primary"
+					/>
+					<span>
+						Pembooking sama dengan klien{" "}
+						<span className="text-muted-foreground">
+							(pengantin/yang punya acara booking sendiri)
+						</span>
+					</span>
+				</label>
+
+				<input type="hidden" name="client_email" value="" />
+
+				<div className="space-y-3 rounded-lg border border-border-default bg-surface-2 p-4">
+					<div className="flex items-baseline justify-between gap-2">
+						<div className="flex items-center gap-2 text-fluid-body font-medium">
+							<Users className="size-4 text-primary" />
+							PIC di Lokasi (WO / EO / Panitia / Keluarga)
+						</div>
 					</div>
 					<p className="text-fluid-caption text-muted-foreground">
-						Bisa beda dengan klien yang booking. Ini orang yang crew koordinasi
-						saat di lapangan hari-H.
+						Orang yang crew koordinasi di lapangan hari-H. Bisa pembooking
+						sendiri, WO, atau keluarga.
 					</p>
+
+					<label className="flex cursor-pointer items-center gap-2 text-fluid-caption">
+						<input
+							type="checkbox"
+							checked={picSameAsBooker}
+							onChange={(e) => setPicSameAsBooker(e.target.checked)}
+							className="h-4 w-4 rounded text-primary"
+						/>
+						<span>
+							PIC sama dengan pembooking{" "}
+							<span className="text-muted-foreground">
+								(auto-fill dari atas)
+							</span>
+						</span>
+					</label>
+
 					<div className="grid gap-3 md:grid-cols-2">
 						<Field label="Nama PIC" name="pic_name" hint="Opsional">
 							<input
 								type="text"
 								value={picName}
-								onChange={(e) => setPicName(e.target.value)}
+								onChange={(e) => {
+									setPicName(e.target.value);
+									setPicSameAsBooker(false);
+								}}
 								placeholder="cth. Bu Hanna (WO)"
-								className={inputClass}
+								disabled={picSameAsBooker}
+								className={`${inputClass} ${picSameAsBooker ? "opacity-60" : ""}`}
 							/>
 							<input type="hidden" name="pic_name" value={picName} />
 						</Field>
@@ -1145,9 +1239,13 @@ export function BookingForm({
 							<input
 								type="tel"
 								value={picWa}
-								onChange={(e) => setPicWa(e.target.value)}
+								onChange={(e) => {
+									setPicWa(e.target.value);
+									setPicSameAsBooker(false);
+								}}
 								placeholder="081234567890"
-								className={`${inputClass} tabular`}
+								disabled={picSameAsBooker}
+								className={`${inputClass} tabular ${picSameAsBooker ? "opacity-60" : ""}`}
 							/>
 							<input type="hidden" name="pic_wa" value={picWa} />
 						</Field>
