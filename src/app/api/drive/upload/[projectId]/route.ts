@@ -23,18 +23,64 @@ const ALLOWED_MIME = new Set([
 	"application/pdf",
 ]);
 
-function safeFileName(original: string, fallbackExt: string): string {
-	const cleaned = original
-		.replace(/[\\/:*?"<>|]/g, "_")
+function safeSegment(raw: string, maxLen = 60): string {
+	return raw
+		.replace(/[\\/:*?"<>|]/g, "")
 		.replace(/\s+/g, " ")
 		.trim()
-		.slice(0, 80);
-	if (cleaned) return cleaned;
-	const ts = new Date()
-		.toISOString()
-		.replace(/[:.]/g, "-")
-		.slice(0, 19);
-	return `upload-${ts}.${fallbackExt}`;
+		.slice(0, maxLen);
+}
+
+const PAYMENT_TYPE_LABEL: Record<string, string> = {
+	dp: "DP",
+	partial: "Partial",
+	pelunasan: "Pelunasan",
+};
+
+function formatPaymentDate(iso: string | null): string | null {
+	if (!iso) return null;
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return null;
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
+}
+
+function buildPaymentProofName(
+	meta: {
+		projectId: string;
+		clientName: string;
+		paymentType: string | null;
+		paymentDate: string | null;
+		amount: number | null;
+	},
+	ext: string,
+): string {
+	const parts: string[] = [];
+
+	parts.push(safeSegment(meta.projectId, 30));
+
+	// "Pelunasan Rp1.500.000" or "DP" or "Pembayaran"
+	const typeLabel = meta.paymentType
+		? PAYMENT_TYPE_LABEL[meta.paymentType.toLowerCase()]
+		: null;
+	let middle = typeLabel ?? "Pembayaran";
+	if (meta.amount && meta.amount > 0) {
+		middle += ` Rp${meta.amount.toLocaleString("id-ID")}`;
+	}
+	parts.push(safeSegment(middle, 60));
+
+	if (meta.clientName) {
+		parts.push(safeSegment(meta.clientName, 50));
+	}
+
+	const dateStr = formatPaymentDate(meta.paymentDate);
+	if (dateStr) parts.push(dateStr);
+
+	const name = parts.filter(Boolean).join(" - ");
+	const safe = name.slice(0, 180).trim();
+	return `${safe}.${ext}`;
 }
 
 export async function POST(
@@ -66,11 +112,11 @@ export async function POST(
 		return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
 	}
 
-	// Resolve event
+	// Resolve event (incl. client_name for filename)
 	const supabase = await createClient();
 	const { data: event, error: evErr } = await supabase
 		.from("events")
-		.select("id, drive_folder_id, drive_folder_url")
+		.select("id, project_id, client_name, drive_folder_id, drive_folder_url")
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (evErr) {
@@ -99,8 +145,22 @@ export async function POST(
 	// Parse multipart form
 	const formData = await req.formData();
 	const file = formData.get("file");
-	const labelRaw = formData.get("label");
-	const label = typeof labelRaw === "string" ? labelRaw.trim() : "";
+
+	// Optional metadata fields used to build a descriptive filename.
+	// Posted alongside the file when called from PaymentForm.
+	const kindRaw = formData.get("kind"); // e.g. "payment_proof"
+	const kind = typeof kindRaw === "string" ? kindRaw.trim() : "";
+	const paymentTypeRaw = formData.get("payment_type");
+	const paymentType =
+		typeof paymentTypeRaw === "string" ? paymentTypeRaw.trim() : null;
+	const paymentDateRaw = formData.get("payment_date");
+	const paymentDate =
+		typeof paymentDateRaw === "string" ? paymentDateRaw.trim() : null;
+	const amountRaw = formData.get("amount");
+	const amount =
+		typeof amountRaw === "string" && amountRaw.trim()
+			? Number(amountRaw)
+			: null;
 
 	if (!(file instanceof File)) {
 		return NextResponse.json(
@@ -130,17 +190,32 @@ export async function POST(
 		);
 	}
 
-	const ext = mime.split("/")[1] ?? "bin";
-	const ts = new Date()
-		.toISOString()
-		.replace(/[:.]/g, "-")
-		.slice(0, 19);
-	const baseName = label
-		? safeFileName(label, ext)
-		: safeFileName(file.name || `upload-${ts}`, ext);
-	const finalName = baseName.endsWith(`.${ext}`)
-		? baseName
-		: `${baseName}.${ext}`;
+	const ext = (mime.split("/")[1] ?? "bin").toLowerCase();
+
+	let finalName: string;
+	if (kind === "payment_proof") {
+		finalName = buildPaymentProofName(
+			{
+				projectId: event.project_id as string,
+				clientName: (event.client_name as string) ?? "",
+				paymentType,
+				paymentDate,
+				amount: amount && Number.isFinite(amount) ? amount : null,
+			},
+			ext,
+		);
+	} else {
+		// Generic fallback: project + original name (sanitized)
+		const ts = new Date()
+			.toISOString()
+			.replace(/[:.]/g, "-")
+			.slice(0, 19);
+		const baseOriginal = safeSegment(
+			file.name?.replace(/\.[^.]+$/, "") || `upload-${ts}`,
+			120,
+		);
+		finalName = `${event.project_id as string} - ${baseOriginal}.${ext}`;
+	}
 
 	const arrayBuffer = await file.arrayBuffer();
 	const buf = Buffer.from(arrayBuffer);

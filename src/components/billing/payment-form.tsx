@@ -52,6 +52,9 @@ export function PaymentForm({
 	const [paymentType, setPaymentType] = useState(get("payment_type", "dp"));
 	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
 	const [proofUrl, setProofUrl] = useState(get("proof_url"));
+	const [amount, setAmount] = useState(
+		get("amount", suggestedAmount?.toString()),
+	);
 
 	if (bankAccounts.length === 0) {
 		return (
@@ -79,7 +82,8 @@ export function PaymentForm({
 						min={1}
 						step={1}
 						required
-						defaultValue={get("amount", suggestedAmount?.toString())}
+						value={amount}
+						onChange={(e) => setAmount(e.target.value)}
 						placeholder="500000"
 						className={`${inputClass} tabular`}
 					/>
@@ -173,6 +177,11 @@ export function PaymentForm({
 					<ProofUploadButton
 						projectId={projectId}
 						onUploaded={setProofUrl}
+						meta={{
+							paymentType,
+							paymentDate,
+							amount: Number(amount) || undefined,
+						}}
 					/>
 				</div>
 			</Field>
