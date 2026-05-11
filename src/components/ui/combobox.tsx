@@ -77,16 +77,23 @@ export function Combobox({
 			items={options as ComboboxOption[]}
 			inputValue={selectedItem?.label ?? value}
 			onInputValueChange={(next) => {
-				if (allowFreeText || next === "") {
+				// allowFreeText: input value IS the committed value (e.g.
+				// vendor name typed manually). Ignored for select-only
+				// pickers (relasi) where value must be a UUID; for those
+				// the input is just filter text and only onValueChange
+				// (item pick) commits.
+				if (allowFreeText) {
 					onValueChange(next ?? "");
 				}
 			}}
 			value={selectedItem ?? null}
 			onValueChange={(next) => {
+				// User explicitly picked an item from the list → commit its
+				// value (e.g. UUID for relasi picker). Null here means user
+				// cleared selection OR pressed Enter on free text → don't
+				// blow away the input; onInputValueChange already kept it.
 				if (next && typeof next === "object" && "value" in next) {
 					onValueChange((next as ComboboxOption).value);
-				} else {
-					onValueChange("");
 				}
 			}}
 		>

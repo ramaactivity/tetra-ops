@@ -70,6 +70,7 @@ export type RelasiOption = {
 
 export type VendorOption = {
 	name: string;
+	pic_name: string | null;
 	contact: string | null;
 };
 
@@ -249,6 +250,7 @@ export function BookingForm({
 	// === Channel & Referrer
 	const [channel, setChannel] = useState(get("channel", "direct"));
 	const [vendorName, setVendorName] = useState(get("vendor_name"));
+	const [vendorPicName, setVendorPicName] = useState(get("vendor_pic_name"));
 	const [vendorContact, setVendorContact] = useState(get("vendor_contact"));
 	const [vendorCommissionRate, setVendorCommissionRate] = useState(
 		get("vendor_commission_rate", "10"),
@@ -473,6 +475,7 @@ export function BookingForm({
 	function handleVendorAutoFill(name: string) {
 		const found = vendorOptions.find((v) => v.name === name);
 		setVendorName(name);
+		if (found?.pic_name) setVendorPicName(found.pic_name);
 		if (found?.contact) setVendorContact(found.contact);
 	}
 
@@ -537,8 +540,13 @@ export function BookingForm({
 					}
 				>
 					{channel === "vendor" && (
-						<>
-							<Field label="Nama Vendor" name="vendor_name" required>
+						<div className="fade-in-on-mount space-y-4">
+							<Field
+								label="Nama Vendor / Perusahaan"
+								name="vendor_name"
+								hint="Pilih dari riwayat vendor existing atau ketik nama baru."
+								required
+							>
 								<Combobox
 									value={vendorName}
 									onValueChange={handleVendorAutoFill}
@@ -546,10 +554,12 @@ export function BookingForm({
 										(v): ComboboxOption => ({
 											value: v.name,
 											label: v.name,
-											sublabel: v.contact ?? undefined,
+											sublabel: [v.pic_name, v.contact]
+												.filter(Boolean)
+												.join(" · "),
 										}),
 									)}
-									placeholder="Pilih atau ketik vendor baru…"
+									placeholder="cth. Partner Organizer"
 									allowFreeText
 									emptyMessage="Vendor baru — akan tersimpan saat save"
 									aria-label="Nama vendor"
@@ -558,8 +568,27 @@ export function BookingForm({
 							</Field>
 							<div className="grid gap-6 md:grid-cols-2">
 								<Field
-									label="Kontak Vendor (WA / HP)"
+									label="Nama PIC / Sales Vendor"
+									name="vendor_pic_name"
+									hint="Orang yang kita kontak dari vendor (mis. nama salesnya)."
+								>
+									<input
+										type="text"
+										value={vendorPicName}
+										onChange={(e) => setVendorPicName(e.target.value)}
+										placeholder="cth. Nisa"
+										className={inputClass}
+									/>
+									<input
+										type="hidden"
+										name="vendor_pic_name"
+										value={vendorPicName}
+									/>
+								</Field>
+								<Field
+									label="WA / HP PIC Vendor"
 									name="vendor_contact"
+									hint="Kontak utama buat koordinasi event"
 								>
 									<input
 										type="tel"
@@ -574,36 +603,34 @@ export function BookingForm({
 										value={vendorContact}
 									/>
 								</Field>
-								<Field
-									label="Komisi Vendor (%)"
-									name="vendor_commission_rate"
-									hint="Standar 10%. Override kalau ada nego."
-								>
-									<input
-										type="number"
-										min={0}
-										max={100}
-										step={0.5}
-										value={vendorCommissionRate}
-										onChange={(e) =>
-											setVendorCommissionRate(e.target.value)
-										}
-										placeholder="10"
-										className={`${inputClass} tabular`}
-									/>
-									<input
-										type="hidden"
-										name="vendor_commission_rate"
-										value={vendorCommissionRate}
-									/>
-									<input
-										type="hidden"
-										name="vendor_commission_amount"
-										value=""
-									/>
-								</Field>
 							</div>
-						</>
+							<Field
+								label="Komisi Vendor (%)"
+								name="vendor_commission_rate"
+								hint="Standar 10%. Override kalau ada nego."
+							>
+								<input
+									type="number"
+									min={0}
+									max={100}
+									step={0.5}
+									value={vendorCommissionRate}
+									onChange={(e) => setVendorCommissionRate(e.target.value)}
+									placeholder="10"
+									className={`${inputClass} tabular`}
+								/>
+								<input
+									type="hidden"
+									name="vendor_commission_rate"
+									value={vendorCommissionRate}
+								/>
+								<input
+									type="hidden"
+									name="vendor_commission_amount"
+									value=""
+								/>
+							</Field>
+						</div>
 					)}
 					{channel === "relasi" && (
 						<>
@@ -663,6 +690,7 @@ export function BookingForm({
 			{!showReferrerBlock && (
 				<>
 					<input type="hidden" name="vendor_name" value="" />
+					<input type="hidden" name="vendor_pic_name" value="" />
 					<input type="hidden" name="vendor_contact" value="" />
 					<input type="hidden" name="vendor_commission_rate" value="" />
 					<input type="hidden" name="vendor_commission_amount" value="" />

@@ -58,7 +58,7 @@ export default async function NewBookingPage() {
 		// Recent distinct vendor names from past 6 months for autocomplete suggest
 		supabase
 			.from("events")
-			.select("vendor_name, vendor_contact")
+			.select("vendor_name, vendor_pic_name, vendor_contact")
 			.eq("channel", "vendor")
 			.not("vendor_name", "is", null)
 			.order("created_at", { ascending: false })
@@ -78,16 +78,21 @@ export default async function NewBookingPage() {
 		return 2;
 	})();
 
-	// Dedupe vendor history by name → most recent contact
-	const vendorMap = new Map<string, { name: string; contact: string | null }>();
+	// Dedupe vendor history by name → most recent pic + contact
+	const vendorMap = new Map<
+		string,
+		{ name: string; pic_name: string | null; contact: string | null }
+	>();
 	for (const row of (vendorHistory ?? []) as Array<{
 		vendor_name: string | null;
+		vendor_pic_name: string | null;
 		vendor_contact: string | null;
 	}>) {
 		if (!row.vendor_name) continue;
 		if (!vendorMap.has(row.vendor_name)) {
 			vendorMap.set(row.vendor_name, {
 				name: row.vendor_name,
+				pic_name: row.vendor_pic_name,
 				contact: row.vendor_contact,
 			});
 		}

@@ -65,6 +65,7 @@ const BookingInputSchema = z.object({
 	google_maps_url: optionalString(500),
 	// Channel-specific referrer fields (optional; required by UI based on channel)
 	vendor_name: optionalString(120),
+	vendor_pic_name: optionalString(120),
 	vendor_contact: optionalString(60),
 	vendor_commission_rate: z.coerce.number().min(0).max(100).optional().nullable(),
 	vendor_commission_amount: z.coerce
@@ -154,6 +155,7 @@ const FORM_KEYS = [
 	"venue_city",
 	"google_maps_url",
 	"vendor_name",
+	"vendor_pic_name",
 	"vendor_contact",
 	"vendor_commission_rate",
 	"vendor_commission_amount",
@@ -326,6 +328,8 @@ function buildEventPayload(
 		google_maps_url: input.google_maps_url,
 		// Channel referrer
 		vendor_name: input.channel === "vendor" ? input.vendor_name : null,
+		vendor_pic_name:
+			input.channel === "vendor" ? input.vendor_pic_name : null,
 		vendor_contact: input.channel === "vendor" ? input.vendor_contact : null,
 		vendor_commission_rate:
 			input.channel === "vendor" ? input.vendor_commission_rate : null,
