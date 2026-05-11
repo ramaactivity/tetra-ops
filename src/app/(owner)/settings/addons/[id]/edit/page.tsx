@@ -1,8 +1,11 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+	AddonForm,
+	type InventoryItemOption,
+} from "@/components/addons/addon-form";
 import { SectionHeader } from "@/components/layout/section-header";
-import { AddonForm } from "@/components/addons/addon-form";
 import { updateAddon } from "@/lib/actions/addons";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,14 +16,23 @@ export default async function EditAddonPage({
 }) {
 	const { id } = await params;
 	const supabase = await createClient();
-	const { data: addon, error } = await supabase
-		.from("addons")
-		.select(
-			"id, name, category, unit, price, requires_extra_crew, is_active",
-		)
-		.eq("id", id)
-		.is("deleted_at", null)
-		.maybeSingle();
+	const [{ data: addon, error }, { data: inventoryItems }] = await Promise.all([
+		supabase
+			.from("addons")
+			.select(
+				"id, name, category, unit, price, requires_extra_crew, is_active, inventory_item_id",
+			)
+			.eq("id", id)
+			.is("deleted_at", null)
+			.maybeSingle(),
+		supabase
+			.from("inventory_items")
+			.select("id, sku, name, unit")
+			.eq("category", "consumable")
+			.eq("is_active", true)
+			.is("deleted_at", null)
+			.order("sku", { ascending: true }),
+	]);
 
 	if (error) {
 		return (
@@ -56,6 +68,7 @@ export default async function EditAddonPage({
 				<AddonForm
 					action={action}
 					submitLabel="Save changes"
+					inventoryItems={(inventoryItems ?? []) as InventoryItemOption[]}
 					defaults={{
 						name: addon.name,
 						category: addon.category as never,
@@ -63,6 +76,7 @@ export default async function EditAddonPage({
 						price: addon.price,
 						requires_extra_crew: addon.requires_extra_crew,
 						is_active: addon.is_active,
+						inventory_item_id: addon.inventory_item_id ?? "",
 					}}
 				/>
 			</div>

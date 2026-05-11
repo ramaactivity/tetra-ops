@@ -20,15 +20,25 @@ export type AddonDefaults = Partial<{
 	price: number;
 	requires_extra_crew: boolean;
 	is_active: boolean;
+	inventory_item_id: string;
 }>;
+
+export type InventoryItemOption = {
+	id: string;
+	sku: string;
+	name: string;
+	unit: string;
+};
 
 export function AddonForm({
 	action,
 	defaults,
+	inventoryItems = [],
 	submitLabel = "Save",
 }: {
 	action: Action;
 	defaults?: AddonDefaults;
+	inventoryItems?: InventoryItemOption[];
 	submitLabel?: string;
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
@@ -106,6 +116,19 @@ export function AddonForm({
 					defaultValue={get("price")}
 					placeholder="50000"
 					className={`${inputClass} tabular`}
+				/>
+			</Field>
+
+			<Field
+				label="Link ke Inventory (opsional)"
+				name="inventory_item_id"
+				error={err("inventory_item_id")}
+				hint="Kalau add-on ini consume stock fisik (cth. magnet, keychain, sleeve), link ke item warehouse-nya. Wajib di-set kalau mau bonus item ini auto-deduct stok + masuk HPP saat rekap approved."
+			>
+				<InventoryItemSelect
+					defaultValue={get("inventory_item_id")}
+					options={inventoryItems}
+					error={!!err("inventory_item_id")}
 				/>
 			</Field>
 
@@ -192,6 +215,38 @@ function AddonCategorySelect({
 				aria-invalid={error}
 			/>
 			<input type="hidden" name="category" value={category} required />
+		</>
+	);
+}
+
+function InventoryItemSelect({
+	defaultValue,
+	options,
+	error,
+}: {
+	defaultValue: string;
+	options: InventoryItemOption[];
+	error: boolean;
+}) {
+	const [value, setValue] = useState(defaultValue);
+	const selectOptions = [
+		{ value: "", label: "— tidak di-link (no stock tracking) —" },
+		...options.map((it) => ({
+			value: it.id,
+			label: `${it.sku} · ${it.name}${it.unit ? ` (${it.unit})` : ""}`,
+		})),
+	];
+	return (
+		<>
+			<NativeSelect
+				value={value}
+				onValueChange={setValue}
+				placeholder="Pilih item inventory…"
+				options={selectOptions}
+				triggerClassName="w-full"
+				aria-invalid={error}
+			/>
+			<input type="hidden" name="inventory_item_id" value={value} />
 		</>
 	);
 }

@@ -28,6 +28,44 @@ import {
 } from "@/lib/format";
 
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
+
+const FIELD_LABELS: Record<string, string> = {
+	channel: "Sales Channel",
+	client_name: "Nama Klien",
+	client_wa: "WA Pembooking",
+	client_email: "Email Klien",
+	service_type: "Service Type",
+	package_id: "Paket",
+	frame_size: "Frame Size",
+	event_category: "Tipe Acara",
+	event_date: "Tanggal Event",
+	setup_time: "Waktu Setup",
+	start_time: "Waktu Mulai",
+	end_time: "Waktu Selesai",
+	booker_name: "Nama Pembooking",
+	venue_name: "Nama Venue",
+	venue_address: "Alamat",
+	venue_city: "Kota / Kabupaten",
+	venue_province: "Provinsi",
+	google_maps_url: "Google Maps URL",
+	vendor_name: "Nama Vendor",
+	vendor_pic_name: "Nama PIC Vendor",
+	vendor_contact: "WA / Kontak Vendor",
+	vendor_commission_rate: "Komisi Vendor (%)",
+	vendor_commission_amount: "Komisi Vendor (Rp)",
+	referrer_user_id: "Relasi (User)",
+	referrer_type: "Tipe Relasi",
+	referrer_commission: "Komisi Relasi",
+	pic_name: "Nama PIC di Lokasi",
+	pic_wa: "WA PIC di Lokasi",
+	backdrop_id: "Backdrop",
+	vendor_decor_markup: "Markup Vendor Decor",
+	base_price: "Base Price",
+	discount_amount: "Discount",
+	gross_up_pph_amount: "Gross-up PPh",
+	discount_type: "Tipe Diskon",
+	crew_notes: "Catatan Crew",
+};
 const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS);
 const FRAME_SIZE_OPTIONS = Object.entries(FRAME_SIZE_LABELS);
 
@@ -280,7 +318,11 @@ export function BookingForm({
 	const [saveOverlay, setSaveOverlay] = useState<
 		| { kind: "saving" }
 		| { kind: "success"; projectId: string; isUpdate: boolean }
-		| { kind: "error"; message: string }
+		| {
+				kind: "error";
+				message: string;
+				fields: Array<{ name: string; label: string; message: string }>;
+		  }
 		| null
 	>(null);
 
@@ -305,16 +347,24 @@ export function BookingForm({
 		}
 		if (stateErrors) {
 			const formErr = stateErrors._form?.[0];
-			const fieldErrCount = Object.keys(stateErrors).filter(
-				(k) => k !== "_form",
-			).length;
+			const fieldEntries = Object.entries(stateErrors)
+				.filter(
+					([k, v]) => k !== "_form" && Array.isArray(v) && v.length > 0,
+				)
+				.map(([k, v]) => ({
+					name: k,
+					label: FIELD_LABELS[k] ?? k,
+					message: (v as string[])[0] ?? "Field tidak valid",
+				}));
+			const headline =
+				formErr ??
+				(fieldEntries.length > 0
+					? `Ada ${fieldEntries.length} field yang belum valid:`
+					: "Gagal menyimpan. Coba lagi.");
 			setSaveOverlay({
 				kind: "error",
-				message:
-					formErr ??
-					(fieldErrCount > 0
-						? `Ada ${fieldErrCount} field belum valid — cek bagian yang ditandai merah.`
-						: "Gagal menyimpan. Coba lagi."),
+				message: headline,
+				fields: fieldEntries,
 			});
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -704,13 +754,37 @@ export function BookingForm({
 	const showReferrerBlock = channel === "vendor" || channel === "relasi";
 	const backdropMissing = !backdropId;
 
+	function handleDismissError() {
+		if (saveOverlay?.kind === "error" && saveOverlay.fields.length > 0) {
+			const firstField = saveOverlay.fields[0]?.name;
+			if (firstField) {
+				// Cari input dengan name yang match — lebih reliable daripada id
+				// karena beberapa field punya hidden+visible pair (visible input
+				// nggak punya name, hidden punya).
+				const allFields = document.querySelectorAll<HTMLElement>(
+					`[name="${firstField}"], [data-field="${firstField}"]`,
+				);
+				const target = allFields[allFields.length - 1]; // prefer last (usually visible)
+				if (target) {
+					target.scrollIntoView({ behavior: "smooth", block: "center" });
+					setTimeout(() => {
+						const focusable = (target.matches("input,textarea,select,button")
+							? target
+							: target.querySelector("input,textarea,select,button")) as
+							| HTMLInputElement
+							| null;
+						focusable?.focus({ preventScroll: true });
+					}, 350);
+				}
+			}
+		}
+		setSaveOverlay(null);
+	}
+
 	return (
 		<>
 			{saveOverlay && (
-				<SavePopup
-					state={saveOverlay}
-					onDismissError={() => setSaveOverlay(null)}
-				/>
+				<SavePopup state={saveOverlay} onDismissError={handleDismissError} />
 			)}
 		<form
 			action={formAction}
@@ -785,6 +859,7 @@ export function BookingForm({
 							<Field
 								label="Nama Vendor / Perusahaan"
 								name="vendor_name"
+								error={err("vendor_name")}
 								hint="Pilih dari riwayat vendor existing atau ketik nama baru."
 								required
 							>
@@ -811,6 +886,7 @@ export function BookingForm({
 								<Field
 									label="Nama PIC / Sales Vendor"
 									name="vendor_pic_name"
+									error={err("vendor_pic_name")}
 									hint="Orang yang kita kontak dari vendor (mis. nama salesnya)."
 								>
 									<input
@@ -829,6 +905,7 @@ export function BookingForm({
 								<Field
 									label="WA / HP PIC Vendor"
 									name="vendor_contact"
+									error={err("vendor_contact")}
 									hint="Kontak utama buat koordinasi event"
 								>
 									<input
@@ -848,6 +925,7 @@ export function BookingForm({
 							<Field
 								label="Komisi Vendor (%)"
 								name="vendor_commission_rate"
+								error={err("vendor_commission_rate")}
 								hint="Standar 10%. Override kalau ada nego."
 							>
 								<input
@@ -878,6 +956,7 @@ export function BookingForm({
 							<Field
 								label="Relasi (User Tetra)"
 								name="referrer_user_id"
+								error={err("referrer_user_id")}
 								hint="Cari nama owner/crew. Komisi default Rp100.000."
 								required
 							>
@@ -906,6 +985,7 @@ export function BookingForm({
 							<Field
 								label="Komisi Relasi (Rp)"
 								name="referrer_commission"
+								error={err("referrer_commission")}
 								hint="Default Rp100.000. Tentatif/nego boleh override."
 							>
 								<input
@@ -1188,6 +1268,7 @@ export function BookingForm({
 				<Field
 					label="Paket"
 					name="package_id"
+					error={err("package_id")}
 					hint={
 						!serviceType || !frameSize
 							? "Pilih Service Type + Frame Size dulu buat filter paket."
@@ -1222,6 +1303,7 @@ export function BookingForm({
 				<Field
 					label="Backdrop"
 					name="backdrop_id"
+					error={err("backdrop_id")}
 					hint={
 						selectedBackdrop?.type === "rental_owned"
 							? `Premium rental Tetra — auto-add ${formatRupiah(selectedBackdrop.rental_price)} ke grand total`
@@ -1272,6 +1354,7 @@ export function BookingForm({
 					<Field
 						label="Markup Vendor Decor (Rp)"
 						name="vendor_decor_markup"
+						error={err("vendor_decor_markup")}
 						hint="Otomatis ditambahkan ke grand total. Default Rp 300k baseline."
 					>
 						<input
@@ -1345,6 +1428,7 @@ export function BookingForm({
 				<Field
 					label="Google Maps URL"
 					name="google_maps_url"
+					error={err("google_maps_url")}
 					hint={
 						resolvingMaps
 							? "🔄 Mengambil info dari Maps…"
@@ -1392,6 +1476,7 @@ export function BookingForm({
 				<Field
 					label="Alamat"
 					name="venue_address"
+					error={err("venue_address")}
 					hint={
 						addressTouched
 							? "Manual override"
@@ -1420,6 +1505,7 @@ export function BookingForm({
 					<Field
 						label="Kota / Kabupaten"
 						name="venue_city"
+						error={err("venue_city")}
 						hint={
 							cityTouched
 								? "Manual override"
@@ -1443,6 +1529,7 @@ export function BookingForm({
 					<Field
 						label="Provinsi"
 						name="venue_province"
+						error={err("venue_province")}
 						hint={
 							provinceTouched
 								? "Manual override"
@@ -1480,6 +1567,7 @@ export function BookingForm({
 					<Field
 						label="Nama Pembooking"
 						name="booker_name"
+						error={err("booker_name")}
 						hint={
 							bookerSameAsVendor
 								? `Auto: PIC vendor (${vendorPicName || vendorName || "—"})`
@@ -1599,7 +1687,12 @@ export function BookingForm({
 					</label>
 
 					<div className="grid gap-3 md:grid-cols-2">
-						<Field label="Nama PIC" name="pic_name" hint="Opsional">
+						<Field
+							label="Nama PIC"
+							name="pic_name"
+							error={err("pic_name")}
+							hint="Opsional"
+						>
 							<input
 								type="text"
 								value={picName}
@@ -1616,6 +1709,7 @@ export function BookingForm({
 						<Field
 							label="WA PIC"
 							name="pic_wa"
+							error={err("pic_wa")}
 							hint="Akan dipakai di template reminder crew"
 						>
 							<input
@@ -1930,6 +2024,7 @@ export function BookingForm({
 					<Field
 						label="Tipe Diskon"
 						name="discount_type"
+						error={err("discount_type")}
 						hint="Klasifikasi diskon — dipakai reports untuk slice 'diskon per kategori' dan journal."
 						required
 					>
@@ -1954,6 +2049,7 @@ export function BookingForm({
 				<Field
 					label="Catatan untuk Crew"
 					name="crew_notes"
+					error={err("crew_notes")}
 					hint="Optional — instruksi spesifik untuk tim lapangan"
 				>
 					<textarea
@@ -2015,12 +2111,16 @@ function SavePopup({
 	state:
 		| { kind: "saving" }
 		| { kind: "success"; projectId: string; isUpdate: boolean }
-		| { kind: "error"; message: string };
+		| {
+				kind: "error";
+				message: string;
+				fields: Array<{ name: string; label: string; message: string }>;
+		  };
 	onDismissError: () => void;
 }) {
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-			<div className="fade-in-on-mount w-full max-w-sm rounded-xl border border-border-default bg-surface-2 p-6 shadow-2xl">
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+			<div className="fade-in-on-mount max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border-default bg-surface-2 p-6 shadow-2xl">
 				{state.kind === "saving" && (
 					<div className="space-y-3 text-center">
 						<Loader2 className="mx-auto size-10 animate-spin text-primary" />
@@ -2052,23 +2152,40 @@ function SavePopup({
 				)}
 				{state.kind === "error" && (
 					<div className="space-y-4">
-						<div className="space-y-3 text-center">
+						<div className="space-y-2 text-center">
 							<AlertTriangle className="mx-auto size-10 text-destructive" />
-							<div>
-								<p className="text-fluid-body font-semibold tracking-tight">
-									Gagal menyimpan
-								</p>
-								<p className="mt-1 text-fluid-caption text-muted-foreground">
-									{state.message}
-								</p>
-							</div>
+							<p className="text-fluid-body font-semibold tracking-tight">
+								Gagal menyimpan
+							</p>
+							<p className="text-fluid-caption text-muted-foreground">
+								{state.message}
+							</p>
 						</div>
+						{state.fields.length > 0 && (
+							<ul className="space-y-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-fluid-caption">
+								{state.fields.map((f) => (
+									<li key={f.name} className="flex items-start gap-2">
+										<span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-destructive" />
+										<span className="flex-1 leading-snug">
+											<span className="font-medium text-foreground">
+												{f.label}:
+											</span>{" "}
+											<span className="text-muted-foreground">
+												{f.message}
+											</span>
+										</span>
+									</li>
+								))}
+							</ul>
+						)}
 						<button
 							type="button"
 							onClick={onDismissError}
 							className="press-down w-full rounded-md border border-border-default bg-surface-3 px-3 py-2 text-fluid-body font-medium transition-colors hover:bg-muted"
 						>
-							Tutup &amp; perbaiki
+							{state.fields.length > 0
+								? "Tutup & ke field bermasalah"
+								: "Tutup & perbaiki"}
 						</button>
 					</div>
 				)}

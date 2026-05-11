@@ -21,6 +21,12 @@ const AddonInputSchema = z.object({
 	price: z.coerce.number().int().min(0, "Tidak boleh negatif"),
 	requires_extra_crew: z.coerce.boolean(),
 	is_active: z.coerce.boolean(),
+	inventory_item_id: z
+		.string()
+		.uuid()
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
 });
 
 export type AddonInput = z.infer<typeof AddonInputSchema>;
@@ -39,6 +45,7 @@ const FORM_KEYS = [
 	"category",
 	"unit",
 	"price",
+	"inventory_item_id",
 ] as const;
 
 function parseFormData(formData: FormData) {
@@ -49,6 +56,7 @@ function parseFormData(formData: FormData) {
 		price: formData.get("price"),
 		requires_extra_crew: formData.get("requires_extra_crew") === "on",
 		is_active: formData.get("is_active") === "on",
+		inventory_item_id: formData.get("inventory_item_id") ?? "",
 	});
 }
 

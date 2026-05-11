@@ -23,13 +23,19 @@ type AddonRow = {
 	category: string;
 	requires_extra_crew: boolean;
 	is_active: boolean;
+	inventory_item:
+		| { sku: string; name: string }
+		| Array<{ sku: string; name: string }>
+		| null;
 };
 
 export default async function AddonsListPage() {
 	const supabase = await createClient();
 	const { data, error } = await supabase
 		.from("addons")
-		.select("id, name, unit, price, category, requires_extra_crew, is_active")
+		.select(
+			"id, name, unit, price, category, requires_extra_crew, is_active, inventory_item:inventory_items(sku, name)",
+		)
 		.is("deleted_at", null)
 		.order("category", { ascending: true })
 		.order("price", { ascending: true });
@@ -69,6 +75,7 @@ export default async function AddonsListPage() {
 						<TableRow>
 							<TableHead>Name</TableHead>
 							<TableHead>Category</TableHead>
+							<TableHead>Inventory</TableHead>
 							<TableHead>Unit</TableHead>
 							<TableHead className="text-right">Price</TableHead>
 							<TableHead className="text-right">Extra Crew</TableHead>
@@ -77,11 +84,28 @@ export default async function AddonsListPage() {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{addons.map((addon) => (
+						{addons.map((addon) => {
+							const invItem = Array.isArray(addon.inventory_item)
+								? addon.inventory_item[0]
+								: addon.inventory_item;
+							return (
 							<TableRow key={addon.id}>
 								<TableCell className="font-medium">{addon.name}</TableCell>
 								<TableCell className="text-muted-foreground">
 									{ADDON_CATEGORY_LABELS[addon.category] ?? addon.category}
+								</TableCell>
+								<TableCell>
+									{invItem ? (
+										<Badge
+											variant="outline"
+											className="tabular max-w-[180px] truncate text-[10px]"
+											title={`${invItem.sku} · ${invItem.name}`}
+										>
+											{invItem.sku}
+										</Badge>
+									) : (
+										<span className="text-muted-foreground text-xs">—</span>
+									)}
 								</TableCell>
 								<TableCell className="text-muted-foreground">
 									{addon.unit}
@@ -116,7 +140,8 @@ export default async function AddonsListPage() {
 									</div>
 								</TableCell>
 							</TableRow>
-						))}
+							);
+						})}
 					</TableBody>
 				</Table>
 			</div>

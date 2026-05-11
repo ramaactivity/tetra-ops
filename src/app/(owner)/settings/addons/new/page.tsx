@@ -1,10 +1,23 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import {
+	AddonForm,
+	type InventoryItemOption,
+} from "@/components/addons/addon-form";
 import { SectionHeader } from "@/components/layout/section-header";
-import { AddonForm } from "@/components/addons/addon-form";
 import { createAddon } from "@/lib/actions/addons";
+import { createClient } from "@/lib/supabase/server";
 
-export default function NewAddonPage() {
+export default async function NewAddonPage() {
+	const supabase = await createClient();
+	const { data: inventoryItems } = await supabase
+		.from("inventory_items")
+		.select("id, sku, name, unit")
+		.eq("category", "consumable")
+		.eq("is_active", true)
+		.is("deleted_at", null)
+		.order("sku", { ascending: true });
+
 	return (
 		<div className="space-y-6">
 			<div className="space-y-2">
@@ -22,7 +35,13 @@ export default function NewAddonPage() {
 				/>
 			</div>
 			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
-				<AddonForm action={createAddon} submitLabel="Create add-on" />
+				<AddonForm
+					action={createAddon}
+					submitLabel="Create add-on"
+					inventoryItems={
+						(inventoryItems ?? []) as InventoryItemOption[]
+					}
+				/>
 			</div>
 		</div>
 	);

@@ -80,7 +80,12 @@ const BookingInputSchema = z.object({
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
-	referrer_type: z.enum(["owner", "crew", "external"]).optional().nullable(),
+	referrer_type: z
+		.enum(["owner", "crew", "external"])
+		.optional()
+		.nullable()
+		.or(z.literal(""))
+		.transform((v) => (v === "" || v === undefined ? null : v)),
 	referrer_commission: z.coerce.number().int().min(0).optional().nullable(),
 	// PIC at venue
 	pic_name: optionalString(120),
