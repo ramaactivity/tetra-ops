@@ -490,7 +490,26 @@ export function BookingForm({
 	const backdropMissing = !backdropId;
 
 	return (
-		<form action={formAction} className="space-y-8">
+		<form
+			action={formAction}
+			className="space-y-8"
+			onKeyDown={(e) => {
+				// Block accidental Enter-to-submit dari text/number/tel inputs
+				// (esp. Combobox di mana Enter biasanya commit free-text input,
+				// bukan kirim form). User wajib klik tombol "Save as draft" di
+				// bottom bar. Textarea + submit button tetap berperilaku normal.
+				if (e.key !== "Enter") return;
+				const target = e.target as HTMLElement;
+				if (target.tagName === "TEXTAREA") return;
+				if (
+					target.tagName === "BUTTON" &&
+					(target as HTMLButtonElement).type === "submit"
+				) {
+					return;
+				}
+				e.preventDefault();
+			}}
+		>
 			{state?.errors?._form && (
 				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
 					<p className="text-fluid-body font-medium text-destructive">
