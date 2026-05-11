@@ -15,9 +15,16 @@ import { getCurrentUser } from "@/lib/auth/get-user";
  * client decides whether to apply.
  */
 
+type ResolveReason =
+	| "search_only" // URL masih halaman search, belum pinpoint venue
+	| "no_coordinates" // URL tidak punya pattern @lat,lng atau !3d!4d
+	| "geocode_failed" // Punya koordinat tapi reverse-geocode gagal
+	| "ok"; // Berhasil ekstrak alamat/kota
+
 type ResolveResult =
 	| {
 			ok: true;
+			reason: ResolveReason;
 			venue: string | null;
 			address: string | null;
 			city: string | null;
@@ -47,6 +54,12 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 	} catch {
 		// Use original URL — parse may still work if URL already expanded
 	}
+
+	// Detect search-only URL (user clicked "Cari di Maps" tapi belum pinpoint
+	// venue di hasil). Pattern: /maps/search/ atau /maps?q=...
+	const isSearchOnly =
+		/\/maps\/search\//i.test(finalUrl) ||
+		/^https?:\/\/[^/]+\/maps\?[^/]*q=/i.test(finalUrl);
 
 	// Parse coordinates from URL — Google Maps formats:
 	//   /@-6.59,106.79,17z/
@@ -78,41 +91,65 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 		}
 	}
 
-	// Reverse geocode via Nominatim (OSM) if we have coordinates
-	let address: string | null = null;
-	let city: string | null = null;
-	if (lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng)) {
-		try {
-			const geoRes = await fetch(
-				`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id&zoom=18`,
-				{
-					headers: {
-						"User-Agent": "TetraOps/1.0 (tetra-ops.vercel.app)",
-					},
-				},
-			);
-			if (geoRes.ok) {
-				const geoData = (await geoRes.json()) as {
-					address?: Record<string, string>;
-				};
-				const addr = geoData.address ?? {};
-				const parts = [
-					addr.house_number,
-					addr.road,
-					addr.suburb || addr.neighbourhood,
-				].filter(Boolean);
-				if (parts.length > 0) address = parts.join(", ");
-				city =
-					addr.city ||
-					addr.municipality ||
-					addr.town ||
-					addr.county ||
-					null;
-			}
-		} catch {
-			// Geocode failed — return whatever we parsed from URL alone
-		}
+	// Early exit kalau tidak ada koordinat — kasih reason yang spesifik
+	const hasCoords =
+		lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng);
+
+	if (!hasCoords) {
+		return {
+			ok: true,
+			reason: isSearchOnly ? "search_only" : "no_coordinates",
+			venue,
+			address: null,
+			city: null,
+			lat: null,
+			lng: null,
+		};
 	}
 
-	return { ok: true, venue, address, city, lat, lng };
+	// Reverse geocode via Nominatim (OSM)
+	let address: string | null = null;
+	let city: string | null = null;
+	let geocodeOk = false;
+	try {
+		const geoRes = await fetch(
+			`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id&zoom=18`,
+			{
+				headers: {
+					"User-Agent": "TetraOps/1.0 (tetra-ops.vercel.app)",
+				},
+			},
+		);
+		if (geoRes.ok) {
+			const geoData = (await geoRes.json()) as {
+				address?: Record<string, string>;
+			};
+			const addr = geoData.address ?? {};
+			const parts = [
+				addr.house_number,
+				addr.road,
+				addr.suburb || addr.neighbourhood,
+			].filter(Boolean);
+			if (parts.length > 0) address = parts.join(", ");
+			city =
+				addr.city ||
+				addr.municipality ||
+				addr.town ||
+				addr.county ||
+				null;
+			geocodeOk = Boolean(address || city);
+		}
+	} catch {
+		// Geocode failed — return whatever we parsed from URL alone
+	}
+
+	return {
+		ok: true,
+		reason: geocodeOk ? "ok" : "geocode_failed",
+		venue,
+		address,
+		city,
+		lat,
+		lng,
+	};
 }

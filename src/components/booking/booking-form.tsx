@@ -382,7 +382,13 @@ export function BookingForm({
 	const [cityTouched, setCityTouched] = useState(Boolean(get("venue_city")));
 	const [resolvingMaps, setResolvingMaps] = useState(false);
 	const [resolveStatus, setResolveStatus] = useState<
-		"idle" | "ok" | "partial" | "error"
+		| "idle"
+		| "ok"
+		| "noop"
+		| "search_only"
+		| "no_coordinates"
+		| "geocode_failed"
+		| "error"
 	>("idle");
 
 	// Debounced auto-resolve Maps URL → alamat + kota
@@ -402,6 +408,11 @@ export function BookingForm({
 					setResolveStatus("error");
 					return;
 				}
+				// Non-ok reasons short-circuit to specific hint state
+				if (result.reason !== "ok") {
+					setResolveStatus(result.reason);
+					return;
+				}
 				let hydratedSomething = false;
 				// Only override if user hasn't manually typed
 				if (!addressTouched && result.address) {
@@ -416,7 +427,7 @@ export function BookingForm({
 					setVenueName(result.venue);
 					hydratedSomething = true;
 				}
-				setResolveStatus(hydratedSomething ? "ok" : "partial");
+				setResolveStatus(hydratedSomething ? "ok" : "noop");
 			} catch {
 				if (!cancelled) setResolveStatus("error");
 			} finally {
@@ -1186,11 +1197,17 @@ export function BookingForm({
 							? "🔄 Mengambil info dari Maps…"
 							: resolveStatus === "ok"
 								? "✓ Alamat + kota terisi otomatis dari pin Maps"
-								: resolveStatus === "partial"
-									? "⚠ Maps URL valid, tapi alamat/kota nggak ke-resolve. Isi manual aja."
-									: resolveStatus === "error"
-										? "⚠ Gagal parse — coba paste URL Maps yang lebih spesifik."
-										: "Klik 'Cari di Maps' → pin lokasi → copy share URL → paste di sini. Alamat + kota auto-fill."
+								: resolveStatus === "noop"
+									? "✓ Pin Maps OK — alamat/kota sudah diisi manual, biarin aja."
+									: resolveStatus === "search_only"
+										? "⚠ Ini URL halaman search, belum pinpoint venue. Klik salah satu hasil di Maps dulu, lalu copy URL dari address bar."
+										: resolveStatus === "no_coordinates"
+											? "⚠ URL ini nggak ada info lokasi. Paste URL share dari Maps (yang ada @lat,lng)."
+											: resolveStatus === "geocode_failed"
+												? "⚠ Pin Maps OK, tapi OSM nggak punya data alamat di koordinat itu. Isi manual."
+												: resolveStatus === "error"
+													? "⚠ Gagal akses URL — cek koneksi atau paste ulang."
+													: "Klik 'Cari di Maps' → pin lokasi → copy share URL → paste di sini. Alamat + kota auto-fill."
 					}
 				>
 					<div className="flex gap-2">
