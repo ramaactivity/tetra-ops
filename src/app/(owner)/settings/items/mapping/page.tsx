@@ -3,12 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RekapMappingForm } from "@/components/items/rekap-mapping-form";
 import { SectionHeader } from "@/components/layout/section-header";
-import { getCurrentUser } from "@/lib/auth/get-user";
 import { getRekapMappings } from "@/lib/actions/rekap-mapping";
-import {
-	REKAP_FIELDS,
-	type RekapField,
-} from "@/lib/rekap-mapping/types";
+import { getCurrentUser } from "@/lib/auth/get-user";
+import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function RekapMappingPage() {
@@ -31,23 +28,30 @@ export default async function RekapMappingPage() {
 	]);
 
 	// Ensure all 7 default fields show up even if seed somehow skipped one.
-	const byField = new Map(mappingsRaw.map((m) => [m.rekap_field, m]));
-	const mappings = REKAP_FIELDS.map((field): {
-		rekap_field: RekapField;
-		item_id: string | null;
-		qty_per_unit: number;
-		is_active: boolean;
-	} => {
-		const existing = byField.get(field);
-		return (
-			existing ?? {
+	// Each field may have multiple rows (one per frame_size override + default).
+	const byFieldArr = new Map<RekapField, typeof mappingsRaw>();
+	for (const m of mappingsRaw) {
+		const arr = byFieldArr.get(m.rekap_field) ?? [];
+		arr.push(m);
+		byFieldArr.set(m.rekap_field, arr);
+	}
+
+	const mappings: typeof mappingsRaw = [];
+	for (const field of REKAP_FIELDS) {
+		const existing = byFieldArr.get(field);
+		if (existing && existing.length > 0) {
+			mappings.push(...existing);
+		} else {
+			// No mapping at all for this field — show a placeholder default row
+			mappings.push({
 				rekap_field: field,
+				frame_size: "",
 				item_id: null,
 				qty_per_unit: 1,
 				is_active: true,
-			}
-		);
-	});
+			});
+		}
+	}
 
 	const items = (itemsRes.data ?? []) as Array<{
 		id: string;
@@ -56,10 +60,10 @@ export default async function RekapMappingPage() {
 		purchase_price_avg: number | null;
 	}>;
 
-	const mappedCount = mappings.filter(
-		(m) => m.is_active && m.item_id !== null,
-	).length;
-	const totalActive = mappings.filter((m) => m.is_active).length;
+	const activeRows = mappings.filter((m) => m.is_active);
+	const mappedRows = activeRows.filter((m) => m.item_id !== null);
+	const uniqueFields = new Set(activeRows.map((m) => m.rekap_field)).size;
+	const mappedFields = new Set(mappedRows.map((m) => m.rekap_field)).size;
 
 	return (
 		<div className="space-y-4">
@@ -73,29 +77,29 @@ export default async function RekapMappingPage() {
 			<SectionHeader
 				as="h2"
 				title="Rekap → Item Mapping"
-				description="Map setiap field rekap konsumsi ke SKU inventory. Mapping ini dipakai saat owner approve rekap (auto-deduct stok) dan saat settle event (auto-prefill HPP). qty_per_unit untuk kasus 1 rekap-unit = N stok-unit (mis: 1 mediaset = 2 cetak)."
+				description="Map setiap field rekap konsumsi ke SKU inventory. Bisa per frame_size (4R / 2R / Polaroid) — mediaset basic untuk 4R butuh 1 lembar/cetak, untuk 2R butuh 0.5 lembar/cetak karena 1 lembar dipotong jadi 2 cetak 2R."
 			/>
 
 			<div className="grid gap-3 sm:grid-cols-3">
 				<StatTile
 					label="Total Field"
-					value={mappings.length}
+					value={REKAP_FIELDS.length}
 					hint="rekap_field di crew_rekap"
 				/>
 				<StatTile
-					label="Aktif"
-					value={totalActive}
-					hint="dipakai saat approval"
+					label="Total Rows"
+					value={activeRows.length}
+					hint={`${uniqueFields} field × N size override`}
 				/>
 				<StatTile
 					label="Sudah Mapped"
-					value={`${mappedCount}/${totalActive}`}
+					value={`${mappedFields}/${REKAP_FIELDS.length}`}
 					hint={
-						mappedCount === totalActive
+						mappedFields === REKAP_FIELDS.length
 							? "Lengkap — auto-deduct & auto-HPP siap"
-							: "Field tanpa item akan di-skip saat approval"
+							: "Field tanpa default akan di-skip saat approval"
 					}
-					tone={mappedCount === totalActive ? "ok" : "warn"}
+					tone={mappedFields === REKAP_FIELDS.length ? "ok" : "warn"}
 				/>
 			</div>
 
@@ -107,17 +111,22 @@ export default async function RekapMappingPage() {
 					<p className="font-medium">Cara kerjanya:</p>
 					<ul className="ml-4 list-disc space-y-0.5 text-sky-900/80 dark:text-sky-200/80">
 						<li>
+							<strong>Default</strong> (frame_size kosong) berlaku untuk semua
+							ukuran. Override per size cuma di-pakai kalau event match.
+						</li>
+						<li>
+							<span className="font-mono text-[11px]">qty_per_unit</span>{" "}
+							menerima desimal — 0.5 untuk 2R (1 lembar basic = 2 cetak 2R), 1
+							untuk 4R.
+						</li>
+						<li>
 							Field <span className="font-mono text-[11px]">cetak_total</span>{" "}
 							optional — set Off kalau printer paper bukan SKU diskrit.
 						</li>
 						<li>
-							<span className="font-mono text-[11px]">qty_per_unit</span> 2 = 1
-							rekap unit konsumsi 2 stock unit.
-						</li>
-						<li>
 							Konsumable extra di luar 7 default ini bisa dimasukkan crew lewat{" "}
 							<span className="font-mono text-[11px]">custom_materials</span>{" "}
-							JSONB di rekap (Phase B).
+							JSONB di rekap.
 						</li>
 					</ul>
 				</div>
