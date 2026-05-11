@@ -61,6 +61,28 @@ const BookingInputSchema = z.object({
 	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
 	venue_address: optionalString(255),
 	venue_city: optionalString(60),
+	google_maps_url: optionalString(500),
+	// Channel-specific referrer fields (optional; required by UI based on channel)
+	vendor_name: optionalString(120),
+	vendor_contact: optionalString(60),
+	vendor_commission_rate: z.coerce.number().min(0).max(100).optional().nullable(),
+	vendor_commission_amount: z.coerce
+		.number()
+		.int()
+		.min(0)
+		.optional()
+		.nullable(),
+	referrer_user_id: z
+		.string()
+		.uuid()
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
+	referrer_type: z.enum(["owner", "crew", "external"]).optional().nullable(),
+	referrer_commission: z.coerce.number().int().min(0).optional().nullable(),
+	// PIC at venue
+	pic_name: optionalString(120),
+	pic_wa: optionalString(20),
 	// Customization (new model — backdrop master)
 	backdrop_id: z
 		.string()
@@ -116,6 +138,16 @@ const FORM_KEYS = [
 	"venue_name",
 	"venue_address",
 	"venue_city",
+	"google_maps_url",
+	"vendor_name",
+	"vendor_contact",
+	"vendor_commission_rate",
+	"vendor_commission_amount",
+	"referrer_user_id",
+	"referrer_type",
+	"referrer_commission",
+	"pic_name",
+	"pic_wa",
 	"backdrop_id",
 	"vendor_decor_markup",
 	"base_price",
@@ -275,6 +307,22 @@ function buildEventPayload(
 		venue_name: input.venue_name,
 		venue_address: input.venue_address,
 		venue_city: input.venue_city,
+		google_maps_url: input.google_maps_url,
+		// Channel referrer
+		vendor_name: input.channel === "vendor" ? input.vendor_name : null,
+		vendor_contact: input.channel === "vendor" ? input.vendor_contact : null,
+		vendor_commission_rate:
+			input.channel === "vendor" ? input.vendor_commission_rate : null,
+		vendor_commission_amount:
+			input.channel === "vendor" ? input.vendor_commission_amount : null,
+		referrer_user_id:
+			input.channel === "relasi" ? input.referrer_user_id : null,
+		referrer_type: input.channel === "relasi" ? input.referrer_type : null,
+		referrer_commission:
+			input.channel === "relasi" ? input.referrer_commission : null,
+		// PIC at venue
+		pic_name: input.pic_name,
+		pic_wa: input.pic_wa,
 		backdrop_id: input.backdrop_id,
 		vendor_decor_markup: input.vendor_decor_markup,
 		// Legacy columns retained on the events table for back-compat with
