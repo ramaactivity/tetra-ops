@@ -488,6 +488,7 @@ export function BookingForm({
 
 			{/* === 2. REFERRER (dependent on channel) === */}
 			{showReferrerBlock && (
+				<div className="fade-in-on-mount">
 				<Section
 					step={2}
 					title={
@@ -621,6 +622,7 @@ export function BookingForm({
 						</>
 					)}
 				</Section>
+				</div>
 			)}
 			{!showReferrerBlock && (
 				<>
@@ -670,7 +672,7 @@ export function BookingForm({
 				</Field>
 
 				{categoryTpl && (
-					<div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+					<div className="fade-in-on-mount space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
 						<p className="text-fluid-caption text-primary inline-flex items-center gap-1.5">
 							<Sparkles className="size-3" />
 							{categoryTpl.hint}
@@ -940,7 +942,7 @@ export function BookingForm({
 				</Field>
 
 				{backdropMissing && (
-					<div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+					<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
 						<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 						<div>
 							<p className="font-medium">Backdrop belum ditentukan</p>
@@ -953,6 +955,7 @@ export function BookingForm({
 				)}
 
 				{isVendorDecor && (
+					<div className="fade-in-on-mount">
 					<Field
 						label="Markup Vendor Decor (Rp)"
 						name="vendor_decor_markup"
@@ -971,6 +974,7 @@ export function BookingForm({
 							className={`${inputClass} tabular`}
 						/>
 					</Field>
+					</div>
 				)}
 				{!isVendorDecor && (
 					<input
@@ -1309,6 +1313,7 @@ export function BookingForm({
 				</div>
 
 				{discount > 0 && (
+					<div className="fade-in-on-mount">
 					<Field
 						label="Tipe Diskon"
 						name="discount_type"
@@ -1327,6 +1332,7 @@ export function BookingForm({
 							value={discountType}
 						/>
 					</Field>
+					</div>
 				)}
 				{discount === 0 && (
 					<input type="hidden" name="discount_type" value="" />
