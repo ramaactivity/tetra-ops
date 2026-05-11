@@ -198,6 +198,16 @@ const CATEGORY_HINTS: Record<
 	},
 };
 
+const DISCOUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+	{ value: "", label: "— pilih tipe diskon —" },
+	{ value: "promo", label: "Promo (musiman / campaign)" },
+	{ value: "loyalty", label: "Loyalty (klien repeat)" },
+	{ value: "relasi", label: "Relasi (kenalan / referral)" },
+	{ value: "owner_override", label: "Owner Override (diskon manual)" },
+	{ value: "package_deal", label: "Package Deal (bundling)" },
+	{ value: "other", label: "Lainnya" },
+];
+
 export function BookingForm({
 	action,
 	packages,
@@ -206,6 +216,7 @@ export function BookingForm({
 	eventTypes,
 	relasiOptions = [],
 	vendorOptions = [],
+	grossupRate = 2,
 	defaults,
 	submitLabel = "Save as draft",
 }: {
@@ -216,6 +227,7 @@ export function BookingForm({
 	eventTypes: EventTypeOption[];
 	relasiOptions?: RelasiOption[];
 	vendorOptions?: VendorOption[];
+	grossupRate?: number;
 	defaults?: BookingFormDefaults;
 	submitLabel?: string;
 }) {
@@ -348,6 +360,7 @@ export function BookingForm({
 		state?.values?.discount_amount ?? defaults?.discount_amount ?? 0,
 	);
 	const [discount, setDiscount] = useState(initialDiscount);
+	const [discountType, setDiscountType] = useState(get("discount_type", ""));
 	const initialGrossUp = Number(
 		state?.values?.gross_up_pph_amount ?? defaults?.gross_up_pph_amount ?? 0,
 	);
@@ -1265,7 +1278,7 @@ export function BookingForm({
 						label="Gross-up PPh (IDR)"
 						name="gross_up_pph_amount"
 						error={err("gross_up_pph_amount")}
-						hint="Markup pajak untuk corporate. Default 2% × base. Manual override boleh."
+						hint={`Markup pajak untuk corporate. Auto-calc pakai ${grossupRate}% (config di Settings → Financial).`}
 					>
 						<div className="flex gap-2">
 							<input
@@ -1281,17 +1294,43 @@ export function BookingForm({
 							<button
 								type="button"
 								onClick={() =>
-									setGrossUp(Math.round((basePrice * 2) / 98))
+									setGrossUp(
+										Math.round((basePrice * grossupRate) / (100 - grossupRate)),
+									)
 								}
 								disabled={basePrice <= 0}
-								title="Hitung otomatis 2% gross-up dari base price"
+								title={`Hitung otomatis ${grossupRate}% gross-up dari base price (formula: base × ${grossupRate} / ${100 - grossupRate})`}
 								className="press-down inline-flex h-10 shrink-0 items-center rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium transition-colors hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
 							>
-								Auto 2%
+								Auto {grossupRate}%
 							</button>
 						</div>
 					</Field>
 				</div>
+
+				{discount > 0 && (
+					<Field
+						label="Tipe Diskon"
+						name="discount_type"
+						hint="Klasifikasi diskon — dipakai reports untuk slice 'diskon per kategori' dan journal."
+						required
+					>
+						<NativeSelect
+							value={discountType}
+							onValueChange={setDiscountType}
+							options={DISCOUNT_TYPE_OPTIONS}
+							triggerClassName="w-full"
+						/>
+						<input
+							type="hidden"
+							name="discount_type"
+							value={discountType}
+						/>
+					</Field>
+				)}
+				{discount === 0 && (
+					<input type="hidden" name="discount_type" value="" />
+				)}
 
 				<Field
 					label="Catatan untuk Crew"

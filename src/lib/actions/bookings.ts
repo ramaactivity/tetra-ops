@@ -108,6 +108,18 @@ const BookingInputSchema = z.object({
 		.int()
 		.min(0, "Tidak boleh negatif")
 		.default(0),
+	discount_type: z
+		.enum([
+			"promo",
+			"loyalty",
+			"relasi",
+			"owner_override",
+			"package_deal",
+			"other",
+		])
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
 	crew_notes: optionalString(500),
 });
 
@@ -153,6 +165,7 @@ const FORM_KEYS = [
 	"base_price",
 	"discount_amount",
 	"gross_up_pph_amount",
+	"discount_type",
 	"crew_notes",
 ] as const;
 
@@ -333,6 +346,7 @@ function buildEventPayload(
 		base_price: basePrice,
 		addons_total: effectiveAddonsTotal,
 		discount_amount: input.discount_amount,
+		discount_type: input.discount_amount > 0 ? input.discount_type : null,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 		grand_total: grandTotal,
 		remaining_balance: grandTotal,

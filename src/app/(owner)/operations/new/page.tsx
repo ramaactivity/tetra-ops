@@ -21,6 +21,7 @@ export default async function NewBookingPage() {
 		{ data: eventTypes },
 		{ data: relasiCandidates },
 		{ data: vendorHistory },
+		{ data: grossupConfig },
 	] = await Promise.all([
 		supabase
 			.from("packages")
@@ -62,7 +63,20 @@ export default async function NewBookingPage() {
 			.not("vendor_name", "is", null)
 			.order("created_at", { ascending: false })
 			.limit(50),
+		// Default gross-up PPh rate (Indonesia PPh 23 = 2%)
+		supabase
+			.from("system_config")
+			.select("value")
+			.eq("key", "tax.default_grossup_rate_pct")
+			.maybeSingle(),
 	]);
+
+	const grossupRate = (() => {
+		const v = grossupConfig?.value;
+		if (typeof v === "number") return v;
+		if (typeof v === "string") return Number(v) || 2;
+		return 2;
+	})();
 
 	// Dedupe vendor history by name → most recent contact
 	const vendorMap = new Map<string, { name: string; contact: string | null }>();
@@ -113,6 +127,7 @@ export default async function NewBookingPage() {
 						})) as RelasiOption[]
 					}
 					vendorOptions={vendorOptions as VendorOption[]}
+					grossupRate={grossupRate}
 				/>
 			</div>
 		</div>
