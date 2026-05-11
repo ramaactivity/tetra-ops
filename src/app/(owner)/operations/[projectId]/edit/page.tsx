@@ -35,7 +35,8 @@ export default async function EditBookingPage({
 				setup_time, start_time, end_time, venue_name, venue_address, venue_city, venue_province,
 				backdrop_id, vendor_decor_markup, include_flashdisk_pouch,
 				base_price, discount_amount, gross_up_pph_amount, crew_notes,
-				event_addons(addon_id, quantity)`,
+				event_addons(addon_id, quantity),
+				event_bonuses(addon_id, quantity, notes)`,
 			)
 			.eq("project_id", projectId)
 			.maybeSingle(),
@@ -141,6 +142,17 @@ export default async function EditBookingPage({
 						).map((a) => ({
 							addon_id: a.addon_id,
 							quantity: a.quantity,
+						})),
+						bonuses: (
+							(event.event_bonuses ?? []) as Array<{
+								addon_id: string;
+								quantity: number;
+								notes: string | null;
+							}>
+						).map((b) => ({
+							addon_id: b.addon_id,
+							quantity: b.quantity,
+							notes: b.notes,
 						})),
 					}}
 				/>

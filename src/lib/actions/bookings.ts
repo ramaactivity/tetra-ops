@@ -2,7 +2,6 @@
 
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createEventFolderInternal } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -135,6 +134,11 @@ export type BookingFormState =
 			errors?: BookingErrors;
 			values?: Record<string, string>;
 	  }
+	| {
+			ok: true;
+			projectId: string;
+			isUpdate?: boolean;
+	  }
 	| undefined;
 
 const FORM_KEYS = [
@@ -220,6 +224,24 @@ function parseAddonsJson(formData: FormData) {
 	if (!raw || typeof raw !== "string" || raw === "") return [];
 	try {
 		return AddonInputSchema.parse(JSON.parse(raw));
+	} catch {
+		return [];
+	}
+}
+
+const BonusInputSchema = z.array(
+	z.object({
+		addon_id: z.uuid(),
+		quantity: z.coerce.number().int().positive().max(99),
+		notes: z.string().trim().max(200).optional().nullable(),
+	}),
+);
+
+function parseBonusesJson(formData: FormData) {
+	const raw = formData.get("bonuses_json");
+	if (!raw || typeof raw !== "string" || raw === "") return [];
+	try {
+		return BonusInputSchema.parse(JSON.parse(raw));
 	} catch {
 		return [];
 	}
@@ -449,6 +471,28 @@ export async function createBooking(
 		}
 	}
 
+	const bonusesRaw = parseBonusesJson(formData);
+	if (bonusesRaw.length > 0 && inserted?.id) {
+		const { error: bonusError } = await supabase.from("event_bonuses").insert(
+			bonusesRaw.map((b) => ({
+				event_id: inserted.id as string,
+				addon_id: b.addon_id,
+				quantity: b.quantity,
+				notes: b.notes || null,
+			})),
+		);
+		if (bonusError) {
+			return {
+				errors: {
+					_form: [
+						`Event tersimpan, tapi gagal menyimpan bonus: ${bonusError.message}`,
+					],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+	}
+
 	// Best-effort: auto-create Drive folder. Failures don't block event creation.
 	if (inserted?.id && isDriveConfigured()) {
 		try {
@@ -459,7 +503,8 @@ export async function createBooking(
 	}
 
 	revalidatePath("/operations");
-	redirect(`/operations/${projectId}`);
+	revalidatePath(`/operations/${projectId}`);
+	return { ok: true, projectId };
 }
 
 export async function updateBooking(
@@ -537,7 +582,40 @@ export async function updateBooking(
 		}
 	}
 
+	// Bonuses: replace-all (same pattern as addons)
+	const { error: deleteBonusError } = await supabase
+		.from("event_bonuses")
+		.delete()
+		.eq("event_id", id);
+	if (deleteBonusError) {
+		return {
+			errors: {
+				_form: [`Gagal menghapus bonus lama: ${deleteBonusError.message}`],
+			},
+			values: snapshotValues(formData),
+		};
+	}
+	const bonusesRaw = parseBonusesJson(formData);
+	if (bonusesRaw.length > 0) {
+		const { error: bonusError } = await supabase.from("event_bonuses").insert(
+			bonusesRaw.map((b) => ({
+				event_id: id,
+				addon_id: b.addon_id,
+				quantity: b.quantity,
+				notes: b.notes || null,
+			})),
+		);
+		if (bonusError) {
+			return {
+				errors: {
+					_form: [`Gagal menyimpan bonus baru: ${bonusError.message}`],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+	}
+
 	revalidatePath("/operations");
 	revalidatePath(`/operations/${updated.project_id}`);
-	redirect(`/operations/${updated.project_id}`);
+	return { ok: true, projectId: updated.project_id, isUpdate: true };
 }

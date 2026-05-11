@@ -1,7 +1,17 @@
 "use client";
 
-import { AlertTriangle, MapPin, Sparkles, Users } from "lucide-react";
+import {
+	AlertTriangle,
+	CheckCircle2,
+	Gift,
+	Loader2,
+	MapPin,
+	Sparkles,
+	Users,
+	X,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
@@ -79,6 +89,11 @@ export type VendorOption = {
 };
 
 export type AddonSelection = { addon_id: string; quantity: number };
+export type BonusSelection = {
+	addon_id: string;
+	quantity: number;
+	notes?: string | null;
+};
 
 export type BookingFormDefaults = Partial<{
 	channel: string;
@@ -115,6 +130,7 @@ export type BookingFormDefaults = Partial<{
 	gross_up_pph_amount: number;
 	crew_notes: string;
 	addons: AddonSelection[];
+	bonuses: BonusSelection[];
 }>;
 
 /**
@@ -238,9 +254,17 @@ export function BookingForm({
 	submitLabel?: string;
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
+	const router = useRouter();
+
+	// Narrow union: success state has `ok`; failure state has `errors`/`values`.
+	const stateValues =
+		state && "values" in state ? state.values : undefined;
+	const stateErrors =
+		state && "errors" in state ? state.errors : undefined;
+	const stateOk = state && "ok" in state ? state : null;
 
 	const get = (key: keyof BookingInput, fallback?: string) =>
-		state?.values?.[key] ??
+		stateValues?.[key] ??
 		(
 			defaults?.[key as keyof BookingFormDefaults] as
 				| string
@@ -250,7 +274,51 @@ export function BookingForm({
 		fallback ??
 		"";
 
-	const err = (key: keyof BookingInput) => state?.errors?.[key]?.[0];
+	const err = (key: keyof BookingInput) => stateErrors?.[key]?.[0];
+
+	// Save feedback popup state machine
+	const [saveOverlay, setSaveOverlay] = useState<
+		| { kind: "saving" }
+		| { kind: "success"; projectId: string; isUpdate: boolean }
+		| { kind: "error"; message: string }
+		| null
+	>(null);
+
+	useEffect(() => {
+		if (pending) {
+			setSaveOverlay({ kind: "saving" });
+		}
+	}, [pending]);
+
+	useEffect(() => {
+		if (pending) return;
+		if (stateOk) {
+			setSaveOverlay({
+				kind: "success",
+				projectId: stateOk.projectId,
+				isUpdate: Boolean(stateOk.isUpdate),
+			});
+			const timer = setTimeout(() => {
+				router.push(`/operations/${stateOk.projectId}`);
+			}, 1100);
+			return () => clearTimeout(timer);
+		}
+		if (stateErrors) {
+			const formErr = stateErrors._form?.[0];
+			const fieldErrCount = Object.keys(stateErrors).filter(
+				(k) => k !== "_form",
+			).length;
+			setSaveOverlay({
+				kind: "error",
+				message:
+					formErr ??
+					(fieldErrCount > 0
+						? `Ada ${fieldErrCount} field belum valid — cek bagian yang ditandai merah.`
+						: "Gagal menyimpan. Coba lagi."),
+			});
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [state, pending]);
 
 	// === Channel & Referrer
 	const [channel, setChannel] = useState(get("channel", "direct"));
@@ -291,10 +359,10 @@ export function BookingForm({
 	// === Service & Package
 	const [serviceType, setServiceType] = useState(get("service_type", ""));
 	const [frameSize, setFrameSize] = useState(get("frame_size", ""));
-	const initialPkgId = state?.values?.package_id ?? defaults?.package_id ?? "";
+	const initialPkgId = stateValues?.package_id ?? defaults?.package_id ?? "";
 	const [packageId, setPackageId] = useState(initialPkgId);
 	const initialBase = Number(
-		state?.values?.base_price ?? defaults?.base_price ?? 0,
+		stateValues?.base_price ?? defaults?.base_price ?? 0,
 	);
 	const [basePrice, setBasePrice] = useState(initialBase);
 
@@ -356,7 +424,7 @@ export function BookingForm({
 	// === Customization
 	const [backdropId, setBackdropId] = useState(get("backdrop_id"));
 	const initialVendorMarkup = Number(
-		state?.values?.vendor_decor_markup ?? defaults?.vendor_decor_markup ?? 0,
+		stateValues?.vendor_decor_markup ?? defaults?.vendor_decor_markup ?? 0,
 	);
 	const [vendorMarkup, setVendorMarkup] = useState(initialVendorMarkup);
 	const selectedBackdrop = useMemo(
@@ -490,12 +558,12 @@ export function BookingForm({
 
 	// === Financial
 	const initialDiscount = Number(
-		state?.values?.discount_amount ?? defaults?.discount_amount ?? 0,
+		stateValues?.discount_amount ?? defaults?.discount_amount ?? 0,
 	);
 	const [discount, setDiscount] = useState(initialDiscount);
 	const [discountType, setDiscountType] = useState(get("discount_type", ""));
 	const initialGrossUp = Number(
-		state?.values?.gross_up_pph_amount ?? defaults?.gross_up_pph_amount ?? 0,
+		stateValues?.gross_up_pph_amount ?? defaults?.gross_up_pph_amount ?? 0,
 	);
 	const [grossUp, setGrossUp] = useState(initialGrossUp);
 
@@ -533,6 +601,58 @@ export function BookingForm({
 					.map(([addon_id, quantity]) => ({ addon_id, quantity })),
 			),
 		[selectedAddons],
+	);
+
+	// === Bonus (item gratis untuk klien, internal-only)
+	type BonusRow = { addon_id: string; quantity: number; notes: string };
+	const initialBonuses = useMemo<BonusRow[]>(
+		() =>
+			(defaults?.bonuses ?? []).map((b) => ({
+				addon_id: b.addon_id,
+				quantity: b.quantity,
+				notes: b.notes ?? "",
+			})),
+		[defaults?.bonuses],
+	);
+	const [bonusRows, setBonusRows] = useState<BonusRow[]>(initialBonuses);
+
+	function addBonusRow(addonId: string) {
+		setBonusRows((prev) => {
+			if (prev.some((r) => r.addon_id === addonId)) return prev;
+			return [...prev, { addon_id: addonId, quantity: 1, notes: "" }];
+		});
+	}
+	function setBonusQty(addonId: string, qty: number) {
+		setBonusRows((prev) =>
+			prev.map((r) =>
+				r.addon_id === addonId ? { ...r, quantity: Math.max(1, qty) } : r,
+			),
+		);
+	}
+	function setBonusNotes(addonId: string, notes: string) {
+		setBonusRows((prev) =>
+			prev.map((r) => (r.addon_id === addonId ? { ...r, notes } : r)),
+		);
+	}
+	function removeBonusRow(addonId: string) {
+		setBonusRows((prev) => prev.filter((r) => r.addon_id !== addonId));
+	}
+	const bonusesJson = useMemo(
+		() =>
+			JSON.stringify(
+				bonusRows
+					.filter((r) => r.quantity > 0)
+					.map((r) => ({
+						addon_id: r.addon_id,
+						quantity: r.quantity,
+						notes: r.notes.trim() || null,
+					})),
+			),
+		[bonusRows],
+	);
+	const bonusAddonMap = useMemo(
+		() => new Map(addons.map((a) => [a.id, a])),
+		[addons],
 	);
 
 	const grandTotal = useMemo(
@@ -585,6 +705,13 @@ export function BookingForm({
 	const backdropMissing = !backdropId;
 
 	return (
+		<>
+			{saveOverlay && (
+				<SavePopup
+					state={saveOverlay}
+					onDismissError={() => setSaveOverlay(null)}
+				/>
+			)}
 		<form
 			action={formAction}
 			className="space-y-8"
@@ -605,10 +732,10 @@ export function BookingForm({
 				e.preventDefault();
 			}}
 		>
-			{state?.errors?._form && (
+			{stateErrors?._form && (
 				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
 					<p className="text-fluid-body font-medium text-destructive">
-						{state.errors._form[0]}
+						{stateErrors!._form[0]}
 					</p>
 				</div>
 			)}
@@ -1175,8 +1302,8 @@ export function BookingForm({
 						type="checkbox"
 						name="include_flashdisk_pouch"
 						defaultChecked={
-							state?.values
-								? state.values.include_flashdisk_pouch === "on"
+							stateValues
+								? stateValues.include_flashdisk_pouch === "on"
 								: (defaults?.include_flashdisk_pouch ?? true)
 						}
 						className="h-4 w-4 rounded text-primary"
@@ -1589,9 +1716,141 @@ export function BookingForm({
 				)}
 			</Section>
 
-			{/* === 10. FINANCIAL === */}
+			{/* === BONUS (free items, internal only) === */}
 			<Section
 				step={showReferrerBlock ? 10 : 9}
+				title={
+					<span className="inline-flex items-center gap-2">
+						<Gift className="size-5 text-primary" />
+						Bonus untuk Klien
+						<Badge variant="secondary" className="text-[10px]">
+							Internal
+						</Badge>
+					</span>
+				}
+				description="Item gratis yang kita kasih sebagai itikad baik — klien gak perlu tahu, tapi crew harus tahu biar bisa kasih hari-H. Tidak masuk grand total."
+			>
+				<input type="hidden" name="bonuses_json" value={bonusesJson} />
+
+				{addons.length === 0 ? (
+					<p className="text-fluid-body italic text-muted-foreground">
+						Belum ada item aktif di katalog. Tambah dulu dari Settings →
+						Add-ons.
+					</p>
+				) : (
+					<div className="space-y-3">
+						<div className="flex items-end gap-2">
+							<div className="flex-1">
+								<label
+									htmlFor="bonus-picker"
+									className="mb-1 block text-fluid-caption font-medium text-foreground"
+								>
+									Tambah Bonus
+								</label>
+								<NativeSelect
+									id="bonus-picker"
+									value=""
+									onValueChange={(v) => {
+										if (v) addBonusRow(v);
+									}}
+									options={[
+										{ value: "", label: "— pilih item bonus —" },
+										...addons
+											.filter(
+												(a) => !bonusRows.some((r) => r.addon_id === a.id),
+											)
+											.map((a) => ({
+												value: a.id,
+												label: `${ADDON_CATEGORY_LABELS[a.category] ?? a.category} · ${a.name}`,
+											})),
+									]}
+								/>
+							</div>
+						</div>
+
+						{bonusRows.length === 0 ? (
+							<p className="rounded-md border border-dashed border-border-default bg-surface-2 p-4 text-center text-fluid-caption italic text-muted-foreground">
+								Belum ada bonus. Pilih item dari dropdown di atas.
+							</p>
+						) : (
+							<div className="space-y-2">
+								{bonusRows.map((row) => {
+									const addon = bonusAddonMap.get(row.addon_id);
+									if (!addon) return null;
+									return (
+										<div
+											key={row.addon_id}
+											className="fade-in-on-mount space-y-2 rounded-md border border-border-default bg-surface-2 p-3"
+										>
+											<div className="flex items-start gap-3">
+												<div className="min-w-0 flex-1">
+													<div className="truncate text-fluid-body font-medium">
+														{addon.name}
+													</div>
+													<div className="text-fluid-caption text-muted-foreground">
+														{ADDON_CATEGORY_LABELS[addon.category] ??
+															addon.category}{" "}
+														· {addon.unit}
+													</div>
+												</div>
+												<div className="flex items-center gap-2">
+													<label className="text-fluid-caption text-muted-foreground">
+														Qty
+													</label>
+													<input
+														type="number"
+														min={1}
+														max={99}
+														value={row.quantity}
+														onChange={(e) =>
+															setBonusQty(
+																row.addon_id,
+																Number(e.target.value),
+															)
+														}
+														className={`${inputClass} tabular h-8 w-16 text-right`}
+													/>
+													<button
+														type="button"
+														onClick={() => removeBonusRow(row.addon_id)}
+														title="Hapus bonus"
+														className="press-down inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-default bg-surface-3 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+													>
+														<X className="size-4" />
+													</button>
+												</div>
+											</div>
+											<textarea
+												value={row.notes}
+												onChange={(e) =>
+													setBonusNotes(row.addon_id, e.target.value)
+												}
+												placeholder="Catatan (opsional) — cth. 'kasih saat sesi family', 'pre-print sebelum acara'"
+												rows={1}
+												className={`${inputClass} resize-none text-fluid-caption`}
+											/>
+										</div>
+									);
+								})}
+							</div>
+						)}
+
+						{bonusRows.length > 0 && (
+							<p className="rounded-md bg-muted px-4 py-2 text-fluid-caption text-muted-foreground">
+								<span className="font-medium text-foreground">
+									{bonusRows.length} item
+								</span>{" "}
+								akan dicatat sebagai bonus. Crew akan lihat di reminder
+								WhatsApp + halaman jadwal.
+							</p>
+						)}
+					</div>
+				)}
+			</Section>
+
+			{/* === 11. FINANCIAL === */}
+			<Section
+				step={showReferrerBlock ? 11 : 10}
 				title="Financial"
 				description="Harga dan modifier."
 			>
@@ -1744,6 +2003,76 @@ export function BookingForm({
 				</div>
 			</div>
 		</form>
+		</>
+	);
+}
+
+function SavePopup({
+	state,
+	onDismissError,
+}: {
+	state:
+		| { kind: "saving" }
+		| { kind: "success"; projectId: string; isUpdate: boolean }
+		| { kind: "error"; message: string };
+	onDismissError: () => void;
+}) {
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+			<div className="fade-in-on-mount w-full max-w-sm rounded-xl border border-border-default bg-surface-2 p-6 shadow-2xl">
+				{state.kind === "saving" && (
+					<div className="space-y-3 text-center">
+						<Loader2 className="mx-auto size-10 animate-spin text-primary" />
+						<div>
+							<p className="text-fluid-body font-semibold tracking-tight">
+								Menyimpan booking…
+							</p>
+							<p className="text-fluid-caption text-muted-foreground">
+								Tunggu sebentar, jangan tutup tab.
+							</p>
+						</div>
+					</div>
+				)}
+				{state.kind === "success" && (
+					<div className="space-y-3 text-center">
+						<CheckCircle2 className="mx-auto size-10 text-emerald-500" />
+						<div>
+							<p className="text-fluid-body font-semibold tracking-tight">
+								{state.isUpdate ? "Berhasil disimpan!" : "Booking dibuat!"}
+							</p>
+							<p className="tabular text-fluid-caption text-muted-foreground">
+								{state.projectId}
+							</p>
+							<p className="mt-2 text-fluid-caption text-muted-foreground">
+								Mengarahkan ke halaman detail…
+							</p>
+						</div>
+					</div>
+				)}
+				{state.kind === "error" && (
+					<div className="space-y-4">
+						<div className="space-y-3 text-center">
+							<AlertTriangle className="mx-auto size-10 text-destructive" />
+							<div>
+								<p className="text-fluid-body font-semibold tracking-tight">
+									Gagal menyimpan
+								</p>
+								<p className="mt-1 text-fluid-caption text-muted-foreground">
+									{state.message}
+								</p>
+							</div>
+						</div>
+						<button
+							type="button"
+							onClick={onDismissError}
+							className="press-down w-full rounded-md border border-border-default bg-surface-3 px-3 py-2 text-fluid-body font-medium transition-colors hover:bg-muted"
+						>
+							Tutup &amp; perbaiki
+						</button>
+					</div>
+				)}
+			</div>
+		</div>
 	);
 }
 
@@ -1757,7 +2086,7 @@ function Section({
 	children,
 }: {
 	step: number;
-	title: string;
+	title: React.ReactNode;
 	description: string;
 	children: React.ReactNode;
 }) {

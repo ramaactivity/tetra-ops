@@ -77,6 +77,7 @@ export default async function EventDetailPage({
 			backdrop:backdrops(name, type, rental_price),
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
+			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier)),
 			settlement:event_settlements(
 				id, revenue_net, hpp_total, opex_total, total_biaya, net_profit,
@@ -123,6 +124,14 @@ export default async function EventDetailPage({
 		quantity: number;
 		unit_price: number;
 		total_price: number;
+		addon:
+			| { name: string; unit: string; category: string }
+			| Array<{ name: string; unit: string; category: string }>
+			| null;
+	}>;
+	const eventBonuses = (event.event_bonuses ?? []) as Array<{
+		quantity: number;
+		notes: string | null;
 		addon:
 			| { name: string; unit: string; category: string }
 			| Array<{ name: string; unit: string; category: string }>
@@ -576,6 +585,51 @@ export default async function EventDetailPage({
 										<span className="tabular">
 											{formatRupiah(row.total_price)}
 										</span>
+									</div>
+								);
+							})}
+						</div>
+					</DetailCard>
+				)}
+
+				{eventBonuses.length > 0 && (
+					<DetailCard
+						title="Bonus untuk Klien (internal)"
+						className="md:col-span-2"
+					>
+						<p className="mb-2 text-xs text-muted-foreground">
+							Item gratis yang kita kasih — tidak masuk grand total. Crew harus
+							kasih saat acara.
+						</p>
+						<div className="space-y-2">
+							{eventBonuses.map((row, idx) => {
+								const addon = Array.isArray(row.addon)
+									? row.addon[0]
+									: row.addon;
+								return (
+									<div
+										key={`${addon?.name ?? "bonus"}-${idx}`}
+										className="rounded-md border border-dashed border-emerald-500/30 bg-emerald-500/5 p-2"
+									>
+										<div className="flex items-baseline justify-between gap-3 text-sm">
+											<div>
+												<span className="font-medium">
+													{addon?.name ?? "—"}
+												</span>
+												<span className="text-muted-foreground">
+													{" "}
+													· {row.quantity} {addon?.unit ?? ""}
+												</span>
+											</div>
+											<span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
+												GRATIS
+											</span>
+										</div>
+										{row.notes && (
+											<p className="mt-1 text-xs italic text-muted-foreground">
+												"{row.notes}"
+											</p>
+										)}
 									</div>
 								);
 							})}

@@ -101,10 +101,15 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	sections.push(scheduleLines.join("\n"));
 
 	// Location
-	const venueLine = ev.venue_city
-		? `${ev.venue_name}, ${ev.venue_city}`
-		: ev.venue_name;
+	const locParts = [ev.venue_city, ev.venue_province].filter(Boolean);
+	const venueLine =
+		locParts.length > 0
+			? `${ev.venue_name}, ${locParts.join(", ")}`
+			: ev.venue_name;
 	const locLines = [`📍 *LOKASI*`, venueLine];
+	if (ev.venue_address) {
+		locLines.push(ev.venue_address);
+	}
 	if (ev.google_maps_url) {
 		locLines.push(`🗺 ${ev.google_maps_url}`);
 	}
@@ -142,6 +147,16 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	if (ev.addons_list && ev.addons_list.length > 0) {
 		const addonLines = [`➕ *ADD-ONS*`, ...ev.addons_list.map((a) => `• ${a}`)];
 		sections.push(addonLines.join("\n"));
+	}
+
+	// Bonus — internal-only, klien tidak tahu, tapi crew harus kasih
+	if (ev.bonuses_list && ev.bonuses_list.length > 0) {
+		const bonusLines = [
+			`🎁 *BONUS UNTUK KLIEN (gratis)*`,
+			...ev.bonuses_list.map((b) => `• ${b}`),
+			"_Pastikan disiapkan & dikasih ke klien hari-H._",
+		];
+		sections.push(bonusLines.join("\n"));
 	}
 
 	// Crew notes / special requests
@@ -190,7 +205,9 @@ export type EventForWA = {
 	start_time: string | null;
 	end_time?: string | null;
 	venue_name: string;
+	venue_address?: string | null;
 	venue_city?: string | null;
+	venue_province?: string | null;
 	google_maps_url?: string | null;
 	pic_name?: string | null;
 	pic_wa?: string | null;
@@ -203,6 +220,7 @@ export type EventForWA = {
 	backdrop_color?: string | null;
 	include_flashdisk_pouch?: boolean | null;
 	addons_list?: string[] | null;
+	bonuses_list?: string[] | null;
 	crew_notes?: string | null;
 	crew_lead?: string | null;
 	crew_asisten?: string | null;

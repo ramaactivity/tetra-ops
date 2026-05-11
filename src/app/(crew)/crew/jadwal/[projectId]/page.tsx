@@ -7,6 +7,7 @@ import {
 	Clock,
 	ExternalLink,
 	FileText,
+	Gift,
 	MapPin,
 	Package,
 	Users,
@@ -53,12 +54,13 @@ export default async function CrewEventDetailPage({
 			id, project_id, status, client_name, event_category,
 			pic_name, pic_wa,
 			frame_size, event_date, setup_time, start_time, end_time,
-			venue_name, venue_address, venue_city, google_maps_url,
+			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy,
 			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
 			booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
 			package:packages(name, duration_hours),
 			backdrop:backdrops(name, type),
+			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
 				role_in_event, fee_amount, bonus_amount, is_paid,
 				user:users!crew_assignments_user_id_fkey(id, full_name, tier)
@@ -93,6 +95,15 @@ export default async function CrewEventDetailPage({
 		user:
 			| { id: string; full_name: string; tier: string | null }
 			| Array<{ id: string; full_name: string; tier: string | null }>
+			| null;
+	}>;
+
+	const eventBonuses = (event.event_bonuses ?? []) as Array<{
+		quantity: number;
+		notes: string | null;
+		addon:
+			| { name: string; unit: string; category: string }
+			| Array<{ name: string; unit: string; category: string }>
 			| null;
 	}>;
 
@@ -219,9 +230,16 @@ export default async function CrewEventDetailPage({
 						<p className="text-foreground text-sm font-medium">
 							{event.venue_name}
 						</p>
-						{event.venue_city && (
+						{event.venue_address && (
 							<p className="text-muted-foreground text-xs">
-								{event.venue_city}
+								{event.venue_address}
+							</p>
+						)}
+						{(event.venue_city || event.venue_province) && (
+							<p className="text-muted-foreground text-xs">
+								{[event.venue_city, event.venue_province]
+									.filter(Boolean)
+									.join(", ")}
 							</p>
 						)}
 						{event.google_maps_url && (
@@ -397,6 +415,46 @@ export default async function CrewEventDetailPage({
 							✓ ACC by owner
 						</p>
 					)}
+				</section>
+			)}
+
+			{/* Bonus untuk klien — crew harus tahu biar bisa kasih hari-H */}
+			{eventBonuses.length > 0 && (
+				<section className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20 space-y-2 rounded-xl border p-4">
+					<h2 className="text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+						<Gift className="h-3.5 w-3.5" />
+						Bonus untuk klien
+					</h2>
+					<p className="text-emerald-900/80 dark:text-emerald-200/80 text-xs">
+						Item gratis yang kita kasih ke klien. Pastikan disiapkan +
+						diserahkan hari-H.
+					</p>
+					<ul className="space-y-1.5">
+						{eventBonuses.map((b, idx) => {
+							const addon = Array.isArray(b.addon) ? b.addon[0] : b.addon;
+							return (
+								<li
+									key={`${addon?.name ?? "bonus"}-${idx}`}
+									className="text-foreground text-sm"
+								>
+									<span className="font-medium">
+										{b.quantity}× {addon?.name ?? "—"}
+									</span>
+									{addon?.unit && (
+										<span className="text-muted-foreground">
+											{" "}
+											({addon.unit})
+										</span>
+									)}
+									{b.notes && (
+										<p className="text-muted-foreground mt-0.5 text-xs italic">
+											{b.notes}
+										</p>
+									)}
+								</li>
+							);
+						})}
+					</ul>
 				</section>
 			)}
 

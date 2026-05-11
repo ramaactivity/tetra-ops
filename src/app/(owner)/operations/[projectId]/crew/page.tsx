@@ -26,12 +26,13 @@ export default async function ManageCrewPage({
 		.select(
 			`id, project_id, client_name, client_wa, event_date,
 			 setup_time, start_time, end_time,
-			 venue_name, venue_city, google_maps_url,
+			 venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			 pic_name, pic_wa,
 			 frame_size, backdrop_color, include_flashdisk_pouch, crew_notes,
 			 due_date, total_paid, remaining_balance, custom_package_name,
 			 package:packages(name, duration_hours),
-			 event_addons(quantity, addon:addons(name, unit))`,
+			 event_addons(quantity, addon:addons(name, unit)),
+			 event_bonuses(quantity, notes, addon:addons(name, unit))`,
 		)
 		.eq("project_id", projectId)
 		.maybeSingle();
@@ -80,6 +81,19 @@ export default async function ManageCrewPage({
 		})
 		.filter((s): s is string => Boolean(s));
 
+	const bonusRows = ((event.event_bonuses ?? []) as Array<{
+		quantity: number;
+		notes: string | null;
+		addon: { name: string; unit: string } | Array<{ name: string; unit: string }> | null;
+	}>)
+		.map((b) => {
+			const addon = Array.isArray(b.addon) ? b.addon[0] : b.addon;
+			if (!addon) return null;
+			const label = `${b.quantity}× ${addon.name}${addon.unit ? ` (${addon.unit})` : ""}`;
+			return b.notes ? `${label} — ${b.notes}` : label;
+		})
+		.filter((s): s is string => Boolean(s));
+
 	const eventForWa = {
 		project_id: event.project_id,
 		client_name: event.client_name,
@@ -89,7 +103,9 @@ export default async function ManageCrewPage({
 		start_time: event.start_time,
 		end_time: event.end_time,
 		venue_name: event.venue_name,
+		venue_address: event.venue_address ?? null,
 		venue_city: event.venue_city ?? null,
+		venue_province: event.venue_province ?? null,
 		google_maps_url: event.google_maps_url ?? null,
 		pic_name: event.pic_name ?? null,
 		pic_wa: event.pic_wa ?? null,
@@ -102,6 +118,7 @@ export default async function ManageCrewPage({
 		backdrop_color: event.backdrop_color ?? null,
 		include_flashdisk_pouch: event.include_flashdisk_pouch ?? null,
 		addons_list: addonRows.length > 0 ? addonRows : null,
+		bonuses_list: bonusRows.length > 0 ? bonusRows : null,
 		crew_notes: event.crew_notes ?? null,
 	};
 
