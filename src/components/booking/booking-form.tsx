@@ -758,21 +758,38 @@ export function BookingForm({
 		if (saveOverlay?.kind === "error" && saveOverlay.fields.length > 0) {
 			const firstField = saveOverlay.fields[0]?.name;
 			if (firstField) {
-				// Cari input dengan name yang match — lebih reliable daripada id
-				// karena beberapa field punya hidden+visible pair (visible input
-				// nggak punya name, hidden punya).
-				const allFields = document.querySelectorAll<HTMLElement>(
-					`[name="${firstField}"], [data-field="${firstField}"]`,
+				// 1) Prefer the <label htmlFor={name}> — always visible if its
+				//    Section is rendered. Hidden inputs share `name` with their
+				//    visible siblings, so matching on label avoids landing on a
+				//    display:none element.
+				let target: HTMLElement | null = document.querySelector<HTMLElement>(
+					`label[for="${firstField}"]`,
 				);
-				const target = allFields[allFields.length - 1]; // prefer last (usually visible)
+				// 2) Fallback: first VISIBLE input with this name (skip hidden).
+				if (!target) {
+					const candidates = document.querySelectorAll<HTMLElement>(
+						`[name="${firstField}"]`,
+					);
+					for (const el of Array.from(candidates)) {
+						const isHidden =
+							el instanceof HTMLInputElement && el.type === "hidden";
+						if (!isHidden && el.offsetParent !== null) {
+							target = el;
+							break;
+						}
+					}
+				}
 				if (target) {
-					target.scrollIntoView({ behavior: "smooth", block: "center" });
+					const targetEl = target;
+					targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
 					setTimeout(() => {
-						const focusable = (target.matches("input,textarea,select,button")
-							? target
-							: target.querySelector("input,textarea,select,button")) as
-							| HTMLInputElement
-							| null;
+						const focusable = (
+							targetEl.matches("input,textarea,select,button")
+								? targetEl
+								: targetEl.parentElement?.querySelector(
+										"input:not([type=hidden]),textarea,select,button",
+									)
+						) as HTMLInputElement | null;
 						focusable?.focus({ preventScroll: true });
 					}, 350);
 				}

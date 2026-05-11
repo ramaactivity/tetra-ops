@@ -185,7 +185,17 @@ const FORM_KEYS = [
 ] as const;
 
 function parseFormData(formData: FormData) {
-	const raw = Object.fromEntries(FORM_KEYS.map((k) => [k, formData.get(k)]));
+	// Coalesce null → "" so optional-string schemas (which accept "" via
+	// .or(z.literal("")) but not null) never fail when a conditional UI
+	// section is hidden and its hidden inputs aren't rendered. Without this,
+	// e.g. channel=vendor leaves referrer_user_id absent → formData.get returns
+	// null → schema rejects.
+	const raw = Object.fromEntries(
+		FORM_KEYS.map((k) => {
+			const v = formData.get(k);
+			return [k, v == null ? "" : v];
+		}),
+	);
 	return BookingInputSchema.safeParse({
 		...raw,
 		include_flashdisk_pouch: formData.get("include_flashdisk_pouch") === "on",
