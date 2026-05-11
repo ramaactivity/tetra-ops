@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ProofUploadButton } from "@/components/billing/proof-upload-button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { logPayment, type PaymentFormState } from "@/lib/actions/payments";
@@ -50,6 +51,7 @@ export function PaymentForm({
 	);
 	const [paymentType, setPaymentType] = useState(get("payment_type", "dp"));
 	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
+	const [proofUrl, setProofUrl] = useState(get("proof_url"));
 
 	if (bankAccounts.length === 0) {
 		return (
@@ -159,13 +161,20 @@ export function PaymentForm({
 				error={err("proof_url")}
 				hint="Link Drive/upload bukti transfer (opsional)"
 			>
-				<input
-					type="url"
-					name="proof_url"
-					defaultValue={get("proof_url")}
-					placeholder="https://drive.google.com/..."
-					className={inputClass}
-				/>
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+					<input
+						type="url"
+						name="proof_url"
+						value={proofUrl}
+						onChange={(e) => setProofUrl(e.target.value)}
+						placeholder="https://drive.google.com/..."
+						className={`${inputClass} sm:flex-1`}
+					/>
+					<ProofUploadButton
+						projectId={projectId}
+						onUploaded={setProofUrl}
+					/>
+				</div>
 			</Field>
 
 			<Field

@@ -1,4 +1,5 @@
 import "server-only";
+import { Readable } from "node:stream";
 import { type drive_v3, drive as driveApi } from "@googleapis/drive";
 import { OAuth2Client } from "google-auth-library";
 
@@ -118,4 +119,70 @@ export async function getFolderWebViewLink(
 	} catch {
 		return null;
 	}
+}
+
+export type UploadedFile = {
+	id: string;
+	name: string;
+	webViewLink: string;
+	mimeType: string;
+};
+
+/**
+ * Upload a single file into the given Drive folder. Auto-makes the file
+ * shareable (anyone with link → viewer) so the saved webViewLink works
+ * for clients receiving the URL outside the team.
+ */
+export async function uploadFileToFolder(
+	folderId: string,
+	fileName: string,
+	mimeType: string,
+	body: Buffer,
+): Promise<UploadedFile> {
+	const drive = await getDriveClient();
+
+	const res = await drive.files.create({
+		requestBody: {
+			name: fileName,
+			parents: [folderId],
+			mimeType,
+		},
+		media: {
+			mimeType,
+			body: bufferToReadable(body),
+		},
+		fields: "id, name, mimeType, webViewLink",
+		supportsAllDrives: true,
+	});
+
+	const id = res.data.id;
+	const webViewLink = res.data.webViewLink;
+	const resolvedName = res.data.name;
+	const resolvedMime = res.data.mimeType;
+	if (!id || !webViewLink || !resolvedName) {
+		throw new Error("Drive upload succeeded but response missing id/url/name");
+	}
+
+	// Make link-accessible (anyone with link → reader)
+	try {
+		await drive.permissions.create({
+			fileId: id,
+			requestBody: { role: "reader", type: "anyone" },
+			supportsAllDrives: true,
+		});
+	} catch {
+		// Permissions failure non-fatal — file still uploaded; URL works for
+		// authenticated Drive users. Client can manually share later.
+	}
+
+	return {
+		id,
+		name: resolvedName,
+		webViewLink,
+		mimeType: resolvedMime ?? mimeType,
+	};
+}
+
+function bufferToReadable(buf: Buffer): Readable {
+	return Readable.from(buf);
 }
