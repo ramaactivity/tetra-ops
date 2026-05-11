@@ -64,7 +64,7 @@ export default async function EventDetailPage({
 			id, project_id, status, channel, client_name, client_wa, client_email,
 			pic_name, pic_wa,
 			service_type, frame_size, package_id, event_category, event_date,
-			setup_time, start_time, end_time, venue_name, venue_address, venue_city,
+			setup_time, start_time, end_time, venue_name, venue_address, venue_city, venue_province,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			crew_notes, created_at, updated_at,
@@ -500,7 +500,8 @@ export default async function EventDetailPage({
 				<DetailCard title="Lokasi">
 					<DetailRow label="Venue">{event.venue_name}</DetailRow>
 					<DetailRow label="Alamat">{event.venue_address ?? "—"}</DetailRow>
-					<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
+					<DetailRow label="Kota/Kabupaten">{event.venue_city ?? "—"}</DetailRow>
+					<DetailRow label="Provinsi">{event.venue_province ?? "—"}</DetailRow>
 				</DetailCard>
 
 				<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-5 md:col-span-2">

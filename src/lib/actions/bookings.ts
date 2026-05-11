@@ -62,6 +62,7 @@ const BookingInputSchema = z.object({
 	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
 	venue_address: optionalString(255),
 	venue_city: optionalString(60),
+	venue_province: optionalString(60),
 	google_maps_url: optionalString(500),
 	// Channel-specific referrer fields (optional; required by UI based on channel)
 	vendor_name: optionalString(120),
@@ -153,6 +154,7 @@ const FORM_KEYS = [
 	"venue_name",
 	"venue_address",
 	"venue_city",
+	"venue_province",
 	"google_maps_url",
 	"vendor_name",
 	"vendor_pic_name",
@@ -325,6 +327,7 @@ function buildEventPayload(
 		venue_name: input.venue_name,
 		venue_address: input.venue_address,
 		venue_city: input.venue_city,
+		venue_province: input.venue_province,
 		google_maps_url: input.google_maps_url,
 		// Channel referrer
 		vendor_name: input.channel === "vendor" ? input.vendor_name : null,

@@ -96,6 +96,7 @@ export type BookingFormDefaults = Partial<{
 	venue_name: string;
 	venue_address: string;
 	venue_city: string;
+	venue_province: string;
 	google_maps_url: string;
 	vendor_name: string;
 	vendor_contact: string;
@@ -375,11 +376,15 @@ export function BookingForm({
 	const [venueName, setVenueName] = useState(get("venue_name"));
 	const [venueAddress, setVenueAddress] = useState(get("venue_address"));
 	const [venueCity, setVenueCity] = useState(get("venue_city"));
+	const [venueProvince, setVenueProvince] = useState(get("venue_province"));
 	const [mapsUrl, setMapsUrl] = useState(get("google_maps_url"));
 	const [addressTouched, setAddressTouched] = useState(
 		Boolean(get("venue_address")),
 	);
 	const [cityTouched, setCityTouched] = useState(Boolean(get("venue_city")));
+	const [provinceTouched, setProvinceTouched] = useState(
+		Boolean(get("venue_province")),
+	);
 	const [resolvingMaps, setResolvingMaps] = useState(false);
 	const [resolveStatus, setResolveStatus] = useState<
 		| "idle"
@@ -423,6 +428,10 @@ export function BookingForm({
 					setVenueCity(result.city);
 					hydratedSomething = true;
 				}
+				if (!provinceTouched && result.province) {
+					setVenueProvince(result.province);
+					hydratedSomething = true;
+				}
 				if (!venueName && result.venue) {
 					setVenueName(result.venue);
 					hydratedSomething = true;
@@ -445,6 +454,7 @@ export function BookingForm({
 	const [clientWa, setClientWa] = useState(get("client_wa"));
 	const [bookerName, setBookerName] = useState(get("booker_name"));
 	const [bookerSameAsClient, setBookerSameAsClient] = useState(false);
+	const [bookerSameAsVendor, setBookerSameAsVendor] = useState(false);
 	const [picName, setPicName] = useState(get("pic_name"));
 	const [picWa, setPicWa] = useState(get("pic_wa"));
 	const [picSameAsBooker, setPicSameAsBooker] = useState(false);
@@ -453,6 +463,22 @@ export function BookingForm({
 	useEffect(() => {
 		if (bookerSameAsClient) setBookerName(clientName);
 	}, [bookerSameAsClient, clientName]);
+
+	// Toggle: pembooking adalah vendor (channel vendor — kami nggak komunikasi
+	// langsung sama klien, semua via PIC vendor)
+	useEffect(() => {
+		if (bookerSameAsVendor) {
+			setBookerName(vendorPicName || vendorName);
+			if (vendorContact) setClientWa(vendorContact);
+		}
+	}, [bookerSameAsVendor, vendorPicName, vendorName, vendorContact]);
+
+	// Channel ganti ke non-vendor → reset toggle vendor
+	useEffect(() => {
+		if (channel !== "vendor" && bookerSameAsVendor) {
+			setBookerSameAsVendor(false);
+		}
+	}, [channel, bookerSameAsVendor]);
 
 	// Toggle: PIC sama dengan pembooking
 	useEffect(() => {
@@ -1236,43 +1262,43 @@ export function BookingForm({
 					<input type="hidden" name="google_maps_url" value={mapsUrl} />
 				</Field>
 
+				<Field
+					label="Alamat"
+					name="venue_address"
+					hint={
+						addressTouched
+							? "Manual override"
+							: venueAddress
+								? "Auto-fill dari Maps — jalan, kelurahan/desa. Bisa di-edit."
+								: "Opsional — jalan + nomor + kelurahan"
+					}
+				>
+					<input
+						type="text"
+						value={venueAddress}
+						onChange={(e) => {
+							setVenueAddress(e.target.value);
+							setAddressTouched(true);
+						}}
+						placeholder="Jl. ..."
+						className={inputClass}
+					/>
+					<input
+						type="hidden"
+						name="venue_address"
+						value={venueAddress}
+					/>
+				</Field>
 				<div className="grid gap-6 md:grid-cols-2">
 					<Field
-						label="Alamat"
-						name="venue_address"
-						hint={
-							addressTouched
-								? "Manual override"
-								: venueAddress
-									? "Auto-fill dari Maps — bisa di-edit"
-									: "Opsional"
-						}
-					>
-						<input
-							type="text"
-							value={venueAddress}
-							onChange={(e) => {
-								setVenueAddress(e.target.value);
-								setAddressTouched(true);
-							}}
-							placeholder="Jl. ..."
-							className={inputClass}
-						/>
-						<input
-							type="hidden"
-							name="venue_address"
-							value={venueAddress}
-						/>
-					</Field>
-					<Field
-						label="Kota"
+						label="Kota / Kabupaten"
 						name="venue_city"
 						hint={
 							cityTouched
 								? "Manual override"
 								: venueCity
 									? "Auto-fill dari Maps — bisa di-edit"
-									: "Opsional"
+									: "cth. Kota Bogor / Kabupaten Bogor"
 						}
 					>
 						<input
@@ -1282,10 +1308,37 @@ export function BookingForm({
 								setVenueCity(e.target.value);
 								setCityTouched(true);
 							}}
-							placeholder="Bogor"
+							placeholder="Kabupaten Bogor"
 							className={inputClass}
 						/>
 						<input type="hidden" name="venue_city" value={venueCity} />
+					</Field>
+					<Field
+						label="Provinsi"
+						name="venue_province"
+						hint={
+							provinceTouched
+								? "Manual override"
+								: venueProvince
+									? "Auto-fill dari Maps — bisa di-edit"
+									: "Opsional"
+						}
+					>
+						<input
+							type="text"
+							value={venueProvince}
+							onChange={(e) => {
+								setVenueProvince(e.target.value);
+								setProvinceTouched(true);
+							}}
+							placeholder="Jawa Barat"
+							className={inputClass}
+						/>
+						<input
+							type="hidden"
+							name="venue_province"
+							value={venueProvince}
+						/>
 					</Field>
 				</div>
 			</Section>
@@ -1301,9 +1354,11 @@ export function BookingForm({
 						label="Nama Pembooking"
 						name="booker_name"
 						hint={
-							bookerSameAsClient
-								? `Auto: sama dengan klien (${clientName || "—"})`
-								: "Yang booking — bisa pengantin sendiri, kakak, panitia, dll"
+							bookerSameAsVendor
+								? `Auto: PIC vendor (${vendorPicName || vendorName || "—"})`
+								: bookerSameAsClient
+									? `Auto: sama dengan klien (${clientName || "—"})`
+									: "Yang booking — bisa klien, kakak, panitia, atau vendor/WO"
 						}
 					>
 						<input
@@ -1312,10 +1367,11 @@ export function BookingForm({
 							onChange={(e) => {
 								setBookerName(e.target.value);
 								setBookerSameAsClient(false);
+								setBookerSameAsVendor(false);
 							}}
 							placeholder="cth. Andi (kakak pengantin)"
-							disabled={bookerSameAsClient}
-							className={`${inputClass} ${bookerSameAsClient ? "opacity-60" : ""}`}
+							disabled={bookerSameAsClient || bookerSameAsVendor}
+							className={`${inputClass} ${bookerSameAsClient || bookerSameAsVendor ? "opacity-60" : ""}`}
 						/>
 						<input type="hidden" name="booker_name" value={bookerName} />
 					</Field>
@@ -1323,14 +1379,21 @@ export function BookingForm({
 						label="WA Pembooking"
 						name="client_wa"
 						error={err("client_wa")}
-						hint="Primary contact untuk billing + reminder. Format: 08xxxxxxxxxx"
+						hint={
+							bookerSameAsVendor
+								? "Auto: kontak vendor — pakai ini untuk reminder."
+								: "Primary contact untuk billing + reminder. Format: 08xxxxxxxxxx"
+						}
 						required
 					>
 						<input
 							type="tel"
 							required
 							value={clientWa}
-							onChange={(e) => setClientWa(e.target.value)}
+							onChange={(e) => {
+								setClientWa(e.target.value);
+								setBookerSameAsVendor(false);
+							}}
 							placeholder="081234567890"
 							className={`${inputClass} tabular`}
 						/>
@@ -1338,20 +1401,46 @@ export function BookingForm({
 					</Field>
 				</div>
 
-				<label className="flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-2 text-fluid-caption">
-					<input
-						type="checkbox"
-						checked={bookerSameAsClient}
-						onChange={(e) => setBookerSameAsClient(e.target.checked)}
-						className="h-4 w-4 rounded text-primary"
-					/>
-					<span>
-						Pembooking sama dengan klien{" "}
-						<span className="text-muted-foreground">
-							(pengantin/yang punya acara booking sendiri)
+				<div className="space-y-2">
+					<label className="flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-2 text-fluid-caption">
+						<input
+							type="checkbox"
+							checked={bookerSameAsClient}
+							onChange={(e) => {
+								setBookerSameAsClient(e.target.checked);
+								if (e.target.checked) setBookerSameAsVendor(false);
+							}}
+							className="h-4 w-4 rounded text-primary"
+						/>
+						<span>
+							Pembooking sama dengan klien{" "}
+							<span className="text-muted-foreground">
+								(pengantin/yang punya acara booking sendiri)
+							</span>
 						</span>
-					</span>
-				</label>
+					</label>
+
+					{channel === "vendor" && (
+						<label className="fade-in-on-mount flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-2 text-fluid-caption">
+							<input
+								type="checkbox"
+								checked={bookerSameAsVendor}
+								onChange={(e) => {
+									setBookerSameAsVendor(e.target.checked);
+									if (e.target.checked) setBookerSameAsClient(false);
+								}}
+								className="h-4 w-4 rounded text-primary"
+							/>
+							<span>
+								Pembooking adalah vendor{" "}
+								<span className="text-muted-foreground">
+									(kami nggak komunikasi langsung sama klien — semua via PIC
+									vendor)
+								</span>
+							</span>
+						</label>
+					)}
+				</div>
 
 				<input type="hidden" name="client_email" value="" />
 

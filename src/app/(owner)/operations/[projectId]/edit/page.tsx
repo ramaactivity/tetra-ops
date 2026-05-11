@@ -32,7 +32,7 @@ export default async function EditBookingPage({
 			.select(
 				`id, project_id, channel, client_name, client_wa, client_email,
 				service_type, package_id, frame_size, event_category, event_date,
-				setup_time, start_time, end_time, venue_name, venue_address, venue_city,
+				setup_time, start_time, end_time, venue_name, venue_address, venue_city, venue_province,
 				backdrop_id, vendor_decor_markup, include_flashdisk_pouch,
 				base_price, discount_amount, gross_up_pph_amount, crew_notes,
 				event_addons(addon_id, quantity)`,
@@ -125,6 +125,7 @@ export default async function EditBookingPage({
 						venue_name: event.venue_name,
 						venue_address: event.venue_address ?? "",
 						venue_city: event.venue_city ?? "",
+						venue_province: event.venue_province ?? "",
 						backdrop_id: event.backdrop_id ?? "",
 						vendor_decor_markup: event.vendor_decor_markup ?? 0,
 						include_flashdisk_pouch: event.include_flashdisk_pouch ?? true,
