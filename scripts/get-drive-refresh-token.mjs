@@ -3,9 +3,17 @@
 // (tetraphotobooth@gmail.com). Stores nothing — prints to stdout for manual
 // paste into Vercel env vars.
 //
-// Usage:
+// Usage (option A, env vars inline):
 //   GOOGLE_DRIVE_CLIENT_ID=... GOOGLE_DRIVE_CLIENT_SECRET=... \
 //     node scripts/get-drive-refresh-token.mjs
+//
+// Usage (option B, load from .env.local):
+//   node --env-file=.env.local scripts/get-drive-refresh-token.mjs
+//
+// Add --copy flag to pipe refresh token directly to OS clipboard instead
+// of printing to stdout — avoids leaking via terminal scrollback /
+// screenshots. Recommended for production rotations.
+//   node --env-file=.env.local scripts/get-drive-refresh-token.mjs --copy
 //
 // Steps before running:
 //   1. Google Cloud Console → APIs & Services → Credentials
@@ -20,6 +28,7 @@
 //        GOOGLE_DRIVE_PARENT_FOLDER_ID  (manually create "Tetra Ops Events"
 //                                         folder in Drive, copy its ID from URL)
 
+import { spawn } from "node:child_process";
 import http from "node:http";
 import { URL } from "node:url";
 import { OAuth2Client } from "google-auth-library";
@@ -28,6 +37,29 @@ const CLIENT_ID = process.env.GOOGLE_DRIVE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
 const PORT = 53682;
 const REDIRECT_URI = `http://localhost:${PORT}/oauth2/callback`;
+// Pass --copy to skip terminal output and pipe refresh token to clipboard
+// (macOS pbcopy / Linux xclip / Windows clip). Avoids leaking secrets via
+// terminal scrollback or screenshots.
+const COPY_TO_CLIPBOARD = process.argv.includes("--copy");
+
+function copyToClipboard(text) {
+	const cmd =
+		process.platform === "darwin"
+			? "pbcopy"
+			: process.platform === "win32"
+				? "clip"
+				: "xclip"; // -selection clipboard handled by xclip default
+	const p = spawn(cmd, process.platform === "linux" ? ["-selection", "clipboard"] : [], {
+		stdio: ["pipe", "ignore", "ignore"],
+	});
+	p.stdin.end(text);
+	return new Promise((resolve, reject) => {
+		p.on("error", reject);
+		p.on("exit", (code) =>
+			code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`)),
+		);
+	});
+}
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
 	console.error(
@@ -78,18 +110,54 @@ const server = http.createServer(async (req, res) => {
 
 	try {
 		const { tokens } = await oauth2.getToken(code);
-		console.log("");
-		console.log("# === Drive OAuth tokens — paste these into Vercel env vars ===");
-		console.log(`GOOGLE_DRIVE_CLIENT_ID=${CLIENT_ID}`);
-		console.log(`GOOGLE_DRIVE_CLIENT_SECRET=${CLIENT_SECRET}`);
-		console.log(`GOOGLE_DRIVE_REFRESH_TOKEN=${tokens.refresh_token ?? "(MISSING — re-authorize with prompt=consent)"}`);
-		console.log("");
-		console.log(
-			"# Plus: create a parent folder in Drive (e.g. 'Tetra Ops Events'),",
-		);
-		console.log("# copy its ID from the URL (after /folders/), and set:");
-		console.log("GOOGLE_DRIVE_PARENT_FOLDER_ID=<folder-id-here>");
-		console.log("");
+		const refreshToken = tokens.refresh_token;
+		if (!refreshToken) {
+			console.error(
+				"❌ Refresh token MISSING — re-run with prompt=consent + revoke previous grant first.",
+			);
+			return;
+		}
+		if (COPY_TO_CLIPBOARD) {
+			try {
+				await copyToClipboard(refreshToken);
+				console.log("");
+				console.log(
+					"✅ Refresh token copied to clipboard. Paste into Vercel env var GOOGLE_DRIVE_REFRESH_TOKEN.",
+				);
+				console.log("   (Token is NOT printed here — terminal-safe.)");
+				console.log("");
+			} catch (err) {
+				console.error(
+					"⚠ Clipboard copy failed:",
+					err instanceof Error ? err.message : err,
+				);
+				console.error(
+					"  Falling back to stdout (visible — careful with screenshots):",
+				);
+				console.log(`GOOGLE_DRIVE_REFRESH_TOKEN=${refreshToken}`);
+			}
+		} else {
+			console.log("");
+			console.log(
+				"# === Drive OAuth tokens — paste these into Vercel env vars ===",
+			);
+			console.log(`GOOGLE_DRIVE_CLIENT_ID=${CLIENT_ID}`);
+			console.log(`GOOGLE_DRIVE_CLIENT_SECRET=${CLIENT_SECRET}`);
+			console.log(`GOOGLE_DRIVE_REFRESH_TOKEN=${refreshToken}`);
+			console.log("");
+			console.log(
+				"# 💡 TIP: re-run with --copy flag to pipe token to clipboard",
+			);
+			console.log(
+				"#        instead (terminal-safe; no token visible in output).",
+			);
+			console.log(
+				"# Plus: create a parent folder in Drive (e.g. 'Tetra Ops Events'),",
+			);
+			console.log("# copy its ID from the URL (after /folders/), and set:");
+			console.log("GOOGLE_DRIVE_PARENT_FOLDER_ID=<folder-id-here>");
+			console.log("");
+		}
 	} catch (err) {
 		console.error("Token exchange failed:", err);
 	} finally {
