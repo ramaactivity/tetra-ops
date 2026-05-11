@@ -1750,6 +1750,7 @@ export function BookingForm({
 								<NativeSelect
 									id="bonus-picker"
 									value=""
+									triggerClassName="w-full"
 									onValueChange={(v) => {
 										if (v) addBonusRow(v);
 									}}
