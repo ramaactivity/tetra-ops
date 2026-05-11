@@ -169,6 +169,24 @@ export default async function SettlePage({
 				/>
 			</div>
 
+			<div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+				<div className="flex-1 space-y-1">
+					<p className="text-fluid-caption font-semibold text-primary">
+						✨ Coba flow Tutup Buku unified
+					</p>
+					<p className="text-fluid-caption text-foreground/80">
+						Satu page yang gabungin Konsumsi + HPP + OpEx + Komisi + Bagi Hasil
+						+ P&L live → tombol "Simpan & Tutup Buku" sekali klik.
+					</p>
+				</div>
+				<Link
+					href={`/operations/${projectId}/tutup-buku`}
+					className="press-down inline-flex h-9 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90"
+				>
+					Tutup Buku →
+				</Link>
+			</div>
+
 			{rekap ? (
 				<div
 					className={`rounded-md border p-3 ${
