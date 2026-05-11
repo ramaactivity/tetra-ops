@@ -4,6 +4,7 @@ import { AlertTriangle, MapPin, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -488,19 +489,21 @@ export function BookingForm({
 					{channel === "vendor" && (
 						<>
 							<Field label="Nama Vendor" name="vendor_name" required>
-								<input
-									type="text"
-									list="vendor-suggestions"
+								<Combobox
 									value={vendorName}
-									onChange={(e) => handleVendorAutoFill(e.target.value)}
-									placeholder="cth. PT Bunga Hias Indah"
-									className={inputClass}
+									onValueChange={handleVendorAutoFill}
+									options={vendorOptions.map(
+										(v): ComboboxOption => ({
+											value: v.name,
+											label: v.name,
+											sublabel: v.contact ?? undefined,
+										}),
+									)}
+									placeholder="Pilih atau ketik vendor baru…"
+									allowFreeText
+									emptyMessage="Vendor baru — akan tersimpan saat save"
+									aria-label="Nama vendor"
 								/>
-								<datalist id="vendor-suggestions">
-									{vendorOptions.map((v) => (
-										<option key={v.name} value={v.name} />
-									))}
-								</datalist>
 								<input type="hidden" name="vendor_name" value={vendorName} />
 							</Field>
 							<div className="grid gap-6 md:grid-cols-2">
@@ -557,21 +560,23 @@ export function BookingForm({
 							<Field
 								label="Relasi (User Tetra)"
 								name="referrer_user_id"
-								hint="Pilih owner/crew yang mereferensikan. Komisi default Rp100.000."
+								hint="Cari nama owner/crew. Komisi default Rp100.000."
 								required
 							>
-								<NativeSelect
+								<Combobox
 									value={referrerUserId}
 									onValueChange={setReferrerUserId}
-									placeholder="— Pilih relasi —"
-									options={[
-										{ value: "", label: "— pilih relasi —" },
-										...relasiOptions.map((r) => ({
+									options={relasiOptions.map(
+										(r): ComboboxOption => ({
 											value: r.id,
-											label: `${r.full_name} · ${r.role}`,
-										})),
-									]}
-									triggerClassName="w-full"
+											label: r.full_name,
+											sublabel: r.role,
+										}),
+									)}
+									placeholder="Cari nama relasi…"
+									allowFreeText={false}
+									emptyMessage="Nggak ketemu — cek daftar di Settings → Master Crew"
+									aria-label="Cari relasi"
 								/>
 								<input
 									type="hidden"
