@@ -1,10 +1,10 @@
-import { CheckCircle2, ChevronLeft, Clock, Image, Info } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ExternalLink, Image, Info } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { RekapForm } from "@/components/rekap/rekap-form";
-import { Badge } from "@/components/ui/badge";
+import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
+import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -16,6 +16,7 @@ type RekapRow = {
 	pouch_used: number;
 	photomagnet_used: number;
 	keychain_used: number;
+	custom_materials: Record<string, number> | null;
 	proof_photo_urls: string[];
 	crew_notes: string | null;
 	is_approved: boolean | null;
@@ -51,10 +52,7 @@ export default async function CrewRekapPage({
 	// Security: must be the assigned crew for this event
 	const crewAssignments = (event.crew_assignments ?? []) as Array<{
 		role_in_event: string;
-		user:
-			| { id: string }
-			| Array<{ id: string }>
-			| null;
+		user: { id: string } | Array<{ id: string }> | null;
 	}>;
 	const isAssigned = crewAssignments.some((a) => {
 		const u = Array.isArray(a.user) ? a.user[0] : a.user;
@@ -68,6 +66,7 @@ export default async function CrewRekapPage({
 		.select(
 			`id, cetak_total, media_set_used, sleeve_used,
 			flashdisk_used, pouch_used, photomagnet_used, keychain_used,
+			custom_materials,
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes`,
 		)
 		.eq("event_id", event.id)
@@ -75,6 +74,20 @@ export default async function CrewRekapPage({
 
 	const rekap = rekapData as RekapRow | null;
 	const mode: "create" | "update" = rekap ? "update" : "create";
+
+	// Load context (paket spec + bonuses + mappings + custom inventory pool)
+	const context = await getRekapContext(event.id as string);
+	if ("error" in context) {
+		return (
+			<div className="mx-auto w-full max-w-md px-4 py-6">
+				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+					<p className="text-sm font-medium text-destructive">
+						Gagal load konteks rekap: {context.error}
+					</p>
+				</div>
+			</div>
+		);
+	}
 
 	const todayISO = new Date().toISOString().slice(0, 10);
 	const isPastEvent = event.event_date <= todayISO;
@@ -88,6 +101,7 @@ export default async function CrewRekapPage({
 				pouch_used: String(rekap.pouch_used),
 				photomagnet_used: String(rekap.photomagnet_used),
 				keychain_used: String(rekap.keychain_used),
+				custom_materials: JSON.stringify(rekap.custom_materials ?? {}),
 				proof_photo_urls: rekap.proof_photo_urls.join("\n"),
 				crew_notes: rekap.crew_notes ?? "",
 			}
@@ -103,48 +117,19 @@ export default async function CrewRekapPage({
 				{event.client_name}
 			</Link>
 
-			<header className="space-y-2">
-				<h1 className="text-2xl font-semibold leading-tight tracking-tight">
-					Rekap Event
-				</h1>
-				<p className="text-muted-foreground text-sm">
-					{event.client_name} · {formatDateID(event.event_date)} ·{" "}
-					{event.venue_name}
-				</p>
-
-				<div className="flex flex-wrap items-center gap-2">
-					{rekap?.is_approved === true && (
-						<Badge
-							variant="outline"
-							className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-						>
-							<CheckCircle2 className="mr-1 h-3 w-3" />
-							Approved owner
-						</Badge>
-					)}
-					{rekap && rekap.is_approved === null && (
-						<Badge
-							variant="outline"
-							className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
-						>
-							<Clock className="mr-1 h-3 w-3" />
-							Menunggu review owner
-						</Badge>
-					)}
-					{rekap?.is_approved === false && (
-						<Badge
-							variant="outline"
-							className="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300"
-						>
-							Need revision
-						</Badge>
-					)}
-				</div>
-			</header>
+			<RekapHeroCard
+				clientName={event.client_name}
+				projectId={event.project_id}
+				eventDate={event.event_date}
+				venueName={event.venue_name}
+				pkg={context.pkg}
+				isApproved={rekap?.is_approved}
+				submitted={Boolean(rekap)}
+			/>
 
 			{!isPastEvent && !rekap && (
-				<div className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 flex items-start gap-2 rounded-lg border p-3">
-					<Info className="text-amber-700 dark:text-amber-400 mt-0.5 h-4 w-4 shrink-0" />
+				<div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+					<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
 					<p className="text-foreground/80 text-xs leading-relaxed">
 						Event belum lewat. Lo bisa submit rekap setelah event selesai.
 						Form ini boleh kepake duluan kalau memang event-nya udah beres.
@@ -153,7 +138,7 @@ export default async function CrewRekapPage({
 			)}
 
 			{rekap?.is_approved === false && rekap.review_notes && (
-				<div className="border-rose-200 bg-rose-50/50 dark:border-rose-900 dark:bg-rose-950/20 space-y-1 rounded-lg border p-3">
+				<div className="space-y-1 rounded-lg border border-rose-200 bg-rose-50/50 p-3 dark:border-rose-900 dark:bg-rose-950/20">
 					<p className="text-rose-900 dark:text-rose-200 text-[11px] font-semibold uppercase tracking-wider">
 						Owner minta revisi
 					</p>
@@ -164,9 +149,9 @@ export default async function CrewRekapPage({
 			)}
 
 			{rekap?.is_approved === true ? (
-				<div className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-4">
+				<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-4">
 					<div className="flex items-center gap-2">
-						<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 h-4 w-4" />
+						<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
 						<p className="text-foreground text-sm font-medium">
 							Rekap sudah di-approve
 						</p>
@@ -193,9 +178,10 @@ export default async function CrewRekapPage({
 											href={url}
 											target="_blank"
 											rel="noopener noreferrer"
-											className="text-primary block truncate text-xs hover:underline"
+											className="text-primary inline-flex items-center gap-1 truncate text-xs hover:underline"
 										>
 											{url}
+											<ExternalLink className="h-3 w-3 shrink-0" />
 										</a>
 									</li>
 								))}
@@ -217,14 +203,13 @@ export default async function CrewRekapPage({
 					</p>
 				</div>
 			) : (
-				<div className="border-border-default bg-surface-2 rounded-xl border p-4">
-					<RekapForm
-						eventId={event.id}
-						projectId={event.project_id}
-						defaults={defaults}
-						mode={mode}
-					/>
-				</div>
+				<RekapForm
+					eventId={event.id}
+					projectId={event.project_id}
+					defaults={defaults}
+					mode={mode}
+					context={context}
+				/>
 			)}
 		</div>
 	);

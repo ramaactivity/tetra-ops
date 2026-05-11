@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
+import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -61,6 +62,7 @@ export default async function EventRekapPage({
 		.select(
 			`id, cetak_total, media_set_used, sleeve_used,
 			flashdisk_used, pouch_used, photomagnet_used, keychain_used,
+			custom_materials,
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
 			stock_committed_at, stock_movement_batch_id,
 			submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
@@ -68,6 +70,19 @@ export default async function EventRekapPage({
 		)
 		.eq("event_id", event.id)
 		.maybeSingle();
+
+	const context = await getRekapContext(event.id as string);
+	if ("error" in context) {
+		return (
+			<Container size="md">
+				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+					<p className="text-sm font-medium text-destructive">
+						Gagal load konteks rekap: {context.error}
+					</p>
+				</div>
+			</Container>
+		);
+	}
 
 	const rekap = rekapData
 		? ({
@@ -90,6 +105,10 @@ export default async function EventRekapPage({
 				pouch_used: String(rekap.pouch_used),
 				photomagnet_used: String(rekap.photomagnet_used),
 				keychain_used: String(rekap.keychain_used),
+				custom_materials: JSON.stringify(
+					(rekap as { custom_materials?: Record<string, number> | null })
+						.custom_materials ?? {},
+				),
 				proof_photo_urls: (rekap.proof_photo_urls ?? []).join("\n"),
 				crew_notes: rekap.crew_notes ?? "",
 			}
@@ -235,6 +254,7 @@ export default async function EventRekapPage({
 					projectId={projectId}
 					defaults={defaults}
 					mode={rekap ? "update" : "create"}
+					context={context}
 				/>
 			)}
 		</Container>
