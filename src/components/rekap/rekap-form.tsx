@@ -53,8 +53,6 @@ const EMPTY: Defaults = {
 	crew_notes: "",
 };
 
-const MEDIA_SET_RATIO = 140; // 1 mediaset ≈ 140 cetak
-
 export function RekapForm({
 	eventId,
 	projectId,
@@ -276,18 +274,6 @@ export function RekapForm({
 		};
 	}
 
-	// === Auto-fill (cetak → mediaset + sleeve) ===
-	function autoFillFromCetak() {
-		const c = Number(cetak) || 0;
-		if (c <= 0) return;
-		if (!touched.media_set_used) {
-			setMedia(String(Math.ceil(c / MEDIA_SET_RATIO)));
-		}
-		if (!touched.sleeve_used) {
-			setSleeve(String(c));
-		}
-	}
-
 	// === Add-on prefill calc ===
 	const photomagnetPaid = useMemo(
 		() =>
@@ -335,17 +321,28 @@ export function RekapForm({
 	const warnings = useMemo(() => {
 		const w: string[] = [];
 		const c = Number(cetak) || 0;
-		const s = Number(sleeve) || 0;
-		const m = Number(media) || 0;
-		if (c > 0 && s > c * 2) w.push("Sleeve > 2× total cetak — biasanya 1:1, cek angkanya.");
-		if (c > 0 && m === 0) w.push("Media set masih 0. Auto-fill (Hitung) atau isi manual.");
-		if (m > 0 && m * MEDIA_SET_RATIO < c * 0.5) {
-			w.push(
-				`Media set ${m} biasanya ≈ ${m * MEDIA_SET_RATIO} cetak — tapi total cetak ${c}, mismatch.`,
-			);
+		// Only flag mismatches when user manually overrode the auto-derived
+		// values — otherwise the math is consistent by construction.
+		if (touched.sleeve_used) {
+			const s = Number(sleeve) || 0;
+			if (c > 0 && s > c * 2) {
+				w.push("Sleeve override > 2× total cetak — biasanya 1:1, cek lagi.");
+			}
+		}
+		if (touched.media_set_used) {
+			const m = Number(media) || 0;
+			const mediaMapping = mappingByField.get("media_set_used");
+			if (mediaMapping && c > 0) {
+				const expected = Math.ceil(c * mediaMapping.qty_per_unit);
+				if (m > 0 && Math.abs(m - expected) > expected * 0.5) {
+					w.push(
+						`Mediaset override ${m} berbeda jauh dari auto-derive (${expected}). Pastikan benar.`,
+					);
+				}
+			}
 		}
 		return w;
-	}, [cetak, sleeve, media]);
+	}, [cetak, sleeve, media, touched, mappingByField]);
 
 	// Custom materials combobox options (exclude already-added)
 	const customComboboxOptions = useMemo<ComboboxOption[]>(() => {
@@ -384,69 +381,93 @@ export function RekapForm({
 			/>
 
 			{/* ========== CETAK ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
-				<div className="flex items-start justify-between gap-2">
-					<div>
-						<h3 className="text-base font-semibold tracking-tight">Cetak</h3>
-						<p className="text-xs text-muted-foreground">
-							Hitung total dari counter mesin atau manual.
-						</p>
-					</div>
-					{Number(cetak) > 0 && (!touched.media_set_used || !touched.sleeve_used) && (
-						<button
-							type="button"
-							onClick={autoFillFromCetak}
-							className="press-down inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
-						>
-							<Calculator className="h-3 w-3" />
-							Hitung otomatis
-						</button>
-					)}
-				</div>
-				<div className="grid gap-4 sm:grid-cols-3">
-					<NumField
-						label="Total cetak (pcs)"
-						name="cetak_total"
-						value={cetak}
-						onChange={(v) => {
-							setCetak(v);
-							markTouched("cetak_total");
-						}}
-						error={err("cetak_total")}
-						cost={fieldCost("cetak_total", Number(cetak) || 0)}
-						stock={fieldStock("cetak_total", Number(cetak) || 0)}
-						auto={false}
-					/>
-					<NumField
-						label="Media Set"
-						name="media_set_used"
-						value={media}
-						onChange={(v) => {
-							setMedia(v);
-							markTouched("media_set_used");
-						}}
-						error={err("media_set_used")}
-						hint={`1 set ≈ ${MEDIA_SET_RATIO} cetak`}
-						cost={fieldCost("media_set_used", Number(media) || 0)}
-						stock={fieldStock("media_set_used", Number(media) || 0)}
-						auto={!touched.media_set_used && Number(media) > 0}
-					/>
-					<NumField
-						label="Sleeve (pcs)"
-						name="sleeve_used"
-						value={sleeve}
-						onChange={(v) => {
-							setSleeve(v);
-							markTouched("sleeve_used");
-						}}
-						error={err("sleeve_used")}
-						hint="Biasanya = total cetak"
-						cost={fieldCost("sleeve_used", Number(sleeve) || 0)}
-						stock={fieldStock("sleeve_used", Number(sleeve) || 0)}
-						auto={!touched.sleeve_used && Number(sleeve) > 0}
-					/>
-				</div>
-			</section>
+			{(() => {
+				const cetakNum = Number(cetak) || 0;
+				const mediaMapping = mappingByField.get("media_set_used");
+				const sleeveMapping = mappingByField.get("sleeve_used");
+				const autoMedia = mediaMapping
+					? Math.ceil(cetakNum * mediaMapping.qty_per_unit)
+					: 0;
+				const autoSleeve = sleeveMapping
+					? Math.ceil(cetakNum * sleeveMapping.qty_per_unit)
+					: 0;
+				const finalMedia = touched.media_set_used
+					? Number(media) || 0
+					: autoMedia;
+				const finalSleeve = touched.sleeve_used
+					? Number(sleeve) || 0
+					: autoSleeve;
+				return (
+					<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+						<div>
+							<h3 className="text-base font-semibold tracking-tight">Cetak</h3>
+							<p className="text-xs text-muted-foreground">
+								Cuma isi total cetak — mediaset + sleeve auto-hitung dari
+								mapping per frame size.
+							</p>
+						</div>
+						<NumField
+							label="Total cetak (pcs)"
+							name="cetak_total"
+							value={cetak}
+							onChange={(v) => {
+								setCetak(v);
+								markTouched("cetak_total");
+							}}
+							error={err("cetak_total")}
+							cost={fieldCost("cetak_total", cetakNum)}
+							stock={fieldStock("cetak_total", cetakNum)}
+							auto={false}
+						/>
+						{/* Auto-derived preview cards */}
+						<div className="grid gap-3 sm:grid-cols-2">
+							<AutoDerivedCard
+								label="Mediaset"
+								value={finalMedia}
+								mapping={mediaMapping}
+								frameSize={frameSize}
+								touched={touched.media_set_used}
+								manualValue={media}
+								onManualChange={(v) => {
+									setMedia(v);
+									markTouched("media_set_used");
+								}}
+								onResetToAuto={() => {
+									setTouched((t) => ({ ...t, media_set_used: false }));
+									setMedia(String(autoMedia));
+								}}
+							/>
+							<AutoDerivedCard
+								label="Sleeve"
+								value={finalSleeve}
+								mapping={sleeveMapping}
+								frameSize={frameSize}
+								touched={touched.sleeve_used}
+								manualValue={sleeve}
+								onManualChange={(v) => {
+									setSleeve(v);
+									markTouched("sleeve_used");
+								}}
+								onResetToAuto={() => {
+									setTouched((t) => ({ ...t, sleeve_used: false }));
+									setSleeve(String(autoSleeve));
+								}}
+							/>
+						</div>
+						{/* Hidden inputs — submit auto value when not touched, manual otherwise */}
+						<input
+							type="hidden"
+							name="media_set_used"
+							value={String(finalMedia)}
+						/>
+						<input
+							type="hidden"
+							name="sleeve_used"
+							value={String(finalSleeve)}
+						/>
+					</section>
+				);
+			})()}
 
 			{/* ========== FLASHDISK & POUCH ========== */}
 			<section
@@ -722,6 +743,128 @@ type StockInfo = {
 	critical: boolean;
 	lowAfter: boolean;
 };
+
+// Auto-derived preview card for mediaset / sleeve. Shows the computed
+// value + ratio info + HPP. Click "Sesuaikan" to enter manual override.
+function AutoDerivedCard({
+	label,
+	value,
+	mapping,
+	frameSize,
+	touched,
+	manualValue,
+	onManualChange,
+	onResetToAuto,
+}: {
+	label: string;
+	value: number;
+	mapping:
+		| {
+				rekap_field: string;
+				frame_size: string;
+				qty_per_unit: number;
+				item: {
+					sku: string;
+					name: string;
+					unit: string;
+					purchase_price_avg: number;
+					current_stock: number;
+				} | null;
+		  }
+		| undefined;
+	frameSize: string;
+	touched: boolean;
+	manualValue: string;
+	onManualChange: (v: string) => void;
+	onResetToAuto: () => void;
+}) {
+	if (!mapping || !mapping.item) {
+		return (
+			<div className="rounded-lg border border-dashed border-border-default bg-surface-3/40 p-3">
+				<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+					{label}
+				</p>
+				<p className="text-sm text-muted-foreground italic">
+					Mapping belum di-set di Settings → Items Mapping
+				</p>
+			</div>
+		);
+	}
+	const item = mapping.item;
+	const cost = Math.round(value * item.purchase_price_avg);
+	const stockBefore = item.current_stock;
+	const stockAfter = stockBefore - value;
+	const critical = value > stockBefore;
+	const lowAfter =
+		stockBefore > 0 && stockAfter / Math.max(stockBefore, 1) < 0.1;
+	const stockToneClass = critical
+		? "bg-destructive/15 text-destructive"
+		: lowAfter
+			? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+			: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+
+	return (
+		<div className="space-y-2 rounded-lg border border-border-default bg-surface-3 p-3">
+			<div className="flex items-baseline justify-between gap-2">
+				<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+					{label}
+					<span className="ml-1 text-[9px] font-medium text-primary">
+						{touched ? "MANUAL" : "AUTO"}
+					</span>
+				</p>
+				{touched ? (
+					<button
+						type="button"
+						onClick={onResetToAuto}
+						className="text-[10px] font-medium text-primary hover:underline"
+					>
+						Reset ke auto
+					</button>
+				) : (
+					<button
+						type="button"
+						onClick={() => onManualChange(String(value))}
+						className="text-[10px] font-medium text-muted-foreground hover:text-primary"
+					>
+						Sesuaikan
+					</button>
+				)}
+			</div>
+			{touched ? (
+				<input
+					type="number"
+					min={0}
+					value={manualValue}
+					onChange={(e) => onManualChange(e.target.value)}
+					className="tabular h-9 w-full rounded-md border border-border-default bg-background px-2 text-lg font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+				/>
+			) : (
+				<p className="tabular text-fluid-h2 font-semibold text-foreground">
+					{value.toLocaleString("id-ID")}{" "}
+					<span className="text-xs font-normal text-muted-foreground">
+						{item.unit}
+					</span>
+				</p>
+			)}
+			<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+				<span className="tabular rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+					Rp {cost.toLocaleString("id-ID")}
+				</span>
+				{value > 0 && (
+					<span
+						className={`tabular rounded-full px-2 py-0.5 font-medium ${stockToneClass}`}
+					>
+						Stok: {stockBefore.toLocaleString("id-ID")} →{" "}
+						{stockAfter.toLocaleString("id-ID")}
+					</span>
+				)}
+				<span className="text-[10px] text-muted-foreground">
+					{frameSize || "default"} · ×{mapping.qty_per_unit} {item.unit}/cetak
+				</span>
+			</div>
+		</div>
+	);
+}
 
 function NumField({
 	label,
