@@ -373,8 +373,62 @@ export function BookingForm({
 
 	// === Location
 	const [venueName, setVenueName] = useState(get("venue_name"));
+	const [venueAddress, setVenueAddress] = useState(get("venue_address"));
 	const [venueCity, setVenueCity] = useState(get("venue_city"));
 	const [mapsUrl, setMapsUrl] = useState(get("google_maps_url"));
+	const [addressTouched, setAddressTouched] = useState(
+		Boolean(get("venue_address")),
+	);
+	const [cityTouched, setCityTouched] = useState(Boolean(get("venue_city")));
+	const [resolvingMaps, setResolvingMaps] = useState(false);
+	const [resolveStatus, setResolveStatus] = useState<
+		"idle" | "ok" | "partial" | "error"
+	>("idle");
+
+	// Debounced auto-resolve Maps URL → alamat + kota
+	useEffect(() => {
+		if (!mapsUrl || !/^https?:\/\//.test(mapsUrl)) {
+			setResolveStatus("idle");
+			return;
+		}
+		let cancelled = false;
+		const timer = setTimeout(async () => {
+			setResolvingMaps(true);
+			try {
+				const { resolveMapsUrl } = await import("@/lib/actions/maps");
+				const result = await resolveMapsUrl(mapsUrl);
+				if (cancelled) return;
+				if (!result.ok) {
+					setResolveStatus("error");
+					return;
+				}
+				let hydratedSomething = false;
+				// Only override if user hasn't manually typed
+				if (!addressTouched && result.address) {
+					setVenueAddress(result.address);
+					hydratedSomething = true;
+				}
+				if (!cityTouched && result.city) {
+					setVenueCity(result.city);
+					hydratedSomething = true;
+				}
+				if (!venueName && result.venue) {
+					setVenueName(result.venue);
+					hydratedSomething = true;
+				}
+				setResolveStatus(hydratedSomething ? "ok" : "partial");
+			} catch {
+				if (!cancelled) setResolveStatus("error");
+			} finally {
+				if (!cancelled) setResolvingMaps(false);
+			}
+		}, 800);
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mapsUrl]);
 
 	// === Contacts
 	const [clientWa, setClientWa] = useState(get("client_wa"));
@@ -1124,31 +1178,20 @@ export function BookingForm({
 					/>
 					<input type="hidden" name="venue_name" value={venueName} required />
 				</Field>
-				<div className="grid gap-6 md:grid-cols-2">
-					<Field label="Alamat" name="venue_address" hint="Opsional">
-						<input
-							type="text"
-							name="venue_address"
-							defaultValue={get("venue_address")}
-							placeholder="Jl. ..."
-							className={inputClass}
-						/>
-					</Field>
-					<Field label="Kota" name="venue_city" hint="Opsional">
-						<input
-							type="text"
-							value={venueCity}
-							onChange={(e) => setVenueCity(e.target.value)}
-							placeholder="Bogor"
-							className={inputClass}
-						/>
-						<input type="hidden" name="venue_city" value={venueCity} />
-					</Field>
-				</div>
 				<Field
 					label="Google Maps URL"
 					name="google_maps_url"
-					hint="Tombol di kanan akan buka Google Maps search — copy URL hasil pin & paste di sini."
+					hint={
+						resolvingMaps
+							? "🔄 Mengambil info dari Maps…"
+							: resolveStatus === "ok"
+								? "✓ Alamat + kota terisi otomatis dari pin Maps"
+								: resolveStatus === "partial"
+									? "⚠ Maps URL valid, tapi alamat/kota nggak ke-resolve. Isi manual aja."
+									: resolveStatus === "error"
+										? "⚠ Gagal parse — coba paste URL Maps yang lebih spesifik."
+										: "Klik 'Cari di Maps' → pin lokasi → copy share URL → paste di sini. Alamat + kota auto-fill."
+					}
 				>
 					<div className="flex gap-2">
 						<input
@@ -1175,6 +1218,59 @@ export function BookingForm({
 					</div>
 					<input type="hidden" name="google_maps_url" value={mapsUrl} />
 				</Field>
+
+				<div className="grid gap-6 md:grid-cols-2">
+					<Field
+						label="Alamat"
+						name="venue_address"
+						hint={
+							addressTouched
+								? "Manual override"
+								: venueAddress
+									? "Auto-fill dari Maps — bisa di-edit"
+									: "Opsional"
+						}
+					>
+						<input
+							type="text"
+							value={venueAddress}
+							onChange={(e) => {
+								setVenueAddress(e.target.value);
+								setAddressTouched(true);
+							}}
+							placeholder="Jl. ..."
+							className={inputClass}
+						/>
+						<input
+							type="hidden"
+							name="venue_address"
+							value={venueAddress}
+						/>
+					</Field>
+					<Field
+						label="Kota"
+						name="venue_city"
+						hint={
+							cityTouched
+								? "Manual override"
+								: venueCity
+									? "Auto-fill dari Maps — bisa di-edit"
+									: "Opsional"
+						}
+					>
+						<input
+							type="text"
+							value={venueCity}
+							onChange={(e) => {
+								setVenueCity(e.target.value);
+								setCityTouched(true);
+							}}
+							placeholder="Bogor"
+							className={inputClass}
+						/>
+						<input type="hidden" name="venue_city" value={venueCity} />
+					</Field>
+				</div>
 			</Section>
 
 			{/* === 8. CONTACTS === */}
