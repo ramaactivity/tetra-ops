@@ -23,6 +23,12 @@ const jetbrainsMono = JetBrains_Mono({
 	display: "swap",
 });
 
+// Google Search Console verification — required for OAuth consent screen
+// branding verification. Set GOOGLE_SITE_VERIFICATION in env (Vercel +
+// .env.local) with the value from Search Console "HTML tag" method, then
+// re-verify in Google Auth Platform → Branding.
+const googleSiteVerification = process.env.GOOGLE_SITE_VERIFICATION;
+
 export const metadata: Metadata = {
 	title: "Tetra Ops",
 	description: "Internal operating system for Tetra Photobooth",
@@ -42,6 +48,9 @@ export const metadata: Metadata = {
 	formatDetection: {
 		telephone: false,
 	},
+	...(googleSiteVerification && {
+		verification: { google: googleSiteVerification },
+	}),
 };
 
 export const viewport: Viewport = {

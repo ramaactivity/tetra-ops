@@ -97,8 +97,25 @@ export default async function HomePage() {
 					</div>
 				</main>
 
-				<footer className="flex flex-wrap items-center justify-between gap-2 pt-6 text-fluid-caption text-muted-foreground/80">
-					<p>© {new Date().getFullYear()} Tetra Photobooth.</p>
+				<footer className="flex flex-wrap items-center justify-between gap-3 pt-6 text-fluid-caption text-muted-foreground/80">
+					<div className="flex flex-wrap items-center gap-3">
+						<p>© {new Date().getFullYear()} Tetra Photobooth.</p>
+						<Link
+							href="/privacy"
+							className="underline-offset-2 hover:text-foreground hover:underline"
+						>
+							Privacy Policy
+						</Link>
+						<span aria-hidden className="text-muted-foreground/40">
+							·
+						</span>
+						<Link
+							href="/terms"
+							className="underline-offset-2 hover:text-foreground hover:underline"
+						>
+							Terms of Service
+						</Link>
+					</div>
 					<p className="tabular">Built for go-live · Bogor, Indonesia</p>
 				</footer>
 			</div>
