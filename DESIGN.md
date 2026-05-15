@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Tetra-Ops-design-analysis
-description: "An internal operations system for a photobooth business in Indonesia — synthesized from Linear's dark-canvas surface discipline, Stripe's financial-data DNA, and Vercel's developer-platform clarity. The system anchors on Tetra Crimson #DC2954 as the single chromatic accent. Sunrise gradient (crimson → amber → gold) is reserved exclusively as a low-opacity decorative orb in hero compositions — never as a card fill, never as a text fill on operational chrome. **Type is ALL Inter, no serif anywhere.** Vercel and Linear don't use serif; neither does Tetra. Display tier runs Inter at weights 500–700 with aggressive negative tracking (−2.4px to −3px at 80px+). Tabular-figure variants for any cell containing money or quantities (Stripe DNA). JetBrains Mono carries project IDs, SKUs, timestamps. Cards live on a four-step surface ladder with 1px hairline borders. **No painted gradients on stat cards / KPI tiles / operational chrome** — that's the Linear/Vercel discipline. Shadows reserved for popovers + the decisive-CTA glow signature. Pill-shaped CTAs are reserved for decisive financial actions (Simpan & Tutup Buku, Submit Rekap, Approve); compact 8px radii carry the everyday UI."
+description: "An internal operations system for a photobooth business in Indonesia — synthesized from Linear's dark-canvas surface discipline, Stripe's financial-data DNA, and Vercel's developer-platform clarity. The system anchors on **Iris #5E6AD2** (Linear lavender-blue) as the single chromatic accent. **Zero gradients anywhere** — clean and seamless, per the rule 'jangan ada gradient sama sekali'. **Type is ALL Inter**, with Linear's OpenType feature stack (`cv11` single-story `a`, `ss03` alt `g`, `cv01` slashed zero) applied globally. Display tier runs Inter at weights 500–700 with aggressive negative tracking (−3.2px at 80px, −1.92px at 48px). Tabular-figure variants for any cell containing money or quantities (Stripe DNA). JetBrains Mono carries project IDs, SKUs, timestamps. Cards live on a four-step surface ladder with 1px hairline borders. Hover state changes background color only — no translate, no shadow shift (Linear/Vercel restraint). Pill-shaped CTAs are reserved for decisive financial actions (Simpan & Tutup Buku, Submit Rekap, Approve); compact 8px radii carry the everyday UI."
 
 colors:
   # === Brand — Iris (Linear lavender-blue) ===
@@ -560,24 +560,22 @@ components:
     padding: "{spacing.sm} {spacing.md}"
     borderColor: "rgba(16,185,129,0.30)"
 
-  # === Hero (landing only — sunrise gradient + Playfair) ===
+  # === Hero (landing only — Inter, no gradient, no serif) ===
   hero-canvas:
-    # Sunrise radial orb at low opacity behind hero copy
+    # Plain canvas — no atmospheric orbs, no sunrise. Hierarchy is the
+    # headline itself, the negative tracking, and the surface ladder.
     backgroundColor: "{colors.dark-canvas}"
-    backgroundOverlay: "{colors.gradient-sunrise-radial}"
-    backgroundOverlayOpacity: "0.20"
   hero-headline:
-    fontFamily: "'Playfair Display', 'Times New Roman', Georgia, serif"
+    fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
     fontSize: 72px
     fontWeight: 600
     lineHeight: 1.05
     letterSpacing: -2.16px
     textColor: "{colors.dark-ink}"
   hero-headline-accent:
-    # The single highlighted word ("photobooth") rendered with sunrise gradient text fill
-    backgroundClip: text
-    backgroundImage: "{colors.gradient-sunrise}"
-    textColor: transparent
+    # The single highlighted word rendered in solid Iris primary —
+    # the only chromatic accent in the brand. No gradient text fill.
+    textColor: "{colors.primary}"
 ---
 
 ## Overview
@@ -592,7 +590,7 @@ The system anchors on three DNA borrowings:
 
 Tetra Crimson (`{colors.primary}` #DC2954) is the single chromatic accent — used on primary CTAs, focus rings, brand mark, and links. The Sunrise gradient (`{colors.gradient-sunrise}` crimson → amber → gold) is **decorative only**: hero word fills, empty-state orbs, success moments. It never appears as a button background, card fill, or section divider.
 
-Display type uses **Playfair Display** (existing brand investment) reserved for landing hero / branded eyebrows — it does NOT leak into operational chrome. Headlines and body use **Inter**. **JetBrains Mono** carries project IDs (`PRJ-XXX`), SKUs (`ITM-BOX-4R`), Drive URLs, timestamps, and dense numeric breakdowns.
+Display type is **Inter at 600 weight with aggressive negative tracking** — Linear/Vercel discipline. No Playfair, no serif, no second family on hero. **JetBrains Mono** carries project IDs (`PRJ-XXX`), SKUs (`ITM-BOX-4R`), Drive URLs, timestamps, and dense numeric breakdowns.
 
 **Key Characteristics:**
 - **Dark-canvas native** — `{colors.dark-canvas}` #0A0A0F is the default operator surface; light-mode for landing + crew portal.
@@ -664,17 +662,35 @@ Reserved for state communication — never decorative:
 ## Typography
 
 ### Font Stack
-- **Display**: Playfair Display (serif, 600 weight) — **landing hero only**. Fallback: Times New Roman, Georgia, serif.
-- **UI / Headlines / Body**: Inter (variable, 400/500/600). Fallback: system-ui, -apple-system, Segoe UI.
-- **Mono**: JetBrains Mono (400/600). Fallback: Geist Mono, ui-monospace, SFMono-Regular, Menlo.
+- **Everything is Inter.** No serif anywhere — Vercel/Linear don't ship serif on operational chrome, neither does Tetra. Inter (400/500/600/700) carries display, headlines, body, and tabular figures. Fallback: system-ui, -apple-system, Segoe UI.
+- **Mono**: JetBrains Mono (400/600). Used for project IDs (`PRJ-XXX`), SKUs (`ITM-BOX-4R`), Drive URLs, timestamps, hashes. Fallback: Geist Mono, ui-monospace, SFMono-Regular, Menlo.
+
+### OpenType feature stack (Linear DNA)
+
+Applied globally on `body` via `font-feature-settings`:
+
+```css
+font-feature-settings: "cv11", "ss03", "cv01", "calt", "kern", "liga";
+```
+
+| Feature | Effect | Why |
+|---|---|---|
+| `cv11` | Single-story `a` | Linear's signature — geometric over humanist, reads as "modern product app" |
+| `ss03` | Alt `g` without descender curve | Cleaner at small sizes, more confident at display sizes |
+| `cv01` | Slashed zero | Distinguishes `0` from `O` in money columns + project IDs |
+| `calt` | Contextual alternates | Keeps Inter's smart letter pairs alive |
+| `kern` | Kerning | Manual letter-pair tightening |
+| `liga` | Standard ligatures | `fi`, `fl`, etc. |
+
+The `.tabular` utility additionally stacks `tnum` (tabular-figure spacing) on top — so any money/qty column inherits both tabular spacing *and* the Linear slashed-zero / single-story `a` discipline.
 
 ### Hierarchy
 
 | Token | Size | Weight | Tracking | Use |
 |---|---|---|---|---|
-| `{typography.display-xl}` | 72px | 600 | -2.16px | Landing hero only (Playfair) |
-| `{typography.display-lg}` | 56px | 600 | -1.68px | Landing sub-hero (Playfair) |
-| `{typography.display-md}` | 40px | 600 | -1.0px | Section opener (Playfair, rare) |
+| `{typography.display-xl}` | 80px | 600 | -3.2px | Landing hero (Inter) |
+| `{typography.display-lg}` | 64px | 600 | -2.56px | Landing sub-hero (Inter) |
+| `{typography.display-md}` | 48px | 600 | -1.92px | Section opener (Inter, rare) |
 | `{typography.headline-xl}` | 32px | 600 | -0.96px | Page title (Inter) |
 | `{typography.headline-lg}` | 24px | 600 | -0.72px | Section header (Inter) |
 | `{typography.headline-md}` | 20px | 600 | -0.4px | Card title (Inter) |
@@ -699,7 +715,7 @@ Reserved for state communication — never decorative:
 ### Principles
 
 - **Tabular figures are mandatory** for: money (`Rp 1.250.000`), quantities (`cetak_total: 250`), percentages (`Margin 28.5%`), and any numeric column where vertical alignment matters. Enable via `font-feature-settings: 'tnum', 'cv11'`.
-- **Playfair Display stays on landing hero**. Inside operational chrome (dashboard, settlement, rekap), display roles use Inter at 600 weight with aggressive negative tracking.
+- **Inter is the only family.** No Playfair, no serif fallback. Display roles use Inter at 600 weight with aggressive negative tracking (-3.2px at 80px, -1.92px at 48px).
 - **Negative tracking scales with size**: -2.16px at 72px (display) tapers to 0 at body.
 - **Eyebrow uses positive tracking** (+1.5px) and UPPERCASE — taxonomy contrast against the negative-tracked display.
 - **Mono only in technical contexts** — project IDs, SKUs, Drive URLs, timestamps, batch IDs. Never as body text.
@@ -835,6 +851,20 @@ Five semantic variants (default, success, warning, danger, info) all using pill 
 
 **`side-rail`** — optional 224px rail on `/operations`, `/reports`. Body-sm links with active state pill (left-aligned).
 
+### Operations list (Vercel deployments DNA)
+
+The `/operations` list table renders each event as a single `<Link>` element styled as a CSS-grid row. Pattern locked in by `<OperationsListTable />`:
+
+- **Whole row is the click target.** No nested chevron buttons, no row-onClick handlers — native `<a>` semantics mean middle-click opens in a new tab, the keyboard tab order works without `tabIndex`, and Cmd+click works as expected.
+- **Fixed grid columns** via `grid-template-columns: minmax(15rem,1.5fr) minmax(8.5rem,0.9fr) minmax(13rem,1.3fr) minmax(8rem,0.9fr) minmax(7.5rem,auto)`. Header row + data rows share the same grid track so columns align without any `<table>` markup.
+- **Single hover state** — `hover:bg-surface-3/60`. No translate, no shadow, no border color shift. Linear/Vercel restraint.
+- **Generous row padding** — `px-5 py-4`. Cramped tables read as "data dump"; breathing room reads as "designed product."
+- **Status column right-aligned**, event + payment status stacked compactly. No standalone chevron.
+- **Crew cell** uses subtle status dots (emerald = lead, sky = asisten) instead of inline-uppercase "L:" / "A:" prefixes. The dots act as semantic role indicators without screaming.
+- **Mobile** collapses to `<Link>` cards (same `<a>` semantics), single column, with project header + status badges top-right and a 2-up grid for Jadwal + Crew.
+
+This pattern generalizes to any dense ops table where each row maps to a detail page — settlement list, project list, payments list, audit log.
+
 ### Sticky bars
 
 **`sticky-action-bar`** — mobile rekap submit bar. Fixed `inset-x-0 bottom-0 z-30` with `surface-2/95 backdrop-blur-md`. On desktop becomes inline `sticky` element. Shows estimasi HPP left + button-primary-decisive right.
@@ -851,7 +881,7 @@ When disabled: button label switches to actionable instruction ("Upload bukti du
 
 **`hero-canvas`** — dark canvas with sunrise + aurora radial orbs at 12% / 8% opacity respectively. Cards float on top.
 
-**`hero-headline`** — Playfair Display 72px. The brand word ("photobooth", "Tetra Ops") gets `hero-headline-accent` treatment: sunrise gradient as text fill via `background-clip: text`.
+**`hero-headline`** — Inter 72–80px, weight 600, -3.2px tracking. The brand word ("photobooth", "Tetra Ops") gets `hero-headline-accent` treatment: solid Iris primary fill. No gradient, no background-clip.
 
 ## Patterns & Workflows
 
@@ -979,7 +1009,7 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 - **Light-mode is documented but second-tier**. Most operational pages don't have explicit light-mode styling yet — they inherit but haven't been QA'd. Audit before going public.
 - **Chart palette is not specified** — when adding charts (analytics dashboard, settlement trends), use crimson as the primary series, sage/gold/info-blue as secondary series. Avoid loud rainbow palettes.
 - **Bahasa Indonesia diacritics** are rare; if expanding to other locales, verify Inter renders the script (Arabic, Mandarin would require fallback fonts).
-- **Print styles** for settlement receipts not yet defined. When adding, use light-mode canvas + Playfair for the receipt brand mark, JetBrains Mono for amounts.
+- **Print styles** for settlement receipts not yet defined. When adding, use light-mode canvas + Inter for the receipt brand mark, JetBrains Mono for amounts. No serif.
 - **No animation tokens here** — view-transition + press-down + lift-on-hover exist in `globals.css` separately. Document in a follow-up if motion becomes critical to identity.
 
 ---
@@ -991,6 +1021,6 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 
 **Tetra-specific decisions:**
 - Crimson + Sunrise preserved from existing brand investment
-- Playfair restricted to landing hero only
+- Inter everywhere; Playfair retired alongside the gradient pivot
 - Indonesian-language operational chrome
 - Mobile-first PWA crew surface co-existing with desktop-first owner ops

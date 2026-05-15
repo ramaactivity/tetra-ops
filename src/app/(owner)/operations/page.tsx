@@ -393,13 +393,11 @@ export default async function OperationsListPage({
 						}
 					/>
 				) : (
-					<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
-						<OperationsListTable
-							events={events}
-							crewByEventEntries={Array.from(crewByEvent.entries())}
-							crewFilter={crewFilter}
-						/>
-					</div>
+					<OperationsListTable
+						events={events}
+						crewByEventEntries={Array.from(crewByEvent.entries())}
+						crewFilter={crewFilter}
+					/>
 				)}
 			</div>
 		</Container>

@@ -312,7 +312,10 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Linear-DNA Inter feature stack: cv11 = single-story 'a',
+       ss03 = alt 'g' without descender, cv01 = slashed zero,
+       calt/kern/liga keep contextual + kerning + ligatures alive. */
+    font-feature-settings: "cv11", "ss03", "cv01", "calt", "kern", "liga";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Momentum scroll for iOS Safari */
@@ -327,9 +330,11 @@
        so users can't see "the void" past the page edges. */
     overscroll-behavior-x: contain;
   }
-  /* Tabular numbers for financial figures */
+  /* Tabular numbers for financial figures. Pairs cv01 (slashed zero) +
+     tnum so columns of money/qty line up cleanly — Linear/Stripe DNA. */
   .tabular {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "cv11", "ss03", "cv01";
   }
   /* Eyebrow — section labels, table headers, KPI captions.
      Per DESIGN.md: 11px, weight 600, +1.5px tracking, uppercase, muted.

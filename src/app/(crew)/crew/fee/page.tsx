@@ -135,7 +135,7 @@ function FeeRow({ row }: { row: AssignmentRow }) {
 	return (
 		<Link
 			href={`/crew/jadwal/${ev.project_id}`}
-			className="lift-on-hover press-down flex items-stretch gap-3 rounded-xl border border-border-default bg-surface-2 p-3 transition-colors hover:border-foreground/20 hover:bg-surface-3"
+			className="press-down flex items-stretch gap-3 rounded-xl border border-border-default bg-card p-3 transition-colors hover:bg-surface-3"
 		>
 			<div className="min-w-0 flex-1 space-y-1">
 				<p className="text-foreground truncate text-sm font-medium">

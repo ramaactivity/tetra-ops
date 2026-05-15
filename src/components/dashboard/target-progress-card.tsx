@@ -52,7 +52,7 @@ export function TargetProgressCard({
 	return (
 		<div
 			className={cn(
-				"lift-on-hover relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border-default bg-surface-2 p-4 sm:p-5",
+				"relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border-default bg-card p-4 transition-colors hover:bg-surface-3 sm:p-5",
 				className,
 			)}
 		>

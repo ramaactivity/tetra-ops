@@ -78,7 +78,7 @@ export function HeroKpiCard({
 	return (
 		<div
 			className={cn(
-				"lift-on-hover relative flex min-h-[148px] flex-col gap-3 overflow-hidden rounded-2xl border border-border-default/40 p-5 ring-1 ring-white/5",
+				"relative flex min-h-[148px] flex-col gap-3 overflow-hidden rounded-2xl border border-border-default bg-card p-5 transition-colors hover:bg-surface-3",
 				ACCENT_BG[accent],
 				ACCENT_GLOW[accent],
 				className,

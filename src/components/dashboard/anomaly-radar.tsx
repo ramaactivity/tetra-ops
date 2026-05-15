@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
  * A3 refactor (sesi 5):
  * - Surface tokens (was bg-surface-2). Severity tones still semantic
  *   (rose/amber/sky/emerald) for clear state mapping but use ring tokens.
- * - Empty state uses fluid type. Cards use lift-on-hover.
+ * - Empty state uses fluid type. Cards swap surface on hover, no transform.
  */
 
 type Severity = "alert" | "warning" | "info" | "success";
@@ -139,7 +139,7 @@ export async function AnomalyRadarWidget() {
 						const Icon = tone.icon;
 						const card = (
 							<div
-								className={`lift-on-hover group flex items-start gap-3 rounded-xl border border-border-default bg-surface-2 p-3.5 transition-colors hover:bg-surface-3 ${
+								className={`group flex items-start gap-3 rounded-xl border border-border-default bg-card p-3.5 transition-colors hover:bg-surface-3 ${
 									n.severity === "alert"
 										? "ring-1 ring-rose-500/20"
 										: ""

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * <PipelineCard /> — clickable count tile that drills into a filter view.
  *
  * A3 refactor (sesi 5):
- * - Surface-2 base, surface-3 hover, lift-on-hover utility.
+ * - Surface-2 base, surface-3 hover (Linear/Vercel restraint — color only).
  * - Accent stays on icon only (semantic emerald/amber/sky/rose/primary).
  * - Fluid type for the count, caption-style label.
  */
@@ -45,7 +45,7 @@ export function PipelineCard({
 	return (
 		<Link
 			href={href}
-			className="lift-on-hover group flex flex-col gap-3 rounded-xl border border-border-default bg-surface-2 p-4 transition-colors hover:bg-surface-3 sm:p-5"
+			className="group flex flex-col gap-3 rounded-xl border border-border-default bg-card p-4 transition-colors hover:bg-surface-3 sm:p-5"
 		>
 			<div
 				className={cn(

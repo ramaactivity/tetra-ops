@@ -41,7 +41,7 @@ export function StatusGroupCard({
 	return (
 		<div
 			className={cn(
-				"lift-on-hover flex flex-col gap-3 rounded-xl border border-border-default bg-surface-2 p-4 sm:p-5",
+				"flex flex-col gap-3 rounded-xl border border-border-default bg-card p-4 transition-colors hover:bg-surface-3 sm:p-5",
 				className,
 			)}
 		>

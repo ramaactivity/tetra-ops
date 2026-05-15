@@ -1,16 +1,18 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
  * <StatCard /> — Linear / Vercel DNA KPI tile.
  *
- * Plain surface-2 background with 1px hairline border. NO painted
+ * Plain card surface (`bg-card`) with 1px hairline border. NO painted
  * gradients, NO atmospheric color fills. Hierarchy carried by:
  *   - Eyebrow label (uppercase, muted, +tracking)
  *   - Big tabular value (22px / weight 600 / tracking-tight)
  *   - Optional muted hint line
  *   - Optional delta chip (semantic positive/negative)
+ *   - Optional href → renders as a Link with hover lift
  *
  * Replaces HeroKpiCard's loud gradient treatment. Per DESIGN.md:
  *   "Don't paint stat cards with rich gradients — that's the Linear /
@@ -31,6 +33,8 @@ interface StatCardProps {
 		value: string;
 		tone?: Tone;
 	};
+	/** When set, renders as a Link with hover lift. */
+	href?: string;
 	className?: string;
 }
 
