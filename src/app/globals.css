@@ -170,46 +170,50 @@
   --radius-3xl: calc(var(--radius) * 2.2);
 }
 
-/* Light mode — clean cool palette (Stripe-inspired off-white + slight blue tint) */
+/* Light mode — Vercel/Stripe pattern: cool off-white canvas, pure white
+   cards, visible hairline border. The OFF-WHITE bg is what makes white
+   cards stand out — same trick Stripe Dashboard uses. */
 :root {
-  --background: #FCFCFD;
+  --background: #F6F8FB;    /* cool off-white canvas */
   --foreground: #14171F;
-  --card: #FFFFFF;
+  --card: #FFFFFF;          /* cards pure white — stands out vs bg */
   --card-foreground: #14171F;
   --popover: #FFFFFF;
   --popover-foreground: #14171F;
   --primary: #5E6AD2;
-  --primary-foreground: #FCFCFD;
-  --secondary: #F5F7FA;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F4F9;
   --secondary-foreground: #14171F;
-  --muted: #F5F7FA;
-  --muted-foreground: #687386;
+  --muted: #F1F4F9;
+  --muted-foreground: #5B6478;
   --accent: #EEF0FC;
   --accent-foreground: #3F4791;
   --destructive: #EF4444;
-  --border: #E7EAF1;
-  --input: #E7EAF1;
+  --border: #E2E6EE;        /* visible hairline */
+  --input: #E2E6EE;
   --ring: #5E6AD2;
   --radius: 0.5rem;
   --sidebar: #FFFFFF;
   --sidebar-foreground: #14171F;
   --sidebar-primary: #5E6AD2;
-  --sidebar-primary-foreground: #FCFCFD;
-  --sidebar-accent: #F5F7FA;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F4F9;
   --sidebar-accent-foreground: #14171F;
-  --sidebar-border: #E7EAF1;
+  --sidebar-border: #E2E6EE;
   --sidebar-ring: #5E6AD2;
 
-  /* 4-surface hierarchy (light) — cool grays with slight blue */
-  --surface-1: #FFFFFF;
-  --surface-2: #FCFCFD;
-  --surface-3: #F5F7FA;
-  --surface-4: #E7EAF1;
+  /* 4-surface hierarchy (light) — pure white cards on off-white bg.
+     Every "card" surface is pure white to maximize contrast with the
+     canvas, then borders carry separation.    */
+  --surface-1: #FFFFFF;     /* card/popover surface */
+  --surface-2: #FFFFFF;     /* default card — stands out vs F6F8FB bg */
+  --surface-3: #F1F4F9;     /* lifted hover state (slightly cooler) */
+  --surface-4: #E2E6EE;     /* deepest lift / selected row */
 
-  /* Border hierarchy (light) */
-  --border-subtle: #F0F2F6;
-  --border-default: #E7EAF1;
-  --border-strong: #CFD4DF;
+  /* Border hierarchy (light) — visible enough to delineate cards */
+  --border-subtle: #EBEEF3;
+  --border-default: #E2E6EE;
+  --border-strong: #CBD2DD;
 
   /* === Gradient tokens removed.
      Per user feedback "jangan ada gradient sama sekali. clean dan seamless aja"
@@ -217,47 +221,49 @@
      only — anything that referenced them now resolves to a fallback solid. */
 }
 
-/* Dark mode (default for Tetra Ops) — Linear-inspired near-black with
-   subtle blue tint, indigo primary, cool surface ladder. */
+/* Dark mode (default) — Linear-inspired. Surface ladder steps brighter
+   than canvas so cards visibly lift off the page; hairlines pop without
+   being loud. */
 .dark {
-  --background: #08090E;
+  --background: #08090D;     /* near-pure black, slight blue */
   --foreground: #F5F7FA;
-  --card: #14171F;
+  --card: #17191F;           /* card surface, +5% lighter than bg */
   --card-foreground: #F5F7FA;
-  --popover: #14171F;
+  --popover: #17191F;
   --popover-foreground: #F5F7FA;
   --primary: #5E6AD2;
-  --primary-foreground: #FCFCFD;
+  --primary-foreground: #FFFFFF;
   --secondary: #232732;
   --secondary-foreground: #F5F7FA;
   --muted: #232732;
-  --muted-foreground: #98A1B3;
+  --muted-foreground: #9CA5B5;
   --accent: #232732;
   --accent-foreground: #F5F7FA;
   --destructive: #EF4444;
-  --border: #232732;
+  --border: #2A2E38;
   --input: #38404F;
   --ring: #5E6AD2;
-  --sidebar: #14171F;
+  --sidebar: #17191F;
   --sidebar-foreground: #F5F7FA;
   --sidebar-primary: #5E6AD2;
-  --sidebar-primary-foreground: #FCFCFD;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #232732;
   --sidebar-accent-foreground: #F5F7FA;
-  --sidebar-border: #232732;
+  --sidebar-border: #2A2E38;
   --sidebar-ring: #5E6AD2;
 
-  /* 4-surface hierarchy (dark) — Linear-style ladder, near-black with
-     slight cool tint. Each step ~+3% lightness for crisp separation. */
-  --surface-1: #0F1116;
-  --surface-2: #14171F;
-  --surface-3: #1B1F29;
-  --surface-4: #232732;
+  /* 4-surface hierarchy (dark) — each step distinctly lifted. Pattern:
+     #08090D (bg) → #11141B (s1) → #17191F (s2) → #1F2330 (s3) → #2A2E38 (s4).
+     Cards (surface-2) sit at #17191F — clearly above #08090D bg. */
+  --surface-1: #11141B;
+  --surface-2: #17191F;
+  --surface-3: #1F2330;
+  --surface-4: #2A2E38;
 
-  /* Border hierarchy (dark) */
-  --border-subtle: #181B23;
-  --border-default: #232732;
-  --border-strong: #38404F;
+  /* Border hierarchy (dark) — visible against #17191F card surface */
+  --border-subtle: #1C1F27;
+  --border-default: #2A2E38;
+  --border-strong: #3D4350;
 }
 
 /* === Legacy gradient utilities — flat-color fallbacks ===

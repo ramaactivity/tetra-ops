@@ -27,32 +27,36 @@ colors:
   # solid surface colors, hairline borders, and tone. Decorative orbs,
   # text-fill gradients, and atmospheric mesh backgrounds are forbidden.
 
-  # === Dark Mode Surfaces (DEFAULT — Linear-style near-black with subtle blue) ===
-  dark-canvas: "#08090E"
-  dark-surface-1: "#0F1116"
-  dark-surface-2: "#14171F"
-  dark-surface-3: "#1B1F29"
-  dark-surface-4: "#232732"
-  dark-hairline-subtle: "#181B23"
-  dark-hairline: "#232732"
-  dark-hairline-strong: "#38404F"
+  # === Dark Mode Surfaces (DEFAULT — Linear-style near-black, brighter ladder) ===
+  # Each step distinctly lifted so cards visibly sit above the canvas.
+  dark-canvas: "#08090D"
+  dark-surface-1: "#11141B"
+  dark-surface-2: "#17191F"      # default card — clearly above bg
+  dark-surface-3: "#1F2330"      # hover lift / popover
+  dark-surface-4: "#2A2E38"      # deepest lift / selected row
+  dark-hairline-subtle: "#1C1F27"
+  dark-hairline: "#2A2E38"
+  dark-hairline-strong: "#3D4350"
   dark-ink: "#F5F7FA"
   dark-ink-muted: "#CFD4DF"
-  dark-ink-subtle: "#98A1B3"
+  dark-ink-subtle: "#9CA5B5"
   dark-ink-tertiary: "#687386"
 
-  # === Light Mode Surfaces (Stripe-inspired cool clean) ===
-  light-canvas: "#FCFCFD"
-  light-surface-1: "#FFFFFF"
-  light-surface-2: "#FCFCFD"
-  light-surface-3: "#F5F7FA"
-  light-surface-4: "#E7EAF1"
-  light-hairline-subtle: "#F0F2F6"
-  light-hairline: "#E7EAF1"
-  light-hairline-strong: "#CFD4DF"
+  # === Light Mode Surfaces (Stripe Dashboard pattern) ===
+  # Off-white canvas with PURE WHITE cards. The contrast comes from the
+  # canvas being slightly cooler — same trick Stripe uses. Hairlines stay
+  # visible to delineate card edges.
+  light-canvas: "#F6F8FB"        # cool off-white canvas
+  light-surface-1: "#FFFFFF"     # card / popover surface
+  light-surface-2: "#FFFFFF"     # default card — stands out vs canvas
+  light-surface-3: "#F1F4F9"     # hover lift (back toward canvas tone)
+  light-surface-4: "#E2E6EE"     # selected / deepest lift
+  light-hairline-subtle: "#EBEEF3"
+  light-hairline: "#E2E6EE"      # default card border
+  light-hairline-strong: "#CBD2DD"
   light-ink: "#14171F"
   light-ink-muted: "#38404F"
-  light-ink-subtle: "#687386"
+  light-ink-subtle: "#5B6478"
   light-ink-tertiary: "#98A1B3"
 
   # === Semantic ===
@@ -909,6 +913,7 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 ### Do
 
 - Default to **dark canvas** for operational surfaces — that's where owners spend 90% of their time.
+- **Cards must visibly lift off the canvas.** Light mode: off-white canvas + pure white cards (Stripe Dashboard pattern). Dark mode: near-black canvas + brighter surface ladder. NEVER set card background equal to page background — that flattens the visual hierarchy.
 - **Use solid colors only.** Hierarchy is carried by surface ladder + hairline borders + tone. Period.
 - Use **tabular figures** for ALL money and quantity values, period.
 - Use **Inter at all sizes** with negative tracking that scales: −3.2px at 80px, −1.92px at 48px, 0 at body. Match Linear/Vercel discipline.
