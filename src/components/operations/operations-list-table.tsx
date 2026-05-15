@@ -17,12 +17,15 @@ import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * <OperationsListTable /> — Vercel deployments-list DNA.
+ * <OperationsListTable /> — Vercel `ex-data-table-cell` chrome.
  *
- * Each row is a single <Link> with a grid layout. The whole row is the
- * click target (middle-click opens new tab natively). Vertical rhythm:
- * date+time aligned to top, chips aligned to baseline, status right.
- * No nested click handlers, no standalone chevron button.
+ * - Header row: canvas-soft fill (`bg-secondary`), eyebrow caption-mono
+ *   uppercase, 11px / 500 / +letter-spacing.
+ * - Body row: white card surface (canvas), body-sm 13/14px, hairline
+ *   dividers between rows.
+ * - Whole row is a single <Link>. Hover paints subtle canvas-soft-2.
+ * - Columns: Project (with mono ID + tone chips) | Schedule (date + time)
+ *   | Spesifikasi (package + venue) | Crew (role-tinted dots) | Status.
  */
 
 export type EventRow = {
@@ -64,23 +67,17 @@ interface Props {
 }
 
 const CHANNEL_TONE: Record<string, string> = {
-	direct:
-		"border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-	vendor:
-		"border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	relasi:
-		"border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+	direct: "bg-[#0070f3]/10 text-[#0070f3] dark:text-[#3b96ff]",
+	vendor: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
+	relasi: "bg-secondary text-muted-foreground",
 };
 
 const BACKDROP_TONE: Record<string, string> = {
-	merah: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-	gold: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	putih:
-		"border-zinc-300/40 bg-zinc-100 text-zinc-700 dark:bg-zinc-500/10 dark:text-zinc-300",
-	silver:
-		"border-slate-400/25 bg-slate-400/10 text-slate-700 dark:text-slate-300",
-	custom:
-		"border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+	merah: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+	gold: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
+	putih: "bg-secondary text-foreground/70",
+	silver: "bg-secondary text-foreground/70",
+	custom: "bg-secondary text-muted-foreground",
 };
 
 const COLS_DESKTOP =
@@ -104,23 +101,23 @@ export function OperationsListTable({
 	const highlightUserId = crewFilter || undefined;
 
 	return (
-		<div className="overflow-hidden rounded-xl border border-border-default bg-card">
+		<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 			{/* Desktop list-rows */}
 			<div className="hidden md:block">
 				<div
 					className={cn(
-						"grid items-center gap-4 border-b border-border-subtle bg-surface-3/40 px-5 py-2.5",
+						"grid items-center gap-4 border-b border-border-default bg-secondary px-5 py-2.5",
 						COLS_DESKTOP,
 					)}
 				>
-					<span className="eyebrow !text-[10px]">Project</span>
-					<span className="eyebrow !text-[10px]">Jadwal</span>
-					<span className="eyebrow !text-[10px]">Spesifikasi</span>
-					<span className="eyebrow !text-[10px]">Crew</span>
-					<span className="eyebrow !text-[10px] text-right">Status</span>
+					<span className="eyebrow">Project</span>
+					<span className="eyebrow">Jadwal</span>
+					<span className="eyebrow">Spesifikasi</span>
+					<span className="eyebrow">Crew</span>
+					<span className="eyebrow text-right">Status</span>
 				</div>
 
-				<div className="divide-y divide-border-subtle">
+				<div>
 					{events.map((ev) => {
 						const crew = crewByEvent.get(ev.id) ?? [];
 						const spec = [
@@ -140,21 +137,21 @@ export function OperationsListTable({
 									viewTransitionName: `event-${ev.project_id}`,
 								}}
 								className={cn(
-									"group grid items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-3/60",
+									"group grid items-center gap-4 border-b border-border-subtle px-5 py-4 transition-colors last:border-b-0 hover:bg-secondary/60",
 									COLS_DESKTOP,
 								)}
 							>
 								{/* Project & Klien */}
 								<div className="flex min-w-0 flex-col gap-1.5">
-									<div className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+									<div className="truncate text-[14px] font-semibold leading-tight text-foreground transition-colors group-hover:text-foreground">
 										{ev.client_name}
 									</div>
-									<div className="flex flex-wrap items-center gap-1.5">
-										<span className="tabular inline-flex items-center gap-1 font-mono text-[10.5px] text-muted-foreground">
+									<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+										<span className="tabular inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
 											{ev.project_id}
 											{ev.is_migrated_legacy && (
 												<Archive
-													className="size-2.5 text-amber-600 dark:text-amber-400"
+													className="size-2.5 text-amber-600 dark:text-amber-500"
 													aria-label="Migrated"
 												/>
 											)}
@@ -177,14 +174,15 @@ export function OperationsListTable({
 
 								{/* Jadwal */}
 								<div className="flex flex-col gap-1 tabular">
-									<div className="text-sm font-medium text-foreground">
+									<div className="text-[13px] font-medium leading-tight text-foreground">
 										{formatDayDate(ev.event_date)}
 									</div>
 									{(ev.setup_time || ev.start_time) && (
-										<div className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+										<div className="inline-flex items-center gap-1.5 text-[12px] leading-tight text-muted-foreground">
 											<Clock
 												className="size-3 shrink-0"
 												aria-hidden
+												strokeWidth={2}
 											/>
 											{ev.setup_time && (
 												<span>
@@ -201,7 +199,7 @@ export function OperationsListTable({
 															·
 														</span>
 													)}
-													<span className="text-foreground/85">
+													<span className="text-foreground/80">
 														{formatTime(ev.start_time)}
 														{ev.end_time &&
 															` – ${formatTime(ev.end_time)}`}
@@ -214,15 +212,15 @@ export function OperationsListTable({
 
 								{/* Spesifikasi */}
 								<div className="flex min-w-0 flex-col gap-1.5">
-									<div className="flex flex-wrap items-center gap-1.5">
+									<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 										{spec && (
-											<span className="text-sm font-medium text-foreground">
+											<span className="text-[13px] font-medium leading-tight text-foreground">
 												{spec}
 											</span>
 										)}
 										{ev.include_flashdisk_pouch && (
 											<span
-												className="inline-flex h-[18px] items-center gap-0.5 rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
+												className="inline-flex h-[18px] items-center gap-0.5 rounded-full bg-emerald-500/10 px-1.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-400"
 												title="Include flashdisk pouch"
 											>
 												<HardDrive className="size-2.5" />
@@ -232,10 +230,10 @@ export function OperationsListTable({
 										{ev.package_name && (
 											<span
 												className={cn(
-													"inline-flex h-[18px] items-center rounded px-1.5 text-[10px] font-medium uppercase tracking-wide",
+													"inline-flex h-[18px] items-center rounded-full px-2 text-[10.5px] font-medium uppercase tracking-wide",
 													ev.backdrop_color
 														? (BACKDROP_TONE[ev.backdrop_color] ?? "")
-														: "border border-primary/30 bg-primary/10 text-primary",
+														: "bg-secondary text-foreground/70",
 												)}
 											>
 												{ev.package_name}
@@ -245,10 +243,11 @@ export function OperationsListTable({
 											</span>
 										)}
 									</div>
-									<div className="inline-flex items-center gap-1 truncate text-[11.5px] text-muted-foreground">
+									<div className="inline-flex items-center gap-1 truncate text-[12px] leading-tight text-muted-foreground">
 										<MapPin
 											className="size-3 shrink-0"
 											aria-hidden
+											strokeWidth={2}
 										/>
 										<span className="truncate">
 											{ev.venue_name}
@@ -280,7 +279,7 @@ export function OperationsListTable({
 			</div>
 
 			{/* Mobile cards */}
-			<div className="space-y-2.5 p-3 md:hidden">
+			<div className="space-y-2 p-3 md:hidden">
 				{events.map((ev) => {
 					const crew = crewByEvent.get(ev.id) ?? [];
 					return (
@@ -290,15 +289,15 @@ export function OperationsListTable({
 							style={{
 								viewTransitionName: `event-${ev.project_id}`,
 							}}
-							className="block rounded-lg border border-border-default bg-card p-3.5 transition-colors active:bg-surface-3"
+							className="block rounded-md border border-border-default bg-card p-3.5 transition-colors active:bg-secondary"
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div className="min-w-0 flex-1">
-									<div className="truncate text-sm font-semibold text-foreground">
+									<div className="truncate text-[14px] font-semibold leading-tight text-foreground">
 										{ev.client_name}
 									</div>
-									<div className="mt-1 flex flex-wrap items-center gap-1.5">
-										<span className="tabular font-mono text-[10.5px] text-muted-foreground">
+									<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+										<span className="tabular font-mono text-[11px] text-muted-foreground">
 											{ev.project_id}
 										</span>
 										<ChannelChip channel={ev.channel} />
@@ -314,29 +313,29 @@ export function OperationsListTable({
 									<PaymentStatusBadge status={ev.payment_status} />
 								</div>
 							</div>
-							<div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 tabular text-[12px]">
-								<div className="text-muted-foreground">
-									<span className="eyebrow !text-[9px] block">
+							<div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 tabular">
+								<div>
+									<span className="eyebrow block !text-[9.5px]">
 										Jadwal
 									</span>
-									<span className="text-foreground">
+									<span className="block text-[13px] text-foreground">
 										{formatDayDate(ev.event_date)}
 									</span>
 									{ev.start_time && (
-										<span className="block text-[11px] text-muted-foreground">
+										<span className="block text-[12px] text-muted-foreground">
 											{formatTime(ev.start_time)}
 											{ev.end_time &&
 												` – ${formatTime(ev.end_time)}`}
 										</span>
 									)}
 								</div>
-								<div className="min-w-0 text-muted-foreground">
-									<span className="eyebrow !text-[9px] block">
+								<div className="min-w-0">
+									<span className="eyebrow block !text-[9.5px]">
 										Crew
 									</span>
 									<CrewLine
 										crew={crew}
-										highlightUserId={highlightUserId}
+										highlightUserId={crewFilter || undefined}
 										compact
 									/>
 								</div>
@@ -353,8 +352,8 @@ function ChannelChip({ channel }: { channel: string }) {
 	return (
 		<span
 			className={cn(
-				"inline-flex h-[18px] items-center rounded border px-1.5 text-[10px] font-medium uppercase tracking-wider",
-				CHANNEL_TONE[channel] ?? "",
+				"inline-flex h-[18px] items-center rounded-full px-2 text-[10.5px] font-medium uppercase tracking-wider",
+				CHANNEL_TONE[channel] ?? "bg-secondary text-muted-foreground",
 			)}
 		>
 			{CHANNEL_TYPE_LABELS[channel] ?? channel}
@@ -365,7 +364,7 @@ function ChannelChip({ channel }: { channel: string }) {
 function SisaChip({ value }: { value: number }) {
 	return (
 		<span
-			className="tabular inline-flex h-[18px] items-center gap-0.5 rounded border border-rose-500/25 bg-rose-500/10 px-1.5 text-[10px] font-medium uppercase tracking-wider text-rose-700 dark:text-rose-300"
+			className="tabular inline-flex h-[18px] items-center gap-1 rounded-full bg-rose-500/10 px-2 text-[10.5px] font-medium uppercase tracking-wider text-rose-600 dark:text-rose-400"
 			title={`Sisa ${formatRupiah(value)}`}
 		>
 			<Wallet className="size-2.5" />
@@ -396,8 +395,8 @@ function CrewLine({
 	const extra = others.length > 1 ? others.length - 1 : 0;
 	const isHighlight = (uid?: string) => highlightUserId === uid;
 
-	const nameCls = compact ? "text-[12px]" : "text-sm";
-	const subCls = compact ? "text-[11px]" : "text-[12.5px]";
+	const nameCls = compact ? "text-[12px]" : "text-[13px]";
+	const subCls = compact ? "text-[11px]" : "text-[12px]";
 
 	return (
 		<div className="flex min-w-0 flex-col gap-0.5">
@@ -410,11 +409,11 @@ function CrewLine({
 					/>
 					<span
 						className={cn(
-							"truncate leading-snug",
+							"truncate leading-tight",
 							nameCls,
 							isHighlight(lead?.user_id)
 								? "font-semibold text-foreground"
-								: "text-foreground/90",
+								: "text-foreground",
 						)}
 						title={lead?.full_name}
 					>
@@ -427,14 +426,14 @@ function CrewLine({
 					<span
 						className={cn(
 							"size-1.5 shrink-0 rounded-full",
-							asistenName ? "bg-sky-500/80" : "bg-muted-foreground/30",
+							asistenName ? "bg-[#0070f3]/70" : "bg-muted-foreground/30",
 						)}
 						aria-hidden
 						title="Asisten"
 					/>
 					<span
 						className={cn(
-							"truncate leading-snug",
+							"truncate leading-tight",
 							subCls,
 							asistenName
 								? isHighlight(others[0]?.user_id)

@@ -5,91 +5,108 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Fonts — Inter for everything (Linear DNA substitute), JetBrains Mono
-     for technical labels. No serif anywhere. */
+  /* Fonts — Inter renders as the closest open-source substitute for
+     Vercel's custom Geist Sans. JetBrains Mono substitutes Geist Mono. */
   --font-sans: var(--font-inter);
   --font-display: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
   --font-heading: var(--font-inter);
 
-  /* === Brand — Iris (Linear lavender-blue) ===
-     Fresh, clean primary. No red/orange anywhere in the brand. */
-  --color-iris-50: #EEF0FC;
-  --color-iris-100: #DDE0F8;
-  --color-iris-200: #BBC1F1;
-  --color-iris-300: #99A2E9;
-  --color-iris-400: #7782DD;
-  --color-iris-500: #5E6AD2;
-  --color-iris-600: #4F58B8;
-  --color-iris-700: #3F4791;
-  --color-iris-800: #2F3470;
-  --color-iris-900: #232852;
-  --color-iris-950: #14182F;
+  /* === Brand — Ink (Vercel's #171717 near-black primary) ===
+     One CTA color. Every primary button is this ink. No iris, no crimson. */
+  --color-ink-50: #fafafa;
+  --color-ink-100: #f5f5f5;
+  --color-ink-200: #ebebeb;
+  --color-ink-300: #d4d4d4;
+  --color-ink-400: #a1a1a1;
+  --color-ink-500: #737373;
+  --color-ink-600: #525252;
+  --color-ink-700: #404040;
+  --color-ink-800: #262626;
+  --color-ink-900: #171717;
+  --color-ink-950: #0a0a0a;
 
-  /* === Crimson ALIAS (legacy refs) — mapped to Iris so old code stays
-     working while we migrate. New code should use iris-*.    */
-  --color-crimson-50: #EEF0FC;
-  --color-crimson-100: #DDE0F8;
-  --color-crimson-200: #BBC1F1;
-  --color-crimson-300: #99A2E9;
-  --color-crimson-400: #7782DD;
-  --color-crimson-500: #5E6AD2;
-  --color-crimson-600: #4F58B8;
-  --color-crimson-700: #3F4791;
-  --color-crimson-800: #2F3470;
-  --color-crimson-900: #232852;
-  --color-crimson-950: #14182F;
+  /* === Legacy aliases — iris/crimson tokens collapse to ink + link blue
+     so existing callers don't visually break. New code must use ink-*
+     or link-*. */
+  --color-iris-50: #f5f5f5;
+  --color-iris-100: #ebebeb;
+  --color-iris-200: #d4d4d4;
+  --color-iris-300: #a1a1a1;
+  --color-iris-400: #525252;
+  --color-iris-500: #171717;
+  --color-iris-600: #0a0a0a;
+  --color-iris-700: #0a0a0a;
+  --color-iris-800: #0a0a0a;
+  --color-iris-900: #0a0a0a;
+  --color-iris-950: #000000;
+  --color-crimson-50: #f5f5f5;
+  --color-crimson-100: #ebebeb;
+  --color-crimson-200: #d4d4d4;
+  --color-crimson-300: #a1a1a1;
+  --color-crimson-400: #525252;
+  --color-crimson-500: #171717;
+  --color-crimson-600: #0a0a0a;
+  --color-crimson-700: #0a0a0a;
+  --color-crimson-800: #0a0a0a;
+  --color-crimson-900: #0a0a0a;
+  --color-crimson-950: #000000;
 
-  /* === Neutrals — Cool Slate (subtle blue tint, Linear-inspired) === */
-  --color-slate-50: #FCFCFD;
-  --color-slate-100: #F5F7FA;
-  --color-slate-200: #E7EAF1;
-  --color-slate-300: #CFD4DF;
-  --color-slate-400: #98A1B3;
-  --color-slate-500: #687386;
-  --color-slate-600: #4D566B;
-  --color-slate-700: #38404F;
-  --color-slate-800: #232732;
-  --color-slate-900: #14171F;
-  --color-slate-950: #08090E;
+  /* === Neutrals — Vercel grayscale (pure cool gray, no blue tint) === */
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f5f5f5;
+  --color-slate-200: #ebebeb;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a1a1a1;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #404040;
+  --color-slate-800: #262626;
+  --color-slate-900: #171717;
+  --color-slate-950: #0a0a0a;
 
-  /* === Semantic — success (emerald) === */
+  /* === Link / Info — Vercel blue #0070f3 === */
+  --color-link: #0070f3;
+  --color-link-deep: #0761d1;
+  --color-link-soft: #d3e5ff;
+
+  /* === Semantic — success (Vercel uses link-blue as legacy success;
+       we keep emerald for true "completed" / "paid" states) === */
   --color-emerald-50: #ECFDF5;
   --color-emerald-500: #10B981;
   --color-emerald-600: #059669;
   --color-emerald-700: #047857;
 
-  /* === Semantic — warning (amber, used sparingly) === */
+  /* === Semantic — warning (Vercel amber #f5a623) === */
   --color-amber-50: #FFFBEB;
-  --color-amber-500: #F59E0B;
-  --color-amber-600: #D97706;
-  --color-amber-700: #B45309;
+  --color-amber-500: #f5a623;
+  --color-amber-600: #ab570a;
+  --color-amber-700: #8a4a0a;
+  --color-amber-soft: #ffefcf;
 
-  /* === Semantic — danger (red, state only never brand) === */
+  /* === Semantic — danger (Vercel red #ee0000) === */
   --color-rose-50: #FEF2F2;
-  --color-rose-500: #EF4444;
-  --color-rose-600: #DC2626;
-  --color-rose-700: #B91C1C;
+  --color-rose-500: #ee0000;
+  --color-rose-600: #c50000;
+  --color-rose-700: #9a0000;
+  --color-rose-soft: #f7d4d6;
 
-  /* === Semantic — info (cyan) === */
+  /* === Semantic — info (Vercel link blue) === */
   --color-sky-50: #ECFEFF;
-  --color-sky-500: #06B6D4;
-  --color-sky-600: #0891B2;
-  --color-sky-700: #0E7490;
+  --color-sky-500: #0070f3;
+  --color-sky-600: #0761d1;
+  --color-sky-700: #0e4a9e;
 
-  /* === Accent — teal (refreshing secondary accent) === */
-  --color-teal-50: #F0FDFA;
-  --color-teal-300: #5EEAD4;
-  --color-teal-500: #14B8A6;
-  --color-teal-600: #0D9488;
-  --color-teal-700: #0F766E;
-
-  /* === Legacy aliases for gold/sage — mapped to teal/mint so existing
-     "premium" / "sinking fund" chip refs don't break visually. === */
-  --color-gold-300: #5EEAD4;
-  --color-gold-500: #14B8A6;
-  --color-gold-700: #0F766E;
-  --color-sage-300: #6EE7B7;
+  /* === Legacy aliases for retired accents — flatten to neutrals === */
+  --color-teal-50: #f5f5f5;
+  --color-teal-300: #d4d4d4;
+  --color-teal-500: #525252;
+  --color-teal-600: #404040;
+  --color-teal-700: #262626;
+  --color-gold-300: #f5a623;
+  --color-gold-500: #f5a623;
+  --color-gold-700: #ab570a;
+  --color-sage-300: #10B981;
   --color-sage-500: #10B981;
   --color-sage-700: #047857;
 
@@ -121,21 +138,21 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* === Surface hierarchy — 4 levels for proper depth stacking ===
-     Rule: never stack same-level surfaces. Card-on-card → L2 + L3.
-     Popover always L3 with L4 hover row. */
-  --color-surface-1: var(--surface-1); /* App shell, sidebar */
-  --color-surface-2: var(--surface-2); /* Default card */
-  --color-surface-3: var(--surface-3); /* Popover, dialog, sheet, elevated card */
-  --color-surface-4: var(--surface-4); /* Selected row, hover-elevated chip */
+  /* === Surface hierarchy — Vercel 4-step (canvas-soft / canvas / inset / ink)
+     Per Vercel: page bg = canvas-soft #fafafa, cards = pure white #ffffff,
+     inset region = canvas-soft-2 #f5f5f5, polarity-flipped band = ink #171717.
+     Our "surface" tokens map: surface-1=canvas, surface-2=canvas, surface-3=canvas-soft-2, surface-4=hairline tone */
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
 
   /* === Border hierarchy === */
   --color-border-subtle: var(--border-subtle);
   --color-border-default: var(--border-default);
   --color-border-strong: var(--border-strong);
 
-  /* === Motion tokens — view-transitions-friendly easings + standard durations ===
-     Only animate transform/opacity/filter. Never width/height/font-size/color. */
+  /* === Motion tokens — same as before (view-transitions friendly) === */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -143,17 +160,28 @@
   --duration-base: 200ms;
   --duration-slow: 320ms;
 
-  /* === Shadows — kept minimal. No gradient-based glows.
-     Subtle popover depth + an optional indigo-tinted ring for focus moments.
-     Legacy shadow-glow-* aliases stay defined (mapped flat) so existing
-     callers don't break visually. */
-  --shadow-glow-crimson: 0 0 0 1px rgb(94 106 210 / 0.25);
-  --shadow-glow-aurora: 0 0 0 1px rgb(20 184 166 / 0.20);
-  --shadow-glow-sunrise: 0 0 0 1px rgb(94 106 210 / 0.20);
-  --shadow-glow-success: 0 0 0 1px rgb(16 185 129 / 0.25);
+  /* === Shadows — Vercel stacked-shadow ladder. Multiple small offsets
+     with inset hairline; never a single heavy drop. ===
+     Level 1 — inset hairline only (card default)
+     Level 2 — subtle drop (template card)
+     Level 3 — soft stack (feature card)
+     Level 4 — float stack (pricing card)
+     Level 5 — modal (dialog / dropdown) */
+  --shadow-level-1: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  --shadow-level-2: 0 1px 1px rgb(0 0 0 / 0.02), 0 2px 2px rgb(0 0 0 / 0.04);
+  --shadow-level-3: 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 8px -8px rgb(0 0 0 / 0.04);
+  --shadow-level-4: 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 16px -4px rgb(0 0 0 / 0.04);
+  --shadow-level-5: 0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.04), 0 24px 32px -8px rgb(0 0 0 / 0.06);
+
+  /* Legacy shadow-glow aliases — collapse to flat hairline */
+  --shadow-glow-crimson: var(--shadow-level-2);
+  --shadow-glow-aurora: var(--shadow-level-2);
+  --shadow-glow-sunrise: var(--shadow-level-2);
+  --shadow-glow-success: var(--shadow-level-2);
 
   /* === Fluid type scale — mobile shrinkage via clamp() ===
-     Mobile: 11/13/16/18/22/28 → Desktop: 12/16/20/24/32/48 */
+     Tuned to Vercel display-xl 48px / display-lg 32px / display-md 24px /
+     display-sm 20px / body-lg 18px / body-md 16px / body-sm 14px / caption 12px. */
   --text-fluid-caption: clamp(0.6875rem, 0.66rem + 0.18vw, 0.75rem);
   --text-fluid-body: clamp(0.8125rem, 0.78rem + 0.22vw, 1rem);
   --text-fluid-h3: clamp(1rem, 0.94rem + 0.4vw, 1.25rem);
@@ -161,138 +189,117 @@
   --text-fluid-h1: clamp(1.375rem, 1.1rem + 1.4vw, 2rem);
   --text-fluid-display: clamp(1.75rem, 1.4rem + 1.8vw, 3rem);
 
-  /* Radius */
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
+  /* Radius — Vercel two-scale system:
+     --geist-radius 6px (in-app: buttons, inputs, dropdowns) → our --radius
+     --geist-marketing-radius 8px (cards) → our --radius * 1.33
+     pill 100px reserved for marketing CTAs only */
+  --radius-sm: calc(var(--radius) * 0.67);   /* 4px */
+  --radius-md: var(--radius);                /* 6px — IN-APP DEFAULT */
+  --radius-lg: calc(var(--radius) * 1.33);   /* 8px — card */
+  --radius-xl: calc(var(--radius) * 2);      /* 12px */
+  --radius-2xl: calc(var(--radius) * 2.67);  /* 16px */
+  --radius-3xl: calc(var(--radius) * 4);     /* 24px */
 }
 
-/* Light mode — Vercel/Stripe pattern: cool off-white canvas, pure white
-   cards, visible hairline border. The OFF-WHITE bg is what makes white
-   cards stand out — same trick Stripe Dashboard uses. */
+/* === Light mode — Vercel's signature: pure white cards on near-white
+   canvas-soft bg, ink-near-black text, hairline #ebebeb. === */
 :root {
-  --background: #F6F8FB;    /* cool off-white canvas */
-  --foreground: #14171F;
-  --card: #FFFFFF;          /* cards pure white — stands out vs bg */
-  --card-foreground: #14171F;
-  --popover: #FFFFFF;
-  --popover-foreground: #14171F;
-  --primary: #5E6AD2;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F1F4F9;
-  --secondary-foreground: #14171F;
-  --muted: #F1F4F9;
-  --muted-foreground: #5B6478;
-  --accent: #EEF0FC;
-  --accent-foreground: #3F4791;
-  --destructive: #EF4444;
-  --border: #E2E6EE;        /* visible hairline */
-  --input: #E2E6EE;
-  --ring: #5E6AD2;
-  --radius: 0.5rem;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #14171F;
-  --sidebar-primary: #5E6AD2;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F1F4F9;
-  --sidebar-accent-foreground: #14171F;
-  --sidebar-border: #E2E6EE;
-  --sidebar-ring: #5E6AD2;
+  --background: #fafafa;             /* canvas-soft — page body */
+  --foreground: #171717;             /* ink */
+  --card: #ffffff;                   /* canvas — pure white cards */
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #171717;                /* INK — the only CTA color */
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;              /* canvas-soft-2 — inset region */
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;       /* body tone */
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #ee0000;            /* Vercel error red */
+  --border: #ebebeb;                 /* hairline */
+  --input: #ebebeb;
+  --ring: #171717;                   /* focus ring uses ink, not blue */
+  --radius: 0.375rem;                /* 6px — Vercel --geist-radius */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #171717;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #ebebeb;
+  --sidebar-ring: #171717;
 
-  /* 4-surface hierarchy (light) — pure white cards on off-white bg.
-     Every "card" surface is pure white to maximize contrast with the
-     canvas, then borders carry separation.    */
-  --surface-1: #FFFFFF;     /* card/popover surface */
-  --surface-2: #FFFFFF;     /* default card — stands out vs F6F8FB bg */
-  --surface-3: #F1F4F9;     /* lifted hover state (slightly cooler) */
-  --surface-4: #E2E6EE;     /* deepest lift / selected row */
+  /* 4-surface hierarchy (light) — Vercel pattern:
+     surface-1 = canvas (white card)
+     surface-2 = canvas (default card — same as -1 by spec)
+     surface-3 = canvas-soft-2 (inset / hover)
+     surface-4 = hairline tone (selected) */
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f5f5f5;
+  --surface-4: #ebebeb;
 
-  /* Border hierarchy (light) — visible enough to delineate cards */
-  --border-subtle: #EBEEF3;
-  --border-default: #E2E6EE;
-  --border-strong: #CBD2DD;
-
-  /* === Gradient tokens removed.
-     Per user feedback "jangan ada gradient sama sekali. clean dan seamless aja"
-     these previously held sunrise/aurora/mesh-warm definitions. Flat color
-     only — anything that referenced them now resolves to a fallback solid. */
+  /* Border hierarchy (light) — Vercel hairline ladder */
+  --border-subtle: #f0f0f0;
+  --border-default: #ebebeb;
+  --border-strong: #a1a1a1;
 }
 
-/* Dark mode (default) — Linear-inspired. Surface ladder steps brighter
-   than canvas so cards visibly lift off the page; hairlines pop without
-   being loud. */
+/* === Dark mode — Vercel's dashboard dark surface:
+   near-black bg #0a0a0a, slightly lighter cards #171717, hairline #2a2a2a. === */
 .dark {
-  --background: #08090D;     /* near-pure black, slight blue */
-  --foreground: #F5F7FA;
-  --card: #17191F;           /* card surface, +5% lighter than bg */
-  --card-foreground: #F5F7FA;
-  --popover: #17191F;
-  --popover-foreground: #F5F7FA;
-  --primary: #5E6AD2;
-  --primary-foreground: #FFFFFF;
-  --secondary: #232732;
-  --secondary-foreground: #F5F7FA;
-  --muted: #232732;
-  --muted-foreground: #9CA5B5;
-  --accent: #232732;
-  --accent-foreground: #F5F7FA;
-  --destructive: #EF4444;
-  --border: #2A2E38;
-  --input: #38404F;
-  --ring: #5E6AD2;
-  --sidebar: #17191F;
-  --sidebar-foreground: #F5F7FA;
-  --sidebar-primary: #5E6AD2;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #232732;
-  --sidebar-accent-foreground: #F5F7FA;
-  --sidebar-border: #2A2E38;
-  --sidebar-ring: #5E6AD2;
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #171717;
+  --card-foreground: #ededed;
+  --popover: #171717;
+  --popover-foreground: #ededed;
+  --primary: #ededed;                /* In dark, primary inverts to white-ink */
+  --primary-foreground: #0a0a0a;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #ededed;
+  --muted: #1f1f1f;
+  --muted-foreground: #a1a1a1;
+  --accent: #1f1f1f;
+  --accent-foreground: #ededed;
+  --destructive: #ee0000;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #ededed;
+  --sidebar: #171717;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #ededed;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #ededed;
 
-  /* 4-surface hierarchy (dark) — each step distinctly lifted. Pattern:
-     #08090D (bg) → #11141B (s1) → #17191F (s2) → #1F2330 (s3) → #2A2E38 (s4).
-     Cards (surface-2) sit at #17191F — clearly above #08090D bg. */
-  --surface-1: #11141B;
-  --surface-2: #17191F;
-  --surface-3: #1F2330;
-  --surface-4: #2A2E38;
+  /* 4-surface hierarchy (dark) */
+  --surface-1: #171717;
+  --surface-2: #171717;
+  --surface-3: #1f1f1f;
+  --surface-4: #2a2a2a;
 
-  /* Border hierarchy (dark) — visible against #17191F card surface */
-  --border-subtle: #1C1F27;
-  --border-default: #2A2E38;
-  --border-strong: #3D4350;
+  /* Border hierarchy (dark) */
+  --border-subtle: #1f1f1f;
+  --border-default: #2a2a2a;
+  --border-strong: #404040;
 }
 
-/* === Legacy gradient utilities — flat-color fallbacks ===
-   Per user direction, NO gradients anywhere. These utilities are kept
-   as no-op aliases so existing callers (showcase, deprecated orbs) don't
-   crash; they now resolve to a fully transparent fill. Prefer removing
-   the className entirely when you touch a file. */
-@utility bg-gradient-sunrise {
-  background: transparent;
-}
-@utility bg-gradient-aurora {
-  background: transparent;
-}
-@utility bg-gradient-sunrise-radial {
-  background: transparent;
-}
-@utility bg-gradient-aurora-radial {
-  background: transparent;
-}
-@utility bg-gradient-mesh-warm {
-  background: transparent;
-}
-/* Text-clipped gradients now resolve to inherited color (no gradient). */
-@utility text-gradient-sunrise {
-  color: inherit;
-}
-@utility text-gradient-aurora {
-  color: inherit;
-}
+/* === Legacy gradient utilities — keep no-op aliases so existing callers
+   don't crash. Vercel discipline forbids gradients in operational chrome.
+   New code must NOT reference these. */
+@utility bg-gradient-sunrise { background: transparent; }
+@utility bg-gradient-aurora { background: transparent; }
+@utility bg-gradient-sunrise-radial { background: transparent; }
+@utility bg-gradient-aurora-radial { background: transparent; }
+@utility bg-gradient-mesh-warm { background: transparent; }
+@utility text-gradient-sunrise { color: inherit; }
+@utility text-gradient-aurora { color: inherit; }
 
 @layer base {
   * {
@@ -301,53 +308,50 @@
   }
   html {
     @apply font-sans;
-    /* Prevent rubber-band overscroll showing white above status bar in PWA */
     background-color: var(--background);
-    /* iOS pinch-to-zoom is governed by viewport meta; this keeps text crisp */
     -webkit-text-size-adjust: 100%;
-    /* P0 viewport-fit: kill horizontal page scroll. Tables / wide content
-       must use their own overflow-x-auto wrapper. Pinch zoom still works
-       (a11y) but content can't bleed out of the viewport. */
     overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground;
-    /* Linear-DNA Inter feature stack: cv11 = single-story 'a',
-       ss03 = alt 'g' without descender, cv01 = slashed zero,
-       calt/kern/liga keep contextual + kerning + ligatures alive. */
-    font-feature-settings: "cv11", "ss03", "cv01", "calt", "kern", "liga";
+    /* Vercel/Geist OpenType stack: ss01 + ss02 enable Inter's geometric
+       alternates (closer to Geist's voice). cv11 single-story 'a' kept
+       for the modern feel. tnum + slashed zero stay on tabular. */
+    font-feature-settings: "ss01", "ss02", "cv11", "calt", "kern", "liga";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Momentum scroll for iOS Safari */
     -webkit-overflow-scrolling: touch;
-    /* Disable text size adjust on rotation */
     text-size-adjust: 100%;
-    /* P0 viewport-fit: clip horizontal bleed at body too (defense in
-       depth — sticky/fixed elements still position correctly because
-       `clip` doesn't establish a new scroll container). */
     overflow-x: clip;
-    /* Prevent left-right rubber band on iOS Safari + Android Chrome
-       so users can't see "the void" past the page edges. */
     overscroll-behavior-x: contain;
+    /* Letter spacing baseline — Vercel runs slightly negative across
+       all body type for a tighter, more engineered feel. */
+    letter-spacing: -0.011em;
   }
-  /* Tabular numbers for financial figures. Pairs cv01 (slashed zero) +
-     tnum so columns of money/qty line up cleanly — Linear/Stripe DNA. */
+  /* Tabular numbers for financial figures. tnum + slashed-zero so columns
+     line up cleanly and 0 is distinguishable from O. */
   .tabular {
     font-variant-numeric: tabular-nums slashed-zero;
-    font-feature-settings: "tnum", "cv11", "ss03", "cv01";
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
   }
-  /* Eyebrow — section labels, table headers, KPI captions.
-     Per DESIGN.md: 11px, weight 600, +1.5px tracking, uppercase, muted.
-     Use on <p>, <span>, <dt> for short taxonomy text above headlines. */
+  /* Eyebrow — Vercel "caption-mono" pattern: small mono uppercase that
+     marks technical labels (section eyebrows, table headers, KPI captions).
+     12px / 400 / +letter-spacing, uppercased, mono family. */
   .eyebrow {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.3;
-    letter-spacing: 0.0625em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--muted-foreground);
   }
-  /* Reusable focus ring that meets WCAG without breaking aesthetic */
+  /* Negative-tracking display utility (Vercel display-xl, display-lg).
+     Use on hero headlines and dashboard page titles. */
+  .display-tight {
+    letter-spacing: -0.04em;
+  }
+  /* Focus ring — keeps the AAA outline but uses ink-tone ring. */
   :focus-visible {
     @apply outline-ring;
     outline-style: solid;
@@ -356,30 +360,20 @@
   }
 }
 
-/* === Component microinteraction keyframes ===
-   Compositor-friendly: only translate/opacity/transform. */
+/* === Component microinteraction keyframes — compositor-friendly === */
 @keyframes skeleton-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
 
-/* View Transitions — page navigation animations (F4).
-   Activated when next.config.ts has experimental.viewTransition: true and
-   <PageTransition> wraps page content. Reduced-motion guard at the bottom. */
-
+/* View Transitions — page navigation animations. */
 ::view-transition-group(.morph) {
   animation-duration: var(--duration-slow);
   animation-timing-function: var(--ease-out-expo);
 }
-::view-transition-image-pair(.morph) {
-  animation-name: morph-blur;
-}
+::view-transition-image-pair(.morph) { animation-name: morph-blur; }
+@keyframes morph-blur { 30% { filter: blur(3px); } }
 
-@keyframes morph-blur {
-  30% { filter: blur(3px); }
-}
-
-/* Default crossfade (used by PageTransition default + when share="auto") */
 ::view-transition-old(.fade) {
   animation: var(--duration-fast) var(--ease-out-expo) both vt-fade-out;
 }
@@ -396,7 +390,6 @@
   to { opacity: 0; }
 }
 
-/* Directional slides — forward (deeper into nav) + back. */
 ::view-transition-old(.nav-forward) {
   --vt-slide-offset: -40px;
   animation:
@@ -427,9 +420,6 @@
   to { translate: 0; }
 }
 
-/* Anchor app-shell elements so they don't morph during nav. Apply
-   viewTransitionName="site-header" / "site-bottom-nav" via inline style
-   on the topbar + bottom nav components in A1. */
 ::view-transition-group(site-header),
 ::view-transition-group(site-bottom-nav),
 ::view-transition-group(site-sidebar) {
@@ -447,7 +437,6 @@
   animation: none;
 }
 
-/* Reduced-motion guard for view transitions — instant swap. */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*),
   ::view-transition-new(*),
@@ -458,28 +447,22 @@
 }
 
 @layer utilities {
-  /* === Microinteraction utility classes (F4) ===
-     Pair these with transition utilities — they don't add transition by
-     default to keep them composable with explicit duration/ease tokens. */
+  /* === Microinteraction utilities — Vercel restraint:
+     press-down stays (tactile mobile feedback). lift-on-hover demoted to
+     color-only (translate disabled — Vercel doesn't transform on hover). */
   .press-down {
     transition: transform var(--duration-fast) var(--ease-out-expo);
   }
   .press-down:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
   }
 
   .lift-on-hover {
-    transition: transform var(--duration-fast) var(--ease-out-expo),
-                box-shadow var(--duration-fast) var(--ease-out-expo);
-  }
-  @media (hover: hover) {
-    .lift-on-hover:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
+    /* No-op alias retained for legacy callers — Vercel doesn't translate
+       on hover. Color change is the only state cue. */
+    transition: background-color var(--duration-fast) var(--ease-out-expo);
   }
 
-  /* Pure CSS fade-in on first mount — no JS state needed. */
   .fade-in-on-mount {
     opacity: 1;
     transform: translateY(0);
@@ -493,15 +476,13 @@
     }
   }
 
-  /* Reduced motion — kill any custom transitions on these utilities */
   @media (prefers-reduced-motion: reduce) {
     .press-down,
     .lift-on-hover,
     .fade-in-on-mount {
       transition: none !important;
     }
-    .press-down:active,
-    .lift-on-hover:hover {
+    .press-down:active {
       transform: none !important;
     }
   }
@@ -519,10 +500,8 @@
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  /* Compose with existing padding via max() */
   .pt-safe-or-4 { padding-top: max(env(safe-area-inset-top), 1rem); }
   .pb-safe-or-4 { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
-  /* Min-height that includes safe-area, useful for sticky headers/footers */
   .h-safe-bottom-nav { height: calc(3.5rem + env(safe-area-inset-bottom)); }
   .h-safe-topbar { height: calc(3.5rem + env(safe-area-inset-top)); }
 }

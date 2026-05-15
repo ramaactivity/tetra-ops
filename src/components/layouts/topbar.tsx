@@ -38,7 +38,7 @@ export async function TopBar({
 	return (
 		<header
 			style={{ viewTransitionName: "site-header" }}
-			className="sticky top-0 z-30 border-b border-border-default bg-surface-1/85 supports-[backdrop-filter]:bg-surface-1/65 backdrop-blur-xl pt-safe"
+			className="sticky top-0 z-30 border-b border-border-default bg-card/95 supports-[backdrop-filter]:bg-card/80 backdrop-blur-xl pt-safe"
 		>
 			<div className="flex h-11 items-center justify-between gap-2 px-3 md:h-14 md:px-6">
 				<div className="flex min-w-0 items-center gap-2 md:gap-3">
@@ -54,9 +54,7 @@ export async function TopBar({
 						className="h-6 w-auto md:h-7"
 						priority
 					/>
-					<span className="hidden text-fluid-caption uppercase tracking-wider text-muted-foreground sm:inline">
-						Operations
-					</span>
+					<span className="hidden eyebrow sm:inline">Operations</span>
 				</div>
 				<div className="flex shrink-0 items-center gap-1">
 					<NotificationBell />

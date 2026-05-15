@@ -9,10 +9,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * <OperationsViewSwitcher /> — segmented control for Ops view modes.
+ * <OperationsViewSwitcher /> — Vercel segmented-tab pattern.
  *
- * A4 refactor (sesi 5): surface-2 base, primary fill on active, fluid
- * type for labels, transitions tokenized.
+ * 32px tall, 6px radius outer shell on canvas-soft fill. Active tab fills
+ * with white card (level-1 elevation) — the "selected" surface lifts out
+ * of the inset region. Inactive tabs sit as ghost text.
  */
 
 export type OperationsView =
@@ -62,7 +63,7 @@ export function OperationsViewSwitcher({
 }) {
 	return (
 		<div
-			className="inline-flex items-center rounded-md border border-border-default bg-surface-2 p-0.5"
+			className="inline-flex h-8 items-center rounded-md border border-border-default bg-secondary p-0.5"
 			role="tablist"
 			aria-label="View"
 		>
@@ -76,13 +77,13 @@ export function OperationsViewSwitcher({
 						role="tab"
 						aria-selected={active}
 						className={cn(
-							"inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
+							"inline-flex h-7 items-center gap-1.5 rounded-[4px] px-2.5 text-[12.5px] font-medium leading-none transition-colors",
 							active
-								? "bg-primary text-primary-foreground"
-								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
+								? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
+								: "text-muted-foreground hover:text-foreground",
 						)}
 					>
-						<Icon className="size-3.5" aria-hidden />
+						<Icon className="size-3.5" aria-hidden strokeWidth={2} />
 						<span className="hidden sm:inline">{v.label}</span>
 					</Link>
 				);

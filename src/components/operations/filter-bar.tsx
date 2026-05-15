@@ -7,15 +7,15 @@ import { useState } from "react";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /**
- * <OperationsFilterBar /> — search + status + month + crew filters.
+ * <OperationsFilterBar /> — Vercel filter chrome.
  *
- * A4 refactor (sesi 5):
- * - Raw <select> × 2 → <NativeSelect> (status, crew)
- * - <input type="month"> → <MonthPicker> primitive
- * - Surface tokens, fluid type, transition tokens
- * - "Show archived" toggle keeps amber semantic tone for state clarity
+ * All controls share the same 32px height + 6px radius + white card surface
+ * with hairline border. Search input + selects + month picker + archived
+ * toggle line up on one row with body-sm typography. The "Show archived"
+ * toggle uses subtle inset fill when active (no loud color).
  */
 
 const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
@@ -37,6 +37,9 @@ export type CrewOption = {
 	nickname: string | null;
 	tier: "senior" | "junior" | null;
 };
+
+const CONTROL_BASE =
+	"inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-card px-3 text-[13px] font-medium leading-none text-foreground transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none";
 
 export function OperationsFilterBar({
 	defaultQ,
@@ -107,10 +110,10 @@ export function OperationsFilterBar({
 		<div className="flex flex-wrap items-center gap-2">
 			<form
 				onSubmit={handleSubmit}
-				className="relative min-w-[200px] flex-1 sm:max-w-xs"
+				className="relative min-w-[200px] flex-1 sm:max-w-[280px]"
 			>
 				<Search
-					className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
 					aria-hidden
 				/>
 				<input
@@ -118,7 +121,7 @@ export function OperationsFilterBar({
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
 					placeholder="Cari nama klien…"
-					className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+					className="h-8 w-full rounded-md border border-border-default bg-card pl-8 pr-3 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/70 transition-colors hover:bg-secondary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none"
 				/>
 			</form>
 
@@ -130,7 +133,7 @@ export function OperationsFilterBar({
 				aria-label="Filter status"
 			/>
 
-			<div className="w-[180px]">
+			<div className="w-[160px]">
 				<MonthPicker
 					value={defaultMonth}
 					onValueChange={(value) => router.push(buildHref({ month: value }))}
@@ -158,24 +161,27 @@ export function OperationsFilterBar({
 
 			<Link
 				href={buildHref({ show_archived: defaultShowArchived ? "" : "1" })}
-				className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo ${
+				className={cn(
+					CONTROL_BASE,
 					defaultShowArchived
-						? "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300"
-						: "border-border-default bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-				}`}
+						? "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
+						: "text-muted-foreground hover:text-foreground",
+				)}
 				aria-pressed={defaultShowArchived}
 			>
 				<Archive className="size-3.5" aria-hidden />
-				Show archived
+				<span>Show archived</span>
 				{archivedCount > 0 && (
-					<span className="tabular opacity-70">({archivedCount})</span>
+					<span className="tabular text-[12px] opacity-60">
+						({archivedCount})
+					</span>
 				)}
 			</Link>
 
 			{hasFilters && (
 				<Link
 					href="/operations"
-					className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
+					className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 				>
 					<X className="size-3.5" aria-hidden />
 					Clear

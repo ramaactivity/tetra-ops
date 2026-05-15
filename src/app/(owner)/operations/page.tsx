@@ -288,9 +288,9 @@ export default async function OperationsListPage({
 							<Link
 								href="/settings/operations/import-projects"
 								title="Bulk-import projects from old Apps Script v1"
-								className={buttonVariants({ variant: "ghost", size: "sm" })}
+								className={buttonVariants({ variant: "outline" })}
 							>
-								<Upload className="size-4" />
+								<Upload className="size-3.5" />
 								<span className="hidden sm:inline">Import legacy</span>
 							</Link>
 						)}
@@ -298,7 +298,7 @@ export default async function OperationsListPage({
 							href="/operations/new"
 							className={buttonVariants({ variant: "default" })}
 						>
-							<Plus className="size-4" />
+							<Plus className="size-3.5" />
 							<span className="hidden sm:inline">New booking</span>
 						</Link>
 					</>
@@ -347,11 +347,15 @@ export default async function OperationsListPage({
 				/>
 
 				{selectedCrew && (
-					<div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
-						<Users className="size-3.5 text-primary" aria-hidden />
-						<span className="text-fluid-caption text-foreground">
+					<div className="flex items-center gap-2 rounded-md border border-border-default bg-secondary px-3 py-2">
+						<Users
+							className="size-3.5 text-foreground"
+							aria-hidden
+							strokeWidth={2}
+						/>
+						<span className="text-[12.5px] text-foreground">
 							Filtering by crew:{" "}
-							<span className="font-medium">{selectedCrew.full_name}</span>
+							<span className="font-semibold">{selectedCrew.full_name}</span>
 							{selectedCrew.tier && (
 								<span className="ml-1 uppercase text-muted-foreground">
 									· {selectedCrew.tier}
@@ -360,7 +364,7 @@ export default async function OperationsListPage({
 						</span>
 						<Link
 							href="/operations"
-							className="ml-auto text-fluid-caption text-muted-foreground hover:text-foreground"
+							className="ml-auto text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
 						>
 							Clear
 						</Link>

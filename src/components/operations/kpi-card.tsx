@@ -1,46 +1,30 @@
-import { cva, type VariantProps } from "class-variance-authority";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * <KpiCard /> — dashboard / list-page metric tile.
+ * <KpiCard /> — Vercel `card-marketing` rendered as a KPI tile.
  *
- * Pass 4 refactor per DESIGN.md (Vercel/Linear DNA, no gradients):
- * - Plain card surface (`bg-card`) + hairline border. NO atmospheric
- *   gradient overlays, NO glow shadows.
- * - `variant="hero"` just promotes the icon to Iris primary tint —
- *   no painted background, no shadow ring.
- * - Accent semantic colors (emerald/amber/sky/rose/primary) for the
- *   icon tile only — never on the card body.
+ * - Pure white card on canvas-soft page bg (level-1 hairline elevation).
+ * - Icon sits in a square 32px chip (canvas-soft fill, body-tone glyph).
+ *   The accent prop maps to subtle tints only — Vercel keeps icons quiet.
+ * - Label = caption-mono uppercase (`.eyebrow` utility).
+ * - Value = display-md tabular (24px / 600 / -0.96px) — Vercel signature
+ *   negative-tracking pulled in for big-number scan.
+ * - Hint = body-sm body tone (#525252).
  */
 
 type Accent = "default" | "emerald" | "amber" | "sky" | "rose" | "primary";
 
-const ACCENT_BG: Record<Accent, string> = {
-	default: "bg-surface-3 text-muted-foreground ring-border-subtle",
-	emerald:
-		"bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/15",
-	amber:
-		"bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/15",
-	sky: "bg-sky-500/10 text-sky-600 dark:text-sky-400 ring-sky-500/15",
-	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/15",
-	primary: "bg-primary/10 text-primary ring-primary/20",
+const ICON_TINT: Record<Accent, string> = {
+	default: "bg-secondary text-muted-foreground",
+	emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+	amber: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
+	sky: "bg-[#0070f3]/10 text-[#0070f3] dark:text-[#3b96ff]",
+	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+	primary: "bg-foreground/8 text-foreground",
 };
 
-const cardVariants = cva(
-	"group relative flex items-start gap-3 rounded-xl border p-4 transition-colors hover:bg-surface-3 sm:p-5",
-	{
-		variants: {
-			variant: {
-				default: "border-border-default bg-card",
-				hero: "border-border-default bg-card",
-			},
-		},
-		defaultVariants: { variant: "default" },
-	},
-);
-
-interface KpiCardProps extends VariantProps<typeof cardVariants> {
+interface KpiCardProps {
 	label: string;
 	value: string;
 	hint?: string;
@@ -55,33 +39,34 @@ export function KpiCard({
 	hint,
 	icon: Icon,
 	accent = "default",
-	variant = "default",
 	className,
 }: KpiCardProps) {
-	// Hero variant: promote icon accent to primary if caller didn't specify.
-	const resolvedAccent =
-		variant === "hero" && accent === "default" ? "primary" : accent;
 	return (
-		<div className={cn(cardVariants({ variant }), className)}>
-			{Icon && (
-				<div
-					className={cn(
-						"grid size-10 shrink-0 place-items-center rounded-lg ring-1",
-						ACCENT_BG[resolvedAccent],
-					)}
-				>
-					<Icon className="size-4" aria-hidden />
-				</div>
+		<div
+			className={cn(
+				"group flex flex-col gap-3 rounded-lg border border-border-default bg-card p-5 transition-colors hover:bg-secondary/40",
+				className,
 			)}
-			<div className="min-w-0 flex-1 space-y-1">
-				<dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-					{label}
-				</dt>
-				<dd className="tabular truncate text-[22px] font-semibold leading-tight tracking-tight text-foreground">
+		>
+			<div className="flex items-center justify-between gap-2">
+				<dt className="eyebrow truncate">{label}</dt>
+				{Icon ? (
+					<div
+						className={cn(
+							"grid size-7 shrink-0 place-items-center rounded-md",
+							ICON_TINT[accent],
+						)}
+					>
+						<Icon className="size-3.5" aria-hidden strokeWidth={2} />
+					</div>
+				) : null}
+			</div>
+			<div className="flex flex-col gap-1">
+				<dd className="tabular display-tight truncate text-[26px] font-semibold leading-[1.1] text-foreground">
 					{value}
 				</dd>
 				{hint && (
-					<p className="text-[11px] leading-tight text-muted-foreground">
+					<p className="text-[12px] leading-snug text-muted-foreground">
 						{hint}
 					</p>
 				)}

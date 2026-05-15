@@ -4,30 +4,53 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * <Badge /> — Vercel `badge-secondary` lineage.
+ *
+ * Pill-shaped (rounded-full), compact (h-5, px-2), 11-12px caption type.
+ * Semantic variants use a soft-tinted bg with a saturated text — the
+ * Vercel "status indicator" pattern from the deployments list.
+ *
+ * `default` collapses to canvas-soft + body tone (no ink fill — that
+ * would be too loud for a status pill).
+ */
+
 const badgeVariants = cva(
-	"group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+	"group/badge inline-flex h-[20px] w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full px-2 text-[11px] font-medium leading-none whitespace-nowrap transition-colors has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:pointer-events-none [&>svg]:size-2.5!",
 	{
 		variants: {
 			variant: {
-				default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+				/* DEFAULT — soft canvas-soft fill with body tone. Used for
+				   neutral state indicators that should sit quietly. */
+				default:
+					"bg-secondary text-muted-foreground",
+				/* SECONDARY — same shape, slightly more visible. */
 				secondary:
-					"bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-				destructive:
-					"bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+					"bg-secondary text-foreground/80",
+				/* OUTLINE — transparent fill with hairline border. */
 				outline:
-					"border-border-default text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+					"border border-border-default bg-card text-muted-foreground",
+				/* GHOST — transparent, no border. For inline-baseline labels. */
 				ghost:
-					"hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-				link: "text-primary underline-offset-4 hover:underline",
-				neutral:
-					"bg-surface-3 text-muted-foreground [a]:hover:bg-surface-4",
+					"text-muted-foreground hover:bg-secondary",
+				/* DESTRUCTIVE — error red tint. */
+				destructive:
+					"bg-rose-500/10 text-rose-600 dark:text-rose-400",
+				/* SEMANTIC — Vercel status colors. Soft tint bg + saturated text. */
 				success:
-					"bg-emerald-500/10 text-emerald-500 focus-visible:ring-emerald-500/20 dark:bg-emerald-500/15 [a]:hover:bg-emerald-500/20",
+					"bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 				warning:
-					"bg-amber-500/10 text-amber-500 focus-visible:ring-amber-500/20 dark:bg-amber-500/15 [a]:hover:bg-amber-500/20",
+					"bg-amber-500/10 text-amber-700 dark:text-amber-500",
 				danger:
-					"bg-rose-500/10 text-rose-500 focus-visible:ring-rose-500/20 dark:bg-rose-500/15 [a]:hover:bg-rose-500/20",
-				info: "bg-sky-500/10 text-sky-500 focus-visible:ring-sky-500/20 dark:bg-sky-500/15 [a]:hover:bg-sky-500/20",
+					"bg-rose-500/10 text-rose-600 dark:text-rose-400",
+				info:
+					"bg-[#0070f3]/10 text-[#0070f3] dark:text-[#3b96ff]",
+				/* NEUTRAL — visible against canvas, for read-only labels. */
+				neutral:
+					"bg-secondary text-foreground/70",
+				/* LINK — inline link blue (rare on badges). */
+				link:
+					"text-[#0070f3] underline-offset-4 hover:underline",
 			},
 		},
 		defaultVariants: {
