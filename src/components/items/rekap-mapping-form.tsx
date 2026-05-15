@@ -289,9 +289,9 @@ function MappingRow({
 
 	return (
 		<div
-			className={`flex flex-col gap-3 rounded-lg border bg-surface-3 p-3 transition-all sm:flex-row sm:items-center ${
+			className={`flex flex-col gap-3 rounded-lg border bg-surface-3 p-3 transition-colors sm:flex-row sm:items-center ${
 				dirty
-					? "border-primary/40 shadow-glow-crimson/30 dark:shadow-glow-crimson"
+					? "border-primary ring-1 ring-primary/30"
 					: "border-border-default"
 			}`}
 		>

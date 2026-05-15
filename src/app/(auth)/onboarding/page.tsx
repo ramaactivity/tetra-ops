@@ -59,7 +59,7 @@ export default async function OnboardingPage() {
 						<p className="text-fluid-caption font-semibold uppercase tracking-widest text-primary">
 							Step 1 dari 2 · Lengkapi profil
 						</p>
-						<h1 className="font-display text-fluid-h1 font-semibold leading-tight tracking-tight text-foreground">
+						<h1 className="text-fluid-h1 font-semibold leading-tight tracking-tight text-foreground">
 							Halo, {firstName}.
 						</h1>
 						<p className="text-fluid-body leading-relaxed text-muted-foreground">

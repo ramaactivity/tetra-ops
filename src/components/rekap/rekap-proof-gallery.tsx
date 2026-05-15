@@ -37,7 +37,7 @@ export function RekapProofGallery({ urls }: { urls: string[] }) {
 						className="group relative aspect-square overflow-hidden rounded-lg border border-border-default bg-surface-2 transition-colors hover:border-primary"
 					>
 						<ProofThumbnail url={url} />
-						<div className="absolute inset-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/60 via-transparent to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+						<div className="absolute inset-0 flex items-end justify-between gap-1 bg-black/45 p-2 opacity-0 transition-opacity group-hover:opacity-100">
 							<span className="rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
 								#{i + 1}
 							</span>

@@ -54,7 +54,7 @@ export default async function CrewPortalPage({
 						<p className="text-fluid-caption font-semibold uppercase tracking-widest text-muted-foreground">
 							Crew Portal
 						</p>
-						<h1 className="font-display text-fluid-h1 font-semibold tracking-tight text-foreground">
+						<h1 className="text-fluid-h1 font-semibold tracking-tight text-foreground">
 							Halo, crew Tetra
 						</h1>
 						<p className="text-fluid-body leading-relaxed text-muted-foreground">

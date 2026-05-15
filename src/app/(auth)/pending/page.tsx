@@ -64,7 +64,7 @@ export default async function PendingPage() {
 						<p className="text-fluid-caption font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-400">
 							Menunggu verifikasi
 						</p>
-						<h1 className="font-display text-fluid-h1 font-semibold leading-tight tracking-tight text-foreground">
+						<h1 className="text-fluid-h1 font-semibold leading-tight tracking-tight text-foreground">
 							Halo, {firstName}.
 						</h1>
 						<p className="text-fluid-body leading-relaxed text-muted-foreground">

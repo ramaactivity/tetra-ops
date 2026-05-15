@@ -287,7 +287,7 @@ export function TutupBukuForm({
 			{/* === SECTION 1: KONSUMSI === */}
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<header>
-					<h3 className="font-display text-base font-semibold tracking-tight">
+					<h3 className="text-base font-semibold tracking-tight">
 						1. Konsumsi & Bukti
 					</h3>
 					<p className="text-xs text-muted-foreground">
@@ -408,7 +408,7 @@ export function TutupBukuForm({
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<header className="flex items-baseline justify-between gap-2">
 					<div>
-						<h3 className="font-display text-base font-semibold tracking-tight">
+						<h3 className="text-base font-semibold tracking-tight">
 							2. HPP (Cost of Goods)
 						</h3>
 						<p className="text-xs text-muted-foreground">
@@ -435,7 +435,7 @@ export function TutupBukuForm({
 					<div>
 						<div className="flex items-center gap-2">
 							<Users className="h-4 w-4 text-primary" />
-							<h3 className="font-display text-base font-semibold tracking-tight">
+							<h3 className="text-base font-semibold tracking-tight">
 								3. Fee Crew & Sewa
 							</h3>
 						</div>
@@ -527,7 +527,7 @@ export function TutupBukuForm({
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<header className="flex items-baseline justify-between gap-2">
 					<div>
-						<h3 className="font-display text-base font-semibold tracking-tight">
+						<h3 className="text-base font-semibold tracking-tight">
 							4. Komisi & Platform Fee
 						</h3>
 						<p className="text-xs text-muted-foreground">
@@ -554,7 +554,7 @@ export function TutupBukuForm({
 			{/* === SECTION 5: DISKON & BAGI HASIL === */}
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<header>
-					<h3 className="font-display text-base font-semibold tracking-tight">
+					<h3 className="text-base font-semibold tracking-tight">
 						5. Diskon & Bagi Hasil
 					</h3>
 					<p className="text-xs text-muted-foreground">
@@ -806,7 +806,7 @@ function FieldExpenseSection({
 				<div>
 					<div className="flex items-center gap-2">
 						<Receipt className="h-4 w-4 text-primary" />
-						<h3 className="font-display text-base font-semibold tracking-tight">
+						<h3 className="text-base font-semibold tracking-tight">
 							1b. Biaya Lapangan (dari Crew)
 						</h3>
 					</div>

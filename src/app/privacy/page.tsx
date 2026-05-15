@@ -33,7 +33,7 @@ export default function PrivacyPage() {
 						</span>
 					</div>
 					<div className="space-y-2">
-						<h1 className="font-display text-fluid-h1 leading-tight tracking-tight">
+						<h1 className="text-fluid-h1 leading-tight tracking-tight">
 							Privacy Policy
 						</h1>
 						<p className="text-muted-foreground text-fluid-body">
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
 
 				<main className="space-y-8 text-foreground text-fluid-body leading-relaxed">
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							1. Tentang Tetra Ops
 						</h2>
 						<p>
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							2. Data yang Kami Akses
 						</h2>
 						<p>
@@ -79,7 +79,7 @@ export default function PrivacyPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							3. Bagaimana Data Dipakai
 						</h2>
 						<ul className="ml-6 list-disc space-y-2 marker:text-muted-foreground">
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							4. Sharing Data
 						</h2>
 						<p>
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							5. Retention &amp; Deletion
 						</h2>
 						<p>
@@ -139,7 +139,7 @@ export default function PrivacyPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							6. Cookies
 						</h2>
 						<p>
@@ -150,7 +150,7 @@ export default function PrivacyPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							7. Kontak
 						</h2>
 						<p>

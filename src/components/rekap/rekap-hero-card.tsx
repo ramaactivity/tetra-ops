@@ -34,11 +34,7 @@ export function RekapHeroCard({
 	submitted,
 }: Props) {
 	return (
-		<div className="lift-on-hover relative overflow-hidden rounded-2xl border border-border-default bg-surface-2 p-5 sm:p-6">
-			<div
-				aria-hidden="true"
-				className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-gradient-sunrise-radial opacity-[0.08] blur-2xl dark:opacity-[0.15]"
-			/>
+		<div className="relative overflow-hidden rounded-2xl border border-border-default bg-card p-5 sm:p-6">
 			<div className="relative space-y-3">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="text-fluid-caption font-semibold uppercase tracking-widest text-primary">
@@ -47,7 +43,7 @@ export function RekapHeroCard({
 					<StatusBadge isApproved={isApproved} submitted={submitted} />
 				</div>
 				<div className="space-y-1">
-					<h1 className="font-display text-fluid-h1 leading-tight tracking-tight text-foreground">
+					<h1 className="text-fluid-h1 leading-tight tracking-tight text-foreground">
 						{clientName}
 					</h1>
 					<p className="text-fluid-caption text-muted-foreground">

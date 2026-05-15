@@ -33,7 +33,7 @@ export default function TermsPage() {
 						</span>
 					</div>
 					<div className="space-y-2">
-						<h1 className="font-display text-fluid-h1 leading-tight tracking-tight">
+						<h1 className="text-fluid-h1 leading-tight tracking-tight">
 							Terms of Service
 						</h1>
 						<p className="text-muted-foreground text-fluid-body">
@@ -44,7 +44,7 @@ export default function TermsPage() {
 
 				<main className="space-y-8 text-foreground text-fluid-body leading-relaxed">
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							1. Penerimaan Syarat
 						</h2>
 						<p>
@@ -55,7 +55,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							2. Tentang Layanan
 						</h2>
 						<p>
@@ -67,7 +67,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							3. Tanggung Jawab User
 						</h2>
 						<ul className="ml-6 list-disc space-y-2 marker:text-muted-foreground">
@@ -86,7 +86,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							4. Penggunaan yang Dilarang
 						</h2>
 						<ul className="ml-6 list-disc space-y-2 marker:text-muted-foreground">
@@ -105,7 +105,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							5. Disclaimer
 						</h2>
 						<p>
@@ -117,7 +117,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							6. Penghentian Akses
 						</h2>
 						<p>
@@ -137,7 +137,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							7. Perubahan Syarat
 						</h2>
 						<p>
@@ -147,7 +147,7 @@ export default function TermsPage() {
 					</section>
 
 					<section className="space-y-3">
-						<h2 className="font-display text-fluid-h2 tracking-tight">
+						<h2 className="text-fluid-h2 tracking-tight">
 							8. Kontak
 						</h2>
 						<p>

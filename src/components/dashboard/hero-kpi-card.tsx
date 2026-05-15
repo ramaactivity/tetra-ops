@@ -15,38 +15,42 @@ import { cn } from "@/lib/utils";
 
 type Accent = "navy" | "rose" | "amber" | "emerald" | "primary";
 
+/* DEPRECATED: HeroKpiCard's gradient + glow signature has been retired
+   per "no gradients anywhere" direction. Component kept as a legacy
+   alias — accent now just toggles the icon ring tint. New code should
+   use <StatCard /> from src/components/ui/stat-card.tsx instead. */
 const ACCENT_BG: Record<Accent, string> = {
-	navy: "bg-gradient-to-br from-slate-900 via-indigo-950 to-zinc-950",
-	rose: "bg-gradient-to-br from-rose-950 via-rose-950/80 to-zinc-950",
-	amber:
-		"bg-gradient-to-br from-amber-950 via-amber-950/80 to-zinc-950",
-	emerald:
-		"bg-gradient-to-br from-emerald-950 via-emerald-900/60 to-zinc-950",
-	primary: "bg-gradient-to-br from-primary/30 via-primary/15 to-zinc-950",
+	navy: "bg-card",
+	rose: "bg-card",
+	amber: "bg-card",
+	emerald: "bg-card",
+	primary: "bg-card",
 };
 
 const ACCENT_GLOW: Record<Accent, string> = {
-	navy: "shadow-[0_0_32px_-8px_rgb(99_102_241/0.35)]",
-	rose: "shadow-[0_0_32px_-8px_rgb(244_63_94/0.4)]",
-	amber: "shadow-[0_0_32px_-8px_rgb(245_158_11/0.35)]",
-	emerald: "shadow-[0_0_32px_-8px_rgb(16_185_129/0.4)]",
-	primary: "shadow-glow-crimson",
+	navy: "",
+	rose: "",
+	amber: "",
+	emerald: "",
+	primary: "",
 };
 
 const ICON_BG: Record<Accent, string> = {
-	navy: "bg-indigo-500/15 text-indigo-300 ring-indigo-500/20",
-	rose: "bg-rose-500/15 text-rose-300 ring-rose-500/20",
-	amber: "bg-amber-500/15 text-amber-300 ring-amber-500/20",
-	emerald: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
-	primary: "bg-primary/20 text-primary ring-primary/30",
+	navy: "bg-primary/10 text-primary ring-primary/20",
+	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20",
+	amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20",
+	emerald:
+		"bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20",
+	primary: "bg-primary/10 text-primary ring-primary/20",
 };
 
 const BADGE_BG: Record<Accent, string> = {
-	navy: "bg-indigo-500/15 text-indigo-200 ring-indigo-500/20",
-	rose: "bg-rose-500/15 text-rose-200 ring-rose-500/20",
-	amber: "bg-amber-500/15 text-amber-200 ring-amber-500/20",
-	emerald: "bg-emerald-500/15 text-emerald-200 ring-emerald-500/20",
-	primary: "bg-primary/20 text-primary-foreground ring-primary/30",
+	navy: "bg-primary/10 text-primary ring-primary/20",
+	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20",
+	amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20",
+	emerald:
+		"bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20",
+	primary: "bg-primary/10 text-primary ring-primary/20",
 };
 
 interface HeroKpiCardProps {
@@ -111,14 +115,14 @@ export function HeroKpiCard({
 			</div>
 
 			<div className="mt-auto space-y-1">
-				<dt className="text-[10px] font-semibold uppercase tracking-wider text-white/60">
+				<dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
 					{label}
 				</dt>
-				<dd className="tabular truncate text-2xl font-bold text-white sm:text-3xl">
+				<dd className="tabular truncate text-2xl font-bold text-foreground sm:text-3xl">
 					{value}
 				</dd>
 				{hint ? (
-					<p className="text-fluid-caption text-white/60">{hint}</p>
+					<p className="text-fluid-caption text-muted-foreground">{hint}</p>
 				) : null}
 			</div>
 		</div>

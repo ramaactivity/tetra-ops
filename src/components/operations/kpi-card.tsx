@@ -5,34 +5,35 @@ import { cn } from "@/lib/utils";
 /**
  * <KpiCard /> — dashboard / list-page metric tile.
  *
- * A3 refactor (sesi 5):
- * - Surface-2 base, border-default. lift-on-hover utility for tactile
- *   feedback on desktop (no-op on touch via @media guard).
- * - Optional `variant="hero"` adds Sunrise gradient overlay at low
- *   opacity + glow shadow, for the primary hero KPI per design system §12.
- * - Accent semantic colors stay (emerald, amber, sky, rose, primary)
- *   for the icon tile only — never on the card body.
- * - Fluid type: text-fluid-h2 for the value, text-fluid-caption labels.
+ * Pass 4 refactor per DESIGN.md (Vercel/Linear DNA, no gradients):
+ * - Plain card surface (`bg-card`) + hairline border. NO atmospheric
+ *   gradient overlays, NO glow shadows.
+ * - `variant="hero"` just promotes the icon to Iris primary tint —
+ *   no painted background, no shadow ring.
+ * - Accent semantic colors (emerald/amber/sky/rose/primary) for the
+ *   icon tile only — never on the card body.
  */
 
 type Accent = "default" | "emerald" | "amber" | "sky" | "rose" | "primary";
 
 const ACCENT_BG: Record<Accent, string> = {
-	default: "bg-surface-3 text-muted-foreground",
-	emerald: "bg-emerald-500/10 text-emerald-500",
-	amber: "bg-amber-500/10 text-amber-500",
-	sky: "bg-sky-500/10 text-sky-500",
-	rose: "bg-rose-500/10 text-rose-500",
-	primary: "bg-primary/15 text-primary",
+	default: "bg-surface-3 text-muted-foreground ring-border-subtle",
+	emerald:
+		"bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/15",
+	amber:
+		"bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/15",
+	sky: "bg-sky-500/10 text-sky-600 dark:text-sky-400 ring-sky-500/15",
+	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/15",
+	primary: "bg-primary/10 text-primary ring-primary/20",
 };
 
 const cardVariants = cva(
-	"lift-on-hover relative flex items-start gap-3 overflow-hidden rounded-xl border p-3.5 sm:p-4",
+	"group relative flex items-start gap-3 rounded-xl border p-4 transition-colors hover:bg-surface-3 sm:p-5",
 	{
 		variants: {
 			variant: {
-				default: "border-border-default bg-surface-2",
-				hero: "border-border-default bg-surface-2 shadow-glow-crimson/40 dark:shadow-glow-crimson",
+				default: "border-border-default bg-card",
+				hero: "border-border-default bg-card",
 			},
 		},
 		defaultVariants: { variant: "default" },
@@ -57,29 +58,26 @@ export function KpiCard({
 	variant = "default",
 	className,
 }: KpiCardProps) {
+	// Hero variant: promote icon accent to primary if caller didn't specify.
+	const resolvedAccent =
+		variant === "hero" && accent === "default" ? "primary" : accent;
 	return (
 		<div className={cn(cardVariants({ variant }), className)}>
-			{variant === "hero" ? (
-				<div
-					aria-hidden
-					className="absolute inset-0 -z-10 bg-gradient-sunrise-radial opacity-[0.08] dark:opacity-[0.14]"
-				/>
-			) : null}
 			{Icon && (
 				<div
 					className={cn(
-						"grid size-9 shrink-0 place-items-center rounded-lg",
-						ACCENT_BG[accent],
+						"grid size-10 shrink-0 place-items-center rounded-lg ring-1",
+						ACCENT_BG[resolvedAccent],
 					)}
 				>
 					<Icon className="size-4" aria-hidden />
 				</div>
 			)}
-			<div className="min-w-0 flex-1 space-y-0.5">
-				<dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+			<div className="min-w-0 flex-1 space-y-1">
+				<dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
 					{label}
 				</dt>
-				<dd className="tabular truncate text-2xl font-bold text-foreground sm:text-[1.6rem]">
+				<dd className="tabular truncate text-[22px] font-semibold leading-tight tracking-tight text-foreground">
 					{value}
 				</dd>
 				{hint && (
