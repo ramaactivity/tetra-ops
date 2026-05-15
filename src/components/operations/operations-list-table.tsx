@@ -1,13 +1,6 @@
 "use client";
 
-import {
-	Archive,
-	Clock,
-	HardDrive,
-	Inbox,
-	MapPin,
-	Wallet,
-} from "lucide-react";
+import { Archive, Clock, Frame, Inbox, MapPin, Wallet } from "lucide-react";
 import Link from "next/link";
 import {
 	EventStatusDot,
@@ -17,20 +10,17 @@ import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * <OperationsListTable /> — Vercel data-table row redesigned for scan.
+ * <OperationsListTable /> — operations list, Vercel deployments lineage.
  *
- * Each cell answers ONE question:
- *   PROJECT     → Who is this for + which project ID?
- *   JADWAL      → When?
- *   SPESIFIKASI → What package + where?
- *   CREW        → Who's running it (Lead + Asisten)?
- *   STATUS      → Where in the workflow + any outstanding action?
+ * Row anatomy (per user direction — pass 8):
+ *   PROJECT     → client name (14/600) + channel tag (11/mono)
+ *   JADWAL      → date (13/500) + time range only (12/muted) — NO setup
+ *   SPESIFIKASI → package · backdrop (13/500) + venue (12/muted) — NO city
+ *   CREW        → Lead / Asst with first-word names only
+ *   STATUS      → event dot + payment dot · sisa
  *
- * Each cell has one primary fact (14px font-medium foreground) + one
- * supporting fact (12px muted). Channel + backdrop chips have been
- * absorbed into plain text with a · separator to kill visual chip noise.
- * Outstanding (Sisa) moves from the project column to the status column
- * so action-required info sits next to the workflow indicator.
+ * Typography is locked to 14 / 13 / 12 / 11-mono only. No half-sizes.
+ * Crew column is intentionally narrow so the saved width flows to status.
  */
 
 export type EventRow = {
@@ -55,6 +45,8 @@ export type EventRow = {
 	legacy_invoice_number: string | null;
 	package_name: string | null;
 	package_duration_hours: number | null;
+	backdrop_name: string | null;
+	backdrop_type: string | null;
 };
 
 export type CrewChip = {
@@ -77,8 +69,11 @@ const CHANNEL_DOT: Record<string, string> = {
 	relasi: "bg-violet-500",
 };
 
+/* Crew + status column rebalance — crew column is intentionally tight
+   (short nicknames only); status column takes the freed flex so payment
+   + sisa breathe on one line instead of getting pushed against the wall. */
 const COLS_DESKTOP =
-	"grid-cols-[minmax(15rem,1.5fr)_minmax(9rem,0.9fr)_minmax(14rem,1.4fr)_minmax(9rem,0.9fr)_minmax(9.5rem,auto)]";
+	"grid-cols-[minmax(11rem,1.15fr)_minmax(8.5rem,0.85fr)_minmax(14rem,1.5fr)_minmax(6rem,0.55fr)_minmax(10.5rem,1fr)]";
 
 function formatTime(t: string | null): string {
 	return t ? t.slice(0, 5) : "—";
@@ -89,7 +84,7 @@ function formatDayDate(iso: string): string {
 	return `${day}, ${formatDateID(iso)}`;
 }
 
-/** Compact rupiah for outstanding balance pills. Rp 8.450.000 → Rp 8,45jt. */
+/** Compact rupiah for outstanding balance pills. 8.450.000 → 8,4jt. */
 function formatRupiahCompact(value: number): string {
 	if (value >= 1_000_000_000) {
 		return `Rp ${(value / 1_000_000_000).toFixed(1).replace(".", ",")}M`;
@@ -107,8 +102,42 @@ function prettyChannel(channel: string): string {
 	return CHANNEL_TYPE_LABELS[channel] ?? channel;
 }
 
-function prettyBackdrop(c: string): string {
-	return c.charAt(0).toUpperCase() + c.slice(1);
+/** "4R UNLIMITED 3 JAM" → "4R Unlimited 3 Jam". Numbers stay upper. */
+function prettyPackageName(name: string): string {
+	return name
+		.toLowerCase()
+		.split(/\s+/)
+		.map((word) =>
+			/^\d/.test(word)
+				? word.toUpperCase()
+				: word.charAt(0).toUpperCase() + word.slice(1),
+		)
+		.join(" ");
+}
+
+/** "Padma Ananda Saputra" → "Padma". Nicknames stay as-is. */
+function firstWord(name: string): string {
+	return name.trim().split(/\s+/)[0] ?? name;
+}
+
+function packageLabel(ev: EventRow): string {
+	if (ev.package_name) return prettyPackageName(ev.package_name);
+	const fallback = [
+		ev.frame_size,
+		ev.package_duration_hours ? `${ev.package_duration_hours} jam` : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+	return fallback || "—";
+}
+
+/** Backdrop label prefers the FK'd name; falls back to legacy color enum. */
+function backdropLabel(ev: EventRow): string | null {
+	if (ev.backdrop_name) return ev.backdrop_name;
+	if (ev.backdrop_color && ev.backdrop_color !== "custom") {
+		return ev.backdrop_color.charAt(0).toUpperCase() + ev.backdrop_color.slice(1);
+	}
+	return null;
 }
 
 export function OperationsListTable({
@@ -140,7 +169,8 @@ export function OperationsListTable({
 					{events.map((ev) => {
 						const crew = crewByEvent.get(ev.id) ?? [];
 						const sisa = ev.remaining_balance ?? 0;
-						const packageLabel = formatPackageLabel(ev);
+						const pkg = packageLabel(ev);
+						const bd = backdropLabel(ev);
 
 						return (
 							<Link
@@ -150,14 +180,14 @@ export function OperationsListTable({
 									viewTransitionName: `event-${ev.project_id}`,
 								}}
 								className={cn(
-									"group grid items-start gap-4 border-b border-border-subtle px-5 py-4 transition-colors last:border-b-0 hover:bg-secondary/60",
+									"group grid items-start gap-4 border-b border-border-subtle px-5 py-3.5 transition-colors last:border-b-0 hover:bg-secondary/60",
 									COLS_DESKTOP,
 								)}
 							>
-								{/* Project & Klien */}
+								{/* PROJECT */}
 								<div className="flex min-w-0 flex-col gap-1">
-									<div className="flex items-center gap-1.5 min-w-0">
-										<span className="truncate text-[14px] font-semibold leading-tight text-foreground">
+									<div className="flex min-w-0 items-center gap-1.5">
+										<span className="truncate text-[14px] font-semibold leading-snug text-foreground">
 											{ev.client_name}
 										</span>
 										{ev.is_migrated_legacy && (
@@ -176,79 +206,46 @@ export function OperationsListTable({
 												/>
 											)}
 									</div>
-									<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-tight">
-										<span className="tabular font-mono text-[11px] text-muted-foreground">
-											{ev.project_id}
-										</span>
-										<span
-											className="text-muted-foreground/40"
-											aria-hidden
-										>
-											·
-										</span>
-										<ChannelTag channel={ev.channel} />
-									</div>
+									<ChannelTag channel={ev.channel} />
 								</div>
 
-								{/* Jadwal */}
-								<div className="flex flex-col gap-1 tabular leading-tight">
+								{/* JADWAL */}
+								<div className="flex flex-col gap-1 tabular leading-snug">
 									<div className="text-[13px] font-medium text-foreground">
 										{formatDayDate(ev.event_date)}
 									</div>
 									<TimeLine
-										setupTime={ev.setup_time}
 										startTime={ev.start_time}
 										endTime={ev.end_time}
 									/>
 								</div>
 
-								{/* Spesifikasi */}
-								<div className="flex min-w-0 flex-col gap-1 leading-tight">
-									<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-										<span className="text-[13px] font-medium text-foreground">
-											{packageLabel}
-										</span>
-										{ev.include_flashdisk_pouch && (
-											<span
-												className="inline-flex items-center gap-0.5 text-[10.5px] font-mono font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400"
-												title="Include flashdisk pouch"
-											>
-												<HardDrive className="size-2.5" />
-												FD
-											</span>
-										)}
-									</div>
-									<div className="inline-flex items-center gap-1 truncate text-[12px] text-muted-foreground">
-										<MapPin
-											className="size-3 shrink-0"
-											aria-hidden
-											strokeWidth={2}
-										/>
-										<span className="truncate">
-											{ev.venue_name}
-											{ev.venue_city && (
-												<span className="text-muted-foreground/60">
-													{" · "}
-													{ev.venue_city}
-												</span>
-											)}
-										</span>
-									</div>
+								{/* SPESIFIKASI */}
+								<div className="flex min-w-0 flex-col gap-1 leading-snug">
+									<SpecLine
+										pkg={pkg}
+										backdrop={bd}
+										fd={ev.include_flashdisk_pouch}
+									/>
+									<VenueLine venue={ev.venue_name} />
 								</div>
 
-								{/* Crew */}
+								{/* CREW */}
 								<CrewLine
 									crew={crew}
 									highlightUserId={highlightUserId}
 								/>
 
-								{/* Status */}
-								<div className="flex flex-col items-end gap-1 leading-tight">
-									<EventStatusDot status={ev.status} />
+								{/* STATUS */}
+								<div className="flex flex-col items-end gap-1 leading-snug">
+									<EventStatusDot
+										status={ev.status}
+										className="!text-[13px]"
+									/>
 									<div className="flex items-center gap-1.5">
 										<PaymentStatusDot
 											status={ev.payment_status}
-											className="text-[12px]"
+											className="!text-[12px]"
 										/>
 										{sisa > 0 && (
 											<>
@@ -279,12 +276,13 @@ export function OperationsListTable({
 				</div>
 			</div>
 
-			{/* Mobile cards */}
+			{/* MOBILE */}
 			<div className="space-y-2 p-3 md:hidden">
 				{events.map((ev) => {
 					const crew = crewByEvent.get(ev.id) ?? [];
 					const sisa = ev.remaining_balance ?? 0;
-					const packageLabel = formatPackageLabel(ev);
+					const pkg = packageLabel(ev);
+					const bd = backdropLabel(ev);
 					return (
 						<Link
 							key={ev.id}
@@ -295,26 +293,18 @@ export function OperationsListTable({
 							className="flex flex-col gap-3 rounded-md border border-border-default bg-card p-3.5 transition-colors active:bg-secondary"
 						>
 							<div className="flex items-start justify-between gap-3">
-								<div className="min-w-0 flex-1">
-									<div className="truncate text-[14px] font-semibold leading-tight text-foreground">
+								<div className="min-w-0 flex-1 space-y-1">
+									<div className="truncate text-[14px] font-semibold leading-snug text-foreground">
 										{ev.client_name}
 									</div>
-									<div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-tight">
-										<span className="tabular font-mono text-[11px] text-muted-foreground">
-											{ev.project_id}
-										</span>
-										<span
-											className="text-muted-foreground/40"
-											aria-hidden
-										>
-											·
-										</span>
-										<ChannelTag channel={ev.channel} />
-									</div>
+									<ChannelTag channel={ev.channel} />
 								</div>
-								<EventStatusDot status={ev.status} />
+								<EventStatusDot
+									status={ev.status}
+									className="!text-[13px]"
+								/>
 							</div>
-							<div className="grid grid-cols-2 gap-x-3 gap-y-2.5 tabular leading-tight">
+							<div className="grid grid-cols-2 gap-x-3 gap-y-2.5 tabular leading-snug">
 								<div>
 									<span className="eyebrow block !text-[9.5px]">
 										Jadwal
@@ -323,7 +313,6 @@ export function OperationsListTable({
 										{formatDayDate(ev.event_date)}
 									</div>
 									<TimeLine
-										setupTime={ev.setup_time}
 										startTime={ev.start_time}
 										endTime={ev.end_time}
 										className="mt-0.5"
@@ -341,42 +330,18 @@ export function OperationsListTable({
 										/>
 									</div>
 								</div>
-								<div className="col-span-2 border-t border-border-subtle pt-2">
-									<div className="flex items-center gap-1.5">
-										<span className="text-[13px] font-medium text-foreground">
-											{packageLabel}
-										</span>
-										{ev.include_flashdisk_pouch && (
-											<span
-												className="inline-flex items-center gap-0.5 text-[10.5px] font-mono font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400"
-												title="Include flashdisk pouch"
-											>
-												<HardDrive className="size-2.5" />
-												FD
-											</span>
-										)}
-									</div>
-									<div className="mt-0.5 inline-flex items-center gap-1 truncate text-[12px] text-muted-foreground">
-										<MapPin
-											className="size-3 shrink-0"
-											aria-hidden
-											strokeWidth={2}
-										/>
-										<span className="truncate">
-											{ev.venue_name}
-											{ev.venue_city && (
-												<span className="text-muted-foreground/60">
-													{" · "}
-													{ev.venue_city}
-												</span>
-											)}
-										</span>
-									</div>
+								<div className="col-span-2 border-t border-border-subtle pt-2 space-y-1">
+									<SpecLine
+										pkg={pkg}
+										backdrop={bd}
+										fd={ev.include_flashdisk_pouch}
+									/>
+									<VenueLine venue={ev.venue_name} />
 								</div>
 								<div className="col-span-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
 									<PaymentStatusDot
 										status={ev.payment_status}
-										className="text-[12px]"
+										className="!text-[12px]"
 									/>
 									{sisa > 0 && (
 										<span
@@ -401,43 +366,11 @@ export function OperationsListTable({
 	);
 }
 
-function formatPackageLabel(ev: EventRow): string {
-	const parts: string[] = [];
-	if (ev.package_name) {
-		// Title-case the package name (Vercel/Stripe pattern — never SHOUTING).
-		parts.push(prettyPackageName(ev.package_name));
-	} else if (ev.frame_size || ev.package_duration_hours) {
-		const fallback = [
-			ev.frame_size,
-			ev.package_duration_hours ? `${ev.package_duration_hours} jam` : null,
-		]
-			.filter(Boolean)
-			.join(" · ");
-		if (fallback) parts.push(fallback);
-	}
-	if (ev.backdrop_color && ev.backdrop_color !== "custom") {
-		parts.push(prettyBackdrop(ev.backdrop_color));
-	}
-	return parts.length > 0 ? parts.join(" · ") : "—";
-}
-
-function prettyPackageName(name: string): string {
-	// "4R UNLIMITED 3 JAM" → "4R Unlimited 3 Jam"
-	return name
-		.toLowerCase()
-		.split(/\s+/)
-		.map((word) => {
-			if (/^\d/.test(word)) return word.toUpperCase();
-			return word.charAt(0).toUpperCase() + word.slice(1);
-		})
-		.join(" ");
-}
-
 function ChannelTag({ channel }: { channel: string }) {
 	const dot = CHANNEL_DOT[channel] ?? "bg-muted-foreground/50";
 	return (
 		<span
-			className="inline-flex items-center gap-1 text-[11px] font-mono font-medium uppercase tracking-wide text-muted-foreground"
+			className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium uppercase tracking-wide text-muted-foreground"
 			title={`Channel: ${prettyChannel(channel)}`}
 		>
 			<span
@@ -450,23 +383,19 @@ function ChannelTag({ channel }: { channel: string }) {
 }
 
 function TimeLine({
-	setupTime,
 	startTime,
 	endTime,
 	className,
 }: {
-	setupTime: string | null;
 	startTime: string | null;
 	endTime: string | null;
 	className?: string;
 }) {
-	if (!startTime && !setupTime) {
-		return null;
-	}
+	if (!startTime) return null;
 	return (
 		<div
 			className={cn(
-				"inline-flex items-center gap-1.5 text-[12px] leading-tight text-muted-foreground",
+				"inline-flex items-center gap-1.5 text-[12px] text-muted-foreground",
 				className,
 			)}
 		>
@@ -475,25 +404,67 @@ function TimeLine({
 				aria-hidden
 				strokeWidth={2}
 			/>
-			{startTime ? (
-				<span className="text-foreground/85">
-					{formatTime(startTime)}
-					{endTime && ` – ${formatTime(endTime)}`}
+			<span className="text-foreground/85">
+				{formatTime(startTime)}
+				{endTime && ` – ${formatTime(endTime)}`}
+			</span>
+		</div>
+	);
+}
+
+function SpecLine({
+	pkg,
+	backdrop,
+	fd,
+}: {
+	pkg: string;
+	backdrop: string | null;
+	fd: boolean | null;
+}) {
+	return (
+		<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+			<span className="truncate text-[13px] font-medium text-foreground">
+				{pkg}
+			</span>
+			{fd && (
+				<span
+					className="inline-flex items-center gap-0.5 text-[10.5px] font-mono font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400"
+					title="Include flashdisk pouch"
+				>
+					FD
 				</span>
-			) : null}
-			{setupTime && (
+			)}
+			{backdrop && (
 				<>
-					{startTime && (
-						<span className="text-muted-foreground/40" aria-hidden>
-							·
-						</span>
-					)}
-					<span>
-						<span className="text-muted-foreground/70">setup</span>{" "}
-						{formatTime(setupTime)}
+					<span
+						className="text-muted-foreground/40"
+						aria-hidden
+					>
+						·
+					</span>
+					<span className="inline-flex min-w-0 items-center gap-1 truncate text-[12px] text-muted-foreground">
+						<Frame
+							className="size-3 shrink-0 text-muted-foreground/70"
+							aria-hidden
+							strokeWidth={2}
+						/>
+						<span className="truncate">{backdrop}</span>
 					</span>
 				</>
 			)}
+		</div>
+	);
+}
+
+function VenueLine({ venue }: { venue: string }) {
+	return (
+		<div className="inline-flex items-center gap-1.5 truncate text-[12px] text-muted-foreground">
+			<MapPin
+				className="size-3 shrink-0 text-muted-foreground/70"
+				aria-hidden
+				strokeWidth={2}
+			/>
+			<span className="truncate">{venue}</span>
 		</div>
 	);
 }
@@ -507,38 +478,29 @@ function CrewLine({
 	highlightUserId?: string;
 	compact?: boolean;
 }) {
-	if (crew.length === 0) {
-		return (
-			<div className="flex flex-col gap-1 leading-tight">
-				<div className="flex items-center gap-2">
-					<span className="eyebrow w-10 shrink-0 !text-[9.5px]">
-						Lead
-					</span>
-					<span className="text-[12.5px] text-muted-foreground/60 italic">
-						—
-					</span>
-				</div>
-			</div>
-		);
-	}
 	const lead = crew.find((c) => c.role_in_event === "lead");
 	const others = crew.filter((c) => c.role_in_event !== "lead");
 
-	const leadName = lead?.nickname ?? lead?.full_name ?? null;
-	const asistenName = others[0]?.nickname ?? others[0]?.full_name ?? null;
+	const leadDisplay = lead
+		? firstWord(lead.nickname ?? lead.full_name)
+		: null;
+	const asistenSource = others[0];
+	const asistenDisplay = asistenSource
+		? firstWord(asistenSource.nickname ?? asistenSource.full_name)
+		: null;
 	const extra = others.length > 1 ? others.length - 1 : 0;
 	const isHighlight = (uid?: string) => highlightUserId === uid;
 
 	const labelCls = compact
-		? "eyebrow w-9 shrink-0 !text-[9px]"
-		: "eyebrow w-10 shrink-0 !text-[9.5px]";
-	const nameCls = compact ? "text-[12px]" : "text-[13px]";
+		? "eyebrow w-10 shrink-0 !text-[9.5px]"
+		: "eyebrow w-9 shrink-0 !text-[10px]";
+	const nameCls = "text-[13px] leading-snug";
 
 	return (
-		<div className="flex flex-col gap-1 leading-tight">
+		<div className="flex flex-col gap-1 leading-snug">
 			<div className="flex items-center gap-2 min-w-0">
 				<span className={labelCls}>Lead</span>
-				{leadName ? (
+				{leadDisplay ? (
 					<span
 						className={cn(
 							"truncate",
@@ -549,7 +511,7 @@ function CrewLine({
 						)}
 						title={lead?.full_name}
 					>
-						{leadName}
+						{leadDisplay}
 					</span>
 				) : (
 					<span
@@ -561,18 +523,18 @@ function CrewLine({
 			</div>
 			<div className="flex items-center gap-2 min-w-0">
 				<span className={labelCls}>Asst</span>
-				{asistenName ? (
+				{asistenDisplay ? (
 					<span
 						className={cn(
 							"truncate",
 							nameCls,
-							isHighlight(others[0]?.user_id)
+							isHighlight(asistenSource?.user_id)
 								? "font-semibold text-foreground"
 								: "text-muted-foreground",
 						)}
-						title={others[0]?.full_name}
+						title={asistenSource?.full_name}
 					>
-						{asistenName}
+						{asistenDisplay}
 						{extra > 0 && (
 							<span className="text-muted-foreground/60">
 								{" "}

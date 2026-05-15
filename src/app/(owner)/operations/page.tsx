@@ -68,7 +68,8 @@ export default async function OperationsListPage({
 			 frame_size, backdrop_color, include_flashdisk_pouch,
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
-			 package:packages(name, duration_hours)`,
+			 package:packages(name, duration_hours),
+			 backdrop:backdrops(name, type)`,
 		)
 		.is("deleted_at", null)
 		.order("event_date", { ascending: false })
@@ -162,10 +163,17 @@ export default async function OperationsListPage({
 		);
 	}
 
-	type RawEventRow = Omit<EventRow, "package_name" | "package_duration_hours"> & {
+	type RawEventRow = Omit<
+		EventRow,
+		"package_name" | "package_duration_hours" | "backdrop_name" | "backdrop_type"
+	> & {
 		package?:
 			| { name: string | null; duration_hours: number | null }
 			| Array<{ name: string | null; duration_hours: number | null }>
+			| null;
+		backdrop?:
+			| { name: string | null; type: string | null }
+			| Array<{ name: string | null; type: string | null }>
 			| null;
 		custom_package_name?: string | null;
 	};
@@ -173,6 +181,7 @@ export default async function OperationsListPage({
 		(listResult.data ?? []) as RawEventRow[]
 	).map((row) => {
 		const pkg = Array.isArray(row.package) ? row.package[0] : row.package;
+		const bd = Array.isArray(row.backdrop) ? row.backdrop[0] : row.backdrop;
 		const customName = row.custom_package_name;
 		return {
 			id: row.id,
@@ -196,6 +205,8 @@ export default async function OperationsListPage({
 			legacy_invoice_number: row.legacy_invoice_number,
 			package_name: pkg?.name ?? customName ?? null,
 			package_duration_hours: pkg?.duration_hours ?? null,
+			backdrop_name: bd?.name ?? null,
+			backdrop_type: bd?.type ?? null,
 		};
 	});
 
