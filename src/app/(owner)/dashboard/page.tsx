@@ -21,7 +21,6 @@ import { HeroKpiCard } from "@/components/dashboard/hero-kpi-card";
 import { StatusGroupCard } from "@/components/dashboard/status-group-card";
 import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import { PipelineCard } from "@/components/operations/pipeline-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -241,14 +240,29 @@ export default async function DashboardPage() {
 	const firstName = userResult.profile.full_name.split(" ")[0];
 
 	return (
-		<Container size="xl" className="space-y-6 md:space-y-8">
-			<SectionHeader
-				title={`Halo, ${firstName}.`}
-				description={ID_DATE_FULL.format(today)}
-			/>
+		<Container size="xl" className="space-y-8 md:space-y-10">
+			{/* Branded greeting — Playfair display + sunrise gradient on name */}
+			<header className="space-y-2">
+				<p className="eyebrow">{ID_DATE_FULL.format(today)}</p>
+				<h1 className="font-display text-[clamp(1.75rem,1.4rem+1.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em] text-foreground">
+					Halo,{" "}
+					<span
+						className="bg-gradient-sunrise bg-clip-text text-transparent"
+						style={{
+							WebkitBackgroundClip: "text",
+							WebkitTextFillColor: "transparent",
+						}}
+					>
+						{firstName}
+					</span>
+					.
+				</h1>
+			</header>
 
 			{/* Hero KPIs — Tetra ERP exec-summary style: 4 dark-gradient cards */}
-			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			<section className="space-y-3">
+				<p className="eyebrow">Ringkasan Operasional</p>
+				<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<HeroKpiCard
 					label="Event Bulan Ini"
 					value={monthCount.toLocaleString("id-ID")}
@@ -277,10 +291,13 @@ export default async function DashboardPage() {
 					icon={Hourglass}
 					accent="amber"
 				/>
-			</dl>
+				</dl>
+			</section>
 
 			{/* Targets + status overview — Tetra ERP exec-summary mid-strip */}
-			<section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+			<section className="space-y-3">
+				<p className="eyebrow">Target & Status</p>
+				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 				<TargetProgressCard
 					label="Target Bulanan"
 					current={monthCount}
@@ -315,18 +332,22 @@ export default async function DashboardPage() {
 						{ label: "Unpaid", value: invoiceUnpaid, tone: "rose" },
 					]}
 				/>
+				</div>
 			</section>
 
 			<AnomalyRadarWidget />
 
 			<section className="space-y-3">
-				<div className="flex items-baseline justify-between">
-					<h2 className="text-fluid-h3 font-semibold tracking-tight">
-						Pipeline Event
-					</h2>
+				<div className="flex items-end justify-between gap-3">
+					<div className="space-y-1">
+						<p className="eyebrow">Pipeline</p>
+						<h2 className="font-display text-fluid-h2 font-semibold tracking-tight">
+							Pipeline Event
+						</h2>
+					</div>
 					<Link
 						href="/operations"
-						className="text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
+						className="text-fluid-caption font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 					>
 						Lihat semua →
 					</Link>
@@ -365,9 +386,12 @@ export default async function DashboardPage() {
 
 			<div className="grid gap-6 lg:grid-cols-3">
 				<section className="space-y-3 lg:col-span-2">
-					<h2 className="text-fluid-h3 font-semibold tracking-tight">
-						Hari Ini & Besok
-					</h2>
+					<div className="space-y-1">
+						<p className="eyebrow">Agenda</p>
+						<h2 className="font-display text-fluid-h2 font-semibold tracking-tight">
+							Hari Ini & Besok
+						</h2>
+					</div>
 					{nextEvents.length === 0 ? (
 						<EmptyState
 							icon={CalendarClock}
@@ -382,26 +406,32 @@ export default async function DashboardPage() {
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="lift-on-hover group flex items-start gap-4 rounded-xl border border-border-default bg-surface-2 p-4 transition-colors hover:bg-surface-3"
+										className="group flex items-start gap-4 rounded-2xl border border-border-default bg-surface-2 p-4 transition-all duration-base ease-out-expo hover:-translate-y-px hover:border-border-strong hover:bg-surface-3"
 										style={{
 											viewTransitionName: `event-${ev.project_id}`,
 										}}
 									>
-										<div className="flex w-16 shrink-0 flex-col items-center gap-0.5">
+										<div
+											className={`flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl py-2 ring-1 ${
+												isToday
+													? "bg-primary/10 ring-primary/25"
+													: "bg-surface-3 ring-border-subtle"
+											}`}
+										>
 											<span
-												className={`text-fluid-caption font-medium uppercase tracking-wider ${
-													isToday ? "text-primary" : "text-muted-foreground"
+												className={`eyebrow !text-[9px] ${
+													isToday ? "!text-primary" : ""
 												}`}
 											>
 												{isToday ? "Hari ini" : "Besok"}
 											</span>
-											<span className="tabular text-fluid-body font-semibold text-foreground">
+											<span className="tabular text-fluid-h3 font-semibold leading-none text-foreground">
 												{ID_TIME(ev.start_time)}
 											</span>
 										</div>
-										<div className="min-w-0 flex-1 space-y-1">
-											<div className="flex items-baseline gap-2">
-												<span className="truncate text-fluid-body font-medium">
+										<div className="min-w-0 flex-1 space-y-1.5">
+											<div className="flex flex-wrap items-baseline gap-2">
+												<span className="truncate text-fluid-body font-semibold">
 													{ev.client_name}
 												</span>
 												<EventStatusBadge status={ev.status} />
@@ -410,8 +440,10 @@ export default async function DashboardPage() {
 												{ev.venue_name}
 												{ev.venue_city && ` · ${ev.venue_city}`}
 											</p>
-											<p className="tabular text-fluid-caption text-muted-foreground">
-												{ev.project_id} · setup {ID_TIME(ev.setup_time)}
+											<p className="text-[11px] text-muted-foreground/80">
+												<span className="font-mono tabular">{ev.project_id}</span>{" "}
+												· setup{" "}
+												<span className="tabular">{ID_TIME(ev.setup_time)}</span>
 											</p>
 										</div>
 									</Link>
@@ -422,10 +454,13 @@ export default async function DashboardPage() {
 				</section>
 
 				<section className="space-y-3">
-					<h2 className="text-fluid-h3 font-semibold tracking-tight">
-						Quick Actions
-					</h2>
-					<div className="grid gap-2 rounded-xl border border-border-default bg-surface-2 p-3">
+					<div className="space-y-1">
+						<p className="eyebrow">Shortcuts</p>
+						<h2 className="font-display text-fluid-h2 font-semibold tracking-tight">
+							Quick Actions
+						</h2>
+					</div>
+					<div className="grid gap-1 rounded-2xl border border-border-default bg-surface-2 p-2">
 						<QuickAction
 							href="/operations/new"
 							icon={PlusCircle}
@@ -477,15 +512,23 @@ function QuickAction({
 	return (
 		<Link
 			href={href}
-			className="group flex items-center gap-3 rounded-lg p-3 transition-colors duration-fast ease-out-expo hover:bg-surface-3"
+			className="group flex items-center gap-3 rounded-xl p-3 transition-all duration-fast ease-out-expo hover:bg-surface-3"
 		>
-			<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-3 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+			<div className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-3 text-muted-foreground ring-1 ring-border-subtle transition-all duration-fast ease-out-expo group-hover:bg-primary/10 group-hover:text-primary group-hover:ring-primary/20">
 				<Icon className="size-4" />
 			</div>
 			<div className="min-w-0 flex-1">
-				<div className="text-fluid-body font-medium">{label}</div>
+				<div className="text-fluid-body font-medium leading-tight">
+					{label}
+				</div>
 				<div className="text-fluid-caption text-muted-foreground">{hint}</div>
 			</div>
+			<span
+				aria-hidden="true"
+				className="text-muted-foreground/40 transition-all duration-fast ease-out-expo group-hover:translate-x-0.5 group-hover:text-foreground"
+			>
+				→
+			</span>
 		</Link>
 	);
 }
