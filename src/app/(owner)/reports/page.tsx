@@ -234,6 +234,7 @@ async function PnlSection({
 				owner_pool_total, fee_lead, fee_asisten, fee_crew_c, fee_extra,
 				transport_bbm, sewa_alat, perawatan, konsumsi,
 				komisi_vendor, komisi_relasi, komisi_sales_direct,
+				platform_fee, diskon_tambahan,
 				is_loss, closed_at,
 				event:events!inner(id, project_id, client_name, channel, event_date)`,
 			)
@@ -275,6 +276,8 @@ async function PnlSection({
 		komisi_vendor: number;
 		komisi_relasi: number;
 		komisi_sales_direct: number;
+		platform_fee: number;
+		diskon_tambahan: number;
 		is_loss: boolean;
 		closed_at: string;
 		event:
@@ -319,10 +322,14 @@ async function PnlSection({
 			sum("fee_lead") + sum("fee_asisten") + sum("fee_crew_c") + sum("fee_extra"),
 		transport: sum("transport_bbm"),
 		sewa_alat: sum("sewa_alat"),
-		perawatan: sum("perawatan"),
+		// `perawatan` bucket is now repurposed di Tutup Buku v3 untuk
+		// "Sewa Aplikasi / Lainnya" (PicShoot, biaya owner lainnya).
+		sewa_aplikasi_lainnya: sum("perawatan"),
 		konsumsi: sum("konsumsi"),
 		komisi:
 			sum("komisi_vendor") + sum("komisi_relasi") + sum("komisi_sales_direct"),
+		platform_fee: sum("platform_fee"),
+		diskon_tambahan: sum("diskon_tambahan"),
 	};
 
 	const channelBreakdown = ((bookingsByChannel ?? []) as Array<{
@@ -392,11 +399,32 @@ async function PnlSection({
 						<PnlRow label="Gross Profit" value={revenue - hpp} strong muted />
 						<PnlRow label="OpEx" value={-opex} sign="−" />
 						<PnlSubRow label="Fee crew" value={opexBreakdown.fee_crew} />
-						<PnlSubRow label="Transport / BBM" value={opexBreakdown.transport} />
+						<PnlSubRow
+								label="Transport / BBM (crew)"
+								value={opexBreakdown.transport}
+							/>
 						<PnlSubRow label="Sewa alat" value={opexBreakdown.sewa_alat} />
-						<PnlSubRow label="Perawatan" value={opexBreakdown.perawatan} />
-						<PnlSubRow label="Konsumsi" value={opexBreakdown.konsumsi} />
+						<PnlSubRow
+								label="Sewa aplikasi / lainnya"
+								value={opexBreakdown.sewa_aplikasi_lainnya}
+							/>
+						<PnlSubRow
+								label="Konsumsi & Lainnya (crew)"
+								value={opexBreakdown.konsumsi}
+							/>
 						<PnlSubRow label="Komisi" value={opexBreakdown.komisi} />
+							{opexBreakdown.platform_fee > 0 && (
+								<PnlSubRow
+									label="Platform fee"
+									value={opexBreakdown.platform_fee}
+								/>
+							)}
+							{opexBreakdown.diskon_tambahan > 0 && (
+								<PnlSubRow
+									label="Diskon tambahan"
+									value={opexBreakdown.diskon_tambahan}
+								/>
+							)}
 						<PnlRow
 							label="Operating Profit"
 							value={revenue - hpp - opex}

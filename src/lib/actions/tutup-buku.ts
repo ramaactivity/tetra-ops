@@ -104,6 +104,10 @@ const InputSchema = z.object({
 	revenue_gross: z.coerce.number().int().nonnegative(),
 	discount_total: NonNegInt,
 	owner_pool_per_person: NonNegInt,
+	apply_fee_adjust: z
+		.string()
+		.optional()
+		.transform((v) => v === "1"),
 	hpp: z.object(
 		Object.fromEntries(HPP_KEYS.map((k) => [k, NonNegInt])),
 	) as z.ZodObject<Record<(typeof HPP_KEYS)[number], typeof NonNegInt>>,
@@ -162,6 +166,7 @@ export async function tutupBuku(
 			owner_pool_per_person:
 				formData.get("owner_pool_per_person") ??
 				SETTLEMENT_DEFAULTS.OWNER_POOL_PER_PERSON,
+			apply_fee_adjust: formData.get("apply_fee_adjust"),
 			hpp: parseHpp(formData),
 			opex: parseOpex(formData),
 		});
@@ -221,6 +226,33 @@ export async function tutupBuku(
 		if (rekapErr) {
 			console.error("[tutupBuku] rekap upsert error:", rekapErr);
 			return { ok: false, error: `Gagal save rekap: ${rekapErr.message}` };
+		}
+
+		// === Step 1b: Apply fee adjustment to crew_assignments (if toggled) ===
+		// Push owner-overridden fee_lead/asisten/crew_c back into crew_assignments
+		// so WA reminder + crew dashboard reflect the final amount. Baseline is
+		// preserved indirectly via event_settlements.opex.fee_* snapshot.
+		if (parsed.data.apply_fee_adjust) {
+			const roleFeeMap: Array<[string, number]> = [
+				["lead", parsed.data.opex.fee_lead],
+				["asisten", parsed.data.opex.fee_asisten],
+				["crew_c", parsed.data.opex.fee_crew_c],
+			];
+			for (const [role, fee] of roleFeeMap) {
+				const { error: feeErr } = await supabase
+					.from("crew_assignments")
+					.update({ fee_amount: fee })
+					.eq("event_id", eventId)
+					.eq("role_in_event", role);
+				if (feeErr) {
+					console.error(
+						`[tutupBuku] fee adjust update error (${role}):`,
+						feeErr,
+					);
+					// Non-fatal: surface a warning but continue closing settlement.
+					// Snapshot in event_settlements still records the adjusted value.
+				}
+			}
 		}
 
 		// === Step 2: Call close_event_settlement RPC ===

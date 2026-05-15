@@ -205,9 +205,9 @@ export async function POST(
 
 	// Authorization branch per kind:
 	// - payment_proof: owner-level only (financial data sensitivity)
-	// - rekap_proof: crew assigned to event OR owner
+	// - rekap_proof / transport_proof: crew assigned to event OR owner
 	// - other: owner only
-	if (kind === "rekap_proof") {
+	if (kind === "rekap_proof" || kind === "transport_proof") {
 		if (isCrew) {
 			const { data: assignment } = await supabase
 				.from("crew_assignments")
@@ -282,6 +282,27 @@ export async function POST(
 			},
 			ext,
 		);
+	} else if (kind === "transport_proof") {
+		// Transport proof: `{PRJ-ID} - TRANSPORT - {leg} - {YYYY-MM-DD}.{ext}`
+		// `leg` posted as `seq` field — "berangkat" / "pulang" (or fallback HHMMSS).
+		const legRaw = typeof seq === "string" ? seq.toLowerCase() : "";
+		const leg = ["berangkat", "pulang"].includes(legRaw) ? legRaw : null;
+		const dateStr =
+			formatPaymentDate((event.event_date as string | null) ?? null) ??
+			formatPaymentDate(new Date().toISOString());
+		const parts: string[] = [
+			safeSegment(event.project_id as string, 30),
+			"TRANSPORT",
+		];
+		if (leg) parts.push(safeSegment(leg, 20));
+		if (dateStr) parts.push(dateStr);
+		if (!leg) {
+			const now = new Date();
+			parts.push(
+				`${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`,
+			);
+		}
+		finalName = `${parts.join(" - ").slice(0, 180).trim()}.${ext}`;
 	} else {
 		// Generic fallback: project + original name (sanitized)
 		const ts = new Date()

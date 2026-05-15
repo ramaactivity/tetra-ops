@@ -57,7 +57,10 @@ export default async function TutupBukuPage({
 			.select(
 				`id, cetak_total, media_set_used, sleeve_used,
 				flashdisk_used, pouch_used, photomagnet_used, keychain_used,
-				custom_materials, proof_photo_urls, crew_notes, is_approved`,
+				custom_materials, proof_photo_urls, crew_notes, is_approved,
+				transport_method, transport_cost,
+				transport_proof_berangkat_url, transport_proof_pulang_url,
+				bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items`,
 			)
 			.eq("event_id", event.id)
 			.maybeSingle(),
@@ -83,6 +86,40 @@ export default async function TutupBukuPage({
 	const feeBy = (role: string) =>
 		assignments.find((a) => a.role_in_event === role)?.fee_amount ?? 0;
 
+	// Crew expense breakdown (pre-fill OpEx transport_bbm + konsumsi buckets)
+	const lainnyaItems = (rekap?.lainnya_items ?? []) as Array<{
+		note: string;
+		amount: number;
+	}>;
+	const lainnyaTotal = lainnyaItems.reduce(
+		(s, r) => s + Number(r.amount || 0),
+		0,
+	);
+	const crewExpense = {
+		transport_method: (rekap?.transport_method ?? "none") as
+			| "online"
+			| "rental"
+			| "none",
+		transport_cost: Number(rekap?.transport_cost ?? 0),
+		transport_proof_berangkat_url:
+			(rekap?.transport_proof_berangkat_url as string | null) ?? null,
+		transport_proof_pulang_url:
+			(rekap?.transport_proof_pulang_url as string | null) ?? null,
+		bensin_cost: Number(rekap?.bensin_cost ?? 0),
+		toll_cost: Number(rekap?.toll_cost ?? 0),
+		parking_cost: Number(rekap?.parking_cost ?? 0),
+		konsumsi_cost: Number(rekap?.konsumsi_cost ?? 0),
+		lainnya_items: lainnyaItems,
+		lainnya_total: lainnyaTotal,
+	};
+
+	const transportBbmPrefill =
+		crewExpense.transport_cost +
+		crewExpense.bensin_cost +
+		crewExpense.toll_cost +
+		crewExpense.parking_cost;
+	const konsumsiPrefill = crewExpense.konsumsi_cost + crewExpense.lainnya_total;
+
 	const defaults = {
 		revenue_gross: Number(event.grand_total ?? 0),
 		discount_total: Number(event.discount_amount ?? 0),
@@ -91,6 +128,12 @@ export default async function TutupBukuPage({
 		fee_lead: feeBy("lead"),
 		fee_asisten: feeBy("asisten"),
 		fee_crew_c: feeBy("crew_c"),
+		fee_lead_baseline: feeBy("lead"),
+		fee_asisten_baseline: feeBy("asisten"),
+		fee_crew_c_baseline: feeBy("crew_c"),
+		// Pre-fill OpEx buckets from crew expense
+		opex_transport_bbm: transportBbmPrefill,
+		opex_konsumsi: konsumsiPrefill,
 		// Rekap consumption defaults (from existing rekap if any)
 		cetak_total: rekap?.cetak_total ?? 0,
 		media_set_used: rekap?.media_set_used ?? 0,
@@ -167,6 +210,7 @@ export default async function TutupBukuPage({
 					context={context}
 					autoHpp={autoHpp}
 					defaults={defaults}
+					crewExpense={crewExpense}
 				/>
 			)}
 		</Container>

@@ -37,6 +37,15 @@ type RekapRow = {
 	stock_committed_at: string | null;
 	stock_movement_batch_id: string | null;
 	created_at: string;
+	transport_method: "online" | "rental" | "none" | null;
+	transport_cost: number | string | null;
+	transport_proof_berangkat_url: string | null;
+	transport_proof_pulang_url: string | null;
+	bensin_cost: number | string | null;
+	toll_cost: number | string | null;
+	parking_cost: number | string | null;
+	konsumsi_cost: number | string | null;
+	lainnya_items: Array<{ note: string; amount: number }> | null;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
 };
@@ -75,6 +84,9 @@ export default async function EventRekapPage({
 			custom_materials,
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
 			stock_committed_at, stock_movement_batch_id, created_at,
+			transport_method, transport_cost,
+			transport_proof_berangkat_url, transport_proof_pulang_url,
+			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
 			submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 			reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 		)
@@ -118,6 +130,20 @@ export default async function EventRekapPage({
 				custom_materials: JSON.stringify(rekap.custom_materials ?? {}),
 				proof_photo_urls: (rekap.proof_photo_urls ?? []).join("\n"),
 				crew_notes: rekap.crew_notes ?? "",
+				transport_method: (rekap.transport_method ?? "none") as
+					| "online"
+					| "rental"
+					| "none",
+				transport_cost: String(rekap.transport_cost ?? 0),
+				transport_proof_berangkat_url:
+					rekap.transport_proof_berangkat_url ?? "",
+				transport_proof_pulang_url:
+					rekap.transport_proof_pulang_url ?? "",
+				bensin_cost: String(rekap.bensin_cost ?? 0),
+				toll_cost: String(rekap.toll_cost ?? 0),
+				parking_cost: String(rekap.parking_cost ?? 0),
+				konsumsi_cost: String(rekap.konsumsi_cost ?? 0),
+				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
 			}
 		: undefined;
 

@@ -8,6 +8,49 @@ import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createClient } from "@/lib/supabase/server";
 
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
+const NonNegMoney = z.coerce.number().nonnegative().default(0);
+
+const TransportMethodSchema = z
+	.enum(["online", "rental", "none"])
+	.default("none");
+
+const NullableUrlSchema = z
+	.string()
+	.trim()
+	.optional()
+	.transform((v) => (v && v.length > 0 ? v : null))
+	.refine((v) => v === null || /^https?:\/\//.test(v), {
+		message: "URL bukti tidak valid",
+	});
+
+const LainnyaItemsSchema = z
+	.string()
+	.trim()
+	.optional()
+	.transform((v): Array<{ note: string; amount: number }> => {
+		if (!v) return [];
+		try {
+			const parsed = JSON.parse(v);
+			if (!Array.isArray(parsed)) return [];
+			const out: Array<{ note: string; amount: number }> = [];
+			for (const row of parsed) {
+				if (!row || typeof row !== "object") continue;
+				const note = String(
+					(row as Record<string, unknown>).note ?? "",
+				)
+					.trim()
+					.slice(0, 120);
+				const amount = Number((row as Record<string, unknown>).amount);
+				if (!Number.isFinite(amount) || amount < 0) continue;
+				if (!note && amount === 0) continue;
+				out.push({ note, amount: Math.round(amount) });
+				if (out.length >= 20) break;
+			}
+			return out;
+		} catch {
+			return [];
+		}
+	});
 
 const CustomMaterialsSchema = z
 	.string()
@@ -63,6 +106,17 @@ const RekapInputSchema = z.object({
 		.max(1000)
 		.optional()
 		.transform((v) => (v ? v : null)),
+
+	// Field expenses (Phase F2) — biaya operasional lapangan crew
+	transport_method: TransportMethodSchema,
+	transport_cost: NonNegMoney,
+	transport_proof_berangkat_url: NullableUrlSchema,
+	transport_proof_pulang_url: NullableUrlSchema,
+	bensin_cost: NonNegMoney,
+	toll_cost: NonNegMoney,
+	parking_cost: NonNegMoney,
+	konsumsi_cost: NonNegMoney,
+	lainnya_items: LainnyaItemsSchema,
 });
 
 export type RekapInput = z.infer<typeof RekapInputSchema>;
@@ -361,6 +415,15 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		"custom_materials",
 		"proof_photo_urls",
 		"crew_notes",
+		"transport_method",
+		"transport_cost",
+		"transport_proof_berangkat_url",
+		"transport_proof_pulang_url",
+		"bensin_cost",
+		"toll_cost",
+		"parking_cost",
+		"konsumsi_cost",
+		"lainnya_items",
 	];
 	const out: Record<string, string> = {};
 	for (const k of keys) out[k] = String(formData.get(k) ?? "");
@@ -386,6 +449,17 @@ export async function submitRekap(
 		custom_materials: formData.get("custom_materials"),
 		proof_photo_urls: formData.get("proof_photo_urls"),
 		crew_notes: formData.get("crew_notes"),
+		transport_method: formData.get("transport_method"),
+		transport_cost: formData.get("transport_cost"),
+		transport_proof_berangkat_url: formData.get(
+			"transport_proof_berangkat_url",
+		),
+		transport_proof_pulang_url: formData.get("transport_proof_pulang_url"),
+		bensin_cost: formData.get("bensin_cost"),
+		toll_cost: formData.get("toll_cost"),
+		parking_cost: formData.get("parking_cost"),
+		konsumsi_cost: formData.get("konsumsi_cost"),
+		lainnya_items: formData.get("lainnya_items"),
 	});
 	if (!parsed.success) {
 		return {
@@ -434,6 +508,23 @@ export async function submitRekap(
 		};
 	}
 
+	// Bensin only relevant for rental method; zero-out for online/none to keep
+	// the data clean (UI hides the input but defensively normalize here).
+	const bensinCost =
+		parsed.data.transport_method === "rental" ? parsed.data.bensin_cost : 0;
+	// Transport proof only relevant for online method; clear urls otherwise.
+	const proofBerangkat =
+		parsed.data.transport_method === "online"
+			? parsed.data.transport_proof_berangkat_url
+			: null;
+	const proofPulang =
+		parsed.data.transport_method === "online"
+			? parsed.data.transport_proof_pulang_url
+			: null;
+	// transport_cost is 0 when method = none
+	const transportCost =
+		parsed.data.transport_method === "none" ? 0 : parsed.data.transport_cost;
+
 	const payload = {
 		event_id: eventId,
 		submitted_by: me.profile.id,
@@ -447,6 +538,15 @@ export async function submitRekap(
 		custom_materials: parsed.data.custom_materials,
 		proof_photo_urls: parsed.data.proof_photo_urls,
 		crew_notes: parsed.data.crew_notes,
+		transport_method: parsed.data.transport_method,
+		transport_cost: transportCost,
+		transport_proof_berangkat_url: proofBerangkat,
+		transport_proof_pulang_url: proofPulang,
+		bensin_cost: bensinCost,
+		toll_cost: parsed.data.toll_cost,
+		parking_cost: parsed.data.parking_cost,
+		konsumsi_cost: parsed.data.konsumsi_cost,
+		lainnya_items: parsed.data.lainnya_items,
 	};
 
 	if (existing) {

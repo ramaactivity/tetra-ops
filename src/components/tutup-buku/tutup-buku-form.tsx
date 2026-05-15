@@ -1,6 +1,15 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+	AlertTriangle,
+	CheckCircle2,
+	ExternalLink,
+	Loader2,
+	Pencil,
+	Receipt,
+	Users,
+	Wallet,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { RekapContextCard } from "@/components/rekap/rekap-context-card";
@@ -27,6 +36,11 @@ type Defaults = {
 	fee_lead: number;
 	fee_asisten: number;
 	fee_crew_c: number;
+	fee_lead_baseline: number;
+	fee_asisten_baseline: number;
+	fee_crew_c_baseline: number;
+	opex_transport_bbm: number;
+	opex_konsumsi: number;
 	cetak_total: number;
 	media_set_used: number;
 	sleeve_used: number;
@@ -39,18 +53,39 @@ type Defaults = {
 	crew_notes: string;
 };
 
+export type CrewExpense = {
+	transport_method: "online" | "rental" | "none";
+	transport_cost: number;
+	transport_proof_berangkat_url: string | null;
+	transport_proof_pulang_url: string | null;
+	bensin_cost: number;
+	toll_cost: number;
+	parking_cost: number;
+	konsumsi_cost: number;
+	lainnya_items: Array<{ note: string; amount: number }>;
+	lainnya_total: number;
+};
+
+const TRANSPORT_LABEL: Record<CrewExpense["transport_method"], string> = {
+	online: "Online (Gocar/Grab)",
+	rental: "Sewa mobil",
+	none: "Tidak ada",
+};
+
 export function TutupBukuForm({
 	eventId,
 	projectId,
 	context,
 	autoHpp,
 	defaults,
+	crewExpense,
 }: {
 	eventId: string;
 	projectId: string;
 	context: RekapContext;
 	autoHpp: AutoHpp;
 	defaults: Defaults;
+	crewExpense: CrewExpense;
 }) {
 	const router = useRouter();
 	const action = tutupBuku.bind(null, eventId, projectId);
@@ -181,16 +216,26 @@ export function TutupBukuForm({
 		fee_asisten: defaults.fee_asisten,
 		fee_crew_c: defaults.fee_crew_c,
 		fee_extra: 0,
-		transport_bbm: 0,
+		transport_bbm: defaults.opex_transport_bbm,
 		sewa_alat: 0,
-		perawatan: 0,
-		konsumsi: 0,
+		perawatan: 0, // repurposed UI label: "Sewa Aplikasi / Lainnya"
+		konsumsi: defaults.opex_konsumsi,
 		komisi_vendor: 0,
 		komisi_relasi: 0,
 		komisi_sales_direct: 0,
 		platform_fee: defaults.platform_fee,
 		diskon_tambahan: 0,
 	});
+
+	// Toggle: apply fee adjustment back to crew_assignments. Defaults ON
+	// whenever owner ubah dari baseline; owner bisa matikan supaya cuma
+	// snapshot di settlement saja (history baseline preserved).
+	const [applyFeeAdjust, setApplyFeeAdjust] = useState(true);
+
+	const feeAdjusted =
+		opex.fee_lead !== defaults.fee_lead_baseline ||
+		opex.fee_asisten !== defaults.fee_asisten_baseline ||
+		opex.fee_crew_c !== defaults.fee_crew_c_baseline;
 
 	// ===== Distribution =====
 	const [ownerPoolPerPerson, setOwnerPoolPerPerson] = useState(
@@ -199,12 +244,22 @@ export function TutupBukuForm({
 	const [discountTotal, setDiscountTotal] = useState(defaults.discount_total);
 	const revenueGross = defaults.revenue_gross;
 
-	// ===== Live P&L footer =====
+	// ===== Live P&L footer (layered breakdown) =====
 	const hppTotal = sumBuckets(hpp);
-	const opexTotal = Object.values(opex).reduce((s, v) => s + (v || 0), 0);
+	const feeCrewTotal =
+		opex.fee_lead + opex.fee_asisten + opex.fee_crew_c + opex.fee_extra;
+	const fieldExpenseTotal = opex.transport_bbm + opex.konsumsi;
+	const sewaTotal = opex.sewa_alat + opex.perawatan;
+	const komisiTotal =
+		opex.komisi_vendor +
+		opex.komisi_relasi +
+		opex.komisi_sales_direct +
+		opex.platform_fee +
+		opex.diskon_tambahan;
+	const opexTotal = feeCrewTotal + fieldExpenseTotal + sewaTotal + komisiTotal;
 	const revenueNet = revenueGross - discountTotal;
-	const totalBiaya = hppTotal + opexTotal;
-	const netProfit = revenueNet - totalBiaya;
+	const grossMargin = revenueNet - hppTotal;
+	const netProfit = revenueNet - (hppTotal + opexTotal);
 	const margin = revenueNet > 0 ? (netProfit / revenueNet) * 100 : 0;
 
 	// ===== Handle action result =====
@@ -336,6 +391,19 @@ export function TutupBukuForm({
 				/>
 			</section>
 
+			{/* === SECTION 1b: BIAYA LAPANGAN DARI CREW === */}
+			<FieldExpenseSection
+				crewExpense={crewExpense}
+				transportBbm={opex.transport_bbm}
+				konsumsi={opex.konsumsi}
+				onChangeTransportBbm={(v) =>
+					setOpex((p) => ({ ...p, transport_bbm: v }))
+				}
+				onChangeKonsumsi={(v) => setOpex((p) => ({ ...p, konsumsi: v }))}
+				transportBbmPrefill={defaults.opex_transport_bbm}
+				konsumsiPrefill={defaults.opex_konsumsi}
+			/>
+
 			{/* === SECTION 2: HPP === */}
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<header className="flex items-baseline justify-between gap-2">
@@ -361,15 +429,19 @@ export function TutupBukuForm({
 				</div>
 			</section>
 
-			{/* === SECTION 3: SDM & OPERASIONAL === */}
+			{/* === SECTION 3: FEE CREW & SEWA === */}
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<header className="flex items-baseline justify-between gap-2">
 					<div>
-						<h3 className="font-display text-base font-semibold tracking-tight">
-							3. SDM & Operasional
-						</h3>
+						<div className="flex items-center gap-2">
+							<Users className="h-4 w-4 text-primary" />
+							<h3 className="font-display text-base font-semibold tracking-tight">
+								3. Fee Crew & Sewa
+							</h3>
+						</div>
 						<p className="text-xs text-muted-foreground">
-							Fee crew, transportasi, sewa alat, konsumsi.
+							Default fee dari assignment — owner bisa override final-nya di
+							sini.
 						</p>
 					</div>
 					<Badge variant="outline">
@@ -378,23 +450,77 @@ export function TutupBukuForm({
 								opex.fee_asisten +
 								opex.fee_crew_c +
 								opex.fee_extra +
-								opex.transport_bbm +
 								opex.sewa_alat +
-								opex.perawatan +
-								opex.konsumsi,
+								opex.perawatan,
 						)}
 					</Badge>
 				</header>
 				<div className="grid gap-3 sm:grid-cols-2">
-					<HppField label="Fee Lead" name="opex_fee_lead" value={opex.fee_lead} onChange={(v) => setOpex((p) => ({ ...p, fee_lead: v }))} />
-					<HppField label="Fee Asisten" name="opex_fee_asisten" value={opex.fee_asisten} onChange={(v) => setOpex((p) => ({ ...p, fee_asisten: v }))} />
-					<HppField label="Fee Crew C" name="opex_fee_crew_c" value={opex.fee_crew_c} onChange={(v) => setOpex((p) => ({ ...p, fee_crew_c: v }))} hint="Hanya kalau 3 crew" />
-					<HppField label="Fee Extra (bonus crew)" name="opex_fee_extra" value={opex.fee_extra} onChange={(v) => setOpex((p) => ({ ...p, fee_extra: v }))} />
-					<HppField label="Transport / BBM" name="opex_transport_bbm" value={opex.transport_bbm} onChange={(v) => setOpex((p) => ({ ...p, transport_bbm: v }))} />
-					<HppField label="Sewa Alat / Studio" name="opex_sewa_alat" value={opex.sewa_alat} onChange={(v) => setOpex((p) => ({ ...p, sewa_alat: v }))} />
-					<HppField label="Perawatan Alat" name="opex_perawatan" value={opex.perawatan} onChange={(v) => setOpex((p) => ({ ...p, perawatan: v }))} />
-					<HppField label="Konsumsi / Lainnya" name="opex_konsumsi" value={opex.konsumsi} onChange={(v) => setOpex((p) => ({ ...p, konsumsi: v }))} />
+					<FeeAdjustField
+						label="Fee Lead"
+						name="opex_fee_lead"
+						value={opex.fee_lead}
+						baseline={defaults.fee_lead_baseline}
+						onChange={(v) => setOpex((p) => ({ ...p, fee_lead: v }))}
+					/>
+					<FeeAdjustField
+						label="Fee Asisten"
+						name="opex_fee_asisten"
+						value={opex.fee_asisten}
+						baseline={defaults.fee_asisten_baseline}
+						onChange={(v) => setOpex((p) => ({ ...p, fee_asisten: v }))}
+					/>
+					<FeeAdjustField
+						label="Fee Crew C"
+						name="opex_fee_crew_c"
+						value={opex.fee_crew_c}
+						baseline={defaults.fee_crew_c_baseline}
+						onChange={(v) => setOpex((p) => ({ ...p, fee_crew_c: v }))}
+					/>
+					<HppField
+						label="Fee Extra (bonus crew)"
+						name="opex_fee_extra"
+						value={opex.fee_extra}
+						onChange={(v) => setOpex((p) => ({ ...p, fee_extra: v }))}
+					/>
+					<HppField
+						label="Sewa Alat / Studio"
+						name="opex_sewa_alat"
+						value={opex.sewa_alat}
+						onChange={(v) => setOpex((p) => ({ ...p, sewa_alat: v }))}
+					/>
+					<HppField
+						label="Sewa Aplikasi / Lainnya"
+						name="opex_perawatan"
+						value={opex.perawatan}
+						onChange={(v) => setOpex((p) => ({ ...p, perawatan: v }))}
+						hint="PicShoot dll + biaya owner lainnya"
+					/>
 				</div>
+
+				{feeAdjusted && (
+					<label className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-xs">
+						<input
+							type="checkbox"
+							checked={applyFeeAdjust}
+							onChange={(e) => setApplyFeeAdjust(e.target.checked)}
+							className="mt-0.5 size-4 rounded border-border-default accent-primary"
+						/>
+						<span className="flex-1">
+							<span className="font-medium text-foreground">
+								Apply ke crew_assignments
+							</span>{" "}
+							— update fee final di WA reminder + crew dashboard. Kalau matikan,
+							adjustment cuma snapshot di settlement (baseline crew_assignments
+							tidak berubah).
+						</span>
+					</label>
+				)}
+				<input
+					type="hidden"
+					name="apply_fee_adjust"
+					value={applyFeeAdjust && feeAdjusted ? "1" : "0"}
+				/>
 			</section>
 
 			{/* === SECTION 4: KOMISI === */}
@@ -452,33 +578,50 @@ export function TutupBukuForm({
 			<input type="hidden" name="revenue_gross" value={String(revenueGross)} />
 
 			{/* === STICKY P&L FOOTER === */}
-			<div aria-hidden="true" className="h-32 sm:h-0" />
+			<div aria-hidden="true" className="h-44 sm:h-0" />
 			<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 backdrop-blur-md shadow-lg sm:relative sm:rounded-xl sm:border sm:shadow-none">
 				<div className="mx-auto max-w-4xl space-y-2 px-4 py-3 sm:px-5 sm:py-4">
-					<div className="grid grid-cols-2 gap-2 text-fluid-caption sm:grid-cols-4">
-						<FooterCell label="Revenue Net" value={revenueNet} />
-						<FooterCell label="HPP" value={-hppTotal} tone="rose" />
-						<FooterCell label="OpEx" value={-opexTotal} tone="rose" />
-						<FooterCell
-							label="Net Profit"
-							value={netProfit}
-							tone={netProfit >= 0 ? "emerald" : "rose"}
-							bold
+					<div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
+						<PnlLine label="Revenue Gross" value={revenueGross} />
+						<PnlLine label="− Diskon Klien" value={-discountTotal} muted />
+						<PnlLine label="− HPP" value={-hppTotal} muted />
+						<PnlLine
+							label="= Gross Margin"
+							value={grossMargin}
+							tone={grossMargin >= 0 ? "default" : "rose"}
 						/>
+						<PnlLine label="− Fee Crew" value={-feeCrewTotal} muted />
+						<PnlLine label="− Field Expense" value={-fieldExpenseTotal} muted />
+						<PnlLine label="− Sewa & Lainnya" value={-sewaTotal} muted />
+						<PnlLine label="− Komisi & Platform" value={-komisiTotal} muted />
 					</div>
-					<div className="flex items-center justify-between gap-3 pt-1">
-						<div className="text-fluid-caption text-muted-foreground">
-							Margin:{" "}
+					<div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-default pt-2">
+						<div className="text-fluid-body">
+							<span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+								Net Profit
+							</span>{" "}
 							<span
-								className={`tabular font-semibold ${
-									margin >= 25
+								className={`tabular ml-1 text-fluid-h3 font-bold ${
+									netProfit >= 0
 										? "text-emerald-600 dark:text-emerald-400"
-										: margin >= 0
-											? "text-amber-600 dark:text-amber-400"
-											: "text-destructive"
+										: "text-destructive"
 								}`}
 							>
-								{margin.toFixed(1)}%
+								{formatRupiah(netProfit)}
+							</span>
+							<span className="ml-2 text-fluid-caption text-muted-foreground">
+								Margin{" "}
+								<span
+									className={`tabular font-semibold ${
+										margin >= 25
+											? "text-emerald-600 dark:text-emerald-400"
+											: margin >= 0
+												? "text-amber-600 dark:text-amber-400"
+												: "text-destructive"
+									}`}
+								>
+									{margin.toFixed(1)}%
+								</span>
 							</span>
 						</div>
 						<button
@@ -623,33 +766,273 @@ function DerivedBox({
 	);
 }
 
-function FooterCell({
+/**
+ * Display crew's field-expense breakdown (transport/bensin/toll/parking/
+ * konsumsi/lainnya) read-only, with owner override toggle. When override
+ * mode is OFF, transport_bbm + konsumsi inputs are hidden (auto-fill from
+ * crew). When ON, owner gets two editable inputs that route into the
+ * existing transport_bbm + konsumsi OpEx buckets.
+ */
+function FieldExpenseSection({
+	crewExpense,
+	transportBbm,
+	konsumsi,
+	onChangeTransportBbm,
+	onChangeKonsumsi,
+	transportBbmPrefill,
+	konsumsiPrefill,
+}: {
+	crewExpense: CrewExpense;
+	transportBbm: number;
+	konsumsi: number;
+	onChangeTransportBbm: (v: number) => void;
+	onChangeKonsumsi: (v: number) => void;
+	transportBbmPrefill: number;
+	konsumsiPrefill: number;
+}) {
+	const [override, setOverride] = useState(false);
+	const hasAnyData =
+		crewExpense.transport_method !== "none" ||
+		crewExpense.toll_cost > 0 ||
+		crewExpense.parking_cost > 0 ||
+		crewExpense.konsumsi_cost > 0 ||
+		crewExpense.lainnya_total > 0;
+
+	const fieldExpenseTotal = transportBbm + konsumsi;
+
+	return (
+		<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+			<header className="flex items-baseline justify-between gap-2">
+				<div>
+					<div className="flex items-center gap-2">
+						<Receipt className="h-4 w-4 text-primary" />
+						<h3 className="font-display text-base font-semibold tracking-tight">
+							1b. Biaya Lapangan (dari Crew)
+						</h3>
+					</div>
+					<p className="text-xs text-muted-foreground">
+						Pre-fill dari rekap crew. Override kalau ada koreksi.
+					</p>
+				</div>
+				<Badge variant="outline">{formatRupiah(fieldExpenseTotal)}</Badge>
+			</header>
+
+			{hasAnyData ? (
+				<div className="grid gap-2 text-xs sm:grid-cols-2">
+					<ExpenseRow
+						label="Transport"
+						value={crewExpense.transport_cost}
+						suffix={TRANSPORT_LABEL[crewExpense.transport_method]}
+					/>
+					{crewExpense.transport_method === "rental" && (
+						<ExpenseRow label="Bensin" value={crewExpense.bensin_cost} />
+					)}
+					<ExpenseRow label="E-toll" value={crewExpense.toll_cost} />
+					<ExpenseRow label="Parkir" value={crewExpense.parking_cost} />
+					<ExpenseRow label="Konsumsi" value={crewExpense.konsumsi_cost} />
+					<ExpenseRow
+						label="Lainnya"
+						value={crewExpense.lainnya_total}
+						suffix={
+							crewExpense.lainnya_items.length > 0
+								? `${crewExpense.lainnya_items.length} item`
+								: undefined
+						}
+					/>
+				</div>
+			) : (
+				<p className="text-xs text-muted-foreground italic">
+					Crew belum input biaya lapangan. Owner bisa isi langsung di Override.
+				</p>
+			)}
+
+			{(crewExpense.transport_proof_berangkat_url ||
+				crewExpense.transport_proof_pulang_url) && (
+				<div className="flex flex-wrap gap-2 text-[11px]">
+					{crewExpense.transport_proof_berangkat_url && (
+						<a
+							href={crewExpense.transport_proof_berangkat_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary inline-flex items-center gap-1 hover:underline"
+						>
+							<ExternalLink className="h-3 w-3" />
+							Bukti berangkat
+						</a>
+					)}
+					{crewExpense.transport_proof_pulang_url && (
+						<a
+							href={crewExpense.transport_proof_pulang_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary inline-flex items-center gap-1 hover:underline"
+						>
+							<ExternalLink className="h-3 w-3" />
+							Bukti pulang
+						</a>
+					)}
+				</div>
+			)}
+
+			<div className="flex items-center justify-between gap-2 border-t border-border-default pt-3">
+				<div className="text-xs">
+					<span className="text-muted-foreground">Routed ke OpEx:</span>{" "}
+					<span className="tabular font-medium">
+						transport_bbm {formatRupiah(transportBbm)}
+					</span>{" "}
+					·{" "}
+					<span className="tabular font-medium">
+						konsumsi {formatRupiah(konsumsi)}
+					</span>
+				</div>
+				<button
+					type="button"
+					onClick={() => {
+						if (override) {
+							onChangeTransportBbm(transportBbmPrefill);
+							onChangeKonsumsi(konsumsiPrefill);
+						}
+						setOverride((v) => !v);
+					}}
+					className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+				>
+					<Pencil className="h-3 w-3" />
+					{override ? "Reset ke crew" : "Override nominal"}
+				</button>
+			</div>
+
+			{override && (
+				<div className="grid gap-3 rounded-md bg-surface-3 p-3 sm:grid-cols-2">
+					<HppField
+						label="Transport / BBM (override)"
+						name="_override_transport_bbm"
+						value={transportBbm}
+						onChange={onChangeTransportBbm}
+					/>
+					<HppField
+						label="Konsumsi & Lainnya (override)"
+						name="_override_konsumsi"
+						value={konsumsi}
+						onChange={onChangeKonsumsi}
+					/>
+				</div>
+			)}
+
+			{/* Hidden inputs always carry the final OpEx values regardless of UI mode */}
+			<input
+				type="hidden"
+				name="opex_transport_bbm"
+				value={String(transportBbm)}
+			/>
+			<input type="hidden" name="opex_konsumsi" value={String(konsumsi)} />
+		</section>
+	);
+}
+
+function ExpenseRow({
 	label,
 	value,
-	tone = "default",
-	bold = false,
+	suffix,
 }: {
 	label: string;
 	value: number;
-	tone?: "default" | "rose" | "emerald";
-	bold?: boolean;
+	suffix?: string;
+}) {
+	return (
+		<div className="flex items-baseline justify-between gap-2 rounded-md bg-surface-3 px-3 py-2">
+			<span className="text-muted-foreground">{label}</span>
+			<span className="tabular flex items-baseline gap-1.5 font-semibold">
+				{formatRupiah(value)}
+				{suffix && (
+					<span className="text-[10px] font-normal text-muted-foreground">
+						{suffix}
+					</span>
+				)}
+			</span>
+		</div>
+	);
+}
+
+function FeeAdjustField({
+	label,
+	name,
+	value,
+	baseline,
+	onChange,
+}: {
+	label: string;
+	name: string;
+	value: number;
+	baseline: number;
+	onChange: (v: number) => void;
+}) {
+	const adjusted = value !== baseline;
+	return (
+		<div className="space-y-1.5">
+			<div className="flex items-baseline justify-between gap-2">
+				<label htmlFor={name} className="text-sm font-medium">
+					{label}
+				</label>
+				{baseline > 0 && (
+					<span className="text-[10px] text-muted-foreground">
+						Default {formatRupiah(baseline)}
+					</span>
+				)}
+			</div>
+			<div className="relative">
+				<span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+					Rp
+				</span>
+				<input
+					id={name}
+					name={name}
+					type="number"
+					inputMode="numeric"
+					min={0}
+					step={1}
+					value={value}
+					onChange={(e) => onChange(Number(e.target.value) || 0)}
+					className={`${inputClass} tabular pl-9 ${
+						adjusted ? "border-amber-400 dark:border-amber-700" : ""
+					}`}
+				/>
+			</div>
+			{adjusted && (
+				<p className="inline-flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300">
+					<Wallet className="h-2.5 w-2.5" />
+					{value > baseline ? "+" : ""}
+					{formatRupiah(value - baseline)} dari default
+				</p>
+			)}
+		</div>
+	);
+}
+
+function PnlLine({
+	label,
+	value,
+	tone = "default",
+	muted = false,
+}: {
+	label: string;
+	value: number;
+	tone?: "default" | "rose";
+	muted?: boolean;
 }) {
 	const color =
 		tone === "rose"
 			? "text-rose-600 dark:text-rose-400"
-			: tone === "emerald"
-				? "text-emerald-600 dark:text-emerald-400"
+			: muted
+				? "text-muted-foreground"
 				: "text-foreground";
 	return (
-		<div className="space-y-0">
-			<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+		<div className="flex items-baseline justify-between gap-2">
+			<span className="text-muted-foreground text-[10px] tracking-wide">
 				{label}
-			</p>
-			<p
-				className={`tabular ${bold ? "text-fluid-h3 font-semibold" : "text-fluid-body font-medium"} ${color}`}
-			>
+			</span>
+			<span className={`tabular text-xs font-medium ${color}`}>
 				{formatRupiah(value)}
-			</p>
+			</span>
 		</div>
 	);
 }

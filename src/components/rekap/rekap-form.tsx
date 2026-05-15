@@ -1,10 +1,20 @@
 "use client";
 
-import { Calculator, CheckCircle2, Plus, Sparkles, X } from "lucide-react";
+import {
+	Calculator,
+	CheckCircle2,
+	Coffee,
+	Car,
+	Plus,
+	Sparkles,
+	Wallet,
+	X,
+} from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import { RekapContextCard } from "@/components/rekap/rekap-context-card";
 import { RekapProofUpload } from "@/components/rekap/rekap-proof-upload";
 import { RekapSummaryBar } from "@/components/rekap/rekap-summary-bar";
+import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { Badge } from "@/components/ui/badge";
 import {
 	Combobox,
@@ -38,6 +48,16 @@ type Defaults = {
 	custom_materials: string; // JSON string
 	proof_photo_urls: string;
 	crew_notes: string;
+	// Field expenses (Phase F2)
+	transport_method: "online" | "rental" | "none";
+	transport_cost: string;
+	transport_proof_berangkat_url: string;
+	transport_proof_pulang_url: string;
+	bensin_cost: string;
+	toll_cost: string;
+	parking_cost: string;
+	konsumsi_cost: string;
+	lainnya_items: string; // JSON string of [{note, amount}]
 };
 
 const EMPTY: Defaults = {
@@ -51,6 +71,15 @@ const EMPTY: Defaults = {
 	custom_materials: "{}",
 	proof_photo_urls: "",
 	crew_notes: "",
+	transport_method: "none",
+	transport_cost: "0",
+	transport_proof_berangkat_url: "",
+	transport_proof_pulang_url: "",
+	bensin_cost: "0",
+	toll_cost: "0",
+	parking_cost: "0",
+	konsumsi_cost: "0",
+	lainnya_items: "[]",
 };
 
 export function RekapForm({
@@ -162,6 +191,81 @@ export function RekapForm({
 			return next;
 		});
 	}
+
+	// === Field expenses (Phase F2) ===
+	const [transportMethod, setTransportMethod] = useState<
+		"online" | "rental" | "none"
+	>((get("transport_method") as Defaults["transport_method"]) || "none");
+	const [transportCost, setTransportCost] = useState(get("transport_cost"));
+	const [transportProofBerangkat, setTransportProofBerangkat] = useState<
+		string | null
+	>(get("transport_proof_berangkat_url") || null);
+	const [transportProofPulang, setTransportProofPulang] = useState<
+		string | null
+	>(get("transport_proof_pulang_url") || null);
+	const [bensinCost, setBensinCost] = useState(get("bensin_cost"));
+	const [tollCost, setTollCost] = useState(get("toll_cost"));
+	const [parkingCost, setParkingCost] = useState(get("parking_cost"));
+	const [konsumsiCost, setKonsumsiCost] = useState(get("konsumsi_cost"));
+
+	const initialLainnya = useMemo<Array<{ note: string; amount: number }>>(() => {
+		try {
+			const obj = JSON.parse(defaults.lainnya_items || "[]");
+			if (Array.isArray(obj)) {
+				return obj
+					.map((row): { note: string; amount: number } | null => {
+						if (!row || typeof row !== "object") return null;
+						const r = row as Record<string, unknown>;
+						const note = String(r.note ?? "").slice(0, 120);
+						const amount = Number(r.amount);
+						if (!Number.isFinite(amount) || amount < 0) return null;
+						return { note, amount: Math.round(amount) };
+					})
+					.filter((v): v is { note: string; amount: number } => v !== null)
+					.slice(0, 20);
+			}
+		} catch {}
+		return [];
+	}, [defaults.lainnya_items]);
+	const [lainnyaItems, setLainnyaItems] =
+		useState<Array<{ note: string; amount: number }>>(initialLainnya);
+
+	function addLainnyaRow() {
+		setLainnyaItems((prev) =>
+			prev.length >= 20 ? prev : [...prev, { note: "", amount: 0 }],
+		);
+	}
+	function updateLainnyaRow(
+		idx: number,
+		patch: Partial<{ note: string; amount: number }>,
+	) {
+		setLainnyaItems((prev) =>
+			prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)),
+		);
+	}
+	function removeLainnyaRow(idx: number) {
+		setLainnyaItems((prev) => prev.filter((_, i) => i !== idx));
+	}
+
+	const lainnyaItemsJson = JSON.stringify(lainnyaItems);
+	const lainnyaTotal = lainnyaItems.reduce((s, r) => s + (r.amount || 0), 0);
+
+	const fieldExpenseTotal = useMemo(() => {
+		const t = transportMethod !== "none" ? Number(transportCost) || 0 : 0;
+		const b = transportMethod === "rental" ? Number(bensinCost) || 0 : 0;
+		const toll = Number(tollCost) || 0;
+		const park = Number(parkingCost) || 0;
+		const ks = Number(konsumsiCost) || 0;
+		return t + b + toll + park + ks + lainnyaTotal;
+	}, [
+		transportMethod,
+		transportCost,
+		bensinCost,
+		tollCost,
+		parkingCost,
+		konsumsiCost,
+		lainnyaTotal,
+	]);
 
 	// === Proof URLs (multi-file upload) ===
 	const initialUrls = useMemo<string[]>(
@@ -663,6 +767,240 @@ export function RekapForm({
 				</Disclosure>
 			</section>
 
+			{/* ========== TRANSPORTASI ========== */}
+			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+				<div>
+					<div className="flex items-center gap-2">
+						<Car className="h-4 w-4 text-primary" />
+						<h3 className="text-base font-semibold tracking-tight">
+							Transportasi
+						</h3>
+					</div>
+					<p className="text-xs text-muted-foreground">
+						Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi
+						kalau ada.
+					</p>
+				</div>
+
+				<div className="grid grid-cols-3 gap-2">
+					{(
+						[
+							{ key: "online", label: "Online", sub: "Gocar/Grab" },
+							{ key: "rental", label: "Sewa mobil", sub: "Rental" },
+							{ key: "none", label: "Tidak ada", sub: "Skip" },
+						] as const
+					).map((opt) => {
+						const active = transportMethod === opt.key;
+						return (
+							<button
+								key={opt.key}
+								type="button"
+								onClick={() => setTransportMethod(opt.key)}
+								className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-xs transition-colors ${
+									active
+										? "border-primary bg-primary/10 text-foreground"
+										: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
+								}`}
+							>
+								<span className="font-semibold">{opt.label}</span>
+								<span className="text-[10px] opacity-70">{opt.sub}</span>
+							</button>
+						);
+					})}
+				</div>
+
+				{transportMethod === "online" && (
+					<div className="space-y-3">
+						<MoneyField
+							label="Total transport (berangkat + pulang)"
+							name="transport_cost_input"
+							value={transportCost}
+							onChange={setTransportCost}
+						/>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<SingleFileUpload
+								projectId={projectId}
+								kind="transport_proof"
+								seq="berangkat"
+								label="Bukti Berangkat"
+								value={transportProofBerangkat}
+								onChange={setTransportProofBerangkat}
+							/>
+							<SingleFileUpload
+								projectId={projectId}
+								kind="transport_proof"
+								seq="pulang"
+								label="Bukti Pulang"
+								value={transportProofPulang}
+								onChange={setTransportProofPulang}
+							/>
+						</div>
+					</div>
+				)}
+
+				{transportMethod === "rental" && (
+					<div className="grid gap-3 sm:grid-cols-2">
+						<MoneyField
+							label="Sewa mobil"
+							name="transport_cost_input"
+							value={transportCost}
+							onChange={setTransportCost}
+						/>
+						<MoneyField
+							label="Bensin"
+							name="bensin_cost_input"
+							value={bensinCost}
+							onChange={setBensinCost}
+						/>
+					</div>
+				)}
+
+				<div className="grid gap-3 sm:grid-cols-2">
+					<MoneyField
+						label="E-toll"
+						name="toll_cost_input"
+						value={tollCost}
+						onChange={setTollCost}
+					/>
+					<MoneyField
+						label="Parkir"
+						name="parking_cost_input"
+						value={parkingCost}
+						onChange={setParkingCost}
+					/>
+				</div>
+			</section>
+
+			{/* ========== KONSUMSI & LAIN-LAIN ========== */}
+			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+				<div>
+					<div className="flex items-center gap-2">
+						<Coffee className="h-4 w-4 text-primary" />
+						<h3 className="text-base font-semibold tracking-tight">
+							Konsumsi & Lain-lain
+						</h3>
+					</div>
+					<p className="text-xs text-muted-foreground">
+						Snack/makan crew + biaya insidental yang nggak masuk kategori di
+						atas.
+					</p>
+				</div>
+
+				<MoneyField
+					label="Konsumsi crew"
+					name="konsumsi_cost_input"
+					value={konsumsiCost}
+					onChange={setKonsumsiCost}
+				/>
+
+				<div className="space-y-2">
+					<div className="flex items-center justify-between gap-2">
+						<p className="text-sm font-medium">
+							Lain-lain{" "}
+							<span className="text-muted-foreground text-xs font-normal">
+								({lainnyaItems.length}/20)
+							</span>
+						</p>
+						{lainnyaItems.length < 20 && (
+							<button
+								type="button"
+								onClick={addLainnyaRow}
+								className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+							>
+								<Plus className="h-3 w-3" />
+								Tambah baris
+							</button>
+						)}
+					</div>
+					{lainnyaItems.length === 0 ? (
+						<p className="text-muted-foreground text-xs italic">
+							Belum ada. Contoh: P3K, obat, parking insidental, dll.
+						</p>
+					) : (
+						<ul className="space-y-2">
+							{lainnyaItems.map((row, idx) => (
+								<li
+									key={idx}
+									className="flex items-start gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
+								>
+									<input
+										type="text"
+										value={row.note}
+										onChange={(e) =>
+											updateLainnyaRow(idx, { note: e.target.value })
+										}
+										maxLength={120}
+										placeholder="Keterangan (cth. P3K)"
+										className={`${inputClass} flex-1`}
+									/>
+									<input
+										type="number"
+										inputMode="numeric"
+										min={0}
+										step={1000}
+										value={row.amount}
+										onChange={(e) =>
+											updateLainnyaRow(idx, {
+												amount: Math.max(0, Number(e.target.value) || 0),
+											})
+										}
+										placeholder="0"
+										className={`${inputClass} tabular w-32 text-right`}
+									/>
+									<button
+										type="button"
+										onClick={() => removeLainnyaRow(idx)}
+										title="Hapus baris"
+										className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors"
+									>
+										<X className="h-3.5 w-3.5" />
+									</button>
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+
+				{fieldExpenseTotal > 0 && (
+					<div className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-xs">
+						<Wallet className="h-3.5 w-3.5 text-primary" />
+						<span className="text-muted-foreground">Total biaya lapangan:</span>
+						<span className="tabular ml-auto font-semibold text-primary">
+							{formatRupiah(fieldExpenseTotal)}
+						</span>
+					</div>
+				)}
+			</section>
+
+			{/* Hidden inputs for expense fields (Phase F2) */}
+			<input type="hidden" name="transport_method" value={transportMethod} />
+			<input
+				type="hidden"
+				name="transport_cost"
+				value={transportMethod === "none" ? "0" : transportCost || "0"}
+			/>
+			<input
+				type="hidden"
+				name="transport_proof_berangkat_url"
+				value={
+					transportMethod === "online" ? transportProofBerangkat ?? "" : ""
+				}
+			/>
+			<input
+				type="hidden"
+				name="transport_proof_pulang_url"
+				value={transportMethod === "online" ? transportProofPulang ?? "" : ""}
+			/>
+			<input
+				type="hidden"
+				name="bensin_cost"
+				value={transportMethod === "rental" ? bensinCost || "0" : "0"}
+			/>
+			<input type="hidden" name="toll_cost" value={tollCost || "0"} />
+			<input type="hidden" name="parking_cost" value={parkingCost || "0"} />
+			<input type="hidden" name="konsumsi_cost" value={konsumsiCost || "0"} />
+			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
+
 			{/* ========== BUKTI ========== */}
 			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
 				<div>
@@ -730,6 +1068,8 @@ export function RekapForm({
 				pending={pending}
 				submitLabel={mode === "create" ? "Submit rekap" : "Update rekap"}
 				disabled={proofUrls.length === 0}
+				disabledLabel="Upload bukti dulu"
+				disabledReason="Wajib upload minimal 1 foto bukti event"
 			/>
 		</form>
 	);
@@ -1038,6 +1378,43 @@ function AddonField({
 					)}
 				</div>
 			)}
+		</div>
+	);
+}
+
+function MoneyField({
+	label,
+	name,
+	value,
+	onChange,
+}: {
+	label: string;
+	name: string;
+	value: string;
+	onChange: (v: string) => void;
+}) {
+	return (
+		<div className="space-y-1.5">
+			<label htmlFor={name} className="text-sm font-medium">
+				{label}
+			</label>
+			<div className="relative">
+				<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs">
+					Rp
+				</span>
+				<input
+					id={name}
+					name={name}
+					type="number"
+					inputMode="numeric"
+					min={0}
+					step={1000}
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					placeholder="0"
+					className={`${inputClass} tabular pl-9`}
+				/>
+			</div>
 		</div>
 	);
 }
