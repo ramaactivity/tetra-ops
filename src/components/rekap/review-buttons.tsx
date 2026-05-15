@@ -102,7 +102,7 @@ export function RekapReviewButtons({
 					type="button"
 					onClick={approve}
 					disabled={pending}
-					className="press-down inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white shadow-glow-success transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+					className="press-down inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 "
 				>
 					<CheckCircle2 className="h-3.5 w-3.5" />
 					Override approve
@@ -163,7 +163,7 @@ export function RekapReviewButtons({
 					type="button"
 					onClick={approve}
 					disabled={pending}
-					className="press-down inline-flex h-10 items-center gap-1.5 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white shadow-glow-success transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+					className="press-down inline-flex h-10 items-center gap-1.5 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 "
 				>
 					<CheckCircle2 className="h-4 w-4" />
 					{pending ? "Memproses…" : "Approve rekap"}

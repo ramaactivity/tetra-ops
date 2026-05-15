@@ -42,10 +42,6 @@ export default async function OnboardingPage() {
 	return (
 		<div className="w-full max-w-md overflow-hidden rounded-2xl border border-border-default bg-surface-2 shadow-xl">
 			<div className="relative border-b border-border-subtle px-6 pb-5 pt-6 sm:px-7">
-				<div
-					aria-hidden
-					className="absolute inset-0 -z-10 bg-gradient-sunrise-radial opacity-[0.06] dark:opacity-[0.10]"
-				/>
 				<form action={signOut} className="absolute right-6 top-6 sm:right-7">
 					<button
 						type="submit"

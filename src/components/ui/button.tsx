@@ -18,13 +18,14 @@ const buttonVariants = cva(
 				destructive:
 					"bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
 				link: "text-primary underline-offset-4 hover:underline",
-				/* DESIGN.md decisive variants — pill + glow shadow.
-				   Reserved for financial commit / approve actions: Tutup Buku,
-				   Submit Rekap, Approve. Disabled state strips the glow. */
+				/* DESIGN.md decisive variants — pill, clean fill (no gradient,
+				   no glow per user "clean dan seamless" direction). Reserved
+				   for financial commit / approve actions: Tutup Buku, Submit
+				   Rekap, Approve. */
 				decisive:
-					"bg-primary text-primary-foreground shadow-glow-crimson hover:bg-primary/90 disabled:shadow-none",
+					"bg-primary text-primary-foreground hover:bg-primary/90",
 				"decisive-success":
-					"bg-emerald-600 text-white shadow-glow-success hover:bg-emerald-700 disabled:shadow-none",
+					"bg-emerald-600 text-white hover:bg-emerald-700",
 				"decisive-danger":
 					"bg-rose-600 text-white hover:bg-rose-700",
 			},

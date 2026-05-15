@@ -4,67 +4,78 @@ name: Tetra-Ops-design-analysis
 description: "An internal operations system for a photobooth business in Indonesia — synthesized from Linear's dark-canvas surface discipline, Stripe's financial-data DNA, and Vercel's developer-platform clarity. The system anchors on Tetra Crimson #DC2954 as the single chromatic accent. Sunrise gradient (crimson → amber → gold) is reserved exclusively as a low-opacity decorative orb in hero compositions — never as a card fill, never as a text fill on operational chrome. **Type is ALL Inter, no serif anywhere.** Vercel and Linear don't use serif; neither does Tetra. Display tier runs Inter at weights 500–700 with aggressive negative tracking (−2.4px to −3px at 80px+). Tabular-figure variants for any cell containing money or quantities (Stripe DNA). JetBrains Mono carries project IDs, SKUs, timestamps. Cards live on a four-step surface ladder with 1px hairline borders. **No painted gradients on stat cards / KPI tiles / operational chrome** — that's the Linear/Vercel discipline. Shadows reserved for popovers + the decisive-CTA glow signature. Pill-shaped CTAs are reserved for decisive financial actions (Simpan & Tutup Buku, Submit Rekap, Approve); compact 8px radii carry the everyday UI."
 
 colors:
-  # === Brand & Accent (single chromatic identity) ===
-  primary: "#DC2954"
-  primary-hover: "#F76286"
-  primary-pressed: "#B91C42"
-  primary-soft: "#FFDDE5"
-  primary-soft-hover: "#FFB8C7"
-  primary-deep: "#5C0B20"
-  on-primary: "#FAFAF9"
+  # === Brand — Iris (Linear lavender-blue) ===
+  # Fresh, clean, refreshing. NO red/orange anywhere in the brand identity.
+  primary: "#5E6AD2"
+  primary-hover: "#7782DD"
+  primary-pressed: "#4F58B8"
+  primary-soft: "#EEF0FC"
+  primary-soft-hover: "#DDE0F8"
+  primary-deep: "#232852"
+  on-primary: "#FCFCFD"
 
-  # === Brand Gradient (decorative only) ===
-  gradient-sunrise: "linear-gradient(135deg, #DC2954 0%, #F59E0B 55%, #DEB57F 100%)"
-  gradient-sunrise-radial: "radial-gradient(120% 80% at 0% 0%, #DC2954 0%, #F59E0B 50%, transparent 100%)"
-  gradient-aurora-radial: "radial-gradient(120% 80% at 100% 100%, #84A98C 0%, #0EA5E9 50%, transparent 100%)"
+  # === Accent — Teal (refreshing secondary) ===
+  # Used sparingly for differentiation: chips, secondary highlights.
+  accent-teal: "#0D9488"
+  accent-teal-hover: "#14B8A6"
+  accent-teal-soft: "#F0FDFA"
+  accent-teal-deep: "#0F766E"
 
-  # === Dark Mode Surfaces (DEFAULT — operator surface) ===
-  dark-canvas: "#0A0A0F"
-  dark-surface-1: "#121218"
-  dark-surface-2: "#18181D"
-  dark-surface-3: "#22222A"
-  dark-surface-4: "#2C2C36"
-  dark-hairline-subtle: "#1F1F26"
-  dark-hairline: "#2A2A2F"
-  dark-hairline-strong: "#404044"
-  dark-ink: "#FAFAF9"
-  dark-ink-muted: "#D4D4D2"
-  dark-ink-subtle: "#A8A8A6"
-  dark-ink-tertiary: "#737371"
+  # === NO GRADIENTS ===
+  # Per user direction "jangan ada gradient sama sekali. clean dan seamless aja"
+  # the system has zero gradient tokens. Hierarchy is carried entirely by
+  # solid surface colors, hairline borders, and tone. Decorative orbs,
+  # text-fill gradients, and atmospheric mesh backgrounds are forbidden.
 
-  # === Light Mode Surfaces (landing / crew portal / printables) ===
-  light-canvas: "#FAFAF9"
+  # === Dark Mode Surfaces (DEFAULT — Linear-style near-black with subtle blue) ===
+  dark-canvas: "#08090E"
+  dark-surface-1: "#0F1116"
+  dark-surface-2: "#14171F"
+  dark-surface-3: "#1B1F29"
+  dark-surface-4: "#232732"
+  dark-hairline-subtle: "#181B23"
+  dark-hairline: "#232732"
+  dark-hairline-strong: "#38404F"
+  dark-ink: "#F5F7FA"
+  dark-ink-muted: "#CFD4DF"
+  dark-ink-subtle: "#98A1B3"
+  dark-ink-tertiary: "#687386"
+
+  # === Light Mode Surfaces (Stripe-inspired cool clean) ===
+  light-canvas: "#FCFCFD"
   light-surface-1: "#FFFFFF"
-  light-surface-2: "#FCFCFB"
-  light-surface-3: "#F4F4F2"
-  light-surface-4: "#E7E7E5"
-  light-hairline-subtle: "#F0F0EE"
-  light-hairline: "#E7E7E5"
-  light-hairline-strong: "#D4D4D2"
-  light-ink: "#18181D"
-  light-ink-muted: "#404044"
-  light-ink-subtle: "#737371"
-  light-ink-tertiary: "#A8A8A6"
+  light-surface-2: "#FCFCFD"
+  light-surface-3: "#F5F7FA"
+  light-surface-4: "#E7EAF1"
+  light-hairline-subtle: "#F0F2F6"
+  light-hairline: "#E7EAF1"
+  light-hairline-strong: "#CFD4DF"
+  light-ink: "#14171F"
+  light-ink-muted: "#38404F"
+  light-ink-subtle: "#687386"
+  light-ink-tertiary: "#98A1B3"
 
-  # === Semantic (financial accuracy — Stripe/Vercel DNA) ===
-  success: "#10B981"
+  # === Semantic ===
+  # State communication only — never brand accent. Use sparingly.
+  success: "#10B981"      # emerald
   success-soft: "#ECFDF5"
   success-deep: "#047857"
-  warning: "#F59E0B"
+  warning: "#F59E0B"      # amber
   warning-soft: "#FFFBEB"
   warning-deep: "#B45309"
-  danger: "#F43F5E"
-  danger-soft: "#FFF1F2"
-  danger-deep: "#BE123C"
-  info: "#0EA5E9"
-  info-soft: "#F0F9FF"
-  info-deep: "#0369A1"
+  danger: "#EF4444"       # red — for danger state ONLY (errors, losses, rejected)
+  danger-soft: "#FEF2F2"
+  danger-deep: "#B91C1C"
+  info: "#06B6D4"         # cyan — neutral info / hint
+  info-soft: "#ECFEFF"
+  info-deep: "#0E7490"
 
-  # === Accent Tokens (used sparingly — owner-pool, sinking fund chips) ===
-  gold: "#D4A574"
-  gold-soft: "#DEB57F"
-  sage: "#84A98C"
-  sage-soft: "#A6BBA8"
+  # === Accent — mint + sky (cool, fresh) ===
+  # Used sparingly for owner-pool / sinking fund chips.
+  mint: "#10B981"
+  mint-soft: "#D1FAE5"
+  sky: "#0EA5E9"
+  sky-soft: "#E0F2FE"
 
 typography:
   # === Display (Inter at hero scale — Vercel/Linear DNA, NO serif) ===
@@ -898,9 +909,10 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 ### Do
 
 - Default to **dark canvas** for operational surfaces — that's where owners spend 90% of their time.
-- Reserve **Sunrise gradient** for: low-opacity decorative orbs on hero compositions. NEVER as a card fill, NEVER as a text fill on operational chrome.
+- **Use solid colors only.** Hierarchy is carried by surface ladder + hairline borders + tone. Period.
 - Use **tabular figures** for ALL money and quantity values, period.
 - Use **Inter at all sizes** with negative tracking that scales: −3.2px at 80px, −1.92px at 48px, 0 at body. Match Linear/Vercel discipline.
+- Reserve **Iris (`{colors.primary}` #5E6AD2)** as the single chromatic accent. Used for: brand mark, link emphasis, primary CTA fill, focus ring.
 - Use **pill radius** ONLY for decisive financial CTAs and read-only status pills.
 - Use **mono** for project IDs (`PRJ-XXX`), SKUs (`ITM-BOX-4R`), Drive URLs, timestamps, hashes.
 - Show **disabled states with explanation** — if a button is grey, the label MUST say why ("Upload bukti dulu", "Approve rekap dulu").
@@ -910,9 +922,10 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 
 ### Don't
 
-- **Don't use serif fonts anywhere.** Tetra is all Inter. Vercel/Linear/Stripe don't ship serif on operational chrome — neither does Tetra. (Earlier Playfair experiments are deprecated.)
-- **Don't paint stat cards / KPI tiles with rich gradients** (slate-900 → indigo-950 etc.). KPIs render as plain `surface-2` with hairline border, big tabular value, eyebrow caption. That's the Linear/Vercel signature.
-- Don't paint card backgrounds with Sunrise gradient — it's a low-opacity orb decoration only, never a fill.
+- **Don't use serif fonts anywhere.** Tetra is all Inter. Vercel/Linear/Stripe don't ship serif on operational chrome — neither does Tetra.
+- **Don't use gradients of any kind.** No `linear-gradient`, no `radial-gradient`, no `bg-gradient-to-*` Tailwind utilities, no `background-clip: text` with gradient fill, no atmospheric mesh orbs, no glow shadows using gradient color stops. **Clean and seamless only.** User direction: "jangan ada gradient sama sekali. clean dan seamless aja."
+- **Don't paint stat cards / KPI tiles with color fills** (slate-900 → indigo-950 etc.). KPIs render as plain `surface-2` with hairline border, big tabular value, eyebrow caption. That's the Linear/Vercel signature.
+- **Don't use red/orange as brand accents.** Iris (indigo-lavender) is the only brand color. Red/amber are reserved for danger/warning *states* only — never as decorative accents on hero, cards, headlines.
 - Don't introduce a second chromatic accent — no orange, no blue, no green as a "brand color". Semantic tints are the only secondary chroma.
 - Don't pill-round operational buttons (filter, edit, cancel) — pill is reserved for financial commits.
 - Don't use atmospheric gradients in operational chrome (dashboard, tables, forms). Only hero / empty states.

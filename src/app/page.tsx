@@ -28,14 +28,6 @@ export default async function HomePage() {
 
 	return (
 		<div className="relative min-h-screen overflow-hidden bg-background">
-			{/* Single subtle orb — atmosphere not decoration. */}
-			<div
-				aria-hidden="true"
-				className="pointer-events-none absolute inset-0 -z-10"
-			>
-				<div className="absolute -top-48 -right-48 h-[44rem] w-[44rem] rounded-full bg-gradient-sunrise-radial opacity-[0.06] blur-3xl dark:opacity-[0.10]" />
-			</div>
-
 			<div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-6 sm:px-10 sm:py-8">
 				{/* Header */}
 				<header className="flex items-center justify-between">

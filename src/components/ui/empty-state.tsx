@@ -66,12 +66,6 @@ function EmptyState({
 			className={cn(emptyStateVariants({ variant, size }), className)}
 			{...props}
 		>
-			{variant === "hero" ? (
-				<div
-					className="absolute inset-0 -z-10 bg-gradient-sunrise-radial opacity-[0.06]"
-					aria-hidden
-				/>
-			) : null}
 			{Icon ? (
 				<div className="grid size-12 place-items-center rounded-full bg-surface-3 text-muted-foreground">
 					<Icon className="size-6" aria-hidden />

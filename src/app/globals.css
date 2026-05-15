@@ -5,71 +5,93 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Fonts */
+  /* Fonts — Inter for everything (Linear DNA substitute), JetBrains Mono
+     for technical labels. No serif anywhere. */
   --font-sans: var(--font-inter);
-  --font-display: var(--font-playfair);
+  --font-display: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
   --font-heading: var(--font-inter);
 
-  /* Brand — Tetra Crimson */
-  --color-crimson-50: #FFF1F4;
-  --color-crimson-100: #FFDDE5;
-  --color-crimson-200: #FFB8C7;
-  --color-crimson-300: #FF8FA5;
-  --color-crimson-400: #F76286;
-  --color-crimson-500: #DC2954;
-  --color-crimson-600: #B91C42;
-  --color-crimson-700: #971535;
-  --color-crimson-800: #7A0F2A;
-  --color-crimson-900: #5C0B20;
-  --color-crimson-950: #3D0716;
+  /* === Brand — Iris (Linear lavender-blue) ===
+     Fresh, clean primary. No red/orange anywhere in the brand. */
+  --color-iris-50: #EEF0FC;
+  --color-iris-100: #DDE0F8;
+  --color-iris-200: #BBC1F1;
+  --color-iris-300: #99A2E9;
+  --color-iris-400: #7782DD;
+  --color-iris-500: #5E6AD2;
+  --color-iris-600: #4F58B8;
+  --color-iris-700: #3F4791;
+  --color-iris-800: #2F3470;
+  --color-iris-900: #232852;
+  --color-iris-950: #14182F;
 
-  /* Neutrals — Slate (warm) */
-  --color-slate-50: #FAFAF9;
-  --color-slate-100: #F4F4F2;
-  --color-slate-200: #E7E7E5;
-  --color-slate-300: #D4D4D2;
-  --color-slate-400: #A8A8A6;
-  --color-slate-500: #737371;
-  --color-slate-600: #57575A;
-  --color-slate-700: #404044;
-  --color-slate-800: #2A2A2F;
-  --color-slate-900: #18181D;
-  --color-slate-950: #0A0A0F;
+  /* === Crimson ALIAS (legacy refs) — mapped to Iris so old code stays
+     working while we migrate. New code should use iris-*.    */
+  --color-crimson-50: #EEF0FC;
+  --color-crimson-100: #DDE0F8;
+  --color-crimson-200: #BBC1F1;
+  --color-crimson-300: #99A2E9;
+  --color-crimson-400: #7782DD;
+  --color-crimson-500: #5E6AD2;
+  --color-crimson-600: #4F58B8;
+  --color-crimson-700: #3F4791;
+  --color-crimson-800: #2F3470;
+  --color-crimson-900: #232852;
+  --color-crimson-950: #14182F;
 
-  /* Semantic — success */
+  /* === Neutrals — Cool Slate (subtle blue tint, Linear-inspired) === */
+  --color-slate-50: #FCFCFD;
+  --color-slate-100: #F5F7FA;
+  --color-slate-200: #E7EAF1;
+  --color-slate-300: #CFD4DF;
+  --color-slate-400: #98A1B3;
+  --color-slate-500: #687386;
+  --color-slate-600: #4D566B;
+  --color-slate-700: #38404F;
+  --color-slate-800: #232732;
+  --color-slate-900: #14171F;
+  --color-slate-950: #08090E;
+
+  /* === Semantic — success (emerald) === */
   --color-emerald-50: #ECFDF5;
   --color-emerald-500: #10B981;
   --color-emerald-600: #059669;
   --color-emerald-700: #047857;
 
-  /* Semantic — warning */
+  /* === Semantic — warning (amber, used sparingly) === */
   --color-amber-50: #FFFBEB;
   --color-amber-500: #F59E0B;
   --color-amber-600: #D97706;
   --color-amber-700: #B45309;
 
-  /* Semantic — danger */
-  --color-rose-50: #FFF1F2;
-  --color-rose-500: #F43F5E;
-  --color-rose-600: #E11D48;
-  --color-rose-700: #BE123C;
+  /* === Semantic — danger (red, state only never brand) === */
+  --color-rose-50: #FEF2F2;
+  --color-rose-500: #EF4444;
+  --color-rose-600: #DC2626;
+  --color-rose-700: #B91C1C;
 
-  /* Semantic — info */
-  --color-sky-50: #F0F9FF;
-  --color-sky-500: #0EA5E9;
-  --color-sky-600: #0284C7;
-  --color-sky-700: #0369A1;
+  /* === Semantic — info (cyan) === */
+  --color-sky-50: #ECFEFF;
+  --color-sky-500: #06B6D4;
+  --color-sky-600: #0891B2;
+  --color-sky-700: #0E7490;
 
-  /* Accent — gold (premium) */
-  --color-gold-300: #DEB57F;
-  --color-gold-500: #D4A574;
-  --color-gold-700: #A47A4A;
+  /* === Accent — teal (refreshing secondary accent) === */
+  --color-teal-50: #F0FDFA;
+  --color-teal-300: #5EEAD4;
+  --color-teal-500: #14B8A6;
+  --color-teal-600: #0D9488;
+  --color-teal-700: #0F766E;
 
-  /* Accent — sage (sinking funds) */
-  --color-sage-300: #A6BBA8;
-  --color-sage-500: #84A98C;
-  --color-sage-700: #5A7B62;
+  /* === Legacy aliases for gold/sage — mapped to teal/mint so existing
+     "premium" / "sinking fund" chip refs don't break visually. === */
+  --color-gold-300: #5EEAD4;
+  --color-gold-500: #14B8A6;
+  --color-gold-700: #0F766E;
+  --color-sage-300: #6EE7B7;
+  --color-sage-500: #10B981;
+  --color-sage-700: #047857;
 
   /* shadcn semantic tokens (mapped to brand) */
   --color-background: var(--background);
@@ -121,19 +143,14 @@
   --duration-base: 200ms;
   --duration-slow: 320ms;
 
-  /* === Branded glows — for primary CTAs, KPI hero, achievement states === */
-  --shadow-glow-crimson:
-    0 0 24px -4px rgb(220 41 84 / 0.45),
-    0 0 48px -8px rgb(220 41 84 / 0.25);
-  --shadow-glow-aurora:
-    0 0 24px -4px rgb(217 70 239 / 0.45),
-    0 0 48px -8px rgb(139 92 246 / 0.25);
-  --shadow-glow-sunrise:
-    0 0 24px -4px rgb(245 158 11 / 0.4),
-    0 0 48px -8px rgb(220 41 84 / 0.25);
-  --shadow-glow-success:
-    0 0 24px -4px rgb(16 185 129 / 0.45),
-    0 0 48px -8px rgb(16 185 129 / 0.25);
+  /* === Shadows — kept minimal. No gradient-based glows.
+     Subtle popover depth + an optional indigo-tinted ring for focus moments.
+     Legacy shadow-glow-* aliases stay defined (mapped flat) so existing
+     callers don't break visually. */
+  --shadow-glow-crimson: 0 0 0 1px rgb(94 106 210 / 0.25);
+  --shadow-glow-aurora: 0 0 0 1px rgb(20 184 166 / 0.20);
+  --shadow-glow-sunrise: 0 0 0 1px rgb(94 106 210 / 0.20);
+  --shadow-glow-success: 0 0 0 1px rgb(16 185 129 / 0.25);
 
   /* === Fluid type scale — mobile shrinkage via clamp() ===
      Mobile: 11/13/16/18/22/28 → Desktop: 12/16/20/24/32/48 */
@@ -153,126 +170,122 @@
   --radius-3xl: calc(var(--radius) * 2.2);
 }
 
-/* Light mode */
+/* Light mode — clean cool palette (Stripe-inspired off-white + slight blue tint) */
 :root {
-  --background: #FAFAF9;
-  --foreground: #18181D;
+  --background: #FCFCFD;
+  --foreground: #14171F;
   --card: #FFFFFF;
-  --card-foreground: #18181D;
+  --card-foreground: #14171F;
   --popover: #FFFFFF;
-  --popover-foreground: #18181D;
-  --primary: #DC2954;
-  --primary-foreground: #FAFAF9;
-  --secondary: #F4F4F2;
-  --secondary-foreground: #18181D;
-  --muted: #F4F4F2;
-  --muted-foreground: #737371;
-  --accent: #FFF1F4;
-  --accent-foreground: #971535;
-  --destructive: #F43F5E;
-  --border: #E7E7E5;
-  --input: #E7E7E5;
-  --ring: #DC2954;
+  --popover-foreground: #14171F;
+  --primary: #5E6AD2;
+  --primary-foreground: #FCFCFD;
+  --secondary: #F5F7FA;
+  --secondary-foreground: #14171F;
+  --muted: #F5F7FA;
+  --muted-foreground: #687386;
+  --accent: #EEF0FC;
+  --accent-foreground: #3F4791;
+  --destructive: #EF4444;
+  --border: #E7EAF1;
+  --input: #E7EAF1;
+  --ring: #5E6AD2;
   --radius: 0.5rem;
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #18181D;
-  --sidebar-primary: #DC2954;
-  --sidebar-primary-foreground: #FAFAF9;
-  --sidebar-accent: #F4F4F2;
-  --sidebar-accent-foreground: #18181D;
-  --sidebar-border: #E7E7E5;
-  --sidebar-ring: #DC2954;
+  --sidebar-foreground: #14171F;
+  --sidebar-primary: #5E6AD2;
+  --sidebar-primary-foreground: #FCFCFD;
+  --sidebar-accent: #F5F7FA;
+  --sidebar-accent-foreground: #14171F;
+  --sidebar-border: #E7EAF1;
+  --sidebar-ring: #5E6AD2;
 
-  /* 4-surface hierarchy (light) */
+  /* 4-surface hierarchy (light) — cool grays with slight blue */
   --surface-1: #FFFFFF;
-  --surface-2: #FCFCFB;
-  --surface-3: #F4F4F2;
-  --surface-4: #E7E7E5;
+  --surface-2: #FCFCFD;
+  --surface-3: #F5F7FA;
+  --surface-4: #E7EAF1;
 
   /* Border hierarchy (light) */
-  --border-subtle: #F0F0EE;
-  --border-default: #E7E7E5;
-  --border-strong: #D4D4D2;
+  --border-subtle: #F0F2F6;
+  --border-default: #E7EAF1;
+  --border-strong: #CFD4DF;
 
-  /* Branded gradients — same in both themes (hero/empty/login/KPI/PDF cover only) */
-  --gradient-sunrise: linear-gradient(135deg, #DC2954 0%, #F59E0B 55%, #DEB57F 100%);
-  --gradient-aurora: linear-gradient(135deg, #8B5CF6 0%, #D946EF 50%, #FB7185 100%);
-  --gradient-sunrise-radial: radial-gradient(120% 80% at 0% 0%, #DC2954 0%, #F59E0B 50%, transparent 100%);
-  --gradient-aurora-radial: radial-gradient(120% 80% at 100% 0%, #8B5CF6 0%, #D946EF 50%, transparent 100%);
-  --gradient-mesh-warm: conic-gradient(from 180deg at 50% 50%, #DC2954 0deg, #F59E0B 90deg, #DEB57F 180deg, #DC2954 360deg);
+  /* === Gradient tokens removed.
+     Per user feedback "jangan ada gradient sama sekali. clean dan seamless aja"
+     these previously held sunrise/aurora/mesh-warm definitions. Flat color
+     only — anything that referenced them now resolves to a fallback solid. */
 }
 
-/* Dark mode (default for Tetra Ops) */
+/* Dark mode (default for Tetra Ops) — Linear-inspired near-black with
+   subtle blue tint, indigo primary, cool surface ladder. */
 .dark {
-  --background: #0A0A0F;
-  --foreground: #FAFAF9;
-  --card: #18181D;
-  --card-foreground: #FAFAF9;
-  --popover: #18181D;
-  --popover-foreground: #FAFAF9;
-  --primary: #DC2954;
-  --primary-foreground: #FAFAF9;
-  --secondary: #2A2A2F;
-  --secondary-foreground: #FAFAF9;
-  --muted: #2A2A2F;
-  --muted-foreground: #A8A8A6;
-  --accent: #2A2A2F;
-  --accent-foreground: #FAFAF9;
-  --destructive: #F43F5E;
-  --border: #2A2A2F;
-  --input: #404044;
-  --ring: #DC2954;
-  --sidebar: #18181D;
-  --sidebar-foreground: #FAFAF9;
-  --sidebar-primary: #DC2954;
-  --sidebar-primary-foreground: #FAFAF9;
-  --sidebar-accent: #2A2A2F;
-  --sidebar-accent-foreground: #FAFAF9;
-  --sidebar-border: #2A2A2F;
-  --sidebar-ring: #DC2954;
+  --background: #08090E;
+  --foreground: #F5F7FA;
+  --card: #14171F;
+  --card-foreground: #F5F7FA;
+  --popover: #14171F;
+  --popover-foreground: #F5F7FA;
+  --primary: #5E6AD2;
+  --primary-foreground: #FCFCFD;
+  --secondary: #232732;
+  --secondary-foreground: #F5F7FA;
+  --muted: #232732;
+  --muted-foreground: #98A1B3;
+  --accent: #232732;
+  --accent-foreground: #F5F7FA;
+  --destructive: #EF4444;
+  --border: #232732;
+  --input: #38404F;
+  --ring: #5E6AD2;
+  --sidebar: #14171F;
+  --sidebar-foreground: #F5F7FA;
+  --sidebar-primary: #5E6AD2;
+  --sidebar-primary-foreground: #FCFCFD;
+  --sidebar-accent: #232732;
+  --sidebar-accent-foreground: #F5F7FA;
+  --sidebar-border: #232732;
+  --sidebar-ring: #5E6AD2;
 
-  /* 4-surface hierarchy (dark) */
-  --surface-1: #121218;
-  --surface-2: #18181D;
-  --surface-3: #22222A;
-  --surface-4: #2C2C36;
+  /* 4-surface hierarchy (dark) — Linear-style ladder, near-black with
+     slight cool tint. Each step ~+3% lightness for crisp separation. */
+  --surface-1: #0F1116;
+  --surface-2: #14171F;
+  --surface-3: #1B1F29;
+  --surface-4: #232732;
 
   /* Border hierarchy (dark) */
-  --border-subtle: #1F1F26;
-  --border-default: #2A2A2F;
-  --border-strong: #404044;
+  --border-subtle: #181B23;
+  --border-default: #232732;
+  --border-strong: #38404F;
 }
 
-/* === Branded gradient utilities ===
-   Use SPARINGLY: hero, empty-state, login/splash, KPI hero, PDF cover, FAB primary.
-   NEVER on cards in lists. */
+/* === Legacy gradient utilities — flat-color fallbacks ===
+   Per user direction, NO gradients anywhere. These utilities are kept
+   as no-op aliases so existing callers (showcase, deprecated orbs) don't
+   crash; they now resolve to a fully transparent fill. Prefer removing
+   the className entirely when you touch a file. */
 @utility bg-gradient-sunrise {
-  background-image: var(--gradient-sunrise);
+  background: transparent;
 }
 @utility bg-gradient-aurora {
-  background-image: var(--gradient-aurora);
+  background: transparent;
 }
 @utility bg-gradient-sunrise-radial {
-  background-image: var(--gradient-sunrise-radial);
+  background: transparent;
 }
 @utility bg-gradient-aurora-radial {
-  background-image: var(--gradient-aurora-radial);
+  background: transparent;
 }
 @utility bg-gradient-mesh-warm {
-  background-image: var(--gradient-mesh-warm);
+  background: transparent;
 }
-/* Text-clipped gradients — for "Selamat datang kembali"-style branded headlines */
+/* Text-clipped gradients now resolve to inherited color (no gradient). */
 @utility text-gradient-sunrise {
-  background-image: var(--gradient-sunrise);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: inherit;
 }
 @utility text-gradient-aurora {
-  background-image: var(--gradient-aurora);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: inherit;
 }
 
 @layer base {

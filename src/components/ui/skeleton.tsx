@@ -9,13 +9,13 @@ import { cn } from "@/lib/utils";
  * structure) so the layout doesn't shift on swap.
  */
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+	// No gradient shimmer per "clean dan seamless" direction.
+	// Use a simple opacity pulse on surface-3.
 	return (
 		<div
 			data-slot="skeleton"
 			className={cn(
-				"relative overflow-hidden rounded-md bg-surface-3",
-				"after:absolute after:inset-0 after:-translate-x-full after:animate-[skeleton-shimmer_1.5s_var(--ease-out-quart)_infinite]",
-				"after:bg-gradient-to-r after:from-transparent after:via-white/[0.03] after:to-transparent",
+				"animate-pulse rounded-md bg-surface-3",
 				className,
 			)}
 			{...props}
