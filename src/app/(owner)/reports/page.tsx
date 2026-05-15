@@ -396,7 +396,12 @@ async function PnlSection({
 								value={hppBonus}
 							/>
 						)}
-						<PnlRow label="Gross Profit" value={revenue - hpp} strong muted />
+						<PnlRow
+								label="Gross Profit"
+								value={revenue - hpp}
+								strong
+								tone={revenue - hpp < 0 ? "rose" : "emerald"}
+							/>
 						<PnlRow label="OpEx" value={-opex} sign="−" />
 						<PnlSubRow label="Fee crew" value={opexBreakdown.fee_crew} />
 						<PnlSubRow
@@ -429,7 +434,7 @@ async function PnlSection({
 							label="Operating Profit"
 							value={revenue - hpp - opex}
 							strong
-							muted
+							tone={revenue - hpp - opex < 0 ? "rose" : "emerald"}
 						/>
 						<PnlRow label="Sinking funds" value={-sinking} indent />
 						<PnlRow label="Owner pool" value={-ownerPool} indent />
@@ -1149,14 +1154,16 @@ function KpiCard({
 						? "text-amber-600 dark:text-amber-400"
 						: "text-foreground";
 	return (
-		<div className="border-border-default bg-surface-2 relative space-y-1 rounded-xl border p-4">
+		<div className="border-border-default bg-surface-2 relative space-y-1.5 rounded-xl border p-5">
 			<div className="flex items-center justify-between">
-				<dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+				<dt className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest">
 					{label}
 				</dt>
 				<Icon className="text-muted-foreground/60 h-3.5 w-3.5" />
 			</div>
-			<dd className={`tabular text-xl font-semibold leading-tight ${cls}`}>
+			<dd
+				className={`tabular text-[22px] font-semibold leading-tight tracking-tight ${cls}`}
+			>
 				{value}
 			</dd>
 			<p className="text-muted-foreground text-[10px]">{hint}</p>
