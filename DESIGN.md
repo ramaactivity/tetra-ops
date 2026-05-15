@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Tetra-Ops-design-analysis
-description: "An internal operations system for a photobooth business in Indonesia — synthesized from Linear's dark-canvas surface discipline, Stripe's financial-data DNA, and Vercel's developer-platform clarity. The system anchors on Tetra Crimson #DC2954 as the single chromatic accent and a Sunrise gradient (crimson → amber → gold) reserved for hero moments. Dark mode is the primary surface (operator daily-driver feel — Linear DNA); light mode is supported for landing/crew portal. Body type runs Inter at modest weights with tabular-figure variants for any cell containing money or quantities (Stripe DNA — settlements, P&L, rekap totals). Playfair Display is reserved for branded display moments (landing hero, section eyebrows) — it never leaks into operational chrome. JetBrains Mono carries project IDs, SKUs, timestamps, and dense numeric breakdowns. Cards live on a four-step surface ladder with 1px hairline borders; shadows are scarce and atmospheric gradients only on hero / empty states. Pill-shaped CTAs are reserved for decisive financial actions (Simpan & Tutup Buku, Submit Rekap); compact 8px radii carry the everyday UI."
+description: "An internal operations system for a photobooth business in Indonesia — synthesized from Linear's dark-canvas surface discipline, Stripe's financial-data DNA, and Vercel's developer-platform clarity. The system anchors on Tetra Crimson #DC2954 as the single chromatic accent. Sunrise gradient (crimson → amber → gold) is reserved exclusively as a low-opacity decorative orb in hero compositions — never as a card fill, never as a text fill on operational chrome. **Type is ALL Inter, no serif anywhere.** Vercel and Linear don't use serif; neither does Tetra. Display tier runs Inter at weights 500–700 with aggressive negative tracking (−2.4px to −3px at 80px+). Tabular-figure variants for any cell containing money or quantities (Stripe DNA). JetBrains Mono carries project IDs, SKUs, timestamps. Cards live on a four-step surface ladder with 1px hairline borders. **No painted gradients on stat cards / KPI tiles / operational chrome** — that's the Linear/Vercel discipline. Shadows reserved for popovers + the decisive-CTA glow signature. Pill-shaped CTAs are reserved for decisive financial actions (Simpan & Tutup Buku, Submit Rekap, Approve); compact 8px radii carry the everyday UI."
 
 colors:
   # === Brand & Accent (single chromatic identity) ===
@@ -67,25 +67,25 @@ colors:
   sage-soft: "#A6BBA8"
 
 typography:
-  # === Display (Playfair — reserved for landing/branded hero) ===
+  # === Display (Inter at hero scale — Vercel/Linear DNA, NO serif) ===
   display-xl:
-    fontFamily: "'Playfair Display', 'Times New Roman', Georgia, serif"
-    fontSize: 72px
+    fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontSize: 80px
+    fontWeight: 600
+    lineHeight: 1.0
+    letterSpacing: -3.2px
+  display-lg:
+    fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontSize: 64px
     fontWeight: 600
     lineHeight: 1.05
-    letterSpacing: -2.16px
-  display-lg:
-    fontFamily: "'Playfair Display', 'Times New Roman', Georgia, serif"
-    fontSize: 56px
+    letterSpacing: -2.56px
+  display-md:
+    fontFamily: "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontSize: 48px
     fontWeight: 600
     lineHeight: 1.08
-    letterSpacing: -1.68px
-  display-md:
-    fontFamily: "'Playfair Display', 'Times New Roman', Georgia, serif"
-    fontSize: 40px
-    fontWeight: 600
-    lineHeight: 1.12
-    letterSpacing: -1.0px
+    letterSpacing: -1.92px
 
   # === Headline (Inter — operational chrome) ===
   headline-xl:
@@ -898,9 +898,9 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 ### Do
 
 - Default to **dark canvas** for operational surfaces — that's where owners spend 90% of their time.
-- Reserve **Sunrise gradient** for: hero word fill, success moments, decorative orbs.
+- Reserve **Sunrise gradient** for: low-opacity decorative orbs on hero compositions. NEVER as a card fill, NEVER as a text fill on operational chrome.
 - Use **tabular figures** for ALL money and quantity values, period.
-- Pair `headline-xx` (Inter 600) with negative tracking; pair `body` (Inter 400) at 0 tracking.
+- Use **Inter at all sizes** with negative tracking that scales: −3.2px at 80px, −1.92px at 48px, 0 at body. Match Linear/Vercel discipline.
 - Use **pill radius** ONLY for decisive financial CTAs and read-only status pills.
 - Use **mono** for project IDs (`PRJ-XXX`), SKUs (`ITM-BOX-4R`), Drive URLs, timestamps, hashes.
 - Show **disabled states with explanation** — if a button is grey, the label MUST say why ("Upload bukti dulu", "Approve rekap dulu").
@@ -910,8 +910,9 @@ Use `success` / `warning` / `danger` semantic tints. 12% tinted background, satu
 
 ### Don't
 
-- Don't use Playfair Display anywhere outside landing hero. Operational chrome uses Inter exclusively.
-- Don't paint card backgrounds with Sunrise gradient — it's a decorative tool, not a fill.
+- **Don't use serif fonts anywhere.** Tetra is all Inter. Vercel/Linear/Stripe don't ship serif on operational chrome — neither does Tetra. (Earlier Playfair experiments are deprecated.)
+- **Don't paint stat cards / KPI tiles with rich gradients** (slate-900 → indigo-950 etc.). KPIs render as plain `surface-2` with hairline border, big tabular value, eyebrow caption. That's the Linear/Vercel signature.
+- Don't paint card backgrounds with Sunrise gradient — it's a low-opacity orb decoration only, never a fill.
 - Don't introduce a second chromatic accent — no orange, no blue, no green as a "brand color". Semantic tints are the only secondary chroma.
 - Don't pill-round operational buttons (filter, edit, cancel) — pill is reserved for financial commits.
 - Don't use atmospheric gradients in operational chrome (dashboard, tables, forms). Only hero / empty states.

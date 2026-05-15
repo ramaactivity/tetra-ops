@@ -17,12 +17,12 @@ import {
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
-import { HeroKpiCard } from "@/components/dashboard/hero-kpi-card";
 import { StatusGroupCard } from "@/components/dashboard/status-group-card";
 import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
 import { Container } from "@/components/layout/container";
 import { PipelineCard } from "@/components/operations/pipeline-card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -240,63 +240,58 @@ export default async function DashboardPage() {
 	const firstName = userResult.profile.full_name.split(" ")[0];
 
 	return (
-		<Container size="xl" className="space-y-8 md:space-y-10">
-			{/* Branded greeting — Playfair display + sunrise gradient on name */}
-			<header className="space-y-2">
-				<p className="eyebrow">{ID_DATE_FULL.format(today)}</p>
-				<h1 className="font-display text-[clamp(1.75rem,1.4rem+1.4vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em] text-foreground">
-					Halo,{" "}
-					<span
-						className="bg-gradient-sunrise bg-clip-text text-transparent"
-						style={{
-							WebkitBackgroundClip: "text",
-							WebkitTextFillColor: "transparent",
-						}}
-					>
-						{firstName}
-					</span>
-					.
+		<Container size="xl" className="space-y-10 md:space-y-12">
+			{/* Greeting — Inter display, crimson accent on name (Vercel/Linear DNA) */}
+			<header className="space-y-3">
+				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+					{ID_DATE_FULL.format(today)}
+				</p>
+				<h1 className="text-[clamp(2rem,1.6rem+1.6vw,3rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-foreground">
+					Halo, <span className="text-primary">{firstName}</span>.
 				</h1>
 			</header>
 
-			{/* Hero KPIs — Tetra ERP exec-summary style: 4 dark-gradient cards */}
-			<section className="space-y-3">
-				<p className="eyebrow">Ringkasan Operasional</p>
+			{/* KPIs — clean StatCard (no painted gradients per DESIGN.md) */}
+			<section className="space-y-4">
+				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+					Ringkasan operasional
+				</p>
 				<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<HeroKpiCard
-					label="Event Bulan Ini"
-					value={monthCount.toLocaleString("id-ID")}
-					hint="Total booking di bulan berjalan"
-					icon={CalendarCheck}
-					accent="primary"
-				/>
-				<HeroKpiCard
-					label="Revenue MTD"
-					value={formatRupiah(thisMonthRevenue)}
-					hint="Payment masuk terverifikasi"
-					icon={Wallet2}
-					accent="emerald"
-				/>
-				<HeroKpiCard
-					label="Outstanding"
-					value={formatRupiah(outstanding)}
-					hint="Total piutang aktif"
-					icon={Wallet}
-					accent={outstanding >= 5_000_000 ? "rose" : "amber"}
-				/>
-				<HeroKpiCard
-					label="Awaiting Settlement"
-					value={awaitingCount.toLocaleString("id-ID")}
-					hint="Event selesai, belum di-settle"
-					icon={Hourglass}
-					accent="amber"
-				/>
+					<StatCard
+						label="Event bulan ini"
+						value={monthCount.toLocaleString("id-ID")}
+						hint="Total booking di bulan berjalan"
+						icon={CalendarCheck}
+					/>
+					<StatCard
+						label="Revenue MTD"
+						value={formatRupiah(thisMonthRevenue)}
+						hint="Payment masuk terverifikasi"
+						icon={Wallet2}
+						tone="positive"
+					/>
+					<StatCard
+						label="Outstanding"
+						value={formatRupiah(outstanding)}
+						hint="Total piutang aktif"
+						icon={Wallet}
+						tone={outstanding >= 5_000_000 ? "negative" : "warning"}
+					/>
+					<StatCard
+						label="Awaiting settlement"
+						value={awaitingCount.toLocaleString("id-ID")}
+						hint="Event selesai, belum di-settle"
+						icon={Hourglass}
+						tone="warning"
+					/>
 				</dl>
 			</section>
 
 			{/* Targets + status overview — Tetra ERP exec-summary mid-strip */}
 			<section className="space-y-3">
-				<p className="eyebrow">Target & Status</p>
+				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+					Target & status
+				</p>
 				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 				<TargetProgressCard
 					label="Target Bulanan"
@@ -337,17 +332,19 @@ export default async function DashboardPage() {
 
 			<AnomalyRadarWidget />
 
-			<section className="space-y-3">
+			<section className="space-y-4">
 				<div className="flex items-end justify-between gap-3">
-					<div className="space-y-1">
-						<p className="eyebrow">Pipeline</p>
-						<h2 className="font-display text-fluid-h2 font-semibold tracking-tight">
+					<div className="space-y-2">
+						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+							Pipeline
+						</p>
+						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
 							Pipeline Event
 						</h2>
 					</div>
 					<Link
 						href="/operations"
-						className="text-fluid-caption font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+						className="text-[12px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 					>
 						Lihat semua →
 					</Link>
@@ -385,10 +382,12 @@ export default async function DashboardPage() {
 			</section>
 
 			<div className="grid gap-6 lg:grid-cols-3">
-				<section className="space-y-3 lg:col-span-2">
-					<div className="space-y-1">
-						<p className="eyebrow">Agenda</p>
-						<h2 className="font-display text-fluid-h2 font-semibold tracking-tight">
+				<section className="space-y-4 lg:col-span-2">
+					<div className="space-y-2">
+						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+							Agenda
+						</p>
+						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
 							Hari Ini & Besok
 						</h2>
 					</div>
@@ -453,10 +452,12 @@ export default async function DashboardPage() {
 					)}
 				</section>
 
-				<section className="space-y-3">
-					<div className="space-y-1">
-						<p className="eyebrow">Shortcuts</p>
-						<h2 className="font-display text-fluid-h2 font-semibold tracking-tight">
+				<section className="space-y-4">
+					<div className="space-y-2">
+						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+							Shortcuts
+						</p>
+						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
 							Quick Actions
 						</h2>
 					</div>
