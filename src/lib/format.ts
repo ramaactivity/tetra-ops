@@ -84,6 +84,7 @@ export const EVENT_STATUS_LABELS: Record<string, string> = {
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 	unpaid: "Unpaid",
+	partial: "Partial",
 	dp: "DP",
 	paid: "Lunas",
 	overpaid: "Overpaid",
