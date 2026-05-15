@@ -1,7 +1,7 @@
 "use client";
 
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
-import { ChevronDown, type LucideIcon } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -13,14 +13,17 @@ import { cn } from "@/lib/utils";
  * separator. Optional `actions` slot in the header for inline links
  * (e.g. "Manage payments →").
  *
- * Use `defaultOpen` for the hero card; leave secondary cards closed so
- * users only expand what they need.
+ * NOTE on `icon`: this is a client component (`"use client"`). React
+ * Server Components cannot serialize a raw component reference (like
+ * `Sparkles` from lucide) when passing it as a prop. Always pass a
+ * pre-rendered React element — `icon={<Sparkles className="size-4" />}`
+ * — not the component itself.
  */
 
 interface CollapsibleCardProps {
 	title: React.ReactNode;
 	subtitle?: React.ReactNode;
-	icon?: LucideIcon;
+	icon?: React.ReactNode;
 	actions?: React.ReactNode;
 	defaultOpen?: boolean;
 	className?: string;
@@ -31,7 +34,7 @@ interface CollapsibleCardProps {
 export function CollapsibleCard({
 	title,
 	subtitle,
-	icon: Icon,
+	icon,
 	actions,
 	defaultOpen = false,
 	className,
@@ -48,12 +51,10 @@ export function CollapsibleCard({
 		>
 			<div className="flex items-center gap-3 px-5 py-3.5">
 				<CollapsiblePrimitive.Trigger className="flex flex-1 min-w-0 items-center gap-3 text-left outline-none transition-colors hover:text-foreground/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card -m-1 p-1 rounded-md">
-					{Icon ? (
-						<Icon
-							className="size-4 shrink-0 text-muted-foreground"
-							aria-hidden
-							strokeWidth={2}
-						/>
+					{icon ? (
+						<span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+							{icon}
+						</span>
 					) : null}
 					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 						<span className="text-[14px] font-semibold leading-snug text-foreground">

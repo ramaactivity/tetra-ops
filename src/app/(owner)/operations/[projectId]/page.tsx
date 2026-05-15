@@ -421,7 +421,7 @@ export default async function EventDetailPage({
 
 			{/* === READINESS (collapsible, defaults open) === */}
 			<CollapsibleCard
-				icon={Sparkles}
+				icon={<Sparkles className="size-4" aria-hidden strokeWidth={2} />}
 				title="Kesiapan Event"
 				subtitle="Checklist progress menuju hari-H — DP, crew, design, equipment, rekap."
 				defaultOpen
@@ -446,7 +446,7 @@ export default async function EventDetailPage({
 			{/* === DETAIL CARDS (collapsible, default closed) === */}
 			<div className="grid gap-3 md:grid-cols-2">
 				<CollapsibleCard
-					icon={Phone}
+					icon={<Phone className="size-4" aria-hidden strokeWidth={2} />}
 					title="Klien & Kontak"
 					subtitle="Nama, WA, email, booker, dan PIC event."
 				>
@@ -526,7 +526,7 @@ export default async function EventDetailPage({
 				</CollapsibleCard>
 
 				<CollapsibleCard
-					icon={Building2}
+					icon={<Building2 className="size-4" aria-hidden strokeWidth={2} />}
 					title="Lokasi"
 					subtitle={event.venue_name}
 				>
@@ -543,7 +543,7 @@ export default async function EventDetailPage({
 				</CollapsibleCard>
 
 				<CollapsibleCard
-					icon={FileText}
+					icon={<FileText className="size-4" aria-hidden strokeWidth={2} />}
 					title="Service & Package"
 					subtitle={
 						pkg ? `${pkg.name} · ${pkg.duration_hours}j` : "Custom / belum dipilih"
@@ -613,7 +613,7 @@ export default async function EventDetailPage({
 				</CollapsibleCard>
 
 				<CollapsibleCard
-					icon={Wallet}
+					icon={<Wallet className="size-4" aria-hidden strokeWidth={2} />}
 					title="Financial"
 					subtitle={`Grand total ${formatRupiah(event.grand_total ?? 0)} · Outstanding ${formatRupiah(event.remaining_balance ?? 0)}`}
 					actions={
@@ -681,7 +681,7 @@ export default async function EventDetailPage({
 				</CollapsibleCard>
 
 				<CollapsibleCard
-					icon={Users}
+					icon={<Users className="size-4" aria-hidden strokeWidth={2} />}
 					title="Crew Assignments"
 					subtitle={
 						crewAssignments.length === 0
@@ -756,7 +756,7 @@ export default async function EventDetailPage({
 
 				{eventAddons.length > 0 && (
 					<CollapsibleCard
-						icon={Sparkles}
+						icon={<Sparkles className="size-4" aria-hidden strokeWidth={2} />}
 						title="Add-ons"
 						subtitle={`${eventAddons.length} item${eventAddons.length === 1 ? "" : "s"}`}
 						className="md:col-span-2"
@@ -791,7 +791,7 @@ export default async function EventDetailPage({
 
 				{eventBonuses.length > 0 && (
 					<CollapsibleCard
-						icon={Sparkles}
+						icon={<Sparkles className="size-4" aria-hidden strokeWidth={2} />}
 						title="Bonus untuk Klien"
 						subtitle="Item gratis (internal). Crew harus kasih saat acara."
 						className="md:col-span-2"
@@ -833,7 +833,7 @@ export default async function EventDetailPage({
 
 				{event.crew_notes && (
 					<CollapsibleCard
-						icon={FileText}
+						icon={<FileText className="size-4" aria-hidden strokeWidth={2} />}
 						title="Catatan untuk Crew"
 						subtitle="Briefing dari owner ke crew."
 						className="md:col-span-2"
@@ -846,7 +846,7 @@ export default async function EventDetailPage({
 
 				{settlement && (
 					<CollapsibleCard
-						icon={Wallet}
+						icon={<Wallet className="size-4" aria-hidden strokeWidth={2} />}
 						title="Settlement Detail"
 						subtitle={`Ditutup ${formatDateID(settlement.closed_at)} · ${
 							settlement.is_loss ? "RUGI" : "PROFIT"
@@ -938,7 +938,7 @@ export default async function EventDetailPage({
 
 			{/* === ACTIVITY FEED (collapsible, default closed) === */}
 			<CollapsibleCard
-				icon={Activity}
+				icon={<Activity className="size-4" aria-hidden strokeWidth={2} />}
 				title="Activity"
 				subtitle="Timeline status, payments, dan perubahan event."
 				bodyClassName="!p-0"
