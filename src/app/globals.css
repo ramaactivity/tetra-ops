@@ -312,6 +312,17 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* Eyebrow — section labels, table headers, KPI captions.
+     Per DESIGN.md: 11px, weight 600, +1.5px tracking, uppercase, muted.
+     Use on <p>, <span>, <dt> for short taxonomy text above headlines. */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.0625em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
   /* Reusable focus ring that meets WCAG without breaking aesthetic */
   :focus-visible {
     @apply outline-ring;
