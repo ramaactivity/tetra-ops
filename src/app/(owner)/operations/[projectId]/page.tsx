@@ -1,18 +1,20 @@
 import {
+	Activity,
 	Archive,
-	CalculatorIcon,
+	Building2,
 	ChevronLeft,
-	ClipboardList,
-	ExternalLink,
+	FileText,
 	Inbox,
-	Package,
+	Mail,
 	Pencil,
-	Receipt,
+	Phone,
+	Sparkles,
+	Tag,
 	Users,
+	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Container } from "@/components/layout/container";
 import {
 	EventStatusBadge,
 	PaymentStatusBadge,
@@ -25,11 +27,17 @@ import {
 import { StatusMenu } from "@/components/booking/status-menu";
 import { EventDriveCard } from "@/components/drive/event-drive-card";
 import { DesignCard } from "@/components/event-design/design-card";
+import { Container } from "@/components/layout/container";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
+import {
+	ProjectHeroRecap,
+	type ProjectHeroRecapCrew,
+} from "@/components/operations/project-hero-recap";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
 import { PdfDownloadMenu } from "@/components/pdf/download-menu";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
@@ -40,6 +48,7 @@ import {
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export default async function EventDetailPage({
 	params,
@@ -68,6 +77,7 @@ export default async function EventDetailPage({
 			setup_time, start_time, end_time, venue_name, venue_address, venue_city, venue_province,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
+			include_flashdisk_pouch,
 			crew_notes, created_at, updated_at,
 			is_migrated_legacy, legacy_invoice_number,
 			booker_contact:contacts!events_booker_contact_id_fkey(id, name, phone, type, legacy_contact_id),
@@ -100,20 +110,18 @@ export default async function EventDetailPage({
 
 	if (error) {
 		return (
-			<div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8">
-				<div className="border-destructive bg-destructive/10 rounded-md border p-4">
-					<p className="text-destructive text-sm font-medium">
+			<Container size="xl">
+				<div className="rounded-md border border-destructive/40 bg-destructive/10 p-4">
+					<p className="text-sm font-medium text-destructive">
 						Gagal memuat event: {error.message}
 					</p>
 				</div>
-			</div>
+			</Container>
 		);
 	}
 
 	if (!event) notFound();
 
-	// Build lookup map for event_types since events.event_category isn't a
-	// proper FK to event_types.code (no constraint defined in DB).
 	const eventTypeLabelByCode = new Map(
 		((eventTypesData ?? []) as Array<{ code: string; label: string }>).map(
 			(t) => [t.code, t.label],
@@ -188,6 +196,20 @@ export default async function EventDetailPage({
 	const equipmentCount = equipmentCountRaw ?? 0;
 	const rekapSubmitted = !!rekapData;
 
+	const backdrop = Array.isArray(event.backdrop)
+		? event.backdrop[0]
+		: event.backdrop;
+
+	const recapCrew: ProjectHeroRecapCrew[] = crewAssignments.map((row) => {
+		const u = Array.isArray(row.user) ? row.user[0] : row.user;
+		return {
+			name: u?.full_name ?? "—",
+			role: row.role_in_event,
+			tier: u?.tier ?? null,
+			fee: row.fee_amount,
+		};
+	});
+
 	function crewByRole(role: string) {
 		const ca = crewAssignments.find((a) => a.role_in_event === role);
 		if (!ca) return null;
@@ -212,48 +234,66 @@ export default async function EventDetailPage({
 		crew_asisten: crewByRole("asisten"),
 	};
 
+	const categoryLabel = event.event_category
+		? (eventTypeLabelByCode.get(event.event_category) ?? event.event_category)
+		: null;
+
+	const headerActionCls = buttonVariants({ variant: "outline", size: "sm" });
+	const headerCtaCls = buttonVariants({ variant: "default", size: "sm" });
+
 	return (
-		<Container size="md" className="space-y-6">
-			<div className="space-y-2">
+		<Container size="xl" className="space-y-5">
+			{/* === HEADER === */}
+			<div className="space-y-3">
 				<Link
 					href="/operations"
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+					className="inline-flex items-center gap-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 				>
-					<ChevronLeft className="h-4 w-4" />
+					<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
 					Operations
 				</Link>
 				<div className="flex flex-wrap items-start justify-between gap-3">
-					<div className="space-y-1">
-						<h1 className="text-fluid-h1 font-semibold tracking-tight">
+					<div className="space-y-2">
+						<h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.025em] text-foreground sm:text-[32px]">
 							{event.client_name}
 						</h1>
-						<p
-							className="tabular text-fluid-caption text-muted-foreground"
-							style={{ viewTransitionName: `event-${event.project_id}` }}
-						>
-							{event.project_id}
-						</p>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<EventStatusBadge status={event.status} />
-						<Badge variant="outline">
-							{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
-						</Badge>
-						{isMigratedLegacy && (
-							<Badge
-								variant="secondary"
-								className="border-amber-200 bg-amber-100 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+						<div className="flex flex-wrap items-center gap-2">
+							<span
+								className="tabular font-mono text-[12px] text-muted-foreground"
+								style={{
+									viewTransitionName: `event-${event.project_id}`,
+								}}
 							>
-								<Archive className="mr-1 h-3 w-3" />
-								Migrated
+								{event.project_id}
+							</span>
+							<span className="text-muted-foreground/40" aria-hidden>
+								·
+							</span>
+							<EventStatusBadge status={event.status} />
+							<Badge variant="outline">
+								{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
 							</Badge>
-						)}
-						{isImportedLive && (
-							<Badge variant="outline" className="text-muted-foreground">
-								<Inbox className="mr-1 h-3 w-3" />
-								Imported
-							</Badge>
-						)}
+							{categoryLabel && (
+								<Badge variant="default" className="gap-1">
+									<Tag className="size-2.5" aria-hidden strokeWidth={2.5} />
+									{categoryLabel}
+								</Badge>
+							)}
+							{isMigratedLegacy && (
+								<Badge variant="warning" className="gap-1">
+									<Archive className="size-2.5" aria-hidden strokeWidth={2.5} />
+									Migrated
+								</Badge>
+							)}
+							{isImportedLive && (
+								<Badge variant="outline" className="gap-1">
+									<Inbox className="size-2.5" aria-hidden strokeWidth={2.5} />
+									Imported
+								</Badge>
+							)}
+						</div>
+					</div>
+					<div className="flex flex-wrap items-center gap-1.5">
 						{!isMigratedLegacy && (
 							<>
 								<StatusMenu
@@ -270,30 +310,6 @@ export default async function EventDetailPage({
 									templates={templates}
 									size="sm"
 								/>
-								<Link
-									href={`/operations/${event.project_id}/equipment`}
-									className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
-								>
-									<Package className="h-3.5 w-3.5" />
-									Equipment
-									{equipmentCount > 0 && (
-										<span className="bg-primary/15 text-primary tabular ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-											{equipmentCount}
-										</span>
-									)}
-								</Link>
-								<Link
-									href={`/operations/${event.project_id}/rekap`}
-									className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
-								>
-									<ClipboardList className="h-3.5 w-3.5" />
-									Rekap
-									{rekapSubmitted && (
-										<span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-											✓
-										</span>
-									)}
-								</Link>
 								<PdfDownloadMenu
 									options={[
 										{
@@ -315,9 +331,9 @@ export default async function EventDetailPage({
 								/>
 								<Link
 									href={`/operations/${event.project_id}/edit`}
-									className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
+									className={headerActionCls}
 								>
-									<Pencil className="h-3.5 w-3.5" />
+									<Pencil className="size-3.5" aria-hidden strokeWidth={2} />
 									Edit
 								</Link>
 								{!settlement && (
@@ -327,30 +343,22 @@ export default async function EventDetailPage({
 										clientName={event.client_name}
 									/>
 								)}
-								{canSettle && (
-									<Link
-										href={`/operations/${event.project_id}/settle`}
-										className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-semibold"
-									>
-										<CalculatorIcon className="h-3.5 w-3.5" />
-										Settle Event
-									</Link>
-								)}
 							</>
 						)}
 					</div>
 				</div>
 				{isMigratedLegacy && (
-					<div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-						<Archive className="mt-0.5 h-4 w-4 shrink-0" />
+					<div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-800 dark:text-amber-300">
+						<Archive
+							className="mt-0.5 size-3.5 shrink-0"
+							aria-hidden
+							strokeWidth={2}
+						/>
 						<div className="space-y-0.5">
-							<p className="font-medium">
-								Migrated from Phase-2 (read-only archive)
-							</p>
-							<p className="text-amber-800/80 dark:text-amber-300/80">
+							<p className="font-semibold">Migrated from Phase-2 (read-only archive)</p>
+							<p className="text-amber-700/80 dark:text-amber-400/80">
 								Event ini di-import dari sistem lama untuk referensi historis.
-								Tidak ada records payments / settlement / journal / earnings —
-								kalau perlu adjust angka, edit langsung kolom event.
+								Tidak ada records payments / settlement / journal / earnings.
 								{event.legacy_invoice_number && (
 									<>
 										{" "}
@@ -367,7 +375,58 @@ export default async function EventDetailPage({
 				)}
 			</div>
 
-			<div className="grid gap-4 md:grid-cols-2">
+			{/* === HERO RECAP === */}
+			<ProjectHeroRecap
+				projectId={event.project_id}
+				clientName={event.client_name}
+				channel={event.channel}
+				eventCategory={event.event_category}
+				eventCategoryLabel={categoryLabel}
+				eventDate={event.event_date}
+				startTime={event.start_time}
+				endTime={event.end_time}
+				venueName={event.venue_name}
+				venueCity={event.venue_city ?? null}
+				venueAddress={event.venue_address ?? null}
+				packageName={pkg?.name ?? null}
+				packageDurationHours={pkg?.duration_hours ?? null}
+				frameSize={
+					event.frame_size
+						? (FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size)
+						: null
+				}
+				backdropName={backdrop?.name ?? null}
+				includeFlashdiskPouch={event.include_flashdisk_pouch}
+				crewAssignments={recapCrew}
+				grandTotal={event.grand_total ?? 0}
+				totalPaid={event.total_paid ?? 0}
+				remainingBalance={event.remaining_balance ?? 0}
+				settlement={
+					settlement
+						? {
+								revenue_net: settlement.revenue_net,
+								hpp_total: settlement.hpp_total,
+								opex_total: settlement.opex_total,
+								net_profit: settlement.net_profit,
+								margin_percentage: settlement.margin_percentage,
+								is_loss: settlement.is_loss,
+							}
+						: null
+				}
+				canSettle={canSettle}
+				equipmentCount={equipmentCount}
+				rekapSubmitted={rekapSubmitted}
+				driveFolderUrl={event.drive_folder_url ?? null}
+			/>
+
+			{/* === READINESS (collapsible, defaults open) === */}
+			<CollapsibleCard
+				icon={Sparkles}
+				title="Kesiapan Event"
+				subtitle="Checklist progress menuju hari-H — DP, crew, design, equipment, rekap."
+				defaultOpen
+				bodyClassName="!p-0"
+			>
 				<EventReadinessCard
 					projectId={event.project_id}
 					eventId={event.id}
@@ -382,281 +441,191 @@ export default async function EventDetailPage({
 					equipmentCount={equipmentCount}
 					rekapSubmitted={rekapSubmitted}
 				/>
+			</CollapsibleCard>
 
-				<DetailCard title="Klien & Kontak">
-					<DetailRow label="Klien">{event.client_name}</DetailRow>
-					<DetailRow label="WA Klien">
-						{event.client_wa && event.client_wa !== "-" ? (
-							<a
-								href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-primary hover:underline tabular inline-flex items-center gap-1"
-							>
-								{event.client_wa}
-								<ExternalLink className="h-3 w-3" />
-							</a>
-						) : (
-							<span className="text-muted-foreground">—</span>
-						)}
-					</DetailRow>
-					{event.client_email && (
-						<DetailRow label="Email">{event.client_email}</DetailRow>
-					)}
-					{bookerContact && (
-						<DetailRow label="Booker">
-							<span className="space-y-0.5">
-								<span className="block">{bookerContact.name}</span>
-								{bookerContact.phone && (
-									<a
-										href={`https://wa.me/${bookerContact.phone.replace(/^\+|^0/, "62")}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-primary hover:underline tabular inline-flex items-center gap-1 text-xs"
-									>
-										{bookerContact.phone}
-										<ExternalLink className="h-3 w-3" />
-									</a>
-								)}
-							</span>
+			{/* === DETAIL CARDS (collapsible, default closed) === */}
+			<div className="grid gap-3 md:grid-cols-2">
+				<CollapsibleCard
+					icon={Phone}
+					title="Klien & Kontak"
+					subtitle="Nama, WA, email, booker, dan PIC event."
+				>
+					<dl className="space-y-2.5">
+						<DetailRow label="Klien">{event.client_name}</DetailRow>
+						<DetailRow label="WA Klien">
+							{event.client_wa && event.client_wa !== "-" ? (
+								<a
+									href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="tabular inline-flex items-center gap-1 text-[#0070f3] hover:underline"
+								>
+									{event.client_wa}
+								</a>
+							) : (
+								<span className="text-muted-foreground">—</span>
+							)}
 						</DetailRow>
-					)}
-					{(picDisplayName || picDisplayPhone) && (
-						<DetailRow label="PIC Event">
-							<span className="space-y-0.5">
-								{picDisplayName && (
-									<span className="block font-medium text-amber-700 dark:text-amber-400">
-										{picDisplayName}
+						{event.client_email && (
+							<DetailRow label="Email">
+								<a
+									href={`mailto:${event.client_email}`}
+									className="inline-flex items-center gap-1 text-[#0070f3] hover:underline"
+								>
+									<Mail
+										className="size-3"
+										aria-hidden
+										strokeWidth={2}
+									/>
+									{event.client_email}
+								</a>
+							</DetailRow>
+						)}
+						{bookerContact && (
+							<DetailRow label="Booker">
+								<span className="block space-y-0.5">
+									<span className="block">{bookerContact.name}</span>
+									{bookerContact.phone && (
+										<a
+											href={`https://wa.me/${bookerContact.phone.replace(/^\+|^0/, "62")}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+										>
+											{bookerContact.phone}
+										</a>
+									)}
+								</span>
+							</DetailRow>
+						)}
+						{(picDisplayName || picDisplayPhone) && (
+							<DetailRow label="PIC Event">
+								<span className="block space-y-0.5">
+									{picDisplayName && (
+										<span className="block font-medium text-amber-700 dark:text-amber-400">
+											{picDisplayName}
+										</span>
+									)}
+									{picDisplayPhone && (
+										<a
+											href={`https://wa.me/${picDisplayPhone.replace(/^\+|^0/, "62")}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+										>
+											{picDisplayPhone}
+										</a>
+									)}
+									<span className="block text-[10.5px] text-muted-foreground">
+										Crew kontak orang ini di hari H
 									</span>
-								)}
-								{picDisplayPhone && (
-									<a
-										href={`https://wa.me/${picDisplayPhone.replace(/^\+|^0/, "62")}`}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-primary hover:underline tabular inline-flex items-center gap-1 text-xs"
-									>
-										{picDisplayPhone}
-										<ExternalLink className="h-3 w-3" />
-									</a>
-								)}
-								<span className="text-muted-foreground block text-[10px]">
-									Crew kontak orang ini di hari H
 								</span>
-							</span>
-						</DetailRow>
-					)}
-				</DetailCard>
-
-				<DetailCard title="Service">
-					<DetailRow label="Service">
-						{SERVICE_TYPE_LABELS[event.service_type] ?? event.service_type}
-					</DetailRow>
-					<DetailRow label="Frame">
-						{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
-					</DetailRow>
-					<DetailRow label="Package">
-						{pkg ? (
-							<span>
-								{pkg.name}
-								<span className="text-muted-foreground">
-									{" · "}
-									{pkg.duration_hours}j · {formatRupiah(pkg.base_price)}
-								</span>
-							</span>
-						) : (
-							<span className="text-muted-foreground">
-								Custom / belum dipilih
-							</span>
+							</DetailRow>
 						)}
-					</DetailRow>
-					<DetailRow label="Backdrop">
-						{(() => {
-							const bg = Array.isArray(event.backdrop)
-								? event.backdrop[0]
-								: event.backdrop;
-							if (!bg)
-								return (
-									<span className="text-muted-foreground">— belum dipilih</span>
-								);
-							const markup = event.vendor_decor_markup ?? 0;
-							return (
+					</dl>
+				</CollapsibleCard>
+
+				<CollapsibleCard
+					icon={Building2}
+					title="Lokasi"
+					subtitle={event.venue_name}
+				>
+					<dl className="space-y-2.5">
+						<DetailRow label="Venue">{event.venue_name}</DetailRow>
+						<DetailRow label="Alamat">
+							{event.venue_address ?? "—"}
+						</DetailRow>
+						<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
+						<DetailRow label="Provinsi">
+							{event.venue_province ?? "—"}
+						</DetailRow>
+					</dl>
+				</CollapsibleCard>
+
+				<CollapsibleCard
+					icon={FileText}
+					title="Service & Package"
+					subtitle={
+						pkg ? `${pkg.name} · ${pkg.duration_hours}j` : "Custom / belum dipilih"
+					}
+				>
+					<dl className="space-y-2.5">
+						<DetailRow label="Service">
+							{SERVICE_TYPE_LABELS[event.service_type] ?? event.service_type}
+						</DetailRow>
+						<DetailRow label="Frame">
+							{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
+						</DetailRow>
+						<DetailRow label="Package">
+							{pkg ? (
 								<span>
-									{bg.name}
-									{bg.type === "rental_owned" && bg.rental_price > 0 && (
-										<span className="text-muted-foreground">
-											{" · "}
-											sewa {formatRupiah(bg.rental_price)}
-										</span>
-									)}
-									{bg.type === "vendor_decor" && markup > 0 && (
-										<span className="text-muted-foreground">
-											{" · "}
-											markup {formatRupiah(markup)}
-										</span>
-									)}
+									{pkg.name}
+									<span className="text-muted-foreground">
+										{" · "}
+										{pkg.duration_hours}j · {formatRupiah(pkg.base_price)}
+									</span>
 								</span>
-							);
-						})()}
-					</DetailRow>
-				</DetailCard>
-
-				<DetailCard title="Event">
-					<DetailRow label="Kategori">
-						{eventTypeLabelByCode.get(event.event_category) ??
-							event.event_category}
-					</DetailRow>
-					<DetailRow label="Tanggal">
-						{formatDateID(event.event_date)}
-					</DetailRow>
-					<DetailRow label="Setup">{event.setup_time}</DetailRow>
-					<DetailRow label="Start">{event.start_time}</DetailRow>
-					<DetailRow label="End">{event.end_time}</DetailRow>
-				</DetailCard>
-
-				<DetailCard title="Lokasi">
-					<DetailRow label="Venue">{event.venue_name}</DetailRow>
-					<DetailRow label="Alamat">{event.venue_address ?? "—"}</DetailRow>
-					<DetailRow label="Kota/Kabupaten">{event.venue_city ?? "—"}</DetailRow>
-					<DetailRow label="Provinsi">{event.venue_province ?? "—"}</DetailRow>
-				</DetailCard>
-
-				<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-5 md:col-span-2">
-					<div className="flex items-center justify-between">
-						<h3 className="text-sm font-semibold tracking-tight">Crew</h3>
-						<Link
-							href={`/operations/${event.project_id}/crew`}
-							className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
-						>
-							<Users className="h-3.5 w-3.5" />
-							Manage
-						</Link>
-					</div>
-					{crewAssignments.length === 0 ? (
-						<EmptyState
-							icon={Users}
-							title="Belum ada crew di-assign"
-							description="Klik Manage untuk assign lead, asisten, dan crew C."
-							size="sm"
-						/>
-					) : (
-						<div className="space-y-1">
-							{crewAssignments.map((row, idx) => {
-								const u = Array.isArray(row.user) ? row.user[0] : row.user;
+							) : (
+								<span className="text-muted-foreground">
+									Custom / belum dipilih
+								</span>
+							)}
+						</DetailRow>
+						<DetailRow label="Backdrop">
+							{(() => {
+								if (!backdrop)
+									return (
+										<span className="text-muted-foreground">
+											— belum dipilih
+										</span>
+									);
+								const markup = event.vendor_decor_markup ?? 0;
 								return (
-									<div
-										key={`${u?.full_name ?? "crew"}-${idx}`}
-										className="flex items-baseline justify-between gap-3 text-sm"
-									>
-										<div>
-											<span className="font-medium">{u?.full_name ?? "—"}</span>
-											{u?.tier && (
+									<span>
+										{backdrop.name}
+										{backdrop.type === "rental_owned" &&
+											backdrop.rental_price > 0 && (
 												<span className="text-muted-foreground">
-													{" "}
-													· {u.tier}
+													{" · "}
+													sewa {formatRupiah(backdrop.rental_price)}
 												</span>
 											)}
+										{backdrop.type === "vendor_decor" && markup > 0 && (
 											<span className="text-muted-foreground">
-												{" "}
-												· {ROLE_LABELS[row.role_in_event] ?? row.role_in_event}
+												{" · "}
+												markup {formatRupiah(markup)}
 											</span>
-										</div>
-										<span className="tabular text-muted-foreground">
-											{formatRupiah(row.fee_amount)}
-										</span>
-									</div>
-								);
-							})}
-						</div>
-					)}
-				</div>
-
-				{eventAddons.length > 0 && (
-					<DetailCard title="Add-ons" className="md:col-span-2">
-						<div className="space-y-1">
-							{eventAddons.map((row, idx) => {
-								const addon = Array.isArray(row.addon)
-									? row.addon[0]
-									: row.addon;
-								return (
-									<div
-										key={`${addon?.name ?? "addon"}-${idx}`}
-										className="flex items-baseline justify-between gap-3 text-sm"
-									>
-										<div>
-											<span className="font-medium">{addon?.name ?? "—"}</span>
-											<span className="text-muted-foreground">
-												{" "}
-												· {row.quantity} {addon?.unit ?? ""}
-											</span>
-										</div>
-										<span className="tabular">
-											{formatRupiah(row.total_price)}
-										</span>
-									</div>
-								);
-							})}
-						</div>
-					</DetailCard>
-				)}
-
-				{eventBonuses.length > 0 && (
-					<DetailCard
-						title="Bonus untuk Klien (internal)"
-						className="md:col-span-2"
-					>
-						<p className="mb-2 text-xs text-muted-foreground">
-							Item gratis yang kita kasih — tidak masuk grand total. Crew harus
-							kasih saat acara.
-						</p>
-						<div className="space-y-2">
-							{eventBonuses.map((row, idx) => {
-								const addon = Array.isArray(row.addon)
-									? row.addon[0]
-									: row.addon;
-								return (
-									<div
-										key={`${addon?.name ?? "bonus"}-${idx}`}
-										className="rounded-md border border-dashed border-emerald-500/30 bg-emerald-500/5 p-2"
-									>
-										<div className="flex items-baseline justify-between gap-3 text-sm">
-											<div>
-												<span className="font-medium">
-													{addon?.name ?? "—"}
-												</span>
-												<span className="text-muted-foreground">
-													{" "}
-													· {row.quantity} {addon?.unit ?? ""}
-												</span>
-											</div>
-											<span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
-												GRATIS
-											</span>
-										</div>
-										{row.notes && (
-											<p className="mt-1 text-xs italic text-muted-foreground">
-												"{row.notes}"
-											</p>
 										)}
-									</div>
+									</span>
 								);
-							})}
-						</div>
-					</DetailCard>
-				)}
+							})()}
+						</DetailRow>
+						<DetailRow label="Flashdisk">
+							{event.include_flashdisk_pouch ? (
+								<span className="font-medium text-emerald-700 dark:text-emerald-400">
+									Termasuk Flashdisk Pouch
+								</span>
+							) : (
+								<span className="text-muted-foreground">Tidak termasuk</span>
+							)}
+						</DetailRow>
+					</dl>
+				</CollapsibleCard>
 
-				<div className="md:col-span-2 space-y-3 rounded-xl border border-border-default bg-surface-2 p-5">
-					<div className="flex items-center justify-between">
-						<h3 className="text-sm font-semibold tracking-tight">Financial</h3>
+				<CollapsibleCard
+					icon={Wallet}
+					title="Financial"
+					subtitle={`Grand total ${formatRupiah(event.grand_total ?? 0)} · Outstanding ${formatRupiah(event.remaining_balance ?? 0)}`}
+					actions={
 						<Link
 							href={`/operations/${event.project_id}/payments`}
-							className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-xs font-medium transition-colors hover:bg-surface-3"
+							className={headerActionCls}
 						>
-							<Receipt className="h-3.5 w-3.5" />
 							Manage payments
 						</Link>
-					</div>
-					<dl className="space-y-2">
+					}
+				>
+					<dl className="space-y-2.5">
 						<DetailRow label="Base Price">
 							<span className="tabular">
 								{event.base_price ? formatRupiah(event.base_price) : "—"}
@@ -681,8 +650,8 @@ export default async function EventDetailPage({
 									: "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Grand Total">
-							<span className="tabular text-foreground font-semibold">
+						<DetailRow label="Grand Total" strong>
+							<span className="tabular font-semibold text-foreground">
 								{event.grand_total ? formatRupiah(event.grand_total) : "—"}
 							</span>
 						</DetailRow>
@@ -691,27 +660,263 @@ export default async function EventDetailPage({
 								{event.total_paid ? formatRupiah(event.total_paid) : "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Remaining">
-							<span className="tabular">
+						<DetailRow label="Remaining" strong>
+							<span
+								className={cn(
+									"tabular font-semibold",
+									(event.remaining_balance ?? 0) > 0
+										? "text-rose-600 dark:text-rose-400"
+										: "text-foreground",
+								)}
+							>
 								{event.remaining_balance
 									? formatRupiah(event.remaining_balance)
 									: "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Payment Status">
+						<DetailRow label="Status">
 							<PaymentStatusBadge status={event.payment_status} />
 						</DetailRow>
 					</dl>
-				</div>
+				</CollapsibleCard>
 
-				{event.crew_notes && (
-					<DetailCard title="Catatan untuk Crew" className="md:col-span-2">
-						<p className="text-foreground whitespace-pre-wrap text-sm">
-							{event.crew_notes}
-						</p>
-					</DetailCard>
+				<CollapsibleCard
+					icon={Users}
+					title="Crew Assignments"
+					subtitle={
+						crewAssignments.length === 0
+							? "Belum ada crew di-assign"
+							: `${crewAssignments.length} crew · total fee ${formatRupiah(
+									crewAssignments.reduce((s, c) => s + c.fee_amount, 0),
+								)}`
+					}
+					actions={
+						<Link
+							href={`/operations/${event.project_id}/crew`}
+							className={headerActionCls}
+						>
+							Manage
+						</Link>
+					}
+					className="md:col-span-2"
+				>
+					{crewAssignments.length === 0 ? (
+						<div className="rounded-md border border-dashed border-border-default p-6 text-center">
+							<Users
+								className="mx-auto size-5 text-muted-foreground/60"
+								aria-hidden
+							/>
+							<p className="mt-2 text-[13px] font-medium text-foreground">
+								Belum ada crew di-assign
+							</p>
+							<p className="mt-1 text-[12px] text-muted-foreground">
+								Klik Manage untuk assign lead, asisten, dan crew C.
+							</p>
+						</div>
+					) : (
+						<ul className="divide-y divide-border-subtle">
+							{crewAssignments.map((row, idx) => {
+								const u = Array.isArray(row.user) ? row.user[0] : row.user;
+								return (
+									<li
+										key={`${u?.full_name ?? "crew"}-${idx}`}
+										className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+									>
+										<div className="min-w-0 flex-1">
+											<div className="truncate text-[13px] font-semibold text-foreground">
+												{u?.full_name ?? "—"}
+											</div>
+											<div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+												<span className="eyebrow !text-[9.5px]">
+													{ROLE_LABELS[row.role_in_event] ??
+														row.role_in_event}
+												</span>
+												{u?.tier && (
+													<>
+														<span
+															className="text-muted-foreground/40"
+															aria-hidden
+														>
+															·
+														</span>
+														<span className="capitalize">{u.tier}</span>
+													</>
+												)}
+											</div>
+										</div>
+										<span className="tabular shrink-0 text-[13px] font-medium text-foreground">
+											{formatRupiah(row.fee_amount)}
+										</span>
+									</li>
+								);
+							})}
+						</ul>
+					)}
+				</CollapsibleCard>
+
+				{eventAddons.length > 0 && (
+					<CollapsibleCard
+						icon={Sparkles}
+						title="Add-ons"
+						subtitle={`${eventAddons.length} item${eventAddons.length === 1 ? "" : "s"}`}
+						className="md:col-span-2"
+					>
+						<ul className="divide-y divide-border-subtle">
+							{eventAddons.map((row, idx) => {
+								const addon = Array.isArray(row.addon)
+									? row.addon[0]
+									: row.addon;
+								return (
+									<li
+										key={`${addon?.name ?? "addon"}-${idx}`}
+										className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+									>
+										<div className="min-w-0 flex-1">
+											<div className="truncate text-[13px] font-semibold text-foreground">
+												{addon?.name ?? "—"}
+											</div>
+											<div className="text-[11.5px] text-muted-foreground">
+												{row.quantity} {addon?.unit ?? ""}
+											</div>
+										</div>
+										<span className="tabular text-[13px] font-medium">
+											{formatRupiah(row.total_price)}
+										</span>
+									</li>
+								);
+							})}
+						</ul>
+					</CollapsibleCard>
 				)}
 
+				{eventBonuses.length > 0 && (
+					<CollapsibleCard
+						icon={Sparkles}
+						title="Bonus untuk Klien"
+						subtitle="Item gratis (internal). Crew harus kasih saat acara."
+						className="md:col-span-2"
+					>
+						<div className="space-y-2">
+							{eventBonuses.map((row, idx) => {
+								const addon = Array.isArray(row.addon)
+									? row.addon[0]
+									: row.addon;
+								return (
+									<div
+										key={`${addon?.name ?? "bonus"}-${idx}`}
+										className="rounded-md border border-dashed border-emerald-500/30 bg-emerald-500/5 p-3"
+									>
+										<div className="flex items-baseline justify-between gap-3">
+											<div className="min-w-0 flex-1">
+												<div className="truncate text-[13px] font-semibold text-foreground">
+													{addon?.name ?? "—"}
+												</div>
+												<div className="text-[11.5px] text-muted-foreground">
+													{row.quantity} {addon?.unit ?? ""}
+												</div>
+											</div>
+											<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+												Gratis
+											</span>
+										</div>
+										{row.notes && (
+											<p className="mt-1.5 text-[11.5px] italic text-muted-foreground">
+												"{row.notes}"
+											</p>
+										)}
+									</div>
+								);
+							})}
+						</div>
+					</CollapsibleCard>
+				)}
+
+				{event.crew_notes && (
+					<CollapsibleCard
+						icon={FileText}
+						title="Catatan untuk Crew"
+						subtitle="Briefing dari owner ke crew."
+						className="md:col-span-2"
+					>
+						<p className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
+							{event.crew_notes}
+						</p>
+					</CollapsibleCard>
+				)}
+
+				{settlement && (
+					<CollapsibleCard
+						icon={Wallet}
+						title="Settlement Detail"
+						subtitle={`Ditutup ${formatDateID(settlement.closed_at)} · ${
+							settlement.is_loss ? "RUGI" : "PROFIT"
+						} ${settlement.margin_percentage}%`}
+						className="md:col-span-2"
+					>
+						<div className="grid gap-5 sm:grid-cols-2">
+							<dl className="space-y-2">
+								<SettlementRow
+									label="Revenue Net"
+									value={formatRupiah(settlement.revenue_net)}
+								/>
+								<SettlementRow
+									label="HPP"
+									value={`−${formatRupiah(settlement.hpp_total)}`}
+								/>
+								<SettlementRow
+									label="OpEx"
+									value={`−${formatRupiah(settlement.opex_total)}`}
+								/>
+								<SettlementRow
+									label="Total Biaya"
+									value={`−${formatRupiah(settlement.total_biaya)}`}
+								/>
+								<div className="flex items-baseline justify-between border-t border-border-subtle pt-2.5">
+									<dt className="text-[13px] font-semibold text-foreground">
+										Net Profit
+									</dt>
+									<dd
+										className={cn(
+											"tabular text-[13.5px] font-semibold",
+											settlement.is_loss
+												? "text-rose-600 dark:text-rose-400"
+												: "text-emerald-700 dark:text-emerald-400",
+										)}
+									>
+										{formatRupiah(settlement.net_profit)}
+									</dd>
+								</div>
+							</dl>
+
+							{!settlement.is_loss && (
+								<dl className="space-y-2">
+									<SettlementRow
+										label="Sinking Funds"
+										value={formatRupiah(settlement.sinking_total)}
+									/>
+									<SettlementRow
+										label={`Owner Pool (× ${formatRupiah(
+											settlement.owner_pool_per_person,
+										)})`}
+										value={formatRupiah(settlement.owner_pool_total)}
+									/>
+									<div className="flex items-baseline justify-between border-t border-border-subtle pt-2.5">
+										<dt className="text-[13px] font-semibold text-foreground">
+											Operating Cash
+										</dt>
+										<dd className="tabular text-[13.5px] font-semibold text-foreground">
+											{formatRupiah(settlement.operating_cash_kept)}
+										</dd>
+									</div>
+								</dl>
+							)}
+						</div>
+					</CollapsibleCard>
+				)}
+			</div>
+
+			{/* === DRIVE + DESIGN (always visible — have inline actions) === */}
+			<div className="grid gap-3 md:grid-cols-2">
 				<EventDriveCard
 					projectId={event.project_id}
 					folderUrl={event.drive_folder_url ?? null}
@@ -729,111 +934,26 @@ export default async function EventDetailPage({
 					approvedAt={event.design_approved_at}
 					canEdit={canEdit}
 				/>
-
-				<EventActivityFeed eventId={event.id} />
 			</div>
 
-			{settlement && (
-				<div className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
-					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<div className="space-y-0.5">
-							<h3 className="text-base font-semibold tracking-tight">
-								Settlement
-							</h3>
-							<p className="text-muted-foreground text-xs">
-								Ditutup {formatDateID(settlement.closed_at)}
-							</p>
-						</div>
-						<Badge variant={settlement.is_loss ? "destructive" : "default"}>
-							{settlement.is_loss
-								? `RUGI · ${settlement.margin_percentage}%`
-								: `PROFIT · ${settlement.margin_percentage}%`}
-						</Badge>
-					</div>
-
-					<div className="grid gap-4 sm:grid-cols-2">
-						<dl className="space-y-2">
-							<SettlementRow
-								label="Revenue Net"
-								value={formatRupiah(settlement.revenue_net)}
-							/>
-							<SettlementRow
-								label="HPP"
-								value={`−${formatRupiah(settlement.hpp_total)}`}
-							/>
-							<SettlementRow
-								label="OpEx"
-								value={`−${formatRupiah(settlement.opex_total)}`}
-							/>
-							<SettlementRow
-								label="Total Biaya"
-								value={`−${formatRupiah(settlement.total_biaya)}`}
-							/>
-							<div className="flex items-baseline justify-between border-t border-border-default pt-2 text-sm font-semibold">
-								<dt>Net Profit</dt>
-								<dd
-									className={
-										settlement.is_loss
-											? "tabular text-rose-500"
-											: "tabular text-emerald-500"
-									}
-								>
-									{formatRupiah(settlement.net_profit)}
-								</dd>
-							</div>
-						</dl>
-
-						{!settlement.is_loss && (
-							<dl className="space-y-2">
-								<SettlementRow
-									label="Sinking Funds"
-									value={formatRupiah(settlement.sinking_total)}
-								/>
-								<SettlementRow
-									label={`Owner Pool (× ${formatRupiah(
-										settlement.owner_pool_per_person,
-									)})`}
-									value={formatRupiah(settlement.owner_pool_total)}
-								/>
-								<div className="flex items-baseline justify-between border-t border-border-default pt-2 text-sm font-semibold">
-									<dt>Operating Cash</dt>
-									<dd className="tabular text-foreground">
-										{formatRupiah(settlement.operating_cash_kept)}
-									</dd>
-								</div>
-							</dl>
-						)}
-					</div>
-				</div>
-			)}
+			{/* === ACTIVITY FEED (collapsible, default closed) === */}
+			<CollapsibleCard
+				icon={Activity}
+				title="Activity"
+				subtitle="Timeline status, payments, dan perubahan event."
+				bodyClassName="!p-0"
+			>
+				<EventActivityFeed eventId={event.id} />
+			</CollapsibleCard>
 		</Container>
 	);
 }
 
 function SettlementRow({ label, value }: { label: string; value: string }) {
 	return (
-		<div className="flex items-baseline justify-between gap-3 text-sm">
-			<dt className="text-muted-foreground">{label}</dt>
-			<dd className="text-foreground tabular">{value}</dd>
-		</div>
-	);
-}
-
-function DetailCard({
-	title,
-	className,
-	children,
-}: {
-	title: string;
-	className?: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<div
-			className={`space-y-3 rounded-xl border border-border-default bg-surface-2 p-5 ${className ?? ""}`}
-		>
-			<h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-			<dl className="space-y-2">{children}</dl>
+		<div className="flex items-baseline justify-between gap-3">
+			<dt className="text-[12px] text-muted-foreground">{label}</dt>
+			<dd className="tabular text-[13px] text-foreground">{value}</dd>
 		</div>
 	);
 }
@@ -841,16 +961,21 @@ function DetailCard({
 function DetailRow({
 	label,
 	children,
+	strong = false,
 }: {
 	label: string;
 	children: React.ReactNode;
+	strong?: boolean;
 }) {
 	return (
-		<div className="flex items-baseline justify-between gap-4 text-sm">
-			<dt className="text-muted-foreground shrink-0 text-xs uppercase tracking-wider">
-				{label}
-			</dt>
-			<dd className="text-foreground min-w-0 truncate text-right">
+		<div className="flex items-baseline justify-between gap-4">
+			<dt className="eyebrow shrink-0 !text-[10px]">{label}</dt>
+			<dd
+				className={cn(
+					"min-w-0 text-right text-[13px]",
+					strong ? "font-semibold text-foreground" : "text-foreground",
+				)}
+			>
 				{children}
 			</dd>
 		</div>

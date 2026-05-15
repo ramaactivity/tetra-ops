@@ -198,23 +198,22 @@ export function EventReadinessCard(props: ReadinessInput) {
 	else dayLabel = `${Math.abs(days)} hari setelah event`;
 
 	return (
-		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-3 rounded-xl border p-5">
-			<div className="flex flex-wrap items-baseline justify-between gap-2">
-				<div>
-					<h3 className="text-sm font-semibold tracking-tight">
-						Kesiapan Event
-					</h3>
-					<p className="text-muted-foreground text-xs">
-						{dayLabel} · {doneCount}/{items.length} ready
-						{overdueCount > 0 && (
-							<span className="text-rose-500 ml-1 font-medium">
-								· {overdueCount} overdue
-							</span>
-						)}
-					</p>
-				</div>
+		<div className="px-5 py-4">
+			<div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+				<p className="text-[12px] text-muted-foreground">
+					{dayLabel} ·{" "}
+					<span className="tabular font-medium text-foreground">
+						{doneCount}/{items.length}
+					</span>{" "}
+					ready
+					{overdueCount > 0 && (
+						<span className="ml-1 font-medium text-rose-600 dark:text-rose-400">
+							· {overdueCount} overdue
+						</span>
+					)}
+				</p>
 				<div
-					className="h-2 w-32 overflow-hidden rounded-full bg-muted"
+					className="h-1.5 w-32 overflow-hidden rounded-full bg-secondary"
 					aria-label="Progress"
 				>
 					<span
@@ -223,7 +222,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 								? "bg-rose-500"
 								: doneCount === items.length
 									? "bg-emerald-500"
-									: "bg-primary"
+									: "bg-foreground"
 						}`}
 						style={{
 							width: `${Math.round((doneCount / items.length) * 100)}%`,
@@ -232,23 +231,26 @@ export function EventReadinessCard(props: ReadinessInput) {
 				</div>
 			</div>
 
-			<ul className="space-y-2">
+			<ul className="divide-y divide-border-subtle">
 				{items.map((item) => {
 					const Icon = pickIcon(item.state);
 					const tone = pickTone(item.state);
 					return (
 						<li
 							key={item.id}
-							className="flex items-start gap-3 border-t border-border-default/60 pt-2 first:border-t-0 first:pt-0"
+							className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0"
 						>
-							<Icon className={`${tone} mt-0.5 h-4 w-4 shrink-0`} />
+							<Icon
+								className={`${tone} mt-0.5 size-4 shrink-0`}
+								strokeWidth={2}
+							/>
 							<div className="flex flex-1 flex-wrap items-baseline justify-between gap-2">
 								<div className="space-y-0.5">
-									<p className="text-foreground text-sm font-medium">
+									<p className="text-[13px] font-semibold text-foreground">
 										{item.label}
 									</p>
 									<p
-										className={`text-xs ${
+										className={`text-[12px] ${
 											item.state === "overdue"
 												? "text-rose-600 dark:text-rose-400"
 												: "text-muted-foreground"
@@ -260,7 +262,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 								{item.cta && (
 									<Link
 										href={item.cta.href}
-										className="text-primary hover:underline text-xs font-medium underline-offset-2"
+										className="text-[11.5px] font-medium text-[#0070f3] hover:underline"
 									>
 										{item.cta.label} →
 									</Link>

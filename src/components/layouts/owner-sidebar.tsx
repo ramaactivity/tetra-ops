@@ -72,15 +72,15 @@ export function OwnerSidebar() {
 	return (
 		<aside
 			style={{ viewTransitionName: "site-sidebar" }}
-			className="hidden w-64 shrink-0 border-r border-border-default bg-card md:flex md:flex-col"
+			className="hidden w-[260px] shrink-0 border-r border-border-default bg-card md:flex md:flex-col"
 		>
 			<nav className="scrollbar-vercel flex-1 overflow-y-auto p-3">
-				<div className="flex flex-col gap-4">
+				<div className="flex flex-col gap-5">
 					{NAV_SECTIONS.map((section, sIdx) => (
 						<ul
 							// biome-ignore lint/suspicious/noArrayIndexKey: stable section index
 							key={sIdx}
-							className="flex flex-col gap-px"
+							className="flex flex-col gap-0.5"
 						>
 							{section.items.map((item) => {
 								const active = isActive(item.href);
@@ -91,7 +91,7 @@ export function OwnerSidebar() {
 											href={item.href}
 											aria-current={active ? "page" : undefined}
 											className={cn(
-												"group/nav flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium leading-none transition-colors duration-fast ease-out-expo",
+												"group/nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] font-medium leading-none transition-colors duration-fast ease-out-expo",
 												active
 													? "bg-secondary text-foreground"
 													: "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
@@ -99,7 +99,7 @@ export function OwnerSidebar() {
 										>
 											<Icon
 												className={cn(
-													"size-4 shrink-0",
+													"size-[18px] shrink-0",
 													active
 														? "text-foreground"
 														: "text-muted-foreground/70 group-hover/nav:text-foreground/80",

@@ -95,10 +95,10 @@ const CATEGORY_DOT: Record<string, string> = {
 };
 
 /* Three substantive columns + crew (narrow) + status (right-aligned).
-   Each substantive cell holds 3 lines comfortably at the desktop minimum
-   without truncation. */
+   Waktu & Tempat gets the most flex so venue lines breathe; Detail Paket
+   and Crew get tighter. Status is right-aligned at the auto end. */
 const COLS_DESKTOP =
-	"grid-cols-[minmax(13rem,1.3fr)_minmax(13rem,1.15fr)_minmax(13rem,1.25fr)_minmax(6.5rem,0.5fr)_minmax(11rem,0.95fr)]";
+	"grid-cols-[minmax(13rem,1.15fr)_minmax(13rem,1.55fr)_minmax(12rem,1fr)_minmax(6rem,0.45fr)_minmax(11rem,0.85fr)]";
 
 function formatTime(t: string | null): string {
 	return t ? t.slice(0, 5) : "—";
@@ -228,6 +228,7 @@ export function OperationsListTable({
 									<MetaLine
 										icon={CalendarDays}
 										primary={formatDayDate(ev.event_date)}
+										strong
 									/>
 									{ev.start_time && (
 										<MetaLine
@@ -251,6 +252,7 @@ export function OperationsListTable({
 									<MetaLine
 										icon={Package2}
 										primary={pkg}
+										strong
 									/>
 									<MetaLine
 										icon={HardDrive}
@@ -283,7 +285,7 @@ export function OperationsListTable({
 								<div className="flex flex-col items-end gap-1 leading-snug">
 									<EventStatusDot
 										status={ev.status}
-										className="!text-[13px]"
+										className="!text-[13px] !font-semibold"
 									/>
 									<PaymentStatusDot
 										status={ev.payment_status}
@@ -344,7 +346,7 @@ export function OperationsListTable({
 								</div>
 								<EventStatusDot
 									status={ev.status}
-									className="shrink-0 !text-[13px]"
+									className="shrink-0 !text-[13px] !font-semibold"
 								/>
 							</div>
 							<div className="grid grid-cols-2 gap-x-3 gap-y-2.5 leading-snug">
@@ -355,6 +357,7 @@ export function OperationsListTable({
 									<MetaLine
 										icon={CalendarDays}
 										primary={formatDayDate(ev.event_date)}
+										strong
 									/>
 									{ev.start_time && (
 										<MetaLine
@@ -376,7 +379,7 @@ export function OperationsListTable({
 									<span className="eyebrow block !text-[9.5px]">
 										Detail Paket
 									</span>
-									<MetaLine icon={Package2} primary={pkg} />
+									<MetaLine icon={Package2} primary={pkg} strong />
 									<MetaLine
 										icon={HardDrive}
 										primary={
@@ -446,11 +449,14 @@ function MetaLine({
 	primary,
 	muted = false,
 	accent,
+	strong = false,
 }: {
 	icon: IconCmp;
 	primary: string;
 	muted?: boolean;
 	accent?: "emerald";
+	/** Row-1 of a cell: bolder weight + tighter color. */
+	strong?: boolean;
 }) {
 	const tint =
 		accent === "emerald"
@@ -465,14 +471,15 @@ function MetaLine({
 	return (
 		<div
 			className={cn(
-				"inline-flex min-w-0 items-center gap-1.5 text-[12.5px] leading-snug",
+				"inline-flex min-w-0 items-center gap-1.5 leading-snug",
+				strong ? "text-[13px] font-semibold" : "text-[12.5px]",
 				tint,
 			)}
 		>
 			<Icon
 				className={cn("size-3.5 shrink-0", iconTint)}
 				aria-hidden
-				strokeWidth={2}
+				strokeWidth={strong ? 2.2 : 2}
 			/>
 			<span className="truncate">{primary}</span>
 		</div>
@@ -558,10 +565,10 @@ function CrewLine({
 				{leadDisplay ? (
 					<span
 						className={cn(
-							"truncate",
+							"truncate font-semibold",
 							nameCls,
 							isHighlight(lead?.user_id)
-								? "font-semibold text-foreground"
+								? "text-foreground"
 								: "text-foreground",
 						)}
 						title={lead?.full_name}
