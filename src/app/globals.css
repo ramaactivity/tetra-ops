@@ -487,6 +487,34 @@
     }
   }
 
+  /* Vercel-thin scrollbar — 8px, near-invisible track until hover.
+     Apply on long scroll containers (sidebar nav, dropdown lists). */
+  .scrollbar-vercel {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(0 0 0 / 0.18) transparent;
+  }
+  .scrollbar-vercel::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-vercel::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-vercel::-webkit-scrollbar-thumb {
+    background-color: rgb(0 0 0 / 0.15);
+    border-radius: 100px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .scrollbar-vercel::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(0 0 0 / 0.30);
+    background-clip: padding-box;
+  }
+  .dark .scrollbar-vercel {
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  }
+  .dark .scrollbar-vercel::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.15);
+  }
+  .dark .scrollbar-vercel::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(255 255 255 / 0.30);
+  }
+
   /* Safe-area helpers — iOS notch / Dynamic Island / home indicator */
   .pt-safe { padding-top: env(safe-area-inset-top); }
   .pr-safe { padding-right: env(safe-area-inset-right); }

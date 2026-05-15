@@ -68,6 +68,7 @@ export default async function OperationsListPage({
 			 frame_size, backdrop_color, include_flashdisk_pouch,
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
+			 event_category,
 			 package:packages(name, duration_hours),
 			 backdrop:backdrops(name, type)`,
 		)
@@ -109,6 +110,7 @@ export default async function OperationsListPage({
 		outstandingResult,
 		archivedCountResult,
 		crewListResult,
+		eventTypesResult,
 	] = await Promise.all([
 		listQuery,
 		supabase
@@ -149,7 +151,15 @@ export default async function OperationsListPage({
 			.eq("is_active", true)
 			.is("deleted_at", null)
 			.order("full_name", { ascending: true }),
+		supabase.from("event_types").select("code, label").eq("is_active", true),
 	]);
+
+	const eventTypeLabelByCode = new Map<string, string>(
+		((eventTypesResult.data ?? []) as Array<{
+			code: string;
+			label: string;
+		}>).map((r) => [r.code, r.label]),
+	);
 
 	if (listResult.error) {
 		return (
@@ -165,7 +175,11 @@ export default async function OperationsListPage({
 
 	type RawEventRow = Omit<
 		EventRow,
-		"package_name" | "package_duration_hours" | "backdrop_name" | "backdrop_type"
+		| "package_name"
+		| "package_duration_hours"
+		| "backdrop_name"
+		| "backdrop_type"
+		| "event_category_label"
 	> & {
 		package?:
 			| { name: string | null; duration_hours: number | null }
@@ -176,6 +190,7 @@ export default async function OperationsListPage({
 			| Array<{ name: string | null; type: string | null }>
 			| null;
 		custom_package_name?: string | null;
+		event_category?: string | null;
 	};
 	const events: EventRow[] = (
 		(listResult.data ?? []) as RawEventRow[]
@@ -183,6 +198,7 @@ export default async function OperationsListPage({
 		const pkg = Array.isArray(row.package) ? row.package[0] : row.package;
 		const bd = Array.isArray(row.backdrop) ? row.backdrop[0] : row.backdrop;
 		const customName = row.custom_package_name;
+		const cat = row.event_category ?? null;
 		return {
 			id: row.id,
 			project_id: row.project_id,
@@ -207,6 +223,8 @@ export default async function OperationsListPage({
 			package_duration_hours: pkg?.duration_hours ?? null,
 			backdrop_name: bd?.name ?? null,
 			backdrop_type: bd?.type ?? null,
+			event_category: cat,
+			event_category_label: cat ? (eventTypeLabelByCode.get(cat) ?? cat) : null,
 		};
 	});
 

@@ -1,6 +1,16 @@
 "use client";
 
-import { Archive, Clock, Frame, Inbox, MapPin, Wallet } from "lucide-react";
+import {
+	Archive,
+	CalendarDays,
+	Clock,
+	Frame,
+	HardDrive,
+	Inbox,
+	MapPin,
+	Package2,
+	Tag,
+} from "lucide-react";
 import Link from "next/link";
 import {
 	EventStatusDot,
@@ -10,17 +20,19 @@ import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * <OperationsListTable /> — operations list, Vercel deployments lineage.
+ * <OperationsListTable /> — pass 9 redesign.
  *
- * Row anatomy (per user direction — pass 8):
- *   PROJECT     → client name (14/600) + channel tag (11/mono)
- *   JADWAL      → date (13/500) + time range only (12/muted) — NO setup
- *   SPESIFIKASI → package · backdrop (13/500) + venue (12/muted) — NO city
- *   CREW        → Lead / Asst with first-word names only
- *   STATUS      → event dot + payment dot · sisa
+ * Every row renders three logical lines per cell so the table reads as a
+ * dense Vercel-deployments-style information panel:
  *
- * Typography is locked to 14 / 13 / 12 / 11-mono only. No half-sizes.
- * Crew column is intentionally narrow so the saved width flows to status.
+ *   PROJECT          → client name (wrap up to 2 lines) + channel · category
+ *   WAKTU & TEMPAT   → 📅 date / 🕐 time range / 📍 venue
+ *   DETAIL PAKET     → 📦 paket / 💾 flashdisk yes-no / 🖼 backdrop
+ *   CREW             → Lead / Asst (first-word names only)
+ *   STATUS           → event status / payment status / Sisa amount
+ *
+ * Typography lock: 14/600 client name only · 13/500 primary facts ·
+ * 12/400 secondary facts · 11/mono channel + eyebrow.
  */
 
 export type EventRow = {
@@ -47,6 +59,8 @@ export type EventRow = {
 	package_duration_hours: number | null;
 	backdrop_name: string | null;
 	backdrop_type: string | null;
+	event_category: string | null;
+	event_category_label: string | null;
 };
 
 export type CrewChip = {
@@ -69,11 +83,22 @@ const CHANNEL_DOT: Record<string, string> = {
 	relasi: "bg-violet-500",
 };
 
-/* Crew + status column rebalance — crew column is intentionally tight
-   (short nicknames only); status column takes the freed flex so payment
-   + sisa breathe on one line instead of getting pushed against the wall. */
+const CATEGORY_DOT: Record<string, string> = {
+	wedding: "bg-rose-400",
+	birthday: "bg-amber-400",
+	wisuda: "bg-[#0070f3]",
+	gathering: "bg-emerald-500",
+	reuni: "bg-teal-500",
+	corporate: "bg-foreground",
+	instansi: "bg-violet-500",
+	event: "bg-muted-foreground/50",
+};
+
+/* Three substantive columns + crew (narrow) + status (right-aligned).
+   Each substantive cell holds 3 lines comfortably at the desktop minimum
+   without truncation. */
 const COLS_DESKTOP =
-	"grid-cols-[minmax(11rem,1.15fr)_minmax(8.5rem,0.85fr)_minmax(14rem,1.5fr)_minmax(6rem,0.55fr)_minmax(10.5rem,1fr)]";
+	"grid-cols-[minmax(13rem,1.3fr)_minmax(13rem,1.15fr)_minmax(13rem,1.25fr)_minmax(6.5rem,0.5fr)_minmax(11rem,0.95fr)]";
 
 function formatTime(t: string | null): string {
 	return t ? t.slice(0, 5) : "—";
@@ -82,24 +107,6 @@ function formatTime(t: string | null): string {
 function formatDayDate(iso: string): string {
 	const day = new Date(iso).toLocaleDateString("id-ID", { weekday: "short" });
 	return `${day}, ${formatDateID(iso)}`;
-}
-
-/** Compact rupiah for outstanding balance pills. 8.450.000 → 8,4jt. */
-function formatRupiahCompact(value: number): string {
-	if (value >= 1_000_000_000) {
-		return `Rp ${(value / 1_000_000_000).toFixed(1).replace(".", ",")}M`;
-	}
-	if (value >= 1_000_000) {
-		return `Rp ${(value / 1_000_000).toFixed(1).replace(".", ",")}jt`;
-	}
-	if (value >= 1_000) {
-		return `Rp ${(value / 1_000).toFixed(0)}rb`;
-	}
-	return formatRupiah(value);
-}
-
-function prettyChannel(channel: string): string {
-	return CHANNEL_TYPE_LABELS[channel] ?? channel;
 }
 
 /** "4R UNLIMITED 3 JAM" → "4R Unlimited 3 Jam". Numbers stay upper. */
@@ -115,7 +122,7 @@ function prettyPackageName(name: string): string {
 		.join(" ");
 }
 
-/** "Padma Ananda Saputra" → "Padma". Nicknames stay as-is. */
+/** "Padma Ananda Saputra" → "Padma". Nicknames stay one-word. */
 function firstWord(name: string): string {
 	return name.trim().split(/\s+/)[0] ?? name;
 }
@@ -131,7 +138,6 @@ function packageLabel(ev: EventRow): string {
 	return fallback || "—";
 }
 
-/** Backdrop label prefers the FK'd name; falls back to legacy color enum. */
 function backdropLabel(ev: EventRow): string | null {
 	if (ev.backdrop_name) return ev.backdrop_name;
 	if (ev.backdrop_color && ev.backdrop_color !== "custom") {
@@ -150,17 +156,17 @@ export function OperationsListTable({
 
 	return (
 		<div className="overflow-hidden rounded-lg border border-border-default bg-card">
-			{/* Desktop list-rows */}
+			{/* DESKTOP */}
 			<div className="hidden md:block">
 				<div
 					className={cn(
-						"grid items-center gap-4 border-b border-border-default bg-secondary px-5 py-2.5",
+						"grid items-center gap-5 border-b border-border-default bg-secondary px-5 py-2.5",
 						COLS_DESKTOP,
 					)}
 				>
 					<span className="eyebrow">Project</span>
-					<span className="eyebrow">Jadwal</span>
-					<span className="eyebrow">Spesifikasi</span>
+					<span className="eyebrow">Waktu & Tempat</span>
+					<span className="eyebrow">Detail Paket</span>
 					<span className="eyebrow">Crew</span>
 					<span className="eyebrow text-right">Status</span>
 				</div>
@@ -180,19 +186,19 @@ export function OperationsListTable({
 									viewTransitionName: `event-${ev.project_id}`,
 								}}
 								className={cn(
-									"group grid items-start gap-4 border-b border-border-subtle px-5 py-3.5 transition-colors last:border-b-0 hover:bg-secondary/60",
+									"group grid items-start gap-5 border-b border-border-subtle px-5 py-4 transition-colors last:border-b-0 hover:bg-secondary/60",
 									COLS_DESKTOP,
 								)}
 							>
 								{/* PROJECT */}
-								<div className="flex min-w-0 flex-col gap-1">
-									<div className="flex min-w-0 items-center gap-1.5">
-										<span className="truncate text-[14px] font-semibold leading-snug text-foreground">
+								<div className="flex min-w-0 flex-col gap-1.5">
+									<div className="flex min-w-0 items-start gap-1.5">
+										<span className="line-clamp-2 break-words text-[14px] font-semibold leading-snug text-foreground">
 											{ev.client_name}
 										</span>
 										{ev.is_migrated_legacy && (
 											<Archive
-												className="size-3 shrink-0 text-amber-600 dark:text-amber-500"
+												className="mt-0.5 size-3 shrink-0 text-amber-600 dark:text-amber-500"
 												aria-label="Migrated"
 												strokeWidth={2}
 											/>
@@ -200,34 +206,71 @@ export function OperationsListTable({
 										{!ev.is_migrated_legacy &&
 											ev.legacy_invoice_number && (
 												<Inbox
-													className="size-3 shrink-0 text-muted-foreground"
+													className="mt-0.5 size-3 shrink-0 text-muted-foreground"
 													aria-label={`Imported (${ev.legacy_invoice_number})`}
 													strokeWidth={2}
 												/>
 											)}
 									</div>
-									<ChannelTag channel={ev.channel} />
-								</div>
-
-								{/* JADWAL */}
-								<div className="flex flex-col gap-1 tabular leading-snug">
-									<div className="text-[13px] font-medium text-foreground">
-										{formatDayDate(ev.event_date)}
+									<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+										<ChannelTag channel={ev.channel} />
+										{ev.event_category && (
+											<CategoryTag
+												code={ev.event_category}
+												label={ev.event_category_label}
+											/>
+										)}
 									</div>
-									<TimeLine
-										startTime={ev.start_time}
-										endTime={ev.end_time}
+								</div>
+
+								{/* WAKTU & TEMPAT */}
+								<div className="flex min-w-0 flex-col gap-1 tabular leading-snug">
+									<MetaLine
+										icon={CalendarDays}
+										primary={formatDayDate(ev.event_date)}
+									/>
+									{ev.start_time && (
+										<MetaLine
+											icon={Clock}
+											primary={`${formatTime(ev.start_time)}${
+												ev.end_time
+													? ` – ${formatTime(ev.end_time)}`
+													: ""
+											}`}
+										/>
+									)}
+									<MetaLine
+										icon={MapPin}
+										primary={ev.venue_name}
+										muted
 									/>
 								</div>
 
-								{/* SPESIFIKASI */}
+								{/* DETAIL PAKET */}
 								<div className="flex min-w-0 flex-col gap-1 leading-snug">
-									<SpecLine
-										pkg={pkg}
-										backdrop={bd}
-										fd={ev.include_flashdisk_pouch}
+									<MetaLine
+										icon={Package2}
+										primary={pkg}
 									/>
-									<VenueLine venue={ev.venue_name} />
+									<MetaLine
+										icon={HardDrive}
+										primary={
+											ev.include_flashdisk_pouch
+												? "Flashdisk Pouch"
+												: "Tanpa Flashdisk"
+										}
+										muted={!ev.include_flashdisk_pouch}
+										accent={
+											ev.include_flashdisk_pouch
+												? "emerald"
+												: undefined
+										}
+									/>
+									<MetaLine
+										icon={Frame}
+										primary={bd ?? "Belum ditentukan"}
+										muted={!bd}
+									/>
 								</div>
 
 								{/* CREW */}
@@ -242,33 +285,25 @@ export function OperationsListTable({
 										status={ev.status}
 										className="!text-[13px]"
 									/>
-									<div className="flex items-center gap-1.5">
-										<PaymentStatusDot
-											status={ev.payment_status}
-											className="!text-[12px]"
-										/>
-										{sisa > 0 && (
-											<>
-												<span
-													className="text-muted-foreground/40"
-													aria-hidden
-												>
-													·
-												</span>
-												<span
-													className="tabular inline-flex items-center gap-0.5 text-[12px] font-medium text-rose-600 dark:text-rose-400"
-													title={`Sisa ${formatRupiah(sisa)}`}
-												>
-													<Wallet
-														className="size-2.5"
-														aria-hidden
-														strokeWidth={2.5}
-													/>
-													{formatRupiahCompact(sisa)}
-												</span>
-											</>
-										)}
-									</div>
+									<PaymentStatusDot
+										status={ev.payment_status}
+										className="!text-[12.5px]"
+									/>
+									{sisa > 0 ? (
+										<span
+											className="tabular text-[13px] font-medium text-rose-600 dark:text-rose-400"
+											title={`Sisa pembayaran`}
+										>
+											{formatRupiah(sisa)}
+										</span>
+									) : (
+										<span
+											className="tabular text-[12px] text-muted-foreground/50"
+											aria-hidden
+										>
+											—
+										</span>
+									)}
 								</div>
 							</Link>
 						);
@@ -293,36 +328,80 @@ export function OperationsListTable({
 							className="flex flex-col gap-3 rounded-md border border-border-default bg-card p-3.5 transition-colors active:bg-secondary"
 						>
 							<div className="flex items-start justify-between gap-3">
-								<div className="min-w-0 flex-1 space-y-1">
-									<div className="truncate text-[14px] font-semibold leading-snug text-foreground">
+								<div className="min-w-0 flex-1 space-y-1.5">
+									<div className="line-clamp-2 break-words text-[14px] font-semibold leading-snug text-foreground">
 										{ev.client_name}
 									</div>
-									<ChannelTag channel={ev.channel} />
+									<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+										<ChannelTag channel={ev.channel} />
+										{ev.event_category && (
+											<CategoryTag
+												code={ev.event_category}
+												label={ev.event_category_label}
+											/>
+										)}
+									</div>
 								</div>
 								<EventStatusDot
 									status={ev.status}
-									className="!text-[13px]"
+									className="shrink-0 !text-[13px]"
 								/>
 							</div>
-							<div className="grid grid-cols-2 gap-x-3 gap-y-2.5 tabular leading-snug">
-								<div>
+							<div className="grid grid-cols-2 gap-x-3 gap-y-2.5 leading-snug">
+								<div className="space-y-1 tabular">
 									<span className="eyebrow block !text-[9.5px]">
-										Jadwal
+										Waktu & Tempat
 									</span>
-									<div className="mt-0.5 text-[13px] text-foreground">
-										{formatDayDate(ev.event_date)}
-									</div>
-									<TimeLine
-										startTime={ev.start_time}
-										endTime={ev.end_time}
-										className="mt-0.5"
+									<MetaLine
+										icon={CalendarDays}
+										primary={formatDayDate(ev.event_date)}
+									/>
+									{ev.start_time && (
+										<MetaLine
+											icon={Clock}
+											primary={`${formatTime(ev.start_time)}${
+												ev.end_time
+													? ` – ${formatTime(ev.end_time)}`
+													: ""
+											}`}
+										/>
+									)}
+									<MetaLine
+										icon={MapPin}
+										primary={ev.venue_name}
+										muted
 									/>
 								</div>
-								<div className="min-w-0">
+								<div className="space-y-1">
+									<span className="eyebrow block !text-[9.5px]">
+										Detail Paket
+									</span>
+									<MetaLine icon={Package2} primary={pkg} />
+									<MetaLine
+										icon={HardDrive}
+										primary={
+											ev.include_flashdisk_pouch
+												? "Flashdisk"
+												: "Tanpa Flashdisk"
+										}
+										muted={!ev.include_flashdisk_pouch}
+										accent={
+											ev.include_flashdisk_pouch
+												? "emerald"
+												: undefined
+										}
+									/>
+									<MetaLine
+										icon={Frame}
+										primary={bd ?? "Belum ditentukan"}
+										muted={!bd}
+									/>
+								</div>
+								<div className="col-span-2 border-t border-border-subtle pt-2">
 									<span className="eyebrow block !text-[9.5px]">
 										Crew
 									</span>
-									<div className="mt-0.5">
+									<div className="mt-1">
 										<CrewLine
 											crew={crew}
 											highlightUserId={crewFilter || undefined}
@@ -330,30 +409,14 @@ export function OperationsListTable({
 										/>
 									</div>
 								</div>
-								<div className="col-span-2 border-t border-border-subtle pt-2 space-y-1">
-									<SpecLine
-										pkg={pkg}
-										backdrop={bd}
-										fd={ev.include_flashdisk_pouch}
-									/>
-									<VenueLine venue={ev.venue_name} />
-								</div>
 								<div className="col-span-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
 									<PaymentStatusDot
 										status={ev.payment_status}
-										className="!text-[12px]"
+										className="!text-[12.5px]"
 									/>
 									{sisa > 0 && (
-										<span
-											className="tabular inline-flex items-center gap-1 text-[12px] font-medium text-rose-600 dark:text-rose-400"
-											title={`Sisa ${formatRupiah(sisa)}`}
-										>
-											<Wallet
-												className="size-3"
-												aria-hidden
-												strokeWidth={2.5}
-											/>
-											Sisa {formatRupiahCompact(sisa)}
+										<span className="tabular text-[13px] font-medium text-rose-600 dark:text-rose-400">
+											Sisa {formatRupiah(sisa)}
 										</span>
 									)}
 								</div>
@@ -366,106 +429,98 @@ export function OperationsListTable({
 	);
 }
 
+/**
+ * <MetaLine /> — single-icon + value row used inside Waktu & Tempat and
+ * Detail Paket cells. Vercel-style: 14×14 stroked icon at muted-fg tone,
+ * 12/400 body text. The `accent` prop lets a row borrow a semantic tint
+ * (e.g. emerald when "Flashdisk Pouch" is included).
+ */
+type IconCmp = React.ComponentType<{
+	className?: string;
+	"aria-hidden"?: boolean;
+	strokeWidth?: number;
+}>;
+
+function MetaLine({
+	icon: Icon,
+	primary,
+	muted = false,
+	accent,
+}: {
+	icon: IconCmp;
+	primary: string;
+	muted?: boolean;
+	accent?: "emerald";
+}) {
+	const tint =
+		accent === "emerald"
+			? "text-emerald-700 dark:text-emerald-400"
+			: muted
+				? "text-muted-foreground"
+				: "text-foreground";
+	const iconTint =
+		accent === "emerald"
+			? "text-emerald-700/80 dark:text-emerald-400/80"
+			: "text-muted-foreground/70";
+	return (
+		<div
+			className={cn(
+				"inline-flex min-w-0 items-center gap-1.5 text-[12.5px] leading-snug",
+				tint,
+			)}
+		>
+			<Icon
+				className={cn("size-3.5 shrink-0", iconTint)}
+				aria-hidden
+				strokeWidth={2}
+			/>
+			<span className="truncate">{primary}</span>
+		</div>
+	);
+}
+
 function ChannelTag({ channel }: { channel: string }) {
 	const dot = CHANNEL_DOT[channel] ?? "bg-muted-foreground/50";
+	const label = CHANNEL_TYPE_LABELS[channel] ?? channel;
 	return (
 		<span
 			className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium uppercase tracking-wide text-muted-foreground"
-			title={`Channel: ${prettyChannel(channel)}`}
+			title={`Channel: ${label}`}
 		>
 			<span
 				className={cn("inline-block size-1.5 shrink-0 rounded-full", dot)}
 				aria-hidden
 			/>
-			{prettyChannel(channel)}
+			{label}
 		</span>
 	);
 }
 
-function TimeLine({
-	startTime,
-	endTime,
-	className,
+function CategoryTag({
+	code,
+	label,
 }: {
-	startTime: string | null;
-	endTime: string | null;
-	className?: string;
+	code: string;
+	label: string | null;
 }) {
-	if (!startTime) return null;
+	const dot = CATEGORY_DOT[code] ?? "bg-muted-foreground/50";
+	const displayed = label ?? code;
 	return (
-		<div
-			className={cn(
-				"inline-flex items-center gap-1.5 text-[12px] text-muted-foreground",
-				className,
-			)}
+		<span
+			className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium uppercase tracking-wide text-muted-foreground"
+			title={`Kategori: ${displayed}`}
 		>
-			<Clock
-				className="size-3 shrink-0 text-muted-foreground/70"
+			<span
+				className={cn("inline-block size-1.5 shrink-0 rounded-full", dot)}
 				aria-hidden
-				strokeWidth={2}
 			/>
-			<span className="text-foreground/85">
-				{formatTime(startTime)}
-				{endTime && ` – ${formatTime(endTime)}`}
-			</span>
-		</div>
-	);
-}
-
-function SpecLine({
-	pkg,
-	backdrop,
-	fd,
-}: {
-	pkg: string;
-	backdrop: string | null;
-	fd: boolean | null;
-}) {
-	return (
-		<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-			<span className="truncate text-[13px] font-medium text-foreground">
-				{pkg}
-			</span>
-			{fd && (
-				<span
-					className="inline-flex items-center gap-0.5 text-[10.5px] font-mono font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400"
-					title="Include flashdisk pouch"
-				>
-					FD
-				</span>
-			)}
-			{backdrop && (
-				<>
-					<span
-						className="text-muted-foreground/40"
-						aria-hidden
-					>
-						·
-					</span>
-					<span className="inline-flex min-w-0 items-center gap-1 truncate text-[12px] text-muted-foreground">
-						<Frame
-							className="size-3 shrink-0 text-muted-foreground/70"
-							aria-hidden
-							strokeWidth={2}
-						/>
-						<span className="truncate">{backdrop}</span>
-					</span>
-				</>
-			)}
-		</div>
-	);
-}
-
-function VenueLine({ venue }: { venue: string }) {
-	return (
-		<div className="inline-flex items-center gap-1.5 truncate text-[12px] text-muted-foreground">
-			<MapPin
-				className="size-3 shrink-0 text-muted-foreground/70"
+			<Tag
+				className="size-2.5 shrink-0 text-muted-foreground/60"
 				aria-hidden
-				strokeWidth={2}
+				strokeWidth={2.5}
 			/>
-			<span className="truncate">{venue}</span>
-		</div>
+			{displayed}
+		</span>
 	);
 }
 
@@ -497,7 +552,7 @@ function CrewLine({
 	const nameCls = "text-[13px] leading-snug";
 
 	return (
-		<div className="flex flex-col gap-1 leading-snug">
+		<div className="flex flex-col gap-1.5 leading-snug">
 			<div className="flex items-center gap-2 min-w-0">
 				<span className={labelCls}>Lead</span>
 				{leadDisplay ? (
