@@ -102,7 +102,7 @@ export function RekapReviewButtons({
 					type="button"
 					onClick={approve}
 					disabled={pending}
-					className="bg-emerald-600 text-white hover:bg-emerald-700 inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium disabled:opacity-60"
+					className="press-down inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white shadow-glow-success transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
 				>
 					<CheckCircle2 className="h-3.5 w-3.5" />
 					Override approve
@@ -142,7 +142,7 @@ export function RekapReviewButtons({
 							type="button"
 							onClick={reject}
 							disabled={pending}
-							className="bg-rose-600 text-white hover:bg-rose-700 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium disabled:opacity-60"
+							className="press-down inline-flex h-10 items-center gap-1.5 rounded-full bg-rose-600 px-5 text-sm font-semibold text-white transition-all hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							<XCircle className="h-4 w-4" />
 							Reject + minta revisi
@@ -163,7 +163,7 @@ export function RekapReviewButtons({
 					type="button"
 					onClick={approve}
 					disabled={pending}
-					className="bg-emerald-600 text-white hover:bg-emerald-700 inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium disabled:opacity-60"
+					className="press-down inline-flex h-10 items-center gap-1.5 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white shadow-glow-success transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
 				>
 					<CheckCircle2 className="h-4 w-4" />
 					{pending ? "Memproses…" : "Approve rekap"}

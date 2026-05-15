@@ -627,7 +627,7 @@ export function TutupBukuForm({
 						<button
 							type="submit"
 							disabled={pending}
-							className="press-down inline-flex h-11 items-center gap-2 rounded-md bg-primary px-5 text-fluid-body font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+							className="press-down inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-fluid-body font-semibold text-primary-foreground shadow-glow-crimson transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
 						>
 							{pending ? (
 								<>
