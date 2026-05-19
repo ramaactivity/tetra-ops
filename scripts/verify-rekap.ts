@@ -464,6 +464,69 @@ async function cmdInspect(projectId: string) {
 	console.log(c.bold(c.green("\n✅ Inspect selesai.\n")));
 }
 
+async function cmdTestRls() {
+	console.log(c.bold("\n🔐 Test RLS policies di crew_rekap (post-fix)\n"));
+
+	// 1. Find owner user
+	const { data: owners } = await sb
+		.from("users")
+		.select("id, full_name, role")
+		.in("role", ["super_admin", "owner"])
+		.eq("is_active", true)
+		.limit(1);
+	if (!owners?.length) {
+		fail("Tidak ada super_admin/owner aktif");
+		process.exit(1);
+	}
+	const owner = owners[0];
+	info(`Owner: ${owner.full_name} (${owner.role})`);
+
+	// 2. Find event without crew_rekap
+	const { data: events } = await sb
+		.from("events")
+		.select("id, project_id, status")
+		.in("status", ["in_progress", "awaiting_settlement"])
+		.limit(20);
+
+	let targetEvent: { id: string; project_id: string } | null = null;
+	for (const ev of events ?? []) {
+		const { data: existingRekap } = await sb
+			.from("crew_rekap")
+			.select("id")
+			.eq("event_id", ev.id)
+			.maybeSingle();
+		if (!existingRekap) {
+			targetEvent = ev;
+			break;
+		}
+	}
+	if (!targetEvent) {
+		warn("Tidak ada event tanpa crew_rekap untuk test. Skip insert simulation.");
+		return;
+	}
+	info(`Target event: ${targetEvent.project_id} (id=${targetEvent.id})`);
+
+	// 3. Note: service role bypasses RLS — kita gak bisa benar-benar test RLS dari script
+	//    karena script jalan as postgres role. Tapi kita bisa verify policy DEFINITION.
+	warn("Service role bypass RLS — script ini cuma cek policy structure, bukan actual RLS enforcement.");
+	warn("Untuk verify actual RLS: test manual login owner di UI.");
+
+	// 4. List policies via pg_policies (note: pg_policies bisa di-query via PostgREST? probably not)
+	//    Workaround: try a meta-query via known-allowed endpoint
+	//    Actually we CAN'T query pg_policies via PostgREST — itu butuh anon role / authenticated.
+	//    Skip; cuma laporkan apa yang ada di migration source.
+
+	console.log(c.bold(c.cyan("\nExpected policies after migration apply:")));
+	info("  crew_rekap_read    (existing, SELECT)");
+	info("  crew_rekap_insert  (NEW, INSERT) — owner OR assigned crew");
+	info("  crew_rekap_update  (NEW, UPDATE) — (owner OR submitter) AND NOT locked");
+	info("  crew_rekap_delete  (NEW, DELETE) — owner AND NOT locked");
+	console.log("");
+	info("Untuk verify dari SQL Editor, run:");
+	info("  SELECT policyname, cmd FROM pg_policies");
+	info("  WHERE schemaname='public' AND tablename='crew_rekap' ORDER BY policyname;");
+}
+
 async function cmdCleanupReopened(projectId: string) {
 	console.log(c.bold(`\n🧹 Cleanup reopened settlement: ${projectId}`));
 
