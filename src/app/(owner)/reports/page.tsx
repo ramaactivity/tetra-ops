@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatRupiah } from "@/lib/format";
@@ -351,28 +352,28 @@ async function PnlSection({
 					value={formatRupiah(cashIn)}
 					hint="Sum payment masuk bulan ini"
 					icon={Wallet2}
-					tone="emerald"
+					accent="emerald"
 				/>
 				<KpiCard
 					label="Revenue (settled)"
 					value={formatRupiah(revenue)}
 					hint={`${settlementCount} event settled`}
 					icon={Receipt}
-					tone="primary"
+					accent="primary"
 				/>
 				<KpiCard
 					label="Net Profit"
 					value={formatRupiah(netProfit)}
 					hint={`Margin ${margin.toFixed(1)}%${lossCount > 0 ? ` · ${lossCount} loss` : ""}`}
 					icon={netProfit >= 0 ? TrendingUp : TrendingDown}
-					tone={netProfit < 0 ? "rose" : margin > 25 ? "emerald" : "amber"}
+					accent={netProfit < 0 ? "rose" : margin > 25 ? "emerald" : "amber"}
 				/>
 				<KpiCard
 					label="Owner Pool"
 					value={formatRupiah(ownerPool)}
 					hint="Tersedia buat distribusi"
 					icon={Coins}
-					tone="primary"
+					accent="primary"
 				/>
 			</dl>
 
@@ -753,28 +754,28 @@ async function CrewSection({
 					value={totalEvents.toLocaleString("id-ID")}
 					hint={`${activeCrew} crew aktif bulan ini`}
 					icon={UsersRound}
-					tone="primary"
+					accent="primary"
 				/>
 				<KpiCard
 					label="Total fee crew"
 					value={formatRupiah(totalFee)}
 					hint="Termasuk bonus"
 					icon={Coins}
-					tone="emerald"
+					accent="emerald"
 				/>
 				<KpiCard
 					label="Outstanding fee"
 					value={formatRupiah(totalUnpaid)}
 					hint="Belum dibayar"
 					icon={Wallet2}
-					tone={totalUnpaid > 5_000_000 ? "amber" : "muted"}
+					accent={totalUnpaid > 5_000_000 ? "amber" : "default"}
 				/>
 				<KpiCard
 					label="Crew terdaftar"
 					value={crew.length.toString()}
 					hint={`${activeCrew} aktif · ${crew.length - activeCrew} idle`}
 					icon={Users}
-					tone="muted"
+					accent="default"
 				/>
 			</dl>
 
@@ -999,21 +1000,21 @@ async function OwnerSection({
 					value={formatRupiah(totalEarned)}
 					hint="Sejak hari pertama"
 					icon={TrendingUp}
-					tone="emerald"
+					accent="emerald"
 				/>
 				<KpiCard
 					label="Total withdrawn"
 					value={formatRupiah(totalWithdrawn)}
 					hint="Total ditarik owner"
 					icon={Wallet2}
-					tone="muted"
+					accent="default"
 				/>
 				<KpiCard
 					label="Balance available"
 					value={formatRupiah(totalBalance)}
 					hint="Bisa di-withdraw"
 					icon={Coins}
-					tone={totalBalance > 0 ? "emerald" : "muted"}
+					accent={totalBalance > 0 ? "emerald" : "default"}
 				/>
 				<KpiCard
 					label="Total share"
@@ -1022,7 +1023,7 @@ async function OwnerSection({
 						Math.abs(totalShare - 100) < 0.5 ? "✓ 100%" : "⚠ belum 100%"
 					}
 					icon={Users}
-					tone={Math.abs(totalShare - 100) < 0.5 ? "emerald" : "amber"}
+					accent={Math.abs(totalShare - 100) < 0.5 ? "emerald" : "amber"}
 				/>
 			</dl>
 
@@ -1129,47 +1130,6 @@ async function OwnerSection({
 }
 
 // ─── Shared bits ──────────────────────────────────────────────────────────
-
-function KpiCard({
-	label,
-	value,
-	hint,
-	icon: Icon,
-	tone,
-}: {
-	label: string;
-	value: string;
-	hint: string;
-	icon: typeof BarChart3;
-	tone: "primary" | "emerald" | "amber" | "rose" | "muted";
-}) {
-	const cls =
-		tone === "primary"
-			? "text-primary"
-			: tone === "emerald"
-				? "text-emerald-600 dark:text-emerald-400"
-				: tone === "rose"
-					? "text-rose-600 dark:text-rose-400"
-					: tone === "amber"
-						? "text-amber-600 dark:text-amber-400"
-						: "text-foreground";
-	return (
-		<div className="border-border-default bg-surface-2 relative space-y-1.5 rounded-xl border p-5">
-			<div className="flex items-center justify-between">
-				<dt className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest">
-					{label}
-				</dt>
-				<Icon className="text-muted-foreground/60 h-3.5 w-3.5" />
-			</div>
-			<dd
-				className={`tabular text-[22px] font-semibold leading-tight tracking-tight ${cls}`}
-			>
-				{value}
-			</dd>
-			<p className="text-muted-foreground text-[10px]">{hint}</p>
-		</div>
-	);
-}
 
 function EmptyMini({ text }: { text: string }) {
 	return (
