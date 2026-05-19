@@ -119,7 +119,7 @@ export function DatePicker({
 				<PopoverPrimitive.Positioner sideOffset={6} className="isolate z-50">
 					<PopoverPrimitive.Popup
 						className={cn(
-							"w-[300px] rounded-xl bg-surface-3 p-3 shadow-lg ring-1 ring-border-strong/40 outline-none",
+							"w-[300px] rounded-lg bg-surface-3 p-3 shadow-[var(--shadow-level-3)] ring-1 ring-border-strong/40 outline-none",
 							"data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
 							"data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
 							"duration-base ease-out-expo",

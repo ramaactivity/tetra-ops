@@ -2137,7 +2137,7 @@ function SavePopup({
 }) {
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-			<div className="fade-in-on-mount max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border-default bg-surface-2 p-6 shadow-2xl">
+			<div className="fade-in-on-mount max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-border-default bg-surface-2 p-6 shadow-[var(--shadow-level-5)]">
 				{state.kind === "saving" && (
 					<div className="space-y-3 text-center">
 						<Loader2 className="mx-auto size-10 animate-spin text-primary" />

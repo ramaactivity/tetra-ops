@@ -35,7 +35,7 @@ export function Toaster() {
 			toastOptions={{
 				classNames: {
 					toast:
-						"!bg-surface-3 !border-border-default !text-foreground !shadow-lg",
+						"!bg-surface-3 !border-border-default !text-foreground !shadow-[var(--shadow-level-4)]",
 					title: "!text-foreground !font-medium",
 					description: "!text-muted-foreground",
 					actionButton:

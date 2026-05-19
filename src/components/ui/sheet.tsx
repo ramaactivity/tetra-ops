@@ -78,7 +78,7 @@ function SheetContent({
 				data-side={side}
 				data-state-vertical={isVertical}
 				className={cn(
-					"fixed z-50 flex flex-col bg-surface-3 border-border-default shadow-xl outline-none",
+					"fixed z-50 flex flex-col bg-surface-3 border-border-default shadow-[var(--shadow-level-5)] outline-none",
 					"transition-transform duration-base ease-out-expo",
 					sideClasses[side],
 					"pb-safe-or-4",

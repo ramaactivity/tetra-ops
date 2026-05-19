@@ -236,7 +236,7 @@ export function Combobox({
 			</div>
 
 			{open && (
-				<div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border-default bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/5 animate-in fade-in-0 zoom-in-95 duration-100">
+				<div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border-default bg-popover text-popover-foreground shadow-[var(--shadow-level-3)] animate-in fade-in-0 zoom-in-95 duration-100">
 					{filtered.length === 0 ? (
 						<div className="px-3 py-6 text-center text-fluid-caption italic text-muted-foreground">
 							{emptyMessage}

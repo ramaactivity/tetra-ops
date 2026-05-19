@@ -211,7 +211,7 @@ export function TimePicker({
 			</div>
 
 			{presetOpen && (
-				<div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border-default bg-popover shadow-lg ring-1 ring-foreground/5 animate-in fade-in-0 zoom-in-95 duration-100">
+				<div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border-default bg-popover shadow-[var(--shadow-level-3)] animate-in fade-in-0 zoom-in-95 duration-100">
 					<div className="grid grid-cols-4 gap-1 p-1.5">
 						{presets.map((t) => {
 							const active = t === `${pad2(hh)}:${pad2(mm)}`;

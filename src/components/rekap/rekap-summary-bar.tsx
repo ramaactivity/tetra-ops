@@ -47,7 +47,7 @@ export function RekapSummaryBar({
 			{/* Spacer so the last form section isn't covered by the fixed bar */}
 			<div aria-hidden="true" className="h-20 sm:h-0" />
 
-			<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 px-4 py-3 backdrop-blur-md shadow-lg sm:static sm:z-auto sm:rounded-xl sm:border sm:shadow-none sm:px-5 sm:py-4">
+			<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 px-4 py-3 backdrop-blur-md shadow-[var(--shadow-level-4)] sm:static sm:z-auto sm:rounded-lg sm:border sm:shadow-none sm:px-5 sm:py-4">
 				<div className="mx-auto flex max-w-md items-center justify-between gap-3 sm:max-w-none">
 					<div className="min-w-0 flex-1">
 						{showDisabledHint ? (

@@ -55,7 +55,7 @@ export function PdfDownloadMenu({
 			</button>
 			{open && (
 				<div
-					className="border-border-default bg-surface-2 absolute right-0 top-9 z-30 w-56 overflow-hidden rounded-md border shadow-lg"
+					className="border-border-default bg-surface-2 absolute right-0 top-9 z-30 w-56 overflow-hidden rounded-md border shadow-[var(--shadow-level-3)]"
 					role="menu"
 				>
 					{options.map((o) => (

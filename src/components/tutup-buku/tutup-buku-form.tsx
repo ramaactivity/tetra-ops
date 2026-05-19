@@ -579,7 +579,7 @@ export function TutupBukuForm({
 
 			{/* === STICKY P&L FOOTER === */}
 			<div aria-hidden="true" className="h-44 sm:h-0" />
-			<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 backdrop-blur-md shadow-lg sm:relative sm:rounded-xl sm:border sm:shadow-none">
+			<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 backdrop-blur-md shadow-[var(--shadow-level-4)] sm:relative sm:rounded-lg sm:border sm:shadow-none">
 				<div className="mx-auto max-w-4xl space-y-2 px-4 py-3 sm:px-5 sm:py-4">
 					<div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-4">
 						<PnlLine label="Revenue Gross" value={revenueGross} />
