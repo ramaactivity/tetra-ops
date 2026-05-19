@@ -28,6 +28,14 @@ import { createClient } from "@/lib/supabase/server";
  * are the photos for X event?" in one click.
  */
 
+/**
+ * Asset type metadata — icon distinguishes category, surface stays neutral.
+ *
+ * DESIGN.md §867 forbids a second brand color; categorization is conveyed
+ * by lucide icon shape only (Palette/Film/Camera/Video), background is
+ * the standard surface ladder (`bg-secondary`), text uses muted body tone.
+ * Previous violet/amber/sky/emerald palette was a decorative-color leak.
+ */
 const TYPE_META: Record<
 	AssetType,
 	{ icon: typeof ImageIcon; tone: string; short: string }
@@ -35,22 +43,22 @@ const TYPE_META: Record<
 	design_frame: {
 		icon: Palette,
 		short: "Design",
-		tone: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+		tone: "border-border-default bg-secondary text-foreground/85",
 	},
 	footage_crew: {
 		icon: Film,
 		short: "Footage",
-		tone: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+		tone: "border-border-default bg-secondary text-foreground/85",
 	},
 	softfile_photo: {
 		icon: Camera,
 		short: "Foto",
-		tone: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+		tone: "border-border-default bg-secondary text-foreground/85",
 	},
 	softfile_video: {
 		icon: Video,
 		short: "Video",
-		tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+		tone: "border-border-default bg-secondary text-foreground/85",
 	},
 };
 

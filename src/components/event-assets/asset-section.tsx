@@ -36,28 +36,31 @@ const META: Record<
 	AssetType,
 	{ label: string; icon: LucideIcon; tone: string; placeholder: string }
 > = {
+	// Icons distinguish asset type; tone stays neutral ink — no second
+	// brand color per DESIGN.md §867. Previous violet/amber/sky/emerald
+	// palette removed as decorative-color leak.
 	design_frame: {
 		label: "Design Frames",
 		icon: Palette,
-		tone: "text-violet-600 dark:text-violet-400",
+		tone: "text-foreground",
 		placeholder: "Mockup R1 (Figma)",
 	},
 	footage_crew: {
 		label: "Footage Crew",
 		icon: Film,
-		tone: "text-amber-600 dark:text-amber-400",
+		tone: "text-foreground",
 		placeholder: "Raw footage event 1 Mei",
 	},
 	softfile_photo: {
 		label: "Softfile Foto",
 		icon: Camera,
-		tone: "text-sky-600 dark:text-sky-400",
+		tone: "text-foreground",
 		placeholder: "Gallery photobooth final",
 	},
 	softfile_video: {
 		label: "Softfile Video",
 		icon: Video,
-		tone: "text-emerald-600 dark:text-emerald-400",
+		tone: "text-foreground",
 		placeholder: "Boomerang & slow-mo final",
 	},
 };

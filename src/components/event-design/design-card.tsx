@@ -2,6 +2,7 @@
 
 import { CheckCircle2, ExternalLink, Palette, Sparkles } from "lucide-react";
 import { useActionState, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -117,14 +118,15 @@ export function DesignCard({
 
 			{canEdit && driveUrl && !approvedAt && (
 				<>
-					<button
+					<Button
 						type="button"
+						variant="decisive-success"
+						size="lg"
 						onClick={() => setApproveOpen(true)}
-						className="press-down inline-flex h-10 items-center gap-1.5 rounded-md bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
 					>
-						<CheckCircle2 className="size-4" />
+						<CheckCircle2 />
 						Approve design
-					</button>
+					</Button>
 					<ConfirmDialog
 						open={approveOpen}
 						onOpenChange={setApproveOpen}
