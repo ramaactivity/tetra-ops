@@ -13,6 +13,7 @@ const TABS = [
 	{ href: "/settings/bank-accounts", label: "Banks" },
 	{ href: "/settings/crew", label: "Crew" },
 	{ href: "/settings/contacts", label: "Contacts" },
+	{ href: "/settings/vendors", label: "Vendors" },
 	{ href: "/settings/sinking-funds", label: "Sinking Funds" },
 	{ href: "/settings/whatsapp-templates", label: "WA Templates" },
 	{ href: "/settings/notification-rules", label: "Notif Rules" },
