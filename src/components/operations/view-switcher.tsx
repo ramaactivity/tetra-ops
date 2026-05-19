@@ -76,6 +76,7 @@ export function OperationsViewSwitcher({
 						href={v.href}
 						role="tab"
 						aria-selected={active}
+						aria-current={active ? "page" : undefined}
 						className={cn(
 							"inline-flex h-7 items-center gap-1.5 rounded-[4px] px-2.5 text-[12.5px] font-medium leading-none transition-colors",
 							active
