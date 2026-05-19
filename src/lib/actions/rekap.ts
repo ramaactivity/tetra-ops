@@ -525,9 +525,19 @@ export async function submitRekap(
 	const transportCost =
 		parsed.data.transport_method === "none" ? 0 : parsed.data.transport_cost;
 
+	// Snapshot event.frame_size at submit time. Kalau owner ubah event.frame_size
+	// nanti (mis. typo correction), rekap tetap pakai snapshot frozen → preserves
+	// historical accuracy untuk HPP calculation di settlement.
+	const { data: eventSnap } = await supabase
+		.from("events")
+		.select("frame_size")
+		.eq("id", eventId)
+		.maybeSingle();
+
 	const payload = {
 		event_id: eventId,
 		submitted_by: me.profile.id,
+		frame_size_snapshot: eventSnap?.frame_size ?? null,
 		cetak_total: parsed.data.cetak_total,
 		media_set_used: parsed.data.media_set_used,
 		sleeve_used: parsed.data.sleeve_used,
