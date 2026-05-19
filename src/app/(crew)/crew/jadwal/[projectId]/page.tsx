@@ -211,7 +211,7 @@ export default async function CrewEventDetailPage({
 			</header>
 
 			{/* Time & venue card */}
-			<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-3 rounded-lg border p-4">
 				<div className="flex items-start gap-3">
 					<Calendar className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
 					<div className="flex-1 space-y-0.5">
@@ -259,7 +259,7 @@ export default async function CrewEventDetailPage({
 
 			{/* PIC card */}
 			{(picName || picPhone || bookerContact) && (
-				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-2 rounded-xl border p-4">
+				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-2 rounded-lg border p-4">
 					<h2 className="text-amber-900 dark:text-amber-200 text-xs font-semibold uppercase tracking-wider">
 						Kontak di hari H
 					</h2>
@@ -301,7 +301,7 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Service spec card */}
-			<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 					Spec
 				</h2>
@@ -334,7 +334,7 @@ export default async function CrewEventDetailPage({
 
 			{/* Crew partner card */}
 			{partnerAssignments.length > 0 && (
-				<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
 					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<Users className="h-3.5 w-3.5" />
 						Crew partner
@@ -361,7 +361,7 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Equipment card */}
-			<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
 				<h2 className="text-muted-foreground flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
 					<span className="flex items-center gap-1.5">
 						<Package className="h-3.5 w-3.5" />
@@ -396,7 +396,7 @@ export default async function CrewEventDetailPage({
 
 			{/* Design link */}
 			{event.design_drive_folder_url && (
-				<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
 					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<FileText className="h-3.5 w-3.5" />
 						Desain
@@ -420,7 +420,7 @@ export default async function CrewEventDetailPage({
 
 			{/* Bonus untuk klien — crew harus tahu biar bisa kasih hari-H */}
 			{eventBonuses.length > 0 && (
-				<section className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20 space-y-2 rounded-xl border p-4">
+				<section className="border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20 space-y-2 rounded-lg border p-4">
 					<h2 className="text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<Gift className="h-3.5 w-3.5" />
 						Bonus untuk klien
@@ -460,7 +460,7 @@ export default async function CrewEventDetailPage({
 
 			{/* Crew notes */}
 			{event.crew_notes && (
-				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-2 rounded-xl border p-4">
+				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-2 rounded-lg border p-4">
 					<h2 className="text-amber-900 dark:text-amber-200 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<Clock className="h-3.5 w-3.5" />
 						Catatan untuk crew
@@ -475,7 +475,7 @@ export default async function CrewEventDetailPage({
 			{!event.is_migrated_legacy && (
 				<Link
 					href={`/crew/jadwal/${event.project_id}/rekap`}
-					className={`group flex items-center gap-3 rounded-xl border p-4 transition-colors active:scale-[0.99] ${
+					className={`group flex items-center gap-3 rounded-lg border p-4 transition-colors active:scale-[0.99] ${
 						rekap?.is_approved === true
 							? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
 							: rekap
@@ -531,7 +531,7 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Fee for me */}
-			<section className="border-border-default bg-surface-2 space-y-2 rounded-xl border p-4">
+			<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 					Fee gw
 				</h2>

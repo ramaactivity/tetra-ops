@@ -84,7 +84,7 @@ export function CrewFeeForm({
 
 	if (rows.length === 0) {
 		return (
-			<section className="rounded-xl border border-border-default bg-surface-2 p-5">
+			<section className="rounded-lg border border-border-default bg-surface-2 p-5">
 				<header className="mb-3">
 					<h2 className="text-fluid-h3 font-semibold tracking-tight">
 						Fee crew
@@ -99,7 +99,7 @@ export function CrewFeeForm({
 	}
 
 	return (
-		<section className="rounded-xl border border-border-default bg-surface-2 p-5">
+		<section className="rounded-lg border border-border-default bg-surface-2 p-5">
 			<header className="mb-4">
 				<h2 className="text-fluid-h3 font-semibold tracking-tight">Fee crew</h2>
 				<p className="mt-1 text-xs text-muted-foreground">

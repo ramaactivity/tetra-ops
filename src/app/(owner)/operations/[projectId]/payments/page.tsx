@@ -68,7 +68,7 @@ export default async function ManagePaymentsPage({
 				<SectionHeader title="Payments" description={event.client_name} />
 			</div>
 
-			<div className="border-border-default bg-surface-2 grid gap-4 rounded-xl border p-5 sm:grid-cols-4">
+			<div className="border-border-default bg-surface-2 grid gap-4 rounded-lg border p-5 sm:grid-cols-4">
 				<Stat
 					label="Grand Total"
 					value={formatRupiah(event.grand_total ?? 0)}
@@ -92,13 +92,13 @@ export default async function ManagePaymentsPage({
 				/>
 			</div>
 
-			<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<h2 className="text-base font-semibold">Riwayat Payment</h2>
 				<PaymentList projectId={event.project_id} payments={payments} />
 			</div>
 
 			{remaining > 0 && (
-				<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+				<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 					<div>
 						<h2 className="text-base font-semibold">Log payment baru</h2>
 						<p className="text-muted-foreground text-xs">

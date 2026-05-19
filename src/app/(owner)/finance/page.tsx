@@ -393,7 +393,7 @@ export default async function FinancePage() {
 						{settlementsMtd.length !== 1 ? "s" : ""}
 					</span>
 				</div>
-				<div className="border-border-default bg-surface-2 overflow-hidden rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-hidden rounded-lg border">
 					<dl className="divide-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5 lg:divide-y-0">
 						<BreakdownStat
 							label="Revenue net"
@@ -450,7 +450,7 @@ export default async function FinancePage() {
 							hint="Tambah di /settings/bank-accounts"
 						/>
 					) : (
-						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-xl border">
+						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-lg border">
 							{banks.map((b) => {
 								const inflow = inflowByBank.get(b.id) ?? 0;
 								return (
@@ -508,7 +508,7 @@ export default async function FinancePage() {
 							hint="Bikin di /settings/sinking-funds"
 						/>
 					) : (
-						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-xl border">
+						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-lg border">
 							{funds.map((f) => {
 								const balance = balanceById.get(f.id) ?? 0;
 								const target = f.target_balance ?? 0;
@@ -576,7 +576,7 @@ export default async function FinancePage() {
 							</Link>
 						</div>
 					</div>
-					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
+					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 						<table className="w-full text-sm">
 							<thead className="bg-muted/40">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -658,7 +658,7 @@ export default async function FinancePage() {
 						hint="Settle event pertama via /operations/[id]/settle"
 					/>
 				) : (
-					<div className="border-border-default bg-surface-2 overflow-hidden rounded-xl border">
+					<div className="border-border-default bg-surface-2 overflow-hidden rounded-lg border">
 						<table className="w-full text-xs">
 							<thead className="bg-muted/40">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -780,7 +780,7 @@ function EmptyCard({
 	hint: string;
 }) {
 	return (
-		<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-xl border border-dashed p-8 text-center">
+		<div className="border-border-default bg-surface-2 flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
 			<Icon className="text-muted-foreground h-7 w-7" />
 			<div className="space-y-0.5">
 				<p className="text-foreground text-sm font-medium">{title}</p>

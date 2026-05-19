@@ -212,7 +212,7 @@ export default async function DesignHubPage({
 					description="Bikin event dulu lewat Operations baru bisa kelola visual asset."
 				/>
 			) : (
-				<div className="rounded-xl border border-border-default bg-surface-2 overflow-hidden">
+				<div className="rounded-lg border border-border-default bg-surface-2 overflow-hidden">
 					<table className="w-full text-sm">
 						<thead className="border-b border-border-default bg-surface-3/40">
 							<tr className="text-left">
@@ -329,7 +329,7 @@ function StatCard({
 	hint?: string;
 }) {
 	return (
-		<div className="flex flex-col gap-1 rounded-xl border border-border-default bg-surface-2 p-4">
+		<div className="flex flex-col gap-1 rounded-lg border border-border-default bg-surface-2 p-4">
 			<dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
 				{label}
 			</dt>

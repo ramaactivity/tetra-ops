@@ -167,13 +167,13 @@ export default async function StockTakeDetailPage({
 			) : null}
 
 			{rows.length === 0 ? (
-				<div className="rounded-xl border border-dashed border-border-default bg-surface-2 p-8 text-center">
+				<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-8 text-center">
 					<p className="text-fluid-body text-muted-foreground">
 						Belum ada items di stock take ini.
 					</p>
 				</div>
 			) : (
-				<div className="overflow-hidden rounded-xl border border-border-default bg-surface-2">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-surface-2">
 					<table className="w-full text-sm">
 						<thead className="border-b border-border-default bg-surface-3/40">
 							<tr className="text-left">
@@ -234,7 +234,7 @@ function StatTile({
 				? "text-amber-600 dark:text-amber-400"
 				: "text-foreground";
 	return (
-		<div className="rounded-xl border border-border-default bg-surface-2 p-4">
+		<div className="rounded-lg border border-border-default bg-surface-2 p-4">
 			<div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
 				{label}
 			</div>

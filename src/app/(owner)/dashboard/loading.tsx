@@ -22,7 +22,7 @@ export default function DashboardLoading() {
 				{Array.from({ length: 4 }).map((_, i) => (
 					<Skeleton
 						key={`kpi-${i}`}
-						className="h-[88px] rounded-xl sm:h-24"
+						className="h-[88px] rounded-lg sm:h-24"
 					/>
 				))}
 			</div>
@@ -30,7 +30,7 @@ export default function DashboardLoading() {
 			{/* Anomaly radar */}
 			<div className="space-y-3">
 				<Skeleton className="h-5 w-40" />
-				<Skeleton className="h-20 rounded-xl" />
+				<Skeleton className="h-20 rounded-lg" />
 			</div>
 
 			{/* Pipeline */}
@@ -40,7 +40,7 @@ export default function DashboardLoading() {
 					{Array.from({ length: 4 }).map((_, i) => (
 						<Skeleton
 							key={`pipe-${i}`}
-							className="h-[100px] rounded-xl"
+							className="h-[100px] rounded-lg"
 						/>
 					))}
 				</div>
@@ -50,12 +50,12 @@ export default function DashboardLoading() {
 			<div className="grid gap-6 lg:grid-cols-3">
 				<div className="space-y-3 lg:col-span-2">
 					<Skeleton className="h-5 w-40" />
-					<Skeleton className="h-20 rounded-xl" />
-					<Skeleton className="h-20 rounded-xl" />
+					<Skeleton className="h-20 rounded-lg" />
+					<Skeleton className="h-20 rounded-lg" />
 				</div>
 				<div className="space-y-3">
 					<Skeleton className="h-5 w-32" />
-					<Skeleton className="h-[280px] rounded-xl" />
+					<Skeleton className="h-[280px] rounded-lg" />
 				</div>
 			</div>
 		</Container>

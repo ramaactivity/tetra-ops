@@ -188,7 +188,7 @@ export default async function MasterCrewPage() {
 			)}
 
 			{isSuperAdmin && invitations.length > 0 && (
-				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-3 rounded-xl border p-4">
+				<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-3 rounded-lg border p-4">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<Clock className="text-amber-700 dark:text-amber-400 h-4 w-4" />
@@ -351,7 +351,7 @@ export default async function MasterCrewPage() {
 				</Table>
 			</div>
 
-			<div className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<InvestorShareTable rows={investors} canEdit={isSuperAdmin} />
 			</div>
 		</div>

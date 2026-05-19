@@ -11,14 +11,14 @@ export default function CrewFeeLoading() {
 			{/* Summary cards */}
 			<div className="grid grid-cols-2 gap-3">
 				{Array.from({ length: 2 }).map((_, i) => (
-					<Skeleton key={`sum-${i}`} className="h-24 rounded-xl" />
+					<Skeleton key={`sum-${i}`} className="h-24 rounded-lg" />
 				))}
 			</div>
 
 			{/* Fee rows */}
 			<div className="space-y-3">
 				{Array.from({ length: 5 }).map((_, i) => (
-					<Skeleton key={`fee-${i}`} className="h-20 rounded-xl" />
+					<Skeleton key={`fee-${i}`} className="h-20 rounded-lg" />
 				))}
 			</div>
 		</div>

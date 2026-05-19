@@ -381,7 +381,7 @@ async function PnlSection({
 				<h2 className="text-base font-semibold tracking-tight">
 					Profit &amp; Loss · {monthLabel}
 				</h2>
-				<div className="border-border-default bg-surface-2 overflow-hidden rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-hidden rounded-lg border">
 					<dl>
 						<PnlRow
 							label="Revenue Net"
@@ -458,7 +458,7 @@ async function PnlSection({
 					{Object.keys(channelBreakdown).length === 0 ? (
 						<EmptyMini text="Belum ada event di bulan ini." />
 					) : (
-						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-xl border">
+						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-lg border">
 							{Object.entries(channelBreakdown)
 								.sort((a, b) => b[1] - a[1])
 								.map(([channel, count]) => (
@@ -491,7 +491,7 @@ async function PnlSection({
 					{rows.length === 0 ? (
 						<EmptyMini text="Belum ada settlement bulan ini." />
 					) : (
-						<div className="border-border-default bg-surface-2 max-h-96 overflow-auto rounded-xl border">
+						<div className="border-border-default bg-surface-2 max-h-96 overflow-auto rounded-lg border">
 							{rows.map((r) => {
 								const ev = Array.isArray(r.event) ? r.event[0] : r.event;
 								if (!ev) return null;
@@ -786,7 +786,7 @@ async function CrewSection({
 				{enriched.length === 0 ? (
 					<EmptyMini text="Belum ada crew aktif." />
 				) : (
-					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
+					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 						<table className="w-full text-sm">
 							<thead className="bg-muted/40">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -1031,7 +1031,7 @@ async function OwnerSection({
 				<h2 className="text-base font-semibold tracking-tight">
 					Owner statement · {monthLabel}
 				</h2>
-				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
+				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<table className="w-full text-sm">
 						<thead className="bg-muted/40">
 							<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -1133,7 +1133,7 @@ async function OwnerSection({
 
 function EmptyMini({ text }: { text: string }) {
 	return (
-		<div className="border-border-default bg-surface-2 rounded-xl border border-dashed p-8 text-center">
+		<div className="border-border-default bg-surface-2 rounded-lg border border-dashed p-8 text-center">
 			<p className="text-muted-foreground text-sm">{text}</p>
 		</div>
 	);

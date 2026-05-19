@@ -110,7 +110,7 @@ export default async function CrewRekapSuccessPage({
 				</div>
 			</div>
 
-			<dl className="space-y-2 rounded-xl border border-border-default bg-surface-2 p-4">
+			<dl className="space-y-2 rounded-lg border border-border-default bg-surface-2 p-4">
 				<SummaryRow
 					icon={Printer}
 					label="Total cetak"
@@ -128,7 +128,7 @@ export default async function CrewRekapSuccessPage({
 				/>
 			</dl>
 
-			<div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+			<div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/30">
 				<p className="text-blue-900 dark:text-blue-200 text-sm font-medium">
 					Owner akan review & finalize
 				</p>

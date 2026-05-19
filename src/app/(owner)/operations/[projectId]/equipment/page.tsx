@@ -181,7 +181,7 @@ export default async function EventEquipmentPage({
 				/>
 			</div>
 
-			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<div className="flex flex-wrap items-end justify-between gap-3">
 					<div>
 						<h2 className="text-base font-semibold tracking-tight">
@@ -274,7 +274,7 @@ export default async function EventEquipmentPage({
 			</section>
 
 			{incidents.length > 0 && (
-				<section className="border-border-default bg-surface-2 space-y-3 rounded-xl border p-5">
+				<section className="border-border-default bg-surface-2 space-y-3 rounded-lg border p-5">
 					<div className="flex items-baseline gap-2">
 						<AlertTriangle className="text-amber-500 h-4 w-4" />
 						<h2 className="text-base font-semibold tracking-tight">

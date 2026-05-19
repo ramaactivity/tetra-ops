@@ -13,14 +13,14 @@ export default function CrewLoading() {
 
 			<div className="grid grid-cols-2 gap-3">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<Skeleton key={`stat-${i}`} className="h-[100px] rounded-xl" />
+					<Skeleton key={`stat-${i}`} className="h-[100px] rounded-lg" />
 				))}
 			</div>
 
 			<div className="space-y-3">
 				<Skeleton className="h-5 w-32" />
-				<Skeleton className="h-20 rounded-xl" />
-				<Skeleton className="h-20 rounded-xl" />
+				<Skeleton className="h-20 rounded-lg" />
+				<Skeleton className="h-20 rounded-lg" />
 			</div>
 		</div>
 	);

@@ -14,18 +14,18 @@ export default function FinanceLoading() {
 
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<Skeleton key={`kpi-${i}`} className="h-[88px] rounded-xl" />
+					<Skeleton key={`kpi-${i}`} className="h-[88px] rounded-lg" />
 				))}
 			</div>
 
 			<div className="grid gap-6 lg:grid-cols-3">
 				<div className="space-y-3 lg:col-span-2">
 					<Skeleton className="h-5 w-40" />
-					<Skeleton className="h-72 rounded-xl" />
+					<Skeleton className="h-72 rounded-lg" />
 				</div>
 				<div className="space-y-3">
 					<Skeleton className="h-5 w-36" />
-					<Skeleton className="h-72 rounded-xl" />
+					<Skeleton className="h-72 rounded-lg" />
 				</div>
 			</div>
 		</Container>

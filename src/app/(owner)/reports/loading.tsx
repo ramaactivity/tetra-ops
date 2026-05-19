@@ -22,10 +22,10 @@ export default function ReportsLoading() {
 			{/* Report content area */}
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<Skeleton key={`stat-${i}`} className="h-[88px] rounded-xl" />
+					<Skeleton key={`stat-${i}`} className="h-[88px] rounded-lg" />
 				))}
 			</div>
-			<Skeleton className="h-96 rounded-xl" />
+			<Skeleton className="h-96 rounded-lg" />
 		</Container>
 	);
 }

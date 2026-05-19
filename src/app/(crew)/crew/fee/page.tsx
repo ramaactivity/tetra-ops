@@ -135,7 +135,7 @@ function FeeRow({ row }: { row: AssignmentRow }) {
 	return (
 		<Link
 			href={`/crew/jadwal/${ev.project_id}`}
-			className="press-down flex items-stretch gap-3 rounded-xl border border-border-default bg-card p-3 transition-colors hover:bg-surface-3"
+			className="press-down flex items-stretch gap-3 rounded-lg border border-border-default bg-card p-3 transition-colors hover:bg-surface-3"
 		>
 			<div className="min-w-0 flex-1 space-y-1">
 				<p className="text-foreground truncate text-sm font-medium">
@@ -198,7 +198,7 @@ function SummaryStat({
 					? "text-amber-600 dark:text-amber-400"
 					: "text-muted-foreground";
 	return (
-		<div className="border-border-default bg-surface-2 space-y-0.5 rounded-xl border p-3 text-center">
+		<div className="border-border-default bg-surface-2 space-y-0.5 rounded-lg border p-3 text-center">
 			<dt className="text-muted-foreground text-[10px] uppercase tracking-wider">
 				{label}
 			</dt>

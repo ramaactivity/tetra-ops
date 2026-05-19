@@ -676,7 +676,7 @@ export function RekapForm({
 					? Number(sleeve) || 0
 					: autoSleeve;
 				return (
-					<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+					<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 						<div>
 							<h3 className="text-base font-semibold tracking-tight">Cetak</h3>
 							<p className="text-xs text-muted-foreground">
@@ -749,7 +749,7 @@ export function RekapForm({
 
 			{/* ========== FLASHDISK & POUCH ========== */}
 			<section
-				className={`space-y-4 rounded-xl border p-5 ${
+				className={`space-y-4 rounded-lg border p-5 ${
 					fdPouchIncluded
 						? "border-border-default bg-surface-2"
 						: "border-dashed border-border-default bg-surface-2/40"
@@ -807,7 +807,7 @@ export function RekapForm({
 			</section>
 
 			{/* ========== ADD-ON ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 				<div>
 					<h3 className="text-base font-semibold tracking-tight">Add-on</h3>
 					<p className="text-xs text-muted-foreground">
@@ -849,7 +849,7 @@ export function RekapForm({
 			</section>
 
 			{/* ========== ITEM TAMBAHAN (custom_materials) ========== */}
-			<section className="rounded-xl border border-border-default bg-surface-2">
+			<section className="rounded-lg border border-border-default bg-surface-2">
 				<Disclosure
 					defaultOpen={Object.keys(customMaterials).length > 0}
 				>
@@ -942,7 +942,7 @@ export function RekapForm({
 			</section>
 
 			{/* ========== TRANSPORTASI ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 				<div>
 					<div className="flex items-center gap-2">
 						<Car className="h-4 w-4 text-primary" />
@@ -1046,7 +1046,7 @@ export function RekapForm({
 			</section>
 
 			{/* ========== KONSUMSI & LAIN-LAIN ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 				<div>
 					<div className="flex items-center gap-2">
 						<Coffee className="h-4 w-4 text-primary" />
@@ -1176,7 +1176,7 @@ export function RekapForm({
 			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
 
 			{/* ========== BUKTI ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 				<div>
 					<h3 className="text-base font-semibold tracking-tight">Bukti</h3>
 					<p className="text-xs text-muted-foreground">

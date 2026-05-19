@@ -248,7 +248,7 @@ export function SettlementForm({
 			)}
 
 			{/* Revenue Card */}
-			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<div className="flex items-center justify-between">
 					<h2 className="text-base font-semibold tracking-tight">Revenue</h2>
 					<span className="tabular text-foreground text-sm font-semibold">
@@ -274,7 +274,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Stage 1: HPP */}
-			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<div className="space-y-1">
 					<div className="flex items-baseline justify-between">
 						<h2 className="text-base font-semibold tracking-tight">
@@ -336,7 +336,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Stage 2: OpEx */}
-			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<div className="flex items-baseline justify-between">
 					<h2 className="text-base font-semibold tracking-tight">
 						SDM & Operasional
@@ -360,7 +360,7 @@ export function SettlementForm({
 			</section>
 
 			{/* Allocation Preview */}
-			<section className="border-border-default bg-surface-2 space-y-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<div className="flex items-baseline justify-between">
 					<h2 className="text-base font-semibold tracking-tight">
 						Alokasi (preview)

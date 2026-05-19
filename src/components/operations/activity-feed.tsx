@@ -175,7 +175,7 @@ export async function EventActivityFeed({ eventId }: { eventId: string }) {
 
 	if (merged.length === 0) {
 		return (
-			<div className="border-border-default bg-surface-2 md:col-span-2 rounded-xl border p-5">
+			<div className="border-border-default bg-surface-2 md:col-span-2 rounded-lg border p-5">
 				<h3 className="text-sm font-semibold tracking-tight">Activity</h3>
 				<p className="text-muted-foreground mt-2 text-sm italic">
 					Belum ada aktivitas tercatat.
@@ -185,7 +185,7 @@ export async function EventActivityFeed({ eventId }: { eventId: string }) {
 	}
 
 	return (
-		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-4 rounded-xl border p-5">
+		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-4 rounded-lg border p-5">
 			<div>
 				<h3 className="text-sm font-semibold tracking-tight">Activity</h3>
 				<p className="text-muted-foreground text-xs">

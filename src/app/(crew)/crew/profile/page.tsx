@@ -59,7 +59,7 @@ export default async function CrewProfilePage() {
 				<h1 className="text-fluid-h1 font-semibold tracking-tight">Profile</h1>
 			</header>
 
-			<section className="border-border-default bg-surface-2 flex items-center gap-4 rounded-xl border p-5">
+			<section className="border-border-default bg-surface-2 flex items-center gap-4 rounded-lg border p-5">
 				<div className="bg-primary/15 text-primary flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-semibold">
 					{initials || "?"}
 				</div>
@@ -85,7 +85,7 @@ export default async function CrewProfilePage() {
 				</div>
 			</section>
 
-			<section className="border-border-default bg-surface-2 grid grid-cols-2 divide-x rounded-xl border">
+			<section className="border-border-default bg-surface-2 grid grid-cols-2 divide-x rounded-lg border">
 				<div className="space-y-0.5 p-4 text-center">
 					<dt className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
 						Lifetime events
@@ -108,7 +108,7 @@ export default async function CrewProfilePage() {
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
 					Edit profil
 				</h2>
-				<div className="border-border-default bg-surface-2 rounded-xl border p-4">
+				<div className="border-border-default bg-surface-2 rounded-lg border p-4">
 					<OnboardingForm
 						defaultFullName={me.profile.full_name}
 						defaultNickname={nickname}
@@ -128,7 +128,7 @@ export default async function CrewProfilePage() {
 				<form action={signOut}>
 					<button
 						type="submit"
-						className="border-border-default bg-surface-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
+						className="border-border-default bg-surface-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors"
 					>
 						<LogOut className="h-4 w-4" />
 						Sign out

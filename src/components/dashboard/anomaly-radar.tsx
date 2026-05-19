@@ -115,7 +115,7 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 			</div>
 
 			{top.length === 0 ? (
-				<div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 dark:bg-emerald-500/[0.08]">
+				<div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4 dark:bg-emerald-500/[0.08]">
 					<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-500">
 						<BellOff className="size-4" />
 					</div>
@@ -135,7 +135,7 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 						const Icon = tone.icon;
 						const card = (
 							<div
-								className={`group flex items-start gap-3 rounded-xl border border-border-default bg-card p-3.5 transition-colors hover:bg-surface-3 ${
+								className={`group flex items-start gap-3 rounded-lg border border-border-default bg-card p-3.5 transition-colors hover:bg-surface-3 ${
 									n.severity === "alert"
 										? "ring-1 ring-rose-500/20"
 										: ""

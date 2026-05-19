@@ -333,7 +333,7 @@ export default async function EventRekapPage({
 
 			{/* === Edit recap (owner override) — only if not locked === */}
 			{rekap && !recapLocked && (
-				<details className="rounded-xl border border-border-default bg-surface-2">
+				<details className="rounded-lg border border-border-default bg-surface-2">
 					<summary className="cursor-pointer px-5 py-3 text-sm font-semibold tracking-tight hover:bg-muted/30">
 						Edit rekap (owner override)
 					</summary>
@@ -394,7 +394,7 @@ export default async function EventRekapPage({
 
 			{/* === Approve/Reject section (review stage, not settled yet) === */}
 			{rekap && !recapApproved && !isSettled && (
-				<div className="rounded-xl border border-border-default bg-surface-2 p-4">
+				<div className="rounded-lg border border-border-default bg-surface-2 p-4">
 					<header className="mb-3">
 						<h2 className="text-fluid-h3 font-semibold tracking-tight">
 							Review rekap
@@ -439,7 +439,7 @@ export default async function EventRekapPage({
 
 					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
 
-					<div className="rounded-xl border border-border-default bg-surface-2 p-5">
+					<div className="rounded-lg border border-border-default bg-surface-2 p-5">
 						<header className="mb-3">
 							<h2 className="text-fluid-h3 font-semibold tracking-tight">
 								Settle event
