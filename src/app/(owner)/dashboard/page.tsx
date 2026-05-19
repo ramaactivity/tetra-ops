@@ -241,7 +241,7 @@ export default async function DashboardPage() {
 
 	return (
 		<Container size="xl" className="space-y-10 md:space-y-12">
-			{/* Greeting — Inter display, crimson accent on name (Vercel/Linear DNA) */}
+			{/* Greeting — Inter display, ink accent on name (Vercel DNA, no second hue) */}
 			<header className="space-y-3">
 				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
 					{ID_DATE_FULL.format(today)}
@@ -405,7 +405,7 @@ export default async function DashboardPage() {
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="group flex items-start gap-4 rounded-2xl border border-border-default bg-surface-2 p-4 transition-all duration-base ease-out-expo hover:-translate-y-px hover:border-border-strong hover:bg-surface-3"
+										className="group flex items-start gap-4 rounded-lg border border-border-default bg-surface-2 p-4 transition-colors duration-base ease-out-expo hover:border-border-strong hover:bg-surface-3"
 										style={{
 											viewTransitionName: `event-${ev.project_id}`,
 										}}
