@@ -55,14 +55,19 @@ export default async function NewBookingPage() {
 			.eq("is_active", true)
 			.is("deleted_at", null)
 			.order("full_name"),
-		// Recent distinct vendor names from past 6 months for autocomplete suggest
+		// Vendor master list (contacts where type='vendor' + is_active).
+		// Replaces previous "scan past events" approach — source of truth
+		// is now the contacts table, and new vendors auto-upsert there on
+		// booking submit (see ensureVendorContact in src/lib/actions/vendors.ts).
 		supabase
-			.from("events")
-			.select("vendor_name, vendor_pic_name, vendor_contact")
-			.eq("channel", "vendor")
-			.not("vendor_name", "is", null)
-			.order("created_at", { ascending: false })
-			.limit(50),
+			.from("contacts")
+			.select(
+				"id, name, default_pic_name, default_pic_contact, commission_rate_default",
+			)
+			.eq("type", "vendor")
+			.eq("is_active", true)
+			.order("name", { ascending: true })
+			.limit(200),
 		// Default gross-up PPh rate (Indonesia PPh 23 = 2%)
 		supabase
 			.from("system_config")
@@ -78,26 +83,20 @@ export default async function NewBookingPage() {
 		return 2;
 	})();
 
-	// Dedupe vendor history by name → most recent pic + contact
-	const vendorMap = new Map<
-		string,
-		{ name: string; pic_name: string | null; contact: string | null }
-	>();
-	for (const row of (vendorHistory ?? []) as Array<{
-		vendor_name: string | null;
-		vendor_pic_name: string | null;
-		vendor_contact: string | null;
-	}>) {
-		if (!row.vendor_name) continue;
-		if (!vendorMap.has(row.vendor_name)) {
-			vendorMap.set(row.vendor_name, {
-				name: row.vendor_name,
-				pic_name: row.vendor_pic_name,
-				contact: row.vendor_contact,
-			});
-		}
-	}
-	const vendorOptions = Array.from(vendorMap.values()).slice(0, 30);
+	// Vendor master → autocomplete options. Carries commission_rate so the
+	// booking form can pre-fill the % when an existing vendor is picked.
+	const vendorOptions = ((vendorHistory ?? []) as Array<{
+		id: string;
+		name: string;
+		default_pic_name: string | null;
+		default_pic_contact: string | null;
+		commission_rate_default: number | null;
+	}>).map((v) => ({
+		name: v.name,
+		pic_name: v.default_pic_name,
+		contact: v.default_pic_contact,
+		commission_rate: v.commission_rate_default,
+	}));
 
 	return (
 		<div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">

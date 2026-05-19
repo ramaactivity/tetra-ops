@@ -124,6 +124,9 @@ export type VendorOption = {
 	name: string;
 	pic_name: string | null;
 	contact: string | null;
+	/** Default commission % from vendor master. Auto-fills the % input when
+	 * an existing vendor is picked. Free-text new vendors send null. */
+	commission_rate?: number | null;
 };
 
 export type AddonSelection = { addon_id: string; quantity: number };
@@ -740,10 +743,18 @@ export function BookingForm({
 	}
 
 	function handleVendorAutoFill(name: string) {
-		const found = vendorOptions.find((v) => v.name === name);
+		// Match against vendor master by case-insensitive trimmed name —
+		// users may free-text-type with slight casing variance.
+		const lookup = name.trim().toLowerCase();
+		const found = vendorOptions.find(
+			(v) => v.name.trim().toLowerCase() === lookup,
+		);
 		setVendorName(name);
 		if (found?.pic_name) setVendorPicName(found.pic_name);
 		if (found?.contact) setVendorContact(found.contact);
+		if (found?.commission_rate != null) {
+			setVendorCommissionRate(String(found.commission_rate));
+		}
 	}
 
 	function openMapsSearch() {
@@ -879,7 +890,7 @@ export function BookingForm({
 								label="Nama Vendor / Perusahaan"
 								name="vendor_name"
 								error={err("vendor_name")}
-								hint="Pilih dari riwayat vendor existing atau ketik nama baru."
+								hint="Pilih dari master vendor, atau ketik nama baru (auto-create di /settings/vendors saat save)."
 								required
 							>
 								<Combobox
@@ -889,14 +900,20 @@ export function BookingForm({
 										(v): ComboboxOption => ({
 											value: v.name,
 											label: v.name,
-											sublabel: [v.pic_name, v.contact]
+											sublabel: [
+												v.pic_name,
+												v.contact,
+												v.commission_rate != null
+													? `${v.commission_rate}%`
+													: null,
+											]
 												.filter(Boolean)
 												.join(" · "),
 										}),
 									)}
 									placeholder="cth. Partner Organizer"
 									allowFreeText
-									emptyMessage="Vendor baru — akan tersimpan saat save"
+									emptyMessage="Vendor baru — akan auto-create di master saat save"
 									aria-label="Nama vendor"
 								/>
 								<input type="hidden" name="vendor_name" value={vendorName} />

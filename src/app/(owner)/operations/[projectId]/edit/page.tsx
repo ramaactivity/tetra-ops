@@ -26,6 +26,7 @@ export default async function EditBookingPage({
 		{ data: addons },
 		{ data: backdrops },
 		{ data: eventTypes },
+		{ data: vendorsList },
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -70,7 +71,29 @@ export default async function EditBookingPage({
 			.select("code, label")
 			.eq("is_active", true)
 			.order("display_order", { ascending: true }),
+		supabase
+			.from("contacts")
+			.select(
+				"id, name, default_pic_name, default_pic_contact, commission_rate_default",
+			)
+			.eq("type", "vendor")
+			.eq("is_active", true)
+			.order("name", { ascending: true })
+			.limit(200),
 	]);
+
+	const vendorOptions = ((vendorsList ?? []) as Array<{
+		id: string;
+		name: string;
+		default_pic_name: string | null;
+		default_pic_contact: string | null;
+		commission_rate_default: number | null;
+	}>).map((v) => ({
+		name: v.name,
+		pic_name: v.default_pic_name,
+		contact: v.default_pic_contact,
+		commission_rate: v.commission_rate_default,
+	}));
 
 	if (error) {
 		return (
@@ -115,6 +138,7 @@ export default async function EditBookingPage({
 					addons={(addons ?? []) as AddonOption[]}
 					backdrops={(backdrops ?? []) as BackdropOption[]}
 					eventTypes={(eventTypes ?? []) as EventTypeOption[]}
+					vendorOptions={vendorOptions}
 					submitLabel="Save changes"
 					defaults={{
 						channel: event.channel,
