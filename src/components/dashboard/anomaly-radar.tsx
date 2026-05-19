@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -63,10 +62,7 @@ const SEVERITY_RANK: Record<Severity, number> = {
 	success: 3,
 };
 
-export async function AnomalyRadarWidget() {
-	const me = await getCurrentUser();
-	if (!me) return null;
-
+export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 	const supabase = await createClient();
 	const { data, count } = await supabase
 		.from("notifications")
@@ -74,7 +70,7 @@ export async function AnomalyRadarWidget() {
 			"id, severity, category, title, body, action_url, created_at",
 			{ count: "exact" },
 		)
-		.eq("user_id", me.profile.id)
+		.eq("user_id", userId)
 		.eq("is_dismissed", false)
 		.eq("is_read", false)
 		.order("severity", { ascending: true })

@@ -330,7 +330,7 @@ export default async function DashboardPage() {
 				</div>
 			</section>
 
-			<AnomalyRadarWidget />
+			<AnomalyRadarWidget userId={userResult.profile.id} />
 
 			<section className="space-y-4">
 				<div className="flex items-end justify-between gap-3">
