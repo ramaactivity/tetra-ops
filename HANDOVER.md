@@ -1,10 +1,10 @@
 # HANDOVER — Tetra Ops Rekap & Settlement Module Refactor
 
-**Last updated**: 2026-05-19
-**Status**: Owner end-to-end flow LIVE & verified di production
+**Last updated**: 2026-05-19 (post Prompt 4 — mobile crew UX polish)
+**Status**: Owner end-to-end flow LIVE & verified. Crew mobile UX polished (draft auto-save, image compression, success page).
 **Repo**: https://github.com/ramaactivity/tetra-ops
 **Production**: https://tetra-ops.vercel.app
-**Branch**: `main` (commit `31c2998` deployed)
+**Branch**: `main` (commit `6611456` deployed)
 
 ---
 
@@ -38,7 +38,7 @@ Konteks untuk AI lain yang bantu user `ramaactivity` membuat prompt untuk Claude
 
 **Layout groups (App Router)**:
 - `src/app/(auth)/` — login, register, pending
-- `src/app/(crew)/crew/` — mobile-first crew portal
+- `src/app/(crew)/crew/` — mobile-first crew portal; routes: `/`, `/jadwal`, `/jadwal/[projectId]`, `/jadwal/[projectId]/rekap`, `/jadwal/[projectId]/rekap/success` (Prompt 4), `/alat`, `/fee`, `/profile`
 - `src/app/(owner)/` — desktop-first owner panel (sidebar) with mobile bottom-nav fallback
 
 ---
@@ -157,8 +157,15 @@ Hindari design yang auto-divide total / N crew.
 - `crew-fee-form.tsx` — per-crew fee input + per-item chip buttons + PaymentProofUpload component
 - `addon-split-form.tsx` — photomagnet/keychain paid vs bonus split
 - `settled-banner.tsx` — sticky top banner post-settle + View journal + Reopen
-- `rekap-form.tsx` — input form (sama untuk crew + owner retroaktif)
-- `rekap-hero-card.tsx`, `rekap-summary-tab.tsx`, `rekap-audit-tab.tsx`, `approval-preview.tsx`, `review-buttons.tsx`, `rekap-proof-upload.tsx`, dll
+- `rekap-form.tsx` — input form (sama untuk crew + owner retroaktif); Prompt 4 added: useRekapDraft hook wiring, draft restored banner, success redirect via useRouter
+- `needs-rekap-section.tsx` (Prompt 4) — server component surface event past yang butuh submit/revisi rekap, di-render di `/crew` home + `/crew/jadwal`
+- `use-rekap-draft.ts` (Prompt 4) — React hook: load/save draft, beforeunload warning, return restored values + age
+- `rekap-proof-upload.tsx` + `single-file-upload.tsx` — Prompt 4 added: client-side image compression via `compressImage()` sebelum Drive upload
+- `rekap-hero-card.tsx`, `rekap-summary-tab.tsx`, `rekap-audit-tab.tsx`, `approval-preview.tsx`, `review-buttons.tsx`, dll
+
+### Crew utilities (`src/lib/crew/`) — Prompt 4
+- `image-compression.ts` — native Canvas API resize+re-encode, target ≤1MB, JPEG quality 0.82, max 1920px longest edge
+- `recap-draft-storage.ts` — localStorage CRUD dengan 7-day TTL, safe storage check (handles disabled cookies)
 
 ### Page
 - `src/app/(owner)/operations/[projectId]/rekap/page.tsx` (411 LOC) — Server Component yang fetch event + recap + assignments + settlement, dan render state machine (no-rekap → review → pre-settle → settled)
@@ -246,13 +253,18 @@ Cantumkan di setiap prompt — jangan minta Claude lakukan sebaliknya:
 - 3 frame_size_mapping seeded (4R, 2R, polaroid)
 - 9 consumable purchase_price_avg di-set (MEDIA-BASIC Rp 941, dll)
 
-### Code (commit `31c2998` deployed)
+### Code (commit `6611456` deployed)
 - Owner UI unified rekap+settlement live di `/operations/[projectId]/rekap`
 - Stock warning mode (not block)
 - Reimbursement per-item chips
 - Payment proof upload per crew
 - SettledBanner + Reopen flow working
 - /settle dan /tutup-buku legacy routes masih exist (bisa di-deprecate di pass berikutnya)
+- **Crew mobile UX polished (Prompt 4)**:
+  - "Perlu submit rekap" surface di `/crew` home + `/crew/jadwal` (server component `NeedsRekapSection`)
+  - Client-side image compression (native Canvas API, no extra dep) di `RekapProofUpload` + `SingleFileUpload` — ~10-20× lebih kecil payload
+  - localStorage draft auto-save (7-day TTL) + beforeunload warning + restored notice banner di `RekapForm`
+  - Dedicated success page `/crew/jadwal/[projectId]/rekap/success` with summary + back CTAs
 
 ### Verified working end-to-end
 - `PRJ-20260515-36078` Naurah & Sahil — settled, journal balanced Rp 2.351.500 (early demo)
@@ -273,7 +285,12 @@ Cantumkan di setiap prompt — jangan minta Claude lakukan sebaliknya:
 - **Deprecate `/settle` & `/tutup-buku` legacy routes**: redirect ke `/rekap`, atau hapus
 
 ### Medium effort (M)
-- **Mobile Crew UI improvement**: review `/crew/jadwal/[projectId]/rekap` untuk mobile UX (form responsive, foto upload via camera, dll). Crew submit dari HP — user pernah mention ini Prompt 4 candidate.
+- ~~**Mobile Crew UI improvement**~~ — ✅ **DONE Prompt 4** (commit `6611456`). Detail di [REPORT_MOBILE_CREW.md](REPORT_MOBILE_CREW.md).
+- **Frame Size Mapping settings UI** — tabel `frame_size_mapping` sudah seeded (4R/2R/polaroid) tapi belum ada CRUD UI. Owner butuh ini untuk adjust ratio per frame size tanpa SQL.
+- **Package Items Mapping settings UI** — tabel `package_items_mapping` sudah ada tapi belum ada CRUD UI. Owner butuh untuk define paket include item apa.
+- **PWA offline draft submit** — draft sudah persisted di localStorage, tapi submit butuh online. Tambah service worker + background sync queue untuk truly offline submission.
+- **Concurrency lock di submitRekap** — UPSERT race condition kalau 2 crew submit bersamaan. Add `FOR UPDATE` di server action.
+- **Notification trigger ke owner saat rekap submitted** — currently silent. Wire ke push notification system (infra `push-subscriptions` sudah ada).
 - **View Journal page**: SettledBanner punya tombol "View journal" link ke `/finance?journal=...`. Build dedicated journal detail view yang nampilkan double-entry lines.
 - **Equipment depreciation**: Beban Penyusutan 5-500 sudah ada di COA. Build flow untuk monthly depreciation auto-allocation.
 - **Owner pool withdrawal flow**: ada di finance dashboard tapi UX bisa di-polish (saat ini tombol "Record withdrawal" + investor share link).
@@ -326,6 +343,7 @@ Saat user kasih kamu task description, prompt Claude dengan:
 |---|---|
 | [AUDIT_REKAP_MODULE.md](AUDIT_REKAP_MODULE.md) | Original audit + DB schema + state machine + integrations + recommendations |
 | [REPORT_REKAP_REFACTOR.md](REPORT_REKAP_REFACTOR.md) | Chronological pass 1-3 (foundation + UI + bugfixes) |
+| [REPORT_MOBILE_CREW.md](REPORT_MOBILE_CREW.md) | Prompt 4 deliverable — mobile crew UX polish (needs-rekap surface, image compression, draft auto-save, success page) |
 | [VERIFICATION_FINAL_REPORT.md](VERIFICATION_FINAL_REPORT.md) | Executive summary post-verification |
 | [VERIFICATION_DATABASE.md](VERIFICATION_DATABASE.md) | Full spec→actual mapping |
 | [VERIFICATION_RPC.md](VERIFICATION_RPC.md) | settle_event 16-step trace + atomicity proof |
@@ -338,7 +356,9 @@ Saat user kasih kamu task description, prompt Claude dengan:
 ## 12. Git history snapshot
 
 ```
-* 31c2998 (HEAD -> main, origin/main) feat(rekap): stock warning + reimbursement UX + payment proof upload
+* 6611456 (HEAD -> main, origin/main) feat(crew): mobile UX polish — needs-rekap surface, image compression, draft auto-save, success page
+* 31e2afe docs: HANDOVER.md untuk AI prompt assistant
+* 31c2998 feat(rekap): stock warning + reimbursement UX + payment proof upload
 * 5b26188 fix(rekap): consumable prices + frame_size data backfill + snapshot population
 * 40b5a42 feat(rekap): verification reports + RLS hotfix for owner retroactive insert
 * 31341de feat(infra): admin_exec_sql RPC + apply-migration.ts auto-apply workflow
@@ -349,7 +369,7 @@ Saat user kasih kamu task description, prompt Claude dengan:
 * c2290a8 fix(operations): pass icons as ReactNode to CollapsibleCard
 ```
 
-Total session work: ~8 commits, ~6000+ lines code added, ~30 files baru, e2e verified live.
+Total session work cumulative: ~10 commits, ~7000+ lines code added, ~35 files baru, e2e verified live.
 
 ---
 
