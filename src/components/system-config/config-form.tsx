@@ -1,7 +1,7 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
-import { useActionState } from "react";
+import { CheckCircle2, Search } from "lucide-react";
+import { useActionState, useMemo, useState } from "react";
 import {
 	type SystemConfigFormState,
 	updateSystemConfigBatch,
@@ -71,36 +71,86 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 		FormData
 	>(updateSystemConfigBatch, undefined);
 
-	// Group entries by category
-	const grouped = new Map<string, ConfigEntry[]>();
-	for (const e of entries) {
-		const cat = e.category ?? "other";
-		const arr = grouped.get(cat) ?? [];
-		arr.push(e);
-		grouped.set(cat, arr);
-	}
-	// Sort each category
-	for (const [, arr] of grouped) {
-		arr.sort((a, b) => a.key.localeCompare(b.key));
+	const [query, setQuery] = useState("");
+	const normalizedQuery = query.trim().toLowerCase();
+
+	// Group entries by category (memoized — entries identity stable from parent)
+	const { categoriesPresent, groupedMap } = useMemo(() => {
+		const grouped = new Map<string, ConfigEntry[]>();
+		for (const e of entries) {
+			const cat = e.category ?? "other";
+			const arr = grouped.get(cat) ?? [];
+			arr.push(e);
+			grouped.set(cat, arr);
+		}
+		for (const [, arr] of grouped) {
+			arr.sort((a, b) => a.key.localeCompare(b.key));
+		}
+		const present = CATEGORY_ORDER.filter((c) => grouped.has(c));
+		for (const c of grouped.keys()) {
+			if (!present.includes(c)) present.push(c);
+		}
+		return { categoriesPresent: present, groupedMap: grouped };
+	}, [entries]);
+
+	function matchesQuery(entry: ConfigEntry): boolean {
+		if (!normalizedQuery) return true;
+		const haystack = (
+			entry.key +
+			" " +
+			(entry.description ?? "")
+		).toLowerCase();
+		return haystack.includes(normalizedQuery);
 	}
 
-	const categoriesPresent = CATEGORY_ORDER.filter((c) => grouped.has(c));
-	for (const c of grouped.keys()) {
-		if (!categoriesPresent.includes(c)) categoriesPresent.push(c);
-	}
+	const totalMatches = normalizedQuery
+		? entries.filter(matchesQuery).length
+		: entries.length;
 
 	return (
-		<form action={formAction} className="space-y-8 pb-32">
+		<form action={formAction} className="space-y-6 pb-32">
+			{/* Search — filter visible rows by key OR description substring.
+			    Hidden rows stay in DOM so their form inputs serialize on
+			    submit (no risk of silently dropping unchanged keys when
+			    user searches + saves). */}
+			<div className="relative">
+				<Search
+					className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2"
+					aria-hidden
+				/>
+				<input
+					type="search"
+					value={query}
+					onChange={(e) => setQuery(e.target.value)}
+					placeholder="Cari config (key atau deskripsi)…"
+					aria-label="Cari config"
+					className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border pl-10 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
+				/>
+				{normalizedQuery && (
+					<p className="text-muted-foreground mt-1 text-xs">
+						{totalMatches} dari {entries.length} key cocok
+					</p>
+				)}
+			</div>
+
 			{categoriesPresent.map((cat) => {
-				const items = grouped.get(cat) ?? [];
+				const items = groupedMap.get(cat) ?? [];
+				const sectionVisibleCount = items.filter(matchesQuery).length;
+				const sectionHidden =
+					normalizedQuery !== "" && sectionVisibleCount === 0;
 				return (
 					<section
 						key={cat}
-						className="border-border-default bg-surface-2 rounded-xl border p-5"
+						className={`border-border-default bg-surface-2 rounded-xl border p-5 ${sectionHidden ? "hidden" : ""}`}
 					>
 						<header className="mb-5 space-y-1 border-b border-border-default pb-4">
 							<h3 className="text-base font-semibold tracking-tight">
 								{CATEGORY_LABELS[cat] ?? cat}
+								{normalizedQuery && (
+									<span className="text-muted-foreground ml-2 text-xs font-normal">
+										({sectionVisibleCount}/{items.length})
+									</span>
+								)}
 							</h3>
 							{CATEGORY_HINTS[cat] && (
 								<p className="text-muted-foreground text-xs">
@@ -111,7 +161,11 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 
 						<dl className="space-y-5">
 							{items.map((entry) => (
-								<ConfigRow key={entry.key} entry={entry} />
+								<ConfigRow
+									key={entry.key}
+									entry={entry}
+									hidden={!matchesQuery(entry)}
+								/>
 							))}
 						</dl>
 					</section>
@@ -148,11 +202,22 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 	);
 }
 
-function ConfigRow({ entry }: { entry: ConfigEntry }) {
+function ConfigRow({
+	entry,
+	hidden = false,
+}: {
+	entry: ConfigEntry;
+	hidden?: boolean;
+}) {
 	const type = inferType(entry.value);
 
+	// When hidden=true we still render the form inputs (so they serialize
+	// on submit) but apply CSS `hidden` to remove from view. This prevents
+	// search-filter from silently dropping unchanged keys on save.
 	return (
-		<div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,260px)]">
+		<div
+			className={`grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,260px)] ${hidden ? "hidden" : ""}`}
+		>
 			<div className="space-y-0.5">
 				<div className="flex items-center gap-2">
 					<code className="bg-muted text-foreground rounded px-1.5 py-0.5 font-mono text-xs">
