@@ -12,21 +12,25 @@ export type CrewOption = {
 	hasConflict: boolean;
 };
 
+// Role buttons share neutral chrome (border + surface). Differentiation
+// is the label text only — DESIGN.md §867 forbids decorative color
+// categorization. Previous emerald/sky/violet palette was a "second
+// brand color" leak removed in Phase 1 sweep.
 const ROLE_OPTIONS: Array<{ value: string; label: string; tone: string }> = [
 	{
 		value: "lead",
 		label: "Lead",
-		tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20",
+		tone: "border-border-default bg-surface-2 text-foreground hover:bg-secondary",
 	},
 	{
 		value: "asisten",
 		label: "Asisten",
-		tone: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/20",
+		tone: "border-border-default bg-surface-2 text-foreground hover:bg-secondary",
 	},
 	{
 		value: "crew_c",
 		label: "Crew C",
-		tone: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20",
+		tone: "border-border-default bg-surface-2 text-foreground hover:bg-secondary",
 	},
 ];
 

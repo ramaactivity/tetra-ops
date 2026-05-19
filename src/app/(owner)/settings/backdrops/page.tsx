@@ -33,23 +33,16 @@ const TYPE_LABEL: Record<string, string> = {
 	vendor_decor: "Vendor Decor",
 };
 
+// Type badges use semantic Badge variants only (DESIGN.md §867 — no
+// decorative tints). basic = neutral, rental = info (Vercel blue link),
+// vendor = warning (external dependency, monetary risk).
 const TYPE_TONE: Record<
 	string,
-	{ variant: "default" | "secondary" | "outline"; className?: string }
+	{ variant: "default" | "info" | "warning" }
 > = {
-	basic_included: {
-		variant: "outline",
-		className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-	},
-	rental_owned: {
-		variant: "outline",
-		className: "border-primary/30 bg-primary/10 text-primary",
-	},
-	vendor_decor: {
-		variant: "outline",
-		className:
-			"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	},
+	basic_included: { variant: "default" },
+	rental_owned: { variant: "info" },
+	vendor_decor: { variant: "warning" },
 };
 
 export default async function BackdropsListPage() {
@@ -132,7 +125,7 @@ export default async function BackdropsListPage() {
 											</div>
 										</TableCell>
 										<TableCell>
-											<Badge variant={tone.variant} className={tone.className}>
+											<Badge variant={tone.variant}>
 												{TYPE_LABEL[r.type] ?? r.type}
 											</Badge>
 										</TableCell>

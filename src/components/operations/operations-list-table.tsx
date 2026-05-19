@@ -77,20 +77,25 @@ interface Props {
 	crewFilter: string;
 }
 
+// Channel + category dots removed decorative palette per DESIGN.md §867.
+// Channel: primary (in-house signal) vs muted (external/3rd party).
+// Category: all neutral — the text label is the signal. If we need
+// stronger visual scan later, prefer lucide icons over color (icons
+// also work for color-blind users).
 const CHANNEL_DOT: Record<string, string> = {
-	direct: "bg-[#0070f3]",
-	vendor: "bg-amber-500",
-	relasi: "bg-violet-500",
+	direct: "bg-foreground",
+	vendor: "bg-muted-foreground/60",
+	relasi: "bg-muted-foreground/60",
 };
 
 const CATEGORY_DOT: Record<string, string> = {
-	wedding: "bg-rose-400",
-	birthday: "bg-amber-400",
-	wisuda: "bg-[#0070f3]",
-	gathering: "bg-emerald-500",
-	reuni: "bg-teal-500",
+	wedding: "bg-muted-foreground/50",
+	birthday: "bg-muted-foreground/50",
+	wisuda: "bg-muted-foreground/50",
+	gathering: "bg-muted-foreground/50",
+	reuni: "bg-muted-foreground/50",
 	corporate: "bg-foreground",
-	instansi: "bg-violet-500",
+	instansi: "bg-muted-foreground/50",
 	event: "bg-muted-foreground/50",
 };
 

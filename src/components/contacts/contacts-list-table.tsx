@@ -30,15 +30,14 @@ const TYPE_LABELS: Record<string, string> = {
 	other: "Lainnya",
 };
 
+// Contact type badges share neutral chrome — type signal carried by
+// label text only. DESIGN.md §867 forbids decorative color
+// categorization (previous sky/emerald/amber/violet palette removed).
 const TYPE_TONES: Record<string, string> = {
-	booker:
-		"border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-	client:
-		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-	pic_event:
-		"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	vendor:
-		"border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+	booker: "border-border-default bg-secondary text-foreground/85",
+	client: "border-border-default bg-secondary text-foreground/85",
+	pic_event: "border-border-default bg-secondary text-foreground/85",
+	vendor: "border-border-default bg-secondary text-foreground/85",
 };
 
 export function ContactsListTable({ contacts }: { contacts: ContactRow[] }) {
