@@ -156,7 +156,7 @@ function FieldGroup({
 	const hasDefault = rows.some((r) => r.frame_size === "");
 
 	return (
-		<section className="rounded-2xl border border-border-default bg-surface-2 p-5">
+		<section className="rounded-lg border border-border-default bg-surface-2 p-5">
 			<header className="mb-3 flex items-start justify-between gap-3">
 				<div className="flex items-start gap-3">
 					<div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">

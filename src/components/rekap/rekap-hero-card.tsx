@@ -34,7 +34,7 @@ export function RekapHeroCard({
 	submitted,
 }: Props) {
 	return (
-		<div className="relative overflow-hidden rounded-2xl border border-border-default bg-card p-5 sm:p-6">
+		<div className="relative overflow-hidden rounded-lg border border-border-default bg-card p-5 sm:p-6">
 			<div className="relative space-y-3">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="text-fluid-caption font-semibold uppercase tracking-widest text-primary">

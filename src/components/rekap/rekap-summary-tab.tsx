@@ -218,7 +218,7 @@ export function RekapSummaryTab({
 			)}
 
 			{/* ===== TOTAL HPP ===== */}
-			<div className="space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-5">
+			<div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-5">
 				<div className="flex items-baseline justify-between gap-2">
 					<h3 className="text-sm font-semibold tracking-tight">
 						Estimasi HPP total

@@ -75,7 +75,7 @@ export function WithdrawalButton({
 						onClick={() => setOpen(false)}
 						className="absolute inset-0 bg-black/40 backdrop-blur-sm"
 					/>
-					<div className="bg-surface-2 border-border-default relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl">
+					<div className="bg-surface-2 border-border-default relative z-10 w-full max-w-lg overflow-hidden rounded-lg border shadow-[var(--shadow-level-5)]">
 						<div className="border-border-default flex items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">

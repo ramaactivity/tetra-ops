@@ -461,7 +461,7 @@ export default async function DashboardPage() {
 							Quick Actions
 						</h2>
 					</div>
-					<div className="grid gap-1 rounded-2xl border border-border-default bg-surface-2 p-2">
+					<div className="grid gap-1 rounded-lg border border-border-default bg-surface-2 p-2">
 						<QuickAction
 							href="/operations/new"
 							icon={PlusCircle}
