@@ -8,12 +8,14 @@ export async function NotificationBell() {
 	if (!me) return null;
 
 	const supabase = await createClient();
+	const nowIso = new Date().toISOString();
 	const { count } = await supabase
 		.from("notifications")
 		.select("id", { count: "exact", head: true })
 		.eq("user_id", me.profile.id)
 		.eq("is_read", false)
-		.eq("is_dismissed", false);
+		.eq("is_dismissed", false)
+		.or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
 	const unread = count ?? 0;
 	const display = unread > 99 ? "99+" : String(unread);

@@ -135,6 +135,11 @@ export default async function NotificationsPage({
 	const showAll = params.show === "all";
 
 	const supabase = await createClient();
+	// Hide notifications whose expires_at is in the past. Two-clause filter
+	// (or expires_at.is.null,expires_at.gt.now) keeps non-expiring rows
+	// visible while filtering only on stale ones — prevents DB bloat in UI
+	// (audit AUDIT_UI_UX.md §3.8 P1).
+	const nowIso = new Date().toISOString();
 	let query = supabase
 		.from("notifications")
 		.select(
@@ -142,6 +147,7 @@ export default async function NotificationsPage({
 		)
 		.eq("user_id", me.profile.id)
 		.eq("is_dismissed", false)
+		.or(`expires_at.is.null,expires_at.gt.${nowIso}`)
 		.order("created_at", { ascending: false })
 		.limit(200);
 
@@ -156,7 +162,8 @@ export default async function NotificationsPage({
 			.select("id", { count: "exact", head: true })
 			.eq("user_id", me.profile.id)
 			.eq("is_dismissed", false)
-			.eq("is_read", false),
+			.eq("is_read", false)
+			.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
 	]);
 
 	if (error) {
