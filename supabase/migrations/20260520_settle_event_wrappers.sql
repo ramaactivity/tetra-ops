@@ -99,6 +99,26 @@ COMMENT ON FUNCTION _validate_recap_stock_sufficient IS
 -- Returns journal_entry_id
 -- ============================================================================
 
+--
+-- _create_settlement_journal v2 — fixed double-entry.
+--
+-- Double-entry logic:
+--   DEBITS:
+--     • Cash (1-100)        = revenue_net − opex_total (net cash inflow; HPP doesn't touch cash)
+--     • HPP buckets (5-1xx) = per bucket value (expense recognition)
+--     • OpEx buckets (5-2/3/4xx) = per bucket value (expense recognition)
+--     • Retained Earnings (3-200) = sinking_total + owner_pool_total (book transfer to liabilities)
+--
+--   CREDITS:
+--     • Revenue (4-100)     = revenue_net
+--     • Inventory (1-200..1-205, 1-209) per HPP bucket = inventory asset reduction
+--     • Sinking liabilities (2-200..2-203) per fund (split via query sinking_fund_movements)
+--     • Owner Pool liability (2-300) = owner_pool_total
+--
+-- Balance: Dr = Cr = revenue_net + hpp_total + sinking_total + owner_pool_total.
+-- p_operating_cash parameter kept for signature compat but unused (it was the bug source).
+--
+
 CREATE OR REPLACE FUNCTION _create_settlement_journal(
   p_settlement_id UUID,
   p_event_id UUID,
@@ -107,60 +127,59 @@ CREATE OR REPLACE FUNCTION _create_settlement_journal(
   p_revenue_net BIGINT,
   p_sinking_total BIGINT,
   p_owner_pool_total BIGINT,
-  p_operating_cash BIGINT,
+  p_operating_cash BIGINT,  -- UNUSED (kept for backward signature compat)
   p_actor_id UUID,
   p_entry_date DATE
 ) RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
-  v_entry_id   UUID;
-  v_ref_id     TEXT;
-  v_total      BIGINT;
-  v_line_ord   INTEGER := 0;
+  v_entry_id    UUID;
+  v_ref_id      TEXT;
+  v_total       BIGINT;
+  v_line_ord    INTEGER := 0;
+  v_hpp_total   BIGINT;
+  v_opex_total  BIGINT;
+  v_cash_net    BIGINT;
+  v_fund        RECORD;
 
-  -- HPP bucket → COA code mapping
-  v_coa_mediaset    TEXT := '5-100';
-  v_coa_sleeve      TEXT := '5-101';
-  v_coa_flashdisk   TEXT := '5-102';
-  v_coa_pouch       TEXT := '5-103';
-  v_coa_photomagnet TEXT := '5-104';
-  v_coa_keychain    TEXT := '5-105';
-  v_coa_bonus       TEXT := '5-411';  -- Beban Bonus Klien
-  v_coa_other_cogs  TEXT := '5-109';
+  -- Lambda helpers via inline IF: pakai mapping flat.
 
-  -- OpEx bucket → COA mapping
-  v_coa_fee_lead    TEXT := '5-201';
-  v_coa_fee_asisten TEXT := '5-202';
-  v_coa_fee_crew_c  TEXT := '5-203';
-  v_coa_fee_extra   TEXT := '5-204';
-  v_coa_transport   TEXT := '5-210';
-  v_coa_sewa        TEXT := '5-220';
-  v_coa_perawatan   TEXT := '5-230';
-  v_coa_konsumsi    TEXT := '5-240';
-  v_coa_komisi_v    TEXT := '5-300';
-  v_coa_komisi_r    TEXT := '5-301';
-  v_coa_komisi_sd   TEXT := '5-301';
-  v_coa_platform    TEXT := '5-400';
-  v_coa_diskon      TEXT := '4-200';  -- contra-revenue
-
-  -- Asset / liability / revenue COAs
-  v_coa_cash        TEXT := '1-100';  -- default: kas tunai (caller bisa override via journal_lines manual)
-  v_coa_revenue     TEXT := '4-100';  -- default photobooth revenue (per category override TBD)
-  v_coa_sink_eq     TEXT := '2-200';
-  v_coa_sink_mt     TEXT := '2-201';
-  v_coa_sink_cr     TEXT := '2-202';
-  v_coa_sink_em     TEXT := '2-203';
-  v_coa_owner_pool  TEXT := '2-300';
-  v_coa_retained    TEXT := '3-200';
 BEGIN
   v_ref_id := generate_journal_reference(p_entry_date);
-  v_total := p_revenue_net;  -- revenue side total
+
+  -- Compute totals
+  v_hpp_total :=
+      COALESCE((p_hpp->>'mediaset')::BIGINT, 0)
+    + COALESCE((p_hpp->>'sleeve')::BIGINT, 0)
+    + COALESCE((p_hpp->>'flashdisk')::BIGINT, 0)
+    + COALESCE((p_hpp->>'pouch')::BIGINT, 0)
+    + COALESCE((p_hpp->>'photomagnet')::BIGINT, 0)
+    + COALESCE((p_hpp->>'keychain')::BIGINT, 0)
+    + COALESCE((p_hpp->>'bonus')::BIGINT, 0)
+    + COALESCE((p_hpp->>'other')::BIGINT, 0);
+
+  v_opex_total :=
+      COALESCE((p_opex->>'fee_lead')::BIGINT, 0)
+    + COALESCE((p_opex->>'fee_asisten')::BIGINT, 0)
+    + COALESCE((p_opex->>'fee_crew_c')::BIGINT, 0)
+    + COALESCE((p_opex->>'fee_extra')::BIGINT, 0)
+    + COALESCE((p_opex->>'transport_bbm')::BIGINT, 0)
+    + COALESCE((p_opex->>'sewa_alat')::BIGINT, 0)
+    + COALESCE((p_opex->>'perawatan')::BIGINT, 0)
+    + COALESCE((p_opex->>'konsumsi')::BIGINT, 0)
+    + COALESCE((p_opex->>'komisi_vendor')::BIGINT, 0)
+    + COALESCE((p_opex->>'komisi_relasi')::BIGINT, 0)
+    + COALESCE((p_opex->>'komisi_sales_direct')::BIGINT, 0)
+    + COALESCE((p_opex->>'platform_fee')::BIGINT, 0);
+    -- Note: diskon_tambahan deliberately excluded (sudah di-baked into revenue_net = grand_total)
+
+  v_cash_net := p_revenue_net - v_opex_total;
+  v_total := p_revenue_net + v_hpp_total + p_sinking_total + p_owner_pool_total;
 
   -- Insert journal entry header
-  -- entry_type = 'expense' (paling dekat dengan settlement; settlement bukan enum value sendiri)
   INSERT INTO journal_entries (
     ref_id, entry_date, entry_type, description,
     source_type, source_id, source_event_id,
@@ -172,157 +191,217 @@ BEGIN
     v_total, p_actor_id
   ) RETURNING id INTO v_entry_id;
 
-  -- ============================
-  -- DEBIT side (uses of cash/value)
-  -- ============================
+  -- =================== DEBITS ===================
 
-  -- HPP buckets (COGS)
+  -- 1. Cash (net inflow from event after OpEx paid; HPP doesn't affect cash)
+  IF v_cash_net > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
+    VALUES (v_entry_id, '1-100', v_cash_net, 'Net cash inflow (revenue − opex)', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  ELSIF v_cash_net < 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-100', -v_cash_net, 'Net cash outflow (opex > revenue)', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+
+  -- 2. HPP expense recognition (per bucket)
   IF (p_hpp->>'mediaset')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_mediaset, (p_hpp->>'mediaset')::BIGINT, 'HPP Mediaset', v_line_ord);
+    VALUES (v_entry_id, '5-100', (p_hpp->>'mediaset')::BIGINT, 'HPP Mediaset', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_hpp->>'sleeve')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_sleeve, (p_hpp->>'sleeve')::BIGINT, 'HPP Sleeve', v_line_ord);
+    VALUES (v_entry_id, '5-101', (p_hpp->>'sleeve')::BIGINT, 'HPP Sleeve', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_hpp->>'flashdisk')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_flashdisk, (p_hpp->>'flashdisk')::BIGINT, 'HPP Flashdisk', v_line_ord);
+    VALUES (v_entry_id, '5-102', (p_hpp->>'flashdisk')::BIGINT, 'HPP Flashdisk', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_hpp->>'pouch')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_pouch, (p_hpp->>'pouch')::BIGINT, 'HPP Pouch', v_line_ord);
+    VALUES (v_entry_id, '5-103', (p_hpp->>'pouch')::BIGINT, 'HPP Pouch', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_hpp->>'photomagnet')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_photomagnet, (p_hpp->>'photomagnet')::BIGINT, 'HPP Photomagnet', v_line_ord);
+    VALUES (v_entry_id, '5-104', (p_hpp->>'photomagnet')::BIGINT, 'HPP Photomagnet', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_hpp->>'keychain')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_keychain, (p_hpp->>'keychain')::BIGINT, 'HPP Keychain', v_line_ord);
+    VALUES (v_entry_id, '5-105', (p_hpp->>'keychain')::BIGINT, 'HPP Keychain', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_hpp->>'bonus')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_bonus, (p_hpp->>'bonus')::BIGINT, 'Cost of bonus/freebie', v_line_ord);
+    VALUES (v_entry_id, '5-411', (p_hpp->>'bonus')::BIGINT, 'Cost of bonus/freebie klien', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF COALESCE((p_hpp->>'other')::BIGINT, 0) > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_other_cogs, (p_hpp->>'other')::BIGINT, 'HPP Lainnya', v_line_ord);
+    VALUES (v_entry_id, '5-109', (p_hpp->>'other')::BIGINT, 'HPP Lainnya', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
 
-  -- OpEx buckets
+  -- 3. OpEx expense recognition (cash side already netted above)
   IF (p_opex->>'fee_lead')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_fee_lead, (p_opex->>'fee_lead')::BIGINT, 'Fee Lead', v_line_ord);
+    VALUES (v_entry_id, '5-201', (p_opex->>'fee_lead')::BIGINT, 'Fee Lead', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'fee_asisten')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_fee_asisten, (p_opex->>'fee_asisten')::BIGINT, 'Fee Asisten', v_line_ord);
+    VALUES (v_entry_id, '5-202', (p_opex->>'fee_asisten')::BIGINT, 'Fee Asisten', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'fee_crew_c')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_fee_crew_c, (p_opex->>'fee_crew_c')::BIGINT, 'Fee Crew C', v_line_ord);
+    VALUES (v_entry_id, '5-203', (p_opex->>'fee_crew_c')::BIGINT, 'Fee Crew C', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'fee_extra')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_fee_extra, (p_opex->>'fee_extra')::BIGINT, 'Fee Extra', v_line_ord);
+    VALUES (v_entry_id, '5-204', (p_opex->>'fee_extra')::BIGINT, 'Fee Extra / Bonus crew', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'transport_bbm')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_transport, (p_opex->>'transport_bbm')::BIGINT, 'Transport & BBM', v_line_ord);
+    VALUES (v_entry_id, '5-210', (p_opex->>'transport_bbm')::BIGINT, 'Transport & BBM', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'sewa_alat')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_sewa, (p_opex->>'sewa_alat')::BIGINT, 'Sewa alat', v_line_ord);
+    VALUES (v_entry_id, '5-220', (p_opex->>'sewa_alat')::BIGINT, 'Sewa alat', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'perawatan')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_perawatan, (p_opex->>'perawatan')::BIGINT, 'Perawatan alat', v_line_ord);
+    VALUES (v_entry_id, '5-230', (p_opex->>'perawatan')::BIGINT, 'Perawatan alat', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'konsumsi')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_konsumsi, (p_opex->>'konsumsi')::BIGINT, 'Konsumsi', v_line_ord);
+    VALUES (v_entry_id, '5-240', (p_opex->>'konsumsi')::BIGINT, 'Konsumsi', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'komisi_vendor')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_komisi_v, (p_opex->>'komisi_vendor')::BIGINT, 'Komisi vendor', v_line_ord);
+    VALUES (v_entry_id, '5-300', (p_opex->>'komisi_vendor')::BIGINT, 'Komisi vendor', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'komisi_relasi')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_komisi_r, (p_opex->>'komisi_relasi')::BIGINT, 'Komisi relasi', v_line_ord);
+    VALUES (v_entry_id, '5-301', (p_opex->>'komisi_relasi')::BIGINT, 'Komisi relasi/sales', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_opex->>'komisi_sales_direct')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
+    VALUES (v_entry_id, '5-301', (p_opex->>'komisi_sales_direct')::BIGINT, 'Komisi sales direct', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
   IF (p_opex->>'platform_fee')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_platform, (p_opex->>'platform_fee')::BIGINT, 'Platform fee', v_line_ord);
+    VALUES (v_entry_id, '5-400', (p_opex->>'platform_fee')::BIGINT, 'Platform fee', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
-  IF (p_opex->>'diskon_tambahan')::BIGINT > 0 THEN
-    INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_diskon, (p_opex->>'diskon_tambahan')::BIGINT, 'Diskon tambahan (contra-revenue)', v_line_ord);
-    v_line_ord := v_line_ord + 1;
-  END IF;
+  -- diskon_tambahan: NOT debited here. Diskon sudah dipotong dari grand_total → revenue_net,
+  -- jadi double-counting kalau di-debit lagi.
 
-  -- Sinking funds (debit kontra ke retained → credit sinking liability)
+  -- 4. Allocation transfers: Retained Earnings → Liabilities
   IF p_sinking_total > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_retained, p_sinking_total, 'Allocation to sinking funds', v_line_ord);
+    VALUES (v_entry_id, '3-200', p_sinking_total, 'Transfer Retained Earnings → Sinking Funds', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
-
-  -- Owner pool allocation
   IF p_owner_pool_total > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, debit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_retained, p_owner_pool_total, 'Allocation to owner pool', v_line_ord);
+    VALUES (v_entry_id, '3-200', p_owner_pool_total, 'Transfer Retained Earnings → Owner Pool', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
 
-  -- ============================
-  -- CREDIT side (sources of value)
-  -- ============================
+  -- =================== CREDITS ===================
 
-  -- Revenue
+  -- 5. Revenue recognition
   IF p_revenue_net > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_revenue, p_revenue_net, 'Revenue dari event', v_line_ord);
+    VALUES (v_entry_id, '4-100', p_revenue_net, 'Revenue dari event', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
 
-  -- Sinking fund liabilities (credit)
-  IF p_sinking_total > 0 THEN
+  -- 6. Inventory reduction (per HPP bucket → inventory asset COA)
+  IF (p_hpp->>'mediaset')::BIGINT > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_sink_eq, p_sinking_total, 'Sinking funds aggregate (split breakdown in sinking_fund_movements)', v_line_ord);
+    VALUES (v_entry_id, '1-200', (p_hpp->>'mediaset')::BIGINT, 'Reduce inventory: Media Set', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_hpp->>'sleeve')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-201', (p_hpp->>'sleeve')::BIGINT, 'Reduce inventory: Sleeve', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_hpp->>'flashdisk')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-202', (p_hpp->>'flashdisk')::BIGINT, 'Reduce inventory: Flashdisk', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_hpp->>'pouch')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-203', (p_hpp->>'pouch')::BIGINT, 'Reduce inventory: Pouch', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_hpp->>'photomagnet')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-204', (p_hpp->>'photomagnet')::BIGINT, 'Reduce inventory: Photomagnet', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_hpp->>'keychain')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-205', (p_hpp->>'keychain')::BIGINT, 'Reduce inventory: Keychain', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF (p_hpp->>'bonus')::BIGINT > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-209', (p_hpp->>'bonus')::BIGINT, 'Reduce inventory: Bonus items', v_line_ord);
+    v_line_ord := v_line_ord + 1;
+  END IF;
+  IF COALESCE((p_hpp->>'other')::BIGINT, 0) > 0 THEN
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (v_entry_id, '1-209', (p_hpp->>'other')::BIGINT, 'Reduce inventory: Lainnya', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
 
-  -- Owner pool liability (credit)
+  -- 7. Sinking fund liabilities (split per fund — query from movements just inserted)
+  FOR v_fund IN
+    SELECT sf.code, sfm.amount
+    FROM sinking_fund_movements sfm
+    JOIN sinking_funds sf ON sf.id = sfm.fund_id
+    WHERE sfm.source_settlement_id = p_settlement_id
+      AND sfm.movement_type = 'deposit'
+  LOOP
+    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
+    VALUES (
+      v_entry_id,
+      CASE v_fund.code
+        WHEN 'equipment'    THEN '2-200'
+        WHEN 'maintenance'  THEN '2-201'
+        WHEN 'crew_reserve' THEN '2-202'
+        WHEN 'emergency'    THEN '2-203'
+        ELSE '2-200'  -- fallback (unlikely)
+      END,
+      v_fund.amount,
+      'Sinking liability: ' || v_fund.code,
+      v_line_ord
+    );
+    v_line_ord := v_line_ord + 1;
+  END LOOP;
+
+  -- 8. Owner pool liability
   IF p_owner_pool_total > 0 THEN
     INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_owner_pool, p_owner_pool_total, 'Owner pool liability', v_line_ord);
-    v_line_ord := v_line_ord + 1;
-  END IF;
-
-  -- Operating cash kept (balance plug → retained earnings)
-  IF p_operating_cash > 0 THEN
-    INSERT INTO journal_lines (entry_id, account_code, credit_amount, description, line_order)
-    VALUES (v_entry_id, v_coa_retained, p_operating_cash, 'Operating cash retained', v_line_ord);
+    VALUES (v_entry_id, '2-300', p_owner_pool_total, 'Owner pool liability', v_line_ord);
     v_line_ord := v_line_ord + 1;
   END IF;
 
@@ -630,7 +709,7 @@ BEGIN
   -- ------------------------------------------------------------------
   -- 11. Stock deduction (batch)
   -- ------------------------------------------------------------------
-  v_batch_id := uuid_generate_v4();
+  v_batch_id := gen_random_uuid();
   v_frame_size := COALESCE(v_recap.frame_size_snapshot, v_event.frame_size);
 
   FOR v_dline IN
@@ -663,7 +742,7 @@ BEGIN
         source, source_id, source_description,
         performed_by, notes
       ) VALUES (
-        'SM-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(uuid_generate_v4()::TEXT, 1, 8),
+        'SM-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(gen_random_uuid()::TEXT, 1, 8),
         v_dline.item_id, 'out', (v_dline.qty_consumed * v_dline.qty_per_unit)::INTEGER, v_dline.purchase_price_avg,
         'settlement'::movement_source, p_event_id,
         'Settle event ' || v_event.project_id || ' (batch ' || v_batch_id || ')',
@@ -675,7 +754,7 @@ BEGIN
   -- Bonus item deduction (event_bonuses → addon.inventory_item)
   INSERT INTO stock_movements (ref_id, item_id, direction, quantity, unit_cost, source, source_id, source_description, performed_by, notes)
   SELECT
-    'SM-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(uuid_generate_v4()::TEXT, 1, 8),
+    'SM-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(gen_random_uuid()::TEXT, 1, 8),
     a.inventory_item_id, 'out', eb.quantity::INTEGER, COALESCE(i.purchase_price_avg, 0),
     'settlement'::movement_source, p_event_id,
     'Bonus item: ' || a.name || ' (batch ' || v_batch_id || ')',
@@ -878,14 +957,14 @@ BEGIN
   -- ------------------------------------------------------------------
   -- 3. Reverse stock movements (positive 'in' offsets)
   -- ------------------------------------------------------------------
-  v_batch_id := uuid_generate_v4();
+  v_batch_id := gen_random_uuid();
   INSERT INTO stock_movements (
     ref_id, item_id, direction, quantity, unit_cost,
     source, source_id, source_description,
     performed_by, notes
   )
   SELECT
-    'SM-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(uuid_generate_v4()::TEXT, 1, 8),
+    'SM-' || to_char(NOW(), 'YYYYMMDD') || '-' || substr(gen_random_uuid()::TEXT, 1, 8),
     item_id, 'in', quantity, unit_cost,
     'settlement'::movement_source, p_event_id,
     'Reopen settlement (' || p_reason || ') batch ' || v_batch_id,
