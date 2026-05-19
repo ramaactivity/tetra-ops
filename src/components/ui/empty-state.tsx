@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
  */
 
 const emptyStateVariants = cva(
-	"flex flex-col items-center justify-center gap-3 rounded-xl text-center",
+	"flex flex-col items-center justify-center gap-3 rounded-lg text-center",
 	{
 		variants: {
 			variant: {
