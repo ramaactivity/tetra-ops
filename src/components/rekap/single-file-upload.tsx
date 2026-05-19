@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
+import { compressImage } from "@/lib/crew/image-compression";
 
 const ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
@@ -43,9 +44,15 @@ export function SingleFileUpload({
 	const [uploading, setUploading] = useState(false);
 	const [lastError, setLastError] = useState<string | null>(null);
 
-	async function handleFile(file: File) {
+	async function handleFile(rawFile: File) {
 		setLastError(null);
 		setUploading(true);
+		let file = rawFile;
+		try {
+			file = await compressImage(rawFile);
+		} catch {
+			file = rawFile;
+		}
 		const fd = new FormData();
 		fd.set("file", file);
 		fd.set("kind", kind);

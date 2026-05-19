@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatRupiah } from "@/lib/format";
@@ -156,6 +157,8 @@ export default async function CrewHomePage() {
 					{ID_DATE_FULL.format(today)}
 				</p>
 			</header>
+
+			<NeedsRekapSection userId={me.profile.id} />
 
 			<dl className="grid grid-cols-2 gap-3">
 				<StatCard

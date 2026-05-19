@@ -6,15 +6,18 @@ import {
 	Coffee,
 	Car,
 	Plus,
+	Save,
 	Sparkles,
 	Wallet,
 	X,
 } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { RekapContextCard } from "@/components/rekap/rekap-context-card";
 import { RekapProofUpload } from "@/components/rekap/rekap-proof-upload";
 import { RekapSummaryBar } from "@/components/rekap/rekap-summary-bar";
 import { SingleFileUpload } from "@/components/rekap/single-file-upload";
+import { useRekapDraft } from "@/components/rekap/use-rekap-draft";
 import { Badge } from "@/components/ui/badge";
 import {
 	Combobox,
@@ -95,6 +98,7 @@ export function RekapForm({
 	mode: "create" | "update";
 	context: RekapContext;
 }) {
+	const router = useRouter();
 	const action = submitRekap.bind(null, eventId, projectId);
 	const [state, formAction, pending] = useActionState<
 		RekapFormState,
@@ -277,6 +281,152 @@ export function RekapForm({
 		[defaults.proof_photo_urls],
 	);
 	const [proofUrls, setProofUrls] = useState<string[]>(initialUrls);
+
+	// === Draft persistence (localStorage, 7 day TTL) ===
+	const draftValues = useMemo<Record<string, string>>(
+		() => ({
+			cetak_total: cetak,
+			media_set_used: media,
+			sleeve_used: sleeve,
+			flashdisk_used: flashdisk,
+			pouch_used: pouch,
+			photomagnet_used: photomagnet,
+			keychain_used: keychain,
+			custom_materials: JSON.stringify(customMaterials),
+			transport_method: transportMethod,
+			transport_cost: transportCost,
+			bensin_cost: bensinCost,
+			toll_cost: tollCost,
+			parking_cost: parkingCost,
+			konsumsi_cost: konsumsiCost,
+			lainnya_items: JSON.stringify(lainnyaItems),
+		}),
+		[
+			cetak,
+			media,
+			sleeve,
+			flashdisk,
+			pouch,
+			photomagnet,
+			keychain,
+			customMaterials,
+			transportMethod,
+			transportCost,
+			bensinCost,
+			tollCost,
+			parkingCost,
+			konsumsiCost,
+			lainnyaItems,
+		],
+	);
+
+	const {
+		restoredValues,
+		restoredAgeMs,
+		clear: clearDraftState,
+	} = useRekapDraft(eventId, draftValues, mode === "create");
+	const [draftRestoredNotice, setDraftRestoredNotice] = useState(false);
+
+	useEffect(() => {
+		if (!restoredValues) return;
+		// Apply restored draft values exactly once on mount.
+		const numeric = (k: string) => {
+			const v = restoredValues[k];
+			if (v === undefined) return null;
+			return String(v);
+		};
+		const c = numeric("cetak_total");
+		if (c !== null) {
+			setCetak(c);
+			markTouched("cetak_total");
+		}
+		const m = numeric("media_set_used");
+		if (m !== null) {
+			setMedia(m);
+			markTouched("media_set_used");
+		}
+		const s = numeric("sleeve_used");
+		if (s !== null) {
+			setSleeve(s);
+			markTouched("sleeve_used");
+		}
+		const fd = numeric("flashdisk_used");
+		if (fd !== null) {
+			setFlashdisk(fd);
+			markTouched("flashdisk_used");
+		}
+		const pc = numeric("pouch_used");
+		if (pc !== null) {
+			setPouch(pc);
+			markTouched("pouch_used");
+		}
+		const pm = numeric("photomagnet_used");
+		if (pm !== null) {
+			setPhotomagnet(pm);
+			markTouched("photomagnet_used");
+		}
+		const kc = numeric("keychain_used");
+		if (kc !== null) {
+			setKeychain(kc);
+			markTouched("keychain_used");
+		}
+		const cm = restoredValues.custom_materials;
+		if (cm) {
+			try {
+				const parsed = JSON.parse(cm);
+				if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+					const out: Record<string, number> = {};
+					for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+						const n = Number(v);
+						if (Number.isFinite(n) && n > 0) out[k] = Math.floor(n);
+					}
+					setCustomMaterials(out);
+				}
+			} catch {}
+		}
+		const tm = restoredValues.transport_method;
+		if (tm === "online" || tm === "rental" || tm === "none") {
+			setTransportMethod(tm);
+		}
+		const tc = numeric("transport_cost");
+		if (tc !== null) setTransportCost(tc);
+		const bc = numeric("bensin_cost");
+		if (bc !== null) setBensinCost(bc);
+		const tlc = numeric("toll_cost");
+		if (tlc !== null) setTollCost(tlc);
+		const prk = numeric("parking_cost");
+		if (prk !== null) setParkingCost(prk);
+		const ksm = numeric("konsumsi_cost");
+		if (ksm !== null) setKonsumsiCost(ksm);
+		const li = restoredValues.lainnya_items;
+		if (li) {
+			try {
+				const parsed = JSON.parse(li);
+				if (Array.isArray(parsed)) {
+					const out: Array<{ note: string; amount: number }> = [];
+					for (const row of parsed) {
+						if (!row || typeof row !== "object") continue;
+						const r = row as Record<string, unknown>;
+						const note = String(r.note ?? "").slice(0, 120);
+						const amount = Number(r.amount);
+						if (!Number.isFinite(amount) || amount < 0) continue;
+						out.push({ note, amount: Math.round(amount) });
+						if (out.length >= 20) break;
+					}
+					setLainnyaItems(out);
+				}
+			} catch {}
+		}
+		setDraftRestoredNotice(true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [restoredValues]);
+
+	// Clear draft + navigate to success page after successful submit.
+	useEffect(() => {
+		if (!state?.success) return;
+		clearDraftState();
+		router.push(`/crew/jadwal/${projectId}/rekap/success`);
+	}, [state?.success, clearDraftState, projectId, router]);
 
 	// === Live cost computation ===
 	const quantities = useMemo<RekapQuantities>(() => {
@@ -467,7 +617,31 @@ export function RekapForm({
 			{state?.success && (
 				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
 					<CheckCircle2 className="h-4 w-4" />
-					Rekap tersimpan. Owner akan review sebelum settlement.
+					Rekap tersimpan. Mengarahkan ke ringkasan…
+				</div>
+			)}
+			{draftRestoredNotice && !state?.success && (
+				<div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50/60 p-3 text-xs leading-relaxed dark:border-blue-900 dark:bg-blue-950/30">
+					<Save className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+					<div className="flex-1">
+						<p className="text-blue-900 dark:text-blue-200 font-medium">
+							Draft dipulihkan
+						</p>
+						<p className="text-blue-900/80 dark:text-blue-200/80">
+							{restoredAgeMs !== null
+								? `Tersimpan ${formatRelativeAge(restoredAgeMs)}. `
+								: ""}
+							Edit seperlunya & submit.
+						</p>
+					</div>
+					<button
+						type="button"
+						onClick={() => setDraftRestoredNotice(false)}
+						className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+						aria-label="Tutup notice"
+					>
+						<X className="h-3.5 w-3.5" />
+					</button>
 				</div>
 			)}
 			{state?.errors?._form && (
@@ -1417,6 +1591,17 @@ function MoneyField({
 			</div>
 		</div>
 	);
+}
+
+function formatRelativeAge(ms: number): string {
+	const sec = Math.floor(ms / 1000);
+	if (sec < 60) return "barusan";
+	const min = Math.floor(sec / 60);
+	if (min < 60) return `${min} menit lalu`;
+	const hr = Math.floor(min / 60);
+	if (hr < 24) return `${hr} jam lalu`;
+	const day = Math.floor(hr / 24);
+	return `${day} hari lalu`;
 }
 
 function extractName(url: string): string {

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, formatRupiah } from "@/lib/format";
@@ -110,6 +111,8 @@ export default async function CrewSchedulePage({
 					Event yang lo di-assign sebagai crew.
 				</p>
 			</header>
+
+			<NeedsRekapSection userId={me.profile.id} />
 
 			<div className="border-border-default flex gap-1 border-b">
 				<TabLink

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
+import { compressImage } from "@/lib/crew/image-compression";
 
 const ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
@@ -55,9 +56,15 @@ export function RekapProofUpload({
 		// Sequential to avoid Drive rate limits + so seq numbers are
 		// predictable. Item state is updated after each successful upload.
 		for (let i = 0; i < filesArr.length; i++) {
-			const file = filesArr[i];
+			const rawFile = filesArr[i];
 			const seq = String(items.length + i + 1).padStart(2, "0");
-			setUploading((prev) => [...prev, file.name]);
+			setUploading((prev) => [...prev, rawFile.name]);
+			let file = rawFile;
+			try {
+				file = await compressImage(rawFile);
+			} catch {
+				file = rawFile;
+			}
 			const fd = new FormData();
 			fd.set("file", file);
 			fd.set("kind", "rekap_proof");
@@ -75,13 +82,13 @@ export function RekapProofUpload({
 				};
 				if (!res.ok || !data.ok || !data.url) {
 					const msg = data.error ?? `Upload gagal (HTTP ${res.status})`;
-					setLastError(`${file.name}: ${msg}`);
-					toast.error(`${file.name}: ${msg}`);
+					setLastError(`${rawFile.name}: ${msg}`);
+					toast.error(`${rawFile.name}: ${msg}`);
 					continue;
 				}
 				const newItem: RekapProofItem = {
 					url: data.url,
-					name: data.name ?? file.name,
+					name: data.name ?? rawFile.name,
 				};
 				setItems((prev) => {
 					const next = [...prev, newItem];
@@ -91,10 +98,10 @@ export function RekapProofUpload({
 				toast.success(`✓ ${newItem.name}`);
 			} catch (e) {
 				const msg = e instanceof Error ? e.message : "Upload gagal";
-				setLastError(`${file.name}: ${msg}`);
-				toast.error(`${file.name}: ${msg}`);
+				setLastError(`${rawFile.name}: ${msg}`);
+				toast.error(`${rawFile.name}: ${msg}`);
 			} finally {
-				setUploading((prev) => prev.filter((n) => n !== file.name));
+				setUploading((prev) => prev.filter((n) => n !== rawFile.name));
 			}
 		}
 	}
@@ -205,8 +212,8 @@ export function RekapProofUpload({
 			)}
 
 			<p className="text-[11px] text-muted-foreground">
-				Foto counter mesin / area event / consumable. Multi-file boleh.
-				Auto-rename:{" "}
+				Foto counter mesin / area event / consumable. Multi-file boleh. Foto
+				di-kompres otomatis sebelum upload (hemat data). Auto-rename:{" "}
 				<span className="font-mono">PRJ-… - REKAP - YYYY-MM-DD - NN</span>
 			</p>
 		</div>
