@@ -68,6 +68,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	loss: "Loss",
 	stock_take: "Stock Take",
 	transfer: "Transfer",
+	rekap_consumption: "Rekap Approval",
 };
 
 export function ConsumablesTable({
