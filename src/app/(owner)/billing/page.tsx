@@ -24,6 +24,10 @@ function lastDayOfMonth(year: number, month: number): string {
 	return `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+function currentYearMonth(): string {
+	const today = new Date();
+	return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export default async function BillingPage({
 	searchParams,
@@ -33,7 +37,15 @@ export default async function BillingPage({
 	const params = await searchParams;
 	const q = params.q?.trim() ?? "";
 	const tab = params.tab?.trim() ?? "all";
-	const month = params.month?.trim() ?? "";
+	// Month filter auto-defaults to current YYYY-MM; explicit `?month=all`
+	// opts out for cross-month view.
+	const monthParam = params.month?.trim() ?? "";
+	const month =
+		monthParam === "all"
+			? ""
+			: monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+				? monthParam
+				: currentYearMonth();
 
 	const supabase = await createClient();
 
@@ -208,7 +220,11 @@ export default async function BillingPage({
 			<div className="space-y-4">
 				<BillingTabs current={tab} counts={tabCounts} />
 
-				<BillingFilterBar defaultQ={q} defaultMonth={month} />
+				<BillingFilterBar
+				defaultQ={q}
+				defaultMonth={month}
+				monthShowsAll={monthParam === "all"}
+			/>
 
 				{events.length === 0 ? (
 					<EmptyState

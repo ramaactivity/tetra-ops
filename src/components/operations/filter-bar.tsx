@@ -45,6 +45,7 @@ export function OperationsFilterBar({
 	defaultQ,
 	defaultStatus,
 	defaultMonth,
+	monthShowsAll = false,
 	defaultShowArchived = false,
 	archivedCount = 0,
 	defaultCrew = "",
@@ -53,6 +54,9 @@ export function OperationsFilterBar({
 	defaultQ: string;
 	defaultStatus: string;
 	defaultMonth: string;
+	/** When true, picker shows "Semua bulan" instead of a specific month
+	 * (user has explicitly opted out of the current-month default). */
+	monthShowsAll?: boolean;
 	defaultShowArchived?: boolean;
 	archivedCount?: number;
 	defaultCrew?: string;
@@ -133,13 +137,30 @@ export function OperationsFilterBar({
 				aria-label="Filter status"
 			/>
 
-			<div className="w-[160px]">
-				<MonthPicker
-					value={defaultMonth}
-					onValueChange={(value) => router.push(buildHref({ month: value }))}
-					placeholder="Semua bulan"
-					aria-label="Filter bulan"
-				/>
+			<div className="flex items-center gap-1">
+				<div className="w-[160px]">
+					<MonthPicker
+						value={monthShowsAll ? "" : defaultMonth}
+						onValueChange={(value) =>
+							router.push(buildHref({ month: value }))
+						}
+						placeholder="Semua bulan"
+						aria-label="Filter bulan"
+					/>
+				</div>
+				<Link
+					href={buildHref({ month: monthShowsAll ? "" : "all" })}
+					className={cn(
+						"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
+						monthShowsAll
+							? "bg-secondary text-foreground"
+							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
+					)}
+					aria-pressed={monthShowsAll}
+					title={monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"}
+				>
+					{monthShowsAll ? "Bulan ini" : "Semua"}
+				</Link>
 			</div>
 
 			{crewOptions.length > 0 && (

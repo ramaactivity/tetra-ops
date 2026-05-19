@@ -30,6 +30,11 @@ function lastDayOfMonth(year: number, month: number): string {
 	return `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+function currentYearMonth(): string {
+	const today = new Date();
+	return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default async function OperationsListPage({
 	searchParams,
 }: {
@@ -44,7 +49,16 @@ export default async function OperationsListPage({
 	const params = await searchParams;
 	const q = params.q?.trim() ?? "";
 	const status = params.status?.trim() ?? "";
-	const month = params.month?.trim() ?? "";
+	// Month filter defaults to current YYYY-MM when not provided; explicit
+	// `?month=all` lets user view across all months. Matches Reports +
+	// Calendar behavior (those pages also auto-detect current month).
+	const monthParam = params.month?.trim() ?? "";
+	const month =
+		monthParam === "all"
+			? ""
+			: monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+				? monthParam
+				: currentYearMonth();
 	const showArchived = params.show_archived === "1";
 	const crewFilter = params.crew?.trim() ?? "";
 
@@ -298,7 +312,13 @@ export default async function OperationsListPage({
 	);
 	const archivedCount = archivedCountResult.count ?? 0;
 
-	const hasFilters = Boolean(q || status || month || showArchived || crewFilter);
+	// `month` is always set (auto-defaults to current month), so consider it
+	// a "user-set" filter only when explicitly different from the default.
+	const isCustomMonth =
+		monthParam === "all" || (Boolean(monthParam) && monthParam !== currentYearMonth());
+	const hasFilters = Boolean(
+		q || status || isCustomMonth || showArchived || crewFilter,
+	);
 	const isSuperAdmin = me?.profile.role === "super_admin";
 
 	const selectedCrew = crewFilter
@@ -369,6 +389,7 @@ export default async function OperationsListPage({
 					defaultQ={q}
 					defaultStatus={status}
 					defaultMonth={month}
+					monthShowsAll={monthParam === "all"}
 					defaultShowArchived={showArchived}
 					archivedCount={archivedCount}
 					defaultCrew={crewFilter}
