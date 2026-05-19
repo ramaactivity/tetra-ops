@@ -15,7 +15,7 @@ export const BUCKET_DESCRIPTIONS: Record<ReminderBucket, string> = {
 	h3_pelunasan: "Event 3 hari lagi, sisa pembayaran belum lunas",
 	h7_dp: "Event 7 hari lagi, DP belum masuk",
 	h1_konfirmasi: "Event besok, konfirmasi setup time + crew",
-	overdue: "Event sudah lewat, masih ada outstanding",
+	overdue: "Event sudah lewat, masih ada sisa pembayaran",
 };
 
 export const BUCKET_TEMPLATE_HINT: Record<ReminderBucket, string> = {

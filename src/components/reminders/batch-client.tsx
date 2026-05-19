@@ -305,7 +305,7 @@ export function ReminderBatchClient({
 								Tanggal
 							</th>
 							<th className="text-foreground px-2 py-2 text-left text-xs font-medium">
-								Outstanding
+								Sisa Pembayaran
 							</th>
 							<th className="text-foreground px-2 py-2 text-left text-xs font-medium">
 								Last reminder
