@@ -70,6 +70,7 @@ type AssignmentJoin = {
 	bonus_amount: number | null;
 	reimbursement_amount: number | null;
 	payment_notes: string | null;
+	payment_proof_url: string | null;
 	is_paid: boolean | null;
 	user: { full_name: string } | { full_name: string }[] | null;
 };
@@ -123,7 +124,7 @@ export default async function EventRekapPage({
 				.from("crew_assignments")
 				.select(
 					`id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
-					payment_notes, is_paid,
+					payment_notes, payment_proof_url, is_paid,
 					user:users!crew_assignments_user_id_fkey(full_name)`,
 				)
 				.eq("event_id", event.id),
@@ -191,6 +192,7 @@ export default async function EventRekapPage({
 			bonus_amount: Number(aj.bonus_amount ?? 0),
 			reimbursement_amount: Number(aj.reimbursement_amount ?? 0),
 			payment_notes: aj.payment_notes ?? null,
+			payment_proof_url: aj.payment_proof_url ?? null,
 			is_paid: Boolean(aj.is_paid),
 		};
 	});
@@ -198,19 +200,30 @@ export default async function EventRekapPage({
 	const allCrewHaveFee = crewFeeRows.length > 0 && crewFeeRows.every((r) => r.fee_amount > 0);
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
-	// Suggested reimbursement = sum of all field expenses / crew count
-	let suggestedReimbursementPerCrew: number | undefined;
-	if (rekap && crewFeeRows.length > 0) {
-		const totalFieldExpense =
-			Number(rekap.transport_cost ?? 0) +
-			Number(rekap.bensin_cost ?? 0) +
-			Number(rekap.toll_cost ?? 0) +
-			Number(rekap.parking_cost ?? 0);
-		if (totalFieldExpense > 0) {
-			suggestedReimbursementPerCrew = Math.floor(
-				totalFieldExpense / crewFeeRows.length,
-			);
-		}
+	// Field expense breakdown — ditampilkan sebagai INFO di Fee crew form.
+	// Owner attribute manual ke crew yang sebenarnya bayar (mis. transport
+	// online dibayar Lead, konsumsi dibayar Asisten). Tidak auto-divide
+	// per crew karena 1 trip transport biasanya bersamaan, bukan terbagi.
+	let fieldExpenseBreakdown:
+		| {
+				total: number;
+				items: Array<{ label: string; amount: number }>;
+		  }
+		| undefined;
+	if (rekap) {
+		const items: Array<{ label: string; amount: number }> = [];
+		const tc = Number(rekap.transport_cost ?? 0);
+		const bc = Number(rekap.bensin_cost ?? 0);
+		const tlc = Number(rekap.toll_cost ?? 0);
+		const pkc = Number(rekap.parking_cost ?? 0);
+		const kc = Number(rekap.konsumsi_cost ?? 0);
+		if (tc > 0) items.push({ label: "Transport", amount: tc });
+		if (bc > 0) items.push({ label: "Bensin", amount: bc });
+		if (tlc > 0) items.push({ label: "Toll", amount: tlc });
+		if (pkc > 0) items.push({ label: "Parkir", amount: pkc });
+		if (kc > 0) items.push({ label: "Konsumsi", amount: kc });
+		const total = items.reduce((s, x) => s + x.amount, 0);
+		if (total > 0) fieldExpenseBreakdown = { total, items };
 	}
 
 	// Settle gating
@@ -407,7 +420,7 @@ export default async function EventRekapPage({
 						eventId={event.id as string}
 						projectId={projectId}
 						rows={crewFeeRows}
-						suggestedReimbursementPerCrew={suggestedReimbursementPerCrew}
+						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						readOnly={recapLocked}
 					/>
 

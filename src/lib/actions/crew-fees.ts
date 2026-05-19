@@ -11,6 +11,7 @@ const FeeRow = z.object({
 	bonus_amount: z.coerce.number().int().nonnegative(),
 	reimbursement_amount: z.coerce.number().int().nonnegative(),
 	payment_notes: z.string().trim().max(500).optional().nullable(),
+	payment_proof_url: z.string().url().max(2000).optional().nullable(),
 });
 
 const SaveCrewFeesSchema = z.object({
@@ -30,6 +31,7 @@ export async function saveCrewFees(
 		bonus_amount: number | string;
 		reimbursement_amount: number | string;
 		payment_notes?: string | null;
+		payment_proof_url?: string | null;
 	}>,
 ): Promise<SaveCrewFeesResponse> {
 	const me = await getCurrentUser();
@@ -52,7 +54,7 @@ export async function saveCrewFees(
 	const ids = parsed.data.rows.map((r) => r.assignment_id);
 	const { data: existing, error: fetchErr } = await supabase
 		.from("crew_assignments")
-		.select("id, event_id")
+		.select("id, event_id, payment_proof_url")
 		.in("id", ids);
 	if (fetchErr) return { ok: false, error: fetchErr.message };
 
@@ -66,6 +68,16 @@ export async function saveCrewFees(
 
 	let updated = 0;
 	for (const row of parsed.data.rows) {
+		// Look up existing payment_proof_url to detect new uploads (set uploaded_at)
+		const existingRow = (existing ?? []).find((e) => e.id === row.assignment_id);
+		const existingProof = (existingRow as { payment_proof_url?: string | null } | undefined)
+			?.payment_proof_url ?? null;
+		const newProof = row.payment_proof_url ?? null;
+		const uploadedAt =
+			newProof && newProof !== existingProof
+				? new Date().toISOString()
+				: undefined;
+
 		const { error } = await supabase
 			.from("crew_assignments")
 			.update({
@@ -73,6 +85,8 @@ export async function saveCrewFees(
 				bonus_amount: row.bonus_amount,
 				reimbursement_amount: row.reimbursement_amount,
 				payment_notes: row.payment_notes ?? null,
+				payment_proof_url: newProof,
+				...(uploadedAt ? { payment_proof_uploaded_at: uploadedAt } : {}),
 				updated_at: new Date().toISOString(),
 			})
 			.eq("id", row.assignment_id);

@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2, Save } from "lucide-react";
-import { useState, useTransition } from "react";
+import { CheckCircle2, ExternalLink, Loader2, Save, Upload, X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ export type CrewAssignmentRow = {
 	bonus_amount: number;
 	reimbursement_amount: number;
 	payment_notes: string | null;
+	payment_proof_url: string | null;
 	is_paid: boolean;
 };
 
@@ -24,7 +25,10 @@ type Props = {
 	eventId: string;
 	projectId: string;
 	rows: CrewAssignmentRow[];
-	suggestedReimbursementPerCrew?: number; // dari crew_rekap transport_cost dll
+	fieldExpenseBreakdown?: {
+		total: number;
+		items: Array<{ label: string; amount: number }>;
+	};
 	readOnly?: boolean;
 };
 
@@ -38,7 +42,7 @@ export function CrewFeeForm({
 	eventId,
 	projectId,
 	rows: initialRows,
-	suggestedReimbursementPerCrew,
+	fieldExpenseBreakdown,
 	readOnly = false,
 }: Props) {
 	const router = useRouter();
@@ -51,9 +55,8 @@ export function CrewFeeForm({
 		);
 	}
 
-	function applyTransportSuggestion(id: string) {
-		if (!suggestedReimbursementPerCrew) return;
-		update(id, { reimbursement_amount: suggestedReimbursementPerCrew });
+	function applyExpenseToReimbursement(id: string, amount: number) {
+		update(id, { reimbursement_amount: amount });
 	}
 
 	function handleSave() {
@@ -67,6 +70,7 @@ export function CrewFeeForm({
 					bonus_amount: r.bonus_amount,
 					reimbursement_amount: r.reimbursement_amount,
 					payment_notes: r.payment_notes,
+					payment_proof_url: r.payment_proof_url,
 				})),
 			);
 			if (!result.ok) {
@@ -96,14 +100,32 @@ export function CrewFeeForm({
 
 	return (
 		<section className="rounded-xl border border-border-default bg-surface-2 p-5">
-			<header className="mb-4 flex items-baseline justify-between">
+			<header className="mb-4">
 				<h2 className="text-fluid-h3 font-semibold tracking-tight">Fee crew</h2>
-				{!readOnly && suggestedReimbursementPerCrew !== undefined && (
-					<span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-						Saran reimbursement: {formatRupiah(suggestedReimbursementPerCrew)}/crew
-					</span>
-				)}
+				<p className="mt-1 text-xs text-muted-foreground">
+					Reimbursement bisa beda per crew — assign manual ke yang sebenarnya bayar.
+				</p>
 			</header>
+
+			{!readOnly && fieldExpenseBreakdown && (
+				<div className="mb-4 rounded-md border border-border-default bg-surface-3 p-3">
+					<p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+						Field expense dari rekap · total {formatRupiah(fieldExpenseBreakdown.total)}
+					</p>
+					<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
+						{fieldExpenseBreakdown.items.map((it) => (
+							<li key={it.label}>
+								<span className="text-muted-foreground">{it.label}:</span>{" "}
+								{formatRupiah(it.amount)}
+							</li>
+						))}
+					</ul>
+					<p className="mt-2 text-[11px] text-muted-foreground">
+						Klik tombol kecil di kolom Reimbursement tiap crew untuk apply nilai
+						ke crew yang sebenarnya bayar item itu.
+					</p>
+				</div>
+			)}
 
 			<div className="space-y-4">
 				{rows.map((row) => {
@@ -155,36 +177,67 @@ export function CrewFeeForm({
 										update(row.assignment_id, { reimbursement_amount: v })
 									}
 									readOnly={readOnly}
-									hint={
-										!readOnly && suggestedReimbursementPerCrew !== undefined
-											? "Saran dari transport"
-											: undefined
-									}
-									onUseHint={
-										!readOnly && suggestedReimbursementPerCrew
-											? () => applyTransportSuggestion(row.assignment_id)
-											: undefined
-									}
 								/>
+								{!readOnly && fieldExpenseBreakdown && fieldExpenseBreakdown.items.length > 0 && (
+									<div className="col-span-full -mt-1 flex flex-wrap gap-1">
+										{fieldExpenseBreakdown.items.map((it) => (
+											<button
+												key={it.label}
+												type="button"
+												onClick={() =>
+													applyExpenseToReimbursement(
+														row.assignment_id,
+														row.reimbursement_amount + it.amount,
+													)
+												}
+												className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
+											>
+												+ {it.label} {formatRupiah(it.amount)}
+											</button>
+										))}
+										{row.reimbursement_amount > 0 && (
+											<button
+												type="button"
+												onClick={() =>
+													applyExpenseToReimbursement(row.assignment_id, 0)
+												}
+												className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-surface-3"
+											>
+												reset 0
+											</button>
+										)}
+									</div>
+								)}
 							</div>
 
-							<div className="mt-3">
-								<label
-									htmlFor={`notes-${row.assignment_id}`}
-									className="mb-1 block text-xs font-medium text-muted-foreground"
-								>
-									Catatan pembayaran (optional)
-								</label>
-								<Input
-									id={`notes-${row.assignment_id}`}
-									value={row.payment_notes ?? ""}
-									onChange={(e) =>
-										update(row.assignment_id, {
-											payment_notes: e.target.value || null,
-										})
+							<div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+								<div>
+									<label
+										htmlFor={`notes-${row.assignment_id}`}
+										className="mb-1 block text-xs font-medium text-muted-foreground"
+									>
+										Catatan pembayaran (optional)
+									</label>
+									<Input
+										id={`notes-${row.assignment_id}`}
+										value={row.payment_notes ?? ""}
+										onChange={(e) =>
+											update(row.assignment_id, {
+												payment_notes: e.target.value || null,
+											})
+										}
+										placeholder="Mis. Transfer BCA 2026-05-20"
+										disabled={readOnly}
+									/>
+								</div>
+								<PaymentProofUpload
+									projectId={projectId}
+									crewRow={row}
+									totalFee={total}
+									onChange={(url) =>
+										update(row.assignment_id, { payment_proof_url: url })
 									}
-									placeholder="Mis. Transfer BCA 2026-05-20"
-									disabled={readOnly}
+									readOnly={readOnly}
 								/>
 							</div>
 						</div>
@@ -213,20 +266,132 @@ export function CrewFeeForm({
 	);
 }
 
+function PaymentProofUpload({
+	projectId,
+	crewRow,
+	totalFee,
+	onChange,
+	readOnly,
+}: {
+	projectId: string;
+	crewRow: CrewAssignmentRow;
+	totalFee: number;
+	onChange: (url: string | null) => void;
+	readOnly?: boolean;
+}) {
+	const inputRef = useRef<HTMLInputElement>(null);
+	const [uploading, setUploading] = useState(false);
+	const url = crewRow.payment_proof_url;
+
+	async function handleFiles(files: FileList | null) {
+		if (!files || files.length === 0) return;
+		const file = files[0];
+		setUploading(true);
+		try {
+			const fd = new FormData();
+			fd.set("file", file);
+			fd.set("kind", "payment_proof");
+			fd.set("paymentType", `crew_fee_${crewRow.role_in_event}`);
+			fd.set("paymentDate", new Date().toISOString().slice(0, 10));
+			fd.set("amount", String(totalFee));
+			const res = await fetch(`/api/drive/upload/${projectId}`, {
+				method: "POST",
+				body: fd,
+			});
+			if (!res.ok) {
+				const text = await res.text().catch(() => "");
+				throw new Error(text || `HTTP ${res.status}`);
+			}
+			const { url: uploadedUrl } = (await res.json()) as { url: string };
+			onChange(uploadedUrl);
+			toast.success(`Bukti transfer ${crewRow.user_full_name} ter-upload`);
+		} catch (err) {
+			toast.error(
+				`Upload gagal: ${err instanceof Error ? err.message : "Unknown error"}`,
+			);
+		} finally {
+			setUploading(false);
+			if (inputRef.current) inputRef.current.value = "";
+		}
+	}
+
+	return (
+		<div className="space-y-1">
+			<label className="block text-xs font-medium text-muted-foreground">
+				Bukti transfer (optional)
+			</label>
+			<input
+				ref={inputRef}
+				type="file"
+				accept="image/*,application/pdf"
+				className="hidden"
+				onChange={(e) => handleFiles(e.target.files)}
+				disabled={readOnly || uploading}
+			/>
+			{url ? (
+				<div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+					<CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+					<a
+						href={url}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="flex-1 truncate text-emerald-900 hover:underline dark:text-emerald-200"
+					>
+						Lihat bukti
+					</a>
+					<a
+						href={url}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-emerald-700 hover:text-emerald-900 dark:text-emerald-300"
+					>
+						<ExternalLink className="h-3 w-3" />
+					</a>
+					{!readOnly && (
+						<button
+							type="button"
+							onClick={() => onChange(null)}
+							className="text-emerald-700 hover:text-rose-700 dark:text-emerald-300"
+							aria-label="Hapus bukti"
+						>
+							<X className="h-3 w-3" />
+						</button>
+					)}
+				</div>
+			) : (
+				<button
+					type="button"
+					onClick={() => inputRef.current?.click()}
+					disabled={readOnly || uploading}
+					className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border-default bg-surface-1 px-3 text-xs text-muted-foreground hover:border-border-strong hover:bg-surface-3 disabled:opacity-50"
+				>
+					{uploading ? (
+						<>
+							<Loader2 className="h-3.5 w-3.5 animate-spin" />
+							Uploading…
+						</>
+					) : (
+						<>
+							<Upload className="h-3.5 w-3.5" />
+							Upload bukti transfer
+						</>
+					)}
+				</button>
+			)}
+		</div>
+	);
+}
+
 function FeeField({
 	label,
 	value,
 	onChange,
 	readOnly,
-	hint,
-	onUseHint,
 }: {
 	label: string;
 	value: number;
 	onChange: (v: number) => void;
 	readOnly?: boolean;
-	hint?: string;
-	onUseHint?: () => void;
 }) {
 	return (
 		<div className="space-y-1">
@@ -242,15 +407,6 @@ function FeeField({
 				disabled={readOnly}
 				className="tabular text-right"
 			/>
-			{hint && onUseHint && (
-				<button
-					type="button"
-					onClick={onUseHint}
-					className="text-[11px] text-link hover:underline"
-				>
-					Pakai {hint.toLowerCase()}
-				</button>
-			)}
 		</div>
 	);
 }
