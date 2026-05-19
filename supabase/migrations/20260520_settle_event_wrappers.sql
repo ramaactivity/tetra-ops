@@ -473,26 +473,32 @@ BEGIN
   END IF;
 
   -- ------------------------------------------------------------------
-  -- 5. Revenue: from events.custom_package_price + sum(event_addons) - discount
-  --    (caller bisa override via p_overrides.revenue_gross / .discount_total)
+  -- 5. Revenue: pakai events.grand_total sebagai canonical revenue_net.
+  --    revenue_gross = base/custom_package_price + addons_total (sebelum diskon).
+  --    discount = events.discount_amount.
+  --    Caller bisa override via p_overrides.revenue_gross / .discount_total.
   -- ------------------------------------------------------------------
-  SELECT COALESCE(SUM(unit_price * quantity), 0)::BIGINT
-  INTO v_addon_total
-  FROM event_addons WHERE event_id = p_event_id;
+  v_addon_total := COALESCE(v_event.addons_total, 0)::BIGINT;
 
   IF p_overrides IS NOT NULL AND p_overrides ? 'revenue_gross' THEN
     v_revenue_gross := (p_overrides->>'revenue_gross')::BIGINT;
   ELSE
-    v_revenue_gross := COALESCE(v_event.custom_package_price, 0) + v_addon_total;
+    v_revenue_gross :=
+      COALESCE(v_event.custom_package_price, v_event.base_price, 0)::BIGINT
+      + v_addon_total;
   END IF;
 
   IF p_overrides IS NOT NULL AND p_overrides ? 'discount_total' THEN
     v_discount := (p_overrides->>'discount_total')::BIGINT;
   ELSE
-    v_discount := 0;  -- events table tidak punya kolom discount_total terpisah; default 0
+    v_discount := COALESCE(v_event.discount_amount, 0)::BIGINT;
   END IF;
 
-  v_revenue_net := v_revenue_gross - v_discount;
+  -- Prefer grand_total (canonical post-discount) kalau ada, else compute.
+  v_revenue_net := COALESCE(
+    NULLIF(v_event.grand_total, 0)::BIGINT,
+    v_revenue_gross - v_discount
+  );
 
   -- ------------------------------------------------------------------
   -- 6. Compute totals

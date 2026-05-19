@@ -2,13 +2,19 @@ import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { AddonSplitForm } from "@/components/rekap/addon-split-form";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
+import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
+import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
+import { ProfitPreviewCard } from "@/components/rekap/profit-preview-card";
 import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
 import { RekapProofGallery } from "@/components/rekap/rekap-proof-gallery";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
 import { RekapSummaryTab } from "@/components/rekap/rekap-summary-tab";
+import { SettleButton } from "@/components/rekap/settle-button";
+import { SettledBanner } from "@/components/rekap/settled-banner";
 import {
 	Tabs,
 	TabsContent,
@@ -16,6 +22,7 @@ import {
 	TabsTrigger,
 } from "@/components/ui/tabs";
 import { getRekapContext } from "@/lib/actions/rekap";
+import { getProfitPreview } from "@/lib/actions/profit-preview";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,6 +35,10 @@ type RekapRow = {
 	pouch_used: number;
 	photomagnet_used: number;
 	keychain_used: number;
+	photomagnet_paid: number;
+	photomagnet_bonus: number;
+	keychain_paid: number;
+	keychain_bonus: number;
 	custom_materials: Record<string, number> | null;
 	proof_photo_urls: string[];
 	crew_notes: string | null;
@@ -37,6 +48,8 @@ type RekapRow = {
 	stock_committed_at: string | null;
 	stock_movement_batch_id: string | null;
 	created_at: string;
+	status: "draft" | "submitted" | "reviewed" | "rejected" | "settled";
+	locked: boolean | null;
 	transport_method: "online" | "rental" | "none" | null;
 	transport_cost: number | string | null;
 	transport_proof_berangkat_url: string | null;
@@ -50,6 +63,17 @@ type RekapRow = {
 	reviewer: { full_name: string } | null;
 };
 
+type AssignmentJoin = {
+	id: string;
+	role_in_event: "lead" | "asisten" | "crew_c";
+	fee_amount: number | null;
+	bonus_amount: number | null;
+	reimbursement_amount: number | null;
+	payment_notes: string | null;
+	is_paid: boolean | null;
+	user: { full_name: string } | { full_name: string }[] | null;
+};
+
 export default async function EventRekapPage({
 	params,
 }: {
@@ -59,46 +83,66 @@ export default async function EventRekapPage({
 
 	const me = await getCurrentUser();
 	if (!me) redirect("/login");
-
 	const isOwnerLevel =
 		me.profile.role === "super_admin" || me.profile.role === "owner";
-	if (!isOwnerLevel) {
-		redirect("/login");
-	}
+	if (!isOwnerLevel) redirect("/login");
+	const isSuperAdmin = me.profile.role === "super_admin";
 
 	const supabase = await createClient();
 
 	const { data: event } = await supabase
 		.from("events")
-		.select("id, project_id, client_name, event_date, venue_name, status")
+		.select(
+			"id, project_id, client_name, event_date, venue_name, status, grand_total",
+		)
 		.eq("project_id", projectId)
 		.maybeSingle();
 
 	if (!event) notFound();
 
-	const { data: rekapData } = await supabase
-		.from("crew_rekap")
-		.select(
-			`id, cetak_total, media_set_used, sleeve_used,
-			flashdisk_used, pouch_used, photomagnet_used, keychain_used,
-			custom_materials,
-			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
-			stock_committed_at, stock_movement_batch_id, created_at,
-			transport_method, transport_cost,
-			transport_proof_berangkat_url, transport_proof_pulang_url,
-			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
-			submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
-			reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
-		)
-		.eq("event_id", event.id)
-		.maybeSingle();
+	const [{ data: rekapData }, { data: assignments }, { data: settlement }] =
+		await Promise.all([
+			supabase
+				.from("crew_rekap")
+				.select(
+					`id, cetak_total, media_set_used, sleeve_used,
+					flashdisk_used, pouch_used, photomagnet_used, keychain_used,
+					photomagnet_paid, photomagnet_bonus, keychain_paid, keychain_bonus,
+					custom_materials, status, locked,
+					proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
+					stock_committed_at, stock_movement_batch_id, created_at,
+					transport_method, transport_cost,
+					transport_proof_berangkat_url, transport_proof_pulang_url,
+					bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
+					submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
+					reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
+				)
+				.eq("event_id", event.id)
+				.maybeSingle(),
+			supabase
+				.from("crew_assignments")
+				.select(
+					`id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
+					payment_notes, is_paid,
+					user:users!crew_assignments_user_id_fkey(full_name)`,
+				)
+				.eq("event_id", event.id),
+			supabase
+				.from("event_settlements")
+				.select(
+					`id, journal_entry_id, closed_at, is_reopened, reopen_reason,
+					net_profit, closed_by_user:users!event_settlements_closed_by_fkey(full_name)`,
+				)
+				.eq("event_id", event.id)
+				.maybeSingle(),
+		]);
 
 	const context = await getRekapContext(event.id as string);
 	if ("error" in context) {
 		return (
 			<Container size="md">
-				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-					<p className="text-sm font-medium text-destructive">
+				<div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+					<p className="text-sm font-medium text-foreground">
 						Gagal load konteks rekap: {context.error}
 					</p>
 				</div>
@@ -117,6 +161,68 @@ export default async function EventRekapPage({
 					: rekapData.reviewer,
 			} as RekapRow)
 		: null;
+
+	const isSettled = event.status === "completed";
+	const recapApproved = rekap?.is_approved === true || rekap?.status === "reviewed" || rekap?.status === "settled";
+	const recapLocked = rekap?.locked === true || isSettled;
+
+	const settlementClosedBy = settlement?.closed_by_user
+		? Array.isArray(settlement.closed_by_user)
+			? settlement.closed_by_user[0]?.full_name
+			: (settlement.closed_by_user as { full_name: string }).full_name
+		: null;
+
+	// Profit preview only fetched if rekap exists (avoid empty RPC calls)
+	const profitPreviewResult = rekap?.id
+		? await getProfitPreview(event.id as string)
+		: null;
+	const profitPreview =
+		profitPreviewResult && profitPreviewResult.ok ? profitPreviewResult.data : null;
+
+	// Crew fee rows — normalize joined user
+	const crewFeeRows: CrewAssignmentRow[] = (assignments ?? []).map((a) => {
+		const aj = a as unknown as AssignmentJoin;
+		const u = Array.isArray(aj.user) ? aj.user[0] : aj.user;
+		return {
+			assignment_id: aj.id,
+			user_full_name: u?.full_name ?? "—",
+			role_in_event: aj.role_in_event,
+			fee_amount: Number(aj.fee_amount ?? 0),
+			bonus_amount: Number(aj.bonus_amount ?? 0),
+			reimbursement_amount: Number(aj.reimbursement_amount ?? 0),
+			payment_notes: aj.payment_notes ?? null,
+			is_paid: Boolean(aj.is_paid),
+		};
+	});
+
+	const allCrewHaveFee = crewFeeRows.length > 0 && crewFeeRows.every((r) => r.fee_amount > 0);
+	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
+
+	// Suggested reimbursement = sum of all field expenses / crew count
+	let suggestedReimbursementPerCrew: number | undefined;
+	if (rekap && crewFeeRows.length > 0) {
+		const totalFieldExpense =
+			Number(rekap.transport_cost ?? 0) +
+			Number(rekap.bensin_cost ?? 0) +
+			Number(rekap.toll_cost ?? 0) +
+			Number(rekap.parking_cost ?? 0);
+		if (totalFieldExpense > 0) {
+			suggestedReimbursementPerCrew = Math.floor(
+				totalFieldExpense / crewFeeRows.length,
+			);
+		}
+	}
+
+	// Settle gating
+	const settleDisabledReason = !rekap
+		? "Rekap belum di-submit. Input data rekap dulu."
+		: !recapApproved
+			? "Approve rekap dulu sebelum settle."
+			: proofCount < 1
+				? "Minimal 1 foto bukti diperlukan."
+				: !allCrewHaveFee
+					? "Set fee crew dulu (semua harus > 0)."
+					: undefined;
 
 	const defaults = rekap
 		? {
@@ -137,8 +243,7 @@ export default async function EventRekapPage({
 				transport_cost: String(rekap.transport_cost ?? 0),
 				transport_proof_berangkat_url:
 					rekap.transport_proof_berangkat_url ?? "",
-				transport_proof_pulang_url:
-					rekap.transport_proof_pulang_url ?? "",
+				transport_proof_pulang_url: rekap.transport_proof_pulang_url ?? "",
 				bensin_cost: String(rekap.bensin_cost ?? 0),
 				toll_cost: String(rekap.toll_cost ?? 0),
 				parking_cost: String(rekap.parking_cost ?? 0),
@@ -146,12 +251,6 @@ export default async function EventRekapPage({
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
 			}
 		: undefined;
-
-	// Owner can always edit; rekap stays editable until approved
-	const canEdit = !rekap || rekap.is_approved !== true;
-	const showApprovalUi =
-		rekap !== null && rekap.is_approved !== true;
-	const showTabsView = rekap !== null;
 
 	return (
 		<Container size="md" className="space-y-5 pb-32">
@@ -162,6 +261,19 @@ export default async function EventRekapPage({
 				<ChevronLeft className="h-4 w-4" />
 				{projectId}
 			</Link>
+
+			{isSettled && settlement && (
+				<SettledBanner
+					eventId={event.id as string}
+					projectId={projectId}
+					settledAt={settlement.closed_at}
+					closedByName={settlementClosedBy}
+					netProfit={Number(settlement.net_profit ?? 0)}
+					isReopened={Boolean(settlement.is_reopened)}
+					journalEntryId={settlement.journal_entry_id ?? null}
+					isSuperAdmin={isSuperAdmin}
+				/>
+			)}
 
 			<RekapHeroCard
 				clientName={event.client_name}
@@ -190,12 +302,11 @@ export default async function EventRekapPage({
 				</p>
 			)}
 
-			{/* === Editable form (for not-yet-approved or absent rekap) === */}
-			{canEdit && !rekap && (
+			{/* === No rekap yet: owner can input manually === */}
+			{!rekap && (
 				<>
 					<div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs leading-relaxed text-foreground/80 dark:border-amber-900 dark:bg-amber-950/20">
-						Crew belum submit rekap. Owner bisa input data ini retroaktif
-						kalau perlu.
+						Crew belum submit rekap. Owner bisa input data ini retroaktif kalau perlu.
 					</div>
 					<RekapForm
 						eventId={event.id}
@@ -207,7 +318,8 @@ export default async function EventRekapPage({
 				</>
 			)}
 
-			{canEdit && rekap && (
+			{/* === Edit recap (owner override) — only if not locked === */}
+			{rekap && !recapLocked && (
 				<details className="rounded-xl border border-border-default bg-surface-2">
 					<summary className="cursor-pointer px-5 py-3 text-sm font-semibold tracking-tight hover:bg-muted/30">
 						Edit rekap (owner override)
@@ -217,25 +329,22 @@ export default async function EventRekapPage({
 							eventId={event.id}
 							projectId={projectId}
 							defaults={defaults}
-							mode={rekap ? "update" : "create"}
+							mode="update"
 							context={context}
 						/>
 					</div>
 				</details>
 			)}
 
-			{/* === Tabs view (submitted rekap) === */}
-			{showTabsView && rekap && (
+			{/* === Tabs view (display) === */}
+			{rekap && (
 				<Tabs defaultValue="ringkasan">
 					<TabsList>
 						<TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
 						<TabsTrigger value="stok">Stok</TabsTrigger>
-						<TabsTrigger value="bukti">
-							Bukti ({rekap.proof_photo_urls?.length ?? 0})
-						</TabsTrigger>
+						<TabsTrigger value="bukti">Bukti ({proofCount})</TabsTrigger>
 						<TabsTrigger value="audit">Audit</TabsTrigger>
 					</TabsList>
-
 					<TabsContent value="ringkasan">
 						<RekapSummaryTab rekap={rekap} context={context} />
 						{rekap.crew_notes && (
@@ -249,15 +358,12 @@ export default async function EventRekapPage({
 							</div>
 						)}
 					</TabsContent>
-
 					<TabsContent value="stok">
 						<RekapApprovalPreview rekapId={rekap.id} />
 					</TabsContent>
-
 					<TabsContent value="bukti">
 						<RekapProofGallery urls={rekap.proof_photo_urls ?? []} />
 					</TabsContent>
-
 					<TabsContent value="audit">
 						<RekapAuditTab
 							submittedAt={rekap.created_at}
@@ -273,33 +379,18 @@ export default async function EventRekapPage({
 				</Tabs>
 			)}
 
-			{/* === Sticky review action bar === */}
-			{showApprovalUi && rekap && (
-				<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border-default bg-surface-2/95 px-4 py-3 backdrop-blur-md shadow-lg">
-					<div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
-						<div className="hidden flex-1 sm:block">
-							<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-								Decision
-							</p>
-							<p className="text-fluid-caption text-foreground">
-								Approve untuk commit deduksi stok ke warehouse.
-							</p>
-						</div>
-						<div className="flex-1 sm:flex-none">
-							<RekapReviewButtons
-								rekapId={rekap.id}
-								projectId={projectId}
-								currentApproved={rekap.is_approved}
-								stockCommittedAt={rekap.stock_committed_at ?? null}
-							/>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{/* When already approved/rejected, show review controls inline (no sticky bar) */}
-			{rekap && !showApprovalUi && (
+			{/* === Approve/Reject section (review stage, not settled yet) === */}
+			{rekap && !recapApproved && !isSettled && (
 				<div className="rounded-xl border border-border-default bg-surface-2 p-4">
+					<header className="mb-3">
+						<h2 className="text-fluid-h3 font-semibold tracking-tight">
+							Review rekap
+						</h2>
+						<p className="text-xs text-muted-foreground">
+							Approve untuk commit deduksi stok ke warehouse. Bisa reject untuk
+							revisi.
+						</p>
+					</header>
 					<RekapReviewButtons
 						rekapId={rekap.id}
 						projectId={projectId}
@@ -307,6 +398,92 @@ export default async function EventRekapPage({
 						stockCommittedAt={rekap.stock_committed_at ?? null}
 					/>
 				</div>
+			)}
+
+			{/* === Pre-settle workflow: crew fees + addon split + profit preview + settle button === */}
+			{rekap && recapApproved && !isSettled && (
+				<>
+					<CrewFeeForm
+						eventId={event.id as string}
+						projectId={projectId}
+						rows={crewFeeRows}
+						suggestedReimbursementPerCrew={suggestedReimbursementPerCrew}
+						readOnly={recapLocked}
+					/>
+
+					<AddonSplitForm
+						recapId={rekap.id}
+						eventId={event.id as string}
+						projectId={projectId}
+						photomagnetTotal={rekap.photomagnet_used}
+						keychainTotal={rekap.keychain_used}
+						photomagnetPaid={rekap.photomagnet_paid}
+						photomagnetBonus={rekap.photomagnet_bonus}
+						keychainPaid={rekap.keychain_paid}
+						keychainBonus={rekap.keychain_bonus}
+						readOnly={recapLocked}
+					/>
+
+					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
+
+					<div className="rounded-xl border border-border-default bg-surface-2 p-5">
+						<header className="mb-3">
+							<h2 className="text-fluid-h3 font-semibold tracking-tight">
+								Settle event
+							</h2>
+							<p className="text-xs text-muted-foreground">
+								Tutup buku event ini dan commit ke ledger. Aksi destructive —
+								hanya bisa di-undo via Reopen Settlement.
+							</p>
+						</header>
+						{profitPreview ? (
+							<SettleButton
+								eventId={event.id as string}
+								projectId={projectId}
+								recapId={rekap.id}
+								revenueNet={profitPreview.revenue_net}
+								hppTotal={profitPreview.hpp.total}
+								opexTotal={profitPreview.opex.total}
+								netProfit={profitPreview.net_profit}
+								sinkingEstimate={profitPreview.sinking_estimate}
+								ownerPoolEstimate={profitPreview.owner_pool_estimate}
+								disabled={Boolean(settleDisabledReason)}
+								disabledReason={settleDisabledReason}
+							/>
+						) : (
+							<p className="text-xs text-muted-foreground">
+								Profit preview tidak tersedia (cek error log).
+							</p>
+						)}
+					</div>
+				</>
+			)}
+
+			{/* === Post-settle: show profit preview + fee + addon split read-only === */}
+			{rekap && isSettled && (
+				<>
+					<CrewFeeForm
+						eventId={event.id as string}
+						projectId={projectId}
+						rows={crewFeeRows}
+						readOnly
+					/>
+
+					<AddonSplitForm
+						recapId={rekap.id}
+						eventId={event.id as string}
+						projectId={projectId}
+						photomagnetTotal={rekap.photomagnet_used}
+						keychainTotal={rekap.keychain_used}
+						photomagnetPaid={rekap.photomagnet_paid}
+						photomagnetBonus={rekap.photomagnet_bonus}
+						keychainPaid={rekap.keychain_paid}
+						keychainBonus={rekap.keychain_bonus}
+						readOnly
+					/>
+
+					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
+				</>
 			)}
 		</Container>
 	);
