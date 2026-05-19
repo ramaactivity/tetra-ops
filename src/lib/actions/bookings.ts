@@ -4,6 +4,7 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createEventFolderInternal } from "@/lib/actions/drive";
+import { ensureVendorContact } from "@/lib/actions/vendors";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { createClient } from "@/lib/supabase/server";
@@ -338,6 +339,7 @@ function buildEventPayload(
 	basePrice: number,
 	addonsTotal: number,
 	backdropContribution: number,
+	vendorContactId: string | null,
 ) {
 	const effectiveAddonsTotal = addonsTotal + backdropContribution;
 	const grandTotal = computeGrandTotal({
@@ -375,6 +377,11 @@ function buildEventPayload(
 			input.channel === "vendor" ? input.vendor_commission_rate : null,
 		vendor_commission_amount:
 			input.channel === "vendor" ? input.vendor_commission_amount : null,
+		// Vendor master FK — set when channel=vendor AND we successfully
+		// upserted/found the contacts row. Source of truth for vendor;
+		// vendor_name etc. above retained as snapshot for back-compat.
+		vendor_contact_id:
+			input.channel === "vendor" ? vendorContactId : null,
 		referrer_user_id:
 			input.channel === "relasi" ? input.referrer_user_id : null,
 		referrer_type: input.channel === "relasi" ? input.referrer_type : null,
@@ -444,6 +451,19 @@ export async function createBooking(
 	);
 	const projectId = generateProjectId(parsed.data.event_date);
 
+	// Resolve vendor master FK — upsert contacts(type='vendor') if user
+	// typed a new vendor name in the free-text combobox. No-op for
+	// non-vendor channels.
+	let vendorContactId: string | null = null;
+	if (parsed.data.channel === "vendor" && parsed.data.vendor_name) {
+		vendorContactId = await ensureVendorContact({
+			name: parsed.data.vendor_name,
+			pic_name: parsed.data.vendor_pic_name,
+			pic_contact: parsed.data.vendor_contact,
+			commission_rate: parsed.data.vendor_commission_rate,
+		});
+	}
+
 	const { data: inserted, error } = await supabase
 		.from("events")
 		.insert({
@@ -455,6 +475,7 @@ export async function createBooking(
 				basePrice,
 				addonsTotal,
 				backdropContribution,
+				vendorContactId,
 			),
 		})
 		.select("id")
@@ -549,6 +570,17 @@ export async function updateBooking(
 		parsed.data,
 	);
 
+	// Resolve vendor master FK (same pattern as createBooking)
+	let vendorContactId: string | null = null;
+	if (parsed.data.channel === "vendor" && parsed.data.vendor_name) {
+		vendorContactId = await ensureVendorContact({
+			name: parsed.data.vendor_name,
+			pic_name: parsed.data.vendor_pic_name,
+			pic_contact: parsed.data.vendor_contact,
+			commission_rate: parsed.data.vendor_commission_rate,
+		});
+	}
+
 	const { data: updated, error } = await supabase
 		.from("events")
 		.update(
@@ -557,6 +589,7 @@ export async function updateBooking(
 				basePrice,
 				addonsTotal,
 				backdropContribution,
+				vendorContactId,
 			),
 		)
 		.eq("id", id)
