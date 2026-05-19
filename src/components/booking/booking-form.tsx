@@ -146,12 +146,14 @@ export type BookingFormDefaults = Partial<{
 	setup_time: string;
 	start_time: string;
 	end_time: string;
+	booker_name: string;
 	venue_name: string;
 	venue_address: string;
 	venue_city: string;
 	venue_province: string;
 	google_maps_url: string;
 	vendor_name: string;
+	vendor_pic_name: string;
 	vendor_contact: string;
 	vendor_commission_rate: number;
 	vendor_commission_amount: number;
