@@ -36,14 +36,16 @@ const TYPE_LABEL: Record<string, string> = {
 // Type badges use semantic Badge variants only (DESIGN.md §867 — no
 // decorative tints). basic = neutral, rental = info (Vercel blue link),
 // vendor = warning (external dependency, monetary risk).
-const TYPE_TONE: Record<
-	string,
-	{ variant: "default" | "info" | "warning" }
-> = {
+type BackdropTone = { variant: "default" | "info" | "warning" };
+const TYPE_TONE: Record<string, BackdropTone> = {
 	basic_included: { variant: "default" },
 	rental_owned: { variant: "info" },
 	vendor_decor: { variant: "warning" },
 };
+// Defensive fallback — protects against DB rows whose `type` column
+// drifts away from the 3 enum values above (e.g. a future migration
+// adds a 4th type before the app deploys).
+const DEFAULT_TONE: BackdropTone = { variant: "default" };
 
 export default async function BackdropsListPage() {
 	const supabase = await createClient();
@@ -108,7 +110,7 @@ export default async function BackdropsListPage() {
 						</TableHeader>
 						<TableBody>
 							{rows.map((r) => {
-								const tone = TYPE_TONE[r.type];
+								const tone = TYPE_TONE[r.type] ?? DEFAULT_TONE;
 								return (
 									<TableRow key={r.id}>
 										<TableCell className="text-muted-foreground tabular text-xs">

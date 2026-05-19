@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { SectionHeader } from "@/components/layout/section-header";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { VendorsListTable } from "@/components/vendors/vendors-list-table";
@@ -41,18 +40,24 @@ export default async function VendorsListPage({
 
 	const supabase = await createClient();
 
-	// Vendor master + aggregates (single read from view)
-	let query = supabase
-		.from("vendor_summary_v")
+	// 1) Read vendor master from contacts table directly. We avoid the
+	//    vendor_summary_v view here because views in Postgres 15+ default
+	//    to security_definer mode + need explicit GRANT to PostgREST roles
+	//    (authenticated/anon) — extra setup that risks breakage. Querying
+	//    base tables uses each table's existing RLS policy (contacts:
+	//    authenticated reads all; events: same).
+	let vendorQuery = supabase
+		.from("contacts")
 		.select(
-			"vendor_id, name, default_pic_name, default_pic_contact, commission_rate_default, payment_terms, company_address, is_active, event_count, event_count_ytd, commission_ytd, gross_revenue_ytd, last_event_date",
+			"id, name, default_pic_name, default_pic_contact, commission_rate_default, payment_terms, company_address, is_active",
 		)
+		.eq("type", "vendor")
 		.order("name", { ascending: true });
 
-	if (!showArchived) query = query.eq("is_active", true);
-	if (q) query = query.ilike("name", `%${q}%`);
+	if (!showArchived) vendorQuery = vendorQuery.eq("is_active", true);
+	if (q) vendorQuery = vendorQuery.ilike("name", `%${q}%`);
 
-	const { data, error } = await query;
+	const { data: vendorContacts, error } = await vendorQuery;
 
 	if (error) {
 		return (
@@ -64,19 +69,108 @@ export default async function VendorsListPage({
 		);
 	}
 
-	const vendors = (data ?? []) as VendorRow[];
+	const vendorList = (vendorContacts ?? []) as Array<{
+		id: string;
+		name: string;
+		default_pic_name: string | null;
+		default_pic_contact: string | null;
+		commission_rate_default: number | null;
+		payment_terms: string | null;
+		company_address: string | null;
+		is_active: boolean;
+	}>;
 
-	// Aggregate top-of-page KPIs
+	// 2) Aggregate per-vendor stats from events. Single query indexed by
+	//    vendor_contact_id (idx_events_vendor_contact_id). YTD = current
+	//    calendar year. is_migrated_legacy excluded — legacy bookings
+	//    don't have reliable commission data.
+	const ytdStart = `${new Date().getFullYear()}-01-01`;
+	const vendorIds = vendorList.map((v) => v.id);
+
+	type EventAgg = {
+		vendor_contact_id: string | null;
+		event_date: string;
+		vendor_commission_amount: number | null;
+		grand_total: number | null;
+	};
+	let events: EventAgg[] = [];
+	if (vendorIds.length > 0) {
+		const { data: eventsData } = await supabase
+			.from("events")
+			.select(
+				"vendor_contact_id, event_date, vendor_commission_amount, grand_total",
+			)
+			.in("vendor_contact_id", vendorIds)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false);
+		events = (eventsData ?? []) as EventAgg[];
+	}
+
+	// Bucket events by vendor_contact_id, accumulate in O(N).
+	const stats = new Map<
+		string,
+		{
+			count: number;
+			count_ytd: number;
+			commission_ytd: number;
+			gross_ytd: number;
+			last_date: string | null;
+		}
+	>();
+	for (const e of events) {
+		if (!e.vendor_contact_id) continue;
+		const cur = stats.get(e.vendor_contact_id) ?? {
+			count: 0,
+			count_ytd: 0,
+			commission_ytd: 0,
+			gross_ytd: 0,
+			last_date: null,
+		};
+		cur.count += 1;
+		if (e.event_date >= ytdStart) {
+			cur.count_ytd += 1;
+			cur.commission_ytd += e.vendor_commission_amount ?? 0;
+			cur.gross_ytd += e.grand_total ?? 0;
+		}
+		if (!cur.last_date || e.event_date > cur.last_date) {
+			cur.last_date = e.event_date;
+		}
+		stats.set(e.vendor_contact_id, cur);
+	}
+
+	const vendors: VendorRow[] = vendorList.map((v) => {
+		const s = stats.get(v.id) ?? {
+			count: 0,
+			count_ytd: 0,
+			commission_ytd: 0,
+			gross_ytd: 0,
+			last_date: null,
+		};
+		return {
+			vendor_id: v.id,
+			name: v.name,
+			default_pic_name: v.default_pic_name,
+			default_pic_contact: v.default_pic_contact,
+			commission_rate_default: v.commission_rate_default,
+			payment_terms: v.payment_terms,
+			company_address: v.company_address,
+			is_active: v.is_active,
+			event_count: s.count,
+			event_count_ytd: s.count_ytd,
+			commission_ytd: s.commission_ytd,
+			gross_revenue_ytd: s.gross_ytd,
+			last_event_date: s.last_date,
+		};
+	});
+
+	// Top-of-page KPIs
 	const totalVendors = vendors.filter((v) => v.is_active).length;
-	const totalEventsYTD = vendors.reduce((s, v) => s + (v.event_count_ytd ?? 0), 0);
+	const totalEventsYTD = vendors.reduce((s, v) => s + v.event_count_ytd, 0);
 	const totalCommissionYTD = vendors.reduce(
-		(s, v) => s + (v.commission_ytd ?? 0),
+		(s, v) => s + v.commission_ytd,
 		0,
 	);
-	const totalGrossYTD = vendors.reduce(
-		(s, v) => s + (v.gross_revenue_ytd ?? 0),
-		0,
-	);
+	const totalGrossYTD = vendors.reduce((s, v) => s + v.gross_revenue_ytd, 0);
 
 	return (
 		<div className="space-y-5">
@@ -105,7 +199,6 @@ export default async function VendorsListPage({
 				}
 			/>
 
-			{/* KPI strip */}
 			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<KpiTile
 					label="Vendor aktif"
@@ -129,7 +222,6 @@ export default async function VendorsListPage({
 				/>
 			</dl>
 
-			{/* Filter row */}
 			<div className="flex flex-wrap items-center gap-2">
 				<form
 					method="get"
@@ -147,7 +239,9 @@ export default async function VendorsListPage({
 						placeholder="Cari nama vendor…"
 						className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-8 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 					/>
-					{showArchived && <input type="hidden" name="show_archived" value="1" />}
+					{showArchived && (
+						<input type="hidden" name="show_archived" value="1" />
+					)}
 				</form>
 
 				<Link
@@ -176,9 +270,7 @@ export default async function VendorsListPage({
 				<EmptyState
 					icon={Building2}
 					title={
-						q
-							? "Vendor tidak ditemukan"
-							: "Belum ada vendor terdaftar"
+						q ? "Vendor tidak ditemukan" : "Belum ada vendor terdaftar"
 					}
 					description={
 						q
@@ -186,7 +278,7 @@ export default async function VendorsListPage({
 							: "Tambah vendor baru, atau biarkan otomatis terbuat saat owner input booking dengan channel = Vendor."
 					}
 					action={
-						!q && (
+						!q ? (
 							<Link
 								href="/settings/vendors/new"
 								className={buttonVariants({ variant: "default", size: "sm" })}
@@ -194,7 +286,7 @@ export default async function VendorsListPage({
 								<PlusCircle className="size-4" />
 								Tambah vendor pertama
 							</Link>
-						)
+						) : undefined
 					}
 				/>
 			) : (
@@ -202,12 +294,17 @@ export default async function VendorsListPage({
 			)}
 
 			<p className="text-fluid-caption text-muted-foreground">
-				Data diagregat dari <code className="rounded bg-muted px-1 py-0.5 text-[11px]">vendor_summary_v</code>{" "}
-				(join <code className="rounded bg-muted px-1 py-0.5 text-[11px]">contacts</code> ×{" "}
-				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">events</code> by{" "}
-				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">vendor_contact_id</code>).
-				YTD = year-to-date sesuai tanggal event. Komisi YTD dihitung dari{" "}
-				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">events.vendor_commission_amount</code>{" "}
+				Aggregate dihitung dari{" "}
+				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+					contacts
+				</code>{" "}
+				(type=vendor) ×{" "}
+				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">events</code>{" "}
+				(vendor_contact_id). YTD = year-to-date sesuai tanggal event. Komisi YTD
+				dihitung dari{" "}
+				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+					events.vendor_commission_amount
+				</code>{" "}
 				(populated saat settlement).
 			</p>
 		</div>

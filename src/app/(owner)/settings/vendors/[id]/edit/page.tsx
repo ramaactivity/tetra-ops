@@ -17,7 +17,7 @@ export default async function EditVendorPage({
 	const { id } = await params;
 	const supabase = await createClient();
 
-	const [{ data: vendor, error }, { data: aggregate }] = await Promise.all([
+	const [{ data: vendor, error }, { data: eventsData }] = await Promise.all([
 		supabase
 			.from("contacts")
 			.select(
@@ -26,13 +26,15 @@ export default async function EditVendorPage({
 			.eq("id", id)
 			.eq("type", "vendor")
 			.maybeSingle(),
+		// Inline aggregate — no view dependency. See note in vendors/page.tsx.
 		supabase
-			.from("vendor_summary_v")
+			.from("events")
 			.select(
-				"event_count, event_count_ytd, commission_ytd, gross_revenue_ytd, last_event_date",
+				"event_date, vendor_commission_amount, grand_total",
 			)
-			.eq("vendor_id", id)
-			.maybeSingle(),
+			.eq("vendor_contact_id", id)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false),
 	]);
 
 	if (error || !vendor) {
@@ -47,6 +49,31 @@ export default async function EditVendorPage({
 		}
 		notFound();
 	}
+
+	// Compute aggregates inline (cheap — typically 1-50 events per vendor).
+	const ytdStart = `${new Date().getFullYear()}-01-01`;
+	const events = (eventsData ?? []) as Array<{
+		event_date: string;
+		vendor_commission_amount: number | null;
+		grand_total: number | null;
+	}>;
+	const aggregate = events.reduce(
+		(acc, e) => {
+			acc.event_count += 1;
+			if (e.event_date >= ytdStart) {
+				acc.event_count_ytd += 1;
+				acc.commission_ytd += e.vendor_commission_amount ?? 0;
+				acc.gross_revenue_ytd += e.grand_total ?? 0;
+			}
+			return acc;
+		},
+		{
+			event_count: 0,
+			event_count_ytd: 0,
+			commission_ytd: 0,
+			gross_revenue_ytd: 0,
+		},
+	);
 
 	const action = updateVendor.bind(null, vendor.id as string);
 
