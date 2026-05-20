@@ -36,7 +36,7 @@ import {
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
 import type { NavItem } from "@/components/booking/_shared/section-nav";
-import { SummaryPanel } from "@/components/booking/_shared/summary-panel";
+import { SummaryRail } from "@/components/operations/_shared/summary-rail";
 
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
 
@@ -802,11 +802,15 @@ export function BookingForm({
 
 	// Section progress — derived from state + server errors.
 	const navItems = useMemo<NavItem[]>(() => {
-		const hasErr = (...keys: string[]) =>
-			keys.some((k) => Boolean(stateErrors?.[k as keyof typeof stateErrors]));
+		const errCount = (...keys: string[]) =>
+			keys.reduce(
+				(n, k) =>
+					stateErrors?.[k as keyof typeof stateErrors] ? n + 1 : n,
+				0,
+			);
 
 		// A: Source & Vendor
-		const aErr = hasErr("channel", "vendor_name", "referrer_user_id");
+		const aErrN = errCount("channel", "vendor_name", "referrer_user_id");
 		const aOk = Boolean(
 			channel &&
 				(channel === "direct" ||
@@ -814,7 +818,7 @@ export function BookingForm({
 					(channel === "relasi" && referrerUserId)),
 		);
 		// B: Event Details (category + date + venue)
-		const bErr = hasErr(
+		const bErrN = errCount(
 			"event_category",
 			"event_date",
 			"start_time",
@@ -822,32 +826,36 @@ export function BookingForm({
 		);
 		const bOk = Boolean(eventCategory && eventDate && startTime && venueName);
 		// C: Service Package (service + package)
-		const cErr = hasErr("service_type", "package_id");
+		const cErrN = errCount("service_type", "package_id");
 		const cOk = Boolean(serviceType && packageId);
 		// D: Contact & Pricing (client_wa + basePrice)
-		const dErr = hasErr("client_name", "client_wa", "base_price");
+		const dErrN = errCount("client_name", "client_wa", "base_price");
 		const dOk = Boolean(clientName && clientWa && basePrice > 0);
 
 		return [
 			{
 				id: "cluster-source",
 				label: "Sumber & Vendor",
-				status: aErr ? "error" : aOk ? "ok" : "empty",
+				status: aErrN > 0 ? "error" : aOk ? "ok" : "empty",
+				issueCount: aErrN,
 			},
 			{
 				id: "cluster-event",
 				label: "Event Details",
-				status: bErr ? "error" : bOk ? "ok" : "empty",
+				status: bErrN > 0 ? "error" : bOk ? "ok" : "empty",
+				issueCount: bErrN,
 			},
 			{
 				id: "cluster-service",
 				label: "Service Package",
-				status: cErr ? "error" : cOk ? "ok" : "empty",
+				status: cErrN > 0 ? "error" : cOk ? "ok" : "empty",
+				issueCount: cErrN,
 			},
 			{
 				id: "cluster-contact",
 				label: "Contact & Pricing",
-				status: dErr ? "error" : dOk ? "ok" : "empty",
+				status: dErrN > 0 ? "error" : dOk ? "ok" : "empty",
+				issueCount: dErrN,
 			},
 		];
 	}, [
@@ -2569,7 +2577,8 @@ export function BookingForm({
 		{/* Sticky summary panel — desktop only (≥lg). Mobile + tablet
 		    keep the form's existing sticky bottom footer for save action. */}
 		<div className="hidden lg:block">
-			<SummaryPanel
+			<SummaryRail
+				width="sm"
 				eventDate={eventDateLabel}
 				eventTimeRange={eventTimeRange}
 				eventTimeline={{
