@@ -2417,6 +2417,7 @@ export function BookingForm({
 					name="base_price"
 					error={err("base_price")}
 					hint="Auto-fill dari paket; bisa override manual"
+					layoutMode="grid"
 				>
 					<input
 						type="number"
@@ -2490,6 +2491,7 @@ export function BookingForm({
 						error={err("discount_type")}
 						hint="Klasifikasi diskon — dipakai reports untuk slice 'diskon per kategori' dan journal."
 						required
+						layoutMode="grid"
 					>
 						<NativeSelect
 							value={discountType}
@@ -2514,6 +2516,7 @@ export function BookingForm({
 					name="crew_notes"
 					error={err("crew_notes")}
 					hint="Optional — instruksi spesifik untuk tim lapangan"
+					layoutMode="grid"
 				>
 					<textarea
 						name="crew_notes"
