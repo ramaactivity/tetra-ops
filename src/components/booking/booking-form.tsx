@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { FieldGrid } from "@/components/operations/_shared/field-grid";
 import { SectionCard } from "@/components/operations/_shared/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
@@ -1018,6 +1019,7 @@ export function BookingForm({
 					name="channel"
 					error={err("channel")}
 					required
+					layoutMode="grid"
 				>
 					<NativeSelect
 						value={channel}
@@ -1055,6 +1057,7 @@ export function BookingForm({
 								error={err("vendor_name")}
 								hint="Pilih dari master vendor, atau ketik nama baru (auto-create di /settings/vendors saat save)."
 								required
+								layoutMode="grid"
 							>
 								<Combobox
 									value={vendorName}
@@ -1303,6 +1306,7 @@ export function BookingForm({
 										name="vendor_commission_value"
 										error={err("vendor_commission_value")}
 										hint="Jumlah tetap yang vendor potong dari base price per event. Klien tetap pilih paket dari katalog Tetra di section Financial — vendor ambil fee ini saat transfer ke Tetra."
+										layoutMode="grid"
 									>
 										<div className="relative">
 											<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
@@ -2724,6 +2728,7 @@ function Field({
 	error,
 	required,
 	children,
+	layoutMode = "stacked",
 }: {
 	label: string;
 	name: string;
@@ -2732,7 +2737,24 @@ function Field({
 	error?: string;
 	required?: boolean;
 	children: React.ReactNode;
+	/** "stacked" — label on top (default, used inside paired wrappers).
+	 *  "grid" — label-LEFT via FieldGrid.Row (operations-consistency layout). */
+	layoutMode?: "stacked" | "grid";
 }) {
+	if (layoutMode === "grid") {
+		return (
+			<FieldGrid.Row
+				label={label}
+				name={name}
+				hint={hint}
+				tooltip={tooltip}
+				error={error}
+				required={required}
+			>
+				{children}
+			</FieldGrid.Row>
+		);
+	}
 	return (
 		<div className="space-y-1.5">
 			<div className="flex items-center gap-1.5">
