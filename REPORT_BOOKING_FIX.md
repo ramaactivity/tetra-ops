@@ -4,6 +4,17 @@
 **Branch:** main
 **Trigger:** User report — "Booking Form Layout Regression" (7 critical issues)
 
+> **Superseded — most decisions in this report were revisited the same day** by the operations consistency pass ([REPORT_OPERATIONS_CONSISTENCY.md](REPORT_OPERATIONS_CONSISTENCY.md)). Specifically:
+>
+> - Container `wide` (max-w-[1600px]) → reverted to `xl` (max-w-7xl=1280px) to align with `/operations/[projectId]` reference. Commit `fd4066a`.
+> - Summary panel 320/360px → tightened to 280px (`SummaryRail width="sm"`). Commit `fd4066a` + `b60602c`.
+> - `<input type="time">` native picker → reverted to custom Popover. Commit `d020272`.
+> - `<Field>` label-on-top → `<FieldGrid.Row>` label-LEFT for solo fields (paired short fields stay stacked). Commits `cea1eac`/`00ad0d3`/`24263ce`/`442f15b`.
+>
+> Reads in this file that still apply: helper text → tooltip ⓘ (`5bea6b4`), add-on rows auto-fill grid + no truncate (`c6aa85e`), summary panel mini-timeline + addon breakdown (`4944a88`), loading.tsx skeletons (`2cbee87` rewrote them to match new structure).
+>
+> See REPORT_OPERATIONS_CONSISTENCY.md §0 "Shipped log" for the canonical state.
+
 ## Why this report exists
 
 Session 1 of the booking-form redesign (6afd5fd, 9e34a54, 07c5795) shipped

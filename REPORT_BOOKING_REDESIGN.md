@@ -1,9 +1,22 @@
 # REPORT — Booking Form Redesign
 
+> **⚠️ Direction superseded (2026-05-20):** Phase 2+ "Cluster A–D extraction"
+> dijabarin di doc ini sudah **digantikan** oleh
+> [REPORT_OPERATIONS_CONSISTENCY.md](REPORT_OPERATIONS_CONSISTENCY.md).
+> Arah baru pakai shared primitives lintas operations cluster (PageHeader,
+> SectionCard, FieldGrid, SummaryRail, dll) — bukan ClusterCard yang
+> spesifik booking-form.
+>
+> Phase 1 (commits 6afd5fd..6a5b299 — layout shell + summary panel +
+> regression fix) masih valid sebagai foundation. Yang **didrop**:
+> rencana extract 4 ClusterCard (Source/Event/Service/Contact).
+> File [src/components/booking/_shared/cluster-card.tsx](src/components/booking/_shared/cluster-card.tsx)
+> jadi candidate untuk cleanup commit di Phase 1.7 dari plan baru.
+
 **Tanggal**: 2026-05-20
-**Status**: Phase 0 design + planning
+**Status**: Phase 0–1 shipped; Phase 2+ redirected to OPERATIONS_CONSISTENCY plan
 **Branch**: `main`
-**Files in scope**: `src/components/booking/booking-form.tsx` (2575 LOC), `src/app/(owner)/operations/{new,[projectId]/edit}/page.tsx`
+**Files in scope**: `src/components/booking/booking-form.tsx` (2735 LOC), `src/app/(owner)/operations/{new,[projectId]/edit}/page.tsx`
 
 ---
 
