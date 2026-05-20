@@ -210,8 +210,15 @@ export default async function WarehousePage({
 							href="/warehouse/purchase-requests"
 							className={buttonVariants({ variant: "outline", size: "sm" })}
 						>
-							<ShoppingCart className="size-4" />
+							<ClipboardCheck className="size-4" />
 							Permintaan
+						</Link>
+						<Link
+							href="/warehouse/purchases"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<ShoppingCart className="size-4" />
+							Pembelian
 						</Link>
 						<Link
 							href="/warehouse/stock-take"
