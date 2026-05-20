@@ -1234,11 +1234,7 @@ Expected: zero matches. If you add a new floating panel, route it through a Port
    - Change `rounded-xl` → `rounded-lg`
 3. **Remove Playfair Display** from `src/app/layout.tsx:14-18` + `--font-display` from globals.css
 4. **Remove dead-weight deps**: `pnpm remove @tanstack/react-query zustand`
-5. **Add Biome lint rules** (or custom script) to flag:
-   - `rounded-2xl` outside `/marketing/` paths
-   - `shadow-lg`, `shadow-xl`, `shadow-2xl` (require `shadow-level-*`)
-   - `bg-violet-*`, `bg-teal-*`, `bg-indigo-*`, etc. (decorative colors)
-   - Hardcoded `text-[11px] uppercase font-mono` (require `.eyebrow` class)
+5. **Design-system lint** — see §6.1 for the shipped script + rule list.
 
 **Effort**: 1-2 days. **Impact**: kills 60-80% of inconsistency overnight.
 
@@ -1307,14 +1303,45 @@ Expected: zero matches. If you add a new floating panel, route it through a Port
 
 ## 6. Tooling Recommendations
 
-### 6.1 Linting
-Add Biome custom rules OR ESLint plugin:
-- `no-tailwind-rounded-2xl-in-app` — flag `rounded-2xl` outside `/marketing/`
-- `no-tailwind-default-shadow` — flag `shadow-{sm,md,lg,xl,2xl}` outside test files
-- `no-decorative-color` — flag `bg-{violet,teal,indigo,fuchsia,cyan,lime,orange,pink,purple}-*`
-- `require-tabular-on-money` — flag `Rp \d` in JSX without `.tabular` class on container
-- `no-translate-on-hover` — flag `hover:-translate-*` and `hover:translate-*`
-- `no-inline-eyebrow` — flag inline `font-mono text-[11px] uppercase` pattern
+### 6.1 Linting (Gap #10 — shipped)
+
+Biome 2 doesn't ship token-level rules out of the box, so design-system enforcement runs as a Node script. The lint surface is split into two layers:
+
+1. **Biome** (`pnpm lint`) — TypeScript / unused-import / formatting; default recommended rule set. Config at [biome.json](biome.json).
+2. **Design-system lint** (`pnpm lint:design-system`) — custom regex rules over `src/`. Script: [scripts/lint-design-system.ts](scripts/lint-design-system.ts).
+
+**Usage:**
+```bash
+pnpm lint:design-system           # all rules, error-level → exit 1 on hit
+pnpm lint:design-system --warn    # treat errors as warnings (CI dry-run)
+pnpm lint:design-system --rule=no-native-form-control   # single rule
+```
+
+**Shipped rules:**
+
+| Rule ID | Severity | What it flags | Allow-list paths |
+| ------- | -------- | -------------- | ---------------- |
+| `no-decorative-radius` | warn | `rounded-2xl` outside `/marketing/` | `(marketing)`, `dev/primitives` |
+| `no-raw-shadow` | warn | `shadow-{lg,xl,2xl}` (require `shadow-[var(--shadow-level-*)]`) | `(marketing)`, `dev/primitives` |
+| `no-decorative-color` | warn | `(bg|text|border)-(violet|teal|indigo|pink|fuchsia|cyan)-*` | `(marketing)`, `dev/primitives` |
+| `no-hardcoded-eyebrow` | warn | Inline `text-[11px] uppercase … font-mono` (use `.eyebrow`) | `dev/primitives` |
+| `no-native-form-control` | **error** | `type="time|date|color"`, native `<select>` | `file-drop`, `native-select`, `select`, `combobox`, time/date/month-picker, `dev/primitives` |
+| `no-native-select-usage` | warn | `<NativeSelect>` in JSX (use `<Combobox>`) | `native-select.tsx` itself, `dev/primitives` |
+| `no-handrolled-popup` | **error** | `absolute … top-full` (clipping bug inside SectionCard) | — |
+
+**Severity migration strategy** (locked in §9 Decisions Log, 2026-05-21):
+- New rules start as `warn` so existing code doesn't break CI overnight.
+- Flip to `error` per rule once the codebase is clean for that rule.
+- Today's state (2026-05-21 snapshot): 0 errors, 40 warnings (6× `rounded-2xl` + 4× `shadow-xl` in `(auth)` pages, 30× `<NativeSelect>` across non-booking forms). Auth pages get a Phase 3 polish pass; NativeSelect calls migrate during Phase 2 per-route work.
+
+**CI integration:** the script exits 1 if any error-level rule has hits. Wire to a pre-commit hook (Husky or lefthook) when the project gets one — for now, run before opening a PR. CI step can be added as:
+```yaml
+- run: pnpm lint:design-system
+```
+
+**Future additions (not shipped yet):**
+- `require-tabular-on-money` — flag `Rp \d+` in JSX without `.tabular` on the container. Needs an AST walker (regex too imprecise).
+- `no-translate-on-hover` — flag `hover:translate-*` (per §4.4). Trivial regex; add when first violation is seen.
 
 ### 6.2 Storybook
 Not currently set up. **Recommendation**: Add Storybook untuk:
@@ -1398,6 +1425,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #7 · Reference page polish — concrete spec in §3.11.** Both `/operations` list + `/operations/[projectId]` are Phase 1 references but need their own light polish (per user feedback). Specced two concrete items: (a) ops-list status column "lebih dense" = consolidate event status + payment status + outstanding amount into a single stacked cell (saves one column-width, surfaces payment-due signal next to its own status); (b) project-detail header migration = replace the inline 75-line JSX with `<PageHeader>` + `<MetaBadge>` and trim duplicate category metadata from `<ProjectHeroRecap>`. Both items deferred to Phase 3 — execute AFTER per-route Phase 2 work (rekap/payments/crew/design) so any primitive-API drift is settled first.
 - **Gap #8 · Real-time pattern — MVP is optimistic concurrency, full real-time deferred.** User flagged 4-owner concurrent monitoring; the actual risk is *silent overwrite*, not lack of live UI. Decision: ship safety first. MVP (Phase 2): every mutation does `UPDATE … WHERE id = $1 AND updated_at = $2`; mismatch returns a structured conflict error → form banner "edited by [name] [X min ago], refresh + retry". Server-side only; zero perf cost in happy path; no subscription. Optional Phase 2 add-on: passive `updated_at / updated_by` footer on detail pages. Full real-time (Supabase Realtime channel, presence avatar stack, optimistic merge) parked at Phase 5 — bring forward only when an actual user complaint shows the conflict guard isn't enough. Pattern documented in §3.10.
 - **Gap #9 · Operations cluster mobile contract — specced in §3.9.** Each shared primitive in `operations/_shared/` now carries a documented mobile behavior so Phase 2 routes adapt identically. Key decisions: (a) `<SummaryRail>` stays **hidden entirely below `lg`** — no bottom-sheet collapse; mobile users review by scrolling through SectionCards, and the form's sticky bottom bar covers the save action. Inlining the rail as a sheet would duplicate state UI without adding value. (b) `<PageHeader>` actions wrap via flex-wrap — if a route exceeds 3 buttons, demote #4+ to a `<DropdownMenu trigger={<Ellipsis/>}>`. (c) `<SectionCard>` default-open is per-route (booking = all open / rekap = first two open / payments = outstanding only / crew = assigned only / design = drive only). (d) `<FieldGrid.Row>` stacks at <md already (shipped). (e) `<MetaBadge>` already wraps acceptably. (f) `<KpiRow>` 1-col @<sm, 2-col @sm, 4-col @lg already shipped.
+- **Gap #10 · Design-system lint shipped as a Node script.** Biome 2 has no native token-level rules, and writing a Biome plugin for regex enforcement is heavier than the value. Decision: ship a curated Node script ([scripts/lint-design-system.ts](scripts/lint-design-system.ts)) with 7 rules — `no-decorative-radius`, `no-raw-shadow`, `no-decorative-color`, `no-hardcoded-eyebrow`, `no-native-form-control`, `no-native-select-usage`, `no-handrolled-popup`. Severity migration strategy: every new rule starts `warn` so it doesn't block CI overnight; flip to `error` per rule once the codebase clears it. Today's snapshot — 0 errors, 40 warnings (6× rounded-2xl + 4× shadow-xl in `(auth)` pages = Phase 3 polish target; 30× NativeSelect across non-booking forms = Phase 2 sweep target). Two error-level rules already enforced: `no-native-form-control` and `no-handrolled-popup` — adding a new violation in either fails the script (exit 1). Future rule additions (require-tabular-on-money, no-translate-on-hover) listed in §6.1 as opt-in extensions.
 
 ---
 

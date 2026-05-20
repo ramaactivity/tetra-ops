@@ -7,6 +7,7 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "biome check .",
+		"lint:design-system": "tsx scripts/lint-design-system.ts",
 		"format": "biome format --write .",
 		"brand:place": "tsx scripts/place-brand-assets.ts",
 		"brand:icons": "tsx scripts/generate-pwa-icons.ts"
