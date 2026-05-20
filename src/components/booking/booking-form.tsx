@@ -51,6 +51,9 @@ const FIELD_LABELS: Record<string, string> = {
 	vendor_name: "Nama Vendor",
 	vendor_pic_name: "Nama PIC Vendor",
 	vendor_contact: "WA / Kontak Vendor",
+	vendor_commission_mode: "Skema Komisi Vendor",
+	vendor_commission_value_type: "Tipe Nilai Komisi",
+	vendor_commission_value: "Nilai Komisi Vendor",
 	vendor_commission_rate: "Komisi Vendor (%)",
 	vendor_commission_amount: "Komisi Vendor (Rp)",
 	referrer_user_id: "Relasi (User)",
@@ -124,8 +127,12 @@ export type VendorOption = {
 	name: string;
 	pic_name: string | null;
 	contact: string | null;
-	/** Default commission % from vendor master. Auto-fills the % input when
-	 * an existing vendor is picked. Free-text new vendors send null. */
+	/** Commission scheme from vendor master. Auto-fills booking form
+	 * when an existing vendor is picked. Free-text new vendors send null. */
+	commission_mode?: "commission" | "upfront_cut" | null;
+	commission_value_type?: "percent" | "flat" | null;
+	commission_value?: number | null;
+	/** Legacy: percent rate (deprecated, prefer commission_value above). */
 	commission_rate?: number | null;
 };
 
@@ -158,6 +165,9 @@ export type BookingFormDefaults = Partial<{
 	vendor_name: string;
 	vendor_pic_name: string;
 	vendor_contact: string;
+	vendor_commission_mode: string;
+	vendor_commission_value_type: string;
+	vendor_commission_value: number;
 	vendor_commission_rate: number;
 	vendor_commission_amount: number;
 	referrer_user_id: string;
@@ -380,8 +390,21 @@ export function BookingForm({
 	const [vendorName, setVendorName] = useState(get("vendor_name"));
 	const [vendorPicName, setVendorPicName] = useState(get("vendor_pic_name"));
 	const [vendorContact, setVendorContact] = useState(get("vendor_contact"));
-	const [vendorCommissionRate, setVendorCommissionRate] = useState(
-		get("vendor_commission_rate", "10"),
+	// New commission model — see migration 20260520_vendor_commission_mode.sql
+	const [vendorCommissionMode, setVendorCommissionMode] = useState<
+		"commission" | "upfront_cut"
+	>(() => {
+		const v = get("vendor_commission_mode", "commission");
+		return v === "upfront_cut" ? "upfront_cut" : "commission";
+	});
+	const [vendorCommissionValueType, setVendorCommissionValueType] = useState<
+		"percent" | "flat"
+	>(() => {
+		const v = get("vendor_commission_value_type", "percent");
+		return v === "flat" ? "flat" : "percent";
+	});
+	const [vendorCommissionValue, setVendorCommissionValue] = useState(
+		get("vendor_commission_value", "10"),
 	);
 	const [referrerUserId, setReferrerUserId] = useState(get("referrer_user_id"));
 	const [referrerCommission, setReferrerCommission] = useState(
@@ -752,8 +775,16 @@ export function BookingForm({
 		setVendorName(name);
 		if (found?.pic_name) setVendorPicName(found.pic_name);
 		if (found?.contact) setVendorContact(found.contact);
-		if (found?.commission_rate != null) {
-			setVendorCommissionRate(String(found.commission_rate));
+		// Apply commission scheme defaults from vendor master.
+		if (found?.commission_mode) setVendorCommissionMode(found.commission_mode);
+		if (found?.commission_value_type) {
+			setVendorCommissionValueType(found.commission_value_type);
+		}
+		if (found?.commission_value != null) {
+			setVendorCommissionValue(String(found.commission_value));
+		} else if (found?.commission_rate != null) {
+			// Legacy fallback (vendor master without new fields populated)
+			setVendorCommissionValue(String(found.commission_rate));
 		}
 	}
 
@@ -958,33 +989,232 @@ export function BookingForm({
 									/>
 								</Field>
 							</div>
-							<Field
-								label="Komisi Vendor (%)"
+							{/* Commission scheme — mode + type segmented controls */}
+							<div className="space-y-3">
+								<div className="space-y-1">
+									<span className="text-[13px] font-medium text-foreground">
+										Skema Komisi
+									</span>
+									<p className="text-[12px] text-muted-foreground">
+										Default dari master vendor; override per event kalau perlu.
+									</p>
+								</div>
+								<div className="grid gap-2 sm:grid-cols-2">
+									<button
+										type="button"
+										role="radio"
+										aria-checked={vendorCommissionMode === "commission"}
+										onClick={() => setVendorCommissionMode("commission")}
+										className={`flex items-start gap-2.5 rounded-md border p-3 text-left transition-colors ${
+											vendorCommissionMode === "commission"
+												? "border-primary bg-primary/5"
+												: "border-border-default bg-card hover:border-border-strong hover:bg-secondary/40"
+										}`}
+									>
+										<span
+											className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+												vendorCommissionMode === "commission"
+													? "border-primary"
+													: "border-border-strong"
+											}`}
+										>
+											{vendorCommissionMode === "commission" && (
+												<span className="size-2 rounded-full bg-primary" />
+											)}
+										</span>
+										<span className="flex flex-col gap-0.5">
+											<span className="text-[13px] font-medium text-foreground">
+												Komisi Langsung
+											</span>
+											<span className="text-[11px] leading-snug text-muted-foreground">
+												Klien bayar Tetra full, Tetra transfer komisi ke vendor.
+											</span>
+										</span>
+									</button>
+									<button
+										type="button"
+										role="radio"
+										aria-checked={vendorCommissionMode === "upfront_cut"}
+										onClick={() => setVendorCommissionMode("upfront_cut")}
+										className={`flex items-start gap-2.5 rounded-md border p-3 text-left transition-colors ${
+											vendorCommissionMode === "upfront_cut"
+												? "border-primary bg-primary/5"
+												: "border-border-default bg-card hover:border-border-strong hover:bg-secondary/40"
+										}`}
+									>
+										<span
+											className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+												vendorCommissionMode === "upfront_cut"
+													? "border-primary"
+													: "border-border-strong"
+											}`}
+										>
+											{vendorCommissionMode === "upfront_cut" && (
+												<span className="size-2 rounded-full bg-primary" />
+											)}
+										</span>
+										<span className="flex flex-col gap-0.5">
+											<span className="text-[13px] font-medium text-foreground">
+												Potongan / Base Harga
+											</span>
+											<span className="text-[11px] leading-snug text-muted-foreground">
+												Vendor terima dari klien, transfer ke Tetra sesuai cut.
+											</span>
+										</span>
+									</button>
+								</div>
+								<input
+									type="hidden"
+									name="vendor_commission_mode"
+									value={vendorCommissionMode}
+								/>
+							</div>
+
+							{vendorCommissionMode === "commission" ? (
+								<div className="grid gap-4 md:grid-cols-2">
+									<div className="space-y-1.5">
+										<span className="text-[13px] font-medium text-foreground">
+											Tipe Nilai
+										</span>
+										<div className="inline-flex rounded-md border border-border-default bg-card p-0.5">
+											<button
+												type="button"
+												role="radio"
+												aria-checked={vendorCommissionValueType === "percent"}
+												onClick={() => setVendorCommissionValueType("percent")}
+												className={`inline-flex h-8 items-center rounded-[4px] px-3 text-[12.5px] font-medium leading-none transition-colors ${
+													vendorCommissionValueType === "percent"
+														? "bg-foreground text-background"
+														: "text-muted-foreground hover:text-foreground"
+												}`}
+											>
+												Persentase (%)
+											</button>
+											<button
+												type="button"
+												role="radio"
+												aria-checked={vendorCommissionValueType === "flat"}
+												onClick={() => setVendorCommissionValueType("flat")}
+												className={`inline-flex h-8 items-center rounded-[4px] px-3 text-[12.5px] font-medium leading-none transition-colors ${
+													vendorCommissionValueType === "flat"
+														? "bg-foreground text-background"
+														: "text-muted-foreground hover:text-foreground"
+												}`}
+											>
+												Nominal (Rp)
+											</button>
+										</div>
+										<input
+											type="hidden"
+											name="vendor_commission_value_type"
+											value={vendorCommissionValueType}
+										/>
+									</div>
+									<Field
+										label={
+											vendorCommissionValueType === "percent"
+												? "Komisi Vendor (%)"
+												: "Komisi Vendor (Rp)"
+										}
+										name="vendor_commission_value"
+										error={err("vendor_commission_value")}
+										hint={
+											vendorCommissionValueType === "percent"
+												? "Persentase dari grand total. Standar 10%."
+												: "Nominal flat yang Tetra bayar ke vendor per event."
+										}
+									>
+										<div className="relative">
+											{vendorCommissionValueType === "flat" && (
+												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+													Rp
+												</span>
+											)}
+											<input
+												type="number"
+												min={0}
+												max={
+													vendorCommissionValueType === "percent" ? 100 : undefined
+												}
+												step={
+													vendorCommissionValueType === "percent" ? 0.5 : 1000
+												}
+												value={vendorCommissionValue}
+												onChange={(e) => setVendorCommissionValue(e.target.value)}
+												placeholder={
+													vendorCommissionValueType === "percent"
+														? "10"
+														: "500000"
+												}
+												className={`${inputClass} tabular ${
+													vendorCommissionValueType === "flat" ? "pl-9" : ""
+												}`}
+											/>
+											{vendorCommissionValueType === "percent" && (
+												<span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+													%
+												</span>
+											)}
+										</div>
+										<input
+											type="hidden"
+											name="vendor_commission_value"
+											value={vendorCommissionValue}
+										/>
+									</Field>
+								</div>
+							) : (
+								<Field
+									label="Cut yang Tetra Terima (Rp)"
+									name="vendor_commission_value"
+									error={err("vendor_commission_value")}
+									hint="Jumlah yang vendor transfer ke Tetra per event. Ini juga jadi base_price kalau belum di-set. Tetra tidak track harga jual vendor ke klien."
+								>
+									<div className="relative">
+										<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+											Rp
+										</span>
+										<input
+											type="number"
+											min={0}
+											step={50000}
+											value={vendorCommissionValue}
+											onChange={(e) => setVendorCommissionValue(e.target.value)}
+											placeholder="500000"
+											className={`${inputClass} tabular pl-9`}
+										/>
+										<input
+											type="hidden"
+											name="vendor_commission_value"
+											value={vendorCommissionValue}
+										/>
+										<input
+											type="hidden"
+											name="vendor_commission_value_type"
+											value="flat"
+										/>
+									</div>
+								</Field>
+							)}
+
+							{/* Legacy hidden inputs for back-compat with the server action
+							    schema. vendor_commission_rate filled only for
+							    commission+percent mode to preserve old aggregation paths. */}
+							<input
+								type="hidden"
 								name="vendor_commission_rate"
-								error={err("vendor_commission_rate")}
-								hint="Standar 10%. Override kalau ada nego."
-							>
-								<input
-									type="number"
-									min={0}
-									max={100}
-									step={0.5}
-									value={vendorCommissionRate}
-									onChange={(e) => setVendorCommissionRate(e.target.value)}
-									placeholder="10"
-									className={`${inputClass} tabular`}
-								/>
-								<input
-									type="hidden"
-									name="vendor_commission_rate"
-									value={vendorCommissionRate}
-								/>
-								<input
-									type="hidden"
-									name="vendor_commission_amount"
-									value=""
-								/>
-							</Field>
+								value={
+									vendorCommissionMode === "commission" &&
+									vendorCommissionValueType === "percent"
+										? vendorCommissionValue
+										: ""
+								}
+							/>
+							<input
+								type="hidden"
+								name="vendor_commission_amount"
+								value=""
+							/>
 						</div>
 					)}
 					{channel === "relasi" && (

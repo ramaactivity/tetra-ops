@@ -62,7 +62,7 @@ export default async function NewBookingPage() {
 		supabase
 			.from("contacts")
 			.select(
-				"id, name, default_pic_name, default_pic_contact, commission_rate_default",
+				"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
 			)
 			.eq("type", "vendor")
 			.eq("is_active", true)
@@ -83,18 +83,28 @@ export default async function NewBookingPage() {
 		return 2;
 	})();
 
-	// Vendor master → autocomplete options. Carries commission_rate so the
-	// booking form can pre-fill the % when an existing vendor is picked.
-	const vendorOptions = ((vendorHistory ?? []) as Array<{
-		id: string;
-		name: string;
-		default_pic_name: string | null;
-		default_pic_contact: string | null;
-		commission_rate_default: number | null;
-	}>).map((v) => ({
+	// Vendor master → autocomplete options. Carries commission scheme so
+	// the booking form can pre-fill mode + type + value when an existing
+	// vendor is picked. Legacy commission_rate kept as fallback for old
+	// vendor rows that haven't been migrated to the new fields yet.
+	const vendorOptions = (
+		(vendorHistory ?? []) as Array<{
+			id: string;
+			name: string;
+			default_pic_name: string | null;
+			default_pic_contact: string | null;
+			commission_mode: "commission" | "upfront_cut" | null;
+			commission_value_type: "percent" | "flat" | null;
+			commission_value_default: number | null;
+			commission_rate_default: number | null;
+		}>
+	).map((v) => ({
 		name: v.name,
 		pic_name: v.default_pic_name,
 		contact: v.default_pic_contact,
+		commission_mode: v.commission_mode,
+		commission_value_type: v.commission_value_type,
+		commission_value: v.commission_value_default,
 		commission_rate: v.commission_rate_default,
 	}));
 

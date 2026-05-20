@@ -37,6 +37,7 @@ export default async function EditBookingPage({
 				booker_name,
 				venue_name, venue_address, venue_city, venue_province, google_maps_url,
 				vendor_name, vendor_pic_name, vendor_contact,
+				vendor_commission_mode, vendor_commission_value_type, vendor_commission_value,
 				vendor_commission_rate, vendor_commission_amount,
 				referrer_user_id, referrer_type, referrer_commission,
 				pic_name, pic_wa,
@@ -74,7 +75,7 @@ export default async function EditBookingPage({
 		supabase
 			.from("contacts")
 			.select(
-				"id, name, default_pic_name, default_pic_contact, commission_rate_default",
+				"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
 			)
 			.eq("type", "vendor")
 			.eq("is_active", true)
@@ -82,16 +83,24 @@ export default async function EditBookingPage({
 			.limit(200),
 	]);
 
-	const vendorOptions = ((vendorsList ?? []) as Array<{
-		id: string;
-		name: string;
-		default_pic_name: string | null;
-		default_pic_contact: string | null;
-		commission_rate_default: number | null;
-	}>).map((v) => ({
+	const vendorOptions = (
+		(vendorsList ?? []) as Array<{
+			id: string;
+			name: string;
+			default_pic_name: string | null;
+			default_pic_contact: string | null;
+			commission_mode: "commission" | "upfront_cut" | null;
+			commission_value_type: "percent" | "flat" | null;
+			commission_value_default: number | null;
+			commission_rate_default: number | null;
+		}>
+	).map((v) => ({
 		name: v.name,
 		pic_name: v.default_pic_name,
 		contact: v.default_pic_contact,
+		commission_mode: v.commission_mode,
+		commission_value_type: v.commission_value_type,
+		commission_value: v.commission_value_default,
 		commission_rate: v.commission_rate_default,
 	}));
 
@@ -162,6 +171,20 @@ export default async function EditBookingPage({
 						vendor_name: event.vendor_name ?? "",
 						vendor_pic_name: event.vendor_pic_name ?? "",
 						vendor_contact: event.vendor_contact ?? "",
+						vendor_commission_mode:
+							(event.vendor_commission_mode as
+								| "commission"
+								| "upfront_cut"
+								| null) ?? "commission",
+						vendor_commission_value_type:
+							(event.vendor_commission_value_type as
+								| "percent"
+								| "flat"
+								| null) ?? "percent",
+						vendor_commission_value:
+							(event.vendor_commission_value as number | null) ??
+							(event.vendor_commission_rate as number | null) ??
+							0,
 						vendor_commission_rate: event.vendor_commission_rate ?? 10,
 						vendor_commission_amount: event.vendor_commission_amount ?? 0,
 						referrer_user_id: event.referrer_user_id ?? "",
