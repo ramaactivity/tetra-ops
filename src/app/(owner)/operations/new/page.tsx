@@ -9,6 +9,7 @@ import {
 	type RelasiOption,
 	type VendorOption,
 } from "@/components/booking/booking-form";
+import { Container } from "@/components/layout/container";
 import { createBooking } from "@/lib/actions/bookings";
 import { createClient } from "@/lib/supabase/server";
 
@@ -109,7 +110,7 @@ export default async function NewBookingPage() {
 	}));
 
 	return (
-		<div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
+		<Container size="wide">
 			<div className="space-y-2">
 				<Link
 					href="/operations"
@@ -144,6 +145,6 @@ export default async function NewBookingPage() {
 					grossupRate={grossupRate}
 				/>
 			</div>
-		</div>
+		</Container>
 	);
 }
