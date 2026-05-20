@@ -2676,25 +2676,21 @@ function Section({
 	description: string;
 	children: React.ReactNode;
 }) {
+	const stepLabel = step.toString().padStart(2, "0");
+	const titleText = typeof title === "string" ? title.toUpperCase() : title;
 	return (
-		<section className="space-y-4">
-			<div className="flex items-baseline gap-3">
-				<Badge
-					variant="outline"
-					className="h-6 shrink-0 border-primary/30 bg-primary/10 px-2 text-[11px] font-semibold text-primary"
-				>
-					{step}
-				</Badge>
-				<div className="space-y-0.5">
-					<h3 className="text-fluid-body font-semibold tracking-tight">
-						{title}
-					</h3>
-					<p className="text-fluid-caption text-muted-foreground">
-						{description}
-					</p>
-				</div>
+		<section className="space-y-3">
+			<div className="space-y-1">
+				<p className="eyebrow text-muted-foreground">
+					<span className="tabular text-primary">{stepLabel}</span>
+					<span className="mx-1.5 text-muted-foreground/50">·</span>
+					<span className="text-foreground">{titleText}</span>
+				</p>
+				<p className="text-fluid-caption text-muted-foreground">
+					{description}
+				</p>
 			</div>
-			<div className="space-y-4 pl-9">{children}</div>
+			<div className="space-y-4">{children}</div>
 		</section>
 	);
 }
