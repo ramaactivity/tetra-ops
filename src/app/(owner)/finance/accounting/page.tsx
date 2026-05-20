@@ -13,6 +13,10 @@ import {
 	JurnalTable,
 	type JournalEntryRow,
 } from "@/components/finance/accounting/jurnal-table";
+import {
+	type CoaOption,
+	NewJournalEntryButton,
+} from "@/components/finance/accounting/new-journal-entry-button";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -125,6 +129,15 @@ export default async function AccountingPage({
 		});
 	}
 
+	// Active COA options for the manual entry dialog (skip header rows)
+	const coaOptions: CoaOption[] = coaRows
+		.filter((r) => r.is_active && r.code.includes("-"))
+		.map((r) => ({
+			code: r.code,
+			name: r.name,
+			account_type: r.account_type,
+		}));
+
 	const totalCoa = coaRows.length;
 	const activeCoa = coaRows.filter((c) => c.is_active).length;
 	const totalJournals = journalRows.length;
@@ -144,6 +157,7 @@ export default async function AccountingPage({
 				backHref="/finance"
 				backLabel="Finance"
 				description="Bagan Akun, Jurnal Umum. Auto-jurnal aktif — settlement, pembelian, opname otomatis ter-post."
+				actions={<NewJournalEntryButton coa={coaOptions} />}
 			/>
 
 			<KpiRow className="lg:grid-cols-3">
