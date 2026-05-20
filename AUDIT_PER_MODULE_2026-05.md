@@ -721,13 +721,124 @@ Old: 6.5/10, **3 critical P0s.**
 
 ## 8. Contacts (`/settings/contacts`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/08-contacts-1280.png + 08-contacts-375.png]`
+- **Routes:** `/settings/contacts`, `/settings/contacts/import`
+- **LOC:**
+  - [src/app/(owner)/settings/contacts/page.tsx](src/app/(owner)/settings/contacts/page.tsx) — 151 LOC
+  - [src/app/(owner)/settings/contacts/import/page.tsx](src/app/(owner)/settings/contacts/import/page.tsx) — 45 LOC (likely thin import wizard wrapper)
+  - [src/components/contacts/contacts-list-table.tsx](src/components/contacts/contacts-list-table.tsx) — 124 LOC
+- **Primitive usage:** `<SectionHeader>` legacy · `<EmptyState>` ✓ · `<ContactsListTable>` (`<ResponsiveTable>`-based) · csv-import wizard.
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Legacy. |
+| SectionCard | 1/5 | Single-list page, no sub-sections to wrap. |
+| KpiRow | 0/5 | No counts surfaced (e.g. total contacts, by-type breakdown). |
+| Empty states | 5/5 | `<EmptyState>` ✓ |
+| Status badges | n/a | Contacts don't have status. |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.10)
+
+Old: 5.9/10 (Settings umbrella score; contacts called out specifically).
+
+| Old finding | Status | Evidence |
+| ----------- | ------ | -------- |
+| **No create button** (import-only) | ❌ Outstanding | Read page.tsx — no `<Link href="/settings/contacts/new">` action found. Vendor / client / referral all created via booking-form auto-upsert; manual create UI absent. |
+| Search not live (GET form re-submit) | ❓ Verify | Search input behavior needs read |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-xl` | 0 | Clean |
+| `transition-all` | 0 | — |
+| NativeSelect | 0 | — |
+| Empty state ad-hoc | 0 | Uses `<EmptyState>` ✓ |
+
+### E. Module-Specific Primitive Needs
+
+- **`<ContactCard>` or `<ContactRow>`** — repeats across contacts list + vendor master + crew. Centralize?
+- **`<ContactTypePicker>`** — type filter (vendor/client/referrer) currently free-form chip.
+
+Demands are light — module is small.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** simple list + filter + import
+- **v3 migration effort:** **~3-4 hours**
+  - PageHeader (30min)
+  - Add create button + thin form route (1h)
+  - KpiRow with by-type breakdown (45min)
+  - Live search debounce (45min)
+  - QA (30min)
+- **Risk:** **LOW**
+- **Pre-requisites:** none.
+- **Suggested order:** Week 4 — low priority cleanup.
 
 ---
 
 ## 9. Audit Log (`/settings/audit-log`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/09-audit-log-1280.png + 09-audit-log-375.png]`
+- **Routes:** `/settings/audit-log`. Has `loading.tsx`.
+- **LOC:**
+  - [src/app/(owner)/settings/audit-log/page.tsx](src/app/(owner)/settings/audit-log/page.tsx) — 174 LOC
+  - [src/components/audit-log/audit-filter-bar.tsx](src/components/audit-log/audit-filter-bar.tsx) — 78 LOC
+  - [src/components/audit-log/audit-list-table.tsx](src/components/audit-log/audit-list-table.tsx) — 132 LOC
+- **Primitive usage:** `<SectionHeader>` legacy · `<EmptyState>` ✓ · `<AuditFilterBar>` (audit-local) · `<ResponsiveTable>`-based list.
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Legacy. |
+| SectionCard | 1/5 | Single list page; filter bar + table flat. |
+| KpiRow | 0/5 | No counts (e.g. by actor, by table). Could surface "Today: N events" / "Last 7d: N" / "By you: N" / "Critical actions: N". |
+| Empty states | 5/5 | `<EmptyState>` ✓ |
+
+### C. P0 Gap Status
+
+Not called out specifically in old audit beyond Settings umbrella.
+
+| Finding | Status |
+| ------- | ------ |
+| Filter bar uses NativeSelect (banned) | ❌ Outstanding — 2× in audit-filter-bar.tsx:42, 54 |
+| No row drill-down (view full payload) | ❓ Verify by reading audit-list-table.tsx |
+| No date-range filter | ❓ Verify |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-xl` | 0 | Clean |
+| `transition-all` | 0 | — |
+| NativeSelect | 2 | [audit-filter-bar.tsx:42, 54](src/components/audit-log/audit-filter-bar.tsx#L42) — actor + table filters |
+| Hardcoded eyebrow | 0 | — |
+
+### E. Module-Specific Primitive Needs
+
+- **`<AuditEntryRow>`** — actor + action + table + diff preview + timestamp. Currently inlined.
+- **`<DiffViewer>`** — before/after JSON diff display. If `payload` is rendered, would benefit from a structured viewer (collapsible JSON, color-coded changes).
+- **`<DateRangeFilter>`** — generalized (also Reports/Finance need).
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** ledger-style read-only log
+- **v3 migration effort:** **~3-4 hours**
+  - PageHeader (30min)
+  - 2 NativeSelect → Combobox in filter bar (45min)
+  - KpiRow with 4 audit counts (45min)
+  - Row drill-down panel using SectionCard collapsible (1h)
+  - QA (30min)
+- **Risk:** **LOW**
+- **Pre-requisites:** none for refactor; `<DateRangeFilter>` if filter expansion lands.
+- **Suggested order:** Week 4 — alongside Contacts.
 
 ---
 
