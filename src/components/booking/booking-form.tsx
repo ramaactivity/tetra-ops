@@ -19,7 +19,6 @@ import { SectionCard } from "@/components/operations/_shared/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { NativeSelect } from "@/components/ui/native-select";
 import { TimePicker } from "@/components/ui/time-picker";
 import {
 	Tooltip,
@@ -1029,14 +1028,15 @@ export function BookingForm({
 					required
 					layoutMode="grid"
 				>
-					<NativeSelect
+					<Combobox
 						value={channel}
 						onValueChange={setChannel}
 						options={CHANNEL_OPTIONS.map(([value, label]) => ({
 							value,
 							label,
 						}))}
-						triggerClassName="w-full"
+						placeholder="— pilih channel —"
+						allowFreeText={false}
 						aria-invalid={!!err("channel")}
 					/>
 					<input type="hidden" name="channel" value={channel} required />
@@ -1493,7 +1493,7 @@ export function BookingForm({
 					required
 					layoutMode="grid"
 				>
-					<NativeSelect
+					<Combobox
 						value={eventCategory}
 						onValueChange={(v) => {
 							setEventCategory(v);
@@ -1505,7 +1505,7 @@ export function BookingForm({
 							value: t.code,
 							label: t.label,
 						}))}
-						triggerClassName="w-full"
+						allowFreeText={false}
 						aria-invalid={!!err("event_category")}
 					/>
 					<input
@@ -1687,7 +1687,7 @@ export function BookingForm({
 						error={err("service_type")}
 						required
 					>
-						<NativeSelect
+						<Combobox
 							value={serviceType}
 							onValueChange={setServiceType}
 							placeholder="— pilih service —"
@@ -1695,7 +1695,7 @@ export function BookingForm({
 								value,
 								label,
 							}))}
-							triggerClassName="w-full"
+							allowFreeText={false}
 							aria-invalid={!!err("service_type")}
 						/>
 						<input
@@ -1711,7 +1711,7 @@ export function BookingForm({
 						error={err("frame_size")}
 						required
 					>
-						<NativeSelect
+						<Combobox
 							value={frameSize}
 							onValueChange={setFrameSize}
 							placeholder="— pilih frame —"
@@ -1719,7 +1719,7 @@ export function BookingForm({
 								value,
 								label: label === "—" ? "None" : label,
 							}))}
-							triggerClassName="w-full"
+							allowFreeText={false}
 							aria-invalid={!!err("frame_size")}
 						/>
 						<input
@@ -1742,7 +1742,7 @@ export function BookingForm({
 								: `${filteredPackages.length} paket cocok. Pilih untuk auto-fill base price.`
 					}
 				>
-					<NativeSelect
+					<Combobox
 						value={packageId}
 						onValueChange={(v) => handlePackageChange(v)}
 						placeholder="— custom / belum dipilih —"
@@ -1753,7 +1753,7 @@ export function BookingForm({
 								label: `${pkg.name} · ${pkg.duration_hours}j · ${formatRupiah(pkg.base_price)}`,
 							})),
 						]}
-						triggerClassName="w-full"
+						allowFreeText={false}
 					/>
 					<input type="hidden" name="package_id" value={packageId} />
 				</Field>
@@ -1782,7 +1782,7 @@ export function BookingForm({
 										: "Kosongkan kalau belum ditentukan — sistem akan reminder H-7 + H-3"
 					}
 				>
-					<NativeSelect
+					<Combobox
 						value={backdropId}
 						onValueChange={setBackdropId}
 						placeholder="— Belum ditentukan / nyusul —"
@@ -1797,7 +1797,7 @@ export function BookingForm({
 								}`,
 							})),
 						]}
-						triggerClassName="w-full"
+						allowFreeText={false}
 					/>
 					<input type="hidden" name="backdrop_id" value={backdropId} />
 				</Field>
@@ -2312,24 +2312,23 @@ export function BookingForm({
 								>
 									Tambah Bonus
 								</label>
-								<NativeSelect
+								<Combobox
 									id="bonus-picker"
 									value=""
-									triggerClassName="w-full"
+									placeholder="— pilih item bonus —"
+									allowFreeText={false}
+									emptyMessage="Tidak ada item — coba reset filter atau tambah addon di Settings."
 									onValueChange={(v) => {
 										if (v) addBonusRow(v);
 									}}
-									options={[
-										{ value: "", label: "— pilih item bonus —" },
-										...addons
-											.filter(
-												(a) => !bonusRows.some((r) => r.addon_id === a.id),
-											)
-											.map((a) => ({
-												value: a.id,
-												label: `${ADDON_CATEGORY_LABELS[a.category] ?? a.category} · ${a.name}`,
-											})),
-									]}
+									options={addons
+										.filter(
+											(a) => !bonusRows.some((r) => r.addon_id === a.id),
+										)
+										.map((a) => ({
+											value: a.id,
+											label: `${ADDON_CATEGORY_LABELS[a.category] ?? a.category} · ${a.name}`,
+										}))}
 								/>
 							</div>
 						</div>
@@ -2501,11 +2500,12 @@ export function BookingForm({
 						required
 						layoutMode="grid"
 					>
-						<NativeSelect
+						<Combobox
 							value={discountType}
 							onValueChange={setDiscountType}
+							placeholder="— pilih tipe diskon —"
 							options={DISCOUNT_TYPE_OPTIONS}
-							triggerClassName="w-full"
+							allowFreeText={false}
 						/>
 						<input
 							type="hidden"
