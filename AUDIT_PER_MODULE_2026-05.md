@@ -1042,27 +1042,149 @@ Old: 8.5/10 mobile portal (excellent post-Prompt 4 polish). No P0.
 
 ### G. Top Bar / Global Layout
 
-*Pending.*
+**Current state:** [src/components/layouts/topbar.tsx](src/components/layouts/topbar.tsx) — 66 LOC. Shape: Tetra logo (left) + cluster name eyebrow + `<NotificationBell>` + `<UserMenu>` (right). Shared between owner + crew layouts.
+
+- **Notification bell:** currently routes to `/notifications`. Badge count is SSR-only (per AUDIT_UI_UX.md §2.1 + §3.8); no real-time subscription. v3 spec (per user prompt) wants to **move notification surface to topbar** with inbox dropdown.
+- **No global search.** All search is per-page (operations list, settings/contacts, etc.). Settings P0 "33 keys unsearchable" + Sub-search across entities both want a topbar-level command palette.
+- **No breadcrumb.** Current pages use the back-link pattern in `<PageHeader>` (`backHref + backLabel`) for project-detail-style routes; no global breadcrumb component.
+- **No multi-owner presence indicator.** Foundation = DESIGN_SYSTEM §3.10 MVP (optimistic concurrency, no presence avatar). v3 could add a simple `<AvatarStack>` placeholder slot in topbar for Phase 5 wire-up.
+- **No global loading bar.** Next.js's `<Link>` doesn't have a default progress indicator; pages just appear (or skeleton, where loading.tsx is present).
+
+**v3 demand:**
+1. **Topbar notification inbox dropdown** — `<NotificationBell>` becomes a popover trigger. Inside: filtered list of recent notifications + "See all" link. Composes `<NotificationRow>` from Module #3.
+2. **Global command palette** (`⌘K` / `Ctrl+K`) — opens search across system config keys + entity routes + recent events. Required for Settings P0 + multi-route search ergonomics.
+3. **Owner presence avatar stack** placeholder — render slot (empty until §3.10 Phase 5 ships).
+4. **Progress bar** (NProgress-style) — top thin line during route transitions. Optional polish.
 
 ### H. Sidebar
 
-*Pending.*
+**Current state:** [src/components/layouts/owner-sidebar.tsx](src/components/layouts/owner-sidebar.tsx) — 121 LOC. Shape: fixed 260px wide, hidden `<md` (mobile uses `<OwnerBottomNav>` instead). Two flat sections separated by a divider:
+
+```
+─── PRIMARY ────
+  Dashboard
+  Operations
+  Design
+  Billing
+  Warehouse
+  Finance
+─── SECONDARY ──
+  Reminders
+  Notifications
+  Reports
+  Settings
+```
+
+- **Active state:** color-only (no border indicator, no left-stripe). Already disciplined ✓.
+- **Mobile:** hamburger absent. `<OwnerBottomNav>` (170 LOC) renders fixed bottom on `<md`. Crew portal uses `<CrewBottomNav>` (77 LOC).
+- **Collapsible:** sidebar has no collapse toggle. At 260px fixed, content area at 1280px viewport = 1020px usable — matches Container `xl` cap (1280) minus padding.
+- **Multi-tenant owner switcher:** not present; not in scope.
+
+**v3 demand:**
+1. **5-domain restructure** (per Settings audit §C): regroup nav into "Operations" / "Finance" / "People" / "Communications" / "System". Reduces cognitive load on Settings entry.
+2. **Sidebar width fits the new operations container** — current 260px works at xl=1280px. Verify width at smaller laptop viewports (1024px) — may need collapse on <lg.
+3. **Notification + Reminders consolidation** consideration — if topbar bell takes over urgent notifications, sidebar "Notifications" entry could become a deeper "Inbox History" view.
 
 ### I. Modal / Sheet Usage
 
-*Pending.*
+**Inventory** (`grep -l '<ConfirmDialog\\|<AlertDialog\\|<Dialog\\|<Sheet ' src/`):
+- **19 files** use modal/dialog primitives.
+- **1 file** uses Drawer pattern (`<EditCrewDrawer>` at `src/components/crew/edit-crew-drawer.tsx`).
+
+**Audit observations:**
+- **`<ConfirmDialog>` adoption** — primitive exists at `src/components/ui/confirm-dialog.tsx`. Usage scattered; some destructive actions (delete event, settle, etc.) wire it correctly, others fall back to `confirm()` native. **Recommend full sweep during v3 — every destructive action uses `<ConfirmDialog>`**.
+- **Bottom sheet on mobile:** no general primitive. `<Sheet>` (Radix Dialog wrapper) exists but isn't optimized as a bottom-sheet on mobile. Crew portal could benefit when surfacing event detail actions.
+- **Modal-first thought violations:** stock-adjust-dialog (302 LOC) opens a modal for what could be inline-row-edit. Similar for `<EditCrewDrawer>` — works but loses context. **Decision:** defer modal-vs-inline refactor; not v3 design scope.
+- **Modal full-screen on mobile:** no audit done — needs visual verification per `[Screenshot pending]`.
 
 ### J. Loading States Coverage
 
-*Pending.*
+**Snapshot:** **38 / 84 routes** have `loading.tsx` = **45% coverage**.
+
+| Surface | Page count | Loading count | Missing |
+| ------- | ---------- | ------------- | ------- |
+| (owner) | 71 | 36 | 35 |
+| (auth) | 5 | 0 | 5 |
+| (crew) | 8 | 2 | 6 |
+| **Total** | **84** | **38** | **46** |
+
+**Per-cluster (most-missing):**
+- All `/settings/*/new` routes — no loading.tsx (matters less; quick render)
+- All `/settings/*/[id]/edit` routes — no loading.tsx (matters more; fetch-then-show)
+- Crew portal: alat, fee, jadwal/[id], jadwal/[id]/rekap, rekap/success — 5 missing
+- Auth: login, register, onboarding, pending, crew-portal — 5 missing (auth pages typically don't need loading)
+
+**Skeleton quality:**
+- Booking-form loading.tsx mirrors SectionCard + FieldGrid structure ✓ (Phase 1.6 work).
+- Other modules' loading.tsx use generic shape — risk of CLS mismatch.
+- AUDIT_PERFORMANCE.md §E.1 claim was "58/74 missing" — improved to "46/84 missing" (~30% better, mostly from booking + ops sub-routes).
+
+**v3 demand:** add `loading.tsx` per /edit + /new + the 5 crew portal routes. Each ~20-30 LOC skeleton mirroring the rendered shape. Total ~30 files × 30min = ~15h.
 
 ### K. Mobile Adaptation
 
-*Pending.*
+Per-module mobile state (from earlier sections):
+
+| Module | Mobile state | Worst breakage |
+| ------ | ------------ | -------------- |
+| Dashboard | ✓ | StatCard ambiguous hover on tap |
+| Reminders | ⚠️ | Template preview modal no responsive height (old P1) |
+| Notifications | ⚠️ | Container `size="md"` differs from cluster |
+| Billing | ✓ | KPI value truncation on small screens |
+| Finance | ⚠️ | 791 LOC monolith; 3-col grids verify mobile collapse |
+| Reports | ⚠️ | 1140 LOC monolith; tabular wide on small screens |
+| Warehouse | ⚠️ | Stock-take edit cramped <640px (old P2) |
+| Contacts | ✓ | Light page, should be fine |
+| Audit Log | ✓ | Read-only list |
+| Settings | ❌ | Crew settings table breaks <768px (old P1); no responsive card collapse |
+| Crew Portal | ✅ | Mobile-first by design; touch targets ≥44px |
+
+**Cross-cutting verdict:** mobile breakage concentrated on Settings + Finance + Reports. Crew portal is the gold standard. v3 mobile sweep should:
+1. Lift Settings crew table to `<ResponsiveTable>`.
+2. Verify 3-col grids in Finance + Reports collapse via SectionCard's responsive default.
+3. Test 375px on each migrated module post-v3 swap.
 
 ### L. Data Fetching Audit
 
-*Pending.*
+**Snapshot:**
+- **0 hits** of `@tanstack/react-query` / `useSWR` / `useQuery` in `src/` — confirmed absent.
+- **16 `useEffect`** uses in client components (`src/components/**`). Mostly UI state (combobox popup position, focus management, etc.), not data fetching.
+- **38 `revalidatePath` / `revalidateTag`** calls in server actions — standard Next.js pattern.
+- **Pages** fetch entirely via Server Components + `Promise.all` (e.g. Dashboard's 15-query batch, Finance's 11-query batch, Reports' 9-query batch).
+
+**Per-module observations:**
+
+| Module | Pattern | Issue |
+| ------ | ------- | ----- |
+| Dashboard | Server-only, 15-query Promise.all | None |
+| Operations list | Server + month filter (URL param) | revalidate on month change works; no client cache |
+| Booking form | Server + client state | OK |
+| Reminders | Server + client batch send | OK |
+| Notifications | Server + revalidatePath on action | Old audit: mark-read cache lag — verify if still |
+| Billing | Server + form modal | OK |
+| Finance | Server-only, 11-query parallel | OK |
+| Reports | Server-only, 9-query parallel | OK |
+| Settings | Server + form actions + revalidatePath | OK |
+| Crew portal | Server + form-submit + manual refresh | Real-time stale after rekap submit (P1) |
+
+**Search/debounce audit:**
+- Contacts search: GET-form re-submit (no debounce) — old P2 still
+- Operations list search: similar pattern
+- No race-condition reports surfaced beyond above
+
+**Optimistic UI:**
+- Reminders batch-client uses optimistic mark-sent ✓
+- Most mutations don't show optimistic state — fall back to revalidate + reload
+
+**TanStack Query re-add justification (for v3 scope decision):**
+- ❌ Most pages already use Server Components + Promise.all — fast, simple, no client cache lag
+- ⚠️ Pain points where TanStack would help: notifications mark-read lag, crew rekap stale after submit, real-time presence (Phase 5)
+- ✅ For real-time MVP (§3.10 optimistic concurrency), TanStack provides `useMutation` + `useQuery` + cache invalidation cleanly
+- **Recommendation:** **defer TanStack Query re-add to Phase 5 alongside Supabase Realtime channel work.** v3 scope = design refactor; data layer overhaul = separate concern.
+
+---
+
+**End of cross-cutting concerns section.**
 
 ---
 
