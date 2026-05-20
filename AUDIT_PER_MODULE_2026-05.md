@@ -844,7 +844,110 @@ Not called out specifically in old audit beyond Settings umbrella.
 
 ## 10. Settings (`/settings` + 12 sub-routes)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/10-settings-root-1280.png + one per top-level sub-route + 375 variants]`
+- **Routes (root + 12 sub-routes; contacts + audit-log audited separately as #8 and #9):**
+
+| Route | LOC | loading.tsx | /new | /edit | Old audit issue |
+| ----- | --- | ----------- | ---- | ----- | --------------- |
+| `/settings` (root = System Config) | 51 | ✗ | n/a | n/a | **33 keys unsearchable (P0)**, "X key tersimpan" toast doesn't show diff |
+| `/settings/addons` | 150 | ✓ | ✓ | ✓ | "Extra Crew" column ambiguous |
+| `/settings/backdrops` | 180 | ✓ | ✓ | ✓ | Badge custom tones |
+| `/settings/bank-accounts` | 105 | ✓ | ✗ | ✗ | **Read-only (P0)** — no create/edit UI |
+| `/settings/crew` | 359 | ✓ | ✗ | ✗ | **Overloaded** — 3 stacked tables (invites + users + investor) + drawer |
+| `/settings/items` | 147 | ✓ | ✓ | ✓ | + `/import` + `/mapping` sub-routes — IA scattered |
+| `/settings/notification-rules` | 232 | ✓ | ✗ | ✓ | **Read-only toggle**, no edit form for new rules |
+| `/settings/packages` | 127 | ✓ | ✓ | ✓ | — |
+| `/settings/sinking-funds` | 233 | ✓ | ✓ | ✓ | + `/[id]/movements` — UI split across 3 views (also Finance §C) |
+| `/settings/vendors` | 463 | ✓ | ✓ | ✓ | Largest sub-route — commission scheme + master |
+| `/settings/whatsapp-templates` | 158 | ✓ | ✓ | ✓ | Variables shown as count only, not listed |
+| `/settings/operations/import-projects` | — | ✗ | n/a | n/a | one-off legacy import |
+| **Total Settings LOC** | **~2750** | 9/10 sub-routes | — | — | — |
+
+- **Primitive usage snapshot (per sub-route page.tsx):**
+
+| Sub-route | PageHeader | SectionCard | SectionHeader (legacy) | EmptyState | KpiCard | NativeSelect | rounded-xl |
+| --------- | ---------- | ----------- | ---------------------- | ---------- | ------- | ------------ | ---------- |
+| addons | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| backdrops | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| bank-accounts | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| crew | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| items | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| notification-rules | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| packages | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
+| sinking-funds | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| vendors | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| whatsapp-templates | 0 | 0 | 1 | 1 | 0 | 0 | 0 |
+| **Coverage** | **0%** | **0%** | **100%** | 60% | 0% | (forms only) | 0% |
+
+**Zero v1 primitive adoption** in Settings sub-routes. All ten use the legacy `<SectionHeader>`. None have KpiRow / KpiCard tiles. EmptyState is 6/10. Module is the **single biggest v3 migration surface** (2750 LOC, 10 page files, all chrome-legacy).
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Zero adoption. All 10 sub-routes use legacy SectionHeader. |
+| SectionCard | 1/5 | Zero adoption. Crew page (359 LOC) stacks 3 tables in bare divs — prime SectionCard target. |
+| FieldGrid | 1/5 | Every form in `src/components/{addons,backdrops,crew,items,packages,sinking-funds,vendors,notification-rules,whatsapp-templates}/` uses inline `<input className={inputClass}>`. |
+| KpiRow | 0/5 | No KPI tiles for entity counts (e.g. "Active vendors: 12, archived: 3"). |
+| Status badges | 3/5 | Mixed — some use centralized, others hand-roll. |
+| Empty states | 4/5 | 6/10 sub-routes have `<EmptyState>`. Missing on addons, bank-accounts, crew, packages. |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.10)
+
+Old: 5.9/10 — **worst UX in product. 5 P0 issues.**
+
+| Old P0 finding | Status | Effort to close |
+| -------------- | ------ | --------------- |
+| **System config unsearchable** (33 keys, no search) | ❌ Outstanding | New `<SettingsSearch>` primitive + filter logic ~1-2 days |
+| **Bank Accounts read-only** | ❌ Outstanding | Add /new + /edit routes ~1 day |
+| **Contacts no create button** | ❌ Outstanding (covered in §8) | ~1 day |
+| **Frame Size Mapping incomplete** (UI stats only, no mapping grid) | ❌ Outstanding | Build mapping grid form ~2 days |
+| **No pre-apply warning for critical config** changes | ❌ Outstanding | Add ConfirmDialog gating on flagged keys ~1 day |
+| Crew page overloaded (3 stacked tables) | ⚠️ Same | Split into SectionCard sections ~half-day |
+| Notification Rules read-only | ❌ Outstanding | Build /new route ~1 day |
+| Items mapping scattered (list+mapping+import+edit) | ⚠️ Same | IA restructure ~half-day |
+| System config sticky footer unclear (no diff) | ⚠️ Same | Add diff view in footer ~half-day |
+
+**Total P0 close-out effort:** ~8-10 days of feature work on top of design refactor.
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | Where |
+| ---- | ---- | ----- |
+| `rounded-xl` / `rounded-2xl` | 0 (in pages) | Clean ✓ |
+| NativeSelect | 17 callsites | See §0.4 — Settings owns 57% of cleanup queue. Files: addon-form, backdrop-form, crew/invite-form, items/{item-form, rekap-mapping-form}, notification-rules/rule-form, packages/package-form, sinking-funds/{movement-form, fund-form}, whatsapp-templates (verify) |
+| Legacy SectionHeader | 10/10 sub-routes | Highest in app |
+| Hand-rolled FieldGrid pattern | All forms | Across ~10 form files |
+
+### E. Module-Specific Primitive Needs
+
+- **`<SettingsSearch>`** — global search across 33 system config keys + entity routes. Could be a topbar search. **Required for system config P0.**
+- **`<ConfigItem>`** — label + value + edit-in-place + description. Currently rolled inline in `system-config/config-form.tsx`.
+- **`<SettingsNav>` / `<TabNav>` (grouped)** — current Settings IA is a flat 12-route sidebar. Restructure to 5-domain groups per old audit recommendation (Products & Services / People / Finance / Communications / System).
+- **`<EntityListPage>` composite** — repeated pattern: header + filter + KpiRow + ResponsiveTable + "+ Add" CTA. 8 of the 10 sub-routes follow this exact shape. Could ship as a thin composite + cut total Settings LOC by ~30%.
+- **`<DiffPreview>`** — for system config sticky footer "X key changed, click to expand diff".
+- **`<ConfirmDialog>` adoption for critical config keys** — already exists; just wire to flagged keys.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** entity CRUD × 10 + global config + nav restructure
+- **v3 migration effort:**
+  - **Design refactor only** (PageHeader + SectionCard + FieldGrid + EmptyState + KpiRow per sub-route): ~10 sub-routes × ~2-3h each = **~25-30 hours / 4-5 days**
+  - **+ NativeSelect → Combobox sweep**: 17 callsites × ~10min = ~3h
+  - **+ P0 feature work (5 items)**: **~8-10 days**
+  - **+ IA restructure (5-domain nav)**: ~1-2 days
+- **Migration risk:** **MEDIUM** for design refactor (high volume, repetitive); **HIGH** if bundling P0 feature work.
+- **Pre-requisites:** `<SettingsSearch>`, `<ConfigItem>`, `<EntityListPage>` composite ~2 days to build.
+- **Suggested order:** **Week 3-5**, **per sub-route atomic**:
+  - Week 3: addons, backdrops, packages, whatsapp-templates (simple entities, ~2h each = 8h)
+  - Week 3: vendors (largest, 463 LOC, ~5h)
+  - Week 4: bank-accounts (+P0 create/edit), notification-rules (+P0 new), items (+IA cleanup)
+  - Week 4: sinking-funds, crew (+P0 split)
+  - Week 5: system config (+P0 search, diff, warning gate)
+
+**Decision lever:** this module alone justifies a v3 timeline expansion. Pure design refactor = +4-5 days; full P0 close-out = +12-15 days.
 
 ---
 
