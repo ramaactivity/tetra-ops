@@ -56,9 +56,10 @@ export default async function WarehousePage({
 			supabase
 				.from("inventory_items")
 				.select(
-					"id, sku, name, unit, min_stock_alert, purchase_price_avg, is_active",
+					"id, sku, name, unit, unit_conversion, min_stock_alert, purchase_price_avg, is_active",
 				)
 				.eq("category", "consumable")
+				.is("deleted_at", null)
 				.order("name", { ascending: true }),
 			supabase
 				.from("inventory_items")
@@ -66,6 +67,7 @@ export default async function WarehousePage({
 					"id, sku, name, purchase_price, condition, current_location, is_active",
 				)
 				.eq("category", "equipment")
+				.is("deleted_at", null)
 				.order("name", { ascending: true }),
 			supabase.from("stock_movements").select("item_id, direction, quantity"),
 		]);

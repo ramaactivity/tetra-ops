@@ -47,10 +47,57 @@ export type ConsumableRow = {
 	sku: string;
 	name: string;
 	unit: string;
+	/**
+	 * JSONB mapping alt-unit → base-unit multiplier.
+	 * Base unit (the `unit` field) always has key = unit and value = 1.
+	 * Example for MEDIA-BASIC (base=roll):
+	 *   { "roll": 1, "lembar_4r": 700, "lembar_2r": 1400 }
+	 */
+	unit_conversion: Record<string, number> | null;
 	min_stock_alert: number;
 	purchase_price_avg: number;
 	is_active: boolean;
 };
+
+/**
+ * Format roll-based stock for display.
+ *   Roll-first, capacity-secondary. E.g.:
+ *   - "2.5 roll (≈ 1.750 prints 4R atau 3.500 prints 2R)"
+ *   - "0.143 roll (≈ 200 prints polaroid)"
+ * For non-roll items, returns "{qty} {unit}" plain.
+ */
+function formatStockDisplay(
+	stock: number,
+	unit: string,
+	conversion: Record<string, number> | null,
+): { primary: string; secondary?: string } {
+	if (unit !== "roll" || !conversion) {
+		// Non-roll items: integer-display
+		return {
+			primary: `${Number(stock).toLocaleString("id-ID", {
+				maximumFractionDigits: 2,
+			})} ${unit}`,
+		};
+	}
+	const rollDisplay = `${Number(stock).toLocaleString("id-ID", {
+		maximumFractionDigits: 3,
+	})} roll`;
+	const capacities: string[] = [];
+	for (const [k, mult] of Object.entries(conversion)) {
+		if (k === "roll") continue;
+		const capacity = Math.floor(stock * mult);
+		if (capacity > 0) {
+			const label = k.replace(/^lembar_/, "prints ").replace("_", " ");
+			capacities.push(
+				`${capacity.toLocaleString("id-ID")} ${label}`,
+			);
+		}
+	}
+	return {
+		primary: rollDisplay,
+		secondary: capacities.length > 0 ? `≈ ${capacities.join(" atau ")}` : undefined,
+	};
+}
 
 export type EquipmentRow = {
 	id: string;
@@ -152,25 +199,38 @@ export function ConsumablesTable({
 			align: "right",
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
-				const isEmpty = stock <= 0;
+				const isNegative = stock < 0;
+				const isEmpty = stock === 0;
 				const isCritical =
-					!isEmpty && r.min_stock_alert > 0 && stock <= r.min_stock_alert;
+					stock > 0 && r.min_stock_alert > 0 && stock <= r.min_stock_alert;
+				const display = formatStockDisplay(stock, r.unit, r.unit_conversion);
 				return (
 					<div className="text-right">
 						<span
 							className={`tabular font-semibold ${
-								isEmpty
-									? "text-rose-500"
-									: isCritical
-										? "text-amber-500"
-										: "text-foreground"
+								isNegative
+									? "text-rose-600 dark:text-rose-400"
+									: isEmpty
+										? "text-rose-500"
+										: isCritical
+											? "text-amber-500"
+											: "text-foreground"
 							}`}
 						>
-							{stock.toLocaleString("id-ID")} {r.unit}
+							{display.primary}
 						</span>
-						{(isEmpty || isCritical) && (
+						{display.secondary && (
+							<div className="text-[11px] text-muted-foreground">
+								{display.secondary}
+							</div>
+						)}
+						{(isEmpty || isCritical || isNegative) && (
 							<div className="text-fluid-caption uppercase tracking-wider text-muted-foreground">
-								{isEmpty ? "habis" : "kritis"}
+								{isNegative
+									? "NEGATIVE — restock"
+									: isEmpty
+										? "habis"
+										: "kritis"}
 							</div>
 						)}
 					</div>

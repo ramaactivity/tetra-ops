@@ -1,8 +1,30 @@
 # Inventory Redesign — Eliminate Box/Pcs/Lembar Confusion
 
 **Date:** 2026-05-21
-**Status:** Planning doc — **awaiting user direction** before execution
+**Status:** **APPROVED by user (2026-05-21).** Executing.
 **Trigger:** Owner-other reported `/warehouse` confusing + inefficient. 3 parallel SKU families (`ITM-BOX-*`, `ITM-PCS-*`, `MEDIA-*`) for the same physical item. `MEDIA-BASIC` showing -122 lembar (silent negative).
+
+---
+
+## ✅ USER DECISIONS (2026-05-21)
+
+| Question | Answer |
+| -------- | ------ |
+| Q1 — Data preservation | **Clean slate** — soft-delete old SKUs, no re-target |
+| Q2 — Per-size print fields | **No mix sizes per event** (business rule) → simplify: 1 cetak field, derive from `event.frame_size` |
+| Q3 — Display unit | **Roll-first, lembar secondary** — "2.5 roll basic (≈ 1750 prints 4R)" |
+| Q4 — Rollout | **Big bang** — single coherent migration window |
+| Q5 — Stock-take state | **Auto-cancel drafts** before migration |
+| Q6 — Settlement back-compat | **Block settlement** during migration window |
+
+**New tracking unit:** ROLL (not box). User feedback:
+> "instead of box mending kita hitung rollnya saja. dalam 1 box itu berisi 2 roll. 1 Rollnya 700 lembar 4R atau 1400 lembar 2R atau Polaroid"
+
+**Capacity rule (single source of truth):**
+- 1 roll **basic** = 700 prints 4R = 1400 prints 2R (same roll, cut behavior)
+- 1 roll **perforated** = 1400 prints polaroid
+
+**Differentiation:** basic vs perforated (NOT 3 sub-categories per size).
 
 ---
 

@@ -628,114 +628,163 @@ async function readAutoDeductFlag(
 }
 
 /**
- * Compute the deduction plan for a rekap: which items, how much, at what
- * unit cost. Pure read — no side effects. Used by the approval preview
- * dialog and by the actual approval flow inside reviewRekap.
+ * Compute the deduction plan for a rekap (Inventory v2, 2026-05-21).
  *
- * v2 (2026-05-17): Sekarang juga include event_bonuses untuk auto-deduct
- * stok item gratis yang kita kasih ke klien. Addon → inventory_item
- * lookup via addons.inventory_item_id (NULL = skip, no stock tracking).
+ * New model:
+ *   - 1 event = 1 frame_size (business rule, no mix)
+ *   - Media + Sleeve consumption derived from event.frame_size + cetak_total
+ *   - Add-on consumables (flashdisk, pouch, photomagnet, keychain) flat 1:1
+ *   - No more rekap_field_mapping query — hardcoded recipe (data was
+ *     migration drift target; user signed off on hardcoded canonical recipe)
+ *
+ * Capacity (per 1 roll):
+ *   - MEDIA-BASIC: 700 prints 4R OR 1400 prints 2R
+ *   - MEDIA-PERF:  1400 prints polaroid
+ *
+ * NUMERIC fractional rolls supported (stock_movements.quantity is NUMERIC(12,4)
+ * post-2026-05-21 migration).
+ *
+ * Custom materials + event bonuses preserved unchanged.
  */
 async function planRekapDeduction(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	rekap: RekapStockSnapshot,
 ): Promise<{ lines: DeductionLine[]; missingMappings: RekapField[] }> {
-	// v3: frame-size-aware. Fetch event.frame_size to resolve correct mapping
-	// row (e.g. media_set_used + 2R uses qty_per_unit=0.5 for cut sheets).
-	const [{ data: event }, { data: mappings }] = await Promise.all([
+	const [{ data: event }, { data: items }] = await Promise.all([
 		supabase
 			.from("events")
 			.select("frame_size")
 			.eq("id", rekap.event_id)
 			.maybeSingle(),
 		supabase
-			.from("rekap_field_mapping")
-			.select("rekap_field, frame_size, item_id, qty_per_unit, is_active"),
+			.from("inventory_items")
+			.select("id, sku, name, purchase_price_avg")
+			.in("sku", [
+				"MEDIA-BASIC",
+				"MEDIA-PERF",
+				"SLEEVE-4R",
+				"SLEEVE-2R",
+				"SLEEVE-PR",
+				"FLASHDISK",
+				"POUCH",
+				"PHOTOMAGNET",
+				"KEYCHAIN",
+			])
+			.is("deleted_at", null),
 	]);
 	const frameSize = ((event?.frame_size as string | null) ?? "").trim();
+	const cetakTotal = Number(rekap.cetak_total ?? 0);
 
-	const allMappings = ((mappings ?? []) as Array<{
-		rekap_field: RekapField;
-		frame_size: string | null;
-		item_id: string | null;
-		qty_per_unit: number | string;
-		is_active: boolean;
-	}>).map((m) => ({
-		rekap_field: m.rekap_field,
-		frame_size: m.frame_size ?? "",
-		item_id: m.item_id,
-		qty_per_unit: Number(m.qty_per_unit) || 1,
-		is_active: m.is_active,
-	}));
+	const itemsBySku = new Map(
+		(items ?? []).map((it) => [
+			it.sku,
+			it as { id: string; sku: string; name: string; purchase_price_avg: number | null },
+		]),
+	);
 
-	// Resolve which row applies for each field given event's frame_size.
-	// Exact match wins, falls back to '' default row.
-	const resolved = new Map<RekapField, (typeof allMappings)[number]>();
-	const allFields = new Set(allMappings.map((m) => m.rekap_field));
-	for (const field of allFields) {
-		const candidates = allMappings.filter(
-			(m) => m.rekap_field === field && m.is_active,
-		);
-		if (candidates.length === 0) continue;
-		const exact = candidates.find((m) => m.frame_size === frameSize);
-		const fallback = candidates.find((m) => m.frame_size === "");
-		const picked = exact ?? fallback;
-		if (picked) resolved.set(field, picked);
-	}
-
-	const itemIdsNeeded = new Set<string>();
-	for (const m of resolved.values()) {
-		if (m.item_id) itemIdsNeeded.add(m.item_id);
-	}
-	// Also custom materials by SKU
+	// Custom-material SKU lookup (preserved from v1)
 	const customSkus: string[] = rekap.custom_materials
 		? Object.keys(rekap.custom_materials).filter(
 				(k) => Number(rekap.custom_materials?.[k] ?? 0) > 0,
 			)
 		: [];
+	if (customSkus.length > 0) {
+		const { data: customItems } = await supabase
+			.from("inventory_items")
+			.select("id, sku, name, purchase_price_avg")
+			.in("sku", customSkus)
+			.is("deleted_at", null);
+		for (const it of customItems ?? []) {
+			if (!itemsBySku.has(it.sku)) {
+				itemsBySku.set(it.sku, it as never);
+			}
+		}
+	}
 
-	// Lookup items: by id (from mapping) and by sku (from custom_materials)
-	const [byIdRes, bySkuRes] = await Promise.all([
-		itemIdsNeeded.size > 0
-			? supabase
-					.from("inventory_items")
-					.select("id, sku, name, purchase_price_avg")
-					.in("id", Array.from(itemIdsNeeded))
-			: Promise.resolve({ data: [] as Array<{ id: string; sku: string; name: string; purchase_price_avg: number | null }> }),
-		customSkus.length > 0
-			? supabase
-					.from("inventory_items")
-					.select("id, sku, name, purchase_price_avg")
-					.in("sku", customSkus)
-			: Promise.resolve({ data: [] as Array<{ id: string; sku: string; name: string; purchase_price_avg: number | null }> }),
-	]);
-
-	const itemsById = new Map(
-		(byIdRes.data ?? []).map((it) => [it.id, it]),
-	);
-	const itemsBySku = new Map((bySkuRes.data ?? []).map((it) => [it.sku, it]));
+	// Per-frame-size recipe (data-driven from user's spec 2026-05-21)
+	const SIZE_RECIPE: Record<
+		string,
+		{
+			mediaSku: "MEDIA-BASIC" | "MEDIA-PERF";
+			mediaQtyPerPrint: number; // roll units per single print
+			sleeveSku: "SLEEVE-4R" | "SLEEVE-2R" | "SLEEVE-PR";
+		}
+	> = {
+		"4R": {
+			mediaSku: "MEDIA-BASIC",
+			mediaQtyPerPrint: 1 / 700, // 1 roll basic = 700 prints 4R
+			sleeveSku: "SLEEVE-4R",
+		},
+		"2R": {
+			mediaSku: "MEDIA-BASIC",
+			mediaQtyPerPrint: 1 / 1400, // 1 roll basic = 1400 prints 2R (cut)
+			sleeveSku: "SLEEVE-2R",
+		},
+		polaroid: {
+			mediaSku: "MEDIA-PERF",
+			mediaQtyPerPrint: 1 / 1400, // 1 roll perforated = 1400 prints polaroid
+			sleeveSku: "SLEEVE-PR",
+		},
+	};
 
 	const lines: DeductionLine[] = [];
 	const missingMappings: RekapField[] = [];
 
-	for (const [field, m] of resolved) {
-		const qtyRekap = Number(rekap[field] ?? 0);
-		if (qtyRekap <= 0) continue;
-		if (!m.item_id) {
-			missingMappings.push(field);
-			continue;
+	// Media + Sleeve derivation (skip if no prints or unknown frame_size)
+	const recipe = SIZE_RECIPE[frameSize];
+	if (cetakTotal > 0 && recipe) {
+		const mediaItem = itemsBySku.get(recipe.mediaSku);
+		if (mediaItem) {
+			lines.push({
+				item_id: mediaItem.id,
+				sku: mediaItem.sku,
+				name: mediaItem.name,
+				qty: cetakTotal * recipe.mediaQtyPerPrint,
+				unit_cost: Number(mediaItem.purchase_price_avg ?? 0),
+				source_label: "cetak_total",
+			});
+		} else {
+			missingMappings.push("cetak_total");
 		}
-		const item = itemsById.get(m.item_id);
+
+		const sleeveItem = itemsBySku.get(recipe.sleeveSku);
+		if (sleeveItem) {
+			lines.push({
+				item_id: sleeveItem.id,
+				sku: sleeveItem.sku,
+				name: sleeveItem.name,
+				qty: cetakTotal, // 1:1 with prints
+				unit_cost: Number(sleeveItem.purchase_price_avg ?? 0),
+				source_label: "sleeve_used",
+			});
+		} else {
+			missingMappings.push("sleeve_used");
+		}
+	}
+
+	// Flat add-on consumables (1:1 with crew-recorded count)
+	const FLAT_RULES: Array<{
+		field: Exclude<RekapField, "cetak_total" | "media_set_used" | "sleeve_used">;
+		sku: string;
+	}> = [
+		{ field: "flashdisk_used", sku: "FLASHDISK" },
+		{ field: "pouch_used", sku: "POUCH" },
+		{ field: "photomagnet_used", sku: "PHOTOMAGNET" },
+		{ field: "keychain_used", sku: "KEYCHAIN" },
+	];
+	for (const { field, sku } of FLAT_RULES) {
+		const qty = Number(rekap[field] ?? 0);
+		if (qty <= 0) continue;
+		const item = itemsBySku.get(sku);
 		if (!item) {
 			missingMappings.push(field);
 			continue;
 		}
-		const finalQty = qtyRekap * (m.qty_per_unit ?? 1);
 		lines.push({
 			item_id: item.id,
 			sku: item.sku,
 			name: item.name,
-			qty: finalQty,
+			qty,
 			unit_cost: Number(item.purchase_price_avg ?? 0),
 			source_label: field,
 		});
