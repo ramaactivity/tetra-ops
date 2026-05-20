@@ -139,7 +139,7 @@ export function RestockDialog({
 									<NumberField
 										id="quantity"
 										name="quantity"
-										min={0.0001}
+										min={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
 										step={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
 										required
 										defaultValue={get("quantity")}

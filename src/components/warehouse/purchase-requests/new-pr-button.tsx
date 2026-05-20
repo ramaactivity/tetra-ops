@@ -200,7 +200,7 @@ function PRForm({
 								<NumberField
 									id={`pr-qty-${line.id}`}
 									name={`pr-qty-${line.id}`}
-									min={0.0001}
+									min={item?.unit === "roll" ? 0.01 : 1}
 									step={item?.unit === "roll" ? 0.01 : 1}
 									value={line.qty_requested}
 									onChange={(e) =>

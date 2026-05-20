@@ -355,7 +355,7 @@ export function PembelianDialog({
 										<NumberField
 											id={`qty-${line.id}`}
 											name={`qty-${line.id}`}
-											min={0.0001}
+											min={item?.unit === "roll" ? 0.01 : 1}
 											step={item?.unit === "roll" ? 0.01 : 1}
 											value={line.quantity}
 											onChange={(e) =>
