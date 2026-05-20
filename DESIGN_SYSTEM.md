@@ -826,12 +826,33 @@ Reusable interaction patterns across modules. Each pattern has canonical impleme
 **Used by**: Booking form (could be improved), CSV Import wizard
 
 ### 3.9 Mobile Adaptation Pattern
+
+#### General rules (apply everywhere)
 - Tables: collapse to card stack on `<sm` breakpoint via `<ResponsiveTable>`
 - Forms: vertical stacking, full-width inputs, sticky bottom CTA
 - Bottom nav for primary navigation, hamburger absent
 - Safe-area aware (`pb-safe`, `pt-safe`)
 
-**Currently inconsistent**: Owner Settings Crew table breaks on mobile (P1 from §3.10)
+**Currently inconsistent:** Owner Settings Crew table breaks on mobile (P1 from §3.10).
+
+#### Operations cluster — primitive mobile contract (Gap #9 spec)
+
+Each shared primitive in `src/components/operations/_shared/` carries its own mobile behavior. Reference table for Phase 2 work (rekap/payments/crew/design) so each route adapts identically.
+
+| Primitive | Breakpoint | Mobile behavior |
+| --------- | ---------- | --------------- |
+| `<Container size="xl">` | always | `max-w-7xl` cap, padding `px-4 py-3 md:px-6 lg:px-8`. On <md, the px-4 padding is the hard cap (per §4.2 of DESIGN.md). |
+| `<PageHeader>` | <sm | Title h1 stays full-width (auto-shrinks via `text-[28px] sm:text-[32px]`). `actions` slot **wraps onto its own row below the title** via `flex-wrap` + `gap-1.5` — already shipped. If a route has >3 action buttons, route #4+ to a `<DropdownMenu>` (the "…" menu pattern); the inline cluster stays clean. Back link stays its caption-style chevron-prefixed link. |
+| `<MetaBadge>` | <sm | Already wraps via `flex flex-wrap gap-2` — no breakpoint logic needed. Long tags truncate inside their Badge primitive; whole row gets 2-3 lines tall instead of one. Acceptable. |
+| `<SectionCard>` | <sm | **Stays expanded by default** in Phase 1 (booking form is fill-all). For Phase 2 routes that show data (rekap / payments), use `defaultOpen={false}` on cards below the fold to compress vertical scroll length. Header tap-target is the full row — touch-friendly. |
+| `<FieldGrid.Row>` | <md (≤768px) | **Stacks** — label on top, value below, full-width. Already shipped (the 12-col grid only kicks in at md+). |
+| `<KpiRow>` | <sm | 1-col stack. Already shipped via `sm:grid-cols-2 lg:grid-cols-4`. |
+| `<SummaryRail>` | <lg (<1024px) | **Hidden entirely** via consumer's `<div className="hidden lg:block">` wrapper. Mobile/tablet keep the form's existing sticky bottom save bar (booking-form's `<div className="sticky bottom-0 … lg:hidden">`). The decision: don't try to inline-render the rail's content as a bottom sheet on mobile — the rail's data (event/pricing/timeline) is review material that mobile users can see by scrolling through the form sections. Consolidating into a sheet would duplicate state UI without adding value. Only the save action needs mobile persistence, and that's already covered by the sticky bottom bar. |
+
+#### Concrete fixes Phase 2 will inherit
+1. **`<EventStatusDot size="sm">`** prereq — when `/operations` list status-column consolidation lands (Gap #7), the small variant becomes the standard for inline status indicators.
+2. **PageHeader actions overflow rule** — if a route stuffs >3 buttons in `actions`, demote #4+ to a `<DropdownMenu trigger={<Ellipsis />}>`. Don't grow the wrap height past 2 rows on mobile.
+3. **SectionCard default-open per route** — booking form = all open (fill-all surface). Rekap = "Cetak" + "Item Terpakai" open, others collapsed. Payments = "Outstanding Summary" open, history collapsed. Crew = "Assigned Crew" open. Design = "Drive Folder" open. Decided per route, not by primitive default.
 
 ### 3.10 Real-time Update Pattern (Gap #8 decision — MVP path)
 
@@ -1376,6 +1397,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #6 · DataTable virtualization — deferred.** No `virtualized` prop ships. Backed by current numbers: largest table render is ~18 rows (user snapshot), worst case is ~130 rows (filter=all + archived), projected 5× growth still under 500 rows. React renders 130 row components in <40ms on mid-tier hardware — well under the 500ms perceived-lag threshold. `@tanstack/react-virtual` would add ~6KB + sticky-header / intersection-observer complexity for no real win. Re-evaluate triggers documented in §2.2: any single render >500ms, total row count >500, or a list-heavy surface (real-time event log) where streaming + virtualization compose naturally.
 - **Gap #7 · Reference page polish — concrete spec in §3.11.** Both `/operations` list + `/operations/[projectId]` are Phase 1 references but need their own light polish (per user feedback). Specced two concrete items: (a) ops-list status column "lebih dense" = consolidate event status + payment status + outstanding amount into a single stacked cell (saves one column-width, surfaces payment-due signal next to its own status); (b) project-detail header migration = replace the inline 75-line JSX with `<PageHeader>` + `<MetaBadge>` and trim duplicate category metadata from `<ProjectHeroRecap>`. Both items deferred to Phase 3 — execute AFTER per-route Phase 2 work (rekap/payments/crew/design) so any primitive-API drift is settled first.
 - **Gap #8 · Real-time pattern — MVP is optimistic concurrency, full real-time deferred.** User flagged 4-owner concurrent monitoring; the actual risk is *silent overwrite*, not lack of live UI. Decision: ship safety first. MVP (Phase 2): every mutation does `UPDATE … WHERE id = $1 AND updated_at = $2`; mismatch returns a structured conflict error → form banner "edited by [name] [X min ago], refresh + retry". Server-side only; zero perf cost in happy path; no subscription. Optional Phase 2 add-on: passive `updated_at / updated_by` footer on detail pages. Full real-time (Supabase Realtime channel, presence avatar stack, optimistic merge) parked at Phase 5 — bring forward only when an actual user complaint shows the conflict guard isn't enough. Pattern documented in §3.10.
+- **Gap #9 · Operations cluster mobile contract — specced in §3.9.** Each shared primitive in `operations/_shared/` now carries a documented mobile behavior so Phase 2 routes adapt identically. Key decisions: (a) `<SummaryRail>` stays **hidden entirely below `lg`** — no bottom-sheet collapse; mobile users review by scrolling through SectionCards, and the form's sticky bottom bar covers the save action. Inlining the rail as a sheet would duplicate state UI without adding value. (b) `<PageHeader>` actions wrap via flex-wrap — if a route exceeds 3 buttons, demote #4+ to a `<DropdownMenu trigger={<Ellipsis/>}>`. (c) `<SectionCard>` default-open is per-route (booking = all open / rekap = first two open / payments = outstanding only / crew = assigned only / design = drive only). (d) `<FieldGrid.Row>` stacks at <md already (shipped). (e) `<MetaBadge>` already wraps acceptably. (f) `<KpiRow>` 1-col @<sm, 2-col @sm, 4-col @lg already shipped.
 
 ---
 
