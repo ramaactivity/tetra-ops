@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import {
+	VENDOR_COMMISSION_MODES,
+	VENDOR_VALUE_TYPES,
+	type VendorCommissionMode,
+	type VendorCommissionValueType,
+} from "@/lib/vendors/types";
 
 /**
  * Vendor master CRUD — operates on contacts table where type='vendor'.
@@ -26,12 +32,6 @@ async function requireOwnerLevel() {
 	}
 	return me;
 }
-
-export const VENDOR_COMMISSION_MODES = ["commission", "upfront_cut"] as const;
-export type VendorCommissionMode = (typeof VENDOR_COMMISSION_MODES)[number];
-
-export const VENDOR_VALUE_TYPES = ["percent", "flat"] as const;
-export type VendorCommissionValueType = (typeof VENDOR_VALUE_TYPES)[number];
 
 const VendorInputSchema = z
 	.object({
