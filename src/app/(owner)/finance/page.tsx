@@ -4,6 +4,7 @@ import {
 	ArrowUpRight,
 	BookOpen,
 	ChevronRight,
+	FileBarChart,
 	Handshake,
 	PiggyBank,
 	Receipt,
@@ -325,6 +326,13 @@ export default async function FinancePage() {
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
 				actions={
 					<>
+						<Link
+							href="/finance/reports"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<FileBarChart className="size-4" />
+							<span className="hidden sm:inline">Laporan</span>
+						</Link>
 						<Link
 							href="/finance/payables"
 							className={buttonVariants({ variant: "outline", size: "sm" })}
