@@ -833,14 +833,32 @@ Reusable interaction patterns across modules. Each pattern has canonical impleme
 
 **Currently inconsistent**: Owner Settings Crew table breaks on mobile (P1 from §3.10)
 
-### 3.10 Real-time Update Pattern (NEW — propose for multi-owner foundation)
-- Supabase realtime channel subscribe in client wrapper component
-- On INSERT/UPDATE/DELETE event: invalidate React cache OR optimistic merge
-- Presence indicator: avatar stack in topbar showing other online owners
-- Conflict warning: when current user edits, banner shows "[Name] also editing" if detected
-- Last-edited timestamp footer on detail pages
+### 3.10 Real-time Update Pattern (Gap #8 decision — MVP path)
 
-**Currently NOT used anywhere** — foundation for §2.1 from AUDIT_UI_UX.md
+Business context: 4 owners potentially edit the same event concurrently. The real risk is **silent overwrite** (Owner A edits event, Owner B opens the same record 30 sec earlier + saves their edit → A's changes are gone with no warning), not "the page doesn't auto-refresh". Decision flips accordingly: ship safety first, real-time UI later.
+
+#### MVP (Phase 2 — ships alongside per-route work)
+
+**Optimistic concurrency check on every mutation.** This is server-side and invisible until conflict, so it carries zero perf cost in the happy path.
+
+1. Add `updated_at TIMESTAMPTZ DEFAULT now()` column (Supabase already has it on most tables — verify per-table) with a row-level trigger to bump on UPDATE.
+2. Every form fetch reads the row's current `updated_at` and includes it in the form as a hidden input.
+3. Every Server Action mutation does: `UPDATE … WHERE id = $1 AND updated_at = $2 RETURNING id`. If the result returns zero rows, the record was modified since fetch.
+4. On conflict, server returns a structured error → form surfaces a banner: *"Booking ini di-edit barengan oleh [name] [X menit lalu]. Refresh untuk lihat perubahan terbaru, lalu coba lagi."* Caller can choose Discard (refresh) or Force-overwrite (re-submit explicitly).
+5. **No subscription**, no presence, no live UI updates. Just the conflict guard.
+
+**Last-edited footer (optional, ship if cheap)** — render a tiny `Diubah {timeago} oleh {name}` line at the bottom of detail pages. Passive read of `updated_at` + `updated_by` (need to add the latter; small migration). Zero race risk.
+
+#### Full real-time (Phase 5 — deferred, business hasn't asked for it)
+
+The list of features that requires a Supabase Realtime channel subscription stays parked:
+- Presence indicator (avatar stack in topbar)
+- "[Name] also editing" warning banner
+- INSERT/UPDATE/DELETE → invalidate React cache OR optimistic merge in list views
+
+Trigger to bring forward: actual user complaint of "I lost my edit" that the optimistic-concurrency conflict guard didn't catch, OR the business adding a second crew tier that needs live coordination during events.
+
+**Currently NOT used anywhere** — the MVP guard is the prerequisite for any of this. See §9 Decisions Log + foundation for §2.1 from AUDIT_UI_UX.md.
 
 ### 3.11 Operations cluster reference-page polish (Phase 3 — Gap #7 spec)
 
@@ -1357,6 +1375,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #5 · Form-input primitives shipped — `<TextField>`, `<NumberField>`, `<MoneyInput>`, `<PhoneInput>`, `<TextareaField>`.** Thin wrappers around the canonical `INPUT_CLASS` chrome, exported from `src/components/ui/form-fields.tsx`. No layout (label/error/hint live in `<FieldGrid.Row>`). Decision: build minimal primitives now + spec the API matrix, migrate existing 76+ inline `<input className={inputClass}>` callsites gradually during Phase 2 per-route work. `MoneyInput` is the most opinionated of the five — controlled via `value: number` + `onValueChange: (n) => void`, empty input emits `0`, negative clamps to `0`. The exported `INPUT_CLASS` becomes the single source of truth for the input chrome — Combobox/NativeSelect/TimePicker triggers already coordinate on the same h-10/rounded-md/border-default/ring tokens, so visual parity holds.
 - **Gap #6 · DataTable virtualization — deferred.** No `virtualized` prop ships. Backed by current numbers: largest table render is ~18 rows (user snapshot), worst case is ~130 rows (filter=all + archived), projected 5× growth still under 500 rows. React renders 130 row components in <40ms on mid-tier hardware — well under the 500ms perceived-lag threshold. `@tanstack/react-virtual` would add ~6KB + sticky-header / intersection-observer complexity for no real win. Re-evaluate triggers documented in §2.2: any single render >500ms, total row count >500, or a list-heavy surface (real-time event log) where streaming + virtualization compose naturally.
 - **Gap #7 · Reference page polish — concrete spec in §3.11.** Both `/operations` list + `/operations/[projectId]` are Phase 1 references but need their own light polish (per user feedback). Specced two concrete items: (a) ops-list status column "lebih dense" = consolidate event status + payment status + outstanding amount into a single stacked cell (saves one column-width, surfaces payment-due signal next to its own status); (b) project-detail header migration = replace the inline 75-line JSX with `<PageHeader>` + `<MetaBadge>` and trim duplicate category metadata from `<ProjectHeroRecap>`. Both items deferred to Phase 3 — execute AFTER per-route Phase 2 work (rekap/payments/crew/design) so any primitive-API drift is settled first.
+- **Gap #8 · Real-time pattern — MVP is optimistic concurrency, full real-time deferred.** User flagged 4-owner concurrent monitoring; the actual risk is *silent overwrite*, not lack of live UI. Decision: ship safety first. MVP (Phase 2): every mutation does `UPDATE … WHERE id = $1 AND updated_at = $2`; mismatch returns a structured conflict error → form banner "edited by [name] [X min ago], refresh + retry". Server-side only; zero perf cost in happy path; no subscription. Optional Phase 2 add-on: passive `updated_at / updated_by` footer on detail pages. Full real-time (Supabase Realtime channel, presence avatar stack, optimistic merge) parked at Phase 5 — bring forward only when an actual user complaint shows the conflict guard isn't enough. Pattern documented in §3.10.
 
 ---
 
