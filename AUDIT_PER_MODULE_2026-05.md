@@ -347,7 +347,74 @@ Anti-pattern violation counts within reminders scope:
 
 ## 3. Notifications (`/notifications`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/03-notifications-1280.png + 03-notifications-375.png]`
+- **Routes:** single page — `/notifications`. Has `loading.tsx` (29 LOC).
+- **LOC:**
+  - [src/app/(owner)/notifications/page.tsx](src/app/(owner)/notifications/page.tsx) — 446 LOC
+  - [src/components/notifications/notification-row-actions.tsx](src/components/notifications/notification-row-actions.tsx) — 84 LOC
+  - [src/components/notifications/run-scanner-button.tsx](src/components/notifications/run-scanner-button.tsx) — 50 LOC
+- **Primitive usage:** `<Container size="md">` (notable — uses `md` not `xl` like other modules) · `<SectionHeader>` legacy · `<EmptyState>` ✓ ×1 · `<Badge>` · `<RunScannerButton>` · `<PushSubscribeButton>`. **Container size diverges from operations cluster's `xl` standard.**
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader (v1) | 1/5 | Uses legacy `<SectionHeader>`. |
+| SectionCard | 2/5 | Notification rows are bare `<div className="… rounded-xl border …">` (page.tsx:326) — should be `<SectionCard>` or smaller `<NotificationRow>` primitive. |
+| FieldGrid | n/a | No editable form on this page (rule editing lives in `/settings/notification-rules`). |
+| KpiRow | 2/5 | No KPI tiles for unread / by-severity counts — opportunity for 4 small StatCard tiles ("Critical", "Warning", "Info", "All time"). |
+| StatCard | 1/5 | Not used. |
+| Status badges | 3/5 | Custom severity badges hand-rolled (not via `<Badge variant>`). Inconsistent with `<EventStatusBadge>` discipline. |
+| Empty states | 5/5 | `<EmptyState>` ✓ (line 293). |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.8)
+
+Old: 7.3/10 — functional inbox, DB design flaw + cache lag. No P0.
+
+| Old finding | Status | Evidence |
+| ----------- | ------ | -------- |
+| `expires_at` not filtered (DB bloat) | ❌ Outstanding | Beyond UI scope — backend SELECT to verify. Cheap to fix (`AND (expires_at IS NULL OR expires_at > NOW())`). |
+| Mark-read cache lag | ❓ Needs verification | Read [notification-row-actions.tsx](src/components/notifications/notification-row-actions.tsx) for revalidatePath usage. |
+| Similar notifications not batched (10× "Low inventory") | ❌ Outstanding | Query-level fix (GROUP BY rule_id + hour bucket); beyond design scope. |
+| NotificationBell badge SSR-only (no realtime) | ❌ Outstanding | Foundation = §3.10 real-time MVP (deferred). |
+| Severity badges hard to scan | ⚠️ Same | Custom hand-rolled severity colors. Adopt `<Badge variant>` discipline. |
+| Read/unread distinction subtle | ⚠️ Same | Bare `<div className="rounded-xl border">` + thin ring. Need visual treatment via SectionCard variant. |
+| `expires_at` filter | ❌ Same — outstanding |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-xl` (should be `rounded-lg`) | 1 | [page.tsx:326](src/app/(owner)/notifications/page.tsx#L326) — notification row card |
+| `transition-all` | 0 | — |
+| Hardcoded eyebrow | 0 | — |
+| Container size mismatch | 1 | page.tsx:183 — uses `size="md"` (max-w-5xl) instead of the operations-cluster `xl` (max-w-7xl) standard |
+| Native form controls | 0 | — |
+| NativeSelect | 0 | — |
+| Hand-rolled severity badges | yes | Inline severity color logic instead of routing through a `<SeverityBadge>` or extending `<Badge variant>` |
+
+### E. Module-Specific Primitive Needs
+
+- **`<NotificationRow>` (proposed for v3)** — pattern: severity icon left · title + body + meta right · action button(s) far right. Currently rolled inline. If we add a unified inbox to topbar later (per audit §G), this row primitive would be reused.
+- **`<SeverityBadge>` (proposed)** — `<Badge variant="critical|warning|info|success">`. Today's `<Badge>` variants are `default | secondary | outline | success | warning | info | destructive` — close to enough, but Notifications hand-rolls colors via inline logic instead of consuming a "severity" variant. Either (a) extend `<Badge>` with severity-named aliases, or (b) build a thin `<SeverityBadge>` wrapper.
+- **`<NotificationInbox>` (proposed)** — composite that owns: filter bar (by severity + category) + list of `<NotificationRow>` + empty state. Useful for v3 topbar bell dropdown pattern (per cross-cutting §G).
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** list with filter + row-level actions (read/dismiss/resolve)
+- **v3 migration effort:** **~5-7 hours**
+  - Bump Container to `size="xl"` (matches cluster) (5min)
+  - `<SectionHeader>` → `<PageHeader>` with run-scanner + push-subscribe as actions (1h)
+  - Add KpiRow for 4 severity counts (45min)
+  - Replace inline `<div className="rounded-xl …">` notification rows with new `<NotificationRow>` primitive (1.5h, includes building the primitive)
+  - Severity badges → `<Badge variant>` or new `<SeverityBadge>` (45min)
+  - `rounded-xl` → `rounded-lg` in row chrome (5min)
+  - QA (1h)
+- **Migration risk:** **MEDIUM** — read/unread/dismiss state has subtle cache semantics (revalidatePath); test thoroughly post-refactor.
+- **Pre-requisites for v3:** new `<NotificationRow>` + `<SeverityBadge>` primitives must ship first. Both are small (≤80 LOC each).
+- **Suggested order in v3 rollout:** Week 2 — alongside Reminders. Both modules are list-heavy with similar SectionCard adoption needs.
 
 ---
 
