@@ -373,47 +373,157 @@ Each commit:
 
 ## 4. Implementation Log
 
-_(filled as commits land)_
+### Session 1 — 2026-05-20 — Layout shell + summary panel (visible UX win)
 
-### Commit 1 — Form primitives
-_pending_
+Strategy shift: rather than full cluster extraction up-front (high risk
+on 2575 LOC), land the **layout shell + summary panel** first to ship
+visible UX value. Cluster extraction follows in subsequent sessions
+with lower risk per step.
 
-### Commit 2 — Cluster A: Source & Vendor
-_pending_
+#### Commit 1 — `6afd5fd` — Scaffold primitives
+- New `src/components/booking/_shared/cluster-card.tsx` — container
+  primitive (anchor id + optional status badge), ready for use when
+  cluster extraction lands
+- New `src/components/booking/_shared/section-nav.tsx` — vertical
+  jump nav with status icons (ok ✓ / error ! / empty ·) +
+  optional issue count
+- New `src/components/booking/_shared/summary-panel.tsx` — sticky
+  right rail with Event / Klien / Pricing / Vendor blocks +
+  embedded SectionNav + save action
+- Pure additive — no impact on existing form. Files: 3 new.
 
-### Commit 3 — Cluster B: Event Details
-_pending_
+#### Commit 2 — `9e34a54` — Wire layout shell into booking-form.tsx
+- booking-form.tsx wraps form in `grid lg:grid-cols-[1fr_320px]`
+- SummaryPanel rendered as second column on `≥lg` only
+- form gains `id="booking-form"` so external submit button can target
+- Existing sticky bottom bar gains `lg:hidden` (mobile/tablet keep
+  current pattern)
+- 4 scroll anchors added (`#cluster-source` before §1,
+  `#cluster-event` before §3, `#cluster-service` before §5,
+  `#cluster-contact` before §8)
+- Derived state computed via useMemo:
+  - `eventDateLabel`: "24 Mei 2026" Indonesian locale
+  - `eventTimeRange`: "11:00–14:00"
+  - `vendorCommissionAmount`: mirrors server-side compute (commission
+    percent/flat + upfront_cut all 3 cases)
+  - `navItems`: 4 cluster statuses derived from state + server errors
+- `handleCancel` callback for SummaryPanel
+- Zero business logic touched; pure presentation restructure
 
-### Commit 4 — Cluster C: Service Package
-_pending_
+### Pending sessions
 
-### Commit 5 — Cluster D: Contact & Pricing
-_pending_
-
-### Commit 6 — Layout shell + summary + nav
-_pending_
+- Cluster extraction proper — move sections into typed cluster
+  components (sections/source-vendor.tsx etc.)
+- Wrap existing sections in ClusterCard visual containers (one
+  cluster per commit, atomic)
+- Radio card polish — channel selector + discount type using same
+  pattern as vendor mode picker (already polished)
+- Add-ons grouped by category (collapsible accordions, default
+  closed unless items selected)
+- Helper text trim — many "Default 10%. Override kalau ada nego."
+  → hover-icon tooltip pattern
+- Time picker visual upgrade — single time input with 15-min
+  increment shortcuts (existing TimePicker primitive may already
+  support; verify)
+- Mobile sticky summary collapsible (current sticky footer OK as
+  fallback)
 
 ---
 
 ## 5. Before / After Comparison
 
-_(filled after final commit)_
+### Session 1 (Layout shell)
 
-### LOC delta
+#### LOC delta
 | File | Before | After | Delta |
 |------|--------|-------|-------|
-| booking-form.tsx | 2575 | TBD | TBD |
-| sections/*.tsx | 0 | TBD | TBD |
-| _shared/*.tsx | 0 | TBD | TBD |
+| booking-form.tsx | 2575 | 2735 | +160 (derived state + summary panel wiring) |
+| _shared/cluster-card.tsx | 0 | 99 | new |
+| _shared/section-nav.tsx | 0 | 78 | new |
+| _shared/summary-panel.tsx | 0 | 240 | new |
+| REPORT_BOOKING_REDESIGN.md | 0 | this doc | new |
 
-### Side effects
-_pending_
+booking-form.tsx will SHRINK in subsequent commits as sections extract
+out. Expected target: ~600 LOC root + ~200-400 LOC per section file.
 
-### Files NOT touched (preserved)
+#### Visible UX delta
+- Desktop ≥lg: 2-column layout, sticky right summary with live
+  pricing breakdown + section nav + save action
+- Tablet & mobile: unchanged (existing sticky bottom save bar)
+- Click "Source & Vendor" / "Event Details" / etc in summary nav →
+  smooth scroll to section
+- Summary updates live as user fills fields (date, venue, base price,
+  add-ons, discount, vendor commission, etc.)
+- Vendor block in summary shows commission preview based on mode:
+  - commission % / flat: "Komisi vendor (10%) Rp X"
+  - upfront_cut: "− Rp X" + "Tetra terima Rp Y"
+
+#### Side effects
+- form id="booking-form" added — external submit button (in
+  SummaryPanel) can submit it via `form="..."` HTML attribute
+- Existing sticky bottom bar still works on tablet/mobile; hidden
+  on ≥lg
+- No functional regression — typecheck + build clean per commit
+- No new dependencies, no new icons (uses existing lucide-react)
+- Vercel auto-deploy: each commit individually deployable
+
+#### Files NOT touched (preserved)
 - `src/lib/actions/bookings.ts` — server action unchanged
 - `src/components/ui/*` — primitives unchanged
-- `src/app/(owner)/operations/{new,[projectId]/edit}/page.tsx` — only prop shape may shift if needed (TBD)
+- `src/app/(owner)/operations/{new,[projectId]/edit}/page.tsx` —
+  unchanged (no prop shape shift)
+- Existing `Section` + `Field` helpers at bottom of booking-form.tsx —
+  preserved; cluster card visual upgrade is opt-in for future commits
+
+### Smoke test (Session 1 — manual)
+
+To run after Vercel auto-deploy completes:
+
+- [ ] **Desktop ≥1024px**: `/operations/PRJ-...-/edit` shows summary panel
+      on right; saving via summary's "Save changes" submits form
+- [ ] **Tablet 768-1023px**: single column form; sticky bottom save
+      bar visible (summary panel hidden)
+- [ ] **Mobile <768px**: single column form; sticky bottom save bar
+- [ ] **Section nav**: click "Sumber & Vendor" → page scrolls to §1
+- [ ] **Section nav**: click "Event Details" → scrolls to §3
+- [ ] **Section nav**: click "Service Package" → scrolls to §5
+- [ ] **Section nav**: click "Contact & Pricing" → scrolls to §8
+- [ ] **Live summary**:
+  - Set event date → summary "Event" block shows formatted date
+  - Set venue → summary shows venue name + city
+  - Set client name → summary shows
+  - Pick package → summary shows base price → grand total updates
+  - Edit discount → summary updates breakdown
+  - Switch channel to Vendor + pick existing vendor → summary
+    "Vendor" block appears with commission info
+- [ ] **Section status icons**: empty fields show `·`; required-error
+      after submit shows `!` with count
+- [ ] **Both save buttons functional**: summary panel "Save changes"
+      AND mobile sticky "Save changes" both submit form correctly
+- [ ] **Existing flows preserved**:
+  - New booking direct channel → submit OK
+  - New booking vendor commission % → submit OK
+  - New booking vendor commission flat → submit OK
+  - New booking vendor upfront_cut → submit OK
+  - Edit existing event → values load, submit updates
+  - Calculation correctness: base + addons - discount + gross-up
+    matches summary panel + form footer + DB
+
+### Continuation plan
+
+Next session should focus on:
+1. **Cluster A extraction** — move sections 1+2 (Source & Vendor)
+   into `sections/source-vendor.tsx` wrapped in ClusterCard. Pass
+   state via props. Atomic commit.
+2. **Cluster B extraction** — sections 3+4 (Event + Schedule).
+   Defer §7 (Lokasi) decision: either reorder it earlier (into B) or
+   create separate "Location" cluster.
+3. Continue clusters C and D similarly.
+4. After all clusters extracted: polish individual radio/checkbox
+   cards using shared primitives.
+5. Last: add-ons accordion grouping by category.
 
 ---
 
-**End of REPORT_BOOKING_REDESIGN.md** — will be updated after each cluster ships.
+**End of REPORT_BOOKING_REDESIGN.md** — updated 2026-05-20 (Session 1
+shipped commits `6afd5fd` + `9e34a54`).
