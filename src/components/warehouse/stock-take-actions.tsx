@@ -18,6 +18,7 @@ export function StockTakeActions({
 	const [pending, startTransition] = useTransition();
 	const [confirmCommit, setConfirmCommit] = useState(false);
 	const [confirmCancel, setConfirmCancel] = useState(false);
+	const hasVariance = varianceCount > 0;
 
 	function handleCommit() {
 		startTransition(async () => {
@@ -47,6 +48,10 @@ export function StockTakeActions({
 		});
 	}
 
+	const commitTitle = !hasVariance
+		? "Tidak ada variance — stock fisik = sistem. Pakai 'Cancel' kalau memang mau tutup tanpa adjustment."
+		: undefined;
+
 	return (
 		<div className="flex items-center gap-2">
 			<button
@@ -61,8 +66,10 @@ export function StockTakeActions({
 			<button
 				type="button"
 				onClick={() => setConfirmCommit(true)}
-				disabled={pending}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+				disabled={pending || !hasVariance}
+				title={commitTitle}
+				aria-disabled={!hasVariance}
+				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
 			>
 				<CheckCircle2 className="size-3.5" />
 				Commit ({varianceCount})
