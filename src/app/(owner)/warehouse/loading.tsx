@@ -11,7 +11,7 @@ export default function WarehouseLoading() {
 
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{Array.from({ length: 4 }).map((_, i) => (
-					<Skeleton key={`kpi-${i}`} className="h-[88px] rounded-xl" />
+					<Skeleton key={`kpi-${i}`} className="h-[88px] rounded-lg" />
 				))}
 			</div>
 

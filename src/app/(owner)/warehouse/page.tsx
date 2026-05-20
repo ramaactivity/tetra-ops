@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
+import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -115,7 +116,7 @@ export default async function WarehousePage({
 
 	return (
 		<Container size="xl" className="space-y-6">
-			<SectionHeader
+			<PageHeader
 				title="Warehouse"
 				description="Track stok consumables, equipment, dan log mutasi."
 				actions={
@@ -129,7 +130,7 @@ export default async function WarehousePage({
 				}
 			/>
 
-			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			<KpiRow>
 				<KpiCard
 					label="Total Valuasi HPP"
 					value={formatRupiah(totalHpp)}
@@ -158,7 +159,7 @@ export default async function WarehousePage({
 					icon={AlertOctagon}
 					accent="rose"
 				/>
-			</dl>
+			</KpiRow>
 
 			<div className="space-y-4">
 				<WarehouseTabs current={tab} />

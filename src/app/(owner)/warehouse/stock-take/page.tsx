@@ -1,8 +1,8 @@
-import { ChevronLeft, ChevronRight, ClipboardCheck } from "lucide-react";
+import { ChevronRight, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
+import { PageHeader } from "@/components/operations/_shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NewStockTakeButton } from "@/components/warehouse/new-stock-take-button";
@@ -71,16 +71,11 @@ export default async function StockTakeListPage() {
 	});
 
 	return (
-		<Container size="lg" className="space-y-6">
-			<Link
-				href="/warehouse"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Warehouse
-			</Link>
-			<SectionHeader
+		<Container size="xl" className="space-y-6">
+			<PageHeader
 				title="Stock Take"
+				backHref="/warehouse"
+				backLabel="Warehouse"
 				description="Audit fisik inventory. Owner walk warehouse, isi counted qty per item, lalu commit — sistem auto-create adjustment movements buat tiap variance non-zero."
 				actions={<NewStockTakeButton />}
 			/>
@@ -92,7 +87,7 @@ export default async function StockTakeListPage() {
 					description="Klik Stock Take Baru untuk mulai audit fisik. Sistem akan seed semua active items dengan system_qty saat ini."
 				/>
 			) : (
-				<div className="overflow-hidden rounded-xl border border-border-default bg-surface-2">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-surface-2">
 					<table className="w-full text-sm">
 						<thead className="border-b border-border-default bg-surface-3/40">
 							<tr className="text-left">

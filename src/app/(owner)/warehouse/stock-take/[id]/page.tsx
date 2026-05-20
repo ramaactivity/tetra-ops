@@ -1,8 +1,9 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
+import { CheckCircle2, ClipboardList, FileSearch } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
+import { PageHeader } from "@/components/operations/_shared/page-header";
+import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { StockTakeActions } from "@/components/warehouse/stock-take-actions";
 import { StockTakeLineRow } from "@/components/warehouse/stock-take-line-row";
@@ -104,15 +105,10 @@ export default async function StockTakeDetailPage({
 
 	return (
 		<Container size="xl" className="space-y-6">
-			<Link
-				href="/warehouse/stock-take"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Stock Take
-			</Link>
-			<SectionHeader
+			<PageHeader
 				title={`Stock Take · ${formatDateID(take.taken_at)}`}
+				backHref="/warehouse/stock-take"
+				backLabel="Stock Take"
 				description={
 					<span className="flex flex-wrap items-center gap-2">
 						<span>By {u?.full_name ?? "—"}</span>
@@ -141,23 +137,36 @@ export default async function StockTakeDetailPage({
 				}
 			/>
 
-			<div className="grid gap-3 sm:grid-cols-3">
-				<StatTile label="Total Items" value={totalLines} />
-				<StatTile
+			<KpiRow className="lg:grid-cols-3">
+				<KpiCard
+					label="Total Items"
+					value={totalLines.toLocaleString("id-ID")}
+					icon={ClipboardList}
+				/>
+				<KpiCard
 					label="Variance"
-					value={varianceCount}
-					tone={varianceCount > 0 ? "warn" : "ok"}
+					value={varianceCount.toLocaleString("id-ID")}
 					hint={
 						varianceCount > 0
 							? "akan jadi adjustment movements"
 							: "stok fisik = sistem"
 					}
+					icon={FileSearch}
+					accent={varianceCount > 0 ? "amber" : "emerald"}
 				/>
-				<StatTile
+				<KpiCard
 					label="Status"
 					value={STATUS_LABEL[take.status] ?? take.status}
+					icon={CheckCircle2}
+					accent={
+						take.status === "committed"
+							? "emerald"
+							: take.status === "cancelled"
+								? "default"
+								: "amber"
+					}
 				/>
-			</div>
+			</KpiRow>
 
 			{take.notes ? (
 				<div className="rounded-lg border border-border-default bg-surface-2 p-3 text-fluid-caption">
@@ -216,32 +225,3 @@ export default async function StockTakeDetailPage({
 	);
 }
 
-function StatTile({
-	label,
-	value,
-	hint,
-	tone = "default",
-}: {
-	label: string;
-	value: number | string;
-	hint?: string;
-	tone?: "default" | "ok" | "warn";
-}) {
-	const valueColor =
-		tone === "ok"
-			? "text-emerald-600 dark:text-emerald-400"
-			: tone === "warn"
-				? "text-amber-600 dark:text-amber-400"
-				: "text-foreground";
-	return (
-		<div className="rounded-lg border border-border-default bg-surface-2 p-4">
-			<div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-				{label}
-			</div>
-			<div className={`tabular text-2xl font-bold ${valueColor}`}>{value}</div>
-			{hint ? (
-				<div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>
-			) : null}
-		</div>
-	);
-}
