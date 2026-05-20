@@ -584,9 +584,38 @@ All form components MUST:
 - For operations cluster pages, use `<FieldGrid.Row>` (§2.1.1). It is the de-facto FormField — label + tooltip + value + hint/error in label-LEFT layout.
 - For non-operations pages without a layout standard yet, `<FormField>`-style hand-rolling is still tolerated, but new code should reach for `<FieldGrid.Row>` first.
 
-#### Text + numeric inputs
-- Use base `<input>` styled with the project `inputClass` (`h-10 rounded-md border border-border-default …`).
-- Money inputs: inline "Rp " prefix span absolutely positioned inside the field; right-align tabular numerals.
+#### Text + numeric input primitives (shipped Gap #5)
+
+Source: [src/components/ui/form-fields.tsx](src/components/ui/form-fields.tsx). All five primitives are thin wrappers around the canonical `INPUT_CLASS` chrome. They don't render labels / hints / errors — compose them inside `<FieldGrid.Row>` (`operations/_shared/field-grid.tsx`) which owns those concerns.
+
+```tsx
+// Default text input
+<TextField name="venue_name" value={venueName} onChange={…} placeholder="cth. Grand Ballroom Hotel ABC" />
+
+// Number input with tabular numerals
+<NumberField name="vendor_decor_markup" min={0} step={1} value={markup} onChange={…} />
+
+// IDR money: "Rp" prefix + tabular + 0 → empty input automatically
+<MoneyInput name="base_price" value={basePrice} onValueChange={setBasePrice} placeholder="3000000" />
+
+// Indonesian phone — tel inputMode + autoComplete + tabular numerals
+<PhoneInput name="client_wa" value={clientWa} onChange={…} />
+
+// Textarea — non-resize default, 2-row default height
+<TextareaField name="crew_notes" rows={2} maxLength={500} defaultValue="" />
+```
+
+**API matrix:**
+
+| Primitive | Renders | Extra defaults | Behavior worth knowing |
+| --------- | ------- | -------------- | ---------------------- |
+| `<TextField>` | `<input type="text">` (overrideable) | `INPUT_CLASS` | Pass-through of all native `<input>` props. |
+| `<NumberField>` | `<input type="number">` | `inputMode="numeric"`, `tabular` | Caller still owns `min` / `step` / coercion. |
+| `<MoneyInput>` | `<input type="number">` w/ "Rp" prefix span | `inputMode="numeric"`, `min={0}`, `step={1}`, `tabular`, `pl-9` | **Controlled via `value: number` + `onValueChange: (n) => void`** — caller doesn't deal with strings. Empty input → emits `0`. Negative input clamps to `0`. Override prefix via `prefixLabel`. |
+| `<PhoneInput>` | `<input type="tel">` | `inputMode="tel"`, `autoComplete="tel"`, placeholder `"081234567890"`, `tabular` | Numeric-only on mobile keyboard. Strict format validation is a server-side concern. |
+| `<TextareaField>` | `<textarea>` | `rows={2}`, `resize-none`, `py-2`, height: auto | Override rows for longer copy (4-6 for descriptions). |
+
+**Migration policy:** existing inline `<input className={inputClass}>` callsites stay working. Convert during Phase 2 per-route work or whenever you touch the surrounding markup. New code should reach for these primitives instead of copy-pasting the input class. `INPUT_CLASS` is exported from the same file as the source of truth — keep it there; do not redefine in consumers.
 
 #### Selects — **MUST be searchable**
 - Use `<Combobox allowFreeText={false}>` ([src/components/ui/combobox.tsx](src/components/ui/combobox.tsx)).
@@ -1248,6 +1277,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #2 · `<Stack>` / `<Inline>` — deduplicated in §2.1, stays proposed-not-shipped.** Two near-identical blocks were sitting side-by-side in §2.1. Collapsed to one entry. Decision to keep deferred (not build now): the gap tokens already discipline spacing across pages — promoting to a primitive would mostly be lint-cosmetics. Re-evaluate after Phase 2 per-route work; build if the same `flex flex-col gap-3` shape recurs in 20+ unique places.
 - **Gap #3 · `<TimePicker>` API + behavior contract — locked in §2.4.** Specced the shipped surface area exactly: props, popup shape, preset row, 2-col scroll picker, keyboard map, clear button, form integration pattern. **`step` prop deferred.** User asked for a configurable step (`5 | 10 | 15 | 30`); shipped version is hardcoded to 5-minute steps via the `MINUTES` constant. Per the "don't change shipped primitives" constraint, the prop is not being added in this pass. Rationale: today's only consumers (3 callsites in booking-form) all use 5-minute granularity, so the rigidity isn't costing anyone. When a future surface needs different granularity (e.g. crew schedule pages with 30-min slots), promote `MINUTES` to a derived array based on a new `step` prop.
 - **Gap #4 · `<EmptyState>` — added `inline` variant + spec matrix in §2.2.** Previously the primitive shipped with `default` + `hero` variants and no guidance on when to use which. Added a third variant `inline` (no outer border, `p-6`) for empties that sit INSIDE a `<SectionCard>` body so we don't double up on bordered chrome. Spec table now maps variant × usage × example route (`default` = list/table empties, `hero` = dashboard zero-state, `inline` = sub-region inside another card) plus size × pairing guidance. Defaults unchanged — `variant="default"` + `size="default"` still picks the original shipped shape.
+- **Gap #5 · Form-input primitives shipped — `<TextField>`, `<NumberField>`, `<MoneyInput>`, `<PhoneInput>`, `<TextareaField>`.** Thin wrappers around the canonical `INPUT_CLASS` chrome, exported from `src/components/ui/form-fields.tsx`. No layout (label/error/hint live in `<FieldGrid.Row>`). Decision: build minimal primitives now + spec the API matrix, migrate existing 76+ inline `<input className={inputClass}>` callsites gradually during Phase 2 per-route work. `MoneyInput` is the most opinionated of the five — controlled via `value: number` + `onValueChange: (n) => void`, empty input emits `0`, negative clamps to `0`. The exported `INPUT_CLASS` becomes the single source of truth for the input chrome — Combobox/NativeSelect/TimePicker triggers already coordinate on the same h-10/rounded-md/border-default/ring tokens, so visual parity holds.
 
 ---
 
