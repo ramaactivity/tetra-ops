@@ -1483,6 +1483,7 @@ export function BookingForm({
 					name="event_category"
 					error={err("event_category")}
 					required
+					layoutMode="grid"
 				>
 					<NativeSelect
 						value={eventCategory}
@@ -1548,6 +1549,7 @@ export function BookingForm({
 							: undefined
 					}
 					required
+					layoutMode="grid"
 				>
 					<input
 						type="text"
@@ -1869,6 +1871,7 @@ export function BookingForm({
 					name="venue_name"
 					error={err("venue_name")}
 					required
+					layoutMode="grid"
 				>
 					<input
 						type="text"
@@ -1884,6 +1887,7 @@ export function BookingForm({
 					label="Google Maps URL"
 					name="google_maps_url"
 					error={err("google_maps_url")}
+					layoutMode="grid"
 					hint={
 						resolvingMaps
 							? "🔄 Mengambil info dari Maps…"
@@ -1932,6 +1936,7 @@ export function BookingForm({
 					label="Alamat"
 					name="venue_address"
 					error={err("venue_address")}
+					layoutMode="grid"
 					hint={
 						addressTouched
 							? "Manual override"
