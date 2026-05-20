@@ -110,7 +110,7 @@ export default async function NewBookingPage() {
 	}));
 
 	return (
-		<Container size="wide">
+		<Container size="xl">
 			<div className="space-y-2">
 				<Link
 					href="/operations"

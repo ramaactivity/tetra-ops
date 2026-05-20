@@ -106,7 +106,7 @@ export default async function EditBookingPage({
 
 	if (error) {
 		return (
-			<Container size="wide">
+			<Container size="xl">
 				<div className="border-destructive bg-destructive/10 rounded-md border p-4">
 					<p className="text-destructive text-sm font-medium">
 						Gagal memuat event: {error.message}
@@ -122,7 +122,7 @@ export default async function EditBookingPage({
 	const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
 	return (
-		<Container size="wide">
+		<Container size="xl">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${event.project_id}`}

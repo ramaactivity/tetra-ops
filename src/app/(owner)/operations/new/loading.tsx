@@ -10,13 +10,13 @@ const CLUSTERS = [
 
 export default function Loading() {
 	return (
-		<Container size="wide" className="space-y-6">
+		<Container size="xl" className="space-y-6">
 			<div className="space-y-2">
 				<Skeleton className="h-4 w-32" />
 				<Skeleton className="h-7 w-48" />
 				<Skeleton className="h-4 w-80" />
 			</div>
-			<div className="grid gap-6 lg:grid-cols-[minmax(640px,1fr)_320px] xl:grid-cols-[minmax(640px,1fr)_360px]">
+			<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
 				<div className="space-y-8">
 					{CLUSTERS.map((c, i) => (
 						<div key={`cluster-${i}`} className="space-y-3">

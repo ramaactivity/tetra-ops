@@ -973,7 +973,7 @@ export function BookingForm({
 			{saveOverlay && (
 				<SavePopup state={saveOverlay} onDismissError={handleDismissError} />
 			)}
-		<div className="grid gap-6 lg:grid-cols-[minmax(640px,1fr)_320px] xl:grid-cols-[minmax(640px,1fr)_360px]">
+		<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
 		<form
 			id="booking-form"
 			action={formAction}
