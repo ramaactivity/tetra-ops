@@ -2,7 +2,8 @@
 
 import { AlertCircle, Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ClusterStatus } from "./cluster-card";
+
+export type ClusterStatus = "ok" | "error" | "empty";
 
 /**
  * <SectionNav /> — jump nav for booking form clusters. Sticky inside
