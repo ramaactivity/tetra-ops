@@ -2181,7 +2181,7 @@ export function BookingForm({
 								<h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 									{ADDON_CATEGORY_LABELS[category] ?? category}
 								</h4>
-								<div className="space-y-1">
+							<div className="grid grid-cols-1 gap-1.5 xl:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
 									{items.map((addon) => {
 										const qty = selectedAddons[addon.id];
 										const enabled = qty !== undefined;
@@ -2199,7 +2199,7 @@ export function BookingForm({
 													className="h-4 w-4 shrink-0 rounded text-primary"
 												/>
 												<div className="min-w-0 flex-1">
-													<div className="truncate text-fluid-body font-medium">
+													<div className="text-fluid-body font-medium leading-snug">
 														{addon.name}
 													</div>
 													<div className="text-fluid-caption text-muted-foreground">
@@ -2219,15 +2219,11 @@ export function BookingForm({
 															onClick={(e) => e.stopPropagation()}
 															className={`${inputClass} tabular h-8 w-16 shrink-0 text-right`}
 														/>
-														<span className="tabular w-28 shrink-0 text-right text-fluid-body font-medium text-foreground">
+														<span className="tabular shrink-0 text-right text-fluid-body font-medium text-foreground">
 															{formatRupiah(addon.price * qty)}
 														</span>
 													</>
-												) : (
-													<span className="w-44 shrink-0 text-right text-fluid-caption text-muted-foreground">
-														Klik untuk pilih
-													</span>
-												)}
+												) : null}
 											</label>
 										);
 									})}
@@ -2313,7 +2309,7 @@ export function BookingForm({
 										>
 											<div className="flex items-start gap-3">
 												<div className="min-w-0 flex-1">
-													<div className="truncate text-fluid-body font-medium">
+													<div className="text-fluid-body font-medium leading-snug">
 														{addon.name}
 													</div>
 													<div className="text-fluid-caption text-muted-foreground">
