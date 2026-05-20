@@ -580,7 +580,70 @@ Old: 7.3/10 — **strong backend, 4 critical UX gaps. Most P0-dense module after
 
 ## 6. Reports (`/reports`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/06-reports-1280.png + 06-reports-375.png]`
+- **Routes:** single page — `/reports` (sub-views via in-page month nav + tab switcher).
+- **LOC:** [src/app/(owner)/reports/page.tsx](src/app/(owner)/reports/page.tsx) — **1140 LOC mega-file** (P1 in old audit, still standing). loading.tsx 31 LOC. No support component directory.
+- **Primitive usage:** `<Container size="xl">` ✓ · `<SectionHeader>` legacy · `<KpiCard>` ×10+ ✓ · `<Badge>` ad-hoc. No EmptyState, no PageHeader.
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Legacy. |
+| SectionCard | 1/5 | P&L / Operational / Owner Statement sections — all bare divs. |
+| KpiRow | 3/5 | Inline grids; not wrapped. Same shape repeated 3 times across sections. |
+| KpiCard | 5/5 | ✓ (now consumes the shared one — local duplicate from old audit is GONE) |
+| Status badges | 3/5 | Ad-hoc `<Badge>`. |
+| Empty states | 1/5 | No `<EmptyState>` for zero-revenue month or empty owner statement. |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.9)
+
+Old: 6.7/10, 3 critical issues.
+
+| Old P0 finding | Status | Evidence |
+| -------------- | ------ | -------- |
+| **Missing financial statements** (Balance Sheet, Cash Flow, GAAP Income Statement) | ❌ Outstanding | grep "Balance Sheet" / "Cash Flow" in /reports source — not present. Current P&L is settlement aggregate, not GAAP accrual. **Feature gap.** |
+| **65% feature overlap with Finance** | ❌ Outstanding | Both modules surface MTD revenue + outstanding + vendor commission. Not consolidated. **Architectural.** |
+| **No GL integration** (journal_entries unused) | ❌ Outstanding | grep "journal_entries" in /reports — 0 references. Cannot generate accrual-basis reports. |
+| 1180 LOC monolith | ⚠️ Same | Now 1140 LOC — marginal trim, still mega-file |
+| No period comparison (Finance has it, Reports doesn't) | ❌ Outstanding | No prev-month delta in any Reports KPI |
+| No export capability (PDF/Excel/CSV) | ❌ Outstanding | No export action found |
+| KpiCard defined locally (duplicate) | ✅ Fixed | grep "function KpiCard" or "const KpiCard" in reports/page.tsx returns 0. Now imports from `@/components/operations/kpi-card`. |
+| Month switcher missing focus ring | ❓ Verify | Needs visual + a11y check |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-xl` | 0 | Clean ✓ |
+| `transition-all` | 0 | — |
+| NativeSelect | 0 | — |
+| Hardcoded eyebrow | 0 | — |
+| 1140 LOC monolith | yes | Old §2.5 still applies — extract sections to component files |
+
+### E. Module-Specific Primitive Needs
+
+- **`<PnLTable>`** — nested category × month grid with subtotals + totals row. Currently rolled inline. **Required for v3 P&L surface.**
+- **`<MetricComparison>`** — period-vs-period delta + arrow indicator + tone. Reports needs this; Finance already has prev-month delta logic. Unify.
+- **`<DateRangeFilter>` (generalize)** — month + quarter + year + custom range. Reports + Finance + Billing all want.
+- **`<ExportButton>`** — dropdown with PDF / Excel / CSV options. Required for "No export" P1.
+- **`<KpiRow>` adoption** — same as elsewhere.
+
+If financial statements (Balance Sheet / Cash Flow) become v3 scope:
+- **`<FinancialStatement>` composite** — section per statement, with comparative columns + drill-down to journal lines.
+- **`<TrialBalance>`** — GL summary by account, debit/credit columns.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** ledger / report dashboard with tabbed views
+- **v3 migration effort:**
+  - **Design refactor only**: ~6-8h (PageHeader + SectionCard + KpiRow + EmptyState + month-nav focus ring + monolith split)
+  - **Plus P0 feature**: financial statements + GL integration = **2-3 weeks of new work**
+- **Migration risk:** **LOW** for design refactor; **HIGH** for feature work (touches new domain model).
+- **Pre-requisites:** `<PnLTable>`, `<MetricComparison>`, `<DateRangeFilter>`, `<ExportButton>` primitives (3-4 days to build).
+- **Suggested order:** Week 4 — alongside or after Finance refactor. Share primitive builds (DateRangeFilter, MetricComparison).
 
 ---
 
