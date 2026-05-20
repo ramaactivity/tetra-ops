@@ -269,7 +269,79 @@ Dashboard is already well-served by current primitives (`<StatCard>`, `<EmptySta
 
 ## 2. Reminders (`/reminders`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/02-reminders-1280.png + 02-reminders-375.png]`
+- **Routes:** single page — `/reminders`. Has `loading.tsx` (30 LOC).
+- **LOC:**
+  - [src/app/(owner)/reminders/page.tsx](src/app/(owner)/reminders/page.tsx) — 395 LOC (server-rendered shell + 4-bucket query orchestration)
+  - [src/components/reminders/batch-client.tsx](src/components/reminders/batch-client.tsx) — 459 LOC (client component, batch send + optimistic UI)
+  - [src/components/reminders/buckets.ts](src/components/reminders/buckets.ts) — 26 LOC (bucket config — pure data, no UI)
+- **Primitive usage:** `<Container size="xl">` ✓ · `<SectionHeader>` (legacy `layout/section-header.tsx`) · `<Badge>` from ui · `<PaymentStatusBadge>` ×1 in batch-client. No StatCard, no EmptyState in current shape.
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader (v1) | 1/5 | Uses legacy `<SectionHeader>` from `components/layout/`. Pre-dates v1 PageHeader. |
+| SectionCard / CollapsibleCard | 2/5 | Bucket cards rendered as bare `<div>` + custom styling. No SectionCard wrap. |
+| FieldGrid | n/a | No editable fields on this page. |
+| KpiRow | 1/5 | No KPI row currently — 4 bucket counts are inline `<Badge>`s in the bucket headers, not real KPI tiles. Real opportunity to add KpiRow for "Today's outstanding", "H+1 critical", "H-7 DP needed", "Total outstanding". |
+| StatCard | 1/5 | Not used; rolls counts as small badges. |
+| Status badges | 4/5 | `<PaymentStatusBadge>` ✓ in client component. |
+| Empty states | 2/5 | Inline italic gray text per empty bucket ("Belum ada reminder hari ini"). Should adopt `<EmptyState variant="inline">`. |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.7)
+
+Old audit: 8.5/10 — strongest module, no P0.
+
+| Old finding | Status | Evidence |
+| ----------- | ------ | -------- |
+| Delivery unverified (wa.me) | ❌ Architectural — still applies | wa.me intent-only by design. Beyond v3 design system scope. |
+| Template preview mobile overflow | ❓ Needs verification | `[Screenshot pending — mobile 375px]` |
+| Batch send without confirmation for >5 | ❓ Needs verification | Read batch-client.tsx send handler — should add ConfirmDialog at threshold |
+| "Outstanding" label English in Indonesian UI | ⚠️ Still in place | grep "Outstanding" → still appears in page chrome |
+| No re-send cooldown | ❌ Outstanding | No backend timestamp guard found |
+| Template dropdown — last-used badge | ❌ Outstanding | Not implemented |
+| No "select by payment status" quick filter | ❌ Outstanding | Filter is bucket-only |
+
+### D. Module-Specific Anti-Patterns
+
+Anti-pattern violation counts within reminders scope:
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-2xl` / `rounded-xl` | 0 | — clean |
+| `transition-all` | 0 | — |
+| Hardcoded eyebrow `font-mono text-[11px]` | 0 | — |
+| `hover:translate` | 0 | — |
+| Decorative colors | 0 | — |
+| Native form controls | 0 | — |
+| NativeSelect | 0 | — |
+| Handrolled popups | 0 | — |
+| English label leakage | 1 | "Outstanding" in page chrome (old audit P2) |
+
+### E. Module-Specific Primitive Needs
+
+- **`<ReminderBucket>` (proposed)** — a SectionCard-shaped card with: bucket title + eyebrow ("H+3 PELUNASAN") + count badge + filter chip + scrollable contact list. Currently rolled inline in batch-client.tsx. Promotion to a primitive would help if Notifications (next module) re-uses the same shape. **Decision: defer until Notifications audit confirms shape overlap.**
+- **`<RecipientRow>` (proposed)** — single contact line with checkbox + name + WA-arrow + outstanding amount + status pill + "Send" action. Repeats inside each bucket. Could become a primitive if same shape recurs in other batch-action surfaces (notification rule recipients, crew assignment). **Defer.**
+- **`<ConfirmDialog>` adoption** — primitive exists. Reminders should adopt for batch-send threshold (≥5 recipients) per old audit P1.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** list-detail with batch action workflow
+- **v3 migration effort:** **~6-8 hours**
+  - Replace `<SectionHeader>` with `<PageHeader>` (1h)
+  - Add KpiRow for 4 bucket counts as proper tiles (1h)
+  - Wrap each bucket in `<SectionCard collapsible defaultOpen={i === 0}>` (1h — exposes empty-state slot)
+  - Adopt `<EmptyState variant="inline">` per empty bucket (30min)
+  - "Outstanding" → "Sisa Pembayaran" rename (15min)
+  - Add `<ConfirmDialog>` for batch send ≥5 (30min)
+  - Add tabular numerals to amounts (verify) (15min)
+  - QA + responsive (1h)
+- **Migration risk:** **MEDIUM** — batch-client.tsx is 459 LOC client component with optimistic state + wa.me timing. Don't refactor logic; only re-wrap the presentation layer.
+- **Pre-requisites for v3:** none — existing primitives sufficient.
+- **Suggested order in v3 rollout:** Week 2 — after Dashboard canary proves v1 primitive adoption pattern. Reminders is the second-cleanest module, low risk for migration.
 
 ---
 
