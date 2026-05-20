@@ -649,7 +649,73 @@ If financial statements (Balance Sheet / Cash Flow) become v3 scope:
 
 ## 7. Warehouse (`/warehouse` + `/warehouse/stock-take`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/07a-warehouse-1280.png, 07b-warehouse-stock-take-1280.png + mobile]`
+- **Routes:** `/warehouse`, `/warehouse/stock-take`, `/warehouse/stock-take/[id]`
+- **LOC:**
+  - [src/app/(owner)/warehouse/page.tsx](src/app/(owner)/warehouse/page.tsx) — 177 LOC
+  - [src/components/warehouse/warehouse-tables.tsx](src/components/warehouse/warehouse-tables.tsx) — 423 LOC
+  - [src/components/warehouse/stock-adjust-dialog.tsx](src/components/warehouse/stock-adjust-dialog.tsx) — 302 LOC
+  - [src/components/warehouse/stock-take-line-row.tsx](src/components/warehouse/stock-take-line-row.tsx) — 145 LOC
+  - [src/components/warehouse/stock-take-actions.tsx](src/components/warehouse/stock-take-actions.tsx) — 90 LOC
+  - Total: **1047 LOC** of warehouse components
+- **Primitive usage:** `<Container size="xl">` ✓ · `<SectionHeader>` legacy · `<KpiCard>` ×4 ✓ · `<WarehouseTabs>` (warehouse-local). **No EmptyState, no PageHeader, no SectionCard.**
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Legacy. |
+| SectionCard | 1/5 | Items + Stock Movements + Stock Take tabs all bare. |
+| FieldGrid | 1/5 | stock-adjust-dialog (302 LOC) uses inline labeled inputs. |
+| KpiRow | 3/5 | Inline grid, not wrapped. |
+| KpiCard | 5/5 | ✓ |
+| Status badges | 2/5 | Hand-rolled "Stok Kritis" / "Habis" badges with bg-amber/bg-rose inline. |
+| Empty states | 1/5 | Inline italic gray text. |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.5)
+
+Old: 6.5/10, **3 critical P0s.**
+
+| Old P0 finding | Status | Evidence |
+| -------------- | ------ | -------- |
+| **Purchase intake unstructured** (no PO, no supplier master, no GR matching) | ❌ Outstanding | grep "purchase_order" / "PO" — only seen as a `direction` option in stock-adjust-dialog. **Feature gap.** |
+| **Negative stock allowed silently** | ❓ Verify | Read stock-adjust-dialog.tsx for guard logic. UI shows red "habis" for ≤0 but doesn't distinguish negative. |
+| **Weighted-avg cost can drift** (unit_cost optional) | ❌ Outstanding | Verify [src/lib/actions/stock-movements.ts:97](src/lib/actions/stock-movements.ts#L97) — needs UI to force unit_cost on `direction='purchase'`. |
+| Equipment stock not tracked (no quantity) | ❌ Outstanding | Equipment module shows location + condition only |
+| Reorder automation missing (KPI shows "Stok Kritis" but no action) | ❌ Outstanding | min_stock_alert schema exists, no triggers |
+| Settlement consumption not labeled in movements log | ❓ Verify | grep `source='rekap_consumption'` — should map to label |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-xl` / `rounded-2xl` | 0 | Clean ✓ |
+| `transition-all` | 0 | — |
+| NativeSelect | 1 | [stock-adjust-dialog.tsx:222](src/components/warehouse/stock-adjust-dialog.tsx#L222) — adjust direction picker |
+| Hardcoded "Stok Kritis" / "Habis" badge colors | yes | Inline bg-amber-500/10 / bg-rose-500/10 — should be `<Badge variant>` |
+| Hardcoded eyebrow | 0 | — |
+
+### E. Module-Specific Primitive Needs
+
+- **`<StockMovement>` row primitive** — direction badge (in/out/adjust/purchase/consumption) + qty + before → after stock + memo. Currently inlined in warehouse-tables.tsx (423 LOC).
+- **`<InventoryQuantity>`** — qty + unit + tone (positive / critical / out-of-stock). Reused across items list + stock take.
+- **`<PurchaseLine>`** — supplier + qty + unit_cost + total + GR status. **Required if purchase intake P0 lands in v3.**
+- **`<StockTakeRow>`** — already exists as `stock-take-line-row.tsx` (145 LOC). Could be promoted to `_shared/` if other inventory surfaces emerge.
+- **`<StockStatusBadge>`** — extend `<Badge>` with critical/out/restocking variants. Today's hand-rolled colors should funnel through here.
+- **`<SupplierPicker>`** + **`<POForm>`** — required if v3 includes purchase intake P0.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** ledger + inventory table + dialog-based actions
+- **v3 migration effort:**
+  - **Design refactor only**: ~6-8h (PageHeader + SectionCard for 3 tabs + EmptyState + KpiRow adoption + 1 NativeSelect swap + StockStatusBadge centralization)
+  - **+ Negative stock guard + unit_cost force on purchase**: ~1 day (UI-level fix; backend already permissive)
+  - **+ Purchase intake P0 module**: **5-7 days** (supplier master + PO form + GR matching + movement source label)
+- **Migration risk:** **MEDIUM** for design refactor (stock-take is dense); **HIGH** for purchase intake (touches weighted-avg cost math).
+- **Pre-requisites:** `<StockMovement>`, `<InventoryQuantity>`, `<StockStatusBadge>` primitives (1-2 days).
+- **Suggested order:** Week 3 — after Billing. Treat purchase intake as a post-v3 epic.
 
 ---
 
