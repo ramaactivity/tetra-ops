@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { SectionCard } from "@/components/operations/_shared/section-card";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -2701,20 +2702,17 @@ function Section({
 }) {
 	const stepLabel = step.toString().padStart(2, "0");
 	const titleText = typeof title === "string" ? title.toUpperCase() : title;
+	const eyebrowTitle = (
+		<span className="eyebrow text-muted-foreground">
+			<span className="tabular text-primary">{stepLabel}</span>
+			<span className="mx-1.5 text-muted-foreground/50">·</span>
+			<span className="text-foreground">{titleText}</span>
+		</span>
+	);
 	return (
-		<section className="space-y-3">
-			<div className="space-y-1">
-				<p className="eyebrow text-muted-foreground">
-					<span className="tabular text-primary">{stepLabel}</span>
-					<span className="mx-1.5 text-muted-foreground/50">·</span>
-					<span className="text-foreground">{titleText}</span>
-				</p>
-				<p className="text-fluid-caption text-muted-foreground">
-					{description}
-				</p>
-			</div>
+		<SectionCard title={eyebrowTitle} subtitle={description} defaultOpen>
 			<div className="space-y-4">{children}</div>
-		</section>
+		</SectionCard>
 	);
 }
 
