@@ -21,7 +21,7 @@ export default async function EditVendorPage({
 		supabase
 			.from("contacts")
 			.select(
-				"id, type, name, phone, email, notes, is_active, default_pic_name, default_pic_contact, commission_rate_default, payment_terms, company_address",
+				"id, type, name, phone, email, notes, is_active, default_pic_name, default_pic_contact, commission_rate_default, commission_mode, commission_value_type, commission_value_default, payment_terms, company_address",
 			)
 			.eq("id", id)
 			.eq("type", "vendor")
@@ -131,7 +131,16 @@ export default async function EditVendorPage({
 					name: vendor.name,
 					default_pic_name: vendor.default_pic_name ?? "",
 					default_pic_contact: vendor.default_pic_contact ?? "",
-					commission_rate_default: vendor.commission_rate_default ?? 10,
+					commission_mode:
+						(vendor.commission_mode as "commission" | "upfront_cut" | null) ??
+						"commission",
+					commission_value_type:
+						(vendor.commission_value_type as "percent" | "flat" | null) ??
+						"percent",
+					commission_value_default:
+						(vendor.commission_value_default as number | null) ??
+						(vendor.commission_rate_default as number | null) ??
+						10,
 					payment_terms: vendor.payment_terms ?? "",
 					company_address: vendor.company_address ?? "",
 					email: vendor.email ?? "",

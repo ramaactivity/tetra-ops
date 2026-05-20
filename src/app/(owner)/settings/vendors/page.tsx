@@ -18,7 +18,10 @@ export type VendorRow = {
 	name: string;
 	default_pic_name: string | null;
 	default_pic_contact: string | null;
-	commission_rate_default: number | null;
+	commission_mode: "commission" | "upfront_cut" | null;
+	commission_value_type: "percent" | "flat" | null;
+	commission_value_default: number | null;
+	commission_rate_default: number | null; // legacy back-compat
 	payment_terms: string | null;
 	company_address: string | null;
 	is_active: boolean;
@@ -47,7 +50,7 @@ export default async function VendorsListPage({
 	let vendorQuery = supabase
 		.from("contacts")
 		.select(
-			"id, name, default_pic_name, default_pic_contact, commission_rate_default, payment_terms, company_address, is_active",
+			"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default, payment_terms, company_address, is_active",
 		)
 		.eq("type", "vendor")
 		.order("name", { ascending: true });
@@ -125,6 +128,9 @@ export default async function VendorsListPage({
 		name: string;
 		default_pic_name: string | null;
 		default_pic_contact: string | null;
+		commission_mode: "commission" | "upfront_cut" | null;
+		commission_value_type: "percent" | "flat" | null;
+		commission_value_default: number | string | null;
 		commission_rate_default: number | string | null;
 		payment_terms: string | null;
 		company_address: string | null;
@@ -267,6 +273,12 @@ export default async function VendorsListPage({
 			name: v.name,
 			default_pic_name: v.default_pic_name,
 			default_pic_contact: v.default_pic_contact,
+			commission_mode: v.commission_mode,
+			commission_value_type: v.commission_value_type,
+			commission_value_default:
+				v.commission_value_default == null
+					? null
+					: num(v.commission_value_default),
 			commission_rate_default:
 				v.commission_rate_default == null
 					? null

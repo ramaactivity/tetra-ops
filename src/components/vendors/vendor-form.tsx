@@ -5,13 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { VendorFormState } from "@/lib/actions/vendors";
 
 export type VendorFormDefaults = Partial<{
 	name: string;
 	default_pic_name: string;
 	default_pic_contact: string;
-	commission_rate_default: number;
+	commission_mode: "commission" | "upfront_cut";
+	commission_value_type: "percent" | "flat";
+	commission_value_default: number;
 	payment_terms: string;
 	company_address: string;
 	email: string;
@@ -64,6 +67,19 @@ export function VendorForm({
 		stateErrors?.[key as keyof typeof stateErrors]?.[0];
 
 	const formErr = stateErrors?._form?.[0];
+
+	// Commission scheme state — mode + value_type drive UI.
+	// Initial from server echo (post-submit) > defaults > fallback.
+	const initialMode = (get("commission_mode", "commission") as
+		| "commission"
+		| "upfront_cut");
+	const initialValueType = (get("commission_value_type", "percent") as
+		| "percent"
+		| "flat");
+	const [mode, setMode] = useState<"commission" | "upfront_cut">(initialMode);
+	const [valueType, setValueType] = useState<"percent" | "flat">(
+		initialValueType,
+	);
 
 	// Redirect to list page on success after a brief confirmation
 	useEffect(() => {
@@ -183,40 +199,139 @@ export function VendorForm({
 			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 				<header className="space-y-0.5">
 					<h3 className="text-[15px] font-semibold tracking-tight">
-						Keuangan
+						Skema Komisi
 					</h3>
 					<p className="text-[12px] text-muted-foreground">
-						Default values untuk komisi + terms. Bisa di-override per booking.
+						Cara Tetra deal dengan vendor ini. Bisa di-override per booking.
 					</p>
 				</header>
 
-				<div className="grid gap-4 md:grid-cols-2">
-					<label className={labelClass}>
-						Komisi Default (%)
-						<div className="relative">
-							<input
-								type="number"
-								name="commission_rate_default"
-								defaultValue={get("commission_rate_default", "10")}
-								min={0}
-								max={100}
-								step={0.5}
-								placeholder="10"
-								className={`${inputClass} tabular pr-8`}
-							/>
-							<span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-								%
-							</span>
-						</div>
-						<span className={hintClass}>
-							Standar industri 10%. Owner bisa override saat input booking.
-						</span>
-						{err("commission_rate_default") && (
-							<span className={errClass}>{err("commission_rate_default")}</span>
-						)}
-					</label>
+				{/* Mode segmented control */}
+				<div role="radiogroup" aria-label="Mode komisi" className="space-y-2">
+					<ModeOption
+						value="commission"
+						label="Komisi Langsung"
+						description="Klien bayar Tetra full, Tetra transfer komisi ke vendor setelah event."
+						checked={mode === "commission"}
+						onSelect={() => setMode("commission")}
+					/>
+					<ModeOption
+						value="upfront_cut"
+						label="Potongan / Base Harga"
+						description="Klien bayar vendor langsung. Vendor transfer ke Tetra sesuai potongan yang disepakati. Tetra gak tahu harga vendor ke klien."
+						checked={mode === "upfront_cut"}
+						onSelect={() => setMode("upfront_cut")}
+					/>
+				</div>
+				<input type="hidden" name="commission_mode" value={mode} />
 
-					<label className={labelClass}>
+				<div className="grid gap-4 md:grid-cols-2">
+					{mode === "commission" ? (
+						<>
+							<div className={labelClass}>
+								<span>Tipe Nilai Komisi</span>
+								<div
+									role="radiogroup"
+									aria-label="Tipe nilai komisi"
+									className="inline-flex rounded-md border border-border-default bg-card p-0.5"
+								>
+									<TypeChip
+										label="Persentase (%)"
+										checked={valueType === "percent"}
+										onSelect={() => setValueType("percent")}
+									/>
+									<TypeChip
+										label="Nominal (Rp)"
+										checked={valueType === "flat"}
+										onSelect={() => setValueType("flat")}
+									/>
+								</div>
+								<input
+									type="hidden"
+									name="commission_value_type"
+									value={valueType}
+								/>
+								<span className={hintClass}>
+									Persentase: 10% dari grand_total. Nominal: rupiah flat per
+									event.
+								</span>
+							</div>
+							<label className={labelClass}>
+								Nilai Komisi Default
+								<div className="relative">
+									{valueType === "flat" && (
+										<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+											Rp
+										</span>
+									)}
+									<input
+										type="number"
+										name="commission_value_default"
+										defaultValue={get("commission_value_default", "10")}
+										min={0}
+										max={valueType === "percent" ? 100 : undefined}
+										step={valueType === "percent" ? 0.5 : 1000}
+										placeholder={valueType === "percent" ? "10" : "500000"}
+										className={cn(
+											inputClass,
+											"tabular",
+											valueType === "flat" ? "pl-9" : "pr-8",
+										)}
+									/>
+									{valueType === "percent" && (
+										<span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+											%
+										</span>
+									)}
+								</div>
+								<span className={hintClass}>
+									{valueType === "percent"
+										? "Standar industri 10%. Owner bisa override saat input booking."
+										: "Komisi flat yang Tetra bayarkan ke vendor per event."}
+								</span>
+								{err("commission_value_default") && (
+									<span className={errClass}>
+										{err("commission_value_default")}
+									</span>
+								)}
+							</label>
+						</>
+					) : (
+						<label className={cn(labelClass, "md:col-span-2")}>
+							Cut Default yang Tetra Terima per Event
+							<div className="relative">
+								<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+									Rp
+								</span>
+								<input
+									type="number"
+									name="commission_value_default"
+									defaultValue={get("commission_value_default")}
+									min={0}
+									step={50000}
+									placeholder="500000"
+									className={cn(inputClass, "tabular pl-9")}
+								/>
+							</div>
+							<input
+								type="hidden"
+								name="commission_value_type"
+								value="flat"
+							/>
+							<span className={hintClass}>
+								Jumlah default yang Tetra terima dari vendor per event. Saat
+								booking baru dengan vendor ini, base price akan auto-fill ke
+								nilai ini.
+							</span>
+							{err("commission_value_default") && (
+								<span className={errClass}>
+									{err("commission_value_default")}
+								</span>
+							)}
+						</label>
+					)}
+
+					<label className={cn(labelClass, mode === "upfront_cut" && "md:col-span-2")}>
 						Payment Terms
 						<input
 							type="text"
@@ -227,7 +342,7 @@ export function VendorForm({
 							className={inputClass}
 						/>
 						<span className={hintClass}>
-							Catatan kapan vendor dibayar. Optional, untuk reference.
+							Catatan kapan pembayaran flow. Optional, untuk reference.
 						</span>
 						{err("payment_terms") && (
 							<span className={errClass}>{err("payment_terms")}</span>
@@ -319,5 +434,74 @@ export function VendorForm({
 				</div>
 			</div>
 		</form>
+	);
+}
+
+function ModeOption({
+	value,
+	label,
+	description,
+	checked,
+	onSelect,
+}: {
+	value: string;
+	label: string;
+	description: string;
+	checked: boolean;
+	onSelect: () => void;
+}) {
+	return (
+		<label
+			className={cn(
+				"flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
+				checked
+					? "border-primary bg-primary/5"
+					: "border-border-default bg-card hover:border-border-strong hover:bg-secondary/40",
+			)}
+		>
+			<input
+				type="radio"
+				name="commission_mode_picker"
+				value={value}
+				checked={checked}
+				onChange={onSelect}
+				className="mt-0.5 size-4 accent-primary"
+			/>
+			<span className="flex flex-col gap-0.5">
+				<span className="text-[14px] font-medium leading-tight text-foreground">
+					{label}
+				</span>
+				<span className="text-[12px] leading-snug text-muted-foreground">
+					{description}
+				</span>
+			</span>
+		</label>
+	);
+}
+
+function TypeChip({
+	label,
+	checked,
+	onSelect,
+}: {
+	label: string;
+	checked: boolean;
+	onSelect: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			role="radio"
+			aria-checked={checked}
+			onClick={onSelect}
+			className={cn(
+				"inline-flex h-8 items-center rounded-[4px] px-3 text-[12.5px] font-medium leading-none transition-colors",
+				checked
+					? "bg-foreground text-background"
+					: "text-muted-foreground hover:text-foreground",
+			)}
+		>
+			{label}
+		</button>
 	);
 }

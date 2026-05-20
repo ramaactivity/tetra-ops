@@ -14,6 +14,9 @@ export type VendorRowDisplay = {
 	name: string;
 	default_pic_name: string | null;
 	default_pic_contact: string | null;
+	commission_mode: "commission" | "upfront_cut" | null;
+	commission_value_type: "percent" | "flat" | null;
+	commission_value_default: number | null;
 	commission_rate_default: number | null;
 	payment_terms: string | null;
 	is_active: boolean;
@@ -23,6 +26,26 @@ export type VendorRowDisplay = {
 	gross_revenue_ytd: number;
 	last_event_date: string | null;
 };
+
+/**
+ * Format commission scheme for vendor row.
+ *
+ * commission + percent: "10%"
+ * commission + flat:    "Rp 500K"
+ * upfront_cut:          "Potongan Rp 500K"
+ */
+function formatScheme(v: VendorRowDisplay): string {
+	const mode = v.commission_mode ?? "commission";
+	const valueType = v.commission_value_type ?? "percent";
+	const value = v.commission_value_default ?? v.commission_rate_default;
+	if (value == null) return "—";
+
+	if (mode === "upfront_cut") {
+		return `Potongan ${formatRupiah(value)}`;
+	}
+	if (valueType === "percent") return `${value}%`;
+	return formatRupiah(value);
+}
 
 function formatDateID(d: string | null): string {
 	if (!d) return "—";
@@ -76,17 +99,22 @@ export function VendorsListTable({ vendors }: { vendors: VendorRowDisplay[] }) {
 				),
 		},
 		{
-			key: "commission",
-			header: "Komisi",
+			key: "scheme",
+			header: "Skema",
 			align: "right",
-			render: (v) =>
-				v.commission_rate_default != null ? (
-					<span className="tabular text-fluid-body font-medium">
-						{v.commission_rate_default}%
-					</span>
-				) : (
-					<span className="text-muted-foreground text-fluid-caption">—</span>
-				),
+			render: (v) => {
+				const mode = v.commission_mode ?? "commission";
+				return (
+					<div className="space-y-0.5 text-right">
+						<div className="tabular text-fluid-body font-medium">
+							{formatScheme(v)}
+						</div>
+						<div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+							{mode === "upfront_cut" ? "Vendor → Tetra" : "Tetra → Vendor"}
+						</div>
+					</div>
+				);
+			},
 		},
 		{
 			key: "events",
