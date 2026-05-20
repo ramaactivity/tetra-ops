@@ -389,26 +389,18 @@ type SummaryRailProps = {
 - `navItems` carries per-section `issueCount` — `<SectionNav>` renders the count as a badge so users can jump to the failing section.
 - Submit button uses `form="booking-form"` to submit a form rendered outside the rail.
 
-#### `<Stack>` / `<Inline>` (proposed — not shipped)
+#### `<Stack>` / `<Inline>` — proposed, not shipped
 ```tsx
 type StackProps = {
   gap?: "xs" | "sm" | "md" | "lg" | "xl";  // 8|12|16|24|32 px
   align?: "start" | "center" | "end" | "stretch";
   className?: string;
+  children: ReactNode;
 };
+// <Inline> mirrors <Stack> but flows horizontally.
 ```
-- Replaces inline `flex flex-col gap-X` patterns for consistency. Still ad-hoc in most files.
-
-#### `<Stack>` / `<Inline>`
-```tsx
-type StackProps = {
-  gap?: "xs" | "sm" | "md" | "lg" | "xl";  // 8|12|16|24|32 px
-  align?: "start" | "center" | "end" | "stretch";
-  className?: string;
-};
-// Inline = same but horizontal
-```
-- Replaces inline `flex flex-col gap-X` patterns for consistency
+- **Status:** not built. Inline `flex flex-col gap-X` / `flex items-center gap-X` patterns are still ad-hoc across pages.
+- **Why deferred:** the gap tokens already discipline spacing (every page uses `space-y-4` / `gap-3` consistently); promoting to a primitive would mostly be lint-cosmetics. Re-evaluate after the per-route Phase 2 work — if the same `<div className="flex flex-col gap-3">` shape recurs in 20+ places, build then.
 
 ### 2.2 Data Display
 
@@ -1198,6 +1190,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 
 - **Gap #1 · Native browser controls + `<NativeSelect>` user-facing usage — banned total.** Previously §4.7 tolerated `<NativeSelect>` for "short fixed lists" — that's gone. Every user-facing dropdown uses `<Combobox allowFreeText={false}>`. Rationale: one-shape selects = predictable keyboard nav + a11y across every operations sub-page; ambiguity in the rule was already producing inconsistent choices in non-booking forms. The `<NativeSelect>` file itself stays — it remains the canonical shadcn `<Select>` wrapper, used internally by Combobox's build chain and as a primitive building block. What's banned is its appearance in `src/app/**` JSX trees. See §4.7 + audit-grep updated.
 - **Gap #1 · `<Switch>` + `<RadioGroup>` as primitives — deferred.** User asked for these as the canonical binary-toggle pair. They don't exist in the codebase yet. Decision: don't ship them this pass; the segmented-button pattern (used in booking-form for commission mode / discount type) + the checkbox-styled label card (used in booking-form for "PIC sama dengan pembooking") cover today's surfaces. Promoting these to first-class primitives is tracked as a follow-up — schedule alongside Phase 2 per-route work when a real consumer needs the third pattern.
+- **Gap #2 · `<Stack>` / `<Inline>` — deduplicated in §2.1, stays proposed-not-shipped.** Two near-identical blocks were sitting side-by-side in §2.1. Collapsed to one entry. Decision to keep deferred (not build now): the gap tokens already discipline spacing across pages — promoting to a primitive would mostly be lint-cosmetics. Re-evaluate after Phase 2 per-route work; build if the same `flex flex-col gap-3` shape recurs in 20+ unique places.
 
 ---
 
