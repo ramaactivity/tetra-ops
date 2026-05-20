@@ -433,11 +433,24 @@ type DataTableProps<T> = {
   searchPlaceholder?: string;
   pageSize?: number;
   toolbar?: ReactNode;             // Right-aligned action area
-  virtualized?: boolean;           // Use @tanstack/react-virtual if rows >50
 };
 ```
-- Already exists at `src/components/ui/data-table.tsx`
-- **TODO**: Add `virtualized` prop for >50 rows (Operations list, Crew master)
+- Already exists at `src/components/ui/data-table.tsx`.
+
+**Virtualization — deferred (Gap #6 decision, 2026-05-21).** No `virtualized` prop ships in this pass.
+
+Reasoning, in numbers:
+- Today's largest table (`/operations` list) shows 18 events total in user's snapshot. With month-filter default (`?month=2026-05`), most page-loads render 2-5 rows.
+- Worst case observed: `?month=all` + `?archived=1` → ~130 cumulative rows. React renders 130 row components in <40ms on a mid-tier laptop — well under the 500ms perceived-lag threshold.
+- Projected at 5× growth (~450 rows over a 5-year archive): still <200ms render. No virtualization warranted.
+- `@tanstack/react-virtual` would add ~6KB gzipped + complexity (forwarded refs, sticky-header math, intersection observers). Not worth it for current scale.
+
+**Re-evaluate when ANY of:**
+1. A single table render >500ms on a mid-tier device (verified with Lighthouse / React Profiler).
+2. Total row count across any table crosses 500 (audit log is the most likely candidate).
+3. A genuinely list-heavy surface ships (e.g. crew presence stream, real-time event log) where streaming + virtualization compose naturally.
+
+Until then, the existing `<ResponsiveTable>` (paginated, server-filtered) is the standard.
 
 #### `<StatusBadge>`
 ```tsx
@@ -1278,6 +1291,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #3 · `<TimePicker>` API + behavior contract — locked in §2.4.** Specced the shipped surface area exactly: props, popup shape, preset row, 2-col scroll picker, keyboard map, clear button, form integration pattern. **`step` prop deferred.** User asked for a configurable step (`5 | 10 | 15 | 30`); shipped version is hardcoded to 5-minute steps via the `MINUTES` constant. Per the "don't change shipped primitives" constraint, the prop is not being added in this pass. Rationale: today's only consumers (3 callsites in booking-form) all use 5-minute granularity, so the rigidity isn't costing anyone. When a future surface needs different granularity (e.g. crew schedule pages with 30-min slots), promote `MINUTES` to a derived array based on a new `step` prop.
 - **Gap #4 · `<EmptyState>` — added `inline` variant + spec matrix in §2.2.** Previously the primitive shipped with `default` + `hero` variants and no guidance on when to use which. Added a third variant `inline` (no outer border, `p-6`) for empties that sit INSIDE a `<SectionCard>` body so we don't double up on bordered chrome. Spec table now maps variant × usage × example route (`default` = list/table empties, `hero` = dashboard zero-state, `inline` = sub-region inside another card) plus size × pairing guidance. Defaults unchanged — `variant="default"` + `size="default"` still picks the original shipped shape.
 - **Gap #5 · Form-input primitives shipped — `<TextField>`, `<NumberField>`, `<MoneyInput>`, `<PhoneInput>`, `<TextareaField>`.** Thin wrappers around the canonical `INPUT_CLASS` chrome, exported from `src/components/ui/form-fields.tsx`. No layout (label/error/hint live in `<FieldGrid.Row>`). Decision: build minimal primitives now + spec the API matrix, migrate existing 76+ inline `<input className={inputClass}>` callsites gradually during Phase 2 per-route work. `MoneyInput` is the most opinionated of the five — controlled via `value: number` + `onValueChange: (n) => void`, empty input emits `0`, negative clamps to `0`. The exported `INPUT_CLASS` becomes the single source of truth for the input chrome — Combobox/NativeSelect/TimePicker triggers already coordinate on the same h-10/rounded-md/border-default/ring tokens, so visual parity holds.
+- **Gap #6 · DataTable virtualization — deferred.** No `virtualized` prop ships. Backed by current numbers: largest table render is ~18 rows (user snapshot), worst case is ~130 rows (filter=all + archived), projected 5× growth still under 500 rows. React renders 130 row components in <40ms on mid-tier hardware — well under the 500ms perceived-lag threshold. `@tanstack/react-virtual` would add ~6KB + sticky-header / intersection-observer complexity for no real win. Re-evaluate triggers documented in §2.2: any single render >500ms, total row count >500, or a list-heavy surface (real-time event log) where streaming + virtualization compose naturally.
 
 ---
 
