@@ -902,11 +902,13 @@ export default function Loading() {
 <Skeleton className="h-96 w-full" />
 ```
 
-### 4.7 Form Controls — No native browser controls (locked in `d020272` / `067725e`)
+### 4.7 Form Controls — No native browser controls + no NativeSelect in user-facing code (locked in `d020272` / `067725e` / Gap #1 polish)
+
+**Rule.** User-facing form controls render via custom React components only. Native browser controls (`<select>`, `<input type="time|date|color">`) and the in-codebase `<NativeSelect>` shadcn wrapper are banned from user-facing surfaces.
 
 ✅ **DO**:
 ```tsx
-{/* Searchable select */}
+{/* Searchable dropdown — every value-from-list pick goes here */}
 <Combobox
   value={kategori}
   onValueChange={setKategori}
@@ -920,9 +922,24 @@ export default function Loading() {
 
 {/* Custom calendar */}
 <DatePicker value={date} onValueChange={setDate} />
+
+{/* Binary toggle — segmented button (already used heavily in booking-form
+    for service-type / discount-type / commission-mode pickers) */}
+<div className="inline-flex rounded-md border border-border-default p-0.5">
+  <button role="radio" aria-checked={mode === "commission"} … />
+  <button role="radio" aria-checked={mode === "upfront_cut"} … />
+</div>
+
+{/* Checkbox-styled card (already used in booking-form for "PIC sama dengan pembooking"
+    style toggles). Real <Switch> + <RadioGroup> primitives are pending —
+    see Decisions Log 2026-05-21. */}
+<label className="flex items-center gap-2 rounded-md border border-border-default px-3 py-2">
+  <input type="checkbox" checked={enabled} onChange={…} className="h-4 w-4" />
+  <span>Label</span>
+</label>
 ```
 
-❌ **DON'T**:
+❌ **DON'T** — banned in user-facing code:
 ```tsx
 {/* Native select — non-searchable, inconsistent styling, no chevron control */}
 <select value={kategori} onChange={(e) => setKategori(e.target.value)}>
@@ -933,17 +950,29 @@ export default function Loading() {
 <input type="time" value={start} onChange={…} />
 <input type="date" value={date} onChange={…} />
 
-{/* NativeSelect for >5 options where filtering helps — use Combobox instead */}
-<NativeSelect options={packageList} … />
+{/* NativeSelect — BANNED for user-facing dropdowns regardless of option count.
+    Use <Combobox allowFreeText={false}> for every dropdown. */}
+<NativeSelect options={packageList} value={x} onValueChange={setX} />
 ```
 
-Why: native form controls render with browser-default chrome (system font, weird sizing on mobile Safari, no consistent focus ring, no typing-to-filter). They also don't share keyboard nav / focus behavior with the rest of our components, so users hitting Tab through a form get a jarring shift in interaction style. The single tolerated native control is `<input type="file">` — wrapped behind `<FileDrop>` or the rekap upload buttons.
+**Why native is banned:** browser-default chrome (system font, weird sizing on mobile Safari, no consistent focus ring, no typing-to-filter, no portal — clips inside collapsible cards). They don't share keyboard nav or focus behavior with the rest of our components, so users hitting Tab through a form get a jarring shift in interaction style.
 
-Audit-once command (run before opening a PR that adds form controls):
+**Why NativeSelect is banned:** even though it internally wraps shadcn `<Select>` (Radix), its rendered shape lacks typing-to-filter — which we standardized on with the booking-form Combobox sweep (`067725e`). One-shape selects = predictable keyboard + a11y across every operations sub-page. The `NativeSelect` file remains as the canonical wrapper around shadcn Select, used by `<Combobox>`'s build chain and potentially future primitives — but it must not appear in a JSX tree under `src/app/`.
+
+**Status of `<Switch>` / `<RadioGroup>`:** not shipped as primitives yet. For binary state, use the segmented-button pattern (see booking-form §commission mode); for "checkbox + label card", use the inline pattern shown above. Promoting both to first-class primitives is a follow-up tracked in §9 (2026-05-21).
+
+**Sole exception** — file picker (`<input type="file">`) is hardware-locked behind a browser API. Always wrap with `<FileDrop>` (or the rekap-specific upload buttons).
+
+**Audit-once command** (run before opening a PR that adds form controls):
 ```bash
-grep -rn 'type="time"\|type="date"\|type="color"\|<select\b' src --include="*.tsx" | grep -v node_modules
+# Native + NativeSelect usage outside the primitive itself + showcase route
+grep -rn 'type="time"\|type="date"\|type="color"\|<select\b\|<NativeSelect\b' src --include="*.tsx" \
+  | grep -v 'src/components/ui/native-select.tsx' \
+  | grep -v 'src/app/dev/primitives/'
 ```
-Expected: zero matches outside `<FileDrop>` / file-upload wrappers.
+Expected: zero matches outside `<FileDrop>` / file-upload wrappers + the NativeSelect primitive itself + the dev showcase route.
+
+> Migration status (2026-05-21): 6 non-booking callsites still import `<NativeSelect>` — `event-equipment/check-out-form.tsx`, `event-equipment/incident-form.tsx`, `backdrops/backdrop-form.tsx`, `addons/addon-form.tsx`, `notification-rules/rule-form.tsx`. These get swept during Phase 2 per-route work; new PRs must use `<Combobox>` directly.
 
 ### 4.8 Popups (dropdowns, calendars, menus) — must portal out of clipping ancestors (locked in `3b3c079`)
 
@@ -1158,6 +1187,17 @@ Tetra Ops design foundation **already strong**: DESIGN.md aspirational + globals
 Fixing all 3 root causes (Phase 1-2 above, ~3-5 days) eliminates 80% of inconsistency. Remaining work is feature-specific (real-time foundation, missing primitives, pattern enforcement).
 
 **No need for design system overhaul.** Foundation is correct. Need: **enforcement + a few new primitives + cleanup pass.**
+
+---
+
+## 9. Decisions Log
+
+Running history of design-system rule changes. Each entry: date · gap# · decision · rationale · commit refs.
+
+### 2026-05-21
+
+- **Gap #1 · Native browser controls + `<NativeSelect>` user-facing usage — banned total.** Previously §4.7 tolerated `<NativeSelect>` for "short fixed lists" — that's gone. Every user-facing dropdown uses `<Combobox allowFreeText={false}>`. Rationale: one-shape selects = predictable keyboard nav + a11y across every operations sub-page; ambiguity in the rule was already producing inconsistent choices in non-booking forms. The `<NativeSelect>` file itself stays — it remains the canonical shadcn `<Select>` wrapper, used internally by Combobox's build chain and as a primitive building block. What's banned is its appearance in `src/app/**` JSX trees. See §4.7 + audit-grep updated.
+- **Gap #1 · `<Switch>` + `<RadioGroup>` as primitives — deferred.** User asked for these as the canonical binary-toggle pair. They don't exist in the codebase yet. Decision: don't ship them this pass; the segmented-button pattern (used in booking-form for commission mode / discount type) + the checkbox-styled label card (used in booking-form for "PIC sama dengan pembooking") cover today's surfaces. Promoting these to first-class primitives is tracked as a follow-up — schedule alongside Phase 2 per-route work when a real consumer needs the third pattern.
 
 ---
 
