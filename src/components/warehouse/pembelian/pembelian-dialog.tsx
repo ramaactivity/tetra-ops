@@ -87,8 +87,11 @@ export function PembelianDialog({
 
 	useEffect(() => {
 		if (state?.success) {
+			const baseMsg = `Pembelian disimpan — ${state.movementsCreated} stock movement dibuat`;
 			toast.success(
-				`Pembelian disimpan — ${state.movementsCreated} stock movement dibuat`,
+				state.journalEntryRef
+					? `${baseMsg} · jurnal ${state.journalEntryRef}`
+					: baseMsg,
 			);
 			setOpen(false);
 			setLines([newLine()]);
@@ -390,6 +393,53 @@ export function PembelianDialog({
 							{formatRupiah(total)}
 						</span>
 					</div>
+
+					{total > 0 && (
+						<div
+							className={`rounded-md border p-2.5 text-[12px] ${
+								paymentMethod === "cash"
+									? "border-sky-500/30 bg-sky-500/5"
+									: "border-amber-500/30 bg-amber-500/5"
+							}`}
+						>
+							<div
+								className={`mb-0.5 font-semibold ${
+									paymentMethod === "cash"
+										? "text-sky-700 dark:text-sky-300"
+										: "text-amber-700 dark:text-amber-300"
+								}`}
+							>
+								{paymentMethod === "cash"
+									? "Jurnal otomatis: Kas Tunai turun"
+									: "Jurnal otomatis: Hutang Vendor naik"}
+							</div>
+							<div className="text-muted-foreground">
+								{paymentMethod === "cash" ? (
+									<>
+										DEBIT Persediaan{" "}
+										<span className="tabular text-foreground">
+											{formatRupiah(total)}
+										</span>{" "}
+										· CREDIT Kas Tunai (1-100){" "}
+										<span className="tabular text-foreground">
+											{formatRupiah(total)}
+										</span>
+									</>
+								) : (
+									<>
+										DEBIT Persediaan{" "}
+										<span className="tabular text-foreground">
+											{formatRupiah(total)}
+										</span>{" "}
+										· CREDIT Hutang Vendor (2-101){" "}
+										<span className="tabular text-foreground">
+											{formatRupiah(total)}
+										</span>
+									</>
+								)}
+							</div>
+						</div>
+					)}
 
 					<DialogFooter>
 						<button

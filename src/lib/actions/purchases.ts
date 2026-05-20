@@ -71,8 +71,45 @@ export type PurchaseFormState =
 			values?: Record<string, string>;
 			success?: true;
 			movementsCreated?: number;
+			journalEntryRef?: string;
 	  }
 	| undefined;
+
+/**
+ * Map an inventory item SKU to its Chart of Accounts code.
+ * Mirrors the COA seed in supabase/migrations/*chart_of_accounts*:
+ *   1-200 Media Set (generic)   · 1-206 Mediaset Basic · 1-207 Mediaset Perforated
+ *   1-201 Sleeve · 1-202 Flashdisk · 1-203 Pouch · 1-204 Photomagnet · 1-205 Keychain
+ *   1-209 Lainnya (catch-all)
+ */
+function inventoryAccountFor(sku: string): string {
+	const s = sku.toUpperCase();
+	if (s === "MEDIA-BASIC") return "1-206";
+	if (s === "MEDIA-PERF") return "1-207";
+	if (s.startsWith("SLEEVE-") || s.startsWith("ITM-SLEEVE-")) return "1-201";
+	if (s === "FLASHDISK" || s === "FD-BOX" || s === "ITM-FLASHDISK")
+		return "1-202";
+	if (s === "POUCH" || s === "ITM-POUCH-TOTEBAG") return "1-203";
+	if (s === "PHOTOMAGNET") return "1-204";
+	if (
+		s === "KEY-FRAME" ||
+		s === "KEY-STRAP" ||
+		s === "KEYCHAIN" ||
+		s.startsWith("ITM-KEYCHAIN-") ||
+		s.startsWith("ITM-AUT-")
+	)
+		return "1-205";
+	return "1-209";
+}
+
+function newJournalRef(date: Date): string {
+	const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, "");
+	const rand = Math.floor(Math.random() * 0xffffffff)
+		.toString(16)
+		.padStart(8, "0")
+		.toUpperCase();
+	return `JE-${yyyymmdd}-${rand}`;
+}
 
 /**
  * Multi-line purchase recording.
@@ -116,7 +153,7 @@ export async function recordPurchaseBatch(
 	const itemIds = Array.from(new Set(parsed.data.lines.map((l) => l.item_id)));
 	const { data: items, error: itemsErr } = await supabase
 		.from("inventory_items")
-		.select("id, unit, unit_conversion, purchase_price_avg")
+		.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
 		.in("id", itemIds);
 	if (itemsErr) {
 		return { errors: { _form: [itemsErr.message] } };
@@ -233,8 +270,123 @@ export async function recordPurchaseBatch(
 		}
 	}
 
+	// ─── Journal entry: auto-cash entry / AP entry ────────────────────────
+	// Cash purchase → DEBIT inventory accounts, CREDIT Kas Tunai (1-100).
+	// TOP purchase → DEBIT inventory accounts, CREDIT Hutang Vendor (2-101).
+	// Skipped on best-effort basis — stock_movements already committed; if
+	// journal insert fails we still return success and note it.
+	let journalEntryRef: string | undefined;
+	try {
+		// Compute totals grouped by inventory COA code
+		const totalByCoa = new Map<string, number>();
+		let grandTotal = 0;
+		for (const m of movements) {
+			const it = byItem.get(m.item_id);
+			const sku = (it as { sku?: string } | undefined)?.sku ?? "";
+			const coa = inventoryAccountFor(sku);
+			const lineTotal = Math.round(m.quantity * m.unit_cost);
+			totalByCoa.set(coa, (totalByCoa.get(coa) ?? 0) + lineTotal);
+			grandTotal += lineTotal;
+		}
+
+		if (grandTotal > 0) {
+			const isCash = parsed.data.payment_method === "cash";
+			const creditAccount = isCash ? "1-100" : "2-101";
+			const entryType = isCash ? "transfer" : "asset_in";
+			const refId = newJournalRef(new Date(purchaseDateIso));
+			const entryDate = purchaseDateIso.slice(0, 10);
+
+			const descParts: string[] = [];
+			if (parsed.data.invoice_no) {
+				descParts.push(`Pembelian inv ${parsed.data.invoice_no}`);
+			} else {
+				descParts.push("Pembelian stok");
+			}
+			if (parsed.data.supplier_id) {
+				const { data: sup } = await supabase
+					.from("suppliers")
+					.select("name")
+					.eq("id", parsed.data.supplier_id)
+					.maybeSingle();
+				if (sup?.name) descParts.push(`dari ${sup.name}`);
+			}
+			if (!isCash) {
+				descParts.push(`(${parsed.data.payment_method.toUpperCase()})`);
+			}
+
+			const { data: entry, error: entryErr } = await supabase
+				.from("journal_entries")
+				.insert({
+					ref_id: refId,
+					entry_date: entryDate,
+					entry_type: entryType,
+					description: descParts.join(" "),
+					source_type: "purchase",
+					source_id: parsed.data.pr_id ?? null,
+					total_amount: grandTotal,
+					created_by: me.profile.id,
+				})
+				.select("id")
+				.single();
+			if (entryErr || !entry) {
+				console.error("[purchases] journal_entries insert failed:", entryErr);
+			} else {
+				const lines: Array<{
+					entry_id: string;
+					account_code: string;
+					debit_amount: number;
+					credit_amount: number;
+					description: string;
+					line_order: number;
+				}> = [];
+				let order = 1;
+				for (const [coa, amount] of totalByCoa) {
+					lines.push({
+						entry_id: entry.id,
+						account_code: coa,
+						debit_amount: amount,
+						credit_amount: 0,
+						description: "Persediaan masuk",
+						line_order: order++,
+					});
+				}
+				lines.push({
+					entry_id: entry.id,
+					account_code: creditAccount,
+					debit_amount: 0,
+					credit_amount: grandTotal,
+					description: isCash
+						? "Pembayaran kas tunai"
+						: `Hutang vendor (${parsed.data.payment_method.toUpperCase()})`,
+					line_order: order,
+				});
+
+				const { error: linesErr } = await supabase
+					.from("journal_lines")
+					.insert(lines);
+				if (linesErr) {
+					console.error("[purchases] journal_lines insert failed:", linesErr);
+					// Roll back the entry header so we don't leave a hanging journal
+					await supabase
+						.from("journal_entries")
+						.delete()
+						.eq("id", entry.id);
+				} else {
+					journalEntryRef = refId;
+				}
+			}
+		}
+	} catch (e) {
+		console.error("[purchases] journal entry skipped due to error:", e);
+	}
+
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/purchases");
 	revalidatePath("/warehouse/purchase-requests");
-	return { success: true, movementsCreated: movements.length };
+	revalidatePath("/finance");
+	return {
+		success: true,
+		movementsCreated: movements.length,
+		journalEntryRef,
+	};
 }
