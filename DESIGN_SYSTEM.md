@@ -842,6 +842,70 @@ Reusable interaction patterns across modules. Each pattern has canonical impleme
 
 **Currently NOT used anywhere** — foundation for §2.1 from AUDIT_UI_UX.md
 
+### 3.11 Operations cluster reference-page polish (Phase 3 — Gap #7 spec)
+
+Both `/operations` and `/operations/[projectId]` serve as the visual reference for the rest of the cluster — but user flagged that they need light enhancement of their own. Specced here so Phase 3 work is concrete, not "polish vibes".
+
+#### 3.11a `/operations` list — status pill density
+
+**Current state:** `<OperationsListTable>` shows event status + payment status as separate cells using `<EventStatusDot>` (dot + label, 14px line-height). On 1280px viewport this consumes ~180px combined, but the labels collapse onto one line so vertical density is fine — what's NOT dense is **column count**: 6 columns (Project / Waktu & Tempat / Detail Paket / Crew / Status / Outstanding-Rp).
+
+**Definition of "lebih dense":** consolidate the two status cells (event + payment) into a single right-most column with a stacked layout:
+
+```
+┌──────────────────┐
+│ ● In Progress    │  ← event status dot, 13px / medium / line-height tight
+│ ● Lunas          │  ← payment status dot, 12px / regular / muted-when-success
+│ Rp 1.500.000     │  ← outstanding amount, tabular, 12px / when > 0; otherwise hidden
+└──────────────────┘
+```
+
+Concrete change: drop the dedicated "Outstanding" column; render it as the third line inside the consolidated status cell when `> 0`. Saves one column-width (~120px) and surfaces the payment-due signal closer to the status it's about. No new badge variants — reuse `<EventStatusDot size="sm">` + `<PaymentStatusDot size="sm">`. If "sm" doesn't exist on those dot components yet, that's the prereq (extend status-badge.tsx with `size?: "default" | "sm"` taking line-height + dot-size down one notch).
+
+**Effort:** 1-2 hours. **Risk:** low — table data unchanged, only render shape.
+
+#### 3.11b `/operations/[projectId]` — PageHeader vs ProjectHeroRecap alignment
+
+**Current state:** project-detail page has two stacked surfaces at the top:
+1. **Inline header block** ([page.tsx:245-320](src/app/(owner)/operations/[projectId]/page.tsx#L245)) — back link, h1, meta badges (status + channel + category + Imported/Migrated), right-aligned action cluster (StatusMenu / Send WA / PDF / Edit / Hapus).
+2. **`<ProjectHeroRecap>`** ([project-hero-recap.tsx](src/components/operations/project-hero-recap.tsx)) — 3-col data card (Event Info / Crew incharge / Financial) with its own header strip carrying quick-action links (Payments / Crew / Equipment / Rekap) + optional Settle CTA footer.
+
+These two surfaces overlap conceptually: both carry "what is this event" metadata. The header repeats info that ProjectHeroRecap shows in more detail.
+
+**Alignment plan:**
+
+1. **Migrate the inline header block to use `<PageHeader>` + `<MetaBadge>`.** Replace the hand-rolled 75-line JSX in page.tsx:245-320 with:
+   ```tsx
+   <PageHeader
+     title={event.client_name}
+     backHref="/operations"
+     backLabel="Operations"
+     meta={
+       <MetaBadge
+         projectId={event.project_id}
+         status={event.status}
+         tags={[
+           { label: CHANNEL_TYPE_LABELS[event.channel], tone: "outline" },
+           categoryLabel ? { label: categoryLabel } : null,
+           isMigratedLegacy ? { label: "Migrated", tone: "warning" } : null,
+           isImportedLive ? { label: "Imported", tone: "outline" } : null,
+         ].filter(Boolean)}
+       />
+     }
+     actions={<HeaderActions … />}  // existing StatusMenu / Send WA / PDF / Edit / Hapus cluster
+   />
+   ```
+2. **Trim `<ProjectHeroRecap>` of duplicated metadata.** The "Event Info" column currently lists date / time / venue / package / backdrop / category — but `<MetaBadge>` already surfaces category in the header. Drop category from the recap card. Keep the rest (those are richer than the header badges).
+3. **Move quick-action links** (Payments / Crew / Equipment / Rekap) **from the recap card's header strip to `<PageHeader actions>`.** Keep the Settle CTA inside the recap footer — it's contextual to the financial column.
+
+**Outcome:** the header becomes the single source of "who/where/when" meta. The recap card becomes pure data (the 3-column grid).
+
+**Effort:** half-day. **Risk:** low — pure presentation refactor, no business logic.
+
+#### Phase 3 scope summary
+
+These two polish items are tracked in [REPORT_OPERATIONS_CONSISTENCY.md](REPORT_OPERATIONS_CONSISTENCY.md) Phase 3 (deferred). Move them up only when Phase 2 (per-route) is done — the new SectionCard / FieldGrid / SummaryRail primitives are validated across rekap / payments / crew / design first, then we touch the reference pages last so any primitive-API drift discovered during Phase 2 is already smoothed out.
+
 ---
 
 ## 4. Do's & Don'ts
@@ -1292,6 +1356,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #4 · `<EmptyState>` — added `inline` variant + spec matrix in §2.2.** Previously the primitive shipped with `default` + `hero` variants and no guidance on when to use which. Added a third variant `inline` (no outer border, `p-6`) for empties that sit INSIDE a `<SectionCard>` body so we don't double up on bordered chrome. Spec table now maps variant × usage × example route (`default` = list/table empties, `hero` = dashboard zero-state, `inline` = sub-region inside another card) plus size × pairing guidance. Defaults unchanged — `variant="default"` + `size="default"` still picks the original shipped shape.
 - **Gap #5 · Form-input primitives shipped — `<TextField>`, `<NumberField>`, `<MoneyInput>`, `<PhoneInput>`, `<TextareaField>`.** Thin wrappers around the canonical `INPUT_CLASS` chrome, exported from `src/components/ui/form-fields.tsx`. No layout (label/error/hint live in `<FieldGrid.Row>`). Decision: build minimal primitives now + spec the API matrix, migrate existing 76+ inline `<input className={inputClass}>` callsites gradually during Phase 2 per-route work. `MoneyInput` is the most opinionated of the five — controlled via `value: number` + `onValueChange: (n) => void`, empty input emits `0`, negative clamps to `0`. The exported `INPUT_CLASS` becomes the single source of truth for the input chrome — Combobox/NativeSelect/TimePicker triggers already coordinate on the same h-10/rounded-md/border-default/ring tokens, so visual parity holds.
 - **Gap #6 · DataTable virtualization — deferred.** No `virtualized` prop ships. Backed by current numbers: largest table render is ~18 rows (user snapshot), worst case is ~130 rows (filter=all + archived), projected 5× growth still under 500 rows. React renders 130 row components in <40ms on mid-tier hardware — well under the 500ms perceived-lag threshold. `@tanstack/react-virtual` would add ~6KB + sticky-header / intersection-observer complexity for no real win. Re-evaluate triggers documented in §2.2: any single render >500ms, total row count >500, or a list-heavy surface (real-time event log) where streaming + virtualization compose naturally.
+- **Gap #7 · Reference page polish — concrete spec in §3.11.** Both `/operations` list + `/operations/[projectId]` are Phase 1 references but need their own light polish (per user feedback). Specced two concrete items: (a) ops-list status column "lebih dense" = consolidate event status + payment status + outstanding amount into a single stacked cell (saves one column-width, surfaces payment-due signal next to its own status); (b) project-detail header migration = replace the inline 75-line JSX with `<PageHeader>` + `<MetaBadge>` and trim duplicate category metadata from `<ProjectHeroRecap>`. Both items deferred to Phase 3 — execute AFTER per-route Phase 2 work (rekap/payments/crew/design) so any primitive-API drift is settled first.
 
 ---
 
