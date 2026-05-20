@@ -359,25 +359,32 @@ function computeGrandTotal({
 }
 
 /**
- * Compute the rupiah amount Tetra pays the vendor based on commission mode.
+ * Compute the rupiah amount vendor takes from each event (modelled as a
+ * commission expense in Tetra's books, regardless of cash-flow direction).
  *
  * - commission + percent: grand_total × value / 100 (rounded to integer rp)
  * - commission + flat:    value as-is (rounded)
- * - upfront_cut:          0 — Tetra doesn't pay the vendor; vendor pays Tetra
- *                          their pre-agreed cut (= grand_total already).
+ * - upfront_cut:          value as-is — the fixed rupiah vendor deducts
+ *                          from the payment flow (e.g. 500K per event for
+ *                          Partner Organizer). Accounting equivalent to a
+ *                          flat commission: revenue = grand_total, expense
+ *                          = vendor_cut, net cash to Tetra = grand_total -
+ *                          vendor_cut. Cash-flow direction (vendor → Tetra
+ *                          for upfront_cut vs Tetra → vendor for
+ *                          commission) doesn't affect the journal entry.
  *
- * Returns 0 for non-vendor channels or when mode/value is missing.
+ * Returns 0 for non-vendor channels or when value is missing.
  */
 function computeVendorCommissionAmount(input: BookingInput, grandTotal: number): number {
 	if (input.channel !== "vendor") return 0;
 	const mode = input.vendor_commission_mode ?? "commission";
 	const value = input.vendor_commission_value ?? 0;
-	if (mode === "upfront_cut") return 0;
+	if (mode === "upfront_cut") return Math.round(value);
 	const valueType = input.vendor_commission_value_type ?? "percent";
 	if (valueType === "percent") {
 		return Math.round((grandTotal * value) / 100);
 	}
-	// flat
+	// commission + flat
 	return Math.round(value);
 }
 

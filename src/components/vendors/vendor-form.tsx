@@ -217,8 +217,8 @@ export function VendorForm({
 					/>
 					<ModeOption
 						value="upfront_cut"
-						label="Potongan / Base Harga"
-						description="Klien bayar vendor langsung. Vendor transfer ke Tetra sesuai potongan yang disepakati. Tetra gak tahu harga vendor ke klien."
+						label="Potongan Langsung"
+						description="Vendor potong jumlah tetap dari setiap event (mis. Rp 500K). Klien tetap pilih paket dari katalog Tetra; vendor ambil fee saat transfer. Tetra terima = base − potongan."
 						checked={mode === "upfront_cut"}
 						onSelect={() => setMode("upfront_cut")}
 					/>
@@ -298,7 +298,7 @@ export function VendorForm({
 						</>
 					) : (
 						<label className={cn(labelClass, "md:col-span-2")}>
-							Cut Default yang Tetra Terima per Event
+							Potongan Default Vendor per Event
 							<div className="relative">
 								<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
 									Rp
@@ -319,9 +319,11 @@ export function VendorForm({
 								value="flat"
 							/>
 							<span className={hintClass}>
-								Jumlah default yang Tetra terima dari vendor per event. Saat
-								booking baru dengan vendor ini, base price akan auto-fill ke
-								nilai ini.
+								Jumlah yang vendor potong dari harga paket Tetra per event.
+								Klien tetap pilih paket dari katalog kita; vendor ambil fee
+								tetap ini saat transfer ke Tetra (mis. Partner Organizer = Rp
+								500.000, Party Planner = Rp 300.000). Bisa di-override per
+								booking.
 							</span>
 							{err("commission_value_default") && (
 								<span className={errClass}>

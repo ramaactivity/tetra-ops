@@ -31,8 +31,8 @@ export type VendorRowDisplay = {
  * Format commission scheme for vendor row.
  *
  * commission + percent: "10%"
- * commission + flat:    "Rp 500K"
- * upfront_cut:          "Potongan Rp 500K"
+ * commission + flat:    "Rp 500.000"
+ * upfront_cut:          "−Rp 500.000" (negative sign = potongan dari base)
  */
 function formatScheme(v: VendorRowDisplay): string {
 	const mode = v.commission_mode ?? "commission";
@@ -41,7 +41,7 @@ function formatScheme(v: VendorRowDisplay): string {
 	if (value == null) return "—";
 
 	if (mode === "upfront_cut") {
-		return `Potongan ${formatRupiah(value)}`;
+		return `− ${formatRupiah(value)}`;
 	}
 	if (valueType === "percent") return `${value}%`;
 	return formatRupiah(value);
@@ -110,7 +110,9 @@ export function VendorsListTable({ vendors }: { vendors: VendorRowDisplay[] }) {
 							{formatScheme(v)}
 						</div>
 						<div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
-							{mode === "upfront_cut" ? "Vendor → Tetra" : "Tetra → Vendor"}
+							{mode === "upfront_cut"
+								? "Potongan dari base"
+								: "Komisi langsung"}
 						</div>
 					</div>
 				);

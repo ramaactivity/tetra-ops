@@ -1055,10 +1055,11 @@ export function BookingForm({
 										</span>
 										<span className="flex flex-col gap-0.5">
 											<span className="text-[13px] font-medium text-foreground">
-												Potongan / Base Harga
+												Potongan Langsung
 											</span>
 											<span className="text-[11px] leading-snug text-muted-foreground">
-												Vendor terima dari klien, transfer ke Tetra sesuai cut.
+												Vendor potong nominal tetap dari base price. Tetra terima
+												sisanya.
 											</span>
 										</span>
 									</button>
@@ -1164,37 +1165,82 @@ export function BookingForm({
 									</Field>
 								</div>
 							) : (
-								<Field
-									label="Cut yang Tetra Terima (Rp)"
-									name="vendor_commission_value"
-									error={err("vendor_commission_value")}
-									hint="Jumlah yang vendor transfer ke Tetra per event. Ini juga jadi base_price kalau belum di-set. Tetra tidak track harga jual vendor ke klien."
-								>
-									<div className="relative">
-										<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-											Rp
-										</span>
-										<input
-											type="number"
-											min={0}
-											step={50000}
-											value={vendorCommissionValue}
-											onChange={(e) => setVendorCommissionValue(e.target.value)}
-											placeholder="500000"
-											className={`${inputClass} tabular pl-9`}
-										/>
-										<input
-											type="hidden"
-											name="vendor_commission_value"
-											value={vendorCommissionValue}
-										/>
-										<input
-											type="hidden"
-											name="vendor_commission_value_type"
-											value="flat"
-										/>
+								<div className="space-y-3">
+									<Field
+										label="Potongan Vendor (Rp)"
+										name="vendor_commission_value"
+										error={err("vendor_commission_value")}
+										hint="Jumlah tetap yang vendor potong dari base price per event. Klien tetap pilih paket dari katalog Tetra di section Financial — vendor ambil fee ini saat transfer ke Tetra."
+									>
+										<div className="relative">
+											<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+												Rp
+											</span>
+											<input
+												type="number"
+												min={0}
+												step={50000}
+												value={vendorCommissionValue}
+												onChange={(e) => setVendorCommissionValue(e.target.value)}
+												placeholder="500000"
+												className={`${inputClass} tabular pl-9`}
+											/>
+											<input
+												type="hidden"
+												name="vendor_commission_value"
+												value={vendorCommissionValue}
+											/>
+											<input
+												type="hidden"
+												name="vendor_commission_value_type"
+												value="flat"
+											/>
+										</div>
+									</Field>
+
+									{/* Live preview of vendor cut math. Numbers update as user
+									    edits base_price (in Financial section) or potongan. */}
+									<div className="rounded-md border border-border-default bg-surface-3/40 p-3">
+										<div className="eyebrow mb-1.5">Skema potongan</div>
+										<dl className="space-y-1 text-[13px]">
+											<div className="flex items-baseline justify-between gap-3">
+												<dt className="text-muted-foreground">Base price (paket)</dt>
+												<dd className="tabular font-medium text-foreground">
+													{formatRupiah(basePrice || 0)}
+												</dd>
+											</div>
+											<div className="flex items-baseline justify-between gap-3">
+												<dt className="text-muted-foreground">
+													Potongan vendor
+												</dt>
+												<dd className="tabular font-medium text-rose-600 dark:text-rose-400">
+													− {formatRupiah(Number(vendorCommissionValue) || 0)}
+												</dd>
+											</div>
+											<div className="flex items-baseline justify-between gap-3 border-t border-border-default pt-1.5">
+												<dt className="text-[13px] font-medium text-foreground">
+													Tetra terima
+												</dt>
+												<dd className="tabular font-semibold text-emerald-600 dark:text-emerald-400">
+													{formatRupiah(
+														Math.max(
+															0,
+															(basePrice || 0) -
+																(Number(vendorCommissionValue) || 0),
+														),
+													)}
+												</dd>
+											</div>
+										</dl>
+										<p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+											Beda dari{" "}
+											<span className="font-medium">Discount</span> di section
+											Financial: discount = potongan untuk klien (klien bayar
+											lebih sedikit). Potongan vendor = vendor ambil fee dari
+											payment flow.
+										</p>
 									</div>
-								</Field>
+								</div>
 							)}
 
 							{/* Legacy hidden inputs for back-compat with the server action
