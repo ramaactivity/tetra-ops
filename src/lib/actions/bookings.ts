@@ -68,6 +68,27 @@ const BookingInputSchema = z.object({
 	vendor_name: optionalString(120),
 	vendor_pic_name: optionalString(120),
 	vendor_contact: optionalString(60),
+	// New commission model (see migration 20260520_vendor_commission_mode.sql)
+	vendor_commission_mode: z
+		.enum(["commission", "upfront_cut"])
+		.optional()
+		.nullable()
+		.or(z.literal(""))
+		.transform((v) => (v === "" || v === undefined ? null : v)),
+	vendor_commission_value_type: z
+		.enum(["percent", "flat"])
+		.optional()
+		.nullable()
+		.or(z.literal(""))
+		.transform((v) => (v === "" || v === undefined ? null : v)),
+	vendor_commission_value: z.coerce
+		.number()
+		.min(0)
+		.max(999_999_999.99)
+		.optional()
+		.nullable(),
+	// Legacy fields kept for back-compat — populated automatically from
+	// the new fields above when applicable (see buildEventPayload).
 	vendor_commission_rate: z.coerce.number().min(0).max(100).optional().nullable(),
 	vendor_commission_amount: z.coerce
 		.number()
@@ -169,6 +190,9 @@ const FORM_KEYS = [
 	"vendor_name",
 	"vendor_pic_name",
 	"vendor_contact",
+	"vendor_commission_mode",
+	"vendor_commission_value_type",
+	"vendor_commission_value",
 	"vendor_commission_rate",
 	"vendor_commission_amount",
 	"referrer_user_id",
@@ -334,6 +358,29 @@ function computeGrandTotal({
 	);
 }
 
+/**
+ * Compute the rupiah amount Tetra pays the vendor based on commission mode.
+ *
+ * - commission + percent: grand_total × value / 100 (rounded to integer rp)
+ * - commission + flat:    value as-is (rounded)
+ * - upfront_cut:          0 — Tetra doesn't pay the vendor; vendor pays Tetra
+ *                          their pre-agreed cut (= grand_total already).
+ *
+ * Returns 0 for non-vendor channels or when mode/value is missing.
+ */
+function computeVendorCommissionAmount(input: BookingInput, grandTotal: number): number {
+	if (input.channel !== "vendor") return 0;
+	const mode = input.vendor_commission_mode ?? "commission";
+	const value = input.vendor_commission_value ?? 0;
+	if (mode === "upfront_cut") return 0;
+	const valueType = input.vendor_commission_value_type ?? "percent";
+	if (valueType === "percent") {
+		return Math.round((grandTotal * value) / 100);
+	}
+	// flat
+	return Math.round(value);
+}
+
 function buildEventPayload(
 	input: BookingInput,
 	basePrice: number,
@@ -348,6 +395,25 @@ function buildEventPayload(
 		discount_amount: input.discount_amount,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 	});
+
+	// Commission snapshot fields (mode, type, value) and computed amount.
+	// These default to commission/percent/0 when channel=vendor without
+	// explicit form values — preserves behavior for callers that haven't
+	// migrated to the new mode-aware UI yet.
+	const vendorMode =
+		input.channel === "vendor"
+			? (input.vendor_commission_mode ?? "commission")
+			: null;
+	const vendorValueType =
+		input.channel === "vendor"
+			? (input.vendor_commission_value_type ?? "percent")
+			: null;
+	const vendorValue =
+		input.channel === "vendor" ? (input.vendor_commission_value ?? 0) : null;
+	const computedCommissionAmount = computeVendorCommissionAmount(
+		input,
+		grandTotal,
+	);
 
 	return {
 		channel: input.channel,
@@ -373,10 +439,21 @@ function buildEventPayload(
 		vendor_pic_name:
 			input.channel === "vendor" ? input.vendor_pic_name : null,
 		vendor_contact: input.channel === "vendor" ? input.vendor_contact : null,
-		vendor_commission_rate:
-			input.channel === "vendor" ? input.vendor_commission_rate : null,
+		// New commission model — see computeVendorCommissionAmount above.
+		vendor_commission_mode: vendorMode,
+		vendor_commission_value_type: vendorValueType,
+		vendor_commission_value: vendorValue,
 		vendor_commission_amount:
-			input.channel === "vendor" ? input.vendor_commission_amount : null,
+			input.channel === "vendor" ? computedCommissionAmount : null,
+		// Legacy field: only fill when mode=commission + type=percent so old
+		// readers still see a sane % rate. Otherwise null — old readers
+		// gracefully fall back to vendor_commission_amount or skip.
+		vendor_commission_rate:
+			input.channel === "vendor" &&
+			vendorMode === "commission" &&
+			vendorValueType === "percent"
+				? vendorValue
+				: null,
 		// Vendor master FK — set when channel=vendor AND we successfully
 		// upserted/found the contacts row. Source of truth for vendor;
 		// vendor_name etc. above retained as snapshot for back-compat.
@@ -460,7 +537,9 @@ export async function createBooking(
 			name: parsed.data.vendor_name,
 			pic_name: parsed.data.vendor_pic_name,
 			pic_contact: parsed.data.vendor_contact,
-			commission_rate: parsed.data.vendor_commission_rate,
+			commission_mode: parsed.data.vendor_commission_mode,
+			commission_value_type: parsed.data.vendor_commission_value_type,
+			commission_value: parsed.data.vendor_commission_value,
 		});
 	}
 
@@ -577,7 +656,9 @@ export async function updateBooking(
 			name: parsed.data.vendor_name,
 			pic_name: parsed.data.vendor_pic_name,
 			pic_contact: parsed.data.vendor_contact,
-			commission_rate: parsed.data.vendor_commission_rate,
+			commission_mode: parsed.data.vendor_commission_mode,
+			commission_value_type: parsed.data.vendor_commission_value_type,
+			commission_value: parsed.data.vendor_commission_value,
 		});
 	}
 

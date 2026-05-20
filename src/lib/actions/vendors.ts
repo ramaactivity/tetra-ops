@@ -27,52 +27,79 @@ async function requireOwnerLevel() {
 	return me;
 }
 
-const VendorInputSchema = z.object({
-	name: z.string().trim().min(2, "Nama vendor minimal 2 karakter").max(120),
-	default_pic_name: z
-		.string()
-		.trim()
-		.max(120)
-		.optional()
-		.transform((v) => v || null),
-	default_pic_contact: z
-		.string()
-		.trim()
-		.max(60)
-		.optional()
-		.transform((v) => v || null),
-	commission_rate_default: z.coerce
-		.number()
-		.min(0, "Komisi tidak boleh negatif")
-		.max(100, "Komisi maksimal 100%")
-		.optional()
-		.nullable(),
-	payment_terms: z
-		.string()
-		.trim()
-		.max(200)
-		.optional()
-		.transform((v) => v || null),
-	company_address: z
-		.string()
-		.trim()
-		.max(500)
-		.optional()
-		.transform((v) => v || null),
-	email: z
-		.string()
-		.trim()
-		.email("Format email tidak valid")
-		.optional()
-		.or(z.literal(""))
-		.transform((v) => v || null),
-	notes: z
-		.string()
-		.trim()
-		.max(1000)
-		.optional()
-		.transform((v) => v || null),
-});
+export const VENDOR_COMMISSION_MODES = ["commission", "upfront_cut"] as const;
+export type VendorCommissionMode = (typeof VENDOR_COMMISSION_MODES)[number];
+
+export const VENDOR_VALUE_TYPES = ["percent", "flat"] as const;
+export type VendorCommissionValueType = (typeof VENDOR_VALUE_TYPES)[number];
+
+const VendorInputSchema = z
+	.object({
+		name: z.string().trim().min(2, "Nama vendor minimal 2 karakter").max(120),
+		default_pic_name: z
+			.string()
+			.trim()
+			.max(120)
+			.optional()
+			.transform((v) => v || null),
+		default_pic_contact: z
+			.string()
+			.trim()
+			.max(60)
+			.optional()
+			.transform((v) => v || null),
+		commission_mode: z.enum(VENDOR_COMMISSION_MODES).default("commission"),
+		commission_value_type: z.enum(VENDOR_VALUE_TYPES).default("percent"),
+		// Single value field interpreted by mode + value_type. For
+		// commission+percent it's a % (0-100); for commission+flat and
+		// upfront_cut it's rupiah (no upper bound but bounded by NUMERIC(12,2)).
+		commission_value_default: z.coerce
+			.number()
+			.min(0, "Tidak boleh negatif")
+			.max(999_999_999.99, "Nilai terlalu besar")
+			.optional()
+			.nullable(),
+		payment_terms: z
+			.string()
+			.trim()
+			.max(200)
+			.optional()
+			.transform((v) => v || null),
+		company_address: z
+			.string()
+			.trim()
+			.max(500)
+			.optional()
+			.transform((v) => v || null),
+		email: z
+			.string()
+			.trim()
+			.email("Format email tidak valid")
+			.optional()
+			.or(z.literal(""))
+			.transform((v) => v || null),
+		notes: z
+			.string()
+			.trim()
+			.max(1000)
+			.optional()
+			.transform((v) => v || null),
+	})
+	.superRefine((data, ctx) => {
+		// commission + percent: max 100
+		if (
+			data.commission_mode === "commission" &&
+			data.commission_value_type === "percent" &&
+			data.commission_value_default != null &&
+			data.commission_value_default > 100
+		) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["commission_value_default"],
+				message: "Persentase maksimal 100%",
+			});
+		}
+	});
 
 export type VendorInput = z.infer<typeof VendorInputSchema>;
 
@@ -93,8 +120,12 @@ function parseFormData(formData: FormData): {
 		name: String(formData.get("name") ?? ""),
 		default_pic_name: String(formData.get("default_pic_name") ?? ""),
 		default_pic_contact: String(formData.get("default_pic_contact") ?? ""),
-		commission_rate_default: String(
-			formData.get("commission_rate_default") ?? "",
+		commission_mode:
+			(formData.get("commission_mode") as string) || "commission",
+		commission_value_type:
+			(formData.get("commission_value_type") as string) || "percent",
+		commission_value_default: String(
+			formData.get("commission_value_default") ?? "",
 		),
 		payment_terms: String(formData.get("payment_terms") ?? ""),
 		company_address: String(formData.get("company_address") ?? ""),
@@ -117,8 +148,12 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		name: String(formData.get("name") ?? ""),
 		default_pic_name: String(formData.get("default_pic_name") ?? ""),
 		default_pic_contact: String(formData.get("default_pic_contact") ?? ""),
-		commission_rate_default: String(
-			formData.get("commission_rate_default") ?? "",
+		commission_mode: String(formData.get("commission_mode") ?? "commission"),
+		commission_value_type: String(
+			formData.get("commission_value_type") ?? "percent",
+		),
+		commission_value_default: String(
+			formData.get("commission_value_default") ?? "",
 		),
 		payment_terms: String(formData.get("payment_terms") ?? ""),
 		company_address: String(formData.get("company_address") ?? ""),
@@ -171,7 +206,17 @@ export async function createVendor(
 			notes: parsed.data.notes,
 			default_pic_name: parsed.data.default_pic_name,
 			default_pic_contact: parsed.data.default_pic_contact,
-			commission_rate_default: parsed.data.commission_rate_default,
+			commission_mode: parsed.data.commission_mode,
+			commission_value_type: parsed.data.commission_value_type,
+			commission_value_default: parsed.data.commission_value_default,
+			// Back-compat: also write legacy commission_rate_default when
+			// mode=commission + type=percent so old aggregation paths keep
+			// reading sane values until they migrate to the new fields.
+			commission_rate_default:
+				parsed.data.commission_mode === "commission" &&
+				parsed.data.commission_value_type === "percent"
+					? parsed.data.commission_value_default
+					: null,
 			payment_terms: parsed.data.payment_terms,
 			company_address: parsed.data.company_address,
 			is_active: true,
@@ -238,7 +283,14 @@ export async function updateVendor(
 			notes: parsed.data.notes,
 			default_pic_name: parsed.data.default_pic_name,
 			default_pic_contact: parsed.data.default_pic_contact,
-			commission_rate_default: parsed.data.commission_rate_default,
+			commission_mode: parsed.data.commission_mode,
+			commission_value_type: parsed.data.commission_value_type,
+			commission_value_default: parsed.data.commission_value_default,
+			commission_rate_default:
+				parsed.data.commission_mode === "commission" &&
+				parsed.data.commission_value_type === "percent"
+					? parsed.data.commission_value_default
+					: null,
 			payment_terms: parsed.data.payment_terms,
 			company_address: parsed.data.company_address,
 			updated_at: new Date().toISOString(),
@@ -319,7 +371,9 @@ export async function ensureVendorContact(input: {
 	name: string;
 	pic_name?: string | null;
 	pic_contact?: string | null;
-	commission_rate?: number | null;
+	commission_mode?: VendorCommissionMode | null;
+	commission_value_type?: VendorCommissionValueType | null;
+	commission_value?: number | null;
 }): Promise<string | null> {
 	const name = input.name?.trim();
 	if (!name) return null;
@@ -337,7 +391,14 @@ export async function ensureVendorContact(input: {
 
 	if (existing) return existing.id as string;
 
-	// Create new vendor master entry
+	// Create new vendor master entry. Mode/type/value default to whatever
+	// the booking form sent — owner gets a clean record they can refine
+	// later in /settings/vendors.
+	const mode: VendorCommissionMode = input.commission_mode ?? "commission";
+	const valueType: VendorCommissionValueType =
+		input.commission_value_type ?? "percent";
+	const value = input.commission_value ?? null;
+
 	const { data: created, error } = await supabase
 		.from("contacts")
 		.insert({
@@ -346,7 +407,12 @@ export async function ensureVendorContact(input: {
 			phone: input.pic_contact || null,
 			default_pic_name: input.pic_name || null,
 			default_pic_contact: input.pic_contact || null,
-			commission_rate_default: input.commission_rate ?? null,
+			commission_mode: mode,
+			commission_value_type: valueType,
+			commission_value_default: value,
+			// Back-compat: keep legacy field synced when applicable.
+			commission_rate_default:
+				mode === "commission" && valueType === "percent" ? value : null,
 			is_active: true,
 			notes: "Auto-created from booking flow",
 		})
