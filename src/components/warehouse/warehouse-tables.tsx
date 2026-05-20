@@ -6,8 +6,10 @@ import {
 	Equal,
 	Layers,
 	Package,
+	Pencil,
 } from "lucide-react";
 import Link from "next/link";
+import { ArchiveItemButton } from "@/components/items/archive-button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -21,6 +23,19 @@ import {
 	formatDateID,
 	formatRupiah,
 } from "@/lib/format";
+
+function EditItemLink({ id, label }: { id: string; label: string }) {
+	return (
+		<Link
+			href={`/warehouse/items/${id}/edit`}
+			title={`Edit ${label}`}
+			aria-label={`Edit ${label}`}
+			className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+		>
+			<Pencil className="size-4" aria-hidden />
+		</Link>
+	);
+}
 
 /**
  * Client wrappers for the 3 warehouse tables. Each takes serializable
@@ -85,14 +100,14 @@ export function ConsumablesTable({
 				title="Belum ada consumable"
 				description={
 					<>
-						Tambah dari{" "}
+						Klik{" "}
 						<Link
-							href="/settings/items"
+							href="/warehouse/items/new"
 							className="text-primary hover:underline"
 						>
-							Settings → Items
-						</Link>
-						.
+							Tambah Item
+						</Link>{" "}
+						di header untuk mulai.
 					</>
 				}
 			/>
@@ -191,13 +206,17 @@ export function ConsumablesTable({
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				return (
-					<StockAdjustDialog
-						itemId={r.id}
-						itemName={r.name}
-						itemUnit={r.unit}
-						currentStock={stock}
-						avgCost={r.purchase_price_avg ?? 0}
-					/>
+					<div className="flex items-center justify-end gap-1">
+						<StockAdjustDialog
+							itemId={r.id}
+							itemName={r.name}
+							itemUnit={r.unit}
+							currentStock={stock}
+							avgCost={r.purchase_price_avg ?? 0}
+						/>
+						<EditItemLink id={r.id} label={r.name} />
+						<ArchiveItemButton id={r.id} name={r.name} />
+					</div>
 				);
 			},
 		},
@@ -222,14 +241,14 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 				title="Belum ada equipment"
 				description={
 					<>
-						Tambah dari{" "}
+						Klik{" "}
 						<Link
-							href="/settings/items"
+							href="/warehouse/items/new"
 							className="text-primary hover:underline"
 						>
-							Settings → Items
-						</Link>
-						.
+							Tambah Item
+						</Link>{" "}
+						di header untuk mulai.
 					</>
 				}
 			/>
@@ -283,6 +302,17 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 				<span className="tabular text-fluid-caption">
 					{r.purchase_price ? formatRupiah(r.purchase_price) : "—"}
 				</span>
+			),
+		},
+		{
+			key: "actions",
+			header: "Actions",
+			align: "right",
+			render: (r) => (
+				<div className="flex items-center justify-end gap-1">
+					<EditItemLink id={r.id} label={r.name} />
+					<ArchiveItemButton id={r.id} name={r.name} />
+				</div>
 			),
 		},
 	];

@@ -130,6 +130,16 @@ async function requireOwnerLevel() {
 	return me;
 }
 
+/**
+ * Allow-list of return-to destinations. Anything else falls back to
+ * /settings/items so a poisoned form field can't redirect off-site.
+ */
+function safeReturnTo(raw: FormDataEntryValue | null): string {
+	const s = typeof raw === "string" ? raw : "";
+	const allowed = new Set(["/settings/items", "/warehouse"]);
+	return allowed.has(s) ? s : "/settings/items";
+}
+
 export async function createItem(
 	_prev: ItemFormState,
 	formData: FormData,
@@ -155,7 +165,7 @@ export async function createItem(
 
 	revalidatePath("/settings/items");
 	revalidatePath("/warehouse");
-	redirect("/settings/items");
+	redirect(safeReturnTo(formData.get("return_to")));
 }
 
 export async function updateItem(
@@ -188,7 +198,8 @@ export async function updateItem(
 	revalidatePath("/settings/items");
 	revalidatePath(`/settings/items/${id}/edit`);
 	revalidatePath("/warehouse");
-	redirect("/settings/items");
+	revalidatePath(`/warehouse/items/${id}/edit`);
+	redirect(safeReturnTo(formData.get("return_to")));
 }
 
 export async function archiveItem(id: string) {

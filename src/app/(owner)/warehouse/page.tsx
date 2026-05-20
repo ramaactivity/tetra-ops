@@ -3,6 +3,7 @@ import {
 	AlertTriangle,
 	ClipboardCheck,
 	Layers,
+	Plus,
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
@@ -120,13 +121,22 @@ export default async function WarehousePage({
 				title="Warehouse"
 				description="Track stok consumables, equipment, dan log mutasi."
 				actions={
-					<Link
-						href="/warehouse/stock-take"
-						className={buttonVariants({ variant: "outline", size: "sm" })}
-					>
-						<ClipboardCheck className="size-4" />
-						Stock Take
-					</Link>
+					<>
+						<Link
+							href="/warehouse/stock-take"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<ClipboardCheck className="size-4" />
+							Stock Take
+						</Link>
+						<Link
+							href="/warehouse/items/new"
+							className={buttonVariants({ variant: "default", size: "sm" })}
+						>
+							<Plus className="size-4" />
+							Tambah Item
+						</Link>
+					</>
 				}
 			/>
 

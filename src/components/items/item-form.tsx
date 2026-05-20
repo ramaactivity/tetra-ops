@@ -60,10 +60,14 @@ export function ItemForm({
 	mode,
 	id,
 	defaults = EMPTY,
+	returnTo,
 }: {
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: Defaults;
+	/** Server actions read this to decide redirect destination after success.
+	 *  Allow-list checked server-side — see `safeReturnTo` in actions/items.ts. */
+	returnTo?: "/settings/items" | "/warehouse";
 }) {
 	const action =
 		mode === "create" ? createItem : updateItem.bind(null, id ?? "");
@@ -97,6 +101,9 @@ export function ItemForm({
 
 	return (
 		<form action={formAction} className="space-y-5">
+			{returnTo ? (
+				<input type="hidden" name="return_to" value={returnTo} />
+			) : null}
 			{state?.errors?._form && (
 				<div className="border-destructive bg-destructive/10 rounded-md border p-3">
 					<p className="text-destructive text-sm font-medium">
