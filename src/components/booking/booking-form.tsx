@@ -690,6 +690,17 @@ export function BookingForm({
 		[selectedAddons],
 	);
 
+	const addonLines = useMemo(() => {
+		const lines: Array<{ name: string; qty: number; total: number }> = [];
+		for (const a of addons) {
+			const qty = selectedAddons[a.id];
+			if (qty && qty > 0) {
+				lines.push({ name: a.name, qty, total: a.price * qty });
+			}
+		}
+		return lines.sort((x, y) => y.total - x.total);
+	}, [addons, selectedAddons]);
+
 	// === Bonus (item gratis untuk klien, internal-only)
 	type BonusRow = { addon_id: string; quantity: number; notes: string };
 	const initialBonuses = useMemo<BonusRow[]>(
@@ -2546,6 +2557,11 @@ export function BookingForm({
 			<SummaryPanel
 				eventDate={eventDateLabel}
 				eventTimeRange={eventTimeRange}
+				eventTimeline={{
+					setup: setupTime || undefined,
+					start: startTime || undefined,
+					end: endTime || undefined,
+				}}
 				venueName={venueName || undefined}
 				venueCity={venueCity || undefined}
 				clientName={clientName || undefined}
@@ -2553,6 +2569,7 @@ export function BookingForm({
 				picContact={picWa || undefined}
 				basePrice={basePrice}
 				addonsTotal={addonsTotal}
+				addonLines={addonLines}
 				backdropContribution={backdropContribution}
 				discount={discount}
 				grossUp={grossUp}

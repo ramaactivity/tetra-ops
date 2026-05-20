@@ -1,9 +1,16 @@
 "use client";
 
-import { CalendarDays, MapPin, User2, Wallet } from "lucide-react";
+import { CalendarDays, Clock, MapPin, User2, Wallet } from "lucide-react";
+import type { ReactNode } from "react";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { type NavItem, SectionNav } from "./section-nav";
+
+export interface AddonLine {
+	name: string;
+	qty: number;
+	total: number;
+}
 
 /**
  * <SummaryPanel /> — sticky right rail showing live event summary +
@@ -17,6 +24,12 @@ export interface SummaryPanelProps {
 	/** Event facts (omit blocks when not yet filled). */
 	eventDate?: string; // formatted "24 Mei 2026"
 	eventTimeRange?: string; // formatted "11:00–14:00"
+	/** Mini-timeline (HH:MM each). Rendered when at least one is set. */
+	eventTimeline?: {
+		setup?: string;
+		start?: string;
+		end?: string;
+	};
 	venueName?: string;
 	venueCity?: string;
 	clientName?: string;
@@ -26,6 +39,8 @@ export interface SummaryPanelProps {
 	/** Pricing — always shown when basePrice > 0. */
 	basePrice: number;
 	addonsTotal: number;
+	/** Per-addon breakdown (name + qty + total). Optional. */
+	addonLines?: AddonLine[];
 	backdropContribution: number;
 	discount: number;
 	grossUp: number;
@@ -52,6 +67,7 @@ export interface SummaryPanelProps {
 export function SummaryPanel({
 	eventDate,
 	eventTimeRange,
+	eventTimeline,
 	venueName,
 	venueCity,
 	clientName,
@@ -59,6 +75,7 @@ export function SummaryPanel({
 	picContact,
 	basePrice,
 	addonsTotal,
+	addonLines,
 	backdropContribution,
 	discount,
 	grossUp,
@@ -73,6 +90,10 @@ export function SummaryPanel({
 	const hasEvent = Boolean(eventDate || venueName);
 	const hasClient = Boolean(clientName || picName);
 	const hasPricing = basePrice > 0;
+	const hasTimeline = Boolean(
+		eventTimeline &&
+			(eventTimeline.setup || eventTimeline.start || eventTimeline.end),
+	);
 
 	return (
 		<aside
@@ -84,7 +105,7 @@ export function SummaryPanel({
 		>
 			{/* Event block */}
 			{hasEvent ? (
-				<div className="space-y-1.5">
+				<div className="space-y-2">
 					<p className="eyebrow flex items-center gap-1.5">
 						<CalendarDays className="size-3" aria-hidden strokeWidth={2.25} />
 						Event
@@ -92,10 +113,31 @@ export function SummaryPanel({
 					{eventDate ? (
 						<p className="tabular text-[13px] font-medium text-foreground">
 							{eventDate}
-							{eventTimeRange ? (
+							{!hasTimeline && eventTimeRange ? (
 								<span className="text-muted-foreground"> · {eventTimeRange}</span>
 							) : null}
 						</p>
+					) : null}
+					{hasTimeline ? (
+						<ol className="space-y-1 rounded-md border border-border-default/60 bg-secondary/40 p-2.5 text-[11.5px]">
+							{eventTimeline?.setup ? (
+								<TimelineRow
+									icon={<Clock className="size-3" aria-hidden />}
+									label="Setup"
+									time={eventTimeline.setup}
+								/>
+							) : null}
+							{eventTimeline?.start ? (
+								<TimelineRow
+									label="Mulai"
+									time={eventTimeline.start}
+									emphasis
+								/>
+							) : null}
+							{eventTimeline?.end ? (
+								<TimelineRow label="Selesai" time={eventTimeline.end} />
+							) : null}
+						</ol>
 					) : null}
 					{venueName ? (
 						<p className="flex items-start gap-1 text-[12px] text-muted-foreground">
@@ -149,7 +191,32 @@ export function SummaryPanel({
 							<Row label="Backdrop" value={backdropContribution} />
 						) : null}
 						{addonsTotal > 0 ? (
-							<Row label="Add-ons" value={addonsTotal} />
+							<>
+								<Row label="Add-ons" value={addonsTotal} />
+								{addonLines && addonLines.length > 0 ? (
+									<div className="space-y-0.5 pl-2 text-[11.5px] text-muted-foreground">
+										{addonLines.slice(0, 4).map((line) => (
+											<div
+												key={line.name}
+												className="flex items-baseline justify-between gap-2"
+											>
+												<span className="truncate">
+													{line.name}
+													{line.qty > 1 ? ` × ${line.qty}` : ""}
+												</span>
+												<span className="tabular shrink-0">
+													{formatRupiah(line.total)}
+												</span>
+											</div>
+										))}
+										{addonLines.length > 4 ? (
+											<div className="italic text-muted-foreground/70">
+												+ {addonLines.length - 4} item lainnya
+											</div>
+										) : null}
+									</div>
+								) : null}
+							</>
 						) : null}
 						{discount > 0 ? (
 							<Row label="Discount" value={-discount} muted />
@@ -227,6 +294,39 @@ export function SummaryPanel({
 				</button>
 			</div>
 		</aside>
+	);
+}
+
+function TimelineRow({
+	icon,
+	label,
+	time,
+	emphasis = false,
+}: {
+	icon?: ReactNode;
+	label: string;
+	time: string;
+	emphasis?: boolean;
+}) {
+	return (
+		<li className="flex items-center justify-between gap-2">
+			<span className="flex items-center gap-1.5 text-muted-foreground">
+				{icon}
+				<span className={cn(emphasis && "font-medium text-foreground")}>
+					{label}
+				</span>
+			</span>
+			<span
+				className={cn(
+					"tabular",
+					emphasis
+						? "font-semibold text-foreground"
+						: "font-medium text-foreground/80",
+				)}
+			>
+				{time}
+			</span>
+		</li>
 	);
 }
 
