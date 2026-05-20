@@ -48,13 +48,21 @@ export function StockAdjustDialog({
 	>(action, undefined);
 
 	const [direction, setDirection] = useState<"in" | "out" | "adjustment">("in");
+	const [source, setSource] = useState<string>("purchase");
+	// Track submission attempts so we only close the dialog on a CLEAN result
+	// (success = no errors, no _form error). Previous version closed
+	// optimistically inside the form action, so users never saw validation
+	// errors (negative-stock guard, missing unit_cost) when they fired.
+	const [submitTick, setSubmitTick] = useState(0);
 
-	// Close dialog on successful submit (state becomes undefined again)
 	useEffect(() => {
-		if (state === undefined && !pending && open) {
-			// no-op — initial state is also undefined; we use a different signal
-		}
-	}, [state, pending, open]);
+		if (submitTick === 0) return;
+		if (pending) return;
+		const hasErrors =
+			state?.errors &&
+			Object.values(state.errors).some((arr) => arr && arr.length > 0);
+		if (!hasErrors) setOpen(false);
+	}, [submitTick, pending, state]);
 
 	const get = (key: string, fallback?: string) =>
 		state?.values?.[key] ?? fallback ?? "";
@@ -64,6 +72,7 @@ export function StockAdjustDialog({
 		)?.[0];
 
 	const formError = state?.errors?._form?.[0];
+	const purchaseInRequiresCost = direction === "in" && source === "purchase";
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
@@ -87,9 +96,8 @@ export function StockAdjustDialog({
 
 				<form
 					action={(fd) => {
+						setSubmitTick((t) => t + 1);
 						formAction(fd);
-						// Optimistic close — server revalidate refreshes the table
-						setOpen(false);
 					}}
 					className="space-y-4"
 				>
@@ -148,10 +156,8 @@ export function StockAdjustDialog({
 
 						<Field label="Sumber" name="source" error={err("source")} required>
 							<SourceSelect
-								defaultValue={get(
-									"source",
-									direction === "in" ? "purchase" : "manual_adjust",
-								)}
+								value={source}
+								onValueChange={setSource}
 								error={!!err("source")}
 							/>
 						</Field>
@@ -159,19 +165,26 @@ export function StockAdjustDialog({
 
 					{direction === "in" && (
 						<Field
-							label="Unit Cost (Rp)"
+							label={`Unit Cost (Rp)${purchaseInRequiresCost ? " *" : ""}`}
 							name="unit_cost"
 							error={err("unit_cost")}
-							hint={`Avg saat ini: Rp ${avgCost.toLocaleString("id-ID")}. Kosongkan jika tidak update harga.`}
+							required={purchaseInRequiresCost}
+							hint={
+								purchaseInRequiresCost
+									? `Wajib untuk source=purchase biar weighted-avg cost akurat. Avg saat ini: Rp ${avgCost.toLocaleString("id-ID")}.`
+									: `Avg saat ini: Rp ${avgCost.toLocaleString("id-ID")}. Kosongkan jika tidak update harga.`
+							}
 						>
 							<input
 								type="number"
 								name="unit_cost"
 								min={0}
 								step={1}
+								required={purchaseInRequiresCost}
 								defaultValue={get("unit_cost")}
 								placeholder="0"
 								className={`${inputClass} tabular`}
+								aria-invalid={!!err("unit_cost")}
 							/>
 						</Field>
 					)}
@@ -210,23 +223,24 @@ export function StockAdjustDialog({
 }
 
 function SourceSelect({
-	defaultValue,
+	value,
+	onValueChange,
 	error,
 }: {
-	defaultValue: string;
+	value: string;
+	onValueChange: (v: string) => void;
 	error: boolean;
 }) {
-	const [source, setSource] = useState(defaultValue);
 	return (
 		<>
 			<NativeSelect
-				value={source}
-				onValueChange={setSource}
+				value={value}
+				onValueChange={onValueChange}
 				options={SOURCES.map((s) => ({ value: s.value, label: s.label }))}
 				triggerClassName="w-full"
 				aria-invalid={error}
 			/>
-			<input type="hidden" name="source" value={source} required />
+			<input type="hidden" name="source" value={value} required />
 		</>
 	);
 }
