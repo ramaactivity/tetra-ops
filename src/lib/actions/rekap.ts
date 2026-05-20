@@ -666,9 +666,11 @@ async function planRekapDeduction(
 				"SLEEVE-2R",
 				"SLEEVE-PR",
 				"FLASHDISK",
+				"FD-BOX",
 				"POUCH",
 				"PHOTOMAGNET",
-				"KEYCHAIN",
+				"KEY-FRAME",
+				"KEY-STRAP",
 			])
 			.is("deleted_at", null),
 	]);
@@ -762,32 +764,57 @@ async function planRekapDeduction(
 		}
 	}
 
-	// Flat add-on consumables (1:1 with crew-recorded count)
-	const FLAT_RULES: Array<{
+	// Assembly-component recipes (Inventory v2, 2026-05-21).
+	// 1 crew-recorded unit → N inventory SKU deductions. Flashdisk + keychain
+	// are component-level (FLASHDISK + FD-BOX, KEY-FRAME + KEY-STRAP) since
+	// owner buys parts separately and assembles per event. Pouch + photomagnet
+	// stay 1:1 — they don't have separable sub-components.
+	const ASSEMBLY_RULES: Array<{
 		field: Exclude<RekapField, "cetak_total" | "media_set_used" | "sleeve_used">;
-		sku: string;
+		components: Array<{ sku: string; qtyPerUnit: number }>;
 	}> = [
-		{ field: "flashdisk_used", sku: "FLASHDISK" },
-		{ field: "pouch_used", sku: "POUCH" },
-		{ field: "photomagnet_used", sku: "PHOTOMAGNET" },
-		{ field: "keychain_used", sku: "KEYCHAIN" },
+		{
+			field: "flashdisk_used",
+			components: [
+				{ sku: "FLASHDISK", qtyPerUnit: 1 },
+				{ sku: "FD-BOX", qtyPerUnit: 1 },
+			],
+		},
+		{
+			field: "pouch_used",
+			components: [{ sku: "POUCH", qtyPerUnit: 1 }],
+		},
+		{
+			field: "photomagnet_used",
+			components: [{ sku: "PHOTOMAGNET", qtyPerUnit: 1 }],
+		},
+		{
+			field: "keychain_used",
+			components: [
+				{ sku: "KEY-FRAME", qtyPerUnit: 1 },
+				{ sku: "KEY-STRAP", qtyPerUnit: 1 },
+			],
+		},
 	];
-	for (const { field, sku } of FLAT_RULES) {
+	for (const { field, components } of ASSEMBLY_RULES) {
 		const qty = Number(rekap[field] ?? 0);
 		if (qty <= 0) continue;
-		const item = itemsBySku.get(sku);
-		if (!item) {
-			missingMappings.push(field);
-			continue;
+		for (const { sku, qtyPerUnit } of components) {
+			const item = itemsBySku.get(sku);
+			if (!item) {
+				if (!missingMappings.includes(field)) missingMappings.push(field);
+				continue;
+			}
+			lines.push({
+				item_id: item.id,
+				sku: item.sku,
+				name: item.name,
+				qty: qty * qtyPerUnit,
+				unit_cost: Number(item.purchase_price_avg ?? 0),
+				source_label:
+					components.length > 1 ? `${field} → ${sku}` : field,
+			});
 		}
-		lines.push({
-			item_id: item.id,
-			sku: item.sku,
-			name: item.name,
-			qty,
-			unit_cost: Number(item.purchase_price_avg ?? 0),
-			source_label: field,
-		});
 	}
 
 	if (rekap.custom_materials) {
