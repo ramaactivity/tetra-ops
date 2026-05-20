@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import {
 	type AddonOption,
 	type BackdropOption,
@@ -10,6 +8,7 @@ import {
 	type VendorOption,
 } from "@/components/booking/booking-form";
 import { Container } from "@/components/layout/container";
+import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
 import { createClient } from "@/lib/supabase/server";
 
@@ -110,24 +109,14 @@ export default async function NewBookingPage() {
 	}));
 
 	return (
-		<Container size="xl">
-			<div className="space-y-2">
-				<Link
-					href="/operations"
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Operations
-				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">New Booking</h1>
-					<p className="text-muted-foreground text-sm">
-						Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew
-						dan DP setelah save.
-					</p>
-				</div>
-			</div>
-			<div className="mt-6">
+		<Container size="xl" className="space-y-5">
+			<PageHeader
+				title="New Booking"
+				backHref="/operations"
+				backLabel="Operations"
+				description="Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew dan DP setelah save."
+			/>
+			<div>
 				<BookingForm
 					action={createBooking}
 					packages={(packages ?? []) as PackageOption[]}

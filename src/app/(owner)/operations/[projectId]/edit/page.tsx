@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
 	type AddonOption,
@@ -9,6 +7,8 @@ import {
 	type PackageOption,
 } from "@/components/booking/booking-form";
 import { Container } from "@/components/layout/container";
+import { MetaBadge } from "@/components/operations/_shared/meta-badge";
+import { PageHeader } from "@/components/operations/_shared/page-header";
 import { updateBooking } from "@/lib/actions/bookings";
 import { createClient } from "@/lib/supabase/server";
 
@@ -122,25 +122,14 @@ export default async function EditBookingPage({
 	const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
 	return (
-		<Container size="xl">
-			<div className="space-y-2">
-				<Link
-					href={`/operations/${event.project_id}`}
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					{event.project_id}
-				</Link>
-				<div>
-					<h1 className="text-fluid-h1 font-semibold tracking-tight">
-						Edit: {event.client_name}
-					</h1>
-					<p className="text-muted-foreground tabular text-sm">
-						{event.project_id}
-					</p>
-				</div>
-			</div>
-			<div className="mt-6">
+		<Container size="xl" className="space-y-5">
+			<PageHeader
+				title={`Edit: ${event.client_name}`}
+				backHref={`/operations/${event.project_id}`}
+				backLabel={event.project_id}
+				meta={<MetaBadge projectId={event.project_id} />}
+			/>
+			<div>
 				<BookingForm
 					action={action}
 					packages={(packages ?? []) as PackageOption[]}
