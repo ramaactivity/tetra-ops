@@ -16,6 +16,7 @@ import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
+import { RestockDialog } from "@/components/warehouse/restock-dialog";
 import { StockAdjustDialog } from "@/components/warehouse/stock-adjust-dialog";
 import {
 	EQUIPMENT_CONDITION_LABELS,
@@ -267,6 +268,14 @@ export function ConsumablesTable({
 				const stock = stockByItem.get(r.id) ?? 0;
 				return (
 					<div className="flex items-center justify-end gap-1">
+						<RestockDialog
+							itemId={r.id}
+							itemName={r.name}
+							itemUnit={r.unit}
+							unitConversion={r.unit_conversion}
+							currentStock={stock}
+							avgCost={r.purchase_price_avg ?? 0}
+						/>
 						<StockAdjustDialog
 							itemId={r.id}
 							itemName={r.name}

@@ -24,12 +24,16 @@ import {
 	type StockMovementFormState,
 } from "@/lib/actions/stock-movements";
 
+/**
+ * Inventory v2 (2026-05-21): `purchase` source is no longer here — that flow
+ * is now in <RestockDialog/> with unit-toggle support. Keeping this list to
+ * the corrective / loss / transfer cases the Adjust dialog is purpose-built for.
+ */
 const SOURCES = [
-	{ value: "manual_adjust", label: "Manual Adjust" },
-	{ value: "purchase", label: "Purchase / Restock" },
+	{ value: "manual_adjust", label: "Manual Adjust (correction)" },
 	{ value: "damage", label: "Damage" },
 	{ value: "loss", label: "Loss" },
-	{ value: "stock_take", label: "Stock Take" },
+	{ value: "stock_take", label: "Stock Take (rare — usually auto via commit_stock_take)" },
 	{ value: "transfer", label: "Transfer" },
 ] as const;
 
@@ -78,7 +82,10 @@ export function StockAdjustDialog({
 		)?.[0];
 
 	const formError = state?.errors?._form?.[0];
-	const purchaseInRequiresCost = direction === "in" && source === "purchase";
+	// Inventory v2 — Adjust dialog no longer handles purchases; purchase
+	// has its own <RestockDialog/>. Unit cost is therefore always optional
+	// here (used only when correcting via 'manual_adjust' with a known cost).
+	const purchaseInRequiresCost = false;
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
