@@ -456,13 +456,31 @@ type EmptyStateProps = {
   icon?: LucideIcon;
   title: ReactNode;
   description?: ReactNode;
-  action?: ReactNode;        // Primary CTA (Button)
-  variant?: "default" | "hero";
-  size?: "sm" | "default" | "lg";
+  action?: ReactNode;                              // Primary CTA (Button)
+  variant?: "default" | "hero" | "inline";         // shipped — see matrix
+  size?: "sm" | "default" | "lg";                  // vertical density
 };
 ```
-- Already exists at `src/components/ui/empty-state.tsx`
-- **Update**: Change default `rounded-xl` → `rounded-lg` (consistency)
+- Source: [src/components/ui/empty-state.tsx](src/components/ui/empty-state.tsx).
+- `rounded-lg` everywhere (no `rounded-xl` overrides).
+
+**Variant × usage matrix:**
+
+| Variant | Chrome | Padding | Min height (default size) | When to use | Example route |
+| ------- | ------ | ------- | ------------------------- | ----------- | ------------- |
+| `default` | dashed border + `bg-surface-2` | `p-8` | `240px` | List/table that returned zero rows after filter or first-load. The empty surface IS the page region. | `/operations` (filtered to empty), `/operations/[id]/payments` (no payments yet) |
+| `hero` | hairline subtle border + `bg-surface-2`, `overflow-hidden` (room for illustration) | `p-12` | `240px` (use `size="lg"` → 320px) | Dashboard first-run / true zero-data hero region. Larger illustration space. | `/` dashboard zero-state |
+| `inline` | **no border** (host SectionCard supplies one), no separate surface | `p-6` | `240px` (typically pair with `size="sm"` → 160px) | Sub-region inside a `<SectionCard>` that has no data yet, where wrapping it in a second bordered box would double-chrome. | `/operations/[id]/rekap` Cetak section before crew submits, `/operations/[id]/design` before assets uploaded |
+
+**Size × usage:**
+
+| Size | Min height | Gap | Pairs with | When |
+| ---- | ---------- | --- | ---------- | ---- |
+| `sm` | `160px` | `gap-2` (+`p-6`) | `variant="inline"` | Dense lists, inline-inside-section empties |
+| `default` | `240px` | `gap-3` | `variant="default"` | Most list pages |
+| `lg` | `320px` | `gap-4` | `variant="hero"` | Standalone empty page (dashboard hero) |
+
+**Choosing**: prefer `default` first. Drop to `inline` when the empty surface sits inside another bordered container (SectionCard). Reach for `hero` only when the surface is the page's primary hero/zero region.
 
 #### `<InfoRow>` (key-value display)
 ```tsx
@@ -1229,6 +1247,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #1 · `<Switch>` + `<RadioGroup>` as primitives — deferred.** User asked for these as the canonical binary-toggle pair. They don't exist in the codebase yet. Decision: don't ship them this pass; the segmented-button pattern (used in booking-form for commission mode / discount type) + the checkbox-styled label card (used in booking-form for "PIC sama dengan pembooking") cover today's surfaces. Promoting these to first-class primitives is tracked as a follow-up — schedule alongside Phase 2 per-route work when a real consumer needs the third pattern.
 - **Gap #2 · `<Stack>` / `<Inline>` — deduplicated in §2.1, stays proposed-not-shipped.** Two near-identical blocks were sitting side-by-side in §2.1. Collapsed to one entry. Decision to keep deferred (not build now): the gap tokens already discipline spacing across pages — promoting to a primitive would mostly be lint-cosmetics. Re-evaluate after Phase 2 per-route work; build if the same `flex flex-col gap-3` shape recurs in 20+ unique places.
 - **Gap #3 · `<TimePicker>` API + behavior contract — locked in §2.4.** Specced the shipped surface area exactly: props, popup shape, preset row, 2-col scroll picker, keyboard map, clear button, form integration pattern. **`step` prop deferred.** User asked for a configurable step (`5 | 10 | 15 | 30`); shipped version is hardcoded to 5-minute steps via the `MINUTES` constant. Per the "don't change shipped primitives" constraint, the prop is not being added in this pass. Rationale: today's only consumers (3 callsites in booking-form) all use 5-minute granularity, so the rigidity isn't costing anyone. When a future surface needs different granularity (e.g. crew schedule pages with 30-min slots), promote `MINUTES` to a derived array based on a new `step` prop.
+- **Gap #4 · `<EmptyState>` — added `inline` variant + spec matrix in §2.2.** Previously the primitive shipped with `default` + `hero` variants and no guidance on when to use which. Added a third variant `inline` (no outer border, `p-6`) for empties that sit INSIDE a `<SectionCard>` body so we don't double up on bordered chrome. Spec table now maps variant × usage × example route (`default` = list/table empties, `hero` = dashboard zero-state, `inline` = sub-region inside another card) plus size × pairing guidance. Defaults unchanged — `variant="default"` + `size="default"` still picks the original shipped shape.
 
 ---
 

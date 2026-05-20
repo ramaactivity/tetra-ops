@@ -6,6 +6,23 @@ import { cn } from "@/lib/utils";
 /**
  * <EmptyState /> — branded empty state for lists, tables, search results.
  *
+ * Variants:
+ *   - default — standard list/table empty (dashed border, p-8). Use when
+ *     the empty surface IS the page area (e.g. /operations list filtered
+ *     down to zero results).
+ *   - hero — dashboard zero-state (overflow-hidden surface-2, p-12).
+ *     Use for first-run / true zero data dashboards. Larger illustration
+ *     space; usually centered in the page hero region.
+ *   - inline — compact, sits INSIDE a <SectionCard> body when one of the
+ *     card's sub-sections has no data yet (e.g. "No payments recorded").
+ *     No outer border (the SectionCard already supplies one); reduced
+ *     padding so it doesn't double up on chrome.
+ *
+ * Sizes (vertical density):
+ *   - sm — min-h-[160px], gap-2, p-6 — inline contexts + dense tables
+ *   - default — min-h-[240px] — most list pages
+ *   - lg — min-h-[320px], gap-4 — hero / standalone empty pages
+ *
  * Usage:
  *   <EmptyState
  *     icon={CalendarDays}
@@ -13,10 +30,6 @@ import { cn } from "@/lib/utils";
  *     description="Tambah event baru untuk mulai mengatur tim dan equipment."
  *     action={<Button asChild><Link href="/operations/new">Buat event</Link></Button>}
  *   />
- *
- * Variants:
- *   - default: standard list/table empty
- *   - hero: dashboard zero-state with subtle Sunrise gradient bg
  */
 
 const emptyStateVariants = cva(
@@ -26,6 +39,7 @@ const emptyStateVariants = cva(
 			variant: {
 				default: "border border-dashed border-border-default bg-surface-2 p-8",
 				hero: "relative overflow-hidden border border-border-subtle bg-surface-2 p-12",
+				inline: "p-6",
 			},
 			size: {
 				default: "min-h-[240px]",
