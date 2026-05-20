@@ -24,7 +24,7 @@ export function EditSupplierDialog({
 	const router = useRouter();
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg">
+			<DialogContent className="sm:max-w-xl">
 				<DialogHeader>
 					<DialogTitle>Edit Supplier</DialogTitle>
 					<DialogDescription>

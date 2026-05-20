@@ -58,7 +58,7 @@ export function NewPRButton({ items }: { items: PRItemOption[] }) {
 				Buat Permintaan
 			</button>
 			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className="max-w-2xl">
+				<DialogContent className="sm:max-w-4xl">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
 							<ShoppingCart className="size-5 text-primary" />
@@ -148,7 +148,7 @@ function PRForm({
 				</div>
 			)}
 
-			<div className="space-y-2">
+			<section className="space-y-2">
 				<div className="flex items-center justify-between">
 					<label className="text-sm font-medium">Daftar Bahan</label>
 					<button
@@ -162,13 +162,23 @@ function PRForm({
 				{itemsError && (
 					<p className="text-xs text-destructive">{itemsError}</p>
 				)}
+
+				{/* Column headers (desktop only) */}
+				<div className="hidden grid-cols-[minmax(0,2.4fr)_120px_80px_minmax(0,2fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
+					<span>Bahan</span>
+					<span>Qty</span>
+					<span>Unit</span>
+					<span>Catatan</span>
+					<span />
+				</div>
+
 				<div className="space-y-2">
 					{lines.map((line) => {
 						const item = itemsById.get(line.item_id);
 						return (
 							<div
 								key={line.id}
-								className="grid gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 sm:grid-cols-[2fr_1fr_auto_2fr_auto] sm:items-end"
+								className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2.4fr)_120px_80px_minmax(0,2fr)_36px] lg:items-center lg:p-2"
 							>
 								<Combobox
 									id={`pr-item-${line.id}`}
@@ -196,9 +206,9 @@ function PRForm({
 									onChange={(e) =>
 										updateLine(line.id, { qty_requested: e.target.value })
 									}
-									placeholder="QTY"
+									placeholder="0"
 								/>
-								<div className="flex h-10 w-16 items-center justify-center rounded-md border border-border-default bg-surface-1 px-2 text-[12px] text-muted-foreground">
+								<div className="flex h-10 items-center justify-center rounded-md border border-border-default bg-surface-1 px-2 text-[12px] text-muted-foreground">
 									{line.unit || item?.unit || "—"}
 								</div>
 								<input
@@ -216,6 +226,7 @@ function PRForm({
 									onClick={() => removeLine(line.id)}
 									disabled={lines.length === 1}
 									title="Hapus baris"
+									aria-label="Hapus baris"
 									className="press-down inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
 								>
 									<Trash2 className="size-4" />
@@ -224,7 +235,7 @@ function PRForm({
 						);
 					})}
 				</div>
-			</div>
+			</section>
 
 			<div className="space-y-1.5">
 				<label htmlFor="notes" className="text-sm font-medium">

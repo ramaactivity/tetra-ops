@@ -28,7 +28,7 @@ export function NewSupplierButton() {
 				Tambah Supplier
 			</button>
 			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className="max-w-lg">
+				<DialogContent className="sm:max-w-xl">
 					<DialogHeader>
 						<DialogTitle>Tambah Supplier</DialogTitle>
 						<DialogDescription>

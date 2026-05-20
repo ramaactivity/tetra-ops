@@ -159,7 +159,7 @@ export function PembelianDialog({
 				{trigger}
 			</button>
 
-			<DialogContent className="max-w-3xl">
+			<DialogContent className="sm:max-w-5xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<ShoppingCart className="size-5 text-primary" />
@@ -167,7 +167,7 @@ export function PembelianDialog({
 					</DialogTitle>
 					<DialogDescription>
 						Catat belanja multi-item dalam 1 transaksi. Setiap baris jadi 1
-						stock movement (direction=in, source=purchase).
+						stock movement; cash → kas turun, TOP → hutang vendor naik.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -197,68 +197,105 @@ export function PembelianDialog({
 						</div>
 					)}
 
-					<div className="grid gap-3 sm:grid-cols-2">
-						<Field label="Tanggal Pembelian" name="purchase_date" required>
-							<input
-								type="date"
-								id="purchase_date"
-								name="purchase_date"
-								defaultValue={new Date().toISOString().slice(0, 10)}
-								required
-								className="h-10 w-full rounded-md border border-border-default bg-surface-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-							/>
-						</Field>
-						<Field label="Supplier" name="supplier_id" hint="opsional — kosongin kalau warung dadakan">
-							<Combobox
-								id="supplier_id"
-								value={supplierId}
-								onValueChange={(v) => setSupplierId(v ?? "")}
-								options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
-								placeholder="— pilih atau biarkan kosong —"
-								allowFreeText={false}
-							/>
-							<input type="hidden" name="supplier_id" value={supplierId} />
-						</Field>
-					</div>
-
-					<div className="grid gap-3 sm:grid-cols-3">
-						<Field label="Metode Pembayaran" name="payment_method">
-							<Combobox
-								id="payment_method"
-								value={paymentMethod}
-								onValueChange={(v) => setPaymentMethod(v ?? "cash")}
-								options={PAYMENT_OPTIONS}
-								allowFreeText={false}
-							/>
-							<input type="hidden" name="payment_method" value={paymentMethod} />
-						</Field>
-						{paymentMethod === "top_custom" && (
-							<Field label="TOP (hari)" name="top_days">
-								<NumberField
-									id="top_days"
-									name="top_days"
-									min={1}
-									max={365}
-									step={1}
-									value={topDays}
-									onChange={(e) => setTopDays(e.target.value)}
-									placeholder="30"
+					{/* Header: date / supplier / method / invoice in single row */}
+					<section className="rounded-lg border border-border-default bg-surface-2/40 p-3">
+						<div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+							Header Transaksi
+						</div>
+						<div className="grid gap-3 lg:grid-cols-4">
+							<Field label="Tanggal Pembelian" name="purchase_date" required>
+								<input
+									type="date"
+									id="purchase_date"
+									name="purchase_date"
+									defaultValue={new Date().toISOString().slice(0, 10)}
+									required
+									className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
 								/>
 							</Field>
+							<Field
+								label="Supplier"
+								name="supplier_id"
+								hint="opsional — kosongin kalau warung dadakan"
+							>
+								<Combobox
+									id="supplier_id"
+									value={supplierId}
+									onValueChange={(v) => setSupplierId(v ?? "")}
+									options={suppliers.map((s) => ({
+										value: s.id,
+										label: s.name,
+									}))}
+									placeholder="— pilih atau kosong —"
+									allowFreeText={false}
+								/>
+								<input type="hidden" name="supplier_id" value={supplierId} />
+							</Field>
+							<Field
+								label="Metode Pembayaran"
+								name="payment_method"
+								hint={
+									paymentMethod === "cash"
+										? "kas tunai turun saat simpan"
+										: "buat utang vendor"
+								}
+							>
+								<Combobox
+									id="payment_method"
+									value={paymentMethod}
+									onValueChange={(v) => setPaymentMethod(v ?? "cash")}
+									options={PAYMENT_OPTIONS}
+									allowFreeText={false}
+								/>
+								<input
+									type="hidden"
+									name="payment_method"
+									value={paymentMethod}
+								/>
+							</Field>
+							{paymentMethod === "top_custom" ? (
+								<Field label="TOP (hari)" name="top_days">
+									<NumberField
+										id="top_days"
+										name="top_days"
+										min={1}
+										max={365}
+										step={1}
+										value={topDays}
+										onChange={(e) => setTopDays(e.target.value)}
+										placeholder="30"
+									/>
+								</Field>
+							) : (
+								<Field label="No. Invoice" name="invoice_no" hint="opsional">
+									<input
+										type="text"
+										id="invoice_no"
+										name="invoice_no"
+										maxLength={60}
+										placeholder="mis. INV-2026-0042"
+										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+									/>
+								</Field>
+							)}
+						</div>
+						{paymentMethod === "top_custom" && (
+							<div className="mt-3">
+								<Field label="No. Invoice" name="invoice_no" hint="opsional">
+									<input
+										type="text"
+										id="invoice_no"
+										name="invoice_no"
+										maxLength={60}
+										placeholder="mis. INV-2026-0042"
+										className="h-10 w-full max-w-xs rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+									/>
+								</Field>
+							</div>
 						)}
-						<Field label="No. Invoice" name="invoice_no" hint="opsional">
-							<input
-								type="text"
-								id="invoice_no"
-								name="invoice_no"
-								maxLength={60}
-								placeholder="mis. INV-2026-0042"
-								className="h-10 w-full rounded-md border border-border-default bg-surface-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-							/>
-						</Field>
-					</div>
+					</section>
 
-					<div className="space-y-2">
+					<section className="space-y-2">
 						<div className="flex items-center justify-between">
 							<label className="text-sm font-medium">Daftar Belanja</label>
 							<button
@@ -272,6 +309,17 @@ export function PembelianDialog({
 						{lineError && (
 							<p className="text-xs text-destructive">{lineError}</p>
 						)}
+
+						{/* Column headers (desktop only) */}
+						<div className="hidden grid-cols-[minmax(0,2.4fr)_120px_100px_160px_minmax(0,1fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
+							<span>Item</span>
+							<span>Qty</span>
+							<span>Unit</span>
+							<span>Harga / unit</span>
+							<span className="text-right">Subtotal</span>
+							<span />
+						</div>
+
 						<div className="space-y-2">
 							{lines.map((line) => {
 								const item = itemsById.get(line.item_id);
@@ -285,64 +333,58 @@ export function PembelianDialog({
 								return (
 									<div
 										key={line.id}
-										className="grid gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 sm:grid-cols-[2fr_1fr_auto_1fr_auto_auto] sm:items-end"
+										className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2.4fr)_120px_100px_160px_minmax(0,1fr)_36px] lg:items-center lg:p-2"
 									>
-										<div className="sm:col-span-1">
+										<Combobox
+											id={`item-${line.id}`}
+											value={line.item_id}
+											onValueChange={(v) => {
+												const chosen = itemsById.get(v ?? "");
+												updateLine(line.id, {
+													item_id: v ?? "",
+													quantity_unit: chosen?.unit ?? "",
+												});
+											}}
+											options={items.map((i) => ({
+												value: i.id,
+												label: `${i.name} (${i.sku})`,
+											}))}
+											placeholder="Pilih bahan..."
+											allowFreeText={false}
+										/>
+										<NumberField
+											id={`qty-${line.id}`}
+											name={`qty-${line.id}`}
+											min={0.0001}
+											step={item?.unit === "roll" ? 0.01 : 1}
+											value={line.quantity}
+											onChange={(e) =>
+												updateLine(line.id, { quantity: e.target.value })
+											}
+											placeholder="0"
+										/>
+										{unitOptions.length > 1 ? (
 											<Combobox
-												id={`item-${line.id}`}
-												value={line.item_id}
-												onValueChange={(v) => {
-													const chosen = itemsById.get(v ?? "");
+												id={`unit-${line.id}`}
+												value={line.quantity_unit}
+												onValueChange={(v) =>
 													updateLine(line.id, {
-														item_id: v ?? "",
-														quantity_unit: chosen?.unit ?? "",
-													});
-												}}
-												options={items.map((i) => ({
-													value: i.id,
-													label: `${i.name} (${i.sku})`,
+														quantity_unit: v ?? item?.unit ?? "",
+													})
+												}
+												options={unitOptions.map((u) => ({
+													value: u,
+													label: u,
 												}))}
-												placeholder="Pilih bahan..."
 												allowFreeText={false}
 											/>
-										</div>
-										<div>
-											<NumberField
-												id={`qty-${line.id}`}
-												name={`qty-${line.id}`}
-												min={0.0001}
-												step={item?.unit === "roll" ? 0.01 : 1}
-												value={line.quantity}
-												onChange={(e) =>
-													updateLine(line.id, { quantity: e.target.value })
-												}
-												placeholder="QTY"
-											/>
-										</div>
-										<div className="w-24">
-											{unitOptions.length > 1 ? (
-												<Combobox
-													id={`unit-${line.id}`}
-													value={line.quantity_unit}
-													onValueChange={(v) =>
-														updateLine(line.id, {
-															quantity_unit: v ?? item?.unit ?? "",
-														})
-													}
-													options={unitOptions.map((u) => ({
-														value: u,
-														label: u,
-													}))}
-													allowFreeText={false}
-												/>
-											) : (
-												<div className="flex h-10 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[12px] text-muted-foreground">
-													{line.quantity_unit || "—"}
-												</div>
-											)}
-										</div>
+										) : (
+											<div className="flex h-10 items-center justify-center rounded-md border border-border-default bg-surface-1 px-2 text-[12px] text-muted-foreground">
+												{line.quantity_unit || "—"}
+											</div>
+										)}
 										<div className="relative">
-											<span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+											<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
 												Rp
 											</span>
 											<NumberField
@@ -354,11 +396,11 @@ export function PembelianDialog({
 												onChange={(e) =>
 													updateLine(line.id, { unit_cost: e.target.value })
 												}
-												placeholder="Harga /unit"
-												className="pl-7"
+												placeholder="0"
+												className="pl-8"
 											/>
 										</div>
-										<div className="hidden text-right text-fluid-caption tabular text-muted-foreground sm:block">
+										<div className="text-right text-fluid-caption tabular font-medium text-foreground">
 											{Number.isFinite(subtotal) && subtotal > 0
 												? formatRupiah(subtotal)
 												: "—"}
@@ -368,6 +410,7 @@ export function PembelianDialog({
 											onClick={() => removeLine(line.id)}
 											disabled={lines.length === 1}
 											title="Hapus baris"
+											aria-label="Hapus baris"
 											className="press-down inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
 										>
 											<Trash2 className="size-4" />
@@ -376,70 +419,74 @@ export function PembelianDialog({
 								);
 							})}
 						</div>
-					</div>
+					</section>
 
-					<Field label="Catatan" name="notes" hint="opsional — patah, retur, dll">
-						<TextareaField
-							id="notes"
+					<div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+						<Field
+							label="Catatan"
 							name="notes"
-							rows={2}
-							maxLength={500}
-						/>
-					</Field>
-
-					<div className="flex items-center justify-between rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-fluid-caption">
-						<span className="font-medium text-foreground">Total Pembelian</span>
-						<span className="tabular text-fluid-h3 font-semibold text-emerald-700 dark:text-emerald-300">
-							{formatRupiah(total)}
-						</span>
-					</div>
-
-					{total > 0 && (
-						<div
-							className={`rounded-md border p-2.5 text-[12px] ${
-								paymentMethod === "cash"
-									? "border-sky-500/30 bg-sky-500/5"
-									: "border-amber-500/30 bg-amber-500/5"
-							}`}
+							hint="opsional — patah, retur, kondisi barang dll"
 						>
-							<div
-								className={`mb-0.5 font-semibold ${
-									paymentMethod === "cash"
-										? "text-sky-700 dark:text-sky-300"
-										: "text-amber-700 dark:text-amber-300"
-								}`}
-							>
-								{paymentMethod === "cash"
-									? "Jurnal otomatis: Kas Tunai turun"
-									: "Jurnal otomatis: Hutang Vendor naik"}
+							<TextareaField
+								id="notes"
+								name="notes"
+								rows={4}
+								maxLength={500}
+							/>
+						</Field>
+
+						<aside className="space-y-2">
+							<div className="flex items-center justify-between rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+								<span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+									Total Pembelian
+								</span>
+								<span className="tabular text-fluid-h3 font-bold text-emerald-700 dark:text-emerald-300">
+									{formatRupiah(total)}
+								</span>
 							</div>
-							<div className="text-muted-foreground">
-								{paymentMethod === "cash" ? (
-									<>
-										DEBIT Persediaan{" "}
-										<span className="tabular text-foreground">
-											{formatRupiah(total)}
-										</span>{" "}
-										· CREDIT Kas Tunai (1-100){" "}
-										<span className="tabular text-foreground">
-											{formatRupiah(total)}
-										</span>
-									</>
-								) : (
-									<>
-										DEBIT Persediaan{" "}
-										<span className="tabular text-foreground">
-											{formatRupiah(total)}
-										</span>{" "}
-										· CREDIT Hutang Vendor (2-101){" "}
-										<span className="tabular text-foreground">
-											{formatRupiah(total)}
-										</span>
-									</>
-								)}
-							</div>
-						</div>
-					)}
+
+							{total > 0 && (
+								<div
+									className={`rounded-md border p-3 text-[12px] ${
+										paymentMethod === "cash"
+											? "border-sky-500/30 bg-sky-500/5"
+											: "border-amber-500/30 bg-amber-500/5"
+									}`}
+								>
+									<div
+										className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${
+											paymentMethod === "cash"
+												? "text-sky-700 dark:text-sky-300"
+												: "text-amber-700 dark:text-amber-300"
+										}`}
+									>
+										{paymentMethod === "cash"
+											? "Jurnal: Kas Tunai turun"
+											: "Jurnal: Hutang Vendor naik"}
+									</div>
+									<dl className="space-y-1 text-muted-foreground">
+										<div className="flex items-baseline justify-between gap-2">
+											<dt>DEBIT Persediaan</dt>
+											<dd className="tabular font-medium text-foreground">
+												{formatRupiah(total)}
+											</dd>
+										</div>
+										<div className="flex items-baseline justify-between gap-2">
+											<dt>
+												CREDIT{" "}
+												{paymentMethod === "cash"
+													? "Kas Tunai (1-100)"
+													: "Hutang Vendor (2-101)"}
+											</dt>
+											<dd className="tabular font-medium text-foreground">
+												{formatRupiah(total)}
+											</dd>
+										</div>
+									</dl>
+								</div>
+							)}
+						</aside>
+					</div>
 
 					<DialogFooter>
 						<button
