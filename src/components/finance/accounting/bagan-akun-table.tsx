@@ -1,6 +1,7 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -175,6 +176,21 @@ export function BaganAkunTable({ rows }: { rows: CoaRow[] }) {
 						Nonaktif
 					</Badge>
 				),
+		},
+		{
+			key: "ledger",
+			header: "Buku Besar",
+			align: "right",
+			render: (r) => (
+				<Link
+					href={`/finance/accounting/ledger/${encodeURIComponent(r.code)}`}
+					className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+					title={`Buka buku besar ${r.code}`}
+				>
+					Buku Besar
+					<ArrowRight className="size-3" />
+				</Link>
+			),
 		},
 	];
 
