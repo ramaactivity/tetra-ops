@@ -7,6 +7,7 @@ import {
 	Handshake,
 	PiggyBank,
 	Receipt,
+	Scale,
 	TrendingDown,
 	TrendingUp,
 	Wallet,
@@ -324,6 +325,13 @@ export default async function FinancePage() {
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
 				actions={
 					<>
+						<Link
+							href="/finance/payables"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<Scale className="size-4" />
+							<span className="hidden sm:inline">Hutang Dagang</span>
+						</Link>
 						<Link
 							href="/finance/accounting"
 							className={buttonVariants({ variant: "outline", size: "sm" })}

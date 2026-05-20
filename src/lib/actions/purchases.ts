@@ -72,6 +72,7 @@ export type PurchaseFormState =
 			success?: true;
 			movementsCreated?: number;
 			journalEntryRef?: string;
+			payableId?: string;
 	  }
 	| undefined;
 
@@ -276,6 +277,7 @@ export async function recordPurchaseBatch(
 	// Skipped on best-effort basis — stock_movements already committed; if
 	// journal insert fails we still return success and note it.
 	let journalEntryRef: string | undefined;
+	let journalEntryId: string | undefined;
 	try {
 		// Compute totals grouped by inventory COA code
 		const totalByCoa = new Map<string, number>();
@@ -373,6 +375,7 @@ export async function recordPurchaseBatch(
 						.eq("id", entry.id);
 				} else {
 					journalEntryRef = refId;
+					journalEntryId = entry.id;
 				}
 			}
 		}
@@ -380,13 +383,84 @@ export async function recordPurchaseBatch(
 		console.error("[purchases] journal entry skipped due to error:", e);
 	}
 
+	// ─── Hutang Dagang (payable) — only for non-cash purchases ────────────
+	// Insert one payable per Pembelian TOP batch. Tracks due_date computed
+	// from purchase_date + top_days mapping.
+	let payableId: string | undefined;
+	try {
+		const isCash = parsed.data.payment_method === "cash";
+		if (!isCash && journalEntryId) {
+			const grandTotal = movements.reduce(
+				(s, m) => s + Math.round(m.quantity * m.unit_cost),
+				0,
+			);
+			if (grandTotal > 0) {
+				const topDays =
+					parsed.data.payment_method === "top_7"
+						? 7
+						: parsed.data.payment_method === "top_14"
+							? 14
+							: parsed.data.payment_method === "top_30"
+								? 30
+								: parsed.data.payment_method === "top_60"
+									? 60
+									: parsed.data.top_days || 30;
+
+				const issuedDate = new Date(purchaseDateIso);
+				const dueDate = new Date(issuedDate);
+				dueDate.setDate(dueDate.getDate() + topDays);
+
+				// Build descriptive label
+				let label = parsed.data.invoice_no
+					? `Pembelian inv ${parsed.data.invoice_no}`
+					: "Pembelian stok";
+				if (parsed.data.supplier_id) {
+					const { data: sup } = await supabase
+						.from("suppliers")
+						.select("name")
+						.eq("id", parsed.data.supplier_id)
+						.maybeSingle();
+					if (sup?.name) label += ` — ${sup.name}`;
+				}
+
+				const { data: payable, error: payErr } = await supabase
+					.from("payables")
+					.insert({
+						supplier_id: parsed.data.supplier_id ?? null,
+						source_type: "purchase",
+						source_journal_id: journalEntryId,
+						invoice_no: parsed.data.invoice_no ?? null,
+						description: label,
+						amount: grandTotal,
+						amount_paid: 0,
+						issued_date: issuedDate.toISOString().slice(0, 10),
+						due_date: dueDate.toISOString().slice(0, 10),
+						payment_terms: parsed.data.payment_method,
+						status: "open",
+						notes: parsed.data.notes ?? null,
+					})
+					.select("id")
+					.single();
+				if (payErr) {
+					console.error("[purchases] payable insert failed:", payErr);
+				} else if (payable) {
+					payableId = payable.id;
+				}
+			}
+		}
+	} catch (e) {
+		console.error("[purchases] payable creation skipped due to error:", e);
+	}
+
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/purchases");
 	revalidatePath("/warehouse/purchase-requests");
 	revalidatePath("/finance");
+	revalidatePath("/finance/payables");
 	return {
 		success: true,
 		movementsCreated: movements.length,
 		journalEntryRef,
+		payableId,
 	};
 }
