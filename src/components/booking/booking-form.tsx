@@ -26,6 +26,8 @@ import {
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
+import type { NavItem } from "@/components/booking/_shared/section-nav";
+import { SummaryPanel } from "@/components/booking/_shared/summary-panel";
 
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
 
@@ -742,6 +744,112 @@ export function BookingForm({
 		[basePrice, addonsTotal, backdropContribution, discount, grossUp],
 	);
 
+	// === Summary panel derived values ===
+	// Format event date as "24 Mei 2026" (Indonesian locale)
+	const eventDateLabel = useMemo(() => {
+		if (!eventDate) return undefined;
+		const d = new Date(eventDate);
+		if (Number.isNaN(d.getTime())) return undefined;
+		return d.toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "long",
+			year: "numeric",
+		});
+	}, [eventDate]);
+
+	const eventTimeRange = useMemo(() => {
+		if (!startTime && !endTime) return undefined;
+		const fmt = (t: string) => (t ? t.slice(0, 5) : "—");
+		return `${fmt(startTime)}–${fmt(endTime)}`;
+	}, [startTime, endTime]);
+
+	// Vendor commission preview (mirrors server-side computeVendorCommissionAmount)
+	const vendorCommissionAmount = useMemo(() => {
+		if (channel !== "vendor") return 0;
+		const v = Number(vendorCommissionValue) || 0;
+		if (vendorCommissionMode === "upfront_cut") return Math.round(v);
+		if (vendorCommissionValueType === "percent") {
+			return Math.round((grandTotal * v) / 100);
+		}
+		return Math.round(v);
+	}, [
+		channel,
+		vendorCommissionMode,
+		vendorCommissionValueType,
+		vendorCommissionValue,
+		grandTotal,
+	]);
+
+	// Section progress — derived from state + server errors.
+	const navItems = useMemo<NavItem[]>(() => {
+		const hasErr = (...keys: string[]) =>
+			keys.some((k) => Boolean(stateErrors?.[k as keyof typeof stateErrors]));
+
+		// A: Source & Vendor
+		const aErr = hasErr("channel", "vendor_name", "referrer_user_id");
+		const aOk = Boolean(
+			channel &&
+				(channel === "direct" ||
+					(channel === "vendor" && vendorName) ||
+					(channel === "relasi" && referrerUserId)),
+		);
+		// B: Event Details (category + date + venue)
+		const bErr = hasErr(
+			"event_category",
+			"event_date",
+			"start_time",
+			"venue_name",
+		);
+		const bOk = Boolean(eventCategory && eventDate && startTime && venueName);
+		// C: Service Package (service + package)
+		const cErr = hasErr("service_type", "package_id");
+		const cOk = Boolean(serviceType && packageId);
+		// D: Contact & Pricing (client_wa + basePrice)
+		const dErr = hasErr("client_name", "client_wa", "base_price");
+		const dOk = Boolean(clientName && clientWa && basePrice > 0);
+
+		return [
+			{
+				id: "cluster-source",
+				label: "Sumber & Vendor",
+				status: aErr ? "error" : aOk ? "ok" : "empty",
+			},
+			{
+				id: "cluster-event",
+				label: "Event Details",
+				status: bErr ? "error" : bOk ? "ok" : "empty",
+			},
+			{
+				id: "cluster-service",
+				label: "Service Package",
+				status: cErr ? "error" : cOk ? "ok" : "empty",
+			},
+			{
+				id: "cluster-contact",
+				label: "Contact & Pricing",
+				status: dErr ? "error" : dOk ? "ok" : "empty",
+			},
+		];
+	}, [
+		stateErrors,
+		channel,
+		vendorName,
+		referrerUserId,
+		eventCategory,
+		eventDate,
+		startTime,
+		venueName,
+		serviceType,
+		packageId,
+		clientName,
+		clientWa,
+		basePrice,
+	]);
+
+	function handleCancel() {
+		router.push("/operations");
+	}
+
 	function toggleAddon(id: string, enabled: boolean) {
 		setSelectedAddons((prev) => {
 			const next = { ...prev };
@@ -847,7 +955,9 @@ export function BookingForm({
 			{saveOverlay && (
 				<SavePopup state={saveOverlay} onDismissError={handleDismissError} />
 			)}
+		<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
 		<form
+			id="booking-form"
 			action={formAction}
 			className="space-y-8"
 			onKeyDown={(e) => {
@@ -874,6 +984,9 @@ export function BookingForm({
 					</p>
 				</div>
 			)}
+
+			{/* === Cluster A anchor === */}
+			<div id="cluster-source" className="scroll-mt-20" />
 
 			{/* === 1. CHANNEL === */}
 			<Section
@@ -1333,6 +1446,9 @@ export function BookingForm({
 				</>
 			)}
 
+			{/* === Cluster B anchor === */}
+			<div id="cluster-event" className="scroll-mt-20" />
+
 			{/* === 3. EVENT TYPE + Category sub-fields === */}
 			<Section
 				step={showReferrerBlock ? 3 : 2}
@@ -1520,6 +1636,9 @@ export function BookingForm({
 					</Field>
 				</div>
 			</Section>
+
+			{/* === Cluster C anchor === */}
+			<div id="cluster-service" className="scroll-mt-20" />
 
 			{/* === 5. SERVICE & PACKAGE === */}
 			<Section
@@ -1868,6 +1987,9 @@ export function BookingForm({
 					</Field>
 				</div>
 			</Section>
+
+			{/* === Cluster D anchor === */}
+			<div id="cluster-contact" className="scroll-mt-20" />
 
 			{/* === 8. CONTACTS === */}
 			<Section
@@ -2375,7 +2497,7 @@ export function BookingForm({
 				</Field>
 			</Section>
 
-			<div className="sticky bottom-0 -mx-4 flex flex-col gap-3 border-t border-border-default bg-surface-2 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface-2/85 sm:flex-row sm:items-center sm:justify-between md:-mx-8 md:px-8">
+			<div className="sticky bottom-0 -mx-4 flex flex-col gap-3 border-t border-border-default bg-surface-2 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface-2/85 sm:flex-row sm:items-center sm:justify-between md:-mx-8 md:px-8 lg:hidden">
 				<dl className="flex items-baseline gap-6 text-fluid-body">
 					<div>
 						<dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -2412,6 +2534,40 @@ export function BookingForm({
 				</div>
 			</div>
 		</form>
+		{/* Sticky summary panel — desktop only (≥lg). Mobile + tablet
+		    keep the form's existing sticky bottom footer for save action. */}
+		<div className="hidden lg:block">
+			<SummaryPanel
+				eventDate={eventDateLabel}
+				eventTimeRange={eventTimeRange}
+				venueName={venueName || undefined}
+				venueCity={venueCity || undefined}
+				clientName={clientName || undefined}
+				picName={picName || undefined}
+				picContact={picWa || undefined}
+				basePrice={basePrice}
+				addonsTotal={addonsTotal}
+				backdropContribution={backdropContribution}
+				discount={discount}
+				grossUp={grossUp}
+				grandTotal={grandTotal}
+				vendor={
+					channel === "vendor" && Number(vendorCommissionValue) > 0
+						? {
+								mode: vendorCommissionMode,
+								valueType: vendorCommissionValueType,
+								value: Number(vendorCommissionValue),
+								amount: vendorCommissionAmount,
+							}
+						: undefined
+				}
+				navItems={navItems}
+				pending={pending}
+				submitLabel={submitLabel}
+				onCancel={handleCancel}
+			/>
+		</div>
+		</div>
 		</>
 	);
 }
