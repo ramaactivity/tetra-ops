@@ -2,7 +2,7 @@
 
 import { ArrowDownToLine, ArrowUpFromLine, Equal, Sliders } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
-import { NativeSelect } from "@/components/ui/native-select";
+import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
 	DialogClose,
@@ -13,6 +13,12 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+	INPUT_CLASS,
+	MoneyInput,
+	NumberField,
+	TextareaField,
+} from "@/components/ui/form-fields";
 import {
 	addStockMovement,
 	type StockMovementFormState,
@@ -141,51 +147,61 @@ export function StockAdjustDialog({
 							error={err("quantity")}
 							required
 						>
-							<input
-								type="number"
+							<NumberField
+								id="quantity"
 								name="quantity"
 								min={1}
 								step={1}
 								required
 								defaultValue={get("quantity")}
 								placeholder="10"
-								className={`${inputClass} tabular`}
 								autoFocus
+								aria-invalid={!!err("quantity")}
 							/>
 						</Field>
 
 						<Field label="Sumber" name="source" error={err("source")} required>
-							<SourceSelect
+							<Combobox
+								id="source"
 								value={source}
 								onValueChange={setSource}
-								error={!!err("source")}
+								options={SOURCES.map((s) => ({ value: s.value, label: s.label }))}
+								placeholder="— pilih sumber —"
+								allowFreeText={false}
+								aria-invalid={!!err("source")}
 							/>
+							<input type="hidden" name="source" value={source} required />
 						</Field>
 					</div>
 
 					{direction === "in" && (
 						<Field
-							label={`Unit Cost (Rp)${purchaseInRequiresCost ? " *" : ""}`}
+							label="Unit Cost"
 							name="unit_cost"
 							error={err("unit_cost")}
 							required={purchaseInRequiresCost}
 							hint={
 								purchaseInRequiresCost
-									? `Wajib untuk source=purchase biar weighted-avg cost akurat. Avg saat ini: Rp ${avgCost.toLocaleString("id-ID")}.`
-									: `Avg saat ini: Rp ${avgCost.toLocaleString("id-ID")}. Kosongkan jika tidak update harga.`
+									? `Wajib untuk source=purchase biar weighted-avg cost akurat. Avg saat ini: ${formatIDR(avgCost)}.`
+									: `Avg saat ini: ${formatIDR(avgCost)}. Kosongkan jika tidak update harga.`
 							}
 						>
-							<input
-								type="number"
-								name="unit_cost"
-								min={0}
-								step={1}
-								required={purchaseInRequiresCost}
-								defaultValue={get("unit_cost")}
-								placeholder="0"
-								className={`${inputClass} tabular`}
-								aria-invalid={!!err("unit_cost")}
-							/>
+							<div className="relative">
+								<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+									Rp
+								</span>
+								<NumberField
+									id="unit_cost"
+									name="unit_cost"
+									min={0}
+									step={1}
+									required={purchaseInRequiresCost}
+									defaultValue={get("unit_cost")}
+									placeholder="0"
+									className="pl-9"
+									aria-invalid={!!err("unit_cost")}
+								/>
+							</div>
 						</Field>
 					)}
 
@@ -195,12 +211,13 @@ export function StockAdjustDialog({
 						error={err("notes")}
 						hint="Optional"
 					>
-						<textarea
+						<TextareaField
+							id="notes"
 							name="notes"
 							rows={2}
 							maxLength={500}
 							defaultValue={get("notes")}
-							className={`${inputClass} resize-none`}
+							aria-invalid={!!err("notes")}
 						/>
 					</Field>
 
@@ -219,29 +236,6 @@ export function StockAdjustDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function SourceSelect({
-	value,
-	onValueChange,
-	error,
-}: {
-	value: string;
-	onValueChange: (v: string) => void;
-	error: boolean;
-}) {
-	return (
-		<>
-			<NativeSelect
-				value={value}
-				onValueChange={onValueChange}
-				options={SOURCES.map((s) => ({ value: s.value, label: s.label }))}
-				triggerClassName="w-full"
-				aria-invalid={error}
-			/>
-			<input type="hidden" name="source" value={value} required />
-		</>
 	);
 }
 
@@ -280,9 +274,10 @@ function DirOption({
 	);
 }
 
-const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
-const selectClass = `${inputClass} appearance-none`;
+function formatIDR(value: number): string {
+	if (!value) return "Rp 0";
+	return `Rp ${value.toLocaleString("id-ID")}`;
+}
 
 function Field({
 	label,
