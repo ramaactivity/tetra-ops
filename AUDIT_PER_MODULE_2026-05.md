@@ -5,7 +5,7 @@
 **Baseline comparison:** [AUDIT_UI_UX.md](AUDIT_UI_UX.md) (2026-05-19), [AUDIT_PERFORMANCE.md](AUDIT_PERFORMANCE.md), [AUDIT_SUMMARY.md](AUDIT_SUMMARY.md)
 **Scope:** 10 modules + crew portal + cross-cutting concerns. **Operations + Booking excluded** — state is documented in [REPORT_OPERATIONS_CONSISTENCY.md](REPORT_OPERATIONS_CONSISTENCY.md).
 
-> ⚠️ **Screenshot deliverable note:** the spec required Vercel-preview screenshots at 1280px + 375px per module. This environment has no browser tooling, so every module section carries a `[Screenshot pending — user provide]` slot in `AUDIT_SCREENSHOTS/`. The objective metrics the spec also asked for (LOC, primitive tally, anti-pattern violations by file:line, route tree) are GREP-able and are filled in fully.
+> ✅ **Screenshots delivered (38 files)** in [AUDIT_SCREENSHOTS/](AUDIT_SCREENSHOTS/) with full coverage matrix in [AUDIT_SCREENSHOTS/INDEX.md](AUDIT_SCREENSHOTS/INDEX.md). 9 of 11 in-scope modules captured at both 1280 + 375 viewports (Dashboard mobile + Contacts + Audit Log missing — easy fill-in). Each module section below links to its specific screenshot file(s). Crew portal evidence is real-device phone screenshots (not DevTools emulation), so touch UX reflects actual usage.
 
 ---
 
@@ -176,7 +176,7 @@ Sections will be filled one commit at a time.
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — user provide AUDIT_SCREENSHOTS/01-dashboard-1280.png + 01-dashboard-375.png]`
+- **Screenshots:** ✅ [01-dashboard-1280.png](AUDIT_SCREENSHOTS/01-dashboard-1280.png) · ❌ mobile 375 missing (gap)
 - **Routes:** single page — `/dashboard` (root `/` redirects). Has `loading.tsx`.
 - **LOC:**
   - [src/app/(owner)/dashboard/page.tsx](src/app/(owner)/dashboard/page.tsx) — 535 LOC
@@ -271,7 +271,7 @@ Dashboard is already well-served by current primitives (`<StatCard>`, `<EmptySta
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/02-reminders-1280.png + 02-reminders-375.png]`
+- **Screenshots:** ✅ [02-reminders-1280.png](AUDIT_SCREENSHOTS/02-reminders-1280.png) · ✅ [02-reminders-375.png](AUDIT_SCREENSHOTS/02-reminders-375.png)
 - **Routes:** single page — `/reminders`. Has `loading.tsx` (30 LOC).
 - **LOC:**
   - [src/app/(owner)/reminders/page.tsx](src/app/(owner)/reminders/page.tsx) — 395 LOC (server-rendered shell + 4-bucket query orchestration)
@@ -349,7 +349,7 @@ Anti-pattern violation counts within reminders scope:
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/03-notifications-1280.png + 03-notifications-375.png]`
+- **Screenshots:** ✅ [03-notifications-1280.png](AUDIT_SCREENSHOTS/03-notifications-1280.png) · ✅ [03-notifications-375.png](AUDIT_SCREENSHOTS/03-notifications-375.png)
 - **Routes:** single page — `/notifications`. Has `loading.tsx` (29 LOC).
 - **LOC:**
   - [src/app/(owner)/notifications/page.tsx](src/app/(owner)/notifications/page.tsx) — 446 LOC
@@ -422,7 +422,7 @@ Old: 7.3/10 — functional inbox, DB design flaw + cache lag. No P0.
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/04-billing-1280.png + 04-billing-375.png]`
+- **Screenshots:** ✅ [04-billing-1280.png](AUDIT_SCREENSHOTS/04-billing-1280.png) · ✅ [04-billing-375.png](AUDIT_SCREENSHOTS/04-billing-375.png) · [04-billing-list-scrolled-375.png](AUDIT_SCREENSHOTS/04-billing-list-scrolled-375.png) (scrolled list view)
 - **Routes:** single page — `/billing`. Has `loading.tsx`.
 - **LOC:**
   - [src/app/(owner)/billing/page.tsx](src/app/(owner)/billing/page.tsx) — 247 LOC
@@ -498,7 +498,7 @@ Old: 7.5/10.
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/05a-finance-1280.png, 05b-finance-vendors-1280.png, mobile variants]`
+- **Screenshots:** ✅ [05-finance-1280.png](AUDIT_SCREENSHOTS/05-finance-1280.png) · ✅ [05-finance-375.png](AUDIT_SCREENSHOTS/05-finance-375.png) · [05-finance-profit-scrolled-375.png](AUDIT_SCREENSHOTS/05-finance-profit-scrolled-375.png) (mobile profit breakdown) · [05-finance-settlements-scrolled-1280.png](AUDIT_SCREENSHOTS/05-finance-settlements-scrolled-1280.png) (settlements section scrolled) · ❌ `/finance/vendors` not captured
 - **Routes:**
   - `/finance` — main dashboard
   - `/finance/vendors` — vendor commission summary
@@ -582,7 +582,7 @@ Old: 7.3/10 — **strong backend, 4 critical UX gaps. Most P0-dense module after
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/06-reports-1280.png + 06-reports-375.png]`
+- **Screenshots:** ✅ [06-reports-1280.png](AUDIT_SCREENSHOTS/06-reports-1280.png) · ✅ [06-reports-375.png](AUDIT_SCREENSHOTS/06-reports-375.png) · [06-reports-pnl-scrolled-375.png](AUDIT_SCREENSHOTS/06-reports-pnl-scrolled-375.png) (P&L breakdown scrolled)
 - **Routes:** single page — `/reports` (sub-views via in-page month nav + tab switcher).
 - **LOC:** [src/app/(owner)/reports/page.tsx](src/app/(owner)/reports/page.tsx) — **1140 LOC mega-file** (P1 in old audit, still standing). loading.tsx 31 LOC. No support component directory.
 - **Primitive usage:** `<Container size="xl">` ✓ · `<SectionHeader>` legacy · `<KpiCard>` ×10+ ✓ · `<Badge>` ad-hoc. No EmptyState, no PageHeader.
@@ -651,7 +651,7 @@ If financial statements (Balance Sheet / Cash Flow) become v3 scope:
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/07a-warehouse-1280.png, 07b-warehouse-stock-take-1280.png + mobile]`
+- **Screenshots:** ✅ [07-warehouse-1280.png](AUDIT_SCREENSHOTS/07-warehouse-1280.png) · ✅ [07-warehouse-375.png](AUDIT_SCREENSHOTS/07-warehouse-375.png) · [07-warehouse-consumables-375.png](AUDIT_SCREENSHOTS/07-warehouse-consumables-375.png) (consumables tab scrolled) · ❌ `/warehouse/stock-take` not captured
 - **Routes:** `/warehouse`, `/warehouse/stock-take`, `/warehouse/stock-take/[id]`
 - **LOC:**
   - [src/app/(owner)/warehouse/page.tsx](src/app/(owner)/warehouse/page.tsx) — 177 LOC
@@ -723,7 +723,7 @@ Old: 6.5/10, **3 critical P0s.**
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/08-contacts-1280.png + 08-contacts-375.png]`
+- **Screenshots:** ❌ not captured (gap — `/settings/contacts` both viewports needed)
 - **Routes:** `/settings/contacts`, `/settings/contacts/import`
 - **LOC:**
   - [src/app/(owner)/settings/contacts/page.tsx](src/app/(owner)/settings/contacts/page.tsx) — 151 LOC
@@ -785,7 +785,7 @@ Demands are light — module is small.
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/09-audit-log-1280.png + 09-audit-log-375.png]`
+- **Screenshots:** ❌ not captured (gap — `/settings/audit-log` both viewports needed)
 - **Routes:** `/settings/audit-log`. Has `loading.tsx`.
 - **LOC:**
   - [src/app/(owner)/settings/audit-log/page.tsx](src/app/(owner)/settings/audit-log/page.tsx) — 174 LOC
@@ -846,7 +846,7 @@ Not called out specifically in old audit beyond Settings umbrella.
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/10-settings-root-1280.png + one per top-level sub-route + 375 variants]`
+- **Screenshots:** ✅ root [10-settings-root-1280.png](AUDIT_SCREENSHOTS/10-settings-root-1280.png) + [10-settings-root-375.png](AUDIT_SCREENSHOTS/10-settings-root-375.png). Sub-routes captured (desktop only): [packages](AUDIT_SCREENSHOTS/10-settings-packages-1280.png), [addons](AUDIT_SCREENSHOTS/10-settings-addons-1280.png), [backdrops](AUDIT_SCREENSHOTS/10-settings-backdrops-1280.png), [vendors](AUDIT_SCREENSHOTS/10-settings-vendors-1280.png). ❌ Missing sub-routes: bank-accounts, crew, items, notification-rules, sinking-funds, whatsapp-templates.
 - **Routes (root + 12 sub-routes; contacts + audit-log audited separately as #8 and #9):**
 
 | Route | LOC | loading.tsx | /new | /edit | Old audit issue |
@@ -955,7 +955,7 @@ Old: 5.9/10 — **worst UX in product. 5 P0 issues.**
 
 ### A. Current State Snapshot
 
-- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/11a-crew-home-375.png, 11b-crew-jadwal-375.png, 11c-crew-rekap-375.png, 11d-crew-fee-375.png + 1280 desktop fallback for completeness]`
+- **Screenshots:** ✅ **6 real-device phone captures** (not Chrome DevTools emulation — actual Android, user "Farhan Mauludi"): [11-crew-home-mobile.jpeg](AUDIT_SCREENSHOTS/11-crew-home-mobile.jpeg) · [11-crew-jadwal-mobile.jpeg](AUDIT_SCREENSHOTS/11-crew-jadwal-mobile.jpeg) · [11-crew-alat-mobile.jpeg](AUDIT_SCREENSHOTS/11-crew-alat-mobile.jpeg) · [11-crew-fee-mobile.jpeg](AUDIT_SCREENSHOTS/11-crew-fee-mobile.jpeg) · [11-crew-profile-mobile.jpeg](AUDIT_SCREENSHOTS/11-crew-profile-mobile.jpeg) · [11-crew-rekap-detail-mobile.jpeg](AUDIT_SCREENSHOTS/11-crew-rekap-detail-mobile.jpeg). Reflects actual touch UX. ❌ Desktop fallback not captured (low priority — module is mobile-first).
 - **Routes (under `(crew)` group, separate layout):**
 
 | Route | LOC | loading.tsx |
