@@ -89,6 +89,46 @@ export async function addStockMovement(
 	const supabase = await createClient();
 	const refId = buildRefId(parsed.data.direction);
 
+	// Negative-stock guard for direction='out': verify pre-insert stock can
+	// cover the requested withdrawal. Prevents silent negative-balance drift
+	// (old AUDIT_UI_UX §3.5 P0). Movements from server-side processes that
+	// genuinely allow negatives (rekap_consumption, etc.) go through other
+	// code paths (RPC commit_stock_take, settle_event); this server action
+	// only covers manual UI-driven adjustments.
+	if (parsed.data.direction === "out") {
+		const { data: currentStock } = await supabase.rpc("get_current_stock", {
+			p_item_id: itemId,
+		});
+		const stock = Math.max(0, Number(currentStock ?? 0));
+		if (stock < parsed.data.quantity) {
+			return {
+				errors: {
+					quantity: [
+						`Stok saat ini cuma ${stock.toLocaleString("id-ID")} — tidak bisa keluar ${parsed.data.quantity.toLocaleString("id-ID")}.`,
+					],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+	}
+
+	// Force unit_cost on purchase-in to prevent weighted-avg drift
+	// (old AUDIT_UI_UX §3.5 P0: "Weighted-avg cost can drift").
+	if (
+		parsed.data.direction === "in" &&
+		parsed.data.source === "purchase" &&
+		parsed.data.unit_cost === null
+	) {
+		return {
+			errors: {
+				unit_cost: [
+					"Wajib isi harga beli untuk purchase — biar weighted-avg cost tetap akurat.",
+				],
+			},
+			values: snapshotValues(formData),
+		};
+	}
+
 	// For purchase-direction-in with unit_cost, compute weighted-average cost
 	// BEFORE inserting the movement (need pre-insert stock count).
 	const isPurchaseIn =
