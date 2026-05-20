@@ -945,6 +945,59 @@ grep -rn 'type="time"\|type="date"\|type="color"\|<select\b' src --include="*.ts
 ```
 Expected: zero matches outside `<FileDrop>` / file-upload wrappers.
 
+### 4.8 Popups (dropdowns, calendars, menus) — must portal out of clipping ancestors (locked in `3b3c079`)
+
+Background: `<SectionCard>` / `<CollapsibleCard>` use `overflow-hidden` so the slide-open animation clips the panel during transition. Any popup that opens *inside* such a card and positions itself via `position: absolute` will get visually clipped when it extends past the card edge. This bit us with `<Combobox>` — the dropdown only showed 1.5 options before being cut by the SectionCard border.
+
+✅ **DO** — every popup-style primitive must render through a portal so it escapes ancestor `overflow-hidden`:
+```tsx
+{/* base-ui primitives — already portal-aware */}
+<PopoverPrimitive.Portal>
+  <PopoverPrimitive.Positioner>
+    <PopoverPrimitive.Popup>…</PopoverPrimitive.Popup>
+  </PopoverPrimitive.Positioner>
+</PopoverPrimitive.Portal>
+
+{/* hand-rolled popup — use React.createPortal + getBoundingClientRect tracking */}
+{open && popupRect && createPortal(
+  <div style={{ position: "fixed", top: popupRect.top, left: popupRect.left, width: popupRect.width }}>
+    …
+  </div>,
+  document.body,
+)}
+```
+
+❌ **DON'T**:
+```tsx
+{/* Absolute popup inside the same DOM subtree as its trigger.
+    Works in isolation, breaks the moment an ancestor has overflow-hidden
+    (which every SectionCard does). */}
+<div className="relative">
+  <input … />
+  {open && (
+    <div className="absolute top-full z-50 …">{options}</div>
+  )}
+</div>
+```
+
+Where the rule applies — every primitive that opens a floating panel:
+
+| Primitive | How it portals | Source |
+| --------- | -------------- | ------ |
+| `<DatePicker>` | base-ui `PopoverPrimitive.Portal` | [date-picker.tsx](src/components/ui/date-picker.tsx) |
+| `<TimePicker>` | base-ui `PopoverPrimitive.Portal` | [time-picker.tsx](src/components/ui/time-picker.tsx) |
+| `<MonthPicker>` | base-ui `PopoverPrimitive.Portal` | [month-picker.tsx](src/components/ui/month-picker.tsx) |
+| `<Combobox>` | `react-dom.createPortal` + viewport-relative positioning (with auto-flip above/below) | [combobox.tsx](src/components/ui/combobox.tsx) |
+| `<Tooltip>` | base-ui `TooltipPrimitive.Portal` | [tooltip.tsx](src/components/ui/tooltip.tsx) |
+| `<DropdownMenu>` / `<Select>` / `<Dialog>` / `<Sheet>` / `<AlertDialog>` | base-ui Portal (Radix-equivalent) | corresponding files in `src/components/ui/` |
+
+Audit-once command:
+```bash
+# Any hand-rolled popup using absolute-below-trigger positioning (potential clipping bug):
+grep -rn 'absolute.*top-full' src --include="*.tsx" | grep -v node_modules
+```
+Expected: zero matches. If you add a new floating panel, route it through a Portal — either base-ui or `react-dom.createPortal`.
+
 ---
 
 ## 5. Migration Plan

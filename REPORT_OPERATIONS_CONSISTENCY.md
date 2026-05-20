@@ -29,6 +29,7 @@
 | 1.6 | `2cbee87` | loading.tsx mirrors SectionCard + FieldGrid skeletons |
 | 1.7 | `4d97674` | Cleanup: cluster-card.tsx dead code removed |
 | Addendum | `067725e` | All booking-form selects → searchable Combobox (8 callsites, `allowFreeText={false}`) |
+| Addendum | `3b3c079` | Combobox popup portaled via `createPortal` + viewport-tracked positioning (auto-flip above/below). Fixes dropdown clipping inside `<SectionCard>` (which uses `overflow-hidden` for its slide animation). |
 
 **Build status post-push:** `npx tsc --noEmit` + `npx next build` clean. Live on Vercel.
 
@@ -42,6 +43,7 @@
 - **All dropdowns must be searchable.** `<Combobox allowFreeText={false}>` is the canonical replacement for `<NativeSelect>` when typing-to-filter is desirable (every booking-form dropdown). When the option list is fixed and short *and* there's no benefit to filtering (e.g. a true binary toggle), `<NativeSelect>` is still acceptable.
 - **Container size for the Operations cluster is `xl`** (max-w-7xl = 1280px). The temporary `wide` variant (max-w-[1600px]) was reverted; do not reintroduce.
 - **SummaryRail width:** `"sm"` (280px) for the booking form, `"md"` (320px) for content-richer rails (payments, rekap) when Phase 2 lands.
+- **Popups must portal out of clipping ancestors.** `<SectionCard>` uses `overflow-hidden` for its slide animation — any dropdown/calendar/menu rendered with bare `position: absolute` will be clipped. Use a Portal (base-ui Popover.Portal or `react-dom.createPortal`). See DESIGN_SYSTEM.md §4.8 + the audit grep there.
 
 ---
 
