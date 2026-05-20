@@ -2,6 +2,7 @@ import {
 	AlertCircle,
 	ArrowDownRight,
 	ArrowUpRight,
+	BookOpen,
 	ChevronRight,
 	Handshake,
 	PiggyBank,
@@ -322,13 +323,22 @@ export default async function FinancePage() {
 				title="Finance"
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
 				actions={
-					<Link
-						href="/finance/vendors"
-						className={buttonVariants({ variant: "outline", size: "sm" })}
-					>
-						<Handshake className="size-4" />
-						<span className="hidden sm:inline">Vendor commissions</span>
-					</Link>
+					<>
+						<Link
+							href="/finance/accounting"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<BookOpen className="size-4" />
+							<span className="hidden sm:inline">Akuntansi</span>
+						</Link>
+						<Link
+							href="/finance/vendors"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<Handshake className="size-4" />
+							<span className="hidden sm:inline">Vendor commissions</span>
+						</Link>
+					</>
 				}
 			/>
 
