@@ -420,7 +420,77 @@ Old: 7.3/10 — functional inbox, DB design flaw + cache lag. No P0.
 
 ## 4. Billing (`/billing`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/04-billing-1280.png + 04-billing-375.png]`
+- **Routes:** single page — `/billing`. Has `loading.tsx`.
+- **LOC:**
+  - [src/app/(owner)/billing/page.tsx](src/app/(owner)/billing/page.tsx) — 247 LOC
+  - [src/components/billing/billing-list-table.tsx](src/components/billing/billing-list-table.tsx) — 187 LOC
+  - [src/components/billing/payment-form.tsx](src/components/billing/payment-form.tsx) — 249 LOC
+  - [src/components/billing/payment-list.tsx](src/components/billing/payment-list.tsx) — 150 LOC
+  - [src/components/billing/billing-filter-bar.tsx](src/components/billing/billing-filter-bar.tsx) — 97 LOC
+  - [src/components/billing/proof-upload-button.tsx](src/components/billing/proof-upload-button.tsx) — 166 LOC
+  - [src/components/billing/billing-tabs.tsx](src/components/billing/billing-tabs.tsx) — 70 LOC
+  - Total billing component LOC: **919**
+- **Primitive usage:** `<Container size="xl">` ✓ · `<SectionHeader>` legacy · `<KpiCard>` ×4 ✓ · `<EmptyState>` ×1 ✓ · `<PaymentStatusBadge>` ✓ (via list table)
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Legacy SectionHeader. |
+| SectionCard | 1/5 | Tabs (Invoices / Quotations / BAST / Payments) inside page-level container, no SectionCard wrapping per tab content. |
+| FieldGrid | 1/5 | `payment-form.tsx` uses inline labeled inputs (~249 LOC); not migrated to FieldGrid. |
+| KpiRow | 3/5 | Same `<div className="grid">` shape as Dashboard — not wrapped in `<KpiRow>`. |
+| KpiCard | 5/5 | ✓ used. |
+| Status badges | 5/5 | `<PaymentStatusBadge>` ✓ |
+| Empty states | 5/5 | `<EmptyState>` ✓ |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.4)
+
+Old: 7.5/10.
+
+| Old finding | Status | Evidence |
+| ----------- | ------ | -------- |
+| No quick PDF action on billing list | ❌ Outstanding | List table doesn't surface PdfDownloadMenu inline |
+| PDF brand color `#be123c` (rose) vs web ink | ❓ Backend concern | Verify against current `src/lib/pdf/` |
+| "unpaid" badge `outline` (should be `warning`) | ❓ Needs verification | Check `PaymentStatusBadge` mapping |
+| Invoice/Tagihan/Quotation/Penawaran/BAST naming inconsistent | ❌ Outstanding | No central constants file found |
+| Payment flow split between /billing + /operations/[id]/payments | ❌ Architectural | Not a v3 concern — feature scope |
+| Quotation 30% DP hardcoded | ❌ Outstanding | Setting key missing |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-2xl` / `rounded-xl` | 0 | Clean |
+| `transition-all` | 0 | — |
+| NativeSelect | 2 | [payment-form.tsx:118, 143](src/components/billing/payment-form.tsx#L118) — payment-method + bank-account pickers |
+| Hardcoded eyebrow | 0 | — |
+| Native form controls | 0 | — |
+
+### E. Module-Specific Primitive Needs
+
+- **`<InvoiceLineItem>` / `<PaymentLine>`** — repeated row shape in payment-list + billing-list. Currently 187 + 150 LOC of bespoke list rendering. Could collapse to one shared primitive if Operations payments page (Phase 2) also adopts.
+- **`<PaymentTimeline>`** — payment history is a chronological list; if Phase 2 ops/payments page surfaces the same, lift to a primitive.
+- **`<InvoiceStatus>` pill (extend PaymentStatusBadge)** — current PaymentStatusBadge covers `paid/unpaid/partial/dp/overpaid/overdue`. Acceptable.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** list with tabs + form modal (payment entry)
+- **v3 migration effort:** **~8-10 hours**
+  - PageHeader migration (1h)
+  - 2 NativeSelect → Combobox in payment-form (45min)
+  - Wrap each tab's content in SectionCard (1.5h)
+  - KpiRow adoption (15min)
+  - FieldGrid migration in payment-form (2h)
+  - PdfDownloadMenu inline action on list rows (1h)
+  - Billing terms central constants file (45min)
+  - QA (1h)
+- **Migration risk:** **MEDIUM** — payment-form has Zod + Server Action + optimistic UI. Logic untouched; presentation only.
+- **Pre-requisites:** none for v3 design migration.
+- **Suggested order:** Week 3 — after Reminders + Notifications (similar list-with-action pattern).
 
 ---
 
