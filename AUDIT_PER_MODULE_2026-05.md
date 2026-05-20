@@ -951,9 +951,90 @@ Old: 5.9/10 — **worst UX in product. 5 P0 issues.**
 
 ---
 
-## 11. Crew Portal (`/crew/*`)
+## 11. Crew Portal (`/crew/*`) — mobile-first
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/11a-crew-home-375.png, 11b-crew-jadwal-375.png, 11c-crew-rekap-375.png, 11d-crew-fee-375.png + 1280 desktop fallback for completeness]`
+- **Routes (under `(crew)` group, separate layout):**
+
+| Route | LOC | loading.tsx |
+| ----- | --- | ----------- |
+| `/crew` (home) | 340 | ✓ |
+| `/crew/alat` (assigned equipment) | 179 | ✗ |
+| `/crew/fee` (own fee history) | 210 | ✗ |
+| `/crew/profile` | 144 | ✓ |
+| `/crew/jadwal` (assignments list) | 237 | ✓ |
+| `/crew/jadwal/[projectId]` (event detail) | 583 | ✗ |
+| `/crew/jadwal/[projectId]/rekap` (submit rekap) | 254 | ✗ |
+| `/crew/jadwal/[projectId]/rekap/success` | 178 | ✗ |
+| **Total** | **2125** | **3/8** = 38% |
+
+- **Layout:** [src/app/(crew)/layout.tsx](src/app/(crew)/layout.tsx) — uses shared `<TopBar>` (same as owner) + dedicated `<CrewBottomNav>` (mobile-first), `safe-area-inset-bottom` aware. `min-h-dvh` flex column.
+- **Primitive usage:** `<StatCard>` ×4 on home page ✓ · `<EmptyState>` ×3 ✓ · `<EventStatusBadge>` ✓ · `<NeedsRekapSection>` (rekap-shared component) · `<Badge variant="outline">` ad-hoc on event detail.
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Hand-rolled headers per page. No v1 PageHeader. Crew portal has different needs (no back-link sometimes, more compact). |
+| SectionCard | 1/5 | Event detail (583 LOC) stacks event info + equipment + rekap status — all bare divs. |
+| FieldGrid | n/a | Rekap form uses inline labels — crew context, mobile-first, label-stack may be preferred over label-LEFT. |
+| KpiRow | 3/5 | Home page uses StatCard inline grid; not wrapped in KpiRow. |
+| StatCard | 5/5 | ✓ (Home: total events, hours, fee, pending rekap) |
+| Status badges | 4/5 | EventStatusBadge ✓ |
+| Empty states | 5/5 | `<EmptyState>` ✓ across alat, jadwal, fee |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.11)
+
+Old: 8.5/10 mobile portal (excellent post-Prompt 4 polish). No P0.
+
+| Old P1 finding | Status | Evidence |
+| -------------- | ------ | -------- |
+| Rekap form length (15+ fields, cellular lag) | ⚠️ Same | rekap/page.tsx 254 LOC — long. Multi-step wizard could help. |
+| File upload no progress | ❌ Outstanding | Verify `<FileDrop>` / proof-upload — no progress UI surfaced. |
+| Real-time data stale after submit | ❌ Outstanding | After rekap submit, /crew still shows "Perlu submit" until refresh. Foundation = §3.10 real-time MVP (deferred). |
+| Custom materials lack visual SKU reference | ⚠️ Same | rekap form |
+| Equipment damage reporting absent | ❌ Outstanding | `/crew/alat` is read-only |
+| Fee outstanding card lacks urgency tier | ⚠️ Same | `/crew/fee` uses default tone |
+| loading.tsx coverage on crew portal: 38% (3/8) | ⚠️ Worse than owner | alat, fee, jadwal/[id], jadwal/[id]/rekap, rekap/success all missing |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-2xl` | 1 | [(auth)/crew-portal/page.tsx:40](src/app/(auth)/crew-portal/page.tsx#L40) — the **login-style splash page**, technically "auth" not "crew portal". Acceptable as marketing-like; tracked in lint snapshot. |
+| `rounded-xl` | 1 | crew/jadwal/[projectId]/rekap/page.tsx (verify by grep — see snapshot above showing 1 hit there) |
+| `transition-all` | 0 | Clean ✓ |
+| Hardcoded eyebrow | 0 | — |
+| NativeSelect | 0 | — (crew forms use Combobox or no select) |
+| loading.tsx missing | 5/8 routes | alat, fee, jadwal/[id], jadwal/[id]/rekap, rekap/success |
+
+### E. Module-Specific Primitive Needs
+
+- **`<MobileSectionCard>` variant or `<SectionCard size="compact">`** — current SectionCard padding (px-5 py-3.5 + py-4) may be heavy on 375px. Add `size="compact"` variant for crew portal (px-3 py-2.5) OR adopt SectionCard with current size and accept the slightly larger touch chrome.
+- **`<EventTimeline>` (proposed)** — event detail at `/crew/jadwal/[id]` (583 LOC) shows event info + setup time + duration + crew + equipment. Could compose via a primitive that the operations cluster could also use.
+- **`<RekapWizard>` composite** — multi-step rekap submission (mitigates the "15+ fields" P1). Steps: Cetak count → Items used → Crew expenses → Photos → Confirm. Each step a `<SectionCard>`.
+- **`<UploadProgressBar>`** — required for "file upload no progress" P1.
+- **`<DamageReportForm>`** — required for "equipment damage reporting absent" P1.
+- **`<CrewBottomNav>`** — exists, working ✓ — keep.
+- **`<TopBar>` shared variant** — current TopBar is shared with owner; should differentiate notification bell behavior (crew can't dismiss owner-only alerts). Owner-vs-crew TopBar split is a cross-cutting decision (see §G).
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** mobile-first PWA-style; hybrid form-heavy + dashboard-style
+- **v3 migration effort:**
+  - **Design refactor**: ~10-12h (8 routes, each ~1-2h; share SectionCard adoption with rest of cluster)
+  - **+ loading.tsx coverage gap close (5 routes)**: ~3h
+  - **+ Rekap multi-step wizard refactor**: 2-3 days (big UX change)
+  - **+ File upload progress**: ~1 day
+  - **+ Equipment damage reporting feature**: ~2-3 days
+  - **+ Real-time stale-data fix** (post-submit): foundation = §3.10 MVP — couples to optimistic concurrency
+- **Migration risk:** **MEDIUM** — mobile-first means viewport edge cases (iPhone SE notch, Android safe-area) must be tested across all 8 routes.
+- **Pre-requisites:** SectionCard `size="compact"` variant decision; `<UploadProgressBar>` primitive (1 day).
+- **Suggested order in v3 rollout:** **Week 4-5** — after owner-side modules. Crew is highest-quality module today (8.5); migration is enhancement, not rescue. Polish + feature additions (damage report, upload progress, rekap wizard) make this 5-7 day workstream regardless of design.
+
+**Notable difference vs owner modules:** crew portal already has the best mobile discipline in the app. v3 migration should PRESERVE the existing UX (touch targets ≥44px, max-w-md container, safe-area awareness) and not break it by retrofitting desktop-first primitives. SectionCard adoption is the only risky shift — needs the compact-size variant decision before sweep.
 
 ---
 
