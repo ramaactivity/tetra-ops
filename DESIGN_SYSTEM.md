@@ -579,9 +579,46 @@ All form components MUST:
 - Free-text combobox (`allowFreeText={true}`, default) — for autocomplete inputs where the user can type "anything new" (e.g. vendor name during booking, before the contact exists in master).
 
 #### Date + time pickers
-- `<DatePicker>` ([src/components/ui/date-picker.tsx](src/components/ui/date-picker.tsx)) — calendar in a base-ui Popover.
-- `<TimePicker>` ([src/components/ui/time-picker.tsx](src/components/ui/time-picker.tsx)) — branded Popover with preset chips + 2-col scrollable HH/MM picker + keyboard nav. **Do not revert to `<input type="time">`** — that was tried (`5ba65c0`) and reverted (`d020272`) when the native control proved inconsistent across browsers + mobile.
-- **No native `<input type="date">` or `<input type="time">` anywhere in user-facing code.**
+
+`<DatePicker>` ([src/components/ui/date-picker.tsx](src/components/ui/date-picker.tsx)) — calendar in a base-ui Popover. Read the source for the controlled API.
+
+`<TimePicker>` ([src/components/ui/time-picker.tsx](src/components/ui/time-picker.tsx)) — branded Popover (portaled) with preset chips + 2-col scrollable HH/MM picker + keyboard nav.
+
+```tsx
+interface TimePickerProps {
+  value?: string;                          // "HH:MM" 24h
+  defaultValue?: string;                   // uncontrolled init
+  onValueChange?: (value: string) => void;
+  presets?: readonly string[];             // default ["08:00", "10:00", "13:00", "19:00"]
+  placeholder?: string;                    // default "Pilih waktu"
+  disabled?: boolean;
+  required?: boolean;
+  id?: string;
+  className?: string;
+  "aria-label"?: string;
+  "aria-invalid"?: boolean;
+}
+```
+
+Behavior contract (current ship state):
+- **Trigger:** branded `<Button variant="outline">` showing `Clock icon · HH:MM` + chevron. Empty state shows placeholder in muted color.
+- **Popup:** 280px-wide Popover portaled to `<body>` via `PopoverPrimitive.Portal` (escapes SectionCard overflow-hidden). Surface: `bg-surface-3`, `rounded-lg`, `shadow-level-3`, hairline ring.
+- **Preset row:** small pill chips. `presets` prop controls list; default is the most common Tetra event start slots. Active chip highlighted with `bg-primary/10`.
+- **2-col scroll picker:**
+  - Left column: **Hours** 00-23, 24 items.
+  - Right column: **Minutes** 00-55 in 5-minute steps (12 items). `step` is hardcoded to 5 — see Decisions Log.
+  - Active value scrolls into view on open via `requestAnimationFrame` + `scrollTop` math.
+  - Active item painted with `bg-primary` / `text-primary-foreground`.
+  - Picking an hour advances active column to minutes; picking a minute commits + closes the popup.
+- **Keyboard:**
+  - `↑` / `↓` move active value within the focused column.
+  - `→` or `Tab` from hours focuses minutes; `←` from minutes focuses hours.
+  - `Enter` advances hours → minutes; on minutes, commits + closes.
+  - `Esc` closes the popup.
+- **Clear:** "Bersihkan" button at the bottom-right of the popup when a value is set; calls `onValueChange("")`.
+- **Form integration:** like DatePicker — purely controlled. Parent owns the hidden `<input type="hidden" name="...">` for FormData submission. Booking-form's 3 callsites all follow this pattern (Tanggal+Jam pair, Setup, Selesai).
+
+**No native `<input type="date">` or `<input type="time">` anywhere in user-facing code.**
 
 #### Textareas
 - Standard `<textarea>` with the project `inputClass` + `resize-none`. 2-row default for short notes (e.g. crew_notes), 4-row for longer descriptions.
@@ -1191,6 +1228,7 @@ Running history of design-system rule changes. Each entry: date · gap# · decis
 - **Gap #1 · Native browser controls + `<NativeSelect>` user-facing usage — banned total.** Previously §4.7 tolerated `<NativeSelect>` for "short fixed lists" — that's gone. Every user-facing dropdown uses `<Combobox allowFreeText={false}>`. Rationale: one-shape selects = predictable keyboard nav + a11y across every operations sub-page; ambiguity in the rule was already producing inconsistent choices in non-booking forms. The `<NativeSelect>` file itself stays — it remains the canonical shadcn `<Select>` wrapper, used internally by Combobox's build chain and as a primitive building block. What's banned is its appearance in `src/app/**` JSX trees. See §4.7 + audit-grep updated.
 - **Gap #1 · `<Switch>` + `<RadioGroup>` as primitives — deferred.** User asked for these as the canonical binary-toggle pair. They don't exist in the codebase yet. Decision: don't ship them this pass; the segmented-button pattern (used in booking-form for commission mode / discount type) + the checkbox-styled label card (used in booking-form for "PIC sama dengan pembooking") cover today's surfaces. Promoting these to first-class primitives is tracked as a follow-up — schedule alongside Phase 2 per-route work when a real consumer needs the third pattern.
 - **Gap #2 · `<Stack>` / `<Inline>` — deduplicated in §2.1, stays proposed-not-shipped.** Two near-identical blocks were sitting side-by-side in §2.1. Collapsed to one entry. Decision to keep deferred (not build now): the gap tokens already discipline spacing across pages — promoting to a primitive would mostly be lint-cosmetics. Re-evaluate after Phase 2 per-route work; build if the same `flex flex-col gap-3` shape recurs in 20+ unique places.
+- **Gap #3 · `<TimePicker>` API + behavior contract — locked in §2.4.** Specced the shipped surface area exactly: props, popup shape, preset row, 2-col scroll picker, keyboard map, clear button, form integration pattern. **`step` prop deferred.** User asked for a configurable step (`5 | 10 | 15 | 30`); shipped version is hardcoded to 5-minute steps via the `MINUTES` constant. Per the "don't change shipped primitives" constraint, the prop is not being added in this pass. Rationale: today's only consumers (3 callsites in booking-form) all use 5-minute granularity, so the rigidity isn't costing anyone. When a future surface needs different granularity (e.g. crew schedule pages with 30-min slots), promote `MINUTES` to a derived array based on a new `step` prop.
 
 ---
 
