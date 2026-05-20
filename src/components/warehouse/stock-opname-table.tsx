@@ -19,6 +19,8 @@ export interface StockOpnameRow {
 		category: string;
 		unit: string;
 		unit_conversion: Record<string, number> | null;
+		purchase_price_avg: number;
+		min_stock_alert: number;
 	};
 }
 
@@ -239,19 +241,22 @@ function LineTable({
 			{/* Desktop table */}
 			<div className="hidden overflow-hidden rounded-lg border border-border-default bg-surface-2 md:block">
 				<table className="w-full text-sm">
-					<thead className="border-b border-border-default bg-surface-3/40">
+					<thead className="sticky top-0 z-10 border-b border-border-default bg-surface-3/95 backdrop-blur supports-[backdrop-filter]:bg-surface-3/80">
 						<tr className="text-left">
 							<th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 								Item
 							</th>
-							<th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-								Sistem
+							<th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+								Stok Sistem
 							</th>
 							<th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-								Hitung Fisik
+								Stok Fisik
 							</th>
-							<th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+							<th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 								Selisih
+							</th>
+							<th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+								Nilai
 							</th>
 							<th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 								Catatan

@@ -1,9 +1,4 @@
-import {
-	CheckCircle2,
-	ClipboardList,
-	FileSearch,
-	TrendingUp,
-} from "lucide-react";
+import { CheckCircle2, FileSearch, TrendingUp, Wallet } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
@@ -61,7 +56,7 @@ export default async function StockTakeDetailPage({
 		.from("stock_take_lines")
 		.select(
 			`stock_take_id, item_id, system_qty, counted_qty, variance, notes,
-			 item:inventory_items(id, sku, name, category, unit, unit_conversion, deleted_at, is_active)`,
+			 item:inventory_items(id, sku, name, category, unit, unit_conversion, purchase_price_avg, min_stock_alert, deleted_at, is_active)`,
 		)
 		.eq("stock_take_id", id);
 
@@ -72,6 +67,8 @@ export default async function StockTakeDetailPage({
 		category: string;
 		unit: string;
 		unit_conversion: Record<string, number> | null;
+		purchase_price_avg: number | string | null;
+		min_stock_alert: number | string | null;
 		deleted_at: string | null;
 		is_active: boolean | null;
 	};
@@ -109,6 +106,8 @@ export default async function StockTakeDetailPage({
 					category: it.category,
 					unit: it.unit,
 					unit_conversion: it.unit_conversion,
+					purchase_price_avg: Number(it.purchase_price_avg ?? 0),
+					min_stock_alert: Number(it.min_stock_alert ?? 0),
 				},
 			};
 		})
@@ -119,6 +118,10 @@ export default async function StockTakeDetailPage({
 	const varianceLines = rows.filter(
 		(r) => r.counted_qty !== null && r.variance !== 0,
 	).length;
+	const totalVarianceValue = rows.reduce((sum, r) => {
+		if (r.counted_qty === null || r.variance === null) return sum;
+		return sum + r.variance * r.item.purchase_price_avg;
+	}, 0);
 	const progressPct =
 		totalLines === 0 ? 0 : Math.round((auditedLines / totalLines) * 100);
 
@@ -155,12 +158,6 @@ export default async function StockTakeDetailPage({
 
 			<KpiRow className="lg:grid-cols-4">
 				<KpiCard
-					label="Total Items"
-					value={totalLines.toLocaleString("id-ID")}
-					hint="SKU aktif di inventory"
-					icon={ClipboardList}
-				/>
-				<KpiCard
 					label="Sudah Dihitung"
 					value={`${auditedLines}/${totalLines}`}
 					hint={`${progressPct}% progress`}
@@ -179,6 +176,29 @@ export default async function StockTakeDetailPage({
 					}
 					icon={FileSearch}
 					accent={varianceLines > 0 ? "amber" : "emerald"}
+				/>
+				<KpiCard
+					label="Dampak Nilai"
+					value={
+						totalVarianceValue === 0
+							? "Rp 0"
+							: `${totalVarianceValue > 0 ? "+" : "−"}Rp ${Math.abs(totalVarianceValue).toLocaleString("id-ID", { maximumFractionDigits: 0 })}`
+					}
+					hint={
+						totalVarianceValue > 0
+							? "stok lebih (gain) dari hasil opname"
+							: totalVarianceValue < 0
+								? "stok kurang (loss) dari hasil opname"
+								: "—"
+					}
+					icon={Wallet}
+					accent={
+						totalVarianceValue > 0
+							? "emerald"
+							: totalVarianceValue < 0
+								? "rose"
+								: "default"
+					}
 				/>
 				<KpiCard
 					label="Status"
