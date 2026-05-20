@@ -1,12 +1,20 @@
-import { CheckCircle2, ClipboardList, FileSearch } from "lucide-react";
+import {
+	CheckCircle2,
+	ClipboardList,
+	FileSearch,
+	TrendingUp,
+} from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
+import {
+	StockOpnameTable,
+	type StockOpnameRow,
+} from "@/components/warehouse/stock-opname-table";
 import { StockTakeActions } from "@/components/warehouse/stock-take-actions";
-import { StockTakeLineRow } from "@/components/warehouse/stock-take-line-row";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -53,7 +61,7 @@ export default async function StockTakeDetailPage({
 		.from("stock_take_lines")
 		.select(
 			`stock_take_id, item_id, system_qty, counted_qty, variance, notes,
-			 item:inventory_items(id, sku, name, category, unit)`,
+			 item:inventory_items(id, sku, name, category, unit, unit_conversion, deleted_at, is_active)`,
 		)
 		.eq("stock_take_id", id);
 
@@ -63,40 +71,56 @@ export default async function StockTakeDetailPage({
 		name: string;
 		category: string;
 		unit: string;
+		unit_conversion: Record<string, number> | null;
+		deleted_at: string | null;
+		is_active: boolean | null;
 	};
 	type RawLine = {
 		stock_take_id: string;
 		item_id: string;
-		system_qty: number;
-		counted_qty: number;
-		variance: number;
+		system_qty: number | string;
+		counted_qty: number | string | null;
+		variance: number | string | null;
 		notes: string | null;
 		item: ItemRef | ItemRef[] | null;
 	};
-	type FlatRow = {
-		line: Omit<RawLine, "item">;
-		item: ItemRef;
-	};
 
-	const rows: FlatRow[] = ((lines ?? []) as RawLine[])
-		.map((l): FlatRow | null => {
+	const rows: StockOpnameRow[] = ((lines ?? []) as RawLine[])
+		.map((l): StockOpnameRow | null => {
 			const it = Array.isArray(l.item) ? l.item[0] : l.item;
 			if (!it) return null;
-			const { item: _omitted, ...rest } = l;
-			return { line: rest, item: it };
+			// Defensive — drafts from before M5 may have lines pointing to archived
+			// items. Hide them so the audit stays focused on active inventory.
+			if (it.deleted_at || it.is_active === false) return null;
+			const counted = l.counted_qty === null ? null : Number(l.counted_qty);
+			const sys = Number(l.system_qty);
+			const variance = counted === null ? null : counted - sys;
+			return {
+				stock_take_id: l.stock_take_id,
+				item_id: l.item_id,
+				system_qty: sys,
+				counted_qty: counted,
+				variance,
+				notes: l.notes,
+				item: {
+					id: it.id,
+					sku: it.sku,
+					name: it.name,
+					category: it.category,
+					unit: it.unit,
+					unit_conversion: it.unit_conversion,
+				},
+			};
 		})
-		.filter((r): r is FlatRow => r !== null)
-		.sort((a, b) => {
-			const aVar = Math.abs(a.line.variance);
-			const bVar = Math.abs(b.line.variance);
-			if (aVar !== bVar) return bVar - aVar;
-			if (a.item.category !== b.item.category)
-				return a.item.category.localeCompare(b.item.category);
-			return a.item.sku.localeCompare(b.item.sku);
-		});
+		.filter((r): r is StockOpnameRow => r !== null);
 
-	const varianceCount = rows.filter((r) => r.line.variance !== 0).length;
 	const totalLines = rows.length;
+	const auditedLines = rows.filter((r) => r.counted_qty !== null).length;
+	const varianceLines = rows.filter(
+		(r) => r.counted_qty !== null && r.variance !== 0,
+	).length;
+	const progressPct =
+		totalLines === 0 ? 0 : Math.round((auditedLines / totalLines) * 100);
 
 	const u = Array.isArray(take.taken_by_user)
 		? take.taken_by_user[0]
@@ -104,11 +128,11 @@ export default async function StockTakeDetailPage({
 	const editable = take.status === "draft";
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-6 pb-24">
 			<PageHeader
-				title={`Stock Take · ${formatDateID(take.taken_at)}`}
+				title={`Stock Opname · ${formatDateID(take.taken_at)}`}
 				backHref="/warehouse/stock-take"
-				backLabel="Stock Take"
+				backLabel="Stock Opname"
 				description={
 					<span className="flex flex-wrap items-center gap-2">
 						<span>By {u?.full_name ?? "—"}</span>
@@ -127,32 +151,34 @@ export default async function StockTakeDetailPage({
 						)}
 					</span>
 				}
-				actions={
-					editable ? (
-						<StockTakeActions
-							stockTakeId={take.id}
-							varianceCount={varianceCount}
-						/>
-					) : undefined
-				}
 			/>
 
-			<KpiRow className="lg:grid-cols-3">
+			<KpiRow className="lg:grid-cols-4">
 				<KpiCard
 					label="Total Items"
 					value={totalLines.toLocaleString("id-ID")}
+					hint="SKU aktif di inventory"
 					icon={ClipboardList}
 				/>
 				<KpiCard
-					label="Variance"
-					value={varianceCount.toLocaleString("id-ID")}
+					label="Sudah Dihitung"
+					value={`${auditedLines}/${totalLines}`}
+					hint={`${progressPct}% progress`}
+					icon={TrendingUp}
+					accent={
+						progressPct === 100 ? "emerald" : progressPct > 0 ? "amber" : "default"
+					}
+				/>
+				<KpiCard
+					label="Ada Selisih"
+					value={varianceLines.toLocaleString("id-ID")}
 					hint={
-						varianceCount > 0
+						varianceLines > 0
 							? "akan jadi adjustment movements"
-							: "stok fisik = sistem"
+							: "fisik = sistem (sejauh ini)"
 					}
 					icon={FileSearch}
-					accent={varianceCount > 0 ? "amber" : "emerald"}
+					accent={varianceLines > 0 ? "amber" : "emerald"}
 				/>
 				<KpiCard
 					label="Status"
@@ -170,58 +196,21 @@ export default async function StockTakeDetailPage({
 
 			{take.notes ? (
 				<div className="rounded-lg border border-border-default bg-surface-2 p-3 text-fluid-caption">
-					<span className="font-medium text-muted-foreground">Notes:</span>{" "}
+					<span className="font-medium text-muted-foreground">Catatan:</span>{" "}
 					{take.notes}
 				</div>
 			) : null}
 
-			{rows.length === 0 ? (
-				<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-8 text-center">
-					<p className="text-fluid-body text-muted-foreground">
-						Belum ada items di stock take ini.
-					</p>
-				</div>
-			) : (
-				<div className="overflow-hidden rounded-lg border border-border-default bg-surface-2">
-					<table className="w-full text-sm">
-						<thead className="border-b border-border-default bg-surface-3/40">
-							<tr className="text-left">
-								<th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Item
-								</th>
-								<th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Sistem
-								</th>
-								<th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Hitung Fisik
-								</th>
-								<th className="px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Selisih
-								</th>
-								<th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Catatan
-								</th>
-								{editable && (
-									<th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-										Save
-									</th>
-								)}
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border-default/50">
-							{rows.map((r) => (
-								<StockTakeLineRow
-									key={r.line.item_id}
-									line={r.line}
-									item={r.item}
-									editable={editable}
-								/>
-							))}
-						</tbody>
-					</table>
-				</div>
+			<StockOpnameTable rows={rows} editable={editable} />
+
+			{editable && (
+				<StockTakeActions
+					stockTakeId={take.id}
+					varianceCount={varianceLines}
+					auditedCount={auditedLines}
+					totalLines={totalLines}
+				/>
 			)}
 		</Container>
 	);
 }
-

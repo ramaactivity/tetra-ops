@@ -18,7 +18,7 @@ export function NewStockTakeButton() {
 			if (!res.ok) {
 				toast.error(res.error);
 			} else {
-				toast.success("Stock take dimulai — fill counted qty per item");
+				toast.success("Opname dimulai — hitung fisik per item");
 				router.push(`/warehouse/stock-take/${res.id}`);
 			}
 		});
@@ -29,10 +29,10 @@ export function NewStockTakeButton() {
 			type="button"
 			onClick={handleClick}
 			disabled={pending}
-			className="press-down inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+			className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
 		>
 			<Plus className="size-4" />
-			{pending ? "Membuat..." : "Stock Take Baru"}
+			{pending ? "Membuat..." : "Mulai Opname"}
 		</button>
 	);
 }
