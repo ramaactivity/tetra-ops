@@ -23,6 +23,37 @@ function formatIDR(value: number): string {
 	return `${sign}Rp ${abs.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
 }
 
+function lembarLabel(key: string): string {
+	if (!key.startsWith("lembar_")) return key.replace(/_/g, " ");
+	const suffix = key.slice("lembar_".length);
+	if (suffix === "4r") return "lembar 4R";
+	if (suffix === "2r") return "lembar 2R";
+	if (suffix === "polaroid") return "lembar Polaroid";
+	return `lembar ${suffix.toUpperCase()}`;
+}
+
+/**
+ * For roll-based mediaset items, returns the alt-unit capacity breakdown
+ * (e.g. "0 lembar 4R · 0 lembar 2R" or "1.400 lembar 4R · 2.800 lembar 2R").
+ * Always shows the conversion even when capacity is 0 so owner sees the
+ * conversion logic at a glance. Returns null for non-roll items or items
+ * with no unit_conversion JSONB.
+ */
+function rollConversionBreakdown(
+	qty: number,
+	unit: string,
+	conversion: Record<string, number> | null,
+): string | null {
+	if (unit !== "roll" || !conversion) return null;
+	const parts: string[] = [];
+	for (const [k, mult] of Object.entries(conversion)) {
+		if (k === "roll") continue;
+		const capacity = Math.floor(qty * mult);
+		parts.push(`${capacity.toLocaleString("id-ID")} ${lembarLabel(k)}`);
+	}
+	return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export function StockTakeLineRow({
 	line,
 	editable,
@@ -166,6 +197,21 @@ export function StockTakeLineRow({
 			? `Rp ${line.item.purchase_price_avg.toLocaleString("id-ID", { maximumFractionDigits: 0 })}/${line.item.unit}`
 			: null;
 
+	// Roll → lembar conversion breakdown (mediaset only)
+	const systemConversion = rollConversionBreakdown(
+		line.system_qty,
+		line.item.unit,
+		line.item.unit_conversion,
+	);
+	const countedConversion =
+		countedNum !== null && countedValid
+			? rollConversionBreakdown(
+					countedNum,
+					line.item.unit,
+					line.item.unit_conversion,
+				)
+			: null;
+
 	// ─── Mobile card ─────────────────────────────────────────────────────────
 	if (layout === "card") {
 		return (
@@ -247,6 +293,11 @@ export function StockTakeLineRow({
 								</Badge>
 							) : null}
 						</div>
+						{systemConversion && (
+							<div className="mt-0.5 text-[10px] text-muted-foreground/80">
+								≈ {systemConversion}
+							</div>
+						)}
 					</div>
 					<div>
 						<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -278,6 +329,11 @@ export function StockTakeLineRow({
 								</div>
 							)}
 						</div>
+						{countedConversion && (
+							<div className="mt-0.5 text-[10px] text-muted-foreground/80">
+								≈ {countedConversion}
+							</div>
+						)}
 					</div>
 				</div>
 
@@ -387,36 +443,55 @@ export function StockTakeLineRow({
 				</div>
 			</td>
 			<td className="px-3 py-2.5 align-middle text-right">
-				<span className="tabular text-fluid-caption font-medium text-foreground">
-					{formatQty(line.system_qty, line.item.unit)}
-				</span>
-				<span className="ml-1 text-[10px] text-muted-foreground/70">
-					{line.item.unit}
-				</span>
+				<div>
+					<span className="tabular text-fluid-caption font-medium text-foreground">
+						{formatQty(line.system_qty, line.item.unit)}
+					</span>
+					<span className="ml-1 text-[10px] text-muted-foreground/70">
+						{line.item.unit}
+					</span>
+				</div>
+				{systemConversion && (
+					<div className="text-[10px] text-muted-foreground/70">
+						≈ {systemConversion}
+					</div>
+				)}
 			</td>
 			<td className="px-3 py-2.5 align-middle">
 				{editable ? (
-					<div className="relative mx-auto w-32">
-						<input
-							type="number"
-							inputMode={isFractional ? "decimal" : "numeric"}
-							min={0}
-							step={stepAttr}
-							value={counted}
-							onChange={(e) => setCounted(e.target.value)}
-							onBlur={handleBlur}
-							placeholder="—"
-							className="h-9 w-full rounded-md border border-border-default bg-background px-2 pr-9 text-right text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-						/>
-						<span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-							{line.item.unit}
-						</span>
+					<div className="mx-auto w-32 space-y-1">
+						<div className="relative">
+							<input
+								type="number"
+								inputMode={isFractional ? "decimal" : "numeric"}
+								min={0}
+								step={stepAttr}
+								value={counted}
+								onChange={(e) => setCounted(e.target.value)}
+								onBlur={handleBlur}
+								placeholder="—"
+								className="h-9 w-full rounded-md border border-border-default bg-background px-2 pr-9 text-right text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+							/>
+							<span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+								{line.item.unit}
+							</span>
+						</div>
+						{countedConversion && (
+							<div className="text-right text-[10px] text-muted-foreground/70">
+								≈ {countedConversion}
+							</div>
+						)}
 					</div>
 				) : (
 					<div className="text-center tabular text-fluid-caption">
 						{countedNum === null
 							? "—"
 							: `${formatQty(countedNum, line.item.unit)} ${line.item.unit}`}
+						{countedConversion && (
+							<div className="text-[10px] text-muted-foreground/70">
+								≈ {countedConversion}
+							</div>
+						)}
 					</div>
 				)}
 			</td>

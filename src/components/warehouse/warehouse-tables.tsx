@@ -154,6 +154,15 @@ function StockStateBadge({ state }: { state: StockState }) {
 	);
 }
 
+function lembarLabel(key: string): string {
+	if (!key.startsWith("lembar_")) return key.replace(/_/g, " ");
+	const suffix = key.slice("lembar_".length);
+	if (suffix === "4r") return "lembar 4R";
+	if (suffix === "2r") return "lembar 2R";
+	if (suffix === "polaroid") return "lembar Polaroid";
+	return `lembar ${suffix.toUpperCase()}`;
+}
+
 function formatStockDisplay(
 	stock: number,
 	unit: string,
@@ -169,14 +178,16 @@ function formatStockDisplay(
 	const rollDisplay = `${Number(stock).toLocaleString("id-ID", {
 		maximumFractionDigits: 3,
 	})} roll`;
+	// Always include every alt-unit in the conversion, even when capacity = 0.
+	// Owner reading "0 roll" needs to see "0 lembar 4R atau 0 lembar 2R" to
+	// remember that this SKU IS a roll-based mediaset.
 	const capacities: string[] = [];
 	for (const [k, mult] of Object.entries(conversion)) {
 		if (k === "roll") continue;
 		const capacity = Math.floor(stock * mult);
-		if (capacity > 0) {
-			const label = k.replace(/^lembar_/, "prints ").replace("_", " ");
-			capacities.push(`${capacity.toLocaleString("id-ID")} ${label}`);
-		}
+		capacities.push(
+			`${capacity.toLocaleString("id-ID")} ${lembarLabel(k)}`,
+		);
 	}
 	return {
 		primary: rollDisplay,
