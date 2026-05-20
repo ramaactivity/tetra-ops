@@ -496,7 +496,85 @@ Old: 7.5/10.
 
 ## 5. Finance (`/finance` + `/finance/vendors`)
 
-*Pending.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — AUDIT_SCREENSHOTS/05a-finance-1280.png, 05b-finance-vendors-1280.png, mobile variants]`
+- **Routes:**
+  - `/finance` — main dashboard
+  - `/finance/vendors` — vendor commission summary
+- **LOC:**
+  - [src/app/(owner)/finance/page.tsx](src/app/(owner)/finance/page.tsx) — **791 LOC monolith** (P1 in old audit, still standing)
+  - [src/app/(owner)/finance/vendors/page.tsx](src/app/(owner)/finance/vendors/page.tsx) — verify separately
+  - [src/components/finance/vendors-list-table.tsx](src/components/finance/vendors-list-table.tsx) — 140 LOC
+  - [src/components/finance/withdrawal-button.tsx](src/components/finance/withdrawal-button.tsx) — 265 LOC
+- **Primitive usage:** `<Container size="xl">` ✓ · `<SectionHeader>` legacy · `<KpiCard>` ×4 ✓ · `<Badge>` ad-hoc. **No EmptyState, no PageHeader, no SectionCard.**
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader | 1/5 | Legacy. |
+| SectionCard | 1/5 | Settlement table + sinking fund + owner pool + withdrawal — all in bare divs. |
+| FieldGrid | 1/5 | Withdrawal form (`withdrawal-button.tsx`, 265 LOC) uses inline labeled inputs. |
+| KpiRow | 3/5 | Inline grid, not wrapped. |
+| KpiCard | 5/5 | ✓ |
+| Status badges | 2/5 | Ad-hoc `<Badge>` variants instead of typed status badges. |
+| Empty states | 1/5 | Bare italic gray "tidak ada" text. |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.6)
+
+Old: 7.3/10 — **strong backend, 4 critical UX gaps. Most P0-dense module after Warehouse.**
+
+| Old P0 finding | Status | Evidence |
+| -------------- | ------ | -------- |
+| **No OpEx input UI** (sewa kantor, internet, asuransi) | ❌ Outstanding | grep "opex" in src — no input form found. Owner still cannot record non-event expenses. **Feature gap, not design.** Must decide for v3 scope: include or defer? |
+| **No journal entry browser** — GL blackbox | ❌ Outstanding | No `/finance/journal` or `/finance/gl` route. journal_entries/journal_lines populated but un-surfaced. **Feature gap.** |
+| **No chart of accounts management UI** | ❌ Outstanding | No `/finance/accounts` or `/settings/chart-of-accounts` route. 68 accounts seeded read-only. **Feature gap.** |
+| **No bank reconciliation** | ❌ Outstanding | No `/finance/reconciliation` route. **Feature gap.** |
+| N+1 sinking fund RPC | ❓ Verify | Read sinking funds query. |
+| Vendor page missing sort/filter | ❓ Verify | vendors-list-table.tsx 140 LOC — read for filter UI |
+| Owner pool withdrawal terse | ⚠️ Same | withdrawal-button.tsx 265 LOC modal — no history visible alongside |
+| Sinking fund UI split across 3 views | ❌ Outstanding | settings/sinking-funds/{list,movements} + finance dashboard summary |
+
+### D. Module-Specific Anti-Patterns
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-xl` | 1 | [vendors-list-table.tsx:132](src/components/finance/vendors-list-table.tsx#L132) — mobile card wrapper, should be `rounded-lg` |
+| `transition-all` | 1 | [finance/page.tsx:536](src/app/(owner)/finance/page.tsx#L536) — progress bar fill |
+| NativeSelect | 2 | [withdrawal-button.tsx:103, 228](src/components/finance/withdrawal-button.tsx#L103) |
+| Hardcoded eyebrow | 0 | — |
+| 791 LOC monolith | yes | finance/page.tsx — old §2.5 still applies |
+
+### E. Module-Specific Primitive Needs
+
+**This module has the largest v3 primitive demand** because the P0 feature gaps unlock new surfaces.
+
+- **`<JournalEntry>` / `<JournalLine>`** — debit/credit row pair with account lookup + amount + memo. **Required for journal browser P0.**
+- **`<AccountPicker>`** — autocomplete + filter by account type (asset/liability/equity/income/expense). **Required for CoA management + OpEx form.**
+- **`<TransactionList>` / `<LedgerRow>`** — chronological group-by-date with running balance column. **Required for journal browser + bank reconciliation.**
+- **`<ReconciliationTable>`** — 2-column "bank statement | gl entries" with match toggles. **Required for bank reconciliation.**
+- **`<OpExForm>` composite** — date + account + amount + vendor + receipt. **Required for OpEx input.**
+- **`<PeriodFilter>` (could be a v3-generalized DateRangePicker)** — used here + Reports. Currently a hand-rolled month picker.
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** ledger / financial dashboard (the most complex pattern in the app)
+- **v3 migration effort:**
+  - **Design refactor only**: ~10-14 hours (PageHeader + SectionCard + KpiRow + FieldGrid + 2 NativeSelect swap + EmptyState + rounded-xl fix + monolith split into per-section files)
+  - **Plus P0 feature work**: each P0 gap is its own multi-day workstream:
+    - OpEx input UI: 2-3 days (form + server action + journal posting + tests)
+    - Journal browser: 3-4 days (paginated GL viewer + filters + drill-down)
+    - CoA management: 2-3 days (CRUD + activation toggle + integrity guards)
+    - Bank reconciliation: 4-5 days (matching algorithm + UI + audit trail)
+- **Migration risk:** **HIGH** (if including P0 feature work) — touches journal_entries / journal_lines, server actions, GL invariants. **LOW** if design refactor only.
+- **Pre-requisites for v3:** 6 new primitives listed in §E (3-4 days to build the primitive set).
+- **Suggested order in v3 rollout:**
+  - **Week 1**: build the 6 new primitives in `_shared/` (defer feature work)
+  - **Week 4**: Finance design refactor (after Reports lands — they share KpiRow patterns)
+  - **Week 5+**: P0 feature work as **separate post-v3 epics** — do NOT bundle with v3 design migration (HIGH risk).
+
+**This is the single biggest decision in `AUDIT_DECISION_INPUT.md`:** does v3 scope include closing Finance P0 feature gaps, or only design refactor?
 
 ---
 
