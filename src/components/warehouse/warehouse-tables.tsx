@@ -3,6 +3,7 @@
 import {
 	ArrowDownToLine,
 	ArrowUpFromLine,
+	Calendar,
 	Equal,
 	Layers,
 	Package,
@@ -10,6 +11,7 @@ import {
 	Search,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ArchiveItemButton } from "@/components/items/archive-button";
 import { Badge } from "@/components/ui/badge";
@@ -719,11 +721,13 @@ export type MovementRow = {
 	item_id: string;
 	direction: "in" | "out" | "adjustment";
 	quantity: number;
+	unit_cost: number | null;
 	source: string;
 	notes: string | null;
 	created_at: string;
 	performed_by_user: { full_name: string } | null;
 	item: { name: string; sku: string; unit: string } | null;
+	supplier: { name: string } | null;
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -749,7 +753,15 @@ const MOVEMENT_DIR_OPTIONS: ReadonlyArray<{
 	{ key: "adjustment", label: "Koreksi" },
 ];
 
-export function MovementsLog({ rows }: { rows: MovementRow[] }) {
+export function MovementsLog({
+	rows,
+	defaultFrom,
+	defaultTo,
+}: {
+	rows: MovementRow[];
+	defaultFrom?: string;
+	defaultTo?: string;
+}) {
 	const [query, setQuery] = useState("");
 	const [dirFilter, setDirFilter] = useState<MovementDirFilter>("all");
 	const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -871,16 +883,49 @@ export function MovementsLog({ rows }: { rows: MovementRow[] }) {
 			),
 		},
 		{
+			key: "nilai",
+			header: "Nilai",
+			align: "right",
+			hideOnMobile: true,
+			render: (m) => {
+				if (!m.unit_cost || m.unit_cost === 0) {
+					return <span className="text-muted-foreground/40">—</span>;
+				}
+				const value = m.quantity * m.unit_cost;
+				return (
+					<span
+						className={`tabular text-fluid-caption font-medium ${
+							m.direction === "in"
+								? "text-emerald-600 dark:text-emerald-400"
+								: m.direction === "out"
+									? "text-rose-600 dark:text-rose-400"
+									: "text-foreground"
+						}`}
+					>
+						{m.direction === "in" ? "+" : m.direction === "out" ? "−" : ""}
+						Rp {value.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+					</span>
+				);
+			},
+		},
+		{
 			key: "source",
 			header: "Sumber",
 			hideOnMobile: true,
 			render: (m) => (
-				<Badge
-					variant="outline"
-					className="h-5 px-1.5 text-[10px] text-muted-foreground"
-				>
-					{SOURCE_LABELS[m.source] ?? m.source}
-				</Badge>
+				<div className="space-y-0.5">
+					<Badge
+						variant="outline"
+						className="h-5 px-1.5 text-[10px] text-muted-foreground"
+					>
+						{SOURCE_LABELS[m.source] ?? m.source}
+					</Badge>
+					{m.supplier && (
+						<div className="text-[10px] text-muted-foreground/80">
+							{m.supplier.name}
+						</div>
+					)}
+				</div>
 			),
 		},
 		{
@@ -907,6 +952,10 @@ export function MovementsLog({ rows }: { rows: MovementRow[] }) {
 
 	return (
 		<div className="space-y-3">
+			<MovementsDateFilter
+				defaultFrom={defaultFrom}
+				defaultTo={defaultTo}
+			/>
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<SearchInput
 					value={query}
@@ -946,6 +995,65 @@ export function MovementsLog({ rows }: { rows: MovementRow[] }) {
 						columns={columns}
 					/>
 				</div>
+			)}
+		</div>
+	);
+}
+
+function MovementsDateFilter({
+	defaultFrom,
+	defaultTo,
+}: {
+	defaultFrom?: string;
+	defaultTo?: string;
+}) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+
+	function update(field: "from" | "to", value: string) {
+		const params = new URLSearchParams(searchParams.toString());
+		if (value) params.set(field, value);
+		else params.delete(field);
+		params.set("tab", "movements");
+		router.push(`${pathname}?${params.toString()}`);
+	}
+
+	function clear() {
+		const params = new URLSearchParams(searchParams.toString());
+		params.delete("from");
+		params.delete("to");
+		params.set("tab", "movements");
+		router.push(`${pathname}?${params.toString()}`);
+	}
+
+	const hasFilter = !!(defaultFrom || defaultTo);
+
+	return (
+		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-surface-2 p-2 text-fluid-caption">
+			<Calendar className="size-3.5 text-muted-foreground" />
+			<span className="text-muted-foreground">Periode:</span>
+			<input
+				type="date"
+				defaultValue={defaultFrom ?? ""}
+				onChange={(e) => update("from", e.target.value)}
+				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+			/>
+			<span className="text-muted-foreground">→</span>
+			<input
+				type="date"
+				defaultValue={defaultTo ?? ""}
+				onChange={(e) => update("to", e.target.value)}
+				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+			/>
+			{hasFilter && (
+				<button
+					type="button"
+					onClick={clear}
+					className="press-down inline-flex h-8 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+				>
+					Reset
+				</button>
 			)}
 		</div>
 	);

@@ -4,6 +4,8 @@ import {
 	ClipboardCheck,
 	Layers,
 	Plus,
+	ShoppingCart,
+	Truck,
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
@@ -12,6 +14,12 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
+import { MarketListTable } from "@/components/warehouse/market-list/market-list-table";
+import type {
+	MarketListEntry,
+	MarketListItem,
+	SupplierOption,
+} from "@/components/warehouse/market-list/market-list-table";
 import {
 	type ConsumableRow,
 	ConsumablesTable,
@@ -44,7 +52,7 @@ function computeStock(itemId: string, movements: MovementAgg[]): number {
 export default async function WarehousePage({
 	searchParams,
 }: {
-	searchParams: Promise<{ tab?: string }>;
+	searchParams: Promise<{ tab?: string; from?: string; to?: string }>;
 }) {
 	const params = await searchParams;
 	const tab = params.tab?.trim() || "consumables";
@@ -97,39 +105,120 @@ export default async function WarehousePage({
 
 	let movementsLog: MovementRow[] = [];
 	if (tab === "movements") {
-		const { data } = await supabase
+		const fromDate = params.from?.trim();
+		const toDate = params.to?.trim();
+		let mq = supabase
 			.from("stock_movements")
 			.select(
 				`
-				id, ref_id, item_id, direction, quantity, source, notes, created_at,
+				id, ref_id, item_id, direction, quantity, unit_cost, source, supplier_id,
+				notes, created_at,
 				performed_by_user:users!stock_movements_performed_by_fkey(full_name),
-				item:inventory_items!stock_movements_item_id_fkey(name, sku, unit)
+				item:inventory_items!stock_movements_item_id_fkey(name, sku, unit),
+				supplier:suppliers!stock_movements_supplier_id_fkey(name)
 			`,
 			)
 			.order("created_at", { ascending: false })
-			.limit(100);
+			.limit(200);
+		if (fromDate) mq = mq.gte("created_at", fromDate);
+		if (toDate) {
+			const end = new Date(toDate);
+			end.setHours(23, 59, 59, 999);
+			mq = mq.lte("created_at", end.toISOString());
+		}
+		const { data } = await mq;
 		movementsLog = (data ?? []).map((m) => ({
 			...m,
 			performed_by_user: Array.isArray(m.performed_by_user)
 				? m.performed_by_user[0]
 				: m.performed_by_user,
 			item: Array.isArray(m.item) ? m.item[0] : m.item,
+			supplier: Array.isArray(m.supplier) ? m.supplier[0] : m.supplier,
 		})) as MovementRow[];
+	}
+
+	// Market List data
+	let marketItems: MarketListItem[] = [];
+	let marketEntries: MarketListEntry[] = [];
+	let marketSuppliers: SupplierOption[] = [];
+	if (tab === "market") {
+		const [itemsRes, entriesRes, suppliersRes] = await Promise.all([
+			supabase
+				.from("inventory_items")
+				.select(
+					"id, sku, name, unit, unit_conversion, purchase_price_avg",
+				)
+				.eq("category", "consumable")
+				.is("deleted_at", null)
+				.eq("is_active", true)
+				.order("name"),
+			supabase
+				.from("supplier_prices")
+				.select(
+					"id, supplier_id, item_id, pack_price, pack_size, pack_unit, is_primary, notes, supplier:suppliers!supplier_prices_supplier_id_fkey(name)",
+				),
+			supabase
+				.from("suppliers")
+				.select("id, name")
+				.is("deleted_at", null)
+				.eq("is_active", true)
+				.order("name"),
+		]);
+		marketItems = (itemsRes.data ?? []) as MarketListItem[];
+		marketEntries = ((entriesRes.data ?? []) as Array<{
+			id: string;
+			supplier_id: string;
+			item_id: string;
+			pack_price: number;
+			pack_size: number | string;
+			pack_unit: string;
+			is_primary: boolean;
+			notes: string | null;
+			supplier: { name: string } | { name: string }[] | null;
+		}>).map((r) => {
+			const sup = Array.isArray(r.supplier) ? r.supplier[0] : r.supplier;
+			return {
+				id: r.id,
+				supplier_id: r.supplier_id,
+				supplier_name: sup?.name ?? "—",
+				item_id: r.item_id,
+				pack_price: Number(r.pack_price),
+				pack_size: Number(r.pack_size),
+				pack_unit: r.pack_unit,
+				is_primary: r.is_primary,
+				notes: r.notes,
+			};
+		});
+		marketSuppliers = (suppliersRes.data ?? []) as SupplierOption[];
 	}
 
 	return (
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Warehouse"
-				description="Track stok consumables, equipment, dan log mutasi."
+				description="Track stok consumables, equipment, supplier, dan log mutasi."
 				actions={
 					<>
+						<Link
+							href="/warehouse/suppliers"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<Truck className="size-4" />
+							Supplier
+						</Link>
+						<Link
+							href="/warehouse/purchase-requests"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<ShoppingCart className="size-4" />
+							Permintaan
+						</Link>
 						<Link
 							href="/warehouse/stock-take"
 							className={buttonVariants({ variant: "outline", size: "sm" })}
 						>
 							<ClipboardCheck className="size-4" />
-							Stock Take
+							Stock Opname
 						</Link>
 						<Link
 							href="/warehouse/items/new"
@@ -183,7 +272,20 @@ export default async function WarehousePage({
 					/>
 				)}
 				{tab === "equipment" && <EquipmentTable rows={equipment} />}
-				{tab === "movements" && <MovementsLog rows={movementsLog} />}
+				{tab === "market" && (
+					<MarketListTable
+						items={marketItems}
+						entries={marketEntries}
+						suppliers={marketSuppliers}
+					/>
+				)}
+				{tab === "movements" && (
+					<MovementsLog
+						rows={movementsLog}
+						defaultFrom={params.from}
+						defaultTo={params.to}
+					/>
+				)}
 			</div>
 		</Container>
 	);
