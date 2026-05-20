@@ -13,29 +13,49 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-	INPUT_CLASS,
-	MoneyInput,
-	NumberField,
-	TextareaField,
-} from "@/components/ui/form-fields";
+import { NumberField, TextareaField } from "@/components/ui/form-fields";
 import {
 	addStockMovement,
 	type StockMovementFormState,
 } from "@/lib/actions/stock-movements";
+import { formatRupiah } from "@/lib/format";
 
 /**
- * Inventory v2 (2026-05-21): `purchase` source is no longer here — that flow
- * is now in <RestockDialog/> with unit-toggle support. Keeping this list to
- * the corrective / loss / transfer cases the Adjust dialog is purpose-built for.
+ * Adjust dialog (Inventory v2): purchases moved to <RestockDialog />. This is
+ * for correction-style movements only — damage, loss, manual adjust, transfer,
+ * stock-take. No weighted-avg updates here.
  */
-const SOURCES = [
-	{ value: "manual_adjust", label: "Manual Adjust (correction)" },
-	{ value: "damage", label: "Damage" },
-	{ value: "loss", label: "Loss" },
-	{ value: "stock_take", label: "Stock Take (rare — usually auto via commit_stock_take)" },
-	{ value: "transfer", label: "Transfer" },
-] as const;
+const SOURCES: ReadonlyArray<{
+	value: string;
+	label: string;
+	hint: string;
+}> = [
+	{
+		value: "manual_adjust",
+		label: "Manual Adjust",
+		hint: "Koreksi karena salah catat sebelumnya.",
+	},
+	{
+		value: "damage",
+		label: "Damage",
+		hint: "Stok rusak — keluar tanpa terjual.",
+	},
+	{
+		value: "loss",
+		label: "Loss",
+		hint: "Stok hilang / tercecer.",
+	},
+	{
+		value: "stock_take",
+		label: "Stock Opname",
+		hint: "Biasanya auto via Commit di /warehouse/stock-take. Pakai manual cuma kalau ada koreksi standalone.",
+	},
+	{
+		value: "transfer",
+		label: "Transfer",
+		hint: "Pindah lokasi/gudang.",
+	},
+];
 
 export function StockAdjustDialog({
 	itemId,
@@ -58,20 +78,19 @@ export function StockAdjustDialog({
 	>(action, undefined);
 
 	const [direction, setDirection] = useState<"in" | "out" | "adjustment">("in");
-	const [source, setSource] = useState<string>("purchase");
-	// Track submission attempts so we only close the dialog on a CLEAN result
-	// (success = no errors, no _form error). Previous version closed
-	// optimistically inside the form action, so users never saw validation
-	// errors (negative-stock guard, missing unit_cost) when they fired.
+	const [source, setSource] = useState<string>("manual_adjust");
+	const [qtyInput, setQtyInput] = useState<string>("");
 	const [submitTick, setSubmitTick] = useState(0);
 
 	useEffect(() => {
-		if (submitTick === 0) return;
-		if (pending) return;
+		if (submitTick === 0 || pending) return;
 		const hasErrors =
 			state?.errors &&
 			Object.values(state.errors).some((arr) => arr && arr.length > 0);
-		if (!hasErrors) setOpen(false);
+		if (!hasErrors) {
+			setOpen(false);
+			setQtyInput("");
+		}
 	}, [submitTick, pending, state]);
 
 	const get = (key: string, fallback?: string) =>
@@ -82,28 +101,36 @@ export function StockAdjustDialog({
 		)?.[0];
 
 	const formError = state?.errors?._form?.[0];
-	// Inventory v2 — Adjust dialog no longer handles purchases; purchase
-	// has its own <RestockDialog/>. Unit cost is therefore always optional
-	// here (used only when correcting via 'manual_adjust' with a known cost).
-	const purchaseInRequiresCost = false;
+
+	const qtyNum = Number(qtyInput);
+	const qtyValid = Number.isFinite(qtyNum) && qtyNum > 0;
+	const stockAfter = qtyValid
+		? direction === "in"
+			? currentStock + qtyNum
+			: direction === "out"
+				? currentStock - qtyNum
+				: currentStock + qtyNum
+		: currentStock;
+	const sourceHint = SOURCES.find((s) => s.value === source)?.hint;
+	const willGoNegative = direction === "out" && stockAfter < 0;
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger
-				className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 text-xs font-medium transition-colors"
-				title="Adjust stock"
+				className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+				title="Adjust stock (damage / loss / manual)"
 			>
 				<Sliders className="h-3.5 w-3.5" />
 				Adjust
 			</DialogTrigger>
 			<DialogContent className="max-w-md">
 				<DialogHeader>
-					<DialogTitle>Adjust Stock</DialogTitle>
+					<DialogTitle className="flex items-center gap-2">
+						<Sliders className="size-5 text-primary" aria-hidden />
+						Adjust Stok
+					</DialogTitle>
 					<DialogDescription>
-						{itemName} · stok saat ini{" "}
-						<span className="text-foreground font-semibold tabular">
-							{currentStock} {itemUnit}
-						</span>
+						{itemName} — koreksi non-pembelian (damage / loss / manual).
 					</DialogDescription>
 				</DialogHeader>
 
@@ -115,14 +142,25 @@ export function StockAdjustDialog({
 					className="space-y-4"
 				>
 					{formError && (
-						<div className="border-destructive bg-destructive/10 rounded-md border p-3">
-							<p className="text-destructive text-sm font-medium">
+						<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+							<p className="text-sm font-medium text-destructive">
 								{formError}
 							</p>
 						</div>
 					)}
 
-					<div className="border-border-default bg-muted/30 grid grid-cols-3 gap-1 rounded-md border p-1">
+					{/* Current stock context */}
+					<div className="flex items-center justify-between rounded-md border border-border-default bg-surface-2/60 px-3 py-2 text-fluid-caption">
+						<span className="text-muted-foreground">Stok saat ini</span>
+						<span className="tabular font-semibold text-foreground">
+							{currentStock.toLocaleString("id-ID", {
+								maximumFractionDigits: 4,
+							})}{" "}
+							{itemUnit}
+						</span>
+					</div>
+
+					<div className="grid grid-cols-3 gap-1 rounded-md border border-border-default bg-muted/30 p-1">
 						<DirOption
 							selected={direction === "in"}
 							onClick={() => setDirection("in")}
@@ -161,6 +199,7 @@ export function StockAdjustDialog({
 								step={1}
 								required
 								defaultValue={get("quantity")}
+								onChange={(e) => setQtyInput(e.target.value)}
 								placeholder="10"
 								autoFocus
 								aria-invalid={!!err("quantity")}
@@ -171,8 +210,11 @@ export function StockAdjustDialog({
 							<Combobox
 								id="source"
 								value={source}
-								onValueChange={setSource}
-								options={SOURCES.map((s) => ({ value: s.value, label: s.label }))}
+								onValueChange={(v) => setSource(v ?? "manual_adjust")}
+								options={SOURCES.map((s) => ({
+									value: s.value,
+									label: s.label,
+								}))}
 								placeholder="— pilih sumber —"
 								allowFreeText={false}
 								aria-invalid={!!err("source")}
@@ -181,17 +223,18 @@ export function StockAdjustDialog({
 						</Field>
 					</div>
 
+					{sourceHint && (
+						<div className="rounded-md border border-border-default/60 bg-secondary/40 p-2.5 text-[12px] text-muted-foreground">
+							{sourceHint}
+						</div>
+					)}
+
 					{direction === "in" && (
 						<Field
 							label="Unit Cost"
 							name="unit_cost"
 							error={err("unit_cost")}
-							required={purchaseInRequiresCost}
-							hint={
-								purchaseInRequiresCost
-									? `Wajib untuk source=purchase biar weighted-avg cost akurat. Avg saat ini: ${formatIDR(avgCost)}.`
-									: `Avg saat ini: ${formatIDR(avgCost)}. Kosongkan jika tidak update harga.`
-							}
+							hint={`Optional — biasanya kosongin. Avg saat ini: ${formatRupiah(avgCost)}.`}
 						>
 							<div className="relative">
 								<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
@@ -202,7 +245,6 @@ export function StockAdjustDialog({
 									name="unit_cost"
 									min={0}
 									step={1}
-									required={purchaseInRequiresCost}
 									defaultValue={get("unit_cost")}
 									placeholder="0"
 									className="pl-9"
@@ -210,6 +252,55 @@ export function StockAdjustDialog({
 								/>
 							</div>
 						</Field>
+					)}
+
+					{/* Live preview */}
+					{qtyValid && (
+						<div
+							className={`rounded-lg border p-3 text-fluid-caption ${
+								willGoNegative
+									? "border-rose-500/40 bg-rose-500/10"
+									: direction === "in"
+										? "border-emerald-500/30 bg-emerald-500/5"
+										: direction === "out"
+											? "border-rose-500/25 bg-rose-500/5"
+											: "border-amber-500/30 bg-amber-500/5"
+							}`}
+						>
+							<div
+								className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${
+									willGoNegative
+										? "text-rose-700 dark:text-rose-300"
+										: direction === "in"
+											? "text-emerald-700 dark:text-emerald-300"
+											: direction === "out"
+												? "text-rose-700 dark:text-rose-300"
+												: "text-amber-700 dark:text-amber-300"
+								}`}
+							>
+								Setelah Adjust
+							</div>
+							<dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+								<dt className="text-muted-foreground">Stok jadi</dt>
+								<dd
+									className={`text-right tabular font-medium ${
+										stockAfter < 0
+											? "text-rose-600 dark:text-rose-400"
+											: "text-foreground"
+									}`}
+								>
+									{stockAfter.toLocaleString("id-ID", {
+										maximumFractionDigits: 4,
+									})}{" "}
+									{itemUnit}
+								</dd>
+							</dl>
+							{willGoNegative && (
+								<p className="mt-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+									⚠ Stok akan jadi minus — server akan tolak save (negative-stock guard).
+								</p>
+							)}
+						</div>
 					)}
 
 					<Field
@@ -229,15 +320,15 @@ export function StockAdjustDialog({
 					</Field>
 
 					<DialogFooter>
-						<DialogClose className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
+						<DialogClose className="inline-flex h-10 items-center rounded-md border border-border-default bg-surface-2 px-4 text-sm font-medium hover:bg-muted">
 							Batal
 						</DialogClose>
 						<button
 							type="submit"
 							disabled={pending}
-							className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+							className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
 						>
-							{pending ? "Menyimpan…" : "Catat movement"}
+							{pending ? "Menyimpan…" : "Catat Adjust"}
 						</button>
 					</DialogFooter>
 				</form>
@@ -281,11 +372,6 @@ function DirOption({
 	);
 }
 
-function formatIDR(value: number): string {
-	if (!value) return "Rp 0";
-	return `Rp ${value.toLocaleString("id-ID")}`;
-}
-
 function Field({
 	label,
 	name,
@@ -305,13 +391,13 @@ function Field({
 		<div className="space-y-1.5">
 			<label htmlFor={name} className="text-sm font-medium">
 				{label}
-				{required && <span className="text-primary ml-0.5">*</span>}
+				{required && <span className="ml-0.5 text-primary">*</span>}
 			</label>
 			{children}
 			{error ? (
-				<p className="text-destructive text-xs">{error}</p>
+				<p className="text-xs text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-muted-foreground text-xs">{hint}</p>
+				<p className="text-xs text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
 	);

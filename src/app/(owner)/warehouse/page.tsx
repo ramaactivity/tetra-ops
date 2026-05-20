@@ -144,30 +144,30 @@ export default async function WarehousePage({
 
 			<KpiRow>
 				<KpiCard
-					label="Total Valuasi HPP"
+					label="Nilai HPP Stok"
 					value={formatRupiah(totalHpp)}
-					hint="Stok × harga avg"
+					hint="Σ (stok × harga avg)"
 					icon={Wallet2}
 					accent="primary"
 				/>
 				<KpiCard
-					label="Semua SKU"
+					label="SKU Aktif"
 					value={totalSkus.toLocaleString("id-ID")}
-					hint="Consumables + equipment"
+					hint={`${consumables.length} consumable · ${equipment.length} equipment`}
 					icon={Layers}
 					accent="sky"
 				/>
 				<KpiCard
 					label="Stok Kritis"
 					value={criticalCount.toLocaleString("id-ID")}
-					hint="≤ min_stock_alert"
+					hint="≤ min alert (perlu restock)"
 					icon={AlertTriangle}
 					accent="amber"
 				/>
 				<KpiCard
 					label="Stok Habis"
 					value={emptyCount.toLocaleString("id-ID")}
-					hint="Stok ≤ 0"
+					hint="stok 0 atau minus"
 					icon={AlertOctagon}
 					accent="rose"
 				/>

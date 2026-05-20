@@ -18,23 +18,22 @@ import {
 	addStockMovement,
 	type StockMovementFormState,
 } from "@/lib/actions/stock-movements";
+import { formatRupiah } from "@/lib/format";
 
 /**
  * <RestockDialog /> — buy-stock-purpose-built variant of stock movement form.
  *
- * Scoped to direction='in' + source='purchase'. Lets owner type quantity in
- * the unit they prefer (roll OR a derived unit from inventory_items.unit_conversion)
- * — server converts via JSONB lookup. Unit cost is per-chosen-unit; server
- * converts to per-base-unit and updates weighted-avg cost.
+ * Locked to direction='in' + source='purchase'. User types qty in their unit
+ * of choice (when unit_conversion exists), server converts to base. Unit cost
+ * is per-chosen-unit; server converts to per-base-unit for weighted-avg.
  *
- * Use this instead of the generic Adjust dialog when the user is recording
- * a purchase. Adjust stays for: damage, loss, manual correction, stock-take.
+ * Adds a live "Setelah restock" preview so owner sees total cost + new stock
+ * before submitting.
  */
-
 interface RestockDialogProps {
 	itemId: string;
 	itemName: string;
-	itemUnit: string; // base unit (e.g. "roll", "pcs")
+	itemUnit: string;
 	unitConversion: Record<string, number> | null;
 	currentStock: number;
 	avgCost: number;
@@ -55,7 +54,6 @@ export function RestockDialog({
 		FormData
 	>(action, undefined);
 
-	// Unit picker: keys of unit_conversion (base unit + alt units). Default = base.
 	const unitOptions = unitConversion
 		? Object.keys(unitConversion)
 		: [itemUnit];
@@ -63,14 +61,32 @@ export function RestockDialog({
 	const conversionFactor = unitConversion?.[chosenUnit] ?? 1;
 	const isBaseUnit = chosenUnit === itemUnit;
 
-	// Submission close-on-success (same pattern as stock-adjust-dialog Sprint B.3)
+	const [qtyInput, setQtyInput] = useState<string>("");
+	const [costInput, setCostInput] = useState<string>("");
+
+	const qtyNum = Number(qtyInput);
+	const costNum = Number(costInput);
+	const qtyValid = Number.isFinite(qtyNum) && qtyNum > 0;
+	const costValid = Number.isFinite(costNum) && costNum >= 0;
+	const baseQty = qtyValid ? qtyNum * conversionFactor : 0;
+	const totalCost = qtyValid && costValid ? qtyNum * costNum : 0;
+	const stockAfter = currentStock + baseQty;
+	const newAvgCost =
+		qtyValid && costValid && stockAfter > 0
+			? (currentStock * avgCost + totalCost) / stockAfter
+			: avgCost;
+
 	const [submitTick, setSubmitTick] = useState(0);
 	useEffect(() => {
 		if (submitTick === 0 || pending) return;
 		const hasErrors =
 			state?.errors &&
 			Object.values(state.errors).some((arr) => arr && arr.length > 0);
-		if (!hasErrors) setOpen(false);
+		if (!hasErrors) {
+			setOpen(false);
+			setQtyInput("");
+			setCostInput("");
+		}
 	}, [submitTick, pending, state]);
 
 	const get = (key: string, fallback?: string) =>
@@ -98,11 +114,7 @@ export function RestockDialog({
 						Restock {itemName}
 					</DialogTitle>
 					<DialogDescription>
-						Catat pembelian stok baru. Stok saat ini:{" "}
-						<span className="tabular font-semibold text-foreground">
-							{currentStock.toLocaleString("id-ID", { maximumFractionDigits: 3 })}{" "}
-							{itemUnit}
-						</span>
+						Catat pembelian stok baru.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -114,16 +126,26 @@ export function RestockDialog({
 					className="space-y-4"
 				>
 					{formError && (
-						<div className="border-destructive bg-destructive/10 rounded-md border p-3">
-							<p className="text-destructive text-sm font-medium">
+						<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+							<p className="text-sm font-medium text-destructive">
 								{formError}
 							</p>
 						</div>
 					)}
 
-					{/* Locked direction + source — this is purchase-only */}
 					<input type="hidden" name="direction" value="in" />
 					<input type="hidden" name="source" value="purchase" />
+
+					{/* Current stock context */}
+					<div className="flex items-center justify-between rounded-md border border-border-default bg-surface-2/60 px-3 py-2 text-fluid-caption">
+						<span className="text-muted-foreground">Stok saat ini</span>
+						<span className="tabular font-semibold text-foreground">
+							{currentStock.toLocaleString("id-ID", {
+								maximumFractionDigits: 4,
+							})}{" "}
+							{itemUnit}
+						</span>
+					</div>
 
 					<div className="grid gap-3 sm:grid-cols-[1fr_auto]">
 						<Field
@@ -139,6 +161,7 @@ export function RestockDialog({
 								step={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
 								required
 								defaultValue={get("quantity")}
+								onChange={(e) => setQtyInput(e.target.value)}
 								placeholder={isBaseUnit && itemUnit === "roll" ? "2" : "10"}
 								autoFocus
 								aria-invalid={!!err("quantity")}
@@ -154,7 +177,7 @@ export function RestockDialog({
 								<Combobox
 									id="quantity_unit"
 									value={chosenUnit}
-									onValueChange={setChosenUnit}
+									onValueChange={(v) => setChosenUnit(v ?? itemUnit)}
 									options={unitOptions.map((u) => ({ value: u, label: u }))}
 									allowFreeText={false}
 									aria-invalid={!!err("quantity_unit")}
@@ -178,11 +201,15 @@ export function RestockDialog({
 					)}
 
 					<Field
-						label={`Unit Cost (Rp per ${chosenUnit})`}
+						label={`Harga / ${chosenUnit}`}
 						name="unit_cost"
 						error={err("unit_cost")}
 						required
-						hint={`Harga beli ${chosenUnit} ini. Avg saat ini (per ${itemUnit}): Rp ${avgCost.toLocaleString("id-ID")}.`}
+						hint={
+							avgCost > 0
+								? `Avg saat ini (per ${itemUnit}): ${formatRupiah(avgCost)}`
+								: "Belum ada harga rata-rata"
+						}
 					>
 						<div className="relative">
 							<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
@@ -195,12 +222,45 @@ export function RestockDialog({
 								step={1}
 								required
 								defaultValue={get("unit_cost")}
+								onChange={(e) => setCostInput(e.target.value)}
 								placeholder="0"
 								className="pl-9"
 								aria-invalid={!!err("unit_cost")}
 							/>
 						</div>
 					</Field>
+
+					{/* Live preview */}
+					{(qtyValid || costValid) && (
+						<div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-fluid-caption">
+							<div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+								Setelah Restock
+							</div>
+							<dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+								<dt className="text-muted-foreground">Stok jadi</dt>
+								<dd className="text-right tabular font-medium text-foreground">
+									{stockAfter.toLocaleString("id-ID", {
+										maximumFractionDigits: 4,
+									})}{" "}
+									{itemUnit}
+								</dd>
+								{qtyValid && costValid && (
+									<>
+										<dt className="text-muted-foreground">Total bayar</dt>
+										<dd className="text-right tabular font-medium text-foreground">
+											{formatRupiah(totalCost)}
+										</dd>
+										<dt className="text-muted-foreground">
+											Avg cost baru ({itemUnit})
+										</dt>
+										<dd className="text-right tabular font-medium text-foreground">
+											{formatRupiah(Math.round(newAvgCost))}
+										</dd>
+									</>
+								)}
+							</dl>
+						</div>
+					)}
 
 					<Field
 						label="Catatan"
@@ -218,13 +278,13 @@ export function RestockDialog({
 					</Field>
 
 					<DialogFooter>
-						<DialogClose className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium">
+						<DialogClose className="inline-flex h-10 items-center rounded-md border border-border-default bg-surface-2 px-4 text-sm font-medium hover:bg-muted">
 							Batal
 						</DialogClose>
 						<button
 							type="submit"
 							disabled={pending}
-							className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+							className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
 						>
 							{pending ? "Menyimpan…" : "Catat Restock"}
 						</button>
@@ -254,13 +314,13 @@ function Field({
 		<div className="space-y-1.5">
 			<label htmlFor={name} className="text-sm font-medium">
 				{label}
-				{required && <span className="text-primary ml-0.5">*</span>}
+				{required && <span className="ml-0.5 text-primary">*</span>}
 			</label>
 			{children}
 			{error ? (
-				<p className="text-destructive text-xs">{error}</p>
+				<p className="text-xs text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-muted-foreground text-xs">{hint}</p>
+				<p className="text-xs text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
 	);
