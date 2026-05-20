@@ -1761,6 +1761,7 @@ export function BookingForm({
 					label="Backdrop"
 					name="backdrop_id"
 					error={err("backdrop_id")}
+					layoutMode="grid"
 					hint={
 						selectedBackdrop?.type === "rental_owned"
 							? `Premium rental Tetra — auto-add ${formatRupiah(selectedBackdrop.rental_price)} ke grand total`
@@ -1813,6 +1814,7 @@ export function BookingForm({
 						name="vendor_decor_markup"
 						error={err("vendor_decor_markup")}
 						hint="Otomatis ditambahkan ke grand total. Default Rp 300k baseline."
+						layoutMode="grid"
 					>
 						<input
 							type="number"
