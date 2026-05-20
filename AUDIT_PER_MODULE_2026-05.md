@@ -174,7 +174,96 @@ Sections will be filled one commit at a time.
 
 ## 1. Dashboard (`/dashboard`)
 
-*Pending — next commit.*
+### A. Current State Snapshot
+
+- **Screenshots:** `[Screenshot pending — user provide AUDIT_SCREENSHOTS/01-dashboard-1280.png + 01-dashboard-375.png]`
+- **Routes:** single page — `/dashboard` (root `/` redirects). Has `loading.tsx`.
+- **LOC:**
+  - [src/app/(owner)/dashboard/page.tsx](src/app/(owner)/dashboard/page.tsx) — 535 LOC
+  - [src/app/(owner)/dashboard/loading.tsx](src/app/(owner)/dashboard/loading.tsx) — 63 LOC
+  - [src/components/dashboard/anomaly-radar.tsx](src/components/dashboard/anomaly-radar.tsx) — 186 LOC
+  - [src/components/dashboard/target-progress-card.tsx](src/components/dashboard/target-progress-card.tsx) — 110 LOC
+  - [src/components/dashboard/status-group-card.tsx](src/components/dashboard/status-group-card.tsx) — 88 LOC
+  - [src/components/dashboard/hero-kpi-card.tsx](src/components/dashboard/hero-kpi-card.tsx) — 130 LOC **(dead code — no consumers grep-confirmed)**
+- **Primitive usage in page.tsx:** `<Container size="xl">` ✓ · `<StatCard>` ×4 ✓ · `<EmptyState>` ×1 ✓ · `<EventStatusBadge>` ✓ · `<TargetProgressCard>` ×2 (dashboard-local) · `<StatusGroupCard>` ×2 (dashboard-local) · `<PipelineCard>` ×1 (operations-shared) · `<AnomalyRadarWidget>` ×1
+- **No data fetching from client:** 15 server-side Supabase queries Promise.all'd at line 71-225. Zero `useEffect` / `useState` in page.tsx.
+
+### B. Visual Hierarchy Audit
+
+| Item | Score | Note |
+| ---- | ----- | ---- |
+| PageHeader (v1) | 1/5 | Hand-rolled greeting block (page.tsx:243-252): eyebrow `<p className="font-mono text-[11px] uppercase tracking-[0.18em]">` + h1 with clamp() font-size. Pre-dates the v1 PageHeader primitive. |
+| SectionCard / CollapsibleCard | 1/5 | Five sections rendered as bare `<section className="space-y-X">` with hand-rolled eyebrow strips. No SectionCard wrapping. |
+| FieldGrid | n/a | Read-only dashboard, no forms. |
+| KpiRow | 3/5 | Uses correct `<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">` shape (matches KpiRow's spec), but doesn't import `<KpiRow>` — re-rolls the grid inline. |
+| StatCard | 5/5 | All 4 KPI tiles use `<StatCard>` ✓ |
+| Status badges | 5/5 | `<EventStatusBadge>` ✓ |
+| Empty states | 5/5 | `<EmptyState>` used at line 466 for "no upcoming events". ✓ |
+
+### C. P0 Gap Status (vs AUDIT_UI_UX.md §3.1)
+
+| Old finding | Status | Evidence |
+| ----------- | ------ | -------- |
+| `hover:-translate-y-px` on event card (page.tsx:408) | ✅ Fixed | grep returns zero hits in dashboard files |
+| `rounded-xl` overuse (4 different radius values) | ⚠️ Partially fixed | `rounded-2xl` gone; **`rounded-xl` still in 6 places**: [page.tsx:414, 516, 518](src/app/(owner)/dashboard/page.tsx#L414) + [status-group-card.tsx:44](src/components/dashboard/status-group-card.tsx#L44) + [hero-kpi-card.tsx:91](src/components/dashboard/hero-kpi-card.tsx#L91) + [target-progress-card.tsx:55](src/components/dashboard/target-progress-card.tsx#L55). All should be `rounded-lg` per DS §4.2. Effort to close: ~1h. |
+| No multi-owner real-time awareness | ❌ Outstanding | Foundation specced in DESIGN_SYSTEM §3.10 (optimistic-concurrency MVP for Phase 2). No live presence on dashboard. |
+| Heading hierarchy skip (no h2) | ❌ Outstanding | page.tsx:341, 390, 460 use h2 now ✓ — but the four eyebrow `<p>` lines above the KPI / Target / Status / Upcoming sections still don't have an accompanying h2. Mixed compliance. Effort: ~30min. |
+| AnomalyRadarWidget double getCurrentUser | ✅ Fixed | Widget now takes `userId` prop ([anomaly-radar.tsx:65](src/components/dashboard/anomaly-radar.tsx#L65)). Lifted to parent. |
+| Stale "crimson accent" comment line 244 | ✅ Fixed | grep returns zero hits |
+| Loading skeleton missing target + anomaly sections (CLS) | ⚠️ Partially fixed | loading.tsx has 4 KPI skeletons + 2 grid skeletons (63 LOC). Doesn't model the AnomalyRadar shape — minor CLS risk remains. Effort: 30min. |
+| Eyebrow font tracking `[0.18em]` doesn't match `.eyebrow` utility | ⚠️ Same | page.tsx still uses inline `font-mono text-[11px] uppercase tracking-[0.18em]` rather than the `.eyebrow` class (lint rule `no-hardcoded-eyebrow` doesn't fire because regex is narrower; visual diff exists). Effort: 15min find-replace. |
+| Target progress `rounded-full` (should be `rounded-sm`) | ❓ Needs verification | Spec'd in DESIGN.md but visual inspection required. Read [target-progress-card.tsx](src/components/dashboard/target-progress-card.tsx) before fixing. |
+
+### D. Module-Specific Anti-Patterns
+
+Anti-pattern violation counts within dashboard scope (`src/app/(owner)/dashboard/**` + `src/components/dashboard/**`):
+
+| Rule | Hits | File:line |
+| ---- | ---- | --------- |
+| `rounded-2xl` | 0 | — |
+| `rounded-xl` (should be `rounded-lg`) | 6 | [page.tsx:414](src/app/(owner)/dashboard/page.tsx#L414), [page.tsx:516, 518](src/app/(owner)/dashboard/page.tsx#L516); [status-group-card.tsx:44](src/components/dashboard/status-group-card.tsx#L44); [hero-kpi-card.tsx:91](src/components/dashboard/hero-kpi-card.tsx#L91); [target-progress-card.tsx:55](src/components/dashboard/target-progress-card.tsx#L55) |
+| `transition-all` | 2 | [page.tsx:516, 518](src/app/(owner)/dashboard/page.tsx#L516) — should be `transition-colors` per DS §4.4 |
+| Hardcoded eyebrow (visual, not lint-rule match) | 5 | page.tsx:246, 256, 292, 339, 388 — repeated `font-mono text-[11px] uppercase tracking-[0.18em]` pattern instead of `.eyebrow` class |
+| Decorative colors | 0 | — |
+| Native form controls | 0 | — (no forms on dashboard) |
+| NativeSelect | 0 | — |
+| Handrolled popups | 0 | — |
+| Cards-in-cards | 0 visible | — |
+| Glassmorphism on rest | 0 | — |
+| Side-stripe borders | 0 | — |
+| Gradient text | 0 | — |
+| Pure black/white | 0 | — uses semantic tokens |
+| Raw hex | 0 | — |
+| Missing tabular on money | 0 | `formatRupiah()` callsites pass through StatCard which applies `tabular` |
+| Dead code | 1 file | [hero-kpi-card.tsx](src/components/dashboard/hero-kpi-card.tsx) — 130 LOC, zero consumers grep-confirmed |
+
+### E. Module-Specific Primitive Needs
+
+Dashboard is already well-served by current primitives (`<StatCard>`, `<EmptyState>`, `<EventStatusBadge>`). What's missing for v3:
+
+- **`<PageHeader>` migration target** — current hand-rolled greeting block (eyebrow + clamp h1) should adopt v1 `<PageHeader>` once it supports a "greeting" mode (no back-link, no meta-line, no actions; just title + optional eyebrow). Today PageHeader requires `title` only — works as-is, just needs the consumer to opt in. **No new primitive required.**
+- **`<EyebrowText>` or `<SectionEyebrow>`** — page repeats `font-mono text-[11px] uppercase tracking-[0.18em]` 5× as section headers. Either consolidate into the `.eyebrow` utility class (already exists in globals.css per DESIGN.md) or wrap in a tiny `<Eyebrow>` component. Either way, **no new primitive of v3 scope** — fix during v3 migration via lint extension (add rule that flags this exact regex pattern).
+- **`<TargetProgressCard>` / `<StatusGroupCard>` / `<AnomalyRadarWidget>`** — dashboard-local components. They're not consumed elsewhere. Decision for v3: keep as dashboard-local, OR if Reports/Finance dashboards land that need progress bars, promote to a `<ProgressMeter>` primitive in `src/components/ui/`. **Defer** — no second consumer yet.
+- **`<KpiRow>` adoption** — wrap the existing inline `<dl className="grid …">` with the `<KpiRow>` primitive (already extracted in `operations/_shared/`). Trivial swap. Counts as v3 migration cleanup.
+
+**No new v3 primitives demanded by dashboard alone.**
+
+### F. Recommended Migration Approach
+
+- **Pattern type:** dashboard-style (read-only widget grid)
+- **v3 migration effort:** **~4-6 hours total**
+  - Adopt `<PageHeader>` for greeting header (1h)
+  - Replace 5× inline eyebrow with `.eyebrow` class (15min)
+  - Swap inline `<dl>` for `<KpiRow>` (15min)
+  - `rounded-xl` → `rounded-lg` across page.tsx + 3 dashboard-local components (45min)
+  - `transition-all` → `transition-colors` (5min)
+  - Delete `hero-kpi-card.tsx` (5min)
+  - Fix h2 hierarchy under the 4 section eyebrows + verify Target progress bar radius (1h)
+  - Update loading.tsx to mirror anomaly section (30min)
+  - QA at 1280/1440/1920 + 375 (1h)
+- **Migration risk:** **LOW** — no business logic touched, no server actions, purely presentational tidy-up.
+- **Pre-requisites for v3:** none — all required primitives shipped.
+- **Suggested order in v3 rollout:** Week 1 — Dashboard is the cleanest module to migrate first. Use it as the canary for v3's PageHeader + eyebrow class enforcement.
 
 ---
 
