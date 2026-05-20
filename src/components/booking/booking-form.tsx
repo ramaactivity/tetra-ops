@@ -4,6 +4,7 @@ import {
 	AlertTriangle,
 	CheckCircle2,
 	Gift,
+	HelpCircle,
 	Loader2,
 	MapPin,
 	Sparkles,
@@ -18,6 +19,12 @@ import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { TimePicker } from "@/components/ui/time-picker";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
 import {
 	ADDON_CATEGORY_LABELS,
@@ -951,7 +958,7 @@ export function BookingForm({
 	}
 
 	return (
-		<>
+		<TooltipProvider>
 			{saveOverlay && (
 				<SavePopup state={saveOverlay} onDismissError={handleDismissError} />
 			)}
@@ -1067,7 +1074,7 @@ export function BookingForm({
 									label="Nama PIC / Sales Vendor"
 									name="vendor_pic_name"
 									error={err("vendor_pic_name")}
-									hint="Orang yang kita kontak dari vendor (mis. nama salesnya)."
+									tooltip="Orang yang kita kontak dari vendor (mis. nama salesnya)."
 								>
 									<input
 										type="text"
@@ -1086,7 +1093,7 @@ export function BookingForm({
 									label="WA / HP PIC Vendor"
 									name="vendor_contact"
 									error={err("vendor_contact")}
-									hint="Kontak utama buat koordinasi event"
+									tooltip="Kontak utama buat koordinasi event. Format: 08xxxxxxxxxx"
 								>
 									<input
 										type="tel"
@@ -1518,10 +1525,11 @@ export function BookingForm({
 					label="Nama Klien (final, akan tampil di event)"
 					name="client_name"
 					error={err("client_name")}
+					tooltip="Nama klien atau acara yang muncul di list operations. Saat kategori event diisi, ini auto-derive — edit manual kalau perlu."
 					hint={
 						categoryTpl
 							? "Auto-derive dari field di atas. Edit manual kalau perlu."
-							: "Nama klien atau acara — yang muncul di list operations."
+							: undefined
 					}
 					required
 				>
@@ -2002,12 +2010,13 @@ export function BookingForm({
 						label="Nama Pembooking"
 						name="booker_name"
 						error={err("booker_name")}
+						tooltip="Yang booking — bisa klien, kakak, panitia, atau vendor/WO. Jadi kontak utama untuk billing."
 						hint={
 							bookerSameAsVendor
 								? `Auto: PIC vendor (${vendorPicName || vendorName || "—"})`
 								: bookerSameAsClient
 									? `Auto: sama dengan klien (${clientName || "—"})`
-									: "Yang booking — bisa klien, kakak, panitia, atau vendor/WO"
+									: undefined
 						}
 					>
 						<input
@@ -2028,10 +2037,11 @@ export function BookingForm({
 						label="WA Pembooking"
 						name="client_wa"
 						error={err("client_wa")}
+						tooltip="Primary contact untuk billing + reminder. Format: 08xxxxxxxxxx"
 						hint={
 							bookerSameAsVendor
 								? "Auto: kontak vendor — pakai ini untuk reminder."
-								: "Primary contact untuk billing + reminder. Format: 08xxxxxxxxxx"
+								: undefined
 						}
 						required
 					>
@@ -2125,7 +2135,7 @@ export function BookingForm({
 							label="Nama PIC"
 							name="pic_name"
 							error={err("pic_name")}
-							hint="Opsional"
+							tooltip="Opsional — orang yang crew koordinasi di lapangan hari-H (WO, EO, panitia, atau keluarga)."
 						>
 							<input
 								type="text"
@@ -2144,7 +2154,7 @@ export function BookingForm({
 							label="WA PIC"
 							name="pic_wa"
 							error={err("pic_wa")}
-							hint="Akan dipakai di template reminder crew"
+							tooltip="Akan dipakai di template reminder crew. Format: 08xxxxxxxxxx"
 						>
 							<input
 								type="tel"
@@ -2564,7 +2574,7 @@ export function BookingForm({
 			/>
 		</div>
 		</div>
-		</>
+		</TooltipProvider>
 	);
 }
 
@@ -2695,6 +2705,7 @@ function Field({
 	label,
 	name,
 	hint,
+	tooltip,
 	error,
 	required,
 	children,
@@ -2702,16 +2713,20 @@ function Field({
 	label: string;
 	name: string;
 	hint?: string;
+	tooltip?: string;
 	error?: string;
 	required?: boolean;
 	children: React.ReactNode;
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-fluid-body font-medium">
-				{label}
-				{required && <span className="ml-0.5 text-primary">*</span>}
-			</label>
+			<div className="flex items-center gap-1.5">
+				<label htmlFor={name} className="text-fluid-body font-medium">
+					{label}
+					{required && <span className="ml-0.5 text-primary">*</span>}
+				</label>
+				{tooltip ? <HelpTooltip text={tooltip} label={label} /> : null}
+			</div>
 			{children}
 			{error ? (
 				<p className="text-fluid-caption text-destructive">{error}</p>
@@ -2719,5 +2734,24 @@ function Field({
 				<p className="text-fluid-caption text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
+	);
+}
+
+function HelpTooltip({ text, label }: { text: string; label: string }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<button
+						type="button"
+						aria-label={`Penjelasan untuk ${label}`}
+						className="press-down inline-grid size-4 shrink-0 place-items-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+					>
+						<HelpCircle className="size-3.5" aria-hidden />
+					</button>
+				}
+			/>
+			<TooltipContent>{text}</TooltipContent>
+		</Tooltip>
 	);
 }
