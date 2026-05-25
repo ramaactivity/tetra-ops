@@ -26,6 +26,8 @@ export type PembelianItemOption = {
 	name: string;
 	unit: string;
 	unit_conversion: Record<string, number> | null;
+	preferred_supplier_id: string | null;
+	preferred_supplier_name: string | null;
 };
 
 export type PembelianSupplierOption = {
@@ -335,23 +337,55 @@ export function PembelianDialog({
 										key={line.id}
 										className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2.4fr)_120px_100px_160px_minmax(0,1fr)_36px] lg:items-center lg:p-2"
 									>
-										<Combobox
-											id={`item-${line.id}`}
-											value={line.item_id}
-											onValueChange={(v) => {
-												const chosen = itemsById.get(v ?? "");
-												updateLine(line.id, {
-													item_id: v ?? "",
-													quantity_unit: chosen?.unit ?? "",
-												});
-											}}
-											options={items.map((i) => ({
-												value: i.id,
-												label: `${i.name} (${i.sku})`,
-											}))}
-											placeholder="Pilih bahan..."
-											allowFreeText={false}
-										/>
+										<div className="space-y-1">
+											<Combobox
+												id={`item-${line.id}`}
+												value={line.item_id}
+												onValueChange={(v) => {
+													const chosen = itemsById.get(v ?? "");
+													updateLine(line.id, {
+														item_id: v ?? "",
+														quantity_unit: chosen?.unit ?? "",
+													});
+													// Auto-pick supplier: kalau header supplier masih kosong
+													// dan item punya preferred supplier, set otomatis
+													if (
+														chosen?.preferred_supplier_id &&
+														!supplierId
+													) {
+														setSupplierId(chosen.preferred_supplier_id);
+													}
+												}}
+												options={items.map((i) => ({
+													value: i.id,
+													label: `${i.name} (${i.sku})`,
+												}))}
+												placeholder="Pilih bahan..."
+												allowFreeText={false}
+											/>
+											{item?.preferred_supplier_id &&
+												supplierId &&
+												item.preferred_supplier_id !== supplierId && (
+													<button
+														type="button"
+														onClick={() =>
+															setSupplierId(item.preferred_supplier_id!)
+														}
+														className="text-[11px] text-amber-700 dark:text-amber-300 hover:underline text-left"
+													>
+														⚠ Biasanya dari{" "}
+														<strong>{item.preferred_supplier_name}</strong>
+														{" "}— klik untuk pakai supplier ini
+													</button>
+												)}
+											{item?.preferred_supplier_id &&
+												supplierId &&
+												item.preferred_supplier_id === supplierId && (
+													<p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+														✓ Supplier utama item ini
+													</p>
+												)}
+										</div>
 										<NumberField
 											id={`qty-${line.id}`}
 											name={`qty-${line.id}`}

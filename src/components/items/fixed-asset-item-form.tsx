@@ -10,6 +10,7 @@ import {
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
 import { generateFixedAssetSku } from "@/lib/inventory/sku-generator";
+import { ItemImageUpload } from "./item-image-upload";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 
 export type AcquisitionType =
@@ -133,6 +134,9 @@ export function FixedAssetItemForm({
 	);
 	const [condition, setCondition] = useState<string>(get("condition"));
 	const [location, setLocation] = useState<string>(get("current_location"));
+	const [imageUrl, setImageUrl] = useState<string | null>(
+		get("image_url") || null,
+	);
 
 	const generatedSku = useMemo(
 		() => (name.trim() ? generateFixedAssetSku(name) : ""),
@@ -437,18 +441,33 @@ export function FixedAssetItemForm({
 				</div>
 
 				<Field
-					label="URL Foto"
+					label="Foto Alat"
 					name="image_url"
 					error={err("image_url")}
-					hint="Sementara: paste link dari Google Drive. Upload langsung akan datang di update berikutnya."
+					hint={
+						mode === "edit"
+							? "Drag & drop foto, atau klik area untuk pilih file. Auto-upload ke Google Drive."
+							: "Foto bisa di-upload setelah aset dibuat. Sementara: paste link Drive di bawah (opsional)."
+					}
 				>
-					<input
-						type="url"
-						name="image_url"
-						defaultValue={get("image_url")}
-						placeholder="https://drive.google.com/…"
-						className={inputClass}
-					/>
+					{mode === "edit" && id ? (
+						<>
+							<ItemImageUpload
+								itemId={id}
+								value={imageUrl}
+								onChange={setImageUrl}
+							/>
+							<input type="hidden" name="image_url" value={imageUrl ?? ""} />
+						</>
+					) : (
+						<input
+							type="url"
+							name="image_url"
+							defaultValue={get("image_url")}
+							placeholder="https://drive.google.com/… (opsional)"
+							className={inputClass}
+						/>
+					)}
 				</Field>
 
 				<Field

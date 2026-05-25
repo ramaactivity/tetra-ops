@@ -39,7 +39,11 @@ export default async function PurchasesPage() {
 			.limit(200),
 		supabase
 			.from("inventory_items")
-			.select("id, sku, name, unit, unit_conversion")
+			.select(
+				`id, sku, name, unit, unit_conversion,
+				 config:items_inventory_config!inner(preferred_supplier_id,
+				   supplier:suppliers!items_inventory_config_preferred_supplier_id_fkey(name))`,
+			)
 			.eq("category", "inventory")
 			.is("deleted_at", null)
 			.eq("is_active", true)
@@ -52,7 +56,38 @@ export default async function PurchasesPage() {
 			.order("name"),
 	]);
 
-	const items = (itemsRes.data ?? []) as PembelianItemOption[];
+	type RawItem = {
+		id: string;
+		sku: string;
+		name: string;
+		unit: string;
+		unit_conversion: Record<string, number> | null;
+		config:
+			| {
+					preferred_supplier_id: string | null;
+					supplier: { name: string } | Array<{ name: string }> | null;
+			  }
+			| Array<{
+					preferred_supplier_id: string | null;
+					supplier: { name: string } | Array<{ name: string }> | null;
+			  }>
+			| null;
+	};
+	const items: PembelianItemOption[] = ((itemsRes.data ?? []) as RawItem[]).map(
+		(i) => {
+			const cfg = Array.isArray(i.config) ? i.config[0] : i.config;
+			const sup = Array.isArray(cfg?.supplier) ? cfg?.supplier[0] : cfg?.supplier;
+			return {
+				id: i.id,
+				sku: i.sku,
+				name: i.name,
+				unit: i.unit,
+				unit_conversion: i.unit_conversion,
+				preferred_supplier_id: cfg?.preferred_supplier_id ?? null,
+				preferred_supplier_name: sup?.name ?? null,
+			};
+		},
+	);
 	const suppliers = (suppliersRes.data ?? []) as PembelianSupplierOption[];
 
 	const rows: PurchaseRow[] = ((purchasesRes.data ?? []) as Array<{
