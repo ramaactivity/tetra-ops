@@ -170,31 +170,58 @@ function StockStateBadge({ state }: { state: StockState }) {
 	);
 }
 
+type CapacityBadge = {
+	abbr: string;
+	value: number;
+	formatted: string;
+};
+
+type StockDisplay = {
+	primary: string;
+	primaryUnit: string;
+	breakdown: CapacityBadge[];
+};
+
+/** Compact label: "Lembar 4R" → "4R", "Lembar Polaroid" → "Polaroid", else as-is. */
+function abbreviateUnitLabel(label: string): string {
+	const lower = label.toLowerCase();
+	if (lower.startsWith("lembar ")) return label.slice("lembar ".length);
+	return label;
+}
+
+/** Compact number: 46.200 → "46.2K", 1.250 → "1.250", 92.400 → "92.4K". */
+function compactNumber(n: number): string {
+	const abs = Math.abs(n);
+	if (abs >= 10_000) {
+		const k = n / 1000;
+		const decimals = k >= 100 ? 0 : 1;
+		return `${k.toLocaleString("id-ID", { maximumFractionDigits: decimals })}K`;
+	}
+	return Math.floor(n).toLocaleString("id-ID");
+}
+
 function formatStockDisplay(
 	stock: number,
 	unit: string,
 	conversion: unknown,
-): { primary: string; secondary?: string } {
+): StockDisplay {
+	const primary = Number(stock).toLocaleString("id-ID", {
+		maximumFractionDigits: unit === "roll" ? 3 : 2,
+	});
+
 	if (unit !== "roll" || !conversion) {
-		return {
-			primary: `${Number(stock).toLocaleString("id-ID", {
-				maximumFractionDigits: 2,
-			})} ${unit}`,
-		};
+		return { primary, primaryUnit: unit, breakdown: [] };
 	}
+
 	const map = normalizeConversion(conversion, unit);
-	const primary = `${Number(stock).toLocaleString("id-ID", {
-		maximumFractionDigits: 3,
-	})} ${map.base_unit}`;
-	const breakdown = listCapacityBreakdown(stock, map);
-	if (breakdown.length === 0) return { primary };
-	const secondary = `≈ ${breakdown
-		.map(
-			(e) =>
-				`${Math.floor(e.value).toLocaleString("id-ID")} ${e.label}`,
-		)
-		.join(" atau ")}`;
-	return { primary, secondary };
+	const breakdown = listCapacityBreakdown(stock, map).map(
+		(e): CapacityBadge => ({
+			abbr: abbreviateUnitLabel(e.label),
+			value: e.value,
+			formatted: compactNumber(e.value),
+		}),
+	);
+	return { primary, primaryUnit: map.base_unit, breakdown };
 }
 
 type ConsumableFilter =
@@ -362,24 +389,36 @@ export function ConsumablesTable({
 				const stock = stockByItem.get(r.id) ?? 0;
 				const state = classifyStock(stock, r.min_stock_alert);
 				const display = formatStockDisplay(stock, r.unit, r.unit_conversion);
+				const primaryTone =
+					state === "minus"
+						? "text-rose-600 dark:text-rose-400"
+						: state === "habis"
+							? "text-rose-500"
+							: state === "kritis"
+								? "text-amber-600 dark:text-amber-400"
+								: "text-foreground";
 				return (
-					<div className="text-right">
-						<span
-							className={`tabular font-semibold ${
-								state === "minus"
-									? "text-rose-600 dark:text-rose-400"
-									: state === "habis"
-										? "text-rose-500"
-										: state === "kritis"
-											? "text-amber-500"
-											: "text-foreground"
-							}`}
-						>
+					<div className="flex flex-col items-end gap-1">
+						<div className={`tabular text-base font-semibold ${primaryTone}`}>
 							{display.primary}
-						</span>
-						{display.secondary && (
-							<div className="text-[11px] text-muted-foreground">
-								{display.secondary}
+							<span className="ml-1 text-[11px] font-normal text-muted-foreground/80">
+								{display.primaryUnit}
+							</span>
+						</div>
+						{display.breakdown.length > 0 && (
+							<div className="flex flex-wrap items-center justify-end gap-1">
+								{display.breakdown.map((b) => (
+									<span
+										key={b.abbr}
+										className="bg-surface-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] tabular text-muted-foreground"
+										title={`Kapasitas maksimal ${b.value.toLocaleString("id-ID")} ${b.abbr}`}
+									>
+										<span className="font-semibold text-foreground/80">
+											{b.formatted}
+										</span>
+										<span>{b.abbr}</span>
+									</span>
+								))}
 							</div>
 						)}
 					</div>
