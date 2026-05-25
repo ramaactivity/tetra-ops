@@ -443,11 +443,12 @@ export function ConsumablesTable({
 			hideOnMobile: true,
 			render: (r) =>
 				r.purchase_price_avg ? (
-					<span className="tabular text-fluid-caption text-muted-foreground">
-						{formatRupiah(r.purchase_price_avg)} / {r.unit}
+					<span className="tabular whitespace-nowrap text-fluid-caption text-muted-foreground">
+						{formatRupiah(r.purchase_price_avg)}{" "}
+						<span className="text-muted-foreground/60">/ {r.unit}</span>
 					</span>
 				) : (
-					<MutedDash label="Rp 0 / belum ada pembelian" />
+					<MutedDash variant="dash" />
 				),
 		},
 		{
@@ -460,24 +461,11 @@ export function ConsumablesTable({
 				const value = stock * (r.purchase_price_avg ?? 0);
 				if (value === 0) return <MutedDash variant="dash" />;
 				return (
-					<span className="tabular text-fluid-caption font-medium text-foreground">
+					<span className="tabular whitespace-nowrap text-fluid-caption font-medium text-foreground">
 						{formatRupiah(value)}
 					</span>
 				);
 			},
-		},
-		{
-			key: "supplier",
-			header: "Supplier Utama",
-			hideOnMobile: true,
-			render: (r) =>
-				r.preferred_supplier_name ? (
-					<span className="text-fluid-caption text-foreground">
-						{r.preferred_supplier_name}
-					</span>
-				) : (
-					<MutedDash />
-				),
 		},
 		{
 			key: "actions",
@@ -965,11 +953,11 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 					g.acquisitionMix.has("owner_contribution");
 				return (
 					<div className="text-right">
-						<span className="tabular text-sm font-medium text-foreground">
+						<span className="tabular whitespace-nowrap text-sm font-medium text-foreground">
 							{formatRupiah(g.totalPrice)}
 						</span>
 						{g.count > 1 && (
-							<div className="text-[10px] text-muted-foreground/80">
+							<div className="whitespace-nowrap text-[10px] text-muted-foreground/80">
 								{formatRupiah(Math.round(g.totalPrice / g.count))} / unit
 							</div>
 						)}
@@ -993,7 +981,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 				}
 				return (
 					<div className="text-right">
-						<span className="tabular text-sm font-medium text-foreground">
+						<span className="tabular whitespace-nowrap text-sm font-medium text-foreground">
 							{g.avgRemainingMonths}{" "}
 							<span className="text-muted-foreground font-normal">
 								/ {g.avgTotalMonths} bln

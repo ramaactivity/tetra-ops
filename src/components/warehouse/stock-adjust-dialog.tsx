@@ -120,11 +120,11 @@ export function StockAdjustDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger
-				className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-				title="Adjust stock (damage / loss / manual)"
+				className="inline-flex size-8 items-center justify-center rounded-md border border-border-default bg-surface-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+				title="Adjust / Koreksi Stok (damage / loss / manual)"
+				aria-label={`Adjust stock ${itemName}`}
 			>
 				<Sliders className="h-3.5 w-3.5" />
-				Adjust
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
