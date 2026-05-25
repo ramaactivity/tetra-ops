@@ -74,7 +74,7 @@ export function ItemsListTable({ items }: { items: ItemRow[] }) {
 			align: "right",
 			hideOnMobile: true,
 			render: (item) => {
-				const isEquipment = item.category === "equipment";
+				const isEquipment = item.category === "fixed_asset";
 				return (
 					<span className="tabular text-fluid-caption">
 						{isEquipment ? "—" : item.min_stock_alert || "—"}
@@ -99,7 +99,7 @@ export function ItemsListTable({ items }: { items: ItemRow[] }) {
 			key: "condition_location",
 			header: "Kondisi / Lokasi",
 			render: (item) => {
-				const isEquipment = item.category === "equipment";
+				const isEquipment = item.category === "fixed_asset";
 				if (!isEquipment) {
 					return (
 						<span className="text-fluid-caption text-muted-foreground">—</span>

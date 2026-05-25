@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
-const CATEGORIES = ["consumable", "equipment"] as const;
+const CATEGORIES = ["inventory", "fixed_asset"] as const;
 const CONDITIONS = ["normal", "service", "damaged", "lost"] as const;
 const LOCATIONS = [
 	"gudang_pusat",
@@ -68,7 +68,7 @@ const ItemInputSchema = z
 	})
 	.refine(
 		(d) =>
-			d.category === "equipment" ||
+			d.category === "fixed_asset" ||
 			(d.condition === null && d.current_location === null),
 		{
 			message: "Consumable tidak boleh punya condition atau location",

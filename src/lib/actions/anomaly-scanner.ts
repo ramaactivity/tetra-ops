@@ -574,7 +574,7 @@ async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 	const { data: items } = await admin
 		.from("inventory_items")
 		.select("id, sku, name, min_stock_alert")
-		.eq("category", "consumable")
+		.eq("category", "inventory")
 		.eq("is_active", true)
 		.gt("min_stock_alert", 0);
 	if (!items) return [];
@@ -607,7 +607,7 @@ async function checkStockZero(admin: AdminClient): Promise<Match[]> {
 	const { data: items } = await admin
 		.from("inventory_items")
 		.select("id, sku, name, min_stock_alert")
-		.eq("category", "consumable")
+		.eq("category", "inventory")
 		.eq("is_active", true)
 		.gt("min_stock_alert", 0);
 	if (!items) return [];
@@ -737,7 +737,7 @@ async function checkEquipmentMissing(
 			`id, sku, name, current_event_id,
 			event:events!inventory_items_current_event_id_fkey(id, project_id, client_name, event_date)`,
 		)
-		.eq("category", "equipment")
+		.eq("category", "fixed_asset")
 		.not("current_event_id", "is", null);
 
 	return (

@@ -12,7 +12,7 @@ import {
 type Defaults = {
 	sku: string;
 	name: string;
-	category: "consumable" | "equipment";
+	category: "inventory" | "fixed_asset";
 	unit: string;
 	min_stock_alert: string;
 	purchase_price_avg: string;
@@ -28,7 +28,7 @@ type Defaults = {
 const EMPTY: Defaults = {
 	sku: "",
 	name: "",
-	category: "consumable",
+	category: "inventory",
 	unit: "pcs",
 	min_stock_alert: "0",
 	purchase_price_avg: "0",
@@ -76,7 +76,7 @@ export function ItemForm({
 		undefined,
 	);
 
-	const [category, setCategory] = useState<"consumable" | "equipment">(
+	const [category, setCategory] = useState<"inventory" | "fixed_asset">(
 		defaults.category,
 	);
 	const [condition, setCondition] = useState<string>(defaults.condition);
@@ -97,7 +97,7 @@ export function ItemForm({
 			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
-	const isEquipment = category === "equipment";
+	const isEquipment = category === "fixed_asset";
 
 	return (
 		<form action={formAction} className="space-y-5">
@@ -140,11 +140,11 @@ export function ItemForm({
 					<NativeSelect
 						value={category}
 						onValueChange={(v) =>
-							setCategory(v as "consumable" | "equipment")
+							setCategory(v as "inventory" | "fixed_asset")
 						}
 						options={[
-							{ value: "consumable", label: "Consumable" },
-							{ value: "equipment", label: "Equipment" },
+							{ value: "inventory", label: "Persediaan" },
+							{ value: "fixed_asset", label: "Aktiva Tetap" },
 						]}
 						triggerClassName="w-full"
 						aria-invalid={!!err("category")}

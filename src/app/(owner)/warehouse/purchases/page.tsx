@@ -40,7 +40,7 @@ export default async function PurchasesPage() {
 		supabase
 			.from("inventory_items")
 			.select("id, sku, name, unit, unit_conversion")
-			.eq("category", "consumable")
+			.eq("category", "inventory")
 			.is("deleted_at", null)
 			.eq("is_active", true)
 			.order("name"),

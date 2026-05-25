@@ -123,7 +123,7 @@ export default async function CrewEventDetailPage({
 	const { data: equipmentRows } = await supabase
 		.from("inventory_items")
 		.select("id, sku, name, category, condition")
-		.eq("category", "equipment")
+		.eq("category", "fixed_asset")
 		.eq("current_event_id", event.id);
 
 	const equipment = (equipmentRows ?? []) as Array<{

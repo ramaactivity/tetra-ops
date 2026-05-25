@@ -58,7 +58,7 @@ export async function checkOutEquipment(
 
 	if (itemErr) return { error: itemErr.message };
 	if (!item) return { error: "Item tidak ditemukan" };
-	if (item.category !== "equipment") {
+	if (item.category !== "fixed_asset") {
 		return { error: "Item bukan equipment" };
 	}
 	if (item.current_event_id && item.current_event_id !== eventId) {

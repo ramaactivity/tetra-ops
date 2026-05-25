@@ -28,7 +28,7 @@ export default async function ItemsListPage({
 		.order("category", { ascending: true })
 		.order("name", { ascending: true });
 
-	if (category === "consumable" || category === "equipment") {
+	if (category === "inventory" || category === "fixed_asset") {
 		query = query.eq("category", category);
 	}
 
@@ -46,9 +46,9 @@ export default async function ItemsListPage({
 
 	const items = (data ?? []) as ItemRow[];
 	const consumablesCount = items.filter(
-		(i) => i.category === "consumable",
+		(i) => i.category === "inventory",
 	).length;
-	const equipmentCount = items.filter((i) => i.category === "equipment").length;
+	const equipmentCount = items.filter((i) => i.category === "fixed_asset").length;
 
 	return (
 		<div className="space-y-4">
@@ -88,12 +88,12 @@ export default async function ItemsListPage({
 				<FilterChip href="/settings/items" active={!category} label="Semua" />
 				<FilterChip
 					href="/settings/items?category=consumable"
-					active={category === "consumable"}
+					active={category === "inventory"}
 					label="Consumable"
 				/>
 				<FilterChip
 					href="/settings/items?category=equipment"
-					active={category === "equipment"}
+					active={category === "fixed_asset"}
 					label="Equipment"
 				/>
 			</div>

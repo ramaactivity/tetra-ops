@@ -1,5 +1,5 @@
 import { Container } from "@/components/layout/container";
-import { ItemForm } from "@/components/items/item-form";
+import { NewItemFlow } from "@/components/items/new-item-flow";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 
 export default function WarehouseNewItemPage() {
@@ -9,10 +9,10 @@ export default function WarehouseNewItemPage() {
 				title="Tambah Item"
 				backHref="/warehouse"
 				backLabel="Warehouse"
-				description="Tambah consumable (sleeve, FD, mediaset) atau equipment (kamera, printer, light) ke master inventory. Setelah simpan, kembali ke warehouse list."
+				description="Pilih dulu jenis item — sistem akan menampilkan form yg sesuai cara item dicatat di akuntansi."
 			/>
-			<div className="max-w-3xl rounded-lg border border-border-default bg-surface-2 p-5">
-				<ItemForm mode="create" returnTo="/warehouse" />
+			<div className="max-w-3xl rounded-lg bg-surface-2 p-5">
+				<NewItemFlow returnTo="/warehouse" />
 			</div>
 		</Container>
 	);

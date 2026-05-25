@@ -184,7 +184,7 @@ export default async function EventDetailPage({
 			supabase
 				.from("inventory_items")
 				.select("id", { count: "exact", head: true })
-				.eq("category", "equipment")
+				.eq("category", "fixed_asset")
 				.eq("current_event_id", event.id),
 			supabase
 				.from("crew_rekap")

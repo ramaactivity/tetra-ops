@@ -75,7 +75,7 @@ export default async function CrewEquipmentPage() {
 		const { data: equipmentRows } = await supabase
 			.from("inventory_items")
 			.select("id, sku, name, condition, current_event_id")
-			.eq("category", "equipment")
+			.eq("category", "fixed_asset")
 			.in("current_event_id", eventIds);
 
 		for (const eq of (equipmentRows ?? []) as EquipmentItem[]) {

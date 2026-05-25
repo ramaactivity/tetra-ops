@@ -38,7 +38,7 @@ const ItemRowSchema = z.object({
 		.max(40)
 		.regex(/^[A-Z0-9_-]+$/i, "SKU invalid"),
 	name: z.string().trim().min(1).max(120),
-	category: z.enum(["consumable", "equipment"]),
+	category: z.enum(["inventory", "fixed_asset"]),
 	unit: z.string().trim().min(1).max(20),
 	min_stock_alert: z.coerce.number().int().nonnegative().default(0),
 	purchase_price_avg: z.coerce.number().int().nonnegative().default(0),
@@ -59,13 +59,13 @@ const ItemRowSchema = z.object({
 	is_active: z.coerce.boolean().default(true),
 });
 
-function normalizeCategory(raw: string): "consumable" | "equipment" | null {
+function normalizeCategory(raw: string): "inventory" | "fixed_asset" | null {
 	const v = raw.trim().toLowerCase();
-	if (v === "consumable" || v === "consumables") return "consumable";
-	if (v === "equipment" || v === "alat" || v === "equipment_owned") {
-		return "equipment";
+	if (v === "inventory" || v === "consumables") return "inventory";
+	if (v === "fixed_asset" || v === "alat" || v === "equipment_owned") {
+		return "fixed_asset";
 	}
-	if (v === "packaging" || v === "uniform") return "consumable";
+	if (v === "packaging" || v === "uniform") return "inventory";
 	return null;
 }
 
@@ -139,7 +139,7 @@ export async function commitItemImport(
 					};
 				}
 
-				const cat = normalizeCategory(obj.category ?? "consumable");
+				const cat = normalizeCategory(obj.category ?? "inventory");
 				if (!cat) {
 					return {
 						row: rowNum,

@@ -66,7 +66,7 @@ export default async function WarehousePage({
 				.select(
 					"id, sku, name, unit, unit_conversion, min_stock_alert, purchase_price_avg, is_active",
 				)
-				.eq("category", "consumable")
+				.eq("category", "inventory")
 				.is("deleted_at", null)
 				.order("name", { ascending: true }),
 			supabase
@@ -74,7 +74,7 @@ export default async function WarehousePage({
 				.select(
 					"id, sku, name, purchase_price, condition, current_location, is_active",
 				)
-				.eq("category", "equipment")
+				.eq("category", "fixed_asset")
 				.is("deleted_at", null)
 				.order("name", { ascending: true }),
 			supabase.from("stock_movements").select("item_id, direction, quantity"),
@@ -148,7 +148,7 @@ export default async function WarehousePage({
 				.select(
 					"id, sku, name, unit, unit_conversion, purchase_price_avg",
 				)
-				.eq("category", "consumable")
+				.eq("category", "inventory")
 				.is("deleted_at", null)
 				.eq("is_active", true)
 				.order("name"),
@@ -278,7 +278,7 @@ export default async function WarehousePage({
 						stockEntries={Array.from(stockByItem.entries())}
 					/>
 				)}
-				{tab === "equipment" && <EquipmentTable rows={equipment} />}
+				{tab === "fixed_asset" && <EquipmentTable rows={equipment} />}
 				{tab === "market" && (
 					<MarketListTable
 						items={marketItems}

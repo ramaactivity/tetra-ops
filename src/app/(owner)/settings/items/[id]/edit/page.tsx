@@ -27,7 +27,7 @@ export default async function EditItemPage({
 	const defaults = {
 		sku: item.sku,
 		name: item.name,
-		category: item.category as "consumable" | "equipment",
+		category: item.category as "inventory" | "fixed_asset",
 		unit: item.unit,
 		min_stock_alert: String(item.min_stock_alert ?? 0),
 		purchase_price_avg: String(item.purchase_price_avg ?? 0),

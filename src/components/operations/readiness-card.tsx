@@ -149,7 +149,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 
 	// Equipment checked-out (H-1 idealnya)
 	items.push({
-		id: "equipment",
+		id: "fixed_asset",
 		label: "Equipment siap",
 		hint:
 			props.equipmentCount > 0

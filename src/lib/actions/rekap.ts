@@ -359,7 +359,7 @@ export async function getRekapContext(
 	const { data: poolRaw } = await supabase
 		.from("inventory_items")
 		.select("id, sku, name, unit, purchase_price_avg")
-		.eq("category", "consumable")
+		.eq("category", "inventory")
 		.eq("is_active", true)
 		.is("deleted_at", null)
 		.order("sku", { ascending: true });

@@ -13,7 +13,7 @@ export default async function NewAddonPage() {
 	const { data: inventoryItems } = await supabase
 		.from("inventory_items")
 		.select("id, sku, name, unit")
-		.eq("category", "consumable")
+		.eq("category", "inventory")
 		.eq("is_active", true)
 		.is("deleted_at", null)
 		.order("sku", { ascending: true });

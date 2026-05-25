@@ -60,7 +60,7 @@ export default async function PurchaseRequestsPage({
 	const { data: itemsForPR } = await supabase
 		.from("inventory_items")
 		.select("id, sku, name, unit")
-		.eq("category", "consumable")
+		.eq("category", "inventory")
 		.is("deleted_at", null)
 		.eq("is_active", true)
 		.order("name");

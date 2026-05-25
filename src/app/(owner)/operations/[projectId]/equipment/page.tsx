@@ -100,13 +100,13 @@ export default async function EventEquipmentPage({
 				current_crew:users!inventory_items_current_crew_id_fkey(full_name)
 			`,
 			)
-			.eq("category", "equipment")
+			.eq("category", "fixed_asset")
 			.eq("current_event_id", event.id)
 			.order("name", { ascending: true }),
 		supabase
 			.from("inventory_items")
 			.select("id, sku, name, condition, current_location")
-			.eq("category", "equipment")
+			.eq("category", "fixed_asset")
 			.eq("is_active", true)
 			.is("current_event_id", null)
 			.is("deleted_at", null)
