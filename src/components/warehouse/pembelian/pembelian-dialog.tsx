@@ -70,10 +70,13 @@ export function PembelianDialog({
 	trigger,
 	items,
 	suppliers,
+	initialItemIds,
 }: {
 	trigger: React.ReactNode;
 	items: PembelianItemOption[];
 	suppliers: PembelianSupplierOption[];
+	/** Item IDs to pre-load as empty lines when dialog opens (e.g. restock kritis flow). */
+	initialItemIds?: string[];
 }) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -122,6 +125,29 @@ export function PembelianDialog({
 		for (const it of items) m.set(it.id, it);
 		return m;
 	}, [items]);
+
+	// Pre-load lines from initialItemIds when dialog opens (Belanja Kritis flow).
+	// Runs every time `open` flips true so re-opens after Batal still pre-fill.
+	useEffect(() => {
+		if (!open || !initialItemIds || initialItemIds.length === 0) return;
+		const prefill: LineRow[] = initialItemIds.map((itemId) => {
+			const item = itemsById.get(itemId);
+			return {
+				id: crypto.randomUUID(),
+				item_id: itemId,
+				quantity: "",
+				quantity_unit: item?.unit ?? "",
+				unit_cost: "",
+				notes: "",
+			};
+		});
+		setLines(prefill);
+		// Auto-pick supplier from first item's preferred vendor when header empty
+		const firstSupplier = prefill
+			.map((l) => itemsById.get(l.item_id)?.preferred_supplier_id)
+			.find((s): s is string => Boolean(s));
+		if (firstSupplier) setSupplierId((curr) => curr || firstSupplier);
+	}, [open, initialItemIds, itemsById]);
 
 	function updateLine(id: string, patch: Partial<LineRow>) {
 		setLines((curr) =>

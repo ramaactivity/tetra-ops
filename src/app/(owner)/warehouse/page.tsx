@@ -26,6 +26,10 @@ import type {
 	MarketListItem,
 	SupplierOption,
 } from "@/components/warehouse/market-list/market-list-table";
+import type {
+	PembelianItemOption,
+	PembelianSupplierOption,
+} from "@/components/warehouse/pembelian/pembelian-dialog";
 import {
 	type ConsumableRow,
 	ConsumablesTable,
@@ -130,9 +134,34 @@ export default async function WarehousePage({
 			min_stock_alert: r.min_stock_alert,
 			purchase_price_avg: r.purchase_price_avg,
 			is_active: r.is_active,
+			preferred_supplier_id: cfg?.preferred_supplier_id ?? null,
 			preferred_supplier_name: sup?.name ?? null,
 		};
 	});
+
+	// Suppliers fetched ringan untuk quick-restock dialog (Belanja Kritis).
+	// Hanya dipakai kalau tab consumables; selalu fetch karena cheap.
+	const suppliersForPembelianRes = await supabase
+		.from("suppliers")
+		.select("id, name, default_payment_term, default_top_days")
+		.is("deleted_at", null)
+		.eq("is_active", true)
+		.order("name");
+	const pembelianSuppliers: PembelianSupplierOption[] =
+		(suppliersForPembelianRes.data ?? []) as PembelianSupplierOption[];
+
+	// Map consumables → PembelianItemOption shape (subset of fields).
+	const pembelianItems: PembelianItemOption[] = consumables
+		.filter((c) => c.is_active)
+		.map((c) => ({
+			id: c.id,
+			sku: c.sku,
+			name: c.name,
+			unit: c.unit,
+			unit_conversion: (c.unit_conversion as Record<string, number> | null) ?? null,
+			preferred_supplier_id: c.preferred_supplier_id,
+			preferred_supplier_name: c.preferred_supplier_name,
+		}));
 
 	type RawEquipment = {
 		id: string;
@@ -535,6 +564,8 @@ export default async function WarehousePage({
 					<ConsumablesTable
 						rows={consumables}
 						stockEntries={Array.from(stockByItem.entries())}
+						pembelianItems={pembelianItems}
+						pembelianSuppliers={pembelianSuppliers}
 					/>
 				)}
 				{tab === "fixed_asset" && (

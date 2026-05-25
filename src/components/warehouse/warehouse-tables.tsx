@@ -9,6 +9,7 @@ import {
 	Package,
 	Pencil,
 	Search,
+	ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -26,6 +27,11 @@ import {
 	type AssetUnit,
 } from "@/components/warehouse/asset-detail-drawer";
 import { BulkActionToolbar } from "@/components/warehouse/bulk-action-toolbar";
+import {
+	PembelianDialog,
+	type PembelianItemOption,
+	type PembelianSupplierOption,
+} from "@/components/warehouse/pembelian/pembelian-dialog";
 import { RestockDialog } from "@/components/warehouse/restock-dialog";
 import {
 	listCapacityBreakdown,
@@ -130,6 +136,7 @@ export type ConsumableRow = {
 	min_stock_alert: number;
 	purchase_price_avg: number;
 	is_active: boolean;
+	preferred_supplier_id: string | null;
 	preferred_supplier_name: string | null;
 };
 
@@ -268,9 +275,13 @@ const CONSUMABLE_SORT_OPTIONS: ReadonlyArray<{
 export function ConsumablesTable({
 	rows,
 	stockEntries,
+	pembelianItems,
+	pembelianSuppliers,
 }: {
 	rows: ConsumableRow[];
 	stockEntries: Array<[string, number]>;
+	pembelianItems: PembelianItemOption[];
+	pembelianSuppliers: PembelianSupplierOption[];
 }) {
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<ConsumableFilter>("all");
@@ -278,6 +289,20 @@ export function ConsumablesTable({
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
 	const stockByItem = useMemo(() => new Map(stockEntries), [stockEntries]);
+
+	// Item IDs yang habis/minus/kritis — kandidat untuk quick-restock.
+	const restockKritisIds = useMemo(() => {
+		const ids: string[] = [];
+		for (const r of rows) {
+			if (!r.is_active) continue;
+			const s = stockByItem.get(r.id) ?? 0;
+			const state = classifyStock(s, r.min_stock_alert);
+			if (state === "minus" || state === "habis" || state === "kritis") {
+				ids.push(r.id);
+			}
+		}
+		return ids;
+	}, [rows, stockByItem]);
 
 	function toggleOne(id: string) {
 		setSelectedIds((prev) => {
@@ -595,11 +620,32 @@ export function ConsumablesTable({
 	return (
 		<div className="space-y-3">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<SearchInput
-					value={query}
-					onChange={setQuery}
-					placeholder="Cari nama atau SKU..."
-				/>
+				<div className="flex flex-1 flex-wrap items-center gap-2">
+					<SearchInput
+						value={query}
+						onChange={setQuery}
+						placeholder="Cari nama atau SKU..."
+					/>
+					{restockKritisIds.length > 0 && (
+						<PembelianDialog
+							trigger={
+								<span
+									className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-[12px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+									title={`Buka Catat Pembelian dengan ${restockKritisIds.length} item kritis pre-loaded`}
+								>
+									<ShoppingCart className="size-3.5" />
+									Belanja Kritis
+									<span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold tabular">
+										{restockKritisIds.length}
+									</span>
+								</span>
+							}
+							items={pembelianItems}
+							suppliers={pembelianSuppliers}
+							initialItemIds={restockKritisIds}
+						/>
+					)}
+				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					<FilterChips
 						value={filter}
