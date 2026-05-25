@@ -8,15 +8,24 @@ import { cn } from "@/lib/utils";
  * collapses each row into a labeled card list. Eliminates horizontal
  * scroll on phones.
  *
+ * Features:
+ *   - `width` per column: explicit cell width (CSS string, e.g. "180px",
+ *     "20%"). Layout becomes predictable across viewports.
+ *   - `truncate`: cell content single-line with ellipsis. Original content
+ *     still accessible via title attribute on hover.
+ *   - `stickyHeader`: <thead> sticks to top during scroll inside parent
+ *     overflow container.
+ *
  * Usage:
  *   <ResponsiveTable
  *     columns={[
- *       { key: "client", header: "Klien" },
+ *       { key: "client", header: "Klien", width: "280px", truncate: true },
  *       { key: "date", header: "Tanggal", render: (row) => formatDate(row.date) },
  *       { key: "status", header: "Status", render: (row) => <StatusBadge value={row.status} /> },
  *     ]}
  *     rows={events}
  *     keyExtractor={(row) => row.id}
+ *     stickyHeader
  *     onRowClick={(row) => router.push(`/operations/${row.id}`)}
  *   />
  */
@@ -24,7 +33,7 @@ import { cn } from "@/lib/utils";
 export interface ResponsiveTableColumn<T> {
 	key: string;
 	header: React.ReactNode;
-	mobileLabel?: React.ReactNode; // optional; falls back to header on mobile
+	mobileLabel?: React.ReactNode;
 	render?: (row: T, rowIndex: number) => React.ReactNode;
 	className?: string;
 	/** Hidden in mobile card view (e.g. row-action cells) */
@@ -32,6 +41,10 @@ export interface ResponsiveTableColumn<T> {
 	/** Hidden in desktop table (e.g. derived summary) */
 	hideOnDesktop?: boolean;
 	align?: "left" | "right" | "center";
+	/** Explicit width (CSS string). Falls back to auto. */
+	width?: string;
+	/** Single-line truncate with ellipsis. */
+	truncate?: boolean;
 }
 
 interface ResponsiveTableProps<T> {
@@ -42,6 +55,8 @@ interface ResponsiveTableProps<T> {
 	emptyState?: React.ReactNode;
 	className?: string;
 	rowClassName?: string | ((row: T) => string | undefined);
+	/** Sticky table header (requires parent scroll container w/ max-height). */
+	stickyHeader?: boolean;
 }
 
 export function ResponsiveTable<T>({
@@ -52,6 +67,7 @@ export function ResponsiveTable<T>({
 	emptyState,
 	className,
 	rowClassName,
+	stickyHeader = false,
 }: ResponsiveTableProps<T>) {
 	if (rows.length === 0 && emptyState) {
 		return <div className={className}>{emptyState}</div>;
@@ -61,8 +77,22 @@ export function ResponsiveTable<T>({
 		<div data-slot="responsive-table" className={className}>
 			{/* Desktop table — hidden on mobile */}
 			<div className="hidden md:block">
-				<table className="w-full text-sm">
-					<thead>
+				<table className="w-full table-fixed text-sm">
+					<colgroup>
+						{columns
+							.filter((c) => !c.hideOnDesktop)
+							.map((col) => (
+								<col
+									key={col.key}
+									style={col.width ? { width: col.width } : undefined}
+								/>
+							))}
+					</colgroup>
+					<thead
+						className={cn(
+							stickyHeader && "sticky top-0 z-10 bg-surface-2",
+						)}
+					>
 						<tr className="border-b border-border-default text-left text-xs uppercase tracking-wide text-muted-foreground">
 							{columns
 								.filter((c) => !c.hideOnDesktop)
@@ -70,7 +100,7 @@ export function ResponsiveTable<T>({
 									<th
 										key={col.key}
 										className={cn(
-											"px-3 py-2 font-medium",
+											"px-3 py-2.5 font-medium",
 											col.align === "right" && "text-right",
 											col.align === "center" && "text-center",
 											col.className,
@@ -94,28 +124,42 @@ export function ResponsiveTable<T>({
 									className={cn(
 										"border-b border-border-subtle transition-colors",
 										onRowClick &&
-											"cursor-pointer hover:bg-surface-3 focus-within:bg-surface-3",
+											"cursor-pointer hover:bg-surface-3/60 focus-within:bg-surface-3/60",
 										dynamicClass,
 									)}
 									onClick={onRowClick ? () => onRowClick(row) : undefined}
 								>
 									{columns
 										.filter((c) => !c.hideOnDesktop)
-										.map((col) => (
-											<td
-												key={col.key}
-												className={cn(
-													"px-3 py-2.5 align-middle",
-													col.align === "right" && "text-right",
-													col.align === "center" && "text-center",
-													col.className,
-												)}
-											>
-												{col.render
-													? col.render(row, rowIndex)
-													: getRowValue(row, col.key)}
-											</td>
-										))}
+										.map((col) => {
+											const content = col.render
+												? col.render(row, rowIndex)
+												: getRowValue(row, col.key);
+											return (
+												<td
+													key={col.key}
+													className={cn(
+														"px-3 py-3 align-middle",
+														col.align === "right" && "text-right",
+														col.align === "center" && "text-center",
+														col.truncate && "overflow-hidden",
+														col.className,
+													)}
+													title={
+														col.truncate &&
+														typeof content === "string"
+															? content
+															: undefined
+													}
+												>
+													{col.truncate ? (
+														<div className="truncate">{content}</div>
+													) : (
+														content
+													)}
+												</td>
+											);
+										})}
 								</tr>
 							);
 						})}

@@ -213,3 +213,44 @@ export async function archiveItem(id: string) {
 	revalidatePath("/settings/items");
 	revalidatePath("/warehouse");
 }
+
+/** Bulk archive — soft-delete multiple items in 1 call. */
+export async function archiveItemsBulk(
+	ids: string[],
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	if (ids.length === 0) return { ok: true, count: 0 };
+	const supabase = await createClient();
+	const { error, count } = await supabase
+		.from("inventory_items")
+		.update(
+			{ deleted_at: new Date().toISOString(), is_active: false },
+			{ count: "exact" },
+		)
+		.in("id", ids);
+	if (error) return { ok: false, error: error.message };
+	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
+	return { ok: true, count: count ?? 0 };
+}
+
+/** Bulk toggle is_active flag — quick deactivate/reactivate without soft-delete. */
+export async function toggleItemsActiveBulk(
+	ids: string[],
+	is_active: boolean,
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	if (ids.length === 0) return { ok: true, count: 0 };
+	const supabase = await createClient();
+	const { error, count } = await supabase
+		.from("inventory_items")
+		.update(
+			{ is_active, updated_at: new Date().toISOString() },
+			{ count: "exact" },
+		)
+		.in("id", ids);
+	if (error) return { ok: false, error: error.message };
+	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
+	return { ok: true, count: count ?? 0 };
+}

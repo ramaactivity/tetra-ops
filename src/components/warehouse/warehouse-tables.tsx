@@ -21,6 +21,11 @@ import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
+import {
+	AssetDetailDrawer,
+	type AssetUnit,
+} from "@/components/warehouse/asset-detail-drawer";
+import { BulkActionToolbar } from "@/components/warehouse/bulk-action-toolbar";
 import { RestockDialog } from "@/components/warehouse/restock-dialog";
 import {
 	listCapacityBreakdown,
@@ -270,8 +275,37 @@ export function ConsumablesTable({
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<ConsumableFilter>("all");
 	const [sort, setSort] = useState<ConsumableSort>("name");
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
 	const stockByItem = useMemo(() => new Map(stockEntries), [stockEntries]);
+
+	function toggleOne(id: string) {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	}
+
+	function toggleAll(filteredIds: string[]) {
+		setSelectedIds((prev) => {
+			const allSelected = filteredIds.every((id) => prev.has(id));
+			if (allSelected) {
+				// Deselect just the filtered set
+				const next = new Set(prev);
+				for (const id of filteredIds) next.delete(id);
+				return next;
+			}
+			const next = new Set(prev);
+			for (const id of filteredIds) next.add(id);
+			return next;
+		});
+	}
+
+	function clearSelection() {
+		setSelectedIds(new Set());
+	}
 
 	const counts = useMemo(() => {
 		let habis = 0;
@@ -356,7 +390,46 @@ export function ConsumablesTable({
 		);
 	}
 
+	const filteredIds = filtered.map((r) => r.id);
+	const allSelectedInView =
+		filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+	const someSelectedInView = filteredIds.some((id) => selectedIds.has(id));
+
 	const columns: ResponsiveTableColumn<ConsumableRow>[] = [
+		{
+			key: "select",
+			header: (
+				<input
+					type="checkbox"
+					checked={allSelectedInView}
+					ref={(el) => {
+						if (el)
+							el.indeterminate =
+								!allSelectedInView && someSelectedInView;
+					}}
+					onChange={() => toggleAll(filteredIds)}
+					className="size-3.5 cursor-pointer accent-primary"
+					aria-label="Pilih semua item di view ini"
+					title={
+						allSelectedInView
+							? "Hapus pilihan semua"
+							: "Pilih semua item di view"
+					}
+				/>
+			),
+			width: "44px",
+			hideOnMobile: true,
+			render: (r) => (
+				<input
+					type="checkbox"
+					checked={selectedIds.has(r.id)}
+					onChange={() => toggleOne(r.id)}
+					onClick={(e) => e.stopPropagation()}
+					className="size-3.5 cursor-pointer accent-primary"
+					aria-label={`Pilih ${r.name}`}
+				/>
+			),
+		},
 		{
 			key: "name",
 			header: "Item",
@@ -368,7 +441,12 @@ export function ConsumablesTable({
 				return (
 					<div className="space-y-0.5">
 						<div className="flex flex-wrap items-center gap-1.5">
-							<span className="font-medium text-foreground">{r.name}</span>
+							<span
+								className="truncate font-medium text-foreground"
+								title={r.name}
+							>
+								{r.name}
+							</span>
 							{r.is_active ? (
 								<StockStateBadge state={state} />
 							) : (
@@ -396,6 +474,7 @@ export function ConsumablesTable({
 			key: "stock",
 			header: "Stok",
 			align: "right",
+			width: "200px",
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				const state = classifyStock(stock, r.min_stock_alert);
@@ -440,6 +519,7 @@ export function ConsumablesTable({
 			key: "avg_cost",
 			header: "Avg Cost",
 			align: "right",
+			width: "180px",
 			hideOnMobile: true,
 			render: (r) =>
 				r.purchase_price_avg ? (
@@ -455,6 +535,7 @@ export function ConsumablesTable({
 			key: "value",
 			header: "Nilai HPP",
 			align: "right",
+			width: "160px",
 			hideOnMobile: true,
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
@@ -469,8 +550,9 @@ export function ConsumablesTable({
 		},
 		{
 			key: "actions",
-			header: "Aksi",
+			header: "",
 			align: "right",
+			width: "180px",
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				return (
@@ -547,12 +629,24 @@ export function ConsumablesTable({
 				</div>
 			) : (
 				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
-					<ResponsiveTable<ConsumableRow>
-						keyExtractor={(r) => r.id}
-						rows={filtered}
-						columns={columns}
-					/>
+					<div className="max-h-[calc(100vh-22rem)] overflow-y-auto">
+						<ResponsiveTable<ConsumableRow>
+							keyExtractor={(r) => r.id}
+							rows={filtered}
+							columns={columns}
+							stickyHeader
+						/>
+					</div>
 				</div>
+			)}
+
+			{/* Floating bulk action toolbar */}
+			{selectedIds.size > 0 && (
+				<BulkActionToolbar
+					selectedCount={selectedIds.size}
+					selectedIds={selectedIds}
+					onClear={clearSelection}
+				/>
 			)}
 		</div>
 	);
@@ -789,6 +883,7 @@ function ConditionBadge({ condition }: { condition: string | null }) {
 export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<EquipmentFilter>("all");
+	const [drawerGroup, setDrawerGroup] = useState<EquipmentGroup | null>(null);
 
 	// Aggregate per model (group by normalized name) — sumber kebenaran view ini
 	const allGroups = useMemo(() => aggregateEquipment(rows), [rows]);
@@ -909,6 +1004,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 			key: "qty",
 			header: "Qty",
 			align: "right",
+			width: "100px",
 			render: (g) => (
 				<div className="text-right">
 					<div className="tabular text-base font-semibold text-foreground">
@@ -925,6 +1021,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 		{
 			key: "status",
 			header: "Status Operasional",
+			width: "280px",
 			render: (g) => (
 				<div className="flex flex-wrap items-center gap-1">
 					{g.statusSummary.map((s) => (
@@ -944,6 +1041,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 			key: "total_price",
 			header: "Total Nilai",
 			align: "right",
+			width: "180px",
 			hideOnMobile: true,
 			render: (g) => {
 				if (g.totalPrice <= 0)
@@ -974,6 +1072,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 			key: "useful_life",
 			header: "Sisa Masa Pakai",
 			align: "right",
+			width: "180px",
 			hideOnMobile: true,
 			render: (g) => {
 				if (g.avgRemainingMonths === null || !g.avgTotalMonths) {
@@ -1000,6 +1099,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 			key: "actions",
 			header: "",
 			align: "right",
+			width: "140px",
 			render: (g) => {
 				const first = g.units[0];
 				if (g.count === 1) {
@@ -1010,15 +1110,18 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 						</div>
 					);
 				}
-				// Multi-unit: link ke asset register (financial view) yang per-unit
 				return (
-					<Link
-						href="/warehouse/assets"
-						className="text-primary hover:underline text-[11px] font-medium"
-						title={`Buka Asset Register untuk lihat ${g.count} unit secara detail`}
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							setDrawerGroup(g);
+						}}
+						className="text-primary hover:bg-surface-3 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
+						title={`Lihat detail ${g.count} unit`}
 					>
 						{g.count} unit →
-					</Link>
+					</button>
 				);
 			},
 		},
@@ -1048,12 +1151,41 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 				</div>
 			) : (
 				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
-					<ResponsiveTable<EquipmentGroup>
-						keyExtractor={(g) => g.key}
-						rows={filtered}
-						columns={columns}
-					/>
+					<div className="max-h-[calc(100vh-22rem)] overflow-y-auto">
+						<ResponsiveTable<EquipmentGroup>
+							keyExtractor={(g) => g.key}
+							rows={filtered}
+							columns={columns}
+							stickyHeader
+							onRowClick={(g) => {
+								if (g.count > 1) setDrawerGroup(g);
+							}}
+						/>
+					</div>
 				</div>
+			)}
+
+			{drawerGroup && (
+				<AssetDetailDrawer
+					open={!!drawerGroup}
+					onOpenChange={(o) => !o && setDrawerGroup(null)}
+					modelName={drawerGroup.name}
+					units={drawerGroup.units.map(
+						(u): AssetUnit => ({
+							id: u.id,
+							sku: u.sku,
+							asset_number: u.asset_number,
+							serial_number: u.serial_number,
+							condition: u.condition,
+							current_location: u.current_location,
+							purchase_price: u.purchase_price,
+							useful_life_months: u.useful_life_months,
+							depreciation_start_date: u.depreciation_start_date,
+							is_active: u.is_active,
+							acquisition_type: u.acquisition_type,
+						}),
+					)}
+				/>
 			)}
 		</div>
 	);
