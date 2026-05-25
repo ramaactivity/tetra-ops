@@ -128,11 +128,22 @@ export type ConsumableRow = {
 	preferred_supplier_name: string | null;
 };
 
-/** Reusable muted placeholder untuk null/empty cells. */
-function MutedDash({ label = "Belum di-set" }: { label?: string }) {
+/** Reusable muted placeholder untuk null/empty cells.
+ *  Variant "dash" = elegant minimal "—" for asset/equipment table.
+ *  Variant "text" = explicit "Belum di-set" untuk konteks yg butuh hint. */
+function MutedDash({
+	label,
+	variant = "text",
+}: {
+	label?: string;
+	variant?: "text" | "dash";
+}) {
+	if (variant === "dash") {
+		return <span className="text-foreground/20 text-[12px]">—</span>;
+	}
 	return (
-		<span className="text-muted-foreground/40 italic text-[11px]">
-			{label}
+		<span className="text-foreground/25 italic text-[11px]">
+			{label ?? "Belum di-set"}
 		</span>
 	);
 }
@@ -447,7 +458,7 @@ export function ConsumablesTable({
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				const value = stock * (r.purchase_price_avg ?? 0);
-				if (value === 0) return <MutedDash label="—" />;
+				if (value === 0) return <MutedDash variant="dash" />;
 				return (
 					<span className="tabular text-fluid-caption font-medium text-foreground">
 						{formatRupiah(value)}
@@ -612,6 +623,147 @@ function monthsRemaining(
 	return Math.max(0, totalMonths - elapsed);
 }
 
+/**
+ * Aggregate equipment rows by normalized name (1 row per model). Used to
+ * count "berapa unit per model" — mis. 3 Kamera Canon 700D, 2 Printer DNP.
+ */
+type EquipmentGroup = {
+	key: string; // normalized name
+	name: string; // first occurrence's name for display
+	units: EquipmentRow[];
+	count: number;
+	activeCount: number;
+	acquisitionMix: Set<string>;
+	totalPrice: number;
+	statusSummary: Array<{ label: string; count: number; tone: string }>;
+	avgRemainingMonths: number | null;
+	avgTotalMonths: number | null;
+};
+
+/** Status bucket per unit — gabungan kondisi + lokasi yg actionable. */
+function classifyAssetStatus(
+	condition: string | null,
+	location: string | null,
+	isActive: boolean,
+): { label: string; tone: string } {
+	if (!isActive) {
+		return {
+			label: "Inactive",
+			tone: "border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
+		};
+	}
+	if (condition === "damaged") {
+		return {
+			label: "Rusak",
+			tone: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+		};
+	}
+	if (condition === "lost" || location === "lost") {
+		return {
+			label: "Hilang",
+			tone: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+		};
+	}
+	if (condition === "service" || location === "service_center") {
+		return {
+			label: "Servis",
+			tone: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+		};
+	}
+	if (location === "event") {
+		return {
+			label: "On-Event",
+			tone: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+		};
+	}
+	if (location === "crew_carry") {
+		return {
+			label: "Dibawa Crew",
+			tone: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+		};
+	}
+	// Default: normal + gudang_pusat (atau lokasi null)
+	return {
+		label: "Tersedia",
+		tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+	};
+}
+
+function aggregateEquipment(rows: EquipmentRow[]): EquipmentGroup[] {
+	const groups = new Map<string, EquipmentGroup>();
+	for (const r of rows) {
+		const key = r.name.trim().toLowerCase();
+		if (!groups.has(key)) {
+			groups.set(key, {
+				key,
+				name: r.name.trim(),
+				units: [],
+				count: 0,
+				activeCount: 0,
+				acquisitionMix: new Set(),
+				totalPrice: 0,
+				statusSummary: [],
+				avgRemainingMonths: null,
+				avgTotalMonths: null,
+			});
+		}
+		const g = groups.get(key)!;
+		g.units.push(r);
+		g.count++;
+		if (r.is_active) g.activeCount++;
+		if (r.acquisition_type) g.acquisitionMix.add(r.acquisition_type);
+		g.totalPrice += r.purchase_price ?? 0;
+	}
+
+	// Build status summary + avg remaining months per group
+	for (const g of groups.values()) {
+		const statusCounts = new Map<
+			string,
+			{ count: number; tone: string }
+		>();
+		let remainingTotal = 0;
+		let remainingCount = 0;
+		let totalMonthsAcc = 0;
+		let totalMonthsCount = 0;
+
+		for (const u of g.units) {
+			const s = classifyAssetStatus(
+				u.condition,
+				u.current_location,
+				u.is_active,
+			);
+			const existing = statusCounts.get(s.label);
+			if (existing) existing.count++;
+			else statusCounts.set(s.label, { count: 1, tone: s.tone });
+
+			const remaining = monthsRemaining(
+				u.depreciation_start_date,
+				u.useful_life_months,
+			);
+			if (remaining !== null && u.useful_life_months) {
+				remainingTotal += remaining;
+				remainingCount++;
+				totalMonthsAcc += u.useful_life_months;
+				totalMonthsCount++;
+			}
+		}
+
+		g.statusSummary = Array.from(statusCounts.entries())
+			.map(([label, v]) => ({ label, count: v.count, tone: v.tone }))
+			.sort((a, b) => b.count - a.count);
+		g.avgRemainingMonths =
+			remainingCount > 0 ? Math.round(remainingTotal / remainingCount) : null;
+		g.avgTotalMonths =
+			totalMonthsCount > 0
+				? Math.round(totalMonthsAcc / totalMonthsCount)
+				: null;
+	}
+
+	return Array.from(groups.values()).sort((a, b) =>
+		a.name.localeCompare(b.name),
+	);
+}
+
 type EquipmentFilter = "all" | "normal" | "service" | "damaged" | "lost" | "inactive";
 
 const EQUIPMENT_FILTER_OPTIONS: ReadonlyArray<{
@@ -650,42 +802,60 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<EquipmentFilter>("all");
 
+	// Aggregate per model (group by normalized name) — sumber kebenaran view ini
+	const allGroups = useMemo(() => aggregateEquipment(rows), [rows]);
+
 	const counts = useMemo(() => {
 		const out: Record<EquipmentFilter, number> = {
-			all: rows.length,
+			all: allGroups.length,
 			normal: 0,
 			service: 0,
 			damaged: 0,
 			lost: 0,
 			inactive: 0,
 		};
-		for (const r of rows) {
-			if (!r.is_active) out.inactive++;
-			else if (r.condition === "normal") out.normal++;
-			else if (r.condition === "service") out.service++;
-			else if (r.condition === "damaged") out.damaged++;
-			else if (r.condition === "lost") out.lost++;
+		// Count group-level: a group counts toward a bucket if MAJORITY of its
+		// active units fall in that bucket. Inactive bucket = group has all
+		// units inactive.
+		for (const g of allGroups) {
+			if (g.activeCount === 0) {
+				out.inactive++;
+				continue;
+			}
+			const dominant = g.statusSummary[0]?.label ?? "";
+			if (dominant === "Rusak") out.damaged++;
+			else if (dominant === "Hilang") out.lost++;
+			else if (dominant === "Servis") out.service++;
+			else out.normal++;
 		}
 		return out;
-	}, [rows]);
+	}, [allGroups]);
 
 	const filtered = useMemo(() => {
 		const q = query.trim().toLowerCase();
-		let out = rows;
+		let out = allGroups;
 		if (q) {
 			out = out.filter(
-				(r) =>
-					r.name.toLowerCase().includes(q) ||
-					r.sku.toLowerCase().includes(q),
+				(g) =>
+					g.name.toLowerCase().includes(q) ||
+					g.units.some(
+						(u) =>
+							u.sku.toLowerCase().includes(q) ||
+							u.serial_number?.toLowerCase().includes(q),
+					),
 			);
 		}
-		out = out.filter((r) => {
+		out = out.filter((g) => {
 			if (filter === "all") return true;
-			if (filter === "inactive") return !r.is_active;
-			return r.is_active && r.condition === filter;
+			if (filter === "inactive") return g.activeCount === 0;
+			const dominant = g.statusSummary[0]?.label ?? "";
+			if (filter === "damaged") return dominant === "Rusak";
+			if (filter === "lost") return dominant === "Hilang";
+			if (filter === "service") return dominant === "Servis";
+			return dominant === "Tersedia" || dominant === "On-Event";
 		});
 		return out;
-	}, [rows, query, filter]);
+	}, [allGroups, query, filter]);
 
 	if (rows.length === 0) {
 		return (
@@ -708,96 +878,102 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 		);
 	}
 
-	const columns: ResponsiveTableColumn<EquipmentRow>[] = [
+	const columns: ResponsiveTableColumn<EquipmentGroup>[] = [
 		{
 			key: "name",
 			header: "Asset",
-			render: (r) => {
-				const acq = r.acquisition_type
-					? ACQUISITION_LABEL[r.acquisition_type]
-					: null;
+			render: (g) => {
+				// Show acquisition badges (collapsed when uniform, listed when mixed)
+				const acqList = Array.from(g.acquisitionMix);
+				const firstSku = g.units[0]?.sku ?? "";
 				return (
 					<div className="space-y-0.5">
 						<div className="flex flex-wrap items-center gap-1.5">
-							<span className="font-medium text-foreground">{r.name}</span>
-							{acq && (
+							<span className="text-sm font-semibold text-foreground">
+								{g.name}
+							</span>
+							{acqList.length === 1 && ACQUISITION_LABEL[acqList[0]] && (
 								<Badge
 									variant="outline"
-									className={`h-5 px-1.5 text-[10px] ${acq.tone}`}
+									className={`h-5 px-1.5 text-[10px] ${ACQUISITION_LABEL[acqList[0]].tone}`}
 								>
-									{acq.label}
+									{ACQUISITION_LABEL[acqList[0]].label}
 								</Badge>
 							)}
-							{!r.is_active && (
-								<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-									Inactive
+							{acqList.length > 1 && (
+								<Badge
+									variant="outline"
+									className="h-5 px-1.5 text-[10px] border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"
+								>
+									Mix ({acqList.length} jenis)
 								</Badge>
 							)}
 						</div>
-						<div className="tabular flex flex-wrap items-center gap-x-1.5 text-[10px] text-muted-foreground">
-							<span>{r.sku}</span>
-							{r.asset_number && r.asset_number !== r.sku && (
-								<>
-									<span className="text-muted-foreground/40">·</span>
-									<span>{r.asset_number}</span>
-								</>
-							)}
+						<div className="tabular text-[10px] text-foreground/40">
+							{firstSku}
+							{g.count > 1 && ` · +${g.count - 1} unit lain`}
 						</div>
 					</div>
 				);
 			},
 		},
 		{
-			key: "serial",
-			header: "Serial #",
-			hideOnMobile: true,
-			render: (r) =>
-				r.serial_number ? (
-					<span className="tabular text-fluid-caption font-mono text-muted-foreground">
-						{r.serial_number}
-					</span>
-				) : (
-					<MutedDash />
-				),
+			key: "qty",
+			header: "Qty",
+			align: "right",
+			render: (g) => (
+				<div className="text-right">
+					<div className="tabular text-base font-semibold text-foreground">
+						{g.count}
+					</div>
+					<div className="text-[10px] text-muted-foreground/80">
+						{g.activeCount === g.count
+							? "unit"
+							: `${g.activeCount} aktif / ${g.count}`}
+					</div>
+				</div>
+			),
 		},
 		{
 			key: "status",
-			header: "Kondisi & Lokasi",
-			render: (r) => {
-				const locLabel = r.current_location
-					? (EQUIPMENT_LOCATION_LABELS[r.current_location] ??
-						r.current_location)
-					: null;
-				return (
-					<div className="space-y-1">
-						{r.is_active ? <ConditionBadge condition={r.condition} /> : null}
-						{locLabel ? (
-							<div className="text-[11px] text-muted-foreground">
-								{locLabel}
-							</div>
-						) : (
-							<MutedDash label="Lokasi belum di-set" />
-						)}
-					</div>
-				);
-			},
+			header: "Status Operasional",
+			render: (g) => (
+				<div className="flex flex-wrap items-center gap-1">
+					{g.statusSummary.map((s) => (
+						<Badge
+							key={s.label}
+							variant="outline"
+							className={`h-5 px-1.5 text-[10px] ${s.tone}`}
+						>
+							{s.count > 1 ? `${s.count} ` : ""}
+							{s.label}
+						</Badge>
+					))}
+				</div>
+			),
 		},
 		{
-			key: "purchase_price",
-			header: "Harga Beli",
+			key: "total_price",
+			header: "Total Nilai",
 			align: "right",
 			hideOnMobile: true,
-			render: (r) => {
-				if (!r.purchase_price)
-					return <MutedDash label="Belum di-set" />;
-				const isOwnerContribution =
-					r.acquisition_type === "owner_contribution";
+			render: (g) => {
+				if (g.totalPrice <= 0)
+					return <MutedDash variant="dash" />;
+				const isAllOwnerContrib =
+					g.acquisitionMix.size === 1 &&
+					g.acquisitionMix.has("owner_contribution");
 				return (
 					<div className="text-right">
-						<span className="tabular text-fluid-caption font-medium text-foreground">
-							{formatRupiah(r.purchase_price)}
+						<span className="tabular text-sm font-medium text-foreground">
+							{formatRupiah(g.totalPrice)}
 						</span>
-						{isOwnerContribution && (
+						{g.count > 1 && (
+							<div className="text-[10px] text-muted-foreground/80">
+								{formatRupiah(Math.round(g.totalPrice / g.count))} / unit
+							</div>
+						)}
+						{isAllOwnerContrib && (
 							<div className="text-[10px] text-muted-foreground italic">
 								estimasi setoran
 							</div>
@@ -811,36 +987,52 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 			header: "Sisa Masa Pakai",
 			align: "right",
 			hideOnMobile: true,
-			render: (r) => {
-				const remaining = monthsRemaining(
-					r.depreciation_start_date,
-					r.useful_life_months,
-				);
-				if (remaining === null || !r.useful_life_months) {
-					return <MutedDash />;
+			render: (g) => {
+				if (g.avgRemainingMonths === null || !g.avgTotalMonths) {
+					return <MutedDash variant="dash" />;
 				}
 				return (
 					<div className="text-right">
-						<span className="tabular text-fluid-caption font-medium text-foreground">
-							{remaining}{" "}
+						<span className="tabular text-sm font-medium text-foreground">
+							{g.avgRemainingMonths}{" "}
 							<span className="text-muted-foreground font-normal">
-								/ {r.useful_life_months} bln
+								/ {g.avgTotalMonths} bln
 							</span>
 						</span>
+						{g.count > 1 && (
+							<div className="text-[10px] text-muted-foreground/80 italic">
+								avg per unit
+							</div>
+						)}
 					</div>
 				);
 			},
 		},
 		{
 			key: "actions",
-			header: "Aksi",
+			header: "",
 			align: "right",
-			render: (r) => (
-				<div className="flex items-center justify-end gap-1">
-					<EditItemLink id={r.id} label={r.name} />
-					<ArchiveItemButton id={r.id} name={r.name} />
-				</div>
-			),
+			render: (g) => {
+				const first = g.units[0];
+				if (g.count === 1) {
+					return (
+						<div className="flex items-center justify-end gap-1">
+							<EditItemLink id={first.id} label={first.name} />
+							<ArchiveItemButton id={first.id} name={first.name} />
+						</div>
+					);
+				}
+				// Multi-unit: link ke asset register (financial view) yang per-unit
+				return (
+					<Link
+						href="/warehouse/assets"
+						className="text-primary hover:underline text-[11px] font-medium"
+						title={`Buka Asset Register untuk lihat ${g.count} unit secara detail`}
+					>
+						{g.count} unit →
+					</Link>
+				);
+			},
 		},
 	];
 
@@ -868,8 +1060,8 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 				</div>
 			) : (
 				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
-					<ResponsiveTable<EquipmentRow>
-						keyExtractor={(r) => r.id}
+					<ResponsiveTable<EquipmentGroup>
+						keyExtractor={(g) => g.key}
 						rows={filtered}
 						columns={columns}
 					/>
