@@ -1,13 +1,14 @@
 "use client";
 
-import { Package, Video } from "lucide-react";
+import { Check, Package, Video } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 
 type Card = {
 	value: ItemCategory;
 	title: string;
 	subtitle: string;
-	icon: React.ReactNode;
+	icon: React.ComponentType<{ className?: string }>;
 	bullets: string[];
 };
 
@@ -15,73 +16,101 @@ const CARDS: Card[] = [
 	{
 		value: "inventory",
 		title: "Persediaan",
-		subtitle: "Barang habis pakai",
-		icon: <Package className="size-6" />,
+		subtitle: "Stok habis pakai",
+		icon: Package,
 		bullets: [
-			"Berkurang otomatis saat event jalan",
-			"Masuk ke HPP (COGS) saat dikonsumsi",
-			"Contoh: Mediaset, Sleeve, Flashdisk",
+			"Berkurang otomatis tiap kali event berjalan",
+			"Contoh: Mediaset, Sleeve, Flashdisk, Lakban",
 		],
 	},
 	{
 		value: "fixed_asset",
-		title: "Aktiva Tetap",
-		subtitle: "Alat & gear tahan lama",
-		icon: <Video className="size-6" />,
+		title: "Aset Tetap",
+		subtitle: "Peralatan kerja",
+		icon: Video,
 		bullets: [
-			"Dikapitalisasi & disusutkan bertahap",
-			"Punya nomor seri / asset number",
-			"Contoh: Kamera, Printer, Lighting",
+			"Barang investasi jangka panjang, tidak habis setelah event",
+			"Punya nomor seri (Serial Number) untuk dilacak lokasinya",
+			"Contoh: Kamera, Lensa, Printer, Lighting",
 		],
 	},
 ];
 
 export function CategoryPicker({
+	selected,
 	onChange,
 }: {
+	selected: ItemCategory | null;
 	onChange: (category: ItemCategory) => void;
 }) {
 	return (
-		<div className="space-y-4">
+		<div className="space-y-3">
 			<div className="space-y-1">
-				<h2 className="text-lg font-semibold">Jenis item</h2>
+				<h2 className="text-base font-semibold">Pilih jenis item</h2>
 				<p className="text-sm text-muted-foreground">
-					Pilih dulu jenis item — sistem akan menyiapkan form yang sesuai
-					dengan cara item ini di-track di akuntansi.
+					Form di bawah otomatis menyesuaikan pilihan kamu.
 				</p>
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-2">
-				{CARDS.map((c) => (
-					<button
-						key={c.value}
-						type="button"
-						onClick={() => onChange(c.value)}
-						className="group bg-surface-2 hover:bg-surface-1 focus-visible:ring-ring rounded-xl p-5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
-					>
-						<div className="flex items-start gap-3">
-							<div className="bg-primary/10 text-primary group-hover:bg-primary/15 inline-flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors">
-								{c.icon}
-							</div>
-							<div className="min-w-0 flex-1 space-y-1">
-								<div>
-									<div className="text-base font-semibold">{c.title}</div>
-									<div className="text-xs text-muted-foreground">
-										{c.subtitle}
-									</div>
+				{CARDS.map((c) => {
+					const Icon = c.icon;
+					const isSelected = selected === c.value;
+					return (
+						<button
+							key={c.value}
+							type="button"
+							onClick={() => onChange(c.value)}
+							aria-pressed={isSelected}
+							className={cn(
+								"group relative cursor-pointer rounded-xl p-5 text-left",
+								"transition-all duration-150 ease-out",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+								isSelected
+									? "bg-surface-3 shadow-md ring-2 ring-foreground"
+									: "bg-surface-2 ring-1 ring-foreground/[0.04] hover:bg-surface-3 hover:-translate-y-0.5 hover:shadow-md hover:ring-foreground/10",
+							)}
+						>
+							{/* Selected checkmark — top right */}
+							{isSelected && (
+								<div className="absolute right-3 top-3 inline-flex size-6 items-center justify-center rounded-full bg-foreground text-background shadow-sm">
+									<Check className="size-3.5" strokeWidth={3} />
 								</div>
-								<ul className="space-y-0.5 pt-1.5 text-[12px] text-muted-foreground">
-									{c.bullets.map((b) => (
-										<li key={b} className="flex items-start gap-1.5">
-											<span className="text-foreground/40 mt-1.5 inline-block size-1 shrink-0 rounded-full bg-current" />
-											<span>{b}</span>
-										</li>
-									))}
-								</ul>
+							)}
+
+							<div className="flex items-start gap-3">
+								<div
+									className={cn(
+										"inline-flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors",
+										isSelected
+											? "bg-foreground text-background"
+											: "bg-primary/10 text-primary group-hover:bg-primary/15",
+									)}
+								>
+									<Icon className="size-6" />
+								</div>
+								<div className="min-w-0 flex-1 space-y-1">
+									<div>
+										<div className="text-base font-semibold leading-tight">
+											{c.title}
+										</div>
+										<div className="text-[12px] text-muted-foreground">
+											{c.subtitle}
+										</div>
+									</div>
+									<ul className="space-y-1 pt-1.5 text-[12px] leading-snug text-muted-foreground">
+										{c.bullets.map((b) => (
+											<li key={b} className="flex items-start gap-1.5">
+												<span className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-current opacity-50" />
+												<span>{b}</span>
+											</li>
+										))}
+									</ul>
+								</div>
 							</div>
-						</div>
-					</button>
-				))}
+						</button>
+					);
+				})}
 			</div>
 		</div>
 	);

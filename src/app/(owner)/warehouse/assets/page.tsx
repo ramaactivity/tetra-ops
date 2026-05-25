@@ -261,7 +261,7 @@ export default async function AssetRegisterPage({
 					description={
 						showDisposed
 							? "Asset yang sudah di-dispose (sold/scrapped) akan muncul di sini sebagai arsip."
-							: "Tambah kamera/printer/lighting via Tambah Item → Aktiva Tetap."
+							: "Tambah kamera/printer/lighting via Tambah Item → Aset Tetap."
 					}
 				/>
 			) : (

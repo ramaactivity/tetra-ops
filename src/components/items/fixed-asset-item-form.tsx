@@ -497,7 +497,7 @@ export function FixedAssetItemForm({
 					{pending
 						? "Menyimpan…"
 						: mode === "create"
-							? "Buat Aktiva Tetap"
+							? "Buat Aset Tetap"
 							: "Simpan perubahan"}
 				</button>
 			</div>

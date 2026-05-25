@@ -171,7 +171,7 @@ export async function disposeFixedAsset(
 	}
 	if (item.category !== "fixed_asset") {
 		return {
-			errors: { _form: ["Hanya bisa dispose item kategori Aktiva Tetap"] },
+			errors: { _form: ["Hanya bisa dispose item kategori Aset Tetap"] },
 			values: snapshot(formData),
 		};
 	}

@@ -239,7 +239,7 @@ export default async function WarehousePage({
 							className={buttonVariants({ variant: "outline", size: "sm" })}
 						>
 							<Wallet2 className="size-4" />
-							Aktiva Tetap
+							Aset Tetap
 						</Link>
 						<Link
 							href="/warehouse/items/new"

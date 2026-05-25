@@ -166,7 +166,7 @@ export async function recordWastage(
 		return {
 			errors: {
 				_form: [
-					"Wastage hanya untuk Persediaan. Untuk Aktiva Tetap, gunakan flow Incident / Write-off.",
+					"Wastage hanya untuk Persediaan. Untuk Aset Tetap, gunakan flow Incident / Write-off.",
 				],
 			},
 			values: snapshot(formData),

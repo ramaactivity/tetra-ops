@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS: Array<{ value: string; label: string }> = [
 	{ value: "consumables", label: "Persediaan" },
-	{ value: "fixed_asset", label: "Aktiva Tetap" },
+	{ value: "fixed_asset", label: "Aset Tetap" },
 	{ value: "market", label: "Market List" },
 	{ value: "movements", label: "Log Mutasi" },
 ];

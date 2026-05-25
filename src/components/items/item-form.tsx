@@ -144,7 +144,7 @@ export function ItemForm({
 						}
 						options={[
 							{ value: "inventory", label: "Persediaan" },
-							{ value: "fixed_asset", label: "Aktiva Tetap" },
+							{ value: "fixed_asset", label: "Aset Tetap" },
 						]}
 						triggerClassName="w-full"
 						aria-invalid={!!err("category")}

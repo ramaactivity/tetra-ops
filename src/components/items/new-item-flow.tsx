@@ -7,9 +7,8 @@ import { FixedAssetItemForm } from "./fixed-asset-item-form";
 import { InventoryItemForm } from "./inventory-item-form";
 
 /**
- * Orchestrator untuk create-item flow. Step 1: pilih kategori, Step 2:
- * isi form yang sesuai. Tidak ada submit di Step 1 — itu cuma toggle state
- * client-side.
+ * Orchestrator: picker selalu visible (dengan selected state),
+ * form muncul di bawah dengan fade-in saat user memilih kategori.
  */
 export function NewItemFlow({
 	returnTo,
@@ -18,40 +17,24 @@ export function NewItemFlow({
 }) {
 	const [category, setCategory] = useState<ItemCategory | null>(null);
 
-	if (category === null) {
-		return <CategoryPicker onChange={setCategory} />;
-	}
-
-	if (category === "inventory") {
-		return (
-			<div className="space-y-4">
-				<CategoryBadge label="Persediaan" />
-				<InventoryItemForm
-					mode="create"
-					returnTo={returnTo}
-					onBack={() => setCategory(null)}
-				/>
-			</div>
-		);
-	}
-
 	return (
-		<div className="space-y-4">
-			<CategoryBadge label="Aktiva Tetap" />
-			<FixedAssetItemForm
-				mode="create"
-				returnTo={returnTo}
-				onBack={() => setCategory(null)}
-			/>
-		</div>
-	);
-}
+		<div className="space-y-6">
+			<CategoryPicker selected={category} onChange={setCategory} />
 
-function CategoryBadge({ label }: { label: string }) {
-	return (
-		<div className="bg-primary/10 text-primary inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium">
-			<span className="size-1.5 rounded-full bg-current" />
-			{label}
+			{category && (
+				<div
+					key={category}
+					className="duration-200 animate-in fade-in slide-in-from-top-2 fill-mode-both"
+				>
+					<div className="border-t border-foreground/[0.06] pt-6">
+						{category === "inventory" ? (
+							<InventoryItemForm mode="create" returnTo={returnTo} />
+						) : (
+							<FixedAssetItemForm mode="create" returnTo={returnTo} />
+						)}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

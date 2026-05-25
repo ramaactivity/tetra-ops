@@ -24,7 +24,7 @@ export default async function WarehouseEditItemPage({
 	if (!loaded || loaded.base.deleted_at) notFound();
 
 	const categoryLabel =
-		loaded.kind === "inventory" ? "Persediaan" : "Aktiva Tetap";
+		loaded.kind === "inventory" ? "Persediaan" : "Aset Tetap";
 
 	return (
 		<Container size="xl" className="space-y-5">
