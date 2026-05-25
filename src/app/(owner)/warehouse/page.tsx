@@ -199,6 +199,7 @@ export default async function WarehousePage({
 				description="Track stok consumables, equipment, supplier, dan log mutasi."
 				actions={
 					<>
+						{/* Workflow actions — ordered: master data → transactional → audit → primary */}
 						<Link
 							href="/warehouse/suppliers"
 							className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -233,20 +234,6 @@ export default async function WarehousePage({
 						>
 							<AlertTriangle className="size-4" />
 							Wastage
-						</Link>
-						<Link
-							href="/warehouse/assets"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<Wallet2 className="size-4" />
-							Aset Tetap
-						</Link>
-						<Link
-							href="/warehouse/bundles"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<Layers className="size-4" />
-							Bundle / Set
 						</Link>
 						<Link
 							href="/warehouse/items/new"
@@ -299,7 +286,23 @@ export default async function WarehousePage({
 						stockEntries={Array.from(stockByItem.entries())}
 					/>
 				)}
-				{tab === "fixed_asset" && <EquipmentTable rows={equipment} />}
+				{tab === "fixed_asset" && (
+					<div className="space-y-3">
+						<div className="bg-surface-3 flex items-center justify-between rounded-md px-3 py-2 text-[12px]">
+							<span className="text-muted-foreground">
+								Tampilan operasional — kondisi, lokasi, check-out.
+							</span>
+							<Link
+								href="/warehouse/assets"
+								className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
+							>
+								<Wallet2 className="size-3.5" />
+								Asset Register (Financial)
+							</Link>
+						</div>
+						<EquipmentTable rows={equipment} />
+					</div>
+				)}
 				{tab === "market" && (
 					<MarketListTable
 						items={marketItems}

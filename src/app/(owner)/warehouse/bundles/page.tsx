@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/operations/_shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { WarehouseTabs } from "@/components/warehouse/warehouse-tabs";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -68,12 +69,10 @@ export default async function BundlesListPage() {
 	});
 
 	return (
-		<Container size="lg" className="space-y-5">
+		<Container size="xl" className="space-y-5">
 			<PageHeader
-				title="Bundle / Set"
-				backHref="/warehouse"
-				backLabel="Warehouse"
-				description="Recipe paket: 1 bundle = N komponen yang dideduct otomatis saat dipakai event. Tidak punya stok sendiri — selalu resolve ke komponen."
+				title="Warehouse"
+				description="Bundle / Set — recipe paket yang resolve ke komponen saat dipakai event. Tidak punya stok sendiri."
 				actions={
 					<Link
 						href="/warehouse/bundles/new"
@@ -85,7 +84,10 @@ export default async function BundlesListPage() {
 				}
 			/>
 
-			{bundles.length === 0 ? (
+			<div className="space-y-4">
+				<WarehouseTabs current="" />
+
+				{bundles.length === 0 ? (
 				<EmptyState
 					icon={Boxes}
 					title="Belum ada bundle"
@@ -158,6 +160,7 @@ export default async function BundlesListPage() {
 					))}
 				</div>
 			)}
+			</div>
 		</Container>
 	);
 }
