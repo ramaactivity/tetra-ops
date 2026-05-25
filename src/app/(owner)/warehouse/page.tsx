@@ -242,6 +242,13 @@ export default async function WarehousePage({
 							Aset Tetap
 						</Link>
 						<Link
+							href="/warehouse/bundles"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<Layers className="size-4" />
+							Bundle / Set
+						</Link>
+						<Link
 							href="/warehouse/items/new"
 							className={buttonVariants({ variant: "default", size: "sm" })}
 						>
