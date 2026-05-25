@@ -125,7 +125,17 @@ export type ConsumableRow = {
 	min_stock_alert: number;
 	purchase_price_avg: number;
 	is_active: boolean;
+	preferred_supplier_name: string | null;
 };
+
+/** Reusable muted placeholder untuk null/empty cells. */
+function MutedDash({ label = "Belum di-set" }: { label?: string }) {
+	return (
+		<span className="text-muted-foreground/40 italic text-[11px]">
+			{label}
+		</span>
+	);
+}
 
 type StockState = "habis" | "minus" | "kritis" | "aman";
 
@@ -381,13 +391,14 @@ export function ConsumablesTable({
 			header: "Avg Cost",
 			align: "right",
 			hideOnMobile: true,
-			render: (r) => (
-				<span className="tabular text-fluid-caption text-muted-foreground">
-					{r.purchase_price_avg
-						? `${formatRupiah(r.purchase_price_avg)} / ${r.unit}`
-						: "—"}
-				</span>
-			),
+			render: (r) =>
+				r.purchase_price_avg ? (
+					<span className="tabular text-fluid-caption text-muted-foreground">
+						{formatRupiah(r.purchase_price_avg)} / {r.unit}
+					</span>
+				) : (
+					<MutedDash label="Rp 0 / belum ada pembelian" />
+				),
 		},
 		{
 			key: "value",
@@ -397,14 +408,26 @@ export function ConsumablesTable({
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				const value = stock * (r.purchase_price_avg ?? 0);
-				if (value === 0)
-					return <span className="text-muted-foreground/40">—</span>;
+				if (value === 0) return <MutedDash label="—" />;
 				return (
 					<span className="tabular text-fluid-caption font-medium text-foreground">
 						{formatRupiah(value)}
 					</span>
 				);
 			},
+		},
+		{
+			key: "supplier",
+			header: "Supplier Utama",
+			hideOnMobile: true,
+			render: (r) =>
+				r.preferred_supplier_name ? (
+					<span className="text-fluid-caption text-foreground">
+						{r.preferred_supplier_name}
+					</span>
+				) : (
+					<MutedDash />
+				),
 		},
 		{
 			key: "actions",
@@ -509,7 +532,46 @@ export type EquipmentRow = {
 	condition: string | null;
 	current_location: string | null;
 	is_active: boolean;
+	asset_number: string | null;
+	serial_number: string | null;
+	acquisition_type:
+		| "new_commercial"
+		| "used_commercial"
+		| "owner_contribution"
+		| null;
+	useful_life_months: number | null;
+	depreciation_start_date: string | null;
 };
+
+const ACQUISITION_LABEL: Record<string, { label: string; tone: string }> = {
+	new_commercial: {
+		label: "Baru",
+		tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+	},
+	used_commercial: {
+		label: "Second",
+		tone: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+	},
+	owner_contribution: {
+		label: "Modal Owner",
+		tone: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+	},
+};
+
+/** Months remaining sebelum useful life habis. Returns null kalau no data. */
+function monthsRemaining(
+	startIso: string | null,
+	totalMonths: number | null,
+): number | null {
+	if (!startIso || !totalMonths) return null;
+	const start = new Date(startIso);
+	if (Number.isNaN(start.getTime())) return null;
+	const now = new Date();
+	const years = now.getFullYear() - start.getFullYear();
+	const months = now.getMonth() - start.getMonth();
+	const elapsed = Math.max(0, years * 12 + months);
+	return Math.max(0, totalMonths - elapsed);
+}
 
 type EquipmentFilter = "all" | "normal" | "service" | "damaged" | "lost" | "inactive";
 
@@ -610,47 +672,125 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 	const columns: ResponsiveTableColumn<EquipmentRow>[] = [
 		{
 			key: "name",
-			header: "Item",
-			render: (r) => (
-				<div className="space-y-0.5">
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="font-medium text-foreground">{r.name}</span>
-						{r.is_active ? (
-							<ConditionBadge condition={r.condition} />
-						) : (
-							<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-								Inactive
-							</Badge>
-						)}
+			header: "Asset",
+			render: (r) => {
+				const acq = r.acquisition_type
+					? ACQUISITION_LABEL[r.acquisition_type]
+					: null;
+				return (
+					<div className="space-y-0.5">
+						<div className="flex flex-wrap items-center gap-1.5">
+							<span className="font-medium text-foreground">{r.name}</span>
+							{acq && (
+								<Badge
+									variant="outline"
+									className={`h-5 px-1.5 text-[10px] ${acq.tone}`}
+								>
+									{acq.label}
+								</Badge>
+							)}
+							{!r.is_active && (
+								<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+									Inactive
+								</Badge>
+							)}
+						</div>
+						<div className="tabular flex flex-wrap items-center gap-x-1.5 text-[10px] text-muted-foreground">
+							<span>{r.sku}</span>
+							{r.asset_number && r.asset_number !== r.sku && (
+								<>
+									<span className="text-muted-foreground/40">·</span>
+									<span>{r.asset_number}</span>
+								</>
+							)}
+						</div>
 					</div>
-					<div className="tabular text-[10px] text-muted-foreground">
-						{r.sku}
-					</div>
-				</div>
-			),
+				);
+			},
 		},
 		{
-			key: "current_location",
-			header: "Lokasi",
-			render: (r) => (
-				<span className="text-fluid-caption text-muted-foreground">
-					{r.current_location
-						? (EQUIPMENT_LOCATION_LABELS[r.current_location] ??
-							r.current_location)
-						: "—"}
-				</span>
-			),
+			key: "serial",
+			header: "Serial #",
+			hideOnMobile: true,
+			render: (r) =>
+				r.serial_number ? (
+					<span className="tabular text-fluid-caption font-mono text-muted-foreground">
+						{r.serial_number}
+					</span>
+				) : (
+					<MutedDash />
+				),
+		},
+		{
+			key: "status",
+			header: "Kondisi & Lokasi",
+			render: (r) => {
+				const locLabel = r.current_location
+					? (EQUIPMENT_LOCATION_LABELS[r.current_location] ??
+						r.current_location)
+					: null;
+				return (
+					<div className="space-y-1">
+						{r.is_active ? <ConditionBadge condition={r.condition} /> : null}
+						{locLabel ? (
+							<div className="text-[11px] text-muted-foreground">
+								{locLabel}
+							</div>
+						) : (
+							<MutedDash label="Lokasi belum di-set" />
+						)}
+					</div>
+				);
+			},
 		},
 		{
 			key: "purchase_price",
 			header: "Harga Beli",
 			align: "right",
 			hideOnMobile: true,
-			render: (r) => (
-				<span className="tabular text-fluid-caption">
-					{r.purchase_price ? formatRupiah(r.purchase_price) : "—"}
-				</span>
-			),
+			render: (r) => {
+				if (!r.purchase_price)
+					return <MutedDash label="Belum di-set" />;
+				const isOwnerContribution =
+					r.acquisition_type === "owner_contribution";
+				return (
+					<div className="text-right">
+						<span className="tabular text-fluid-caption font-medium text-foreground">
+							{formatRupiah(r.purchase_price)}
+						</span>
+						{isOwnerContribution && (
+							<div className="text-[10px] text-muted-foreground italic">
+								estimasi setoran
+							</div>
+						)}
+					</div>
+				);
+			},
+		},
+		{
+			key: "useful_life",
+			header: "Sisa Masa Pakai",
+			align: "right",
+			hideOnMobile: true,
+			render: (r) => {
+				const remaining = monthsRemaining(
+					r.depreciation_start_date,
+					r.useful_life_months,
+				);
+				if (remaining === null || !r.useful_life_months) {
+					return <MutedDash />;
+				}
+				return (
+					<div className="text-right">
+						<span className="tabular text-fluid-caption font-medium text-foreground">
+							{remaining}{" "}
+							<span className="text-muted-foreground font-normal">
+								/ {r.useful_life_months} bln
+							</span>
+						</span>
+					</div>
+				);
+			},
 		},
 		{
 			key: "actions",

@@ -12,15 +12,23 @@ import {
 /**
  * Orchestrator: picker selalu visible (dengan selected state),
  * form muncul di bawah dengan fade-in saat user memilih kategori.
+ *
+ * Pre-select via prop `initialCategory` — dipakai saat user klik
+ * "Tambah Persediaan" / "Tambah Aset" dari tab-aware action button di
+ * /warehouse, sehingga langsung skip picker step.
  */
 export function NewItemFlow({
 	returnTo,
 	suppliers = [],
+	initialCategory,
 }: {
 	returnTo?: "/settings/items" | "/warehouse";
 	suppliers?: SupplierOption[];
+	initialCategory?: ItemCategory;
 }) {
-	const [category, setCategory] = useState<ItemCategory | null>(null);
+	const [category, setCategory] = useState<ItemCategory | null>(
+		initialCategory ?? null,
+	);
 
 	return (
 		<div className="space-y-6">

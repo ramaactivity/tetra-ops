@@ -1,9 +1,20 @@
 import { Container } from "@/components/layout/container";
 import { NewItemFlow } from "@/components/items/new-item-flow";
 import { PageHeader } from "@/components/operations/_shared/page-header";
+import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function WarehouseNewItemPage() {
+export default async function WarehouseNewItemPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ category?: string }>;
+}) {
+	const params = await searchParams;
+	const initialCategory: ItemCategory | undefined =
+		params.category === "inventory" || params.category === "fixed_asset"
+			? params.category
+			: undefined;
+
 	const supabase = await createClient();
 	const { data: suppliers } = await supabase
 		.from("suppliers")
@@ -24,6 +35,7 @@ export default async function WarehouseNewItemPage() {
 				<NewItemFlow
 					returnTo="/warehouse"
 					suppliers={(suppliers ?? []) as { id: string; name: string }[]}
+					initialCategory={initialCategory}
 				/>
 			</div>
 		</Container>

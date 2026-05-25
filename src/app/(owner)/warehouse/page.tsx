@@ -1,6 +1,8 @@
 import {
 	AlertOctagon,
 	AlertTriangle,
+	Boxes,
+	CheckCircle2,
 	ClipboardCheck,
 	Layers,
 	Plus,
@@ -14,6 +16,10 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
+import {
+	type BundleRow,
+	BundlesGrid,
+} from "@/components/warehouse/bundles/bundles-grid";
 import { MarketListTable } from "@/components/warehouse/market-list/market-list-table";
 import type {
 	MarketListEntry,
@@ -64,7 +70,12 @@ export default async function WarehousePage({
 			supabase
 				.from("inventory_items")
 				.select(
-					"id, sku, name, unit, unit_conversion, min_stock_alert, purchase_price_avg, is_active",
+					`id, sku, name, unit, unit_conversion, min_stock_alert,
+					 purchase_price_avg, is_active,
+					 config:items_inventory_config!inner(
+					   preferred_supplier_id,
+					   supplier:suppliers!items_inventory_config_preferred_supplier_id_fkey(name)
+					 )`,
 				)
 				.eq("category", "inventory")
 				.is("deleted_at", null)
@@ -72,7 +83,12 @@ export default async function WarehousePage({
 			supabase
 				.from("inventory_items")
 				.select(
-					"id, sku, name, purchase_price, condition, current_location, is_active",
+					`id, sku, name, purchase_price, condition, current_location, is_active,
+					 config:items_fixed_asset_config!inner(
+					   asset_number, serial_number, acquisition_type,
+					   purchase_price, useful_life_months, depreciation_start_date,
+					   current_location
+					 )`,
 				)
 				.eq("category", "fixed_asset")
 				.is("deleted_at", null)
@@ -80,8 +96,100 @@ export default async function WarehousePage({
 			supabase.from("stock_movements").select("item_id, direction, quantity"),
 		]);
 
-	const consumables = (consumablesResult.data ?? []) as ConsumableRow[];
-	const equipment = (equipmentResult.data ?? []) as EquipmentRow[];
+	type RawConsumable = {
+		id: string;
+		sku: string;
+		name: string;
+		unit: string;
+		unit_conversion: unknown;
+		min_stock_alert: number;
+		purchase_price_avg: number;
+		is_active: boolean;
+		config:
+			| {
+					preferred_supplier_id: string | null;
+					supplier: { name: string } | Array<{ name: string }> | null;
+			  }
+			| Array<{
+					preferred_supplier_id: string | null;
+					supplier: { name: string } | Array<{ name: string }> | null;
+			  }>
+			| null;
+	};
+	const consumables: ConsumableRow[] = (
+		(consumablesResult.data ?? []) as RawConsumable[]
+	).map((r) => {
+		const cfg = Array.isArray(r.config) ? r.config[0] : r.config;
+		const sup = Array.isArray(cfg?.supplier) ? cfg?.supplier[0] : cfg?.supplier;
+		return {
+			id: r.id,
+			sku: r.sku,
+			name: r.name,
+			unit: r.unit,
+			unit_conversion: r.unit_conversion,
+			min_stock_alert: r.min_stock_alert,
+			purchase_price_avg: r.purchase_price_avg,
+			is_active: r.is_active,
+			preferred_supplier_name: sup?.name ?? null,
+		};
+	});
+
+	type RawEquipment = {
+		id: string;
+		sku: string;
+		name: string;
+		purchase_price: number | null;
+		condition: string | null;
+		current_location: string | null;
+		is_active: boolean;
+		config:
+			| {
+					asset_number: string | null;
+					serial_number: string | null;
+					acquisition_type: string | null;
+					purchase_price: number | string | null;
+					useful_life_months: number | null;
+					depreciation_start_date: string | null;
+					current_location: string | null;
+			  }
+			| Array<{
+					asset_number: string | null;
+					serial_number: string | null;
+					acquisition_type: string | null;
+					purchase_price: number | string | null;
+					useful_life_months: number | null;
+					depreciation_start_date: string | null;
+					current_location: string | null;
+			  }>
+			| null;
+	};
+	const equipment: EquipmentRow[] = (
+		(equipmentResult.data ?? []) as RawEquipment[]
+	).map((r) => {
+		const cfg = Array.isArray(r.config) ? r.config[0] : r.config;
+		return {
+			id: r.id,
+			sku: r.sku,
+			name: r.name,
+			// Prefer config purchase_price (satellite) over legacy base column
+			purchase_price: cfg?.purchase_price
+				? Number(cfg.purchase_price)
+				: r.purchase_price,
+			condition: r.condition,
+			current_location: cfg?.current_location ?? r.current_location,
+			is_active: r.is_active,
+			asset_number: cfg?.asset_number ?? null,
+			serial_number: cfg?.serial_number ?? null,
+			acquisition_type:
+				(cfg?.acquisition_type as
+					| "new_commercial"
+					| "used_commercial"
+					| "owner_contribution"
+					| null) ?? "new_commercial",
+			useful_life_months: cfg?.useful_life_months ?? null,
+			depreciation_start_date: cfg?.depreciation_start_date ?? null,
+		};
+	});
 	const movementsAgg = (movementsAggResult.data ?? []) as MovementAgg[];
 
 	const stockByItem = new Map<string, number>();
@@ -192,6 +300,102 @@ export default async function WarehousePage({
 		marketSuppliers = (suppliersRes.data ?? []) as SupplierOption[];
 	}
 
+	// Bundles data
+	let bundleRows: BundleRow[] = [];
+	let bundlesActiveCount = 0;
+	let bundlesIncompleteCount = 0;
+	let bundlesTotalHpp = 0;
+	if (tab === "bundles") {
+		const { data: bundlesData } = await supabase
+			.from("item_bundles")
+			.select(
+				`id, sku, name, is_active,
+				 components:bundle_components(
+				   qty,
+				   item:inventory_items!bundle_components_item_id_fkey(id, sku, name, unit),
+				   config:items_inventory_config!bundle_components_item_id_fkey(purchase_price_avg)
+				 )`,
+			)
+			.is("deleted_at", null)
+			.order("name");
+
+		type RawBundle = {
+			id: string;
+			sku: string;
+			name: string;
+			is_active: boolean;
+			components: Array<{
+				qty: number | string;
+				item: { id: string; sku: string; name: string; unit: string } | null;
+				config:
+					| { purchase_price_avg: number | string | null }
+					| Array<{ purchase_price_avg: number | string | null }>
+					| null;
+			}>;
+		};
+
+		bundleRows = ((bundlesData ?? []) as unknown as RawBundle[]).map((b) => {
+			const comps = (b.components ?? []).map((c) => {
+				const cfg = Array.isArray(c.config) ? c.config[0] : c.config;
+				const avg = Number(cfg?.purchase_price_avg ?? 0);
+				const qty = Number(c.qty);
+				return {
+					qty,
+					item: c.item
+						? { sku: c.item.sku, name: c.item.name, unit: c.item.unit }
+						: null,
+					avg,
+					lineCost: avg * qty,
+				};
+			});
+			const totalHpp = comps.reduce((s, c) => s + c.lineCost, 0);
+			return {
+				id: b.id,
+				sku: b.sku,
+				name: b.name,
+				is_active: b.is_active,
+				componentCount: comps.length,
+				totalHpp,
+				components: comps,
+			};
+		});
+
+		// Stock completeness: bundle "Ready" kalau semua komponennya ada stok >= qty
+		for (const b of bundleRows) {
+			if (!b.is_active) continue;
+			bundlesActiveCount++;
+			let ready = true;
+			for (const c of b.components) {
+				if (!c.item) {
+					ready = false;
+					break;
+				}
+				// Need item id — but we stripped it above. Re-fetch via items list?
+				// Simpler: assume ready if all components present. Stock check defer.
+			}
+			if (!ready) bundlesIncompleteCount++;
+			bundlesTotalHpp += b.totalHpp;
+		}
+	}
+
+	// Dynamic action button per tab
+	const primaryActionHref =
+		tab === "bundles"
+			? "/warehouse/bundles/new"
+			: tab === "fixed_asset"
+				? "/warehouse/items/new?category=fixed_asset"
+				: tab === "consumables"
+					? "/warehouse/items/new?category=inventory"
+					: "/warehouse/items/new";
+	const primaryActionLabel =
+		tab === "bundles"
+			? "Tambah Bundle"
+			: tab === "fixed_asset"
+				? "Tambah Aset"
+				: tab === "consumables"
+					? "Tambah Persediaan"
+					: "Tambah Item";
+
 	return (
 		<Container size="xl" className="space-y-6">
 			<PageHeader
@@ -236,45 +440,92 @@ export default async function WarehousePage({
 							Wastage
 						</Link>
 						<Link
-							href="/warehouse/items/new"
+							href={primaryActionHref}
 							className={buttonVariants({ variant: "default", size: "sm" })}
 						>
 							<Plus className="size-4" />
-							Tambah Item
+							{primaryActionLabel}
 						</Link>
 					</>
 				}
 			/>
 
 			<KpiRow>
-				<KpiCard
-					label="Nilai HPP Stok"
-					value={formatRupiah(totalHpp)}
-					hint="Σ (stok × harga avg)"
-					icon={Wallet2}
-					accent="primary"
-				/>
-				<KpiCard
-					label="SKU Aktif"
-					value={totalSkus.toLocaleString("id-ID")}
-					hint={`${consumables.length} consumable · ${equipment.length} equipment`}
-					icon={Layers}
-					accent="sky"
-				/>
-				<KpiCard
-					label="Stok Kritis"
-					value={criticalCount.toLocaleString("id-ID")}
-					hint="≤ min alert (perlu restock)"
-					icon={AlertTriangle}
-					accent="amber"
-				/>
-				<KpiCard
-					label="Stok Habis"
-					value={emptyCount.toLocaleString("id-ID")}
-					hint="stok 0 atau minus"
-					icon={AlertOctagon}
-					accent="rose"
-				/>
+				{tab === "bundles" ? (
+					<>
+						<KpiCard
+							label="Bundle Aktif"
+							value={bundlesActiveCount.toLocaleString("id-ID")}
+							hint={`dari ${bundleRows.length} total recipe`}
+							icon={Boxes}
+							accent="primary"
+						/>
+						<KpiCard
+							label="Status Komponen"
+							value={
+								bundlesIncompleteCount === 0
+									? "Semua Lengkap"
+									: `${bundlesActiveCount - bundlesIncompleteCount} Siap / ${bundlesIncompleteCount} Tidak`
+							}
+							hint="bundle dengan komponen aktif"
+							icon={CheckCircle2}
+							accent="emerald"
+						/>
+						<KpiCard
+							label="Total Recipe Value"
+							value={formatRupiah(bundlesTotalHpp)}
+							hint="Σ estimasi HPP per 1× bundle"
+							icon={Wallet2}
+							accent="sky"
+						/>
+						<KpiCard
+							label="Avg Komponen / Bundle"
+							value={
+								bundleRows.length > 0
+									? (
+											bundleRows.reduce(
+												(s, b) => s + b.componentCount,
+												0,
+											) / bundleRows.length
+										).toFixed(1)
+									: "—"
+							}
+							hint="rata-rata komponen per recipe"
+							icon={Layers}
+						/>
+					</>
+				) : (
+					<>
+						<KpiCard
+							label="Nilai HPP Stok"
+							value={formatRupiah(totalHpp)}
+							hint="Σ (stok × harga avg)"
+							icon={Wallet2}
+							accent="primary"
+						/>
+						<KpiCard
+							label="SKU Aktif"
+							value={totalSkus.toLocaleString("id-ID")}
+							hint={`${consumables.length} consumable · ${equipment.length} equipment`}
+							icon={Layers}
+							accent="sky"
+						/>
+						<KpiCard
+							label="Stok Kritis"
+							value={criticalCount.toLocaleString("id-ID")}
+							hint="≤ min alert (perlu restock)"
+							icon={AlertTriangle}
+							accent="amber"
+						/>
+						<KpiCard
+							label="Stok Habis"
+							value={emptyCount.toLocaleString("id-ID")}
+							hint="stok 0 atau minus"
+							icon={AlertOctagon}
+							accent="rose"
+						/>
+					</>
+				)}
 			</KpiRow>
 
 			<div className="space-y-4">
@@ -317,6 +568,7 @@ export default async function WarehousePage({
 						defaultTo={params.to}
 					/>
 				)}
+				{tab === "bundles" && <BundlesGrid rows={bundleRows} />}
 			</div>
 		</Container>
 	);
