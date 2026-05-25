@@ -10,6 +10,10 @@ import {
 } from "@/components/items/inventory-item-form";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { getItemWithConfig } from "@/lib/inventory/item-loader";
+import {
+	listUnitsByKind,
+	normalizeConversion,
+} from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function WarehouseEditItemPage({
@@ -27,7 +31,7 @@ export default async function WarehouseEditItemPage({
 		loaded.kind === "inventory" ? "Persediaan" : "Aset Tetap";
 
 	return (
-		<Container size="xl" className="space-y-5">
+		<Container size="lg" className="space-y-6">
 			<PageHeader
 				title={`Edit: ${loaded.base.name}`}
 				backHref="/warehouse"
@@ -43,7 +47,7 @@ export default async function WarehouseEditItemPage({
 					</span>
 				}
 			/>
-			<div className="max-w-3xl rounded-lg bg-surface-2 p-5">
+			<div className="rounded-xl bg-surface-2 p-6 sm:p-8 lg:p-10">
 				{loaded.kind === "inventory" ? (
 					<InventoryItemForm
 						mode="edit"
@@ -70,19 +74,31 @@ function inventoryDefaultsFrom(
 		{ kind: "inventory" }
 	>,
 ): InventoryItemDefaults {
+	// Derive purchase_unit + conversion_factor from existing unit_conversion JSONB
+	const map = normalizeConversion(
+		loaded.config.unit_conversion,
+		loaded.config.base_unit,
+	);
+	const purchaseUnits = listUnitsByKind(map, "purchase");
+	const firstPurchase = purchaseUnits[0];
+	const conversionFactor =
+		firstPurchase?.def.multiplier != null
+			? String(firstPurchase.def.multiplier)
+			: "";
+
 	return {
-		sku: loaded.base.sku,
 		name: loaded.base.name,
+		sku: loaded.base.sku,
 		base_unit: loaded.config.base_unit,
+		purchase_unit: firstPurchase?.code ?? "",
+		conversion_factor: conversionFactor,
 		min_stock_alert: String(loaded.config.min_stock_alert ?? 0),
-		selling_price: loaded.config.selling_price
-			? String(loaded.config.selling_price)
-			: "",
-		coa_account_inventory: loaded.config.coa_account_inventory ?? "",
-		coa_account_cogs: loaded.config.coa_account_cogs ?? "",
-		coa_account_wastage: loaded.config.coa_account_wastage ?? "",
+		is_bom_component:
+			(loaded.config as { is_bom_component?: boolean }).is_bom_component ??
+			false,
 		notes: loaded.base.notes ?? "",
 		is_active: loaded.base.is_active,
+		purchase_price_avg: loaded.config.purchase_price_avg ?? 0,
 	};
 }
 
@@ -93,8 +109,8 @@ function fixedAssetDefaultsFrom(
 	>,
 ): FixedAssetItemDefaults {
 	return {
-		sku: loaded.base.sku,
 		name: loaded.base.name,
+		sku: loaded.base.sku,
 		unit: loaded.base.unit,
 		asset_number: loaded.config.asset_number ?? "",
 		serial_number: loaded.config.serial_number ?? "",
@@ -104,13 +120,9 @@ function fixedAssetDefaultsFrom(
 		useful_life_months: loaded.config.useful_life_months
 			? String(loaded.config.useful_life_months)
 			: "",
-		depreciation_method: loaded.config.depreciation_method ?? "straight_line",
 		depreciation_start_date: loaded.config.depreciation_start_date ?? "",
 		condition: loaded.config.condition ?? "normal",
 		current_location: loaded.config.current_location ?? "gudang_pusat",
-		coa_account_asset: loaded.config.coa_account_asset ?? "",
-		coa_account_accum_depr: loaded.config.coa_account_accum_depr ?? "",
-		coa_account_depr_expense: loaded.config.coa_account_depr_expense ?? "",
 		image_url: loaded.base.image_url ?? "",
 		notes: loaded.base.notes ?? "",
 		is_active: loaded.base.is_active,

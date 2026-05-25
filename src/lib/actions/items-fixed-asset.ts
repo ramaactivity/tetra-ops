@@ -5,22 +5,26 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { defaultsForFixedAsset } from "@/lib/inventory/coa-defaults";
+import {
+	ensureUniqueSku,
+	generateFixedAssetSku,
+} from "@/lib/inventory/sku-generator";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Server actions untuk Fixed Asset (Aktiva Tetap) items — peralatan tahan
- * lama yang dikapitalisasi & disusutkan. Tidak masuk ke COGS per event.
+ * Server actions untuk Fixed Asset (Aset Tetap).
  *
- * Pattern: insert ke inventory_items (base, category='fixed_asset') +
- * items_fixed_asset_config (satellite) dalam 2 step.
- *
- * Catatan: Untuk MVP, jurnal CapEx (Dr 1-400 / Cr Kas) belum auto-create
- * di sini — itu tugas refactor purchases.ts. Action ini hanya register
- * asset di master data.
+ * Flow baru (2026-05-26):
+ *   - Name first; SKU + asset_number auto-generated dari nama.
+ *   - Unit dropdown default "unit".
+ *   - depreciation_method auto = "straight_line" (hidden dari form).
+ *   - COA otomatis dari default fixed asset (1-400/1-401/5-500); tidak
+ *     di-expose ke form Adit. Rama bisa override dari Finance nanti.
+ *   - Salvage value label "Perkiraan Harga Jual Bekas", default 0.
+ *   - useful_life_months → "Target Masa Pakai Alat".
  */
 
 const SKU_REGEX = /^[A-Z0-9_-]+$/;
-const COA_REGEX = /^[0-9]-[0-9]{3}$/;
 const CONDITIONS = ["normal", "service", "damaged", "lost"] as const;
 const LOCATIONS = [
 	"gudang_pusat",
@@ -29,17 +33,19 @@ const LOCATIONS = [
 	"crew_carry",
 	"lost",
 ] as const;
-const DEPR_METHODS = ["straight_line", "none"] as const;
+const ASSET_UNIT_OPTIONS = ["unit", "pcs", "set"] as const;
 
 const FixedAssetItemInputSchema = z.object({
-	sku: z
+	name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
+	sku_override: z
 		.string()
 		.trim()
-		.min(2, "Minimal 2 karakter")
 		.max(40, "Maksimal 40 karakter")
-		.regex(SKU_REGEX, "Pakai huruf kapital, angka, hyphen, underscore"),
-	name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
-	unit: z.string().trim().min(1, "Wajib").max(20).default("unit"),
+		.optional()
+		.transform((v) => (v ? v.toUpperCase() : ""))
+		.refine((v) => v === "" || SKU_REGEX.test(v), {
+			message: "SKU: huruf kapital, angka, hyphen, underscore",
+		}),
 	asset_number: z
 		.string()
 		.trim()
@@ -52,6 +58,7 @@ const FixedAssetItemInputSchema = z.object({
 		.max(120)
 		.optional()
 		.transform((v) => (v ? v : null)),
+	unit: z.enum(ASSET_UNIT_OPTIONS, "Pilih unit").default("unit"),
 	purchase_price: z.coerce.number().int().nonnegative().default(0),
 	purchase_date: z
 		.preprocess(
@@ -68,7 +75,6 @@ const FixedAssetItemInputSchema = z.object({
 		)
 		.optional()
 		.transform((v) => v ?? null),
-	depreciation_method: z.enum(DEPR_METHODS).default("straight_line"),
 	depreciation_start_date: z
 		.preprocess(
 			(v) => (v === "" || v === null || v === undefined ? null : v),
@@ -84,24 +90,6 @@ const FixedAssetItemInputSchema = z.object({
 		.union([z.enum(LOCATIONS), z.literal("")])
 		.optional()
 		.transform((v) => (v ? (v as (typeof LOCATIONS)[number]) : "gudang_pusat")),
-	coa_account_asset: z
-		.string()
-		.trim()
-		.regex(COA_REGEX, "Format kode akun: x-xxx")
-		.optional()
-		.or(z.literal("").transform(() => undefined)),
-	coa_account_accum_depr: z
-		.string()
-		.trim()
-		.regex(COA_REGEX, "Format kode akun: x-xxx")
-		.optional()
-		.or(z.literal("").transform(() => undefined)),
-	coa_account_depr_expense: z
-		.string()
-		.trim()
-		.regex(COA_REGEX, "Format kode akun: x-xxx")
-		.optional()
-		.or(z.literal("").transform(() => undefined)),
 	image_url: z
 		.string()
 		.trim()
@@ -125,22 +113,18 @@ export type FixedAssetItemFormState =
 
 function parse(formData: FormData) {
 	return FixedAssetItemInputSchema.safeParse({
-		sku: formData.get("sku"),
 		name: formData.get("name"),
-		unit: formData.get("unit") || "unit",
+		sku_override: formData.get("sku_override"),
 		asset_number: formData.get("asset_number"),
 		serial_number: formData.get("serial_number"),
+		unit: formData.get("unit") || "unit",
 		purchase_price: formData.get("purchase_price"),
 		purchase_date: formData.get("purchase_date"),
 		salvage_value: formData.get("salvage_value"),
 		useful_life_months: formData.get("useful_life_months"),
-		depreciation_method: formData.get("depreciation_method") || "straight_line",
 		depreciation_start_date: formData.get("depreciation_start_date"),
 		condition: formData.get("condition"),
 		current_location: formData.get("current_location"),
-		coa_account_asset: formData.get("coa_account_asset"),
-		coa_account_accum_depr: formData.get("coa_account_accum_depr"),
-		coa_account_depr_expense: formData.get("coa_account_depr_expense"),
 		image_url: formData.get("image_url"),
 		notes: formData.get("notes"),
 		is_active: formData.get("is_active") === "on",
@@ -149,22 +133,18 @@ function parse(formData: FormData) {
 
 function snapshot(formData: FormData): Record<string, string> {
 	const keys = [
-		"sku",
 		"name",
-		"unit",
+		"sku_override",
 		"asset_number",
 		"serial_number",
+		"unit",
 		"purchase_price",
 		"purchase_date",
 		"salvage_value",
 		"useful_life_months",
-		"depreciation_method",
 		"depreciation_start_date",
 		"condition",
 		"current_location",
-		"coa_account_asset",
-		"coa_account_accum_depr",
-		"coa_account_depr_expense",
 		"image_url",
 		"notes",
 	];
@@ -202,13 +182,22 @@ export async function createFixedAssetItem(
 		};
 	}
 	const data = parsed.data;
-	const coa = defaultsForFixedAsset();
 	const supabase = await createClient();
+
+	// Auto-generate SKU dari nama
+	const baseSku = data.sku_override || generateFixedAssetSku(data.name);
+	const sku = await ensureUniqueSku(
+		supabase as unknown as Parameters<typeof ensureUniqueSku>[0],
+		baseSku,
+	);
+	// Asset number defaults to SKU kalau user tidak override (1 asset = 1 SKU = 1 asset_number)
+	const assetNumber = data.asset_number || sku;
+	const coa = defaultsForFixedAsset();
 
 	const { data: inserted, error: insErr } = await supabase
 		.from("inventory_items")
 		.insert({
-			sku: data.sku,
+			sku,
 			name: data.name,
 			category: "fixed_asset",
 			unit: data.unit,
@@ -225,23 +214,29 @@ export async function createFixedAssetItem(
 		};
 	}
 
+	// Depreciation: auto straight_line if useful_life provided; else 'none'
+	const deprMethod =
+		data.useful_life_months && data.useful_life_months > 0
+			? "straight_line"
+			: "none";
+
 	const { error: cfgErr } = await supabase
 		.from("items_fixed_asset_config")
 		.insert({
 			item_id: inserted.id,
-			asset_number: data.asset_number,
+			asset_number: assetNumber,
 			serial_number: data.serial_number,
 			purchase_price: data.purchase_price,
 			purchase_date: data.purchase_date,
 			salvage_value: data.salvage_value,
 			useful_life_months: data.useful_life_months,
-			depreciation_method: data.depreciation_method,
+			depreciation_method: deprMethod,
 			depreciation_start_date: data.depreciation_start_date ?? data.purchase_date,
 			condition: data.condition,
 			current_location: data.current_location,
-			coa_account_asset: data.coa_account_asset ?? coa.asset,
-			coa_account_accum_depr: data.coa_account_accum_depr ?? coa.accum_depr,
-			coa_account_depr_expense: data.coa_account_depr_expense ?? coa.depr_expense,
+			coa_account_asset: coa.asset,
+			coa_account_accum_depr: coa.accum_depr,
+			coa_account_depr_expense: coa.depr_expense,
 		});
 	if (cfgErr) {
 		await supabase.from("inventory_items").delete().eq("id", inserted.id);
@@ -252,6 +247,7 @@ export async function createFixedAssetItem(
 	}
 
 	revalidatePath("/warehouse");
+	revalidatePath("/warehouse/assets");
 	revalidatePath("/settings/items");
 	redirect(safeReturnTo(formData.get("return_to")));
 }
@@ -275,7 +271,6 @@ export async function updateFixedAssetItem(
 	const { error: baseErr } = await supabase
 		.from("inventory_items")
 		.update({
-			sku: data.sku,
 			name: data.name,
 			unit: data.unit,
 			image_url: data.image_url,
@@ -292,6 +287,11 @@ export async function updateFixedAssetItem(
 		};
 	}
 
+	const deprMethod =
+		data.useful_life_months && data.useful_life_months > 0
+			? "straight_line"
+			: "none";
+
 	const { error: cfgErr } = await supabase
 		.from("items_fixed_asset_config")
 		.update({
@@ -301,13 +301,10 @@ export async function updateFixedAssetItem(
 			purchase_date: data.purchase_date,
 			salvage_value: data.salvage_value,
 			useful_life_months: data.useful_life_months,
-			depreciation_method: data.depreciation_method,
+			depreciation_method: deprMethod,
 			depreciation_start_date: data.depreciation_start_date,
 			condition: data.condition,
 			current_location: data.current_location,
-			coa_account_asset: data.coa_account_asset ?? null,
-			coa_account_accum_depr: data.coa_account_accum_depr ?? null,
-			coa_account_depr_expense: data.coa_account_depr_expense ?? null,
 			updated_at: new Date().toISOString(),
 		})
 		.eq("item_id", id);
@@ -319,6 +316,7 @@ export async function updateFixedAssetItem(
 	}
 
 	revalidatePath("/warehouse");
+	revalidatePath("/warehouse/assets");
 	revalidatePath(`/warehouse/items/${id}/edit`);
 	revalidatePath("/settings/items");
 	redirect(safeReturnTo(formData.get("return_to")));

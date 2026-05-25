@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { Info, Wand2 } from "lucide-react";
+import { useActionState, useMemo, useState } from "react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -8,12 +9,12 @@ import {
 	type FixedAssetItemFormState,
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
-import { defaultsForFixedAsset } from "@/lib/inventory/coa-defaults";
+import { generateFixedAssetSku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 
 export type FixedAssetItemDefaults = {
-	sku: string;
 	name: string;
+	sku: string;
 	unit: string;
 	asset_number: string;
 	serial_number: string;
@@ -21,21 +22,17 @@ export type FixedAssetItemDefaults = {
 	purchase_date: string;
 	salvage_value: string;
 	useful_life_months: string;
-	depreciation_method: string;
 	depreciation_start_date: string;
 	condition: string;
 	current_location: string;
-	coa_account_asset: string;
-	coa_account_accum_depr: string;
-	coa_account_depr_expense: string;
 	image_url: string;
 	notes: string;
 	is_active: boolean;
 };
 
 export const EMPTY_FIXED_ASSET_DEFAULTS: FixedAssetItemDefaults = {
-	sku: "",
 	name: "",
+	sku: "",
 	unit: "unit",
 	asset_number: "",
 	serial_number: "",
@@ -43,23 +40,25 @@ export const EMPTY_FIXED_ASSET_DEFAULTS: FixedAssetItemDefaults = {
 	purchase_date: "",
 	salvage_value: "0",
 	useful_life_months: "",
-	depreciation_method: "straight_line",
 	depreciation_start_date: "",
 	condition: "normal",
 	current_location: "gudang_pusat",
-	coa_account_asset: "",
-	coa_account_accum_depr: "",
-	coa_account_depr_expense: "",
 	image_url: "",
 	notes: "",
 	is_active: true,
 };
 
+const UNIT_OPTIONS = [
+	{ value: "unit", label: "Unit" },
+	{ value: "pcs", label: "Pcs" },
+	{ value: "set", label: "Set" },
+];
+
 const CONDITION_OPTIONS = [
 	{ value: "normal", label: "Normal" },
 	{ value: "service", label: "Service" },
-	{ value: "damaged", label: "Damaged" },
-	{ value: "lost", label: "Lost" },
+	{ value: "damaged", label: "Rusak" },
+	{ value: "lost", label: "Hilang" },
 ];
 
 const LOCATION_OPTIONS = [
@@ -67,12 +66,7 @@ const LOCATION_OPTIONS = [
 	{ value: "event", label: "Sedang di Event" },
 	{ value: "service_center", label: "Service Center" },
 	{ value: "crew_carry", label: "Dibawa Crew" },
-	{ value: "lost", label: "Lost" },
-];
-
-const DEPR_OPTIONS = [
-	{ value: "straight_line", label: "Garis Lurus (Straight-line)" },
-	{ value: "none", label: "Tidak disusutkan" },
+	{ value: "lost", label: "Hilang" },
 ];
 
 export function FixedAssetItemForm({
@@ -80,13 +74,11 @@ export function FixedAssetItemForm({
 	id,
 	defaults = EMPTY_FIXED_ASSET_DEFAULTS,
 	returnTo,
-	onBack,
 }: {
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: FixedAssetItemDefaults;
 	returnTo?: "/settings/items" | "/warehouse";
-	onBack?: () => void;
 }) {
 	const action =
 		mode === "create"
@@ -100,7 +92,8 @@ export function FixedAssetItemForm({
 	const get = (key: keyof FixedAssetItemDefaults, fallback?: string) => {
 		const v = state?.values?.[key as string];
 		if (v !== undefined) return v;
-		return fallback ?? String(defaults[key] ?? "");
+		const def = defaults[key];
+		return fallback ?? (typeof def === "boolean" ? "" : String(def ?? ""));
 	};
 	const err = (key: string) =>
 		(
@@ -109,29 +102,35 @@ export function FixedAssetItemForm({
 				| undefined
 		)?.[0];
 
-	const [condition, setCondition] = useState<string>(get("condition"));
-	const [location, setLocation] = useState<string>(get("current_location"));
-	const [deprMethod, setDeprMethod] = useState<string>(
-		get("depreciation_method"),
+	const [name, setName] = useState<string>(get("name"));
+	const [skuOverride, setSkuOverride] = useState<string>(
+		mode === "edit" ? defaults.sku : "",
 	);
+	const [skuEditable, setSkuEditable] = useState<boolean>(mode === "edit");
+	const [unit, setUnit] = useState<string>(get("unit"));
 	const [purchaseDate, setPurchaseDate] = useState<string>(get("purchase_date"));
 	const [deprStartDate, setDeprStartDate] = useState<string>(
 		get("depreciation_start_date"),
 	);
+	const [condition, setCondition] = useState<string>(get("condition"));
+	const [location, setLocation] = useState<string>(get("current_location"));
 
-	const suggestedCoa = defaultsForFixedAsset();
-	const usefulLifeMonthsVal = get("useful_life_months");
+	const generatedSku = useMemo(
+		() => (name.trim() ? generateFixedAssetSku(name) : ""),
+		[name],
+	);
+	const effectiveSku = skuEditable ? skuOverride || generatedSku : generatedSku;
+
 	const purchasePriceVal = Number(get("purchase_price")) || 0;
 	const salvageVal = Number(get("salvage_value")) || 0;
+	const usefulLifeVal = Number(get("useful_life_months")) || 0;
 	const monthlyDepr =
-		deprMethod === "straight_line" &&
-		usefulLifeMonthsVal &&
-		Number(usefulLifeMonthsVal) > 0
-			? Math.round((purchasePriceVal - salvageVal) / Number(usefulLifeMonthsVal))
+		usefulLifeVal > 0
+			? Math.round((purchasePriceVal - salvageVal) / usefulLifeVal)
 			: 0;
 
 	return (
-		<form action={formAction} className="space-y-5">
+		<form action={formAction} className="space-y-6">
 			{returnTo && <input type="hidden" name="return_to" value={returnTo} />}
 
 			{state?.errors?._form && (
@@ -142,99 +141,119 @@ export function FixedAssetItemForm({
 				</div>
 			)}
 
+			{/* ── Identitas ─────────────────────────────────────────────────── */}
 			<div className="space-y-4">
 				<SectionHeader title="Identitas" />
 
-				<div className="grid gap-4 sm:grid-cols-2">
-					<Field
-						label="SKU"
-						name="sku"
-						error={err("sku")}
-						hint="Contoh: AST-CAM-001, EQ-PRINTER-DSXX"
-						required
-					>
-						<input
-							type="text"
-							name="sku"
-							required
-							defaultValue={get("sku")}
-							placeholder="AST-CAM-001"
-							className={`${inputClass} font-mono uppercase`}
-							readOnly={mode === "edit"}
-						/>
-					</Field>
-
-					<Field
-						label="Asset Number"
-						name="asset_number"
-						error={err("asset_number")}
-						hint="Nomor inventaris internal (opsional, unique)"
-					>
-						<input
-							type="text"
-							name="asset_number"
-							defaultValue={get("asset_number")}
-							placeholder="AST-CAM-001"
-							className={`${inputClass} font-mono`}
-						/>
-					</Field>
-				</div>
-
-				<Field label="Nama" name="name" error={err("name")} required>
+				<Field label="Nama Alat" name="name" error={err("name")} required>
 					<input
 						type="text"
 						name="name"
 						required
-						defaultValue={get("name")}
-						placeholder="Canon EOS R6 Mark II"
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						placeholder="Canon EOS R6 Mark II, DNP DS620A Printer, Godox AD200…"
 						className={inputClass}
+						autoFocus={mode === "create"}
 					/>
 				</Field>
 
-				<div className="grid gap-4 sm:grid-cols-2">
+				{/* Auto-SKU + asset number preview */}
+				<div className="rounded-md bg-surface-3 px-3 py-2.5 text-[12px]">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div className="flex items-center gap-2">
+							<Wand2 className="size-3.5 text-muted-foreground" />
+							<span className="text-muted-foreground">SKU otomatis:</span>
+							<span className="font-mono text-sm font-semibold text-foreground">
+								{effectiveSku || "—"}
+							</span>
+						</div>
+						{mode === "create" && (
+							<button
+								type="button"
+								onClick={() => setSkuEditable((v) => !v)}
+								className="text-[11px] text-muted-foreground underline hover:text-foreground"
+							>
+								{skuEditable ? "Pakai otomatis" : "Edit manual"}
+							</button>
+						)}
+					</div>
+					{skuEditable && mode === "create" && (
+						<input
+							type="text"
+							value={skuOverride}
+							onChange={(e) => setSkuOverride(e.target.value.toUpperCase())}
+							placeholder={generatedSku}
+							className={`${inputClass} mt-2 font-mono uppercase`}
+						/>
+					)}
+					{err("sku_override") && (
+						<p className="text-destructive mt-1 text-[11px]">
+							{err("sku_override")}
+						</p>
+					)}
+					<input
+						type="hidden"
+						name="sku_override"
+						value={skuEditable ? skuOverride : ""}
+					/>
+					<p className="text-muted-foreground mt-1.5 text-[11px]">
+						Asset Number otomatis = SKU. Bisa ganti di Edit kalau perlu nomor
+						inventaris berbeda.
+					</p>
+					{/* Asset number defaults to SKU on create; on edit allow manual */}
+					{mode === "edit" && (
+						<input
+							type="text"
+							name="asset_number"
+							defaultValue={get("asset_number")}
+							placeholder={effectiveSku}
+							className={`${inputClass} mt-2 font-mono`}
+						/>
+					)}
+				</div>
+
+				<div className="grid gap-4 md:grid-cols-2">
 					<Field
 						label="Serial Number"
 						name="serial_number"
 						error={err("serial_number")}
-						hint="Nomor seri pabrik (kalau ada)"
+						hint="Nomor seri dari pabrik (cek body alat)"
 					>
 						<input
 							type="text"
 							name="serial_number"
 							defaultValue={get("serial_number")}
-							placeholder="—"
+							placeholder="opsional"
 							className={`${inputClass} font-mono`}
 						/>
 					</Field>
 
-					<Field
-						label="Unit"
-						name="unit"
-						error={err("unit")}
-						hint="Biasanya 'unit' untuk asset"
-					>
-						<input
-							type="text"
-							name="unit"
-							defaultValue={get("unit")}
-							placeholder="unit"
-							className={inputClass}
+					<Field label="Unit" name="unit" error={err("unit")} required>
+						<NativeSelect
+							value={unit}
+							onValueChange={setUnit}
+							options={UNIT_OPTIONS}
+							triggerClassName="w-full"
 						/>
+						<input type="hidden" name="unit" value={unit} />
 					</Field>
 				</div>
 			</div>
 
+			{/* ── Pembelian ─────────────────────────────────────────────────── */}
 			<div className="space-y-4">
 				<SectionHeader
-					title="Pembelian (CapEx)"
-					subtitle="Harga + tanggal beli untuk basis depresiasi"
+					title="Pembelian"
+					subtitle="Harga & tanggal beli untuk perhitungan beban bulanan"
 				/>
 
-				<div className="grid gap-4 sm:grid-cols-3">
+				<div className="grid gap-4 md:grid-cols-3">
 					<Field
 						label="Harga Beli (Rp)"
 						name="purchase_price"
 						error={err("purchase_price")}
+						required
 					>
 						<input
 							type="number"
@@ -261,53 +280,10 @@ export function FixedAssetItemForm({
 					</Field>
 
 					<Field
-						label="Salvage Value (Rp)"
-						name="salvage_value"
-						error={err("salvage_value")}
-						hint="Estimasi nilai akhir useful life"
-					>
-						<input
-							type="number"
-							name="salvage_value"
-							min={0}
-							step={1}
-							defaultValue={get("salvage_value")}
-							className={`${inputClass} tabular`}
-						/>
-					</Field>
-				</div>
-			</div>
-
-			<div className="space-y-4">
-				<SectionHeader
-					title="Depresiasi"
-					subtitle="Metode + lifetime untuk perhitungan beban bulanan"
-				/>
-
-				<div className="grid gap-4 sm:grid-cols-3">
-					<Field
-						label="Metode"
-						name="depreciation_method"
-						error={err("depreciation_method")}
-					>
-						<NativeSelect
-							value={deprMethod}
-							onValueChange={setDeprMethod}
-							options={DEPR_OPTIONS}
-							triggerClassName="w-full"
-						/>
-						<input
-							type="hidden"
-							name="depreciation_method"
-							value={deprMethod}
-						/>
-					</Field>
-
-					<Field
-						label="Useful Life (bulan)"
+						label="Target Masa Pakai (Bulan)"
 						name="useful_life_months"
 						error={err("useful_life_months")}
-						hint="Min. 1 bulan"
+						hint="Estimasi alat ini bisa dipakai berapa bulan sebelum perlu diganti"
 					>
 						<input
 							type="number"
@@ -315,46 +291,48 @@ export function FixedAssetItemForm({
 							min={1}
 							step={1}
 							defaultValue={get("useful_life_months")}
-							placeholder="36"
+							placeholder="mis. 36 = 3 tahun"
 							className={`${inputClass} tabular`}
-							disabled={deprMethod === "none"}
-						/>
-					</Field>
-
-					<Field
-						label="Mulai Depresiasi"
-						name="depreciation_start_date"
-						error={err("depreciation_start_date")}
-						hint="Default = tanggal beli"
-					>
-						<DatePicker
-							value={deprStartDate}
-							onValueChange={setDeprStartDate}
-							placeholder="Pilih tanggal"
-							aria-invalid={!!err("depreciation_start_date")}
-						/>
-						<input
-							type="hidden"
-							name="depreciation_start_date"
-							value={deprStartDate}
 						/>
 					</Field>
 				</div>
 
+				<Field
+					label="Perkiraan Harga Jual Bekas (Opsional)"
+					name="salvage_value"
+					error={err("salvage_value")}
+					hint="Estimasi nilai alat saat masa pakai habis — biasanya 10-20% dari harga beli. Kosongkan / 0 kalau tidak yakin."
+				>
+					<input
+						type="number"
+						name="salvage_value"
+						min={0}
+						step={1}
+						defaultValue={get("salvage_value")}
+						className={`${inputClass} tabular md:max-w-xs`}
+					/>
+				</Field>
+
 				{monthlyDepr > 0 && (
 					<div className="rounded-md bg-sky-500/10 px-3 py-2 text-[12px] text-sky-900 dark:text-sky-100">
-						Estimasi beban depresiasi bulanan:{" "}
+						<Info className="mr-1.5 inline size-3.5" />
+						Sistem akan membebankan{" "}
 						<strong className="tabular">
 							Rp {monthlyDepr.toLocaleString("id-ID")}
-						</strong>
+						</strong>{" "}
+						per bulan sebagai penyusutan (akuntansi straight-line).
 					</div>
 				)}
+
+				{/* Hidden — depreciation method auto + start date defaults to purchase_date */}
+				<input type="hidden" name="depreciation_start_date" value={deprStartDate} />
 			</div>
 
+			{/* ── Status Operasional ──────────────────────────────────────── */}
 			<div className="space-y-4">
-				<SectionHeader title="Status Operasional" />
+				<SectionHeader title="Status Operasional" subtitle="Kondisi + lokasi alat saat ini" />
 
-				<div className="grid gap-4 sm:grid-cols-2">
+				<div className="grid gap-4 md:grid-cols-2">
 					<Field label="Kondisi" name="condition" error={err("condition")}>
 						<NativeSelect
 							value={condition}
@@ -379,86 +357,37 @@ export function FixedAssetItemForm({
 						<input type="hidden" name="current_location" value={location} />
 					</Field>
 				</div>
-			</div>
 
-			<div className="space-y-4">
-				<SectionHeader
-					title="Mapping Akun (COA)"
-					subtitle={`Default sistem: ${suggestedCoa.asset} / ${suggestedCoa.accum_depr} / ${suggestedCoa.depr_expense}`}
-				/>
-
-				<div className="grid gap-4 sm:grid-cols-3">
-					<Field
-						label="Aktiva"
-						name="coa_account_asset"
-						error={err("coa_account_asset")}
-						hint="Asset 1-4xx"
-					>
-						<input
-							type="text"
-							name="coa_account_asset"
-							defaultValue={get("coa_account_asset")}
-							placeholder={suggestedCoa.asset}
-							className={`${inputClass} font-mono`}
-						/>
-					</Field>
-
-					<Field
-						label="Akum. Penyusutan"
-						name="coa_account_accum_depr"
-						error={err("coa_account_accum_depr")}
-						hint="Contra-asset 1-4xx"
-					>
-						<input
-							type="text"
-							name="coa_account_accum_depr"
-							defaultValue={get("coa_account_accum_depr")}
-							placeholder={suggestedCoa.accum_depr}
-							className={`${inputClass} font-mono`}
-						/>
-					</Field>
-
-					<Field
-						label="Beban Penyusutan"
-						name="coa_account_depr_expense"
-						error={err("coa_account_depr_expense")}
-						hint="Expense 5-5xx"
-					>
-						<input
-							type="text"
-							name="coa_account_depr_expense"
-							defaultValue={get("coa_account_depr_expense")}
-							placeholder={suggestedCoa.depr_expense}
-							className={`${inputClass} font-mono`}
-						/>
-					</Field>
-				</div>
-			</div>
-
-			<Field
-				label="URL Foto"
-				name="image_url"
-				error={err("image_url")}
-				hint="Opsional — link foto asset (Drive, S3, dll)"
-			>
-				<input
-					type="url"
+				<Field
+					label="URL Foto"
 					name="image_url"
-					defaultValue={get("image_url")}
-					placeholder="https://…"
-					className={inputClass}
-				/>
-			</Field>
+					error={err("image_url")}
+					hint="Sementara: paste link dari Google Drive. Upload langsung akan datang di update berikutnya."
+				>
+					<input
+						type="url"
+						name="image_url"
+						defaultValue={get("image_url")}
+						placeholder="https://drive.google.com/…"
+						className={inputClass}
+					/>
+				</Field>
 
-			<Field label="Catatan" name="notes" error={err("notes")} hint="Optional">
-				<textarea
+				<Field
+					label="Catatan"
 					name="notes"
-					rows={2}
-					maxLength={500}
-					defaultValue={get("notes")}
-					className={`${inputClass} resize-none`}
-				/>
-			</Field>
+					error={err("notes")}
+					hint="Opsional — kondisi spesifik, history service, lokasi penyimpanan, dll"
+				>
+					<textarea
+						name="notes"
+						rows={2}
+						maxLength={500}
+						defaultValue={get("notes")}
+						className={`${inputClass} resize-none`}
+					/>
+				</Field>
+			</div>
 
 			<label className="flex items-center gap-2 text-sm">
 				<input
@@ -473,26 +402,18 @@ export function FixedAssetItemForm({
 				/>
 				<span className="font-medium">Aktif</span>
 				<span className="text-muted-foreground text-xs">
-					— asset nonaktif tidak muncul di register / event check-out
+					— alat nonaktif tidak muncul di register / event check-out
 				</span>
 			</label>
 
-			<div className="flex items-center justify-between pt-2">
-				{onBack ? (
-					<button
-						type="button"
-						onClick={onBack}
-						className="text-muted-foreground hover:text-foreground text-sm font-medium"
-					>
-						← Ubah kategori
-					</button>
-				) : (
-					<span />
-				)}
+			<div className="flex items-center justify-end gap-3 pt-2">
+				<p className="text-muted-foreground mr-auto text-[11px]">
+					Akun akuntansi otomatis di-mapping (bisa di-edit Rama dari Finance).
+				</p>
 				<button
 					type="submit"
-					disabled={pending}
-					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+					disabled={pending || !name.trim()}
+					className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center rounded-md px-5 text-sm font-medium disabled:opacity-60"
 				>
 					{pending
 						? "Menyimpan…"
