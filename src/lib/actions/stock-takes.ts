@@ -64,6 +64,18 @@ export async function createStockTake(formData: FormData): Promise<
 	return { ok: true, id: take.id };
 }
 
+const BundleSchema = z.object({
+	qty: z.coerce.number().nonnegative(),
+	unit: z.string().trim().min(1),
+	note: z
+		.string()
+		.trim()
+		.max(80)
+		.nullable()
+		.optional()
+		.transform((v) => (v ? v : null)),
+});
+
 const UpdateLineSchema = z.object({
 	stock_take_id: z.uuid(),
 	item_id: z.uuid(),
@@ -73,6 +85,30 @@ const UpdateLineSchema = z.object({
 		.transform((v) => (v === "" ? null : Number(v)))
 		.refine((v) => v === null || (Number.isFinite(v) && v >= 0), {
 			message: "Counted qty harus angka non-negatif",
+		}),
+	/**
+	 * Optional JSON-stringified array of bundles. When provided, the server
+	 * trusts the client-summed `counted_qty` (already converted to base unit
+	 * via lib/inventory/unit-conversion) and persists the raw composition
+	 * for audit. Empty / missing string → null (single-input mode).
+	 */
+	counted_breakdown: z
+		.string()
+		.trim()
+		.optional()
+		.transform((v) => {
+			if (!v) return null;
+			try {
+				const parsed = JSON.parse(v);
+				if (!Array.isArray(parsed)) return null;
+				const filtered = parsed
+					.map((b) => BundleSchema.safeParse(b))
+					.filter((r) => r.success)
+					.map((r) => (r as { success: true; data: unknown }).data);
+				return filtered.length > 0 ? filtered : null;
+			} catch {
+				return null;
+			}
 		}),
 	notes: z
 		.string()
@@ -91,6 +127,7 @@ export async function updateStockTakeLine(formData: FormData): Promise<
 		stock_take_id: formData.get("stock_take_id"),
 		item_id: formData.get("item_id"),
 		counted_qty: formData.get("counted_qty"),
+		counted_breakdown: formData.get("counted_breakdown"),
 		notes: formData.get("notes"),
 	});
 	if (!parsed.success) {
@@ -105,6 +142,7 @@ export async function updateStockTakeLine(formData: FormData): Promise<
 		.from("stock_take_lines")
 		.update({
 			counted_qty: parsed.data.counted_qty,
+			counted_breakdown: parsed.data.counted_breakdown,
 			notes: parsed.data.notes,
 			updated_at: new Date().toISOString(),
 		})

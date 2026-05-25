@@ -55,7 +55,7 @@ export default async function StockTakeDetailPage({
 	const { data: lines } = await supabase
 		.from("stock_take_lines")
 		.select(
-			`stock_take_id, item_id, system_qty, counted_qty, variance, notes,
+			`stock_take_id, item_id, system_qty, counted_qty, counted_breakdown, variance, notes,
 			 item:inventory_items(id, sku, name, category, unit, unit_conversion, purchase_price_avg, min_stock_alert, deleted_at, is_active)`,
 		)
 		.eq("stock_take_id", id);
@@ -66,7 +66,7 @@ export default async function StockTakeDetailPage({
 		name: string;
 		category: string;
 		unit: string;
-		unit_conversion: Record<string, number> | null;
+		unit_conversion: unknown;
 		purchase_price_avg: number | string | null;
 		min_stock_alert: number | string | null;
 		deleted_at: string | null;
@@ -77,6 +77,7 @@ export default async function StockTakeDetailPage({
 		item_id: string;
 		system_qty: number | string;
 		counted_qty: number | string | null;
+		counted_breakdown: unknown;
 		variance: number | string | null;
 		notes: string | null;
 		item: ItemRef | ItemRef[] | null;
@@ -92,11 +93,15 @@ export default async function StockTakeDetailPage({
 			const counted = l.counted_qty === null ? null : Number(l.counted_qty);
 			const sys = Number(l.system_qty);
 			const variance = counted === null ? null : counted - sys;
+			const breakdown = Array.isArray(l.counted_breakdown)
+				? (l.counted_breakdown as StockOpnameRow["counted_breakdown"])
+				: null;
 			return {
 				stock_take_id: l.stock_take_id,
 				item_id: l.item_id,
 				system_qty: sys,
 				counted_qty: counted,
+				counted_breakdown: breakdown,
 				variance,
 				notes: l.notes,
 				item: {

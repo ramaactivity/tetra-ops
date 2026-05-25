@@ -22,6 +22,10 @@ import {
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
 import { RestockDialog } from "@/components/warehouse/restock-dialog";
+import {
+	listCapacityBreakdown,
+	normalizeConversion,
+} from "@/lib/inventory/unit-conversion";
 import { StockAdjustDialog } from "@/components/warehouse/stock-adjust-dialog";
 import {
 	EQUIPMENT_CONDITION_LABELS,
@@ -117,7 +121,7 @@ export type ConsumableRow = {
 	sku: string;
 	name: string;
 	unit: string;
-	unit_conversion: Record<string, number> | null;
+	unit_conversion: unknown;
 	min_stock_alert: number;
 	purchase_price_avg: number;
 	is_active: boolean;
@@ -156,19 +160,10 @@ function StockStateBadge({ state }: { state: StockState }) {
 	);
 }
 
-function lembarLabel(key: string): string {
-	if (!key.startsWith("lembar_")) return key.replace(/_/g, " ");
-	const suffix = key.slice("lembar_".length);
-	if (suffix === "4r") return "lembar 4R";
-	if (suffix === "2r") return "lembar 2R";
-	if (suffix === "polaroid") return "lembar Polaroid";
-	return `lembar ${suffix.toUpperCase()}`;
-}
-
 function formatStockDisplay(
 	stock: number,
 	unit: string,
-	conversion: Record<string, number> | null,
+	conversion: unknown,
 ): { primary: string; secondary?: string } {
 	if (unit !== "roll" || !conversion) {
 		return {
@@ -177,25 +172,19 @@ function formatStockDisplay(
 			})} ${unit}`,
 		};
 	}
-	const rollDisplay = `${Number(stock).toLocaleString("id-ID", {
+	const map = normalizeConversion(conversion, unit);
+	const primary = `${Number(stock).toLocaleString("id-ID", {
 		maximumFractionDigits: 3,
-	})} roll`;
-	// Always include every alt-unit in the conversion, even when capacity = 0.
-	// Owner reading "0 roll" needs to see "0 lembar 4R atau 0 lembar 2R" to
-	// remember that this SKU IS a roll-based mediaset.
-	const capacities: string[] = [];
-	for (const [k, mult] of Object.entries(conversion)) {
-		if (k === "roll") continue;
-		const capacity = Math.floor(stock * mult);
-		capacities.push(
-			`${capacity.toLocaleString("id-ID")} ${lembarLabel(k)}`,
-		);
-	}
-	return {
-		primary: rollDisplay,
-		secondary:
-			capacities.length > 0 ? `≈ ${capacities.join(" atau ")}` : undefined,
-	};
+	})} ${map.base_unit}`;
+	const breakdown = listCapacityBreakdown(stock, map);
+	if (breakdown.length === 0) return { primary };
+	const secondary = `≈ ${breakdown
+		.map(
+			(e) =>
+				`${Math.floor(e.value).toLocaleString("id-ID")} ${e.label}`,
+		)
+		.join(" atau ")}`;
+	return { primary, secondary };
 }
 
 type ConsumableFilter =

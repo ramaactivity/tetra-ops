@@ -4,6 +4,10 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	normalizeConversion,
+	toBase,
+} from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
 const DIRECTIONS = ["in", "out", "adjustment"] as const;
@@ -118,13 +122,18 @@ export async function addStockMovement(
 		.eq("id", itemId)
 		.maybeSingle();
 	const baseUnit = itemRow?.unit ?? null;
-	const conversion = (itemRow?.unit_conversion ?? {}) as Record<string, number>;
+	const conversionMap = baseUnit
+		? normalizeConversion(itemRow?.unit_conversion, baseUnit)
+		: null;
 	const inputUnit = parsed.data.quantity_unit ?? baseUnit ?? null;
 
-	let conversionFactor = 1;
-	if (inputUnit && inputUnit !== baseUnit) {
-		// quantity_unit MUST exist in unit_conversion for non-base inputs
-		if (!(inputUnit in conversion)) {
+	let baseUnitQuantity: number;
+	let perUnitToBaseRatio = 1;
+	if (inputUnit && conversionMap) {
+		try {
+			baseUnitQuantity = toBase(parsed.data.quantity, inputUnit, conversionMap);
+			perUnitToBaseRatio = toBase(1, inputUnit, conversionMap);
+		} catch {
 			return {
 				errors: {
 					quantity_unit: [
@@ -134,16 +143,15 @@ export async function addStockMovement(
 				values: snapshotValues(formData),
 			};
 		}
-		conversionFactor = Number(conversion[inputUnit]) || 1;
+	} else {
+		baseUnitQuantity = parsed.data.quantity;
 	}
-
-	const baseUnitQuantity = parsed.data.quantity * conversionFactor;
 
 	// Convert per-unit cost too — user types Rp per chosen unit; store per
 	// base unit so weighted-avg stays in consistent units.
 	const baseUnitCost =
-		parsed.data.unit_cost !== null && conversionFactor !== 0
-			? parsed.data.unit_cost / conversionFactor
+		parsed.data.unit_cost !== null && perUnitToBaseRatio !== 0
+			? parsed.data.unit_cost / perUnitToBaseRatio
 			: parsed.data.unit_cost;
 
 	// Negative-stock guard for direction='out': verify pre-insert stock can
@@ -220,6 +228,10 @@ export async function addStockMovement(
 		item_id: parsed.data.item_id,
 		direction: parsed.data.direction,
 		quantity: baseUnitQuantity,
+		quantity_unit:
+			inputUnit && inputUnit !== baseUnit ? inputUnit : null,
+		quantity_in_unit:
+			inputUnit && inputUnit !== baseUnit ? parsed.data.quantity : null,
 		unit_cost: baseUnitCost,
 		source: parsed.data.source,
 		source_description: null,

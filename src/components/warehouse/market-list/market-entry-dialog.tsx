@@ -2,7 +2,7 @@
 
 import { Star } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
@@ -19,6 +19,11 @@ import {
 	upsertSupplierPrice,
 } from "@/lib/actions/suppliers";
 import { formatRupiah } from "@/lib/format";
+import {
+	listUnitsByKind,
+	normalizeConversion,
+	toBase,
+} from "@/lib/inventory/unit-conversion";
 import type {
 	MarketListEntry,
 	MarketListItem,
@@ -80,21 +85,33 @@ export function MarketEntryDialog({
 				| undefined
 		)?.[0];
 
-	const packUnitOptions = item.unit_conversion
-		? Object.keys(item.unit_conversion)
-		: [item.unit];
+	const conversionMap = useMemo(
+		() => normalizeConversion(item.unit_conversion, item.unit),
+		[item.unit_conversion, item.unit],
+	);
+
+	// Market List harga belanja → tampilkan purchase + base units (bukan consumption).
+	const packUnitOptions = useMemo(
+		() =>
+			listUnitsByKind(conversionMap, "purchase", "base").map(
+				({ code, def }) => ({
+					value: code,
+					label: def.label || code,
+				}),
+			),
+		[conversionMap],
+	);
 
 	const priceNum = Number(packPrice);
 	const sizeNum = Number(packSize);
-	const conv = item.unit_conversion;
-	let baseQty = sizeNum;
-	if (packUnit !== item.unit && conv && conv[packUnit]) {
-		baseQty = sizeNum * conv[packUnit];
+	let baseQty = 0;
+	try {
+		baseQty = Number.isFinite(sizeNum) ? toBase(sizeNum, packUnit, conversionMap) : 0;
+	} catch {
+		baseQty = 0;
 	}
 	const effective =
-		Number.isFinite(priceNum) && Number.isFinite(sizeNum) && baseQty > 0
-			? priceNum / baseQty
-			: 0;
+		Number.isFinite(priceNum) && baseQty > 0 ? priceNum / baseQty : 0;
 
 	const willSyncMessage =
 		isPrimary && effective > 0
@@ -200,10 +217,7 @@ export function MarketEntryDialog({
 											id="pack_unit"
 											value={packUnit}
 											onValueChange={(v) => setPackUnit(v ?? item.unit)}
-											options={packUnitOptions.map((u) => ({
-												value: u,
-												label: u,
-											}))}
+											options={packUnitOptions}
 											allowFreeText={false}
 										/>
 										<input

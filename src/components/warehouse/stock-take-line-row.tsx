@@ -1,17 +1,21 @@
 "use client";
 
 import { AlertTriangle, Check, Equal } from "lucide-react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toaster";
 import { updateStockTakeLine } from "@/lib/actions/stock-takes";
+import {
+	type Bundle,
+	listCapacityBreakdown,
+	normalizeConversion,
+	sumBundles,
+} from "@/lib/inventory/unit-conversion";
+import { StockBundleInput } from "./stock-bundle-input";
 import type { StockOpnameRow } from "./stock-opname-table";
 
-const ROLL_STEP_UNITS = new Set(["roll"]);
-
-function formatQty(value: number, unit: string): string {
-	const isFractional = ROLL_STEP_UNITS.has(unit);
-	const opts: Intl.NumberFormatOptions = isFractional
+function formatQty(value: number, fractional: boolean): string {
+	const opts: Intl.NumberFormatOptions = fractional
 		? { maximumFractionDigits: 4, minimumFractionDigits: 0 }
 		: { maximumFractionDigits: 0 };
 	return value.toLocaleString("id-ID", opts);
@@ -23,35 +27,16 @@ function formatIDR(value: number): string {
 	return `${sign}Rp ${abs.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
 }
 
-function lembarLabel(key: string): string {
-	if (!key.startsWith("lembar_")) return key.replace(/_/g, " ");
-	const suffix = key.slice("lembar_".length);
-	if (suffix === "4r") return "lembar 4R";
-	if (suffix === "2r") return "lembar 2R";
-	if (suffix === "polaroid") return "lembar Polaroid";
-	return `lembar ${suffix.toUpperCase()}`;
-}
-
-/**
- * For roll-based mediaset items, returns the alt-unit capacity breakdown
- * (e.g. "0 lembar 4R · 0 lembar 2R" or "1.400 lembar 4R · 2.800 lembar 2R").
- * Always shows the conversion even when capacity is 0 so owner sees the
- * conversion logic at a glance. Returns null for non-roll items or items
- * with no unit_conversion JSONB.
- */
-function rollConversionBreakdown(
-	qty: number,
-	unit: string,
-	conversion: Record<string, number> | null,
-): string | null {
-	if (unit !== "roll" || !conversion) return null;
-	const parts: string[] = [];
-	for (const [k, mult] of Object.entries(conversion)) {
-		if (k === "roll") continue;
-		const capacity = Math.floor(qty * mult);
-		parts.push(`${capacity.toLocaleString("id-ID")} ${lembarLabel(k)}`);
+function bundlesEqual(a: Bundle[], b: Bundle[]): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		const x = a[i];
+		const y = b[i];
+		if (Number(x.qty) !== Number(y.qty)) return false;
+		if (x.unit !== y.unit) return false;
+		if ((x.note ?? null) !== (y.note ?? null)) return false;
 	}
-	return parts.length > 0 ? parts.join(" · ") : null;
+	return true;
 }
 
 export function StockTakeLineRow({
@@ -63,79 +48,97 @@ export function StockTakeLineRow({
 	editable: boolean;
 	layout: "row" | "card";
 }) {
-	const isFractional = ROLL_STEP_UNITS.has(line.item.unit);
-	const stepAttr = isFractional ? 0.0001 : 1;
-
-	const [counted, setCounted] = useState<string>(
-		line.counted_qty === null ? "" : String(line.counted_qty),
+	const conversionMap = useMemo(
+		() => normalizeConversion(line.item.unit_conversion, line.item.unit),
+		[line.item.unit_conversion, line.item.unit],
 	);
+	const isFractional = conversionMap.base_unit === "roll";
+
+	// Initialize bundles from persisted breakdown or fallback to single-bundle.
+	const initialBundles: Bundle[] = useMemo(() => {
+		if (line.counted_breakdown && line.counted_breakdown.length > 0) {
+			return line.counted_breakdown;
+		}
+		if (line.counted_qty !== null) {
+			return [{ qty: line.counted_qty, unit: line.item.unit }];
+		}
+		return [];
+	}, [line.counted_breakdown, line.counted_qty, line.item.unit]);
+
+	const [bundles, setBundles] = useState<Bundle[]>(initialBundles);
 	const [notes, setNotes] = useState<string>(line.notes ?? "");
 	const [pending, startTransition] = useTransition();
 	const [flashSaved, setFlashSaved] = useState(false);
 
-	const savedCountedRef = useRef<number | null>(line.counted_qty);
+	const savedBundlesRef = useRef<Bundle[]>(initialBundles);
 	const savedNotesRef = useRef<string | null>(line.notes);
 
 	useEffect(() => {
-		setCounted(line.counted_qty === null ? "" : String(line.counted_qty));
+		setBundles(initialBundles);
 		setNotes(line.notes ?? "");
-		savedCountedRef.current = line.counted_qty;
+		savedBundlesRef.current = initialBundles;
 		savedNotesRef.current = line.notes;
-	}, [line.counted_qty, line.notes]);
+	}, [initialBundles, line.notes]);
 
-	const countedNum = counted.trim() === "" ? null : Number(counted);
-	const countedValid = countedNum === null || Number.isFinite(countedNum);
+	const hasAnyInput = bundles.some(
+		(b) => Number(b.qty) > 0 || (b.qty === 0 && b.unit),
+	);
+	const countedNum: number | null = useMemo(() => {
+		if (bundles.length === 0) return null;
+		return sumBundles(bundles, conversionMap);
+	}, [bundles, conversionMap]);
+
 	const variance =
-		countedNum === null || !countedValid ? null : countedNum - line.system_qty;
+		countedNum === null ? null : countedNum - line.system_qty;
 	const valueImpact =
 		variance === null ? null : variance * line.item.purchase_price_avg;
+
 	const isDirty =
-		countedNum !== savedCountedRef.current ||
+		!bundlesEqual(bundles, savedBundlesRef.current) ||
 		(notes.trim() || null) !== (savedNotesRef.current ?? null);
 
-	function persist(overrideCounted?: number | null, overrideNotes?: string) {
-		const targetCounted =
-			overrideCounted !== undefined ? overrideCounted : countedNum;
-		const targetNotes =
-			overrideNotes !== undefined ? overrideNotes.trim() : notes.trim();
+	function persist(targetBundles?: Bundle[], targetNotesArg?: string) {
+		const bs = targetBundles ?? bundles;
+		const ns = (targetNotesArg ?? notes).trim();
+		const computedCounted = bs.length === 0 ? null : sumBundles(bs, conversionMap);
+
 		startTransition(async () => {
 			const fd = new FormData();
 			fd.set("stock_take_id", line.stock_take_id);
 			fd.set("item_id", line.item_id);
 			fd.set(
 				"counted_qty",
-				targetCounted === null || !Number.isFinite(targetCounted)
+				computedCounted === null || !Number.isFinite(computedCounted)
 					? ""
-					: String(targetCounted),
+					: String(computedCounted),
 			);
-			fd.set("notes", targetNotes);
+			fd.set(
+				"counted_breakdown",
+				bs.length === 0 ? "" : JSON.stringify(bs),
+			);
+			fd.set("notes", ns);
 			const res = await updateStockTakeLine(fd);
 			if (!res.ok) {
 				toast.error(res.error);
 				return;
 			}
-			savedCountedRef.current =
-				targetCounted === null || !Number.isFinite(targetCounted)
-					? null
-					: targetCounted;
-			savedNotesRef.current = targetNotes ? targetNotes : null;
+			savedBundlesRef.current = bs;
+			savedNotesRef.current = ns ? ns : null;
 			setFlashSaved(true);
 			setTimeout(() => setFlashSaved(false), 1200);
 		});
 	}
 
-	function handleBlur() {
-		if (!isDirty) return;
-		persist();
-	}
-
 	function handleMatch() {
-		setCounted(String(line.system_qty));
-		persist(line.system_qty);
+		const matched: Bundle[] = [
+			{ qty: line.system_qty, unit: line.item.unit },
+		];
+		setBundles(matched);
+		persist(matched);
 	}
 
 	const state: "pending" | "ok" | "variance" =
-		countedNum === null || !countedValid
+		countedNum === null
 			? "pending"
 			: variance === 0
 				? "ok"
@@ -169,7 +172,7 @@ export function StockTakeLineRow({
 			? "—"
 			: variance === 0
 				? "0"
-				: `${variance > 0 ? "+" : ""}${formatQty(variance, line.item.unit)} ${line.item.unit}`;
+				: `${variance > 0 ? "+" : ""}${formatQty(variance, isFractional)} ${line.item.unit}`;
 	const varianceTone =
 		variance === null
 			? "text-muted-foreground/40"
@@ -197,33 +200,37 @@ export function StockTakeLineRow({
 			? `Rp ${line.item.purchase_price_avg.toLocaleString("id-ID", { maximumFractionDigits: 0 })}/${line.item.unit}`
 			: null;
 
-	// Roll → lembar conversion breakdown (mediaset only)
-	const systemConversion = rollConversionBreakdown(
-		line.system_qty,
-		line.item.unit,
-		line.item.unit_conversion,
-	);
-	const countedConversion =
-		countedNum !== null && countedValid
-			? rollConversionBreakdown(
-					countedNum,
-					line.item.unit,
-					line.item.unit_conversion,
-				)
-			: null;
+	// Capacity breakdown (consumption units only) — e.g. roll → lembar 4R/2R.
+	const systemCapacity = listCapacityBreakdown(line.system_qty, conversionMap);
+	const countedCapacity =
+		countedNum !== null
+			? listCapacityBreakdown(countedNum, conversionMap)
+			: [];
+
+	function renderCapacity(
+		entries: Array<{ code: string; label: string; value: number }>,
+	) {
+		if (entries.length === 0) return null;
+		return entries
+			.map((e) => `${Math.floor(e.value).toLocaleString("id-ID")} ${e.label}`)
+			.join(" · ");
+	}
+
+	const systemCapStr = renderCapacity(systemCapacity);
+	const countedCapStr = renderCapacity(countedCapacity);
 
 	// ─── Mobile card ─────────────────────────────────────────────────────────
 	if (layout === "card") {
 		return (
 			<div
-				className={`rounded-lg border bg-surface-2 ${
+				className={`rounded-lg bg-surface-2 ring-1 ${
 					state === "variance"
-						? "border-amber-500/30"
-						: "border-border-default"
+						? "ring-amber-500/30"
+						: "ring-foreground/[0.04]"
 				}`}
 			>
 				{/* Item header */}
-				<div className="flex items-start justify-between gap-3 border-b border-border-default/60 p-3">
+				<div className="flex items-start justify-between gap-3 px-3 pt-3 pb-2.5">
 					<div className="flex min-w-0 flex-1 items-start gap-2">
 						<span
 							className={`mt-1.5 size-2 shrink-0 rounded-full ${dotTone}`}
@@ -264,81 +271,79 @@ export function StockTakeLineRow({
 					)}
 				</div>
 
-				{/* Counts */}
-				<div className="grid grid-cols-2 gap-3 p-3 text-fluid-caption">
-					<div>
-						<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-							Stok Sistem
-						</div>
-						<div className="mt-0.5 flex items-center gap-1.5">
-							<span className="tabular text-fluid-body font-semibold text-foreground">
-								{formatQty(line.system_qty, line.item.unit)}
-							</span>
-							<span className="text-[11px] text-muted-foreground">
-								{line.item.unit}
-							</span>
-							{isOutOfStock ? (
-								<Badge
-									variant="outline"
-									className="border-rose-500/30 bg-rose-500/10 px-1.5 text-[9px] text-rose-700 dark:text-rose-300"
-								>
-									HABIS
-								</Badge>
-							) : isLowStock ? (
-								<Badge
-									variant="outline"
-									className="border-amber-500/30 bg-amber-500/10 px-1.5 text-[9px] text-amber-700 dark:text-amber-300"
-								>
-									KRITIS
-								</Badge>
-							) : null}
-						</div>
-						{systemConversion && (
-							<div className="mt-0.5 text-[10px] text-muted-foreground/80">
-								≈ {systemConversion}
-							</div>
-						)}
+				{/* System stock */}
+				<div className="px-3 pb-2.5 text-fluid-caption">
+					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+						Stok Sistem
 					</div>
-					<div>
-						<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-							Stok Fisik
+					<div className="mt-0.5 flex items-center gap-1.5">
+						<span className="tabular text-fluid-body font-semibold text-foreground">
+							{formatQty(line.system_qty, isFractional)}
+						</span>
+						<span className="text-[11px] text-muted-foreground">
+							{line.item.unit}
+						</span>
+						{isOutOfStock ? (
+							<Badge
+								variant="outline"
+								className="border-rose-500/30 bg-rose-500/10 px-1.5 text-[9px] text-rose-700 dark:text-rose-300"
+							>
+								HABIS
+							</Badge>
+						) : isLowStock ? (
+							<Badge
+								variant="outline"
+								className="border-amber-500/30 bg-amber-500/10 px-1.5 text-[9px] text-amber-700 dark:text-amber-300"
+							>
+								KRITIS
+							</Badge>
+						) : null}
+					</div>
+					{systemCapStr && (
+						<div className="mt-0.5 text-[10px] text-muted-foreground/80">
+							≈ {systemCapStr}
 						</div>
-						<div className="mt-0.5">
-							{editable ? (
-								<div className="relative">
-									<input
-										type="number"
-										inputMode={isFractional ? "decimal" : "numeric"}
-										min={0}
-										step={stepAttr}
-										value={counted}
-										onChange={(e) => setCounted(e.target.value)}
-										onBlur={handleBlur}
-										placeholder="—"
-										className="h-9 w-full rounded-md border border-border-default bg-background px-2 pr-12 text-fluid-body tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-									/>
-									<span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-										{line.item.unit}
-									</span>
-								</div>
-							) : (
-								<div className="tabular text-fluid-body font-semibold text-foreground">
-									{countedNum === null
-										? "—"
-										: `${formatQty(countedNum, line.item.unit)} ${line.item.unit}`}
+					)}
+				</div>
+
+				{/* Physical bundles */}
+				<div className="space-y-2 px-3 pb-3">
+					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+						Hitung Stok Aktual
+					</div>
+					{editable ? (
+						<StockBundleInput
+							bundles={bundles}
+							onChange={(next) => {
+								setBundles(next);
+								persist(next);
+							}}
+							map={conversionMap}
+						/>
+					) : (
+						<div className="rounded-md bg-surface-1 p-2 text-fluid-caption tabular text-foreground">
+							{countedNum === null
+								? "—"
+								: `${formatQty(countedNum, isFractional)} ${line.item.unit}`}
+						</div>
+					)}
+					{hasAnyInput && countedNum !== null && (
+						<div className="rounded-md bg-surface-1/60 px-3 py-2 text-[11px]">
+							<span className="text-muted-foreground">Total tersimpan: </span>
+							<span className="tabular font-semibold text-foreground">
+								{formatQty(countedNum, isFractional)} {line.item.unit}
+							</span>
+							{countedCapStr && (
+								<div className="mt-0.5 text-[10px] text-muted-foreground/80">
+									≈ {countedCapStr}
 								</div>
 							)}
 						</div>
-						{countedConversion && (
-							<div className="mt-0.5 text-[10px] text-muted-foreground/80">
-								≈ {countedConversion}
-							</div>
-						)}
-					</div>
+					)}
 				</div>
 
 				{/* Variance + value */}
-				<div className="grid grid-cols-2 gap-3 border-t border-border-default/60 px-3 py-2.5 text-fluid-caption">
+				<div className="grid grid-cols-2 gap-3 px-3 pb-2.5 text-fluid-caption">
 					<div>
 						<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
 							Selisih
@@ -365,13 +370,13 @@ export function StockTakeLineRow({
 
 				{/* Actions + notes */}
 				{editable && (
-					<div className="flex items-center gap-2 border-t border-border-default/60 p-2.5">
+					<div className="flex items-center gap-2 px-3 pb-3">
 						<button
 							type="button"
 							onClick={handleMatch}
 							disabled={pending || countedNum === line.system_qty}
-							className="press-down inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
-							title={`Set Stok Fisik = ${formatQty(line.system_qty, line.item.unit)} ${line.item.unit}`}
+							className="press-down inline-flex h-8 shrink-0 items-center gap-1 rounded-md bg-surface-1 px-2.5 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
+							title={`Set Stok Fisik = ${formatQty(line.system_qty, isFractional)} ${line.item.unit}`}
 						>
 							<Equal className="size-3" />
 							Match
@@ -380,10 +385,12 @@ export function StockTakeLineRow({
 							type="text"
 							value={notes}
 							onChange={(e) => setNotes(e.target.value)}
-							onBlur={handleBlur}
+							onBlur={() => {
+								if (isDirty) persist();
+							}}
 							placeholder="Catatan (opsional)"
 							maxLength={200}
-							className="h-8 min-w-0 flex-1 rounded-md border border-border-default bg-background px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+							className="h-8 min-w-0 flex-1 rounded-md bg-surface-1 px-2 text-[12px] focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
 						/>
 					</div>
 				)}
@@ -398,7 +405,7 @@ export function StockTakeLineRow({
 				state === "variance" ? "bg-amber-500/5" : ""
 			}`}
 		>
-			<td className="px-3 py-2.5 align-middle">
+			<td className="px-3 py-2.5 align-top">
 				<div className="flex items-start gap-2">
 					<span
 						className={`mt-1.5 size-2 shrink-0 rounded-full ${dotTone}`}
@@ -442,43 +449,43 @@ export function StockTakeLineRow({
 					</div>
 				</div>
 			</td>
-			<td className="px-3 py-2.5 align-middle text-right">
+			<td className="px-3 py-2.5 align-top text-right">
 				<div>
 					<span className="tabular text-fluid-caption font-medium text-foreground">
-						{formatQty(line.system_qty, line.item.unit)}
+						{formatQty(line.system_qty, isFractional)}
 					</span>
 					<span className="ml-1 text-[10px] text-muted-foreground/70">
 						{line.item.unit}
 					</span>
 				</div>
-				{systemConversion && (
+				{systemCapStr && (
 					<div className="text-[10px] text-muted-foreground/70">
-						≈ {systemConversion}
+						≈ {systemCapStr}
 					</div>
 				)}
 			</td>
-			<td className="px-3 py-2.5 align-middle">
+			<td className="px-3 py-2.5 align-top">
 				{editable ? (
-					<div className="mx-auto w-32 space-y-1">
-						<div className="relative">
-							<input
-								type="number"
-								inputMode={isFractional ? "decimal" : "numeric"}
-								min={0}
-								step={stepAttr}
-								value={counted}
-								onChange={(e) => setCounted(e.target.value)}
-								onBlur={handleBlur}
-								placeholder="—"
-								className="h-9 w-full rounded-md border border-border-default bg-background px-2 pr-9 text-right text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-							/>
-							<span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
-								{line.item.unit}
-							</span>
-						</div>
-						{countedConversion && (
-							<div className="text-right text-[10px] text-muted-foreground/70">
-								≈ {countedConversion}
+					<div className="space-y-1.5">
+						<StockBundleInput
+							bundles={bundles}
+							onChange={(next) => {
+								setBundles(next);
+								persist(next);
+							}}
+							map={conversionMap}
+						/>
+						{hasAnyInput && countedNum !== null && (
+							<div className="rounded-md bg-surface-1/60 px-3 py-1.5 text-right text-[11px]">
+								<span className="text-muted-foreground">Total: </span>
+								<span className="tabular font-semibold text-foreground">
+									{formatQty(countedNum, isFractional)} {line.item.unit}
+								</span>
+								{countedCapStr && (
+									<div className="text-[10px] text-muted-foreground/70">
+										≈ {countedCapStr}
+									</div>
+								)}
 							</div>
 						)}
 					</div>
@@ -486,37 +493,39 @@ export function StockTakeLineRow({
 					<div className="text-center tabular text-fluid-caption">
 						{countedNum === null
 							? "—"
-							: `${formatQty(countedNum, line.item.unit)} ${line.item.unit}`}
-						{countedConversion && (
+							: `${formatQty(countedNum, isFractional)} ${line.item.unit}`}
+						{countedCapStr && (
 							<div className="text-[10px] text-muted-foreground/70">
-								≈ {countedConversion}
+								≈ {countedCapStr}
 							</div>
 						)}
 					</div>
 				)}
 			</td>
-			<td className="px-3 py-2.5 align-middle text-right">
+			<td className="px-3 py-2.5 align-top text-right">
 				<span
 					className={`tabular text-fluid-caption font-medium ${varianceTone}`}
 				>
 					{varianceLabel}
 				</span>
 			</td>
-			<td className="px-3 py-2.5 align-middle text-right">
+			<td className="px-3 py-2.5 align-top text-right">
 				<span className={`tabular text-fluid-caption font-medium ${valueTone}`}>
 					{valueLabel}
 				</span>
 			</td>
-			<td className="px-3 py-2.5 align-middle">
+			<td className="px-3 py-2.5 align-top">
 				{editable ? (
 					<input
 						type="text"
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
-						onBlur={handleBlur}
+						onBlur={() => {
+							if (isDirty) persist();
+						}}
 						placeholder="(opsional)"
 						maxLength={200}
-						className="h-8 w-full rounded-md border border-border-default bg-background px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+						className="h-8 w-full rounded-md bg-surface-1 px-2 text-sm focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
 					/>
 				) : (
 					<span className="text-fluid-caption italic text-muted-foreground">
@@ -525,7 +534,7 @@ export function StockTakeLineRow({
 				)}
 			</td>
 			{editable && (
-				<td className="px-3 py-2.5 align-middle text-right">
+				<td className="px-3 py-2.5 align-top text-right">
 					<div className="flex items-center justify-end gap-1.5">
 						{flashSaved && (
 							<Badge
@@ -540,8 +549,8 @@ export function StockTakeLineRow({
 							type="button"
 							onClick={handleMatch}
 							disabled={pending || countedNum === line.system_qty}
-							className="press-down inline-flex h-7 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
-							title={`Set Stok Fisik = ${formatQty(line.system_qty, line.item.unit)} ${line.item.unit}`}
+							className="press-down inline-flex h-7 items-center gap-1 rounded-md bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
+							title={`Set Stok Fisik = ${formatQty(line.system_qty, isFractional)} ${line.item.unit}`}
 						>
 							<Equal className="size-3" />
 							Match

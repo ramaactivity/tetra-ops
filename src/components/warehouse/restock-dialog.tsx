@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDownToLine, Package, ShoppingCart, TrendingUp } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
@@ -19,12 +19,17 @@ import {
 	type StockMovementFormState,
 } from "@/lib/actions/stock-movements";
 import { formatRupiah } from "@/lib/format";
+import {
+	listUnitsByKind,
+	normalizeConversion,
+	toBase,
+} from "@/lib/inventory/unit-conversion";
 
 interface RestockDialogProps {
 	itemId: string;
 	itemName: string;
 	itemUnit: string;
-	unitConversion: Record<string, number> | null;
+	unitConversion: unknown;
 	currentStock: number;
 	avgCost: number;
 }
@@ -44,12 +49,25 @@ export function RestockDialog({
 		FormData
 	>(action, undefined);
 
-	const unitOptions = unitConversion
-		? Object.keys(unitConversion)
-		: [itemUnit];
+	const conversionMap = useMemo(
+		() => normalizeConversion(unitConversion, itemUnit),
+		[unitConversion, itemUnit],
+	);
+	// Restock = pembelian → tampilkan purchase + base units (skip consumption).
+	const unitOptionEntries = useMemo(
+		() => listUnitsByKind(conversionMap, "purchase", "base"),
+		[conversionMap],
+	);
+	const unitOptions = unitOptionEntries.map(({ code }) => code);
 	const [chosenUnit, setChosenUnit] = useState<string>(itemUnit);
-	const conversionFactor = unitConversion?.[chosenUnit] ?? 1;
 	const isBaseUnit = chosenUnit === itemUnit;
+	const conversionFactor = useMemo(() => {
+		try {
+			return toBase(1, chosenUnit, conversionMap);
+		} catch {
+			return 1;
+		}
+	}, [chosenUnit, conversionMap]);
 
 	const [qtyInput, setQtyInput] = useState<string>("");
 	const [costInput, setCostInput] = useState<string>("");
@@ -163,9 +181,9 @@ export function RestockDialog({
 												id="quantity_unit"
 												value={chosenUnit}
 												onValueChange={(v) => setChosenUnit(v ?? itemUnit)}
-												options={unitOptions.map((u) => ({
-													value: u,
-													label: u,
+												options={unitOptionEntries.map(({ code, def }) => ({
+													value: code,
+													label: def.label || code,
 												}))}
 												allowFreeText={false}
 												aria-invalid={!!err("quantity_unit")}

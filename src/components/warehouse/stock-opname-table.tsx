@@ -4,12 +4,14 @@ import { ClipboardList, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import { StockTakeLineRow } from "@/components/warehouse/stock-take-line-row";
+import type { Bundle } from "@/lib/inventory/unit-conversion";
 
 export interface StockOpnameRow {
 	stock_take_id: string;
 	item_id: string;
 	system_qty: number;
 	counted_qty: number | null;
+	counted_breakdown: Bundle[] | null;
 	variance: number | null;
 	notes: string | null;
 	item: {
@@ -18,7 +20,7 @@ export interface StockOpnameRow {
 		name: string;
 		category: string;
 		unit: string;
-		unit_conversion: Record<string, number> | null;
+		unit_conversion: unknown;
 		purchase_price_avg: number;
 		min_stock_alert: number;
 	};

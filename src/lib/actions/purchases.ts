@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	normalizeConversion,
+	toBase,
+} from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireOwnerLevel() {
@@ -167,6 +171,8 @@ export async function recordPurchaseBatch(
 		item_id: string;
 		direction: "in";
 		quantity: number;
+		quantity_unit: string | null;
+		quantity_in_unit: number | null;
 		unit_cost: number;
 		source: string;
 		source_id: string | null;
@@ -186,25 +192,26 @@ export async function recordPurchaseBatch(
 			};
 		}
 		const baseUnit = it.unit as string;
-		const conv =
-			(it.unit_conversion as Record<string, number> | null) ?? null;
-		let multiplier = 1;
-		if (line.quantity_unit !== baseUnit) {
-			if (conv && conv[line.quantity_unit] !== undefined) {
-				multiplier = conv[line.quantity_unit];
-			} else {
-				return {
-					errors: {
-						lines: [
-							`Unit "${line.quantity_unit}" tidak dikenal untuk item ${line.item_id}`,
-						],
-					},
-				};
-			}
+		const map = normalizeConversion(it.unit_conversion, baseUnit);
+
+		let baseQty: number;
+		let perUnitToBaseRatio: number;
+		try {
+			baseQty = toBase(line.quantity, line.quantity_unit, map);
+			perUnitToBaseRatio = toBase(1, line.quantity_unit, map);
+		} catch {
+			return {
+				errors: {
+					lines: [
+						`Unit "${line.quantity_unit}" tidak dikenal untuk item ${line.item_id}`,
+					],
+				},
+			};
 		}
-		const baseQty = line.quantity * multiplier;
 		const baseUnitCost =
-			multiplier > 0 ? Math.round(line.unit_cost / multiplier) : line.unit_cost;
+			perUnitToBaseRatio > 0
+				? Math.round(line.unit_cost / perUnitToBaseRatio)
+				: line.unit_cost;
 
 		const refId = `MOV-I-${Math.floor(Math.random() * 99_999_999)
 			.toString()
@@ -224,6 +231,9 @@ export async function recordPurchaseBatch(
 			item_id: line.item_id,
 			direction: "in",
 			quantity: baseQty,
+			quantity_unit: line.quantity_unit !== baseUnit ? line.quantity_unit : null,
+			quantity_in_unit:
+				line.quantity_unit !== baseUnit ? line.quantity : null,
 			unit_cost: baseUnitCost,
 			source: "purchase",
 			source_id: parsed.data.pr_id ?? null,

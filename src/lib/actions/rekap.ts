@@ -4,6 +4,10 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	normalizeConversion,
+	toBase,
+} from "@/lib/inventory/unit-conversion";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -658,7 +662,7 @@ async function planRekapDeduction(
 			.maybeSingle(),
 		supabase
 			.from("inventory_items")
-			.select("id, sku, name, purchase_price_avg")
+			.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
 			.in("sku", [
 				"MEDIA-BASIC",
 				"MEDIA-PERF",
@@ -680,9 +684,38 @@ async function planRekapDeduction(
 	const itemsBySku = new Map(
 		(items ?? []).map((it) => [
 			it.sku,
-			it as { id: string; sku: string; name: string; purchase_price_avg: number | null },
+			it as {
+				id: string;
+				sku: string;
+				name: string;
+				unit: string;
+				unit_conversion: unknown;
+				purchase_price_avg: number | null;
+			},
 		]),
 	);
+
+	/**
+	 * Per-print roll consumption, sourced from inventory_items.unit_conversion
+	 * (v2 shape). Fall back to legacy hardcoded ratio if lookup fails — this
+	 * keeps rekap deduction working even if a future migration drops the
+	 * consumption unit row by accident.
+	 */
+	function rollPerPrint(
+		mediaSku: "MEDIA-BASIC" | "MEDIA-PERF",
+		lembarUnit: "lembar_4r" | "lembar_2r" | "lembar_polaroid",
+		fallback: number,
+	): number {
+		const item = itemsBySku.get(mediaSku);
+		if (!item) return fallback;
+		try {
+			const map = normalizeConversion(item.unit_conversion, item.unit);
+			// 1 lembar_X converted to base (roll) = roll cost of 1 print.
+			return toBase(1, lembarUnit, map);
+		} catch {
+			return fallback;
+		}
+	}
 
 	// Custom-material SKU lookup (preserved from v1)
 	const customSkus: string[] = rekap.custom_materials
@@ -714,17 +747,21 @@ async function planRekapDeduction(
 	> = {
 		"4R": {
 			mediaSku: "MEDIA-BASIC",
-			mediaQtyPerPrint: 1 / 700, // 1 roll basic = 700 prints 4R
+			mediaQtyPerPrint: rollPerPrint("MEDIA-BASIC", "lembar_4r", 1 / 700),
 			sleeveSku: "SLEEVE-4R",
 		},
 		"2R": {
 			mediaSku: "MEDIA-BASIC",
-			mediaQtyPerPrint: 1 / 1400, // 1 roll basic = 1400 prints 2R (cut)
+			mediaQtyPerPrint: rollPerPrint("MEDIA-BASIC", "lembar_2r", 1 / 1400),
 			sleeveSku: "SLEEVE-2R",
 		},
 		polaroid: {
 			mediaSku: "MEDIA-PERF",
-			mediaQtyPerPrint: 1 / 1400, // 1 roll perforated = 1400 prints polaroid
+			mediaQtyPerPrint: rollPerPrint(
+				"MEDIA-PERF",
+				"lembar_polaroid",
+				1 / 1400,
+			),
 			sleeveSku: "SLEEVE-PR",
 		},
 	};
