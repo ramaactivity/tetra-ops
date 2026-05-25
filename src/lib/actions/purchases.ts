@@ -158,12 +158,38 @@ export async function recordPurchaseBatch(
 	const itemIds = Array.from(new Set(parsed.data.lines.map((l) => l.item_id)));
 	const { data: items, error: itemsErr } = await supabase
 		.from("inventory_items")
-		.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
+		.select("id, sku, name, category, unit, unit_conversion, purchase_price_avg")
 		.in("id", itemIds);
 	if (itemsErr) {
 		return { errors: { _form: [itemsErr.message] } };
 	}
 	const byItem = new Map((items ?? []).map((i) => [i.id as string, i]));
+
+	// Pull fixed-asset configs (for CapEx COA routing override). Inventory
+	// satellite COA fetch happens inline in journal section below.
+	const faItemIds = (items ?? [])
+		.filter((i) => i.category === "fixed_asset")
+		.map((i) => i.id as string);
+	const faConfigByItem = new Map<
+		string,
+		{ coa_account_asset: string | null; asset_number: string | null }
+	>();
+	if (faItemIds.length > 0) {
+		const { data: faCfgs } = await supabase
+			.from("items_fixed_asset_config")
+			.select("item_id, coa_account_asset, asset_number")
+			.in("item_id", faItemIds);
+		for (const c of (faCfgs ?? []) as Array<{
+			item_id: string;
+			coa_account_asset: string | null;
+			asset_number: string | null;
+		}>) {
+			faConfigByItem.set(c.item_id, {
+				coa_account_asset: c.coa_account_asset,
+				asset_number: c.asset_number,
+			});
+		}
+	}
 
 	const purchaseDateIso = new Date(parsed.data.purchase_date).toISOString();
 	const movements: Array<{
@@ -183,6 +209,20 @@ export async function recordPurchaseBatch(
 		created_at: string;
 	}> = [];
 
+	// Track CapEx lines separately — fixed_asset doesn't enter stock_movements;
+	// instead it updates items_fixed_asset_config and joins the journal as
+	// 1-400 (or custom) debit. line_total computed at quantity * unit_cost
+	// (asset purchase is 1-to-1, no base unit conversion).
+	const capexLines: Array<{
+		item_id: string;
+		amount: number;
+		coa_asset: string;
+		sku: string;
+		quantity: number;
+		unit_cost: number;
+		purchase_date: string;
+	}> = [];
+
 	// Validate units + compute base qty for each line
 	for (const line of parsed.data.lines) {
 		const it = byItem.get(line.item_id);
@@ -191,6 +231,27 @@ export async function recordPurchaseBatch(
 				errors: { _form: [`Item ${line.item_id} tidak ditemukan`] },
 			};
 		}
+
+		// ─── Fixed asset (CapEx) path ─────────────────────────────────────
+		// Skip stock_movements; we'll add to journal as 1-400 debit + update
+		// items_fixed_asset_config.purchase_price + purchase_date.
+		if (it.category === "fixed_asset") {
+			const lineTotal = Math.round(line.quantity * line.unit_cost);
+			const faCfg = faConfigByItem.get(line.item_id);
+			const coaAsset = faCfg?.coa_account_asset ?? "1-400";
+			capexLines.push({
+				item_id: line.item_id,
+				amount: lineTotal,
+				coa_asset: coaAsset,
+				sku: it.sku as string,
+				quantity: line.quantity,
+				unit_cost: line.unit_cost,
+				purchase_date: purchaseDateIso,
+			});
+			continue;
+		}
+
+		// ─── Inventory path (existing flow) ───────────────────────────────
 		const baseUnit = it.unit as string;
 		const map = normalizeConversion(it.unit_conversion, baseUnit);
 
@@ -247,11 +308,27 @@ export async function recordPurchaseBatch(
 		});
 	}
 
-	const { error: insErr } = await supabase
-		.from("stock_movements")
-		.insert(movements);
-	if (insErr) {
-		return { errors: { _form: [insErr.message] } };
+	// Insert inventory movements (skipped if all lines were CapEx)
+	if (movements.length > 0) {
+		const { error: insErr } = await supabase
+			.from("stock_movements")
+			.insert(movements);
+		if (insErr) {
+			return { errors: { _form: [insErr.message] } };
+		}
+	}
+
+	// Update fixed_asset_config for CapEx lines (purchase_price + date)
+	for (const cap of capexLines) {
+		await supabase
+			.from("items_fixed_asset_config")
+			.update({
+				purchase_price: cap.amount,
+				purchase_date: cap.purchase_date.slice(0, 10),
+				depreciation_start_date: cap.purchase_date.slice(0, 10),
+				updated_at: new Date().toISOString(),
+			})
+			.eq("item_id", cap.item_id);
 	}
 
 	// Update weighted-avg cost per item
@@ -289,9 +366,12 @@ export async function recordPurchaseBatch(
 	let journalEntryRef: string | undefined;
 	let journalEntryId: string | undefined;
 	try {
-		// Compute totals grouped by inventory COA code
+		// Compute totals grouped by COA code — mix of inventory accounts
+		// (per item SKU) + fixed-asset accounts (1-400 default, overridable).
 		const totalByCoa = new Map<string, number>();
 		let grandTotal = 0;
+
+		// Inventory lines
 		for (const m of movements) {
 			const it = byItem.get(m.item_id);
 			const sku = (it as { sku?: string } | undefined)?.sku ?? "";
@@ -299,6 +379,15 @@ export async function recordPurchaseBatch(
 			const lineTotal = Math.round(m.quantity * m.unit_cost);
 			totalByCoa.set(coa, (totalByCoa.get(coa) ?? 0) + lineTotal);
 			grandTotal += lineTotal;
+		}
+
+		// CapEx lines (fixed asset purchases)
+		for (const cap of capexLines) {
+			totalByCoa.set(
+				cap.coa_asset,
+				(totalByCoa.get(cap.coa_asset) ?? 0) + cap.amount,
+			);
+			grandTotal += cap.amount;
 		}
 
 		if (grandTotal > 0) {
@@ -353,12 +442,14 @@ export async function recordPurchaseBatch(
 				}> = [];
 				let order = 1;
 				for (const [coa, amount] of totalByCoa) {
+					// Differentiate CapEx (1-4xx) vs Persediaan (1-2xx) in description
+					const isCapEx = coa.startsWith("1-4");
 					lines.push({
 						entry_id: entry.id,
 						account_code: coa,
 						debit_amount: amount,
 						credit_amount: 0,
-						description: "Persediaan masuk",
+						description: isCapEx ? "Aktiva tetap masuk" : "Persediaan masuk",
 						line_order: order++,
 					});
 				}

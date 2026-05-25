@@ -228,6 +228,13 @@ export default async function WarehousePage({
 							Stock Opname
 						</Link>
 						<Link
+							href="/warehouse/wastage"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<AlertTriangle className="size-4" />
+							Wastage
+						</Link>
+						<Link
 							href="/warehouse/items/new"
 							className={buttonVariants({ variant: "default", size: "sm" })}
 						>

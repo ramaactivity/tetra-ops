@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import { recordOpnameShortageWastage } from "@/lib/actions/wastage";
 
 async function requireOwnerLevel() {
 	const me = await getCurrentUser();
@@ -222,7 +223,7 @@ export async function updateStockTakeNotes(
 }
 
 export async function commitStockTake(stockTakeId: string): Promise<
-	{ ok: true; movements: number } | { ok: false; error: string }
+	{ ok: true; movements: number; wastageLogged: number } | { ok: false; error: string }
 > {
 	const me = await requireOwnerLevel();
 
@@ -233,10 +234,41 @@ export async function commitStockTake(stockTakeId: string): Promise<
 	});
 	if (error) return { ok: false, error: error.message };
 
+	// Post-commit: auto-log shortage variances as wastage (opname_shortage).
+	// RPC sudah create adjustment movements; kita query yang direction=out
+	// (= shortage) lalu insert wastage_logs untuk audit & cost tracking.
+	let wastageLogged = 0;
+	try {
+		const { data: shortageMovements } = await supabase
+			.from("stock_movements")
+			.select("id, item_id, quantity")
+			.eq("source", "stock_take")
+			.eq("source_id", stockTakeId)
+			.eq("direction", "out");
+
+		for (const m of (shortageMovements ?? []) as Array<{
+			id: string;
+			item_id: string;
+			quantity: number | string;
+		}>) {
+			const result = await recordOpnameShortageWastage(supabase, {
+				item_id: m.item_id,
+				qty_base: Number(m.quantity),
+				stock_take_id: stockTakeId,
+				stock_movement_id: m.id,
+				reported_by: me.profile.id,
+			});
+			if (result.ok) wastageLogged++;
+		}
+	} catch (e) {
+		console.error("[stock-takes] auto-wastage logging failed:", e);
+	}
+
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/stock-take");
 	revalidatePath(`/warehouse/stock-take/${stockTakeId}`);
-	return { ok: true, movements: Number(data ?? 0) };
+	revalidatePath("/warehouse/wastage");
+	return { ok: true, movements: Number(data ?? 0), wastageLogged };
 }
 
 export async function cancelStockTake(stockTakeId: string): Promise<
