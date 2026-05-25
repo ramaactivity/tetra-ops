@@ -30,6 +30,18 @@ export default async function WarehouseEditItemPage({
 	const categoryLabel =
 		loaded.kind === "inventory" ? "Persediaan" : "Aset Tetap";
 
+	// Fetch suppliers only when inventory (fixed-asset form doesn't use it)
+	let suppliers: Array<{ id: string; name: string }> = [];
+	if (loaded.kind === "inventory") {
+		const { data } = await supabase
+			.from("suppliers")
+			.select("id, name")
+			.is("deleted_at", null)
+			.eq("is_active", true)
+			.order("name");
+		suppliers = (data ?? []) as { id: string; name: string }[];
+	}
+
 	return (
 		<Container size="lg" className="space-y-6">
 			<PageHeader
@@ -54,6 +66,7 @@ export default async function WarehouseEditItemPage({
 						id={loaded.base.id}
 						defaults={inventoryDefaultsFrom(loaded)}
 						returnTo="/warehouse"
+						suppliers={suppliers}
 					/>
 				) : (
 					<FixedAssetItemForm
@@ -93,6 +106,9 @@ function inventoryDefaultsFrom(
 		purchase_unit: firstPurchase?.code ?? "",
 		conversion_factor: conversionFactor,
 		min_stock_alert: String(loaded.config.min_stock_alert ?? 0),
+		preferred_supplier_id:
+			(loaded.config as { preferred_supplier_id?: string | null })
+				.preferred_supplier_id ?? "",
 		is_bom_component:
 			(loaded.config as { is_bom_component?: boolean }).is_bom_component ??
 			false,
@@ -114,6 +130,11 @@ function fixedAssetDefaultsFrom(
 		unit: loaded.base.unit,
 		asset_number: loaded.config.asset_number ?? "",
 		serial_number: loaded.config.serial_number ?? "",
+		acquisition_type:
+			((loaded.config as { acquisition_type?: string }).acquisition_type as
+				| "new_commercial"
+				| "used_commercial"
+				| "owner_contribution") ?? "new_commercial",
 		purchase_price: String(loaded.config.purchase_price ?? 0),
 		purchase_date: loaded.config.purchase_date ?? "",
 		salvage_value: String(loaded.config.salvage_value ?? 0),

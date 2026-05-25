@@ -12,12 +12,18 @@ import {
 import { generateFixedAssetSku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 
+export type AcquisitionType =
+	| "new_commercial"
+	| "used_commercial"
+	| "owner_contribution";
+
 export type FixedAssetItemDefaults = {
 	name: string;
 	sku: string;
 	unit: string;
 	asset_number: string;
 	serial_number: string;
+	acquisition_type: AcquisitionType;
 	purchase_price: string;
 	purchase_date: string;
 	salvage_value: string;
@@ -36,6 +42,7 @@ export const EMPTY_FIXED_ASSET_DEFAULTS: FixedAssetItemDefaults = {
 	unit: "unit",
 	asset_number: "",
 	serial_number: "",
+	acquisition_type: "new_commercial",
 	purchase_price: "0",
 	purchase_date: "",
 	salvage_value: "0",
@@ -52,6 +59,15 @@ const UNIT_OPTIONS = [
 	{ value: "unit", label: "Unit" },
 	{ value: "pcs", label: "Pcs" },
 	{ value: "set", label: "Set" },
+];
+
+const ACQUISITION_OPTIONS = [
+	{ value: "new_commercial", label: "Beli Baru" },
+	{ value: "used_commercial", label: "Beli Bekas / Second" },
+	{
+		value: "owner_contribution",
+		label: "Setoran Modal Owner (Aset pribadi → perusahaan)",
+	},
 ];
 
 const CONDITION_OPTIONS = [
@@ -108,6 +124,9 @@ export function FixedAssetItemForm({
 	);
 	const [skuEditable, setSkuEditable] = useState<boolean>(mode === "edit");
 	const [unit, setUnit] = useState<string>(get("unit"));
+	const [acquisitionType, setAcquisitionType] = useState<AcquisitionType>(
+		(get("acquisition_type") as AcquisitionType) || "new_commercial",
+	);
 	const [purchaseDate, setPurchaseDate] = useState<string>(get("purchase_date"));
 	const [deprStartDate, setDeprStartDate] = useState<string>(
 		get("depreciation_start_date"),
@@ -245,14 +264,51 @@ export function FixedAssetItemForm({
 			<div className="space-y-4">
 				<SectionHeader
 					title="Pembelian"
-					subtitle="Harga & tanggal beli untuk perhitungan beban bulanan"
+					subtitle="Asal-usul + harga + masa pakai"
 				/>
+
+				<Field
+					label="Asal-Usul Aset"
+					name="acquisition_type"
+					error={err("acquisition_type")}
+					hint={
+						acquisitionType === "used_commercial"
+							? "Saran: Sesuaikan Target Masa Pakai (lebih pendek dari barang baru)."
+							: acquisitionType === "owner_contribution"
+								? "Bukan pengeluaran kas — sistem akan jurnal sebagai Setoran Modal Owner (Dr 1-400 / Cr 3-100)."
+								: "Cara aset ini masuk ke perusahaan. Mempengaruhi pencatatan finance."
+					}
+					required
+				>
+					<NativeSelect
+						value={acquisitionType}
+						onValueChange={(v) =>
+							setAcquisitionType(v as AcquisitionType)
+						}
+						options={ACQUISITION_OPTIONS}
+						triggerClassName="w-full md:max-w-md"
+					/>
+					<input
+						type="hidden"
+						name="acquisition_type"
+						value={acquisitionType}
+					/>
+				</Field>
 
 				<div className="grid gap-4 md:grid-cols-3">
 					<Field
-						label="Harga Beli (Rp)"
+						label={
+							acquisitionType === "owner_contribution"
+								? "Nilai Estimasi Aset (Rp)"
+								: "Harga Beli (Rp)"
+						}
 						name="purchase_price"
 						error={err("purchase_price")}
+						hint={
+							acquisitionType === "owner_contribution"
+								? "Estimasi nilai wajar saat diserahkan ke perusahaan"
+								: undefined
+						}
 						required
 					>
 						<input
@@ -266,7 +322,11 @@ export function FixedAssetItemForm({
 					</Field>
 
 					<Field
-						label="Tanggal Beli"
+						label={
+							acquisitionType === "owner_contribution"
+								? "Tanggal Penyerahan Aset"
+								: "Tanggal Beli"
+						}
 						name="purchase_date"
 						error={err("purchase_date")}
 					>
@@ -283,7 +343,11 @@ export function FixedAssetItemForm({
 						label="Target Masa Pakai (Bulan)"
 						name="useful_life_months"
 						error={err("useful_life_months")}
-						hint="Estimasi alat ini bisa dipakai berapa bulan sebelum perlu diganti"
+						hint={
+							acquisitionType === "used_commercial"
+								? "Lebih pendek karena barang second"
+								: "Estimasi alat bisa dipakai berapa bulan sebelum perlu diganti"
+						}
 					>
 						<input
 							type="number"
@@ -291,7 +355,11 @@ export function FixedAssetItemForm({
 							min={1}
 							step={1}
 							defaultValue={get("useful_life_months")}
-							placeholder="mis. 36 = 3 tahun"
+							placeholder={
+								acquisitionType === "used_commercial"
+									? "mis. 18 = 1.5 tahun"
+									: "mis. 36 = 3 tahun"
+							}
 							className={`${inputClass} tabular`}
 						/>
 					</Field>
@@ -321,6 +389,16 @@ export function FixedAssetItemForm({
 							Rp {monthlyDepr.toLocaleString("id-ID")}
 						</strong>{" "}
 						per bulan sebagai penyusutan (akuntansi straight-line).
+					</div>
+				)}
+
+				{acquisitionType === "owner_contribution" && (
+					<div className="rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-100">
+						<Info className="mr-1.5 inline size-3.5" />
+						<strong>Setoran Modal Owner</strong> — saat aset ini disimpan,
+						sistem otomatis buat jurnal{" "}
+						<code>Dr 1-400 Peralatan / Cr 3-100 Modal Owner</code>. TIDAK ada
+						cash outflow & tidak perlu catat Pembelian terpisah.
 					</div>
 				)}
 

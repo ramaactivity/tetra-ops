@@ -4,7 +4,10 @@ import { useState } from "react";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { CategoryPicker } from "./category-picker";
 import { FixedAssetItemForm } from "./fixed-asset-item-form";
-import { InventoryItemForm } from "./inventory-item-form";
+import {
+	InventoryItemForm,
+	type SupplierOption,
+} from "./inventory-item-form";
 
 /**
  * Orchestrator: picker selalu visible (dengan selected state),
@@ -12,8 +15,10 @@ import { InventoryItemForm } from "./inventory-item-form";
  */
 export function NewItemFlow({
 	returnTo,
+	suppliers = [],
 }: {
 	returnTo?: "/settings/items" | "/warehouse";
+	suppliers?: SupplierOption[];
 }) {
 	const [category, setCategory] = useState<ItemCategory | null>(null);
 
@@ -28,7 +33,11 @@ export function NewItemFlow({
 				>
 					<div className="border-t border-foreground/[0.06] pt-6">
 						{category === "inventory" ? (
-							<InventoryItemForm mode="create" returnTo={returnTo} />
+							<InventoryItemForm
+								mode="create"
+								returnTo={returnTo}
+								suppliers={suppliers}
+							/>
 						) : (
 							<FixedAssetItemForm mode="create" returnTo={returnTo} />
 						)}

@@ -53,6 +53,14 @@ const InventoryItemInputSchema = z
 			.optional()
 			.transform((v) => v ?? null),
 		min_stock_alert: z.coerce.number().int().nonnegative().default(0),
+		preferred_supplier_id: z
+			.string()
+			.trim()
+			.optional()
+			.transform((v) => (v ? v : null))
+			.refine((v) => v === null || /^[0-9a-f-]{36}$/i.test(v), {
+				message: "supplier_id harus UUID atau kosong",
+			}),
 		is_bom_component: z.coerce.boolean().default(false),
 		notes: z
 			.string()
@@ -88,6 +96,7 @@ function parse(formData: FormData) {
 		purchase_unit: formData.get("purchase_unit"),
 		conversion_factor: formData.get("conversion_factor"),
 		min_stock_alert: formData.get("min_stock_alert"),
+		preferred_supplier_id: formData.get("preferred_supplier_id"),
 		is_bom_component: formData.get("is_bom_component") === "on",
 		notes: formData.get("notes"),
 		is_active: formData.get("is_active") === "on",
@@ -102,6 +111,7 @@ function snapshot(formData: FormData): Record<string, string> {
 		"purchase_unit",
 		"conversion_factor",
 		"min_stock_alert",
+		"preferred_supplier_id",
 		"notes",
 	];
 	const out: Record<string, string> = {};
@@ -215,6 +225,7 @@ export async function createInventoryItem(
 		min_stock_alert: data.min_stock_alert,
 		purchase_price_avg: 0,
 		selling_price: null,
+		preferred_supplier_id: data.preferred_supplier_id,
 		coa_account_inventory: coa.inventory,
 		coa_account_cogs: coa.cogs,
 		coa_account_wastage: coa.wastage,
@@ -279,6 +290,7 @@ export async function updateInventoryItem(
 			base_unit: data.base_unit,
 			unit_conversion: unitConversion,
 			min_stock_alert: data.min_stock_alert,
+			preferred_supplier_id: data.preferred_supplier_id,
 			is_bom_component: data.is_bom_component,
 			updated_at: new Date().toISOString(),
 		})

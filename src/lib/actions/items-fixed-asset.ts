@@ -34,6 +34,11 @@ const LOCATIONS = [
 	"lost",
 ] as const;
 const ASSET_UNIT_OPTIONS = ["unit", "pcs", "set"] as const;
+const ACQUISITION_TYPES = [
+	"new_commercial",
+	"used_commercial",
+	"owner_contribution",
+] as const;
 
 const FixedAssetItemInputSchema = z.object({
 	name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
@@ -59,6 +64,9 @@ const FixedAssetItemInputSchema = z.object({
 		.optional()
 		.transform((v) => (v ? v : null)),
 	unit: z.enum(ASSET_UNIT_OPTIONS, "Pilih unit").default("unit"),
+	acquisition_type: z
+		.enum(ACQUISITION_TYPES, "Pilih asal-usul aset")
+		.default("new_commercial"),
 	purchase_price: z.coerce.number().int().nonnegative().default(0),
 	purchase_date: z
 		.preprocess(
@@ -118,6 +126,7 @@ function parse(formData: FormData) {
 		asset_number: formData.get("asset_number"),
 		serial_number: formData.get("serial_number"),
 		unit: formData.get("unit") || "unit",
+		acquisition_type: formData.get("acquisition_type") || "new_commercial",
 		purchase_price: formData.get("purchase_price"),
 		purchase_date: formData.get("purchase_date"),
 		salvage_value: formData.get("salvage_value"),
@@ -138,6 +147,7 @@ function snapshot(formData: FormData): Record<string, string> {
 		"asset_number",
 		"serial_number",
 		"unit",
+		"acquisition_type",
 		"purchase_price",
 		"purchase_date",
 		"salvage_value",
@@ -173,7 +183,7 @@ export async function createFixedAssetItem(
 	_prev: FixedAssetItemFormState,
 	formData: FormData,
 ): Promise<FixedAssetItemFormState> {
-	await requireOwnerLevel();
+	const me = await requireOwnerLevel();
 	const parsed = parse(formData);
 	if (!parsed.success) {
 		return {
@@ -220,12 +230,62 @@ export async function createFixedAssetItem(
 			? "straight_line"
 			: "none";
 
+	// Auto-create journal entry untuk Setoran Modal Owner
+	// (Dr 1-400 Peralatan / Cr 3-100 Modal Owner)
+	// new_commercial dan used_commercial TIDAK auto-jurnal di sini —
+	// user akan catat Pembelian via /warehouse/purchases yang sudah handle
+	// Dr 1-400 / Cr Kas atau Hutang Vendor.
+	let acquisitionJournalId: string | null = null;
+	if (
+		data.acquisition_type === "owner_contribution" &&
+		data.purchase_price > 0
+	) {
+		const journalRef = `JE-CONTRIB-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 99999).toString().padStart(5, "0")}`;
+		const { data: entry, error: entryErr } = await supabase
+			.from("journal_entries")
+			.insert({
+				ref_id: journalRef,
+				entry_date: data.purchase_date ?? new Date().toISOString().slice(0, 10),
+				entry_type: "adjustment",
+				description: `Setoran Modal Owner — ${data.name} (${sku})`,
+				source_type: "owner_contribution",
+				source_id: inserted.id,
+				total_amount: data.purchase_price,
+				created_by: me.profile.id,
+			})
+			.select("id")
+			.single();
+		if (entry && !entryErr) {
+			acquisitionJournalId = entry.id;
+			await supabase.from("journal_lines").insert([
+				{
+					entry_id: entry.id,
+					account_code: coa.asset,
+					debit_amount: data.purchase_price,
+					credit_amount: 0,
+					description: `Aset masuk (setoran owner): ${data.name}`,
+					line_order: 1,
+				},
+				{
+					entry_id: entry.id,
+					account_code: "3-100",
+					debit_amount: 0,
+					credit_amount: data.purchase_price,
+					description: `Setoran modal — ${data.name}`,
+					line_order: 2,
+				},
+			]);
+		}
+	}
+
 	const { error: cfgErr } = await supabase
 		.from("items_fixed_asset_config")
 		.insert({
 			item_id: inserted.id,
 			asset_number: assetNumber,
 			serial_number: data.serial_number,
+			acquisition_type: data.acquisition_type,
+			acquisition_journal_entry_id: acquisitionJournalId,
 			purchase_price: data.purchase_price,
 			purchase_date: data.purchase_date,
 			salvage_value: data.salvage_value,
@@ -239,6 +299,12 @@ export async function createFixedAssetItem(
 			coa_account_depr_expense: coa.depr_expense,
 		});
 	if (cfgErr) {
+		if (acquisitionJournalId) {
+			await supabase
+				.from("journal_entries")
+				.delete()
+				.eq("id", acquisitionJournalId);
+		}
 		await supabase.from("inventory_items").delete().eq("id", inserted.id);
 		return {
 			errors: { _form: [`Gagal create config: ${cfgErr.message}`] },
@@ -249,6 +315,7 @@ export async function createFixedAssetItem(
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/assets");
 	revalidatePath("/settings/items");
+	revalidatePath("/finance/accounting");
 	redirect(safeReturnTo(formData.get("return_to")));
 }
 
@@ -297,6 +364,7 @@ export async function updateFixedAssetItem(
 		.update({
 			asset_number: data.asset_number,
 			serial_number: data.serial_number,
+			acquisition_type: data.acquisition_type,
 			purchase_price: data.purchase_price,
 			purchase_date: data.purchase_date,
 			salvage_value: data.salvage_value,

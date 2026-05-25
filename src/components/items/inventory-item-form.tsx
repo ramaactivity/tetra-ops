@@ -1,7 +1,9 @@
 "use client";
 
 import { Info, Wand2 } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
+import { Combobox } from "@/components/ui/combobox";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
 	createInventoryItem,
@@ -11,6 +13,8 @@ import {
 import { generateInventorySku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 
+export type SupplierOption = { id: string; name: string };
+
 export type InventoryItemDefaults = {
 	name: string;
 	sku: string;
@@ -18,6 +22,7 @@ export type InventoryItemDefaults = {
 	purchase_unit: string;
 	conversion_factor: string;
 	min_stock_alert: string;
+	preferred_supplier_id: string;
 	is_bom_component: boolean;
 	notes: string;
 	is_active: boolean;
@@ -32,6 +37,7 @@ export const EMPTY_INVENTORY_DEFAULTS: InventoryItemDefaults = {
 	purchase_unit: "",
 	conversion_factor: "",
 	min_stock_alert: "0",
+	preferred_supplier_id: "",
 	is_bom_component: false,
 	notes: "",
 	is_active: true,
@@ -56,11 +62,13 @@ export function InventoryItemForm({
 	id,
 	defaults = EMPTY_INVENTORY_DEFAULTS,
 	returnTo,
+	suppliers = [],
 }: {
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: InventoryItemDefaults;
 	returnTo?: "/settings/items" | "/warehouse";
+	suppliers?: SupplierOption[];
 }) {
 	const action =
 		mode === "create"
@@ -99,6 +107,9 @@ export function InventoryItemForm({
 		state?.values?.is_bom_component !== undefined
 			? state.values.is_bom_component === "on"
 			: defaults.is_bom_component,
+	);
+	const [preferredSupplierId, setPreferredSupplierId] = useState<string>(
+		get("preferred_supplier_id"),
 	);
 
 	const generatedSku = useMemo(
@@ -306,6 +317,54 @@ export function InventoryItemForm({
 					</div>
 				</div>
 			</div>
+
+			{/* ── Supplier Utama (Preferred Vendor) ─────────────────────── */}
+			<Field
+				label="Supplier Utama (Preferred Vendor)"
+				name="preferred_supplier_id"
+				error={err("preferred_supplier_id")}
+				hint={
+					suppliers.length === 0
+						? "Belum ada supplier terdaftar."
+						: "Default supplier yang otomatis ke-pick saat catat Pembelian. Bisa di-override per pembelian."
+				}
+			>
+				{suppliers.length === 0 ? (
+					<div className="text-muted-foreground bg-surface-3 rounded-md px-3 py-2.5 text-[12px]">
+						Belum ada supplier terdaftar.{" "}
+						<Link
+							href="/warehouse/suppliers"
+							className="text-primary hover:underline"
+						>
+							Kelola di modul Supplier →
+						</Link>
+					</div>
+				) : (
+					<>
+						<Combobox
+							id="preferred_supplier_id"
+							value={preferredSupplierId}
+							onValueChange={(v) =>
+								setPreferredSupplierId(v ?? "")
+							}
+							options={[
+								{ value: "", label: "— Pilih supplier (Opsional) —" },
+								...suppliers.map((s) => ({
+									value: s.id,
+									label: s.name,
+								})),
+							]}
+							placeholder="— Pilih supplier (Opsional) —"
+							allowFreeText={false}
+						/>
+						<input
+							type="hidden"
+							name="preferred_supplier_id"
+							value={preferredSupplierId}
+						/>
+					</>
+				)}
+			</Field>
 
 			{/* ── BOM Component toggle ────────────────────────────────────── */}
 			<label className="bg-surface-3 flex cursor-pointer items-start gap-3 rounded-md p-3">
