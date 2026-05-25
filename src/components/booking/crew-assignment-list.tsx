@@ -57,6 +57,7 @@ export function CrewAssignmentList({
 					key={row.id}
 					projectId={projectId}
 					row={row}
+					allAssignments={assignments}
 					event={event}
 				/>
 			))}
@@ -67,10 +68,12 @@ export function CrewAssignmentList({
 function AssignmentItem({
 	projectId,
 	row,
+	allAssignments,
 	event,
 }: {
 	projectId: string;
 	row: AssignmentRow;
+	allAssignments: AssignmentRow[];
 	event: EventForWA;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -159,11 +162,10 @@ function AssignmentItem({
 			);
 			return;
 		}
+		const team = allAssignments.map((a) => a.user.full_name);
 		const body = buildCrewReminderMessage({
 			crew_name: row.user.full_name,
-			role_in_event: row.role_in_event,
-			fee_amount: row.fee_amount,
-			bonus_amount: row.bonus_amount,
+			team,
 			event,
 		});
 		const url = whatsappUrl(phone, body);

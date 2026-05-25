@@ -37,16 +37,9 @@ export function whatsappUrl(phone: string, message: string): string {
  */
 export type CrewReminderInput = {
 	crew_name: string;
-	role_in_event: string;
-	fee_amount: number;
-	bonus_amount: number;
+	/** Full team roster for this event (names only, including the recipient). */
+	team: string[];
 	event: EventForWA;
-};
-
-const ROLE_LABELS: Record<string, string> = {
-	lead: "Lead",
-	asisten: "Asisten",
-	crew_c: "Crew C",
 };
 
 const BACKDROP_LABELS: Record<string, string> = {
@@ -57,12 +50,17 @@ const BACKDROP_LABELS: Record<string, string> = {
 	custom: "Custom (lihat brief)",
 };
 
+const DATE_WITH_DAY = new Intl.DateTimeFormat("id-ID", {
+	weekday: "long",
+	day: "numeric",
+	month: "long",
+	year: "numeric",
+});
+
 export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	const ev = input.event;
 	const time = (t: string | null | undefined) => (t ? t.slice(0, 5) : null);
-	const date = formatDateID(ev.event_date);
-	const role = ROLE_LABELS[input.role_in_event] ?? input.role_in_event;
-	const totalFee = input.fee_amount + (input.bonus_amount ?? 0);
+	const date = DATE_WITH_DAY.format(new Date(ev.event_date));
 
 	const setupT = time(ev.setup_time);
 	const startT = time(ev.start_time);
@@ -74,21 +72,32 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	sections.push(`Halo *${input.crew_name}*! 👋`);
 	sections.push("Berikut detail assignment kamu di event berikutnya:");
 
-	// Event identity
-	const eventBlock = [`🎬 *EVENT*`, ev.client_name, ev.project_id];
-	sections.push(eventBlock.join("\n"));
+	// Event identity (project_id is internal — keep it owner-side only)
+	sections.push([`🎬 *EVENT*`, ev.client_name].join("\n"));
 
-	// Role + fee
-	sections.push(
-		[
-			`🎯 *ROLE KAMU*`,
-			role,
-			`💰 Fee: ${formatRupiah(totalFee)}` +
-				(input.bonus_amount > 0
-					? ` (termasuk bonus ${formatRupiah(input.bonus_amount)})`
-					: ""),
-		].join("\n"),
-	);
+	// Vendor (show whenever vendor info is set on the event)
+	if (ev.vendor_name) {
+		const vendorLines = [`🏷 *VENDOR*`, ev.vendor_name];
+		if (ev.vendor_pic_name) {
+			vendorLines.push(
+				ev.vendor_contact
+					? `${ev.vendor_pic_name} · ${ev.vendor_contact}`
+					: ev.vendor_pic_name,
+			);
+		} else if (ev.vendor_contact) {
+			vendorLines.push(ev.vendor_contact);
+		}
+		sections.push(vendorLines.join("\n"));
+	}
+
+	// Team roster (all assigned crew, including recipient)
+	if (input.team.length > 0) {
+		sections.push(
+			[`🤝 *TEAM YANG INCHARGE*`, ...input.team.map((n) => `- ${n}`)].join(
+				"\n",
+			),
+		);
+	}
 
 	// Schedule
 	const scheduleLines = [`📅 *JADWAL*`, date];
@@ -124,18 +133,33 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 		sections.push(picLines.join("\n"));
 	}
 
-	// Package + spec
-	if (ev.package_name || ev.frame_size || ev.backdrop_color) {
+	// Package + spec — dedupe frame/duration if already mentioned in package name
+	const backdropLabel = ev.backdrop_name
+		? ev.backdrop_type && ev.backdrop_type !== ev.backdrop_name
+			? `${ev.backdrop_name} (${ev.backdrop_type})`
+			: ev.backdrop_name
+		: ev.backdrop_color
+			? (BACKDROP_LABELS[ev.backdrop_color] ?? ev.backdrop_color)
+			: null;
+
+	if (ev.package_name || ev.frame_size || backdropLabel) {
 		const pkgLines: string[] = [`📦 *PAKET*`];
 		const specBits: string[] = [];
+		const pkgLower = (ev.package_name ?? "").toLowerCase();
 		if (ev.package_name) specBits.push(ev.package_name);
-		if (ev.frame_size) specBits.push(ev.frame_size);
-		if (ev.duration_hours) specBits.push(`${ev.duration_hours} jam`);
+		if (ev.frame_size && !pkgLower.includes(ev.frame_size.toLowerCase())) {
+			specBits.push(ev.frame_size);
+		}
+		if (
+			ev.duration_hours &&
+			!pkgLower.includes(`${ev.duration_hours} jam`) &&
+			!pkgLower.includes(`${ev.duration_hours}jam`)
+		) {
+			specBits.push(`${ev.duration_hours} jam`);
+		}
 		if (specBits.length) pkgLines.push(specBits.join(" · "));
-		if (ev.backdrop_color) {
-			pkgLines.push(
-				`🎨 Backdrop: ${BACKDROP_LABELS[ev.backdrop_color] ?? ev.backdrop_color}`,
-			);
+		if (backdropLabel) {
+			pkgLines.push(`🎨 Backdrop: ${backdropLabel}`);
 		}
 		if (ev.include_flashdisk_pouch) {
 			pkgLines.push("📁 Include flashdisk + pouch");
@@ -168,7 +192,7 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 
 	// Footer
 	sections.push(
-		"—\nKonfirm di chat ini ya. Kalau ada kendala/pertanyaan langsung kabarin owner. Makasih banyak 🙏",
+		"—\nKonfirm di chat ini ya. Kalau ada kendala/pertanyaan langsung kabarin Managemen. Makasih banyak 🙏",
 	);
 
 	return sections.join("\n\n");
@@ -218,6 +242,12 @@ export type EventForWA = {
 	frame_size?: string | null;
 	duration_hours?: number | null;
 	backdrop_color?: string | null;
+	backdrop_name?: string | null;
+	backdrop_type?: string | null;
+	channel?: string | null;
+	vendor_name?: string | null;
+	vendor_pic_name?: string | null;
+	vendor_contact?: string | null;
 	include_flashdisk_pouch?: boolean | null;
 	addons_list?: string[] | null;
 	bonuses_list?: string[] | null;

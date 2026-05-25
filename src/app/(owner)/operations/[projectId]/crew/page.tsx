@@ -29,8 +29,10 @@ export default async function ManageCrewPage({
 			 venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			 pic_name, pic_wa,
 			 frame_size, backdrop_color, include_flashdisk_pouch, crew_notes,
+			 channel, vendor_name, vendor_pic_name, vendor_contact,
 			 due_date, total_paid, remaining_balance, custom_package_name,
 			 package:packages(name, duration_hours),
+			 backdrop:backdrops(name, type),
 			 event_addons(quantity, addon:addons(name, unit)),
 			 event_bonuses(quantity, notes, addon:addons(name, unit))`,
 		)
@@ -67,6 +69,10 @@ export default async function ManageCrewPage({
 	const pkg = (
 		Array.isArray(event.package) ? event.package[0] : event.package
 	) as { name: string | null; duration_hours: number | null } | null;
+
+	const backdrop = (
+		Array.isArray(event.backdrop) ? event.backdrop[0] : event.backdrop
+	) as { name: string | null; type: string | null } | null;
 
 	const addonRows = ((event.event_addons ?? []) as Array<{
 		quantity: number;
@@ -116,6 +122,12 @@ export default async function ManageCrewPage({
 		duration_hours: pkg?.duration_hours ?? null,
 		frame_size: event.frame_size ?? null,
 		backdrop_color: event.backdrop_color ?? null,
+		backdrop_name: backdrop?.name ?? null,
+		backdrop_type: backdrop?.type ?? null,
+		channel: event.channel ?? null,
+		vendor_name: event.vendor_name ?? null,
+		vendor_pic_name: event.vendor_pic_name ?? null,
+		vendor_contact: event.vendor_contact ?? null,
 		include_flashdisk_pouch: event.include_flashdisk_pouch ?? null,
 		addons_list: addonRows.length > 0 ? addonRows : null,
 		bonuses_list: bonusRows.length > 0 ? bonusRows : null,
