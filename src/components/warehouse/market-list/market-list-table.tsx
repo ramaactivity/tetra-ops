@@ -396,21 +396,26 @@ function ItemCard({
 								<div className="flex items-center gap-3 text-fluid-caption">
 									<div className="text-right">
 										<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-											Pack
+											Harga Pack
 										</div>
-										<div className="tabular font-medium text-foreground">
-											{formatRupiah(e.pack_price)} / {e.pack_size}{" "}
-											{e.pack_unit}
+										<div className="tabular whitespace-nowrap font-medium text-foreground">
+											{formatRupiah(e.pack_price)}
+										</div>
+										<div className="tabular whitespace-nowrap text-[10px] text-muted-foreground/80">
+											{e.pack_size.toLocaleString("id-ID")} {e.pack_unit} / pack
 										</div>
 									</div>
 									<div className="text-right">
 										<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-											Effective
+											Effective Cost
 										</div>
 										<div
-											className={`tabular font-semibold ${e.is_primary ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}
+											className={`tabular whitespace-nowrap font-semibold ${e.is_primary ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}
 										>
-											{formatRupiah(Math.round(effective))} / {item.unit}
+											{formatRupiah(Math.round(effective))}
+										</div>
+										<div className="tabular whitespace-nowrap text-[10px] text-muted-foreground/80">
+											per {item.unit}
 										</div>
 									</div>
 									<div className="flex items-center gap-1">
