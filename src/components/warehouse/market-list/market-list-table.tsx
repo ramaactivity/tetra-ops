@@ -1,17 +1,29 @@
 "use client";
 
-import { Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
+import {
+	ArrowUpRight,
+	Pencil,
+	Plus,
+	Search,
+	Star,
+	Trash2,
+	Truck,
+} from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/toaster";
+import { cn } from "@/lib/utils";
 import { formatRupiah } from "@/lib/format";
 import {
 	deleteSupplierPrice,
 	setPrimarySupplierPrice,
 } from "@/lib/actions/suppliers";
 import { MarketEntryDialog } from "./market-entry-dialog";
+
+type SubTab = "items" | "suppliers";
 
 export type MarketListItem = {
 	id: string;
@@ -60,6 +72,7 @@ export function MarketListTable({
 	entries: MarketListEntry[];
 	suppliers: SupplierOption[];
 }) {
+	const [subTab, setSubTab] = useState<SubTab>("items");
 	const [query, setQuery] = useState("");
 	const [onlyPrimary, setOnlyPrimary] = useState(false);
 	const [editing, setEditing] = useState<{
@@ -115,6 +128,36 @@ export function MarketListTable({
 		});
 	}, [items, entriesByItem, query, onlyPrimary]);
 
+	const supplierAggregates = useMemo(() => {
+		const byId = new Map<
+			string,
+			{ id: string; name: string; entryCount: number; primaryCount: number }
+		>();
+		for (const s of suppliers) {
+			byId.set(s.id, {
+				id: s.id,
+				name: s.name,
+				entryCount: 0,
+				primaryCount: 0,
+			});
+		}
+		for (const e of entries) {
+			const agg = byId.get(e.supplier_id);
+			if (!agg) continue;
+			agg.entryCount += 1;
+			if (e.is_primary) agg.primaryCount += 1;
+		}
+		return Array.from(byId.values()).sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
+	}, [suppliers, entries]);
+
+	const filteredSuppliers = useMemo(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return supplierAggregates;
+		return supplierAggregates.filter((s) => s.name.toLowerCase().includes(q));
+	}, [supplierAggregates, query]);
+
 	if (items.length === 0) {
 		return (
 			<EmptyState
@@ -165,6 +208,8 @@ export function MarketListTable({
 				/>
 			</div>
 
+			<SubTabBar current={subTab} onChange={setSubTab} />
+
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<div className="relative flex-1 sm:max-w-xs">
 					<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -172,43 +217,53 @@ export function MarketListTable({
 						type="search"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
-						placeholder="Cari item / SKU / supplier..."
+						placeholder={
+							subTab === "items"
+								? "Cari item / SKU / supplier..."
+								: "Cari supplier..."
+						}
 						className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-caption placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
 					/>
 				</div>
-				<label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-1.5 text-fluid-caption">
-					<input
-						type="checkbox"
-						checked={onlyPrimary}
-						onChange={(e) => setOnlyPrimary(e.target.checked)}
-						className="size-3.5"
-					/>
-					Primary saja
-				</label>
+				{subTab === "items" && (
+					<label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-1.5 text-fluid-caption">
+						<input
+							type="checkbox"
+							checked={onlyPrimary}
+							onChange={(e) => setOnlyPrimary(e.target.checked)}
+							className="size-3.5"
+						/>
+						Primary saja
+					</label>
+				)}
 			</div>
 
-			{filtered.length === 0 ? (
-				<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-6 text-center text-fluid-caption text-muted-foreground">
-					Tidak ada item yang cocok.
-				</div>
+			{subTab === "items" ? (
+				filtered.length === 0 ? (
+					<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-6 text-center text-fluid-caption text-muted-foreground">
+						Tidak ada item yang cocok.
+					</div>
+				) : (
+					<div className="space-y-3">
+						{filtered.map((item) => {
+							const itemEntries = entriesByItem.get(item.id) ?? [];
+							return (
+								<ItemCard
+									key={item.id}
+									item={item}
+									entries={itemEntries}
+									onAdd={() => setEditing({ mode: "create", item })}
+									onEdit={(entry) =>
+										setEditing({ mode: "edit", entry, item })
+									}
+									onDelete={(entry) => setDeleting(entry)}
+								/>
+							);
+						})}
+					</div>
+				)
 			) : (
-				<div className="space-y-3">
-					{filtered.map((item) => {
-						const itemEntries = entriesByItem.get(item.id) ?? [];
-						return (
-							<ItemCard
-								key={item.id}
-								item={item}
-								entries={itemEntries}
-								onAdd={() => setEditing({ mode: "create", item })}
-								onEdit={(entry) =>
-									setEditing({ mode: "edit", entry, item })
-								}
-								onDelete={(entry) => setDeleting(entry)}
-							/>
-						);
-					})}
-				</div>
+				<SuppliersPanel rows={filteredSuppliers} />
 			)}
 
 			{editing && editing.item && (
@@ -382,6 +437,129 @@ function ItemCard({
 					})}
 				</div>
 			)}
+		</div>
+	);
+}
+
+function SubTabBar({
+	current,
+	onChange,
+}: {
+	current: SubTab;
+	onChange: (t: SubTab) => void;
+}) {
+	const tabs: Array<{ value: SubTab; label: string }> = [
+		{ value: "items", label: "Per Item" },
+		{ value: "suppliers", label: "Per Supplier" },
+	];
+	return (
+		<div className="inline-flex rounded-lg bg-surface-2 p-1">
+			{tabs.map((t) => {
+				const active = current === t.value;
+				return (
+					<button
+						key={t.value}
+						type="button"
+						onClick={() => onChange(t.value)}
+						className={cn(
+							"rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+							active
+								? "bg-surface-1 text-foreground shadow-sm"
+								: "text-muted-foreground hover:text-foreground",
+						)}
+					>
+						{t.label}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
+function SuppliersPanel({
+	rows,
+}: {
+	rows: Array<{
+		id: string;
+		name: string;
+		entryCount: number;
+		primaryCount: number;
+	}>;
+}) {
+	if (rows.length === 0) {
+		return (
+			<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-6 text-center text-fluid-caption text-muted-foreground">
+				Tidak ada supplier yang cocok.
+			</div>
+		);
+	}
+
+	return (
+		<div className="space-y-3">
+			<div className="flex items-center justify-between rounded-lg bg-surface-2 p-3">
+				<div>
+					<div className="text-sm font-semibold">Supplier Aktif</div>
+					<div className="mt-0.5 text-[11px] text-muted-foreground">
+						{rows.length} supplier · klik nama untuk edit detail (kontak, term
+						bayar, kategori).
+					</div>
+				</div>
+				<Link
+					href="/warehouse/suppliers"
+					className="press-down inline-flex h-8 items-center gap-1 rounded-md bg-surface-1 px-3 text-[12px] font-medium text-foreground hover:bg-surface-3"
+				>
+					<Truck className="size-3.5" />
+					Manage Supplier
+				</Link>
+			</div>
+
+			<div className="overflow-hidden rounded-lg bg-surface-2">
+				<div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+					<span>Supplier</span>
+					<span className="text-right">Items</span>
+					<span className="text-right">Primary</span>
+					<span className="w-8" />
+				</div>
+				<ul>
+					{rows.map((s, idx) => (
+						<li
+							key={s.id}
+							className={cn(
+								"grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-3/60",
+								idx > 0 && "border-t border-foreground/[0.04]",
+							)}
+						>
+							<div className="min-w-0">
+								<div className="truncate text-sm font-medium text-foreground">
+									{s.name}
+								</div>
+							</div>
+							<span className="tabular text-sm font-medium text-foreground">
+								{s.entryCount}
+							</span>
+							<div className="flex justify-end">
+								{s.primaryCount > 0 ? (
+									<span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+										<Star className="size-3 fill-emerald-500 text-emerald-500" />
+										{s.primaryCount}
+									</span>
+								) : (
+									<span className="text-[11px] text-muted-foreground/60">
+										—
+									</span>
+								)}
+							</div>
+							<Link
+								href="/warehouse/suppliers"
+								className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground"
+								title={`Buka master Supplier untuk edit ${s.name}`}
+							>
+								<ArrowUpRight className="size-3.5" />
+							</Link>
+						</li>
+					))}
+				</ul>
+			</div>
 		</div>
 	);
 }

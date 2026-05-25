@@ -98,25 +98,26 @@ export function MarketEntryDialog({
 
 	const willSyncMessage =
 		isPrimary && effective > 0
-			? `Master cost ${item.name} sekarang = ${formatRupiah(item.purchase_price_avg)}/${item.unit} → akan di-update ke ${formatRupiah(Math.round(effective))} kalau disimpan`
+			? `Master cost saat ini ${formatRupiah(item.purchase_price_avg)} / ${item.unit} → akan di-update ke ${formatRupiah(Math.round(effective))} / ${item.unit}`
 			: null;
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-md">
-				<DialogHeader>
-					<DialogTitle>
+			<DialogContent className="sm:max-w-3xl p-0 gap-0 overflow-hidden">
+				<DialogHeader className="px-7 pt-6 pb-4 bg-surface-1">
+					<DialogTitle className="text-lg font-semibold tracking-tight">
 						{mode === "create" ? "Tambah Harga Supplier" : "Edit Harga Supplier"}
 					</DialogTitle>
-					<DialogDescription>
-						{item.name} · catat harga belanja dari supplier. Tag Primary →
-						auto-sync master cost.
+					<DialogDescription className="text-[13px] text-muted-foreground">
+						<span className="font-medium text-foreground">{item.name}</span> ·
+						catat harga belanja dari supplier. Tag Primary untuk auto-sync
+						master cost.
 					</DialogDescription>
 				</DialogHeader>
 
-				<form action={formAction} className="space-y-4">
+				<form action={formAction} className="px-7 pb-6 pt-2 space-y-6">
 					{formError && (
-						<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+						<div className="rounded-lg bg-destructive/10 p-3.5 ring-1 ring-destructive/30">
 							<p className="text-sm font-medium text-destructive">
 								{formError}
 							</p>
@@ -126,149 +127,192 @@ export function MarketEntryDialog({
 					{entry?.id && <input type="hidden" name="id" value={entry.id} />}
 					<input type="hidden" name="item_id" value={item.id} />
 
-					<Field
-						label="Supplier"
-						name="supplier_id"
-						error={err("supplier_id")}
-						required
-					>
-						<Combobox
-							id="supplier_id"
-							value={supplierId}
-							onValueChange={(v) => setSupplierId(v ?? "")}
-							options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
-							placeholder="— pilih supplier —"
-							allowFreeText={false}
-						/>
-						<input type="hidden" name="supplier_id" value={supplierId} />
-					</Field>
+					<div className="grid gap-6 md:grid-cols-[1.5fr_1fr]">
+						{/* Left column — form fields */}
+						<div className="space-y-5">
+							<Field
+								label="Supplier"
+								name="supplier_id"
+								error={err("supplier_id")}
+								required
+							>
+								<Combobox
+									id="supplier_id"
+									value={supplierId}
+									onValueChange={(v) => setSupplierId(v ?? "")}
+									options={suppliers.map((s) => ({
+										value: s.id,
+										label: s.name,
+									}))}
+									placeholder="— pilih supplier —"
+									allowFreeText={false}
+								/>
+								<input type="hidden" name="supplier_id" value={supplierId} />
+							</Field>
 
-					<div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-						<Field
-							label="Harga / pack (Rp)"
-							name="pack_price"
-							error={err("pack_price")}
-							required
-						>
-							<NumberField
-								id="pack_price"
-								name="pack_price"
-								min={0}
-								step={1}
-								required
-								defaultValue={packPrice}
-								onChange={(e) => setPackPrice(e.target.value)}
-								placeholder="0"
-							/>
-						</Field>
-						<Field
-							label="Pack size"
-							name="pack_size"
-							error={err("pack_size")}
-							required
-						>
-							<NumberField
-								id="pack_size"
-								name="pack_size"
-								min={0.0001}
-								step={0.01}
-								required
-								defaultValue={packSize}
-								onChange={(e) => setPackSize(e.target.value)}
-								placeholder="1"
-							/>
-						</Field>
-						<Field
-							label="Unit"
-							name="pack_unit"
-							error={err("pack_unit")}
-							required
-						>
-							<Combobox
-								id="pack_unit"
-								value={packUnit}
-								onValueChange={(v) => setPackUnit(v ?? item.unit)}
-								options={packUnitOptions.map((u) => ({
-									value: u,
-									label: u,
-								}))}
-								allowFreeText={false}
-							/>
-							<input type="hidden" name="pack_unit" value={packUnit} />
-						</Field>
+							<div className="grid gap-4 sm:grid-cols-12">
+								<div className="sm:col-span-5">
+									<Field
+										label="Harga / pack (Rp)"
+										name="pack_price"
+										error={err("pack_price")}
+										required
+									>
+										<NumberField
+											id="pack_price"
+											name="pack_price"
+											min={0}
+											step={1}
+											required
+											defaultValue={packPrice}
+											onChange={(e) => setPackPrice(e.target.value)}
+											placeholder="0"
+										/>
+									</Field>
+								</div>
+								<div className="sm:col-span-3">
+									<Field
+										label="Pack size"
+										name="pack_size"
+										error={err("pack_size")}
+										required
+									>
+										<NumberField
+											id="pack_size"
+											name="pack_size"
+											min={0.0001}
+											step={0.01}
+											required
+											defaultValue={packSize}
+											onChange={(e) => setPackSize(e.target.value)}
+											placeholder="1"
+										/>
+									</Field>
+								</div>
+								<div className="sm:col-span-4">
+									<Field
+										label="Unit"
+										name="pack_unit"
+										error={err("pack_unit")}
+										required
+									>
+										<Combobox
+											id="pack_unit"
+											value={packUnit}
+											onValueChange={(v) => setPackUnit(v ?? item.unit)}
+											options={packUnitOptions.map((u) => ({
+												value: u,
+												label: u,
+											}))}
+											allowFreeText={false}
+										/>
+										<input
+											type="hidden"
+											name="pack_unit"
+											value={packUnit}
+										/>
+									</Field>
+								</div>
+							</div>
+
+							<Field
+								label="Catatan"
+								name="notes"
+								error={err("notes")}
+								hint="opsional — promo, lebaran, kontrak"
+							>
+								<TextareaField
+									id="notes"
+									name="notes"
+									rows={3}
+									maxLength={300}
+									defaultValue={entry?.notes ?? ""}
+								/>
+							</Field>
+						</div>
+
+						{/* Right column — live preview + primary toggle */}
+						<aside className="space-y-4">
+							<div className="rounded-xl bg-surface-1 p-5 shadow-sm">
+								<div className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+									Effective cost
+								</div>
+								<div
+									className={`mt-2 text-xl font-semibold tabular ${
+										effective > 0
+											? "text-sky-700 dark:text-sky-300"
+											: "text-muted-foreground/60"
+									}`}
+								>
+									{effective > 0
+										? formatRupiah(Math.round(effective))
+										: "Rp —"}
+									<span className="ml-1 text-xs font-normal text-muted-foreground">
+										/ {item.unit}
+									</span>
+								</div>
+								<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+									Preview otomatis update saat ngetik harga / size / unit.
+								</p>
+							</div>
+
+							<label
+								className={`block cursor-pointer rounded-xl p-5 transition-all ${
+									isPrimary
+										? "bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30"
+										: "bg-surface-1 hover:bg-surface-2"
+								}`}
+							>
+								<div className="flex items-start gap-3">
+									<input
+										type="checkbox"
+										name="is_primary"
+										value="true"
+										checked={isPrimary}
+										onChange={(e) => setIsPrimary(e.target.checked)}
+										className="mt-0.5 size-4"
+									/>
+									<div className="space-y-1">
+										<div className="inline-flex items-center gap-1.5 text-sm font-medium">
+											<Star
+												className={`size-3.5 ${
+													isPrimary
+														? "fill-emerald-500 text-emerald-500"
+														: "text-muted-foreground"
+												}`}
+											/>
+											Set sebagai Primary
+										</div>
+										<p className="text-[11px] leading-relaxed text-muted-foreground">
+											Hanya 1 Primary per bahan. Master cost{" "}
+											<code className="rounded bg-surface-3 px-1 py-0.5 text-[10px]">
+												purchase_price_avg
+											</code>{" "}
+											akan ikut effective cost di sini.
+										</p>
+										{willSyncMessage && (
+											<p className="mt-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+												{willSyncMessage}
+											</p>
+										)}
+									</div>
+								</div>
+							</label>
+						</aside>
 					</div>
 
-					{effective > 0 && (
-						<div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-3 text-fluid-caption">
-							<div className="font-semibold text-sky-700 dark:text-sky-300">
-								Effective cost = {formatRupiah(Math.round(effective))} /{" "}
-								{item.unit}
-							</div>
-							{willSyncMessage && (
-								<div className="mt-1 text-[11px] text-muted-foreground">
-									{willSyncMessage}
-								</div>
-							)}
-						</div>
-					)}
-
-					<label
-						className={`flex cursor-pointer items-start gap-2 rounded-md border p-3 transition-colors ${
-							isPrimary
-								? "border-emerald-500/40 bg-emerald-500/10"
-								: "border-border-default bg-surface-2"
-						}`}
-					>
-						<input
-							type="checkbox"
-							name="is_primary"
-							value="true"
-							checked={isPrimary}
-							onChange={(e) => setIsPrimary(e.target.checked)}
-							className="mt-0.5 size-3.5"
-						/>
-						<div className="space-y-0.5">
-							<div className="inline-flex items-center gap-1 text-sm font-medium">
-								<Star
-									className={`size-3.5 ${isPrimary ? "fill-emerald-500 text-emerald-500" : ""}`}
-								/>
-								Set sebagai supplier utama (Primary)
-							</div>
-							<div className="text-[11px] text-muted-foreground">
-								Kalau dicentang, effective cost-nya akan otomatis update{" "}
-								<code>purchase_price_avg</code> bahan ini. Hanya 1 Primary per
-								bahan.
-							</div>
-						</div>
-					</label>
-
-					<Field
-						label="Catatan"
-						name="notes"
-						error={err("notes")}
-						hint="opsional — promo, lebaran, kontrak"
-					>
-						<TextareaField
-							id="notes"
-							name="notes"
-							rows={2}
-							maxLength={300}
-							defaultValue={entry?.notes ?? ""}
-						/>
-					</Field>
-
-					<DialogFooter>
+					<DialogFooter className="border-t border-foreground/5 pt-5 -mx-7 px-7 -mb-6 pb-5 bg-surface-1/40">
 						<button
 							type="button"
 							onClick={() => onOpenChange(false)}
-							className="inline-flex h-10 items-center rounded-md border border-border-default bg-surface-2 px-4 text-sm font-medium hover:bg-muted"
+							className="press-down inline-flex h-10 items-center rounded-md bg-surface-2 px-4 text-sm font-medium hover:bg-surface-3"
 						>
 							Batal
 						</button>
 						<button
 							type="submit"
 							disabled={pending || !supplierId}
-							className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+							className="press-down inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
 						>
 							{pending
 								? "Menyimpan…"
@@ -300,7 +344,7 @@ function Field({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
+			<label htmlFor={name} className="text-[13px] font-medium text-foreground">
 				{label}
 				{required && <span className="ml-0.5 text-primary">*</span>}
 			</label>
