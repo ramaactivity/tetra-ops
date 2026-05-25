@@ -235,6 +235,13 @@ export default async function WarehousePage({
 							Wastage
 						</Link>
 						<Link
+							href="/warehouse/assets"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<Wallet2 className="size-4" />
+							Aktiva Tetap
+						</Link>
+						<Link
 							href="/warehouse/items/new"
 							className={buttonVariants({ variant: "default", size: "sm" })}
 						>

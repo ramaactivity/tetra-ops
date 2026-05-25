@@ -1,5 +1,6 @@
 import {
 	AlertCircle,
+	AlertTriangle,
 	ArrowDownRight,
 	ArrowUpRight,
 	BookOpen,
@@ -353,6 +354,13 @@ export default async function FinancePage() {
 						>
 							<Handshake className="size-4" />
 							<span className="hidden sm:inline">Vendor commissions</span>
+						</Link>
+						<Link
+							href="/finance/wastage-report"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<AlertTriangle className="size-4" />
+							<span className="hidden sm:inline">Wastage Report</span>
 						</Link>
 					</>
 				}
