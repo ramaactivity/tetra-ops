@@ -1,10 +1,11 @@
 "use client";
 
-import { Sliders } from "lucide-react";
+import { Sliders, X } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -179,16 +180,29 @@ export function StockAdjustDialog({
 			>
 				<Sliders className="size-4" />
 			</DialogTrigger>
-			<DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-				<DialogHeader className="shrink-0 border-b border-border-default/50 bg-surface-1 px-8 pt-7 pb-5">
-					<DialogTitle className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-foreground">
-						<Sliders className="size-5 text-primary" aria-hidden />
-						Adjust Stok
-					</DialogTitle>
-					<DialogDescription className="mt-1 text-[12px] text-muted-foreground/80">
-						<span className="font-medium text-foreground">{itemName}</span> ·
-						koreksi non-pembelian (opname / wastage / loss / testing).
-					</DialogDescription>
+			<DialogContent
+				showCloseButton={false}
+				className="flex max-h-[85vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+			>
+				<DialogHeader className="shrink-0 border-b border-border-default/50 bg-surface-1 px-8 pt-6 pb-5">
+					<div className="flex items-start justify-between gap-4">
+						<div className="min-w-0 flex-1">
+							<DialogTitle className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-foreground">
+								<Sliders className="size-5 text-primary" aria-hidden />
+								Adjust Stok
+							</DialogTitle>
+							<DialogDescription className="mt-1.5 text-[12px] text-muted-foreground/80">
+								<span className="font-medium text-foreground">{itemName}</span> ·
+								koreksi non-pembelian (opname / wastage / loss / testing).
+							</DialogDescription>
+						</div>
+						<DialogClose
+							aria-label="Tutup"
+							className="press-down inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+						>
+							<X className="size-4" />
+						</DialogClose>
+					</div>
 				</DialogHeader>
 
 				<form
@@ -365,7 +379,7 @@ export function StockAdjustDialog({
 						</Field>
 					</div>
 
-					<DialogFooter className="shrink-0 flex justify-end gap-3 border-t border-border-default/50 bg-surface-1/60 px-8 py-5">
+					<DialogFooter className="shrink-0 flex items-center justify-end gap-2.5 border-t border-border-default/50 bg-surface-1/60 px-8 py-6">
 						<button
 							type="button"
 							onClick={() => setOpen(false)}
