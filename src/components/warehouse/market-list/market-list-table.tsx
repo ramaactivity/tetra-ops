@@ -299,7 +299,7 @@ export function MarketListTable({
 						Tidak ada item yang cocok.
 					</div>
 				) : (
-					<div className="space-y-3">
+					<div className="space-y-1.5">
 						{filtered.map((item) => {
 							const itemEntries = entriesByItem.get(item.id) ?? [];
 							return (
@@ -359,6 +359,22 @@ export function MarketListTable({
 	);
 }
 
+/**
+ * Grid template — synced parent row + inner vendor rows pakai grid yang sama
+ * supaya kolom secara visual aligned end-to-end. Sengaja hardcode lebar
+ * supaya angka tabular nggak loncat antar item.
+ *
+ * Cols: Item | Unit Master | Vendors | Avg Cost (right) | Action (88px)
+ */
+const PARENT_GRID =
+	"grid items-center gap-3 grid-cols-[minmax(0,1fr)_88px_120px_minmax(160px,200px)_88px]";
+
+/**
+ * Inner vendor row — Supplier | Satuan Beli | Pack Size | Harga/Pack | Eff Cost | Actions
+ */
+const INNER_GRID =
+	"grid items-center gap-3 grid-cols-[minmax(0,1fr)_100px_100px_140px_140px_72px]";
+
 function ItemCard({
 	item,
 	entries,
@@ -372,127 +388,205 @@ function ItemCard({
 	onEdit: (entry: MarketListEntry) => void;
 	onDelete: (entry: MarketListEntry) => void;
 }) {
+	const isFixed = item.category === "fixed_asset";
+	const vendorCount = entries.length;
+
 	return (
-		<div className="rounded-lg border border-border-default bg-surface-2 p-3">
-			<div className="flex items-start justify-between gap-3 pb-2">
+		<div className="overflow-hidden rounded-lg border border-border-default bg-surface-2 transition-colors hover:bg-surface-2/70">
+			{/* ───── Parent row — columnar layout ───── */}
+			<div className={`${PARENT_GRID} px-3 py-2.5`}>
+				{/* Col 1 — Item identity */}
 				<div className="min-w-0">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="font-semibold text-foreground">{item.name}</span>
-						<Badge
-							variant="outline"
-							className={`h-5 px-1.5 text-[10px] ${
-								item.category === "fixed_asset"
-									? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-									: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-							}`}
-							title={
-								item.category === "fixed_asset"
-									? "Aset Tetap — depresiasi, 1-to-1 per unit"
-									: "Persediaan — habis pakai, weighted-avg HPP"
-							}
+					<div className="flex items-center gap-2">
+						<span
+							className="truncate text-[13px] font-semibold text-foreground"
+							title={item.name}
 						>
-							{item.category === "fixed_asset" ? "Aset Tetap" : "Persediaan"}
-						</Badge>
-						<Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-							{item.sku}
-						</Badge>
+							{item.name}
+						</span>
+						{isFixed && (
+							<span
+								className="inline-flex h-4 items-center rounded-sm border border-sky-500/30 bg-sky-500/10 px-1 text-[9px] font-medium tracking-wide text-sky-700 dark:text-sky-300"
+								title="Aset Tetap — depresiasi, 1-to-1 per unit"
+							>
+								ASET
+							</span>
+						)}
 					</div>
-					<div className="mt-0.5 text-[11px] text-muted-foreground">
-						Unit master: {item.unit} · {entries.length} supplier ·
-						{item.purchase_price_avg > 0
-							? ` Avg HPP: ${formatRupiah(item.purchase_price_avg)} / ${item.unit}`
-							: " Avg HPP belum di-set"}
+					<div className="mt-0.5 truncate text-[10px] tabular text-muted-foreground/70">
+						{item.sku}
 					</div>
 				</div>
-				<button
-					type="button"
-					onClick={onAdd}
-					className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-1 px-2.5 text-[12px] font-medium text-foreground hover:bg-surface-3"
-				>
-					<Plus className="size-3.5" />
-					Tambah Supplier
-				</button>
+
+				{/* Col 2 — Unit Master */}
+				<div>
+					<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
+						Unit
+					</div>
+					<div className="text-[12px] font-medium text-foreground">
+						{item.unit}
+					</div>
+				</div>
+
+				{/* Col 3 — Mapped Suppliers count */}
+				<div>
+					<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
+						Vendor
+					</div>
+					{vendorCount > 0 ? (
+						<span className="inline-flex h-5 items-center rounded-md bg-surface-3 px-1.5 text-[11px] font-semibold tabular text-foreground">
+							{vendorCount}{" "}
+							<span className="ml-0.5 font-normal text-muted-foreground">
+								{vendorCount === 1 ? "vendor" : "vendor"}
+							</span>
+						</span>
+					) : (
+						<span className="inline-flex h-5 items-center rounded-md bg-surface-3 px-1.5 text-[11px] font-medium italic text-muted-foreground/60">
+							Belum ada
+						</span>
+					)}
+				</div>
+
+				{/* Col 4 — Avg Master Cost */}
+				<div className="text-right">
+					<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
+						Avg Master Cost
+					</div>
+					{item.purchase_price_avg > 0 ? (
+						<div className="whitespace-nowrap tabular text-[13px] font-semibold text-foreground">
+							{formatRupiah(item.purchase_price_avg)}
+							<span className="ml-0.5 text-[10px] font-normal text-muted-foreground/70">
+								/ {item.unit}
+							</span>
+						</div>
+					) : (
+						<div className="text-[11px] italic text-foreground/30">
+							Belum di-set
+						</div>
+					)}
+				</div>
+
+				{/* Col 5 — Action: condensed + icon */}
+				<div className="flex items-center justify-end">
+					<button
+						type="button"
+						onClick={onAdd}
+						title="Tambah Harga Supplier"
+						aria-label="Tambah Harga Supplier"
+						className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+					>
+						<Plus className="size-4" />
+					</button>
+				</div>
 			</div>
 
-			{entries.length === 0 ? (
-				<div className="rounded-md border border-dashed border-border-default/60 bg-surface-1/50 p-3 text-center text-[11px] text-muted-foreground">
-					Belum ada supplier. Klik <span className="font-medium">Tambah Supplier</span> di kanan.
-				</div>
-			) : (
-				<div className="space-y-1.5">
-					{entries.map((e) => {
-						const effective = computeEffective(e, item);
-						return (
-							<div
-								key={e.id}
-								className={`flex flex-wrap items-center gap-3 rounded-md border px-3 py-2 ${
-									e.is_primary
-										? "border-emerald-500/30 bg-emerald-500/5"
-										: "border-border-default/60 bg-surface-1/50"
-								}`}
-							>
-								<div className="flex min-w-0 flex-1 items-center gap-2">
-									{e.is_primary ? (
-										<Star className="size-3.5 shrink-0 fill-emerald-500 text-emerald-500" />
-									) : (
-										<button
-											type="button"
-											onClick={async () => {
-												try {
-													await setPrimarySupplierPrice(e.id);
-													toast.success(
-														`${e.supplier_name} di-set Primary — HPP synced`,
-													);
-												} catch (err) {
-													const msg =
-														err instanceof Error
-															? err.message
-															: "Gagal set Primary";
-													toast.error(msg);
-												}
-											}}
-											className="press-down inline-flex h-6 items-center gap-1 rounded border border-border-default bg-surface-2 px-1.5 text-[10px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-											title="Tag sebagai Primary supplier untuk item ini"
+			{/* ───── Expanded supplier rows ───── */}
+			{vendorCount > 0 && (
+				<div className="border-t border-border-default/50 bg-surface-1/40">
+					{/* Inner header */}
+					<div
+						className={`${INNER_GRID} px-3 py-1.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60`}
+					>
+						<span>Supplier</span>
+						<span>Satuan Beli</span>
+						<span className="text-right">Pack Size</span>
+						<span className="text-right">Harga / Pack</span>
+						<span className="text-right">Eff Cost / {item.unit}</span>
+						<span />
+					</div>
+
+					<div className="space-y-px px-1.5 pb-1.5">
+						{entries.map((e) => {
+							const effective = computeEffective(e, item);
+							const isBulk = Number(e.pack_size) > 1;
+							const satuanLabel = isBulk ? "Pack" : e.pack_unit;
+							return (
+								<div
+									key={e.id}
+									className={`${INNER_GRID} rounded-md px-1.5 py-1.5 transition-colors ${
+										e.is_primary
+											? "bg-amber-500/10 ring-1 ring-amber-500/20"
+											: "hover:bg-surface-3/50"
+									}`}
+								>
+									{/* Supplier */}
+									<div className="flex min-w-0 items-center gap-1.5">
+										{e.is_primary ? (
+											<Star
+												className="size-3.5 shrink-0 fill-amber-500 text-amber-500"
+												aria-label="Primary supplier"
+											/>
+										) : (
+											<button
+												type="button"
+												onClick={async () => {
+													try {
+														await setPrimarySupplierPrice(e.id);
+														toast.success(
+															`${e.supplier_name} di-set Primary — HPP synced`,
+														);
+													} catch (err) {
+														const msg =
+															err instanceof Error
+																? err.message
+																: "Gagal set Primary";
+														toast.error(msg);
+													}
+												}}
+												title="Tag sebagai Primary supplier"
+												aria-label="Tag sebagai Primary supplier"
+												className="press-down inline-flex size-4 items-center justify-center rounded text-muted-foreground/40 hover:bg-amber-500/10 hover:text-amber-600"
+											>
+												<Star className="size-3" />
+											</button>
+										)}
+										<span
+											className={`truncate text-[12px] ${e.is_primary ? "font-semibold text-foreground" : "font-medium text-foreground"}`}
+											title={e.supplier_name}
 										>
-											<Star className="size-3" /> Set Primary
-										</button>
-									)}
-									<span
-										className={`text-fluid-caption ${e.is_primary ? "font-semibold text-foreground" : "font-medium text-foreground"}`}
+											{e.supplier_name}
+										</span>
+									</div>
+
+									{/* Satuan Beli */}
+									<div className="text-[12px] font-medium text-foreground">
+										{satuanLabel}
+									</div>
+
+									{/* Pack Size */}
+									<div className="whitespace-nowrap text-right">
+										<div className="tabular text-[12px] font-medium text-foreground">
+											{Number(e.pack_size).toLocaleString("id-ID")}
+										</div>
+										{isBulk && (
+											<div className="text-[10px] tabular text-muted-foreground/70">
+												{e.pack_unit}
+											</div>
+										)}
+									</div>
+
+									{/* Harga / Pack */}
+									<div className="whitespace-nowrap text-right tabular text-[12px] font-medium text-foreground">
+										{formatRupiah(e.pack_price)}
+									</div>
+
+									{/* Effective Cost / unit */}
+									<div
+										className={`whitespace-nowrap text-right tabular text-[12px] font-semibold ${
+											e.is_primary
+												? "text-amber-700 dark:text-amber-300"
+												: "text-foreground"
+										}`}
 									>
-										{e.supplier_name}
-									</span>
-								</div>
-								<div className="flex items-center gap-3 text-fluid-caption">
-									<div className="text-right">
-										<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-											Harga Pack
-										</div>
-										<div className="tabular whitespace-nowrap font-medium text-foreground">
-											{formatRupiah(e.pack_price)}
-										</div>
-										<div className="tabular whitespace-nowrap text-[10px] text-muted-foreground/80">
-											{e.pack_size.toLocaleString("id-ID")} {e.pack_unit} / pack
-										</div>
+										{formatRupiah(Math.round(effective))}
 									</div>
-									<div className="text-right">
-										<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-											Effective Cost
-										</div>
-										<div
-											className={`tabular whitespace-nowrap font-semibold ${e.is_primary ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}
-										>
-											{formatRupiah(Math.round(effective))}
-										</div>
-										<div className="tabular whitespace-nowrap text-[10px] text-muted-foreground/80">
-											per {item.unit}
-										</div>
-									</div>
-									<div className="flex items-center gap-1">
+
+									{/* Actions */}
+									<div className="flex items-center justify-end gap-0.5">
 										<button
 											type="button"
 											onClick={() => onEdit(e)}
-											className="press-down inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+											className="press-down inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 											title="Edit entry"
 										>
 											<Pencil className="size-3.5" />
@@ -500,16 +594,16 @@ function ItemCard({
 										<button
 											type="button"
 											onClick={() => onDelete(e)}
-											className="press-down inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+											className="press-down inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 											title="Hapus entry"
 										>
 											<Trash2 className="size-3.5" />
 										</button>
 									</div>
 								</div>
-							</div>
-						);
-					})}
+							);
+						})}
+					</div>
 				</div>
 			)}
 		</div>
