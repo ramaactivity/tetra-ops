@@ -23,7 +23,6 @@ import { formatRupiah } from "@/lib/format";
 import {
 	listUnitsByKind,
 	normalizeConversion,
-	toBase,
 } from "@/lib/inventory/unit-conversion";
 import type {
 	MarketListEntry,
@@ -122,12 +121,12 @@ export function MarketEntryDialog({
 
 	const priceNum = Number(packPrice);
 	const sizeNum = Number(packSize);
-	let baseQty = 0;
-	try {
-		baseQty = Number.isFinite(sizeNum) ? toBase(sizeNum, packUnit, conversionMap) : 0;
-	} catch {
-		baseQty = 0;
-	}
+	// Semantic Model A: pack_size = berapa BASE unit dalam 1 pack purchased
+	// (e.g., "1 Box berisi 2 Roll" → pack_size=2). Effective = price / size.
+	// MATCH server trigger sync_primary_to_master_cost (v2 fallback branch).
+	// Don't call toBase here — itu menggandakan multiplier dan menghasilkan
+	// preview yang tidak match dengan actual saved value.
+	const baseQty = Number.isFinite(sizeNum) && sizeNum > 0 ? sizeNum : 0;
 	const effective =
 		Number.isFinite(priceNum) && baseQty > 0 ? priceNum / baseQty : 0;
 
