@@ -483,19 +483,19 @@ function ItemCard({
 			{/* ───── Expanded supplier rows ───── */}
 			{vendorCount > 0 && (
 				<div className="border-t border-border-default/50 bg-surface-1/40">
-					{/* Inner header */}
+					{/* Inner header — labels mengikuti satuan beli pertama agar dinamis */}
 					<div
-						className={`${INNER_GRID} px-3 py-1.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60`}
+						className={`${INNER_GRID} px-3 py-2 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60`}
 					>
 						<span>Supplier</span>
 						<span>Satuan Beli</span>
-						<span className="text-right">Pack Size</span>
+						<span className="text-right">Isi / Pack</span>
 						<span className="text-right">Harga / Pack</span>
 						<span className="text-right">Eff Cost / {item.unit}</span>
 						<span />
 					</div>
 
-					<div className="space-y-px px-1.5 pb-1.5">
+					<div className="space-y-1 px-1.5 pb-2">
 						{entries.map((e) => {
 							const effective = computeEffective(e, item);
 							const isBulk = Number(e.pack_size) > 1;
@@ -503,7 +503,7 @@ function ItemCard({
 							return (
 								<div
 									key={e.id}
-									className={`${INNER_GRID} rounded-md px-1.5 py-1.5 transition-colors ${
+									className={`${INNER_GRID} rounded-md px-1.5 py-2.5 transition-colors ${
 										e.is_primary
 											? "bg-amber-500/10 ring-1 ring-amber-500/20"
 											: "hover:bg-surface-3/50"
@@ -553,16 +553,12 @@ function ItemCard({
 										{satuanLabel}
 									</div>
 
-									{/* Pack Size */}
-									<div className="whitespace-nowrap text-right">
-										<div className="tabular text-[12px] font-medium text-foreground">
-											{Number(e.pack_size).toLocaleString("id-ID")}
-										</div>
-										{isBulk && (
-											<div className="text-[10px] tabular text-muted-foreground/70">
-												{e.pack_unit}
-											</div>
-										)}
+									{/* Isi / Pack — qty + base unit inline supaya scan-friendly */}
+									<div className="whitespace-nowrap text-right tabular text-[12px] font-medium text-foreground">
+										{Number(e.pack_size).toLocaleString("id-ID")}
+										<span className="ml-1 text-[10px] font-normal text-muted-foreground/70">
+											{e.pack_unit}
+										</span>
 									</div>
 
 									{/* Harga / Pack */}
