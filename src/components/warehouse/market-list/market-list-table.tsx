@@ -10,6 +10,7 @@ import {
 	Truck,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -73,6 +74,7 @@ export function MarketListTable({
 	entries: MarketListEntry[];
 	suppliers: SupplierOption[];
 }) {
+	const router = useRouter();
 	const [subTab, setSubTab] = useState<SubTab>("items");
 	const [query, setQuery] = useState("");
 	const [onlyPrimary, setOnlyPrimary] = useState(false);
@@ -349,6 +351,7 @@ export function MarketListTable({
 						await deleteSupplierPrice(deleting.id);
 						toast.success("Entry dihapus");
 						setDeleting(null);
+						router.refresh();
 					} catch (e) {
 						const msg = e instanceof Error ? e.message : "Gagal hapus";
 						toast.error(msg);
@@ -388,6 +391,7 @@ function ItemCard({
 	onEdit: (entry: MarketListEntry) => void;
 	onDelete: (entry: MarketListEntry) => void;
 }) {
+	const router = useRouter();
 	const isFixed = item.category === "fixed_asset";
 	const vendorCount = entries.length;
 
@@ -525,6 +529,7 @@ function ItemCard({
 														toast.success(
 															`${e.supplier_name} di-set Primary — HPP synced`,
 														);
+														router.refresh();
 													} catch (err) {
 														const msg =
 															err instanceof Error

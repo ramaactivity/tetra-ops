@@ -261,12 +261,11 @@ export async function upsertSupplierPrice(
 		}
 	}
 
-	// NOTE: tidak panggil revalidatePath di sini supaya server response
-	// snappy (~50-300ms saved per call). Client side melalui router.refresh()
-	// di MarketEntryDialog onSuccess handler sudah cukup untuk
-	// invalidate displayed data. revalidatePath dibutuhkan cuma kalau ada
-	// reader external yang cache page-level — Tetra workflow flow user
-	// stays on /warehouse jadi router.refresh handle semua.
+	// revalidatePath REQUIRED — bust Next.js Server Component cache supaya
+	// router.refresh() client-side fetch data baru bukan stale cache.
+	// Per-call overhead ~50-200ms tapi user tidak menunggu (optimistic close
+	// di MarketEntryDialog sudah tutup modal + show toast instant).
+	revalidatePath("/warehouse");
 	return { success: true };
 }
 
@@ -275,6 +274,7 @@ export async function deleteSupplierPrice(id: string): Promise<void> {
 	const supabase = await createClient();
 	const { error } = await supabase.from("supplier_prices").delete().eq("id", id);
 	if (error) throw new Error(error.message);
+	revalidatePath("/warehouse");
 }
 
 /**
@@ -290,4 +290,5 @@ export async function setPrimarySupplierPrice(id: string): Promise<void> {
 		.update({ is_primary: true, updated_at: new Date().toISOString() })
 		.eq("id", id);
 	if (error) throw new Error(error.message);
+	revalidatePath("/warehouse");
 }
