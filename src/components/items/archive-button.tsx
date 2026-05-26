@@ -15,7 +15,8 @@ export function ArchiveItemButton({ id, name }: { id: string; name: string }) {
 				type="button"
 				onClick={() => setOpen(true)}
 				title="Arsipkan"
-				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+				aria-label={`Arsipkan ${name}`}
+				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 			>
 				<Trash2 className="size-4" />
 			</button>

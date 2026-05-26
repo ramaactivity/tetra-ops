@@ -109,11 +109,11 @@ export function RestockDialog({
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger
-				className="press-down inline-flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 				title="Restock — catat pembelian stok baru"
 				aria-label={`Restock ${itemName}`}
 			>
-				<ArrowDownToLine className="size-3.5" />
+				<ArrowDownToLine className="size-4" />
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>

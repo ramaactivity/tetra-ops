@@ -51,7 +51,7 @@ function EditItemLink({ id, label }: { id: string; label: string }) {
 			href={`/warehouse/items/${id}/edit`}
 			title={`Edit ${label}`}
 			aria-label={`Edit ${label}`}
-			className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+			className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 		>
 			<Pencil className="size-4" aria-hidden />
 		</Link>
@@ -79,7 +79,7 @@ function SearchInput({
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
-				className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-caption placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+				className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-[12px] placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
 			/>
 		</div>
 	);
@@ -95,7 +95,7 @@ function FilterChips<K extends string>({
 	options: ReadonlyArray<{ key: K; label: string; count: number }>;
 }) {
 	return (
-		<div className="inline-flex flex-wrap items-center gap-1 rounded-md border border-border-default bg-surface-2 p-1 text-[11px]">
+		<div className="inline-flex h-9 flex-wrap items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-1">
 			{options.map((o) => {
 				const active = o.key === value;
 				return (
@@ -104,7 +104,7 @@ function FilterChips<K extends string>({
 						type="button"
 						onClick={() => onChange(o.key)}
 						aria-pressed={active}
-						className={`inline-flex items-center gap-1 rounded px-2 py-1 font-medium transition-colors ${
+						className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium transition-colors ${
 							active
 								? "bg-primary text-primary-foreground"
 								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
@@ -112,7 +112,7 @@ function FilterChips<K extends string>({
 					>
 						{o.label}
 						<span
-							className={`tabular ${active ? "opacity-80" : "text-muted-foreground/70"}`}
+							className={`tabular text-[11px] ${active ? "opacity-80" : "text-muted-foreground/70"}`}
 						>
 							{o.count}
 						</span>
@@ -577,11 +577,11 @@ export function ConsumablesTable({
 			key: "actions",
 			header: "",
 			align: "right",
-			width: "180px",
+			width: "152px",
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				return (
-					<div className="flex items-center justify-end gap-1">
+					<div className="flex items-center justify-end gap-0.5">
 						<RestockDialog
 							itemId={r.id}
 							itemName={r.name}
@@ -630,12 +630,12 @@ export function ConsumablesTable({
 						<PembelianDialog
 							trigger={
 								<span
-									className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-[12px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+									className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 text-[12px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
 									title={`Buka Catat Pembelian dengan ${restockKritisIds.length} item kritis pre-loaded`}
 								>
 									<ShoppingCart className="size-3.5" />
 									Belanja Kritis
-									<span className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold tabular">
+									<span className="tabular text-[11px] opacity-80">
 										{restockKritisIds.length}
 									</span>
 								</span>
@@ -664,6 +664,7 @@ export function ConsumablesTable({
 								label: o.label,
 							}))}
 							allowFreeText={false}
+							size="sm"
 						/>
 					</div>
 				</div>
@@ -1150,7 +1151,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 				const first = g.units[0];
 				if (g.count === 1) {
 					return (
-						<div className="flex items-center justify-end gap-1">
+						<div className="flex items-center justify-end gap-0.5">
 							<EditItemLink id={first.id} label={first.name} />
 							<ArchiveItemButton id={first.id} name={first.name} />
 						</div>
@@ -1504,6 +1505,7 @@ export function MovementsLog({
 							onValueChange={(v) => setSourceFilter(v ?? "all")}
 							options={sourceOptions}
 							allowFreeText={false}
+							size="sm"
 						/>
 					</div>
 				</div>

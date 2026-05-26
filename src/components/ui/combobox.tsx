@@ -61,6 +61,8 @@ export interface ComboboxProps {
 	"aria-invalid"?: boolean;
 	className?: string;
 	id?: string;
+	/** Compact (h-9, text-sm) for toolbars; default (h-10, body) for forms. */
+	size?: "default" | "sm";
 }
 
 export function Combobox({
@@ -73,6 +75,7 @@ export function Combobox({
 	emptyMessage = "Tidak ada yang cocok",
 	className,
 	id: idProp,
+	size = "default",
 	...ariaProps
 }: ComboboxProps) {
 	const fallbackId = useId();
@@ -269,7 +272,12 @@ export function Combobox({
 				aria-autocomplete="list"
 				aria-label={ariaProps["aria-label"]}
 				aria-invalid={ariaProps["aria-invalid"]}
-				className="h-10 w-full rounded-md border border-border-default bg-background pl-3 pr-16 text-fluid-body text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+				className={cn(
+					"w-full rounded-md border border-border-default bg-background pl-3 pr-16 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20",
+					size === "sm"
+						? "h-9 text-[12px]"
+						: "h-10 text-fluid-body",
+				)}
 			/>
 			<div className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-1.5">
 				{value && !disabled ? (
