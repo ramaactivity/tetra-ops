@@ -67,26 +67,30 @@ export function MarketEntryDialog({
 		entry?.is_primary ?? false,
 	);
 
+	// Optimistic mode: ketika user klik Simpan, modal close + toast langsung
+	// muncul (assume sukses). Server response handle di useEffect:
+	// - success → router.refresh() refetch data (modal sudah close)
+	// - error → toast.error + re-open modal so user can retry
+	const [optimisticallyClosed, setOptimisticallyClosed] = useState(false);
+
 	useEffect(() => {
-		if (state?.success) {
-			toast.success(
-				mode === "create"
-					? "Harga supplier ditambahkan"
-					: "Perubahan disimpan",
-				{
-					description: `${item.name} · Avg cost auto-sync ke ${formatRupiah(Math.round(effective))} / ${item.unit}`,
-					duration: 5000,
-				},
-			);
-			// Use rAF supaya sonner toast frame ke-paint dulu sebelum modal
-			// unmount + router refresh trigger re-render
-			requestAnimationFrame(() => {
-				onOpenChange(false);
-				router.refresh();
-			});
+		if (!state) return;
+		if (state.success) {
+			// Confirm success — refresh data. Modal sudah close optimistically.
+			router.refresh();
+			setOptimisticallyClosed(false);
+		} else if (state.errors?._form) {
+			// Server reject — re-open modal so user sees error + can retry
+			if (optimisticallyClosed) {
+				toast.error("Gagal menyimpan", {
+					description: state.errors._form[0],
+				});
+				onOpenChange(true);
+				setOptimisticallyClosed(false);
+			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [state?.success]);
+	}, [state]);
 
 	const formError = state?.errors?._form?.[0];
 	const err = (key: string) =>
@@ -180,7 +184,23 @@ export function MarketEntryDialog({
 				</DialogHeader>
 
 				<form
-					action={formAction}
+					action={(fd) => {
+						// Optimistic close + toast langsung — feels instant.
+						// Kalau server reject, useEffect re-open modal + toast.error
+						toast.success(
+							mode === "create"
+								? "Harga supplier ditambahkan"
+								: "Perubahan disimpan",
+							{
+								description: `${item.name} · Avg cost auto-sync ke ${formatRupiah(Math.round(effective))} / ${item.unit}`,
+								duration: 4000,
+							},
+						);
+						setOptimisticallyClosed(true);
+						onOpenChange(false);
+						// Fire server action in background
+						formAction(fd);
+					}}
 					className="flex flex-1 flex-col overflow-hidden"
 				>
 					<div className="flex-1 space-y-6 overflow-y-auto px-8 py-6">
