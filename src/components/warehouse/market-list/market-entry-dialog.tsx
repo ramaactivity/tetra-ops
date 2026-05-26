@@ -51,17 +51,37 @@ export function MarketEntryDialog({
 		FormData
 	>(upsertSupplierPrice, undefined);
 
+	// Item config defaults — derive bulk unit + factor from unit_conversion.
+	// Untuk CREATE mode, auto-prefill pack_unit + pack_size dari item config
+	// supaya user tidak salah pilih (mis. Kartu Nama config Box=100 → modal
+	// otomatis pre-fill Satuan Beli=Box, Isi per Box=100).
+	const conversionDefault = useMemo(() => {
+		const conv = item.unit_conversion as
+			| { units?: Record<string, { kind?: string; multiplier?: number | null }> }
+			| null;
+		if (!conv?.units) return { pack_unit: item.unit, pack_size: 1 };
+		const purchase = Object.entries(conv.units).find(
+			([, def]) => def.kind === "purchase",
+		);
+		if (!purchase) return { pack_unit: item.unit, pack_size: 1 };
+		const [code, def] = purchase;
+		return {
+			pack_unit: code,
+			pack_size: Number(def.multiplier) || 1,
+		};
+	}, [item.unit_conversion, item.unit]);
+
 	const [supplierId, setSupplierId] = useState<string>(
 		entry?.supplier_id ?? "",
 	);
 	const [packUnit, setPackUnit] = useState<string>(
-		entry?.pack_unit ?? item.unit,
+		entry?.pack_unit ?? conversionDefault.pack_unit,
 	);
 	const [packPrice, setPackPrice] = useState<string>(
 		entry ? String(entry.pack_price) : "",
 	);
 	const [packSize, setPackSize] = useState<string>(
-		entry ? String(entry.pack_size) : "1",
+		entry ? String(entry.pack_size) : String(conversionDefault.pack_size),
 	);
 	const [isPrimary, setIsPrimary] = useState<boolean>(
 		entry?.is_primary ?? false,
@@ -214,6 +234,20 @@ export function MarketEntryDialog({
 
 					{entry?.id && <input type="hidden" name="id" value={entry.id} />}
 					<input type="hidden" name="item_id" value={item.id} />
+
+					{/* Item config context — guard against bad pack semantic */}
+					{conversionDefault.pack_size > 1 && (
+						<div className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3.5 py-2.5">
+							<p className="text-[12px] leading-relaxed text-sky-900 dark:text-sky-200">
+								<span className="font-semibold">📐 Config item:</span> 1{" "}
+								<strong>{conversionDefault.pack_unit}</strong> ={" "}
+								<strong>
+									{conversionDefault.pack_size} {item.unit}
+								</strong>
+								. Modal auto-pakai satuan ini supaya harga match.
+							</p>
+						</div>
+					)}
 
 					{/* Row 1 — Supplier (full width) */}
 					<Field
