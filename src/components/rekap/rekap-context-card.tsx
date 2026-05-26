@@ -1,14 +1,16 @@
-import { CheckCircle2, Gift, Info, PackageIcon } from "lucide-react";
+import { Boxes, CheckCircle2, Gift, Info, PackageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type {
 	RekapContextAddon,
 	RekapContextBonus,
+	RekapContextBundle,
 } from "@/lib/actions/rekap";
 
 type Props = {
 	includeFlashdiskPouch: boolean | null;
 	paidAddons: RekapContextAddon[];
 	bonuses: RekapContextBonus[];
+	bundle?: RekapContextBundle | null;
 };
 
 /**
@@ -20,11 +22,13 @@ export function RekapContextCard({
 	includeFlashdiskPouch,
 	paidAddons,
 	bonuses,
+	bundle,
 }: Props) {
 	const hasAnything =
 		includeFlashdiskPouch !== null ||
 		paidAddons.length > 0 ||
-		bonuses.length > 0;
+		bonuses.length > 0 ||
+		(bundle?.components.length ?? 0) > 0;
 	if (!hasAnything) return null;
 
 	return (
@@ -59,6 +63,33 @@ export function RekapContextCard({
 							</>
 						)}
 					</span>
+				</div>
+			)}
+
+			{/* Package bundle BOM (auto-deduct items) */}
+			{bundle && bundle.components.length > 0 && (
+				<div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+					<div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+						<Boxes className="h-4 w-4 shrink-0" />
+						<p className="text-sm font-semibold">
+							Package bundle: {bundle.name}
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-1.5">
+						{bundle.components.map((c) => (
+							<Badge
+								key={c.item_id}
+								variant="outline"
+								className="border-amber-300 bg-white text-foreground dark:border-amber-800 dark:bg-surface-2"
+							>
+								{c.qty}× {c.name}
+							</Badge>
+						))}
+					</div>
+					<p className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
+						Auto-deduct dari stok saat owner approve rekap. Item yang sudah
+						ke-track via field cetak/flashdisk/dll TIDAK di-double-deduct.
+					</p>
 				</div>
 			)}
 

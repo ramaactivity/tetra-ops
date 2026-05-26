@@ -684,6 +684,7 @@ export function RekapForm({
 				includeFlashdiskPouch={context.pkg.include_flashdisk_pouch}
 				paidAddons={context.paid_addons}
 				bonuses={context.bonuses}
+				bundle={context.bundle}
 			/>
 
 			{/* ========== CETAK ========== */}

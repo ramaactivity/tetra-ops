@@ -197,6 +197,21 @@ export type RekapContextBonus = {
 	inventory_item: RekapContextItem | null;
 };
 
+export type RekapContextBundleComponent = {
+	item_id: string;
+	sku: string;
+	name: string;
+	qty: number;
+	unit: string;
+	purchase_price_avg: number;
+};
+
+export type RekapContextBundle = {
+	id: string;
+	name: string;
+	components: RekapContextBundleComponent[];
+};
+
 export type RekapContext = {
 	pkg: {
 		name: string | null;
@@ -204,6 +219,7 @@ export type RekapContext = {
 		duration_hours: number | null;
 		include_flashdisk_pouch: boolean | null;
 	};
+	bundle: RekapContextBundle | null;
 	paid_addons: RekapContextAddon[];
 	bonuses: RekapContextBonus[];
 	mappings: RekapContextMapping[];
@@ -216,12 +232,18 @@ export async function getRekapContext(
 	await requireOwnerOrCrew();
 	const supabase = await createClient();
 
-	// 1) Event + paket + include_flashdisk_pouch
+	// 1) Event + paket + include_flashdisk_pouch + bundle BOM (if linked)
 	const { data: event, error: evErr } = await supabase
 		.from("events")
 		.select(
 			`id, include_flashdisk_pouch, frame_size,
-			package:packages(name, duration_hours),
+			package:packages(name, duration_hours, bundle_id,
+			  bundle:item_bundles(id, name, is_active,
+			    components:bundle_components(qty,
+			      item:inventory_items!bundle_components_item_id_fkey(id, sku, name, unit, purchase_price_avg)
+			    )
+			  )
+			),
 			event_addons:event_addons(quantity, unit_price, addon:addons(id, name, unit, inventory_item_id)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(id, name, unit, inventory_item_id))`,
 		)
@@ -231,6 +253,57 @@ export async function getRekapContext(
 	if (!event) return { error: "Event tidak ditemukan." };
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
+	const pkgBundle = pkg
+		? Array.isArray((pkg as { bundle?: unknown }).bundle)
+			? ((pkg as { bundle?: unknown[] }).bundle ?? [])[0]
+			: ((pkg as { bundle?: unknown }).bundle ?? null)
+		: null;
+	type BundleRowShape = {
+		id: string;
+		name: string;
+		is_active: boolean;
+		components: Array<{
+			qty: number | string;
+			item:
+				| {
+						id: string;
+						sku: string;
+						name: string;
+						unit: string | null;
+						purchase_price_avg: number | null;
+				  }
+				| Array<{
+						id: string;
+						sku: string;
+						name: string;
+						unit: string | null;
+						purchase_price_avg: number | null;
+				  }>
+				| null;
+		}>;
+	};
+	const bundleRow = pkgBundle as BundleRowShape | null;
+	let bundle: RekapContextBundle | null = null;
+	if (bundleRow && bundleRow.is_active) {
+		bundle = {
+			id: bundleRow.id,
+			name: bundleRow.name,
+			components: (bundleRow.components ?? [])
+				.map((c) => {
+					const it = Array.isArray(c.item) ? c.item[0] : c.item;
+					if (!it) return null;
+					return {
+						item_id: it.id,
+						sku: it.sku,
+						name: it.name,
+						qty: Number(c.qty),
+						unit: it.unit ?? "pcs",
+						purchase_price_avg: Number(it.purchase_price_avg ?? 0),
+					};
+				})
+				.filter((c): c is RekapContextBundleComponent => c !== null),
+		};
+	}
 
 	// 2) Mapping + inventory lookup (batch). Multiple rows per rekap_field
 	// (one per frame_size override + a '' default). Caller resolves which
@@ -403,6 +476,7 @@ export async function getRekapContext(
 			include_flashdisk_pouch:
 				(event.include_flashdisk_pouch as boolean | null) ?? null,
 		},
+		bundle,
 		paid_addons,
 		bonuses,
 		mappings,
@@ -660,7 +734,16 @@ async function planRekapDeduction(
 	const [{ data: event }, { data: items }] = await Promise.all([
 		supabase
 			.from("events")
-			.select("frame_size")
+			.select(
+				`frame_size,
+				 package:packages(bundle_id,
+				   bundle:item_bundles(id, sku, name, is_active,
+				     components:bundle_components(qty,
+				       item:inventory_items!bundle_components_item_id_fkey(id, sku, name, purchase_price_avg)
+				     )
+				   )
+				 )`,
+			)
 			.eq("id", rekap.event_id)
 			.maybeSingle(),
 		supabase
@@ -942,6 +1025,80 @@ async function planRekapDeduction(
 			unit_cost: Number(invItem.purchase_price_avg ?? 0),
 			source_label: `bonus: ${addon.name}`,
 		});
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Package Bundle BOM decomposition (Phase 2 — 2026-06-02)
+	// ─────────────────────────────────────────────────────────────────────
+	// Kalau event.package.bundle_id di-set, append bundle components ke
+	// lines dengan dedup: skip kalau item_id sudah ada di lines (covered
+	// by rekap_field_mapping atau assembly atau bonus). Bundle deduction
+	// fires sekali per event (qty = component.qty × 1).
+	type PackageRow = {
+		bundle_id: string | null;
+		bundle:
+			| {
+					id: string;
+					sku: string;
+					name: string;
+					is_active: boolean;
+					components: Array<{
+						qty: number | string;
+						item:
+							| {
+									id: string;
+									sku: string;
+									name: string;
+									purchase_price_avg: number | null;
+							  }
+							| Array<{
+									id: string;
+									sku: string;
+									name: string;
+									purchase_price_avg: number | null;
+							  }>
+							| null;
+					}>;
+			  }
+			| Array<{
+					id: string;
+					sku: string;
+					name: string;
+					is_active: boolean;
+					components: Array<{
+						qty: number | string;
+						item: unknown;
+					}>;
+			  }>
+			| null;
+	};
+	const eventPackage =
+		Array.isArray((event as unknown as { package?: unknown[] })?.package)
+			? ((event as unknown as { package?: PackageRow[] }).package ?? [])[0]
+			: ((event as unknown as { package?: PackageRow }).package ?? null);
+	const bundle = eventPackage
+		? Array.isArray(eventPackage.bundle)
+			? eventPackage.bundle[0]
+			: eventPackage.bundle
+		: null;
+	if (bundle && bundle.is_active) {
+		const existingItemIds = new Set(lines.map((l) => l.item_id));
+		for (const comp of bundle.components ?? []) {
+			const compItem = Array.isArray(comp.item) ? comp.item[0] : comp.item;
+			if (!compItem) continue;
+			if (existingItemIds.has(compItem.id)) continue; // dedup
+			const qty = Number(comp.qty);
+			if (!Number.isFinite(qty) || qty <= 0) continue;
+			lines.push({
+				item_id: compItem.id,
+				sku: compItem.sku,
+				name: compItem.name,
+				qty,
+				unit_cost: Number(compItem.purchase_price_avg ?? 0),
+				source_label: `bundle: ${bundle.name}`,
+			});
+			existingItemIds.add(compItem.id);
+		}
 	}
 
 	return { lines, missingMappings };
