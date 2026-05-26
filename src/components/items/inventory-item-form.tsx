@@ -276,6 +276,18 @@ export function InventoryItemForm({
 				)}
 			</div>
 
+			{/* ── Info: harga via Market List ────────────────────────────── */}
+			<div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5">
+				<p className="text-[12px] leading-relaxed text-sky-800 dark:text-sky-200">
+					<span className="font-semibold">💡 Harga &amp; supplier di Market List.</span>{" "}
+					<span className="text-sky-700/80 dark:text-sky-300/80">
+						Form ini cuma master item. Setelah Simpan, buka tab{" "}
+						<strong>Market List</strong> untuk catat harga per supplier — harga
+						otomatis sync ke Avg Cost di sini.
+					</span>
+				</p>
+			</div>
+
 			{/* ── Pengaturan Stok & Harga ─────────────────────────────────── */}
 			<div className="space-y-4">
 				<SectionHeader title="Pengaturan Stok" />
@@ -310,8 +322,8 @@ export function InventoryItemForm({
 								</span>
 							</div>
 							<p className="text-muted-foreground mt-0.5 text-[11px]">
-								Auto-update tiap kali kamu catat pembelian baru di modul
-								Pembelian. Tidak perlu diisi manual.
+								Auto-sync dari supplier primary di <strong>Market List</strong>
+								{" "}+ weighted-avg dari pembelian baru. Tidak perlu isi manual.
 							</p>
 						</div>
 					</div>

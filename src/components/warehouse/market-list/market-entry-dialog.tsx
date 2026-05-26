@@ -90,17 +90,34 @@ export function MarketEntryDialog({
 		[item.unit_conversion, item.unit],
 	);
 
-	// Market List harga belanja → tampilkan purchase + base units (bukan consumption).
-	const packUnitOptions = useMemo(
-		() =>
-			listUnitsByKind(conversionMap, "purchase", "base").map(
-				({ code, def }) => ({
-					value: code,
-					label: def.label || code,
-				}),
-			),
-		[conversionMap],
-	);
+	// Market List harga belanja → tampilkan purchase + base units dari conversion
+	// item INI, lalu MERGE dengan canonical bulk units (Box/Pack/Roll/Pcs/Sheet/
+	// Set/Bundle) supaya user tetap bisa pilih satuan lain walau item tidak punya
+	// unit_conversion yang detail. Trigger sync_primary_to_master_cost akan
+	// fallback ke pack_size sebagai base-qty kalau pack_unit nggak ada di
+	// conversion map — math tetap benar.
+	const packUnitOptions = useMemo(() => {
+		const fromConversion = listUnitsByKind(conversionMap, "purchase", "base");
+		const existing = new Set(
+			fromConversion.map((o) => o.code.toLowerCase()),
+		);
+		const CANONICAL: ReadonlyArray<{ value: string; label: string }> = [
+			{ value: "pcs", label: "Pcs" },
+			{ value: "box", label: "Box" },
+			{ value: "pack", label: "Pack" },
+			{ value: "roll", label: "Roll" },
+			{ value: "sheet", label: "Sheet" },
+			{ value: "set", label: "Set" },
+			{ value: "bundle", label: "Bundle" },
+			{ value: "unit", label: "Unit" },
+		];
+		const fromMap = fromConversion.map(({ code, def }) => ({
+			value: code,
+			label: def.label || code,
+		}));
+		const extras = CANONICAL.filter((u) => !existing.has(u.value));
+		return [...fromMap, ...extras];
+	}, [conversionMap]);
 
 	const priceNum = Number(packPrice);
 	const sizeNum = Number(packSize);
@@ -125,18 +142,18 @@ export function MarketEntryDialog({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-				<DialogHeader className="px-7 pt-6 pb-4 bg-surface-1">
-					<DialogTitle className="text-lg font-semibold tracking-tight">
+				<DialogHeader className="border-b border-border-default/50 bg-surface-1 px-8 pt-7 pb-5">
+					<DialogTitle className="text-[18px] font-bold tracking-tight text-foreground">
 						{mode === "create" ? "Tambah Harga Supplier" : "Edit Harga Supplier"}
 					</DialogTitle>
-					<DialogDescription className="text-[13px] text-muted-foreground">
+					<DialogDescription className="mt-1 text-[12px] text-muted-foreground/80">
 						<span className="font-medium text-foreground">{item.name}</span> ·
 						catat harga belanja dari supplier. Tag Primary untuk auto-sync
 						master cost.
 					</DialogDescription>
 				</DialogHeader>
 
-				<form action={formAction} className="px-7 pb-6 pt-4 space-y-5">
+				<form action={formAction} className="px-8 pb-7 pt-6 space-y-6">
 					{formError && (
 						<div className="rounded-lg bg-destructive/10 p-3.5 ring-1 ring-destructive/30">
 							<p className="text-sm font-medium text-destructive">
@@ -170,7 +187,7 @@ export function MarketEntryDialog({
 					</Field>
 
 					{/* Row 2 — Satuan Beli + Isi per Satuan Beli */}
-					<div className="grid gap-4 sm:grid-cols-2">
+					<div className="grid gap-5 sm:grid-cols-2">
 						<Field
 							label="Satuan Beli (Bulk)"
 							name="pack_unit"
@@ -193,17 +210,21 @@ export function MarketEntryDialog({
 							name="pack_size"
 							error={err("pack_size")}
 							required
-							hint={`Berapa ${item.unit} dalam 1 ${packUnit}? (mis. 1000)`}
+							hint={
+								packUnit === item.unit
+									? `Isi 1 kalau beli per ${item.unit}, atau qty kalau bulk`
+									: `Berapa ${item.unit} dalam 1 ${satuanBeliLabel}?`
+							}
 						>
 							<NumberField
 								id="pack_size"
 								name="pack_size"
-								min={0.0001}
-								step={0.01}
+								min={1}
+								step={1}
 								required
 								defaultValue={packSize}
 								onChange={(e) => setPackSize(e.target.value)}
-								placeholder="1"
+								placeholder={packUnit === item.unit ? "1" : "1000"}
 							/>
 						</Field>
 					</div>
@@ -228,13 +249,13 @@ export function MarketEntryDialog({
 					</Field>
 
 					{/* Row 4 — Live Effective Cost preview */}
-					<div className="rounded-lg border border-border-default/60 bg-surface-1 px-4 py-3.5">
+					<div className="rounded-lg border border-border-default/60 bg-surface-1/80 px-4 py-3.5">
 						<div className="flex items-center justify-between gap-3">
 							<div className="min-w-0">
-								<div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
+								<div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
 									Estimasi Harga per {item.unit} (Effective Cost)
 								</div>
-								<p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground/70">
+								<p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/70">
 									Auto-hitung dari Harga ÷ Isi. Cek angka sebelum simpan.
 								</p>
 							</div>
@@ -248,7 +269,7 @@ export function MarketEntryDialog({
 								<span className="text-[10px] mr-0.5 font-normal text-muted-foreground/60">
 									≈
 								</span>
-								<span className="text-lg font-semibold">
+								<span className="text-xl font-bold">
 									{effective > 0
 										? formatRupiah(Math.round(effective))
 										: "Rp —"}
@@ -317,18 +338,18 @@ export function MarketEntryDialog({
 						</div>
 					</label>
 
-					<DialogFooter className="border-t border-foreground/5 pt-4 -mx-7 px-7 -mb-6 pb-5 bg-surface-1/40">
+					<DialogFooter className="-mx-8 -mb-7 mt-2 flex justify-end gap-3 border-t border-border-default/50 bg-surface-1/40 px-8 pb-6 pt-5">
 						<button
 							type="button"
 							onClick={() => onOpenChange(false)}
-							className="press-down inline-flex h-10 items-center rounded-md bg-surface-2 px-4 text-sm font-medium hover:bg-surface-3"
+							className="press-down inline-flex h-10 items-center rounded-md px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 						>
 							Batal
 						</button>
 						<button
 							type="submit"
 							disabled={pending || !supplierId}
-							className="press-down inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+							className="press-down inline-flex h-10 items-center rounded-md bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
 							{pending
 								? "Menyimpan…"

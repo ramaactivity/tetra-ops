@@ -264,6 +264,18 @@ export function FixedAssetItemForm({
 				</div>
 			</div>
 
+			{/* ── Info: harga vendor via Market List ─────────────────────── */}
+			<div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5">
+				<p className="text-[12px] leading-relaxed text-sky-800 dark:text-sky-200">
+					<span className="font-semibold">💡 Harga vendor di Market List.</span>{" "}
+					<span className="text-sky-700/80 dark:text-sky-300/80">
+						Harga di bawah adalah <strong>harga akuisisi historical</strong>{" "}
+						(masuk ke books). Buat catatan harga vendor (untuk
+						re-purchase/replacement), buka tab <strong>Market List</strong>.
+					</span>
+				</p>
+			</div>
+
 			{/* ── Pembelian ─────────────────────────────────────────────────── */}
 			<div className="space-y-4">
 				<SectionHeader
