@@ -338,7 +338,7 @@ export function InventoryItemForm({
 				hint={
 					suppliers.length === 0
 						? "Belum ada supplier terdaftar."
-						: "Default supplier yang otomatis ke-pick saat catat Pembelian. Bisa di-override per pembelian."
+						: "Auto-sync dari Market List primary supplier. Default pick saat Restock/Pembelian. Bisa override per transaksi."
 				}
 			>
 				{suppliers.length === 0 ? (
