@@ -5,7 +5,7 @@ import type {
 	RekapContextBonus,
 } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
-import { computeRekapCost, sumBuckets } from "@/lib/rekap/cost";
+import { computeRekapCost, deriveRekapRatio, sumBuckets } from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
 
 type RekapData = {
@@ -52,6 +52,8 @@ export function RekapSummaryTab({
 			item_id: m.item_id ?? "",
 			qty_per_unit: m.qty_per_unit,
 			purchase_price_avg: m.item?.purchase_price_avg ?? 0,
+			base_unit: m.item?.unit,
+			unit_conversion: m.item?.unit_conversion,
 		}));
 
 	const bonusLines = context.bonuses.map((b) => ({
@@ -97,7 +99,17 @@ export function RekapSummaryTab({
 		);
 		const map = exact ?? fallback;
 		if (!map?.item) return 0;
-		return Math.round(qty * map.qty_per_unit * map.item.purchase_price_avg);
+		// derived ratio for media/sleeve (matches backend); raw for others.
+		const ratio = deriveRekapRatio(field, frameSize, {
+			rekap_field: map.rekap_field,
+			frame_size: map.frame_size,
+			item_id: map.item_id ?? "",
+			qty_per_unit: map.qty_per_unit,
+			purchase_price_avg: map.item.purchase_price_avg,
+			base_unit: map.item.unit,
+			unit_conversion: map.item.unit_conversion,
+		});
+		return Math.round(qty * ratio * map.item.purchase_price_avg);
 	}
 
 	return (

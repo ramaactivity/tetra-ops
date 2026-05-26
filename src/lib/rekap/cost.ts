@@ -10,6 +10,7 @@
  * per field via resolveMappedItem().
  */
 
+import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { resolveMapping } from "@/lib/rekap/resolver";
 import type { RekapField } from "@/lib/rekap-mapping/types";
 
@@ -19,7 +20,44 @@ export type MappedItem = {
 	item_id: string;
 	qty_per_unit: number;
 	purchase_price_avg: number;
+	/** Item's base unit (e.g., 'roll', 'pcs') — used untuk konversi media/sleeve. */
+	base_unit?: string;
+	/** Item's unit_conversion JSONB — used untuk derive ratio media/sleeve. */
+	unit_conversion?: unknown;
 };
+
+/**
+ * Derive qty_per_unit untuk media_set_used + sleeve_used dari
+ * unit_conversion (matches backend planRekapDeduction SIZE_RECIPE).
+ * rekap_field_mapping.qty_per_unit DIABAIKAN untuk derived fields karena
+ * backend ignore it juga. Fallback ke mapping value kalau lookup gagal.
+ */
+export function deriveRekapRatio(
+	field: RekapField,
+	frameSize: string,
+	mapped: MappedItem,
+): number {
+	if (field === "sleeve_used") return 1; // backend: 1:1 with cetak
+	if (field !== "media_set_used") return mapped.qty_per_unit;
+	const lembarUnit =
+		frameSize === "4R"
+			? "lembar_4r"
+			: frameSize === "2R"
+				? "lembar_2r"
+				: frameSize === "polaroid"
+					? "lembar_polaroid"
+					: null;
+	if (!lembarUnit) return mapped.qty_per_unit;
+	if (!mapped.base_unit || !mapped.unit_conversion) return mapped.qty_per_unit;
+	try {
+		const conv = normalizeConversion(mapped.unit_conversion, mapped.base_unit);
+		return toBase(1, lembarUnit, conv);
+	} catch {
+		// Hardcoded fallback matching backend SIZE_RECIPE
+		if (lembarUnit === "lembar_4r") return 1 / 700;
+		return 1 / 1400;
+	}
+}
 
 export type BonusLine = {
 	addon_id: string;
@@ -119,7 +157,12 @@ export function computeRekapCost(
 				mp.frame_size === m.frame_size,
 		);
 		const price = orig?.purchase_price_avg ?? 0;
-		const cost = qty * m.qty_per_unit * price;
+		// derived ratio for media/sleeve via unit_conversion (matches backend);
+		// raw qty_per_unit for everything else.
+		const ratio = orig
+			? deriveRekapRatio(field, frameSize, orig)
+			: m.qty_per_unit;
+		const cost = qty * ratio * price;
 		const bucket = FIELD_TO_BUCKET[field];
 		buckets[bucket] = (buckets[bucket] ?? 0) + Math.round(cost);
 	}

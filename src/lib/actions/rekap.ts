@@ -166,6 +166,7 @@ export type RekapContextItem = {
 	sku: string;
 	name: string;
 	unit: string;
+	unit_conversion: unknown;
 	purchase_price_avg: number;
 	current_stock: number;
 };
@@ -279,7 +280,7 @@ export async function getRekapContext(
 	if (allItemIds.length > 0) {
 		const { data: items } = await supabase
 			.from("inventory_items")
-			.select("id, sku, name, unit, purchase_price_avg")
+			.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
 			.in("id", allItemIds);
 		// Fetch stock in parallel via RPC per item (no batch RPC available)
 		const stockPairs = await Promise.all(
@@ -297,6 +298,7 @@ export async function getRekapContext(
 				sku: it.sku as string,
 				name: it.name as string,
 				unit: (it.unit as string | null) ?? "pcs",
+				unit_conversion: (it as { unit_conversion?: unknown }).unit_conversion ?? null,
 				purchase_price_avg: Number(it.purchase_price_avg ?? 0),
 				current_stock: stockMap.get(it.id as string) ?? 0,
 			});
@@ -387,6 +389,7 @@ export async function getRekapContext(
 			sku: it.sku,
 			name: it.name,
 			unit: it.unit ?? "pcs",
+			unit_conversion: null,
 			purchase_price_avg: Number(it.purchase_price_avg ?? 0),
 			current_stock: stock,
 		});

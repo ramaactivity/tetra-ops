@@ -34,11 +34,24 @@ import { formatRupiah } from "@/lib/format";
 import {
 	computeRekapCost,
 	type CustomLine,
+	deriveRekapRatio,
 	type MappedItem,
 	type RekapQuantities,
 	sumBuckets,
 } from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
+
+/** Format ratio "0.000714 roll/cetak" → "1 roll / 1400 cetak" (readable). */
+function humanizeRatio(qtyPerUnit: number, unit: string): string {
+	if (qtyPerUnit >= 1) {
+		return `×${qtyPerUnit.toLocaleString("id-ID", { maximumFractionDigits: 2 })} ${unit}/cetak`;
+	}
+	const cetakPerUnit = Math.round(1 / qtyPerUnit);
+	if (Number.isFinite(cetakPerUnit) && cetakPerUnit > 1) {
+		return `1 ${unit} = ${cetakPerUnit.toLocaleString("id-ID")} cetak`;
+	}
+	return `×${qtyPerUnit.toLocaleString("id-ID", { maximumFractionDigits: 6 })} ${unit}/cetak`;
+}
 
 type Defaults = {
 	cetak_total: string;
@@ -450,6 +463,8 @@ export function RekapForm({
 				item_id: m.item_id ?? "",
 				qty_per_unit: m.qty_per_unit,
 				purchase_price_avg: m.item?.purchase_price_avg ?? 0,
+				base_unit: m.item?.unit,
+				unit_conversion: m.item?.unit_conversion,
 			}));
 	}, [context.mappings]);
 
@@ -502,7 +517,20 @@ export function RekapForm({
 			const exact = candidates.find((x) => x.frame_size === frameSize);
 			const fallback = candidates.find((x) => x.frame_size === "");
 			const picked = exact ?? fallback;
-			if (picked) m.set(field, picked);
+			if (!picked) continue;
+			// OVERRIDE qty_per_unit for derived fields (media_set_used, sleeve_used)
+			// supaya match dengan backend SIZE_RECIPE (rekap.ts:740-767). Backend
+			// ignore rekap_field_mapping.qty_per_unit untuk fields ini.
+			const correctedRatio = deriveRekapRatio(field, frameSize, {
+				rekap_field: picked.rekap_field,
+				frame_size: picked.frame_size,
+				item_id: picked.item_id ?? "",
+				qty_per_unit: picked.qty_per_unit,
+				purchase_price_avg: picked.item?.purchase_price_avg ?? 0,
+				base_unit: picked.item?.unit,
+				unit_conversion: picked.item?.unit_conversion,
+			});
+			m.set(field, { ...picked, qty_per_unit: correctedRatio });
 		}
 		return m;
 	}, [context.mappings, frameSize]);
@@ -663,12 +691,17 @@ export function RekapForm({
 				const cetakNum = Number(cetak) || 0;
 				const mediaMapping = mappingByField.get("media_set_used");
 				const sleeveMapping = mappingByField.get("sleeve_used");
-				const autoMedia = mediaMapping
-					? Math.ceil(cetakNum * mediaMapping.qty_per_unit)
+				// Exact decimal value matching backend planRekapDeduction. Untuk
+				// crew_rekap.media_set_used (NonNegInt) we ceil — tapi display
+				// tunjukkan decimal yang akurat supaya cost preview match reality.
+				const autoMediaExact = mediaMapping
+					? cetakNum * mediaMapping.qty_per_unit
 					: 0;
-				const autoSleeve = sleeveMapping
-					? Math.ceil(cetakNum * sleeveMapping.qty_per_unit)
+				const autoSleeveExact = sleeveMapping
+					? cetakNum * sleeveMapping.qty_per_unit
 					: 0;
+				const autoMedia = Math.ceil(autoMediaExact);
+				const autoSleeve = Math.ceil(autoSleeveExact);
 				const finalMedia = touched.media_set_used
 					? Number(media) || 0
 					: autoMedia;
@@ -702,6 +735,9 @@ export function RekapForm({
 							<AutoDerivedCard
 								label="Mediaset"
 								value={finalMedia}
+								exactValue={
+									touched.media_set_used ? finalMedia : autoMediaExact
+								}
 								mapping={mediaMapping}
 								frameSize={frameSize}
 								touched={touched.media_set_used}
@@ -718,6 +754,9 @@ export function RekapForm({
 							<AutoDerivedCard
 								label="Sleeve"
 								value={finalSleeve}
+								exactValue={
+									touched.sleeve_used ? finalSleeve : autoSleeveExact
+								}
 								mapping={sleeveMapping}
 								frameSize={frameSize}
 								touched={touched.sleeve_used}
@@ -1263,6 +1302,7 @@ type StockInfo = {
 function AutoDerivedCard({
 	label,
 	value,
+	exactValue,
 	mapping,
 	frameSize,
 	touched,
@@ -1272,6 +1312,9 @@ function AutoDerivedCard({
 }: {
 	label: string;
 	value: number;
+	/** Decimal exact value matching backend deduction (no Math.ceil). Cost
+	 * preview uses this for accuracy; `value` is the integer submitted. */
+	exactValue: number;
 	mapping:
 		| {
 				rekap_field: string;
@@ -1305,10 +1348,12 @@ function AutoDerivedCard({
 		);
 	}
 	const item = mapping.item;
-	const cost = Math.round(value * item.purchase_price_avg);
+	// Cost preview pakai EXACT decimal (match backend reality), bukan ceiled
+	// integer. Backend deduct decimal qty, so display should reflect that.
+	const cost = Math.round(exactValue * item.purchase_price_avg);
 	const stockBefore = item.current_stock;
-	const stockAfter = stockBefore - value;
-	const critical = value > stockBefore;
+	const stockAfter = stockBefore - exactValue;
+	const critical = exactValue > stockBefore;
 	const lowAfter =
 		stockBefore > 0 && stockAfter / Math.max(stockBefore, 1) < 0.1;
 	const stockToneClass = critical
@@ -1364,17 +1409,27 @@ function AutoDerivedCard({
 				<span className="tabular rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
 					Rp {cost.toLocaleString("id-ID")}
 				</span>
-				{value > 0 && (
+				{exactValue > 0 && (
 					<span
 						className={`tabular rounded-full px-2 py-0.5 font-medium ${stockToneClass}`}
 					>
 						Stok: {stockBefore.toLocaleString("id-ID")} →{" "}
-						{stockAfter.toLocaleString("id-ID")}
+						{stockAfter.toLocaleString("id-ID", {
+							maximumFractionDigits: 3,
+						})}
 					</span>
 				)}
 				<span className="text-[10px] text-muted-foreground">
-					{frameSize || "default"} · ×{mapping.qty_per_unit} {item.unit}/cetak
+					{frameSize || "default"} · {humanizeRatio(mapping.qty_per_unit, item.unit)}
 				</span>
+				{touched ? null : value !== exactValue && exactValue > 0 ? (
+					<span className="text-[10px] italic text-muted-foreground/80">
+						(submit dibulatkan ke {value} {item.unit}, deduct exact{" "}
+						{exactValue.toLocaleString("id-ID", {
+							maximumFractionDigits: 3,
+						})})
+					</span>
+				) : null}
 			</div>
 		</div>
 	);
