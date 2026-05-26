@@ -223,6 +223,36 @@ function compactNumber(n: number): string {
 	return Math.floor(n).toLocaleString("id-ID");
 }
 
+/**
+ * Detect purchase unit (bulk) dari item's unit_conversion v2 JSONB.
+ * Returns null kalau item tidak punya bulk (cuma base unit).
+ */
+function getBulkUnit(
+	conversion: unknown,
+): { code: string; label: string; multiplier: number } | null {
+	const conv = conversion as
+		| {
+				units?: Record<
+					string,
+					{ kind?: string; label?: string; multiplier?: number | null }
+				>;
+		  }
+		| null;
+	if (!conv?.units) return null;
+	const purchase = Object.entries(conv.units).find(
+		([, def]) => def.kind === "purchase",
+	);
+	if (!purchase) return null;
+	const [code, def] = purchase;
+	const multiplier = Number(def.multiplier ?? 0);
+	if (multiplier <= 0) return null;
+	return {
+		code,
+		label: (def.label ?? code).replace(/\s*\([^)]*\)\s*$/, "").trim(),
+		multiplier,
+	};
+}
+
 function formatStockDisplay(
 	stock: number,
 	unit: string,
@@ -483,7 +513,19 @@ export function ConsumablesTable({
 						<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular text-[10px] text-muted-foreground">
 							<span>{r.sku}</span>
 							<span className="text-muted-foreground/40">·</span>
-							<span>{r.unit}</span>
+							{(() => {
+								const bulk = getBulkUnit(r.unit_conversion);
+								return bulk ? (
+									<span>
+										{bulk.label}{" "}
+										<span className="text-muted-foreground/50">
+											({bulk.multiplier} {r.unit})
+										</span>
+									</span>
+								) : (
+									<span>{r.unit}</span>
+								);
+							})()}
 							{r.min_stock_alert > 0 && (
 								<>
 									<span className="text-muted-foreground/40">·</span>
@@ -503,6 +545,7 @@ export function ConsumablesTable({
 			render: (r) => {
 				const stock = stockByItem.get(r.id) ?? 0;
 				const state = classifyStock(stock, r.min_stock_alert);
+				const bulk = getBulkUnit(r.unit_conversion);
 				const display = formatStockDisplay(stock, r.unit, r.unit_conversion);
 				const primaryTone =
 					state === "minus"
@@ -512,6 +555,29 @@ export function ConsumablesTable({
 							: state === "kritis"
 								? "text-amber-600 dark:text-amber-400"
 								: "text-foreground";
+				// Kalau item punya bulk (Box, Pack, Roll), display PRIMARY pakai
+				// bulk unit + base unit jadi subtitle. Match cara user mikir
+				// pas restock ("Stok Mediaset 2.5 Box" bukan "5 Roll").
+				if (bulk) {
+					const stockInBulk = stock / bulk.multiplier;
+					return (
+						<div className="flex flex-col items-end gap-0.5">
+							<div className={`tabular text-base font-semibold ${primaryTone}`}>
+								{stockInBulk.toLocaleString("id-ID", {
+									maximumFractionDigits: 2,
+								})}
+								<span className="ml-1 text-[11px] font-normal text-muted-foreground/80">
+									{bulk.label}
+								</span>
+							</div>
+							<div className="text-[10px] tabular text-muted-foreground/70">
+								= {stock.toLocaleString("id-ID", { maximumFractionDigits: 2 })}{" "}
+								{r.unit}
+							</div>
+						</div>
+					);
+				}
+				// Roll items: legacy breakdown (lembar 4R / 2R / Polaroid) tetap
 				return (
 					<div className="flex flex-col items-end gap-1">
 						<div className={`tabular text-base font-semibold ${primaryTone}`}>
@@ -546,15 +612,33 @@ export function ConsumablesTable({
 			align: "right",
 			width: "180px",
 			hideOnMobile: true,
-			render: (r) =>
-				r.purchase_price_avg ? (
+			render: (r) => {
+				if (!r.purchase_price_avg) return <MutedDash variant="dash" />;
+				const bulk = getBulkUnit(r.unit_conversion);
+				// Bulk-aware: tampil per Box/Pack (dengan per-base sebagai subtitle)
+				if (bulk) {
+					const costPerBulk = r.purchase_price_avg * bulk.multiplier;
+					return (
+						<div className="flex flex-col items-end gap-0.5">
+							<span className="tabular whitespace-nowrap text-fluid-caption font-medium text-foreground">
+								{formatRupiah(costPerBulk)}{" "}
+								<span className="text-muted-foreground/60">
+									/ {bulk.label}
+								</span>
+							</span>
+							<span className="tabular text-[10px] text-muted-foreground/70">
+								{formatRupiah(r.purchase_price_avg)} / {r.unit}
+							</span>
+						</div>
+					);
+				}
+				return (
 					<span className="tabular whitespace-nowrap text-fluid-caption text-muted-foreground">
 						{formatRupiah(r.purchase_price_avg)}{" "}
 						<span className="text-muted-foreground/60">/ {r.unit}</span>
 					</span>
-				) : (
-					<MutedDash variant="dash" />
-				),
+				);
+			},
 		},
 		{
 			key: "value",
