@@ -21,6 +21,7 @@ import {
 	BundlesGrid,
 } from "@/components/warehouse/bundles/bundles-grid";
 import { MarketListTable } from "@/components/warehouse/market-list/market-list-table";
+import { WarehouseRealtimeSync } from "@/components/warehouse/realtime-sync";
 import type {
 	MarketListEntry,
 	MarketListItem,
@@ -433,6 +434,7 @@ export default async function WarehousePage({
 
 	return (
 		<Container size="xl" className="space-y-6">
+			<WarehouseRealtimeSync />
 			<PageHeader
 				title="Warehouse"
 				description="Track stok consumables, equipment, supplier, dan log mutasi."

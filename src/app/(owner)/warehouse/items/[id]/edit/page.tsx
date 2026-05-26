@@ -9,6 +9,7 @@ import {
 	InventoryItemForm,
 } from "@/components/items/inventory-item-form";
 import { PageHeader } from "@/components/operations/_shared/page-header";
+import { WarehouseRealtimeSync } from "@/components/warehouse/realtime-sync";
 import { getItemWithConfig } from "@/lib/inventory/item-loader";
 import {
 	listUnitsByKind,
@@ -87,6 +88,7 @@ export default async function WarehouseEditItemPage({
 
 	return (
 		<Container size="lg" className="space-y-6">
+			<WarehouseRealtimeSync />
 			<PageHeader
 				title={`Edit: ${loaded.base.name}`}
 				backHref="/warehouse"
