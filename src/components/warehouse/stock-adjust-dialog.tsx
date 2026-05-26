@@ -1,6 +1,6 @@
 "use client";
 
-import { Sliders, X } from "lucide-react";
+import { Loader2, Sliders, X } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -379,19 +379,23 @@ export function StockAdjustDialog({
 						</Field>
 					</div>
 
-					<DialogFooter className="shrink-0 flex items-center justify-end gap-2.5 border-t border-border-default/50 bg-surface-1/60 px-8 py-6">
+					<DialogFooter className="shrink-0 flex items-center justify-end gap-3 border-t border-border-default/50 bg-surface-1/60 px-8 py-5 sm:py-6">
 						<button
 							type="button"
 							onClick={() => setOpen(false)}
-							className="press-down inline-flex h-10 items-center rounded-md px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+							disabled={pending}
+							className="press-down inline-flex h-10 items-center rounded-md px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-40"
 						>
 							Batal
 						</button>
 						<button
 							type="submit"
 							disabled={!canSubmit}
-							className="press-down inline-flex h-10 items-center rounded-md bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+							className="press-down inline-flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
 						>
+							{pending && (
+								<Loader2 className="size-3.5 animate-spin" aria-hidden />
+							)}
 							{pending ? "Menyimpan…" : "Catat Adjust"}
 						</button>
 					</DialogFooter>
