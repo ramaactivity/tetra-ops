@@ -270,22 +270,35 @@ export function MarketEntryDialog({
 						<input type="hidden" name="supplier_id" value={supplierId} />
 					</Field>
 
-					{/* Row 2 — Satuan Beli + Isi per Satuan Beli */}
+					{/* Row 2 — Satuan Beli + Isi per Satuan Beli
+					    LOCKED kalau item punya bulk config — single source of truth
+					    di Item edit form. Modal cuma input HARGA + supplier supaya
+					    tidak ada double-input redundancy. */}
 					<div className="grid gap-5 sm:grid-cols-2">
 						<Field
 							label="Satuan Beli (Bulk)"
 							name="pack_unit"
 							error={err("pack_unit")}
 							required
-							hint="Box, Pack, Roll, atau unit dasar item"
+							hint={
+								conversionDefault.pack_size > 1
+									? "Inherit dari item config — edit di Item form kalau perlu ubah"
+									: "Box, Pack, Roll, atau unit dasar item"
+							}
 						>
-							<Combobox
-								id="pack_unit"
-								value={packUnit}
-								onValueChange={(v) => setPackUnit(v ?? item.unit)}
-								options={packUnitOptions}
-								allowFreeText={false}
-							/>
+							{conversionDefault.pack_size > 1 ? (
+								<div className="flex h-10 items-center rounded-md border border-border-default bg-surface-2/60 px-3 text-sm font-medium text-foreground">
+									{capitalize(packUnit)}
+								</div>
+							) : (
+								<Combobox
+									id="pack_unit"
+									value={packUnit}
+									onValueChange={(v) => setPackUnit(v ?? item.unit)}
+									options={packUnitOptions}
+									allowFreeText={false}
+								/>
+							)}
 							<input type="hidden" name="pack_unit" value={packUnit} />
 						</Field>
 
@@ -295,21 +308,30 @@ export function MarketEntryDialog({
 							error={err("pack_size")}
 							required
 							hint={
-								packUnit === item.unit
-									? `Isi 1 kalau beli per ${item.unit}, atau qty kalau bulk`
-									: `Berapa ${item.unit} dalam 1 ${satuanBeliLabel}?`
+								conversionDefault.pack_size > 1
+									? "Inherit dari item config — locked"
+									: packUnit === item.unit
+										? `Isi 1 kalau beli per ${item.unit}, atau qty kalau bulk`
+										: `Berapa ${item.unit} dalam 1 ${satuanBeliLabel}?`
 							}
 						>
-							<NumberField
-								id="pack_size"
-								name="pack_size"
-								min={1}
-								step={1}
-								required
-								defaultValue={packSize}
-								onChange={(e) => setPackSize(e.target.value)}
-								placeholder={packUnit === item.unit ? "1" : "1000"}
-							/>
+							{conversionDefault.pack_size > 1 ? (
+								<div className="flex h-10 items-center rounded-md border border-border-default bg-surface-2/60 px-3 text-sm font-medium text-foreground tabular">
+									{packSize} {item.unit}
+								</div>
+							) : (
+								<NumberField
+									id="pack_size"
+									name="pack_size"
+									min={1}
+									step={1}
+									required
+									defaultValue={packSize}
+									onChange={(e) => setPackSize(e.target.value)}
+									placeholder={packUnit === item.unit ? "1" : "1000"}
+								/>
+							)}
+							<input type="hidden" name="pack_size" value={packSize} />
 						</Field>
 					</div>
 

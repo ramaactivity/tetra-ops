@@ -232,6 +232,39 @@ export async function upsertSupplierPrice(
 	}
 
 	const supabase = await createClient();
+
+	// Single source of truth — kalau item punya bulk unit di unit_conversion
+	// (kind=purchase, multiplier>1), paksa pack_unit + pack_size match item
+	// config. Klien sudah lock UI fields untuk bulk items, tapi server tetap
+	// auto-correct sebagai defense-in-depth (mis. legacy form payload, atau
+	// race antara item config edit & market list submit).
+	const { data: itemCfg } = await supabase
+		.from("items_inventory_config")
+		.select("unit_conversion, base_unit")
+		.eq("item_id", parsed.data.item_id)
+		.maybeSingle();
+
+	const writeData = { ...parsed.data };
+	if (itemCfg?.unit_conversion && typeof itemCfg.unit_conversion === "object") {
+		const conv = itemCfg.unit_conversion as {
+			units?: Record<
+				string,
+				{ kind?: string; multiplier?: number | null }
+			>;
+		};
+		const purchaseEntry = Object.entries(conv.units ?? {}).find(
+			([, def]) => def.kind === "purchase",
+		);
+		if (purchaseEntry) {
+			const [code, def] = purchaseEntry;
+			const mult = Number(def.multiplier) || 1;
+			if (mult > 1) {
+				writeData.pack_unit = code;
+				writeData.pack_size = mult;
+			}
+		}
+	}
+
 	const idRaw = formData.get("id");
 	const existingId = typeof idRaw === "string" && idRaw ? idRaw : null;
 
@@ -239,7 +272,7 @@ export async function upsertSupplierPrice(
 		const { error } = await supabase
 			.from("supplier_prices")
 			.update({
-				...parsed.data,
+				...writeData,
 				updated_at: new Date().toISOString(),
 			})
 			.eq("id", existingId);
@@ -252,7 +285,7 @@ export async function upsertSupplierPrice(
 	} else {
 		const { error } = await supabase
 			.from("supplier_prices")
-			.upsert(parsed.data, { onConflict: "supplier_id,item_id" });
+			.upsert(writeData, { onConflict: "supplier_id,item_id" });
 		if (error) {
 			return {
 				errors: { _form: [error.message] },
