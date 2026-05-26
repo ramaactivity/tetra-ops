@@ -48,6 +48,14 @@ const StockMovementInputSchema = z.object({
 		.optional()
 		.transform((v) => v ?? null),
 	source: z.enum(SOURCES, "Pilih sumber"),
+	supplier_id: z
+		.preprocess(
+			(v) =>
+				v === "" || v === null || v === undefined ? null : String(v),
+			z.string().uuid("Supplier tidak valid").nullable(),
+		)
+		.optional()
+		.transform((v) => v ?? null),
 	notes: z
 		.string()
 		.trim()
@@ -97,6 +105,7 @@ export async function addStockMovement(
 		quantity_unit: formData.get("quantity_unit"),
 		unit_cost: formData.get("unit_cost"),
 		source: formData.get("source"),
+		supplier_id: formData.get("supplier_id"),
 		notes: formData.get("notes"),
 	});
 
@@ -235,6 +244,7 @@ export async function addStockMovement(
 		unit_cost: baseUnitCost,
 		source: parsed.data.source,
 		source_description: null,
+		supplier_id: parsed.data.supplier_id,
 		notes: noteWithUnit,
 		performed_by: me.authId,
 	});

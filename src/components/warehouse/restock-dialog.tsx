@@ -1,11 +1,10 @@
 "use client";
 
-import { ArrowDownToLine, Package, ShoppingCart, TrendingUp } from "lucide-react";
+import { ArrowDownToLine, ShoppingCart } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -25,6 +24,11 @@ import {
 	toBase,
 } from "@/lib/inventory/unit-conversion";
 
+export type RestockSupplierOption = {
+	id: string;
+	name: string;
+};
+
 interface RestockDialogProps {
 	itemId: string;
 	itemName: string;
@@ -32,6 +36,8 @@ interface RestockDialogProps {
 	unitConversion: unknown;
 	currentStock: number;
 	avgCost: number;
+	suppliers?: RestockSupplierOption[];
+	preferredSupplierId?: string | null;
 }
 
 export function RestockDialog({
@@ -41,6 +47,8 @@ export function RestockDialog({
 	unitConversion,
 	currentStock,
 	avgCost,
+	suppliers = [],
+	preferredSupplierId = null,
 }: RestockDialogProps) {
 	const [open, setOpen] = useState(false);
 	const action = addStockMovement.bind(null, itemId);
@@ -53,7 +61,6 @@ export function RestockDialog({
 		() => normalizeConversion(unitConversion, itemUnit),
 		[unitConversion, itemUnit],
 	);
-	// Restock = pembelian → tampilkan purchase + base units (skip consumption).
 	const unitOptionEntries = useMemo(
 		() => listUnitsByKind(conversionMap, "purchase", "base"),
 		[conversionMap],
@@ -71,6 +78,9 @@ export function RestockDialog({
 
 	const [qtyInput, setQtyInput] = useState<string>("");
 	const [costInput, setCostInput] = useState<string>("");
+	const [supplierId, setSupplierId] = useState<string>(
+		preferredSupplierId ?? "",
+	);
 
 	const qtyNum = Number(qtyInput);
 	const costNum = Number(costInput);
@@ -97,6 +107,11 @@ export function RestockDialog({
 		}
 	}, [submitTick, pending, state]);
 
+	// Reset supplier to preferred when dialog opens
+	useEffect(() => {
+		if (open) setSupplierId(preferredSupplierId ?? "");
+	}, [open, preferredSupplierId]);
+
 	const get = (key: string, fallback?: string) =>
 		state?.values?.[key] ?? fallback ?? "";
 	const err = (key: string) =>
@@ -115,14 +130,15 @@ export function RestockDialog({
 			>
 				<ArrowDownToLine className="size-4" />
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-2xl">
-				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2">
+			<DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+				<DialogHeader className="shrink-0 border-b border-border-default/50 bg-surface-1 px-8 pt-7 pb-5">
+					<DialogTitle className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-foreground">
 						<ShoppingCart className="size-5 text-primary" aria-hidden />
-						Restock {itemName}
+						Restock
 					</DialogTitle>
-					<DialogDescription>
-						Catat pembelian stok baru. Auto-update weighted-avg cost.
+					<DialogDescription className="mt-1 text-[12px] text-muted-foreground/80">
+						<span className="font-medium text-foreground">{itemName}</span> ·
+						catat pembelian stok baru. Auto-update weighted-avg cost.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -131,220 +147,217 @@ export function RestockDialog({
 						setSubmitTick((t) => t + 1);
 						formAction(fd);
 					}}
-					className="space-y-4"
+					className="flex flex-1 flex-col overflow-hidden"
 				>
-					{formError && (
-						<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-							<p className="text-sm font-medium text-destructive">
-								{formError}
-							</p>
-						</div>
-					)}
-
-					<input type="hidden" name="direction" value="in" />
-					<input type="hidden" name="source" value="purchase" />
-
-					<div className="grid gap-4 md:grid-cols-[1fr_280px]">
-						{/* LEFT: form inputs */}
-						<div className="space-y-3">
-							<div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-								<Field
-									label={`Quantity (${chosenUnit})`}
-									name="quantity"
-									error={err("quantity")}
-									required
-								>
-									<NumberField
-										id="quantity"
-										name="quantity"
-										min={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
-										step={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
-										required
-										defaultValue={get("quantity")}
-										onChange={(e) => setQtyInput(e.target.value)}
-										placeholder={
-											isBaseUnit && itemUnit === "roll" ? "2" : "10"
-										}
-										autoFocus
-										aria-invalid={!!err("quantity")}
-									/>
-								</Field>
-
-								{unitOptions.length > 1 ? (
-									<Field
-										label="Unit"
-										name="quantity_unit"
-										error={err("quantity_unit")}
-									>
-										<div className="w-28">
-											<Combobox
-												id="quantity_unit"
-												value={chosenUnit}
-												onValueChange={(v) => setChosenUnit(v ?? itemUnit)}
-												options={unitOptionEntries.map(({ code, def }) => ({
-													value: code,
-													label: def.label || code,
-												}))}
-												allowFreeText={false}
-												aria-invalid={!!err("quantity_unit")}
-											/>
-										</div>
-										<input
-											type="hidden"
-											name="quantity_unit"
-											value={chosenUnit}
-										/>
-									</Field>
-								) : (
-									<input type="hidden" name="quantity_unit" value={itemUnit} />
-								)}
+					<div className="flex-1 space-y-5 overflow-y-auto px-8 py-6">
+						{formError && (
+							<div className="rounded-lg bg-destructive/10 p-3.5 ring-1 ring-destructive/30">
+								<p className="text-sm font-medium text-destructive">
+									{formError}
+								</p>
 							</div>
+						)}
 
-							{!isBaseUnit && (
-								<div className="rounded-md border border-border-default/60 bg-secondary/40 p-2.5 text-[12px] text-muted-foreground">
-									1 {chosenUnit} = {conversionFactor.toLocaleString("id-ID")}{" "}
-									{itemUnit} · auto-convert saat simpan
-								</div>
-							)}
+						<input type="hidden" name="direction" value="in" />
+						<input type="hidden" name="source" value="purchase" />
 
+						{/* Row 1 — Supplier (full width) */}
+						<Field
+							label="Supplier / Vendor"
+							name="supplier_id"
+							error={err("supplier_id")}
+							hint={
+								preferredSupplierId
+									? "Auto-pick supplier utama. Bisa diganti."
+									: "opsional — boleh kosong kalau beli di warung dadakan"
+							}
+						>
+							<Combobox
+								id="supplier_id"
+								value={supplierId}
+								onValueChange={(v) => setSupplierId(v ?? "")}
+								options={suppliers.map((s) => ({
+									value: s.id,
+									label: s.name,
+								}))}
+								placeholder="— pilih supplier (opsional) —"
+								allowFreeText={false}
+							/>
+							<input type="hidden" name="supplier_id" value={supplierId} />
+						</Field>
+
+						{/* Row 2 — Qty + Unit (2-col) */}
+						<div className="grid gap-5 sm:grid-cols-2">
 							<Field
-								label={`Harga / ${chosenUnit}`}
-								name="unit_cost"
-								error={err("unit_cost")}
+								label={`Jumlah Beli (${chosenUnit})`}
+								name="quantity"
+								error={err("quantity")}
 								required
-								hint={
-									avgCost > 0
-										? `Avg saat ini: ${formatRupiah(avgCost)} / ${itemUnit}`
-										: "Belum ada harga rata-rata"
-								}
 							>
-								<div className="relative">
-									<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-										Rp
-									</span>
-									<NumberField
-										id="unit_cost"
-										name="unit_cost"
-										min={0}
-										step={1}
-										required
-										defaultValue={get("unit_cost")}
-										onChange={(e) => setCostInput(e.target.value)}
-										placeholder="0"
-										className="pl-9"
-										aria-invalid={!!err("unit_cost")}
-									/>
-								</div>
-							</Field>
-
-							<Field
-								label="Catatan"
-								name="notes"
-								error={err("notes")}
-								hint="opsional — supplier, nomor invoice, dll"
-							>
-								<TextareaField
-									id="notes"
-									name="notes"
-									rows={2}
-									maxLength={500}
-									defaultValue={get("notes")}
+								<NumberField
+									id="quantity"
+									name="quantity"
+									min={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
+									step={isBaseUnit && itemUnit === "roll" ? 0.01 : 1}
+									required
+									defaultValue={get("quantity")}
+									onChange={(e) => setQtyInput(e.target.value)}
+									placeholder={
+										isBaseUnit && itemUnit === "roll" ? "2" : "10"
+									}
+									autoFocus
+									aria-invalid={!!err("quantity")}
 								/>
 							</Field>
+
+							{unitOptions.length > 1 ? (
+								<Field
+									label="Satuan Beli (Bulk)"
+									name="quantity_unit"
+									error={err("quantity_unit")}
+								>
+									<Combobox
+										id="quantity_unit"
+										value={chosenUnit}
+										onValueChange={(v) => setChosenUnit(v ?? itemUnit)}
+										options={unitOptionEntries.map(({ code, def }) => ({
+											value: code,
+											label: def.label || code,
+										}))}
+										allowFreeText={false}
+										aria-invalid={!!err("quantity_unit")}
+									/>
+									<input
+										type="hidden"
+										name="quantity_unit"
+										value={chosenUnit}
+									/>
+								</Field>
+							) : (
+								<div>
+									<label className="text-[13px] font-medium text-foreground">
+										Satuan
+									</label>
+									<div className="mt-1.5 flex h-10 items-center rounded-md border border-border-default bg-surface-2/60 px-3 text-sm text-muted-foreground">
+										{itemUnit}
+									</div>
+									<input type="hidden" name="quantity_unit" value={itemUnit} />
+								</div>
+							)}
 						</div>
 
-						{/* RIGHT: info panel */}
-						<aside className="space-y-3">
-							<InfoPanel label="Stok saat ini" tone="muted">
-								<div className="flex items-baseline gap-1">
-									<span className="tabular text-fluid-h3 font-semibold text-foreground">
-										{currentStock.toLocaleString("id-ID", {
-											maximumFractionDigits: 4,
-										})}
-									</span>
-									<span className="text-[11px] text-muted-foreground">
+						{/* Conversion preview when bulk unit */}
+						{!isBaseUnit && qtyValid && (
+							<div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3.5 py-2.5 text-[12px] text-emerald-800 dark:text-emerald-200">
+								≈ Otomatis menambah{" "}
+								<strong className="tabular">
+									{baseQty.toLocaleString("id-ID", {
+										maximumFractionDigits: 4,
+									})}{" "}
+									{itemUnit}
+								</strong>{" "}
+								ke stok fisik gudang
+							</div>
+						)}
+
+						{/* Row 3 — Harga per unit */}
+						<Field
+							label={`Harga per ${chosenUnit} (Rp)`}
+							name="unit_cost"
+							error={err("unit_cost")}
+							required
+							hint={
+								avgCost > 0
+									? `Avg saat ini: ${formatRupiah(avgCost)} / ${itemUnit}`
+									: "Belum ada harga rata-rata"
+							}
+						>
+							<div className="relative">
+								<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+									Rp
+								</span>
+								<NumberField
+									id="unit_cost"
+									name="unit_cost"
+									min={0}
+									step={1}
+									required
+									defaultValue={get("unit_cost")}
+									onChange={(e) => setCostInput(e.target.value)}
+									placeholder="0"
+									className="pl-9"
+									aria-invalid={!!err("unit_cost")}
+								/>
+							</div>
+						</Field>
+
+						{/* Live preview card */}
+						<div className="rounded-lg border border-border-default/60 bg-surface-1/80 px-4 py-3.5">
+							<div className="grid gap-3 sm:grid-cols-3">
+								<PreviewCell label="Stok saat ini" tone="muted">
+									{currentStock.toLocaleString("id-ID", {
+										maximumFractionDigits: 4,
+									})}{" "}
+									<span className="text-[10px] font-normal text-muted-foreground">
 										{itemUnit}
 									</span>
-								</div>
-							</InfoPanel>
-
-							<InfoPanel
-								label="Setelah restock"
-								tone={qtyValid ? "emerald" : "muted"}
-								icon={<Package className="size-3" />}
-							>
-								<div className="space-y-1.5">
-									<div className="flex items-baseline justify-between gap-2">
-										<span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-											Stok jadi
-										</span>
-										<div className="text-right">
-											<span className="tabular text-fluid-body font-semibold text-foreground">
-												{stockAfter.toLocaleString("id-ID", {
-													maximumFractionDigits: 4,
-												})}
-											</span>
-											<span className="ml-1 text-[10px] text-muted-foreground">
-												{itemUnit}
-											</span>
-										</div>
-									</div>
-									{qtyValid && costValid && totalCost > 0 && (
-										<>
-											<div className="flex items-baseline justify-between gap-2 border-t border-emerald-500/15 pt-1.5">
-												<span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-													Total bayar
-												</span>
-												<span className="tabular text-fluid-body font-semibold text-foreground">
-													{formatRupiah(totalCost)}
-												</span>
-											</div>
-											<div className="flex items-baseline justify-between gap-2">
-												<span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-													Avg baru
-												</span>
-												<span className="tabular text-fluid-caption font-medium text-emerald-700 dark:text-emerald-300">
-													{formatRupiah(Math.round(newAvgCost))} / {itemUnit}
-												</span>
-											</div>
-										</>
-									)}
-								</div>
-							</InfoPanel>
-
-							{qtyValid && costValid && totalCost > 0 && (
-								<InfoPanel
-									label="Jurnal otomatis"
-									tone="sky"
-									icon={<TrendingUp className="size-3" />}
+								</PreviewCell>
+								<PreviewCell
+									label="Stok jadi"
+									tone={qtyValid ? "emerald" : "muted"}
 								>
-									<div className="space-y-1 text-[11px] text-muted-foreground">
-										<div>
-											DEBIT Persediaan{" "}
-											<span className="tabular font-medium text-foreground">
-												{formatRupiah(totalCost)}
-											</span>
-										</div>
-										<div>
-											CREDIT Kas (1-100){" "}
-											<span className="tabular font-medium text-foreground">
-												{formatRupiah(totalCost)}
-											</span>
-										</div>
-									</div>
-								</InfoPanel>
+									{stockAfter.toLocaleString("id-ID", {
+										maximumFractionDigits: 4,
+									})}{" "}
+									<span className="text-[10px] font-normal text-muted-foreground">
+										{itemUnit}
+									</span>
+								</PreviewCell>
+								<PreviewCell
+									label="Total bayar"
+									tone={qtyValid && costValid && totalCost > 0 ? "sky" : "muted"}
+								>
+									{totalCost > 0 ? formatRupiah(totalCost) : "Rp —"}
+								</PreviewCell>
+							</div>
+							{qtyValid && costValid && totalCost > 0 && (
+								<div className="mt-3 border-t border-border-default/50 pt-2.5 text-[11px] text-muted-foreground">
+									Weighted-avg cost baru:{" "}
+									<strong className="tabular text-emerald-700 dark:text-emerald-300">
+										{formatRupiah(Math.round(newAvgCost))} / {itemUnit}
+									</strong>
+								</div>
 							)}
-						</aside>
+						</div>
+
+						<Field
+							label="Catatan"
+							name="notes"
+							error={err("notes")}
+							hint="opsional — supplier note, nomor invoice, dll"
+						>
+							<TextareaField
+								id="notes"
+								name="notes"
+								rows={2}
+								maxLength={500}
+								defaultValue={get("notes")}
+							/>
+						</Field>
 					</div>
 
-					<DialogFooter>
-						<DialogClose className="inline-flex h-10 items-center rounded-md border border-border-default bg-surface-2 px-4 text-sm font-medium hover:bg-muted">
+					<DialogFooter className="shrink-0 flex justify-end gap-3 border-t border-border-default/50 bg-surface-1/60 px-8 py-5">
+						<button
+							type="button"
+							onClick={() => setOpen(false)}
+							className="press-down inline-flex h-10 items-center rounded-md px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+						>
 							Batal
-						</DialogClose>
+						</button>
 						<button
 							type="submit"
 							disabled={pending}
-							className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+							className="press-down inline-flex h-10 items-center rounded-md bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
 							{pending ? "Menyimpan…" : "Catat Restock"}
 						</button>
@@ -372,7 +385,7 @@ function Field({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
+			<label htmlFor={name} className="text-[13px] font-medium text-foreground">
 				{label}
 				{required && <span className="ml-0.5 text-primary">*</span>}
 			</label>
@@ -386,46 +399,37 @@ function Field({
 	);
 }
 
-function InfoPanel({
+function PreviewCell({
 	label,
 	tone,
-	icon,
 	children,
 }: {
 	label: string;
-	tone: "muted" | "emerald" | "amber" | "sky" | "rose";
-	icon?: React.ReactNode;
+	tone: "muted" | "emerald" | "sky";
 	children: React.ReactNode;
 }) {
-	const cls =
-		tone === "emerald"
-			? "border-emerald-500/30 bg-emerald-500/5"
-			: tone === "amber"
-				? "border-amber-500/30 bg-amber-500/5"
-				: tone === "sky"
-					? "border-sky-500/30 bg-sky-500/5"
-					: tone === "rose"
-						? "border-rose-500/30 bg-rose-500/5"
-						: "border-border-default bg-surface-2/60";
 	const labelTone =
 		tone === "emerald"
 			? "text-emerald-700 dark:text-emerald-300"
-			: tone === "amber"
-				? "text-amber-700 dark:text-amber-300"
-				: tone === "sky"
-					? "text-sky-700 dark:text-sky-300"
-					: tone === "rose"
-						? "text-rose-700 dark:text-rose-300"
-						: "text-muted-foreground";
+			: tone === "sky"
+				? "text-sky-700 dark:text-sky-300"
+				: "text-muted-foreground/80";
+	const valueTone =
+		tone === "emerald"
+			? "text-emerald-700 dark:text-emerald-300"
+			: tone === "sky"
+				? "text-sky-700 dark:text-sky-300"
+				: "text-foreground/60";
 	return (
-		<div className={`rounded-lg border p-2.5 ${cls}`}>
+		<div>
 			<div
-				className={`mb-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider ${labelTone}`}
+				className={`text-[9px] font-semibold uppercase tracking-wider ${labelTone}`}
 			>
-				{icon}
 				{label}
 			</div>
-			{children}
+			<div className={`mt-0.5 whitespace-nowrap tabular text-base font-bold ${valueTone}`}>
+				{children}
+			</div>
 		</div>
 	);
 }

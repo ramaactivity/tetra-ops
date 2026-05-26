@@ -589,6 +589,11 @@ export function ConsumablesTable({
 							unitConversion={r.unit_conversion}
 							currentStock={stock}
 							avgCost={r.purchase_price_avg ?? 0}
+							suppliers={pembelianSuppliers.map((s) => ({
+								id: s.id,
+								name: s.name,
+							}))}
+							preferredSupplierId={r.preferred_supplier_id}
 						/>
 						<StockAdjustDialog
 							itemId={r.id}

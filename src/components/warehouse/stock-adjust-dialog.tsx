@@ -1,17 +1,10 @@
 "use client";
 
-import {
-	ArrowDownToLine,
-	ArrowUpFromLine,
-	Equal,
-	Package,
-	Sliders,
-} from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { Sliders } from "lucide-react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -24,37 +17,56 @@ import {
 	addStockMovement,
 	type StockMovementFormState,
 } from "@/lib/actions/stock-movements";
-import { formatRupiah } from "@/lib/format";
 
-const SOURCES: ReadonlyArray<{
-	value: string;
+/**
+ * Reason-driven Adjust: user pilih kenapa stok berubah, sistem hitung
+ * direction + source + delta sendiri. Lebih intuitive dari "Tambah/Kurang"
+ * manual yang rawan operator error.
+ *
+ * Mapping ke schema lama:
+ *  - opname    → direction = sign(delta), source='stock_take', qty=|delta|
+ *  - damage    → direction='out', source='damage', qty=user input
+ *  - testing   → direction='out', source='damage' (kategorikan sbg damage
+ *                karena belum ada source code khusus 'testing')
+ *  - loss      → direction='out', source='loss', qty=user input
+ */
+type ReasonCode = "opname" | "damage" | "testing" | "loss";
+
+const REASONS: ReadonlyArray<{
+	value: ReasonCode;
 	label: string;
 	hint: string;
+	inputLabel: (unit: string) => string;
+	inputHint: string;
 }> = [
 	{
-		value: "manual_adjust",
-		label: "Manual Adjust",
-		hint: "Koreksi karena salah catat sebelumnya.",
+		value: "opname",
+		label: "Penyesuaian Fisik (Quick Opname)",
+		hint: "Hitung fisik di rak, isi jumlah real-nya. Sistem hitung selisih.",
+		inputLabel: (unit) => `Jumlah Fisik Sebenarnya (${unit})`,
+		inputHint:
+			"Angka real yang dihitung di rak — bukan selisih. Sistem hitung delta otomatis.",
 	},
 	{
 		value: "damage",
-		label: "Damage",
-		hint: "Stok rusak — keluar tanpa terjual.",
+		label: "Barang Rusak / Cacat (Wastage)",
+		hint: "Barang rusak / tidak bisa dipakai, dibuang.",
+		inputLabel: (unit) => `Jumlah Dibuang (${unit})`,
+		inputHint: "Qty yang dibuang dari stok karena rusak.",
+	},
+	{
+		value: "testing",
+		label: "Keperluan Testing / Trial",
+		hint: "Stok terpakai untuk testing (cetak tes, sample, dll).",
+		inputLabel: (unit) => `Jumlah Dipakai Testing (${unit})`,
+		inputHint: "Qty yang habis terpakai untuk testing / trial.",
 	},
 	{
 		value: "loss",
-		label: "Loss",
-		hint: "Stok hilang / tercecer.",
-	},
-	{
-		value: "stock_take",
-		label: "Stock Opname",
-		hint: "Biasanya auto via Commit di /warehouse/stock-take. Pakai manual cuma kalau ada koreksi standalone.",
-	},
-	{
-		value: "transfer",
-		label: "Transfer",
-		hint: "Pindah lokasi/gudang.",
+		label: "Hilang / Tercecer",
+		hint: "Stok hilang tidak diketahui sebabnya.",
+		inputLabel: (unit) => `Jumlah Hilang (${unit})`,
+		inputHint: "Qty yang hilang dari stok.",
 	},
 ];
 
@@ -63,7 +75,6 @@ export function StockAdjustDialog({
 	itemName,
 	currentStock,
 	itemUnit,
-	avgCost,
 }: {
 	itemId: string;
 	itemName: string;
@@ -78,10 +89,15 @@ export function StockAdjustDialog({
 		FormData
 	>(action, undefined);
 
-	const [direction, setDirection] = useState<"in" | "out" | "adjustment">("in");
-	const [source, setSource] = useState<string>("manual_adjust");
+	const [reason, setReason] = useState<ReasonCode>("opname");
 	const [qtyInput, setQtyInput] = useState<string>("");
+	const [notes, setNotes] = useState<string>("");
 	const [submitTick, setSubmitTick] = useState(0);
+
+	const reasonMeta = useMemo(
+		() => REASONS.find((r) => r.value === reason),
+		[reason],
+	);
 
 	useEffect(() => {
 		if (submitTick === 0 || pending) return;
@@ -91,262 +107,276 @@ export function StockAdjustDialog({
 		if (!hasErrors) {
 			setOpen(false);
 			setQtyInput("");
+			setNotes("");
 		}
 	}, [submitTick, pending, state]);
 
-	const get = (key: string, fallback?: string) =>
-		state?.values?.[key] ?? fallback ?? "";
+	// Reset reason when reopening
+	useEffect(() => {
+		if (open) {
+			setReason("opname");
+			setQtyInput("");
+			setNotes("");
+		}
+	}, [open]);
+
 	const err = (key: string) =>
 		(
 			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
-
 	const formError = state?.errors?._form?.[0];
 
 	const qtyNum = Number(qtyInput);
-	const qtyValid = Number.isFinite(qtyNum) && qtyNum > 0;
-	const stockAfter = qtyValid
-		? direction === "in"
-			? currentStock + qtyNum
-			: direction === "out"
-				? currentStock - qtyNum
-				: currentStock + qtyNum
-		: currentStock;
-	const sourceMeta = SOURCES.find((s) => s.value === source);
-	const willGoNegative = direction === "out" && stockAfter < 0;
-	const directionTone =
-		direction === "in" ? "emerald" : direction === "out" ? "rose" : "amber";
+	const qtyValid = Number.isFinite(qtyNum) && qtyNum >= 0;
+
+	// Compute direction + source + actual qty based on reason
+	const computed = useMemo(() => {
+		if (!qtyValid) {
+			return {
+				direction: null as "in" | "out" | null,
+				source: null as string | null,
+				absoluteQty: 0,
+				delta: 0,
+				stockAfter: currentStock,
+				willGoNegative: false,
+			};
+		}
+		if (reason === "opname") {
+			const delta = qtyNum - currentStock;
+			return {
+				direction: delta > 0 ? "in" : delta < 0 ? "out" : null,
+				source: "stock_take",
+				absoluteQty: Math.abs(delta),
+				delta,
+				stockAfter: qtyNum,
+				willGoNegative: qtyNum < 0,
+			};
+		}
+		// damage / testing / loss → always out
+		const stockAfter = currentStock - qtyNum;
+		return {
+			direction: "out" as const,
+			source: reason === "loss" ? "loss" : "damage",
+			absoluteQty: qtyNum,
+			delta: -qtyNum,
+			stockAfter,
+			willGoNegative: stockAfter < 0,
+		};
+	}, [reason, qtyValid, qtyNum, currentStock]);
+
+	const canSubmit =
+		qtyValid &&
+		computed.direction !== null &&
+		!computed.willGoNegative &&
+		!pending;
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger
 				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
-				title="Adjust / Koreksi Stok (damage / loss / manual)"
+				title="Adjust / Koreksi Stok (opname / damage / loss / testing)"
 				aria-label={`Adjust stock ${itemName}`}
 			>
 				<Sliders className="size-4" />
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-2xl">
-				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2">
+			<DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+				<DialogHeader className="shrink-0 border-b border-border-default/50 bg-surface-1 px-8 pt-7 pb-5">
+					<DialogTitle className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-foreground">
 						<Sliders className="size-5 text-primary" aria-hidden />
-						Adjust Stok — {itemName}
+						Adjust Stok
 					</DialogTitle>
-					<DialogDescription>
-						Koreksi non-pembelian (damage / loss / manual / transfer).
+					<DialogDescription className="mt-1 text-[12px] text-muted-foreground/80">
+						<span className="font-medium text-foreground">{itemName}</span> ·
+						koreksi non-pembelian (opname / wastage / loss / testing).
 					</DialogDescription>
 				</DialogHeader>
 
 				<form
 					action={(fd) => {
+						if (computed.direction)
+							fd.set("direction", computed.direction);
+						if (computed.source) fd.set("source", computed.source);
+						fd.set("quantity", String(computed.absoluteQty));
 						setSubmitTick((t) => t + 1);
 						formAction(fd);
 					}}
-					className="space-y-4"
+					className="flex flex-1 flex-col overflow-hidden"
 				>
-					{formError && (
-						<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-							<p className="text-sm font-medium text-destructive">
-								{formError}
-							</p>
-						</div>
-					)}
-
-					<div className="grid grid-cols-3 gap-1 rounded-md border border-border-default bg-muted/30 p-1">
-						<DirOption
-							selected={direction === "in"}
-							onClick={() => setDirection("in")}
-							icon={<ArrowDownToLine className="h-4 w-4" />}
-							label="Masuk"
-							tone="emerald"
-						/>
-						<DirOption
-							selected={direction === "out"}
-							onClick={() => setDirection("out")}
-							icon={<ArrowUpFromLine className="h-4 w-4" />}
-							label="Keluar"
-							tone="rose"
-						/>
-						<DirOption
-							selected={direction === "adjustment"}
-							onClick={() => setDirection("adjustment")}
-							icon={<Equal className="h-4 w-4" />}
-							label="Koreksi"
-							tone="amber"
-						/>
-					</div>
-					<input type="hidden" name="direction" value={direction} />
-
-					<div className="grid gap-4 md:grid-cols-[1fr_280px]">
-						{/* LEFT: form */}
-						<div className="space-y-3">
-							<div className="grid gap-3 sm:grid-cols-2">
-								<Field
-									label={`Quantity (${itemUnit})`}
-									name="quantity"
-									error={err("quantity")}
-									required
-								>
-									<NumberField
-										id="quantity"
-										name="quantity"
-										min={1}
-										step={1}
-										required
-										defaultValue={get("quantity")}
-										onChange={(e) => setQtyInput(e.target.value)}
-										placeholder="10"
-										autoFocus
-										aria-invalid={!!err("quantity")}
-									/>
-								</Field>
-
-								<Field
-									label="Sumber"
-									name="source"
-									error={err("source")}
-									required
-								>
-									<Combobox
-										id="source"
-										value={source}
-										onValueChange={(v) => setSource(v ?? "manual_adjust")}
-										options={SOURCES.map((s) => ({
-											value: s.value,
-											label: s.label,
-										}))}
-										placeholder="— pilih sumber —"
-										allowFreeText={false}
-										aria-invalid={!!err("source")}
-									/>
-									<input type="hidden" name="source" value={source} required />
-								</Field>
+					<div className="flex-1 space-y-5 overflow-y-auto px-8 py-6">
+						{formError && (
+							<div className="rounded-lg bg-destructive/10 p-3.5 ring-1 ring-destructive/30">
+								<p className="text-sm font-medium text-destructive">
+									{formError}
+								</p>
 							</div>
+						)}
 
-							{sourceMeta && (
-								<div className="rounded-md border border-border-default/60 bg-secondary/40 p-2.5 text-[12px] text-muted-foreground">
-									<span className="font-medium text-foreground">
-										{sourceMeta.label}:
-									</span>{" "}
-									{sourceMeta.hint}
-								</div>
-							)}
+						{/* Row 1 — Reason Code (full width) */}
+						<Field
+							label="Alasan Koreksi"
+							name="reason"
+							error={err("source") ?? err("direction")}
+							required
+							hint={reasonMeta?.hint}
+						>
+							<Combobox
+								id="reason"
+								value={reason}
+								onValueChange={(v) =>
+									setReason((v as ReasonCode) ?? "opname")
+								}
+								options={REASONS.map((r) => ({
+									value: r.value,
+									label: r.label,
+								}))}
+								allowFreeText={false}
+							/>
+						</Field>
 
-							{direction === "in" && (
-								<Field
-									label="Unit Cost"
-									name="unit_cost"
-									error={err("unit_cost")}
-									hint={`Opsional — biasanya kosongin. Avg saat ini: ${formatRupiah(avgCost)}`}
-								>
-									<div className="relative">
-										<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-											Rp
-										</span>
-										<NumberField
-											id="unit_cost"
-											name="unit_cost"
-											min={0}
-											step={1}
-											defaultValue={get("unit_cost")}
-											placeholder="0"
-											className="pl-9"
-											aria-invalid={!!err("unit_cost")}
-										/>
-									</div>
-								</Field>
-							)}
-
+						{/* Row 2 — Qty input + current stock display (2-col) */}
+						<div className="grid gap-5 sm:grid-cols-2">
 							<Field
-								label="Catatan"
-								name="notes"
-								error={err("notes")}
-								hint="opsional"
+								label={reasonMeta?.inputLabel(itemUnit) ?? "Jumlah"}
+								name="quantity"
+								error={err("quantity")}
+								required
+								hint={reasonMeta?.inputHint}
 							>
-								<TextareaField
-									id="notes"
-									name="notes"
-									rows={2}
-									maxLength={500}
-									defaultValue={get("notes")}
-									aria-invalid={!!err("notes")}
+								<NumberField
+									id="quantity"
+									name="quantity"
+									min={0}
+									step={1}
+									required
+									value={qtyInput}
+									onChange={(e) => setQtyInput(e.target.value)}
+									placeholder={
+										reason === "opname"
+											? String(Math.max(0, currentStock))
+											: "0"
+									}
+									autoFocus
+									aria-invalid={!!err("quantity")}
 								/>
 							</Field>
-						</div>
 
-						{/* RIGHT: info panel */}
-						<aside className="space-y-3">
-							<InfoPanel label="Stok saat ini" tone="muted">
-								<div className="flex items-baseline gap-1">
-									<span className="tabular text-fluid-h3 font-semibold text-foreground">
+							<div>
+								<label className="text-[13px] font-medium text-foreground">
+									Stok Saat Ini
+								</label>
+								<div className="mt-1.5 flex h-10 items-center rounded-md border border-border-default bg-surface-2/60 px-3 text-sm">
+									<span className="tabular font-semibold text-foreground">
 										{currentStock.toLocaleString("id-ID", {
 											maximumFractionDigits: 4,
 										})}
 									</span>
-									<span className="text-[11px] text-muted-foreground">
+									<span className="ml-1 text-[11px] text-muted-foreground">
 										{itemUnit}
 									</span>
 								</div>
-							</InfoPanel>
+								<p className="mt-1.5 text-xs text-muted-foreground">
+									Catatan sistem saat ini (computed dari movements).
+								</p>
+							</div>
+						</div>
 
-							<InfoPanel
-								label="Setelah adjust"
-								tone={
-									!qtyValid
-										? "muted"
-										: willGoNegative
-											? "rose"
-											: directionTone
-								}
-								icon={<Package className="size-3" />}
-							>
-								<div className="flex items-baseline justify-between gap-2">
-									<span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-										Stok jadi
+						{/* Live preview card */}
+						<div
+							className={`rounded-lg border px-4 py-3.5 transition-colors ${
+								!qtyValid
+									? "border-border-default/60 bg-surface-1/80"
+									: computed.willGoNegative
+										? "border-rose-500/30 bg-rose-500/5"
+										: computed.delta > 0
+											? "border-emerald-500/30 bg-emerald-500/5"
+											: computed.delta < 0
+												? "border-amber-500/30 bg-amber-500/5"
+												: "border-border-default/60 bg-surface-1/80"
+							}`}
+						>
+							<div className="grid gap-3 sm:grid-cols-3">
+								<PreviewCell label="Selisih" tone="muted">
+									{!qtyValid ? (
+										"—"
+									) : (
+										<>
+											<span
+												className={
+													computed.delta > 0
+														? "text-emerald-700 dark:text-emerald-300"
+														: computed.delta < 0
+															? "text-rose-600 dark:text-rose-400"
+															: "text-foreground/60"
+												}
+											>
+												{computed.delta > 0 ? "+" : ""}
+												{computed.delta.toLocaleString("id-ID", {
+													maximumFractionDigits: 4,
+												})}
+											</span>
+											<span className="ml-1 text-[10px] font-normal text-muted-foreground">
+												{itemUnit}
+											</span>
+										</>
+									)}
+								</PreviewCell>
+								<PreviewCell label="Stok Jadi" tone="muted">
+									{computed.stockAfter.toLocaleString("id-ID", {
+										maximumFractionDigits: 4,
+									})}{" "}
+									<span className="text-[10px] font-normal text-muted-foreground">
+										{itemUnit}
 									</span>
-									<div className="text-right">
-										<span
-											className={`tabular text-fluid-body font-semibold ${
-												stockAfter < 0
-													? "text-rose-600 dark:text-rose-400"
-													: "text-foreground"
-											}`}
-										>
-											{stockAfter.toLocaleString("id-ID", {
-												maximumFractionDigits: 4,
-											})}
-										</span>
-										<span className="ml-1 text-[10px] text-muted-foreground">
-											{itemUnit}
-										</span>
-									</div>
-								</div>
-								{willGoNegative && (
-									<p className="mt-2 border-t border-rose-500/15 pt-1.5 text-[11px] font-medium text-rose-700 dark:text-rose-300">
-										⚠ Stok jadi minus — server akan tolak (negative-stock guard).
-									</p>
-								)}
-								{qtyValid && !willGoNegative && (
-									<div className="mt-1.5 border-t border-current/15 pt-1.5 text-[10px] text-muted-foreground">
-										{direction === "in"
-											? `+${qtyNum.toLocaleString("id-ID")} ${itemUnit} masuk`
-											: direction === "out"
-												? `−${qtyNum.toLocaleString("id-ID")} ${itemUnit} keluar`
-												: `±${qtyNum.toLocaleString("id-ID")} ${itemUnit} koreksi`}
-									</div>
-								)}
-							</InfoPanel>
-						</aside>
+								</PreviewCell>
+								<PreviewCell label="Direction" tone="muted">
+									{computed.direction === "in"
+										? "IN (stok naik)"
+										: computed.direction === "out"
+											? "OUT (stok turun)"
+											: "—"}
+								</PreviewCell>
+							</div>
+							{computed.willGoNegative && (
+								<p className="mt-3 border-t border-rose-500/15 pt-2 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+									⚠ Stok jadi minus — server akan tolak (negative-stock guard).
+								</p>
+							)}
+							{qtyValid && computed.delta === 0 && (
+								<p className="mt-3 border-t border-current/15 pt-2 text-[11px] text-muted-foreground">
+									Tidak ada perubahan — fisik = stok sistem.
+								</p>
+							)}
+						</div>
+
+						<Field
+							label="Catatan"
+							name="notes"
+							error={err("notes")}
+							hint="opsional — detail tambahan untuk audit trail"
+						>
+							<TextareaField
+								id="notes"
+								name="notes"
+								rows={2}
+								maxLength={500}
+								value={notes}
+								onChange={(e) => setNotes(e.target.value)}
+							/>
+						</Field>
 					</div>
 
-					<DialogFooter>
-						<DialogClose className="inline-flex h-10 items-center rounded-md border border-border-default bg-surface-2 px-4 text-sm font-medium hover:bg-muted">
+					<DialogFooter className="shrink-0 flex justify-end gap-3 border-t border-border-default/50 bg-surface-1/60 px-8 py-5">
+						<button
+							type="button"
+							onClick={() => setOpen(false)}
+							className="press-down inline-flex h-10 items-center rounded-md px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+						>
 							Batal
-						</DialogClose>
+						</button>
 						<button
 							type="submit"
-							disabled={pending}
-							className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+							disabled={!canSubmit}
+							className="press-down inline-flex h-10 items-center rounded-md bg-primary px-5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
 							{pending ? "Menyimpan…" : "Catat Adjust"}
 						</button>
@@ -354,41 +384,6 @@ export function StockAdjustDialog({
 				</form>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function DirOption({
-	selected,
-	onClick,
-	icon,
-	label,
-	tone,
-}: {
-	selected: boolean;
-	onClick: () => void;
-	icon: React.ReactNode;
-	label: string;
-	tone: "emerald" | "rose" | "amber";
-}) {
-	const cls =
-		tone === "emerald"
-			? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30"
-			: tone === "rose"
-				? "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/30"
-				: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30";
-
-	return (
-		<button
-			type="button"
-			aria-pressed={selected}
-			onClick={onClick}
-			className={`flex flex-col items-center gap-0.5 rounded-md px-2 py-2 text-center transition-colors ${
-				selected ? cls : "text-muted-foreground hover:bg-muted"
-			}`}
-		>
-			<span>{icon}</span>
-			<span className="text-xs font-medium">{label}</span>
-		</button>
 	);
 }
 
@@ -409,7 +404,7 @@ function Field({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
+			<label htmlFor={name} className="text-[13px] font-medium text-foreground">
 				{label}
 				{required && <span className="ml-0.5 text-primary">*</span>}
 			</label>
@@ -423,46 +418,31 @@ function Field({
 	);
 }
 
-function InfoPanel({
+function PreviewCell({
 	label,
 	tone,
-	icon,
 	children,
 }: {
 	label: string;
-	tone: "muted" | "emerald" | "amber" | "sky" | "rose";
-	icon?: React.ReactNode;
+	tone: "muted" | "emerald" | "rose";
 	children: React.ReactNode;
 }) {
-	const cls =
-		tone === "emerald"
-			? "border-emerald-500/30 bg-emerald-500/5"
-			: tone === "amber"
-				? "border-amber-500/30 bg-amber-500/5"
-				: tone === "sky"
-					? "border-sky-500/30 bg-sky-500/5"
-					: tone === "rose"
-						? "border-rose-500/30 bg-rose-500/5"
-						: "border-border-default bg-surface-2/60";
 	const labelTone =
 		tone === "emerald"
 			? "text-emerald-700 dark:text-emerald-300"
-			: tone === "amber"
-				? "text-amber-700 dark:text-amber-300"
-				: tone === "sky"
-					? "text-sky-700 dark:text-sky-300"
-					: tone === "rose"
-						? "text-rose-700 dark:text-rose-300"
-						: "text-muted-foreground";
+			: tone === "rose"
+				? "text-rose-700 dark:text-rose-300"
+				: "text-muted-foreground/80";
 	return (
-		<div className={`rounded-lg border p-2.5 ${cls}`}>
+		<div>
 			<div
-				className={`mb-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider ${labelTone}`}
+				className={`text-[9px] font-semibold uppercase tracking-wider ${labelTone}`}
 			>
-				{icon}
 				{label}
 			</div>
-			{children}
+			<div className="mt-0.5 whitespace-nowrap tabular text-base font-bold text-foreground">
+				{children}
+			</div>
 		</div>
 	);
 }
