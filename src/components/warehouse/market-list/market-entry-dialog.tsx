@@ -240,7 +240,7 @@ export function MarketEntryDialog({
 						<div className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3.5 py-2.5">
 							<p className="text-[12px] leading-relaxed text-sky-900 dark:text-sky-200">
 								<span className="font-semibold">📐 Config item:</span> 1{" "}
-								<strong>{conversionDefault.pack_unit}</strong> ={" "}
+								<strong>{capitalize(conversionDefault.pack_unit)}</strong> ={" "}
 								<strong>
 									{conversionDefault.pack_size} {item.unit}
 								</strong>
@@ -451,6 +451,12 @@ export function MarketEntryDialog({
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/** Title-case unit code untuk display ("box" → "Box", "pcs" → "Pcs"). */
+function capitalize(s: string): string {
+	if (!s) return "";
+	return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function Field({

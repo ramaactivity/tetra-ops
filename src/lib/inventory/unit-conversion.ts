@@ -216,6 +216,13 @@ export function sumBundles(bundles: Bundle[], map: UnitConversionMap): number {
 	return total;
 }
 
+/** Strip "(N base)" parenthetical dari label saat render — defensive against
+ * legacy stored labels yang masih polluted. New saves sudah pakai clean label
+ * via items-inventory.ts buildConversionJsonb. */
+function sanitizeLabel(label: string): string {
+	return label.replace(/\s*\([^)]*\)\s*$/, "").trim() || label;
+}
+
 /** List units filtered by kind, in stable order (base first, then by label). */
 export function listUnitsByKind(
 	map: UnitConversionMap,
@@ -224,7 +231,10 @@ export function listUnitsByKind(
 	const allowed = new Set(kinds);
 	const entries = Object.entries(map.units)
 		.filter(([, def]) => allowed.has(def.kind))
-		.map(([code, def]) => ({ code, def }));
+		.map(([code, def]) => ({
+			code,
+			def: { ...def, label: sanitizeLabel(def.label) },
+		}));
 	entries.sort((a, b) => {
 		if (a.def.kind === "base" && b.def.kind !== "base") return -1;
 		if (b.def.kind === "base" && a.def.kind !== "base") return 1;

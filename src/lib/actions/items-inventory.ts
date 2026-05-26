@@ -158,7 +158,10 @@ function buildConversionJsonb(
 			multiplier: conversionFactor,
 			denominator: null,
 			kind: "purchase",
-			label: `${prettifyUnit(purchaseUnit)} (${conversionFactor} ${prettifyUnit(baseUnit)})`,
+			// Label clean — TIDAK include "(N base)" parenthetical karena display
+			// component yang renders dropdown bisa compose info dari multiplier
+			// field. Label di dropdown harus singkat supaya user gak confused.
+			label: prettifyUnit(purchaseUnit),
 		};
 	}
 	return { base_unit: baseUnit, units };
