@@ -30,16 +30,59 @@ export default async function WarehouseEditItemPage({
 	const categoryLabel =
 		loaded.kind === "inventory" ? "Persediaan" : "Aset Tetap";
 
-	// Fetch suppliers only when inventory (fixed-asset form doesn't use it)
+	// Fetch suppliers + supplier_prices only when inventory (fixed-asset
+	// form doesn't use them yet)
 	let suppliers: Array<{ id: string; name: string }> = [];
+	let supplierPrices: Array<{
+		id: string;
+		supplier_id: string;
+		supplier_name: string;
+		pack_price: number;
+		pack_size: number;
+		pack_unit: string;
+		is_primary: boolean;
+		notes: string | null;
+	}> = [];
 	if (loaded.kind === "inventory") {
-		const { data } = await supabase
-			.from("suppliers")
-			.select("id, name")
-			.is("deleted_at", null)
-			.eq("is_active", true)
-			.order("name");
-		suppliers = (data ?? []) as { id: string; name: string }[];
+		const [supplierRes, pricesRes] = await Promise.all([
+			supabase
+				.from("suppliers")
+				.select("id, name")
+				.is("deleted_at", null)
+				.eq("is_active", true)
+				.order("name"),
+			supabase
+				.from("supplier_prices")
+				.select(
+					"id, supplier_id, pack_price, pack_size, pack_unit, is_primary, notes, supplier:suppliers!supplier_prices_supplier_id_fkey(name)",
+				)
+				.eq("item_id", loaded.base.id)
+				.order("is_primary", { ascending: false })
+				.order("pack_price", { ascending: true }),
+		]);
+		suppliers = (supplierRes.data ?? []) as { id: string; name: string }[];
+		supplierPrices = ((pricesRes.data ?? []) as Array<{
+			id: string;
+			supplier_id: string;
+			pack_price: number;
+			pack_size: number | string;
+			pack_unit: string;
+			is_primary: boolean;
+			notes: string | null;
+			supplier: { name: string } | Array<{ name: string }> | null;
+		}>).map((p) => {
+			const sup = Array.isArray(p.supplier) ? p.supplier[0] : p.supplier;
+			return {
+				id: p.id,
+				supplier_id: p.supplier_id,
+				supplier_name: sup?.name ?? "—",
+				pack_price: Number(p.pack_price),
+				pack_size: Number(p.pack_size),
+				pack_unit: p.pack_unit,
+				is_primary: p.is_primary,
+				notes: p.notes,
+			};
+		});
 	}
 
 	return (
@@ -67,6 +110,15 @@ export default async function WarehouseEditItemPage({
 						defaults={inventoryDefaultsFrom(loaded)}
 						returnTo="/warehouse"
 						suppliers={suppliers}
+						existingPrices={supplierPrices}
+						itemContext={{
+							id: loaded.base.id,
+							sku: loaded.base.sku,
+							name: loaded.base.name,
+							unit: loaded.config.base_unit,
+							unit_conversion: loaded.config.unit_conversion,
+							purchase_price_avg: loaded.config.purchase_price_avg,
+						}}
 					/>
 				) : (
 					<FixedAssetItemForm

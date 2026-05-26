@@ -1,10 +1,23 @@
 "use client";
 
-import { Info, Wand2 } from "lucide-react";
+import { Info, Pencil, Plus, Star, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { NativeSelect } from "@/components/ui/native-select";
+import { toast } from "@/components/ui/toaster";
+import { MarketEntryDialog } from "@/components/warehouse/market-list/market-entry-dialog";
+import type {
+	MarketListEntry,
+	MarketListItem,
+} from "@/components/warehouse/market-list/market-list-table";
+import {
+	deleteSupplierPrice,
+	setPrimarySupplierPrice,
+} from "@/lib/actions/suppliers";
+import { formatRupiah } from "@/lib/format";
 import {
 	createInventoryItem,
 	type InventoryItemFormState,
@@ -57,18 +70,44 @@ const PURCHASE_UNIT_OPTIONS = [
 	...UNIT_OPTIONS,
 ];
 
+export type InlineSupplierPriceRow = {
+	id: string;
+	supplier_id: string;
+	supplier_name: string;
+	pack_price: number;
+	pack_size: number;
+	pack_unit: string;
+	is_primary: boolean;
+	notes: string | null;
+};
+
+export type ItemContextForPricing = {
+	id: string;
+	sku: string;
+	name: string;
+	unit: string;
+	unit_conversion: unknown;
+	purchase_price_avg: number;
+};
+
 export function InventoryItemForm({
 	mode,
 	id,
 	defaults = EMPTY_INVENTORY_DEFAULTS,
 	returnTo,
 	suppliers = [],
+	existingPrices = [],
+	itemContext,
 }: {
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: InventoryItemDefaults;
 	returnTo?: "/settings/items" | "/warehouse";
 	suppliers?: SupplierOption[];
+	/** Existing supplier prices for THIS item (edit mode only) */
+	existingPrices?: InlineSupplierPriceRow[];
+	/** Item context untuk MarketEntryDialog prefill (edit mode only) */
+	itemContext?: ItemContextForPricing;
 }) {
 	const action =
 		mode === "create"
@@ -378,6 +417,21 @@ export function InventoryItemForm({
 				)}
 			</Field>
 
+			{/* ── Harga & Supplier (Market List inline) ──────────────────── */}
+			{mode === "edit" && itemContext && (
+				<div className="space-y-3">
+					<SectionHeader
+						title="Harga & Supplier"
+						subtitle="Catat semua supplier untuk item ini. ⭐ Primary = vendor yang harga drives Avg Cost. Auto-sync ke Persediaan + Rekap."
+					/>
+					<InlineSupplierPriceList
+						item={itemContext}
+						suppliers={suppliers}
+						existingPrices={existingPrices}
+					/>
+				</div>
+			)}
+
 			{/* ── BOM Component toggle ────────────────────────────────────── */}
 			<label className="bg-surface-3 flex cursor-pointer items-start gap-3 rounded-md p-3">
 				<input
@@ -456,4 +510,230 @@ function prettyUnit(u: string): string {
 	if (!u) return "";
 	if (u === "sheet") return "Lembar";
 	return u.charAt(0).toUpperCase() + u.slice(1);
+}
+
+/**
+ * Inline supplier prices section di Item edit page. Lists semua
+ * supplier_prices untuk item ini + button add/edit/delete + star (primary
+ * toggle). Reuses MarketEntryDialog dengan auto-prefill dari item config.
+ *
+ * Master Edit Page philosophy: user tidak perlu navigate ke Market List
+ * untuk manage prices — semua di satu tempat.
+ */
+function InlineSupplierPriceList({
+	item,
+	suppliers,
+	existingPrices,
+}: {
+	item: ItemContextForPricing;
+	suppliers: SupplierOption[];
+	existingPrices: InlineSupplierPriceRow[];
+}) {
+	const router = useRouter();
+	const [editing, setEditing] = useState<{
+		mode: "create" | "edit";
+		entry?: MarketListEntry;
+	} | null>(null);
+	const [deleting, setDeleting] = useState<InlineSupplierPriceRow | null>(null);
+	const [primaryPending, setPrimaryPending] = useState<string | null>(null);
+
+	// Convert to MarketListItem shape needed by MarketEntryDialog
+	const dialogItem: MarketListItem = {
+		id: item.id,
+		sku: item.sku,
+		name: item.name,
+		unit: item.unit,
+		unit_conversion: item.unit_conversion as Record<string, number> | null,
+		purchase_price_avg: item.purchase_price_avg,
+		category: "inventory",
+	};
+
+	function rowToEntry(p: InlineSupplierPriceRow): MarketListEntry {
+		return {
+			id: p.id,
+			supplier_id: p.supplier_id,
+			supplier_name: p.supplier_name,
+			item_id: item.id,
+			pack_price: p.pack_price,
+			pack_size: p.pack_size,
+			pack_unit: p.pack_unit,
+			is_primary: p.is_primary,
+			notes: p.notes,
+		};
+	}
+
+	async function handleSetPrimary(priceId: string, supplierName: string) {
+		setPrimaryPending(priceId);
+		try {
+			await setPrimarySupplierPrice(priceId);
+			toast.success(`${supplierName} di-set Primary — HPP synced`);
+			router.refresh();
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Gagal set Primary";
+			toast.error(msg);
+		} finally {
+			setPrimaryPending(null);
+		}
+	}
+
+	return (
+		<div className="space-y-3">
+			{/* List */}
+			{existingPrices.length === 0 ? (
+				<div className="rounded-lg border border-dashed border-border-default bg-surface-3/40 p-6 text-center">
+					<p className="text-sm font-medium text-foreground">
+						Belum ada supplier
+					</p>
+					<p className="mt-1 text-[12px] text-muted-foreground">
+						Tambah supplier untuk catat harga belanja item ini.
+					</p>
+				</div>
+			) : (
+				<div className="space-y-1.5">
+					{existingPrices.map((p) => {
+						const effective =
+							p.pack_size > 0 ? p.pack_price / p.pack_size : 0;
+						return (
+							<div
+								key={p.id}
+								className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+									p.is_primary
+										? "border-amber-500/30 bg-amber-500/10"
+										: "border-border-default bg-surface-3"
+								}`}
+							>
+								{/* Star button (primary toggle) */}
+								{p.is_primary ? (
+									<Star
+										className="size-4 shrink-0 fill-amber-500 text-amber-500"
+										aria-label="Primary supplier"
+									/>
+								) : (
+									<button
+										type="button"
+										onClick={() =>
+											handleSetPrimary(p.id, p.supplier_name)
+										}
+										disabled={primaryPending === p.id}
+										title="Tag sebagai Primary supplier"
+										aria-label="Tag sebagai Primary supplier"
+										className="press-down inline-flex size-5 items-center justify-center rounded text-muted-foreground/40 hover:bg-amber-500/10 hover:text-amber-600 disabled:opacity-50"
+									>
+										<Star className="size-3.5" />
+									</button>
+								)}
+
+								{/* Supplier name + isi info */}
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-2">
+										<span
+											className={`truncate text-[13px] ${p.is_primary ? "font-semibold text-foreground" : "font-medium text-foreground"}`}
+										>
+											{p.supplier_name}
+										</span>
+									</div>
+									<div className="text-[11px] text-muted-foreground tabular">
+										{p.pack_size.toLocaleString("id-ID")} {p.pack_unit} ×{" "}
+										{formatRupiah(p.pack_price)}
+									</div>
+								</div>
+
+								{/* Effective cost */}
+								<div className="text-right">
+									<div className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+										Eff Cost
+									</div>
+									<div
+										className={`tabular text-sm font-semibold whitespace-nowrap ${
+											p.is_primary
+												? "text-amber-700 dark:text-amber-300"
+												: "text-foreground"
+										}`}
+									>
+										{formatRupiah(Math.round(effective))}
+										<span className="ml-0.5 text-[10px] font-normal text-muted-foreground">
+											/ {item.unit}
+										</span>
+									</div>
+								</div>
+
+								{/* Edit + Delete actions */}
+								<div className="flex items-center gap-0.5">
+									<button
+										type="button"
+										onClick={() =>
+											setEditing({ mode: "edit", entry: rowToEntry(p) })
+										}
+										title="Edit harga"
+										aria-label="Edit harga"
+										className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+									>
+										<Pencil className="size-3.5" />
+									</button>
+									<button
+										type="button"
+										onClick={() => setDeleting(p)}
+										title="Hapus entry"
+										aria-label="Hapus entry"
+										className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+									>
+										<Trash2 className="size-3.5" />
+									</button>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			)}
+
+			{/* Add button */}
+			<button
+				type="button"
+				onClick={() => setEditing({ mode: "create" })}
+				disabled={suppliers.length === 0}
+				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-border-default bg-surface-2 px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-surface-3 disabled:opacity-50"
+			>
+				<Plus className="size-3.5" />
+				Tambah Supplier
+			</button>
+
+			{/* Modal: create / edit */}
+			{editing && (
+				<MarketEntryDialog
+					open={!!editing}
+					onOpenChange={(o) => !o && setEditing(null)}
+					mode={editing.mode}
+					item={dialogItem}
+					entry={editing.entry}
+					suppliers={suppliers}
+				/>
+			)}
+
+			{/* Delete confirm */}
+			<ConfirmDialog
+				open={!!deleting}
+				onOpenChange={(o) => !o && setDeleting(null)}
+				title="Hapus entry harga?"
+				description={
+					deleting
+						? `Entry "${deleting.supplier_name}" untuk item ini akan dihapus permanen.`
+						: ""
+				}
+				confirmLabel="Hapus"
+				variant="destructive"
+				onConfirm={async () => {
+					if (!deleting) return;
+					try {
+						await deleteSupplierPrice(deleting.id);
+						toast.success("Entry dihapus");
+						setDeleting(null);
+						router.refresh();
+					} catch (e) {
+						const msg = e instanceof Error ? e.message : "Gagal hapus";
+						toast.error(msg);
+					}
+				}}
+			/>
+		</div>
+	);
 }
