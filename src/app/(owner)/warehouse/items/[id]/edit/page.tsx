@@ -106,12 +106,8 @@ function inventoryDefaultsFrom(
 		purchase_unit: firstPurchase?.code ?? "",
 		conversion_factor: conversionFactor,
 		min_stock_alert: String(loaded.config.min_stock_alert ?? 0),
-		preferred_supplier_id:
-			(loaded.config as { preferred_supplier_id?: string | null })
-				.preferred_supplier_id ?? "",
-		is_bom_component:
-			(loaded.config as { is_bom_component?: boolean }).is_bom_component ??
-			false,
+		preferred_supplier_id: loaded.config.preferred_supplier_id ?? "",
+		is_bom_component: loaded.config.is_bom_component ?? false,
 		notes: loaded.base.notes ?? "",
 		is_active: loaded.base.is_active,
 		purchase_price_avg: loaded.config.purchase_price_avg ?? 0,

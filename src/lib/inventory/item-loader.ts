@@ -36,6 +36,8 @@ export type InventoryConfig = {
 	min_stock_alert: number;
 	purchase_price_avg: number;
 	selling_price: number | null;
+	preferred_supplier_id: string | null;
+	is_bom_component: boolean;
 	coa_account_inventory: string | null;
 	coa_account_cogs: string | null;
 	coa_account_wastage: string | null;
@@ -67,7 +69,7 @@ export type LoadedItem =
 const BASE_FIELDS =
 	"id, sku, name, category, unit, coa_account, is_active, image_url, notes, created_at, updated_at, deleted_at";
 const INV_FIELDS =
-	"item_id, base_unit, unit_conversion, min_stock_alert, purchase_price_avg, selling_price, coa_account_inventory, coa_account_cogs, coa_account_wastage";
+	"item_id, base_unit, unit_conversion, min_stock_alert, purchase_price_avg, selling_price, preferred_supplier_id, is_bom_component, coa_account_inventory, coa_account_cogs, coa_account_wastage";
 const FA_FIELDS =
 	"item_id, asset_number, serial_number, purchase_price, purchase_date, salvage_value, useful_life_months, depreciation_method, depreciation_start_date, condition, current_location, current_event_id, current_crew_id, coa_account_asset, coa_account_accum_depr, coa_account_depr_expense";
 
