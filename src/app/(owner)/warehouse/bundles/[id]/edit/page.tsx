@@ -29,8 +29,8 @@ export default async function EditBundlePage({
 		supabase
 			.from("inventory_items")
 			.select(
-				`id, sku, name, unit,
-				 config:items_inventory_config!inner(purchase_price_avg, is_bom_component)`,
+				`id, sku, name, unit, purchase_price_avg,
+				 config:items_inventory_config!inner(is_bom_component)`,
 			)
 			.eq("category", "inventory")
 			.eq("is_active", true)
@@ -52,10 +52,7 @@ export default async function EditBundlePage({
 		sku: string;
 		name: string;
 		unit: string;
-		config:
-			| { purchase_price_avg: number | string | null }
-			| Array<{ purchase_price_avg: number | string | null }>
-			| null;
+		purchase_price_avg: number | string | null;
 	};
 
 	const components = ((bundle.components ?? []) as RawComp[])
@@ -67,16 +64,13 @@ export default async function EditBundlePage({
 		}));
 
 	const itemOptions: BundleComponentItem[] = ((items ?? []) as RawItem[]).map(
-		(i) => {
-			const cfg = Array.isArray(i.config) ? i.config[0] : i.config;
-			return {
-				id: i.id,
-				sku: i.sku,
-				name: i.name,
-				unit: i.unit,
-				purchase_price_avg: Number(cfg?.purchase_price_avg ?? 0),
-			};
-		},
+		(i) => ({
+			id: i.id,
+			sku: i.sku,
+			name: i.name,
+			unit: i.unit,
+			purchase_price_avg: Number(i.purchase_price_avg ?? 0),
+		}),
 	);
 
 	// Pastikan komponen yang sudah dipilih ada di options (kalau is_bom_component
@@ -88,19 +82,15 @@ export default async function EditBundlePage({
 	if (missingIds.length > 0) {
 		const { data: extra } = await supabase
 			.from("inventory_items")
-			.select(
-				`id, sku, name, unit,
-				 config:items_inventory_config(purchase_price_avg)`,
-			)
+			.select("id, sku, name, unit, purchase_price_avg")
 			.in("id", missingIds);
 		for (const i of (extra ?? []) as RawItem[]) {
-			const cfg = Array.isArray(i.config) ? i.config[0] : i.config;
 			itemOptions.push({
 				id: i.id,
 				sku: i.sku,
 				name: `${i.name} ⚠ (flag BOM dimatikan)`,
 				unit: i.unit,
-				purchase_price_avg: Number(cfg?.purchase_price_avg ?? 0),
+				purchase_price_avg: Number(i.purchase_price_avg ?? 0),
 			});
 		}
 	}

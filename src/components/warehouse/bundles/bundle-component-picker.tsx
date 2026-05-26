@@ -74,14 +74,16 @@ export function BundleComponentPicker({
 					{rows.map((r, idx) => {
 						const selectedItem = itemMap.get(r.item_id);
 						// Filter: tampilkan semua item, tapi disable yg sudah dipakai (kecuali current row)
-						const itemOptions = [
+						// Combobox option label = nama saja (clean), SKU di sublabel.
+					const itemOptions = [
 							{ value: "", label: "— pilih item komponen —" },
 							...items.map((i) => ({
 								value: i.id,
 								label:
 									usedIds.has(i.id) && i.id !== r.item_id
-										? `${i.sku} — ${i.name} (sudah dipilih)`
-										: `${i.sku} — ${i.name}`,
+										? `${i.name} (sudah dipilih)`
+										: i.name,
+								sublabel: i.sku,
 							})),
 						];
 

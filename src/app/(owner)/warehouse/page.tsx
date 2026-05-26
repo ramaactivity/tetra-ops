@@ -335,14 +335,16 @@ export default async function WarehousePage({
 	let bundlesIncompleteCount = 0;
 	let bundlesTotalHpp = 0;
 	if (tab === "bundles") {
+		// Bundle price source: inventory_items.purchase_price_avg (canonical,
+		// ter-sync dari Market List primary supplier via trigger). Sebelumnya
+		// baca dari items_inventory_config satellite yang stale.
 		const { data: bundlesData } = await supabase
 			.from("item_bundles")
 			.select(
 				`id, sku, name, is_active,
 				 components:bundle_components(
-				   qty,
-				   item:inventory_items!bundle_components_item_id_fkey(id, sku, name, unit),
-				   config:items_inventory_config!bundle_components_item_id_fkey(purchase_price_avg)
+				   item_id, qty,
+				   item:inventory_items!bundle_components_item_id_fkey(id, sku, name, unit, purchase_price_avg)
 				 )`,
 			)
 			.is("deleted_at", null)
@@ -354,20 +356,27 @@ export default async function WarehousePage({
 			name: string;
 			is_active: boolean;
 			components: Array<{
+				item_id: string;
 				qty: number | string;
-				item: { id: string; sku: string; name: string; unit: string } | null;
-				config:
-					| { purchase_price_avg: number | string | null }
-					| Array<{ purchase_price_avg: number | string | null }>
-					| null;
+				item: {
+					id: string;
+					sku: string;
+					name: string;
+					unit: string;
+					purchase_price_avg: number | string | null;
+				} | null;
 			}>;
 		};
 
+		// stockByItem dari atas (uses movements aggregate) → max-buildable calc
 		bundleRows = ((bundlesData ?? []) as unknown as RawBundle[]).map((b) => {
 			const comps = (b.components ?? []).map((c) => {
-				const cfg = Array.isArray(c.config) ? c.config[0] : c.config;
-				const avg = Number(cfg?.purchase_price_avg ?? 0);
+				const avg = Number(c.item?.purchase_price_avg ?? 0);
 				const qty = Number(c.qty);
+				const componentStock = c.item_id
+					? (stockByItem.get(c.item_id) ?? 0)
+					: 0;
+				const buildable = qty > 0 ? Math.floor(componentStock / qty) : 0;
 				return {
 					qty,
 					item: c.item
@@ -375,9 +384,15 @@ export default async function WarehousePage({
 						: null,
 					avg,
 					lineCost: avg * qty,
+					componentStock,
+					buildable,
 				};
 			});
 			const totalHpp = comps.reduce((s, c) => s + c.lineCost, 0);
+			// Max bundles buildable = min(buildable per component). Kalau ada
+			// komponen 0, hasilnya 0 (bottleneck logic).
+			const maxBuildable =
+				comps.length > 0 ? Math.min(...comps.map((c) => c.buildable)) : 0;
 			return {
 				id: b.id,
 				sku: b.sku,
@@ -385,24 +400,15 @@ export default async function WarehousePage({
 				is_active: b.is_active,
 				componentCount: comps.length,
 				totalHpp,
+				maxBuildable,
 				components: comps,
 			};
 		});
 
-		// Stock completeness: bundle "Ready" kalau semua komponennya ada stok >= qty
 		for (const b of bundleRows) {
 			if (!b.is_active) continue;
 			bundlesActiveCount++;
-			let ready = true;
-			for (const c of b.components) {
-				if (!c.item) {
-					ready = false;
-					break;
-				}
-				// Need item id — but we stripped it above. Re-fetch via items list?
-				// Simpler: assume ready if all components present. Stock check defer.
-			}
-			if (!ready) bundlesIncompleteCount++;
+			if (b.maxBuildable === 0) bundlesIncompleteCount++;
 			bundlesTotalHpp += b.totalHpp;
 		}
 	}
@@ -490,15 +496,21 @@ export default async function WarehousePage({
 							accent="primary"
 						/>
 						<KpiCard
-							label="Status Komponen"
+							label="Siap Pakai"
 							value={
-								bundlesIncompleteCount === 0
-									? "Semua Lengkap"
-									: `${bundlesActiveCount - bundlesIncompleteCount} Siap / ${bundlesIncompleteCount} Tidak`
+								bundlesActiveCount === 0
+									? "—"
+									: `${bundlesActiveCount - bundlesIncompleteCount} / ${bundlesActiveCount}`
 							}
-							hint="bundle dengan komponen aktif"
+							hint={
+								bundlesIncompleteCount === 0 && bundlesActiveCount > 0
+									? "semua bundle stok cukup"
+									: `${bundlesIncompleteCount} bundle komponen habis`
+							}
 							icon={CheckCircle2}
-							accent="emerald"
+							accent={
+								bundlesIncompleteCount === 0 ? "emerald" : "amber"
+							}
 						/>
 						<KpiCard
 							label="Total Recipe Value"

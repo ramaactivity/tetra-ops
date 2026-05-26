@@ -7,12 +7,15 @@ import { createClient } from "@/lib/supabase/server";
 export default async function NewBundlePage() {
 	const supabase = await createClient();
 
-	// Hanya item Persediaan yg flagged is_bom_component muncul di picker
+	// Hanya item Persediaan yg flagged is_bom_component muncul di picker.
+	// purchase_price_avg dibaca dari inventory_items (trigger-canonical column
+	// yang ter-sync dari Market List primary supplier), BUKAN dari satellite
+	// items_inventory_config.purchase_price_avg yang stale.
 	const { data } = await supabase
 		.from("inventory_items")
 		.select(
-			`id, sku, name, unit,
-			 config:items_inventory_config!inner(purchase_price_avg, is_bom_component)`,
+			`id, sku, name, unit, purchase_price_avg,
+			 config:items_inventory_config!inner(is_bom_component)`,
 		)
 		.eq("category", "inventory")
 		.eq("is_active", true)
@@ -25,22 +28,16 @@ export default async function NewBundlePage() {
 		sku: string;
 		name: string;
 		unit: string;
-		config:
-			| { purchase_price_avg: number | string | null }
-			| Array<{ purchase_price_avg: number | string | null }>
-			| null;
+		purchase_price_avg: number | string | null;
 	};
 
-	const items: BundleComponentItem[] = ((data ?? []) as Raw[]).map((i) => {
-		const cfg = Array.isArray(i.config) ? i.config[0] : i.config;
-		return {
-			id: i.id,
-			sku: i.sku,
-			name: i.name,
-			unit: i.unit,
-			purchase_price_avg: Number(cfg?.purchase_price_avg ?? 0),
-		};
-	});
+	const items: BundleComponentItem[] = ((data ?? []) as Raw[]).map((i) => ({
+		id: i.id,
+		sku: i.sku,
+		name: i.name,
+		unit: i.unit,
+		purchase_price_avg: Number(i.purchase_price_avg ?? 0),
+	}));
 
 	return (
 		<Container size="lg" className="space-y-5">
