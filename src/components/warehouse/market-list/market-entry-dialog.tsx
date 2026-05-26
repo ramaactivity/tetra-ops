@@ -74,14 +74,25 @@ export function MarketEntryDialog({
 	const [supplierId, setSupplierId] = useState<string>(
 		entry?.supplier_id ?? "",
 	);
+	// Kalau item punya bulk config (multiplier>1), pack_unit + pack_size
+	// LOCKED inherit dari item config — single source of truth, abaikan
+	// nilai stale di entry kalau item config baru saja berubah. Kalau item
+	// tanpa bulk config (base-unit only), fallback ke entry value untuk edit.
+	const hasBulk = conversionDefault.pack_size > 1;
 	const [packUnit, setPackUnit] = useState<string>(
-		entry?.pack_unit ?? conversionDefault.pack_unit,
+		hasBulk
+			? conversionDefault.pack_unit
+			: (entry?.pack_unit ?? conversionDefault.pack_unit),
 	);
 	const [packPrice, setPackPrice] = useState<string>(
 		entry ? String(entry.pack_price) : "",
 	);
 	const [packSize, setPackSize] = useState<string>(
-		entry ? String(entry.pack_size) : String(conversionDefault.pack_size),
+		hasBulk
+			? String(conversionDefault.pack_size)
+			: entry
+				? String(entry.pack_size)
+				: String(conversionDefault.pack_size),
 	);
 	const [isPrimary, setIsPrimary] = useState<boolean>(
 		entry?.is_primary ?? false,

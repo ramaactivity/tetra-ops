@@ -200,7 +200,8 @@ export async function createInventoryItem(
 		data.conversion_factor,
 	);
 
-	// Step 1: insert base
+	// Step 1: insert base — write unit_conversion juga supaya consumer (warehouse
+	// list, pembelian, market list) yang baca dari base table dapat data fresh.
 	const { data: inserted, error: insErr } = await supabase
 		.from("inventory_items")
 		.insert({
@@ -208,6 +209,7 @@ export async function createInventoryItem(
 			name: data.name,
 			category: "inventory",
 			unit: data.base_unit,
+			unit_conversion: unitConversion,
 			notes: data.notes,
 			is_active: data.is_active,
 		})
@@ -269,11 +271,16 @@ export async function updateInventoryItem(
 		data.conversion_factor,
 	);
 
+	// inventory_items.unit_conversion HARUS ikut diupdate — banyak consumer
+	// (warehouse list, pembelian, market list display) baca dari base table
+	// langsung, bukan dari satellite. Kalau cuma update satellite, UI lain
+	// jadi stale. Single source of truth: kedua tabel di-write bersama.
 	const { error: baseErr } = await supabase
 		.from("inventory_items")
 		.update({
 			name: data.name,
 			unit: data.base_unit,
+			unit_conversion: unitConversion,
 			notes: data.notes,
 			is_active: data.is_active,
 			updated_at: new Date().toISOString(),
@@ -303,6 +310,27 @@ export async function updateInventoryItem(
 			errors: { _form: [`Gagal update config: ${cfgErr.message}`] },
 			values: snapshot(formData),
 		};
+	}
+
+	// Cascade ke supplier_prices: kalau item punya bulk purchase unit (Box,
+	// Pack, dst dengan multiplier>1), semua existing supplier_prices rows
+	// di-sync ke pack_unit + pack_size baru. Tanpa cascade ini, modal Market
+	// List akan tampil unit lama padahal item config sudah berubah.
+	if (data.purchase_unit && data.purchase_unit !== data.base_unit && data.conversion_factor && data.conversion_factor > 0) {
+		const { error: cascadeErr } = await supabase
+			.from("supplier_prices")
+			.update({
+				pack_unit: data.purchase_unit,
+				pack_size: data.conversion_factor,
+				updated_at: new Date().toISOString(),
+			})
+			.eq("item_id", id);
+		if (cascadeErr) {
+			return {
+				errors: { _form: [`Gagal sync supplier prices: ${cascadeErr.message}`] },
+				values: snapshot(formData),
+			};
+		}
 	}
 
 	revalidatePath("/warehouse");
