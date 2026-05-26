@@ -141,8 +141,8 @@ export function MarketEntryDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden">
-				<DialogHeader className="border-b border-border-default/50 bg-surface-1 px-8 pt-7 pb-5">
+			<DialogContent className="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+				<DialogHeader className="shrink-0 border-b border-border-default/50 bg-surface-1 px-8 pt-7 pb-5">
 					<DialogTitle className="text-[18px] font-bold tracking-tight text-foreground">
 						{mode === "create" ? "Tambah Harga Supplier" : "Edit Harga Supplier"}
 					</DialogTitle>
@@ -153,7 +153,11 @@ export function MarketEntryDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				<form action={formAction} className="px-8 pb-7 pt-6 space-y-6">
+				<form
+					action={formAction}
+					className="flex flex-1 flex-col overflow-hidden"
+				>
+					<div className="flex-1 space-y-6 overflow-y-auto px-8 py-6">
 					{formError && (
 						<div className="rounded-lg bg-destructive/10 p-3.5 ring-1 ring-destructive/30">
 							<p className="text-sm font-medium text-destructive">
@@ -337,8 +341,9 @@ export function MarketEntryDialog({
 							</div>
 						</div>
 					</label>
+					</div>
 
-					<DialogFooter className="-mx-8 -mb-7 mt-2 flex justify-end gap-3 border-t border-border-default/50 bg-surface-1/40 px-8 pb-6 pt-5">
+					<DialogFooter className="shrink-0 flex justify-end gap-3 border-t border-border-default/50 bg-surface-1/60 px-8 py-5">
 						<button
 							type="button"
 							onClick={() => onOpenChange(false)}
