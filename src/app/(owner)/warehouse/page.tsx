@@ -283,11 +283,11 @@ export default async function WarehousePage({
 			supabase
 				.from("inventory_items")
 				.select(
-					"id, sku, name, unit, unit_conversion, purchase_price_avg",
+					"id, sku, name, unit, unit_conversion, purchase_price_avg, category",
 				)
-				.eq("category", "inventory")
 				.is("deleted_at", null)
 				.eq("is_active", true)
+				.order("category")
 				.order("name"),
 			supabase
 				.from("supplier_prices")

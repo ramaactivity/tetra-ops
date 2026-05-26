@@ -32,6 +32,7 @@ export type MarketListItem = {
 	unit: string;
 	unit_conversion: Record<string, number> | null;
 	purchase_price_avg: number;
+	category: "inventory" | "fixed_asset";
 };
 
 export type MarketListEntry = {
@@ -75,6 +76,9 @@ export function MarketListTable({
 	const [subTab, setSubTab] = useState<SubTab>("items");
 	const [query, setQuery] = useState("");
 	const [onlyPrimary, setOnlyPrimary] = useState(false);
+	const [categoryFilter, setCategoryFilter] = useState<
+		"all" | "inventory" | "fixed_asset"
+	>("all");
 	const [editing, setEditing] = useState<{
 		mode: "create" | "edit";
 		entry?: MarketListEntry;
@@ -101,11 +105,19 @@ export function MarketListTable({
 
 	const counts = useMemo(() => {
 		let withPrimary = 0;
+		let inventoryCount = 0;
+		let fixedAssetCount = 0;
+		for (const it of items) {
+			if (it.category === "fixed_asset") fixedAssetCount++;
+			else inventoryCount++;
+		}
 		for (const arr of entriesByItem.values()) {
 			if (arr.some((e) => e.is_primary)) withPrimary++;
 		}
 		return {
 			items: items.length,
+			inventoryCount,
+			fixedAssetCount,
 			withEntries: entriesByItem.size,
 			withPrimary,
 			totalEntries: entries.length,
@@ -115,6 +127,8 @@ export function MarketListTable({
 	const filtered = useMemo(() => {
 		const q = query.trim().toLowerCase();
 		return items.filter((item) => {
+			if (categoryFilter !== "all" && item.category !== categoryFilter)
+				return false;
 			const itemEntries = entriesByItem.get(item.id) ?? [];
 			if (onlyPrimary && !itemEntries.some((e) => e.is_primary)) return false;
 			if (!q) return true;
@@ -126,7 +140,7 @@ export function MarketListTable({
 				return true;
 			return false;
 		});
-	}, [items, entriesByItem, query, onlyPrimary]);
+	}, [items, entriesByItem, query, onlyPrimary, categoryFilter]);
 
 	const supplierAggregates = useMemo(() => {
 		const byId = new Map<
@@ -193,7 +207,7 @@ export function MarketListTable({
 				<MetricChip
 					label="Items"
 					value={`${counts.items}`}
-					hint={`${counts.withEntries} sudah ada entry`}
+					hint={`${counts.inventoryCount} Persediaan · ${counts.fixedAssetCount} Aset Tetap`}
 				/>
 				<MetricChip
 					label="Primary set"
@@ -226,15 +240,56 @@ export function MarketListTable({
 					/>
 				</div>
 				{subTab === "items" && (
-					<label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-1.5 text-fluid-caption">
-						<input
-							type="checkbox"
-							checked={onlyPrimary}
-							onChange={(e) => setOnlyPrimary(e.target.checked)}
-							className="size-3.5"
-						/>
-						Primary saja
-					</label>
+					<div className="flex flex-wrap items-center gap-2">
+						<div className="inline-flex h-9 items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-1">
+							{(
+								[
+									{ key: "all", label: "Semua", count: counts.items },
+									{
+										key: "inventory",
+										label: "Persediaan",
+										count: counts.inventoryCount,
+									},
+									{
+										key: "fixed_asset",
+										label: "Aset Tetap",
+										count: counts.fixedAssetCount,
+									},
+								] as const
+							).map((o) => {
+								const active = o.key === categoryFilter;
+								return (
+									<button
+										key={o.key}
+										type="button"
+										onClick={() => setCategoryFilter(o.key)}
+										aria-pressed={active}
+										className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium transition-colors ${
+											active
+												? "bg-primary text-primary-foreground"
+												: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+										}`}
+									>
+										{o.label}
+										<span
+											className={`tabular text-[11px] ${active ? "opacity-80" : "text-muted-foreground/70"}`}
+										>
+											{o.count}
+										</span>
+									</button>
+								);
+							})}
+						</div>
+						<label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 text-[12px]">
+							<input
+								type="checkbox"
+								checked={onlyPrimary}
+								onChange={(e) => setOnlyPrimary(e.target.checked)}
+								className="size-3.5"
+							/>
+							Primary saja
+						</label>
+					</div>
 				)}
 			</div>
 
@@ -323,6 +378,21 @@ function ItemCard({
 				<div className="min-w-0">
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="font-semibold text-foreground">{item.name}</span>
+						<Badge
+							variant="outline"
+							className={`h-5 px-1.5 text-[10px] ${
+								item.category === "fixed_asset"
+									? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+									: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+							}`}
+							title={
+								item.category === "fixed_asset"
+									? "Aset Tetap — depresiasi, 1-to-1 per unit"
+									: "Persediaan — habis pakai, weighted-avg HPP"
+							}
+						>
+							{item.category === "fixed_asset" ? "Aset Tetap" : "Persediaan"}
+						</Badge>
 						<Badge variant="outline" className="h-5 px-1.5 text-[10px]">
 							{item.sku}
 						</Badge>
