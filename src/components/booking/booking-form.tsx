@@ -1941,16 +1941,32 @@ export function BookingForm({
 								placeholder="Belum ditentukan / nyusul"
 								options={[
 									{ value: "", label: "Belum ditentukan / nyusul" },
-									...backdrops.map((b) => ({
-										value: b.id,
-										// Label: cuma {name} + suffix yang BENAR-BENAR informatif.
-										// Hindari repetisi nama vs type label ("Vendor Decor · Vendor
-										// Decor"). Suffix cuma untuk rental price (yang signifikan).
-										label:
-											b.type === "rental_owned" && b.rental_price > 0
-												? `${b.name} · ${formatRupiah(b.rental_price)}`
-												: b.name,
-									})),
+									// Sort priority: client_provided ("Dari Klien") di paling
+									// atas karena paling sering dipilih owner. Lalu basic,
+									// vendor_decor, rental_owned. Within same type → by name.
+									...[...backdrops]
+										.sort((a, b) => {
+											const order: Record<string, number> = {
+												client_provided: 0,
+												basic_included: 1,
+												vendor_decor: 2,
+												rental_owned: 3,
+											};
+											const pa = order[a.type] ?? 99;
+											const pb = order[b.type] ?? 99;
+											if (pa !== pb) return pa - pb;
+											return a.name.localeCompare(b.name);
+										})
+										.map((b) => ({
+											value: b.id,
+											// Label: cuma {name} + suffix yang BENAR-BENAR informatif.
+											// Hindari repetisi nama vs type label ("Vendor Decor ·
+											// Vendor Decor"). Suffix cuma untuk rental price.
+											label:
+												b.type === "rental_owned" && b.rental_price > 0
+													? `${b.name} · ${formatRupiah(b.rental_price)}`
+													: b.name,
+										})),
 								]}
 								allowFreeText={false}
 							/>
