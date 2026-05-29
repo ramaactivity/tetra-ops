@@ -320,12 +320,12 @@ export default async function FinancePage() {
 
 			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				<KpiCard
-					label="Revenue MTD"
+					label="Revenue MTD (cash)"
 					value={formatRupiah(revenueMtd)}
 					hint={
 						revenueDelta !== null
-							? `${revenueDelta >= 0 ? "+" : ""}${revenueDelta.toFixed(1)}% vs ${ID_MONTH_NAMES[lastMonth.getMonth()]}`
-							: "Total payment masuk"
+							? `Uang diterima · ${revenueDelta >= 0 ? "+" : ""}${revenueDelta.toFixed(1)}% vs ${ID_MONTH_NAMES[lastMonth.getMonth()]}`
+							: "Uang diterima bulan ini (cash basis). P&L pakai revenue settled (accrual)."
 					}
 					icon={Wallet2}
 					accent={
