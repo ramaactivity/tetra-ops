@@ -82,12 +82,6 @@ const FIELD_LABELS: Record<string, string> = {
 const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS);
 const FRAME_SIZE_OPTIONS = Object.entries(FRAME_SIZE_LABELS);
 
-const BACKDROP_TYPE_LABEL: Record<string, string> = {
-	basic_included: "Basic (gratis)",
-	rental_owned: "Rental",
-	vendor_decor: "Vendor Decor",
-};
-
 type Action = (
 	prev: BookingFormState,
 	formData: FormData,
@@ -1949,11 +1943,13 @@ export function BookingForm({
 									{ value: "", label: "Belum ditentukan / nyusul" },
 									...backdrops.map((b) => ({
 										value: b.id,
-										label: `${b.name} · ${BACKDROP_TYPE_LABEL[b.type] ?? b.type}${
+										// Label: cuma {name} + suffix yang BENAR-BENAR informatif.
+										// Hindari repetisi nama vs type label ("Vendor Decor · Vendor
+										// Decor"). Suffix cuma untuk rental price (yang signifikan).
+										label:
 											b.type === "rental_owned" && b.rental_price > 0
-												? ` · ${formatRupiah(b.rental_price)}`
-												: ""
-										}`,
+												? `${b.name} · ${formatRupiah(b.rental_price)}`
+												: b.name,
 									})),
 								]}
 								allowFreeText={false}
