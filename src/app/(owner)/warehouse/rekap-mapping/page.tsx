@@ -68,7 +68,7 @@ export default async function RekapMappingPage() {
 	return (
 		<div className="space-y-4">
 			<Link
-				href="/settings/items"
+				href="/warehouse"
 				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
 			>
 				<ChevronLeft className="h-4 w-4" />

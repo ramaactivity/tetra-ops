@@ -44,7 +44,7 @@ export default function ItemsImportPage() {
 					headerAliases: ITEM_HEADER_ALIASES,
 					checkDuplicates: checkItemDuplicates,
 					commit: commitItemImport,
-					backHref: "/settings/items",
+					backHref: "/warehouse",
 					backLabel: "Items",
 					sampleCsv: SAMPLE_ITEM_CSV,
 				}}

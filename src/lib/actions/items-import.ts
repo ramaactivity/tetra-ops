@@ -234,7 +234,7 @@ export async function commitItemImport(
 				}
 			}
 
-			revalidatePath("/settings/items");
+			revalidatePath("/warehouse");
 			revalidatePath("/warehouse");
 
 			return {

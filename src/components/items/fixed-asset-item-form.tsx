@@ -95,7 +95,7 @@ export function FixedAssetItemForm({
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: FixedAssetItemDefaults;
-	returnTo?: "/settings/items" | "/warehouse";
+	returnTo?: "/warehouse";
 }) {
 	const action =
 		mode === "create"

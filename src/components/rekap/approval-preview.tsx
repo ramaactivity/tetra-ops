@@ -221,7 +221,7 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 							ini akan di-skip dari deduksi.
 						</p>
 						<a
-							href="/settings/items/mapping"
+							href="/warehouse/rekap-mapping"
 							className="mt-1 inline-block font-semibold underline hover:no-underline"
 						>
 							Lengkapi mapping →

@@ -9,7 +9,6 @@ const TABS = [
 	{ href: "/settings/packages", label: "Packages" },
 	{ href: "/settings/addons", label: "Add-ons" },
 	{ href: "/settings/backdrops", label: "Backdrops" },
-	{ href: "/settings/items", label: "Items" },
 	{ href: "/settings/bank-accounts", label: "Banks" },
 	{ href: "/settings/crew", label: "Crew" },
 	{ href: "/settings/contacts", label: "Contacts" },

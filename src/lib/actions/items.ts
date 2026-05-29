@@ -132,12 +132,12 @@ async function requireOwnerLevel() {
 
 /**
  * Allow-list of return-to destinations. Anything else falls back to
- * /settings/items so a poisoned form field can't redirect off-site.
+ * /warehouse so a poisoned form field can't redirect off-site.
  */
 function safeReturnTo(raw: FormDataEntryValue | null): string {
 	const s = typeof raw === "string" ? raw : "";
-	const allowed = new Set(["/settings/items", "/warehouse"]);
-	return allowed.has(s) ? s : "/settings/items";
+	const allowed = new Set(["/warehouse"]);
+	return allowed.has(s) ? s : "/warehouse";
 }
 
 export async function createItem(
@@ -163,7 +163,7 @@ export async function createItem(
 		};
 	}
 
-	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
 	revalidatePath("/warehouse");
 	redirect(safeReturnTo(formData.get("return_to")));
 }
@@ -195,8 +195,8 @@ export async function updateItem(
 		};
 	}
 
-	revalidatePath("/settings/items");
-	revalidatePath(`/settings/items/${id}/edit`);
+	revalidatePath("/warehouse");
+	revalidatePath(`/warehouse/items/${id}/edit`);
 	revalidatePath("/warehouse");
 	revalidatePath(`/warehouse/items/${id}/edit`);
 	redirect(safeReturnTo(formData.get("return_to")));
@@ -210,7 +210,7 @@ export async function archiveItem(id: string) {
 		.update({ deleted_at: new Date().toISOString(), is_active: false })
 		.eq("id", id);
 	if (error) throw new Error(error.message);
-	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
 	revalidatePath("/warehouse");
 }
 
@@ -229,7 +229,7 @@ export async function archiveItemsBulk(
 		)
 		.in("id", ids);
 	if (error) return { ok: false, error: error.message };
-	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
 	revalidatePath("/warehouse");
 	return { ok: true, count: count ?? 0 };
 }
@@ -250,7 +250,7 @@ export async function toggleItemsActiveBulk(
 		)
 		.in("id", ids);
 	if (error) return { ok: false, error: error.message };
-	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
 	revalidatePath("/warehouse");
 	return { ok: true, count: count ?? 0 };
 }

@@ -67,7 +67,7 @@ export function ItemForm({
 	defaults?: Defaults;
 	/** Server actions read this to decide redirect destination after success.
 	 *  Allow-list checked server-side — see `safeReturnTo` in actions/items.ts. */
-	returnTo?: "/settings/items" | "/warehouse";
+	returnTo?: "/warehouse";
 }) {
 	const action =
 		mode === "create" ? createItem : updateItem.bind(null, id ?? "");

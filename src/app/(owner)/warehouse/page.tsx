@@ -4,6 +4,7 @@ import {
 	Boxes,
 	CheckCircle2,
 	ClipboardCheck,
+	FileSpreadsheet,
 	Layers,
 	Plus,
 	ShoppingCart,
@@ -473,6 +474,24 @@ export default async function WarehousePage({
 						>
 							<AlertTriangle className="size-4" />
 							Wastage
+						</Link>
+						{/* Admin tools — rare actions (bulk CSV, rekap mapping). Ghost
+							variant supaya tetap kalah hierarki dari primary actions. */}
+						<Link
+							href="/warehouse/import"
+							className={buttonVariants({ variant: "ghost", size: "sm" })}
+							title="Upload CSV untuk add banyak item sekaligus"
+						>
+							<FileSpreadsheet className="size-4" />
+							Bulk Import
+						</Link>
+						<Link
+							href="/warehouse/rekap-mapping"
+							className={buttonVariants({ variant: "ghost", size: "sm" })}
+							title="Map field rekap event ke SKU inventory"
+						>
+							<Layers className="size-4" />
+							Rekap Mapping
 						</Link>
 						<Link
 							href={primaryActionHref}

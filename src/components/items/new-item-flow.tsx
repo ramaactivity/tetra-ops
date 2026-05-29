@@ -22,7 +22,7 @@ export function NewItemFlow({
 	suppliers = [],
 	initialCategory,
 }: {
-	returnTo?: "/settings/items" | "/warehouse";
+	returnTo?: "/warehouse";
 	suppliers?: SupplierOption[];
 	initialCategory?: ItemCategory;
 }) {

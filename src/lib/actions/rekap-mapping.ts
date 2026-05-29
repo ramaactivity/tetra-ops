@@ -74,7 +74,7 @@ export async function updateRekapMapping(
 
 	if (error) return { ok: false, error: error.message };
 
-	revalidatePath("/settings/items/mapping");
+	revalidatePath("/warehouse/rekap-mapping");
 	return { ok: true };
 }
 
@@ -102,7 +102,7 @@ export async function deleteRekapMappingOverride(
 		.eq("rekap_field", rekapField)
 		.eq("frame_size", frameSize);
 	if (error) return { ok: false, error: error.message };
-	revalidatePath("/settings/items/mapping");
+	revalidatePath("/warehouse/rekap-mapping");
 	return { ok: true };
 }
 

@@ -175,7 +175,7 @@ async function requireOwnerLevel() {
 
 function safeReturnTo(raw: FormDataEntryValue | null): string {
 	const s = typeof raw === "string" ? raw : "";
-	const allowed = new Set(["/settings/items", "/warehouse"]);
+	const allowed = new Set(["/warehouse"]);
 	return allowed.has(s) ? s : "/warehouse";
 }
 
@@ -314,7 +314,7 @@ export async function createFixedAssetItem(
 
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/assets");
-	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
 	revalidatePath("/finance/accounting");
 	redirect(safeReturnTo(formData.get("return_to")));
 }
@@ -386,6 +386,6 @@ export async function updateFixedAssetItem(
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/assets");
 	revalidatePath(`/warehouse/items/${id}/edit`);
-	revalidatePath("/settings/items");
+	revalidatePath("/warehouse");
 	redirect(safeReturnTo(formData.get("return_to")));
 }

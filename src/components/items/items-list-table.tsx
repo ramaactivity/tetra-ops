@@ -141,7 +141,7 @@ export function ItemsListTable({ items }: { items: ItemRow[] }) {
 			render: (item) => (
 				<div className="flex items-center justify-end gap-1">
 					<Link
-						href={`/settings/items/${item.id}/edit`}
+						href={`/warehouse/items/${item.id}/edit`}
 						title="Edit"
 						className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
 					>

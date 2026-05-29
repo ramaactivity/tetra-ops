@@ -297,7 +297,7 @@ export function SettlementForm({
 						<p className="text-muted-foreground text-xs">
 							Auto-prefill kosong — pastikan rekap udah di-approve dan{" "}
 							<a
-								href="/settings/items/mapping"
+								href="/warehouse/rekap-mapping"
 								className="text-primary hover:underline"
 							>
 								mapping items

@@ -102,7 +102,7 @@ export function InventoryItemForm({
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: InventoryItemDefaults;
-	returnTo?: "/settings/items" | "/warehouse";
+	returnTo?: "/warehouse";
 	suppliers?: SupplierOption[];
 	/** Existing supplier prices for THIS item (edit mode only) */
 	existingPrices?: InlineSupplierPriceRow[];
