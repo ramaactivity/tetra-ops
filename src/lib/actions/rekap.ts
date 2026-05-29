@@ -10,6 +10,7 @@ import {
 	bucketHpp,
 	FIELD_TO_BUCKET,
 	type HppBucket,
+	roundQty,
 } from "@/lib/rekap/recipe";
 import { createClient } from "@/lib/supabase/server";
 
@@ -1109,6 +1110,10 @@ async function planRekapDeduction(
 			existingItemIds.add(compItem.id);
 		}
 	}
+
+	// Round semua qty ke presisi ledger (NUMERIC(12,4)) supaya snapshot HPP
+	// (bucketHpp) == nilai stok yang ter-simpan di stock_movements, exact.
+	for (const l of lines) l.qty = roundQty(l.qty);
 
 	return { lines, missingMappings };
 }

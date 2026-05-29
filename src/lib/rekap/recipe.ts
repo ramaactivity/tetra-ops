@@ -45,6 +45,16 @@ export const FIELD_TO_BUCKET: Record<
 export type CostedLine = { qty: number; unit_cost: number; bucket: HppBucket };
 
 /**
+ * Round qty ke 4 desimal — sama dengan presisi kolom stock_movements.quantity
+ * (NUMERIC(12,4)). WAJIB dipakai saat bikin deduction line supaya snapshot HPP
+ * (bucketHpp) == nilai stok yang benar-benar ter-simpan di ledger, bukan beda
+ * tipis karena qty full-precision (mis. media 92/1400 = 0.065714... → 0.0657).
+ */
+export function roundQty(n: number): number {
+	return Math.round((Number(n) || 0) * 1e4) / 1e4;
+}
+
+/**
  * Reduce costed consumption lines → per-bucket HPP. Uang di-round SEKALI per
  * bucket (bukan per line) supaya konsisten dengan posting jurnal integer dan
  * Dr=Cr tetap balance. total = jumlah bucket yang sudah di-round.
