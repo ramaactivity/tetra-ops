@@ -3,11 +3,14 @@
 import {
 	AlertTriangle,
 	Bell,
+	BookOpen,
 	Briefcase,
 	ChevronRight,
 	ClipboardCheck,
 	ClipboardList,
+	FileBarChart,
 	FileText,
+	Handshake,
 	Layers,
 	LayoutDashboard,
 	type LucideIcon,
@@ -15,6 +18,7 @@ import {
 	Package,
 	Palette,
 	Receipt,
+	Scale,
 	Settings,
 	ShoppingCart,
 	Truck,
@@ -95,7 +99,39 @@ const NAV_SECTIONS: NavSection[] = [
 					},
 				],
 			},
-			{ href: "/finance", label: "Finance", icon: Wallet },
+			{
+				href: "/finance",
+				label: "Finance",
+				icon: Wallet,
+				children: [
+					{ href: "/finance", label: "Ringkasan", icon: Wallet },
+					{
+						href: "/finance/reports",
+						label: "Laporan",
+						icon: FileBarChart,
+					},
+					{
+						href: "/finance/payables",
+						label: "Hutang Dagang",
+						icon: Scale,
+					},
+					{
+						href: "/finance/accounting",
+						label: "Akuntansi",
+						icon: BookOpen,
+					},
+					{
+						href: "/finance/vendors",
+						label: "Vendor commissions",
+						icon: Handshake,
+					},
+					{
+						href: "/finance/wastage-report",
+						label: "Wastage Report",
+						icon: AlertTriangle,
+					},
+				],
+			},
 		],
 	},
 	{

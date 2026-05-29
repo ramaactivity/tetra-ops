@@ -1,15 +1,10 @@
 import {
 	AlertCircle,
-	AlertTriangle,
 	ArrowDownRight,
 	ArrowUpRight,
-	BookOpen,
 	ChevronRight,
-	FileBarChart,
-	Handshake,
 	PiggyBank,
 	Receipt,
-	Scale,
 	TrendingDown,
 	TrendingUp,
 	Wallet,
@@ -24,7 +19,6 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -322,45 +316,6 @@ export default async function FinancePage() {
 			<SectionHeader
 				title="Finance"
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
-				actions={
-					<>
-						<Link
-							href="/finance/reports"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<FileBarChart className="size-4" />
-							<span className="hidden sm:inline">Laporan</span>
-						</Link>
-						<Link
-							href="/finance/payables"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<Scale className="size-4" />
-							<span className="hidden sm:inline">Hutang Dagang</span>
-						</Link>
-						<Link
-							href="/finance/accounting"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<BookOpen className="size-4" />
-							<span className="hidden sm:inline">Akuntansi</span>
-						</Link>
-						<Link
-							href="/finance/vendors"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<Handshake className="size-4" />
-							<span className="hidden sm:inline">Vendor commissions</span>
-						</Link>
-						<Link
-							href="/finance/wastage-report"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<AlertTriangle className="size-4" />
-							<span className="hidden sm:inline">Wastage Report</span>
-						</Link>
-					</>
-				}
 			/>
 
 			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
