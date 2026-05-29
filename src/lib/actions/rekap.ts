@@ -712,22 +712,6 @@ type DeductionLine = {
 	bucket: HppBucket; // HPP bucket — single source for stock + cost
 };
 
-async function readAutoDeductFlag(
-	supabase: Awaited<ReturnType<typeof createClient>>,
-): Promise<boolean> {
-	const { data } = await supabase
-		.from("system_config")
-		.select("value")
-		.eq("key", "rekap.auto_deduct_stock")
-		.maybeSingle();
-	if (!data) return true; // default ON
-	const v = data.value;
-	if (typeof v === "boolean") return v;
-	if (typeof v === "string") return v === "true" || v === "1";
-	if (typeof v === "number") return v !== 0;
-	return true;
-}
-
 /**
  * Compute the deduction plan for a rekap (Inventory v2, 2026-05-21).
  *
@@ -1165,14 +1149,14 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 		return { ok: false, error: error?.message ?? "Rekap tidak ditemukan" };
 	}
 
-	const flag = await readAutoDeductFlag(supabase);
 	const plan = await planRekapDeduction(supabase, rekap as RekapStockSnapshot);
 
 	return {
 		ok: true,
 		lines: plan.lines,
 		missingMappings: plan.missingMappings,
-		autoDeductEnabled: flag,
+		// Deduksi stok + snapshot HPP selalu jalan saat approval (single engine).
+		autoDeductEnabled: true,
 		alreadyCommitted: rekap.stock_committed_at !== null,
 	};
 }
@@ -1200,8 +1184,6 @@ export async function reviewRekap(
 	const willApprove = approved === true;
 	const hadStockCommitted = existing.stock_committed_at !== null;
 
-	const autoDeductEnabled = await readAutoDeductFlag(supabase);
-
 	// 1. UPDATE the rekap row first (review fields)
 	const updatePayload: Record<string, unknown> = {
 		is_approved: approved,
@@ -1211,7 +1193,7 @@ export async function reviewRekap(
 	};
 
 	// 2. Handle stock side-effects
-	if (willApprove && !wasApproved && !hadStockCommitted && autoDeductEnabled) {
+	if (willApprove && !wasApproved && !hadStockCommitted) {
 		// Approval transition → deduct stock
 		const plan = await planRekapDeduction(
 			supabase,
