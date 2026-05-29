@@ -1281,6 +1281,47 @@ async function reverseRekapStock(
 }
 
 /**
+ * Safety-net sebelum settle: pastikan rekap sudah commit stok + snapshot.
+ * Owner-level. Kalau owner isi rekap sendiri & belum ke-commit, ini auto-commit
+ * (approve diri = otomatis) → owner tinggal klik Settle, tidak perlu approve
+ * terpisah. No-op kalau sudah committed (idempotent).
+ */
+export async function ensureRekapCommitted(
+	eventId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const me = await requireOwnerLevel();
+	const supabase = await createClient();
+	const { data: row } = await supabase
+		.from("crew_rekap")
+		.select(
+			"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+		)
+		.eq("event_id", eventId)
+		.maybeSingle();
+	if (!row) return { ok: false, error: "Rekap belum di-submit untuk event ini." };
+	if (row.stock_committed_at) return { ok: true }; // sudah committed — no-op
+	const commit = await commitRekapStock(
+		supabase,
+		row as RekapStockSnapshot,
+		me.profile.id,
+	);
+	if (!commit.ok) return { ok: false, error: commit.error };
+	const { error } = await supabase
+		.from("crew_rekap")
+		.update({
+			is_approved: true,
+			reviewed_by: me.profile.id,
+			reviewed_at: new Date().toISOString(),
+			status: "reviewed",
+			review_notes: "Auto-approve (owner settle)",
+			...commit.update,
+		})
+		.eq("id", row.id);
+	if (error) return { ok: false, error: error.message };
+	return { ok: true };
+}
+
+/**
  * Public action: returns deduction lines for an unapproved rekap so the
  * UI can show a preview before owner clicks "Approve". Owner-level only.
  */

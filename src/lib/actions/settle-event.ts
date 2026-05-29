@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,12 @@ export async function settleEvent(
 	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
 		return { ok: false, error: "Hanya owner/super_admin yang bisa settle event" };
 	}
+
+	// Owner safety-net: kalau rekap belum commit stok (mis. owner isi sendiri &
+	// belum di-approve), commit otomatis dulu — owner tidak perlu approve diri
+	// sendiri. No-op kalau sudah committed.
+	const committed = await ensureRekapCommitted(eventId);
+	if (!committed.ok) return { ok: false, error: committed.error };
 
 	const supabase = await createClient();
 	const { data, error } = await supabase.rpc("settle_event", {
