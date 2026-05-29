@@ -154,8 +154,6 @@ export default async function AccountingPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Akuntansi"
-				backHref="/finance"
-				backLabel="Finance"
 				description="Bagan Akun, Jurnal Umum. Auto-jurnal aktif — settlement, pembelian, opname otomatis ter-post."
 				actions={<NewJournalEntryButton coa={coaOptions} />}
 			/>

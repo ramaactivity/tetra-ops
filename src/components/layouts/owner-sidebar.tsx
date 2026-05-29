@@ -153,14 +153,9 @@ export function OwnerSidebar() {
 		return pathname === href || pathname.startsWith(`${href}/`);
 	}
 
-	// Find parents that should auto-expand because current pathname matches a child.
-	function pathIsUnder(parent: NavItem): boolean {
-		if (!parent.children) return false;
-		return parent.children.some((c) => isActive(c.href));
-	}
-
 	// Persisted collapsed state: Set of parent hrefs that are MANUALLY collapsed.
-	// Auto-expand by route always overrides manual collapse (user navigated TO it).
+	// Manual intent always wins — kalau user collapse, tetap collapsed walaupun
+	// lagi di salah satu sub-route. Parent expanded by default (tidak di set).
 	const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
 	useEffect(() => {
@@ -189,8 +184,7 @@ export function OwnerSidebar() {
 	}
 
 	function isExpanded(parent: NavItem): boolean {
-		// Auto-expand kalau lagi di salah satu sub-route — supaya user lihat context
-		if (pathIsUnder(parent)) return true;
+		// Expanded by default; collapse hanya kalau user explicitly toggle.
 		return !collapsed.has(parent.href);
 	}
 

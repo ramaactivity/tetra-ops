@@ -195,8 +195,6 @@ export default async function PayablesPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Hutang Dagang"
-				backHref="/finance"
-				backLabel="Finance"
 				description="Outstanding TOP purchases per supplier. Klik Bayar untuk record pembayaran — auto-jurnal Hutang Vendor turun, Kas/Bank turun."
 			/>
 

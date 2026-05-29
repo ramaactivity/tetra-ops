@@ -170,8 +170,6 @@ export default async function FinanceReportsPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Laporan Keuangan"
-				backHref="/finance"
-				backLabel="Finance"
 				description="Neraca Saldo · Laba/Rugi · Neraca. Computed dari journal_lines (reversed entries di-skip)."
 			/>
 

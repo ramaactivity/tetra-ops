@@ -155,8 +155,6 @@ export default async function WastageReportPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Laporan Wastage"
-				backHref="/finance"
-				backLabel="Finance"
 				description={`Akumulasi kerugian wastage ${monthsBack} bulan terakhir. Sumber: tabel wastage_logs (Dr 5-510 Beban Wastage).`}
 				actions={
 					<Link
