@@ -53,6 +53,9 @@ function humanizeRatio(qtyPerUnit: number, unit: string): string {
 	return `×${qtyPerUnit.toLocaleString("id-ID", { maximumFractionDigits: 6 })} ${unit}/cetak`;
 }
 
+/** 1 roll media = 1400 lembar (potongan terkecil ukuran 2R/polaroid). */
+const LEMBAR_PER_ROLL = 1400;
+
 type Defaults = {
 	cetak_total: string;
 	media_set_used: string;
@@ -143,8 +146,10 @@ export function RekapForm({
 	// overwrite. After initial mount, any direct edit flips the flag.
 	const [touched, setTouched] = useState<Record<RekapField, boolean>>({
 		cetak_total: defaults.cetak_total !== "0",
-		media_set_used: defaults.media_set_used !== "0",
-		sleeve_used: defaults.sleeve_used !== "0",
+		// Mediaset & sleeve SELALU mulai auto (di-hitung dari total cetak).
+		// Owner bisa klik "Sesuaikan" kalau mau override manual.
+		media_set_used: false,
+		sleeve_used: false,
 		flashdisk_used: defaults.flashdisk_used !== "0",
 		pouch_used: defaults.pouch_used !== "0",
 		photomagnet_used: defaults.photomagnet_used !== "0",
@@ -535,6 +540,25 @@ export function RekapForm({
 		return m;
 	}, [context.mappings, frameSize]);
 
+	// Auto-derived: mediaset dalam LEMBAR (1 roll = 1400 lembar), sleeve dalam pcs.
+	// Di-sync ke state saat belum di-override manual → preview, draft, & submit
+	// konsisten. Deduct stok di belakang layar tetap dari cetak_total (roll).
+	const cetakNum = Number(cetak) || 0;
+	const autoMediaLembar = (() => {
+		const map = mappingByField.get("media_set_used");
+		return map ? Math.round(cetakNum * map.qty_per_unit * LEMBAR_PER_ROLL) : 0;
+	})();
+	const autoSleeveQty = (() => {
+		const map = mappingByField.get("sleeve_used");
+		return map ? Math.ceil(cetakNum * map.qty_per_unit) : 0;
+	})();
+	useEffect(() => {
+		if (!touched.media_set_used) setMedia(String(autoMediaLembar));
+	}, [autoMediaLembar, touched.media_set_used]);
+	useEffect(() => {
+		if (!touched.sleeve_used) setSleeve(String(autoSleeveQty));
+	}, [autoSleeveQty, touched.sleeve_used]);
+
 	function fieldCost(field: RekapField, value: number): number {
 		const map = mappingByField.get(field);
 		if (!map?.item) return 0;
@@ -689,26 +713,37 @@ export function RekapForm({
 
 			{/* ========== CETAK ========== */}
 			{(() => {
-				const cetakNum = Number(cetak) || 0;
 				const mediaMapping = mappingByField.get("media_set_used");
 				const sleeveMapping = mappingByField.get("sleeve_used");
-				// Exact decimal value matching backend planRekapDeduction. Untuk
-				// crew_rekap.media_set_used (NonNegInt) we ceil — tapi display
-				// tunjukkan decimal yang akurat supaya cost preview match reality.
-				const autoMediaExact = mediaMapping
-					? cetakNum * mediaMapping.qty_per_unit
-					: 0;
 				const autoSleeveExact = sleeveMapping
 					? cetakNum * sleeveMapping.qty_per_unit
 					: 0;
-				const autoMedia = Math.ceil(autoMediaExact);
-				const autoSleeve = Math.ceil(autoSleeveExact);
+				// Mediaset dalam LEMBAR (integer alami: 2R/polaroid 1/cetak, 4R 2/cetak).
+				const autoMedia = autoMediaLembar;
+				const autoSleeve = autoSleeveQty;
 				const finalMedia = touched.media_set_used
 					? Number(media) || 0
 					: autoMedia;
 				const finalSleeve = touched.sleeve_used
 					? Number(sleeve) || 0
 					: autoSleeve;
+				// Mapping versi lembar utk kartu Mediaset — cost & stok dikonversi
+				// (avg ÷ 1400 = per lembar; stok roll × 1400 = lembar) supaya angka
+				// di kartu tetap akurat sambil tampil dalam lembar.
+				const mediaMappingLembar = mediaMapping?.item
+					? {
+							...mediaMapping,
+							qty_per_unit: mediaMapping.qty_per_unit * LEMBAR_PER_ROLL,
+							item: {
+								...mediaMapping.item,
+								unit: "lembar",
+								purchase_price_avg:
+									mediaMapping.item.purchase_price_avg / LEMBAR_PER_ROLL,
+								current_stock:
+									mediaMapping.item.current_stock * LEMBAR_PER_ROLL,
+							},
+						}
+					: mediaMapping;
 				return (
 					<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
 						<div>
@@ -736,10 +771,8 @@ export function RekapForm({
 							<AutoDerivedCard
 								label="Mediaset"
 								value={finalMedia}
-								exactValue={
-									touched.media_set_used ? finalMedia : autoMediaExact
-								}
-								mapping={mediaMapping}
+								exactValue={touched.media_set_used ? finalMedia : autoMedia}
+								mapping={mediaMappingLembar}
 								frameSize={frameSize}
 								touched={touched.media_set_used}
 								manualValue={media}
