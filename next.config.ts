@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
 	// untuk nge-cover sub-route (new, [id]/edit, dst).
 	redirects: async () => {
 		const moves: Array<[string, string]> = [
+			// Rekap Mapping di-retire (Phase 3) — HPP kini dari snapshot kanonik.
+			["/warehouse/rekap-mapping", "/warehouse"],
 			["/settings/packages", "/operations/packages"],
 			["/settings/addons", "/operations/addons"],
 			["/settings/backdrops", "/operations/backdrops"],

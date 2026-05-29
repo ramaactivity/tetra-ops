@@ -217,15 +217,10 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 							{missing.length} field belum di-map ke inventory:
 						</p>
 						<p className="mt-0.5">
-							{missing.map((m) => REKAP_FIELD_LABELS[m]).join(", ")}. Field
-							ini akan di-skip dari deduksi.
+							{missing.map((m) => REKAP_FIELD_LABELS[m]).join(", ")}. SKU-nya
+							tidak ditemukan di inventory — field ini di-skip dari deduksi.
+							Cek item-nya ada & aktif di Inventaris.
 						</p>
-						<a
-							href="/warehouse/rekap-mapping"
-							className="mt-1 inline-block font-semibold underline hover:no-underline"
-						>
-							Lengkapi mapping →
-						</a>
 					</div>
 				</div>
 			)}

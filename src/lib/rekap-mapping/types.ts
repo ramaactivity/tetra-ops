@@ -1,8 +1,9 @@
 /**
- * Rekap-field → inventory item mapping types.
+ * Rekap-field definitions (canonical list of crew_rekap consumption fields).
  *
- * Lives outside `src/lib/actions/rekap-mapping.ts` because that file is
- * `"use server"` — server-action modules can only export async functions.
+ * NB: the old Rekap Mapping admin module di-retire (HPP kini dari snapshot
+ * kanonik di crew_rekap.hpp_snapshot — lihat src/lib/rekap/recipe.ts). File
+ * ini tetap jadi sumber tunggal RekapField + label/hint, dipakai luas.
  */
 
 export const REKAP_FIELDS = [
