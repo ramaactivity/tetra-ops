@@ -5,6 +5,7 @@ import {
 	AddonForm,
 	type InventoryItemOption,
 } from "@/components/addons/addon-form";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { updateAddon } from "@/lib/actions/addons";
 import { createClient } from "@/lib/supabase/server";
@@ -49,17 +50,17 @@ export default async function EditAddonPage({
 	const action = updateAddon.bind(null, addon.id);
 
 	return (
-		<div className="space-y-6">
+		<Container size="lg" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href="/operations/addons"
 					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
 				>
 					<ChevronLeft className="h-4 w-4" />
-					Add-ons
+					Add-on
 				</Link>
 				<SectionHeader
-					as="h2"
+					as="h1"
 					title={`Edit: ${addon.name}`}
 					description="Perubahan harga TIDAK menyentuh booking yang sudah ada."
 				/>
@@ -67,7 +68,7 @@ export default async function EditAddonPage({
 			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
 				<AddonForm
 					action={action}
-					submitLabel="Save changes"
+					submitLabel="Simpan Perubahan"
 					inventoryItems={(inventoryItems ?? []) as InventoryItemOption[]}
 					defaults={{
 						name: addon.name,
@@ -80,6 +81,6 @@ export default async function EditAddonPage({
 					}}
 				/>
 			</div>
-		</div>
+		</Container>
 	);
 }

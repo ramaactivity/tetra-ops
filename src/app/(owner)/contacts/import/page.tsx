@@ -1,4 +1,5 @@
 import { CsvImportWizard } from "@/components/csv-import/wizard";
+import { Container } from "@/components/layout/container";
 import {
 	checkContactDuplicates,
 	commitContactImport,
@@ -22,7 +23,7 @@ CT-29088,Booker,Rama & Aca,87854631128,,Booker`;
 
 export default function ContactsImportPage() {
 	return (
-		<div className="max-w-4xl">
+		<Container size="md">
 			<CsvImportWizard
 				config={{
 					title: "Import Kontak",
@@ -40,6 +41,6 @@ export default function ContactsImportPage() {
 					sampleCsv: SAMPLE_CONTACT_CSV,
 				}}
 			/>
-		</div>
+		</Container>
 	);
 }

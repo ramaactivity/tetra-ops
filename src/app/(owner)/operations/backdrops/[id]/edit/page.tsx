@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { BackdropForm } from "@/components/backdrops/backdrop-form";
 import { createClient } from "@/lib/supabase/server";
@@ -34,22 +35,22 @@ export default async function EditBackdropPage({
 	};
 
 	return (
-		<div className="space-y-4">
+		<Container size="lg" className="space-y-4">
 			<Link
 				href="/operations/backdrops"
 				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
 			>
 				<ChevronLeft className="h-4 w-4" />
-				Backdrops
+				Backdrop
 			</Link>
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title={`Edit: ${bg.name}`}
 				description={<span className="tabular">{bg.code}</span>}
 			/>
 			<div className="border-border-default bg-surface-2 max-w-2xl rounded-xl border p-5">
 				<BackdropForm mode="edit" id={bg.id} defaults={defaults} />
 			</div>
-		</div>
+		</Container>
 	);
 }

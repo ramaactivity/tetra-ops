@@ -1,5 +1,6 @@
 import { Image as ImageIcon, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { ToggleBackdropActiveButton } from "@/components/backdrops/toggle-active-button";
 import { Badge } from "@/components/ui/badge";
@@ -73,9 +74,9 @@ export default async function BackdropsListPage() {
 	const rentalCount = rows.filter((r) => r.type === "rental_owned").length;
 
 	return (
-		<div className="space-y-4">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Backdrop"
 				description={`${rows.length} backdrop · ${activeCount} aktif · ${basicCount} basic · ${rentalCount} rental.`}
 				actions={
@@ -84,7 +85,7 @@ export default async function BackdropsListPage() {
 						className={buttonVariants({ variant: "default" })}
 					>
 						<Plus className="size-4" />
-						New backdrop
+						Tambah Backdrop
 					</Link>
 				}
 			/>
@@ -175,6 +176,6 @@ export default async function BackdropsListPage() {
 				<span className="font-medium">Vendor Decor</span> minta owner isi field
 				markup di booking form.
 			</p>
-		</div>
+		</Container>
 	);
 }

@@ -1,5 +1,6 @@
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { ArchivePackageButton } from "@/components/packages/archive-button";
 import { Badge } from "@/components/ui/badge";
@@ -53,9 +54,9 @@ export default async function PackagesListPage() {
 	const packages = (data ?? []) as PackageRow[];
 
 	return (
-		<div className="space-y-4">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Paket"
 				description={`${packages.length} paket tersedia`}
 				actions={
@@ -64,7 +65,7 @@ export default async function PackagesListPage() {
 						className={buttonVariants({ variant: "default" })}
 					>
 						<Plus className="size-4" />
-						New package
+						Tambah Paket
 					</Link>
 				}
 			/>
@@ -122,6 +123,6 @@ export default async function PackagesListPage() {
 					</TableBody>
 				</Table>
 			</div>
-		</div>
+		</Container>
 	);
 }

@@ -1,5 +1,6 @@
 import { Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { ArchiveAddonButton } from "@/components/addons/archive-button";
 import { Badge } from "@/components/ui/badge";
@@ -53,9 +54,9 @@ export default async function AddonsListPage() {
 	const addons = (data ?? []) as AddonRow[];
 
 	return (
-		<div className="space-y-4">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Add-on"
 				description={`${addons.length} add-on tersedia`}
 				actions={
@@ -64,7 +65,7 @@ export default async function AddonsListPage() {
 						className={buttonVariants({ variant: "default" })}
 					>
 						<Plus className="size-4" />
-						New add-on
+						Tambah Add-on
 					</Link>
 				}
 			/>
@@ -145,6 +146,6 @@ export default async function AddonsListPage() {
 					</TableBody>
 				</Table>
 			</div>
-		</div>
+		</Container>
 	);
 }

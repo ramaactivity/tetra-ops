@@ -1,5 +1,6 @@
 import { Pencil, Plus, ScrollText } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { ToggleActiveButton } from "@/components/sinking-funds/toggle-active-button";
 import { Badge } from "@/components/ui/badge";
@@ -78,9 +79,9 @@ export default async function SinkingFundsListPage() {
 	);
 
 	return (
-		<div className="space-y-4">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Dana Cadangan"
 				description={
 					<>
@@ -96,7 +97,7 @@ export default async function SinkingFundsListPage() {
 						className={buttonVariants({ variant: "default" })}
 					>
 						<Plus className="size-4" />
-						New fund
+						Tambah Dana
 					</Link>
 				}
 			/>
@@ -228,6 +229,6 @@ export default async function SinkingFundsListPage() {
 				<code className="font-mono">sinking_fund_movements</code> (deposit −
 				withdrawal). Settlement engine auto-deposit kalau profit &gt; 0.
 			</p>
-		</div>
+		</Container>
 	);
 }

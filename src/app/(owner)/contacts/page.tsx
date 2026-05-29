@@ -1,5 +1,6 @@
 import { FileSpreadsheet, Users } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type ContactRow,
@@ -59,9 +60,9 @@ export default async function ContactsListPage({
 	}, {});
 
 	return (
-		<div className="space-y-4">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Kontak"
 				description="Master kontak: bookers, clients, PIC event, vendor. Diresolve otomatis saat import projects via Contact_ID legacy."
 				actions={
@@ -70,7 +71,7 @@ export default async function ContactsListPage({
 						className={buttonVariants({ variant: "default", size: "sm" })}
 					>
 						<FileSpreadsheet className="size-4" />
-						<span className="hidden sm:inline">Bulk Import</span>
+						<span className="hidden sm:inline">Impor</span>
 					</Link>
 				}
 			/>
@@ -118,7 +119,7 @@ export default async function ContactsListPage({
 			) : (
 				<ContactsListTable contacts={contacts} />
 			)}
-		</div>
+		</Container>
 	);
 }
 

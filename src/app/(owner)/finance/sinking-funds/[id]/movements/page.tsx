@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type BankOption,
@@ -98,17 +99,17 @@ export default async function SinkingFundMovementsPage({
 		.reduce((s, m) => s + m.amount, 0);
 
 	return (
-		<div className="space-y-6">
+		<Container size="lg" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href="/finance/sinking-funds"
 					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
 				>
 					<ChevronLeft className="h-4 w-4" />
-					Sinking Funds
+					Dana Cadangan
 				</Link>
 				<SectionHeader
-					as="h2"
+					as="h1"
 					title={fund.name}
 					description={<span className="tabular">{fund.code}</span>}
 				/>
@@ -214,7 +215,7 @@ export default async function SinkingFundMovementsPage({
 					</div>
 				)}
 			</div>
-		</div>
+		</Container>
 	);
 }
 

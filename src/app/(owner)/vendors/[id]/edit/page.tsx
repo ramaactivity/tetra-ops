@@ -1,6 +1,7 @@
 import { Archive, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
 import { VendorForm } from "@/components/vendors/vendor-form";
@@ -78,17 +79,17 @@ export default async function EditVendorPage({
 	const action = updateVendor.bind(null, vendor.id as string);
 
 	return (
-		<div className="space-y-5">
+		<Container size="lg" className="space-y-5">
 			<div className="space-y-2">
 				<Link
 					href="/vendors"
 					className="inline-flex items-center gap-1 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
 				>
 					<ChevronLeft className="size-3.5" />
-					Vendors
+					Vendor
 				</Link>
 				<SectionHeader
-					as="h2"
+					as="h1"
 					title={`Edit: ${vendor.name}`}
 					description="Update profil vendor. Perubahan apply ke autocomplete booking form & aggregate di /finance/vendors."
 					actions={
@@ -125,7 +126,7 @@ export default async function EditVendorPage({
 
 			<VendorForm
 				action={action}
-				submitLabel="Save changes"
+				submitLabel="Simpan Perubahan"
 				successMessage="Perubahan disimpan!"
 				defaults={{
 					name: vendor.name,
@@ -176,7 +177,7 @@ export default async function EditVendorPage({
 					</div>
 				</div>
 			)}
-		</div>
+		</Container>
 	);
 }
 

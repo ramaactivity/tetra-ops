@@ -6,6 +6,7 @@ import {
 	Search,
 } from "lucide-react";
 import Link from "next/link";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -304,9 +305,9 @@ export default async function VendorsListPage({
 	const totalGrossYTD = vendors.reduce((s, v) => s + v.gross_revenue_ytd, 0);
 
 	return (
-		<div className="space-y-5">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Vendor"
 				description="Master vendor / partner organizer. Tiap booking dengan channel = Vendor otomatis terhubung ke entry di sini. Commission default + PIC bisa di-set sekali, dipakai auto-fill di form booking."
 				actions={
@@ -316,15 +317,15 @@ export default async function VendorsListPage({
 							className={buttonVariants({ variant: "outline", size: "sm" })}
 						>
 							<FileSpreadsheet className="size-4" />
-							<span className="hidden sm:inline">View contacts</span>
+							<span className="hidden sm:inline">Lihat Kontak</span>
 						</Link>
 						<Link
 							href="/vendors/new"
 							className={buttonVariants({ variant: "default", size: "sm" })}
 						>
 							<PlusCircle className="size-4" />
-							<span className="hidden sm:inline">New vendor</span>
-							<span className="sm:hidden">New</span>
+							<span className="hidden sm:inline">Tambah Vendor</span>
+							<span className="sm:hidden">Tambah</span>
 						</Link>
 					</div>
 				}
@@ -438,7 +439,7 @@ export default async function VendorsListPage({
 				</code>{" "}
 				(populated saat settlement).
 			</p>
-		</div>
+		</Container>
 	);
 }
 

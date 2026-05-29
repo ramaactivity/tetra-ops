@@ -1,3 +1,4 @@
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,9 +44,9 @@ export default async function BankAccountsListPage() {
 	const accounts = (data ?? []) as BankAccountRow[];
 
 	return (
-		<div className="space-y-4">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Rekening Bank"
 				description={`${accounts.length} akun · default penerima ditandai`}
 			/>
@@ -100,6 +101,6 @@ export default async function BankAccountsListPage() {
 					</TableBody>
 				</Table>
 			</div>
-		</div>
+		</Container>
 	);
 }
