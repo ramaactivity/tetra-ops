@@ -1,9 +1,14 @@
 "use client";
 
 import {
+	AlertTriangle,
 	Bell,
 	Briefcase,
+	ChevronRight,
+	ClipboardCheck,
+	ClipboardList,
 	FileText,
+	Layers,
 	LayoutDashboard,
 	type LucideIcon,
 	MessageCircle,
@@ -11,22 +16,25 @@ import {
 	Palette,
 	Receipt,
 	Settings,
+	ShoppingCart,
+	Truck,
 	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * <OwnerSidebar /> — Vercel dashboard sidebar lineage.
+ * <OwnerSidebar /> — Vercel dashboard lineage + collapsible groups.
  *
- * - 256px wide, white card surface, hairline right border.
- * - Items grouped into sections with quiet whitespace (no divider line).
- * - Each item: 13px font-medium, 16px icon, rounded-md, px-2 py-1.5.
- *   Active = `bg-secondary` fill (no left-edge accent — Vercel pattern).
- *   Hover = `bg-secondary/60`. No transform.
- * - Vertical scroll uses `scrollbar-vercel` thin track (8px, near-invisible
- *   until hover) so long nav lists feel native.
+ * - 260px wide, white card surface, hairline right border.
+ * - Items boleh punya `children`. Parent dengan children:
+ *   chevron di kanan, klik toggle collapse. Sub-items rendered indented
+ *   dengan vertical rail-line di kiri (tree-style).
+ * - Collapse state persisted ke localStorage per parent href.
+ * - Auto-expand kalau pathname matches salah satu child (sehingga user
+ *   tidak kehilangan context saat navigate via deep-link).
  *
  * Mobile: hidden (md:block). Primary nav on mobile = OwnerBottomNav.
  */
@@ -35,6 +43,7 @@ type NavItem = {
 	href: string;
 	label: string;
 	icon: LucideIcon;
+	children?: NavItem[];
 };
 
 type NavSection = {
@@ -48,7 +57,44 @@ const NAV_SECTIONS: NavSection[] = [
 			{ href: "/operations", label: "Operations", icon: Briefcase },
 			{ href: "/design", label: "Design", icon: Palette },
 			{ href: "/billing", label: "Billing", icon: Receipt },
-			{ href: "/warehouse", label: "Warehouse", icon: Package },
+			{
+				href: "/warehouse",
+				label: "Warehouse",
+				icon: Package,
+				children: [
+					{ href: "/warehouse", label: "Inventaris", icon: Package },
+					{
+						href: "/warehouse/purchases",
+						label: "Pembelian",
+						icon: ShoppingCart,
+					},
+					{
+						href: "/warehouse/suppliers",
+						label: "Supplier",
+						icon: Truck,
+					},
+					{
+						href: "/warehouse/purchase-requests",
+						label: "Permintaan",
+						icon: ClipboardCheck,
+					},
+					{
+						href: "/warehouse/stock-take",
+						label: "Stock Opname",
+						icon: ClipboardList,
+					},
+					{
+						href: "/warehouse/wastage",
+						label: "Wastage",
+						icon: AlertTriangle,
+					},
+					{
+						href: "/warehouse/rekap-mapping",
+						label: "Rekap Mapping",
+						icon: Layers,
+					},
+				],
+			},
 			{ href: "/finance", label: "Finance", icon: Wallet },
 		],
 	},
@@ -62,11 +108,54 @@ const NAV_SECTIONS: NavSection[] = [
 	},
 ];
 
+const STORAGE_KEY = "tetra-sidebar-collapsed";
+
 export function OwnerSidebar() {
 	const pathname = usePathname();
 
 	function isActive(href: string): boolean {
 		return pathname === href || pathname.startsWith(`${href}/`);
+	}
+
+	// Find parents that should auto-expand because current pathname matches a child.
+	function pathIsUnder(parent: NavItem): boolean {
+		if (!parent.children) return false;
+		return parent.children.some((c) => isActive(c.href));
+	}
+
+	// Persisted collapsed state: Set of parent hrefs that are MANUALLY collapsed.
+	// Auto-expand by route always overrides manual collapse (user navigated TO it).
+	const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+
+	useEffect(() => {
+		try {
+			const raw = localStorage.getItem(STORAGE_KEY);
+			if (!raw) return;
+			const arr = JSON.parse(raw) as string[];
+			setCollapsed(new Set(arr));
+		} catch {
+			// localStorage unavailable or corrupt — start fresh
+		}
+	}, []);
+
+	function toggle(href: string) {
+		setCollapsed((prev) => {
+			const next = new Set(prev);
+			if (next.has(href)) next.delete(href);
+			else next.add(href);
+			try {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
+			} catch {
+				// ignore
+			}
+			return next;
+		});
+	}
+
+	function isExpanded(parent: NavItem): boolean {
+		// Auto-expand kalau lagi di salah satu sub-route — supaya user lihat context
+		if (pathIsUnder(parent)) return true;
+		return !collapsed.has(parent.href);
 	}
 
 	return (
@@ -83,33 +172,23 @@ export function OwnerSidebar() {
 							className="flex flex-col gap-0.5"
 						>
 							{section.items.map((item) => {
-								const active = isActive(item.href);
-								const Icon = item.icon;
+								if (item.children && item.children.length > 0) {
+									return (
+										<NavParent
+											key={item.href}
+											item={item}
+											expanded={isExpanded(item)}
+											onToggle={() => toggle(item.href)}
+											isActive={isActive}
+										/>
+									);
+								}
 								return (
-									<li key={item.href}>
-										<Link
-											href={item.href}
-											aria-current={active ? "page" : undefined}
-											className={cn(
-												"group/nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] font-medium leading-none transition-colors duration-fast ease-out-expo",
-												active
-													? "bg-secondary text-foreground"
-													: "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-											)}
-										>
-											<Icon
-												className={cn(
-													"size-[18px] shrink-0",
-													active
-														? "text-foreground"
-														: "text-muted-foreground/70 group-hover/nav:text-foreground/80",
-												)}
-												aria-hidden
-												strokeWidth={2}
-											/>
-											{item.label}
-										</Link>
-									</li>
+									<NavLeaf
+										key={item.href}
+										item={item}
+										active={isActive(item.href)}
+									/>
 								);
 							})}
 						</ul>
@@ -117,5 +196,122 @@ export function OwnerSidebar() {
 				</div>
 			</nav>
 		</aside>
+	);
+}
+
+function NavLeaf({ item, active }: { item: NavItem; active: boolean }) {
+	const Icon = item.icon;
+	return (
+		<li>
+			<Link
+				href={item.href}
+				aria-current={active ? "page" : undefined}
+				className={cn(
+					"group/nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] font-medium leading-none transition-colors duration-fast ease-out-expo",
+					active
+						? "bg-secondary text-foreground"
+						: "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+				)}
+			>
+				<Icon
+					className={cn(
+						"size-[18px] shrink-0",
+						active
+							? "text-foreground"
+							: "text-muted-foreground/70 group-hover/nav:text-foreground/80",
+					)}
+					aria-hidden
+					strokeWidth={2}
+				/>
+				{item.label}
+			</Link>
+		</li>
+	);
+}
+
+function NavParent({
+	item,
+	expanded,
+	onToggle,
+	isActive,
+}: {
+	item: NavItem;
+	expanded: boolean;
+	onToggle: () => void;
+	isActive: (href: string) => boolean;
+}) {
+	const Icon = item.icon;
+	const pathname = usePathname();
+	// Parent label header doesn't get its own "active" highlight — child rows
+	// handle that. Otherwise both would highlight when on a sub-route.
+
+	return (
+		<li>
+			<button
+				type="button"
+				onClick={onToggle}
+				aria-expanded={expanded}
+				className={cn(
+					"group/nav flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[14px] font-medium leading-none transition-colors duration-fast ease-out-expo",
+					"text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+				)}
+			>
+				<Icon
+					className="size-[18px] shrink-0 text-muted-foreground/70 group-hover/nav:text-foreground/80"
+					aria-hidden
+					strokeWidth={2}
+				/>
+				<span className="flex-1 text-left">{item.label}</span>
+				<ChevronRight
+					className={cn(
+						"size-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-fast ease-out-expo",
+						expanded && "rotate-90",
+					)}
+					aria-hidden
+					strokeWidth={2.5}
+				/>
+			</button>
+
+			{expanded && item.children && (
+				<ul className="relative ml-[18px] mt-0.5 flex flex-col gap-0.5 border-l border-border-default/60 pl-2">
+					{item.children.map((child) => {
+						// Special-case: parent's own href appears as first child labeled
+						// differently (e.g. "Warehouse" → "Inventaris"). Match strictly
+						// supaya nggak ke-highlight saat user di sub-route lain.
+						const strictActive =
+							child.href === item.href
+								? pathname === child.href
+								: isActive(child.href);
+						const ChildIcon = child.icon;
+						return (
+							<li key={child.href}>
+								<Link
+									href={child.href}
+									aria-current={strictActive ? "page" : undefined}
+									className={cn(
+										"group/nav flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium leading-none transition-colors duration-fast ease-out-expo",
+										strictActive
+											? "bg-secondary text-foreground"
+											: "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+									)}
+								>
+									<ChildIcon
+										className={cn(
+											"size-4 shrink-0",
+											strictActive
+												? "text-foreground"
+												: "text-muted-foreground/70 group-hover/nav:text-foreground/80",
+										)}
+										aria-hidden
+										strokeWidth={2}
+									/>
+									{child.label}
+								</Link>
+							</li>
+						);
+					})}
+				</ul>
+			)}
+		</li>
 	);
 }

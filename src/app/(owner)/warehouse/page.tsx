@@ -3,12 +3,8 @@ import {
 	AlertTriangle,
 	Boxes,
 	CheckCircle2,
-	ClipboardCheck,
-	FileSpreadsheet,
 	Layers,
 	Plus,
-	ShoppingCart,
-	Truck,
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
@@ -438,69 +434,13 @@ export default async function WarehousePage({
 				title="Warehouse"
 				description="Track stok consumables, equipment, supplier, dan log mutasi."
 				actions={
-					<>
-						{/* Workflow actions — ordered: master data → transactional → audit → primary */}
-						<Link
-							href="/warehouse/suppliers"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<Truck className="size-4" />
-							Supplier
-						</Link>
-						<Link
-							href="/warehouse/purchase-requests"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<ClipboardCheck className="size-4" />
-							Permintaan
-						</Link>
-						<Link
-							href="/warehouse/purchases"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<ShoppingCart className="size-4" />
-							Pembelian
-						</Link>
-						<Link
-							href="/warehouse/stock-take"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<ClipboardCheck className="size-4" />
-							Stock Opname
-						</Link>
-						<Link
-							href="/warehouse/wastage"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
-						>
-							<AlertTriangle className="size-4" />
-							Wastage
-						</Link>
-						{/* Admin tools — rare actions (bulk CSV, rekap mapping). Ghost
-							variant supaya tetap kalah hierarki dari primary actions. */}
-						<Link
-							href="/warehouse/import"
-							className={buttonVariants({ variant: "ghost", size: "sm" })}
-							title="Upload CSV untuk add banyak item sekaligus"
-						>
-							<FileSpreadsheet className="size-4" />
-							Bulk Import
-						</Link>
-						<Link
-							href="/warehouse/rekap-mapping"
-							className={buttonVariants({ variant: "ghost", size: "sm" })}
-							title="Map field rekap event ke SKU inventory"
-						>
-							<Layers className="size-4" />
-							Rekap Mapping
-						</Link>
-						<Link
-							href={primaryActionHref}
-							className={buttonVariants({ variant: "default", size: "sm" })}
-						>
-							<Plus className="size-4" />
-							{primaryActionLabel}
-						</Link>
-					</>
+					<Link
+						href={primaryActionHref}
+						className={buttonVariants({ variant: "default", size: "sm" })}
+					>
+						<Plus className="size-4" />
+						{primaryActionLabel}
+					</Link>
 				}
 			/>
 
