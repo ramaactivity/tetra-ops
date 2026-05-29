@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
 		const moves: Array<[string, string]> = [
 			// Rekap Mapping di-retire (Phase 3) — HPP kini dari snapshot kanonik.
 			["/warehouse/rekap-mapping", "/warehouse"],
+			// Legacy settlement routes di-retire (Phase 4) — settlement via /rekap.
+			["/operations/:projectId/settle", "/operations/:projectId/rekap"],
+			["/operations/:projectId/tutup-buku", "/operations/:projectId/rekap"],
 			["/settings/packages", "/operations/packages"],
 			["/settings/addons", "/operations/addons"],
 			["/settings/backdrops", "/operations/backdrops"],

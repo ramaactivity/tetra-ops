@@ -8,9 +8,9 @@
  *   2. If not found, fall back to the row with frame_size = '' (default).
  *   3. If neither exists, return null (unmapped).
  *
- * Pure function — no I/O. Used by server (planRekapDeduction,
- * getAutoHpp) and client (rekap form live preview) so numbers stay
- * consistent.
+ * Pure function — no I/O. Dipakai oleh preview chips (cost.ts) untuk
+ * estimasi per-field. NB: deduksi & HPP otoritatif sekarang dari planner
+ * kanonik + hpp_snapshot, bukan resolver ini.
  */
 
 import type { RekapField } from "@/lib/rekap-mapping/types";

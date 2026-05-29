@@ -404,7 +404,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 					</div>
 					{canSettle && (
 						<Link
-							href={`/operations/${projectId}/settle`}
+							href={`/operations/${projectId}/rekap`}
 							className={buttonVariants({ variant: "default", size: "lg" })}
 						>
 							<CalculatorIcon className="size-4" aria-hidden strokeWidth={2} />

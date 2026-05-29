@@ -683,7 +683,7 @@ export async function submitRekap(
 
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/settle`);
+	revalidatePath(`/operations/${projectId}/rekap`);
 	return { success: true };
 }
 
@@ -1277,7 +1277,7 @@ export async function reviewRekap(
 
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/settle`);
+	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/warehouse");
 	return {};
 }

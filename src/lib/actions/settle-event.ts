@@ -50,7 +50,7 @@ export async function settleEvent(
 
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
-	revalidatePath(`/operations/${projectId}/settle`);
+	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
 	revalidatePath("/dashboard");
 	revalidatePath("/finance");
