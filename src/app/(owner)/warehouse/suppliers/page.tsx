@@ -71,8 +71,6 @@ export default async function SuppliersPage() {
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Supplier"
-				backHref="/warehouse"
-				backLabel="Warehouse"
 				description="Master vendor — default term pembayaran (Cash / TOP N) terpakai saat catat Pembelian."
 				actions={<NewSupplierButton />}
 			/>

@@ -1,4 +1,4 @@
-import { ChevronLeft, Handshake, UsersRound } from "lucide-react";
+import { Handshake, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -163,19 +163,10 @@ export default async function VendorsPage() {
 
 	return (
 		<Container size="xl" className="space-y-6">
-			<div className="space-y-2">
-				<Link
-					href="/finance"
-					className="inline-flex items-center gap-1 text-fluid-caption text-muted-foreground hover:text-foreground"
-				>
-					<ChevronLeft className="size-4" />
-					Finance
-				</Link>
-				<SectionHeader
-					title="Vendor / Partner Organizer"
-					description="Aggregate komisi vendor dari semua event channel=vendor."
-				/>
-			</div>
+			<SectionHeader
+				title="Vendor / Partner Organizer"
+				description="Aggregate komisi vendor dari semua event channel=vendor."
+			/>
 
 			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<SummaryCard

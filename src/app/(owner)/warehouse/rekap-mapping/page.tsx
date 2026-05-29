@@ -1,7 +1,7 @@
-import { ChevronLeft, Layers } from "lucide-react";
-import Link from "next/link";
+import { Layers } from "lucide-react";
 import { redirect } from "next/navigation";
 import { RekapMappingForm } from "@/components/items/rekap-mapping-form";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { getRekapMappings } from "@/lib/actions/rekap-mapping";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -66,16 +66,9 @@ export default async function RekapMappingPage() {
 	const mappedFields = new Set(mappedRows.map((m) => m.rekap_field)).size;
 
 	return (
-		<div className="space-y-4">
-			<Link
-				href="/warehouse"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Items
-			</Link>
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
-				as="h2"
+				as="h1"
 				title="Rekap → Item Mapping"
 				description="Map setiap field rekap konsumsi ke SKU inventory. Bisa per frame_size (4R / 2R / Polaroid) — mediaset basic untuk 4R butuh 1 lembar/cetak, untuk 2R butuh 0.5 lembar/cetak karena 1 lembar dipotong jadi 2 cetak 2R."
 			/>
@@ -131,7 +124,7 @@ export default async function RekapMappingPage() {
 					</ul>
 				</div>
 			</div>
-		</div>
+		</Container>
 	);
 }
 

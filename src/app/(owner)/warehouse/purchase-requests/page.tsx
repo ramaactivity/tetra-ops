@@ -200,8 +200,6 @@ export default async function PurchaseRequestsPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Permintaan Belanja"
-				backHref="/warehouse"
-				backLabel="Warehouse"
 				description="Crew minta belanja → owner terima sebagian / penuh. Aging > 3 hari ditandai sebagai tertunda."
 				actions={canCreate ? <NewPRButton items={prItemOptions} /> : undefined}
 			/>

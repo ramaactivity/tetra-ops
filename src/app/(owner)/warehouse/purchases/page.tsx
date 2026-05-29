@@ -141,8 +141,6 @@ export default async function PurchasesPage() {
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Pembelian"
-				backHref="/warehouse"
-				backLabel="Warehouse"
 				description="Riwayat pembelian stok. Klik Catat Pembelian untuk record belanja multi-item dalam satu transaksi."
 				actions={
 					<PembelianDialog

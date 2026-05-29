@@ -72,8 +72,6 @@ export default async function WastageListPage() {
 		<Container size="xl" className="space-y-5">
 			<PageHeader
 				title="Wastage Log"
-				backHref="/warehouse"
-				backLabel="Warehouse"
 				description="Catatan barang habis pakai yang keluar karena bukan konsumsi event normal — testing, defective, handling damage, opname shortage."
 				actions={
 					<Link

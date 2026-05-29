@@ -138,8 +138,6 @@ export default async function StockTakeListPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Stock Opname"
-				backHref="/warehouse"
-				backLabel="Warehouse"
 				description="Audit fisik inventory. Owner walk warehouse, isi hitung fisik per item, lalu commit — sistem auto-create adjustment movement buat tiap selisih."
 				actions={<NewStockTakeButton />}
 			/>

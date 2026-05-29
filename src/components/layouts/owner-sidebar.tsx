@@ -227,7 +227,7 @@ export function OwnerSidebar() {
 	return (
 		<aside
 			style={{ viewTransitionName: "site-sidebar" }}
-			className="hidden w-[260px] shrink-0 border-r border-border-default bg-card md:flex md:flex-col"
+			className="hidden w-[260px] shrink-0 border-r border-border-default bg-card md:sticky md:top-14 md:flex md:h-[calc(100dvh-3.5rem)] md:flex-col md:self-start"
 		>
 			<nav className="scrollbar-vercel flex-1 overflow-y-auto p-3">
 				<div className="flex flex-col gap-5">
