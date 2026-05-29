@@ -194,7 +194,7 @@ export function RestockDialog({
 									value: s.id,
 									label: s.name,
 								}))}
-								placeholder="— pilih supplier (opsional) —"
+								placeholder="Pilih supplier (opsional)"
 								allowFreeText={false}
 							/>
 							<input type="hidden" name="supplier_id" value={supplierId} />

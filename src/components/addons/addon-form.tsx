@@ -230,7 +230,7 @@ function InventoryItemSelect({
 }) {
 	const [value, setValue] = useState(defaultValue);
 	const selectOptions = [
-		{ value: "", label: "— tidak di-link (no stock tracking) —" },
+		{ value: "", label: "Tidak di-link (no stock tracking)" },
 		...options.map((it) => ({
 			value: it.id,
 			label: `${it.sku} · ${it.name}${it.unit ? ` (${it.unit})` : ""}`,

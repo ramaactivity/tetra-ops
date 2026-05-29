@@ -76,7 +76,7 @@ export function BundleComponentPicker({
 						// Filter: tampilkan semua item, tapi disable yg sudah dipakai (kecuali current row)
 						// Combobox option label = nama saja (clean), SKU di sublabel.
 					const itemOptions = [
-							{ value: "", label: "— pilih item komponen —" },
+							{ value: "", label: "Pilih item komponen" },
 							...items.map((i) => ({
 								value: i.id,
 								label:
@@ -104,7 +104,7 @@ export function BundleComponentPicker({
 										value={r.item_id}
 										onValueChange={(v) => update(idx, { item_id: v ?? "" })}
 										options={itemOptions}
-										placeholder="— pilih item komponen —"
+										placeholder="Pilih item komponen"
 										allowFreeText={false}
 									/>
 									{selectedItem && (

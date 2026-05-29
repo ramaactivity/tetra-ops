@@ -66,7 +66,7 @@ const UNIT_OPTIONS = [
 ];
 
 const PURCHASE_UNIT_OPTIONS = [
-	{ value: "", label: "— Sama dengan unit penggunaan —" },
+	{ value: "", label: "Sama dengan unit penggunaan" },
 	...UNIT_OPTIONS,
 ];
 
@@ -399,13 +399,13 @@ export function InventoryItemForm({
 								setPreferredSupplierId(v ?? "")
 							}
 							options={[
-								{ value: "", label: "— Pilih supplier (Opsional) —" },
+								{ value: "", label: "Pilih supplier (Opsional)" },
 								...suppliers.map((s) => ({
 									value: s.id,
 									label: s.name,
 								})),
 							]}
-							placeholder="— Pilih supplier (Opsional) —"
+							placeholder="Pilih supplier (Opsional)"
 							allowFreeText={false}
 						/>
 						<input

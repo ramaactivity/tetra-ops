@@ -81,7 +81,7 @@ function frameLabel(size: string) {
 export function RekapMappingForm({ mappings, items }: Props) {
 	const itemSelectOptions = useMemo(
 		() => [
-			{ value: "", label: "— pilih item —" },
+			{ value: "", label: "Pilih item" },
 			...items.map((i) => ({
 				value: i.id,
 				label: `${i.sku} — ${i.name}`,
@@ -332,7 +332,7 @@ function MappingRow({
 					value={itemId}
 					onValueChange={setItemId}
 					options={itemSelectOptions}
-					placeholder="— pilih item —"
+					placeholder="Pilih item"
 					aria-label={`Map ${row.rekap_field} ke item`}
 					triggerClassName="w-full h-9"
 				/>
@@ -476,7 +476,7 @@ function NewOverrideRow({
 					value={itemId}
 					onValueChange={setItemId}
 					options={itemSelectOptions}
-					placeholder="— pilih item —"
+					placeholder="Pilih item"
 					triggerClassName="w-full h-9"
 				/>
 			</div>

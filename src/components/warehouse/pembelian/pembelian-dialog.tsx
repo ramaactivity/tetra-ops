@@ -254,7 +254,7 @@ export function PembelianDialog({
 										value: s.id,
 										label: s.name,
 									}))}
-									placeholder="— pilih atau kosong —"
+									placeholder="Pilih atau kosong"
 									allowFreeText={false}
 								/>
 								<input type="hidden" name="supplier_id" value={supplierId} />

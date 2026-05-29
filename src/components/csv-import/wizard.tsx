@@ -631,7 +631,7 @@ function MapStep({
 												setMapping({ ...mapping, [idx]: value })
 											}
 											options={[
-												{ value: "skip", label: "— Skip kolom ini —" },
+												{ value: "skip", label: "Skip kolom ini" },
 												...targetFields.map((f) => ({
 													value: f.key,
 													label: `${f.label}${f.required ? " *" : ""}`,

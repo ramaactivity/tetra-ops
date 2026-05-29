@@ -109,7 +109,7 @@ export function WastageForm({
 						value: i.id,
 						label: `${i.sku} — ${i.name}`,
 					}))}
-					placeholder="— pilih item persediaan —"
+					placeholder="Pilih item persediaan"
 					allowFreeText={false}
 				/>
 				<input type="hidden" name="item_id" value={itemId} required />
@@ -203,7 +203,7 @@ export function WastageForm({
 							value: e.id,
 							label: `${e.project_id} — ${e.client_name}`,
 						}))}
-						placeholder="— tanpa event —"
+						placeholder="Tanpa event"
 						allowFreeText={false}
 					/>
 					<input type="hidden" name="event_id" value={eventId} />
@@ -224,7 +224,7 @@ export function WastageForm({
 						value={supplierId}
 						onValueChange={(v) => setSupplierId(v ?? "")}
 						options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
-						placeholder="— tanpa supplier —"
+						placeholder="Tanpa supplier"
 						allowFreeText={false}
 					/>
 					<input type="hidden" name="supplier_id" value={supplierId} />

@@ -346,7 +346,7 @@ function ValueTypeToggle({
 }
 
 const DISCOUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-	{ value: "", label: "— pilih tipe diskon —" },
+	{ value: "", label: "Pilih tipe diskon" },
 	{ value: "promo", label: "Promo (musiman / campaign)" },
 	{ value: "loyalty", label: "Loyalty (klien repeat)" },
 	{ value: "relasi", label: "Relasi (kenalan / referral)" },
@@ -1101,7 +1101,7 @@ export function BookingForm({
 									value,
 									label,
 								}))}
-								placeholder="— pilih channel —"
+								placeholder="Pilih channel"
 								allowFreeText={false}
 								aria-invalid={!!err("channel")}
 							/>
@@ -1590,7 +1590,7 @@ export function BookingForm({
 									setCategoryMeta({}); // reset sub-fields
 									setClientNameTouched(false); // re-derive client_name
 								}}
-								placeholder="— pilih kategori —"
+								placeholder="Pilih kategori"
 								options={eventTypes.map((t) => ({
 									value: t.code,
 									label: t.label,
@@ -1830,7 +1830,7 @@ export function BookingForm({
 								<Combobox
 									value={serviceType}
 									onValueChange={setServiceType}
-									placeholder="— pilih service —"
+									placeholder="Pilih service"
 									options={SERVICE_TYPE_OPTIONS.map(([value, label]) => ({
 										value,
 										label,
@@ -1858,9 +1858,9 @@ export function BookingForm({
 								<Combobox
 									value={frameSize}
 									onValueChange={setFrameSize}
-									placeholder="— pilih frame —"
+									placeholder="Pilih frame"
 									options={[
-										{ value: "", label: "— Menyusul / belum ditentukan —" },
+										{ value: "", label: "Menyusul / belum ditentukan" },
 										...FRAME_SIZE_OPTIONS.map(([value, label]) => ({
 											value,
 											label: label === "—" ? "None" : label,
@@ -1904,9 +1904,9 @@ export function BookingForm({
 							<Combobox
 								value={packageId}
 								onValueChange={(v) => handlePackageChange(v)}
-								placeholder="— custom / belum dipilih —"
+								placeholder="Custom / belum dipilih"
 								options={[
-									{ value: "", label: "— custom / belum dipilih —" },
+									{ value: "", label: "Custom / belum dipilih" },
 									...filteredPackages.map((pkg) => ({
 										value: pkg.id,
 										label: `${pkg.name} · ${pkg.duration_hours}j · ${formatRupiah(pkg.base_price)}`,
@@ -1944,9 +1944,9 @@ export function BookingForm({
 							<Combobox
 								value={backdropId}
 								onValueChange={setBackdropId}
-								placeholder="— Belum ditentukan / nyusul —"
+								placeholder="Belum ditentukan / nyusul"
 								options={[
-									{ value: "", label: "— Belum ditentukan / nyusul —" },
+									{ value: "", label: "Belum ditentukan / nyusul" },
 									...backdrops.map((b) => ({
 										value: b.id,
 										label: `${b.name} · ${BACKDROP_TYPE_LABEL[b.type] ?? b.type}${
@@ -2486,7 +2486,7 @@ export function BookingForm({
 										<Combobox
 											id="bonus-picker"
 											value=""
-											placeholder="— pilih item bonus —"
+											placeholder="Pilih item bonus"
 											allowFreeText={false}
 											emptyMessage="Tidak ada item — coba reset filter atau tambah addon di Settings."
 											onValueChange={(v) => {
@@ -2676,7 +2676,7 @@ export function BookingForm({
 									<Combobox
 										value={discountType}
 										onValueChange={setDiscountType}
-										placeholder="— pilih tipe diskon —"
+										placeholder="Pilih tipe diskon"
 										options={DISCOUNT_TYPE_OPTIONS}
 										allowFreeText={false}
 									/>

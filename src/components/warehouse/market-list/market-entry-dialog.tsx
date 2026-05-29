@@ -275,7 +275,7 @@ export function MarketEntryDialog({
 								value: s.id,
 								label: s.name,
 							}))}
-							placeholder="— pilih supplier —"
+							placeholder="Pilih supplier"
 							allowFreeText={false}
 						/>
 						<input type="hidden" name="supplier_id" value={supplierId} />
