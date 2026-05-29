@@ -132,7 +132,10 @@ export function SummaryRail({
 						<p className="tabular text-[13px] font-medium text-foreground">
 							{eventDate}
 							{!hasTimeline && eventTimeRange ? (
-								<span className="text-muted-foreground"> · {eventTimeRange}</span>
+								<span className="text-muted-foreground">
+									{" "}
+									· {eventTimeRange}
+								</span>
 							) : null}
 						</p>
 					) : null}
@@ -256,7 +259,10 @@ export function SummaryRail({
 					{vendor.mode === "upfront_cut" ? (
 						<>
 							<div className="flex items-baseline justify-between gap-3 text-[12.5px]">
-								<dt className="text-muted-foreground">Potongan vendor</dt>
+								<dt className="text-muted-foreground">
+									Potongan vendor
+									{vendor.valueType === "percent" ? ` (${vendor.value}%)` : ""}
+								</dt>
 								<dd className="tabular font-medium text-rose-600 dark:text-rose-400">
 									− {formatRupiah(vendor.amount)}
 								</dd>

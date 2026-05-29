@@ -89,7 +89,12 @@ const BookingInputSchema = z.object({
 		.nullable(),
 	// Legacy fields kept for back-compat — populated automatically from
 	// the new fields above when applicable (see buildEventPayload).
-	vendor_commission_rate: z.coerce.number().min(0).max(100).optional().nullable(),
+	vendor_commission_rate: z.coerce
+		.number()
+		.min(0)
+		.max(100)
+		.optional()
+		.nullable(),
 	vendor_commission_amount: z.coerce
 		.number()
 		.int()
@@ -364,7 +369,12 @@ function computeGrandTotal({
  *
  * - commission + percent: grand_total × value / 100 (rounded to integer rp)
  * - commission + flat:    value as-is (rounded)
- * - upfront_cut:          value as-is — the fixed rupiah vendor deducts
+ * - upfront_cut + percent: base_price × value / 100 — a percentage the vendor
+ *                          deducts off the package base price (e.g. 10% per
+ *                          event). Percent is off base_price, not grand_total,
+ *                          to match the "potong dari harga paket" wording in
+ *                          the UI (addons/discount/gross-up are Tetra's).
+ * - upfront_cut + flat:    value as-is — the fixed rupiah vendor deducts
  *                          from the payment flow (e.g. 500K per event for
  *                          Partner Organizer). Accounting equivalent to a
  *                          flat commission: revenue = grand_total, expense
@@ -375,12 +385,21 @@ function computeGrandTotal({
  *
  * Returns 0 for non-vendor channels or when value is missing.
  */
-function computeVendorCommissionAmount(input: BookingInput, grandTotal: number): number {
+function computeVendorCommissionAmount(
+	input: BookingInput,
+	grandTotal: number,
+	basePrice: number,
+): number {
 	if (input.channel !== "vendor") return 0;
 	const mode = input.vendor_commission_mode ?? "commission";
 	const value = input.vendor_commission_value ?? 0;
-	if (mode === "upfront_cut") return Math.round(value);
 	const valueType = input.vendor_commission_value_type ?? "percent";
+	if (mode === "upfront_cut") {
+		// Potongan langsung — percent is off the package base price, flat is as-is.
+		return valueType === "percent"
+			? Math.round((basePrice * value) / 100)
+			: Math.round(value);
+	}
 	if (valueType === "percent") {
 		return Math.round((grandTotal * value) / 100);
 	}
@@ -420,6 +439,7 @@ function buildEventPayload(
 	const computedCommissionAmount = computeVendorCommissionAmount(
 		input,
 		grandTotal,
+		basePrice,
 	);
 
 	return {
@@ -443,8 +463,7 @@ function buildEventPayload(
 		google_maps_url: input.google_maps_url,
 		// Channel referrer
 		vendor_name: input.channel === "vendor" ? input.vendor_name : null,
-		vendor_pic_name:
-			input.channel === "vendor" ? input.vendor_pic_name : null,
+		vendor_pic_name: input.channel === "vendor" ? input.vendor_pic_name : null,
 		vendor_contact: input.channel === "vendor" ? input.vendor_contact : null,
 		// New commission model — see computeVendorCommissionAmount above.
 		vendor_commission_mode: vendorMode,
@@ -464,8 +483,7 @@ function buildEventPayload(
 		// Vendor master FK — set when channel=vendor AND we successfully
 		// upserted/found the contacts row. Source of truth for vendor;
 		// vendor_name etc. above retained as snapshot for back-compat.
-		vendor_contact_id:
-			input.channel === "vendor" ? vendorContactId : null,
+		vendor_contact_id: input.channel === "vendor" ? vendorContactId : null,
 		referrer_user_id:
 			input.channel === "relasi" ? input.referrer_user_id : null,
 		referrer_type: input.channel === "relasi" ? input.referrer_type : null,
