@@ -2,7 +2,10 @@ import {
 	CalendarDays,
 	CalendarPlus,
 	ChevronRight,
+	Clock,
+	Frame,
 	History,
+	Image as ImageIcon,
 	MapPin,
 } from "lucide-react";
 import Link from "next/link";
@@ -10,7 +13,7 @@ import { EventStatusBadge } from "@/components/badges/status-badge";
 import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatDateID, formatRupiah } from "@/lib/format";
+import { FRAME_SIZE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -36,6 +39,10 @@ type AssignedEvent = {
 	venue_name: string;
 	venue_city: string | null;
 	is_migrated_legacy: boolean | null;
+	// TBC fields — null = "menyusul / belum ditentukan"
+	frame_size: string | null;
+	backdrop_id: string | null;
+	backdrop: { name: string } | { name: string }[] | null;
 };
 
 type AssignmentRow = {
@@ -68,7 +75,8 @@ export default async function CrewSchedulePage({
 			event:events!inner(
 				id, project_id, status, client_name, event_date,
 				setup_time, start_time, venue_name, venue_city,
-				is_migrated_legacy
+				is_migrated_legacy, frame_size, backdrop_id,
+				backdrop:backdrops(name)
 			)`,
 		)
 		.eq("user_id", me.profile.id);
@@ -148,6 +156,13 @@ export default async function CrewSchedulePage({
 					{assignments.map((a, i) => {
 						const ev = Array.isArray(a.event) ? a.event[0] : a.event;
 						if (!ev) return null;
+						const backdrop = Array.isArray(ev.backdrop)
+							? ev.backdrop[0]
+							: ev.backdrop;
+						const tbcStart = !ev.start_time;
+						const tbcFrame = !ev.frame_size;
+						const tbcBackdrop = !ev.backdrop_id;
+						const hasAnyTbc = tbcStart || tbcFrame || tbcBackdrop;
 						return (
 							<Link
 								key={`${ev.id}-${i}`}
@@ -161,8 +176,14 @@ export default async function CrewSchedulePage({
 									<span className="text-muted-foreground text-[10px] font-medium uppercase">
 										{formatDateID(ev.event_date).split(" ").slice(0, 2).join(" ")}
 									</span>
-									<span className="tabular text-foreground text-base font-semibold">
-										{ID_TIME(ev.start_time)}
+									<span
+										className={`tabular text-base font-semibold ${
+											tbcStart
+												? "text-amber-600 dark:text-amber-400"
+												: "text-foreground"
+										}`}
+									>
+										{tbcStart ? "TBC" : ID_TIME(ev.start_time)}
 									</span>
 								</div>
 								<div className="min-w-0 flex-1 space-y-1">
@@ -179,10 +200,34 @@ export default async function CrewSchedulePage({
 											{ev.venue_city && ` · ${ev.venue_city}`}
 										</span>
 									</p>
+									{hasAnyTbc && (
+										<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+											{tbcStart && <TbcBadge icon={Clock} label="Jam menyusul" />}
+											{tbcFrame && (
+												<TbcBadge icon={Frame} label="Frame menyusul" />
+											)}
+											{tbcBackdrop && (
+												<TbcBadge
+													icon={ImageIcon}
+													label="Backdrop menyusul"
+												/>
+											)}
+										</div>
+									)}
 									<div className="text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]">
 										<span className="text-[10px] uppercase tracking-wider">
 											{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
 										</span>
+										{!tbcFrame && ev.frame_size && (
+											<span className="text-[10px]">
+												frame {FRAME_SIZE_LABELS[ev.frame_size] ?? ev.frame_size}
+											</span>
+										)}
+										{!tbcBackdrop && backdrop?.name && (
+											<span className="truncate text-[10px]">
+												bg {backdrop.name}
+											</span>
+										)}
 										<span className="tabular">
 											fee {formatRupiah(a.fee_amount + a.bonus_amount)}
 										</span>
@@ -204,6 +249,21 @@ export default async function CrewSchedulePage({
 				</div>
 			)}
 		</div>
+	);
+}
+
+function TbcBadge({
+	icon: Icon,
+	label,
+}: {
+	icon: typeof CalendarDays;
+	label: string;
+}) {
+	return (
+		<span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-200">
+			<Icon className="h-3 w-3" />
+			{label}
+		</span>
 	);
 }
 

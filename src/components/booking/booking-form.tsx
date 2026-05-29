@@ -886,7 +886,10 @@ export function BookingForm({
 			"start_time",
 			"venue_name",
 		);
-		const bOk = Boolean(eventCategory && eventDate && startTime && venueName);
+		// start_time tidak lagi required — owner boleh tandai TBC kalau klien
+		// belum kasih jam pasti. Section status "ok" cukup dengan kategori,
+		// tanggal, dan venue terisi.
+		const bOk = Boolean(eventCategory && eventDate && venueName);
 		// C: Service Package (service + package)
 		const cErrN = errCount("service_type", "package_id");
 		const cOk = Boolean(serviceType && packageId);
@@ -1696,71 +1699,116 @@ export function BookingForm({
 								label="Jam Mulai"
 								name="start_time"
 								error={err("start_time")}
-								required
-								hint="Set ini dulu, setup + selesai auto-fill"
+								hint={
+									startTime
+										? "Set ini dulu, setup + selesai auto-fill"
+										: "Klien belum kasih jam? Klik 'Menyusul' untuk tandai TBC"
+								}
 							>
-								<TimePicker
-									value={startTime}
-									onValueChange={setStartTime}
-									aria-invalid={!!err("start_time")}
-								/>
+								<div className="flex items-stretch gap-2">
+									<div className="flex-1">
+										<TimePicker
+											value={startTime}
+											onValueChange={(v) => {
+												setStartTime(v);
+												if (v) {
+													setSetupTouched(false);
+													setEndTouched(false);
+												}
+											}}
+											aria-invalid={!!err("start_time")}
+										/>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											if (startTime) {
+												// Switch ke TBC — clear semua waktu sekaligus, karena
+												// setup + selesai derive dari start
+												setStartTime("");
+												setSetupTime("");
+												setEndTime("");
+												setSetupTouched(false);
+												setEndTouched(false);
+											}
+										}}
+										aria-pressed={!startTime}
+										className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
+											startTime
+												? "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
+												: "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+										}`}
+									>
+										{startTime ? "Menyusul?" : "✓ Menyusul"}
+									</button>
+								</div>
 								<input
 									type="hidden"
 									name="start_time"
 									value={startTime}
-									required
 								/>
 							</Field>
 						</div>
-						<div className="grid gap-6 md:grid-cols-2">
-							<Field
-								label="Setup"
-								name="setup_time"
-								error={err("setup_time")}
-								required
-								hint={
-									setupTouched ? "Manual override" : "Auto: 1 jam sebelum mulai"
-								}
-							>
-								<TimePicker
-									value={setupTime}
-									onValueChange={(v) => {
-										setSetupTime(v);
-										setSetupTouched(true);
-									}}
-									aria-invalid={!!err("setup_time")}
-								/>
-								<input
-									type="hidden"
+
+						{!startTime ? (
+							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+								<div>
+									<p className="font-medium">Jam mulai belum ditentukan (TBC)</p>
+									<p className="text-amber-900/80 dark:text-amber-200/80">
+										Setup + selesai akan auto-fill setelah jam mulai diisi.
+										Sistem akan reminder H-7 + H-3 kalau masih kosong.
+									</p>
+								</div>
+							</div>
+						) : (
+							<div className="grid gap-6 md:grid-cols-2">
+								<Field
+									label="Setup"
 									name="setup_time"
-									value={setupTime}
-									required
-								/>
-							</Field>
-							<Field
-								label="Selesai"
-								name="end_time"
-								error={err("end_time")}
-								required
-								hint={
-									endTouched
-										? "Manual override"
-										: selectedPkg
-											? `Auto: mulai +${selectedPkg.duration_hours} jam (durasi paket)`
-											: "Pilih paket dulu buat auto-fill"
-								}
-							>
-								<TimePicker
-									value={endTime}
-									onValueChange={(v) => {
-										setEndTime(v);
-										setEndTouched(true);
-									}}
-									aria-invalid={!!err("end_time")}
-								/>
-								<input type="hidden" name="end_time" value={endTime} required />
-							</Field>
-						</div>
+									error={err("setup_time")}
+									hint={
+										setupTouched ? "Manual override" : "Auto: 1 jam sebelum mulai"
+									}
+								>
+									<TimePicker
+										value={setupTime}
+										onValueChange={(v) => {
+											setSetupTime(v);
+											setSetupTouched(true);
+										}}
+										aria-invalid={!!err("setup_time")}
+									/>
+									<input
+										type="hidden"
+										name="setup_time"
+										value={setupTime}
+									/>
+								</Field>
+								<Field
+									label="Selesai"
+									name="end_time"
+									error={err("end_time")}
+									hint={
+										endTouched
+											? "Manual override"
+											: selectedPkg
+												? `Auto: mulai +${selectedPkg.duration_hours} jam (durasi paket)`
+												: "Pilih paket dulu buat auto-fill"
+									}
+								>
+									<TimePicker
+										value={endTime}
+										onValueChange={(v) => {
+											setEndTime(v);
+											setEndTouched(true);
+										}}
+										aria-invalid={!!err("end_time")}
+									/>
+									<input type="hidden" name="end_time" value={endTime} />
+								</Field>
+							</div>
+						)}
 					</Section>
 
 					{/* === Cluster C anchor === */}
@@ -1801,16 +1849,23 @@ export function BookingForm({
 								label="Frame Size"
 								name="frame_size"
 								error={err("frame_size")}
-								required
+								hint={
+									frameSize
+										? undefined
+										: "Klien belum kasih ukuran? Pilih 'Menyusul' untuk TBC"
+								}
 							>
 								<Combobox
 									value={frameSize}
 									onValueChange={setFrameSize}
 									placeholder="— pilih frame —"
-									options={FRAME_SIZE_OPTIONS.map(([value, label]) => ({
-										value,
-										label: label === "—" ? "None" : label,
-									}))}
+									options={[
+										{ value: "", label: "— Menyusul / belum ditentukan —" },
+										...FRAME_SIZE_OPTIONS.map(([value, label]) => ({
+											value,
+											label: label === "—" ? "None" : label,
+										})),
+									]}
 									allowFreeText={false}
 									aria-invalid={!!err("frame_size")}
 								/>
@@ -1818,10 +1873,22 @@ export function BookingForm({
 									type="hidden"
 									name="frame_size"
 									value={frameSize}
-									required
 								/>
 							</Field>
 						</div>
+
+						{!frameSize && (
+							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+								<div>
+									<p className="font-medium">Frame size belum ditentukan (TBC)</p>
+									<p className="text-amber-900/80 dark:text-amber-200/80">
+										Paket akan susah di-filter sebelum frame dipilih. Sistem
+										akan reminder H-7 + H-3 kalau status masih kosong.
+									</p>
+								</div>
+							</div>
+						)}
 						<Field
 							label="Paket"
 							name="package_id"

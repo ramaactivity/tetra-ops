@@ -52,12 +52,35 @@ const BookingInputSchema = z.object({
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
-	frame_size: z.enum(FRAME_SIZES),
+	// TBC ("menyusul") = empty string from form → null di DB. Allow karena
+	// klien sering kasih booking sebelum pasti frame size.
+	frame_size: z
+		.enum(FRAME_SIZES)
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
 	event_category: z.string().trim().min(2, "Minimal 2 karakter").max(60),
 	event_date: z.iso.date("Format tanggal tidak valid"),
-	setup_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
-	start_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
-	end_time: z.string().regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM"),
+	// TBC waktu — empty = null di DB. Setup/end auto-fill dari start, jadi
+	// kalau start TBC, ketiganya umumnya TBC juga (UI yang enforce konsistensi).
+	setup_time: z
+		.string()
+		.regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM")
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
+	start_time: z
+		.string()
+		.regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM")
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
+	end_time: z
+		.string()
+		.regex(/^\d{2}:\d{2}$/, "Format waktu HH:MM")
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
 	booker_name: optionalString(120),
 	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
 	venue_address: optionalString(255),
