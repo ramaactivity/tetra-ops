@@ -172,7 +172,7 @@ export function AddonForm({
 
 			<div className="border-border-default flex items-center justify-end gap-3 border-t pt-5">
 				<Link
-					href="/settings/addons"
+					href="/operations/addons"
 					className="border-border-default bg-surface-2 hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
 				>
 					Cancel

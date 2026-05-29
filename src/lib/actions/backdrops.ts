@@ -95,9 +95,9 @@ export async function createBackdrop(
 			values: snapshotValues(formData),
 		};
 	}
-	revalidatePath("/settings/backdrops");
+	revalidatePath("/operations/backdrops");
 	revalidatePath("/operations/new");
-	redirect("/settings/backdrops");
+	redirect("/operations/backdrops");
 }
 
 export async function updateBackdrop(
@@ -124,10 +124,10 @@ export async function updateBackdrop(
 			values: snapshotValues(formData),
 		};
 	}
-	revalidatePath("/settings/backdrops");
-	revalidatePath(`/settings/backdrops/${id}/edit`);
+	revalidatePath("/operations/backdrops");
+	revalidatePath(`/operations/backdrops/${id}/edit`);
 	revalidatePath("/operations/new");
-	redirect("/settings/backdrops");
+	redirect("/operations/backdrops");
 }
 
 export async function toggleBackdropActive(id: string, nextActive: boolean) {
@@ -138,6 +138,6 @@ export async function toggleBackdropActive(id: string, nextActive: boolean) {
 		.update({ is_active: nextActive, updated_at: new Date().toISOString() })
 		.eq("id", id);
 	if (error) throw new Error(error.message);
-	revalidatePath("/settings/backdrops");
+	revalidatePath("/operations/backdrops");
 	revalidatePath("/operations/new");
 }

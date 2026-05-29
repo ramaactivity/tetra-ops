@@ -176,7 +176,7 @@ export function PackageForm({
 
 			<div className="flex items-center justify-end gap-3 border-t border-border-default pt-6">
 				<Link
-					href="/settings/packages"
+					href="/operations/packages"
 					className="border-border-default bg-surface-2 hover:bg-muted h-10 rounded-md border px-4 text-sm font-medium leading-10"
 				>
 					Cancel

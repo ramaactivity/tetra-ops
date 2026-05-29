@@ -244,8 +244,8 @@ export async function commitContactImport(
 				}
 			}
 
-			revalidatePath("/settings/contacts");
-			revalidatePath("/settings/contacts/import");
+			revalidatePath("/contacts");
+			revalidatePath("/contacts/import");
 
 			return {
 				totalRows: rows.length,

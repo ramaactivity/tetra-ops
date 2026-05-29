@@ -85,7 +85,7 @@ export function VendorForm({
 	useEffect(() => {
 		if (success) {
 			const t = setTimeout(() => {
-				router.push("/settings/vendors");
+				router.push("/vendors");
 			}, 1100);
 			return () => clearTimeout(t);
 		}
@@ -408,7 +408,7 @@ export function VendorForm({
 			<div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border-default bg-background/95 supports-[backdrop-filter]:bg-background/85 backdrop-blur md:bottom-0">
 				<div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-4">
 					<Link
-						href="/settings/vendors"
+						href="/vendors"
 						className="text-[13px] font-medium text-muted-foreground hover:text-foreground"
 					>
 						Batal

@@ -331,7 +331,7 @@ export default async function DashboardPage() {
 							hint="Buat event baru"
 						/>
 						<QuickAction
-							href="/settings/packages/new"
+							href="/operations/packages/new"
 							icon={Package}
 							label="New Package"
 							hint="Tambah paket pricelist"
@@ -343,7 +343,7 @@ export default async function DashboardPage() {
 							hint="Approve & atur tim"
 						/>
 						<QuickAction
-							href="/settings/bank-accounts"
+							href="/finance/bank-accounts"
 							icon={Receipt}
 							label="Bank Accounts"
 							hint="Atur penerima transfer"

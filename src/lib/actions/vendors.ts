@@ -15,7 +15,7 @@ import {
  * Vendor master CRUD — operates on contacts table where type='vendor'.
  *
  * Vendors are master entities (not denormalized strings). They power the
- * booking form vendor autocomplete + the /settings/vendors UI + the
+ * booking form vendor autocomplete + the /vendors UI + the
  * commission aggregation on /finance/vendors.
  *
  * Schema: see supabase/migrations/20260519_vendor_master.sql
@@ -231,8 +231,8 @@ export async function createVendor(
 		};
 	}
 
-	revalidatePath("/settings/vendors");
-	revalidatePath("/settings/contacts");
+	revalidatePath("/vendors");
+	revalidatePath("/contacts");
 	revalidatePath("/operations/new");
 
 	return { ok: true, vendor_id: inserted.id as string };
@@ -305,9 +305,9 @@ export async function updateVendor(
 		};
 	}
 
-	revalidatePath("/settings/vendors");
-	revalidatePath(`/settings/vendors/${id}`);
-	revalidatePath("/settings/contacts");
+	revalidatePath("/vendors");
+	revalidatePath(`/vendors/${id}`);
+	revalidatePath("/contacts");
 	revalidatePath("/operations/new");
 
 	return { ok: true, vendor_id: id };
@@ -332,7 +332,7 @@ export async function archiveVendor(id: string): Promise<{ ok: boolean; error?: 
 
 	if (error) return { ok: false, error: error.message };
 
-	revalidatePath("/settings/vendors");
+	revalidatePath("/vendors");
 	revalidatePath("/operations/new");
 	return { ok: true };
 }
@@ -355,7 +355,7 @@ export async function restoreVendor(id: string): Promise<{ ok: boolean; error?: 
 
 	if (error) return { ok: false, error: error.message };
 
-	revalidatePath("/settings/vendors");
+	revalidatePath("/vendors");
 	revalidatePath("/operations/new");
 	return { ok: true };
 }
@@ -393,7 +393,7 @@ export async function ensureVendorContact(input: {
 
 	// Create new vendor master entry. Mode/type/value default to whatever
 	// the booking form sent — owner gets a clean record they can refine
-	// later in /settings/vendors.
+	// later in /vendors.
 	const mode: VendorCommissionMode = input.commission_mode ?? "commission";
 	const valueType: VendorCommissionValueType =
 		input.commission_value_type ?? "percent";

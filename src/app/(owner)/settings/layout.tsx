@@ -11,7 +11,7 @@ export default function SettingsLayout({
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				title="Settings"
-				description="Atur master data dan konfigurasi sistem."
+				description="Konfigurasi sistem, tim & bagi hasil, template pesan, dan aturan notifikasi."
 			/>
 			<SettingsTabs />
 			<div className="pt-2">{children}</div>

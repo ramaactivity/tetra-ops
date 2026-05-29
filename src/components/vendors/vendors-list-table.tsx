@@ -164,7 +164,7 @@ export function VendorsListTable({ vendors }: { vendors: VendorRowDisplay[] }) {
 			align: "right",
 			render: (v) => (
 				<Link
-					href={`/settings/vendors/${v.vendor_id}/edit`}
+					href={`/vendors/${v.vendor_id}/edit`}
 					className="inline-flex items-center gap-1 text-fluid-caption font-medium text-link hover:underline"
 					aria-label={`Edit ${v.name}`}
 				>

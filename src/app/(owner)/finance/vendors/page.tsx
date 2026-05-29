@@ -212,7 +212,7 @@ export default async function VendorsPage() {
 						<>
 							Tambah lewat{" "}
 							<Link
-								href="/settings/contacts"
+								href="/contacts"
 								className="text-primary hover:underline"
 							>
 								Contacts

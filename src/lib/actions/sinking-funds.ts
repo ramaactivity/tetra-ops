@@ -112,8 +112,8 @@ export async function createSinkingFund(
 		};
 	}
 
-	revalidatePath("/settings/sinking-funds");
-	redirect("/settings/sinking-funds");
+	revalidatePath("/finance/sinking-funds");
+	redirect("/finance/sinking-funds");
 }
 
 export async function updateSinkingFund(
@@ -143,9 +143,9 @@ export async function updateSinkingFund(
 		};
 	}
 
-	revalidatePath("/settings/sinking-funds");
-	revalidatePath(`/settings/sinking-funds/${id}/edit`);
-	redirect("/settings/sinking-funds");
+	revalidatePath("/finance/sinking-funds");
+	revalidatePath(`/finance/sinking-funds/${id}/edit`);
+	redirect("/finance/sinking-funds");
 }
 
 export async function toggleSinkingFundActive(id: string, nextActive: boolean) {
@@ -156,7 +156,7 @@ export async function toggleSinkingFundActive(id: string, nextActive: boolean) {
 		.update({ is_active: nextActive, updated_at: new Date().toISOString() })
 		.eq("id", id);
 	if (error) throw new Error(error.message);
-	revalidatePath("/settings/sinking-funds");
+	revalidatePath("/finance/sinking-funds");
 }
 
 const MovementInputSchema = z
@@ -248,7 +248,7 @@ export async function addManualMovement(
 		};
 	}
 
-	revalidatePath("/settings/sinking-funds");
-	revalidatePath(`/settings/sinking-funds/${fundId}/movements`);
+	revalidatePath("/finance/sinking-funds");
+	revalidatePath(`/finance/sinking-funds/${fundId}/movements`);
 	return undefined;
 }

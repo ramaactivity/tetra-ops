@@ -5,18 +5,11 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-	{ href: "/settings", label: "System", exact: true },
-	{ href: "/settings/packages", label: "Packages" },
-	{ href: "/settings/addons", label: "Add-ons" },
-	{ href: "/settings/backdrops", label: "Backdrops" },
-	{ href: "/settings/bank-accounts", label: "Banks" },
-	{ href: "/settings/crew", label: "Crew" },
-	{ href: "/settings/contacts", label: "Contacts" },
-	{ href: "/settings/vendors", label: "Vendors" },
-	{ href: "/settings/sinking-funds", label: "Sinking Funds" },
-	{ href: "/settings/whatsapp-templates", label: "WA Templates" },
-	{ href: "/settings/notification-rules", label: "Notif Rules" },
-	{ href: "/settings/audit-log", label: "Audit Log" },
+	{ href: "/settings", label: "Sistem", exact: true },
+	{ href: "/settings/crew", label: "Tim" },
+	{ href: "/settings/whatsapp-templates", label: "Template WA" },
+	{ href: "/settings/notification-rules", label: "Notifikasi" },
+	{ href: "/settings/audit-log", label: "Log Audit" },
 ];
 
 export function SettingsTabs() {

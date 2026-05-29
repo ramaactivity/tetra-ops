@@ -691,7 +691,7 @@ async function commitProjectImportInner(
 		if (!isPast && paid > 0) {
 			if (!defaultBankId) {
 				warnings.push(
-					"no default bank account — DP not recorded; create a bank in /settings/bank-accounts then re-import",
+					"no default bank account — DP not recorded; create a bank in /finance/bank-accounts then re-import",
 				);
 			} else {
 				const { error: payErr } = await withRetry(() =>

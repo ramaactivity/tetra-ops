@@ -27,7 +27,7 @@ export function ArchiveVendorButton({
 				toast.success(
 					mode === "archive" ? "Vendor di-archive" : "Vendor di-restore",
 				);
-				router.push("/settings/vendors");
+				router.push("/vendors");
 				router.refresh();
 			} else {
 				toast.error(result.error ?? "Gagal memproses vendor.");

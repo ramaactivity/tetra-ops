@@ -1125,7 +1125,7 @@ export function BookingForm({
 											label="Nama Vendor / Perusahaan"
 											name="vendor_name"
 											error={err("vendor_name")}
-											hint="Pilih dari master vendor, atau ketik nama baru (auto-create di /settings/vendors saat save)."
+											hint="Pilih dari master vendor, atau ketik nama baru (auto-create di /vendors saat save)."
 											required
 											layoutMode="grid"
 										>

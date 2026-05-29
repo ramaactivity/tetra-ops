@@ -413,7 +413,7 @@ export default async function FinancePage() {
 							Cash inflow per rekening
 						</h2>
 						<Link
-							href="/settings/bank-accounts"
+							href="/finance/bank-accounts"
 							className="text-muted-foreground hover:text-foreground text-xs"
 						>
 							Kelola →
@@ -423,7 +423,7 @@ export default async function FinancePage() {
 						<EmptyCard
 							icon={Wallet}
 							title="Belum ada bank account"
-							hint="Tambah di /settings/bank-accounts"
+							hint="Tambah di /finance/bank-accounts"
 						/>
 					) : (
 						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-lg border">
@@ -471,7 +471,7 @@ export default async function FinancePage() {
 							Sinking funds
 						</h2>
 						<Link
-							href="/settings/sinking-funds"
+							href="/finance/sinking-funds"
 							className="text-muted-foreground hover:text-foreground text-xs"
 						>
 							Detail →
@@ -481,7 +481,7 @@ export default async function FinancePage() {
 						<EmptyCard
 							icon={PiggyBank}
 							title="Belum ada sinking fund"
-							hint="Bikin di /settings/sinking-funds"
+							hint="Bikin di /finance/sinking-funds"
 						/>
 					) : (
 						<div className="border-border-default bg-surface-2 divide-border overflow-hidden rounded-lg border">
@@ -493,7 +493,7 @@ export default async function FinancePage() {
 								return (
 									<Link
 										key={f.id}
-										href={`/settings/sinking-funds/${f.id}/movements`}
+										href={`/finance/sinking-funds/${f.id}/movements`}
 										className="press-down border-border-default hover:bg-muted/40 flex items-center gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
 									>
 										<div className="min-w-0 flex-1 space-y-1">

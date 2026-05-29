@@ -110,8 +110,8 @@ export async function createPackage(
 		};
 	}
 
-	revalidatePath("/settings/packages");
-	redirect("/settings/packages");
+	revalidatePath("/operations/packages");
+	redirect("/operations/packages");
 }
 
 export async function updatePackage(
@@ -141,9 +141,9 @@ export async function updatePackage(
 		};
 	}
 
-	revalidatePath("/settings/packages");
-	revalidatePath(`/settings/packages/${id}/edit`);
-	redirect("/settings/packages");
+	revalidatePath("/operations/packages");
+	revalidatePath(`/operations/packages/${id}/edit`);
+	redirect("/operations/packages");
 }
 
 export async function archivePackage(id: string) {
@@ -156,5 +156,5 @@ export async function archivePackage(id: string) {
 		.eq("id", id);
 	if (error) throw new Error(error.message);
 
-	revalidatePath("/settings/packages");
+	revalidatePath("/operations/packages");
 }

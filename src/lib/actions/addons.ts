@@ -100,8 +100,8 @@ export async function createAddon(
 			values: snapshotValues(formData),
 		};
 	}
-	revalidatePath("/settings/addons");
-	redirect("/settings/addons");
+	revalidatePath("/operations/addons");
+	redirect("/operations/addons");
 }
 
 export async function updateAddon(
@@ -128,9 +128,9 @@ export async function updateAddon(
 			values: snapshotValues(formData),
 		};
 	}
-	revalidatePath("/settings/addons");
-	revalidatePath(`/settings/addons/${id}/edit`);
-	redirect("/settings/addons");
+	revalidatePath("/operations/addons");
+	revalidatePath(`/operations/addons/${id}/edit`);
+	redirect("/operations/addons");
 }
 
 export async function archiveAddon(id: string) {
@@ -141,5 +141,5 @@ export async function archiveAddon(id: string) {
 		.update({ deleted_at: new Date().toISOString() })
 		.eq("id", id);
 	if (error) throw new Error(error.message);
-	revalidatePath("/settings/addons");
+	revalidatePath("/operations/addons");
 }
