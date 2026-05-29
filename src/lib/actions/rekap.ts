@@ -6,6 +6,11 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
+import {
+	bucketHpp,
+	FIELD_TO_BUCKET,
+	type HppBucket,
+} from "@/lib/rekap/recipe";
 import { createClient } from "@/lib/supabase/server";
 
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
@@ -704,6 +709,7 @@ type DeductionLine = {
 	qty: number;
 	unit_cost: number;
 	source_label: string; // e.g. "media_set_used" or "extra: ITEM-X"
+	bucket: HppBucket; // HPP bucket — single source for stock + cost
 };
 
 async function readAutoDeductFlag(
@@ -877,6 +883,7 @@ async function planRekapDeduction(
 				qty: cetakTotal * recipe.mediaQtyPerPrint,
 				unit_cost: Number(mediaItem.purchase_price_avg ?? 0),
 				source_label: "cetak_total",
+				bucket: "mediaset",
 			});
 		} else {
 			missingMappings.push("cetak_total");
@@ -891,6 +898,7 @@ async function planRekapDeduction(
 				qty: cetakTotal, // 1:1 with prints
 				unit_cost: Number(sleeveItem.purchase_price_avg ?? 0),
 				source_label: "sleeve_used",
+				bucket: "sleeve",
 			});
 		} else {
 			missingMappings.push("sleeve_used");
@@ -948,6 +956,7 @@ async function planRekapDeduction(
 				qty: qty * qtyPerUnit,
 				unit_cost: Number(item.purchase_price_avg ?? 0),
 				source_label: components.length > 1 ? `${field} → ${sku}` : field,
+				bucket: FIELD_TO_BUCKET[field],
 			});
 		}
 	}
@@ -965,6 +974,7 @@ async function planRekapDeduction(
 				qty,
 				unit_cost: Number(item.purchase_price_avg ?? 0),
 				source_label: `extra: ${sku}`,
+				bucket: "other",
 			});
 		}
 	}
@@ -1036,6 +1046,7 @@ async function planRekapDeduction(
 			qty,
 			unit_cost: Number(invItem.purchase_price_avg ?? 0),
 			source_label: `bonus: ${addon.name}`,
+			bucket: "bonus",
 		});
 	}
 
@@ -1109,6 +1120,7 @@ async function planRekapDeduction(
 				qty,
 				unit_cost: Number(compItem.purchase_price_avg ?? 0),
 				source_label: `bundle: ${bundle.name}`,
+				bucket: "other",
 			});
 			existingItemIds.add(compItem.id);
 		}
@@ -1205,6 +1217,11 @@ export async function reviewRekap(
 			supabase,
 			existing as RekapStockSnapshot,
 		);
+		// HPP snapshot — single source of truth for cost. Persisted at approval
+		// so settlement/preview read the SAME numbers as the stock that moved.
+		const snapshot = bucketHpp(plan.lines);
+		updatePayload.hpp_snapshot = snapshot;
+		updatePayload.hpp_snapshot_total = snapshot.total;
 		if (plan.lines.length > 0) {
 			const batchId = randomUUID();
 			const movements = plan.lines.map((l) => ({
@@ -1261,6 +1278,8 @@ export async function reviewRekap(
 		}
 		updatePayload.stock_committed_at = null;
 		updatePayload.stock_movement_batch_id = null;
+		updatePayload.hpp_snapshot = null;
+		updatePayload.hpp_snapshot_total = null;
 	}
 
 	const { error } = await supabase
