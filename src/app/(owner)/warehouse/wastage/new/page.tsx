@@ -9,11 +9,10 @@ export default async function NewWastagePage() {
 	const [{ data: items }, { data: suppliers }, { data: events }] =
 		await Promise.all([
 			supabase
+				// purchase_price_avg dibaca dari BASE (kanonik, fresh dari
+				// purchases/movements) — bukan satellite yg bisa basi. Phase 5.
 				.from("inventory_items")
-				.select(
-					`id, sku, name, unit,
-					 config:items_inventory_config!inner(purchase_price_avg)`,
-				)
+				.select("id, sku, name, unit, purchase_price_avg")
 				.eq("category", "inventory")
 				.eq("is_active", true)
 				.is("deleted_at", null)
@@ -37,22 +36,16 @@ export default async function NewWastagePage() {
 		sku: string;
 		name: string;
 		unit: string;
-		config:
-			| { purchase_price_avg: number | string | null }
-			| Array<{ purchase_price_avg: number | string | null }>
-			| null;
+		purchase_price_avg: number | string | null;
 	};
 
-	const itemOptions = ((items ?? []) as RawItem[]).map((i) => {
-		const cfg = Array.isArray(i.config) ? i.config[0] : i.config;
-		return {
-			id: i.id,
-			sku: i.sku,
-			name: i.name,
-			unit: i.unit,
-			purchase_price_avg: Number(cfg?.purchase_price_avg ?? 0),
-		};
-	});
+	const itemOptions = ((items ?? []) as RawItem[]).map((i) => ({
+		id: i.id,
+		sku: i.sku,
+		name: i.name,
+		unit: i.unit,
+		purchase_price_avg: Number(i.purchase_price_avg ?? 0),
+	}));
 
 	return (
 		<Container size="lg" className="space-y-5">

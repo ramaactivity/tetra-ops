@@ -27,6 +27,10 @@ export type ItemBase = {
 	created_at: string;
 	updated_at: string;
 	deleted_at: string | null;
+	// Canonical avg cost — purchases & stock-movements update THIS (base) col.
+	// Satellite items_inventory_config.purchase_price_avg can lag, jadi loader
+	// override config value dengan yang ini. (Phase 5 fix.)
+	purchase_price_avg: number | null;
 };
 
 export type InventoryConfig = {
@@ -67,7 +71,7 @@ export type LoadedItem =
 	| { kind: "fixed_asset"; base: ItemBase; config: FixedAssetConfig };
 
 const BASE_FIELDS =
-	"id, sku, name, category, unit, coa_account, is_active, image_url, notes, created_at, updated_at, deleted_at";
+	"id, sku, name, category, unit, coa_account, is_active, image_url, notes, created_at, updated_at, deleted_at, purchase_price_avg";
 const INV_FIELDS =
 	"item_id, base_unit, unit_conversion, min_stock_alert, purchase_price_avg, selling_price, preferred_supplier_id, is_bom_component, coa_account_inventory, coa_account_cogs, coa_account_wastage";
 const FA_FIELDS =
@@ -101,7 +105,13 @@ export async function getItemWithConfig(
 				`Item ${itemBase.sku} (${itemId}) category=inventory tapi tidak punya items_inventory_config row`,
 			);
 		}
-		return { kind: "inventory", base: itemBase, config: cfg as InventoryConfig };
+		const invCfg = cfg as InventoryConfig;
+		// Canonical avg cost dari base (selalu fresh dari purchases/movements);
+		// satellite copy bisa basi. Phase 5 fix.
+		invCfg.purchase_price_avg = Number(
+			itemBase.purchase_price_avg ?? invCfg.purchase_price_avg ?? 0,
+		);
+		return { kind: "inventory", base: itemBase, config: invCfg };
 	}
 
 	const { data: cfg, error } = await supabase
@@ -145,7 +155,13 @@ export async function getItemsWithConfig(
 	for (const b of (bases ?? []) as ItemBase[]) {
 		if (b.category === "inventory") {
 			const cfg = invMap.get(b.id);
-			if (cfg) out.set(b.id, { kind: "inventory", base: b, config: cfg });
+			if (cfg) {
+				// Canonical avg cost dari base (satellite bisa basi). Phase 5 fix.
+				cfg.purchase_price_avg = Number(
+					b.purchase_price_avg ?? cfg.purchase_price_avg ?? 0,
+				);
+				out.set(b.id, { kind: "inventory", base: b, config: cfg });
+			}
 		} else if (b.category === "fixed_asset") {
 			const cfg = faMap.get(b.id);
 			if (cfg) out.set(b.id, { kind: "fixed_asset", base: b, config: cfg });
