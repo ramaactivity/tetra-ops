@@ -91,7 +91,7 @@ export async function getProfitPreview(
 	// 1) Find recap for this event
 	const { data: recap, error: recapErr } = await supabase
 		.from("crew_rekap")
-		.select("id")
+		.select("id, hpp_snapshot")
 		.eq("event_id", eventId)
 		.maybeSingle();
 	if (recapErr) return { ok: false, error: recapErr.message };
@@ -123,14 +123,22 @@ export async function getProfitPreview(
 	let opex: OpexBreakdown = EMPTY_OPEX;
 
 	if (recap?.id) {
-		const [hppRes, opexRes] = await Promise.all([
-			supabase.rpc("calculate_recap_hpp", { p_recap_id: recap.id }),
-			supabase.rpc("calculate_recap_opex", { p_recap_id: recap.id }),
-		]);
-
-		if (!hppRes.error && hppRes.data) {
-			hpp = normalizeHpp(hppRes.data);
+		// HPP: prefer canonical snapshot (di-tulis saat approval) → preview ==
+		// settled. Fallback ke calculate_recap_hpp utk rekap yg belum approve /
+		// belum punya snapshot (estimasi pra-approval).
+		if (recap.hpp_snapshot) {
+			hpp = normalizeHpp(recap.hpp_snapshot);
+		} else {
+			const hppRes = await supabase.rpc("calculate_recap_hpp", {
+				p_recap_id: recap.id,
+			});
+			if (!hppRes.error && hppRes.data) {
+				hpp = normalizeHpp(hppRes.data);
+			}
 		}
+		const opexRes = await supabase.rpc("calculate_recap_opex", {
+			p_recap_id: recap.id,
+		});
 		if (!opexRes.error && opexRes.data) {
 			opex = normalizeOpex(opexRes.data);
 		}
