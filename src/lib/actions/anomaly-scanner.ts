@@ -570,6 +570,24 @@ async function checkPendingUser24h(admin: AdminClient): Promise<Match[]> {
 	}));
 }
 
+// Batched current stock for a set of items — one grouped query instead of an
+// N+1 get_current_stock RPC per item. See get_stock_levels migration.
+async function fetchStockLevels(
+	admin: AdminClient,
+	itemIds: string[],
+): Promise<Map<string, number>> {
+	if (itemIds.length === 0) return new Map();
+	const { data } = await admin.rpc("get_stock_levels", {
+		p_item_ids: itemIds,
+	});
+	return new Map(
+		((data ?? []) as Array<{ item_id: string; stock: number }>).map((r) => [
+			r.item_id,
+			Number(r.stock),
+		]),
+	);
+}
+
 async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 	const { data: items } = await admin
 		.from("inventory_items")
@@ -579,17 +597,19 @@ async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 		.gt("min_stock_alert", 0);
 	if (!items) return [];
 
-	const matches: Match[] = [];
-	for (const item of items as Array<{
+	const itemRows = items as Array<{
 		id: string;
 		sku: string;
 		name: string;
 		min_stock_alert: number;
-	}>) {
-		const { data: stock } = await admin.rpc("get_current_stock", {
-			p_item_id: item.id,
-		});
-		const current = (stock as number | null) ?? 0;
+	}>;
+	const stockMap = await fetchStockLevels(
+		admin,
+		itemRows.map((i) => i.id),
+	);
+	const matches: Match[] = [];
+	for (const item of itemRows) {
+		const current = stockMap.get(item.id) ?? 0;
 		if (current > 0 && current < item.min_stock_alert) {
 			matches.push({
 				entity_type: "inventory_item",
@@ -612,17 +632,19 @@ async function checkStockZero(admin: AdminClient): Promise<Match[]> {
 		.gt("min_stock_alert", 0);
 	if (!items) return [];
 
-	const matches: Match[] = [];
-	for (const item of items as Array<{
+	const itemRows = items as Array<{
 		id: string;
 		sku: string;
 		name: string;
 		min_stock_alert: number;
-	}>) {
-		const { data: stock } = await admin.rpc("get_current_stock", {
-			p_item_id: item.id,
-		});
-		const current = (stock as number | null) ?? 0;
+	}>;
+	const stockMap = await fetchStockLevels(
+		admin,
+		itemRows.map((i) => i.id),
+	);
+	const matches: Match[] = [];
+	for (const item of itemRows) {
+		const current = stockMap.get(item.id) ?? 0;
 		if (current === 0) {
 			matches.push({
 				entity_type: "inventory_item",

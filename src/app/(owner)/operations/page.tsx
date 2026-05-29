@@ -146,13 +146,9 @@ export default async function OperationsListPage({
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
 			.eq("status", "awaiting_settlement"),
-		supabase
-			.from("events")
-			.select("remaining_balance")
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.neq("payment_status", "paid")
-			.gt("remaining_balance", 0),
+		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
+		// reduce. See get_outstanding_total migration.
+		supabase.rpc("get_outstanding_total"),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
@@ -169,10 +165,12 @@ export default async function OperationsListPage({
 	]);
 
 	const eventTypeLabelByCode = new Map<string, string>(
-		((eventTypesResult.data ?? []) as Array<{
-			code: string;
-			label: string;
-		}>).map((r) => [r.code, r.label]),
+		(
+			(eventTypesResult.data ?? []) as Array<{
+				code: string;
+				label: string;
+			}>
+		).map((r) => [r.code, r.label]),
 	);
 
 	if (listResult.error) {
@@ -206,41 +204,43 @@ export default async function OperationsListPage({
 		custom_package_name?: string | null;
 		event_category?: string | null;
 	};
-	const events: EventRow[] = (
-		(listResult.data ?? []) as RawEventRow[]
-	).map((row) => {
-		const pkg = Array.isArray(row.package) ? row.package[0] : row.package;
-		const bd = Array.isArray(row.backdrop) ? row.backdrop[0] : row.backdrop;
-		const customName = row.custom_package_name;
-		const cat = row.event_category ?? null;
-		return {
-			id: row.id,
-			project_id: row.project_id,
-			status: row.status,
-			channel: row.channel,
-			client_name: row.client_name,
-			event_date: row.event_date,
-			setup_time: row.setup_time,
-			start_time: row.start_time,
-			end_time: row.end_time,
-			frame_size: row.frame_size,
-			backdrop_color: row.backdrop_color,
-			include_flashdisk_pouch: row.include_flashdisk_pouch,
-			venue_name: row.venue_name,
-			venue_city: row.venue_city,
-			grand_total: row.grand_total,
-			remaining_balance: row.remaining_balance,
-			payment_status: row.payment_status,
-			is_migrated_legacy: row.is_migrated_legacy,
-			legacy_invoice_number: row.legacy_invoice_number,
-			package_name: pkg?.name ?? customName ?? null,
-			package_duration_hours: pkg?.duration_hours ?? null,
-			backdrop_name: bd?.name ?? null,
-			backdrop_type: bd?.type ?? null,
-			event_category: cat,
-			event_category_label: cat ? (eventTypeLabelByCode.get(cat) ?? cat) : null,
-		};
-	});
+	const events: EventRow[] = ((listResult.data ?? []) as RawEventRow[]).map(
+		(row) => {
+			const pkg = Array.isArray(row.package) ? row.package[0] : row.package;
+			const bd = Array.isArray(row.backdrop) ? row.backdrop[0] : row.backdrop;
+			const customName = row.custom_package_name;
+			const cat = row.event_category ?? null;
+			return {
+				id: row.id,
+				project_id: row.project_id,
+				status: row.status,
+				channel: row.channel,
+				client_name: row.client_name,
+				event_date: row.event_date,
+				setup_time: row.setup_time,
+				start_time: row.start_time,
+				end_time: row.end_time,
+				frame_size: row.frame_size,
+				backdrop_color: row.backdrop_color,
+				include_flashdisk_pouch: row.include_flashdisk_pouch,
+				venue_name: row.venue_name,
+				venue_city: row.venue_city,
+				grand_total: row.grand_total,
+				remaining_balance: row.remaining_balance,
+				payment_status: row.payment_status,
+				is_migrated_legacy: row.is_migrated_legacy,
+				legacy_invoice_number: row.legacy_invoice_number,
+				package_name: pkg?.name ?? customName ?? null,
+				package_duration_hours: pkg?.duration_hours ?? null,
+				backdrop_name: bd?.name ?? null,
+				backdrop_type: bd?.type ?? null,
+				event_category: cat,
+				event_category_label: cat
+					? (eventTypeLabelByCode.get(cat) ?? cat)
+					: null,
+			};
+		},
+	);
 
 	const crewByEvent = new Map<string, CrewChip[]>();
 	if (events.length > 0) {
@@ -264,13 +264,13 @@ export default async function OperationsListPage({
 						full_name: string;
 						nickname: string | null;
 						tier: "senior" | "junior" | null;
-					}
+				  }
 				| Array<{
 						id: string;
 						full_name: string;
 						nickname: string | null;
 						tier: "senior" | "junior" | null;
-					}>
+				  }>
 				| null;
 		}>) {
 			const u = Array.isArray(row.user) ? row.user[0] : row.user;
@@ -306,16 +306,14 @@ export default async function OperationsListPage({
 	const totalCount = totalCountResult.count ?? 0;
 	const thisMonthCount = thisMonthCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
-	const outstanding = (outstandingResult.data ?? []).reduce(
-		(sum, r) => sum + (r.remaining_balance ?? 0),
-		0,
-	);
+	const outstanding = (outstandingResult.data as number | null) ?? 0;
 	const archivedCount = archivedCountResult.count ?? 0;
 
 	// `month` is always set (auto-defaults to current month), so consider it
 	// a "user-set" filter only when explicitly different from the default.
 	const isCustomMonth =
-		monthParam === "all" || (Boolean(monthParam) && monthParam !== currentYearMonth());
+		monthParam === "all" ||
+		(Boolean(monthParam) && monthParam !== currentYearMonth());
 	const hasFilters = Boolean(
 		q || status || isCustomMonth || showArchived || crewFilter,
 	);
@@ -425,9 +423,7 @@ export default async function OperationsListPage({
 					<EmptyState
 						icon={CalendarPlus}
 						title={
-							hasFilters
-								? "Tidak ada event yang cocok"
-								: "Belum ada booking"
+							hasFilters ? "Tidak ada event yang cocok" : "Belum ada booking"
 						}
 						description={
 							hasFilters
@@ -457,4 +453,3 @@ export default async function OperationsListPage({
 		</Container>
 	);
 }
-

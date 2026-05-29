@@ -20,17 +20,17 @@ import {
 	type BundleRow,
 	BundlesGrid,
 } from "@/components/warehouse/bundles/bundles-grid";
-import { MarketListTable } from "@/components/warehouse/market-list/market-list-table";
-import { WarehouseRealtimeSync } from "@/components/warehouse/realtime-sync";
 import type {
 	MarketListEntry,
 	MarketListItem,
 	SupplierOption,
 } from "@/components/warehouse/market-list/market-list-table";
+import { MarketListTable } from "@/components/warehouse/market-list/market-list-table";
 import type {
 	PembelianItemOption,
 	PembelianSupplierOption,
 } from "@/components/warehouse/pembelian/pembelian-dialog";
+import { WarehouseRealtimeSync } from "@/components/warehouse/realtime-sync";
 import {
 	type ConsumableRow,
 	ConsumablesTable,
@@ -43,23 +43,6 @@ import { WarehouseTabs } from "@/components/warehouse/warehouse-tabs";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-type MovementAgg = {
-	item_id: string;
-	direction: "in" | "out" | "adjustment";
-	quantity: number;
-};
-
-function computeStock(itemId: string, movements: MovementAgg[]): number {
-	let stock = 0;
-	for (const m of movements) {
-		if (m.item_id !== itemId) continue;
-		if (m.direction === "in") stock += m.quantity;
-		else if (m.direction === "out") stock -= m.quantity;
-		else stock += m.quantity;
-	}
-	return stock;
-}
-
 export default async function WarehousePage({
 	searchParams,
 }: {
@@ -70,7 +53,7 @@ export default async function WarehousePage({
 
 	const supabase = await createClient();
 
-	const [consumablesResult, equipmentResult, movementsAggResult] =
+	const [consumablesResult, equipmentResult, stockLevelsResult] =
 		await Promise.all([
 			supabase
 				.from("inventory_items")
@@ -98,7 +81,10 @@ export default async function WarehousePage({
 				.eq("category", "fixed_asset")
 				.is("deleted_at", null)
 				.order("name", { ascending: true }),
-			supabase.from("stock_movements").select("item_id, direction, quantity"),
+			// Batched stock levels — one grouped query instead of fetching the
+			// entire stock_movements table and computing per-item in JS (which
+			// was O(items × movements)). See get_stock_levels migration.
+			supabase.rpc("get_stock_levels"),
 		]);
 
 	type RawConsumable = {
@@ -159,7 +145,8 @@ export default async function WarehousePage({
 			sku: c.sku,
 			name: c.name,
 			unit: c.unit,
-			unit_conversion: (c.unit_conversion as Record<string, number> | null) ?? null,
+			unit_conversion:
+				(c.unit_conversion as Record<string, number> | null) ?? null,
 			preferred_supplier_id: c.preferred_supplier_id,
 			preferred_supplier_name: c.preferred_supplier_name,
 		}));
@@ -220,11 +207,20 @@ export default async function WarehousePage({
 			depreciation_start_date: cfg?.depreciation_start_date ?? null,
 		};
 	});
-	const movementsAgg = (movementsAggResult.data ?? []) as MovementAgg[];
+	const stockLevels = new Map<string, number>(
+		(
+			(stockLevelsResult.data ?? []) as Array<{
+				item_id: string;
+				stock: number;
+			}>
+		).map((r) => [r.item_id, Number(r.stock)]),
+	);
 
+	// Keyed by consumable id (0 when no movements) — identical contents to the
+	// previous per-item computeStock map, just sourced from the batched RPC.
 	const stockByItem = new Map<string, number>();
 	for (const item of consumables) {
-		stockByItem.set(item.id, computeStock(item.id, movementsAgg));
+		stockByItem.set(item.id, stockLevels.get(item.id) ?? 0);
 	}
 
 	const totalSkus = consumables.length + equipment.length;
@@ -303,17 +299,19 @@ export default async function WarehousePage({
 				.order("name"),
 		]);
 		marketItems = (itemsRes.data ?? []) as MarketListItem[];
-		marketEntries = ((entriesRes.data ?? []) as Array<{
-			id: string;
-			supplier_id: string;
-			item_id: string;
-			pack_price: number;
-			pack_size: number | string;
-			pack_unit: string;
-			is_primary: boolean;
-			notes: string | null;
-			supplier: { name: string } | { name: string }[] | null;
-		}>).map((r) => {
+		marketEntries = (
+			(entriesRes.data ?? []) as Array<{
+				id: string;
+				supplier_id: string;
+				item_id: string;
+				pack_price: number;
+				pack_size: number | string;
+				pack_unit: string;
+				is_primary: boolean;
+				notes: string | null;
+				supplier: { name: string } | { name: string }[] | null;
+			}>
+		).map((r) => {
 			const sup = Array.isArray(r.supplier) ? r.supplier[0] : r.supplier;
 			return {
 				id: r.id,
@@ -510,9 +508,7 @@ export default async function WarehousePage({
 									: `${bundlesIncompleteCount} bundle komponen habis`
 							}
 							icon={CheckCircle2}
-							accent={
-								bundlesIncompleteCount === 0 ? "emerald" : "amber"
-							}
+							accent={bundlesIncompleteCount === 0 ? "emerald" : "amber"}
 						/>
 						<KpiCard
 							label="Total Recipe Value"
@@ -526,10 +522,8 @@ export default async function WarehousePage({
 							value={
 								bundleRows.length > 0
 									? (
-											bundleRows.reduce(
-												(s, b) => s + b.componentCount,
-												0,
-											) / bundleRows.length
+											bundleRows.reduce((s, b) => s + b.componentCount, 0) /
+											bundleRows.length
 										).toFixed(1)
 									: "—"
 							}

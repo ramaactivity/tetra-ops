@@ -9,7 +9,10 @@ export async function GET(
 	{ params }: { params: Promise<{ projectId: string }> },
 ) {
 	const me = await getCurrentUser();
-	if (!me || (me.profile.role !== "super_admin" && me.profile.role !== "owner")) {
+	if (
+		!me ||
+		(me.profile.role !== "super_admin" && me.profile.role !== "owner")
+	) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
@@ -57,7 +60,7 @@ export async function GET(
 		headers: {
 			"Content-Type": "application/pdf",
 			"Content-Disposition": `inline; filename="${filename}"`,
-			"Cache-Control": "private, no-store",
+			"Cache-Control": "private, max-age=60",
 		},
 	});
 }

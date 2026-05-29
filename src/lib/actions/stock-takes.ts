@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { recordOpnameShortageWastage } from "@/lib/actions/wastage";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
-import { recordOpnameShortageWastage } from "@/lib/actions/wastage";
 
 async function requireOwnerLevel() {
 	const me = await getCurrentUser();
@@ -22,9 +22,9 @@ async function requireOwnerLevel() {
  * audits the row. NULL distinguishes "not yet checked" from "checked and
  * matches system". Progress + commit semantics depend on this distinction.
  */
-export async function createStockTake(formData: FormData): Promise<
-	{ ok: true; id: string } | { ok: false; error: string }
-> {
+export async function createStockTake(
+	formData: FormData,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
 	const me = await requireOwnerLevel();
 	const notes = String(formData.get("notes") ?? "").trim() || null;
 
@@ -35,7 +35,10 @@ export async function createStockTake(formData: FormData): Promise<
 		.select("id")
 		.single();
 	if (error || !take) {
-		return { ok: false, error: error?.message ?? "Failed to create stock opname" };
+		return {
+			ok: false,
+			error: error?.message ?? "Failed to create stock opname",
+		};
 	}
 
 	const { data: items } = await supabase
@@ -45,19 +48,24 @@ export async function createStockTake(formData: FormData): Promise<
 		.eq("is_active", true);
 
 	if (items && items.length > 0) {
-		const lines = await Promise.all(
-			(items as Array<{ id: string }>).map(async (it) => {
-				const { data: stock } = await supabase.rpc("get_current_stock", {
-					p_item_id: it.id,
-				});
-				return {
-					stock_take_id: take.id,
-					item_id: it.id,
-					system_qty: Number(stock ?? 0),
-					counted_qty: null,
-				};
-			}),
+		const ids = (items as Array<{ id: string }>).map((it) => it.id);
+		// Batched stock for all opname lines in one query instead of an RPC per
+		// item. See get_stock_levels migration.
+		const { data: levels } = await supabase.rpc("get_stock_levels", {
+			p_item_ids: ids,
+		});
+		const stockMap = new Map(
+			((levels ?? []) as Array<{ item_id: string; stock: number }>).map((r) => [
+				r.item_id,
+				Number(r.stock),
+			]),
 		);
+		const lines = ids.map((id) => ({
+			stock_take_id: take.id,
+			item_id: id,
+			system_qty: stockMap.get(id) ?? 0,
+			counted_qty: null,
+		}));
 		await supabase.from("stock_take_lines").insert(lines);
 	}
 
@@ -119,9 +127,9 @@ const UpdateLineSchema = z.object({
 		.transform((v) => (v ? v : null)),
 });
 
-export async function updateStockTakeLine(formData: FormData): Promise<
-	{ ok: true } | { ok: false; error: string }
-> {
+export async function updateStockTakeLine(
+	formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
 	await requireOwnerLevel();
 
 	const parsed = UpdateLineSchema.safeParse({
@@ -161,9 +169,9 @@ export async function updateStockTakeLine(formData: FormData): Promise<
  * are fine as-is". Only affects unaudited lines — won't overwrite manual
  * counts.
  */
-export async function matchAllToSystem(stockTakeId: string): Promise<
-	{ ok: true; matched: number } | { ok: false; error: string }
-> {
+export async function matchAllToSystem(
+	stockTakeId: string,
+): Promise<{ ok: true; matched: number } | { ok: false; error: string }> {
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
@@ -222,8 +230,11 @@ export async function updateStockTakeNotes(
 	return { ok: true };
 }
 
-export async function commitStockTake(stockTakeId: string): Promise<
-	{ ok: true; movements: number; wastageLogged: number } | { ok: false; error: string }
+export async function commitStockTake(
+	stockTakeId: string,
+): Promise<
+	| { ok: true; movements: number; wastageLogged: number }
+	| { ok: false; error: string }
 > {
 	const me = await requireOwnerLevel();
 
@@ -271,9 +282,9 @@ export async function commitStockTake(stockTakeId: string): Promise<
 	return { ok: true, movements: Number(data ?? 0), wastageLogged };
 }
 
-export async function cancelStockTake(stockTakeId: string): Promise<
-	{ ok: true } | { ok: false; error: string }
-> {
+export async function cancelStockTake(
+	stockTakeId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
@@ -294,9 +305,9 @@ export async function cancelStockTake(stockTakeId: string): Promise<
  * abandoned sessions. Committed takes are immutable audit trail and
  * cannot be deleted.
  */
-export async function deleteStockTake(stockTakeId: string): Promise<
-	{ ok: true } | { ok: false; error: string }
-> {
+export async function deleteStockTake(
+	stockTakeId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
@@ -309,7 +320,8 @@ export async function deleteStockTake(stockTakeId: string): Promise<
 	if (existing.status === "committed") {
 		return {
 			ok: false,
-			error: "Stock opname yang sudah committed adalah audit trail — tidak bisa dihapus.",
+			error:
+				"Stock opname yang sudah committed adalah audit trail — tidak bisa dihapus.",
 		};
 	}
 

@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 // Routes that don't require auth — accessible to anyone, including the
 // landing page and the crew self-register flow. Any path matching one of
@@ -43,10 +43,17 @@ export async function updateSession(request: NextRequest) {
 		},
 	);
 
-	// Validates the JWT against the Supabase Auth server (not just cookie contents).
-	const {
-		data: { user },
-	} = await supabase.auth.getUser();
+	// Verify the session for the redirect gate. getClaims() verifies the JWT
+	// signature LOCALLY against the project's asymmetric (ES256) signing key —
+	// cached JWKS, no network round-trip per request — instead of getUser()'s
+	// call to the Supabase Auth server. This middleware runs on EVERY matched
+	// request, so dropping that round-trip is the single biggest per-request
+	// CPU/latency win. getClaims() also calls getSession() internally, which
+	// still performs token refresh + cookie writes via setAll above. If the
+	// project ever falls back to symmetric (HS*) keys, getClaims() transparently
+	// falls back to getUser() — so this is never less safe than before.
+	const { data: claimsData } = await supabase.auth.getClaims();
+	const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null;
 
 	const path = request.nextUrl.pathname;
 	const isPublic = PUBLIC_PATHS.some(

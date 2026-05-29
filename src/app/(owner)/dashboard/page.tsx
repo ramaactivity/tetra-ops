@@ -24,8 +24,8 @@ import { PipelineCard } from "@/components/operations/pipeline-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { getDashboardStats } from "@/lib/dashboard/stats";
 import { formatRupiah } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
 
 function lastDayOfMonth(year: number, month: number): string {
 	const d = new Date(year, month, 0).getDate();
@@ -52,8 +52,6 @@ export default async function DashboardPage() {
 	const userResult = await getCurrentUser();
 	if (!userResult) return null;
 
-	const supabase = await createClient();
-
 	const today = new Date();
 	const todayISO = isoDate(today);
 	const tomorrow = new Date(today);
@@ -68,174 +66,34 @@ export default async function DashboardPage() {
 	const yearStart = `${today.getFullYear()}-01-01`;
 	const yearEnd = `${today.getFullYear()}-12-31`;
 
-	const [
-		monthRevenueResult,
-		outstandingResult,
-		monthCountResult,
-		awaitingCountResult,
-		upcoming7dCountResult,
-		inProgressCountResult,
-		completedThisMonthCountResult,
-		nextEventsResult,
-		yearCountResult,
-		monthCancelledResult,
-		monthUpcomingResult,
-		invoicePaidResult,
-		invoicePartialResult,
-		invoiceUnpaidResult,
-		targetsResult,
-	] = await Promise.all([
-		supabase
-			.from("payments")
-			.select("amount")
-			.eq("is_reversed", false)
-			.gte("payment_date", ymStart)
-			.lte("payment_date", ymEnd),
-		supabase
-			.from("events")
-			.select("remaining_balance")
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.neq("payment_status", "paid")
-			.gt("remaining_balance", 0),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.gte("event_date", ymStart)
-			.lte("event_date", ymEnd),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.eq("status", "awaiting_settlement"),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.in("status", ["confirmed", "upcoming"])
-			.gte("event_date", todayISO)
-			.lte("event_date", sevenFromNowISO),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.eq("status", "in_progress"),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.eq("status", "completed")
-			.gte("event_date", ymStart)
-			.lte("event_date", ymEnd),
-		supabase
-			.from("events")
-			.select(
-				"id, project_id, status, client_name, event_date, setup_time, start_time, venue_name, venue_city",
-			)
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.gte("event_date", todayISO)
-			.lte("event_date", tomorrowISO)
-			.order("event_date", { ascending: true })
-			.order("start_time", { ascending: true }),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.gte("event_date", yearStart)
-			.lte("event_date", yearEnd),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.gte("event_date", ymStart)
-			.lte("event_date", ymEnd)
-			.eq("status", "cancelled"),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.gte("event_date", ymStart)
-			.lte("event_date", ymEnd)
-			.in("status", ["confirmed", "upcoming", "in_progress"]),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.eq("payment_status", "paid"),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.eq("payment_status", "partial"),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.eq("payment_status", "unpaid"),
-		supabase
-			.from("system_config")
-			.select("key, value")
-			.in("key", ["event_target_monthly", "event_target_yearly"]),
-	]);
-
-	const thisMonthRevenue = (monthRevenueResult.data ?? []).reduce(
-		(sum, p) => sum + (p.amount ?? 0),
-		0,
-	);
-	const outstanding = (outstandingResult.data ?? []).reduce(
-		(sum, r) => sum + (r.remaining_balance ?? 0),
-		0,
-	);
-	const monthCount = monthCountResult.count ?? 0;
-	const awaitingCount = awaitingCountResult.count ?? 0;
-	const upcoming7dCount = upcoming7dCountResult.count ?? 0;
-	const inProgressCount = inProgressCountResult.count ?? 0;
-	const completedThisMonthCount = completedThisMonthCountResult.count ?? 0;
-	const yearCount = yearCountResult.count ?? 0;
-	const monthCancelled = monthCancelledResult.count ?? 0;
-	const monthUpcoming = monthUpcomingResult.count ?? 0;
-	const invoicePaid = invoicePaidResult.count ?? 0;
-	const invoicePartial = invoicePartialResult.count ?? 0;
-	const invoiceUnpaid = invoiceUnpaidResult.count ?? 0;
-
-	type ConfigRow = { key: string; value: number | string | null };
-	const targets = ((targetsResult.data ?? []) as ConfigRow[]).reduce<{
-		monthly: number;
-		yearly: number;
-	}>(
-		(acc, r) => {
-			const v = typeof r.value === "number" ? r.value : Number(r.value ?? 0);
-			if (r.key === "event_target_monthly") acc.monthly = v || 10;
-			if (r.key === "event_target_yearly") acc.yearly = v || 100;
-			return acc;
-		},
-		{ monthly: 10, yearly: 100 },
-	);
-
-	const nextEvents = (nextEventsResult.data ?? []) as Array<{
-		id: string;
-		project_id: string;
-		status: string;
-		client_name: string;
-		event_date: string;
-		setup_time: string | null;
-		start_time: string | null;
-		venue_name: string;
-		venue_city: string | null;
-	}>;
+	// Company-wide aggregates — cached for ~5 min across all owners instead of
+	// running ~15 Supabase queries on every dashboard visit. See
+	// src/lib/dashboard/stats.ts.
+	const {
+		thisMonthRevenue,
+		outstanding,
+		monthCount,
+		awaitingCount,
+		upcoming7dCount,
+		inProgressCount,
+		completedThisMonthCount,
+		yearCount,
+		monthCancelled,
+		monthUpcoming,
+		invoicePaid,
+		invoicePartial,
+		invoiceUnpaid,
+		targets,
+		nextEvents,
+	} = await getDashboardStats({
+		ymStart,
+		ymEnd,
+		yearStart,
+		yearEnd,
+		todayISO,
+		tomorrowISO,
+		sevenFromNowISO,
+	});
 
 	const firstName = userResult.profile.full_name.split(" ")[0];
 
@@ -293,40 +151,40 @@ export default async function DashboardPage() {
 					Target & status
 				</p>
 				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-				<TargetProgressCard
-					label="Target Bulanan"
-					current={monthCount}
-					target={targets.monthly}
-					icon={Target}
-				/>
-				<TargetProgressCard
-					label="Target Tahunan"
-					current={yearCount}
-					target={targets.yearly}
-					icon={Target}
-				/>
-				<StatusGroupCard
-					title="Status Operasional"
-					icon={Activity}
-					stats={[
-						{ label: "Upcoming", value: monthUpcoming, tone: "sky" },
-						{
-							label: "Selesai",
-							value: completedThisMonthCount,
-							tone: "emerald",
-						},
-						{ label: "Batal", value: monthCancelled, tone: "rose" },
-					]}
-				/>
-				<StatusGroupCard
-					title="Status Invoice"
-					icon={FileText}
-					stats={[
-						{ label: "Lunas", value: invoicePaid, tone: "emerald" },
-						{ label: "DP", value: invoicePartial, tone: "amber" },
-						{ label: "Unpaid", value: invoiceUnpaid, tone: "rose" },
-					]}
-				/>
+					<TargetProgressCard
+						label="Target Bulanan"
+						current={monthCount}
+						target={targets.monthly}
+						icon={Target}
+					/>
+					<TargetProgressCard
+						label="Target Tahunan"
+						current={yearCount}
+						target={targets.yearly}
+						icon={Target}
+					/>
+					<StatusGroupCard
+						title="Status Operasional"
+						icon={Activity}
+						stats={[
+							{ label: "Upcoming", value: monthUpcoming, tone: "sky" },
+							{
+								label: "Selesai",
+								value: completedThisMonthCount,
+								tone: "emerald",
+							},
+							{ label: "Batal", value: monthCancelled, tone: "rose" },
+						]}
+					/>
+					<StatusGroupCard
+						title="Status Invoice"
+						icon={FileText}
+						stats={[
+							{ label: "Lunas", value: invoicePaid, tone: "emerald" },
+							{ label: "DP", value: invoicePartial, tone: "amber" },
+							{ label: "Unpaid", value: invoiceUnpaid, tone: "rose" },
+						]}
+					/>
 				</div>
 			</section>
 
@@ -440,9 +298,13 @@ export default async function DashboardPage() {
 												{ev.venue_city && ` · ${ev.venue_city}`}
 											</p>
 											<p className="text-[11px] text-muted-foreground/80">
-												<span className="font-mono tabular">{ev.project_id}</span>{" "}
+												<span className="font-mono tabular">
+													{ev.project_id}
+												</span>{" "}
 												· setup{" "}
-												<span className="tabular">{ID_TIME(ev.setup_time)}</span>
+												<span className="tabular">
+													{ID_TIME(ev.setup_time)}
+												</span>
 											</p>
 										</div>
 									</Link>
@@ -519,9 +381,7 @@ function QuickAction({
 				<Icon className="size-4" />
 			</div>
 			<div className="min-w-0 flex-1">
-				<div className="text-fluid-body font-medium leading-tight">
-					{label}
-				</div>
+				<div className="text-fluid-body font-medium leading-tight">{label}</div>
 				<div className="text-fluid-caption text-muted-foreground">{hint}</div>
 			</div>
 			<span

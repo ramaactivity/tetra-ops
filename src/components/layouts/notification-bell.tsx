@@ -1,23 +1,54 @@
+"use client";
+
 import { Bell } from "lucide-react";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/get-user";
-import { createClient } from "@/lib/supabase/server";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-export async function NotificationBell() {
-	const me = await getCurrentUser();
-	if (!me) return null;
+/**
+ * Unread-notification badge in the top bar.
+ *
+ * Client-side on purpose: this sits in the shared <TopBar>, so a server-side
+ * version ran a `notifications` COUNT query on EVERY authenticated page render
+ * (one Supabase round-trip per navigation = Active CPU on Vercel). Fetching the
+ * count from the browser (client → Supabase, never touching the Vercel
+ * function) removes that per-navigation query entirely. RLS scopes the rows to
+ * the signed-in user; we still filter by user_id for index use. Re-checks on
+ * window focus so the badge stays current without polling.
+ */
+export function NotificationBell() {
+	const [unread, setUnread] = useState(0);
 
-	const supabase = await createClient();
-	const nowIso = new Date().toISOString();
-	const { count } = await supabase
-		.from("notifications")
-		.select("id", { count: "exact", head: true })
-		.eq("user_id", me.profile.id)
-		.eq("is_read", false)
-		.eq("is_dismissed", false)
-		.or(`expires_at.is.null,expires_at.gt.${nowIso}`);
+	useEffect(() => {
+		const supabase = createClient();
+		let active = true;
 
-	const unread = count ?? 0;
+		const load = async () => {
+			const { data } = await supabase.auth.getClaims();
+			const uid = data?.claims?.sub;
+			if (!uid) return;
+			const nowIso = new Date().toISOString();
+			const { count } = await supabase
+				.from("notifications")
+				.select("id", { count: "exact", head: true })
+				.eq("user_id", uid)
+				.eq("is_read", false)
+				.eq("is_dismissed", false)
+				.or(`expires_at.is.null,expires_at.gt.${nowIso}`);
+			if (active) setUnread(count ?? 0);
+		};
+
+		load();
+		const onFocus = () => {
+			load();
+		};
+		window.addEventListener("focus", onFocus);
+		return () => {
+			active = false;
+			window.removeEventListener("focus", onFocus);
+		};
+	}, []);
+
 	const display = unread > 99 ? "99+" : String(unread);
 
 	return (

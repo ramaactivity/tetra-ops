@@ -4,10 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import {
-	normalizeConversion,
-	toBase,
-} from "@/lib/inventory/unit-conversion";
+import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -39,9 +36,7 @@ const LainnyaItemsSchema = z
 			const out: Array<{ note: string; amount: number }> = [];
 			for (const row of parsed) {
 				if (!row || typeof row !== "object") continue;
-				const note = String(
-					(row as Record<string, unknown>).note ?? "",
-				)
+				const note = String((row as Record<string, unknown>).note ?? "")
 					.trim()
 					.slice(0, 120);
 				const amount = Number((row as Record<string, unknown>).amount);
@@ -313,7 +308,9 @@ export async function getRekapContext(
 		.select("rekap_field, frame_size, item_id, qty_per_unit, is_active")
 		.eq("is_active", true);
 
-	const mappedItemIds = ((mappingsRaw ?? []) as Array<{ item_id: string | null }>)
+	const mappedItemIds = (
+		(mappingsRaw ?? []) as Array<{ item_id: string | null }>
+	)
 		.map((m) => m.item_id)
 		.filter((v): v is string => Boolean(v));
 
@@ -338,8 +335,10 @@ export async function getRekapContext(
 			  }>
 			| null;
 	};
-	const paidAddonRows = ((event.event_addons ?? []) as unknown as AddonRow[]) ?? [];
-	const bonusAddonRows = ((event.event_bonuses ?? []) as unknown as AddonRow[]) ?? [];
+	const paidAddonRows =
+		((event.event_addons ?? []) as unknown as AddonRow[]) ?? [];
+	const bonusAddonRows =
+		((event.event_bonuses ?? []) as unknown as AddonRow[]) ?? [];
 	for (const row of [...paidAddonRows, ...bonusAddonRows]) {
 		const a = Array.isArray(row.addon) ? row.addon[0] : row.addon;
 		if (a?.inventory_item_id) addonInventoryIds.add(a.inventory_item_id);
@@ -355,23 +354,24 @@ export async function getRekapContext(
 			.from("inventory_items")
 			.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
 			.in("id", allItemIds);
-		// Fetch stock in parallel via RPC per item (no batch RPC available)
-		const stockPairs = await Promise.all(
-			(items ?? []).map(async (it) => {
-				const { data: stock } = await supabase.rpc("get_current_stock", {
-					p_item_id: it.id as string,
-				});
-				return [it.id as string, Number(stock ?? 0)] as const;
-			}),
+		// Batched stock levels — one grouped query for all mapped items instead
+		// of an N+1 get_current_stock RPC per item. See get_stock_levels migration.
+		const { data: levels } = await supabase.rpc("get_stock_levels", {
+			p_item_ids: allItemIds,
+		});
+		const stockMap = new Map(
+			((levels ?? []) as Array<{ item_id: string; stock: number }>).map(
+				(r) => [r.item_id, Number(r.stock)] as const,
+			),
 		);
-		const stockMap = new Map(stockPairs);
 		for (const it of items ?? []) {
 			itemsById.set(it.id as string, {
 				id: it.id as string,
 				sku: it.sku as string,
 				name: it.name as string,
 				unit: (it.unit as string | null) ?? "pcs",
-				unit_conversion: (it as { unit_conversion?: unknown }).unit_conversion ?? null,
+				unit_conversion:
+					(it as { unit_conversion?: unknown }).unit_conversion ?? null,
 				purchase_price_avg: Number(it.purchase_price_avg ?? 0),
 				current_stock: stockMap.get(it.id as string) ?? 0,
 			});
@@ -439,24 +439,38 @@ export async function getRekapContext(
 		.is("deleted_at", null)
 		.order("sku", { ascending: true });
 
-	const custom_inventory: RekapContextItem[] = [];
-	for (const it of (poolRaw ?? []) as Array<{
+	const poolRows = (poolRaw ?? []) as Array<{
 		id: string;
 		sku: string;
 		name: string;
 		unit: string | null;
 		purchase_price_avg: number | null;
-	}>) {
+	}>;
+	// Batched stock for the uncovered pool items in ONE query — replaces a
+	// sequential get_current_stock RPC per item (the catalog can be 100s of
+	// rows, so the old loop was 100s of serial round-trips). Only fetch ids not
+	// already resolved via itemsById above. See get_stock_levels migration.
+	const poolIdsNeedingStock = poolRows
+		.filter((it) => !mappedSet.has(it.id) && !itemsById.has(it.id))
+		.map((it) => it.id);
+	const poolStockMap = new Map<string, number>();
+	if (poolIdsNeedingStock.length > 0) {
+		const { data: poolLevels } = await supabase.rpc("get_stock_levels", {
+			p_item_ids: poolIdsNeedingStock,
+		});
+		for (const r of (poolLevels ?? []) as Array<{
+			item_id: string;
+			stock: number;
+		}>) {
+			poolStockMap.set(r.item_id, Number(r.stock));
+		}
+	}
+
+	const custom_inventory: RekapContextItem[] = [];
+	for (const it of poolRows) {
 		if (mappedSet.has(it.id)) continue; // skip — covered by mapping
 		const cached = itemsById.get(it.id);
-		// Fetch stock only for items not already in itemsById
-		let stock = cached?.current_stock ?? 0;
-		if (!cached) {
-			const { data: s } = await supabase.rpc("get_current_stock", {
-				p_item_id: it.id,
-			});
-			stock = Number(s ?? 0);
-		}
+		const stock = cached?.current_stock ?? poolStockMap.get(it.id) ?? 0;
 		custom_inventory.push({
 			id: it.id,
 			sku: it.sku,
@@ -843,11 +857,7 @@ async function planRekapDeduction(
 		},
 		polaroid: {
 			mediaSku: "MEDIA-PERF",
-			mediaQtyPerPrint: rollPerPrint(
-				"MEDIA-PERF",
-				"lembar_polaroid",
-				1 / 1400,
-			),
+			mediaQtyPerPrint: rollPerPrint("MEDIA-PERF", "lembar_polaroid", 1 / 1400),
 			sleeveSku: "SLEEVE-PR",
 		},
 	};
@@ -893,7 +903,10 @@ async function planRekapDeduction(
 	// owner buys parts separately and assembles per event. Pouch + photomagnet
 	// stay 1:1 — they don't have separable sub-components.
 	const ASSEMBLY_RULES: Array<{
-		field: Exclude<RekapField, "cetak_total" | "media_set_used" | "sleeve_used">;
+		field: Exclude<
+			RekapField,
+			"cetak_total" | "media_set_used" | "sleeve_used"
+		>;
 		components: Array<{ sku: string; qtyPerUnit: number }>;
 	}> = [
 		{
@@ -934,8 +947,7 @@ async function planRekapDeduction(
 				name: item.name,
 				qty: qty * qtyPerUnit,
 				unit_cost: Number(item.purchase_price_avg ?? 0),
-				source_label:
-					components.length > 1 ? `${field} → ${sku}` : field,
+				source_label: components.length > 1 ? `${field} → ${sku}` : field,
 			});
 		}
 	}
@@ -1072,10 +1084,11 @@ async function planRekapDeduction(
 			  }>
 			| null;
 	};
-	const eventPackage =
-		Array.isArray((event as unknown as { package?: unknown[] })?.package)
-			? ((event as unknown as { package?: PackageRow[] }).package ?? [])[0]
-			: ((event as unknown as { package?: PackageRow }).package ?? null);
+	const eventPackage = Array.isArray(
+		(event as unknown as { package?: unknown[] })?.package,
+	)
+		? ((event as unknown as { package?: PackageRow[] }).package ?? [])[0]
+		: ((event as unknown as { package?: PackageRow }).package ?? null);
 	const bundle = eventPackage
 		? Array.isArray(eventPackage.bundle)
 			? eventPackage.bundle[0]
@@ -1116,9 +1129,7 @@ function buildRefId(direction: "in" | "out") {
  * Public action: returns deduction lines for an unapproved rekap so the
  * UI can show a preview before owner clicks "Approve". Owner-level only.
  */
-export async function getRekapApprovalPreview(
-	rekapId: string,
-): Promise<
+export async function getRekapApprovalPreview(rekapId: string): Promise<
 	| {
 			ok: true;
 			lines: DeductionLine[];
@@ -1188,12 +1199,7 @@ export async function reviewRekap(
 	};
 
 	// 2. Handle stock side-effects
-	if (
-		willApprove &&
-		!wasApproved &&
-		!hadStockCommitted &&
-		autoDeductEnabled
-	) {
+	if (willApprove && !wasApproved && !hadStockCommitted && autoDeductEnabled) {
 		// Approval transition → deduct stock
 		const plan = await planRekapDeduction(
 			supabase,

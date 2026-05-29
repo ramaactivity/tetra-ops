@@ -109,13 +109,9 @@ export default async function FinancePage() {
 			.eq("is_reopened", false)
 			.gte("closed_at", `${lmStart}T00:00:00Z`)
 			.lte("closed_at", `${lmEnd}T23:59:59Z`),
-		supabase
-			.from("events")
-			.select("remaining_balance")
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.neq("payment_status", "paid")
-			.gt("remaining_balance", 0),
+		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
+		// reduce. See get_outstanding_total migration.
+		supabase.rpc("get_outstanding_total"),
 		supabase
 			.from("payments")
 			.select("amount, bank_account_id")
@@ -202,12 +198,10 @@ export default async function FinancePage() {
 		netProfitLm !== 0
 			? ((netProfitMtd - netProfitLm) / Math.abs(netProfitLm)) * 100
 			: null;
-	const marginMtd = revenueNetMtd > 0 ? (netProfitMtd / revenueNetMtd) * 100 : 0;
+	const marginMtd =
+		revenueNetMtd > 0 ? (netProfitMtd / revenueNetMtd) * 100 : 0;
 
-	const outstanding = (outstandingData ?? []).reduce(
-		(s, r) => s + (r.remaining_balance ?? 0),
-		0,
-	);
+	const outstanding = (outstandingData as number | null) ?? 0;
 
 	const inflowByBank = new Map<string, number>();
 	for (const p of (paymentByBankData ?? []) as Array<{
@@ -229,17 +223,20 @@ export default async function FinancePage() {
 		name: string;
 		target_balance: number | null;
 	}>;
-	const fundBalances = await Promise.all(
-		funds.map(async (f) => {
-			const { data } = await supabase.rpc("get_sinking_fund_balance", {
-				p_fund_id: f.id,
-			});
-			return { id: f.id, balance: (data as number | null) ?? 0 };
-		}),
+	// All sinking-fund balances in one grouped query instead of an RPC per
+	// fund. See get_sinking_fund_balances migration.
+	const { data: fundBalanceRows } = await supabase.rpc(
+		"get_sinking_fund_balances",
 	);
-	const balanceById = new Map(fundBalances.map((b) => [b.id, b.balance]));
-	const totalSinking = Array.from(balanceById.values()).reduce(
-		(s, b) => s + b,
+	const balanceById = new Map(
+		(
+			(fundBalanceRows ?? []) as Array<{ fund_id: string; balance: number }>
+		).map((b) => [b.fund_id, Number(b.balance)]),
+	);
+	// Sum only over the funds this page surfaces (active set), matching prior
+	// behaviour even though the RPC returns every fund.
+	const totalSinking = funds.reduce(
+		(s, f) => s + (balanceById.get(f.id) ?? 0),
 		0,
 	);
 
@@ -258,13 +255,13 @@ export default async function FinancePage() {
 						project_id: string;
 						client_name: string;
 						event_date: string;
-					}
+				  }
 				| Array<{
 						id: string;
 						project_id: string;
 						client_name: string;
 						event_date: string;
-					}>
+				  }>
 				| null;
 		}>
 	).map((s) => ({
@@ -435,18 +432,8 @@ export default async function FinancePage() {
 							tone="emerald"
 							sign="+"
 						/>
-						<BreakdownStat
-							label="HPP"
-							value={hppMtd}
-							tone="rose"
-							sign="−"
-						/>
-						<BreakdownStat
-							label="OpEx"
-							value={opexMtd}
-							tone="rose"
-							sign="−"
-						/>
+						<BreakdownStat label="HPP" value={hppMtd} tone="rose" sign="−" />
+						<BreakdownStat label="OpEx" value={opexMtd} tone="rose" sign="−" />
 						<BreakdownStat
 							label="Sinking"
 							value={sinkingMtd}
@@ -572,8 +559,7 @@ export default async function FinancePage() {
 														/>
 													</div>
 													<p className="text-muted-foreground tabular text-[10px]">
-														{pct.toFixed(0)}% dari target{" "}
-														{formatRupiah(target)}
+														{pct.toFixed(0)}% dari target {formatRupiah(target)}
 													</p>
 												</div>
 											)}
@@ -616,9 +602,7 @@ export default async function FinancePage() {
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
 									<th className="px-4 py-2.5 text-left font-medium">Owner</th>
 									<th className="px-4 py-2.5 text-right font-medium">Share</th>
-									<th className="px-4 py-2.5 text-right font-medium">
-										Earned
-									</th>
+									<th className="px-4 py-2.5 text-right font-medium">Earned</th>
 									<th className="px-4 py-2.5 text-right font-medium">
 										Withdrawn
 									</th>
