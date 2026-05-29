@@ -27,8 +27,15 @@ export function LoginButton({
 			options: {
 				redirectTo: `${window.location.origin}/auth/callback`,
 				queryParams: {
+					// `access_type=offline` → minta refresh_token dari Google supaya
+					// session bisa diperpanjang otomatis berhari-hari tanpa user
+					// perlu login ulang.
 					access_type: "offline",
-					prompt: "select_account",
+					// `prompt` SENGAJA DIKOSONGKAN — kalau user sudah login Google
+					// (sebagian besar staff), Google auto-login tanpa account picker.
+					// Sebelumnya `prompt: "select_account"` selalu paksa picker
+					// muncul → user feel "harus login lagi tiap kali" walaupun
+					// session cookie masih valid.
 				},
 			},
 		});

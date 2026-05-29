@@ -27,7 +27,16 @@ export async function updateSession(request: NextRequest) {
 					}
 					response = NextResponse.next({ request });
 					for (const { name, value, options } of cookiesToSet) {
-						response.cookies.set(name, value, options);
+						// Force maxAge ke 1 tahun (31_536_000s) supaya cookie tetap
+						// persisten across browser restarts. @supabase/ssr default
+						// 400 hari, tapi beberapa browser (iOS Safari ITP) cap di
+						// 7 hari kalau sites dianggap "tracker". Set explicit + Lax
+						// SameSite untuk maksimum cross-tab persistence.
+						response.cookies.set(name, value, {
+							...options,
+							maxAge: 60 * 60 * 24 * 365,
+							sameSite: "lax",
+						});
 					}
 				},
 			},
