@@ -9,6 +9,7 @@ import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import {
 	bucketHpp,
 	FIELD_TO_BUCKET,
+	type HppBreakdown,
 	type HppBucket,
 	roundQty,
 } from "@/lib/rekap/recipe";
@@ -1319,6 +1320,28 @@ export async function ensureRekapCommitted(
 		.eq("id", row.id);
 	if (error) return { ok: false, error: error.message };
 	return { ok: true };
+}
+
+/**
+ * Dry-run HPP (read-only) dari plan konsumsi kanonik — dipakai profit preview
+ * saat rekap belum punya hpp_snapshot, supaya preview == hasil settle (bukan
+ * pakai calculate_recap_hpp lama yang bisa drifted). Owner-level.
+ */
+export async function previewRekapHpp(
+	eventId: string,
+): Promise<HppBreakdown | null> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const { data: row } = await supabase
+		.from("crew_rekap")
+		.select(
+			"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+		)
+		.eq("event_id", eventId)
+		.maybeSingle();
+	if (!row) return null;
+	const plan = await planRekapDeduction(supabase, row as RekapStockSnapshot);
+	return bucketHpp(plan.lines);
 }
 
 /**

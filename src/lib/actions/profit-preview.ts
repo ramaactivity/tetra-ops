@@ -1,5 +1,6 @@
 "use server";
 
+import { previewRekapHpp } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -123,18 +124,15 @@ export async function getProfitPreview(
 	let opex: OpexBreakdown = EMPTY_OPEX;
 
 	if (recap?.id) {
-		// HPP: prefer canonical snapshot (di-tulis saat approval) → preview ==
-		// settled. Fallback ke calculate_recap_hpp utk rekap yg belum approve /
-		// belum punya snapshot (estimasi pra-approval).
+		// HPP: prefer canonical snapshot (di-tulis saat approval/commit) →
+		// preview == settled. Kalau belum ada snapshot, hitung via planner
+		// kanonik (dry-run) supaya tetap match hasil settle — BUKAN
+		// calculate_recap_hpp lama yang bisa drifted.
 		if (recap.hpp_snapshot) {
 			hpp = normalizeHpp(recap.hpp_snapshot);
 		} else {
-			const hppRes = await supabase.rpc("calculate_recap_hpp", {
-				p_recap_id: recap.id,
-			});
-			if (!hppRes.error && hppRes.data) {
-				hpp = normalizeHpp(hppRes.data);
-			}
+			const planned = await previewRekapHpp(eventId);
+			if (planned) hpp = normalizeHpp(planned);
 		}
 		const opexRes = await supabase.rpc("calculate_recap_opex", {
 			p_recap_id: recap.id,
