@@ -597,8 +597,13 @@ export async function submitRekap(
 		.eq("event_id", eventId)
 		.maybeSingle();
 
-	// Block edits to already-approved rekaps (owner can re-open via reject)
-	if (existing && existing.is_approved === true) {
+	// Crew tidak boleh edit rekap yang sudah di-approve owner. Owner/super-admin
+	// boleh re-submit kapan saja (di bawah: reverse commit lama → re-commit).
+	if (
+		existing &&
+		existing.is_approved === true &&
+		me.profile.role === "crew"
+	) {
 		return {
 			errors: {
 				_form: [
@@ -681,9 +686,62 @@ export async function submitRekap(
 		}
 	}
 
+	// Owner/super-admin: submit = approve + commit sekaligus. Mereka adalah
+	// otoritas review — tidak masuk akal approve diri sendiri. Crew: tetap
+	// "submitted", owner yang review & approve nanti (commit stok di situ).
+	if (me.profile.role !== "crew") {
+		const { data: row } = await supabase
+			.from("crew_rekap")
+			.select(
+				"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			)
+			.eq("event_id", eventId)
+			.maybeSingle();
+		if (row) {
+			// Re-submit owner: reverse commit lama dulu biar stok tidak dobel.
+			if (row.stock_committed_at) {
+				const rev = await reverseRekapStock(supabase, eventId, me.profile.id);
+				if (!rev.ok) {
+					return {
+						errors: { _form: [rev.error] },
+						values: snapshotValues(formData),
+					};
+				}
+			}
+			const commit = await commitRekapStock(
+				supabase,
+				row as RekapStockSnapshot,
+				me.profile.id,
+			);
+			if (!commit.ok) {
+				return {
+					errors: { _form: [commit.error] },
+					values: snapshotValues(formData),
+				};
+			}
+			const { error: upErr } = await supabase
+				.from("crew_rekap")
+				.update({
+					is_approved: true,
+					reviewed_by: me.profile.id,
+					reviewed_at: new Date().toISOString(),
+					status: "reviewed",
+					review_notes: "Auto-approve (owner submit)",
+					...commit.update,
+				})
+				.eq("id", row.id);
+			if (upErr) {
+				return {
+					errors: { _form: [upErr.message] },
+					values: snapshotValues(formData),
+				};
+			}
+		}
+	}
+
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/rekap`);
+	revalidatePath("/warehouse");
 	return { success: true };
 }
 
@@ -1124,6 +1182,102 @@ function buildRefId(direction: "in" | "out") {
 		.toString()
 		.padStart(8, "0");
 	return `MOV-${code}-${r}`;
+}
+
+/**
+ * Commit stok + HPP snapshot dari plan konsumsi kanonik. Dipakai oleh
+ * owner auto-approve (submitRekap). Mengembalikan field update untuk crew_rekap
+ * (hpp_snapshot, hpp_snapshot_total, stock_committed_at, stock_movement_batch_id).
+ */
+async function commitRekapStock(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	rekap: RekapStockSnapshot,
+	actorId: string,
+): Promise<
+	{ ok: true; update: Record<string, unknown> } | { ok: false; error: string }
+> {
+	const plan = await planRekapDeduction(supabase, rekap);
+	const snapshot = bucketHpp(plan.lines);
+	const update: Record<string, unknown> = {
+		hpp_snapshot: snapshot,
+		hpp_snapshot_total: snapshot.total,
+		stock_committed_at: new Date().toISOString(),
+		stock_movement_batch_id: null,
+	};
+	if (plan.lines.length > 0) {
+		const batchId = randomUUID();
+		const movements = plan.lines.map((l) => ({
+			ref_id: buildRefId("out"),
+			item_id: l.item_id,
+			direction: "out" as const,
+			quantity: l.qty,
+			unit_cost: l.unit_cost,
+			source: "rekap_consumption",
+			source_id: rekap.event_id,
+			source_description: `Rekap approved (${l.source_label})`,
+			notes: `Auto-deduct owner submit — batch ${batchId.slice(0, 8)}`,
+			performed_by: actorId,
+		}));
+		const { error } = await supabase.from("stock_movements").insert(movements);
+		if (error) {
+			return { ok: false, error: `Gagal create stock movements: ${error.message}` };
+		}
+		update.stock_movement_batch_id = batchId;
+	}
+	return { ok: true, update };
+}
+
+/**
+ * Reverse NET konsumsi stok rekap untuk satu event (insert 'in' offset sebesar
+ * Σout − Σin per item). Idempotent-ish — dipakai sebelum owner re-commit supaya
+ * stok tidak dobel-potong saat re-submit.
+ */
+async function reverseRekapStock(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+	actorId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const { data: moves } = await supabase
+		.from("stock_movements")
+		.select("item_id, quantity, direction, unit_cost")
+		.eq("source", "rekap_consumption")
+		.eq("source_id", eventId);
+	const net = new Map<string, { qty: number; cost: number }>();
+	for (const m of (moves ?? []) as Array<{
+		item_id: string;
+		quantity: number;
+		direction: string;
+		unit_cost: number;
+	}>) {
+		const sign = m.direction === "out" ? 1 : -1;
+		const cur = net.get(m.item_id) ?? { qty: 0, cost: Number(m.unit_cost) || 0 };
+		cur.qty += sign * (Number(m.quantity) || 0);
+		net.set(m.item_id, cur);
+	}
+	const reversals = [];
+	for (const [item_id, v] of net) {
+		if (v.qty > 0) {
+			reversals.push({
+				ref_id: buildRefId("in"),
+				item_id,
+				direction: "in" as const,
+				quantity: v.qty,
+				unit_cost: v.cost,
+				source: "rekap_consumption",
+				source_id: eventId,
+				source_description: "Reversal: owner re-submit rekap",
+				notes: "Auto-reversal sebelum re-commit (owner submit)",
+				performed_by: actorId,
+			});
+		}
+	}
+	if (reversals.length > 0) {
+		const { error } = await supabase
+			.from("stock_movements")
+			.insert(reversals);
+		if (error) return { ok: false, error: `Gagal reverse stok: ${error.message}` };
+	}
+	return { ok: true };
 }
 
 /**
