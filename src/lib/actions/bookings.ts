@@ -37,14 +37,6 @@ const BookingInputSchema = z.object({
 		.trim()
 		.min(8, "Nomor WA terlalu pendek")
 		.max(20, "Nomor WA terlalu panjang"),
-	client_email: z
-		.string()
-		.trim()
-		.email("Format email tidak valid")
-		.max(120)
-		.optional()
-		.or(z.literal(""))
-		.transform((v) => (v ? v : null)),
 	service_type: z.enum(SERVICE_TYPES),
 	package_id: z
 		.string()
@@ -200,7 +192,6 @@ const FORM_KEYS = [
 	"channel",
 	"client_name",
 	"client_wa",
-	"client_email",
 	"service_type",
 	"package_id",
 	"frame_size",
@@ -469,9 +460,12 @@ function buildEventPayload(
 		channel: input.channel,
 		client_name: input.client_name,
 		client_wa: input.client_wa,
-		client_email: input.client_email,
 		service_type: input.service_type,
 		package_id: input.package_id,
+		// Custom booking (tanpa paket): simpan harga manual ke custom_package_price
+		// supaya konsisten — downstream (settle/PDF/preview) pakai
+		// custom_package_price ?? base_price.
+		custom_package_price: input.package_id ? null : basePrice,
 		frame_size: input.frame_size,
 		event_category: input.event_category,
 		event_date: input.event_date,
@@ -523,7 +517,12 @@ function buildEventPayload(
 		backdrop_color: null,
 		include_flashdisk_pouch: input.include_flashdisk_pouch,
 		base_price: basePrice,
+		// addons_total = add-on + backdrop (komponen revenue; dipakai settle_event
+		// & grand_total — sengaja TIDAK diubah agar mesin settlement stabil).
+		// Backdrop dipisah ke kolomnya sendiri supaya laporan bisa pecah:
+		//   add-on murni = addons_total − backdrop_rental_total.
 		addons_total: effectiveAddonsTotal,
+		backdrop_rental_total: backdropContribution,
 		discount_amount: input.discount_amount,
 		discount_type: input.discount_amount > 0 ? input.discount_type : null,
 		gross_up_pph_amount: input.gross_up_pph_amount,

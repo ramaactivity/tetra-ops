@@ -1512,7 +1512,7 @@ export function BookingForm({
 												)}
 												placeholder="Cari nama relasi…"
 												allowFreeText={false}
-												emptyMessage="Nggak ketemu — cek daftar di Settings → Master Crew"
+												emptyMessage="Nggak ketemu — cek daftar di Settings → Tim"
 												aria-label="Cari relasi"
 											/>
 											<input
@@ -2310,8 +2310,6 @@ export function BookingForm({
 							)}
 						</div>
 
-						<input type="hidden" name="client_email" value="" />
-
 						<div className="space-y-3 rounded-lg border border-border-default bg-surface-2 p-4">
 							<div className="flex items-baseline justify-between gap-2">
 								<div className="flex items-center gap-2 text-fluid-body font-medium">
@@ -2391,7 +2389,7 @@ export function BookingForm({
 						<input type="hidden" name="addons_json" value={addonsJson} />
 						{addons.length === 0 ? (
 							<p className="text-fluid-body italic text-muted-foreground">
-								Belum ada add-on aktif. Tambah dari Settings → Add-ons.
+								Belum ada add-on aktif. Tambah dari Operations → Add-on.
 							</p>
 						) : (
 							<div className="space-y-4">
@@ -2482,8 +2480,8 @@ export function BookingForm({
 
 						{addons.length === 0 ? (
 							<p className="text-fluid-body italic text-muted-foreground">
-								Belum ada item aktif di katalog. Tambah dulu dari Settings →
-								Add-ons.
+								Belum ada item aktif di katalog. Tambah dulu dari Operations →
+								Add-on.
 							</p>
 						) : (
 							<div className="space-y-3">
@@ -2500,7 +2498,7 @@ export function BookingForm({
 											value=""
 											placeholder="Pilih item bonus"
 											allowFreeText={false}
-											emptyMessage="Tidak ada item — coba reset filter atau tambah addon di Settings."
+											emptyMessage="Tidak ada item — coba reset filter atau tambah Add-on di Operations."
 											onValueChange={(v) => {
 												if (v) addBonusRow(v);
 											}}
@@ -2643,7 +2641,7 @@ export function BookingForm({
 								label="Gross-up PPh (IDR)"
 								name="gross_up_pph_amount"
 								error={err("gross_up_pph_amount")}
-								hint={`Markup pajak untuk corporate. Auto-calc pakai ${grossupRate}% (config di Settings → Financial).`}
+								hint={`Markup pajak untuk corporate. Auto-calc pakai ${grossupRate}% (config di Settings → Sistem).`}
 							>
 								<div className="flex gap-2">
 									<input
