@@ -16,17 +16,25 @@ export type Owner = {
 	balance: number;
 };
 
+export type BankOption = {
+	id: string;
+	label: string;
+};
+
 export function WithdrawalButton({
 	owners,
+	banks,
 	disabled,
 }: {
 	owners: Owner[];
+	banks: BankOption[];
 	disabled?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 	const [selectedOwner, setSelectedOwner] = useState<string>(
 		owners[0]?.id ?? "",
 	);
+	const [selectedBank, setSelectedBank] = useState<string>(banks[0]?.id ?? "");
 	const [state, formAction, pending] = useActionState<
 		WithdrawalFormState,
 		FormData
@@ -147,6 +155,24 @@ export function WithdrawalButton({
 								/>
 							</Field>
 
+							<Field label="Sumber dana (kas/bank)" required>
+								<NativeSelect
+									value={selectedBank}
+									onValueChange={setSelectedBank}
+									options={banks.map((b) => ({
+										value: b.id,
+										label: b.label,
+									}))}
+									triggerClassName="w-full"
+								/>
+								<input
+									type="hidden"
+									name="bank_account_id"
+									value={selectedBank}
+									required
+								/>
+							</Field>
+
 							<div className="grid gap-3 sm:grid-cols-2">
 								<Field label="Method" required>
 									<WithdrawalMethodSelect />
@@ -202,7 +228,7 @@ export function WithdrawalButton({
 								</button>
 								<button
 									type="submit"
-									disabled={pending || (owner?.balance ?? 0) === 0}
+									disabled={pending || (owner?.balance ?? 0) === 0 || !selectedBank}
 									className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
 								>
 									{pending ? (

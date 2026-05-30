@@ -114,7 +114,7 @@ export default async function FinancePage() {
 			.lte("payment_date", ymEnd),
 		supabase
 			.from("bank_accounts")
-			.select("id, account_name, bank_name, account_holder, is_active")
+			.select("id, account_name, bank_name, account_holder, coa_code, is_active")
 			.eq("is_active", true)
 			.order("account_name", { ascending: true }),
 		supabase
@@ -541,6 +541,10 @@ export default async function FinancePage() {
 									full_name: o.full_name,
 									role: o.role,
 									balance: o.balance,
+								}))}
+								banks={banks.map((b) => ({
+									id: b.id,
+									label: b.account_name,
 								}))}
 							/>
 							<Link

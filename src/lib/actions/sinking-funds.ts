@@ -89,6 +89,15 @@ async function requireOwnerLevel() {
 	return me;
 }
 
+function newJournalRef(date: Date): string {
+	const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, "");
+	const rand = Math.floor(Math.random() * 0xffffffff)
+		.toString(16)
+		.padStart(8, "0")
+		.toUpperCase();
+	return `JE-${yyyymmdd}-${rand}`;
+}
+
 export async function createSinkingFund(
 	_prev: FundFormState,
 	formData: FormData,
@@ -221,34 +230,135 @@ export async function addManualMovement(
 	}
 
 	const supabase = await createClient();
+	const isWithdrawal = parsed.data.movement_type === "withdrawal";
+
+	const snapshotErr = (msg: string): MovementFormState => ({
+		errors: { _form: [msg] },
+		values: {
+			movement_type: String(formData.get("movement_type") ?? ""),
+			amount: String(formData.get("amount") ?? ""),
+			description: String(formData.get("description") ?? ""),
+			target_bank_account_id: String(
+				formData.get("target_bank_account_id") ?? "",
+			),
+		},
+	});
+
+	// Resolve fund → sinking liability COA (2-2xx).
+	const { data: fund } = await supabase
+		.from("sinking_funds")
+		.select("code, name, coa_account")
+		.eq("id", parsed.data.fund_id)
+		.maybeSingle();
+	if (!fund) return snapshotErr("Sinking fund tidak ditemukan");
+	const fundCoa = fund.coa_account as string | null;
+	if (!fundCoa) {
+		return snapshotErr(
+			`Fund "${fund.name}" belum punya COA account. Set dulu di edit fund.`,
+		);
+	}
+
+	// Withdrawal butuh kas/bank tujuan → COA asset untuk sisi kredit.
+	let bankCoa: string | null = null;
+	let bankName = "";
+	if (isWithdrawal) {
+		const { data: bank } = await supabase
+			.from("bank_accounts")
+			.select("coa_code, account_name, is_active")
+			.eq("id", parsed.data.target_bank_account_id)
+			.maybeSingle();
+		if (!bank) return snapshotErr("Kas/bank tujuan tidak ditemukan");
+		if (!bank.is_active) return snapshotErr(`${bank.account_name} nonaktif`);
+		bankCoa = bank.coa_code as string;
+		bankName = bank.account_name as string;
+	}
+
+	// GL — mirror settle_event (deposit = appropriate Laba Ditahan → reserve):
+	//   deposit:    Dr 3-200 Laba Ditahan        / Cr 2-2xx Sinking liability
+	//   withdrawal: Dr 2-2xx Sinking liability    / Cr kas-bank (pakai reserve)
+	const refId = newJournalRef(new Date());
+	const { data: entry, error: entryErr } = await supabase
+		.from("journal_entries")
+		.insert({
+			ref_id: refId,
+			entry_date: new Date().toISOString().slice(0, 10),
+			entry_type: isWithdrawal ? "asset_out" : "transfer",
+			description: `Sinking ${fund.name} (${parsed.data.movement_type}) — ${parsed.data.description}`,
+			source_type: "sinking_movement",
+			source_id: parsed.data.fund_id,
+			total_amount: parsed.data.amount,
+			created_by: me.profile.id,
+		})
+		.select("id")
+		.single();
+	if (entryErr || !entry) {
+		return snapshotErr(`Gagal create journal: ${entryErr?.message}`);
+	}
+	const lines = isWithdrawal
+		? [
+				{
+					entry_id: entry.id,
+					account_code: fundCoa,
+					debit_amount: parsed.data.amount,
+					credit_amount: 0,
+					description: `Pakai reserve ${fund.name}`,
+					line_order: 1,
+				},
+				{
+					entry_id: entry.id,
+					account_code: bankCoa as string,
+					debit_amount: 0,
+					credit_amount: parsed.data.amount,
+					description: `Kas keluar (${bankName})`,
+					line_order: 2,
+				},
+			]
+		: [
+				{
+					entry_id: entry.id,
+					account_code: "3-200",
+					debit_amount: parsed.data.amount,
+					credit_amount: 0,
+					description: "Transfer Laba Ditahan → Sinking",
+					line_order: 1,
+				},
+				{
+					entry_id: entry.id,
+					account_code: fundCoa,
+					debit_amount: 0,
+					credit_amount: parsed.data.amount,
+					description: `Sinking liability: ${fund.code}`,
+					line_order: 2,
+				},
+			];
+	const { error: linesErr } = await supabase
+		.from("journal_lines")
+		.insert(lines);
+	if (linesErr) {
+		await supabase.from("journal_entries").delete().eq("id", entry.id);
+		return snapshotErr(`Gagal create journal lines: ${linesErr.message}`);
+	}
+
 	const { error } = await supabase.from("sinking_fund_movements").insert({
 		fund_id: parsed.data.fund_id,
 		movement_type: parsed.data.movement_type,
 		amount: parsed.data.amount,
 		source_type: "manual",
-		target_bank_account_id:
-			parsed.data.movement_type === "withdrawal"
-				? parsed.data.target_bank_account_id
-				: null,
+		target_bank_account_id: isWithdrawal
+			? parsed.data.target_bank_account_id
+			: null,
 		description: parsed.data.description,
-		performed_by: me.authId,
+		performed_by: me.profile.id,
 	});
 
 	if (error) {
-		return {
-			errors: { _form: [error.message] },
-			values: {
-				movement_type: String(formData.get("movement_type") ?? ""),
-				amount: String(formData.get("amount") ?? ""),
-				description: String(formData.get("description") ?? ""),
-				target_bank_account_id: String(
-					formData.get("target_bank_account_id") ?? "",
-				),
-			},
-		};
+		// Roll back the journal so GL & sub-ledger stay in lockstep.
+		await supabase.from("journal_entries").delete().eq("id", entry.id);
+		return snapshotErr(error.message);
 	}
 
 	revalidatePath("/finance/sinking-funds");
 	revalidatePath(`/finance/sinking-funds/${fundId}/movements`);
+	revalidatePath("/finance/accounting");
 	return undefined;
 }
