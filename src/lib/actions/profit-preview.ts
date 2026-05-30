@@ -28,6 +28,8 @@ export type OpexBreakdown = {
 	parking: number;
 	konsumsi: number;
 	misc: number;
+	komisi_vendor: number;
+	komisi_relasi: number;
 	total: number;
 };
 
@@ -75,6 +77,8 @@ const EMPTY_OPEX: OpexBreakdown = {
 	parking: 0,
 	konsumsi: 0,
 	misc: 0,
+	komisi_vendor: 0,
+	komisi_relasi: 0,
 	total: 0,
 };
 
@@ -102,7 +106,7 @@ export async function getProfitPreview(
 		supabase
 			.from("events")
 			.select(
-				"base_price, custom_package_price, addons_total, discount_amount, grand_total",
+				"base_price, custom_package_price, addons_total, discount_amount, grand_total, vendor_commission_amount, referrer_commission",
 			)
 			.eq("id", eventId)
 			.maybeSingle(),
@@ -141,6 +145,17 @@ export async function getProfitPreview(
 			opex = normalizeOpex(opexRes.data);
 		}
 	}
+
+	// Komisi diambil dari kolom event (mirror settle_event v_opex). OpEx RPC
+	// tidak menghitung komisi, jadi tambahkan di sini supaya preview == settle.
+	const komisi_vendor = Number(ev?.vendor_commission_amount ?? 0);
+	const komisi_relasi = Number(ev?.referrer_commission ?? 0);
+	opex = {
+		...opex,
+		komisi_vendor,
+		komisi_relasi,
+		total: opex.total + komisi_vendor + komisi_relasi,
+	};
 
 	const total_biaya = hpp.total + opex.total;
 	const net_profit = revenue_net - total_biaya;
@@ -263,6 +278,8 @@ function normalizeOpex(raw: unknown): OpexBreakdown {
 		parking: n("parking"),
 		konsumsi: n("konsumsi"),
 		misc: n("misc"),
+		komisi_vendor: n("komisi_vendor"),
+		komisi_relasi: n("komisi_relasi"),
 		total: n("total"),
 	};
 }

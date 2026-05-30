@@ -37,6 +37,8 @@ const OPEX_LABELS: Record<keyof Omit<OpexBreakdown, "total">, string> = {
 	parking: "Parkir",
 	konsumsi: "Konsumsi",
 	misc: "Lain-lain",
+	komisi_vendor: "Komisi Vendor",
+	komisi_relasi: "Komisi Sales/Relasi",
 };
 
 export function ProfitPreviewCard({ preview, className = "" }: Props) {
