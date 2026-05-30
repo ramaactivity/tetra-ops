@@ -91,18 +91,21 @@ export default async function BillingPage({
 		templatesResult,
 	] = await Promise.all([
 		listQuery,
-		// Hanging = remaining > 0 (anything not paid)
+		// Hanging = remaining > 0 (anything not paid). Exclude legacy-migrated
+		// events supaya cocok dgn Finance "Outstanding" (get_outstanding_total).
 		supabase
 			.from("events")
 			.select("remaining_balance")
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
-		// Overdue specifically
+		// Overdue specifically (juga exclude legacy, konsisten dgn hanging)
 		supabase
 			.from("events")
 			.select("remaining_balance")
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.eq("payment_status", "overdue"),
 		// Collected this month
 		supabase
