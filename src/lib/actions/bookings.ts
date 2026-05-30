@@ -427,6 +427,10 @@ function buildEventPayload(
 	addonsTotal: number,
 	backdropContribution: number,
 	vendorContactId: string | null,
+	// Pembayaran yang SUDAH masuk (untuk kasus edit). Saat edit booking,
+	// remaining_balance harus = grand_total − total_paid, BUKAN reset ke
+	// grand_total (yang membuang progres DP). createBooking pakai default 0.
+	existingTotalPaid = 0,
 ) {
 	const effectiveAddonsTotal = addonsTotal + backdropContribution;
 	const grandTotal = computeGrandTotal({
@@ -527,7 +531,7 @@ function buildEventPayload(
 		discount_type: input.discount_amount > 0 ? input.discount_type : null,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 		grand_total: grandTotal,
-		remaining_balance: grandTotal,
+		remaining_balance: Math.max(0, grandTotal - existingTotalPaid),
 		crew_notes: input.crew_notes,
 	};
 }
@@ -709,6 +713,13 @@ export async function updateBooking(
 		});
 	}
 
+	// Pembayaran yang sudah masuk — supaya remaining_balance tidak ke-reset ke
+	// grand_total saat edit (membuang progres DP yang sudah dibayar).
+	const { data: curEvent } = await supabase
+		.from("events")
+		.select("total_paid")
+		.eq("id", id)
+		.maybeSingle();
 	const { data: updated, error } = await supabase
 		.from("events")
 		.update(
@@ -718,6 +729,7 @@ export async function updateBooking(
 				addonsTotal,
 				backdropContribution,
 				vendorContactId,
+				Number(curEvent?.total_paid ?? 0),
 			),
 		)
 		.eq("id", id)

@@ -94,6 +94,48 @@ export async function logPayment(
 		}
 
 		const supabase = await createClient();
+
+		// Guard: event ada + belum settled + tidak overpayment.
+		const { data: ev } = await supabase
+			.from("events")
+			.select("grand_total, total_paid")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev) {
+			return {
+				errors: { _form: ["Event tidak ditemukan."] },
+				values: snapshotValues(formData),
+			};
+		}
+		const { data: settled } = await supabase
+			.from("event_settlements")
+			.select("id")
+			.eq("event_id", eventId)
+			.eq("is_reopened", false)
+			.maybeSingle();
+		if (settled) {
+			return {
+				errors: {
+					_form: [
+						"Event sudah di-settle — pembayaran terkunci. Reopen settlement dulu kalau perlu koreksi.",
+					],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+		const grand = Number(ev.grand_total) || 0;
+		const sisa = Math.max(0, grand - (Number(ev.total_paid) || 0));
+		if (grand > 0 && parsed.data.amount > sisa) {
+			return {
+				errors: {
+					amount: [
+						`Melebihi sisa tagihan. Sisa: Rp ${sisa.toLocaleString("id-ID")}`,
+					],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+
 		const refId = generatePaymentRefId(parsed.data.payment_date);
 
 		const { error } = await supabase.from("payments").insert({
