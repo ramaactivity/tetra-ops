@@ -86,6 +86,10 @@ export default async function FinanceReportsPage({
 				is_reversed: e.is_reversed,
 			};
 		})
+		// Keep BOTH a reversed entry and its 'reversal' counter — they net to
+		// zero, exactly like the per-account ledger drill-down does. (Skipping
+		// only the is_reversed original would leave the counter behind → phantom
+		// negative balance, and would disagree with the ledger page.)
 		.filter(
 			(
 				v,
@@ -95,7 +99,7 @@ export default async function FinanceReportsPage({
 				credit_amount: number;
 				entry_date: string;
 				is_reversed: boolean;
-			} => v !== null && !v.is_reversed,
+			} => v !== null,
 		);
 
 	// Range filter logic differs per report:
@@ -170,7 +174,7 @@ export default async function FinanceReportsPage({
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Laporan Keuangan"
-				description="Neraca Saldo · Laba/Rugi · Neraca. Computed dari journal_lines (reversed entries di-skip)."
+				description="Neraca Saldo · Laba/Rugi · Neraca. Computed dari journal_lines — entry yang di-reverse & jurnal pembaliknya saling meniadakan (net nol)."
 			/>
 
 			<ReportsTabs current={tab} />
