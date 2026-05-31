@@ -45,6 +45,23 @@ export async function updateEventStatus(
 	}
 
 	const supabase = await createClient();
+
+	// Guard: event yang sudah settled terkunci. Ubah status manual (mis. balik
+	// ke draft) akan desync dgn settlement/jurnal yang sudah ter-posting.
+	// Koreksi event settled HARUS lewat Reopen Settlement, bukan menu status.
+	const { data: settled } = await supabase
+		.from("event_settlements")
+		.select("id")
+		.eq("event_id", parsed.data.id)
+		.eq("is_reopened", false)
+		.maybeSingle();
+	if (settled) {
+		return {
+			error:
+				"Event sudah di-settle — status terkunci. Pakai Reopen Settlement dulu kalau perlu koreksi.",
+		};
+	}
+
 	const { error } = await supabase
 		.from("events")
 		.update({ status: parsed.data.status })

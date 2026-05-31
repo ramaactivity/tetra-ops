@@ -45,6 +45,32 @@ export async function updateInvestorShare(
 	}
 
 	const supabase = await createClient();
+
+	// Guard: total share_pct semua owner/super_admin AKTIF tidak boleh > 100%.
+	// settle_event membagi owner pool proporsional dari jumlah share ini; >100%
+	// = over-alokasi. Substitusi nilai baru utk user ini lalu jumlahkan.
+	const { data: activeOwners } = await supabase
+		.from("users")
+		.select("id, share_pct")
+		.in("role", ["owner", "super_admin"])
+		.eq("is_active", true);
+	let sumPct = 0;
+	let userInActiveSet = false;
+	for (const u of activeOwners ?? []) {
+		if (u.id === parsed.data.user_id) {
+			userInActiveSet = true;
+			sumPct += parsed.data.share_pct ?? 0;
+		} else {
+			sumPct += Number(u.share_pct) || 0;
+		}
+	}
+	if (userInActiveSet && (parsed.data.share_pct ?? 0) > 0 && sumPct > 100) {
+		const othersSum = sumPct - (parsed.data.share_pct ?? 0);
+		return {
+			error: `Total share owner aktif jadi ${sumPct}% (maks 100%). Sisa tersedia: ${Math.max(0, 100 - othersSum)}%.`,
+		};
+	}
+
 	const { error } = await supabase
 		.from("users")
 		.update({

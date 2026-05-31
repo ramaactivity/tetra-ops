@@ -29,15 +29,6 @@ export type WithdrawalFormState =
 	| { ok?: boolean; error?: string }
 	| undefined;
 
-function newJournalRef(date: Date): string {
-	const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, "");
-	const rand = Math.floor(Math.random() * 0xffffffff)
-		.toString(16)
-		.padStart(8, "0")
-		.toUpperCase();
-	return `JE-${yyyymmdd}-${rand}`;
-}
-
 export async function recordOwnerWithdrawal(
 	_prev: WithdrawalFormState,
 	formData: FormData,
@@ -72,111 +63,20 @@ export async function recordOwnerWithdrawal(
 
 		const supabase = await createClient();
 
-		// Verify the target user is super_admin or owner
-		const { data: target } = await supabase
-			.from("users")
-			.select("id, role")
-			.eq("id", parsed.data.owner_user_id)
-			.maybeSingle();
-		if (!target) return { error: "Owner tidak ditemukan" };
-		if (target.role !== "super_admin" && target.role !== "owner") {
-			return { error: "Target bukan super_admin / owner" };
-		}
-
-		// Compute current available balance for this owner
-		const { data: earningsData } = await supabase
-			.from("owner_earnings")
-			.select("amount, earning_type")
-			.eq("owner_user_id", parsed.data.owner_user_id);
-		const earnings = (earningsData ?? []) as Array<{
-			amount: number;
-			earning_type: string;
-		}>;
-		const earned = earnings
-			.filter((e) => e.earning_type !== "withdrawal" && e.amount > 0)
-			.reduce((s, e) => s + e.amount, 0);
-		const withdrawn = earnings
-			.filter((e) => e.earning_type === "withdrawal" || e.amount < 0)
-			.reduce((s, e) => s + Math.abs(e.amount), 0);
-		const balance = earned - withdrawn;
-
-		if (parsed.data.amount > balance) {
-			return {
-				error: `Saldo tidak cukup. Available: Rp ${balance.toLocaleString("id-ID")}, request: Rp ${parsed.data.amount.toLocaleString("id-ID")}`,
-			};
-		}
-
-		// Resolve source kas/bank → COA (asset). Membayar owner = uang keluar.
-		const { data: bank } = await supabase
-			.from("bank_accounts")
-			.select("coa_code, account_name, is_active")
-			.eq("id", parsed.data.bank_account_id)
-			.maybeSingle();
-		if (!bank) return { error: "Kas/bank sumber tidak ditemukan" };
-		if (!bank.is_active) return { error: `${bank.account_name} nonaktif` };
-
-		// GL: Dr 2-300 Hutang Bagi Hasil Owner (turunkan kewajiban) / Cr kas-bank.
-		// Mirror settle_event yang meng-kredit 2-300 saat profit dialokasikan.
-		const refId = newJournalRef(new Date());
-		const { data: entry, error: entryErr } = await supabase
-			.from("journal_entries")
-			.insert({
-				ref_id: refId,
-				entry_date: new Date().toISOString().slice(0, 10),
-				entry_type: "asset_out",
-				description: `Withdrawal owner pool — ${parsed.data.description}`,
-				source_type: "owner_withdrawal",
-				source_id: parsed.data.owner_user_id,
-				total_amount: parsed.data.amount,
-				created_by: me.profile.id,
-			})
-			.select("id")
-			.single();
-		if (entryErr || !entry) {
-			return { error: `Gagal create journal: ${entryErr?.message}` };
-		}
-		const { error: linesErr } = await supabase.from("journal_lines").insert([
-			{
-				entry_id: entry.id,
-				account_code: "2-300",
-				debit_amount: parsed.data.amount,
-				credit_amount: 0,
-				description: "Bagi hasil owner dibayar",
-				line_order: 1,
-			},
-			{
-				entry_id: entry.id,
-				account_code: bank.coa_code,
-				debit_amount: 0,
-				credit_amount: parsed.data.amount,
-				description: `Kas keluar (${bank.account_name})`,
-				line_order: 2,
-			},
-		]);
-		if (linesErr) {
-			await supabase.from("journal_entries").delete().eq("id", entry.id);
-			return { error: `Gagal create journal lines: ${linesErr.message}` };
-		}
-
-		// Insert withdrawal as negative amount with earning_type='withdrawal'
-		const { error: insertErr } = await supabase
-			.from("owner_earnings")
-			.insert({
-				owner_user_id: parsed.data.owner_user_id,
-				earning_type: "withdrawal",
-				amount: -parsed.data.amount,
-				description: parsed.data.description,
-				withdrawal_method: parsed.data.withdrawal_method,
-				withdrawal_account: parsed.data.withdrawal_account,
-				withdrawal_reference: parsed.data.withdrawal_reference,
-				performed_by: me.profile.id,
-			});
-
-		if (insertErr) {
-			// Roll back the journal so GL & sub-ledger stay in lockstep.
-			await supabase.from("journal_entries").delete().eq("id", entry.id);
-			return { error: insertErr.message };
-		}
+		// Atomic + race-free: lock owner row → cek saldo → jurnal (Dr 2-300 /
+		// Cr kas) + owner_earnings dalam 1 transaksi (RPC record_owner_withdrawal).
+		// Menggantikan flow multi-statement lama yang TOCTOU + non-atomik.
+		const { error } = await supabase.rpc("record_owner_withdrawal", {
+			p_owner_user_id: parsed.data.owner_user_id,
+			p_amount: parsed.data.amount,
+			p_bank_account_id: parsed.data.bank_account_id,
+			p_method: parsed.data.withdrawal_method,
+			p_account: parsed.data.withdrawal_account,
+			p_reference: parsed.data.withdrawal_reference,
+			p_description: parsed.data.description,
+			p_actor: me.profile.id,
+		});
+		if (error) return { error: error.message };
 
 		revalidatePath("/finance");
 		revalidatePath("/finance/accounting");

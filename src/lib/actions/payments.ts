@@ -183,6 +183,31 @@ export async function reversePayment(
 		const me = await requireOwnerLevel();
 
 		const supabase = await createClient();
+
+		// Guard: pembayaran ada, belum di-reverse, & event belum settled.
+		// Mirror logPayment — kalau event sudah settle, pembayaran terkunci;
+		// reverse di sini menaikkan kembali remaining_balance & memunculkan
+		// event yang sudah selesai sebagai piutang lagi (desync AR vs settlement).
+		const { data: pay } = await supabase
+			.from("payments")
+			.select("event_id, is_reversed")
+			.eq("id", id)
+			.maybeSingle();
+		if (!pay) return { error: "Pembayaran tidak ditemukan." };
+		if (pay.is_reversed) return { error: "Pembayaran ini sudah di-reverse." };
+		const { data: settled } = await supabase
+			.from("event_settlements")
+			.select("id")
+			.eq("event_id", pay.event_id)
+			.eq("is_reopened", false)
+			.maybeSingle();
+		if (settled) {
+			return {
+				error:
+					"Event sudah di-settle — pembayaran terkunci. Reopen settlement dulu kalau perlu koreksi.",
+			};
+		}
+
 		const { error } = await supabase
 			.from("payments")
 			.update({
