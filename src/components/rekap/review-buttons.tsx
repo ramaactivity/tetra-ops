@@ -2,6 +2,7 @@
 
 import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import { reviewRekap } from "@/lib/actions/rekap";
 
@@ -98,15 +99,16 @@ export function RekapReviewButtons({
 						Crew bisa update form di atas berdasarkan catatan owner.
 					</p>
 				</div>
-				<button
+				<Button
 					type="button"
+					variant="decisive"
+					size="sm"
 					onClick={approve}
 					disabled={pending}
-					className="press-down inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 "
 				>
-					<CheckCircle2 className="h-3.5 w-3.5" />
+					<CheckCircle2 />
 					Override approve
-				</button>
+				</Button>
 			</div>
 		);
 	}
@@ -130,44 +132,47 @@ export function RekapReviewButtons({
 			<div className="flex flex-wrap items-center justify-end gap-2">
 				{showReject ? (
 					<>
-						<button
+						<Button
 							type="button"
+							variant="ghost"
+							size="sm"
 							onClick={() => setShowReject(false)}
 							disabled={pending}
-							className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
 						>
 							Batal
-						</button>
-						<button
+						</Button>
+						<Button
 							type="button"
+							variant="destructive"
+							size="lg"
 							onClick={reject}
 							disabled={pending}
-							className="press-down inline-flex h-10 items-center gap-1.5 rounded-full bg-rose-600 px-5 text-sm font-semibold text-white transition-all hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
 						>
-							<XCircle className="h-4 w-4" />
+							<XCircle />
 							Reject + minta revisi
-						</button>
+						</Button>
 					</>
 				) : (
-					<button
+					<Button
 						type="button"
+						variant="outline"
 						onClick={() => setShowReject(true)}
 						disabled={pending}
-						className="text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 inline-flex h-9 items-center gap-1.5 rounded-md border border-rose-500/30 px-3 text-sm font-medium"
 					>
-						<XCircle className="h-4 w-4" />
+						<XCircle />
 						Reject
-					</button>
+					</Button>
 				)}
-				<button
+				<Button
 					type="button"
+					variant="decisive"
+					size="lg"
 					onClick={approve}
 					disabled={pending}
-					className="press-down inline-flex h-10 items-center gap-1.5 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 "
 				>
-					<CheckCircle2 className="h-4 w-4" />
+					<CheckCircle2 />
 					{pending ? "Memproses…" : "Approve rekap"}
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

@@ -48,13 +48,11 @@ const buttonVariants = cva(
 					"rounded-md bg-destructive text-white hover:bg-destructive/90",
 				link: "text-[#0070f3] underline-offset-4 hover:underline",
 				/* DECISIVE — ink fill, bigger tap target (use with size="lg").
-				   Reserved for irreversible financial commits. NO pill, NO glow. */
+				   Reserved for irreversible financial commits (Approve, Tutup
+				   Buku, Submit Rekap). Single ink CTA — NO second hue, NO pill,
+				   NO glow. For destructive commits use `destructive`. */
 				decisive:
 					"rounded-md bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95",
-				"decisive-success":
-					"rounded-md bg-emerald-600 text-white hover:bg-emerald-700",
-				"decisive-danger":
-					"rounded-md bg-destructive text-white hover:bg-destructive/90",
 				/* MARKETING — 100px pill, hero scale. ONLY for landing page. */
 				marketing:
 					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90",

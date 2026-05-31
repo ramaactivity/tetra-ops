@@ -120,7 +120,7 @@ export function DesignCard({
 				<>
 					<Button
 						type="button"
-						variant="decisive-success"
+						variant="decisive"
 						size="lg"
 						onClick={() => setApproveOpen(true)}
 					>
