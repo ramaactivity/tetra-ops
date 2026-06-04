@@ -1,0 +1,228 @@
+/**
+ * Shared accounting vocabulary + balance math for the Finance/Akuntansi
+ * surfaces. One module so the landing, the Bagan Akun, the Buku Besar, and
+ * the Laporan all speak the same language: same labels, same sign convention,
+ * same way of turning raw journal_lines into account balances.
+ *
+ * Pure functions + constants only — safe to import from server components and
+ * client components alike.
+ */
+
+export type AccountType =
+	| "asset"
+	| "liability"
+	| "equity"
+	| "revenue"
+	| "expense";
+
+/** Indonesian display label per account class. */
+export const TYPE_LABEL: Record<string, string> = {
+	asset: "Aset",
+	liability: "Kewajiban",
+	equity: "Ekuitas",
+	revenue: "Pendapatan",
+	expense: "Beban",
+};
+
+/** Plain-language, owner-first one-liner for each class. */
+export const TYPE_MEANING: Record<string, string> = {
+	asset: "Yang dimiliki bisnis",
+	liability: "Yang masih harus dibayar",
+	equity: "Modal & laba ditahan",
+	revenue: "Uang masuk dari penjualan",
+	expense: "Biaya yang keluar",
+};
+
+/** Canonical ordering for grouped views (balance-sheet then P&L). */
+export const TYPE_ORDER: readonly AccountType[] = [
+	"asset",
+	"liability",
+	"equity",
+	"revenue",
+	"expense",
+];
+
+/** Which side increases the account — asset/expense are debit-normal. */
+export function normalSide(accountType: string): "debit" | "credit" {
+	return accountType === "asset" || accountType === "expense"
+		? "debit"
+		: "credit";
+}
+
+/**
+ * Signed balance for an account given its lifetime debit/credit totals.
+ * Positive always means "in the account's normal direction".
+ */
+export function balanceForType(
+	accountType: string,
+	debit: number,
+	credit: number,
+): number {
+	return normalSide(accountType) === "debit" ? debit - credit : credit - debit;
+}
+
+/**
+ * Kas & setara kas — the most liquid slice of assets. Indonesian COA
+ * convention used in this seed: 1-1xx = Kas & Bank (1-100 Kas Tunai,
+ * 1-11x bank accounts), while 1-2xx = Persediaan, 1-5/6xx = aset tetap.
+ */
+export function isCashOrBank(code: string, accountType: string): boolean {
+	return accountType === "asset" && /^1-1\d{2}$/.test(code);
+}
+
+/** Where a manual/auto entry came from. */
+export const SOURCE_LABEL: Record<string, string> = {
+	settlement: "Settlement",
+	settlement_reversal: "Settlement (reversal)",
+	purchase: "Pembelian",
+	payment: "Pembayaran",
+	manual: "Manual",
+	sinking_fund: "Dana Cadangan",
+	stock_take: "Stock Opname",
+	depreciation: "Penyusutan",
+};
+
+/** Entry-type display label. */
+export const ENTRY_TYPE_LABEL: Record<string, string> = {
+	revenue: "Pendapatan",
+	expense: "Beban",
+	asset_in: "Aset masuk",
+	asset_out: "Aset keluar",
+	transfer: "Transfer",
+	adjustment: "Koreksi",
+	reversal: "Pembalik",
+};
+
+// ── Balance aggregation ────────────────────────────────────────────────
+
+export type CoaMeta = {
+	code: string;
+	name: string;
+	account_type: string;
+};
+
+export type LineForBalance = {
+	account_code: string;
+	debit_amount: number;
+	credit_amount: number;
+};
+
+export type AccountAggregate = {
+	code: string;
+	name: string;
+	account_type: string;
+	debit: number;
+	credit: number;
+	balance: number;
+};
+
+/**
+ * Fold journal_lines into per-account debit/credit/balance totals.
+ *
+ * Note on reversals: pass ALL lines, including those on reversed entries and
+ * their pembalik counter-entries. They net to zero, exactly like the ledger
+ * drill-down — skipping only the reversed original would orphan the counter
+ * and produce a phantom balance.
+ */
+export function aggregateBalances(
+	accounts: CoaMeta[],
+	lines: LineForBalance[],
+): AccountAggregate[] {
+	const totals = new Map<string, { debit: number; credit: number }>();
+	for (const l of lines) {
+		const cur = totals.get(l.account_code) ?? { debit: 0, credit: 0 };
+		cur.debit += l.debit_amount;
+		cur.credit += l.credit_amount;
+		totals.set(l.account_code, cur);
+	}
+	return accounts
+		.map((a) => {
+			const t = totals.get(a.code) ?? { debit: 0, credit: 0 };
+			return {
+				code: a.code,
+				name: a.name,
+				account_type: a.account_type,
+				debit: t.debit,
+				credit: t.credit,
+				balance: balanceForType(a.account_type, t.debit, t.credit),
+			};
+		})
+		.sort((x, y) => x.code.localeCompare(y.code));
+}
+
+export type PositionSummary = {
+	assets: number;
+	liabilities: number;
+	equityBooked: number;
+	revenue: number;
+	expense: number;
+	netIncome: number;
+	/** Booked equity + net income (laba berjalan). */
+	equity: number;
+	cash: number;
+	totalDebit: number;
+	totalCredit: number;
+	/** assets − (liabilities + equity); ~0 when the books balance. */
+	equationDiff: number;
+	/** Trial-balance identity: total debit === total credit. */
+	booksBalanced: boolean;
+};
+
+/**
+ * Roll account aggregates up into the financial-position snapshot the owner
+ * reads first: total assets, the cash slice, and the accounting equation
+ * (Aset = Kewajiban + Ekuitas, with net income folded into equity).
+ */
+export function summarizePosition(
+	aggregates: AccountAggregate[],
+): PositionSummary {
+	let assets = 0;
+	let liabilities = 0;
+	let equityBooked = 0;
+	let revenue = 0;
+	let expense = 0;
+	let cash = 0;
+	let totalDebit = 0;
+	let totalCredit = 0;
+
+	for (const a of aggregates) {
+		totalDebit += a.debit;
+		totalCredit += a.credit;
+		switch (a.account_type) {
+			case "asset":
+				assets += a.balance;
+				if (isCashOrBank(a.code, a.account_type)) cash += a.balance;
+				break;
+			case "liability":
+				liabilities += a.balance;
+				break;
+			case "equity":
+				equityBooked += a.balance;
+				break;
+			case "revenue":
+				revenue += a.balance;
+				break;
+			case "expense":
+				expense += a.balance;
+				break;
+		}
+	}
+
+	const netIncome = revenue - expense;
+	const equity = equityBooked + netIncome;
+
+	return {
+		assets,
+		liabilities,
+		equityBooked,
+		revenue,
+		expense,
+		netIncome,
+		equity,
+		cash,
+		totalDebit,
+		totalCredit,
+		equationDiff: assets - (liabilities + equity),
+		booksBalanced: totalDebit === totalCredit,
+	};
+}

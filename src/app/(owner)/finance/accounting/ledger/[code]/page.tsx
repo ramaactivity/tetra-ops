@@ -1,53 +1,22 @@
-import { ArrowDownLeft, ArrowUpRight, Calendar, Wallet2 } from "lucide-react";
+import { Wallet2 } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
-import { Container } from "@/components/layout/container";
-import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
-import { KpiCard } from "@/components/operations/kpi-card";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
 import { LedgerDateFilter } from "@/components/finance/accounting/ledger-date-filter";
 import {
-	LedgerTable,
 	type LedgerRow,
+	LedgerTable,
 } from "@/components/finance/accounting/ledger-table";
+import { Container } from "@/components/layout/container";
+import { PageHeader } from "@/components/operations/_shared/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	balanceForType,
+	normalSide,
+	TYPE_LABEL,
+} from "@/lib/finance/accounting";
+import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-
-const TYPE_LABEL: Record<string, string> = {
-	asset: "Aset",
-	liability: "Kewajiban",
-	equity: "Ekuitas",
-	revenue: "Pendapatan",
-	expense: "Beban",
-};
-
-const TYPE_TONE: Record<string, string> = {
-	asset:
-		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-	liability:
-		"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	equity: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-	revenue:
-		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-	expense: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-};
-
-/**
- * Determine which side increases the account balance.
- *   asset, expense → debit normal (debit increases)
- *   liability, equity, revenue → credit normal (credit increases)
- */
-function balanceForType(
-	accountType: string,
-	debit: number,
-	credit: number,
-): number {
-	if (accountType === "asset" || accountType === "expense") {
-		return debit - credit;
-	}
-	return credit - debit;
-}
+import { cn } from "@/lib/utils";
 
 export default async function LedgerPage({
 	params,
@@ -74,10 +43,10 @@ export default async function LedgerPage({
 		.maybeSingle();
 	if (!account) notFound();
 
-	// Fetch all journal_lines for this account, joined with entry header.
-	// We need entry_date, ref_id, description, source_type, is_reversed
-	// to display each row contextually.
-	let q = supabase
+	const accountType = account.account_type as string;
+
+	// All journal_lines for this account, joined to entry header for context.
+	const { data: rawLines } = await supabase
 		.from("journal_lines")
 		.select(
 			`id, account_code, debit_amount, credit_amount, description, line_order,
@@ -87,7 +56,6 @@ export default async function LedgerPage({
 		)
 		.eq("account_code", code)
 		.order("line_order", { ascending: true });
-	const { data: rawLines } = await q;
 
 	type RawLine = {
 		id: string;
@@ -120,9 +88,23 @@ export default async function LedgerPage({
 			| null;
 	};
 
-	// Flatten + apply date filter at JS level (filter on FK column via Supabase is awkward)
-	const all = ((rawLines ?? []) as RawLine[])
-		.map((l) => {
+	type FlatLine = {
+		line_id: string;
+		entry_id: string;
+		ref_id: string;
+		entry_date: string;
+		entry_type: string;
+		source_type: string;
+		source_id: string | null;
+		is_reversed: boolean;
+		entry_description: string;
+		line_description: string | null;
+		debit_amount: number;
+		credit_amount: number;
+	};
+
+	const all: FlatLine[] = ((rawLines ?? []) as RawLine[])
+		.map((l): FlatLine | null => {
 			const e = Array.isArray(l.entry) ? l.entry[0] : l.entry;
 			if (!e) return null;
 			return {
@@ -140,86 +122,44 @@ export default async function LedgerPage({
 				credit_amount: Number(l.credit_amount),
 			};
 		})
-		.filter(
-			(
-				v,
-			): v is {
-				line_id: string;
-				entry_id: string;
-				ref_id: string;
-				entry_date: string;
-				entry_type: string;
-				source_type: string;
-				source_id: string | null;
-				is_reversed: boolean;
-				entry_description: string;
-				line_description: string | null;
-				debit_amount: number;
-				credit_amount: number;
-			} => v !== null,
-		)
-		// chronological for running balance
+		.filter((v): v is FlatLine => v !== null)
 		.sort((a, b) => {
 			const cmp = a.entry_date.localeCompare(b.entry_date);
-			if (cmp !== 0) return cmp;
-			return a.ref_id.localeCompare(b.ref_id);
+			return cmp !== 0 ? cmp : a.ref_id.localeCompare(b.ref_id);
 		});
 
-	// Apply date filter
 	const filtered = all.filter((l) => {
 		if (from && l.entry_date < from) return false;
 		if (to && l.entry_date > to) return false;
 		return true;
 	});
 
-	// Compute running balance per row using filtered rows
+	// Running balance, with opening balance from rows before the `from` date.
 	const rows: LedgerRow[] = [];
 	let balance = 0;
-	// If we're filtering by from, compute opening balance from rows BEFORE from
 	if (from) {
 		for (const l of all) {
 			if (l.entry_date >= from) break;
-			balance += balanceForType(
-				account.account_type as string,
-				l.debit_amount,
-				l.credit_amount,
-			);
+			balance += balanceForType(accountType, l.debit_amount, l.credit_amount);
 		}
 	}
+	const openingBalance = balance;
 	for (const l of filtered) {
-		const delta = balanceForType(
-			account.account_type as string,
-			l.debit_amount,
-			l.credit_amount,
-		);
-		balance += delta;
-		rows.push({
-			...l,
-			running_balance: balance,
-		});
+		balance += balanceForType(accountType, l.debit_amount, l.credit_amount);
+		rows.push({ ...l, running_balance: balance });
 	}
 
 	const totalDebit = filtered.reduce((s, l) => s + l.debit_amount, 0);
 	const totalCredit = filtered.reduce((s, l) => s + l.credit_amount, 0);
 	const endingBalance = balance;
-	// Opening balance = balance before all filtered rows
-	const openingBalance =
-		filtered.length > 0 ? rows[0].running_balance - balanceForType(
-			account.account_type as string,
-			rows[0].debit_amount,
-			rows[0].credit_amount,
-		) : balance;
-
-	const normalSide =
-		account.account_type === "asset" || account.account_type === "expense"
-			? "debit"
-			: "credit";
+	const side = normalSide(accountType);
+	const periodLabel = from || to ? "di periode" : "sepanjang waktu";
 
 	return (
 		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title={
-					<span className="flex flex-wrap items-baseline gap-2">
+					<span className="flex flex-wrap items-baseline gap-2.5">
 						<span className="tabular text-muted-foreground">
 							{account.code}
 						</span>
@@ -229,94 +169,92 @@ export default async function LedgerPage({
 				backHref="/finance/accounting"
 				backLabel="Akuntansi"
 				description={
-					<span className="flex flex-wrap items-center gap-2">
-						<Badge
-							variant="outline"
-							className={
-								TYPE_TONE[account.account_type as string] ?? ""
-							}
-						>
-							{TYPE_LABEL[account.account_type as string] ?? account.account_type}
-						</Badge>
-						<Badge
-							variant="outline"
-							className={`h-5 px-1.5 text-[10px] uppercase ${
-								normalSide === "debit"
-									? "border-sky-500/30 bg-sky-500/5 text-sky-700 dark:text-sky-300"
-									: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300"
-							}`}
-						>
-							normal {normalSide}
-						</Badge>
+					<span className="flex flex-wrap items-center gap-2 text-[12px]">
+						<span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-muted-foreground">
+							{TYPE_LABEL[accountType] ?? accountType}
+						</span>
+						<span className="text-muted-foreground/50">·</span>
+						<span className="text-muted-foreground">normal {side}</span>
 						{account.description && (
-							<span className="text-muted-foreground">
-								{account.description}
-							</span>
+							<>
+								<span className="text-muted-foreground/50">·</span>
+								<span className="text-muted-foreground">
+									{account.description}
+								</span>
+							</>
 						)}
 					</span>
 				}
 			/>
 
-			<KpiRow className="lg:grid-cols-4">
-				<KpiCard
-					label="Saldo Akhir"
-					value={`Rp ${endingBalance.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
-					hint={
-						from || to
-							? `dari ${rows.length} entry di periode`
-							: `dari ${rows.length} entry total`
-					}
-					icon={Wallet2}
-					accent={
-						endingBalance > 0
-							? "emerald"
-							: endingBalance < 0
-								? "rose"
-								: "default"
-					}
-				/>
-				{(from || to) && (
-					<KpiCard
-						label="Saldo Awal"
-						value={`Rp ${openingBalance.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
-						hint={from ? `per ${from}` : "sebelum periode"}
-						icon={Calendar}
-					/>
-				)}
-				<KpiCard
-					label="Total Debit"
-					value={`Rp ${totalDebit.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
-					hint={`${rows.filter((r) => r.debit_amount > 0).length} lines`}
-					icon={ArrowDownLeft}
-					accent="sky"
-				/>
-				<KpiCard
-					label="Total Credit"
-					value={`Rp ${totalCredit.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
-					hint={`${rows.filter((r) => r.credit_amount > 0).length} lines`}
-					icon={ArrowUpRight}
-					accent="amber"
-				/>
-			</KpiRow>
+			{/* Saldo summary — ending balance dominant, flows secondary */}
+			<section className="overflow-hidden rounded-lg border border-border-default bg-card shadow-[var(--shadow-level-2)]">
+				<div className="grid gap-5 px-5 py-5 sm:grid-cols-[1.3fr_2fr] sm:items-center">
+					<div>
+						<div className="eyebrow mb-1.5">Saldo akhir {periodLabel}</div>
+						<div
+							className={cn(
+								"tabular display-tight text-[30px] font-semibold leading-[1.05] sm:text-[36px]",
+								endingBalance < 0 ? "text-destructive" : "text-foreground",
+							)}
+						>
+							{formatRupiah(endingBalance)}
+						</div>
+						<p className="mt-1.5 text-[12px] text-muted-foreground">
+							dari {rows.length} pergerakan {periodLabel}.
+						</p>
+					</div>
+					<dl className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border-subtle bg-border-subtle sm:border-l sm:border-y-0 sm:border-r-0 sm:border-border-subtle sm:bg-transparent">
+						{(from || to) && <Stat label="Saldo awal" value={openingBalance} />}
+						<Stat label="Total debit" value={totalDebit} muted />
+						<Stat label="Total kredit" value={totalCredit} muted />
+					</dl>
+				</div>
+			</section>
 
 			<LedgerDateFilter defaultFrom={from} defaultTo={to} />
 
 			{rows.length === 0 ? (
 				<EmptyState
 					icon={Wallet2}
-					title="Belum ada movement"
+					title="Belum ada pergerakan"
 					description={
 						from || to
-							? "Tidak ada journal_lines yang touch akun ini di periode terpilih."
+							? "Tidak ada jurnal yang menyentuh akun ini di periode terpilih."
 							: "Akun ini belum pernah dipakai di jurnal manapun."
 					}
 				/>
 			) : (
-				<LedgerTable
-					rows={rows}
-					accountType={account.account_type as string}
-				/>
+				<LedgerTable rows={rows} accountType={accountType} />
 			)}
 		</Container>
+	);
+}
+
+function Stat({
+	label,
+	value,
+	muted,
+}: {
+	label: string;
+	value: number;
+	muted?: boolean;
+}) {
+	return (
+		<div className="bg-card p-3 sm:bg-transparent sm:p-0 sm:pl-5">
+			<dt className="eyebrow mb-1">{label}</dt>
+			<dd
+				className={cn(
+					"tabular text-[15px] font-semibold sm:text-[16px]",
+					value < 0
+						? "text-destructive"
+						: muted
+							? "text-foreground"
+							: "text-foreground",
+				)}
+			>
+				{formatRupiah(value)}
+			</dd>
+		</div>
 	);
 }

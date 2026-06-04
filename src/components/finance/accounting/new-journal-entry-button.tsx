@@ -12,7 +12,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { NumberField, TextareaField } from "@/components/ui/form-fields";
+import { NumberField } from "@/components/ui/form-fields";
 import { toast } from "@/components/ui/toaster";
 import {
 	createManualJournalEntry,
@@ -70,9 +70,7 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 	useEffect(() => {
 		if (state?.success) {
 			toast.success(
-				state.refId
-					? `Jurnal disimpan — ${state.refId}`
-					: "Jurnal disimpan",
+				state.refId ? `Jurnal disimpan — ${state.refId}` : "Jurnal disimpan",
 			);
 			setOpen(false);
 			setEntryType("adjustment");
@@ -91,9 +89,7 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 	);
 
 	function updateLine(id: string, patch: Partial<LineRow>) {
-		setLines((curr) =>
-			curr.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-		);
+		setLines((curr) => curr.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 	}
 	function removeLine(id: string) {
 		setLines((curr) =>
@@ -141,12 +137,12 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 				<DialogContent className="sm:max-w-5xl">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
-							<BookOpen className="size-5 text-primary" />
-							Buat Entry Jurnal Manual
+							<BookOpen className="size-5 text-foreground" />
+							Buat jurnal manual
 						</DialogTitle>
 						<DialogDescription>
-							Untuk koreksi, setoran modal, transfer kas↔bank, dll. Wajib
-							balanced (total debit = total credit).
+							Untuk koreksi, setoran modal, atau transfer kas ↔ bank. Total
+							debit harus sama dengan total kredit sebelum bisa disimpan.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -176,10 +172,8 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 						)}
 
 						{/* Header */}
-						<section className="rounded-lg border border-border-default bg-surface-2/40 p-3">
-							<div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-								Header Entry
-							</div>
+						<section className="rounded-lg border border-border-default bg-secondary/40 p-3">
+							<div className="eyebrow mb-2">Header entry</div>
 							<div className="grid gap-3 lg:grid-cols-[180px_240px_1fr]">
 								<Field label="Tanggal Entry" name="entry_date" required>
 									<input
@@ -226,13 +220,13 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 						{/* Lines */}
 						<section className="space-y-2">
 							<div className="flex items-center justify-between">
-								<label className="text-sm font-medium">Lines</label>
+								<span className="text-sm font-medium">Baris jurnal</span>
 								<button
 									type="button"
 									onClick={() => setLines((l) => [...l, newLine()])}
-									className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-[12px] font-medium hover:bg-surface-3"
+									className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-card px-2.5 text-[12px] font-medium hover:bg-secondary"
 								>
-									<Plus className="size-3.5" /> Tambah Baris
+									<Plus className="size-3.5" /> Tambah baris
 								</button>
 							</div>
 							{lineError && (
@@ -240,11 +234,11 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 							)}
 
 							{/* Column headers */}
-							<div className="hidden grid-cols-[minmax(0,2.4fr)_140px_140px_minmax(0,2fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
-								<span>Akun</span>
-								<span className="text-right">Debit</span>
-								<span className="text-right">Credit</span>
-								<span>Deskripsi (opsional)</span>
+							<div className="hidden grid-cols-[minmax(0,2.4fr)_140px_140px_minmax(0,2fr)_36px] gap-2 px-2.5 lg:grid">
+								<span className="eyebrow">Akun</span>
+								<span className="eyebrow text-right">Debit</span>
+								<span className="eyebrow text-right">Kredit</span>
+								<span className="eyebrow">Keterangan (opsional)</span>
 								<span />
 							</div>
 
@@ -341,36 +335,32 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 							}`}
 						>
 							<div>
-								<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-									Total Debit
-								</div>
+								<div className="eyebrow">Total debit</div>
 								<div className="tabular text-fluid-h3 font-semibold text-foreground">
 									{formatRupiah(totalDebit)}
 								</div>
 							</div>
 							<div>
-								<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-									Total Credit
-								</div>
+								<div className="eyebrow">Total kredit</div>
 								<div className="tabular text-fluid-h3 font-semibold text-foreground">
 									{formatRupiah(totalCredit)}
 								</div>
 							</div>
 							<div className="lg:text-right">
-								<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+								<div className="eyebrow">
 									{isBalanced ? "Status" : "Selisih"}
 								</div>
 								<div
 									className={`tabular text-fluid-h3 font-semibold ${
 										isBalanced
-											? "text-emerald-700 dark:text-emerald-300"
+											? "text-emerald-700 dark:text-emerald-400"
 											: totalDebit === 0 && totalCredit === 0
 												? "text-muted-foreground/40"
-												: "text-rose-700 dark:text-rose-300"
+												: "text-destructive"
 									}`}
 								>
 									{isBalanced
-										? "✓ Balanced"
+										? "✓ Seimbang"
 										: totalDebit === 0 && totalCredit === 0
 											? "—"
 											: `${selisih > 0 ? "+" : ""}${formatRupiah(selisih)}`}
@@ -382,7 +372,7 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 							<button
 								type="button"
 								onClick={() => setOpen(false)}
-								className="inline-flex h-10 items-center rounded-md border border-border-default bg-surface-2 px-4 text-sm font-medium hover:bg-muted"
+								className="inline-flex h-10 items-center rounded-md border border-border-default bg-card px-4 text-sm font-medium hover:bg-secondary"
 							>
 								Batal
 							</button>
@@ -390,15 +380,17 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 								type="submit"
 								disabled={pending || !isBalanced}
 								title={
-									!isBalanced ? "Total debit harus sama dengan total credit" : undefined
+									!isBalanced
+										? "Total debit harus sama dengan total kredit"
+										: undefined
 								}
 								className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
 							>
 								{pending
 									? "Menyimpan…"
 									: isBalanced
-										? `Post Entry · ${formatRupiah(totalDebit)}`
-										: "Belum balanced"}
+										? `Simpan jurnal · ${formatRupiah(totalDebit)}`
+										: "Belum seimbang"}
 							</button>
 						</DialogFooter>
 					</form>
