@@ -202,7 +202,7 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 									label="Deskripsi"
 									name="description"
 									required
-									hint="3-300 karakter — apa yang lo lakukan"
+									hint="3-300 karakter — jelaskan transaksinya"
 								>
 									<input
 										type="text"

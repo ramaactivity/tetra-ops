@@ -41,11 +41,15 @@ export function BaganAkunTable({ rows }: { rows: CoaRow[] }) {
 	const [filter, setFilter] = useState<Filter>("all");
 	const [showInactive, setShowInactive] = useState(false);
 
-	// Skip header/parent rows (e.g. "1-000 ASSETS") — only postable accounts.
-	const accountRows = useMemo(
-		() => rows.filter((r) => r.parent_code !== null || r.code.includes("-")),
-		[rows],
-	);
+	// Show only postable (leaf) accounts. Any account referenced as another
+	// account's parent_code is a structural header (e.g. "1-000 ASSETS") — the
+	// group heading already names the class, so those rows are noise here.
+	const accountRows = useMemo(() => {
+		const parentCodes = new Set(
+			rows.map((r) => r.parent_code).filter((c): c is string => c !== null),
+		);
+		return rows.filter((r) => !parentCodes.has(r.code));
+	}, [rows]);
 
 	const counts = useMemo(() => {
 		const out: Record<string, number> = { all: 0 };

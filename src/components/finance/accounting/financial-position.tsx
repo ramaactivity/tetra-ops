@@ -31,7 +31,6 @@ export function FinancialPosition({
 		booksBalanced,
 	} = position;
 
-	const cashShare = assets > 0 ? Math.round((cash / assets) * 100) : 0;
 	const equationOk = Math.abs(equationDiff) < 1;
 
 	return (
@@ -53,7 +52,7 @@ export function FinancialPosition({
 						{formatRupiah(assets)}
 					</div>
 					<p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
-						Semua yang dimiliki bisnis saat ini.
+						Nilai bersih seluruh aset, setelah penyusutan.
 					</p>
 				</div>
 				<div className="sm:border-l sm:border-border-subtle sm:pl-8">
@@ -62,7 +61,7 @@ export function FinancialPosition({
 						{formatRupiah(cash)}
 					</div>
 					<p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
-						{cashShare}% dari aset · uang yang benar-benar likuid.
+						Uang tunai &amp; saldo rekening bank yang siap dipakai.
 					</p>
 				</div>
 			</div>
