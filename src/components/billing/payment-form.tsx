@@ -2,9 +2,13 @@
 
 import { useActionState, useState } from "react";
 import { ProofUploadButton } from "@/components/billing/proof-upload-button";
+import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MoneyInput, TextareaField } from "@/components/ui/form-fields";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { logPayment, type PaymentFormState } from "@/lib/actions/payments";
+import { formatRupiah } from "@/lib/format";
 
 const PAYMENT_TYPE_OPTIONS: Array<[string, string]> = [
 	["dp", "DP (Down Payment)"],
@@ -46,19 +50,19 @@ export function PaymentForm({
 			| string[]
 			| undefined)?.[0];
 
+	const [amount, setAmount] = useState(
+		Number(get("amount", suggestedAmount?.toString())) || 0,
+	);
 	const [paymentDate, setPaymentDate] = useState(
 		get("payment_date", defaultDate),
 	);
 	const [paymentType, setPaymentType] = useState(get("payment_type", "dp"));
 	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
 	const [proofUrl, setProofUrl] = useState(get("proof_url"));
-	const [amount, setAmount] = useState(
-		get("amount", suggestedAmount?.toString()),
-	);
 
 	if (bankAccounts.length === 0) {
 		return (
-			<p className="text-fluid-body italic text-muted-foreground">
+			<p className="text-sm italic text-muted-foreground">
 				Belum ada bank account aktif. Tambah dari Settings → Banks.
 			</p>
 		);
@@ -67,54 +71,44 @@ export function PaymentForm({
 	return (
 		<form action={formAction} className="space-y-4">
 			{state?.errors?._form && (
-				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-					<p className="text-fluid-body font-medium text-destructive">
+				<div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+					<p className="text-sm font-medium text-destructive">
 						{state.errors._form[0]}
 					</p>
 				</div>
 			)}
 
-			<div className="grid gap-4 sm:grid-cols-3">
-				<Field label="Jumlah (IDR)" name="amount" error={err("amount")} required>
-					<input
-						type="number"
-						name="amount"
-						min={1}
-						step={1}
-						required
-						value={amount}
-						onChange={(e) => setAmount(e.target.value)}
-						placeholder="500000"
-						className={`${inputClass} tabular`}
-					/>
-				</Field>
+			<Field label="Jumlah" error={err("amount")} required>
+				<MoneyInput
+					name="amount"
+					value={amount}
+					onValueChange={setAmount}
+					placeholder="0"
+					aria-invalid={!!err("amount")}
+				/>
+				{suggestedAmount && suggestedAmount > 0 && amount !== suggestedAmount && (
+					<button
+						type="button"
+						onClick={() => setAmount(suggestedAmount)}
+						className="text-xs font-medium text-[#0070f3] hover:underline"
+					>
+						Isi sisa tagihan · {formatRupiah(suggestedAmount)}
+					</button>
+				)}
+			</Field>
 
-				<Field
-					label="Tanggal"
-					name="payment_date"
-					error={err("payment_date")}
-					required
-				>
+			<div className="grid gap-4 sm:grid-cols-2">
+				<Field label="Tanggal" error={err("payment_date")} required>
 					<DatePicker
 						value={paymentDate}
 						onValueChange={setPaymentDate}
 						placeholder="Pilih tanggal"
 						aria-invalid={!!err("payment_date")}
 					/>
-					<input
-						type="hidden"
-						name="payment_date"
-						value={paymentDate}
-						required
-					/>
+					<input type="hidden" name="payment_date" value={paymentDate} required />
 				</Field>
 
-				<Field
-					label="Tipe"
-					name="payment_type"
-					error={err("payment_type")}
-					required
-				>
+				<Field label="Tipe" error={err("payment_type")} required>
 					<NativeSelect
 						value={paymentType}
 						onValueChange={setPaymentType}
@@ -125,21 +119,11 @@ export function PaymentForm({
 						triggerClassName="w-full"
 						aria-invalid={!!err("payment_type")}
 					/>
-					<input
-						type="hidden"
-						name="payment_type"
-						value={paymentType}
-						required
-					/>
+					<input type="hidden" name="payment_type" value={paymentType} required />
 				</Field>
 			</div>
 
-			<Field
-				label="Bank Tujuan"
-				name="bank_account_id"
-				error={err("bank_account_id")}
-				required
-			>
+			<Field label="Bank tujuan" error={err("bank_account_id")} required>
 				<NativeSelect
 					value={bankAccountId}
 					onValueChange={setBankAccountId}
@@ -151,28 +135,22 @@ export function PaymentForm({
 					triggerClassName="w-full"
 					aria-invalid={!!err("bank_account_id")}
 				/>
-				<input
-					type="hidden"
-					name="bank_account_id"
-					value={bankAccountId}
-					required
-				/>
+				<input type="hidden" name="bank_account_id" value={bankAccountId} required />
 			</Field>
 
 			<Field
-				label="Bukti URL"
-				name="proof_url"
+				label="Bukti transfer"
 				error={err("proof_url")}
-				hint="Link Drive/upload bukti transfer (opsional)"
+				hint="Link Drive / upload bukti (opsional)"
 			>
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-					<input
+					<Input
 						type="url"
 						name="proof_url"
 						value={proofUrl}
 						onChange={(e) => setProofUrl(e.target.value)}
-						placeholder="https://drive.google.com/..."
-						className={`${inputClass} sm:flex-1`}
+						placeholder="https://drive.google.com/…"
+						className="h-10 rounded-md sm:flex-1"
 					/>
 					<ProofUploadButton
 						projectId={projectId}
@@ -180,53 +158,42 @@ export function PaymentForm({
 						meta={{
 							paymentType,
 							paymentDate,
-							amount: Number(amount) || undefined,
+							amount: amount || undefined,
 						}}
 					/>
 				</div>
 			</Field>
 
-			<Field
-				label="Catatan"
-				name="notes"
-				error={err("notes")}
-				hint="Optional"
-			>
-				<textarea
+			<Field label="Catatan" error={err("notes")} hint="Opsional">
+				<TextareaField
 					name="notes"
 					rows={2}
 					maxLength={500}
 					defaultValue={get("notes")}
-					className={`${inputClass} resize-none`}
+					placeholder="Catatan tambahan…"
 				/>
 			</Field>
 
-			<div className="flex justify-end">
-				<button
-					type="submit"
-					disabled={pending}
-					className="press-down h-10 rounded-md bg-primary px-4 text-fluid-body font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-				>
-					{pending ? "Menyimpan…" : "Log payment"}
-				</button>
-			</div>
+			<Button
+				type="submit"
+				size="lg"
+				disabled={pending}
+				className="w-full"
+			>
+				{pending ? "Menyimpan…" : "Log payment"}
+			</Button>
 		</form>
 	);
 }
 
-const inputClass =
-	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-fluid-body text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
-
 function Field({
 	label,
-	name,
 	hint,
 	error,
 	required,
 	children,
 }: {
 	label: string;
-	name: string;
 	hint?: string;
 	error?: string;
 	required?: boolean;
@@ -234,15 +201,15 @@ function Field({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-fluid-body font-medium">
+			<label className="block text-[13px] font-medium text-foreground">
 				{label}
-				{required && <span className="ml-0.5 text-primary">*</span>}
+				{required && <span className="ml-0.5 text-destructive">*</span>}
 			</label>
 			{children}
 			{error ? (
-				<p className="text-fluid-caption text-destructive">{error}</p>
+				<p className="text-xs text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-fluid-caption text-muted-foreground">{hint}</p>
+				<p className="text-xs text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
 	);
