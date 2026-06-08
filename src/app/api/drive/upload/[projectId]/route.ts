@@ -51,6 +51,29 @@ function formatPaymentDate(iso: string | null): string | null {
 	return `${y}-${m}-${day}`;
 }
 
+const MONTHS_ID = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+];
+
+/** Human-readable Indonesian date, e.g. "9 Mei 2026". */
+function humanDateID(iso: string | null): string | null {
+	if (!iso) return null;
+	const d = new Date(`${iso}T00:00:00`);
+	if (Number.isNaN(d.getTime())) return null;
+	return `${d.getDate()} ${MONTHS_ID[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 function buildPaymentProofName(
 	meta: {
 		projectId: string;
@@ -310,11 +333,19 @@ export async function POST(
 		}
 		finalName = `${parts.join(" - ").slice(0, 180).trim()}.${ext}`;
 	} else if (kind === "design_frame") {
+		// Human-friendly: "<Event Name> - Design - <tanggal> - <nama asli>"
 		const baseOriginal = safeSegment(
 			file.name?.replace(/\.[^.]+$/, "") || "design",
-			120,
+			60,
 		);
-		finalName = `${event.project_id as string} - DESIGN - ${baseOriginal}.${ext}`;
+		const human = humanDateID((event.event_date as string | null) ?? null);
+		const parts: string[] = [
+			safeSegment((event.client_name as string) ?? "Event", 50),
+			"Design",
+		];
+		if (human) parts.push(human);
+		parts.push(baseOriginal);
+		finalName = `${parts.join(" - ").slice(0, 180).trim()}.${ext}`;
 	} else {
 		// Generic fallback: project + original name (sanitized)
 		const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
