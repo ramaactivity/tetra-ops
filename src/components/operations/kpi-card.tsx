@@ -24,6 +24,24 @@ const ICON_TINT: Record<Accent, string> = {
 	primary: "bg-foreground/8 text-foreground",
 };
 
+const BAR_FILL: Record<Accent, string> = {
+	default: "bg-muted-foreground",
+	emerald: "bg-emerald-500",
+	amber: "bg-amber-500",
+	sky: "bg-[#0070f3]",
+	rose: "bg-rose-500",
+	primary: "bg-foreground",
+};
+
+const PCT_TONE: Record<Accent, string> = {
+	default: "text-foreground",
+	emerald: "text-emerald-600 dark:text-emerald-400",
+	amber: "text-amber-700 dark:text-amber-500",
+	sky: "text-[#0070f3] dark:text-[#3b96ff]",
+	rose: "text-rose-600 dark:text-rose-400",
+	primary: "text-foreground",
+};
+
 interface KpiCardProps {
 	label: string;
 	value: string;
@@ -31,6 +49,8 @@ interface KpiCardProps {
 	icon?: LucideIcon;
 	accent?: Accent;
 	className?: string;
+	/** Progress toward a target — renders a "X% · target N" bar under the value. */
+	progress?: { current: number; target: number };
 }
 
 export function KpiCard({
@@ -40,7 +60,12 @@ export function KpiCard({
 	icon: Icon,
 	accent = "default",
 	className,
+	progress,
 }: KpiCardProps) {
+	const pct =
+		progress && progress.target > 0
+			? Math.round((progress.current / progress.target) * 100)
+			: null;
 	return (
 		<div
 			className={cn(
@@ -71,6 +96,24 @@ export function KpiCard({
 					</p>
 				)}
 			</div>
+			{pct !== null && progress && (
+				<div className="flex flex-col gap-1.5">
+					<div className="flex items-center justify-between text-[12px] leading-none">
+						<span className="text-muted-foreground">
+							Target {progress.target.toLocaleString("id-ID")}
+						</span>
+						<span className={cn("tabular font-semibold", PCT_TONE[accent])}>
+							{pct}%
+						</span>
+					</div>
+					<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+						<div
+							className={cn("h-full rounded-full", BAR_FILL[accent])}
+							style={{ width: `${Math.min(100, pct)}%` }}
+						/>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

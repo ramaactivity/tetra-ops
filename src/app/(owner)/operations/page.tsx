@@ -3,6 +3,7 @@ import {
 	Briefcase,
 	CalendarClock,
 	CalendarPlus,
+	CalendarRange,
 	Plus,
 	Upload,
 	Users,
@@ -137,13 +138,17 @@ export default async function OperationsListPage({
 	const today = new Date();
 	const ymStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
+	const yearStart = `${today.getFullYear()}-01-01`;
+	const yearEnd = `${today.getFullYear()}-12-31`;
 
 	const [
 		listResult,
 		totalCountResult,
 		thisMonthCountResult,
+		thisYearCountResult,
 		awaitingCountResult,
 		outstandingResult,
+		targetConfigResult,
 		crewListResult,
 		eventTypesResult,
 	] = await Promise.all([
@@ -160,6 +165,13 @@ export default async function OperationsListPage({
 			.is("deleted_at", null)
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
+		// Tahun Ini — every booking with an event date this year, any status.
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.gte("event_date", yearStart)
+			.lte("event_date", yearEnd),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
@@ -169,6 +181,11 @@ export default async function OperationsListPage({
 		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
 		// reduce. See get_outstanding_total migration.
 		supabase.rpc("get_outstanding_total"),
+		// Owner-set event targets (editable in Settings → system_config).
+		supabase
+			.from("system_config")
+			.select("key, value")
+			.in("key", ["event_target_monthly", "event_target_yearly"]),
 		supabase
 			.from("users")
 			.select("id, full_name, nickname, tier")
@@ -320,8 +337,19 @@ export default async function OperationsListPage({
 
 	const totalCount = totalCountResult.count ?? 0;
 	const thisMonthCount = thisMonthCountResult.count ?? 0;
+	const thisYearCount = thisYearCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
 	const outstanding = (outstandingResult.data as number | null) ?? 0;
+
+	// Targets live in system_config (category "targets"), editable in Settings.
+	// Values are JSONB numbers; fall back to 0 (no progress bar) if unset.
+	const targetByKey = new Map<string, number>(
+		((targetConfigResult.data ?? []) as Array<{ key: string; value: unknown }>)
+			.map((r) => [r.key, Number(r.value)] as const)
+			.filter(([, v]) => Number.isFinite(v)),
+	);
+	const monthlyTarget = targetByKey.get("event_target_monthly") ?? 0;
+	const yearlyTarget = targetByKey.get("event_target_yearly") ?? 0;
 
 	// `month` is always set (auto-defaults to current month), so consider it
 	// a "user-set" filter only when explicitly different from the default.
@@ -365,7 +393,7 @@ export default async function OperationsListPage({
 				}
 			/>
 
-			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 				<KpiCard
 					label="Total Events"
 					value={totalCount.toLocaleString("id-ID")}
@@ -376,9 +404,26 @@ export default async function OperationsListPage({
 				<KpiCard
 					label="Bulan Ini"
 					value={thisMonthCount.toLocaleString("id-ID")}
-					hint="Semua event bulan ini, semua status"
+					hint={`${today.toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · semua status`}
 					icon={CalendarClock}
 					accent="emerald"
+					progress={
+						monthlyTarget > 0
+							? { current: thisMonthCount, target: monthlyTarget }
+							: undefined
+					}
+				/>
+				<KpiCard
+					label="Tahun Ini"
+					value={thisYearCount.toLocaleString("id-ID")}
+					hint={`${today.getFullYear()} · semua status`}
+					icon={CalendarRange}
+					accent="sky"
+					progress={
+						yearlyTarget > 0
+							? { current: thisYearCount, target: yearlyTarget }
+							: undefined
+					}
 				/>
 				<KpiCard
 					label="Awaiting Settlement"
