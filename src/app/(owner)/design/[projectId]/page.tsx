@@ -8,9 +8,11 @@ import {
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
-import { ensureEventCategoryFolderInternal } from "@/lib/actions/drive";
+import {
+	ensureEventCategoryFolderInternal,
+	getFootageInfoInternal,
+} from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { countFolderFiles } from "@/lib/drive/client";
 import {
 	ASSET_TYPE_LABELS,
 	ASSET_TYPES,
@@ -84,18 +86,14 @@ export default async function DesignAssetManagerPage({
 		me?.profile.role === "super_admin" || me?.profile.role === "owner";
 
 	// Resolve (and lazily create) the Footage + Softfile Drive folders.
-	let footageUrl: string | null = null;
-	let footageCount: number | null = null;
-	let softfileUrl: string | null = null;
+	// getFootageInfoInternal also caches the footage file count for the list.
 	const [footage, softfile] = await Promise.all([
-		ensureEventCategoryFolderInternal(event.id, "Footage"),
+		getFootageInfoInternal(event.id),
 		ensureEventCategoryFolderInternal(event.id, "Softfile"),
 	]);
-	if (footage.id && footage.url) {
-		footageUrl = footage.url;
-		footageCount = await countFolderFiles(footage.id);
-	}
-	if (softfile.url) softfileUrl = softfile.url;
+	const footageUrl = footage.url ?? null;
+	const footageCount = footage.url ? footage.count : null;
+	const softfileUrl = softfile.url ?? null;
 
 	return (
 		<Container size="lg" className="space-y-6">

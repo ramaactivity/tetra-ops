@@ -1,13 +1,12 @@
-import { Film, Image as ImageIcon, Palette } from "lucide-react";
+import { Check, Minus, Palette } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
 import { DesignMonthFilter } from "@/components/event-design/design-month-filter";
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ASSET_TYPE_LABELS, type AssetType } from "@/lib/event-assets/types";
+import type { AssetType } from "@/lib/event-assets/types";
 import {
 	DESIGN_STATUS_LABELS,
 	DESIGN_STATUS_TONE,
@@ -22,18 +21,16 @@ import { cn } from "@/lib/utils";
  * /design — Asset & Design.
  *
  * Every event (matching the Operations/Event page), grouped per month, with
- * design workflow status (Belum / Proses / Approved, inline-editable) + asset
- * coverage (design frame, footage, softfile). Defaults to the current month.
+ * design workflow status (Belum / Proses / Approved, inline-editable) + per-event
+ * asset readiness (design ready? softfile uploaded? footage uploaded?).
+ * Defaults to the current month.
  */
 
-const TYPE_META: Record<AssetType, { icon: typeof ImageIcon; short: string }> =
-	{
-		design_frame: { icon: Palette, short: "Design" },
-		footage_crew: { icon: Film, short: "Footage" },
-		softfile: { icon: ImageIcon, short: "Softfile" },
-	};
-
-const ALL_TYPES: AssetType[] = ["design_frame", "footage_crew", "softfile"];
+const ASSET_CHECKS = [
+	{ key: "design" as const, label: "Design" },
+	{ key: "softfile" as const, label: "Softfile" },
+	{ key: "footage" as const, label: "Footage" },
+];
 
 const MONTHS_ID = [
 	"Januari",
@@ -91,7 +88,7 @@ export default async function AssetDesignPage({
 	const { data: events, error } = await supabase
 		.from("events")
 		.select(
-			"id, project_id, client_name, event_date, status, design_status, venue_name, venue_city",
+			"id, project_id, client_name, event_date, status, design_status, venue_name, venue_city, drive_folders",
 		)
 		.is("deleted_at", null)
 		.order("event_date", { ascending: false })
@@ -118,6 +115,7 @@ export default async function AssetDesignPage({
 		design_status: DesignStatus;
 		venue_name: string | null;
 		venue_city: string | null;
+		drive_folders: { Footage?: { count?: number } } | null;
 	};
 	const allEvents = (events ?? []) as EventRow[];
 
@@ -150,11 +148,25 @@ export default async function AssetDesignPage({
 		}
 	}
 
-	const totalAssets = Array.from(assetCounts.values()).reduce(
-		(s, m) => s + Object.values(m).reduce((a, b) => a + b, 0),
-		0,
-	);
-	const eventsWithAnyAsset = assetCounts.size;
+	// Per-event readiness: design ready? softfile uploaded? footage uploaded?
+	type Ready = { design: boolean; softfile: boolean; footage: boolean };
+	const readiness = new Map<string, Ready>();
+	let nDesign = 0;
+	let nSoftfile = 0;
+	let nFootage = 0;
+	for (const ev of scoped) {
+		const c = assetCounts.get(ev.id);
+		const footCached = ev.drive_folders?.Footage?.count ?? 0;
+		const r: Ready = {
+			design: (c?.design_frame ?? 0) > 0,
+			softfile: (c?.softfile ?? 0) > 0,
+			footage: footCached > 0 || (c?.footage_crew ?? 0) > 0,
+		};
+		readiness.set(ev.id, r);
+		if (r.design) nDesign++;
+		if (r.softfile) nSoftfile++;
+		if (r.footage) nFootage++;
+	}
 
 	const statusCounts: Record<DesignStatus, number> = {
 		belum: 0,
@@ -202,23 +214,25 @@ export default async function AssetDesignPage({
 
 			<dl className="grid gap-3 sm:grid-cols-3">
 				<StatCard
-					label="Event Tracked"
-					value={scoped.length}
-					hint={`${eventsWithAnyAsset} sudah punya asset`}
+					label="Design siap"
+					value={`${nDesign} / ${scoped.length}`}
+					done={nDesign}
+					total={scoped.length}
+					hint="Event yang sudah ada design frame"
 				/>
 				<StatCard
-					label="Total Asset"
-					value={totalAssets}
-					hint={showsAll ? "Semua bulan" : monthLabel(month)}
+					label="Softfile terupload"
+					value={`${nSoftfile} / ${scoped.length}`}
+					done={nSoftfile}
+					total={scoped.length}
+					hint="Event yang softfile-nya sudah ada"
 				/>
 				<StatCard
-					label="Coverage"
-					value={
-						scoped.length > 0
-							? `${Math.round((eventsWithAnyAsset / scoped.length) * 100)}%`
-							: "—"
-					}
-					hint="Event dengan minimal 1 asset"
+					label="Footage terupload"
+					value={`${nFootage} / ${scoped.length}`}
+					done={nFootage}
+					total={scoped.length}
+					hint="Event yang footage-nya sudah masuk Drive"
 				/>
 			</dl>
 
@@ -306,15 +320,13 @@ export default async function AssetDesignPage({
 											</td>
 										</tr>
 										{evs.map((ev) => {
-											const counts = assetCounts.get(ev.id) ?? {
-												design_frame: 0,
-												footage_crew: 0,
-												softfile: 0,
+											const ready = readiness.get(ev.id) ?? {
+												design: false,
+												softfile: false,
+												footage: false,
 											};
-											const total =
-												counts.design_frame +
-												counts.footage_crew +
-												counts.softfile;
+											const hasAny =
+												ready.design || ready.softfile || ready.footage;
 											return (
 												<tr
 													key={ev.id}
@@ -349,26 +361,27 @@ export default async function AssetDesignPage({
 														/>
 													</td>
 													<td className="px-4 py-3 align-middle">
-														<div className="flex flex-wrap items-center gap-1">
-															{ALL_TYPES.map((t) => {
-																const meta = TYPE_META[t];
-																const Icon = meta.icon;
-																const c = counts[t];
+														<div className="flex flex-wrap items-center gap-1.5">
+															{ASSET_CHECKS.map((chk) => {
+																const ok = ready[chk.key];
 																return (
-																	<Badge
-																		key={t}
-																		variant="outline"
+																	<span
+																		key={chk.key}
 																		className={cn(
-																			"h-5 gap-1 px-1.5 text-[10px] font-medium",
-																			c > 0
-																				? "border-border-default bg-secondary text-foreground/85"
-																				: "opacity-40",
+																			"inline-flex h-5 items-center gap-1 rounded-md border px-1.5 text-[10px] font-medium",
+																			ok
+																				? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+																				: "border-border-default bg-secondary text-muted-foreground",
 																		)}
-																		title={`${ASSET_TYPE_LABELS[t]} (${c})`}
+																		title={`${chk.label}: ${ok ? "sudah" : "belum"}`}
 																	>
-																		<Icon className="size-2.5" />
-																		{meta.short}: {c}
-																	</Badge>
+																		{ok ? (
+																			<Check className="size-2.5" />
+																		) : (
+																			<Minus className="size-2.5" />
+																		)}
+																		{chk.label}
+																	</span>
 																);
 															})}
 														</div>
@@ -378,7 +391,7 @@ export default async function AssetDesignPage({
 															href={`/design/${ev.project_id}`}
 															className="text-[12.5px] font-medium text-[#0070f3] hover:underline"
 														>
-															{total > 0 ? "Kelola →" : "Tambah →"}
+															{hasAny ? "Kelola →" : "Tambah →"}
 														</Link>
 													</td>
 												</tr>
@@ -399,17 +412,31 @@ function StatCard({
 	label,
 	value,
 	hint,
+	done,
+	total,
 }: {
 	label: string;
 	value: number | string;
 	hint?: string;
+	done?: number;
+	total?: number;
 }) {
+	const pct =
+		total && total > 0 ? Math.round(((done ?? 0) / total) * 100) : null;
 	return (
-		<div className="flex flex-col gap-1 rounded-lg border border-border-default bg-card p-4">
+		<div className="flex flex-col gap-2 rounded-lg border border-border-default bg-card p-4">
 			<dt className="eyebrow">{label}</dt>
 			<dd className="tabular text-2xl font-semibold text-foreground">
 				{value}
 			</dd>
+			{pct !== null && (
+				<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+					<div
+						className="h-full rounded-full bg-emerald-500"
+						style={{ width: `${pct}%` }}
+					/>
+				</div>
+			)}
 			{hint ? (
 				<p className="text-[12px] text-muted-foreground">{hint}</p>
 			) : null}

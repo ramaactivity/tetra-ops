@@ -24,7 +24,7 @@ export type CreateEventFolderResult = {
 
 const FOLDER_CREATE_TIMEOUT_MS = 15_000;
 
-type DriveFolderRef = { id: string; url: string };
+type DriveFolderRef = { id: string; url: string; count?: number };
 type DriveFoldersMap = Record<string, DriveFolderRef>;
 
 /**
@@ -202,11 +202,31 @@ export async function createEventFolder(
 	return createEventFolderInternal(event.id as string);
 }
 
-/** Count files in an event's Footage subfolder (lazy, detail-page only). */
-export async function getFootageFileCount(eventId: string): Promise<number> {
-	const res = await ensureEventCategoryFolderInternal(eventId, "Footage");
-	if (!res.id) return 0;
-	return countFolderFiles(res.id);
+/**
+ * Resolve the Footage folder + count its files, and CACHE the count into
+ * events.drive_folders.Footage.count so the Asset & Design list can show a
+ * footage upload indicator without a Drive call per row (eventually-consistent;
+ * refreshed whenever this event's detail page is opened).
+ */
+export async function getFootageInfoInternal(
+	eventId: string,
+): Promise<{ url?: string; count: number }> {
+	const folder = await ensureEventCategoryFolderInternal(eventId, "Footage");
+	if (!folder.id || !folder.url) return { count: 0 };
+
+	const count = await countFolderFiles(folder.id);
+
+	const admin = createAdminClient();
+	const { data: ev } = await admin
+		.from("events")
+		.select("drive_folders")
+		.eq("id", eventId)
+		.maybeSingle();
+	const cache = (ev?.drive_folders ?? {}) as Record<string, DriveFolderRef>;
+	cache.Footage = { id: folder.id, url: folder.url, count };
+	await admin.from("events").update({ drive_folders: cache }).eq("id", eventId);
+
+	return { url: folder.url, count };
 }
 
 export async function getDriveStatus(): Promise<{
