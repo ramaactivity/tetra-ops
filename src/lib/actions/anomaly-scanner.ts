@@ -352,13 +352,7 @@ async function checkHMinusNoCrew(
 		.eq("event_date", dateISO)
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
-		.in("status", [
-			"draft",
-			"confirmed",
-			"design_brief",
-			"design_approved",
-			"upcoming",
-		]);
+		.in("status", ["draft", "confirmed", "upcoming"]);
 
 	if (!events || events.length === 0) return [];
 

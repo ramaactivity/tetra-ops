@@ -1,29 +1,32 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, Palette, Sparkles } from "lucide-react";
-import { useActionState, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { toast } from "@/components/ui/toaster";
+import { ExternalLink, Palette } from "lucide-react";
+import { useActionState } from "react";
+import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import {
-	approveDesign,
 	type DesignFormState,
 	saveDesignBrief,
 } from "@/lib/actions/event-design";
+import {
+	DESIGN_STATUS_LABELS,
+	DESIGN_STATUS_TONE,
+	type DesignStatus,
+} from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export function DesignCard({
 	eventId,
 	projectId,
 	driveUrl,
 	briefAt,
-	approvedAt,
+	designStatus,
 	canEdit,
 }: {
 	eventId: string;
 	projectId: string;
 	driveUrl: string | null;
 	briefAt: string | null;
-	approvedAt: string | null;
+	designStatus: DesignStatus;
 	canEdit: boolean;
 }) {
 	const action = saveDesignBrief.bind(null, eventId, projectId);
@@ -32,31 +35,39 @@ export function DesignCard({
 		FormData
 	>(action, undefined);
 
-	const [approveOpen, setApproveOpen] = useState(false);
-
 	const initialUrl = state?.values?.design_drive_folder_url ?? driveUrl ?? "";
+	const tone = DESIGN_STATUS_TONE[designStatus] ?? DESIGN_STATUS_TONE.belum;
 
 	return (
 		<div className="border-border-default bg-surface-2 md:col-span-2 space-y-4 rounded-xl border p-5">
-			<div className="flex items-baseline justify-between gap-2">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="flex items-center gap-2">
 					<Palette className="text-primary h-4 w-4" />
 					<h3 className="text-sm font-semibold tracking-tight">Design</h3>
+					<span
+						className={cn(
+							"inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+							tone.badge,
+						)}
+					>
+						<span
+							className={cn("size-1.5 rounded-full", tone.dot)}
+							aria-hidden
+						/>
+						{DESIGN_STATUS_LABELS[designStatus]}
+					</span>
 				</div>
-				{approvedAt ? (
-					<span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1 text-xs font-medium">
-						<CheckCircle2 className="h-3.5 w-3.5" />
-						Approved {formatRel(approvedAt)}
-					</span>
-				) : driveUrl ? (
-					<span className="text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 text-xs font-medium">
-						<Sparkles className="h-3.5 w-3.5" />
-						Brief uploaded · belum approved
-					</span>
-				) : (
-					<span className="text-muted-foreground text-xs italic">
-						Belum ada design
-					</span>
+				{canEdit && (
+					<div className="flex items-center gap-2">
+						<span className="text-[11px] font-medium text-muted-foreground">
+							Status design
+						</span>
+						<DesignStatusSelect
+							eventId={eventId}
+							projectId={projectId}
+							value={designStatus}
+						/>
+					</div>
 				)}
 			</div>
 
@@ -80,7 +91,7 @@ export function DesignCard({
 
 			{briefAt && (
 				<p className="text-muted-foreground text-xs">
-					Brief dikirim {formatRel(briefAt)}
+					Design dikirim {formatRel(briefAt)}
 				</p>
 			)}
 
@@ -106,43 +117,14 @@ export function DesignCard({
 							disabled={pending}
 							className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 shrink-0 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
 						>
-							{pending ? "…" : driveUrl ? "Update" : "Save brief"}
+							{pending ? "…" : driveUrl ? "Update" : "Simpan link"}
 						</button>
 					</div>
 					<p className="text-muted-foreground text-xs">
-						Tempel link folder Drive berisi mockup / referensi. Status event
-						otomatis pindah ke Design Brief.
+						Tempel link folder Drive berisi design/mockup. Status design diatur
+						lewat tombol di atas (atau di halaman Asset &amp; Design).
 					</p>
 				</form>
-			)}
-
-			{canEdit && driveUrl && !approvedAt && (
-				<>
-					<Button
-						type="button"
-						variant="decisive"
-						size="lg"
-						onClick={() => setApproveOpen(true)}
-					>
-						<CheckCircle2 />
-						Approve design
-					</Button>
-					<ConfirmDialog
-						open={approveOpen}
-						onOpenChange={setApproveOpen}
-						title="Approve design?"
-						description="Status event akan auto-promote ke Design Approved."
-						confirmLabel="Approve"
-						onConfirm={async () => {
-							const result = await approveDesign(eventId, projectId);
-							if (result.error) {
-								toast.error(result.error);
-								throw new Error(result.error);
-							}
-							toast.success("Design di-approve");
-						}}
-					/>
-				</>
 			)}
 		</div>
 	);

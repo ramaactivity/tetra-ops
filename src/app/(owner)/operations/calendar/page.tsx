@@ -20,8 +20,6 @@ type EventRow = {
 const STATUS_TONE: Record<string, string> = {
 	draft: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
 	confirmed: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-	design_brief: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-	design_approved: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
 	upcoming: "bg-primary/15 text-primary",
 	in_progress: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
 	awaiting_settlement: "bg-amber-500/15 text-amber-700 dark:text-amber-300",

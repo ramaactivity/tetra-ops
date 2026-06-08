@@ -50,10 +50,9 @@ export async function saveDesignBrief(
 
 	const supabase = await createClient();
 
-	// Read current state to decide whether to bump status
-	const { data: event } = await supabase
+	const { data: cur } = await supabase
 		.from("events")
-		.select("status, design_brief_at")
+		.select("design_brief_at, design_status")
 		.eq("id", eventId)
 		.maybeSingle();
 
@@ -61,12 +60,13 @@ export async function saveDesignBrief(
 		design_drive_folder_url: parsed.data.design_drive_folder_url,
 		updated_at: new Date().toISOString(),
 	};
-	if (!event?.design_brief_at) {
+	if (!cur?.design_brief_at) {
 		updates.design_brief_at = new Date().toISOString();
 	}
-	// Only auto-promote if currently before design phase
-	if (event && (event.status === "confirmed" || event.status === "draft")) {
-		updates.status = "design_brief";
+	// Uploading a design link means work has started — move design status off
+	// "belum". Does NOT touch the event lifecycle status anymore.
+	if (cur?.design_status === "belum" || !cur?.design_status) {
+		updates.design_status = "proses";
 	}
 
 	const { error } = await supabase
@@ -76,36 +76,45 @@ export async function saveDesignBrief(
 	if (error) return { error: error.message };
 
 	revalidatePath(`/operations/${projectId}`);
+	revalidatePath("/design");
 	return undefined;
 }
 
-export async function approveDesign(
+const DESIGN_STATUSES = ["belum", "proses", "approved"] as const;
+export type DesignStatusValue = (typeof DESIGN_STATUSES)[number];
+
+/**
+ * Set an event's design workflow status (belum | proses | approved). This is the
+ * single entry point for design-status changes — used both on the Asset & Design
+ * list and the event detail page. Kept independent of the event lifecycle status.
+ * Design timestamps are synced for backward compatibility (readiness card etc.).
+ */
+export async function setDesignStatus(
 	eventId: string,
 	projectId: string,
+	status: DesignStatusValue,
 ): Promise<{ error?: string }> {
 	await requireOwnerLevel();
+	if (!DESIGN_STATUSES.includes(status)) {
+		return { error: "Status design tidak valid" };
+	}
 
 	const supabase = await createClient();
-	const { data: event } = await supabase
+	const { data: cur } = await supabase
 		.from("events")
-		.select("status, design_drive_folder_url, design_approved_at")
+		.select("design_brief_at")
 		.eq("id", eventId)
 		.maybeSingle();
 
-	if (!event) return { error: "Event tidak ditemukan" };
-	if (!event.design_drive_folder_url) {
-		return { error: "Upload design dulu sebelum approve" };
-	}
-	if (event.design_approved_at) {
-		return { error: "Design sudah di-approve sebelumnya" };
-	}
-
+	const now = new Date().toISOString();
 	const updates: Record<string, unknown> = {
-		design_approved_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
+		design_status: status,
+		design_approved_at: status === "approved" ? now : null,
+		updated_at: now,
 	};
-	if (event.status === "design_brief" || event.status === "confirmed") {
-		updates.status = "design_approved";
+	// First-touch timestamp when leaving "belum".
+	if (status !== "belum" && !cur?.design_brief_at) {
+		updates.design_brief_at = now;
 	}
 
 	const { error } = await supabase
@@ -115,29 +124,6 @@ export async function approveDesign(
 	if (error) return { error: error.message };
 
 	revalidatePath(`/operations/${projectId}`);
-	return {};
-}
-
-export async function unapproveDesign(
-	eventId: string,
-	projectId: string,
-): Promise<{ error?: string }> {
-	const me = await getCurrentUser();
-	if (!me) return { error: "Unauthorized" };
-	if (me.profile.role !== "super_admin") {
-		return { error: "Hanya super_admin yang bisa unapprove design" };
-	}
-
-	const supabase = await createClient();
-	const { error } = await supabase
-		.from("events")
-		.update({
-			design_approved_at: null,
-			updated_at: new Date().toISOString(),
-		})
-		.eq("id", eventId);
-	if (error) return { error: error.message };
-
-	revalidatePath(`/operations/${projectId}`);
+	revalidatePath("/design");
 	return {};
 }

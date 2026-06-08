@@ -6,6 +6,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import type { DesignStatus } from "@/lib/format";
 
 type CheckState = "done" | "pending" | "overdue" | "neutral";
 
@@ -48,8 +49,7 @@ type ReadinessInput = {
 	totalPaid: number;
 	remainingBalance: number;
 	crewCount: number;
-	designApprovedAt: string | null;
-	designDriveUrl: string | null;
+	designStatus: DesignStatus;
 	equipmentCount: number;
 	rekapSubmitted: boolean;
 };
@@ -131,14 +131,14 @@ export function EventReadinessCard(props: ReadinessInput) {
 	});
 
 	// Design approved (H-1)
-	const designDone = !!props.designApprovedAt;
+	const designDone = props.designStatus === "approved";
 	items.push({
 		id: "design",
 		label: "Design approved (H-1)",
 		hint: designDone
 			? "Design final approved"
-			: props.designDriveUrl
-				? "Brief uploaded — belum approved"
+			: props.designStatus === "proses"
+				? "Design diproses — belum approved"
 				: "Belum ada design",
 		state: designDone
 			? "done"
@@ -146,7 +146,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 				? "overdue"
 				: "pending",
 		cta: !designDone
-			? { label: "Buka design card", href: `/operations/${props.projectId}` }
+			? { label: "Kelola di Asset & Design", href: "/design" }
 			: undefined,
 	});
 

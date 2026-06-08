@@ -5,11 +5,11 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
+// Event lifecycle statuses. Design workflow lives in events.design_status now
+// (the deprecated design_brief/design_approved values are no longer assignable).
 const STATUSES = [
 	"draft",
 	"confirmed",
-	"design_brief",
-	"design_approved",
 	"upcoming",
 	"in_progress",
 	"awaiting_settlement",

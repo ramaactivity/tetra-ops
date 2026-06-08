@@ -72,14 +72,46 @@ export const CHANNEL_TYPE_LABELS: Record<string, string> = {
 export const EVENT_STATUS_LABELS: Record<string, string> = {
 	draft: "Draft",
 	confirmed: "Confirmed",
-	design_brief: "Design Brief",
-	design_approved: "Design Approved",
 	upcoming: "Upcoming",
 	in_progress: "In Progress",
 	awaiting_settlement: "Awaiting Settlement",
 	completed: "Completed",
 	cancelled: "Cancelled",
 	archived: "Archived",
+};
+
+// Design workflow status — separate from the event lifecycle above.
+export const DESIGN_STATUS_VALUES = ["belum", "proses", "approved"] as const;
+export type DesignStatus = (typeof DESIGN_STATUS_VALUES)[number];
+
+export const DESIGN_STATUS_LABELS: Record<DesignStatus, string> = {
+	belum: "Belum",
+	proses: "Proses",
+	approved: "Approved",
+};
+
+// Tone classes for design-status badges/dots (palette: muted / sky / emerald).
+export const DESIGN_STATUS_TONE: Record<
+	DesignStatus,
+	{ dot: string; text: string; badge: string }
+> = {
+	belum: {
+		dot: "bg-muted-foreground/40",
+		text: "text-muted-foreground",
+		badge: "border-border-default bg-secondary text-muted-foreground",
+	},
+	proses: {
+		dot: "bg-[#0070f3]",
+		text: "text-[#0070f3] dark:text-[#3b96ff]",
+		badge:
+			"border-[#0070f3]/30 bg-[#0070f3]/10 text-[#0070f3] dark:text-[#3b96ff]",
+	},
+	approved: {
+		dot: "bg-emerald-500",
+		text: "text-emerald-700 dark:text-emerald-400",
+		badge:
+			"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+	},
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {

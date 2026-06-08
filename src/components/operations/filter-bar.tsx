@@ -21,8 +21,6 @@ import { cn } from "@/lib/utils";
 const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
 	"draft",
 	"confirmed",
-	"design_brief",
-	"design_approved",
 	"upcoming",
 	"in_progress",
 	"awaiting_settlement",
@@ -141,9 +139,7 @@ export function OperationsFilterBar({
 				<div className="w-[160px]">
 					<MonthPicker
 						value={monthShowsAll ? "" : defaultMonth}
-						onValueChange={(value) =>
-							router.push(buildHref({ month: value }))
-						}
+						onValueChange={(value) => router.push(buildHref({ month: value }))}
 						placeholder="Semua bulan"
 						aria-label="Filter bulan"
 					/>
@@ -157,7 +153,9 @@ export function OperationsFilterBar({
 							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
 					)}
 					aria-pressed={monthShowsAll}
-					title={monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"}
+					title={
+						monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
+					}
 				>
 					{monthShowsAll ? "Bulan ini" : "Semua"}
 				</Link>

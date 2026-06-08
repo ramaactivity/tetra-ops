@@ -1,10 +1,4 @@
-import {
-	Calendar,
-	KanbanSquare,
-	List,
-	Palette,
-	UsersRound,
-} from "lucide-react";
+import { Calendar, KanbanSquare, List, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -16,12 +10,7 @@ import { cn } from "@/lib/utils";
  * of the inset region. Inactive tabs sit as ghost text.
  */
 
-export type OperationsView =
-	| "list"
-	| "calendar"
-	| "board"
-	| "design"
-	| "team";
+export type OperationsView = "list" | "calendar" | "board" | "team";
 
 const VIEWS: Array<{
 	value: OperationsView;
@@ -41,12 +30,6 @@ const VIEWS: Array<{
 		label: "Board",
 		href: "/operations/board",
 		icon: KanbanSquare,
-	},
-	{
-		value: "design",
-		label: "Design",
-		href: "/operations/design",
-		icon: Palette,
 	},
 	{
 		value: "team",

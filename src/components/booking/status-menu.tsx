@@ -17,8 +17,6 @@ import { EVENT_STATUS_LABELS } from "@/lib/format";
 const STATUS_OPTIONS = [
 	"draft",
 	"confirmed",
-	"design_brief",
-	"design_approved",
 	"upcoming",
 	"in_progress",
 	"awaiting_settlement",
@@ -43,11 +41,7 @@ export function StatusMenu({
 
 	function handleChange(next: Status) {
 		if (next === currentStatus) return;
-		if (
-			!confirm(
-				`Ubah status ke "${EVENT_STATUS_LABELS[next] ?? next}"?`,
-			)
-		) {
+		if (!confirm(`Ubah status ke "${EVENT_STATUS_LABELS[next] ?? next}"?`)) {
 			return;
 		}
 		setError(null);

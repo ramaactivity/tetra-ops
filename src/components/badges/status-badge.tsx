@@ -1,8 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import {
-	EVENT_STATUS_LABELS,
-	PAYMENT_STATUS_LABELS,
-} from "@/lib/format";
+import { EVENT_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,8 +25,6 @@ type Variant =
 const EVENT_STATUS_VARIANT: Record<string, Variant> = {
 	draft: "outline",
 	confirmed: "success",
-	design_brief: "info",
-	design_approved: "info",
 	upcoming: "success",
 	in_progress: "info",
 	awaiting_settlement: "warning",
@@ -88,7 +83,12 @@ interface StatusDotProps {
 	dotClassName?: string;
 }
 
-function StatusDot({ variant, label, className, dotClassName }: StatusDotProps) {
+function StatusDot({
+	variant,
+	label,
+	className,
+	dotClassName,
+}: StatusDotProps) {
 	return (
 		<span
 			className={cn(

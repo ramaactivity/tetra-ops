@@ -141,12 +141,7 @@ export default async function RemindersPage({
 			)
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
-			.in("status", [
-				"confirmed",
-				"design_brief",
-				"design_approved",
-				"upcoming",
-			])
+			.in("status", ["confirmed", "upcoming"])
 			.gte("event_date", todayPlus(-90))
 			.lte("event_date", h7)
 			.order("event_date", { ascending: true })

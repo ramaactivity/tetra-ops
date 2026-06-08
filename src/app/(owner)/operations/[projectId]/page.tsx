@@ -48,6 +48,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import {
 	CHANNEL_TYPE_LABELS,
+	type DesignStatus,
 	FRAME_SIZE_LABELS,
 	formatDateID,
 	formatRupiah,
@@ -88,7 +89,7 @@ export default async function EventDetailPage({
 			is_migrated_legacy, legacy_invoice_number,
 			booker_contact:contacts!events_booker_contact_id_fkey(id, name, phone, type, legacy_contact_id),
 			pic_contact:contacts!events_pic_contact_id_fkey(id, name, phone, type, legacy_contact_id),
-			design_brief_at, design_approved_at, design_drive_folder_url,
+			design_brief_at, design_approved_at, design_drive_folder_url, design_status,
 			drive_folder_id, drive_folder_url, drive_folder_created_at,
 			backdrop_id, vendor_decor_markup,
 			backdrop:backdrops(name, type, rental_price),
@@ -387,7 +388,9 @@ export default async function EventDetailPage({
 							strokeWidth={2}
 						/>
 						<div className="space-y-0.5">
-							<p className="font-semibold">Migrated from Phase-2 (read-only archive)</p>
+							<p className="font-semibold">
+								Migrated from Phase-2 (read-only archive)
+							</p>
 							<p className="text-amber-700/80 dark:text-amber-400/80">
 								Event ini di-import dari sistem lama untuk referensi historis.
 								Tidak ada records payments / settlement / journal / earnings.
@@ -468,8 +471,7 @@ export default async function EventDetailPage({
 					totalPaid={event.total_paid ?? 0}
 					remainingBalance={event.remaining_balance ?? 0}
 					crewCount={crewAssignments.length}
-					designApprovedAt={event.design_approved_at}
-					designDriveUrl={event.design_drive_folder_url}
+					designStatus={(event.design_status ?? "belum") as DesignStatus}
 					equipmentCount={equipmentCount}
 					rekapSubmitted={rekapSubmitted}
 				/>
@@ -504,11 +506,7 @@ export default async function EventDetailPage({
 									href={`mailto:${event.client_email}`}
 									className="inline-flex items-center gap-1 text-[#0070f3] hover:underline"
 								>
-									<Mail
-										className="size-3"
-										aria-hidden
-										strokeWidth={2}
-									/>
+									<Mail className="size-3" aria-hidden strokeWidth={2} />
 									{event.client_email}
 								</a>
 							</DetailRow>
@@ -564,9 +562,7 @@ export default async function EventDetailPage({
 				>
 					<dl className="space-y-2.5">
 						<DetailRow label="Venue">{event.venue_name}</DetailRow>
-						<DetailRow label="Alamat">
-							{event.venue_address ?? "—"}
-						</DetailRow>
+						<DetailRow label="Alamat">{event.venue_address ?? "—"}</DetailRow>
 						<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
 						<DetailRow label="Provinsi">
 							{event.venue_province ?? "—"}
@@ -578,7 +574,9 @@ export default async function EventDetailPage({
 					icon={<FileText className="size-4" aria-hidden strokeWidth={2} />}
 					title="Service & Package"
 					subtitle={
-						pkg ? `${pkg.name} · ${pkg.duration_hours}j` : "Custom / belum dipilih"
+						pkg
+							? `${pkg.name} · ${pkg.duration_hours}j`
+							: "Custom / belum dipilih"
 					}
 				>
 					<dl className="space-y-2.5">
@@ -978,7 +976,7 @@ export default async function EventDetailPage({
 					projectId={event.project_id}
 					driveUrl={event.design_drive_folder_url}
 					briefAt={event.design_brief_at}
-					approvedAt={event.design_approved_at}
+					designStatus={(event.design_status ?? "belum") as DesignStatus}
 					canEdit={canEdit}
 				/>
 			</div>

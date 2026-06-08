@@ -75,7 +75,7 @@ const NAV_SECTIONS: NavSection[] = [
 					{ href: "/operations/backdrops", label: "Backdrop", icon: Frame },
 				],
 			},
-			{ href: "/design", label: "Design", icon: Palette },
+			{ href: "/design", label: "Asset & Design", icon: Palette },
 			{ href: "/billing", label: "Billing", icon: Receipt },
 			{
 				href: "/warehouse",
