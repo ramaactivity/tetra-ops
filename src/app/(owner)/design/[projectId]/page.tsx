@@ -83,14 +83,19 @@ export default async function DesignAssetManagerPage({
 	const canEdit =
 		me?.profile.role === "super_admin" || me?.profile.role === "owner";
 
-	// Resolve (and lazily create) the Footage Drive folder + file count.
+	// Resolve (and lazily create) the Footage + Softfile Drive folders.
 	let footageUrl: string | null = null;
 	let footageCount: number | null = null;
-	const footage = await ensureEventCategoryFolderInternal(event.id, "Footage");
+	let softfileUrl: string | null = null;
+	const [footage, softfile] = await Promise.all([
+		ensureEventCategoryFolderInternal(event.id, "Footage"),
+		ensureEventCategoryFolderInternal(event.id, "Softfile"),
+	]);
 	if (footage.id && footage.url) {
 		footageUrl = footage.url;
 		footageCount = await countFolderFiles(footage.id);
 	}
+	if (softfile.url) softfileUrl = softfile.url;
 
 	return (
 		<Container size="lg" className="space-y-6">
@@ -173,7 +178,13 @@ export default async function DesignAssetManagerPage({
 						assetType={t}
 						rows={byType.get(t) ?? []}
 						canEdit={canEdit}
-						folderUrl={t === "footage_crew" ? footageUrl : null}
+						folderUrl={
+							t === "footage_crew"
+								? footageUrl
+								: t === "softfile"
+									? softfileUrl
+									: null
+						}
 						folderFileCount={t === "footage_crew" ? footageCount : null}
 					/>
 				))}

@@ -7,6 +7,7 @@ export const DRIVE_CATEGORIES = [
 	"Design",
 	"Hasil Cetak",
 	"Footage",
+	"Softfile",
 	"Lainnya",
 ] as const;
 

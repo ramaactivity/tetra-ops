@@ -90,6 +90,7 @@ export function AssetSection({
 	const Icon = meta.icon;
 	const isDesign = assetType === "design_frame";
 	const isFootage = assetType === "footage_crew";
+	const folderLabel = isFootage ? "Footage" : "Softfile";
 
 	const [showAdd, setShowAdd] = useState(false);
 	const [editing, setEditing] = useState<AssetRow | null>(null);
@@ -238,20 +239,31 @@ export function AssetSection({
 				)}
 			</header>
 
-			{/* Footage: redirect to the Drive folder (crew & owner upload directly there) */}
-			{isFootage && folderUrl && (
-				<a
-					href={folderUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="flex items-center justify-between gap-2 border-b border-border-default bg-surface-3/40 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-surface-3"
-				>
-					<span className="inline-flex items-center gap-1.5">
-						<FolderOpen className="size-4" />
-						Buka folder Footage di Google Drive
-					</span>
-					<ExternalLink className="size-3.5" />
-				</a>
+			{/* Auto Drive folder (Footage / Softfile): open + copy link for WhatsApp */}
+			{folderUrl && (
+				<div className="flex items-center gap-2 border-b border-border-default bg-surface-3/40 px-4 py-2.5">
+					<a
+						href={folderUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+					>
+						<FolderOpen className="size-4 shrink-0" />
+						<span className="truncate">
+							Buka folder {folderLabel} di Google Drive
+						</span>
+						<ExternalLink className="size-3.5 shrink-0" />
+					</a>
+					<button
+						type="button"
+						onClick={() => copyLink(folderUrl)}
+						className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+						title="Copy link folder"
+					>
+						<Copy className="size-3.5" />
+						Copy
+					</button>
+				</div>
 			)}
 
 			{showAdd && canEdit ? (
