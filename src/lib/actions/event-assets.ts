@@ -67,6 +67,47 @@ export async function addEventAsset(
 	return { ok: true };
 }
 
+/**
+ * Insert a design_frame asset for a file already uploaded to Drive (via the
+ * upload route). Owner-level only. Stores drive_file_id for a download link.
+ */
+export async function addUploadedDesignAsset(
+	projectId: string,
+	payload: { url: string; fileId: string; name: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const me = await getCurrentUser();
+	if (!me) return { ok: false, error: "Not authenticated" };
+	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
+		return { ok: false, error: "Hanya owner / super_admin" };
+	}
+	if (!payload.url || !isValidUrl(payload.url)) {
+		return { ok: false, error: "URL Drive tidak valid" };
+	}
+	if (!payload.fileId) return { ok: false, error: "Drive file id kosong" };
+
+	const supabase = await createClient();
+	const { data: ev } = await supabase
+		.from("events")
+		.select("id")
+		.eq("project_id", projectId)
+		.maybeSingle();
+	if (!ev) return { ok: false, error: "Event tidak ditemukan" };
+
+	const { error } = await supabase.from("event_assets").insert({
+		event_id: ev.id,
+		asset_type: "design_frame",
+		label: payload.name || "Design frame",
+		url: payload.url,
+		drive_file_id: payload.fileId,
+		uploaded_by: me.profile.id,
+	});
+	if (error) return { ok: false, error: error.message };
+
+	revalidatePath("/design");
+	revalidatePath(`/design/${projectId}`);
+	return { ok: true };
+}
+
 export async function updateEventAsset(
 	assetId: string,
 	formData: FormData,

@@ -5,19 +5,22 @@ import {
 	ChevronRight,
 	ClipboardList,
 	Clock,
+	Download,
 	ExternalLink,
 	FileText,
+	FolderOpen,
 	Gift,
 	MapPin,
 	Package,
 	Users,
+	Video,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatDateID, FRAME_SIZE_LABELS } from "@/lib/format";
+import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -65,15 +68,13 @@ export default async function CrewEventDetailPage({
 				role_in_event, fee_amount, bonus_amount, is_paid,
 				user:users!crew_assignments_user_id_fkey(id, full_name, tier)
 			),
-			design_brief_at, design_approved_at, design_drive_folder_url
+			design_brief_at, design_approved_at, design_drive_folder_url,
+			design_status, drive_folders, drive_folder_url
 		`,
 			)
 			.eq("project_id", projectId)
 			.maybeSingle(),
-		supabase
-			.from("event_types")
-			.select("code, label")
-			.eq("is_active", true),
+		supabase.from("event_types").select("code, label").eq("is_active", true),
 	]);
 
 	if (error) {
@@ -134,6 +135,26 @@ export default async function CrewEventDetailPage({
 		condition: string | null;
 	}>;
 
+	// Design frames crew can download (load into dslrbooth) + footage folder.
+	const { data: designAssets } = await supabase
+		.from("event_assets")
+		.select("id, label, url, drive_file_id")
+		.eq("event_id", event.id)
+		.eq("asset_type", "design_frame")
+		.order("created_at", { ascending: false });
+	const designFrames = (designAssets ?? []) as Array<{
+		id: string;
+		label: string;
+		url: string;
+		drive_file_id: string | null;
+	}>;
+	const driveFolders = (event.drive_folders ?? {}) as Record<
+		string,
+		{ id?: string; url?: string }
+	>;
+	const footageFolderUrl =
+		driveFolders.Footage?.url ?? event.drive_folder_url ?? null;
+
 	// Rekap status for this event
 	const { data: rekapData } = await supabase
 		.from("crew_rekap")
@@ -154,7 +175,11 @@ export default async function CrewEventDetailPage({
 		),
 	);
 	const eventType = event.event_category
-		? { label: eventTypeLabelByCode.get(event.event_category) ?? event.event_category }
+		? {
+				label:
+					eventTypeLabelByCode.get(event.event_category) ??
+					event.event_category,
+			}
 		: null;
 	const picContact = Array.isArray(event.pic_contact)
 		? event.pic_contact[0]
@@ -325,9 +350,7 @@ export default async function CrewEventDetailPage({
 						)}
 					</DetailRow>
 					<DetailRow label="Backdrop">
-						{backdrop?.name ?? (
-							<span className="text-muted-foreground">—</span>
-						)}
+						{backdrop?.name ?? <span className="text-muted-foreground">—</span>}
 					</DetailRow>
 				</dl>
 			</section>
@@ -368,9 +391,7 @@ export default async function CrewEventDetailPage({
 						Alat di lokasi
 					</span>
 					{equipment.length > 0 && (
-						<span className="text-foreground tabular">
-							{equipment.length}
-						</span>
+						<span className="text-foreground tabular">{equipment.length}</span>
 					)}
 				</h2>
 				{equipment.length === 0 ? (
@@ -415,6 +436,62 @@ export default async function CrewEventDetailPage({
 							✓ ACC by owner
 						</p>
 					)}
+				</section>
+			)}
+
+			{/* Design frames — download to load into dslrbooth */}
+			{designFrames.length > 0 && (
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
+					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+						<Download className="h-3.5 w-3.5" />
+						Design Frame
+					</h2>
+					<ul className="space-y-1.5">
+						{designFrames.map((f) => (
+							<li
+								key={f.id}
+								className="flex items-center justify-between gap-2"
+							>
+								<span className="truncate text-sm text-foreground">
+									{f.label}
+								</span>
+								<a
+									href={
+										f.drive_file_id
+											? `https://drive.google.com/uc?export=download&id=${f.drive_file_id}`
+											: f.url
+									}
+									className="text-primary inline-flex shrink-0 items-center gap-1 text-xs font-medium hover:underline"
+								>
+									<Download className="h-3.5 w-3.5" />
+									Download
+								</a>
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
+
+			{/* Footage — upload langsung di Google Drive */}
+			{footageFolderUrl && (
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
+					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+						<Video className="h-3.5 w-3.5" />
+						Footage
+					</h2>
+					<p className="text-muted-foreground text-[12px]">
+						Upload footage yang kamu ambil langsung ke folder Drive ini.
+					</p>
+					<a
+						href={footageFolderUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="bg-primary text-primary-foreground inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-primary/90"
+					>
+						<FolderOpen className="h-4 w-4" />
+						Upload footage di Google Drive
+						<ExternalLink className="h-3.5 w-3.5" />
+					</a>
 				</section>
 			)}
 

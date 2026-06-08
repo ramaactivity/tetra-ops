@@ -8,11 +8,14 @@ import {
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
-import {
-	type AssetType,
-	ASSET_TYPES,
-} from "@/lib/event-assets/types";
+import { ensureEventCategoryFolderInternal } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { countFolderFiles } from "@/lib/drive/client";
+import {
+	ASSET_TYPE_LABELS,
+	ASSET_TYPES,
+	type AssetType,
+} from "@/lib/event-assets/types";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,7 +41,7 @@ export default async function DesignAssetManagerPage({
 	const { data: assets } = await supabase
 		.from("event_assets")
 		.select(
-			`id, asset_type, label, url, notes, uploaded_by, created_at,
+			`id, asset_type, label, url, notes, drive_file_id, uploaded_by, created_at,
 			 uploader:users!event_assets_uploaded_by_fkey(full_name)`,
 		)
 		.eq("event_id", event.id)
@@ -50,6 +53,7 @@ export default async function DesignAssetManagerPage({
 		label: string;
 		url: string;
 		notes: string | null;
+		drive_file_id: string | null;
 		uploaded_by: string | null;
 		created_at: string;
 		uploader:
@@ -65,6 +69,7 @@ export default async function DesignAssetManagerPage({
 			label: r.label,
 			url: r.url,
 			notes: r.notes,
+			drive_file_id: r.drive_file_id,
 			uploaded_by: r.uploaded_by,
 			uploaded_by_name: u?.full_name ?? null,
 			created_at: r.created_at,
@@ -77,6 +82,15 @@ export default async function DesignAssetManagerPage({
 
 	const canEdit =
 		me?.profile.role === "super_admin" || me?.profile.role === "owner";
+
+	// Resolve (and lazily create) the Footage Drive folder + file count.
+	let footageUrl: string | null = null;
+	let footageCount: number | null = null;
+	const footage = await ensureEventCategoryFolderInternal(event.id, "Footage");
+	if (footage.id && footage.url) {
+		footageUrl = footage.url;
+		footageCount = await countFolderFiles(footage.id);
+	}
 
 	return (
 		<Container size="lg" className="space-y-6">
@@ -129,26 +143,22 @@ export default async function DesignAssetManagerPage({
 				/>
 			</div>
 
-			<dl className="grid gap-2 sm:grid-cols-4">
+			<dl className="grid gap-2 sm:grid-cols-3">
 				{ASSET_TYPES.map((t) => (
 					<div
 						key={t}
 						className="flex items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-2 px-3 py-2"
 					>
 						<span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-							{t === "design_frame"
-								? "Design"
-								: t === "footage_crew"
-									? "Footage"
-									: t === "softfile_photo"
-										? "Foto"
-										: "Video"}
+							{ASSET_TYPE_LABELS[t]}
 						</span>
 						<Badge
 							variant="outline"
 							className="tabular text-[10px] font-semibold"
 						>
-							{(byType.get(t) ?? []).length}
+							{t === "footage_crew" && footageCount != null
+								? footageCount
+								: (byType.get(t) ?? []).length}
 						</Badge>
 					</div>
 				))}
@@ -163,6 +173,8 @@ export default async function DesignAssetManagerPage({
 						assetType={t}
 						rows={byType.get(t) ?? []}
 						canEdit={canEdit}
+						folderUrl={t === "footage_crew" ? footageUrl : null}
+						folderFileCount={t === "footage_crew" ? footageCount : null}
 					/>
 				))}
 			</div>

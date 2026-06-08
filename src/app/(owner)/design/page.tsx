@@ -1,10 +1,4 @@
-import {
-	Camera,
-	Film,
-	type Image as ImageIcon,
-	Palette,
-	Video,
-} from "lucide-react";
+import { Film, Image as ImageIcon, Palette } from "lucide-react";
 import Link from "next/link";
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import { Container } from "@/components/layout/container";
@@ -35,16 +29,10 @@ const TYPE_META: Record<AssetType, { icon: typeof ImageIcon; short: string }> =
 	{
 		design_frame: { icon: Palette, short: "Design" },
 		footage_crew: { icon: Film, short: "Footage" },
-		softfile_photo: { icon: Camera, short: "Foto" },
-		softfile_video: { icon: Video, short: "Video" },
+		softfile: { icon: ImageIcon, short: "Softfile" },
 	};
 
-const ALL_TYPES: AssetType[] = [
-	"design_frame",
-	"footage_crew",
-	"softfile_photo",
-	"softfile_video",
-];
+const ALL_TYPES: AssetType[] = ["design_frame", "footage_crew", "softfile"];
 
 const ACTIVE_STATUSES = [
 	"draft",
@@ -132,8 +120,7 @@ export default async function AssetDesignPage({
 			const map = assetCounts.get(a.event_id) ?? {
 				design_frame: 0,
 				footage_crew: 0,
-				softfile_photo: 0,
-				softfile_video: 0,
+				softfile: 0,
 			};
 			map[a.asset_type] = (map[a.asset_type] ?? 0) + 1;
 			assetCounts.set(a.event_id, map);
@@ -174,7 +161,7 @@ export default async function AssetDesignPage({
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				title="Asset & Design"
-				description="Status design per event + hub aset (design frame, footage, softfile foto + video). Kelola status design langsung di sini."
+				description="Status design per event + hub aset (design frame, footage, softfile). Kelola status design + aset langsung di sini."
 				actions={
 					<div className="flex items-center gap-1 rounded-lg border border-border-default bg-card p-1">
 						<Link
@@ -298,14 +285,10 @@ export default async function AssetDesignPage({
 									const counts = assetCounts.get(ev.id) ?? {
 										design_frame: 0,
 										footage_crew: 0,
-										softfile_photo: 0,
-										softfile_video: 0,
+										softfile: 0,
 									};
 									const total =
-										counts.design_frame +
-										counts.footage_crew +
-										counts.softfile_photo +
-										counts.softfile_video;
+										counts.design_frame + counts.footage_crew + counts.softfile;
 									return (
 										<tr
 											key={ev.id}

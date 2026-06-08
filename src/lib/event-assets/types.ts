@@ -9,8 +9,7 @@
 export const ASSET_TYPES = [
 	"design_frame",
 	"footage_crew",
-	"softfile_photo",
-	"softfile_video",
+	"softfile",
 ] as const;
 
 export type AssetType = (typeof ASSET_TYPES)[number];
@@ -18,6 +17,5 @@ export type AssetType = (typeof ASSET_TYPES)[number];
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
 	design_frame: "Design Frame",
 	footage_crew: "Footage Crew",
-	softfile_photo: "Softfile Photo",
-	softfile_video: "Softfile Video",
+	softfile: "Softfile",
 };

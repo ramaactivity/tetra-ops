@@ -121,6 +121,104 @@ export async function getFolderWebViewLink(
 	}
 }
 
+const MONTHS_ID = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+];
+
+function sanitizeFolderName(raw: string, maxLen = 80): string {
+	return (
+		raw
+			.replace(/[\\/:*?"<>|]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim()
+			.slice(0, maxLen) || "Event"
+	);
+}
+
+/** Find a folder by exact name under a parent, or create it. Idempotent. */
+export async function ensureFolder(
+	name: string,
+	parentFolderId: string,
+): Promise<CreatedFolder> {
+	const drive = await getDriveClient();
+	const escaped = name.replace(/'/g, "\\'");
+	const res = await drive.files.list({
+		q: `name = '${escaped}' and '${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+		fields: "files(id, name, webViewLink)",
+		pageSize: 1,
+		supportsAllDrives: true,
+		includeItemsFromAllDrives: true,
+	});
+	const found = res.data.files?.[0];
+	if (found?.id && found.webViewLink && found.name) {
+		return { id: found.id, name: found.name, webViewLink: found.webViewLink };
+	}
+	return createDriveFolder(name, parentFolderId);
+}
+
+/**
+ * Find-or-create the human-friendly event folder tree:
+ *   Parent / <Year> / <MM — Month> / <Event Name — d Month yyyy>
+ * Year/month folders are reused across events. Returns the event folder.
+ */
+export async function ensureEventTree(event: {
+	clientName: string;
+	eventDate: string | null;
+}): Promise<CreatedFolder> {
+	const parent = getParentFolderId();
+	if (!parent) throw new Error("GOOGLE_DRIVE_PARENT_FOLDER_ID missing");
+
+	const d = event.eventDate ? new Date(`${event.eventDate}T00:00:00`) : null;
+	const valid = d != null && !Number.isNaN(d.getTime());
+
+	const yearName = valid ? String((d as Date).getFullYear()) : "Tanpa Tanggal";
+	const yearFolder = await ensureFolder(yearName, parent);
+
+	let monthParentId = yearFolder.id;
+	let datePart = "";
+	if (valid) {
+		const dd = d as Date;
+		const mm = String(dd.getMonth() + 1).padStart(2, "0");
+		const monthFolder = await ensureFolder(
+			`${mm} — ${MONTHS_ID[dd.getMonth()]}`,
+			yearFolder.id,
+		);
+		monthParentId = monthFolder.id;
+		datePart = ` — ${dd.getDate()} ${MONTHS_ID[dd.getMonth()]} ${dd.getFullYear()}`;
+	}
+
+	const folderName = `${sanitizeFolderName(event.clientName)}${datePart}`;
+	return ensureFolder(folderName, monthParentId);
+}
+
+/** Count non-folder files directly in a folder (used for footage status). */
+export async function countFolderFiles(folderId: string): Promise<number> {
+	try {
+		const drive = await getDriveClient();
+		const res = await drive.files.list({
+			q: `'${folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+			fields: "files(id)",
+			pageSize: 1000,
+			supportsAllDrives: true,
+			includeItemsFromAllDrives: true,
+		});
+		return res.data.files?.length ?? 0;
+	} catch {
+		return 0;
+	}
+}
+
 export type UploadedFile = {
 	id: string;
 	name: string;

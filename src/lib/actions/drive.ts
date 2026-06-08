@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { withTimeout } from "@/lib/csv-import/resilience";
 import {
-	createDriveFolder,
+	countFolderFiles,
+	ensureEventTree,
+	ensureFolder,
 	getDriveConfigErrors,
 	isDriveConfigured,
 } from "@/lib/drive/client";
@@ -19,36 +21,41 @@ export type CreateEventFolderResult = {
 	already_existed?: boolean;
 };
 
-const FOLDER_CREATE_TIMEOUT_MS = 8_000;
+const FOLDER_CREATE_TIMEOUT_MS = 15_000;
 
-function buildFolderName(projectId: string, clientName: string): string {
-	const safe = clientName
-		.replace(/[\\/:*?"<>|]/g, " ")
-		.trim()
-		.slice(0, 80);
-	return `${projectId} ${safe}`;
-}
+/** Per-event Drive subfolders. Kept human-friendly for the owners. */
+export const DRIVE_CATEGORIES = [
+	"Nota",
+	"Design",
+	"Hasil Cetak",
+	"Footage",
+	"Lainnya",
+] as const;
+export type DriveCategory = (typeof DRIVE_CATEGORIES)[number];
+
+type DriveFolderRef = { id: string; url: string };
+type DriveFoldersMap = Record<string, DriveFolderRef>;
 
 /**
- * Idempotent: returns existing folder if event already has one.
- * Internal version: no auth gate — only call from authenticated server actions
- * that gate themselves, or from internal hooks (e.g., right after createBooking
- * inserts the row).
+ * Idempotent: ensures the structured event folder tree
+ * (Parent / Year / Month / Event Name) and persists the root to the event.
+ * Internal — no auth gate; call from gated actions or internal hooks (booking).
  */
 export async function createEventFolderInternal(
 	eventId: string,
 ): Promise<CreateEventFolderResult> {
 	if (!isDriveConfigured()) {
-		const missing = getDriveConfigErrors();
 		return {
-			error: `Drive belum di-set di env: ${missing.join(", ")}`,
+			error: `Drive belum di-set di env: ${getDriveConfigErrors().join(", ")}`,
 		};
 	}
 
 	const admin = createAdminClient();
 	const { data: existing, error: fetchErr } = await admin
 		.from("events")
-		.select("id, project_id, client_name, drive_folder_id, drive_folder_url")
+		.select(
+			"id, project_id, client_name, event_date, drive_folder_id, drive_folder_url",
+		)
 		.eq("id", eventId)
 		.maybeSingle();
 
@@ -64,14 +71,13 @@ export async function createEventFolderInternal(
 		};
 	}
 
-	const folderName = buildFolderName(
-		existing.project_id as string,
-		(existing.client_name as string) ?? "Event",
-	);
-
 	try {
 		const created = await withTimeout(
-			() => createDriveFolder(folderName),
+			() =>
+				ensureEventTree({
+					clientName: (existing.client_name as string) ?? "Event",
+					eventDate: (existing.event_date as string | null) ?? null,
+				}),
 			FOLDER_CREATE_TIMEOUT_MS,
 			"createEventFolder",
 		);
@@ -104,6 +110,84 @@ export async function createEventFolderInternal(
 }
 
 /**
+ * Ensure (and cache) a per-event category subfolder. Returns its id + url.
+ * Caches into events.drive_folders so repeat calls skip Drive entirely.
+ * Internal — no auth gate.
+ */
+export async function ensureEventCategoryFolderInternal(
+	eventId: string,
+	category: DriveCategory,
+): Promise<{ id?: string; url?: string; error?: string }> {
+	if (!isDriveConfigured()) {
+		return {
+			error: `Drive belum di-set: ${getDriveConfigErrors().join(", ")}`,
+		};
+	}
+
+	const admin = createAdminClient();
+	const { data: ev } = await admin
+		.from("events")
+		.select("id, drive_folder_id, drive_folders")
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return { error: "Event tidak ditemukan" };
+
+	const cache = (ev.drive_folders ?? {}) as DriveFoldersMap;
+	const cached = cache[category];
+	if (cached?.id && cached.url) return { id: cached.id, url: cached.url };
+
+	// Ensure the event root exists first.
+	let rootId = ev.drive_folder_id as string | null;
+	if (!rootId) {
+		const root = await createEventFolderInternal(eventId);
+		if (root.error || !root.folder_id) {
+			return { error: root.error ?? "Gagal membuat folder event" };
+		}
+		rootId = root.folder_id;
+	}
+
+	try {
+		const folder = await ensureFolder(category, rootId);
+		const next: DriveFoldersMap = {
+			...cache,
+			[category]: { id: folder.id, url: folder.webViewLink },
+		};
+		await admin
+			.from("events")
+			.update({ drive_folders: next })
+			.eq("id", eventId);
+		return { id: folder.id, url: folder.webViewLink };
+	} catch (err) {
+		return {
+			error: err instanceof Error ? err.message : "Drive subfolder gagal",
+		};
+	}
+}
+
+/** Owner/crew-callable: get a category folder url (e.g. Footage) for an event. */
+export async function getEventCategoryFolderUrl(
+	projectId: string,
+	category: DriveCategory,
+): Promise<{ url?: string; error?: string }> {
+	const me = await getCurrentUser();
+	if (!me) return { error: "Unauthorized" };
+
+	const supabase = await createClient();
+	const { data: event } = await supabase
+		.from("events")
+		.select("id")
+		.eq("project_id", projectId)
+		.maybeSingle();
+	if (!event) return { error: "Event tidak ditemukan" };
+
+	const res = await ensureEventCategoryFolderInternal(
+		event.id as string,
+		category,
+	);
+	return res.error ? { error: res.error } : { url: res.url };
+}
+
+/**
  * User-callable: gates auth (owner / super_admin only) then defers to internal.
  */
 export async function createEventFolder(
@@ -125,6 +209,13 @@ export async function createEventFolder(
 	if (!event) return { error: "Event tidak ditemukan" };
 
 	return createEventFolderInternal(event.id as string);
+}
+
+/** Count files in an event's Footage subfolder (lazy, detail-page only). */
+export async function getFootageFileCount(eventId: string): Promise<number> {
+	const res = await ensureEventCategoryFolderInternal(eventId, "Footage");
+	if (!res.id) return 0;
+	return countFolderFiles(res.id);
 }
 
 export async function getDriveStatus(): Promise<{

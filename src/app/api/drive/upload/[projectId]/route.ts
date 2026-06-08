@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createEventFolderInternal } from "@/lib/actions/drive";
+import {
+	createEventFolderInternal,
+	type DriveCategory,
+	ensureEventCategoryFolderInternal,
+} from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	getDriveConfigErrors,
@@ -98,7 +102,9 @@ function buildRekapProofName(
 	ext: string,
 ): string {
 	const parts: string[] = [safeSegment(meta.projectId, 30), "REKAP"];
-	const dateStr = formatPaymentDate(meta.eventDate) ?? formatPaymentDate(new Date().toISOString());
+	const dateStr =
+		formatPaymentDate(meta.eventDate) ??
+		formatPaymentDate(new Date().toISOString());
 	if (dateStr) parts.push(dateStr);
 	const seqClean = meta.seq?.replace(/\D/g, "").padStart(2, "0").slice(0, 4);
 	if (seqClean && seqClean !== "00") {
@@ -303,12 +309,15 @@ export async function POST(
 			);
 		}
 		finalName = `${parts.join(" - ").slice(0, 180).trim()}.${ext}`;
+	} else if (kind === "design_frame") {
+		const baseOriginal = safeSegment(
+			file.name?.replace(/\.[^.]+$/, "") || "design",
+			120,
+		);
+		finalName = `${event.project_id as string} - DESIGN - ${baseOriginal}.${ext}`;
 	} else {
 		// Generic fallback: project + original name (sanitized)
-		const ts = new Date()
-			.toISOString()
-			.replace(/[:.]/g, "-")
-			.slice(0, 19);
+		const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 		const baseOriginal = safeSegment(
 			file.name?.replace(/\.[^.]+$/, "") || `upload-${ts}`,
 			120,
@@ -316,11 +325,37 @@ export async function POST(
 		finalName = `${event.project_id as string} - ${baseOriginal}.${ext}`;
 	}
 
+	// Route into the right per-event subfolder (Nota / Hasil Cetak / Design /
+	// Lainnya) so the Drive structure stays organized.
+	const CATEGORY_BY_KIND: Record<string, DriveCategory> = {
+		payment_proof: "Nota",
+		transport_proof: "Nota",
+		rekap_proof: "Hasil Cetak",
+		design_frame: "Design",
+	};
+	const category: DriveCategory = CATEGORY_BY_KIND[kind] ?? "Lainnya";
+	const sub = await ensureEventCategoryFolderInternal(
+		event.id as string,
+		category,
+	);
+	if (sub.error || !sub.id) {
+		return NextResponse.json(
+			{ error: sub.error ?? "Gagal resolve subfolder Drive" },
+			{ status: 500 },
+		);
+	}
+	const targetFolderId = sub.id;
+
 	const arrayBuffer = await file.arrayBuffer();
 	const buf = Buffer.from(arrayBuffer);
 
 	try {
-		const uploaded = await uploadFileToFolder(folderId, finalName, mime, buf);
+		const uploaded = await uploadFileToFolder(
+			targetFolderId,
+			finalName,
+			mime,
+			buf,
+		);
 		return NextResponse.json({
 			ok: true,
 			url: uploaded.webViewLink,
