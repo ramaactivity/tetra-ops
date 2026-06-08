@@ -90,11 +90,12 @@ async function fetchDashboardStats(
 			.gte("payment_date", p.ymStart)
 			.lte("payment_date", p.ymEnd),
 		supabase.rpc("get_outstanding_total"),
+		// Event count this month — counts ALL events incl. legacy/archived
+		// (event-count metric, not financial). Matches Operations "Bulan Ini".
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.gte("event_date", p.ymStart)
 			.lte("event_date", p.ymEnd),
 		supabase
@@ -136,11 +137,13 @@ async function fetchDashboardStats(
 			.lte("event_date", p.tomorrowISO)
 			.order("event_date", { ascending: true })
 			.order("start_time", { ascending: true }),
+		// Event count this year — counts ALL events incl. legacy/archived so the
+		// yearly target reflects every event done this year. Matches Operations
+		// "Tahun Ini". (Financial figures below stay legacy-free.)
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.gte("event_date", p.yearStart)
 			.lte("event_date", p.yearEnd),
 		supabase
