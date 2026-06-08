@@ -2,9 +2,9 @@
 
 import {
 	Calculator,
+	Car,
 	CheckCircle2,
 	Coffee,
-	Car,
 	Plus,
 	Save,
 	Sparkles,
@@ -19,10 +19,7 @@ import { RekapSummaryBar } from "@/components/rekap/rekap-summary-bar";
 import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { useRekapDraft } from "@/components/rekap/use-rekap-draft";
 import { Badge } from "@/components/ui/badge";
-import {
-	Combobox,
-	type ComboboxOption,
-} from "@/components/ui/combobox";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
 	Disclosure,
 	DisclosurePanel,
@@ -32,8 +29,8 @@ import type { RekapContext } from "@/lib/actions/rekap";
 import { type RekapFormState, submitRekap } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
 import {
-	computeRekapCost,
 	type CustomLine,
+	computeRekapCost,
 	deriveRekapRatio,
 	type MappedItem,
 	type RekapQuantities,
@@ -116,10 +113,10 @@ export function RekapForm({
 }) {
 	const router = useRouter();
 	const action = submitRekap.bind(null, eventId, projectId);
-	const [state, formAction, pending] = useActionState<
-		RekapFormState,
-		FormData
-	>(action, undefined);
+	const [state, formAction, pending] = useActionState<RekapFormState, FormData>(
+		action,
+		undefined,
+	);
 
 	const get = (key: keyof Defaults) => {
 		const v = state?.values?.[key as string];
@@ -128,9 +125,7 @@ export function RekapForm({
 	};
 	const err = (key: string) =>
 		(
-			state?.errors?.[key as keyof typeof state.errors] as
-				| string[]
-				| undefined
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
 	// === Quantity state (numeric) ===
@@ -175,9 +170,8 @@ export function RekapForm({
 		} catch {}
 		return {};
 	}, [defaults.custom_materials]);
-	const [customMaterials, setCustomMaterials] = useState<
-		Record<string, number>
-	>(initialCustom);
+	const [customMaterials, setCustomMaterials] =
+		useState<Record<string, number>>(initialCustom);
 
 	const customInventoryById = useMemo(
 		() => new Map(context.custom_inventory.map((it) => [it.id, it])),
@@ -230,7 +224,9 @@ export function RekapForm({
 	const [parkingCost, setParkingCost] = useState(get("parking_cost"));
 	const [konsumsiCost, setKonsumsiCost] = useState(get("konsumsi_cost"));
 
-	const initialLainnya = useMemo<Array<{ note: string; amount: number }>>(() => {
+	const initialLainnya = useMemo<
+		Array<{ note: string; amount: number }>
+	>(() => {
 		try {
 			const obj = JSON.parse(defaults.lainnya_items || "[]");
 			if (Array.isArray(obj)) {
@@ -394,7 +390,9 @@ export function RekapForm({
 				const parsed = JSON.parse(cm);
 				if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 					const out: Record<string, number> = {};
-					for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+					for (const [k, v] of Object.entries(
+						parsed as Record<string, unknown>,
+					)) {
 						const n = Number(v);
 						if (Number.isFinite(n) && n > 0) out[k] = Math.floor(n);
 					}
@@ -496,19 +494,6 @@ export function RekapForm({
 			.filter((l) => l.quantity > 0);
 	}, [customMaterials, customInventoryBySku]);
 
-	const buckets = useMemo(
-		() =>
-			computeRekapCost(
-				quantities,
-				mappedItems,
-				bonusLines,
-				customLines,
-				context.pkg.frame_size ?? "",
-			),
-		[quantities, mappedItems, bonusLines, customLines],
-	);
-	const hppTotal = sumBuckets(buckets);
-
 	// Helpers for per-field HPP chip — size-aware mapping resolution
 	const frameSize = context.pkg.frame_size ?? "";
 	const mappingByField = useMemo(() => {
@@ -559,6 +544,35 @@ export function RekapForm({
 		if (!touched.sleeve_used) setSleeve(String(autoSleeveQty));
 	}, [autoSleeveQty, touched.sleeve_used]);
 
+	// HPP uses AUTO media/sleeve (cetak-derived) — same basis as the owner
+	// settlement engine (planRekapDeduction ignores manual media/sleeve). So a
+	// manual override changes the stock note only, never the HPP — crew preview
+	// stays in sync with what the owner will settle.
+	const buckets = useMemo(
+		() =>
+			computeRekapCost(
+				{
+					...quantities,
+					media_set_used: autoMediaLembar,
+					sleeve_used: autoSleeveQty,
+				},
+				mappedItems,
+				bonusLines,
+				customLines,
+				context.pkg.frame_size ?? "",
+			),
+		[
+			quantities,
+			autoMediaLembar,
+			autoSleeveQty,
+			mappedItems,
+			bonusLines,
+			customLines,
+			context.pkg.frame_size,
+		],
+	);
+	const hppTotal = sumBuckets(buckets);
+
 	function fieldCost(field: RekapField, value: number): number {
 		const map = mappingByField.get(field);
 		if (!map?.item) return 0;
@@ -575,7 +589,8 @@ export function RekapForm({
 			critical: deduct > map.item.current_stock,
 			lowAfter:
 				map.item.current_stock > 0 &&
-				(map.item.current_stock - deduct) / Math.max(map.item.current_stock, 1) <
+				(map.item.current_stock - deduct) /
+					Math.max(map.item.current_stock, 1) <
 					0.1,
 		};
 	}
@@ -788,9 +803,7 @@ export function RekapForm({
 							<AutoDerivedCard
 								label="Sleeve"
 								value={finalSleeve}
-								exactValue={
-									touched.sleeve_used ? finalSleeve : autoSleeveExact
-								}
+								exactValue={touched.sleeve_used ? finalSleeve : autoSleeveExact}
 								mapping={sleeveMapping}
 								frameSize={frameSize}
 								touched={touched.sleeve_used}
@@ -923,9 +936,7 @@ export function RekapForm({
 
 			{/* ========== ITEM TAMBAHAN (custom_materials) ========== */}
 			<section className="rounded-lg border border-border-default bg-surface-2">
-				<Disclosure
-					defaultOpen={Object.keys(customMaterials).length > 0}
-				>
+				<Disclosure defaultOpen={Object.keys(customMaterials).length > 0}>
 					<DisclosureTrigger className="px-5 py-4">
 						<span className="flex items-center gap-2">
 							<Sparkles className="h-4 w-4 text-primary" />
@@ -1024,8 +1035,8 @@ export function RekapForm({
 						</h3>
 					</div>
 					<p className="text-xs text-muted-foreground">
-						Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi
-						kalau ada.
+						Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau
+						ada.
 					</p>
 				</div>
 
@@ -1230,13 +1241,13 @@ export function RekapForm({
 				type="hidden"
 				name="transport_proof_berangkat_url"
 				value={
-					transportMethod === "online" ? transportProofBerangkat ?? "" : ""
+					transportMethod === "online" ? (transportProofBerangkat ?? "") : ""
 				}
 			/>
 			<input
 				type="hidden"
 				name="transport_proof_pulang_url"
-				value={transportMethod === "online" ? transportProofPulang ?? "" : ""}
+				value={transportMethod === "online" ? (transportProofPulang ?? "") : ""}
 			/>
 			<input
 				type="hidden"
@@ -1264,11 +1275,7 @@ export function RekapForm({
 					}))}
 					onChange={setProofUrls}
 				/>
-				<input
-					type="hidden"
-					name="proof_photo_urls"
-					value={proofUrlsHidden}
-				/>
+				<input type="hidden" name="proof_photo_urls" value={proofUrlsHidden} />
 				{err("proof_photo_urls") && (
 					<p className="text-xs text-destructive">{err("proof_photo_urls")}</p>
 				)}
@@ -1454,14 +1461,16 @@ function AutoDerivedCard({
 					</span>
 				)}
 				<span className="text-[10px] text-muted-foreground">
-					{frameSize || "default"} · {humanizeRatio(mapping.qty_per_unit, item.unit)}
+					{frameSize || "default"} ·{" "}
+					{humanizeRatio(mapping.qty_per_unit, item.unit)}
 				</span>
 				{touched ? null : value !== exactValue && exactValue > 0 ? (
 					<span className="text-[10px] italic text-muted-foreground/80">
 						(submit dibulatkan ke {value} {item.unit}, deduct exact{" "}
 						{exactValue.toLocaleString("id-ID", {
 							maximumFractionDigits: 3,
-						})})
+						})}
+						)
 					</span>
 				) : null}
 			</div>
