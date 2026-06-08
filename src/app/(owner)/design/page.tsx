@@ -1,5 +1,7 @@
 import { Film, Image as ImageIcon, Palette } from "lucide-react";
 import Link from "next/link";
+import { Fragment } from "react";
+import { DesignMonthFilter } from "@/components/event-design/design-month-filter";
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -19,10 +21,9 @@ import { cn } from "@/lib/utils";
 /**
  * /design — Asset & Design.
  *
- * One effective list (no kanban) of every active event: design workflow status
- * (Belum / Proses / Approved, editable inline by owners) + visual-asset coverage
- * (design frame, footage, softfile photo + video). Replaces both the old asset
- * hub and the Operations design board.
+ * Every event (matching the Operations/Event page), grouped per month, with
+ * design workflow status (Belum / Proses / Approved, inline-editable) + asset
+ * coverage (design frame, footage, softfile). Defaults to the current month.
  */
 
 const TYPE_META: Record<AssetType, { icon: typeof ImageIcon; short: string }> =
@@ -34,14 +35,30 @@ const TYPE_META: Record<AssetType, { icon: typeof ImageIcon; short: string }> =
 
 const ALL_TYPES: AssetType[] = ["design_frame", "footage_crew", "softfile"];
 
-const ACTIVE_STATUSES = [
-	"draft",
-	"confirmed",
-	"upcoming",
-	"in_progress",
-	"awaiting_settlement",
-	"completed",
+const MONTHS_ID = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
 ];
+
+function currentYearMonth(): string {
+	const t = new Date();
+	return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(ym: string): string {
+	const [y, m] = ym.split("-");
+	return `${MONTHS_ID[Number(m) - 1] ?? m} ${y}`;
+}
 
 function dayLabel(eventDate: string, today: Date): string {
 	const d = new Date(`${eventDate}T00:00:00`);
@@ -53,31 +70,32 @@ function dayLabel(eventDate: string, today: Date): string {
 export default async function AssetDesignPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ filter?: "active" | "all"; ds?: string }>;
+	searchParams: Promise<{ month?: string; ds?: string }>;
 }) {
 	const params = await searchParams;
-	const filter = params.filter === "all" ? "all" : "active";
+	const monthParam = params.month?.trim() ?? "";
+	const showsAll = monthParam === "all";
+	const month =
+		monthParam === "all"
+			? ""
+			: monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+				? monthParam
+				: currentYearMonth();
 	const dsFilter = DESIGN_STATUS_VALUES.includes(params.ds as DesignStatus)
 		? (params.ds as DesignStatus)
 		: null;
 
 	const supabase = await createClient();
 
-	let eventsQuery = supabase
+	// All events (incl. archived/legacy) so the count matches the Event page.
+	const { data: events, error } = await supabase
 		.from("events")
 		.select(
 			"id, project_id, client_name, event_date, status, design_status, venue_name, venue_city",
 		)
 		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
-		.order("event_date", { ascending: true })
-		.limit(200);
-
-	if (filter === "active") {
-		eventsQuery = eventsQuery.in("status", ACTIVE_STATUSES);
-	}
-
-	const { data: events, error } = await eventsQuery;
+		.order("event_date", { ascending: false })
+		.limit(500);
 
 	if (error) {
 		return (
@@ -101,17 +119,22 @@ export default async function AssetDesignPage({
 		venue_name: string | null;
 		venue_city: string | null;
 	};
-	const eventList = (events ?? []) as EventRow[];
+	const allEvents = (events ?? []) as EventRow[];
 
-	// Asset counts per event_id × asset_type.
+	// Scope to the selected month (default current). "Semua" shows every month.
+	const scoped = showsAll
+		? allEvents
+		: allEvents.filter((e) => (e.event_date ?? "").slice(0, 7) === month);
+
+	// Asset counts per event_id × asset_type (over the scoped events).
 	const assetCounts = new Map<string, Record<AssetType, number>>();
-	if (eventList.length > 0) {
+	if (scoped.length > 0) {
 		const { data: assets } = await supabase
 			.from("event_assets")
 			.select("event_id, asset_type")
 			.in(
 				"event_id",
-				eventList.map((e) => e.id),
+				scoped.map((e) => e.id),
 			);
 		for (const a of (assets ?? []) as Array<{
 			event_id: string;
@@ -138,22 +161,35 @@ export default async function AssetDesignPage({
 		proses: 0,
 		approved: 0,
 	};
-	for (const e of eventList) {
+	for (const e of scoped) {
 		statusCounts[e.design_status] = (statusCounts[e.design_status] ?? 0) + 1;
 	}
 
 	const displayList = dsFilter
-		? eventList.filter((e) => e.design_status === dsFilter)
-		: eventList;
+		? scoped.filter((e) => e.design_status === dsFilter)
+		: scoped;
+
+	// Group displayed events per month (events already ordered date-desc).
+	const groups = new Map<string, EventRow[]>();
+	for (const ev of displayList) {
+		const ym = (ev.event_date ?? "").slice(0, 7);
+		const list = groups.get(ym);
+		if (list) list.push(ev);
+		else groups.set(ym, [ev]);
+	}
+	const orderedGroups = Array.from(groups.entries()).sort((a, b) =>
+		a[0] < b[0] ? 1 : -1,
+	);
 
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
 	function chipHref(ds: DesignStatus | null): string {
-		const q = new URLSearchParams();
-		if (filter === "all") q.set("filter", "all");
-		if (ds) q.set("ds", ds);
-		const s = q.toString();
+		const p = new URLSearchParams();
+		if (showsAll) p.set("month", "all");
+		else if (monthParam) p.set("month", month);
+		if (ds) p.set("ds", ds);
+		const s = p.toString();
 		return s ? `/design?${s}` : "/design";
 	}
 
@@ -163,53 +199,26 @@ export default async function AssetDesignPage({
 				title="Asset & Design"
 				description="Status design per event + hub aset (design frame, footage, softfile). Kelola status design + aset langsung di sini."
 				actions={
-					<div className="flex items-center gap-1 rounded-lg border border-border-default bg-card p-1">
-						<Link
-							href={dsFilter ? `/design?ds=${dsFilter}` : "/design"}
-							className={cn(
-								"rounded-md px-3 py-1 text-[12.5px] font-medium transition-colors",
-								filter === "active"
-									? "bg-primary text-primary-foreground"
-									: "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							Aktif
-						</Link>
-						<Link
-							href={
-								dsFilter
-									? `/design?filter=all&ds=${dsFilter}`
-									: "/design?filter=all"
-							}
-							className={cn(
-								"rounded-md px-3 py-1 text-[12.5px] font-medium transition-colors",
-								filter === "all"
-									? "bg-primary text-primary-foreground"
-									: "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							Semua
-						</Link>
-					</div>
+					<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
 				}
 			/>
 
 			<dl className="grid gap-3 sm:grid-cols-3">
 				<StatCard
 					label="Event Tracked"
-					value={eventList.length}
+					value={scoped.length}
 					hint={`${eventsWithAnyAsset} sudah punya asset`}
 				/>
 				<StatCard
 					label="Total Asset"
 					value={totalAssets}
-					hint="Semua link di seluruh event"
+					hint={showsAll ? "Semua bulan" : monthLabel(month)}
 				/>
 				<StatCard
 					label="Coverage"
 					value={
-						eventList.length > 0
-							? `${Math.round((eventsWithAnyAsset / eventList.length) * 100)}%`
+						scoped.length > 0
+							? `${Math.round((eventsWithAnyAsset / scoped.length) * 100)}%`
 							: "—"
 					}
 					hint="Event dengan minimal 1 asset"
@@ -228,7 +237,7 @@ export default async function AssetDesignPage({
 					)}
 				>
 					Semua
-					<span className="tabular opacity-60">{eventList.length}</span>
+					<span className="tabular opacity-60">{scoped.length}</span>
 				</Link>
 				{DESIGN_STATUS_VALUES.map((ds) => {
 					const tone = DESIGN_STATUS_TONE[ds];
@@ -258,11 +267,17 @@ export default async function AssetDesignPage({
 			{displayList.length === 0 ? (
 				<EmptyState
 					icon={Palette}
-					title={dsFilter ? "Tidak ada event di status ini" : "Belum ada event"}
+					title={
+						dsFilter
+							? "Tidak ada event di status ini"
+							: showsAll
+								? "Belum ada event"
+								: `Tidak ada event di ${monthLabel(month)}`
+					}
 					description={
 						dsFilter
 							? "Coba pilih status design lain di atas."
-							: "Bikin event dulu lewat Operations baru bisa kelola design & asset."
+							: "Ganti bulan di atas, atau pilih Semua."
 					}
 				/>
 			) : (
@@ -281,83 +296,96 @@ export default async function AssetDesignPage({
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border-subtle">
-								{displayList.map((ev) => {
-									const counts = assetCounts.get(ev.id) ?? {
-										design_frame: 0,
-										footage_crew: 0,
-										softfile: 0,
-									};
-									const total =
-										counts.design_frame + counts.footage_crew + counts.softfile;
-									return (
-										<tr
-											key={ev.id}
-											className="transition-colors hover:bg-secondary/30"
-										>
-											<td className="px-4 py-3 align-middle">
-												<Link
-													href={`/design/${ev.project_id}`}
-													className="block"
-												>
-													<div className="text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]">
-														{ev.client_name}
-													</div>
-													<div className="tabular text-[11px] text-muted-foreground">
-														{ev.project_id}
-													</div>
-												</Link>
-											</td>
-											<td className="hidden px-4 py-3 align-middle sm:table-cell">
-												<div className="tabular text-[12.5px] text-muted-foreground">
-													{formatDateID(ev.event_date)}
-												</div>
-												<div className="text-[11px] text-muted-foreground/70">
-													{dayLabel(ev.event_date, today)}
-												</div>
-											</td>
-											<td className="px-4 py-3 align-middle">
-												<DesignStatusSelect
-													eventId={ev.id}
-													projectId={ev.project_id}
-													value={ev.design_status}
-												/>
-											</td>
-											<td className="px-4 py-3 align-middle">
-												<div className="flex flex-wrap items-center gap-1">
-													{ALL_TYPES.map((t) => {
-														const meta = TYPE_META[t];
-														const Icon = meta.icon;
-														const c = counts[t];
-														return (
-															<Badge
-																key={t}
-																variant="outline"
-																className={cn(
-																	"h-5 gap-1 px-1.5 text-[10px] font-medium",
-																	c > 0
-																		? "border-border-default bg-secondary text-foreground/85"
-																		: "opacity-40",
-																)}
-																title={`${ASSET_TYPE_LABELS[t]} (${c})`}
-															>
-																<Icon className="size-2.5" />
-																{meta.short}: {c}
-															</Badge>
-														);
-													})}
-												</div>
-											</td>
-											<td className="px-4 py-3 text-right align-middle">
-												<Link
-													href={`/design/${ev.project_id}`}
-													className="text-[12.5px] font-medium text-[#0070f3] hover:underline"
-												>
-													{total > 0 ? "Kelola →" : "Tambah →"}
-												</Link>
+								{orderedGroups.map(([ym, evs]) => (
+									<Fragment key={ym}>
+										<tr className="border-b border-border-default bg-secondary/40">
+											<td colSpan={5} className="px-4 py-2">
+												<span className="eyebrow">
+													{monthLabel(ym)} · {evs.length}
+												</span>
 											</td>
 										</tr>
-									);
-								})}
+										{evs.map((ev) => {
+											const counts = assetCounts.get(ev.id) ?? {
+												design_frame: 0,
+												footage_crew: 0,
+												softfile: 0,
+											};
+											const total =
+												counts.design_frame +
+												counts.footage_crew +
+												counts.softfile;
+											return (
+												<tr
+													key={ev.id}
+													className="transition-colors hover:bg-secondary/30"
+												>
+													<td className="px-4 py-3 align-middle">
+														<Link
+															href={`/design/${ev.project_id}`}
+															className="block"
+														>
+															<div className="text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]">
+																{ev.client_name}
+															</div>
+															<div className="tabular text-[11px] text-muted-foreground">
+																{ev.project_id}
+															</div>
+														</Link>
+													</td>
+													<td className="hidden px-4 py-3 align-middle sm:table-cell">
+														<div className="tabular text-[12.5px] text-muted-foreground">
+															{formatDateID(ev.event_date)}
+														</div>
+														<div className="text-[11px] text-muted-foreground/70">
+															{dayLabel(ev.event_date, today)}
+														</div>
+													</td>
+													<td className="px-4 py-3 align-middle">
+														<DesignStatusSelect
+															eventId={ev.id}
+															projectId={ev.project_id}
+															value={ev.design_status}
+														/>
+													</td>
+													<td className="px-4 py-3 align-middle">
+														<div className="flex flex-wrap items-center gap-1">
+															{ALL_TYPES.map((t) => {
+																const meta = TYPE_META[t];
+																const Icon = meta.icon;
+																const c = counts[t];
+																return (
+																	<Badge
+																		key={t}
+																		variant="outline"
+																		className={cn(
+																			"h-5 gap-1 px-1.5 text-[10px] font-medium",
+																			c > 0
+																				? "border-border-default bg-secondary text-foreground/85"
+																				: "opacity-40",
+																		)}
+																		title={`${ASSET_TYPE_LABELS[t]} (${c})`}
+																	>
+																		<Icon className="size-2.5" />
+																		{meta.short}: {c}
+																	</Badge>
+																);
+															})}
+														</div>
+													</td>
+													<td className="px-4 py-3 text-right align-middle">
+														<Link
+															href={`/design/${ev.project_id}`}
+															className="text-[12.5px] font-medium text-[#0070f3] hover:underline"
+														>
+															{total > 0 ? "Kelola →" : "Tambah →"}
+														</Link>
+													</td>
+												</tr>
+											);
+										})}
+									</Fragment>
+								))}
 							</tbody>
 						</table>
 					</div>
