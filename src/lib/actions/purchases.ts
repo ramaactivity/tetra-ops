@@ -3,10 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import {
-	normalizeConversion,
-	toBase,
-} from "@/lib/inventory/unit-conversion";
+import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireOwnerLevel() {
@@ -34,7 +31,14 @@ const PurchaseLineSchema = z.object({
 const PurchaseBatchSchema = z.object({
 	supplier_id: z.uuid().optional().nullable(),
 	purchase_date: z.string().trim(),
-	payment_method: z.enum(["cash", "top_7", "top_14", "top_30", "top_60", "top_custom"]),
+	payment_method: z.enum([
+		"cash",
+		"top_7",
+		"top_14",
+		"top_30",
+		"top_60",
+		"top_custom",
+	]),
 	top_days: z.coerce.number().int().nonnegative().max(365).default(0),
 	invoice_no: z
 		.string()
@@ -158,7 +162,9 @@ export async function recordPurchaseBatch(
 	const itemIds = Array.from(new Set(parsed.data.lines.map((l) => l.item_id)));
 	const { data: items, error: itemsErr } = await supabase
 		.from("inventory_items")
-		.select("id, sku, name, category, unit, unit_conversion, purchase_price_avg")
+		.select(
+			"id, sku, name, category, unit, unit_conversion, purchase_price_avg",
+		)
 		.in("id", itemIds);
 	if (itemsErr) {
 		return { errors: { _form: [itemsErr.message] } };
@@ -292,9 +298,9 @@ export async function recordPurchaseBatch(
 			item_id: line.item_id,
 			direction: "in",
 			quantity: baseQty,
-			quantity_unit: line.quantity_unit !== baseUnit ? line.quantity_unit : null,
-			quantity_in_unit:
-				line.quantity_unit !== baseUnit ? line.quantity : null,
+			quantity_unit:
+				line.quantity_unit !== baseUnit ? line.quantity_unit : null,
+			quantity_in_unit: line.quantity_unit !== baseUnit ? line.quantity : null,
 			unit_cost: baseUnitCost,
 			source: "purchase",
 			source_id: parsed.data.pr_id ?? null,
@@ -318,45 +324,53 @@ export async function recordPurchaseBatch(
 		}
 	}
 
-	// Update fixed_asset_config for CapEx lines (purchase_price + date)
-	for (const cap of capexLines) {
-		await supabase
-			.from("items_fixed_asset_config")
-			.update({
-				purchase_price: cap.amount,
-				purchase_date: cap.purchase_date.slice(0, 10),
-				depreciation_start_date: cap.purchase_date.slice(0, 10),
-				updated_at: new Date().toISOString(),
-			})
-			.eq("item_id", cap.item_id);
-	}
-
-	// Update weighted-avg cost per item
-	for (const itemId of itemIds) {
-		const lineForItem = movements.find((m) => m.item_id === itemId);
-		if (!lineForItem) continue;
-		const it = byItem.get(itemId);
-		if (!it) continue;
-
-		const { data: stockData } = await supabase.rpc("get_current_stock", {
-			p_item_id: itemId,
-		});
-		const newStock = Number(stockData ?? 0);
-		const oldAvg = Number(it.purchase_price_avg ?? 0);
-		const oldStock = newStock - lineForItem.quantity;
-		if (newStock > 0 && oldStock >= 0) {
-			const newAvg =
-				(oldStock * oldAvg + lineForItem.quantity * lineForItem.unit_cost) /
-				newStock;
-			await supabase
-				.from("inventory_items")
+	// Update fixed_asset_config for CapEx lines (purchase_price + date) — each
+	// line is an independent update, so run them concurrently (≈1 round-trip
+	// wall-clock instead of N sequential).
+	await Promise.all(
+		capexLines.map((cap) =>
+			supabase
+				.from("items_fixed_asset_config")
 				.update({
-					purchase_price_avg: Math.round(newAvg),
+					purchase_price: cap.amount,
+					purchase_date: cap.purchase_date.slice(0, 10),
+					depreciation_start_date: cap.purchase_date.slice(0, 10),
 					updated_at: new Date().toISOString(),
 				})
-				.eq("id", itemId);
-		}
-	}
+				.eq("item_id", cap.item_id),
+		),
+	);
+
+	// Recompute weighted-avg cost per item — each item's read-then-update chain
+	// is independent of the others, so run the chains concurrently (≈2
+	// round-trips wall-clock instead of 2×N sequential).
+	await Promise.all(
+		itemIds.map(async (itemId) => {
+			const lineForItem = movements.find((m) => m.item_id === itemId);
+			if (!lineForItem) return;
+			const it = byItem.get(itemId);
+			if (!it) return;
+
+			const { data: stockData } = await supabase.rpc("get_current_stock", {
+				p_item_id: itemId,
+			});
+			const newStock = Number(stockData ?? 0);
+			const oldAvg = Number(it.purchase_price_avg ?? 0);
+			const oldStock = newStock - lineForItem.quantity;
+			if (newStock > 0 && oldStock >= 0) {
+				const newAvg =
+					(oldStock * oldAvg + lineForItem.quantity * lineForItem.unit_cost) /
+					newStock;
+				await supabase
+					.from("inventory_items")
+					.update({
+						purchase_price_avg: Math.round(newAvg),
+						updated_at: new Date().toISOString(),
+					})
+					.eq("id", itemId);
+			}
+		}),
+	);
 
 	// ─── Journal entry: auto-cash entry / AP entry ────────────────────────
 	// Cash purchase → DEBIT inventory accounts, CREDIT Kas Tunai (1-100).
@@ -470,10 +484,7 @@ export async function recordPurchaseBatch(
 				if (linesErr) {
 					console.error("[purchases] journal_lines insert failed:", linesErr);
 					// Roll back the entry header so we don't leave a hanging journal
-					await supabase
-						.from("journal_entries")
-						.delete()
-						.eq("id", entry.id);
+					await supabase.from("journal_entries").delete().eq("id", entry.id);
 				} else {
 					journalEntryRef = refId;
 					journalEntryId = entry.id;

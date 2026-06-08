@@ -56,45 +56,45 @@ export default async function WarehousePage({
 		stockLevelsResult,
 		suppliersForPembelianRes,
 	] = await Promise.all([
-			supabase
-				.from("inventory_items")
-				.select(
-					`id, sku, name, unit, unit_conversion, min_stock_alert,
+		supabase
+			.from("inventory_items")
+			.select(
+				`id, sku, name, unit, unit_conversion, min_stock_alert,
 					 purchase_price_avg, is_active,
 					 config:items_inventory_config!inner(
 					   preferred_supplier_id,
 					   supplier:suppliers!items_inventory_config_preferred_supplier_id_fkey(name)
 					 )`,
-				)
-				.eq("category", "inventory")
-				.is("deleted_at", null)
-				.order("name", { ascending: true }),
-			supabase
-				.from("inventory_items")
-				.select(
-					`id, sku, name, purchase_price, condition, current_location, is_active,
+			)
+			.eq("category", "inventory")
+			.is("deleted_at", null)
+			.order("name", { ascending: true }),
+		supabase
+			.from("inventory_items")
+			.select(
+				`id, sku, name, purchase_price, condition, current_location, is_active,
 					 config:items_fixed_asset_config!inner(
 					   asset_number, serial_number, acquisition_type,
 					   purchase_price, useful_life_months, depreciation_start_date,
 					   current_location
 					 )`,
-				)
-				.eq("category", "fixed_asset")
-				.is("deleted_at", null)
-				.order("name", { ascending: true }),
-			// Batched stock levels — one grouped query instead of fetching the
-			// entire stock_movements table and computing per-item in JS (which
-			// was O(items × movements)). See get_stock_levels migration.
-			supabase.rpc("get_stock_levels"),
-			// Suppliers (ringan) untuk quick-restock dialog "Belanja Kritis" —
-			// independen, jadi ikut di-batch di sini, bukan round-trip terpisah.
-			supabase
-				.from("suppliers")
-				.select("id, name, default_payment_term, default_top_days")
-				.is("deleted_at", null)
-				.eq("is_active", true)
-				.order("name"),
-		]);
+			)
+			.eq("category", "fixed_asset")
+			.is("deleted_at", null)
+			.order("name", { ascending: true }),
+		// Batched stock levels — one grouped query instead of fetching the
+		// entire stock_movements table and computing per-item in JS (which
+		// was O(items × movements)). See get_stock_levels migration.
+		supabase.rpc("get_stock_levels"),
+		// Suppliers (ringan) untuk quick-restock dialog "Belanja Kritis" —
+		// independen, jadi ikut di-batch di sini, bukan round-trip terpisah.
+		supabase
+			.from("suppliers")
+			.select("id, name, default_payment_term, default_top_days")
+			.is("deleted_at", null)
+			.eq("is_active", true)
+			.order("name"),
+	]);
 
 	type RawConsumable = {
 		id: string;

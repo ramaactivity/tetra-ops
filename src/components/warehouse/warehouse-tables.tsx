@@ -24,6 +24,7 @@ import {
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
 import type { AssetUnit } from "@/components/warehouse/asset-detail-drawer";
+
 // Heavy detail drawer — only mounts after a user clicks an asset row
 // (`drawerGroup && …`), so defer its chunk out of the warehouse page bundle.
 const AssetDetailDrawer = dynamic(
@@ -33,6 +34,7 @@ const AssetDetailDrawer = dynamic(
 		),
 	{ ssr: false },
 );
+
 import { BulkActionToolbar } from "@/components/warehouse/bulk-action-toolbar";
 import {
 	PembelianDialog,
@@ -40,10 +42,6 @@ import {
 	type PembelianSupplierOption,
 } from "@/components/warehouse/pembelian/pembelian-dialog";
 import { RestockDialog } from "@/components/warehouse/restock-dialog";
-import {
-	listCapacityBreakdown,
-	normalizeConversion,
-} from "@/lib/inventory/unit-conversion";
 import { StockAdjustDialog } from "@/components/warehouse/stock-adjust-dialog";
 import {
 	EQUIPMENT_CONDITION_LABELS,
@@ -51,6 +49,10 @@ import {
 	formatDateID,
 	formatRupiah,
 } from "@/lib/format";
+import {
+	listCapacityBreakdown,
+	normalizeConversion,
+} from "@/lib/inventory/unit-conversion";
 
 function EditItemLink({ id, label }: { id: string; label: string }) {
 	return (
@@ -237,14 +239,12 @@ function compactNumber(n: number): string {
 function getBulkUnit(
 	conversion: unknown,
 ): { code: string; label: string; multiplier: number } | null {
-	const conv = conversion as
-		| {
-				units?: Record<
-					string,
-					{ kind?: string; label?: string; multiplier?: number | null }
-				>;
-		  }
-		| null;
+	const conv = conversion as {
+		units?: Record<
+			string,
+			{ kind?: string; label?: string; multiplier?: number | null }
+		>;
+	} | null;
 	if (!conv?.units) return null;
 	const purchase = Object.entries(conv.units).find(
 		([, def]) => def.kind === "purchase",
@@ -284,12 +284,7 @@ function formatStockDisplay(
 	return { primary, primaryUnit: map.base_unit, breakdown };
 }
 
-type ConsumableFilter =
-	| "all"
-	| "habis"
-	| "kritis"
-	| "aman"
-	| "inactive";
+type ConsumableFilter = "all" | "habis" | "kritis" | "aman" | "inactive";
 
 type ConsumableSort =
 	| "name"
@@ -394,8 +389,7 @@ export function ConsumablesTable({
 		if (q) {
 			out = out.filter(
 				(r) =>
-					r.name.toLowerCase().includes(q) ||
-					r.sku.toLowerCase().includes(q),
+					r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q),
 			);
 		}
 		out = out.filter((r) => {
@@ -465,9 +459,7 @@ export function ConsumablesTable({
 					type="checkbox"
 					checked={allSelectedInView}
 					ref={(el) => {
-						if (el)
-							el.indeterminate =
-								!allSelectedInView && someSelectedInView;
+						if (el) el.indeterminate = !allSelectedInView && someSelectedInView;
 					}}
 					onChange={() => toggleAll(filteredIds)}
 					className="size-3.5 cursor-pointer accent-primary"
@@ -629,9 +621,7 @@ export function ConsumablesTable({
 						<div className="flex flex-col items-end gap-0.5">
 							<span className="tabular whitespace-nowrap text-fluid-caption font-medium text-foreground">
 								{formatRupiah(costPerBulk)}{" "}
-								<span className="text-muted-foreground/60">
-									/ {bulk.label}
-								</span>
+								<span className="text-muted-foreground/60">/ {bulk.label}</span>
 							</span>
 							<span className="tabular text-[10px] text-muted-foreground/70">
 								{formatRupiah(r.purchase_price_avg)} / {r.unit}
@@ -752,9 +742,7 @@ export function ConsumablesTable({
 						<Combobox
 							id="consumable-sort"
 							value={sort}
-							onValueChange={(v) =>
-								setSort((v as ConsumableSort) ?? "name")
-							}
+							onValueChange={(v) => setSort((v as ConsumableSort) ?? "name")}
 							options={CONSUMABLE_SORT_OPTIONS.map((o) => ({
 								value: o.value,
 								label: o.label,
@@ -942,10 +930,7 @@ function aggregateEquipment(rows: EquipmentRow[]): EquipmentGroup[] {
 
 	// Build status summary + avg remaining months per group
 	for (const g of groups.values()) {
-		const statusCounts = new Map<
-			string,
-			{ count: number; tone: string }
-		>();
+		const statusCounts = new Map<string, { count: number; tone: string }>();
 		let remainingTotal = 0;
 		let remainingCount = 0;
 		let totalMonthsAcc = 0;
@@ -989,7 +974,13 @@ function aggregateEquipment(rows: EquipmentRow[]): EquipmentGroup[] {
 	);
 }
 
-type EquipmentFilter = "all" | "normal" | "service" | "damaged" | "lost" | "inactive";
+type EquipmentFilter =
+	| "all"
+	| "normal"
+	| "service"
+	| "damaged"
+	| "lost"
+	| "inactive";
 
 const EQUIPMENT_FILTER_OPTIONS: ReadonlyArray<{
 	key: EquipmentFilter;
@@ -1187,8 +1178,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 			width: "180px",
 			hideOnMobile: true,
 			render: (g) => {
-				if (g.totalPrice <= 0)
-					return <MutedDash variant="dash" />;
+				if (g.totalPrice <= 0) return <MutedDash variant="dash" />;
 				const isAllOwnerContrib =
 					g.acquisitionMix.size === 1 &&
 					g.acquisitionMix.has("owner_contribution");
@@ -1575,10 +1565,7 @@ export function MovementsLog({
 
 	return (
 		<div className="space-y-3">
-			<MovementsDateFilter
-				defaultFrom={defaultFrom}
-				defaultTo={defaultTo}
-			/>
+			<MovementsDateFilter defaultFrom={defaultFrom} defaultTo={defaultTo} />
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<SearchInput
 					value={query}

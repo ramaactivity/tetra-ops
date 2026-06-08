@@ -37,7 +37,10 @@ export async function saveCrewFees(
 	const me = await getCurrentUser();
 	if (!me) return { ok: false, error: "Unauthorized" };
 	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
-		return { ok: false, error: "Hanya owner/super_admin yang bisa update fee crew" };
+		return {
+			ok: false,
+			error: "Hanya owner/super_admin yang bisa update fee crew",
+		};
 	}
 
 	const parsed = SaveCrewFeesSchema.safeParse({ rows });
@@ -66,33 +69,41 @@ export async function saveCrewFees(
 		};
 	}
 
-	let updated = 0;
-	for (const row of parsed.data.rows) {
-		// Look up existing payment_proof_url to detect new uploads (set uploaded_at)
-		const existingRow = (existing ?? []).find((e) => e.id === row.assignment_id);
-		const existingProof = (existingRow as { payment_proof_url?: string | null } | undefined)
-			?.payment_proof_url ?? null;
-		const newProof = row.payment_proof_url ?? null;
-		const uploadedAt =
-			newProof && newProof !== existingProof
-				? new Date().toISOString()
-				: undefined;
+	// Each row updates a distinct crew_assignment, so run the updates
+	// concurrently (≈1 round-trip wall-clock instead of N sequential) and
+	// surface the first failure.
+	const feeUpdateResults = await Promise.all(
+		parsed.data.rows.map((row) => {
+			// Look up existing payment_proof_url to detect new uploads (set uploaded_at)
+			const existingRow = (existing ?? []).find(
+				(e) => e.id === row.assignment_id,
+			);
+			const existingProof =
+				(existingRow as { payment_proof_url?: string | null } | undefined)
+					?.payment_proof_url ?? null;
+			const newProof = row.payment_proof_url ?? null;
+			const uploadedAt =
+				newProof && newProof !== existingProof
+					? new Date().toISOString()
+					: undefined;
 
-		const { error } = await supabase
-			.from("crew_assignments")
-			.update({
-				fee_amount: row.fee_amount,
-				bonus_amount: row.bonus_amount,
-				reimbursement_amount: row.reimbursement_amount,
-				payment_notes: row.payment_notes ?? null,
-				payment_proof_url: newProof,
-				...(uploadedAt ? { payment_proof_uploaded_at: uploadedAt } : {}),
-				updated_at: new Date().toISOString(),
-			})
-			.eq("id", row.assignment_id);
-		if (error) return { ok: false, error: error.message };
-		updated++;
-	}
+			return supabase
+				.from("crew_assignments")
+				.update({
+					fee_amount: row.fee_amount,
+					bonus_amount: row.bonus_amount,
+					reimbursement_amount: row.reimbursement_amount,
+					payment_notes: row.payment_notes ?? null,
+					payment_proof_url: newProof,
+					...(uploadedAt ? { payment_proof_uploaded_at: uploadedAt } : {}),
+					updated_at: new Date().toISOString(),
+				})
+				.eq("id", row.assignment_id);
+		}),
+	);
+	const feeUpdateErr = feeUpdateResults.find((r) => r.error)?.error;
+	if (feeUpdateErr) return { ok: false, error: feeUpdateErr.message };
+	const updated = parsed.data.rows.length;
 
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
@@ -124,7 +135,10 @@ export async function saveAddonSplit(
 	const me = await getCurrentUser();
 	if (!me) return { ok: false, error: "Unauthorized" };
 	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
-		return { ok: false, error: "Hanya owner/super_admin yang bisa update split addon" };
+		return {
+			ok: false,
+			error: "Hanya owner/super_admin yang bisa update split addon",
+		};
 	}
 
 	const parsed = AddonSplitSchema.safeParse(input);
@@ -145,9 +159,13 @@ export async function saveAddonSplit(
 		.maybeSingle();
 	if (fetchErr) return { ok: false, error: fetchErr.message };
 	if (!recap) return { ok: false, error: "Recap tidak ditemukan" };
-	if (recap.event_id !== eventId) return { ok: false, error: "Recap tidak match event" };
+	if (recap.event_id !== eventId)
+		return { ok: false, error: "Recap tidak match event" };
 	if (recap.locked) {
-		return { ok: false, error: "Recap sudah locked. Reopen settlement dulu kalau perlu edit." };
+		return {
+			ok: false,
+			error: "Recap sudah locked. Reopen settlement dulu kalau perlu edit.",
+		};
 	}
 
 	const { error } = await supabase

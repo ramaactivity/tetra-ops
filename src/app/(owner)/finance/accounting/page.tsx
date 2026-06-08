@@ -119,69 +119,67 @@ export default async function AccountingPage({
 	// Recent journal entries (with lines) for the Jurnal tab — already fetched
 	// above in the parallel batch (rawEntries).
 	let journalRows: JournalEntryRow[] = [];
-	{
-		journalRows = (
-			(rawEntries ?? []) as Array<{
+	journalRows = (
+		(rawEntries ?? []) as Array<{
+			id: string;
+			ref_id: string;
+			entry_date: string;
+			entry_type: string;
+			description: string;
+			source_type: string;
+			source_id: string | null;
+			total_amount: number | string;
+			is_reversed: boolean;
+			reversed_at: string | null;
+			created_at: string;
+			created_by_user:
+				| { full_name: string | null }
+				| { full_name: string | null }[]
+				| null;
+			lines: Array<{
 				id: string;
-				ref_id: string;
-				entry_date: string;
-				entry_type: string;
-				description: string;
-				source_type: string;
-				source_id: string | null;
-				total_amount: number | string;
-				is_reversed: boolean;
-				reversed_at: string | null;
-				created_at: string;
-				created_by_user:
-					| { full_name: string | null }
-					| { full_name: string | null }[]
-					| null;
-				lines: Array<{
-					id: string;
-					account_code: string;
-					debit_amount: number | string;
-					credit_amount: number | string;
-					description: string | null;
-					line_order: number;
-					account: { name: string } | { name: string }[] | null;
-				}>;
-			}>
-		).map((r) => {
-			const usr = Array.isArray(r.created_by_user)
-				? r.created_by_user[0]
-				: r.created_by_user;
-			const lines = (r.lines ?? [])
-				.map((l) => {
-					const acc = Array.isArray(l.account) ? l.account[0] : l.account;
-					return {
-						id: l.id,
-						account_code: l.account_code,
-						account_name: acc?.name ?? null,
-						debit_amount: Number(l.debit_amount),
-						credit_amount: Number(l.credit_amount),
-						description: l.description,
-						line_order: l.line_order,
-					};
-				})
-				.sort((a, b) => a.line_order - b.line_order);
-			return {
-				id: r.id,
-				ref_id: r.ref_id,
-				entry_date: r.entry_date,
-				entry_type: r.entry_type,
-				description: r.description,
-				source_type: r.source_type,
-				source_id: r.source_id,
-				total_amount: Number(r.total_amount),
-				is_reversed: r.is_reversed,
-				reversed_at: r.reversed_at,
-				created_at: r.created_at,
-				created_by_name: usr?.full_name ?? null,
-				lines,
-			};
-		});
-	}
+				account_code: string;
+				debit_amount: number | string;
+				credit_amount: number | string;
+				description: string | null;
+				line_order: number;
+				account: { name: string } | { name: string }[] | null;
+			}>;
+		}>
+	).map((r) => {
+		const usr = Array.isArray(r.created_by_user)
+			? r.created_by_user[0]
+			: r.created_by_user;
+		const lines = (r.lines ?? [])
+			.map((l) => {
+				const acc = Array.isArray(l.account) ? l.account[0] : l.account;
+				return {
+					id: l.id,
+					account_code: l.account_code,
+					account_name: acc?.name ?? null,
+					debit_amount: Number(l.debit_amount),
+					credit_amount: Number(l.credit_amount),
+					description: l.description,
+					line_order: l.line_order,
+				};
+			})
+			.sort((a, b) => a.line_order - b.line_order);
+		return {
+			id: r.id,
+			ref_id: r.ref_id,
+			entry_date: r.entry_date,
+			entry_type: r.entry_type,
+			description: r.description,
+			source_type: r.source_type,
+			source_id: r.source_id,
+			total_amount: Number(r.total_amount),
+			is_reversed: r.is_reversed,
+			reversed_at: r.reversed_at,
+			created_at: r.created_at,
+			created_by_name: usr?.full_name ?? null,
+			lines,
+		};
+	});
 
 	// Active, postable accounts for the manual-entry dialog (skip header rows).
 	const coaOptions: CoaOption[] = coaRows

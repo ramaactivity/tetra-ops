@@ -5,20 +5,20 @@ import {
 	Wallet2,
 } from "lucide-react";
 import { redirect } from "next/navigation";
+import {
+	type PayablesStatusFilter,
+	PayablesStatusTabs,
+} from "@/components/finance/payables/payables-status-tabs";
+import {
+	type CashAccountOption,
+	type PayableRow,
+	PayablesTable,
+} from "@/components/finance/payables/payables-table";
 import { Container } from "@/components/layout/container";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-	type CashAccountOption,
-	PayablesTable,
-	type PayableRow,
-} from "@/components/finance/payables/payables-table";
-import {
-	type PayablesStatusFilter,
-	PayablesStatusTabs,
-} from "@/components/finance/payables/payables-status-tabs";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -190,8 +190,8 @@ export default async function PayablesPage({
 				? allRows
 				: allRows.filter((r) => r.status === filter);
 
-	const cashAccountOptions: CashAccountOption[] =
-		(cashAccounts ?? []) as CashAccountOption[];
+	const cashAccountOptions: CashAccountOption[] = (cashAccounts ??
+		[]) as CashAccountOption[];
 
 	return (
 		<Container size="xl" className="space-y-6">
@@ -247,10 +247,7 @@ export default async function PayablesPage({
 					description="Pembelian dengan payment_method TOP otomatis tercatat di sini. Cash purchases ga masuk ke list ini."
 				/>
 			) : (
-				<PayablesTable
-					rows={filteredRows}
-					cashAccounts={cashAccountOptions}
-				/>
+				<PayablesTable rows={filteredRows} cashAccounts={cashAccountOptions} />
 			)}
 		</Container>
 	);
