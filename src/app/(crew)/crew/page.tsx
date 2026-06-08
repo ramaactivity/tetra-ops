@@ -4,14 +4,12 @@ import {
 	ChevronRight,
 	ExternalLink,
 	MapPin,
-	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const ID_DATE_FULL = new Intl.DateTimeFormat("id-ID", {
@@ -28,9 +26,6 @@ function isoDate(d: Date): string {
 
 type Assignment = {
 	role_in_event: string;
-	fee_amount: number;
-	bonus_amount: number;
-	is_paid: boolean;
 	event:
 		| {
 				id: string;
@@ -88,37 +83,29 @@ export default async function CrewHomePage() {
 
 	const supabase = await createClient();
 
-	const [
-		{ data: nextAssignmentsData },
-		{ data: weekAssignments },
-		{ data: unpaidFeeData },
-	] = await Promise.all([
-		supabase
-			.from("crew_assignments")
-			.select(
-				`role_in_event, fee_amount, bonus_amount, is_paid,
+	const [{ data: nextAssignmentsData }, { data: weekAssignments }] =
+		await Promise.all([
+			supabase
+				.from("crew_assignments")
+				.select(
+					`role_in_event,
 				event:events!inner(
 					id, project_id, status, client_name, event_date,
 					setup_time, start_time, end_time,
 					venue_name, venue_city, google_maps_url,
 					is_migrated_legacy, pic_name, pic_wa
 				)`,
-			)
-			.eq("user_id", me.profile.id)
-			.gte("event.event_date", todayISO)
-			.lte("event.event_date", tomorrowISO),
-		supabase
-			.from("crew_assignments")
-			.select("event:events!inner(event_date)")
-			.eq("user_id", me.profile.id)
-			.gte("event.event_date", todayISO)
-			.lte("event.event_date", sevenFromNowISO),
-		supabase
-			.from("crew_assignments")
-			.select("fee_amount, bonus_amount")
-			.eq("user_id", me.profile.id)
-			.eq("is_paid", false),
-	]);
+				)
+				.eq("user_id", me.profile.id)
+				.gte("event.event_date", todayISO)
+				.lte("event.event_date", tomorrowISO),
+			supabase
+				.from("crew_assignments")
+				.select("event:events!inner(event_date)")
+				.eq("user_id", me.profile.id)
+				.gte("event.event_date", todayISO)
+				.lte("event.event_date", sevenFromNowISO),
+		]);
 
 	const nextAssignments = (nextAssignmentsData ?? []).filter(
 		(a) => a.event,
@@ -139,11 +126,6 @@ export default async function CrewHomePage() {
 		const ev = Array.isArray(a.event) ? a.event[0] : a.event;
 		return ev?.event_date === todayISO;
 	}).length;
-
-	const unpaidFee = (unpaidFeeData ?? []).reduce(
-		(s, r) => s + (r.fee_amount ?? 0) + (r.bonus_amount ?? 0),
-		0,
-	);
 
 	const firstName = me.profile.full_name.split(" ")[0];
 
@@ -174,14 +156,6 @@ export default async function CrewHomePage() {
 					value={(upcomingCount ?? 0).toString()}
 					hint="event upcoming"
 					tone="emerald"
-				/>
-				<StatCard
-					icon={Wallet}
-					label="Fee outstanding"
-					value={formatRupiah(unpaidFee)}
-					hint={unpaidFee === 0 ? "Lunas semua" : "belum dibayar"}
-					tone={unpaidFee > 0 ? "amber" : "muted"}
-					href="/crew/fee"
 				/>
 				<StatCard
 					icon={CalendarDays}

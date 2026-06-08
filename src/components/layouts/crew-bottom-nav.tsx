@@ -6,7 +6,6 @@ import {
 	type LucideIcon,
 	Package2,
 	User,
-	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,7 +31,6 @@ const NAV_ITEMS: NavItem[] = [
 	{ href: "/crew", label: "Home", icon: Home },
 	{ href: "/crew/jadwal", label: "Jadwal", icon: CalendarDays },
 	{ href: "/crew/alat", label: "Alat", icon: Package2 },
-	{ href: "/crew/fee", label: "Fee", icon: Wallet },
 	{ href: "/crew/profile", label: "Profile", icon: User },
 ];
 

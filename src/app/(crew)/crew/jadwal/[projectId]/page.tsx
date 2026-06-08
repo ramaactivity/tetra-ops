@@ -65,7 +65,7 @@ export default async function CrewEventDetailPage({
 			backdrop:backdrops(name, type),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
-				role_in_event, fee_amount, bonus_amount, is_paid,
+				role_in_event,
 				user:users!crew_assignments_user_id_fkey(id, full_name, tier)
 			),
 			design_brief_at, design_approved_at, design_drive_folder_url,
@@ -90,9 +90,6 @@ export default async function CrewEventDetailPage({
 
 	const crewAssignments = (event.crew_assignments ?? []) as Array<{
 		role_in_event: string;
-		fee_amount: number;
-		bonus_amount: number;
-		is_paid: boolean;
 		user:
 			| { id: string; full_name: string; tier: string | null }
 			| Array<{ id: string; full_name: string; tier: string | null }>
@@ -616,35 +613,6 @@ export default async function CrewEventDetailPage({
 					<ChevronRight className="text-muted-foreground/60 h-4 w-4 self-center" />
 				</Link>
 			)}
-
-			{/* Fee for me */}
-			<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
-				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-					Fee gw
-				</h2>
-				<div className="flex items-baseline justify-between">
-					<span className="text-foreground tabular text-lg font-semibold">
-						{formatRupiahShort(
-							myAssignment.fee_amount + myAssignment.bonus_amount,
-						)}
-					</span>
-					{myAssignment.is_paid ? (
-						<span className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-							✓ paid
-						</span>
-					) : (
-						<span className="text-amber-600 dark:text-amber-400 text-xs font-medium">
-							• unpaid
-						</span>
-					)}
-				</div>
-				{myAssignment.bonus_amount > 0 && (
-					<p className="text-muted-foreground tabular text-[11px]">
-						base {formatRupiahShort(myAssignment.fee_amount)} + bonus{" "}
-						{formatRupiahShort(myAssignment.bonus_amount)}
-					</p>
-				)}
-			</section>
 		</div>
 	);
 }
@@ -662,9 +630,4 @@ function DetailRow({
 			<dd className="text-foreground text-right text-sm">{children}</dd>
 		</div>
 	);
-}
-
-function formatRupiahShort(amount: number): string {
-	if (amount === 0) return "Rp 0";
-	return `Rp ${amount.toLocaleString("id-ID")}`;
 }

@@ -365,17 +365,20 @@ export async function POST(
 		design_frame: "Design",
 	};
 	const category: DriveCategory = CATEGORY_BY_KIND[kind] ?? "Lainnya";
-	const sub = await ensureEventCategoryFolderInternal(
-		event.id as string,
-		category,
-	);
-	if (sub.error || !sub.id) {
-		return NextResponse.json(
-			{ error: sub.error ?? "Gagal resolve subfolder Drive" },
-			{ status: 500 },
+	// Resilient: try the organized subfolder, but NEVER fail the upload over it —
+	// fall back to the (already-ensured) event root folder. The subfolder
+	// resolution adds Drive round-trips; if it's slow/errors we still deliver the
+	// file so the crew rekap submit isn't blocked.
+	let targetFolderId = folderId;
+	try {
+		const sub = await ensureEventCategoryFolderInternal(
+			event.id as string,
+			category,
 		);
+		if (sub.id) targetFolderId = sub.id;
+	} catch {
+		// keep root fallback
 	}
-	const targetFolderId = sub.id;
 
 	const arrayBuffer = await file.arrayBuffer();
 	const buf = Buffer.from(arrayBuffer);

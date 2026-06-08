@@ -13,7 +13,7 @@ import { EventStatusBadge } from "@/components/badges/status-badge";
 import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { FRAME_SIZE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
+import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -47,9 +47,6 @@ type AssignedEvent = {
 
 type AssignmentRow = {
 	role_in_event: string;
-	fee_amount: number;
-	bonus_amount: number;
-	is_paid: boolean;
 	event: AssignedEvent | AssignedEvent[] | null;
 };
 
@@ -71,7 +68,7 @@ export default async function CrewSchedulePage({
 	let query = supabase
 		.from("crew_assignments")
 		.select(
-			`role_in_event, fee_amount, bonus_amount, is_paid,
+			`role_in_event,
 			event:events!inner(
 				id, project_id, status, client_name, event_date,
 				setup_time, start_time, venue_name, venue_city,
@@ -174,7 +171,10 @@ export default async function CrewSchedulePage({
 							>
 								<div className="flex w-16 shrink-0 flex-col items-center justify-center">
 									<span className="text-muted-foreground text-[10px] font-medium uppercase">
-										{formatDateID(ev.event_date).split(" ").slice(0, 2).join(" ")}
+										{formatDateID(ev.event_date)
+											.split(" ")
+											.slice(0, 2)
+											.join(" ")}
 									</span>
 									<span
 										className={`tabular text-base font-semibold ${
@@ -202,15 +202,14 @@ export default async function CrewSchedulePage({
 									</p>
 									{hasAnyTbc && (
 										<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-											{tbcStart && <TbcBadge icon={Clock} label="Jam menyusul" />}
+											{tbcStart && (
+												<TbcBadge icon={Clock} label="Jam menyusul" />
+											)}
 											{tbcFrame && (
 												<TbcBadge icon={Frame} label="Frame menyusul" />
 											)}
 											{tbcBackdrop && (
-												<TbcBadge
-													icon={ImageIcon}
-													label="Backdrop menyusul"
-												/>
+												<TbcBadge icon={ImageIcon} label="Backdrop menyusul" />
 											)}
 										</div>
 									)}
@@ -220,24 +219,13 @@ export default async function CrewSchedulePage({
 										</span>
 										{!tbcFrame && ev.frame_size && (
 											<span className="text-[10px]">
-												frame {FRAME_SIZE_LABELS[ev.frame_size] ?? ev.frame_size}
+												frame{" "}
+												{FRAME_SIZE_LABELS[ev.frame_size] ?? ev.frame_size}
 											</span>
 										)}
 										{!tbcBackdrop && backdrop?.name && (
 											<span className="truncate text-[10px]">
 												bg {backdrop.name}
-											</span>
-										)}
-										<span className="tabular">
-											fee {formatRupiah(a.fee_amount + a.bonus_amount)}
-										</span>
-										{a.is_paid ? (
-											<span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-medium">
-												✓ paid
-											</span>
-										) : (
-											<span className="text-amber-600 dark:text-amber-400 text-[10px] font-medium">
-												• unpaid
 											</span>
 										)}
 									</div>
