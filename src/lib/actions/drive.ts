@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { withTimeout } from "@/lib/csv-import/resilience";
+import type { DriveCategory } from "@/lib/drive/categories";
 import {
 	countFolderFiles,
 	ensureEventTree,
@@ -22,16 +23,6 @@ export type CreateEventFolderResult = {
 };
 
 const FOLDER_CREATE_TIMEOUT_MS = 15_000;
-
-/** Per-event Drive subfolders. Kept human-friendly for the owners. */
-export const DRIVE_CATEGORIES = [
-	"Nota",
-	"Design",
-	"Hasil Cetak",
-	"Footage",
-	"Lainnya",
-] as const;
-export type DriveCategory = (typeof DRIVE_CATEGORIES)[number];
 
 type DriveFolderRef = { id: string; url: string };
 type DriveFoldersMap = Record<string, DriveFolderRef>;

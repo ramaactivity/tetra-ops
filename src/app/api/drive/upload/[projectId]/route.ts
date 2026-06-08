@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
 	createEventFolderInternal,
-	type DriveCategory,
 	ensureEventCategoryFolderInternal,
 } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import type { DriveCategory } from "@/lib/drive/categories";
 import {
 	getDriveConfigErrors,
 	isDriveConfigured,
