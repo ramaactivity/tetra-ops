@@ -149,13 +149,13 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 						<Receipt className="size-3.5" aria-hidden strokeWidth={2} />
 						Payments
 					</Link>
-					<Link
-						href={`/operations/${projectId}/crew`}
+					<a
+						href="#crew-manage"
 						className={buttonVariants({ variant: "outline", size: "sm" })}
 					>
 						<Users className="size-3.5" aria-hidden strokeWidth={2} />
 						Crew
-					</Link>
+					</a>
 					<Link
 						href={`/operations/${projectId}/equipment`}
 						className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -244,12 +244,12 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 				<div className="space-y-3 px-5 py-4">
 					<div className="flex items-center justify-between">
 						<span className="eyebrow">Crew Incharge</span>
-						<Link
-							href={`/operations/${projectId}/crew`}
+						<a
+							href="#crew-manage"
 							className="text-[11.5px] font-medium text-[#0070f3] hover:underline"
 						>
-							Manage →
-						</Link>
+							Kelola ↓
+						</a>
 					</div>
 					{crewAssignments.length === 0 ? (
 						<div className="rounded-md border border-dashed border-border-default p-4 text-center">

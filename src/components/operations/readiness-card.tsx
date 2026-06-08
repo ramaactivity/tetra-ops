@@ -123,7 +123,10 @@ export function EventReadinessCard(props: ReadinessInput) {
 					: "pending",
 		cta:
 			props.crewCount === 0
-				? { label: "Assign crew", href: `/operations/${props.projectId}/crew` }
+				? {
+						label: "Assign crew",
+						href: `/operations/${props.projectId}#crew-manage`,
+					}
 				: undefined,
 	});
 

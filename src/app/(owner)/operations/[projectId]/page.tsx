@@ -19,6 +19,11 @@ import {
 	EventStatusBadge,
 	PaymentStatusBadge,
 } from "@/components/badges/status-badge";
+import { AssignCrewForm } from "@/components/booking/assign-crew-form";
+import {
+	type AssignmentRow,
+	CrewAssignmentList,
+} from "@/components/booking/crew-assignment-list";
 import { DeleteEventButton } from "@/components/booking/delete-event-button";
 import {
 	SendWhatsAppButton,
@@ -40,6 +45,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { getAssignableCrew } from "@/lib/crew/assignable";
 import {
 	CHANNEL_TYPE_LABELS,
 	FRAME_SIZE_LABELS,
@@ -89,7 +95,7 @@ export default async function EventDetailPage({
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
-			crew_assignments:crew_assignments(role_in_event, fee_amount, user:users!crew_assignments_user_id_fkey(full_name, tier)),
+			crew_assignments:crew_assignments(id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
 			settlement:event_settlements(
 				id, revenue_net, hpp_total, opex_total, total_biaya, net_profit,
 				margin_percentage, is_loss, sinking_total, owner_pool_total,
@@ -147,13 +153,35 @@ export default async function EventDetailPage({
 			| null;
 	}>;
 	const crewAssignments = (event.crew_assignments ?? []) as Array<{
+		id: string;
 		role_in_event: string;
 		fee_amount: number;
+		bonus_amount: number | null;
+		fee_override_reason: string | null;
 		user:
-			| { full_name: string; tier: string | null }
-			| Array<{ full_name: string; tier: string | null }>
+			| { full_name: string; tier: string | null; phone_wa: string | null }
+			| Array<{
+					full_name: string;
+					tier: string | null;
+					phone_wa: string | null;
+			  }>
 			| null;
 	}>;
+	const crewAssignmentRows: AssignmentRow[] = crewAssignments.map((row) => {
+		const u = Array.isArray(row.user) ? row.user[0] : row.user;
+		return {
+			id: row.id,
+			role_in_event: row.role_in_event,
+			fee_amount: row.fee_amount,
+			bonus_amount: row.bonus_amount ?? 0,
+			fee_override_reason: row.fee_override_reason,
+			user: {
+				full_name: u?.full_name ?? "—",
+				tier: u?.tier ?? null,
+				phone_wa: u?.phone_wa ?? null,
+			},
+		};
+	});
 	const ROLE_LABELS: Record<string, string> = {
 		lead: "Lead",
 		asisten: "Asisten",
@@ -165,6 +193,8 @@ export default async function EventDetailPage({
 		? event.settlement[0]
 		: event.settlement;
 	const isMigratedLegacy = !!event.is_migrated_legacy;
+	// Crew can be managed inline on this page, except for read-only legacy archives.
+	const canManageCrew = canEdit && !isMigratedLegacy;
 	const isImportedLive = !isMigratedLegacy && !!event.legacy_invoice_number;
 	const canSettle =
 		!isMigratedLegacy &&
@@ -179,8 +209,8 @@ export default async function EventDetailPage({
 		: event.pic_contact;
 	const picDisplayName = picContact?.name ?? event.pic_name ?? null;
 	const picDisplayPhone = picContact?.phone ?? event.pic_wa ?? null;
-	const [{ count: equipmentCountRaw }, { data: rekapData }] = await Promise.all(
-		[
+	const [{ count: equipmentCountRaw }, { data: rekapData }, assignableCrew] =
+		await Promise.all([
 			supabase
 				.from("inventory_items")
 				.select("id", { count: "exact", head: true })
@@ -191,8 +221,10 @@ export default async function EventDetailPage({
 				.select("id, is_approved")
 				.eq("event_id", event.id)
 				.maybeSingle(),
-		],
-	);
+			canManageCrew
+				? getAssignableCrew(supabase, event.id, event.event_date)
+				: Promise.resolve([]),
+		]);
 	const equipmentCount = equipmentCountRaw ?? 0;
 	const rekapSubmitted = !!rekapData;
 
@@ -680,79 +712,94 @@ export default async function EventDetailPage({
 					</dl>
 				</CollapsibleCard>
 
-				<CollapsibleCard
-					icon={<Users className="size-4" aria-hidden strokeWidth={2} />}
-					title="Crew Assignments"
-					subtitle={
-						crewAssignments.length === 0
-							? "Belum ada crew di-assign"
-							: `${crewAssignments.length} crew · total fee ${formatRupiah(
-									crewAssignments.reduce((s, c) => s + c.fee_amount, 0),
-								)}`
-					}
-					actions={
-						<Link
-							href={`/operations/${event.project_id}/crew`}
-							className={headerActionCls}
-						>
-							Manage
-						</Link>
-					}
-					className="md:col-span-2"
-				>
-					{crewAssignments.length === 0 ? (
-						<div className="rounded-md border border-dashed border-border-default p-6 text-center">
-							<Users
-								className="mx-auto size-5 text-muted-foreground/60"
-								aria-hidden
-							/>
-							<p className="mt-2 text-[13px] font-medium text-foreground">
-								Belum ada crew di-assign
-							</p>
-							<p className="mt-1 text-[12px] text-muted-foreground">
-								Klik Manage untuk assign lead, asisten, dan crew C.
-							</p>
-						</div>
-					) : (
-						<ul className="divide-y divide-border-subtle">
-							{crewAssignments.map((row, idx) => {
-								const u = Array.isArray(row.user) ? row.user[0] : row.user;
-								return (
-									<li
-										key={`${u?.full_name ?? "crew"}-${idx}`}
-										className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-									>
-										<div className="min-w-0 flex-1">
-											<div className="truncate text-[13px] font-semibold text-foreground">
-												{u?.full_name ?? "—"}
+				<div id="crew-manage" className="scroll-mt-24 md:col-span-2">
+					<CollapsibleCard
+						icon={<Users className="size-4" aria-hidden strokeWidth={2} />}
+						title="Crew Incharge"
+						subtitle={
+							crewAssignments.length === 0
+								? "Belum ada crew di-assign — assign lead, asisten, dan crew C di sini."
+								: `${crewAssignments.length} crew · total fee ${formatRupiah(
+										crewAssignments.reduce((s, c) => s + c.fee_amount, 0),
+									)}`
+						}
+						defaultOpen
+					>
+						{canManageCrew ? (
+							<div className="space-y-5">
+								<CrewAssignmentList
+									projectId={event.project_id}
+									assignments={crewAssignmentRows}
+									event={eventForWA}
+								/>
+								<div className="space-y-3 border-t border-border-subtle pt-4">
+									<div>
+										<h3 className="text-[13px] font-semibold text-foreground">
+											Tambah crew
+										</h3>
+										<p className="text-[12px] text-muted-foreground">
+											Fee otomatis dari tier (senior / junior). Klik role di
+											samping nama untuk assign instan.
+										</p>
+									</div>
+									<AssignCrewForm
+										projectId={event.project_id}
+										eventId={event.id}
+										availableCrew={assignableCrew}
+									/>
+								</div>
+							</div>
+						) : crewAssignments.length === 0 ? (
+							<div className="rounded-md border border-dashed border-border-default p-6 text-center">
+								<Users
+									className="mx-auto size-5 text-muted-foreground/60"
+									aria-hidden
+								/>
+								<p className="mt-2 text-[13px] font-medium text-foreground">
+									Belum ada crew di-assign
+								</p>
+							</div>
+						) : (
+							<ul className="divide-y divide-border-subtle">
+								{crewAssignments.map((row, idx) => {
+									const u = Array.isArray(row.user) ? row.user[0] : row.user;
+									return (
+										<li
+											key={`${u?.full_name ?? "crew"}-${idx}`}
+											className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+										>
+											<div className="min-w-0 flex-1">
+												<div className="truncate text-[13px] font-semibold text-foreground">
+													{u?.full_name ?? "—"}
+												</div>
+												<div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+													<span className="eyebrow !text-[9.5px]">
+														{ROLE_LABELS[row.role_in_event] ??
+															row.role_in_event}
+													</span>
+													{u?.tier && (
+														<>
+															<span
+																className="text-muted-foreground/40"
+																aria-hidden
+															>
+																·
+															</span>
+															<span className="capitalize">{u.tier}</span>
+														</>
+													)}
+												</div>
 											</div>
-											<div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-												<span className="eyebrow !text-[9.5px]">
-													{ROLE_LABELS[row.role_in_event] ??
-														row.role_in_event}
-												</span>
-												{u?.tier && (
-													<>
-														<span
-															className="text-muted-foreground/40"
-															aria-hidden
-														>
-															·
-														</span>
-														<span className="capitalize">{u.tier}</span>
-													</>
-												)}
-											</div>
-										</div>
-										<span className="tabular shrink-0 text-[13px] font-medium text-foreground">
-											{formatRupiah(row.fee_amount)}
-										</span>
-									</li>
-								);
-							})}
-						</ul>
-					)}
-				</CollapsibleCard>
+											<span className="tabular shrink-0 text-[13px] font-medium text-foreground">
+												{formatRupiah(row.fee_amount)}
+											</span>
+										</li>
+									);
+								})}
+							</ul>
+						)}
+					</CollapsibleCard>
+				</div>
 
 				{eventAddons.length > 0 && (
 					<CollapsibleCard

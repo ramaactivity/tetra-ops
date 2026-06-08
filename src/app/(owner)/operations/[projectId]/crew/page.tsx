@@ -1,16 +1,14 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-	AssignCrewForm,
-	type CrewOption,
-} from "@/components/booking/assign-crew-form";
+import { AssignCrewForm } from "@/components/booking/assign-crew-form";
 import {
 	type AssignmentRow,
 	CrewAssignmentList,
 } from "@/components/booking/crew-assignment-list";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { getAssignableCrew } from "@/lib/crew/assignable";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ManageCrewPage({
@@ -39,15 +37,6 @@ export default async function ManageCrewPage({
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (!event) notFound();
-
-	// Fetch all crew users
-	const { data: allCrew } = await supabase
-		.from("users")
-		.select("id, full_name, tier")
-		.eq("role", "crew")
-		.eq("is_active", true)
-		.is("deleted_at", null)
-		.order("full_name", { ascending: true });
 
 	// Existing assignments for this event
 	const { data: assignmentsData } = await supabase
@@ -134,47 +123,11 @@ export default async function ManageCrewPage({
 		crew_notes: event.crew_notes ?? null,
 	};
 
-	const { data: assignedRaw } = await supabase
-		.from("crew_assignments")
-		.select("user_id")
-		.eq("event_id", event.id);
-	const assignedSet = new Set(
-		(assignedRaw ?? []).map((r) => r.user_id as string),
+	const availableCrew = await getAssignableCrew(
+		supabase,
+		event.id,
+		event.event_date,
 	);
-
-	// Conflict detection: crew already assigned to OTHER events on same date
-	const { data: sameDayEvents } = await supabase
-		.from("events")
-		.select("id")
-		.eq("event_date", event.event_date)
-		.neq("id", event.id);
-	const sameDayIds = (sameDayEvents ?? []).map((e) => e.id as string);
-
-	let conflictUserIds = new Set<string>();
-	if (sameDayIds.length > 0) {
-		const { data: conflicts } = await supabase
-			.from("crew_assignments")
-			.select("user_id")
-			.in("event_id", sameDayIds);
-		conflictUserIds = new Set(
-			(conflicts ?? []).map((c) => c.user_id as string),
-		);
-	}
-
-	const availableCrew: CrewOption[] = (
-		(allCrew as Array<{
-			id: string;
-			full_name: string;
-			tier: string | null;
-		}> | null) ?? []
-	)
-		.filter((c) => !assignedSet.has(c.id))
-		.map((c) => ({
-			id: c.id,
-			full_name: c.full_name,
-			tier: c.tier,
-			hasConflict: conflictUserIds.has(c.id),
-		}));
 
 	return (
 		<Container size="sm" className="space-y-6">
