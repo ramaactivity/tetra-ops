@@ -13,6 +13,7 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsFilterBar } from "@/components/operations/filter-bar";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { MonthMemory } from "@/components/operations/month-memory";
 import {
 	type CrewChip,
 	type EventRow,
@@ -35,6 +36,18 @@ function currentYearMonth(): string {
 	return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Sort options for the list. Default = `date_asc`: nearest event date at the
+// top (earliest first), so the soonest job is the first thing you see.
+const SORT_OPTIONS = {
+	date_asc: { column: "event_date", ascending: true },
+	date_desc: { column: "event_date", ascending: false },
+	name_asc: { column: "client_name", ascending: true },
+	name_desc: { column: "client_name", ascending: false },
+} as const;
+
+type SortKey = keyof typeof SORT_OPTIONS;
+const DEFAULT_SORT: SortKey = "date_asc";
+
 export default async function OperationsListPage({
 	searchParams,
 }: {
@@ -42,8 +55,8 @@ export default async function OperationsListPage({
 		q?: string;
 		status?: string;
 		month?: string;
-		show_archived?: string;
 		crew?: string;
+		sort?: string;
 	}>;
 }) {
 	const params = await searchParams;
@@ -59,8 +72,11 @@ export default async function OperationsListPage({
 			: monthParam && /^\d{4}-\d{2}$/.test(monthParam)
 				? monthParam
 				: currentYearMonth();
-	const showArchived = params.show_archived === "1";
 	const crewFilter = params.crew?.trim() ?? "";
+	const sortParam = params.sort?.trim() ?? "";
+	const sort: SortKey =
+		sortParam in SORT_OPTIONS ? (sortParam as SortKey) : DEFAULT_SORT;
+	const sortConf = SORT_OPTIONS[sort];
 
 	const me = await getCurrentUser();
 	const supabase = await createClient();
@@ -87,14 +103,20 @@ export default async function OperationsListPage({
 			 backdrop:backdrops(name, type)`,
 		)
 		.is("deleted_at", null)
-		.order("event_date", { ascending: false })
+		.order(sortConf.column, { ascending: sortConf.ascending })
 		.limit(100);
 
-	if (!showArchived) {
-		listQuery = listQuery
-			.eq("is_migrated_legacy", false)
-			.neq("status", "archived");
+	// Same-day events fall back to start time so the day reads top-to-bottom.
+	if (sortConf.column === "event_date") {
+		listQuery = listQuery.order("start_time", {
+			ascending: sortConf.ascending,
+			nullsFirst: false,
+		});
 	}
+
+	// Archived + legacy events are always listed — they're real jobs the team
+	// needs to see. Only their *financial* data is excluded (the KPIs below
+	// scope Outstanding / Awaiting Settlement to non-legacy events).
 
 	if (q) listQuery = listQuery.ilike("client_name", `%${q}%`);
 	if (status) listQuery = listQuery.eq("status", status);
@@ -122,24 +144,22 @@ export default async function OperationsListPage({
 		thisMonthCountResult,
 		awaitingCountResult,
 		outstandingResult,
-		archivedCountResult,
 		crewListResult,
 		eventTypesResult,
 	] = await Promise.all([
 		listQuery,
+		// Total Events — every event ever recorded (incl. archived + legacy).
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null),
+		// Bulan Ini — every booking with an event date this month, any status.
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.gte("event_date", ymStart)
-			.lte("event_date", ymEnd)
-			.in("status", ["confirmed", "upcoming", "in_progress"]),
+			.lte("event_date", ymEnd),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
@@ -149,11 +169,6 @@ export default async function OperationsListPage({
 		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
 		// reduce. See get_outstanding_total migration.
 		supabase.rpc("get_outstanding_total"),
-		supabase
-			.from("events")
-			.select("id", { count: "exact", head: true })
-			.is("deleted_at", null)
-			.or("is_migrated_legacy.eq.true,status.eq.archived"),
 		supabase
 			.from("users")
 			.select("id, full_name, nickname, tier")
@@ -307,16 +322,13 @@ export default async function OperationsListPage({
 	const thisMonthCount = thisMonthCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
 	const outstanding = (outstandingResult.data as number | null) ?? 0;
-	const archivedCount = archivedCountResult.count ?? 0;
 
 	// `month` is always set (auto-defaults to current month), so consider it
 	// a "user-set" filter only when explicitly different from the default.
 	const isCustomMonth =
 		monthParam === "all" ||
 		(Boolean(monthParam) && monthParam !== currentYearMonth());
-	const hasFilters = Boolean(
-		q || status || isCustomMonth || showArchived || crewFilter,
-	);
+	const hasFilters = Boolean(q || status || isCustomMonth || crewFilter);
 	const isSuperAdmin = me?.profile.role === "super_admin";
 
 	const selectedCrew = crewFilter
@@ -325,6 +337,7 @@ export default async function OperationsListPage({
 
 	return (
 		<Container size="xl" className="space-y-6">
+			<MonthMemory />
 			<SectionHeader
 				title="Operations"
 				description="Kelola event dari draft sampai pelunasan."
@@ -356,13 +369,14 @@ export default async function OperationsListPage({
 				<KpiCard
 					label="Total Events"
 					value={totalCount.toLocaleString("id-ID")}
+					hint="Semua event tercatat (termasuk arsip)"
 					icon={Briefcase}
 					accent="primary"
 				/>
 				<KpiCard
 					label="Bulan Ini"
 					value={thisMonthCount.toLocaleString("id-ID")}
-					hint="Confirmed / Upcoming / In Progress"
+					hint="Semua event bulan ini, semua status"
 					icon={CalendarClock}
 					accent="emerald"
 				/>
@@ -388,10 +402,9 @@ export default async function OperationsListPage({
 					defaultStatus={status}
 					defaultMonth={month}
 					monthShowsAll={monthParam === "all"}
-					defaultShowArchived={showArchived}
-					archivedCount={archivedCount}
 					defaultCrew={crewFilter}
 					crewOptions={crewList}
+					defaultSort={sort}
 				/>
 
 				{selectedCrew && (

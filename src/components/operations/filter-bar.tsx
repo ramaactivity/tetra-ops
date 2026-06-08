@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Search, Users, X } from "lucide-react";
+import { ArrowDownUp, Search, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
  * <OperationsFilterBar /> — Vercel filter chrome.
  *
  * All controls share the same 32px height + 6px radius + white card surface
- * with hairline border. Search input + selects + month picker + archived
- * toggle line up on one row with body-sm typography. The "Show archived"
- * toggle uses subtle inset fill when active (no loud color).
+ * with hairline border. Search input + selects + month picker + crew filter
+ * line up on one row with body-sm typography. Archived/legacy events are
+ * always listed, so there is no archived toggle.
  */
 
 const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
@@ -31,6 +31,15 @@ const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
 	"archived",
 ];
 
+const SORT_OPTIONS = [
+	{ value: "date_asc", label: "Tanggal · terdekat" },
+	{ value: "date_desc", label: "Tanggal · terjauh" },
+	{ value: "name_asc", label: "Nama klien · A–Z" },
+	{ value: "name_desc", label: "Nama klien · Z–A" },
+] as const;
+
+const DEFAULT_SORT = "date_asc";
+
 export type CrewOption = {
 	id: string;
 	full_name: string;
@@ -38,18 +47,14 @@ export type CrewOption = {
 	tier: "senior" | "junior" | null;
 };
 
-const CONTROL_BASE =
-	"inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-card px-3 text-[13px] font-medium leading-none text-foreground transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none";
-
 export function OperationsFilterBar({
 	defaultQ,
 	defaultStatus,
 	defaultMonth,
 	monthShowsAll = false,
-	defaultShowArchived = false,
-	archivedCount = 0,
 	defaultCrew = "",
 	crewOptions = [],
+	defaultSort = DEFAULT_SORT,
 }: {
 	defaultQ: string;
 	defaultStatus: string;
@@ -57,19 +62,14 @@ export function OperationsFilterBar({
 	/** When true, picker shows "Semua bulan" instead of a specific month
 	 * (user has explicitly opted out of the current-month default). */
 	monthShowsAll?: boolean;
-	defaultShowArchived?: boolean;
-	archivedCount?: number;
 	defaultCrew?: string;
 	crewOptions?: CrewOption[];
+	defaultSort?: string;
 }) {
 	const router = useRouter();
 	const [q, setQ] = useState(defaultQ);
 	const hasFilters = Boolean(
-		defaultQ ||
-			defaultStatus ||
-			defaultMonth ||
-			defaultShowArchived ||
-			defaultCrew,
+		defaultQ || defaultStatus || defaultMonth || defaultCrew,
 	);
 
 	function buildHref(updates: Record<string, string>) {
@@ -78,8 +78,8 @@ export function OperationsFilterBar({
 			q: defaultQ,
 			status: defaultStatus,
 			month: defaultMonth,
-			show_archived: defaultShowArchived ? "1" : "",
 			crew: defaultCrew,
+			sort: defaultSort === DEFAULT_SORT ? "" : defaultSort,
 			...updates,
 		};
 		for (const [k, v] of Object.entries(merged)) {
@@ -180,24 +180,19 @@ export function OperationsFilterBar({
 				</div>
 			)}
 
-			<Link
-				href={buildHref({ show_archived: defaultShowArchived ? "" : "1" })}
-				className={cn(
-					CONTROL_BASE,
-					defaultShowArchived
-						? "border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
-						: "text-muted-foreground hover:text-foreground",
-				)}
-				aria-pressed={defaultShowArchived}
-			>
-				<Archive className="size-3.5" aria-hidden />
-				<span>Show archived</span>
-				{archivedCount > 0 && (
-					<span className="tabular text-[12px] opacity-60">
-						({archivedCount})
-					</span>
-				)}
-			</Link>
+			<div className="relative">
+				<ArrowDownUp
+					className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+					aria-hidden
+				/>
+				<NativeSelect
+					value={defaultSort}
+					onValueChange={(value) => router.push(buildHref({ sort: value }))}
+					options={SORT_OPTIONS.map((o) => ({ ...o }))}
+					aria-label="Urutkan event"
+					triggerClassName="pl-7"
+				/>
+			</div>
 
 			{hasFilters && (
 				<Link
