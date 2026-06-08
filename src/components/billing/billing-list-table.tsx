@@ -2,7 +2,7 @@
 
 import { Receipt } from "lucide-react";
 import Link from "next/link";
-import { PaymentStatusBadge } from "@/components/badges/status-badge";
+import { PaymentStatusDot } from "@/components/badges/status-badge";
 import {
 	SendWhatsAppButton,
 	type WhatsAppTemplate,
@@ -62,6 +62,7 @@ export function BillingListTable({ events, templates }: Props) {
 		{
 			key: "client",
 			header: "Klien",
+			width: "23%",
 			render: (ev) => (
 				<div className="flex flex-col gap-0.5">
 					<span className="truncate text-sm font-medium text-foreground">
@@ -69,7 +70,7 @@ export function BillingListTable({ events, templates }: Props) {
 					</span>
 					<Link
 						href={`/operations/${ev.project_id}`}
-						className="tabular w-fit text-xs text-muted-foreground transition-colors hover:text-primary"
+						className="tabular w-fit whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary"
 						style={{ viewTransitionName: `event-${ev.project_id}` }}
 					>
 						{ev.project_id}
@@ -81,8 +82,9 @@ export function BillingListTable({ events, templates }: Props) {
 			key: "event_date",
 			header: "Event Date",
 			mobileLabel: "Tanggal",
+			width: "112px",
 			render: (ev) => (
-				<span className="tabular text-sm text-muted-foreground">
+				<span className="tabular whitespace-nowrap text-sm text-muted-foreground">
 					{formatDateID(ev.event_date)}
 				</span>
 			),
@@ -91,12 +93,13 @@ export function BillingListTable({ events, templates }: Props) {
 			key: "due_date",
 			header: "Due Date",
 			mobileLabel: "Jatuh Tempo",
+			width: "112px",
 			render: (ev) => {
 				const due = ev.due_date ?? ev.event_date;
 				return (
 					<span
 						className={cn(
-							"tabular text-sm",
+							"tabular whitespace-nowrap text-sm",
 							dueDateColor(ev.due_date, ev.event_date, ev.payment_status),
 						)}
 					>
@@ -110,8 +113,9 @@ export function BillingListTable({ events, templates }: Props) {
 			header: "Total",
 			align: "right",
 			hideOnMobile: true,
+			width: "120px",
 			render: (ev) => (
-				<span className="tabular text-sm font-medium text-foreground">
+				<span className="tabular whitespace-nowrap text-sm font-medium text-foreground">
 					{ev.grand_total ? formatRupiah(ev.grand_total) : "—"}
 				</span>
 			),
@@ -121,8 +125,9 @@ export function BillingListTable({ events, templates }: Props) {
 			header: "Paid",
 			align: "right",
 			hideOnMobile: true,
+			width: "120px",
 			render: (ev) => (
-				<span className="tabular text-sm text-emerald-600 dark:text-emerald-400">
+				<span className="tabular whitespace-nowrap text-sm text-emerald-600 dark:text-emerald-400">
 					{ev.total_paid > 0 ? (
 						formatRupiah(ev.total_paid)
 					) : (
@@ -135,9 +140,10 @@ export function BillingListTable({ events, templates }: Props) {
 			key: "remaining_balance",
 			header: "Sisa",
 			align: "right",
+			width: "120px",
 			render: (ev) =>
 				ev.remaining_balance > 0 ? (
-					<span className="tabular text-sm font-semibold text-foreground">
+					<span className="tabular whitespace-nowrap text-sm font-semibold text-foreground">
 						{formatRupiah(ev.remaining_balance)}
 					</span>
 				) : (
@@ -147,14 +153,16 @@ export function BillingListTable({ events, templates }: Props) {
 		{
 			key: "payment_status",
 			header: "Status",
-			render: (ev) => <PaymentStatusBadge status={ev.payment_status} />,
+			width: "104px",
+			render: (ev) => <PaymentStatusDot status={ev.payment_status} />,
 		},
 		{
 			key: "actions",
 			header: "Actions",
 			align: "right",
+			width: "184px",
 			render: (ev) => (
-				<div className="flex items-center justify-end gap-1">
+				<div className="flex items-center justify-end gap-1.5">
 					<SendWhatsAppButton
 						event={{
 							project_id: ev.project_id,
@@ -174,9 +182,9 @@ export function BillingListTable({ events, templates }: Props) {
 					<Link
 						href={`/operations/${ev.project_id}/payments`}
 						title="Log payment / lihat history"
-						className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-3"
+						className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-default bg-surface-2 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-3"
 					>
-						<Receipt className="size-3.5" />
+						<Receipt className="size-3.5 shrink-0" />
 						Payments
 					</Link>
 				</div>

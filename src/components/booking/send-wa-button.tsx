@@ -41,20 +41,19 @@ export function SendWhatsAppButton({
 	}
 
 	const sizeClass =
-		size === "sm"
-			? "h-8 px-2.5 text-xs gap-1"
-			: "h-9 px-3 text-sm gap-1.5";
+		size === "sm" ? "h-8 px-2.5 text-xs gap-1.5" : "h-9 px-3 text-sm gap-1.5";
+	const label = size === "sm" ? "WA" : "Send WA";
 
 	if (templates.length === 0) {
 		return (
 			<button
 				type="button"
 				disabled
-				className={`border-border-default bg-surface-2 text-muted-foreground inline-flex items-center rounded-md border font-medium ${sizeClass} disabled:cursor-not-allowed disabled:opacity-60`}
+				className={`border-border-default bg-surface-2 text-muted-foreground inline-flex items-center whitespace-nowrap rounded-md border font-medium ${sizeClass} disabled:cursor-not-allowed disabled:opacity-60`}
 				title="Belum ada WA template"
 			>
-				<MessageCircle className="h-3.5 w-3.5" />
-				WA
+				<MessageCircle className="size-3.5 shrink-0" />
+				{label}
 			</button>
 		);
 	}
@@ -62,11 +61,11 @@ export function SendWhatsAppButton({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
-				className={`border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex items-center rounded-md border font-medium ${sizeClass}`}
+				className={`border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex items-center whitespace-nowrap rounded-md border font-medium transition-colors ${sizeClass}`}
 			>
-				<MessageCircle className="h-3.5 w-3.5" />
-				Send WA
-				<ChevronDown className="h-3 w-3" />
+				<MessageCircle className="size-3.5 shrink-0" />
+				{label}
+				<ChevronDown className="size-3 shrink-0 opacity-60" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-72">
 				<DropdownMenuGroup>
