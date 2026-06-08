@@ -237,12 +237,19 @@ export async function receivePurchaseRequest(
 		.insert(movements);
 	if (insErr) return { ok: false, error: insErr.message };
 
-	for (const u of priUpdates) {
-		await supabase
-			.from("purchase_request_items")
-			.update({ qty_received: u.qty_received })
-			.eq("id", u.id);
-	}
+	// Each row gets a distinct qty_received, so this can't be one bulk UPDATE —
+	// but the updates are independent, so fire them concurrently (≈1 round-trip
+	// wall-clock instead of N sequential ones) and surface any failure.
+	const priUpdateResults = await Promise.all(
+		priUpdates.map((u) =>
+			supabase
+				.from("purchase_request_items")
+				.update({ qty_received: u.qty_received })
+				.eq("id", u.id),
+		),
+	);
+	const priUpdateErr = priUpdateResults.find((r) => r.error)?.error;
+	if (priUpdateErr) return { ok: false, error: priUpdateErr.message };
 
 	revalidatePath("/warehouse/purchase-requests");
 	revalidatePath("/warehouse");

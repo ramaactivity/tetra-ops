@@ -6,6 +6,18 @@ const nextConfig: NextConfig = {
 	// Per docs/04a_MOTION_GUIDELINES.md: zero-JS-bloat motion strategy.
 	experimental: {
 		viewTransition: true,
+		// Barrel-import optimization: rewrite `import { X } from "pkg"` into deep
+		// path imports so the bundler only ships the icons/primitives actually
+		// used, not the whole package. Cuts client JS + speeds compile across the
+		// ~166 client components. lucide-react/date-fns are in Next's defaults,
+		// but radix-ui (unified meta-package) + @base-ui/react are NOT — listing
+		// explicitly guarantees coverage.
+		optimizePackageImports: [
+			"lucide-react",
+			"radix-ui",
+			"@base-ui/react",
+			"date-fns",
+		],
 	},
 	// Master-data master-data dipindah keluar dari /settings ke lokasi yang lebih
 	// logis (Operations / Finance / Kontak). Redirect permanen (308) supaya

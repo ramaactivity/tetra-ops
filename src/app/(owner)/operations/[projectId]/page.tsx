@@ -129,6 +129,21 @@ export default async function EventDetailPage({
 
 	if (!event) notFound();
 
+	// Design frames — SAME store as the Asset & Design page (event_assets), so
+	// the Design card here stays in sync with that page (no separate silo).
+	const { data: designFramesRaw } = await supabase
+		.from("event_assets")
+		.select("id, label, url, drive_file_id")
+		.eq("event_id", event.id)
+		.eq("asset_type", "design_frame")
+		.order("created_at", { ascending: false });
+	const designFrames = (designFramesRaw ?? []) as Array<{
+		id: string;
+		label: string;
+		url: string;
+		drive_file_id: string | null;
+	}>;
+
 	const eventTypeLabelByCode = new Map(
 		((eventTypesData ?? []) as Array<{ code: string; label: string }>).map(
 			(t) => [t.code, t.label],
@@ -974,7 +989,7 @@ export default async function EventDetailPage({
 				<DesignCard
 					eventId={event.id}
 					projectId={event.project_id}
-					driveUrl={event.design_drive_folder_url}
+					frames={designFrames}
 					briefAt={event.design_brief_at}
 					designStatus={(event.design_status ?? "belum") as DesignStatus}
 					canEdit={canEdit}

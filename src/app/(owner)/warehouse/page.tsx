@@ -50,8 +50,12 @@ export default async function WarehousePage({
 
 	const supabase = await createClient();
 
-	const [consumablesResult, equipmentResult, stockLevelsResult] =
-		await Promise.all([
+	const [
+		consumablesResult,
+		equipmentResult,
+		stockLevelsResult,
+		suppliersForPembelianRes,
+	] = await Promise.all([
 			supabase
 				.from("inventory_items")
 				.select(
@@ -82,6 +86,14 @@ export default async function WarehousePage({
 			// entire stock_movements table and computing per-item in JS (which
 			// was O(items × movements)). See get_stock_levels migration.
 			supabase.rpc("get_stock_levels"),
+			// Suppliers (ringan) untuk quick-restock dialog "Belanja Kritis" —
+			// independen, jadi ikut di-batch di sini, bukan round-trip terpisah.
+			supabase
+				.from("suppliers")
+				.select("id, name, default_payment_term, default_top_days")
+				.is("deleted_at", null)
+				.eq("is_active", true)
+				.order("name"),
 		]);
 
 	type RawConsumable = {
@@ -123,14 +135,6 @@ export default async function WarehousePage({
 		};
 	});
 
-	// Suppliers fetched ringan untuk quick-restock dialog (Belanja Kritis).
-	// Hanya dipakai kalau tab consumables; selalu fetch karena cheap.
-	const suppliersForPembelianRes = await supabase
-		.from("suppliers")
-		.select("id, name, default_payment_term, default_top_days")
-		.is("deleted_at", null)
-		.eq("is_active", true)
-		.order("name");
 	const pembelianSuppliers: PembelianSupplierOption[] =
 		(suppliersForPembelianRes.data ?? []) as PembelianSupplierOption[];
 

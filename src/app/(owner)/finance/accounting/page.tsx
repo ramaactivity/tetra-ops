@@ -43,11 +43,40 @@ export default async function AccountingPage({
 
 	const supabase = await createClient();
 
-	// Chart of accounts (all, incl. inactive — Bagan Akun toggles visibility).
-	const { data: coa } = await supabase
-		.from("chart_of_accounts")
-		.select("code, name, account_type, parent_code, description, is_active")
-		.order("code");
+	// Chart of accounts, all journal lines (for live balances), and recent
+	// journal entries (Jurnal tab) are independent — fetch in parallel (one
+	// round-trip instead of three sequential ones).
+	let journalEntriesQuery = supabase
+		.from("journal_entries")
+		.select(
+			`id, ref_id, entry_date, entry_type, description, source_type,
+			 source_id, total_amount, is_reversed, reversed_at, created_at,
+			 created_by_user:users!journal_entries_created_by_fkey(full_name),
+			 lines:journal_lines(
+				 id, account_code, debit_amount, credit_amount, description, line_order,
+				 account:chart_of_accounts!journal_lines_account_code_fkey(name)
+			 )`,
+		)
+		.order("entry_date", { ascending: false })
+		.order("created_at", { ascending: false })
+		.limit(200);
+	if (from) journalEntriesQuery = journalEntriesQuery.gte("entry_date", from);
+	if (to) journalEntriesQuery = journalEntriesQuery.lte("entry_date", to);
+
+	const [{ data: coa }, { data: lineData }, { data: rawEntries }] =
+		await Promise.all([
+			// Chart of accounts (all, incl. inactive — Bagan Akun toggles visibility).
+			supabase
+				.from("chart_of_accounts")
+				.select("code, name, account_type, parent_code, description, is_active")
+				.order("code"),
+			// Every journal line, all-time, for live balances. Reversed entries and
+			// their pembalik counter-entries both stay in and net to zero.
+			supabase
+				.from("journal_lines")
+				.select("account_code, debit_amount, credit_amount"),
+			journalEntriesQuery,
+		]);
 	const coaBase = (coa ?? []) as Array<{
 		code: string;
 		name: string;
@@ -56,12 +85,6 @@ export default async function AccountingPage({
 		description: string | null;
 		is_active: boolean;
 	}>;
-
-	// Every journal line, all-time, for live balances. Reversed entries and
-	// their pembalik counter-entries both stay in and net to zero.
-	const { data: lineData } = await supabase
-		.from("journal_lines")
-		.select("account_code, debit_amount, credit_amount");
 	const allLines: LineForBalance[] = (
 		(lineData ?? []) as Array<{
 			account_code: string;
@@ -93,26 +116,10 @@ export default async function AccountingPage({
 		};
 	});
 
-	// Recent journal entries (with lines) for the Jurnal tab.
+	// Recent journal entries (with lines) for the Jurnal tab — already fetched
+	// above in the parallel batch (rawEntries).
 	let journalRows: JournalEntryRow[] = [];
 	{
-		let q = supabase
-			.from("journal_entries")
-			.select(
-				`id, ref_id, entry_date, entry_type, description, source_type,
-				 source_id, total_amount, is_reversed, reversed_at, created_at,
-				 created_by_user:users!journal_entries_created_by_fkey(full_name),
-				 lines:journal_lines(
-					 id, account_code, debit_amount, credit_amount, description, line_order,
-					 account:chart_of_accounts!journal_lines_account_code_fkey(name)
-				 )`,
-			)
-			.order("entry_date", { ascending: false })
-			.order("created_at", { ascending: false })
-			.limit(200);
-		if (from) q = q.gte("entry_date", from);
-		if (to) q = q.lte("entry_date", to);
-		const { data: rawEntries } = await q;
 		journalRows = (
 			(rawEntries ?? []) as Array<{
 				id: string;

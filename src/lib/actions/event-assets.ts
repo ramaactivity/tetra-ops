@@ -61,10 +61,46 @@ export async function addEventAsset(
 	});
 	if (error) return { ok: false, error: error.message };
 
+	if (assetType === "design_frame") {
+		await mirrorDesignToEvent(supabase, resolvedEventId, url);
+	}
+
 	revalidatePath("/design");
 	revalidatePath(`/design/${eventId}`);
 	revalidatePath(`/operations/${eventId}`);
 	return { ok: true };
+}
+
+/**
+ * Keep the legacy `events.design_drive_folder_url` + design_status in sync when
+ * a design_frame asset is added (from the Asset & Design page). The Operations
+ * Design card and Asset & Design page share `event_assets` as the source of
+ * truth; this mirror keeps the crew "Desain" shortcut + legacy readers working.
+ * Also revalidates the Operations route by the event's project_id.
+ */
+async function mirrorDesignToEvent(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+	url: string,
+) {
+	const { data: cur } = await supabase
+		.from("events")
+		.select("project_id, design_brief_at, design_status")
+		.eq("id", eventId)
+		.maybeSingle();
+
+	const now = new Date().toISOString();
+	const updates: Record<string, unknown> = {
+		design_drive_folder_url: url,
+		updated_at: now,
+	};
+	if (!cur?.design_brief_at) updates.design_brief_at = now;
+	if (cur?.design_status === "belum" || !cur?.design_status) {
+		updates.design_status = "proses";
+	}
+	await supabase.from("events").update(updates).eq("id", eventId);
+
+	if (cur?.project_id) revalidatePath(`/operations/${cur.project_id}`);
 }
 
 /**
@@ -102,6 +138,8 @@ export async function addUploadedDesignAsset(
 		uploaded_by: me.profile.id,
 	});
 	if (error) return { ok: false, error: error.message };
+
+	await mirrorDesignToEvent(supabase, ev.id, payload.url);
 
 	revalidatePath("/design");
 	revalidatePath(`/design/${projectId}`);

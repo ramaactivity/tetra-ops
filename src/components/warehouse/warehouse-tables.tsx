@@ -11,6 +11,7 @@ import {
 	Search,
 	ShoppingCart,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -22,10 +23,16 @@ import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
-import {
-	AssetDetailDrawer,
-	type AssetUnit,
-} from "@/components/warehouse/asset-detail-drawer";
+import type { AssetUnit } from "@/components/warehouse/asset-detail-drawer";
+// Heavy detail drawer — only mounts after a user clicks an asset row
+// (`drawerGroup && …`), so defer its chunk out of the warehouse page bundle.
+const AssetDetailDrawer = dynamic(
+	() =>
+		import("@/components/warehouse/asset-detail-drawer").then(
+			(m) => m.AssetDetailDrawer,
+		),
+	{ ssr: false },
+);
 import { BulkActionToolbar } from "@/components/warehouse/bulk-action-toolbar";
 import {
 	PembelianDialog,

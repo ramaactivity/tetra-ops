@@ -14,41 +14,58 @@ async function requireOwnerLevel() {
 	return me;
 }
 
-const DesignBriefSchema = z.object({
-	design_drive_folder_url: z
+const DesignLinkSchema = z.object({
+	url: z
 		.string()
 		.trim()
 		.url("Harus URL valid (https://drive.google.com/...)")
 		.max(500),
+	label: z.string().trim().max(120).optional(),
 });
 
 export type DesignFormState =
 	| { error?: string; values?: Record<string, string> }
 	| undefined;
 
-export async function saveDesignBrief(
+/**
+ * Add a design link from the Operations event page. This writes to the SAME
+ * store as the Asset & Design page — an `event_assets` row of type
+ * `design_frame` — so a link added here shows up there and vice versa (single
+ * source of truth, no separate `design_drive_folder_url` silo).
+ *
+ * `events.design_drive_folder_url` is still mirrored to the latest link for
+ * backward-compat (crew "Desain" shortcut + legacy readers), and design_status
+ * is bumped off "belum" since adding a design means work has started.
+ */
+export async function addDesignLink(
 	eventId: string,
 	projectId: string,
 	_prev: DesignFormState,
 	formData: FormData,
 ): Promise<DesignFormState> {
-	await requireOwnerLevel();
+	const me = await requireOwnerLevel();
 
-	const parsed = DesignBriefSchema.safeParse({
-		design_drive_folder_url: formData.get("design_drive_folder_url"),
+	const parsed = DesignLinkSchema.safeParse({
+		url: formData.get("url"),
+		label: formData.get("label") ?? undefined,
 	});
 	if (!parsed.success) {
 		return {
 			error: parsed.error.issues[0]?.message ?? "Invalid input",
-			values: {
-				design_drive_folder_url: String(
-					formData.get("design_drive_folder_url") ?? "",
-				),
-			},
+			values: { url: String(formData.get("url") ?? "") },
 		};
 	}
 
 	const supabase = await createClient();
+
+	const { error: assetErr } = await supabase.from("event_assets").insert({
+		event_id: eventId,
+		asset_type: "design_frame",
+		label: parsed.data.label || "Design link",
+		url: parsed.data.url,
+		uploaded_by: me.profile.id,
+	});
+	if (assetErr) return { error: assetErr.message };
 
 	const { data: cur } = await supabase
 		.from("events")
@@ -56,26 +73,21 @@ export async function saveDesignBrief(
 		.eq("id", eventId)
 		.maybeSingle();
 
+	const now = new Date().toISOString();
 	const updates: Record<string, unknown> = {
-		design_drive_folder_url: parsed.data.design_drive_folder_url,
-		updated_at: new Date().toISOString(),
+		design_drive_folder_url: parsed.data.url,
+		updated_at: now,
 	};
-	if (!cur?.design_brief_at) {
-		updates.design_brief_at = new Date().toISOString();
-	}
-	// Uploading a design link means work has started — move design status off
-	// "belum". Does NOT touch the event lifecycle status anymore.
+	if (!cur?.design_brief_at) updates.design_brief_at = now;
+	// Adding a design means work has started — move off "belum". Does NOT touch
+	// the event lifecycle status.
 	if (cur?.design_status === "belum" || !cur?.design_status) {
 		updates.design_status = "proses";
 	}
-
-	const { error } = await supabase
-		.from("events")
-		.update(updates)
-		.eq("id", eventId);
-	if (error) return { error: error.message };
+	await supabase.from("events").update(updates).eq("id", eventId);
 
 	revalidatePath(`/operations/${projectId}`);
+	revalidatePath(`/design/${projectId}`);
 	revalidatePath("/design");
 	return undefined;
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { ExternalLink, Palette } from "lucide-react";
+import { ArrowRight, Download, ExternalLink, Palette } from "lucide-react";
+import Link from "next/link";
 import { useActionState } from "react";
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import {
+	addDesignLink,
 	type DesignFormState,
-	saveDesignBrief,
 } from "@/lib/actions/event-design";
 import {
 	DESIGN_STATUS_LABELS,
@@ -14,28 +15,34 @@ import {
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+export type DesignFrame = {
+	id: string;
+	label: string;
+	url: string;
+	drive_file_id: string | null;
+};
+
 export function DesignCard({
 	eventId,
 	projectId,
-	driveUrl,
+	frames,
 	briefAt,
 	designStatus,
 	canEdit,
 }: {
 	eventId: string;
 	projectId: string;
-	driveUrl: string | null;
+	frames: DesignFrame[];
 	briefAt: string | null;
 	designStatus: DesignStatus;
 	canEdit: boolean;
 }) {
-	const action = saveDesignBrief.bind(null, eventId, projectId);
+	const action = addDesignLink.bind(null, eventId, projectId);
 	const [state, formAction, pending] = useActionState<
 		DesignFormState,
 		FormData
 	>(action, undefined);
 
-	const initialUrl = state?.values?.design_drive_folder_url ?? driveUrl ?? "";
 	const tone = DESIGN_STATUS_TONE[designStatus] ?? DESIGN_STATUS_TONE.belum;
 
 	return (
@@ -77,38 +84,62 @@ export function DesignCard({
 				</div>
 			)}
 
-			{driveUrl && (
-				<a
-					href={driveUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="border-border-default bg-background hover:bg-muted text-primary flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
-				>
-					<span className="truncate font-mono">{driveUrl}</span>
-					<ExternalLink className="h-3.5 w-3.5 shrink-0" />
-				</a>
+			{/* Design frames — SAME data as the Asset & Design page (event_assets) */}
+			{frames.length > 0 ? (
+				<ul className="space-y-1.5">
+					{frames.map((f) => (
+						<li
+							key={f.id}
+							className="border-border-default bg-background flex items-center justify-between gap-2 rounded-md border px-3 py-2"
+						>
+							<span className="truncate text-sm">{f.label}</span>
+							<div className="flex shrink-0 items-center gap-3">
+								{f.drive_file_id && (
+									<a
+										href={`https://drive.google.com/uc?export=download&id=${f.drive_file_id}`}
+										className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+									>
+										<Download className="h-3.5 w-3.5" />
+										Download
+									</a>
+								)}
+								<a
+									href={f.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+								>
+									Buka
+									<ExternalLink className="h-3.5 w-3.5" />
+								</a>
+							</div>
+						</li>
+					))}
+				</ul>
+			) : (
+				<p className="text-muted-foreground text-xs italic">
+					Belum ada design. Tempel link folder/design di bawah, atau kelola di
+					halaman Asset &amp; Design.
+				</p>
 			)}
 
 			{briefAt && (
 				<p className="text-muted-foreground text-xs">
-					Design dikirim {formatRel(briefAt)}
+					Design pertama dikirim {formatRel(briefAt)}
 				</p>
 			)}
 
 			{canEdit && (
 				<form action={formAction} className="space-y-2">
-					<label
-						htmlFor="design_drive_folder_url"
-						className="text-sm font-medium"
-					>
-						Drive Folder URL
+					<label htmlFor="design-link-url" className="text-sm font-medium">
+						Tambah link design
 					</label>
 					<div className="flex gap-2">
 						<input
-							id="design_drive_folder_url"
-							name="design_drive_folder_url"
+							id="design-link-url"
+							name="url"
 							type="url"
-							defaultValue={initialUrl}
+							key={state ? "reset" : "init"}
 							placeholder="https://drive.google.com/drive/folders/..."
 							className="border-border-default bg-background text-foreground focus-visible:ring-ring tabular h-10 flex-1 rounded-md border px-3 text-xs placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
 						/>
@@ -117,15 +148,25 @@ export function DesignCard({
 							disabled={pending}
 							className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 shrink-0 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
 						>
-							{pending ? "…" : driveUrl ? "Update" : "Simpan link"}
+							{pending ? "…" : "Tambah link"}
 						</button>
 					</div>
-					<p className="text-muted-foreground text-xs">
-						Tempel link folder Drive berisi design/mockup. Status design diatur
-						lewat tombol di atas (atau di halaman Asset &amp; Design).
-					</p>
 				</form>
 			)}
+
+			<Link
+				href={`/design/${projectId}`}
+				className="border-border-default bg-background hover:bg-muted text-foreground flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+			>
+				<span className="flex items-center gap-2">
+					<Palette className="text-primary h-4 w-4" />
+					Kelola di Asset &amp; Design
+					<span className="text-muted-foreground text-xs font-normal">
+						(frame, footage, softfile)
+					</span>
+				</span>
+				<ArrowRight className="h-4 w-4 shrink-0" />
+			</Link>
 		</div>
 	);
 }

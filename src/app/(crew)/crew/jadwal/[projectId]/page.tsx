@@ -117,12 +117,28 @@ export default async function CrewEventDetailPage({
 		return u?.id !== me.profile.id;
 	});
 
-	// Equipment for this event
-	const { data: equipmentRows } = await supabase
-		.from("inventory_items")
-		.select("id, sku, name, category, condition")
-		.eq("category", "fixed_asset")
-		.eq("current_event_id", event.id);
+	// Equipment, design frames, and rekap status — all keyed by event.id and
+	// independent of each other, so fetch in parallel (one DB round-trip
+	// instead of three sequential ones).
+	const [{ data: equipmentRows }, { data: designAssets }, { data: rekapData }] =
+		await Promise.all([
+			supabase
+				.from("inventory_items")
+				.select("id, sku, name, category, condition")
+				.eq("category", "fixed_asset")
+				.eq("current_event_id", event.id),
+			supabase
+				.from("event_assets")
+				.select("id, label, url, drive_file_id")
+				.eq("event_id", event.id)
+				.eq("asset_type", "design_frame")
+				.order("created_at", { ascending: false }),
+			supabase
+				.from("crew_rekap")
+				.select("id, is_approved")
+				.eq("event_id", event.id)
+				.maybeSingle(),
+		]);
 
 	const equipment = (equipmentRows ?? []) as Array<{
 		id: string;
@@ -133,12 +149,6 @@ export default async function CrewEventDetailPage({
 	}>;
 
 	// Design frames crew can download (load into dslrbooth) + footage folder.
-	const { data: designAssets } = await supabase
-		.from("event_assets")
-		.select("id, label, url, drive_file_id")
-		.eq("event_id", event.id)
-		.eq("asset_type", "design_frame")
-		.order("created_at", { ascending: false });
 	const designFrames = (designAssets ?? []) as Array<{
 		id: string;
 		label: string;
@@ -152,12 +162,6 @@ export default async function CrewEventDetailPage({
 	const footageFolderUrl =
 		driveFolders.Footage?.url ?? event.drive_folder_url ?? null;
 
-	// Rekap status for this event
-	const { data: rekapData } = await supabase
-		.from("crew_rekap")
-		.select("id, is_approved")
-		.eq("event_id", event.id)
-		.maybeSingle();
 	const rekap = rekapData as { id: string; is_approved: boolean | null } | null;
 	const todayISO = new Date().toISOString().slice(0, 10);
 	const isPastOrToday = event.event_date <= todayISO;

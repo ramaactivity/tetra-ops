@@ -51,18 +51,28 @@ export default async function PayablesPage({
 
 	const supabase = await createClient();
 
-	// Always fetch all for KPIs
-	const { data: allPayables } = await supabase
-		.from("payables")
-		.select(
-			`id, supplier_id, invoice_no, description, amount, amount_paid,
-			 issued_date, due_date, payment_terms, status, notes, paid_at,
-			 cancelled_at, cancelled_reason, source_journal_id, created_at,
-			 supplier:suppliers!payables_supplier_id_fkey(name, contact),
-			 payments:payable_payments(id, amount, payment_date, payment_account_code,
-				 notes, paid_by_user:users!payable_payments_paid_by_fkey(full_name))`,
-		)
-		.order("issued_date", { ascending: false });
+	// Payables (for KPIs + list) and cash accounts (for the payment dialog) are
+	// independent — fetch in parallel (one round-trip instead of two).
+	const [{ data: allPayables }, { data: cashAccounts }] = await Promise.all([
+		supabase
+			.from("payables")
+			.select(
+				`id, supplier_id, invoice_no, description, amount, amount_paid,
+				 issued_date, due_date, payment_terms, status, notes, paid_at,
+				 cancelled_at, cancelled_reason, source_journal_id, created_at,
+				 supplier:suppliers!payables_supplier_id_fkey(name, contact),
+				 payments:payable_payments(id, amount, payment_date, payment_account_code,
+					 notes, paid_by_user:users!payable_payments_paid_by_fkey(full_name))`,
+			)
+			.order("issued_date", { ascending: false }),
+		supabase
+			.from("chart_of_accounts")
+			.select("code, name")
+			.eq("account_type", "asset")
+			.eq("is_active", true)
+			.in("code", ["1-100", "1-110", "1-111", "1-112"])
+			.order("code"),
+	]);
 
 	type RawPay = {
 		id: string;
@@ -180,14 +190,6 @@ export default async function PayablesPage({
 				? allRows
 				: allRows.filter((r) => r.status === filter);
 
-	// Cash accounts for payment dialog
-	const { data: cashAccounts } = await supabase
-		.from("chart_of_accounts")
-		.select("code, name")
-		.eq("account_type", "asset")
-		.eq("is_active", true)
-		.in("code", ["1-100", "1-110", "1-111", "1-112"])
-		.order("code");
 	const cashAccountOptions: CashAccountOption[] =
 		(cashAccounts ?? []) as CashAccountOption[];
 
