@@ -175,11 +175,12 @@ export async function getProfitPreview(
 		}
 	}
 
-	// 5) Owner pool estimate (mirror RPC: owner_count × per-person)
+	// 5) Owner pool estimate (mirror RPC: owner_count × per-person).
+	// Owners = role 'owner' only; super_admin is admin-only, not an owner.
 	const { data: owners } = await supabase
 		.from("users")
 		.select("id")
-		.in("role", ["super_admin", "owner"])
+		.eq("role", "owner")
 		.eq("is_active", true);
 	const ownerCount = (owners ?? []).length;
 	const POOL_PER_PERSON = 50000;

@@ -117,8 +117,9 @@ export default async function MasterCrewPage() {
 	).length;
 	const isSuperAdmin = me?.profile.role === "super_admin";
 
+	// Investors = role 'owner' only; super_admin is admin-only, not an investor.
 	const investors = users
-		.filter((u) => u.role === "super_admin" || u.role === "owner")
+		.filter((u) => u.role === "owner")
 		.filter((u) => u.is_active)
 		.map<InvestorRow>((u) => ({
 			id: u.id,
