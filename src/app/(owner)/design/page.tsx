@@ -198,9 +198,6 @@ export default async function AssetDesignPage({
 			<SectionHeader
 				title="Asset & Design"
 				description="Status design per event + hub aset (design frame, footage, softfile). Kelola status design + aset langsung di sini."
-				actions={
-					<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
-				}
 			/>
 
 			<dl className="grid gap-3 sm:grid-cols-3">
@@ -225,43 +222,46 @@ export default async function AssetDesignPage({
 				/>
 			</dl>
 
-			{/* Design-status filter chips */}
+			{/* Filter row: month dropdown (left) + design-status chips (right) */}
 			<div className="flex flex-wrap items-center gap-2">
-				<Link
-					href={chipHref(null)}
-					className={cn(
-						"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
-						!dsFilter
-							? "border-foreground/15 bg-foreground/[0.06] text-foreground"
-							: "border-border-default text-muted-foreground hover:text-foreground",
-					)}
-				>
-					Semua
-					<span className="tabular opacity-60">{scoped.length}</span>
-				</Link>
-				{DESIGN_STATUS_VALUES.map((ds) => {
-					const tone = DESIGN_STATUS_TONE[ds];
-					const active = dsFilter === ds;
-					return (
-						<Link
-							key={ds}
-							href={chipHref(ds)}
-							className={cn(
-								"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
-								active
-									? tone.badge
-									: "border-border-default text-muted-foreground hover:text-foreground",
-							)}
-						>
-							<span
-								className={cn("size-1.5 rounded-full", tone.dot)}
-								aria-hidden
-							/>
-							{DESIGN_STATUS_LABELS[ds]}
-							<span className="tabular opacity-60">{statusCounts[ds]}</span>
-						</Link>
-					);
-				})}
+				<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
+				<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+					<Link
+						href={chipHref(null)}
+						className={cn(
+							"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+							!dsFilter
+								? "border-foreground/15 bg-foreground/[0.06] text-foreground"
+								: "border-border-default text-muted-foreground hover:text-foreground",
+						)}
+					>
+						Semua
+						<span className="tabular opacity-60">{scoped.length}</span>
+					</Link>
+					{DESIGN_STATUS_VALUES.map((ds) => {
+						const tone = DESIGN_STATUS_TONE[ds];
+						const active = dsFilter === ds;
+						return (
+							<Link
+								key={ds}
+								href={chipHref(ds)}
+								className={cn(
+									"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+									active
+										? tone.badge
+										: "border-border-default text-muted-foreground hover:text-foreground",
+								)}
+							>
+								<span
+									className={cn("size-1.5 rounded-full", tone.dot)}
+									aria-hidden
+								/>
+								{DESIGN_STATUS_LABELS[ds]}
+								<span className="tabular opacity-60">{statusCounts[ds]}</span>
+							</Link>
+						);
+					})}
+				</div>
 			</div>
 
 			{displayList.length === 0 ? (
