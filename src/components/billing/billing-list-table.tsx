@@ -51,9 +51,10 @@ function dueDateColor(due: string | null, eventDate: string, status: string) {
 	const diffDays = Math.round(
 		(refDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
 	);
-	if (diffDays < 0) return "text-rose-500";
-	if (diffDays <= 3) return "text-amber-500";
-	return "text-emerald-500";
+	// Reserve color for what needs attention; everything else stays calm.
+	if (diffDays < 0) return "text-rose-600 dark:text-rose-400 font-medium";
+	if (diffDays <= 3) return "text-amber-700 dark:text-amber-500 font-medium";
+	return "text-muted-foreground";
 }
 
 export function BillingListTable({ events, templates }: Props) {
@@ -62,11 +63,13 @@ export function BillingListTable({ events, templates }: Props) {
 			key: "client",
 			header: "Klien",
 			render: (ev) => (
-				<div className="space-y-0.5">
-					<div className="text-fluid-body font-medium">{ev.client_name}</div>
+				<div className="flex flex-col gap-0.5">
+					<span className="truncate text-sm font-medium text-foreground">
+						{ev.client_name}
+					</span>
 					<Link
 						href={`/operations/${ev.project_id}`}
-						className="tabular text-fluid-caption text-primary hover:underline"
+						className="tabular w-fit text-xs text-muted-foreground transition-colors hover:text-primary"
 						style={{ viewTransitionName: `event-${ev.project_id}` }}
 					>
 						{ev.project_id}
@@ -79,7 +82,7 @@ export function BillingListTable({ events, templates }: Props) {
 			header: "Event Date",
 			mobileLabel: "Tanggal",
 			render: (ev) => (
-				<span className="tabular text-fluid-caption text-muted-foreground">
+				<span className="tabular text-sm text-muted-foreground">
 					{formatDateID(ev.event_date)}
 				</span>
 			),
@@ -93,7 +96,7 @@ export function BillingListTable({ events, templates }: Props) {
 				return (
 					<span
 						className={cn(
-							"tabular text-fluid-caption",
+							"tabular text-sm",
 							dueDateColor(ev.due_date, ev.event_date, ev.payment_status),
 						)}
 					>
@@ -108,7 +111,7 @@ export function BillingListTable({ events, templates }: Props) {
 			align: "right",
 			hideOnMobile: true,
 			render: (ev) => (
-				<span className="tabular font-medium">
+				<span className="tabular text-sm font-medium text-foreground">
 					{ev.grand_total ? formatRupiah(ev.grand_total) : "—"}
 				</span>
 			),
@@ -119,8 +122,12 @@ export function BillingListTable({ events, templates }: Props) {
 			align: "right",
 			hideOnMobile: true,
 			render: (ev) => (
-				<span className="tabular text-emerald-500">
-					{ev.total_paid > 0 ? formatRupiah(ev.total_paid) : "—"}
+				<span className="tabular text-sm text-emerald-600 dark:text-emerald-400">
+					{ev.total_paid > 0 ? (
+						formatRupiah(ev.total_paid)
+					) : (
+						<span className="text-muted-foreground/50">—</span>
+					)}
 				</span>
 			),
 		},
@@ -130,11 +137,11 @@ export function BillingListTable({ events, templates }: Props) {
 			align: "right",
 			render: (ev) =>
 				ev.remaining_balance > 0 ? (
-					<span className="tabular font-medium text-foreground">
+					<span className="tabular text-sm font-semibold text-foreground">
 						{formatRupiah(ev.remaining_balance)}
 					</span>
 				) : (
-					<span className="tabular text-muted-foreground">—</span>
+					<span className="tabular text-sm text-muted-foreground/50">—</span>
 				),
 		},
 		{
@@ -167,7 +174,7 @@ export function BillingListTable({ events, templates }: Props) {
 					<Link
 						href={`/operations/${ev.project_id}/payments`}
 						title="Log payment / lihat history"
-						className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-fluid-caption font-medium text-foreground transition-colors hover:bg-surface-3"
+						className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-3"
 					>
 						<Receipt className="size-3.5" />
 						Payments

@@ -89,18 +89,16 @@ export function ResponsiveTable<T>({
 							))}
 					</colgroup>
 					<thead
-						className={cn(
-							stickyHeader && "sticky top-0 z-10 bg-surface-2",
-						)}
+						className={cn(stickyHeader && "sticky top-0 z-10 bg-surface-2")}
 					>
-						<tr className="border-b border-border-default text-left text-xs uppercase tracking-wide text-muted-foreground">
+						<tr className="border-b border-border-default text-left">
 							{columns
 								.filter((c) => !c.hideOnDesktop)
 								.map((col) => (
 									<th
 										key={col.key}
 										className={cn(
-											"px-3 py-2.5 font-medium",
+											"eyebrow px-3 py-2.5",
 											col.align === "right" && "text-right",
 											col.align === "center" && "text-center",
 											col.className,
@@ -201,7 +199,7 @@ export function ResponsiveTable<T>({
 									.filter((c) => !c.hideOnMobile)
 									.map((col) => (
 										<div key={col.key} className="contents">
-											<dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+											<dt className="eyebrow self-center">
 												{col.mobileLabel ?? col.header}
 											</dt>
 											<dd

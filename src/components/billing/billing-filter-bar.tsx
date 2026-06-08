@@ -53,17 +53,15 @@ export function BillingFilterBar({
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
 					placeholder="Cari nama klien…"
-					className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+					className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 				/>
 			</form>
 
-			<div className="flex items-center gap-1">
+			<div className="flex items-center gap-1.5">
 				<div className="w-[180px]">
 					<MonthPicker
 						value={monthShowsAll ? "" : defaultMonth}
-						onValueChange={(value) =>
-							router.push(buildHref({ month: value }))
-						}
+						onValueChange={(value) => router.push(buildHref({ month: value }))}
 						placeholder="Semua bulan"
 						aria-label="Filter bulan"
 					/>
@@ -71,13 +69,15 @@ export function BillingFilterBar({
 				<Link
 					href={buildHref({ month: monthShowsAll ? "" : "all" })}
 					className={cn(
-						"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
+						"inline-flex h-9 items-center rounded-md border px-3 text-xs font-medium transition-colors",
 						monthShowsAll
-							? "bg-secondary text-foreground"
-							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
+							? "border-border-default bg-secondary text-foreground"
+							: "border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
 					)}
 					aria-pressed={monthShowsAll}
-					title={monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"}
+					title={
+						monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
+					}
 				>
 					{monthShowsAll ? "Bulan ini" : "Semua"}
 				</Link>
@@ -86,7 +86,7 @@ export function BillingFilterBar({
 			{hasFilters && (
 				<Link
 					href="/billing"
-					className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
+					className="inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
 				>
 					<X className="size-3.5" aria-hidden />
 					Clear

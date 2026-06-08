@@ -69,9 +69,7 @@ export default async function BillingPage({
 		const [y, m] = month.split("-").map(Number);
 		const startISO = `${month}-01`;
 		const endISO = lastDayOfMonth(y, m);
-		listQuery = listQuery
-			.gte("event_date", startISO)
-			.lte("event_date", endISO);
+		listQuery = listQuery.gte("event_date", startISO).lte("event_date", endISO);
 	}
 
 	if (tab === "unpaid") listQuery = listQuery.eq("payment_status", "unpaid");
@@ -122,10 +120,7 @@ export default async function BillingPage({
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
 		// Tab counts
-		supabase
-			.from("events")
-			.select("payment_status")
-			.is("deleted_at", null),
+		supabase.from("events").select("payment_status").is("deleted_at", null),
 		// WhatsApp templates
 		supabase
 			.from("whatsapp_templates")
@@ -220,14 +215,14 @@ export default async function BillingPage({
 				/>
 			</dl>
 
-			<div className="space-y-4">
+			<div className="space-y-3">
 				<BillingTabs current={tab} counts={tabCounts} />
 
 				<BillingFilterBar
-				defaultQ={q}
-				defaultMonth={month}
-				monthShowsAll={monthParam === "all"}
-			/>
+					defaultQ={q}
+					defaultMonth={month}
+					monthShowsAll={monthParam === "all"}
+				/>
 
 				{events.length === 0 ? (
 					<EmptyState
@@ -240,7 +235,7 @@ export default async function BillingPage({
 						}
 					/>
 				) : (
-					<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+					<div className="overflow-hidden rounded-lg border border-border-default bg-card p-3 md:p-0">
 						<BillingListTable events={events} templates={templates} />
 					</div>
 				)}
