@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { setDesignStatus } from "@/lib/actions/event-design";
 import {
@@ -13,9 +12,10 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Compact design-status control (Belum / Proses / Approved). Single entry point
- * shared by the Asset & Design list (inline per row) and the event detail page.
- * Trigger is tinted by status tone; changes persist via setDesignStatus.
+ * Design-status control as a one-click SEGMENTED toggle (Belum / Proses /
+ * Approved) — no dropdown/portal, so it doesn't make the page inert (which
+ * previously swallowed clicks on nearby links). Shared by the Asset & Design
+ * list (inline per row) and the event detail design card.
  */
 export function DesignStatusSelect({
 	eventId,
@@ -31,41 +31,57 @@ export function DesignStatusSelect({
 	className?: string;
 }) {
 	const [pending, startTransition] = useTransition();
-	const tone = DESIGN_STATUS_TONE[value] ?? DESIGN_STATUS_TONE.belum;
 
-	function onChange(next: string) {
-		if (next === value) return;
+	function set(next: DesignStatus) {
+		if (next === value || pending) return;
 		startTransition(async () => {
-			const res = await setDesignStatus(
-				eventId,
-				projectId,
-				next as DesignStatus,
-			);
+			const res = await setDesignStatus(eventId, projectId, next);
 			if (res.error) {
 				toast.error(res.error);
 			} else {
-				toast.success(
-					`Status design → ${DESIGN_STATUS_LABELS[next as DesignStatus]}`,
-				);
+				toast.success(`Status design → ${DESIGN_STATUS_LABELS[next]}`);
 			}
 		});
 	}
 
 	return (
-		<NativeSelect
-			value={value}
-			onValueChange={onChange}
-			disabled={disabled || pending}
-			options={DESIGN_STATUS_VALUES.map((s) => ({
-				value: s,
-				label: DESIGN_STATUS_LABELS[s],
-			}))}
-			aria-label="Status design"
-			triggerClassName={cn(
-				"h-8 w-[120px] justify-between font-medium",
-				tone.badge,
+		<div
+			className={cn(
+				"inline-flex h-8 items-center rounded-md border border-border-default bg-secondary p-0.5",
+				pending && "opacity-60",
 				className,
 			)}
-		/>
+			role="group"
+			aria-label="Status design"
+		>
+			{DESIGN_STATUS_VALUES.map((s) => {
+				const active = s === value;
+				const tone = DESIGN_STATUS_TONE[s];
+				return (
+					<button
+						key={s}
+						type="button"
+						disabled={disabled || pending}
+						aria-pressed={active}
+						onClick={() => set(s)}
+						className={cn(
+							"inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed",
+							active
+								? cn("bg-card shadow-[var(--shadow-level-2)]", tone.text)
+								: "text-muted-foreground hover:text-foreground",
+						)}
+					>
+						<span
+							className={cn(
+								"size-1.5 rounded-full",
+								active ? tone.dot : "bg-muted-foreground/30",
+							)}
+							aria-hidden
+						/>
+						{DESIGN_STATUS_LABELS[s]}
+					</button>
+				);
+			})}
+		</div>
 	);
 }
