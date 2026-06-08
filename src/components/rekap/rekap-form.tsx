@@ -858,38 +858,79 @@ export function RekapForm({
 					</div>
 					<p className="text-xs text-muted-foreground">
 						{fdPouchIncluded
-							? "Paket include FD + Pouch. Biasanya 1 set per event."
+							? "FD + Pouch itu 1 paket — isi jumlah set-nya aja, otomatis kehitung dua-duanya."
 							: "Paket tidak include. Skip kecuali emang dipakai."}
 					</p>
 				</div>
-				<div className="grid gap-4 sm:grid-cols-2">
-					<NumField
-						label="Flashdisk terpakai"
-						name="flashdisk_used"
-						value={flashdisk}
-						onChange={(v) => {
-							setFlashdisk(v);
-							markTouched("flashdisk_used");
-						}}
-						error={err("flashdisk_used")}
-						cost={fieldCost("flashdisk_used", Number(flashdisk) || 0)}
-						stock={fieldStock("flashdisk_used", Number(flashdisk) || 0)}
-						auto={false}
-					/>
-					<NumField
-						label="Pouch terpakai"
-						name="pouch_used"
-						value={pouch}
-						onChange={(v) => {
-							setPouch(v);
-							markTouched("pouch_used");
-						}}
-						error={err("pouch_used")}
-						cost={fieldCost("pouch_used", Number(pouch) || 0)}
-						stock={fieldStock("pouch_used", Number(pouch) || 0)}
-						auto={false}
-					/>
-				</div>
+				{(() => {
+					const fdSet = Number(flashdisk) || 0;
+					const setSet = (v: string) => {
+						setFlashdisk(v);
+						setPouch(v);
+						markTouched("flashdisk_used");
+						markTouched("pouch_used");
+					};
+					const fdStock = fieldStock("flashdisk_used", fdSet);
+					const pouchStock = fieldStock("pouch_used", fdSet);
+					const setError = err("flashdisk_used") || err("pouch_used");
+					const setCost =
+						fieldCost("flashdisk_used", fdSet) + fieldCost("pouch_used", fdSet);
+					return (
+						<div className="space-y-1.5">
+							<label htmlFor="flashdisk_used" className="text-sm font-medium">
+								Set FD + Pouch terpakai
+							</label>
+							<input
+								id="flashdisk_used"
+								name="flashdisk_used"
+								type="number"
+								inputMode="numeric"
+								min={0}
+								step={1}
+								value={flashdisk}
+								onChange={(e) => setSet(e.target.value)}
+								className={`${inputClass} tabular`}
+							/>
+							{/* Pouch mirrors the set count — submitted, not shown */}
+							<input type="hidden" name="pouch_used" value={pouch} />
+							{setError ? (
+								<p className="text-xs text-destructive">{setError}</p>
+							) : (
+								<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+									{setCost > 0 && (
+										<span className="tabular inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+											{formatRupiah(setCost)}
+										</span>
+									)}
+									{fdSet > 0 &&
+										[
+											{ label: "FD", s: fdStock },
+											{ label: "Pouch", s: pouchStock },
+										].map(({ label, s }) =>
+											s ? (
+												<span
+													key={label}
+													className={`tabular inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
+														s.critical
+															? "bg-destructive/15 text-destructive"
+															: s.lowAfter
+																? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+																: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+													}`}
+													title={
+														s.critical ? "Stok kurang!" : "Stok setelah deduct"
+													}
+												>
+													<span className="opacity-70">{label}</span>
+													{s.before} → {s.after}
+												</span>
+											) : null,
+										)}
+								</div>
+							)}
+						</div>
+					);
+				})()}
 			</section>
 
 			{/* ========== ADD-ON ========== */}
