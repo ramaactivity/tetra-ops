@@ -325,6 +325,44 @@ export default async function CrewEventDetailPage({
 				</section>
 			)}
 
+			{/* Crew partner card — who you're working with on the day */}
+			{partnerAssignments.length > 0 && (
+				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
+					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+						<Users className="h-3.5 w-3.5" />
+						Tim crew
+					</h2>
+					<div className="space-y-2">
+						<div className="flex items-center justify-between gap-2 text-sm">
+							<span className="text-foreground font-medium">
+								Kamu
+								<span className="text-muted-foreground ml-1.5 text-[11px] uppercase tracking-wider">
+									{ROLE_LABELS[myAssignment.role_in_event] ??
+										myAssignment.role_in_event}
+								</span>
+							</span>
+						</div>
+						{partnerAssignments.map((a, i) => {
+							const u = Array.isArray(a.user) ? a.user[0] : a.user;
+							return (
+								<div
+									key={`${u?.id}-${i}`}
+									className="flex items-center justify-between gap-2 text-sm"
+								>
+									<span className="text-foreground font-medium">
+										{u?.full_name ?? "—"}
+									</span>
+									<span className="text-muted-foreground text-[11px] uppercase tracking-wider">
+										{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
+										{u?.tier ? ` · ${u.tier}` : ""}
+									</span>
+								</div>
+							);
+						})}
+					</div>
+				</section>
+			)}
+
 			{/* Service spec card */}
 			<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
 				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
@@ -354,34 +392,6 @@ export default async function CrewEventDetailPage({
 					</DetailRow>
 				</dl>
 			</section>
-
-			{/* Crew partner card */}
-			{partnerAssignments.length > 0 && (
-				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
-					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
-						<Users className="h-3.5 w-3.5" />
-						Crew partner
-					</h2>
-					<div className="space-y-1.5">
-						{partnerAssignments.map((a, i) => {
-							const u = Array.isArray(a.user) ? a.user[0] : a.user;
-							return (
-								<div
-									key={`${u?.id}-${i}`}
-									className="flex items-center justify-between text-sm"
-								>
-									<span className="text-foreground font-medium">
-										{u?.full_name ?? "—"}
-									</span>
-									<span className="text-muted-foreground text-[11px] uppercase tracking-wider">
-										{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
-									</span>
-								</div>
-							);
-						})}
-					</div>
-				</section>
-			)}
 
 			{/* Equipment card */}
 			<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
