@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle, Trash2 } from "lucide-react";
+import { MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -9,7 +9,7 @@ import {
 	unassignCrew,
 	updateCrewAssignment,
 } from "@/lib/actions/crew-assignments";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, nameInitials } from "@/lib/format";
 import {
 	buildCrewReminderMessage,
 	type EventForWA,
@@ -44,7 +44,7 @@ export function CrewAssignmentList({
 }) {
 	if (assignments.length === 0) {
 		return (
-			<p className="text-muted-foreground text-sm italic">
+			<p className="text-muted-foreground text-[13px] italic">
 				Belum ada crew di-assign.
 			</p>
 		);
@@ -106,11 +106,21 @@ function AssignmentItem({
 				className="border-border-default bg-surface-2 space-y-3 rounded-md border p-3"
 			>
 				<div className="flex items-center justify-between gap-3">
-					<span className="text-sm font-medium">{row.user.full_name}</span>
+					<div className="flex items-center gap-2">
+						<span
+							className="bg-secondary text-muted-foreground grid size-7 shrink-0 place-items-center rounded-full text-[10.5px] font-semibold"
+							aria-hidden
+						>
+							{nameInitials(row.user.full_name)}
+						</span>
+						<span className="text-[13px] font-medium">
+							{row.user.full_name}
+						</span>
+					</div>
 					<button
 						type="button"
 						onClick={() => setEditing(false)}
-						className="text-muted-foreground text-xs hover:underline"
+						className="text-muted-foreground text-[12px] hover:underline"
 					>
 						Cancel
 					</button>
@@ -173,55 +183,68 @@ function AssignmentItem({
 	}
 
 	return (
-		<div className="border-border-default bg-surface-2 flex items-center gap-2 rounded-md border p-3">
+		<div className="border-border-default bg-surface-2 flex items-center gap-3 rounded-lg border p-3">
+			<span
+				className="bg-secondary text-muted-foreground grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold"
+				aria-hidden
+			>
+				{nameInitials(row.user.full_name)}
+			</span>
 			<div className="min-w-0 flex-1">
-				<div className="flex flex-wrap items-baseline gap-2">
-					<span className="text-sm font-medium">{row.user.full_name}</span>
+				<div className="flex flex-wrap items-center gap-1.5">
+					<span className="text-[13px] font-medium leading-tight text-foreground">
+						{row.user.full_name}
+					</span>
+					<Badge variant="outline">{ROLE_LABELS[row.role_in_event]}</Badge>
 					{row.user.tier && (
-						<span className="text-muted-foreground text-xs">
+						<span className="text-muted-foreground text-[10px] font-semibold uppercase tracking-[0.04em]">
 							{row.user.tier}
 						</span>
 					)}
-					<Badge variant="outline">{ROLE_LABELS[row.role_in_event]}</Badge>
 				</div>
-				<div className="text-muted-foreground tabular text-xs">
+				<div className="text-muted-foreground tabular mt-0.5 text-[12px]">
 					{formatRupiah(row.fee_amount)}
 					{row.bonus_amount > 0 && (
 						<> + {formatRupiah(row.bonus_amount)} bonus</>
 					)}
 					{row.fee_override_reason && <> · {row.fee_override_reason}</>}
 				</div>
-				{error && <p className="text-destructive text-xs">{error}</p>}
+				{error && (
+					<p className="text-destructive mt-0.5 text-[11.5px]">{error}</p>
+				)}
 			</div>
-			<button
-				type="button"
-				onClick={handleSendWa}
-				title={
-					row.user.phone_wa
-						? `Send WA reminder ke ${row.user.full_name}`
-						: "Belum ada nomor WA — set di Master Crew"
-				}
-				className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1 rounded-md border px-2 text-xs font-medium transition-colors disabled:opacity-50"
-			>
-				<MessageCircle className="h-3.5 w-3.5" />
-				WA
-			</button>
-			<button
-				type="button"
-				onClick={() => setEditing(true)}
-				className="text-muted-foreground hover:text-foreground text-xs hover:underline"
-			>
-				Edit
-			</button>
-			<button
-				type="button"
-				onClick={handleUnassign}
-				disabled={pending}
-				title="Lepas crew"
-				className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-8 w-8 items-center justify-center rounded-md disabled:opacity-50"
-			>
-				<Trash2 className="h-4 w-4" />
-			</button>
+			<div className="flex shrink-0 items-center gap-1">
+				<button
+					type="button"
+					onClick={handleSendWa}
+					title={
+						row.user.phone_wa
+							? `Send WA reminder ke ${row.user.full_name}`
+							: "Belum ada nomor WA — set di Master Crew"
+					}
+					className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors disabled:opacity-50"
+				>
+					<MessageCircle className="size-3.5" aria-hidden />
+					WA
+				</button>
+				<button
+					type="button"
+					onClick={() => setEditing(true)}
+					title="Edit fee / role"
+					className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors"
+				>
+					<Pencil className="size-3.5" aria-hidden />
+				</button>
+				<button
+					type="button"
+					onClick={handleUnassign}
+					disabled={pending}
+					title="Lepas crew"
+					className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex size-8 items-center justify-center rounded-md transition-colors disabled:opacity-50"
+				>
+					<Trash2 className="size-3.5" aria-hidden />
+				</button>
+			</div>
 		</div>
 	);
 }
@@ -245,5 +268,4 @@ function RoleSelect({ defaultValue }: { defaultValue: string }) {
 }
 
 const inputClass =
-	"border-border-default bg-background h-9 w-full rounded-md border px-3 text-sm focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
-const selectClass = `${inputClass} appearance-none`;
+	"border-border-default bg-background h-9 w-full rounded-md border px-3 text-[13px] focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";

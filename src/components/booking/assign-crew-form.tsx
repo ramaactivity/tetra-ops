@@ -4,6 +4,8 @@ import { AlertTriangle, Search, UserPlus } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "@/components/ui/toaster";
 import { assignCrew } from "@/lib/actions/crew-assignments";
+import { nameInitials } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export type CrewOption = {
 	id: string;
@@ -14,24 +16,11 @@ export type CrewOption = {
 
 // Role buttons share neutral chrome (border + surface). Differentiation
 // is the label text only — DESIGN.md §867 forbids decorative color
-// categorization. Previous emerald/sky/violet palette was a "second
-// brand color" leak removed in Phase 1 sweep.
-const ROLE_OPTIONS: Array<{ value: string; label: string; tone: string }> = [
-	{
-		value: "lead",
-		label: "Lead",
-		tone: "border-border-default bg-surface-2 text-foreground hover:bg-secondary",
-	},
-	{
-		value: "asisten",
-		label: "Asisten",
-		tone: "border-border-default bg-surface-2 text-foreground hover:bg-secondary",
-	},
-	{
-		value: "crew_c",
-		label: "Crew C",
-		tone: "border-border-default bg-surface-2 text-foreground hover:bg-secondary",
-	},
+// categorization.
+const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+	{ value: "lead", label: "Lead" },
+	{ value: "asisten", label: "Asisten" },
+	{ value: "crew_c", label: "Crew C" },
 ];
 
 /**
@@ -62,7 +51,7 @@ export function AssignCrewForm({
 
 	if (availableCrew.length === 0) {
 		return (
-			<p className="text-fluid-body italic text-muted-foreground">
+			<p className="text-[12.5px] italic text-muted-foreground">
 				Semua crew aktif sudah ter-assign di event ini. Tambah crew baru dari
 				Settings → Master Crew.
 			</p>
@@ -82,10 +71,10 @@ export function AssignCrewForm({
 				toast.error(res.error);
 			} else {
 				const crew = availableCrew.find((c) => c.id === userId);
-				const roleLabel = ROLE_OPTIONS.find((r) => r.value === roleValue)?.label;
-				toast.success(
-					`${crew?.full_name ?? "Crew"} assigned as ${roleLabel}`,
-				);
+				const roleLabel = ROLE_OPTIONS.find(
+					(r) => r.value === roleValue,
+				)?.label;
+				toast.success(`${crew?.full_name ?? "Crew"} assigned as ${roleLabel}`);
 			}
 		});
 	}
@@ -94,7 +83,7 @@ export function AssignCrewForm({
 		<div className="space-y-3">
 			<div className="relative">
 				<Search
-					className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+					className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
 					aria-hidden
 				/>
 				<input
@@ -102,16 +91,16 @@ export function AssignCrewForm({
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder="Cari nama crew…"
-					className="h-9 w-full rounded-md border border-border-default bg-background pl-9 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+					className="h-8 w-full rounded-md border border-border-default bg-card pl-8 pr-3 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/70 transition-colors hover:bg-secondary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none"
 				/>
 			</div>
 
 			{filtered.length === 0 ? (
-				<p className="rounded-md border border-dashed border-border-default bg-surface-2 p-3 text-center text-fluid-caption italic text-muted-foreground">
+				<p className="rounded-lg border border-dashed border-border-default bg-card p-4 text-center text-[12px] italic text-muted-foreground">
 					Tidak ada crew cocok pencarian "{query}".
 				</p>
 			) : (
-				<div className="max-h-[24rem] divide-y divide-border-default/40 overflow-y-auto rounded-lg border border-border-default bg-surface-2">
+				<div className="max-h-[22rem] divide-y divide-border-subtle overflow-y-auto rounded-lg border border-border-default bg-card">
 					{filtered.map((c) => (
 						<CrewRow
 							key={c.id}
@@ -124,11 +113,14 @@ export function AssignCrewForm({
 				</div>
 			)}
 
-			<p className="text-fluid-caption text-muted-foreground">
-				<UserPlus className="mr-1 inline-block size-3.5 align-text-bottom" />
-				Klik tombol role di samping nama → instant assign. Tanda{" "}
-				<AlertTriangle className="mx-0.5 inline-block size-3 align-text-bottom text-amber-600 dark:text-amber-400" />{" "}
-				= crew ini punya assignment lain di tanggal sama.
+			<p className="flex flex-wrap items-center gap-x-1 text-[11.5px] leading-relaxed text-muted-foreground">
+				<UserPlus className="size-3.5" aria-hidden />
+				Klik tombol role di samping nama untuk assign instan.
+				<AlertTriangle
+					className="size-3 text-amber-600 dark:text-amber-400"
+					aria-hidden
+				/>
+				= crew punya assignment lain di tanggal sama.
 			</p>
 		</div>
 	);
@@ -147,20 +139,22 @@ function CrewRow({
 }) {
 	return (
 		<div
-			className={`flex items-center gap-3 px-3 py-2 transition-colors hover:bg-muted/30 ${
-				crew.hasConflict ? "bg-amber-500/5" : ""
-			}`}
+			className={cn(
+				"flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40",
+				crew.hasConflict && "bg-amber-500/[0.06]",
+			)}
 		>
+			<span
+				className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-semibold text-muted-foreground"
+				aria-hidden
+			>
+				{nameInitials(crew.full_name)}
+			</span>
 			<div className="min-w-0 flex-1">
-				<div className="flex items-baseline gap-2">
-					<span className="truncate text-fluid-body font-medium text-foreground">
+				<div className="flex items-center gap-1.5">
+					<span className="truncate text-[13px] font-medium leading-tight text-foreground">
 						{crew.full_name}
 					</span>
-					{crew.tier && (
-						<span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-							{crew.tier}
-						</span>
-					)}
 					{crew.hasConflict && (
 						<AlertTriangle
 							className="size-3 shrink-0 text-amber-600 dark:text-amber-400"
@@ -168,6 +162,11 @@ function CrewRow({
 						/>
 					)}
 				</div>
+				{crew.tier && (
+					<div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+						{crew.tier}
+					</div>
+				)}
 			</div>
 			<div className="flex items-center gap-1">
 				{ROLE_OPTIONS.map((r) => {
@@ -180,9 +179,9 @@ function CrewRow({
 							onClick={() => onAssign(crew.id, r.value)}
 							disabled={pending}
 							title={`Assign sebagai ${r.label}`}
-							className={`press-down inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${r.tone}`}
+							className="press-down inline-flex h-7 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
 						>
-							{busy ? "..." : `+ ${r.label}`}
+							{busy ? "…" : `+ ${r.label}`}
 						</button>
 					);
 				})}
