@@ -3,26 +3,30 @@
 > Akun yang benar ada di `accounts.md`. **Cek akun dulu sebelum deploy.**
 > Mekanisme push + deploy harus SAMA setiap kali.
 
-## ✅ Dua jalur deploy — dua-duanya jalan (sejak 2026-06-08)
+## ✅ SATU jalur deploy — git push (sejak 2026-06-09)
+
+> ⚠️ **JANGAN deploy lewat dua jalur sekaligus.** Dulu (2026-06-08) git push *dan* `npx vercel
+> --prod` sama-sama dipakai → menghasilkan **dua build berbarengan untuk commit yang sama** =
+> mubazir. Sekarang **cukup git push.**
 
 Syarat sudah terpenuhi: GitHub `ramaactivity` ter-connect sebagai Sign-in Method di akun
 Vercel `visualtetra-9970`, jadi author commit dikenali → **tidak ke-block lagi**.
 
-### Jalur A — auto-deploy via git push (paling simpel)
+### Jalur utama — auto-deploy via git push
 ```bash
 git add -A
 git commit -m "pesan"
-git push origin main          # Vercel auto-deploy commit terakhir
+git push origin main          # Vercel auto-deploy commit terakhir → READY
 ```
+Pantau di dashboard sampai `READY` + alias `https://tetra-ops-lac.vercel.app`.
 
-### Jalur B — deploy manual via CLI (upload lokal, bisa dijalankan Claude otomatis)
+### Cadangan — CLI manual (HANYA kalau Git integration mati / butuh deploy tanpa commit)
 ```bash
 npx vercel --prod --yes --scope visualtetra-9970s-projects
 ```
-Output sukses berakhir dengan `readyState: "READY"` + alias `https://tetra-ops-lac.vercel.app`.
+Jangan dijalankan barengan dengan git push. Output sukses berakhir `readyState: "READY"`.
 
-> `./scripts/deploy.sh` (deploy hook) juga masih ada sebagai cadangan, tapi tidak perlu lagi
-> sebagai jalur utama — git push & CLI sudah cukup.
+> `./scripts/deploy.sh` (deploy hook) masih ada sebagai cadangan terakhir, jarang dipakai.
 
 ## 🔑 Kenapa dulu ke-block & bagaimana fix permanennya
 

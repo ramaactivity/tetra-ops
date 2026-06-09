@@ -30,6 +30,10 @@ const tabsListVariants = cva(
 			variant: {
 				default: "bg-muted",
 				line: "gap-1 bg-transparent",
+				// Matches <OperationsViewSwitcher /> — hairline shell on canvas-soft,
+				// active tab lifts out on a white card. Content-width tabs (not 1fr).
+				segmented:
+					"gap-0.5 rounded-md border border-border-default bg-secondary p-0.5",
 			},
 		},
 		defaultVariants: {
@@ -62,6 +66,9 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
 				"group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
 				"data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
 				"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+				// segmented — mirror <OperationsViewSwitcher />: content-width pills,
+				// active lifts onto a white card with level-2 shadow, no underline.
+				"group-data-[variant=segmented]/tabs-list:h-7 group-data-[variant=segmented]/tabs-list:flex-none group-data-[variant=segmented]/tabs-list:rounded-[4px] group-data-[variant=segmented]/tabs-list:px-2.5 group-data-[variant=segmented]/tabs-list:text-[12.5px] group-data-[variant=segmented]/tabs-list:text-muted-foreground group-data-[variant=segmented]/tabs-list:hover:text-foreground group-data-[variant=segmented]/tabs-list:data-active:bg-card group-data-[variant=segmented]/tabs-list:data-active:text-foreground group-data-[variant=segmented]/tabs-list:data-active:shadow-[var(--shadow-level-2)] group-data-[variant=segmented]/tabs-list:after:hidden",
 				className,
 			)}
 			{...props}

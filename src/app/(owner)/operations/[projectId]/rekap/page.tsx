@@ -1,4 +1,13 @@
-import { CheckSquare, ChevronLeft, Lock, Pencil } from "lucide-react";
+import {
+	Boxes,
+	Camera,
+	CheckSquare,
+	ChevronLeft,
+	FileText,
+	History,
+	Lock,
+	Pencil,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
@@ -398,11 +407,23 @@ export default async function EventRekapPage({
 			{/* === Tabs view (display) === */}
 			{rekap && (
 				<Tabs defaultValue="ringkasan" className="gap-4">
-					<TabsList className="w-full max-w-md">
-						<TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
-						<TabsTrigger value="stok">Stok</TabsTrigger>
-						<TabsTrigger value="bukti">Bukti ({proofCount})</TabsTrigger>
-						<TabsTrigger value="audit">Audit</TabsTrigger>
+					<TabsList variant="segmented">
+						<TabsTrigger value="ringkasan">
+							<FileText className="size-3.5" aria-hidden strokeWidth={2} />
+							Ringkasan
+						</TabsTrigger>
+						<TabsTrigger value="stok">
+							<Boxes className="size-3.5" aria-hidden strokeWidth={2} />
+							Stok
+						</TabsTrigger>
+						<TabsTrigger value="bukti">
+							<Camera className="size-3.5" aria-hidden strokeWidth={2} />
+							Bukti ({proofCount})
+						</TabsTrigger>
+						<TabsTrigger value="audit">
+							<History className="size-3.5" aria-hidden strokeWidth={2} />
+							Audit
+						</TabsTrigger>
 					</TabsList>
 					<TabsContent value="ringkasan">
 						<RekapSummaryTab rekap={rekap} context={context} />

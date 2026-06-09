@@ -70,24 +70,38 @@ export function RekapHeroCard({
 						{venueName ? <> · {venueName}</> : null}
 					</p>
 				</div>
-				{pkg?.name && (
-					<div className="flex flex-wrap gap-1.5 pt-0.5">
-						<Badge
-							variant="outline"
-							className="border-primary/30 bg-primary/5 text-primary"
-						>
-							{pkg.name}
-						</Badge>
-						{pkg.duration_hours ? (
-							<Badge variant="outline">{pkg.duration_hours} jam</Badge>
-						) : null}
-						{pkg.frame_size ? (
-							<Badge variant="outline">
-								{FRAME_SIZE_LABELS[pkg.frame_size] ?? pkg.frame_size}
-							</Badge>
-						) : null}
-					</div>
-				)}
+				{pkg?.name &&
+					(() => {
+						// Avoid redundant pills: package names often already embed the
+						// duration & frame (e.g. "2R Unlimited 2 Jam"). Only show those
+						// chips when the name doesn't already contain them.
+						const nameLower = pkg.name.toLowerCase();
+						const frameLabel = pkg.frame_size
+							? (FRAME_SIZE_LABELS[pkg.frame_size] ?? pkg.frame_size)
+							: null;
+						const showDuration =
+							!!pkg.duration_hours &&
+							!nameLower.includes(`${pkg.duration_hours} jam`) &&
+							!nameLower.includes(`${pkg.duration_hours}jam`);
+						const showFrame =
+							!!frameLabel && !nameLower.includes(frameLabel.toLowerCase());
+						return (
+							<div className="flex flex-wrap gap-1.5 pt-0.5">
+								<Badge
+									variant="outline"
+									className="border-primary/30 bg-primary/5 text-primary"
+								>
+									{pkg.name}
+								</Badge>
+								{showDuration ? (
+									<Badge variant="outline">{pkg.duration_hours} jam</Badge>
+								) : null}
+								{showFrame ? (
+									<Badge variant="outline">{frameLabel}</Badge>
+								) : null}
+							</div>
+						);
+					})()}
 			</div>
 
 			{/* KPI strip — only meaningful once a rekap exists */}
