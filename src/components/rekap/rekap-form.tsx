@@ -1,6 +1,14 @@
 "use client";
 
-import { Calculator, CheckCircle2, Plus, Save, Wallet, X } from "lucide-react";
+import {
+	AlertTriangle,
+	Calculator,
+	CheckCircle2,
+	Plus,
+	Save,
+	Wallet,
+	X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { NumberedSection } from "@/components/operations/_shared/numbered-section";
@@ -23,6 +31,7 @@ import {
 	sumBuckets,
 } from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
+import { cn } from "@/lib/utils";
 
 /** Format ratio "0.000714 roll/cetak" → "1 roll / 1400 cetak" (readable). */
 function humanizeRatio(qtyPerUnit: number, unit: string): string {
@@ -765,6 +774,13 @@ export function RekapForm({
 							auto={false}
 						/>
 						{/* Auto-derived preview cards */}
+						<div className="border-t border-border-subtle pt-4">
+							<p className="text-fluid-caption text-muted-foreground">
+								Auto-dihitung dari total cetak — klik{" "}
+								<span className="font-medium text-foreground">Sesuaikan</span>{" "}
+								kalau perlu override manual.
+							</p>
+						</div>
 						<div className="grid gap-3 sm:grid-cols-2">
 							<AutoDerivedCard
 								label="Mediaset"
@@ -1276,7 +1292,7 @@ export function RekapForm({
 						maxLength={1000}
 						defaultValue={get("crew_notes")}
 						placeholder="Apa yang perlu owner tahu — alat rusak, request klien, dst"
-						className={`${inputClass} resize-none`}
+						className="min-h-[88px] w-full resize-y rounded-md border border-border-default bg-background px-3 py-2.5 text-fluid-body leading-relaxed text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
 					/>
 				</div>
 			</NumberedSection>
@@ -1363,11 +1379,9 @@ function AutoDerivedCard({
 }) {
 	if (!mapping || !mapping.item) {
 		return (
-			<div className="rounded-lg border border-dashed border-border-default bg-surface-3/40 p-3">
-				<p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-					{label}
-				</p>
-				<p className="text-fluid-body text-muted-foreground italic">
+			<div className="rounded-lg border border-dashed border-border-default bg-card p-4">
+				<p className="eyebrow text-muted-foreground">{label}</p>
+				<p className="mt-1.5 text-fluid-caption text-muted-foreground italic">
 					Mapping belum di-set di Settings → Items Mapping
 				</p>
 			</div>
@@ -1382,83 +1396,112 @@ function AutoDerivedCard({
 	const critical = exactValue > stockBefore;
 	const lowAfter =
 		stockBefore > 0 && stockAfter / Math.max(stockBefore, 1) < 0.1;
-	const stockToneClass = critical
-		? "bg-destructive/15 text-destructive"
+	const stockValueClass = critical
+		? "text-destructive"
 		: lowAfter
-			? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-			: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+			? "text-amber-700 dark:text-amber-400"
+			: "text-foreground";
+	const fmt = (n: number) =>
+		n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 
 	return (
-		<div className="space-y-2 rounded-lg border border-border-default bg-surface-3 p-3">
-			<div className="flex items-baseline justify-between gap-2">
-				<p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-					{label}
-					<span className="ml-1 text-[10px] font-medium text-primary">
-						{touched ? "MANUAL" : "AUTO"}
+		<div
+			className={cn(
+				"rounded-lg border bg-card p-4",
+				critical ? "border-destructive/40" : "border-border-default",
+			)}
+		>
+			{/* Header — name + auto/manual state + override toggle */}
+			<div className="flex items-center justify-between gap-2">
+				<div className="flex items-center gap-2">
+					<span className="eyebrow text-muted-foreground">{label}</span>
+					<span
+						className={cn(
+							"rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide",
+							touched
+								? "bg-primary/10 text-primary"
+								: "bg-secondary text-muted-foreground",
+						)}
+					>
+						{touched ? "Manual" : "Auto"}
 					</span>
-				</p>
-				{touched ? (
-					<button
-						type="button"
-						onClick={onResetToAuto}
-						className="text-[11px] font-medium text-primary hover:underline"
-					>
-						Reset ke auto
-					</button>
-				) : (
-					<button
-						type="button"
-						onClick={() => onManualChange(String(value))}
-						className="text-[11px] font-medium text-muted-foreground hover:text-primary"
-					>
-						Sesuaikan
-					</button>
-				)}
+				</div>
+				<button
+					type="button"
+					onClick={
+						touched ? onResetToAuto : () => onManualChange(String(value))
+					}
+					className="text-[12px] font-medium text-primary transition-colors hover:underline"
+				>
+					{touched ? "Reset ke auto" : "Sesuaikan"}
+				</button>
 			</div>
+
+			{/* Quantity — big display or editable input */}
 			{touched ? (
 				<input
 					type="number"
 					min={0}
 					value={manualValue}
 					onChange={(e) => onManualChange(e.target.value)}
-					className="tabular h-10 w-full rounded-md border border-border-default bg-background px-2 text-[18px] font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+					className="tabular mt-2.5 h-11 w-full rounded-md border border-border-default bg-background px-3 text-[22px] font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
 				/>
 			) : (
-				<p className="tabular text-[18px] font-semibold leading-none text-foreground">
-					{value.toLocaleString("id-ID")}{" "}
-					<span className="text-[12px] font-normal text-muted-foreground">
+				<p className="tabular mt-2.5 text-[26px] font-semibold leading-none text-foreground">
+					{value.toLocaleString("id-ID")}
+					<span className="ml-1.5 text-[13px] font-normal text-muted-foreground">
 						{item.unit}
 					</span>
 				</p>
 			)}
-			<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-				<span className="tabular rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-					Rp {cost.toLocaleString("id-ID")}
-				</span>
+
+			{/* Breakdown — labeled rows so each number is unambiguous */}
+			<dl className="mt-3.5 space-y-2 border-t border-border-subtle pt-3">
+				<div className="flex items-baseline justify-between gap-3">
+					<dt className="text-[12px] text-muted-foreground">Estimasi HPP</dt>
+					<dd className="tabular text-[13px] font-semibold text-foreground">
+						{formatRupiah(cost)}
+					</dd>
+				</div>
 				{exactValue > 0 && (
-					<span
-						className={`tabular rounded-full px-2 py-0.5 font-medium ${stockToneClass}`}
-					>
-						Stok: {stockBefore.toLocaleString("id-ID")} →{" "}
-						{stockAfter.toLocaleString("id-ID", {
-							maximumFractionDigits: 3,
-						})}
-					</span>
+					<div className="flex items-baseline justify-between gap-3">
+						<dt className="text-[12px] text-muted-foreground">Stok setelah</dt>
+						<dd
+							className={cn("tabular text-[13px] font-medium", stockValueClass)}
+						>
+							{fmt(stockBefore)} → {fmt(stockAfter)}
+						</dd>
+					</div>
 				)}
-				<span className="text-[11px] text-muted-foreground">
-					{frameSize || "default"} ·{" "}
-					{humanizeRatio(mapping.qty_per_unit, item.unit)}
-				</span>
-				{touched ? null : value !== exactValue && exactValue > 0 ? (
-					<span className="text-[11px] italic text-muted-foreground/80">
-						(submit dibulatkan ke {value} {item.unit}, deduct exact{" "}
-						{exactValue.toLocaleString("id-ID", {
-							maximumFractionDigits: 3,
-						})}
-						)
-					</span>
-				) : null}
-			</div>
+				<div className="flex items-baseline justify-between gap-3">
+					<dt className="text-[12px] text-muted-foreground">Rasio</dt>
+					<dd className="text-[12px] text-muted-foreground">
+						{frameSize || "default"} ·{" "}
+						{humanizeRatio(mapping.qty_per_unit, item.unit)}
+					</dd>
+				</div>
+			</dl>
+
+			{/* Stock alert — surfaced loud because it blocks settlement */}
+			{critical ? (
+				<p className="mt-3 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[12px] font-medium text-destructive">
+					<AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+					Stok {item.name} tidak cukup — perlu restock.
+				</p>
+			) : lowAfter ? (
+				<p className="mt-3 flex items-center gap-1.5 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-[12px] font-medium text-amber-700 dark:text-amber-400">
+					<AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+					Stok menipis setelah event.
+				</p>
+			) : null}
+
+			{/* Rounding note (auto mode, integer submit vs decimal deduct) */}
+			{!touched && value !== exactValue && exactValue > 0 ? (
+				<p className="mt-2 text-[11px] italic text-muted-foreground/80">
+					Angka di-submit dibulatkan ke {value} {item.unit}; deduct stok pakai{" "}
+					{fmt(exactValue)}.
+				</p>
+			) : null}
 		</div>
 	);
 }
