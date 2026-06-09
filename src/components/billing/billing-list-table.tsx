@@ -65,12 +65,12 @@ export function BillingListTable({ events, templates }: Props) {
 			width: "23%",
 			render: (ev) => (
 				<div className="flex flex-col gap-0.5">
-					<span className="truncate text-sm font-medium text-foreground">
+					<span className="truncate text-[13px] font-medium text-foreground">
 						{ev.client_name}
 					</span>
 					<Link
 						href={`/operations/${ev.project_id}`}
-						className="tabular w-fit whitespace-nowrap text-xs text-muted-foreground transition-colors hover:text-primary"
+						className="tabular w-fit whitespace-nowrap text-[11px] text-muted-foreground transition-colors hover:text-primary"
 						style={{ viewTransitionName: `event-${ev.project_id}` }}
 					>
 						{ev.project_id}
@@ -84,7 +84,7 @@ export function BillingListTable({ events, templates }: Props) {
 			mobileLabel: "Tanggal",
 			width: "112px",
 			render: (ev) => (
-				<span className="tabular whitespace-nowrap text-sm text-muted-foreground">
+				<span className="tabular whitespace-nowrap text-[12.5px] text-muted-foreground">
 					{formatDateID(ev.event_date)}
 				</span>
 			),
@@ -99,7 +99,7 @@ export function BillingListTable({ events, templates }: Props) {
 				return (
 					<span
 						className={cn(
-							"tabular whitespace-nowrap text-sm",
+							"tabular whitespace-nowrap text-[12.5px]",
 							dueDateColor(ev.due_date, ev.event_date, ev.payment_status),
 						)}
 					>
@@ -115,7 +115,7 @@ export function BillingListTable({ events, templates }: Props) {
 			hideOnMobile: true,
 			width: "120px",
 			render: (ev) => (
-				<span className="tabular whitespace-nowrap text-sm font-medium text-foreground">
+				<span className="tabular whitespace-nowrap text-[13px] font-medium text-foreground">
 					{ev.grand_total ? formatRupiah(ev.grand_total) : "—"}
 				</span>
 			),
@@ -127,7 +127,7 @@ export function BillingListTable({ events, templates }: Props) {
 			hideOnMobile: true,
 			width: "120px",
 			render: (ev) => (
-				<span className="tabular whitespace-nowrap text-sm text-emerald-600 dark:text-emerald-400">
+				<span className="tabular whitespace-nowrap text-[13px] text-emerald-600 dark:text-emerald-400">
 					{ev.total_paid > 0 ? (
 						formatRupiah(ev.total_paid)
 					) : (
@@ -143,11 +143,11 @@ export function BillingListTable({ events, templates }: Props) {
 			width: "120px",
 			render: (ev) =>
 				ev.remaining_balance > 0 ? (
-					<span className="tabular whitespace-nowrap text-sm font-semibold text-foreground">
+					<span className="tabular whitespace-nowrap text-[13px] font-semibold text-foreground">
 						{formatRupiah(ev.remaining_balance)}
 					</span>
 				) : (
-					<span className="tabular text-sm text-muted-foreground/50">—</span>
+					<span className="tabular text-[13px] text-muted-foreground/50">—</span>
 				),
 		},
 		{
@@ -182,7 +182,7 @@ export function BillingListTable({ events, templates }: Props) {
 					<Link
 						href={`/operations/${ev.project_id}/payments`}
 						title="Log payment / lihat history"
-						className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-default bg-surface-2 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-3"
+						className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border-default bg-surface-2 px-2.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-surface-3"
 					>
 						<Receipt className="size-3.5 shrink-0" />
 						Payments

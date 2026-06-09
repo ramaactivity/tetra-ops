@@ -10,7 +10,6 @@ import {
 	BillingListTable,
 	type EventBillingRow,
 } from "@/components/billing/billing-list-table";
-import { BillingTabs } from "@/components/billing/billing-tabs";
 import type { WhatsAppTemplate } from "@/components/booking/send-wa-button";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -216,12 +215,12 @@ export default async function BillingPage({
 			</dl>
 
 			<div className="space-y-3">
-				<BillingTabs current={tab} counts={tabCounts} />
-
 				<BillingFilterBar
 					defaultQ={q}
 					defaultMonth={month}
 					monthShowsAll={monthParam === "all"}
+					currentTab={tab}
+					tabCounts={tabCounts}
 				/>
 
 				{events.length === 0 ? (
