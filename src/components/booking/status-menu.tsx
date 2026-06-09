@@ -54,7 +54,7 @@ export function StatusMenu({
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					disabled={pending}
-					className="border-border-default bg-surface-2 hover:bg-muted data-[state=open]:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors disabled:opacity-50"
+					className="border-border-default bg-surface-2 hover:bg-muted data-[state=open]:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
 				>
 					<span
 						className={cn(
@@ -83,10 +83,7 @@ export function StatusMenu({
 								key={opt}
 								onClick={() => handleChange(opt)}
 								disabled={isCurrent}
-								className={cn(
-									"cursor-pointer gap-2 text-xs",
-									isCurrent && "opacity-100",
-								)}
+								className={cn("gap-2", isCurrent && "opacity-100")}
 							>
 								<span
 									className={cn("size-1.5 rounded-full", STATUS_DOT[opt])}

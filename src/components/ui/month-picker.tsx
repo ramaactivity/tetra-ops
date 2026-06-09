@@ -91,10 +91,15 @@ export function MonthPicker({
 				<CalendarIcon className="size-4 text-muted-foreground" aria-hidden />
 			</PopoverPrimitive.Trigger>
 			<PopoverPrimitive.Portal>
-				<PopoverPrimitive.Positioner sideOffset={6} className="isolate z-50">
+				<PopoverPrimitive.Positioner
+					side="bottom"
+					align="start"
+					sideOffset={6}
+					className="isolate z-50"
+				>
 					<PopoverPrimitive.Popup
 						className={cn(
-							"w-[280px] rounded-lg bg-surface-3 p-3 shadow-[var(--shadow-level-3)] ring-1 ring-border-strong/40 outline-none",
+							"w-[280px] rounded-md border border-border-default bg-popover p-3 text-popover-foreground shadow-[var(--shadow-level-5)] outline-none",
 							"data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
 							"data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
 							"duration-base ease-out-expo",
@@ -137,8 +142,8 @@ export function MonthPicker({
 										type="button"
 										onClick={() => commit(viewYear, m)}
 										className={cn(
-											"h-9 rounded-md px-2 text-sm transition-colors",
-											"hover:bg-surface-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none",
+											"h-9 rounded-md px-2 text-[13px] transition-colors",
+											"hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none",
 											isSelected &&
 												"bg-primary font-medium text-primary-foreground hover:bg-primary",
 										)}
