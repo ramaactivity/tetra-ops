@@ -3,6 +3,7 @@
 import {
 	AlertTriangle,
 	Calculator,
+	Check,
 	CheckCircle2,
 	Plus,
 	Save,
@@ -838,7 +839,7 @@ export function RekapForm({
 				title="Flashdisk & Pouch"
 				description={
 					fdPouchIncluded
-						? "FD + Pouch itu 1 paket — isi jumlah set-nya aja, otomatis kehitung dua-duanya."
+						? "FD + Pouch itu 1 paket — biasanya 1 set per event. Centang aja kalau dipakai."
 						: "Paket tidak include. Skip kecuali emang dipakai."
 				}
 				badge={
@@ -851,7 +852,9 @@ export function RekapForm({
 			>
 				{(() => {
 					const fdSet = Number(flashdisk) || 0;
-					const setSet = (v: string) => {
+					const on = fdSet > 0;
+					const setOn = (next: boolean) => {
+						const v = next ? "1" : "0";
 						setFlashdisk(v);
 						setPouch(v);
 						markTouched("flashdisk_used");
@@ -862,65 +865,128 @@ export function RekapForm({
 					const setError = err("flashdisk_used") || err("pouch_used");
 					const setCost =
 						fieldCost("flashdisk_used", fdSet) + fieldCost("pouch_used", fdSet);
+					const critical = !!(fdStock?.critical || pouchStock?.critical);
+					const fmt = (n: number) =>
+						n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 					return (
-						<div className="space-y-1.5">
-							<label
-								htmlFor="flashdisk_used"
-								className="text-fluid-body font-medium"
-							>
-								Set FD + Pouch terpakai
-							</label>
-							<input
-								id="flashdisk_used"
-								name="flashdisk_used"
-								type="number"
-								inputMode="numeric"
-								min={0}
-								step={1}
-								value={flashdisk}
-								onChange={(e) => setSet(e.target.value)}
-								className={`${inputClass} tabular`}
-							/>
-							{/* Pouch mirrors the set count — submitted, not shown */}
+						<>
+							{/* Submitted values — driven by the toggle (1 set or 0) */}
+							<input type="hidden" name="flashdisk_used" value={flashdisk} />
 							<input type="hidden" name="pouch_used" value={pouch} />
+
+							{/* Toggle — 1 set is the norm, so a checkbox beats a number field */}
+							<button
+								type="button"
+								onClick={() => setOn(!on)}
+								aria-pressed={on}
+								className={cn(
+									"flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+									on
+										? "border-primary/40 bg-primary/5"
+										: "border-border-default bg-card hover:bg-secondary/40",
+								)}
+							>
+								<span
+									className={cn(
+										"grid size-5 shrink-0 place-items-center rounded-[5px] border transition-colors",
+										on
+											? "border-primary bg-primary text-primary-foreground"
+											: "border-border-strong bg-background",
+									)}
+								>
+									{on ? (
+										<Check className="size-3.5" strokeWidth={3} aria-hidden />
+									) : null}
+								</span>
+								<span className="min-w-0">
+									<span className="block text-fluid-body font-medium text-foreground">
+										Terpakai 1 set FD + Pouch
+									</span>
+									<span className="block text-fluid-caption text-muted-foreground">
+										1 set = 1 flashdisk + 1 pouch — keduanya otomatis ke-deduct.
+									</span>
+								</span>
+							</button>
+
+							{/* Breakdown — same structured layout as the Cetak cards */}
+							{on ? (
+								<div
+									className={cn(
+										"rounded-lg border bg-card p-4",
+										critical
+											? "border-destructive/40"
+											: "border-border-default",
+									)}
+								>
+									<p className="eyebrow text-muted-foreground">
+										FD + Pouch · 1 set
+									</p>
+									<dl className="mt-3 space-y-2">
+										<div className="flex items-baseline justify-between gap-3">
+											<dt className="text-[12px] text-muted-foreground">
+												Estimasi HPP
+											</dt>
+											<dd className="tabular text-[13px] font-semibold text-foreground">
+												{formatRupiah(setCost)}
+											</dd>
+										</div>
+										{fdStock ? (
+											<div className="flex items-baseline justify-between gap-3">
+												<dt className="text-[12px] text-muted-foreground">
+													Stok Flashdisk
+												</dt>
+												<dd
+													className={cn(
+														"tabular text-[13px] font-medium",
+														fdStock.critical
+															? "text-destructive"
+															: fdStock.lowAfter
+																? "text-amber-700 dark:text-amber-400"
+																: "text-foreground",
+													)}
+												>
+													{fmt(fdStock.before)} → {fmt(fdStock.after)}
+												</dd>
+											</div>
+										) : null}
+										{pouchStock ? (
+											<div className="flex items-baseline justify-between gap-3">
+												<dt className="text-[12px] text-muted-foreground">
+													Stok Pouch
+												</dt>
+												<dd
+													className={cn(
+														"tabular text-[13px] font-medium",
+														pouchStock.critical
+															? "text-destructive"
+															: pouchStock.lowAfter
+																? "text-amber-700 dark:text-amber-400"
+																: "text-foreground",
+													)}
+												>
+													{fmt(pouchStock.before)} → {fmt(pouchStock.after)}
+												</dd>
+											</div>
+										) : null}
+									</dl>
+									{critical ? (
+										<p className="mt-3 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[12px] font-medium text-destructive">
+											<AlertTriangle
+												className="size-3.5 shrink-0"
+												aria-hidden
+											/>
+											Stok FD/Pouch tidak cukup — perlu restock.
+										</p>
+									) : null}
+								</div>
+							) : null}
+
 							{setError ? (
 								<p className="text-fluid-caption text-destructive">
 									{setError}
 								</p>
-							) : (
-								<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-									{setCost > 0 && (
-										<span className="tabular inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-											{formatRupiah(setCost)}
-										</span>
-									)}
-									{fdSet > 0 &&
-										[
-											{ label: "FD", s: fdStock },
-											{ label: "Pouch", s: pouchStock },
-										].map(({ label, s }) =>
-											s ? (
-												<span
-													key={label}
-													className={`tabular inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
-														s.critical
-															? "bg-destructive/15 text-destructive"
-															: s.lowAfter
-																? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-																: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-													}`}
-													title={
-														s.critical ? "Stok kurang!" : "Stok setelah deduct"
-													}
-												>
-													<span className="opacity-70">{label}</span>
-													{s.before} → {s.after}
-												</span>
-											) : null,
-										)}
-								</div>
-							)}
-						</div>
+							) : null}
+						</>
 					);
 				})()}
 			</NumberedSection>
