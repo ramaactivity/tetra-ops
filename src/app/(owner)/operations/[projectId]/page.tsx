@@ -501,243 +501,260 @@ export default async function EventDetailPage({
 			</CollapsibleCard>
 
 			{/* === DETAIL CARDS (collapsible, default closed) === */}
-			{/* Full-width stack so expanding one card never leaves a blank column
-			    beside a still-collapsed neighbour. */}
 			<div className="space-y-3">
-				<CollapsibleCard
-					icon={<Phone className="size-4" aria-hidden strokeWidth={2} />}
-					title="Klien & Kontak"
-					subtitle="Nama, WA, email, booker, dan PIC event."
-				>
-					<dl className="space-y-2.5">
-						<DetailRow label="Klien">{event.client_name}</DetailRow>
-						<DetailRow label="WA Klien">
-							{event.client_wa && event.client_wa !== "-" ? (
-								<a
-									href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="tabular inline-flex items-center gap-1 text-[#0070f3] hover:underline"
-								>
-									{event.client_wa}
-								</a>
-							) : (
-								<span className="text-muted-foreground">—</span>
-							)}
-						</DetailRow>
-						{event.client_email && (
-							<DetailRow label="Email">
-								<a
-									href={`mailto:${event.client_email}`}
-									className="inline-flex items-center gap-1 text-[#0070f3] hover:underline"
-								>
-									<Mail className="size-3" aria-hidden strokeWidth={2} />
-									{event.client_email}
-								</a>
-							</DetailRow>
-						)}
-						{bookerContact && (
-							<DetailRow label="Booker">
-								<span className="block space-y-0.5">
-									<span className="block">{bookerContact.name}</span>
-									{bookerContact.phone && (
+				{/* Two independent columns — compact (no wasted width), and each
+				    column flows on its own so opening a card never leaves a blank
+				    beside a still-collapsed neighbour. */}
+				<div className="grid items-start gap-3 md:grid-cols-2">
+					<div className="space-y-3">
+						<CollapsibleCard
+							icon={<Phone className="size-4" aria-hidden strokeWidth={2} />}
+							title="Klien & Kontak"
+							subtitle="Nama, WA, email, booker, dan PIC event."
+						>
+							<dl className="space-y-2.5">
+								<DetailRow label="Klien">{event.client_name}</DetailRow>
+								<DetailRow label="WA Klien">
+									{event.client_wa && event.client_wa !== "-" ? (
 										<a
-											href={`https://wa.me/${bookerContact.phone.replace(/^\+|^0/, "62")}`}
+											href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
 											target="_blank"
 											rel="noopener noreferrer"
-											className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+											className="tabular inline-flex items-center gap-1 text-[#0070f3] hover:underline"
 										>
-											{bookerContact.phone}
+											{event.client_wa}
 										</a>
+									) : (
+										<span className="text-muted-foreground">—</span>
 									)}
-								</span>
-							</DetailRow>
-						)}
-						{(picDisplayName || picDisplayPhone) && (
-							<DetailRow label="PIC Event">
-								<span className="block space-y-0.5">
-									{picDisplayName && (
-										<span className="block font-medium text-foreground">
-											{picDisplayName}
-										</span>
-									)}
-									{picDisplayPhone && (
+								</DetailRow>
+								{event.client_email && (
+									<DetailRow label="Email">
 										<a
-											href={`https://wa.me/${picDisplayPhone.replace(/^\+|^0/, "62")}`}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+											href={`mailto:${event.client_email}`}
+											className="inline-flex items-center gap-1 text-[#0070f3] hover:underline"
 										>
-											{picDisplayPhone}
+											<Mail className="size-3" aria-hidden strokeWidth={2} />
+											{event.client_email}
 										</a>
-									)}
-									<span className="block text-[10.5px] text-muted-foreground">
-										Crew kontak orang ini di hari H
-									</span>
-								</span>
-							</DetailRow>
-						)}
-					</dl>
-				</CollapsibleCard>
-
-				<CollapsibleCard
-					icon={<Building2 className="size-4" aria-hidden strokeWidth={2} />}
-					title="Lokasi"
-					subtitle={event.venue_name}
-				>
-					<dl className="space-y-2.5">
-						<DetailRow label="Venue">{event.venue_name}</DetailRow>
-						<DetailRow label="Alamat">{event.venue_address ?? "—"}</DetailRow>
-						<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
-						<DetailRow label="Provinsi">
-							{event.venue_province ?? "—"}
-						</DetailRow>
-					</dl>
-				</CollapsibleCard>
-
-				<CollapsibleCard
-					icon={<FileText className="size-4" aria-hidden strokeWidth={2} />}
-					title="Service & Package"
-					subtitle={
-						pkg
-							? `${pkg.name} · ${pkg.duration_hours}j`
-							: "Custom / belum dipilih"
-					}
-				>
-					<dl className="space-y-2.5">
-						<DetailRow label="Service">
-							{SERVICE_TYPE_LABELS[event.service_type] ?? event.service_type}
-						</DetailRow>
-						<DetailRow label="Frame">
-							{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
-						</DetailRow>
-						<DetailRow label="Package">
-							{pkg ? (
-								<span>
-									{pkg.name}
-									<span className="text-muted-foreground">
-										{" · "}
-										{pkg.duration_hours}j · {formatRupiah(pkg.base_price)}
-									</span>
-								</span>
-							) : (
-								<span className="text-muted-foreground">
-									Custom / belum dipilih
-								</span>
-							)}
-						</DetailRow>
-						<DetailRow label="Backdrop">
-							{(() => {
-								if (!backdrop)
-									return (
-										<span className="text-muted-foreground">
-											— belum dipilih
+									</DetailRow>
+								)}
+								{bookerContact && (
+									<DetailRow label="Booker">
+										<span className="block space-y-0.5">
+											<span className="block">{bookerContact.name}</span>
+											{bookerContact.phone && (
+												<a
+													href={`https://wa.me/${bookerContact.phone.replace(/^\+|^0/, "62")}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+												>
+													{bookerContact.phone}
+												</a>
+											)}
 										</span>
-									);
-								const markup = event.vendor_decor_markup ?? 0;
-								return (
-									<span>
-										{backdrop.name}
-										{backdrop.type === "rental_owned" &&
-											backdrop.rental_price > 0 && (
-												<span className="text-muted-foreground">
-													{" · "}
-													sewa {formatRupiah(backdrop.rental_price)}
+									</DetailRow>
+								)}
+								{(picDisplayName || picDisplayPhone) && (
+									<DetailRow label="PIC Event">
+										<span className="block space-y-0.5">
+											{picDisplayName && (
+												<span className="block font-medium text-foreground">
+													{picDisplayName}
 												</span>
 											)}
-										{backdrop.type === "vendor_decor" && markup > 0 && (
+											{picDisplayPhone && (
+												<a
+													href={`https://wa.me/${picDisplayPhone.replace(/^\+|^0/, "62")}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+												>
+													{picDisplayPhone}
+												</a>
+											)}
+											<span className="block text-[10.5px] text-muted-foreground">
+												Crew kontak orang ini di hari H
+											</span>
+										</span>
+									</DetailRow>
+								)}
+							</dl>
+						</CollapsibleCard>
+
+						<CollapsibleCard
+							icon={
+								<Building2 className="size-4" aria-hidden strokeWidth={2} />
+							}
+							title="Lokasi"
+							subtitle={event.venue_name}
+						>
+							<dl className="space-y-2.5">
+								<DetailRow label="Venue">{event.venue_name}</DetailRow>
+								<DetailRow label="Alamat">
+									{event.venue_address ?? "—"}
+								</DetailRow>
+								<DetailRow label="Kota">{event.venue_city ?? "—"}</DetailRow>
+								<DetailRow label="Provinsi">
+									{event.venue_province ?? "—"}
+								</DetailRow>
+							</dl>
+						</CollapsibleCard>
+					</div>
+					<div className="space-y-3">
+						<CollapsibleCard
+							icon={<FileText className="size-4" aria-hidden strokeWidth={2} />}
+							title="Service & Package"
+							subtitle={
+								pkg
+									? `${pkg.name} · ${pkg.duration_hours}j`
+									: "Custom / belum dipilih"
+							}
+						>
+							<dl className="space-y-2.5">
+								<DetailRow label="Service">
+									{SERVICE_TYPE_LABELS[event.service_type] ??
+										event.service_type}
+								</DetailRow>
+								<DetailRow label="Frame">
+									{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
+								</DetailRow>
+								<DetailRow label="Package">
+									{pkg ? (
+										<span>
+											{pkg.name}
 											<span className="text-muted-foreground">
 												{" · "}
-												markup {formatRupiah(markup)}
+												{pkg.duration_hours}j · {formatRupiah(pkg.base_price)}
 											</span>
-										)}
-									</span>
-								);
-							})()}
-						</DetailRow>
-						<DetailRow label="Flashdisk">
-							{event.include_flashdisk_pouch ? (
-								<span className="font-medium text-emerald-700 dark:text-emerald-400">
-									Termasuk Flashdisk Pouch
-								</span>
-							) : (
-								<span className="text-muted-foreground">Tidak termasuk</span>
-							)}
-						</DetailRow>
-					</dl>
-				</CollapsibleCard>
+										</span>
+									) : (
+										<span className="text-muted-foreground">
+											Custom / belum dipilih
+										</span>
+									)}
+								</DetailRow>
+								<DetailRow label="Backdrop">
+									{(() => {
+										if (!backdrop)
+											return (
+												<span className="text-muted-foreground">
+													— belum dipilih
+												</span>
+											);
+										const markup = event.vendor_decor_markup ?? 0;
+										return (
+											<span>
+												{backdrop.name}
+												{backdrop.type === "rental_owned" &&
+													backdrop.rental_price > 0 && (
+														<span className="text-muted-foreground">
+															{" · "}
+															sewa {formatRupiah(backdrop.rental_price)}
+														</span>
+													)}
+												{backdrop.type === "vendor_decor" && markup > 0 && (
+													<span className="text-muted-foreground">
+														{" · "}
+														markup {formatRupiah(markup)}
+													</span>
+												)}
+											</span>
+										);
+									})()}
+								</DetailRow>
+								<DetailRow label="Flashdisk">
+									{event.include_flashdisk_pouch ? (
+										<span className="font-medium text-emerald-700 dark:text-emerald-400">
+											Termasuk Flashdisk Pouch
+										</span>
+									) : (
+										<span className="text-muted-foreground">
+											Tidak termasuk
+										</span>
+									)}
+								</DetailRow>
+							</dl>
+						</CollapsibleCard>
 
-				<CollapsibleCard
-					icon={<Wallet className="size-4" aria-hidden strokeWidth={2} />}
-					title="Financial"
-					subtitle={`Grand total ${formatRupiah(event.grand_total ?? 0)} · Outstanding ${formatRupiah(event.remaining_balance ?? 0)}`}
-					actions={
-						<Link
-							href={`/operations/${event.project_id}/payments`}
-							className={headerActionCls}
+						<CollapsibleCard
+							icon={<Wallet className="size-4" aria-hidden strokeWidth={2} />}
+							title="Financial"
+							subtitle={`Grand total ${formatRupiah(event.grand_total ?? 0)} · Outstanding ${formatRupiah(event.remaining_balance ?? 0)}`}
+							actions={
+								<Link
+									href={`/operations/${event.project_id}/payments`}
+									className={headerActionCls}
+								>
+									Manage payments
+								</Link>
+							}
 						>
-							Manage payments
-						</Link>
-					}
-				>
-					<dl className="space-y-2.5">
-						<DetailRow label="Base Price" align="right">
-							<span className="tabular text-muted-foreground">
-								{event.base_price ? formatRupiah(event.base_price) : "—"}
-							</span>
-						</DetailRow>
-						<DetailRow label="Add-ons" align="right">
-							<span className="tabular text-muted-foreground">
-								{event.addons_total ? formatRupiah(event.addons_total) : "—"}
-							</span>
-						</DetailRow>
-						<DetailRow label="Discount" align="right">
-							<span className="tabular text-muted-foreground">
-								{event.discount_amount
-									? `−${formatRupiah(event.discount_amount)}`
-									: "—"}
-							</span>
-						</DetailRow>
-						<DetailRow label="Gross-up PPh" align="right">
-							<span className="tabular text-muted-foreground">
-								{event.gross_up_pph_amount
-									? formatRupiah(event.gross_up_pph_amount)
-									: "—"}
-							</span>
-						</DetailRow>
-						<div className="border-t border-border-subtle pt-2.5">
-							<DetailRow label="Grand Total" strong align="right">
-								<span className="tabular font-semibold text-foreground">
-									{event.grand_total ? formatRupiah(event.grand_total) : "—"}
-								</span>
-							</DetailRow>
-						</div>
-						<DetailRow label="Total Paid" align="right">
-							<span className="tabular text-emerald-700 dark:text-emerald-400">
-								{event.total_paid ? formatRupiah(event.total_paid) : "—"}
-							</span>
-						</DetailRow>
-						<DetailRow label="Remaining" strong align="right">
-							<span
-								className={cn(
-									"tabular font-semibold",
-									(event.remaining_balance ?? 0) > 0
-										? "text-rose-600 dark:text-rose-400"
-										: "text-foreground",
-								)}
-							>
-								{event.remaining_balance
-									? formatRupiah(event.remaining_balance)
-									: "—"}
-							</span>
-						</DetailRow>
-						<DetailRow label="Status" align="right">
-							<PaymentStatusBadge status={event.payment_status} />
-						</DetailRow>
-					</dl>
-				</CollapsibleCard>
+							<dl className="space-y-2.5">
+								<DetailRow label="Base Price" align="right">
+									<span className="tabular text-muted-foreground">
+										{event.base_price ? formatRupiah(event.base_price) : "—"}
+									</span>
+								</DetailRow>
+								<DetailRow label="Add-ons" align="right">
+									<span className="tabular text-muted-foreground">
+										{event.addons_total
+											? formatRupiah(event.addons_total)
+											: "—"}
+									</span>
+								</DetailRow>
+								<DetailRow label="Discount" align="right">
+									<span className="tabular text-muted-foreground">
+										{event.discount_amount
+											? `−${formatRupiah(event.discount_amount)}`
+											: "—"}
+									</span>
+								</DetailRow>
+								<DetailRow label="Gross-up PPh" align="right">
+									<span className="tabular text-muted-foreground">
+										{event.gross_up_pph_amount
+											? formatRupiah(event.gross_up_pph_amount)
+											: "—"}
+									</span>
+								</DetailRow>
+								<div className="border-t border-border-subtle pt-2.5">
+									<DetailRow label="Grand Total" strong align="right">
+										<span className="tabular font-semibold text-foreground">
+											{event.grand_total
+												? formatRupiah(event.grand_total)
+												: "—"}
+										</span>
+									</DetailRow>
+								</div>
+								<DetailRow label="Total Paid" align="right">
+									<span className="tabular text-emerald-700 dark:text-emerald-400">
+										{event.total_paid ? formatRupiah(event.total_paid) : "—"}
+									</span>
+								</DetailRow>
+								<DetailRow label="Remaining" strong align="right">
+									<span
+										className={cn(
+											"tabular font-semibold",
+											(event.remaining_balance ?? 0) > 0
+												? "text-rose-600 dark:text-rose-400"
+												: "text-foreground",
+										)}
+									>
+										{event.remaining_balance
+											? formatRupiah(event.remaining_balance)
+											: "—"}
+									</span>
+								</DetailRow>
+								<DetailRow label="Status" align="right">
+									<PaymentStatusBadge status={event.payment_status} />
+								</DetailRow>
+							</dl>
+						</CollapsibleCard>
+					</div>
+				</div>
 
-				<div id="crew-manage" className="scroll-mt-24 md:col-span-2">
+				<div id="crew-manage" className="scroll-mt-24">
 					<CollapsibleCard
 						icon={<Users className="size-4" aria-hidden strokeWidth={2} />}
 						title="Crew Incharge"
