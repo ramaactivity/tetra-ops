@@ -297,7 +297,6 @@ export default async function EventDetailPage({
 		: null;
 
 	const headerActionCls = buttonVariants({ variant: "outline", size: "sm" });
-	const headerCtaCls = buttonVariants({ variant: "default", size: "sm" });
 
 	return (
 		<Container size="xl" className="space-y-5">
@@ -502,7 +501,9 @@ export default async function EventDetailPage({
 			</CollapsibleCard>
 
 			{/* === DETAIL CARDS (collapsible, default closed) === */}
-			<div className="grid gap-3 md:grid-cols-2">
+			{/* Full-width stack so expanding one card never leaves a blank column
+			    beside a still-collapsed neighbour. */}
+			<div className="space-y-3">
 				<CollapsibleCard
 					icon={<Phone className="size-4" aria-hidden strokeWidth={2} />}
 					title="Klien & Kontak"
@@ -556,7 +557,7 @@ export default async function EventDetailPage({
 							<DetailRow label="PIC Event">
 								<span className="block space-y-0.5">
 									{picDisplayName && (
-										<span className="block font-medium text-amber-700 dark:text-amber-400">
+										<span className="block font-medium text-foreground">
 											{picDisplayName}
 										</span>
 									)}
@@ -680,41 +681,43 @@ export default async function EventDetailPage({
 					}
 				>
 					<dl className="space-y-2.5">
-						<DetailRow label="Base Price">
-							<span className="tabular">
+						<DetailRow label="Base Price" align="right">
+							<span className="tabular text-muted-foreground">
 								{event.base_price ? formatRupiah(event.base_price) : "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Add-ons">
-							<span className="tabular">
+						<DetailRow label="Add-ons" align="right">
+							<span className="tabular text-muted-foreground">
 								{event.addons_total ? formatRupiah(event.addons_total) : "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Discount">
-							<span className="tabular">
+						<DetailRow label="Discount" align="right">
+							<span className="tabular text-muted-foreground">
 								{event.discount_amount
 									? `−${formatRupiah(event.discount_amount)}`
 									: "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Gross-up PPh">
-							<span className="tabular">
+						<DetailRow label="Gross-up PPh" align="right">
+							<span className="tabular text-muted-foreground">
 								{event.gross_up_pph_amount
 									? formatRupiah(event.gross_up_pph_amount)
 									: "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Grand Total" strong>
-							<span className="tabular font-semibold text-foreground">
-								{event.grand_total ? formatRupiah(event.grand_total) : "—"}
-							</span>
-						</DetailRow>
-						<DetailRow label="Total Paid">
-							<span className="tabular">
+						<div className="border-t border-border-subtle pt-2.5">
+							<DetailRow label="Grand Total" strong align="right">
+								<span className="tabular font-semibold text-foreground">
+									{event.grand_total ? formatRupiah(event.grand_total) : "—"}
+								</span>
+							</DetailRow>
+						</div>
+						<DetailRow label="Total Paid" align="right">
+							<span className="tabular text-emerald-700 dark:text-emerald-400">
 								{event.total_paid ? formatRupiah(event.total_paid) : "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Remaining" strong>
+						<DetailRow label="Remaining" strong align="right">
 							<span
 								className={cn(
 									"tabular font-semibold",
@@ -728,7 +731,7 @@ export default async function EventDetailPage({
 									: "—"}
 							</span>
 						</DetailRow>
-						<DetailRow label="Status">
+						<DetailRow label="Status" align="right">
 							<PaymentStatusBadge status={event.payment_status} />
 						</DetailRow>
 					</dl>
@@ -1031,17 +1034,21 @@ function DetailRow({
 	label,
 	children,
 	strong = false,
+	align = "left",
 }: {
 	label: string;
 	children: React.ReactNode;
 	strong?: boolean;
+	/** Value alignment — left for text (default), right for money columns. */
+	align?: "left" | "right";
 }) {
 	return (
-		<div className="flex items-baseline justify-between gap-4">
-			<dt className="eyebrow shrink-0 !text-[10px]">{label}</dt>
+		<div className="grid grid-cols-[7rem_1fr] items-baseline gap-4">
+			<dt className="eyebrow pt-px leading-snug">{label}</dt>
 			<dd
 				className={cn(
-					"min-w-0 text-right text-[13px]",
+					"min-w-0 text-[13px] leading-snug",
+					align === "right" ? "text-right" : "text-left",
 					strong ? "font-semibold text-foreground" : "text-foreground",
 				)}
 			>
