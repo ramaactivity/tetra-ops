@@ -18,8 +18,6 @@ type EventRow = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-	draft: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
-	confirmed: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
 	upcoming: "bg-primary/15 text-primary",
 	in_progress: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
 	awaiting_settlement: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -172,7 +170,6 @@ export default async function OperationsCalendarPage({
 					{monthLabelID(year, monthIndex)}
 				</h2>
 				<div className="hidden gap-3 sm:flex">
-					<LegendDot tone="bg-sky-500" label="Confirmed" />
 					<LegendDot tone="bg-primary" label="Upcoming" />
 					<LegendDot tone="bg-amber-500" label="In Progress" />
 					<LegendDot tone="bg-emerald-500" label="Done" />

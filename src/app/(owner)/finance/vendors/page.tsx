@@ -103,7 +103,7 @@ export default async function VendorsPage() {
 		const isUpcoming =
 			!e.is_migrated_legacy &&
 			e.event_date >= todayISO &&
-			!["cancelled", "archived", "completed"].includes(e.status);
+			!["cancelled", "completed"].includes(e.status);
 		const isThisMonth =
 			!e.is_migrated_legacy &&
 			e.event_date >= ymStart &&

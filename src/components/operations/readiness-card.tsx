@@ -58,9 +58,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 	const days = daysUntil(props.eventDate);
 	const isPostEvent = days < 0;
 	const isCancelledOrCompleted =
-		props.status === "cancelled" ||
-		props.status === "completed" ||
-		props.status === "archived";
+		props.status === "cancelled" || props.status === "completed";
 
 	if (isCancelledOrCompleted) {
 		return null;
