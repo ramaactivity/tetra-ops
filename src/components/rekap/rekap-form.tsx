@@ -1,22 +1,9 @@
 "use client";
 
-import {
-	Calculator,
-	Camera,
-	Car,
-	CheckCircle2,
-	Coffee,
-	Disc,
-	Package2,
-	Plus,
-	Printer,
-	Save,
-	Sparkles,
-	Wallet,
-	X,
-} from "lucide-react";
+import { Calculator, CheckCircle2, Plus, Save, Wallet, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { NumberedSection } from "@/components/operations/_shared/numbered-section";
 import { RekapContextCard } from "@/components/rekap/rekap-context-card";
 import { RekapProofUpload } from "@/components/rekap/rekap-proof-upload";
 import { RekapSummaryBar } from "@/components/rekap/rekap-summary-bar";
@@ -24,11 +11,6 @@ import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { useRekapDraft } from "@/components/rekap/use-rekap-draft";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
-import {
-	Disclosure,
-	DisclosurePanel,
-	DisclosureTrigger,
-} from "@/components/ui/disclosure";
 import type { RekapContext } from "@/lib/actions/rekap";
 import { type RekapFormState, submitRekap } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
@@ -764,19 +746,11 @@ export function RekapForm({
 						}
 					: mediaMapping;
 				return (
-					<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
-						<div>
-							<div className="flex items-center gap-2">
-								<Printer className="size-4 text-muted-foreground" aria-hidden />
-								<h3 className="text-[14px] font-semibold text-foreground">
-									Cetak
-								</h3>
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Cuma isi total cetak — mediaset + sleeve auto-hitung dari
-								mapping per frame size.
-							</p>
-						</div>
+					<NumberedSection
+						step={1}
+						title="Cetak"
+						description="Cuma isi total cetak — mediaset + sleeve auto-hitung dari mapping per frame size."
+					>
 						<NumField
 							label="Total cetak (pcs)"
 							name="cetak_total"
@@ -838,40 +812,27 @@ export function RekapForm({
 							name="sleeve_used"
 							value={String(finalSleeve)}
 						/>
-					</section>
+					</NumberedSection>
 				);
 			})()}
 
 			{/* ========== FLASHDISK & POUCH ========== */}
-			<section
-				className={`space-y-4 rounded-xl border p-5 ${
+			<NumberedSection
+				step={2}
+				title="Flashdisk & Pouch"
+				description={
 					fdPouchIncluded
-						? "border-border-default bg-card"
-						: "border-dashed border-border-default bg-card/40"
-				}`}
+						? "FD + Pouch itu 1 paket — isi jumlah set-nya aja, otomatis kehitung dua-duanya."
+						: "Paket tidak include. Skip kecuali emang dipakai."
+				}
+				badge={
+					fdPouchIncluded ? (
+						<Badge variant="success">Include</Badge>
+					) : (
+						<Badge variant="secondary">Skip</Badge>
+					)
+				}
 			>
-				<div>
-					<div className="flex items-center gap-2">
-						<Package2 className="size-4 text-muted-foreground" aria-hidden />
-						<h3 className="text-[14px] font-semibold text-foreground">
-							Flashdisk & Pouch
-						</h3>
-						{fdPouchIncluded ? (
-							<Badge variant="success" className="text-[10px]">
-								Include
-							</Badge>
-						) : (
-							<Badge variant="secondary" className="text-[10px]">
-								Skip
-							</Badge>
-						)}
-					</div>
-					<p className="text-xs text-muted-foreground">
-						{fdPouchIncluded
-							? "FD + Pouch itu 1 paket — isi jumlah set-nya aja, otomatis kehitung dua-duanya."
-							: "Paket tidak include. Skip kecuali emang dipakai."}
-					</p>
-				</div>
 				{(() => {
 					const fdSet = Number(flashdisk) || 0;
 					const setSet = (v: string) => {
@@ -944,21 +905,14 @@ export function RekapForm({
 						</div>
 					);
 				})()}
-			</section>
+			</NumberedSection>
 
 			{/* ========== ADD-ON ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
-				<div>
-					<div className="flex items-center gap-2">
-						<Disc className="size-4 text-muted-foreground" aria-hidden />
-						<h3 className="text-[14px] font-semibold text-foreground">
-							Add-on
-						</h3>
-					</div>
-					<p className="text-xs text-muted-foreground">
-						Photomagnet / keychain — jumlah yang dipakai (paid + bonus).
-					</p>
-				</div>
+			<NumberedSection
+				step={3}
+				title="Add-on"
+				description="Photomagnet / keychain — jumlah yang dipakai (paid + bonus)."
+			>
 				<div className="grid gap-4 sm:grid-cols-2">
 					<AddonField
 						label="Photomagnet"
@@ -991,114 +945,93 @@ export function RekapForm({
 						stock={fieldStock("keychain_used", Number(keychain) || 0)}
 					/>
 				</div>
-			</section>
+			</NumberedSection>
 
 			{/* ========== ITEM TAMBAHAN (custom_materials) ========== */}
-			<section className="rounded-xl border border-border-default bg-card">
-				<Disclosure defaultOpen={Object.keys(customMaterials).length > 0}>
-					<DisclosureTrigger className="px-5 py-4">
-						<span className="flex items-center gap-2">
-							<Sparkles className="size-4 text-muted-foreground" aria-hidden />
-							<span className="text-[14px] font-semibold text-foreground">
-								Item tambahan{" "}
-								<span className="text-muted-foreground text-xs font-normal">
-									({Object.keys(customMaterials).length})
-								</span>
-							</span>
-						</span>
-					</DisclosureTrigger>
-					<DisclosurePanel>
-						<div className="space-y-3 pt-2">
-							<p className="text-xs text-muted-foreground">
-								Item dari stok yang kepake selain 7 standard di atas (cth.
-								sticker, magnetic, dll.).
-							</p>
-
-							{Object.keys(customMaterials).length > 0 && (
-								<ul className="space-y-2">
-									{Object.entries(customMaterials).map(([sku, qty]) => {
-										const it = customInventoryBySku.get(sku);
-										if (!it) return null;
-										const cost = qty * it.purchase_price_avg;
-										return (
-											<li
-												key={sku}
-												className="flex items-center gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
-											>
-												<div className="min-w-0 flex-1">
-													<p className="text-[13px] font-medium text-foreground">
-														{it.name}
-													</p>
-													<p className="font-mono text-[11px] text-muted-foreground">
-														{it.sku} · Stok {it.current_stock} ·{" "}
-														{formatRupiah(it.purchase_price_avg)}/{it.unit}
-													</p>
-												</div>
-												<input
-													type="number"
-													min={1}
-													max={9999}
-													value={qty}
-													onChange={(e) =>
-														updateCustomQty(sku, Number(e.target.value))
-													}
-													className="tabular h-8 w-20 rounded-md border border-border-default bg-background px-2 text-right text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-												/>
-												<span className="tabular hidden w-24 shrink-0 text-right text-xs text-muted-foreground sm:inline">
-													{formatRupiah(cost)}
-												</span>
-												<button
-													type="button"
-													onClick={() => removeCustomItem(sku)}
-													title="Hapus"
-													className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
-												>
-													<X className="h-3.5 w-3.5" />
-												</button>
-											</li>
-										);
-									})}
-								</ul>
-							)}
-
-							{customComboboxOptions.length > 0 && (
-								<div className="flex items-end gap-2">
-									<div className="flex-1">
-										<Combobox
-											value=""
-											onValueChange={(id) => id && addCustomItem(id)}
-											options={customComboboxOptions}
-											placeholder="Cari item — SKU / nama…"
-											allowFreeText={false}
-											emptyMessage="Tidak ada item match. Tambah master item di Settings → Inventory."
-											aria-label="Tambah item tambahan"
-										/>
+			<NumberedSection
+				step={4}
+				title="Item tambahan"
+				description="Item dari stok yang kepake selain 7 item standar di atas (cth. sticker, magnetik, dll.)."
+				badge={
+					<span className="text-[11px] text-muted-foreground">
+						{Object.keys(customMaterials).length} item
+					</span>
+				}
+				defaultOpen={Object.keys(customMaterials).length > 0}
+			>
+				{Object.keys(customMaterials).length > 0 && (
+					<ul className="space-y-2">
+						{Object.entries(customMaterials).map(([sku, qty]) => {
+							const it = customInventoryBySku.get(sku);
+							if (!it) return null;
+							const cost = qty * it.purchase_price_avg;
+							return (
+								<li
+									key={sku}
+									className="flex items-center gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
+								>
+									<div className="min-w-0 flex-1">
+										<p className="text-[13px] font-medium text-foreground">
+											{it.name}
+										</p>
+										<p className="font-mono text-[11px] text-muted-foreground">
+											{it.sku} · Stok {it.current_stock} ·{" "}
+											{formatRupiah(it.purchase_price_avg)}/{it.unit}
+										</p>
 									</div>
-									<div className="hidden h-10 items-center text-muted-foreground sm:inline-flex">
-										<Plus className="h-4 w-4" />
-									</div>
-								</div>
-							)}
+									<input
+										type="number"
+										min={1}
+										max={9999}
+										value={qty}
+										onChange={(e) =>
+											updateCustomQty(sku, Number(e.target.value))
+										}
+										className="tabular h-8 w-20 rounded-md border border-border-default bg-background px-2 text-right text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									/>
+									<span className="tabular hidden w-24 shrink-0 text-right text-xs text-muted-foreground sm:inline">
+										{formatRupiah(cost)}
+									</span>
+									<button
+										type="button"
+										onClick={() => removeCustomItem(sku)}
+										title="Hapus"
+										className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
+									>
+										<X className="h-3.5 w-3.5" />
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+
+				{customComboboxOptions.length > 0 && (
+					<div className="flex items-end gap-2">
+						<div className="flex-1">
+							<Combobox
+								value=""
+								onValueChange={(id) => id && addCustomItem(id)}
+								options={customComboboxOptions}
+								placeholder="Cari item — SKU / nama…"
+								allowFreeText={false}
+								emptyMessage="Tidak ada item match. Tambah master item di Settings → Inventory."
+								aria-label="Tambah item tambahan"
+							/>
 						</div>
-					</DisclosurePanel>
-				</Disclosure>
-			</section>
+						<div className="hidden h-10 items-center text-muted-foreground sm:inline-flex">
+							<Plus className="h-4 w-4" />
+						</div>
+					</div>
+				)}
+			</NumberedSection>
 
 			{/* ========== TRANSPORTASI ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
-				<div>
-					<div className="flex items-center gap-2">
-						<Car className="size-4 text-muted-foreground" aria-hidden />
-						<h3 className="text-[14px] font-semibold text-foreground">
-							Transportasi
-						</h3>
-					</div>
-					<p className="text-xs text-muted-foreground">
-						Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau
-						ada.
-					</p>
-				</div>
-
+			<NumberedSection
+				step={5}
+				title="Transportasi"
+				description="Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau ada."
+			>
 				<div className="grid grid-cols-3 gap-2">
 					{(
 						[
@@ -1186,23 +1119,14 @@ export function RekapForm({
 						onChange={setParkingCost}
 					/>
 				</div>
-			</section>
+			</NumberedSection>
 
 			{/* ========== KONSUMSI & LAIN-LAIN ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
-				<div>
-					<div className="flex items-center gap-2">
-						<Coffee className="size-4 text-muted-foreground" aria-hidden />
-						<h3 className="text-[14px] font-semibold text-foreground">
-							Konsumsi & Lain-lain
-						</h3>
-					</div>
-					<p className="text-xs text-muted-foreground">
-						Snack/makan crew + biaya insidental yang nggak masuk kategori di
-						atas.
-					</p>
-				</div>
-
+			<NumberedSection
+				step={6}
+				title="Konsumsi & Lain-lain"
+				description="Snack/makan crew + biaya insidental yang nggak masuk kategori di atas."
+			>
 				<MoneyField
 					label="Konsumsi crew"
 					name="konsumsi_cost_input"
@@ -1287,7 +1211,7 @@ export function RekapForm({
 						</span>
 					</div>
 				)}
-			</section>
+			</NumberedSection>
 
 			{/* Hidden inputs for expense fields (Phase F2) */}
 			<input type="hidden" name="transport_method" value={transportMethod} />
@@ -1319,16 +1243,11 @@ export function RekapForm({
 			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
 
 			{/* ========== BUKTI ========== */}
-			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
-				<div>
-					<div className="flex items-center gap-2">
-						<Camera className="size-4 text-muted-foreground" aria-hidden />
-						<h3 className="text-[14px] font-semibold text-foreground">Bukti</h3>
-					</div>
-					<p className="text-xs text-muted-foreground">
-						Foto counter mesin, area event, atau consumable. Wajib minimal 1.
-					</p>
-				</div>
+			<NumberedSection
+				step={7}
+				title="Bukti"
+				description="Foto counter mesin, area event, atau consumable. Wajib minimal 1."
+			>
 				<RekapProofUpload
 					projectId={projectId}
 					initial={initialUrls.map((url) => ({
@@ -1356,7 +1275,7 @@ export function RekapForm({
 						className={`${inputClass} resize-none`}
 					/>
 				</div>
-			</section>
+			</NumberedSection>
 
 			{/* Soft warnings */}
 			{warnings.length > 0 && (
