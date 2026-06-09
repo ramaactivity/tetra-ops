@@ -74,7 +74,7 @@ export function KpiCard({
 			)}
 		>
 			<div className="flex items-center justify-between gap-2">
-				<dt className="eyebrow truncate">{label}</dt>
+				<dt className="eyebrow min-w-0 text-balance">{label}</dt>
 				{Icon ? (
 					<div
 						className={cn(

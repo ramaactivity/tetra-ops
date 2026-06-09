@@ -4,10 +4,10 @@ import {
 	CalendarClock,
 	CalendarPlus,
 	CalendarRange,
+	CheckCircle2,
 	Plus,
 	Upload,
 	Users,
-	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
@@ -24,7 +24,6 @@ import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 function lastDayOfMonth(year: number, month: number): string {
@@ -147,7 +146,7 @@ export default async function OperationsListPage({
 		thisMonthCountResult,
 		thisYearCountResult,
 		awaitingCountResult,
-		outstandingResult,
+		completedCountResult,
 		targetConfigResult,
 		crewListResult,
 		eventTypesResult,
@@ -178,9 +177,14 @@ export default async function OperationsListPage({
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
 			.eq("status", "awaiting_settlement"),
-		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
-		// reduce. See get_outstanding_total migration.
-		supabase.rpc("get_outstanding_total"),
+		// Completed — event sudah selesai & di-settle (non-legacy). Outstanding
+		// receivables hidup di halaman Billing; di sini fokus pipeline event.
+		supabase
+			.from("events")
+			.select("id", { count: "exact", head: true })
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.eq("status", "completed"),
 		// Owner-set event targets (editable in Settings → system_config).
 		supabase
 			.from("system_config")
@@ -339,7 +343,7 @@ export default async function OperationsListPage({
 	const thisMonthCount = thisMonthCountResult.count ?? 0;
 	const thisYearCount = thisYearCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
-	const outstanding = (outstandingResult.data as number | null) ?? 0;
+	const completedCount = completedCountResult.count ?? 0;
 
 	// Targets live in system_config (category "targets"), editable in Settings.
 	// Values are JSONB numbers; fall back to 0 (no progress bar) if unset.
@@ -433,11 +437,11 @@ export default async function OperationsListPage({
 					accent="amber"
 				/>
 				<KpiCard
-					label="Outstanding"
-					value={formatRupiah(outstanding)}
-					hint="Total piutang dari semua event"
-					icon={Wallet}
-					accent="rose"
+					label="Completed"
+					value={completedCount.toLocaleString("id-ID")}
+					hint="Event selesai & sudah di-settle"
+					icon={CheckCircle2}
+					accent="emerald"
 				/>
 			</dl>
 
