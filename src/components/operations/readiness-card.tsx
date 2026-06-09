@@ -3,16 +3,18 @@ import {
 	CheckCircle2,
 	Circle,
 	type LucideIcon,
-	XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import type { DesignStatus } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-type CheckState = "done" | "pending" | "overdue" | "neutral";
+type CheckState = "done" | "pending" | "overdue";
 
 type CheckItem = {
 	id: string;
 	label: string;
+	/** Target deadline chip, e.g. "H-3". Omitted when there's no fixed target. */
+	deadline?: string;
 	hint: string;
 	state: CheckState;
 	cta?: { label: string; href: string };
@@ -28,17 +30,17 @@ function daysUntil(eventDate: string): number {
 
 function pickIcon(state: CheckState): LucideIcon {
 	if (state === "done") return CheckCircle2;
-	if (state === "overdue") return XCircle;
-	if (state === "pending") return AlertCircle;
+	if (state === "overdue") return AlertCircle;
 	return Circle;
 }
 
-function pickTone(state: CheckState): string {
+function pickIconTone(state: CheckState): string {
 	if (state === "done") return "text-emerald-500";
-	if (state === "overdue") return "text-rose-500";
-	if (state === "pending") return "text-amber-500";
-	return "text-muted-foreground/60";
+	if (state === "overdue") return "text-amber-500";
+	return "text-muted-foreground/40";
 }
+
+const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
 type ReadinessInput = {
 	projectId: string;
@@ -50,7 +52,6 @@ type ReadinessInput = {
 	remainingBalance: number;
 	crewCount: number;
 	designStatus: DesignStatus;
-	equipmentCount: number;
 	rekapSubmitted: boolean;
 };
 
@@ -66,53 +67,48 @@ export function EventReadinessCard(props: ReadinessInput) {
 
 	const items: CheckItem[] = [];
 
-	// DP received (any payment counts)
+	// 1) DP received (any payment counts)
 	const hasDp = props.totalPaid > 0;
 	items.push({
 		id: "dp",
-		label: "DP diterima",
-		hint:
-			days <= 7 && !hasDp
-				? `H-${days} — DP belum masuk`
-				: hasDp
-					? `Total paid Rp ${props.totalPaid.toLocaleString("id-ID")}`
-					: "Belum ada DP",
+		label: "DP masuk",
+		hint: hasDp
+			? `Terbayar ${rupiah(props.totalPaid)}`
+			: "Belum ada pembayaran",
 		state: hasDp ? "done" : days <= 7 ? "overdue" : "pending",
 		cta: !hasDp
 			? {
-					label: "Log payment",
+					label: "Catat pembayaran",
 					href: `/operations/${props.projectId}/payments`,
 				}
 			: undefined,
 	});
 
-	// Lunas H-3
+	// 2) Lunas — target H-3
 	const isLunas = props.remainingBalance <= 0;
 	items.push({
 		id: "lunas",
-		label: "Lunas (H-3)",
-		hint: isLunas
-			? "Pelunasan complete"
-			: days <= 3
-				? `Sisa Rp ${props.remainingBalance.toLocaleString("id-ID")} — perlu reminder`
-				: `Sisa Rp ${props.remainingBalance.toLocaleString("id-ID")}`,
+		label: "Pelunasan",
+		deadline: "H-3",
+		hint: isLunas ? "Sudah lunas" : `Sisa ${rupiah(props.remainingBalance)}`,
 		state: isLunas ? "done" : days <= 3 && !isPostEvent ? "overdue" : "pending",
 		cta: !isLunas
 			? {
-					label: "Manage payments",
+					label: "Kelola pembayaran",
 					href: `/operations/${props.projectId}/payments`,
 				}
 			: undefined,
 	});
 
-	// Crew assigned (H-2)
+	// 3) Crew assigned — target H-2
 	items.push({
 		id: "crew",
-		label: "Crew di-assign (H-2)",
+		label: "Crew di-assign",
+		deadline: "H-2",
 		hint:
 			props.crewCount === 0
-				? "Belum ada crew assigned"
-				: `${props.crewCount} crew di-assign`,
+				? "Belum ada crew"
+				: `${props.crewCount} crew sudah di-assign`,
 		state:
 			props.crewCount > 0
 				? "done"
@@ -128,57 +124,31 @@ export function EventReadinessCard(props: ReadinessInput) {
 				: undefined,
 	});
 
-	// Design approved (H-1)
+	// 4) Design approved — target H-1
 	const designDone = props.designStatus === "approved";
 	items.push({
 		id: "design",
-		label: "Design approved (H-1)",
+		label: "Design final",
+		deadline: "H-1",
 		hint: designDone
-			? "Design final approved"
+			? "Sudah approved"
 			: props.designStatus === "proses"
-				? "Design diproses — belum approved"
+				? "Sedang diproses"
 				: "Belum ada design",
 		state: designDone
 			? "done"
 			: days <= 1 && !isPostEvent
 				? "overdue"
 				: "pending",
-		cta: !designDone
-			? { label: "Kelola di Asset & Design", href: "/design" }
-			: undefined,
+		cta: !designDone ? { label: "Kelola design", href: "/design" } : undefined,
 	});
 
-	// Equipment checked-out (H-1 idealnya)
-	items.push({
-		id: "fixed_asset",
-		label: "Equipment siap",
-		hint:
-			props.equipmentCount > 0
-				? `${props.equipmentCount} alat di-check-out`
-				: "Belum ada alat di-check-out",
-		state:
-			props.equipmentCount > 0
-				? "done"
-				: days <= 1 && !isPostEvent
-					? "overdue"
-					: "neutral",
-		cta:
-			props.equipmentCount === 0
-				? {
-						label: "Check-out equipment",
-						href: `/operations/${props.projectId}/equipment`,
-					}
-				: undefined,
-	});
-
-	// Post-event: rekap submitted
+	// 5) Post-event: rekap submitted
 	if (isPostEvent) {
 		items.push({
 			id: "rekap",
-			label: "Rekap di-submit",
-			hint: props.rekapSubmitted
-				? "Rekap masuk — siap di-settle"
-				: "Belum ada rekap",
+			label: "Rekap masuk",
+			hint: props.rekapSubmitted ? "Siap di-settle" : "Belum ada rekap",
 			state: props.rekapSubmitted ? "done" : "overdue",
 			cta: !props.rekapSubmitted
 				? {
@@ -191,83 +161,108 @@ export function EventReadinessCard(props: ReadinessInput) {
 
 	const doneCount = items.filter((i) => i.state === "done").length;
 	const overdueCount = items.filter((i) => i.state === "overdue").length;
+	const pct = Math.round((doneCount / items.length) * 100);
 
 	let dayLabel: string;
 	if (days === 0) dayLabel = "Hari ini";
-	else if (days === 1) dayLabel = "Besok (H-1)";
+	else if (days === 1) dayLabel = "Besok · H-1";
 	else if (days > 1) dayLabel = `H-${days}`;
 	else dayLabel = `${Math.abs(days)} hari setelah event`;
 
 	return (
 		<div className="px-5 py-4">
-			<div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-				<p className="text-[12px] text-muted-foreground">
-					{dayLabel} ·{" "}
-					<span className="tabular font-medium text-foreground">
-						{doneCount}/{items.length}
-					</span>{" "}
-					ready
+			{/* Header: timing + progress */}
+			<div className="mb-4 flex items-center justify-between gap-3">
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+					<span className="font-semibold text-foreground">{dayLabel}</span>
+					<span className="text-muted-foreground/40" aria-hidden>
+						·
+					</span>
+					<span className="text-muted-foreground">
+						<span className="tabular font-semibold text-foreground">
+							{doneCount}
+						</span>{" "}
+						dari {items.length} siap
+					</span>
 					{overdueCount > 0 && (
-						<span className="ml-1 font-medium text-rose-600 dark:text-rose-400">
-							· {overdueCount} overdue
+						<span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+							{overdueCount} perlu perhatian
 						</span>
 					)}
-				</p>
+				</div>
 				<div
-					className="h-1.5 w-32 overflow-hidden rounded-full bg-secondary"
-					aria-label="Progress"
+					className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-secondary"
+					role="progressbar"
+					aria-valuenow={pct}
+					aria-valuemin={0}
+					aria-valuemax={100}
+					aria-label={`Progres kesiapan ${pct}%`}
 				>
 					<span
-						className={`block h-full transition-all ${
+						className={cn(
+							"block h-full transition-all",
 							overdueCount > 0
-								? "bg-rose-500"
+								? "bg-amber-500"
 								: doneCount === items.length
 									? "bg-emerald-500"
-									: "bg-foreground"
-						}`}
-						style={{
-							width: `${Math.round((doneCount / items.length) * 100)}%`,
-						}}
+									: "bg-foreground",
+						)}
+						style={{ width: `${pct}%` }}
 					/>
 				</div>
 			</div>
 
+			{/* Checklist */}
 			<ul className="divide-y divide-border-subtle">
 				{items.map((item) => {
 					const Icon = pickIcon(item.state);
-					const tone = pickTone(item.state);
+					const done = item.state === "done";
 					return (
-						<li
-							key={item.id}
-							className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0"
-						>
+						<li key={item.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
 							<Icon
-								className={`${tone} mt-0.5 size-4 shrink-0`}
-								strokeWidth={2}
-							/>
-							<div className="flex flex-1 flex-wrap items-baseline justify-between gap-2">
-								<div className="space-y-0.5">
-									<p className="text-[13px] font-semibold text-foreground">
-										{item.label}
-									</p>
-									<p
-										className={`text-[12px] ${
-											item.state === "overdue"
-												? "text-rose-600 dark:text-rose-400"
-												: "text-muted-foreground"
-										}`}
-									>
-										{item.hint}
-									</p>
-								</div>
-								{item.cta && (
-									<Link
-										href={item.cta.href}
-										className="text-[11.5px] font-medium text-[#0070f3] hover:underline"
-									>
-										{item.cta.label} →
-									</Link>
+								className={cn(
+									"mt-px size-[18px] shrink-0",
+									pickIconTone(item.state),
 								)}
+								strokeWidth={2}
+								aria-hidden
+							/>
+							<div className="min-w-0 flex-1">
+								<div className="flex items-center justify-between gap-3">
+									<div className="flex min-w-0 items-center gap-2">
+										<span
+											className={cn(
+												"text-[13px] font-medium",
+												done ? "text-muted-foreground" : "text-foreground",
+											)}
+										>
+											{item.label}
+										</span>
+										{item.deadline && !done && (
+											<span className="shrink-0 rounded bg-secondary px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+												target {item.deadline}
+											</span>
+										)}
+									</div>
+									{item.cta && (
+										<Link
+											href={item.cta.href}
+											className="shrink-0 text-[11.5px] font-medium text-[#0070f3] transition-colors hover:underline"
+										>
+											{item.cta.label} →
+										</Link>
+									)}
+								</div>
+								<p
+									className={cn(
+										"mt-0.5 text-[12px]",
+										item.state === "overdue"
+											? "text-amber-700 dark:text-amber-400"
+											: "text-muted-foreground",
+									)}
+								>
+									{item.hint}
+								</p>
 							</div>
 						</li>
 					);

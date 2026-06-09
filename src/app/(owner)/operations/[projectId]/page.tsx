@@ -483,7 +483,7 @@ export default async function EventDetailPage({
 			<CollapsibleCard
 				icon={<Sparkles className="size-4" aria-hidden strokeWidth={2} />}
 				title="Kesiapan Event"
-				subtitle="Checklist progress menuju hari-H — DP, crew, design, equipment, rekap."
+				subtitle="Checklist progres menuju hari-H — pembayaran, crew, design, rekap."
 				defaultOpen
 				bodyClassName="!p-0"
 			>
@@ -497,7 +497,6 @@ export default async function EventDetailPage({
 					remainingBalance={event.remaining_balance ?? 0}
 					crewCount={crewAssignments.length}
 					designStatus={(event.design_status ?? "belum") as DesignStatus}
-					equipmentCount={equipmentCount}
 					rekapSubmitted={rekapSubmitted}
 				/>
 			</CollapsibleCard>
