@@ -1,6 +1,7 @@
-import { Disc, Gift, Image, Package2, Printer, Sparkles } from "lucide-react";
+import { Disc, Gift, Package2, Printer, Sparkles } from "lucide-react";
+import type * as React from "react";
 import { Badge } from "@/components/ui/badge";
-import type { RekapContext, RekapContextBonus } from "@/lib/actions/rekap";
+import type { RekapContext } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
 import {
 	computeRekapCost,
@@ -8,6 +9,7 @@ import {
 	sumBuckets,
 } from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
+import { cn } from "@/lib/utils";
 
 type RekapData = {
 	cetak_total: number;
@@ -21,12 +23,12 @@ type RekapData = {
 };
 
 /**
- * <RekapSummaryTab /> — read-only summary visible to owner in the
- * "Ringkasan" tab. Groups quantities by category (Cetak / FD&Pouch /
- * Add-on / Custom) into KPI cards with estimated HPP per metric.
+ * <RekapSummaryTab /> — owner-facing "Ringkasan" tab. One structured card
+ * (header → grouped item rows with qty + HPP → footer total), mirroring the
+ * project-page Recap Event card. Reads top-to-bottom like an itemized receipt.
  *
- * Numbers use computeRekapCost() (same as crew form live preview) so
- * displayed totals match what owner sees there.
+ * Numbers use computeRekapCost() (same as the crew form live preview) so the
+ * displayed totals match what the owner settles.
  */
 export function RekapSummaryTab({
 	rekap,
@@ -89,6 +91,7 @@ export function RekapSummaryTab({
 		frameSize,
 	);
 	const total = sumBuckets(buckets);
+	const mappedCount = context.mappings.filter((m) => m.item).length;
 
 	function costFor(field: RekapField, qty: number): number {
 		// Size-aware: exact match on frame_size wins, fallback to ''
@@ -114,154 +117,127 @@ export function RekapSummaryTab({
 	}
 
 	return (
-		<div className="space-y-4">
-			{/* ===== CETAK ===== */}
-			<Group icon={Printer} title="Cetak">
-				<StatCard
-					label="Total cetak"
-					value={rekap.cetak_total}
-					unit="pcs"
-					cost={costFor("cetak_total", rekap.cetak_total)}
-				/>
-				<StatCard
-					label="Media set"
-					value={rekap.media_set_used}
-					unit="set"
-					cost={costFor("media_set_used", rekap.media_set_used)}
-					subtitle={
-						rekap.media_set_used > 0
-							? `≈ ${rekap.media_set_used * 140} cetak`
-							: undefined
-					}
-				/>
-				<StatCard
-					label="Sleeve"
-					value={rekap.sleeve_used}
-					unit="pcs"
-					cost={costFor("sleeve_used", rekap.sleeve_used)}
-				/>
-			</Group>
-
-			{/* ===== FD & POUCH ===== */}
-			<Group icon={Package2} title="Flashdisk & Pouch">
-				<StatCard
-					label="Flashdisk"
-					value={rekap.flashdisk_used}
-					unit="pcs"
-					cost={costFor("flashdisk_used", rekap.flashdisk_used)}
-				/>
-				<StatCard
-					label="Pouch"
-					value={rekap.pouch_used}
-					unit="pcs"
-					cost={costFor("pouch_used", rekap.pouch_used)}
-				/>
-			</Group>
-
-			{/* ===== ADD-ON ===== */}
-			<Group icon={Disc} title="Add-on">
-				<StatCard
-					label="Photomagnet"
-					value={rekap.photomagnet_used}
-					unit="pcs"
-					cost={costFor("photomagnet_used", rekap.photomagnet_used)}
-				/>
-				<StatCard
-					label="Keychain"
-					value={rekap.keychain_used}
-					unit="pcs"
-					cost={costFor("keychain_used", rekap.keychain_used)}
-				/>
-			</Group>
-
-			{/* ===== BONUS ===== */}
-			{context.bonuses.length > 0 && (
-				<Group icon={Gift} title="Bonus klien (gratis)" tone="emerald">
-					{context.bonuses.map((b) => (
-						<BonusCard key={b.addon_id} bonus={b} />
-					))}
-				</Group>
-			)}
-
-			{/* ===== CUSTOM MATERIALS ===== */}
-			{customMaterialsEntries.length > 0 && (
-				<Group icon={Sparkles} title="Item tambahan (custom)" tone="sky">
-					<div className="col-span-full overflow-x-auto rounded-lg border border-border-default bg-surface-3">
-						<table className="w-full text-sm">
-							<thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
-								<tr>
-									<th className="px-3 py-2 text-left">SKU</th>
-									<th className="px-3 py-2 text-left">Nama</th>
-									<th className="px-3 py-2 text-right">Qty</th>
-									<th className="px-3 py-2 text-right">Cost</th>
-								</tr>
-							</thead>
-							<tbody>
-								{customMaterialsEntries.map((e) => {
-									const it = customInventoryBySku.get(e.sku);
-									const cost = e.qty * (it?.purchase_price_avg ?? 0);
-									return (
-										<tr
-											key={e.sku}
-											className="border-t border-border-default/60"
-										>
-											<td className="px-3 py-2 font-mono text-[11px]">
-												{e.sku}
-											</td>
-											<td className="px-3 py-2">
-												{it?.name ?? (
-													<span className="text-muted-foreground italic">
-														(item dihapus dari master)
-													</span>
-												)}
-											</td>
-											<td className="tabular px-3 py-2 text-right">
-												{e.qty.toLocaleString("id-ID")} {it?.unit ?? "pcs"}
-											</td>
-											<td className="tabular px-3 py-2 text-right font-medium">
-												{formatRupiah(cost)}
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
-				</Group>
-			)}
-
-			{/* ===== TOTAL HPP ===== */}
-			<div className="space-y-3.5 rounded-xl border border-primary/30 bg-primary/5 p-5">
-				<div className="flex items-center justify-between gap-2">
-					<h3 className="text-[13.5px] font-semibold text-foreground">
-						Estimasi HPP total
-					</h3>
-					<Badge
-						variant="outline"
-						className="border-primary/40 bg-primary/10 text-primary"
-					>
-						{context.mappings.filter((m) => m.item).length} field ter-mapped
-					</Badge>
-				</div>
-				<dl className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-4">
-					<BreakdownRow label="Mediaset" value={buckets.mediaset} />
-					<BreakdownRow label="Sleeve" value={buckets.sleeve} />
-					<BreakdownRow label="Flashdisk" value={buckets.flashdisk} />
-					<BreakdownRow label="Pouch" value={buckets.pouch} />
-					<BreakdownRow label="Photomagnet" value={buckets.photomagnet} />
-					<BreakdownRow label="Keychain" value={buckets.keychain} />
-					<BreakdownRow
-						label="Bonus klien"
-						value={buckets.bonus}
-						tone="emerald"
-					/>
-					<BreakdownRow label="Custom/other" value={buckets.other} tone="sky" />
-				</dl>
-				<div className="flex items-baseline justify-between border-t border-primary/30 pt-3">
-					<p className="text-[13px] font-semibold text-foreground">Total</p>
-					<p className="tabular text-[20px] font-semibold leading-none text-primary">
-						{formatRupiah(total)}
+		<div className="overflow-hidden rounded-xl border border-border-default bg-card">
+			{/* HEADER */}
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
+				<div className="min-w-0">
+					<h2 className="text-[14px] font-semibold leading-tight text-foreground">
+						Material &amp; estimasi HPP
+					</h2>
+					<p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+						Qty terpakai + estimasi biaya pokok per item.
 					</p>
+				</div>
+				<Badge
+					variant="outline"
+					className="border-primary/40 bg-primary/10 text-primary"
+				>
+					{mappedCount} field ter-mapped
+				</Badge>
+			</div>
+
+			{/* ITEM BREAKDOWN */}
+			<div className="px-5">
+				<Section icon={Printer} title="Cetak">
+					<ItemRow
+						name="Total cetak"
+						qty={rekap.cetak_total}
+						unit="pcs"
+						cost={costFor("cetak_total", rekap.cetak_total)}
+					/>
+					<ItemRow
+						name="Mediaset"
+						qty={rekap.media_set_used}
+						unit="set"
+						cost={costFor("media_set_used", rekap.media_set_used)}
+					/>
+					<ItemRow
+						name="Sleeve"
+						qty={rekap.sleeve_used}
+						unit="pcs"
+						cost={costFor("sleeve_used", rekap.sleeve_used)}
+					/>
+				</Section>
+
+				<Section icon={Package2} title="Flashdisk & Pouch">
+					<ItemRow
+						name="Flashdisk"
+						qty={rekap.flashdisk_used}
+						unit="pcs"
+						cost={costFor("flashdisk_used", rekap.flashdisk_used)}
+					/>
+					<ItemRow
+						name="Pouch"
+						qty={rekap.pouch_used}
+						unit="pcs"
+						cost={costFor("pouch_used", rekap.pouch_used)}
+					/>
+				</Section>
+
+				<Section icon={Disc} title="Add-on">
+					<ItemRow
+						name="Photomagnet"
+						qty={rekap.photomagnet_used}
+						unit="pcs"
+						cost={costFor("photomagnet_used", rekap.photomagnet_used)}
+					/>
+					<ItemRow
+						name="Keychain"
+						qty={rekap.keychain_used}
+						unit="pcs"
+						cost={costFor("keychain_used", rekap.keychain_used)}
+					/>
+				</Section>
+
+				{context.bonuses.length > 0 && (
+					<Section icon={Gift} title="Bonus klien (gratis)">
+						{context.bonuses.map((b) => {
+							const inv = b.inventory_item;
+							const cost = inv ? b.quantity * inv.purchase_price_avg : 0;
+							return (
+								<ItemRow
+									key={b.addon_id}
+									name={b.name}
+									qty={b.quantity}
+									unit={b.unit}
+									cost={cost}
+									tone="emerald"
+									note={b.notes ?? undefined}
+								/>
+							);
+						})}
+					</Section>
+				)}
+
+				{customMaterialsEntries.length > 0 && (
+					<Section icon={Sparkles} title="Item tambahan">
+						{customMaterialsEntries.map((e) => {
+							const it = customInventoryBySku.get(e.sku);
+							const cost = e.qty * (it?.purchase_price_avg ?? 0);
+							return (
+								<ItemRow
+									key={e.sku}
+									name={it?.name ?? e.sku}
+									qty={e.qty}
+									unit={it?.unit ?? "pcs"}
+									cost={cost}
+									note={it ? undefined : "item dihapus dari master"}
+								/>
+							);
+						})}
+					</Section>
+				)}
+			</div>
+
+			{/* FOOTER TOTAL */}
+			<div className="space-y-1.5 border-t border-border-subtle bg-secondary/30 px-5 py-4">
+				<div className="flex items-center justify-between gap-3">
+					<span className="text-[13px] font-semibold text-foreground">
+						Total estimasi HPP
+					</span>
+					<span className="tabular text-[22px] font-semibold leading-none text-primary">
+						{formatRupiah(total)}
+					</span>
 				</div>
 				<p className="text-[11.5px] italic text-muted-foreground">
 					Estimasi pakai harga rata-rata pembelian saat ini. HPP final
@@ -274,131 +250,74 @@ export function RekapSummaryTab({
 
 // ============== Helpers ==============
 
-function Group({
+function Section({
 	icon: Icon,
 	title,
 	children,
 }: {
 	icon: typeof Printer;
 	title: string;
-	tone?: "default" | "emerald" | "sky";
 	children: React.ReactNode;
 }) {
 	return (
-		<section className="space-y-2.5">
-			<div className="flex items-center gap-2">
+		<section className="border-b border-border-subtle py-2 last:border-b-0">
+			<div className="flex items-center gap-2 px-1 pb-1 pt-1.5">
 				<Icon className="size-3.5 text-muted-foreground" aria-hidden />
 				<h3 className="eyebrow text-muted-foreground">{title}</h3>
 			</div>
-			<div className="grid gap-3 sm:grid-cols-3">{children}</div>
+			<div className="divide-y divide-border-subtle/60">{children}</div>
 		</section>
 	);
 }
 
-function StatCard({
-	label,
-	value,
+function ItemRow({
+	name,
+	qty,
 	unit,
 	cost,
-	subtitle,
+	tone = "default",
+	note,
 }: {
-	label: string;
-	value: number;
+	name: string;
+	qty: number;
 	unit: string;
 	cost: number;
-	subtitle?: string;
+	tone?: "default" | "emerald";
+	note?: string;
 }) {
-	const isZero = value === 0;
+	const isZero = qty === 0;
+	const costColor =
+		cost > 0
+			? tone === "emerald"
+				? "text-emerald-700 dark:text-emerald-300"
+				: "text-foreground"
+			: "text-muted-foreground/50";
 	return (
-		<div
-			className={`flex flex-col gap-1.5 rounded-lg border p-4 ${
-				isZero
-					? "border-dashed border-border-default bg-card/40"
-					: "border-border-default bg-card"
-			}`}
-		>
-			<p className="eyebrow text-muted-foreground">{label}</p>
-			<p
-				className={`tabular text-[24px] font-semibold leading-none ${
-					isZero ? "text-muted-foreground/40" : "text-foreground"
-				}`}
-			>
-				{value.toLocaleString("id-ID")}
-				<span className="ml-1 text-[12px] font-normal text-muted-foreground">
-					{unit}
+		<div className="grid grid-cols-[1fr_auto_6.5rem] items-baseline gap-3 px-1 py-2">
+			<div className="min-w-0">
+				<span
+					className={cn(
+						"text-[13px]",
+						isZero ? "text-muted-foreground" : "text-foreground",
+					)}
+				>
+					{name}
 				</span>
-			</p>
-			{cost > 0 ? (
-				<p className="tabular text-[12px] font-medium text-muted-foreground">
-					{formatRupiah(cost)}
-				</p>
-			) : subtitle ? (
-				<p className="text-[12px] text-muted-foreground">{subtitle}</p>
-			) : null}
-		</div>
-	);
-}
-
-function BonusCard({ bonus }: { bonus: RekapContextBonus }) {
-	const inv = bonus.inventory_item;
-	const cost = inv ? bonus.quantity * inv.purchase_price_avg : 0;
-	return (
-		<div className="flex flex-col gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-			<div className="flex items-center gap-1.5">
-				<Image
-					className="size-3 text-emerald-700 dark:text-emerald-300"
-					aria-hidden
-				/>
-				<p className="eyebrow text-emerald-800 dark:text-emerald-200">Bonus</p>
+				{note ? (
+					<span className="ml-1.5 text-[11px] italic text-muted-foreground/70">
+						{note}
+					</span>
+				) : null}
 			</div>
-			<p className="text-[13px] font-medium text-foreground">{bonus.name}</p>
-			<p className="tabular text-[20px] font-semibold leading-none text-foreground">
-				{bonus.quantity.toLocaleString("id-ID")}
-				<span className="ml-1 text-[12px] font-normal text-muted-foreground">
-					{bonus.unit}
-				</span>
-			</p>
-			{inv ? (
-				<p className="tabular text-[12px] font-medium text-emerald-700 dark:text-emerald-300">
-					{formatRupiah(cost)} · freebie
-				</p>
-			) : (
-				<p className="text-[11.5px] italic text-muted-foreground">
-					Belum di-link ke inventory
-				</p>
-			)}
-			{bonus.notes && (
-				<p className="text-[11.5px] italic text-emerald-800 dark:text-emerald-300">
-					"{bonus.notes}"
-				</p>
-			)}
-		</div>
-	);
-}
-
-function BreakdownRow({
-	label,
-	value,
-	tone = "default",
-}: {
-	label: string;
-	value: number;
-	tone?: "default" | "emerald" | "sky";
-}) {
-	const isZero = value === 0;
-	const valueColor = isZero
-		? "text-muted-foreground/40"
-		: tone === "emerald"
-			? "text-emerald-700 dark:text-emerald-300"
-			: tone === "sky"
-				? "text-sky-700 dark:text-sky-300"
-				: "text-foreground";
-	return (
-		<div className="flex items-baseline justify-between gap-2">
-			<dt className="text-[12px] text-muted-foreground">{label}</dt>
-			<dd className={`tabular text-[12px] font-medium ${valueColor}`}>
-				{formatRupiah(value)}
-			</dd>
+			<span className="tabular text-right text-[12px] text-muted-foreground">
+				{qty.toLocaleString("id-ID")}
+				<span className="ml-0.5 text-muted-foreground/60">{unit}</span>
+			</span>
+			<span
+				className={cn("tabular text-right text-[13px] font-medium", costColor)}
+			>
+				{cost > 0 ? formatRupiah(cost) : "—"}
+			</span>
 		</div>
 	);
 }
