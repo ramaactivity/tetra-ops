@@ -668,13 +668,13 @@ export function RekapForm({
 	return (
 		<form action={formAction} className="space-y-5 pb-2">
 			{state?.success && (
-				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
+				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-fluid-body font-medium text-emerald-700 dark:text-emerald-300">
 					<CheckCircle2 className="h-4 w-4" />
 					Rekap tersimpan. Mengarahkan ke ringkasan…
 				</div>
 			)}
 			{draftRestoredNotice && !state?.success && (
-				<div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50/60 p-3 text-xs leading-relaxed dark:border-blue-900 dark:bg-blue-950/30">
+				<div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50/60 p-3 text-fluid-caption leading-relaxed dark:border-blue-900 dark:bg-blue-950/30">
 					<Save className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
 					<div className="flex-1">
 						<p className="text-blue-900 dark:text-blue-200 font-medium">
@@ -699,7 +699,7 @@ export function RekapForm({
 			)}
 			{state?.errors?._form && (
 				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-					<p className="text-[13px] font-medium text-destructive">
+					<p className="text-fluid-body font-medium text-destructive">
 						{state.errors._form[0]}
 					</p>
 				</div>
@@ -850,7 +850,7 @@ export function RekapForm({
 						<div className="space-y-1.5">
 							<label
 								htmlFor="flashdisk_used"
-								className="text-[13px] font-medium"
+								className="text-fluid-body font-medium"
 							>
 								Set FD + Pouch terpakai
 							</label>
@@ -868,7 +868,9 @@ export function RekapForm({
 							{/* Pouch mirrors the set count — submitted, not shown */}
 							<input type="hidden" name="pouch_used" value={pouch} />
 							{setError ? (
-								<p className="text-xs text-destructive">{setError}</p>
+								<p className="text-fluid-caption text-destructive">
+									{setError}
+								</p>
 							) : (
 								<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
 									{setCost > 0 && (
@@ -971,7 +973,7 @@ export function RekapForm({
 									className="flex items-center gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
 								>
 									<div className="min-w-0 flex-1">
-										<p className="text-[13px] font-medium text-foreground">
+										<p className="text-fluid-body font-medium text-foreground">
 											{it.name}
 										</p>
 										<p className="font-mono text-[11px] text-muted-foreground">
@@ -987,9 +989,9 @@ export function RekapForm({
 										onChange={(e) =>
 											updateCustomQty(sku, Number(e.target.value))
 										}
-										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-fluid-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 									/>
-									<span className="tabular hidden w-24 shrink-0 text-right text-xs text-muted-foreground sm:inline">
+									<span className="tabular hidden w-24 shrink-0 text-right text-fluid-caption text-muted-foreground sm:inline">
 										{formatRupiah(cost)}
 									</span>
 									<button
@@ -1046,7 +1048,7 @@ export function RekapForm({
 								key={opt.key}
 								type="button"
 								onClick={() => setTransportMethod(opt.key)}
-								className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-xs transition-colors ${
+								className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
 									active
 										? "border-primary bg-primary/10 text-foreground"
 										: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
@@ -1136,9 +1138,9 @@ export function RekapForm({
 
 				<div className="space-y-2">
 					<div className="flex items-center justify-between gap-2">
-						<p className="text-[13px] font-medium">
+						<p className="text-fluid-body font-medium">
 							Lain-lain{" "}
-							<span className="text-muted-foreground text-xs font-normal">
+							<span className="text-muted-foreground text-fluid-caption font-normal">
 								({lainnyaItems.length}/20)
 							</span>
 						</p>
@@ -1146,7 +1148,7 @@ export function RekapForm({
 							<button
 								type="button"
 								onClick={addLainnyaRow}
-								className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+								className="text-primary inline-flex items-center gap-1 text-fluid-caption font-medium hover:underline"
 							>
 								<Plus className="h-3 w-3" />
 								Tambah baris
@@ -1154,7 +1156,7 @@ export function RekapForm({
 						)}
 					</div>
 					{lainnyaItems.length === 0 ? (
-						<p className="text-muted-foreground text-xs italic">
+						<p className="text-muted-foreground text-fluid-caption italic">
 							Belum ada. Contoh: P3K, obat, parking insidental, dll.
 						</p>
 					) : (
@@ -1203,7 +1205,7 @@ export function RekapForm({
 				</div>
 
 				{fieldExpenseTotal > 0 && (
-					<div className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-xs">
+					<div className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-fluid-caption">
 						<Wallet className="h-3.5 w-3.5 text-primary" />
 						<span className="text-muted-foreground">Total biaya lapangan:</span>
 						<span className="tabular ml-auto font-semibold text-primary">
@@ -1258,11 +1260,13 @@ export function RekapForm({
 				/>
 				<input type="hidden" name="proof_photo_urls" value={proofUrlsHidden} />
 				{err("proof_photo_urls") && (
-					<p className="text-xs text-destructive">{err("proof_photo_urls")}</p>
+					<p className="text-fluid-caption text-destructive">
+						{err("proof_photo_urls")}
+					</p>
 				)}
 
 				<div className="space-y-1.5">
-					<label htmlFor="crew_notes" className="text-[13px] font-medium">
+					<label htmlFor="crew_notes" className="text-fluid-body font-medium">
 						Catatan crew
 					</label>
 					<textarea
@@ -1279,7 +1283,7 @@ export function RekapForm({
 
 			{/* Soft warnings */}
 			{warnings.length > 0 && (
-				<ul className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50/60 p-3 text-xs dark:border-amber-900 dark:bg-amber-950/30">
+				<ul className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50/60 p-3 text-fluid-caption dark:border-amber-900 dark:bg-amber-950/30">
 					{warnings.map((w) => (
 						<li
 							key={w}
@@ -1363,7 +1367,7 @@ function AutoDerivedCard({
 				<p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
 					{label}
 				</p>
-				<p className="text-[13px] text-muted-foreground italic">
+				<p className="text-fluid-body text-muted-foreground italic">
 					Mapping belum di-set di Settings → Items Mapping
 				</p>
 			</div>
@@ -1483,7 +1487,7 @@ function NumField({
 	return (
 		<div className="space-y-1.5">
 			<div className="flex items-baseline gap-1.5">
-				<label htmlFor={name} className="text-[13px] font-medium">
+				<label htmlFor={name} className="text-fluid-body font-medium">
 					{label}
 				</label>
 				{auto && (
@@ -1506,7 +1510,7 @@ function NumField({
 
 			{/* HPP chip / stock chip / hint / error */}
 			{error ? (
-				<p className="text-xs text-destructive">{error}</p>
+				<p className="text-fluid-caption text-destructive">{error}</p>
 			) : (
 				<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
 					{cost > 0 && (
@@ -1565,7 +1569,7 @@ function AddonField({
 	return (
 		<div className="space-y-1.5">
 			<div className="flex items-baseline justify-between gap-2">
-				<label htmlFor={name} className="text-[13px] font-medium">
+				<label htmlFor={name} className="text-fluid-body font-medium">
 					{label}
 				</label>
 				{(paid > 0 || bonus > 0) && (
@@ -1598,7 +1602,7 @@ function AddonField({
 				className={`${inputClass} tabular`}
 			/>
 			{error ? (
-				<p className="text-xs text-destructive">{error}</p>
+				<p className="text-fluid-caption text-destructive">{error}</p>
 			) : (
 				<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
 					{cost > 0 && (
@@ -1648,11 +1652,11 @@ function MoneyField({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-[13px] font-medium">
+			<label htmlFor={name} className="text-fluid-body font-medium">
 				{label}
 			</label>
 			<div className="relative">
-				<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs">
+				<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
 					Rp
 				</span>
 				<input
@@ -1694,4 +1698,4 @@ function extractName(url: string): string {
 }
 
 const inputClass =
-	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none";
+	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-fluid-body text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none";
