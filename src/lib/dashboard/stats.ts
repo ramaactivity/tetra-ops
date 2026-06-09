@@ -102,13 +102,11 @@ async function fetchDashboardStats(
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.eq("status", "awaiting_settlement"),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.in("status", ["confirmed", "upcoming"])
 			.gte("event_date", p.todayISO)
 			.lte("event_date", p.sevenFromNowISO),
@@ -116,13 +114,11 @@ async function fetchDashboardStats(
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.eq("status", "in_progress"),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.eq("status", "completed")
 			.gte("event_date", p.ymStart)
 			.lte("event_date", p.ymEnd),
