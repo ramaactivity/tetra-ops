@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getProfitPreview } from "@/lib/actions/profit-preview";
 import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { computeRekapCost, sumBuckets } from "@/lib/rekap/cost";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -203,6 +204,54 @@ export default async function EventRekapPage({
 		crewFeeRows.length > 0 && crewFeeRows.every((r) => r.fee_amount > 0);
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
+	// Estimasi HPP — computed at page level so the hero KPI strip and the
+	// summary tab show the same number (pure fn from @/lib/rekap/cost).
+	let hppTotal = 0;
+	if (rekap) {
+		const frameSize = context.pkg.frame_size ?? "";
+		const mappedItems = context.mappings
+			.filter((m) => m.item)
+			.map((m) => ({
+				rekap_field: m.rekap_field,
+				frame_size: m.frame_size,
+				item_id: m.item_id ?? "",
+				qty_per_unit: m.qty_per_unit,
+				purchase_price_avg: m.item?.purchase_price_avg ?? 0,
+				base_unit: m.item?.unit,
+				unit_conversion: m.item?.unit_conversion,
+			}));
+		const bonusLines = context.bonuses.map((b) => ({
+			addon_id: b.addon_id,
+			quantity: b.quantity,
+			purchase_price_avg: b.inventory_item?.purchase_price_avg ?? 0,
+		}));
+		const bySku = new Map(context.custom_inventory.map((it) => [it.sku, it]));
+		const customLines = Object.entries(rekap.custom_materials ?? {})
+			.map(([sku, qty]) => ({
+				sku,
+				quantity: Number(qty) || 0,
+				purchase_price_avg: bySku.get(sku)?.purchase_price_avg ?? 0,
+			}))
+			.filter((l) => l.quantity > 0);
+		hppTotal = sumBuckets(
+			computeRekapCost(
+				{
+					cetak_total: rekap.cetak_total,
+					media_set_used: rekap.media_set_used,
+					sleeve_used: rekap.sleeve_used,
+					flashdisk_used: rekap.flashdisk_used,
+					pouch_used: rekap.pouch_used,
+					photomagnet_used: rekap.photomagnet_used,
+					keychain_used: rekap.keychain_used,
+				},
+				mappedItems,
+				bonusLines,
+				customLines,
+				frameSize,
+			),
+		);
+	}
+
 	// Field expense breakdown — ditampilkan sebagai INFO di Fee crew form.
 	// Owner attribute manual ke crew yang sebenarnya bayar (mis. transport
 	// online dibayar Lead, konsumsi dibayar Asisten). Tidak auto-divide
@@ -299,24 +348,12 @@ export default async function EventRekapPage({
 				pkg={context.pkg}
 				isApproved={rekap?.is_approved}
 				submitted={Boolean(rekap)}
+				hppTotal={hppTotal}
+				totalCetak={rekap?.cetak_total ?? 0}
+				proofCount={proofCount}
+				submittedBy={rekap?.submitted_by_user?.full_name ?? null}
+				reviewedBy={rekap?.reviewer?.full_name ?? null}
 			/>
-
-			{rekap && (
-				<p className="text-[12px] text-muted-foreground">
-					Di-submit oleh{" "}
-					<span className="font-medium text-foreground">
-						{rekap.submitted_by_user?.full_name ?? "—"}
-					</span>
-					{rekap.reviewed_at && rekap.reviewer?.full_name && (
-						<>
-							{" · "}di-review oleh{" "}
-							<span className="font-medium text-foreground">
-								{rekap.reviewer.full_name}
-							</span>
-						</>
-					)}
-				</p>
-			)}
 
 			{/* === No rekap yet: owner can input manually === */}
 			{!rekap && (
