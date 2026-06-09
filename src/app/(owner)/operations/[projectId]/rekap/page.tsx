@@ -141,7 +141,7 @@ export default async function EventRekapPage({
 	const context = await getRekapContext(event.id as string);
 	if ("error" in context) {
 		return (
-			<Container size="md">
+			<Container size="xl">
 				<div className="rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
 					<p className="text-sm font-medium text-foreground">
 						Gagal load konteks rekap: {context.error}
@@ -266,7 +266,7 @@ export default async function EventRekapPage({
 		: undefined;
 
 	return (
-		<Container size="md" className="space-y-5 pb-32">
+		<Container size="xl" className="space-y-5 pb-32">
 			<Link
 				href={`/operations/${projectId}`}
 				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
