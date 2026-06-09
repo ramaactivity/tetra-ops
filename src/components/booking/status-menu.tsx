@@ -44,8 +44,12 @@ export function StatusMenu({
 		}
 		setError(null);
 		startTransition(async () => {
-			const result = await updateEventStatus(projectId, eventId, next);
-			if (result.error) setError(result.error);
+			try {
+				const result = await updateEventStatus(projectId, eventId, next);
+				if (result.error) setError(result.error);
+			} catch {
+				setError("Gagal mengubah status. Coba lagi.");
+			}
 		});
 	}
 

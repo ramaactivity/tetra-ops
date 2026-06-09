@@ -35,11 +35,15 @@ export function DesignStatusSelect({
 	function set(next: DesignStatus) {
 		if (next === value || pending) return;
 		startTransition(async () => {
-			const res = await setDesignStatus(eventId, projectId, next);
-			if (res.error) {
-				toast.error(res.error);
-			} else {
-				toast.success(`Status design → ${DESIGN_STATUS_LABELS[next]}`);
+			try {
+				const res = await setDesignStatus(eventId, projectId, next);
+				if (res.error) {
+					toast.error(res.error);
+				} else {
+					toast.success(`Status design → ${DESIGN_STATUS_LABELS[next]}`);
+				}
+			} catch {
+				toast.error("Gagal mengubah status design. Coba lagi.");
 			}
 		});
 	}

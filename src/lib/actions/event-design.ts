@@ -106,36 +106,49 @@ export async function setDesignStatus(
 	projectId: string,
 	status: DesignStatusValue,
 ): Promise<{ error?: string }> {
-	await requireOwnerLevel();
-	if (!DESIGN_STATUSES.includes(status)) {
-		return { error: "Status design tidak valid" };
+	// Invoked from a client startTransition without try/catch — never throw,
+	// always resolve with { error } so a failure can't crash the page.
+	try {
+		const me = await getCurrentUser();
+		if (!me) return { error: "Sesi berakhir. Refresh halaman lalu coba lagi." };
+		if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
+			return { error: "Hanya owner yang bisa mengubah status design." };
+		}
+		if (!DESIGN_STATUSES.includes(status)) {
+			return { error: "Status design tidak valid" };
+		}
+
+		const supabase = await createClient();
+		const { data: cur } = await supabase
+			.from("events")
+			.select("design_brief_at")
+			.eq("id", eventId)
+			.maybeSingle();
+
+		const now = new Date().toISOString();
+		const updates: Record<string, unknown> = {
+			design_status: status,
+			design_approved_at: status === "approved" ? now : null,
+			updated_at: now,
+		};
+		// First-touch timestamp when leaving "belum".
+		if (status !== "belum" && !cur?.design_brief_at) {
+			updates.design_brief_at = now;
+		}
+
+		const { error } = await supabase
+			.from("events")
+			.update(updates)
+			.eq("id", eventId);
+		if (error) return { error: error.message };
+
+		revalidatePath(`/operations/${projectId}`);
+		revalidatePath("/design");
+		return {};
+	} catch (err) {
+		return {
+			error:
+				err instanceof Error ? err.message : "Gagal mengubah status design.",
+		};
 	}
-
-	const supabase = await createClient();
-	const { data: cur } = await supabase
-		.from("events")
-		.select("design_brief_at")
-		.eq("id", eventId)
-		.maybeSingle();
-
-	const now = new Date().toISOString();
-	const updates: Record<string, unknown> = {
-		design_status: status,
-		design_approved_at: status === "approved" ? now : null,
-		updated_at: now,
-	};
-	// First-touch timestamp when leaving "belum".
-	if (status !== "belum" && !cur?.design_brief_at) {
-		updates.design_brief_at = now;
-	}
-
-	const { error } = await supabase
-		.from("events")
-		.update(updates)
-		.eq("id", eventId);
-	if (error) return { error: error.message };
-
-	revalidatePath(`/operations/${projectId}`);
-	revalidatePath("/design");
-	return {};
 }

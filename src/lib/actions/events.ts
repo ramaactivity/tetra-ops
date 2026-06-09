@@ -13,53 +13,59 @@ const StatusUpdateSchema = z.object({
 	status: z.enum(EVENT_STATUSES),
 });
 
-async function requireOwnerLevel() {
-	const me = await getCurrentUser();
-	if (!me) throw new Error("Unauthorized");
-	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
-		throw new Error("Forbidden — owner-level only");
-	}
-	return me;
-}
-
 export async function updateEventStatus(
 	projectId: string,
 	id: string,
 	status: EventStatus,
 ): Promise<{ error?: string }> {
-	await requireOwnerLevel();
+	// This action is invoked from a client startTransition without a try/catch,
+	// so a thrown error would bubble to the route error boundary (full-page
+	// crash). Always resolve with { error } instead of throwing.
+	try {
+		const me = await getCurrentUser();
+		if (!me) {
+			return { error: "Sesi berakhir. Refresh halaman lalu coba lagi." };
+		}
+		if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
+			return { error: "Hanya owner yang bisa mengubah status event." };
+		}
 
-	const parsed = StatusUpdateSchema.safeParse({ id, status });
-	if (!parsed.success) {
-		return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-	}
+		const parsed = StatusUpdateSchema.safeParse({ id, status });
+		if (!parsed.success) {
+			return { error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
+		}
 
-	const supabase = await createClient();
+		const supabase = await createClient();
 
-	// Guard: event yang sudah settled terkunci. Ubah status manual (mis. balik
-	// ke draft) akan desync dgn settlement/jurnal yang sudah ter-posting.
-	// Koreksi event settled HARUS lewat Reopen Settlement, bukan menu status.
-	const { data: settled } = await supabase
-		.from("event_settlements")
-		.select("id")
-		.eq("event_id", parsed.data.id)
-		.eq("is_reopened", false)
-		.maybeSingle();
-	if (settled) {
+		// Guard: event yang sudah settled terkunci. Ubah status manual akan desync
+		// dgn settlement/jurnal yang sudah ter-posting. Koreksi event settled HARUS
+		// lewat Reopen Settlement, bukan menu status.
+		const { data: settled } = await supabase
+			.from("event_settlements")
+			.select("id")
+			.eq("event_id", parsed.data.id)
+			.eq("is_reopened", false)
+			.maybeSingle();
+		if (settled) {
+			return {
+				error:
+					"Event sudah di-settle — status terkunci. Pakai Reopen Settlement dulu kalau perlu koreksi.",
+			};
+		}
+
+		const { error } = await supabase
+			.from("events")
+			.update({ status: parsed.data.status })
+			.eq("id", parsed.data.id);
+
+		if (error) return { error: error.message };
+
+		revalidatePath("/operations");
+		revalidatePath(`/operations/${projectId}`);
+		return {};
+	} catch (err) {
 		return {
-			error:
-				"Event sudah di-settle — status terkunci. Pakai Reopen Settlement dulu kalau perlu koreksi.",
+			error: err instanceof Error ? err.message : "Gagal mengubah status event.",
 		};
 	}
-
-	const { error } = await supabase
-		.from("events")
-		.update({ status: parsed.data.status })
-		.eq("id", parsed.data.id);
-
-	if (error) return { error: error.message };
-
-	revalidatePath("/operations");
-	revalidatePath(`/operations/${projectId}`);
-	return {};
 }

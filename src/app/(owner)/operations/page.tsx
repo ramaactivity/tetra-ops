@@ -24,6 +24,8 @@ import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { applyDateTransitions } from "@/lib/event-status-transition";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 function lastDayOfMonth(year: number, month: number): string {
@@ -80,6 +82,16 @@ export default async function OperationsListPage({
 
 	const me = await getCurrentUser();
 	const supabase = await createClient();
+
+	// Lazy self-heal: keep date-driven statuses fresh on every visit. The Hobby
+	// plan allows only one cron/day, so without this an event that passes its
+	// date mid-day would read "upcoming"/"in_progress" until the nightly run.
+	// Best-effort — never block or crash the page if it fails.
+	try {
+		await applyDateTransitions(createAdminClient());
+	} catch {
+		// ignore — the nightly cron is the backstop
+	}
 
 	let crewEventIds: string[] | null = null;
 	if (crewFilter) {

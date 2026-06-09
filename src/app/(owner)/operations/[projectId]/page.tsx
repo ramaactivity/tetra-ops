@@ -46,6 +46,7 @@ import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
+import { applyDateTransitions } from "@/lib/event-status-transition";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
@@ -54,6 +55,7 @@ import {
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +67,14 @@ export default async function EventDetailPage({
 	const { projectId } = await params;
 	const supabase = await createClient();
 	const me = await getCurrentUser();
+
+	// Lazy self-heal date-driven statuses (Hobby = 1 cron/day) so a directly
+	// opened, just-passed event reads correctly. Best-effort, never crashes.
+	try {
+		await applyDateTransitions(createAdminClient());
+	} catch {
+		// ignore — nightly cron is the backstop
+	}
 	const canEdit =
 		me?.profile.role === "super_admin" || me?.profile.role === "owner";
 
