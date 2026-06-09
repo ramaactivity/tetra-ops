@@ -3,24 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
 import { createClient } from "@/lib/supabase/server";
 
-// Event lifecycle statuses. Design workflow lives in events.design_status now
-// (the deprecated design_brief/design_approved values are no longer assignable).
-const STATUSES = [
-	"draft",
-	"confirmed",
-	"upcoming",
-	"in_progress",
-	"awaiting_settlement",
-	"completed",
-	"cancelled",
-	"archived",
-] as const;
-
+// Event lifecycle statuses — see @/lib/event-status. The deprecated
+// draft/confirmed/archived enum values are no longer assignable.
 const StatusUpdateSchema = z.object({
 	id: z.uuid(),
-	status: z.enum(STATUSES),
+	status: z.enum(EVENT_STATUSES),
 });
 
 async function requireOwnerLevel() {
@@ -35,7 +25,7 @@ async function requireOwnerLevel() {
 export async function updateEventStatus(
 	projectId: string,
 	id: string,
-	status: (typeof STATUSES)[number],
+	status: EventStatus,
 ): Promise<{ error?: string }> {
 	await requireOwnerLevel();
 

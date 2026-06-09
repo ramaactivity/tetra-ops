@@ -1,31 +1,29 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { updateEventStatus } from "@/lib/actions/events";
+import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-const STATUS_OPTIONS = [
-	"draft",
-	"confirmed",
-	"upcoming",
-	"in_progress",
-	"awaiting_settlement",
-	"completed",
-	"cancelled",
-	"archived",
-] as const;
-
-type Status = (typeof STATUS_OPTIONS)[number];
+// Lifecycle is automatic (date + settlement); this menu is for manual override
+// / correction. Order mirrors the natural flow, cancel last.
+const STATUS_DOT: Record<EventStatus, string> = {
+	upcoming: "bg-emerald-500",
+	in_progress: "bg-[#0070f3]",
+	awaiting_settlement: "bg-amber-500",
+	completed: "bg-emerald-500",
+	cancelled: "bg-rose-500",
+};
 
 export function StatusMenu({
 	projectId,
@@ -34,12 +32,12 @@ export function StatusMenu({
 }: {
 	projectId: string;
 	eventId: string;
-	currentStatus: Status;
+	currentStatus: EventStatus;
 }) {
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
 
-	function handleChange(next: Status) {
+	function handleChange(next: EventStatus) {
 		if (next === currentStatus) return;
 		if (!confirm(`Ubah status ke "${EVENT_STATUS_LABELS[next] ?? next}"?`)) {
 			return;
@@ -56,31 +54,58 @@ export function StatusMenu({
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					disabled={pending}
-					className="border-border-default bg-surface-2 hover:bg-muted inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+					className="border-border-default bg-surface-2 hover:bg-muted data-[state=open]:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors disabled:opacity-50"
 				>
+					<span
+						className={cn(
+							"size-1.5 rounded-full",
+							STATUS_DOT[currentStatus] ?? "bg-muted-foreground",
+						)}
+						aria-hidden
+					/>
 					{pending ? "Updating…" : "Change status"}
-					<ChevronDown className="h-3.5 w-3.5" />
+					<ChevronDown className="text-muted-foreground size-3.5" />
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-56">
-					<DropdownMenuGroup>
-						<DropdownMenuLabel className="text-muted-foreground text-xs">
-							Set event status
-						</DropdownMenuLabel>
-					</DropdownMenuGroup>
+				<DropdownMenuContent
+					align="end"
+					side="bottom"
+					sideOffset={6}
+					className="w-60"
+				>
+					<DropdownMenuLabel className="text-muted-foreground text-[11px] font-normal">
+						Set status event
+					</DropdownMenuLabel>
 					<DropdownMenuSeparator />
-					{STATUS_OPTIONS.map((opt) => (
-						<DropdownMenuItem
-							key={opt}
-							onClick={() => handleChange(opt)}
-							disabled={opt === currentStatus}
-							className="cursor-pointer text-xs"
-						>
-							{EVENT_STATUS_LABELS[opt] ?? opt}
-							{opt === currentStatus && (
-								<span className="text-muted-foreground ml-auto">current</span>
-							)}
-						</DropdownMenuItem>
-					))}
+					{EVENT_STATUSES.map((opt) => {
+						const isCurrent = opt === currentStatus;
+						return (
+							<DropdownMenuItem
+								key={opt}
+								onClick={() => handleChange(opt)}
+								disabled={isCurrent}
+								className={cn(
+									"cursor-pointer gap-2 text-xs",
+									isCurrent && "opacity-100",
+								)}
+							>
+								<span
+									className={cn("size-1.5 rounded-full", STATUS_DOT[opt])}
+									aria-hidden
+								/>
+								<span className={cn(isCurrent && "font-medium")}>
+									{EVENT_STATUS_LABELS[opt] ?? opt}
+								</span>
+								{isCurrent && (
+									<Check className="text-muted-foreground ml-auto size-3.5" />
+								)}
+							</DropdownMenuItem>
+						);
+					})}
+					<DropdownMenuSeparator />
+					<p className="text-muted-foreground px-2 py-1.5 text-[11px] leading-snug">
+						Status berubah otomatis sesuai tanggal &amp; settlement. Ubah manual
+						hanya untuk koreksi.
+					</p>
 				</DropdownMenuContent>
 			</DropdownMenu>
 			{error && <p className="text-destructive text-xs">{error}</p>}

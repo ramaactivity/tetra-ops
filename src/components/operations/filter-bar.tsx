@@ -19,14 +19,11 @@ import { cn } from "@/lib/utils";
  */
 
 const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
-	"draft",
-	"confirmed",
 	"upcoming",
 	"in_progress",
 	"awaiting_settlement",
 	"completed",
 	"cancelled",
-	"archived",
 ];
 
 const SORT_OPTIONS = [

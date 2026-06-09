@@ -75,7 +75,7 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 			 end_time, frame_size, backdrop_id`,
 		)
 		.in("event_date", targetDates)
-		.in("status", ["confirmed", "in_progress"]);
+		.in("status", ["upcoming", "in_progress"]);
 
 	if (evErr) {
 		result.errors.push(`Fetch events failed: ${evErr.message}`);

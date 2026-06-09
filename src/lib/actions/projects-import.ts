@@ -287,18 +287,18 @@ function classify(
 		v.includes("complete") ||
 		v.includes("lunas") ||
 		v.includes("archive");
+	// Past legacy events are historical/done → completed (settlement N/A; they
+	// stay flagged is_migrated_legacy). The deprecated draft/confirmed/archived
+	// statuses are no longer used — see @/lib/event-status.
 	if (dateInPast && isClosed) {
-		return { isPast: true, mappedStatus: "archived" };
+		return { isPast: true, mappedStatus: "completed" };
 	}
-	if (v.includes("upcoming")) return { isPast: false, mappedStatus: "upcoming" };
-	if (v.includes("in progress") || v.includes("proses"))
-		return { isPast: false, mappedStatus: "in_progress" };
-	if (v.includes("confirmed") || v.includes("konfirm"))
-		return { isPast: false, mappedStatus: "confirmed" };
 	if (v.includes("cancel") || v.includes("batal"))
 		return { isPast: false, mappedStatus: "cancelled" };
-	if (dateInPast) return { isPast: true, mappedStatus: "archived" };
-	return { isPast: false, mappedStatus: "draft" };
+	if (dateInPast) return { isPast: true, mappedStatus: "completed" };
+	if (v.includes("in progress") || v.includes("proses"))
+		return { isPast: false, mappedStatus: "in_progress" };
+	return { isPast: false, mappedStatus: "upcoming" };
 }
 
 const RowSchema = z.object({

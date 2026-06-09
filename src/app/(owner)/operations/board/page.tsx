@@ -30,21 +30,9 @@ type ColumnDef = {
 
 const COLUMNS: ColumnDef[] = [
 	{
-		value: "draft",
-		label: "Draft",
-		hint: "Belum confirmed",
-		tone: "border-slate-500/40 bg-slate-500/5",
-	},
-	{
-		value: "confirmed",
-		label: "Confirmed",
-		hint: "DP masuk",
-		tone: "border-sky-500/40 bg-sky-500/5",
-	},
-	{
 		value: "upcoming",
 		label: "Upcoming",
-		hint: "Siap eksekusi",
+		hint: "Belum hari-H",
 		tone: "border-primary/40 bg-primary/5",
 	},
 	{
@@ -177,9 +165,7 @@ function BoardCard({ event }: { event: EventRow }) {
 	const days = daysUntil(event.event_date);
 	const isPast = days < 0;
 	const isHot =
-		!isPast &&
-		days <= HOT_DAYS_THRESHOLD &&
-		(event.status === "confirmed" || event.status === "upcoming");
+		!isPast && days <= HOT_DAYS_THRESHOLD && event.status === "upcoming";
 
 	let dayLabel: string;
 	if (days === 0) dayLabel = "Hari ini";

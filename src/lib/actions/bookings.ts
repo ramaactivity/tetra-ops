@@ -7,6 +7,7 @@ import { createEventFolderInternal } from "@/lib/actions/drive";
 import { ensureVendorContact } from "@/lib/actions/vendors";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
+import { computeLifecycleStatus } from "@/lib/event-status";
 import { createClient } from "@/lib/supabase/server";
 
 const CHANNELS = ["direct", "vendor", "relasi"] as const;
@@ -579,6 +580,12 @@ export async function createBooking(
 	);
 	const projectId = generateProjectId(parsed.data.event_date);
 
+	// Status is date-driven from the start: a future booking is "upcoming",
+	// a same-day booking "in_progress", a back-dated one "awaiting_settlement".
+	// The daily status-transition cron keeps it in sync afterwards.
+	const todayISO = new Date().toISOString().slice(0, 10);
+	const initialStatus = computeLifecycleStatus(parsed.data.event_date, todayISO);
+
 	// Resolve vendor master FK — upsert contacts(type='vendor') if user
 	// typed a new vendor name in the free-text combobox. No-op for
 	// non-vendor channels.
@@ -598,7 +605,7 @@ export async function createBooking(
 		.from("events")
 		.insert({
 			project_id: projectId,
-			status: "draft",
+			status: initialStatus,
 			created_by: me.authId,
 			...buildEventPayload(
 				parsed.data,
@@ -717,13 +724,31 @@ export async function updateBooking(
 	// grand_total saat edit (membuang progres DP yang sudah dibayar).
 	const { data: curEvent } = await supabase
 		.from("events")
-		.select("total_paid")
+		.select("total_paid, status, is_migrated_legacy")
 		.eq("id", id)
 		.maybeSingle();
+
+	// Re-derive the lifecycle status from the (possibly changed) event date, but
+	// only for auto-managed events. Terminal/manual states (completed, cancelled)
+	// and legacy rows are left untouched.
+	const autoManaged =
+		!curEvent?.is_migrated_legacy &&
+		(curEvent?.status === "upcoming" ||
+			curEvent?.status === "in_progress" ||
+			curEvent?.status === "awaiting_settlement");
+	const statusPatch = autoManaged
+		? {
+				status: computeLifecycleStatus(
+					parsed.data.event_date,
+					new Date().toISOString().slice(0, 10),
+				),
+			}
+		: {};
+
 	const { data: updated, error } = await supabase
 		.from("events")
-		.update(
-			buildEventPayload(
+		.update({
+			...buildEventPayload(
 				parsed.data,
 				basePrice,
 				addonsTotal,
@@ -731,7 +756,8 @@ export async function updateBooking(
 				vendorContactId,
 				Number(curEvent?.total_paid ?? 0),
 			),
-		)
+			...statusPatch,
+		})
 		.eq("id", id)
 		.select("project_id")
 		.single();

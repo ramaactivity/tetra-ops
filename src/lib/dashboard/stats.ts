@@ -107,7 +107,7 @@ async function fetchDashboardStats(
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
-			.in("status", ["confirmed", "upcoming"])
+			.eq("status", "upcoming")
 			.gte("event_date", p.todayISO)
 			.lte("event_date", p.sevenFromNowISO),
 		supabase
@@ -157,7 +157,7 @@ async function fetchDashboardStats(
 			.eq("is_migrated_legacy", false)
 			.gte("event_date", p.ymStart)
 			.lte("event_date", p.ymEnd)
-			.in("status", ["confirmed", "upcoming", "in_progress"]),
+			.in("status", ["upcoming", "in_progress"]),
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
