@@ -20,8 +20,9 @@ type Props = {
 };
 
 /**
- * <RekapHeroCard /> — branded hero block shared between crew submit page
- * and owner review page. Status badge auto-derives from approval state.
+ * <RekapHeroCard /> — title block for the rekap page. Eyebrow + status badge,
+ * client name, event meta, and package pills. Fixed typography scale so it
+ * reads consistently with the rest of the app.
  */
 export function RekapHeroCard({
 	eyebrow = "REKAP CREW",
@@ -34,25 +35,24 @@ export function RekapHeroCard({
 	submitted,
 }: Props) {
 	return (
-		<div className="relative overflow-hidden rounded-lg border border-border-default bg-card p-5 sm:p-6">
-			<div className="relative space-y-3">
+		<div className="rounded-xl border border-border-default bg-card p-5 sm:p-6">
+			<div className="space-y-3">
 				<div className="flex flex-wrap items-center gap-2">
-					<span className="text-fluid-caption font-semibold uppercase tracking-widest text-primary">
-						{eyebrow}
-					</span>
+					<span className="eyebrow text-muted-foreground">{eyebrow}</span>
 					<StatusBadge isApproved={isApproved} submitted={submitted} />
 				</div>
 				<div className="space-y-1">
-					<h1 className="text-fluid-h1 leading-tight tracking-tight text-foreground">
+					<h1 className="text-[24px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
 						{clientName}
 					</h1>
-					<p className="text-fluid-caption text-muted-foreground">
-						<span className="tabular">{projectId}</span> · {formatDateID(eventDate)}
+					<p className="text-[12.5px] text-muted-foreground">
+						<span className="tabular">{projectId}</span> ·{" "}
+						{formatDateID(eventDate)}
 						{venueName ? <> · {venueName}</> : null}
 					</p>
 				</div>
 				{pkg?.name && (
-					<div className="flex flex-wrap gap-1.5">
+					<div className="flex flex-wrap gap-1.5 pt-0.5">
 						<Badge
 							variant="outline"
 							className="border-primary/30 bg-primary/5 text-primary"
@@ -83,8 +83,9 @@ function StatusBadge({
 }) {
 	if (!submitted) {
 		return (
-			<Badge variant="secondary" className="text-[10px]">
-				BELUM SUBMIT
+			<Badge variant="secondary" className="gap-1">
+				<Clock className="size-3" aria-hidden />
+				Belum submit
 			</Badge>
 		);
 	}
@@ -92,9 +93,9 @@ function StatusBadge({
 		return (
 			<Badge
 				variant="outline"
-				className="border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300"
+				className="gap-1 border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300"
 			>
-				<CheckCircle2 className="mr-1 h-3 w-3" />
+				<CheckCircle2 className="size-3" aria-hidden />
 				Approved
 			</Badge>
 		);
@@ -103,19 +104,19 @@ function StatusBadge({
 		return (
 			<Badge
 				variant="outline"
-				className="border-rose-300 bg-rose-500/10 text-rose-700 dark:border-rose-900 dark:text-rose-300"
+				className="gap-1 border-rose-300 bg-rose-500/10 text-rose-700 dark:border-rose-900 dark:text-rose-300"
 			>
-				<XCircle className="mr-1 h-3 w-3" />
-				Need revision
+				<XCircle className="size-3" aria-hidden />
+				Perlu revisi
 			</Badge>
 		);
 	}
 	return (
 		<Badge
 			variant="outline"
-			className="border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-900 dark:text-amber-300"
+			className="gap-1 border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-900 dark:text-amber-300"
 		>
-			<Clock className="mr-1 h-3 w-3" />
+			<Clock className="size-3" aria-hidden />
 			Menunggu review
 		</Badge>
 	);

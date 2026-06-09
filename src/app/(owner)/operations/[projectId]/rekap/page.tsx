@@ -1,28 +1,25 @@
-import { ChevronLeft } from "lucide-react";
+import { CheckSquare, ChevronLeft, Lock, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { AddonSplitForm } from "@/components/rekap/addon-split-form";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
-import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
 import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
+import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
 import { ProfitPreviewCard } from "@/components/rekap/profit-preview-card";
 import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
 import { RekapProofGallery } from "@/components/rekap/rekap-proof-gallery";
-import { RekapReviewButtons } from "@/components/rekap/review-buttons";
 import { RekapSummaryTab } from "@/components/rekap/rekap-summary-tab";
+import { RekapCard, SectionHeader } from "@/components/rekap/rekap-ui";
+import { RekapReviewButtons } from "@/components/rekap/review-buttons";
 import { SettleButton } from "@/components/rekap/settle-button";
 import { SettledBanner } from "@/components/rekap/settled-banner";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "@/components/ui/tabs";
-import { getRekapContext } from "@/lib/actions/rekap";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getProfitPreview } from "@/lib/actions/profit-preview";
+import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -164,7 +161,10 @@ export default async function EventRekapPage({
 		: null;
 
 	const isSettled = event.status === "completed";
-	const recapApproved = rekap?.is_approved === true || rekap?.status === "reviewed" || rekap?.status === "settled";
+	const recapApproved =
+		rekap?.is_approved === true ||
+		rekap?.status === "reviewed" ||
+		rekap?.status === "settled";
 	const recapLocked = rekap?.locked === true || isSettled;
 
 	const settlementClosedBy = settlement?.closed_by_user
@@ -178,7 +178,9 @@ export default async function EventRekapPage({
 		? await getProfitPreview(event.id as string)
 		: null;
 	const profitPreview =
-		profitPreviewResult && profitPreviewResult.ok ? profitPreviewResult.data : null;
+		profitPreviewResult && profitPreviewResult.ok
+			? profitPreviewResult.data
+			: null;
 
 	// Crew fee rows — normalize joined user
 	const crewFeeRows: CrewAssignmentRow[] = (assignments ?? []).map((a) => {
@@ -197,7 +199,8 @@ export default async function EventRekapPage({
 		};
 	});
 
-	const allCrewHaveFee = crewFeeRows.length > 0 && crewFeeRows.every((r) => r.fee_amount > 0);
+	const allCrewHaveFee =
+		crewFeeRows.length > 0 && crewFeeRows.every((r) => r.fee_amount > 0);
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
 	// Field expense breakdown — ditampilkan sebagai INFO di Fee crew form.
@@ -269,10 +272,10 @@ export default async function EventRekapPage({
 		<Container size="xl" className="space-y-5 pb-32">
 			<Link
 				href={`/operations/${projectId}`}
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+				className="text-muted-foreground hover:text-foreground -mb-1 inline-flex items-center gap-1 text-[13px] font-medium transition-colors"
 			>
-				<ChevronLeft className="h-4 w-4" />
-				{projectId}
+				<ChevronLeft className="size-4" />
+				Kembali ke event
 			</Link>
 
 			{isSettled && settlement && (
@@ -299,14 +302,14 @@ export default async function EventRekapPage({
 			/>
 
 			{rekap && (
-				<p className="text-fluid-caption text-muted-foreground">
-					Submitted by{" "}
+				<p className="text-[12px] text-muted-foreground">
+					Di-submit oleh{" "}
 					<span className="font-medium text-foreground">
 						{rekap.submitted_by_user?.full_name ?? "—"}
 					</span>
 					{rekap.reviewed_at && rekap.reviewer?.full_name && (
 						<>
-							{" · "}reviewed by{" "}
+							{" · "}di-review oleh{" "}
 							<span className="font-medium text-foreground">
 								{rekap.reviewer.full_name}
 							</span>
@@ -318,8 +321,15 @@ export default async function EventRekapPage({
 			{/* === No rekap yet: owner can input manually === */}
 			{!rekap && (
 				<>
-					<div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs leading-relaxed text-foreground/80 dark:border-amber-900 dark:bg-amber-950/20">
-						Crew belum submit rekap. Owner bisa input data ini retroaktif kalau perlu.
+					<div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-[12.5px] leading-relaxed text-foreground/80 dark:border-amber-900/60 dark:bg-amber-950/20">
+						<Pencil
+							className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+							aria-hidden
+						/>
+						<span>
+							Crew belum submit rekap. Kamu bisa input data ini secara
+							retroaktif di bawah.
+						</span>
 					</div>
 					<RekapForm
 						eventId={event.id}
@@ -333,26 +343,25 @@ export default async function EventRekapPage({
 
 			{/* === Edit recap (owner override) — only if not locked === */}
 			{rekap && !recapLocked && (
-				<details className="rounded-lg border border-border-default bg-surface-2">
-					<summary className="cursor-pointer px-5 py-3 text-sm font-semibold tracking-tight hover:bg-muted/30">
-						Edit rekap (owner override)
-					</summary>
-					<div className="border-t border-border-default p-5">
-						<RekapForm
-							eventId={event.id}
-							projectId={projectId}
-							defaults={defaults}
-							mode="update"
-							context={context}
-						/>
-					</div>
-				</details>
+				<CollapsibleCard
+					icon={<Pencil className="size-4" aria-hidden strokeWidth={2} />}
+					title="Edit rekap (owner override)"
+					subtitle="Koreksi angka rekap manual sebelum di-approve."
+				>
+					<RekapForm
+						eventId={event.id}
+						projectId={projectId}
+						defaults={defaults}
+						mode="update"
+						context={context}
+					/>
+				</CollapsibleCard>
 			)}
 
 			{/* === Tabs view (display) === */}
 			{rekap && (
-				<Tabs defaultValue="ringkasan">
-					<TabsList>
+				<Tabs defaultValue="ringkasan" className="gap-4">
+					<TabsList className="w-full max-w-md">
 						<TabsTrigger value="ringkasan">Ringkasan</TabsTrigger>
 						<TabsTrigger value="stok">Stok</TabsTrigger>
 						<TabsTrigger value="bukti">Bukti ({proofCount})</TabsTrigger>
@@ -361,14 +370,12 @@ export default async function EventRekapPage({
 					<TabsContent value="ringkasan">
 						<RekapSummaryTab rekap={rekap} context={context} />
 						{rekap.crew_notes && (
-							<div className="mt-4 space-y-1 rounded-lg border border-border-default bg-surface-2 p-4">
-								<p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Catatan crew
-								</p>
-								<p className="text-foreground whitespace-pre-wrap text-sm">
+							<RekapCard className="mt-4 space-y-1.5">
+								<p className="eyebrow text-muted-foreground">Catatan crew</p>
+								<p className="text-foreground whitespace-pre-wrap text-[13px] leading-relaxed">
 									{rekap.crew_notes}
 								</p>
-							</div>
+							</RekapCard>
 						)}
 					</TabsContent>
 					<TabsContent value="stok">
@@ -394,23 +401,19 @@ export default async function EventRekapPage({
 
 			{/* === Approve/Reject section (review stage, not settled yet) === */}
 			{rekap && !recapApproved && !isSettled && (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-4">
-					<header className="mb-3">
-						<h2 className="text-fluid-h3 font-semibold tracking-tight">
-							Review rekap
-						</h2>
-						<p className="text-xs text-muted-foreground">
-							Approve untuk commit deduksi stok ke warehouse. Bisa reject untuk
-							revisi.
-						</p>
-					</header>
+				<RekapCard className="space-y-4">
+					<SectionHeader
+						icon={CheckSquare}
+						title="Review rekap"
+						description="Approve untuk commit deduksi stok ke warehouse, atau reject untuk minta revisi."
+					/>
 					<RekapReviewButtons
 						rekapId={rekap.id}
 						projectId={projectId}
 						currentApproved={rekap.is_approved}
 						stockCommittedAt={rekap.stock_committed_at ?? null}
 					/>
-				</div>
+				</RekapCard>
 			)}
 
 			{/* === Pre-settle workflow: crew fees + addon split + profit preview + settle button === */}
@@ -439,16 +442,12 @@ export default async function EventRekapPage({
 
 					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
 
-					<div className="rounded-lg border border-border-default bg-surface-2 p-5">
-						<header className="mb-3">
-							<h2 className="text-fluid-h3 font-semibold tracking-tight">
-								Settle event
-							</h2>
-							<p className="text-xs text-muted-foreground">
-								Tutup buku event ini dan commit ke ledger. Aksi destructive —
-								hanya bisa di-undo via Reopen Settlement.
-							</p>
-						</header>
+					<RekapCard className="space-y-4">
+						<SectionHeader
+							icon={Lock}
+							title="Settle event"
+							description="Tutup buku event ini & commit ke ledger. Aksi destruktif — hanya bisa di-undo via Reopen Settlement."
+						/>
 						{profitPreview ? (
 							<SettleButton
 								eventId={event.id as string}
@@ -464,11 +463,11 @@ export default async function EventRekapPage({
 								disabledReason={settleDisabledReason}
 							/>
 						) : (
-							<p className="text-xs text-muted-foreground">
+							<p className="text-[12px] text-muted-foreground">
 								Profit preview tidak tersedia (cek error log).
 							</p>
 						)}
-					</div>
+					</RekapCard>
 				</>
 			)}
 

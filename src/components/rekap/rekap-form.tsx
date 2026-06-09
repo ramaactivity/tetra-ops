@@ -2,10 +2,14 @@
 
 import {
 	Calculator,
+	Camera,
 	Car,
 	CheckCircle2,
 	Coffee,
+	Disc,
+	Package2,
 	Plus,
+	Printer,
 	Save,
 	Sparkles,
 	Wallet,
@@ -682,7 +686,7 @@ export function RekapForm({
 	return (
 		<form action={formAction} className="space-y-5 pb-2">
 			{state?.success && (
-				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
 					<CheckCircle2 className="h-4 w-4" />
 					Rekap tersimpan. Mengarahkan ke ringkasan…
 				</div>
@@ -713,7 +717,7 @@ export function RekapForm({
 			)}
 			{state?.errors?._form && (
 				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-					<p className="text-sm font-medium text-destructive">
+					<p className="text-[13px] font-medium text-destructive">
 						{state.errors._form[0]}
 					</p>
 				</div>
@@ -760,9 +764,14 @@ export function RekapForm({
 						}
 					: mediaMapping;
 				return (
-					<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
+					<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
 						<div>
-							<h3 className="text-base font-semibold tracking-tight">Cetak</h3>
+							<div className="flex items-center gap-2">
+								<Printer className="size-4 text-muted-foreground" aria-hidden />
+								<h3 className="text-[14px] font-semibold text-foreground">
+									Cetak
+								</h3>
+							</div>
 							<p className="text-xs text-muted-foreground">
 								Cuma isi total cetak — mediaset + sleeve auto-hitung dari
 								mapping per frame size.
@@ -835,15 +844,16 @@ export function RekapForm({
 
 			{/* ========== FLASHDISK & POUCH ========== */}
 			<section
-				className={`space-y-4 rounded-lg border p-5 ${
+				className={`space-y-4 rounded-xl border p-5 ${
 					fdPouchIncluded
-						? "border-border-default bg-surface-2"
-						: "border-dashed border-border-default bg-surface-2/40"
+						? "border-border-default bg-card"
+						: "border-dashed border-border-default bg-card/40"
 				}`}
 			>
 				<div>
 					<div className="flex items-center gap-2">
-						<h3 className="text-base font-semibold tracking-tight">
+						<Package2 className="size-4 text-muted-foreground" aria-hidden />
+						<h3 className="text-[14px] font-semibold text-foreground">
 							Flashdisk & Pouch
 						</h3>
 						{fdPouchIncluded ? (
@@ -877,7 +887,10 @@ export function RekapForm({
 						fieldCost("flashdisk_used", fdSet) + fieldCost("pouch_used", fdSet);
 					return (
 						<div className="space-y-1.5">
-							<label htmlFor="flashdisk_used" className="text-sm font-medium">
+							<label
+								htmlFor="flashdisk_used"
+								className="text-[13px] font-medium"
+							>
 								Set FD + Pouch terpakai
 							</label>
 							<input
@@ -934,9 +947,14 @@ export function RekapForm({
 			</section>
 
 			{/* ========== ADD-ON ========== */}
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
 				<div>
-					<h3 className="text-base font-semibold tracking-tight">Add-on</h3>
+					<div className="flex items-center gap-2">
+						<Disc className="size-4 text-muted-foreground" aria-hidden />
+						<h3 className="text-[14px] font-semibold text-foreground">
+							Add-on
+						</h3>
+					</div>
 					<p className="text-xs text-muted-foreground">
 						Photomagnet / keychain — jumlah yang dipakai (paid + bonus).
 					</p>
@@ -976,12 +994,12 @@ export function RekapForm({
 			</section>
 
 			{/* ========== ITEM TAMBAHAN (custom_materials) ========== */}
-			<section className="rounded-lg border border-border-default bg-surface-2">
+			<section className="rounded-xl border border-border-default bg-card">
 				<Disclosure defaultOpen={Object.keys(customMaterials).length > 0}>
 					<DisclosureTrigger className="px-5 py-4">
 						<span className="flex items-center gap-2">
-							<Sparkles className="h-4 w-4 text-primary" />
-							<span className="text-base font-semibold">
+							<Sparkles className="size-4 text-muted-foreground" aria-hidden />
+							<span className="text-[14px] font-semibold text-foreground">
 								Item tambahan{" "}
 								<span className="text-muted-foreground text-xs font-normal">
 									({Object.keys(customMaterials).length})
@@ -1008,7 +1026,7 @@ export function RekapForm({
 												className="flex items-center gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
 											>
 												<div className="min-w-0 flex-1">
-													<p className="text-sm font-medium text-foreground">
+													<p className="text-[13px] font-medium text-foreground">
 														{it.name}
 													</p>
 													<p className="font-mono text-[11px] text-muted-foreground">
@@ -1067,11 +1085,11 @@ export function RekapForm({
 			</section>
 
 			{/* ========== TRANSPORTASI ========== */}
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
 				<div>
 					<div className="flex items-center gap-2">
-						<Car className="h-4 w-4 text-primary" />
-						<h3 className="text-base font-semibold tracking-tight">
+						<Car className="size-4 text-muted-foreground" aria-hidden />
+						<h3 className="text-[14px] font-semibold text-foreground">
 							Transportasi
 						</h3>
 					</div>
@@ -1171,11 +1189,11 @@ export function RekapForm({
 			</section>
 
 			{/* ========== KONSUMSI & LAIN-LAIN ========== */}
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
 				<div>
 					<div className="flex items-center gap-2">
-						<Coffee className="h-4 w-4 text-primary" />
-						<h3 className="text-base font-semibold tracking-tight">
+						<Coffee className="size-4 text-muted-foreground" aria-hidden />
+						<h3 className="text-[14px] font-semibold text-foreground">
 							Konsumsi & Lain-lain
 						</h3>
 					</div>
@@ -1194,7 +1212,7 @@ export function RekapForm({
 
 				<div className="space-y-2">
 					<div className="flex items-center justify-between gap-2">
-						<p className="text-sm font-medium">
+						<p className="text-[13px] font-medium">
 							Lain-lain{" "}
 							<span className="text-muted-foreground text-xs font-normal">
 								({lainnyaItems.length}/20)
@@ -1301,9 +1319,12 @@ export function RekapForm({
 			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
 
 			{/* ========== BUKTI ========== */}
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
+			<section className="space-y-4 rounded-xl border border-border-default bg-card p-5">
 				<div>
-					<h3 className="text-base font-semibold tracking-tight">Bukti</h3>
+					<div className="flex items-center gap-2">
+						<Camera className="size-4 text-muted-foreground" aria-hidden />
+						<h3 className="text-[14px] font-semibold text-foreground">Bukti</h3>
+					</div>
 					<p className="text-xs text-muted-foreground">
 						Foto counter mesin, area event, atau consumable. Wajib minimal 1.
 					</p>
@@ -1322,7 +1343,7 @@ export function RekapForm({
 				)}
 
 				<div className="space-y-1.5">
-					<label htmlFor="crew_notes" className="text-sm font-medium">
+					<label htmlFor="crew_notes" className="text-[13px] font-medium">
 						Catatan crew
 					</label>
 					<textarea
@@ -1477,12 +1498,12 @@ function AutoDerivedCard({
 					min={0}
 					value={manualValue}
 					onChange={(e) => onManualChange(e.target.value)}
-					className="tabular h-9 w-full rounded-md border border-border-default bg-background px-2 text-lg font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+					className="tabular h-9 w-full rounded-md border border-border-default bg-background px-2 text-[18px] font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
 				/>
 			) : (
-				<p className="tabular text-fluid-h2 font-semibold text-foreground">
+				<p className="tabular text-[22px] font-semibold leading-none text-foreground">
 					{value.toLocaleString("id-ID")}{" "}
-					<span className="text-xs font-normal text-muted-foreground">
+					<span className="text-[12px] font-normal text-muted-foreground">
 						{item.unit}
 					</span>
 				</p>
@@ -1543,7 +1564,7 @@ function NumField({
 	return (
 		<div className="space-y-1.5">
 			<div className="flex items-baseline gap-1.5">
-				<label htmlFor={name} className="text-sm font-medium">
+				<label htmlFor={name} className="text-[13px] font-medium">
 					{label}
 				</label>
 				{auto && (
@@ -1625,7 +1646,7 @@ function AddonField({
 	return (
 		<div className="space-y-1.5">
 			<div className="flex items-baseline justify-between gap-2">
-				<label htmlFor={name} className="text-sm font-medium">
+				<label htmlFor={name} className="text-[13px] font-medium">
 					{label}
 				</label>
 				{(paid > 0 || bonus > 0) && (
@@ -1708,7 +1729,7 @@ function MoneyField({
 }) {
 	return (
 		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
+			<label htmlFor={name} className="text-[13px] font-medium">
 				{label}
 			</label>
 			<div className="relative">
@@ -1754,4 +1775,4 @@ function extractName(url: string): string {
 }
 
 const inputClass =
-	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none";

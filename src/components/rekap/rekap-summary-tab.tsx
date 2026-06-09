@@ -1,11 +1,12 @@
 import { Disc, Gift, Image, Package2, Printer, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type {
-	RekapContext,
-	RekapContextBonus,
-} from "@/lib/actions/rekap";
+import type { RekapContext, RekapContextBonus } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
-import { computeRekapCost, deriveRekapRatio, sumBuckets } from "@/lib/rekap/cost";
+import {
+	computeRekapCost,
+	deriveRekapRatio,
+	sumBuckets,
+} from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
 
 type RekapData = {
@@ -230,9 +231,9 @@ export function RekapSummaryTab({
 			)}
 
 			{/* ===== TOTAL HPP ===== */}
-			<div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-5">
-				<div className="flex items-baseline justify-between gap-2">
-					<h3 className="text-sm font-semibold tracking-tight">
+			<div className="space-y-3.5 rounded-xl border border-primary/30 bg-primary/5 p-5">
+				<div className="flex items-center justify-between gap-2">
+					<h3 className="text-[13.5px] font-semibold text-foreground">
 						Estimasi HPP total
 					</h3>
 					<Badge
@@ -242,7 +243,7 @@ export function RekapSummaryTab({
 						{context.mappings.filter((m) => m.item).length} field ter-mapped
 					</Badge>
 				</div>
-				<dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-fluid-caption sm:grid-cols-4">
+				<dl className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-4">
 					<BreakdownRow label="Mediaset" value={buckets.mediaset} />
 					<BreakdownRow label="Sleeve" value={buckets.sleeve} />
 					<BreakdownRow label="Flashdisk" value={buckets.flashdisk} />
@@ -257,14 +258,14 @@ export function RekapSummaryTab({
 					<BreakdownRow label="Custom/other" value={buckets.other} tone="sky" />
 				</dl>
 				<div className="flex items-baseline justify-between border-t border-primary/30 pt-3">
-					<p className="text-sm font-semibold text-foreground">Total</p>
-					<p className="tabular text-fluid-h3 font-semibold text-primary">
+					<p className="text-[13px] font-semibold text-foreground">Total</p>
+					<p className="tabular text-[20px] font-semibold leading-none text-primary">
 						{formatRupiah(total)}
 					</p>
 				</div>
-				<p className="text-[11px] italic text-muted-foreground">
-					Estimasi pakai purchase_price_avg saat ini. Final HPP di-snapshot
-					saat settle event.
+				<p className="text-[11.5px] italic text-muted-foreground">
+					Estimasi pakai harga rata-rata pembelian saat ini. HPP final
+					di-snapshot saat settle event.
 				</p>
 			</div>
 		</div>
@@ -276,7 +277,6 @@ export function RekapSummaryTab({
 function Group({
 	icon: Icon,
 	title,
-	tone = "default",
 	children,
 }: {
 	icon: typeof Printer;
@@ -284,19 +284,11 @@ function Group({
 	tone?: "default" | "emerald" | "sky";
 	children: React.ReactNode;
 }) {
-	const accent =
-		tone === "emerald"
-			? "text-emerald-700 dark:text-emerald-300"
-			: tone === "sky"
-				? "text-sky-700 dark:text-sky-300"
-				: "text-primary";
 	return (
-		<section className="space-y-2">
-			<div className="flex items-center gap-1.5">
-				<Icon className={`h-3.5 w-3.5 ${accent}`} />
-				<h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-					{title}
-				</h3>
+		<section className="space-y-2.5">
+			<div className="flex items-center gap-2">
+				<Icon className="size-3.5 text-muted-foreground" aria-hidden />
+				<h3 className="eyebrow text-muted-foreground">{title}</h3>
 			</div>
 			<div className="grid gap-3 sm:grid-cols-3">{children}</div>
 		</section>
@@ -319,31 +311,29 @@ function StatCard({
 	const isZero = value === 0;
 	return (
 		<div
-			className={`space-y-1 rounded-lg border p-3 ${
+			className={`flex flex-col gap-1.5 rounded-lg border p-4 ${
 				isZero
-					? "border-dashed border-border-default bg-surface-2/40"
-					: "border-border-default bg-surface-2"
+					? "border-dashed border-border-default bg-card/40"
+					: "border-border-default bg-card"
 			}`}
 		>
-			<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-				{label}
-			</p>
+			<p className="eyebrow text-muted-foreground">{label}</p>
 			<p
-				className={`tabular text-fluid-h2 font-semibold ${
-					isZero ? "text-muted-foreground/50" : "text-foreground"
+				className={`tabular text-[24px] font-semibold leading-none ${
+					isZero ? "text-muted-foreground/40" : "text-foreground"
 				}`}
 			>
-				{value.toLocaleString("id-ID")}{" "}
-				<span className="text-xs font-normal text-muted-foreground">
+				{value.toLocaleString("id-ID")}
+				<span className="ml-1 text-[12px] font-normal text-muted-foreground">
 					{unit}
 				</span>
 			</p>
 			{cost > 0 ? (
-				<p className="tabular text-[11px] font-medium text-primary">
+				<p className="tabular text-[12px] font-medium text-muted-foreground">
 					{formatRupiah(cost)}
 				</p>
 			) : subtitle ? (
-				<p className="text-[11px] text-muted-foreground">{subtitle}</p>
+				<p className="text-[12px] text-muted-foreground">{subtitle}</p>
 			) : null}
 		</div>
 	);
@@ -353,34 +343,32 @@ function BonusCard({ bonus }: { bonus: RekapContextBonus }) {
 	const inv = bonus.inventory_item;
 	const cost = inv ? bonus.quantity * inv.purchase_price_avg : 0;
 	return (
-		<div className="space-y-1 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+		<div className="flex flex-col gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
 			<div className="flex items-center gap-1.5">
 				<Image
-					className="h-3 w-3 text-emerald-700 dark:text-emerald-300"
+					className="size-3 text-emerald-700 dark:text-emerald-300"
 					aria-hidden
 				/>
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-800 dark:text-emerald-200">
-					Bonus
-				</p>
+				<p className="eyebrow text-emerald-800 dark:text-emerald-200">Bonus</p>
 			</div>
-			<p className="text-sm font-medium text-foreground">{bonus.name}</p>
-			<p className="tabular text-fluid-h3 font-semibold text-foreground">
-				{bonus.quantity.toLocaleString("id-ID")}{" "}
-				<span className="text-xs font-normal text-muted-foreground">
+			<p className="text-[13px] font-medium text-foreground">{bonus.name}</p>
+			<p className="tabular text-[20px] font-semibold leading-none text-foreground">
+				{bonus.quantity.toLocaleString("id-ID")}
+				<span className="ml-1 text-[12px] font-normal text-muted-foreground">
 					{bonus.unit}
 				</span>
 			</p>
 			{inv ? (
-				<p className="tabular text-[11px] font-medium text-primary">
-					{formatRupiah(cost)} freebie cost
+				<p className="tabular text-[12px] font-medium text-emerald-700 dark:text-emerald-300">
+					{formatRupiah(cost)} · freebie
 				</p>
 			) : (
-				<p className="text-[11px] italic text-muted-foreground">
-					Belum di-link ke inventory — no cost track
+				<p className="text-[11.5px] italic text-muted-foreground">
+					Belum di-link ke inventory
 				</p>
 			)}
 			{bonus.notes && (
-				<p className="text-[11px] italic text-emerald-800 dark:text-emerald-300">
+				<p className="text-[11.5px] italic text-emerald-800 dark:text-emerald-300">
 					"{bonus.notes}"
 				</p>
 			)}
@@ -399,7 +387,7 @@ function BreakdownRow({
 }) {
 	const isZero = value === 0;
 	const valueColor = isZero
-		? "text-muted-foreground/50"
+		? "text-muted-foreground/40"
 		: tone === "emerald"
 			? "text-emerald-700 dark:text-emerald-300"
 			: tone === "sky"
@@ -407,11 +395,10 @@ function BreakdownRow({
 				: "text-foreground";
 	return (
 		<div className="flex items-baseline justify-between gap-2">
-			<dt className="text-muted-foreground">{label}</dt>
-			<dd className={`tabular font-medium ${valueColor}`}>
+			<dt className="text-[12px] text-muted-foreground">{label}</dt>
+			<dd className={`tabular text-[12px] font-medium ${valueColor}`}>
 				{formatRupiah(value)}
 			</dd>
 		</div>
 	);
 }
-
