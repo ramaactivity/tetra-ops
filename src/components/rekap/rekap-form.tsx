@@ -987,7 +987,7 @@ export function RekapForm({
 										onChange={(e) =>
 											updateCustomQty(sku, Number(e.target.value))
 										}
-										className="tabular h-8 w-20 rounded-md border border-border-default bg-background px-2 text-right text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 									/>
 									<span className="tabular hidden w-24 shrink-0 text-right text-xs text-muted-foreground sm:inline">
 										{formatRupiah(cost)}
@@ -1053,7 +1053,7 @@ export function RekapForm({
 								}`}
 							>
 								<span className="font-semibold">{opt.label}</span>
-								<span className="text-[10px] opacity-70">{opt.sub}</span>
+								<span className="text-[11px] opacity-70">{opt.sub}</span>
 							</button>
 						);
 					})}
@@ -1360,10 +1360,10 @@ function AutoDerivedCard({
 	if (!mapping || !mapping.item) {
 		return (
 			<div className="rounded-lg border border-dashed border-border-default bg-surface-3/40 p-3">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+				<p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
 					{label}
 				</p>
-				<p className="text-sm text-muted-foreground italic">
+				<p className="text-[13px] text-muted-foreground italic">
 					Mapping belum di-set di Settings → Items Mapping
 				</p>
 			</div>
@@ -1387,9 +1387,9 @@ function AutoDerivedCard({
 	return (
 		<div className="space-y-2 rounded-lg border border-border-default bg-surface-3 p-3">
 			<div className="flex items-baseline justify-between gap-2">
-				<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+				<p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
 					{label}
-					<span className="ml-1 text-[9px] font-medium text-primary">
+					<span className="ml-1 text-[10px] font-medium text-primary">
 						{touched ? "MANUAL" : "AUTO"}
 					</span>
 				</p>
@@ -1397,7 +1397,7 @@ function AutoDerivedCard({
 					<button
 						type="button"
 						onClick={onResetToAuto}
-						className="text-[10px] font-medium text-primary hover:underline"
+						className="text-[11px] font-medium text-primary hover:underline"
 					>
 						Reset ke auto
 					</button>
@@ -1405,7 +1405,7 @@ function AutoDerivedCard({
 					<button
 						type="button"
 						onClick={() => onManualChange(String(value))}
-						className="text-[10px] font-medium text-muted-foreground hover:text-primary"
+						className="text-[11px] font-medium text-muted-foreground hover:text-primary"
 					>
 						Sesuaikan
 					</button>
@@ -1417,10 +1417,10 @@ function AutoDerivedCard({
 					min={0}
 					value={manualValue}
 					onChange={(e) => onManualChange(e.target.value)}
-					className="tabular h-9 w-full rounded-md border border-border-default bg-background px-2 text-[18px] font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+					className="tabular h-10 w-full rounded-md border border-border-default bg-background px-2 text-[18px] font-semibold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
 				/>
 			) : (
-				<p className="tabular text-[22px] font-semibold leading-none text-foreground">
+				<p className="tabular text-[18px] font-semibold leading-none text-foreground">
 					{value.toLocaleString("id-ID")}{" "}
 					<span className="text-[12px] font-normal text-muted-foreground">
 						{item.unit}
@@ -1441,12 +1441,12 @@ function AutoDerivedCard({
 						})}
 					</span>
 				)}
-				<span className="text-[10px] text-muted-foreground">
+				<span className="text-[11px] text-muted-foreground">
 					{frameSize || "default"} ·{" "}
 					{humanizeRatio(mapping.qty_per_unit, item.unit)}
 				</span>
 				{touched ? null : value !== exactValue && exactValue > 0 ? (
-					<span className="text-[10px] italic text-muted-foreground/80">
+					<span className="text-[11px] italic text-muted-foreground/80">
 						(submit dibulatkan ke {value} {item.unit}, deduct exact{" "}
 						{exactValue.toLocaleString("id-ID", {
 							maximumFractionDigits: 3,
@@ -1487,7 +1487,7 @@ function NumField({
 					{label}
 				</label>
 				{auto && (
-					<span className="text-[9px] font-semibold uppercase tracking-widest text-primary">
+					<span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
 						AUTO
 					</span>
 				)}
@@ -1569,7 +1569,7 @@ function AddonField({
 					{label}
 				</label>
 				{(paid > 0 || bonus > 0) && (
-					<span className="text-[10px] text-muted-foreground">
+					<span className="text-[11px] text-muted-foreground">
 						{paid > 0 && (
 							<span className="text-foreground/80">{paid} paid</span>
 						)}
