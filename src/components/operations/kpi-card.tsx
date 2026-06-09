@@ -49,8 +49,10 @@ interface KpiCardProps {
 	icon?: LucideIcon;
 	accent?: Accent;
 	className?: string;
-	/** Progress toward a target — renders a "X% · target N" bar under the value. */
-	progress?: { current: number; target: number };
+	/** Progress toward a target — renders a labeled bar under the value. The
+	 * left caption defaults to "Target N"; pass `label` to override (e.g. a
+	 * completion ratio that isn't a goal), or "" to show only the percentage. */
+	progress?: { current: number; target: number; label?: string };
 }
 
 export function KpiCard({
@@ -100,7 +102,8 @@ export function KpiCard({
 				<div className="flex flex-col gap-1.5">
 					<div className="flex items-center justify-between text-[12px] leading-none">
 						<span className="text-muted-foreground">
-							Target {progress.target.toLocaleString("id-ID")}
+							{progress.label ??
+								`Target ${progress.target.toLocaleString("id-ID")}`}
 						</span>
 						<span className={cn("tabular font-semibold", PCT_TONE[accent])}>
 							{pct}%

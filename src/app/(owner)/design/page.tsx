@@ -1,10 +1,18 @@
-import { Check, Minus, Palette } from "lucide-react";
+import {
+	Check,
+	Clapperboard,
+	HardDriveUpload,
+	Image as ImageIcon,
+	Minus,
+	Palette,
+} from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";
 import { DesignMonthFilter } from "@/components/event-design/design-month-filter";
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AssetType } from "@/lib/event-assets/types";
 import {
@@ -213,26 +221,29 @@ export default async function AssetDesignPage({
 			/>
 
 			<dl className="grid gap-3 sm:grid-cols-3">
-				<StatCard
-					label="Design siap"
+				<KpiCard
+					label="Design Siap"
 					value={`${nDesign} / ${scoped.length}`}
-					done={nDesign}
-					total={scoped.length}
 					hint="Event yang sudah ada design frame"
+					icon={ImageIcon}
+					accent="primary"
+					progress={{ current: nDesign, target: scoped.length, label: "" }}
 				/>
-				<StatCard
-					label="Softfile terupload"
+				<KpiCard
+					label="Softfile Terupload"
 					value={`${nSoftfile} / ${scoped.length}`}
-					done={nSoftfile}
-					total={scoped.length}
 					hint="Event yang softfile-nya sudah ada"
+					icon={HardDriveUpload}
+					accent="sky"
+					progress={{ current: nSoftfile, target: scoped.length, label: "" }}
 				/>
-				<StatCard
-					label="Footage terupload"
+				<KpiCard
+					label="Footage Terupload"
 					value={`${nFootage} / ${scoped.length}`}
-					done={nFootage}
-					total={scoped.length}
 					hint="Event yang footage-nya sudah masuk Drive"
+					icon={Clapperboard}
+					accent="emerald"
+					progress={{ current: nFootage, target: scoped.length, label: "" }}
 				/>
 			</dl>
 
@@ -405,41 +416,5 @@ export default async function AssetDesignPage({
 				</div>
 			)}
 		</Container>
-	);
-}
-
-function StatCard({
-	label,
-	value,
-	hint,
-	done,
-	total,
-}: {
-	label: string;
-	value: number | string;
-	hint?: string;
-	done?: number;
-	total?: number;
-}) {
-	const pct =
-		total && total > 0 ? Math.round(((done ?? 0) / total) * 100) : null;
-	return (
-		<div className="flex flex-col gap-2 rounded-lg border border-border-default bg-card p-4">
-			<dt className="eyebrow">{label}</dt>
-			<dd className="tabular text-2xl font-semibold text-foreground">
-				{value}
-			</dd>
-			{pct !== null && (
-				<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-					<div
-						className="h-full rounded-full bg-emerald-500"
-						style={{ width: `${pct}%` }}
-					/>
-				</div>
-			)}
-			{hint ? (
-				<p className="text-[12px] text-muted-foreground">{hint}</p>
-			) : null}
-		</div>
 	);
 }
