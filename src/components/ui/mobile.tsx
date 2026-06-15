@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
@@ -49,15 +49,21 @@ export function AppHeader({
 	backHref,
 	actions,
 	trailing,
+	largeTitle = true,
 }: {
 	title: string;
 	subtitle?: React.ReactNode;
-	/** Renders a back chevron linking here. */
+	/** Renders a back arrow linking here. */
 	backHref?: string;
 	/** Right-aligned controls in the compact bar (icons, menu). */
 	actions?: React.ReactNode;
 	/** Inline element beside the large title (e.g. a status badge). */
 	trailing?: React.ReactNode;
+	/**
+	 * When false, only the sticky compact bar renders (title always visible) so
+	 * the screen can host its own hero below. Default true (large-title pattern).
+	 */
+	largeTitle?: boolean;
 }) {
 	return (
 		<>
@@ -67,14 +73,19 @@ export function AppHeader({
 						<Link
 							href={backHref}
 							aria-label="Kembali"
-							className="press -ml-2 flex size-9 shrink-0 items-center justify-center rounded-full text-foreground active:bg-surface-3"
+							className="press tap -ml-1.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-3 text-foreground active:bg-surface-4"
 						>
-							<ChevronLeft className="size-[1.35rem]" strokeWidth={2.25} />
+							<ArrowLeft className="size-[1.15rem]" strokeWidth={2.25} />
 						</Link>
 					) : (
 						<span className="size-9 shrink-0" />
 					)}
-					<span className="lt-compact type-heading min-w-0 flex-1 truncate text-center">
+					<span
+						className={cn(
+							"type-heading min-w-0 flex-1 truncate text-center",
+							largeTitle && "lt-compact",
+						)}
+					>
 						{title}
 					</span>
 					<div className="flex shrink-0 items-center justify-end gap-1">
@@ -82,15 +93,19 @@ export function AppHeader({
 					</div>
 				</div>
 			</header>
-			<div className="app-gutter pt-1.5 pb-1">
-				<div className="flex items-start justify-between gap-3">
-					<h1 className="lt-large type-display min-w-0">{title}</h1>
-					{trailing ? <div className="lt-large mt-1 shrink-0">{trailing}</div> : null}
+			{largeTitle ? (
+				<div className="app-gutter pt-1.5 pb-1">
+					<div className="flex items-start justify-between gap-3">
+						<h1 className="lt-large type-display min-w-0">{title}</h1>
+						{trailing ? (
+							<div className="lt-large mt-1 shrink-0">{trailing}</div>
+						) : null}
+					</div>
+					{subtitle ? (
+						<div className="lt-large type-secondary mt-1">{subtitle}</div>
+					) : null}
 				</div>
-				{subtitle ? (
-					<div className="lt-large type-secondary mt-1">{subtitle}</div>
-				) : null}
-			</div>
+			) : null}
 		</>
 	);
 }

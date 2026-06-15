@@ -1,5 +1,4 @@
 import {
-	Calendar,
 	CheckCircle2,
 	ChevronRight,
 	ClipboardList,
@@ -10,17 +9,21 @@ import {
 	FolderOpen,
 	Gift,
 	MapPin,
+	Navigation,
 	Package,
+	Sparkles,
+	Star,
 	Users,
 	Video,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventStatusBadge } from "@/components/badges/status-badge";
-import { Badge } from "@/components/ui/badge";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen } from "@/components/ui/mobile";
+import { cn } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
+import { FRAME_SIZE_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -60,13 +63,13 @@ export default async function CrewEventDetailPage({
 			.select(
 				`
 			id, project_id, status, client_name, event_category,
-			pic_name, pic_wa,
+			pic_name, pic_wa, include_flashdisk_pouch,
 			frame_size, event_date, setup_time, start_time, end_time,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy,
 			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
 			booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
-			package:packages(name, duration_hours),
+			package:packages(name, duration_hours, include_flashdisk_pouch),
 			backdrop:backdrops(name, type),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
@@ -233,114 +236,151 @@ export default async function CrewEventDetailPage({
 			? event.venue_address
 			: null;
 
+	// Hero context — full date, a friendly countdown, my tier, includes flag.
+	const fullDate = new Intl.DateTimeFormat("id-ID", {
+		weekday: "long",
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+	}).format(new Date(`${event.event_date}T00:00:00`));
+	const t0 = new Date();
+	t0.setHours(0, 0, 0, 0);
+	const evDay = new Date(`${event.event_date}T00:00:00`);
+	const daysUntil = Math.round((evDay.getTime() - t0.getTime()) / 86_400_000);
+	const countdownLabel =
+		daysUntil === 0
+			? "Hari ini"
+			: daysUntil === 1
+				? "Besok"
+				: daysUntil > 1
+					? `${daysUntil} hari lagi`
+					: daysUntil === -1
+						? "Kemarin"
+						: `${Math.abs(daysUntil)} hari lalu`;
+	const countdownSoon = daysUntil >= 0 && daysUntil <= 2;
+	const myTier = roster.find((m) => m.user_id === me.profile.id)?.tier ?? null;
+	const includeFlashdiskPouch =
+		(event.include_flashdisk_pouch as boolean | null) ?? null;
+	const ownerWaHref = "https://wa.me/6281288150041";
+
 	return (
 		<AppScreen>
 			<AppHeader
 				title={event.client_name}
 				backHref="/crew/jadwal"
-				trailing={<EventStatusBadge status={event.status} />}
-				subtitle={<span className="eyebrow tabular">{event.project_id}</span>}
+				largeTitle={false}
 			/>
 
 			<div className="mt-3 space-y-4">
-				<div className="flex flex-wrap gap-1.5">
-					<Badge variant="outline" className="text-[0.6875rem]">
-						{ROLE_LABELS[myAssignment.role_in_event] ??
-							myAssignment.role_in_event}
-					</Badge>
-					{eventType && (
-						<Badge variant="outline" className="text-[0.6875rem]">
-							{eventType.label}
-						</Badge>
-					)}
-					{event.is_migrated_legacy && (
-						<Badge
-							variant="secondary"
-							className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 text-[0.6875rem]"
-						>
-							📦 Migrated
-						</Badge>
-					)}
-				</div>
+				{/* ── Hero — the at-a-glance event card ── */}
+				<section className="overflow-hidden rounded-[1.5rem] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
+					<div className="p-5">
+						<div className="flex items-center justify-between gap-2">
+							<span
+								className={cn(
+									"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.75rem] font-semibold",
+									countdownSoon
+										? "bg-primary text-primary-foreground"
+										: "bg-surface-3 text-muted-foreground",
+								)}
+							>
+								<Clock className="size-3.5" />
+								{countdownLabel}
+							</span>
+							<EventStatusBadge status={event.status} />
+						</div>
 
-				{/* Time & venue card */}
-				<section className="border-border-default bg-surface-2 space-y-3 rounded-2xl border p-4">
-					<div className="flex items-start gap-3">
-						<Calendar className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
-						<div className="flex-1 space-y-0.5">
-							<p className="text-foreground text-sm font-medium">
-								{formatDateID(event.event_date)}
-							</p>
-							<p className="text-muted-foreground tabular text-xs">
-								Setup {ID_TIME(event.setup_time)} · Mulai{" "}
-								{ID_TIME(event.start_time)} · Selesai {ID_TIME(event.end_time)}
-							</p>
+						<h1 className="type-display mt-3 text-balance">
+							{event.client_name}
+						</h1>
+
+						<div className="mt-3 flex flex-wrap items-center gap-2">
+							<span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2.5 py-1 text-[0.8125rem]">
+								<Star className="size-3.5 text-primary" />
+								<span className="text-muted-foreground">Peran kamu</span>
+								<span className="font-semibold text-foreground">
+									{ROLE_LABELS[myAssignment.role_in_event] ??
+										myAssignment.role_in_event}
+									{myTier ? ` · ${TIER_LABELS[myTier] ?? myTier}` : ""}
+								</span>
+							</span>
+							{eventType && (
+								<span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2.5 py-1 text-[0.8125rem] font-medium text-foreground">
+									<Sparkles className="size-3.5 text-muted-foreground" />
+									{eventType.label}
+								</span>
+							)}
 						</div>
 					</div>
-					<div className="flex items-start gap-3">
-						<MapPin className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
-						<div className="flex-1 space-y-0.5">
-							<p className="text-foreground text-sm font-medium">
-								{event.venue_name}
-							</p>
-							{venueAddress && (
-								<p className="text-muted-foreground text-xs">{venueAddress}</p>
-							)}
-							{venueRegion && (
-								<p className="text-muted-foreground text-xs">{venueRegion}</p>
-							)}
-							{event.google_maps_url && (
-								<a
-									href={event.google_maps_url}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-primary inline-flex items-center gap-1 text-xs hover:underline"
-								>
-									Buka Google Maps
-									<ExternalLink className="h-3 w-3" />
-								</a>
-							)}
+
+					{/* Time strip — start time is the hero */}
+					<div className="border-t border-dashed border-border-default bg-surface-3/40 p-4">
+						<p className="type-label mb-2.5 text-foreground">{fullDate}</p>
+						<div className="grid grid-cols-3 gap-2">
+							<TimeCell label="Setup" time={ID_TIME(event.setup_time)} />
+							<TimeCell label="Mulai" time={ID_TIME(event.start_time)} hero />
+							<TimeCell label="Selesai" time={ID_TIME(event.end_time)} />
 						</div>
 					</div>
 				</section>
 
-				{/* PIC card */}
+				{/* ── Lokasi ── */}
+				<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<span className="eyebrow">Lokasi</span>
+					<div className="mt-2 flex items-start gap-3">
+						<span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-primary">
+							<MapPin className="size-[1.15rem]" />
+						</span>
+						<div className="min-w-0 flex-1">
+							<p className="type-body-strong">{event.venue_name}</p>
+							{venueAddress && (
+								<p className="type-secondary mt-0.5">{venueAddress}</p>
+							)}
+							{venueRegion && (
+								<p className="type-secondary mt-0.5">{venueRegion}</p>
+							)}
+						</div>
+					</div>
+					{event.google_maps_url && (
+						<a
+							href={event.google_maps_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="press tap mt-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-2 text-foreground transition-colors active:bg-surface-3"
+						>
+							<Navigation className="size-4 text-primary" />
+							<span className="type-body-strong">Buka di Maps</span>
+						</a>
+					)}
+				</section>
+
+				{/* ── Kontak hari-H ── */}
 				{(picName || picPhone || bookerContact) && (
-					<section className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 space-y-2 rounded-2xl border p-4">
-						<h2 className="text-amber-900 dark:text-amber-200 text-xs font-semibold uppercase tracking-wider">
-							Kontak di hari H
-						</h2>
+					<section className="rounded-[1.25rem] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
+						<span className="eyebrow text-amber-700 dark:text-amber-400">
+							Kontak hari-H
+						</span>
 						{picName && (
-							<div className="space-y-0.5">
-								<p className="text-muted-foreground text-[11px]">PIC Event</p>
-								<p className="text-foreground text-sm font-medium">{picName}</p>
+							<div className="mt-2">
+								<p className="type-caption">PIC Event</p>
+								<p className="type-body-strong mt-0.5">{picName}</p>
 								{picPhone && (
-									<a
+									<WhatsAppButton
 										href={whatsAppLink(picPhone) ?? "#"}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-primary tabular inline-flex items-center gap-1 text-sm hover:underline"
-									>
-										{picPhone}
-										<ExternalLink className="h-3 w-3" />
-									</a>
+										number={picPhone}
+									/>
 								)}
 							</div>
 						)}
 						{bookerContact && (
-							<div className="space-y-0.5 border-t border-amber-200 pt-2 dark:border-amber-900">
-								<p className="text-muted-foreground text-[11px]">Booker</p>
-								<p className="text-foreground text-sm">{bookerContact.name}</p>
+							<div className="mt-3 border-t border-amber-300/40 pt-3 dark:border-amber-900/50">
+								<p className="type-caption">Booker</p>
+								<p className="type-body mt-0.5">{bookerContact.name}</p>
 								{bookerContact.phone && (
-									<a
+									<WhatsAppButton
 										href={whatsAppLink(bookerContact.phone) ?? "#"}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-primary tabular inline-flex items-center gap-1 text-xs hover:underline"
-									>
-										{bookerContact.phone}
-										<ExternalLink className="h-3 w-3" />
-									</a>
+										number={bookerContact.phone}
+									/>
 								)}
 							</div>
 						)}
@@ -349,12 +389,12 @@ export default async function CrewEventDetailPage({
 
 				{/* Crew partner card — who you're working with on the day */}
 				{roster.length > 1 && (
-					<section className="border-border-default bg-surface-2 space-y-3 rounded-2xl border p-4">
-						<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
-							<Users className="h-3.5 w-3.5" />
+					<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+						<span className="eyebrow flex items-center gap-1.5">
+							<Users className="size-3.5" />
 							Tim crew
-						</h2>
-						<ul className="space-y-2.5">
+						</span>
+						<ul className="mt-3 space-y-3">
 							{roster.map((m, i) => {
 								const isMe = m.user_id === me.profile.id;
 								const tierLabel = m.tier
@@ -386,12 +426,10 @@ export default async function CrewEventDetailPage({
 					</section>
 				)}
 
-				{/* Service spec card */}
-				<section className="border-border-default bg-surface-2 space-y-2 rounded-2xl border p-4">
-					<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-						Spec
-					</h2>
-					<dl className="space-y-1.5 text-sm">
+				{/* ── Detail paket ── */}
+				<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<span className="eyebrow">Detail paket</span>
+					<dl className="mt-1 divide-y divide-border-subtle">
 						<DetailRow label="Paket">
 							{pkg?.name ?? (
 								<span className="text-muted-foreground">Custom</span>
@@ -399,6 +437,20 @@ export default async function CrewEventDetailPage({
 						</DetailRow>
 						<DetailRow label="Frame">
 							{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
+						</DetailRow>
+						{pkg?.duration_hours ? (
+							<DetailRow label="Durasi">{pkg.duration_hours} jam</DetailRow>
+						) : null}
+						<DetailRow label="Flashdisk & Pouch">
+							{includeFlashdiskPouch === null ? (
+								<span className="text-muted-foreground">—</span>
+							) : includeFlashdiskPouch ? (
+								<span className="font-semibold text-emerald-600 dark:text-emerald-400">
+									Termasuk
+								</span>
+							) : (
+								<span className="text-muted-foreground">Tidak termasuk</span>
+							)}
 						</DetailRow>
 						<DetailRow label="Backdrop">
 							{backdrop?.name ?? (
@@ -409,8 +461,8 @@ export default async function CrewEventDetailPage({
 				</section>
 
 				{/* Equipment card */}
-				<section className="border-border-default bg-surface-2 space-y-2 rounded-2xl border p-4">
-					<h2 className="text-muted-foreground flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
+				<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<h2 className="eyebrow flex items-center justify-between">
 						<span className="flex items-center gap-1.5">
 							<Package className="h-3.5 w-3.5" />
 							Alat di lokasi
@@ -422,8 +474,8 @@ export default async function CrewEventDetailPage({
 						)}
 					</h2>
 					{equipment.length === 0 ? (
-						<p className="text-muted-foreground text-xs italic">
-							Belum ada alat di-checkout buat event ini.
+						<p className="type-secondary italic">
+							Belum ada alat disiapin buat event ini.
 						</p>
 					) : (
 						<div className="space-y-1">
@@ -444,8 +496,8 @@ export default async function CrewEventDetailPage({
 
 				{/* Design link */}
 				{event.design_drive_folder_url && (
-					<section className="border-border-default bg-surface-2 space-y-2 rounded-2xl border p-4">
-						<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+					<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+						<h2 className="eyebrow flex items-center gap-1.5">
 							<FileText className="h-3.5 w-3.5" />
 							Desain
 						</h2>
@@ -468,8 +520,8 @@ export default async function CrewEventDetailPage({
 
 				{/* Design frames — download to load into dslrbooth */}
 				{designFrames.length > 0 && (
-					<section className="border-border-default bg-surface-2 space-y-2 rounded-2xl border p-4">
-						<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+					<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+						<h2 className="eyebrow flex items-center gap-1.5">
 							<Download className="h-3.5 w-3.5" />
 							Design Frame
 						</h2>
@@ -501,8 +553,8 @@ export default async function CrewEventDetailPage({
 
 				{/* Footage — upload langsung di Google Drive */}
 				{footageFolderUrl && (
-					<section className="border-border-default bg-surface-2 space-y-2 rounded-2xl border p-4">
-						<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+					<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+						<h2 className="eyebrow flex items-center gap-1.5">
 							<Video className="h-3.5 w-3.5" />
 							Footage
 						</h2>
@@ -633,6 +685,25 @@ export default async function CrewEventDetailPage({
 						<ChevronRight className="text-muted-foreground/60 h-4 w-4 self-center" />
 					</Link>
 				)}
+
+				{/* Butuh bantuan — chat owner (Acuy) via WhatsApp */}
+				<a
+					href={ownerWaHref}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="press tap flex items-center gap-3 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+				>
+					<span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#25D366]/15 text-[#25D366]">
+						<WhatsAppIcon className="size-5" />
+					</span>
+					<div className="min-w-0 flex-1">
+						<p className="type-body-strong">Butuh bantuan?</p>
+						<p className="type-secondary mt-0.5">
+							Ada yang bingung atau mau ditanyain? Chat Acuy (owner).
+						</p>
+					</div>
+					<ChevronRight className="size-4 shrink-0 self-center text-muted-foreground/50" />
+				</a>
 			</div>
 		</AppScreen>
 	);
@@ -646,9 +717,63 @@ function DetailRow({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className="flex items-baseline justify-between gap-3">
-			<dt className="text-muted-foreground text-xs">{label}</dt>
-			<dd className="text-foreground text-right text-sm">{children}</dd>
+		<div className="flex items-baseline justify-between gap-3 py-2.5 first:pt-1 last:pb-1">
+			<dt className="type-secondary shrink-0">{label}</dt>
+			<dd className="type-body-strong min-w-0 text-right">{children}</dd>
 		</div>
+	);
+}
+
+/** One slot in the event time strip — "Mulai" is the emphasized hero. */
+function TimeCell({
+	label,
+	time,
+	hero,
+}: {
+	label: string;
+	time: string;
+	hero?: boolean;
+}) {
+	return (
+		<div
+			className={cn(
+				"flex flex-col items-center justify-center gap-0.5 rounded-2xl py-2.5",
+				hero
+					? "bg-primary text-primary-foreground"
+					: "bg-card text-foreground ring-1 ring-border-subtle",
+			)}
+		>
+			<span
+				className={cn(
+					"text-[0.625rem] font-semibold uppercase tracking-wide",
+					hero ? "text-primary-foreground/80" : "text-muted-foreground",
+				)}
+			>
+				{label}
+			</span>
+			<span
+				className={cn(
+					"type-num leading-none",
+					hero ? "text-[1.5rem]" : "text-[1.1rem]",
+				)}
+			>
+				{time}
+			</span>
+		</div>
+	);
+}
+
+/** WhatsApp contact button — clear green WA glyph + tappable number. */
+function WhatsAppButton({ href, number }: { href: string; number: string }) {
+	return (
+		<a
+			href={href}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="press tap mt-2 inline-flex items-center gap-2 rounded-xl bg-[#25D366]/12 px-3 py-2 text-[#128C4B] transition-colors active:bg-[#25D366]/20 dark:text-[#3ddc84]"
+		>
+			<WhatsAppIcon className="size-[1.1rem]" />
+			<span className="tabular text-[0.9375rem] font-semibold">{number}</span>
+		</a>
 	);
 }

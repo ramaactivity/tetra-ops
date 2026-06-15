@@ -154,7 +154,6 @@ export default async function CrewSchedulePage({
 							const tbcStart = !ev.start_time;
 							const tbcFrame = !ev.frame_size;
 							const tbcBackdrop = !ev.backdrop_id;
-							const hasAnyTbc = tbcStart || tbcFrame || tbcBackdrop;
 							const city =
 								ev.venue_city && ev.venue_city !== ev.venue_name
 									? ev.venue_city
@@ -170,19 +169,12 @@ export default async function CrewSchedulePage({
 										}}
 									>
 										<div className="flex items-center gap-3.5">
-											<div className="flex w-[3.75rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-surface-3 px-1 py-2.5">
+											<div className="flex w-[3.4rem] shrink-0 flex-col items-center justify-center rounded-2xl bg-surface-3 py-2">
 												<span className="text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground">
-													{dd} {mon}
+													{mon}
 												</span>
-												<span
-													className={cn(
-														"type-num text-[1.2rem] leading-none",
-														tbcStart
-															? "text-amber-600 dark:text-amber-400"
-															: "text-foreground",
-													)}
-												>
-													{tbcStart ? "TBC" : ID_TIME(ev.start_time)}
+												<span className="type-num text-[1.55rem] leading-none text-foreground">
+													{dd}
 												</span>
 											</div>
 											<div className="min-w-0 flex-1">
@@ -200,6 +192,19 @@ export default async function CrewSchedulePage({
 													</span>
 												</p>
 												<div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+													<span
+														className={cn(
+															"inline-flex items-center gap-1 font-semibold",
+															tbcStart
+																? "text-amber-600 dark:text-amber-400"
+																: "text-foreground",
+														)}
+													>
+														<Clock className="size-3.5" />
+														<span className="type-num text-[0.9375rem]">
+															{tbcStart ? "TBC" : ID_TIME(ev.start_time)}
+														</span>
+													</span>
 													<span className="eyebrow">
 														{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
 													</span>
@@ -216,11 +221,8 @@ export default async function CrewSchedulePage({
 														</span>
 													) : null}
 												</div>
-												{hasAnyTbc ? (
+												{tbcFrame || tbcBackdrop ? (
 													<div className="mt-2 flex flex-wrap items-center gap-1.5">
-														{tbcStart ? (
-															<TbcBadge icon={Clock} label="Jam menyusul" />
-														) : null}
 														{tbcFrame ? (
 															<TbcBadge icon={Frame} label="Frame menyusul" />
 														) : null}
