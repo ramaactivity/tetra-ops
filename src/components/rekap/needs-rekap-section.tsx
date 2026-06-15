@@ -12,15 +12,25 @@ type EventRow = {
 	venue_city: string | null;
 	status: string;
 	is_migrated_legacy: boolean | null;
-	crew_rekap:
-		| Array<{
-				id: string;
-				is_approved: boolean | null;
-				review_notes: string | null;
-				locked: boolean | null;
-		  }>
-		| null;
+	// PostgREST resolves events→crew_rekap as a to-ONE relationship because
+	// crew_rekap.event_id is UNIQUE, so the embed comes back as a single object
+	// (not an array). Type both shapes; normalizeRekap() below handles either.
+	crew_rekap: RekapEmbed | RekapEmbed[] | null;
 };
+
+type RekapEmbed = {
+	id: string;
+	is_approved: boolean | null;
+	review_notes: string | null;
+	locked: boolean | null;
+};
+
+function normalizeRekap(
+	raw: RekapEmbed | RekapEmbed[] | null | undefined,
+): RekapEmbed | null {
+	if (!raw) return null;
+	return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
 
 type AssignmentRow = {
 	role_in_event: string;
@@ -67,7 +77,7 @@ export async function NeedsRekapSection({ userId }: { userId: string }) {
 	for (const row of rows) {
 		const ev = Array.isArray(row.event) ? row.event[0] : row.event;
 		if (!ev || ev.is_migrated_legacy) continue;
-		const rekap = ev.crew_rekap?.[0] ?? null;
+		const rekap = normalizeRekap(ev.crew_rekap);
 		if (rekap?.locked) continue;
 		if (rekap === null) {
 			events.push({

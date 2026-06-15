@@ -644,6 +644,11 @@ export async function submitRekap(
 	const payload = {
 		event_id: eventId,
 		submitted_by: me.profile.id,
+		// Advance the state machine past 'draft'. Without this the row keeps the
+		// column DEFAULT 'draft', which misrepresents a submitted rekap. Owner
+		// auto-approve below overrides this to 'reviewed'. A crew re-submit of a
+		// previously rejected rekap also correctly moves it back to 'submitted'.
+		status: "submitted" as const,
 		frame_size_snapshot: eventSnap?.frame_size ?? null,
 		cetak_total: parsed.data.cetak_total,
 		media_set_used: parsed.data.media_set_used,
@@ -743,6 +748,12 @@ export async function submitRekap(
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath("/warehouse");
+	// Crew-facing surfaces that show "Perlu submit rekap" / rekap status. Without
+	// these the crew home + schedule keep serving stale router-cache entries and
+	// a just-submitted event lingers under "Belum".
+	revalidatePath("/crew");
+	revalidatePath("/crew/jadwal");
+	revalidatePath(`/crew/jadwal/${projectId}`);
 	return { success: true };
 }
 
