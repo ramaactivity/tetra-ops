@@ -100,14 +100,12 @@ export function Combobox({
 		[options, value],
 	);
 
-	// What's displayed inside the input?
-	// - allowFreeText: always show committed value (so blur is reliable)
-	// - !allowFreeText: show selected option's label, OR live search when open
-	const displayValue = allowFreeText
-		? value
-		: open
-			? search
-			: (selectedOption?.label ?? "");
+	// What's displayed inside the trigger?
+	// - allowFreeText: always show committed value (input IS the value)
+	// - !allowFreeText: show selected option's label. Search happens in a
+	//   dedicated box INSIDE the dropdown (so tapping the trigger on mobile
+	//   opens the list without popping the keyboard).
+	const displayValue = allowFreeText ? value : (selectedOption?.label ?? "");
 
 	// What text drives filtering?
 	const filterText = allowFreeText ? value : search;
@@ -259,9 +257,13 @@ export function Combobox({
 				ref={inputRef}
 				id={inputId}
 				type="text"
+				// Selector mode: read-only trigger so tapping opens the dropdown
+				// without showing the keyboard (search lives inside the popup).
+				readOnly={!allowFreeText}
 				value={displayValue}
 				onChange={handleInputChange}
 				onFocus={handleFocus}
+				onClick={!allowFreeText ? () => setOpen(true) : undefined}
 				onKeyDown={handleKeyDown}
 				placeholder={placeholder}
 				disabled={disabled}
@@ -273,10 +275,9 @@ export function Combobox({
 				aria-label={ariaProps["aria-label"]}
 				aria-invalid={ariaProps["aria-invalid"]}
 				className={cn(
-					"w-full rounded-md border border-border-default bg-background pl-3 pr-16 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20",
-					size === "sm"
-						? "h-9 text-[12px]"
-						: "h-10 text-fluid-body",
+					"w-full rounded-xl border border-border-default bg-background pl-3.5 pr-16 text-foreground placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20",
+					!allowFreeText && "cursor-pointer",
+					size === "sm" ? "h-9 text-[0.8125rem]" : "h-11 text-[1rem]",
 				)}
 			/>
 			<div className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-1.5">
@@ -318,8 +319,27 @@ export function Combobox({
 							transform:
 								popupRect.placement === "above" ? "translateY(-100%)" : undefined,
 						}}
-						className="z-50 overflow-hidden rounded-lg border border-border-default bg-popover text-popover-foreground shadow-[var(--shadow-level-3)] animate-in fade-in-0 zoom-in-95 duration-100"
+						className="z-50 overflow-hidden rounded-2xl border border-border-default bg-popover text-popover-foreground shadow-[var(--shadow-level-3)] animate-in fade-in-0 zoom-in-95 duration-100"
 					>
+						{/* Selector mode: search lives in the popup so the trigger can
+						    open the list without popping the keyboard. Not autofocused. */}
+						{!allowFreeText ? (
+							<div className="border-b border-border-subtle p-2">
+								<input
+									type="text"
+									value={search}
+									onChange={(e) => {
+										setSearch(e.target.value);
+										setHighlightIdx(0);
+									}}
+									placeholder="Cari…"
+									inputMode="search"
+									autoComplete="off"
+									aria-label="Cari item"
+									className="h-10 w-full rounded-xl border border-border-default bg-background px-3 text-[1rem] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+								/>
+							</div>
+						) : null}
 						{filtered.length === 0 ? (
 							<div className="px-3 py-6 text-center text-fluid-caption italic text-muted-foreground">
 								{emptyMessage}

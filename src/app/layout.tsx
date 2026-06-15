@@ -50,6 +50,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
 	width: "device-width",
 	initialScale: 1,
+	// Lock zoom so the app stays fit-to-screen like a native app: no pinch-zoom,
+	// and no iOS "zoom on focus" when tapping inputs < 16px. (Internal ops PWA —
+	// the usual a11y caveat about user-scalable doesn't apply here.)
+	maximumScale: 1,
+	userScalable: false,
 	viewportFit: "cover",
 	// Match the canvas exactly so the native status bar / address bar blends
 	// seamlessly into the app surface (edge-to-edge, no seam).
