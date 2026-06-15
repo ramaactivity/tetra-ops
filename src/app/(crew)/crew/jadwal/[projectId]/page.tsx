@@ -20,11 +20,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
-import { AppHeader, AppScreen } from "@/components/ui/mobile";
-import { cn } from "@/lib/utils";
+import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { FRAME_SIZE_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 const ROLE_LABELS: Record<string, string> = {
 	lead: "Lead",
@@ -179,6 +179,7 @@ export default async function CrewEventDetailPage({
 	const rpcRoster = (crewRosterRaw ?? []) as Array<{
 		user_id: string;
 		full_name: string;
+		avatar_url: string | null;
 		tier: string | null;
 		role_in_event: string;
 	}>;
@@ -190,6 +191,7 @@ export default async function CrewEventDetailPage({
 					return {
 						user_id: u?.id ?? "",
 						full_name: u?.full_name ?? "—",
+						avatar_url: null as string | null,
 						tier: u?.tier ?? null,
 						role_in_event: a.role_in_event,
 					};
@@ -403,19 +405,20 @@ export default async function CrewEventDetailPage({
 								return (
 									<li
 										key={m.user_id || `${m.role_in_event}-${i}`}
-										className="flex items-center justify-between gap-3 text-sm"
+										className="flex items-center gap-3"
 									>
-										<span className="flex min-w-0 items-center gap-2">
-											<span className="text-foreground truncate font-medium">
+										<CrewAvatar name={m.full_name ?? "?"} src={m.avatar_url} />
+										<div className="flex min-w-0 flex-1 items-center gap-2">
+											<span className="type-body-strong truncate">
 												{m.full_name ?? "—"}
 											</span>
 											{isMe && (
-												<span className="bg-primary/10 text-primary shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+												<span className="bg-primary/10 text-primary shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide">
 													Kamu
 												</span>
 											)}
-										</span>
-										<span className="text-muted-foreground shrink-0 text-[11px] uppercase tracking-wider">
+										</div>
+										<span className="shrink-0 text-right text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
 											{ROLE_LABELS[m.role_in_event] ?? m.role_in_event}
 											{tierLabel ? ` · ${tierLabel}` : ""}
 										</span>

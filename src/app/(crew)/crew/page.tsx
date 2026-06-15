@@ -10,6 +10,7 @@ import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import {
 	AppHeader,
 	AppScreen,
+	AvatarGroup,
 	Section,
 	StatTile,
 } from "@/components/ui/mobile";
@@ -127,6 +128,30 @@ export default async function CrewHomePage() {
 		else upcomingThisMonth += 1;
 	}
 
+	// Crew avatars per event (batched, RLS-safe RPC).
+	const homeEventIds = nextAssignments
+		.map((a) => (Array.isArray(a.event) ? a.event[0] : a.event)?.id)
+		.filter((v): v is string => Boolean(v));
+	const crewByEvent = new Map<
+		string,
+		Array<{ id: string; name: string; avatar_url: string | null }>
+	>();
+	if (homeEventIds.length > 0) {
+		const { data: crewRows } = await supabase.rpc("get_events_crew", {
+			p_event_ids: homeEventIds,
+		});
+		for (const r of (crewRows ?? []) as Array<{
+			event_id: string;
+			user_id: string;
+			full_name: string;
+			avatar_url: string | null;
+		}>) {
+			const list = crewByEvent.get(r.event_id) ?? [];
+			list.push({ id: r.user_id, name: r.full_name, avatar_url: r.avatar_url });
+			crewByEvent.set(r.event_id, list);
+		}
+	}
+
 	const firstName = me.profile.full_name.split(" ")[0];
 
 	return (
@@ -180,6 +205,7 @@ export default async function CrewHomePage() {
 								ev.venue_city && ev.venue_city !== ev.venue_name
 									? ev.venue_city
 									: null;
+							const crew = crewByEvent.get(ev.id) ?? [];
 							return (
 								<li key={ev.id}>
 									<Link
@@ -215,9 +241,14 @@ export default async function CrewHomePage() {
 														{city ? ` · ${city}` : ""}
 													</span>
 												</p>
-												<span className="eyebrow mt-1.5 inline-block">
-													{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
-												</span>
+												<div className="mt-1.5 flex items-center justify-between gap-2">
+													<span className="eyebrow">
+														{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
+													</span>
+													{crew.length > 0 ? (
+														<AvatarGroup people={crew} size="sm" max={4} />
+													) : null}
+												</div>
 											</div>
 											<ChevronRight className="size-4 shrink-0 self-center text-muted-foreground/50" />
 										</div>

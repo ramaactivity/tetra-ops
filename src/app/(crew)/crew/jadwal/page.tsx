@@ -9,7 +9,12 @@ import {
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
-import { AppHeader, AppScreen, Section } from "@/components/ui/mobile";
+import {
+	AppHeader,
+	AppScreen,
+	AvatarGroup,
+	Section,
+} from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -108,6 +113,31 @@ export default async function CrewSchedulePage({
 		return (ea.start_time ?? "").localeCompare(eb.start_time ?? "");
 	});
 
+	// Crew roster per event (avatars) in ONE batched RPC — crew can't read peers'
+	// users rows under RLS, so this SECURITY DEFINER fn returns safe fields only.
+	const eventIds = assignments
+		.map((a) => (Array.isArray(a.event) ? a.event[0] : a.event)?.id)
+		.filter((v): v is string => Boolean(v));
+	const crewByEvent = new Map<
+		string,
+		Array<{ id: string; name: string; avatar_url: string | null }>
+	>();
+	if (eventIds.length > 0) {
+		const { data: crewRows } = await supabase.rpc("get_events_crew", {
+			p_event_ids: eventIds,
+		});
+		for (const r of (crewRows ?? []) as Array<{
+			event_id: string;
+			user_id: string;
+			full_name: string;
+			avatar_url: string | null;
+		}>) {
+			const list = crewByEvent.get(r.event_id) ?? [];
+			list.push({ id: r.user_id, name: r.full_name, avatar_url: r.avatar_url });
+			crewByEvent.set(r.event_id, list);
+		}
+	}
+
 	return (
 		<AppScreen>
 			<AppHeader title="Jadwal" subtitle="Semua event yang ditugaskan ke lo." />
@@ -159,6 +189,7 @@ export default async function CrewSchedulePage({
 									? ev.venue_city
 									: null;
 							const [dd, mon] = formatDateID(ev.event_date).split(" ");
+							const crew = crewByEvent.get(ev.id) ?? [];
 							return (
 								<li key={ev.id}>
 									<Link
@@ -232,6 +263,14 @@ export default async function CrewSchedulePage({
 																label="Backdrop menyusul"
 															/>
 														) : null}
+													</div>
+												) : null}
+												{crew.length > 0 ? (
+													<div className="mt-2.5 flex items-center gap-2">
+														<AvatarGroup people={crew} size="sm" max={4} />
+														<span className="type-caption">
+															{crew.length} crew
+														</span>
 													</div>
 												) : null}
 											</div>

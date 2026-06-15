@@ -260,6 +260,95 @@ export function ListRow({
 	return <div className={base}>{inner}</div>;
 }
 
+/* ───────────────────────── Crew avatars ───────────────────────── */
+
+function initialsOf(name: string): string {
+	return (
+		name
+			.split(/\s+/)
+			.filter(Boolean)
+			.slice(0, 2)
+			.map((n) => n[0]?.toUpperCase())
+			.join("") || "?"
+	);
+}
+
+const AVATAR_SIZE = {
+	sm: "size-6 text-[0.625rem]",
+	md: "size-8 text-[0.75rem]",
+	lg: "size-10 text-[0.875rem]",
+} as const;
+
+export function CrewAvatar({
+	name,
+	src,
+	size = "md",
+	className,
+}: {
+	name: string;
+	src?: string | null;
+	size?: keyof typeof AVATAR_SIZE;
+	className?: string;
+}) {
+	return (
+		<span
+			className={cn(
+				"relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-3 font-semibold text-foreground ring-2 ring-card",
+				AVATAR_SIZE[size],
+				className,
+			)}
+		>
+			{src ? (
+				// biome-ignore lint/a11y/useAltText: alt provided
+				// biome-ignore lint/performance/noImgElement: external avatar URLs (Google/Drive), tiny
+				<img src={src} alt={name} className="size-full object-cover" />
+			) : (
+				initialsOf(name)
+			)}
+		</span>
+	);
+}
+
+/** Overlapping crew avatars with a "+N" overflow bubble (reference adoption). */
+export function AvatarGroup({
+	people,
+	max = 3,
+	size = "md",
+	className,
+}: {
+	people: Array<{ id?: string; name: string; avatar_url?: string | null }>;
+	max?: number;
+	size?: keyof typeof AVATAR_SIZE;
+	className?: string;
+}) {
+	if (people.length === 0) return null;
+	const shown = people.slice(0, max);
+	const extra = people.length - shown.length;
+	return (
+		<div className={cn("flex items-center", className)}>
+			{shown.map((p, i) => (
+				<span
+					key={p.id ?? `${p.name}-${i}`}
+					className={cn(i > 0 && "-ml-2")}
+					style={{ zIndex: shown.length - i }}
+				>
+					<CrewAvatar name={p.name} src={p.avatar_url} size={size} />
+				</span>
+			))}
+			{extra > 0 ? (
+				<span
+					className={cn(
+						"-ml-2 inline-flex shrink-0 items-center justify-center rounded-full bg-surface-4 font-semibold text-muted-foreground ring-2 ring-card",
+						AVATAR_SIZE[size],
+					)}
+				>
+					+{extra}
+				</span>
+			) : null}
+		</div>
+	);
+}
+
 /* ───────────────────────── Stat tile ───────────────────────── */
 
 export function StatTile({
