@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { ArrowDownUp, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -8,6 +8,7 @@ import { useState } from "react";
 import { MonthPicker } from "@/components/ui/month-picker";
 import type { NativeSelectOption } from "@/components/ui/native-select";
 import { NativeSelect } from "@/components/ui/native-select";
+import { DEFAULT_NOTA_SORT, NOTA_SORT_OPTIONS } from "@/lib/arsip-nota/types";
 
 /**
  * Filter bar Arsip Nota — search + dropdown (sumber/kategori) + bulan, dengan
@@ -20,6 +21,7 @@ export function NotaFilterBar({
 	defaultQ,
 	defaultSelect,
 	defaultMonth,
+	defaultSort,
 	selectOptions,
 	selectParamName,
 	selectPlaceholder,
@@ -31,6 +33,7 @@ export function NotaFilterBar({
 	defaultQ: string;
 	defaultSelect: string;
 	defaultMonth: string;
+	defaultSort: string;
 	selectOptions: ReadonlyArray<NativeSelectOption>;
 	selectParamName: "source" | "category";
 	selectPlaceholder: string;
@@ -39,7 +42,10 @@ export function NotaFilterBar({
 }) {
 	const router = useRouter();
 	const [q, setQ] = useState(defaultQ);
-	const hasFilters = Boolean(defaultQ || defaultSelect || defaultMonth);
+	const sortActive = defaultSort && defaultSort !== DEFAULT_NOTA_SORT;
+	const hasFilters = Boolean(
+		defaultQ || defaultSelect || defaultMonth || sortActive,
+	);
 
 	function buildHref(updates: Record<string, string>) {
 		const params = new URLSearchParams();
@@ -48,6 +54,7 @@ export function NotaFilterBar({
 			q: defaultQ,
 			[selectParamName]: defaultSelect,
 			month: defaultMonth,
+			sort: defaultSort === DEFAULT_NOTA_SORT ? "" : defaultSort,
 			...updates,
 		};
 		for (const [k, v] of Object.entries(merged)) {
@@ -104,12 +111,28 @@ export function NotaFilterBar({
 				/>
 			</div>
 
+			<div className="relative">
+				<ArrowDownUp
+					className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+					aria-hidden
+				/>
+				<NativeSelect
+					size="default"
+					value={defaultSort || DEFAULT_NOTA_SORT}
+					onValueChange={(v) => router.push(buildHref({ sort: v, page: "" }))}
+					options={NOTA_SORT_OPTIONS.map((o) => ({ ...o }))}
+					aria-label="Urutkan nota"
+					triggerClassName="w-[170px] pl-7"
+				/>
+			</div>
+
 			{hasFilters ? (
 				<Link
 					href={buildHref({
 						q: "",
 						[selectParamName]: "",
 						month: "",
+						sort: "",
 						page: "",
 					})}
 					className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

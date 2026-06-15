@@ -82,6 +82,16 @@ export const MANUAL_CATEGORY_PRESETS = [
 	"Lain-lain",
 ] as const;
 
+/** Opsi urutan (sort) untuk kedua tab. Default = tanggal terbaru. */
+export const NOTA_SORT_OPTIONS = [
+	{ value: "date_desc", label: "Tanggal · terbaru" },
+	{ value: "date_asc", label: "Tanggal · terlama" },
+	{ value: "amount_desc", label: "Nominal · terbesar" },
+	{ value: "amount_asc", label: "Nominal · terkecil" },
+] as const;
+
+export const DEFAULT_NOTA_SORT = "date_desc";
+
 export const MANUAL_UPLOAD_MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 export const MANUAL_UPLOAD_ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";

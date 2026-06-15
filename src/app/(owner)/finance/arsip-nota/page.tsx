@@ -30,8 +30,23 @@ type SearchParams = {
 	source?: string;
 	category?: string;
 	month?: string;
+	sort?: string;
 	page?: string;
 };
+
+/** Map sort key → kolom + arah. Default tanggal terbaru. */
+function sortConfig(sort: string): { col: string; ascending: boolean } {
+	switch (sort) {
+		case "date_asc":
+			return { col: "nota_date", ascending: true };
+		case "amount_desc":
+			return { col: "amount", ascending: false };
+		case "amount_asc":
+			return { col: "amount", ascending: true };
+		default:
+			return { col: "nota_date", ascending: false };
+	}
+}
 
 function monthRange(
 	month: string | undefined,
@@ -55,6 +70,8 @@ export default async function ArsipNotaPage({
 	const source = sp.source ?? "";
 	const category = sp.category ?? "";
 	const month = sp.month ?? "";
+	const sort = sp.sort ?? "date_desc";
+	const { col: sortCol, ascending: sortAsc } = sortConfig(sort);
 	const page = Math.max(1, Number(sp.page) || 1);
 	const range = monthRange(month);
 
@@ -92,7 +109,8 @@ export default async function ArsipNotaPage({
 		let query = supabase
 			.from("v_nota_sistem")
 			.select("*", { count: "exact" })
-			.order("nota_date", { ascending: false, nullsFirst: false })
+			.order(sortCol, { ascending: sortAsc, nullsFirst: false })
+			.order("created_at", { ascending: false })
 			.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
 		if (source && source !== "all") query = query.eq("source_type", source);
@@ -110,6 +128,7 @@ export default async function ArsipNotaPage({
 		let query = supabase
 			.from("manual_notas")
 			.select("*, uploader:users(full_name)", { count: "exact" })
+			.order(sortCol, { ascending: sortAsc, nullsFirst: false })
 			.order("created_at", { ascending: false })
 			.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
@@ -192,6 +211,7 @@ export default async function ArsipNotaPage({
 				defaultQ={q}
 				defaultSelect={tab === "sistem" ? source : category}
 				defaultMonth={month}
+				defaultSort={sort}
 				selectOptions={
 					tab === "sistem" ? SOURCE_FILTER_OPTIONS : categoryOptions
 				}
@@ -249,7 +269,7 @@ export default async function ArsipNotaPage({
 						<div className="flex gap-2">
 							{page > 1 ? (
 								<Link
-									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month, page: String(page - 1) }).toString()}`}
+									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month, sort, page: String(page - 1) }).toString()}`}
 									className={buttonVariants({
 										variant: "secondary",
 										size: "sm",
@@ -261,7 +281,7 @@ export default async function ArsipNotaPage({
 							{(tab === "sistem" ? sistemRows.length : manualRows.length) ===
 							PAGE_SIZE ? (
 								<Link
-									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month, page: String(page + 1) }).toString()}`}
+									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month, sort, page: String(page + 1) }).toString()}`}
 									className={buttonVariants({
 										variant: "secondary",
 										size: "sm",
