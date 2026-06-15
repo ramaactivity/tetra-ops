@@ -122,21 +122,21 @@ export default async function DashboardPage() {
 						icon={CalendarCheck}
 					/>
 					<StatCard
-						label="Revenue MTD"
+						label="Pendapatan bln ini"
 						value={formatRupiah(thisMonthRevenue)}
-						hint="Payment masuk terverifikasi"
+						hint="Pembayaran masuk terverifikasi"
 						icon={Wallet2}
 						tone="positive"
 					/>
 					<StatCard
-						label="Outstanding"
+						label="Piutang"
 						value={formatRupiah(outstanding)}
 						hint="Total piutang aktif"
 						icon={Wallet}
 						tone={outstanding >= 5_000_000 ? "negative" : "warning"}
 					/>
 					<StatCard
-						label="Awaiting settlement"
+						label="Menunggu settle"
 						value={awaitingCount.toLocaleString("id-ID")}
 						hint="Event selesai, belum di-settle"
 						icon={Hourglass}
@@ -167,7 +167,7 @@ export default async function DashboardPage() {
 						title="Status Operasional"
 						icon={Activity}
 						stats={[
-							{ label: "Upcoming", value: monthUpcoming, tone: "sky" },
+							{ label: "Mendatang", value: monthUpcoming, tone: "sky" },
 							{
 								label: "Selesai",
 								value: completedThisMonthCount,
@@ -182,7 +182,7 @@ export default async function DashboardPage() {
 						stats={[
 							{ label: "Lunas", value: invoicePaid, tone: "emerald" },
 							{ label: "DP", value: invoicePartial, tone: "amber" },
-							{ label: "Unpaid", value: invoiceUnpaid, tone: "rose" },
+							{ label: "Belum bayar", value: invoiceUnpaid, tone: "rose" },
 						]}
 					/>
 				</div>
@@ -209,28 +209,28 @@ export default async function DashboardPage() {
 				</div>
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 					<PipelineCard
-						label="Upcoming 7 Hari"
+						label="7 Hari ke Depan"
 						count={upcoming7dCount}
 						href="/operations?status=upcoming"
 						icon={CalendarClock}
 						accent="emerald"
 					/>
 					<PipelineCard
-						label="In Progress"
+						label="Berlangsung"
 						count={inProgressCount}
 						href="/operations?status=in_progress"
 						icon={CalendarCheck}
 						accent="sky"
 					/>
 					<PipelineCard
-						label="Awaiting Settlement"
+						label="Menunggu Settle"
 						count={awaitingCount}
 						href="/operations?status=awaiting_settlement"
 						icon={Hourglass}
 						accent="amber"
 					/>
 					<PipelineCard
-						label="Completed Bulan Ini"
+						label="Selesai Bulan Ini"
 						count={completedThisMonthCount}
 						href="/operations?status=completed"
 						icon={CheckCircle2}
@@ -263,7 +263,7 @@ export default async function DashboardPage() {
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="group flex items-start gap-4 rounded-lg border border-border-default bg-surface-2 p-4 transition-colors duration-base ease-out-expo hover:border-border-strong hover:bg-surface-3"
+										className="group flex items-start gap-4 rounded-2xl border border-border-default bg-surface-2 p-4 transition-colors duration-base ease-out-expo hover:border-border-strong hover:bg-surface-3"
 										style={{
 											viewTransitionName: `event-${ev.project_id}`,
 										}}
@@ -317,23 +317,23 @@ export default async function DashboardPage() {
 				<section className="space-y-4">
 					<div className="space-y-2">
 						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-							Shortcuts
+							Pintasan
 						</p>
 						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
-							Quick Actions
+							Aksi Cepat
 						</h2>
 					</div>
-					<div className="grid gap-1 rounded-lg border border-border-default bg-surface-2 p-2">
+					<div className="grid gap-1 rounded-2xl border border-border-default bg-surface-2 p-2">
 						<QuickAction
 							href="/operations/new"
 							icon={PlusCircle}
-							label="New Booking"
+							label="Booking Baru"
 							hint="Buat event baru"
 						/>
 						<QuickAction
 							href="/operations/packages/new"
 							icon={Package}
-							label="New Package"
+							label="Paket Baru"
 							hint="Tambah paket pricelist"
 						/>
 						<QuickAction
@@ -345,14 +345,14 @@ export default async function DashboardPage() {
 						<QuickAction
 							href="/finance/bank-accounts"
 							icon={Receipt}
-							label="Bank Accounts"
+							label="Rekening Bank"
 							hint="Atur penerima transfer"
 						/>
 						<QuickAction
 							href="/settings"
 							icon={SettingsIcon}
-							label="Settings"
-							hint="System configuration"
+							label="Pengaturan"
+							hint="Konfigurasi sistem"
 						/>
 					</div>
 				</section>
