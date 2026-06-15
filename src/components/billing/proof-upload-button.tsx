@@ -124,7 +124,7 @@ export function ProofUploadButton({
 				onClick={trigger}
 				disabled={disabled || state.phase === "uploading"}
 				title="Upload bukti transfer ke Drive"
-				className={`press tap inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${tone}`}
+				className={`press tap inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${tone}`}
 			>
 				<Icon
 					className={`size-4 ${state.phase === "uploading" ? "animate-spin" : ""}`}

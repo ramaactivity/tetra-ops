@@ -125,10 +125,10 @@ export function PaymentForm({
 	// `h-11!` (important): SelectTrigger sets its height via a variant-prefixed
 	// `data-[size=default]:h-8` which out-specifies a plain `h-11`. Forcing it
 	// keeps Tanggal (DatePicker/Button) and Tipe (Select) the exact same height.
-	const fieldBox = "h-11! w-full rounded-xl px-3.5 text-[0.9375rem]";
+	const fieldBox = "h-10! w-full rounded-xl px-3.5 text-[0.9375rem]";
 
 	return (
-		<form action={formAction} className="space-y-4">
+		<form action={formAction} className="space-y-3">
 			{state?.errors?._form && (
 				<div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
 					<p className="text-sm font-medium text-destructive">
@@ -138,7 +138,7 @@ export function PaymentForm({
 			)}
 
 			{hasRemaining && (
-				<div className="rounded-2xl border border-border-default bg-card p-4">
+				<div className="rounded-2xl border border-border-default bg-card px-4 py-3">
 					<div className="flex items-baseline justify-between gap-3">
 						<span className="eyebrow">Tagihan</span>
 						<span className="type-caption tabular">
@@ -147,7 +147,7 @@ export function PaymentForm({
 					</div>
 					{/* Split track: settled (ink) + this payment (emerald) over a
 					    muted remainder. The emerald grows live as the owner types. */}
-					<div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-muted">
+					<div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted">
 						<div
 							className="h-full bg-primary transition-[width] duration-300 ease-out-expo"
 							style={{ width: `${paidPct}%` }}
@@ -157,7 +157,7 @@ export function PaymentForm({
 							style={{ width: `${enteredPct}%` }}
 						/>
 					</div>
-					<div className="mt-3 flex items-end justify-between gap-3">
+					<div className="mt-2.5 flex items-end justify-between gap-3">
 						<div>
 							<span className="type-caption block text-muted-foreground">
 								{entered > 0 ? "Sisa setelah ini" : "Sisa tagihan"}
@@ -185,9 +185,9 @@ export function PaymentForm({
 				</div>
 			)}
 
-			<div className="grid gap-4 md:grid-cols-2">
+			<div className="grid gap-3 md:grid-cols-2">
 				{/* ── Left: form ── */}
-				<div className="space-y-3">
+				<div className="space-y-2.5">
 					<Field label="Jumlah" error={err("amount")} required>
 						<MoneyInput
 							name="amount"
@@ -195,7 +195,7 @@ export function PaymentForm({
 							onValueChange={setAmount}
 							placeholder="0"
 							aria-invalid={!!err("amount")}
-							className="h-11! rounded-xl text-base font-semibold"
+							className="h-10! rounded-xl text-base font-semibold"
 						/>
 						{isPelunasan ? (
 							<p className="type-caption text-emerald-700 dark:text-emerald-400">
@@ -286,7 +286,7 @@ export function PaymentForm({
 								value={proofUrl}
 								onChange={(e) => setProofUrl(e.target.value)}
 								placeholder="Link Drive (opsional)…"
-								className="h-11 flex-1 rounded-xl text-[0.9375rem]"
+								className="h-10 flex-1 rounded-xl text-[0.9375rem]"
 							/>
 							<ProofUploadButton
 								projectId={projectId}
@@ -320,7 +320,7 @@ export function PaymentForm({
 					</span>
 					<div
 						className={cn(
-							"flex min-h-[240px] flex-1 flex-col overflow-hidden rounded-2xl transition-colors",
+							"flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-2xl transition-colors",
 							hasProof
 								? "border border-border-default bg-secondary/20"
 								: "border border-dashed border-border-strong/50 bg-secondary/30",
@@ -373,7 +373,7 @@ export function PaymentForm({
 				type="submit"
 				size="lg"
 				disabled={pending}
-				className="h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+				className="h-10 w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600"
 			>
 				{pending ? "Menyimpan…" : "Log payment"}
 			</Button>

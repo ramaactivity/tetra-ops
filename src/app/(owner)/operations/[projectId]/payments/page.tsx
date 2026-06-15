@@ -130,7 +130,7 @@ export default async function ManagePaymentsPage({
 					<span className="eyebrow shrink-0">Progress</span>
 					<div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
 						<div
-							className="h-full rounded-full bg-primary transition-all"
+							className="h-full rounded-full bg-emerald-500 transition-all dark:bg-emerald-400"
 							style={{ width: `${paidPct}%` }}
 						/>
 					</div>
