@@ -191,7 +191,9 @@ export function RekapForm({
 			if (qty <= 0) {
 				delete next[sku];
 			} else {
-				next[sku] = Math.floor(qty);
+				// Clamp in JS (no HTML min/max — those silently block native form
+				// submit with no feedback when out of range).
+				next[sku] = Math.min(9999, Math.floor(qty));
 			}
 			return next;
 		});
@@ -1055,13 +1057,12 @@ export function RekapForm({
 									</div>
 									<input
 										type="number"
-										min={1}
-										max={9999}
+										inputMode="numeric"
 										value={qty}
 										onChange={(e) =>
 											updateCustomQty(sku, Number(e.target.value))
 										}
-										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-fluid-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-[1rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 									/>
 									<button
 										type="button"

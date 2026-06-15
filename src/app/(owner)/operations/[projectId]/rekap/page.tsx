@@ -171,10 +171,12 @@ export default async function EventRekapPage({
 		: null;
 
 	const isSettled = event.status === "completed";
+	// Approved iff is_approved is actually true (or already settled). Don't trust
+	// status==='reviewed' alone: reopen_settlement sets is_approved=false but
+	// leaves status='reviewed', so a reopened+uncommitted rekap must NOT read as
+	// approved (it needs re-approval before settle).
 	const recapApproved =
-		rekap?.is_approved === true ||
-		rekap?.status === "reviewed" ||
-		rekap?.status === "settled";
+		rekap?.is_approved === true || rekap?.status === "settled";
 	const recapLocked = rekap?.locked === true || isSettled;
 
 	const settlementClosedBy = settlement?.closed_by_user

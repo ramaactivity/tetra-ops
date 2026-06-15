@@ -714,7 +714,7 @@ export async function submitRekap(
 		const { data: row } = await supabase
 			.from("crew_rekap")
 			.select(
-				"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+				"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 			)
 			.eq("event_id", eventId)
 			.maybeSingle();
@@ -776,6 +776,7 @@ type RekapStockSnapshot = {
 	id: string;
 	event_id: string;
 	is_approved: boolean | null;
+	frame_size_snapshot: string | null;
 	stock_committed_at: string | null;
 	stock_movement_batch_id: string | null;
 	cetak_total: number;
@@ -854,7 +855,15 @@ async function planRekapDeduction(
 			])
 			.is("deleted_at", null),
 	]);
-	const frameSize = ((event?.frame_size as string | null) ?? "").trim();
+	// Use the FROZEN snapshot taken at submit time, not live event.frame_size.
+	// If the owner corrects event.frame_size after submit, the stock deduction +
+	// HPP must still reflect what the crew actually shot. Matches the COALESCE
+	// pattern used by calculate_recap_hpp / settle_event / stock validators.
+	const frameSize = (
+		(rekap.frame_size_snapshot as string | null) ??
+		(event?.frame_size as string | null) ??
+		""
+	).trim();
 	const cetakTotal = Number(rekap.cetak_total ?? 0);
 
 	const itemsBySku = new Map(
@@ -1326,7 +1335,7 @@ export async function ensureRekapCommitted(
 	const { data: row } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("event_id", eventId)
 		.maybeSingle();
@@ -1367,7 +1376,7 @@ export async function previewRekapHpp(
 	const { data: row } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("event_id", eventId)
 		.maybeSingle();
@@ -1396,7 +1405,7 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 	const { data: rekap, error } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("id", rekapId)
 		.maybeSingle();
@@ -1429,7 +1438,7 @@ export async function reviewRekap(
 	const { data: existing } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("id", rekapId)
 		.maybeSingle();
