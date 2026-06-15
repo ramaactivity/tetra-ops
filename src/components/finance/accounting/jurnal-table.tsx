@@ -1,10 +1,11 @@
 "use client";
 
-import { Calendar, Check, ChevronDown, Search } from "lucide-react";
+import { Calendar, Check, ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { ENTRY_TYPE_LABEL, SOURCE_LABEL } from "@/lib/finance/accounting";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -116,26 +117,22 @@ export function JurnalTable({
 		<div className="space-y-3">
 			{/* Filters */}
 			<div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-				<div className="relative flex-1 lg:max-w-sm">
-					<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-					<input
-						type="search"
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						placeholder="Cari ref, deskripsi, akun…"
-						aria-label="Cari jurnal"
-						className="h-9 w-full rounded-md border border-border-default bg-card pl-9 pr-3 text-[13px] placeholder:text-muted-foreground/60 focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground/15"
-					/>
-				</div>
+				<FilterSearchInput
+					className="flex-1 lg:max-w-sm"
+					value={query}
+					onValueChange={setQuery}
+					placeholder="Cari ref, deskripsi, akun…"
+					aria-label="Cari jurnal"
+				/>
 				<div className="flex flex-wrap items-center gap-2">
-					<div className="inline-flex items-center gap-2 rounded-md border border-border-default bg-card px-2.5 text-[12px]">
+					<div className="inline-flex h-8 items-center gap-2 rounded-md border border-border-default bg-card px-2.5 text-[12px]">
 						<Calendar className="size-3.5 text-muted-foreground" aria-hidden />
 						<input
 							type="date"
 							defaultValue={defaultFrom ?? ""}
 							onChange={(e) => updateDate("from", e.target.value)}
 							aria-label="Dari tanggal"
-							className="h-9 bg-transparent text-[12px] focus:outline-none"
+							className="h-8 bg-transparent text-[12px] focus:outline-none"
 						/>
 						<span className="text-muted-foreground/50">→</span>
 						<input
@@ -143,7 +140,7 @@ export function JurnalTable({
 							defaultValue={defaultTo ?? ""}
 							onChange={(e) => updateDate("to", e.target.value)}
 							aria-label="Sampai tanggal"
-							className="h-9 bg-transparent text-[12px] focus:outline-none"
+							className="h-8 bg-transparent text-[12px] focus:outline-none"
 						/>
 						{hasDateFilter && (
 							<button

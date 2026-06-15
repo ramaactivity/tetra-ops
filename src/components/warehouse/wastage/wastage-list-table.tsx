@@ -3,8 +3,8 @@
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { formatRupiah } from "@/lib/format";
 
 export type WastageRow = {
@@ -28,7 +28,10 @@ export type WastageRow = {
 };
 
 const REASON_LABELS: Record<string, { label: string; tone: string }> = {
-	testing: { label: "Testing", tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300" },
+	testing: {
+		label: "Testing",
+		tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+	},
 	defective_on_arrival: {
 		label: "DOA Supplier",
 		tone: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
@@ -113,7 +116,7 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 							key={f.key}
 							type="button"
 							onClick={() => setFilter(f.key)}
-							className={`press-down inline-flex h-7 items-center rounded-md px-2.5 text-[12px] font-medium transition-colors ${
+							className={`press-down inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium transition-colors ${
 								isActive
 									? "bg-primary text-primary-foreground"
 									: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
@@ -123,12 +126,11 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 						</button>
 					);
 				})}
-				<input
-					type="search"
+				<FilterSearchInput
+					className="ml-auto w-56"
 					value={query}
-					onChange={(e) => setQuery(e.target.value)}
+					onValueChange={setQuery}
 					placeholder="Cari ref / item / supplier…"
-					className="ml-auto h-7 w-56 rounded-md bg-surface-2 px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40"
 				/>
 			</div>
 
@@ -204,7 +206,9 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 												{r.item?.unit ?? ""}
 											</span>
 											<span>·</span>
-											<span>{new Date(r.created_at).toLocaleDateString("id-ID")}</span>
+											<span>
+												{new Date(r.created_at).toLocaleDateString("id-ID")}
+											</span>
 											{r.reporter && (
 												<>
 													<span>·</span>

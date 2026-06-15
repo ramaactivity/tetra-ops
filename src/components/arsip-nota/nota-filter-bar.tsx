@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowDownUp, Search, X } from "lucide-react";
+import { ArrowDownUp, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { MonthPicker } from "@/components/ui/month-picker";
 import type { NativeSelectOption } from "@/components/ui/native-select";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -81,18 +82,13 @@ export function NotaFilterBar({
 		<div className="flex flex-wrap items-center gap-2">
 			<form
 				onSubmit={handleSubmit}
-				className="relative min-w-[200px] flex-1 sm:max-w-[280px]"
+				className="min-w-[200px] flex-1 sm:max-w-[280px]"
 			>
-				<Search
-					className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-					aria-hidden
-				/>
-				<input
-					type="search"
+				<FilterSearchInput
+					className="w-full"
 					value={q}
-					onChange={(e) => setQ(e.target.value)}
+					onValueChange={setQ}
 					placeholder={searchPlaceholder}
-					className="h-8 w-full rounded-md border border-border-default bg-card pr-3 pl-8 text-[13px] shadow-[var(--shadow-level-1)] outline-none placeholder:text-muted-foreground focus-visible:border-foreground/30"
 				/>
 			</form>
 

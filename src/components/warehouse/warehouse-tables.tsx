@@ -8,7 +8,6 @@ import {
 	Layers,
 	Package,
 	Pencil,
-	Search,
 	ShoppingCart,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -19,6 +18,7 @@ import { ArchiveItemButton } from "@/components/items/archive-button";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
@@ -45,7 +45,6 @@ import { RestockDialog } from "@/components/warehouse/restock-dialog";
 import { StockAdjustDialog } from "@/components/warehouse/stock-adjust-dialog";
 import {
 	EQUIPMENT_CONDITION_LABELS,
-	EQUIPMENT_LOCATION_LABELS,
 	formatDateID,
 	formatRupiah,
 } from "@/lib/format";
@@ -81,16 +80,12 @@ function SearchInput({
 	placeholder: string;
 }) {
 	return (
-		<div className="relative flex-1 sm:max-w-xs">
-			<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-			<input
-				type="search"
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				placeholder={placeholder}
-				className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-[12px] placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-			/>
-		</div>
+		<FilterSearchInput
+			className="flex-1 sm:max-w-xs"
+			value={value}
+			onValueChange={onChange}
+			placeholder={placeholder}
+		/>
 	);
 }
 
@@ -104,7 +99,7 @@ function FilterChips<K extends string>({
 	options: ReadonlyArray<{ key: K; label: string; count: number }>;
 }) {
 	return (
-		<div className="inline-flex h-9 flex-wrap items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-1">
+		<div className="inline-flex h-8 flex-wrap items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-0.5">
 			{options.map((o) => {
 				const active = o.key === value;
 				return (

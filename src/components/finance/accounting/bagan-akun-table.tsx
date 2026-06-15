@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import {
 	normalSide,
 	TYPE_LABEL,
@@ -102,22 +103,18 @@ export function BaganAkunTable({ rows }: { rows: CoaRow[] }) {
 	}
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-3">
 			{/* Toolbar */}
 			<div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-				<div className="relative flex-1 lg:max-w-xs">
-					<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-					<input
-						type="search"
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						placeholder="Cari kode / nama akun…"
-						aria-label="Cari akun"
-						className="h-9 w-full rounded-md border border-border-default bg-card pl-9 pr-3 text-[13px] placeholder:text-muted-foreground/60 focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground/15"
-					/>
-				</div>
+				<FilterSearchInput
+					className="flex-1 lg:max-w-xs"
+					value={query}
+					onValueChange={setQuery}
+					placeholder="Cari kode / nama akun…"
+					aria-label="Cari akun"
+				/>
 				<div className="flex flex-wrap items-center gap-2">
-					<div className="inline-flex flex-wrap items-center gap-0.5 rounded-md border border-border-default bg-secondary p-0.5">
+					<div className="inline-flex h-8 flex-wrap items-center gap-0.5 rounded-md border border-border-default bg-secondary p-0.5">
 						{FILTERS.map((o) => {
 							const active = o.key === filter;
 							return (
@@ -127,7 +124,7 @@ export function BaganAkunTable({ rows }: { rows: CoaRow[] }) {
 									onClick={() => setFilter(o.key)}
 									aria-pressed={active}
 									className={cn(
-										"inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+										"inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium transition-colors",
 										active
 											? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
 											: "text-muted-foreground hover:text-foreground",
@@ -141,7 +138,7 @@ export function BaganAkunTable({ rows }: { rows: CoaRow[] }) {
 							);
 						})}
 					</div>
-					<label className="inline-flex cursor-pointer select-none items-center gap-2 rounded-md border border-border-default bg-card px-3 py-1.5 text-[12px] text-muted-foreground hover:text-foreground">
+					<label className="inline-flex h-8 cursor-pointer select-none items-center gap-2 rounded-md border border-border-default bg-card px-3 text-[12px] text-muted-foreground hover:text-foreground">
 						<input
 							type="checkbox"
 							checked={showInactive}

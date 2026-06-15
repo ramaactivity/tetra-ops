@@ -247,174 +247,176 @@ export default async function AssetDesignPage({
 				/>
 			</dl>
 
-			{/* Filter row: month dropdown (left) + design-status chips (right) */}
-			<div className="flex flex-wrap items-center gap-2">
-				<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
-				<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-					<Link
-						href={chipHref(null)}
-						className={cn(
-							"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
-							!dsFilter
-								? "border-foreground/15 bg-foreground/[0.06] text-foreground"
-								: "border-border-default text-muted-foreground hover:text-foreground",
-						)}
-					>
-						Semua
-						<span className="tabular opacity-60">{scoped.length}</span>
-					</Link>
-					{DESIGN_STATUS_VALUES.map((ds) => {
-						const tone = DESIGN_STATUS_TONE[ds];
-						const active = dsFilter === ds;
-						return (
-							<Link
-								key={ds}
-								href={chipHref(ds)}
-								className={cn(
-									"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
-									active
-										? tone.badge
-										: "border-border-default text-muted-foreground hover:text-foreground",
-								)}
-							>
-								<span
-									className={cn("size-1.5 rounded-full", tone.dot)}
-									aria-hidden
-								/>
-								{DESIGN_STATUS_LABELS[ds]}
-								<span className="tabular opacity-60">{statusCounts[ds]}</span>
-							</Link>
-						);
-					})}
-				</div>
-			</div>
-
-			{displayList.length === 0 ? (
-				<EmptyState
-					icon={Palette}
-					title={
-						dsFilter
-							? "Tidak ada event di status ini"
-							: showsAll
-								? "Belum ada event"
-								: `Tidak ada event di ${monthLabel(month)}`
-					}
-					description={
-						dsFilter
-							? "Coba pilih status design lain di atas."
-							: "Ganti bulan di atas, atau pilih Semua."
-					}
-				/>
-			) : (
-				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
-					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
-							<thead className="bg-secondary/50">
-								<tr className="border-b border-border-default text-left">
-									<th className="eyebrow px-4 py-2.5">Event</th>
-									<th className="eyebrow hidden px-4 py-2.5 sm:table-cell">
-										Tanggal
-									</th>
-									<th className="eyebrow px-4 py-2.5">Status Design</th>
-									<th className="eyebrow px-4 py-2.5">Asset</th>
-									<th className="eyebrow px-4 py-2.5 text-right">Action</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{orderedGroups.map(([ym, evs]) => (
-									<Fragment key={ym}>
-										<tr className="border-b border-border-default bg-secondary/40">
-											<td colSpan={5} className="px-4 py-2">
-												<span className="eyebrow">
-													{monthLabel(ym)} · {evs.length}
-												</span>
-											</td>
-										</tr>
-										{evs.map((ev) => {
-											const ready = readiness.get(ev.id) ?? {
-												design: false,
-												softfile: false,
-												footage: false,
-											};
-											const hasAny =
-												ready.design || ready.softfile || ready.footage;
-											return (
-												<tr
-													key={ev.id}
-													className="transition-colors hover:bg-secondary/30"
-												>
-													<td className="px-4 py-3 align-middle">
-														<Link
-															href={`/design/${ev.project_id}`}
-															className="block"
-														>
-															<div className="text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]">
-																{ev.client_name}
-															</div>
-															<div className="tabular text-[11px] text-muted-foreground">
-																{ev.project_id}
-															</div>
-														</Link>
-													</td>
-													<td className="hidden px-4 py-3 align-middle sm:table-cell">
-														<div className="tabular text-[12.5px] text-muted-foreground">
-															{formatDateID(ev.event_date)}
-														</div>
-														<div className="text-[11px] text-muted-foreground/70">
-															{dayLabel(ev.event_date, today)}
-														</div>
-													</td>
-													<td className="px-4 py-3 align-middle">
-														<DesignStatusSelect
-															eventId={ev.id}
-															projectId={ev.project_id}
-															value={ev.design_status}
-														/>
-													</td>
-													<td className="px-4 py-3 align-middle">
-														<div className="flex flex-wrap items-center gap-1.5">
-															{ASSET_CHECKS.map((chk) => {
-																const ok = ready[chk.key];
-																return (
-																	<span
-																		key={chk.key}
-																		className={cn(
-																			"inline-flex h-5 items-center gap-1 rounded-md border px-1.5 text-[10px] font-medium",
-																			ok
-																				? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-																				: "border-border-default bg-secondary text-muted-foreground",
-																		)}
-																		title={`${chk.label}: ${ok ? "sudah" : "belum"}`}
-																	>
-																		{ok ? (
-																			<Check className="size-2.5" />
-																		) : (
-																			<Minus className="size-2.5" />
-																		)}
-																		{chk.label}
-																	</span>
-																);
-															})}
-														</div>
-													</td>
-													<td className="px-4 py-3 text-right align-middle">
-														<Link
-															href={`/design/${ev.project_id}`}
-															className="text-[12.5px] font-medium text-[#0070f3] hover:underline"
-														>
-															{hasAny ? "Kelola →" : "Tambah →"}
-														</Link>
-													</td>
-												</tr>
-											);
-										})}
-									</Fragment>
-								))}
-							</tbody>
-						</table>
+			<div className="space-y-3">
+				{/* Filter row: month dropdown (left) + design-status chips (right) */}
+				<div className="flex flex-wrap items-center gap-2">
+					<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
+					<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+						<Link
+							href={chipHref(null)}
+							className={cn(
+								"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+								!dsFilter
+									? "border-foreground/15 bg-foreground/[0.06] text-foreground"
+									: "border-border-default text-muted-foreground hover:text-foreground",
+							)}
+						>
+							Semua
+							<span className="tabular opacity-60">{scoped.length}</span>
+						</Link>
+						{DESIGN_STATUS_VALUES.map((ds) => {
+							const tone = DESIGN_STATUS_TONE[ds];
+							const active = dsFilter === ds;
+							return (
+								<Link
+									key={ds}
+									href={chipHref(ds)}
+									className={cn(
+										"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+										active
+											? tone.badge
+											: "border-border-default text-muted-foreground hover:text-foreground",
+									)}
+								>
+									<span
+										className={cn("size-1.5 rounded-full", tone.dot)}
+										aria-hidden
+									/>
+									{DESIGN_STATUS_LABELS[ds]}
+									<span className="tabular opacity-60">{statusCounts[ds]}</span>
+								</Link>
+							);
+						})}
 					</div>
 				</div>
-			)}
+
+				{displayList.length === 0 ? (
+					<EmptyState
+						icon={Palette}
+						title={
+							dsFilter
+								? "Tidak ada event di status ini"
+								: showsAll
+									? "Belum ada event"
+									: `Tidak ada event di ${monthLabel(month)}`
+						}
+						description={
+							dsFilter
+								? "Coba pilih status design lain di atas."
+								: "Ganti bulan di atas, atau pilih Semua."
+						}
+					/>
+				) : (
+					<div className="overflow-hidden rounded-lg border border-border-default bg-card">
+						<div className="overflow-x-auto">
+							<table className="w-full text-sm">
+								<thead className="bg-secondary/50">
+									<tr className="border-b border-border-default text-left">
+										<th className="eyebrow px-4 py-2.5">Event</th>
+										<th className="eyebrow hidden px-4 py-2.5 sm:table-cell">
+											Tanggal
+										</th>
+										<th className="eyebrow px-4 py-2.5">Status Design</th>
+										<th className="eyebrow px-4 py-2.5">Asset</th>
+										<th className="eyebrow px-4 py-2.5 text-right">Action</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-border-subtle">
+									{orderedGroups.map(([ym, evs]) => (
+										<Fragment key={ym}>
+											<tr className="border-b border-border-default bg-secondary/40">
+												<td colSpan={5} className="px-4 py-2">
+													<span className="eyebrow">
+														{monthLabel(ym)} · {evs.length}
+													</span>
+												</td>
+											</tr>
+											{evs.map((ev) => {
+												const ready = readiness.get(ev.id) ?? {
+													design: false,
+													softfile: false,
+													footage: false,
+												};
+												const hasAny =
+													ready.design || ready.softfile || ready.footage;
+												return (
+													<tr
+														key={ev.id}
+														className="transition-colors hover:bg-secondary/30"
+													>
+														<td className="px-4 py-3 align-middle">
+															<Link
+																href={`/design/${ev.project_id}`}
+																className="block"
+															>
+																<div className="text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]">
+																	{ev.client_name}
+																</div>
+																<div className="tabular text-[11px] text-muted-foreground">
+																	{ev.project_id}
+																</div>
+															</Link>
+														</td>
+														<td className="hidden px-4 py-3 align-middle sm:table-cell">
+															<div className="tabular text-[12.5px] text-muted-foreground">
+																{formatDateID(ev.event_date)}
+															</div>
+															<div className="text-[11px] text-muted-foreground/70">
+																{dayLabel(ev.event_date, today)}
+															</div>
+														</td>
+														<td className="px-4 py-3 align-middle">
+															<DesignStatusSelect
+																eventId={ev.id}
+																projectId={ev.project_id}
+																value={ev.design_status}
+															/>
+														</td>
+														<td className="px-4 py-3 align-middle">
+															<div className="flex flex-wrap items-center gap-1.5">
+																{ASSET_CHECKS.map((chk) => {
+																	const ok = ready[chk.key];
+																	return (
+																		<span
+																			key={chk.key}
+																			className={cn(
+																				"inline-flex h-5 items-center gap-1 rounded-md border px-1.5 text-[10px] font-medium",
+																				ok
+																					? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+																					: "border-border-default bg-secondary text-muted-foreground",
+																			)}
+																			title={`${chk.label}: ${ok ? "sudah" : "belum"}`}
+																		>
+																			{ok ? (
+																				<Check className="size-2.5" />
+																			) : (
+																				<Minus className="size-2.5" />
+																			)}
+																			{chk.label}
+																		</span>
+																	);
+																})}
+															</div>
+														</td>
+														<td className="px-4 py-3 text-right align-middle">
+															<Link
+																href={`/design/${ev.project_id}`}
+																className="text-[12.5px] font-medium text-[#0070f3] hover:underline"
+															>
+																{hasAny ? "Kelola →" : "Tambah →"}
+															</Link>
+														</td>
+													</tr>
+												);
+											})}
+										</Fragment>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				)}
+			</div>
 		</Container>
 	);
 }

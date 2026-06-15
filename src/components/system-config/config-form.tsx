@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2, Search } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import {
 	type SystemConfigFormState,
 	updateSystemConfigBatch,
@@ -113,18 +114,13 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 			    Hidden rows stay in DOM so their form inputs serialize on
 			    submit (no risk of silently dropping unchanged keys when
 			    user searches + saves). */}
-			<div className="relative">
-				<Search
-					className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2"
-					aria-hidden
-				/>
-				<input
-					type="search"
+			<div>
+				<FilterSearchInput
+					className="w-full"
 					value={query}
-					onChange={(e) => setQuery(e.target.value)}
+					onValueChange={setQuery}
 					placeholder="Cari config (key atau deskripsi)…"
 					aria-label="Cari config"
-					className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border pl-10 pr-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none"
 				/>
 				{normalizedQuery && (
 					<p className="text-muted-foreground mt-1 text-xs">

@@ -1,10 +1,11 @@
 "use client";
 
-import { Pencil, Search, Trash2, Truck } from "lucide-react";
+import { Pencil, Trash2, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
@@ -165,17 +166,13 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 	return (
 		<div className="space-y-3">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<div className="relative flex-1 sm:max-w-xs">
-					<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-					<input
-						type="search"
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						placeholder="Cari nama / kategori / kontak..."
-						className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-caption placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-					/>
-				</div>
-				<label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 py-1.5 text-fluid-caption">
+				<FilterSearchInput
+					className="flex-1 sm:max-w-xs"
+					value={query}
+					onValueChange={setQuery}
+					placeholder="Cari nama / kategori / kontak..."
+				/>
+				<label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 text-[12px]">
 					<input
 						type="checkbox"
 						checked={showInactive}

@@ -1,7 +1,7 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { normalSide, SOURCE_LABEL } from "@/lib/finance/accounting";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -46,17 +46,13 @@ export function LedgerTable({
 
 	return (
 		<div className="space-y-3">
-			<div className="relative max-w-sm">
-				<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-				<input
-					type="search"
-					value={query}
-					onChange={(e) => setQuery(e.target.value)}
-					placeholder="Cari ref atau keterangan…"
-					aria-label="Cari di buku besar"
-					className="h-9 w-full rounded-md border border-border-default bg-card pl-9 pr-3 text-[13px] placeholder:text-muted-foreground/60 focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground/15"
-				/>
-			</div>
+			<FilterSearchInput
+				className="max-w-sm"
+				value={query}
+				onValueChange={setQuery}
+				placeholder="Cari ref atau keterangan…"
+				aria-label="Cari di buku besar"
+			/>
 
 			{filtered.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border-default bg-secondary/40 p-8 text-center text-[13px] text-muted-foreground">

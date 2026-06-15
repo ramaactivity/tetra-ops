@@ -1,15 +1,10 @@
-import {
-	Archive,
-	Building2,
-	FileSpreadsheet,
-	PlusCircle,
-	Search,
-} from "lucide-react";
+import { Archive, Building2, FileSpreadsheet, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { VendorsListTable } from "@/components/vendors/vendors-list-table";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -298,10 +293,7 @@ export default async function VendorsListPage({
 	// Top-of-page KPIs
 	const totalVendors = vendors.filter((v) => v.is_active).length;
 	const totalEventsYTD = vendors.reduce((s, v) => s + v.event_count_ytd, 0);
-	const totalCommissionYTD = vendors.reduce(
-		(s, v) => s + v.commission_ytd,
-		0,
-	);
+	const totalCommissionYTD = vendors.reduce((s, v) => s + v.commission_ytd, 0);
 	const totalGrossYTD = vendors.reduce((s, v) => s + v.gross_revenue_ytd, 0);
 
 	return (
@@ -360,16 +352,11 @@ export default async function VendorsListPage({
 					action="/vendors"
 					className="relative min-w-[200px] flex-1 sm:max-w-xs"
 				>
-					<Search
-						className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-						aria-hidden
-					/>
-					<input
-						type="search"
+					<FilterSearchInput
+						className="w-full"
 						name="q"
 						defaultValue={q}
 						placeholder="Cari nama vendor…"
-						className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-8 pr-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 					/>
 					{showArchived && (
 						<input type="hidden" name="show_archived" value="1" />
@@ -401,9 +388,7 @@ export default async function VendorsListPage({
 			{vendors.length === 0 ? (
 				<EmptyState
 					icon={Building2}
-					title={
-						q ? "Vendor tidak ditemukan" : "Belum ada vendor terdaftar"
-					}
+					title={q ? "Vendor tidak ditemukan" : "Belum ada vendor terdaftar"}
 					description={
 						q
 							? "Coba kata kunci lain atau buka semua tanpa filter."

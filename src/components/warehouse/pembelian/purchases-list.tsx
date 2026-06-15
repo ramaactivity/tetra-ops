@@ -1,8 +1,8 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
@@ -128,16 +128,12 @@ export function PurchasesList({ rows }: { rows: PurchaseRow[] }) {
 
 	return (
 		<div className="space-y-3">
-			<div className="relative max-w-md">
-				<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-				<input
-					type="search"
-					value={query}
-					onChange={(e) => setQuery(e.target.value)}
-					placeholder="Cari ref, item, supplier..."
-					className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-caption placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-				/>
-			</div>
+			<FilterSearchInput
+				className="max-w-md"
+				value={query}
+				onValueChange={setQuery}
+				placeholder="Cari ref, item, supplier..."
+			/>
 			{filtered.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-6 text-center text-fluid-caption text-muted-foreground">
 					Tidak ada pembelian yang cocok.

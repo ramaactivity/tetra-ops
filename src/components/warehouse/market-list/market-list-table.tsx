@@ -4,7 +4,6 @@ import {
 	ArrowUpRight,
 	Pencil,
 	Plus,
-	Search,
 	Star,
 	Trash2,
 	Truck,
@@ -15,6 +14,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { toast } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { formatRupiah } from "@/lib/format";
@@ -227,23 +227,19 @@ export function MarketListTable({
 			<SubTabBar current={subTab} onChange={setSubTab} />
 
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<div className="relative flex-1 sm:max-w-xs">
-					<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-					<input
-						type="search"
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						placeholder={
-							subTab === "items"
-								? "Cari item / SKU / supplier..."
-								: "Cari supplier..."
-						}
-						className="h-9 w-full rounded-md border border-border-default bg-surface-2 pl-9 pr-3 text-fluid-caption placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-					/>
-				</div>
+				<FilterSearchInput
+					className="flex-1 sm:max-w-xs"
+					value={query}
+					onValueChange={setQuery}
+					placeholder={
+						subTab === "items"
+							? "Cari item / SKU / supplier..."
+							: "Cari supplier..."
+					}
+				/>
 				{subTab === "items" && (
 					<div className="flex flex-wrap items-center gap-2">
-						<div className="inline-flex h-9 items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-1">
+						<div className="inline-flex h-8 items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-0.5">
 							{(
 								[
 									{ key: "all", label: "Semua", count: counts.items },
@@ -282,7 +278,7 @@ export function MarketListTable({
 								);
 							})}
 						</div>
-						<label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 text-[12px]">
+						<label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 text-[12px]">
 							<input
 								type="checkbox"
 								checked={onlyPrimary}

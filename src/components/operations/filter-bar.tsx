@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowDownUp, Search, Users, X } from "lucide-react";
+import { ArrowDownUp, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
@@ -109,18 +110,13 @@ export function OperationsFilterBar({
 		<div className="flex flex-wrap items-center gap-2">
 			<form
 				onSubmit={handleSubmit}
-				className="relative min-w-[200px] flex-1 sm:max-w-[280px]"
+				className="min-w-[200px] flex-1 sm:max-w-[280px]"
 			>
-				<Search
-					className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-					aria-hidden
-				/>
-				<input
-					type="search"
+				<FilterSearchInput
+					className="w-full"
 					value={q}
-					onChange={(e) => setQ(e.target.value)}
+					onValueChange={setQ}
 					placeholder="Cari nama klien…"
-					className="h-8 w-full rounded-md border border-border-default bg-card pl-8 pr-3 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/70 transition-colors hover:bg-secondary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none"
 				/>
 			</form>
 

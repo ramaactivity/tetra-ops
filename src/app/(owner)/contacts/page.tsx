@@ -8,6 +8,7 @@ import {
 } from "@/components/contacts/contacts-list-table";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { createClient } from "@/lib/supabase/server";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -30,9 +31,7 @@ export default async function ContactsListPage({
 	const supabase = await createClient();
 	let query = supabase
 		.from("contacts")
-		.select(
-			"id, legacy_contact_id, type, name, phone, email, notes, is_active",
-		)
+		.select("id, legacy_contact_id, type, name, phone, email, notes, is_active")
 		.eq("is_active", true)
 		.order("type", { ascending: true, nullsFirst: false })
 		.order("name", { ascending: true })
@@ -82,12 +81,11 @@ export default async function ContactsListPage({
 					action="/contacts"
 					className="relative min-w-[200px] flex-1 sm:max-w-xs"
 				>
-					<input
-						type="search"
+					<FilterSearchInput
+						className="w-full"
 						name="q"
 						defaultValue={q}
 						placeholder="Cari nama…"
-						className="h-9 w-full rounded-md border border-border-default bg-surface-2 px-3 text-fluid-body placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 					/>
 					{typeFilter && <input type="hidden" name="type" value={typeFilter} />}
 				</form>

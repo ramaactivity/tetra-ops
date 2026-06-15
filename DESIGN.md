@@ -744,6 +744,36 @@ Vercel ships two distinct radius scales:
 
 **`select`** — same shell as text-input with chevron icon right.
 
+### Filter bars (the row above every table)
+
+> **Patokan = halaman Operations (Event).** Every list page (Operations, Billing,
+> Asset & Design, Warehouse + sub-tables, Akuntansi, Arsip Nota, Kontak, Vendor,
+> Wastage, …) shares ONE filter-bar spec. Don't hand-roll a search input — drift
+> here is what made the pages look inconsistent.
+
+**`<FilterSearchInput>`** (`@/components/ui/filter-search-input`) — the single
+canonical search field. Controlled (`value` + `onValueChange`) or uncontrolled
+form (`name` + `defaultValue`); `className` sizes the wrapper (e.g. `flex-1
+sm:max-w-xs`, `w-full`). Never inline a `<input type="search">` for a filter —
+import this instead.
+
+The locked spec (every control on the row snaps to it):
+- **Height** — `h-8` (32px). Same as Button/Select/MonthPicker default. NEVER `h-9`/`h-10` on filter chrome.
+- **Radius** — `rounded-md` (6px). Segmented-control *tracks* are `rounded-md` with `rounded` (4px) inner buttons.
+- **Surface** — `bg-card` + `border-border-default`. NOT `bg-surface-2`, NOT `bg-background`.
+- **Type** — search/select = `text-[13px]`; pill chips = `text-[12.5px]`; segmented inner = `text-[12px]`. NEVER `text-fluid-body`/`text-fluid-caption` on a filter control (they scale to 16px/clamp and break the row's rhythm).
+- **Focus** — `focus-visible:ring-2 ring-ring ring-offset-2`. NOT `focus:border-primary`/`focus:border-foreground` with `ring-1`.
+- **Row wrapper** — `flex flex-wrap items-center gap-2`.
+
+**Spacing (identical on every page):**
+- Stat/KPI cards → filter bar = **24px** (`space-y-6` at the `<Container>` level — the `<dl>` grid and the filter block are siblings).
+- Filter bar → table = **12px** — wrap the filter bar + table together in `<div className="space-y-3">`. (Don't let the table inherit the 24px gap.)
+
+**Chips & segmented tracks** also snap to `h-8`. Separate-pill chips:
+`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px]
+font-medium`. Segmented track: `inline-flex h-8 items-center gap-0.5 rounded-md
+border p-0.5` with `h-7` inner buttons.
+
 ### Cards
 
 **`card`** — default surface-1 white with hairline border. 8px radius. 24px padding. Most operational content.
