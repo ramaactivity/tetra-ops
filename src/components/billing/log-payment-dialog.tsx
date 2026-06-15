@@ -44,7 +44,7 @@ export function LogPaymentDialog({
 				<Plus className="size-4" />
 				Log payment
 			</DialogTrigger>
-			<DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+			<DialogContent className="max-h-[92vh] overflow-y-auto p-5 pb-6 sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>Log payment baru</DialogTitle>
 					<DialogDescription>

@@ -373,7 +373,7 @@ export function PaymentForm({
 				type="submit"
 				size="lg"
 				disabled={pending}
-				className="h-11 w-full"
+				className="h-11 w-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600"
 			>
 				{pending ? "Menyimpan…" : "Log payment"}
 			</Button>
