@@ -1,5 +1,6 @@
 "use client";
 
+import { FileText, Image as ImageIcon, Link2 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { ProofUploadButton } from "@/components/billing/proof-upload-button";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,18 @@ export function PaymentForm({
 	const [paymentType, setPaymentType] = useState(get("payment_type", "dp"));
 	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
 	const [proofUrl, setProofUrl] = useState(get("proof_url"));
+	const [proofFile, setProofFile] = useState<File | null>(null);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+	// Local preview of the picked bukti image (revoked on change/unmount).
+	useEffect(() => {
+		if (proofFile?.type.startsWith("image/")) {
+			const url = URL.createObjectURL(proofFile);
+			setPreviewUrl(url);
+			return () => URL.revokeObjectURL(url);
+		}
+		setPreviewUrl(null);
+	}, [proofFile]);
 
 	const isPelunasan = paymentType === "pelunasan";
 	const hasRemaining = !!suggestedAmount && suggestedAmount > 0;
@@ -86,8 +99,10 @@ export function PaymentForm({
 		);
 	}
 
+	const fieldBox = "h-11 w-full rounded-xl px-3.5 text-[0.9375rem]";
+
 	return (
-		<form action={formAction} className="space-y-3">
+		<form action={formAction} className="space-y-4">
 			{state?.errors?._form && (
 				<div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
 					<p className="text-sm font-medium text-destructive">
@@ -96,119 +111,170 @@ export function PaymentForm({
 				</div>
 			)}
 
-			<Field label="Jumlah" error={err("amount")} required>
-				<MoneyInput
-					name="amount"
-					value={amount}
-					onValueChange={setAmount}
-					placeholder="0"
-					aria-invalid={!!err("amount")}
-					className="h-12 rounded-xl text-[1.0625rem] font-semibold"
-				/>
-				{isPelunasan ? (
-					<p className="type-caption text-emerald-700 dark:text-emerald-400">
-						Otomatis terisi sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
-					</p>
-				) : hasRemaining && amount !== suggestedAmount ? (
-					<button
-						type="button"
-						onClick={() => setAmount(suggestedAmount ?? 0)}
-						className="text-xs font-medium text-link hover:underline"
-					>
-						Isi sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
-					</button>
-				) : null}
-			</Field>
+			<div className="grid gap-4 md:grid-cols-2">
+				{/* ── Left: form ── */}
+				<div className="space-y-3">
+					<Field label="Jumlah" error={err("amount")} required>
+						<MoneyInput
+							name="amount"
+							value={amount}
+							onValueChange={setAmount}
+							placeholder="0"
+							aria-invalid={!!err("amount")}
+							className="h-12 rounded-xl text-[1.0625rem] font-semibold"
+						/>
+						{isPelunasan ? (
+							<p className="type-caption text-emerald-700 dark:text-emerald-400">
+								Otomatis = sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
+							</p>
+						) : hasRemaining && amount !== suggestedAmount ? (
+							<button
+								type="button"
+								onClick={() => setAmount(suggestedAmount ?? 0)}
+								className="text-xs font-medium text-link hover:underline"
+							>
+								Isi sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
+							</button>
+						) : null}
+					</Field>
 
-			<div className="grid gap-3 sm:grid-cols-2">
-				<Field label="Tanggal" error={err("payment_date")} required>
-					<DatePicker
-						value={paymentDate}
-						onValueChange={setPaymentDate}
-						placeholder="Pilih tanggal"
-						aria-invalid={!!err("payment_date")}
-						className="h-11 rounded-xl"
-					/>
-					<input
-						type="hidden"
-						name="payment_date"
-						value={paymentDate}
-						required
-					/>
-				</Field>
+					<div className="grid grid-cols-2 gap-3">
+						<Field label="Tanggal" error={err("payment_date")} required>
+							<DatePicker
+								value={paymentDate}
+								onValueChange={setPaymentDate}
+								placeholder="Pilih tanggal"
+								aria-invalid={!!err("payment_date")}
+								className={fieldBox}
+							/>
+							<input
+								type="hidden"
+								name="payment_date"
+								value={paymentDate}
+								required
+							/>
+						</Field>
 
-				<Field label="Tipe" error={err("payment_type")} required>
-					<NativeSelect
-						value={paymentType}
-						onValueChange={setPaymentType}
-						options={PAYMENT_TYPE_OPTIONS.map(([value, label]) => ({
-							value,
-							label,
-						}))}
-						triggerClassName="h-11 w-full rounded-xl"
-						aria-invalid={!!err("payment_type")}
-					/>
-					<input
-						type="hidden"
-						name="payment_type"
-						value={paymentType}
-						required
-					/>
-				</Field>
-			</div>
+						<Field label="Tipe" error={err("payment_type")} required>
+							<NativeSelect
+								value={paymentType}
+								onValueChange={setPaymentType}
+								options={PAYMENT_TYPE_OPTIONS.map(([value, label]) => ({
+									value,
+									label,
+								}))}
+								triggerClassName={fieldBox}
+								aria-invalid={!!err("payment_type")}
+							/>
+							<input
+								type="hidden"
+								name="payment_type"
+								value={paymentType}
+								required
+							/>
+						</Field>
+					</div>
 
-			<Field label="Bank tujuan" error={err("bank_account_id")} required>
-				<NativeSelect
-					value={bankAccountId}
-					onValueChange={setBankAccountId}
-					placeholder="Pilih bank…"
-					options={bankAccounts.map((b) => ({
-						value: b.id,
-						label: `${b.bank_name}${b.account_number ? ` · ${b.account_number}` : ""}${b.account_holder ? ` · ${b.account_holder}` : ""}`,
-					}))}
-					triggerClassName="h-11 w-full rounded-xl"
-					aria-invalid={!!err("bank_account_id")}
-				/>
-				<input
-					type="hidden"
-					name="bank_account_id"
-					value={bankAccountId}
-					required
-				/>
-			</Field>
+					<Field label="Bank tujuan" error={err("bank_account_id")} required>
+						<NativeSelect
+							value={bankAccountId}
+							onValueChange={setBankAccountId}
+							placeholder="Pilih bank…"
+							options={bankAccounts.map((b) => ({
+								value: b.id,
+								label: `${b.bank_name}${b.account_number ? ` · ${b.account_number}` : ""}${b.account_holder ? ` · ${b.account_holder}` : ""}`,
+							}))}
+							triggerClassName={fieldBox}
+							aria-invalid={!!err("bank_account_id")}
+						/>
+						<input
+							type="hidden"
+							name="bank_account_id"
+							value={bankAccountId}
+							required
+						/>
+					</Field>
 
-			<Field label="Bukti transfer" error={err("proof_url")}>
-				<div className="flex items-center gap-2">
-					<Input
-						type="url"
-						name="proof_url"
-						value={proofUrl}
-						onChange={(e) => setProofUrl(e.target.value)}
-						placeholder="Link Drive (opsional)…"
-						className="h-11 flex-1 rounded-xl text-base"
-					/>
-					<ProofUploadButton
-						projectId={projectId}
-						onUploaded={setProofUrl}
-						meta={{
-							paymentType,
-							paymentDate,
-							amount: amount || undefined,
-						}}
-					/>
+					<Field label="Bukti transfer" error={err("proof_url")}>
+						<div className="flex items-center gap-2">
+							<Input
+								type="url"
+								name="proof_url"
+								value={proofUrl}
+								onChange={(e) => setProofUrl(e.target.value)}
+								placeholder="Link Drive (opsional)…"
+								className="h-11 flex-1 rounded-xl text-[0.9375rem]"
+							/>
+							<ProofUploadButton
+								projectId={projectId}
+								onUploaded={setProofUrl}
+								onFileSelected={setProofFile}
+								meta={{
+									paymentType,
+									paymentDate,
+									amount: amount || undefined,
+								}}
+							/>
+						</div>
+					</Field>
+
+					<Field label="Catatan" error={err("notes")}>
+						<TextareaField
+							name="notes"
+							rows={2}
+							maxLength={500}
+							defaultValue={get("notes")}
+							placeholder="Catatan tambahan… (opsional)"
+							className="rounded-xl text-[0.9375rem]"
+						/>
+					</Field>
 				</div>
-			</Field>
 
-			<Field label="Catatan" error={err("notes")}>
-				<TextareaField
-					name="notes"
-					rows={2}
-					maxLength={500}
-					defaultValue={get("notes")}
-					placeholder="Catatan tambahan… (opsional)"
-					className="rounded-xl text-base"
-				/>
-			</Field>
+				{/* ── Right: preview ── */}
+				<div className="space-y-1">
+					<span className="type-label block text-foreground">
+						Preview bukti
+					</span>
+					<div className="flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-border-default bg-secondary/30">
+						{previewUrl ? (
+							// biome-ignore lint/performance/noImgElement: local blob preview
+							<img
+								src={previewUrl}
+								alt="Preview bukti"
+								className="max-h-[320px] w-full flex-1 object-contain"
+							/>
+						) : proofFile ? (
+							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+								<FileText
+									className="size-9 text-muted-foreground"
+									aria-hidden
+								/>
+								<p className="type-body-strong">{proofFile.name}</p>
+								<p className="type-caption">
+									PDF tidak bisa di-preview — tersimpan utuh.
+								</p>
+							</div>
+						) : proofUrl ? (
+							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+								<Link2 className="size-9 text-muted-foreground" aria-hidden />
+								<p className="type-body-strong">Link bukti tertaut</p>
+								<p className="type-caption max-w-full truncate">{proofUrl}</p>
+							</div>
+						) : (
+							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+								<ImageIcon
+									className="size-9 text-muted-foreground/60"
+									aria-hidden
+								/>
+								<p className="type-secondary max-w-[18rem]">
+									Upload bukti transfer — preview muncul di sini biar nggak
+									salah.
+								</p>
+							</div>
+						)}
+					</div>
+				</div>
+			</div>
 
 			<Button
 				type="submit"

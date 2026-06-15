@@ -23,11 +23,14 @@ export type PaymentProofMeta = {
 export function ProofUploadButton({
 	projectId,
 	onUploaded,
+	onFileSelected,
 	disabled = false,
 	meta,
 }: {
 	projectId: string;
 	onUploaded: (url: string, fileName?: string) => void;
+	/** Fired the moment a file is picked, before upload — lets the caller preview. */
+	onFileSelected?: (file: File) => void;
 	disabled?: boolean;
 	meta?: PaymentProofMeta;
 }) {
@@ -45,6 +48,7 @@ export function ProofUploadButton({
 	}
 
 	async function handleFile(file: File) {
+		onFileSelected?.(file);
 		setState({ phase: "uploading", name: file.name });
 		const fd = new FormData();
 		fd.set("file", file);

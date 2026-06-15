@@ -84,25 +84,23 @@ export default async function ManagePaymentsPage({
 						<ChevronLeft className="size-3.5" />
 						<span className="eyebrow">{event.project_id}</span>
 					</Link>
-					<div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+					<div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
 						<h1 className="type-title">Payments</h1>
 						<span className="type-secondary">{event.client_name}</span>
+						<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
+							{PAYMENT_STATUS_LABELS[status] ?? status}
+						</Badge>
 					</div>
 				</div>
-				<div className="flex items-center gap-2">
-					<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
-						{PAYMENT_STATUS_LABELS[status] ?? status}
-					</Badge>
-					{canLog && (
-						<LogPaymentDialog
-							eventId={event.id as string}
-							projectId={event.project_id}
-							bankAccounts={(banks ?? []) as BankAccountOption[]}
-							defaultDate={today}
-							suggestedAmount={remaining}
-						/>
-					)}
-				</div>
+				{canLog && (
+					<LogPaymentDialog
+						eventId={event.id as string}
+						projectId={event.project_id}
+						bankAccounts={(banks ?? []) as BankAccountOption[]}
+						defaultDate={today}
+						suggestedAmount={remaining}
+					/>
+				)}
 			</div>
 
 			{/* Summary — stat row + progress */}
