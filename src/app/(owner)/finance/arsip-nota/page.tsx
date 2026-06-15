@@ -48,6 +48,11 @@ function sortConfig(sort: string): { col: string; ascending: boolean } {
 	}
 }
 
+function currentYearMonth(): string {
+	const today = new Date();
+	return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function monthRange(
 	month: string | undefined,
 ): { start: string; end: string } | null {

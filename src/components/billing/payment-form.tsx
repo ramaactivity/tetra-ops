@@ -114,6 +114,29 @@ export function PaymentForm({
 				</div>
 			)}
 
+			{hasRemaining && (
+				<div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 rounded-xl border border-border-default bg-secondary/40 px-4 py-3">
+					<div className="flex items-baseline gap-2">
+						<span className="type-label text-muted-foreground">
+							Sisa tagihan
+						</span>
+						<span className="type-num-lg text-foreground">
+							{formatRupiah(suggestedAmount ?? 0)}
+						</span>
+					</div>
+					{amount > 0 && amount <= (suggestedAmount ?? 0) && (
+						<div className="flex items-baseline gap-2">
+							<span className="type-label text-muted-foreground">
+								Sisa setelah ini
+							</span>
+							<span className="type-num-lg text-emerald-700 dark:text-emerald-400">
+								{formatRupiah((suggestedAmount ?? 0) - amount)}
+							</span>
+						</div>
+					)}
+				</div>
+			)}
+
 			<div className="grid gap-4 md:grid-cols-2">
 				{/* ── Left: form ── */}
 				<div className="space-y-3">
@@ -124,19 +147,19 @@ export function PaymentForm({
 							onValueChange={setAmount}
 							placeholder="0"
 							aria-invalid={!!err("amount")}
-							className="h-12 rounded-xl text-[1.0625rem] font-semibold"
+							className="h-11! rounded-xl text-base font-semibold"
 						/>
 						{isPelunasan ? (
 							<p className="type-caption text-emerald-700 dark:text-emerald-400">
-								Otomatis = sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
+								Otomatis terisi penuh sesuai sisa tagihan.
 							</p>
 						) : hasRemaining && amount !== suggestedAmount ? (
 							<button
 								type="button"
 								onClick={() => setAmount(suggestedAmount ?? 0)}
-								className="text-xs font-medium text-link hover:underline"
+								className="type-caption font-medium text-link hover:underline"
 							>
-								Isi sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
+								Isi penuh sisa tagihan
 							</button>
 						) : null}
 					</Field>
