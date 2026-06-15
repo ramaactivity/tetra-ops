@@ -1249,7 +1249,7 @@ export function RekapForm({
 										type="number"
 										inputMode="numeric"
 										min={0}
-										step={1000}
+										step={1}
 										value={row.amount}
 										onChange={(e) =>
 											updateLainnyaRow(idx, {
@@ -1746,7 +1746,7 @@ function MoneyField({
 					type="number"
 					inputMode="numeric"
 					min={0}
-					step={1000}
+					step={1}
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="0"
@@ -1778,5 +1778,7 @@ function extractName(url: string): string {
 	}
 }
 
+// 16px text is deliberate: iOS Safari zooms the viewport on focus when an input
+// is < 16px. h-11 = 44px touch target.
 const inputClass =
-	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-fluid-body text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none";
+	"h-11 w-full rounded-xl border border-border-default bg-background px-3.5 text-[1rem] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none";
