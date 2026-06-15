@@ -1,9 +1,10 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { FileText, ImageIcon, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -22,6 +23,7 @@ import {
 	MANUAL_UPLOAD_MAX_BYTES,
 } from "@/lib/arsip-nota/types";
 import { compressImage } from "@/lib/crew/image-compression";
+import { formatRupiah } from "@/lib/format";
 
 /** Modal upload nota manual. File di-kompres (image) sebelum dikirim. */
 export function UploadNotaModal() {
@@ -35,6 +37,17 @@ export function UploadNotaModal() {
 	const [amount, setAmount] = useState("");
 	const [description, setDescription] = useState("");
 	const [file, setFile] = useState<File | null>(null);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+	// Buat object URL untuk preview gambar; revoke saat ganti / unmount.
+	useEffect(() => {
+		if (file && file.type.startsWith("image/")) {
+			const url = URL.createObjectURL(file);
+			setPreviewUrl(url);
+			return () => URL.revokeObjectURL(url);
+		}
+		setPreviewUrl(null);
+	}, [file]);
 
 	function reset() {
 		setCategory("");
@@ -91,6 +104,8 @@ export function UploadNotaModal() {
 		}
 	}
 
+	const amountNum = amount ? Number(amount) : null;
+
 	return (
 		<Dialog
 			open={open}
@@ -102,7 +117,7 @@ export function UploadNotaModal() {
 				<Upload className="size-4" aria-hidden />
 				Upload Nota
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-lg">
+			<DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>Upload Nota Manual</DialogTitle>
 					<DialogDescription>
@@ -112,90 +127,149 @@ export function UploadNotaModal() {
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit} className="space-y-4">
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						<div className="space-y-1.5 sm:col-span-2">
-							<label
-								htmlFor={`${formId}-cat`}
-								className="block text-[13px] font-medium text-foreground"
-							>
-								Kategori <span className="text-destructive">*</span>
-							</label>
-							<Input
-								id={`${formId}-cat`}
-								list={`${formId}-cat-list`}
-								value={category}
-								onChange={(e) => setCategory(e.target.value)}
-								placeholder="Pilih atau ketik sendiri…"
-								required
-							/>
-							<datalist id={`${formId}-cat-list`}>
-								{MANUAL_CATEGORY_PRESETS.map((c) => (
-									<option key={c} value={c} />
-								))}
-							</datalist>
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+						{/* ── Kiri: form ── */}
+						<div className="space-y-4">
+							<div className="space-y-1.5">
+								<label
+									htmlFor={`${formId}-cat`}
+									className="block text-[13px] font-medium text-foreground"
+								>
+									Kategori <span className="text-destructive">*</span>
+								</label>
+								<Input
+									id={`${formId}-cat`}
+									list={`${formId}-cat-list`}
+									value={category}
+									onChange={(e) => setCategory(e.target.value)}
+									placeholder="Pilih atau ketik sendiri…"
+									required
+								/>
+								<datalist id={`${formId}-cat-list`}>
+									{MANUAL_CATEGORY_PRESETS.map((c) => (
+										<option key={c} value={c} />
+									))}
+								</datalist>
+							</div>
+
+							<div className="grid grid-cols-2 gap-3">
+								<div className="space-y-1.5">
+									<label
+										htmlFor={`${formId}-date`}
+										className="block text-[13px] font-medium text-foreground"
+									>
+										Tanggal Nota
+									</label>
+									<DatePicker
+										id={`${formId}-date`}
+										value={notaDate}
+										onValueChange={setNotaDate}
+										placeholder="Pilih tanggal"
+									/>
+								</div>
+
+								<div className="space-y-1.5">
+									<label
+										htmlFor={`${formId}-amount`}
+										className="block text-[13px] font-medium text-foreground"
+									>
+										Nominal (opsional)
+									</label>
+									<Input
+										id={`${formId}-amount`}
+										type="number"
+										inputMode="numeric"
+										min={0}
+										value={amount}
+										onChange={(e) => setAmount(e.target.value)}
+										placeholder="Rp"
+									/>
+								</div>
+							</div>
+
+							<div className="space-y-1.5">
+								<label
+									htmlFor={`${formId}-desc`}
+									className="block text-[13px] font-medium text-foreground"
+								>
+									Keterangan <span className="text-destructive">*</span>
+								</label>
+								<Input
+									id={`${formId}-desc`}
+									value={description}
+									onChange={(e) => setDescription(e.target.value)}
+									placeholder='Contoh: "Belanja kopi & gula @Pak Slamet"'
+									maxLength={200}
+									required
+								/>
+							</div>
+
+							<div className="space-y-1.5">
+								<span className="block text-[13px] font-medium text-foreground">
+									Foto / File Nota <span className="text-destructive">*</span>
+								</span>
+								<FileDrop
+									accept={MANUAL_UPLOAD_ACCEPT}
+									maxSizeBytes={MANUAL_UPLOAD_MAX_BYTES}
+									hint="JPG / PNG / PDF · maks 8 MB (gambar otomatis dikompres)"
+									onFileChange={(f) => setFile(f)}
+								/>
+							</div>
 						</div>
 
+						{/* ── Kanan: preview ── */}
 						<div className="space-y-1.5">
-							<label
-								htmlFor={`${formId}-date`}
-								className="block text-[13px] font-medium text-foreground"
-							>
-								Tanggal Nota
-							</label>
-							<Input
-								id={`${formId}-date`}
-								type="date"
-								value={notaDate}
-								onChange={(e) => setNotaDate(e.target.value)}
-							/>
+							<span className="block text-[13px] font-medium text-foreground">
+								Preview Nota
+							</span>
+							<div className="flex min-h-[280px] flex-col overflow-hidden rounded-lg border border-border-default bg-secondary/30">
+								{previewUrl ? (
+									// biome-ignore lint/performance/noImgElement: blob preview, not a remote asset
+									<img
+										src={previewUrl}
+										alt="Preview nota"
+										className="max-h-[340px] w-full flex-1 object-contain"
+									/>
+								) : file ? (
+									<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+										<FileText
+											className="size-10 text-muted-foreground"
+											aria-hidden
+										/>
+										<p className="text-sm font-medium text-foreground">
+											{file.name}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											PDF tidak bisa di-preview di sini — akan tersimpan utuh.
+										</p>
+									</div>
+								) : (
+									<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+										<ImageIcon
+											className="size-10 text-muted-foreground/60"
+											aria-hidden
+										/>
+										<p className="text-sm text-muted-foreground">
+											Pilih file di kiri — preview & nominal muncul di sini biar
+											nggak salah upload.
+										</p>
+									</div>
+								)}
+
+								{file ? (
+									<div className="flex items-center justify-between gap-2 border-t border-border-default bg-card px-3 py-2">
+										<span className="truncate text-xs text-muted-foreground">
+											{(file.size / 1024).toFixed(0)} KB
+										</span>
+										<span className="text-sm font-medium tabular text-foreground">
+											{amountNum && amountNum > 0
+												? formatRupiah(amountNum)
+												: "Nominal —"}
+										</span>
+									</div>
+								) : null}
+							</div>
 						</div>
-
-						<div className="space-y-1.5">
-							<label
-								htmlFor={`${formId}-amount`}
-								className="block text-[13px] font-medium text-foreground"
-							>
-								Nominal (opsional)
-							</label>
-							<Input
-								id={`${formId}-amount`}
-								type="number"
-								inputMode="numeric"
-								min={0}
-								value={amount}
-								onChange={(e) => setAmount(e.target.value)}
-								placeholder="Rp"
-							/>
-						</div>
-					</div>
-
-					<div className="space-y-1.5">
-						<label
-							htmlFor={`${formId}-desc`}
-							className="block text-[13px] font-medium text-foreground"
-						>
-							Keterangan <span className="text-destructive">*</span>
-						</label>
-						<Input
-							id={`${formId}-desc`}
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							placeholder='Contoh: "Belanja kopi & gula @Pak Slamet"'
-							maxLength={200}
-							required
-						/>
-					</div>
-
-					<div className="space-y-1.5">
-						<span className="block text-[13px] font-medium text-foreground">
-							Foto / File Nota <span className="text-destructive">*</span>
-						</span>
-						<FileDrop
-							accept={MANUAL_UPLOAD_ACCEPT}
-							maxSizeBytes={MANUAL_UPLOAD_MAX_BYTES}
-							hint="JPG / PNG / PDF · maks 8 MB (gambar otomatis dikompres)"
-							onFileChange={(f) => setFile(f)}
-						/>
 					</div>
 
 					<DialogFooter>
