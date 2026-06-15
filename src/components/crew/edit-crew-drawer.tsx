@@ -8,7 +8,15 @@ import {
 	UserCheck,
 	X,
 } from "lucide-react";
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import {
+	useActionState,
+	useEffect,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/toaster";
 import {
 	type ProfileEditFormState,
 	setCrewActive,
@@ -39,6 +47,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 	>(updateCrewProfile, undefined);
 	const [activeBusy, startActiveTransition] = useTransition();
 	const formRef = useRef<HTMLFormElement>(null);
+	const confirm = useConfirm();
 
 	useEffect(() => {
 		if (state?.ok) {
@@ -55,18 +64,24 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [open]);
 
-	const toggleActive = () => {
-		if (
-			!confirm(
-				user.is_active
-					? `Nonaktifin ${user.full_name}? Mereka gak bisa login sampai diaktifin lagi.`
-					: `Aktifin ulang ${user.full_name}?`,
-			)
-		)
-			return;
+	const toggleActive = async () => {
+		const ok = await confirm(
+			user.is_active
+				? {
+						title: `Nonaktifin ${user.full_name}?`,
+						description: "Mereka gak bisa login sampai diaktifin lagi.",
+						confirmLabel: "Nonaktifin",
+						variant: "destructive",
+					}
+				: {
+						title: `Aktifin ulang ${user.full_name}?`,
+						confirmLabel: "Aktifin",
+					},
+		);
+		if (!ok) return;
 		startActiveTransition(async () => {
 			const r = await setCrewActive(user.id, !user.is_active);
-			if (r.error) alert(r.error);
+			if (r.error) toast.error(r.error);
 		});
 	};
 
@@ -258,9 +273,7 @@ function Field({
 			</span>
 			{children}
 			{hint && (
-				<span className="text-muted-foreground block text-[10px]">
-					{hint}
-				</span>
+				<span className="text-muted-foreground block text-[10px]">{hint}</span>
 			)}
 		</label>
 	);

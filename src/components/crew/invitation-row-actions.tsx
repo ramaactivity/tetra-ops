@@ -2,6 +2,8 @@
 
 import { Loader2, Trash2 } from "lucide-react";
 import { useTransition } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/toaster";
 import { deleteCrewInvitation } from "@/lib/actions/crew-invitations";
 
 export function InvitationDeleteButton({
@@ -12,17 +14,19 @@ export function InvitationDeleteButton({
 	email: string;
 }) {
 	const [pending, startTransition] = useTransition();
+	const confirm = useConfirm();
 
-	const handleClick = () => {
-		if (
-			!confirm(
-				`Cabut invitation untuk ${email}? Setelah ini dia nggak bisa auto-promote saat login.`,
-			)
-		)
-			return;
+	const handleClick = async () => {
+		const ok = await confirm({
+			title: `Cabut invitation untuk ${email}?`,
+			description: "Setelah ini dia nggak bisa auto-promote saat login.",
+			confirmLabel: "Cabut",
+			variant: "destructive",
+		});
+		if (!ok) return;
 		startTransition(async () => {
 			const r = await deleteCrewInvitation(id);
-			if (r.error) alert(r.error);
+			if (r.error) toast.error(r.error);
 		});
 	};
 

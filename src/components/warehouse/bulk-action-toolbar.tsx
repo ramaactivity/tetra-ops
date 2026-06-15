@@ -3,11 +3,9 @@
 import { Archive, EyeOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
-import {
-	archiveItemsBulk,
-	toggleItemsActiveBulk,
-} from "@/lib/actions/items";
+import { archiveItemsBulk, toggleItemsActiveBulk } from "@/lib/actions/items";
 
 /**
  * Floating bulk action toolbar — muncul fixed di bottom-center saat ada
@@ -25,14 +23,16 @@ export function BulkActionToolbar({
 }) {
 	const router = useRouter();
 	const [pending, startTransition] = useTransition();
+	const confirm = useConfirm();
 
-	function handleArchive() {
-		if (
-			!confirm(
-				`Archive ${selectedCount} item? Item bisa di-restore lewat database — UI tidak punya undo.`,
-			)
-		)
-			return;
+	async function handleArchive() {
+		const ok = await confirm({
+			title: `Arsipkan ${selectedCount} item?`,
+			description: "Item bisa di-restore lewat database — UI tidak punya undo.",
+			confirmLabel: "Arsipkan",
+			variant: "destructive",
+		});
+		if (!ok) return;
 		startTransition(async () => {
 			const ids = Array.from(selectedIds);
 			const result = await archiveItemsBulk(ids);

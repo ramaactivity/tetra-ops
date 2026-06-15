@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { ServiceWorkerRegister } from "@/components/push/sw-register";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -79,7 +80,7 @@ export default async function RootLayout({
 		>
 			<body className="flex min-h-dvh flex-col bg-background text-foreground">
 				<ServiceWorkerRegister />
-				{children}
+				<ConfirmProvider>{children}</ConfirmProvider>
 				<Toaster />
 			</body>
 		</html>

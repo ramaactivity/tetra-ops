@@ -11,6 +11,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import { archiveItem } from "@/lib/actions/items";
 import { formatRupiah } from "@/lib/format";
@@ -86,12 +87,19 @@ export function AssetDetailDrawer({
 }) {
 	const router = useRouter();
 	const [pending, startTransition] = useTransition();
+	const confirm = useConfirm();
 
 	const totalPrice = units.reduce((s, u) => s + (u.purchase_price ?? 0), 0);
 	const activeCount = units.filter((u) => u.is_active).length;
 
-	function handleArchive(id: string, sku: string) {
-		if (!confirm(`Archive unit ${sku}? Aksi tidak ada undo di UI.`)) return;
+	async function handleArchive(id: string, sku: string) {
+		const ok = await confirm({
+			title: `Arsipkan unit ${sku}?`,
+			description: "Aksi ini tidak ada undo di UI.",
+			confirmLabel: "Arsipkan",
+			variant: "destructive",
+		});
+		if (!ok) return;
 		startTransition(async () => {
 			try {
 				await archiveItem(id);
@@ -110,7 +118,9 @@ export function AssetDetailDrawer({
 					<SheetTitle className="text-lg">{modelName}</SheetTitle>
 					<SheetDescription>
 						{units.length} unit fisik · {activeCount} aktif · total nilai{" "}
-						<strong className="text-foreground">{formatRupiah(totalPrice)}</strong>
+						<strong className="text-foreground">
+							{formatRupiah(totalPrice)}
+						</strong>
 					</SheetDescription>
 				</SheetHeader>
 
@@ -179,19 +189,13 @@ export function AssetDetailDrawer({
 								</div>
 
 								<dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
-									<DrawerField
-										label="Serial #"
-										value={u.serial_number}
-										mono
-									/>
+									<DrawerField label="Serial #" value={u.serial_number} mono />
 									<DrawerField label="Kondisi" value={condition} />
 									<DrawerField label="Lokasi" value={location} />
 									<DrawerField
 										label="Harga Beli"
 										value={
-											u.purchase_price
-												? formatRupiah(u.purchase_price)
-												: null
+											u.purchase_price ? formatRupiah(u.purchase_price) : null
 										}
 										tabular
 									/>

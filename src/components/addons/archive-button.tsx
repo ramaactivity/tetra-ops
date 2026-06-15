@@ -2,19 +2,19 @@
 
 import { Archive } from "lucide-react";
 import { useTransition } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { archiveAddon } from "@/lib/actions/addons";
 
-export function ArchiveAddonButton({
-	id,
-	name,
-}: {
-	id: string;
-	name: string;
-}) {
+export function ArchiveAddonButton({ id, name }: { id: string; name: string }) {
 	const [pending, startTransition] = useTransition();
+	const confirm = useConfirm();
 
-	function handleArchive() {
-		if (!confirm(`Archive add-on "${name}"?`)) return;
+	async function handleArchive() {
+		const ok = await confirm({
+			title: `Arsipkan add-on "${name}"?`,
+			confirmLabel: "Arsipkan",
+		});
+		if (!ok) return;
 		startTransition(async () => {
 			await archiveAddon(id);
 		});

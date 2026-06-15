@@ -3,6 +3,7 @@
 import { MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -79,9 +80,15 @@ function AssignmentItem({
 	const [editing, setEditing] = useState(false);
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
+	const confirm = useConfirm();
 
-	function handleUnassign() {
-		if (!confirm(`Lepas ${row.user.full_name} dari event ini?`)) return;
+	async function handleUnassign() {
+		const ok = await confirm({
+			title: `Lepas ${row.user.full_name} dari event ini?`,
+			confirmLabel: "Lepas",
+			variant: "destructive",
+		});
+		if (!ok) return;
 		setError(null);
 		startTransition(async () => {
 			const result = await unassignCrew(projectId, row.id);

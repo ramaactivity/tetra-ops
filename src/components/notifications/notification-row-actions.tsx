@@ -2,6 +2,7 @@
 
 import { CheckCheck, Loader2, X } from "lucide-react";
 import { useTransition } from "react";
+import { toast } from "@/components/ui/toaster";
 import {
 	dismissNotification,
 	markAllNotificationsRead,
@@ -13,7 +14,7 @@ export function MarkAllReadButton({ disabled }: { disabled?: boolean }) {
 	const handle = () => {
 		startTransition(async () => {
 			const r = await markAllNotificationsRead();
-			if (r.error) alert(r.error);
+			if (r.error) toast.error(r.error);
 		});
 	};
 	return (
@@ -38,7 +39,7 @@ export function MarkReadButton({ id }: { id: string }) {
 	const handle = () => {
 		startTransition(async () => {
 			const r = await markNotificationRead(id);
-			if (r.error) alert(r.error);
+			if (r.error) toast.error(r.error);
 		});
 	};
 	return (
@@ -63,7 +64,7 @@ export function DismissButton({ id }: { id: string }) {
 	const handle = () => {
 		startTransition(async () => {
 			const r = await dismissNotification(id);
-			if (r.error) alert(r.error);
+			if (r.error) toast.error(r.error);
 		});
 	};
 	return (

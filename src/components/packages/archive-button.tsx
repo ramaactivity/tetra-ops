@@ -2,6 +2,7 @@
 
 import { Archive } from "lucide-react";
 import { useTransition } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { archivePackage } from "@/lib/actions/packages";
 
 export function ArchivePackageButton({
@@ -12,15 +13,16 @@ export function ArchivePackageButton({
 	name: string;
 }) {
 	const [pending, startTransition] = useTransition();
+	const confirm = useConfirm();
 
-	function handleArchive() {
-		if (
-			!confirm(
-				`Archive package "${name}"? Paket arsip tidak muncul di booking baru, tapi data lama tetap aman.`,
-			)
-		) {
-			return;
-		}
+	async function handleArchive() {
+		const ok = await confirm({
+			title: `Arsipkan paket "${name}"?`,
+			description:
+				"Paket arsip tidak muncul di booking baru, tapi data lama tetap aman.",
+			confirmLabel: "Arsipkan",
+		});
+		if (!ok) return;
 		startTransition(async () => {
 			await archivePackage(id);
 		});

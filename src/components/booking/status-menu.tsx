@@ -10,6 +10,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { updateEventStatus } from "@/lib/actions/events";
 import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
@@ -36,12 +37,15 @@ export function StatusMenu({
 }) {
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
+	const confirm = useConfirm();
 
-	function handleChange(next: EventStatus) {
+	async function handleChange(next: EventStatus) {
 		if (next === currentStatus) return;
-		if (!confirm(`Ubah status ke "${EVENT_STATUS_LABELS[next] ?? next}"?`)) {
-			return;
-		}
+		const ok = await confirm({
+			title: `Ubah status ke "${EVENT_STATUS_LABELS[next] ?? next}"?`,
+			confirmLabel: "Ubah",
+		});
+		if (!ok) return;
 		setError(null);
 		startTransition(async () => {
 			try {

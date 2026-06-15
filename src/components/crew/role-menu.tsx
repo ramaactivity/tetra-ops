@@ -11,6 +11,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { updateUserRole } from "@/lib/actions/crew";
 
 type Role = "super_admin" | "owner" | "crew" | "pending_approval";
@@ -41,14 +42,16 @@ export function CrewRoleMenu({
 }) {
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
+	const confirm = useConfirm();
 
-	function handleChange(
+	async function handleChange(
 		role: Role,
 		tier: "senior" | "junior" | null,
 		label: string,
 	) {
 		if (role === currentRole && tier === currentTier) return;
-		if (!confirm(`${label} untuk ${userName}?`)) return;
+		const ok = await confirm({ title: `${label} untuk ${userName}?` });
+		if (!ok) return;
 
 		setError(null);
 		startTransition(async () => {
@@ -58,9 +61,7 @@ export function CrewRoleMenu({
 	}
 
 	if (disabled) {
-		return (
-			<span className="text-muted-foreground text-xs">— (akun lu)</span>
-		);
+		return <span className="text-muted-foreground text-xs">— (akun lu)</span>;
 	}
 
 	return (
@@ -92,9 +93,7 @@ export function CrewRoleMenu({
 							>
 								{opt.label}
 								{isCurrent && (
-									<span className="text-muted-foreground ml-auto">
-										current
-									</span>
+									<span className="text-muted-foreground ml-auto">current</span>
 								)}
 							</DropdownMenuItem>
 						);

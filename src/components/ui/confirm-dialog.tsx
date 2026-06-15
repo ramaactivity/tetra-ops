@@ -1,6 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useMemo,
+	useState,
+} from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -105,4 +111,74 @@ export function ConfirmDialog({
 			</AlertDialogContent>
 		</AlertDialog>
 	);
+}
+
+/* ───────────────────────── Imperative API ─────────────────────────
+ * Promise-based confirm — a custom replacement for window.confirm().
+ *   const confirm = useConfirm();
+ *   if (!(await confirm({ title: "Lepas crew?", variant: "destructive" }))) return;
+ * Requires <ConfirmProvider> at the app root (mounted in app/layout.tsx).
+ */
+
+export type ConfirmOptions = {
+	title: string;
+	description?: string;
+	confirmLabel?: string;
+	cancelLabel?: string;
+	variant?: "default" | "destructive";
+};
+
+type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
+
+const ConfirmContext = createContext<ConfirmFn | null>(null);
+
+export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+	const [state, setState] = useState<{
+		opts: ConfirmOptions;
+		resolve: (value: boolean) => void;
+	} | null>(null);
+
+	const confirm = useCallback<ConfirmFn>(
+		(opts) =>
+			new Promise<boolean>((resolve) => {
+				setState({ opts, resolve });
+			}),
+		[],
+	);
+
+	const value = useMemo(() => confirm, [confirm]);
+
+	return (
+		<ConfirmContext.Provider value={value}>
+			{children}
+			<ConfirmDialog
+				open={state !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						// Dismiss (Esc / backdrop / Cancel) resolves false.
+						state?.resolve(false);
+						setState(null);
+					}
+				}}
+				title={state?.opts.title ?? ""}
+				description={state?.opts.description}
+				confirmLabel={state?.opts.confirmLabel}
+				cancelLabel={state?.opts.cancelLabel}
+				variant={state?.opts.variant}
+				onConfirm={() => {
+					state?.resolve(true);
+					setState(null);
+				}}
+			/>
+		</ConfirmContext.Provider>
+	);
+}
+
+/** Returns an async confirm() — resolves true on confirm, false on cancel. */
+export function useConfirm(): ConfirmFn {
+	const ctx = useContext(ConfirmContext);
+	if (!ctx) {
+		throw new Error("useConfirm must be used within <ConfirmProvider>");
+	}
+	return ctx;
 }
