@@ -721,7 +721,9 @@ export async function submitRekap(
 		if (row) {
 			// Re-submit owner: reverse commit lama dulu biar stok tidak dobel.
 			if (row.stock_committed_at) {
-				const rev = await reverseRekapStock(supabase, eventId, me.profile.id);
+				const rev = await reverseRekapStock(supabase, eventId, me.profile.id, {
+					rekapId: row.id,
+				});
 				if (!rev.ok) {
 					return {
 						errors: { _form: [rev.error] },
@@ -1261,6 +1263,7 @@ async function reverseRekapStock(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	eventId: string,
 	actorId: string,
+	opts: { rekapId: string; reject?: boolean; reviewNotes?: string | null },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
 	const { data: moves } = await supabase
 		.from("stock_movements")
@@ -1282,28 +1285,33 @@ async function reverseRekapStock(
 		cur.qty += sign * (Number(m.quantity) || 0);
 		net.set(m.item_id, cur);
 	}
+	const label = opts.reject
+		? "Reversal: rekap rejected"
+		: "Reversal: owner re-submit rekap";
 	const reversals = [];
 	for (const [item_id, v] of net) {
 		if (v.qty > 0) {
 			reversals.push({
 				ref_id: buildRefId("in"),
 				item_id,
-				direction: "in" as const,
 				quantity: v.qty,
 				unit_cost: v.cost,
-				source: "rekap_consumption",
-				source_id: eventId,
-				source_description: "Reversal: owner re-submit rekap",
-				notes: "Auto-reversal sebelum re-commit (owner submit)",
-				performed_by: actorId,
+				source_description: label,
+				notes: label,
 			});
 		}
 	}
-	if (reversals.length > 0) {
-		const { error } = await supabase.from("stock_movements").insert(reversals);
-		if (error)
-			return { ok: false, error: `Gagal reverse stok: ${error.message}` };
-	}
+	// Atomic: insert reversals + clear the commit (+ mark rejected) in one tx.
+	// Net-based above → re-running after success inserts nothing (idempotent).
+	const { error } = await supabase.rpc("reverse_rekap_stock", {
+		p_rekap_id: opts.rekapId,
+		p_event_id: eventId,
+		p_actor: actorId,
+		p_reversals: reversals,
+		p_reject: opts.reject ?? false,
+		p_review_notes: opts.reviewNotes ?? null,
+	});
+	if (error) return { ok: false, error: `Gagal reverse stok: ${error.message}` };
 	return { ok: true };
 }
 
@@ -1440,52 +1448,15 @@ export async function reviewRekap(
 		);
 		if (!commit.ok) return { error: commit.error };
 	} else if (!willApprove && wasApproved && hadStockCommitted) {
-		// Reject after prior approval → reverse the original out-movements, then
-		// clear the commit + mark rejected.
-		const { data: priorMovements } = await supabase
-			.from("stock_movements")
-			.select("id, item_id, quantity, unit_cost, source_description")
-			.eq("source", "rekap_consumption")
-			.eq("source_id", existing.event_id)
-			.eq("direction", "out");
-
-		if (priorMovements && priorMovements.length > 0) {
-			const reversals = priorMovements.map((m) => ({
-				ref_id: buildRefId("in"),
-				item_id: m.item_id,
-				direction: "in" as const,
-				quantity: m.quantity,
-				unit_cost: m.unit_cost,
-				source: "rekap_consumption",
-				source_id: existing.event_id,
-				source_description: `Reversal: rekap rejected (${m.source_description ?? ""})`,
-				notes: "Auto-reversal: rekap rejected after prior approval",
-				performed_by: me.profile.id,
-			}));
-			const { error: revErr } = await supabase
-				.from("stock_movements")
-				.insert(reversals);
-			if (revErr) {
-				return {
-					error: `Gagal create reversal movements: ${revErr.message}`,
-				};
-			}
-		}
-		const { error } = await supabase
-			.from("crew_rekap")
-			.update({
-				is_approved: false,
-				reviewed_by: me.profile.id,
-				reviewed_at: new Date().toISOString(),
-				review_notes: reviewNotes,
-				status: "rejected",
-				stock_committed_at: null,
-				stock_movement_batch_id: null,
-				hpp_snapshot: null,
-				hpp_snapshot_total: null,
-			})
-			.eq("id", rekapId);
-		if (error) return { error: error.message };
+		// Reject after prior approval → reverse stock + clear commit + mark
+		// rejected, ALL in one transaction (RPC). Net-based + idempotent.
+		const rev = await reverseRekapStock(
+			supabase,
+			existing.event_id,
+			me.profile.id,
+			{ rekapId, reject: true, reviewNotes },
+		);
+		if (!rev.ok) return { error: rev.error };
 	} else {
 		// No stock change (re-affirm an already-committed approval, or reject a
 		// never-approved rekap). Sync review fields + status only.
