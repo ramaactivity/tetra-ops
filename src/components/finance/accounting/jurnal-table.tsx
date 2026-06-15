@@ -3,9 +3,9 @@
 import { Calendar, Check, ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Combobox } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { ENTRY_TYPE_LABEL, SOURCE_LABEL } from "@/lib/finance/accounting";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -152,7 +152,7 @@ export function JurnalTable({
 							</button>
 						)}
 					</div>
-					<div className="inline-flex items-center gap-0.5 rounded-md border border-border-default bg-secondary p-0.5">
+					<div className="inline-flex h-8 items-center gap-0.5 rounded-md border border-border-default bg-secondary p-0.5">
 						{(
 							[
 								{ key: "all", label: "Semua" },
@@ -168,7 +168,7 @@ export function JurnalTable({
 									onClick={() => setStatusFilter(o.key)}
 									aria-pressed={active}
 									className={cn(
-										"rounded px-2.5 py-1 text-[12px] font-medium transition-colors",
+										"inline-flex h-7 items-center rounded px-2.5 text-[12px] font-medium transition-colors",
 										active
 											? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
 											: "text-muted-foreground hover:text-foreground",
@@ -180,12 +180,12 @@ export function JurnalTable({
 						})}
 					</div>
 					<div className="w-44">
-						<Combobox
-							id="source-filter"
+						<NativeSelect
 							value={sourceFilter}
 							onValueChange={(v) => setSourceFilter(v ?? "all")}
 							options={sourceOptions}
-							allowFreeText={false}
+							aria-label="Filter sumber"
+							triggerClassName="w-full"
 						/>
 					</div>
 				</div>

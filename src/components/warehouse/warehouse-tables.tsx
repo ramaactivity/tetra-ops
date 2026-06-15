@@ -2,6 +2,7 @@
 
 import {
 	ArrowDownToLine,
+	ArrowDownUp,
 	ArrowUpFromLine,
 	Calendar,
 	Equal,
@@ -16,9 +17,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ArchiveItemButton } from "@/components/items/archive-button";
 import { Badge } from "@/components/ui/badge";
-import { Combobox } from "@/components/ui/combobox";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
@@ -711,7 +712,7 @@ export function ConsumablesTable({
 						<PembelianDialog
 							trigger={
 								<span
-									className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 text-[12px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
+									className="press-down inline-flex h-8 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-[12.5px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
 									title={`Buka Catat Pembelian dengan ${restockKritisIds.length} item kritis pre-loaded`}
 								>
 									<ShoppingCart className="size-3.5" />
@@ -733,17 +734,20 @@ export function ConsumablesTable({
 						onChange={setFilter}
 						options={filterOptions}
 					/>
-					<div className="w-44">
-						<Combobox
-							id="consumable-sort"
+					<div className="relative w-44">
+						<ArrowDownUp
+							className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+							aria-hidden
+						/>
+						<NativeSelect
 							value={sort}
 							onValueChange={(v) => setSort((v as ConsumableSort) ?? "name")}
 							options={CONSUMABLE_SORT_OPTIONS.map((o) => ({
 								value: o.value,
 								label: o.label,
 							}))}
-							allowFreeText={false}
-							size="sm"
+							aria-label="Urutkan item"
+							triggerClassName="w-full pl-7"
 						/>
 					</div>
 				</div>
@@ -1577,13 +1581,12 @@ export function MovementsLog({
 						}))}
 					/>
 					<div className="w-40">
-						<Combobox
-							id="movement-source"
+						<NativeSelect
 							value={sourceFilter}
 							onValueChange={(v) => setSourceFilter(v ?? "all")}
 							options={sourceOptions}
-							allowFreeText={false}
-							size="sm"
+							aria-label="Filter sumber"
+							triggerClassName="w-full"
 						/>
 					</div>
 				</div>

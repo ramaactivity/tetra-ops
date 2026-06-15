@@ -1,9 +1,9 @@
 "use client";
 
-import { ClipboardList } from "lucide-react";
+import { ArrowDownUp, ClipboardList } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Combobox } from "@/components/ui/combobox";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { StockTakeLineRow } from "@/components/warehouse/stock-take-line-row";
 import type { Bundle } from "@/lib/inventory/unit-conversion";
 
@@ -164,9 +164,12 @@ export function StockOpnameTable({
 							);
 						})}
 					</div>
-					<div className="w-32">
-						<Combobox
-							id="sort"
+					<div className="relative w-36">
+						<ArrowDownUp
+							className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+							aria-hidden
+						/>
+						<NativeSelect
 							value={sort}
 							onValueChange={(v) => setSort((v as SortKey) ?? "category")}
 							options={[
@@ -174,7 +177,8 @@ export function StockOpnameTable({
 								{ value: "variance", label: "Selisih ↓" },
 								{ value: "sku", label: "SKU" },
 							]}
-							allowFreeText={false}
+							aria-label="Urutkan"
+							triggerClassName="w-full pl-7"
 						/>
 					</div>
 				</div>

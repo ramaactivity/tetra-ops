@@ -772,7 +772,18 @@ The locked spec (every control on the row snaps to it):
 **Chips & segmented tracks** also snap to `h-8`. Separate-pill chips:
 `inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px]
 font-medium`. Segmented track: `inline-flex h-8 items-center gap-0.5 rounded-md
-border p-0.5` with `h-7` inner buttons.
+border p-0.5` with `h-7` inner buttons. **Action pills** on the row (e.g.
+"Belanja Kritis") follow the same chip spec — `h-8 rounded-md px-3 text-[12.5px]`
+— even when tinted (amber/etc). No `h-9` pills.
+
+**Toolbar dropdowns use `<NativeSelect>`, never `<Combobox>`.** A sort or
+source/category filter in a filter row is a `<NativeSelect>` (h-8, rounded-md,
+bg-card — same chrome as the row). For a **sort**, wrap it like Operations: a
+`relative` box + an absolutely-positioned `ArrowDownUp` icon
+(`left-2.5 size-3.5`) + `triggerClassName="w-full pl-7"`.
+`<Combobox>` is **h-9/h-11 + `rounded-xl`** by design (its `size="sm"`/`default`)
+— that's intentional for *searchable form fields inside dialogs/forms*, and it
+breaks the filter-row rhythm. Keep Combobox out of toolbars.
 
 ### Cards
 
