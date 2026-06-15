@@ -235,7 +235,7 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 									<button
 										type="submit"
 										disabled={pending}
-										className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
+										className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
 									>
 										{pending ? (
 											<Loader2 className="h-3.5 w-3.5 animate-spin" />

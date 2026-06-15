@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { TabNav } from "@/components/ui/tab-nav";
 
 /**
  * Warehouse navigation TABS = VIEWS (filtering data master).
  * Beda dari TOMBOL ATAS yg untuk ACTIONS/WORKFLOWS (Stock Opname, Pembelian, dll).
  *
- * Style: pill-style segmented (tonal depth, no horizontal divider line).
- * Active = bg-surface-3 + rounded-md, inactive = muted text + hover.
+ * Sub-nav utama section ini → underline tabs (lihat <TabNav>). Diletakkan
+ * langsung di bawah judul, di ATAS KPI cards, karena tab mengganti SELURUH
+ * isi section (cards + tabel) — jadi tab harus jadi anchor paling atas.
  */
 const TABS: ReadonlyArray<{ value: string; label: string }> = [
 	{ value: "consumables", label: "Persediaan" },
@@ -31,27 +31,13 @@ export function WarehouseTabs({ current }: { current: string }) {
 	}
 
 	return (
-		<nav
-			className="inline-flex flex-wrap items-center gap-1 rounded-lg"
+		<TabNav
 			aria-label="Warehouse views"
-		>
-			{TABS.map((tab) => {
-				const isActive = current === tab.value;
-				return (
-					<Link
-						key={tab.value}
-						href={buildHref(tab.value)}
-						className={cn(
-							"rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-200",
-							isActive
-								? "bg-surface-3 text-foreground"
-								: "text-muted-foreground/70 hover:bg-surface-3/60 hover:text-foreground",
-						)}
-					>
-						{tab.label}
-					</Link>
-				);
-			})}
-		</nav>
+			items={TABS.map((tab) => ({
+				label: tab.label,
+				href: buildHref(tab.value),
+				active: current === tab.value,
+			}))}
+		/>
 	);
 }

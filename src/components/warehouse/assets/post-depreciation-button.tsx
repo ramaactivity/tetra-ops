@@ -135,7 +135,7 @@ export function PostDepreciationButton() {
 							type="button"
 							onClick={handlePost}
 							disabled={pending}
-							className="bg-primary text-primary-foreground hover:bg-primary/90 press-down inline-flex h-9 items-center rounded-md px-3 text-[12px] font-medium disabled:opacity-60"
+							className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 press-down inline-flex h-9 items-center rounded-md px-3 text-[12px] font-medium disabled:opacity-60"
 						>
 							{pending ? "Posting…" : `Post ${formatYm(period)}`}
 						</button>

@@ -448,6 +448,8 @@ export default async function WarehousePage({
 				}
 			/>
 
+			<WarehouseTabs current={tab} />
+
 			<KpiRow>
 				{tab === "bundles" ? (
 					<>
@@ -529,8 +531,6 @@ export default async function WarehousePage({
 			</KpiRow>
 
 			<div className="space-y-4">
-				<WarehouseTabs current={tab} />
-
 				{tab === "consumables" && (
 					<ConsumablesTable
 						rows={consumables}

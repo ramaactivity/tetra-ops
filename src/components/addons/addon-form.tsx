@@ -180,7 +180,7 @@ export function AddonForm({
 				<button
 					type="submit"
 					disabled={pending}
-					className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 rounded-md px-4 text-sm font-medium disabled:opacity-60"
+					className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 h-10 rounded-md px-4 text-sm font-medium disabled:opacity-60"
 				>
 					{pending ? "Menyimpan…" : submitLabel}
 				</button>

@@ -28,10 +28,10 @@ const buttonVariants = cva(
 	{
 		variants: {
 			variant: {
-				/* INK PRIMARY — the single CTA color. Used everywhere a primary
+				/* EMERALD PRIMARY — the single CTA color. Used everywhere a primary
 				   action exists (Save, Submit, Confirm, New booking, …). */
 				default:
-					"rounded-md bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95",
+					"rounded-md bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
 				/* OUTLINE — white card surface with hairline border. Pairs with
 				   default for secondary actions. */
 				outline:
@@ -52,7 +52,7 @@ const buttonVariants = cva(
 				   Buku, Submit Rekap). Single ink CTA — NO second hue, NO pill,
 				   NO glow. For destructive commits use `destructive`. */
 				decisive:
-					"rounded-md bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95",
+					"rounded-md bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
 				/* MARKETING — 100px pill, hero scale. ONLY for landing page. */
 				marketing:
 					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90",

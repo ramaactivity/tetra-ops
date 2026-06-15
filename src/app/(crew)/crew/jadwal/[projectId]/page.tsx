@@ -563,7 +563,7 @@ export default async function CrewEventDetailPage({
 							href={footageFolderUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="bg-primary text-primary-foreground inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-primary/90"
+							className="bg-emerald-600 dark:bg-emerald-500 text-white inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600"
 						>
 							<FolderOpen className="h-4 w-4" />
 							Upload footage di Google Drive

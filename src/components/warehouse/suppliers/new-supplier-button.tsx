@@ -22,7 +22,7 @@ export function NewSupplierButton() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-fluid-caption font-medium text-primary-foreground hover:bg-primary/90"
+				className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-3 text-fluid-caption font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600"
 			>
 				<Plus className="size-4" />
 				Tambah Supplier

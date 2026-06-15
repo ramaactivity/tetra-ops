@@ -1,17 +1,31 @@
 ---
 version: beta
 name: Tetra-Ops-design-analysis
-description: "An internal operations system for a photobooth business in Indonesia — built on Vercel's developer-platform DNA. The brand operates with a single chromatic accent: **Ink #171717** for every primary CTA. Surfaces follow Vercel's four-step ladder — pure white #FFFFFF cards on near-white #FAFAFA canvas-soft page background, deeper #F5F5F5 for inset regions, hairline #EBEBEB for borders. Type is Inter at weights 400/500/600 with `ss01`+`ss02` enabled to render the geometric alternates that approximate Vercel's custom Geist face; JetBrains Mono carries technical labels (caption-mono uppercase eyebrows, project IDs, timestamps). Tabular figures (`tnum`+slashed-zero) are mandatory anywhere money or quantities appear (Stripe DNA). Buttons follow Vercel's two-scale system: 6px-radius compact chrome (h-8 in-app default) for every operational button, 100px-radius pill ONLY for marketing/landing CTAs. Stacked shadows (multiple small offsets + inset hairline) replace single heavy drops. Hover state changes background color only — no translate, no shadow shift."
+description: "An internal operations system for a photobooth business in Indonesia — built on Vercel's developer-platform DNA. The brand operates with a single CTA color: **Emerald** (emerald-600 light / emerald-500 dark, white label) for every primary button, while **Ink #171717** carries text, foreground, focus rings, and deep surface bands (it is NOT the button fill). Surfaces follow Vercel's four-step ladder — pure white #FFFFFF cards on near-white #FAFAFA canvas-soft page background, deeper #F5F5F5 for inset regions, hairline #EBEBEB for borders. Type is Inter at weights 400/500/600 with `ss01`+`ss02` enabled to render the geometric alternates that approximate Vercel's custom Geist face; JetBrains Mono carries technical labels (caption-mono uppercase eyebrows, project IDs, timestamps). Tabular figures (`tnum`+slashed-zero) are mandatory anywhere money or quantities appear (Stripe DNA). Buttons follow Vercel's two-scale system: 6px-radius compact chrome (h-8 in-app default) for every operational button, 100px-radius pill ONLY for marketing/landing CTAs. Stacked shadows (multiple small offsets + inset hairline) replace single heavy drops. Hover state changes background color only — no translate, no shadow shift."
 
 colors:
-  # === Brand — Ink (Vercel #171717 near-black primary) ===
-  # ONE CTA color across the whole product. No iris, no crimson, no
-  # second hue. Every primary button is this ink.
+  # === Brand — Ink (Vercel #171717 near-black) ===
+  # Ink is the TEXT / FOREGROUND / surface-band token (and the focus ring).
+  # It is NO LONGER the button fill — see `cta` below. `--primary` keeps the
+  # ink value (and inverts to white-ink in dark) because text-primary /
+  # bg-primary tints / dark hero bands all depend on it. Do not repaint it.
   primary: "#171717"
   primary-hover: "#262626"
   primary-pressed: "#0a0a0a"
   primary-soft: "#f5f5f5"
   on-primary: "#ffffff"
+
+  # === CTA — Emerald (the single primary-button color) ===
+  # ONE CTA color across the whole product. Every primary/decisive button
+  # fills with emerald. No iris, no crimson, no ink-fill buttons. Tailwind
+  # emerald-600 in light, emerald-500 in dark; white label in both. Hover
+  # darkens one step (emerald-700 / emerald-600). This is a FILL-only role —
+  # never use it for body text, borders, or large surface areas.
+  cta: "#059669"                   # emerald-600 — light-mode button fill
+  cta-hover: "#047857"             # emerald-700 — light hover / active
+  cta-dark: "#10b981"              # emerald-500 — dark-mode button fill
+  cta-dark-hover: "#059669"        # emerald-600 — dark hover
+  on-cta: "#ffffff"
 
   # === Link / Info — Vercel blue ===
   # Reserved for inline links + neutral informational signals. Never used
@@ -249,9 +263,10 @@ elevation:
 components:
   # === Buttons — Vercel two-scale system ===
   button-primary:
-    # The single ink-fill CTA. Used everywhere a primary action exists.
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
+    # The single emerald-fill CTA. Used everywhere a primary action exists.
+    backgroundColor: "{colors.cta}"          # emerald-600 (dark: cta-dark)
+    textColor: "{colors.on-cta}"
+    hoverColor: "{colors.cta-hover}"
     typography: "{typography.button-md}"
     rounded: "{rounded.sm}"        # 6px — IN-APP scale
     padding: "0px 12px"
@@ -274,10 +289,10 @@ components:
     height: "32px"
   button-decisive:
     # Financial commit actions (Tutup Buku, Submit Rekap, Approve). Same
-    # ink fill as button-primary but lg size for bigger tap target.
+    # emerald fill as button-primary but lg size for bigger tap target.
     # NO PILL, NO GLOW — Vercel discipline.
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
+    backgroundColor: "{colors.cta}"
+    textColor: "{colors.on-cta}"
     typography: "{typography.button-lg}"
     rounded: "{rounded.sm}"
     padding: "0px 16px"
@@ -552,9 +567,10 @@ Three DNA borrowings carry the look:
 ## Colors
 
 ### Brand
-- **Ink** (`{colors.primary}` `#171717`): the single CTA color. Every primary button fills with this ink. Every focus ring uses this ink. No second hue.
-- **Ink Hover** (`#262626`), **Ink Pressed** (`#0a0a0a`): hover / active states of `button-primary`.
-- **On-Ink** (`#ffffff`): every text label on ink-filled surfaces.
+- **Emerald CTA** (`{colors.cta}` emerald-600, dark `{colors.cta-dark}` emerald-500): the single primary-button color. Every primary/decisive button fills with emerald, white label. No iris, no crimson, no ink-fill buttons.
+- **Emerald Hover** (`{colors.cta-hover}` emerald-700 / dark emerald-600): hover + active of `button-primary` / `button-decisive`.
+- **Ink** (`{colors.primary}` `#171717`): text, foreground, focus rings, and deep surface bands — NOT the button fill. Inverts to white-ink in dark. `text-primary` / `bg-primary/5` tints / dark hero bands depend on it; never repaint the token.
+- **On-CTA / On-Ink** (`#ffffff`): text labels on emerald buttons and ink-filled bands.
 
 ### Link / Info (Vercel blue)
 - **Link** (`{colors.link}` `#0070f3`): inline body-text links and the `info` semantic. Never used as a button fill.
@@ -716,8 +732,8 @@ Vercel ships two distinct radius scales:
 
 ### Buttons
 
-**`button-primary`** — the single ink-fill CTA.
-- Background `{colors.primary}`, text `{colors.on-primary}`, label `{typography.button-md}` (13px / 500), 32px tall, 6px radius. Used everywhere a primary action exists — Save, Submit, Confirm, New booking, Add item.
+**`button-primary`** — the single emerald-fill CTA.
+- Background `{colors.cta}` (emerald-600; dark emerald-500), text white, hover `{colors.cta-hover}` (emerald-700; dark emerald-600), label `{typography.button-md}` (13px / 500), 32px tall, 6px radius. Used everywhere a primary action exists — Save, Submit, Confirm, New booking, Add item. The `<Button>` `default`/`decisive` variants already encode this; raw CTA buttons must match (`bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600`).
 
 **`button-secondary` / outline** — white card surface with hairline border.
 - Background `{colors.light-surface-1}`, text `{colors.light-ink}`, hairline border, same height + radius as primary. Pairs with primary for secondary actions.
@@ -824,7 +840,32 @@ All pill-shaped (rounded-full), 20px tall, 8px horizontal padding, 11px caption 
 
 **`side-rail`** — 224px wide left rail. White card surface, hairline right border. Each row: 13px body-sm-strong, 6px radius, hover paints to canvas-soft-2. Active row uses canvas-soft-2 fill (no left-edge accent bar — Vercel pattern).
 
-**`view-switcher`** — segmented control. Outer shell 32px tall on canvas-soft-2 (inset), inner active tab paints to pure white with level-2 shadow lift. Inactive tabs sit as body-tone ghost.
+**Two tab patterns — pick by ROLE, don't invent a third:**
+
+**`view-switcher`** (segmented, in the header) — `<OperationsViewSwitcher>`.
+Segmented control: 32px shell on canvas-soft-2 (inset), inner active tab paints
+to pure white with level-2 shadow lift, inactive = ghost. Use for switching
+**major views / routes** from the page header (List / Calendar / Board / Team).
+Compact, 2–4 options, lives in `SectionHeader actions`.
+
+**`TabNav`** (underline sub-nav, anchors a section) — `@/components/ui/tab-nav`.
+Underline tabs on a full-width hairline baseline: active = ink text + a 2px ink
+underline (slightly inset + rounded) overlapping the baseline; inactive = muted
+with a faint hover underline. 13px (matches chrome). Pure text + hairline, no
+fills — it blends and reads as the title bar of the section below. Use for
+switching **data views within one page** (Warehouse: Persediaan / Aset Tetap /
+…; Akuntansi: Bagan Akun / Jurnal). Presentational — the page computes
+hrefs + active state and passes `items` in; optional muted `count` per tab.
+
+> ❌ Don't use a `bg-surface-3` pill row for section tabs (the old WarehouseTabs)
+> — it floats, reads muddy, and doesn't blend. Migrate to `TabNav`.
+
+**Placement rule.** Put `TabNav` where it actually governs:
+- If the tab switches the WHOLE section (KPI cards + table both change per tab,
+  e.g. Warehouse), place it **directly under the page header, ABOVE the cards** —
+  so it's the anchor for everything below, not floating between cards and filter.
+- If a summary above is GLOBAL across all tabs (e.g. Akuntansi's Posisi Keuangan),
+  the tab sits **below the summary**, anchoring just the detail view it controls.
 
 **`bottom-tab-bar`** — mobile crew PWA. 64px tall with safe-area-inset-bottom. Active tab uses ink color, inactive uses muted.
 
@@ -894,7 +935,7 @@ Use semantic tints (success / warning / danger). 10-12% tinted bg + saturated te
 ### Do
 
 - **Default to white cards on canvas-soft bg.** Vercel/Stripe pattern — the cool off-white canvas is what makes white cards stand out.
-- **Use INK #171717 as the single CTA color.** Every primary button is this ink. Period.
+- **Use EMERALD as the single CTA color.** Every primary/decisive button fills emerald (emerald-600 light / emerald-500 dark, white label). Ink #171717 is text/foreground/bands, never the button fill.
 - **Use 6px radius for everything in-app.** Buttons, inputs, dropdowns, badges (when not pill-shaped), sidebar rows. Marketing pill 100px is reserved for the landing CTA only.
 - **Use tabular figures for ALL money + quantity values.** Always `.tabular` utility — `tnum` + slashed-zero.
 - **Use Inter with `ss01`+`ss02` features.** Globally on body. That's what makes Inter look like Geist.
@@ -936,7 +977,7 @@ Use semantic tints (success / warning / danger). 10-12% tinted bg + saturated te
 
 ## Iteration Guide
 
-1. **Single button color** — every primary CTA uses ink. Don't reach for iris/crimson/teal.
+1. **Single button color** — every primary CTA fills emerald (emerald-600 light / emerald-500 dark, white label). Ink is for text/foreground/bands, not buttons. Don't reach for iris/crimson/teal.
 2. **6px radius default** — buttons, inputs, dropdowns. 8px for cards. 100px pill only for landing CTA.
 3. **Caption-mono for every eyebrow** — use `.eyebrow` utility for section labels, table headers, KPI captions.
 4. **Tabular for every money / quantity column** — `.tabular` utility (already wired).

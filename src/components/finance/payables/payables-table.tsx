@@ -247,7 +247,7 @@ export function PayablesTable({
 											<button
 												type="button"
 												onClick={() => setPayTarget(p)}
-												className="press-down inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90"
+												className="press-down inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 dark:bg-emerald-500 px-2.5 text-[12px] font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600"
 											>
 												<Wallet className="size-3.5" />
 												Bayar

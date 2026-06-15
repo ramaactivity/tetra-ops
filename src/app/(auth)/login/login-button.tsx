@@ -53,7 +53,7 @@ export function LoginButton({
 				onClick={signInWithGoogle}
 				disabled={loading}
 				aria-busy={loading}
-				className="press-down relative flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-primary text-fluid-body font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-progress disabled:opacity-90"
+				className="press-down relative flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-fluid-body font-medium text-white transition-colors hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:cursor-progress disabled:opacity-90"
 			>
 				{loading ? (
 					<>

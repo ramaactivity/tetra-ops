@@ -163,7 +163,7 @@ function AssignmentItem({
 				<button
 					type="submit"
 					disabled={pending}
-					className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-md px-3 text-xs font-medium disabled:opacity-60"
+					className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 h-8 rounded-md px-3 text-xs font-medium disabled:opacity-60"
 				>
 					{pending ? "Saving…" : "Save"}
 				</button>

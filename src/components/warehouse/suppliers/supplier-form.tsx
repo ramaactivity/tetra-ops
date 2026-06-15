@@ -221,7 +221,7 @@ export function SupplierForm({
 				<button
 					type="submit"
 					disabled={pending}
-					className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+					className="inline-flex h-10 items-center rounded-md bg-emerald-600 dark:bg-emerald-500 px-4 text-sm font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-60"
 				>
 					{pending
 						? "Menyimpan…"
