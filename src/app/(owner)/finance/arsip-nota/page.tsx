@@ -186,37 +186,6 @@ export default async function ArsipNotaPage({
 				/>
 			</dl>
 
-			{/* Tab switcher (segmented) */}
-			<div className="flex w-full max-w-sm items-center gap-1 rounded-lg border border-border-default bg-secondary/40 p-1">
-				{tabs.map((t) => {
-					const active = tab === t.key;
-					return (
-						<Link
-							key={t.key}
-							href={`${BASE_PATH}?tab=${t.key}`}
-							className={cn(
-								"flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-								active
-									? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
-									: "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							{t.label}
-							<span
-								className={cn(
-									"rounded-full px-1.5 text-xs tabular",
-									active
-										? "bg-secondary text-foreground/70"
-										: "text-muted-foreground/70",
-								)}
-							>
-								{t.count}
-							</span>
-						</Link>
-					);
-				})}
-			</div>
-
 			<NotaFilterBar
 				tab={tab}
 				basePath={BASE_PATH}
@@ -232,6 +201,37 @@ export default async function ArsipNotaPage({
 					tab === "sistem"
 						? "Cari klien / project / keterangan…"
 						: "Cari keterangan…"
+				}
+				rightSlot={
+					<div className="flex items-center gap-0.5 rounded-lg border border-border-default bg-secondary/40 p-0.5">
+						{tabs.map((t) => {
+							const active = tab === t.key;
+							return (
+								<Link
+									key={t.key}
+									href={`${BASE_PATH}?tab=${t.key}`}
+									className={cn(
+										"inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors",
+										active
+											? "bg-card text-foreground shadow-[var(--shadow-level-1)]"
+											: "text-muted-foreground hover:text-foreground",
+									)}
+								>
+									{t.label}
+									<span
+										className={cn(
+											"tabular text-xs",
+											active
+												? "text-foreground/55"
+												: "text-muted-foreground/60",
+										)}
+									>
+										{t.count}
+									</span>
+								</Link>
+							);
+						})}
+					</div>
 				}
 			/>
 
