@@ -12,8 +12,10 @@ import {
 	isSameDay,
 	isSameMonth,
 	parse,
+	startOfDay,
 	startOfMonth,
 	startOfWeek,
+	subDays,
 } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
@@ -90,6 +92,9 @@ export function DatePicker({
 		const end = endOfWeek(endOfMonth(viewMonth), { weekStartsOn: 1 });
 		return eachDayOfInterval({ start, end });
 	}, [viewMonth]);
+
+	const today = startOfDay(new Date());
+	const yesterday = subDays(today, 1);
 
 	return (
 		<PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -188,17 +193,31 @@ export function DatePicker({
 								);
 							})}
 						</div>
-						<div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={(e) => {
-									e.preventDefault();
-									commit(new Date());
-								}}
-							>
-								Hari ini
-							</Button>
+						<div className="mt-3 flex items-center justify-between gap-1 border-t border-border-subtle pt-2">
+							<div className="flex items-center gap-1">
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={outOfRange(today, minDate, maxDate)}
+									onClick={(e) => {
+										e.preventDefault();
+										commit(today);
+									}}
+								>
+									Hari ini
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={outOfRange(yesterday, minDate, maxDate)}
+									onClick={(e) => {
+										e.preventDefault();
+										commit(yesterday);
+									}}
+								>
+									Kemarin
+								</Button>
+							</div>
 							{current ? (
 								<Button
 									variant="ghost"
@@ -225,4 +244,15 @@ function parseIsoDate(iso: string): Date | undefined {
 	if (!iso) return undefined;
 	const parsed = parse(iso, ISO_FORMAT, new Date());
 	return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+/** True kalau `day` di luar batas min/max (untuk disable quick-button). */
+function outOfRange(
+	day: Date,
+	minDate: Date | undefined,
+	maxDate: Date | undefined,
+): boolean {
+	return Boolean(
+		(minDate && isBefore(day, minDate)) || (maxDate && isAfter(day, maxDate)),
+	);
 }
