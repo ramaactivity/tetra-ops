@@ -733,27 +733,15 @@ export async function submitRekap(
 				supabase,
 				row as RekapStockSnapshot,
 				me.profile.id,
+				{
+					isApproved: true,
+					status: "reviewed",
+					reviewNotes: "Auto-approve (owner submit)",
+				},
 			);
 			if (!commit.ok) {
 				return {
 					errors: { _form: [commit.error] },
-					values: snapshotValues(formData),
-				};
-			}
-			const { error: upErr } = await supabase
-				.from("crew_rekap")
-				.update({
-					is_approved: true,
-					reviewed_by: me.profile.id,
-					reviewed_at: new Date().toISOString(),
-					status: "reviewed",
-					review_notes: "Auto-approve (owner submit)",
-					...commit.update,
-				})
-				.eq("id", row.id);
-			if (upErr) {
-				return {
-					errors: { _form: [upErr.message] },
 					values: snapshotValues(formData),
 				};
 			}
@@ -1221,49 +1209,47 @@ function buildRefId(direction: "in" | "out") {
 }
 
 /**
- * Commit stok + HPP snapshot dari plan konsumsi kanonik. Dipakai oleh
- * owner auto-approve (submitRekap). Mengembalikan field update untuk crew_rekap
- * (hpp_snapshot, hpp_snapshot_total, stock_committed_at, stock_movement_batch_id).
+ * Commit stok + HPP snapshot + status approval secara ATOMIC via the
+ * commit_rekap_stock RPC (one DB transaction). Sebelumnya insert movements +
+ * update crew_rekap dilakukan terpisah → kalau yang kedua gagal, movements
+ * yatim & stock_committed_at NULL → retry double-deduct. RPC menutup celah itu.
  */
 async function commitRekapStock(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	rekap: RekapStockSnapshot,
 	actorId: string,
-): Promise<
-	{ ok: true; update: Record<string, unknown> } | { ok: false; error: string }
-> {
+	review: {
+		isApproved?: boolean;
+		status?: string;
+		reviewNotes?: string | null;
+	},
+): Promise<{ ok: true } | { ok: false; error: string }> {
 	const plan = await planRekapDeduction(supabase, rekap);
 	const snapshot = bucketHpp(plan.lines);
-	const update: Record<string, unknown> = {
-		hpp_snapshot: snapshot,
-		hpp_snapshot_total: snapshot.total,
-		stock_committed_at: new Date().toISOString(),
-		stock_movement_batch_id: null,
-	};
-	if (plan.lines.length > 0) {
-		const batchId = randomUUID();
-		const movements = plan.lines.map((l) => ({
-			ref_id: buildRefId("out"),
-			item_id: l.item_id,
-			direction: "out" as const,
-			quantity: l.qty,
-			unit_cost: l.unit_cost,
-			source: "rekap_consumption",
-			source_id: rekap.event_id,
-			source_description: `Rekap approved (${l.source_label})`,
-			notes: `Auto-deduct owner submit — batch ${batchId.slice(0, 8)}`,
-			performed_by: actorId,
-		}));
-		const { error } = await supabase.from("stock_movements").insert(movements);
-		if (error) {
-			return {
-				ok: false,
-				error: `Gagal create stock movements: ${error.message}`,
-			};
-		}
-		update.stock_movement_batch_id = batchId;
-	}
-	return { ok: true, update };
+	const batchId = plan.lines.length > 0 ? randomUUID() : null;
+	const movements = plan.lines.map((l) => ({
+		ref_id: buildRefId("out"),
+		item_id: l.item_id,
+		quantity: l.qty,
+		unit_cost: l.unit_cost,
+		source_description: `Rekap approved (${l.source_label})`,
+		notes: `Auto-deduct — batch ${(batchId ?? "").slice(0, 8)}`,
+	}));
+	const { error } = await supabase.rpc("commit_rekap_stock", {
+		p_rekap_id: rekap.id,
+		p_event_id: rekap.event_id,
+		p_actor: actorId,
+		p_movements: movements,
+		p_hpp_snapshot: snapshot,
+		p_hpp_total: snapshot.total,
+		p_batch_id: batchId,
+		p_is_approved: review.isApproved ?? true,
+		p_status: review.status ?? "reviewed",
+		p_review_notes: review.reviewNotes ?? null,
+	});
+	if (error)
+		return { ok: false, error: `Gagal commit rekap: ${error.message}` };
+	return { ok: true };
 }
 
 /**
@@ -1346,20 +1332,13 @@ export async function ensureRekapCommitted(
 		supabase,
 		row as RekapStockSnapshot,
 		me.profile.id,
+		{
+			isApproved: true,
+			status: "reviewed",
+			reviewNotes: "Auto-approve (owner settle)",
+		},
 	);
 	if (!commit.ok) return { ok: false, error: commit.error };
-	const { error } = await supabase
-		.from("crew_rekap")
-		.update({
-			is_approved: true,
-			reviewed_by: me.profile.id,
-			reviewed_at: new Date().toISOString(),
-			status: "reviewed",
-			review_notes: "Auto-approve (owner settle)",
-			...commit.update,
-		})
-		.eq("id", row.id);
-	if (error) return { ok: false, error: error.message };
 	return { ok: true };
 }
 
@@ -1448,51 +1427,21 @@ export async function reviewRekap(
 	const willApprove = approved === true;
 	const hadStockCommitted = existing.stock_committed_at !== null;
 
-	// 1. UPDATE the rekap row first (review fields)
-	const updatePayload: Record<string, unknown> = {
-		is_approved: approved,
-		reviewed_by: me.profile.id,
-		reviewed_at: new Date().toISOString(),
-		review_notes: notes.trim() || null,
-	};
+	const reviewNotes = notes.trim() || null;
 
-	// 2. Handle stock side-effects
 	if (willApprove && !wasApproved && !hadStockCommitted) {
-		// Approval transition → deduct stock
-		const plan = await planRekapDeduction(
+		// Approval transition → deduct stock + write snapshot + set status, ALL
+		// in one transaction (RPC). No partial state / no double-deduct on retry.
+		const commit = await commitRekapStock(
 			supabase,
 			existing as RekapStockSnapshot,
+			me.profile.id,
+			{ isApproved: true, status: "reviewed", reviewNotes },
 		);
-		// HPP snapshot — single source of truth for cost. Persisted at approval
-		// so settlement/preview read the SAME numbers as the stock that moved.
-		const snapshot = bucketHpp(plan.lines);
-		updatePayload.hpp_snapshot = snapshot;
-		updatePayload.hpp_snapshot_total = snapshot.total;
-		if (plan.lines.length > 0) {
-			const batchId = randomUUID();
-			const movements = plan.lines.map((l) => ({
-				ref_id: buildRefId("out"),
-				item_id: l.item_id,
-				direction: "out" as const,
-				quantity: l.qty,
-				unit_cost: l.unit_cost,
-				source: "rekap_consumption",
-				source_id: existing.event_id,
-				source_description: `Rekap approved (${l.source_label})`,
-				notes: `Auto-deduct from rekap approval — batch ${batchId.slice(0, 8)}`,
-				performed_by: me.profile.id,
-			}));
-			const { error: insErr } = await supabase
-				.from("stock_movements")
-				.insert(movements);
-			if (insErr) {
-				return { error: `Gagal create stock movements: ${insErr.message}` };
-			}
-			updatePayload.stock_committed_at = new Date().toISOString();
-			updatePayload.stock_movement_batch_id = batchId;
-		}
+		if (!commit.ok) return { error: commit.error };
 	} else if (!willApprove && wasApproved && hadStockCommitted) {
-		// Reject after prior approval → reverse the original movements
+		// Reject after prior approval → reverse the original out-movements, then
+		// clear the commit + mark rejected.
 		const { data: priorMovements } = await supabase
 			.from("stock_movements")
 			.select("id, item_id, quantity, unit_cost, source_description")
@@ -1522,17 +1471,36 @@ export async function reviewRekap(
 				};
 			}
 		}
-		updatePayload.stock_committed_at = null;
-		updatePayload.stock_movement_batch_id = null;
-		updatePayload.hpp_snapshot = null;
-		updatePayload.hpp_snapshot_total = null;
+		const { error } = await supabase
+			.from("crew_rekap")
+			.update({
+				is_approved: false,
+				reviewed_by: me.profile.id,
+				reviewed_at: new Date().toISOString(),
+				review_notes: reviewNotes,
+				status: "rejected",
+				stock_committed_at: null,
+				stock_movement_batch_id: null,
+				hpp_snapshot: null,
+				hpp_snapshot_total: null,
+			})
+			.eq("id", rekapId);
+		if (error) return { error: error.message };
+	} else {
+		// No stock change (re-affirm an already-committed approval, or reject a
+		// never-approved rekap). Sync review fields + status only.
+		const { error } = await supabase
+			.from("crew_rekap")
+			.update({
+				is_approved: approved,
+				reviewed_by: me.profile.id,
+				reviewed_at: new Date().toISOString(),
+				review_notes: reviewNotes,
+				status: approved ? "reviewed" : "rejected",
+			})
+			.eq("id", rekapId);
+		if (error) return { error: error.message };
 	}
-
-	const { error } = await supabase
-		.from("crew_rekap")
-		.update(updatePayload)
-		.eq("id", rekapId);
-	if (error) return { error: error.message };
 
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
