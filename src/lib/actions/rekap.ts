@@ -231,7 +231,8 @@ export type RekapContext = {
 export async function getRekapContext(
 	eventId: string,
 ): Promise<RekapContext | { error: string }> {
-	await requireOwnerOrCrew();
+	const me = await requireOwnerOrCrew();
+	const isCrew = me.profile.role === "crew";
 	const supabase = await createClient();
 
 	// 1) Event + paket + include_flashdisk_pouch + bundle BOM (if linked)
@@ -489,6 +490,15 @@ export async function getRekapContext(
 		});
 	}
 
+	// SECURITY: material cost (purchase_price_avg) is a business secret. The crew
+	// rekap form is a client component, so anything in the context is shipped to
+	// the browser even if not rendered. Zero out prices for crew so cost never
+	// leaves the server for them. Owner-level keeps real prices (needs HPP).
+	const stripPrice = <T extends { purchase_price_avg: number }>(it: T): T =>
+		isCrew ? { ...it, purchase_price_avg: 0 } : it;
+	const stripItem = (it: RekapContextItem | null) =>
+		it ? stripPrice(it) : null;
+
 	return {
 		pkg: {
 			name: pkg?.name ?? null,
@@ -497,11 +507,20 @@ export async function getRekapContext(
 			include_flashdisk_pouch:
 				(event.include_flashdisk_pouch as boolean | null) ?? null,
 		},
-		bundle,
-		paid_addons,
-		bonuses,
-		mappings,
-		custom_inventory,
+		bundle:
+			isCrew && bundle
+				? { ...bundle, components: bundle.components.map(stripPrice) }
+				: bundle,
+		paid_addons: paid_addons.map((a) => ({
+			...a,
+			inventory_item: stripItem(a.inventory_item),
+		})),
+		bonuses: bonuses.map((b) => ({
+			...b,
+			inventory_item: stripItem(b.inventory_item),
+		})),
+		mappings: mappings.map((m) => ({ ...m, item: stripItem(m.item) })),
+		custom_inventory: custom_inventory.map(stripPrice),
 	};
 }
 
@@ -600,11 +619,7 @@ export async function submitRekap(
 
 	// Crew tidak boleh edit rekap yang sudah di-approve owner. Owner/super-admin
 	// boleh re-submit kapan saja (di bawah: reverse commit lama → re-commit).
-	if (
-		existing &&
-		existing.is_approved === true &&
-		me.profile.role === "crew"
-	) {
+	if (existing && existing.is_approved === true && me.profile.role === "crew") {
 		return {
 			errors: {
 				_form: [
@@ -1232,7 +1247,10 @@ async function commitRekapStock(
 		}));
 		const { error } = await supabase.from("stock_movements").insert(movements);
 		if (error) {
-			return { ok: false, error: `Gagal create stock movements: ${error.message}` };
+			return {
+				ok: false,
+				error: `Gagal create stock movements: ${error.message}`,
+			};
 		}
 		update.stock_movement_batch_id = batchId;
 	}
@@ -1262,7 +1280,10 @@ async function reverseRekapStock(
 		unit_cost: number;
 	}>) {
 		const sign = m.direction === "out" ? 1 : -1;
-		const cur = net.get(m.item_id) ?? { qty: 0, cost: Number(m.unit_cost) || 0 };
+		const cur = net.get(m.item_id) ?? {
+			qty: 0,
+			cost: Number(m.unit_cost) || 0,
+		};
 		cur.qty += sign * (Number(m.quantity) || 0);
 		net.set(m.item_id, cur);
 	}
@@ -1284,10 +1305,9 @@ async function reverseRekapStock(
 		}
 	}
 	if (reversals.length > 0) {
-		const { error } = await supabase
-			.from("stock_movements")
-			.insert(reversals);
-		if (error) return { ok: false, error: `Gagal reverse stok: ${error.message}` };
+		const { error } = await supabase.from("stock_movements").insert(reversals);
+		if (error)
+			return { ok: false, error: `Gagal reverse stok: ${error.message}` };
 	}
 	return { ok: true };
 }
@@ -1310,7 +1330,8 @@ export async function ensureRekapCommitted(
 		)
 		.eq("event_id", eventId)
 		.maybeSingle();
-	if (!row) return { ok: false, error: "Rekap belum di-submit untuk event ini." };
+	if (!row)
+		return { ok: false, error: "Rekap belum di-submit untuk event ini." };
 	if (row.stock_committed_at) return { ok: true }; // sudah committed — no-op
 	const commit = await commitRekapStock(
 		supabase,

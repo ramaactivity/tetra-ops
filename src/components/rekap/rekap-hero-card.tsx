@@ -1,14 +1,7 @@
-import {
-	Camera,
-	CheckCircle2,
-	Clock,
-	Printer,
-	Wallet,
-	XCircle,
-} from "lucide-react";
+import { Camera, CheckCircle2, Clock, Printer, XCircle } from "lucide-react";
 import type * as React from "react";
 import { Badge } from "@/components/ui/badge";
-import { FRAME_SIZE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
+import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
 
 type Pkg = {
 	name: string | null;
@@ -41,31 +34,26 @@ type Props = {
 export function RekapHeroCard({
 	eyebrow = "REKAP CREW",
 	clientName,
-	projectId,
 	eventDate,
 	venueName,
 	pkg,
 	isApproved,
 	submitted,
-	hppTotal = 0,
 	totalCetak = 0,
 	proofCount = 0,
 	submittedBy,
 	reviewedBy,
 }: Props) {
 	return (
-		<div className="overflow-hidden rounded-xl border border-border-default bg-card">
-			<div className="space-y-3 p-5 sm:p-6">
-				<div className="flex flex-wrap items-center gap-2">
+		<div className="overflow-hidden rounded-[1.5rem] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
+			<div className="space-y-3 p-5">
+				<div className="flex items-center justify-between gap-2">
 					<span className="eyebrow text-muted-foreground">{eyebrow}</span>
 					<StatusBadge isApproved={isApproved} submitted={submitted} />
 				</div>
 				<div className="space-y-1">
-					<h1 className="text-[24px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
-						{clientName}
-					</h1>
-					<p className="text-[12.5px] text-muted-foreground">
-						<span className="tabular">{projectId}</span> ·{" "}
+					<h1 className="type-display text-balance">{clientName}</h1>
+					<p className="type-secondary">
 						{formatDateID(eventDate)}
 						{venueName ? <> · {venueName}</> : null}
 					</p>
@@ -104,15 +92,10 @@ export function RekapHeroCard({
 					})()}
 			</div>
 
-			{/* KPI strip — only meaningful once a rekap exists */}
+			{/* KPI strip — only meaningful once a rekap exists. No HPP/cost here:
+			    this is the crew view and material cost is a business secret. */}
 			{submitted && (
-				<dl className="grid grid-cols-2 divide-x divide-y divide-border-subtle border-t border-border-subtle sm:grid-cols-4 sm:divide-y-0">
-					<Kpi
-						icon={Wallet}
-						label="Estimasi HPP"
-						value={formatRupiah(hppTotal)}
-						accent
-					/>
+				<dl className="grid grid-cols-3 divide-x divide-border-subtle border-t border-border-subtle">
 					<Kpi
 						icon={Printer}
 						label="Total cetak"
@@ -157,7 +140,7 @@ function Kpi({
 	sub,
 	accent = false,
 }: {
-	icon?: typeof Wallet;
+	icon?: typeof Printer;
 	label: string;
 	value: React.ReactNode;
 	sub?: string;

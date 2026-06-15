@@ -136,8 +136,8 @@ export default async function CrewRekapPage({
 		<AppScreen>
 			<AppHeader
 				title="Rekap"
-				subtitle={event.client_name}
 				backHref={`/crew/jadwal/${projectId}`}
+				largeTitle={false}
 			/>
 
 			<div className="mt-3 space-y-4">

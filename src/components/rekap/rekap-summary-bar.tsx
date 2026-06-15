@@ -1,33 +1,26 @@
 "use client";
 
 import { Camera, Loader2 } from "lucide-react";
-import { formatRupiah } from "@/lib/format";
 
 /**
- * <RekapSummaryBar /> — sticky bottom bar with live HPP total + submit
- * button. On mobile takes full-width fixed at bottom; on desktop sticks
- * relative inside the form column.
+ * <RekapSummaryBar /> — sticky bottom bar with a live summary + submit button.
  *
- * Estimate vs Final note: HPP shown here is *estimate* — final HPP is
- * computed server-side at approval (planRekapDeduction). They should
- * match because we use computeRekapCost from the same module both
- * places, but tiny drift is possible if mappings change between submit
- * and approve. Hence label "Estimasi".
+ * IMPORTANT: this is the CREW view. It shows "Total cetak" (a count), never
+ * HPP / cost — material cost is a business secret the crew must not see.
  *
- * Disabled UX (Phase F2): when `disabled=true`, button label switches to
- * `disabledLabel` (e.g. "Upload bukti dulu") and left chip shows the
- * `disabledReason` instead of HPP estimate. Crew immediately understands
- * why submit is blocked rather than seeing a silent grey button.
+ * Disabled UX: when `disabled=true`, the button label switches to
+ * `disabledLabel` (e.g. "Upload bukti dulu") and the left chip shows the
+ * `disabledReason` so crew understand why submit is blocked.
  */
 export function RekapSummaryBar({
-	hppTotal,
+	cetakTotal,
 	pending,
 	disabled,
 	submitLabel,
 	disabledLabel,
 	disabledReason,
 }: {
-	hppTotal: number;
+	cetakTotal: number;
 	pending: boolean;
 	disabled?: boolean;
 	submitLabel: string;
@@ -35,12 +28,11 @@ export function RekapSummaryBar({
 	disabledReason?: string;
 }) {
 	const showDisabledHint = Boolean(disabled && disabledReason);
-	const buttonLabel =
-		pending
-			? "Menyimpan…"
-			: disabled && disabledLabel
-				? disabledLabel
-				: submitLabel;
+	const buttonLabel = pending
+		? "Menyimpan…"
+		: disabled && disabledLabel
+			? disabledLabel
+			: submitLabel;
 
 	return (
 		<>
@@ -57,11 +49,12 @@ export function RekapSummaryBar({
 							</p>
 						) : (
 							<>
-								<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-									Estimasi HPP
-								</p>
-								<p className="tabular text-fluid-h3 font-semibold text-foreground">
-									{formatRupiah(hppTotal)}
+								<p className="eyebrow">Total cetak</p>
+								<p className="type-num text-fluid-h3 text-foreground">
+									{cetakTotal.toLocaleString("id-ID")}
+									<span className="ml-1 text-[0.8125rem] font-normal text-muted-foreground">
+										pcs
+									</span>
 								</p>
 							</>
 						)}
@@ -71,9 +64,7 @@ export function RekapSummaryBar({
 						disabled={pending || disabled}
 						className="press-down inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-primary px-6 text-fluid-body font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{pending ? (
-							<Loader2 className="size-4 animate-spin" />
-						) : null}
+						{pending ? <Loader2 className="size-4 animate-spin" /> : null}
 						{buttonLabel}
 					</button>
 				</div>

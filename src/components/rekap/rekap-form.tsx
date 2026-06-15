@@ -668,7 +668,7 @@ export function RekapForm({
 			.map((it) => ({
 				value: it.id,
 				label: `${it.sku} · ${it.name}`,
-				sublabel: `Stok ${it.current_stock} · ${formatRupiah(it.purchase_price_avg)}/${it.unit}`,
+				sublabel: `Stok ${it.current_stock} ${it.unit}`,
 			}));
 	}, [context.custom_inventory, customMaterials]);
 
@@ -922,14 +922,6 @@ export function RekapForm({
 										FD + Pouch · 1 set
 									</p>
 									<dl className="mt-3 space-y-2">
-										<div className="flex items-baseline justify-between gap-3">
-											<dt className="text-[12px] text-muted-foreground">
-												Estimasi HPP
-											</dt>
-											<dd className="tabular text-[13px] font-semibold text-foreground">
-												{formatRupiah(setCost)}
-											</dd>
-										</div>
 										{fdStock ? (
 											<div className="flex items-baseline justify-between gap-3">
 												<dt className="text-[12px] text-muted-foreground">
@@ -1048,7 +1040,6 @@ export function RekapForm({
 						{Object.entries(customMaterials).map(([sku, qty]) => {
 							const it = customInventoryBySku.get(sku);
 							if (!it) return null;
-							const cost = qty * it.purchase_price_avg;
 							return (
 								<li
 									key={sku}
@@ -1059,8 +1050,7 @@ export function RekapForm({
 											{it.name}
 										</p>
 										<p className="font-mono text-[11px] text-muted-foreground">
-											{it.sku} · Stok {it.current_stock} ·{" "}
-											{formatRupiah(it.purchase_price_avg)}/{it.unit}
+											{it.sku} · Stok {it.current_stock} {it.unit}
 										</p>
 									</div>
 									<input
@@ -1073,9 +1063,6 @@ export function RekapForm({
 										}
 										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-fluid-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 									/>
-									<span className="tabular hidden w-24 shrink-0 text-right text-fluid-caption text-muted-foreground sm:inline">
-										{formatRupiah(cost)}
-									</span>
 									<button
 										type="button"
 										onClick={() => removeCustomItem(sku)}
@@ -1385,7 +1372,7 @@ export function RekapForm({
 			/>
 
 			<RekapSummaryBar
-				hppTotal={hppTotal}
+				cetakTotal={Number(cetak) || 0}
 				pending={pending}
 				submitLabel={mode === "create" ? "Submit rekap" : "Update rekap"}
 				disabled={proofUrls.length === 0}
@@ -1521,14 +1508,9 @@ function AutoDerivedCard({
 				</p>
 			)}
 
-			{/* Breakdown — labeled rows so each number is unambiguous */}
+			{/* Breakdown — labeled rows so each number is unambiguous. No HPP/cost
+			    here: crew view, material cost is a business secret. */}
 			<dl className="mt-3.5 space-y-2 border-t border-border-subtle pt-3">
-				<div className="flex items-baseline justify-between gap-3">
-					<dt className="text-[12px] text-muted-foreground">Estimasi HPP</dt>
-					<dd className="tabular text-[13px] font-semibold text-foreground">
-						{formatRupiah(cost)}
-					</dd>
-				</div>
 				{exactValue > 0 && (
 					<div className="flex items-baseline justify-between gap-3">
 						<dt className="text-[12px] text-muted-foreground">Stok setelah</dt>
@@ -1622,11 +1604,6 @@ function NumField({
 				<p className="text-fluid-caption text-destructive">{error}</p>
 			) : (
 				<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-					{cost > 0 && (
-						<span className="tabular inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-							{formatRupiah(cost)}
-						</span>
-					)}
 					{stock && Number(value) > 0 && (
 						<span
 							className={`tabular inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
@@ -1641,7 +1618,7 @@ function NumField({
 							{stock.before} → {stock.after}
 						</span>
 					)}
-					{cost === 0 && !stock && hint ? (
+					{!stock && hint ? (
 						<span className="text-muted-foreground">{hint}</span>
 					) : null}
 				</div>
@@ -1714,11 +1691,6 @@ function AddonField({
 				<p className="text-fluid-caption text-destructive">{error}</p>
 			) : (
 				<div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-					{cost > 0 && (
-						<span className="tabular inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-							{formatRupiah(cost)}
-						</span>
-					)}
 					{stock && Number(value) > 0 && (
 						<span
 							className={`tabular inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
