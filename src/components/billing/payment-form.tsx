@@ -12,7 +12,7 @@ import { logPayment, type PaymentFormState } from "@/lib/actions/payments";
 import { formatRupiah } from "@/lib/format";
 
 const PAYMENT_TYPE_OPTIONS: Array<[string, string]> = [
-	["dp", "DP (Down Payment)"],
+	["dp", "DP"],
 	["partial", "Partial"],
 	["pelunasan", "Pelunasan"],
 ];
@@ -99,7 +99,10 @@ export function PaymentForm({
 		);
 	}
 
-	const fieldBox = "h-11 w-full rounded-xl px-3.5 text-[0.9375rem]";
+	// `h-11!` (important): SelectTrigger sets its height via a variant-prefixed
+	// `data-[size=default]:h-8` which out-specifies a plain `h-11`. Forcing it
+	// keeps Tanggal (DatePicker/Button) and Tipe (Select) the exact same height.
+	const fieldBox = "h-11! w-full rounded-xl px-3.5 text-[0.9375rem]";
 
 	return (
 		<form action={formAction} className="space-y-4">
@@ -230,18 +233,18 @@ export function PaymentForm({
 					</Field>
 				</div>
 
-				{/* ── Right: preview ── */}
-				<div className="space-y-1">
+				{/* ── Right: preview (stretches to match the form column height) ── */}
+				<div className="flex flex-col gap-1">
 					<span className="type-label block text-foreground">
 						Preview bukti
 					</span>
-					<div className="flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-border-default bg-secondary/30">
+					<div className="flex min-h-[240px] flex-1 flex-col overflow-hidden rounded-xl border border-border-default bg-secondary/30">
 						{previewUrl ? (
 							// biome-ignore lint/performance/noImgElement: local blob preview
 							<img
 								src={previewUrl}
 								alt="Preview bukti"
-								className="max-h-[320px] w-full flex-1 object-contain"
+								className="h-full w-full flex-1 object-contain"
 							/>
 						) : proofFile ? (
 							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
