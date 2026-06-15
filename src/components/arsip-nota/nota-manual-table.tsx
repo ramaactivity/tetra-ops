@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 // Grid kolom (literal — Tailwind JIT butuh string utuh). Bulan Arsip di-hide.
 // Header: aktif di md (md:grid). Baris: mobile 2-kolom → md pakai grid penuh.
 const HEADER_COLS =
-	"hidden grid-cols-[minmax(8rem,0.85fr)_minmax(10rem,1.7fr)_minmax(7rem,auto)_6.5rem_minmax(6.5rem,9rem)_5.5rem] md:grid";
+	"hidden grid-cols-[minmax(7.5rem,0.8fr)_minmax(9rem,1fr)_minmax(6.5rem,auto)_6rem_11rem_7.5rem] md:grid";
 const ROW_COLS =
-	"grid-cols-[1fr_auto] md:grid-cols-[minmax(8rem,0.85fr)_minmax(10rem,1.7fr)_minmax(7rem,auto)_6.5rem_minmax(6.5rem,9rem)_5.5rem]";
+	"grid-cols-[1fr_auto] md:grid-cols-[minmax(7.5rem,0.8fr)_minmax(9rem,1fr)_minmax(6.5rem,auto)_6rem_11rem_7.5rem]";
 
 export function NotaManualTable({ rows }: { rows: ManualNotaRow[] }) {
 	const router = useRouter();

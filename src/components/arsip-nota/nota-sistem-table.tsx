@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 
 // Grid kolom (literal untuk Tailwind JIT).
 const HEADER_COLS =
-	"hidden grid-cols-[6.5rem_minmax(9rem,1.2fr)_minmax(8rem,1.4fr)_minmax(7rem,auto)_6.5rem_minmax(6rem,8rem)_4.5rem] md:grid";
+	"hidden grid-cols-[6.5rem_minmax(9rem,1.1fr)_minmax(8rem,1fr)_minmax(6.5rem,auto)_6rem_11rem_5.5rem] md:grid";
 const ROW_COLS =
-	"grid-cols-[1fr_auto] md:grid-cols-[6.5rem_minmax(9rem,1.2fr)_minmax(8rem,1.4fr)_minmax(7rem,auto)_6.5rem_minmax(6rem,8rem)_4.5rem]";
+	"grid-cols-[1fr_auto] md:grid-cols-[6.5rem_minmax(9rem,1.1fr)_minmax(8rem,1fr)_minmax(6.5rem,auto)_6rem_11rem_5.5rem]";
 
 /**
  * Tabel read-only nota sistem. Tiap baris bisa diklik "Lihat" untuk buka file
