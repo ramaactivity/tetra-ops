@@ -69,7 +69,7 @@ export default async function CrewEventDetailPage({
 			crew_notes, is_migrated_legacy,
 			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
 			booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
-			package:packages(name, duration_hours, include_flashdisk_pouch),
+			package:packages(name, duration_hours),
 			backdrop:backdrops(name, type),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
