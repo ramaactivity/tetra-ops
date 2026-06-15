@@ -1,15 +1,11 @@
 "use client";
 
-import {
-	CheckCircle2,
-	Loader2,
-	UploadCloud,
-	XCircle,
-} from "lucide-react";
+import { CheckCircle2, Loader2, UploadCloud, XCircle } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 
-const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
+const ACCEPT =
+	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
 
 /**
  * Upload bukti transfer ke Drive folder event. On success, calls
@@ -112,18 +108,19 @@ export function ProofUploadButton({
 		state.phase === "uploading"
 			? "Mengunggah…"
 			: state.phase === "success"
-				? "Bukti ter-upload"
+				? "Terunggah"
 				: state.phase === "error"
 					? "Coba lagi"
-					: "Upload bukti ke Drive";
+					: "Upload";
 
 	return (
-		<div className="space-y-1">
+		<div className="shrink-0">
 			<button
 				type="button"
 				onClick={trigger}
 				disabled={disabled || state.phase === "uploading"}
-				className={`press-down inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border px-3 text-fluid-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto ${tone}`}
+				title="Upload bukti transfer ke Drive"
+				className={`press tap inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${tone}`}
 			>
 				<Icon
 					className={`size-4 ${state.phase === "uploading" ? "animate-spin" : ""}`}
@@ -131,22 +128,18 @@ export function ProofUploadButton({
 				{label}
 			</button>
 			{state.phase === "uploading" ? (
-				<p className="text-[11px] text-muted-foreground italic truncate">
+				<p className="mt-1 truncate text-[11px] italic text-muted-foreground">
 					{state.name}
 				</p>
 			) : state.phase === "success" ? (
-				<p className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate">
+				<p className="mt-1 truncate text-[11px] text-emerald-700 dark:text-emerald-400">
 					{state.renamedTo ? `→ ${state.renamedTo}` : state.name}
 				</p>
 			) : state.phase === "error" ? (
-				<p className="text-[11px] text-rose-700 dark:text-rose-300">
+				<p className="mt-1 text-[11px] text-rose-700 dark:text-rose-300">
 					{state.message}
 				</p>
-			) : (
-				<p className="text-[11px] text-muted-foreground">
-					Auto-rename: PRJ-id · Tipe · Klien · Tanggal
-				</p>
-			)}
+			) : null}
 			<input
 				ref={fileRef}
 				type="file"

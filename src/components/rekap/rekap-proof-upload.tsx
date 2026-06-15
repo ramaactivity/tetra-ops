@@ -213,8 +213,7 @@ export function RekapProofUpload({
 
 			<p className="text-[11px] text-muted-foreground">
 				Foto counter mesin / area event / consumable. Multi-file boleh. Foto
-				di-kompres otomatis sebelum upload (hemat data). Auto-rename:{" "}
-				<span className="font-mono">PRJ-… - REKAP - YYYY-MM-DD - NN</span>
+				di-kompres otomatis sebelum upload (hemat data).
 			</p>
 		</div>
 	);

@@ -46,13 +46,9 @@ export function PaymentList({
 }) {
 	if (payments.length === 0) {
 		return (
-			<div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-default px-6 py-10 text-center">
-				<p className="text-sm font-medium text-foreground">
-					Belum ada payment
-				</p>
-				<p className="text-xs text-muted-foreground">
-					Pembayaran yang di-log akan muncul di sini.
-				</p>
+			<div className="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-border-default px-6 py-7 text-center">
+				<p className="type-body-strong">Belum ada payment</p>
+				<p className="type-caption">Pembayaran yang di-log muncul di sini.</p>
 			</div>
 		);
 	}

@@ -70,38 +70,35 @@ export default async function ManagePaymentsPage({
 	const paid = Number(event.total_paid) || 0;
 	const remaining = Number(event.remaining_balance) || 0;
 	const status = event.payment_status as string;
-	const paidPct = grand > 0 ? Math.min(100, Math.round((paid / grand) * 100)) : 0;
+	const paidPct =
+		grand > 0 ? Math.min(100, Math.round((paid / grand) * 100)) : 0;
 	const canLog = remaining > 0;
 
 	return (
-		<Container size="xl" className="space-y-6">
-			{/* Header */}
-			<div className="space-y-3">
-				<Link
-					href={`/operations/${event.project_id}`}
-					className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-				>
-					<ChevronLeft className="size-4" />
-					<span className="font-mono text-xs">{event.project_id}</span>
-				</Link>
-				<div className="flex flex-wrap items-end justify-between gap-3">
-					<div className="space-y-1">
-						<h1 className="text-fluid-h2 font-semibold tracking-tight">
-							Payments
-						</h1>
-						<p className="text-sm text-muted-foreground">
-							{event.client_name}
-						</p>
+		<Container size="xl" className="space-y-4 pb-4">
+			{/* Header — compact */}
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div className="min-w-0">
+					<Link
+						href={`/operations/${event.project_id}`}
+						className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+					>
+						<ChevronLeft className="size-3.5" />
+						<span className="eyebrow">{event.project_id}</span>
+					</Link>
+					<div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+						<h1 className="type-title">Payments</h1>
+						<span className="type-secondary">{event.client_name}</span>
 					</div>
-					<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
-						{PAYMENT_STATUS_LABELS[status] ?? status}
-					</Badge>
 				</div>
+				<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
+					{PAYMENT_STATUS_LABELS[status] ?? status}
+				</Badge>
 			</div>
 
-			{/* Summary */}
-			<section className="overflow-hidden rounded-xl border border-border-default bg-surface-2 shadow-[var(--shadow-level-1)]">
-				<dl className="grid grid-cols-2 divide-x divide-y divide-border-default sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-3">
+			{/* Summary — stat row + progress */}
+			<section className="overflow-hidden rounded-2xl border border-border-default bg-card shadow-[var(--shadow-level-2)]">
+				<dl className="grid grid-cols-3 divide-x divide-border-subtle">
 					<SummaryCell label="Grand Total">
 						<MoneyAmount value={grand} size="lg" tone="default" />
 					</SummaryCell>
@@ -112,7 +109,7 @@ export default async function ManagePaymentsPage({
 							tone={paid > 0 ? "positive" : "muted"}
 						/>
 					</SummaryCell>
-					<SummaryCell label="Sisa Tagihan" className="max-sm:col-span-2">
+					<SummaryCell label="Sisa Tagihan">
 						<MoneyAmount
 							value={remaining}
 							size="lg"
@@ -120,22 +117,15 @@ export default async function ManagePaymentsPage({
 						/>
 					</SummaryCell>
 				</dl>
-				{/* Progress */}
-				<div className="space-y-1.5 border-t border-border-default px-5 py-4">
-					<div className="flex items-center justify-between text-xs">
-						<span className="font-medium uppercase tracking-wider text-muted-foreground">
-							Progress pembayaran
-						</span>
-						<span className="tabular font-medium text-foreground">
-							{paidPct}%
-						</span>
-					</div>
-					<div className="h-1.5 overflow-hidden rounded-full bg-muted">
+				<div className="flex items-center gap-3 border-t border-border-subtle px-5 py-2.5">
+					<span className="eyebrow shrink-0">Progress</span>
+					<div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
 						<div
 							className="h-full rounded-full bg-primary transition-all"
 							style={{ width: `${paidPct}%` }}
 						/>
 					</div>
+					<span className="type-num shrink-0 text-[0.8125rem]">{paidPct}%</span>
 				</div>
 			</section>
 
@@ -143,17 +133,15 @@ export default async function ManagePaymentsPage({
 			<div
 				className={
 					canLog
-						? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]"
-						: "grid gap-6"
+						? "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_400px]"
+						: "grid gap-4"
 				}
 			>
-				<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5 shadow-[var(--shadow-level-1)]">
-					<div className="flex items-baseline justify-between">
-						<h2 className="text-base font-semibold tracking-tight">
-							Riwayat Payment
-						</h2>
+				<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+					<div className="mb-3 flex items-baseline justify-between">
+						<h2 className="type-heading">Riwayat payment</h2>
 						{payments.length > 0 && (
-							<span className="tabular text-xs text-muted-foreground">
+							<span className="type-caption tabular">
 								{payments.length} transaksi
 							</span>
 						)}
@@ -162,13 +150,11 @@ export default async function ManagePaymentsPage({
 				</section>
 
 				{canLog && (
-					<aside className="lg:sticky lg:top-6 lg:self-start">
-						<section className="space-y-4 rounded-xl border border-border-default bg-surface-2 p-5 shadow-[var(--shadow-level-1)]">
-							<div className="space-y-0.5">
-								<h2 className="text-base font-semibold tracking-tight">
-									Log payment baru
-								</h2>
-								<p className="text-xs text-muted-foreground">
+					<aside className="lg:sticky lg:top-4 lg:self-start">
+						<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+							<div className="mb-3">
+								<h2 className="type-heading">Log payment baru</h2>
+								<p className="type-caption mt-0.5">
 									Total &amp; status event auto-update lewat trigger DB.
 								</p>
 							</div>
@@ -189,19 +175,15 @@ export default async function ManagePaymentsPage({
 
 function SummaryCell({
 	label,
-	className = "",
 	children,
 }: {
 	label: string;
-	className?: string;
 	children: React.ReactNode;
 }) {
 	return (
-		<div className={`space-y-1 px-5 py-4 ${className}`}>
-			<dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-				{label}
-			</dt>
-			<dd>{children}</dd>
+		<div className="min-w-0 px-4 py-3 sm:px-5">
+			<dt className="eyebrow">{label}</dt>
+			<dd className="mt-1 truncate">{children}</dd>
 		</div>
 	);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { ProofUploadButton } from "@/components/billing/proof-upload-button";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -46,9 +46,9 @@ export function PaymentForm({
 		state?.values?.[key] ?? fallback ?? "";
 
 	const err = (key: string) =>
-		(state?.errors?.[key as keyof typeof state.errors] as
-			| string[]
-			| undefined)?.[0];
+		(
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
+		)?.[0];
 
 	const [amount, setAmount] = useState(
 		Number(get("amount", suggestedAmount?.toString())) || 0,
@@ -60,6 +60,17 @@ export function PaymentForm({
 	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
 	const [proofUrl, setProofUrl] = useState(get("proof_url"));
 
+	const isPelunasan = paymentType === "pelunasan";
+	const hasRemaining = !!suggestedAmount && suggestedAmount > 0;
+
+	// Pelunasan = bayar lunas → nominal HARUS = sisa tagihan. Auto-fill saat
+	// owner pilih "Pelunasan" supaya gak salah input (kurang/lebih dari sisa).
+	useEffect(() => {
+		if (isPelunasan && suggestedAmount && suggestedAmount > 0) {
+			setAmount(suggestedAmount);
+		}
+	}, [isPelunasan, suggestedAmount]);
+
 	if (bankAccounts.length === 0) {
 		return (
 			<p className="text-sm italic text-muted-foreground">
@@ -69,9 +80,9 @@ export function PaymentForm({
 	}
 
 	return (
-		<form action={formAction} className="space-y-4">
+		<form action={formAction} className="space-y-3.5">
 			{state?.errors?._form && (
-				<div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+				<div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
 					<p className="text-sm font-medium text-destructive">
 						{state.errors._form[0]}
 					</p>
@@ -86,18 +97,22 @@ export function PaymentForm({
 					placeholder="0"
 					aria-invalid={!!err("amount")}
 				/>
-				{suggestedAmount && suggestedAmount > 0 && amount !== suggestedAmount && (
+				{isPelunasan ? (
+					<p className="type-caption text-emerald-700 dark:text-emerald-400">
+						Otomatis terisi sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
+					</p>
+				) : hasRemaining && amount !== suggestedAmount ? (
 					<button
 						type="button"
-						onClick={() => setAmount(suggestedAmount)}
-						className="text-xs font-medium text-[#0070f3] hover:underline"
+						onClick={() => setAmount(suggestedAmount ?? 0)}
+						className="text-xs font-medium text-link hover:underline"
 					>
-						Isi sisa tagihan · {formatRupiah(suggestedAmount)}
+						Isi sisa tagihan · {formatRupiah(suggestedAmount ?? 0)}
 					</button>
-				)}
+				) : null}
 			</Field>
 
-			<div className="grid gap-4 sm:grid-cols-2">
+			<div className="grid gap-3 sm:grid-cols-2">
 				<Field label="Tanggal" error={err("payment_date")} required>
 					<DatePicker
 						value={paymentDate}
@@ -105,7 +120,12 @@ export function PaymentForm({
 						placeholder="Pilih tanggal"
 						aria-invalid={!!err("payment_date")}
 					/>
-					<input type="hidden" name="payment_date" value={paymentDate} required />
+					<input
+						type="hidden"
+						name="payment_date"
+						value={paymentDate}
+						required
+					/>
 				</Field>
 
 				<Field label="Tipe" error={err("payment_type")} required>
@@ -119,7 +139,12 @@ export function PaymentForm({
 						triggerClassName="w-full"
 						aria-invalid={!!err("payment_type")}
 					/>
-					<input type="hidden" name="payment_type" value={paymentType} required />
+					<input
+						type="hidden"
+						name="payment_type"
+						value={paymentType}
+						required
+					/>
 				</Field>
 			</div>
 
@@ -135,22 +160,23 @@ export function PaymentForm({
 					triggerClassName="w-full"
 					aria-invalid={!!err("bank_account_id")}
 				/>
-				<input type="hidden" name="bank_account_id" value={bankAccountId} required />
+				<input
+					type="hidden"
+					name="bank_account_id"
+					value={bankAccountId}
+					required
+				/>
 			</Field>
 
-			<Field
-				label="Bukti transfer"
-				error={err("proof_url")}
-				hint="Link Drive / upload bukti (opsional)"
-			>
-				<div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+			<Field label="Bukti transfer" error={err("proof_url")}>
+				<div className="flex items-center gap-2">
 					<Input
 						type="url"
 						name="proof_url"
 						value={proofUrl}
 						onChange={(e) => setProofUrl(e.target.value)}
-						placeholder="https://drive.google.com/…"
-						className="h-10 rounded-md sm:flex-1"
+						placeholder="Link Drive (opsional)…"
+						className="h-11 flex-1 rounded-xl"
 					/>
 					<ProofUploadButton
 						projectId={projectId}
@@ -164,22 +190,17 @@ export function PaymentForm({
 				</div>
 			</Field>
 
-			<Field label="Catatan" error={err("notes")} hint="Opsional">
+			<Field label="Catatan" error={err("notes")}>
 				<TextareaField
 					name="notes"
 					rows={2}
 					maxLength={500}
 					defaultValue={get("notes")}
-					placeholder="Catatan tambahan…"
+					placeholder="Catatan tambahan… (opsional)"
 				/>
 			</Field>
 
-			<Button
-				type="submit"
-				size="lg"
-				disabled={pending}
-				className="w-full"
-			>
+			<Button type="submit" size="lg" disabled={pending} className="w-full">
 				{pending ? "Menyimpan…" : "Log payment"}
 			</Button>
 		</form>
