@@ -13,6 +13,7 @@ import {
 	Package,
 	Sparkles,
 	Star,
+	User,
 	Users,
 	Video,
 } from "lucide-react";
@@ -274,7 +275,7 @@ export default async function CrewEventDetailPage({
 			/>
 
 			<div className="mt-3 space-y-4">
-				{/* ── Hero — the at-a-glance event card ── */}
+				{/* ── Hero — the at-a-glance event card (Lokasi merged in) ── */}
 				<section className="overflow-hidden rounded-[1.5rem] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
 					<div className="p-5">
 						<div className="flex items-center justify-between gap-2">
@@ -312,6 +313,12 @@ export default async function CrewEventDetailPage({
 									{eventType.label}
 								</span>
 							)}
+							{pkg?.name && (
+								<span className="inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2.5 py-1 text-[0.8125rem] font-medium text-foreground">
+									<Package className="size-3.5 text-muted-foreground" />
+									{pkg.name}
+								</span>
+							)}
 						</div>
 					</div>
 
@@ -324,72 +331,39 @@ export default async function CrewEventDetailPage({
 							<TimeCell label="Selesai" time={ID_TIME(event.end_time)} />
 						</div>
 					</div>
-				</section>
 
-				{/* ── Lokasi ── */}
-				<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
-					<span className="eyebrow">Lokasi</span>
-					<div className="mt-2 flex items-start gap-3">
-						<span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-primary">
-							<MapPin className="size-[1.15rem]" />
-						</span>
-						<div className="min-w-0 flex-1">
-							<p className="type-body-strong">{event.venue_name}</p>
-							{venueAddress && (
-								<p className="type-secondary mt-0.5">{venueAddress}</p>
-							)}
-							{venueRegion && (
-								<p className="type-secondary mt-0.5">{venueRegion}</p>
-							)}
+					{/* Lokasi — merged into the hero */}
+					<div className="border-t border-border-default p-4">
+						<span className="eyebrow">Lokasi</span>
+						<div className="mt-2 flex items-start gap-3">
+							<span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-primary">
+								<MapPin className="size-[1.15rem]" />
+							</span>
+							<div className="min-w-0 flex-1">
+								<p className="type-body-strong">{event.venue_name}</p>
+								{venueAddress && (
+									<p className="type-secondary mt-0.5">{venueAddress}</p>
+								)}
+								{venueRegion && (
+									<p className="type-secondary mt-0.5">{venueRegion}</p>
+								)}
+							</div>
 						</div>
+						{event.google_maps_url && (
+							<a
+								href={event.google_maps_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="press tap mt-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-2 text-foreground transition-colors active:bg-surface-3"
+							>
+								<Navigation className="size-4 text-primary" />
+								<span className="type-body-strong">Buka di Maps</span>
+							</a>
+						)}
 					</div>
-					{event.google_maps_url && (
-						<a
-							href={event.google_maps_url}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="press tap mt-3 flex h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-2 text-foreground transition-colors active:bg-surface-3"
-						>
-							<Navigation className="size-4 text-primary" />
-							<span className="type-body-strong">Buka di Maps</span>
-						</a>
-					)}
 				</section>
 
-				{/* ── Kontak hari-H ── */}
-				{(picName || picPhone || bookerContact) && (
-					<section className="rounded-[1.25rem] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
-						<span className="eyebrow text-amber-700 dark:text-amber-400">
-							Kontak hari-H
-						</span>
-						{picName && (
-							<div className="mt-2">
-								<p className="type-caption">PIC Event</p>
-								<p className="type-body-strong mt-0.5">{picName}</p>
-								{picPhone && (
-									<WhatsAppButton
-										href={whatsAppLink(picPhone) ?? "#"}
-										number={picPhone}
-									/>
-								)}
-							</div>
-						)}
-						{bookerContact && (
-							<div className="mt-3 border-t border-amber-300/40 pt-3 dark:border-amber-900/50">
-								<p className="type-caption">Booker</p>
-								<p className="type-body mt-0.5">{bookerContact.name}</p>
-								{bookerContact.phone && (
-									<WhatsAppButton
-										href={whatsAppLink(bookerContact.phone) ?? "#"}
-										number={bookerContact.phone}
-									/>
-								)}
-							</div>
-						)}
-					</section>
-				)}
-
-				{/* Crew partner card — who you're working with on the day */}
+				{/* ── Tim crew (avatars) — right after the hero ── */}
 				{roster.length > 1 && (
 					<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 						<span className="eyebrow flex items-center gap-1.5">
@@ -429,7 +403,7 @@ export default async function CrewEventDetailPage({
 					</section>
 				)}
 
-				{/* ── Detail paket ── */}
+				{/* ── Detail paket — after Tim crew ── */}
 				<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 					<span className="eyebrow">Detail paket</span>
 					<dl className="mt-1 divide-y divide-border-subtle">
@@ -462,6 +436,27 @@ export default async function CrewEventDetailPage({
 						</DetailRow>
 					</dl>
 				</section>
+
+				{/* ── Kontak hari-H — contact rows ── */}
+				{(picName || bookerContact) && (
+					<section className="rounded-[1.25rem] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
+						<span className="eyebrow text-amber-700 dark:text-amber-400">
+							Kontak hari-H
+						</span>
+						<div className="mt-3 space-y-2">
+							{picName && (
+								<ContactRow role="PIC Event" name={picName} phone={picPhone} />
+							)}
+							{bookerContact && (
+								<ContactRow
+									role="Booker"
+									name={bookerContact.name}
+									phone={bookerContact.phone}
+								/>
+							)}
+						</div>
+					</section>
+				)}
 
 				{/* Equipment card */}
 				<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
@@ -767,16 +762,65 @@ function TimeCell({
 }
 
 /** WhatsApp contact button — clear green WA glyph + tappable number. */
-function WhatsAppButton({ href, number }: { href: string; number: string }) {
+/**
+ * Display an Indonesian number with a leading 0 and dashed groups of 4
+ * (0821-3320-0110) for readability. DB stays raw; this is display-only.
+ */
+function formatPhoneId(raw: string | null | undefined): string {
+	if (!raw) return "";
+	let d = raw.replace(/\D/g, "");
+	if (d.startsWith("62")) d = `0${d.slice(2)}`;
+	else if (d.startsWith("8")) d = `0${d}`;
+	else if (!d.startsWith("0")) d = `0${d}`;
+	return d.replace(/(\d{4})(?=\d)/g, "$1-");
+}
+
+/** A hari-H contact row — name + role left, formatted WA number right. */
+function ContactRow({
+	role,
+	name,
+	phone,
+}: {
+	role: string;
+	name: string;
+	phone: string | null | undefined;
+}) {
+	const href = whatsAppLink(phone);
+	const inner = (
+		<>
+			<span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#25D366]/15 text-[#128C4B] dark:text-[#3ddc84]">
+				{phone ? (
+					<WhatsAppIcon className="size-[1.1rem]" />
+				) : (
+					<User className="size-[1.1rem]" />
+				)}
+			</span>
+			<div className="min-w-0 flex-1">
+				<p className="type-body-strong truncate">{name}</p>
+				<p className="type-caption">{role}</p>
+			</div>
+			{phone ? (
+				<span className="type-num shrink-0 text-[0.9375rem] font-semibold text-[#128C4B] dark:text-[#3ddc84]">
+					{formatPhoneId(phone)}
+				</span>
+			) : null}
+		</>
+	);
+	if (phone && href) {
+		return (
+			<a
+				href={href}
+				target="_blank"
+				rel="noopener noreferrer"
+				className="press tap flex items-center gap-3 rounded-2xl bg-card/60 p-2.5 transition-colors active:bg-amber-100/60 dark:bg-amber-950/30 dark:active:bg-amber-900/30"
+			>
+				{inner}
+			</a>
+		);
+	}
 	return (
-		<a
-			href={href}
-			target="_blank"
-			rel="noopener noreferrer"
-			className="press tap mt-2 inline-flex items-center gap-2 rounded-xl bg-[#25D366]/12 px-3 py-2 text-[#128C4B] transition-colors active:bg-[#25D366]/20 dark:text-[#3ddc84]"
-		>
-			<WhatsAppIcon className="size-[1.1rem]" />
-			<span className="tabular text-[0.9375rem] font-semibold">{number}</span>
-		</a>
+		<div className="flex items-center gap-3 rounded-2xl bg-card/60 p-2.5 dark:bg-amber-950/30">
+			{inner}
+		</div>
 	);
 }
