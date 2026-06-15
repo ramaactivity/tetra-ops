@@ -80,7 +80,7 @@ export function PaymentForm({
 	}
 
 	return (
-		<form action={formAction} className="space-y-3.5">
+		<form action={formAction} className="space-y-3">
 			{state?.errors?._form && (
 				<div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
 					<p className="text-sm font-medium text-destructive">
@@ -96,6 +96,7 @@ export function PaymentForm({
 					onValueChange={setAmount}
 					placeholder="0"
 					aria-invalid={!!err("amount")}
+					className="h-12 rounded-xl text-[1.0625rem] font-semibold"
 				/>
 				{isPelunasan ? (
 					<p className="type-caption text-emerald-700 dark:text-emerald-400">
@@ -119,6 +120,7 @@ export function PaymentForm({
 						onValueChange={setPaymentDate}
 						placeholder="Pilih tanggal"
 						aria-invalid={!!err("payment_date")}
+						className="h-11 rounded-xl"
 					/>
 					<input
 						type="hidden"
@@ -136,7 +138,7 @@ export function PaymentForm({
 							value,
 							label,
 						}))}
-						triggerClassName="w-full"
+						triggerClassName="h-11 w-full rounded-xl"
 						aria-invalid={!!err("payment_type")}
 					/>
 					<input
@@ -157,7 +159,7 @@ export function PaymentForm({
 						value: b.id,
 						label: `${b.bank_name}${b.account_number ? ` · ${b.account_number}` : ""}${b.account_holder ? ` · ${b.account_holder}` : ""}`,
 					}))}
-					triggerClassName="w-full"
+					triggerClassName="h-11 w-full rounded-xl"
 					aria-invalid={!!err("bank_account_id")}
 				/>
 				<input
@@ -176,7 +178,7 @@ export function PaymentForm({
 						value={proofUrl}
 						onChange={(e) => setProofUrl(e.target.value)}
 						placeholder="Link Drive (opsional)…"
-						className="h-11 flex-1 rounded-xl"
+						className="h-11 flex-1 rounded-xl text-base"
 					/>
 					<ProofUploadButton
 						projectId={projectId}
@@ -197,10 +199,16 @@ export function PaymentForm({
 					maxLength={500}
 					defaultValue={get("notes")}
 					placeholder="Catatan tambahan… (opsional)"
+					className="rounded-xl text-base"
 				/>
 			</Field>
 
-			<Button type="submit" size="lg" disabled={pending} className="w-full">
+			<Button
+				type="submit"
+				size="lg"
+				disabled={pending}
+				className="h-11 w-full"
+			>
 				{pending ? "Menyimpan…" : "Log payment"}
 			</Button>
 		</form>
@@ -221,8 +229,8 @@ function Field({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className="space-y-1.5">
-			<label className="block text-[13px] font-medium text-foreground">
+		<div className="space-y-1">
+			<label className="type-label block text-foreground">
 				{label}
 				{required && <span className="ml-0.5 text-destructive">*</span>}
 			</label>
@@ -230,7 +238,7 @@ function Field({
 			{error ? (
 				<p className="text-xs text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-xs text-muted-foreground">{hint}</p>
+				<p className="type-caption">{hint}</p>
 			) : null}
 		</div>
 	);

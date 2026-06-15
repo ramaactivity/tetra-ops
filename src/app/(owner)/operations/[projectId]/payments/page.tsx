@@ -152,12 +152,7 @@ export default async function ManagePaymentsPage({
 				{canLog && (
 					<aside className="lg:sticky lg:top-4 lg:self-start">
 						<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
-							<div className="mb-3">
-								<h2 className="type-heading">Log payment baru</h2>
-								<p className="type-caption mt-0.5">
-									Total &amp; status event auto-update lewat trigger DB.
-								</p>
-							</div>
+							<h2 className="type-heading mb-3">Log payment baru</h2>
 							<PaymentForm
 								eventId={event.id as string}
 								projectId={event.project_id}
@@ -181,9 +176,9 @@ function SummaryCell({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className="min-w-0 px-4 py-3 sm:px-5">
+		<div className="min-w-0 px-4 py-2.5 sm:px-5">
 			<dt className="eyebrow">{label}</dt>
-			<dd className="mt-1 truncate">{children}</dd>
+			<dd className="mt-0.5 truncate">{children}</dd>
 		</div>
 	);
 }
