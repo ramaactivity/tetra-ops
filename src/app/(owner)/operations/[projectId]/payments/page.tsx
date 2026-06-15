@@ -1,10 +1,8 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-	type BankAccountOption,
-	PaymentForm,
-} from "@/components/billing/payment-form";
+import { LogPaymentDialog } from "@/components/billing/log-payment-dialog";
+import type { BankAccountOption } from "@/components/billing/payment-form";
 import {
 	PaymentList,
 	type PaymentRow,
@@ -77,7 +75,7 @@ export default async function ManagePaymentsPage({
 	return (
 		<Container size="xl" className="space-y-4 pb-4">
 			{/* Header — compact */}
-			<div className="flex flex-wrap items-center justify-between gap-3">
+			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
 					<Link
 						href={`/operations/${event.project_id}`}
@@ -91,9 +89,20 @@ export default async function ManagePaymentsPage({
 						<span className="type-secondary">{event.client_name}</span>
 					</div>
 				</div>
-				<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
-					{PAYMENT_STATUS_LABELS[status] ?? status}
-				</Badge>
+				<div className="flex items-center gap-2">
+					<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
+						{PAYMENT_STATUS_LABELS[status] ?? status}
+					</Badge>
+					{canLog && (
+						<LogPaymentDialog
+							eventId={event.id as string}
+							projectId={event.project_id}
+							bankAccounts={(banks ?? []) as BankAccountOption[]}
+							defaultDate={today}
+							suggestedAmount={remaining}
+						/>
+					)}
+				</div>
 			</div>
 
 			{/* Summary — stat row + progress */}
@@ -129,41 +138,18 @@ export default async function ManagePaymentsPage({
 				</div>
 			</section>
 
-			{/* Body */}
-			<div
-				className={
-					canLog
-						? "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_400px]"
-						: "grid gap-4"
-				}
-			>
-				<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
-					<div className="mb-3 flex items-baseline justify-between">
-						<h2 className="type-heading">Riwayat payment</h2>
-						{payments.length > 0 && (
-							<span className="type-caption tabular">
-								{payments.length} transaksi
-							</span>
-						)}
-					</div>
-					<PaymentList projectId={event.project_id} payments={payments} />
-				</section>
-
-				{canLog && (
-					<aside className="lg:sticky lg:top-4 lg:self-start">
-						<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
-							<h2 className="type-heading mb-3">Log payment baru</h2>
-							<PaymentForm
-								eventId={event.id as string}
-								projectId={event.project_id}
-								bankAccounts={(banks ?? []) as BankAccountOption[]}
-								defaultDate={today}
-								suggestedAmount={remaining}
-							/>
-						</section>
-					</aside>
-				)}
-			</div>
+			{/* Riwayat — full width; form lives in the Log payment modal */}
+			<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+				<div className="mb-3 flex items-baseline justify-between">
+					<h2 className="type-heading">Riwayat payment</h2>
+					{payments.length > 0 && (
+						<span className="type-caption tabular">
+							{payments.length} transaksi
+						</span>
+					)}
+				</div>
+				<PaymentList projectId={event.project_id} payments={payments} />
+			</section>
 		</Container>
 	);
 }

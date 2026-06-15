@@ -38,6 +38,7 @@ export type PaymentFormState =
 	| {
 			errors?: PaymentErrors;
 			values?: Record<string, string>;
+			success?: true;
 	  }
 	| undefined;
 
@@ -160,7 +161,7 @@ export async function logPayment(
 
 		revalidatePath(`/operations/${projectId}`);
 		revalidatePath(`/operations/${projectId}/payments`);
-		return undefined;
+		return { success: true };
 	} catch (err) {
 		// Catch-all so an unhandled throw never bubbles to the global error
 		// boundary (which shows the generic "Ada yang ngga beres" page). Surface

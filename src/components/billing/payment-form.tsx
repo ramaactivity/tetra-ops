@@ -29,18 +29,25 @@ export function PaymentForm({
 	bankAccounts,
 	defaultDate,
 	suggestedAmount,
+	onSuccess,
 }: {
 	eventId: string;
 	projectId: string;
 	bankAccounts: BankAccountOption[];
 	defaultDate: string;
 	suggestedAmount?: number;
+	onSuccess?: () => void;
 }) {
 	const action = logPayment.bind(null, eventId, projectId);
 	const [state, formAction, pending] = useActionState<
 		PaymentFormState,
 		FormData
 	>(action, undefined);
+
+	// Close the dialog (and let the page revalidate) once the payment is logged.
+	useEffect(() => {
+		if (state?.success) onSuccess?.();
+	}, [state?.success, onSuccess]);
 
 	const get = (key: string, fallback?: string) =>
 		state?.values?.[key] ?? fallback ?? "";
