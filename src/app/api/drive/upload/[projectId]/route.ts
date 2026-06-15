@@ -10,6 +10,13 @@ import {
 	isDriveConfigured,
 	uploadFileToFolder,
 } from "@/lib/drive/client";
+import {
+	buildDesignName,
+	buildGenericName,
+	buildPaymentProofName,
+	buildRekapProofName,
+	buildTransportProofName,
+} from "@/lib/drive/naming";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -26,120 +33,6 @@ const ALLOWED_MIME = new Set([
 	"image/gif",
 	"application/pdf",
 ]);
-
-function safeSegment(raw: string, maxLen = 60): string {
-	return raw
-		.replace(/[\\/:*?"<>|]/g, "")
-		.replace(/\s+/g, " ")
-		.trim()
-		.slice(0, maxLen);
-}
-
-const PAYMENT_TYPE_LABEL: Record<string, string> = {
-	dp: "DP",
-	partial: "Partial",
-	pelunasan: "Pelunasan",
-};
-
-function formatPaymentDate(iso: string | null): string | null {
-	if (!iso) return null;
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return null;
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
-}
-
-const MONTHS_ID = [
-	"Januari",
-	"Februari",
-	"Maret",
-	"April",
-	"Mei",
-	"Juni",
-	"Juli",
-	"Agustus",
-	"September",
-	"Oktober",
-	"November",
-	"Desember",
-];
-
-/** Human-readable Indonesian date, e.g. "9 Mei 2026". */
-function humanDateID(iso: string | null): string | null {
-	if (!iso) return null;
-	const d = new Date(`${iso}T00:00:00`);
-	if (Number.isNaN(d.getTime())) return null;
-	return `${d.getDate()} ${MONTHS_ID[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-function buildPaymentProofName(
-	meta: {
-		projectId: string;
-		clientName: string;
-		paymentType: string | null;
-		paymentDate: string | null;
-		amount: number | null;
-	},
-	ext: string,
-): string {
-	const parts: string[] = [];
-
-	parts.push(safeSegment(meta.projectId, 30));
-
-	// "Pelunasan Rp1.500.000" or "DP" or "Pembayaran"
-	const typeLabel = meta.paymentType
-		? PAYMENT_TYPE_LABEL[meta.paymentType.toLowerCase()]
-		: null;
-	let middle = typeLabel ?? "Pembayaran";
-	if (meta.amount && meta.amount > 0) {
-		middle += ` Rp${meta.amount.toLocaleString("id-ID")}`;
-	}
-	parts.push(safeSegment(middle, 60));
-
-	if (meta.clientName) {
-		parts.push(safeSegment(meta.clientName, 50));
-	}
-
-	const dateStr = formatPaymentDate(meta.paymentDate);
-	if (dateStr) parts.push(dateStr);
-
-	const name = parts.filter(Boolean).join(" - ");
-	const safe = name.slice(0, 180).trim();
-	return `${safe}.${ext}`;
-}
-
-/**
- * Rekap proof naming: `{PRJ-ID} - REKAP - {YYYY-MM-DD} - {seq}.{ext}`
- * - date defaults to today (upload time, in WIB-relevant local zone via ISO)
- * - seq is supplied by client (multi-file upload session counter); falls back
- *   to HHMMSS timestamp when missing to guarantee uniqueness
- */
-function buildRekapProofName(
-	meta: {
-		projectId: string;
-		eventDate: string | null;
-		seq: string | null;
-	},
-	ext: string,
-): string {
-	const parts: string[] = [safeSegment(meta.projectId, 30), "REKAP"];
-	const dateStr =
-		formatPaymentDate(meta.eventDate) ??
-		formatPaymentDate(new Date().toISOString());
-	if (dateStr) parts.push(dateStr);
-	const seqClean = meta.seq?.replace(/\D/g, "").padStart(2, "0").slice(0, 4);
-	if (seqClean && seqClean !== "00") {
-		parts.push(seqClean);
-	} else {
-		const now = new Date();
-		const hhmmss = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
-		parts.push(hhmmss);
-	}
-	const name = parts.join(" - ").slice(0, 180).trim();
-	return `${name}.${ext}`;
-}
 
 export async function POST(
 	req: NextRequest,
@@ -312,48 +205,32 @@ export async function POST(
 			ext,
 		);
 	} else if (kind === "transport_proof") {
-		// Transport proof: `{PRJ-ID} - TRANSPORT - {leg} - {YYYY-MM-DD}.{ext}`
 		// `leg` posted as `seq` field — "berangkat" / "pulang" (or fallback HHMMSS).
-		const legRaw = typeof seq === "string" ? seq.toLowerCase() : "";
-		const leg = ["berangkat", "pulang"].includes(legRaw) ? legRaw : null;
-		const dateStr =
-			formatPaymentDate((event.event_date as string | null) ?? null) ??
-			formatPaymentDate(new Date().toISOString());
-		const parts: string[] = [
-			safeSegment(event.project_id as string, 30),
-			"TRANSPORT",
-		];
-		if (leg) parts.push(safeSegment(leg, 20));
-		if (dateStr) parts.push(dateStr);
-		if (!leg) {
-			const now = new Date();
-			parts.push(
-				`${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`,
-			);
-		}
-		finalName = `${parts.join(" - ").slice(0, 180).trim()}.${ext}`;
+		finalName = buildTransportProofName(
+			{
+				projectId: event.project_id as string,
+				eventDate: (event.event_date as string | null) ?? null,
+				leg: seq,
+			},
+			ext,
+		);
 	} else if (kind === "design_frame") {
-		// Human-friendly: "<Event Name> - Design - <tanggal> - <nama asli>"
-		const baseOriginal = safeSegment(
-			file.name?.replace(/\.[^.]+$/, "") || "design",
-			60,
+		finalName = buildDesignName(
+			{
+				clientName: (event.client_name as string) ?? "Event",
+				eventDate: (event.event_date as string | null) ?? null,
+				originalName: file.name ?? null,
+			},
+			ext,
 		);
-		const human = humanDateID((event.event_date as string | null) ?? null);
-		const parts: string[] = [
-			safeSegment((event.client_name as string) ?? "Event", 50),
-			"Design",
-		];
-		if (human) parts.push(human);
-		parts.push(baseOriginal);
-		finalName = `${parts.join(" - ").slice(0, 180).trim()}.${ext}`;
 	} else {
-		// Generic fallback: project + original name (sanitized)
-		const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-		const baseOriginal = safeSegment(
-			file.name?.replace(/\.[^.]+$/, "") || `upload-${ts}`,
-			120,
+		finalName = buildGenericName(
+			{
+				projectId: event.project_id as string,
+				originalName: file.name ?? null,
+			},
+			ext,
 		);
-		finalName = `${event.project_id as string} - ${baseOriginal}.${ext}`;
 	}
 
 	// Route into the right per-event subfolder (Nota / Hasil Cetak / Design /

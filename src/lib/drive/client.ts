@@ -202,6 +202,24 @@ export async function ensureEventTree(event: {
 	return ensureFolder(folderName, monthParentId);
 }
 
+/**
+ * Find-or-create folder bulanan untuk Nota Manual:
+ *   Parent / Arsip Nota Manual / <Year> / <MM - Month>
+ * Folder dipisah per BULAN UPLOAD (bukan tanggal nota) sesuai kebutuhan arsip.
+ * Idempotent (reuse folder yang sudah ada). Return folder bulan tujuan.
+ */
+export async function ensureManualNotaMonthFolder(
+	uploadDate: Date = new Date(),
+): Promise<CreatedFolder> {
+	const parent = getParentFolderId();
+	if (!parent) throw new Error("GOOGLE_DRIVE_PARENT_FOLDER_ID missing");
+
+	const root = await ensureFolder("Arsip Nota Manual", parent);
+	const yearFolder = await ensureFolder(String(uploadDate.getFullYear()), root.id);
+	const mm = String(uploadDate.getMonth() + 1).padStart(2, "0");
+	return ensureFolder(`${mm} - ${MONTHS_ID[uploadDate.getMonth()]}`, yearFolder.id);
+}
+
 /** Count non-folder files directly in a folder (used for footage status). */
 export async function countFolderFiles(folderId: string): Promise<number> {
 	try {
