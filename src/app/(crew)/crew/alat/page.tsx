@@ -1,9 +1,10 @@
 import { ChevronRight, Package2 } from "lucide-react";
 import Link from "next/link";
-import { EmptyState } from "@/components/ui/empty-state";
+import { AppHeader, AppScreen, Section } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 const CONDITION_LABELS: Record<string, string> = {
 	normal: "Normal",
@@ -43,6 +44,16 @@ type EquipmentItem = {
 	current_event_id: string | null;
 };
 
+function EmptyAlat({ title, body }: { title: string; body: string }) {
+	return (
+		<div className="mt-4 rounded-[1.25rem] border border-dashed border-border-default bg-card/40 px-5 py-10 text-center">
+			<Package2 className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
+			<p className="type-body-strong">{title}</p>
+			<p className="type-secondary mx-auto mt-1 max-w-[18rem]">{body}</p>
+		</div>
+	);
+}
+
 export default async function CrewEquipmentPage() {
 	const me = await getCurrentUser();
 	if (!me) return null;
@@ -50,7 +61,6 @@ export default async function CrewEquipmentPage() {
 	const todayISO = isoDate(new Date());
 	const supabase = await createClient();
 
-	// Get my upcoming/in-progress assigned events
 	const { data: assignments } = await supabase
 		.from("crew_assignments")
 		.select(
@@ -71,7 +81,6 @@ export default async function CrewEquipmentPage() {
 
 	const eventIds = eventList.map((e) => e.id);
 
-	// Get equipment checked out to those events
 	const equipmentByEvent = new Map<string, EquipmentItem[]>();
 	if (eventIds.length > 0) {
 		const { data: equipmentRows } = await supabase
@@ -93,89 +102,84 @@ export default async function CrewEquipmentPage() {
 		0,
 	);
 
-	// Sort events by date asc
 	eventList.sort((a, b) => a.event_date.localeCompare(b.event_date));
 
 	return (
-		<div className="mx-auto w-full max-w-md space-y-4 px-4 py-6">
-			<header className="space-y-1">
-				<h1 className="text-fluid-h1 font-semibold tracking-tight">Alat</h1>
-				<p className="text-muted-foreground text-sm">
-					Equipment yang ke-checkout buat event-event lo. Checkout/check-in
-					di-handle owner via Operations.
-				</p>
-			</header>
+		<AppScreen>
+			<AppHeader
+				title="Alat"
+				subtitle="Alat yang udah disiapin buat event lo. Diatur sama owner."
+			/>
 
 			{eventList.length === 0 ? (
-				<EmptyState
-					icon={Package2}
-					title="Belum ada event upcoming"
-					description="Begitu lo dapet jadwal baru, daftar alat bakal muncul di sini."
+				<EmptyAlat
+					title="Belum ada event mendatang"
+					body="Begitu lo dapet jadwal baru, daftar alat bakal muncul di sini."
 				/>
 			) : totalCheckedOut === 0 ? (
-				<EmptyState
-					icon={Package2}
-					title="Belum ada alat ke-checkout"
-					description="Tunggu owner checkout alat sebelum hari H. Listnya bakal muncul otomatis."
+				<EmptyAlat
+					title="Belum ada alat disiapin"
+					body="Tunggu owner nyiapin alat sebelum hari H. Listnya muncul otomatis."
 				/>
 			) : (
-				<div className="space-y-3">
-					{eventList.map((ev) => {
-						const equipment = equipmentByEvent.get(ev.id) ?? [];
-						if (equipment.length === 0) return null;
-						return (
-							<div
-								key={ev.id}
-								className="border-border-default bg-surface-2 overflow-hidden rounded-xl border"
-							>
-								<Link
-									href={`/crew/jadwal/${ev.project_id}`}
-									className="hover:bg-muted/40 flex items-start justify-between gap-2 p-3 transition-colors"
+				<Section className="mt-4">
+					<ul className="space-y-3">
+						{eventList.map((ev) => {
+							const equipment = equipmentByEvent.get(ev.id) ?? [];
+							if (equipment.length === 0) return null;
+							return (
+								<li
+									key={ev.id}
+									className="overflow-hidden rounded-[1.25rem] border border-border-default bg-card shadow-[var(--shadow-level-2)]"
 								>
-									<div className="min-w-0 flex-1 space-y-0.5">
-										<p className="text-foreground truncate text-sm font-medium">
-											{ev.client_name}
-										</p>
-										<p className="text-muted-foreground tabular text-xs">
-											{formatDateID(ev.event_date)} · {ID_TIME(ev.start_time)} ·{" "}
-											{ev.venue_name}
-										</p>
-									</div>
-									<div className="flex items-center gap-1.5">
-										<span className="bg-primary/15 text-primary tabular rounded-full px-2 py-0.5 text-xs font-bold">
+									<Link
+										href={`/crew/jadwal/${ev.project_id}`}
+										className="press tap flex items-center gap-3 border-b border-border-subtle px-4 py-3 transition-colors active:bg-surface-3"
+									>
+										<div className="min-w-0 flex-1">
+											<p className="type-body-strong truncate">
+												{ev.client_name}
+											</p>
+											<p className="type-secondary tabular truncate">
+												{formatDateID(ev.event_date)} · {ID_TIME(ev.start_time)}{" "}
+												· {ev.venue_name}
+											</p>
+										</div>
+										<span className="type-num inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary/10 px-2 text-[0.75rem] text-primary">
 											{equipment.length}
 										</span>
-										<ChevronRight className="text-muted-foreground/60 h-4 w-4" />
-									</div>
-								</Link>
-								<ul className="divide-border divide-y">
-									{equipment.map((eq) => {
-										const cond = eq.condition ?? "normal";
-										return (
-											<li
-												key={eq.id}
-												className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-											>
-												<div className="min-w-0 flex-1">
-													<p className="text-foreground truncate">{eq.name}</p>
-													<p className="text-muted-foreground tabular text-[11px]">
-														{eq.sku}
-													</p>
-												</div>
-												<span
-													className={`text-[11px] font-medium ${CONDITION_TONES[cond] ?? "text-muted-foreground"}`}
+										<ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
+									</Link>
+									<ul>
+										{equipment.map((eq) => {
+											const cond = eq.condition ?? "normal";
+											return (
+												<li
+													key={eq.id}
+													className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2.5 last:border-b-0"
 												>
-													{CONDITION_LABELS[cond] ?? cond}
-												</span>
-											</li>
-										);
-									})}
-								</ul>
-							</div>
-						);
-					})}
-				</div>
+													<div className="min-w-0 flex-1">
+														<p className="type-body truncate">{eq.name}</p>
+														<p className="eyebrow tabular mt-0.5">{eq.sku}</p>
+													</div>
+													<span
+														className={cn(
+															"type-label",
+															CONDITION_TONES[cond] ?? "text-muted-foreground",
+														)}
+													>
+														{CONDITION_LABELS[cond] ?? cond}
+													</span>
+												</li>
+											);
+										})}
+									</ul>
+								</li>
+							);
+						})}
+					</ul>
+				</Section>
 			)}
-		</div>
+		</AppScreen>
 	);
 }

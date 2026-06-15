@@ -1,14 +1,8 @@
-import {
-	CheckCircle2,
-	ChevronLeft,
-	ExternalLink,
-	Image,
-	Info,
-} from "lucide-react";
-import Link from "next/link";
+import { CheckCircle2, ExternalLink, Image, Info } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { RekapForm } from "@/components/rekap/rekap-form";
 import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
+import { AppHeader, AppScreen } from "@/components/ui/mobile";
 import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -98,7 +92,7 @@ export default async function CrewRekapPage({
 	if ("error" in context) {
 		return (
 			<div className="mx-auto w-full max-w-md px-4 py-6">
-				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+				<div className="rounded-2xl border border-destructive bg-destructive/10 p-3">
 					<p className="text-sm font-medium text-destructive">
 						Gagal load konteks rekap: {context.error}
 					</p>
@@ -139,110 +133,110 @@ export default async function CrewRekapPage({
 		: undefined;
 
 	return (
-		<div className="mx-auto w-full max-w-md space-y-5 px-4 py-6">
-			<Link
-				href={`/crew/jadwal/${projectId}`}
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				{event.client_name}
-			</Link>
-
-			<RekapHeroCard
-				clientName={event.client_name}
-				projectId={event.project_id}
-				eventDate={event.event_date}
-				venueName={event.venue_name}
-				pkg={context.pkg}
-				isApproved={rekap?.is_approved}
-				submitted={Boolean(rekap)}
+		<AppScreen>
+			<AppHeader
+				title="Rekap"
+				subtitle={event.client_name}
+				backHref={`/crew/jadwal/${projectId}`}
 			/>
 
-			{!isPastEvent && !rekap && (
-				<div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-					<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
-					<p className="text-foreground/80 text-xs leading-relaxed">
-						Event belum lewat. Lo bisa submit rekap setelah event selesai. Form
-						ini boleh kepake duluan kalau memang event-nya udah beres.
-					</p>
-				</div>
-			)}
+			<div className="mt-3 space-y-4">
+				<RekapHeroCard
+					clientName={event.client_name}
+					projectId={event.project_id}
+					eventDate={event.event_date}
+					venueName={event.venue_name}
+					pkg={context.pkg}
+					isApproved={rekap?.is_approved}
+					submitted={Boolean(rekap)}
+				/>
 
-			{rekap?.is_approved === false && rekap.review_notes && (
-				<div className="space-y-1 rounded-lg border border-rose-200 bg-rose-50/50 p-3 dark:border-rose-900 dark:bg-rose-950/20">
-					<p className="text-rose-900 dark:text-rose-200 text-[11px] font-semibold uppercase tracking-wider">
-						Owner minta revisi
-					</p>
-					<p className="text-foreground/80 text-xs leading-relaxed">
-						{rekap.review_notes}
-					</p>
-				</div>
-			)}
-
-			{rekap?.is_approved === true ? (
-				<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-4">
-					<div className="flex items-center gap-2">
-						<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-						<p className="text-foreground text-sm font-medium">
-							Rekap sudah di-approve
+				{!isPastEvent && !rekap && (
+					<div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+						<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+						<p className="text-foreground/80 text-xs leading-relaxed">
+							Event belum lewat. Lo bisa submit rekap setelah event selesai.
+							Form ini boleh kepake duluan kalau memang event-nya udah beres.
 						</p>
 					</div>
-					<dl className="grid grid-cols-2 gap-3 text-xs">
-						<DetailRow label="Cetak total" value={rekap.cetak_total} />
-						<DetailRow label="Media set" value={rekap.media_set_used} />
-						<DetailRow label="Sleeve" value={rekap.sleeve_used} />
-						<DetailRow label="Flashdisk" value={rekap.flashdisk_used} />
-						<DetailRow label="Pouch" value={rekap.pouch_used} />
-						<DetailRow label="Photomagnet" value={rekap.photomagnet_used} />
-						<DetailRow label="Keychain" value={rekap.keychain_used} />
-					</dl>
-					{rekap.proof_photo_urls.length > 0 && (
-						<div className="space-y-1.5">
-							<p className="text-muted-foreground text-[11px] uppercase tracking-wider">
-								<Image className="mr-1 inline h-3 w-3" />
-								Foto bukti ({rekap.proof_photo_urls.length})
-							</p>
-							<ul className="space-y-1">
-								{rekap.proof_photo_urls.map((url, i) => (
-									<li key={`${url}-${i}`}>
-										<a
-											href={url}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-primary inline-flex items-center gap-1 truncate text-xs hover:underline"
-										>
-											{url}
-											<ExternalLink className="h-3 w-3 shrink-0" />
-										</a>
-									</li>
-								))}
-							</ul>
-						</div>
-					)}
-					{rekap.crew_notes && (
-						<div className="space-y-0.5">
-							<p className="text-muted-foreground text-[11px] uppercase tracking-wider">
-								Catatan
-							</p>
-							<p className="text-foreground/80 whitespace-pre-line text-xs leading-relaxed">
-								{rekap.crew_notes}
+				)}
+
+				{rekap?.is_approved === false && rekap.review_notes && (
+					<div className="space-y-1 rounded-2xl border border-rose-200 bg-rose-50/50 p-3 dark:border-rose-900 dark:bg-rose-950/20">
+						<p className="text-rose-900 dark:text-rose-200 text-[11px] font-semibold uppercase tracking-wider">
+							Owner minta revisi
+						</p>
+						<p className="text-foreground/80 text-xs leading-relaxed">
+							{rekap.review_notes}
+						</p>
+					</div>
+				)}
+
+				{rekap?.is_approved === true ? (
+					<div className="space-y-3 rounded-2xl border border-border-default bg-surface-2 p-4">
+						<div className="flex items-center gap-2">
+							<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+							<p className="text-foreground text-sm font-medium">
+								Rekap sudah di-approve
 							</p>
 						</div>
-					)}
-					<p className="text-muted-foreground text-[10px] italic">
-						Sudah approved — gak bisa di-edit lagi.
-					</p>
-				</div>
-			) : (
-				<RekapForm
-					eventId={event.id}
-					projectId={event.project_id}
-					defaults={defaults}
-					mode={mode}
-					context={context}
-				/>
-			)}
-		</div>
+						<dl className="grid grid-cols-2 gap-3 text-xs">
+							<DetailRow label="Cetak total" value={rekap.cetak_total} />
+							<DetailRow label="Media set" value={rekap.media_set_used} />
+							<DetailRow label="Sleeve" value={rekap.sleeve_used} />
+							<DetailRow label="Flashdisk" value={rekap.flashdisk_used} />
+							<DetailRow label="Pouch" value={rekap.pouch_used} />
+							<DetailRow label="Photomagnet" value={rekap.photomagnet_used} />
+							<DetailRow label="Keychain" value={rekap.keychain_used} />
+						</dl>
+						{rekap.proof_photo_urls.length > 0 && (
+							<div className="space-y-1.5">
+								<p className="text-muted-foreground text-[11px] uppercase tracking-wider">
+									<Image className="mr-1 inline h-3 w-3" />
+									Foto bukti ({rekap.proof_photo_urls.length})
+								</p>
+								<ul className="space-y-1">
+									{rekap.proof_photo_urls.map((url, i) => (
+										<li key={`${url}-${i}`}>
+											<a
+												href={url}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="text-primary inline-flex items-center gap-1 truncate text-xs hover:underline"
+											>
+												{url}
+												<ExternalLink className="h-3 w-3 shrink-0" />
+											</a>
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
+						{rekap.crew_notes && (
+							<div className="space-y-0.5">
+								<p className="text-muted-foreground text-[11px] uppercase tracking-wider">
+									Catatan
+								</p>
+								<p className="text-foreground/80 whitespace-pre-line text-xs leading-relaxed">
+									{rekap.crew_notes}
+								</p>
+							</div>
+						)}
+						<p className="text-muted-foreground text-[10px] italic">
+							Sudah approved — gak bisa di-edit lagi.
+						</p>
+					</div>
+				) : (
+					<RekapForm
+						eventId={event.id}
+						projectId={event.project_id}
+						defaults={defaults}
+						mode={mode}
+						context={context}
+					/>
+				)}
+			</div>
+		</AppScreen>
 	);
 }
 

@@ -1,5 +1,6 @@
 import { LogOut, Mail, Shield } from "lucide-react";
 import { OnboardingForm } from "@/components/auth/onboarding-form";
+import { AppHeader, AppScreen, Section, Surface } from "@/components/ui/mobile";
 import { signOut } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,6 @@ export default async function CrewProfilePage() {
 
 	const supabase = await createClient();
 
-	// Fetch tier + lifetime stats + editable fields
 	const [{ data: profileExtra }, { count: lifetimeEventsCount }] =
 		await Promise.all([
 			supabase
@@ -54,91 +54,77 @@ export default async function CrewProfilePage() {
 		.join("");
 
 	return (
-		<div className="mx-auto w-full max-w-md space-y-5 px-4 py-6">
-			<header className="space-y-1">
-				<h1 className="text-fluid-h1 font-semibold tracking-tight">Profile</h1>
-			</header>
+		<AppScreen>
+			<AppHeader title="Profile" />
 
-			<section className="border-border-default bg-surface-2 flex items-center gap-4 rounded-lg border p-5">
-				<div className="bg-primary/15 text-primary flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-semibold">
-					{initials || "?"}
-				</div>
-				<div className="min-w-0 flex-1 space-y-1">
-					<p className="text-foreground truncate text-base font-semibold">
-						{me.profile.full_name}
-					</p>
-					<p className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-						<Mail className="h-3 w-3" />
-						{me.email}
-					</p>
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="border-border-default bg-background text-muted-foreground inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
-							<Shield className="h-2.5 w-2.5" />
-							{ROLE_LABELS[me.profile.role] ?? me.profile.role}
-						</span>
-						{tier && (
-							<span className="border-border-default bg-background text-muted-foreground inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
-								{TIER_LABELS[tier] ?? tier}
-							</span>
-						)}
+			<div className="mt-3 space-y-4">
+				<Surface className="flex items-center gap-4" pad>
+					<div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary type-num-lg">
+						{initials || "?"}
 					</div>
-				</div>
-			</section>
+					<div className="min-w-0 flex-1">
+						<p className="type-heading truncate">{me.profile.full_name}</p>
+						<p className="type-secondary mt-0.5 inline-flex items-center gap-1">
+							<Mail className="size-3.5" />
+							<span className="truncate">{me.email}</span>
+						</p>
+						<div className="mt-2 flex flex-wrap items-center gap-1.5">
+							<span className="inline-flex items-center gap-1 rounded-full bg-surface-3 px-2 py-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
+								<Shield className="size-3" />
+								{ROLE_LABELS[me.profile.role] ?? me.profile.role}
+							</span>
+							{tier ? (
+								<span className="inline-flex items-center rounded-full bg-surface-3 px-2 py-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
+									{TIER_LABELS[tier] ?? tier}
+								</span>
+							) : null}
+						</div>
+					</div>
+				</Surface>
 
-			<section className="border-border-default bg-surface-2 grid grid-cols-2 divide-x rounded-lg border">
-				<div className="space-y-0.5 p-4 text-center">
-					<dt className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
-						Lifetime events
-					</dt>
-					<dd className="text-foreground tabular text-xl font-semibold">
-						{(lifetimeEventsCount ?? 0).toLocaleString("id-ID")}
-					</dd>
+				<div className="grid grid-cols-2 gap-3">
+					<Surface className="text-center" pad>
+						<span className="eyebrow">Lifetime events</span>
+						<p className="type-num-lg mt-1.5">
+							{(lifetimeEventsCount ?? 0).toLocaleString("id-ID")}
+						</p>
+					</Surface>
+					<Surface className="text-center" pad>
+						<span className="eyebrow">Member sejak</span>
+						<p className="type-heading mt-1.5">{memberSince ?? "—"}</p>
+					</Surface>
 				</div>
-				<div className="space-y-0.5 p-4 text-center">
-					<dt className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
-						Member sejak
-					</dt>
-					<dd className="text-foreground text-sm font-semibold">
-						{memberSince ?? "—"}
-					</dd>
-				</div>
-			</section>
+			</div>
 
-			<section className="space-y-2">
-				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-					Edit profil
-				</h2>
-				<div className="border-border-default bg-surface-2 rounded-lg border p-4">
+			<Section title="Edit profil">
+				<Surface pad>
 					<OnboardingForm
 						defaultFullName={me.profile.full_name}
 						defaultNickname={nickname}
 						defaultPhoneWa={phoneWa}
 						submitLabel="Simpan perubahan"
 					/>
-				</div>
-				<p className="text-muted-foreground text-[11px] leading-relaxed">
+				</Surface>
+				<p className="type-caption mt-2 px-1">
 					Tier &amp; fee di-set owner. Hubungi owner kalau perlu update.
 				</p>
-			</section>
+			</Section>
 
-			<section className="space-y-2">
-				<h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-					Akun
-				</h2>
+			<Section title="Akun">
 				<form action={signOut}>
 					<button
 						type="submit"
-						className="border-border-default bg-surface-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors"
+						className="press tap flex w-full items-center justify-center gap-2 rounded-[1.25rem] border border-border-default bg-card px-4 py-3.5 text-rose-600 shadow-[var(--shadow-level-2)] transition-colors active:bg-rose-50 dark:text-rose-400 dark:active:bg-rose-950/30"
 					>
-						<LogOut className="h-4 w-4" />
-						Sign out
+						<LogOut className="size-4" />
+						<span className="type-body-strong">Sign out</span>
 					</button>
 				</form>
-			</section>
+			</Section>
 
-			<p className="text-muted-foreground/60 text-center text-[10px]">
+			<p className="mt-8 text-center text-[0.6875rem] text-muted-foreground/60">
 				Tetra Ops · Crew app
 			</p>
-		</div>
+		</AppScreen>
 	);
 }

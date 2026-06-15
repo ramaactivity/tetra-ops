@@ -65,13 +65,20 @@ export default async function CrewHomePage() {
 	const tomorrow = new Date(today);
 	tomorrow.setDate(today.getDate() + 1);
 	const tomorrowISO = isoDate(tomorrow);
-	const sevenFromNow = new Date(today);
-	sevenFromNow.setDate(today.getDate() + 7);
-	const sevenFromNowISO = isoDate(sevenFromNow);
+	// Bulan berjalan — semua event bulan ini, dipisah "sudah selesai" vs "mendatang".
+	const monthStartISO = isoDate(
+		new Date(today.getFullYear(), today.getMonth(), 1),
+	);
+	const monthEndISO = isoDate(
+		new Date(today.getFullYear(), today.getMonth() + 1, 0),
+	);
+	const monthName = new Intl.DateTimeFormat("id-ID", { month: "long" }).format(
+		today,
+	);
 
 	const supabase = await createClient();
 
-	const [{ data: nextAssignmentsData }, { data: weekAssignments }] =
+	const [{ data: nextAssignmentsData }, { data: monthAssignmentsData }] =
 		await Promise.all([
 			supabase
 				.from("crew_assignments")
@@ -91,8 +98,8 @@ export default async function CrewHomePage() {
 				.from("crew_assignments")
 				.select("event:events!inner(event_date)")
 				.eq("user_id", me.profile.id)
-				.gte("event.event_date", todayISO)
-				.lte("event.event_date", sevenFromNowISO),
+				.gte("event.event_date", monthStartISO)
+				.lte("event.event_date", monthEndISO),
 		]);
 
 	const nextAssignments = (nextAssignmentsData ?? []).filter(
@@ -108,11 +115,17 @@ export default async function CrewHomePage() {
 		return (ea.start_time ?? "").localeCompare(eb.start_time ?? "");
 	});
 
-	const upcomingCount = ((weekAssignments ?? []) as unknown[]).length;
-	const todayCount = nextAssignments.filter((a) => {
-		const ev = Array.isArray(a.event) ? a.event[0] : a.event;
-		return ev?.event_date === todayISO;
-	}).length;
+	const monthRows = (monthAssignmentsData ?? []) as Array<{
+		event: { event_date: string } | { event_date: string }[] | null;
+	}>;
+	let doneThisMonth = 0;
+	let upcomingThisMonth = 0;
+	for (const r of monthRows) {
+		const ev = Array.isArray(r.event) ? r.event[0] : r.event;
+		if (!ev) continue;
+		if (ev.event_date < todayISO) doneThisMonth += 1;
+		else upcomingThisMonth += 1;
+	}
 
 	const firstName = me.profile.full_name.split(" ")[0];
 
@@ -125,18 +138,18 @@ export default async function CrewHomePage() {
 
 			<NeedsRekapSection userId={me.profile.id} />
 
-			<Section title="Ringkasan">
+			<Section title={`Bulan ${monthName}`}>
 				<div className="grid grid-cols-2 gap-3">
 					<StatTile
-						label="Hari ini"
-						value={todayCount}
-						hint={todayCount === 0 ? "Tidak ada event" : "event terjadwal"}
-						tone={todayCount > 0 ? "default" : "default"}
+						label="Sudah selesai"
+						value={doneThisMonth}
+						hint={`event ${monthName}`}
+						tone={doneThisMonth > 0 ? "positive" : "default"}
 					/>
 					<StatTile
-						label="7 hari"
-						value={upcomingCount}
-						hint="event mendatang"
+						label="Mendatang"
+						value={upcomingThisMonth}
+						hint={`event ${monthName}`}
 					/>
 				</div>
 				<Link

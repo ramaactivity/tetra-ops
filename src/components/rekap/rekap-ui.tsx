@@ -24,7 +24,7 @@ export function RekapCard({
 	return (
 		<section
 			className={cn(
-				"rounded-xl border border-border-default bg-card p-5",
+				"rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
 				className,
 			)}
 		>
@@ -50,18 +50,14 @@ export function SectionHeader({
 		<div className={cn("flex items-start justify-between gap-3", className)}>
 			<div className="flex min-w-0 items-start gap-2.5">
 				{Icon ? (
-					<span className="bg-secondary text-muted-foreground mt-0.5 grid size-7 shrink-0 place-items-center rounded-md">
-						<Icon className="size-3.5" strokeWidth={2} aria-hidden />
+					<span className="bg-secondary text-muted-foreground mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl">
+						<Icon className="size-4" strokeWidth={2} aria-hidden />
 					</span>
 				) : null}
 				<div className="min-w-0">
-					<h3 className="text-[13.5px] font-semibold leading-tight text-foreground">
-						{title}
-					</h3>
+					<h3 className="type-heading text-foreground">{title}</h3>
 					{description ? (
-						<p className="mt-1 text-[12px] leading-snug text-muted-foreground">
-							{description}
-						</p>
+						<p className="type-secondary mt-1 leading-snug">{description}</p>
 					) : null}
 				</div>
 			</div>
@@ -96,6 +92,10 @@ export function FieldLabel({
 	);
 }
 
-/** Shared input chrome — 40px height for comfortable data entry. */
+/**
+ * Shared input chrome — 44px touch target, 16px text. The 16px is deliberate:
+ * iOS Safari zooms the viewport when a focused input is < 16px, which feels
+ * broken. 12px radius matches the softer mobile language.
+ */
 export const REKAP_INPUT =
-	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none";
+	"h-11 w-full rounded-xl border border-border-default bg-background px-3.5 text-[1rem] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none";

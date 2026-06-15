@@ -110,10 +110,7 @@ export default async function CrewSchedulePage({
 
 	return (
 		<AppScreen>
-			<AppHeader
-				title="Jadwal"
-				subtitle="Event yang lo di-assign sebagai crew."
-			/>
+			<AppHeader title="Jadwal" subtitle="Semua event yang ditugaskan ke lo." />
 
 			<NeedsRekapSection userId={me.profile.id} />
 
@@ -121,12 +118,12 @@ export default async function CrewSchedulePage({
 			<div className="mt-5 grid grid-cols-2 gap-1 rounded-full border border-border-default bg-surface-3 p-1">
 				<SegLink
 					href="/crew/jadwal"
-					label="Upcoming"
+					label="Mendatang"
 					active={tab === "upcoming"}
 				/>
 				<SegLink
 					href="/crew/jadwal?tab=past"
-					label="Past"
+					label="Selesai"
 					active={tab === "past"}
 				/>
 			</div>
@@ -137,13 +134,13 @@ export default async function CrewSchedulePage({
 						<CalendarPlus className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
 						<p className="type-body-strong">
 							{tab === "upcoming"
-								? "Belum ada event upcoming"
-								: "Belum ada event past"}
+								? "Belum ada event mendatang"
+								: "Belum ada event selesai"}
 						</p>
 						<p className="type-secondary mx-auto mt-1 max-w-[18rem]">
 							{tab === "upcoming"
-								? "Tunggu di-assign owner. Notif WA bakal masuk pas lo dapat schedule baru."
-								: "Riwayat event yang udah selesai bakal muncul di sini."}
+								? "Tunggu ditugaskan owner. Notif WA bakal masuk pas lo dapet jadwal baru."
+								: "Event yang udah kelar bakal muncul di sini."}
 						</p>
 					</div>
 				) : (

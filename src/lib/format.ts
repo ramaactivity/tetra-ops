@@ -78,14 +78,14 @@ export const CHANNEL_TYPE_LABELS: Record<string, string> = {
 };
 
 export const EVENT_STATUS_LABELS: Record<string, string> = {
-	draft: "Draft",
-	confirmed: "Confirmed",
-	upcoming: "Upcoming",
-	in_progress: "In Progress",
-	awaiting_settlement: "Awaiting Settlement",
-	completed: "Completed",
-	cancelled: "Cancelled",
-	archived: "Archived",
+	draft: "Draf",
+	confirmed: "Terkonfirmasi",
+	upcoming: "Mendatang",
+	in_progress: "Berlangsung",
+	awaiting_settlement: "Menunggu Settle",
+	completed: "Selesai",
+	cancelled: "Dibatalkan",
+	archived: "Diarsipkan",
 };
 
 // Design workflow status — separate from the event lifecycle above.
