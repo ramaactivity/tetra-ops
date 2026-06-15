@@ -29,6 +29,11 @@ const ROLE_LABELS: Record<string, string> = {
 	crew_c: "Crew C",
 };
 
+const TIER_LABELS: Record<string, string> = {
+	senior: "Senior",
+	junior: "Junior",
+};
+
 const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
 
 function whatsAppLink(raw: string | null | undefined): string | null {
@@ -112,33 +117,36 @@ export default async function CrewEventDetailPage({
 	});
 	if (!myAssignment) notFound();
 
-	const partnerAssignments = crewAssignments.filter((a) => {
-		const u = Array.isArray(a.user) ? a.user[0] : a.user;
-		return u?.id !== me.profile.id;
-	});
-
 	// Equipment, design frames, and rekap status — all keyed by event.id and
 	// independent of each other, so fetch in parallel (one DB round-trip
 	// instead of three sequential ones).
-	const [{ data: equipmentRows }, { data: designAssets }, { data: rekapData }] =
-		await Promise.all([
-			supabase
-				.from("inventory_items")
-				.select("id, sku, name, category, condition")
-				.eq("category", "fixed_asset")
-				.eq("current_event_id", event.id),
-			supabase
-				.from("event_assets")
-				.select("id, label, url, drive_file_id")
-				.eq("event_id", event.id)
-				.eq("asset_type", "design_frame")
-				.order("created_at", { ascending: false }),
-			supabase
-				.from("crew_rekap")
-				.select("id, is_approved")
-				.eq("event_id", event.id)
-				.maybeSingle(),
-		]);
+	const [
+		{ data: equipmentRows },
+		{ data: designAssets },
+		{ data: rekapData },
+		{ data: crewRosterRaw },
+	] = await Promise.all([
+		supabase
+			.from("inventory_items")
+			.select("id, sku, name, category, condition")
+			.eq("category", "fixed_asset")
+			.eq("current_event_id", event.id),
+		supabase
+			.from("event_assets")
+			.select("id, label, url, drive_file_id")
+			.eq("event_id", event.id)
+			.eq("asset_type", "design_frame")
+			.order("created_at", { ascending: false }),
+		supabase
+			.from("crew_rekap")
+			.select("id, is_approved")
+			.eq("event_id", event.id)
+			.maybeSingle(),
+		// Partner names: crew can't read peers' `users` rows under RLS, so the
+		// crew_assignments embed returns null names. This SECURITY DEFINER RPC
+		// returns only safe columns (name, tier, role) for assigned crew.
+		supabase.rpc("get_event_crew", { p_event_id: event.id }),
+	]);
 
 	const equipment = (equipmentRows ?? []) as Array<{
 		id: string;
@@ -161,6 +169,28 @@ export default async function CrewEventDetailPage({
 	>;
 	const footageFolderUrl =
 		driveFolders.Footage?.url ?? event.drive_folder_url ?? null;
+
+	// Crew roster (with real partner names) from the RPC. Falls back to the
+	// RLS-limited embed if the RPC isn't available yet — roles still render,
+	// peer names degrade to "—".
+	const rpcRoster = (crewRosterRaw ?? []) as Array<{
+		user_id: string;
+		full_name: string;
+		tier: string | null;
+		role_in_event: string;
+	}>;
+	const roster =
+		rpcRoster.length > 0
+			? rpcRoster
+			: crewAssignments.map((a) => {
+					const u = Array.isArray(a.user) ? a.user[0] : a.user;
+					return {
+						user_id: u?.id ?? "",
+						full_name: u?.full_name ?? "—",
+						tier: u?.tier ?? null,
+						role_in_event: a.role_in_event,
+					};
+				});
 
 	const rekap = rekapData as { id: string; is_approved: boolean | null } | null;
 	const todayISO = new Date().toISOString().slice(0, 10);
@@ -191,6 +221,17 @@ export default async function CrewEventDetailPage({
 
 	const picName = picContact?.name ?? event.pic_name ?? null;
 	const picPhone = picContact?.phone ?? event.pic_wa ?? null;
+
+	// Venue often has city == venue_name (e.g. "Braja Mustika") and an address
+	// that just repeats the name. Drop anything that duplicates venue_name so the
+	// location block doesn't read "Braja Mustika / Braja Mustika".
+	const venueRegion = [event.venue_city, event.venue_province]
+		.filter((v): v is string => Boolean(v) && v !== event.venue_name)
+		.join(", ");
+	const venueAddress =
+		event.venue_address && event.venue_address !== event.venue_name
+			? event.venue_address
+			: null;
 
 	return (
 		<div className="mx-auto w-full max-w-md space-y-5 px-4 py-6">
@@ -256,17 +297,11 @@ export default async function CrewEventDetailPage({
 						<p className="text-foreground text-sm font-medium">
 							{event.venue_name}
 						</p>
-						{event.venue_address && (
-							<p className="text-muted-foreground text-xs">
-								{event.venue_address}
-							</p>
+						{venueAddress && (
+							<p className="text-muted-foreground text-xs">{venueAddress}</p>
 						)}
-						{(event.venue_city || event.venue_province) && (
-							<p className="text-muted-foreground text-xs">
-								{[event.venue_city, event.venue_province]
-									.filter(Boolean)
-									.join(", ")}
-							</p>
+						{venueRegion && (
+							<p className="text-muted-foreground text-xs">{venueRegion}</p>
 						)}
 						{event.google_maps_url && (
 							<a
@@ -327,40 +362,39 @@ export default async function CrewEventDetailPage({
 			)}
 
 			{/* Crew partner card — who you're working with on the day */}
-			{partnerAssignments.length > 0 && (
-				<section className="border-border-default bg-surface-2 space-y-2 rounded-lg border p-4">
+			{roster.length > 1 && (
+				<section className="border-border-default bg-surface-2 space-y-3 rounded-lg border p-4">
 					<h2 className="text-muted-foreground flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
 						<Users className="h-3.5 w-3.5" />
 						Tim crew
 					</h2>
-					<div className="space-y-2">
-						<div className="flex items-center justify-between gap-2 text-sm">
-							<span className="text-foreground font-medium">
-								Kamu
-								<span className="text-muted-foreground ml-1.5 text-[11px] uppercase tracking-wider">
-									{ROLE_LABELS[myAssignment.role_in_event] ??
-										myAssignment.role_in_event}
-								</span>
-							</span>
-						</div>
-						{partnerAssignments.map((a, i) => {
-							const u = Array.isArray(a.user) ? a.user[0] : a.user;
+					<ul className="space-y-2.5">
+						{roster.map((m, i) => {
+							const isMe = m.user_id === me.profile.id;
+							const tierLabel = m.tier ? (TIER_LABELS[m.tier] ?? m.tier) : null;
 							return (
-								<div
-									key={`${u?.id}-${i}`}
-									className="flex items-center justify-between gap-2 text-sm"
+								<li
+									key={m.user_id || `${m.role_in_event}-${i}`}
+									className="flex items-center justify-between gap-3 text-sm"
 								>
-									<span className="text-foreground font-medium">
-										{u?.full_name ?? "—"}
+									<span className="flex min-w-0 items-center gap-2">
+										<span className="text-foreground truncate font-medium">
+											{m.full_name ?? "—"}
+										</span>
+										{isMe && (
+											<span className="bg-primary/10 text-primary shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
+												Kamu
+											</span>
+										)}
 									</span>
-									<span className="text-muted-foreground text-[11px] uppercase tracking-wider">
-										{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
-										{u?.tier ? ` · ${u.tier}` : ""}
+									<span className="text-muted-foreground shrink-0 text-[11px] uppercase tracking-wider">
+										{ROLE_LABELS[m.role_in_event] ?? m.role_in_event}
+										{tierLabel ? ` · ${tierLabel}` : ""}
 									</span>
-								</div>
+								</li>
 							);
 						})}
-					</div>
+					</ul>
 				</section>
 			)}
 
@@ -370,23 +404,11 @@ export default async function CrewEventDetailPage({
 					Spec
 				</h2>
 				<dl className="space-y-1.5 text-sm">
+					<DetailRow label="Paket">
+						{pkg?.name ?? <span className="text-muted-foreground">Custom</span>}
+					</DetailRow>
 					<DetailRow label="Frame">
 						{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
-					</DetailRow>
-					<DetailRow label="Package">
-						{pkg ? (
-							<span>
-								{pkg.name}
-								{pkg.duration_hours && (
-									<span className="text-muted-foreground">
-										{" · "}
-										{pkg.duration_hours}j
-									</span>
-								)}
-							</span>
-						) : (
-							<span className="text-muted-foreground">Custom</span>
-						)}
 					</DetailRow>
 					<DetailRow label="Backdrop">
 						{backdrop?.name ?? <span className="text-muted-foreground">—</span>}
