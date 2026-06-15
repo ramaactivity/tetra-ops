@@ -27,10 +27,12 @@ interface SectionHeaderProps
 	eyebrow?: React.ReactNode;
 }
 
+// Native type ramp (see globals.css). h1 reads as an iOS-style large title on
+// mobile and scales gently up to desktop via the bundled clamp.
 const headingClass: Record<NonNullable<SectionHeaderProps["as"]>, string> = {
-	h1: "text-[24px] sm:text-[28px] leading-[1.15] tracking-[-0.025em]",
-	h2: "text-[20px] sm:text-[22px] leading-[1.2] tracking-[-0.02em]",
-	h3: "text-[16px] sm:text-[18px] leading-[1.25] tracking-[-0.015em]",
+	h1: "type-display",
+	h2: "type-title",
+	h3: "type-heading",
 };
 
 export function SectionHeader({
@@ -53,21 +55,12 @@ export function SectionHeader({
 			{...props}
 		>
 			<div className="flex min-w-0 flex-col gap-1">
-				{eyebrow ? (
-					<span className="eyebrow">{eyebrow}</span>
-				) : null}
-				<Tag
-					className={cn(
-						headingClass[as],
-						"min-w-0 truncate font-semibold text-foreground",
-					)}
-				>
+				{eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
+				<Tag className={cn(headingClass[as], "min-w-0 text-foreground")}>
 					{title}
 				</Tag>
 				{description ? (
-					<p className="text-[14px] leading-snug text-muted-foreground">
-						{description}
-					</p>
+					<p className="type-secondary leading-snug">{description}</p>
 				) : null}
 			</div>
 			{actions ? (

@@ -51,7 +51,7 @@ export function StatCard({
 	return (
 		<div
 			className={cn(
-				"group flex flex-col gap-3 rounded-lg border border-border-default bg-card p-5 transition-colors hover:bg-secondary/40",
+				"group flex flex-col gap-3 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors hover:bg-secondary/40 sm:p-5",
 				className,
 			)}
 		>
@@ -75,19 +75,10 @@ export function StatCard({
 				) : null}
 			</div>
 			<div className="flex flex-col gap-1">
-				<dd
-					className={cn(
-						"tabular display-tight truncate text-[26px] font-semibold leading-[1.1]",
-						valueToneCls[tone],
-					)}
-				>
+				<dd className={cn("type-num-lg truncate", valueToneCls[tone])}>
 					{value}
 				</dd>
-				{hint ? (
-					<p className="text-[12px] leading-snug text-muted-foreground">
-						{hint}
-					</p>
-				) : null}
+				{hint ? <p className="type-caption leading-snug">{hint}</p> : null}
 			</div>
 		</div>
 	);

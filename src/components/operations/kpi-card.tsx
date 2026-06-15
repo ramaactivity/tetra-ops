@@ -71,7 +71,7 @@ export function KpiCard({
 	return (
 		<div
 			className={cn(
-				"group flex flex-col gap-3 rounded-lg border border-border-default bg-card p-5 transition-colors hover:bg-secondary/40",
+				"group flex flex-col gap-3 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors hover:bg-secondary/40 sm:p-5",
 				className,
 			)}
 		>
@@ -80,23 +80,17 @@ export function KpiCard({
 				{Icon ? (
 					<div
 						className={cn(
-							"grid size-7 shrink-0 place-items-center rounded-md",
+							"grid size-8 shrink-0 place-items-center rounded-xl",
 							ICON_TINT[accent],
 						)}
 					>
-						<Icon className="size-3.5" aria-hidden strokeWidth={2} />
+						<Icon className="size-4" aria-hidden strokeWidth={2} />
 					</div>
 				) : null}
 			</div>
 			<div className="flex flex-col gap-1">
-				<dd className="tabular display-tight truncate text-[26px] font-semibold leading-[1.1] text-foreground">
-					{value}
-				</dd>
-				{hint && (
-					<p className="text-[12px] leading-snug text-muted-foreground">
-						{hint}
-					</p>
-				)}
+				<dd className="type-num-lg truncate text-foreground">{value}</dd>
+				{hint && <p className="type-caption leading-snug">{hint}</p>}
 			</div>
 			{pct !== null && progress && (
 				<div className="flex flex-col gap-1.5">
