@@ -9,6 +9,7 @@ import { MonthPicker } from "@/components/ui/month-picker";
 import type { NativeSelectOption } from "@/components/ui/native-select";
 import { NativeSelect } from "@/components/ui/native-select";
 import { DEFAULT_NOTA_SORT, NOTA_SORT_OPTIONS } from "@/lib/arsip-nota/types";
+import { cn } from "@/lib/utils";
 
 /**
  * Filter bar Arsip Nota — search + dropdown (sumber/kategori) + bulan, dengan
@@ -21,6 +22,8 @@ export function NotaFilterBar({
 	defaultQ,
 	defaultSelect,
 	defaultMonth,
+	monthShowsAll = false,
+	monthActive = false,
 	defaultSort,
 	selectOptions,
 	selectParamName,
@@ -33,6 +36,10 @@ export function NotaFilterBar({
 	defaultQ: string;
 	defaultSelect: string;
 	defaultMonth: string;
+	/** True kalau user pilih "Semua bulan" (lihat lintas bulan). */
+	monthShowsAll?: boolean;
+	/** True kalau filter bulan beda dari default (bulan berjalan). */
+	monthActive?: boolean;
 	defaultSort: string;
 	selectOptions: ReadonlyArray<NativeSelectOption>;
 	selectParamName: "source" | "category";
@@ -44,7 +51,7 @@ export function NotaFilterBar({
 	const [q, setQ] = useState(defaultQ);
 	const sortActive = defaultSort && defaultSort !== DEFAULT_NOTA_SORT;
 	const hasFilters = Boolean(
-		defaultQ || defaultSelect || defaultMonth || sortActive,
+		defaultQ || defaultSelect || monthActive || sortActive,
 	);
 
 	function buildHref(updates: Record<string, string>) {
@@ -53,7 +60,8 @@ export function NotaFilterBar({
 			tab,
 			q: defaultQ,
 			[selectParamName]: defaultSelect,
-			month: defaultMonth,
+			// Pertahankan mode "Semua bulan" saat filter lain berubah.
+			month: monthShowsAll ? "all" : defaultMonth,
 			sort: defaultSort === DEFAULT_NOTA_SORT ? "" : defaultSort,
 			...updates,
 		};
@@ -102,13 +110,32 @@ export function NotaFilterBar({
 				triggerClassName="w-[160px]"
 			/>
 
-			<div className="w-[150px]">
-				<MonthPicker
-					value={defaultMonth}
-					onValueChange={(v) => router.push(buildHref({ month: v, page: "" }))}
-					placeholder="Semua bulan"
-					className="h-8 text-[13px]"
-				/>
+			<div className="flex items-center gap-1">
+				<div className="w-[150px]">
+					<MonthPicker
+						value={monthShowsAll ? "" : defaultMonth}
+						onValueChange={(v) =>
+							router.push(buildHref({ month: v, page: "" }))
+						}
+						placeholder="Semua bulan"
+						className="h-8 text-[13px]"
+					/>
+				</div>
+				<Link
+					href={buildHref({ month: monthShowsAll ? "" : "all", page: "" })}
+					className={cn(
+						"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
+						monthShowsAll
+							? "bg-secondary text-foreground"
+							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
+					)}
+					aria-pressed={monthShowsAll}
+					title={
+						monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
+					}
+				>
+					{monthShowsAll ? "Bulan ini" : "Semua"}
+				</Link>
 			</div>
 
 			<div className="relative">

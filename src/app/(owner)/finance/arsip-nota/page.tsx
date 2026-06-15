@@ -74,7 +74,18 @@ export default async function ArsipNotaPage({
 	const q = (sp.q ?? "").trim();
 	const source = sp.source ?? "";
 	const category = sp.category ?? "";
-	const month = sp.month ?? "";
+	// Bulan default = bulan berjalan; `?month=all` untuk lihat semua bulan.
+	// Sama seperti perilaku filter bulan di halaman Event.
+	const monthParam = sp.month?.trim() ?? "";
+	const month =
+		monthParam === "all"
+			? ""
+			: monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+				? monthParam
+				: currentYearMonth();
+	const monthShowsAll = monthParam === "all";
+	const monthActive =
+		monthShowsAll || (Boolean(monthParam) && monthParam !== currentYearMonth());
 	const sort = sp.sort ?? "date_desc";
 	const { col: sortCol, ascending: sortAsc } = sortConfig(sort);
 	const page = Math.max(1, Number(sp.page) || 1);
@@ -216,6 +227,8 @@ export default async function ArsipNotaPage({
 				defaultQ={q}
 				defaultSelect={tab === "sistem" ? source : category}
 				defaultMonth={month}
+				monthShowsAll={monthShowsAll}
+				monthActive={monthActive}
 				defaultSort={sort}
 				selectOptions={
 					tab === "sistem" ? SOURCE_FILTER_OPTIONS : categoryOptions
@@ -274,7 +287,7 @@ export default async function ArsipNotaPage({
 						<div className="flex gap-2">
 							{page > 1 ? (
 								<Link
-									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month, sort, page: String(page - 1) }).toString()}`}
+									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month: monthShowsAll ? "all" : month, sort, page: String(page - 1) }).toString()}`}
 									className={buttonVariants({
 										variant: "secondary",
 										size: "sm",
@@ -286,7 +299,7 @@ export default async function ArsipNotaPage({
 							{(tab === "sistem" ? sistemRows.length : manualRows.length) ===
 							PAGE_SIZE ? (
 								<Link
-									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month, sort, page: String(page + 1) }).toString()}`}
+									href={`${BASE_PATH}?${new URLSearchParams({ tab, q, source, category, month: monthShowsAll ? "all" : month, sort, page: String(page + 1) }).toString()}`}
 									className={buttonVariants({
 										variant: "secondary",
 										size: "sm",
