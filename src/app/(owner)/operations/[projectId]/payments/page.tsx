@@ -99,6 +99,8 @@ export default async function ManagePaymentsPage({
 						bankAccounts={(banks ?? []) as BankAccountOption[]}
 						defaultDate={today}
 						suggestedAmount={remaining}
+						grandTotal={grand}
+						totalPaid={paid}
 					/>
 				)}
 			</div>

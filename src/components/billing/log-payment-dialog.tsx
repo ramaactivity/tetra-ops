@@ -25,12 +25,16 @@ export function LogPaymentDialog({
 	bankAccounts,
 	defaultDate,
 	suggestedAmount,
+	grandTotal,
+	totalPaid,
 }: {
 	eventId: string;
 	projectId: string;
 	bankAccounts: BankAccountOption[];
 	defaultDate: string;
 	suggestedAmount?: number;
+	grandTotal?: number;
+	totalPaid?: number;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -53,6 +57,8 @@ export function LogPaymentDialog({
 					bankAccounts={bankAccounts}
 					defaultDate={defaultDate}
 					suggestedAmount={suggestedAmount}
+					grandTotal={grandTotal}
+					totalPaid={totalPaid}
 					onSuccess={() => setOpen(false)}
 				/>
 			</DialogContent>

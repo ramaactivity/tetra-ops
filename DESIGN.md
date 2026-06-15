@@ -902,6 +902,61 @@ Use semantic tints (success / warning / danger). 10-12% tinted bg + saturated te
 5. **Stacked shadow for elevation** — use `--shadow-level-2` to `-5` CSS vars; never invent ad-hoc drop shadows.
 6. **Run `npx tsc --noEmit`** after structural changes.
 
+## Craft: Beyond Default (Anti-Slop)
+
+Vercel-fidelity keeps us *correct*. It does not, by itself, keep us *good*. A
+screen can obey every token above and still read as "AI made that" — flat,
+boring, generic. The patterns below are the difference between a layout that
+merely passes and one that feels designed. They override the reflex toward the
+safest possible arrangement.
+
+### Bans (the generic-slop tells)
+
+- **No flat "two-big-number" metric box.** A bordered rectangle holding `Label /
+  Rp1.500.000` twice is the SaaS hero-metric cliché. Numbers in isolation say
+  nothing. Show the *relationship*: a payment progress bar (settled vs in-flight
+  vs remaining), a before→after delta, a % of whole. The figure earns its size
+  by carrying context, not by being big.
+- **No empty placeholder box.** A bordered rectangle with a centered grey icon
+  and "nothing here yet" is dead space pretending to be content. Empty and
+  upload states are *designed*: an icon in a soft circular chip, a one-line
+  purpose, and the action that fills it. Upload/drop targets use a **dashed**
+  border (`border-dashed border-border-strong/50`) so the affordance reads as
+  "drop here," then flip to a solid hairline once filled.
+- **No dead input.** A money/quantity field with no scaffolding makes the user
+  do math the UI already knows. Offer quick-fill **chips** (½, full, common
+  increments) and reflect the consequence **live** as they type (remaining
+  updates, the progress bar's in-flight segment grows). Input without feedback
+  is a form from 2010.
+- **No undifferentiated stack.** Label-on-top, input-below, repeated N times with
+  identical weight is a wireframe, not a design. Give the *primary* field
+  emphasis (weight, the hero slot), group the secondary ones, and let rhythm
+  vary. If every row looks equally important, none is.
+- **No icon-grid filler.** Same-size cards each with icon + heading + sentence,
+  tiled. If the content isn't genuinely parallel, don't grid it.
+
+### Do instead
+
+- **Show consequence, not just capture.** Every meaningful input should visibly
+  change something else on screen (a total, a remainder, a progress segment).
+  Wire `transition-[width]` / color with `ease-out-expo` so the change is felt,
+  not just shown. Motion is reserved for *state that changed*, never decoration.
+- **Stacked / split progress** beats a lone number for anything part-of-whole:
+  ink for the settled portion, emerald for the in-flight/new portion, muted
+  track for what remains.
+- **State color carries meaning.** Emerald only when a number improves toward
+  done (remaining after payment, paid-up). Never decoratively.
+- **Eyebrow + tabular discipline still applies inside these richer components** —
+  `.eyebrow` for the section label, `.tabular` on every figure.
+
+### Radius exception for overlays
+
+In-app chrome stays on the 6px/8px two-scale rule. The **one** sanctioned break:
+overlay surfaces (modals, sheets, popovers) and the cards *inside* them may use
+the softer **12–16px** (`rounded-xl` / `rounded-2xl`) scale. A focused task
+surface floating above the page reads as more contemporary and less utilitarian
+with a rounder corner. This is intentional, not drift — keep it to overlays.
+
 ## Known Gaps & Future Considerations
 
 - **Geist not installed** — using Inter as the open-source substitute with `ss01`+`ss02` features. If `geist` ever lands as a dependency, swap `--font-sans` → `var(--font-geist-sans)`.

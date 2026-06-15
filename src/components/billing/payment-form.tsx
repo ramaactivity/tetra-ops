@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { logPayment, type PaymentFormState } from "@/lib/actions/payments";
 import { formatRupiah } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const PAYMENT_TYPE_OPTIONS: Array<[string, string]> = [
 	["dp", "DP"],
@@ -30,6 +31,8 @@ export function PaymentForm({
 	bankAccounts,
 	defaultDate,
 	suggestedAmount,
+	grandTotal,
+	totalPaid,
 	onSuccess,
 }: {
 	eventId: string;
@@ -37,6 +40,8 @@ export function PaymentForm({
 	bankAccounts: BankAccountOption[];
 	defaultDate: string;
 	suggestedAmount?: number;
+	grandTotal?: number;
+	totalPaid?: number;
 	onSuccess?: () => void;
 }) {
 	const action = logPayment.bind(null, eventId, projectId);
@@ -81,7 +86,25 @@ export function PaymentForm({
 	}, [proofFile]);
 
 	const isPelunasan = paymentType === "pelunasan";
-	const hasRemaining = !!suggestedAmount && suggestedAmount > 0;
+	const remaining = suggestedAmount ?? 0;
+	const hasRemaining = remaining > 0;
+
+	// Billing context for the progress bar. grand/paid let us draw a real
+	// completion track; the in-flight amount fills the gap in green so the
+	// owner *sees* the payment landing before committing.
+	const grand = grandTotal ?? 0;
+	const paid = totalPaid ?? Math.max(0, grand - remaining);
+	const entered = Math.min(Math.max(0, amount), remaining);
+	const paidPct = grand > 0 ? (paid / grand) * 100 : 0;
+	const enteredPct = grand > 0 ? (entered / grand) * 100 : 0;
+	const afterPaidPct = Math.min(100, paidPct + enteredPct);
+	const remainingAfter = Math.max(0, remaining - entered);
+
+	// Quick-fill chips: half + full. Rounded to the nearest 1.000 so the
+	// number stays human (50% of an odd remainder is rarely a clean figure).
+	const halfFill = Math.round(remaining / 2 / 1000) * 1000;
+
+	const hasProof = !!(previewUrl || proofFile || proofUrl);
 
 	// Pelunasan = bayar lunas → nominal HARUS = sisa tagihan. Auto-fill saat
 	// owner pilih "Pelunasan" supaya gak salah input (kurang/lebih dari sisa).
@@ -115,25 +138,50 @@ export function PaymentForm({
 			)}
 
 			{hasRemaining && (
-				<div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1.5 rounded-xl border border-border-default bg-secondary/40 px-4 py-3">
-					<div className="flex items-baseline gap-2">
-						<span className="type-label text-muted-foreground">
-							Sisa tagihan
-						</span>
-						<span className="type-num-lg text-foreground">
-							{formatRupiah(suggestedAmount ?? 0)}
+				<div className="rounded-2xl border border-border-default bg-card p-4">
+					<div className="flex items-baseline justify-between gap-3">
+						<span className="eyebrow">Tagihan</span>
+						<span className="type-caption tabular">
+							{Math.round(afterPaidPct)}% terbayar
 						</span>
 					</div>
-					{amount > 0 && amount <= (suggestedAmount ?? 0) && (
-						<div className="flex items-baseline gap-2">
-							<span className="type-label text-muted-foreground">
-								Sisa setelah ini
+					{/* Split track: settled (ink) + this payment (emerald) over a
+					    muted remainder. The emerald grows live as the owner types. */}
+					<div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-muted">
+						<div
+							className="h-full bg-primary transition-[width] duration-300 ease-out-expo"
+							style={{ width: `${paidPct}%` }}
+						/>
+						<div
+							className="h-full bg-emerald-500 transition-[width] duration-300 ease-out-expo dark:bg-emerald-400"
+							style={{ width: `${enteredPct}%` }}
+						/>
+					</div>
+					<div className="mt-3 flex items-end justify-between gap-3">
+						<div>
+							<span className="type-caption block text-muted-foreground">
+								{entered > 0 ? "Sisa setelah ini" : "Sisa tagihan"}
 							</span>
-							<span className="type-num-lg text-emerald-700 dark:text-emerald-400">
-								{formatRupiah((suggestedAmount ?? 0) - amount)}
+							<span
+								className={cn(
+									"type-num-lg tabular tracking-tight",
+									entered > 0
+										? "text-emerald-700 dark:text-emerald-400"
+										: "text-foreground",
+								)}
+							>
+								{formatRupiah(remainingAfter)}
 							</span>
 						</div>
-					)}
+						<div className="text-right">
+							<span className="type-caption block text-muted-foreground">
+								Total tagihan
+							</span>
+							<span className="type-num tabular text-muted-foreground">
+								{formatRupiah(grand || remaining)}
+							</span>
+						</div>
+					</div>
 				</div>
 			)}
 
@@ -153,14 +201,23 @@ export function PaymentForm({
 							<p className="type-caption text-emerald-700 dark:text-emerald-400">
 								Otomatis terisi penuh sesuai sisa tagihan.
 							</p>
-						) : hasRemaining && amount !== suggestedAmount ? (
-							<button
-								type="button"
-								onClick={() => setAmount(suggestedAmount ?? 0)}
-								className="type-caption font-medium text-link hover:underline"
-							>
-								Isi penuh sisa tagihan
-							</button>
+						) : hasRemaining ? (
+							<div className="flex flex-wrap gap-1.5 pt-0.5">
+								{halfFill > 0 && halfFill < remaining && (
+									<FillChip
+										active={amount === halfFill}
+										onClick={() => setAmount(halfFill)}
+									>
+										50% · {formatRupiah(halfFill)}
+									</FillChip>
+								)}
+								<FillChip
+									active={amount === remaining}
+									onClick={() => setAmount(remaining)}
+								>
+									Lunasi penuh
+								</FillChip>
+							</div>
 						) : null}
 					</Field>
 
@@ -261,42 +318,52 @@ export function PaymentForm({
 					<span className="type-label block text-foreground">
 						Preview bukti
 					</span>
-					<div className="flex min-h-[240px] flex-1 flex-col overflow-hidden rounded-xl border border-border-default bg-secondary/30">
+					<div
+						className={cn(
+							"flex min-h-[240px] flex-1 flex-col overflow-hidden rounded-2xl transition-colors",
+							hasProof
+								? "border border-border-default bg-secondary/20"
+								: "border border-dashed border-border-strong/50 bg-secondary/30",
+						)}
+					>
 						{previewUrl ? (
-							// biome-ignore lint/performance/noImgElement: local blob preview
-							<img
-								src={previewUrl}
-								alt="Preview bukti"
-								className="h-full w-full flex-1 object-contain"
-							/>
+							<figure className="flex flex-1 flex-col">
+								{/* biome-ignore lint/performance/noImgElement: local blob preview */}
+								<img
+									src={previewUrl}
+									alt="Preview bukti"
+									className="h-full w-full flex-1 object-contain p-2"
+								/>
+								<figcaption className="flex items-center gap-2 border-t border-border-subtle px-3 py-2">
+									<ImageIcon
+										className="size-3.5 shrink-0 text-muted-foreground"
+										aria-hidden
+									/>
+									<span className="type-caption truncate">
+										{proofFile?.name ?? "Bukti transfer"}
+									</span>
+								</figcaption>
+							</figure>
 						) : proofFile ? (
-							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-								<FileText
-									className="size-9 text-muted-foreground"
-									aria-hidden
-								/>
-								<p className="type-body-strong">{proofFile.name}</p>
-								<p className="type-caption">
-									PDF tidak bisa di-preview — tersimpan utuh.
-								</p>
-							</div>
+							<PreviewState
+								icon={<FileText className="size-6" aria-hidden />}
+								title={proofFile.name}
+								caption="PDF tersimpan utuh — tidak bisa dipratinjau."
+							/>
 						) : proofUrl ? (
-							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-								<Link2 className="size-9 text-muted-foreground" aria-hidden />
-								<p className="type-body-strong">Link bukti tertaut</p>
-								<p className="type-caption max-w-full truncate">{proofUrl}</p>
-							</div>
+							<PreviewState
+								icon={<Link2 className="size-6" aria-hidden />}
+								title="Link bukti tertaut"
+								caption={proofUrl}
+								captionClassName="truncate"
+							/>
 						) : (
-							<div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-								<ImageIcon
-									className="size-9 text-muted-foreground/60"
-									aria-hidden
-								/>
-								<p className="type-secondary max-w-[18rem]">
-									Upload bukti transfer — preview muncul di sini biar nggak
-									salah.
-								</p>
-							</div>
+							<PreviewState
+								tone="muted"
+								icon={<ImageIcon className="size-6" aria-hidden />}
+								title="Belum ada bukti"
+								caption="Tarik atau Upload bukti transfer — pratinjau muncul di sini."
+							/>
 						)}
 					</div>
 				</div>
@@ -311,6 +378,66 @@ export function PaymentForm({
 				{pending ? "Menyimpan…" : "Log payment"}
 			</Button>
 		</form>
+	);
+}
+
+/** Quick-fill nominal chip (compact Vercel chrome, ink active state). */
+function FillChip({
+	active,
+	onClick,
+	children,
+}: {
+	active?: boolean;
+	onClick: () => void;
+	children: React.ReactNode;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"press tap inline-flex h-7 items-center rounded-lg border px-2.5 text-[12.5px] font-medium tabular transition-colors",
+				active
+					? "border-primary bg-primary text-primary-foreground"
+					: "border-border-default text-muted-foreground hover:bg-secondary hover:text-foreground",
+			)}
+		>
+			{children}
+		</button>
+	);
+}
+
+/** Centered placeholder/state inside the bukti preview pane. */
+function PreviewState({
+	icon,
+	title,
+	caption,
+	captionClassName,
+	tone = "default",
+}: {
+	icon: React.ReactNode;
+	title: string;
+	caption: string;
+	captionClassName?: string;
+	tone?: "default" | "muted";
+}) {
+	return (
+		<div className="flex flex-1 flex-col items-center justify-center gap-2.5 p-6 text-center">
+			<span
+				className={cn(
+					"flex size-12 items-center justify-center rounded-full",
+					tone === "muted"
+						? "bg-muted text-muted-foreground/70"
+						: "bg-secondary text-foreground",
+				)}
+			>
+				{icon}
+			</span>
+			<p className="type-body-strong max-w-[18rem] truncate">{title}</p>
+			<p className={cn("type-caption max-w-[18rem]", captionClassName)}>
+				{caption}
+			</p>
+		</div>
 	);
 }
 
