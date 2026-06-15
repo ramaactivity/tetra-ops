@@ -1,4 +1,10 @@
-import { CheckCircle2, ChevronLeft, ExternalLink, Image, Info } from "lucide-react";
+import {
+	CheckCircle2,
+	ChevronLeft,
+	ExternalLink,
+	Image,
+	Info,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { RekapForm } from "@/components/rekap/rekap-form";
@@ -156,8 +162,8 @@ export default async function CrewRekapPage({
 				<div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
 					<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
 					<p className="text-foreground/80 text-xs leading-relaxed">
-						Event belum lewat. Lo bisa submit rekap setelah event selesai.
-						Form ini boleh kepake duluan kalau memang event-nya udah beres.
+						Event belum lewat. Lo bisa submit rekap setelah event selesai. Form
+						ini boleh kepake duluan kalau memang event-nya udah beres.
 					</p>
 				</div>
 			)}

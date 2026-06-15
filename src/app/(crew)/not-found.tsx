@@ -11,10 +11,7 @@ export default function CrewNotFound() {
 				title="Halaman ngga ketemu"
 				description="Link yang lo buka ngga ada. Cek lagi atau balik ke home."
 				action={
-					<Link
-						href="/crew"
-						className={buttonVariants({ variant: "default" })}
-					>
+					<Link href="/crew" className={buttonVariants({ variant: "default" })}>
 						Balik ke Home
 					</Link>
 				}

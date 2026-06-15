@@ -61,9 +61,11 @@ export default async function CrewEquipmentPage() {
 		.eq("user_id", me.profile.id)
 		.gte("event.event_date", todayISO);
 
-	const eventList = ((assignments ?? []) as Array<{
-		event: AssignedEvent | AssignedEvent[] | null;
-	}>)
+	const eventList = (
+		(assignments ?? []) as Array<{
+			event: AssignedEvent | AssignedEvent[] | null;
+		}>
+	)
 		.map((a) => (Array.isArray(a.event) ? a.event[0] : a.event))
 		.filter((e): e is AssignedEvent => !!e);
 
@@ -135,8 +137,8 @@ export default async function CrewEquipmentPage() {
 											{ev.client_name}
 										</p>
 										<p className="text-muted-foreground tabular text-xs">
-											{formatDateID(ev.event_date)} · {ID_TIME(ev.start_time)}{" "}
-											· {ev.venue_name}
+											{formatDateID(ev.event_date)} · {ID_TIME(ev.start_time)} ·{" "}
+											{ev.venue_name}
 										</p>
 									</div>
 									<div className="flex items-center gap-1.5">

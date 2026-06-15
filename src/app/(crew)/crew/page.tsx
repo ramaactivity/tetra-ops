@@ -1,6 +1,5 @@
 import {
 	CalendarClock,
-	CalendarDays,
 	ChevronRight,
 	ExternalLink,
 	MapPin,
@@ -8,7 +7,12 @@ import {
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
-import { EmptyState } from "@/components/ui/empty-state";
+import {
+	AppHeader,
+	AppScreen,
+	Section,
+	StatTile,
+} from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,42 +28,26 @@ function isoDate(d: Date): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+type EventLite = {
+	id: string;
+	project_id: string;
+	status: string;
+	client_name: string;
+	event_date: string;
+	setup_time: string | null;
+	start_time: string | null;
+	end_time: string | null;
+	venue_name: string;
+	venue_city: string | null;
+	google_maps_url: string | null;
+	is_migrated_legacy: boolean | null;
+	pic_name: string | null;
+	pic_wa: string | null;
+};
+
 type Assignment = {
 	role_in_event: string;
-	event:
-		| {
-				id: string;
-				project_id: string;
-				status: string;
-				client_name: string;
-				event_date: string;
-				setup_time: string | null;
-				start_time: string | null;
-				end_time: string | null;
-				venue_name: string;
-				venue_city: string | null;
-				google_maps_url: string | null;
-				is_migrated_legacy: boolean | null;
-				pic_name: string | null;
-				pic_wa: string | null;
-		  }
-		| Array<{
-				id: string;
-				project_id: string;
-				status: string;
-				client_name: string;
-				event_date: string;
-				setup_time: string | null;
-				start_time: string | null;
-				end_time: string | null;
-				venue_name: string;
-				venue_city: string | null;
-				google_maps_url: string | null;
-				is_migrated_legacy: boolean | null;
-				pic_name: string | null;
-				pic_wa: string | null;
-		  }>
-		| null;
+	event: EventLite | EventLite[] | null;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -111,7 +99,6 @@ export default async function CrewHomePage() {
 		(a) => a.event,
 	) as Assignment[];
 
-	// Sort by event_date asc, then start_time asc
 	nextAssignments.sort((a, b) => {
 		const ea = Array.isArray(a.event) ? a.event[0] : a.event;
 		const eb = Array.isArray(b.event) ? b.event[0] : b.event;
@@ -130,185 +117,133 @@ export default async function CrewHomePage() {
 	const firstName = me.profile.full_name.split(" ")[0];
 
 	return (
-		<div className="mx-auto w-full max-w-md space-y-6 px-4 py-6">
-			<header className="space-y-1">
-				<h1 className="text-fluid-h1 font-semibold tracking-tight">
-					Halo, {firstName}
-				</h1>
-				<p className="text-muted-foreground text-sm">
-					{ID_DATE_FULL.format(today)}
-				</p>
-			</header>
+		<AppScreen>
+			<AppHeader
+				title={`Halo, ${firstName}`}
+				subtitle={ID_DATE_FULL.format(today)}
+			/>
 
 			<NeedsRekapSection userId={me.profile.id} />
 
-			<dl className="grid grid-cols-2 gap-3">
-				<StatCard
-					icon={CalendarClock}
-					label="Hari ini"
-					value={todayCount.toString()}
-					hint={todayCount === 0 ? "Tidak ada event" : "event jadwal lo"}
-					tone="primary"
-				/>
-				<StatCard
-					icon={CalendarDays}
-					label="7 hari ke depan"
-					value={(upcomingCount ?? 0).toString()}
-					hint="event upcoming"
-					tone="emerald"
-				/>
-				<StatCard
-					icon={CalendarDays}
-					label="Semua jadwal"
-					value=""
-					hint="Lihat list lengkap"
-					tone="muted"
-					href="/crew/jadwal"
-				/>
-			</dl>
-
-			<section className="space-y-2">
-				<h2 className="text-fluid-h3 font-semibold tracking-tight">
-					Hari ini & Besok
-				</h2>
-				{nextAssignments.length === 0 ? (
-					<EmptyState
-						size="sm"
-						icon={CalendarClock}
-						title="Free time hari ini & besok"
-						description="Cek tab Jadwal kalau mau lihat event yang masih jauh."
+			<Section title="Ringkasan">
+				<div className="grid grid-cols-2 gap-3">
+					<StatTile
+						label="Hari ini"
+						value={todayCount}
+						hint={todayCount === 0 ? "Tidak ada event" : "event terjadwal"}
+						tone={todayCount > 0 ? "default" : "default"}
 					/>
+					<StatTile
+						label="7 hari"
+						value={upcomingCount}
+						hint="event mendatang"
+					/>
+				</div>
+				<Link
+					href="/crew/jadwal"
+					className="press tap mt-3 flex items-center justify-between gap-2 rounded-[1.25rem] border border-border-default bg-card px-4 py-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+				>
+					<span className="type-body-strong">Lihat semua jadwal</span>
+					<ChevronRight className="size-4 text-muted-foreground/60" />
+				</Link>
+			</Section>
+
+			<Section title="Hari ini & besok">
+				{nextAssignments.length === 0 ? (
+					<div className="rounded-[1.25rem] border border-dashed border-border-default bg-card/40 px-5 py-9 text-center">
+						<CalendarClock className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
+						<p className="type-body-strong">Free time hari ini & besok</p>
+						<p className="type-secondary mx-auto mt-1 max-w-[16rem]">
+							Cek tab Jadwal buat event yang masih jauh.
+						</p>
+					</div>
 				) : (
-					<div className="space-y-2">
+					<ul className="space-y-3">
 						{nextAssignments.map((a) => {
 							const ev = Array.isArray(a.event) ? a.event[0] : a.event;
 							if (!ev) return null;
 							const isToday = ev.event_date === todayISO;
+							const city =
+								ev.venue_city && ev.venue_city !== ev.venue_name
+									? ev.venue_city
+									: null;
 							return (
-								<Link
-									key={ev.id}
-									href={`/crew/jadwal/${ev.project_id}`}
-									className="press-down flex items-stretch gap-3 rounded-lg border border-border-default bg-card p-3 transition-colors hover:bg-surface-3"
-									style={{
-										viewTransitionName: `crew-event-${ev.project_id}`,
-									}}
-								>
-									<div className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5">
-										<span
-											className={`text-[10px] font-medium uppercase tracking-wider ${
-												isToday ? "text-primary" : "text-muted-foreground"
-											}`}
-										>
-											{isToday ? "Hari ini" : "Besok"}
-										</span>
-										<span className="tabular text-foreground text-lg font-semibold leading-none">
-											{ID_TIME(ev.start_time)}
-										</span>
-										<span className="text-muted-foreground text-[10px]">
-											setup {ID_TIME(ev.setup_time)}
-										</span>
-									</div>
-									<div className="min-w-0 flex-1 space-y-1.5">
-										<div className="flex flex-wrap items-baseline gap-2">
-											<span className="truncate text-sm font-medium">
-												{ev.client_name}
-											</span>
-											<EventStatusBadge status={ev.status} />
-											<span className="text-muted-foreground text-[10px] uppercase tracking-wider">
-												{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
-											</span>
-										</div>
-										<p className="text-muted-foreground flex items-center gap-1 text-xs">
-											<MapPin className="h-3 w-3 shrink-0" />
-											<span className="truncate">
-												{ev.venue_name}
-												{ev.venue_city && ` · ${ev.venue_city}`}
-											</span>
-										</p>
-										{ev.pic_name && ev.pic_wa && (
-											<p className="text-muted-foreground tabular flex items-center gap-1 text-xs">
-												<span className="text-amber-700 dark:text-amber-400 font-medium">
-													PIC:
+								<li key={ev.id}>
+									<Link
+										href={`/crew/jadwal/${ev.project_id}`}
+										className="press tap block rounded-[1.25rem] border border-border-default bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+										style={{
+											viewTransitionName: `crew-event-${ev.project_id}`,
+										}}
+									>
+										<div className="flex items-center gap-3.5">
+											<div className={cnTimeTone(isToday)} aria-hidden="true">
+												<span className="text-[0.625rem] font-semibold uppercase tracking-wide">
+													{isToday ? "Hari ini" : "Besok"}
 												</span>
-												<span>{ev.pic_name}</span>
+												<span className="type-num text-[1.35rem] leading-none">
+													{ID_TIME(ev.start_time)}
+												</span>
+												<span className="text-[0.625rem] opacity-70">
+													setup {ID_TIME(ev.setup_time)}
+												</span>
+											</div>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-2">
+													<span className="type-body-strong truncate">
+														{ev.client_name}
+													</span>
+													<EventStatusBadge status={ev.status} />
+												</div>
+												<p className="type-secondary mt-1 flex items-center gap-1">
+													<MapPin className="size-3.5 shrink-0" />
+													<span className="truncate">
+														{ev.venue_name}
+														{city ? ` · ${city}` : ""}
+													</span>
+												</p>
+												<span className="eyebrow mt-1.5 inline-block">
+													{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
+												</span>
+											</div>
+											<ChevronRight className="size-4 shrink-0 self-center text-muted-foreground/50" />
+										</div>
+										{ev.pic_name && ev.pic_wa ? (
+											<div className="mt-3 flex items-center gap-1.5 border-t border-border-subtle pt-2.5">
+												<span className="type-caption font-medium text-amber-600 dark:text-amber-400">
+													PIC
+												</span>
+												<span className="type-caption text-foreground">
+													{ev.pic_name}
+												</span>
 												<a
 													href={`https://wa.me/${ev.pic_wa.replace(/^\+|^0/, "62")}`}
 													target="_blank"
 													rel="noopener noreferrer"
-													onClick={(e) => e.stopPropagation()}
-													className="text-primary inline-flex items-center gap-0.5 hover:underline"
+													className="type-caption tabular ml-auto inline-flex items-center gap-0.5 text-link hover:underline"
 												>
 													{ev.pic_wa}
-													<ExternalLink className="h-2.5 w-2.5" />
+													<ExternalLink className="size-2.5" />
 												</a>
-											</p>
-										)}
-									</div>
-									<ChevronRight className="text-muted-foreground/60 h-4 w-4 self-center" />
-								</Link>
+											</div>
+										) : null}
+									</Link>
+								</li>
 							);
 						})}
-					</div>
+					</ul>
 				)}
-			</section>
-		</div>
+			</Section>
+		</AppScreen>
 	);
 }
 
-function StatCard({
-	icon: Icon,
-	label,
-	value,
-	hint,
-	tone,
-	href,
-}: {
-	icon: typeof CalendarClock;
-	label: string;
-	value: string;
-	hint: string;
-	tone: "primary" | "emerald" | "amber" | "muted";
-	href?: string;
-}) {
-	const valueCls =
-		tone === "primary"
-			? "text-primary"
-			: tone === "emerald"
-				? "text-emerald-600 dark:text-emerald-400"
-				: tone === "amber"
-					? "text-amber-600 dark:text-amber-400"
-					: "text-foreground";
-
-	const inner = (
-		<>
-			<div className="flex items-center justify-between">
-				<dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
-					{label}
-				</dt>
-				<Icon className="text-muted-foreground/60 h-3.5 w-3.5" />
-			</div>
-			<dd
-				className={`tabular truncate text-xl font-semibold leading-tight ${valueCls}`}
-			>
-				{value || "→"}
-			</dd>
-			<p className="text-muted-foreground text-[10px]">{hint}</p>
-		</>
-	);
-
-	if (href) {
-		return (
-			<Link
-				href={href}
-				className="border-border-default bg-surface-2 hover:border-foreground/20 space-y-1 rounded-lg border p-3 transition-colors active:scale-[0.99]"
-			>
-				{inner}
-			</Link>
-		);
-	}
-	return (
-		<div className="border-border-default bg-surface-2 space-y-1 rounded-lg border p-3">
-			{inner}
-		</div>
-	);
+/** Time block tone — today uses the ink-tinted pill, tomorrow the neutral. */
+function cnTimeTone(isToday: boolean): string {
+	return [
+		"flex w-[3.75rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-2.5",
+		isToday
+			? "bg-primary/10 text-primary"
+			: "bg-surface-3 text-muted-foreground",
+	].join(" ");
 }

@@ -25,8 +25,8 @@ export default function CrewError({
 				description={
 					error.digest ? (
 						<>
-							Coba refresh dulu. Kalau masih error, kasih tau owner dan
-							sertakan code{" "}
+							Coba refresh dulu. Kalau masih error, kasih tau owner dan sertakan
+							code{" "}
 							<span className="font-mono tabular text-foreground">
 								{error.digest}
 							</span>

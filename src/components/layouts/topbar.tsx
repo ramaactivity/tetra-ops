@@ -38,9 +38,9 @@ export async function TopBar({
 	return (
 		<header
 			style={{ viewTransitionName: "site-header" }}
-			className="sticky top-0 z-30 border-b border-border-default bg-card/95 supports-[backdrop-filter]:bg-card/80 backdrop-blur-xl pt-safe"
+			className="sticky top-0 z-30 border-b border-border-subtle bg-background/72 supports-[backdrop-filter]:bg-background/60 backdrop-blur-2xl pt-safe"
 		>
-			<div className="flex h-11 items-center justify-between gap-2 px-3 md:h-14 md:px-6">
+			<div className="mx-auto flex h-11 max-w-[30rem] items-center justify-between gap-2 px-3 md:h-14 md:max-w-none md:px-6">
 				<div className="flex min-w-0 items-center gap-2 md:gap-3">
 					<Image
 						src={
@@ -51,12 +51,12 @@ export async function TopBar({
 						alt="Tetra"
 						width={120}
 						height={36}
-						className="h-6 w-auto md:h-7"
+						className="h-[1.35rem] w-auto md:h-7"
 						priority
 					/>
 					<span className="hidden eyebrow sm:inline">Operations</span>
 				</div>
-				<div className="flex shrink-0 items-center gap-1">
+				<div className="flex shrink-0 items-center gap-0.5">
 					<NotificationBell />
 					<UserMenu name={name} email={email} role={role} theme={theme} />
 				</div>

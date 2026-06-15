@@ -152,13 +152,27 @@
   --color-border-default: var(--border-default);
   --color-border-strong: var(--border-strong);
 
-  /* === Motion tokens — same as before (view-transitions friendly) === */
+  /* === Motion tokens — view-transitions friendly === */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Real spring physics baked into linear() easings (Baseline since 2023:
+     iOS 17.2+, Chrome 113+). Composite-thread, survive a busy main thread —
+     the native-feel motion primitive. Generated via Jake Archibald's tool. */
+  --ease-spring-snappy: linear(
+    0, 0.0067 1.4%, 0.0259 2.9%, 0.0989 5.9%, 0.5071 18%, 0.6262, 0.7335,
+    0.8231, 0.8959 33.4%, 0.9251, 0.9495, 0.9694 43.8%, 0.9849 48.4%,
+    0.9968 54%, 1.0058 61.8%, 1.0096 68.9%, 1.0103 75.7%, 1.0058 88.8%, 1
+  );
+  --ease-spring-soft: linear(
+    0, 0.0036 2.8%, 0.0306 6.8%, 0.1267 13.3%, 0.4133 28.3%, 0.5374, 0.6453,
+    0.735 47.5%, 0.8136, 0.8742 60.4%, 0.9215 67.4%, 0.9543 73.9%, 0.9779 81%,
+    0.9928 89.2%, 1
+  );
   --duration-fast: 120ms;
-  --duration-base: 200ms;
-  --duration-slow: 320ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --duration-spring: 560ms;
 
   /* === Shadows — Vercel stacked-shadow ladder. Multiple small offsets
      with inset hairline; never a single heavy drop. ===
@@ -532,4 +546,205 @@
   .pb-safe-or-4 { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
   .h-safe-bottom-nav { height: calc(3.5rem + env(safe-area-inset-bottom)); }
   .h-safe-topbar { height: calc(3.5rem + env(safe-area-inset-top)); }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOBILE-NATIVE FOUNDATION (2026)
+   A single, enforced type ramp + spatial system so screens stop hand-rolling
+   px values. Every text style below bundles size + weight + line-height +
+   tracking into ONE class — the iOS "text style" model. Sizes flex gently
+   with the viewport via clamp() (bounded to the phone range) so they adapt
+   across devices without getting weird. Use these everywhere; never reach for
+   text-[11px] / text-[10px] / ad-hoc text-xs again.
+   ════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* — Display / titles — */
+  .type-display {
+    font-size: clamp(1.75rem, 1.36rem + 1.75vw, 2.125rem);   /* 28 → 34 */
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  .type-title {
+    font-size: clamp(1.375rem, 1.18rem + 0.88vw, 1.625rem);  /* 22 → 26 */
+    font-weight: 600;
+    line-height: 1.16;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+  .type-heading {
+    font-size: clamp(1.0625rem, 1.0rem + 0.31vw, 1.1875rem); /* 17 → 19 */
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  /* — Body / reading — */
+  .type-body {
+    font-size: clamp(0.9375rem, 0.9rem + 0.19vw, 1rem);      /* 15 → 16 */
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  .type-body-strong {
+    font-size: clamp(0.9375rem, 0.9rem + 0.19vw, 1rem);
+    font-weight: 550;
+    line-height: 1.45;
+    letter-spacing: -0.011em;
+  }
+  .type-secondary {
+    font-size: clamp(0.875rem, 0.85rem + 0.12vw, 0.9375rem); /* 14 → 15 */
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: -0.006em;
+    color: var(--muted-foreground);
+  }
+  /* — Labels / fine print — */
+  .type-label {
+    font-size: 0.8125rem;                                     /* 13 */
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.006em;
+  }
+  .type-caption {
+    font-size: 0.75rem;                                       /* 12 */
+    font-weight: 450;
+    line-height: 1.35;
+    letter-spacing: 0;
+    color: var(--muted-foreground);
+  }
+  /* — Tabular numbers (money / quantities) — */
+  .type-num {
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+  .type-num-lg {
+    font-size: clamp(1.5rem, 1.28rem + 1vw, 1.875rem);       /* 24 → 30 */
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+  .type-num-xl {
+    font-size: clamp(2rem, 1.6rem + 1.78vw, 2.75rem);        /* 32 → 44 */
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+}
+
+@layer utilities {
+  /* Fluid horizontal gutter — tracks viewport so the layout breathes the
+     same on a 360px Android and a 430px iPhone Pro Max. */
+  .app-gutter {
+    padding-inline: clamp(1rem, 0.7rem + 1.5vw, 1.5rem);
+  }
+  /* Standard mobile screen column. max-w keeps large phones / tablets from
+     stretching line lengths past comfort. */
+  .app-screen {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 30rem;            /* 480px */
+    padding-inline: clamp(1rem, 0.7rem + 1.5vw, 1.5rem);
+  }
+
+  /* Native tap feel — kill the 300ms delay + gray flash, keep momentum. */
+  .tap {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* Spring press — the tactile cue that compensates for the lack of iOS
+     web-haptics. Uses a real spring easing on release. */
+  .press {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform var(--duration-spring) var(--ease-spring-snappy),
+      background-color var(--duration-fast) var(--ease-out-quart),
+      opacity var(--duration-fast) var(--ease-out-quart);
+  }
+  .press:active {
+    transform: scale(0.96);
+    transition-duration: var(--duration-fast);
+  }
+  .press-sm:active { transform: scale(0.98); }
+
+  /* Reveal-on-scroll: native iOS Safari 26+ / Chrome path via scroll-driven
+     animation. Pre-26 iOS just shows content (no-op) — progressive. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .reveal {
+        animation: reveal-rise linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 36%;
+      }
+    }
+  }
+  @keyframes reveal-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Sticky offset that sits a per-screen header right under the global
+     TopBar (44px mobile / 56px desktop, plus the notch inset). */
+  .top-app-header { top: calc(2.75rem + env(safe-area-inset-top)); }
+  @media (min-width: 768px) {
+    .top-app-header { top: calc(3.5rem + env(safe-area-inset-top)); }
+  }
+
+  /* Collapsing large-title header. The big title fades/shrinks away and the
+     compact inline title fades in, driven purely by document scroll position
+     (scroll(root block)) — no JS, no timeline wiring. Pre-26 iOS simply keeps
+     the large title visible as it scrolls (graceful). Applied by <AppHeader>. */
+  @supports (animation-timeline: scroll(root block)) {
+    @media (prefers-reduced-motion: no-preference) {
+      .lt-large {
+        animation: lt-large-collapse linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 4px 60px;
+      }
+      .lt-compact {
+        opacity: 0;
+        animation: lt-compact-in linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 24px 60px;
+      }
+      .lt-hairline {
+        animation: lt-hairline-in linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 44px;
+      }
+    }
+  }
+  @keyframes lt-large-collapse {
+    to { opacity: 0; transform: translateY(-8px) scale(0.95); transform-origin: left center; }
+  }
+  @keyframes lt-compact-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lt-hairline-in {
+    from { border-color: transparent; }
+    to { border-color: var(--border-default); }
+  }
+
+  /* Stagger helper for list entrances (used with .reveal or @starting-style). */
+  .stagger > * { animation-delay: calc(var(--i, 0) * 40ms); }
+}
+
+/* Native momentum + no horizontal rubber-banding inside scroll regions. */
+@layer base {
+  a, button, [role="button"], label, summary, input, select, textarea {
+    touch-action: manipulation;
+  }
+  /* Headings set in the app default to balanced wrapping for tidy line breaks. */
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
 }

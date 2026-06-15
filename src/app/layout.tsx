@@ -51,9 +51,11 @@ export const viewport: Viewport = {
 	width: "device-width",
 	initialScale: 1,
 	viewportFit: "cover",
+	// Match the canvas exactly so the native status bar / address bar blends
+	// seamlessly into the app surface (edge-to-edge, no seam).
 	themeColor: [
-		{ media: "(prefers-color-scheme: light)", color: "#FAFAF9" },
-		{ media: "(prefers-color-scheme: dark)", color: "#0A0A0F" },
+		{ media: "(prefers-color-scheme: light)", color: "#fafafa" },
+		{ media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
 	],
 };
 

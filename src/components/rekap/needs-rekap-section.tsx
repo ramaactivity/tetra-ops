@@ -111,57 +111,73 @@ export async function NeedsRekapSection({ userId }: { userId: string }) {
 	events.sort((a, b) => b.event_date.localeCompare(a.event_date));
 
 	return (
-		<section className="space-y-2">
-			<div className="flex items-center gap-1.5">
-				<AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-				<h2 className="text-fluid-h3 font-semibold tracking-tight">
-					Perlu submit rekap
-				</h2>
-				<span className="tabular ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+		<section className="mt-5">
+			<div className="mb-2 flex items-center gap-2 px-1">
+				<span className="flex size-6 items-center justify-center rounded-full bg-amber-500/15">
+					<AlertCircle className="size-4 text-amber-600 dark:text-amber-400" />
+				</span>
+				<h2 className="type-heading">Perlu submit rekap</h2>
+				<span className="type-num tabular ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-500/15 px-2 text-[0.75rem] font-semibold text-amber-700 dark:text-amber-300">
 					{events.length}
 				</span>
 			</div>
-			<div className="space-y-2">
-				{events.map((ev) => (
-					<Link
-						key={ev.project_id}
-						href={`/crew/jadwal/${ev.project_id}/rekap`}
-						className="press-down flex items-stretch gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3 transition-colors hover:bg-amber-100/50 dark:border-amber-900 dark:bg-amber-950/20 dark:hover:bg-amber-950/40"
-					>
-						<div className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5">
-							<span className="text-[10px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-400">
-								{ev.state === "rejected" ? "Revisi" : "Belum"}
-							</span>
-							<span className="tabular text-foreground text-[10px] leading-tight">
-								{formatDateID(ev.event_date).split(" ").slice(0, 2).join(" ")}
-							</span>
-						</div>
-						<div className="min-w-0 flex-1 space-y-1">
-							<div className="flex flex-wrap items-baseline gap-1.5">
-								<span className="truncate text-sm font-medium">
-									{ev.client_name}
-								</span>
-								<span className="text-muted-foreground text-[10px] uppercase tracking-wider">
-									{ROLE_LABELS[ev.role_in_event] ?? ev.role_in_event}
-								</span>
-							</div>
-							<p className="text-muted-foreground flex items-center gap-1 text-xs">
-								<MapPin className="h-3 w-3 shrink-0" />
-								<span className="truncate">
-									{ev.venue_name}
-									{ev.venue_city && ` · ${ev.venue_city}`}
-								</span>
-							</p>
-							{ev.state === "rejected" && ev.review_notes && (
-								<p className="text-rose-700 dark:text-rose-300 line-clamp-2 text-[11px] italic leading-snug">
-									Owner: {ev.review_notes}
-								</p>
-							)}
-						</div>
-						<ChevronRight className="h-4 w-4 self-center text-amber-600 dark:text-amber-400" />
-					</Link>
-				))}
-			</div>
+			<ul className="overflow-hidden rounded-[1.25rem] border border-amber-300/60 bg-amber-50/60 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
+				{events.map((ev) => {
+					const city =
+						ev.venue_city && ev.venue_city !== ev.venue_name
+							? ev.venue_city
+							: null;
+					return (
+						<li key={ev.project_id}>
+							<Link
+								href={`/crew/jadwal/${ev.project_id}/rekap`}
+								className="press tap flex items-center gap-3 border-b border-amber-300/40 px-4 py-3 transition-colors last:border-b-0 active:bg-amber-100/50 dark:border-amber-900/50 dark:active:bg-amber-950/40"
+							>
+								<div className="flex w-[3.25rem] shrink-0 flex-col items-center gap-0.5">
+									<span
+										className={
+											ev.state === "rejected"
+												? "rounded-full bg-rose-500/15 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300"
+												: "rounded-full bg-amber-500/20 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
+										}
+									>
+										{ev.state === "rejected" ? "Revisi" : "Belum"}
+									</span>
+									<span className="type-caption tabular leading-tight text-foreground">
+										{formatDateID(ev.event_date)
+											.split(" ")
+											.slice(0, 2)
+											.join(" ")}
+									</span>
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-2">
+										<span className="type-body-strong truncate">
+											{ev.client_name}
+										</span>
+										<span className="eyebrow shrink-0">
+											{ROLE_LABELS[ev.role_in_event] ?? ev.role_in_event}
+										</span>
+									</div>
+									<p className="type-secondary mt-0.5 flex items-center gap-1">
+										<MapPin className="size-3.5 shrink-0" />
+										<span className="truncate">
+											{ev.venue_name}
+											{city ? ` · ${city}` : ""}
+										</span>
+									</p>
+									{ev.state === "rejected" && ev.review_notes ? (
+										<p className="mt-1 line-clamp-2 text-[0.75rem] italic leading-snug text-rose-700 dark:text-rose-300">
+											Owner: {ev.review_notes}
+										</p>
+									) : null}
+								</div>
+								<ChevronRight className="size-4 shrink-0 self-center text-amber-600/70 dark:text-amber-400/70" />
+							</Link>
+						</li>
+					);
+				})}
+			</ul>
 		</section>
 	);
 }

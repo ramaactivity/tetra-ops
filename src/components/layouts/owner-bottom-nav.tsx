@@ -23,6 +23,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { useHaptics } from "@/lib/use-haptics";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,6 +69,7 @@ function isActive(pathname: string, href: string) {
 
 export function OwnerBottomNav() {
 	const pathname = usePathname();
+	const haptic = useHaptics();
 	const [moreOpen, setMoreOpen] = useState(false);
 
 	const moreActive = MORE.some((item) => isActive(pathname, item.href));
@@ -82,60 +84,98 @@ export function OwnerBottomNav() {
 			<nav
 				aria-label="Primary"
 				style={{ viewTransitionName: "site-bottom-nav" }}
-				className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-border-default bg-surface-1/85 supports-[backdrop-filter]:bg-surface-1/65 backdrop-blur-xl pb-safe md:hidden"
+				className="fixed inset-x-0 bottom-0 z-40 border-t border-border-default bg-card/80 backdrop-blur-2xl supports-[backdrop-filter]:bg-card/70 pb-safe md:hidden"
 			>
-				{PRIMARY.map((item) => {
-					const active = isActive(pathname, item.href);
-					const Icon = item.icon;
-					return (
-						<Link
-							key={item.href}
-							href={item.href}
-							aria-current={active ? "page" : undefined}
+				<div className="mx-auto flex max-w-[30rem] items-stretch justify-around px-2">
+					{PRIMARY.map((item) => {
+						const active = isActive(pathname, item.href);
+						const Icon = item.icon;
+						return (
+							<Link
+								key={item.href}
+								href={item.href}
+								onClick={() => haptic("select")}
+								aria-current={active ? "page" : undefined}
+								className="press-sm tap group relative flex flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
+							>
+								<span
+									className={cn(
+										"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
+										active ? "bg-primary/10" : "bg-transparent",
+									)}
+								>
+									<Icon
+										className={cn(
+											"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
+											active
+												? "scale-105 text-primary"
+												: "text-muted-foreground group-active:text-foreground",
+										)}
+										strokeWidth={active ? 2.3 : 1.85}
+										aria-hidden="true"
+									/>
+								</span>
+								<span
+									className={cn(
+										"text-[0.6875rem] leading-none tracking-tight transition-colors",
+										active
+											? "font-semibold text-primary"
+											: "font-medium text-muted-foreground",
+									)}
+								>
+									{item.label}
+								</span>
+							</Link>
+						);
+					})}
+					<button
+						type="button"
+						onClick={() => {
+							haptic("tap");
+							setMoreOpen(true);
+						}}
+						aria-label="More"
+						aria-expanded={moreOpen}
+						aria-haspopup="dialog"
+						className="press-sm tap group relative flex flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
+					>
+						<span
 							className={cn(
-								"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
-								active
-									? "text-primary"
-									: "text-muted-foreground active:text-foreground",
+								"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
+								moreActive || moreOpen ? "bg-primary/10" : "bg-transparent",
 							)}
 						>
-							<Icon
-								className="size-6"
-								strokeWidth={active ? 2.25 : 1.75}
+							<Ellipsis
+								className={cn(
+									"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
+									moreActive || moreOpen
+										? "scale-105 text-primary"
+										: "text-muted-foreground group-active:text-foreground",
+								)}
+								strokeWidth={moreActive || moreOpen ? 2.3 : 1.85}
 								aria-hidden="true"
 							/>
-							<span className="leading-none">{item.label}</span>
-						</Link>
-					);
-				})}
-				<button
-					type="button"
-					onClick={() => setMoreOpen(true)}
-					aria-label="More"
-					aria-expanded={moreOpen}
-					aria-haspopup="dialog"
-					className={cn(
-						"flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo",
-						moreActive || moreOpen
-							? "text-primary"
-							: "text-muted-foreground active:text-foreground",
-					)}
-				>
-					<Ellipsis
-						className="size-6"
-						strokeWidth={moreActive || moreOpen ? 2.25 : 1.75}
-						aria-hidden="true"
-					/>
-					<span className="leading-none">More</span>
-				</button>
+						</span>
+						<span
+							className={cn(
+								"text-[0.6875rem] leading-none tracking-tight transition-colors",
+								moreActive || moreOpen
+									? "font-semibold text-primary"
+									: "font-medium text-muted-foreground",
+							)}
+						>
+							More
+						</span>
+					</button>
+				</div>
 			</nav>
 
 			<Sheet open={moreOpen} onOpenChange={setMoreOpen}>
 				<SheetContent side="bottom" className="md:hidden">
 					<SheetHeader>
-						<SheetTitle>More</SheetTitle>
+						<SheetTitle>Menu</SheetTitle>
 					</SheetHeader>
-					<nav className="flex flex-col gap-0.5">
+					<nav className="grid grid-cols-2 gap-2">
 						{MORE.map((item) => {
 							const active = isActive(pathname, item.href);
 							const Icon = item.icon;
@@ -143,22 +183,30 @@ export function OwnerBottomNav() {
 								<Link
 									key={item.href}
 									href={item.href}
+									onClick={() => haptic("select")}
 									aria-current={active ? "page" : undefined}
 									className={cn(
-										"flex min-h-[3rem] items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors duration-fast ease-out-expo",
+										"press tap flex min-h-[4rem] flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-colors",
 										active
-											? "bg-accent text-foreground"
-											: "text-foreground active:bg-surface-4",
+											? "border-transparent bg-primary/10"
+											: "border-border-default bg-card active:bg-surface-3",
 									)}
 								>
 									<Icon
 										className={cn(
-											"size-5",
+											"size-[1.45rem]",
 											active ? "text-primary" : "text-muted-foreground",
 										)}
 										aria-hidden="true"
 									/>
-									{item.label}
+									<span
+										className={cn(
+											"type-label",
+											active ? "text-primary" : "text-foreground",
+										)}
+									>
+										{item.label}
+									</span>
 								</Link>
 							);
 						})}
