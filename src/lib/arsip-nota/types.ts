@@ -83,4 +83,5 @@ export const MANUAL_CATEGORY_PRESETS = [
 ] as const;
 
 export const MANUAL_UPLOAD_MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-export const MANUAL_UPLOAD_ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
+export const MANUAL_UPLOAD_ACCEPT =
+	"image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";

@@ -74,7 +74,10 @@ function hhmmssNow(): string {
 }
 
 /** Gabung bagian non-kosong dengan " - ", potong total, tempel ekstensi. */
-function joinName(parts: Array<string | null | undefined>, ext: string): string {
+function joinName(
+	parts: Array<string | null | undefined>,
+	ext: string,
+): string {
 	const name = parts.filter(Boolean).join(" - ").slice(0, 180).trim();
 	return `${name}.${ext}`;
 }
@@ -125,7 +128,10 @@ export function buildRekapProofName(
 		formatPaymentDate(new Date().toISOString());
 	const seqClean = meta.seq?.replace(/\D/g, "").padStart(2, "0").slice(0, 4);
 	const tail = seqClean && seqClean !== "00" ? seqClean : hhmmssNow();
-	return joinName([safeSegment(meta.projectId, 30), "REKAP", dateStr, tail], ext);
+	return joinName(
+		[safeSegment(meta.projectId, 30), "REKAP", dateStr, tail],
+		ext,
+	);
 }
 
 /**

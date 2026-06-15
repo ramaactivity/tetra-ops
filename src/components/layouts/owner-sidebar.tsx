@@ -2,6 +2,7 @@
 
 import {
 	AlertTriangle,
+	Archive,
 	Bell,
 	BookOpen,
 	Box,
@@ -125,6 +126,11 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/accounting",
 						label: "Akuntansi",
 						icon: BookOpen,
+					},
+					{
+						href: "/finance/arsip-nota",
+						label: "Arsip Nota",
+						icon: Archive,
 					},
 					{
 						href: "/finance/payables",

@@ -215,9 +215,15 @@ export async function ensureManualNotaMonthFolder(
 	if (!parent) throw new Error("GOOGLE_DRIVE_PARENT_FOLDER_ID missing");
 
 	const root = await ensureFolder("Arsip Nota Manual", parent);
-	const yearFolder = await ensureFolder(String(uploadDate.getFullYear()), root.id);
+	const yearFolder = await ensureFolder(
+		String(uploadDate.getFullYear()),
+		root.id,
+	);
 	const mm = String(uploadDate.getMonth() + 1).padStart(2, "0");
-	return ensureFolder(`${mm} - ${MONTHS_ID[uploadDate.getMonth()]}`, yearFolder.id);
+	return ensureFolder(
+		`${mm} - ${MONTHS_ID[uploadDate.getMonth()]}`,
+		yearFolder.id,
+	);
 }
 
 /** Count non-folder files directly in a folder (used for footage status). */

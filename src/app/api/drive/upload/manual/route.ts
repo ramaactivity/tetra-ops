@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	ensureManualNotaMonthFolder,
@@ -42,7 +42,9 @@ export async function POST(req: NextRequest) {
 
 	if (!isDriveConfigured()) {
 		return NextResponse.json(
-			{ error: `Drive belum di-set di env: ${getDriveConfigErrors().join(", ")}` },
+			{
+				error: `Drive belum di-set di env: ${getDriveConfigErrors().join(", ")}`,
+			},
 			{ status: 503 },
 		);
 	}
@@ -60,7 +62,10 @@ export async function POST(req: NextRequest) {
 	const eventId = eventIdRaw || null;
 
 	if (!category) {
-		return NextResponse.json({ error: "Kategori wajib diisi" }, { status: 400 });
+		return NextResponse.json(
+			{ error: "Kategori wajib diisi" },
+			{ status: 400 },
+		);
 	}
 	if (!description) {
 		return NextResponse.json(
@@ -93,7 +98,9 @@ export async function POST(req: NextRequest) {
 	const mime = file.type || "application/octet-stream";
 	if (!ALLOWED_MIME.has(mime)) {
 		return NextResponse.json(
-			{ error: `Tipe file tidak didukung (${mime}). Pakai JPG/PNG/WEBP/HEIC/PDF.` },
+			{
+				error: `Tipe file tidak didukung (${mime}). Pakai JPG/PNG/WEBP/HEIC/PDF.`,
+			},
 			{ status: 415 },
 		);
 	}
