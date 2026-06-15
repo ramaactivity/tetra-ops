@@ -86,7 +86,7 @@ export function EventDriveCard({
 								type="button"
 								onClick={handleCreate}
 								disabled={pending}
-								className="press tap inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+								className="press tap inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 dark:bg-emerald-500 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
 							>
 								{pending ? (
 									<Loader2 className="size-4 animate-spin" />

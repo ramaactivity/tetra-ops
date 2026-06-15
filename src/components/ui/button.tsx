@@ -55,7 +55,7 @@ const buttonVariants = cva(
 					"rounded-md bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
 				/* MARKETING — 100px pill, hero scale. ONLY for landing page. */
 				marketing:
-					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90",
+					"rounded-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
 				"marketing-secondary":
 					"rounded-full border border-border-default bg-card text-foreground hover:bg-secondary",
 			},
