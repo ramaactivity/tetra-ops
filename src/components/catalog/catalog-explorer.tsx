@@ -46,12 +46,16 @@ interface CatalogExplorerProps<T> {
 	/** Category key for filter chips — omit to hide the chip row. */
 	getCategory?: (row: T) => string;
 	categoryLabel?: (value: string) => string;
+	/** Initial selected category (e.g. from a deep link). Defaults to "all". */
+	initialCategory?: string;
 	/** Column key used as the card title on mobile (defaults to first). */
 	titleKey?: string;
 	/** Optional subtitle node under the mobile card title. */
 	cardSubtitle?: (row: T) => React.ReactNode;
 	/** Trailing actions (edit / archive / toggle). */
 	renderActions?: (row: T) => React.ReactNode;
+	/** Extra control rendered to the right of the search box (e.g. a toggle). */
+	toolbar?: React.ReactNode;
 	emptyIcon: LucideIcon;
 	emptyTitle: string;
 	emptyDescription: string;
@@ -65,15 +69,17 @@ export function CatalogExplorer<T>({
 	searchPlaceholder = "Cari…",
 	getCategory,
 	categoryLabel = (v) => v,
+	initialCategory,
 	titleKey,
 	cardSubtitle,
 	renderActions,
+	toolbar,
 	emptyIcon,
 	emptyTitle,
 	emptyDescription,
 }: CatalogExplorerProps<T>) {
 	const [query, setQuery] = useState("");
-	const [category, setCategory] = useState("all");
+	const [category, setCategory] = useState(initialCategory ?? "all");
 
 	const categories: CatalogCategory[] = useMemo(() => {
 		if (!getCategory) return [];
@@ -106,19 +112,22 @@ export function CatalogExplorer<T>({
 
 	return (
 		<div className="space-y-5">
-			{/* Search */}
-			<div className="relative w-full lg:max-w-xs">
-				<Search
-					className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-					aria-hidden
-				/>
-				<input
-					type="search"
-					value={query}
-					onChange={(e) => setQuery(e.target.value)}
-					placeholder={searchPlaceholder}
-					className="border-border-default bg-card focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm shadow-[var(--shadow-level-2)] focus-visible:ring-2 focus-visible:outline-none"
-				/>
+			{/* Search + optional toolbar */}
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="relative w-full sm:max-w-xs">
+					<Search
+						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+						aria-hidden
+					/>
+					<input
+						type="search"
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						placeholder={searchPlaceholder}
+						className="border-border-default bg-card focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm shadow-[var(--shadow-level-2)] focus-visible:ring-2 focus-visible:outline-none"
+					/>
+				</div>
+				{toolbar ? <div className="shrink-0">{toolbar}</div> : null}
 			</div>
 
 			{/* Category chips */}

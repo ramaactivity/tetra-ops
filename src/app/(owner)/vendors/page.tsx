@@ -1,12 +1,18 @@
-import { Archive, Building2, FileSpreadsheet, PlusCircle } from "lucide-react";
+import {
+	Archive,
+	Building2,
+	CalendarRange,
+	Coins,
+	FileSpreadsheet,
+	PlusCircle,
+	TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
+import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FilterBar } from "@/components/ui/filter-bar";
-import { FilterSearchInput } from "@/components/ui/filter-search-input";
-import { VendorsListTable } from "@/components/vendors/vendors-list-table";
+import { VendorsExplorer } from "@/components/vendors/vendors-explorer";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,10 +38,9 @@ export type VendorRow = {
 export default async function VendorsListPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ q?: string; show_archived?: string }>;
+	searchParams: Promise<{ show_archived?: string }>;
 }) {
 	const params = await searchParams;
-	const q = params.q?.trim() ?? "";
 	const showArchived = params.show_archived === "1";
 
 	const supabase = await createClient();
@@ -53,7 +58,6 @@ export default async function VendorsListPage({
 		.order("name", { ascending: true });
 
 	if (!showArchived) vendorQuery = vendorQuery.eq("is_active", true);
-	if (q) vendorQuery = vendorQuery.ilike("name", `%${q}%`);
 
 	let vendorContacts: unknown[] | null = null;
 	let queryError: {
@@ -297,12 +301,57 @@ export default async function VendorsListPage({
 	const totalCommissionYTD = vendors.reduce((s, v) => s + v.commission_ytd, 0);
 	const totalGrossYTD = vendors.reduce((s, v) => s + v.gross_revenue_ytd, 0);
 
+	const kpiStats: StatItem[] = [
+		{
+			label: "Vendor Aktif",
+			value: totalVendors.toString(),
+			hint: "total terdaftar",
+			icon: Building2,
+		},
+		{
+			label: "Event YTD",
+			value: totalEventsYTD.toLocaleString("id-ID"),
+			hint: "tahun berjalan",
+			icon: CalendarRange,
+		},
+		{
+			label: "Gross Revenue YTD",
+			value: formatRupiah(totalGrossYTD),
+			hint: "dari semua vendor",
+			icon: TrendingUp,
+			accent: "info",
+		},
+		{
+			label: "Komisi YTD",
+			value: formatRupiah(totalCommissionYTD),
+			hint: "total payable",
+			icon: Coins,
+			accent: "amber",
+		},
+	];
+
+	const archiveToggle = (
+		<Link
+			href={showArchived ? "/vendors" : "/vendors?show_archived=1"}
+			className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium transition-colors ${
+				showArchived
+					? "border-foreground bg-foreground text-background"
+					: "border-border-default bg-card text-muted-foreground hover:text-foreground hover:bg-secondary"
+			}`}
+			aria-pressed={showArchived}
+		>
+			<Archive className="size-3.5" />
+			{showArchived ? "Sembunyikan arsip" : "Tampilkan arsip"}
+		</Link>
+	);
+
 	return (
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				as="h1"
+				eyebrow="Kontak"
 				title="Vendor"
-				description="Master vendor / partner organizer. Tiap booking dengan channel = Vendor otomatis terhubung ke entry di sini. Commission default + PIC bisa di-set sekali, dipakai auto-fill di form booking."
+				description="Master vendor / partner organizer. Tiap booking channel = Vendor otomatis terhubung ke sini. Commission default + PIC dipakai auto-fill di form booking."
 				actions={
 					<div className="flex items-center gap-2">
 						<Link
@@ -324,91 +373,9 @@ export default async function VendorsListPage({
 				}
 			/>
 
-			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<KpiTile
-					label="Vendor aktif"
-					value={totalVendors.toString()}
-					hint="Total terdaftar"
-				/>
-				<KpiTile
-					label="Event YTD"
-					value={totalEventsYTD.toLocaleString("id-ID")}
-					hint="Tahun berjalan"
-				/>
-				<KpiTile
-					label="Gross revenue YTD"
-					value={formatRupiah(totalGrossYTD)}
-					hint="Dari semua vendor"
-				/>
-				<KpiTile
-					label="Komisi YTD"
-					value={formatRupiah(totalCommissionYTD)}
-					hint="Total payable"
-				/>
-			</dl>
+			<StatRow stats={kpiStats} />
 
-			<FilterBar
-				searchClassName="sm:max-w-xs"
-				search={
-					<form method="get" action="/vendors" className="relative w-full">
-						<FilterSearchInput
-							className="w-full"
-							name="q"
-							defaultValue={q}
-							placeholder="Cari nama vendor…"
-						/>
-						{showArchived && (
-							<input type="hidden" name="show_archived" value="1" />
-						)}
-					</form>
-				}
-			>
-				<Link
-					href={
-						showArchived
-							? q
-								? `/vendors?q=${encodeURIComponent(q)}`
-								: "/vendors"
-							: q
-								? `/vendors?q=${encodeURIComponent(q)}&show_archived=1`
-								: "/vendors?show_archived=1"
-					}
-					className={`inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-fluid-caption font-medium transition-colors ${
-						showArchived
-							? "border-primary/40 bg-primary/10 text-primary"
-							: "border-border-default bg-surface-2 text-muted-foreground hover:text-foreground"
-					}`}
-					aria-pressed={showArchived}
-				>
-					<Archive className="size-3.5" />
-					{showArchived ? "Hide archived" : "Show archived"}
-				</Link>
-			</FilterBar>
-
-			{vendors.length === 0 ? (
-				<EmptyState
-					icon={Building2}
-					title={q ? "Vendor tidak ditemukan" : "Belum ada vendor terdaftar"}
-					description={
-						q
-							? "Coba kata kunci lain atau buka semua tanpa filter."
-							: "Tambah vendor baru, atau biarkan otomatis terbuat saat owner input booking dengan channel = Vendor."
-					}
-					action={
-						!q ? (
-							<Link
-								href="/vendors/new"
-								className={buttonVariants({ variant: "default", size: "sm" })}
-							>
-								<PlusCircle className="size-4" />
-								Tambah vendor pertama
-							</Link>
-						) : undefined
-					}
-				/>
-			) : (
-				<VendorsListTable vendors={vendors} />
-			)}
+			<VendorsExplorer vendors={vendors} toolbar={archiveToggle} />
 
 			<p className="text-fluid-caption text-muted-foreground">
 				Aggregate dihitung dari{" "}
@@ -425,25 +392,5 @@ export default async function VendorsListPage({
 				(populated saat settlement).
 			</p>
 		</Container>
-	);
-}
-
-function KpiTile({
-	label,
-	value,
-	hint,
-}: {
-	label: string;
-	value: string;
-	hint: string;
-}) {
-	return (
-		<div className="rounded-lg border border-border-default bg-card p-4">
-			<dt className="eyebrow truncate">{label}</dt>
-			<dd className="tabular display-tight mt-1.5 text-[22px] font-semibold leading-[1.1] text-foreground">
-				{value}
-			</dd>
-			<p className="text-[12px] leading-snug text-muted-foreground">{hint}</p>
-		</div>
 	);
 }

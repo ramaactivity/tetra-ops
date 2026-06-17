@@ -1,36 +1,23 @@
-import { FileSpreadsheet, Users } from "lucide-react";
+import { Briefcase, FileSpreadsheet, Handshake, Users } from "lucide-react";
 import Link from "next/link";
-import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
+import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
 import {
 	type ContactRow,
-	ContactsListTable,
-} from "@/components/contacts/contacts-list-table";
+	ContactsExplorer,
+} from "@/components/contacts/contacts-explorer";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FilterBar } from "@/components/ui/filter-bar";
-import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { createClient } from "@/lib/supabase/server";
-
-const TYPE_LABELS: Record<string, string> = {
-	booker: "Booker",
-	client: "Client",
-	pic_event: "PIC Event",
-	vendor: "Vendor",
-	other: "Lainnya",
-};
 
 export default async function ContactsListPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ type?: string; q?: string }>;
+	searchParams: Promise<{ type?: string }>;
 }) {
-	const params = await searchParams;
-	const typeFilter = params.type?.trim() || "";
-	const q = params.q?.trim() || "";
-
+	const { type } = await searchParams;
 	const supabase = await createClient();
-	let query = supabase
+	const { data, error } = await supabase
 		.from("contacts")
 		.select("id, legacy_contact_id, type, name, phone, email, notes, is_active")
 		.eq("is_active", true)
@@ -38,14 +25,10 @@ export default async function ContactsListPage({
 		.order("name", { ascending: true })
 		.limit(500);
 
-	if (typeFilter) query = query.eq("type", typeFilter);
-	if (q) query = query.ilike("name", `%${q}%`);
-
-	const { data, error } = await query;
 	if (error) {
 		return (
-			<div className="rounded-md border border-destructive bg-destructive/10 p-4">
-				<p className="text-fluid-body font-medium text-destructive">
+			<div className="border-destructive bg-destructive/10 rounded-md border p-4">
+				<p className="text-destructive text-sm font-medium">
 					Gagal memuat contacts: {error.message}
 				</p>
 			</div>
@@ -59,11 +42,41 @@ export default async function ContactsListPage({
 		return acc;
 	}, {});
 
+	const stats: StatItem[] = [
+		{
+			label: "Total Kontak",
+			value: String(contacts.length),
+			hint: "kontak aktif",
+			icon: Users,
+		},
+		{
+			label: "Booker",
+			value: String(counts.booker ?? 0),
+			hint: "pemesan",
+			icon: Briefcase,
+		},
+		{
+			label: "Client",
+			value: String(counts.client ?? 0),
+			hint: "klien akhir",
+			icon: Users,
+			accent: "info",
+		},
+		{
+			label: "Vendor",
+			value: String(counts.vendor ?? 0),
+			hint: "partner organizer",
+			icon: Handshake,
+			accent: "emerald",
+		},
+	];
+
 	return (
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				as="h1"
-				title="Kontak"
+				eyebrow="Kontak"
+				title="Daftar Kontak"
 				description="Master kontak: bookers, clients, PIC event, vendor. Diresolve otomatis saat import projects via Contact_ID legacy."
 				actions={
 					<Link
@@ -76,78 +89,9 @@ export default async function ContactsListPage({
 				}
 			/>
 
-			<FilterBar
-				searchClassName="sm:max-w-xs"
-				search={
-					<form method="get" action="/contacts" className="relative w-full">
-						<FilterSearchInput
-							className="w-full"
-							name="q"
-							defaultValue={q}
-							placeholder="Cari nama…"
-						/>
-						{typeFilter && (
-							<input type="hidden" name="type" value={typeFilter} />
-						)}
-					</form>
-				}
-			>
-				<div className="flex items-center gap-1.5">
-					<TypeChip
-						label="Semua"
-						href="/contacts"
-						active={!typeFilter}
-						count={contacts.length}
-					/>
-					{Object.entries(TYPE_LABELS).map(([k, label]) => (
-						<TypeChip
-							key={k}
-							label={label}
-							href={`/contacts?type=${k}`}
-							active={typeFilter === k}
-							count={counts[k] ?? 0}
-						/>
-					))}
-				</div>
-			</FilterBar>
+			<StatRow stats={stats} />
 
-			{contacts.length === 0 ? (
-				<EmptyState
-					icon={Users}
-					title="Belum ada kontak"
-					description='Klik "Bulk Import" untuk paste DB_CONTACTS CSV.'
-				/>
-			) : (
-				<ContactsListTable contacts={contacts} />
-			)}
+			<ContactsExplorer contacts={contacts} initialType={type?.trim()} />
 		</Container>
-	);
-}
-
-function TypeChip({
-	label,
-	href,
-	active,
-	count,
-}: {
-	label: string;
-	href: string;
-	active: boolean;
-	count: number;
-}) {
-	return (
-		<Link
-			href={href}
-			className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-fluid-caption font-medium transition-colors duration-fast ease-out-expo ${
-				active
-					? "border-primary/40 bg-primary/10 text-primary"
-					: "border-border-default bg-surface-2 text-muted-foreground hover:text-foreground"
-			}`}
-		>
-			{label}
-			{count > 0 && (
-				<span className="tabular text-[10px] opacity-60">({count})</span>
-			)}
-		</Link>
 	);
 }

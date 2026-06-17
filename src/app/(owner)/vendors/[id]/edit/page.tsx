@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { Badge } from "@/components/ui/badge";
-import { VendorForm } from "@/components/vendors/vendor-form";
 import { ArchiveVendorButton } from "@/components/vendors/archive-vendor-button";
+import { VendorForm } from "@/components/vendors/vendor-form";
 import { updateVendor } from "@/lib/actions/vendors";
-import { createClient } from "@/lib/supabase/server";
 import { formatRupiah } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function EditVendorPage({
 	params,
@@ -30,9 +30,7 @@ export default async function EditVendorPage({
 		// Inline aggregate — no view dependency. See note in vendors/page.tsx.
 		supabase
 			.from("events")
-			.select(
-				"event_date, vendor_commission_amount, grand_total",
-			)
+			.select("event_date, vendor_commission_amount, grand_total")
 			.eq("vendor_contact_id", id)
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false),

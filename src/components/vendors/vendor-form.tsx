@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { VendorFormState } from "@/lib/actions/vendors";
+import { cn } from "@/lib/utils";
 
 export type VendorFormDefaults = Partial<{
 	name: string;
@@ -51,10 +51,8 @@ export function VendorForm({
 		FormData
 	>(action, undefined);
 
-	const stateValues =
-		state && "values" in state ? state.values : undefined;
-	const stateErrors =
-		state && "errors" in state ? state.errors : undefined;
+	const stateValues = state && "values" in state ? state.values : undefined;
+	const stateErrors = state && "errors" in state ? state.errors : undefined;
 	const success = state && "ok" in state ? state : null;
 
 	const get = (key: keyof VendorFormDefaults, fallback?: string): string =>
@@ -70,12 +68,12 @@ export function VendorForm({
 
 	// Commission scheme state — mode + value_type drive UI.
 	// Initial from server echo (post-submit) > defaults > fallback.
-	const initialMode = (get("commission_mode", "commission") as
+	const initialMode = get("commission_mode", "commission") as
 		| "commission"
-		| "upfront_cut");
-	const initialValueType = (get("commission_value_type", "percent") as
+		| "upfront_cut";
+	const initialValueType = get("commission_value_type", "percent") as
 		| "percent"
-		| "flat");
+		| "flat";
 	const [mode, setMode] = useState<"commission" | "upfront_cut">(initialMode);
 	const [valueType, setValueType] = useState<"percent" | "flat">(
 		initialValueType,
@@ -313,11 +311,7 @@ export function VendorForm({
 									className={cn(inputClass, "tabular pl-9")}
 								/>
 							</div>
-							<input
-								type="hidden"
-								name="commission_value_type"
-								value="flat"
-							/>
+							<input type="hidden" name="commission_value_type" value="flat" />
 							<span className={hintClass}>
 								Jumlah yang vendor potong dari harga paket Tetra per event.
 								Klien tetap pilih paket dari katalog kita; vendor ambil fee
@@ -333,7 +327,12 @@ export function VendorForm({
 						</label>
 					)}
 
-					<label className={cn(labelClass, mode === "upfront_cut" && "md:col-span-2")}>
+					<label
+						className={cn(
+							labelClass,
+							mode === "upfront_cut" && "md:col-span-2",
+						)}
+					>
 						Payment Terms
 						<input
 							type="text"
