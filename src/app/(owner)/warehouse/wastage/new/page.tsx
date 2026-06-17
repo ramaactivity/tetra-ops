@@ -48,7 +48,7 @@ export default async function NewWastagePage() {
 	}));
 
 	return (
-		<Container size="lg" className="space-y-5">
+		<Container size="lg" className="space-y-6">
 			<PageHeader
 				title="Catat Wastage"
 				backHref="/warehouse/wastage"

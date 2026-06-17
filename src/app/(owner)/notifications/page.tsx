@@ -180,7 +180,7 @@ export default async function NotificationsPage({
 	const totalUnread = unreadCount ?? 0;
 
 	return (
-		<Container size="md" className="space-y-5">
+		<Container size="md" className="space-y-6">
 			<SectionHeader
 				title="Notifications"
 				description={

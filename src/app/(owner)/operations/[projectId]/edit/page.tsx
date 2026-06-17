@@ -122,7 +122,7 @@ export default async function EditBookingPage({
 	const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
 	return (
-		<Container size="xl" className="space-y-5">
+		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title={`Edit: ${event.client_name}`}
 				backHref={`/operations/${event.project_id}`}

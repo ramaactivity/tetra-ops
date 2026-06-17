@@ -100,7 +100,7 @@ export default async function DashboardPage() {
 	});
 
 	return (
-		<Container size="xl" className="space-y-6 md:space-y-8">
+		<Container size="xl" className="space-y-6">
 			{/* HERO + supporting */}
 			<section className="space-y-2.5">
 				<div className="lg:grid lg:grid-cols-3 lg:gap-2.5 lg:space-y-0 space-y-2.5">

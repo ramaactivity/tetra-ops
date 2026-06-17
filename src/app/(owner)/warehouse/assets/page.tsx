@@ -176,7 +176,7 @@ export default async function AssetRegisterPage({
 	const inUseCount = rows.filter((r) => r.location === "event").length;
 
 	return (
-		<Container size="xl" className="space-y-5">
+		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="Asset Register"
 				backHref="/warehouse"

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 // extent with the topbar card — no extra side padding (the floating frame's
 // outer gutter is the only inset). Data pages (lg/xl) run full-width to line
 // up edge-to-edge with the topbar; form/text pages keep a readable cap.
-const containerVariants = cva("mx-auto w-full py-1", {
+const containerVariants = cva("mx-auto w-full", {
 	variants: {
 		size: {
 			sm: "max-w-3xl",

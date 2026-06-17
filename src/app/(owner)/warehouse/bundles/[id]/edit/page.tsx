@@ -104,7 +104,7 @@ export default async function EditBundlePage({
 	};
 
 	return (
-		<Container size="lg" className="space-y-5">
+		<Container size="lg" className="space-y-6">
 			<PageHeader
 				title={`Edit: ${bundle.name}`}
 				backHref="/warehouse/bundles"

@@ -313,7 +313,7 @@ export default async function FinancePage() {
 	}
 
 	return (
-		<Container size="xl" className="space-y-6 md:space-y-8">
+		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				title="Finance"
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}

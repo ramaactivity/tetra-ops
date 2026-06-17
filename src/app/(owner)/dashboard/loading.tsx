@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function DashboardLoading() {
 	return (
-		<Container size="xl" className="space-y-6 md:space-y-8">
+		<Container size="xl" className="space-y-6">
 			{/* Section header */}
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 				<div className="space-y-2">

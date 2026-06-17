@@ -7,7 +7,7 @@ import { createVendor } from "@/lib/actions/vendors";
 
 export default function NewVendorPage() {
 	return (
-		<Container size="lg" className="space-y-5">
+		<Container size="lg" className="space-y-6">
 			<div className="space-y-2">
 				<Link
 					href="/vendors"

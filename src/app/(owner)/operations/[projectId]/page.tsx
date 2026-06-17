@@ -299,7 +299,7 @@ export default async function EventDetailPage({
 	const headerActionCls = buttonVariants({ variant: "outline", size: "sm" });
 
 	return (
-		<Container size="xl" className="space-y-5">
+		<Container size="xl" className="space-y-6">
 			{/* === HEADER === */}
 			<div className="space-y-3">
 				<Link

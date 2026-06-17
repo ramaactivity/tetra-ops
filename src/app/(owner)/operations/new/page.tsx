@@ -109,7 +109,7 @@ export default async function NewBookingPage() {
 	}));
 
 	return (
-		<Container size="xl" className="space-y-5">
+		<Container size="xl" className="space-y-6">
 			<PageHeader
 				title="New Booking"
 				backHref="/operations"

@@ -40,7 +40,7 @@ export default async function NewBundlePage() {
 	}));
 
 	return (
-		<Container size="lg" className="space-y-5">
+		<Container size="lg" className="space-y-6">
 			<PageHeader
 				title="Tambah Bundle"
 				backHref="/warehouse/bundles"
