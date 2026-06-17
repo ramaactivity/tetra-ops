@@ -128,9 +128,7 @@ export function SinkingFundForm({
 				>
 					<NativeSelect
 						value={allocType}
-						onValueChange={(v) =>
-							setAllocType(v as "percentage" | "flat")
-						}
+						onValueChange={(v) => setAllocType(v as "percentage" | "flat")}
 						options={[
 							{
 								value: "percentage",

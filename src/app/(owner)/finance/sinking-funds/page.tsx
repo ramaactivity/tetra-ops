@@ -1,23 +1,17 @@
-import { Pencil, Plus, ScrollText } from "lucide-react";
+import { CheckCircle2, PiggyBank, Plus, Target, Wallet } from "lucide-react";
 import Link from "next/link";
+import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { ToggleActiveButton } from "@/components/sinking-funds/toggle-active-button";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+	type FundRow,
+	SinkingFundsExplorer,
+} from "@/components/sinking-funds/sinking-funds-explorer";
+import { buttonVariants } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-type FundRow = {
+type RawFund = {
 	id: string;
 	code: string;
 	name: string;
@@ -62,7 +56,7 @@ export default async function SinkingFundsListPage() {
 		);
 	}
 
-	const funds = (fundsData ?? []) as FundRow[];
+	const rawFunds = (fundsData ?? []) as RawFund[];
 	const movements = (movementsData ?? []) as MovementAgg[];
 
 	const balanceById = new Map<string, number>();
@@ -72,25 +66,62 @@ export default async function SinkingFundsListPage() {
 		balanceById.set(m.fund_id, prev + delta);
 	}
 
+	const funds: FundRow[] = rawFunds.map((f) => ({
+		id: f.id,
+		code: f.code,
+		name: f.name,
+		description: f.description,
+		allocation_type: f.allocation_type,
+		allocation_value: Number(f.allocation_value),
+		target_balance: f.target_balance,
+		balance: balanceById.get(f.id) ?? 0,
+		is_active: f.is_active,
+	}));
+
 	const activeCount = funds.filter((f) => f.is_active).length;
-	const totalBalance = funds.reduce(
-		(s, f) => s + (balanceById.get(f.id) ?? 0),
-		0,
-	);
+	const totalBalance = funds.reduce((s, f) => s + f.balance, 0);
+	const totalTarget = funds.reduce((s, f) => s + (f.target_balance ?? 0), 0);
+	const overallPct =
+		totalTarget > 0
+			? Math.min(100, Math.round((totalBalance / totalTarget) * 100))
+			: null;
+
+	const stats: StatItem[] = [
+		{
+			label: "Total Fund",
+			value: String(funds.length),
+			hint: "dana cadangan",
+			icon: PiggyBank,
+		},
+		{
+			label: "Aktif",
+			value: String(activeCount),
+			hint: `${funds.length - activeCount} nonaktif`,
+			icon: CheckCircle2,
+			accent: "emerald",
+		},
+		{
+			label: "Total Saldo",
+			value: formatRupiah(totalBalance),
+			hint: "terkumpul",
+			icon: Wallet,
+		},
+		{
+			label: "Progress Target",
+			value: overallPct !== null ? `${overallPct}%` : "—",
+			hint: `dari ${formatRupiah(totalTarget)}`,
+			icon: Target,
+			accent: "info",
+		},
+	];
 
 	return (
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				as="h1"
+				eyebrow="Finance"
 				title="Dana Cadangan"
-				description={
-					<>
-						{funds.length} fund · {activeCount} aktif · total saldo{" "}
-						<span className="tabular text-foreground font-medium">
-							{formatRupiah(totalBalance)}
-						</span>
-					</>
-				}
+				description={`${funds.length} fund · ${activeCount} aktif · auto-deposit dari settlement`}
 				actions={
 					<Link
 						href="/finance/sinking-funds/new"
@@ -102,127 +133,9 @@ export default async function SinkingFundsListPage() {
 				}
 			/>
 
-			{funds.length === 0 ? (
-				<EmptyState
-					icon={ScrollText}
-					title="Belum ada dana cadangan"
-					description="Bikin fund pertama agar settlement bisa alokasi otomatis."
-				/>
-			) : (
-				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Code</TableHead>
-								<TableHead>Nama</TableHead>
-								<TableHead>Aturan</TableHead>
-								<TableHead className="text-right">Saldo</TableHead>
-								<TableHead className="text-right">Target</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead className="w-[140px] text-right">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{funds.map((f) => {
-								const balance = balanceById.get(f.id) ?? 0;
-								const targetPct =
-									f.target_balance && f.target_balance > 0
-										? Math.min(
-												100,
-												Math.round((balance / f.target_balance) * 100),
-											)
-										: null;
-								return (
-									<TableRow key={f.id}>
-										<TableCell className="text-muted-foreground tabular text-xs">
-											{f.code}
-										</TableCell>
-										<TableCell>
-											<div className="space-y-0.5">
-												<div className="font-medium">{f.name}</div>
-												{f.description && (
-													<div className="text-muted-foreground text-xs">
-														{f.description}
-													</div>
-												)}
-											</div>
-										</TableCell>
-										<TableCell>
-											{f.allocation_type === "percentage" ? (
-												<span className="tabular text-sm">
-													{Number(f.allocation_value)}%{" "}
-													<span className="text-muted-foreground text-xs">
-														/ profit
-													</span>
-												</span>
-											) : (
-												<span className="tabular text-sm">
-													{formatRupiah(Number(f.allocation_value))}{" "}
-													<span className="text-muted-foreground text-xs">
-														/ event
-													</span>
-												</span>
-											)}
-										</TableCell>
-										<TableCell className="text-right">
-											<div className="tabular text-foreground font-medium">
-												{formatRupiah(balance)}
-											</div>
-											{targetPct !== null && (
-												<>
-													<div className="bg-muted relative ml-auto mt-1 h-1.5 w-full max-w-[140px] overflow-hidden rounded-full">
-														<span
-															aria-hidden="true"
-															className="bg-primary absolute inset-y-0 left-0 rounded-full"
-															style={{ width: `${targetPct}%` }}
-														/>
-													</div>
-													<div className="text-muted-foreground mt-1 text-xs">
-														{targetPct}%
-													</div>
-												</>
-											)}
-										</TableCell>
-										<TableCell className="tabular text-muted-foreground text-right text-sm">
-											{f.target_balance ? formatRupiah(f.target_balance) : "—"}
-										</TableCell>
-										<TableCell>
-											{f.is_active ? (
-												<Badge variant="default">Aktif</Badge>
-											) : (
-												<Badge variant="secondary">Nonaktif</Badge>
-											)}
-										</TableCell>
-										<TableCell>
-											<div className="flex items-center justify-end gap-1">
-												<Link
-													href={`/finance/sinking-funds/${f.id}/movements`}
-													title="Movements"
-													className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-												>
-													<ScrollText className="h-4 w-4" />
-												</Link>
-												<Link
-													href={`/finance/sinking-funds/${f.id}/edit`}
-													title="Edit"
-													className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-												>
-													<Pencil className="h-4 w-4" />
-												</Link>
-												<ToggleActiveButton
-													id={f.id}
-													isActive={f.is_active}
-													name={f.name}
-												/>
-											</div>
-										</TableCell>
-									</TableRow>
-								);
-							})}
-						</TableBody>
-					</Table>
-				</div>
-			)}
+			<StatRow stats={stats} />
+
+			<SinkingFundsExplorer funds={funds} />
 
 			<p className="text-muted-foreground text-xs">
 				Saldo dihitung dari{" "}
