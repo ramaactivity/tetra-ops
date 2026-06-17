@@ -5,11 +5,10 @@
 > squeezed-desktop chrome that owner & crew complained about.
 >
 > **Relationship to `DESIGN.md`.** **Fonts and colors are shared and identical across mobile and
-> desktop** — defined once in `DESIGN.md` / [`globals.css`](src/app/globals.css) (Manrope + Inter +
-> JetBrains Mono; the calm emerald-anchored palette) and used by both. `MOBILE.md` does **not** fork
-> the brand. It owns only the mobile *form factor*: density, touch sizing, screen anatomy, elevation,
-> navigation, gestures — and wins on those. Font and color are the same on every platform by
-> construction; desktop (`md+`) keeps its denser chrome but the **identical fonts and palette**.
+> desktop** — defined once in `DESIGN.md` / [`globals.css`](src/app/globals.css) (Manrope + Inter;
+> the UpGradely palette: pastel ambient gradient, ink-black CTA, lime/orange/blue/red accents) and
+> used by both. `MOBILE.md` does **not** fork the brand. It owns only the mobile *form factor*:
+> density, touch sizing, screen anatomy, elevation, navigation, gestures — and wins on those.
 >
 > _Tujuan: mobile terasa seperti native app — adem, estetik, smooth, seamless, proporsional,
 > nyaman, modern. Hindari AI slop: setiap keputusan disengaja, pakai token & komponen yang ada._
@@ -24,10 +23,10 @@ consistent everywhere.** Only the form-factor rows below are mobile-specific.
 
 | Axis | Decision | Scope |
 | --- | --- | --- |
-| **Type** | **Manrope** (titles + numbers) + **Inter** (body/labels/UI) + **JetBrains Mono** (eyebrows/IDs/timestamps). Manrope's lining figures are tuned for stat & money dashboards. | **Shared mobile + desktop** |
-| **Color** | **Calm, emerald-anchored + Midnight Glow companions.** White is the clean base. Emerald = action/success. Teal `#008C8C` = secondary/info, Navy `#001F3F` = deep anchor, Cyan `#00BFFF` = sparing highlight. No gradients. | **Shared mobile + desktop** |
-| **Elevation** | **Soft ambient shadow** on a cool off-white canvas (cards lift gently). | Mobile form factor |
-| **Primary action** | **FAB** (emerald) for the screen's create action + **bottom nav with a filled emerald active pill**. | Mobile form factor |
+| **Type** | **Manrope** (titles + numbers) + **Inter** (body/labels/UI). Manrope's lining figures are tuned for stat & money dashboards. | **Shared mobile + desktop** |
+| **Color** | **UpGradely DNA.** Pastel **ambient gradient** frames the screen; cream/white cards float on it. **Ink black = the action color.** Accents are functional: lime = success, orange = warning/in-progress, sky blue = info/to-do, red = danger. See DESIGN.md §2. | **Shared mobile + desktop** |
+| **Elevation** | **Soft ambient shadow** on the pastel canvas (cards lift gently, `rounded-2xl`). | Mobile form factor |
+| **Primary action** | **FAB (ink black)** for the screen's create action + **bottom nav with a solid ink active pill** (white icon). | Mobile form factor |
 | **Tables** | **Reflow to Record Cards** (the operational pattern). Financial statements stay tabular inside a scroll container. | Mobile form factor |
 
 > Sources for the type decision: [Inter font pairings 2026 — Made Good Designs](https://madegooddesigns.com/inter-font-pairing/), [Best Google Font Pairings 2025 — Matt Medley](https://medley.ltd/blog/best-google-font-pairings-for-ui-design-in-2025/). Manrope+Inter is a validated fintech/dashboard pairing; Plus Jakarta Sans + Inter is the warmer alternative if we ever revisit.
@@ -49,7 +48,7 @@ consistent everywhere.** Only the form-factor rows below are mobile-specific.
 Three golden rules. Judge every screen against them first, pixels second.
 
 1. **Thumb-first.** Phone is one-handed (~49%). Primary nav + the create action live at the **bottom** (FAB + tab bar). Top = identity/title + rare controls.
-2. **One dominant action per screen.** Exactly one emerald action (the FAB, or one bottom CTA). Everything else is quiet (Hick's Law).
+2. **One dominant action per screen.** Exactly one ink action (the FAB, or one bottom CTA). Everything else is quiet (Hick's Law).
 3. **Content-first, chrome-minimal.** Maximise content, minimise frames. Familiar patterns over clever ones (Jakob's Law).
 
 > **UX before UI.** Flow & clarity before decoration. Microcopy and empty/error states are part of the design.
@@ -112,7 +111,7 @@ Hierarchy by **weight + family**, not by many sizes. Use the `.type-*` class, ne
 | Secondary (muted) | `.type-secondary` | Inter | 14→15 | 400 |
 | Label | `.type-label` | Inter | 13 | 500 |
 | Caption (muted) | `.type-caption` | Inter | 12 | 450 |
-| Eyebrow / category | `.eyebrow` | **JetBrains Mono** | 11 ALL-CAPS | 500 |
+| Eyebrow / category | `.eyebrow` | **Inter** (sans) | 11 ALL-CAPS | 600 |
 | Money / quantity | `.type-num` | Manrope tabular | — | 600 |
 
 - **Manrope carries the "voice"** (titles, the big stat numbers) — calm, modern, slightly rounded. **Inter carries the detail** (body, labels, dense metadata) for razor legibility.
@@ -124,36 +123,34 @@ Hierarchy by **weight + family**, not by many sizes. Use the `.type-*` class, ne
 
 ---
 
-## 5. Color & visual weight (60-30-10) — calm, emerald-anchored
+## 5. Color & visual weight — UpGradely DNA
 
-Depth comes from the **surface ladder + soft shadow**, never gradients.
-**This palette is app-wide — mobile and desktop share the exact same color tokens.**
+The **pastel ambient gradient** frames the screen (painted on `<html>`, see DESIGN.md §1);
+cream/white cards float on it with **soft shadow**. **This palette is app-wide — mobile and
+desktop share the exact same tokens** (re-valued in `globals.css @theme`).
 
-White is the clean base. **Emerald** leads as the action color; the **Midnight Glow** family
-(navy/teal/cyan) are its calm cool companions. Identical tokens on mobile + desktop.
+**Ink black is the one action color.** Accents are functional, never decorative.
 
-| Layer | Role | Tokens (light → dark) |
+| Layer | Role | Token / class (light) |
 | --- | --- | --- |
-| **Base (white)** | cards + canvas | card `#ffffff→#171717` · canvas `#fafafa→#0a0a0a` · inset `#f5f5f5→#1f1f1f` |
-| **Ink structure** | text, icons, dividers | fg `#171717→#ededed` · body `#525252→#a1a1a1` · hairline `#ebebeb→#2a2a2a` |
-| **Emerald — action** | primary button · FAB · submit · active nav · success | `#059669→#10b981` |
-| **Teal — secondary** | info · links · secondary buttons · accent icons · selected | `#008C8C` (`teal-600`) |
-| **Navy — anchor** | deep / dark surfaces · strong heading accent · dark ground | `#001F3F` (`navy-900`) |
-| **Cyan — highlight** | focus ring · active dot · small data pops — **proportional** | `#00BFFF` (`cyan-400`) |
+| **Canvas** | ambient gradient + base | `--gradient-ambient` on `<html>` · base `#f7f6f3` |
+| **Card** | floating surfaces | `--card #fefefe`, `rounded-2xl`, soft shadow |
+| **Ink structure** | text, icons, dividers | fg `#1a1a17` · muted `#6d6c66` · hairline `#e9e8e2` |
+| **Ink — action** | primary button · FAB · active nav pill · active tab | `--primary #18181b` (white label) |
+| **Lime — success** | paid · done · positive · success dot | `emerald-*` (bg `emerald-200`, text `emerald-900`) |
+| **Orange — warning** | in-progress · pending · menunggu settle | `amber-*` (bg `amber-100`, text `amber-800`) |
+| **Sky blue — info** | to-do · info · neutral status | `sky-*`/`teal-*` (bg `sky-100`, text `sky-700`) |
+| **Red — danger** | cancelled · overdue · negative money | `rose-*` / `--destructive #d12e36` |
 
-**Discipline — stay adem:**
-- **Emerald is the one action hue** — primary button, FAB, submit, active nav pill, success. Fill-only.
-- **Teal is the companion, not a second CTA** — info, links, secondary buttons, accent icons.
-- **Navy grounds; cyan sparks** (sparing — focus / active / data pops). Never flood a screen with cyan.
-- **No gradients.** Category/type chips stay **neutral** (ink/slate dot) — color is for action + status, not decoration.
-- **Status tints** (soft bg + readable text; the left status strip uses the hue):
-  - Success / Lunas / Selesai → emerald (`bg #ECFDF5` · `text #047857`)
-  - Pending / Menunggu Settle → amber, muted (`bg #FFFBEB` · `text #B45309`)
-  - Danger / Batal → rose, muted (`bg #FEF2F2` · `text #b91c1c`)
-  - Info → teal (`bg #e6f4f4` · `text #0a6b6b`)
+**Discipline — stay fresh, not noisy:**
+- **Ink is the one action hue** — primary button, FAB, active nav pill, active tab. No second CTA color.
+- **Accents mean something** — lime = good, orange = pending, blue = info, red = danger. Don't decorate with them.
+- **The gradient is the frame only** — never inside a card; cards stay opaque so dense data is legible.
+- Category/type chips stay **neutral** (ink/slate dot); color is for action + status.
+- **Status pills** = clearly-colored fill + dark readable text (`<Badge variant="success|warning|info|danger">`).
 
-**✅ Do** — emerald = the action; teal = the companion; cyan = the rare spark; white stays the base.
-**❌ Don't** — two CTAs, cyan everywhere, colored category chips, or any gradient.
+**✅ Do** — ink = the action; lime/orange/blue/red = status meaning; gradient frames, cards float.
+**❌ Don't** — two CTAs, gradient text or in-card gradients, colored category chips, green "primary" buttons.
 
 ---
 
@@ -184,7 +181,7 @@ gently off the canvas, **never a hard black drop**. A real ramp (`shadow-soft-xs
 | `shadow-soft` (md) | **default: record / stat / surface cards** |
 | `shadow-soft-lg` | sheets, popovers, raised |
 | `shadow-soft-xl` | modals / max elevation |
-| `shadow-fab` | the FAB only (emerald-tinted) |
+| `shadow-fab` | the FAB only (ink-tinted) |
 
 **✅ Do** — white card + `shadow-soft` on the canvas; one step up on press/active if needed; 24px between sections.
 **❌ Don't** — heavy `rgba(0,0,0,.4)` drops, equal radius on nested boxes, or shadow on flat list rows.
@@ -198,7 +195,7 @@ gently off the canvas, **never a hard black drop**. A real ramp (`shadow-soft-xs
 ### Mobile control scale
 | Control | Mobile size | How |
 | --- | --- | --- |
-| FAB | **56×56** | `<Fab>` — emerald, `rounded-2xl`, bottom-right above nav |
+| FAB | **56×56** | `<Fab>` — ink black, `rounded-2xl`, bottom-right above nav |
 | Primary button | **48px** full-width | `<Button size="hero-lg" className="w-full">` |
 | Secondary button | **44px** | `<Button size="lg">` |
 | Record / list row | **≥ 56px** | `<RecordCard>` / `<ListRow>` |
@@ -213,10 +210,10 @@ gently off the canvas, **never a hard black drop**. A real ramp (`shadow-soft-xs
 [`crew-bottom-nav.tsx`](src/components/layouts/crew-bottom-nav.tsx) · [`owner-bottom-nav.tsx`](src/components/layouts/owner-bottom-nav.tsx).
 - Frosted `bg-card/80 backdrop-blur-2xl`, `border-t`, `pb-safe`, centered to the 30rem column.
 - Icon **22–24px**, label **11px**; **3–5 tabs** (rest → "More", Miller's Law).
-- **Active = filled emerald pill** (`bg-emerald-600/10` + `text-emerald-700`, icon filled) + small dot/indicator; inactive = `text-muted-foreground`. Tap → `useHaptics("select")`.
+- **Active = solid ink pill** (`bg-primary` + white icon, `text-primary-foreground`) + label in `text-foreground`; inactive = `text-muted-foreground`. Tap → `useHaptics("select")`.
 
 ### FAB (Floating Action Button)
-- The screen's single create action ("Booking baru", "Tambah alat"). **56×56**, emerald fill, `rounded-2xl`, emerald-tinted soft shadow, `+` icon ~28px.
+- The screen's single create action ("Booking baru", "Tambah alat"). **56×56**, ink fill, `rounded-2xl`, ink-tinted soft shadow, `+` icon ~28px.
 - Fixed **bottom-right**, sits **above** the bottom nav (`bottom: calc(nav + 16px)`), respects `pb-safe`. `.press` (`active:scale-95`) + haptic.
 - One FAB per screen, only when there's a clear primary create action. If the screen has no create action, no FAB.
 
@@ -252,11 +249,11 @@ Rules:
 Horizontal-scroll row of **stat cards** (`<StatScroller>` + `StatTile`). Each: `min-w-[160px]`, white, `rounded-2xl`, `shadow-soft`; `.eyebrow` label, Manrope big number (`.type-num-lg/xl`), optional hint or **progress bar** (target %). Bleed `-mx-[gutter]` + `.hide-scrollbar`.
 
 ### Filter chips
-Horizontal-scroll pills (`<FilterChips>`), **40px**, `rounded-full`. Active = solid (emerald or ink) ; inactive = white + hairline. Bleed to edge. Opens a `Sheet`/`Combobox` for multi-option filters (Hick's Law).
+Horizontal-scroll pills (`<FilterChips>`), **40px**, `rounded-full`. Active = solid ink ; inactive = white + hairline. Bleed to edge. Opens a `Sheet`/`Combobox` for multi-option filters (Hick's Law).
 
 ### Buttons & CTA
-- [`button.tsx`](src/components/ui/button.tsx): `default` = **emerald** (the action), `secondary`/`outline`/`ghost` = quiet, `destructive` = rose. One emerald per screen.
-- Mobile primary: **full-width, 48px, solid emerald**, bottom of sheet/form. **Label = verb + object** ("Simpan Rekap", not "OK").
+- [`button.tsx`](src/components/ui/button.tsx): `default` = **ink black** (the action), `secondary`/`outline`/`ghost` = quiet, `destructive` = rose. One ink action per screen.
+- Mobile primary: **full-width, 48px, solid ink**, bottom of sheet/form. **Label = verb + object** ("Simpan Rekap", not "OK").
 
 ### Forms & inputs
 - **44px height, 16px font** (anti iOS-zoom) — already enforced in `INPUT_CLASS` ([`form-fields.tsx`](src/components/ui/form-fields.tsx)). Reuse `MoneyInput` / `PhoneInput`.
@@ -268,7 +265,7 @@ Horizontal-scroll pills (`<FilterChips>`), **40px**, `rounded-full`. Active = so
 - `Sheet` / `BottomSheet`: slide up, `--shadow-soft-lg`, drag-to-dismiss, actions pinned at the bottom, fit one screen.
 - Confirm via `useConfirm()` + toast — **never** `window.confirm/alert`.
 
-**✅ Do** — table → `RecordCard` stack; stat scroller; FAB for create; 48px emerald CTA in sheets.
+**✅ Do** — table → `RecordCard` stack; stat scroller; FAB for create; 48px ink CTA in sheets.
 **❌ Don't** — raw/side-scrolling data tables, 32px buttons, 13px inputs, two primary actions.
 
 ---
@@ -330,8 +327,8 @@ Execute top-down; each: _problem → target → reuse_.
 - [ ] Wrapped in `<AppScreen>`; padding via `app-gutter`; scrollers bleed to the edge.
 - [ ] Nothing under the status bar; bottom clears nav + FAB (`pb-safe`).
 - [ ] Titles + numbers in **Manrope**; body/labels in **Inter**; money is `.tabular`.
-- [ ] **One** emerald action (FAB or one CTA, ≥ 44px); active nav = emerald pill.
-- [ ] Colors stay **adem** — emerald + neutrals; non-emerald only as muted status tint; no gradient.
+- [ ] **One** ink action (FAB or one CTA, ≥ 44px); active nav = ink pill.
+- [ ] Ink is the only action color; accents (lime/orange/blue/red) carry status meaning only; ambient gradient frames, cards stay opaque.
 - [ ] All tap targets ≥ 44px; inputs 16px font.
 - [ ] Data table → `RecordCard` stack (or scroll-contained for financial statements) — no bare/side-scrolling table.
 - [ ] Cards `rounded-2xl` + `shadow-soft` on the cool canvas; nested radius = inner + padding.
