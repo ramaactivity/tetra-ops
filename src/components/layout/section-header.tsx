@@ -1,4 +1,7 @@
+"use client";
+
 import type * as React from "react";
+import { TopbarActionPortal } from "@/components/layouts/topbar-action-portal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,43 +48,51 @@ export function SectionHeader({
 	...props
 }: SectionHeaderProps) {
 	const Tag = as;
-	// UpGradely DNA: page-level titles (as="h1") are dropped — the active
-	// sidebar item already tells you which page you're on, so a standalone
-	// title row only leaves dead space. Any `actions` stay as a right-aligned
-	// toolbar. Sub-section headers (as="h2"/"h3") keep their title.
+	// UpGradely DNA: page-level titles (as="h1") are dropped — context comes
+	// from the active sidebar item + the topbar page-name pill. Page-level
+	// actions teleport to the topbar action slot (top-right). Sub-section
+	// headers (as="h2"/"h3") keep their title and inline actions.
 	const showTitle = as !== "h1";
+	const portalActions = as === "h1" && Boolean(actions);
+	const inlineActions = Boolean(actions) && !portalActions;
 
 	if (!showTitle && !actions) return null;
 
 	return (
-		<header
-			data-slot="section-header"
-			className={cn(
-				// px-5 lines the title (and right-side actions) up with the inner
-				// content of the cards below (which use p-5), while cards stay
-				// edge-to-edge with the topbar.
-				"flex flex-col gap-2 px-5 sm:flex-row sm:items-end sm:gap-4",
-				showTitle ? "sm:justify-between" : "sm:justify-end",
-				className,
-			)}
-			{...props}
-		>
-			{showTitle ? (
-				<div className="flex min-w-0 flex-col gap-1">
-					{eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
-					<Tag className={cn(headingClass[as], "min-w-0 text-foreground")}>
-						{title}
-					</Tag>
-					{description ? (
-						<p className="type-secondary leading-snug">{description}</p>
+		<>
+			{portalActions ? (
+				<TopbarActionPortal>{actions}</TopbarActionPortal>
+			) : null}
+			{showTitle || inlineActions ? (
+				<header
+					data-slot="section-header"
+					className={cn(
+						// px-5 lines the title (and inline actions) up with the inner
+						// content of the cards below (which use p-5).
+						"flex flex-col gap-2 px-5 sm:flex-row sm:items-end sm:gap-4",
+						showTitle ? "sm:justify-between" : "sm:justify-end",
+						className,
+					)}
+					{...props}
+				>
+					{showTitle ? (
+						<div className="flex min-w-0 flex-col gap-1">
+							{eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
+							<Tag className={cn(headingClass[as], "min-w-0 text-foreground")}>
+								{title}
+							</Tag>
+							{description ? (
+								<p className="type-secondary leading-snug">{description}</p>
+							) : null}
+						</div>
 					) : null}
-				</div>
+					{inlineActions ? (
+						<div className="flex shrink-0 flex-wrap items-center gap-2">
+							{actions}
+						</div>
+					) : null}
+				</header>
 			) : null}
-			{actions ? (
-				<div className="flex shrink-0 flex-wrap items-center gap-2">
-					{actions}
-				</div>
-			) : null}
-		</header>
+		</>
 	);
 }

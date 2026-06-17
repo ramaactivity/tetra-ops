@@ -31,7 +31,7 @@ const buttonVariants = cva(
 				/* PRIMARY — ink-black CTA (UpGradely). The single primary action
 				   color: Save, Submit, Confirm, New booking, View all, … */
 				default:
-					"rounded-[12px] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+					"rounded-[12px] bg-[#059669] text-white hover:bg-[#047857] active:bg-[#03613e] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]",
 				/* OUTLINE — white card surface with hairline border. Pairs with
 				   default for secondary actions. */
 				outline:
@@ -51,10 +51,10 @@ const buttonVariants = cva(
 				   Reserved for irreversible financial commits (Approve, Tutup
 				   Buku, Submit Rekap). Same ink CTA, larger size. */
 				decisive:
-					"rounded-[12px] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+					"rounded-[12px] bg-[#059669] text-white hover:bg-[#047857] active:bg-[#03613e] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]",
 				/* MARKETING — pill, hero scale. Landing page. */
 				marketing:
-					"rounded-[12px] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+					"rounded-[12px] bg-[#059669] text-white hover:bg-[#047857] active:bg-[#03613e] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]",
 				"marketing-secondary":
 					"rounded-full border border-border-default bg-card text-foreground hover:bg-secondary",
 			},

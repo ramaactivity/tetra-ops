@@ -3,9 +3,12 @@
  * (OwnerSidebar + OwnerTopBar) to verify the port, with inline KPI/bento
  * content as the next things to port. Delete before ship.
  */
+import { Plus } from "lucide-react";
 import { OwnerSidebar } from "@/components/layouts/owner-sidebar";
 import { OwnerTopBar } from "@/components/layouts/owner-topbar";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { buttonVariants } from "@/components/ui/button";
 
 const R_CARD = "rounded-[16px]";
 const R_CTRL = "rounded-[12px]";
@@ -41,6 +44,16 @@ export default async function LabPage() {
 			<div className="flex min-w-0 flex-1 flex-col gap-3">
 				<OwnerTopBar name="Ramadan Saputra" email="rama@tetra.id" role="owner" />
 				<main className="flex min-w-0 flex-1 flex-col gap-3">
+					<SectionHeader
+						as="h1"
+						title="Lab"
+						actions={
+							<a className={buttonVariants({ variant: "default" })} href="#lab">
+								<Plus className="size-4" />
+								Tambah Paket
+							</a>
+						}
+					/>
 					{/* KPI grid */}
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
 						<KpiCard label="Revenue MTD" value="Rp 13,5jt" hint="Uang diterima · turun 44% vs Mei" badge="Cash" badgeTone="blue" />

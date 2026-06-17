@@ -49,7 +49,12 @@ export async function OwnerTopBar({
 				<OwnerPageTitle />
 			</div>
 
-			<div className="ml-auto flex shrink-0 items-center gap-1.5">
+			<div className="ml-auto flex shrink-0 items-center gap-2">
+				{/* Page-level primary actions teleport here via TopbarActionPortal */}
+				<div
+					id="topbar-actions"
+					className="flex items-center gap-1.5 empty:hidden"
+				/>
 				<span className="hidden text-[14px] font-medium text-foreground lg:inline">
 					{name}
 				</span>

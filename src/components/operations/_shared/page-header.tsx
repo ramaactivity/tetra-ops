@@ -1,6 +1,9 @@
+"use client";
+
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { TopbarActionPortal } from "@/components/layouts/topbar-action-portal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,31 +48,28 @@ export function PageHeader({
 	// there's nothing left to show.
 	if (!backHref && !meta && !actions) return null;
 	return (
-		<header
-			className={cn("flex flex-col gap-2 px-5", className)}
-			data-slot="page-header"
-		>
-			{backHref ? (
-				<Link
-					href={backHref}
-					className="inline-flex w-fit items-center gap-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+		<>
+			{/* Page-level actions teleport to the topbar action slot (top-right). */}
+			{actions ? <TopbarActionPortal>{actions}</TopbarActionPortal> : null}
+			{backHref || meta ? (
+				<header
+					className={cn("flex flex-col gap-2 px-5", className)}
+					data-slot="page-header"
 				>
-					<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
-					{backLabel ?? "Back"}
-				</Link>
-			) : null}
-			{meta || actions ? (
-				<div className="flex flex-wrap items-center gap-3">
+					{backHref ? (
+						<Link
+							href={backHref}
+							className="inline-flex w-fit items-center gap-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+						>
+							<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
+							{backLabel ?? "Back"}
+						</Link>
+					) : null}
 					{meta ? (
-						<div className="mr-auto flex flex-wrap items-center gap-2">{meta}</div>
+						<div className="flex flex-wrap items-center gap-2">{meta}</div>
 					) : null}
-					{actions ? (
-						<div className="ml-auto flex flex-wrap items-center gap-1.5">
-							{actions}
-						</div>
-					) : null}
-				</div>
+				</header>
 			) : null}
-		</header>
+		</>
 	);
 }
