@@ -235,9 +235,7 @@ export default async function BillingPage({
 						}
 					/>
 				) : (
-					<div className="overflow-x-auto rounded-lg border border-border-default bg-card p-3 md:p-0">
-						<BillingListTable events={events} templates={templates} />
-					</div>
+					<BillingListTable events={events} templates={templates} />
 				)}
 			</div>
 		</Container>
