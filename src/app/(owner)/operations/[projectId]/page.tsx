@@ -9,16 +9,12 @@ import {
 	Pencil,
 	Phone,
 	Sparkles,
-	Tag,
 	Users,
 	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-	EventStatusBadge,
-	PaymentStatusBadge,
-} from "@/components/badges/status-badge";
+import { PaymentStatusBadge } from "@/components/badges/status-badge";
 import { AssignCrewForm } from "@/components/booking/assign-crew-form";
 import {
 	type AssignmentRow,
@@ -49,6 +45,7 @@ import { applyDateTransitions } from "@/lib/event-status-transition";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
+	EVENT_STATUS_LABELS,
 	FRAME_SIZE_LABELS,
 	formatDateID,
 	formatRupiah,
@@ -300,114 +297,132 @@ export default async function EventDetailPage({
 	const headerActionCls =
 		"inline-flex h-8 items-center gap-1.5 rounded-[12px] border border-border-default bg-card px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50";
 
+	// Status dot tones for the emerald hero pill (light dots read on emerald).
+	const HERO_STATUS_DOT: Record<string, string> = {
+		upcoming: "bg-emerald-300",
+		in_progress: "bg-sky-300",
+		awaiting_settlement: "bg-amber-300",
+		completed: "bg-emerald-300",
+		cancelled: "bg-rose-300",
+	};
+
 	return (
 		<Container size="xl" className="space-y-6">
 			{/* === HEADER === */}
-			<div className="space-y-3">
+			<div className="space-y-4">
 				<Link
 					href="/operations"
-					className="inline-flex items-center gap-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+					className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-secondary px-3 pr-3.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				>
 					<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
 					Operations
 				</Link>
-				<div className="flex flex-wrap items-start justify-between gap-3">
-					<div className="space-y-2">
-						<h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.025em] text-foreground sm:text-[32px]">
-							{event.client_name}
-						</h1>
-						<div className="flex flex-wrap items-center gap-2">
-							<span
-								className="tabular font-mono text-[12px] text-muted-foreground"
-								style={{
-									viewTransitionName: `event-${event.project_id}`,
-								}}
-							>
-								{event.project_id}
-							</span>
-							<span className="text-muted-foreground/40" aria-hidden>
-								·
-							</span>
-							<EventStatusBadge status={event.status} />
-							<Badge variant="outline">
+
+				{/* Emerald hero — the event identity, presented with a clear
+				    hierarchy: eyebrow (channel · kategori) → name → project id,
+				    with the status as a translucent pill on the right. */}
+				<section className="overflow-hidden rounded-[20px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-3)]">
+					<div className="flex items-start justify-between gap-3">
+						<div className="min-w-0">
+							<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
 								{CHANNEL_TYPE_LABELS[event.channel] ?? event.channel}
-							</Badge>
-							{categoryLabel && (
-								<Badge variant="default" className="gap-1">
-									<Tag className="size-2.5" aria-hidden strokeWidth={2.5} />
-									{categoryLabel}
-								</Badge>
-							)}
+								{categoryLabel ? ` · ${categoryLabel}` : ""}
+							</p>
+							<h1
+								className="mt-2 break-words text-[28px] font-bold leading-[1.08] tracking-[-0.02em] sm:text-[34px]"
+								style={{ viewTransitionName: `event-${event.project_id}` }}
+							>
+								{event.client_name}
+							</h1>
+							<p className="tabular mt-2 font-mono text-[12.5px] text-white/65">
+								{event.project_id}
+							</p>
+						</div>
+						<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[12.5px] font-semibold text-white backdrop-blur-sm">
+							<span
+								className={cn(
+									"size-1.5 rounded-full",
+									HERO_STATUS_DOT[event.status] ?? "bg-white",
+								)}
+								aria-hidden
+							/>
+							{EVENT_STATUS_LABELS[event.status] ?? event.status}
+						</span>
+					</div>
+
+					{(isMigratedLegacy || isImportedLive) && (
+						<div className="mt-4 flex flex-wrap items-center gap-1.5">
 							{isMigratedLegacy && (
-								<Badge variant="warning" className="gap-1">
-									<Archive className="size-2.5" aria-hidden strokeWidth={2.5} />
+								<span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white">
+									<Archive className="size-3" strokeWidth={2} aria-hidden />
 									Migrated
-								</Badge>
+								</span>
 							)}
 							{isImportedLive && (
-								<Badge variant="outline" className="gap-1">
-									<Inbox className="size-2.5" aria-hidden strokeWidth={2.5} />
+								<span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white">
+									<Inbox className="size-3" strokeWidth={2} aria-hidden />
 									Imported
-								</Badge>
+								</span>
 							)}
 						</div>
-					</div>
-					<div className="flex flex-wrap items-center gap-1.5">
-						{!isMigratedLegacy && (
-							<>
-								<StatusMenu
-									projectId={event.project_id}
-									eventId={event.id}
-									currentStatus={
-										event.status as Parameters<
-											typeof StatusMenu
-										>[0]["currentStatus"]
-									}
-								/>
-								<SendWhatsAppButton
-									event={eventForWA}
-									templates={templates}
-									size="sm"
-								/>
-								<PdfDownloadMenu
-									options={[
-										{
-											label: "Invoice",
-											href: `/api/pdf/invoice/${event.project_id}`,
-											hint: "Tagihan ke klien",
-										},
-										{
-											label: "Quotation",
-											href: `/api/pdf/quotation/${event.project_id}`,
-											hint: "Estimasi pre-DP",
-										},
-										{
-											label: "BAST",
-											href: `/api/pdf/bast/${event.project_id}`,
-											hint: "Berita Acara Serah Terima",
-										},
-									]}
-								/>
-								<Link
-									href={`/operations/${event.project_id}/edit`}
-									className={headerActionCls}
-								>
-									<Pencil className="size-3.5" aria-hidden strokeWidth={2} />
-									Edit
-								</Link>
-								{!settlement && (
-									<DeleteEventButton
-										eventId={event.id}
-										projectId={event.project_id}
-										clientName={event.client_name}
-									/>
-								)}
-							</>
+					)}
+				</section>
+
+				{/* Action toolbar — one horizontal-scroll row (no stacking) */}
+				{!isMigratedLegacy && (
+					<div className="hide-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 [&>*]:shrink-0">
+						<StatusMenu
+							projectId={event.project_id}
+							eventId={event.id}
+							currentStatus={
+								event.status as Parameters<
+									typeof StatusMenu
+								>[0]["currentStatus"]
+							}
+						/>
+						<SendWhatsAppButton
+							event={eventForWA}
+							templates={templates}
+							size="sm"
+						/>
+						<PdfDownloadMenu
+							options={[
+								{
+									label: "Invoice",
+									href: `/api/pdf/invoice/${event.project_id}`,
+									hint: "Tagihan ke klien",
+								},
+								{
+									label: "Quotation",
+									href: `/api/pdf/quotation/${event.project_id}`,
+									hint: "Estimasi pre-DP",
+								},
+								{
+									label: "BAST",
+									href: `/api/pdf/bast/${event.project_id}`,
+									hint: "Berita Acara Serah Terima",
+								},
+							]}
+						/>
+						<Link
+							href={`/operations/${event.project_id}/edit`}
+							className={headerActionCls}
+						>
+							<Pencil className="size-3.5" aria-hidden strokeWidth={2} />
+							Edit
+						</Link>
+						{!settlement && (
+							<DeleteEventButton
+								eventId={event.id}
+								projectId={event.project_id}
+								clientName={event.client_name}
+							/>
 						)}
 					</div>
-				</div>
+				)}
+
 				{isMigratedLegacy && (
-					<div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-800 dark:text-amber-300">
+					<div className="flex items-start gap-2 rounded-[12px] border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] text-amber-800 dark:text-amber-300">
 						<Archive
 							className="mt-0.5 size-3.5 shrink-0"
 							aria-hidden

@@ -1,7 +1,12 @@
 "use client";
 
 import { ChevronDown, FileText } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export type PdfMenuOption = {
 	label: string;
@@ -9,6 +14,11 @@ export type PdfMenuOption = {
 	hint?: string;
 };
 
+/**
+ * <PdfDownloadMenu /> — built on the shared base-ui DropdownMenu so the menu
+ * renders in a portal (won't clip when the trigger sits inside an
+ * overflow-x-auto toolbar, e.g. the event-detail action row).
+ */
 export function PdfDownloadMenu({
 	options,
 	label = "PDF",
@@ -16,70 +26,31 @@ export function PdfDownloadMenu({
 	options: PdfMenuOption[];
 	label?: string;
 }) {
-	const [open, setOpen] = useState(false);
-	const containerRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (!open) return;
-		const onClick = (e: MouseEvent) => {
-			if (
-				containerRef.current &&
-				!containerRef.current.contains(e.target as Node)
-			) {
-				setOpen(false);
-			}
-		};
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") setOpen(false);
-		};
-		window.addEventListener("mousedown", onClick);
-		window.addEventListener("keydown", onKey);
-		return () => {
-			window.removeEventListener("mousedown", onClick);
-			window.removeEventListener("keydown", onKey);
-		};
-	}, [open]);
-
 	return (
-		<div ref={containerRef} className="relative inline-block">
-			<button
-				type="button"
-				onClick={() => setOpen((v) => !v)}
-				aria-haspopup="menu"
-				aria-expanded={open}
-				className="border-border-default bg-card hover:bg-secondary text-foreground inline-flex h-8 items-center gap-1.5 rounded-[12px] border px-3 text-[12.5px] font-medium transition-colors"
-			>
-				<FileText className="h-3.5 w-3.5" />
+		<DropdownMenu>
+			<DropdownMenuTrigger className="border-border-default bg-card hover:bg-secondary data-[state=open]:bg-secondary text-foreground inline-flex h-8 items-center gap-1.5 rounded-[12px] border px-3 text-[12.5px] font-medium transition-colors">
+				<FileText className="size-3.5" />
 				{label}
-				<ChevronDown className="h-3 w-3 opacity-60" />
-			</button>
-			{open && (
-				<div
-					className="border-border-default bg-surface-2 absolute right-0 top-9 z-30 w-56 overflow-hidden rounded-md border shadow-[var(--shadow-level-3)]"
-					role="menu"
-				>
-					{options.map((o) => (
-						<a
-							key={o.href}
-							href={o.href}
-							target="_blank"
-							rel="noopener noreferrer"
-							role="menuitem"
-							onClick={() => setOpen(false)}
-							className="hover:bg-muted flex flex-col gap-0.5 px-3 py-2 transition-colors"
-						>
-							<span className="text-foreground text-sm font-medium">
-								{o.label}
-							</span>
-							{o.hint && (
-								<span className="text-muted-foreground text-[11px]">
-									{o.hint}
-								</span>
-							)}
-						</a>
-					))}
-				</div>
-			)}
-		</div>
+				<ChevronDown className="size-3 opacity-60" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" side="bottom" sideOffset={6} className="w-56">
+				{options.map((o) => (
+					<DropdownMenuItem
+						key={o.href}
+						onClick={() =>
+							window.open(o.href, "_blank", "noopener,noreferrer")
+						}
+						className="flex-col items-start gap-0.5"
+					>
+						<span className="text-foreground text-sm font-medium">
+							{o.label}
+						</span>
+						{o.hint && (
+							<span className="text-muted-foreground text-[11px]">{o.hint}</span>
+						)}
+					</DropdownMenuItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
