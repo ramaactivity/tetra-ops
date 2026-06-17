@@ -92,7 +92,7 @@ export function ResponsiveTable<T>({
 						className={cn(
 							// Distinct soft-gray header band + darker labels so it reads
 							// apart from the white rows (was blending in).
-							"bg-surface-3 [&_.eyebrow]:!text-foreground",
+							"bg-card [&_.eyebrow]:!text-foreground",
 							stickyHeader && "sticky top-0 z-10",
 						)}
 					>
