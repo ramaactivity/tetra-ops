@@ -8,9 +8,9 @@
   /* Fonts — Inter renders as the closest open-source substitute for
      Vercel's custom Geist Sans. JetBrains Mono substitutes Geist Mono. */
   --font-sans: var(--font-inter);
-  --font-display: var(--font-inter);
+  --font-display: var(--font-manrope);
   --font-mono: var(--font-jetbrains-mono);
-  --font-heading: var(--font-inter);
+  --font-heading: var(--font-manrope);
 
   /* === Brand — Ink (Vercel's #171717 near-black primary) ===
      One CTA color. Every primary button is this ink. No iris, no crimson. */
@@ -97,12 +97,38 @@
   --color-sky-600: #0761d1;
   --color-sky-700: #0e4a9e;
 
+  /* === Midnight Glow — cool accent family that COMPLEMENTS emerald ===
+     White stays the clean base. Emerald = the single action/success hue.
+     These are the calm cool companions (see MOBILE.md §5 / DESIGN.md Colors):
+       Teal  #008C8C — secondary / info / link / accent icons (emerald-adjacent)
+       Navy  #001F3F — deep anchor / dark surfaces / strong heading accent
+       Cyan  #00BFFF — sparing highlight: focus, active dot, data pops
+     0 prior usage of teal/navy/cyan in the app, so this is purely additive. */
+  --color-teal-50: #e6f4f4;
+  --color-teal-100: #c9e9e9;
+  --color-teal-200: #a3dada;
+  --color-teal-300: #6fc4c4;
+  --color-teal-400: #1fa8a8;
+  --color-teal-500: #00a3a3;
+  --color-teal-600: #008c8c;
+  --color-teal-700: #0a6b6b;
+  --color-teal-800: #084f4f;
+  --color-teal-900: #073e3e;
+  --color-navy-50: #e8edf2;
+  --color-navy-100: #c6d2de;
+  --color-navy-200: #9fb2c6;
+  --color-navy-500: #1e4d7b;
+  --color-navy-600: #123a61;
+  --color-navy-700: #0a3055;
+  --color-navy-900: #001f3f;
+  --color-navy-950: #00152b;
+  --color-cyan-50: #e5f7ff;
+  --color-cyan-100: #ccefff;
+  --color-cyan-200: #99dfff;
+  --color-cyan-400: #00bfff;
+  --color-cyan-500: #06a6e0;
+  --color-cyan-600: #0086b8;
   /* === Legacy aliases for retired accents — flatten to neutrals === */
-  --color-teal-50: #f5f5f5;
-  --color-teal-300: #d4d4d4;
-  --color-teal-500: #525252;
-  --color-teal-600: #404040;
-  --color-teal-700: #262626;
   --color-gold-300: #f5a623;
   --color-gold-500: #f5a623;
   --color-gold-700: #ab570a;
@@ -186,6 +212,18 @@
   --shadow-level-3: 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 8px -8px rgb(0 0 0 / 0.04);
   --shadow-level-4: 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 16px -4px rgb(0 0 0 / 0.04);
   --shadow-level-5: 0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.04), 0 24px 32px -8px rgb(0 0 0 / 0.06);
+
+  /* === Soft elevation scale (v2) — Linear / Notion / Figma feel: layered,
+     low-opacity, cool gray-900 (#101828) tint, for white cards over the canvas.
+     A real ramp (xs → xl ≈ Figma 100 → 500). Namespaced `shadow-soft-*` so it
+     never collides with Tailwind's default shadow scale. See MOBILE.md §6. === */
+  --shadow-soft-xs: 0 1px 2px -1px rgb(16 24 40 / 0.08);
+  --shadow-soft-sm: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px -1px rgb(16 24 40 / 0.10);
+  --shadow-soft: 0 2px 4px -2px rgb(16 24 40 / 0.06), 0 4px 8px -2px rgb(16 24 40 / 0.08);
+  --shadow-soft-lg: 0 4px 6px -2px rgb(16 24 40 / 0.04), 0 12px 16px -4px rgb(16 24 40 / 0.08);
+  --shadow-soft-xl: 0 8px 8px -4px rgb(16 24 40 / 0.04), 0 20px 24px -4px rgb(16 24 40 / 0.10);
+  /* FAB — emerald-tinted lift, marks the single primary action */
+  --shadow-fab: 0 8px 20px -6px rgb(5 150 105 / 0.40);
 
   /* Legacy shadow-glow aliases — collapse to flat hairline */
   --shadow-glow-crimson: var(--shadow-level-2);
@@ -636,6 +674,17 @@
     letter-spacing: -0.035em;
     font-variant-numeric: tabular-nums slashed-zero;
     font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+
+  /* Manrope is the display/heading/number voice (shared mobile + desktop).
+     Inter remains the body/UI workhorse via --font-sans on <body>. */
+  .type-display,
+  .type-title,
+  .type-heading,
+  .type-num,
+  .type-num-lg,
+  .type-num-xl {
+    font-family: var(--font-manrope), var(--font-inter), system-ui, sans-serif;
   }
 }
 

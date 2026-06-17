@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Manrope } from "next/font/google";
 import { cookies } from "next/headers";
 import { ServiceWorkerRegister } from "@/components/push/sw-register";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
@@ -8,6 +8,14 @@ import "./globals.css";
 
 const inter = Inter({
 	variable: "--font-inter",
+	subsets: ["latin"],
+	display: "swap",
+});
+
+// Manrope — display/heading/number voice (shared mobile + desktop per MOBILE.md
+// + DESIGN.md). Variable font; its lining figures keep stat/money columns aligned.
+const manrope = Manrope({
+	variable: "--font-manrope",
 	subsets: ["latin"],
 	display: "swap",
 });
@@ -76,7 +84,7 @@ export default async function RootLayout({
 	return (
 		<html
 			lang="id"
-			className={`${inter.variable} ${jetbrainsMono.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
+			className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
 		>
 			<body className="flex min-h-dvh flex-col bg-background text-foreground">
 				<ServiceWorkerRegister />

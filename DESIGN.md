@@ -616,13 +616,37 @@ Reserved for state communication — never decoration:
 - **Success** `#10B981` — approved rekap, paid settlement, positive net profit
 - **Warning** `#f5a623` (Vercel amber) — pending review, low stock, partial payment
 - **Danger** `#ee0000` (Vercel red) — rejected rekap, payment failed, loss event
-- **Info** `#0070f3` (Vercel link blue) — informational hint, neutral notice
+- **Info** `#0070f3` (legacy Vercel link blue) — being migrated to Teal (below) as components adopt the Midnight Glow scheme.
+
+### Midnight Glow companions (cool accents that complete emerald)
+
+White stays the clean base and **Emerald** stays the single *action* color. The "Midnight Glow"
+family adds calm, cool companions — shared identically on mobile + desktop (tokens in `globals.css`):
+
+| Role | Color | Token | Use |
+|---|---|---|---|
+| Action / success | Emerald `#059669` / `#10b981` | `emerald-600/500` | primary button, FAB, submit, active nav, success — **the one action hue** |
+| Secondary / info | **Teal `#008C8C`** | `teal-600` | links, secondary buttons, accent icons, info, selected state |
+| Anchor / deep | **Navy `#001F3F`** | `navy-900` | deep/dark surfaces, dark-mode ground, strong heading accent |
+| Highlight | **Cyan `#00BFFF`** | `cyan-400` | focus ring, active dot, small data pops — **used proportionally** |
+
+Discipline: emerald is the action; teal is the companion (never a second CTA); navy grounds; cyan
+sparks sparingly. No gradients — these are flat swatches. Category/type chips stay neutral; color is
+reserved for action + status, not decoration.
 
 ## Typography
 
 ### Font Stack
-- **Sans (all UI)**: Inter with `ss01`+`ss02` features enabled — those OpenType axes activate Inter's geometric alternates, the closest open-source approximation of Vercel's custom Geist Sans face. Weights 400/500/600. Never 700+.
-- **Mono**: JetBrains Mono — substitute for Vercel's Geist Mono. Used for project IDs, SKUs, timestamps, and the caption-mono eyebrow that marks technical labels.
+
+> **Shared with mobile.** This font pairing and the color palette are **identical on mobile and
+> desktop** — see [`MOBILE.md`](MOBILE.md). One brand, consistent everywhere; only layout density
+> differs by platform.
+
+- **Display / titles / numbers**: **Manrope** (weights 600/700). Carries headlines, page / section / card titles, and the big KPI / stat & money figures. Its lining ("straight") numerals keep numeric columns aligned in dashboards — the reason it's preferred for the data-heavy screens. Voice: modern, calm, slightly rounded.
+- **Body / UI / labels**: **Inter** with `ss01`+`ss02` features enabled — body copy, form fields, table cells, nav links, dense metadata. Razor legibility at small sizes. Weights 400/500/600.
+- **Mono**: JetBrains Mono — project IDs, SKUs, timestamps, and the caption-mono eyebrow that marks technical labels.
+
+> Migration note: the codebase historically set Inter for all UI (approximating Geist). Manrope is now the display/heading/number voice; Inter remains the body/UI workhorse. Apply via the `.type-*` ramp in `globals.css`, never ad-hoc `font-*` per element.
 
 ### OpenType feature stack
 
