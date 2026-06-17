@@ -25,6 +25,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export type DashboardStats = {
 	thisMonthRevenue: number;
+	lastMonthRevenue: number;
+	/** % change vs last month; null when last month had no revenue (no base). */
+	revenueDeltaPct: number | null;
+	/** Per-day revenue totals across the current month (for the hero sparkline). */
+	dailyRevenue: number[];
 	outstanding: number;
 	monthCount: number;
 	awaitingCount: number;
@@ -54,6 +59,8 @@ export type DashboardStats = {
 type DashboardStatsParams = {
 	ymStart: string;
 	ymEnd: string;
+	lastMonthStart: string;
+	lastMonthEnd: string;
 	yearStart: string;
 	yearEnd: string;
 	todayISO: string;
@@ -82,10 +89,11 @@ async function fetchDashboardStats(
 		invoicePartialResult,
 		invoiceUnpaidResult,
 		targetsResult,
+		lastMonthRevenueResult,
 	] = await Promise.all([
 		supabase
 			.from("payments")
-			.select("amount")
+			.select("amount, payment_date")
 			.eq("is_reversed", false)
 			.gte("payment_date", p.ymStart)
 			.lte("payment_date", p.ymEnd),
@@ -180,12 +188,50 @@ async function fetchDashboardStats(
 			.from("system_config")
 			.select("key, value")
 			.in("key", ["event_target_monthly", "event_target_yearly"]),
+		supabase
+			.from("payments")
+			.select("amount")
+			.eq("is_reversed", false)
+			.gte("payment_date", p.lastMonthStart)
+			.lte("payment_date", p.lastMonthEnd),
 	]);
 
-	const thisMonthRevenue = (monthRevenueResult.data ?? []).reduce(
-		(sum, row) => sum + ((row as { amount: number | null }).amount ?? 0),
+	const monthPayments = (monthRevenueResult.data ?? []) as Array<{
+		amount: number | null;
+		payment_date: string | null;
+	}>;
+	const thisMonthRevenue = monthPayments.reduce(
+		(sum, row) => sum + (row.amount ?? 0),
 		0,
 	);
+	const lastMonthRevenue = (
+		(lastMonthRevenueResult.data ?? []) as Array<{ amount: number | null }>
+	).reduce((sum, row) => sum + (row.amount ?? 0), 0);
+	const revenueDeltaPct =
+		lastMonthRevenue > 0
+			? Math.round(
+					((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100,
+				)
+			: null;
+
+	// Per-day revenue across the month (0-filled for days w/o payments) so the
+	// hero sparkline has an even daily x-axis. Built from the same query rows.
+	const revenueByDay = new Map<string, number>();
+	for (const row of monthPayments) {
+		const day = (row.payment_date ?? "").slice(0, 10);
+		if (!day) continue;
+		revenueByDay.set(day, (revenueByDay.get(day) ?? 0) + (row.amount ?? 0));
+	}
+	const dailyRevenue: number[] = [];
+	{
+		const cursor = new Date(`${p.ymStart}T00:00:00`);
+		const end = new Date(`${p.ymEnd}T00:00:00`);
+		while (cursor <= end) {
+			const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+			dailyRevenue.push(revenueByDay.get(key) ?? 0);
+			cursor.setDate(cursor.getDate() + 1);
+		}
+	}
 
 	type ConfigRow = { key: string; value: number | string | null };
 	const targets = ((targetsResult.data ?? []) as ConfigRow[]).reduce<{
@@ -203,6 +249,9 @@ async function fetchDashboardStats(
 
 	return {
 		thisMonthRevenue,
+		lastMonthRevenue,
+		revenueDeltaPct,
+		dailyRevenue,
 		outstanding: (outstandingResult.data as number | null) ?? 0,
 		monthCount: monthCountResult.count ?? 0,
 		awaitingCount: awaitingCountResult.count ?? 0,

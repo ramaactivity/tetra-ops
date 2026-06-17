@@ -12,12 +12,12 @@ import {
 	Target,
 	Users,
 	Wallet,
-	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
 import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
-import { StatusGroupCard } from "@/components/dashboard/status-group-card";
+import { HeroMetric } from "@/components/dashboard/hero-metric";
+import { SegmentedBar } from "@/components/dashboard/segmented-bar";
 import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
 import { Container } from "@/components/layout/container";
 import { PipelineCard } from "@/components/operations/pipeline-card";
@@ -65,8 +65,21 @@ export default async function DashboardPage() {
 	const yearStart = `${today.getFullYear()}-01-01`;
 	const yearEnd = `${today.getFullYear()}-12-31`;
 
+	const lastMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+	const lmYear = lastMonthDate.getFullYear();
+	const lmMonth = lastMonthDate.getMonth() + 1;
+	const lastMonthStart = `${lmYear}-${String(lmMonth).padStart(2, "0")}-01`;
+	const lastMonthEnd = lastDayOfMonth(lmYear, lmMonth);
+
+	const monthName = today.toLocaleDateString("id-ID", { month: "long" });
+	const lastMonthName = lastMonthDate.toLocaleDateString("id-ID", {
+		month: "short",
+	});
+
 	const {
 		thisMonthRevenue,
+		revenueDeltaPct,
+		dailyRevenue,
 		outstanding,
 		monthCount,
 		awaitingCount,
@@ -84,6 +97,8 @@ export default async function DashboardPage() {
 	} = await getDashboardStats({
 		ymStart,
 		ymEnd,
+		lastMonthStart,
+		lastMonthEnd,
 		yearStart,
 		yearEnd,
 		todayISO,
@@ -94,53 +109,69 @@ export default async function DashboardPage() {
 	const firstName = userResult.profile.full_name.split(" ")[0];
 
 	return (
-		<Container size="xl" className="space-y-6 md:space-y-10">
-			{/* Greeting — compact */}
-			<header className="space-y-0.5">
-				<p className="eyebrow">{ID_DATE_FULL.format(today)}</p>
-				<h1 className="type-display">
-					Halo, <span className="text-primary">{firstName}</span>.
-				</h1>
+		<Container size="xl" className="space-y-6 md:space-y-8">
+			{/* Greeting + one-line story */}
+			<header className="space-y-2">
+				<div className="space-y-0.5">
+					<p className="eyebrow">{ID_DATE_FULL.format(today)}</p>
+					<h1 className="type-title">
+						Halo, <span className="text-primary">{firstName}</span>.
+					</h1>
+				</div>
+				<p className="type-secondary">
+					{monthName}: <strong className="text-foreground">{monthCount}</strong>{" "}
+					event · masuk{" "}
+					<strong className="text-foreground">
+						{formatRupiah(thisMonthRevenue)}
+					</strong>{" "}
+					· piutang{" "}
+					<strong className="text-foreground">{formatRupiah(outstanding)}</strong>{" "}
+					· <strong className="text-foreground">{awaitingCount}</strong> nunggu
+					settle.
+				</p>
 			</header>
 
-			{/* KPIs — 2×2 compact grid on mobile */}
+			{/* HERO + supporting */}
 			<section className="space-y-2.5">
-				<p className="eyebrow px-0.5">Ringkasan operasional</p>
-				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-					<MiniStat
-						label="Event bln ini"
-						value={monthCount.toLocaleString("id-ID")}
-						hint="Booking bulan berjalan"
-						icon={CalendarCheck}
-					/>
-					<MiniStat
-						label="Pendapatan"
-						value={formatRupiah(thisMonthRevenue)}
-						hint="Masuk terverifikasi"
-						icon={Wallet2}
-						tone="positive"
-					/>
-					<MiniStat
-						label="Piutang"
-						value={formatRupiah(outstanding)}
-						hint="Total piutang aktif"
-						icon={Wallet}
-						tone={outstanding >= 5_000_000 ? "negative" : "warning"}
-					/>
-					<MiniStat
-						label="Menunggu settle"
-						value={awaitingCount.toLocaleString("id-ID")}
-						hint="Selesai, belum settle"
-						icon={Hourglass}
-						tone="warning"
-					/>
+				<div className="lg:grid lg:grid-cols-3 lg:gap-2.5 lg:space-y-0 space-y-2.5">
+					<div className="lg:col-span-2">
+						<HeroMetric
+							label={`Pendapatan ${monthName}`}
+							value={formatRupiah(thisMonthRevenue)}
+							deltaPct={revenueDeltaPct}
+							deltaLabel={`vs ${lastMonthName}`}
+							spark={dailyRevenue}
+							hint="Pembayaran masuk terverifikasi bulan ini"
+						/>
+					</div>
+					{/* Piutang + settle — money gets full width so it never truncates */}
+					<div className="flex items-center gap-4 rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center gap-2">
+								<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+									<Wallet className="size-4" aria-hidden />
+								</span>
+								<span className="eyebrow">Piutang aktif</span>
+							</div>
+							<p className="type-num-lg mt-1.5 tabular text-rose-600 dark:text-rose-400">
+								{formatRupiah(outstanding)}
+							</p>
+							<p className="type-caption mt-0.5">Total belum tertagih</p>
+						</div>
+						<div className="shrink-0 self-stretch border-l border-border-subtle pl-4 text-right">
+							<p className="type-num-lg tabular text-amber-700 dark:text-amber-500">
+								{awaitingCount}
+							</p>
+							<p className="eyebrow mt-1">Nunggu settle</p>
+						</div>
+					</div>
 				</div>
 			</section>
 
-			{/* Target & status — paired 2×2 */}
+			{/* Target */}
 			<section className="space-y-2.5">
-				<p className="eyebrow px-0.5">Target & status</p>
-				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+				<p className="eyebrow px-0.5">Target capaian</p>
+				<div className="grid grid-cols-2 gap-2.5">
 					<TargetProgressCard
 						label="Target Bulanan"
 						current={monthCount}
@@ -153,34 +184,35 @@ export default async function DashboardPage() {
 						target={targets.yearly}
 						icon={Target}
 					/>
-					<StatusGroupCard
-						title="Status Operasional"
-						icon={Activity}
-						stats={[
-							{ label: "Mendatang", value: monthUpcoming, tone: "sky" },
-							{
-								label: "Selesai",
-								value: completedThisMonthCount,
-								tone: "emerald",
-							},
-							{ label: "Batal", value: monthCancelled, tone: "rose" },
-						]}
-					/>
-					<StatusGroupCard
+				</div>
+			</section>
+
+			{/* Status breakdowns — segmented bars (no more overlapping mini-stats) */}
+			<section className="space-y-2.5">
+				<p className="eyebrow px-0.5">Status</p>
+				<div className="grid gap-2.5 sm:grid-cols-2">
+					<SegmentedBar
 						title="Status Invoice"
-						icon={FileText}
-						stats={[
+						icon={<FileText aria-hidden />}
+						segments={[
 							{ label: "Lunas", value: invoicePaid, tone: "emerald" },
 							{ label: "DP", value: invoicePartial, tone: "amber" },
 							{ label: "Belum bayar", value: invoiceUnpaid, tone: "rose" },
 						]}
 					/>
+					<SegmentedBar
+						title="Status Operasional"
+						icon={<Activity aria-hidden />}
+						segments={[
+							{ label: "Mendatang", value: monthUpcoming, tone: "teal" },
+							{ label: "Selesai", value: completedThisMonthCount, tone: "emerald" },
+							{ label: "Batal", value: monthCancelled, tone: "rose" },
+						]}
+					/>
 				</div>
 			</section>
 
-			<AnomalyRadarWidget userId={userResult.profile.id} />
-
-			{/* Pipeline — 2×2 compact */}
+			{/* Pipeline */}
 			<section className="space-y-2.5">
 				<SectionHead eyebrow="Pipeline" title="Pipeline Event" href="/operations" />
 				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
@@ -214,6 +246,8 @@ export default async function DashboardPage() {
 					/>
 				</div>
 			</section>
+
+			<AnomalyRadarWidget userId={userResult.profile.id} />
 
 			<div className="grid gap-6 lg:grid-cols-3">
 				{/* Agenda */}
@@ -281,7 +315,7 @@ export default async function DashboardPage() {
 					)}
 				</section>
 
-				{/* Aksi Cepat — compact grid, primary action spans full width */}
+				{/* Aksi Cepat */}
 				<section className="space-y-2.5">
 					<SectionHead eyebrow="Pintasan" title="Aksi Cepat" />
 					<div className="grid grid-cols-2 gap-2.5">
@@ -323,66 +357,7 @@ export default async function DashboardPage() {
 	);
 }
 
-/* ───────────────────────── dashboard-local compact tiles ───────────────────────── */
-
-type StatTone = "default" | "positive" | "negative" | "warning";
-
-const STAT_VALUE_TONE: Record<StatTone, string> = {
-	default: "text-foreground",
-	positive: "text-emerald-700 dark:text-emerald-400",
-	negative: "text-rose-600 dark:text-rose-400",
-	warning: "text-amber-700 dark:text-amber-500",
-};
-
-const STAT_ICON_TONE: Record<StatTone, string> = {
-	default: "bg-surface-3 text-muted-foreground",
-	positive: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-	negative: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-	warning: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
-};
-
-function MiniStat({
-	label,
-	value,
-	hint,
-	icon: Icon,
-	tone = "default",
-}: {
-	label: string;
-	value: string;
-	hint?: string;
-	icon: typeof CalendarCheck;
-	tone?: StatTone;
-}) {
-	return (
-		<div className="flex flex-col gap-2 rounded-2xl border border-border-default bg-card p-3.5 shadow-[var(--shadow-soft)]">
-			<div className="flex items-center justify-between gap-2">
-				<span className="eyebrow truncate">{label}</span>
-				<span
-					className={cn(
-						"grid size-7 shrink-0 place-items-center rounded-lg",
-						STAT_ICON_TONE[tone],
-					)}
-				>
-					<Icon className="size-3.5" aria-hidden strokeWidth={2} />
-				</span>
-			</div>
-			<div>
-				<div
-					className={cn(
-						"type-num truncate text-[1.35rem] font-semibold leading-tight",
-						STAT_VALUE_TONE[tone],
-					)}
-				>
-					{value}
-				</div>
-				{hint ? (
-					<p className="type-caption mt-0.5 line-clamp-1 leading-tight">{hint}</p>
-				) : null}
-			</div>
-		</div>
-	);
-}
+/* ───────────────────────── small page-local helpers ───────────────────────── */
 
 function SectionHead({
 	eyebrow,
