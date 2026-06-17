@@ -50,10 +50,12 @@ export async function OwnerTopBar({
 			</div>
 
 			{/* Page-level primary actions teleport here (grouped with the page name
-			    on the left) via TopbarActionPortal */}
+			    on the left) via TopbarActionPortal. Force every portaled control to
+			    the 36px pill height so it always lines up with the page-name pill,
+			    regardless of the per-page button `size`. */}
 			<div
 				id="topbar-actions"
-				className="flex items-center gap-1.5 empty:hidden"
+				className="flex items-center gap-1.5 empty:hidden [&>a]:h-9 [&>button]:h-9 [&>a]:rounded-full [&>button]:rounded-full [&>a]:text-[13px] [&>button]:text-[13px]"
 			/>
 
 			{/* Identity cluster (right) */}
