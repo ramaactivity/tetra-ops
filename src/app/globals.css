@@ -539,6 +539,11 @@
     }
   }
 
+  /* Hidden scrollbar — for edge-bleeding horizontal scrollers (stat cards,
+     filter chips) where the scrollbar would be visual noise. */
+  .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+
   /* Vercel-thin scrollbar — 8px, near-invisible track until hover.
      Apply on long scroll containers (sidebar nav, dropdown lists). */
   .scrollbar-vercel {

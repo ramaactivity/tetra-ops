@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
@@ -383,5 +383,226 @@ export function StatTile({
 			<div className={cn("type-num-lg mt-1.5", valueTone)}>{value}</div>
 			{hint ? <div className="type-caption mt-0.5">{hint}</div> : null}
 		</div>
+	);
+}
+
+/* ═══════════════════ v2 — Midnight Glow chips ═══════════════════ */
+
+const STATUS_TONE = {
+	emerald:
+		"bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+	amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+	rose: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+	teal: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300",
+	neutral: "bg-surface-3 text-muted-foreground",
+} as const;
+
+export type StatusTone = keyof typeof STATUS_TONE;
+
+/** Tinted status pill — the ONLY non-emerald color on a record (MOBILE.md §5). */
+export function StatusChip({
+	tone = "neutral",
+	icon,
+	children,
+	className,
+}: {
+	tone?: StatusTone;
+	icon?: React.ReactNode;
+	children: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<span
+			className={cn(
+				"inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold leading-none [&_svg]:size-3.5",
+				STATUS_TONE[tone],
+				className,
+			)}
+		>
+			{icon}
+			{children}
+		</span>
+	);
+}
+
+/** Neutral category/type chip (dot + mono caps) — color is reserved for status. */
+export function CategoryChip({
+	children,
+	className,
+}: {
+	children: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<span
+			className={cn(
+				"inline-flex items-center gap-1.5 rounded-full bg-surface-3 px-2 py-0.5",
+				className,
+			)}
+		>
+			<span className="size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+			<span className="eyebrow">{children}</span>
+		</span>
+	);
+}
+
+/* ═══════════════════ v2 — Record card (table → mobile) ═══════════════════ */
+
+const STRIP_TONE = {
+	emerald: "bg-emerald-500",
+	amber: "bg-amber-500",
+	rose: "bg-rose-500",
+	teal: "bg-teal-600",
+	neutral: "bg-border-strong",
+	none: "",
+} as const;
+
+/** One metadata line inside a RecordCard: muted icon + value (Inter body). */
+export function MetaRow({
+	icon,
+	children,
+	className,
+}: {
+	icon?: React.ReactNode;
+	children: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<div className={cn("flex items-start gap-2.5", className)}>
+			{icon ? (
+				<span className="mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-[1.125rem]">
+					{icon}
+				</span>
+			) : null}
+			<span className="type-body min-w-0 text-foreground">{children}</span>
+		</div>
+	);
+}
+
+/**
+ * <RecordCard /> — the canonical "a table row becomes a card" on mobile
+ * (MOBILE.md §7). White card, soft shadow, optional left status strip; header
+ * (category + title … status), metadata rows, optional footer (crew + chevron).
+ * Whole card is one tap target when `href` is set.
+ */
+export function RecordCard({
+	href,
+	stripTone = "none",
+	category,
+	title,
+	status,
+	meta,
+	footer,
+	className,
+}: {
+	href?: string;
+	stripTone?: keyof typeof STRIP_TONE;
+	category?: React.ReactNode;
+	title: React.ReactNode;
+	status?: React.ReactNode;
+	meta?: React.ReactNode;
+	footer?: React.ReactNode;
+	className?: string;
+}) {
+	const card = (
+		<div
+			className={cn(
+				"relative overflow-hidden rounded-2xl border border-border-default bg-card shadow-[var(--shadow-soft)]",
+				href && "press transition-transform active:scale-[0.98]",
+				className,
+			)}
+		>
+			{stripTone !== "none" ? (
+				<span
+					className={cn("absolute inset-y-0 left-0 w-1", STRIP_TONE[stripTone])}
+				/>
+			) : null}
+			<div className="p-4 pl-5">
+				<div className="flex items-start justify-between gap-3">
+					<div className="min-w-0">
+						{category ? (
+							<div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+								{category}
+							</div>
+						) : null}
+						<h3 className="type-heading truncate">{title}</h3>
+					</div>
+					{status ? (
+						<div className="flex shrink-0 flex-col items-end gap-1">
+							{status}
+						</div>
+					) : null}
+				</div>
+				{meta ? <div className="mt-3 space-y-2">{meta}</div> : null}
+				{footer ? (
+					<div className="mt-3 flex items-center justify-between gap-2 border-t border-border-subtle pt-3">
+						{footer}
+					</div>
+				) : null}
+			</div>
+		</div>
+	);
+
+	return href ? (
+		<Link href={href} className="tap block">
+			{card}
+		</Link>
+	) : (
+		card
+	);
+}
+
+/* ═══════════════════ v2 — Horizontal stat scroller + FAB ═══════════════════ */
+
+/**
+ * Edge-bleeding horizontal scroller for stat cards / chips (MOBILE.md §7).
+ * Children should be `shrink-0` (e.g. `min-w-[160px]`).
+ */
+export function StatScroller({
+	children,
+	className,
+}: {
+	children: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn(
+				"hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1",
+				className,
+			)}
+		>
+			{children}
+		</div>
+	);
+}
+
+/**
+ * <Fab /> — the screen's single primary create action (MOBILE.md §7). 56×56
+ * emerald, 16px radius, emerald-tinted lift, fixed bottom-right above the tab
+ * bar. Link-based (most creates navigate to a /new route).
+ */
+export function Fab({
+	href,
+	label,
+	icon,
+	className,
+}: {
+	href: string;
+	label: string;
+	icon?: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<Link
+			href={href}
+			aria-label={label}
+			className={cn(
+				"press tap fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-[var(--shadow-fab)] active:scale-95 dark:bg-emerald-500",
+				className,
+			)}
+		>
+			{icon ?? <Plus className="size-7" strokeWidth={2.25} />}
+		</Link>
 	);
 }
