@@ -4,18 +4,14 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * <TabNav /> — the ONE section sub-navigation pattern (Vercel/Linear sub-nav).
+ * <TabNav /> — the ONE section sub-navigation pattern (UpGradely segmented pill).
  *
- * Underline tabs on a full-width hairline baseline: active tab = ink text + a
- * 2px ink underline that overlaps the baseline; inactive = muted, with a faint
- * underline hint on hover. Pure text + hairline (no muddy fills) so it blends
- * with the app's hairline-heavy chrome and reads as the title bar of the
- * section below it.
+ * A soft-gray pill rail; the active tab lifts onto a white pill with a soft
+ * shadow + ink text, inactive tabs are ghost/muted. Mirrors the view-switcher
+ * and filter chips so all tab-like controls read as one family.
  *
  * Use this for switching DATA VIEWS within one page (Warehouse: Persediaan /
- * Aset Tetap / …, Akuntansi: Bagan Akun / Jurnal). For switching major
- * views/routes from the page header, use the segmented `OperationsViewSwitcher`
- * pattern instead.
+ * Aset Tetap / …, Akuntansi: Bagan Akun / Jurnal).
  *
  * Presentational only — callers compute hrefs + active state (keeps URL logic
  * local to each page) and pass the resolved items in.
@@ -41,7 +37,7 @@ export function TabNav({
 		<nav
 			aria-label={ariaLabel}
 			className={cn(
-				"flex items-center gap-1 overflow-x-auto border-b border-border-default",
+				"hide-scrollbar inline-flex h-10 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-secondary p-1",
 				className,
 			)}
 		>
@@ -51,9 +47,9 @@ export function TabNav({
 					href={tab.href}
 					aria-current={tab.active ? "page" : undefined}
 					className={cn(
-						"group relative inline-flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium leading-none transition-colors",
+						"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors",
 						tab.active
-							? "text-foreground"
+							? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
 							: "text-muted-foreground hover:text-foreground",
 					)}
 				>
@@ -61,26 +57,15 @@ export function TabNav({
 					{typeof tab.count === "number" && (
 						<span
 							className={cn(
-								"rounded px-1 text-[11px] tabular-nums transition-colors",
+								"rounded-full px-1.5 text-[11px] tabular-nums transition-colors",
 								tab.active
 									? "bg-secondary text-foreground"
-									: "bg-secondary/60 text-muted-foreground",
+									: "bg-card/70 text-muted-foreground",
 							)}
 						>
 							{tab.count}
 						</span>
 					)}
-					{/* Active underline — overlaps the baseline hairline, slightly
-					    inset + rounded so it hugs the label, not the tab edge. */}
-					<span
-						aria-hidden
-						className={cn(
-							"absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-foreground transition-opacity duration-200",
-							tab.active
-								? "opacity-100"
-								: "opacity-0 group-hover:opacity-20",
-						)}
-					/>
 				</Link>
 			))}
 		</nav>
