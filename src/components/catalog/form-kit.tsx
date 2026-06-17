@@ -163,7 +163,15 @@ export function AffixInput({
 	);
 }
 
-/** Two-state segmented toggle (Aktif / Arsip). Controlled by the parent. */
+/**
+ * Two-state segmented toggle (e.g. Aktif / Arsip). Controlled by the parent.
+ *
+ * Both segments are equal width and a fixed height, so two StatusToggles
+ * placed side by side always line up — the contextual hint is rendered as a
+ * single line BELOW the control (reflecting the current selection) rather
+ * than inside each segment, which is what used to make heights drift when
+ * one hint wrapped to two lines.
+ */
 export function StatusToggle({
 	active,
 	onChange,
@@ -179,37 +187,42 @@ export function StatusToggle({
 	activeHint?: string;
 	inactiveHint?: string;
 }) {
+	const hint = active ? activeHint : inactiveHint;
+	const hasHints = Boolean(activeHint || inactiveHint);
 	return (
-		<div className="border-border-default bg-card inline-flex w-full max-w-sm items-center gap-1 rounded-xl border p-1">
-			<ToggleOption
-				active={active}
-				dot="emerald"
-				onClick={() => onChange(true)}
-				label={activeLabel}
-				hint={activeHint}
-			/>
-			<ToggleOption
-				active={!active}
-				dot="muted"
-				onClick={() => onChange(false)}
-				label={inactiveLabel}
-				hint={inactiveHint}
-			/>
+		<div className="w-full max-w-sm space-y-1.5">
+			<div className="border-border-default bg-card grid grid-cols-2 gap-1 rounded-xl border p-1">
+				<ToggleSegment
+					active={active}
+					dot="emerald"
+					onClick={() => onChange(true)}
+					label={activeLabel}
+				/>
+				<ToggleSegment
+					active={!active}
+					dot="muted"
+					onClick={() => onChange(false)}
+					label={inactiveLabel}
+				/>
+			</div>
+			{hasHints ? (
+				<p className="text-muted-foreground min-h-4 text-xs leading-4">
+					{hint}
+				</p>
+			) : null}
 		</div>
 	);
 }
 
-function ToggleOption({
+function ToggleSegment({
 	active,
 	onClick,
 	label,
-	hint,
 	dot,
 }: {
 	active: boolean;
 	onClick: () => void;
 	label: string;
-	hint?: string;
 	dot: "emerald" | "muted";
 }) {
 	return (
@@ -218,30 +231,23 @@ function ToggleOption({
 			onClick={onClick}
 			aria-pressed={active}
 			className={cn(
-				"flex flex-1 flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors",
+				"inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors",
 				active
-					? "bg-secondary shadow-[var(--shadow-level-1)]"
-					: "hover:bg-secondary/50",
+					? "bg-secondary text-foreground shadow-[var(--shadow-level-1)]"
+					: "text-muted-foreground hover:bg-secondary/50",
 			)}
 		>
-			<span className="flex items-center gap-1.5 text-sm font-medium">
-				<span
-					className={cn(
-						"size-1.5 rounded-full",
-						!active
-							? "bg-transparent"
-							: dot === "emerald"
-								? "bg-emerald-500"
-								: "bg-muted-foreground",
-					)}
-				/>
-				<span className={active ? "text-foreground" : "text-muted-foreground"}>
-					{label}
-				</span>
-			</span>
-			{hint ? (
-				<span className="text-muted-foreground pl-3 text-[11px]">{hint}</span>
-			) : null}
+			<span
+				className={cn(
+					"size-1.5 rounded-full transition-colors",
+					!active
+						? "bg-transparent"
+						: dot === "emerald"
+							? "bg-emerald-500"
+							: "bg-muted-foreground",
+				)}
+			/>
+			{label}
 		</button>
 	);
 }
