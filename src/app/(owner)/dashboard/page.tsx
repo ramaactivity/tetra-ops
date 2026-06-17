@@ -21,11 +21,10 @@ import { StatusGroupCard } from "@/components/dashboard/status-group-card";
 import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
 import { Container } from "@/components/layout/container";
 import { PipelineCard } from "@/components/operations/pipeline-card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getDashboardStats } from "@/lib/dashboard/stats";
 import { formatRupiah } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 function lastDayOfMonth(year: number, month: number): string {
 	const d = new Date(year, month, 0).getDate();
@@ -66,9 +65,6 @@ export default async function DashboardPage() {
 	const yearStart = `${today.getFullYear()}-01-01`;
 	const yearEnd = `${today.getFullYear()}-12-31`;
 
-	// Company-wide aggregates — cached for ~5 min across all owners instead of
-	// running ~15 Supabase queries on every dashboard visit. See
-	// src/lib/dashboard/stats.ts.
 	const {
 		thisMonthRevenue,
 		outstanding,
@@ -98,59 +94,53 @@ export default async function DashboardPage() {
 	const firstName = userResult.profile.full_name.split(" ")[0];
 
 	return (
-		<Container size="xl" className="space-y-10 md:space-y-12">
-			{/* Greeting — Inter display, ink accent on name (Vercel DNA, no second hue) */}
-			<header className="space-y-3">
-				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-					{ID_DATE_FULL.format(today)}
-				</p>
-				<h1 className="text-[clamp(2rem,1.6rem+1.6vw,3rem)] font-semibold leading-[1.05] tracking-[-0.035em] text-foreground">
+		<Container size="xl" className="space-y-6 md:space-y-10">
+			{/* Greeting — compact */}
+			<header className="space-y-0.5">
+				<p className="eyebrow">{ID_DATE_FULL.format(today)}</p>
+				<h1 className="type-display">
 					Halo, <span className="text-primary">{firstName}</span>.
 				</h1>
 			</header>
 
-			{/* KPIs — clean StatCard (no painted gradients per DESIGN.md) */}
-			<section className="space-y-4">
-				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-					Ringkasan operasional
-				</p>
-				<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-					<StatCard
-						label="Event bulan ini"
+			{/* KPIs — 2×2 compact grid on mobile */}
+			<section className="space-y-2.5">
+				<p className="eyebrow px-0.5">Ringkasan operasional</p>
+				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+					<MiniStat
+						label="Event bln ini"
 						value={monthCount.toLocaleString("id-ID")}
-						hint="Total booking di bulan berjalan"
+						hint="Booking bulan berjalan"
 						icon={CalendarCheck}
 					/>
-					<StatCard
-						label="Pendapatan bln ini"
+					<MiniStat
+						label="Pendapatan"
 						value={formatRupiah(thisMonthRevenue)}
-						hint="Pembayaran masuk terverifikasi"
+						hint="Masuk terverifikasi"
 						icon={Wallet2}
 						tone="positive"
 					/>
-					<StatCard
+					<MiniStat
 						label="Piutang"
 						value={formatRupiah(outstanding)}
 						hint="Total piutang aktif"
 						icon={Wallet}
 						tone={outstanding >= 5_000_000 ? "negative" : "warning"}
 					/>
-					<StatCard
+					<MiniStat
 						label="Menunggu settle"
 						value={awaitingCount.toLocaleString("id-ID")}
-						hint="Event selesai, belum di-settle"
+						hint="Selesai, belum settle"
 						icon={Hourglass}
 						tone="warning"
 					/>
-				</dl>
+				</div>
 			</section>
 
-			{/* Targets + status overview — Tetra ERP exec-summary mid-strip */}
-			<section className="space-y-3">
-				<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-					Target & status
-				</p>
-				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+			{/* Target & status — paired 2×2 */}
+			<section className="space-y-2.5">
+				<p className="eyebrow px-0.5">Target & status</p>
+				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
 					<TargetProgressCard
 						label="Target Bulanan"
 						current={monthCount}
@@ -190,24 +180,10 @@ export default async function DashboardPage() {
 
 			<AnomalyRadarWidget userId={userResult.profile.id} />
 
-			<section className="space-y-4">
-				<div className="flex items-end justify-between gap-3">
-					<div className="space-y-2">
-						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-							Pipeline
-						</p>
-						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
-							Pipeline Event
-						</h2>
-					</div>
-					<Link
-						href="/operations"
-						className="text-[12px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-					>
-						Lihat semua →
-					</Link>
-				</div>
-				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			{/* Pipeline — 2×2 compact */}
+			<section className="space-y-2.5">
+				<SectionHead eyebrow="Pipeline" title="Pipeline Event" href="/operations" />
+				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
 					<PipelineCard
 						label="7 Hari ke Depan"
 						count={upcoming7dCount}
@@ -230,7 +206,7 @@ export default async function DashboardPage() {
 						accent="amber"
 					/>
 					<PipelineCard
-						label="Selesai Bulan Ini"
+						label="Selesai Bln Ini"
 						count={completedThisMonthCount}
 						href="/operations?status=completed"
 						icon={CheckCircle2}
@@ -240,21 +216,21 @@ export default async function DashboardPage() {
 			</section>
 
 			<div className="grid gap-6 lg:grid-cols-3">
-				<section className="space-y-4 lg:col-span-2">
-					<div className="space-y-2">
-						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-							Agenda
-						</p>
-						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
-							Hari Ini & Besok
-						</h2>
-					</div>
+				{/* Agenda */}
+				<section className="space-y-2.5 lg:col-span-2">
+					<SectionHead eyebrow="Agenda" title="Hari Ini & Besok" />
 					{nextEvents.length === 0 ? (
-						<EmptyState
-							icon={CalendarClock}
-							title="Tidak ada event hari ini atau besok."
-							description="Free time. Kalau ada booking baru, akan muncul di sini otomatis."
-						/>
+						<div className="flex items-center gap-3 rounded-2xl border border-dashed border-border-default bg-card/60 p-4">
+							<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-muted-foreground">
+								<CalendarClock className="size-4" aria-hidden />
+							</span>
+							<div className="min-w-0">
+								<p className="type-body-strong">Tidak ada event hari ini / besok</p>
+								<p className="type-caption">
+									Free time — booking baru muncul di sini otomatis.
+								</p>
+							</div>
+						</div>
 					) : (
 						<div className="space-y-2">
 							{nextEvents.map((ev) => {
@@ -263,48 +239,39 @@ export default async function DashboardPage() {
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="group flex items-start gap-4 rounded-2xl border border-border-default bg-surface-2 p-4 transition-colors duration-base ease-out-expo hover:border-border-strong hover:bg-surface-3"
-										style={{
-											viewTransitionName: `event-${ev.project_id}`,
-										}}
+										className="press tap flex items-start gap-3 rounded-2xl border border-border-default bg-card p-3.5 shadow-[var(--shadow-soft)] transition-colors active:bg-surface-3"
+										style={{ viewTransitionName: `event-${ev.project_id}` }}
 									>
 										<div
-											className={`flex w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl py-2 ring-1 ${
+											className={cn(
+												"flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl py-2 ring-1",
 												isToday
-													? "bg-primary/10 ring-primary/25"
-													: "bg-surface-3 ring-border-subtle"
-											}`}
+													? "bg-emerald-500/10 ring-emerald-500/25"
+													: "bg-surface-3 ring-border-subtle",
+											)}
 										>
 											<span
-												className={`eyebrow !text-[9px] ${
-													isToday ? "!text-primary" : ""
-												}`}
+												className={cn(
+													"eyebrow !text-[9px]",
+													isToday && "!text-emerald-600 dark:!text-emerald-400",
+												)}
 											>
 												{isToday ? "Hari ini" : "Besok"}
 											</span>
-											<span className="tabular text-fluid-h3 font-semibold leading-none text-foreground">
+											<span className="type-num text-[1.05rem] font-semibold leading-none text-foreground">
 												{ID_TIME(ev.start_time)}
 											</span>
 										</div>
-										<div className="min-w-0 flex-1 space-y-1.5">
-											<div className="flex flex-wrap items-baseline gap-2">
-												<span className="truncate text-fluid-body font-semibold">
+										<div className="min-w-0 flex-1 space-y-1">
+											<div className="flex flex-wrap items-center gap-2">
+												<span className="type-body-strong truncate">
 													{ev.client_name}
 												</span>
 												<EventStatusBadge status={ev.status} />
 											</div>
-											<p className="truncate text-fluid-caption text-muted-foreground">
+											<p className="type-caption truncate">
 												{ev.venue_name}
 												{ev.venue_city && ` · ${ev.venue_city}`}
-											</p>
-											<p className="text-[11px] text-muted-foreground/80">
-												<span className="font-mono tabular">
-													{ev.project_id}
-												</span>{" "}
-												· setup{" "}
-												<span className="tabular">
-													{ID_TIME(ev.setup_time)}
-												</span>
 											</p>
 										</div>
 									</Link>
@@ -314,41 +281,36 @@ export default async function DashboardPage() {
 					)}
 				</section>
 
-				<section className="space-y-4">
-					<div className="space-y-2">
-						<p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-							Pintasan
-						</p>
-						<h2 className="text-[clamp(1.25rem,1rem+0.6vw,1.5rem)] font-semibold tracking-[-0.02em] text-foreground">
-							Aksi Cepat
-						</h2>
-					</div>
-					<div className="grid gap-1 rounded-2xl border border-border-default bg-surface-2 p-2">
-						<QuickAction
+				{/* Aksi Cepat — compact grid, primary action spans full width */}
+				<section className="space-y-2.5">
+					<SectionHead eyebrow="Pintasan" title="Aksi Cepat" />
+					<div className="grid grid-cols-2 gap-2.5">
+						<QuickActionTile
 							href="/operations/new"
 							icon={PlusCircle}
 							label="Booking Baru"
 							hint="Buat event baru"
+							primary
 						/>
-						<QuickAction
+						<QuickActionTile
 							href="/operations/packages/new"
 							icon={Package}
 							label="Paket Baru"
-							hint="Tambah paket pricelist"
+							hint="Tambah pricelist"
 						/>
-						<QuickAction
+						<QuickActionTile
 							href="/settings/crew"
 							icon={Users}
 							label="Master Crew"
 							hint="Approve & atur tim"
 						/>
-						<QuickAction
+						<QuickActionTile
 							href="/finance/bank-accounts"
 							icon={Receipt}
 							label="Rekening Bank"
-							hint="Atur penerima transfer"
+							hint="Penerima transfer"
 						/>
-						<QuickAction
+						<QuickActionTile
 							href="/settings"
 							icon={SettingsIcon}
 							label="Pengaturan"
@@ -361,34 +323,130 @@ export default async function DashboardPage() {
 	);
 }
 
-function QuickAction({
+/* ───────────────────────── dashboard-local compact tiles ───────────────────────── */
+
+type StatTone = "default" | "positive" | "negative" | "warning";
+
+const STAT_VALUE_TONE: Record<StatTone, string> = {
+	default: "text-foreground",
+	positive: "text-emerald-700 dark:text-emerald-400",
+	negative: "text-rose-600 dark:text-rose-400",
+	warning: "text-amber-700 dark:text-amber-500",
+};
+
+const STAT_ICON_TONE: Record<StatTone, string> = {
+	default: "bg-surface-3 text-muted-foreground",
+	positive: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+	negative: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+	warning: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
+};
+
+function MiniStat({
+	label,
+	value,
+	hint,
+	icon: Icon,
+	tone = "default",
+}: {
+	label: string;
+	value: string;
+	hint?: string;
+	icon: typeof CalendarCheck;
+	tone?: StatTone;
+}) {
+	return (
+		<div className="flex flex-col gap-2 rounded-2xl border border-border-default bg-card p-3.5 shadow-[var(--shadow-soft)]">
+			<div className="flex items-center justify-between gap-2">
+				<span className="eyebrow truncate">{label}</span>
+				<span
+					className={cn(
+						"grid size-7 shrink-0 place-items-center rounded-lg",
+						STAT_ICON_TONE[tone],
+					)}
+				>
+					<Icon className="size-3.5" aria-hidden strokeWidth={2} />
+				</span>
+			</div>
+			<div>
+				<div
+					className={cn(
+						"type-num truncate text-[1.35rem] font-semibold leading-tight",
+						STAT_VALUE_TONE[tone],
+					)}
+				>
+					{value}
+				</div>
+				{hint ? (
+					<p className="type-caption mt-0.5 line-clamp-1 leading-tight">{hint}</p>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function SectionHead({
+	eyebrow,
+	title,
+	href,
+}: {
+	eyebrow: string;
+	title: string;
+	href?: string;
+}) {
+	return (
+		<div className="flex items-end justify-between gap-3">
+			<div className="min-w-0">
+				<p className="eyebrow">{eyebrow}</p>
+				<h2 className="type-heading mt-0.5">{title}</h2>
+			</div>
+			{href ? (
+				<Link
+					href={href}
+					className="type-caption shrink-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
+				>
+					Lihat semua →
+				</Link>
+			) : null}
+		</div>
+	);
+}
+
+function QuickActionTile({
 	href,
 	icon: Icon,
 	label,
 	hint,
+	primary = false,
 }: {
 	href: string;
 	icon: typeof PlusCircle;
 	label: string;
 	hint: string;
+	primary?: boolean;
 }) {
 	return (
 		<Link
 			href={href}
-			className="group flex items-center gap-3 rounded-xl p-3 transition-all duration-fast ease-out-expo hover:bg-surface-3"
+			className={cn(
+				"press tap group flex items-center gap-3 rounded-2xl border p-3.5 shadow-[var(--shadow-soft)] transition-colors",
+				primary
+					? "col-span-2 border-emerald-600/20 bg-emerald-50/70 active:bg-emerald-100/60 dark:bg-emerald-500/10"
+					: "border-border-default bg-card active:bg-surface-3",
+			)}
 		>
-			<div className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-3 text-muted-foreground ring-1 ring-border-subtle transition-all duration-fast ease-out-expo group-hover:bg-primary/10 group-hover:text-primary group-hover:ring-primary/20">
-				<Icon className="size-4" />
-			</div>
-			<div className="min-w-0 flex-1">
-				<div className="text-fluid-body font-medium leading-tight">{label}</div>
-				<div className="text-fluid-caption text-muted-foreground">{hint}</div>
-			</div>
 			<span
-				aria-hidden="true"
-				className="text-muted-foreground/40 transition-all duration-fast ease-out-expo group-hover:translate-x-0.5 group-hover:text-foreground"
+				className={cn(
+					"grid size-9 shrink-0 place-items-center rounded-xl",
+					primary
+						? "bg-emerald-600 text-white dark:bg-emerald-500"
+						: "bg-surface-3 text-muted-foreground",
+				)}
 			>
-				→
+				<Icon className="size-4" aria-hidden />
+			</span>
+			<span className="min-w-0 flex-1">
+				<span className="type-label block truncate">{label}</span>
+				<span className="type-caption block truncate">{hint}</span>
 			</span>
 		</Link>
 	);
