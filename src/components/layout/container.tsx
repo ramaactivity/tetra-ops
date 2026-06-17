@@ -18,13 +18,17 @@ import { cn } from "@/lib/utils";
  *         md:px-6, lg:px-8 on bigger viewports.
  */
 
-const containerVariants = cva("mx-auto w-full px-4 py-3 md:px-6 lg:px-8", {
+// UpGradely DNA: page content shares the content column's exact horizontal
+// extent with the topbar card — no extra side padding (the floating frame's
+// outer gutter is the only inset). Data pages (lg/xl) run full-width to line
+// up edge-to-edge with the topbar; form/text pages keep a readable cap.
+const containerVariants = cva("mx-auto w-full py-1", {
 	variants: {
 		size: {
 			sm: "max-w-3xl",
 			md: "max-w-5xl",
-			lg: "max-w-6xl",
-			xl: "max-w-7xl",
+			lg: "max-w-none",
+			xl: "max-w-none",
 			full: "max-w-none",
 		},
 	},
