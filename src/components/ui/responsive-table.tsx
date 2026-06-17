@@ -89,7 +89,12 @@ export function ResponsiveTable<T>({
 							))}
 					</colgroup>
 					<thead
-						className={cn(stickyHeader && "sticky top-0 z-10 bg-surface-2")}
+						className={cn(
+							// Distinct soft-gray header band + darker labels so it reads
+							// apart from the white rows (was blending in).
+							"bg-surface-3 [&_.eyebrow]:!text-foreground/65",
+							stickyHeader && "sticky top-0 z-10",
+						)}
 					>
 						<tr className="border-b border-border-default text-left">
 							{columns

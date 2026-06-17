@@ -168,7 +168,7 @@ export function OperationsListTable({
 			<div className="hidden md:block">
 				<div
 					className={cn(
-						"grid items-center gap-5 border-b border-border-default bg-secondary px-5 py-2.5",
+						"grid items-center gap-5 border-b border-border-default bg-surface-3 px-5 py-3 [&_.eyebrow]:!text-foreground/65",
 						COLS_DESKTOP,
 					)}
 				>
