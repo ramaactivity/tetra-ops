@@ -39,7 +39,7 @@ export function DeleteEventButton({
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={pending}
-				className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+				className="press-down inline-flex h-8 items-center gap-1.5 rounded-[12px] border border-destructive/30 bg-destructive/5 px-3 text-[12.5px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
 			>
 				<Trash2 className="h-3.5 w-3.5" />
 				Hapus

@@ -62,7 +62,7 @@ export function StatusMenu({
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					disabled={pending}
-					className="border-border-default bg-surface-2 hover:bg-muted data-[state=open]:bg-muted inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
+					className="border-border-default bg-card hover:bg-secondary data-[state=open]:bg-secondary inline-flex h-8 items-center gap-1.5 rounded-[12px] border px-3 text-[12.5px] font-medium text-foreground transition-colors disabled:opacity-50"
 				>
 					<span
 						className={cn(

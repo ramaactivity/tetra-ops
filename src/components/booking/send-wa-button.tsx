@@ -41,7 +41,9 @@ export function SendWhatsAppButton({
 	}
 
 	const sizeClass =
-		size === "sm" ? "h-8 px-2.5 text-xs gap-1.5" : "h-9 px-3 text-sm gap-1.5";
+		size === "sm"
+			? "h-8 px-3 text-[12.5px] gap-1.5"
+			: "h-9 px-3 text-sm gap-1.5";
 	const label = size === "sm" ? "WA" : "Send WA";
 
 	if (templates.length === 0) {
@@ -49,7 +51,7 @@ export function SendWhatsAppButton({
 			<button
 				type="button"
 				disabled
-				className={`border-border-default bg-surface-2 text-muted-foreground inline-flex items-center whitespace-nowrap rounded-md border font-medium ${sizeClass} disabled:cursor-not-allowed disabled:opacity-60`}
+				className={`border-border-default bg-card text-muted-foreground inline-flex items-center whitespace-nowrap rounded-[12px] border font-medium ${sizeClass} disabled:cursor-not-allowed disabled:opacity-60`}
 				title="Belum ada WA template"
 			>
 				<MessageCircle className="size-3.5 shrink-0" />
@@ -61,7 +63,7 @@ export function SendWhatsAppButton({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
-				className={`border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex items-center whitespace-nowrap rounded-md border font-medium transition-colors ${sizeClass}`}
+				className={`border-border-default bg-card hover:bg-secondary text-foreground inline-flex items-center whitespace-nowrap rounded-[12px] border font-medium transition-colors ${sizeClass}`}
 			>
 				<MessageCircle className="size-3.5 shrink-0" />
 				{label}

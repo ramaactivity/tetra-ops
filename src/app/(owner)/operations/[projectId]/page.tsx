@@ -41,7 +41,6 @@ import {
 import { EventReadinessCard } from "@/components/operations/readiness-card";
 import { PdfDownloadMenu } from "@/components/pdf/download-menu";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -296,7 +295,10 @@ export default async function EventDetailPage({
 		? (eventTypeLabelByCode.get(event.event_category) ?? event.event_category)
 		: null;
 
-	const headerActionCls = buttonVariants({ variant: "outline", size: "sm" });
+	// One canonical spec for every header action so the whole bar reads as a
+	// single, uniform control group (height, radius, surface, type all match).
+	const headerActionCls =
+		"inline-flex h-8 items-center gap-1.5 rounded-[12px] border border-border-default bg-card px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50";
 
 	return (
 		<Container size="xl" className="space-y-6">
