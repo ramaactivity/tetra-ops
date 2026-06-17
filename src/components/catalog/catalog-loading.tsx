@@ -6,7 +6,11 @@ const CHIP_KEYS = ["c1", "c2", "c3", "c4"];
 const ROW_KEYS = ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8"];
 
 /** Shared loading skeleton for the operations catalog list pages. */
-export function CatalogListSkeleton() {
+export function CatalogListSkeleton({
+	showChips = true,
+}: {
+	showChips?: boolean;
+}) {
 	return (
 		<Container size="xl" className="space-y-6">
 			<div className="flex items-end justify-between gap-3">
@@ -26,11 +30,13 @@ export function CatalogListSkeleton() {
 
 			<Skeleton className="h-9 w-full max-w-xs rounded-lg" />
 
-			<div className="flex gap-2">
-				{CHIP_KEYS.map((k) => (
-					<Skeleton key={k} className="h-8 w-24 rounded-full" />
-				))}
-			</div>
+			{showChips && (
+				<div className="flex gap-2">
+					{CHIP_KEYS.map((k) => (
+						<Skeleton key={k} className="h-8 w-24 rounded-full" />
+					))}
+				</div>
+			)}
 
 			<div className="border-border-default bg-card overflow-hidden rounded-2xl border">
 				{ROW_KEYS.map((k) => (

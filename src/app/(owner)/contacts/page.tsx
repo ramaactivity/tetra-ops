@@ -8,6 +8,7 @@ import {
 } from "@/components/contacts/contacts-list-table";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { createClient } from "@/lib/supabase/server";
 
@@ -75,21 +76,23 @@ export default async function ContactsListPage({
 				}
 			/>
 
-			<div className="flex flex-wrap items-center gap-2">
-				<form
-					method="get"
-					action="/contacts"
-					className="relative min-w-[200px] flex-1 sm:max-w-xs"
-				>
-					<FilterSearchInput
-						className="w-full"
-						name="q"
-						defaultValue={q}
-						placeholder="Cari nama…"
-					/>
-					{typeFilter && <input type="hidden" name="type" value={typeFilter} />}
-				</form>
-				<div className="flex flex-wrap items-center gap-1.5">
+			<FilterBar
+				searchClassName="sm:max-w-xs"
+				search={
+					<form method="get" action="/contacts" className="relative w-full">
+						<FilterSearchInput
+							className="w-full"
+							name="q"
+							defaultValue={q}
+							placeholder="Cari nama…"
+						/>
+						{typeFilter && (
+							<input type="hidden" name="type" value={typeFilter} />
+						)}
+					</form>
+				}
+			>
+				<div className="flex items-center gap-1.5">
 					<TypeChip
 						label="Semua"
 						href="/contacts"
@@ -106,7 +109,7 @@ export default async function ContactsListPage({
 						/>
 					))}
 				</div>
-			</div>
+			</FilterBar>
 
 			{contacts.length === 0 ? (
 				<EmptyState

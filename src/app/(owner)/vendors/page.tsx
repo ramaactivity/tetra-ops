@@ -4,6 +4,7 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { VendorsListTable } from "@/components/vendors/vendors-list-table";
 import { formatRupiah } from "@/lib/format";
@@ -346,23 +347,22 @@ export default async function VendorsListPage({
 				/>
 			</dl>
 
-			<div className="flex flex-wrap items-center gap-2">
-				<form
-					method="get"
-					action="/vendors"
-					className="relative min-w-[200px] flex-1 sm:max-w-xs"
-				>
-					<FilterSearchInput
-						className="w-full"
-						name="q"
-						defaultValue={q}
-						placeholder="Cari nama vendor…"
-					/>
-					{showArchived && (
-						<input type="hidden" name="show_archived" value="1" />
-					)}
-				</form>
-
+			<FilterBar
+				searchClassName="sm:max-w-xs"
+				search={
+					<form method="get" action="/vendors" className="relative w-full">
+						<FilterSearchInput
+							className="w-full"
+							name="q"
+							defaultValue={q}
+							placeholder="Cari nama vendor…"
+						/>
+						{showArchived && (
+							<input type="hidden" name="show_archived" value="1" />
+						)}
+					</form>
+				}
+			>
 				<Link
 					href={
 						showArchived
@@ -383,7 +383,7 @@ export default async function VendorsListPage({
 					<Archive className="size-3.5" />
 					{showArchived ? "Hide archived" : "Show archived"}
 				</Link>
-			</div>
+			</FilterBar>
 
 			{vendors.length === 0 ? (
 				<EmptyState
