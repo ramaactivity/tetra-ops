@@ -31,30 +31,30 @@ const buttonVariants = cva(
 				/* PRIMARY — ink-black CTA (UpGradely). The single primary action
 				   color: Save, Submit, Confirm, New booking, View all, … */
 				default:
-					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+					"rounded-[12px] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
 				/* OUTLINE — white card surface with hairline border. Pairs with
 				   default for secondary actions. */
 				outline:
-					"rounded-full border border-border-default bg-card text-foreground hover:bg-secondary aria-expanded:bg-secondary",
+					"rounded-[12px] border border-border-default bg-card text-foreground hover:bg-secondary aria-expanded:bg-secondary",
 				/* SECONDARY — soft inset fill. Used when the action sits inside an
 				   already-white card. */
 				secondary:
-					"rounded-full bg-secondary text-secondary-foreground hover:bg-muted",
+					"rounded-[12px] bg-secondary text-secondary-foreground hover:bg-muted",
 				/* GHOST — transparent. Hover paints to soft inset. */
 				ghost:
-					"rounded-full text-foreground hover:bg-secondary aria-expanded:bg-secondary",
+					"rounded-[12px] text-foreground hover:bg-secondary aria-expanded:bg-secondary",
 				/* DESTRUCTIVE — danger red. */
 				destructive:
-					"rounded-full bg-destructive text-white hover:bg-destructive/90",
+					"rounded-[12px] bg-destructive text-white hover:bg-destructive/90",
 				link: "text-link underline-offset-4 hover:underline",
 				/* DECISIVE — ink fill, bigger tap target (use with size="lg").
 				   Reserved for irreversible financial commits (Approve, Tutup
 				   Buku, Submit Rekap). Same ink CTA, larger size. */
 				decisive:
-					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+					"rounded-[12px] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
 				/* MARKETING — pill, hero scale. Landing page. */
 				marketing:
-					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+					"rounded-[12px] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
 				"marketing-secondary":
 					"rounded-full border border-border-default bg-card text-foreground hover:bg-secondary",
 			},

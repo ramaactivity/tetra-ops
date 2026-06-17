@@ -7,8 +7,8 @@ import { OwnerSidebar } from "@/components/layouts/owner-sidebar";
 import { OwnerTopBar } from "@/components/layouts/owner-topbar";
 import { KpiCard } from "@/components/operations/kpi-card";
 
-const R_CARD = "rounded-[20px]";
-const R_CTRL = "rounded-[14px]";
+const R_CARD = "rounded-[16px]";
+const R_CTRL = "rounded-[12px]";
 
 const PILL = {
 	lime: "bg-emerald-300 text-emerald-950",

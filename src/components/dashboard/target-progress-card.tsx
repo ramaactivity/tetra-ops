@@ -48,7 +48,7 @@ export function TargetProgressCard({
 	return (
 		<div
 			className={cn(
-				"relative flex flex-col gap-3 overflow-hidden rounded-[20px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors sm:p-6",
+				"relative flex flex-col gap-3 overflow-hidden rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors sm:p-6",
 				className,
 			)}
 		>

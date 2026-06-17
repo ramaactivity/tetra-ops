@@ -371,7 +371,7 @@ export default async function FinancePage() {
 			</KpiRow>
 
 			<section className="space-y-3">
-				<div className="flex items-baseline justify-between">
+				<div className="flex items-baseline justify-between px-5">
 					<h2 className="text-base font-semibold tracking-tight">
 						Profit breakdown · {monthLabel}
 					</h2>
@@ -409,7 +409,7 @@ export default async function FinancePage() {
 
 			<div className="grid gap-6 lg:grid-cols-2">
 				<section className="space-y-3">
-					<div className="flex items-baseline justify-between">
+					<div className="flex items-baseline justify-between px-5">
 						<h2 className="text-base font-semibold tracking-tight">
 							Cash inflow per rekening
 						</h2>
@@ -467,7 +467,7 @@ export default async function FinancePage() {
 				</section>
 
 				<section className="space-y-3">
-					<div className="flex items-baseline justify-between">
+					<div className="flex items-baseline justify-between px-5">
 						<h2 className="text-base font-semibold tracking-tight">
 							Sinking funds
 						</h2>
@@ -618,7 +618,7 @@ export default async function FinancePage() {
 			)}
 
 			<section className="space-y-3">
-				<div className="flex items-baseline justify-between">
+				<div className="flex items-baseline justify-between px-5">
 					<h2 className="text-base font-semibold tracking-tight">
 						Settlement terakhir
 					</h2>

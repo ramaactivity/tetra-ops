@@ -52,7 +52,7 @@ export function StatCard({
 	return (
 		<div
 			className={cn(
-				"group flex flex-col rounded-[20px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors",
+				"group flex flex-col rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors",
 				className,
 			)}
 		>

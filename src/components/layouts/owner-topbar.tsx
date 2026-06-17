@@ -27,7 +27,7 @@ export async function OwnerTopBar({
 	return (
 		<header
 			style={{ viewTransitionName: "site-header" }}
-			className="sticky top-3 z-30 flex items-center gap-3 rounded-[24px] border border-border-subtle bg-card px-3.5 py-3 shadow-[var(--shadow-level-2)]"
+			className="sticky top-3 z-30 flex items-center gap-3 rounded-[16px] border border-border-subtle bg-card px-3.5 py-3 shadow-[var(--shadow-level-2)]"
 		>
 			{/* Mobile-only brand (desktop logo is in the sidebar) */}
 			<Image
@@ -52,7 +52,7 @@ export async function OwnerTopBar({
 					type="search"
 					placeholder="Cari event, klien, transaksi…"
 					aria-label="Cari"
-					className="h-10 w-full rounded-[14px] bg-secondary pl-11 pr-4 text-[14px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+					className="h-10 w-full rounded-[12px] bg-secondary pl-11 pr-4 text-[14px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
 				/>
 			</div>
 

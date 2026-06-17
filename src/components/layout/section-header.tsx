@@ -49,7 +49,10 @@ export function SectionHeader({
 		<header
 			data-slot="section-header"
 			className={cn(
-				"flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4",
+				// px-5 lines the title (and right-side actions) up with the inner
+				// content of the cards below (which use p-5), while cards stay
+				// edge-to-edge with the topbar.
+				"flex flex-col gap-2 px-5 sm:flex-row sm:items-end sm:justify-between sm:gap-4",
 				className,
 			)}
 			{...props}

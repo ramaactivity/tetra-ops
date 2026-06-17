@@ -218,7 +218,7 @@ export function OwnerSidebar() {
 			style={{ viewTransitionName: "site-sidebar" }}
 			className="hidden w-[256px] shrink-0 md:sticky md:top-3 md:flex md:h-[calc(100dvh-1.5rem)] md:flex-col md:self-start"
 		>
-			<div className="flex flex-1 flex-col overflow-hidden rounded-[24px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
+			<div className="flex flex-1 flex-col overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 				<div className="flex h-[60px] shrink-0 items-center px-6">
 					<Link
 						href="/dashboard"
@@ -272,7 +272,7 @@ function NavLeaf({ item, active }: { item: NavItem; active: boolean }) {
 				href={item.href}
 				aria-current={active ? "page" : undefined}
 				className={cn(
-					"group/nav flex items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-[14.5px] leading-none transition-colors duration-fast ease-out-expo",
+					"group/nav flex items-center gap-3 rounded-[12px] px-3.5 py-2.5 text-[14.5px] leading-none transition-colors duration-fast ease-out-expo",
 					active
 						? "bg-primary font-semibold text-primary-foreground"
 						: "font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -315,7 +315,7 @@ function NavParent({
 				onClick={onToggle}
 				aria-expanded={expanded}
 				className={cn(
-					"group/nav flex w-full items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-[14.5px] font-medium leading-none transition-colors duration-fast ease-out-expo",
+					"group/nav flex w-full items-center gap-3 rounded-[12px] px-3.5 py-2.5 text-[14.5px] font-medium leading-none transition-colors duration-fast ease-out-expo",
 					"text-muted-foreground hover:bg-secondary hover:text-foreground",
 				)}
 			>

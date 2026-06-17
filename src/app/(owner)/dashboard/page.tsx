@@ -38,13 +38,6 @@ function isoDate(d: Date): string {
 	return `${y}-${m}-${day}`;
 }
 
-const ID_DATE_FULL = new Intl.DateTimeFormat("id-ID", {
-	weekday: "long",
-	day: "numeric",
-	month: "long",
-	year: "numeric",
-});
-
 const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
 
 export default async function DashboardPage() {
@@ -106,31 +99,8 @@ export default async function DashboardPage() {
 		sevenFromNowISO,
 	});
 
-	const firstName = userResult.profile.full_name.split(" ")[0];
-
 	return (
 		<Container size="xl" className="space-y-6 md:space-y-8">
-			{/* Greeting + one-line story */}
-			<header className="space-y-2">
-				<div className="space-y-0.5">
-					<p className="eyebrow">{ID_DATE_FULL.format(today)}</p>
-					<h1 className="type-title">
-						Halo, <span className="text-primary">{firstName}</span>.
-					</h1>
-				</div>
-				<p className="type-secondary">
-					{monthName}: <strong className="text-foreground">{monthCount}</strong>{" "}
-					event · masuk{" "}
-					<strong className="text-foreground">
-						{formatRupiah(thisMonthRevenue)}
-					</strong>{" "}
-					· piutang{" "}
-					<strong className="text-foreground">{formatRupiah(outstanding)}</strong>{" "}
-					· <strong className="text-foreground">{awaitingCount}</strong> nunggu
-					settle.
-				</p>
-			</header>
-
 			{/* HERO + supporting */}
 			<section className="space-y-2.5">
 				<div className="lg:grid lg:grid-cols-3 lg:gap-2.5 lg:space-y-0 space-y-2.5">
@@ -170,7 +140,7 @@ export default async function DashboardPage() {
 
 			{/* Target */}
 			<section className="space-y-2.5">
-				<p className="eyebrow px-0.5">Target capaian</p>
+				<p className="eyebrow px-5">Target capaian</p>
 				<div className="grid grid-cols-2 gap-2.5">
 					<TargetProgressCard
 						label="Target Bulanan"
@@ -189,7 +159,7 @@ export default async function DashboardPage() {
 
 			{/* Status breakdowns — segmented bars (no more overlapping mini-stats) */}
 			<section className="space-y-2.5">
-				<p className="eyebrow px-0.5">Status</p>
+				<p className="eyebrow px-5">Status</p>
 				<div className="grid gap-2.5 sm:grid-cols-2">
 					<SegmentedBar
 						title="Status Invoice"
@@ -369,7 +339,7 @@ function SectionHead({
 	href?: string;
 }) {
 	return (
-		<div className="flex items-end justify-between gap-3">
+		<div className="flex items-end justify-between gap-3 px-5">
 			<div className="min-w-0">
 				<p className="eyebrow">{eyebrow}</p>
 				<h2 className="type-heading mt-0.5">{title}</h2>
