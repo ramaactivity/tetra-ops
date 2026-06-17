@@ -114,7 +114,7 @@ export default async function CrewProfilePage() {
 				<form action={signOut}>
 					<button
 						type="submit"
-						className="press tap flex w-full items-center justify-center gap-2 rounded-[1.25rem] border border-border-default bg-card px-4 py-3.5 text-rose-600 shadow-[var(--shadow-level-2)] transition-colors active:bg-rose-50 dark:text-rose-400 dark:active:bg-rose-950/30"
+						className="press tap flex w-full items-center justify-center gap-2 rounded-[16px] border border-border-default bg-card px-4 py-3.5 text-rose-600 shadow-[var(--shadow-level-2)] transition-colors active:bg-rose-50 dark:text-rose-400 dark:active:bg-rose-950/30"
 					>
 						<LogOut className="size-4" />
 						<span className="type-body-strong">Sign out</span>

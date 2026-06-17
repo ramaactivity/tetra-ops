@@ -121,7 +121,7 @@ export async function NeedsRekapSection({ userId }: { userId: string }) {
 					{events.length}
 				</span>
 			</div>
-			<ul className="overflow-hidden rounded-[1.25rem] border border-amber-300/60 bg-amber-50/60 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
+			<ul className="overflow-hidden rounded-[16px] border border-amber-300/60 bg-amber-50/60 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
 				{events.map((ev) => {
 					const city =
 						ev.venue_city && ev.venue_city !== ev.venue_name

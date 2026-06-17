@@ -46,7 +46,7 @@ type EquipmentItem = {
 
 function EmptyAlat({ title, body }: { title: string; body: string }) {
 	return (
-		<div className="mt-4 rounded-[1.25rem] border border-dashed border-border-default bg-card/40 px-5 py-10 text-center">
+		<div className="mt-4 rounded-[16px] border border-dashed border-border-default bg-card/40 px-5 py-10 text-center">
 			<Package2 className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
 			<p className="type-body-strong">{title}</p>
 			<p className="type-secondary mx-auto mt-1 max-w-[18rem]">{body}</p>
@@ -130,7 +130,7 @@ export default async function CrewEquipmentPage() {
 							return (
 								<li
 									key={ev.id}
-									className="overflow-hidden rounded-[1.25rem] border border-border-default bg-card shadow-[var(--shadow-level-2)]"
+									className="overflow-hidden rounded-[16px] border border-border-default bg-card shadow-[var(--shadow-level-2)]"
 								>
 									<Link
 										href={`/crew/jadwal/${ev.project_id}`}

@@ -179,7 +179,7 @@ export default async function CrewHomePage() {
 				</div>
 				<Link
 					href="/crew/jadwal"
-					className="press tap mt-3 flex items-center justify-between gap-2 rounded-[1.25rem] border border-border-default bg-card px-4 py-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+					className="press tap mt-3 flex items-center justify-between gap-2 rounded-[16px] border border-border-default bg-card px-4 py-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
 				>
 					<span className="type-body-strong">Lihat semua jadwal</span>
 					<ChevronRight className="size-4 text-muted-foreground/60" />
@@ -188,7 +188,7 @@ export default async function CrewHomePage() {
 
 			<Section title="Hari ini & besok">
 				{nextAssignments.length === 0 ? (
-					<div className="rounded-[1.25rem] border border-dashed border-border-default bg-card/40 px-5 py-9 text-center">
+					<div className="rounded-[16px] border border-dashed border-border-default bg-card/40 px-5 py-9 text-center">
 						<CalendarClock className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
 						<p className="type-body-strong">Free time hari ini & besok</p>
 						<p className="type-secondary mx-auto mt-1 max-w-[16rem]">
@@ -210,7 +210,7 @@ export default async function CrewHomePage() {
 								<li key={ev.id}>
 									<Link
 										href={`/crew/jadwal/${ev.project_id}`}
-										className="press tap block rounded-[1.25rem] border border-border-default bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+										className="press tap block rounded-[16px] border border-border-default bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
 										style={{
 											viewTransitionName: `crew-event-${ev.project_id}`,
 										}}

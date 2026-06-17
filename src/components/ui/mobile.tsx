@@ -156,7 +156,7 @@ export function Surface({
 	return (
 		<Tag
 			className={cn(
-				"rounded-[1.25rem] border",
+				"rounded-[16px] border",
 				tone === "card"
 					? "border-border-default bg-card shadow-[var(--shadow-level-2)]"
 					: "border-transparent bg-surface-3",
@@ -184,7 +184,7 @@ export function ListGroup({
 		<div>
 			<div
 				className={cn(
-					"overflow-hidden rounded-[1.25rem] border border-border-default bg-card shadow-[var(--shadow-level-2)]",
+					"overflow-hidden rounded-[16px] border border-border-default bg-card shadow-[var(--shadow-level-2)]",
 					className,
 				)}
 			>
@@ -375,7 +375,7 @@ export function StatTile({
 	return (
 		<div
 			className={cn(
-				"rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
+				"rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
 				className,
 			)}
 		>

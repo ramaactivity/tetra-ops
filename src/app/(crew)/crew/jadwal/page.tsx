@@ -160,7 +160,7 @@ export default async function CrewSchedulePage({
 
 			<Section className="mt-4">
 				{assignments.length === 0 ? (
-					<div className="rounded-[1.25rem] border border-dashed border-border-default bg-card/40 px-5 py-10 text-center">
+					<div className="rounded-[16px] border border-dashed border-border-default bg-card/40 px-5 py-10 text-center">
 						<CalendarPlus className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
 						<p className="type-body-strong">
 							{tab === "upcoming"
@@ -194,7 +194,7 @@ export default async function CrewSchedulePage({
 								<li key={ev.id}>
 									<Link
 										href={`/crew/jadwal/${ev.project_id}`}
-										className="press tap block rounded-[1.25rem] border border-border-default bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+										className="press tap block rounded-[16px] border border-border-default bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
 										style={{
 											viewTransitionName: `crew-event-${ev.project_id}`,
 										}}

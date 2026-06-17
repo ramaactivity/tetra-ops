@@ -276,7 +276,7 @@ export default async function CrewEventDetailPage({
 
 			<div className="mt-3 space-y-4">
 				{/* ── Hero — the at-a-glance event card (Lokasi merged in) ── */}
-				<section className="overflow-hidden rounded-[1.5rem] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
+				<section className="overflow-hidden rounded-[16px] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
 					<div className="p-5">
 						<div className="flex items-center justify-between gap-2">
 							<span
@@ -365,7 +365,7 @@ export default async function CrewEventDetailPage({
 
 				{/* ── Tim crew (avatars) — right after the hero ── */}
 				{roster.length > 1 && (
-					<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<section className="rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 						<span className="eyebrow flex items-center gap-1.5">
 							<Users className="size-3.5" />
 							Tim crew
@@ -404,7 +404,7 @@ export default async function CrewEventDetailPage({
 				)}
 
 				{/* ── Detail paket — after Tim crew ── */}
-				<section className="rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+				<section className="rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 					<span className="eyebrow">Detail paket</span>
 					<dl className="mt-1 divide-y divide-border-subtle">
 						<DetailRow label="Paket">
@@ -439,7 +439,7 @@ export default async function CrewEventDetailPage({
 
 				{/* ── Kontak hari-H — contact rows ── */}
 				{(picName || bookerContact) && (
-					<section className="rounded-[1.25rem] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
+					<section className="rounded-[16px] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
 						<span className="eyebrow text-amber-700 dark:text-amber-400">
 							Kontak hari-H
 						</span>
@@ -459,7 +459,7 @@ export default async function CrewEventDetailPage({
 				)}
 
 				{/* Equipment card */}
-				<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+				<section className="space-y-2 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 					<h2 className="eyebrow flex items-center justify-between">
 						<span className="flex items-center gap-1.5">
 							<Package className="h-3.5 w-3.5" />
@@ -494,7 +494,7 @@ export default async function CrewEventDetailPage({
 
 				{/* Design link */}
 				{event.design_drive_folder_url && (
-					<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<section className="space-y-2 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 						<h2 className="eyebrow flex items-center gap-1.5">
 							<FileText className="h-3.5 w-3.5" />
 							Desain
@@ -518,7 +518,7 @@ export default async function CrewEventDetailPage({
 
 				{/* Design frames — download to load into dslrbooth */}
 				{designFrames.length > 0 && (
-					<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<section className="space-y-2 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 						<h2 className="eyebrow flex items-center gap-1.5">
 							<Download className="h-3.5 w-3.5" />
 							Design Frame
@@ -551,7 +551,7 @@ export default async function CrewEventDetailPage({
 
 				{/* Footage — upload langsung di Google Drive */}
 				{footageFolderUrl && (
-					<section className="space-y-2 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<section className="space-y-2 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 						<h2 className="eyebrow flex items-center gap-1.5">
 							<Video className="h-3.5 w-3.5" />
 							Footage
@@ -689,7 +689,7 @@ export default async function CrewEventDetailPage({
 					href={ownerWaHref}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="press tap flex items-center gap-3 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
+					className="press tap flex items-center gap-3 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
 				>
 					<span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#25D366]/15 text-[#25D366]">
 						<WhatsAppIcon className="size-5" />

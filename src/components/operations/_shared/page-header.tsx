@@ -31,43 +31,45 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({
-	title,
 	backHref,
 	backLabel,
 	meta,
-	description,
 	actions,
 	className,
 }: PageHeaderProps) {
+	// UpGradely DNA: the page-level title + description are dropped — the active
+	// sidebar item and the topbar page-name pill already give context, so a big
+	// standalone title row only leaves dead space. We keep the back-link, the
+	// meta slot (status badges on detail pages), and actions as a right-aligned
+	// toolbar, all px-5-aligned with the card content below. Renders nothing if
+	// there's nothing left to show.
+	if (!backHref && !meta && !actions) return null;
 	return (
-		<header className={cn("space-y-3", className)} data-slot="page-header">
+		<header
+			className={cn("flex flex-col gap-2 px-5", className)}
+			data-slot="page-header"
+		>
 			{backHref ? (
 				<Link
 					href={backHref}
-					className="inline-flex items-center gap-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+					className="inline-flex w-fit items-center gap-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 				>
 					<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
 					{backLabel ?? "Back"}
 				</Link>
 			) : null}
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="min-w-0 flex-1 space-y-2">
-					<h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.025em] text-foreground sm:text-[32px]">
-						{title}
-					</h1>
+			{meta || actions ? (
+				<div className="flex flex-wrap items-center gap-3">
 					{meta ? (
-						<div className="flex flex-wrap items-center gap-2">{meta}</div>
+						<div className="mr-auto flex flex-wrap items-center gap-2">{meta}</div>
 					) : null}
-					{description ? (
-						<p className="text-[13px] leading-snug text-muted-foreground">
-							{description}
-						</p>
+					{actions ? (
+						<div className="ml-auto flex flex-wrap items-center gap-1.5">
+							{actions}
+						</div>
 					) : null}
 				</div>
-				{actions ? (
-					<div className="flex flex-wrap items-center gap-1.5">{actions}</div>
-				) : null}
-			</div>
+			) : null}
 		</header>
 	);
 }

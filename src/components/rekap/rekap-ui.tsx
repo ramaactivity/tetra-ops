@@ -24,7 +24,7 @@ export function RekapCard({
 	return (
 		<section
 			className={cn(
-				"rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
+				"rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
 				className,
 			)}
 		>

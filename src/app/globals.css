@@ -277,16 +277,17 @@
   --text-fluid-h1: clamp(1.375rem, 1.1rem + 1.4vw, 2rem);
   --text-fluid-display: clamp(1.75rem, 1.4rem + 1.8vw, 3rem);
 
-  /* Radius — Vercel two-scale system:
-     --geist-radius 6px (in-app: buttons, inputs, dropdowns) → our --radius
-     --geist-marketing-radius 8px (cards) → our --radius * 1.33
-     pill 100px reserved for marketing CTAs only */
-  --radius-sm: calc(var(--radius) * 0.67);   /* 4px */
-  --radius-md: var(--radius);                /* 6px — IN-APP DEFAULT */
-  --radius-lg: calc(var(--radius) * 1.33);   /* 8px — card */
-  --radius-xl: calc(var(--radius) * 2);      /* 12px */
-  --radius-2xl: calc(var(--radius) * 2.67);  /* 16px */
-  --radius-3xl: calc(var(--radius) * 4);     /* 24px */
+  /* Radius — UpGradely unified scale (--radius = 12px).
+     Deliberately COLLAPSED so the whole app reads one consistent roundness:
+     controls 12px, cards 16px, sheets/modals 18–20px. xl/2xl/3xl were 24/32/48
+     (too round) and are pulled back to ~16–20px so legacy `rounded-xl/2xl`
+     usages auto-normalise without touching every file. */
+  --radius-sm: calc(var(--radius) * 0.67);   /* 8px  — micro */
+  --radius-md: var(--radius);                /* 12px — buttons, inputs, dropdowns */
+  --radius-lg: calc(var(--radius) * 1.33);   /* 16px — cards (standard) */
+  --radius-xl: calc(var(--radius) * 1.33);   /* 16px — cards (was 24) */
+  --radius-2xl: calc(var(--radius) * 1.5);   /* 18px — sheets / dialogs (was 32) */
+  --radius-3xl: calc(var(--radius) * 1.67);  /* 20px — large overlays (was 48) */
 }
 
 /* === Light mode — UpGradely DNA: crisp white/cream cards floating on a soft

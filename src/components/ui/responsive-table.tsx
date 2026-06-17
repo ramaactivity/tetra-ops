@@ -176,7 +176,7 @@ export function ResponsiveTable<T>({
 						<div
 							key={keyExtractor(row, rowIndex)}
 							className={cn(
-								"rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
+								"rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
 								onRowClick &&
 									"press tap cursor-pointer transition-colors active:bg-surface-3",
 								dynamicClass,

@@ -45,7 +45,7 @@ export function RekapHeroCard({
 	reviewedBy,
 }: Props) {
 	return (
-		<div className="overflow-hidden rounded-[1.5rem] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
+		<div className="overflow-hidden rounded-[16px] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
 			<div className="space-y-3 p-5">
 				<div className="flex items-center justify-between gap-2">
 					<span className="eyebrow text-muted-foreground">{eyebrow}</span>
