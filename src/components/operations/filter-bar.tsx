@@ -107,11 +107,9 @@ export function OperationsFilterBar({
 	];
 
 	return (
-		<div className="flex flex-wrap items-center gap-2">
-			<form
-				onSubmit={handleSubmit}
-				className="min-w-[200px] flex-1 sm:max-w-[280px]"
-			>
+		<div className="space-y-2">
+			{/* Search — full width on its own row (mobile) */}
+			<form onSubmit={handleSubmit} className="sm:hidden">
 				<FilterSearchInput
 					className="w-full"
 					value={q}
@@ -120,80 +118,99 @@ export function OperationsFilterBar({
 				/>
 			</form>
 
-			<NativeSelect
-				value={defaultStatus}
-				onValueChange={(value) => router.push(buildHref({ status: value }))}
-				placeholder="Semua status"
-				options={statusOptions}
-				aria-label="Filter status"
-			/>
+			{/* Filters — one tidy horizontal-scroll row on mobile, wrapping on desktop */}
+			<div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+				<form
+					onSubmit={handleSubmit}
+					className="hidden sm:block sm:min-w-[200px] sm:max-w-[280px] sm:flex-1"
+				>
+					<FilterSearchInput
+						className="w-full"
+						value={q}
+						onValueChange={setQ}
+						placeholder="Cari nama klien…"
+					/>
+				</form>
 
-			<div className="flex items-center gap-1">
-				<div className="w-[160px]">
-					<MonthPicker
-						value={monthShowsAll ? "" : defaultMonth}
-						onValueChange={(value) => router.push(buildHref({ month: value }))}
-						placeholder="Semua bulan"
-						aria-label="Filter bulan"
+				<div className="shrink-0">
+					<NativeSelect
+						value={defaultStatus}
+						onValueChange={(value) => router.push(buildHref({ status: value }))}
+						placeholder="Semua status"
+						options={statusOptions}
+						aria-label="Filter status"
 					/>
 				</div>
-				<Link
-					href={buildHref({ month: monthShowsAll ? "" : "all" })}
-					className={cn(
-						"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
-						monthShowsAll
-							? "bg-secondary text-foreground"
-							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
-					)}
-					aria-pressed={monthShowsAll}
-					title={
-						monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
-					}
-				>
-					{monthShowsAll ? "Bulan ini" : "Semua"}
-				</Link>
-			</div>
 
-			{crewOptions.length > 0 && (
-				<div className="relative">
-					<Users
+				<div className="flex shrink-0 items-center gap-1">
+					<div className="w-[150px]">
+						<MonthPicker
+							value={monthShowsAll ? "" : defaultMonth}
+							onValueChange={(value) =>
+								router.push(buildHref({ month: value }))
+							}
+							placeholder="Semua bulan"
+							aria-label="Filter bulan"
+						/>
+					</div>
+					<Link
+						href={buildHref({ month: monthShowsAll ? "" : "all" })}
+						className={cn(
+							"inline-flex h-8 shrink-0 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
+							monthShowsAll
+								? "bg-secondary text-foreground"
+								: "text-muted-foreground hover:bg-secondary hover:text-foreground",
+						)}
+						aria-pressed={monthShowsAll}
+						title={
+							monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
+						}
+					>
+						{monthShowsAll ? "Bulan ini" : "Semua"}
+					</Link>
+				</div>
+
+				{crewOptions.length > 0 && (
+					<div className="relative shrink-0">
+						<Users
+							className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+							aria-hidden
+						/>
+						<NativeSelect
+							value={defaultCrew}
+							onValueChange={(value) => router.push(buildHref({ crew: value }))}
+							placeholder="Semua crew"
+							options={crewSelectOptions}
+							aria-label="Filter crew"
+							triggerClassName="pl-7"
+						/>
+					</div>
+				)}
+
+				<div className="relative shrink-0">
+					<ArrowDownUp
 						className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
 						aria-hidden
 					/>
 					<NativeSelect
-						value={defaultCrew}
-						onValueChange={(value) => router.push(buildHref({ crew: value }))}
-						placeholder="Semua crew"
-						options={crewSelectOptions}
-						aria-label="Filter crew"
+						value={defaultSort}
+						onValueChange={(value) => router.push(buildHref({ sort: value }))}
+						options={SORT_OPTIONS.map((o) => ({ ...o }))}
+						aria-label="Urutkan event"
 						triggerClassName="pl-7"
 					/>
 				</div>
-			)}
 
-			<div className="relative">
-				<ArrowDownUp
-					className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
-					aria-hidden
-				/>
-				<NativeSelect
-					value={defaultSort}
-					onValueChange={(value) => router.push(buildHref({ sort: value }))}
-					options={SORT_OPTIONS.map((o) => ({ ...o }))}
-					aria-label="Urutkan event"
-					triggerClassName="pl-7"
-				/>
+				{hasFilters && (
+					<Link
+						href="/operations"
+						className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+					>
+						<X className="size-3.5" aria-hidden />
+						Clear
+					</Link>
+				)}
 			</div>
-
-			{hasFilters && (
-				<Link
-					href="/operations"
-					className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-				>
-					<X className="size-3.5" aria-hidden />
-					Clear
-				</Link>
-			)}
 		</div>
 	);
 }
