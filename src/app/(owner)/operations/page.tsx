@@ -394,7 +394,7 @@ export default async function OperationsListPage({
 							<Link
 								href="/settings/operations/import-projects"
 								title="Bulk-import projects from old Apps Script v1"
-								className={buttonVariants({ variant: "outline" })}
+								className={buttonVariants({ variant: "outline", className: "h-9" })}
 							>
 								<Upload className="size-3.5" />
 								<span className="hidden sm:inline">Import legacy</span>
@@ -402,7 +402,7 @@ export default async function OperationsListPage({
 						)}
 						<Link
 							href="/operations/new"
-							className={buttonVariants({ variant: "default" })}
+							className={buttonVariants({ variant: "default", className: "h-9" })}
 						>
 							<Plus className="size-3.5" />
 							<span className="hidden sm:inline">New booking</span>

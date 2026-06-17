@@ -46,7 +46,7 @@ export function OperationsViewSwitcher({
 }) {
 	return (
 		<div
-			className="inline-flex h-8 items-center rounded-md border border-border-default bg-secondary p-0.5"
+			className="inline-flex h-9 items-center rounded-full border border-border-subtle bg-secondary p-1"
 			role="tablist"
 			aria-label="View"
 		>
@@ -61,7 +61,7 @@ export function OperationsViewSwitcher({
 						aria-selected={active}
 						aria-current={active ? "page" : undefined}
 						className={cn(
-							"inline-flex h-7 items-center gap-1.5 rounded-[4px] px-2.5 text-[12.5px] font-medium leading-none transition-colors",
+							"inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium leading-none transition-colors",
 							active
 								? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
 								: "text-muted-foreground hover:text-foreground",
