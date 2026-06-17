@@ -1,0 +1,815 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Fonts — Inter renders as the closest open-source substitute for
+     Vercel's custom Geist Sans. JetBrains Mono substitutes Geist Mono. */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-manrope);
+  --font-mono: var(--font-jetbrains-mono);
+  --font-heading: var(--font-manrope);
+
+  /* === Brand — Ink (Vercel's #171717 near-black primary) ===
+     One CTA color. Every primary button is this ink. No iris, no crimson. */
+  --color-ink-50: #fafafa;
+  --color-ink-100: #f5f5f5;
+  --color-ink-200: #ebebeb;
+  --color-ink-300: #d4d4d4;
+  --color-ink-400: #a1a1a1;
+  --color-ink-500: #737373;
+  --color-ink-600: #525252;
+  --color-ink-700: #404040;
+  --color-ink-800: #262626;
+  --color-ink-900: #171717;
+  --color-ink-950: #0a0a0a;
+
+  /* === Legacy aliases — iris/crimson tokens collapse to ink + link blue
+     so existing callers don't visually break. New code must use ink-*
+     or link-*. */
+  --color-iris-50: #f5f5f5;
+  --color-iris-100: #ebebeb;
+  --color-iris-200: #d4d4d4;
+  --color-iris-300: #a1a1a1;
+  --color-iris-400: #525252;
+  --color-iris-500: #171717;
+  --color-iris-600: #0a0a0a;
+  --color-iris-700: #0a0a0a;
+  --color-iris-800: #0a0a0a;
+  --color-iris-900: #0a0a0a;
+  --color-iris-950: #000000;
+  --color-crimson-50: #f5f5f5;
+  --color-crimson-100: #ebebeb;
+  --color-crimson-200: #d4d4d4;
+  --color-crimson-300: #a1a1a1;
+  --color-crimson-400: #525252;
+  --color-crimson-500: #171717;
+  --color-crimson-600: #0a0a0a;
+  --color-crimson-700: #0a0a0a;
+  --color-crimson-800: #0a0a0a;
+  --color-crimson-900: #0a0a0a;
+  --color-crimson-950: #000000;
+
+  /* === Neutrals — Vercel grayscale (pure cool gray, no blue tint) === */
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f5f5f5;
+  --color-slate-200: #ebebeb;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a1a1a1;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #404040;
+  --color-slate-800: #262626;
+  --color-slate-900: #171717;
+  --color-slate-950: #0a0a0a;
+
+  /* === Link / Info — Vercel blue #0070f3 === */
+  --color-link: #0070f3;
+  --color-link-deep: #0761d1;
+  --color-link-soft: #d3e5ff;
+
+  /* === Semantic — success (Vercel uses link-blue as legacy success;
+       we keep emerald for true "completed" / "paid" states) === */
+  --color-emerald-50: #ECFDF5;
+  --color-emerald-500: #10B981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+
+  /* === Semantic — warning (Vercel amber #f5a623) === */
+  --color-amber-50: #FFFBEB;
+  --color-amber-500: #f5a623;
+  --color-amber-600: #ab570a;
+  --color-amber-700: #8a4a0a;
+  --color-amber-soft: #ffefcf;
+
+  /* === Semantic — danger (Vercel red #ee0000) === */
+  --color-rose-50: #FEF2F2;
+  --color-rose-500: #ee0000;
+  --color-rose-600: #c50000;
+  --color-rose-700: #9a0000;
+  --color-rose-soft: #f7d4d6;
+
+  /* === Semantic — info: migrated to Teal (Midnight Glow) so "info" reads as
+     the calm emerald-adjacent companion, not a separate blue. Every existing
+     `sky-*` usage adopts teal automatically — one-point migration, consistent
+     across mobile + desktop. All used shades are defined so none fall back to
+     Tailwind's default blue sky. === */
+  --color-sky-50: #e6f4f4;
+  --color-sky-100: #c9e9e9;
+  --color-sky-200: #a3dada;
+  --color-sky-300: #6fc4c4;
+  --color-sky-400: #1fa8a8;
+  --color-sky-500: #00a3a3;
+  --color-sky-600: #008c8c;
+  --color-sky-700: #0a6b6b;
+  --color-sky-800: #084f4f;
+  --color-sky-900: #073e3e;
+  --color-sky-950: #052e2e;
+
+  /* === Midnight Glow — cool accent family that COMPLEMENTS emerald ===
+     White stays the clean base. Emerald = the single action/success hue.
+     These are the calm cool companions (see MOBILE.md §5 / DESIGN.md Colors):
+       Teal  #008C8C — secondary / info / link / accent icons (emerald-adjacent)
+       Navy  #001F3F — deep anchor / dark surfaces / strong heading accent
+       Cyan  #00BFFF — sparing highlight: focus, active dot, data pops
+     0 prior usage of teal/navy/cyan in the app, so this is purely additive. */
+  --color-teal-50: #e6f4f4;
+  --color-teal-100: #c9e9e9;
+  --color-teal-200: #a3dada;
+  --color-teal-300: #6fc4c4;
+  --color-teal-400: #1fa8a8;
+  --color-teal-500: #00a3a3;
+  --color-teal-600: #008c8c;
+  --color-teal-700: #0a6b6b;
+  --color-teal-800: #084f4f;
+  --color-teal-900: #073e3e;
+  --color-navy-50: #e8edf2;
+  --color-navy-100: #c6d2de;
+  --color-navy-200: #9fb2c6;
+  --color-navy-500: #1e4d7b;
+  --color-navy-600: #123a61;
+  --color-navy-700: #0a3055;
+  --color-navy-900: #001f3f;
+  --color-navy-950: #00152b;
+  --color-cyan-50: #e5f7ff;
+  --color-cyan-100: #ccefff;
+  --color-cyan-200: #99dfff;
+  --color-cyan-400: #00bfff;
+  --color-cyan-500: #06a6e0;
+  --color-cyan-600: #0086b8;
+  /* === Legacy aliases for retired accents — flatten to neutrals === */
+  --color-gold-300: #f5a623;
+  --color-gold-500: #f5a623;
+  --color-gold-700: #ab570a;
+  --color-sage-300: #10B981;
+  --color-sage-500: #10B981;
+  --color-sage-700: #047857;
+
+  /* shadcn semantic tokens (mapped to brand) */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* === Surface hierarchy — Vercel 4-step (canvas-soft / canvas / inset / ink)
+     Per Vercel: page bg = canvas-soft #fafafa, cards = pure white #ffffff,
+     inset region = canvas-soft-2 #f5f5f5, polarity-flipped band = ink #171717.
+     Our "surface" tokens map: surface-1=canvas, surface-2=canvas, surface-3=canvas-soft-2, surface-4=hairline tone */
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+
+  /* === Border hierarchy === */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* === Motion tokens — view-transitions friendly === */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Real spring physics baked into linear() easings (Baseline since 2023:
+     iOS 17.2+, Chrome 113+). Composite-thread, survive a busy main thread —
+     the native-feel motion primitive. Generated via Jake Archibald's tool. */
+  --ease-spring-snappy: linear(
+    0, 0.0067 1.4%, 0.0259 2.9%, 0.0989 5.9%, 0.5071 18%, 0.6262, 0.7335,
+    0.8231, 0.8959 33.4%, 0.9251, 0.9495, 0.9694 43.8%, 0.9849 48.4%,
+    0.9968 54%, 1.0058 61.8%, 1.0096 68.9%, 1.0103 75.7%, 1.0058 88.8%, 1
+  );
+  --ease-spring-soft: linear(
+    0, 0.0036 2.8%, 0.0306 6.8%, 0.1267 13.3%, 0.4133 28.3%, 0.5374, 0.6453,
+    0.735 47.5%, 0.8136, 0.8742 60.4%, 0.9215 67.4%, 0.9543 73.9%, 0.9779 81%,
+    0.9928 89.2%, 1
+  );
+  --duration-fast: 120ms;
+  --duration-base: 220ms;
+  --duration-slow: 360ms;
+  --duration-spring: 560ms;
+
+  /* === Shadows — Vercel stacked-shadow ladder. Multiple small offsets
+     with inset hairline; never a single heavy drop. ===
+     Level 1 — inset hairline only (card default)
+     Level 2 — subtle drop (template card)
+     Level 3 — soft stack (feature card)
+     Level 4 — float stack (pricing card)
+     Level 5 — modal (dialog / dropdown) */
+  --shadow-level-1: inset 0 0 0 1px rgb(0 0 0 / 0.08);
+  --shadow-level-2: 0 1px 1px rgb(0 0 0 / 0.02), 0 2px 2px rgb(0 0 0 / 0.04);
+  --shadow-level-3: 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 8px -8px rgb(0 0 0 / 0.04);
+  --shadow-level-4: 0 2px 2px rgb(0 0 0 / 0.04), 0 8px 16px -4px rgb(0 0 0 / 0.04);
+  --shadow-level-5: 0 1px 1px rgb(0 0 0 / 0.02), 0 8px 16px -4px rgb(0 0 0 / 0.04), 0 24px 32px -8px rgb(0 0 0 / 0.06);
+
+  /* === Soft elevation scale (v2) — Linear / Notion / Figma feel: layered,
+     low-opacity, cool gray-900 (#101828) tint, for white cards over the canvas.
+     A real ramp (xs → xl ≈ Figma 100 → 500). Namespaced `shadow-soft-*` so it
+     never collides with Tailwind's default shadow scale. See MOBILE.md §6. === */
+  --shadow-soft-xs: 0 1px 2px -1px rgb(16 24 40 / 0.08);
+  --shadow-soft-sm: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px -1px rgb(16 24 40 / 0.10);
+  --shadow-soft: 0 2px 4px -2px rgb(16 24 40 / 0.06), 0 4px 8px -2px rgb(16 24 40 / 0.08);
+  --shadow-soft-lg: 0 4px 6px -2px rgb(16 24 40 / 0.04), 0 12px 16px -4px rgb(16 24 40 / 0.08);
+  --shadow-soft-xl: 0 8px 8px -4px rgb(16 24 40 / 0.04), 0 20px 24px -4px rgb(16 24 40 / 0.10);
+  /* FAB — emerald-tinted lift, marks the single primary action */
+  --shadow-fab: 0 8px 20px -6px rgb(5 150 105 / 0.40);
+
+  /* Legacy shadow-glow aliases — collapse to flat hairline */
+  --shadow-glow-crimson: var(--shadow-level-2);
+  --shadow-glow-aurora: var(--shadow-level-2);
+  --shadow-glow-sunrise: var(--shadow-level-2);
+  --shadow-glow-success: var(--shadow-level-2);
+
+  /* === Fluid type scale — mobile shrinkage via clamp() ===
+     Tuned to Vercel display-xl 48px / display-lg 32px / display-md 24px /
+     display-sm 20px / body-lg 18px / body-md 16px / body-sm 14px / caption 12px. */
+  --text-fluid-caption: clamp(0.6875rem, 0.66rem + 0.18vw, 0.75rem);
+  --text-fluid-body: clamp(0.8125rem, 0.78rem + 0.22vw, 1rem);
+  --text-fluid-h3: clamp(1rem, 0.94rem + 0.4vw, 1.25rem);
+  --text-fluid-h2: clamp(1.125rem, 1.04rem + 0.55vw, 1.5rem);
+  --text-fluid-h1: clamp(1.375rem, 1.1rem + 1.4vw, 2rem);
+  --text-fluid-display: clamp(1.75rem, 1.4rem + 1.8vw, 3rem);
+
+  /* Radius — Vercel two-scale system:
+     --geist-radius 6px (in-app: buttons, inputs, dropdowns) → our --radius
+     --geist-marketing-radius 8px (cards) → our --radius * 1.33
+     pill 100px reserved for marketing CTAs only */
+  --radius-sm: calc(var(--radius) * 0.67);   /* 4px */
+  --radius-md: var(--radius);                /* 6px — IN-APP DEFAULT */
+  --radius-lg: calc(var(--radius) * 1.33);   /* 8px — card */
+  --radius-xl: calc(var(--radius) * 2);      /* 12px */
+  --radius-2xl: calc(var(--radius) * 2.67);  /* 16px */
+  --radius-3xl: calc(var(--radius) * 4);     /* 24px */
+}
+
+/* === Light mode — Vercel's signature: pure white cards on near-white
+   canvas-soft bg, ink-near-black text, hairline #ebebeb. === */
+:root {
+  --background: #fafafa;             /* canvas-soft — page body */
+  --foreground: #171717;             /* ink */
+  --card: #ffffff;                   /* canvas — pure white cards */
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #171717;                /* INK — the only CTA color */
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;              /* canvas-soft-2 — inset region */
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;       /* body tone */
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #ee0000;            /* Vercel error red */
+  --border: #ebebeb;                 /* hairline */
+  --input: #ebebeb;
+  --ring: #171717;                   /* focus ring uses ink, not blue */
+  --radius: 0.375rem;                /* 6px — Vercel --geist-radius */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #171717;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #ebebeb;
+  --sidebar-ring: #171717;
+
+  /* 4-surface hierarchy (light) — Vercel pattern:
+     surface-1 = canvas (white card)
+     surface-2 = canvas (default card — same as -1 by spec)
+     surface-3 = canvas-soft-2 (inset / hover)
+     surface-4 = hairline tone (selected) */
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #f5f5f5;
+  --surface-4: #ebebeb;
+
+  /* Border hierarchy (light) — Vercel hairline ladder */
+  --border-subtle: #f0f0f0;
+  --border-default: #ebebeb;
+  --border-strong: #a1a1a1;
+}
+
+/* === Dark mode — Vercel's dashboard dark surface:
+   near-black bg #0a0a0a, slightly lighter cards #171717, hairline #2a2a2a. === */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #171717;
+  --card-foreground: #ededed;
+  --popover: #171717;
+  --popover-foreground: #ededed;
+  --primary: #ededed;                /* In dark, primary inverts to white-ink */
+  --primary-foreground: #0a0a0a;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #ededed;
+  --muted: #1f1f1f;
+  --muted-foreground: #a1a1a1;
+  --accent: #1f1f1f;
+  --accent-foreground: #ededed;
+  --destructive: #ee0000;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #ededed;
+  --sidebar: #171717;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #ededed;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #1f1f1f;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #2a2a2a;
+  --sidebar-ring: #ededed;
+
+  /* 4-surface hierarchy (dark) */
+  --surface-1: #171717;
+  --surface-2: #171717;
+  --surface-3: #1f1f1f;
+  --surface-4: #2a2a2a;
+
+  /* Border hierarchy (dark) */
+  --border-subtle: #1f1f1f;
+  --border-default: #2a2a2a;
+  --border-strong: #404040;
+}
+
+/* === Legacy gradient utilities — keep no-op aliases so existing callers
+   don't crash. Vercel discipline forbids gradients in operational chrome.
+   New code must NOT reference these. */
+@utility bg-gradient-sunrise { background: transparent; }
+@utility bg-gradient-aurora { background: transparent; }
+@utility bg-gradient-sunrise-radial { background: transparent; }
+@utility bg-gradient-aurora-radial { background: transparent; }
+@utility bg-gradient-mesh-warm { background: transparent; }
+@utility text-gradient-sunrise { color: inherit; }
+@utility text-gradient-aurora { color: inherit; }
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    @apply font-sans;
+    background-color: var(--background);
+    -webkit-text-size-adjust: 100%;
+    overflow-x: clip;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Vercel/Geist OpenType stack: ss01 + ss02 enable Inter's geometric
+       alternates (closer to Geist's voice). cv11 single-story 'a' kept
+       for the modern feel. tnum + slashed zero stay on tabular. */
+    font-feature-settings: "ss01", "ss02", "cv11", "calt", "kern", "liga";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-overflow-scrolling: touch;
+    text-size-adjust: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: contain;
+    /* Letter spacing baseline — Vercel runs slightly negative across
+       all body type for a tighter, more engineered feel. */
+    letter-spacing: -0.011em;
+  }
+  /* Tabular numbers for financial figures. tnum + slashed-zero so columns
+     line up cleanly and 0 is distinguishable from O. */
+  .tabular {
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+  /* Eyebrow — Vercel "caption-mono" pattern: small mono uppercase that
+     marks technical labels (section eyebrows, table headers, KPI captions).
+     12px / 400 / +letter-spacing, uppercased, mono family. */
+  .eyebrow {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  /* Negative-tracking display utility (Vercel display-xl, display-lg).
+     Use on hero headlines and dashboard page titles. */
+  .display-tight {
+    letter-spacing: -0.04em;
+  }
+  /* Focus ring — keeps the AAA outline but uses ink-tone ring. */
+  :focus-visible {
+    @apply outline-ring;
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: 2px;
+  }
+}
+
+/* === Component microinteraction keyframes — compositor-friendly === */
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* View Transitions — page navigation animations. */
+::view-transition-group(.morph) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out-expo);
+}
+::view-transition-image-pair(.morph) { animation-name: morph-blur; }
+@keyframes morph-blur { 30% { filter: blur(3px); } }
+
+::view-transition-old(.fade) {
+  animation: var(--duration-fast) var(--ease-out-expo) both vt-fade-out;
+}
+::view-transition-new(.fade) {
+  animation: var(--duration-base) var(--ease-out-expo) var(--duration-fast) both vt-fade-in;
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; filter: blur(2px); }
+  to { opacity: 1; filter: blur(0); }
+}
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+::view-transition-old(.nav-forward) {
+  --vt-slide-offset: -40px;
+  animation:
+    var(--duration-fast) var(--ease-out-expo) both vt-fade-out,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-slide-offset: 40px;
+  animation:
+    var(--duration-base) var(--ease-out-expo) var(--duration-fast) both vt-fade-in,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x;
+}
+::view-transition-old(.nav-back) {
+  --vt-slide-offset: 40px;
+  animation:
+    var(--duration-fast) var(--ease-out-expo) both vt-fade-out,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-slide-offset: -40px;
+  animation:
+    var(--duration-base) var(--ease-out-expo) var(--duration-fast) both vt-fade-in,
+    var(--duration-slow) var(--ease-out-expo) both vt-slide-x;
+}
+
+@keyframes vt-slide-x {
+  from { translate: var(--vt-slide-offset); }
+  to { translate: 0; }
+}
+
+::view-transition-group(site-header),
+::view-transition-group(site-bottom-nav),
+::view-transition-group(site-sidebar) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header),
+::view-transition-old(site-bottom-nav),
+::view-transition-old(site-sidebar) {
+  display: none;
+}
+::view-transition-new(site-header),
+::view-transition-new(site-bottom-nav),
+::view-transition-new(site-sidebar) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
+@layer utilities {
+  /* === Microinteraction utilities — Vercel restraint:
+     press-down stays (tactile mobile feedback). lift-on-hover demoted to
+     color-only (translate disabled — Vercel doesn't transform on hover). */
+  .press-down {
+    transition: transform var(--duration-fast) var(--ease-out-expo);
+  }
+  .press-down:active {
+    transform: scale(0.98);
+  }
+
+  .lift-on-hover {
+    /* No-op alias retained for legacy callers — Vercel doesn't translate
+       on hover. Color change is the only state cue. */
+    transition: background-color var(--duration-fast) var(--ease-out-expo);
+  }
+
+  .fade-in-on-mount {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity var(--duration-base) var(--ease-out-expo),
+                transform var(--duration-base) var(--ease-out-expo);
+  }
+  @starting-style {
+    .fade-in-on-mount {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .press-down,
+    .lift-on-hover,
+    .fade-in-on-mount {
+      transition: none !important;
+    }
+    .press-down:active {
+      transform: none !important;
+    }
+  }
+
+  /* Hidden scrollbar — for edge-bleeding horizontal scrollers (stat cards,
+     filter chips) where the scrollbar would be visual noise. */
+  .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Vercel-thin scrollbar — 8px, near-invisible track until hover.
+     Apply on long scroll containers (sidebar nav, dropdown lists). */
+  .scrollbar-vercel {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(0 0 0 / 0.18) transparent;
+  }
+  .scrollbar-vercel::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollbar-vercel::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-vercel::-webkit-scrollbar-thumb {
+    background-color: rgb(0 0 0 / 0.15);
+    border-radius: 100px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .scrollbar-vercel::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(0 0 0 / 0.30);
+    background-clip: padding-box;
+  }
+  .dark .scrollbar-vercel {
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  }
+  .dark .scrollbar-vercel::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.15);
+  }
+  .dark .scrollbar-vercel::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(255 255 255 / 0.30);
+  }
+
+  /* Safe-area helpers — iOS notch / Dynamic Island / home indicator */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .px-safe {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .py-safe {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe-or-4 { padding-top: max(env(safe-area-inset-top), 1rem); }
+  .pb-safe-or-4 { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
+  .h-safe-bottom-nav { height: calc(3.5rem + env(safe-area-inset-bottom)); }
+  .h-safe-topbar { height: calc(3.5rem + env(safe-area-inset-top)); }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOBILE-NATIVE FOUNDATION (2026)
+   A single, enforced type ramp + spatial system so screens stop hand-rolling
+   px values. Every text style below bundles size + weight + line-height +
+   tracking into ONE class — the iOS "text style" model. Sizes flex gently
+   with the viewport via clamp() (bounded to the phone range) so they adapt
+   across devices without getting weird. Use these everywhere; never reach for
+   text-[11px] / text-[10px] / ad-hoc text-xs again.
+   ════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* — Display / titles — */
+  .type-display {
+    font-size: clamp(1.75rem, 1.36rem + 1.75vw, 2.125rem);   /* 28 → 34 */
+    font-weight: 600;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  .type-title {
+    font-size: clamp(1.375rem, 1.18rem + 0.88vw, 1.625rem);  /* 22 → 26 */
+    font-weight: 600;
+    line-height: 1.16;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+  .type-heading {
+    font-size: clamp(1.0625rem, 1.0rem + 0.31vw, 1.1875rem); /* 17 → 19 */
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  /* — Body / reading — */
+  .type-body {
+    font-size: clamp(0.9375rem, 0.9rem + 0.19vw, 1rem);      /* 15 → 16 */
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  .type-body-strong {
+    font-size: clamp(0.9375rem, 0.9rem + 0.19vw, 1rem);
+    font-weight: 550;
+    line-height: 1.45;
+    letter-spacing: -0.011em;
+  }
+  .type-secondary {
+    font-size: clamp(0.875rem, 0.85rem + 0.12vw, 0.9375rem); /* 14 → 15 */
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: -0.006em;
+    color: var(--muted-foreground);
+  }
+  /* — Labels / fine print — */
+  .type-label {
+    font-size: 0.8125rem;                                     /* 13 */
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.006em;
+  }
+  .type-caption {
+    font-size: 0.75rem;                                       /* 12 */
+    font-weight: 450;
+    line-height: 1.35;
+    letter-spacing: 0;
+    color: var(--muted-foreground);
+  }
+  /* — Tabular numbers (money / quantities) — */
+  .type-num {
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+  .type-num-lg {
+    font-size: clamp(1.5rem, 1.28rem + 1vw, 1.875rem);       /* 24 → 30 */
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+  .type-num-xl {
+    font-size: clamp(2rem, 1.6rem + 1.78vw, 2.75rem);        /* 32 → 44 */
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: "tnum", "ss01", "ss02", "cv11";
+  }
+
+  /* Manrope is the display/heading/number voice (shared mobile + desktop).
+     Inter remains the body/UI workhorse via --font-sans on <body>. */
+  .type-display,
+  .type-title,
+  .type-heading,
+  .type-num,
+  .type-num-lg,
+  .type-num-xl {
+    font-family: var(--font-manrope), var(--font-inter), system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  /* Fluid horizontal gutter — tracks viewport so the layout breathes the
+     same on a 360px Android and a 430px iPhone Pro Max. */
+  .app-gutter {
+    padding-inline: clamp(1rem, 0.7rem + 1.5vw, 1.5rem);
+  }
+  /* Standard mobile screen column. max-w keeps large phones / tablets from
+     stretching line lengths past comfort. */
+  .app-screen {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 30rem;            /* 480px */
+    padding-inline: clamp(1rem, 0.7rem + 1.5vw, 1.5rem);
+  }
+
+  /* Native tap feel — kill the 300ms delay + gray flash, keep momentum. */
+  .tap {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* Spring press — the tactile cue that compensates for the lack of iOS
+     web-haptics. Uses a real spring easing on release. */
+  .press {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform var(--duration-spring) var(--ease-spring-snappy),
+      background-color var(--duration-fast) var(--ease-out-quart),
+      opacity var(--duration-fast) var(--ease-out-quart);
+  }
+  .press:active {
+    transform: scale(0.96);
+    transition-duration: var(--duration-fast);
+  }
+  .press-sm:active { transform: scale(0.98); }
+
+  /* Reveal-on-scroll: native iOS Safari 26+ / Chrome path via scroll-driven
+     animation. Pre-26 iOS just shows content (no-op) — progressive. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .reveal {
+        animation: reveal-rise linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 36%;
+      }
+    }
+  }
+  @keyframes reveal-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Sticky offset that sits a per-screen header right under the global
+     TopBar (44px mobile / 56px desktop, plus the notch inset). */
+  .top-app-header { top: calc(2.75rem + env(safe-area-inset-top)); }
+  @media (min-width: 768px) {
+    .top-app-header { top: calc(3.5rem + env(safe-area-inset-top)); }
+  }
+
+  /* Collapsing large-title header. The big title fades/shrinks away and the
+     compact inline title fades in, driven purely by document scroll position
+     (scroll(root block)) — no JS, no timeline wiring. Pre-26 iOS simply keeps
+     the large title visible as it scrolls (graceful). Applied by <AppHeader>. */
+  @supports (animation-timeline: scroll(root block)) {
+    @media (prefers-reduced-motion: no-preference) {
+      .lt-large {
+        animation: lt-large-collapse linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 4px 60px;
+      }
+      .lt-compact {
+        opacity: 0;
+        animation: lt-compact-in linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 24px 60px;
+      }
+      .lt-hairline {
+        animation: lt-hairline-in linear both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 44px;
+      }
+    }
+  }
+  @keyframes lt-large-collapse {
+    to { opacity: 0; transform: translateY(-8px) scale(0.95); transform-origin: left center; }
+  }
+  @keyframes lt-compact-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lt-hairline-in {
+    from { border-color: transparent; }
+    to { border-color: var(--border-default); }
+  }
+
+  /* Stagger helper for list entrances (used with .reveal or @starting-style). */
+  .stagger > * { animation-delay: calc(var(--i, 0) * 40ms); }
+}
+
+/* Native momentum + no horizontal rubber-banding inside scroll regions. */
+@layer base {
+  a, button, [role="button"], label, summary, input, select, textarea {
+    touch-action: manipulation;
+  }
+  /* Headings set in the app default to balanced wrapping for tidy line breaks. */
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+}
