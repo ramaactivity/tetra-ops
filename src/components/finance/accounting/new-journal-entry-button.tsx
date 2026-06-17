@@ -127,7 +127,7 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary"
+				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669]"
 			>
 				<Plus className="size-4" />
 				Buat Entry Manual
@@ -384,7 +384,7 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 										? "Total debit harus sama dengan total kredit"
 										: undefined
 								}
-								className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+								className="inline-flex h-10 items-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-sm font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 							>
 								{pending
 									? "Menyimpan…"

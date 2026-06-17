@@ -28,7 +28,7 @@ export function InviteCrewForm() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
+				className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
 			>
 				<UserPlus className="h-4 w-4" />
 				Invite crew
@@ -130,7 +130,7 @@ export function InviteCrewForm() {
 				<button
 					type="submit"
 					disabled={pending}
-					className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-50"
+					className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium disabled:opacity-50"
 				>
 					{pending ? (
 						<Loader2 className="h-4 w-4 animate-spin" />

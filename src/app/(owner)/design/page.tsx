@@ -311,7 +311,7 @@ export default async function AssetDesignPage({
 					<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 						<div className="overflow-x-auto">
 							<table className="w-full text-sm">
-								<thead className="bg-secondary/50">
+								<thead className="bg-card border-b border-border-subtle">
 									<tr className="border-b border-border-default text-left">
 										<th className="eyebrow px-4 py-2.5">Event</th>
 										<th className="eyebrow hidden px-4 py-2.5 sm:table-cell">

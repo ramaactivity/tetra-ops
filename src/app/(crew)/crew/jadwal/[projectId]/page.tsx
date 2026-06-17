@@ -283,7 +283,7 @@ export default async function CrewEventDetailPage({
 								className={cn(
 									"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.75rem] font-semibold",
 									countdownSoon
-										? "bg-primary text-primary-foreground"
+										? "bg-[#059669] text-white"
 										: "bg-surface-3 text-muted-foreground",
 								)}
 							>
@@ -563,7 +563,7 @@ export default async function CrewEventDetailPage({
 							href={footageFolderUrl}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="bg-primary dark:bg-primary text-white inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-primary/90 dark:hover:bg-primary"
+							className="bg-[#059669] dark:bg-[#0b9e6a] text-white inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium hover:bg-[#047857] dark:hover:bg-[#059669]"
 						>
 							<FolderOpen className="h-4 w-4" />
 							Upload footage di Google Drive
@@ -737,7 +737,7 @@ function TimeCell({
 			className={cn(
 				"flex flex-col items-center justify-center gap-0.5 rounded-2xl py-2.5",
 				hero
-					? "bg-primary text-primary-foreground"
+					? "bg-[#059669] text-white"
 					: "bg-card text-foreground ring-1 ring-border-subtle",
 			)}
 		>

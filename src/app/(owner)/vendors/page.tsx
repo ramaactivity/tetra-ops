@@ -335,7 +335,7 @@ export default async function VendorsListPage({
 			href={showArchived ? "/vendors" : "/vendors?show_archived=1"}
 			className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium transition-colors ${
 				showArchived
-					? "border-foreground bg-foreground text-background"
+					? "border-[#059669] bg-[#059669] text-white"
 					: "border-border-default bg-card text-muted-foreground hover:text-foreground hover:bg-secondary"
 			}`}
 			aria-pressed={showArchived}

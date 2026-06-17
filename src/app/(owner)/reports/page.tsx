@@ -205,7 +205,7 @@ function TabLink({
 			<Icon className="h-4 w-4" />
 			{label}
 			{active && (
-				<span className="bg-primary absolute inset-x-0 bottom-0 h-0.5" />
+				<span className="bg-[#059669] absolute inset-x-0 bottom-0 h-0.5" />
 			)}
 		</Link>
 	);
@@ -789,7 +789,7 @@ async function CrewSection({
 				) : (
 					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 						<table className="w-full text-sm">
-							<thead className="bg-muted/40">
+							<thead className="bg-card border-b border-border-subtle">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
 									<th className="px-4 py-3 text-left font-medium">Crew</th>
 									<th className="px-4 py-3 text-left font-medium">Tier</th>
@@ -1034,7 +1034,7 @@ async function OwnerSection({
 				</h2>
 				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 					<table className="w-full text-sm">
-						<thead className="bg-muted/40">
+						<thead className="bg-card border-b border-border-subtle">
 							<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
 								<th className="px-4 py-3 text-left font-medium">Owner</th>
 								<th className="px-4 py-3 text-right font-medium">Share %</th>

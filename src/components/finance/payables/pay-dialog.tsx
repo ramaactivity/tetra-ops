@@ -261,7 +261,7 @@ export function PayDialog({
 						<button
 							type="submit"
 							disabled={pending || !isValid}
-							className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+							className="inline-flex h-10 items-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-sm font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 						>
 							{pending
 								? "Memproses…"

@@ -129,7 +129,7 @@ export function MonthPicker({
 										className={cn(
 											"h-8 flex-1 rounded-md px-2 text-[12.5px] font-medium transition-colors",
 											qa.active
-												? "bg-primary text-primary-foreground"
+												? "bg-[#059669] text-white"
 												: "bg-secondary text-foreground hover:bg-muted",
 										)}
 									>

@@ -498,7 +498,7 @@ function TypeChip({
 			className={cn(
 				"inline-flex h-8 items-center rounded-[4px] px-3 text-[12.5px] font-medium leading-none transition-colors",
 				checked
-					? "bg-foreground text-background"
+					? "bg-[#059669] text-white"
 					: "text-muted-foreground hover:text-foreground",
 			)}
 		>

@@ -111,7 +111,7 @@ function FilterChips<K extends string>({
 						aria-pressed={active}
 						className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium transition-colors ${
 							active
-								? "bg-primary text-primary-foreground"
+								? "bg-[#059669] text-white"
 								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 						}`}
 					>

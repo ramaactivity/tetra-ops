@@ -144,7 +144,7 @@ export function StockTakeActions({
 							disabled={pending || !hasVariance}
 							title={commitTitle}
 							aria-disabled={!hasVariance}
-							className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40"
+							className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40"
 						>
 							<CheckCircle2 className="size-3.5" />
 							Commit ({varianceCount})

@@ -175,7 +175,7 @@ export default async function WastageReportPage({
 						href={`/finance/wastage-report?months=${m}`}
 						className={`press-down inline-flex h-7 items-center rounded-md px-2.5 text-[12px] font-medium transition-colors ${
 							m === monthsBack
-								? "bg-primary text-primary-foreground"
+								? "bg-[#059669] text-white"
 								: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 						}`}
 					>

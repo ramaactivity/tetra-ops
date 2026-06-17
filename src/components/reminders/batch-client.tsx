@@ -267,7 +267,7 @@ export function ReminderBatchClient({
 							batching || sendableSelectedIds.length === 0 || !selectedTemplate
 						}
 						onClick={handleBatchSend}
-						className="bg-foreground text-background hover:bg-foreground/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+						className="bg-[#059669] text-white hover:bg-[#047857] inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{batching ? (
 							<Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -287,7 +287,7 @@ export function ReminderBatchClient({
 
 			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
 				<table className="w-full text-sm">
-					<thead className="bg-muted/50">
+					<thead className="bg-card border-b border-border-subtle">
 						<tr className="border-b">
 							<th className="w-10 px-3 py-2 text-left">
 								<input
@@ -420,7 +420,7 @@ export function ReminderBatchClient({
 													type="button"
 													onClick={() => handleSendOne(meta.id)}
 													disabled={noPhone || !selectedTemplate}
-													className="bg-foreground text-background hover:bg-foreground/90 inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+													className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
 												>
 													<ExternalLink className="h-3 w-3" />
 													Kirim

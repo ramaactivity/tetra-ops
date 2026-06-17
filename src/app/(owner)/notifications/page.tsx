@@ -411,7 +411,7 @@ function TabLink({
 			href={href}
 			className={`inline-flex h-7 items-center rounded px-2.5 text-xs font-medium transition-colors ${
 				active
-					? "bg-primary text-primary-foreground"
+					? "bg-[#059669] text-white"
 					: "text-muted-foreground hover:text-foreground"
 			}`}
 		>

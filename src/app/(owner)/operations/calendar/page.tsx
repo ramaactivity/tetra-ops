@@ -212,7 +212,7 @@ export default async function OperationsCalendarPage({
 											"text-xs",
 											inMonth ? "text-foreground" : "text-muted-foreground/50",
 											isToday &&
-												"bg-primary text-primary-foreground inline-flex h-5 w-5 items-center justify-center rounded-full font-semibold tabular",
+												"bg-[#059669] text-white inline-flex h-5 w-5 items-center justify-center rounded-full font-semibold tabular",
 										)}
 									>
 										{d.getDate()}

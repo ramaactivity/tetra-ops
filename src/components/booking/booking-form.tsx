@@ -326,7 +326,7 @@ function ValueTypeToggle({
 						onClick={() => onChange(t)}
 						className={`inline-flex h-8 items-center rounded-[4px] px-3 text-[12.5px] font-medium leading-none transition-colors ${
 							value === t
-								? "bg-foreground text-background"
+								? "bg-[#059669] text-white"
 								: "text-muted-foreground hover:text-foreground"
 						}`}
 					>
@@ -2750,7 +2750,7 @@ export function BookingForm({
 							<button
 								type="submit"
 								disabled={pending}
-								className="press-down h-10 rounded-md bg-primary dark:bg-primary px-4 text-fluid-body font-medium text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+								className="press-down h-10 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-fluid-body font-medium text-white transition-colors hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 							>
 								{pending ? "Menyimpan…" : submitLabel}
 							</button>

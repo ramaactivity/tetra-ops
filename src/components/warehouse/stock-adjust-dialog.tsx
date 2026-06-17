@@ -391,7 +391,7 @@ export function StockAdjustDialog({
 						<button
 							type="submit"
 							disabled={!canSubmit}
-							className="press-down inline-flex h-10 items-center gap-2 rounded-md bg-primary dark:bg-primary px-5 text-[13px] font-semibold text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+							className="press-down inline-flex h-10 items-center gap-2 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 						>
 							{pending && (
 								<Loader2 className="size-3.5 animate-spin" aria-hidden />

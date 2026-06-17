@@ -300,7 +300,7 @@ export function SummaryRail({
 					type="submit"
 					form="booking-form"
 					disabled={pending}
-					className="press-down inline-flex h-10 items-center justify-center rounded-md bg-primary dark:bg-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+					className="press-down inline-flex h-10 items-center justify-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 				>
 					{pending ? "Menyimpan…" : submitLabel}
 				</button>

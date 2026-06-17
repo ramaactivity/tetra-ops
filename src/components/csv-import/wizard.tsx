@@ -393,9 +393,9 @@ function StepIndicator({ current }: { current: Step }) {
 							<span
 								className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
 									isDone
-										? "bg-primary text-primary-foreground"
+										? "bg-[#059669] text-white"
 										: isActive
-											? "bg-primary text-primary-foreground ring-primary/20 ring-4"
+											? "bg-[#059669] text-white ring-primary/20 ring-4"
 											: "border-border-default bg-surface-2 text-muted-foreground border"
 								}`}
 							>
@@ -530,7 +530,7 @@ function UploadStep({
 							type="button"
 							onClick={() => onPaste(pasteText)}
 							disabled={!pasteText.trim()}
-							className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
+							className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
 						>
 							Parse
 							<ChevronRight className="h-4 w-4" />
@@ -601,7 +601,7 @@ function MapStep({
 
 			<div className="border-border-default overflow-hidden rounded-md border">
 				<table className="w-full text-sm">
-					<thead className="bg-muted/50">
+					<thead className="bg-card border-b border-border-subtle">
 						<tr>
 							<th className="text-muted-foreground px-3 py-2 text-left text-xs font-medium uppercase tracking-wider">
 								Kolom CSV
@@ -712,7 +712,7 @@ function MapStep({
 						type="button"
 						onClick={onNext}
 						disabled={missingRequired.length > 0 || isPending}
-						className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
+						className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
 					>
 						{isPending ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -829,7 +829,7 @@ function PreviewStep({
 					</p>
 					<div className="border-border-default max-h-72 overflow-auto rounded-md border">
 						<table className="w-full text-xs">
-							<thead className="bg-muted/50 sticky top-0">
+							<thead className="bg-card border-b border-border-subtle sticky top-0">
 								<tr>
 									<th className="text-muted-foreground sticky left-0 bg-muted/50 px-2 py-1.5 text-left font-medium">
 										#
@@ -895,7 +895,7 @@ function PreviewStep({
 					<button
 						type="button"
 						onClick={onCommit}
-						className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
+						className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
 					>
 						<FileSpreadsheet className="h-4 w-4" />
 						Confirm & Import
@@ -1121,7 +1121,7 @@ function DoneStep({
 				<DisclosurePanel>
 				<div className="border-border-default max-h-96 overflow-auto rounded-md border">
 					<table className="w-full text-xs">
-						<thead className="bg-muted/50 sticky top-0">
+						<thead className="bg-card border-b border-border-subtle sticky top-0">
 							<tr>
 								<th className="px-2 py-1.5 text-left font-medium">Row</th>
 								<th className="px-2 py-1.5 text-left font-medium">PK</th>

@@ -133,7 +133,7 @@ export function PRTable({
 											className={`h-full rounded-full transition-all ${
 												pr.status === "completed"
 													? "bg-emerald-500"
-													: "bg-primary"
+													: "bg-amber-400"
 											}`}
 											style={{ width: `${progressPct}%` }}
 										/>
@@ -227,7 +227,7 @@ function PRDetailExpanded({
 			<div className="overflow-hidden rounded-md border border-border-default">
 				<div className="w-full overflow-x-auto">
 					<table className="w-full text-sm">
-						<thead className="bg-surface-3/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+						<thead className="bg-card border-b border-border-subtle text-[11px] uppercase tracking-wider text-foreground">
 							<tr>
 								<th className="px-3 py-2 text-left">Item</th>
 								<th className="px-3 py-2 text-right">Diminta</th>
@@ -337,7 +337,7 @@ function PRDetailExpanded({
 						type="button"
 						onClick={handleReceive}
 						disabled={pending}
-						className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+						className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 					>
 						<Package className="size-3.5" />
 						{pending ? "Memproses..." : "Terima Item"}

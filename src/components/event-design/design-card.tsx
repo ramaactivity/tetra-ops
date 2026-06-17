@@ -146,7 +146,7 @@ export function DesignCard({
 						<button
 							type="submit"
 							disabled={pending}
-							className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 shrink-0 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+							className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-10 shrink-0 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
 						>
 							{pending ? "…" : "Tambah link"}
 						</button>

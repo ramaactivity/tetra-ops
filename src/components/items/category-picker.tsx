@@ -80,7 +80,7 @@ export function CategoryPicker({
 						>
 							{/* Selected checkmark — top right */}
 							{isSelected && (
-								<div className="absolute right-4 top-4 inline-flex size-6 items-center justify-center rounded-full bg-foreground text-background shadow-sm">
+								<div className="absolute right-4 top-4 inline-flex size-6 items-center justify-center rounded-full bg-[#059669] text-white shadow-sm">
 									<Check className="size-3.5" strokeWidth={3} />
 								</div>
 							)}
@@ -90,7 +90,7 @@ export function CategoryPicker({
 									className={cn(
 										"inline-flex size-12 shrink-0 items-center justify-center rounded-lg transition-colors",
 										isSelected
-											? "bg-foreground text-background"
+											? "bg-[#059669] text-white"
 											: "bg-surface-2 text-foreground/70 group-hover:bg-surface-1 group-hover:text-foreground",
 									)}
 								>

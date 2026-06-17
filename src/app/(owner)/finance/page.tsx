@@ -558,7 +558,7 @@ export default async function FinancePage() {
 					</div>
 					<div className="border-border-subtle bg-card overflow-x-auto rounded-[16px] border shadow-[var(--shadow-level-2)]">
 						<table className="w-full text-sm">
-							<thead className="bg-muted/40">
+							<thead className="bg-card border-b border-border-subtle">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
 									<th className="px-4 py-2.5 text-left font-medium">Owner</th>
 									<th className="px-4 py-2.5 text-right font-medium">Share</th>
@@ -638,7 +638,7 @@ export default async function FinancePage() {
 				) : (
 					<div className="border-border-subtle bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
 						<table className="w-full text-xs">
-							<thead className="bg-muted/40">
+							<thead className="bg-card border-b border-border-subtle">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
 									<th className="px-4 py-2.5 text-left font-medium">Event</th>
 									<th className="px-4 py-2.5 text-right font-medium">

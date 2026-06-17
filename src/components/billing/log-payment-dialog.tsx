@@ -40,7 +40,7 @@ export function LogPaymentDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger className="press tap inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90 dark:bg-primary dark:hover:bg-primary">
+			<DialogTrigger className="press tap inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#059669] px-4 text-sm font-medium text-white transition-colors hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]">
 				<Plus className="size-4" />
 				Log payment
 			</DialogTrigger>

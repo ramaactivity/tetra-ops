@@ -234,7 +234,7 @@ export function PushSubscribeButton({
 							type="button"
 							onClick={handleTestPush}
 							disabled={pending}
-							className="bg-foreground text-background hover:bg-foreground/90 inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:opacity-50"
+							className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:opacity-50"
 						>
 							<Send className="h-3.5 w-3.5" />
 							Test push
@@ -249,7 +249,7 @@ export function PushSubscribeButton({
 						type="button"
 						onClick={handleSubscribe}
 						disabled={pending || !vapidPublicKey}
-						className="bg-foreground text-background hover:bg-foreground/90 inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:opacity-50"
+						className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:opacity-50"
 					>
 						{pending ? (
 							<Loader2 className="h-3.5 w-3.5 animate-spin" />

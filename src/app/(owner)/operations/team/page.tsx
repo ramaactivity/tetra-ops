@@ -216,7 +216,7 @@ export default async function CrewScheduleView({
 			) : (
 				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-xl border">
 					<table className="w-full text-xs">
-						<thead className="bg-muted/40 sticky top-0">
+						<thead className="bg-card border-b border-border-subtle sticky top-0">
 							<tr>
 								<th
 									scope="col"

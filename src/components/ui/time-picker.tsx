@@ -271,7 +271,7 @@ export function TimePicker({
 													className={cn(
 														"tabular block w-full rounded-sm px-2 py-1 text-center text-[13px] font-medium transition-colors",
 														active
-															? "bg-primary text-primary-foreground"
+															? "bg-[#059669] text-white"
 															: "text-foreground hover:bg-muted",
 													)}
 												>
@@ -315,7 +315,7 @@ export function TimePicker({
 													className={cn(
 														"tabular block w-full rounded-sm px-2 py-1 text-center text-[13px] font-medium transition-colors",
 														active
-															? "bg-primary text-primary-foreground"
+															? "bg-[#059669] text-white"
 															: "text-foreground hover:bg-muted",
 													)}
 												>

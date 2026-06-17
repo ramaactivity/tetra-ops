@@ -281,7 +281,7 @@ export default async function RemindersPage({
 							className={cn(
 								"inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
 								isActive
-									? "border-foreground bg-foreground text-background"
+									? "border-[#059669] bg-[#059669] text-white"
 									: "border-border-default bg-surface-2 text-muted-foreground hover:bg-muted hover:text-foreground",
 							)}
 						>

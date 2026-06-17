@@ -149,7 +149,7 @@ export function StockOpnameTable({
 									onClick={() => setFilter(t.key)}
 									className={`inline-flex h-7 items-center gap-1 rounded px-2.5 font-medium transition-colors ${
 										active
-											? "bg-primary text-primary-foreground"
+											? "bg-[#059669] text-white"
 											: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 									}`}
 									aria-pressed={active}
@@ -244,7 +244,7 @@ function LineTable({
 			{/* Desktop table */}
 			<div className="hidden overflow-hidden rounded-lg border border-border-default bg-surface-2 md:block">
 				<table className="w-full text-sm">
-					<thead className="sticky top-0 z-10 border-b border-border-default bg-surface-3/95 backdrop-blur supports-[backdrop-filter]:bg-surface-3/80">
+					<thead className="sticky top-0 z-10 border-b border-border-default bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
 						<tr className="text-left">
 							<th className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 								Item

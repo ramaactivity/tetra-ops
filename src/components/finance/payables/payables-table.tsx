@@ -205,7 +205,7 @@ export function PayablesTable({
 													className={`h-full rounded-full transition-all ${
 														p.status === "paid"
 															? "bg-emerald-500"
-															: "bg-primary"
+															: "bg-amber-400"
 													}`}
 													style={{ width: `${progressPct}%` }}
 												/>
@@ -240,7 +240,7 @@ export function PayablesTable({
 											<button
 												type="button"
 												onClick={() => setPayTarget(p)}
-												className="press-down inline-flex h-8 items-center gap-1 rounded-md bg-primary dark:bg-primary px-2.5 text-[12px] font-medium text-white hover:bg-primary/90 dark:hover:bg-primary"
+												className="press-down inline-flex h-8 items-center gap-1 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-2.5 text-[12px] font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669]"
 											>
 												<Wallet className="size-3.5" />
 												Bayar
@@ -283,7 +283,7 @@ export function PayablesTable({
 										<div className="overflow-hidden rounded-md border border-border-default">
 											<div className="w-full overflow-x-auto">
 												<table className="w-full text-sm">
-													<thead className="bg-surface-3/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+													<thead className="bg-card border-b border-border-subtle text-[10px] uppercase tracking-wider text-foreground">
 														<tr>
 															<th className="px-3 py-2 text-left">Tanggal</th>
 															<th className="px-3 py-2 text-left">Akun</th>

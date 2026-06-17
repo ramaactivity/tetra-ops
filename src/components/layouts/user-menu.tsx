@@ -64,7 +64,7 @@ export function UserMenu({
 				className="hover:bg-muted focus-visible:ring-ring inline-flex h-11 w-11 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
 			>
 				<Avatar className="h-9 w-9">
-					<AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+					<AvatarFallback className="bg-[#059669] text-white text-xs font-medium">
 						{initialsOf(name)}
 					</AvatarFallback>
 				</Avatar>

@@ -274,7 +274,7 @@ export function StickyFormFooter({
 			<button
 				type="submit"
 				disabled={pending}
-				className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-60 dark:bg-primary dark:hover:bg-primary"
+				className="inline-flex h-9 items-center rounded-lg bg-[#059669] px-4 text-sm font-medium text-white transition-colors hover:bg-[#047857] disabled:opacity-60 dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
 			>
 				{pending ? pendingLabel : submitLabel}
 			</button>

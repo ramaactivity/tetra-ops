@@ -118,7 +118,7 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 							onClick={() => setFilter(f.key)}
 							className={`press-down inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium transition-colors ${
 								isActive
-									? "bg-primary text-primary-foreground"
+									? "bg-[#059669] text-white"
 									: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 							}`}
 						>

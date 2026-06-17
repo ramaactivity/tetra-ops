@@ -398,7 +398,7 @@ function FillChip({
 			className={cn(
 				"press tap inline-flex h-7 items-center rounded-lg border px-2.5 text-[12.5px] font-medium tabular transition-colors",
 				active
-					? "border-primary bg-primary text-primary-foreground"
+					? "border-primary bg-[#059669] text-white"
 					: "border-border-default text-muted-foreground hover:bg-secondary hover:text-foreground",
 			)}
 		>

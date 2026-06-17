@@ -141,7 +141,7 @@ export default async function CrewRekapSuccessPage({
 			<div className="space-y-2">
 				<Link
 					href={`/crew/jadwal/${projectId}`}
-					className="press-down inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary dark:bg-primary px-6 text-fluid-body font-semibold text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary"
+					className="press-down inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#059669] dark:bg-[#0b9e6a] px-6 text-fluid-body font-semibold text-white transition-colors hover:bg-[#047857] dark:hover:bg-[#059669]"
 				>
 					<ArrowLeft className="h-4 w-4" />
 					Kembali ke detail event

@@ -44,7 +44,7 @@ export function PayablesStatusTabs({
 						aria-pressed={active}
 						className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors ${
 							active
-								? "bg-primary text-primary-foreground"
+								? "bg-[#059669] text-white"
 								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 						}`}
 					>

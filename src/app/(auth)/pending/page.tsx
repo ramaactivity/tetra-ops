@@ -113,7 +113,7 @@ export default async function PendingPage() {
 						)}`}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="press-down flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-fluid-body font-semibold text-white shadow-md transition-colors hover:bg-primary/90 dark:bg-primary dark:hover:bg-primary"
+						className="press-down flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#059669] text-fluid-body font-semibold text-white shadow-md transition-colors hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
 					>
 						<MessageCircle className="size-4" />
 						Chat owner via WhatsApp

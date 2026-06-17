@@ -73,7 +73,7 @@ export function OnboardingForm({
 			<button
 				type="submit"
 				disabled={pending}
-				className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors"
+				className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors"
 			>
 				{pending ? (
 					<>

@@ -166,7 +166,7 @@ export function CatalogExplorer<T>({
 						<div className="overflow-x-auto">
 							<table className="w-full text-sm">
 								<thead>
-									<tr className="border-border-default bg-secondary/40 border-b">
+									<tr className="border-border-default bg-card border-b">
 										{columns.map((col) => (
 											<Th
 												key={col.key}
@@ -269,7 +269,7 @@ function Th({
 	return (
 		<th
 			className={cn(
-				"eyebrow text-muted-foreground px-4 py-2.5 text-left font-medium whitespace-nowrap",
+				"eyebrow text-foreground px-4 py-2.5 text-left font-medium whitespace-nowrap",
 				className,
 			)}
 		>
@@ -296,7 +296,7 @@ function Chip({
 			className={cn(
 				"inline-flex h-8 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors",
 				active
-					? "border-foreground bg-foreground text-background"
+					? "border-[#059669] bg-[#059669] text-white"
 					: "border-border-default bg-card text-muted-foreground hover:text-foreground hover:bg-secondary",
 			)}
 		>
@@ -304,7 +304,7 @@ function Chip({
 			<span
 				className={cn(
 					"tabular text-[11px]",
-					active ? "text-background/70" : "text-muted-foreground/70",
+					active ? "text-white/70" : "text-muted-foreground/70",
 				)}
 			>
 				{count}

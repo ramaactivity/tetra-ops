@@ -216,7 +216,7 @@ export function AssetSection({
 									type="button"
 									onClick={() => fileInputRef.current?.click()}
 									disabled={uploading}
-									className="press-down inline-flex items-center gap-1 rounded-md bg-primary dark:bg-primary px-2.5 py-1 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-50"
+									className="press-down inline-flex items-center gap-1 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-2.5 py-1 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
 								>
 									{uploading ? (
 										<Loader2 className="size-3.5 animate-spin" />
@@ -317,7 +317,7 @@ export function AssetSection({
 						<button
 							type="submit"
 							disabled={pending}
-							className="press-down rounded-md bg-primary dark:bg-primary px-3 py-1.5 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-50"
+							className="press-down rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 py-1.5 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
 						>
 							{pending ? "Menyimpan..." : "Simpan"}
 						</button>
@@ -372,7 +372,7 @@ export function AssetSection({
 										<button
 											type="submit"
 											disabled={pending}
-											className="press-down rounded-md bg-primary dark:bg-primary px-3 py-1.5 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-50"
+											className="press-down rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 py-1.5 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
 										>
 											{pending ? "Menyimpan..." : "Simpan"}
 										</button>

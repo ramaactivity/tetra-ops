@@ -88,7 +88,7 @@ export function CheckOutDialog({
 				if (!v) reset();
 			}}
 		>
-			<DialogTrigger className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium">
+			<DialogTrigger className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium">
 				<Plus className="h-4 w-4" />
 				Tambah equipment
 			</DialogTrigger>
@@ -179,7 +179,7 @@ export function CheckOutDialog({
 						<button
 							type="submit"
 							disabled={pending || availableItems.length === 0}
-							className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+							className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
 						>
 							{pending ? "Menyimpan…" : "Check-out"}
 						</button>

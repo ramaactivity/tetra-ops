@@ -892,7 +892,7 @@ export function RekapForm({
 									className={cn(
 										"grid size-5 shrink-0 place-items-center rounded-[5px] border transition-colors",
 										on
-											? "border-primary bg-primary text-primary-foreground"
+											? "border-primary bg-[#059669] text-white"
 											: "border-border-strong bg-background",
 									)}
 								>

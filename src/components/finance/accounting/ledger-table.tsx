@@ -64,7 +64,7 @@ export function LedgerTable({
 					<div className="hidden md:block">
 						<table className="w-full">
 							<thead>
-								<tr className="border-b border-border-default bg-secondary/50 text-left">
+								<tr className="border-b border-border-default bg-card text-left">
 									<th className="eyebrow px-4 py-2.5 font-normal">Tanggal</th>
 									<th className="eyebrow px-4 py-2.5 font-normal">
 										Ref / Sumber

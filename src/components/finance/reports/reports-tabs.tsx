@@ -38,7 +38,7 @@ export function ReportsTabs({ current }: { current: string }) {
 					>
 						{tab.label}
 						{isActive && (
-							<span className="bg-primary absolute inset-x-0 bottom-0 h-0.5" />
+							<span className="bg-[#059669] absolute inset-x-0 bottom-0 h-0.5" />
 						)}
 					</Link>
 				);
