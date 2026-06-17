@@ -5,17 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { MonthPicker } from "@/components/ui/month-picker";
 import type { NativeSelectOption } from "@/components/ui/native-select";
 import { NativeSelect } from "@/components/ui/native-select";
 import { DEFAULT_NOTA_SORT, NOTA_SORT_OPTIONS } from "@/lib/arsip-nota/types";
-import { cn } from "@/lib/utils";
 
 /**
- * Filter bar Arsip Nota — search + dropdown (sumber/kategori) + bulan, dengan
- * tinggi kontrol seragam (h-8). `rightSlot` (tab toggle) menempel di kanan.
- * Mengubah URL searchParams (server-rendered). Tab dipertahankan.
+ * Filter bar Arsip Nota — built on the shared <FilterBar> shell: search +
+ * dropdown (sumber/kategori) + bulan + sort, dengan `rightSlot` (tab toggle)
+ * menempel di kanan pada desktop. "Bulan ini / Semua bulan" hidup di dalam
+ * dropdown kalender (quickActions). Mengubah URL searchParams; tab dipertahankan.
  */
 export function NotaFilterBar({
 	tab,
@@ -55,6 +56,9 @@ export function NotaFilterBar({
 		defaultQ || defaultSelect || monthActive || sortActive,
 	);
 
+	const now = new Date();
+	const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
 	function buildHref(updates: Record<string, string>) {
 		const params = new URLSearchParams();
 		const merged: Record<string, string> = {
@@ -79,19 +83,18 @@ export function NotaFilterBar({
 	}
 
 	return (
-		<div className="flex flex-wrap items-center gap-2">
-			<form
-				onSubmit={handleSubmit}
-				className="min-w-[200px] flex-1 sm:max-w-[280px]"
-			>
-				<FilterSearchInput
-					className="w-full"
-					value={q}
-					onValueChange={setQ}
-					placeholder={searchPlaceholder}
-				/>
-			</form>
-
+		<FilterBar
+			search={
+				<form onSubmit={handleSubmit}>
+					<FilterSearchInput
+						className="w-full"
+						value={q}
+						onValueChange={setQ}
+						placeholder={searchPlaceholder}
+					/>
+				</form>
+			}
+		>
 			<NativeSelect
 				size="default"
 				options={selectOptions}
@@ -106,32 +109,27 @@ export function NotaFilterBar({
 				triggerClassName="w-[160px]"
 			/>
 
-			<div className="flex items-center gap-1">
-				<div className="w-[150px]">
-					<MonthPicker
-						value={monthShowsAll ? "" : defaultMonth}
-						onValueChange={(v) =>
-							router.push(buildHref({ month: v, page: "" }))
-						}
-						placeholder="Semua bulan"
-						className="h-8 text-[13px]"
-					/>
-				</div>
-				<Link
-					href={buildHref({ month: monthShowsAll ? "" : "all", page: "" })}
-					className={cn(
-						"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
-						monthShowsAll
-							? "bg-secondary text-foreground"
-							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
-					)}
-					aria-pressed={monthShowsAll}
-					title={
-						monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
-					}
-				>
-					{monthShowsAll ? "Bulan ini" : "Semua"}
-				</Link>
+			<div className="w-[150px]">
+				<MonthPicker
+					value={monthShowsAll ? "" : defaultMonth}
+					onValueChange={(v) => router.push(buildHref({ month: v, page: "" }))}
+					placeholder="Semua bulan"
+					className="h-8 text-[13px]"
+					quickActions={[
+						{
+							label: "Bulan ini",
+							onSelect: () =>
+								router.push(buildHref({ month: currentMonth, page: "" })),
+							active: !monthShowsAll && !monthActive,
+						},
+						{
+							label: "Semua bulan",
+							onSelect: () =>
+								router.push(buildHref({ month: "all", page: "" })),
+							active: monthShowsAll,
+						},
+					]}
+				/>
 			</div>
 
 			<div className="relative">
@@ -165,7 +163,7 @@ export function NotaFilterBar({
 				</Link>
 			) : null}
 
-			{rightSlot ? <div className="ml-auto">{rightSlot}</div> : null}
-		</div>
+			{rightSlot ? <div className="sm:ml-auto">{rightSlot}</div> : null}
+		</FilterBar>
 	);
 }

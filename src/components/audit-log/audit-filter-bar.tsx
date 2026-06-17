@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { NativeSelect } from "@/components/ui/native-select";
 
 export function AuditFilterBar({
@@ -38,7 +39,7 @@ export function AuditFilterBar({
 	const hasFilter = !!(defaultAction || defaultEntity);
 
 	return (
-		<div className="flex flex-wrap items-center gap-2">
+		<FilterBar>
 			<NativeSelect
 				value={defaultAction ?? ""}
 				onValueChange={(v) => update("action", v)}
@@ -73,6 +74,6 @@ export function AuditFilterBar({
 					Reset
 				</button>
 			)}
-		</div>
+		</FilterBar>
 	);
 }

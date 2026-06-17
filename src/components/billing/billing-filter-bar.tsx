@@ -4,14 +4,15 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { cn } from "@/lib/utils";
 
 /**
- * <BillingFilterBar /> — single unified filter row, consistent with the
- * Asset & Design page: search + month picker on the left, payment-status
- * chips pushed to the right (sm:ml-auto). Each chip carries a tone dot + count.
+ * <BillingFilterBar /> — built on the shared <FilterBar> shell. Search + month
+ * picker + clear, with payment-status chips pushed to the right on desktop. The
+ * "Bulan ini / Semua bulan" shortcuts live inside the MonthPicker dropdown.
  */
 
 type TabMeta = {
@@ -74,7 +75,10 @@ export function BillingFilterBar({
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [q, setQ] = useState(defaultQ);
-	const hasFilters = Boolean(defaultQ || defaultMonth || currentTab !== "all");
+	const hasFilters = Boolean(defaultQ || monthShowsAll || currentTab !== "all");
+
+	const now = new Date();
+	const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
 	function buildHref(updates: Record<string, string>) {
 		const params = new URLSearchParams(searchParams.toString());
@@ -96,40 +100,38 @@ export function BillingFilterBar({
 	}
 
 	return (
-		<div className="flex flex-wrap items-center gap-2">
-			<form onSubmit={handleSubmit} className="w-full sm:w-[240px]">
-				<FilterSearchInput
-					className="w-full"
-					value={q}
-					onValueChange={setQ}
-					placeholder="Cari nama klien…"
-				/>
-			</form>
-
-			<div className="flex items-center gap-1">
-				<div className="w-[160px]">
-					<MonthPicker
-						value={monthShowsAll ? "" : defaultMonth}
-						onValueChange={(value) => router.push(buildHref({ month: value }))}
-						placeholder="Semua bulan"
-						aria-label="Filter bulan"
+		<FilterBar
+			searchClassName="sm:w-[240px]"
+			search={
+				<form onSubmit={handleSubmit}>
+					<FilterSearchInput
+						className="w-full"
+						value={q}
+						onValueChange={setQ}
+						placeholder="Cari nama klien…"
 					/>
-				</div>
-				<Link
-					href={buildHref({ month: monthShowsAll ? "" : "all" })}
-					className={cn(
-						"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
-						monthShowsAll
-							? "bg-secondary text-foreground"
-							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
-					)}
-					aria-pressed={monthShowsAll}
-					title={
-						monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
-					}
-				>
-					{monthShowsAll ? "Bulan ini" : "Semua"}
-				</Link>
+				</form>
+			}
+		>
+			<div className="w-[150px]">
+				<MonthPicker
+					value={monthShowsAll ? "" : defaultMonth}
+					onValueChange={(value) => router.push(buildHref({ month: value }))}
+					placeholder="Semua bulan"
+					aria-label="Filter bulan"
+					quickActions={[
+						{
+							label: "Bulan ini",
+							onSelect: () => router.push(buildHref({ month: currentMonth })),
+							active: !monthShowsAll && defaultMonth === currentMonth,
+						},
+						{
+							label: "Semua bulan",
+							onSelect: () => router.push(buildHref({ month: "all" })),
+							active: monthShowsAll,
+						},
+					]}
+				/>
 			</div>
 
 			{hasFilters && (
@@ -142,8 +144,8 @@ export function BillingFilterBar({
 				</Link>
 			)}
 
-			{/* Payment-status chips — right-aligned, mirrors Asset & Design */}
-			<div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
+			{/* Payment-status chips — right-aligned on desktop */}
+			<div className="flex items-center gap-1.5 sm:ml-auto">
 				{TABS.map((tab) => {
 					const active = currentTab === tab.value;
 					const count = tabCounts[tab.value] ?? 0;
@@ -153,7 +155,7 @@ export function BillingFilterBar({
 							href={tabHref(tab.value)}
 							aria-pressed={active}
 							className={cn(
-								"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+								"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
 								active
 									? tab.badge
 									: "border-border-default text-muted-foreground hover:text-foreground",
@@ -171,6 +173,6 @@ export function BillingFilterBar({
 					);
 				})}
 			</div>
-		</div>
+		</FilterBar>
 	);
 }
