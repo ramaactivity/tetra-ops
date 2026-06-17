@@ -49,16 +49,20 @@ export async function OwnerTopBar({
 				<OwnerPageTitle />
 			</div>
 
-			<div className="ml-auto flex shrink-0 items-center gap-2">
-				{/* Page-level primary actions teleport here via TopbarActionPortal */}
-				<div
-					id="topbar-actions"
-					className="flex items-center gap-1.5 empty:hidden"
-				/>
+			{/* Page-level primary actions teleport here (grouped with the page name
+			    on the left) via TopbarActionPortal */}
+			<div
+				id="topbar-actions"
+				className="flex items-center gap-1.5 empty:hidden"
+			/>
+
+			{/* Identity cluster (right) */}
+			<div className="ml-auto flex shrink-0 items-center gap-2.5">
 				<span className="hidden text-[14px] font-medium text-foreground lg:inline">
 					{name}
 				</span>
 				<UserMenu name={name} email={email} role={role} theme={theme} />
+				<span className="mx-0.5 h-5 w-px bg-border-default" aria-hidden />
 				<NotificationBell />
 			</div>
 		</header>
