@@ -96,27 +96,30 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 	const total = count ?? 0;
 
 	return (
-		<section className="space-y-3">
-			<div className="flex items-baseline justify-between">
-				<h2 className="text-fluid-h3 font-semibold tracking-tight">
-					Anomaly radar
-					{total > 0 && (
-						<span className="ml-2 tabular text-fluid-caption font-normal text-muted-foreground">
-							{total} unread
-						</span>
-					)}
-				</h2>
+		<section className="space-y-2.5">
+			<div className="flex items-end justify-between gap-3 px-5">
+				<div className="min-w-0">
+					<p className="eyebrow">Radar</p>
+					<h2 className="type-heading mt-0.5">
+						Anomaly radar
+						{total > 0 && (
+							<span className="ml-2 tabular text-fluid-caption font-normal text-muted-foreground">
+								{total} unread
+							</span>
+						)}
+					</h2>
+				</div>
 				<Link
 					href="/notifications"
-					className="text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
+					className="type-caption shrink-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
 				>
 					Lihat semua →
 				</Link>
 			</div>
 
 			{top.length === 0 ? (
-				<div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4 dark:bg-emerald-500/[0.08]">
-					<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-500">
+				<div className="flex items-center gap-3 rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]">
+					<div className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
 						<BellOff className="size-4" />
 					</div>
 					<div className="space-y-0.5">
@@ -135,7 +138,7 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 						const Icon = tone.icon;
 						const card = (
 							<div
-								className={`group flex items-start gap-3 rounded-lg border border-border-default bg-card p-3.5 transition-colors hover:bg-surface-3 ${
+								className={`group flex items-start gap-3 rounded-[16px] border border-border-subtle bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors hover:bg-surface-3 ${
 									n.severity === "alert"
 										? "ring-1 ring-rose-500/20"
 										: ""
