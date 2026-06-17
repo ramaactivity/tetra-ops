@@ -525,7 +525,7 @@ export function RecordCard({
 								{category}
 							</div>
 						) : null}
-						<h3 className="type-heading truncate">{title}</h3>
+						<h3 className="type-heading break-words">{title}</h3>
 					</div>
 					{status ? (
 						<div className="flex shrink-0 flex-col items-end gap-1">

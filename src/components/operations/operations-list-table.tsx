@@ -19,7 +19,7 @@ import {
 } from "@/components/badges/status-badge";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { AvatarGroup, MetaRow, RecordCard } from "@/components/ui/mobile";
+import { CrewAvatar, MetaRow, RecordCard } from "@/components/ui/mobile";
 
 /**
  * <OperationsListTable /> — pass 9 redesign.
@@ -331,11 +331,11 @@ export function OperationsListTable({
 								</>
 							}
 							title={
-								<span className="inline-flex items-center gap-1.5">
-									<span className="truncate">{ev.client_name}</span>
+								<span className="break-words">
+									{ev.client_name}
 									{ev.is_migrated_legacy && (
 										<Archive
-											className="size-3 shrink-0 text-amber-600 dark:text-amber-500"
+											className="ml-1 inline size-3 align-[-0.1em] text-amber-600 dark:text-amber-500"
 											aria-label="Migrated"
 											strokeWidth={2}
 										/>
@@ -383,22 +383,35 @@ export function OperationsListTable({
 							}
 							footer={
 								<>
-									<div className="flex min-w-0 items-center gap-2">
-										<span className="eyebrow">Crew</span>
+									<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+										<span className="eyebrow shrink-0">Crew</span>
 										{crew.length > 0 ? (
-											<AvatarGroup
-												people={crew.map((c) => ({
-													id: c.user_id,
-													name: c.nickname ?? c.full_name,
-												}))}
-												size="sm"
-												max={3}
-											/>
+											crew.map((c) => (
+												<span
+													key={c.user_id}
+													className="inline-flex items-center gap-1.5"
+													title={c.full_name}
+												>
+													<CrewAvatar
+														name={c.nickname ?? c.full_name}
+														size="sm"
+													/>
+													<span
+														className={cn(
+															"type-label",
+															c.role_in_event === "lead" &&
+																"font-semibold",
+														)}
+													>
+														{firstWord(c.nickname ?? c.full_name)}
+													</span>
+												</span>
+											))
 										) : (
 											<span className="type-caption">Belum ada</span>
 										)}
 									</div>
-									<ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
+									<ChevronRight className="size-4 shrink-0 self-center text-muted-foreground/50" />
 								</>
 							}
 						/>
