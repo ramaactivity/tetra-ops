@@ -1,22 +1,17 @@
-import { Pencil, Plus } from "lucide-react";
+import { CheckCircle2, Layers, Plus, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
+import {
+	type AddonRow,
+	AddonsExplorer,
+} from "@/components/addons/addons-explorer";
+import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { ArchiveAddonButton } from "@/components/addons/archive-button";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
-import { ADDON_CATEGORY_LABELS, formatRupiah } from "@/lib/format";
+import { ADDON_CATEGORY_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-type AddonRow = {
+type RawAddon = {
 	id: string;
 	name: string;
 	unit: string;
@@ -51,14 +46,63 @@ export default async function AddonsListPage() {
 		);
 	}
 
-	const addons = (data ?? []) as AddonRow[];
+	const addons: AddonRow[] = ((data ?? []) as RawAddon[]).map((a) => {
+		const inv = Array.isArray(a.inventory_item)
+			? a.inventory_item[0]
+			: a.inventory_item;
+		return {
+			id: a.id,
+			name: a.name,
+			unit: a.unit,
+			price: a.price,
+			category: a.category,
+			requires_extra_crew: a.requires_extra_crew,
+			is_active: a.is_active,
+			inventory_sku: inv?.sku ?? null,
+			inventory_name: inv?.name ?? null,
+		};
+	});
+
+	const activeCount = addons.filter((a) => a.is_active).length;
+	const categoryCount = new Set(addons.map((a) => a.category)).size;
+	const crewCount = addons.filter((a) => a.requires_extra_crew).length;
+
+	const stats: StatItem[] = [
+		{
+			label: "Total Add-on",
+			value: String(addons.length),
+			hint: "di katalog",
+			icon: Sparkles,
+		},
+		{
+			label: "Aktif",
+			value: String(activeCount),
+			hint: `${addons.length - activeCount} arsip`,
+			icon: CheckCircle2,
+			accent: "emerald",
+		},
+		{
+			label: "Kategori",
+			value: String(categoryCount),
+			hint: `dari ${Object.keys(ADDON_CATEGORY_LABELS).length} jenis`,
+			icon: Layers,
+		},
+		{
+			label: "Butuh Crew",
+			value: String(crewCount),
+			hint: "perlu personel tambahan",
+			icon: Users,
+			accent: "amber",
+		},
+	];
 
 	return (
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				as="h1"
+				eyebrow="Pricelist"
 				title="Add-on"
-				description={`${addons.length} add-on tersedia`}
+				description={`${addons.length} add-on tersedia untuk booking`}
 				actions={
 					<Link
 						href="/operations/addons/new"
@@ -70,82 +114,9 @@ export default async function AddonsListPage() {
 				}
 			/>
 
-			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Category</TableHead>
-							<TableHead>Inventory</TableHead>
-							<TableHead>Unit</TableHead>
-							<TableHead className="text-right">Price</TableHead>
-							<TableHead className="text-right">Extra Crew</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead className="w-[80px] text-right">Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{addons.map((addon) => {
-							const invItem = Array.isArray(addon.inventory_item)
-								? addon.inventory_item[0]
-								: addon.inventory_item;
-							return (
-							<TableRow key={addon.id}>
-								<TableCell className="font-medium">{addon.name}</TableCell>
-								<TableCell className="text-muted-foreground">
-									{ADDON_CATEGORY_LABELS[addon.category] ?? addon.category}
-								</TableCell>
-								<TableCell>
-									{invItem ? (
-										<Badge
-											variant="outline"
-											className="tabular max-w-[180px] truncate text-[10px]"
-											title={`${invItem.sku} · ${invItem.name}`}
-										>
-											{invItem.sku}
-										</Badge>
-									) : (
-										<span className="text-muted-foreground text-xs">—</span>
-									)}
-								</TableCell>
-								<TableCell className="text-muted-foreground">
-									{addon.unit}
-								</TableCell>
-								<TableCell className="tabular text-right font-medium">
-									{formatRupiah(addon.price)}
-								</TableCell>
-								<TableCell className="text-right">
-									{addon.requires_extra_crew ? (
-										<Badge variant="outline">Yes</Badge>
-									) : (
-										<span className="text-muted-foreground text-sm">—</span>
-									)}
-								</TableCell>
-								<TableCell>
-									{addon.is_active ? (
-										<Badge variant="default">Active</Badge>
-									) : (
-										<Badge variant="secondary">Inactive</Badge>
-									)}
-								</TableCell>
-								<TableCell>
-									<div className="flex items-center justify-end gap-1">
-										<Link
-											href={`/operations/addons/${addon.id}/edit`}
-											title="Edit"
-											className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-										>
-											<Pencil className="h-4 w-4" />
-										</Link>
-										<ArchiveAddonButton id={addon.id} name={addon.name} />
-									</div>
-								</TableCell>
-							</TableRow>
-							);
-						})}
-					</TableBody>
-				</Table>
-			</div>
+			<StatRow stats={stats} />
+
+			<AddonsExplorer addons={addons} />
 		</Container>
 	);
 }

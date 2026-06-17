@@ -1,5 +1,6 @@
 import { Layers, Package, PackageCheck, Plus, Tag } from "lucide-react";
 import Link from "next/link";
+import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import {
@@ -85,52 +86,9 @@ export default async function PackagesListPage() {
 				}
 			/>
 
-			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-				{stats.map((s) => (
-					<StatTile key={s.label} {...s} />
-				))}
-			</div>
+			<StatRow stats={stats} />
 
 			<PackagesExplorer packages={packages} />
 		</Container>
-	);
-}
-
-type StatItem = {
-	label: string;
-	value: string;
-	hint: string;
-	icon: typeof Package;
-	accent?: "default" | "emerald";
-};
-
-function StatTile({
-	label,
-	value,
-	hint,
-	icon: Icon,
-	accent = "default",
-}: StatItem) {
-	return (
-		<div className="border-border-default bg-card flex flex-col gap-3 rounded-2xl border p-4 shadow-[var(--shadow-level-2)]">
-			<div className="flex items-center justify-between gap-2">
-				<span className="eyebrow text-muted-foreground truncate">{label}</span>
-				<div
-					className={
-						accent === "emerald"
-							? "grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-							: "grid size-7 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground"
-					}
-				>
-					<Icon className="size-4" aria-hidden strokeWidth={2} />
-				</div>
-			</div>
-			<div className="flex flex-col gap-0.5">
-				<span className="tabular text-foreground text-[22px] leading-none font-semibold tracking-tight">
-					{value}
-				</span>
-				<span className="type-caption text-muted-foreground">{hint}</span>
-			</div>
-		</div>
 	);
 }

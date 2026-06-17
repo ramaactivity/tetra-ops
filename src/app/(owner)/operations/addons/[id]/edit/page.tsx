@@ -1,12 +1,13 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
 	AddonForm,
 	type InventoryItemOption,
 } from "@/components/addons/addon-form";
+import {
+	CatalogFormCard,
+	CatalogFormHeader,
+} from "@/components/catalog/form-kit";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import { updateAddon } from "@/lib/actions/addons";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,21 +52,14 @@ export default async function EditAddonPage({
 
 	return (
 		<Container size="lg" className="space-y-6">
-			<div className="space-y-2">
-				<Link
-					href="/operations/addons"
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Add-on
-				</Link>
-				<SectionHeader
-					as="h1"
-					title={`Edit: ${addon.name}`}
-					description="Perubahan harga TIDAK menyentuh booking yang sudah ada."
-				/>
-			</div>
-			<div className="border-border-default bg-surface-2 rounded-xl border p-6">
+			<CatalogFormHeader
+				backHref="/operations/addons"
+				backLabel="Add-on"
+				eyebrow="Edit add-on"
+				title={addon.name}
+				description="Perubahan harga TIDAK menyentuh booking yang sudah ada."
+			/>
+			<CatalogFormCard>
 				<AddonForm
 					action={action}
 					submitLabel="Simpan Perubahan"
@@ -80,7 +74,7 @@ export default async function EditAddonPage({
 						inventory_item_id: addon.inventory_item_id ?? "",
 					}}
 				/>
-			</div>
+			</CatalogFormCard>
 		</Container>
 	);
 }

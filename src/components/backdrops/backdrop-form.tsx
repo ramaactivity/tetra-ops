@@ -1,12 +1,23 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import {
+	AffixInput,
+	Field,
+	FormDivider,
+	FormError,
+	FormSection,
+	fieldInputClass,
+	StatusToggle,
+	StickyFormFooter,
+} from "@/components/catalog/form-kit";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
 	type BackdropFormState,
 	createBackdrop,
 	updateBackdrop,
 } from "@/lib/actions/backdrops";
+import { cn } from "@/lib/utils";
 
 type BackdropType = "basic_included" | "rental_owned" | "vendor_decor";
 
@@ -69,6 +80,11 @@ export function BackdropForm({
 	>(action, undefined);
 
 	const [type, setType] = useState<BackdropType>(defaults.type);
+	const [isActive, setIsActive] = useState<boolean>(
+		state?.values?.is_active !== undefined
+			? state.values.is_active === "on"
+			: defaults.is_active,
+	);
 
 	const get = (key: keyof Defaults) => {
 		const v = state?.values?.[key as string];
@@ -83,178 +99,150 @@ export function BackdropForm({
 	const showRentalPrice = type === "rental_owned";
 
 	return (
-		<form action={formAction} className="space-y-5">
-			{state?.errors?._form && (
-				<div className="border-destructive bg-destructive/10 rounded-md border p-3">
-					<p className="text-destructive text-sm font-medium">
-						{state.errors._form[0]}
-					</p>
-				</div>
-			)}
+		<form action={formAction} className="space-y-6">
+			<FormError message={state?.errors?._form?.[0]} />
 
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Field
-					label="Code"
-					name="code"
-					error={err("code")}
-					hint="Huruf kapital, angka, hyphen. Contoh: BG-RENTAL-LUX-03"
-					required
-				>
-					<input
-						type="text"
+			<FormSection
+				eyebrow="01 — Identitas"
+				title="Code & nama"
+				description="Code unik untuk referensi internal; nama tampil di booking form."
+			>
+				<div className="grid gap-5 md:grid-cols-2">
+					<Field
+						label="Code"
 						name="code"
+						error={err("code")}
+						hint="Huruf kapital, angka, hyphen. Contoh: BG-RENTAL-LUX-03"
 						required
-						defaultValue={get("code")}
-						placeholder="BG-RENTAL-LUX-03"
-						className={`${inputClass} font-mono uppercase`}
-						readOnly={mode === "edit"}
+					>
+						<input
+							id="code"
+							type="text"
+							name="code"
+							required
+							defaultValue={get("code")}
+							placeholder="BG-RENTAL-LUX-03"
+							className={cn(fieldInputClass, "font-mono uppercase")}
+							readOnly={mode === "edit"}
+						/>
+					</Field>
+
+					<Field label="Nama" name="name" error={err("name")} required>
+						<input
+							id="name"
+							type="text"
+							name="name"
+							required
+							defaultValue={get("name")}
+							placeholder="Backdrop Rental Luxury #03"
+							className={fieldInputClass}
+						/>
+					</Field>
+				</div>
+			</FormSection>
+
+			<FormDivider />
+
+			<FormSection
+				eyebrow="02 — Tipe & harga"
+				title="Klasifikasi"
+				description="Tipe menentukan cara backdrop dihitung di booking dan apakah ada harga sewa."
+			>
+				<Field label="Tipe" name="type" error={err("type")} required>
+					<NativeSelect
+						value={type}
+						onValueChange={(v) => setType(v as BackdropType)}
+						options={TYPE_OPTIONS.map((t) => ({
+							value: t.value,
+							label: t.label,
+						}))}
+						triggerClassName="w-full"
+						aria-invalid={!!err("type")}
 					/>
+					<input type="hidden" name="type" value={type} required />
+					<p className="text-muted-foreground mt-1.5 text-xs">
+						{TYPE_OPTIONS.find((t) => t.value === type)?.hint}
+					</p>
 				</Field>
 
-				<Field label="Nama" name="name" error={err("name")} required>
-					<input
-						type="text"
-						name="name"
-						required
-						defaultValue={get("name")}
-						placeholder="Backdrop Rental Luxury #03"
-						className={inputClass}
-					/>
-				</Field>
-			</div>
-
-			<Field label="Tipe" name="type" error={err("type")} required>
-				<NativeSelect
-					value={type}
-					onValueChange={(v) => setType(v as BackdropType)}
-					options={TYPE_OPTIONS.map((t) => ({
-						value: t.value,
-						label: t.label,
-					}))}
-					triggerClassName="w-full"
-					aria-invalid={!!err("type")}
-				/>
-				<input type="hidden" name="type" value={type} required />
-				<p className="text-muted-foreground text-xs mt-1.5">
-					{TYPE_OPTIONS.find((t) => t.value === type)?.hint}
-				</p>
-			</Field>
-
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Field
-					label="Harga Sewa (Rp)"
-					name="rental_price"
-					error={err("rental_price")}
-					hint={
-						showRentalPrice
-							? "Auto-add ke booking ketika dipilih"
-							: "Hanya untuk Rental Owned — auto-set 0 untuk tipe lain"
-					}
-				>
-					<input
-						type="number"
+				<div className="grid gap-5 md:grid-cols-2">
+					<Field
+						label="Harga Sewa"
 						name="rental_price"
-						min={0}
-						step={1}
-						defaultValue={showRentalPrice ? get("rental_price") : "0"}
-						readOnly={!showRentalPrice}
-						className={`${inputClass} tabular`}
-					/>
-				</Field>
+						error={err("rental_price")}
+						hint={
+							showRentalPrice
+								? "Auto-add ke booking ketika dipilih"
+								: "Hanya untuk Rental Owned — auto-set 0 untuk tipe lain"
+						}
+					>
+						<AffixInput
+							id="rental_price"
+							type="number"
+							name="rental_price"
+							min={0}
+							step={1}
+							defaultValue={showRentalPrice ? get("rental_price") : "0"}
+							readOnly={!showRentalPrice}
+							prefix="Rp"
+							className="tabular"
+						/>
+					</Field>
 
-				<Field
-					label="Display Order"
-					name="display_order"
-					error={err("display_order")}
-					hint="Urutan tampil — kecil = atas"
-				>
-					<input
-						type="number"
+					<Field
+						label="Display Order"
 						name="display_order"
-						min={0}
-						step={1}
-						defaultValue={get("display_order")}
-						className={`${inputClass} tabular`}
+						error={err("display_order")}
+						hint="Urutan tampil — kecil = atas"
+					>
+						<input
+							id="display_order"
+							type="number"
+							name="display_order"
+							min={0}
+							step={1}
+							defaultValue={get("display_order")}
+							className={cn(fieldInputClass, "tabular")}
+						/>
+					</Field>
+				</div>
+
+				<Field label="Deskripsi" name="description" error={err("description")}>
+					<textarea
+						id="description"
+						name="description"
+						rows={2}
+						maxLength={300}
+						defaultValue={get("description")}
+						placeholder="Premium rental backdrop (owned by Tetra)"
+						className={cn(fieldInputClass, "h-auto resize-none py-2.5")}
 					/>
 				</Field>
-			</div>
+			</FormSection>
 
-			<Field label="Deskripsi" name="description" error={err("description")}>
-				<textarea
-					name="description"
-					rows={2}
-					maxLength={300}
-					defaultValue={get("description")}
-					placeholder="Premium rental backdrop (owned by Tetra)"
-					className={`${inputClass} resize-none`}
+			<FormDivider />
+
+			<FormSection
+				eyebrow="03 — Visibilitas"
+				title="Status backdrop"
+				description="Hanya backdrop aktif yang muncul di booking form."
+			>
+				<input type="hidden" name="is_active" value={isActive ? "on" : ""} />
+				<StatusToggle
+					active={isActive}
+					onChange={setIsActive}
+					activeLabel="Aktif"
+					inactiveLabel="Nonaktif"
+					activeHint="Tampil di booking"
+					inactiveHint="Disembunyikan"
 				/>
-			</Field>
+			</FormSection>
 
-			<label className="flex items-center gap-2 text-sm">
-				<input
-					type="checkbox"
-					name="is_active"
-					defaultChecked={
-						state?.values?.is_active !== undefined
-							? state.values.is_active === "on"
-							: defaults.is_active
-					}
-					className="border-border-default accent-primary h-4 w-4 rounded"
-				/>
-				<span className="font-medium">Aktif</span>
-				<span className="text-muted-foreground text-xs">
-					— hanya yang aktif muncul di booking form
-				</span>
-			</label>
-
-			<div className="flex justify-end pt-2">
-				<button
-					type="submit"
-					disabled={pending}
-					className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
-				>
-					{pending
-						? "Menyimpan…"
-						: mode === "create"
-							? "Buat backdrop"
-							: "Simpan perubahan"}
-				</button>
-			</div>
+			<StickyFormFooter
+				cancelHref="/operations/backdrops"
+				submitLabel={mode === "create" ? "Buat backdrop" : "Simpan perubahan"}
+				pending={pending}
+			/>
 		</form>
-	);
-}
-
-const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-base md:text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none read-only:opacity-70";
-const selectClass = `${inputClass} appearance-none`;
-
-function Field({
-	label,
-	name,
-	hint,
-	error,
-	required,
-	children,
-}: {
-	label: string;
-	name: string;
-	hint?: string;
-	error?: string;
-	required?: boolean;
-	children: React.ReactNode;
-}) {
-	return (
-		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
-				{label}
-				{required && <span className="text-primary ml-0.5">*</span>}
-			</label>
-			{children}
-			{error ? (
-				<p className="text-destructive text-xs">{error}</p>
-			) : hint ? (
-				<p className="text-muted-foreground text-xs">{hint}</p>
-			) : null}
-		</div>
 	);
 }

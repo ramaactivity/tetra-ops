@@ -23,7 +23,7 @@ export function ToggleBackdropActiveButton({
 				type="button"
 				onClick={() => setOpen(true)}
 				title={isActive ? "Nonaktifkan" : "Aktifkan"}
-				className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+				className="press-down inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
 			>
 				<Power className="size-4" />
 			</button>
