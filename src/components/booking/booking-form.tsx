@@ -2750,7 +2750,7 @@ export function BookingForm({
 							<button
 								type="submit"
 								disabled={pending}
-								className="press-down h-10 rounded-md bg-emerald-600 dark:bg-emerald-500 px-4 text-fluid-body font-medium text-white transition-colors hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-60"
+								className="press-down h-10 rounded-md bg-primary dark:bg-primary px-4 text-fluid-body font-medium text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
 							>
 								{pending ? "Menyimpan…" : submitLabel}
 							</button>

@@ -52,7 +52,7 @@ export function NewPRButton({ items }: { items: PRItemOption[] }) {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-3 text-fluid-caption font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600"
+				className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary"
 			>
 				<Plus className="size-4" />
 				Buat Permintaan
@@ -254,7 +254,7 @@ function PRForm({
 				<button
 					type="submit"
 					disabled={pending || validLines.length === 0}
-					className="inline-flex h-10 items-center rounded-md bg-emerald-600 dark:bg-emerald-500 px-4 text-sm font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-60"
+					className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
 				>
 					{pending
 						? "Mengirim..."

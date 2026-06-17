@@ -598,7 +598,7 @@ export function Fab({
 			href={href}
 			aria-label={label}
 			className={cn(
-				"press tap fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-[var(--shadow-fab)] active:scale-95 dark:bg-emerald-500",
+				"press tap fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[var(--shadow-fab)] active:scale-95",
 				className,
 			)}
 		>

@@ -17,7 +17,7 @@ export default async function OwnerLayout({
 	if (profile.role === "pending_approval") redirect("/pending");
 
 	return (
-		<div className="flex min-h-dvh flex-col bg-background">
+		<div className="flex min-h-dvh flex-col bg-transparent">
 			<TopBar
 				name={profile.full_name}
 				email={result.email}

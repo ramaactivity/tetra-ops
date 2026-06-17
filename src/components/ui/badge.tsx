@@ -33,24 +33,25 @@ const badgeVariants = cva(
 				/* GHOST — transparent, no border. For inline-baseline labels. */
 				ghost:
 					"text-muted-foreground hover:bg-secondary",
-				/* DESTRUCTIVE — error red tint. */
+				/* DESTRUCTIVE — danger red pill. */
 				destructive:
-					"bg-rose-500/10 text-rose-600 dark:text-rose-400",
-				/* SEMANTIC — Vercel status colors. Soft tint bg + saturated text. */
+					"bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+				/* SEMANTIC — UpGradely status pills: clearly-colored fill + dark
+				   readable text (success=lime, warning=orange, info=sky blue). */
 				success:
-					"bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+					"bg-emerald-200 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200",
 				warning:
-					"bg-amber-500/10 text-amber-700 dark:text-amber-500",
+					"bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
 				danger:
-					"bg-rose-500/10 text-rose-600 dark:text-rose-400",
+					"bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
 				info:
-					"bg-[#0070f3]/10 text-[#0070f3] dark:text-[#3b96ff]",
+					"bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
 				/* NEUTRAL — visible against canvas, for read-only labels. */
 				neutral:
 					"bg-secondary text-foreground/70",
 				/* LINK — inline link blue (rare on badges). */
 				link:
-					"text-[#0070f3] underline-offset-4 hover:underline",
+					"text-link underline-offset-4 hover:underline",
 			},
 		},
 		defaultVariants: {

@@ -62,7 +62,7 @@ export function RekapSummaryBar({
 					<button
 						type="submit"
 						disabled={pending || disabled}
-						className="press-down inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-emerald-600 dark:bg-emerald-500 px-6 text-fluid-body font-semibold text-white transition-colors hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+						className="press-down inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-primary dark:bg-primary px-6 text-fluid-body font-semibold text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{pending ? <Loader2 className="size-4 animate-spin" /> : null}
 						{buttonLabel}

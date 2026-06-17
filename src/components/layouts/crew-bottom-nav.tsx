@@ -62,14 +62,14 @@ export function CrewBottomNav() {
 							<span
 								className={cn(
 									"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
-									isActive ? "bg-emerald-600/10 dark:bg-emerald-500/15" : "bg-transparent",
+									isActive ? "bg-primary" : "bg-transparent",
 								)}
 							>
 								<Icon
 									className={cn(
 										"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
 										isActive
-											? "scale-105 text-emerald-700 dark:text-emerald-400"
+											? "scale-105 text-primary-foreground"
 											: "text-muted-foreground group-active:text-foreground",
 									)}
 									strokeWidth={isActive ? 2.3 : 1.85}
@@ -80,7 +80,7 @@ export function CrewBottomNav() {
 								className={cn(
 									"text-[0.6875rem] leading-none tracking-tight transition-colors",
 									isActive
-										? "font-semibold text-emerald-700 dark:text-emerald-400"
+										? "font-semibold text-foreground"
 										: "font-medium text-muted-foreground",
 								)}
 							>

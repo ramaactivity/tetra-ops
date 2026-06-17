@@ -24,7 +24,7 @@ export function HeroMetric({
 }) {
 	const up = (deltaPct ?? 0) >= 0;
 	return (
-		<div className="relative overflow-hidden rounded-2xl bg-emerald-600 p-5 text-white shadow-[var(--shadow-fab)] dark:bg-emerald-600">
+		<div className="relative overflow-hidden rounded-2xl bg-primary p-5 text-white shadow-[var(--shadow-fab)] dark:bg-primary">
 			<div className="flex items-start justify-between gap-3">
 				<p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
 					{label}

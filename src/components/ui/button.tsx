@@ -28,34 +28,33 @@ const buttonVariants = cva(
 	{
 		variants: {
 			variant: {
-				/* EMERALD PRIMARY — the single CTA color. Used everywhere a primary
-				   action exists (Save, Submit, Confirm, New booking, …). */
+				/* PRIMARY — ink-black CTA (UpGradely). The single primary action
+				   color: Save, Submit, Confirm, New booking, View all, … */
 				default:
-					"rounded-md bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
+					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
 				/* OUTLINE — white card surface with hairline border. Pairs with
 				   default for secondary actions. */
 				outline:
-					"rounded-md border border-border-default bg-card text-foreground hover:bg-secondary aria-expanded:bg-secondary",
-				/* SECONDARY — soft inset fill (canvas-soft-2). Used when the
-				   action sits inside an already-white card. */
+					"rounded-full border border-border-default bg-card text-foreground hover:bg-secondary aria-expanded:bg-secondary",
+				/* SECONDARY — soft inset fill. Used when the action sits inside an
+				   already-white card. */
 				secondary:
-					"rounded-md bg-secondary text-secondary-foreground hover:bg-muted",
+					"rounded-full bg-secondary text-secondary-foreground hover:bg-muted",
 				/* GHOST — transparent. Hover paints to soft inset. */
 				ghost:
-					"rounded-md text-foreground hover:bg-secondary aria-expanded:bg-secondary",
-				/* DESTRUCTIVE — Vercel error red tint. */
+					"rounded-full text-foreground hover:bg-secondary aria-expanded:bg-secondary",
+				/* DESTRUCTIVE — danger red. */
 				destructive:
-					"rounded-md bg-destructive text-white hover:bg-destructive/90",
-				link: "text-[#0070f3] underline-offset-4 hover:underline",
+					"rounded-full bg-destructive text-white hover:bg-destructive/90",
+				link: "text-link underline-offset-4 hover:underline",
 				/* DECISIVE — ink fill, bigger tap target (use with size="lg").
 				   Reserved for irreversible financial commits (Approve, Tutup
-				   Buku, Submit Rekap). Single ink CTA — NO second hue, NO pill,
-				   NO glow. For destructive commits use `destructive`. */
+				   Buku, Submit Rekap). Same ink CTA, larger size. */
 				decisive:
-					"rounded-md bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
-				/* MARKETING — 100px pill, hero scale. ONLY for landing page. */
+					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+				/* MARKETING — pill, hero scale. Landing page. */
 				marketing:
-					"rounded-full bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-600",
+					"rounded-full bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
 				"marketing-secondary":
 					"rounded-full border border-border-default bg-card text-foreground hover:bg-secondary",
 			},
@@ -72,10 +71,10 @@ const buttonVariants = cva(
 				   variant="marketing" / "marketing-secondary" on landing. */
 				hero: "h-11 gap-2 px-6 text-[15px] font-medium",
 				"hero-lg": "h-12 gap-2 px-7 text-[16px] font-medium",
-				icon: "size-8 rounded-md",
-				"icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-				"icon-sm": "size-7 rounded-md [&_svg:not([class*='size-'])]:size-3.5",
-				"icon-lg": "size-10 rounded-md",
+				icon: "size-8 rounded-full",
+				"icon-xs": "size-6 rounded-full [&_svg:not([class*='size-'])]:size-3",
+				"icon-sm": "size-7 rounded-full [&_svg:not([class*='size-'])]:size-3.5",
+				"icon-lg": "size-10 rounded-full",
 			},
 		},
 		defaultVariants: {

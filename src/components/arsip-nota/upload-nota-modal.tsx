@@ -113,7 +113,7 @@ export function UploadNotaModal() {
 				if (!submitting) setOpen(o);
 			}}
 		>
-			<DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 dark:bg-emerald-500 px-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700 dark:hover:bg-emerald-600">
+			<DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary dark:bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary/90 dark:hover:bg-primary">
 				<Upload className="size-4" aria-hidden />
 				Upload Nota
 			</DialogTrigger>

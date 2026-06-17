@@ -101,14 +101,14 @@ export function OwnerBottomNav() {
 								<span
 									className={cn(
 										"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
-										active ? "bg-emerald-600/10 dark:bg-emerald-500/15" : "bg-transparent",
+										active ? "bg-primary" : "bg-transparent",
 									)}
 								>
 									<Icon
 										className={cn(
 											"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
 											active
-												? "scale-105 text-emerald-700 dark:text-emerald-400"
+												? "scale-105 text-primary-foreground"
 												: "text-muted-foreground group-active:text-foreground",
 										)}
 										strokeWidth={active ? 2.3 : 1.85}
@@ -119,7 +119,7 @@ export function OwnerBottomNav() {
 									className={cn(
 										"text-[0.6875rem] leading-none tracking-tight transition-colors",
 										active
-											? "font-semibold text-emerald-700 dark:text-emerald-400"
+											? "font-semibold text-foreground"
 											: "font-medium text-muted-foreground",
 									)}
 								>
@@ -142,14 +142,14 @@ export function OwnerBottomNav() {
 						<span
 							className={cn(
 								"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
-								moreActive || moreOpen ? "bg-emerald-600/10 dark:bg-emerald-500/15" : "bg-transparent",
+								moreActive || moreOpen ? "bg-primary" : "bg-transparent",
 							)}
 						>
 							<Ellipsis
 								className={cn(
 									"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
 									moreActive || moreOpen
-										? "scale-105 text-emerald-700 dark:text-emerald-400"
+										? "scale-105 text-primary-foreground"
 										: "text-muted-foreground group-active:text-foreground",
 								)}
 								strokeWidth={moreActive || moreOpen ? 2.3 : 1.85}
@@ -160,7 +160,7 @@ export function OwnerBottomNav() {
 							className={cn(
 								"text-[0.6875rem] leading-none tracking-tight transition-colors",
 								moreActive || moreOpen
-									? "font-semibold text-emerald-700 dark:text-emerald-400"
+									? "font-semibold text-foreground"
 									: "font-medium text-muted-foreground",
 							)}
 						>
@@ -188,21 +188,21 @@ export function OwnerBottomNav() {
 									className={cn(
 										"press tap flex min-h-[4rem] flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-colors",
 										active
-											? "border-transparent bg-emerald-600/10 dark:bg-emerald-500/15"
-											: "border-border-default bg-card active:bg-surface-3",
+											? "border-transparent bg-secondary"
+											: "border-border-subtle bg-card active:bg-surface-3",
 									)}
 								>
 									<Icon
 										className={cn(
 											"size-[1.45rem]",
-											active ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground",
+											active ? "text-foreground" : "text-muted-foreground",
 										)}
 										aria-hidden="true"
 									/>
 									<span
 										className={cn(
 											"type-label",
-											active ? "text-emerald-700 dark:text-emerald-400" : "text-foreground",
+											active ? "text-foreground font-semibold" : "text-foreground",
 										)}
 									>
 										{item.label}

@@ -188,7 +188,7 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 					<button
 						type="submit"
 						disabled={pending}
-						className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+						className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
 					>
 						{pending ? "Menyimpan…" : "Simpan semua perubahan"}
 					</button>

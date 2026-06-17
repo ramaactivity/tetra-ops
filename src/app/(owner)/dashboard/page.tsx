@@ -413,7 +413,7 @@ function QuickActionTile({
 				className={cn(
 					"grid size-9 shrink-0 place-items-center rounded-xl",
 					primary
-						? "bg-emerald-600 text-white dark:bg-emerald-500"
+						? "bg-primary text-white dark:bg-primary"
 						: "bg-surface-3 text-muted-foreground",
 				)}
 			>

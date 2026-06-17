@@ -530,7 +530,7 @@ function UploadStep({
 							type="button"
 							onClick={() => onPaste(pasteText)}
 							disabled={!pasteText.trim()}
-							className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
+							className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-9 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
 						>
 							Parse
 							<ChevronRight className="h-4 w-4" />
@@ -712,7 +712,7 @@ function MapStep({
 						type="button"
 						onClick={onNext}
 						disabled={missingRequired.length > 0 || isPending}
-						className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
+						className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium disabled:opacity-50"
 					>
 						{isPending ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -895,7 +895,7 @@ function PreviewStep({
 					<button
 						type="button"
 						onClick={onCommit}
-						className="bg-emerald-600 dark:bg-emerald-500 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
+						className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium"
 					>
 						<FileSpreadsheet className="h-4 w-4" />
 						Confirm & Import

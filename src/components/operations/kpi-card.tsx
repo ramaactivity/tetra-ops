@@ -71,7 +71,7 @@ export function KpiCard({
 	return (
 		<div
 			className={cn(
-				"group flex flex-col gap-3 rounded-[1.25rem] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors hover:bg-secondary/40 sm:p-5",
+				"group flex flex-col gap-3 rounded-2xl border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors hover:bg-secondary/40 sm:p-6",
 				className,
 			)}
 		>

@@ -559,7 +559,7 @@ export function PembelianDialog({
 						<button
 							type="submit"
 							disabled={pending || validLines.length === 0}
-							className="inline-flex h-10 items-center rounded-md bg-emerald-600 dark:bg-emerald-500 px-4 text-sm font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-60"
+							className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
 						>
 							{pending
 								? "Menyimpan…"

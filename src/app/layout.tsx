@@ -68,7 +68,7 @@ export const viewport: Viewport = {
 	// Match the canvas exactly so the native status bar / address bar blends
 	// seamlessly into the app surface (edge-to-edge, no seam).
 	themeColor: [
-		{ media: "(prefers-color-scheme: light)", color: "#fafafa" },
+		{ media: "(prefers-color-scheme: light)", color: "#f7f6f3" },
 		{ media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
 	],
 };
@@ -79,14 +79,16 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }>) {
 	const cookieStore = await cookies();
-	const theme = cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+	// Default to LIGHT — the UpGradely DNA is light-first (dark mode is a later
+	// phase). Only an explicit "dark" cookie opts into the legacy dark theme.
+	const theme = cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
 
 	return (
 		<html
 			lang="id"
 			className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
 		>
-			<body className="flex min-h-dvh flex-col bg-background text-foreground">
+			<body className="flex min-h-dvh flex-col bg-transparent text-foreground">
 				<ServiceWorkerRegister />
 				<ConfirmProvider>{children}</ConfirmProvider>
 				<Toaster />

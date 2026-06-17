@@ -145,7 +145,7 @@ export default async function PurchasesPage() {
 				actions={
 					<PembelianDialog
 						trigger={
-							<span className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-3 text-fluid-caption font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600">
+							<span className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary">
 								<ShoppingCart className="size-4" />
 								Catat Pembelian
 							</span>

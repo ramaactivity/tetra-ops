@@ -29,7 +29,7 @@ export function NewStockTakeButton() {
 			type="button"
 			onClick={handleClick}
 			disabled={pending}
-			className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 px-3 text-fluid-caption font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
+			className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-50"
 		>
 			<Plus className="size-4" />
 			{pending ? "Membuat..." : "Mulai Opname"}

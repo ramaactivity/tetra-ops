@@ -60,7 +60,7 @@ export function AddBankAccountModal() {
 				if (!pending) setOpen(o);
 			}}
 		>
-			<DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-sm font-medium text-white transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600">
+			<DialogTrigger className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-white transition-colors hover:bg-primary/90 dark:bg-primary dark:hover:bg-primary">
 				<Plus className="size-4" aria-hidden />
 				Tambah Rekening
 			</DialogTrigger>
