@@ -35,17 +35,17 @@ const badgeVariants = cva(
 					"text-muted-foreground hover:bg-secondary",
 				/* DESTRUCTIVE — danger red pill. */
 				destructive:
-					"bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-				/* SEMANTIC — UpGradely status pills: clearly-colored fill + dark
+					"bg-rose-300 text-rose-950 dark:bg-rose-500/25 dark:text-rose-200",
+				/* SEMANTIC — UpGradely status pills: solid saturated fill + dark
 				   readable text (success=lime, warning=orange, info=sky blue). */
 				success:
-					"bg-emerald-200 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200",
+					"bg-emerald-300 text-emerald-950 dark:bg-emerald-500/25 dark:text-emerald-200",
 				warning:
-					"bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
+					"bg-amber-300 text-amber-950 dark:bg-amber-500/25 dark:text-amber-200",
 				danger:
-					"bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+					"bg-rose-300 text-rose-950 dark:bg-rose-500/25 dark:text-rose-200",
 				info:
-					"bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
+					"bg-sky-300 text-sky-950 dark:bg-sky-500/25 dark:text-sky-200",
 				/* NEUTRAL — visible against canvas, for read-only labels. */
 				neutral:
 					"bg-secondary text-foreground/70",

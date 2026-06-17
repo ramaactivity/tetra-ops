@@ -410,15 +410,23 @@
   }
   html {
     @apply font-sans;
-    /* The ambient pastel gradient lives here as a fixed layer so it stays put
-       while content scrolls; opaque cards float over it. */
-    background: var(--gradient-ambient) fixed;
     background-color: var(--background);
     -webkit-text-size-adjust: 100%;
     overflow-x: clip;
   }
+  /* The ambient pastel gradient is a dedicated fixed layer behind everything so
+     it always covers the full viewport (no repeat/cut on tall, scrolling pages)
+     while opaque cards float over it. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--gradient-ambient);
+    pointer-events: none;
+  }
   body {
-    /* Transparent so the <html> gradient shows through behind the app chrome. */
+    /* Transparent so the gradient layer shows through behind the app chrome. */
     @apply bg-transparent text-foreground;
     /* Vercel/Geist OpenType stack: ss01 + ss02 enable Inter's geometric
        alternates (closer to Geist's voice). cv11 single-story 'a' kept
@@ -719,18 +727,18 @@
     font-feature-settings: "tnum", "ss01", "ss02", "cv11";
   }
   .type-num-lg {
-    font-size: clamp(1.5rem, 1.28rem + 1vw, 1.875rem);       /* 24 → 30 */
-    font-weight: 600;
-    line-height: 1.05;
-    letter-spacing: -0.025em;
+    font-size: clamp(1.75rem, 1.5rem + 1vw, 2.125rem);       /* 28 → 34 */
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums slashed-zero;
     font-feature-settings: "tnum", "ss01", "ss02", "cv11";
   }
   .type-num-xl {
-    font-size: clamp(2rem, 1.6rem + 1.78vw, 2.75rem);        /* 32 → 44 */
-    font-weight: 600;
+    font-size: clamp(2.125rem, 1.7rem + 1.8vw, 2.75rem);     /* 34 → 44 */
+    font-weight: 700;
     line-height: 1;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.04em;
     font-variant-numeric: tabular-nums slashed-zero;
     font-feature-settings: "tnum", "ss01", "ss02", "cv11";
   }

@@ -36,12 +36,8 @@ export function TargetProgressCard({
 				: pct >= 33
 					? "amber"
 					: "rose";
-	const barColor =
-		tone === "emerald"
-			? "bg-emerald-500"
-			: tone === "amber"
-				? "bg-amber-500"
-				: "bg-rose-500";
+	const barFill =
+		tone === "emerald" ? "#74c02f" : tone === "amber" ? "#fb6d39" : "#e5484d";
 	const valueColor =
 		tone === "emerald"
 			? "text-emerald-600 dark:text-emerald-400"
@@ -52,7 +48,7 @@ export function TargetProgressCard({
 	return (
 		<div
 			className={cn(
-				"relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border-default bg-card p-4 transition-colors hover:bg-surface-3 sm:p-5",
+				"relative flex flex-col gap-3 overflow-hidden rounded-[20px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors sm:p-6",
 				className,
 			)}
 		>
@@ -63,7 +59,7 @@ export function TargetProgressCard({
 							<Icon className="size-4" aria-hidden />
 						</div>
 					) : null}
-					<h3 className="text-fluid-caption font-semibold uppercase tracking-wider text-muted-foreground">
+					<h3 className="text-[14px] font-medium text-muted-foreground">
 						{label}
 					</h3>
 				</div>
@@ -81,11 +77,16 @@ export function TargetProgressCard({
 				</span>
 			</div>
 
-			<div className="h-2 overflow-hidden rounded-full bg-muted">
-				<div
-					className={cn("h-full rounded-full transition-all", barColor)}
-					style={{ width: `${pct}%` }}
-				/>
+			<div className="flex h-[18px] w-full items-stretch gap-1.5">
+				{pct > 0 ? (
+					<div
+						className="rounded-[6px]"
+						style={{ width: `${pct}%`, backgroundColor: barFill }}
+					/>
+				) : null}
+				{pct < 100 ? (
+					<div className="flex-1 rounded-[6px] bg-[repeating-linear-gradient(45deg,#dedcd4_0,#dedcd4_5px,#f1f0eb_5px,#f1f0eb_11px)]" />
+				) : null}
 			</div>
 
 			{hint ? (

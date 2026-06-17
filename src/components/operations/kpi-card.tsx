@@ -1,45 +1,44 @@
 import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * <KpiCard /> — Vercel `card-marketing` rendered as a KPI tile.
+ * <KpiCard /> — UpGradely KPI tile.
  *
- * - Pure white card on canvas-soft page bg (level-1 hairline elevation).
- * - Icon sits in a square 32px chip (canvas-soft fill, body-tone glyph).
- *   The accent prop maps to subtle tints only — Vercel keeps icons quiet.
- * - Label = caption-mono uppercase (`.eyebrow` utility).
- * - Value = display-md tabular (24px / 600 / -0.96px) — Vercel signature
- *   negative-tracking pulled in for big-number scan.
- * - Hint = body-sm body tone (#525252).
+ * - White card, 20px radius, soft shadow, generous padding.
+ * - Label: normal-case, medium weight, muted.
+ * - Value: large bold tabular number; optional status pill beside it.
+ * - Top-right: light outlined circle with the section icon (or a drill arrow).
+ * - Optional progress: two segments (solid "done" + hatched "remaining").
  */
 
 type Accent = "default" | "emerald" | "amber" | "sky" | "rose" | "primary";
+type PillTone = "lime" | "orange" | "blue" | "red" | "neutral";
 
-const ICON_TINT: Record<Accent, string> = {
-	default: "bg-secondary text-muted-foreground",
-	emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-	amber: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
-	sky: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
-	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-	primary: "bg-foreground/8 text-foreground",
-};
-
-const BAR_FILL: Record<Accent, string> = {
-	default: "bg-muted-foreground",
-	emerald: "bg-emerald-500",
-	amber: "bg-amber-500",
-	sky: "bg-teal-500",
-	rose: "bg-rose-500",
-	primary: "bg-foreground",
+const FILL: Record<Accent, string> = {
+	default: "#6d6c66",
+	emerald: "#74c02f",
+	amber: "#fb6d39",
+	sky: "#2c8ee6",
+	rose: "#e5484d",
+	primary: "#18181b",
 };
 
 const PCT_TONE: Record<Accent, string> = {
 	default: "text-foreground",
-	emerald: "text-emerald-600 dark:text-emerald-400",
+	emerald: "text-emerald-700 dark:text-emerald-400",
 	amber: "text-amber-700 dark:text-amber-500",
-	sky: "text-teal-600 dark:text-teal-400",
+	sky: "text-sky-700 dark:text-sky-400",
 	rose: "text-rose-600 dark:text-rose-400",
 	primary: "text-foreground",
+};
+
+const PILL_TONE: Record<PillTone, string> = {
+	lime: "bg-emerald-300 text-emerald-950 dark:bg-emerald-500/25 dark:text-emerald-200",
+	orange: "bg-amber-300 text-amber-950 dark:bg-amber-500/25 dark:text-amber-200",
+	blue: "bg-sky-300 text-sky-950 dark:bg-sky-500/25 dark:text-sky-200",
+	red: "bg-rose-300 text-rose-950 dark:bg-rose-500/25 dark:text-rose-200",
+	neutral: "bg-secondary text-foreground/80",
 };
 
 interface KpiCardProps {
@@ -49,9 +48,10 @@ interface KpiCardProps {
 	icon?: LucideIcon;
 	accent?: Accent;
 	className?: string;
-	/** Progress toward a target — renders a labeled bar under the value. The
-	 * left caption defaults to "Target N"; pass `label` to override (e.g. a
-	 * completion ratio that isn't a goal), or "" to show only the percentage. */
+	/** Small status pill beside the value (e.g. "Cash", "8 event"). */
+	badge?: string;
+	badgeTone?: PillTone;
+	/** Progress toward a target — two-segment hatched bar under the value. */
 	progress?: { current: number; target: number; label?: string };
 }
 
@@ -62,38 +62,55 @@ export function KpiCard({
 	icon: Icon,
 	accent = "default",
 	className,
+	badge,
+	badgeTone = "neutral",
 	progress,
 }: KpiCardProps) {
 	const pct =
 		progress && progress.target > 0
 			? Math.round((progress.current / progress.target) * 100)
 			: null;
+	const done = pct === null ? 0 : Math.max(0, Math.min(100, pct));
+	const ArrowOrIcon = Icon ?? ArrowUpRight;
+
 	return (
 		<div
 			className={cn(
-				"group flex flex-col gap-3 rounded-2xl border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors hover:bg-secondary/40 sm:p-6",
+				"group flex flex-col rounded-[20px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors",
 				className,
 			)}
 		>
-			<div className="flex items-center justify-between gap-2">
-				<dt className="eyebrow min-w-0 text-balance">{label}</dt>
-				{Icon ? (
-					<div
+			<div className="flex items-start justify-between gap-3">
+				<dt className="min-w-0 text-[14.5px] font-medium text-balance text-muted-foreground">
+					{label}
+				</dt>
+				<span className="grid size-8 shrink-0 place-items-center rounded-full border border-border-default text-muted-foreground">
+					<ArrowOrIcon className="size-[15px]" aria-hidden strokeWidth={1.75} />
+				</span>
+			</div>
+
+			<div className="mt-4 flex flex-wrap items-center gap-2">
+				<dd className="type-num-lg text-foreground">{value}</dd>
+				{badge ? (
+					<span
 						className={cn(
-							"grid size-8 shrink-0 place-items-center rounded-xl",
-							ICON_TINT[accent],
+							"inline-flex h-[22px] items-center rounded-full px-2.5 text-[11.5px] font-medium",
+							PILL_TONE[badgeTone],
 						)}
 					>
-						<Icon className="size-4" aria-hidden strokeWidth={2} />
-					</div>
+						{badge}
+					</span>
 				) : null}
 			</div>
-			<div className="flex flex-col gap-1">
-				<dd className="type-num-lg truncate text-foreground">{value}</dd>
-				{hint && <p className="type-caption leading-snug">{hint}</p>}
-			</div>
-			{pct !== null && progress && (
-				<div className="flex flex-col gap-1.5">
+
+			{hint ? (
+				<p className="mt-2 text-[12.5px] leading-snug text-muted-foreground/90">
+					{hint}
+				</p>
+			) : null}
+
+			{pct !== null && progress ? (
+				<div className="mt-4 flex flex-col gap-1.5">
 					<div className="flex items-center justify-between text-[12px] leading-none">
 						<span className="text-muted-foreground">
 							{progress.label ??
@@ -103,14 +120,19 @@ export function KpiCard({
 							{pct}%
 						</span>
 					</div>
-					<div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-						<div
-							className={cn("h-full rounded-full", BAR_FILL[accent])}
-							style={{ width: `${Math.min(100, pct)}%` }}
-						/>
+					<div className="flex h-[14px] w-full items-stretch gap-1.5">
+						{done > 0 ? (
+							<div
+								className="rounded-[6px]"
+								style={{ width: `${done}%`, backgroundColor: FILL[accent] }}
+							/>
+						) : null}
+						{done < 100 ? (
+							<div className="flex-1 rounded-[6px] bg-[repeating-linear-gradient(45deg,#dedcd4_0,#dedcd4_4px,#f1f0eb_4px,#f1f0eb_9px)]" />
+						) : null}
 					</div>
 				</div>
-			)}
+			) : null}
 		</div>
 	);
 }
