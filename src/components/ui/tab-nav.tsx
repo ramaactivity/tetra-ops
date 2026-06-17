@@ -37,7 +37,7 @@ export function TabNav({
 		<nav
 			aria-label={ariaLabel}
 			className={cn(
-				"hide-scrollbar inline-flex h-10 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-secondary p-1",
+				"hide-scrollbar inline-flex h-10 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]",
 				className,
 			)}
 		>
@@ -49,8 +49,8 @@ export function TabNav({
 					className={cn(
 						"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors",
 						tab.active
-							? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
-							: "text-muted-foreground hover:text-foreground",
+							? "bg-[#059669] text-white"
+							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
 					)}
 				>
 					{tab.label}
@@ -59,8 +59,8 @@ export function TabNav({
 							className={cn(
 								"rounded-full px-1.5 text-[11px] tabular-nums transition-colors",
 								tab.active
-									? "bg-secondary text-foreground"
-									: "bg-card/70 text-muted-foreground",
+									? "bg-white/20 text-white"
+									: "bg-secondary text-muted-foreground",
 							)}
 						>
 							{tab.count}
