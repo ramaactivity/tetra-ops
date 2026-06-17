@@ -117,8 +117,7 @@ export function PRTable({
 									)}
 								</div>
 								<div className="text-[11px] text-muted-foreground">
-									by {pr.requester_name} ·{" "}
-									{pr.items.length} bahan
+									by {pr.requester_name} · {pr.items.length} bahan
 									{pr.outstanding_lines > 0
 										? ` (${pr.outstanding_lines} outstanding)`
 										: ""}
@@ -158,12 +157,7 @@ export function PRTable({
 							)}
 						</button>
 
-						{open && (
-							<PRDetailExpanded
-								pr={pr}
-								canReceive={canReceive}
-							/>
-						)}
+						{open && <PRDetailExpanded pr={pr} canReceive={canReceive} />}
 					</div>
 				);
 			})}
@@ -193,8 +187,8 @@ function PRDetailExpanded({
 				if (!Number.isFinite(v) || v <= 0) return null;
 				return { pr_item_id: it.id, qty_received: v };
 			})
-			.filter((v): v is { pr_item_id: string; qty_received: number } =>
-				v !== null,
+			.filter(
+				(v): v is { pr_item_id: string; qty_received: number } => v !== null,
 			);
 		if (lines.length === 0) {
 			toast.error("Isi qty terima dulu");
@@ -208,9 +202,7 @@ function PRDetailExpanded({
 			if (!res.ok) {
 				toast.error(res.error);
 			} else {
-				toast.success(
-					`Terima — ${res.movements} stock movement dibuat`,
-				);
+				toast.success(`Terima — ${res.movements} stock movement dibuat`);
 				setReceiveInputs({});
 				router.refresh();
 			}
@@ -233,99 +225,101 @@ function PRDetailExpanded({
 	return (
 		<div className="border-t border-border-default p-3 space-y-3">
 			<div className="overflow-hidden rounded-md border border-border-default">
-				<table className="w-full text-sm">
-					<thead className="bg-surface-3/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-						<tr>
-							<th className="px-3 py-2 text-left">Item</th>
-							<th className="px-3 py-2 text-right">Diminta</th>
-							<th className="px-3 py-2 text-right">Sudah Diterima</th>
-							{canReceive && isEditable && (
-								<th className="px-3 py-2 text-right">Terima Sekarang</th>
-							)}
-						</tr>
-					</thead>
-					<tbody className="divide-y divide-border-default/50">
-						{pr.items.map((it) => {
-							const fulfilled = it.qty_received >= it.qty_requested;
-							const outstanding = Math.max(
-								0,
-								it.qty_requested - it.qty_received,
-							);
-							return (
-								<tr key={it.id} className="hover:bg-muted/10">
-									<td className="px-3 py-2">
-										<div className="text-fluid-caption font-medium text-foreground">
-											{it.item_name}
-										</div>
-										<div className="tabular text-[10px] text-muted-foreground">
-											{it.item_sku} · {it.unit}
-										</div>
-										{it.notes && (
-											<div className="mt-0.5 line-clamp-1 text-[10px] italic text-muted-foreground/80">
-												{it.notes}
+				<div className="w-full overflow-x-auto">
+					<table className="w-full text-sm">
+						<thead className="bg-surface-3/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+							<tr>
+								<th className="px-3 py-2 text-left">Item</th>
+								<th className="px-3 py-2 text-right">Diminta</th>
+								<th className="px-3 py-2 text-right">Sudah Diterima</th>
+								{canReceive && isEditable && (
+									<th className="px-3 py-2 text-right">Terima Sekarang</th>
+								)}
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-border-default/50">
+							{pr.items.map((it) => {
+								const fulfilled = it.qty_received >= it.qty_requested;
+								const outstanding = Math.max(
+									0,
+									it.qty_requested - it.qty_received,
+								);
+								return (
+									<tr key={it.id} className="hover:bg-muted/10">
+										<td className="px-3 py-2">
+											<div className="text-fluid-caption font-medium text-foreground">
+												{it.item_name}
 											</div>
-										)}
-									</td>
-									<td className="px-3 py-2 text-right tabular text-fluid-caption text-foreground">
-										{it.qty_requested.toLocaleString("id-ID", {
-											maximumFractionDigits: 4,
-										})}{" "}
-										{it.unit}
-									</td>
-									<td className="px-3 py-2 text-right">
-										<div className="space-y-0.5">
-											<div
-												className={`tabular text-fluid-caption font-medium ${
-													fulfilled
-														? "text-emerald-600 dark:text-emerald-400"
-														: "text-foreground"
-												}`}
-											>
-												{it.qty_received.toLocaleString("id-ID", {
-													maximumFractionDigits: 4,
-												})}{" "}
-												{it.unit}
+											<div className="tabular text-[10px] text-muted-foreground">
+												{it.item_sku} · {it.unit}
 											</div>
-											{!fulfilled && outstanding > 0 && (
-												<div className="text-[10px] text-amber-600 dark:text-amber-400">
-													kurang {outstanding.toLocaleString("id-ID")}
+											{it.notes && (
+												<div className="mt-0.5 line-clamp-1 text-[10px] italic text-muted-foreground/80">
+													{it.notes}
 												</div>
 											)}
-											{fulfilled && (
-												<Badge
-													variant="outline"
-													className="h-4 border-emerald-500/30 bg-emerald-500/10 px-1 text-[9px] text-emerald-700 dark:text-emerald-300"
-												>
-													OK
-												</Badge>
-											)}
-										</div>
-									</td>
-									{canReceive && isEditable && (
-										<td className="px-3 py-2 text-right">
-											<input
-												type="number"
-												min={0}
-												step={it.unit === "roll" ? 0.01 : 1}
-												value={receiveInputs[it.id] ?? ""}
-												onChange={(e) =>
-													setReceiveInputs((s) => ({
-														...s,
-														[it.id]: e.target.value,
-													}))
-												}
-												placeholder={
-													outstanding > 0 ? String(outstanding) : "0"
-												}
-												className="h-8 w-24 rounded-md border border-border-default bg-background px-2 text-right text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
-											/>
 										</td>
-									)}
-								</tr>
-							);
-						})}
-					</tbody>
-				</table>
+										<td className="px-3 py-2 text-right tabular text-fluid-caption text-foreground">
+											{it.qty_requested.toLocaleString("id-ID", {
+												maximumFractionDigits: 4,
+											})}{" "}
+											{it.unit}
+										</td>
+										<td className="px-3 py-2 text-right">
+											<div className="space-y-0.5">
+												<div
+													className={`tabular text-fluid-caption font-medium ${
+														fulfilled
+															? "text-emerald-600 dark:text-emerald-400"
+															: "text-foreground"
+													}`}
+												>
+													{it.qty_received.toLocaleString("id-ID", {
+														maximumFractionDigits: 4,
+													})}{" "}
+													{it.unit}
+												</div>
+												{!fulfilled && outstanding > 0 && (
+													<div className="text-[10px] text-amber-600 dark:text-amber-400">
+														kurang {outstanding.toLocaleString("id-ID")}
+													</div>
+												)}
+												{fulfilled && (
+													<Badge
+														variant="outline"
+														className="h-4 border-emerald-500/30 bg-emerald-500/10 px-1 text-[9px] text-emerald-700 dark:text-emerald-300"
+													>
+														OK
+													</Badge>
+												)}
+											</div>
+										</td>
+										{canReceive && isEditable && (
+											<td className="px-3 py-2 text-right">
+												<input
+													type="number"
+													min={0}
+													step={it.unit === "roll" ? 0.01 : 1}
+													value={receiveInputs[it.id] ?? ""}
+													onChange={(e) =>
+														setReceiveInputs((s) => ({
+															...s,
+															[it.id]: e.target.value,
+														}))
+													}
+													placeholder={
+														outstanding > 0 ? String(outstanding) : "0"
+													}
+													className="h-8 w-24 rounded-md border border-border-default bg-background px-2 text-right text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+												/>
+											</td>
+										)}
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
 			</div>
 
 			{canReceive && isEditable && (

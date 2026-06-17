@@ -56,8 +56,7 @@ export type CashAccountOption = {
 
 const STATUS_TONE: Record<string, string> = {
 	open: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	partial:
-		"border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+	partial: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
 	paid: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
 	cancelled: "border-border-default bg-surface-3 text-muted-foreground",
 };
@@ -91,10 +90,7 @@ export function PayablesTable({
 	function handleCancel() {
 		if (!cancelTarget) return;
 		startTransition(async () => {
-			const res = await cancelPayable(
-				cancelTarget.id,
-				"Dibatalkan via UI",
-			);
+			const res = await cancelPayable(cancelTarget.id, "Dibatalkan via UI");
 			if (!res.ok) {
 				toast.error(res.error);
 			} else {
@@ -124,8 +120,7 @@ export function PayablesTable({
 						p.amount === 0
 							? 0
 							: Math.min(100, Math.round((p.amount_paid / p.amount) * 100));
-					const canPay =
-						p.status === "open" || p.status === "partial";
+					const canPay = p.status === "open" || p.status === "partial";
 					return (
 						<article
 							key={p.id}
@@ -190,9 +185,7 @@ export function PayablesTable({
 											)}
 										</div>
 										<div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-											<span>
-												Issued: {formatDateID(p.issued_date)}
-											</span>
+											<span>Issued: {formatDateID(p.issued_date)}</span>
 											{p.due_date && (
 												<>
 													<span className="text-muted-foreground/40">·</span>
@@ -218,8 +211,8 @@ export function PayablesTable({
 												/>
 											</div>
 											<span className="tabular text-[10px] text-muted-foreground">
-												{formatRupiah(p.amount_paid)} /{" "}
-												{formatRupiah(p.amount)} ({progressPct}%)
+												{formatRupiah(p.amount_paid)} / {formatRupiah(p.amount)}{" "}
+												({progressPct}%)
 											</span>
 										</div>
 									</div>
@@ -288,38 +281,40 @@ export function PayablesTable({
 										</div>
 									) : (
 										<div className="overflow-hidden rounded-md border border-border-default">
-											<table className="w-full text-sm">
-												<thead className="bg-surface-3/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-													<tr>
-														<th className="px-3 py-2 text-left">Tanggal</th>
-														<th className="px-3 py-2 text-left">Akun</th>
-														<th className="px-3 py-2 text-left">Oleh</th>
-														<th className="px-3 py-2 text-left">Catatan</th>
-														<th className="px-3 py-2 text-right">Amount</th>
-													</tr>
-												</thead>
-												<tbody className="divide-y divide-border-default/50">
-													{p.payments.map((py) => (
-														<tr key={py.id} className="hover:bg-muted/10">
-															<td className="px-3 py-2 tabular text-fluid-caption">
-																{formatDateID(py.payment_date)}
-															</td>
-															<td className="px-3 py-2 tabular text-fluid-caption text-muted-foreground">
-																{py.payment_account_code}
-															</td>
-															<td className="px-3 py-2 text-fluid-caption text-muted-foreground">
-																{py.paid_by_name ?? "—"}
-															</td>
-															<td className="px-3 py-2 text-fluid-caption text-muted-foreground">
-																{py.notes ?? "—"}
-															</td>
-															<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
-																{formatRupiah(py.amount)}
-															</td>
+											<div className="w-full overflow-x-auto">
+												<table className="w-full text-sm">
+													<thead className="bg-surface-3/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+														<tr>
+															<th className="px-3 py-2 text-left">Tanggal</th>
+															<th className="px-3 py-2 text-left">Akun</th>
+															<th className="px-3 py-2 text-left">Oleh</th>
+															<th className="px-3 py-2 text-left">Catatan</th>
+															<th className="px-3 py-2 text-right">Amount</th>
 														</tr>
-													))}
-												</tbody>
-											</table>
+													</thead>
+													<tbody className="divide-y divide-border-default/50">
+														{p.payments.map((py) => (
+															<tr key={py.id} className="hover:bg-muted/10">
+																<td className="px-3 py-2 tabular text-fluid-caption">
+																	{formatDateID(py.payment_date)}
+																</td>
+																<td className="px-3 py-2 tabular text-fluid-caption text-muted-foreground">
+																	{py.payment_account_code}
+																</td>
+																<td className="px-3 py-2 text-fluid-caption text-muted-foreground">
+																	{py.paid_by_name ?? "—"}
+																</td>
+																<td className="px-3 py-2 text-fluid-caption text-muted-foreground">
+																	{py.notes ?? "—"}
+																</td>
+																<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+																	{formatRupiah(py.amount)}
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
 										</div>
 									)}
 									{p.status === "paid" && p.paid_at && (

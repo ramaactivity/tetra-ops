@@ -141,73 +141,75 @@ export function TrialBalanceTable({
 								Saldo: {formatRupiah(groupBalance)}
 							</span>
 						</header>
-						<table className="w-full text-sm">
-							<thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-								<tr className="border-b border-border-default/60">
-									<th className="px-3 py-2 text-left">Kode</th>
-									<th className="px-3 py-2 text-left">Nama Akun</th>
-									<th className="px-3 py-2 text-right">Debit</th>
-									<th className="px-3 py-2 text-right">Credit</th>
-									<th className="px-3 py-2 text-right">Saldo</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-default/50">
-								{items.map((r) => (
-									<tr key={r.code} className="hover:bg-muted/10">
-										<td className="px-3 py-2 tabular font-medium text-foreground">
-											<Link
-												href={`/finance/accounting/ledger/${encodeURIComponent(r.code)}`}
-												className="hover:text-primary hover:underline"
-												title="Buka buku besar"
-											>
-												{r.code}
-											</Link>
-										</td>
-										<td className="px-3 py-2 text-fluid-caption text-foreground">
-											{r.name}
-										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption">
-											{r.debit > 0 ? (
-												<span className="font-medium text-foreground">
-													{formatRupiah(r.debit)}
-												</span>
-											) : (
-												<span className="text-muted-foreground/30">—</span>
-											)}
-										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption">
-											{r.credit > 0 ? (
-												<span className="font-medium text-foreground">
-													{formatRupiah(r.credit)}
-												</span>
-											) : (
-												<span className="text-muted-foreground/30">—</span>
-											)}
+						<div className="w-full overflow-x-auto">
+							<table className="w-full text-sm">
+								<thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+									<tr className="border-b border-border-default/60">
+										<th className="px-3 py-2 text-left">Kode</th>
+										<th className="px-3 py-2 text-left">Nama Akun</th>
+										<th className="px-3 py-2 text-right">Debit</th>
+										<th className="px-3 py-2 text-right">Credit</th>
+										<th className="px-3 py-2 text-right">Saldo</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-border-default/50">
+									{items.map((r) => (
+										<tr key={r.code} className="hover:bg-muted/10">
+											<td className="px-3 py-2 tabular font-medium text-foreground">
+												<Link
+													href={`/finance/accounting/ledger/${encodeURIComponent(r.code)}`}
+													className="hover:text-primary hover:underline"
+													title="Buka buku besar"
+												>
+													{r.code}
+												</Link>
+											</td>
+											<td className="px-3 py-2 text-fluid-caption text-foreground">
+												{r.name}
+											</td>
+											<td className="px-3 py-2 text-right tabular text-fluid-caption">
+												{r.debit > 0 ? (
+													<span className="font-medium text-foreground">
+														{formatRupiah(r.debit)}
+													</span>
+												) : (
+													<span className="text-muted-foreground/30">—</span>
+												)}
+											</td>
+											<td className="px-3 py-2 text-right tabular text-fluid-caption">
+												{r.credit > 0 ? (
+													<span className="font-medium text-foreground">
+														{formatRupiah(r.credit)}
+													</span>
+												) : (
+													<span className="text-muted-foreground/30">—</span>
+												)}
+											</td>
+											<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+												{formatRupiah(r.balance)}
+											</td>
+										</tr>
+									))}
+									<tr className="bg-surface-3/20 font-medium">
+										<td
+											className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground"
+											colSpan={2}
+										>
+											Subtotal {TYPE_LABEL[type] ?? type}
 										</td>
 										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
-											{formatRupiah(r.balance)}
+											{formatRupiah(groupDebit)}
+										</td>
+										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+											{formatRupiah(groupCredit)}
+										</td>
+										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+											{formatRupiah(groupBalance)}
 										</td>
 									</tr>
-								))}
-								<tr className="bg-surface-3/20 font-medium">
-									<td
-										className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground"
-										colSpan={2}
-									>
-										Subtotal {TYPE_LABEL[type] ?? type}
-									</td>
-									<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
-										{formatRupiah(groupDebit)}
-									</td>
-									<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
-										{formatRupiah(groupCredit)}
-									</td>
-									<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
-										{formatRupiah(groupBalance)}
-									</td>
-								</tr>
-							</tbody>
-						</table>
+								</tbody>
+							</table>
+						</div>
 					</section>
 				);
 			})}

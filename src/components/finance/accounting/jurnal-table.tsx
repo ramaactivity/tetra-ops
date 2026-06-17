@@ -291,81 +291,85 @@ function JournalEntry({
 
 			{open && (
 				<div className="border-t border-border-subtle bg-secondary/30 px-4 pb-4 pt-3">
-					<table className="w-full">
-						<thead>
-							<tr className="border-b border-border-subtle text-left">
-								<th className="eyebrow pb-1.5 pr-3 font-normal">Akun</th>
-								<th className="eyebrow pb-1.5 pr-3 font-normal">Keterangan</th>
-								<th className="eyebrow pb-1.5 pl-3 text-right font-normal">
-									Debit
-								</th>
-								<th className="eyebrow pb-1.5 pl-3 text-right font-normal">
-									Kredit
-								</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border-subtle">
-							{entry.lines.map((line) => (
-								<tr key={line.id}>
-									<td className="py-2 pr-3 align-top">
-										<div className="tabular text-[12px] font-medium text-foreground">
-											{line.account_code}
-										</div>
-										<div className="text-[11px] text-muted-foreground">
-											{line.account_name ?? "—"}
-										</div>
+					<div className="w-full overflow-x-auto">
+						<table className="w-full">
+							<thead>
+								<tr className="border-b border-border-subtle text-left">
+									<th className="eyebrow pb-1.5 pr-3 font-normal">Akun</th>
+									<th className="eyebrow pb-1.5 pr-3 font-normal">
+										Keterangan
+									</th>
+									<th className="eyebrow pb-1.5 pl-3 text-right font-normal">
+										Debit
+									</th>
+									<th className="eyebrow pb-1.5 pl-3 text-right font-normal">
+										Kredit
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-border-subtle">
+								{entry.lines.map((line) => (
+									<tr key={line.id}>
+										<td className="py-2 pr-3 align-top">
+											<div className="tabular text-[12px] font-medium text-foreground">
+												{line.account_code}
+											</div>
+											<div className="text-[11px] text-muted-foreground">
+												{line.account_name ?? "—"}
+											</div>
+										</td>
+										<td className="py-2 pr-3 align-top text-[12px] text-muted-foreground">
+											{line.description ?? "—"}
+										</td>
+										<td className="py-2 pl-3 text-right align-top tabular text-[12px]">
+											{line.debit_amount > 0 ? (
+												<span className="font-medium text-foreground">
+													{formatRupiah(line.debit_amount)}
+												</span>
+											) : (
+												<span className="text-muted-foreground/30">—</span>
+											)}
+										</td>
+										<td className="py-2 pl-3 text-right align-top tabular text-[12px]">
+											{line.credit_amount > 0 ? (
+												<span className="font-medium text-foreground">
+													{formatRupiah(line.credit_amount)}
+												</span>
+											) : (
+												<span className="text-muted-foreground/30">—</span>
+											)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+							<tfoot>
+								<tr className="border-t border-border-default">
+									<td className="pt-2 pr-3 text-right align-top" colSpan={2}>
+										<span className="inline-flex items-center gap-1 text-[11px] font-medium">
+											{balanced ? (
+												<span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+													<Check
+														className="size-3.5"
+														aria-hidden
+														strokeWidth={2.5}
+													/>
+													Debit = kredit
+												</span>
+											) : (
+												<span className="text-destructive">Tidak seimbang</span>
+											)}
+										</span>
 									</td>
-									<td className="py-2 pr-3 align-top text-[12px] text-muted-foreground">
-										{line.description ?? "—"}
+									<td className="pt-2 pl-3 text-right align-top tabular text-[12px] font-semibold text-foreground">
+										{formatRupiah(totalDebit)}
 									</td>
-									<td className="py-2 pl-3 text-right align-top tabular text-[12px]">
-										{line.debit_amount > 0 ? (
-											<span className="font-medium text-foreground">
-												{formatRupiah(line.debit_amount)}
-											</span>
-										) : (
-											<span className="text-muted-foreground/30">—</span>
-										)}
-									</td>
-									<td className="py-2 pl-3 text-right align-top tabular text-[12px]">
-										{line.credit_amount > 0 ? (
-											<span className="font-medium text-foreground">
-												{formatRupiah(line.credit_amount)}
-											</span>
-										) : (
-											<span className="text-muted-foreground/30">—</span>
-										)}
+									<td className="pt-2 pl-3 text-right align-top tabular text-[12px] font-semibold text-foreground">
+										{formatRupiah(totalCredit)}
 									</td>
 								</tr>
-							))}
-						</tbody>
-						<tfoot>
-							<tr className="border-t border-border-default">
-								<td className="pt-2 pr-3 text-right align-top" colSpan={2}>
-									<span className="inline-flex items-center gap-1 text-[11px] font-medium">
-										{balanced ? (
-											<span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-												<Check
-													className="size-3.5"
-													aria-hidden
-													strokeWidth={2.5}
-												/>
-												Debit = kredit
-											</span>
-										) : (
-											<span className="text-destructive">Tidak seimbang</span>
-										)}
-									</span>
-								</td>
-								<td className="pt-2 pl-3 text-right align-top tabular text-[12px] font-semibold text-foreground">
-									{formatRupiah(totalDebit)}
-								</td>
-								<td className="pt-2 pl-3 text-right align-top tabular text-[12px] font-semibold text-foreground">
-									{formatRupiah(totalCredit)}
-								</td>
-							</tr>
-						</tfoot>
-					</table>
+							</tfoot>
+						</table>
+					</div>
 					{entry.is_reversed && entry.reversed_at && (
 						<p className="mt-3 rounded-md bg-rose-500/10 px-3 py-2 text-[11px] text-destructive">
 							Entry ini sudah dibalik pada {formatDateID(entry.reversed_at)}.
