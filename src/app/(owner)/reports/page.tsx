@@ -118,13 +118,13 @@ export default async function ReportsPage({
 					{
 						label: "Monthly P&L",
 						href: `/reports?tab=pnl&month=${ym}`,
-						icon: BarChart3,
+						icon: <BarChart3 className="size-4 shrink-0" aria-hidden />,
 						active: tab === "pnl",
 					},
 					{
 						label: "Crew Performance",
 						href: `/reports?tab=crew&month=${ym}`,
-						icon: UsersRound,
+						icon: <UsersRound className="size-4 shrink-0" aria-hidden />,
 						active: tab === "crew",
 					},
 					...(isSuperAdmin
@@ -132,7 +132,7 @@ export default async function ReportsPage({
 								{
 									label: "Owner Statement",
 									href: `/reports?tab=owner&month=${ym}`,
-									icon: Coins,
+									icon: <Coins className="size-4 shrink-0" aria-hidden />,
 									active: tab === "owner",
 								},
 							]

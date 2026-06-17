@@ -168,9 +168,10 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 				);
 			})}
 
-			{/* Sticky footer */}
-			<div className="border-border-default bg-background/95 supports-[backdrop-filter]:bg-background/85 fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t backdrop-blur md:bottom-0">
-				<div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-4">
+			{/* Floating save bar — a self-contained pill-card that floats over the
+			    ambient gradient instead of a full-bleed bar (matches the DNA). */}
+			<div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 md:bottom-5">
+				<div className="border-border-subtle bg-card pointer-events-auto flex items-center gap-3 rounded-full border py-1.5 pr-1.5 pl-4 shadow-[var(--shadow-level-4)]">
 					<div className="text-xs text-muted-foreground">
 						{state?.updated && state.updated > 0 ? (
 							<span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
@@ -181,14 +182,14 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 							<span className="text-destructive">{state.error}</span>
 						) : (
 							<span>
-								{entries.length} key terdaftar · ubah lalu klik simpan
+								{entries.length} key · ubah lalu simpan
 							</span>
 						)}
 					</div>
 					<button
 						type="submit"
 						disabled={pending}
-						className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-10 items-center rounded-md px-4 text-sm font-medium disabled:opacity-60"
+						className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 shrink-0 items-center rounded-full px-4 text-[13px] font-medium disabled:opacity-60"
 					>
 						{pending ? "Menyimpan…" : "Simpan semua perubahan"}
 					</button>

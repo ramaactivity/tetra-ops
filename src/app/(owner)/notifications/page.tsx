@@ -205,7 +205,7 @@ export default async function NotificationsPage({
 			/>
 
 			{/* Push notifications subscribe */}
-			<div className="border-border-default bg-surface-2 flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+			<div className="border-border-subtle bg-card flex flex-col gap-2 rounded-[16px] border p-5 shadow-[var(--shadow-level-2)] md:flex-row md:items-center md:justify-between">
 				<div className="space-y-0.5">
 					<p className="text-foreground text-sm font-medium">
 						Push notification ke device ini
@@ -220,73 +220,76 @@ export default async function NotificationsPage({
 				/>
 			</div>
 
-			{/* Show / unread toggle */}
-			<div className="border-border-default bg-surface-2 inline-flex items-center rounded-md border p-0.5">
-				<TabLink
-					href={buildQs({ show: "", severity: sev, category: cat })}
-					label={`Unread${totalUnread > 0 ? ` (${totalUnread})` : ""}`}
-					active={!showAll}
-				/>
-				<TabLink
-					href={buildQs({ show: "all", severity: sev, category: cat })}
-					label="Semua"
-					active={showAll}
-				/>
-			</div>
+			{/* Filters — grouped into one floating card */}
+			<div className="border-border-subtle bg-card flex flex-col gap-3 rounded-[16px] border p-4 shadow-[var(--shadow-level-2)]">
+				{/* Show / unread toggle */}
+				<div className="bg-secondary inline-flex w-fit items-center rounded-full p-1">
+					<TabLink
+						href={buildQs({ show: "", severity: sev, category: cat })}
+						label={`Unread${totalUnread > 0 ? ` (${totalUnread})` : ""}`}
+						active={!showAll}
+					/>
+					<TabLink
+						href={buildQs({ show: "all", severity: sev, category: cat })}
+						label="Semua"
+						active={showAll}
+					/>
+				</div>
 
-			{/* Severity + category chips */}
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
-					Severity:
-				</span>
-				<ChipLink
-					href={buildQs({
-						severity: "",
-						category: cat,
-						show: showAll ? "all" : "",
-					})}
-					label="All"
-					active={sev === ""}
-				/>
-				{SEVERITIES.map((s) => (
+				{/* Severity + category chips */}
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium uppercase tracking-wider">
+						Severity
+					</span>
 					<ChipLink
-						key={s}
 						href={buildQs({
-							severity: s,
+							severity: "",
 							category: cat,
 							show: showAll ? "all" : "",
 						})}
-						label={SEVERITY_TONES[s].label}
-						active={sev === s}
-						tone={SEVERITY_TONES[s].text}
+						label="All"
+						active={sev === ""}
 					/>
-				))}
-			</div>
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
-					Kategori:
-				</span>
-				<ChipLink
-					href={buildQs({
-						category: "",
-						severity: sev,
-						show: showAll ? "all" : "",
-					})}
-					label="All"
-					active={cat === ""}
-				/>
-				{CATEGORIES.map((c) => (
+					{SEVERITIES.map((s) => (
+						<ChipLink
+							key={s}
+							href={buildQs({
+								severity: s,
+								category: cat,
+								show: showAll ? "all" : "",
+							})}
+							label={SEVERITY_TONES[s].label}
+							active={sev === s}
+							tone={SEVERITY_TONES[s].text}
+						/>
+					))}
+				</div>
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium uppercase tracking-wider">
+						Kategori
+					</span>
 					<ChipLink
-						key={c}
 						href={buildQs({
-							category: c,
+							category: "",
 							severity: sev,
 							show: showAll ? "all" : "",
 						})}
-						label={CATEGORY_LABELS[c]}
-						active={cat === c}
+						label="All"
+						active={cat === ""}
 					/>
-				))}
+					{CATEGORIES.map((c) => (
+						<ChipLink
+							key={c}
+							href={buildQs({
+								category: c,
+								severity: sev,
+								show: showAll ? "all" : "",
+							})}
+							label={CATEGORY_LABELS[c]}
+							active={cat === c}
+						/>
+					))}
+				</div>
 			</div>
 
 			{rows.length === 0 ? (
@@ -409,7 +412,7 @@ function TabLink({
 	return (
 		<Link
 			href={href}
-			className={`inline-flex h-7 items-center rounded px-2.5 text-xs font-medium transition-colors ${
+			className={`inline-flex h-7 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors ${
 				active
 					? "bg-[#059669] text-white"
 					: "text-muted-foreground hover:text-foreground"
@@ -434,10 +437,10 @@ function ChipLink({
 	return (
 		<Link
 			href={href}
-			className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors ${
+			className={`inline-flex h-8 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
 				active
-					? "border-primary/40 bg-primary/10 text-primary"
-					: `border-border-default bg-surface-2 hover:bg-muted ${tone ?? "text-muted-foreground"}`
+					? "border-[#059669] bg-[#059669] text-white"
+					: `border-border-default bg-card hover:bg-secondary ${tone ?? "text-muted-foreground"}`
 			}`}
 		>
 			{label}
