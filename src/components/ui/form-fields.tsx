@@ -20,8 +20,12 @@ import { cn } from "@/lib/utils";
  * tokens, so visual parity is maintained.
  */
 
+// Font: 16px on mobile (`text-base`) to defeat iOS focus auto-zoom — MOBILE.md
+// hard rule "input ≥ 16px on mobile". Desktop (`md+`) keeps the fluid body
+// scale, matching the Combobox trigger. Fixed 40px height is unchanged, so
+// no alignment drift with the coordinated Combobox/Select triggers.
 export const INPUT_CLASS =
-	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-fluid-body text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50";
+	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-base md:text-fluid-body text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50";
 
 // ────────────────────────────────────────────────────────────────────────────
 // TextField — default text input
