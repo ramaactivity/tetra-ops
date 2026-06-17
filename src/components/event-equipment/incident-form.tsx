@@ -214,7 +214,7 @@ export function IncidentDialog({
 							rows={2}
 							defaultValue={get("photo_urls")}
 							placeholder="https://drive.google.com/...&#10;https://drive.google.com/..."
-							className={`${inputClass} resize-none font-mono text-xs`}
+							className={`${inputClass} resize-none font-mono text-base md:text-xs`}
 						/>
 						<p className="text-muted-foreground text-xs">
 							Pisah dengan baris baru atau koma. Upload manual ke Drive untuk
@@ -241,5 +241,5 @@ export function IncidentDialog({
 }
 
 const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-base md:text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
 const selectClass = `${inputClass} appearance-none`;

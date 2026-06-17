@@ -22,7 +22,7 @@ export type VendorFormDefaults = Partial<{
 }>;
 
 const inputClass =
-	"h-10 w-full rounded-md border border-border-default bg-card px-3 text-[14px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+	"h-10 w-full rounded-md border border-border-default bg-card px-3 text-base md:text-[14px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 const labelClass =
 	"flex flex-col gap-1.5 text-[13px] font-medium text-foreground";

@@ -306,10 +306,10 @@ function ConfigInput({
 			name={name}
 			defaultValue={JSON.stringify(entry.value, null, 2)}
 			rows={3}
-			className={`${inputClass} font-mono text-xs leading-relaxed`}
+			className={`${inputClass} font-mono text-base md:text-xs leading-relaxed`}
 		/>
 	);
 }
 
 const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+	"border-border-default bg-background text-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-base md:text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
