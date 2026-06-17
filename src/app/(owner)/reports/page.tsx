@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -346,7 +347,7 @@ async function PnlSection({
 
 	return (
 		<div className="space-y-6">
-			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<KpiRow>
 				<KpiCard
 					label="Cash In"
 					value={formatRupiah(cashIn)}
@@ -375,7 +376,7 @@ async function PnlSection({
 					icon={Coins}
 					accent="primary"
 				/>
-			</dl>
+			</KpiRow>
 
 			<section className="space-y-3">
 				<h2 className="text-base font-semibold tracking-tight">

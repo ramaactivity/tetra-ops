@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsFilterBar } from "@/components/operations/filter-bar";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { MonthMemory } from "@/components/operations/month-memory";
 import {
@@ -410,9 +411,8 @@ export default async function OperationsListPage({
 				}
 			/>
 
-			<dl className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 scroll-pl-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-5">
+			<KpiRow className="lg:grid-cols-5">
 				<KpiCard
-					className="w-[47%] shrink-0 snap-start sm:w-auto"
 					label="Total Events"
 					value={totalCount.toLocaleString("id-ID")}
 					hint="Semua event tercatat (termasuk arsip)"
@@ -420,7 +420,6 @@ export default async function OperationsListPage({
 					accent="primary"
 				/>
 				<KpiCard
-					className="w-[47%] shrink-0 snap-start sm:w-auto"
 					label="Bulan Ini"
 					value={thisMonthCount.toLocaleString("id-ID")}
 					hint={`${today.toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · semua status`}
@@ -433,7 +432,6 @@ export default async function OperationsListPage({
 					}
 				/>
 				<KpiCard
-					className="w-[47%] shrink-0 snap-start sm:w-auto"
 					label="Tahun Ini"
 					value={thisYearCount.toLocaleString("id-ID")}
 					hint={`${today.getFullYear()} · semua status`}
@@ -446,7 +444,6 @@ export default async function OperationsListPage({
 					}
 				/>
 				<KpiCard
-					className="w-[47%] shrink-0 snap-start sm:w-auto"
 					label="Awaiting Settlement"
 					value={awaitingCount.toLocaleString("id-ID")}
 					hint="Event selesai, belum di-settle"
@@ -454,14 +451,13 @@ export default async function OperationsListPage({
 					accent="amber"
 				/>
 				<KpiCard
-					className="w-[47%] shrink-0 snap-start sm:w-auto"
 					label="Completed"
 					value={completedCount.toLocaleString("id-ID")}
 					hint="Event selesai & sudah di-settle"
 					icon={CheckCircle2}
 					accent="emerald"
 				/>
-			</dl>
+			</KpiRow>
 
 			<div className="space-y-3">
 				<OperationsFilterBar

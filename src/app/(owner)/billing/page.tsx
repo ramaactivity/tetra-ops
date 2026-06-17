@@ -13,6 +13,7 @@ import {
 import type { WhatsAppTemplate } from "@/components/booking/send-wa-button";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
@@ -183,7 +184,7 @@ export default async function BillingPage({
 				description="Track pembayaran dan piutang dari semua event."
 			/>
 
-			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			<KpiRow>
 				<KpiCard
 					label="Uang Menggantung"
 					value={formatRupiah(hanging)}
@@ -212,7 +213,7 @@ export default async function BillingPage({
 					icon={Receipt}
 					accent="primary"
 				/>
-			</dl>
+			</KpiRow>
 
 			<div className="space-y-3">
 				<BillingFilterBar

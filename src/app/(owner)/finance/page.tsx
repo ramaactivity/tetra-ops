@@ -17,6 +17,7 @@ import {
 } from "@/components/finance/withdrawal-button";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -318,7 +319,7 @@ export default async function FinancePage() {
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
 			/>
 
-			<dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<KpiRow>
 				<KpiCard
 					label="Revenue MTD (cash)"
 					value={formatRupiah(revenueMtd)}
@@ -367,7 +368,7 @@ export default async function FinancePage() {
 					icon={PiggyBank}
 					accent="primary"
 				/>
-			</dl>
+			</KpiRow>
 
 			<section className="space-y-3">
 				<div className="flex items-baseline justify-between">

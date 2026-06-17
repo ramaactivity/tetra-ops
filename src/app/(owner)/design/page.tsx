@@ -12,6 +12,7 @@ import { DesignMonthFilter } from "@/components/event-design/design-month-filter
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AssetType } from "@/lib/event-assets/types";
@@ -220,7 +221,7 @@ export default async function AssetDesignPage({
 				description="Status design per event + hub aset (design frame, footage, softfile). Kelola status design + aset langsung di sini."
 			/>
 
-			<dl className="grid gap-3 sm:grid-cols-3">
+			<KpiRow className="sm:grid-cols-3 lg:grid-cols-3">
 				<KpiCard
 					label="Design Siap"
 					value={`${nDesign} / ${scoped.length}`}
@@ -245,7 +246,7 @@ export default async function AssetDesignPage({
 					accent="emerald"
 					progress={{ current: nFootage, target: scoped.length, label: "" }}
 				/>
-			</dl>
+			</KpiRow>
 
 			<div className="space-y-3">
 				{/* Filter row: month dropdown (left) + design-status chips (right) */}
