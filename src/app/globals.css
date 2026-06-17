@@ -91,11 +91,22 @@
   --color-rose-700: #9a0000;
   --color-rose-soft: #f7d4d6;
 
-  /* === Semantic — info (Vercel link blue) === */
-  --color-sky-50: #ECFEFF;
-  --color-sky-500: #0070f3;
-  --color-sky-600: #0761d1;
-  --color-sky-700: #0e4a9e;
+  /* === Semantic — info: migrated to Teal (Midnight Glow) so "info" reads as
+     the calm emerald-adjacent companion, not a separate blue. Every existing
+     `sky-*` usage adopts teal automatically — one-point migration, consistent
+     across mobile + desktop. All used shades are defined so none fall back to
+     Tailwind's default blue sky. === */
+  --color-sky-50: #e6f4f4;
+  --color-sky-100: #c9e9e9;
+  --color-sky-200: #a3dada;
+  --color-sky-300: #6fc4c4;
+  --color-sky-400: #1fa8a8;
+  --color-sky-500: #00a3a3;
+  --color-sky-600: #008c8c;
+  --color-sky-700: #0a6b6b;
+  --color-sky-800: #084f4f;
+  --color-sky-900: #073e3e;
+  --color-sky-950: #052e2e;
 
   /* === Midnight Glow — cool accent family that COMPLEMENTS emerald ===
      White stays the clean base. Emerald = the single action/success hue.
