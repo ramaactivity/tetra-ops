@@ -24,13 +24,13 @@ export function HeroMetric({
 }) {
 	const up = (deltaPct ?? 0) >= 0;
 	return (
-		<div className="relative overflow-hidden rounded-[16px] bg-primary p-5 text-white shadow-[var(--shadow-fab)] dark:bg-primary">
+		<div className="relative overflow-hidden rounded-[16px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-2)]">
 			<div className="flex items-start justify-between gap-3">
-				<p className="font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-white/75">
+				<p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-white/80">
 					{label}
 				</p>
 				{deltaPct != null ? (
-					<span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[12px] font-semibold tabular">
+					<span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-1 text-[12px] font-semibold tabular text-white">
 						{up ? (
 							<TrendingUp className="size-3.5" aria-hidden />
 						) : (
@@ -48,7 +48,7 @@ export function HeroMetric({
 			<div className="type-num-xl mt-2 tabular leading-none text-white">
 				{value}
 			</div>
-			{hint ? <p className="mt-1.5 text-[13px] text-white/75">{hint}</p> : null}
+			{hint ? <p className="mt-1.5 text-[13px] text-white/80">{hint}</p> : null}
 
 			{spark && spark.length > 0 ? (
 				<div className="mt-3 -mb-1">
