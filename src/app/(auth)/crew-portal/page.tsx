@@ -206,7 +206,7 @@ function TabLink({
 			<Icon className="size-4" />
 			{label}
 			{active && (
-				<span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary" />
+				<span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#059669]" />
 			)}
 		</Link>
 	);

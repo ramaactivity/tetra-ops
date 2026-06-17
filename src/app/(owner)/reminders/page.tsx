@@ -262,7 +262,10 @@ export default async function RemindersPage({
 				title="WA Reminder Scheduler"
 				description="Kirim reminder WhatsApp manual via wa.me — pilih bucket, centang event, klik kirim."
 				actions={
-					<Badge variant="outline" className="gap-1.5">
+					<Badge
+						variant="outline"
+						className="bg-card h-9 gap-1.5 rounded-full px-3.5 text-[13px] font-medium"
+					>
 						<Inbox className="size-3.5" />
 						{totalCount} event butuh reminder
 					</Badge>

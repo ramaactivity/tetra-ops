@@ -17,6 +17,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
+import { TabNav } from "@/components/ui/tab-nav";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -111,28 +112,33 @@ export default async function ReportsPage({
 				actions={<MonthSwitcher ym={ym} tab={tab} />}
 			/>
 
-			<div className="border-border-default flex gap-1 border-b">
-				<TabLink
-					href={`/reports?tab=pnl&month=${ym}`}
-					label="Monthly P&L"
-					icon={BarChart3}
-					active={tab === "pnl"}
-				/>
-				<TabLink
-					href={`/reports?tab=crew&month=${ym}`}
-					label="Crew Performance"
-					icon={UsersRound}
-					active={tab === "crew"}
-				/>
-				{isSuperAdmin && (
-					<TabLink
-						href={`/reports?tab=owner&month=${ym}`}
-						label="Owner Statement"
-						icon={Coins}
-						active={tab === "owner"}
-					/>
-				)}
-			</div>
+			<TabNav
+				aria-label="Reports"
+				items={[
+					{
+						label: "Monthly P&L",
+						href: `/reports?tab=pnl&month=${ym}`,
+						icon: BarChart3,
+						active: tab === "pnl",
+					},
+					{
+						label: "Crew Performance",
+						href: `/reports?tab=crew&month=${ym}`,
+						icon: UsersRound,
+						active: tab === "crew",
+					},
+					...(isSuperAdmin
+						? [
+								{
+									label: "Owner Statement",
+									href: `/reports?tab=owner&month=${ym}`,
+									icon: Coins,
+									active: tab === "owner",
+								},
+							]
+						: []),
+				]}
+			/>
 
 			{tab === "pnl" && (
 				<PnlSection ymStart={ymStart} ymEnd={ymEnd} monthLabel={monthLabel} />
@@ -159,55 +165,26 @@ function MonthSwitcher({ ym, tab }: { ym: string; tab: Tab }) {
 	const next = shiftMonth(ym, +1);
 	const [year, month] = ym.split("-").map(Number);
 	return (
-		<div className="border-border-default bg-surface-2 flex items-center gap-1 rounded-md border p-0.5">
+		<div className="border-border-subtle bg-secondary inline-flex h-9 items-center gap-0.5 rounded-full border p-1">
 			<Link
 				href={`/reports?tab=${tab}&month=${prev}`}
 				aria-label="Previous month"
-				className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded"
+				className="text-muted-foreground hover:bg-card hover:text-foreground inline-flex size-7 items-center justify-center rounded-full"
 			>
 				<ChevronLeft className="h-4 w-4" />
 			</Link>
-			<div className="text-foreground tabular flex h-8 items-center gap-1.5 px-3 text-sm font-medium">
+			<div className="text-foreground tabular flex h-7 items-center gap-1.5 px-2.5 text-[13px] font-medium">
 				<CalendarRange className="text-muted-foreground h-3.5 w-3.5" />
 				{ID_MONTH_NAMES[month - 1]} {year}
 			</div>
 			<Link
 				href={`/reports?tab=${tab}&month=${next}`}
 				aria-label="Next month"
-				className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded"
+				className="text-muted-foreground hover:bg-card hover:text-foreground inline-flex size-7 items-center justify-center rounded-full"
 			>
 				<ChevronRight className="h-4 w-4" />
 			</Link>
 		</div>
-	);
-}
-
-function TabLink({
-	href,
-	label,
-	icon: Icon,
-	active,
-}: {
-	href: string;
-	label: string;
-	icon: typeof BarChart3;
-	active: boolean;
-}) {
-	return (
-		<Link
-			href={href}
-			className={`relative inline-flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
-				active
-					? "text-foreground"
-					: "text-muted-foreground hover:text-foreground"
-			}`}
-		>
-			<Icon className="h-4 w-4" />
-			{label}
-			{active && (
-				<span className="bg-[#059669] absolute inset-x-0 bottom-0 h-0.5" />
-			)}
-		</Link>
 	);
 }
 

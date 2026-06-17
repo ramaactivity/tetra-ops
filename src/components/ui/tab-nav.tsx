@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,8 @@ export type TabNavItem = {
 	label: string;
 	href: string;
 	active: boolean;
+	/** Optional leading icon. */
+	icon?: LucideIcon;
 	/** Optional muted count badge after the label. */
 	count?: number;
 };
@@ -53,6 +56,7 @@ export function TabNav({
 							: "text-muted-foreground hover:bg-secondary hover:text-foreground",
 					)}
 				>
+					{tab.icon && <tab.icon className="size-4 shrink-0" aria-hidden />}
 					{tab.label}
 					{typeof tab.count === "number" && (
 						<span

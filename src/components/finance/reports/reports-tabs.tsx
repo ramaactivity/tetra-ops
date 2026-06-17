@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { TabNav } from "@/components/ui/tab-nav";
 
 const TABS: ReadonlyArray<{ value: string; label: string }> = [
 	{ value: "trial", label: "Neraca Saldo" },
@@ -22,27 +21,13 @@ export function ReportsTabs({ current }: { current: string }) {
 	}
 
 	return (
-		<nav className="border-border-default flex gap-1 overflow-x-auto border-b">
-			{TABS.map((tab) => {
-				const isActive = current === tab.value;
-				return (
-					<Link
-						key={tab.value}
-						href={buildHref(tab.value)}
-						className={cn(
-							"relative shrink-0 px-4 py-3 text-sm font-medium transition-colors",
-							isActive
-								? "text-foreground"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						{tab.label}
-						{isActive && (
-							<span className="bg-[#059669] absolute inset-x-0 bottom-0 h-0.5" />
-						)}
-					</Link>
-				);
-			})}
-		</nav>
+		<TabNav
+			aria-label="Laporan keuangan"
+			items={TABS.map((tab) => ({
+				label: tab.label,
+				href: buildHref(tab.value),
+				active: current === tab.value,
+			}))}
+		/>
 	);
 }

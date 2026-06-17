@@ -55,7 +55,7 @@ export async function OwnerTopBar({
 			    regardless of the per-page button `size`. */}
 			<div
 				id="topbar-actions"
-				className="flex items-center gap-1.5 empty:hidden [&>a]:h-9 [&>button]:h-9 [&>a]:rounded-full [&>button]:rounded-full [&>a]:text-[13px] [&>button]:text-[13px]"
+				className="flex items-center gap-1.5 empty:hidden [&>a]:h-9 [&>button]:h-9 [&>form>button]:h-9 [&>a]:rounded-full [&>button]:rounded-full [&>form>button]:rounded-full [&>a]:text-[13px] [&>button]:text-[13px] [&>form>button]:text-[13px]"
 			/>
 
 			{/* Identity cluster (right) */}
