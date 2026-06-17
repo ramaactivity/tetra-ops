@@ -315,7 +315,7 @@ export function OperationsListTable({
 							key={ev.id}
 							href={`/operations/${ev.project_id}`}
 							style={{ viewTransitionName: `event-${ev.project_id}` }}
-							className="press tap block rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-soft)] transition-transform active:scale-[0.98]"
+							className="press tap block rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)] transition-transform active:scale-[0.98]"
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div className="min-w-0">

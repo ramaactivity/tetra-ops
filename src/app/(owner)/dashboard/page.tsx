@@ -115,7 +115,7 @@ export default async function DashboardPage() {
 						/>
 					</div>
 					{/* Piutang + settle — money gets full width so it never truncates */}
-					<div className="flex items-center gap-4 rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
+					<div className="flex items-center gap-4 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
 						<div className="min-w-0 flex-1">
 							<div className="flex items-center gap-2">
 								<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
@@ -224,8 +224,8 @@ export default async function DashboardPage() {
 				<section className="space-y-2.5 lg:col-span-2">
 					<SectionHead eyebrow="Agenda" title="Hari Ini & Besok" />
 					{nextEvents.length === 0 ? (
-						<div className="flex items-center gap-3 rounded-2xl border border-dashed border-border-default bg-card/60 p-4">
-							<span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-muted-foreground">
+						<div className="flex items-center gap-3 rounded-[16px] border border-dashed border-border-default bg-card/60 p-4">
+							<span className="grid size-9 shrink-0 place-items-center rounded-[16px] bg-surface-3 text-muted-foreground">
 								<CalendarClock className="size-4" aria-hidden />
 							</span>
 							<div className="min-w-0">
@@ -243,12 +243,12 @@ export default async function DashboardPage() {
 									<Link
 										key={ev.id}
 										href={`/operations/${ev.project_id}`}
-										className="press tap flex items-start gap-3 rounded-2xl border border-border-default bg-card p-3.5 shadow-[var(--shadow-soft)] transition-colors active:bg-surface-3"
+										className="press tap flex items-start gap-3 rounded-[16px] border border-border-default bg-card p-3.5 shadow-[var(--shadow-soft)] transition-colors active:bg-surface-3"
 										style={{ viewTransitionName: `event-${ev.project_id}` }}
 									>
 										<div
 											className={cn(
-												"flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl py-2 ring-1",
+												"flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[16px] py-2 ring-1",
 												isToday
 													? "bg-emerald-500/10 ring-emerald-500/25"
 													: "bg-surface-3 ring-border-subtle",
@@ -373,7 +373,7 @@ function QuickActionTile({
 		<Link
 			href={href}
 			className={cn(
-				"press tap group flex items-center gap-3 rounded-2xl border p-3.5 shadow-[var(--shadow-soft)] transition-colors",
+				"press tap group flex items-center gap-3 rounded-[16px] border p-3.5 shadow-[var(--shadow-soft)] transition-colors",
 				primary
 					? "col-span-2 border-emerald-600/20 bg-emerald-50/70 active:bg-emerald-100/60 dark:bg-emerald-500/10"
 					: "border-border-default bg-card active:bg-surface-3",
@@ -381,7 +381,7 @@ function QuickActionTile({
 		>
 			<span
 				className={cn(
-					"grid size-9 shrink-0 place-items-center rounded-xl",
+					"grid size-9 shrink-0 place-items-center rounded-[16px]",
 					primary
 						? "bg-primary text-white dark:bg-primary"
 						: "bg-surface-3 text-muted-foreground",

@@ -41,7 +41,7 @@ export function SegmentedBar({
 }) {
 	const total = segments.reduce((s, x) => s + x.value, 0);
 	return (
-		<div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
+		<div className="flex flex-col gap-3 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
 			<div className="flex items-center gap-2">
 				{icon ? (
 					<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-3 text-muted-foreground [&_svg]:size-4">

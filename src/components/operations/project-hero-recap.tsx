@@ -124,7 +124,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 	const venueDetail = [venueCity, venueAddress].filter(Boolean).join(" · ");
 
 	return (
-		<div className="overflow-hidden rounded-xl border border-border-default bg-card">
+		<div className="overflow-hidden rounded-[16px] border border-border-default bg-card">
 			{/* HEADER STRIP — title + quick actions */}
 			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
 				<div className="min-w-0">
