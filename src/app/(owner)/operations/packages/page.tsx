@@ -1,34 +1,14 @@
-import { Pencil, Plus } from "lucide-react";
+import { Layers, Package, PackageCheck, Plus, Tag } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { ArchivePackageButton } from "@/components/packages/archive-button";
-import { Badge } from "@/components/ui/badge";
+import {
+	type PackageRow,
+	PackagesExplorer,
+} from "@/components/packages/packages-explorer";
 import { buttonVariants } from "@/components/ui/button";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
-import {
-	FRAME_SIZE_LABELS,
-	formatRupiah,
-	SERVICE_TYPE_LABELS,
-} from "@/lib/format";
+import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-
-type PackageRow = {
-	id: string;
-	name: string;
-	category: string;
-	frame_size: string;
-	duration_hours: number;
-	base_price: number;
-	is_active: boolean;
-};
 
 export default async function PackagesListPage() {
 	const supabase = await createClient();
@@ -53,12 +33,47 @@ export default async function PackagesListPage() {
 
 	const packages = (data ?? []) as PackageRow[];
 
+	const activeCount = packages.filter((p) => p.is_active).length;
+	const categoryCount = new Set(packages.map((p) => p.category)).size;
+	const minPrice = packages.length
+		? Math.min(...packages.map((p) => p.base_price))
+		: 0;
+
+	const stats: StatItem[] = [
+		{
+			label: "Total Paket",
+			value: String(packages.length),
+			hint: "di pricelist",
+			icon: Package,
+		},
+		{
+			label: "Aktif",
+			value: String(activeCount),
+			hint: `${packages.length - activeCount} arsip`,
+			icon: PackageCheck,
+			accent: "emerald",
+		},
+		{
+			label: "Kategori",
+			value: String(categoryCount),
+			hint: "jenis layanan",
+			icon: Layers,
+		},
+		{
+			label: "Mulai Dari",
+			value: formatRupiah(minPrice),
+			hint: "harga terendah",
+			icon: Tag,
+		},
+	];
+
 	return (
 		<Container size="xl" className="space-y-6">
 			<SectionHeader
 				as="h1"
+				eyebrow="Pricelist"
 				title="Paket"
-				description={`${packages.length} paket tersedia`}
+				description={`${packages.length} paket tersedia untuk booking`}
 				actions={
 					<Link
 						href="/operations/packages/new"
@@ -70,59 +85,52 @@ export default async function PackagesListPage() {
 				}
 			/>
 
-			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Category</TableHead>
-							<TableHead>Frame</TableHead>
-							<TableHead className="text-right">Duration</TableHead>
-							<TableHead className="text-right">Base Price</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead className="w-[80px] text-right">Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{packages.map((pkg) => (
-							<TableRow key={pkg.id}>
-								<TableCell className="font-medium">{pkg.name}</TableCell>
-								<TableCell className="text-muted-foreground">
-									{SERVICE_TYPE_LABELS[pkg.category] ?? pkg.category}
-								</TableCell>
-								<TableCell className="text-muted-foreground">
-									{FRAME_SIZE_LABELS[pkg.frame_size] ?? pkg.frame_size}
-								</TableCell>
-								<TableCell className="tabular text-right">
-									{pkg.duration_hours} jam
-								</TableCell>
-								<TableCell className="tabular text-right font-medium">
-									{formatRupiah(pkg.base_price)}
-								</TableCell>
-								<TableCell>
-									{pkg.is_active ? (
-										<Badge variant="default">Active</Badge>
-									) : (
-										<Badge variant="secondary">Inactive</Badge>
-									)}
-								</TableCell>
-								<TableCell>
-									<div className="flex items-center justify-end gap-1">
-										<Link
-											href={`/operations/packages/${pkg.id}/edit`}
-											title="Edit"
-											className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
-										>
-											<Pencil className="h-4 w-4" />
-										</Link>
-										<ArchivePackageButton id={pkg.id} name={pkg.name} />
-									</div>
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
+			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+				{stats.map((s) => (
+					<StatTile key={s.label} {...s} />
+				))}
 			</div>
+
+			<PackagesExplorer packages={packages} />
 		</Container>
+	);
+}
+
+type StatItem = {
+	label: string;
+	value: string;
+	hint: string;
+	icon: typeof Package;
+	accent?: "default" | "emerald";
+};
+
+function StatTile({
+	label,
+	value,
+	hint,
+	icon: Icon,
+	accent = "default",
+}: StatItem) {
+	return (
+		<div className="border-border-default bg-card flex flex-col gap-3 rounded-2xl border p-4 shadow-[var(--shadow-level-2)]">
+			<div className="flex items-center justify-between gap-2">
+				<span className="eyebrow text-muted-foreground truncate">{label}</span>
+				<div
+					className={
+						accent === "emerald"
+							? "grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+							: "grid size-7 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground"
+					}
+				>
+					<Icon className="size-4" aria-hidden strokeWidth={2} />
+				</div>
+			</div>
+			<div className="flex flex-col gap-0.5">
+				<span className="tabular text-foreground text-[22px] leading-none font-semibold tracking-tight">
+					{value}
+				</span>
+				<span className="type-caption text-muted-foreground">{hint}</span>
+			</div>
+		</div>
 	);
 }

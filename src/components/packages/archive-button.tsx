@@ -34,7 +34,7 @@ export function ArchivePackageButton({
 			onClick={handleArchive}
 			disabled={pending}
 			title="Archive"
-			className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:opacity-50"
+			className="text-muted-foreground hover:bg-secondary hover:text-destructive inline-flex size-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50"
 		>
 			<Archive className="h-4 w-4" />
 		</button>
