@@ -2,6 +2,7 @@
 version: beta
 name: Tetra-Ops-design-analysis
 description: "An internal operations system for a photobooth business in Indonesia — built on Vercel's developer-platform DNA. The brand operates with a single CTA color: **Emerald** (emerald-600 light / emerald-500 dark, white label) for every primary button, while **Ink #171717** carries text, foreground, focus rings, and deep surface bands (it is NOT the button fill). Surfaces follow Vercel's four-step ladder — pure white #FFFFFF cards on near-white #FAFAFA canvas-soft page background, deeper #F5F5F5 for inset regions, hairline #EBEBEB for borders. Type is Inter at weights 400/500/600 with `ss01`+`ss02` enabled to render the geometric alternates that approximate Vercel's custom Geist face; JetBrains Mono carries technical labels (caption-mono uppercase eyebrows, project IDs, timestamps). Tabular figures (`tnum`+slashed-zero) are mandatory anywhere money or quantities appear (Stripe DNA). Buttons follow Vercel's two-scale system: 6px-radius compact chrome (h-8 in-app default) for every operational button, 100px-radius pill ONLY for marketing/landing CTAs. Stacked shadows (multiple small offsets + inset hairline) replace single heavy drops. Hover state changes background color only — no translate, no shadow shift."
+mobile_companion: "MOBILE.md — authoritative mobile spec. For any phone-sized screen (owner < md + the whole crew app) read MOBILE.md; its mobile rules (density, touch targets, screen anatomy, navigation, gestures) override this document on mobile."
 
 colors:
   # === Brand — Ink (Vercel #171717 near-black) ===
@@ -541,6 +542,14 @@ components:
     letterSpacing: -2.4px
     textColor: "{colors.light-ink}"
 ---
+
+> ## 📱 Working on mobile? Read [`MOBILE.md`](MOBILE.md) first.
+>
+> `MOBILE.md` is the **authoritative mobile spec** for every phone-sized screen (owner app
+> below `md`, and the entire crew app). It owns mobile density, touch-target sizing, screen
+> anatomy, navigation, and gestures. **On a mobile screen, where `MOBILE.md` and this document
+> disagree, `MOBILE.md` wins.** This `DESIGN.md` stays the source of truth for shared brand DNA
+> (emerald CTA, zero gradient, Inter, surface ladder, tabular figures) and for desktop (`md+`).
 
 
 ## Overview
