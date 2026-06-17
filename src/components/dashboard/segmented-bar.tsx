@@ -41,28 +41,31 @@ export function SegmentedBar({
 }) {
 	const total = segments.reduce((s, x) => s + x.value, 0);
 	return (
-		<div className="flex flex-col gap-3 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
+		<div className="flex flex-col gap-3 rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
 			<div className="flex items-center gap-2">
 				{icon ? (
-					<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface-3 text-muted-foreground [&_svg]:size-4">
+					<span className="grid size-7 shrink-0 place-items-center rounded-[10px] bg-surface-3 text-muted-foreground [&_svg]:size-4">
 						{icon}
 					</span>
 				) : null}
 				<h3 className="eyebrow">{title}</h3>
 			</div>
 
-			<div className="flex h-2.5 overflow-hidden rounded-full bg-surface-3">
-				{total > 0
-					? segments.map((s) =>
-							s.value > 0 ? (
-								<div
-									key={s.label}
-									className={cn("h-full", SEG_BG[s.tone])}
-									style={{ width: `${(s.value / total) * 100}%` }}
-								/>
-							) : null,
-						)
-					: null}
+			{/* Gapped, rounded segments so adjacent colours stay distinct */}
+			<div className="flex h-3.5 w-full items-stretch gap-1">
+				{total > 0 ? (
+					segments
+						.filter((s) => s.value > 0)
+						.map((s) => (
+							<div
+								key={s.label}
+								className={cn("h-full rounded-full", SEG_BG[s.tone])}
+								style={{ width: `${(s.value / total) * 100}%` }}
+							/>
+						))
+				) : (
+					<div className="h-full w-full rounded-full bg-surface-3" />
+				)}
 			</div>
 
 			<div className="flex flex-wrap gap-x-4 gap-y-1.5">

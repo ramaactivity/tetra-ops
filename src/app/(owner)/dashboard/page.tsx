@@ -114,25 +114,32 @@ export default async function DashboardPage() {
 							hint="Pembayaran masuk terverifikasi bulan ini"
 						/>
 					</div>
-					{/* Piutang + settle — money gets full width so it never truncates */}
-					<div className="flex items-center gap-4 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)]">
-						<div className="min-w-0 flex-1">
+					{/* Piutang — stacked so the money stays on one line; settle count
+					    is a compact pill at the bottom (no space-eating side rail). */}
+					<div className="flex flex-col justify-between gap-4 rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
+						<div>
 							<div className="flex items-center gap-2">
-								<span className="grid size-7 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+								<span className="grid size-7 shrink-0 place-items-center rounded-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400">
 									<Wallet className="size-4" aria-hidden />
 								</span>
-								<span className="eyebrow">Piutang aktif</span>
+								<span className="text-[14.5px] font-medium text-muted-foreground">
+									Piutang aktif
+								</span>
 							</div>
-							<p className="type-num-lg mt-1.5 tabular text-rose-600 dark:text-rose-400">
+							<p className="type-num-lg mt-3 tabular text-rose-600 dark:text-rose-400">
 								{formatRupiah(outstanding)}
 							</p>
-							<p className="type-caption mt-0.5">Total belum tertagih</p>
-						</div>
-						<div className="shrink-0 self-stretch border-l border-border-subtle pl-4 text-right">
-							<p className="type-num-lg tabular text-amber-700 dark:text-amber-500">
-								{awaitingCount}
+							<p className="mt-1 text-[12.5px] text-muted-foreground">
+								Total belum tertagih
 							</p>
-							<p className="eyebrow mt-1">Nunggu settle</p>
+						</div>
+						<div className="flex items-center gap-2 border-t border-border-subtle pt-3">
+							<span className="inline-flex h-[22px] items-center rounded-full bg-amber-300 px-2.5 text-[11.5px] font-medium text-amber-950 dark:bg-amber-500/25 dark:text-amber-200">
+								{awaitingCount} nunggu settle
+							</span>
+							<span className="text-[12px] text-muted-foreground">
+								event selesai, belum di-settle
+							</span>
 						</div>
 					</div>
 				</div>
