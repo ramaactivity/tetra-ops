@@ -101,14 +101,14 @@ export function OwnerBottomNav() {
 								<span
 									className={cn(
 										"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
-										active ? "bg-primary" : "bg-transparent",
+										active ? "bg-[#059669]" : "bg-transparent",
 									)}
 								>
 									<Icon
 										className={cn(
 											"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
 											active
-												? "scale-105 text-primary-foreground"
+												? "scale-105 text-white"
 												: "text-muted-foreground group-active:text-foreground",
 										)}
 										strokeWidth={active ? 2.3 : 1.85}
@@ -142,14 +142,14 @@ export function OwnerBottomNav() {
 						<span
 							className={cn(
 								"flex h-8 w-[3.25rem] items-center justify-center rounded-full transition-colors duration-base ease-out-expo",
-								moreActive || moreOpen ? "bg-primary" : "bg-transparent",
+								moreActive || moreOpen ? "bg-[#059669]" : "bg-transparent",
 							)}
 						>
 							<Ellipsis
 								className={cn(
 									"size-[1.4rem] transition-[transform,color] duration-base ease-spring-snappy",
 									moreActive || moreOpen
-										? "scale-105 text-primary-foreground"
+										? "scale-105 text-white"
 										: "text-muted-foreground group-active:text-foreground",
 								)}
 								strokeWidth={moreActive || moreOpen ? 2.3 : 1.85}

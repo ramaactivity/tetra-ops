@@ -274,7 +274,7 @@ function NavLeaf({ item, active }: { item: NavItem; active: boolean }) {
 				className={cn(
 					"group/nav flex items-center gap-3 rounded-[12px] px-3.5 py-2.5 text-[14.5px] leading-none transition-colors duration-fast ease-out-expo",
 					active
-						? "bg-primary font-semibold text-primary-foreground"
+						? "bg-[#059669] font-semibold text-white"
 						: "font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
 				)}
 			>
@@ -282,7 +282,7 @@ function NavLeaf({ item, active }: { item: NavItem; active: boolean }) {
 					className={cn(
 						"size-[18px] shrink-0",
 						active
-							? "text-primary-foreground"
+							? "text-white"
 							: "text-muted-foreground/80 group-hover/nav:text-foreground",
 					)}
 					aria-hidden
@@ -351,7 +351,7 @@ function NavParent({
 									className={cn(
 										"group/nav flex items-center gap-2.5 rounded-[12px] px-3 py-2 text-[13.5px] leading-none transition-colors duration-fast ease-out-expo",
 										strictActive
-											? "bg-primary font-semibold text-primary-foreground"
+											? "bg-[#059669] font-semibold text-white"
 											: "font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
 									)}
 								>
@@ -359,7 +359,7 @@ function NavParent({
 										className={cn(
 											"size-[16px] shrink-0",
 											strictActive
-												? "text-primary-foreground"
+												? "text-white"
 												: "text-muted-foreground/80 group-hover/nav:text-foreground",
 										)}
 										aria-hidden
