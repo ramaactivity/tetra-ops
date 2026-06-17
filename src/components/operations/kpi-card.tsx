@@ -90,7 +90,7 @@ export function KpiCard({
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-2">
-				<dd className="type-num-lg text-foreground">{value}</dd>
+				<dd className="type-num-lg whitespace-nowrap text-foreground">{value}</dd>
 				{badge ? (
 					<span
 						className={cn(
