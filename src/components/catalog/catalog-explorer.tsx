@@ -124,7 +124,7 @@ export function CatalogExplorer<T>({
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder={searchPlaceholder}
-						className="border-border-subtle bg-card focus-visible:ring-ring h-10 w-full rounded-[12px] border pr-3 pl-10 text-sm shadow-[var(--shadow-level-1)] focus-visible:ring-2 focus-visible:outline-none"
+						className="border-border-subtle bg-card focus-visible:ring-ring h-9 w-full rounded-full border pr-3 pl-10 text-sm shadow-[var(--shadow-level-1)] focus-visible:ring-2 focus-visible:outline-none"
 					/>
 				</div>
 				{categories.length > 0 && (
@@ -294,7 +294,7 @@ function Chip({
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"inline-flex h-8 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-colors",
+				"inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors",
 				active
 					? "border-[#059669] bg-[#059669] text-white"
 					: "border-border-default bg-card text-muted-foreground hover:text-foreground hover:bg-secondary",
