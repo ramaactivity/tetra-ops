@@ -28,7 +28,7 @@ export async function OwnerTopBar({
 	return (
 		<header
 			style={{ viewTransitionName: "site-header" }}
-			className="sticky top-3 z-30 flex items-center gap-3 rounded-[16px] border border-border-subtle bg-card px-3.5 py-3 shadow-[var(--shadow-level-2)]"
+			className="sticky top-3 z-30 flex items-center gap-3 rounded-[16px] border border-border-subtle bg-card px-5 py-3 shadow-[var(--shadow-level-2)]"
 		>
 			{/* Mobile-only brand (desktop logo is in the sidebar) */}
 			<Image

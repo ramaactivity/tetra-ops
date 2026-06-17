@@ -1,57 +1,86 @@
 "use client";
 
+import {
+	Archive,
+	Bell,
+	BookOpen,
+	Box,
+	Briefcase,
+	Calendar,
+	ClipboardList,
+	Contact,
+	FileBarChart,
+	FileText,
+	Frame,
+	Handshake,
+	KanbanSquare,
+	Landmark,
+	LayoutDashboard,
+	type LucideIcon,
+	MessageCircle,
+	Package,
+	Palette,
+	PiggyBank,
+	Receipt,
+	Scale,
+	Settings,
+	ShoppingCart,
+	Sparkles,
+	Truck,
+	UsersRound,
+	Wallet,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 
 /**
- * <OwnerPageTitle /> — shows the current page name in the topbar (replaces the
- * non-functional search). Resolves the most specific route match so sub-pages
- * read their own label (e.g. /finance/accounting → "Akuntansi"). Mirrors the
- * sidebar nav labels.
+ * <OwnerPageTitle /> — current page name shown as a soft pill (icon + label) in
+ * the topbar, replacing the non-functional search. Resolves the most specific
+ * route match so sub-pages read their own label/icon. Mirrors the sidebar.
  */
-const TITLES: Array<[string, string]> = [
-	["/dashboard", "Dashboard"],
-	["/operations/packages", "Paket"],
-	["/operations/addons", "Add-on"],
-	["/operations/backdrops", "Backdrop"],
-	["/operations/calendar", "Kalender"],
-	["/operations/board", "Board"],
-	["/operations/team", "Team"],
-	["/operations", "Operations"],
-	["/design", "Asset & Design"],
-	["/billing", "Billing"],
-	["/warehouse/purchases", "Pembelian"],
-	["/warehouse/suppliers", "Supplier"],
-	["/warehouse/purchase-requests", "Permintaan"],
-	["/warehouse/stock-take", "Stock Opname"],
-	["/warehouse/wastage", "Wastage"],
-	["/warehouse/assets", "Aset Tetap"],
-	["/warehouse", "Warehouse"],
-	["/finance/reports", "Laporan"],
-	["/finance/accounting", "Akuntansi"],
-	["/finance/arsip-nota", "Arsip Nota"],
-	["/finance/payables", "Hutang Dagang"],
-	["/finance/vendors", "Komisi Vendor"],
-	["/finance/bank-accounts", "Rekening Bank"],
-	["/finance/sinking-funds", "Dana Cadangan"],
-	["/finance/wastage-report", "Laporan Wastage"],
-	["/finance", "Finance"],
-	["/contacts", "Kontak"],
-	["/vendors", "Vendor"],
-	["/reminders", "Reminders"],
-	["/notifications", "Notifications"],
-	["/reports", "Reports"],
-	["/settings", "Settings"],
+const ROUTES: Array<[string, string, LucideIcon]> = [
+	["/dashboard", "Dashboard", LayoutDashboard],
+	["/operations/packages", "Paket", Box],
+	["/operations/addons", "Add-on", Sparkles],
+	["/operations/backdrops", "Backdrop", Frame],
+	["/operations/calendar", "Kalender", Calendar],
+	["/operations/board", "Board", KanbanSquare],
+	["/operations/team", "Team", UsersRound],
+	["/operations", "Operations", Briefcase],
+	["/design", "Asset & Design", Palette],
+	["/billing", "Billing", Receipt],
+	["/warehouse/purchases", "Pembelian", ShoppingCart],
+	["/warehouse/suppliers", "Supplier", Truck],
+	["/warehouse/purchase-requests", "Permintaan", ClipboardList],
+	["/warehouse/stock-take", "Stock Opname", ClipboardList],
+	["/warehouse", "Warehouse", Package],
+	["/finance/reports", "Laporan", FileBarChart],
+	["/finance/accounting", "Akuntansi", BookOpen],
+	["/finance/arsip-nota", "Arsip Nota", Archive],
+	["/finance/payables", "Hutang Dagang", Scale],
+	["/finance/vendors", "Komisi Vendor", Handshake],
+	["/finance/bank-accounts", "Rekening Bank", Landmark],
+	["/finance/sinking-funds", "Dana Cadangan", PiggyBank],
+	["/finance", "Finance", Wallet],
+	["/contacts", "Kontak", Contact],
+	["/vendors", "Vendor", Handshake],
+	["/reminders", "Reminders", MessageCircle],
+	["/notifications", "Notifications", Bell],
+	["/reports", "Reports", FileText],
+	["/settings", "Settings", Settings],
 ];
 
 export function OwnerPageTitle() {
 	const pathname = usePathname();
-	const match = TITLES.find(
+	const match = ROUTES.find(
 		([href]) => pathname === href || pathname.startsWith(`${href}/`),
 	);
-	const title = match?.[1] ?? "Tetra Ops";
+	const [, label, Icon] = match ?? ["", "Tetra Ops", LayoutDashboard];
 	return (
-		<h1 className="truncate text-[20px] font-bold tracking-tight text-foreground">
-			{title}
-		</h1>
+		<span className="inline-flex h-9 items-center gap-2 rounded-full bg-secondary pl-3 pr-4">
+			<Icon className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={2} />
+			<span className="truncate text-[14px] font-semibold text-foreground">
+				{label}
+			</span>
+		</span>
 	);
 }
