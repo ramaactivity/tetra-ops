@@ -4,19 +4,19 @@ import { ArrowDownUp, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /**
- * <OperationsFilterBar /> — Vercel filter chrome.
+ * <OperationsFilterBar /> — built on the shared <FilterBar> shell so it matches
+ * every other filter bar in the app: search on its own full-width row + a tidy
+ * horizontal-scroll control row on mobile, inline wrapping row on desktop.
  *
- * All controls share the same 32px height + 6px radius + white card surface
- * with hairline border. Search input + selects + month picker + crew filter
- * line up on one row with body-sm typography. Archived/legacy events are
- * always listed, so there is no archived toggle.
+ * The month "Bulan ini / Semua bulan" shortcuts live INSIDE the MonthPicker
+ * dropdown (quickActions) on both mobile and desktop — no separate toggle chrome.
  */
 
 const STATUS_FILTER_ORDER: Array<keyof typeof EVENT_STATUS_LABELS | string> = [
@@ -65,15 +65,18 @@ export function OperationsFilterBar({
 	const router = useRouter();
 	const [q, setQ] = useState(defaultQ);
 	const hasFilters = Boolean(
-		defaultQ || defaultStatus || defaultMonth || defaultCrew,
+		defaultQ || defaultStatus || monthShowsAll || defaultCrew,
 	);
+
+	const now = new Date();
+	const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
 	function buildHref(updates: Record<string, string>) {
 		const params = new URLSearchParams();
 		const merged: Record<string, string> = {
 			q: defaultQ,
 			status: defaultStatus,
-			month: defaultMonth,
+			month: monthShowsAll ? "all" : defaultMonth,
 			crew: defaultCrew,
 			sort: defaultSort === DEFAULT_SORT ? "" : defaultSort,
 			...updates,
@@ -107,23 +110,9 @@ export function OperationsFilterBar({
 	];
 
 	return (
-		<div className="space-y-2">
-			{/* Search — full width on its own row (mobile) */}
-			<form onSubmit={handleSubmit} className="sm:hidden">
-				<FilterSearchInput
-					className="w-full"
-					value={q}
-					onValueChange={setQ}
-					placeholder="Cari nama klien…"
-				/>
-			</form>
-
-			{/* Filters — one tidy horizontal-scroll row on mobile, wrapping on desktop */}
-			<div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-				<form
-					onSubmit={handleSubmit}
-					className="hidden sm:block sm:min-w-[200px] sm:max-w-[280px] sm:flex-1"
-				>
+		<FilterBar
+			search={
+				<form onSubmit={handleSubmit}>
 					<FilterSearchInput
 						className="w-full"
 						value={q}
@@ -131,86 +120,77 @@ export function OperationsFilterBar({
 						placeholder="Cari nama klien…"
 					/>
 				</form>
+			}
+		>
+			<NativeSelect
+				value={defaultStatus}
+				onValueChange={(value) => router.push(buildHref({ status: value }))}
+				placeholder="Semua status"
+				options={statusOptions}
+				aria-label="Filter status"
+			/>
 
-				<div className="shrink-0">
-					<NativeSelect
-						value={defaultStatus}
-						onValueChange={(value) => router.push(buildHref({ status: value }))}
-						placeholder="Semua status"
-						options={statusOptions}
-						aria-label="Filter status"
-					/>
-				</div>
+			<div className="w-[150px]">
+				<MonthPicker
+					value={monthShowsAll ? "" : defaultMonth}
+					onValueChange={(value) => router.push(buildHref({ month: value }))}
+					placeholder="Semua bulan"
+					aria-label="Filter bulan"
+					quickActions={[
+						{
+							label: "Bulan ini",
+							onSelect: () => router.push(buildHref({ month: currentMonth })),
+							active: !monthShowsAll && defaultMonth === currentMonth,
+						},
+						{
+							label: "Semua bulan",
+							onSelect: () => router.push(buildHref({ month: "all" })),
+							active: monthShowsAll,
+						},
+					]}
+				/>
+			</div>
 
-				<div className="flex shrink-0 items-center gap-1">
-					<div className="w-[150px]">
-						<MonthPicker
-							value={monthShowsAll ? "" : defaultMonth}
-							onValueChange={(value) =>
-								router.push(buildHref({ month: value }))
-							}
-							placeholder="Semua bulan"
-							aria-label="Filter bulan"
-						/>
-					</div>
-					<Link
-						href={buildHref({ month: monthShowsAll ? "" : "all" })}
-						className={cn(
-							"inline-flex h-8 shrink-0 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
-							monthShowsAll
-								? "bg-secondary text-foreground"
-								: "text-muted-foreground hover:bg-secondary hover:text-foreground",
-						)}
-						aria-pressed={monthShowsAll}
-						title={
-							monthShowsAll ? "Kembali ke bulan ini" : "Tampilkan semua bulan"
-						}
-					>
-						{monthShowsAll ? "Bulan ini" : "Semua"}
-					</Link>
-				</div>
-
-				{crewOptions.length > 0 && (
-					<div className="relative shrink-0">
-						<Users
-							className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
-							aria-hidden
-						/>
-						<NativeSelect
-							value={defaultCrew}
-							onValueChange={(value) => router.push(buildHref({ crew: value }))}
-							placeholder="Semua crew"
-							options={crewSelectOptions}
-							aria-label="Filter crew"
-							triggerClassName="pl-7"
-						/>
-					</div>
-				)}
-
-				<div className="relative shrink-0">
-					<ArrowDownUp
+			{crewOptions.length > 0 && (
+				<div className="relative">
+					<Users
 						className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
 						aria-hidden
 					/>
 					<NativeSelect
-						value={defaultSort}
-						onValueChange={(value) => router.push(buildHref({ sort: value }))}
-						options={SORT_OPTIONS.map((o) => ({ ...o }))}
-						aria-label="Urutkan event"
+						value={defaultCrew}
+						onValueChange={(value) => router.push(buildHref({ crew: value }))}
+						placeholder="Semua crew"
+						options={crewSelectOptions}
+						aria-label="Filter crew"
 						triggerClassName="pl-7"
 					/>
 				</div>
+			)}
 
-				{hasFilters && (
-					<Link
-						href="/operations"
-						className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-					>
-						<X className="size-3.5" aria-hidden />
-						Clear
-					</Link>
-				)}
+			<div className="relative">
+				<ArrowDownUp
+					className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+					aria-hidden
+				/>
+				<NativeSelect
+					value={defaultSort}
+					onValueChange={(value) => router.push(buildHref({ sort: value }))}
+					options={SORT_OPTIONS.map((o) => ({ ...o }))}
+					aria-label="Urutkan event"
+					triggerClassName="pl-7"
+				/>
 			</div>
-		</div>
+
+			{hasFilters && (
+				<Link
+					href="/operations"
+					className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+				>
+					<X className="size-3.5" aria-hidden />
+					Clear
+				</Link>
+			)}
+		</FilterBar>
 	);
 }

@@ -32,6 +32,16 @@ interface MonthPickerProps {
 	className?: string;
 	"aria-label"?: string;
 	"aria-invalid"?: boolean;
+	/**
+	 * Quick-action buttons rendered at the top of the calendar dropdown
+	 * (e.g. "Bulan ini" / "Semua bulan"). Keeps these shortcuts inside the
+	 * picker instead of as separate chrome beside it.
+	 */
+	quickActions?: Array<{
+		label: string;
+		onSelect: () => void;
+		active?: boolean;
+	}>;
 }
 
 const ISO_MONTH = "yyyy-MM";
@@ -44,6 +54,7 @@ export function MonthPicker({
 	disabled,
 	id,
 	className,
+	quickActions,
 	...ariaProps
 }: MonthPickerProps) {
 	const isControlled = value !== undefined;
@@ -105,6 +116,28 @@ export function MonthPicker({
 							"duration-base ease-out-expo",
 						)}
 					>
+						{quickActions && quickActions.length > 0 ? (
+							<div className="mb-3 flex flex-wrap gap-1.5 border-b border-border-subtle pb-3">
+								{quickActions.map((qa) => (
+									<button
+										key={qa.label}
+										type="button"
+										onClick={() => {
+											qa.onSelect();
+											setOpen(false);
+										}}
+										className={cn(
+											"h-8 flex-1 rounded-md px-2 text-[12.5px] font-medium transition-colors",
+											qa.active
+												? "bg-primary text-primary-foreground"
+												: "bg-secondary text-foreground hover:bg-muted",
+										)}
+									>
+										{qa.label}
+									</button>
+								))}
+							</div>
+						) : null}
 						<div className="mb-3 flex items-center justify-between">
 							<Button
 								variant="ghost"
