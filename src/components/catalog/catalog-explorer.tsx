@@ -112,11 +112,11 @@ export function CatalogExplorer<T>({
 
 	return (
 		<div className="space-y-5">
-			{/* Search + optional toolbar */}
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="relative w-full sm:max-w-xs">
+			{/* Search + category chips + optional toolbar — one row (global rule) */}
+			<div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+				<div className="relative w-full shrink-0 lg:w-72">
 					<Search
-						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2"
 						aria-hidden
 					/>
 					<input
@@ -124,32 +124,30 @@ export function CatalogExplorer<T>({
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder={searchPlaceholder}
-						className="border-border-default bg-card focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm shadow-[var(--shadow-level-2)] focus-visible:ring-2 focus-visible:outline-none"
+						className="border-border-subtle bg-card focus-visible:ring-ring h-10 w-full rounded-[12px] border pr-3 pl-10 text-sm shadow-[var(--shadow-level-1)] focus-visible:ring-2 focus-visible:outline-none"
 					/>
 				</div>
+				{categories.length > 0 && (
+					<div className="hide-scrollbar -mx-1 flex min-w-0 flex-1 snap-x items-center gap-2 overflow-x-auto px-1">
+						<Chip
+							active={category === "all"}
+							onClick={() => setCategory("all")}
+							label="Semua"
+							count={rows.length}
+						/>
+						{categories.map((c) => (
+							<Chip
+								key={c.value}
+								active={category === c.value}
+								onClick={() => setCategory(c.value)}
+								label={c.label}
+								count={c.count}
+							/>
+						))}
+					</div>
+				)}
 				{toolbar ? <div className="shrink-0">{toolbar}</div> : null}
 			</div>
-
-			{/* Category chips */}
-			{categories.length > 0 && (
-				<div className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
-					<Chip
-						active={category === "all"}
-						onClick={() => setCategory("all")}
-						label="Semua"
-						count={rows.length}
-					/>
-					{categories.map((c) => (
-						<Chip
-							key={c.value}
-							active={category === c.value}
-							onClick={() => setCategory(c.value)}
-							label={c.label}
-							count={c.count}
-						/>
-					))}
-				</div>
-			)}
 
 			{filtered.length === 0 ? (
 				<EmptyState
