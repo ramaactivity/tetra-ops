@@ -55,6 +55,17 @@ interface KpiCardProps {
 	progress?: { current: number; target: number; label?: string };
 }
 
+/**
+ * Split a leading "Rp" off the value so the currency prefix can be rendered
+ * smaller + muted while the digits keep the big size. Reclaims the width that
+ * a full-size "Rp " would otherwise eat, so large amounts fit the narrow
+ * two-up mobile cards without wrapping.
+ */
+function splitCurrency(value: string): { prefix: string | null; rest: string } {
+	const m = /^\s*(Rp)\s*(.*)$/i.exec(value);
+	return m ? { prefix: "Rp", rest: m[2] } : { prefix: null, rest: value };
+}
+
 export function KpiCard({
 	label,
 	value,
@@ -72,11 +83,12 @@ export function KpiCard({
 			: null;
 	const done = pct === null ? 0 : Math.max(0, Math.min(100, pct));
 	const ArrowOrIcon = Icon ?? ArrowUpRight;
+	const { prefix, rest } = splitCurrency(value);
 
 	return (
 		<div
 			className={cn(
-				"group flex flex-col rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)] transition-colors",
+				"group flex flex-col rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] transition-colors sm:p-5",
 				className,
 			)}
 		>
@@ -89,8 +101,17 @@ export function KpiCard({
 				</span>
 			</div>
 
-			<div className="mt-4 flex flex-wrap items-center gap-2">
-				<dd className="type-num-lg whitespace-nowrap text-foreground">{value}</dd>
+			<div className="mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-2">
+				<dd className="flex items-baseline gap-1 whitespace-nowrap font-bold tracking-[-0.03em] text-foreground [font-family:var(--font-manrope),var(--font-inter),system-ui] [font-variant-numeric:tabular-nums_slashed-zero]">
+					{prefix ? (
+						<span className="text-[0.95rem] font-bold text-muted-foreground sm:text-[1.05rem] lg:text-[1.2rem]">
+							{prefix}
+						</span>
+					) : null}
+					<span className="text-[1.375rem] leading-[1.04] sm:text-[1.75rem] lg:text-[2.125rem]">
+						{rest}
+					</span>
+				</dd>
 				{badge ? (
 					<span
 						className={cn(

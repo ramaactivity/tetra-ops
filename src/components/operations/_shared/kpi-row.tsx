@@ -25,7 +25,7 @@ export function KpiRow({ children, className }: KpiRowProps) {
 		<dl
 			className={cn(
 				"hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1",
-				"[&>*]:w-[78%] [&>*]:shrink-0 [&>*]:snap-start",
+				"[&>*]:w-[47%] [&>*]:shrink-0 [&>*]:snap-start",
 				"sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:pb-0 sm:[&>*]:w-auto",
 				"lg:grid-cols-4",
 				className,
