@@ -3,7 +3,6 @@
 import {
 	Archive,
 	CalendarDays,
-	ChevronRight,
 	Clock,
 	Frame,
 	HardDrive,
@@ -19,7 +18,7 @@ import {
 } from "@/components/badges/status-badge";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CrewAvatar, MetaRow, RecordCard } from "@/components/ui/mobile";
+import { CrewAvatar } from "@/components/ui/mobile";
 
 /**
  * <OperationsListTable /> — pass 9 redesign.
@@ -304,46 +303,43 @@ export function OperationsListTable({
 				</div>
 			</div>
 
-			{/* MOBILE — v2 RecordCard stack (MOBILE.md §7) */}
+			{/* MOBILE — 2-column event cards (crew names included) */}
 			<div className="space-y-3 md:hidden">
 				{events.map((ev) => {
 					const crew = crewByEvent.get(ev.id) ?? [];
 					const sisa = ev.remaining_balance ?? 0;
 					const pkg = packageLabel(ev);
 					const bd = backdropLabel(ev);
-					const timeRange = ev.start_time
-						? `${formatTime(ev.start_time)}${ev.end_time ? ` – ${formatTime(ev.end_time)}` : ""}`
-						: null;
 					return (
-						<RecordCard
+						<Link
 							key={ev.id}
 							href={`/operations/${ev.project_id}`}
-							stripTone={sisa > 0 ? "amber" : "emerald"}
-							category={
-								<>
-									<ChannelTag channel={ev.channel} />
-									{ev.event_category && (
-										<CategoryTag
-											code={ev.event_category}
-											label={ev.event_category_label}
-										/>
-									)}
-								</>
-							}
-							title={
-								<span className="break-words">
-									{ev.client_name}
-									{ev.is_migrated_legacy && (
-										<Archive
-											className="ml-1 inline size-3 align-[-0.1em] text-amber-600 dark:text-amber-500"
-											aria-label="Migrated"
-											strokeWidth={2}
-										/>
-									)}
-								</span>
-							}
-							status={
-								<>
+							style={{ viewTransitionName: `event-${ev.project_id}` }}
+							className="press tap block rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-soft)] transition-transform active:scale-[0.98]"
+						>
+							<div className="flex items-start justify-between gap-3">
+								<div className="min-w-0">
+									<h3 className="type-heading break-words">
+										{ev.client_name}
+										{ev.is_migrated_legacy && (
+											<Archive
+												className="ml-1 inline size-3 align-[-0.1em] text-amber-600 dark:text-amber-500"
+												aria-label="Migrated"
+												strokeWidth={2}
+											/>
+										)}
+									</h3>
+									<div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+										<ChannelTag channel={ev.channel} />
+										{ev.event_category && (
+											<CategoryTag
+												code={ev.event_category}
+												label={ev.event_category_label}
+											/>
+										)}
+									</div>
+								</div>
+								<div className="flex shrink-0 flex-col items-end gap-1">
 									<EventStatusDot
 										status={ev.status}
 										className="!text-[13px] !font-semibold"
@@ -357,64 +353,71 @@ export function OperationsListTable({
 											Sisa {formatRupiah(sisa)}
 										</span>
 									)}
-								</>
-							}
-							meta={
-								<>
-									<MetaRow icon={<CalendarDays />}>
-										<span className="tabular">
-											{formatDayDate(ev.event_date)}
-											{timeRange ? ` · ${timeRange}` : ""}
-										</span>
-									</MetaRow>
-									<MetaRow icon={<MapPin />}>{ev.venue_name}</MetaRow>
-									<MetaRow icon={<Package2 />}>{pkg}</MetaRow>
-									{(ev.include_flashdisk_pouch || bd) && (
-										<MetaRow icon={<HardDrive />}>
-											<span className="text-muted-foreground">
-												{ev.include_flashdisk_pouch
-													? "Flashdisk Pouch"
-													: "Tanpa Flashdisk"}
-												{bd ? ` · ${bd}` : ""}
-											</span>
-										</MetaRow>
+								</div>
+							</div>
+							<div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border-subtle pt-3">
+								<div className="min-w-0 space-y-1.5 tabular">
+									<span className="eyebrow block">Waktu & Tempat</span>
+									<MetaLine
+										icon={CalendarDays}
+										primary={formatDayDate(ev.event_date)}
+										strong
+									/>
+									{ev.start_time && (
+										<MetaLine
+											icon={Clock}
+											primary={`${formatTime(ev.start_time)}${ev.end_time ? ` – ${formatTime(ev.end_time)}` : ""}`}
+										/>
 									)}
-								</>
-							}
-							footer={
-								<>
-									<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-										<span className="eyebrow shrink-0">Crew</span>
-										{crew.length > 0 ? (
-											crew.map((c) => (
-												<span
-													key={c.user_id}
-													className="inline-flex items-center gap-1.5"
-													title={c.full_name}
-												>
-													<CrewAvatar
-														name={c.nickname ?? c.full_name}
-														size="sm"
-													/>
-													<span
-														className={cn(
-															"type-label",
-															c.role_in_event === "lead" &&
-																"font-semibold",
-														)}
-													>
-														{firstWord(c.nickname ?? c.full_name)}
-													</span>
-												</span>
-											))
-										) : (
-											<span className="type-caption">Belum ada</span>
-										)}
-									</div>
-									<ChevronRight className="size-4 shrink-0 self-center text-muted-foreground/50" />
-								</>
-							}
-						/>
+									<MetaLine icon={MapPin} primary={ev.venue_name} muted wrap />
+								</div>
+								<div className="min-w-0 space-y-1.5">
+									<span className="eyebrow block">Detail Paket</span>
+									<MetaLine icon={Package2} primary={pkg} strong wrap />
+									<MetaLine
+										icon={HardDrive}
+										primary={
+											ev.include_flashdisk_pouch
+												? "Flashdisk Pouch"
+												: "Tanpa Flashdisk"
+										}
+										muted={!ev.include_flashdisk_pouch}
+										accent={ev.include_flashdisk_pouch ? "emerald" : undefined}
+										wrap
+									/>
+									<MetaLine
+										icon={Frame}
+										primary={bd ?? "Belum ditentukan"}
+										muted={!bd}
+										wrap
+									/>
+								</div>
+							</div>
+							<div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border-subtle pt-3">
+								<span className="eyebrow shrink-0">Crew</span>
+								{crew.length > 0 ? (
+									crew.map((c) => (
+										<span
+											key={c.user_id}
+											className="inline-flex items-center gap-1.5"
+											title={c.full_name}
+										>
+											<CrewAvatar name={c.nickname ?? c.full_name} size="sm" />
+											<span
+												className={cn(
+													"type-label",
+													c.role_in_event === "lead" && "font-semibold",
+												)}
+											>
+												{firstWord(c.nickname ?? c.full_name)}
+											</span>
+										</span>
+									))
+								) : (
+									<span className="type-caption">Belum ada crew</span>
+								)}
+							</div>
+						</Link>
 					);
 				})}
 			</div>
@@ -440,6 +443,7 @@ function MetaLine({
 	muted = false,
 	accent,
 	strong = false,
+	wrap = false,
 }: {
 	icon: IconCmp;
 	primary: string;
@@ -447,6 +451,8 @@ function MetaLine({
 	accent?: "emerald";
 	/** Row-1 of a cell: bolder weight + tighter color. */
 	strong?: boolean;
+	/** Allow the value to wrap instead of truncate, so nothing is cut off. */
+	wrap?: boolean;
 }) {
 	const tint =
 		accent === "emerald"
@@ -461,17 +467,20 @@ function MetaLine({
 	return (
 		<div
 			className={cn(
-				"inline-flex min-w-0 items-center gap-1.5 leading-snug",
+				"min-w-0 gap-1.5 leading-snug",
+				wrap ? "flex items-start" : "inline-flex items-center",
 				strong ? "text-[13px] font-semibold" : "text-[12.5px]",
 				tint,
 			)}
 		>
 			<Icon
-				className={cn("size-3.5 shrink-0", iconTint)}
+				className={cn("size-3.5 shrink-0", wrap && "mt-px", iconTint)}
 				aria-hidden
 				strokeWidth={strong ? 2.2 : 2}
 			/>
-			<span className="truncate">{primary}</span>
+			<span className={wrap ? "min-w-0 break-words" : "truncate"}>
+				{primary}
+			</span>
 		</div>
 	);
 }

@@ -19,7 +19,7 @@ const ICON_TINT: Record<Accent, string> = {
 	default: "bg-secondary text-muted-foreground",
 	emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
 	amber: "bg-amber-500/10 text-amber-700 dark:text-amber-500",
-	sky: "bg-[#0070f3]/10 text-[#0070f3] dark:text-[#3b96ff]",
+	sky: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
 	rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
 	primary: "bg-foreground/8 text-foreground",
 };
@@ -28,7 +28,7 @@ const BAR_FILL: Record<Accent, string> = {
 	default: "bg-muted-foreground",
 	emerald: "bg-emerald-500",
 	amber: "bg-amber-500",
-	sky: "bg-[#0070f3]",
+	sky: "bg-teal-500",
 	rose: "bg-rose-500",
 	primary: "bg-foreground",
 };
@@ -37,7 +37,7 @@ const PCT_TONE: Record<Accent, string> = {
 	default: "text-foreground",
 	emerald: "text-emerald-600 dark:text-emerald-400",
 	amber: "text-amber-700 dark:text-amber-500",
-	sky: "text-[#0070f3] dark:text-[#3b96ff]",
+	sky: "text-teal-600 dark:text-teal-400",
 	rose: "text-rose-600 dark:text-rose-400",
 	primary: "text-foreground",
 };

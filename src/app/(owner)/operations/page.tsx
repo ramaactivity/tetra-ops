@@ -410,8 +410,9 @@ export default async function OperationsListPage({
 				}
 			/>
 
-			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+			<dl className="hide-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-5">
 				<KpiCard
+					className="w-[10.5rem] shrink-0 snap-start sm:w-auto"
 					label="Total Events"
 					value={totalCount.toLocaleString("id-ID")}
 					hint="Semua event tercatat (termasuk arsip)"
@@ -419,6 +420,7 @@ export default async function OperationsListPage({
 					accent="primary"
 				/>
 				<KpiCard
+					className="w-[10.5rem] shrink-0 snap-start sm:w-auto"
 					label="Bulan Ini"
 					value={thisMonthCount.toLocaleString("id-ID")}
 					hint={`${today.toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · semua status`}
@@ -431,6 +433,7 @@ export default async function OperationsListPage({
 					}
 				/>
 				<KpiCard
+					className="w-[10.5rem] shrink-0 snap-start sm:w-auto"
 					label="Tahun Ini"
 					value={thisYearCount.toLocaleString("id-ID")}
 					hint={`${today.getFullYear()} · semua status`}
@@ -443,6 +446,7 @@ export default async function OperationsListPage({
 					}
 				/>
 				<KpiCard
+					className="w-[10.5rem] shrink-0 snap-start sm:w-auto"
 					label="Awaiting Settlement"
 					value={awaitingCount.toLocaleString("id-ID")}
 					hint="Event selesai, belum di-settle"
@@ -450,6 +454,7 @@ export default async function OperationsListPage({
 					accent="amber"
 				/>
 				<KpiCard
+					className="w-[10.5rem] shrink-0 snap-start sm:w-auto"
 					label="Completed"
 					value={completedCount.toLocaleString("id-ID")}
 					hint="Event selesai & sudah di-settle"
