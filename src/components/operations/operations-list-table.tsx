@@ -3,6 +3,7 @@
 import {
 	Archive,
 	CalendarDays,
+	ChevronRight,
 	Clock,
 	Frame,
 	HardDrive,
@@ -18,6 +19,7 @@ import {
 } from "@/components/badges/status-badge";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { AvatarGroup, MetaRow, RecordCard } from "@/components/ui/mobile";
 
 /**
  * <OperationsListTable /> — pass 9 redesign.
@@ -146,7 +148,9 @@ function packageLabel(ev: EventRow): string {
 function backdropLabel(ev: EventRow): string | null {
 	if (ev.backdrop_name) return ev.backdrop_name;
 	if (ev.backdrop_color && ev.backdrop_color !== "custom") {
-		return ev.backdrop_color.charAt(0).toUpperCase() + ev.backdrop_color.slice(1);
+		return (
+			ev.backdrop_color.charAt(0).toUpperCase() + ev.backdrop_color.slice(1)
+		);
 	}
 	return null;
 }
@@ -160,7 +164,7 @@ export function OperationsListTable({
 	const highlightUserId = crewFilter || undefined;
 
 	return (
-		<div className="overflow-hidden rounded-lg border border-border-default bg-card">
+		<div className="md:overflow-hidden md:rounded-lg md:border md:border-border-default md:bg-card">
 			{/* DESKTOP */}
 			<div className="hidden md:block">
 				<div
@@ -208,14 +212,13 @@ export function OperationsListTable({
 												strokeWidth={2}
 											/>
 										)}
-										{!ev.is_migrated_legacy &&
-											ev.legacy_invoice_number && (
-												<Inbox
-													className="mt-0.5 size-3 shrink-0 text-muted-foreground"
-													aria-label={`Imported (${ev.legacy_invoice_number})`}
-													strokeWidth={2}
-												/>
-											)}
+										{!ev.is_migrated_legacy && ev.legacy_invoice_number && (
+											<Inbox
+												className="mt-0.5 size-3 shrink-0 text-muted-foreground"
+												aria-label={`Imported (${ev.legacy_invoice_number})`}
+												strokeWidth={2}
+											/>
+										)}
 									</div>
 									<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
 										<ChannelTag channel={ev.channel} />
@@ -239,26 +242,16 @@ export function OperationsListTable({
 										<MetaLine
 											icon={Clock}
 											primary={`${formatTime(ev.start_time)}${
-												ev.end_time
-													? ` – ${formatTime(ev.end_time)}`
-													: ""
+												ev.end_time ? ` – ${formatTime(ev.end_time)}` : ""
 											}`}
 										/>
 									)}
-									<MetaLine
-										icon={MapPin}
-										primary={ev.venue_name}
-										muted
-									/>
+									<MetaLine icon={MapPin} primary={ev.venue_name} muted />
 								</div>
 
 								{/* DETAIL PAKET */}
 								<div className="flex min-w-0 flex-col gap-1 leading-snug">
-									<MetaLine
-										icon={Package2}
-										primary={pkg}
-										strong
-									/>
+									<MetaLine icon={Package2} primary={pkg} strong />
 									<MetaLine
 										icon={HardDrive}
 										primary={
@@ -267,11 +260,7 @@ export function OperationsListTable({
 												: "Tanpa Flashdisk"
 										}
 										muted={!ev.include_flashdisk_pouch}
-										accent={
-											ev.include_flashdisk_pouch
-												? "emerald"
-												: undefined
-										}
+										accent={ev.include_flashdisk_pouch ? "emerald" : undefined}
 									/>
 									<MetaLine
 										icon={Frame}
@@ -281,10 +270,7 @@ export function OperationsListTable({
 								</div>
 
 								{/* CREW */}
-								<CrewLine
-									crew={crew}
-									highlightUserId={highlightUserId}
-								/>
+								<CrewLine crew={crew} highlightUserId={highlightUserId} />
 
 								{/* STATUS */}
 								<div className="flex flex-col items-end gap-1 leading-snug">
@@ -318,118 +304,104 @@ export function OperationsListTable({
 				</div>
 			</div>
 
-			{/* MOBILE */}
-			<div className="space-y-2 p-3 md:hidden">
+			{/* MOBILE — v2 RecordCard stack (MOBILE.md §7) */}
+			<div className="space-y-3 md:hidden">
 				{events.map((ev) => {
 					const crew = crewByEvent.get(ev.id) ?? [];
 					const sisa = ev.remaining_balance ?? 0;
 					const pkg = packageLabel(ev);
 					const bd = backdropLabel(ev);
+					const timeRange = ev.start_time
+						? `${formatTime(ev.start_time)}${ev.end_time ? ` – ${formatTime(ev.end_time)}` : ""}`
+						: null;
 					return (
-						<Link
+						<RecordCard
 							key={ev.id}
 							href={`/operations/${ev.project_id}`}
-							style={{
-								viewTransitionName: `event-${ev.project_id}`,
-							}}
-							className="flex flex-col gap-3 rounded-md border border-border-default bg-card p-3.5 transition-colors active:bg-secondary"
-						>
-							<div className="flex items-start justify-between gap-3">
-								<div className="min-w-0 flex-1 space-y-1.5">
-									<div className="line-clamp-2 break-words text-[14px] font-semibold leading-snug text-foreground">
-										{ev.client_name}
-									</div>
-									<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-										<ChannelTag channel={ev.channel} />
-										{ev.event_category && (
-											<CategoryTag
-												code={ev.event_category}
-												label={ev.event_category_label}
-											/>
-										)}
-									</div>
-								</div>
-								<EventStatusDot
-									status={ev.status}
-									className="shrink-0 !text-[13px] !font-semibold"
-								/>
-							</div>
-							<div className="grid grid-cols-2 gap-x-3 gap-y-2.5 leading-snug">
-								<div className="space-y-1 tabular">
-									<span className="eyebrow block !text-[9.5px]">
-										Waktu & Tempat
-									</span>
-									<MetaLine
-										icon={CalendarDays}
-										primary={formatDayDate(ev.event_date)}
-										strong
-									/>
-									{ev.start_time && (
-										<MetaLine
-											icon={Clock}
-											primary={`${formatTime(ev.start_time)}${
-												ev.end_time
-													? ` – ${formatTime(ev.end_time)}`
-													: ""
-											}`}
+							stripTone={sisa > 0 ? "amber" : "emerald"}
+							category={
+								<>
+									<ChannelTag channel={ev.channel} />
+									{ev.event_category && (
+										<CategoryTag
+											code={ev.event_category}
+											label={ev.event_category_label}
 										/>
 									)}
-									<MetaLine
-										icon={MapPin}
-										primary={ev.venue_name}
-										muted
-									/>
-								</div>
-								<div className="space-y-1">
-									<span className="eyebrow block !text-[9.5px]">
-										Detail Paket
-									</span>
-									<MetaLine icon={Package2} primary={pkg} strong />
-									<MetaLine
-										icon={HardDrive}
-										primary={
-											ev.include_flashdisk_pouch
-												? "Flashdisk"
-												: "Tanpa Flashdisk"
-										}
-										muted={!ev.include_flashdisk_pouch}
-										accent={
-											ev.include_flashdisk_pouch
-												? "emerald"
-												: undefined
-										}
-									/>
-									<MetaLine
-										icon={Frame}
-										primary={bd ?? "Belum ditentukan"}
-										muted={!bd}
-									/>
-								</div>
-								<div className="col-span-2 border-t border-border-subtle pt-2">
-									<span className="eyebrow block !text-[9.5px]">
-										Crew
-									</span>
-									<div className="mt-1">
-										<CrewLine
-											crew={crew}
-											highlightUserId={crewFilter || undefined}
-											compact
+								</>
+							}
+							title={
+								<span className="inline-flex items-center gap-1.5">
+									<span className="truncate">{ev.client_name}</span>
+									{ev.is_migrated_legacy && (
+										<Archive
+											className="size-3 shrink-0 text-amber-600 dark:text-amber-500"
+											aria-label="Migrated"
+											strokeWidth={2}
 										/>
-									</div>
-								</div>
-								<div className="col-span-2 flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
+									)}
+								</span>
+							}
+							status={
+								<>
+									<EventStatusDot
+										status={ev.status}
+										className="!text-[13px] !font-semibold"
+									/>
 									<PaymentStatusDot
 										status={ev.payment_status}
-										className="!text-[12.5px]"
+										className="!text-[12px]"
 									/>
 									{sisa > 0 && (
-										<span className="tabular text-[13px] font-medium text-rose-600 dark:text-rose-400">
+										<span className="tabular text-[12px] font-semibold text-rose-600 dark:text-rose-400">
 											Sisa {formatRupiah(sisa)}
 										</span>
 									)}
-								</div>
-							</div>
-						</Link>
+								</>
+							}
+							meta={
+								<>
+									<MetaRow icon={<CalendarDays />}>
+										<span className="tabular">
+											{formatDayDate(ev.event_date)}
+											{timeRange ? ` · ${timeRange}` : ""}
+										</span>
+									</MetaRow>
+									<MetaRow icon={<MapPin />}>{ev.venue_name}</MetaRow>
+									<MetaRow icon={<Package2 />}>{pkg}</MetaRow>
+									{(ev.include_flashdisk_pouch || bd) && (
+										<MetaRow icon={<HardDrive />}>
+											<span className="text-muted-foreground">
+												{ev.include_flashdisk_pouch
+													? "Flashdisk Pouch"
+													: "Tanpa Flashdisk"}
+												{bd ? ` · ${bd}` : ""}
+											</span>
+										</MetaRow>
+									)}
+								</>
+							}
+							footer={
+								<>
+									<div className="flex min-w-0 items-center gap-2">
+										<span className="eyebrow">Crew</span>
+										{crew.length > 0 ? (
+											<AvatarGroup
+												people={crew.map((c) => ({
+													id: c.user_id,
+													name: c.nickname ?? c.full_name,
+												}))}
+												size="sm"
+												max={3}
+											/>
+										) : (
+											<span className="type-caption">Belum ada</span>
+										)}
+									</div>
+									<ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
+								</>
+							}
+						/>
 					);
 				})}
 			</div>
@@ -508,13 +480,7 @@ function ChannelTag({ channel }: { channel: string }) {
 	);
 }
 
-function CategoryTag({
-	code,
-	label,
-}: {
-	code: string;
-	label: string | null;
-}) {
+function CategoryTag({ code, label }: { code: string; label: string | null }) {
 	const dot = CATEGORY_DOT[code] ?? "bg-muted-foreground/50";
 	const displayed = label ?? code;
 	return (
@@ -548,9 +514,7 @@ function CrewLine({
 	const lead = crew.find((c) => c.role_in_event === "lead");
 	const others = crew.filter((c) => c.role_in_event !== "lead");
 
-	const leadDisplay = lead
-		? firstWord(lead.nickname ?? lead.full_name)
-		: null;
+	const leadDisplay = lead ? firstWord(lead.nickname ?? lead.full_name) : null;
 	const asistenSource = others[0];
 	const asistenDisplay = asistenSource
 		? firstWord(asistenSource.nickname ?? asistenSource.full_name)
@@ -581,9 +545,7 @@ function CrewLine({
 						{leadDisplay}
 					</span>
 				) : (
-					<span
-						className={cn(nameCls, "text-muted-foreground/60 italic")}
-					>
+					<span className={cn(nameCls, "text-muted-foreground/60 italic")}>
 						—
 					</span>
 				)}
@@ -603,16 +565,11 @@ function CrewLine({
 					>
 						{asistenDisplay}
 						{extra > 0 && (
-							<span className="text-muted-foreground/60">
-								{" "}
-								+{extra}
-							</span>
+							<span className="text-muted-foreground/60"> +{extra}</span>
 						)}
 					</span>
 				) : (
-					<span
-						className={cn(nameCls, "text-muted-foreground/60 italic")}
-					>
+					<span className={cn(nameCls, "text-muted-foreground/60 italic")}>
 						—
 					</span>
 				)}

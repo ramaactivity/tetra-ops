@@ -23,6 +23,7 @@ import {
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Fab } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -524,6 +525,8 @@ export default async function OperationsListPage({
 					/>
 				)}
 			</div>
+
+			<Fab href="/operations/new" label="Booking baru" className="md:hidden" />
 		</Container>
 	);
 }
