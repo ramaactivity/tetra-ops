@@ -190,7 +190,7 @@ export function QuickRecordCore({
 	// ── Section fragments (composed in different orders for mobile vs desktop) ──
 
 	const directionSeg = (
-		<div className="grid grid-cols-3 gap-1 rounded-full bg-surface-4 p-1">
+		<div className="grid grid-cols-3 gap-1.5 rounded-full bg-surface-4 p-1.5">
 			{(["masuk", "keluar", "transfer"] as CatatDirection[]).map((d) => {
 				const active = direction === d;
 				const Icon = DIR_ICON[d];
@@ -201,9 +201,9 @@ export function QuickRecordCore({
 						onClick={() => changeDirection(d)}
 						aria-pressed={active}
 						className={cn(
-							"press flex h-9 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition-colors duration-base ease-out-expo",
+							"press flex h-11 items-center justify-center gap-1.5 rounded-full text-[13.5px] font-medium outline-none transition-colors duration-base ease-out-expo focus-visible:ring-2 focus-visible:ring-[#059669]/40",
 							active
-								? "bg-[#059669] text-white shadow-[var(--shadow-level-1)]"
+								? "bg-[#059669] text-white shadow-[var(--shadow-level-2)]"
 								: "text-muted-foreground hover:text-foreground",
 						)}
 					>
@@ -216,11 +216,11 @@ export function QuickRecordCore({
 	);
 
 	const amountHero = (
-		<div className="text-center">
+		<div className="py-1 text-center">
 			<div className="eyebrow">{dirNoun}</div>
 			<div
 				className={cn(
-					"type-num-xl mt-0.5 flex items-baseline justify-center gap-1.5",
+					"type-num-xl mt-1 flex items-baseline justify-center gap-1.5",
 					amount === 0
 						? "text-muted-foreground/35"
 						: direction === "masuk"
@@ -261,7 +261,7 @@ export function QuickRecordCore({
 		direction !== "transfer" ? (
 			<div className="space-y-1.5">
 				<div className="eyebrow">Kategori</div>
-				<div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+				<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
 					{visibleCats.map((c) => {
 						const active = categoryId === c.id && !coaOverride;
 						const Icon = c.icon;
@@ -276,7 +276,7 @@ export function QuickRecordCore({
 								}}
 								aria-pressed={active}
 								className={cn(
-									"press flex h-10 items-center gap-2 rounded-xl border px-3 text-[13px] font-medium transition-colors",
+									"press flex h-12 items-center gap-2 rounded-xl border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#059669]/40",
 									active
 										? "border-[#059669] bg-emerald-50 text-foreground"
 										: "border-border-subtle bg-card text-foreground hover:bg-secondary",
@@ -511,7 +511,7 @@ export function QuickRecordCore({
 				if (note.trim()) fd.set("note", note.trim());
 				formAction(fd);
 			}}
-			className="space-y-4"
+			className="flex min-h-full flex-col gap-4"
 		>
 			{directionSeg}
 			{amountHero}
@@ -542,16 +542,17 @@ export function QuickRecordCore({
 
 			{errorBanner}
 
-			{/* Sticky CTA — bg covers content scrolling under it; no -mb overhang */}
-			<div className="sticky bottom-0 -mx-4 border-t border-border-subtle bg-surface-3 px-4 pt-3 pb-1">
+			{/* Action bar — in-flow (mt-auto pins it to the bottom on short content),
+			    distinct white surface so it reads as a bar and never leaks. */}
+			<div className="-mx-4 -mb-4 mt-auto border-t border-border-default bg-card px-4 pt-3 pb-3">
 				<button
 					type="submit"
 					disabled={!canSubmit || pending}
 					className={cn(
-						"press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors",
+						"press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold outline-none transition-colors",
 						canSubmit && !pending
 							? "bg-[#059669] text-white hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
-							: "cursor-not-allowed bg-surface-4 text-muted-foreground",
+							: "cursor-not-allowed border border-border-default bg-surface-3 text-muted-foreground",
 					)}
 				>
 					{pending ? (
@@ -588,8 +589,9 @@ function AccountPicker({
 	const haptic = useHaptics();
 
 	if (variant === "scroll") {
+		// Two cards per view, scroll-snap — mirrors the operations KPI stat cards.
 		return (
-			<div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+			<div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
 				{accounts.map((a) => {
 					const active = value === a.code;
 					const disabled = disabledCode === a.code;
@@ -604,16 +606,14 @@ function AccountPicker({
 							}}
 							aria-pressed={active}
 							className={cn(
-								"press flex min-w-[8.5rem] shrink-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-40",
+								"press shrink-0 basis-[calc(50%-0.375rem)] snap-start rounded-[16px] border bg-card p-3.5 text-left shadow-[var(--shadow-level-2)] outline-none transition-colors disabled:opacity-40",
 								active
-									? "border-[#059669] bg-emerald-50"
-									: "border-border-subtle bg-card",
+									? "border-[#059669] ring-1 ring-[#059669]"
+									: "border-border-default",
 							)}
 						>
-							<span className="max-w-[9rem] truncate text-[13px] font-medium text-foreground">
-								{a.name}
-							</span>
-							<span className="tabular text-[11px] text-muted-foreground">
+							<span className="eyebrow block truncate">{a.name}</span>
+							<span className="tabular mt-1 block text-[15px] font-semibold text-foreground">
 								{formatRupiah(a.balance)}
 							</span>
 						</button>

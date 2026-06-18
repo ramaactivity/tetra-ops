@@ -74,9 +74,7 @@ export function CatatLauncher({
 				>
 					<SheetHeader>
 						<SheetTitle>Catat transaksi</SheetTitle>
-						<SheetDescription>
-							Uang masuk, keluar, atau transfer — langsung masuk pembukuan.
-						</SheetDescription>
+						<SheetDescription>Langsung masuk ke pembukuan.</SheetDescription>
 					</SheetHeader>
 					{hasCash ? (
 						<QuickRecordCore
