@@ -63,6 +63,12 @@ export interface ComboboxProps {
 	id?: string;
 	/** Compact (h-9, text-sm) for toolbars; default (h-10, body) for forms. */
 	size?: "default" | "sm";
+	/**
+	 * Close the dropdown on scroll instead of tracking the trigger. Use inside
+	 * scroll containers (e.g. a bottom Sheet) where fixed-popup repositioning
+	 * lags a frame behind and looks glitchy. Default false (track on scroll).
+	 */
+	closeOnScroll?: boolean;
 }
 
 export function Combobox({
@@ -76,6 +82,7 @@ export function Combobox({
 	className,
 	id: idProp,
 	size = "default",
+	closeOnScroll = false,
 	...ariaProps
 }: ComboboxProps) {
 	const fallbackId = useId();
@@ -179,13 +186,16 @@ export function Combobox({
 			});
 		};
 		update();
-		window.addEventListener("scroll", update, true);
+		// In a scroll container, fixed-popup tracking lags a frame and looks
+		// glitchy — close on scroll instead so the dropdown never trails.
+		const onScroll = closeOnScroll ? () => closeAndReset() : update;
+		window.addEventListener("scroll", onScroll, true);
 		window.addEventListener("resize", update);
 		return () => {
-			window.removeEventListener("scroll", update, true);
+			window.removeEventListener("scroll", onScroll, true);
 			window.removeEventListener("resize", update);
 		};
-	}, [open]);
+	}, [open, closeOnScroll, closeAndReset]);
 
 	function handleSelect(opt: ComboboxOption) {
 		if (opt.disabled) return;
