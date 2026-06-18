@@ -165,11 +165,11 @@ function MonthSwitcher({ ym, tab }: { ym: string; tab: Tab }) {
 	const next = shiftMonth(ym, +1);
 	const [year, month] = ym.split("-").map(Number);
 	return (
-		<div className="border-border-subtle bg-secondary inline-flex h-9 items-center gap-0.5 rounded-full border p-1">
+		<div className="border-border-subtle bg-card inline-flex h-9 items-center gap-0.5 rounded-full border p-1 shadow-[var(--shadow-level-1)]">
 			<Link
 				href={`/reports?tab=${tab}&month=${prev}`}
 				aria-label="Previous month"
-				className="text-muted-foreground hover:bg-card hover:text-foreground inline-flex size-7 items-center justify-center rounded-full"
+				className="text-muted-foreground hover:bg-secondary hover:text-foreground inline-flex size-7 items-center justify-center rounded-full"
 			>
 				<ChevronLeft className="h-4 w-4" />
 			</Link>
@@ -180,7 +180,7 @@ function MonthSwitcher({ ym, tab }: { ym: string; tab: Tab }) {
 			<Link
 				href={`/reports?tab=${tab}&month=${next}`}
 				aria-label="Next month"
-				className="text-muted-foreground hover:bg-card hover:text-foreground inline-flex size-7 items-center justify-center rounded-full"
+				className="text-muted-foreground hover:bg-secondary hover:text-foreground inline-flex size-7 items-center justify-center rounded-full"
 			>
 				<ChevronRight className="h-4 w-4" />
 			</Link>

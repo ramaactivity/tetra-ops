@@ -46,7 +46,7 @@ export function OperationsViewSwitcher({
 }) {
 	return (
 		<div
-			className="inline-flex h-9 items-center rounded-full border border-border-subtle bg-secondary p-1"
+			className="inline-flex h-9 items-center rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]"
 			role="tablist"
 			aria-label="View"
 		>
@@ -63,8 +63,8 @@ export function OperationsViewSwitcher({
 						className={cn(
 							"inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium leading-none transition-colors",
 							active
-								? "bg-card text-foreground shadow-[var(--shadow-level-2)]"
-								: "text-muted-foreground hover:text-foreground",
+								? "bg-[#059669] text-white"
+								: "text-muted-foreground hover:bg-secondary hover:text-foreground",
 						)}
 					>
 						<Icon className="size-3.5" aria-hidden strokeWidth={2} />

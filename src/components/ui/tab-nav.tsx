@@ -40,7 +40,7 @@ export function TabNav({
 		<nav
 			aria-label={ariaLabel}
 			className={cn(
-				"hide-scrollbar inline-flex h-10 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]",
+				"hide-scrollbar inline-flex h-9 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]",
 				className,
 			)}
 		>
@@ -50,7 +50,7 @@ export function TabNav({
 					href={tab.href}
 					aria-current={tab.active ? "page" : undefined}
 					className={cn(
-						"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors",
+						"inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors",
 						tab.active
 							? "bg-[#059669] text-white"
 							: "text-muted-foreground hover:bg-secondary hover:text-foreground",

@@ -76,7 +76,7 @@ export function OwnerPageTitle() {
 	);
 	const [, label, Icon] = match ?? ["", "Tetra Ops", LayoutDashboard];
 	return (
-		<span className="inline-flex h-9 items-center gap-2 rounded-full bg-secondary pl-3 pr-4">
+		<span className="inline-flex h-9 items-center gap-2 rounded-full border border-border-subtle bg-card pl-3 pr-4 shadow-[var(--shadow-level-1)]">
 			<Icon className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={2} />
 			<span className="truncate text-[14px] font-semibold text-foreground">
 				{label}
