@@ -79,12 +79,9 @@ export default async function ManagePaymentsPage({
 						<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
 							Pembayaran
 						</p>
-						<h1 className="mt-2 break-words text-[28px] font-bold leading-[1.08] tracking-[-0.02em] sm:text-[34px]">
+						<h1 className="mt-2 break-words text-[26px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[32px]">
 							{event.client_name}
 						</h1>
-						<p className="tabular mt-2 font-mono text-[12.5px] text-white/65">
-							{event.project_id}
-						</p>
 					</div>
 					<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[12.5px] font-semibold text-white backdrop-blur-sm">
 						<span
@@ -101,7 +98,7 @@ export default async function ManagePaymentsPage({
 
 			{/* Summary — stat row + 2-segment progress (matches dashboard targets) */}
 			<section className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
-				<dl className="grid grid-cols-3 divide-x divide-border-subtle">
+				<dl className="grid grid-cols-1 divide-y divide-border-subtle sm:grid-cols-3 sm:divide-x sm:divide-y-0">
 					<SummaryCell label="Grand Total">
 						<MoneyAmount value={grand} size="lg" tone="default" />
 					</SummaryCell>
@@ -185,9 +182,9 @@ function SummaryCell({
 	children: React.ReactNode;
 }) {
 	return (
-		<div className="min-w-0 px-4 py-2.5 sm:px-5">
-			<dt className="eyebrow">{label}</dt>
-			<dd className="mt-0.5 truncate">{children}</dd>
+		<div className="flex min-w-0 items-center justify-between gap-3 px-5 py-3 sm:flex-col sm:items-start sm:gap-0 sm:py-3">
+			<dt className="eyebrow shrink-0">{label}</dt>
+			<dd className="min-w-0 text-right sm:mt-1 sm:text-left">{children}</dd>
 		</div>
 	);
 }
