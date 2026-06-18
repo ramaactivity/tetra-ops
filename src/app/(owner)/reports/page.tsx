@@ -165,7 +165,7 @@ function MonthSwitcher({ ym, tab }: { ym: string; tab: Tab }) {
 	const next = shiftMonth(ym, +1);
 	const [year, month] = ym.split("-").map(Number);
 	return (
-		<div className="border-border-subtle bg-card inline-flex h-9 items-center gap-0.5 rounded-full border p-1 shadow-[var(--shadow-level-1)]">
+		<div className="border-border-subtle bg-card inline-flex h-9 items-center gap-0.5 rounded-full border p-1 shadow-[var(--shadow-level-1)] md:border-transparent md:bg-secondary md:shadow-none">
 			<Link
 				href={`/reports?tab=${tab}&month=${prev}`}
 				aria-label="Previous month"

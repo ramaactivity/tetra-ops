@@ -46,7 +46,7 @@ export function OperationsViewSwitcher({
 }) {
 	return (
 		<div
-			className="inline-flex h-9 items-center rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]"
+			className="inline-flex h-9 items-center rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)] md:border-transparent md:bg-secondary md:shadow-none"
 			role="tablist"
 			aria-label="View"
 		>
