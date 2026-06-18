@@ -25,7 +25,7 @@ export default async function OwnerLayout({
 	return (
 		// UpGradely floating frame: ambient gradient margin around a white
 		// sidebar card + a content column (search topbar card + page content).
-		<div className="flex min-h-dvh gap-3 p-3">
+		<div className="flex min-h-dvh gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
 			<OwnerSidebar />
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on
 			    smaller laptops (otherwise Container max-w caps push past viewport). */}
