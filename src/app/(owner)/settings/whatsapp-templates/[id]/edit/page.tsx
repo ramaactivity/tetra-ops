@@ -38,7 +38,7 @@ export default async function EditWhatsAppTemplatePage({
 				title={`Edit: ${tpl.name}`}
 				description={<span className="tabular">{tpl.code}</span>}
 			/>
-			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
+			<div className="border-border-default bg-card max-w-3xl rounded-xl border p-5">
 				<WhatsAppTemplateForm mode="edit" id={tpl.id} defaults={defaults} />
 			</div>
 		</div>

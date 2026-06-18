@@ -9,7 +9,7 @@ export default function NewWhatsAppTemplatePage() {
 				title="New Template"
 				description="Buat template pesan reusable untuk komunikasi standar dengan klien."
 			/>
-			<div className="border-border-default bg-surface-2 max-w-3xl rounded-xl border p-5">
+			<div className="border-border-default bg-card max-w-3xl rounded-xl border p-5">
 				<WhatsAppTemplateForm mode="create" />
 			</div>
 		</div>

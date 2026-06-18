@@ -85,7 +85,7 @@ export default async function WhatsAppTemplatesListPage() {
 					description="Buat template pertama untuk speed-up komunikasi WA dengan klien."
 				/>
 			) : (
-				<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
+				<div className="border-border-default bg-card overflow-x-auto rounded-lg border">
 					<Table>
 						<TableHeader>
 							<TableRow>

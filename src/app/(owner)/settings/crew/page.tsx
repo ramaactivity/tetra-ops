@@ -130,7 +130,7 @@ export default async function MasterCrewPage() {
 		}));
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-4">
 			<SectionHeader
 				as="h2"
 				title="Master Crew"
@@ -201,18 +201,16 @@ export default async function MasterCrewPage() {
 							bawah ini.
 						</p>
 					</div>
-					<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
+					<div className="border-border-default bg-card overflow-x-auto rounded-lg border">
 						<Table>
 							<TableHeader className="bg-secondary/50">
 								<TableRow className="hover:bg-transparent">
-									<TableHead className="eyebrow px-4">Person</TableHead>
+									<TableHead className="eyebrow">Person</TableHead>
 									<TableHead className="eyebrow">Email (Gmail)</TableHead>
 									<TableHead className="eyebrow">Tier</TableHead>
 									<TableHead className="eyebrow">WA</TableHead>
 									<TableHead className="eyebrow">Diundang</TableHead>
-									<TableHead className="eyebrow px-4 text-right">
-										Actions
-									</TableHead>
+									<TableHead className="eyebrow text-right">Actions</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -264,15 +262,13 @@ export default async function MasterCrewPage() {
 					<Table>
 						<TableHeader className="bg-secondary/50">
 							<TableRow className="hover:bg-transparent">
-								<TableHead className="eyebrow px-4">Person</TableHead>
+								<TableHead className="eyebrow">Person</TableHead>
 								<TableHead className="eyebrow">Role</TableHead>
 								<TableHead className="eyebrow">WA</TableHead>
 								<TableHead className="eyebrow">Joined</TableHead>
 								<TableHead className="eyebrow">Status</TableHead>
 								{isSuperAdmin && (
-									<TableHead className="eyebrow px-4 text-right">
-										Actions
-									</TableHead>
+									<TableHead className="eyebrow text-right">Actions</TableHead>
 								)}
 							</TableRow>
 						</TableHeader>
@@ -282,7 +278,7 @@ export default async function MasterCrewPage() {
 									key={u.id}
 									className="border-border-subtle hover:bg-secondary/30"
 								>
-									<TableCell className="px-4 py-3">
+									<TableCell className="py-3">
 										<div className="flex items-center gap-3">
 											<Avatar className="size-8 shrink-0">
 												<AvatarFallback className="bg-muted text-muted-foreground text-[11px] font-semibold">
@@ -339,7 +335,7 @@ export default async function MasterCrewPage() {
 										</span>
 									</TableCell>
 									{isSuperAdmin && (
-										<TableCell className="px-4 py-3 text-right">
+										<TableCell className="py-3 text-right">
 											<div className="inline-flex items-center justify-end gap-1.5">
 												<CrewRoleMenu
 													userId={u.id}
@@ -371,7 +367,7 @@ export default async function MasterCrewPage() {
 				</div>
 			</div>
 
-			<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
+			<div className="border-border-default bg-card space-y-4 rounded-lg border p-5">
 				<InvestorShareTable rows={investors} canEdit={isSuperAdmin} />
 			</div>
 		</div>

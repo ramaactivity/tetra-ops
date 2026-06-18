@@ -120,7 +120,7 @@ export default async function NotificationRulesListPage() {
 	);
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-4">
 			<SectionHeader
 				as="h2"
 				title="Notification Rules"
@@ -134,7 +134,7 @@ export default async function NotificationRulesListPage() {
 					description="Rules biasanya di-seed saat install schema awal."
 				/>
 			) : (
-				<div className="space-y-6">
+				<div className="space-y-4">
 					{categories.map((cat) => {
 						const meta = CATEGORY_META[cat] ?? {
 							label: cat,
@@ -159,7 +159,7 @@ export default async function NotificationRulesListPage() {
 										return (
 											<div
 												key={r.id}
-												className="border-border-default bg-surface-2 flex items-start justify-between gap-3 rounded-lg border p-4"
+												className="border-border-default bg-card flex items-start justify-between gap-3 rounded-lg border p-4"
 											>
 												<div className="flex-1 space-y-2">
 													<div className="flex flex-wrap items-baseline gap-2">

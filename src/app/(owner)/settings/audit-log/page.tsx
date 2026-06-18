@@ -1,11 +1,11 @@
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import Link from "next/link";
-import { SectionHeader } from "@/components/layout/section-header";
 import { AuditFilterBar } from "@/components/audit-log/audit-filter-bar";
 import {
 	AuditListTable,
 	type AuditRow,
 } from "@/components/audit-log/audit-list-table";
+import { SectionHeader } from "@/components/layout/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 
@@ -126,9 +126,8 @@ export default async function AuditLogPage({
 			{totalPages > 1 && (
 				<div className="flex items-center justify-between gap-3 pt-2">
 					<p className="text-fluid-caption text-muted-foreground">
-						Halaman{" "}
-						<span className="font-medium text-foreground">{page}</span> dari{" "}
-						{totalPages} ·{" "}
+						Halaman <span className="font-medium text-foreground">{page}</span>{" "}
+						dari {totalPages} ·{" "}
 						{((page - 1) * PAGE_SIZE + 1).toLocaleString("id-ID")}–
 						{Math.min(page * PAGE_SIZE, totalCount).toLocaleString("id-ID")}{" "}
 						dari {totalCount.toLocaleString("id-ID")}
@@ -137,7 +136,7 @@ export default async function AuditLogPage({
 						{page > 1 ? (
 							<Link
 								href={buildPageHref(page - 1)}
-								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium transition-colors hover:bg-surface-3"
+								className="inline-flex h-8 items-center gap-1 rounded-full border border-border-default bg-card px-3.5 text-fluid-caption font-medium transition-colors hover:bg-secondary"
 							>
 								<ChevronLeft className="size-3.5" /> Prev
 							</Link>
@@ -145,7 +144,7 @@ export default async function AuditLogPage({
 							<button
 								type="button"
 								disabled
-								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium text-muted-foreground opacity-50"
+								className="inline-flex h-8 items-center gap-1 rounded-full border border-border-default bg-card px-3.5 text-fluid-caption font-medium text-muted-foreground opacity-50"
 							>
 								<ChevronLeft className="size-3.5" /> Prev
 							</button>
@@ -153,7 +152,7 @@ export default async function AuditLogPage({
 						{page < totalPages ? (
 							<Link
 								href={buildPageHref(page + 1)}
-								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium transition-colors hover:bg-surface-3"
+								className="inline-flex h-8 items-center gap-1 rounded-full border border-border-default bg-card px-3.5 text-fluid-caption font-medium transition-colors hover:bg-secondary"
 							>
 								Next <ChevronRight className="size-3.5" />
 							</Link>
@@ -161,7 +160,7 @@ export default async function AuditLogPage({
 							<button
 								type="button"
 								disabled
-								className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium text-muted-foreground opacity-50"
+								className="inline-flex h-8 items-center gap-1 rounded-full border border-border-default bg-card px-3.5 text-fluid-caption font-medium text-muted-foreground opacity-50"
 							>
 								Next <ChevronRight className="size-3.5" />
 							</button>
