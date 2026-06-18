@@ -1,5 +1,4 @@
-import { AlertTriangle, ChevronLeft, Package } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, Package } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CheckInButton } from "@/components/event-equipment/check-in-button";
 import { Container } from "@/components/layout/container";
@@ -167,19 +166,10 @@ export default async function EventEquipmentPage({
 
 	return (
 		<Container size="md" className="space-y-3">
-			<div className="space-y-2">
-				<Link
-					href={`/operations/${projectId}`}
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					{projectId}
-				</Link>
-				<SectionHeader
-					title="Equipment"
-					description={`${event.client_name} · ${formatDateID(event.event_date)}`}
-				/>
-			</div>
+			<SectionHeader
+				title="Equipment"
+				description={`${event.client_name} · ${formatDateID(event.event_date)}`}
+			/>
 
 			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<div className="flex flex-wrap items-end justify-between gap-3">

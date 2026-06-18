@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AssignCrewForm } from "@/components/booking/assign-crew-form";
 import {
@@ -131,19 +129,10 @@ export default async function ManageCrewPage({
 
 	return (
 		<Container size="sm" className="space-y-3">
-			<div className="space-y-2">
-				<Link
-					href={`/operations/${event.project_id}`}
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					{event.project_id}
-				</Link>
-				<SectionHeader
-					title="Manage Crew"
-					description={`${event.client_name} · ${event.event_date}`}
-				/>
-			</div>
+			<SectionHeader
+				title="Manage Crew"
+				description={`${event.client_name} · ${event.event_date}`}
+			/>
 
 			<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
 				<h2 className="text-base font-semibold">Assignments saat ini</h2>

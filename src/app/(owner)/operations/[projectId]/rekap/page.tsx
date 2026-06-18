@@ -2,13 +2,11 @@ import {
 	Boxes,
 	Camera,
 	CheckSquare,
-	ChevronLeft,
 	FileText,
 	History,
 	Lock,
 	Pencil,
 } from "lucide-react";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { AddonSplitForm } from "@/components/rekap/addon-split-form";
@@ -297,13 +295,6 @@ export default async function EventRekapPage({
 
 	return (
 		<Container size="xl" className="space-y-3 pb-32">
-			<Link
-				href={`/operations/${projectId}`}
-				className="text-muted-foreground hover:text-foreground -mb-1 inline-flex items-center gap-1 text-[13px] font-medium transition-colors"
-			>
-				<ChevronLeft className="size-4" />
-				Kembali ke event
-			</Link>
 
 			{isSettled && settlement && (
 				<SettledBanner

@@ -7,6 +7,7 @@ import {
 	Box,
 	Briefcase,
 	Calendar,
+	ChevronLeft,
 	ClipboardList,
 	Contact,
 	FileBarChart,
@@ -30,7 +31,9 @@ import {
 	UsersRound,
 	Wallet,
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 /**
  * <OwnerPageTitle /> — current page name shown as a soft pill (icon + label) in
@@ -69,14 +72,44 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/settings", "Settings", Settings],
 ];
 
+const PILL_CLS =
+	"inline-flex h-9 items-center gap-2 rounded-full border border-border-subtle bg-card pl-3 pr-4 shadow-[var(--shadow-level-1)] md:border-transparent md:bg-secondary md:shadow-none";
+
 export function OwnerPageTitle() {
 	const pathname = usePathname();
 	const match = ROUTES.find(
 		([href]) => pathname === href || pathname.startsWith(`${href}/`),
 	);
-	const [, label, Icon] = match ?? ["", "Tetra Ops", LayoutDashboard];
+	const [href, label, Icon] = match ?? ["", "Tetra Ops", LayoutDashboard];
+
+	// On a sub-page (deeper than its section root) the pill becomes the BACK
+	// control → goes to the section root. Keeps the back affordance in the topbar
+	// instead of a lone in-page link that leaves a big empty band. Global rule.
+	const isSubPage = Boolean(match) && pathname !== href;
+
+	if (isSubPage) {
+		return (
+			<Link
+				href={href}
+				aria-label={`Kembali ke ${label}`}
+				className={cn(
+					PILL_CLS,
+					"transition-colors hover:bg-secondary md:hover:bg-muted",
+				)}
+			>
+				<ChevronLeft
+					className="size-[17px] shrink-0 text-muted-foreground"
+					strokeWidth={2}
+				/>
+				<span className="truncate text-[14px] font-semibold text-foreground">
+					{label}
+				</span>
+			</Link>
+		);
+	}
+
 	return (
-		<span className="inline-flex h-9 items-center gap-2 rounded-full border border-border-subtle bg-card pl-3 pr-4 shadow-[var(--shadow-level-1)] md:border-transparent md:bg-secondary md:shadow-none">
+		<span className={PILL_CLS}>
 			<Icon className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={2} />
 			<span className="truncate text-[14px] font-semibold text-foreground">
 				{label}

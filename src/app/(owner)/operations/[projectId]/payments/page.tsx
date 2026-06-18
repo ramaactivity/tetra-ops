@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LogPaymentDialog } from "@/components/billing/log-payment-dialog";
 import type { BankAccountOption } from "@/components/billing/payment-form";
@@ -72,15 +70,6 @@ export default async function ManagePaymentsPage({
 
 	return (
 		<Container size="xl" className="space-y-3 pb-4">
-			{/* Back */}
-			<Link
-				href={`/operations/${event.project_id}`}
-				className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-secondary px-3 pr-3.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-			>
-				<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
-				Event
-			</Link>
-
 			{/* Emerald hero — mirrors the event-detail hero */}
 			<section className="overflow-hidden rounded-[20px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-3)]">
 				<div className="flex items-start justify-between gap-3">

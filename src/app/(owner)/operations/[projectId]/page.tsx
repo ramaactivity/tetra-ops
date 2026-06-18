@@ -2,7 +2,6 @@ import {
 	Activity,
 	Archive,
 	Building2,
-	ChevronLeft,
 	FileText,
 	Inbox,
 	Mail,
@@ -310,14 +309,6 @@ export default async function EventDetailPage({
 		<Container size="xl" className="space-y-3">
 			{/* === HEADER === */}
 			<div className="space-y-4">
-				<Link
-					href="/operations"
-					className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-secondary px-3 pr-3.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-				>
-					<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
-					Operations
-				</Link>
-
 				{/* Emerald hero — the event identity, presented with a clear
 				    hierarchy: eyebrow (channel · kategori) → name → project id,
 				    with the status as a translucent pill on the right. */}
