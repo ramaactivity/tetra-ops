@@ -47,8 +47,8 @@ export function LogPaymentDialog({
 			<DialogContent className="max-h-[92vh] overflow-y-auto p-5 pb-6 sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>Log payment baru</DialogTitle>
-					<DialogDescription>
-						Catat pembayaran masuk. Total &amp; status event update otomatis.
+					<DialogDescription className="sr-only">
+						Catat pembayaran masuk. Total & status event update otomatis.
 					</DialogDescription>
 				</DialogHeader>
 				<PaymentForm

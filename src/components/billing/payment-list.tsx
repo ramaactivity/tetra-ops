@@ -93,44 +93,51 @@ function PaymentItem({
 	const muted = payment.is_reversed;
 
 	return (
-		<li className="flex items-start gap-4 py-3.5 first:pt-0 last:pb-0">
-			<div className="min-w-0 flex-1 space-y-1.5">
+		<li className="flex items-start justify-between gap-3 py-3.5 first:pt-0 last:pb-0">
+			<div className="min-w-0 flex-1 space-y-1">
+				{/* Amount is the hero — the one thing you scan a payment history for */}
 				<div className="flex flex-wrap items-center gap-2">
-					<span
-						className={`font-mono text-xs ${muted ? "text-muted-foreground line-through" : "text-muted-foreground"}`}
-					>
-						{payment.ref_id}
-					</span>
+					<MoneyAmount
+						value={payment.amount}
+						size="lg"
+						tone={muted ? "muted" : "default"}
+						className={muted ? "line-through" : ""}
+					/>
 					<Badge variant="outline">
 						{PAYMENT_TYPE_LABELS[payment.payment_type] ?? payment.payment_type}
 					</Badge>
 					{muted && <Badge variant="secondary">Reversed</Badge>}
 				</div>
 
-				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-					<MoneyAmount
-						value={payment.amount}
-						size="md"
-						tone={muted ? "muted" : "default"}
-						className={muted ? "line-through" : ""}
-					/>
-					<span className="font-mono text-xs text-muted-foreground">
-						{formatDateID(payment.payment_date)}
-					</span>
+				{/* When + where the money landed */}
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-muted-foreground">
+					<span className="tabular">{formatDateID(payment.payment_date)}</span>
 					{payment.bank && (
-						<span className="text-xs text-muted-foreground">
-							{payment.bank.bank_name}
-							{payment.bank.account_number &&
-								` · ${payment.bank.account_number}`}
-						</span>
+						<>
+							<span className="text-muted-foreground/40" aria-hidden>
+								·
+							</span>
+							<span>
+								{payment.bank.bank_name}
+								{payment.bank.account_number &&
+									` · ${payment.bank.account_number}`}
+							</span>
+						</>
 					)}
 				</div>
 
+				{/* Reference ID demoted — for audit, not the headline */}
+				<p
+					className={`tabular font-mono text-[11px] text-muted-foreground/70 ${muted ? "line-through" : ""}`}
+				>
+					{payment.ref_id}
+				</p>
+
 				{payment.notes && (
-					<p className="text-xs text-muted-foreground">{payment.notes}</p>
+					<p className="text-[12px] text-muted-foreground">{payment.notes}</p>
 				)}
 				{muted && payment.reversal_reason && (
-					<p className="text-xs italic text-muted-foreground">
+					<p className="text-[12px] italic text-muted-foreground">
 						Reversed: {payment.reversal_reason}
 					</p>
 				)}
