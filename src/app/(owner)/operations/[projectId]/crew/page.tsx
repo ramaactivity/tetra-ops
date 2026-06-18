@@ -41,12 +41,13 @@ export default async function ManageCrewPage({
 	const { data: assignmentsData } = await supabase
 		.from("crew_assignments")
 		.select(
-			"id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)",
+			"id, user_id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)",
 		)
 		.eq("event_id", event.id);
 
 	const assignments = (assignmentsData ?? []).map((a) => ({
 		id: a.id as string,
+		user_id: a.user_id as string,
 		role_in_event: a.role_in_event as string,
 		fee_amount: a.fee_amount as number,
 		bonus_amount: a.bonus_amount as number,

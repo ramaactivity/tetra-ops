@@ -1,17 +1,18 @@
 "use client";
 
 import { MessageCircle, Plus, Trash2, X } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { assignCrew, unassignCrew } from "@/lib/actions/crew-assignments";
-import { formatRupiah, nameInitials } from "@/lib/format";
+import { formatRupiah } from "@/lib/format";
 import {
 	buildCrewReminderMessage,
 	type EventForWA,
 	whatsappUrl,
 } from "@/lib/whatsapp";
+import { cn } from "@/lib/utils";
 import type { CrewOption } from "./assign-crew-form";
 import type { AssignmentRow } from "./crew-assignment-list";
 
@@ -26,12 +27,48 @@ const PRIMARY_SLOTS = [
 	{ role: "asisten", label: "Asisten" },
 ] as const;
 
+function crewLabel(c: { full_name: string; tier: string | null }): string {
+	return `${c.full_name}${c.tier ? ` · ${c.tier}` : ""}`;
+}
+
+/** Optimistic row so a pick fills the slot instantly (fee -1 = "menyiapkan"). */
+function optimisticRow(crew: CrewOption, role: string): AssignmentRow {
+	return {
+		id: `temp-${crew.id}-${role}`,
+		user_id: crew.id,
+		role_in_event: role,
+		fee_amount: -1,
+		bonus_amount: 0,
+		fee_override_reason: null,
+		user: { full_name: crew.full_name, tier: crew.tier, phone_wa: null },
+	};
+}
+
+type OptAction =
+	| { type: "assign"; role: string; crew: CrewOption }
+	| { type: "reassign"; oldId: string; role: string; crew: CrewOption }
+	| { type: "remove"; id: string };
+
+function reducer(state: AssignmentRow[], action: OptAction): AssignmentRow[] {
+	switch (action.type) {
+		case "assign":
+			return [...state, optimisticRow(action.crew, action.role)];
+		case "reassign":
+			return state.map((a) =>
+				a.id === action.oldId ? optimisticRow(action.crew, action.role) : a,
+			);
+		case "remove":
+			return state.filter((a) => a.id !== action.id);
+	}
+}
+
 /**
- * <CrewSlotAssign /> — compact, slot-first crew assignment for the event recap.
+ * <CrewSlotAssign /> — slot-first, instant crew assignment for the recap.
  *
- * Default view shows the role slots (Lead, Asisten) right away — pick the person
- * from a dropdown (fee auto from tier), no scrolling through a list. "+ Tambah
- * crew" adds Crew C. Replaces the old browse-all-people + 3-buttons-per-row UI.
+ * Role slots (Lead, Asisten) are always dropdowns: pick to assign, pick a
+ * different name to swap directly (no delete-first), fee auto from tier.
+ * useOptimistic fills/changes the slot instantly without waiting for the server
+ * round-trip. "+ Tambah crew" adds Crew C.
  */
 export function CrewSlotAssign({
 	projectId,
@@ -47,27 +84,47 @@ export function CrewSlotAssign({
 	event: EventForWA;
 }) {
 	const [pending, startTransition] = useTransition();
+	const [optimistic, applyOptimistic] = useOptimistic(assignments, reducer);
 	const [addOpen, setAddOpen] = useState(false);
 	const confirm = useConfirm();
 
-	const team = assignments.map((a) => a.user.full_name);
-	const options = availableCrew.map((c) => ({
+	const team = optimistic.map((a) => a.user.full_name);
+	const baseOptions = availableCrew.map((c) => ({
 		value: c.id,
-		label: `${c.full_name}${c.tier ? ` · ${c.tier}` : ""}${
-			c.hasConflict ? "  ⚠" : ""
-		}`,
+		label: `${crewLabel(c)}${c.hasConflict ? "  ⚠" : ""}`,
 	}));
-	const noOptions = options.length === 0;
 
-	function assign(userId: string, role: string) {
+	/** Options for a slot — include the currently-assigned crew so it shows. */
+	function slotOptions(row?: AssignmentRow) {
+		if (!row) return baseOptions;
+		if (baseOptions.some((o) => o.value === row.user_id)) return baseOptions;
+		return [{ value: row.user_id, label: crewLabel(row.user) }, ...baseOptions];
+	}
+
+	function pick(role: string, userId: string, current?: AssignmentRow) {
+		if (!userId || userId === current?.user_id) return;
+		const crew = availableCrew.find((c) => c.id === userId);
+		if (!crew) return;
+		setAddOpen(false);
 		startTransition(async () => {
+			applyOptimistic(
+				current
+					? { type: "reassign", oldId: current.id, role, crew }
+					: { type: "assign", role, crew },
+			);
+			if (current) {
+				const un = await unassignCrew(projectId, current.id);
+				if (un?.error) {
+					toast.error(un.error);
+					return;
+				}
+			}
 			const fd = new FormData();
 			fd.set("event_id", eventId);
 			fd.set("user_id", userId);
 			fd.set("role_in_event", role);
 			const res = await assignCrew(projectId, fd);
-			if (res.error) toast.error(res.error);
-			else setAddOpen(false);
+			if (res?.error) toast.error(res.error);
 		});
 	}
 
@@ -79,8 +136,9 @@ export function CrewSlotAssign({
 		});
 		if (!ok) return;
 		startTransition(async () => {
+			applyOptimistic({ type: "remove", id: row.id });
 			const res = await unassignCrew(projectId, row.id);
-			if (res.error) toast.error(res.error);
+			if (res?.error) toast.error(res.error);
 		});
 	}
 
@@ -100,78 +158,58 @@ export function CrewSlotAssign({
 		window.open(whatsappUrl(phone, body), "_blank", "noopener,noreferrer");
 	}
 
-	const extras = assignments.filter(
+	const extras = optimistic.filter(
 		(a) => a.role_in_event !== "lead" && a.role_in_event !== "asisten",
 	);
+	const noBase = baseOptions.length === 0;
 
 	return (
 		<div className="mt-3.5 space-y-2">
 			{PRIMARY_SLOTS.map((slot) => {
-				const row = assignments.find((a) => a.role_in_event === slot.role);
+				const row = optimistic.find((a) => a.role_in_event === slot.role);
 				return (
-					<SlotRow
+					<Slot
 						key={slot.role}
 						label={slot.label}
 						row={row}
+						options={slotOptions(row)}
+						placeholder={noBase && !row ? "Tidak ada crew" : `Pilih ${slot.label}`}
+						disabled={pending || (noBase && !row)}
+						onPick={(v) => pick(slot.role, v, row)}
 						onWa={row ? () => sendWa(row) : undefined}
 						onRemove={row ? () => remove(row) : undefined}
-						picker={
-							<NativeSelect
-								value=""
-								placeholder={
-									noOptions ? "Tidak ada crew tersedia" : `Pilih ${slot.label}`
-								}
-								options={options}
-								onValueChange={(v) => v && assign(v, slot.role)}
-								disabled={pending || noOptions}
-								aria-label={`Pilih crew untuk ${slot.label}`}
-								triggerClassName="w-full rounded-full"
-							/>
-						}
 					/>
 				);
 			})}
 
 			{extras.map((row) => (
-				<SlotRow
+				<Slot
 					key={row.id}
 					label={ROLE_LABELS[row.role_in_event] ?? row.role_in_event}
 					row={row}
+					options={slotOptions(row)}
+					placeholder="Pilih crew"
+					disabled={pending}
+					onPick={(v) => pick(row.role_in_event, v, row)}
 					onWa={() => sendWa(row)}
 					onRemove={() => remove(row)}
 				/>
 			))}
 
 			{addOpen ? (
-				<div className="flex items-center gap-2 rounded-[12px] border border-border-subtle bg-card p-2.5">
-					<span className="w-16 shrink-0 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-						Crew C
-					</span>
-					<div className="min-w-0 flex-1">
-						<NativeSelect
-							value=""
-							placeholder={noOptions ? "Tidak ada crew" : "Pilih crew"}
-							options={options}
-							onValueChange={(v) => v && assign(v, "crew_c")}
-							disabled={pending || noOptions}
-							aria-label="Pilih crew tambahan"
-							triggerClassName="w-full rounded-full"
-						/>
-					</div>
-					<button
-						type="button"
-						onClick={() => setAddOpen(false)}
-						className="text-muted-foreground hover:text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-full"
-						aria-label="Batal"
-					>
-						<X className="size-4" aria-hidden />
-					</button>
-				</div>
+				<Slot
+					label="Crew C"
+					options={baseOptions}
+					placeholder={noBase ? "Tidak ada crew" : "Pilih crew"}
+					disabled={pending || noBase}
+					onPick={(v) => pick("crew_c", v)}
+					onCancel={() => setAddOpen(false)}
+				/>
 			) : (
 				<button
 					type="button"
 					onClick={() => setAddOpen(true)}
-					disabled={noOptions}
+					disabled={noBase}
 					className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-border-default text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-[#059669]/40 hover:text-foreground disabled:opacity-50"
 				>
 					<Plus className="size-3.5" aria-hidden />
@@ -182,60 +220,85 @@ export function CrewSlotAssign({
 	);
 }
 
-function SlotRow({
+function Slot({
 	label,
 	row,
-	picker,
+	options,
+	placeholder,
+	disabled,
+	onPick,
 	onWa,
 	onRemove,
+	onCancel,
 }: {
 	label: string;
 	row?: AssignmentRow;
-	picker?: React.ReactNode;
+	options: ReadonlyArray<{ value: string; label: string }>;
+	placeholder: string;
+	disabled?: boolean;
+	onPick: (value: string) => void;
 	onWa?: () => void;
 	onRemove?: () => void;
+	onCancel?: () => void;
 }) {
 	return (
-		<div className="flex items-center gap-2.5 rounded-[12px] border border-border-subtle bg-card p-2.5">
-			<span className="w-16 shrink-0 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-				{label}
-			</span>
-			{row ? (
-				<>
-					<span
-						className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-semibold text-muted-foreground"
-						aria-hidden
+		<div className="rounded-[12px] border border-border-subtle bg-card p-2.5">
+			<div className="flex items-center gap-2.5">
+				<span className="w-16 shrink-0 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+					{label}
+				</span>
+				<div className="min-w-0 flex-1">
+					<NativeSelect
+						value={row?.user_id ?? ""}
+						placeholder={placeholder}
+						options={options}
+						onValueChange={onPick}
+						disabled={disabled}
+						aria-label={`Pilih crew untuk ${label}`}
+						triggerClassName="w-full rounded-full"
+					/>
+				</div>
+				{onCancel && (
+					<button
+						type="button"
+						onClick={onCancel}
+						className="text-muted-foreground hover:text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-full"
+						aria-label="Batal"
 					>
-						{nameInitials(row.user.full_name)}
+						<X className="size-4" aria-hidden />
+					</button>
+				)}
+			</div>
+
+			{row && (
+				<div className="mt-2 flex items-center justify-between gap-2 pl-[4.625rem]">
+					<span className="tabular text-[12px] text-muted-foreground">
+						{row.fee_amount < 0
+							? "menyiapkan fee…"
+							: formatRupiah(row.fee_amount)}
+						{row.user.tier ? ` · ${row.user.tier}` : ""}
 					</span>
-					<div className="min-w-0 flex-1">
-						<div className="truncate text-[13.5px] font-medium leading-tight text-foreground">
-							{row.user.full_name}
-						</div>
-						<div className="tabular mt-0.5 text-[12px] text-muted-foreground">
-							{formatRupiah(row.fee_amount)}
-							{row.user.tier ? ` · ${row.user.tier}` : ""}
-						</div>
+					<div className="flex shrink-0 items-center gap-1">
+						<button
+							type="button"
+							onClick={onWa}
+							title="Kirim WA reminder"
+							className="text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300 inline-flex size-7 items-center justify-center rounded-full transition-colors"
+						>
+							<MessageCircle className="size-3.5" aria-hidden />
+						</button>
+						<button
+							type="button"
+							onClick={onRemove}
+							title="Lepas crew"
+							className={cn(
+								"text-muted-foreground hover:bg-secondary hover:text-destructive inline-flex size-7 items-center justify-center rounded-full transition-colors",
+							)}
+						>
+							<Trash2 className="size-3.5" aria-hidden />
+						</button>
 					</div>
-					<button
-						type="button"
-						onClick={onWa}
-						title="Kirim WA reminder"
-						className="text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300 inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors"
-					>
-						<MessageCircle className="size-3.5" aria-hidden />
-					</button>
-					<button
-						type="button"
-						onClick={onRemove}
-						title="Lepas crew"
-						className="text-muted-foreground hover:bg-secondary hover:text-destructive inline-flex size-7 shrink-0 items-center justify-center rounded-full transition-colors"
-					>
-						<Trash2 className="size-3.5" aria-hidden />
-					</button>
-				</>
-			) : (
-				<div className="min-w-0 flex-1">{picker}</div>
+				</div>
 			)}
 		</div>
 	);

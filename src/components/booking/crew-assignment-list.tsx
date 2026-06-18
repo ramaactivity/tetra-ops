@@ -27,6 +27,7 @@ const ROLE_OPTIONS = ["lead", "asisten", "crew_c"];
 
 export type AssignmentRow = {
 	id: string;
+	user_id: string;
 	user: { full_name: string; tier: string | null; phone_wa: string | null };
 	role_in_event: string;
 	fee_amount: number;

@@ -98,7 +98,7 @@ export default async function EventDetailPage({
 			package:packages(id, name, base_price, duration_hours),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
-			crew_assignments:crew_assignments(id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
+			crew_assignments:crew_assignments(id, user_id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
 			settlement:event_settlements(
 				id, revenue_net, hpp_total, opex_total, total_biaya, net_profit,
 				margin_percentage, is_loss, sinking_total, owner_pool_total,
@@ -172,6 +172,7 @@ export default async function EventDetailPage({
 	}>;
 	const crewAssignments = (event.crew_assignments ?? []) as Array<{
 		id: string;
+		user_id: string;
 		role_in_event: string;
 		fee_amount: number;
 		bonus_amount: number | null;
@@ -189,6 +190,7 @@ export default async function EventDetailPage({
 		const u = Array.isArray(row.user) ? row.user[0] : row.user;
 		return {
 			id: row.id,
+			user_id: row.user_id,
 			role_in_event: row.role_in_event,
 			fee_amount: row.fee_amount,
 			bonus_amount: row.bonus_amount ?? 0,
