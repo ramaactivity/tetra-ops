@@ -127,7 +127,7 @@ export function OwnerBottomNav({
 			<nav
 				aria-label="Primary"
 				style={{ viewTransitionName: "site-bottom-nav" }}
-				className="fixed inset-x-0 bottom-0 z-40 border-t border-border-default bg-card/80 backdrop-blur-2xl supports-[backdrop-filter]:bg-card/70 pb-safe md:hidden"
+				className="fixed inset-x-0 bottom-0 z-40 border-t border-border-default bg-card/95 backdrop-blur-2xl supports-[backdrop-filter]:bg-card/85 pb-safe md:hidden"
 			>
 				<div className="mx-auto flex max-w-[30rem] items-stretch justify-around px-2">
 					{PRIMARY.map((item) => {

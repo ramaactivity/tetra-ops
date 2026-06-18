@@ -102,8 +102,8 @@ export default async function DashboardPage() {
 	return (
 		<Container size="xl" className="space-y-3">
 			{/* HERO + supporting */}
-			<section className="space-y-2.5">
-				<div className="lg:grid lg:grid-cols-3 lg:gap-2.5 lg:space-y-0 space-y-2.5">
+			<section className="space-y-3">
+				<div className="lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0 space-y-3">
 					<div className="lg:col-span-2">
 						<HeroMetric
 							label={`Pendapatan ${monthName}`}
@@ -146,9 +146,9 @@ export default async function DashboardPage() {
 			</section>
 
 			{/* Target */}
-			<section className="space-y-2.5">
+			<section className="space-y-3">
 				<p className="eyebrow px-5">Target capaian</p>
-				<div className="grid grid-cols-2 gap-2.5">
+				<div className="grid grid-cols-2 gap-3">
 					<TargetProgressCard
 						label="Target Bulanan"
 						current={monthCount}
@@ -165,9 +165,9 @@ export default async function DashboardPage() {
 			</section>
 
 			{/* Status breakdowns — segmented bars (no more overlapping mini-stats) */}
-			<section className="space-y-2.5">
+			<section className="space-y-3">
 				<p className="eyebrow px-5">Status</p>
-				<div className="grid gap-2.5 sm:grid-cols-2">
+				<div className="grid gap-3 sm:grid-cols-2">
 					<SegmentedBar
 						title="Status Invoice"
 						icon={<FileText aria-hidden />}
@@ -182,7 +182,11 @@ export default async function DashboardPage() {
 						icon={<Activity aria-hidden />}
 						segments={[
 							{ label: "Mendatang", value: monthUpcoming, tone: "teal" },
-							{ label: "Selesai", value: completedThisMonthCount, tone: "emerald" },
+							{
+								label: "Selesai",
+								value: completedThisMonthCount,
+								tone: "emerald",
+							},
 							{ label: "Batal", value: monthCancelled, tone: "rose" },
 						]}
 					/>
@@ -190,9 +194,13 @@ export default async function DashboardPage() {
 			</section>
 
 			{/* Pipeline */}
-			<section className="space-y-2.5">
-				<SectionHead eyebrow="Pipeline" title="Pipeline Event" href="/operations" />
-				<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+			<section className="space-y-3">
+				<SectionHead
+					eyebrow="Pipeline"
+					title="Pipeline Event"
+					href="/operations"
+				/>
+				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 					<PipelineCard
 						label="7 Hari ke Depan"
 						count={upcoming7dCount}
@@ -226,9 +234,9 @@ export default async function DashboardPage() {
 
 			<AnomalyRadarWidget userId={userResult.profile.id} />
 
-			<div className="grid gap-6 lg:grid-cols-3">
+			<div className="grid gap-3 lg:grid-cols-3">
 				{/* Agenda */}
-				<section className="space-y-2.5 lg:col-span-2">
+				<section className="space-y-3 lg:col-span-2">
 					<SectionHead eyebrow="Agenda" title="Hari Ini & Besok" />
 					{nextEvents.length === 0 ? (
 						<div className="flex items-center gap-3 rounded-[16px] border border-dashed border-border-default bg-card/60 p-4">
@@ -236,7 +244,9 @@ export default async function DashboardPage() {
 								<CalendarClock className="size-4" aria-hidden />
 							</span>
 							<div className="min-w-0">
-								<p className="type-body-strong">Tidak ada event hari ini / besok</p>
+								<p className="type-body-strong">
+									Tidak ada event hari ini / besok
+								</p>
 								<p className="type-caption">
 									Free time — booking baru muncul di sini otomatis.
 								</p>
@@ -293,9 +303,9 @@ export default async function DashboardPage() {
 				</section>
 
 				{/* Aksi Cepat */}
-				<section className="space-y-2.5">
+				<section className="space-y-3">
 					<SectionHead eyebrow="Pintasan" title="Aksi Cepat" />
-					<div className="grid grid-cols-2 gap-2.5">
+					<div className="grid grid-cols-2 gap-3">
 						<QuickActionTile
 							href="/operations/new"
 							icon={PlusCircle}
