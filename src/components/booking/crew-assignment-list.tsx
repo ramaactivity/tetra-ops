@@ -110,17 +110,17 @@ function AssignmentItem({
 		return (
 			<form
 				action={handleUpdate}
-				className="border-border-default bg-surface-2 space-y-3 rounded-md border p-3"
+				className="border-border-default bg-card space-y-3 rounded-[12px] border p-4"
 			>
 				<div className="flex items-center justify-between gap-3">
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2.5">
 						<span
-							className="bg-secondary text-muted-foreground grid size-7 shrink-0 place-items-center rounded-full text-[10.5px] font-semibold"
+							className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-semibold"
 							aria-hidden
 						>
 							{nameInitials(row.user.full_name)}
 						</span>
-						<span className="text-[13px] font-medium">
+						<span className="text-[14px] font-medium text-foreground">
 							{row.user.full_name}
 						</span>
 					</div>
@@ -163,7 +163,7 @@ function AssignmentItem({
 				<button
 					type="submit"
 					disabled={pending}
-					className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] h-8 rounded-md px-3 text-xs font-medium disabled:opacity-60"
+					className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-8 items-center rounded-full px-4 text-[13px] font-medium disabled:opacity-60"
 				>
 					{pending ? "Saving…" : "Save"}
 				</button>
@@ -190,27 +190,29 @@ function AssignmentItem({
 	}
 
 	return (
-		<div className="border-border-default bg-surface-2 flex items-center gap-3 rounded-lg border p-3">
+		<div className="border-border-default bg-card flex items-center gap-3 rounded-[12px] border p-3">
 			<span
-				className="bg-secondary text-muted-foreground grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold"
+				className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-semibold"
 				aria-hidden
 			>
 				{nameInitials(row.user.full_name)}
 			</span>
 			<div className="min-w-0 flex-1">
-				<div className="flex flex-wrap items-center gap-1.5">
-					<span className="text-[13px] font-medium leading-tight text-foreground">
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+					<span className="text-[14px] font-medium leading-tight text-foreground">
 						{row.user.full_name}
 					</span>
 					<Badge variant="outline">{ROLE_LABELS[row.role_in_event]}</Badge>
 					{row.user.tier && (
-						<span className="text-muted-foreground text-[10px] font-semibold uppercase tracking-[0.04em]">
+						<span className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.04em]">
 							{row.user.tier}
 						</span>
 					)}
 				</div>
-				<div className="text-muted-foreground tabular mt-0.5 text-[12px]">
-					{formatRupiah(row.fee_amount)}
+				<div className="text-muted-foreground tabular mt-1 text-[12.5px]">
+					<span className="font-medium text-foreground">
+						{formatRupiah(row.fee_amount)}
+					</span>
 					{row.bonus_amount > 0 && (
 						<> + {formatRupiah(row.bonus_amount)} bonus</>
 					)}
@@ -229,7 +231,7 @@ function AssignmentItem({
 							? `Send WA reminder ke ${row.user.full_name}`
 							: "Belum ada nomor WA — set di Master Crew"
 					}
-					className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-colors disabled:opacity-50"
+					className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors disabled:opacity-50"
 				>
 					<MessageCircle className="size-3.5" aria-hidden />
 					WA
@@ -238,7 +240,7 @@ function AssignmentItem({
 					type="button"
 					onClick={() => setEditing(true)}
 					title="Edit fee / role"
-					className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors"
+					className="text-muted-foreground hover:bg-secondary hover:text-foreground inline-flex size-8 items-center justify-center rounded-full transition-colors"
 				>
 					<Pencil className="size-3.5" aria-hidden />
 				</button>
@@ -247,7 +249,7 @@ function AssignmentItem({
 					onClick={handleUnassign}
 					disabled={pending}
 					title="Lepas crew"
-					className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex size-8 items-center justify-center rounded-md transition-colors disabled:opacity-50"
+					className="text-muted-foreground hover:bg-secondary hover:text-destructive inline-flex size-8 items-center justify-center rounded-full transition-colors disabled:opacity-50"
 				>
 					<Trash2 className="size-3.5" aria-hidden />
 				</button>

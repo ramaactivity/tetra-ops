@@ -91,7 +91,7 @@ export function AssignCrewForm({
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					placeholder="Cari nama crew…"
-					className="h-8 w-full rounded-md border border-border-default bg-card pl-8 pr-3 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/70 transition-colors hover:bg-secondary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none"
+					className="h-8 w-full rounded-full border border-border-default bg-card pl-8 pr-3 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/70 transition-colors hover:bg-secondary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none"
 				/>
 			</div>
 
@@ -140,35 +140,41 @@ function CrewRow({
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40",
+				"flex flex-col gap-2.5 px-3.5 py-3 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-center sm:gap-3",
 				crew.hasConflict && "bg-amber-500/[0.06]",
 			)}
 		>
-			<span
-				className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-semibold text-muted-foreground"
-				aria-hidden
-			>
-				{nameInitials(crew.full_name)}
-			</span>
-			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-1.5">
-					<span className="truncate text-[13px] font-medium leading-tight text-foreground">
-						{crew.full_name}
-					</span>
-					{crew.hasConflict && (
-						<AlertTriangle
-							className="size-3 shrink-0 text-amber-600 dark:text-amber-400"
-							aria-label="Punya assignment lain di tanggal sama"
-						/>
+			{/* Identity */}
+			<div className="flex min-w-0 items-center gap-3 sm:flex-1">
+				<span
+					className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-[12px] font-semibold text-muted-foreground"
+					aria-hidden
+				>
+					{nameInitials(crew.full_name)}
+				</span>
+				<div className="min-w-0">
+					<div className="flex items-center gap-1.5">
+						<span className="truncate text-[14px] font-medium leading-tight text-foreground">
+							{crew.full_name}
+						</span>
+						{crew.hasConflict && (
+							<AlertTriangle
+								className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+								aria-label="Punya assignment lain di tanggal sama"
+							/>
+						)}
+					</div>
+					{crew.tier && (
+						<div className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.04em] text-muted-foreground">
+							{crew.tier}
+						</div>
 					)}
 				</div>
-				{crew.tier && (
-					<div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-						{crew.tier}
-					</div>
-				)}
 			</div>
-			<div className="flex items-center gap-1">
+
+			{/* Role assign — full-width 3-up on mobile (no name squeeze), inline on
+			    desktop. */}
+			<div className="grid grid-cols-3 gap-1.5 sm:flex sm:shrink-0">
 				{ROLE_OPTIONS.map((r) => {
 					const key = `${crew.id}:${r.value}`;
 					const busy = pending && pendingKey === key;
@@ -179,7 +185,7 @@ function CrewRow({
 							onClick={() => onAssign(crew.id, r.value)}
 							disabled={pending}
 							title={`Assign sebagai ${r.label}`}
-							className="press-down inline-flex h-7 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+							className="press-down inline-flex h-8 items-center justify-center gap-1 rounded-full border border-border-default bg-card px-3 text-[12px] font-medium text-foreground transition-colors hover:border-[#059669]/40 hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
 						>
 							{busy ? "…" : `+ ${r.label}`}
 						</button>
