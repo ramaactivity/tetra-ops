@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SectionHeader } from "@/components/layout/section-header";
 import { NotificationRuleForm } from "@/components/notification-rules/rule-form";
@@ -36,13 +34,6 @@ export default async function EditNotificationRulePage({
 
 	return (
 		<div className="space-y-4">
-			<Link
-				href="/settings/notification-rules"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Notification Rules
-			</Link>
 			<SectionHeader
 				as="h2"
 				title={`Edit: ${rule.name}`}

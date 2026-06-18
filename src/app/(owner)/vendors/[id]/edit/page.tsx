@@ -1,5 +1,4 @@
-import { Archive, ChevronLeft } from "lucide-react";
-import Link from "next/link";
+import { Archive } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -79,13 +78,6 @@ export default async function EditVendorPage({
 	return (
 		<Container size="lg" className="space-y-3">
 			<div className="space-y-2">
-				<Link
-					href="/vendors"
-					className="inline-flex items-center gap-1 text-fluid-caption font-medium text-muted-foreground hover:text-foreground"
-				>
-					<ChevronLeft className="size-3.5" />
-					Vendor
-				</Link>
 				<SectionHeader
 					as="h1"
 					title={`Edit: ${vendor.name}`}

@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -38,13 +36,6 @@ export default async function EditSinkingFundPage({
 
 	return (
 		<Container size="lg" className="space-y-3">
-			<Link
-				href="/finance/sinking-funds"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Dana Cadangan
-			</Link>
 			<SectionHeader
 				as="h1"
 				title={`Edit: ${fund.name}`}

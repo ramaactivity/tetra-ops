@@ -1,12 +1,11 @@
 import {
 	ArrowDownToLine,
 	ArrowUpFromLine,
-	ChevronLeft,
 	History,
 } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type BankOption,
@@ -100,14 +99,8 @@ export default async function SinkingFundMovementsPage({
 
 	return (
 		<Container size="lg" className="space-y-3">
+			<TopbarEntityPortal name={fund.name} />
 			<div className="space-y-2">
-				<Link
-					href="/finance/sinking-funds"
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Dana Cadangan
-				</Link>
 				<SectionHeader
 					as="h1"
 					title={fund.name}

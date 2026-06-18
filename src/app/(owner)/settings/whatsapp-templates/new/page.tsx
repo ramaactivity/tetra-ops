@@ -1,18 +1,9 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { SectionHeader } from "@/components/layout/section-header";
 import { WhatsAppTemplateForm } from "@/components/whatsapp-templates/template-form";
 
 export default function NewWhatsAppTemplatePage() {
 	return (
 		<div className="space-y-4">
-			<Link
-				href="/settings/whatsapp-templates"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				WhatsApp Templates
-			</Link>
 			<SectionHeader
 				as="h2"
 				title="New Template"

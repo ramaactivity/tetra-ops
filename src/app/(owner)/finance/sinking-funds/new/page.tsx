@@ -1,5 +1,3 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { SinkingFundForm } from "@/components/sinking-funds/fund-form";
@@ -7,13 +5,6 @@ import { SinkingFundForm } from "@/components/sinking-funds/fund-form";
 export default function NewSinkingFundPage() {
 	return (
 		<Container size="lg" className="space-y-3">
-			<Link
-				href="/finance/sinking-funds"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-			>
-				<ChevronLeft className="h-4 w-4" />
-				Dana Cadangan
-			</Link>
 			<SectionHeader
 				as="h1"
 				title="Dana Baru"

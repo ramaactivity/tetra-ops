@@ -1,11 +1,10 @@
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
 	type AssetRow,
 	AssetSection,
 } from "@/components/event-assets/asset-section";
 import { Container } from "@/components/layout/container";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import {
 	ensureEventCategoryFolderInternal,
 	getFootageInfoInternal,
@@ -95,14 +94,7 @@ export default async function DesignAssetManagerPage({
 
 	return (
 		<Container size="lg" className="space-y-3">
-			<Link
-				href="/design"
-				className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-secondary px-3 pr-3.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-			>
-				<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
-				Design Hub
-			</Link>
-
+			<TopbarEntityPortal name={event.client_name} />
 			{/* Emerald hero — event identity + asset counts, same green card as the
 			    event detail / billing heroes. */}
 			<section className="overflow-hidden rounded-[20px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-3)]">
