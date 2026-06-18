@@ -13,13 +13,16 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import {
 	DismissButton,
 	MarkAllReadButton,
 	MarkReadButton,
 } from "@/components/notifications/notification-row-actions";
 import { RunScannerButton } from "@/components/notifications/run-scanner-button";
-import { PushSubscribeButton } from "@/components/push/subscribe-button";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
+import { KpiCard } from "@/components/operations/kpi-card";
+import { PushPrompt } from "@/components/push/push-prompt";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -167,25 +170,38 @@ export default async function NotificationsPage({
 	if (sev) query = query.eq("severity", sev);
 	if (cat) query = query.eq("category", cat);
 
-	const [{ data, error }, { count: unreadCount }, { count: totalCount }] =
-		await Promise.all([
-			query,
-			supabase
-				.from("notifications")
-				.select("id", { count: "exact", head: true })
-				.eq("user_id", me.profile.id)
-				.eq("is_dismissed", false)
-				.eq("is_read", false)
-				.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
-			// Total (non-dismissed) — lets the empty state distinguish a brand-new
-			// account ("belum ada notif") from "semua sudah dibaca".
-			supabase
-				.from("notifications")
-				.select("id", { count: "exact", head: true })
-				.eq("user_id", me.profile.id)
-				.eq("is_dismissed", false)
-				.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
-		]);
+	const [
+		{ data, error },
+		{ count: unreadCount },
+		{ count: totalCount },
+		{ data: sevData },
+	] = await Promise.all([
+		query,
+		supabase
+			.from("notifications")
+			.select("id", { count: "exact", head: true })
+			.eq("user_id", me.profile.id)
+			.eq("is_dismissed", false)
+			.eq("is_read", false)
+			.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+		// Total (non-dismissed) — lets the empty state distinguish a brand-new
+		// account ("belum ada notif") from "semua sudah dibaca".
+		supabase
+			.from("notifications")
+			.select("id", { count: "exact", head: true })
+			.eq("user_id", me.profile.id)
+			.eq("is_dismissed", false)
+			.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+		// Unread severities — feeds the KPI hero breakdown (global, not filtered).
+		supabase
+			.from("notifications")
+			.select("severity")
+			.eq("user_id", me.profile.id)
+			.eq("is_dismissed", false)
+			.eq("is_read", false)
+			.or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+			.limit(1000),
+	]);
 
 	if (error) {
 		return (
@@ -202,62 +218,64 @@ export default async function NotificationsPage({
 	const totalAll = totalCount ?? 0;
 	const hasActiveFilter = Boolean(sev || cat);
 
+	// Unread-by-severity for the KPI hero.
+	const sevCount: Record<Severity, number> = {
+		alert: 0,
+		warning: 0,
+		info: 0,
+		success: 0,
+	};
+	for (const r of (sevData ?? []) as Array<{ severity: Severity }>) {
+		if (r.severity in sevCount) sevCount[r.severity]++;
+	}
+
 	return (
-		<Container size="xl" className="space-y-4 md:space-y-5">
-			{/* Header toolbar — actions live in-body (not portaled to the topbar)
-			    so they wrap on narrow screens instead of overflowing and clipping
-			    "Mark all read". Left = live unread summary, right = actions. */}
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="min-w-0">
-					<p className="type-body-strong text-foreground">
-						{totalUnread > 0 ? (
-							<>
-								<span className="tabular text-rose-600 dark:text-rose-400">
-									{totalUnread}
-								</span>{" "}
-								belum dibaca
-							</>
-						) : (
-							"Semua sudah dibaca"
-						)}
-					</p>
-					<p className="type-caption text-muted-foreground">
-						Anomaly radar · alert operasional · update sistem
-					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<RunScannerButton />
-					<MarkAllReadButton disabled={totalUnread === 0} />
-				</div>
-			</div>
+		<Container size="xl" className="space-y-4 md:space-y-6">
+			<SectionHeader
+				title="Notifications"
+				actions={
+					<>
+						<RunScannerButton />
+						<MarkAllReadButton disabled={totalUnread === 0} />
+					</>
+				}
+			/>
 
-			{/* Push notifications subscribe */}
-			<div className="border-border-subtle bg-card flex flex-col gap-3 rounded-2xl border p-4 shadow-[var(--shadow-level-2)] sm:p-5 md:flex-row md:items-center md:justify-between">
-				<div className="flex items-start gap-3">
-					<span className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-full">
-						<BellRing className="size-[18px]" />
-					</span>
-					<div className="space-y-0.5">
-						<p className="text-foreground text-sm font-medium">
-							Push notification ke device ini
-						</p>
-						<p className="text-muted-foreground text-xs leading-relaxed">
-							Aktifkan biar dapat alert OS-level (lockscreen Android, macOS,
-							dll) saat anomaly fires — tanpa perlu buka app.
-						</p>
-					</div>
-				</div>
-				<div className="shrink-0 md:pl-3">
-					<PushSubscribeButton
-						vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
-					/>
-				</div>
-			</div>
+			{/* Hero — KPI breakdown of unread, same shape every page uses. */}
+			<KpiRow>
+				<KpiCard
+					label="Belum dibaca"
+					value={String(totalUnread)}
+					hint={`${totalAll} total aktif`}
+					icon={BellRing}
+					accent="primary"
+				/>
+				<KpiCard
+					label="Alert"
+					value={String(sevCount.alert)}
+					hint="Perlu tindakan segera"
+					icon={AlertTriangle}
+					accent="rose"
+				/>
+				<KpiCard
+					label="Warning"
+					value={String(sevCount.warning)}
+					hint="Perlu dicek"
+					icon={AlertTriangle}
+					accent="amber"
+				/>
+				<KpiCard
+					label="Info"
+					value={String(sevCount.info + sevCount.success)}
+					hint="Update & status"
+					icon={Info}
+					accent="sky"
+				/>
+			</KpiRow>
 
-			{/* Filters — one card, three clearly-separated rows (status / severity /
-			    kategori) divided by hairlines and aligned on a fixed label column. */}
+			{/* Filters — Status toggle + single-row horizontal-scroll chip groups
+			    (severity / kategori) so they never wrap to a messy second line. */}
 			<div className="border-border-subtle bg-card divide-border-subtle divide-y overflow-hidden rounded-2xl border shadow-[var(--shadow-level-2)]">
-				{/* Row 1 · Status */}
 				<FilterRow label="Status">
 					<div className="bg-secondary inline-flex items-center rounded-full p-0.5">
 						<TabLink
@@ -273,9 +291,9 @@ export default async function NotificationsPage({
 					</div>
 				</FilterRow>
 
-				{/* Row 2 · Severity — colored dot carries the meaning; the pill itself
-				    stays neutral until selected (calmer than rainbow text). */}
-				<FilterRow label="Severity">
+				{/* Severity — colored dot carries the meaning; pill stays neutral
+				    until selected (calmer than rainbow text). */}
+				<FilterRow label="Severity" scroll>
 					<ChipLink
 						href={buildQs({
 							severity: "",
@@ -300,8 +318,8 @@ export default async function NotificationsPage({
 					))}
 				</FilterRow>
 
-				{/* Row 3 · Kategori — neutral icon, never colored (DESIGN.md §5). */}
-				<FilterRow label="Kategori">
+				{/* Kategori — neutral icon, never colored (DESIGN.md §5). */}
+				<FilterRow label="Kategori" scroll>
 					<ChipLink
 						href={buildQs({
 							category: "",
@@ -367,6 +385,12 @@ export default async function NotificationsPage({
 					))}
 				</ul>
 			)}
+
+			{/* Enable-push / add-to-home-screen — dismissible popup pinned to the
+			    bottom, never a hero (see PushPrompt). */}
+			<PushPrompt
+				vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+			/>
 		</Container>
 	);
 }
@@ -374,16 +398,27 @@ export default async function NotificationsPage({
 function FilterRow({
 	label,
 	children,
+	scroll = false,
 }: {
 	label: string;
 	children: ReactNode;
+	/** When true, chips sit in ONE horizontal-scroll row (no wrapping). */
+	scroll?: boolean;
 }) {
 	return (
 		<div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
 			<span className="text-muted-foreground shrink-0 text-[11px] font-semibold uppercase tracking-wider sm:w-16">
 				{label}
 			</span>
-			<div className="flex flex-wrap items-center gap-1.5">{children}</div>
+			<div
+				className={
+					scroll
+						? "hide-scrollbar -mx-3 flex min-w-0 items-center gap-1.5 overflow-x-auto px-3 pb-0.5 sm:mx-0 sm:flex-1 sm:px-0 [&>*]:shrink-0"
+						: "flex flex-wrap items-center gap-1.5"
+				}
+			>
+				{children}
+			</div>
 		</div>
 	);
 }
