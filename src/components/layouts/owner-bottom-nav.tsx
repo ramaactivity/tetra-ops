@@ -277,7 +277,7 @@ export function OwnerBottomNav({
 									className={cn(
 										"press tap relative flex min-h-[4rem] flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-colors",
 										active
-											? "border-transparent bg-secondary"
+											? "border-transparent bg-[#059669] shadow-[var(--shadow-soft)]"
 											: "border-border-subtle bg-card active:bg-surface-3",
 									)}
 								>
@@ -292,16 +292,14 @@ export function OwnerBottomNav({
 									<Icon
 										className={cn(
 											"size-[1.45rem]",
-											active ? "text-foreground" : "text-muted-foreground",
+											active ? "text-white" : "text-muted-foreground",
 										)}
 										aria-hidden="true"
 									/>
 									<span
 										className={cn(
 											"type-label",
-											active
-												? "text-foreground font-semibold"
-												: "text-foreground",
+											active ? "font-semibold text-white" : "text-foreground",
 										)}
 									>
 										{item.label}

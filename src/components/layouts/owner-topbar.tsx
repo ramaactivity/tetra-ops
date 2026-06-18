@@ -30,10 +30,16 @@ export async function OwnerTopBar({
 			className="z-30 flex items-center gap-2 px-1 py-0.5 md:sticky md:top-3 md:gap-3 md:rounded-[16px] md:border md:border-border-subtle md:bg-card md:px-5 md:py-3 md:shadow-[var(--shadow-level-2)]"
 		>
 			{/* Current page — gives the topbar a clear purpose and, on mobile where
-			    the sidebar is hidden, tells you where you are. */}
+			    the sidebar is hidden, tells you where you are. On sub-pages this
+			    pill is the back control; the entity slot adds the breadcrumb tail
+			    (e.g. "· Luthfi & Rosya") on desktop. */}
 			<div className="min-w-0 shrink-0">
 				<OwnerPageTitle />
 			</div>
+			<div
+				id="topbar-entity"
+				className="hidden min-w-0 items-center gap-2 empty:hidden sm:flex"
+			/>
 
 			{/* Page-level primary actions teleport here via TopbarActionPortal.
 			    Scrolls horizontally so a busy action strip (e.g. the Operations

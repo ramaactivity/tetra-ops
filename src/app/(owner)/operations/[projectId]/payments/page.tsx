@@ -6,6 +6,7 @@ import {
 	type PaymentRow,
 } from "@/components/billing/payment-list";
 import { Container } from "@/components/layout/container";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { MoneyAmount } from "@/components/ui/money-amount";
 import { PAYMENT_STATUS_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -70,6 +71,7 @@ export default async function ManagePaymentsPage({
 
 	return (
 		<Container size="xl" className="space-y-3 pb-4">
+			<TopbarEntityPortal name={event.client_name} />
 			{/* Emerald hero — mirrors the event-detail hero */}
 			<section className="overflow-hidden rounded-[20px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-3)]">
 				<div className="flex items-start justify-between gap-3">

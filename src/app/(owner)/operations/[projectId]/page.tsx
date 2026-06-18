@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { AssignCrewForm } from "@/components/booking/assign-crew-form";
 import {
 	type AssignmentRow,
@@ -307,6 +308,7 @@ export default async function EventDetailPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
+			<TopbarEntityPortal name={event.client_name} />
 			{/* === HEADER === */}
 			<div className="space-y-4">
 				{/* Emerald hero — the event identity, presented with a clear
