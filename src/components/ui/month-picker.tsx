@@ -86,7 +86,7 @@ export function MonthPicker({
 						variant="outline"
 						disabled={disabled}
 						className={cn(
-							"w-full justify-between gap-2 font-normal",
+							"w-full justify-between gap-2 rounded-full font-normal",
 							!current && "text-muted-foreground",
 							className,
 						)}

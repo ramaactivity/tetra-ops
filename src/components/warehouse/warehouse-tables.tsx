@@ -100,7 +100,7 @@ function FilterChips<K extends string>({
 	options: ReadonlyArray<{ key: K; label: string; count: number }>;
 }) {
 	return (
-		<div className="inline-flex h-8 flex-wrap items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-0.5">
+		<div className="inline-flex h-9 flex-wrap items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]">
 			{options.map((o) => {
 				const active = o.key === value;
 				return (
@@ -109,10 +109,10 @@ function FilterChips<K extends string>({
 						type="button"
 						onClick={() => onChange(o.key)}
 						aria-pressed={active}
-						className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium transition-colors ${
+						className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
 							active
 								? "bg-[#059669] text-white"
-								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+								: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 						}`}
 					>
 						{o.label}
@@ -712,7 +712,7 @@ export function ConsumablesTable({
 						<PembelianDialog
 							trigger={
 								<span
-									className="press-down inline-flex h-8 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-[12.5px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
+									className="press-down inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 text-[12.5px] font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
 									title={`Buka Catat Pembelian dengan ${restockKritisIds.length} item kritis pre-loaded`}
 								>
 									<ShoppingCart className="size-3.5" />
@@ -747,7 +747,7 @@ export function ConsumablesTable({
 								label: o.label,
 							}))}
 							aria-label="Urutkan item"
-							triggerClassName="w-full pl-7"
+							triggerClassName="w-full pl-7 rounded-full"
 						/>
 					</div>
 				</div>

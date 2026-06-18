@@ -128,6 +128,7 @@ export function OperationsFilterBar({
 				placeholder="Semua status"
 				options={statusOptions}
 				aria-label="Filter status"
+				triggerClassName="rounded-full"
 			/>
 
 			<div className="w-[150px]">
@@ -163,7 +164,7 @@ export function OperationsFilterBar({
 						placeholder="Semua crew"
 						options={crewSelectOptions}
 						aria-label="Filter crew"
-						triggerClassName="pl-7"
+						triggerClassName="pl-7 rounded-full"
 					/>
 				</div>
 			)}
@@ -178,7 +179,7 @@ export function OperationsFilterBar({
 					onValueChange={(value) => router.push(buildHref({ sort: value }))}
 					options={SORT_OPTIONS.map((o) => ({ ...o }))}
 					aria-label="Urutkan event"
-					triggerClassName="pl-7"
+					triggerClassName="pl-7 rounded-full"
 				/>
 			</div>
 

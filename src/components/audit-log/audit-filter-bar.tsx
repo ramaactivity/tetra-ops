@@ -50,6 +50,7 @@ export function AuditFilterBar({
 				]}
 				disabled={pending}
 				aria-label="Filter action"
+				triggerClassName="rounded-full"
 			/>
 
 			<NativeSelect
@@ -62,6 +63,7 @@ export function AuditFilterBar({
 				]}
 				disabled={pending}
 				aria-label="Filter entity"
+				triggerClassName="rounded-full"
 			/>
 
 			{hasFilter && (

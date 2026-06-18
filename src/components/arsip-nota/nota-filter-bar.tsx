@@ -106,7 +106,7 @@ export function NotaFilterBar({
 				}
 				placeholder={selectPlaceholder}
 				aria-label={selectPlaceholder}
-				triggerClassName="w-[160px]"
+				triggerClassName="w-[160px] rounded-full"
 			/>
 
 			<div className="w-[150px]">
@@ -143,7 +143,7 @@ export function NotaFilterBar({
 					onValueChange={(v) => router.push(buildHref({ sort: v, page: "" }))}
 					options={NOTA_SORT_OPTIONS.map((o) => ({ ...o }))}
 					aria-label="Urutkan nota"
-					triggerClassName="w-[170px] pl-7"
+					triggerClassName="w-[170px] pl-7 rounded-full"
 				/>
 			</div>
 
