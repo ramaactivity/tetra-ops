@@ -111,12 +111,12 @@ export function CatalogExplorer<T>({
 	);
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-3">
 			{/* Search + category chips + optional toolbar — one row (global rule) */}
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center">
 				<div className="relative w-full shrink-0 lg:w-72">
 					<Search
-						className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2"
+						className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
 						aria-hidden
 					/>
 					<input
@@ -124,7 +124,7 @@ export function CatalogExplorer<T>({
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder={searchPlaceholder}
-						className="border-border-subtle bg-card focus-visible:ring-ring h-9 w-full rounded-full border pr-3 pl-10 text-sm shadow-[var(--shadow-level-1)] focus-visible:ring-2 focus-visible:outline-none"
+						className="border-border-default bg-card focus-visible:ring-ring h-8 w-full rounded-full border pr-3 pl-8 text-[13px] leading-none text-foreground placeholder:text-muted-foreground/70 transition-colors hover:bg-secondary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:outline-none"
 					/>
 				</div>
 				{categories.length > 0 && (
@@ -294,7 +294,7 @@ function Chip({
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors",
+				"inline-flex h-8 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors",
 				active
 					? "border-[#059669] bg-[#059669] text-white"
 					: "border-border-default bg-card text-muted-foreground hover:text-foreground hover:bg-secondary",
