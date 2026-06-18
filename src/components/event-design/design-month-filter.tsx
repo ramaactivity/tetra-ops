@@ -42,7 +42,7 @@ export function DesignMonthFilter({
 			<Link
 				href={href(showsAll ? "" : "all")}
 				className={cn(
-					"inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium transition-colors",
+					"inline-flex h-8 items-center rounded-full px-3 text-[12px] font-medium transition-colors",
 					showsAll
 						? "bg-secondary text-foreground"
 						: "text-muted-foreground hover:bg-secondary hover:text-foreground",

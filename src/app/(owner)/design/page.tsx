@@ -41,6 +41,35 @@ const ASSET_CHECKS = [
 	{ key: "footage" as const, label: "Footage" },
 ];
 
+type Ready = { design: boolean; softfile: boolean; footage: boolean };
+
+/** The three asset-readiness chips (design / softfile / footage), shared by the
+ *  desktop table and the mobile card. Pill family (rounded-full), green = ready. */
+function AssetChips({ ready }: { ready: Ready }) {
+	return (
+		<div className="flex flex-wrap items-center gap-1.5">
+			{ASSET_CHECKS.map((chk) => {
+				const ok = ready[chk.key];
+				return (
+					<span
+						key={chk.key}
+						className={cn(
+							"inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-medium",
+							ok
+								? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+								: "border-border-default bg-secondary text-muted-foreground",
+						)}
+						title={`${chk.label}: ${ok ? "sudah" : "belum"}`}
+					>
+						{ok ? <Check className="size-3" /> : <Minus className="size-3" />}
+						{chk.label}
+					</span>
+				);
+			})}
+		</div>
+	);
+}
+
 const MONTHS_ID = [
 	"Januari",
 	"Februari",
@@ -158,7 +187,6 @@ export default async function AssetDesignPage({
 	}
 
 	// Per-event readiness: design ready? softfile uploaded? footage uploaded?
-	type Ready = { design: boolean; softfile: boolean; footage: boolean };
 	const readiness = new Map<string, Ready>();
 	let nDesign = 0;
 	let nSoftfile = 0;
@@ -249,21 +277,25 @@ export default async function AssetDesignPage({
 			</KpiRow>
 
 			<div className="space-y-3">
-				{/* Filter row: month dropdown (left) + design-status chips (right) */}
-				<div className="flex flex-wrap items-center gap-2">
+				{/* Filters — month picker on its own row; status chips in ONE
+				    horizontal-scroll row (rounded-full pill family). */}
+				<div className="space-y-2.5">
 					<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
-					<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+					<div className="hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5 [&>*]:shrink-0 sm:flex-wrap">
 						<Link
 							href={chipHref(null)}
+							aria-current={!dsFilter ? "true" : undefined}
 							className={cn(
-								"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+								"inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
 								!dsFilter
-									? "border-foreground/15 bg-foreground/[0.06] text-foreground"
-									: "border-border-default text-muted-foreground hover:text-foreground",
+									? "border-[#059669] bg-[#059669] text-white"
+									: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
 							)}
 						>
 							Semua
-							<span className="tabular opacity-60">{scoped.length}</span>
+							<span className="tabular text-[11px] opacity-70">
+								{scoped.length}
+							</span>
 						</Link>
 						{DESIGN_STATUS_VALUES.map((ds) => {
 							const tone = DESIGN_STATUS_TONE[ds];
@@ -272,19 +304,25 @@ export default async function AssetDesignPage({
 								<Link
 									key={ds}
 									href={chipHref(ds)}
+									aria-current={active ? "true" : undefined}
 									className={cn(
-										"inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium transition-colors",
+										"inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
 										active
-											? tone.badge
-											: "border-border-default text-muted-foreground hover:text-foreground",
+											? "border-[#059669] bg-[#059669] text-white"
+											: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
 									)}
 								>
 									<span
-										className={cn("size-1.5 rounded-full", tone.dot)}
+										className={cn(
+											"size-2 rounded-full",
+											active ? "bg-white/90" : tone.dot,
+										)}
 										aria-hidden
 									/>
 									{DESIGN_STATUS_LABELS[ds]}
-									<span className="tabular opacity-60">{statusCounts[ds]}</span>
+									<span className="tabular text-[11px] opacity-70">
+										{statusCounts[ds]}
+									</span>
 								</Link>
 							);
 						})}
@@ -308,15 +346,14 @@ export default async function AssetDesignPage({
 						}
 					/>
 				) : (
-					<div className="overflow-hidden rounded-lg border border-border-default bg-card">
-						<div className="overflow-x-auto">
+					<>
+						{/* Desktop — table (md+ only, never side-scrolls on phones). */}
+						<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
 							<table className="w-full text-sm">
 								<thead className="bg-card border-b border-border-subtle">
 									<tr className="border-b border-border-default text-left">
 										<th className="eyebrow px-4 py-2.5">Event</th>
-										<th className="eyebrow hidden px-4 py-2.5 sm:table-cell">
-											Tanggal
-										</th>
+										<th className="eyebrow px-4 py-2.5">Tanggal</th>
 										<th className="eyebrow px-4 py-2.5">Status Design</th>
 										<th className="eyebrow px-4 py-2.5">Asset</th>
 										<th className="eyebrow px-4 py-2.5 text-right">Action</th>
@@ -348,17 +385,12 @@ export default async function AssetDesignPage({
 														<td className="px-4 py-3 align-middle">
 															<Link
 																href={`/design/${ev.project_id}`}
-																className="block"
+																className="block text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]"
 															>
-																<div className="text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]">
-																	{ev.client_name}
-																</div>
-																<div className="tabular text-[11px] text-muted-foreground">
-																	{ev.project_id}
-																</div>
+																{ev.client_name}
 															</Link>
 														</td>
-														<td className="hidden px-4 py-3 align-middle sm:table-cell">
+														<td className="px-4 py-3 align-middle">
 															<div className="tabular text-[12.5px] text-muted-foreground">
 																{formatDateID(ev.event_date)}
 															</div>
@@ -374,30 +406,7 @@ export default async function AssetDesignPage({
 															/>
 														</td>
 														<td className="px-4 py-3 align-middle">
-															<div className="flex flex-wrap items-center gap-1.5">
-																{ASSET_CHECKS.map((chk) => {
-																	const ok = ready[chk.key];
-																	return (
-																		<span
-																			key={chk.key}
-																			className={cn(
-																				"inline-flex h-5 items-center gap-1 rounded-md border px-1.5 text-[10px] font-medium",
-																				ok
-																					? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-																					: "border-border-default bg-secondary text-muted-foreground",
-																			)}
-																			title={`${chk.label}: ${ok ? "sudah" : "belum"}`}
-																		>
-																			{ok ? (
-																				<Check className="size-2.5" />
-																			) : (
-																				<Minus className="size-2.5" />
-																			)}
-																			{chk.label}
-																		</span>
-																	);
-																})}
-															</div>
+															<AssetChips ready={ready} />
 														</td>
 														<td className="px-4 py-3 text-right align-middle">
 															<Link
@@ -415,7 +424,68 @@ export default async function AssetDesignPage({
 								</tbody>
 							</table>
 						</div>
-					</div>
+
+						{/* Mobile — record-card stack (MOBILE.md §7). No horizontal scroll;
+						    the status toggle + asset chips reflow into a comfy card. */}
+						<div className="space-y-5 md:hidden">
+							{orderedGroups.map(([ym, evs]) => (
+								<div key={ym} className="space-y-2.5">
+									<p className="eyebrow px-1">
+										{monthLabel(ym)} · {evs.length}
+									</p>
+									{evs.map((ev) => {
+										const ready = readiness.get(ev.id) ?? {
+											design: false,
+											softfile: false,
+											footage: false,
+										};
+										const hasAny =
+											ready.design || ready.softfile || ready.footage;
+										return (
+											<div
+												key={ev.id}
+												className="rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]"
+											>
+												<div className="flex items-start justify-between gap-3">
+													<div className="min-w-0">
+														<Link
+															href={`/design/${ev.project_id}`}
+															className="type-heading break-words text-foreground"
+														>
+															{ev.client_name}
+														</Link>
+														<p className="type-caption text-muted-foreground mt-0.5">
+															{formatDateID(ev.event_date)} ·{" "}
+															{dayLabel(ev.event_date, today)}
+														</p>
+													</div>
+													<Link
+														href={`/design/${ev.project_id}`}
+														className="shrink-0 text-[12.5px] font-medium text-[#0070f3] hover:underline"
+													>
+														{hasAny ? "Kelola →" : "Tambah →"}
+													</Link>
+												</div>
+
+												<div className="mt-3">
+													<DesignStatusSelect
+														eventId={ev.id}
+														projectId={ev.project_id}
+														value={ev.design_status}
+														className="flex w-full [&>button]:flex-1"
+													/>
+												</div>
+
+												<div className="mt-3 border-t border-border-subtle pt-3">
+													<AssetChips ready={ready} />
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							))}
+						</div>
+					</>
 				)}
 			</div>
 		</Container>

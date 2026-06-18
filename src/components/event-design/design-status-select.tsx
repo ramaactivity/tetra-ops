@@ -51,7 +51,7 @@ export function DesignStatusSelect({
 	return (
 		<div
 			className={cn(
-				"inline-flex h-8 items-center rounded-md border border-border-default bg-secondary p-0.5",
+				"inline-flex h-8 items-center rounded-full border border-border-default bg-secondary p-0.5",
 				pending && "opacity-60",
 				className,
 			)}
@@ -69,7 +69,7 @@ export function DesignStatusSelect({
 						aria-pressed={active}
 						onClick={() => set(s)}
 						className={cn(
-							"inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed",
+							"inline-flex h-7 items-center justify-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed",
 							active
 								? cn("bg-card shadow-[var(--shadow-level-2)]", tone.text)
 								: "text-muted-foreground hover:text-foreground",
