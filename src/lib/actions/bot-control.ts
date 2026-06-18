@@ -247,3 +247,35 @@ export async function unpauseContact(waJid: string): Promise<void> {
 	if (error) throw new Error(error.message);
 	revalidate();
 }
+
+// ── bot_commands (Fase 3) ────────────────────────────────────────────────────
+
+const BOT_COMMANDS = ["reconnect", "logout", "restart"] as const;
+export type BotCommand = (typeof BOT_COMMANDS)[number];
+
+/**
+ * Queue a command for the bot (reconnect / logout / restart). The bot polls
+ * bot_commands (status='pending'), executes, and updates status + bot_status.
+ * Skips queuing if an identical command is already pending (debounce spam).
+ */
+export async function sendBotCommand(command: BotCommand): Promise<void> {
+	await requireOwner();
+	if (!BOT_COMMANDS.includes(command)) {
+		throw new Error(`Perintah tidak dikenal: ${command}`);
+	}
+	const supabase = await createClient();
+
+	const { data: existing } = await supabase
+		.from("bot_commands")
+		.select("id")
+		.eq("command", command)
+		.eq("status", "pending")
+		.limit(1);
+	if (existing && existing.length > 0) return; // already queued
+
+	const { error } = await supabase
+		.from("bot_commands")
+		.insert({ command, status: "pending" });
+	if (error) throw new Error(error.message);
+	revalidate();
+}

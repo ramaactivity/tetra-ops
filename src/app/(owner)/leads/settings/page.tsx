@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { BotConnectionPanel } from "@/components/leads/bot-connection-panel";
 import { BotEnabledToggle } from "@/components/leads/bot-enabled-toggle";
 import {
 	type BotRule,
@@ -25,18 +26,28 @@ export default async function LeadsSettingsPage() {
 	}
 
 	const supabase = await createClient();
-	const [settingsResult, rulesResult] = await Promise.all([
+	const [settingsResult, rulesResult, statusResult] = await Promise.all([
 		supabase.from("bot_settings").select("*").eq("id", 1).maybeSingle(),
 		supabase
 			.from("bot_rules")
 			.select("id, name, keywords, reply, file_path, priority, is_active")
 			.order("priority", { ascending: true }),
+		supabase
+			.from("bot_status")
+			.select("connection, qr, last_connected_at")
+			.eq("id", 1)
+			.maybeSingle(),
 	]);
 
 	const settingsRow = settingsResult.data as
 		| ({ enabled: boolean } & BotSettings)
 		| null;
 	const rules = (rulesResult.data ?? []) as BotRule[];
+	const statusRow = (statusResult.data as {
+		connection: string;
+		qr: string | null;
+		last_connected_at: string | null;
+	} | null) ?? { connection: "unknown", qr: null, last_connected_at: null };
 
 	if (!settingsRow) {
 		return (
@@ -79,6 +90,15 @@ export default async function LeadsSettingsPage() {
 				title="Setting Bot WhatsApp"
 				description="Kontrol bot Tetra Photobooth tanpa SSH. Perubahan dibaca bot dalam ±1 menit."
 			/>
+
+			<section className="space-y-3">
+				<SectionHeader
+					as="h3"
+					title="Koneksi WhatsApp"
+					description="Status sambungan bot ke WhatsApp. Reconnect / scan QR / logout tanpa SSH."
+				/>
+				<BotConnectionPanel initial={statusRow} />
+			</section>
 
 			<BotEnabledToggle enabled={settingsRow.enabled} />
 
