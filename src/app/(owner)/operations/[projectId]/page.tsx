@@ -8,18 +8,14 @@ import {
 	Pencil,
 	Phone,
 	Sparkles,
-	Users,
 	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
-import { AssignCrewForm } from "@/components/booking/assign-crew-form";
-import {
-	type AssignmentRow,
-	CrewAssignmentList,
-} from "@/components/booking/crew-assignment-list";
+import type { AssignmentRow } from "@/components/booking/crew-assignment-list";
+import { CrewSlotAssign } from "@/components/booking/crew-slot-assign";
 import { DeleteEventButton } from "@/components/booking/delete-event-button";
 import {
 	SendWhatsAppButton,
@@ -204,12 +200,6 @@ export default async function EventDetailPage({
 			},
 		};
 	});
-	const ROLE_LABELS: Record<string, string> = {
-		lead: "Lead",
-		asisten: "Asisten",
-		crew_c: "Crew C",
-	};
-
 	const templates = (templatesData ?? []) as WhatsAppTemplate[];
 	const settlement = Array.isArray(event.settlement)
 		? event.settlement[0]
@@ -467,6 +457,17 @@ export default async function EventDetailPage({
 				backdropName={backdrop?.name ?? null}
 				includeFlashdiskPouch={event.include_flashdisk_pouch}
 				crewAssignments={recapCrew}
+				crewSlot={
+					canManageCrew ? (
+						<CrewSlotAssign
+							projectId={event.project_id}
+							eventId={event.id}
+							assignments={crewAssignmentRows}
+							availableCrew={assignableCrew}
+							event={eventForWA}
+						/>
+					) : undefined
+				}
 				grandTotal={event.grand_total ?? 0}
 				totalPaid={event.total_paid ?? 0}
 				remainingBalance={event.remaining_balance ?? 0}
@@ -762,95 +763,6 @@ export default async function EventDetailPage({
 							</dl>
 						</CollapsibleCard>
 					</div>
-				</div>
-
-				<div id="crew-manage" className="scroll-mt-24">
-					<CollapsibleCard
-						icon={<Users className="size-4" aria-hidden strokeWidth={2} />}
-						title="Crew Incharge"
-						subtitle={
-							crewAssignments.length === 0
-								? "Belum ada crew di-assign — assign lead, asisten, dan crew C di sini."
-								: `${crewAssignments.length} crew · total fee ${formatRupiah(
-										crewAssignments.reduce((s, c) => s + c.fee_amount, 0),
-									)}`
-						}
-						defaultOpen
-					>
-						{canManageCrew ? (
-							<div className="space-y-5">
-								<CrewAssignmentList
-									projectId={event.project_id}
-									assignments={crewAssignmentRows}
-									event={eventForWA}
-								/>
-								<div className="space-y-3 border-t border-border-subtle pt-4">
-									<div>
-										<h3 className="text-[13px] font-semibold text-foreground">
-											Tambah crew
-										</h3>
-										<p className="text-[12px] text-muted-foreground">
-											Fee otomatis dari tier (senior / junior). Klik role di
-											samping nama untuk assign instan.
-										</p>
-									</div>
-									<AssignCrewForm
-										projectId={event.project_id}
-										eventId={event.id}
-										availableCrew={assignableCrew}
-									/>
-								</div>
-							</div>
-						) : crewAssignments.length === 0 ? (
-							<div className="rounded-md border border-dashed border-border-default p-6 text-center">
-								<Users
-									className="mx-auto size-5 text-muted-foreground/60"
-									aria-hidden
-								/>
-								<p className="mt-2 text-[13px] font-medium text-foreground">
-									Belum ada crew di-assign
-								</p>
-							</div>
-						) : (
-							<ul className="divide-y divide-border-subtle">
-								{crewAssignments.map((row, idx) => {
-									const u = Array.isArray(row.user) ? row.user[0] : row.user;
-									return (
-										<li
-											key={`${u?.full_name ?? "crew"}-${idx}`}
-											className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-										>
-											<div className="min-w-0 flex-1">
-												<div className="truncate text-[13px] font-semibold text-foreground">
-													{u?.full_name ?? "—"}
-												</div>
-												<div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-													<span className="eyebrow !text-[9.5px]">
-														{ROLE_LABELS[row.role_in_event] ??
-															row.role_in_event}
-													</span>
-													{u?.tier && (
-														<>
-															<span
-																className="text-muted-foreground/40"
-																aria-hidden
-															>
-																·
-															</span>
-															<span className="capitalize">{u.tier}</span>
-														</>
-													)}
-												</div>
-											</div>
-											<span className="tabular shrink-0 text-[13px] font-medium text-foreground">
-												{formatRupiah(row.fee_amount)}
-											</span>
-										</li>
-									);
-								})}
-							</ul>
-						)}
-					</CollapsibleCard>
 				</div>
 
 				{eventAddons.length > 0 && (

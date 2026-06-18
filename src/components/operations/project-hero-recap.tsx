@@ -65,6 +65,9 @@ interface ProjectHeroRecapProps {
 	backdropName: string | null;
 	includeFlashdiskPouch: boolean | null;
 	crewAssignments: CrewEntry[];
+	/** Interactive slot assigner (CrewSlotAssign). When provided, replaces the
+	    read-only crew list so assignment happens inline in the recap. */
+	crewSlot?: React.ReactNode;
 	grandTotal: number;
 	totalPaid: number;
 	remainingBalance: number;
@@ -106,6 +109,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 		channel,
 		eventCategoryLabel,
 		crewAssignments,
+		crewSlot,
 		grandTotal,
 		totalPaid,
 		remainingBalance,
@@ -143,13 +147,13 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 						<Receipt className="size-3.5" aria-hidden strokeWidth={2} />
 						Payments
 					</Link>
-					<a
-						href="#crew-manage"
+					<Link
+						href={`/operations/${projectId}/crew`}
 						className={buttonVariants({ variant: "outline", size: "sm" })}
 					>
 						<Users className="size-3.5" aria-hidden strokeWidth={2} />
 						Crew
-					</a>
+					</Link>
 					<Link
 						href={`/operations/${projectId}/equipment`}
 						className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -241,12 +245,18 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 				{/* ── Crew incharge ── */}
 				<section className="px-5 py-5">
 					<SectionHead
-						action={<HeadLink href="#crew-manage">Kelola ↓</HeadLink>}
+						action={
+							crewSlot ? undefined : (
+								<HeadLink href="#crew-manage">Kelola ↓</HeadLink>
+							)
+						}
 					>
 						Crew Incharge
 					</SectionHead>
 
-					{crewAssignments.length === 0 ? (
+					{crewSlot ? (
+						crewSlot
+					) : crewAssignments.length === 0 ? (
 						<div className="mt-3.5 rounded-lg border border-dashed border-border-default px-4 py-6 text-center">
 							<Users
 								className="mx-auto size-5 text-muted-foreground/50"
