@@ -6,6 +6,7 @@ import {
 } from "@/components/booking/crew-assignment-list";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { createClient } from "@/lib/supabase/server";
 
@@ -129,6 +130,7 @@ export default async function ManageCrewPage({
 
 	return (
 		<Container size="sm" className="space-y-3">
+			<TopbarEntityPortal name={event.client_name} />
 			<SectionHeader
 				title="Manage Crew"
 				description={`${event.client_name} · ${event.event_date}`}

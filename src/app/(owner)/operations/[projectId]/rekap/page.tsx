@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { AddonSplitForm } from "@/components/rekap/addon-split-form";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
 import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
@@ -295,7 +296,7 @@ export default async function EventRekapPage({
 
 	return (
 		<Container size="xl" className="space-y-3 pb-32">
-
+			<TopbarEntityPortal name={event.client_name} />
 			{isSettled && settlement && (
 				<SettledBanner
 					eventId={event.id as string}

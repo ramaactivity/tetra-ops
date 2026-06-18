@@ -8,6 +8,7 @@ import {
 	type CrewOption,
 } from "@/components/event-equipment/check-out-form";
 import { SectionHeader } from "@/components/layout/section-header";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { IncidentDialog } from "@/components/event-equipment/incident-form";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -166,6 +167,7 @@ export default async function EventEquipmentPage({
 
 	return (
 		<Container size="md" className="space-y-3">
+			<TopbarEntityPortal name={event.client_name} />
 			<SectionHeader
 				title="Equipment"
 				description={`${event.client_name} · ${formatDateID(event.event_date)}`}
