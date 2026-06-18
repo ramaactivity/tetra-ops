@@ -50,7 +50,7 @@ export function AmountKeypad({
 						else if (k === "000") onTripleZero();
 						else onAppend(Number(k));
 					}}
-					className="press tap tabular flex h-14 items-center justify-center rounded-2xl border border-border-subtle bg-card text-xl font-medium text-foreground shadow-[var(--shadow-level-1)] active:bg-surface-3"
+					className="press tap tabular flex h-12 items-center justify-center rounded-xl border border-border-subtle bg-card text-xl font-medium text-foreground active:bg-surface-3"
 				>
 					{k === "del" ? <Delete className="size-5" aria-hidden="true" /> : k}
 				</button>
