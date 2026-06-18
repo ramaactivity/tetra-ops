@@ -239,7 +239,7 @@ export function MarketListTable({
 				/>
 				{subTab === "items" && (
 					<div className="flex flex-wrap items-center gap-2">
-						<div className="inline-flex h-8 items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-0.5">
+						<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]">
 							{(
 								[
 									{ key: "all", label: "Semua", count: counts.items },
@@ -262,10 +262,10 @@ export function MarketListTable({
 										type="button"
 										onClick={() => setCategoryFilter(o.key)}
 										aria-pressed={active}
-										className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium transition-colors ${
+										className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
 											active
 												? "bg-[#059669] text-white"
-												: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+												: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 										}`}
 									>
 										{o.label}

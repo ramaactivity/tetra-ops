@@ -138,7 +138,7 @@ export function StockOpnameTable({
 					placeholder="Cari item / SKU..."
 				/>
 				<div className="flex items-center gap-2">
-					<div className="inline-flex h-8 items-center gap-0.5 rounded-md border border-border-default bg-surface-2 p-0.5 text-[12px]">
+					<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 text-[12px] shadow-[var(--shadow-level-1)]">
 						{FILTER_TABS.map((t) => {
 							const c = counts[t.key];
 							const active = t.key === filter;
@@ -147,10 +147,10 @@ export function StockOpnameTable({
 									key={t.key}
 									type="button"
 									onClick={() => setFilter(t.key)}
-									className={`inline-flex h-7 items-center gap-1 rounded px-2.5 font-medium transition-colors ${
+									className={`inline-flex h-7 items-center gap-1 rounded-full px-3 text-[13px] font-medium transition-colors ${
 										active
 											? "bg-[#059669] text-white"
-											: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+											: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 									}`}
 									aria-pressed={active}
 								>

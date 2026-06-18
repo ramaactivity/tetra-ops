@@ -22,7 +22,7 @@ export function StockTakeFilterTabs({
 	const params = useSearchParams();
 
 	return (
-		<div className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-surface-2 p-1 text-fluid-caption">
+		<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]">
 			{TABS.map((t) => {
 				const active = t.key === current;
 				const nextParams = new URLSearchParams(params.toString());
@@ -37,10 +37,10 @@ export function StockTakeFilterTabs({
 					<Link
 						key={t.key}
 						href={href}
-						className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition-colors ${
+						className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
 							active
 								? "bg-[#059669] text-white"
-								: "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+								: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 						}`}
 						aria-pressed={active}
 					>

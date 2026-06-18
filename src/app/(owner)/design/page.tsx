@@ -1,24 +1,24 @@
 import {
+	ArrowRight,
 	Check,
 	Clapperboard,
 	HardDriveUpload,
 	Image as ImageIcon,
-	Minus,
+	type LucideIcon,
 	Palette,
+	Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { Fragment } from "react";
-import { DesignMonthFilter } from "@/components/event-design/design-month-filter";
+import { DesignFilterBar } from "@/components/event-design/design-filter-bar";
 import { DesignStatusSelect } from "@/components/event-design/design-status-select";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AssetType } from "@/lib/event-assets/types";
 import {
-	DESIGN_STATUS_LABELS,
-	DESIGN_STATUS_TONE,
 	DESIGN_STATUS_VALUES,
 	type DesignStatus,
 	formatDateID,
@@ -35,38 +35,81 @@ import { cn } from "@/lib/utils";
  * Defaults to the current month.
  */
 
-const ASSET_CHECKS = [
-	{ key: "design" as const, label: "Design" },
-	{ key: "softfile" as const, label: "Softfile" },
-	{ key: "footage" as const, label: "Footage" },
+const ASSET_CHECKS: Array<{
+	key: keyof Ready;
+	label: string;
+	icon: LucideIcon;
+}> = [
+	{ key: "design", label: "Design", icon: ImageIcon },
+	{ key: "softfile", label: "Softfile", icon: HardDriveUpload },
+	{ key: "footage", label: "Footage", icon: Clapperboard },
 ];
 
 type Ready = { design: boolean; softfile: boolean; footage: boolean };
 
-/** The three asset-readiness chips (design / softfile / footage), shared by the
- *  desktop table and the mobile card. Pill family (rounded-full), green = ready. */
+/** Asset-readiness chips (design / softfile / footage), shared by the desktop
+ *  table + mobile card. Each asset has its own icon for differentiation; a
+ *  ready chip is solid-green with a check, a missing one is muted/outline. */
 function AssetChips({ ready }: { ready: Ready }) {
 	return (
 		<div className="flex flex-wrap items-center gap-1.5">
 			{ASSET_CHECKS.map((chk) => {
 				const ok = ready[chk.key];
+				const Icon = chk.icon;
 				return (
 					<span
 						key={chk.key}
 						className={cn(
-							"inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-medium",
+							"inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium",
 							ok
-								? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-								: "border-border-default bg-secondary text-muted-foreground",
+								? "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+								: "border-dashed border-border-strong bg-transparent text-muted-foreground",
 						)}
-						title={`${chk.label}: ${ok ? "sudah" : "belum"}`}
+						title={`${chk.label}: ${ok ? "sudah ada" : "belum ada"}`}
 					>
-						{ok ? <Check className="size-3" /> : <Minus className="size-3" />}
+						<Icon className="size-3.5" aria-hidden />
 						{chk.label}
+						{ok ? <Check className="size-3" aria-hidden /> : null}
 					</span>
 				);
 			})}
 		</div>
+	);
+}
+
+/** Per-event action: green "Tambah" when nothing's uploaded yet (draws the eye),
+ *  quiet outline "Kelola" once assets exist. Matches the app's Button styling. */
+function EventAction({
+	projectId,
+	hasAny,
+	size = "sm",
+	className,
+}: {
+	projectId: string;
+	hasAny: boolean;
+	size?: "sm" | "default" | "lg";
+	className?: string;
+}) {
+	return (
+		<Link
+			href={`/design/${projectId}`}
+			className={cn(
+				buttonVariants({ variant: hasAny ? "outline" : "default", size }),
+				className,
+			)}
+		>
+			{hasAny ? (
+				<>
+					Kelola
+					<ArrowRight className="size-3.5" aria-hidden />
+				</>
+			) : (
+				<>
+					<Plus className="size-3.5" aria-hidden />
+					Tambah
+				</>
+			)}
+		</Link>
 	);
 }
 
@@ -105,9 +148,10 @@ function dayLabel(eventDate: string, today: Date): string {
 export default async function AssetDesignPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ month?: string; ds?: string }>;
+	searchParams: Promise<{ month?: string; ds?: string; q?: string }>;
 }) {
 	const params = await searchParams;
+	const q = (params.q ?? "").trim();
 	const monthParam = params.month?.trim() ?? "";
 	const showsAll = monthParam === "all";
 	const month =
@@ -205,42 +249,29 @@ export default async function AssetDesignPage({
 		if (r.footage) nFootage++;
 	}
 
+	// Apply the name search (over the month scope). Status-chip counts reflect
+	// what's searchable; the list narrows further by the active status filter.
+	const searched = q
+		? scoped.filter((e) =>
+				(e.client_name ?? "").toLowerCase().includes(q.toLowerCase()),
+			)
+		: scoped;
+
 	const statusCounts: Record<DesignStatus, number> = {
 		belum: 0,
 		proses: 0,
 		approved: 0,
 	};
-	for (const e of scoped) {
+	for (const e of searched) {
 		statusCounts[e.design_status] = (statusCounts[e.design_status] ?? 0) + 1;
 	}
 
 	const displayList = dsFilter
-		? scoped.filter((e) => e.design_status === dsFilter)
-		: scoped;
-
-	// Group displayed events per month (events already ordered date-desc).
-	const groups = new Map<string, EventRow[]>();
-	for (const ev of displayList) {
-		const ym = (ev.event_date ?? "").slice(0, 7);
-		const list = groups.get(ym);
-		if (list) list.push(ev);
-		else groups.set(ym, [ev]);
-	}
-	const orderedGroups = Array.from(groups.entries()).sort((a, b) =>
-		a[0] < b[0] ? 1 : -1,
-	);
+		? searched.filter((e) => e.design_status === dsFilter)
+		: searched;
 
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
-
-	function chipHref(ds: DesignStatus | null): string {
-		const p = new URLSearchParams();
-		if (showsAll) p.set("month", "all");
-		else if (monthParam) p.set("month", month);
-		if (ds) p.set("ds", ds);
-		const s = p.toString();
-		return s ? `/design?${s}` : "/design";
-	}
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -277,72 +308,33 @@ export default async function AssetDesignPage({
 			</KpiRow>
 
 			<div className="space-y-3">
-				{/* Filters — month picker on its own row; status chips in ONE
-				    horizontal-scroll row (rounded-full pill family). */}
-				<div className="space-y-2.5">
-					<DesignMonthFilter month={month} showsAll={showsAll} ds={dsFilter} />
-					<div className="hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-0.5 [&>*]:shrink-0 sm:flex-wrap">
-						<Link
-							href={chipHref(null)}
-							aria-current={!dsFilter ? "true" : undefined}
-							className={cn(
-								"inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
-								!dsFilter
-									? "border-[#059669] bg-[#059669] text-white"
-									: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
-							)}
-						>
-							Semua
-							<span className="tabular text-[11px] opacity-70">
-								{scoped.length}
-							</span>
-						</Link>
-						{DESIGN_STATUS_VALUES.map((ds) => {
-							const tone = DESIGN_STATUS_TONE[ds];
-							const active = dsFilter === ds;
-							return (
-								<Link
-									key={ds}
-									href={chipHref(ds)}
-									aria-current={active ? "true" : undefined}
-									className={cn(
-										"inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
-										active
-											? "border-[#059669] bg-[#059669] text-white"
-											: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
-									)}
-								>
-									<span
-										className={cn(
-											"size-2 rounded-full",
-											active ? "bg-white/90" : tone.dot,
-										)}
-										aria-hidden
-									/>
-									{DESIGN_STATUS_LABELS[ds]}
-									<span className="tabular text-[11px] opacity-70">
-										{statusCounts[ds]}
-									</span>
-								</Link>
-							);
-						})}
-					</div>
-				</div>
+				<DesignFilterBar
+					defaultQ={q}
+					month={month}
+					showsAll={showsAll}
+					ds={dsFilter}
+					scopedCount={searched.length}
+					statusCounts={statusCounts}
+				/>
 
 				{displayList.length === 0 ? (
 					<EmptyState
 						icon={Palette}
 						title={
-							dsFilter
-								? "Tidak ada event di status ini"
-								: showsAll
-									? "Belum ada event"
-									: `Tidak ada event di ${monthLabel(month)}`
+							q
+								? `Tidak ada klien cocok "${q}"`
+								: dsFilter
+									? "Tidak ada event di status ini"
+									: showsAll
+										? "Belum ada event"
+										: `Tidak ada event di ${monthLabel(month)}`
 						}
 						description={
-							dsFilter
-								? "Coba pilih status design lain di atas."
-								: "Ganti bulan di atas, atau pilih Semua."
+							q
+								? "Coba kata kunci lain, atau reset filter."
+								: dsFilter
+									? "Coba pilih status design lain di atas."
+									: "Ganti bulan di atas, atau pilih Semua bulan."
 						}
 					/>
 				) : (
@@ -360,80 +352,7 @@ export default async function AssetDesignPage({
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border-subtle">
-									{orderedGroups.map(([ym, evs]) => (
-										<Fragment key={ym}>
-											<tr className="border-b border-border-default bg-secondary/40">
-												<td colSpan={5} className="px-4 py-2">
-													<span className="eyebrow">
-														{monthLabel(ym)} · {evs.length}
-													</span>
-												</td>
-											</tr>
-											{evs.map((ev) => {
-												const ready = readiness.get(ev.id) ?? {
-													design: false,
-													softfile: false,
-													footage: false,
-												};
-												const hasAny =
-													ready.design || ready.softfile || ready.footage;
-												return (
-													<tr
-														key={ev.id}
-														className="transition-colors hover:bg-secondary/30"
-													>
-														<td className="px-4 py-3 align-middle">
-															<Link
-																href={`/design/${ev.project_id}`}
-																className="block text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]"
-															>
-																{ev.client_name}
-															</Link>
-														</td>
-														<td className="px-4 py-3 align-middle">
-															<div className="tabular text-[12.5px] text-muted-foreground">
-																{formatDateID(ev.event_date)}
-															</div>
-															<div className="text-[11px] text-muted-foreground/70">
-																{dayLabel(ev.event_date, today)}
-															</div>
-														</td>
-														<td className="px-4 py-3 align-middle">
-															<DesignStatusSelect
-																eventId={ev.id}
-																projectId={ev.project_id}
-																value={ev.design_status}
-															/>
-														</td>
-														<td className="px-4 py-3 align-middle">
-															<AssetChips ready={ready} />
-														</td>
-														<td className="px-4 py-3 text-right align-middle">
-															<Link
-																href={`/design/${ev.project_id}`}
-																className="text-[12.5px] font-medium text-[#0070f3] hover:underline"
-															>
-																{hasAny ? "Kelola →" : "Tambah →"}
-															</Link>
-														</td>
-													</tr>
-												);
-											})}
-										</Fragment>
-									))}
-								</tbody>
-							</table>
-						</div>
-
-						{/* Mobile — record-card stack (MOBILE.md §7). No horizontal scroll;
-						    the status toggle + asset chips reflow into a comfy card. */}
-						<div className="space-y-5 md:hidden">
-							{orderedGroups.map(([ym, evs]) => (
-								<div key={ym} className="space-y-2.5">
-									<p className="eyebrow px-1">
-										{monthLabel(ym)} · {evs.length}
-									</p>
-									{evs.map((ev) => {
+									{displayList.map((ev) => {
 										const ready = readiness.get(ev.id) ?? {
 											design: false,
 											softfile: false,
@@ -442,48 +361,100 @@ export default async function AssetDesignPage({
 										const hasAny =
 											ready.design || ready.softfile || ready.footage;
 										return (
-											<div
+											<tr
 												key={ev.id}
-												className="rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]"
+												className="transition-colors hover:bg-secondary/30"
 											>
-												<div className="flex items-start justify-between gap-3">
-													<div className="min-w-0">
-														<Link
-															href={`/design/${ev.project_id}`}
-															className="type-heading break-words text-foreground"
-														>
-															{ev.client_name}
-														</Link>
-														<p className="type-caption text-muted-foreground mt-0.5">
-															{formatDateID(ev.event_date)} ·{" "}
-															{dayLabel(ev.event_date, today)}
-														</p>
-													</div>
+												<td className="px-4 py-3 align-middle">
 													<Link
 														href={`/design/${ev.project_id}`}
-														className="shrink-0 text-[12.5px] font-medium text-[#0070f3] hover:underline"
+														className="block text-[13px] font-medium text-foreground transition-colors hover:text-[#0070f3]"
 													>
-														{hasAny ? "Kelola →" : "Tambah →"}
+														{ev.client_name}
 													</Link>
-												</div>
-
-												<div className="mt-3">
+												</td>
+												<td className="px-4 py-3 align-middle">
+													<div className="tabular text-[12.5px] text-muted-foreground">
+														{formatDateID(ev.event_date)}
+													</div>
+													<div className="text-[11px] text-muted-foreground/70">
+														{dayLabel(ev.event_date, today)}
+													</div>
+												</td>
+												<td className="px-4 py-3 align-middle">
 													<DesignStatusSelect
 														eventId={ev.id}
 														projectId={ev.project_id}
 														value={ev.design_status}
-														className="flex w-full [&>button]:flex-1"
 													/>
-												</div>
-
-												<div className="mt-3 border-t border-border-subtle pt-3">
+												</td>
+												<td className="px-4 py-3 align-middle">
 													<AssetChips ready={ready} />
-												</div>
-											</div>
+												</td>
+												<td className="px-4 py-3 text-right align-middle">
+													<EventAction
+														projectId={ev.project_id}
+														hasAny={hasAny}
+													/>
+												</td>
+											</tr>
 										);
 									})}
-								</div>
-							))}
+								</tbody>
+							</table>
+						</div>
+
+						{/* Mobile — record-card stack (MOBILE.md §7). No horizontal scroll;
+						    a clear hierarchy: title → date → status → assets → action. */}
+						<div className="space-y-2.5 md:hidden">
+							{displayList.map((ev) => {
+								const ready = readiness.get(ev.id) ?? {
+									design: false,
+									softfile: false,
+									footage: false,
+								};
+								const hasAny = ready.design || ready.softfile || ready.footage;
+								return (
+									<div
+										key={ev.id}
+										className="rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]"
+									>
+										<Link
+											href={`/design/${ev.project_id}`}
+											className="type-heading block break-words text-foreground"
+										>
+											{ev.client_name}
+										</Link>
+										<p className="type-caption text-muted-foreground mt-0.5">
+											{formatDateID(ev.event_date)} ·{" "}
+											{dayLabel(ev.event_date, today)}
+										</p>
+
+										<div className="mt-3.5 space-y-3">
+											<div>
+												<p className="eyebrow mb-1.5">Status design</p>
+												<DesignStatusSelect
+													eventId={ev.id}
+													projectId={ev.project_id}
+													value={ev.design_status}
+													className="flex w-full [&>button]:flex-1"
+												/>
+											</div>
+											<div>
+												<p className="eyebrow mb-1.5">Aset</p>
+												<AssetChips ready={ready} />
+											</div>
+										</div>
+
+										<EventAction
+											projectId={ev.project_id}
+											hasAny={hasAny}
+											size="lg"
+											className="mt-4 w-full"
+										/>
+									</div>
+								);
+							})}
 						</div>
 					</>
 				)}

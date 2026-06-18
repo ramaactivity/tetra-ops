@@ -200,20 +200,20 @@ export default async function AssetRegisterPage({
 			<div className="flex items-center gap-2">
 				<Link
 					href="/warehouse/assets"
-					className={`press-down inline-flex h-7 items-center rounded-md px-2.5 text-[12px] font-medium transition-colors ${
+					className={`press-down inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors ${
 						!showDisposed
-							? "bg-[#059669] text-white"
-							: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+							? "border-[#059669] bg-[#059669] text-white"
+							: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 					}`}
 				>
 					Aktif
 				</Link>
 				<Link
 					href="/warehouse/assets?show=disposed"
-					className={`press-down inline-flex h-7 items-center rounded-md px-2.5 text-[12px] font-medium transition-colors ${
+					className={`press-down inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors ${
 						showDisposed
-							? "bg-[#059669] text-white"
-							: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+							? "border-[#059669] bg-[#059669] text-white"
+							: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 					}`}
 				>
 					Disposed (Arsip)
