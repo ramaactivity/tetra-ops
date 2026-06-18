@@ -190,7 +190,7 @@ export function QuickRecordCore({
 	// ── Section fragments (composed in different orders for mobile vs desktop) ──
 
 	const directionSeg = (
-		<div className="grid grid-cols-3 gap-1.5 rounded-full bg-surface-4 p-1.5">
+		<div className="grid grid-cols-3 gap-2">
 			{(["masuk", "keluar", "transfer"] as CatatDirection[]).map((d) => {
 				const active = direction === d;
 				const Icon = DIR_ICON[d];
@@ -204,7 +204,7 @@ export function QuickRecordCore({
 							"press flex h-11 items-center justify-center gap-1.5 rounded-full text-[13.5px] font-medium outline-none transition-colors duration-base ease-out-expo focus-visible:ring-2 focus-visible:ring-[#059669]/40",
 							active
 								? "bg-[#059669] text-white shadow-[var(--shadow-level-2)]"
-								: "text-muted-foreground hover:text-foreground",
+								: "border border-border-subtle bg-card text-foreground shadow-[var(--shadow-level-1)] hover:bg-secondary",
 						)}
 					>
 						<Icon className="size-4" aria-hidden="true" />
@@ -316,6 +316,7 @@ export function QuickRecordCore({
 							}))}
 							placeholder="Akun lain…"
 							allowFreeText={false}
+							closeOnScroll
 						/>
 					</div>
 				</div>
@@ -542,17 +543,17 @@ export function QuickRecordCore({
 
 			{errorBanner}
 
-			{/* Action bar — in-flow (mt-auto pins it to the bottom on short content),
-			    distinct white surface so it reads as a bar and never leaks. */}
-			<div className="-mx-4 -mb-4 mt-auto border-t border-border-default bg-card px-4 pt-3 pb-3">
+			{/* Action bar — in-flow (mt-auto pins it to the bottom on short content);
+			    matches the sheet surface so nothing leaks or looks cut at the edge. */}
+			<div className="-mx-4 -mb-4 mt-auto border-t border-border-default bg-surface-3 px-4 pt-3 pb-3">
 				<button
 					type="submit"
 					disabled={!canSubmit || pending}
 					className={cn(
-						"press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold outline-none transition-colors",
+						"press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white outline-none transition-colors",
 						canSubmit && !pending
-							? "bg-[#059669] text-white hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
-							: "cursor-not-allowed border border-border-default bg-surface-3 text-muted-foreground",
+							? "bg-[#059669] hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
+							: "cursor-not-allowed bg-[#059669]/45",
 					)}
 				>
 					{pending ? (
@@ -589,9 +590,11 @@ function AccountPicker({
 	const haptic = useHaptics();
 
 	if (variant === "scroll") {
-		// Two cards per view, scroll-snap — mirrors the operations KPI stat cards.
+		// Mirror the operations KpiRow exactly: ~2 cards per view, snap-aligned,
+		// inside the gutter (no -mx edge bleed) so edges align with the sections
+		// above/below. Inset ring so selection is never clipped by overflow.
 		return (
-			<div className="hide-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
+			<div className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
 				{accounts.map((a) => {
 					const active = value === a.code;
 					const disabled = disabledCode === a.code;
@@ -606,15 +609,22 @@ function AccountPicker({
 							}}
 							aria-pressed={active}
 							className={cn(
-								"press shrink-0 basis-[calc(50%-0.375rem)] snap-start rounded-[16px] border bg-card p-3.5 text-left shadow-[var(--shadow-level-2)] outline-none transition-colors disabled:opacity-40",
+								"press w-[47%] shrink-0 snap-start rounded-[16px] border bg-card p-4 text-left shadow-[var(--shadow-level-2)] outline-none transition-colors disabled:opacity-40",
 								active
-									? "border-[#059669] ring-1 ring-[#059669]"
-									: "border-border-default",
+									? "border-[#059669] ring-1 ring-inset ring-[#059669]"
+									: "border-border-subtle",
 							)}
 						>
-							<span className="eyebrow block truncate">{a.name}</span>
-							<span className="tabular mt-1 block text-[15px] font-semibold text-foreground">
-								{formatRupiah(a.balance)}
+							<span className="block truncate text-[13px] font-medium text-muted-foreground">
+								{a.name}
+							</span>
+							<span className="mt-1.5 flex items-baseline gap-1 whitespace-nowrap font-bold tracking-[-0.03em] text-foreground [font-family:var(--font-manrope),var(--font-inter),system-ui] [font-variant-numeric:tabular-nums_slashed-zero]">
+								<span className="text-[0.9rem] font-bold text-muted-foreground">
+									Rp
+								</span>
+								<span className="text-[1.2rem] leading-[1.04]">
+									{a.balance.toLocaleString("id-ID")}
+								</span>
 							</span>
 						</button>
 					);
