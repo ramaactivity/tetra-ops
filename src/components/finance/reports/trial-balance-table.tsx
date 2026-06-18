@@ -78,9 +78,9 @@ export function TrialBalanceTable({
 	return (
 		<div className="space-y-4">
 			{/* Summary */}
-			<div className="grid gap-3 rounded-lg border border-border-default bg-surface-2 p-4 text-fluid-caption lg:grid-cols-3">
+			<div className="grid gap-3 rounded-lg border border-border-default bg-card p-4 text-fluid-caption lg:grid-cols-3">
 				<div>
-					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+					<div className="text-[11px] uppercase tracking-wider text-muted-foreground">
 						Total Debit
 					</div>
 					<div className="tabular text-fluid-h3 font-semibold text-foreground">
@@ -88,7 +88,7 @@ export function TrialBalanceTable({
 					</div>
 				</div>
 				<div>
-					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+					<div className="text-[11px] uppercase tracking-wider text-muted-foreground">
 						Total Credit
 					</div>
 					<div className="tabular text-fluid-h3 font-semibold text-foreground">
@@ -96,7 +96,7 @@ export function TrialBalanceTable({
 					</div>
 				</div>
 				<div className="lg:text-right">
-					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+					<div className="text-[11px] uppercase tracking-wider text-muted-foreground">
 						Status Balanced
 					</div>
 					<div
@@ -108,7 +108,7 @@ export function TrialBalanceTable({
 					>
 						{isBalanced ? "✓ Balanced" : `Selisih ${formatRupiah(diff)}`}
 					</div>
-					<div className="mt-0.5 text-[10px] text-muted-foreground">
+					<div className="mt-0.5 text-[11px] text-muted-foreground">
 						Total debit harus = total credit
 					</div>
 				</div>
@@ -123,13 +123,13 @@ export function TrialBalanceTable({
 				return (
 					<section
 						key={type}
-						className="overflow-hidden rounded-lg border border-border-default bg-surface-2"
+						className="overflow-hidden rounded-lg border border-border-default bg-card"
 					>
-						<header className="flex items-center justify-between border-b border-border-default bg-surface-3/40 px-3 py-2">
+						<header className="flex items-center justify-between border-b border-border-default bg-surface-3/40 px-5 py-2">
 							<div className="flex items-center gap-2">
 								<Badge
 									variant="outline"
-									className={`h-5 px-1.5 text-[10px] ${TYPE_TONE[type] ?? ""}`}
+									className={`h-5 px-1.5 text-[11px] ${TYPE_TONE[type] ?? ""}`}
 								>
 									{TYPE_LABEL[type] ?? type}
 								</Badge>
@@ -143,19 +143,22 @@ export function TrialBalanceTable({
 						</header>
 						<div className="w-full overflow-x-auto">
 							<table className="w-full text-sm">
-								<thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-									<tr className="border-b border-border-default/60">
-										<th className="px-3 py-2 text-left">Kode</th>
-										<th className="px-3 py-2 text-left">Nama Akun</th>
-										<th className="px-3 py-2 text-right">Debit</th>
-										<th className="px-3 py-2 text-right">Credit</th>
-										<th className="px-3 py-2 text-right">Saldo</th>
+								<thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
+									<tr className="border-b border-border-default">
+										<th className="px-5 py-2 text-left">Kode</th>
+										<th className="px-5 py-2 text-left">Nama Akun</th>
+										<th className="px-5 py-2 text-right">Debit</th>
+										<th className="px-5 py-2 text-right">Credit</th>
+										<th className="px-5 py-2 text-right">Saldo</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border-default/50">
 									{items.map((r) => (
-										<tr key={r.code} className="hover:bg-muted/10">
-											<td className="px-3 py-2 tabular font-medium text-foreground">
+										<tr
+											key={r.code}
+											className="transition-colors hover:bg-secondary/40"
+										>
+											<td className="px-5 py-2 tabular font-medium text-foreground">
 												<Link
 													href={`/finance/accounting/ledger/${encodeURIComponent(r.code)}`}
 													className="hover:text-primary hover:underline"
@@ -164,10 +167,10 @@ export function TrialBalanceTable({
 													{r.code}
 												</Link>
 											</td>
-											<td className="px-3 py-2 text-fluid-caption text-foreground">
+											<td className="px-5 py-2 text-fluid-caption text-foreground">
 												{r.name}
 											</td>
-											<td className="px-3 py-2 text-right tabular text-fluid-caption">
+											<td className="px-5 py-2 text-right tabular text-fluid-caption">
 												{r.debit > 0 ? (
 													<span className="font-medium text-foreground">
 														{formatRupiah(r.debit)}
@@ -176,7 +179,7 @@ export function TrialBalanceTable({
 													<span className="text-muted-foreground/30">—</span>
 												)}
 											</td>
-											<td className="px-3 py-2 text-right tabular text-fluid-caption">
+											<td className="px-5 py-2 text-right tabular text-fluid-caption">
 												{r.credit > 0 ? (
 													<span className="font-medium text-foreground">
 														{formatRupiah(r.credit)}
@@ -185,25 +188,25 @@ export function TrialBalanceTable({
 													<span className="text-muted-foreground/30">—</span>
 												)}
 											</td>
-											<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+											<td className="px-5 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
 												{formatRupiah(r.balance)}
 											</td>
 										</tr>
 									))}
 									<tr className="bg-surface-3/20 font-medium">
 										<td
-											className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-muted-foreground"
+											className="px-5 py-2 text-right text-[11px] uppercase tracking-wider text-muted-foreground"
 											colSpan={2}
 										>
 											Subtotal {TYPE_LABEL[type] ?? type}
 										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+										<td className="px-5 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
 											{formatRupiah(groupDebit)}
 										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+										<td className="px-5 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
 											{formatRupiah(groupCredit)}
 										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+										<td className="px-5 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
 											{formatRupiah(groupBalance)}
 										</td>
 									</tr>

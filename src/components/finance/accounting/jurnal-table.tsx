@@ -310,7 +310,7 @@ function JournalEntry({
 							<tbody className="divide-y divide-border-subtle">
 								{entry.lines.map((line) => (
 									<tr key={line.id}>
-										<td className="py-2 pr-3 align-top">
+										<td className="py-3 pr-3 align-top">
 											<div className="tabular text-[12px] font-medium text-foreground">
 												{line.account_code}
 											</div>
@@ -318,10 +318,10 @@ function JournalEntry({
 												{line.account_name ?? "—"}
 											</div>
 										</td>
-										<td className="py-2 pr-3 align-top text-[12px] text-muted-foreground">
+										<td className="py-3 pr-3 align-top text-[12px] text-muted-foreground">
 											{line.description ?? "—"}
 										</td>
-										<td className="py-2 pl-3 text-right align-top tabular text-[12px]">
+										<td className="py-3 pl-3 text-right align-top tabular text-[12px]">
 											{line.debit_amount > 0 ? (
 												<span className="font-medium text-foreground">
 													{formatRupiah(line.debit_amount)}
@@ -330,7 +330,7 @@ function JournalEntry({
 												<span className="text-muted-foreground/30">—</span>
 											)}
 										</td>
-										<td className="py-2 pl-3 text-right align-top tabular text-[12px]">
+										<td className="py-3 pl-3 text-right align-top tabular text-[12px]">
 											{line.credit_amount > 0 ? (
 												<span className="font-medium text-foreground">
 													{formatRupiah(line.credit_amount)}

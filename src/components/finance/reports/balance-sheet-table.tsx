@@ -28,7 +28,7 @@ export function BalanceSheetTable({
 
 	return (
 		<div className="space-y-4">
-			<div className="rounded-md border border-border-default/60 bg-surface-2/40 p-3 text-fluid-caption">
+			<div className="rounded-lg border border-border-default bg-card px-5 py-3 text-fluid-caption">
 				<span className="font-medium text-foreground">Snapshot per:</span>{" "}
 				<span className="tabular">{formatDateID(asOf)}</span> · saldo akumulatif
 				dari awal sampai tanggal ini.
@@ -59,11 +59,11 @@ export function BalanceSheetTable({
 			{/* Two-column layout: Assets | Liabilities + Equity */}
 			<div className="grid gap-4 lg:grid-cols-2">
 				{/* ASET */}
-				<section className="overflow-hidden rounded-lg border border-border-default bg-surface-2">
-					<header className="border-b border-border-default bg-emerald-500/10 px-3 py-2">
+				<section className="overflow-hidden rounded-lg border border-border-default bg-card">
+					<header className="border-b border-border-default bg-emerald-500/10 px-5 py-2">
 						<Badge
 							variant="outline"
-							className="border-emerald-500/30 bg-emerald-500/15 text-[10px] text-emerald-700 dark:text-emerald-300"
+							className="border-emerald-500/30 bg-emerald-500/15 text-[11px] text-emerald-700 dark:text-emerald-300"
 						>
 							ASET
 						</Badge>
@@ -74,21 +74,19 @@ export function BalanceSheetTable({
 								<tr>
 									<td
 										colSpan={2}
-										className="px-3 py-3 text-center text-[11px] text-muted-foreground"
+										className="px-5 py-3 text-center text-[11px] text-muted-foreground"
 									>
 										Belum ada movement.
 									</td>
 								</tr>
 							) : (
-								assets.map((r) => (
-									<AccountRow key={r.code} row={r} />
-								))
+								assets.map((r) => <AccountRow key={r.code} row={r} />)
 							)}
 							<tr className="bg-emerald-500/5">
-								<td className="px-3 py-2.5 text-right text-fluid-caption font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+								<td className="px-5 py-2.5 text-right text-fluid-caption font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
 									Total Aset
 								</td>
-								<td className="px-3 py-2.5 text-right tabular text-fluid-body font-bold text-foreground">
+								<td className="px-5 py-2.5 text-right tabular text-fluid-body font-bold text-foreground">
 									{formatRupiah(totalAssets)}
 								</td>
 							</tr>
@@ -97,19 +95,19 @@ export function BalanceSheetTable({
 				</section>
 
 				{/* KEWAJIBAN + EKUITAS */}
-				<section className="overflow-hidden rounded-lg border border-border-default bg-surface-2">
-					<header className="border-b border-border-default bg-sky-500/10 px-3 py-2">
+				<section className="overflow-hidden rounded-lg border border-border-default bg-card">
+					<header className="border-b border-border-default bg-sky-500/10 px-5 py-2">
 						<div className="flex items-center gap-2">
 							<Badge
 								variant="outline"
-								className="border-amber-500/30 bg-amber-500/15 text-[10px] text-amber-700 dark:text-amber-300"
+								className="border-amber-500/30 bg-amber-500/15 text-[11px] text-amber-700 dark:text-amber-300"
 							>
 								KEWAJIBAN
 							</Badge>
 							<span className="text-[11px] text-muted-foreground">+</span>
 							<Badge
 								variant="outline"
-								className="border-sky-500/30 bg-sky-500/15 text-[10px] text-sky-700 dark:text-sky-300"
+								className="border-sky-500/30 bg-sky-500/15 text-[11px] text-sky-700 dark:text-sky-300"
 							>
 								EKUITAS
 							</Badge>
@@ -122,7 +120,7 @@ export function BalanceSheetTable({
 									<tr className="bg-amber-500/5">
 										<td
 											colSpan={2}
-											className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"
+											className="px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300"
 										>
 											Kewajiban
 										</td>
@@ -131,10 +129,10 @@ export function BalanceSheetTable({
 										<AccountRow key={r.code} row={r} />
 									))}
 									<tr className="bg-amber-500/10">
-										<td className="px-3 py-2 text-right text-fluid-caption font-semibold text-amber-700 dark:text-amber-300">
+										<td className="px-5 py-2 text-right text-fluid-caption font-semibold text-amber-700 dark:text-amber-300">
 											Subtotal Kewajiban
 										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+										<td className="px-5 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
 											{formatRupiah(totalLiabilities)}
 										</td>
 									</tr>
@@ -145,7 +143,7 @@ export function BalanceSheetTable({
 									<tr className="bg-sky-500/5">
 										<td
 											colSpan={2}
-											className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300"
+											className="px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-300"
 										>
 											Ekuitas
 										</td>
@@ -154,15 +152,15 @@ export function BalanceSheetTable({
 										<AccountRow key={r.code} row={r} />
 									))}
 									{/* Retained earnings row */}
-									<tr className="hover:bg-muted/10">
-										<td className="px-3 py-2 text-fluid-caption text-foreground">
+									<tr className="transition-colors hover:bg-secondary/40">
+										<td className="px-5 py-2 text-fluid-caption text-foreground">
 											<span className="italic">Laba Ditahan</span>{" "}
-											<span className="text-[10px] text-muted-foreground">
+											<span className="text-[11px] text-muted-foreground">
 												(revenue − expense)
 											</span>
 										</td>
 										<td
-											className={`px-3 py-2 text-right tabular text-fluid-caption font-medium ${
+											className={`px-5 py-2 text-right tabular text-fluid-caption font-medium ${
 												retainedEarnings >= 0
 													? "text-foreground"
 													: "text-rose-600 dark:text-rose-400"
@@ -172,20 +170,20 @@ export function BalanceSheetTable({
 										</td>
 									</tr>
 									<tr className="bg-sky-500/10">
-										<td className="px-3 py-2 text-right text-fluid-caption font-semibold text-sky-700 dark:text-sky-300">
+										<td className="px-5 py-2 text-right text-fluid-caption font-semibold text-sky-700 dark:text-sky-300">
 											Subtotal Ekuitas
 										</td>
-										<td className="px-3 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
+										<td className="px-5 py-2 text-right tabular text-fluid-caption font-semibold text-foreground">
 											{formatRupiah(totalEquity)}
 										</td>
 									</tr>
 								</>
 							)}
 							<tr className="bg-sky-500/5">
-								<td className="px-3 py-2.5 text-right text-fluid-caption font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300">
+								<td className="px-5 py-2.5 text-right text-fluid-caption font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300">
 									Total Kewajiban + Ekuitas
 								</td>
-								<td className="px-3 py-2.5 text-right tabular text-fluid-body font-bold text-foreground">
+								<td className="px-5 py-2.5 text-right tabular text-fluid-body font-bold text-foreground">
 									{formatRupiah(totalLiaEquity)}
 								</td>
 							</tr>
@@ -202,8 +200,8 @@ export function BalanceSheetTable({
 					<div className="mt-1 text-muted-foreground">
 						Selisih {formatRupiah(diff)} antara Total Aset (
 						{formatRupiah(totalAssets)}) dan Total Kewajiban + Ekuitas (
-						{formatRupiah(totalLiaEquity)}). Bisa karena ada manual entry
-						yang ga balanced atau bug di settlement. Cek Trial Balance dulu.
+						{formatRupiah(totalLiaEquity)}). Bisa karena ada manual entry yang
+						ga balanced atau bug di settlement. Cek Trial Balance dulu.
 					</div>
 				</div>
 			)}
@@ -236,9 +234,7 @@ function SummaryCard({
 				: "text-rose-700 dark:text-rose-300";
 	return (
 		<div className={`rounded-lg border p-3 ${cls}`}>
-			<div
-				className={`text-[10px] uppercase tracking-wider ${labelTone}`}
-			>
+			<div className={`text-[11px] uppercase tracking-wider ${labelTone}`}>
 				{label}
 			</div>
 			<div className="mt-1 tabular text-fluid-h2 font-semibold text-foreground">
@@ -251,20 +247,20 @@ function SummaryCard({
 
 function AccountRow({ row }: { row: AccountAggregate }) {
 	return (
-		<tr className="hover:bg-muted/10">
-			<td className="px-3 py-2 text-fluid-caption text-foreground">
+		<tr className="transition-colors hover:bg-secondary/40">
+			<td className="px-5 py-2 text-fluid-caption text-foreground">
 				<Link
 					href={`/finance/accounting/ledger/${encodeURIComponent(row.code)}`}
 					className="hover:text-primary hover:underline"
 				>
-					<span className="tabular text-[10px] text-muted-foreground">
+					<span className="tabular text-[11px] text-muted-foreground">
 						{row.code}
 					</span>{" "}
 					{row.name}
 				</Link>
 			</td>
 			<td
-				className={`px-3 py-2 text-right tabular text-fluid-caption font-medium ${
+				className={`px-5 py-2 text-right tabular text-fluid-caption font-medium ${
 					row.balance < 0
 						? "text-rose-600 dark:text-rose-400"
 						: "text-foreground"

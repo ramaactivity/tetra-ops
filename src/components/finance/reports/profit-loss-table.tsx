@@ -30,14 +30,10 @@ export function ProfitLossTable({
 	const revenueRows = rows.filter((r) => r.account_type === "revenue");
 	// Split expenses: HPP (5-1xx) vs OpEx (5-2xx and above)
 	const hppRows = rows.filter(
-		(r) =>
-			r.account_type === "expense" &&
-			/^5-1\d{2}$/.test(r.code),
+		(r) => r.account_type === "expense" && /^5-1\d{2}$/.test(r.code),
 	);
 	const opexRows = rows.filter(
-		(r) =>
-			r.account_type === "expense" &&
-			!/^5-1\d{2}$/.test(r.code),
+		(r) => r.account_type === "expense" && !/^5-1\d{2}$/.test(r.code),
 	);
 
 	const totalRevenue = revenueRows.reduce((s, r) => s + r.balance, 0);
@@ -45,10 +41,8 @@ export function ProfitLossTable({
 	const totalOpex = opexRows.reduce((s, r) => s + r.balance, 0);
 	const grossProfit = totalRevenue - totalHpp;
 	const netProfit = grossProfit - totalOpex;
-	const grossMargin =
-		totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-	const netMargin =
-		totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+	const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+	const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
 	return (
 		<div className="space-y-4">
@@ -75,7 +69,7 @@ export function ProfitLossTable({
 			</div>
 
 			{/* P&L table */}
-			<div className="overflow-hidden rounded-lg border border-border-default bg-surface-2">
+			<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 				<table className="w-full text-sm">
 					<tbody className="divide-y divide-border-default/50">
 						{/* Revenue */}
@@ -96,11 +90,7 @@ export function ProfitLossTable({
 								{hppRows.map((r) => (
 									<AccountRow key={r.code} row={r} negative />
 								))}
-								<SubtotalRow
-									label="Total HPP"
-									amount={-totalHpp}
-									tone="rose"
-								/>
+								<SubtotalRow label="Total HPP" amount={-totalHpp} tone="rose" />
 								<EmphasisRow
 									label="Laba Kotor (Gross Profit)"
 									amount={grossProfit}
@@ -159,9 +149,7 @@ function MetricCard({
 			: "text-rose-700 dark:text-rose-300";
 	return (
 		<div className={`rounded-lg border p-3 ${cls}`}>
-			<div
-				className={`text-[10px] uppercase tracking-wider ${labelTone}`}
-			>
+			<div className={`text-[11px] uppercase tracking-wider ${labelTone}`}>
 				{label}
 			</div>
 			<div className="mt-1 tabular text-fluid-h2 font-semibold text-foreground">
@@ -177,7 +165,7 @@ function SectionRow({ label }: { label: string }) {
 		<tr className="bg-surface-3/40">
 			<td
 				colSpan={3}
-				className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+				className="px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
 			>
 				{label}
 			</td>
@@ -193,8 +181,8 @@ function AccountRow({
 	negative?: boolean;
 }) {
 	return (
-		<tr className="hover:bg-muted/10">
-			<td className="px-3 py-2 tabular text-fluid-caption font-medium text-foreground">
+		<tr className="transition-colors hover:bg-secondary/40">
+			<td className="px-5 py-2 tabular text-fluid-caption font-medium text-foreground">
 				<Link
 					href={`/finance/accounting/ledger/${encodeURIComponent(row.code)}`}
 					className="hover:text-primary hover:underline"
@@ -202,14 +190,12 @@ function AccountRow({
 					{row.code}
 				</Link>
 			</td>
-			<td className="px-3 py-2 text-fluid-caption text-foreground">
+			<td className="px-5 py-2 text-fluid-caption text-foreground">
 				{row.name}
 			</td>
 			<td
-				className={`px-3 py-2 text-right tabular text-fluid-caption font-medium ${
-					negative
-						? "text-rose-600 dark:text-rose-400"
-						: "text-foreground"
+				className={`px-5 py-2 text-right tabular text-fluid-caption font-medium ${
+					negative ? "text-rose-600 dark:text-rose-400" : "text-foreground"
 				}`}
 			>
 				{negative ? "−" : ""}
@@ -236,12 +222,12 @@ function SubtotalRow({
 		<tr className="bg-surface-3/20">
 			<td
 				colSpan={2}
-				className="px-3 py-2 text-right text-fluid-caption font-semibold text-foreground"
+				className="px-5 py-2 text-right text-fluid-caption font-semibold text-foreground"
 			>
 				{label}
 			</td>
 			<td
-				className={`px-3 py-2 text-right tabular text-fluid-caption font-semibold ${cls}`}
+				className={`px-5 py-2 text-right tabular text-fluid-caption font-semibold ${cls}`}
 			>
 				{formatRupiah(amount)}
 			</td>
@@ -264,17 +250,17 @@ function EmphasisRow({
 		<tr className="bg-primary/5">
 			<td
 				colSpan={2}
-				className={`px-3 py-2.5 text-right text-foreground ${bold ? "text-fluid-body font-bold" : "text-fluid-caption font-semibold"}`}
+				className={`px-5 py-2.5 text-right text-foreground ${bold ? "text-fluid-body font-bold" : "text-fluid-caption font-semibold"}`}
 			>
 				{label}
 				{hint && (
-					<span className="ml-2 text-[10px] font-normal text-muted-foreground">
+					<span className="ml-2 text-[11px] font-normal text-muted-foreground">
 						({hint})
 					</span>
 				)}
 			</td>
 			<td
-				className={`px-3 py-2.5 text-right tabular ${
+				className={`px-5 py-2.5 text-right tabular ${
 					amount >= 0
 						? "text-emerald-700 dark:text-emerald-300"
 						: "text-rose-700 dark:text-rose-300"

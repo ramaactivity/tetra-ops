@@ -1,7 +1,8 @@
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { PageHeader } from "@/components/operations/_shared/page-header";
+import { SectionHeader } from "@/components/layout/section-header";
+import { buttonVariants } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,7 +16,10 @@ type RawRow = {
 		| { id: string; sku: string; name: string; unit: string }
 		| Array<{ id: string; sku: string; name: string; unit: string }>
 		| null;
-	supplier: { id: string; name: string } | Array<{ id: string; name: string }> | null;
+	supplier:
+		| { id: string; name: string }
+		| Array<{ id: string; name: string }>
+		| null;
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -135,7 +139,10 @@ export default async function WastageReportPage({
 		.slice(0, 10);
 
 	// Top suppliers (only entries with supplier — usually DOA)
-	const supplierAgg = new Map<string, { name: string; qty: number; cost: number }>();
+	const supplierAgg = new Map<
+		string,
+		{ name: string; qty: number; cost: number }
+	>();
 	for (const r of rows) {
 		if (!r.supplier) continue;
 		const cur = supplierAgg.get(r.supplier.id) ?? {
@@ -153,13 +160,13 @@ export default async function WastageReportPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Laporan Wastage"
 				description={`Akumulasi kerugian wastage ${monthsBack} bulan terakhir. Sumber: tabel wastage_logs (Dr 5-510 Beban Wastage).`}
 				actions={
 					<Link
 						href="/warehouse/wastage"
-						className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+						className={buttonVariants({ variant: "outline", className: "h-9" })}
 					>
 						<ArrowLeft className="size-3.5" />
 						Detail log
@@ -173,10 +180,10 @@ export default async function WastageReportPage({
 					<Link
 						key={m}
 						href={`/finance/wastage-report?months=${m}`}
-						className={`press-down inline-flex h-7 items-center rounded-md px-2.5 text-[12px] font-medium transition-colors ${
+						className={`inline-flex h-8 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
 							m === monthsBack
-								? "bg-[#059669] text-white"
-								: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+								? "border-[#059669] bg-[#059669] text-white"
+								: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 						}`}
 					>
 						{m} bulan
@@ -191,9 +198,11 @@ export default async function WastageReportPage({
 			</div>
 
 			{rows.length === 0 ? (
-				<div className="bg-surface-2 flex flex-col items-center gap-2 rounded-lg p-10 text-center">
+				<div className="flex flex-col items-center gap-2 rounded-lg border border-border-default bg-card p-10 text-center">
 					<AlertTriangle className="text-muted-foreground/40 size-10" />
-					<p className="text-sm font-medium">Belum ada wastage di periode ini</p>
+					<p className="text-sm font-medium">
+						Belum ada wastage di periode ini
+					</p>
 					<p className="text-muted-foreground text-[12px]">
 						Catat wastage saat ada barang rusak/testing/defective di{" "}
 						<Link
@@ -207,29 +216,24 @@ export default async function WastageReportPage({
 			) : (
 				<>
 					{/* Pivot reason × month */}
-					<div className="bg-surface-2 overflow-hidden rounded-lg">
-						<div className="border-b border-foreground/[0.04] px-4 py-3">
-							<h3 className="text-sm font-semibold">
-								Loss per Alasan × Bulan
-							</h3>
+					<div className="overflow-hidden rounded-lg border border-border-default bg-card">
+						<div className="border-b border-border-subtle px-5 py-3">
+							<h3 className="text-sm font-semibold">Loss per Alasan × Bulan</h3>
 							<p className="text-muted-foreground text-[11px]">
 								Cost dalam Rupiah · baris di-rank by total terbesar
 							</p>
 						</div>
 						<div className="overflow-x-auto">
-							<table className="w-full text-[12px]">
+							<table className="w-full text-[13px]">
 								<thead>
-									<tr className="text-muted-foreground/80 text-left text-[10px] uppercase tracking-wider">
-										<th className="px-4 py-2 font-medium">Alasan</th>
+									<tr className="text-muted-foreground/80 text-left text-[11px] uppercase tracking-wider">
+										<th className="px-5 py-2 font-medium">Alasan</th>
 										{months.map((m) => (
-											<th
-												key={m}
-												className="px-3 py-2 text-right font-medium"
-											>
+											<th key={m} className="px-3 py-2 text-right font-medium">
 												{ymLabel(m)}
 											</th>
 										))}
-										<th className="px-4 py-2 text-right font-semibold">
+										<th className="px-5 py-2 text-right font-semibold">
 											Total
 										</th>
 									</tr>
@@ -238,36 +242,32 @@ export default async function WastageReportPage({
 									{reasons.map((reason, idx) => (
 										<tr
 											key={reason}
-											className={
-												idx > 0
-													? "border-t border-foreground/[0.04]"
-													: ""
-											}
+											className={idx > 0 ? "border-t border-border-subtle" : ""}
 										>
-											<td className="px-4 py-2 font-medium">
+											<td className="px-5 py-2 font-medium">
 												{REASON_LABELS[reason] ?? reason}
 											</td>
 											{months.map((m) => {
-												const v =
-													reasonByMonth.get(reason)?.get(m) ?? 0;
+												const v = reasonByMonth.get(reason)?.get(m) ?? 0;
 												return (
-													<td
-														key={m}
-														className="tabular px-3 py-2 text-right"
-													>
-														{v > 0
-															? formatRupiah(v)
-															: <span className="text-muted-foreground/40">—</span>}
+													<td key={m} className="tabular px-3 py-2 text-right">
+														{v > 0 ? (
+															formatRupiah(v)
+														) : (
+															<span className="text-muted-foreground/40">
+																—
+															</span>
+														)}
 													</td>
 												);
 											})}
-											<td className="tabular px-4 py-2 text-right font-semibold text-rose-700 dark:text-rose-300">
+											<td className="tabular px-5 py-2 text-right font-semibold text-rose-700 dark:text-rose-300">
 												{formatRupiah(reasonTotals.get(reason) ?? 0)}
 											</td>
 										</tr>
 									))}
-									<tr className="bg-surface-1 border-t border-foreground/[0.04]">
-										<td className="px-4 py-2 font-semibold">Total</td>
+									<tr className="bg-surface-1 border-t border-border-subtle">
+										<td className="px-5 py-2 font-semibold">Total</td>
 										{months.map((m) => (
 											<td
 												key={m}
@@ -276,7 +276,7 @@ export default async function WastageReportPage({
 												{formatRupiah(monthTotals.get(m) ?? 0)}
 											</td>
 										))}
-										<td className="tabular px-4 py-2 text-right font-bold text-rose-700 dark:text-rose-300">
+										<td className="tabular px-5 py-2 text-right font-bold text-rose-700 dark:text-rose-300">
 											{formatRupiah(grand)}
 										</td>
 									</tr>
@@ -287,11 +287,9 @@ export default async function WastageReportPage({
 
 					<div className="grid gap-4 md:grid-cols-2">
 						{/* Top items */}
-						<div className="bg-surface-2 overflow-hidden rounded-lg">
-							<div className="border-b border-foreground/[0.04] px-4 py-3">
-								<h3 className="text-sm font-semibold">
-									Top Item by Loss
-								</h3>
+						<div className="overflow-hidden rounded-lg border border-border-default bg-card">
+							<div className="border-b border-border-subtle px-5 py-3">
+								<h3 className="text-sm font-semibold">Top Item by Loss</h3>
 								<p className="text-muted-foreground text-[11px]">
 									10 item dengan kerugian wastage terbesar
 								</p>
@@ -305,17 +303,13 @@ export default async function WastageReportPage({
 									{topItems.map((it, idx) => (
 										<li
 											key={it.id}
-											className={`flex items-center justify-between px-4 py-2.5 text-[12px] ${
-												idx > 0
-													? "border-t border-foreground/[0.04]"
-													: ""
+											className={`flex items-center justify-between px-5 py-2.5 text-[12px] ${
+												idx > 0 ? "border-t border-border-subtle" : ""
 											}`}
 										>
 											<div className="min-w-0">
-												<div className="truncate font-medium">
-													{it.name}
-												</div>
-												<div className="tabular text-muted-foreground text-[10px]">
+												<div className="truncate font-medium">{it.name}</div>
+												<div className="tabular text-muted-foreground text-[11px]">
 													{it.sku} · qty {it.qty.toLocaleString("id-ID")}
 												</div>
 											</div>
@@ -329,8 +323,8 @@ export default async function WastageReportPage({
 						</div>
 
 						{/* Top suppliers (defective) */}
-						<div className="bg-surface-2 overflow-hidden rounded-lg">
-							<div className="border-b border-foreground/[0.04] px-4 py-3">
+						<div className="overflow-hidden rounded-lg border border-border-default bg-card">
+							<div className="border-b border-border-subtle px-5 py-3">
 								<h3 className="text-sm font-semibold">
 									Top Supplier by Defective Cost
 								</h3>
@@ -348,17 +342,14 @@ export default async function WastageReportPage({
 									{topSuppliers.map((sup, idx) => (
 										<li
 											key={sup.name}
-											className={`flex items-center justify-between px-4 py-2.5 text-[12px] ${
-												idx > 0
-													? "border-t border-foreground/[0.04]"
-													: ""
+											className={`flex items-center justify-between px-5 py-2.5 text-[12px] ${
+												idx > 0 ? "border-t border-border-subtle" : ""
 											}`}
 										>
 											<div className="min-w-0">
 												<div className="truncate font-medium">{sup.name}</div>
-												<div className="tabular text-muted-foreground text-[10px]">
-													{sup.qty.toLocaleString("id-ID")} qty (mixed
-													units)
+												<div className="tabular text-muted-foreground text-[11px]">
+													{sup.qty.toLocaleString("id-ID")} qty (mixed units)
 												</div>
 											</div>
 											<div className="tabular font-semibold text-rose-700 dark:text-rose-300">

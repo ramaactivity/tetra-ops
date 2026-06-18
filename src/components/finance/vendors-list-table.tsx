@@ -121,19 +121,18 @@ export function VendorsListTable({ vendors }: { vendors: VendorStats[] }) {
 						<ExternalLink className="size-3" />
 					</a>
 				) : (
-					<span className="text-fluid-caption text-muted-foreground/60">
-						—
-					</span>
+					<span className="text-fluid-caption text-muted-foreground/60">—</span>
 				),
 		},
 	];
 
 	return (
-		<div className="rounded-xl border border-border-default bg-surface-2 p-3 md:p-0">
+		<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 			<ResponsiveTable<VendorStats>
 				keyExtractor={(v) => v.name}
 				rows={vendors}
 				columns={columns}
+				rowClassName="transition-colors hover:bg-secondary/40"
 			/>
 		</div>
 	);

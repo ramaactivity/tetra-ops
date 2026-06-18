@@ -2,6 +2,7 @@
 
 import { ArrowDownToLine, Loader2, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
 	recordOwnerWithdrawal,
@@ -65,7 +66,7 @@ export function WithdrawalButton({
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={disabled || owners.length === 0}
-				className="border-border-default bg-surface-2 text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-medium"
+				className={buttonVariants({ variant: "outline", className: "h-9" })}
 			>
 				<ArrowDownToLine className="h-3.5 w-3.5" />
 				Record withdrawal
@@ -83,7 +84,7 @@ export function WithdrawalButton({
 						onClick={() => setOpen(false)}
 						className="absolute inset-0 bg-black/40 backdrop-blur-sm"
 					/>
-					<div className="bg-surface-2 border-border-default relative z-10 w-full max-w-lg overflow-hidden rounded-lg border shadow-[var(--shadow-level-5)]">
+					<div className="bg-card border-border-default relative z-10 w-full max-w-lg overflow-hidden rounded-lg border shadow-[var(--shadow-level-5)]">
 						<div className="border-border-default flex items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">
@@ -228,7 +229,9 @@ export function WithdrawalButton({
 								</button>
 								<button
 									type="submit"
-									disabled={pending || (owner?.balance ?? 0) === 0 || !selectedBank}
+									disabled={
+										pending || (owner?.balance ?? 0) === 0 || !selectedBank
+									}
 									className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
 								>
 									{pending ? (
@@ -260,12 +263,7 @@ function WithdrawalMethodSelect() {
 				]}
 				triggerClassName="w-full"
 			/>
-			<input
-				type="hidden"
-				name="withdrawal_method"
-				value={method}
-				required
-			/>
+			<input type="hidden" name="withdrawal_method" value={method} required />
 		</>
 	);
 }

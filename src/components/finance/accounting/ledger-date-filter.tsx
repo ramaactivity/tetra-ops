@@ -29,7 +29,7 @@ export function LedgerDateFilter({
 	const hasFilter = !!(defaultFrom || defaultTo);
 
 	return (
-		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-surface-2 p-2 text-fluid-caption">
+		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-card p-2 text-fluid-caption">
 			<Calendar className="size-3.5 text-muted-foreground" />
 			<span className="text-muted-foreground">Periode:</span>
 			<input

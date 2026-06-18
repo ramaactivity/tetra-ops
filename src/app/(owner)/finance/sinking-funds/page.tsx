@@ -125,7 +125,7 @@ export default async function SinkingFundsListPage() {
 				actions={
 					<Link
 						href="/finance/sinking-funds/new"
-						className={buttonVariants({ variant: "default" })}
+						className={buttonVariants({ variant: "default", className: "h-9" })}
 					>
 						<Plus className="size-4" />
 						Tambah Dana

@@ -36,9 +36,7 @@ export function ReportDateFilter({
 	}
 
 	const hasFilter =
-		mode === "as-of"
-			? !!defaultAsOf
-			: !!(defaultFrom || defaultTo);
+		mode === "as-of" ? !!defaultAsOf : !!(defaultFrom || defaultTo);
 
 	function setPreset(preset: "month" | "ytd" | "all") {
 		const next = new URLSearchParams(params.toString());
@@ -51,9 +49,7 @@ export function ReportDateFilter({
 			next.set("from", from);
 			next.set("to", to);
 		} else if (preset === "ytd") {
-			const from = new Date(now.getFullYear(), 0, 1)
-				.toISOString()
-				.slice(0, 10);
+			const from = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
 			const to = now.toISOString().slice(0, 10);
 			next.set("from", from);
 			next.set("to", to);
@@ -67,7 +63,7 @@ export function ReportDateFilter({
 
 	if (mode === "as-of") {
 		return (
-			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-surface-2 p-2 text-fluid-caption">
+			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-card p-2 text-fluid-caption">
 				<Calendar className="size-3.5 text-muted-foreground" />
 				<span className="text-muted-foreground">Per tanggal:</span>
 				<input
@@ -93,7 +89,7 @@ export function ReportDateFilter({
 	}
 
 	return (
-		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-surface-2 p-2 text-fluid-caption">
+		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-card p-2 text-fluid-caption">
 			<Calendar className="size-3.5 text-muted-foreground" />
 			<span className="text-muted-foreground">Periode:</span>
 			<input

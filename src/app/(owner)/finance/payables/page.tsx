@@ -15,8 +15,8 @@ import {
 	PayablesTable,
 } from "@/components/finance/payables/payables-table";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -195,7 +195,7 @@ export default async function PayablesPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Hutang Dagang"
 				description="Outstanding TOP purchases per supplier. Klik Bayar untuk record pembayaran — auto-jurnal Hutang Vendor turun, Kas/Bank turun."
 			/>

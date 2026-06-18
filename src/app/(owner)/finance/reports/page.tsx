@@ -1,15 +1,15 @@
 import { redirect } from "next/navigation";
-import { Container } from "@/components/layout/container";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { BalanceSheetTable } from "@/components/finance/reports/balance-sheet-table";
 import { ProfitLossTable } from "@/components/finance/reports/profit-loss-table";
 import { ReportDateFilter } from "@/components/finance/reports/report-date-filter";
 import { ReportsTabs } from "@/components/finance/reports/reports-tabs";
 import {
-	TrialBalanceTable,
 	type AccountAggregate,
 	type CoaMeta,
+	TrialBalanceTable,
 } from "@/components/finance/reports/trial-balance-table";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,12 +51,10 @@ export default async function FinanceReportsPage({
 			.select("code, name, account_type")
 			.eq("is_active", true)
 			.order("code"),
-		supabase
-			.from("journal_lines")
-			.select(
-				`account_code, debit_amount, credit_amount,
+		supabase.from("journal_lines").select(
+			`account_code, debit_amount, credit_amount,
 				 entry:journal_entries!journal_lines_entry_id_fkey(entry_date, is_reversed)`,
-			),
+		),
 	]);
 
 	const accounts: CoaMeta[] = (coaData ?? []).map((c) => ({
@@ -116,10 +114,7 @@ export default async function FinanceReportsPage({
 	}
 
 	function aggregate(filterFn: (d: string) => boolean): AccountAggregate[] {
-		const totals = new Map<
-			string,
-			{ debit: number; credit: number }
-		>();
+		const totals = new Map<string, { debit: number; credit: number }>();
 		for (const l of allLines) {
 			if (!filterFn(l.entry_date)) continue;
 			const cur = totals.get(l.account_code) ?? { debit: 0, credit: 0 };
@@ -152,9 +147,7 @@ export default async function FinanceReportsPage({
 			.sort((x, y) => x.code.localeCompare(y.code));
 	}
 
-	const trialAggregates = aggregate((d) =>
-		withinRange(d, from, to),
-	);
+	const trialAggregates = aggregate((d) => withinRange(d, from, to));
 	const pnlAggregates = aggregate((d) => withinRange(d, from, to)).filter(
 		(a) => a.account_type === "revenue" || a.account_type === "expense",
 	);
@@ -172,7 +165,7 @@ export default async function FinanceReportsPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Laporan Keuangan"
 				description="Neraca Saldo · Laba/Rugi · Neraca. Computed dari journal_lines — entry yang di-reverse & jurnal pembaliknya saling meniadakan (net nol)."
 			/>

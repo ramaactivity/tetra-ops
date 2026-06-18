@@ -124,7 +124,7 @@ export function PayablesTable({
 					return (
 						<article
 							key={p.id}
-							className={`rounded-lg border bg-surface-2 ${
+							className={`overflow-hidden rounded-lg border bg-card ${
 								isOverdue
 									? "border-rose-500/40"
 									: isDueSoon
@@ -132,7 +132,7 @@ export function PayablesTable({
 										: "border-border-default"
 							}`}
 						>
-							<div className="flex items-start justify-between gap-3 p-3">
+							<div className="flex items-start justify-between gap-3 p-4">
 								<button
 									type="button"
 									onClick={() => setExpanded(open ? null : p.id)}
@@ -283,7 +283,7 @@ export function PayablesTable({
 										<div className="overflow-hidden rounded-md border border-border-default">
 											<div className="w-full overflow-x-auto">
 												<table className="w-full text-sm">
-													<thead className="bg-card border-b border-border-subtle text-[10px] uppercase tracking-wider text-foreground">
+													<thead className="bg-card border-b border-border-subtle text-[11px] uppercase tracking-wider text-foreground">
 														<tr>
 															<th className="px-3 py-2 text-left">Tanggal</th>
 															<th className="px-3 py-2 text-left">Akun</th>
@@ -292,9 +292,12 @@ export function PayablesTable({
 															<th className="px-3 py-2 text-right">Amount</th>
 														</tr>
 													</thead>
-													<tbody className="divide-y divide-border-default/50">
+													<tbody className="divide-y divide-border-subtle">
 														{p.payments.map((py) => (
-															<tr key={py.id} className="hover:bg-muted/10">
+															<tr
+																key={py.id}
+																className="transition-colors hover:bg-secondary/40"
+															>
 																<td className="px-3 py-2 tabular text-fluid-caption">
 																	{formatDateID(py.payment_date)}
 																</td>

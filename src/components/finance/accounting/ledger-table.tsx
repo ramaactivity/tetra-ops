@@ -104,7 +104,7 @@ export function LedgerTable({
 													{SOURCE_LABEL[r.source_type] ?? r.source_type}
 												</span>
 												{r.is_reversed && (
-													<span className="rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-medium text-destructive">
+													<span className="rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
 														dibalik
 													</span>
 												)}

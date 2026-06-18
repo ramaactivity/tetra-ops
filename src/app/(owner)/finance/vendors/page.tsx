@@ -1,11 +1,11 @@
 import { Handshake, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import {
 	type VendorStats,
 	VendorsListTable,
 } from "@/components/finance/vendors-list-table";
+import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -105,9 +105,7 @@ export default async function VendorsPage() {
 			e.event_date >= todayISO &&
 			!["cancelled", "completed"].includes(e.status);
 		const isThisMonth =
-			!e.is_migrated_legacy &&
-			e.event_date >= ymStart &&
-			e.event_date <= ymEnd;
+			!e.is_migrated_legacy && e.event_date >= ymStart && e.event_date <= ymEnd;
 		const commission = e.vendor_commission_amount ?? 0;
 
 		if (existing) {
@@ -153,10 +151,7 @@ export default async function VendorsPage() {
 		(a, b) => b.totalCommission - a.totalCommission,
 	);
 
-	const totalCommissionAll = vendors.reduce(
-		(s, v) => s + v.totalCommission,
-		0,
-	);
+	const totalCommissionAll = vendors.reduce((s, v) => s + v.totalCommission, 0);
 	const totalCommissionMtd = vendors.reduce((s, v) => s + v.mtdCommission, 0);
 	const totalEvents = vendors.reduce((s, v) => s + v.totalEvents, 0);
 	const totalUpcoming = vendors.reduce((s, v) => s + v.upcomingCount, 0);
@@ -202,10 +197,7 @@ export default async function VendorsPage() {
 					description={
 						<>
 							Tambah lewat{" "}
-							<Link
-								href="/contacts"
-								className="text-primary hover:underline"
-							>
+							<Link href="/contacts" className="text-primary hover:underline">
 								Contacts
 							</Link>{" "}
 							dengan type=Vendor, atau bikin event channel=vendor.
@@ -253,7 +245,7 @@ function SummaryCard({
 					? "text-amber-600 dark:text-amber-400"
 					: "text-foreground";
 	return (
-		<div className="space-y-1 rounded-xl border border-border-default bg-surface-2 p-4">
+		<div className="space-y-1 rounded-xl border border-border-default bg-card p-4">
 			<dt className="text-fluid-caption font-medium uppercase tracking-wider text-muted-foreground">
 				{label}
 			</dt>

@@ -14,7 +14,7 @@ import {
 	NewJournalEntryButton,
 } from "@/components/finance/accounting/new-journal-entry-button";
 import { Container } from "@/components/layout/container";
-import { PageHeader } from "@/components/operations/_shared/page-header";
+import { SectionHeader } from "@/components/layout/section-header";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	aggregateBalances,
@@ -194,7 +194,7 @@ export default async function AccountingPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Akuntansi"
 				description="Pusat keuangan bisnis. Sebagian besar jurnal ter-posting otomatis dari settlement, pembelian, dan stock opname — tinggal dibaca, ditelusuri, dan dikoreksi bila perlu."
 				actions={<NewJournalEntryButton coa={coaOptions} />}
