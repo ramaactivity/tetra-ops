@@ -127,10 +127,11 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669]"
+				title="Jurnal manual lanjutan (debit/kredit multi-baris)"
+				className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-border-default bg-card px-3 text-fluid-caption font-medium text-foreground hover:bg-secondary"
 			>
-				<Plus className="size-4" />
-				Buat Entry Manual
+				<BookOpen className="size-4" />
+				Jurnal manual
 			</button>
 
 			<Dialog open={open} onOpenChange={setOpen}>

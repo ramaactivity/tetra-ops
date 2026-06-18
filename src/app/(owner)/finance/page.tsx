@@ -11,6 +11,7 @@ import {
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
+import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
 import {
 	type Owner,
 	WithdrawalButton,
@@ -21,6 +22,7 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { loadCatatData } from "@/lib/finance/quick-record-data";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,10 +50,16 @@ const ID_MONTH_NAMES = [
 	"Des",
 ];
 
-export default async function FinancePage() {
+export default async function FinancePage({
+	searchParams,
+}: {
+	searchParams: Promise<{ catat?: string }>;
+}) {
 	const me = await getCurrentUser();
 	const isSuperAdmin = me?.profile.role === "super_admin";
 	const supabase = await createClient();
+	const { catat } = await searchParams;
+	const catatData = await loadCatatData();
 
 	const today = new Date();
 	const ymStart = startOfMonth(today);
@@ -115,7 +123,9 @@ export default async function FinancePage() {
 			.lte("payment_date", ymEnd),
 		supabase
 			.from("bank_accounts")
-			.select("id, account_name, bank_name, account_holder, coa_code, is_active")
+			.select(
+				"id, account_name, bank_name, account_holder, coa_code, is_active",
+			)
 			.eq("is_active", true)
 			.order("account_name", { ascending: true }),
 		supabase
@@ -318,6 +328,8 @@ export default async function FinancePage() {
 				title="Finance"
 				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
 			/>
+
+			<CatatLauncher data={catatData} autoOpen={catat === "1"} />
 
 			<KpiRow>
 				<KpiCard

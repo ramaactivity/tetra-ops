@@ -13,6 +13,7 @@ import {
 	type CoaOption,
 	NewJournalEntryButton,
 } from "@/components/finance/accounting/new-journal-entry-button";
+import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -22,6 +23,7 @@ import {
 	type LineForBalance,
 	summarizePosition,
 } from "@/lib/finance/accounting";
+import { loadCatatData } from "@/lib/finance/quick-record-data";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -191,6 +193,7 @@ export default async function AccountingPage({
 		}));
 
 	const asOfLabel = formatDateID(new Date().toISOString());
+	const catatData = await loadCatatData();
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -199,6 +202,8 @@ export default async function AccountingPage({
 				description="Pusat keuangan bisnis. Sebagian besar jurnal ter-posting otomatis dari settlement, pembelian, dan stock opname — tinggal dibaca, ditelusuri, dan dikoreksi bila perlu."
 				actions={<NewJournalEntryButton coa={coaOptions} />}
 			/>
+
+			<CatatLauncher data={catatData} />
 
 			<FinancialPosition position={position} asOfLabel={asOfLabel} />
 

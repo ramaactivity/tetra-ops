@@ -12,6 +12,7 @@ import {
 	Moon,
 	Package,
 	Palette,
+	Plus,
 	Receipt,
 	Settings,
 	Sun,
@@ -170,6 +171,23 @@ export function OwnerBottomNav({
 							</Link>
 						);
 					})}
+					<Link
+						href="/finance?catat=1"
+						onClick={() => haptic("tap")}
+						aria-label="Catat transaksi"
+						className="press-sm tap group relative flex flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
+					>
+						<span className="flex h-8 w-[3.25rem] items-center justify-center rounded-full bg-[#059669] shadow-[var(--shadow-level-1)]">
+							<Plus
+								className="size-[1.4rem] text-white"
+								strokeWidth={2.4}
+								aria-hidden="true"
+							/>
+						</span>
+						<span className="text-[0.6875rem] font-medium leading-none tracking-tight text-foreground">
+							Catat
+						</span>
+					</Link>
 					<button
 						type="button"
 						onClick={() => {
