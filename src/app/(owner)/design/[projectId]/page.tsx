@@ -98,9 +98,9 @@ export default async function DesignAssetManagerPage({
 		<Container size="lg" className="space-y-3">
 			<Link
 				href="/design"
-				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+				className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-secondary px-3 pr-3.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 			>
-				<ChevronLeft className="h-4 w-4" />
+				<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
 				Design Hub
 			</Link>
 
@@ -134,34 +134,34 @@ export default async function DesignAssetManagerPage({
 				}
 			/>
 
-			{/* Hero — event identity + asset readiness counts (one card, like the
-			    Payments summary). */}
-			<section className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
-				<div className="p-5">
-					<h1 className="type-title break-words text-foreground">
-						{event.client_name}
-					</h1>
-					<p className="type-secondary text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-						<span className="tabular">{event.project_id}</span>
-						<span className="text-muted-foreground/40">·</span>
-						<span>{formatDateID(event.event_date)}</span>
-						<span className="text-muted-foreground/40">·</span>
-						<span>
-							{event.venue_name}
-							{event.venue_city ? `, ${event.venue_city}` : ""}
-						</span>
-					</p>
-				</div>
-				<dl className="grid grid-cols-3 divide-x divide-border-subtle border-t border-border-subtle">
+			{/* Emerald hero — event identity + asset counts, same green card as the
+			    event detail / billing heroes. */}
+			<section className="overflow-hidden rounded-[20px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-3)]">
+				<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+					{formatDateID(event.event_date)}
+					{event.venue_name
+						? ` · ${event.venue_name}${event.venue_city ? `, ${event.venue_city}` : ""}`
+						: ""}
+				</p>
+				<h1 className="mt-1.5 break-words text-[26px] font-bold leading-[1.1] tracking-[-0.02em] sm:text-[30px]">
+					{event.client_name}
+				</h1>
+
+				<dl className="mt-4 grid grid-cols-3 gap-2">
 					{ASSET_TYPES.map((t) => {
 						const count =
 							t === "footage_crew" && footageCount != null
 								? footageCount
 								: (byType.get(t) ?? []).length;
 						return (
-							<div key={t} className="px-3 py-3.5 sm:px-4">
-								<dt className="eyebrow">{ASSET_TYPE_LABELS[t]}</dt>
-								<dd className="tabular mt-1 text-2xl font-bold leading-none text-foreground">
+							<div
+								key={t}
+								className="rounded-2xl bg-white/12 px-3 py-2.5 backdrop-blur-sm"
+							>
+								<dt className="text-[10.5px] font-semibold uppercase tracking-wider text-white/70">
+									{ASSET_TYPE_LABELS[t]}
+								</dt>
+								<dd className="tabular mt-0.5 text-2xl font-bold leading-none">
 									{count}
 								</dd>
 							</div>

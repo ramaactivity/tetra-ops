@@ -193,7 +193,7 @@ export function AssetSection({
 		<section className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 			<header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3.5">
 				<div className="flex items-center gap-2.5">
-					<div className="grid size-9 place-items-center rounded-xl bg-secondary text-foreground">
+					<div className="grid size-9 place-items-center rounded-xl border border-border-default bg-card text-foreground">
 						<Icon className="size-4" aria-hidden />
 					</div>
 					<div>
@@ -246,7 +246,7 @@ export function AssetSection({
 
 			{/* Auto Drive folder (Footage / Softfile): open + copy link for WhatsApp */}
 			{folderUrl && (
-				<div className="flex items-center gap-2 border-b border-border-subtle bg-secondary/50 px-4 py-2.5">
+				<div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2.5">
 					<a
 						href={folderUrl}
 						target="_blank"
@@ -254,9 +254,7 @@ export function AssetSection({
 						className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
 					>
 						<FolderOpen className="size-4 shrink-0" />
-						<span className="truncate">
-							Buka folder {folderLabel} di Google Drive
-						</span>
+						<span className="truncate">Buka folder {folderLabel}</span>
 						<ExternalLink className="size-3.5 shrink-0" />
 					</a>
 					<button
@@ -274,7 +272,7 @@ export function AssetSection({
 			{showAdd && canEdit ? (
 				<form
 					action={handleAdd}
-					className="space-y-2.5 border-b border-border-subtle bg-secondary/40 px-4 py-3.5"
+					className="space-y-2.5 border-b border-border-subtle px-4 py-3.5"
 				>
 					<div className="grid gap-2.5 sm:grid-cols-2">
 						<label className="space-y-1">
@@ -340,7 +338,7 @@ export function AssetSection({
 				) : (
 					rows.map((row) =>
 						editing?.id === row.id ? (
-							<li key={row.id} className="bg-secondary/40 px-4 py-3">
+							<li key={row.id} className="px-4 py-3">
 								<form
 									action={(fd) => handleUpdate(row.id, fd)}
 									className="space-y-2.5"
