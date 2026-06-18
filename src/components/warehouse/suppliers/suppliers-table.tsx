@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, Truck } from "lucide-react";
+import { Pencil, Star, Trash2, Truck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -72,19 +72,24 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 			key: "name",
 			header: "Supplier",
 			render: (r) => (
-				<div className="space-y-0.5">
+				<div className="flex min-w-0 flex-col gap-0.5">
 					<div className="flex items-center gap-2">
-						<span className="font-medium text-foreground">{r.name}</span>
+						<span className="truncate text-[14px] font-semibold leading-snug text-foreground">
+							{r.name}
+						</span>
 						{!r.is_active && (
-							<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+							<Badge
+								variant="secondary"
+								className="h-5 shrink-0 px-1.5 text-[10px]"
+							>
 								Inactive
 							</Badge>
 						)}
 					</div>
 					{r.category && (
-						<div className="text-[11px] text-muted-foreground">
+						<span className="truncate text-[12px] text-muted-foreground">
 							{r.category}
-						</div>
+						</span>
 					)}
 				</div>
 			),
@@ -92,8 +97,9 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 		{
 			key: "contact",
 			header: "Kontak",
+			width: "200px",
 			render: (r) => (
-				<span className="text-fluid-caption text-muted-foreground">
+				<span className="tabular text-[13px] text-muted-foreground">
 					{r.contact ?? "—"}
 				</span>
 			),
@@ -101,16 +107,19 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 		{
 			key: "payment",
 			header: "Default Pembayaran",
+			width: "220px",
 			render: (r) => (
 				<div className="flex items-center gap-1.5">
-					<span className="text-fluid-caption text-foreground">
-						{PAYMENT_TERM_LABELS[r.default_payment_term] ?? r.default_payment_term}
+					<span className="text-[13px] text-foreground">
+						{PAYMENT_TERM_LABELS[r.default_payment_term] ??
+							r.default_payment_term}
 					</span>
-					{r.default_payment_term === "top_custom" && r.default_top_days > 0 && (
-						<span className="text-[11px] text-muted-foreground">
-							({r.default_top_days} hari)
-						</span>
-					)}
+					{r.default_payment_term === "top_custom" &&
+						r.default_top_days > 0 && (
+							<span className="text-[11px] text-muted-foreground">
+								({r.default_top_days} hari)
+							</span>
+						)}
 				</div>
 			),
 		},
@@ -118,17 +127,19 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 			key: "items",
 			header: "Items",
 			align: "center",
+			width: "130px",
 			render: (r) => (
-				<div className="flex items-center justify-center gap-1">
-					<span className="tabular text-fluid-caption font-medium text-foreground">
+				<div className="flex items-center justify-center gap-1.5">
+					<span className="tabular text-[13px] font-medium text-foreground">
 						{r.item_count}
 					</span>
 					{r.primary_count > 0 && (
 						<Badge
 							variant="outline"
-							className="h-5 border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] text-emerald-700 dark:text-emerald-300"
+							className="h-5 gap-0.5 border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] text-emerald-700 dark:text-emerald-300"
 						>
-							⭐ {r.primary_count}
+							<Star className="size-2.5 fill-current" aria-hidden />
+							{r.primary_count}
 						</Badge>
 					)}
 				</div>
@@ -138,6 +149,7 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 			key: "actions",
 			header: "Aksi",
 			align: "right",
+			width: "110px",
 			render: (r) => (
 				<div className="flex items-center justify-end gap-1">
 					<button
@@ -145,7 +157,7 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 						onClick={() => setEditing(r)}
 						title="Edit supplier"
 						aria-label={`Edit ${r.name}`}
-						className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+						className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
 					>
 						<Pencil className="size-4" />
 					</button>
@@ -154,7 +166,7 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 						onClick={() => setArchiving(r)}
 						title="Arsipkan"
 						aria-label={`Arsipkan ${r.name}`}
-						className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+						className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 					>
 						<Trash2 className="size-4" />
 					</button>
@@ -172,12 +184,12 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 					onValueChange={setQuery}
 					placeholder="Cari nama / kategori / kontak..."
 				/>
-				<label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-2 px-3 text-[12px]">
+				<label className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-border-default bg-card px-3.5 text-[13px] text-foreground transition-colors hover:bg-secondary/40">
 					<input
 						type="checkbox"
 						checked={showInactive}
 						onChange={(e) => setShowInactive(e.target.checked)}
-						className="size-3.5"
+						className="size-3.5 accent-[#059669]"
 					/>
 					Tampilkan non-aktif
 				</label>
@@ -188,11 +200,12 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 					Tidak ada supplier yang cocok.
 				</div>
 			) : (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<ResponsiveTable<SupplierRow>
 						keyExtractor={(r) => r.id}
 						rows={filtered}
 						columns={columns}
+						rowClassName="transition-colors hover:bg-secondary/40"
 					/>
 				</div>
 			)}

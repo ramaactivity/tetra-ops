@@ -103,7 +103,7 @@ export function ResponsiveTable<T>({
 									<th
 										key={col.key}
 										className={cn(
-											"eyebrow px-3 py-2.5",
+											"eyebrow px-5 py-3",
 											col.align === "right" && "text-right",
 											col.align === "center" && "text-center",
 											col.className,
@@ -142,7 +142,7 @@ export function ResponsiveTable<T>({
 												<td
 													key={col.key}
 													className={cn(
-														"px-3 py-3 align-middle",
+														"px-5 py-3.5 align-middle",
 														col.align === "right" && "text-right",
 														col.align === "center" && "text-center",
 														col.truncate && "overflow-hidden",
