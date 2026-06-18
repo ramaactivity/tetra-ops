@@ -116,10 +116,10 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 							key={f.key}
 							type="button"
 							onClick={() => setFilter(f.key)}
-							className={`press-down inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium transition-colors ${
+							className={`inline-flex h-8 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
 								isActive
-									? "bg-[#059669] text-white"
-									: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+									? "border-[#059669] bg-[#059669] text-white"
+									: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 							}`}
 						>
 							{f.label}
@@ -135,7 +135,7 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 			</div>
 
 			{/* Totals strip */}
-			<div className="bg-surface-2 grid grid-cols-2 gap-3 rounded-lg px-4 py-3 sm:grid-cols-3">
+			<div className="grid grid-cols-2 gap-3 rounded-lg border border-border-default bg-card px-5 py-3.5 sm:grid-cols-3">
 				<div>
 					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">
 						Total Entry
@@ -165,7 +165,7 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 			</div>
 
 			{/* List */}
-			<div className="bg-surface-2 overflow-hidden rounded-lg">
+			<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 				{filtered.length === 0 ? (
 					<div className="px-4 py-8 text-center text-sm text-muted-foreground">
 						Tidak ada wastage yang cocok dengan filter.
@@ -180,14 +180,14 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 							return (
 								<li
 									key={r.id}
-									className={`grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-start ${
-										idx > 0 ? "border-t border-foreground/[0.04]" : ""
+									className={`grid gap-2 px-5 py-3.5 transition-colors hover:bg-secondary/40 sm:grid-cols-[1fr_auto] sm:items-start ${
+										idx > 0 ? "border-t border-border-subtle" : ""
 									}`}
 								>
 									<div className="min-w-0 space-y-1">
 										<div className="flex flex-wrap items-center gap-2">
 											<span
-												className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-medium ${reasonInfo.tone}`}
+												className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium ${reasonInfo.tone}`}
 											>
 												{reasonInfo.label}
 											</span>
@@ -243,7 +243,7 @@ export function WastageListTable({ rows }: { rows: WastageRow[] }) {
 										<div className="tabular text-sm font-semibold text-rose-700 dark:text-rose-300">
 											{formatRupiah(r.cost_at_time)}
 										</div>
-										<div className="text-[10px] text-muted-foreground tabular">
+										<div className="text-[11px] text-muted-foreground tabular">
 											{r.ref_id}
 										</div>
 										{r.evidence_url && (

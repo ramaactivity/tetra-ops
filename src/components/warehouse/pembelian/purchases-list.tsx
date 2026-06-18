@@ -87,8 +87,7 @@ export function PurchasesList({ rows }: { rows: PurchaseRow[] }) {
 			align: "right",
 			render: (r) => (
 				<span className="tabular text-fluid-caption font-medium text-emerald-600 dark:text-emerald-400">
-					+
-					{r.quantity.toLocaleString("id-ID", { maximumFractionDigits: 4 })}{" "}
+					+{r.quantity.toLocaleString("id-ID", { maximumFractionDigits: 4 })}{" "}
 					{r.unit}
 				</span>
 			),
@@ -139,11 +138,12 @@ export function PurchasesList({ rows }: { rows: PurchaseRow[] }) {
 					Tidak ada pembelian yang cocok.
 				</div>
 			) : (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<ResponsiveTable<PurchaseRow>
 						keyExtractor={(r) => r.id}
 						rows={filtered}
 						columns={columns}
+						rowClassName="transition-colors hover:bg-secondary/40"
 					/>
 				</div>
 			)}

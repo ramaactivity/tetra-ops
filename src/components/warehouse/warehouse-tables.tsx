@@ -758,13 +758,14 @@ export function ConsumablesTable({
 					Tidak ada item yang cocok dengan filter ini.
 				</div>
 			) : (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<div className="max-h-[calc(100vh-22rem)] overflow-y-auto">
 						<ResponsiveTable<ConsumableRow>
 							keyExtractor={(r) => r.id}
 							rows={filtered}
 							columns={columns}
 							stickyHeader
+							rowClassName="transition-colors hover:bg-secondary/40"
 						/>
 					</div>
 				</div>
@@ -1282,7 +1283,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 					Tidak ada equipment yang cocok dengan filter ini.
 				</div>
 			) : (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<div className="max-h-[calc(100vh-22rem)] overflow-y-auto">
 						<ResponsiveTable<EquipmentGroup>
 							keyExtractor={(g) => g.key}
@@ -1597,11 +1598,12 @@ export function MovementsLog({
 					Tidak ada mutasi yang cocok dengan filter ini.
 				</div>
 			) : (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<ResponsiveTable<MovementRow>
 						keyExtractor={(m) => m.id}
 						rows={filtered}
 						columns={columns}
+						rowClassName="transition-colors hover:bg-secondary/40"
 					/>
 				</div>
 			)}

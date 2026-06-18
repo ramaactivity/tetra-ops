@@ -191,26 +191,26 @@ export default async function StockTakeListPage({
 			) : (
 				<>
 					{/* Desktop / tablet table */}
-					<div className="hidden overflow-hidden rounded-lg border border-border-default bg-surface-2 md:block">
+					<div className="hidden overflow-hidden rounded-lg border border-border-default bg-card md:block">
 						<table className="w-full text-sm">
 							<thead className="border-b border-border-default bg-card">
 								<tr className="text-left">
-									<th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										Tanggal
 									</th>
-									<th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										By
 									</th>
-									<th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<th className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										Progress
 									</th>
-									<th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<th className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										Selisih
 									</th>
-									<th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										Status
 									</th>
-									<th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<th className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										Aksi
 									</th>
 								</tr>
@@ -219,9 +219,9 @@ export default async function StockTakeListPage({
 								{rows.map((r) => (
 									<tr
 										key={r.id}
-										className="transition-colors hover:bg-muted/30"
+										className="transition-colors hover:bg-secondary/40"
 									>
-										<td className="px-4 py-3 align-middle">
+										<td className="px-5 py-3.5 align-middle">
 											<div className="space-y-0.5">
 												<div className="tabular text-fluid-caption font-medium text-foreground">
 													{formatDateID(r.taken_at)}
@@ -233,19 +233,19 @@ export default async function StockTakeListPage({
 												) : null}
 											</div>
 										</td>
-										<td className="px-4 py-3 align-middle">
+										<td className="px-5 py-3.5 align-middle">
 											<span className="text-fluid-caption text-muted-foreground">
 												{r.taken_by_name}
 											</span>
 										</td>
-										<td className="px-4 py-3 align-middle text-center">
+										<td className="px-5 py-3.5 align-middle text-center">
 											<ProgressCell
 												audited={r.audited_lines}
 												total={r.total_lines}
 												isDraft={r.status === "draft"}
 											/>
 										</td>
-										<td className="px-4 py-3 align-middle text-center">
+										<td className="px-5 py-3.5 align-middle text-center">
 											{r.variance_lines > 0 ? (
 												<Badge
 													variant="outline"
@@ -257,7 +257,7 @@ export default async function StockTakeListPage({
 												<span className="text-muted-foreground/40">—</span>
 											)}
 										</td>
-										<td className="px-4 py-3 align-middle">
+										<td className="px-5 py-3.5 align-middle">
 											<Badge
 												variant="outline"
 												className={STATUS_TONE[r.status] ?? ""}
@@ -265,7 +265,7 @@ export default async function StockTakeListPage({
 												{STATUS_LABEL[r.status] ?? r.status}
 											</Badge>
 										</td>
-										<td className="px-4 py-3 align-middle text-right">
+										<td className="px-5 py-3.5 align-middle text-right">
 											<div className="inline-flex items-center gap-2">
 												<Link
 													href={`/warehouse/stock-take/${r.id}`}

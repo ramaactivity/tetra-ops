@@ -86,14 +86,14 @@ export function PRTable({
 				return (
 					<div
 						key={pr.id}
-						className={`rounded-lg border bg-surface-2 ${
+						className={`overflow-hidden rounded-lg border bg-card ${
 							stale ? "border-rose-500/30" : "border-border-default"
 						}`}
 					>
 						<button
 							type="button"
 							onClick={() => setExpanded(open ? null : pr.id)}
-							className="flex w-full items-start justify-between gap-3 p-3 text-left hover:bg-surface-3/40"
+							className="flex w-full items-start justify-between gap-3 p-4 text-left transition-colors hover:bg-secondary/40"
 						>
 							<div className="min-w-0 flex-1 space-y-1">
 								<div className="flex flex-wrap items-center gap-2">

@@ -266,31 +266,29 @@ export default async function AssetRegisterPage({
 					}
 				/>
 			) : (
-				<div className="bg-surface-2 overflow-hidden rounded-lg">
+				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<div className="overflow-x-auto">
-						<table className="w-full text-[12px]">
-							<thead>
-								<tr className="text-muted-foreground/80 text-left text-[10px] uppercase tracking-wider">
-									<th className="px-4 py-2.5 font-medium">Asset</th>
-									<th className="px-3 py-2.5 font-medium">Status</th>
-									<th className="px-3 py-2.5 text-right font-medium">
+						<table className="w-full text-[13px]">
+							<thead className="border-b border-border-default bg-card">
+								<tr className="text-muted-foreground/80 text-left text-[11px] uppercase tracking-wider">
+									<th className="px-5 py-3 font-medium">Asset</th>
+									<th className="px-4 py-3 font-medium">Status</th>
+									<th className="px-4 py-3 text-right font-medium">
 										Harga Beli
 									</th>
-									<th className="px-3 py-2.5 text-right font-medium">
+									<th className="px-4 py-3 text-right font-medium">
 										Akum. Depr.
 									</th>
-									<th className="px-3 py-2.5 text-right font-medium">
+									<th className="px-4 py-3 text-right font-medium">
 										Nilai Buku
 									</th>
 									{!showDisposed && (
-										<th className="px-3 py-2.5 text-right font-medium">
-											/Bulan
-										</th>
+										<th className="px-4 py-3 text-right font-medium">/Bulan</th>
 									)}
-									<th className="px-3 py-2.5 text-right font-medium">
+									<th className="px-4 py-3 text-right font-medium">
 										{showDisposed ? "Sale" : "Sisa"}
 									</th>
-									<th className="w-20 px-2 py-2.5" />
+									<th className="w-20 px-4 py-3" />
 								</tr>
 							</thead>
 							<tbody>
@@ -302,18 +300,18 @@ export default async function AssetRegisterPage({
 									return (
 										<tr
 											key={r.id}
-											className={
-												idx > 0 ? "border-t border-foreground/[0.04]" : ""
-											}
+											className={`transition-colors hover:bg-secondary/40 ${
+												idx > 0 ? "border-t border-border-subtle" : ""
+											}`}
 										>
-											<td className="px-4 py-2.5 align-top">
+											<td className="px-5 py-3 align-top">
 												<div className="space-y-0.5">
 													<div className="flex flex-wrap items-center gap-2">
 														<span className="font-medium">{r.name}</span>
 														{r.isFullyDepreciated && !r.disposed_at && (
 															<Badge
 																variant="outline"
-																className="h-4 bg-zinc-500/10 px-1 text-[9px] text-zinc-700 dark:text-zinc-300"
+																className="h-4 bg-zinc-500/10 px-1 text-[11px] text-zinc-700 dark:text-zinc-300"
 															>
 																FULLY DEPRECIATED
 															</Badge>
@@ -321,20 +319,20 @@ export default async function AssetRegisterPage({
 														{r.disposed_at && (
 															<Badge
 																variant="outline"
-																className="h-4 bg-rose-500/10 px-1 text-[9px] text-rose-700 dark:text-rose-300"
+																className="h-4 bg-rose-500/10 px-1 text-[11px] text-rose-700 dark:text-rose-300"
 															>
 																{DISPOSAL_LABELS[r.disposal_method ?? ""] ??
 																	"DISPOSED"}
 															</Badge>
 														)}
 													</div>
-													<div className="tabular text-muted-foreground text-[10px]">
+													<div className="tabular text-muted-foreground text-[11px]">
 														{r.sku}
 														{r.asset_number ? ` · ${r.asset_number}` : ""}
 														{r.serial_number ? ` · S/N ${r.serial_number}` : ""}
 													</div>
 													{r.purchase_date && (
-														<div className="text-muted-foreground/80 text-[10px]">
+														<div className="text-muted-foreground/80 text-[11px]">
 															Beli{" "}
 															{new Date(r.purchase_date).toLocaleDateString(
 																"id-ID",
@@ -349,11 +347,11 @@ export default async function AssetRegisterPage({
 													)}
 												</div>
 											</td>
-											<td className="px-3 py-2.5 align-top">
+											<td className="px-4 py-3 align-top">
 												<div className="flex flex-col gap-1">
 													{r.condition && !r.disposed_at && (
 														<span
-															className={`inline-flex h-4 w-max items-center rounded-full px-1.5 text-[9px] font-medium ${
+															className={`inline-flex h-4 w-max items-center rounded-full px-1.5 text-[11px] font-medium ${
 																CONDITION_TONE[r.condition] ??
 																CONDITION_TONE.normal
 															}`}
@@ -362,40 +360,40 @@ export default async function AssetRegisterPage({
 														</span>
 													)}
 													{r.location && !r.disposed_at && (
-														<span className="text-[10px] text-muted-foreground">
+														<span className="text-[11px] text-muted-foreground">
 															{LOCATION_LABELS[r.location] ?? r.location}
 														</span>
 													)}
 													{r.event && !r.disposed_at && (
 														<Link
 															href={`/operations/${r.event.project_id}`}
-															className="text-primary text-[10px] hover:underline"
+															className="text-primary text-[11px] hover:underline"
 														>
 															@ {r.event.project_id}
 														</Link>
 													)}
 													{r.disposed_at && (
-														<span className="text-[10px] text-muted-foreground italic">
+														<span className="text-[11px] text-muted-foreground italic">
 															archived
 														</span>
 													)}
 												</div>
 											</td>
-											<td className="tabular px-3 py-2.5 text-right align-top">
+											<td className="tabular px-4 py-3 text-right align-top">
 												{formatRupiah(r.purchase_price)}
 											</td>
-											<td className="tabular px-3 py-2.5 text-right align-top text-rose-700 dark:text-rose-300">
+											<td className="tabular px-4 py-3 text-right align-top text-rose-700 dark:text-rose-300">
 												{r.accumulated > 0 ? formatRupiah(r.accumulated) : "—"}
 											</td>
-											<td className="tabular px-3 py-2.5 text-right align-top font-semibold text-emerald-700 dark:text-emerald-300">
+											<td className="tabular px-4 py-3 text-right align-top font-semibold text-emerald-700 dark:text-emerald-300">
 												{formatRupiah(r.bookValue)}
 											</td>
 											{!showDisposed && (
-												<td className="tabular px-3 py-2.5 text-right align-top text-muted-foreground">
+												<td className="tabular px-4 py-3 text-right align-top text-muted-foreground">
 													{r.monthly > 0 ? formatRupiah(r.monthly) : "—"}
 												</td>
 											)}
-											<td className="tabular px-3 py-2.5 text-right align-top text-muted-foreground">
+											<td className="tabular px-4 py-3 text-right align-top text-muted-foreground">
 												{showDisposed
 													? r.disposal_sale_price > 0
 														? formatRupiah(r.disposal_sale_price)
@@ -405,7 +403,7 @@ export default async function AssetRegisterPage({
 														? `${remainingMonths}/${r.useful_life_months} bln`
 														: "—"}
 											</td>
-											<td className="px-2 py-2.5 align-top">
+											<td className="px-4 py-3 align-top">
 												<div className="flex items-center justify-end gap-1">
 													{!r.disposed_at && (
 														<>
