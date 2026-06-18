@@ -100,7 +100,7 @@ function FilterChips<K extends string>({
 	options: ReadonlyArray<{ key: K; label: string; count: number }>;
 }) {
 	return (
-		<div className="inline-flex h-9 flex-wrap items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)]">
+		<div className="inline-flex h-8 flex-wrap items-center gap-0.5 rounded-full border border-border-subtle bg-card p-0.5 shadow-[var(--shadow-level-1)]">
 			{options.map((o) => {
 				const active = o.key === value;
 				return (

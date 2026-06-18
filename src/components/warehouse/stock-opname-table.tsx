@@ -138,7 +138,7 @@ export function StockOpnameTable({
 					placeholder="Cari item / SKU..."
 				/>
 				<div className="flex items-center gap-2">
-					<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 text-[12px] shadow-[var(--shadow-level-1)]">
+					<div className="inline-flex h-8 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-0.5 text-[12px] shadow-[var(--shadow-level-1)]">
 						{FILTER_TABS.map((t) => {
 							const c = counts[t.key];
 							const active = t.key === filter;
