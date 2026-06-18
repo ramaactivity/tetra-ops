@@ -8,21 +8,19 @@ import {
 	type PaymentRow,
 } from "@/components/billing/payment-list";
 import { Container } from "@/components/layout/container";
-import { Badge } from "@/components/ui/badge";
 import { MoneyAmount } from "@/components/ui/money-amount";
 import { PAYMENT_STATUS_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
-const STATUS_VARIANT: Record<
-	string,
-	"default" | "secondary" | "outline" | "destructive" | "success"
-> = {
-	paid: "success",
-	overpaid: "success",
-	overdue: "destructive",
-	dp: "default",
-	partial: "default",
-	unpaid: "outline",
+// Light status dots that read on the emerald hero.
+const HERO_PAY_DOT: Record<string, string> = {
+	paid: "bg-emerald-200",
+	overpaid: "bg-emerald-200",
+	dp: "bg-sky-300",
+	partial: "bg-sky-300",
+	overdue: "bg-rose-300",
+	unpaid: "bg-white/60",
 };
 
 export default async function ManagePaymentsPage({
@@ -73,40 +71,45 @@ export default async function ManagePaymentsPage({
 	const canLog = remaining > 0;
 
 	return (
-		<Container size="xl" className="space-y-4 pb-4">
-			{/* Header — compact */}
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="min-w-0">
-					<Link
-						href={`/operations/${event.project_id}`}
-						className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
-					>
-						<ChevronLeft className="size-3.5" />
-						<span className="eyebrow">{event.project_id}</span>
-					</Link>
-					<div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-						<h1 className="type-title">Payments</h1>
-						<span className="type-secondary">{event.client_name}</span>
-						<Badge variant={STATUS_VARIANT[status] ?? "secondary"}>
-							{PAYMENT_STATUS_LABELS[status] ?? status}
-						</Badge>
-					</div>
-				</div>
-				{canLog && (
-					<LogPaymentDialog
-						eventId={event.id as string}
-						projectId={event.project_id}
-						bankAccounts={(banks ?? []) as BankAccountOption[]}
-						defaultDate={today}
-						suggestedAmount={remaining}
-						grandTotal={grand}
-						totalPaid={paid}
-					/>
-				)}
-			</div>
+		<Container size="xl" className="space-y-5 pb-4">
+			{/* Back */}
+			<Link
+				href={`/operations/${event.project_id}`}
+				className="inline-flex h-8 w-fit items-center gap-1.5 rounded-full bg-secondary px-3 pr-3.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+			>
+				<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
+				Event
+			</Link>
 
-			{/* Summary — stat row + progress */}
-			<section className="overflow-hidden rounded-2xl border border-border-default bg-card shadow-[var(--shadow-level-2)]">
+			{/* Emerald hero — mirrors the event-detail hero */}
+			<section className="overflow-hidden rounded-[20px] bg-[#059669] p-5 text-white shadow-[var(--shadow-level-3)]">
+				<div className="flex items-start justify-between gap-3">
+					<div className="min-w-0">
+						<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+							Pembayaran
+						</p>
+						<h1 className="mt-2 break-words text-[28px] font-bold leading-[1.08] tracking-[-0.02em] sm:text-[34px]">
+							{event.client_name}
+						</h1>
+						<p className="tabular mt-2 font-mono text-[12.5px] text-white/65">
+							{event.project_id}
+						</p>
+					</div>
+					<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[12.5px] font-semibold text-white backdrop-blur-sm">
+						<span
+							className={cn(
+								"size-1.5 rounded-full",
+								HERO_PAY_DOT[status] ?? "bg-white",
+							)}
+							aria-hidden
+						/>
+						{PAYMENT_STATUS_LABELS[status] ?? status}
+					</span>
+				</div>
+			</section>
+
+			{/* Summary — stat row + 2-segment progress (matches dashboard targets) */}
+			<section className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 				<dl className="grid grid-cols-3 divide-x divide-border-subtle">
 					<SummaryCell label="Grand Total">
 						<MoneyAmount value={grand} size="lg" tone="default" />
@@ -126,26 +129,55 @@ export default async function ManagePaymentsPage({
 						/>
 					</SummaryCell>
 				</dl>
-				<div className="flex items-center gap-3 border-t border-border-subtle px-5 py-2.5">
-					<span className="eyebrow shrink-0">Progress</span>
-					<div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-						<div
-							className="h-full rounded-full bg-emerald-500 transition-all dark:bg-emerald-400"
-							style={{ width: `${paidPct}%` }}
-						/>
+				<div className="border-t border-border-subtle px-5 py-3.5">
+					<div className="flex items-center justify-between text-[12.5px] leading-none">
+						<span className="text-muted-foreground">Progress pembayaran</span>
+						<span
+							className={cn(
+								"tabular font-semibold",
+								paidPct >= 100
+									? "text-emerald-700 dark:text-emerald-400"
+									: "text-amber-700 dark:text-amber-500",
+							)}
+						>
+							{paidPct}%
+						</span>
 					</div>
-					<span className="type-num shrink-0 text-[0.8125rem]">{paidPct}%</span>
+					<div className="mt-2 flex h-[14px] w-full items-stretch gap-1.5">
+						{paidPct > 0 ? (
+							<div
+								className="rounded-[6px]"
+								style={{ width: `${paidPct}%`, backgroundColor: "#74c02f" }}
+							/>
+						) : null}
+						{paidPct < 100 ? (
+							<div className="flex-1 rounded-[6px] bg-[repeating-linear-gradient(45deg,#dedcd4_0,#dedcd4_4px,#f1f0eb_4px,#f1f0eb_9px)]" />
+						) : null}
+					</div>
 				</div>
 			</section>
 
 			{/* Riwayat — full width; form lives in the Log payment modal */}
-			<section className="rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
-				<div className="mb-3 flex items-baseline justify-between">
-					<h2 className="type-heading">Riwayat payment</h2>
-					{payments.length > 0 && (
-						<span className="type-caption tabular">
-							{payments.length} transaksi
-						</span>
+			<section className="rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+				<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+					<div className="flex items-baseline gap-2">
+						<h2 className="type-heading">Riwayat payment</h2>
+						{payments.length > 0 && (
+							<span className="type-caption tabular">
+								{payments.length} transaksi
+							</span>
+						)}
+					</div>
+					{canLog && (
+						<LogPaymentDialog
+							eventId={event.id as string}
+							projectId={event.project_id}
+							bankAccounts={(banks ?? []) as BankAccountOption[]}
+							defaultDate={today}
+							suggestedAmount={remaining}
+							grandTotal={grand}
+							totalPaid={paid}
+						/>
 					)}
 				</div>
 				<PaymentList projectId={event.project_id} payments={payments} />
