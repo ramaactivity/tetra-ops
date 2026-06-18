@@ -27,7 +27,7 @@ export async function OwnerTopBar({
 	return (
 		<header
 			style={{ viewTransitionName: "site-header" }}
-			className="sticky top-3 z-30 flex items-center gap-2 rounded-[16px] border border-border-subtle bg-card px-3 py-2.5 shadow-[var(--shadow-level-2)] md:gap-3 md:px-5 md:py-3"
+			className="z-30 flex items-center gap-2 px-1 py-0.5 md:sticky md:top-3 md:gap-3 md:rounded-[16px] md:border md:border-border-subtle md:bg-card md:px-5 md:py-3 md:shadow-[var(--shadow-level-2)]"
 		>
 			{/* Current page — gives the topbar a clear purpose and, on mobile where
 			    the sidebar is hidden, tells you where you are. */}
@@ -44,8 +44,9 @@ export async function OwnerTopBar({
 				className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto empty:hidden [&>*]:shrink-0 [&>a]:h-9 [&>button]:h-9 [&>form>button]:h-9 [&>a]:rounded-full [&>button]:rounded-full [&>form>button]:rounded-full [&>a]:text-[13px] [&>button]:text-[13px] [&>form>button]:text-[13px]"
 			/>
 
-			{/* Identity cluster (right) — never shrinks, so the bell stays in-bounds */}
-			<div className="ml-auto flex shrink-0 items-center gap-2 md:gap-2.5">
+			{/* Identity cluster — desktop only. On mobile, account + notifications
+			    live in the bottom-nav "More" tab, so the topbar stays slim. */}
+			<div className="ml-auto hidden shrink-0 items-center gap-2 md:flex md:gap-2.5">
 				<span className="hidden text-[14px] font-medium text-foreground lg:inline">
 					{name}
 				</span>

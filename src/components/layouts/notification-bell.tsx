@@ -2,53 +2,14 @@
 
 import { Bell } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useUnreadNotifications } from "@/lib/use-unread-notifications";
 
 /**
- * Unread-notification badge in the top bar.
- *
- * Client-side on purpose: this sits in the shared <TopBar>, so a server-side
- * version ran a `notifications` COUNT query on EVERY authenticated page render
- * (one Supabase round-trip per navigation = Active CPU on Vercel). Fetching the
- * count from the browser (client → Supabase, never touching the Vercel
- * function) removes that per-navigation query entirely. RLS scopes the rows to
- * the signed-in user; we still filter by user_id for index use. Re-checks on
- * window focus so the badge stays current without polling.
+ * Unread-notification badge in the desktop top bar. Count logic lives in the
+ * shared useUnreadNotifications hook (also drives the mobile "More" badge).
  */
 export function NotificationBell() {
-	const [unread, setUnread] = useState(0);
-
-	useEffect(() => {
-		const supabase = createClient();
-		let active = true;
-
-		const load = async () => {
-			const { data } = await supabase.auth.getClaims();
-			const uid = data?.claims?.sub;
-			if (!uid) return;
-			const nowIso = new Date().toISOString();
-			const { count } = await supabase
-				.from("notifications")
-				.select("id", { count: "exact", head: true })
-				.eq("user_id", uid)
-				.eq("is_read", false)
-				.eq("is_dismissed", false)
-				.or(`expires_at.is.null,expires_at.gt.${nowIso}`);
-			if (active) setUnread(count ?? 0);
-		};
-
-		load();
-		const onFocus = () => {
-			load();
-		};
-		window.addEventListener("focus", onFocus);
-		return () => {
-			active = false;
-			window.removeEventListener("focus", onFocus);
-		};
-	}, []);
-
+	const unread = useUnreadNotifications();
 	const display = unread > 99 ? "99+" : String(unread);
 
 	return (
