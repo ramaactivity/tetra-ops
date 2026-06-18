@@ -1,18 +1,19 @@
 import { ShoppingCart, Wallet2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PembelianDialog } from "@/components/warehouse/pembelian/pembelian-dialog";
 import type {
 	PembelianItemOption,
 	PembelianSupplierOption,
 } from "@/components/warehouse/pembelian/pembelian-dialog";
+import { PembelianDialog } from "@/components/warehouse/pembelian/pembelian-dialog";
 import {
-	PurchasesList,
 	type PurchaseRow,
+	PurchasesList,
 } from "@/components/warehouse/pembelian/purchases-list";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -76,7 +77,9 @@ export default async function PurchasesPage() {
 	const items: PembelianItemOption[] = ((itemsRes.data ?? []) as RawItem[]).map(
 		(i) => {
 			const cfg = Array.isArray(i.config) ? i.config[0] : i.config;
-			const sup = Array.isArray(cfg?.supplier) ? cfg?.supplier[0] : cfg?.supplier;
+			const sup = Array.isArray(cfg?.supplier)
+				? cfg?.supplier[0]
+				: cfg?.supplier;
 			return {
 				id: i.id,
 				sku: i.sku,
@@ -90,21 +93,23 @@ export default async function PurchasesPage() {
 	);
 	const suppliers = (suppliersRes.data ?? []) as PembelianSupplierOption[];
 
-	const rows: PurchaseRow[] = ((purchasesRes.data ?? []) as Array<{
-		id: string;
-		ref_id: string;
-		item_id: string;
-		quantity: number | string;
-		unit_cost: number | null;
-		notes: string | null;
-		created_at: string;
-		supplier_id: string | null;
-		item:
-			| { name: string; sku: string; unit: string }
-			| { name: string; sku: string; unit: string }[]
-			| null;
-		supplier: { name: string } | { name: string }[] | null;
-	}>).map((m) => {
+	const rows: PurchaseRow[] = (
+		(purchasesRes.data ?? []) as Array<{
+			id: string;
+			ref_id: string;
+			item_id: string;
+			quantity: number | string;
+			unit_cost: number | null;
+			notes: string | null;
+			created_at: string;
+			supplier_id: string | null;
+			item:
+				| { name: string; sku: string; unit: string }
+				| { name: string; sku: string; unit: string }[]
+				| null;
+			supplier: { name: string } | { name: string }[] | null;
+		}>
+	).map((m) => {
 		const item = Array.isArray(m.item) ? m.item[0] : m.item;
 		const sup = Array.isArray(m.supplier) ? m.supplier[0] : m.supplier;
 		const qty = Number(m.quantity);
@@ -134,18 +139,24 @@ export default async function PurchasesPage() {
 			);
 		})
 		.reduce((s, r) => s + r.subtotal, 0);
-	const uniqueSuppliers = new Set(rows.map((r) => r.supplier_name).filter(Boolean))
-		.size;
+	const uniqueSuppliers = new Set(
+		rows.map((r) => r.supplier_name).filter(Boolean),
+	).size;
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Pembelian"
 				description="Riwayat pembelian stok. Klik Catat Pembelian untuk record belanja multi-item dalam satu transaksi."
 				actions={
 					<PembelianDialog
 						trigger={
-							<span className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669]">
+							<span
+								className={buttonVariants({
+									variant: "default",
+									className: "h-9",
+								})}
+							>
 								<ShoppingCart className="size-4" />
 								Catat Pembelian
 							</span>

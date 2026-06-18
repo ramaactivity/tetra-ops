@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -15,12 +15,12 @@ import {
 	type PRItemOption,
 } from "@/components/warehouse/purchase-requests/new-pr-button";
 import {
-	PRStatusTabs,
 	type PRStatusFilter,
+	PRStatusTabs,
 } from "@/components/warehouse/purchase-requests/pr-status-tabs";
 import {
-	PRTable,
 	type PRRow,
+	PRTable,
 } from "@/components/warehouse/purchase-requests/pr-table";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -50,9 +50,7 @@ export default async function PurchaseRequestsPage({
 
 	const { filter: filterRaw } = await searchParams;
 	const filter = (
-		VALID_FILTERS.includes(filterRaw as PRStatusFilter)
-			? filterRaw
-			: "open"
+		VALID_FILTERS.includes(filterRaw as PRStatusFilter) ? filterRaw : "open"
 	) as PRStatusFilter;
 
 	const supabase = await createClient();
@@ -82,34 +80,34 @@ export default async function PurchaseRequestsPage({
 	if (filter !== "all") q = q.eq("status", filter);
 	const { data: prs } = await q;
 
-	const rows: PRRow[] = ((prs ?? []) as Array<{
-		id: string;
-		status: string;
-		notes: string | null;
-		created_at: string;
-		updated_at: string;
-		completed_at: string | null;
-		requested_by: string;
-		requester:
-			| { full_name: string | null }
-			| { full_name: string | null }[]
-			| null;
-		items: Array<{
+	const rows: PRRow[] = (
+		(prs ?? []) as Array<{
 			id: string;
-			item_id: string;
-			qty_requested: number | string;
-			qty_received: number | string;
-			unit: string;
+			status: string;
 			notes: string | null;
-			item:
-				| { name: string; sku: string }
-				| { name: string; sku: string }[]
+			created_at: string;
+			updated_at: string;
+			completed_at: string | null;
+			requested_by: string;
+			requester:
+				| { full_name: string | null }
+				| { full_name: string | null }[]
 				| null;
-		}>;
-	}>).map((r) => {
-		const requester = Array.isArray(r.requester)
-			? r.requester[0]
-			: r.requester;
+			items: Array<{
+				id: string;
+				item_id: string;
+				qty_requested: number | string;
+				qty_received: number | string;
+				unit: string;
+				notes: string | null;
+				item:
+					| { name: string; sku: string }
+					| { name: string; sku: string }[]
+					| null;
+			}>;
+		}>
+	).map((r) => {
+		const requester = Array.isArray(r.requester) ? r.requester[0] : r.requester;
 		const items = (r.items ?? []).map((it) => {
 			const itm = Array.isArray(it.item) ? it.item[0] : it.item;
 			return {
@@ -157,7 +155,10 @@ export default async function PurchaseRequestsPage({
 		status: string;
 		created_at: string;
 		completed_at: string | null;
-		items: Array<{ qty_requested: number | string; qty_received: number | string }> | null;
+		items: Array<{
+			qty_requested: number | string;
+			qty_received: number | string;
+		}> | null;
 	};
 	const all = (allPrs ?? []) as AllRow[];
 	const counts = {
@@ -177,9 +178,7 @@ export default async function PurchaseRequestsPage({
 		if (p.status !== "completed" || !p.completed_at) return false;
 		const d = new Date(p.completed_at);
 		const n = new Date();
-		return (
-			d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear()
-		);
+		return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
 	}).length;
 	const openOutstandingLines = all.reduce((sum, p) => {
 		if (p.status !== "open" && p.status !== "partial") return sum;
@@ -198,7 +197,7 @@ export default async function PurchaseRequestsPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Permintaan Belanja"
 				description="Crew minta belanja → owner terima sebagian / penuh. Aging > 3 hari ditandai sebagai tertunda."
 				actions={canCreate ? <NewPRButton items={prItemOptions} /> : undefined}

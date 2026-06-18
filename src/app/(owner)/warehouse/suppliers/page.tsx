@@ -1,13 +1,14 @@
 import { Truck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { NewSupplierButton } from "@/components/warehouse/suppliers/new-supplier-button";
 import {
-	SuppliersTable,
 	type SupplierRow,
+	SuppliersTable,
 } from "@/components/warehouse/suppliers/suppliers-table";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -69,7 +70,7 @@ export default async function SuppliersPage() {
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Supplier"
 				description="Master vendor — default term pembayaran (Cash / TOP N) terpakai saat catat Pembelian."
 				actions={<NewSupplierButton />}
@@ -97,7 +98,15 @@ export default async function SuppliersPage() {
 				/>
 			</KpiRow>
 
-			<SuppliersTable rows={rows} />
+			{rows.length === 0 ? (
+				<EmptyState
+					icon={Truck}
+					title="Belum ada supplier"
+					description="Klik Tambah Supplier untuk daftarkan vendor pertama. Default term pembayaran-nya kepakai otomatis saat catat Pembelian."
+				/>
+			) : (
+				<SuppliersTable rows={rows} />
+			)}
 		</Container>
 	);
 }

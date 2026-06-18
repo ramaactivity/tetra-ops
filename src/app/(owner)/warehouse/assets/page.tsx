@@ -1,8 +1,8 @@
 import { Camera, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -177,17 +177,18 @@ export default async function AssetRegisterPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Asset Register"
-				backHref="/warehouse"
-				backLabel="Warehouse"
 				description="Daftar aktiva tetap. Book value = purchase price − accum. depresiasi (sumber: depreciation_postings)."
 				actions={
 					<>
 						<PostDepreciationButton />
 						<Link
 							href="/warehouse/items/new"
-							className={buttonVariants({ variant: "default", size: "sm" })}
+							className={buttonVariants({
+								variant: "default",
+								className: "h-9",
+							})}
 						>
 							<Plus className="size-4" />
 							Tambah Asset
@@ -296,18 +297,13 @@ export default async function AssetRegisterPage({
 								{rows.map((r, idx) => {
 									const remainingMonths =
 										r.useful_life_months && r.monthsElapsed
-											? Math.max(
-													0,
-													r.useful_life_months - r.monthsElapsed,
-												)
-											: r.useful_life_months ?? 0;
+											? Math.max(0, r.useful_life_months - r.monthsElapsed)
+											: (r.useful_life_months ?? 0);
 									return (
 										<tr
 											key={r.id}
 											className={
-												idx > 0
-													? "border-t border-foreground/[0.04]"
-													: ""
+												idx > 0 ? "border-t border-foreground/[0.04]" : ""
 											}
 										>
 											<td className="px-4 py-2.5 align-top">
@@ -327,9 +323,8 @@ export default async function AssetRegisterPage({
 																variant="outline"
 																className="h-4 bg-rose-500/10 px-1 text-[9px] text-rose-700 dark:text-rose-300"
 															>
-																{DISPOSAL_LABELS[
-																	r.disposal_method ?? ""
-																] ?? "DISPOSED"}
+																{DISPOSAL_LABELS[r.disposal_method ?? ""] ??
+																	"DISPOSED"}
 															</Badge>
 														)}
 													</div>
@@ -390,9 +385,7 @@ export default async function AssetRegisterPage({
 												{formatRupiah(r.purchase_price)}
 											</td>
 											<td className="tabular px-3 py-2.5 text-right align-top text-rose-700 dark:text-rose-300">
-												{r.accumulated > 0
-													? formatRupiah(r.accumulated)
-													: "—"}
+												{r.accumulated > 0 ? formatRupiah(r.accumulated) : "—"}
 											</td>
 											<td className="tabular px-3 py-2.5 text-right align-top font-semibold text-emerald-700 dark:text-emerald-300">
 												{formatRupiah(r.bookValue)}
@@ -447,8 +440,8 @@ export default async function AssetRegisterPage({
 				<div className="bg-surface-1 rounded-md px-4 py-3 text-[12px] text-muted-foreground">
 					<strong className="text-foreground">Tip:</strong> Klik{" "}
 					<strong>Post Depresiasi</strong> di header tiap awal bulan untuk
-					generate jurnal Dr 5-500 / Cr 1-401 otomatis. Idempotent — aman
-					re-run bulan yang sama.
+					generate jurnal Dr 5-500 / Cr 1-401 otomatis. Idempotent — aman re-run
+					bulan yang sama.
 				</div>
 			)}
 		</Container>

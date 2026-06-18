@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -22,7 +23,7 @@ export function NewSupplierButton() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669]"
+				className={buttonVariants({ variant: "default", className: "h-9" })}
 			>
 				<Plus className="size-4" />
 				Tambah Supplier

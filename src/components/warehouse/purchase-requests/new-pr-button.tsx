@@ -3,6 +3,7 @@
 import { Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
@@ -52,7 +53,7 @@ export function NewPRButton({ items }: { items: PRItemOption[] }) {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669]"
+				className={buttonVariants({ variant: "default", className: "h-9" })}
 			>
 				<Plus className="size-4" />
 				Buat Permintaan
@@ -69,10 +70,7 @@ export function NewPRButton({ items }: { items: PRItemOption[] }) {
 							Terima Item.
 						</DialogDescription>
 					</DialogHeader>
-					<PRForm
-						items={items}
-						onSuccess={() => setOpen(false)}
-					/>
+					<PRForm items={items} onSuccess={() => setOpen(false)} />
 				</DialogContent>
 			</Dialog>
 		</>
@@ -109,12 +107,12 @@ function PRForm({
 	}, [items]);
 
 	function updateLine(id: string, patch: Partial<LineRow>) {
-		setLines((curr) =>
-			curr.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-		);
+		setLines((curr) => curr.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 	}
 	function removeLine(id: string) {
-		setLines((curr) => (curr.length > 1 ? curr.filter((l) => l.id !== id) : curr));
+		setLines((curr) =>
+			curr.length > 1 ? curr.filter((l) => l.id !== id) : curr,
+		);
 	}
 
 	const validLines = lines.filter(
@@ -159,9 +157,7 @@ function PRForm({
 						<Plus className="size-3.5" /> Tambah Baris
 					</button>
 				</div>
-				{itemsError && (
-					<p className="text-xs text-destructive">{itemsError}</p>
-				)}
+				{itemsError && <p className="text-xs text-destructive">{itemsError}</p>}
 
 				{/* Column headers (desktop only) */}
 				<div className="hidden grid-cols-[minmax(0,2.4fr)_120px_80px_minmax(0,2fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">

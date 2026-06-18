@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -434,13 +434,13 @@ export default async function WarehousePage({
 	return (
 		<Container size="xl" className="space-y-3">
 			<WarehouseRealtimeSync />
-			<PageHeader
+			<SectionHeader
 				title="Warehouse"
 				description="Track stok consumables, equipment, supplier, dan log mutasi."
 				actions={
 					<Link
 						href={primaryActionHref}
-						className={buttonVariants({ variant: "default", size: "sm" })}
+						className={buttonVariants({ variant: "default", className: "h-9" })}
 					>
 						<Plus className="size-4" />
 						{primaryActionLabel}
@@ -530,7 +530,7 @@ export default async function WarehousePage({
 				)}
 			</KpiRow>
 
-			<div className="space-y-4">
+			<div className="space-y-3">
 				{tab === "consumables" && (
 					<ConsumablesTable
 						rows={consumables}

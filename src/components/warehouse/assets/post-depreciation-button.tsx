@@ -3,6 +3,7 @@
 import { CalendarClock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogClose,
@@ -35,9 +36,7 @@ function recentPeriods(count = 6): string[] {
 	const now = new Date();
 	for (let i = 0; i < count; i++) {
 		const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-		out.push(
-			`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-		);
+		out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
 	}
 	return out;
 }
@@ -79,7 +78,7 @@ export function PostDepreciationButton() {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="press-down border-border-default bg-surface-1 hover:bg-surface-2 inline-flex h-8 items-center gap-1 rounded-md border px-3 text-[12px] font-medium"
+				className={buttonVariants({ variant: "outline", className: "h-9" })}
 			>
 				<CalendarClock className="size-3.5" />
 				Post Depresiasi
@@ -121,9 +120,9 @@ export function PostDepreciationButton() {
 						</div>
 
 						<div className="bg-surface-1 rounded-md p-3 text-[11px] text-muted-foreground">
-							Asset yang BELUM punya purchase_price / useful_life akan
-							di-skip otomatis. Pastikan field di asset register sudah lengkap
-							sebelum post.
+							Asset yang BELUM punya purchase_price / useful_life akan di-skip
+							otomatis. Pastikan field di asset register sudah lengkap sebelum
+							post.
 						</div>
 					</div>
 

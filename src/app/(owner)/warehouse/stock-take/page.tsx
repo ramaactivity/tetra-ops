@@ -8,8 +8,8 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -21,7 +21,8 @@ import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const STATUS_TONE: Record<string, string> = {
-	draft: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+	draft:
+		"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 	committed:
 		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
 	cancelled: "border-border-default bg-surface-3 text-muted-foreground",
@@ -112,7 +113,9 @@ export default async function StockTakeListPage({
 	// KPI counters across the full set (not filtered, so user always sees real stats)
 	const { data: allTakes } = await supabase
 		.from("stock_takes")
-		.select("status, committed_at, lines:stock_take_lines(variance, counted_qty)")
+		.select(
+			"status, committed_at, lines:stock_take_lines(variance, counted_qty)",
+		)
 		.order("taken_at", { ascending: false });
 
 	const allRows = (allTakes ?? []) as RawTake[];
@@ -136,7 +139,7 @@ export default async function StockTakeListPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<PageHeader
+			<SectionHeader
 				title="Stock Opname"
 				description="Audit fisik inventory. Owner walk warehouse, isi hitung fisik per item, lalu commit — sistem auto-create adjustment movement buat tiap selisih."
 				actions={<NewStockTakeButton />}
@@ -146,7 +149,11 @@ export default async function StockTakeListPage({
 				<KpiCard
 					label="Draft Aktif"
 					value={draftCount.toLocaleString("id-ID")}
-					hint={draftCount === 0 ? "tidak ada audit berjalan" : "audit belum di-commit"}
+					hint={
+						draftCount === 0
+							? "tidak ada audit berjalan"
+							: "audit belum di-commit"
+					}
 					icon={Pencil}
 					accent={draftCount > 0 ? "amber" : "default"}
 				/>

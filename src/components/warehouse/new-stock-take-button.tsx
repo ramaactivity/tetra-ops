@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import { createStockTake } from "@/lib/actions/stock-takes";
 
@@ -29,7 +30,7 @@ export function NewStockTakeButton() {
 			type="button"
 			onClick={handleClick}
 			disabled={pending}
-			className="press-down inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
+			className={buttonVariants({ variant: "default", className: "h-9" })}
 		>
 			<Plus className="size-4" />
 			{pending ? "Membuat..." : "Mulai Opname"}

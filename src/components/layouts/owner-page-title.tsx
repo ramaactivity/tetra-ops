@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	AlertTriangle,
 	Archive,
 	Bell,
 	BookOpen,
@@ -55,6 +56,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/warehouse/suppliers", "Supplier", Truck],
 	["/warehouse/purchase-requests", "Permintaan", ClipboardList],
 	["/warehouse/stock-take", "Stock Opname", ClipboardList],
+	["/warehouse/wastage", "Wastage", AlertTriangle],
 	["/warehouse", "Warehouse", Package],
 	["/finance/reports", "Laporan", FileBarChart],
 	["/finance/accounting", "Akuntansi", BookOpen],
@@ -110,7 +112,10 @@ export function OwnerPageTitle() {
 
 	return (
 		<span className={PILL_CLS}>
-			<Icon className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={2} />
+			<Icon
+				className="size-[17px] shrink-0 text-muted-foreground"
+				strokeWidth={2}
+			/>
 			<span className="truncate text-[14px] font-semibold text-foreground">
 				{label}
 			</span>
