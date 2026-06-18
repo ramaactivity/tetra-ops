@@ -152,6 +152,7 @@ const NAV_SECTIONS: NavSection[] = [
 					},
 				],
 			},
+			{ href: "/leads", label: "Leads", icon: MessageCircle },
 			{
 				href: "/contacts",
 				label: "Kontak",

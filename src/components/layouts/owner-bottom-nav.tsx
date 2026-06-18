@@ -55,6 +55,7 @@ const PRIMARY: NavItem[] = [
 ];
 
 const MORE: NavItem[] = [
+	{ href: "/leads", label: "Leads", icon: MessageCircle },
 	{ href: "/notifications", label: "Notifications", icon: Bell },
 	{ href: "/design", label: "Design", icon: Palette },
 	{ href: "/warehouse", label: "Warehouse", icon: Package },
