@@ -1,10 +1,11 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TopbarActionPortal } from "@/components/layouts/topbar-action-portal";
 import {
 	Sheet,
+	SheetClose,
 	SheetContent,
 	SheetDescription,
 	SheetHeader,
@@ -70,11 +71,20 @@ export function CatatLauncher({
 			<Sheet open={open} onOpenChange={setOpen}>
 				<SheetContent
 					side={isDesktop ? "right" : "bottom"}
+					showCloseButton={false}
 					className={cn(isDesktop && "sm:max-w-md")}
 				>
-					<SheetHeader>
-						<SheetTitle>Catat transaksi</SheetTitle>
-						<SheetDescription>Langsung masuk ke pembukuan.</SheetDescription>
+					<SheetHeader className="flex-row items-start justify-between gap-3">
+						<div className="min-w-0">
+							<SheetTitle>Catat transaksi</SheetTitle>
+							<SheetDescription>Langsung masuk ke pembukuan.</SheetDescription>
+						</div>
+						<SheetClose
+							aria-label="Tutup"
+							className="press tap -mt-1 -mr-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+						>
+							<X className="size-5" />
+						</SheetClose>
 					</SheetHeader>
 					{hasCash ? (
 						<QuickRecordCore

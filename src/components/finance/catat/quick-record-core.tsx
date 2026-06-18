@@ -8,6 +8,7 @@ import {
 	Loader2,
 	Paperclip,
 	Repeat2,
+	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -79,6 +80,7 @@ export function QuickRecordCore({
 	const [date, setDate] = useState(todayIso());
 	const [note, setNote] = useState("");
 	const [photo, setPhoto] = useState<File | null>(null);
+	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [showAllCats, setShowAllCats] = useState(false);
 	const [previewOpen, setPreviewOpen] = useState(false);
@@ -87,6 +89,17 @@ export function QuickRecordCore({
 		QuickRecordFormState,
 		FormData
 	>(recordQuickTransaction, undefined);
+
+	// Receipt-photo object URL (revoked on change) for the inline preview.
+	useEffect(() => {
+		if (!photo?.type.startsWith("image/")) {
+			setPhotoUrl(null);
+			return;
+		}
+		const url = URL.createObjectURL(photo);
+		setPhotoUrl(url);
+		return () => URL.revokeObjectURL(url);
+	}, [photo]);
 
 	const nameByCode = useMemo(() => {
 		const m = new Map<string, string>();
@@ -187,7 +200,7 @@ export function QuickRecordCore({
 				? "Uang masuk"
 				: "Jumlah transfer";
 
-	// ── Section fragments (composed in different orders for mobile vs desktop) ──
+	// ── Section fragments ─────────────────────────────────────────────────────
 
 	const directionSeg = (
 		<div className="grid grid-cols-3 gap-2">
@@ -215,14 +228,16 @@ export function QuickRecordCore({
 		</div>
 	);
 
+	// Amount display — its own elevated card so the figure pops off the sheet
+	// surface instead of blending with the background.
 	const amountHero = (
-		<div className="py-1 text-center">
+		<div className="rounded-2xl border border-border-subtle bg-card py-5 text-center shadow-[var(--shadow-level-2)]">
 			<div className="eyebrow">{dirNoun}</div>
 			<div
 				className={cn(
-					"type-num-xl mt-1 flex items-baseline justify-center gap-1.5",
+					"type-num-xl mt-1.5 flex items-baseline justify-center gap-1.5",
 					amount === 0
-						? "text-muted-foreground/35"
+						? "text-muted-foreground/40"
 						: direction === "masuk"
 							? "text-emerald-700"
 							: "text-foreground",
@@ -231,12 +246,25 @@ export function QuickRecordCore({
 				<span className="font-display text-xl text-muted-foreground">Rp</span>
 				{amount === 0 ? "0" : amount.toLocaleString("id-ID")}
 			</div>
+			{sourceAcct && amount > 0 ? (
+				<div className="mt-2 text-[12.5px] text-muted-foreground">
+					{sourceAcct.name} →{" "}
+					<span
+						className={cn(
+							"tabular font-medium",
+							afterSource < 0 ? "text-rose-600" : "text-foreground",
+						)}
+					>
+						{formatRupiah(afterSource)}
+					</span>
+				</div>
+			) : null}
 		</div>
 	);
 
 	const recentsBlock =
 		amount === 0 && data.recents.length > 0 ? (
-			<div className="space-y-1.5">
+			<div className="space-y-2">
 				<div className="eyebrow">Transaksi terakhir</div>
 				<div className="flex flex-wrap gap-2">
 					{data.recents.map((r) => (
@@ -244,7 +272,7 @@ export function QuickRecordCore({
 							key={r.id}
 							type="button"
 							onClick={() => applyRecent(r)}
-							className="press tap inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default bg-card px-3 text-[13px] text-foreground hover:bg-secondary"
+							className="press tap inline-flex h-9 items-center gap-1.5 rounded-full border border-border-subtle bg-card px-3 text-[13px] text-foreground shadow-[var(--shadow-level-1)] hover:bg-secondary"
 						>
 							<Repeat2 className="size-3.5 text-muted-foreground" />
 							<span className="max-w-[10rem] truncate">{r.label}</span>
@@ -259,9 +287,20 @@ export function QuickRecordCore({
 
 	const categoryField =
 		direction !== "transfer" ? (
-			<div className="space-y-1.5">
-				<div className="eyebrow">Kategori</div>
-				<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+			<div className="space-y-2.5">
+				<div className="flex items-center justify-between">
+					<span className="eyebrow">Kategori</span>
+					{cats.length > 6 ? (
+						<button
+							type="button"
+							onClick={() => setShowAllCats((v) => !v)}
+							className="text-[12.5px] font-semibold text-emerald-700 hover:text-emerald-800"
+						>
+							{showAllCats ? "Lebih sedikit" : "Lihat semua"}
+						</button>
+					) : null}
+				</div>
+				<div className="grid grid-cols-2 gap-2.5">
 					{visibleCats.map((c) => {
 						const active = categoryId === c.id && !coaOverride;
 						const Icon = c.icon;
@@ -293,41 +332,28 @@ export function QuickRecordCore({
 						);
 					})}
 				</div>
-				<div className="flex items-center gap-3 pt-0.5">
-					{cats.length > 6 ? (
-						<button
-							type="button"
-							onClick={() => setShowAllCats((v) => !v)}
-							className="shrink-0 text-[13px] font-medium text-muted-foreground hover:text-foreground"
-						>
-							{showAllCats ? "Lebih sedikit" : "Semua"}
-						</button>
-					) : null}
-					<div className="min-w-0 flex-1">
-						<Combobox
-							value={coaOverride}
-							onValueChange={(v) => {
-								setCoaOverride(v ?? "");
-								if (v) setCategoryId(null);
-							}}
-							options={data.coaOptions.map((o) => ({
-								value: o.code,
-								label: `${o.code} · ${o.name}`,
-							}))}
-							placeholder="Akun lain…"
-							allowFreeText={false}
-							closeOnScroll
-						/>
-					</div>
-				</div>
+				<Combobox
+					value={coaOverride}
+					onValueChange={(v) => {
+						setCoaOverride(v ?? "");
+						if (v) setCategoryId(null);
+					}}
+					options={data.coaOptions.map((o) => ({
+						value: o.code,
+						label: `${o.code} · ${o.name}`,
+					}))}
+					placeholder="Akun lain…"
+					allowFreeText={false}
+					closeOnScroll
+				/>
 			</div>
 		) : null;
 
 	const accountField = (
-		<div className="space-y-1.5">
-			<div className="eyebrow">
+		<div className="space-y-2.5">
+			<span className="eyebrow">
 				{direction === "masuk" ? "Masuk ke" : "Dari"}
-			</div>
+			</span>
 			<AccountPicker
 				accounts={data.cashAccounts}
 				value={accountCode}
@@ -336,16 +362,16 @@ export function QuickRecordCore({
 			/>
 			{direction === "transfer" ? (
 				<>
-					<div className="flex items-center justify-between pt-1">
-						<div className="eyebrow">Ke</div>
+					<div className="flex justify-center">
 						<button
 							type="button"
 							onClick={swapTransfer}
-							className="press tap inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+							className="press tap inline-flex h-8 items-center gap-1.5 rounded-full border border-border-subtle bg-card px-3.5 text-[12.5px] font-medium text-muted-foreground shadow-[var(--shadow-level-1)] hover:text-foreground"
 						>
 							<ArrowLeftRight className="size-3.5" /> Tukar
 						</button>
 					</div>
+					<span className="eyebrow">Ke</span>
 					<AccountPicker
 						accounts={data.cashAccounts}
 						value={toAccountCode}
@@ -359,7 +385,7 @@ export function QuickRecordCore({
 	);
 
 	const amountControl = keypad ? (
-		<div className="space-y-2">
+		<div className="space-y-2.5">
 			<QuickAmountChips
 				onAdd={(v) => setAmount((a) => Math.min(a + v, MAX_AMOUNT))}
 				className="justify-center"
@@ -383,29 +409,12 @@ export function QuickRecordCore({
 		</div>
 	);
 
-	const runningBalance =
-		sourceAcct && amount > 0 ? (
-			<div className="flex items-center justify-between rounded-xl bg-surface-4/70 px-3 py-2 text-[13px]">
-				<span className="text-muted-foreground">
-					{sourceAcct.name} setelah ini
-				</span>
-				<span
-					className={cn(
-						"tabular font-medium",
-						afterSource < 0 ? "text-rose-600" : "text-foreground",
-					)}
-				>
-					{formatRupiah(afterSource)}
-				</span>
-			</div>
-		) : null;
-
 	const detailsField = (
-		<div className="rounded-xl border border-border-subtle">
+		<div className="rounded-xl border border-border-subtle bg-card">
 			<button
 				type="button"
 				onClick={() => setDetailsOpen((v) => !v)}
-				className="flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-medium text-foreground"
+				className="flex w-full items-center justify-between px-3.5 py-3 text-[13px] font-medium text-foreground"
 			>
 				<span>Tanggal, catatan, foto nota</span>
 				<ChevronDown
@@ -416,13 +425,13 @@ export function QuickRecordCore({
 				/>
 			</button>
 			{detailsOpen ? (
-				<div className="space-y-3 border-t border-border-subtle p-3">
+				<div className="space-y-3 border-t border-border-subtle p-3.5">
 					<div className="flex flex-wrap items-center gap-2">
 						<button
 							type="button"
 							onClick={() => setDate(todayIso())}
 							className={cn(
-								"press tap h-8 rounded-full border px-3 text-[13px]",
+								"press tap h-9 rounded-full border px-3.5 text-[13px]",
 								date === todayIso()
 									? "border-[#059669] bg-emerald-50 text-foreground"
 									: "border-border-default bg-card text-muted-foreground",
@@ -435,7 +444,7 @@ export function QuickRecordCore({
 							value={date}
 							max={todayIso()}
 							onChange={(e) => setDate(e.target.value)}
-							className="h-8 rounded-md border border-border-default bg-background px-2 text-[13px] text-foreground"
+							className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
 						/>
 					</div>
 					<textarea
@@ -447,25 +456,48 @@ export function QuickRecordCore({
 						placeholder="Catatan (opsional) — mis. bensin survey lokasi"
 						className="w-full resize-none rounded-md border border-border-default bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:text-fluid-body"
 					/>
-					<label className="press tap flex h-10 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border-default bg-card px-3 text-[13px] text-muted-foreground hover:bg-secondary">
-						<Paperclip className="size-4" />
-						<span className="truncate">
-							{photo ? photo.name : "Lampirkan foto nota"}
-						</span>
-						<input
-							type="file"
-							accept="image/*,application/pdf"
-							className="hidden"
-							onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-						/>
-					</label>
+					{photo ? (
+						<div className="overflow-hidden rounded-xl border border-border-subtle">
+							{photoUrl ? (
+								// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
+								<img
+									src={photoUrl}
+									alt="Preview nota"
+									className="max-h-64 w-full bg-surface-3 object-contain"
+								/>
+							) : null}
+							<div className="flex items-center justify-between gap-2 px-3 py-2">
+								<span className="truncate text-[12.5px] text-muted-foreground">
+									{photo.name}
+								</span>
+								<button
+									type="button"
+									onClick={() => setPhoto(null)}
+									className="press tap inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
+								>
+									<X className="size-3.5" /> Hapus
+								</button>
+							</div>
+						</div>
+					) : (
+						<label className="press tap flex h-11 cursor-pointer items-center gap-2 rounded-md border border-dashed border-border-default bg-card px-3 text-[13px] text-muted-foreground hover:bg-secondary">
+							<Paperclip className="size-4" />
+							<span>Lampirkan foto nota</span>
+							<input
+								type="file"
+								accept="image/*,application/pdf"
+								className="hidden"
+								onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+							/>
+						</label>
+					)}
 				</div>
 			) : null}
 		</div>
 	);
 
 	const lihatJurnal = canSubmit ? (
-		<div>
+		<div className="text-center">
 			<button
 				type="button"
 				onClick={() => setPreviewOpen((v) => !v)}
@@ -474,7 +506,7 @@ export function QuickRecordCore({
 				{previewOpen ? "Sembunyikan jurnal" : "Lihat jurnal ▸"}
 			</button>
 			{previewOpen ? (
-				<dl className="mt-2 space-y-1 rounded-lg bg-surface-4/70 p-3 text-[12px]">
+				<dl className="mt-2 space-y-1 rounded-lg border border-border-subtle bg-card p-3 text-left text-[12px]">
 					<JournalLine
 						label={`DEBIT · ${direction === "masuk" ? (sourceAcct?.name ?? accountCode) : counterpartName}`}
 						value={formatRupiah(amount)}
@@ -518,13 +550,10 @@ export function QuickRecordCore({
 			{amountHero}
 
 			{keypad ? (
-				// Mobile: surface category + account ABOVE the keypad so the required
-				// choices are visible, with the keypad in the thumb zone above the CTA.
 				<>
 					{categoryField}
 					{recentsBlock}
 					{accountField}
-					{runningBalance}
 					{amountControl}
 					{detailsField}
 					{lihatJurnal}
@@ -535,7 +564,6 @@ export function QuickRecordCore({
 					{recentsBlock}
 					{categoryField}
 					{accountField}
-					{runningBalance}
 					{detailsField}
 					{lihatJurnal}
 				</>
@@ -543,8 +571,8 @@ export function QuickRecordCore({
 
 			{errorBanner}
 
-			{/* Action bar — in-flow (mt-auto pins it to the bottom on short content);
-			    matches the sheet surface so nothing leaks or looks cut at the edge. */}
+			{/* Action bar — in-flow (mt-auto pins to bottom on short content);
+			    matches the sheet surface so nothing leaks or looks cut. */}
 			<div className="-mx-4 -mb-4 mt-auto border-t border-border-default bg-surface-3 px-4 pt-3 pb-3">
 				<button
 					type="submit"
@@ -590,11 +618,11 @@ function AccountPicker({
 	const haptic = useHaptics();
 
 	if (variant === "scroll") {
-		// Mirror the operations KpiRow exactly: ~2 cards per view, snap-aligned,
-		// inside the gutter (no -mx edge bleed) so edges align with the sections
-		// above/below. Inset ring so selection is never clipped by overflow.
+		// Exactly 2 cards per view, flush with the category columns above (same
+		// gap-2.5 + half-gap width). Swipe for the rest. Inset ring on select so
+		// it's never clipped by the scroller.
 		return (
-			<div className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
+			<div className="hide-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1">
 				{accounts.map((a) => {
 					const active = value === a.code;
 					const disabled = disabledCode === a.code;
@@ -609,7 +637,7 @@ function AccountPicker({
 							}}
 							aria-pressed={active}
 							className={cn(
-								"press w-[47%] shrink-0 snap-start rounded-[16px] border bg-card p-4 text-left shadow-[var(--shadow-level-2)] outline-none transition-colors disabled:opacity-40",
+								"press w-[calc(50%-0.3125rem)] shrink-0 snap-start rounded-[16px] border bg-card p-4 text-left shadow-[var(--shadow-level-2)] outline-none transition-colors disabled:opacity-40",
 								active
 									? "border-[#059669] ring-1 ring-inset ring-[#059669]"
 									: "border-border-subtle",
@@ -634,7 +662,7 @@ function AccountPicker({
 	}
 
 	return (
-		<div className="grid gap-2 sm:grid-cols-2">
+		<div className="grid gap-2.5 sm:grid-cols-2">
 			{accounts.map((a) => {
 				const active = value === a.code;
 				const disabled = disabledCode === a.code;
@@ -649,7 +677,7 @@ function AccountPicker({
 						}}
 						aria-pressed={active}
 						className={cn(
-							"press flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-40",
+							"press flex items-center justify-between gap-2 rounded-xl border px-3.5 py-3 text-left transition-colors disabled:opacity-40",
 							active
 								? "border-[#059669] bg-emerald-50"
 								: "border-border-subtle bg-card hover:bg-secondary",
