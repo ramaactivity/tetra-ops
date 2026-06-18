@@ -16,6 +16,7 @@ import {
 	Upload,
 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -25,6 +26,10 @@ import {
 	updateEventAsset,
 } from "@/lib/actions/event-assets";
 import type { AssetType } from "@/lib/event-assets/types";
+import { cn } from "@/lib/utils";
+
+const INPUT_CLASS =
+	"w-full rounded-lg border border-border-default bg-card px-3 py-2 text-sm text-foreground transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40";
 
 export type AssetRow = {
 	id: string;
@@ -185,14 +190,14 @@ export function AssetSection({
 		: `${rows.length} ${isDesign ? "file/link" : "link"}`;
 
 	return (
-		<section className="rounded-xl border border-border-default bg-surface-2">
-			<header className="flex items-center justify-between gap-3 border-b border-border-default px-4 py-3">
+		<section className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
+			<header className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3.5">
 				<div className="flex items-center gap-2.5">
-					<div className="grid size-8 place-items-center rounded-lg bg-surface-3 text-foreground">
+					<div className="grid size-9 place-items-center rounded-xl bg-secondary text-foreground">
 						<Icon className="size-4" aria-hidden />
 					</div>
 					<div>
-						<h3 className="text-fluid-body font-semibold tracking-tight">
+						<h3 className="text-[15px] font-semibold tracking-tight text-foreground">
 							{meta.label}
 						</h3>
 						<p className="text-[11px] text-muted-foreground">{countLabel}</p>
@@ -216,7 +221,7 @@ export function AssetSection({
 									type="button"
 									onClick={() => fileInputRef.current?.click()}
 									disabled={uploading}
-									className="press-down inline-flex items-center gap-1 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-2.5 py-1 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
+									className={cn(buttonVariants({ size: "sm" }))}
 								>
 									{uploading ? (
 										<Loader2 className="size-3.5 animate-spin" />
@@ -230,7 +235,7 @@ export function AssetSection({
 						<button
 							type="button"
 							onClick={() => setShowAdd((v) => !v)}
-							className="press-down inline-flex items-center gap-1 rounded-md border border-border-default bg-surface-3 px-2.5 py-1 text-fluid-caption font-medium hover:bg-surface-4"
+							className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
 						>
 							<Plus className="size-3.5" />
 							{showAdd ? "Batal" : meta.addLabel}
@@ -241,7 +246,7 @@ export function AssetSection({
 
 			{/* Auto Drive folder (Footage / Softfile): open + copy link for WhatsApp */}
 			{folderUrl && (
-				<div className="flex items-center gap-2 border-b border-border-default bg-surface-3/40 px-4 py-2.5">
+				<div className="flex items-center gap-2 border-b border-border-subtle bg-secondary/50 px-4 py-2.5">
 					<a
 						href={folderUrl}
 						target="_blank"
@@ -257,7 +262,7 @@ export function AssetSection({
 					<button
 						type="button"
 						onClick={() => copyLink(folderUrl)}
-						className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+						className={cn(buttonVariants({ variant: "outline", size: "xs" }))}
 						title="Copy link folder"
 					>
 						<Copy className="size-3.5" />
@@ -269,9 +274,9 @@ export function AssetSection({
 			{showAdd && canEdit ? (
 				<form
 					action={handleAdd}
-					className="space-y-2 border-b border-border-default bg-surface-3/30 px-4 py-3"
+					className="space-y-2.5 border-b border-border-subtle bg-secondary/40 px-4 py-3.5"
 				>
-					<div className="grid gap-2 sm:grid-cols-2">
+					<div className="grid gap-2.5 sm:grid-cols-2">
 						<label className="space-y-1">
 							<span className="text-[11px] font-medium text-muted-foreground">
 								Label
@@ -280,7 +285,7 @@ export function AssetSection({
 								name="label"
 								required
 								placeholder={meta.placeholder}
-								className="w-full rounded-md border border-border-default bg-background px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+								className={INPUT_CLASS}
 							/>
 						</label>
 						<label className="space-y-1">
@@ -292,32 +297,32 @@ export function AssetSection({
 								type="url"
 								required
 								placeholder="https://drive.google.com/..."
-								className="w-full rounded-md border border-border-default bg-background px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+								className={INPUT_CLASS}
 							/>
 						</label>
 					</div>
-					<label className="space-y-1 block">
+					<label className="block space-y-1">
 						<span className="text-[11px] font-medium text-muted-foreground">
 							Catatan (opsional)
 						</span>
 						<input
 							name="notes"
 							placeholder="Versi, catatan revisi, atau info lainnya"
-							className="w-full rounded-md border border-border-default bg-background px-2.5 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+							className={INPUT_CLASS}
 						/>
 					</label>
 					<div className="flex justify-end gap-2 pt-1">
 						<button
 							type="button"
 							onClick={() => setShowAdd(false)}
-							className="rounded-md px-3 py-1.5 text-fluid-caption font-medium text-muted-foreground hover:bg-muted"
+							className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
 						>
 							Batal
 						</button>
 						<button
 							type="submit"
 							disabled={pending}
-							className="press-down rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 py-1.5 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
+							className={cn(buttonVariants({ size: "sm" }))}
 						>
 							{pending ? "Menyimpan..." : "Simpan"}
 						</button>
@@ -325,9 +330,9 @@ export function AssetSection({
 				</form>
 			) : null}
 
-			<ul className="divide-y divide-border-default/40">
+			<ul className="divide-y divide-border-subtle">
 				{rows.length === 0 ? (
-					<li className="px-4 py-5 text-center text-fluid-caption text-muted-foreground italic">
+					<li className="px-4 py-6 text-center text-fluid-caption text-muted-foreground italic">
 						{isFootage
 							? "Footage di-upload langsung di Google Drive lewat tombol di atas."
 							: `Belum ada ${meta.label.toLowerCase()}.${canEdit ? " Klik tombol di atas untuk mulai." : ""}`}
@@ -335,44 +340,46 @@ export function AssetSection({
 				) : (
 					rows.map((row) =>
 						editing?.id === row.id ? (
-							<li key={row.id} className="px-4 py-3 bg-surface-3/30">
+							<li key={row.id} className="bg-secondary/40 px-4 py-3">
 								<form
 									action={(fd) => handleUpdate(row.id, fd)}
-									className="space-y-2"
+									className="space-y-2.5"
 								>
-									<div className="grid gap-2 sm:grid-cols-2">
+									<div className="grid gap-2.5 sm:grid-cols-2">
 										<input
 											name="label"
 											defaultValue={row.label}
 											required
-											className="w-full rounded-md border border-border-default bg-background px-2.5 py-1.5 text-sm"
+											className={INPUT_CLASS}
 										/>
 										<input
 											name="url"
 											type="url"
 											defaultValue={row.url}
 											required
-											className="w-full rounded-md border border-border-default bg-background px-2.5 py-1.5 text-sm"
+											className={INPUT_CLASS}
 										/>
 									</div>
 									<input
 										name="notes"
 										defaultValue={row.notes ?? ""}
 										placeholder="Catatan (opsional)"
-										className="w-full rounded-md border border-border-default bg-background px-2.5 py-1.5 text-sm"
+										className={INPUT_CLASS}
 									/>
 									<div className="flex justify-end gap-2">
 										<button
 											type="button"
 											onClick={() => setEditing(null)}
-											className="rounded-md px-3 py-1.5 text-fluid-caption font-medium text-muted-foreground hover:bg-muted"
+											className={cn(
+												buttonVariants({ variant: "ghost", size: "sm" }),
+											)}
 										>
 											Batal
 										</button>
 										<button
 											type="submit"
 											disabled={pending}
-											className="press-down rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 py-1.5 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-50"
+											className={cn(buttonVariants({ size: "sm" }))}
 										>
 											{pending ? "Menyimpan..." : "Simpan"}
 										</button>
@@ -382,7 +389,7 @@ export function AssetSection({
 						) : (
 							<li
 								key={row.id}
-								className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
+								className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-secondary/40 transition-colors"
 							>
 								<a
 									href={row.url}
@@ -418,7 +425,7 @@ export function AssetSection({
 									<button
 										type="button"
 										onClick={() => copyLink(row.url)}
-										className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+										className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
 										aria-label="Copy link"
 										title="Copy link"
 									>
@@ -427,7 +434,7 @@ export function AssetSection({
 									{row.drive_file_id && (
 										<a
 											href={downloadUrl(row.drive_file_id)}
-											className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+											className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
 											aria-label="Download"
 											title="Download"
 										>
@@ -439,7 +446,7 @@ export function AssetSection({
 											<button
 												type="button"
 												onClick={() => setEditing(row)}
-												className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+												className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
 												aria-label="Edit"
 											>
 												<Pencil className="size-3.5" />

@@ -1,4 +1,4 @@
-import { ChevronLeft, ExternalLink, Palette } from "lucide-react";
+import { ArrowRight, ChevronLeft, ExternalLink, Palette } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -7,7 +7,6 @@ import {
 } from "@/components/event-assets/asset-section";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { Badge } from "@/components/ui/badge";
 import {
 	ensureEventCategoryFolderInternal,
 	getFootageInfoInternal,
@@ -97,77 +96,81 @@ export default async function DesignAssetManagerPage({
 
 	return (
 		<Container size="lg" className="space-y-3">
-			<div className="space-y-2">
-				<Link
-					href="/design"
-					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Design Hub
-				</Link>
-				<SectionHeader
-					title={event.client_name}
-					description={
-						<span className="flex flex-wrap items-center gap-2">
-							<span className="tabular text-muted-foreground/80">
-								{event.project_id}
-							</span>
-							<span className="text-muted-foreground/40">·</span>
-							<span>{formatDateID(event.event_date)}</span>
-							<span className="text-muted-foreground/40">·</span>
-							<span>
-								{event.venue_name}
-								{event.venue_city ? `, ${event.venue_city}` : ""}
-							</span>
-						</span>
-					}
-					actions={
-						<div className="flex flex-wrap items-center gap-2">
-							{event.drive_folder_url ? (
-								<a
-									href={event.drive_folder_url}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-2 px-3 py-1.5 text-fluid-caption font-medium hover:bg-surface-3 transition-colors"
-								>
-									<Palette className="size-3.5" />
-									Buka folder Drive
-									<ExternalLink className="size-3" />
-								</a>
-							) : null}
-							<Link
-								href={`/operations/${event.project_id}`}
-								className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-2 px-3 py-1.5 text-fluid-caption font-medium hover:bg-surface-3 transition-colors"
+			<Link
+				href="/design"
+				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+			>
+				<ChevronLeft className="h-4 w-4" />
+				Design Hub
+			</Link>
+
+			{/* Page-level actions teleport to the topbar as uniform h-9 pills.
+			    Passed as direct children (no wrapper div) so the topbar's
+			    [&>a] normalizer applies — keeps them the same size as every page. */}
+			<SectionHeader
+				title={event.client_name}
+				actions={
+					<>
+						{event.drive_folder_url ? (
+							<a
+								href={event.drive_folder_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-subtle bg-card px-3.5 text-[13px] font-medium text-foreground shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary"
 							>
-								Buka Operations →
-							</Link>
-						</div>
-					}
-				/>
-			</div>
-
-			<dl className="grid gap-2 sm:grid-cols-3">
-				{ASSET_TYPES.map((t) => (
-					<div
-						key={t}
-						className="flex items-center justify-between gap-2 rounded-lg border border-border-default bg-surface-2 px-3 py-2"
-					>
-						<span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-							{ASSET_TYPE_LABELS[t]}
-						</span>
-						<Badge
-							variant="outline"
-							className="tabular text-[10px] font-semibold"
+								<Palette className="size-3.5" />
+								Buka folder Drive
+								<ExternalLink className="size-3" />
+							</a>
+						) : null}
+						<Link
+							href={`/operations/${event.project_id}`}
+							className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-subtle bg-card px-3.5 text-[13px] font-medium text-foreground shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary"
 						>
-							{t === "footage_crew" && footageCount != null
-								? footageCount
-								: (byType.get(t) ?? []).length}
-						</Badge>
-					</div>
-				))}
-			</dl>
+							Buka Operations
+							<ArrowRight className="size-3.5" />
+						</Link>
+					</>
+				}
+			/>
 
-			<div className="grid gap-4 lg:grid-cols-2">
+			{/* Hero — event identity + asset readiness counts (one card, like the
+			    Payments summary). */}
+			<section className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
+				<div className="p-5">
+					<h1 className="type-title break-words text-foreground">
+						{event.client_name}
+					</h1>
+					<p className="type-secondary text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+						<span className="tabular">{event.project_id}</span>
+						<span className="text-muted-foreground/40">·</span>
+						<span>{formatDateID(event.event_date)}</span>
+						<span className="text-muted-foreground/40">·</span>
+						<span>
+							{event.venue_name}
+							{event.venue_city ? `, ${event.venue_city}` : ""}
+						</span>
+					</p>
+				</div>
+				<dl className="grid grid-cols-3 divide-x divide-border-subtle border-t border-border-subtle">
+					{ASSET_TYPES.map((t) => {
+						const count =
+							t === "footage_crew" && footageCount != null
+								? footageCount
+								: (byType.get(t) ?? []).length;
+						return (
+							<div key={t} className="px-3 py-3.5 sm:px-4">
+								<dt className="eyebrow">{ASSET_TYPE_LABELS[t]}</dt>
+								<dd className="tabular mt-1 text-2xl font-bold leading-none text-foreground">
+									{count}
+								</dd>
+							</div>
+						);
+					})}
+				</dl>
+			</section>
+
+			<div className="grid gap-3 lg:grid-cols-2">
 				{ASSET_TYPES.map((t) => (
 					<AssetSection
 						key={t}
