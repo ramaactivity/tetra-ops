@@ -12,11 +12,13 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { ReminderBatchClient } from "@/components/reminders/batch-client";
 import {
+	BUCKET_DESCRIPTIONS,
 	BUCKET_LABELS,
 	BUCKET_TEMPLATE_HINT,
 	type ReminderBucket,
 } from "@/components/reminders/buckets";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -257,7 +259,7 @@ export default async function RemindersPage({
 		counts.h3_pelunasan + counts.h7_dp + counts.h1_konfirmasi + counts.overdue;
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-4 md:space-y-5">
 			<SectionHeader
 				title="WA Reminder Scheduler"
 				description="Kirim reminder WhatsApp manual via wa.me — pilih bucket, centang event, klik kirim."
@@ -272,61 +274,66 @@ export default async function RemindersPage({
 				}
 			/>
 
-			{/* Bucket tabs */}
-			<div className="mb-4 flex flex-wrap gap-2">
-				{BUCKETS.map((b) => {
-					const Icon = BUCKET_ICONS[b];
-					const isActive = activeBucket === b;
-					return (
-						<Link
-							key={b}
-							href={`/reminders?bucket=${b}`}
-							className={cn(
-								"inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
-								isActive
-									? "border-[#059669] bg-[#059669] text-white"
-									: "border-border-default bg-surface-2 text-muted-foreground hover:bg-muted hover:text-foreground",
-							)}
-						>
-							<Icon className="h-3.5 w-3.5" />
-							<span>{BUCKET_LABELS[b]}</span>
-							<span
+			{/* Bucket selector — consistent pill family (rounded-full, h-9, ink-on
+			    active) with a semantic count chip. */}
+			<div className="space-y-2">
+				<div className="flex flex-wrap gap-2">
+					{BUCKETS.map((b) => {
+						const Icon = BUCKET_ICONS[b];
+						const isActive = activeBucket === b;
+						return (
+							<Link
+								key={b}
+								href={`/reminders?bucket=${b}`}
+								aria-current={isActive ? "true" : undefined}
 								className={cn(
-									"ml-1 rounded-sm px-1.5 py-0.5 text-xs",
+									"inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
 									isActive
-										? "bg-background/20 text-background"
-										: BUCKET_TONES[b],
+										? "border-[#059669] bg-[#059669] text-white shadow-[var(--shadow-level-1)]"
+										: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
 								)}
 							>
-								{counts[b]}
-							</span>
-						</Link>
-					);
-				})}
+								<Icon className="size-4 shrink-0" />
+								<span>{BUCKET_LABELS[b]}</span>
+								<span
+									className={cn(
+										"tabular inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+										isActive ? "bg-white/20 text-white" : BUCKET_TONES[b],
+									)}
+								>
+									{counts[b]}
+								</span>
+							</Link>
+						);
+					})}
+				</div>
+				<p className="type-caption text-muted-foreground px-1">
+					{BUCKET_DESCRIPTIONS[activeBucket]}
+				</p>
 			</div>
 
-			{/* Suggested template panel */}
-			<div className="border-border-default bg-surface-2 mb-4 rounded-lg border p-4">
-				<div className="mb-2 flex items-center gap-2">
-					<MessageCircle className="text-muted-foreground h-4 w-4" />
+			{/* Suggested template — floating card */}
+			<div className="border-border-subtle bg-card rounded-2xl border p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+				<div className="flex items-center gap-2">
+					<MessageCircle className="text-muted-foreground size-4 shrink-0" />
 					<span className="text-foreground text-sm font-medium">
 						Template default untuk bucket ini
 					</span>
 				</div>
 				{suggestedTemplate ? (
-					<div className="space-y-2">
+					<div className="mt-3 space-y-2.5">
 						<div className="flex flex-wrap items-center gap-2">
 							<Badge>{suggestedTemplate.name}</Badge>
-							<code className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 text-xs">
+							<code className="text-muted-foreground bg-secondary rounded-md px-1.5 py-0.5 text-xs">
 								{suggestedTemplate.code}
 							</code>
 						</div>
-						<pre className="text-muted-foreground bg-muted/50 max-h-40 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">
+						<pre className="text-muted-foreground bg-secondary max-h-44 overflow-auto rounded-xl p-3.5 text-xs leading-relaxed whitespace-pre-wrap">
 							{suggestedTemplate.template_body}
 						</pre>
 					</div>
 				) : (
-					<div className="text-muted-foreground text-sm">
+					<div className="text-muted-foreground mt-3 text-sm">
 						Template <code>{suggestedTemplateCode}</code> tidak ditemukan. Cek{" "}
 						<Link
 							href="/settings/whatsapp-templates"
@@ -341,17 +348,11 @@ export default async function RemindersPage({
 
 			{/* Events list + batch send */}
 			{eventsInBucket.length === 0 ? (
-				<div className="border-border-default bg-surface-2 rounded-lg border p-8 text-center">
-					<CheckCircle2 className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
-					<p className="text-foreground text-sm font-medium">
-						Tidak ada event di bucket ini
-					</p>
-					<p className="text-muted-foreground mt-1 text-xs">
-						Bucket di-evaluasi berdasarkan tanggal hari ini (
-						{formatDateID(today)}
-						).
-					</p>
-				</div>
+				<EmptyState
+					icon={CheckCircle2}
+					title="Tidak ada event di bucket ini"
+					description={`Bucket di-evaluasi berdasarkan tanggal hari ini (${formatDateID(today)}).`}
+				/>
 			) : (
 				<ReminderBatchClient
 					bucket={activeBucket}

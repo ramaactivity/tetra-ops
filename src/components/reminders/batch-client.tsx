@@ -222,7 +222,7 @@ export function ReminderBatchClient({
 	return (
 		<div className="space-y-4">
 			{/* Toolbar */}
-			<div className="border-border-default bg-surface-2 flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between">
+			<div className="border-border-subtle bg-card flex flex-col gap-3 rounded-2xl border p-3 shadow-[var(--shadow-level-1)] md:flex-row md:items-center md:justify-between">
 				<div className="flex flex-1 flex-wrap items-center gap-2">
 					<span className="text-muted-foreground text-xs font-medium">
 						Template:
@@ -285,7 +285,7 @@ export function ReminderBatchClient({
 				</div>
 			)}
 
-			<div className="border-border-default bg-surface-2 overflow-x-auto rounded-lg border">
+			<div className="border-border-subtle bg-card overflow-x-auto rounded-2xl border shadow-[var(--shadow-level-1)]">
 				<table className="w-full text-sm">
 					<thead className="bg-card border-b border-border-subtle">
 						<tr className="border-b">
