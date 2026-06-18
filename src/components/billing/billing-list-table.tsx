@@ -141,7 +141,7 @@ export function BillingListTable({ events, templates }: Props) {
 								{/* KLIEN */}
 								<div className="flex min-w-0 flex-col gap-1">
 									<Link
-										href={`/operations/${ev.project_id}`}
+										href={`/operations/${ev.project_id}/payments`}
 										style={{ viewTransitionName: `event-${ev.project_id}` }}
 										className="truncate text-[14px] font-semibold leading-snug text-foreground transition-colors hover:text-primary"
 									>
@@ -225,7 +225,7 @@ export function BillingListTable({ events, templates }: Props) {
 							<div className="flex items-start justify-between gap-3">
 								<div className="min-w-0">
 									<Link
-										href={`/operations/${ev.project_id}`}
+										href={`/operations/${ev.project_id}/payments`}
 										style={{ viewTransitionName: `event-${ev.project_id}` }}
 										className="type-heading break-words transition-colors hover:text-primary"
 									>
