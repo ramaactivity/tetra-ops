@@ -1,6 +1,7 @@
 import {
 	AlertTriangle,
 	BellOff,
+	BellRing,
 	CheckCircle2,
 	ChevronRight,
 	Coins,
@@ -10,8 +11,8 @@ import {
 	Settings,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import {
 	DismissButton,
 	MarkAllReadButton,
@@ -29,12 +30,20 @@ type Category = "operational" | "financial" | "inventory" | "system";
 
 const SEVERITY_TONES: Record<
 	Severity,
-	{ ring: string; bg: string; text: string; icon: typeof Info; label: string }
+	{
+		ring: string;
+		bg: string;
+		text: string;
+		dot: string;
+		icon: typeof Info;
+		label: string;
+	}
 > = {
 	alert: {
 		ring: "ring-rose-200 dark:ring-rose-900",
 		bg: "bg-rose-100 dark:bg-rose-950",
 		text: "text-rose-700 dark:text-rose-300",
+		dot: "bg-rose-500",
 		icon: AlertTriangle,
 		label: "Alert",
 	},
@@ -42,6 +51,7 @@ const SEVERITY_TONES: Record<
 		ring: "ring-amber-200 dark:ring-amber-900",
 		bg: "bg-amber-100 dark:bg-amber-950",
 		text: "text-amber-700 dark:text-amber-300",
+		dot: "bg-amber-500",
 		icon: AlertTriangle,
 		label: "Warning",
 	},
@@ -49,6 +59,7 @@ const SEVERITY_TONES: Record<
 		ring: "ring-sky-200 dark:ring-sky-900",
 		bg: "bg-sky-100 dark:bg-sky-950",
 		text: "text-sky-700 dark:text-sky-300",
+		dot: "bg-sky-500",
 		icon: Info,
 		label: "Info",
 	},
@@ -56,6 +67,7 @@ const SEVERITY_TONES: Record<
 		ring: "ring-emerald-200 dark:ring-emerald-900",
 		bg: "bg-emerald-100 dark:bg-emerald-950",
 		text: "text-emerald-700 dark:text-emerald-300",
+		dot: "bg-emerald-500",
 		icon: CheckCircle2,
 		label: "Success",
 	},
@@ -155,16 +167,25 @@ export default async function NotificationsPage({
 	if (sev) query = query.eq("severity", sev);
 	if (cat) query = query.eq("category", cat);
 
-	const [{ data, error }, { count: unreadCount }] = await Promise.all([
-		query,
-		supabase
-			.from("notifications")
-			.select("id", { count: "exact", head: true })
-			.eq("user_id", me.profile.id)
-			.eq("is_dismissed", false)
-			.eq("is_read", false)
-			.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
-	]);
+	const [{ data, error }, { count: unreadCount }, { count: totalCount }] =
+		await Promise.all([
+			query,
+			supabase
+				.from("notifications")
+				.select("id", { count: "exact", head: true })
+				.eq("user_id", me.profile.id)
+				.eq("is_dismissed", false)
+				.eq("is_read", false)
+				.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+			// Total (non-dismissed) — lets the empty state distinguish a brand-new
+			// account ("belum ada notif") from "semua sudah dibaca".
+			supabase
+				.from("notifications")
+				.select("id", { count: "exact", head: true })
+				.eq("user_id", me.profile.id)
+				.eq("is_dismissed", false)
+				.or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+		]);
 
 	if (error) {
 		return (
@@ -178,76 +199,90 @@ export default async function NotificationsPage({
 
 	const rows = (data ?? []) as NotifRow[];
 	const totalUnread = unreadCount ?? 0;
+	const totalAll = totalCount ?? 0;
+	const hasActiveFilter = Boolean(sev || cat);
 
 	return (
-		<Container size="xl" className="space-y-6">
-			<SectionHeader
-				title="Notifications"
-				description={
-					<>
-						Anomaly radar, operational alerts, sistem updates.
-						{totalUnread > 0 && (
+		<Container size="xl" className="space-y-4 md:space-y-5">
+			{/* Header toolbar — actions live in-body (not portaled to the topbar)
+			    so they wrap on narrow screens instead of overflowing and clipping
+			    "Mark all read". Left = live unread summary, right = actions. */}
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
+					<p className="type-body-strong text-foreground">
+						{totalUnread > 0 ? (
 							<>
-								{" · "}
-								<span className="tabular font-medium text-rose-600 dark:text-rose-400">
-									{totalUnread} unread
-								</span>
+								<span className="tabular text-rose-600 dark:text-rose-400">
+									{totalUnread}
+								</span>{" "}
+								belum dibaca
 							</>
+						) : (
+							"Semua sudah dibaca"
 						)}
-					</>
-				}
-				actions={
-					<>
-						<RunScannerButton />
-						<MarkAllReadButton disabled={totalUnread === 0} />
-					</>
-				}
-			/>
-
-			{/* Push notifications subscribe */}
-			<div className="border-border-subtle bg-card flex flex-col gap-2 rounded-[16px] border p-5 shadow-[var(--shadow-level-2)] md:flex-row md:items-center md:justify-between">
-				<div className="space-y-0.5">
-					<p className="text-foreground text-sm font-medium">
-						Push notification ke device ini
 					</p>
-					<p className="text-muted-foreground text-xs">
-						Aktifkan biar dapat alert OS-level (Android lockscreen, macOS, dll)
-						saat anomaly fires — tidak perlu app terbuka.
+					<p className="type-caption text-muted-foreground">
+						Anomaly radar · alert operasional · update sistem
 					</p>
 				</div>
-				<PushSubscribeButton
-					vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
-				/>
+				<div className="flex flex-wrap items-center gap-2">
+					<RunScannerButton />
+					<MarkAllReadButton disabled={totalUnread === 0} />
+				</div>
 			</div>
 
-			{/* Filters — grouped into one floating card */}
-			<div className="border-border-subtle bg-card flex flex-col gap-3 rounded-[16px] border p-4 shadow-[var(--shadow-level-2)]">
-				{/* Show / unread toggle */}
-				<div className="bg-secondary inline-flex w-fit items-center rounded-full p-1">
-					<TabLink
-						href={buildQs({ show: "", severity: sev, category: cat })}
-						label={`Unread${totalUnread > 0 ? ` (${totalUnread})` : ""}`}
-						active={!showAll}
-					/>
-					<TabLink
-						href={buildQs({ show: "all", severity: sev, category: cat })}
-						label="Semua"
-						active={showAll}
+			{/* Push notifications subscribe */}
+			<div className="border-border-subtle bg-card flex flex-col gap-3 rounded-2xl border p-4 shadow-[var(--shadow-level-2)] sm:p-5 md:flex-row md:items-center md:justify-between">
+				<div className="flex items-start gap-3">
+					<span className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-full">
+						<BellRing className="size-[18px]" />
+					</span>
+					<div className="space-y-0.5">
+						<p className="text-foreground text-sm font-medium">
+							Push notification ke device ini
+						</p>
+						<p className="text-muted-foreground text-xs leading-relaxed">
+							Aktifkan biar dapat alert OS-level (lockscreen Android, macOS,
+							dll) saat anomaly fires — tanpa perlu buka app.
+						</p>
+					</div>
+				</div>
+				<div className="shrink-0 md:pl-3">
+					<PushSubscribeButton
+						vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
 					/>
 				</div>
+			</div>
 
-				{/* Severity + category chips */}
-				<div className="flex flex-wrap items-center gap-2">
-					<span className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium uppercase tracking-wider">
-						Severity
-					</span>
+			{/* Filters — one card, three clearly-separated rows (status / severity /
+			    kategori) divided by hairlines and aligned on a fixed label column. */}
+			<div className="border-border-subtle bg-card divide-border-subtle divide-y overflow-hidden rounded-2xl border shadow-[var(--shadow-level-2)]">
+				{/* Row 1 · Status */}
+				<FilterRow label="Status">
+					<div className="bg-secondary inline-flex items-center rounded-full p-0.5">
+						<TabLink
+							href={buildQs({ show: "", severity: sev, category: cat })}
+							label={`Belum dibaca${totalUnread > 0 ? ` · ${totalUnread}` : ""}`}
+							active={!showAll}
+						/>
+						<TabLink
+							href={buildQs({ show: "all", severity: sev, category: cat })}
+							label="Semua"
+							active={showAll}
+						/>
+					</div>
+				</FilterRow>
+
+				{/* Row 2 · Severity — colored dot carries the meaning; the pill itself
+				    stays neutral until selected (calmer than rainbow text). */}
+				<FilterRow label="Severity">
 					<ChipLink
 						href={buildQs({
 							severity: "",
 							category: cat,
 							show: showAll ? "all" : "",
 						})}
-						label="All"
+						label="Semua"
 						active={sev === ""}
 					/>
 					{SEVERITIES.map((s) => (
@@ -260,21 +295,20 @@ export default async function NotificationsPage({
 							})}
 							label={SEVERITY_TONES[s].label}
 							active={sev === s}
-							tone={SEVERITY_TONES[s].text}
+							dot={SEVERITY_TONES[s].dot}
 						/>
 					))}
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<span className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium uppercase tracking-wider">
-						Kategori
-					</span>
+				</FilterRow>
+
+				{/* Row 3 · Kategori — neutral icon, never colored (DESIGN.md §5). */}
+				<FilterRow label="Kategori">
 					<ChipLink
 						href={buildQs({
 							category: "",
 							severity: sev,
 							show: showAll ? "all" : "",
 						})}
-						label="All"
+						label="Semua"
 						active={cat === ""}
 					/>
 					{CATEGORIES.map((c) => (
@@ -287,27 +321,45 @@ export default async function NotificationsPage({
 							})}
 							label={CATEGORY_LABELS[c]}
 							active={cat === c}
+							icon={CATEGORY_ICONS[c]}
 						/>
 					))}
-				</div>
+				</FilterRow>
 			</div>
 
 			{rows.length === 0 ? (
-				<EmptyState
-					icon={BellOff}
-					title={
-						showAll
-							? "Belum ada notification"
-							: totalUnread === 0
-								? "Inbox kosong, semua sudah read"
-								: "Tidak ada notification cocok filter"
-					}
-					description={
-						showAll
-							? "Anomaly scanner & event triggers akan ngirim notif ke sini."
-							: "Klik 'Semua' kalau mau lihat yang sudah read."
-					}
-				/>
+				totalAll === 0 ? (
+					// Genuinely empty account — common on a second owner's phone where
+					// the scanner hasn't created notifications for this user yet. Offer
+					// the scan inline so they can self-populate in one tap.
+					<EmptyState
+						icon={BellOff}
+						title="Belum ada notifikasi"
+						description="Anomaly scanner & event triggers bakal ngirim notif ke sini. Jalankan scan sekarang buat cek kondisi terkini."
+						action={<RunScannerButton />}
+					/>
+				) : hasActiveFilter ? (
+					<EmptyState
+						icon={BellOff}
+						title="Tidak ada yang cocok filter"
+						description="Coba longgarkan filter severity / kategori, atau lihat semua."
+						action={
+							<ResetLink href={buildQs({ show: showAll ? "all" : "" })} />
+						}
+					/>
+				) : (
+					<EmptyState
+						icon={CheckCircle2}
+						title="Inbox bersih — semua sudah dibaca"
+						description="Mantap. Klik 'Semua' kalau mau lihat yang sudah dibaca."
+						action={
+							<ResetLink
+								href={buildQs({ show: "all", severity: sev, category: cat })}
+								label="Lihat semua"
+							/>
+						}
+					/>
+				)
 			) : (
 				<ul className="space-y-2">
 					{rows.map((n) => (
@@ -319,6 +371,40 @@ export default async function NotificationsPage({
 	);
 }
 
+function FilterRow({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+			<span className="text-muted-foreground shrink-0 text-[11px] font-semibold uppercase tracking-wider sm:w-16">
+				{label}
+			</span>
+			<div className="flex flex-wrap items-center gap-1.5">{children}</div>
+		</div>
+	);
+}
+
+function ResetLink({
+	href,
+	label = "Reset filter",
+}: {
+	href: string;
+	label?: string;
+}) {
+	return (
+		<Link
+			href={href}
+			className="border-border-default bg-card text-foreground hover:bg-secondary inline-flex h-9 items-center rounded-full border px-4 text-[13px] font-medium transition-colors"
+		>
+			{label}
+		</Link>
+	);
+}
+
 function NotificationItem({ n }: { n: NotifRow }) {
 	const tone = SEVERITY_TONES[n.severity];
 	const SeverityIcon = tone.icon;
@@ -326,20 +412,20 @@ function NotificationItem({ n }: { n: NotifRow }) {
 
 	return (
 		<li
-			className={`border-border-default bg-surface-2 hover:border-foreground/20 group flex items-start gap-3 rounded-xl border p-4 transition-colors ${
-				!n.is_read ? "ring-primary/30 ring-1" : ""
+			className={`border-border-subtle bg-card hover:border-border-strong group flex items-start gap-3 rounded-2xl border p-4 shadow-[var(--shadow-level-1)] transition-colors ${
+				!n.is_read ? "ring-primary/25 ring-1" : ""
 			}`}
 		>
 			<div
-				className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-2 ${tone.ring} ${tone.bg} ${tone.text}`}
+				className={`flex size-9 shrink-0 items-center justify-center rounded-xl ring-2 ${tone.ring} ${tone.bg} ${tone.text}`}
 			>
-				<SeverityIcon className="h-4 w-4" />
+				<SeverityIcon className="size-4" />
 			</div>
 
-			<div className="min-w-0 flex-1 space-y-1">
-				<div className="flex flex-wrap items-baseline gap-2">
+			<div className="min-w-0 flex-1 space-y-1.5">
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 					<p
-						className={`text-sm leading-tight ${
+						className={`min-w-0 text-sm leading-snug ${
 							n.is_read
 								? "text-foreground/80 font-medium"
 								: "text-foreground font-semibold"
@@ -353,31 +439,31 @@ function NotificationItem({ n }: { n: NotifRow }) {
 					>
 						{tone.label}
 					</Badge>
-					<span className="text-muted-foreground inline-flex items-center gap-0.5 text-[10px]">
-						<CategoryIcon className="h-2.5 w-2.5" />
+					<span className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
+						<CategoryIcon className="size-3" />
 						{CATEGORY_LABELS[n.category]}
 					</span>
 				</div>
 				<p className="text-muted-foreground text-xs leading-relaxed">
 					{n.body}
 				</p>
-				<div className="flex flex-wrap items-center gap-3">
-					<span className="text-muted-foreground/70 tabular text-[10px]">
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+					<span className="text-muted-foreground/70 tabular text-[11px]">
 						{timeAgo(n.created_at)}
 					</span>
 					{n.action_url && (
 						<Link
 							href={n.action_url}
-							className="text-primary inline-flex items-center gap-0.5 text-[10px] font-medium hover:underline"
+							className="text-primary inline-flex items-center gap-0.5 text-[11px] font-medium hover:underline"
 						>
-							Open
-							<ChevronRight className="h-2.5 w-2.5" />
+							Buka
+							<ChevronRight className="size-3" />
 						</Link>
 					)}
 					{n.is_resolved && (
-						<span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5 text-[10px] font-medium">
-							<CheckCircle2 className="h-2.5 w-2.5" />
-							Resolved
+						<span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5 text-[11px] font-medium">
+							<CheckCircle2 className="size-3" />
+							Selesai
 						</span>
 					)}
 				</div>
@@ -412,9 +498,10 @@ function TabLink({
 	return (
 		<Link
 			href={href}
-			className={`inline-flex h-7 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors ${
+			aria-current={active ? "true" : undefined}
+			className={`inline-flex h-8 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors ${
 				active
-					? "bg-[#059669] text-white"
+					? "bg-[#059669] text-white shadow-[var(--shadow-level-1)]"
 					: "text-muted-foreground hover:text-foreground"
 			}`}
 		>
@@ -427,22 +514,39 @@ function ChipLink({
 	href,
 	label,
 	active,
-	tone,
+	dot,
+	icon: Icon,
 }: {
 	href: string;
 	label: string;
 	active: boolean;
-	tone?: string;
+	/** Semantic status color (severity only) — a small leading dot. */
+	dot?: string;
+	/** Neutral leading icon (category only). */
+	icon?: typeof Info;
 }) {
 	return (
 		<Link
 			href={href}
-			className={`inline-flex h-8 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
+			aria-current={active ? "true" : undefined}
+			className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
 				active
 					? "border-[#059669] bg-[#059669] text-white"
-					: `border-border-default bg-card hover:bg-secondary ${tone ?? "text-muted-foreground"}`
+					: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground"
 			}`}
 		>
+			{dot ? (
+				<span
+					aria-hidden
+					className={`size-2 shrink-0 rounded-full ${active ? "bg-white/90" : dot}`}
+				/>
+			) : null}
+			{Icon ? (
+				<Icon
+					aria-hidden
+					className={`size-3.5 shrink-0 ${active ? "text-white" : "text-muted-foreground"}`}
+				/>
+			) : null}
 			{label}
 		</Link>
 	);

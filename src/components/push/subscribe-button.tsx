@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, BellOff, Loader2, Send } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, Send } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import {
 	deletePushSubscriptionByEndpoint,
@@ -12,10 +12,31 @@ import { cn } from "@/lib/utils";
 type State =
 	| "checking"
 	| "unsupported"
+	| "needs-install"
 	| "blocked"
 	| "idle"
 	| "subscribed"
 	| "error";
+
+/**
+ * iOS Safari only exposes the Push API when the site runs as an installed PWA
+ * (Add to Home Screen → standalone). In a normal tab `PushManager` is missing,
+ * which otherwise reads as a flat "browser tidak support push". Detect that case
+ * so we can show actionable guidance instead.
+ */
+function needsHomeScreenInstall(): boolean {
+	if (typeof navigator === "undefined") return false;
+	const ua = navigator.userAgent;
+	const isIOS =
+		/iphone|ipad|ipod/i.test(ua) ||
+		// iPadOS 13+ reports as desktop Safari but has touch points
+		(navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+	if (!isIOS) return false;
+	const standalone =
+		window.matchMedia?.("(display-mode: standalone)").matches ||
+		(navigator as Navigator & { standalone?: boolean }).standalone === true;
+	return !standalone;
+}
 
 function urlBase64ToBuffer(base64: string): ArrayBuffer {
 	const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -44,7 +65,9 @@ export function PushSubscribeButton({
 		(async () => {
 			if (typeof window === "undefined") return;
 			if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-				if (!cancelled) setState("unsupported");
+				if (!cancelled) {
+					setState(needsHomeScreenInstall() ? "needs-install" : "unsupported");
+				}
 				return;
 			}
 			if (Notification.permission === "denied") {
@@ -160,8 +183,7 @@ export function PushSubscribeButton({
 				setTestStatus(null);
 				if (pruned > 0) {
 					setError(
-						(prev) =>
-							`${prev}\n${pruned} subscription expired (auto-pruned).`,
+						(prev) => `${prev}\n${pruned} subscription expired (auto-pruned).`,
 					);
 				}
 			}
@@ -177,6 +199,25 @@ export function PushSubscribeButton({
 				)}
 			>
 				<Loader2 className="h-3.5 w-3.5 animate-spin" /> Cek status push…
+			</div>
+		);
+	}
+
+	if (state === "needs-install") {
+		return (
+			<div
+				className={cn(
+					"text-muted-foreground inline-flex flex-col items-start gap-0.5 text-xs",
+					className,
+				)}
+			>
+				<span className="text-foreground inline-flex items-center gap-2 font-medium">
+					<BellRing className="h-3.5 w-3.5" /> Tambahkan ke Home Screen dulu
+				</span>
+				<span>
+					Di iPhone, push cuma jalan kalau app di-install: Share → “Add to Home
+					Screen”, lalu buka dari ikonnya.
+				</span>
 			</div>
 		);
 	}

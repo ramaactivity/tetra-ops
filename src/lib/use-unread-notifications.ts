@@ -35,10 +35,17 @@ export function useUnreadNotifications(): number {
 
 		load();
 		const onFocus = () => load();
+		// visibilitychange fires reliably on mobile (tab switch / app resume),
+		// where `focus` often doesn't — keeps the badge fresh on phones.
+		const onVisible = () => {
+			if (document.visibilityState === "visible") load();
+		};
 		window.addEventListener("focus", onFocus);
+		document.addEventListener("visibilitychange", onVisible);
 		return () => {
 			active = false;
 			window.removeEventListener("focus", onFocus);
+			document.removeEventListener("visibilitychange", onVisible);
 		};
 	}, []);
 
