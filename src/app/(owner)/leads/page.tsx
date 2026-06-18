@@ -1,4 +1,5 @@
-import { Clock, MessageCircle, Tag, Users } from "lucide-react";
+import { Clock, MessageCircle, Settings2, Tag, Users } from "lucide-react";
+import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { LeadsFilterBar } from "@/components/leads/leads-filter-bar";
@@ -10,7 +11,9 @@ import {
 } from "@/components/leads/leads-shared";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +35,9 @@ export default async function LeadsPage({
 	const status = params.status?.trim() ?? "";
 
 	const supabase = await createClient();
+	const me = await getCurrentUser();
+	const canManage =
+		me?.profile.role === "owner" || me?.profile.role === "super_admin";
 	const now = new Date();
 
 	// List query — filtered, capped at 200 most-recent.
@@ -108,6 +114,17 @@ export default async function LeadsPage({
 			<SectionHeader
 				title="Leads"
 				description="Lead WhatsApp yang ditangkap otomatis oleh bot Tetra. Follow-up internal saja — jangan untuk blast."
+				actions={
+					canManage ? (
+						<Link
+							href="/leads/settings"
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
+							<Settings2 className="size-4" />
+							<span className="hidden sm:inline">Setting Bot</span>
+						</Link>
+					) : undefined
+				}
 			/>
 
 			<KpiRow>
@@ -161,7 +178,7 @@ export default async function LeadsPage({
 						}
 					/>
 				) : (
-					<LeadsListTable leads={leads} />
+					<LeadsListTable leads={leads} canManage={canManage} />
 				)}
 			</div>
 		</Container>

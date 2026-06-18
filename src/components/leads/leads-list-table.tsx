@@ -13,6 +13,7 @@ import {
 	topicLabel,
 	waMePhone,
 } from "./leads-shared";
+import { PauseContactButton } from "./pause-contact-button";
 
 /**
  * <LeadsListTable /> — desktop table / mobile cards of WhatsApp bot leads.
@@ -28,7 +29,14 @@ function formatReceived(iso: string): string {
 	});
 }
 
-export function LeadsListTable({ leads }: { leads: LeadRow[] }) {
+export function LeadsListTable({
+	leads,
+	canManage = false,
+}: {
+	leads: LeadRow[];
+	/** Owner / super_admin → show the per-contact pause action. */
+	canManage?: boolean;
+}) {
 	const columns: ResponsiveTableColumn<LeadRow>[] = [
 		{
 			key: "phone",
@@ -106,6 +114,19 @@ export function LeadsListTable({ leads }: { leads: LeadRow[] }) {
 			),
 		},
 	];
+
+	if (canManage) {
+		columns.push({
+			key: "actions",
+			header: "",
+			mobileLabel: "Aksi",
+			width: "90px",
+			align: "right",
+			render: (l) => (
+				<PauseContactButton waJid={l.wa_jid} name={l.name || l.phone} />
+			),
+		});
+	}
 
 	return (
 		<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
