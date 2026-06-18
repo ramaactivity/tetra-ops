@@ -197,7 +197,7 @@ export default async function PurchaseRequestsPage({
 		me.profile.role === "super_admin" || me.profile.role === "owner";
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Permintaan Belanja"
 				description="Crew minta belanja → owner terima sebagian / penuh. Aging > 3 hari ditandai sebagai tertunda."

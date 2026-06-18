@@ -230,7 +230,7 @@ export default async function NotificationsPage({
 	}
 
 	return (
-		<Container size="xl" className="space-y-4 md:space-y-6">
+		<Container size="xl" className="space-y-3 md:space-y-3">
 			<SectionHeader
 				title="Notifications"
 				actions={

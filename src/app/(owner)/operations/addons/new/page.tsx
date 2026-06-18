@@ -21,7 +21,7 @@ export default async function NewAddonPage() {
 		.order("sku", { ascending: true });
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<CatalogFormHeader
 				backHref="/operations/addons"
 				backLabel="Add-on"

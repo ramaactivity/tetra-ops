@@ -71,7 +71,7 @@ export default async function ManagePaymentsPage({
 	const canLog = remaining > 0;
 
 	return (
-		<Container size="xl" className="space-y-5 pb-4">
+		<Container size="xl" className="space-y-3 pb-4">
 			{/* Back */}
 			<Link
 				href={`/operations/${event.project_id}`}

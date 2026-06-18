@@ -191,7 +191,7 @@ export default async function ArsipNotaPage({
 		tab === "sistem" ? sistemRows.length > 0 : manualRows.length > 0;
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				eyebrow="Finance"
 				title="Arsip Nota"

@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OperationsLoading() {
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			{/* Section header + view switcher + actions */}
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 				<div className="space-y-2">

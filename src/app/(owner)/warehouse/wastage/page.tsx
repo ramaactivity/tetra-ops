@@ -69,7 +69,7 @@ export default async function WastageListPage() {
 	}));
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Wastage Log"
 				description="Catatan barang habis pakai yang keluar karena bukan konsumsi event normal — testing, defective, handling damage, opname shortage."

@@ -8,7 +8,7 @@ import { createPackage } from "@/lib/actions/packages";
 
 export default function NewPackagePage() {
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<CatalogFormHeader
 				backHref="/operations/packages"
 				backLabel="Paket"

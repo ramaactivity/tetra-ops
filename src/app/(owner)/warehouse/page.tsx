@@ -432,7 +432,7 @@ export default async function WarehousePage({
 					: "Tambah Item";
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<WarehouseRealtimeSync />
 			<PageHeader
 				title="Warehouse"

@@ -10,7 +10,7 @@ const CLUSTERS = [
 
 export default function Loading() {
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			{/* PageHeader skeleton */}
 			<div className="space-y-3">
 				<Skeleton className="h-3.5 w-28" />

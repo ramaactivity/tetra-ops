@@ -105,7 +105,7 @@ export default async function ReportsPage({
 	const isSuperAdmin = me?.profile.role === "super_admin";
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Reports"
 				description="Monthly P&L, crew performance, owner statement."

@@ -102,7 +102,7 @@ export default async function OperationsBoardPage() {
 	}
 
 	return (
-		<Container size="full" className="space-y-6">
+		<Container size="full" className="space-y-3">
 			<SectionHeader
 				title="Operations"
 				description={`${events.length} event aktif (selain cancelled / archived). Scroll horizontal untuk lihat status lain.`}

@@ -271,7 +271,7 @@ export default async function RemindersPage({
 		counts.h3_pelunasan + counts.h7_dp + counts.h1_konfirmasi + counts.overdue;
 
 	return (
-		<Container size="xl" className="space-y-4 md:space-y-6">
+		<Container size="xl" className="space-y-3 md:space-y-3">
 			<SectionHeader
 				title="Reminders"
 				actions={

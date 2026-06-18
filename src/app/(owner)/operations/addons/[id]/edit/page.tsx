@@ -51,7 +51,7 @@ export default async function EditAddonPage({
 	const action = updateAddon.bind(null, addon.id);
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<CatalogFormHeader
 				backHref="/operations/addons"
 				backLabel="Add-on"

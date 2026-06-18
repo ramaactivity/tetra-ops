@@ -87,7 +87,7 @@ export default async function WarehouseEditItemPage({
 	}
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<WarehouseRealtimeSync />
 			<PageHeader
 				title={`Edit: ${loaded.base.name}`}

@@ -8,7 +8,7 @@ export default function SettingsLayout({
 	children: React.ReactNode;
 }) {
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Settings"
 				description="Konfigurasi sistem, tim & bagi hasil, template pesan, dan aturan notifikasi."

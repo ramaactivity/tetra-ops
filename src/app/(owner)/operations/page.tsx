@@ -382,7 +382,7 @@ export default async function OperationsListPage({
 		: null;
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<MonthMemory />
 			<SectionHeader
 				title="Operations"

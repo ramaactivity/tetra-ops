@@ -194,7 +194,7 @@ export default async function PayablesPage({
 		[]) as CashAccountOption[];
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Hutang Dagang"
 				description="Outstanding TOP purchases per supplier. Klik Bayar untuk record pembayaran — auto-jurnal Hutang Vendor turun, Kas/Bank turun."

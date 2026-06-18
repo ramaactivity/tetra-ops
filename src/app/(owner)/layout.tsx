@@ -29,7 +29,7 @@ export default async function OwnerLayout({
 			<OwnerSidebar />
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on
 			    smaller laptops (otherwise Container max-w caps push past viewport). */}
-			<div className="flex min-w-0 flex-1 flex-col gap-3 md:gap-6">
+			<div className="flex min-w-0 flex-1 flex-col gap-3">
 				<OwnerTopBar
 					name={profile.full_name}
 					email={result.email}

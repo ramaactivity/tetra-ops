@@ -136,7 +136,7 @@ export default async function StockTakeDetailPage({
 	const editable = take.status === "draft";
 
 	return (
-		<Container size="xl" className="space-y-6 pb-24">
+		<Container size="xl" className="space-y-3 pb-24">
 			<PageHeader
 				title={`Stock Opname · ${formatDateID(take.taken_at)}`}
 				backHref="/warehouse/stock-take"

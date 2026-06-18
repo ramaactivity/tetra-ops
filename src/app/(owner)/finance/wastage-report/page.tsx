@@ -152,7 +152,7 @@ export default async function WastageReportPage({
 		.slice(0, 5);
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Laporan Wastage"
 				description={`Akumulasi kerugian wastage ${monthsBack} bulan terakhir. Sumber: tabel wastage_logs (Dr 5-510 Beban Wastage).`}

@@ -36,7 +36,7 @@ export default async function EditBackdropPage({
 	};
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<CatalogFormHeader
 				backHref="/operations/backdrops"
 				backLabel="Backdrop"

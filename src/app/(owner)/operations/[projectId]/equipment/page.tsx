@@ -166,7 +166,7 @@ export default async function EventEquipmentPage({
 	})) as IncidentRow[];
 
 	return (
-		<Container size="md" className="space-y-6">
+		<Container size="md" className="space-y-3">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${projectId}`}

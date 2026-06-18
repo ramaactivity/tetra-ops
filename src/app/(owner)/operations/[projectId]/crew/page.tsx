@@ -130,7 +130,7 @@ export default async function ManageCrewPage({
 	);
 
 	return (
-		<Container size="sm" className="space-y-6">
+		<Container size="sm" className="space-y-3">
 			<div className="space-y-2">
 				<Link
 					href={`/operations/${event.project_id}`}

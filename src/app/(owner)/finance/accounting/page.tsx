@@ -193,7 +193,7 @@ export default async function AccountingPage({
 	const asOfLabel = formatDateID(new Date().toISOString());
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Akuntansi"
 				description="Pusat keuangan bisnis. Sebagian besar jurnal ter-posting otomatis dari settlement, pembelian, dan stock opname — tinggal dibaca, ditelusuri, dan dikoreksi bila perlu."

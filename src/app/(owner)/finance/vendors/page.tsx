@@ -162,7 +162,7 @@ export default async function VendorsPage() {
 	const totalUpcoming = vendors.reduce((s, v) => s + v.upcomingCount, 0);
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Vendor / Partner Organizer"
 				description="Aggregate komisi vendor dari semua event channel=vendor."

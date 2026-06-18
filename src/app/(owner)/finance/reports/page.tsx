@@ -171,7 +171,7 @@ export default async function FinanceReportsPage({
 	const retainedEarnings = revenueTotal - expenseTotal;
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Laporan Keuangan"
 				description="Neraca Saldo · Laba/Rugi · Neraca. Computed dari journal_lines — entry yang di-reverse & jurnal pembaliknya saling meniadakan (net nol)."

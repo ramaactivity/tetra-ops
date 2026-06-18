@@ -68,7 +68,7 @@ export default async function SuppliersPage() {
 	);
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Supplier"
 				description="Master vendor — default term pembayaran (Cash / TOP N) terpakai saat catat Pembelian."

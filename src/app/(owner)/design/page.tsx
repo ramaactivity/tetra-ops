@@ -215,7 +215,7 @@ export default async function AssetDesignPage({
 	}
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Asset & Design"
 				description="Status design per event + hub aset (design frame, footage, softfile). Kelola status design + aset langsung di sini."

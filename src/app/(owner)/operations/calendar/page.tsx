@@ -125,7 +125,7 @@ export default async function OperationsCalendarPage({
 	const fmt = (y: number, m: number) => `${y}-${String(m).padStart(2, "0")}`;
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Operations"
 				description={`${events.length} event di window kalender · klik kartu untuk detail.`}

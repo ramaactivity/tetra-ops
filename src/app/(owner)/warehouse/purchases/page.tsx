@@ -138,7 +138,7 @@ export default async function PurchasesPage() {
 		.size;
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Pembelian"
 				description="Riwayat pembelian stok. Klik Catat Pembelian untuk record belanja multi-item dalam satu transaksi."

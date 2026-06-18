@@ -96,7 +96,7 @@ export default async function DesignAssetManagerPage({
 	const softfileUrl = softfile.url ?? null;
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<div className="space-y-2">
 				<Link
 					href="/design"

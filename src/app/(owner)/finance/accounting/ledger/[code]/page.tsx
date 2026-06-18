@@ -156,7 +156,7 @@ export default async function LedgerPage({
 	const periodLabel = from || to ? "di periode" : "sepanjang waktu";
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title={
 					<span className="flex flex-wrap items-baseline gap-2.5">

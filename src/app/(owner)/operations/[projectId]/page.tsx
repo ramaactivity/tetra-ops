@@ -307,7 +307,7 @@ export default async function EventDetailPage({
 	};
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			{/* === HEADER === */}
 			<div className="space-y-4">
 				<Link

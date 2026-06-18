@@ -178,7 +178,7 @@ export default async function BillingPage({
 	}
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Billing"
 				description="Track pembayaran dan piutang dari semua event."

@@ -135,7 +135,7 @@ export default async function StockTakeListPage({
 	};
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<PageHeader
 				title="Stock Opname"
 				description="Audit fisik inventory. Owner walk warehouse, isi hitung fisik per item, lalu commit — sistem auto-create adjustment movement buat tiap selisih."

@@ -296,7 +296,7 @@ export default async function EventRekapPage({
 		: undefined;
 
 	return (
-		<Container size="xl" className="space-y-5 pb-32">
+		<Container size="xl" className="space-y-3 pb-32">
 			<Link
 				href={`/operations/${projectId}`}
 				className="text-muted-foreground hover:text-foreground -mb-1 inline-flex items-center gap-1 text-[13px] font-medium transition-colors"

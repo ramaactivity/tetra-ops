@@ -164,7 +164,7 @@ export default async function CrewScheduleView({
 	const todayStart = isoDate(today);
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Operations"
 				description={`Crew schedule ${HORIZON_DAYS} hari ke depan. Cell merah = bentrok (2+ event di tanggal sama).`}

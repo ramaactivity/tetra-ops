@@ -72,7 +72,7 @@ export default async function ContactsListPage({
 	];
 
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				as="h1"
 				eyebrow="Kontak"

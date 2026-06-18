@@ -77,7 +77,7 @@ export default async function EditVendorPage({
 	const action = updateVendor.bind(null, vendor.id as string);
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<div className="space-y-2">
 				<Link
 					href="/vendors"

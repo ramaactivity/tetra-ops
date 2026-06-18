@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RemindersLoading() {
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 				<div className="space-y-2">
 					<Skeleton className="h-7 w-56" />

@@ -7,7 +7,7 @@ import { Container } from "@/components/layout/container";
 
 export default function NewBackdropPage() {
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<CatalogFormHeader
 				backHref="/operations/backdrops"
 				backLabel="Backdrop"

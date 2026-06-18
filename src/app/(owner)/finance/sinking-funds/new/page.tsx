@@ -6,7 +6,7 @@ import { SinkingFundForm } from "@/components/sinking-funds/fund-form";
 
 export default function NewSinkingFundPage() {
 	return (
-		<Container size="lg" className="space-y-4">
+		<Container size="lg" className="space-y-3">
 			<Link
 				href="/finance/sinking-funds"
 				className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"

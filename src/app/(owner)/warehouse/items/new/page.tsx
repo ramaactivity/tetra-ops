@@ -24,7 +24,7 @@ export default async function WarehouseNewItemPage({
 		.order("name");
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<PageHeader
 				title="Tambah Item"
 				backHref="/warehouse"

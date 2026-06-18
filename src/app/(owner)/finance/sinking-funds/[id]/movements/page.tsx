@@ -99,7 +99,7 @@ export default async function SinkingFundMovementsPage({
 		.reduce((s, m) => s + m.amount, 0);
 
 	return (
-		<Container size="lg" className="space-y-6">
+		<Container size="lg" className="space-y-3">
 			<div className="space-y-2">
 				<Link
 					href="/finance/sinking-funds"

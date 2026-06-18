@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function WarehouseLoading() {
 	return (
-		<Container size="xl" className="space-y-6">
+		<Container size="xl" className="space-y-3">
 			<div className="space-y-2">
 				<Skeleton className="h-7 w-32" />
 				<Skeleton className="h-4 w-72" />
