@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronLeft, ExternalLink, Palette } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -6,7 +6,6 @@ import {
 	AssetSection,
 } from "@/components/event-assets/asset-section";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import {
 	ensureEventCategoryFolderInternal,
 	getFootageInfoInternal,
@@ -103,36 +102,6 @@ export default async function DesignAssetManagerPage({
 				<ChevronLeft className="size-4" aria-hidden strokeWidth={2} />
 				Design Hub
 			</Link>
-
-			{/* Page-level actions teleport to the topbar as uniform h-9 pills.
-			    Passed as direct children (no wrapper div) so the topbar's
-			    [&>a] normalizer applies — keeps them the same size as every page. */}
-			<SectionHeader
-				title={event.client_name}
-				actions={
-					<>
-						{event.drive_folder_url ? (
-							<a
-								href={event.drive_folder_url}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-subtle bg-card px-3.5 text-[13px] font-medium text-foreground shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary"
-							>
-								<Palette className="size-3.5" />
-								Buka folder Drive
-								<ExternalLink className="size-3" />
-							</a>
-						) : null}
-						<Link
-							href={`/operations/${event.project_id}`}
-							className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-subtle bg-card px-3.5 text-[13px] font-medium text-foreground shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary"
-						>
-							Buka Operations
-							<ArrowRight className="size-3.5" />
-						</Link>
-					</>
-				}
-			/>
 
 			{/* Emerald hero — event identity + asset counts, same green card as the
 			    event detail / billing heroes. */}
