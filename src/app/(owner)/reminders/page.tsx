@@ -10,6 +10,8 @@ import {
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { KpiRow } from "@/components/operations/_shared/kpi-row";
+import { KpiCard } from "@/components/operations/kpi-card";
 import { ReminderBatchClient } from "@/components/reminders/batch-client";
 import {
 	BUCKET_DESCRIPTIONS,
@@ -83,11 +85,21 @@ const BUCKET_ICONS: Record<ReminderBucket, typeof Clock> = {
 	overdue: AlertTriangle,
 };
 
-const BUCKET_TONES: Record<ReminderBucket, string> = {
-	h3_pelunasan: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-	h7_dp: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
-	h1_konfirmasi: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-	overdue: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
+const BUCKET_ACCENT: Record<
+	ReminderBucket,
+	"amber" | "sky" | "emerald" | "rose"
+> = {
+	h3_pelunasan: "amber",
+	h7_dp: "sky",
+	h1_konfirmasi: "emerald",
+	overdue: "rose",
+};
+
+const BUCKET_HINTS: Record<ReminderBucket, string> = {
+	h3_pelunasan: "Sisa belum lunas",
+	h7_dp: "DP belum masuk",
+	h1_konfirmasi: "Konfirmasi besok",
+	overdue: "Lewat, belum lunas",
 };
 
 export default async function RemindersPage({
@@ -259,10 +271,9 @@ export default async function RemindersPage({
 		counts.h3_pelunasan + counts.h7_dp + counts.h1_konfirmasi + counts.overdue;
 
 	return (
-		<Container size="xl" className="space-y-4 md:space-y-5">
+		<Container size="xl" className="space-y-4 md:space-y-6">
 			<SectionHeader
-				title="WA Reminder Scheduler"
-				description="Kirim reminder WhatsApp manual via wa.me — pilih bucket, centang event, klik kirim."
+				title="Reminders"
 				actions={
 					<Badge
 						variant="outline"
@@ -274,43 +285,54 @@ export default async function RemindersPage({
 				}
 			/>
 
-			{/* Bucket selector — consistent pill family (rounded-full, h-9, ink-on
-			    active) with a semantic count chip. */}
-			<div className="space-y-2">
-				<div className="flex flex-wrap gap-2">
-					{BUCKETS.map((b) => {
-						const Icon = BUCKET_ICONS[b];
-						const isActive = activeBucket === b;
-						return (
-							<Link
-								key={b}
-								href={`/reminders?bucket=${b}`}
-								aria-current={isActive ? "true" : undefined}
-								className={cn(
-									"inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
-									isActive
-										? "border-[#059669] bg-[#059669] text-white shadow-[var(--shadow-level-1)]"
-										: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
-								)}
-							>
-								<Icon className="size-4 shrink-0" />
-								<span>{BUCKET_LABELS[b]}</span>
-								<span
+			{/* Hero — KPI breakdown per bucket, same shape every page uses. */}
+			<KpiRow>
+				{BUCKETS.map((b) => (
+					<KpiCard
+						key={b}
+						label={BUCKET_LABELS[b]}
+						value={String(counts[b])}
+						hint={BUCKET_HINTS[b]}
+						icon={BUCKET_ICONS[b]}
+						accent={BUCKET_ACCENT[b]}
+					/>
+				))}
+			</KpiRow>
+
+			{/* Bucket selector — one horizontal-scroll row (no wrapping), ink-on
+			    active pill family. The hero above carries the counts. */}
+			<div className="border-border-subtle bg-card overflow-hidden rounded-2xl border shadow-[var(--shadow-level-2)]">
+				<div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+					<span className="text-muted-foreground shrink-0 text-[11px] font-semibold uppercase tracking-wider sm:w-16">
+						Bucket
+					</span>
+					<div className="hide-scrollbar -mx-3 flex min-w-0 items-center gap-1.5 overflow-x-auto px-3 pb-0.5 sm:mx-0 sm:flex-1 sm:px-0 [&>*]:shrink-0">
+						{BUCKETS.map((b) => {
+							const Icon = BUCKET_ICONS[b];
+							const isActive = activeBucket === b;
+							return (
+								<Link
+									key={b}
+									href={`/reminders?bucket=${b}`}
+									aria-current={isActive ? "true" : undefined}
 									className={cn(
-										"tabular inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
-										isActive ? "bg-white/20 text-white" : BUCKET_TONES[b],
+										"inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
+										isActive
+											? "border-[#059669] bg-[#059669] text-white shadow-[var(--shadow-level-1)]"
+											: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
 									)}
 								>
-									{counts[b]}
-								</span>
-							</Link>
-						);
-					})}
+									<Icon className="size-4 shrink-0" />
+									<span>{BUCKET_LABELS[b]}</span>
+								</Link>
+							);
+						})}
+					</div>
 				</div>
-				<p className="type-caption text-muted-foreground px-1">
-					{BUCKET_DESCRIPTIONS[activeBucket]}
-				</p>
 			</div>
+			<p className="type-caption text-muted-foreground -mt-2 px-1">
+				{BUCKET_DESCRIPTIONS[activeBucket]}
+			</p>
 
 			{/* Suggested template — floating card */}
 			<div className="border-border-subtle bg-card rounded-2xl border p-4 shadow-[var(--shadow-level-2)] sm:p-5">

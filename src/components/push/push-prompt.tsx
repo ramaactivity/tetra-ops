@@ -6,39 +6,48 @@ import { PushSubscribeButton } from "@/components/push/subscribe-button";
 
 const DISMISS_KEY = "tetra:push-prompt-dismissed";
 
+type Mode = "loading" | "popup" | "banner" | "hidden";
+
 /**
- * <PushPrompt /> — the "enable push / add to home screen" card, shown as a
- * dismissible popup pinned to the BOTTOM of the notifications screen (above the
- * mobile bottom-nav; bottom-right on desktop). It's deliberately NOT a hero:
- * it floats over content, can be closed (persisted in localStorage), and never
- * shows again once the device is already subscribed.
+ * <PushPrompt /> — the "enable push / add to home screen" UI.
+ *
+ * - First visit: a dismissible **popup** pinned to the bottom (above the mobile
+ *   bottom-nav; bottom-right on desktop). Deliberately NOT a hero.
+ * - After it's closed: it doesn't disappear entirely — it collapses into a quiet
+ *   inline **banner** that stays at the bottom of the page content, so the user
+ *   can still enable push later. Dismissal persists in localStorage.
+ * - If the device is already subscribed, nothing is shown.
  */
 export function PushPrompt({
 	vapidPublicKey,
 }: {
 	vapidPublicKey: string | null;
 }) {
-	const [show, setShow] = useState(false);
+	const [mode, setMode] = useState<Mode>("loading");
 
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
-			try {
-				if (localStorage.getItem(DISMISS_KEY) === "1") return;
-			} catch {
-				// localStorage blocked — fall through and show anyway.
-			}
 			// Already subscribed on this device? Then there's nothing to prompt.
 			try {
 				if ("serviceWorker" in navigator && "PushManager" in window) {
 					const reg = await navigator.serviceWorker.ready;
 					const existing = await reg.pushManager.getSubscription();
-					if (existing) return;
+					if (existing) {
+						if (!cancelled) setMode("hidden");
+						return;
+					}
 				}
 			} catch {
-				// ignore — show the prompt (subscribe button handles edge states)
+				// ignore — fall through to the prompt (subscribe button handles edges)
 			}
-			if (!cancelled) setShow(true);
+			let dismissed = false;
+			try {
+				dismissed = localStorage.getItem(DISMISS_KEY) === "1";
+			} catch {
+				// localStorage blocked — treat as not dismissed
+			}
+			if (!cancelled) setMode(dismissed ? "banner" : "popup");
 		})();
 		return () => {
 			cancelled = true;
@@ -51,16 +60,49 @@ export function PushPrompt({
 		} catch {
 			// ignore persistence failure
 		}
-		setShow(false);
+		setMode("banner");
 	}
 
-	if (!show) return null;
+	if (mode === "loading" || mode === "hidden") return null;
 
+	const body = (
+		<>
+			<div className="flex items-start gap-3">
+				<span className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-full">
+					<BellRing className="size-[18px]" />
+				</span>
+				<div className="space-y-0.5">
+					<p className="text-foreground text-sm font-medium">
+						Aktifkan push notification
+					</p>
+					<p className="text-muted-foreground text-xs leading-relaxed">
+						Dapat alert OS-level (lockscreen Android, macOS, dll) saat anomaly
+						fires — tanpa perlu buka app.
+					</p>
+				</div>
+			</div>
+			<div className="mt-3">
+				<PushSubscribeButton vapidPublicKey={vapidPublicKey} />
+			</div>
+		</>
+	);
+
+	// Persistent inline banner (after the popup is closed) — sits in normal flow
+	// at the bottom of the page content.
+	if (mode === "banner") {
+		return (
+			<div className="border-border-subtle bg-card rounded-2xl border p-4 shadow-[var(--shadow-level-1)]">
+				{body}
+			</div>
+		);
+	}
+
+	// First-visit floating popup.
 	return (
 		<div
 			role="dialog"
 			aria-label="Aktifkan push notification"
-			className="reveal fixed z-40 bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] left-1/2 w-[calc(100%-1.5rem)] max-w-[26rem] -translate-x-1/2 rounded-2xl border border-border-subtle bg-card p-4 pr-10 shadow-[var(--shadow-level-4)] md:bottom-6 md:left-auto md:right-6 md:w-[24rem] md:translate-x-0"
+			className="reveal fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-[26rem] -translate-x-1/2 rounded-2xl border border-border-subtle bg-card p-4 pr-10 shadow-[var(--shadow-level-4)] md:bottom-6 md:left-auto md:right-6 md:w-[24rem] md:translate-x-0"
 		>
 			<button
 				type="button"
@@ -70,25 +112,7 @@ export function PushPrompt({
 			>
 				<X className="size-4" />
 			</button>
-
-			<div className="flex items-start gap-3">
-				<span className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-full">
-					<BellRing className="size-[18px]" />
-				</span>
-				<div className="space-y-0.5">
-					<p className="text-foreground text-sm font-medium">
-						Push notification ke device ini
-					</p>
-					<p className="text-muted-foreground text-xs leading-relaxed">
-						Aktifkan biar dapat alert OS-level (lockscreen Android, macOS, dll)
-						saat anomaly fires — tanpa perlu buka app.
-					</p>
-				</div>
-			</div>
-
-			<div className="mt-3">
-				<PushSubscribeButton vapidPublicKey={vapidPublicKey} />
-			</div>
+			{body}
 		</div>
 	);
 }
