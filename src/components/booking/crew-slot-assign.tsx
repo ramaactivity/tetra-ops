@@ -1,7 +1,8 @@
 "use client";
 
 import { MessageCircle, Plus, Trash2, X } from "lucide-react";
-import { useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
@@ -87,6 +88,17 @@ export function CrewSlotAssign({
 	const [optimistic, applyOptimistic] = useOptimistic(assignments, reducer);
 	const [addOpen, setAddOpen] = useState(false);
 	const confirm = useConfirm();
+	const router = useRouter();
+	// Guards against the dropdown re-emitting a just-removed person (which would
+	// resurrect the slot as a fresh assign). Cleared after a short window so a
+	// genuine re-pick still works.
+	const suppressed = useRef<Set<string>>(new Set());
+
+	function suppress(role: string, userId: string) {
+		const key = `${role}:${userId}`;
+		suppressed.current.add(key);
+		setTimeout(() => suppressed.current.delete(key), 1200);
+	}
 
 	const team = optimistic.map((a) => a.user.full_name);
 	const baseOptions = availableCrew.map((c) => ({
@@ -103,6 +115,7 @@ export function CrewSlotAssign({
 
 	function pick(role: string, userId: string, current?: AssignmentRow) {
 		if (!userId || userId === current?.user_id) return;
+		if (suppressed.current.has(`${role}:${userId}`)) return;
 		const crew = availableCrew.find((c) => c.id === userId);
 		if (!crew) return;
 		setAddOpen(false);
@@ -125,6 +138,7 @@ export function CrewSlotAssign({
 			fd.set("role_in_event", role);
 			const res = await assignCrew(projectId, fd);
 			if (res?.error) toast.error(res.error);
+			router.refresh();
 		});
 	}
 
@@ -135,10 +149,12 @@ export function CrewSlotAssign({
 			variant: "destructive",
 		});
 		if (!ok) return;
+		suppress(row.role_in_event, row.user_id);
 		startTransition(async () => {
 			applyOptimistic({ type: "remove", id: row.id });
 			const res = await unassignCrew(projectId, row.id);
 			if (res?.error) toast.error(res.error);
+			router.refresh();
 		});
 	}
 

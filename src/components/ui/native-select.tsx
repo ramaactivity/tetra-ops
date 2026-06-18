@@ -83,7 +83,10 @@ export function NativeSelect({
 }: NativeSelectProps) {
 	return (
 		<Select
-			value={value}
+			// Base UI treats `null` as "no selection". Passing an empty string makes
+			// it hunt for an item with value="" and, finding none, it can re-emit the
+			// previously-selected value — so coerce "" → null for a clean cleared state.
+			value={value === "" ? null : value}
 			defaultValue={defaultValue}
 			onValueChange={
 				onValueChange
