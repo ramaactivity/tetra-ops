@@ -58,10 +58,11 @@ export default async function LeadsPage({
 	const startISO = periodStartISO(period, now);
 	if (startISO) listQuery = listQuery.gte("received_at", startISO);
 
-	// Aggregate query — all-time lightweight rows for KPIs + topic dropdown.
+	// Aggregate query — all-time lightweight rows for KPIs + topic dropdown +
+	// per-status pill counts.
 	const aggQuery = supabase
 		.from("whatsapp_bot_leads")
-		.select("phone, topic, received_at")
+		.select("phone, topic, received_at, status")
 		.order("received_at", { ascending: false })
 		.limit(10000);
 
@@ -84,6 +85,7 @@ export default async function LeadsPage({
 		phone: string;
 		topic: string;
 		received_at: string;
+		status: string;
 	}>;
 
 	// KPIs (all-time)
@@ -108,6 +110,19 @@ export default async function LeadsPage({
 		}
 	}
 	const topics = [...topicCounts.keys()].sort();
+
+	// Status-pill counts — scoped to the persistent filters (period + topic) so
+	// the pills reflect what's filterable, then the status pill narrows further.
+	const scoped = agg.filter((r) => {
+		if (startISO && new Date(r.received_at) < new Date(startISO)) return false;
+		if (topic && r.topic !== topic) return false;
+		return true;
+	});
+	const totalScoped = scoped.length;
+	const statusCounts: Record<string, number> = {};
+	for (const r of scoped) {
+		statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1;
+	}
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -165,6 +180,8 @@ export default async function LeadsPage({
 					topic={topic}
 					status={status}
 					topics={topics}
+					totalScoped={totalScoped}
+					statusCounts={statusCounts}
 				/>
 
 				{leads.length === 0 ? (

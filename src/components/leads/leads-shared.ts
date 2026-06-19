@@ -57,6 +57,15 @@ export const STATUS_BADGE: Record<
 	ignored: "neutral",
 };
 
+/** Dot color per status — for the filter pills (mirrors the Asset & Design
+ *  status pills: small colored dot + label + count). */
+export const STATUS_DOT: Record<string, string> = {
+	new: "bg-amber-500",
+	contacted: "bg-sky-500",
+	converted: "bg-emerald-500",
+	ignored: "bg-muted-foreground/50",
+};
+
 export const STATUS_OPTIONS: ReadonlyArray<{
 	value: LeadStatus;
 	label: string;

@@ -3,10 +3,6 @@
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
-	ResponsiveTable,
-	type ResponsiveTableColumn,
-} from "@/components/ui/responsive-table";
-import {
 	type LeadRow,
 	STATUS_BADGE,
 	statusLabel,
@@ -16,8 +12,11 @@ import {
 import { PauseContactButton } from "./pause-contact-button";
 
 /**
- * <LeadsListTable /> — desktop table / mobile cards of WhatsApp bot leads.
- * Mirrors src/components/contacts/contacts-list-table.tsx.
+ * <LeadsListTable /> — desktop <table> / mobile record-cards.
+ *
+ * Chrome + typography locked to the Asset & Design table so the two list pages
+ * read as one system: rounded-2xl card, hairline-divided rows, eyebrow headers,
+ * and a strict type scale — 13/medium primary · 12.5 secondary · 11 tertiary.
  */
 
 function formatReceived(iso: string): string {
@@ -29,6 +28,29 @@ function formatReceived(iso: string): string {
 	});
 }
 
+function TopicTag({ topic }: { topic: string }) {
+	return (
+		<span className="inline-flex h-[22px] items-center rounded-full bg-secondary px-2.5 text-[11.5px] font-medium text-foreground/80">
+			{topicLabel(topic)}
+		</span>
+	);
+}
+
+function PhoneLink({ phone }: { phone: string }) {
+	return (
+		<a
+			href={`https://wa.me/${waMePhone(phone)}`}
+			target="_blank"
+			rel="noopener noreferrer"
+			onClick={(e) => e.stopPropagation()}
+			className="tabular inline-flex w-fit items-center gap-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground hover:underline"
+		>
+			{phone}
+			<ExternalLink className="size-3" aria-hidden />
+		</a>
+	);
+}
+
 export function LeadsListTable({
 	leads,
 	canManage = false,
@@ -37,104 +59,141 @@ export function LeadsListTable({
 	/** Owner / super_admin → show the per-contact pause action. */
 	canManage?: boolean;
 }) {
-	const columns: ResponsiveTableColumn<LeadRow>[] = [
-		{
-			key: "phone",
-			header: "Nomor",
-			width: "190px",
-			render: (l) => (
-				<a
-					href={`https://wa.me/${waMePhone(l.phone)}`}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="tabular inline-flex items-center gap-1 font-medium text-primary hover:underline"
-					onClick={(e) => e.stopPropagation()}
-				>
-					{l.phone}
-					<ExternalLink className="size-3" aria-hidden />
-				</a>
-			),
-		},
-		{
-			key: "name",
-			header: "Nama",
-			width: "160px",
-			truncate: true,
-			render: (l) =>
-				l.name ? (
-					<span className="font-medium">{l.name}</span>
-				) : (
-					<span className="text-fluid-caption text-muted-foreground">—</span>
-				),
-		},
-		{
-			key: "topic",
-			header: "Topik",
-			width: "120px",
-			render: (l) => (
-				<Badge variant="outline" className="font-medium">
-					{topicLabel(l.topic)}
-				</Badge>
-			),
-		},
-		{
-			key: "message",
-			header: "Pesan",
-			truncate: true,
-			render: (l) => (
-				<span className="text-fluid-caption text-muted-foreground">
-					{l.message?.trim() || "—"}
-				</span>
-			),
-		},
-		{
-			key: "received_at",
-			header: "Waktu",
-			width: "140px",
-			render: (l) => (
-				<span className="tabular text-fluid-caption text-muted-foreground">
-					{formatReceived(l.received_at)}
-					{l.is_after_hours ? (
-						<span className="ml-1 text-amber-600 dark:text-amber-500">
-							• luar jam
-						</span>
-					) : null}
-				</span>
-			),
-		},
-		{
-			key: "status",
-			header: "Status",
-			width: "120px",
-			align: "right",
-			render: (l) => (
-				<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
-					{statusLabel(l.status)}
-				</Badge>
-			),
-		},
-	];
-
-	if (canManage) {
-		columns.push({
-			key: "actions",
-			header: "",
-			mobileLabel: "Aksi",
-			width: "90px",
-			align: "right",
-			render: (l) => (
-				<PauseContactButton waJid={l.wa_jid} name={l.name || l.phone} />
-			),
-		});
-	}
-
 	return (
-		<div className="md:overflow-hidden md:rounded-lg md:border md:border-border-default md:bg-card">
-			<ResponsiveTable<LeadRow>
-				keyExtractor={(l) => l.id}
-				rows={leads}
-				columns={columns}
-			/>
-		</div>
+		<>
+			{/* DESKTOP — real table, Asset & Design chrome */}
+			<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
+				<table className="w-full table-fixed text-sm">
+					<colgroup>
+						<col style={{ width: "20%" }} />
+						<col style={{ width: "11%" }} />
+						<col />
+						<col style={{ width: "15%" }} />
+						<col style={{ width: "12%" }} />
+						{canManage ? <col style={{ width: "9%" }} /> : null}
+					</colgroup>
+					<thead className="border-b border-border-default">
+						<tr className="text-left">
+							<th className="eyebrow px-4 py-2.5">Kontak</th>
+							<th className="eyebrow px-4 py-2.5">Topik</th>
+							<th className="eyebrow px-4 py-2.5">Pesan</th>
+							<th className="eyebrow px-4 py-2.5">Waktu</th>
+							<th className="eyebrow px-4 py-2.5">Status</th>
+							{canManage ? (
+								<th className="eyebrow px-4 py-2.5 text-right">Aksi</th>
+							) : null}
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-border-subtle">
+						{leads.map((l) => (
+							<tr key={l.id} className="transition-colors hover:bg-secondary/30">
+								<td className="px-4 py-3 align-top">
+									<div className="flex min-w-0 flex-col gap-0.5">
+										{l.name ? (
+											<span className="truncate text-[13px] font-medium text-foreground">
+												{l.name}
+											</span>
+										) : (
+											<span className="text-[13px] text-muted-foreground/70">
+												Tanpa nama
+											</span>
+										)}
+										<PhoneLink phone={l.phone} />
+									</div>
+								</td>
+								<td className="px-4 py-3 align-top">
+									<TopicTag topic={l.topic} />
+								</td>
+								<td className="px-4 py-3 align-top">
+									<p className="line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">
+										{l.message?.trim() || "—"}
+									</p>
+								</td>
+								<td className="px-4 py-3 align-top">
+									<div className="flex flex-col gap-0.5">
+										<span className="tabular text-[12.5px] text-muted-foreground">
+											{formatReceived(l.received_at)}
+										</span>
+										{l.is_after_hours ? (
+											<span className="text-[11px] text-amber-600 dark:text-amber-500">
+												luar jam
+											</span>
+										) : null}
+									</div>
+								</td>
+								<td className="px-4 py-3 align-top">
+									<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
+										{statusLabel(l.status)}
+									</Badge>
+								</td>
+								{canManage ? (
+									<td className="px-4 py-3 text-right align-top">
+										<PauseContactButton
+											waJid={l.wa_jid}
+											name={l.name || l.phone}
+										/>
+									</td>
+								) : null}
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+
+			{/* MOBILE — record-card stack */}
+			<div className="space-y-2.5 md:hidden">
+				{leads.map((l) => (
+					<div
+						key={l.id}
+						className="space-y-2.5 rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]"
+					>
+						<div className="flex items-start justify-between gap-3">
+							<div className="flex min-w-0 flex-col gap-0.5">
+								{l.name ? (
+									<span className="truncate text-[14px] font-semibold text-foreground">
+										{l.name}
+									</span>
+								) : (
+									<span className="text-[14px] text-muted-foreground/70">
+										Tanpa nama
+									</span>
+								)}
+								<PhoneLink phone={l.phone} />
+							</div>
+							<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
+								{statusLabel(l.status)}
+							</Badge>
+						</div>
+
+						<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+							<TopicTag topic={l.topic} />
+							<span className="tabular text-[12px] text-muted-foreground">
+								{formatReceived(l.received_at)}
+							</span>
+							{l.is_after_hours ? (
+								<span className="text-[11px] text-amber-600 dark:text-amber-500">
+									· luar jam
+								</span>
+							) : null}
+						</div>
+
+						{l.message?.trim() ? (
+							<p className="line-clamp-3 text-[12.5px] leading-snug text-muted-foreground">
+								{l.message.trim()}
+							</p>
+						) : null}
+
+						{canManage ? (
+							<div className="flex justify-end border-t border-border-subtle pt-2">
+								<PauseContactButton
+									waJid={l.wa_jid}
+									name={l.name || l.phone}
+								/>
+							</div>
+						) : null}
+					</div>
+				))}
+			</div>
+		</>
 	);
 }

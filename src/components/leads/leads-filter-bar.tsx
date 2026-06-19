@@ -8,11 +8,17 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
-import { PERIOD_OPTIONS, STATUS_OPTIONS, topicLabel } from "./leads-shared";
+import {
+	PERIOD_OPTIONS,
+	STATUS_DOT,
+	STATUS_OPTIONS,
+	topicLabel,
+} from "./leads-shared";
 
 /**
- * <LeadsFilterBar /> — search + period + topic + status chips + export.
- * Built on the shared <FilterBar> shell (mirrors BillingFilterBar).
+ * <LeadsFilterBar /> — search + period + topic + status pills + export.
+ * Built on the shared <FilterBar> shell; the status pills mirror the Asset &
+ * Design page exactly (green = active, hairline = idle, colored dot + count).
  */
 
 export function LeadsFilterBar({
@@ -21,6 +27,8 @@ export function LeadsFilterBar({
 	topic,
 	status,
 	topics,
+	totalScoped,
+	statusCounts,
 }: {
 	defaultQ: string;
 	period: string;
@@ -28,6 +36,10 @@ export function LeadsFilterBar({
 	status: string;
 	/** Distinct topics present in the data, for the topic dropdown. */
 	topics: string[];
+	/** Lead count in the current period+topic scope (drives the "Semua" pill). */
+	totalScoped: number;
+	/** Per-status counts in the current period+topic scope. */
+	statusCounts: Record<string, number>;
 }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -59,6 +71,16 @@ export function LeadsFilterBar({
 
 	const exportHref = `/api/leads/export?${searchParams.toString()}`;
 
+	// Status pill chrome — identical spec to DesignFilterBar so the two pages
+	// read as one system: 32px tall, rounded-full, green when active.
+	const chipClass = (active: boolean) =>
+		cn(
+			"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors",
+			active
+				? "border-[#059669] bg-[#059669] text-white"
+				: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
+		);
+
 	return (
 		<FilterBar
 			searchClassName="sm:w-[220px]"
@@ -76,10 +98,7 @@ export function LeadsFilterBar({
 			<NativeSelect
 				value={period || "all"}
 				onValueChange={(v) => router.push(buildHref({ period: v }))}
-				options={PERIOD_OPTIONS.map((o) => ({
-					value: o.value,
-					label: o.label,
-				}))}
+				options={PERIOD_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
 				aria-label="Filter periode"
 				triggerClassName="rounded-full"
 			/>
@@ -93,40 +112,53 @@ export function LeadsFilterBar({
 				triggerClassName="rounded-full"
 			/>
 
-			{hasFilters && (
-				<Link
-					href="/leads"
-					className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-				>
-					<X className="size-3.5" aria-hidden />
-					Clear
-				</Link>
-			)}
-
-			{/* Status chips + export — right-aligned on desktop */}
+			{/* Status pills + export — right-aligned on desktop */}
 			<div className="flex items-center gap-1.5 sm:ml-auto">
-				{[{ value: "", label: "Semua" }, ...STATUS_OPTIONS].map((s) => {
-					const active = (status || "") === s.value;
+				<Link
+					href={buildHref({ status: "" })}
+					aria-current={!status ? "true" : undefined}
+					className={chipClass(!status)}
+				>
+					Semua
+					<span className="tabular text-[11px] opacity-70">{totalScoped}</span>
+				</Link>
+				{STATUS_OPTIONS.map((s) => {
+					const active = status === s.value;
 					return (
 						<Link
-							key={s.value || "all"}
+							key={s.value}
 							href={buildHref({ status: s.value })}
-							aria-pressed={active}
-							className={cn(
-								"inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-[13px] font-medium transition-colors",
-								active
-									? "border-foreground/15 bg-foreground/[0.06] text-foreground"
-									: "border-border-default text-muted-foreground hover:text-foreground",
-							)}
+							aria-current={active ? "true" : undefined}
+							className={chipClass(active)}
 						>
+							<span
+								className={cn(
+									"size-2 rounded-full",
+									active ? "bg-white/90" : STATUS_DOT[s.value],
+								)}
+								aria-hidden
+							/>
 							{s.label}
+							<span className="tabular text-[11px] opacity-70">
+								{statusCounts[s.value] ?? 0}
+							</span>
 						</Link>
 					);
 				})}
 
+				{hasFilters && (
+					<Link
+						href="/leads"
+						className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+					>
+						<X className="size-3.5" aria-hidden />
+						Clear
+					</Link>
+				)}
+
 				<a
 					href={exportHref}
-					className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border-default px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+					className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border-default bg-card px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-secondary hover:text-foreground"
 				>
 					<Download className="size-3.5" aria-hidden />
 					Export
