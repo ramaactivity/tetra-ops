@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { OwnerBottomNav } from "@/components/layouts/owner-bottom-nav";
 import { OwnerSidebar } from "@/components/layouts/owner-sidebar";
 import { OwnerTopBar } from "@/components/layouts/owner-topbar";
+import { BotDownBanner } from "@/components/leads/bot-down-banner";
 import type { Theme } from "@/lib/actions/theme";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function OwnerLayout({
 	children,
@@ -22,6 +24,15 @@ export default async function OwnerLayout({
 	const theme: Theme =
 		cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
 
+	// Initial bot health for the app-wide "bot mati" banner; the client then
+	// keeps it live via realtime + a 60s staleness poll.
+	const supabase = await createClient();
+	const { data: botStatusRow } = await supabase
+		.from("bot_status")
+		.select("connection, updated_at")
+		.eq("id", 1)
+		.maybeSingle();
+
 	return (
 		// UpGradely floating frame: ambient gradient margin around a white
 		// sidebar card + a content column (search topbar card + page content).
@@ -35,7 +46,15 @@ export default async function OwnerLayout({
 					email={result.email}
 					role={profile.role}
 				/>
-				<main className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+				<main className="min-w-0 flex-1 space-y-3 pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+					{botStatusRow ? (
+						<BotDownBanner
+							initial={{
+								connection: botStatusRow.connection,
+								updated_at: botStatusRow.updated_at,
+							}}
+						/>
+					) : null}
 					{children}
 				</main>
 			</div>
