@@ -200,6 +200,37 @@ export const PERIOD_OPTIONS = [
 
 export type LeadPeriod = (typeof PERIOD_OPTIONS)[number]["value"];
 
+/**
+ * Is this a real Indonesian WhatsApp phone number (not a LID)?
+ * WA numbers via Indonesia always start with `62` (~10–15 digits total).
+ * A WhatsApp LID ("Linked ID" privacy identity) is a 15–16 digit value that
+ * is NOT a phone number and can't be reversed into one — those must never be
+ * rendered as a phone. See WHATSAPP_BOT_LID_DISPLAY_NOTE.
+ */
+export function isRealPhone(p?: string | null): boolean {
+	if (!p) return false;
+	const d = String(p).replace(/\D/g, "");
+	return /^62\d{8,13}$/.test(d);
+}
+
+/**
+ * Resolve the phone to DISPLAY (and link via wa.me), or null when only a LID
+ * is known. Priority: a resolved `phone` → a `wa_jid` that is already a PN
+ * (`…@s.whatsapp.net`) → null (LID, no real number). Returns clean `62…` digits.
+ * Use `wa_jid` as the identity key for dedup/segment/pause — NOT for display.
+ */
+export function resolveDisplayPhone(row: {
+	phone?: string | null;
+	wa_jid?: string | null;
+}): string | null {
+	if (isRealPhone(row.phone)) return String(row.phone).replace(/\D/g, "");
+	if (row.wa_jid?.endsWith("@s.whatsapp.net")) {
+		const d = row.wa_jid.split("@")[0].replace(/\D/g, "");
+		if (isRealPhone(d)) return d;
+	}
+	return null;
+}
+
 /** Strip + normalize a phone for `wa.me/` links (digits only, leading 62). */
 export function waMePhone(phone: string): string {
 	const digits = phone.replace(/\D/g, "");

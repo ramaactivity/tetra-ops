@@ -1,15 +1,13 @@
 "use client";
 
-import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { Badge } from "@/components/ui/badge";
+import { ContactPhone } from "./contact-phone";
 import {
 	type ContactRow,
-	formatPhoneHuman,
 	type LeadRow,
 	STATUS_BADGE,
 	statusLabel,
 	topicLabel,
-	waMePhone,
 } from "./leads-shared";
 import { PauseContactButton } from "./pause-contact-button";
 import { SegmentSelect } from "./segment-select";
@@ -36,24 +34,6 @@ function TopicTag({ topic }: { topic: string }) {
 		<span className="inline-flex h-[22px] items-center rounded-full bg-secondary px-2.5 text-[11.5px] font-medium text-foreground/80">
 			{topicLabel(topic)}
 		</span>
-	);
-}
-
-function PhoneLink({ phone }: { phone: string }) {
-	return (
-		<a
-			href={`https://wa.me/${waMePhone(phone)}`}
-			target="_blank"
-			rel="noopener noreferrer"
-			onClick={(e) => e.stopPropagation()}
-			title="Chat via WhatsApp"
-			className="group/wa inline-flex w-fit items-center gap-1.5 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-		>
-			<WhatsAppIcon className="size-3.5 shrink-0 text-[#25D366]" />
-			<span className="tabular group-hover/wa:underline">
-				{formatPhoneHuman(phone)}
-			</span>
-		</a>
 	);
 }
 
@@ -126,7 +106,7 @@ export function LeadsListTable({
 												Tanpa nama
 											</span>
 										)}
-										<PhoneLink phone={l.phone} />
+										<ContactPhone phone={l.phone} waJid={l.wa_jid} />
 									</div>
 								</td>
 								<td className="px-4 py-3 align-top">{segmentCell(l)}</td>
@@ -187,7 +167,7 @@ export function LeadsListTable({
 										Tanpa nama
 									</span>
 								)}
-								<PhoneLink phone={l.phone} />
+								<ContactPhone phone={l.phone} waJid={l.wa_jid} />
 							</div>
 							<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
 								{statusLabel(l.status)}

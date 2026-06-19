@@ -2,7 +2,6 @@
 
 import { Building2, ChevronDown, Clock } from "lucide-react";
 import { useState, useTransition } from "react";
-import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { Badge } from "@/components/ui/badge";
 import {
 	Select,
@@ -13,18 +12,19 @@ import {
 import { toast } from "@/components/ui/toaster";
 import { setContactStatus } from "@/lib/actions/bot-segment";
 import { cn } from "@/lib/utils";
+import { ContactPhone } from "./contact-phone";
 import {
 	type ContactRow,
 	type ContactStatus,
 	formatPhoneHuman,
 	type LeadRow,
 	relStatusLabel,
+	resolveDisplayPhone,
 	STATUS_BADGE,
 	STATUS_REL_BADGE,
 	STATUS_REL_OPTIONS,
 	statusLabel,
 	topicLabel,
-	waMePhone,
 } from "./leads-shared";
 import { SegmentSelect } from "./segment-select";
 
@@ -114,10 +114,12 @@ function AccountCard({
 	canManage: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	// Title falls back to a REAL phone only — never the raw LID/wa_jid.
+	const displayPhone = resolveDisplayPhone(account);
 	const title =
 		account.org_name?.trim() ||
 		account.name?.trim() ||
-		(account.phone ? formatPhoneHuman(account.phone) : account.wa_jid);
+		(displayPhone ? formatPhoneHuman(displayPhone) : "Tanpa nama");
 
 	return (
 		<div className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
@@ -151,20 +153,7 @@ function AccountCard({
 							status={account.status}
 							canManage={canManage}
 						/>
-						{account.phone ? (
-							<a
-								href={`https://wa.me/${waMePhone(account.phone)}`}
-								target="_blank"
-								rel="noopener noreferrer"
-								onClick={(e) => e.stopPropagation()}
-								className="group/wa inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-							>
-								<WhatsAppIcon className="size-3.5 shrink-0 text-[#25D366]" />
-								<span className="tabular group-hover/wa:underline">
-									{formatPhoneHuman(account.phone)}
-								</span>
-							</a>
-						) : null}
+						<ContactPhone phone={account.phone} waJid={account.wa_jid} />
 					</div>
 				</div>
 
