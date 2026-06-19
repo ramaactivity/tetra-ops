@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { fieldInputClass, FormError } from "@/components/catalog/form-kit";
-import { FieldGrid } from "@/components/operations/_shared/field-grid";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -22,26 +21,60 @@ export type BotSettings = {
 	admin_notify_jid: string | null;
 };
 
-// Textarea chrome — height driven by `rows` (NOT the baked-in h-10), same
-// border/radius/focus tokens as the rest of the form fields.
+// Textarea chrome — height from `rows`, fills the card width (no dead space).
 const textareaClass =
 	"w-full rounded-lg border border-border-default bg-background px-3 py-2.5 text-base md:text-sm text-foreground placeholder:text-muted-foreground/60 leading-relaxed transition-colors focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none resize-y";
 
-// Compact width for the small numeric fields so they don't stretch across the
-// whole value column.
-const numClass = cn(fieldInputClass, "tabular w-28");
-
-function GroupHeader({
+/** A standalone settings card — its own surface, header inside, fields below.
+ *  Each concern gets one card instead of stacking everything in one panel. */
+function Card({
 	title,
 	description,
+	children,
 }: {
 	title: string;
 	description: string;
+	children: React.ReactNode;
 }) {
 	return (
-		<div className="space-y-0.5">
-			<h3 className="type-body-strong text-foreground">{title}</h3>
-			<p className="type-caption">{description}</p>
+		<section className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
+			<div className="px-5 py-4">
+				<h3 className="type-heading text-foreground">{title}</h3>
+				<p className="type-secondary mt-0.5 leading-snug">{description}</p>
+			</div>
+			<div className="border-t border-border-subtle px-5 py-5">{children}</div>
+		</section>
+	);
+}
+
+/** Top-label field — label sits directly above its control, hint beneath. */
+function Field({
+	label,
+	htmlFor,
+	hint,
+	error,
+	children,
+}: {
+	label: string;
+	htmlFor: string;
+	hint?: string;
+	error?: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div className="space-y-1.5">
+			<label
+				htmlFor={htmlFor}
+				className="block text-[13px] font-medium text-foreground"
+			>
+				{label}
+			</label>
+			{children}
+			{error ? (
+				<p className="text-[12px] text-destructive">{error}</p>
+			) : hint ? (
+				<p className="text-[12px] leading-snug text-muted-foreground">{hint}</p>
+			) : null}
 		</div>
 	);
 }
@@ -68,20 +101,23 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 		return errs?.[k]?.[0];
 	};
 
-	return (
-		<form action={formAction} className="space-y-7">
-			<FormError message={state?.errors?._form?.[0]} />
+	const numClass = cn(fieldInputClass, "tabular");
 
-			<section className="space-y-4">
-				<GroupHeader
-					title="Jam operasional"
-					description="Di luar jam ini bot menambahkan catatan auto-balas. Offset zona WIB = 7."
-				/>
-				<FieldGrid gap="tight">
-					<FieldGrid.Row
+	return (
+		<form action={formAction} className="space-y-3">
+			{state?.errors?._form ? (
+				<FormError message={state.errors._form[0]} />
+			) : null}
+
+			<Card
+				title="Jam operasional"
+				description="Di luar jam ini bot menambahkan catatan auto-balas. Offset zona WIB = 7."
+			>
+				<div className="grid max-w-md grid-cols-3 gap-3">
+					<Field
 						label="Jam buka"
-						name="business_start_hour"
-						hint="Jam 0–23"
+						htmlFor="business_start_hour"
+						hint="0–23"
 						error={err("business_start_hour")}
 					>
 						<input
@@ -93,11 +129,11 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							defaultValue={settings.business_start_hour}
 							className={numClass}
 						/>
-					</FieldGrid.Row>
-					<FieldGrid.Row
+					</Field>
+					<Field
 						label="Jam tutup"
-						name="business_end_hour"
-						hint="Jam 0–24"
+						htmlFor="business_end_hour"
+						hint="0–24"
 						error={err("business_end_hour")}
 					>
 						<input
@@ -109,10 +145,10 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							defaultValue={settings.business_end_hour}
 							className={numClass}
 						/>
-					</FieldGrid.Row>
-					<FieldGrid.Row
+					</Field>
+					<Field
 						label="Offset zona"
-						name="timezone_offset"
+						htmlFor="timezone_offset"
 						hint="WIB = 7"
 						error={err("timezone_offset")}
 					>
@@ -125,22 +161,19 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							defaultValue={settings.timezone_offset}
 							className={numClass}
 						/>
-					</FieldGrid.Row>
-				</FieldGrid>
-			</section>
+					</Field>
+				</div>
+			</Card>
 
-			<div className="border-t border-border-subtle" />
-
-			<section className="space-y-4">
-				<GroupHeader
-					title="Anti-spam"
-					description="Jaga bot tetap sopan: tidak mengulang template, dan berhenti saat admin sudah turun tangan."
-				/>
-				<FieldGrid gap="tight">
-					<FieldGrid.Row
-						label="Cooldown"
-						name="cooldown_hours"
-						hint="Jam. Template sama tidak dikirim 2× ke kontak yang sama dalam rentang ini."
+			<Card
+				title="Anti-spam"
+				description="Jaga bot tetap sopan: tidak mengulang template, dan berhenti saat admin sudah turun tangan."
+			>
+				<div className="grid gap-5 sm:max-w-3xl sm:grid-cols-2 sm:gap-x-8">
+					<Field
+						label="Cooldown (jam)"
+						htmlFor="cooldown_hours"
+						hint="Template sama tidak dikirim 2× ke kontak yang sama dalam rentang ini."
 						error={err("cooldown_hours")}
 					>
 						<input
@@ -150,13 +183,13 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							min={0}
 							max={720}
 							defaultValue={settings.cooldown_hours}
-							className={numClass}
+							className={cn(numClass, "max-w-[8rem]")}
 						/>
-					</FieldGrid.Row>
-					<FieldGrid.Row
-						label="Auto-pause"
-						name="pause_hours"
-						hint="Jam. Setelah admin balas manual, bot diam ke kontak itu sekian jam."
+					</Field>
+					<Field
+						label="Auto-pause (jam)"
+						htmlFor="pause_hours"
+						hint="Setelah admin balas manual, bot diam ke kontak itu sekian jam."
 						error={err("pause_hours")}
 					>
 						<input
@@ -166,26 +199,22 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							min={0}
 							max={720}
 							defaultValue={settings.pause_hours}
-							className={numClass}
+							className={cn(numClass, "max-w-[8rem]")}
 						/>
-					</FieldGrid.Row>
-				</FieldGrid>
-			</section>
+					</Field>
+				</div>
+			</Card>
 
-			<div className="border-t border-border-subtle" />
-
-			<section className="space-y-4">
-				<GroupHeader
-					title="Template balasan"
-					description="Teks otomatis yang ditambahkan ke balasan. Kosongkan salah satu untuk mematikannya."
-				/>
-				<FieldGrid>
-					<FieldGrid.Row
+			<Card
+				title="Template balasan"
+				description="Teks otomatis yang ditambahkan ke balasan. Kosongkan salah satu untuk mematikannya."
+			>
+				<div className="space-y-5">
+					<Field
 						label="Balasan salam"
-						name="salam_reply"
+						htmlFor="salam_reply"
 						hint="Diawalkan saat pesan mengandung 'Assalamualaikum'."
 						error={err("salam_reply")}
-						labelAlign="start"
 					>
 						<textarea
 							id="salam_reply"
@@ -195,13 +224,12 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							defaultValue={settings.salam_reply ?? ""}
 							className={textareaClass}
 						/>
-					</FieldGrid.Row>
-					<FieldGrid.Row
+					</Field>
+					<Field
 						label="Catatan di luar jam kerja"
-						name="after_hours_note"
+						htmlFor="after_hours_note"
 						hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional."
 						error={err("after_hours_note")}
-						labelAlign="start"
 					>
 						<textarea
 							id="after_hours_note"
@@ -211,37 +239,32 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 							defaultValue={settings.after_hours_note ?? ""}
 							className={textareaClass}
 						/>
-					</FieldGrid.Row>
-				</FieldGrid>
-			</section>
+					</Field>
+				</div>
+			</Card>
 
-			<div className="border-t border-border-subtle" />
-
-			<section className="space-y-4">
-				<GroupHeader
-					title="Notif admin"
-					description="Nomor WA yang menerima ping tiap ada lead baru. Kosongkan untuk mematikan notif."
-				/>
-				<FieldGrid>
-					<FieldGrid.Row
-						label="JID notif admin"
+			<Card
+				title="Notif admin"
+				description="Nomor WA yang menerima ping tiap ada lead baru. Kosongkan untuk mematikan notif."
+			>
+				<Field
+					label="JID notif admin"
+					htmlFor="admin_notify_jid"
+					hint="Format 628xxx@s.whatsapp.net"
+					error={err("admin_notify_jid")}
+				>
+					<input
+						id="admin_notify_jid"
+						type="text"
 						name="admin_notify_jid"
-						hint="Format 628xxx@s.whatsapp.net"
-						error={err("admin_notify_jid")}
-					>
-						<input
-							id="admin_notify_jid"
-							type="text"
-							name="admin_notify_jid"
-							defaultValue={settings.admin_notify_jid ?? ""}
-							placeholder="628xxx@s.whatsapp.net"
-							className={cn(fieldInputClass, "font-mono")}
-						/>
-					</FieldGrid.Row>
-				</FieldGrid>
-			</section>
+						defaultValue={settings.admin_notify_jid ?? ""}
+						placeholder="628xxx@s.whatsapp.net"
+						className={cn(fieldInputClass, "max-w-xl font-mono")}
+					/>
+				</Field>
+			</Card>
 
-			<div className="flex justify-end border-t border-border-subtle pt-5">
+			<div className="flex justify-end pt-1">
 				<Button type="submit" size="lg" disabled={pending}>
 					{pending ? "Menyimpan…" : "Simpan setting"}
 				</Button>

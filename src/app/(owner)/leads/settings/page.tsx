@@ -102,31 +102,24 @@ export default async function LeadsSettingsPage() {
 	};
 
 	return (
-		<Container size="lg">
+		<Container size="lg" className="space-y-3">
 			<TopbarEntityPortal name="Setting Bot" />
 
-			{/* Focused settings column — capped width so fields stay tidy and the
-			    reading measure stays comfortable (a wide full-bleed form sprawls). */}
-			<div className="mx-auto w-full max-w-4xl space-y-3">
-				<BotConnectionHero initial={statusRow} />
+			<BotConnectionHero initial={statusRow} />
 
-				<BotEnabledToggle enabled={settingsRow.enabled} />
+			<BotEnabledToggle enabled={settingsRow.enabled} />
 
-				<Panel
-					title="Jam kerja & anti-spam"
-					subtitle="Jam operasional, cooldown, auto-pause, template balasan, dan notif admin."
-				>
-					<BotSettingsForm settings={settings} />
-				</Panel>
+			{/* Each setting concern is its own card (rendered by the form), full
+			    width — matches the topbar + the rest of the app's list pages. */}
+			<BotSettingsForm settings={settings} />
 
-				<Panel
-					title="Rule balasan"
-					subtitle="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
-					flushBody
-				>
-					<BotRuleEditor rules={rules} />
-				</Panel>
-			</div>
+			<Panel
+				title="Rule balasan"
+				subtitle="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
+				flushBody
+			>
+				<BotRuleEditor rules={rules} />
+			</Panel>
 		</Container>
 	);
 }
