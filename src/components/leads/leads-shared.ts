@@ -86,7 +86,12 @@ export type ContactSegment =
 	| "corporate"
 	| "instansi"
 	| "eo_wo"
-	| "venue";
+	| "venue"
+	// Education world (bot-added) — osis/bem = student orgs, sekolah/kampus = institutions.
+	| "osis"
+	| "bem"
+	| "sekolah"
+	| "kampus";
 
 export type ContactSegmentSource = "auto" | "manual";
 
@@ -113,6 +118,10 @@ export const SEGMENT_LABELS: Record<string, string> = {
 	instansi: "Instansi/Pemerintah",
 	eo_wo: "EO/WO",
 	venue: "Venue",
+	osis: "OSIS",
+	bem: "BEM",
+	sekolah: "Sekolah",
+	kampus: "Kampus",
 };
 
 /** Short label for tight spaces (table badges, chips). */
@@ -122,6 +131,10 @@ export const SEGMENT_LABELS_SHORT: Record<string, string> = {
 	instansi: "Instansi",
 	eo_wo: "EO/WO",
 	venue: "Venue",
+	osis: "OSIS",
+	bem: "BEM",
+	sekolah: "Sekolah",
+	kampus: "Kampus",
 };
 
 export function segmentLabel(segment: string, short = false): string {
@@ -129,7 +142,8 @@ export function segmentLabel(segment: string, short = false): string {
 	return map[segment] ?? segment;
 }
 
-/** B2B segments (everything except private) get colored badges; private = quiet. */
+/** B2B segments (everything except private) get colored badges; private = quiet.
+ *  Only 5 semantic Badge tones exist, so the 4 education segments reuse them. */
 export const SEGMENT_BADGE: Record<
 	string,
 	"neutral" | "info" | "warning" | "success" | "danger"
@@ -139,6 +153,10 @@ export const SEGMENT_BADGE: Record<
 	instansi: "warning",
 	eo_wo: "success",
 	venue: "danger",
+	osis: "success",
+	bem: "info",
+	sekolah: "warning",
+	kampus: "danger",
 };
 
 /** Dot color per segment — for filter pills. */
@@ -148,6 +166,10 @@ export const SEGMENT_DOT: Record<string, string> = {
 	instansi: "bg-amber-500",
 	eo_wo: "bg-emerald-500",
 	venue: "bg-rose-500",
+	osis: "bg-emerald-500",
+	bem: "bg-sky-500",
+	sekolah: "bg-amber-500",
+	kampus: "bg-rose-500",
 };
 
 export const SEGMENT_OPTIONS: ReadonlyArray<{
@@ -159,6 +181,10 @@ export const SEGMENT_OPTIONS: ReadonlyArray<{
 	{ value: "instansi", label: "Instansi/Pemerintah" },
 	{ value: "eo_wo", label: "EO/WO" },
 	{ value: "venue", label: "Venue" },
+	{ value: "osis", label: "OSIS" },
+	{ value: "bem", label: "BEM" },
+	{ value: "sekolah", label: "Sekolah" },
+	{ value: "kampus", label: "Kampus" },
 ];
 
 export function isB2B(segment: string): boolean {

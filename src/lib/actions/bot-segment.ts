@@ -35,6 +35,10 @@ const SEGMENTS = [
 	"instansi",
 	"eo_wo",
 	"venue",
+	"osis",
+	"bem",
+	"sekolah",
+	"kampus",
 ] as const;
 const STATUSES = ["prospek", "aktif", "rekanan"] as const;
 
