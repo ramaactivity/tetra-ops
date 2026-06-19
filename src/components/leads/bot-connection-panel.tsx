@@ -124,7 +124,7 @@ export function BotConnectionHero({ initial }: { initial: BotStatus }) {
 	}
 
 	const helper = isOpen
-		? "Bot tersambung & siap membalas pesan."
+		? "Siap membalas pesan masuk otomatis."
 		: status.qr
 			? "Scan QR di bawah dari HP Tetra."
 			: "Klik Hubungkan untuk memunculkan QR pairing dari bot.";

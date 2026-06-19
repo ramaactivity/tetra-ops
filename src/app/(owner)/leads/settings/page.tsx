@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
 import { Container } from "@/components/layout/container";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
+import { BotConfigGroup } from "@/components/leads/bot-config-group";
 import { BotConnectionHero } from "@/components/leads/bot-connection-panel";
-import { BotEnabledToggle } from "@/components/leads/bot-enabled-toggle";
-import { type BotRule, BotRuleEditor } from "@/components/leads/bot-rule-editor";
+import {
+	type BotRule,
+	BotRuleEditor,
+} from "@/components/leads/bot-rule-editor";
 import {
 	type BotSettings,
 	BotSettingsForm,
 } from "@/components/leads/bot-settings-form";
-import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,7 +38,9 @@ function Panel({
 			</div>
 			<div
 				className={
-					flushBody ? "border-t border-border-subtle" : "border-t border-border-subtle px-5 py-5"
+					flushBody
+						? "border-t border-border-subtle"
+						: "border-t border-border-subtle px-5 py-5"
 				}
 			>
 				{children}
@@ -107,19 +112,21 @@ export default async function LeadsSettingsPage() {
 
 			<BotConnectionHero initial={statusRow} />
 
-			<BotEnabledToggle enabled={settingsRow.enabled} />
+			{/* Master toggle + the config it governs; the config dims when the bot
+			    is off so it reads as dormant (still editable). */}
+			<BotConfigGroup initialEnabled={settingsRow.enabled}>
+				{/* Each setting concern is its own card (rendered by the form), full
+				    width — matches the topbar + the rest of the app's list pages. */}
+				<BotSettingsForm settings={settings} />
 
-			{/* Each setting concern is its own card (rendered by the form), full
-			    width — matches the topbar + the rest of the app's list pages. */}
-			<BotSettingsForm settings={settings} />
-
-			<Panel
-				title="Rule balasan"
-				subtitle="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
-				flushBody
-			>
-				<BotRuleEditor rules={rules} />
-			</Panel>
+				<Panel
+					title="Rule balasan"
+					subtitle="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
+					flushBody
+				>
+					<BotRuleEditor rules={rules} />
+				</Panel>
+			</BotConfigGroup>
 		</Container>
 	);
 }

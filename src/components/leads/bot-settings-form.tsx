@@ -237,13 +237,13 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 					<Field
 						label="Catatan di luar jam kerja"
 						htmlFor="after_hours_note"
-						hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional."
+						hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional. Baris kosong di awal sengaja — itu jarak dari balasan utama."
 						error={err("after_hours_note")}
 					>
 						<textarea
 							id="after_hours_note"
 							name="after_hours_note"
-							rows={4}
+							rows={6}
 							maxLength={1000}
 							defaultValue={settings.after_hours_note ?? ""}
 							className={textareaClass}

@@ -12,13 +12,22 @@ import { cn } from "@/lib/utils";
  * Optimistic switch + toast; the bot picks up the change within ~1 menit
  * (it polls bot_settings).
  */
-export function BotEnabledToggle({ enabled }: { enabled: boolean }) {
+export function BotEnabledToggle({
+	enabled,
+	onChange,
+}: {
+	enabled: boolean;
+	/** Notified on every (optimistic) flip so a parent can react — e.g. dim the
+	 *  config it governs. */
+	onChange?: (enabled: boolean) => void;
+}) {
 	const [on, setOn] = useState(enabled);
 	const [pending, startTransition] = useTransition();
 
 	function toggle() {
 		const next = !on;
 		setOn(next); // optimistic
+		onChange?.(next);
 		startTransition(async () => {
 			try {
 				await setBotEnabled(next);
@@ -29,6 +38,7 @@ export function BotEnabledToggle({ enabled }: { enabled: boolean }) {
 				);
 			} catch (e) {
 				setOn(!next); // revert
+				onChange?.(!next);
 				toast.error(
 					e instanceof Error ? e.message : "Gagal mengubah status bot",
 				);
