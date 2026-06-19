@@ -1,4 +1,11 @@
-import { Clock, MessageCircle, Settings2, Tag, Users } from "lucide-react";
+import {
+	Clock,
+	Download,
+	MessageCircle,
+	Settings2,
+	Tag,
+	Users,
+} from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -136,6 +143,17 @@ export default async function LeadsPage({
 	// B2B accounts (segment ≠ private) — count for the Rekanan tab badge.
 	const b2bCount = contacts.filter((c) => c.segment !== "private").length;
 
+	// Export href mirrors the active filters (the route honors q/period/topic/status).
+	const exportParams = new URLSearchParams();
+	if (q) exportParams.set("q", q);
+	if (period && period !== "all") exportParams.set("period", period);
+	if (topic) exportParams.set("topic", topic);
+	if (status) exportParams.set("status", status);
+	const exportQs = exportParams.toString();
+	const exportHref = exportQs
+		? `/api/leads/export?${exportQs}`
+		: "/api/leads/export";
+
 	// Status-pill counts — scoped to the persistent filters (period + topic) so
 	// the pills reflect what's filterable, then the status pill narrows further.
 	const scoped = agg.filter((r) => {
@@ -157,6 +175,16 @@ export default async function LeadsPage({
 				actions={
 					<>
 						<LeadsTabs active="leads" rekananCount={b2bCount} />
+						<a
+							href={exportHref}
+							className={buttonVariants({
+								variant: "outline",
+								className: "h-9",
+							})}
+						>
+							<Download className="size-3.5" />
+							<span className="hidden sm:inline">Export</span>
+						</a>
 						{canManage ? (
 							<Link
 								href="/leads/settings"

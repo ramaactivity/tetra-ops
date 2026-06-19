@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -17,7 +17,8 @@ import {
 } from "./leads-shared";
 
 /**
- * <LeadsFilterBar /> — search + period + topic + status pills + export.
+ * <LeadsFilterBar /> — search + period + topic + segment + status pills.
+ * Export lives in the topbar action slot (see leads/page.tsx).
  * Built on the shared <FilterBar> shell; the status pills mirror the Asset &
  * Design page exactly (green = active, hairline = idle, colored dot + count).
  */
@@ -76,8 +77,6 @@ export function LeadsFilterBar({
 		{ value: "", label: "Semua segmen" },
 		...SEGMENT_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
 	];
-
-	const exportHref = `/api/leads/export?${searchParams.toString()}`;
 
 	// Status pill chrome — identical spec to DesignFilterBar so the two pages
 	// read as one system: 32px tall, rounded-full, green when active.
@@ -168,21 +167,12 @@ export function LeadsFilterBar({
 			{hasFilters && (
 				<Link
 					href="/leads"
-					className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+					className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:ml-auto"
 				>
 					<X className="size-3.5" aria-hidden />
 					Clear
 				</Link>
 			)}
-
-			{/* Export pushed to the trailing edge on desktop */}
-			<a
-				href={exportHref}
-				className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border-default bg-card px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-secondary hover:text-foreground sm:ml-auto"
-			>
-				<Download className="size-3.5" aria-hidden />
-				Export
-			</a>
 		</FilterBar>
 	);
 }
