@@ -118,9 +118,9 @@ export default async function LeadsPage({
 					canManage ? (
 						<Link
 							href="/leads/settings"
-							className={buttonVariants({ variant: "outline", size: "sm" })}
+							className={buttonVariants({ variant: "outline", className: "h-9" })}
 						>
-							<Settings2 className="size-4" />
+							<Settings2 className="size-3.5" />
 							<span className="hidden sm:inline">Setting Bot</span>
 						</Link>
 					) : undefined

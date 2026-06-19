@@ -129,7 +129,7 @@ export function LeadsListTable({
 	}
 
 	return (
-		<div className="rounded-lg border border-border-default bg-surface-2 p-3 md:p-0">
+		<div className="md:overflow-hidden md:rounded-lg md:border md:border-border-default md:bg-card">
 			<ResponsiveTable<LeadRow>
 				keyExtractor={(l) => l.id}
 				rows={leads}

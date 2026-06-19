@@ -1,14 +1,9 @@
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CatalogFormCard, CatalogFormHeader } from "@/components/catalog/form-kit";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import { BotConnectionPanel } from "@/components/leads/bot-connection-panel";
 import { BotEnabledToggle } from "@/components/leads/bot-enabled-toggle";
-import {
-	type BotRule,
-	BotRuleEditor,
-} from "@/components/leads/bot-rule-editor";
+import { type BotRule, BotRuleEditor } from "@/components/leads/bot-rule-editor";
 import {
 	type BotSettings,
 	BotSettingsForm,
@@ -17,6 +12,23 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+/** Flush section heading — shares the container's left edge with the page
+ *  header so every title, label, and body block lines up on one rail. */
+function SectionHeading({
+	title,
+	description,
+}: {
+	title: string;
+	description: string;
+}) {
+	return (
+		<div className="space-y-1">
+			<h2 className="type-heading text-foreground">{title}</h2>
+			<p className="type-secondary leading-snug">{description}</p>
+		</div>
+	);
+}
 
 export default async function LeadsSettingsPage() {
 	const me = await getCurrentUser();
@@ -51,9 +63,16 @@ export default async function LeadsSettingsPage() {
 
 	if (!settingsRow) {
 		return (
-			<Container size="lg">
-				<div className="rounded-md border border-destructive bg-destructive/10 p-4">
-					<p className="text-fluid-body font-medium text-destructive">
+			<Container size="lg" className="space-y-6">
+				<CatalogFormHeader
+					backHref="/leads"
+					backLabel="Leads"
+					eyebrow="Kontrol Bot"
+					title="Setting Bot WhatsApp"
+					description="Kontrol bot Tetra Photobooth tanpa SSH."
+				/>
+				<div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-5">
+					<p className="type-body-strong text-destructive">
 						Setting bot belum ter-seed. Jalankan migration
 						20260619_whatsapp_bot_control.sql.
 					</p>
@@ -74,48 +93,31 @@ export default async function LeadsSettingsPage() {
 	};
 
 	return (
-		<Container size="lg" className="space-y-5">
-			<div className="px-5">
-				<Link
-					href="/leads"
-					className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-				>
-					<ArrowLeft className="size-3.5" aria-hidden />
-					Kembali ke Leads
-				</Link>
-			</div>
-
-			<SectionHeader
-				as="h2"
+		<Container size="lg" className="space-y-6">
+			<CatalogFormHeader
+				backHref="/leads"
+				backLabel="Leads"
+				eyebrow="Kontrol Bot"
 				title="Setting Bot WhatsApp"
 				description="Kontrol bot Tetra Photobooth tanpa SSH. Perubahan dibaca bot dalam ±1 menit."
 			/>
 
-			<section className="space-y-3">
-				<SectionHeader
-					as="h3"
-					title="Koneksi WhatsApp"
-					description="Status sambungan bot ke WhatsApp. Reconnect / scan QR / logout tanpa SSH."
-				/>
-				<BotConnectionPanel initial={statusRow} />
-			</section>
+			<BotConnectionPanel initial={statusRow} />
 
 			<BotEnabledToggle enabled={settingsRow.enabled} />
 
 			<section className="space-y-3">
-				<SectionHeader
-					as="h3"
+				<SectionHeading
 					title="Jam kerja & anti-spam"
-					description="Jam operasional, cooldown, auto-pause, salam, & notif admin."
+					description="Jam operasional, cooldown, auto-pause, template salam, dan notif admin."
 				/>
-				<div className="rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+				<CatalogFormCard>
 					<BotSettingsForm settings={settings} />
-				</div>
+				</CatalogFormCard>
 			</section>
 
 			<section className="space-y-3">
-				<SectionHeader
-					as="h3"
+				<SectionHeading
 					title="Rule balasan"
 					description="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
 				/>

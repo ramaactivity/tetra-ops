@@ -1,11 +1,20 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import {
+	Field,
+	fieldInputClass,
+	FormDivider,
+	FormError,
+	FormSection,
+} from "@/components/catalog/form-kit";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import {
 	type BotSettingsFormState,
 	updateBotSettings,
 } from "@/lib/actions/bot-control";
+import { cn } from "@/lib/utils";
 
 export type BotSettings = {
 	business_start_hour: number;
@@ -18,8 +27,13 @@ export type BotSettings = {
 	admin_notify_jid: string | null;
 };
 
-const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
+// Textarea chrome derived from the shared field input so it lines up with the
+// catalog forms: same border/radius/focus ring, height relaxed for prose, and
+// a max width so reply copy stays at a comfortable reading measure.
+const textareaClass = cn(
+	fieldInputClass,
+	"h-auto max-w-2xl resize-y py-2 leading-relaxed",
+);
 
 export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 	const [state, formAction, pending] = useActionState<
@@ -44,175 +58,170 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 	};
 
 	return (
-		<form action={formAction} className="space-y-5">
-			{state?.errors?._form && (
-				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-					<p className="text-sm font-medium text-destructive">
-						{state.errors._form[0]}
-					</p>
-				</div>
-			)}
+		<form action={formAction} className="space-y-8">
+			<FormError message={state?.errors?._form?.[0]} />
 
-			<div className="grid gap-4 sm:grid-cols-3">
-				<Field
-					label="Jam buka (0–23)"
-					name="business_start_hour"
-					error={err("business_start_hour")}
-				>
-					<input
-						type="number"
+			<FormSection
+				eyebrow="01 — Jam operasional"
+				title="Jam kerja bot"
+				description="Di luar jam ini bot menambahkan catatan auto-balas. Pakai offset zona WIB = 7."
+			>
+				<div className="grid max-w-md gap-4 sm:grid-cols-3">
+					<Field
+						label="Jam buka"
 						name="business_start_hour"
-						min={0}
-						max={23}
-						defaultValue={settings.business_start_hour}
-						className={`${inputClass} tabular`}
-					/>
-				</Field>
-				<Field
-					label="Jam tutup (0–24)"
-					name="business_end_hour"
-					error={err("business_end_hour")}
-				>
-					<input
-						type="number"
+						hint="0–23"
+						error={err("business_start_hour")}
+					>
+						<input
+							type="number"
+							name="business_start_hour"
+							min={0}
+							max={23}
+							defaultValue={settings.business_start_hour}
+							className={cn(fieldInputClass, "tabular")}
+						/>
+					</Field>
+					<Field
+						label="Jam tutup"
 						name="business_end_hour"
-						min={0}
-						max={24}
-						defaultValue={settings.business_end_hour}
-						className={`${inputClass} tabular`}
-					/>
-				</Field>
-				<Field
-					label="Offset zona (WIB=7)"
-					name="timezone_offset"
-					error={err("timezone_offset")}
-				>
-					<input
-						type="number"
+						hint="0–24"
+						error={err("business_end_hour")}
+					>
+						<input
+							type="number"
+							name="business_end_hour"
+							min={0}
+							max={24}
+							defaultValue={settings.business_end_hour}
+							className={cn(fieldInputClass, "tabular")}
+						/>
+					</Field>
+					<Field
+						label="Offset zona"
 						name="timezone_offset"
-						min={-12}
-						max={14}
-						defaultValue={settings.timezone_offset}
-						className={`${inputClass} tabular`}
-					/>
-				</Field>
-			</div>
+						hint="WIB = 7"
+						error={err("timezone_offset")}
+					>
+						<input
+							type="number"
+							name="timezone_offset"
+							min={-12}
+							max={14}
+							defaultValue={settings.timezone_offset}
+							className={cn(fieldInputClass, "tabular")}
+						/>
+					</Field>
+				</div>
+			</FormSection>
 
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Field
-					label="Cooldown (jam)"
-					name="cooldown_hours"
-					hint="Template sama tidak dikirim 2× ke kontak yang sama dalam rentang ini"
-					error={err("cooldown_hours")}
-				>
-					<input
-						type="number"
+			<FormDivider />
+
+			<FormSection
+				eyebrow="02 — Anti-spam"
+				title="Cooldown & auto-pause"
+				description="Jaga bot tetap sopan: tidak mengulang template & berhenti saat admin sudah turun tangan."
+			>
+				<div className="grid max-w-md gap-4 sm:grid-cols-2">
+					<Field
+						label="Cooldown"
 						name="cooldown_hours"
-						min={0}
-						max={720}
-						defaultValue={settings.cooldown_hours}
-						className={`${inputClass} tabular`}
+						hint="Jam. Template sama tidak dikirim 2× ke kontak yang sama dalam rentang ini."
+						error={err("cooldown_hours")}
+					>
+						<input
+							type="number"
+							name="cooldown_hours"
+							min={0}
+							max={720}
+							defaultValue={settings.cooldown_hours}
+							className={cn(fieldInputClass, "tabular")}
+						/>
+					</Field>
+					<Field
+						label="Auto-pause"
+						name="pause_hours"
+						hint="Jam. Setelah admin balas manual, bot diam ke kontak itu sekian jam."
+						error={err("pause_hours")}
+					>
+						<input
+							type="number"
+							name="pause_hours"
+							min={0}
+							max={720}
+							defaultValue={settings.pause_hours}
+							className={cn(fieldInputClass, "tabular")}
+						/>
+					</Field>
+				</div>
+			</FormSection>
+
+			<FormDivider />
+
+			<FormSection
+				eyebrow="03 — Template balasan"
+				title="Salam & luar jam"
+				description="Teks otomatis yang ditambahkan ke balasan. Kosongkan salah satu untuk mematikannya."
+			>
+				<Field
+					label="Balasan salam"
+					name="salam_reply"
+					hint="Diawalkan saat pesan mengandung 'Assalamualaikum'."
+					error={err("salam_reply")}
+				>
+					<textarea
+						name="salam_reply"
+						rows={2}
+						maxLength={1000}
+						defaultValue={settings.salam_reply ?? ""}
+						className={textareaClass}
 					/>
 				</Field>
+
 				<Field
-					label="Auto-pause (jam)"
-					name="pause_hours"
-					hint="Setelah admin balas manual, bot diam ke kontak itu sekian jam"
-					error={err("pause_hours")}
+					label="Catatan di luar jam kerja"
+					name="after_hours_note"
+					hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional."
+					error={err("after_hours_note")}
+				>
+					<textarea
+						name="after_hours_note"
+						rows={3}
+						maxLength={1000}
+						defaultValue={settings.after_hours_note ?? ""}
+						className={textareaClass}
+					/>
+				</Field>
+			</FormSection>
+
+			<FormDivider />
+
+			<FormSection
+				eyebrow="04 — Notifikasi"
+				title="Notif admin"
+				description="Nomor WA yang menerima ping tiap ada lead baru. Kosongkan untuk mematikan notif."
+			>
+				<Field
+					label="JID notif admin"
+					name="admin_notify_jid"
+					hint="Format 628xxx@s.whatsapp.net"
+					error={err("admin_notify_jid")}
 				>
 					<input
-						type="number"
-						name="pause_hours"
-						min={0}
-						max={720}
-						defaultValue={settings.pause_hours}
-						className={`${inputClass} tabular`}
+						type="text"
+						name="admin_notify_jid"
+						defaultValue={settings.admin_notify_jid ?? ""}
+						placeholder="628xxx@s.whatsapp.net"
+						className={cn(fieldInputClass, "max-w-md font-mono")}
 					/>
 				</Field>
-			</div>
+			</FormSection>
 
-			<Field
-				label="Balasan salam"
-				name="salam_reply"
-				hint="Diawalkan saat pesan mengandung 'Assalamualaikum'. Kosongkan = matikan."
-				error={err("salam_reply")}
-			>
-				<textarea
-					name="salam_reply"
-					rows={2}
-					maxLength={1000}
-					defaultValue={settings.salam_reply ?? ""}
-					className={`${inputClass} leading-relaxed`}
-				/>
-			</Field>
-
-			<Field
-				label="Catatan di luar jam kerja"
-				name="after_hours_note"
-				hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional. Kosongkan = matikan."
-				error={err("after_hours_note")}
-			>
-				<textarea
-					name="after_hours_note"
-					rows={3}
-					maxLength={1000}
-					defaultValue={settings.after_hours_note ?? ""}
-					className={`${inputClass} leading-relaxed`}
-				/>
-			</Field>
-
-			<Field
-				label="JID notif admin"
-				name="admin_notify_jid"
-				hint="Nomor WA admin untuk notif lead, format 628xxx@s.whatsapp.net. Kosongkan = matikan notif."
-				error={err("admin_notify_jid")}
-			>
-				<input
-					type="text"
-					name="admin_notify_jid"
-					defaultValue={settings.admin_notify_jid ?? ""}
-					placeholder="628xxx@s.whatsapp.net"
-					className={`${inputClass} font-mono`}
-				/>
-			</Field>
-
-			<div className="flex justify-end pt-1">
-				<button
-					type="submit"
-					disabled={pending}
-					className="inline-flex h-10 items-center rounded-md bg-[#059669] px-4 text-sm font-medium text-white hover:bg-[#047857] disabled:opacity-60 dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
-				>
+			<div className="flex justify-end border-t border-border-subtle pt-5">
+				<Button type="submit" size="lg" disabled={pending}>
 					{pending ? "Menyimpan…" : "Simpan setting"}
-				</button>
+				</Button>
 			</div>
 		</form>
-	);
-}
-
-function Field({
-	label,
-	name,
-	hint,
-	error,
-	children,
-}: {
-	label: string;
-	name: string;
-	hint?: string;
-	error?: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<div className="space-y-1.5">
-			<label htmlFor={name} className="text-sm font-medium">
-				{label}
-			</label>
-			{children}
-			{error ? (
-				<p className="text-xs text-destructive">{error}</p>
-			) : hint ? (
-				<p className="text-xs text-muted-foreground">{hint}</p>
-			) : null}
-		</div>
 	);
 }

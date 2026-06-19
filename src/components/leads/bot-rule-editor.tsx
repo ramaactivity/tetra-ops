@@ -8,7 +8,10 @@ import {
 	useState,
 	useTransition,
 } from "react";
+import { Field, fieldInputClass } from "@/components/catalog/form-kit";
 import { topicLabel } from "@/components/leads/leads-shared";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
 import {
 	type BotRuleFormState,
@@ -27,13 +30,10 @@ export type BotRule = {
 	is_active: boolean;
 };
 
-const inputClass =
-	"border-border-default bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none";
-
 export function BotRuleEditor({ rules }: { rules: BotRule[] }) {
 	if (rules.length === 0) {
 		return (
-			<p className="rounded-md border border-border-default bg-surface-2 p-4 text-sm text-muted-foreground">
+			<p className="rounded-2xl border border-border-subtle bg-card p-5 type-secondary shadow-[var(--shadow-level-2)]">
 				Belum ada rule. Rule di-seed otomatis dari config bot.
 			</p>
 		);
@@ -90,8 +90,13 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 		)?.[0];
 
 	return (
-		<div className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
-			{/* Header row */}
+		<div
+			className={cn(
+				"overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-level-2)] transition-colors",
+				active ? "border-border-subtle" : "border-border-subtle opacity-75",
+			)}
+		>
+			{/* Header row — chevron · priority · name + meta · toggle */}
 			<div className="flex items-center gap-3 p-4">
 				<button
 					type="button"
@@ -101,81 +106,61 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 				>
 					<ChevronDown
 						className={cn(
-							"size-4 shrink-0 text-muted-foreground transition-transform",
+							"size-4 shrink-0 text-muted-foreground/70 transition-transform",
 							open && "rotate-180",
 						)}
 						aria-hidden
 					/>
-					<span className="grid size-7 shrink-0 place-items-center rounded-full border border-border-default text-[12px] font-semibold tabular text-muted-foreground">
+					<span className="grid size-7 shrink-0 place-items-center rounded-full border border-border-default tabular text-[12px] font-semibold text-muted-foreground">
 						{rule.priority}
 					</span>
 					<div className="min-w-0">
-						<p className="truncate text-[15px] font-semibold text-foreground">
+						<p className="type-body-strong truncate text-foreground">
 							{topicLabel(rule.name)}
 						</p>
-						<p className="truncate text-[12.5px] text-muted-foreground">
+						<p className="type-caption truncate">
 							{rule.keywords.length} keyword · {rule.reply.length} karakter
 						</p>
 					</div>
 				</button>
 
-				<button
-					type="button"
-					role="switch"
-					aria-checked={active}
-					aria-label={`Aktifkan rule ${rule.name}`}
+				<Switch
+					checked={active}
+					onCheckedChange={toggleActive}
 					disabled={togglePending}
-					onClick={toggleActive}
-					className={cn(
-						"relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
-						active ? "bg-[#059669]" : "bg-border-default",
-					)}
-				>
-					<span
-						className={cn(
-							"inline-block size-4 transform rounded-full bg-white shadow transition-transform",
-							active ? "translate-x-6" : "translate-x-1",
-						)}
-					/>
-				</button>
+					aria-label={`Aktifkan rule ${rule.name}`}
+				/>
 			</div>
 
 			{/* Editor */}
 			{open && (
 				<form
 					action={formAction}
-					className="space-y-4 border-t border-border-subtle px-4 py-4"
+					className="space-y-5 border-t border-border-subtle p-4 sm:p-5"
 				>
 					<input type="hidden" name="name" value={rule.name} />
 
-					<div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-						<div className="space-y-1.5">
-							<label htmlFor={`kw-${rule.id}`} className="text-sm font-medium">
-								Keywords
-							</label>
+					<div className="grid gap-5 sm:grid-cols-[1fr_140px]">
+						<Field
+							label="Keywords"
+							name={`kw-${rule.id}`}
+							hint="Pisahkan dengan koma. Otomatis lowercase & dedup."
+							error={err("keywords")}
+						>
 							<textarea
 								id={`kw-${rule.id}`}
 								name="keywords"
 								rows={2}
 								defaultValue={rule.keywords.join(", ")}
 								placeholder="harga, pricelist, paket"
-								className={inputClass}
+								className={cn(fieldInputClass, "h-auto resize-y py-2")}
 							/>
-							{err("keywords") ? (
-								<p className="text-xs text-destructive">{err("keywords")}</p>
-							) : (
-								<p className="text-xs text-muted-foreground">
-									Pisahkan dengan koma. Otomatis lowercase & dedup.
-								</p>
-							)}
-						</div>
-						<div className="space-y-1.5 sm:w-[120px]">
-							<label
-								htmlFor={`prio-${rule.id}`}
-								className="text-sm font-medium"
-							>
-								Prioritas
-							</label>
+						</Field>
+						<Field
+							label="Prioritas"
+							name={`prio-${rule.id}`}
+							hint="Kecil = duluan"
+						>
 							<input
 								id={`prio-${rule.id}`}
 								type="number"
@@ -183,54 +168,45 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 								min={0}
 								max={1000}
 								defaultValue={rule.priority}
-								className={`${inputClass} tabular`}
+								className={cn(fieldInputClass, "tabular")}
 							/>
-							<p className="text-xs text-muted-foreground">Kecil = duluan</p>
-						</div>
+						</Field>
 					</div>
 
-					<div className="space-y-1.5">
-						<label htmlFor={`reply-${rule.id}`} className="text-sm font-medium">
-							Balasan
-						</label>
+					<Field
+						label="Balasan"
+						name={`reply-${rule.id}`}
+						hint="Mendukung format WhatsApp: *tebal*, _miring_, emoji."
+						error={err("reply")}
+					>
 						<textarea
 							id={`reply-${rule.id}`}
 							name="reply"
 							rows={8}
 							defaultValue={rule.reply}
-							className={`${inputClass} leading-relaxed`}
+							className={cn(fieldInputClass, "h-auto resize-y py-2 leading-relaxed")}
 						/>
-						{err("reply") ? (
-							<p className="text-xs text-destructive">{err("reply")}</p>
-						) : (
-							<p className="text-xs text-muted-foreground">
-								Mendukung format WhatsApp: *tebal*, _miring_, emoji.
-							</p>
-						)}
-					</div>
+					</Field>
 
-					<div className="space-y-1.5">
-						<label htmlFor={`file-${rule.id}`} className="text-sm font-medium">
-							File lampiran (opsional)
-						</label>
+					<Field
+						label="File lampiran (opsional)"
+						name={`file-${rule.id}`}
+						hint="Kosongkan kalau tidak mengirim file."
+					>
 						<input
 							id={`file-${rule.id}`}
 							type="text"
 							name="file_path"
 							defaultValue={rule.file_path ?? ""}
-							placeholder="assets/PRICELIST.pdf — kosongkan kalau tidak kirim file"
-							className={`${inputClass} font-mono`}
+							placeholder="assets/PRICELIST.pdf"
+							className={cn(fieldInputClass, "font-mono")}
 						/>
-					</div>
+					</Field>
 
 					<div className="flex justify-end">
-						<button
-							type="submit"
-							disabled={pending}
-							className="inline-flex h-9 items-center rounded-md bg-[#059669] px-4 text-sm font-medium text-white hover:bg-[#047857] disabled:opacity-60 dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
-						>
+						<Button type="submit" disabled={pending}>
 							{pending ? "Menyimpan…" : "Simpan rule"}
-						</button>
+						</Button>
 					</div>
 				</form>
 			)}

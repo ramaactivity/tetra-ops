@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import { sendBotCommand } from "@/lib/actions/bot-control";
@@ -25,39 +27,29 @@ export type BotStatus = {
 type StatusMeta = {
 	label: string;
 	dot: string;
-	chip: string;
+	badge: "success" | "warning" | "danger" | "neutral";
 	icon: typeof Wifi;
 };
 
 const STATUS_META: Record<string, StatusMeta> = {
-	open: {
-		label: "Tersambung",
-		dot: "bg-emerald-500",
-		chip: "border-emerald-500/30 bg-emerald-300/30 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-		icon: Wifi,
-	},
+	open: { label: "Tersambung", dot: "bg-emerald-500", badge: "success", icon: Wifi },
 	connecting: {
 		label: "Menyambung…",
 		dot: "bg-amber-500 animate-pulse",
-		chip: "border-amber-500/30 bg-amber-300/30 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+		badge: "warning",
 		icon: Loader2,
 	},
-	close: {
-		label: "Terputus",
-		dot: "bg-rose-500",
-		chip: "border-rose-500/30 bg-rose-300/30 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
-		icon: WifiOff,
-	},
+	close: { label: "Terputus", dot: "bg-rose-500", badge: "danger", icon: WifiOff },
 	logged_out: {
 		label: "Logout — perlu scan QR",
 		dot: "bg-rose-500",
-		chip: "border-rose-500/30 bg-rose-300/30 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+		badge: "danger",
 		icon: WifiOff,
 	},
 	unknown: {
 		label: "Belum diketahui",
 		dot: "bg-muted-foreground/50",
-		chip: "border-border-default text-muted-foreground",
+		badge: "neutral",
 		icon: WifiOff,
 	},
 };
@@ -90,8 +82,7 @@ export function BotConnectionPanel({ initial }: { initial: BotStatus }) {
 				data: { session },
 			} = await supabase.auth.getSession();
 			if (aborted) return;
-			if (session?.access_token)
-				supabase.realtime.setAuth(session.access_token);
+			if (session?.access_token) supabase.realtime.setAuth(session.access_token);
 
 			const channel = supabase
 				.channel("bot-status-realtime")
@@ -144,86 +135,87 @@ export function BotConnectionPanel({ initial }: { initial: BotStatus }) {
 	}
 
 	return (
-		<div className="rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="flex items-center gap-3">
-					<span
-						className={cn(
-							"inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[13px] font-medium",
-							meta.chip,
-						)}
-					>
-						<StatusIcon
-							className={cn(
-								"size-3.5",
-								status.connection === "connecting" && "animate-spin",
-							)}
-							aria-hidden
-						/>
-						{meta.label}
-					</span>
+		<div className="rounded-2xl border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
+			{/* Card header — title left, live status badge right */}
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div className="min-w-0">
+					<h2 className="type-heading text-foreground">Koneksi WhatsApp</h2>
+					<p className="type-secondary mt-0.5 leading-snug">
+						Status sambungan bot ke WhatsApp. Reconnect, scan QR, atau logout
+						tanpa SSH.
+					</p>
+				</div>
+				<Badge variant={meta.badge} className="gap-1.5">
+					<StatusIcon
+						className={cn(status.connection === "connecting" && "animate-spin")}
+						aria-hidden
+					/>
+					{meta.label}
+				</Badge>
+			</div>
+
+			{/* Status detail + actions */}
+			<div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+				<p className="type-secondary inline-flex items-center gap-1.5">
+					<span className={cn("size-1.5 rounded-full", meta.dot)} aria-hidden />
+					{isOpen
+						? "Bot tersambung & siap membalas pesan."
+						: status.qr
+							? "Scan QR di bawah dari HP Tetra."
+							: "Klik Hubungkan untuk memunculkan QR pairing."}
 					{lastConnected ? (
-						<span className="text-[12.5px] text-muted-foreground">
-							Terakhir tersambung {lastConnected}
+						<span className="text-muted-foreground/70">
+							· terakhir {lastConnected}
 						</span>
 					) : null}
-				</div>
+				</p>
 
 				<div className="flex items-center gap-2">
-					<button
-						type="button"
+					<Button
+						variant="outline"
 						disabled={pending}
 						onClick={() =>
-							command(
-								"reconnect",
-								"Perintah reconnect dikirim — tunggu QR muncul",
-							)
+							command("reconnect", "Perintah reconnect dikirim — tunggu QR muncul")
 						}
-						className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-default px-3.5 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
 					>
 						{isOpen ? (
-							<RefreshCw className="size-3.5" aria-hidden />
+							<RefreshCw aria-hidden />
 						) : (
-							<QrCode className="size-3.5" aria-hidden />
+							<QrCode aria-hidden />
 						)}
 						{isOpen ? "Reconnect" : "Hubungkan / Scan QR"}
-					</button>
-					<button
-						type="button"
+					</Button>
+					<Button
+						variant="ghost"
 						disabled={pending}
 						onClick={() => setLogoutOpen(true)}
-						className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-default px-3.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+						className="text-muted-foreground"
 					>
-						<LogOut className="size-3.5" aria-hidden />
+						<LogOut aria-hidden />
 						Logout
-					</button>
+					</Button>
 				</div>
 			</div>
 
 			{/* QR pairing — shown when the bot publishes a QR string */}
 			{status.qr && !isOpen ? (
-				<div className="mt-4 flex flex-col items-center gap-3 rounded-[12px] border border-border-subtle bg-surface-2 p-5">
-					<div className="rounded-[12px] bg-white p-3 shadow-sm">
+				<div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-border-subtle bg-secondary/60 p-5">
+					<div className="rounded-xl bg-white p-3 shadow-sm">
 						<QRCodeSVG value={status.qr} size={208} level="M" />
 					</div>
-					<p className="max-w-sm text-center text-[13px] leading-snug text-muted-foreground">
-						Buka <span className="font-medium text-foreground">WhatsApp</span>{" "}
-						di HP Tetra → <span className="font-medium">Perangkat tertaut</span>{" "}
-						→ <span className="font-medium">Tautkan perangkat</span>, lalu scan
-						QR ini. QR berganti otomatis tiap beberapa detik.
+					<p className="type-secondary max-w-sm text-center leading-relaxed">
+						Buka <span className="font-medium text-foreground">WhatsApp</span> di
+						HP Tetra →{" "}
+						<span className="font-medium text-foreground">
+							Perangkat tertaut
+						</span>{" "}
+						→{" "}
+						<span className="font-medium text-foreground">
+							Tautkan perangkat
+						</span>
+						, lalu scan QR ini. QR berganti otomatis tiap beberapa detik.
 					</p>
 				</div>
-			) : null}
-
-			{isOpen ? (
-				<p className="mt-3 text-[13px] text-muted-foreground">
-					Bot tersambung & siap membalas pesan. ✅
-				</p>
-			) : !status.qr ? (
-				<p className="mt-3 text-[13px] text-muted-foreground">
-					Klik <span className="font-medium">Hubungkan / Scan QR</span> untuk
-					memunculkan QR pairing dari bot.
-				</p>
 			) : null}
 
 			<ConfirmDialog

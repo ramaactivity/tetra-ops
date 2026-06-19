@@ -2,6 +2,7 @@
 
 import { Power } from "lucide-react";
 import { useState, useTransition } from "react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
 import { setBotEnabled } from "@/lib/actions/bot-control";
 import { cn } from "@/lib/utils";
@@ -36,11 +37,11 @@ export function BotEnabledToggle({ enabled }: { enabled: boolean }) {
 	}
 
 	return (
-		<div className="flex items-center justify-between gap-4 rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
+		<div className="flex items-center justify-between gap-4 rounded-2xl border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
 			<div className="flex items-start gap-3">
 				<span
 					className={cn(
-						"mt-0.5 grid size-9 shrink-0 place-items-center rounded-full border transition-colors",
+						"grid size-10 shrink-0 place-items-center rounded-full border transition-colors",
 						on
 							? "border-emerald-500/30 bg-emerald-300/40 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
 							: "border-border-default text-muted-foreground",
@@ -49,10 +50,10 @@ export function BotEnabledToggle({ enabled }: { enabled: boolean }) {
 					<Power className="size-[18px]" strokeWidth={2} aria-hidden />
 				</span>
 				<div className="min-w-0">
-					<p className="text-[15px] font-semibold text-foreground">
-						Auto-reply {on ? "Aktif" : "Mati"}
+					<p className="type-body-strong text-foreground">
+						Auto-reply {on ? "aktif" : "mati"}
 					</p>
-					<p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">
+					<p className="type-secondary mt-0.5 leading-snug">
 						{on
 							? "Bot membalas pesan masuk sesuai rule di bawah."
 							: "Bot diam — tidak membalas pesan apa pun."}
@@ -60,25 +61,13 @@ export function BotEnabledToggle({ enabled }: { enabled: boolean }) {
 				</div>
 			</div>
 
-			<button
-				type="button"
-				role="switch"
-				aria-checked={on}
-				aria-label="Master on/off bot"
+			<Switch
+				checked={on}
+				onCheckedChange={toggle}
 				disabled={pending}
-				onClick={toggle}
-				className={cn(
-					"relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
-					on ? "bg-[#059669]" : "bg-border-default",
-				)}
-			>
-				<span
-					className={cn(
-						"inline-block size-5 transform rounded-full bg-white shadow transition-transform",
-						on ? "translate-x-6" : "translate-x-1",
-					)}
-				/>
-			</button>
+				size="lg"
+				aria-label="Master on/off bot"
+			/>
 		</div>
 	);
 }

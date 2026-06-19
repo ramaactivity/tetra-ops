@@ -73,29 +73,25 @@ export function LeadsFilterBar({
 				</form>
 			}
 		>
-			<div className="w-[140px]">
-				<NativeSelect
-					size="sm"
-					value={period || "all"}
-					onValueChange={(v) => router.push(buildHref({ period: v }))}
-					options={PERIOD_OPTIONS.map((o) => ({
-						value: o.value,
-						label: o.label,
-					}))}
-					aria-label="Filter periode"
-				/>
-			</div>
+			<NativeSelect
+				value={period || "all"}
+				onValueChange={(v) => router.push(buildHref({ period: v }))}
+				options={PERIOD_OPTIONS.map((o) => ({
+					value: o.value,
+					label: o.label,
+				}))}
+				aria-label="Filter periode"
+				triggerClassName="rounded-full"
+			/>
 
-			<div className="w-[150px]">
-				<NativeSelect
-					size="sm"
-					value={topic}
-					onValueChange={(v) => router.push(buildHref({ topic: v }))}
-					options={topicOptions}
-					placeholder="Semua topik"
-					aria-label="Filter topik"
-				/>
-			</div>
+			<NativeSelect
+				value={topic}
+				onValueChange={(v) => router.push(buildHref({ topic: v }))}
+				options={topicOptions}
+				placeholder="Semua topik"
+				aria-label="Filter topik"
+				triggerClassName="rounded-full"
+			/>
 
 			{hasFilters && (
 				<Link
