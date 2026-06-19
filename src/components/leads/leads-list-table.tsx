@@ -3,6 +3,7 @@
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { Badge } from "@/components/ui/badge";
 import {
+	type ContactRow,
 	formatPhoneHuman,
 	type LeadRow,
 	STATUS_BADGE,
@@ -11,6 +12,7 @@ import {
 	waMePhone,
 } from "./leads-shared";
 import { PauseContactButton } from "./pause-contact-button";
+import { SegmentSelect } from "./segment-select";
 
 /**
  * <LeadsListTable /> — desktop <table> / mobile record-cards.
@@ -57,28 +59,47 @@ function PhoneLink({ phone }: { phone: string }) {
 
 export function LeadsListTable({
 	leads,
+	contactByJid = {},
 	canManage = false,
 }: {
 	leads: LeadRow[];
+	/** wa_jid → contact row (segment lives on the contact, not the lead). */
+	contactByJid?: Record<string, ContactRow>;
 	/** Owner / super_admin → show the per-contact pause action. */
 	canManage?: boolean;
 }) {
+	function segmentCell(l: LeadRow) {
+		const c = contactByJid[l.wa_jid];
+		return (
+			<SegmentSelect
+				waJid={l.wa_jid}
+				segment={c?.segment ?? "private"}
+				source={c?.segment_source ?? "auto"}
+				phone={l.phone}
+				name={l.name}
+				canManage={canManage}
+			/>
+		);
+	}
+
 	return (
 		<>
 			{/* DESKTOP — real table, Asset & Design chrome */}
 			<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
 				<table className="w-full table-fixed text-sm">
 					<colgroup>
-						<col style={{ width: "20%" }} />
-						<col style={{ width: "11%" }} />
-						<col />
-						<col style={{ width: "15%" }} />
+						<col style={{ width: "19%" }} />
 						<col style={{ width: "12%" }} />
-						{canManage ? <col style={{ width: "9%" }} /> : null}
+						<col style={{ width: "10%" }} />
+						<col />
+						<col style={{ width: "13%" }} />
+						<col style={{ width: "11%" }} />
+						{canManage ? <col style={{ width: "8%" }} /> : null}
 					</colgroup>
 					<thead className="border-b border-border-default">
 						<tr className="text-left">
 							<th className="eyebrow px-4 py-2.5">Kontak</th>
+							<th className="eyebrow px-4 py-2.5">Segmen</th>
 							<th className="eyebrow px-4 py-2.5">Topik</th>
 							<th className="eyebrow px-4 py-2.5">Pesan</th>
 							<th className="eyebrow px-4 py-2.5">Waktu</th>
@@ -90,7 +111,10 @@ export function LeadsListTable({
 					</thead>
 					<tbody className="divide-y divide-border-subtle">
 						{leads.map((l) => (
-							<tr key={l.id} className="transition-colors hover:bg-secondary/30">
+							<tr
+								key={l.id}
+								className="transition-colors hover:bg-secondary/30"
+							>
 								<td className="px-4 py-3 align-top">
 									<div className="flex min-w-0 flex-col gap-0.5">
 										{l.name ? (
@@ -105,6 +129,7 @@ export function LeadsListTable({
 										<PhoneLink phone={l.phone} />
 									</div>
 								</td>
+								<td className="px-4 py-3 align-top">{segmentCell(l)}</td>
 								<td className="px-4 py-3 align-top">
 									<TopicTag topic={l.topic} />
 								</td>
@@ -170,6 +195,7 @@ export function LeadsListTable({
 						</div>
 
 						<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+							{segmentCell(l)}
 							<TopicTag topic={l.topic} />
 							<span className="tabular text-[12px] text-muted-foreground">
 								{formatReceived(l.received_at)}
@@ -189,10 +215,7 @@ export function LeadsListTable({
 
 						{canManage ? (
 							<div className="flex justify-end border-t border-border-subtle pt-2">
-								<PauseContactButton
-									waJid={l.wa_jid}
-									name={l.name || l.phone}
-								/>
+								<PauseContactButton waJid={l.wa_jid} name={l.name || l.phone} />
 							</div>
 						) : null}
 					</div>

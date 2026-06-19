@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import {
 	PERIOD_OPTIONS,
+	SEGMENT_OPTIONS,
 	STATUS_DOT,
 	STATUS_OPTIONS,
 	topicLabel,
@@ -25,6 +26,7 @@ export function LeadsFilterBar({
 	defaultQ,
 	period,
 	topic,
+	segment,
 	status,
 	topics,
 	totalScoped,
@@ -33,6 +35,7 @@ export function LeadsFilterBar({
 	defaultQ: string;
 	period: string;
 	topic: string;
+	segment: string;
 	status: string;
 	/** Distinct topics present in the data, for the topic dropdown. */
 	topics: string[];
@@ -46,7 +49,7 @@ export function LeadsFilterBar({
 	const [q, setQ] = useState(defaultQ);
 
 	const hasFilters = Boolean(
-		defaultQ || (period && period !== "all") || topic || status,
+		defaultQ || (period && period !== "all") || topic || segment || status,
 	);
 
 	function buildHref(updates: Record<string, string>) {
@@ -67,6 +70,11 @@ export function LeadsFilterBar({
 	const topicOptions = [
 		{ value: "", label: "Semua topik" },
 		...topics.map((t) => ({ value: t, label: topicLabel(t) })),
+	];
+
+	const segmentOptions = [
+		{ value: "", label: "Semua segmen" },
+		...SEGMENT_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
 	];
 
 	const exportHref = `/api/leads/export?${searchParams.toString()}`;
@@ -98,7 +106,10 @@ export function LeadsFilterBar({
 			<NativeSelect
 				value={period || "all"}
 				onValueChange={(v) => router.push(buildHref({ period: v }))}
-				options={PERIOD_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+				options={PERIOD_OPTIONS.map((o) => ({
+					value: o.value,
+					label: o.label,
+				}))}
 				aria-label="Filter periode"
 				triggerClassName="rounded-full"
 			/>
@@ -109,6 +120,15 @@ export function LeadsFilterBar({
 				options={topicOptions}
 				placeholder="Semua topik"
 				aria-label="Filter topik"
+				triggerClassName="rounded-full"
+			/>
+
+			<NativeSelect
+				value={segment}
+				onValueChange={(v) => router.push(buildHref({ segment: v }))}
+				options={segmentOptions}
+				placeholder="Semua segmen"
+				aria-label="Filter segmen"
 				triggerClassName="rounded-full"
 			/>
 

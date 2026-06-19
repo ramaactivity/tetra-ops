@@ -5,10 +5,12 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { LeadsFilterBar } from "@/components/leads/leads-filter-bar";
 import { LeadsListTable } from "@/components/leads/leads-list-table";
 import {
+	type ContactRow,
 	type LeadRow,
 	periodStartISO,
 	topicLabel,
 } from "@/components/leads/leads-shared";
+import { LeadsTabs } from "@/components/leads/leads-tabs";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
@@ -25,6 +27,7 @@ export default async function LeadsPage({
 		q?: string;
 		period?: string;
 		topic?: string;
+		segment?: string;
 		status?: string;
 	}>;
 }) {
@@ -32,6 +35,7 @@ export default async function LeadsPage({
 	const q = params.q?.trim() ?? "";
 	const period = params.period?.trim() ?? "all";
 	const topic = params.topic?.trim() ?? "";
+	const segment = params.segment?.trim() ?? "";
 	const status = params.status?.trim() ?? "";
 
 	const supabase = await createClient();
@@ -39,6 +43,16 @@ export default async function LeadsPage({
 	const canManage =
 		me?.profile.role === "owner" || me?.profile.role === "super_admin";
 	const now = new Date();
+
+	// Contacts carry the segment (a contact property, not a per-chat one). Fetch
+	// them up-front so the segment filter can scope the lead query by wa_jid.
+	const { data: contactsData } = await supabase
+		.from("whatsapp_bot_contacts")
+		.select("*")
+		.limit(10000);
+	const contacts = (contactsData ?? []) as ContactRow[];
+	const contactByJid: Record<string, ContactRow> = {};
+	for (const c of contacts) contactByJid[c.wa_jid] = c;
 
 	// List query — filtered, capped at 200 most-recent.
 	let listQuery = supabase
@@ -55,6 +69,14 @@ export default async function LeadsPage({
 	}
 	if (topic) listQuery = listQuery.eq("topic", topic);
 	if (status) listQuery = listQuery.eq("status", status);
+	if (segment) {
+		// Scope to the wa_jids whose contact carries the chosen segment. Empty list
+		// → a sentinel so the `.in()` returns nothing instead of everything.
+		const jids = contacts
+			.filter((c) => c.segment === segment)
+			.map((c) => c.wa_jid);
+		listQuery = listQuery.in("wa_jid", jids.length ? jids : ["__none__"]);
+	}
 	const startISO = periodStartISO(period, now);
 	if (startISO) listQuery = listQuery.gte("received_at", startISO);
 
@@ -111,6 +133,9 @@ export default async function LeadsPage({
 	}
 	const topics = [...topicCounts.keys()].sort();
 
+	// B2B accounts (segment ≠ private) — count for the Rekanan tab badge.
+	const b2bCount = contacts.filter((c) => c.segment !== "private").length;
+
 	// Status-pill counts — scoped to the persistent filters (period + topic) so
 	// the pills reflect what's filterable, then the status pill narrows further.
 	const scoped = agg.filter((r) => {
@@ -133,7 +158,10 @@ export default async function LeadsPage({
 					canManage ? (
 						<Link
 							href="/leads/settings"
-							className={buttonVariants({ variant: "outline", className: "h-9" })}
+							className={buttonVariants({
+								variant: "outline",
+								className: "h-9",
+							})}
 						>
 							<Settings2 className="size-3.5" />
 							<span className="hidden sm:inline">Setting Bot</span>
@@ -141,6 +169,8 @@ export default async function LeadsPage({
 					) : undefined
 				}
 			/>
+
+			<LeadsTabs active="leads" rekananCount={b2bCount} />
 
 			<KpiRow>
 				<KpiCard
@@ -178,6 +208,7 @@ export default async function LeadsPage({
 					defaultQ={q}
 					period={period}
 					topic={topic}
+					segment={segment}
 					status={status}
 					topics={topics}
 					totalScoped={totalScoped}
@@ -189,13 +220,17 @@ export default async function LeadsPage({
 						icon={MessageCircle}
 						title="Belum ada lead"
 						description={
-							q || topic || status || period !== "all"
+							q || topic || segment || status || period !== "all"
 								? "Coba ubah filter atau hapus pencarian."
 								: "Lead akan muncul otomatis di sini saat bot WhatsApp membalas calon customer."
 						}
 					/>
 				) : (
-					<LeadsListTable leads={leads} canManage={canManage} />
+					<LeadsListTable
+						leads={leads}
+						contactByJid={contactByJid}
+						canManage={canManage}
+					/>
 				)}
 			</div>
 		</Container>

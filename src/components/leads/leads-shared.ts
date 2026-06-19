@@ -76,6 +76,121 @@ export const STATUS_OPTIONS: ReadonlyArray<{
 	{ value: "ignored", label: "Diabaikan" },
 ];
 
+// ── Segmentation (B2B / Rekanan) — mirrors whatsapp_bot_contacts ──────────────
+// Contract: do NOT rename values without agreeing with the bot maintainer.
+// See WHATSAPP_BOT_SEGMENTASI_HANDOVER §2 +
+// supabase/migrations/20260622_whatsapp_bot_contacts.sql.
+
+export type ContactSegment =
+	| "private"
+	| "corporate"
+	| "instansi"
+	| "eo_wo"
+	| "venue";
+
+export type ContactSegmentSource = "auto" | "manual";
+
+export type ContactStatus = "prospek" | "aktif" | "rekanan";
+
+export type ContactRow = {
+	id: string;
+	wa_jid: string;
+	phone: string | null;
+	name: string | null;
+	segment: string;
+	segment_source: string;
+	org_name: string | null;
+	status: string;
+	notes: string | null;
+	first_seen_at: string;
+	last_seen_at: string;
+	updated_at: string;
+};
+
+export const SEGMENT_LABELS: Record<string, string> = {
+	private: "Private",
+	corporate: "Corporate",
+	instansi: "Instansi/Pemerintah",
+	eo_wo: "EO/WO",
+	venue: "Venue",
+};
+
+/** Short label for tight spaces (table badges, chips). */
+export const SEGMENT_LABELS_SHORT: Record<string, string> = {
+	private: "Private",
+	corporate: "Corporate",
+	instansi: "Instansi",
+	eo_wo: "EO/WO",
+	venue: "Venue",
+};
+
+export function segmentLabel(segment: string, short = false): string {
+	const map = short ? SEGMENT_LABELS_SHORT : SEGMENT_LABELS;
+	return map[segment] ?? segment;
+}
+
+/** B2B segments (everything except private) get colored badges; private = quiet. */
+export const SEGMENT_BADGE: Record<
+	string,
+	"neutral" | "info" | "warning" | "success" | "danger"
+> = {
+	private: "neutral",
+	corporate: "info",
+	instansi: "warning",
+	eo_wo: "success",
+	venue: "danger",
+};
+
+/** Dot color per segment — for filter pills. */
+export const SEGMENT_DOT: Record<string, string> = {
+	private: "bg-muted-foreground/50",
+	corporate: "bg-sky-500",
+	instansi: "bg-amber-500",
+	eo_wo: "bg-emerald-500",
+	venue: "bg-rose-500",
+};
+
+export const SEGMENT_OPTIONS: ReadonlyArray<{
+	value: ContactSegment;
+	label: string;
+}> = [
+	{ value: "private", label: "Private" },
+	{ value: "corporate", label: "Corporate" },
+	{ value: "instansi", label: "Instansi/Pemerintah" },
+	{ value: "eo_wo", label: "EO/WO" },
+	{ value: "venue", label: "Venue" },
+];
+
+export function isB2B(segment: string): boolean {
+	return segment !== "private";
+}
+
+export const STATUS_REL_LABELS: Record<string, string> = {
+	prospek: "Prospek",
+	aktif: "Aktif",
+	rekanan: "Rekanan",
+};
+
+export function relStatusLabel(status: string): string {
+	return STATUS_REL_LABELS[status] ?? status;
+}
+
+export const STATUS_REL_BADGE: Record<string, "warning" | "info" | "success"> =
+	{
+		prospek: "warning",
+		aktif: "info",
+		rekanan: "success",
+	};
+
+export const STATUS_REL_OPTIONS: ReadonlyArray<{
+	value: ContactStatus;
+	label: string;
+}> = [
+	{ value: "prospek", label: "Prospek" },
+	{ value: "aktif", label: "Aktif" },
+	{ value: "rekanan", label: "Rekanan" },
+];
+
 export const PERIOD_OPTIONS = [
 	{ value: "all", label: "Semua waktu" },
 	{ value: "today", label: "Hari ini" },
