@@ -30,24 +30,28 @@ export type BotRule = {
 	is_active: boolean;
 };
 
+// Dedicated textarea chrome (height from `rows`, not the baked-in h-10).
+const textareaClass =
+	"w-full rounded-lg border border-border-default bg-background px-3 py-2.5 text-base md:text-sm text-foreground placeholder:text-muted-foreground/60 leading-relaxed transition-colors focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none resize-y";
+
 export function BotRuleEditor({ rules }: { rules: BotRule[] }) {
 	if (rules.length === 0) {
 		return (
-			<p className="rounded-2xl border border-border-subtle bg-card p-5 type-secondary shadow-[var(--shadow-level-2)]">
+			<p className="px-5 py-6 type-secondary">
 				Belum ada rule. Rule di-seed otomatis dari config bot.
 			</p>
 		);
 	}
 	return (
-		<div className="space-y-3">
+		<div className="divide-y divide-border-subtle">
 			{rules.map((r) => (
-				<BotRuleCard key={r.id} rule={r} />
+				<BotRuleRow key={r.id} rule={r} />
 			))}
 		</div>
 	);
 }
 
-function BotRuleCard({ rule }: { rule: BotRule }) {
+function BotRuleRow({ rule }: { rule: BotRule }) {
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState(rule.is_active);
 	const [togglePending, startToggle] = useTransition();
@@ -90,14 +94,9 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 		)?.[0];
 
 	return (
-		<div
-			className={cn(
-				"overflow-hidden rounded-2xl border bg-card shadow-[var(--shadow-level-2)] transition-colors",
-				active ? "border-border-subtle" : "border-border-subtle opacity-75",
-			)}
-		>
+		<div className={cn("transition-opacity", !active && "opacity-60")}>
 			{/* Header row — chevron · priority · name + meta · toggle */}
-			<div className="flex items-center gap-3 p-4">
+			<div className="flex items-center gap-3 px-5 py-4">
 				<button
 					type="button"
 					onClick={() => setOpen((o) => !o)}
@@ -136,7 +135,7 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 			{open && (
 				<form
 					action={formAction}
-					className="space-y-5 border-t border-border-subtle p-4 sm:p-5"
+					className="space-y-5 border-t border-border-subtle bg-secondary/30 px-5 py-5"
 				>
 					<input type="hidden" name="name" value={rule.name} />
 
@@ -153,7 +152,7 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 								rows={2}
 								defaultValue={rule.keywords.join(", ")}
 								placeholder="harga, pricelist, paket"
-								className={cn(fieldInputClass, "h-auto resize-y py-2")}
+								className={textareaClass}
 							/>
 						</Field>
 						<Field
@@ -184,7 +183,7 @@ function BotRuleCard({ rule }: { rule: BotRule }) {
 							name="reply"
 							rows={8}
 							defaultValue={rule.reply}
-							className={cn(fieldInputClass, "h-auto resize-y py-2 leading-relaxed")}
+							className={textareaClass}
 						/>
 					</Field>
 

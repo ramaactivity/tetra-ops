@@ -1,32 +1,46 @@
 import { redirect } from "next/navigation";
-import { CatalogFormCard, CatalogFormHeader } from "@/components/catalog/form-kit";
 import { Container } from "@/components/layout/container";
-import { BotConnectionPanel } from "@/components/leads/bot-connection-panel";
+import { BotConnectionHero } from "@/components/leads/bot-connection-panel";
 import { BotEnabledToggle } from "@/components/leads/bot-enabled-toggle";
 import { type BotRule, BotRuleEditor } from "@/components/leads/bot-rule-editor";
 import {
 	type BotSettings,
 	BotSettingsForm,
 } from "@/components/leads/bot-settings-form";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-/** Flush section heading — shares the container's left edge with the page
- *  header so every title, label, and body block lines up on one rail. */
-function SectionHeading({
+/** A titled white panel — header (title + subtitle) sits INSIDE the card so it
+ *  lines up with the hero title and every other inset surface on the page
+ *  (Operations detail pattern). `flushBody` drops body padding for row lists. */
+function Panel({
 	title,
-	description,
+	subtitle,
+	flushBody = false,
+	children,
 }: {
 	title: string;
-	description: string;
+	subtitle: string;
+	flushBody?: boolean;
+	children: React.ReactNode;
 }) {
 	return (
-		<div className="space-y-1">
-			<h2 className="type-heading text-foreground">{title}</h2>
-			<p className="type-secondary leading-snug">{description}</p>
-		</div>
+		<section className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
+			<div className="px-5 py-4">
+				<h2 className="type-heading text-foreground">{title}</h2>
+				<p className="type-secondary mt-0.5 leading-snug">{subtitle}</p>
+			</div>
+			<div
+				className={
+					flushBody ? "border-t border-border-subtle" : "border-t border-border-subtle px-5 py-5"
+				}
+			>
+				{children}
+			</div>
+		</section>
 	);
 }
 
@@ -63,14 +77,9 @@ export default async function LeadsSettingsPage() {
 
 	if (!settingsRow) {
 		return (
-			<Container size="lg" className="space-y-6">
-				<CatalogFormHeader
-					backHref="/leads"
-					backLabel="Leads"
-					eyebrow="Kontrol Bot"
-					title="Setting Bot WhatsApp"
-					description="Kontrol bot Tetra Photobooth tanpa SSH."
-				/>
+			<Container size="lg" className="space-y-3">
+				<TopbarEntityPortal name="Setting Bot" />
+				<BotConnectionHero initial={statusRow} />
 				<div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-5">
 					<p className="type-body-strong text-destructive">
 						Setting bot belum ter-seed. Jalankan migration
@@ -93,36 +102,27 @@ export default async function LeadsSettingsPage() {
 	};
 
 	return (
-		<Container size="lg" className="space-y-6">
-			<CatalogFormHeader
-				backHref="/leads"
-				backLabel="Leads"
-				eyebrow="Kontrol Bot"
-				title="Setting Bot WhatsApp"
-				description="Kontrol bot Tetra Photobooth tanpa SSH. Perubahan dibaca bot dalam ±1 menit."
-			/>
+		<Container size="lg" className="space-y-3">
+			<TopbarEntityPortal name="Setting Bot" />
 
-			<BotConnectionPanel initial={statusRow} />
+			<BotConnectionHero initial={statusRow} />
 
 			<BotEnabledToggle enabled={settingsRow.enabled} />
 
-			<section className="space-y-3">
-				<SectionHeading
-					title="Jam kerja & anti-spam"
-					description="Jam operasional, cooldown, auto-pause, template salam, dan notif admin."
-				/>
-				<CatalogFormCard>
-					<BotSettingsForm settings={settings} />
-				</CatalogFormCard>
-			</section>
+			<Panel
+				title="Jam kerja & anti-spam"
+				subtitle="Jam operasional, cooldown, auto-pause, template balasan, dan notif admin."
+			>
+				<BotSettingsForm settings={settings} />
+			</Panel>
 
-			<section className="space-y-3">
-				<SectionHeading
-					title="Rule balasan"
-					description="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
-				/>
+			<Panel
+				title="Rule balasan"
+				subtitle="Bot mengecek rule aktif urut prioritas (kecil duluan); yang pertama cocok menang."
+				flushBody
+			>
 				<BotRuleEditor rules={rules} />
-			</section>
+			</Panel>
 		</Container>
 	);
 }

@@ -66,6 +66,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/finance/bank-accounts", "Rekening Bank", Landmark],
 	["/finance/sinking-funds", "Dana Cadangan", PiggyBank],
 	["/finance", "Finance", Wallet],
+	["/leads", "Leads", MessageCircle],
 	["/contacts", "Kontak", Contact],
 	["/vendors", "Vendor", Handshake],
 	["/reminders", "Reminders", MessageCircle],
