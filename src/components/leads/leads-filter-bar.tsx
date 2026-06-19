@@ -91,7 +91,6 @@ export function LeadsFilterBar({
 
 	return (
 		<FilterBar
-			searchClassName="sm:w-[220px]"
 			search={
 				<form onSubmit={handleSubmit}>
 					<FilterSearchInput
@@ -132,58 +131,58 @@ export function LeadsFilterBar({
 				triggerClassName="rounded-full"
 			/>
 
-			{/* Status pills + export — right-aligned on desktop */}
-			<div className="flex items-center gap-1.5 sm:ml-auto">
-				<Link
-					href={buildHref({ status: "" })}
-					aria-current={!status ? "true" : undefined}
-					className={chipClass(!status)}
-				>
-					Semua
-					<span className="tabular text-[11px] opacity-70">{totalScoped}</span>
-				</Link>
-				{STATUS_OPTIONS.map((s) => {
-					const active = status === s.value;
-					return (
-						<Link
-							key={s.value}
-							href={buildHref({ status: s.value })}
-							aria-current={active ? "true" : undefined}
-							className={chipClass(active)}
-						>
-							<span
-								className={cn(
-									"size-2 rounded-full",
-									active ? "bg-white/90" : STATUS_DOT[s.value],
-								)}
-								aria-hidden
-							/>
-							{s.label}
-							<span className="tabular text-[11px] opacity-70">
-								{statusCounts[s.value] ?? 0}
-							</span>
-						</Link>
-					);
-				})}
-
-				{hasFilters && (
+			{/* Status pills — flow inline (no wrapper) so the whole toolbar packs
+			    onto one row like every other list page. */}
+			<Link
+				href={buildHref({ status: "" })}
+				aria-current={!status ? "true" : undefined}
+				className={chipClass(!status)}
+			>
+				Semua
+				<span className="tabular text-[11px] opacity-70">{totalScoped}</span>
+			</Link>
+			{STATUS_OPTIONS.map((s) => {
+				const active = status === s.value;
+				return (
 					<Link
-						href="/leads"
-						className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+						key={s.value}
+						href={buildHref({ status: s.value })}
+						aria-current={active ? "true" : undefined}
+						className={chipClass(active)}
 					>
-						<X className="size-3.5" aria-hidden />
-						Clear
+						<span
+							className={cn(
+								"size-2 rounded-full",
+								active ? "bg-white/90" : STATUS_DOT[s.value],
+							)}
+							aria-hidden
+						/>
+						{s.label}
+						<span className="tabular text-[11px] opacity-70">
+							{statusCounts[s.value] ?? 0}
+						</span>
 					</Link>
-				)}
+				);
+			})}
 
-				<a
-					href={exportHref}
-					className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border-default bg-card px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-secondary hover:text-foreground"
+			{hasFilters && (
+				<Link
+					href="/leads"
+					className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 				>
-					<Download className="size-3.5" aria-hidden />
-					Export
-				</a>
-			</div>
+					<X className="size-3.5" aria-hidden />
+					Clear
+				</Link>
+			)}
+
+			{/* Export pushed to the trailing edge on desktop */}
+			<a
+				href={exportHref}
+				className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border-default bg-card px-3 text-[13px] font-medium text-foreground/70 transition-colors hover:bg-secondary hover:text-foreground sm:ml-auto"
+			>
+				<Download className="size-3.5" aria-hidden />
+				Export
+			</a>
 		</FilterBar>
 	);
 }

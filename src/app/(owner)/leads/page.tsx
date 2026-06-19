@@ -155,22 +155,23 @@ export default async function LeadsPage({
 				title="Leads"
 				description="Lead WhatsApp yang ditangkap otomatis oleh bot Tetra. Follow-up internal saja — jangan untuk blast."
 				actions={
-					canManage ? (
-						<Link
-							href="/leads/settings"
-							className={buttonVariants({
-								variant: "outline",
-								className: "h-9",
-							})}
-						>
-							<Settings2 className="size-3.5" />
-							<span className="hidden sm:inline">Setting Bot</span>
-						</Link>
-					) : undefined
+					<>
+						<LeadsTabs active="leads" rekananCount={b2bCount} />
+						{canManage ? (
+							<Link
+								href="/leads/settings"
+								className={buttonVariants({
+									variant: "outline",
+									className: "h-9",
+								})}
+							>
+								<Settings2 className="size-3.5" />
+								<span className="hidden sm:inline">Setting Bot</span>
+							</Link>
+						) : null}
+					</>
 				}
 			/>
-
-			<LeadsTabs active="leads" rekananCount={b2bCount} />
 
 			<KpiRow>
 				<KpiCard

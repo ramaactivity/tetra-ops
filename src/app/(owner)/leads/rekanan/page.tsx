@@ -80,9 +80,8 @@ export default async function RekananPage() {
 			<SectionHeader
 				title="Rekanan"
 				description="Akun B2B & rekanan jangka panjang — corporate, instansi, EO/WO, venue. Klien berulang dengan nilai tinggi, dikelola sebagai akun, bukan lead sekali pakai."
+				actions={<LeadsTabs active="rekanan" rekananCount={totalAccounts} />}
 			/>
-
-			<LeadsTabs active="rekanan" rekananCount={totalAccounts} />
 
 			<KpiRow>
 				<KpiCard
