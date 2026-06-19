@@ -1,8 +1,9 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { Badge } from "@/components/ui/badge";
 import {
+	formatPhoneHuman,
 	type LeadRow,
 	STATUS_BADGE,
 	statusLabel,
@@ -43,10 +44,13 @@ function PhoneLink({ phone }: { phone: string }) {
 			target="_blank"
 			rel="noopener noreferrer"
 			onClick={(e) => e.stopPropagation()}
-			className="tabular inline-flex w-fit items-center gap-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground hover:underline"
+			title="Chat via WhatsApp"
+			className="group/wa inline-flex w-fit items-center gap-1.5 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
 		>
-			{phone}
-			<ExternalLink className="size-3" aria-hidden />
+			<WhatsAppIcon className="size-3.5 shrink-0 text-[#25D366]" />
+			<span className="tabular group-hover/wa:underline">
+				{formatPhoneHuman(phone)}
+			</span>
 		</a>
 	);
 }

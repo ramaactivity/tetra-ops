@@ -92,6 +92,19 @@ export function waMePhone(phone: string): string {
 	return digits;
 }
 
+/**
+ * Human-readable phone for display only (DB keeps the raw value).
+ * Normalizes to the local Indonesian `0`-prefix, then groups every 4 digits
+ * with a hyphen: `6289611384767` → `0896-1138-4767`. Machines read the raw
+ * string; humans read the grouped one.
+ */
+export function formatPhoneHuman(phone: string): string {
+	let digits = phone.replace(/\D/g, "");
+	if (digits.startsWith("62")) digits = `0${digits.slice(2)}`;
+	else if (!digits.startsWith("0")) digits = `0${digits}`;
+	return digits.replace(/(\d{4})(?=\d)/g, "$1-");
+}
+
 /** Lower-bound ISO timestamp for a period filter, or null for "all". */
 export function periodStartISO(period: string, now: Date): string | null {
 	if (period === "today") {
