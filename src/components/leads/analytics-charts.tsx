@@ -109,34 +109,46 @@ export function HourHistogram({ counts }: { counts: number[] }) {
 	const bars = counts.map((count, hour) => ({ hour, count }));
 
 	return (
-		<div className="flex items-end gap-[3px]" style={{ height: 132 }}>
-			{bars.map(({ hour, count }) => (
-				<div
-					key={hour}
-					className="group flex flex-1 flex-col items-center justify-end gap-1"
-					title={`${String(hour).padStart(2, "0")}.00 — ${count} lead`}
-				>
+		<div>
+			<div
+				className="flex items-end gap-[3px] border-b border-border-default"
+				style={{ height: 120 }}
+			>
+				{bars.map(({ hour, count }) => (
 					<div
-						className={cn(
-							"w-full rounded-t-[3px] transition-colors",
-							hour === peak ? "bg-foreground" : "bg-foreground/25",
-						)}
-						style={{ height: `${Math.max(2, (count / max) * 108)}px` }}
-					/>
-					{hour % 6 === 0 ? (
-						<span className="tabular text-[9.5px] text-muted-foreground">
-							{String(hour).padStart(2, "0")}
-						</span>
-					) : (
-						<span className="h-[13px]" aria-hidden />
-					)}
-				</div>
-			))}
+						key={hour}
+						className="flex flex-1 items-end justify-center"
+						style={{ height: "100%" }}
+						title={`${String(hour).padStart(2, "0")}.00 — ${count} lead`}
+					>
+						{count > 0 ? (
+							<div
+								className={cn(
+									"w-full rounded-t-[3px]",
+									hour === peak ? "bg-foreground" : "bg-foreground/30",
+								)}
+								style={{ height: `${Math.max(3, (count / max) * 116)}px` }}
+							/>
+						) : null}
+					</div>
+				))}
+			</div>
+			<div className="mt-1.5 flex gap-[3px]">
+				{bars.map(({ hour }) => (
+					<span key={hour} className="flex-1 text-center">
+						{hour % 6 === 0 ? (
+							<span className="tabular text-[9.5px] text-muted-foreground">
+								{String(hour).padStart(2, "0")}
+							</span>
+						) : null}
+					</span>
+				))}
+			</div>
 		</div>
 	);
 }
 
-/** Vertical bars per day; sparse date labels so the axis stays legible. */
+/** Vertical bars per day/week; zero buckets stay empty, sparse axis labels. */
 export function DayTrend({
 	points,
 }: {
@@ -147,30 +159,41 @@ export function DayTrend({
 	if (points.length === 0 || total === 0)
 		return <EmptyChart label="Belum ada data pada rentang ini" />;
 
-	// Aim for ~6 axis labels regardless of range length.
+	// Aim for ~6 axis labels regardless of bucket count.
 	const step = Math.max(1, Math.ceil(points.length / 6));
 
 	return (
-		<div className="flex items-end gap-[3px]" style={{ height: 148 }}>
-			{points.map((p, i) => (
-				<div
-					key={p.id}
-					className="flex flex-1 flex-col items-center justify-end gap-1"
-					title={`${p.label}: ${p.value} lead`}
-				>
+		<div>
+			<div
+				className="flex items-end gap-[3px] border-b border-border-default"
+				style={{ height: 130 }}
+			>
+				{points.map((p) => (
 					<div
-						className="w-full rounded-t-[3px] bg-foreground"
-						style={{ height: `${Math.max(2, (p.value / max) * 116)}px` }}
-					/>
-					{i % step === 0 ? (
-						<span className="whitespace-nowrap text-[9.5px] text-muted-foreground">
-							{p.label}
-						</span>
-					) : (
-						<span className="h-[13px]" aria-hidden />
-					)}
-				</div>
-			))}
+						key={p.id}
+						className="flex flex-1 items-end justify-center"
+						style={{ height: "100%" }}
+						title={`${p.label}: ${p.value} lead`}
+					>
+						{p.value > 0 ? (
+							<div
+								className="w-full rounded-t-[3px] bg-foreground"
+								style={{ height: `${Math.max(3, (p.value / max) * 126)}px` }}
+							/>
+						) : null}
+					</div>
+				))}
+			</div>
+			<div className="mt-1.5 flex gap-[3px]">
+				{points.map((p, i) => (
+					<span
+						key={p.id}
+						className="flex-1 truncate text-center text-[9.5px] text-muted-foreground"
+					>
+						{i % step === 0 ? p.label : ""}
+					</span>
+				))}
+			</div>
 		</div>
 	);
 }

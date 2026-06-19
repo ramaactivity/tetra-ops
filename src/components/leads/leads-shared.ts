@@ -32,7 +32,15 @@ export const TOPIC_LABELS: Record<string, string> = {
 };
 
 export function topicLabel(topic: string): string {
-	return TOPIC_LABELS[topic] ?? topic.charAt(0).toUpperCase() + topic.slice(1);
+	if (TOPIC_LABELS[topic]) return TOPIC_LABELS[topic];
+	// Humanize raw bot rule names: "eo_wo" → "Eo Wo", "lead" → "Lead".
+	return (
+		topic
+			.split(/[_-]+/)
+			.filter(Boolean)
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join(" ") || topic
+	);
 }
 
 export const STATUS_LABELS: Record<string, string> = {

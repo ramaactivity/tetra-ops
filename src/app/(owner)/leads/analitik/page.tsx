@@ -154,13 +154,17 @@ export default async function LeadsAnalyticsPage({
 			: leads.length
 				? wibParts(leads[0].received_at).ms
 				: todayMs;
+	// Daily bars for short ranges; weekly buckets for 90d / Semua so the trend
+	// stays readable instead of ~90 hair-thin daily bars.
+	const weekly = range === "90d" || range === "all";
+	const trendStep = weekly ? 7 * DAY_MS : DAY_MS;
 	const dayPoints: Array<{ id: number; label: string; value: number }> = [];
-	for (let ms = firstMs; ms <= todayMs; ms += DAY_MS) {
-		dayPoints.push({
-			id: ms,
-			label: dayLabel(ms),
-			value: perDayMap.get(ms) ?? 0,
-		});
+	for (let ms = firstMs; ms <= todayMs; ms += trendStep) {
+		let value = 0;
+		for (let d = ms; d < ms + trendStep && d <= todayMs; d += DAY_MS) {
+			value += perDayMap.get(d) ?? 0;
+		}
+		dayPoints.push({ id: ms, label: dayLabel(ms), value });
 	}
 
 	const segmentBars = [...segmentCounts.entries()]
@@ -251,8 +255,12 @@ export default async function LeadsAnalyticsPage({
 			</KpiRow>
 
 			<ChartCard
-				title="Lead per hari"
-				subtitle="Volume harian — lihat tren naik/turun dan hari puncak."
+				title={weekly ? "Lead per minggu" : "Lead per hari"}
+				subtitle={
+					weekly
+						? "Volume per minggu — tren jangka panjang."
+						: "Volume harian — lihat tren naik/turun dan hari puncak."
+				}
 			>
 				<DayTrend points={dayPoints} />
 			</ChartCard>
