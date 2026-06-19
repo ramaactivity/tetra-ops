@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { fieldInputClass, FormError } from "@/components/catalog/form-kit";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { FormError, fieldInputClass } from "@/components/catalog/form-kit";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -85,11 +85,16 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 		FormData
 	>(updateBotSettings, undefined);
 	const wasPending = useRef(false);
+	// Track unsaved edits so the long, multi-card form signals when there's
+	// something to save (and clears the signal once the save lands).
+	const [dirty, setDirty] = useState(false);
 
 	useEffect(() => {
 		if (wasPending.current && !pending) {
-			if (state?.ok) toast.success("Setting bot disimpan");
-			else if (state?.errors?._form) toast.error(state.errors._form[0]);
+			if (state?.ok) {
+				toast.success("Setting bot disimpan");
+				setDirty(false);
+			} else if (state?.errors?._form) toast.error(state.errors._form[0]);
 		}
 		wasPending.current = pending;
 	}, [pending, state]);
@@ -104,7 +109,11 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 	const numClass = cn(fieldInputClass, "tabular");
 
 	return (
-		<form action={formAction} className="space-y-3">
+		<form
+			action={formAction}
+			onChange={() => setDirty(true)}
+			className="space-y-3"
+		>
 			{state?.errors?._form ? (
 				<FormError message={state.errors._form[0]} />
 			) : null}
@@ -264,8 +273,19 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 				</Field>
 			</Card>
 
-			<div className="flex justify-end pt-1">
-				<Button type="submit" size="lg" disabled={pending}>
+			<div className="flex flex-col-reverse items-stretch gap-2 pt-1 sm:flex-row sm:items-center sm:justify-end">
+				{dirty && !pending ? (
+					<p className="type-secondary inline-flex items-center justify-center gap-1.5 sm:mr-auto">
+						<span className="size-1.5 rounded-full bg-amber-500" aria-hidden />
+						Ada perubahan belum disimpan
+					</p>
+				) : null}
+				<Button
+					type="submit"
+					size="lg"
+					disabled={pending}
+					className="w-full sm:w-auto"
+				>
 					{pending ? "Menyimpan…" : "Simpan setting"}
 				</Button>
 			</div>

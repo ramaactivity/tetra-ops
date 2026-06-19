@@ -32,7 +32,11 @@ type StatusMeta = {
 
 const STATUS_META: Record<string, StatusMeta> = {
 	open: { label: "Tersambung", dot: "bg-white", icon: Wifi },
-	connecting: { label: "Menyambung…", dot: "bg-amber-300 animate-pulse", icon: Loader2 },
+	connecting: {
+		label: "Menyambung…",
+		dot: "bg-amber-300 animate-pulse",
+		icon: Loader2,
+	},
 	close: { label: "Terputus", dot: "bg-rose-300", icon: WifiOff },
 	logged_out: { label: "Perlu scan QR", dot: "bg-rose-300", icon: WifiOff },
 	unknown: { label: "Belum diketahui", dot: "bg-white/50", icon: WifiOff },
@@ -66,7 +70,8 @@ export function BotConnectionHero({ initial }: { initial: BotStatus }) {
 				data: { session },
 			} = await supabase.auth.getSession();
 			if (aborted) return;
-			if (session?.access_token) supabase.realtime.setAuth(session.access_token);
+			if (session?.access_token)
+				supabase.realtime.setAuth(session.access_token);
 
 			const channel = supabase
 				.channel("bot-status-realtime")
@@ -157,7 +162,7 @@ export function BotConnectionHero({ initial }: { initial: BotStatus }) {
 			{/* === ACTION TOOLBAR === sits on the page, below the hero (Operations
 			    pattern). Helper text on the left, controls on the right. */}
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-				<p className="type-secondary inline-flex min-w-0 items-center gap-1.5">
+				<p className="type-secondary flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
 					<span
 						className={cn(
 							"size-1.5 shrink-0 rounded-full",
@@ -169,9 +174,9 @@ export function BotConnectionHero({ initial }: { initial: BotStatus }) {
 						)}
 						aria-hidden
 					/>
-					<span className="truncate">{helper}</span>
+					<span>{helper}</span>
 					{lastConnected ? (
-						<span className="shrink-0 text-muted-foreground/70">
+						<span className="text-muted-foreground/70">
 							· terakhir {lastConnected}
 						</span>
 					) : null}
@@ -183,7 +188,10 @@ export function BotConnectionHero({ initial }: { initial: BotStatus }) {
 						className="h-9"
 						disabled={pending}
 						onClick={() =>
-							command("reconnect", "Perintah reconnect dikirim — tunggu QR muncul")
+							command(
+								"reconnect",
+								"Perintah reconnect dikirim — tunggu QR muncul",
+							)
 						}
 					>
 						{isOpen ? <RefreshCw aria-hidden /> : <QrCode aria-hidden />}
@@ -208,11 +216,15 @@ export function BotConnectionHero({ initial }: { initial: BotStatus }) {
 						<QRCodeSVG value={status.qr} size={208} level="M" />
 					</div>
 					<p className="type-secondary max-w-sm text-center leading-relaxed">
-						Buka <span className="font-medium text-foreground">WhatsApp</span> di
-						HP Tetra →{" "}
-						<span className="font-medium text-foreground">Perangkat tertaut</span>{" "}
+						Buka <span className="font-medium text-foreground">WhatsApp</span>{" "}
+						di HP Tetra →{" "}
+						<span className="font-medium text-foreground">
+							Perangkat tertaut
+						</span>{" "}
 						→{" "}
-						<span className="font-medium text-foreground">Tautkan perangkat</span>
+						<span className="font-medium text-foreground">
+							Tautkan perangkat
+						</span>
 						, lalu scan QR ini. QR berganti otomatis tiap beberapa detik.
 					</p>
 				</div>
