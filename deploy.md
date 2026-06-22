@@ -18,37 +18,51 @@ masing-masing Hobby/free — sengaja dipisah biar limit free tidak numpuk), nati
 saling rebutan koneksi GitHub → terus lepas & deploy ke-block. **CI token tidak butuh koneksi
 login GitHub↔Vercel sama sekali**, jadi koneksi tidak pernah lepas lagi.
 
+### ⚠️ Gotcha utama — Hobby blokir "commit author tidak cocok"
+Vercel Hobby **memblok deploy yang commit-author-emailnya tak bisa dipetakan ke akun GitHub di
+team** ("The deployment was blocked because the commit email … could not be matched"). Karena
+login GitHub sengaja **tidak** di-connect, deploy yang membawa metadata git pasti ke-block.
+**Solusi (sudah jalan di workflow):** step `rm -rf .git` SEBELUM `vercel deploy` → metadata
+commit dibuang → deploy diatribusikan ke **pemilik token** (anggota team), bukan ke commit
+author → lolos. Konsekuensi: di dashboard Vercel deploy muncul tanpa nama commit/branch (sumber
+`vercel deploy`). Riwayat di GitHub tetap utuh.
+
 ### Jalur utama — push, CI deploy otomatis
 ```bash
 git add <file-saya>           # JANGAN git add -A (ada sesi paralel)
 git commit -m "pesan"
-git push origin main          # GitHub Actions build + deploy → READY
+git push origin main          # GitHub Actions → vercel deploy → READY (~2 menit)
 ```
 Pantau di **tab Actions** repo (`github.com/ramaactivity/tetra-ops/actions`) sampai hijau,
 lalu cek alias `https://tetra-ops-lac.vercel.app`.
 
-### Cadangan — CLI manual (kalau Actions mati / butuh deploy tanpa commit)
-```bash
-vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-vercel build --prod --token=$VERCEL_TOKEN
-vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+Isi `.github/workflows/deploy.yml` (build DI Vercel, bukan prebuilt — prebuilt sempat
+menggantung di "Building…"):
 ```
-Jangan dijalankan barengan dengan push (nanti dobel). Token dibuat di akun Vercel pemilik
-project: Settings → Tokens (scope team `visualtetra-9970`).
+npm install -g vercel@latest
+vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+rm -rf .git                                  # buang commit-author → tak ke-block
+vercel deploy --prod --token=$VERCEL_TOKEN   # Vercel yang build (install pnpm sendiri)
+```
 
 ## 🔑 Setup CI (sekali saja) & kalau deploy bermasalah
 
 `orgId` + `projectId` sudah di-inline di workflow (lihat `.vercel/project.json`). Yang perlu
 disetel cuma **1 secret**: `VERCEL_TOKEN` di
-`github.com/ramaactivity/tetra-ops/settings/secrets/actions`.
+`github.com/ramaactivity/tetra-ops/settings/secrets/actions` (dibuat di Vercel akun
+`visualtetra-9970` → Settings → Tokens, No Expiration). Native Git integration project sudah
+**di-disconnect** (Settings → Git) supaya tak dobel-deploy.
 
 Kalau deploy gagal:
-1. **Actions merah** → buka log step yang gagal. Token kadaluwarsa/dicabut → buat token baru di
-   Vercel (Settings → Tokens), update secret `VERCEL_TOKEN`.
-2. **Tidak ada run sama sekali** → cek file `.github/workflows/deploy.yml` ada di `main`.
-3. **Deploy dobel** → native Git integration belum di-disconnect. Vercel project tetra-ops →
-   Settings → Git → Disconnect.
-4. Jangan otak-atik email commit — author noreply `ramaactivity` sudah benar (lihat `accounts.md`).
+1. **Blocked "commit email could not be matched"** → step `rm -rf .git` hilang/ketimpa. Pastikan
+   ada sebelum `vercel deploy`.
+2. **Actions merah di step Deploy** → token kadaluwarsa/dicabut → buat token baru di Vercel,
+   update secret `VERCEL_TOKEN`.
+3. **Deploy menggantung di "Building…"** → jangan pakai `--prebuilt`; pakai `vercel deploy --prod`
+   biasa (Vercel yang build).
+4. **`spawn pnpm ENOENT`** → itu kalau pakai prebuilt + `vercel build` lokal; pola sekarang
+   build di Vercel jadi tak perlu pnpm di runner.
+5. **Tidak ada run sama sekali** → cek `.github/workflows/deploy.yml` ada di `main`.
 
 ## ⚠️ Env var gotcha
 - Sebelum `vercel env pull`: **SELALU** `cp .env.local .env.local.bak` dulu (env di-scope
