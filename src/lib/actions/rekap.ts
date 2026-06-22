@@ -3,6 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import {
+	notifyRekapReviewed,
+	notifyRekapSubmitted,
+} from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import {
@@ -784,6 +788,12 @@ export async function submitRekap(
 	revalidatePath("/crew");
 	revalidatePath("/crew/jadwal");
 	revalidatePath(`/crew/jadwal/${projectId}`);
+
+	// Crew submit → ping owners to review. Owner self-submits don't notify (they
+	// ARE the reviewer). Best-effort: never blocks the submit.
+	if (me.profile.role === "crew") {
+		await notifyRekapSubmitted(eventId, projectId, me.profile.full_name);
+	}
 	return { success: true };
 }
 
@@ -1503,6 +1513,14 @@ export async function reviewRekap(
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/warehouse");
+
+	// Tell the assigned crew their rekap was approved / needs revision.
+	await notifyRekapReviewed(
+		existing.event_id,
+		projectId,
+		approved,
+		reviewNotes,
+	);
 	return {};
 }
 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
+import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -31,7 +32,10 @@ export async function settleEvent(
 	const me = await getCurrentUser();
 	if (!me) return { ok: false, error: "Unauthorized" };
 	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
-		return { ok: false, error: "Hanya owner/super_admin yang bisa settle event" };
+		return {
+			ok: false,
+			error: "Hanya owner/super_admin yang bisa settle event",
+		};
 	}
 
 	// Owner safety-net: kalau rekap belum commit stok (mis. owner isi sendiri &
@@ -61,6 +65,9 @@ export async function settleEvent(
 	revalidatePath("/operations");
 	revalidatePath("/dashboard");
 	revalidatePath("/finance");
+
+	// Thank the assigned crew that the event is closed (best-effort).
+	await notifyEventSettled(eventId, projectId);
 
 	return { ok: true, data: data as SettleEventResult };
 }
