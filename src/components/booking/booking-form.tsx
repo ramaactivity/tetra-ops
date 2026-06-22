@@ -21,6 +21,7 @@ import { SummaryRail } from "@/components/operations/_shared/summary-rail";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { TimePicker } from "@/components/ui/time-picker";
 import {
 	Tooltip,
@@ -1736,11 +1737,7 @@ export function BookingForm({
 										{startTime ? "Menyusul?" : "✓ Menyusul"}
 									</button>
 								</div>
-								<input
-									type="hidden"
-									name="start_time"
-									value={startTime}
-								/>
+								<input type="hidden" name="start_time" value={startTime} />
 							</Field>
 						</div>
 
@@ -1748,7 +1745,9 @@ export function BookingForm({
 							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 								<div>
-									<p className="font-medium">Jam mulai belum ditentukan (TBC)</p>
+									<p className="font-medium">
+										Jam mulai belum ditentukan (TBC)
+									</p>
 									<p className="text-amber-900/80 dark:text-amber-200/80">
 										Setup + selesai akan auto-fill setelah jam mulai diisi.
 										Sistem akan reminder H-7 + H-3 kalau masih kosong.
@@ -1762,7 +1761,9 @@ export function BookingForm({
 									name="setup_time"
 									error={err("setup_time")}
 									hint={
-										setupTouched ? "Manual override" : "Auto: 1 jam sebelum mulai"
+										setupTouched
+											? "Manual override"
+											: "Auto: 1 jam sebelum mulai"
 									}
 								>
 									<TimePicker
@@ -1773,11 +1774,7 @@ export function BookingForm({
 										}}
 										aria-invalid={!!err("setup_time")}
 									/>
-									<input
-										type="hidden"
-										name="setup_time"
-										value={setupTime}
-									/>
+									<input type="hidden" name="setup_time" value={setupTime} />
 								</Field>
 								<Field
 									label="Selesai"
@@ -1863,11 +1860,7 @@ export function BookingForm({
 									allowFreeText={false}
 									aria-invalid={!!err("frame_size")}
 								/>
-								<input
-									type="hidden"
-									name="frame_size"
-									value={frameSize}
-								/>
+								<input type="hidden" name="frame_size" value={frameSize} />
 							</Field>
 						</div>
 
@@ -1875,7 +1868,9 @@ export function BookingForm({
 							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 								<div>
-									<p className="font-medium">Frame size belum ditentukan (TBC)</p>
+									<p className="font-medium">
+										Frame size belum ditentukan (TBC)
+									</p>
 									<p className="text-amber-900/80 dark:text-amber-200/80">
 										Paket akan susah di-filter sebelum frame dipilih. Sistem
 										akan reminder H-7 + H-3 kalau status masih kosong.
@@ -2566,14 +2561,12 @@ export function BookingForm({
 															</button>
 														</div>
 													</div>
-													<textarea
+													<RichTextarea
 														value={row.notes}
-														onChange={(e) =>
-															setBonusNotes(row.addon_id, e.target.value)
-														}
+														onChange={(v) => setBonusNotes(row.addon_id, v)}
 														placeholder="Catatan (opsional) — cth. 'kasih saat sesi family', 'pre-print sebelum acara'"
 														rows={1}
-														className={`${inputClass} resize-none text-fluid-caption`}
+														toolbar={false}
 													/>
 												</div>
 											);
@@ -2709,13 +2702,13 @@ export function BookingForm({
 							hint="Optional — instruksi spesifik untuk tim lapangan"
 							layoutMode="grid"
 						>
-							<textarea
+							<RichTextarea
 								name="crew_notes"
 								rows={2}
 								maxLength={500}
 								defaultValue={get("crew_notes")}
 								placeholder="cth. Akses parkir di basement, tanya security PIC: Pak Agus"
-								className={`${inputClass} resize-none`}
+								toolbar={false}
 							/>
 						</Field>
 					</Section>

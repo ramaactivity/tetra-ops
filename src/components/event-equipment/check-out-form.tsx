@@ -2,7 +2,6 @@
 
 import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
-import { NativeSelect } from "@/components/ui/native-select";
 import {
 	Dialog,
 	DialogClose,
@@ -13,6 +12,8 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { checkOutEquipment } from "@/lib/actions/event-equipment";
 
 export type AvailableItem = {
@@ -161,13 +162,13 @@ export function CheckOutDialog({
 						<label htmlFor="notes" className="text-sm font-medium">
 							Catatan
 						</label>
-						<textarea
+						<RichTextarea
 							id="notes"
 							rows={2}
 							maxLength={300}
 							value={notes}
-							onChange={(e) => setNotes(e.target.value)}
-							className={`${inputClass} resize-none`}
+							onChange={setNotes}
+							toolbar={false}
 							placeholder="Optional"
 						/>
 					</div>

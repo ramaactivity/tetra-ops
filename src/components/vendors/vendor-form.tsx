@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { VendorFormState } from "@/lib/actions/vendors";
 import { cn } from "@/lib/utils";
 
@@ -374,30 +375,32 @@ export function VendorForm({
 					{err("email") && <span className={errClass}>{err("email")}</span>}
 				</label>
 
-				<label className={labelClass}>
+				<label className={labelClass} htmlFor="company_address">
 					Alamat Perusahaan
-					<textarea
+					<RichTextarea
+						id="company_address"
 						name="company_address"
 						defaultValue={get("company_address")}
 						placeholder="Alamat untuk invoice / kontrak"
 						rows={2}
 						maxLength={500}
-						className={`${inputClass} min-h-[60px] resize-y py-2`}
+						toolbar={false}
 					/>
 					{err("company_address") && (
 						<span className={errClass}>{err("company_address")}</span>
 					)}
 				</label>
 
-				<label className={labelClass}>
+				<label className={labelClass} htmlFor="notes">
 					Catatan Internal
-					<textarea
+					<RichTextarea
+						id="notes"
 						name="notes"
 						defaultValue={get("notes")}
 						placeholder="Catatan apapun tentang vendor ini (mis. preferensi koordinasi, dll)"
 						rows={3}
 						maxLength={1000}
-						className={`${inputClass} min-h-[80px] resize-y py-2`}
+						toolbar={false}
 					/>
 					{err("notes") && <span className={errClass}>{err("notes")}</span>}
 				</label>

@@ -23,6 +23,7 @@ import {
 	DisclosureTrigger,
 } from "@/components/ui/disclosure";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { normalizeHeaderKey, parseCsv } from "@/lib/csv-import/parser";
 import type {
 	ImportResult,
@@ -34,7 +35,7 @@ type Step = 1 | 2 | 3 | 4;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const BATCH_SIZE = 5; // rows per server roundtrip — small enough to survive
-                      // Vercel free-tier 10s timeout even on slow days
+// Vercel free-tier 10s timeout even on slow days
 const MAX_BATCH_RETRIES = 2; // retry a failed batch up to 2 extra times
 
 type ImportProgress = {
@@ -136,8 +137,13 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 
 	// Validate that all required target fields are mapped
 	const requiredFields = config.targetFields.filter((f) => f.required);
-	const mappedFields = useMemo(() => new Set(Object.values(mapping)), [mapping]);
-	const missingRequired = requiredFields.filter((f) => !mappedFields.has(f.key));
+	const mappedFields = useMemo(
+		() => new Set(Object.values(mapping)),
+		[mapping],
+	);
+	const missingRequired = requiredFields.filter(
+		(f) => !mappedFields.has(f.key),
+	);
 
 	// Build mapped rows: array of { targetKey: value }
 	const buildMappedRows = useCallback((): Record<string, string>[] => {
@@ -231,9 +237,7 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 					if (/Unauthorized|Forbidden/i.test(msg)) break;
 					if (attempt < MAX_BATCH_RETRIES) {
 						// Exponential backoff: 500ms → 1500ms
-						await new Promise((r) =>
-							setTimeout(r, 500 * 3 ** attempt),
-						);
+						await new Promise((r) => setTimeout(r, 500 * 3 ** attempt));
 					}
 				}
 			}
@@ -363,9 +367,7 @@ export function CsvImportWizard({ config }: { config: WizardConfig }) {
 						progress={progress}
 					/>
 				)}
-				{step === 4 && result && (
-					<DoneStep result={result} onReset={reset} />
-				)}
+				{step === 4 && result && <DoneStep result={result} onReset={reset} />}
 			</div>
 		</div>
 	);
@@ -415,9 +417,7 @@ function StepIndicator({ current }: { current: Step }) {
 						</div>
 						{idx < steps.length - 1 && (
 							<span
-								className={`h-px w-8 ${
-									isDone ? "bg-primary/40" : "bg-border"
-								}`}
+								className={`h-px w-8 ${isDone ? "bg-primary/40" : "bg-border"}`}
 							/>
 						)}
 					</li>
@@ -507,13 +507,14 @@ function UploadStep({
 					>
 						Paste CSV content
 					</label>
-					<textarea
+					<RichTextarea
 						id="paste-csv"
 						rows={12}
 						value={pasteText}
-						onChange={(e) => setPasteText(e.target.value)}
+						onChange={setPasteText}
 						placeholder={sampleCsv}
-						className="border-border-default bg-background text-foreground focus-visible:ring-ring placeholder:text-muted-foreground/50 w-full rounded-md border px-3 py-2 font-mono text-xs leading-relaxed focus-visible:ring-2 focus-visible:outline-none"
+						toolbar={false}
+						className="font-mono"
 					/>
 					<div className="flex justify-end gap-2">
 						<button
@@ -585,7 +586,9 @@ function MapStep({
 	return (
 		<div className="space-y-5">
 			<div className="space-y-1">
-				<h3 className="text-base font-semibold">Map kolom CSV → field tujuan</h3>
+				<h3 className="text-base font-semibold">
+					Map kolom CSV → field tujuan
+				</h3>
 				<p className="text-muted-foreground text-sm">
 					{fileName && (
 						<>
@@ -622,7 +625,9 @@ function MapStep({
 							return (
 								<tr key={`${h}-${idx}`}>
 									<td className="text-foreground px-3 py-2 font-mono text-xs">
-										{h || <span className="text-muted-foreground">(empty)</span>}
+										{h || (
+											<span className="text-muted-foreground">(empty)</span>
+										)}
 									</td>
 									<td className="px-3 py-2">
 										<NativeSelect
@@ -665,31 +670,28 @@ function MapStep({
 						{targetFields.map((f) => {
 							const isMapped = Object.values(mapping).includes(f.key);
 							return (
-								<div
-									key={f.key}
-									className="flex items-baseline gap-1.5"
-								>
-								{isMapped ? (
-									<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 h-3 w-3 shrink-0" />
-								) : (
-									<span className="border-border-default h-3 w-3 shrink-0 rounded-full border" />
-								)}
-								<span
-									className={
-										isMapped
-											? "text-foreground font-medium"
-											: f.required
-												? "text-amber-700 dark:text-amber-400"
-												: ""
-									}
-								>
-									{f.label}
-									{f.required && !isMapped && " (wajib)"}
-								</span>
-							</div>
-						);
-					})}
-				</dl>
+								<div key={f.key} className="flex items-baseline gap-1.5">
+									{isMapped ? (
+										<CheckCircle2 className="text-emerald-600 dark:text-emerald-400 h-3 w-3 shrink-0" />
+									) : (
+										<span className="border-border-default h-3 w-3 shrink-0 rounded-full border" />
+									)}
+									<span
+										className={
+											isMapped
+												? "text-foreground font-medium"
+												: f.required
+													? "text-amber-700 dark:text-amber-400"
+													: ""
+										}
+									>
+										{f.label}
+										{f.required && !isMapped && " (wajib)"}
+									</span>
+								</div>
+							);
+						})}
+					</dl>
 				</DisclosurePanel>
 			</Disclosure>
 
@@ -799,16 +801,8 @@ function PreviewStep({
 			</div>
 
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				<Stat
-					label="Total rows"
-					value={rows.length}
-					tone="muted"
-				/>
-				<Stat
-					label="Mapped fields"
-					value={mappedCols.length}
-					tone="primary"
-				/>
+				<Stat label="Total rows" value={rows.length} tone="muted" />
+				<Stat label="Mapped fields" value={mappedCols.length} tone="primary" />
 				<Stat
 					label="Duplicates"
 					value={duplicates.size}
@@ -854,7 +848,12 @@ function PreviewStep({
 									const pk = pkColIdx >= 0 ? r[pkColIdx]?.trim() : "";
 									const isDupe = pk ? duplicates.has(pk) : false;
 									return (
-										<tr key={`row-${rIdx}`} className={isDupe ? "bg-amber-50 dark:bg-amber-950/30" : ""}>
+										<tr
+											key={`row-${rIdx}`}
+											className={
+												isDupe ? "bg-amber-50 dark:bg-amber-950/30" : ""
+											}
+										>
 											<td className="text-muted-foreground sticky left-0 bg-surface-2 px-2 py-1 font-mono">
 												{rIdx + 2}
 												{isDupe && (
@@ -972,7 +971,12 @@ function ProgressPanel({
 			{progress.stats.length > 0 && (
 				<div className="border-primary/10 grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-4">
 					{progress.stats.map((s) => (
-						<MiniStat key={s.label} label={s.label} value={s.value} tone={s.tone} />
+						<MiniStat
+							key={s.label}
+							label={s.label}
+							value={s.value}
+							tone={s.tone}
+						/>
 					))}
 				</div>
 			)}
@@ -1084,12 +1088,7 @@ function DoneStep({
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
 				<Stat label="Total" value={result.totalRows} tone="muted" />
 				{result.stats.map((s) => (
-					<Stat
-						key={s.label}
-						label={s.label}
-						value={s.value}
-						tone={s.tone}
-					/>
+					<Stat key={s.label} label={s.label} value={s.value} tone={s.tone} />
 				))}
 			</div>
 
@@ -1119,46 +1118,46 @@ function DoneStep({
 					Lihat detail per baris ({result.rows.length})
 				</DisclosureTrigger>
 				<DisclosurePanel>
-				<div className="border-border-default max-h-96 overflow-auto rounded-md border">
-					<table className="w-full text-xs">
-						<thead className="bg-card border-b border-border-subtle sticky top-0">
-							<tr>
-								<th className="px-2 py-1.5 text-left font-medium">Row</th>
-								<th className="px-2 py-1.5 text-left font-medium">PK</th>
-								<th className="px-2 py-1.5 text-left font-medium">Label</th>
-								<th className="px-2 py-1.5 text-left font-medium">Status</th>
-								<th className="px-2 py-1.5 text-left font-medium">Notes</th>
-							</tr>
-						</thead>
-						<tbody className="divide-border divide-y">
-							{result.rows.map((r) => (
-								<tr key={`${r.row}-${r.primaryKey ?? "na"}`}>
-									<td className="text-muted-foreground tabular px-2 py-1">
-										{r.row}
-									</td>
-									<td className="text-muted-foreground tabular px-2 py-1 font-mono">
-										{r.primaryKey ?? "—"}
-									</td>
-									<td className="px-2 py-1">{r.label ?? "—"}</td>
-									<td className="px-2 py-1">
-										<StatusPill status={r.status} category={r.category} />
-									</td>
-									<td className="text-muted-foreground space-y-0.5 px-2 py-1">
-										{r.message && <div>{r.message}</div>}
-										{r.warnings?.map((w, idx) => (
-											<div
-												key={`${r.row}-w-${idx}`}
-												className="text-amber-700 dark:text-amber-400"
-											>
-												⚠ {w}
-											</div>
-										))}
-									</td>
+					<div className="border-border-default max-h-96 overflow-auto rounded-md border">
+						<table className="w-full text-xs">
+							<thead className="bg-card border-b border-border-subtle sticky top-0">
+								<tr>
+									<th className="px-2 py-1.5 text-left font-medium">Row</th>
+									<th className="px-2 py-1.5 text-left font-medium">PK</th>
+									<th className="px-2 py-1.5 text-left font-medium">Label</th>
+									<th className="px-2 py-1.5 text-left font-medium">Status</th>
+									<th className="px-2 py-1.5 text-left font-medium">Notes</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
+							</thead>
+							<tbody className="divide-border divide-y">
+								{result.rows.map((r) => (
+									<tr key={`${r.row}-${r.primaryKey ?? "na"}`}>
+										<td className="text-muted-foreground tabular px-2 py-1">
+											{r.row}
+										</td>
+										<td className="text-muted-foreground tabular px-2 py-1 font-mono">
+											{r.primaryKey ?? "—"}
+										</td>
+										<td className="px-2 py-1">{r.label ?? "—"}</td>
+										<td className="px-2 py-1">
+											<StatusPill status={r.status} category={r.category} />
+										</td>
+										<td className="text-muted-foreground space-y-0.5 px-2 py-1">
+											{r.message && <div>{r.message}</div>}
+											{r.warnings?.map((w, idx) => (
+												<div
+													key={`${r.row}-w-${idx}`}
+													className="text-amber-700 dark:text-amber-400"
+												>
+													⚠ {w}
+												</div>
+											))}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</DisclosurePanel>
 			</Disclosure>
 
@@ -1205,9 +1204,7 @@ function Stat({
 			<dd className={`tabular text-lg font-semibold ${cls}`}>
 				{value.toLocaleString("id-ID")}
 			</dd>
-			{hint && (
-				<p className="text-muted-foreground text-[10px]">{hint}</p>
-			)}
+			{hint && <p className="text-muted-foreground text-[10px]">{hint}</p>}
 		</div>
 	);
 }

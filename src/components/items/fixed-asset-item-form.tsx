@@ -4,14 +4,15 @@ import { Info, Wand2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	createFixedAssetItem,
 	type FixedAssetItemFormState,
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
 import { generateFixedAssetSku } from "@/lib/inventory/sku-generator";
-import { ItemImageUpload } from "./item-image-upload";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
+import { ItemImageUpload } from "./item-image-upload";
 
 export type AcquisitionType =
 	| "new_commercial"
@@ -114,9 +115,7 @@ export function FixedAssetItemForm({
 	};
 	const err = (key: string) =>
 		(
-			state?.errors?.[key as keyof typeof state.errors] as
-				| string[]
-				| undefined
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
 	const [name, setName] = useState<string>(get("name"));
@@ -128,7 +127,9 @@ export function FixedAssetItemForm({
 	const [acquisitionType, setAcquisitionType] = useState<AcquisitionType>(
 		(get("acquisition_type") as AcquisitionType) || "new_commercial",
 	);
-	const [purchaseDate, setPurchaseDate] = useState<string>(get("purchase_date"));
+	const [purchaseDate, setPurchaseDate] = useState<string>(
+		get("purchase_date"),
+	);
 	const [deprStartDate, setDeprStartDate] = useState<string>(
 		get("depreciation_start_date"),
 	);
@@ -298,9 +299,7 @@ export function FixedAssetItemForm({
 				>
 					<NativeSelect
 						value={acquisitionType}
-						onValueChange={(v) =>
-							setAcquisitionType(v as AcquisitionType)
-						}
+						onValueChange={(v) => setAcquisitionType(v as AcquisitionType)}
 						options={ACQUISITION_OPTIONS}
 						triggerClassName="w-full md:max-w-md"
 					/>
@@ -419,12 +418,19 @@ export function FixedAssetItemForm({
 				)}
 
 				{/* Hidden — depreciation method auto + start date defaults to purchase_date */}
-				<input type="hidden" name="depreciation_start_date" value={deprStartDate} />
+				<input
+					type="hidden"
+					name="depreciation_start_date"
+					value={deprStartDate}
+				/>
 			</div>
 
 			{/* ── Status Operasional ──────────────────────────────────────── */}
 			<div className="space-y-4">
-				<SectionHeader title="Status Operasional" subtitle="Kondisi + lokasi alat saat ini" />
+				<SectionHeader
+					title="Status Operasional"
+					subtitle="Kondisi + lokasi alat saat ini"
+				/>
 
 				<div className="grid gap-4 md:grid-cols-2">
 					<Field label="Kondisi" name="condition" error={err("condition")}>
@@ -488,12 +494,12 @@ export function FixedAssetItemForm({
 					error={err("notes")}
 					hint="Opsional — kondisi spesifik, history service, lokasi penyimpanan, dll"
 				>
-					<textarea
+					<RichTextarea
 						name="notes"
 						rows={2}
 						maxLength={500}
 						defaultValue={get("notes")}
-						className={`${inputClass} resize-none`}
+						toolbar={false}
 					/>
 				</Field>
 			</div>

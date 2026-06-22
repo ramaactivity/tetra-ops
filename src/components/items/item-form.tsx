@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	createItem,
 	type ItemFormState,
@@ -139,9 +140,7 @@ export function ItemForm({
 				>
 					<NativeSelect
 						value={category}
-						onValueChange={(v) =>
-							setCategory(v as "inventory" | "fixed_asset")
-						}
+						onValueChange={(v) => setCategory(v as "inventory" | "fixed_asset")}
 						options={[
 							{ value: "inventory", label: "Persediaan" },
 							{ value: "fixed_asset", label: "Aset Tetap" },
@@ -149,12 +148,7 @@ export function ItemForm({
 						triggerClassName="w-full"
 						aria-invalid={!!err("category")}
 					/>
-					<input
-						type="hidden"
-						name="category"
-						value={category}
-						required
-					/>
+					<input type="hidden" name="category" value={category} required />
 				</Field>
 			</div>
 
@@ -267,11 +261,7 @@ export function ItemForm({
 								placeholder="Pilih tanggal"
 								aria-invalid={!!err("purchase_date")}
 							/>
-							<input
-								type="hidden"
-								name="purchase_date"
-								value={purchaseDate}
-							/>
+							<input type="hidden" name="purchase_date" value={purchaseDate} />
 						</Field>
 
 						<Field
@@ -302,11 +292,7 @@ export function ItemForm({
 								}))}
 								triggerClassName="w-full"
 							/>
-							<input
-								type="hidden"
-								name="condition"
-								value={condition}
-							/>
+							<input type="hidden" name="condition" value={condition} />
 						</Field>
 
 						<Field
@@ -344,12 +330,12 @@ export function ItemForm({
 			)}
 
 			<Field label="Catatan" name="notes" error={err("notes")} hint="Optional">
-				<textarea
+				<RichTextarea
 					name="notes"
 					rows={2}
 					maxLength={500}
 					defaultValue={get("notes")}
-					className={`${inputClass} resize-none`}
+					toolbar={false}
 				/>
 			</Field>
 

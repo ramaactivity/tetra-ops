@@ -4,6 +4,7 @@ import { ArrowDownToLine, Loader2, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	recordOwnerWithdrawal,
 	type WithdrawalFormState,
@@ -200,13 +201,13 @@ export function WithdrawalButton({
 							</Field>
 
 							<Field label="Catatan" required>
-								<textarea
+								<RichTextarea
 									name="description"
 									required
 									rows={2}
 									maxLength={500}
 									placeholder="Withdraw bulan ini, dll."
-									className="border-border-default bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									toolbar={false}
 								/>
 							</Field>
 

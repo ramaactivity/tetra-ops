@@ -20,6 +20,7 @@ import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { useRekapDraft } from "@/components/rekap/use-rekap-draft";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { RekapContext } from "@/lib/actions/rekap";
 import { type RekapFormState, submitRekap } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
@@ -1449,14 +1450,14 @@ export function RekapForm({
 					<label htmlFor="crew_notes" className="text-fluid-body font-medium">
 						Catatan crew
 					</label>
-					<textarea
+					<RichTextarea
 						id="crew_notes"
 						name="crew_notes"
 						rows={3}
 						maxLength={1000}
 						defaultValue={get("crew_notes")}
 						placeholder="Apa yang perlu owner tahu — alat rusak, request klien, dst"
-						className="min-h-[88px] w-full resize-y rounded-md border border-border-default bg-background px-3 py-2.5 text-fluid-body leading-relaxed text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+						toolbar={false}
 					/>
 				</div>
 			</NumberedSection>

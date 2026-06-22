@@ -118,20 +118,24 @@ export function PhoneInput({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// TextareaField — textarea with non-resize default.
+// TextareaField — modern multi-line chrome for plain note/description fields
+// (no formatting toolbar). Matches the framed look of <RichTextarea> (which is
+// the standard for message-composition fields): rounded-xl, soft shadow,
+// focus-visible ring, comfortable padding, and native content autosize
+// (`field-sizing-content`, Tailwind v4) so it grows with the text. For chat /
+// WhatsApp message bodies use <RichTextarea> instead (it adds the toolbar).
+
+const TEXTAREA_CLASS =
+	"w-full min-h-[4.5rem] rounded-xl border border-border-default bg-background px-3.5 py-2.5 text-base md:text-fluid-body leading-relaxed text-foreground placeholder:text-muted-foreground/60 shadow-soft-xs transition-colors field-sizing-content resize-none focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50";
 
 export type TextareaFieldProps = ComponentProps<"textarea">;
 
 export function TextareaField({
 	className,
-	rows = 2,
+	rows = 3,
 	...props
 }: TextareaFieldProps) {
 	return (
-		<textarea
-			rows={rows}
-			className={cn(INPUT_CLASS, "h-auto resize-none py-2", className)}
-			{...props}
-		/>
+		<textarea rows={rows} className={cn(TEXTAREA_CLASS, className)} {...props} />
 	);
 }

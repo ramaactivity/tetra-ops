@@ -3,6 +3,7 @@
 import { Archive } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
+import { Field, inputClass } from "@/components/items/item-form-primitives";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Dialog,
@@ -14,12 +15,12 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import {
-	disposeFixedAsset,
 	type DisposalFormState,
+	disposeFixedAsset,
 } from "@/lib/actions/depreciation";
-import { Field, inputClass } from "@/components/items/item-form-primitives";
 
 const DISPOSAL_OPTIONS = [
 	{ value: "sold", label: "Sold — dijual ke pihak lain" },
@@ -69,9 +70,7 @@ export function DisposeAssetDialog({
 
 	const err = (key: string) =>
 		(
-			state?.errors?.[key as keyof typeof state.errors] as
-				| string[]
-				| undefined
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
 	return (
@@ -135,7 +134,12 @@ export function DisposeAssetDialog({
 									onValueChange={setDate}
 									aria-invalid={!!err("disposal_date")}
 								/>
-								<input type="hidden" name="disposal_date" value={date} required />
+								<input
+									type="hidden"
+									name="disposal_date"
+									value={date}
+									required
+								/>
 							</Field>
 
 							<Field
@@ -194,8 +198,8 @@ export function DisposeAssetDialog({
 									{Math.abs(net).toLocaleString("id-ID")}
 								</strong>{" "}
 								<span className="text-muted-foreground">
-									(sale {saleNum.toLocaleString("id-ID")} −
-									book {bookValue.toLocaleString("id-ID")})
+									(sale {saleNum.toLocaleString("id-ID")} − book{" "}
+									{bookValue.toLocaleString("id-ID")})
 								</span>
 							</div>
 						)}
@@ -206,11 +210,11 @@ export function DisposeAssetDialog({
 							error={err("disposal_notes")}
 							hint="Opsional — alasan disposal, ke siapa dijual, dll"
 						>
-							<textarea
+							<RichTextarea
 								name="disposal_notes"
 								rows={2}
 								maxLength={500}
-								className={`${inputClass} resize-none`}
+								toolbar={false}
 							/>
 						</Field>
 

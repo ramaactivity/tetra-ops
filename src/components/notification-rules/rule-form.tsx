@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	type RuleFormState,
 	updateNotificationRule,
@@ -86,17 +87,20 @@ export function NotificationRuleForm({
 			</Field>
 
 			<Field label="Deskripsi" name="description" error={err("description")}>
-				<textarea
+				<RichTextarea
 					name="description"
 					rows={2}
 					maxLength={300}
 					defaultValue={get("description")}
-					className={`${inputClass} resize-none`}
+					toolbar={false}
 				/>
 			</Field>
 
 			<Field label="Severity" name="severity" error={err("severity")} required>
-				<RuleSeveritySelect defaultValue={get("severity")} error={!!err("severity")} />
+				<RuleSeveritySelect
+					defaultValue={get("severity")}
+					error={!!err("severity")}
+				/>
 			</Field>
 
 			<fieldset className="space-y-2">

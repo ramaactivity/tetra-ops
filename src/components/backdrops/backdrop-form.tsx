@@ -12,6 +12,7 @@ import {
 	StickyFormFooter,
 } from "@/components/catalog/form-kit";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	type BackdropFormState,
 	createBackdrop,
@@ -208,14 +209,14 @@ export function BackdropForm({
 				</div>
 
 				<Field label="Deskripsi" name="description" error={err("description")}>
-					<textarea
+					<RichTextarea
 						id="description"
 						name="description"
 						rows={2}
 						maxLength={300}
 						defaultValue={get("description")}
 						placeholder="Premium rental backdrop (owned by Tetra)"
-						className={cn(fieldInputClass, "h-auto resize-none py-2.5")}
+						toolbar={false}
 					/>
 				</Field>
 			</FormSection>

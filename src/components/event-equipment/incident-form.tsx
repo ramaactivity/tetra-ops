@@ -13,6 +13,7 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	type IncidentFormState,
 	reportEquipmentIncident,
@@ -102,12 +103,7 @@ export function IncidentDialog({
 								]}
 								triggerClassName="w-full"
 							/>
-							<input
-								type="hidden"
-								name="severity"
-								value={severity}
-								required
-							/>
+							<input type="hidden" name="severity" value={severity} required />
 						</div>
 
 						<div className="space-y-1.5">
@@ -158,13 +154,13 @@ export function IncidentDialog({
 						<label htmlFor="what_happened" className="text-sm font-medium">
 							Apa yang terjadi
 						</label>
-						<textarea
+						<RichTextarea
 							id="what_happened"
 							name="what_happened"
 							rows={3}
 							maxLength={500}
 							defaultValue={get("what_happened")}
-							className={`${inputClass} resize-none`}
+							toolbar={false}
 							placeholder="Kronologi singkat — kapan, gimana"
 						/>
 					</div>
@@ -208,13 +204,14 @@ export function IncidentDialog({
 						<label htmlFor="photo_urls" className="text-sm font-medium">
 							URL Foto
 						</label>
-						<textarea
+						<RichTextarea
 							id="photo_urls"
 							name="photo_urls"
 							rows={2}
 							defaultValue={get("photo_urls")}
 							placeholder="https://drive.google.com/...&#10;https://drive.google.com/..."
-							className={`${inputClass} resize-none font-mono text-base md:text-xs`}
+							toolbar={false}
+							className="font-mono"
 						/>
 						<p className="text-muted-foreground text-xs">
 							Pisah dengan baris baru atau koma. Upload manual ke Drive untuk

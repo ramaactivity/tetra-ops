@@ -21,6 +21,7 @@ import {
 } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/form-fields";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import {
 	type QuickRecordFormState,
@@ -447,14 +448,14 @@ export function QuickRecordCore({
 							className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
 						/>
 					</div>
-					<textarea
+					<RichTextarea
 						id={noteId}
 						value={note}
-						onChange={(e) => setNote(e.target.value)}
+						onChange={setNote}
 						rows={2}
 						maxLength={300}
 						placeholder="Catatan (opsional) — mis. bensin survey lokasi"
-						className="w-full resize-none rounded-md border border-border-default bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:text-fluid-body"
+						toolbar={false}
 					/>
 					{photo ? (
 						<div className="overflow-hidden rounded-xl border border-border-subtle">

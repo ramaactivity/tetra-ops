@@ -3,6 +3,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	type SystemConfigFormState,
 	updateSystemConfigBatch,
@@ -181,9 +182,7 @@ export function SystemConfigForm({ entries }: { entries: ConfigEntry[] }) {
 						) : state?.error ? (
 							<span className="text-destructive">{state.error}</span>
 						) : (
-							<span>
-								{entries.length} key · ubah lalu simpan
-							</span>
+							<span>{entries.length} key · ubah lalu simpan</span>
 						)}
 					</div>
 					<button
@@ -303,11 +302,12 @@ function ConfigInput({
 
 	// JSON fallback
 	return (
-		<textarea
+		<RichTextarea
 			name={name}
 			defaultValue={JSON.stringify(entry.value, null, 2)}
 			rows={3}
-			className={`${inputClass} font-mono text-base md:text-xs leading-relaxed`}
+			toolbar={false}
+			className="font-mono"
 		/>
 	);
 }

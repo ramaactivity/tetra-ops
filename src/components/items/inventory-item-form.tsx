@@ -4,9 +4,10 @@ import { Info, Pencil, Plus, Star, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useMemo, useState } from "react";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Combobox } from "@/components/ui/combobox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import { MarketEntryDialog } from "@/components/warehouse/market-list/market-entry-dialog";
 import type {
@@ -14,15 +15,15 @@ import type {
 	MarketListItem,
 } from "@/components/warehouse/market-list/market-list-table";
 import {
-	deleteSupplierPrice,
-	setPrimarySupplierPrice,
-} from "@/lib/actions/suppliers";
-import { formatRupiah } from "@/lib/format";
-import {
 	createInventoryItem,
 	type InventoryItemFormState,
 	updateInventoryItem,
 } from "@/lib/actions/items-inventory";
+import {
+	deleteSupplierPrice,
+	setPrimarySupplierPrice,
+} from "@/lib/actions/suppliers";
+import { formatRupiah } from "@/lib/format";
 import { generateInventorySku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 
@@ -126,9 +127,7 @@ export function InventoryItemForm({
 	};
 	const err = (key: string) =>
 		(
-			state?.errors?.[key as keyof typeof state.errors] as
-				| string[]
-				| undefined
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
 	// State pieces driving auto-SKU + conversion display
@@ -138,7 +137,9 @@ export function InventoryItemForm({
 	);
 	const [skuEditable, setSkuEditable] = useState<boolean>(mode === "edit");
 	const [baseUnit, setBaseUnit] = useState<string>(get("base_unit"));
-	const [purchaseUnit, setPurchaseUnit] = useState<string>(get("purchase_unit"));
+	const [purchaseUnit, setPurchaseUnit] = useState<string>(
+		get("purchase_unit"),
+	);
 	const [conversionFactor, setConversionFactor] = useState<string>(
 		get("conversion_factor"),
 	);
@@ -155,9 +156,7 @@ export function InventoryItemForm({
 		() => (name.trim() ? generateInventorySku(name) : ""),
 		[name],
 	);
-	const effectiveSku = skuEditable
-		? skuOverride || generatedSku
-		: generatedSku;
+	const effectiveSku = skuEditable ? skuOverride || generatedSku : generatedSku;
 
 	const needsConversion = !!purchaseUnit && purchaseUnit !== baseUnit;
 	const factorNum = Number(conversionFactor);
@@ -219,9 +218,7 @@ export function InventoryItemForm({
 						<input
 							type="text"
 							value={skuOverride}
-							onChange={(e) =>
-								setSkuOverride(e.target.value.toUpperCase())
-							}
+							onChange={(e) => setSkuOverride(e.target.value.toUpperCase())}
 							placeholder={generatedSku}
 							className={`${inputClass} mt-2 font-mono uppercase`}
 						/>
@@ -318,7 +315,9 @@ export function InventoryItemForm({
 			{/* ── Info: harga via Market List ────────────────────────────── */}
 			<div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5">
 				<p className="text-[12px] leading-relaxed text-sky-800 dark:text-sky-200">
-					<span className="font-semibold">💡 Harga &amp; supplier di Market List.</span>{" "}
+					<span className="font-semibold">
+						💡 Harga &amp; supplier di Market List.
+					</span>{" "}
 					<span className="text-sky-700/80 dark:text-sky-300/80">
 						Form ini cuma master item. Setelah Simpan, buka tab{" "}
 						<strong>Market List</strong> untuk catat harga per supplier — harga
@@ -354,15 +353,14 @@ export function InventoryItemForm({
 						</label>
 						<div className="rounded-md bg-surface-3 px-3 py-2.5">
 							<div className="tabular text-sm font-semibold text-foreground">
-								Rp{" "}
-								{(defaults.purchase_price_avg ?? 0).toLocaleString("id-ID")}{" "}
+								Rp {(defaults.purchase_price_avg ?? 0).toLocaleString("id-ID")}{" "}
 								<span className="text-muted-foreground font-normal">
 									/ {prettyUnit(baseUnit)}
 								</span>
 							</div>
 							<p className="text-muted-foreground mt-0.5 text-[11px]">
-								Auto-sync dari supplier primary di <strong>Market List</strong>
-								{" "}+ weighted-avg dari pembelian baru. Tidak perlu isi manual.
+								Auto-sync dari supplier primary di <strong>Market List</strong>{" "}
+								+ weighted-avg dari pembelian baru. Tidak perlu isi manual.
 							</p>
 						</div>
 					</div>
@@ -395,9 +393,7 @@ export function InventoryItemForm({
 						<Combobox
 							id="preferred_supplier_id"
 							value={preferredSupplierId}
-							onValueChange={(v) =>
-								setPreferredSupplierId(v ?? "")
-							}
+							onValueChange={(v) => setPreferredSupplierId(v ?? "")}
 							options={[
 								{ value: "", label: "Pilih supplier (Opsional)" },
 								...suppliers.map((s) => ({
@@ -446,9 +442,9 @@ export function InventoryItemForm({
 						Bisa dipakai sebagai komponen Bundle / Set
 					</div>
 					<p className="text-muted-foreground text-[12px]">
-						Centang kalau item ini akan jadi bagian dari paket combo
-						(mis. FLASHDISK + FD-BOX + POUCH jadi "Set Flashdisk Kemasan").
-						Modul Bundle akan filter picker pakai flag ini.
+						Centang kalau item ini akan jadi bagian dari paket combo (mis.
+						FLASHDISK + FD-BOX + POUCH jadi "Set Flashdisk Kemasan"). Modul
+						Bundle akan filter picker pakai flag ini.
 					</p>
 				</div>
 			</label>
@@ -460,12 +456,12 @@ export function InventoryItemForm({
 				error={err("notes")}
 				hint="Opsional — spec, supplier rekomendasi, info handling"
 			>
-				<textarea
+				<RichTextarea
 					name="notes"
 					rows={2}
 					maxLength={500}
 					defaultValue={get("notes")}
-					className={`${inputClass} resize-none`}
+					toolbar={false}
 				/>
 			</Field>
 
@@ -591,8 +587,7 @@ function InlineSupplierPriceList({
 			) : (
 				<div className="space-y-1.5">
 					{existingPrices.map((p) => {
-						const effective =
-							p.pack_size > 0 ? p.pack_price / p.pack_size : 0;
+						const effective = p.pack_size > 0 ? p.pack_price / p.pack_size : 0;
 						return (
 							<div
 								key={p.id}
@@ -611,9 +606,7 @@ function InlineSupplierPriceList({
 								) : (
 									<button
 										type="button"
-										onClick={() =>
-											handleSetPrimary(p.id, p.supplier_name)
-										}
+										onClick={() => handleSetPrimary(p.id, p.supplier_name)}
 										disabled={primaryPending === p.id}
 										title="Tag sebagai Primary supplier"
 										aria-label="Tag sebagai Primary supplier"

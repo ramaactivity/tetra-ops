@@ -12,9 +12,9 @@ import {
 	StickyFormFooter,
 } from "@/components/catalog/form-kit";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { PackageFormState, PackageInput } from "@/lib/actions/packages";
 import { FRAME_SIZE_LABELS, SERVICE_TYPE_LABELS } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS);
 const FRAME_SIZE_OPTIONS = Object.entries(FRAME_SIZE_LABELS);
@@ -166,14 +166,14 @@ export function PackageForm({
 					error={err("description")}
 					hint="Opsional — catatan internal"
 				>
-					<textarea
+					<RichTextarea
 						id="description"
 						name="description"
 						rows={3}
 						maxLength={500}
 						defaultValue={get("description", defaults?.description ?? "")}
 						placeholder="Detail tambahan tentang paket ini…"
-						className={cn(fieldInputClass, "h-auto resize-none py-2.5")}
+						toolbar={false}
 					/>
 				</Field>
 			</FormSection>

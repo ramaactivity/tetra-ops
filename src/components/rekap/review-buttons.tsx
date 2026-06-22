@@ -4,6 +4,7 @@ import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import { reviewRekap } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
@@ -141,14 +142,14 @@ export function RekapReviewButtons({
 				<label htmlFor="review_notes" className="text-sm font-medium">
 					Catatan review (wajib jika reject)
 				</label>
-				<textarea
+				<RichTextarea
 					id="review_notes"
 					rows={2}
 					maxLength={500}
 					value={notes}
-					onChange={(e) => setNotes(e.target.value)}
+					onChange={setNotes}
 					placeholder="Misal: angka cetak ngga sesuai counter mesin"
-					className="border-border-default bg-background text-foreground focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:outline-none resize-none"
+					toolbar={false}
 				/>
 			</div>
 			<div className="flex flex-wrap items-center justify-end gap-2">

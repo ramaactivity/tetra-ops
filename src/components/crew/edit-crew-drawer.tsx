@@ -16,6 +16,7 @@ import {
 	useTransition,
 } from "react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import {
 	type ProfileEditFormState,
@@ -184,13 +185,13 @@ export function EditCrewDrawer({ user, disabled }: EditCrewDrawerProps) {
 							</div>
 
 							<Field label="Notes (internal)">
-								<textarea
+								<RichTextarea
 									name="notes"
 									rows={2}
 									defaultValue={user.notes ?? ""}
 									maxLength={500}
 									placeholder="Catatan internal — area standby, kemampuan, dll."
-									className="border-border-default bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									toolbar={false}
 								/>
 							</Field>
 

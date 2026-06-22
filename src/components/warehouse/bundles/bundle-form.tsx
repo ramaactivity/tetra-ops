@@ -7,6 +7,7 @@ import {
 	inputClass,
 	SectionHeader,
 } from "@/components/items/item-form-primitives";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	type BundleFormState,
 	createBundle,
@@ -56,19 +57,19 @@ export function BundleForm({
 }) {
 	const action =
 		mode === "create" ? createBundle : updateBundle.bind(null, id ?? "");
-	const [state, formAction, pending] = useActionState<BundleFormState, FormData>(
-		action,
-		undefined,
-	);
+	const [state, formAction, pending] = useActionState<
+		BundleFormState,
+		FormData
+	>(action, undefined);
 
 	const err = (key: string) =>
 		(
-			state?.errors?.[key as keyof typeof state.errors] as
-				| string[]
-				| undefined
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
-	const [name, setName] = useState<string>(state?.values?.name ?? defaults.name);
+	const [name, setName] = useState<string>(
+		state?.values?.name ?? defaults.name,
+	);
 	const [skuOverride, setSkuOverride] = useState<string>(
 		mode === "edit" ? defaults.sku : "",
 	);
@@ -77,9 +78,7 @@ export function BundleForm({
 		defaults.components,
 	);
 	const generatedSku = useMemo(() => bundleSkuPreview(name), [name]);
-	const effectiveSku = skuEditable
-		? skuOverride || generatedSku
-		: generatedSku;
+	const effectiveSku = skuEditable ? skuOverride || generatedSku : generatedSku;
 
 	return (
 		<form action={formAction} className="space-y-6">
@@ -138,9 +137,7 @@ export function BundleForm({
 						<input
 							type="text"
 							value={skuOverride}
-							onChange={(e) =>
-								setSkuOverride(e.target.value.toUpperCase())
-							}
+							onChange={(e) => setSkuOverride(e.target.value.toUpperCase())}
 							placeholder={generatedSku}
 							className={`${inputClass} mt-2 font-mono uppercase`}
 						/>
@@ -174,9 +171,9 @@ export function BundleForm({
 				/>
 				{items.length === 0 && (
 					<div className="rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-100">
-						Belum ada item yang di-flag sebagai komponen Bundle. Buka tiap
-						item di Warehouse → Edit → centang "Bisa dipakai sebagai komponen
-						Bundle / Set".
+						Belum ada item yang di-flag sebagai komponen Bundle. Buka tiap item
+						di Warehouse → Edit → centang "Bisa dipakai sebagai komponen Bundle
+						/ Set".
 					</div>
 				)}
 			</div>
@@ -188,12 +185,12 @@ export function BundleForm({
 				error={err("notes")}
 				hint="Opsional — info tambahan tentang bundle"
 			>
-				<textarea
+				<RichTextarea
 					name="notes"
 					rows={2}
 					maxLength={500}
 					defaultValue={defaults.notes}
-					className={`${inputClass} resize-none`}
+					toolbar={false}
 				/>
 			</Field>
 

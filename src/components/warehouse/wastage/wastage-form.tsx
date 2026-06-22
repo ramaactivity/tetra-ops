@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
+import { Field, inputClass } from "@/components/items/item-form-primitives";
 import { Combobox } from "@/components/ui/combobox";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import { recordWastage, type WastageFormState } from "@/lib/actions/wastage";
-import { Field, inputClass } from "@/components/items/item-form-primitives";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 type InventoryItemOption = {
 	id: string;
@@ -58,10 +58,10 @@ export function WastageForm({
 	events: EventOption[];
 }) {
 	const router = useRouter();
-	const [state, formAction, pending] = useActionState<WastageFormState, FormData>(
-		recordWastage,
-		undefined,
-	);
+	const [state, formAction, pending] = useActionState<
+		WastageFormState,
+		FormData
+	>(recordWastage, undefined);
 
 	const [itemId, setItemId] = useState<string>("");
 	const [reason, setReason] = useState<string>("testing");
@@ -85,9 +85,7 @@ export function WastageForm({
 
 	const err = (key: string) =>
 		(
-			state?.errors?.[key as keyof typeof state.errors] as
-				| string[]
-				| undefined
+			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
 	return (
@@ -179,12 +177,12 @@ export function WastageForm({
 				error={err("reason_detail")}
 				hint="Opsional — deskripsi singkat insiden"
 			>
-				<textarea
+				<RichTextarea
 					name="reason_detail"
 					rows={2}
 					maxLength={500}
 					placeholder="mis. 5 lembar sobek saat pasang ke printer; supplier ABC kirim defective…"
-					className={`${inputClass} resize-none`}
+					toolbar={false}
 				/>
 			</Field>
 

@@ -3,6 +3,7 @@
 import { Loader2, UserPlus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	createCrewInvitation,
 	type InvitationFormState,
@@ -45,8 +46,8 @@ export function InviteCrewForm() {
 			<div className="space-y-1 sm:col-span-2">
 				<h3 className="text-base font-semibold">Invite crew baru</h3>
 				<p className="text-muted-foreground text-xs">
-					Saat dia login pakai Gmail di bawah ini, otomatis di-promote ke crew
-					+ tier yang lo set — skip approval review.
+					Saat dia login pakai Gmail di bawah ini, otomatis di-promote ke crew +
+					tier yang lo set — skip approval review.
 				</p>
 			</div>
 
@@ -104,11 +105,11 @@ export function InviteCrewForm() {
 			</Field>
 
 			<Field label="Notes (opsional)" wide>
-				<textarea
+				<RichTextarea
 					name="notes"
 					rows={2}
 					placeholder="Catatan internal"
-					className="border-border-default bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+					toolbar={false}
 				/>
 			</Field>
 
@@ -174,9 +175,7 @@ function Field({
 	children: React.ReactNode;
 }) {
 	return (
-		<label
-			className={`space-y-1 ${wide ? "sm:col-span-2" : ""}`.trim()}
-		>
+		<label className={`space-y-1 ${wide ? "sm:col-span-2" : ""}`.trim()}>
 			<span className="text-foreground block text-xs font-medium">
 				{label}
 				{required && <span className="text-destructive ml-0.5">*</span>}

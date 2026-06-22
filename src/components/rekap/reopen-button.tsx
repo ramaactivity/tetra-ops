@@ -12,6 +12,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import { reopenSettlement } from "@/lib/actions/settle-event";
 
@@ -50,7 +51,9 @@ export function ReopenButton({
 				toast.error(result.error || "Gagal reopen settlement");
 				return;
 			}
-			toast.success("Settlement berhasil di-reopen. Stock & journal sudah direverse.");
+			toast.success(
+				"Settlement berhasil di-reopen. Stock & journal sudah direverse.",
+			);
 			setOpen(false);
 			setReason("");
 			router.refresh();
@@ -89,11 +92,19 @@ export function ReopenButton({
 								Apa yang akan dijalankan:
 							</p>
 							<ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-900 dark:text-amber-200">
-								<li>Restore stok warehouse (positive movements yang offset deduction)</li>
-								<li>Reverse journal entries (entry baru dengan debit/credit dibalik)</li>
+								<li>
+									Restore stok warehouse (positive movements yang offset
+									deduction)
+								</li>
+								<li>
+									Reverse journal entries (entry baru dengan debit/credit
+									dibalik)
+								</li>
 								<li>Reverse alokasi sinking funds (withdrawal movements)</li>
 								<li>Reverse alokasi owner pool (adjustment negative)</li>
-								<li>Unlock event + recap (status balik ke awaiting_settlement)</li>
+								<li>
+									Unlock event + recap (status balik ke awaiting_settlement)
+								</li>
 								<li>Audit log dengan timestamp + alasan + actor</li>
 							</ul>
 						</div>
@@ -105,13 +116,13 @@ export function ReopenButton({
 							>
 								Alasan reopen <span className="text-amber-700">*</span>
 							</label>
-							<textarea
+							<RichTextarea
 								id="reopen-reason"
 								value={reason}
-								onChange={(e) => setReason(e.target.value)}
+								onChange={setReason}
 								placeholder="Contoh: koreksi salah input HPP, fee crew berubah, dll. Minimal 5 karakter."
 								rows={3}
-								className="w-full rounded-md border border-border-default bg-surface-2 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none"
+								toolbar={false}
 							/>
 							<p className="text-xs text-muted-foreground">
 								Alasan akan disimpan di audit log dan jadi referensi historical.

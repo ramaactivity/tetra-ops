@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { NativeSelect } from "@/components/ui/native-select";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	createSinkingFund,
 	type FundFormState,
@@ -109,13 +110,13 @@ export function SinkingFundForm({
 				error={err("description")}
 				hint="Singkat — buat apa fund ini"
 			>
-				<textarea
+				<RichTextarea
 					name="description"
 					rows={2}
 					maxLength={300}
 					defaultValue={get("description")}
 					placeholder="Reserve untuk pembelian alat baru / upgrade"
-					className={`${inputClass} resize-none`}
+					toolbar={false}
 				/>
 			</Field>
 
