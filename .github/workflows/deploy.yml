@@ -41,31 +41,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # pnpm tidak ter-install default di runner GitHub. vercel build memanggil
-      # pnpm untuk install deps (lockfile pnpm) → wajib disetup dulu. Versi 10
-      # menyamai yang dipakai Vercel build production ("Using pnpm@10.x").
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      # Tarik setting + environment variables production dari Vercel,
-      # jadi build memakai 15 env var yang sudah tersimpan di project.
+      # Link project + tarik setting production (pakai ORG/PROJECT id dari env).
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Build di CI pakai infra Vercel (pnpm auto-terdeteksi dari lockfile).
-      - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      # Upload artefak prebuilt & promote ke production.
-      - name: Deploy
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      # Build DI VERCEL (bukan prebuilt lokal). Vercel yang install pnpm &
+      # build pakai cache-nya sendiri — sama persis seperti native Git dulu
+      # (~1,5 menit). Pola prebuilt lokal sempat menggantung di "Building…".
+      - name: Deploy (Vercel builds & promotes to production)
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
