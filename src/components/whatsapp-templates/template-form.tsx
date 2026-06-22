@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId, useMemo, useRef, useState } from "react";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import {
 	createWhatsAppTemplate,
 	type TemplateFormState,
@@ -192,8 +193,8 @@ export function WhatsAppTemplateForm({
 							</button>
 						))}
 					</div>
-					<textarea
-						ref={bodyRef}
+					<RichTextarea
+						inputRef={bodyRef}
 						id="template_body"
 						name="template_body"
 						required
@@ -201,9 +202,9 @@ export function WhatsAppTemplateForm({
 						minLength={10}
 						maxLength={2000}
 						value={body}
-						onChange={(e) => setBody(e.target.value)}
+						onChange={setBody}
 						placeholder="Halo {client_name}, terima kasih sudah booking…"
-						className={`${inputClass} font-mono leading-relaxed`}
+						className="font-mono leading-relaxed"
 						aria-describedby={previewId}
 					/>
 				</div>

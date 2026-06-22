@@ -3,6 +3,7 @@
 import { Bold, Code, Italic, List, Smile, Strikethrough } from "lucide-react";
 import {
 	type ComponentProps,
+	type Ref,
 	useEffect,
 	useId,
 	useRef,
@@ -42,6 +43,8 @@ export type RichTextareaProps = Omit<
 	toolbar?: boolean;
 	/** Min visible rows before autosize grows it. Default 3. */
 	rows?: number;
+	/** Forwarded ref to the underlying <textarea> (e.g. for cursor inserts). */
+	inputRef?: Ref<HTMLTextAreaElement>;
 };
 
 const COMMON_EMOJI = [
@@ -73,9 +76,17 @@ export function RichTextarea({
 	className,
 	id,
 	disabled,
+	inputRef,
 	...rest
 }: RichTextareaProps) {
 	const ref = useRef<HTMLTextAreaElement | null>(null);
+
+	// Merge the internal ref (toolbar ops) with an optional forwarded ref.
+	function setRefs(el: HTMLTextAreaElement | null) {
+		ref.current = el;
+		if (typeof inputRef === "function") inputRef(el);
+		else if (inputRef) (inputRef as { current: typeof el }).current = el;
+	}
 	const reactId = useId();
 	const fieldId = id ?? reactId;
 	const isControlled = value !== undefined;
@@ -236,7 +247,7 @@ export function RichTextarea({
 			)}
 
 			<textarea
-				ref={ref}
+				ref={setRefs}
 				id={fieldId}
 				rows={rows}
 				maxLength={maxLength}

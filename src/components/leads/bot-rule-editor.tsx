@@ -11,6 +11,7 @@ import {
 import { Field, fieldInputClass } from "@/components/catalog/form-kit";
 import { topicLabel } from "@/components/leads/leads-shared";
 import { Button } from "@/components/ui/button";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -31,8 +32,6 @@ export type BotRule = {
 };
 
 // Dedicated textarea chrome (height from `rows`, not the baked-in h-10).
-const textareaClass =
-	"w-full rounded-lg border border-border-default bg-background px-3 py-2.5 text-base md:text-sm text-foreground placeholder:text-muted-foreground/60 leading-relaxed transition-colors focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none resize-y";
 
 export function BotRuleEditor({ rules }: { rules: BotRule[] }) {
 	if (rules.length === 0) {
@@ -146,13 +145,13 @@ function BotRuleRow({ rule }: { rule: BotRule }) {
 							hint="Pisahkan dengan koma. Otomatis lowercase & dedup."
 							error={err("keywords")}
 						>
-							<textarea
+							<RichTextarea
 								id={`kw-${rule.id}`}
 								name="keywords"
 								rows={2}
+								toolbar={false}
 								defaultValue={rule.keywords.join(", ")}
 								placeholder="harga, pricelist, paket"
-								className={textareaClass}
 							/>
 						</Field>
 						<Field
@@ -178,12 +177,12 @@ function BotRuleRow({ rule }: { rule: BotRule }) {
 						hint="Mendukung format WhatsApp: *tebal*, _miring_, emoji."
 						error={err("reply")}
 					>
-						<textarea
+						<RichTextarea
 							id={`reply-${rule.id}`}
 							name="reply"
 							rows={8}
+							maxLength={2000}
 							defaultValue={rule.reply}
-							className={textareaClass}
 						/>
 					</Field>
 
