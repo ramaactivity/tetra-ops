@@ -1,8 +1,7 @@
 "use client";
 
 import {
-	CheckCircle2,
-	ExternalLink,
+	FileText,
 	Loader2,
 	RotateCw,
 	UploadCloud,
@@ -13,6 +12,7 @@ import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 import { compressImage } from "@/lib/crew/image-compression";
 import { uploadToDrive } from "@/lib/crew/upload";
+import { driveThumbnailUrl } from "@/lib/drive/thumbnail";
 
 const ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
@@ -20,6 +20,7 @@ const ACCEPT =
 export type RekapProofItem = {
 	url: string;
 	name: string;
+	id?: string;
 };
 
 // A file that failed to upload — kept so crew can retry with one tap instead of
@@ -31,13 +32,13 @@ type FailedItem = {
 };
 
 /**
- * <RekapProofUpload /> — multi-file Drive upload. Reuses
- * /api/drive/upload/[projectId] with kind=rekap_proof so files are
- * auto-renamed and dropped into the event's Drive folder.
+ * <RekapProofUpload /> — multi-file Drive upload with thumbnail previews.
  *
- * Uploads go through uploadToDrive() which refreshes the session, times out,
- * and retries transient failures — so crew don't have to reload the app.
- * Files that still fail land in a retry queue with a one-tap "Coba lagi".
+ * Reuses /api/drive/upload/[projectId] with kind=rekap_proof so files are
+ * auto-renamed and dropped into the event's Drive folder. Uploads go through
+ * uploadToDrive() (session refresh + timeout + retry). Uploaded photos render
+ * as a thumbnail grid (tap to zoom) so crew can confirm they sent the right
+ * shot; files that still fail land in a retry queue with one-tap "Coba lagi".
  */
 export function RekapProofUpload({
 	projectId,
@@ -54,6 +55,7 @@ export function RekapProofUpload({
 	const [items, setItems] = useState<RekapProofItem[]>(initial);
 	const [uploading, setUploading] = useState<string[]>([]); // filenames currently uploading
 	const [failed, setFailed] = useState<FailedItem[]>([]);
+	const [zoom, setZoom] = useState<{ url: string; name: string } | null>(null);
 
 	function emit(next: RekapProofItem[]) {
 		setItems(next);
@@ -71,7 +73,7 @@ export function RekapProofUpload({
 		});
 		if (res.ok) {
 			setItems((prev) => {
-				const next = [...prev, { url: res.url, name: res.name }];
+				const next = [...prev, { url: res.url, name: res.name, id: res.id }];
 				onChange(next.map((it) => it.url));
 				return next;
 			});
@@ -158,16 +160,27 @@ export function RekapProofUpload({
 				}}
 			/>
 
-			{/* Uploading queue (in-progress filenames) */}
-			{isUploading && (
-				<ul className="space-y-1">
+			{/* Thumbnail grid — uploaded photos + in-progress placeholder tiles */}
+			{(hasUploaded || isUploading) && (
+				<ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+					{items.map((it, idx) => (
+						<Thumb
+							key={it.url}
+							item={it}
+							onZoom={() => {
+								const big = driveThumbnailUrl(it.id ?? it.url, 1200);
+								if (big) setZoom({ url: big, name: it.name });
+								else window.open(it.url, "_blank", "noopener,noreferrer");
+							}}
+							onRemove={() => removeItem(idx)}
+						/>
+					))}
 					{uploading.map((name) => (
 						<li
-							key={name}
-							className="flex items-center gap-2 text-fluid-caption text-muted-foreground"
+							key={`uploading-${name}`}
+							className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-border-default bg-surface-3"
 						>
-							<Loader2 className="h-3.5 w-3.5 animate-spin" />
-							<span className="truncate italic">{name}</span>
+							<Loader2 className="size-5 animate-spin text-muted-foreground" />
 						</li>
 					))}
 				</ul>
@@ -202,50 +215,85 @@ export function RekapProofUpload({
 				</ul>
 			)}
 
-			{/* Uploaded items */}
-			{hasUploaded && (
-				<ul className="space-y-1.5">
-					{items.map((it, idx) => (
-						<li
-							key={it.url}
-							className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 text-fluid-caption dark:border-emerald-900 dark:bg-emerald-950/30"
-						>
-							<CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-							<a
-								href={it.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex-1 truncate font-mono text-[11px] text-foreground hover:underline"
-								title={it.name}
-							>
-								{it.name}
-							</a>
-							<a
-								href={it.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								title="Buka di Drive"
-								className="text-muted-foreground hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-							>
-								<ExternalLink className="h-3.5 w-3.5" />
-							</a>
-							<button
-								type="button"
-								onClick={() => removeItem(idx)}
-								title="Hapus dari rekap"
-								className="text-muted-foreground hover:text-destructive inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-							>
-								<X className="h-3.5 w-3.5" />
-							</button>
-						</li>
-					))}
-				</ul>
-			)}
-
 			<p className="text-[11px] text-muted-foreground">
 				Foto counter mesin / area event / consumable. Boleh lebih dari satu.
 				Otomatis dikompres biar hemat kuota & cepat.
 			</p>
+
+			{/* Lightbox — tap a thumbnail to verify the shot full-size */}
+			{zoom && (
+				<button
+					type="button"
+					onClick={() => setZoom(null)}
+					className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/85 p-4 backdrop-blur-sm"
+					aria-label="Tutup preview"
+				>
+					{/* biome-ignore lint/performance/noImgElement: external Drive thumbnail, dynamic URL — next/image would need remote-pattern config + optimization cost for a throwaway proof preview */}
+					<img
+						src={zoom.url}
+						alt={zoom.name}
+						className="max-h-[80vh] max-w-full rounded-lg object-contain"
+					/>
+					<span className="max-w-full truncate text-center font-mono text-[11px] text-white/80">
+						{zoom.name}
+					</span>
+					<span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[13px] font-medium text-white">
+						<X className="size-3.5" /> Tutup
+					</span>
+				</button>
+			)}
 		</div>
+	);
+}
+
+/** A single proof thumbnail tile. Falls back to a file icon if Drive's
+ * thumbnail can't render (e.g. brand-new file still processing, or a PDF). */
+function Thumb({
+	item,
+	onZoom,
+	onRemove,
+}: {
+	item: RekapProofItem;
+	onZoom: () => void;
+	onRemove: () => void;
+}) {
+	const [broken, setBroken] = useState(false);
+	const thumb = driveThumbnailUrl(item.id ?? item.url, 400);
+
+	return (
+		<li className="group relative aspect-square overflow-hidden rounded-lg border border-emerald-200 bg-surface-3 dark:border-emerald-900">
+			<button
+				type="button"
+				onClick={onZoom}
+				className="press-down block h-full w-full"
+				title={item.name}
+			>
+				{thumb && !broken ? (
+					// biome-ignore lint/performance/noImgElement: external Drive thumbnail, dynamic URL — next/image would need remote-pattern config + optimization cost for a throwaway proof preview
+					<img
+						src={thumb}
+						alt={item.name}
+						loading="lazy"
+						onError={() => setBroken(true)}
+						className="h-full w-full object-cover"
+					/>
+				) : (
+					<span className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground">
+						<FileText className="size-6" />
+						<span className="px-1 text-center text-[9px] leading-tight">
+							Lihat
+						</span>
+					</span>
+				)}
+			</button>
+			<button
+				type="button"
+				onClick={onRemove}
+				title="Hapus dari rekap"
+				className="absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-destructive"
+			>
+				<X className="size-3.5" />
+			</button>
+		</li>
 	);
 }
