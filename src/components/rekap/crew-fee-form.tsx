@@ -1,8 +1,15 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, Loader2, Save, Upload, X } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import {
+	CheckCircle2,
+	ExternalLink,
+	Loader2,
+	Save,
+	Upload,
+	X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
@@ -103,14 +110,16 @@ export function CrewFeeForm({
 			<header className="mb-4">
 				<h2 className="text-fluid-h3 font-semibold tracking-tight">Fee crew</h2>
 				<p className="mt-1 text-xs text-muted-foreground">
-					Reimbursement bisa beda per crew — assign manual ke yang sebenarnya bayar.
+					Reimbursement bisa beda per crew — assign manual ke yang sebenarnya
+					bayar.
 				</p>
 			</header>
 
 			{!readOnly && fieldExpenseBreakdown && (
 				<div className="mb-4 rounded-md border border-border-default bg-surface-3 p-3">
 					<p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-						Field expense dari rekap · total {formatRupiah(fieldExpenseBreakdown.total)}
+						Field expense dari rekap · total{" "}
+						{formatRupiah(fieldExpenseBreakdown.total)}
 					</p>
 					<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
 						{fieldExpenseBreakdown.items.map((it) => (
@@ -178,36 +187,51 @@ export function CrewFeeForm({
 									}
 									readOnly={readOnly}
 								/>
-								{!readOnly && fieldExpenseBreakdown && fieldExpenseBreakdown.items.length > 0 && (
-									<div className="col-span-full -mt-1 flex flex-wrap gap-1">
-										{fieldExpenseBreakdown.items.map((it) => (
+								{!readOnly &&
+									fieldExpenseBreakdown &&
+									fieldExpenseBreakdown.items.length > 0 && (
+										<div className="col-span-full -mt-1 flex flex-wrap gap-1">
 											<button
-												key={it.label}
 												type="button"
 												onClick={() =>
 													applyExpenseToReimbursement(
 														row.assignment_id,
-														row.reimbursement_amount + it.amount,
+														fieldExpenseBreakdown.total,
 													)
 												}
-												className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
+												className="rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
+												title="Set reimbursement crew ini = total field expense rekap"
 											>
-												+ {it.label} {formatRupiah(it.amount)}
+												= Total {formatRupiah(fieldExpenseBreakdown.total)}
 											</button>
-										))}
-										{row.reimbursement_amount > 0 && (
-											<button
-												type="button"
-												onClick={() =>
-													applyExpenseToReimbursement(row.assignment_id, 0)
-												}
-												className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-surface-3"
-											>
-												reset 0
-											</button>
-										)}
-									</div>
-								)}
+											{fieldExpenseBreakdown.items.map((it) => (
+												<button
+													key={it.label}
+													type="button"
+													onClick={() =>
+														applyExpenseToReimbursement(
+															row.assignment_id,
+															row.reimbursement_amount + it.amount,
+														)
+													}
+													className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
+												>
+													+ {it.label} {formatRupiah(it.amount)}
+												</button>
+											))}
+											{row.reimbursement_amount > 0 && (
+												<button
+													type="button"
+													onClick={() =>
+														applyExpenseToReimbursement(row.assignment_id, 0)
+													}
+													className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-surface-3"
+												>
+													reset 0
+												</button>
+											)}
+										</div>
+									)}
 							</div>
 
 							<div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
