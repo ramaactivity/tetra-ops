@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { FormError, fieldInputClass } from "@/components/catalog/form-kit";
 import { Button } from "@/components/ui/button";
+import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import {
 	type BotSettingsFormState,
@@ -20,10 +21,6 @@ export type BotSettings = {
 	after_hours_note: string | null;
 	admin_notify_jid: string | null;
 };
-
-// Textarea chrome — height from `rows`, fills the card width (no dead space).
-const textareaClass =
-	"w-full rounded-lg border border-border-default bg-background px-3 py-2.5 text-base md:text-sm text-foreground placeholder:text-muted-foreground/60 leading-relaxed transition-colors focus-visible:border-border-strong focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none resize-y";
 
 /** A standalone settings card — its own surface, header inside, fields below.
  *  Each concern gets one card instead of stacking everything in one panel. */
@@ -225,13 +222,12 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 						hint="Diawalkan saat pesan mengandung 'Assalamualaikum'."
 						error={err("salam_reply")}
 					>
-						<textarea
+						<RichTextarea
 							id="salam_reply"
 							name="salam_reply"
 							rows={2}
 							maxLength={1000}
 							defaultValue={settings.salam_reply ?? ""}
-							className={textareaClass}
 						/>
 					</Field>
 					<Field
@@ -240,13 +236,12 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 						hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional. Baris kosong di awal sengaja — itu jarak dari balasan utama."
 						error={err("after_hours_note")}
 					>
-						<textarea
+						<RichTextarea
 							id="after_hours_note"
 							name="after_hours_note"
 							rows={6}
 							maxLength={1000}
 							defaultValue={settings.after_hours_note ?? ""}
-							className={textareaClass}
 						/>
 					</Field>
 				</div>
