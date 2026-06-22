@@ -141,6 +141,10 @@ export function RekapForm({
 	const [photomagnet, setPhotomagnet] = useState(get("photomagnet_used"));
 	const [keychain, setKeychain] = useState(get("keychain_used"));
 
+	// Inline validation: flag total cetak the moment the user leaves the field
+	// empty/zero, instead of a generic error only after submit.
+	const [cetakBlurred, setCetakBlurred] = useState(false);
+
 	// Track which fields have been manually touched so auto-fill doesn't
 	// overwrite. After initial mount, any direct edit flips the flag.
 	const [touched, setTouched] = useState<Record<RekapField, boolean>>({
@@ -706,6 +710,21 @@ export function RekapForm({
 	const proofUrlsHidden = proofUrls.join("\n");
 	const customMaterialsJson = JSON.stringify(customMaterials);
 
+	// Submit gate — surface the blocker BEFORE submit (in the sticky bar) instead
+	// of letting the server reject it. Cetak first (the core number), then proof.
+	const submitBlock =
+		cetakNum <= 0
+			? {
+					label: "Isi total cetak",
+					reason: "Total cetak wajib diisi (lebih dari 0).",
+				}
+			: proofUrls.length === 0
+				? {
+						label: "Upload bukti dulu",
+						reason: "Wajib upload minimal 1 foto bukti event.",
+					}
+				: null;
+
 	return (
 		<form action={formAction} className="space-y-5 pb-2">
 			{state?.success && (
@@ -800,7 +819,12 @@ export function RekapForm({
 								setCetak(v);
 								markTouched("cetak_total");
 							}}
-							error={err("cetak_total")}
+							onBlur={() => setCetakBlurred(true)}
+							error={
+								cetakBlurred && cetakNum <= 0
+									? "Isi total cetak (lebih dari 0)."
+									: err("cetak_total")
+							}
 							cost={fieldCost("cetak_total", cetakNum)}
 							stock={isCrew ? null : fieldStock("cetak_total", cetakNum)}
 							auto={false}
@@ -1426,9 +1450,9 @@ export function RekapForm({
 				cetakTotal={Number(cetak) || 0}
 				pending={pending}
 				submitLabel={mode === "create" ? "Submit rekap" : "Update rekap"}
-				disabled={proofUrls.length === 0}
-				disabledLabel="Upload bukti dulu"
-				disabledReason="Wajib upload minimal 1 foto bukti event"
+				disabled={Boolean(submitBlock)}
+				disabledLabel={submitBlock?.label}
+				disabledReason={submitBlock?.reason}
 			/>
 		</form>
 	);
@@ -1650,6 +1674,7 @@ function NumField({
 	name,
 	value,
 	onChange,
+	onBlur,
 	error,
 	hint,
 	cost,
@@ -1660,6 +1685,7 @@ function NumField({
 	name: string;
 	value: string;
 	onChange: (v: string) => void;
+	onBlur?: () => void;
 	error?: string;
 	hint?: string;
 	cost: number;
@@ -1687,6 +1713,13 @@ function NumField({
 				step={1}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				onBlur={(e) => {
+					// Sanitize on blur so a stray "-" / non-number never reaches the
+					// server (which rejects negatives post-submit).
+					const n = Number(e.target.value);
+					if (!Number.isFinite(n) || n < 0) onChange("0");
+					onBlur?.();
+				}}
 				className={`${inputClass} tabular`}
 			/>
 
@@ -1776,6 +1809,10 @@ function AddonField({
 				step={1}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				onBlur={(e) => {
+					const n = Number(e.target.value);
+					if (!Number.isFinite(n) || n < 0) onChange("0");
+				}}
 				className={`${inputClass} tabular`}
 			/>
 			{error ? (
@@ -1840,6 +1877,10 @@ function MoneyField({
 					step={1}
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
+					onBlur={(e) => {
+						const n = Number(e.target.value);
+						if (!Number.isFinite(n) || n < 0) onChange("0");
+					}}
 					placeholder="0"
 					className={`${inputClass} tabular pl-9`}
 				/>
