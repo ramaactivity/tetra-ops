@@ -139,6 +139,16 @@ exceptions — leave them.
   header, hairline rows; reflow to record cards `< md`. **Financial statements stay
   tabular** in a scroll container (don't force them into cards). Money columns use
   `.tabular`; negatives in red.
+- **Text inputs** [`form-fields.tsx`](src/components/ui/form-fields.tsx): `TextField`/
+  `NumberField`/`MoneyInput`/`PhoneInput` for single-line.
+- **Multi-line text** [`rich-textarea.tsx`](src/components/ui/rich-textarea.tsx):
+  **`RichTextarea` is the ONE multi-line control** — framed composer, focus-within
+  ring, autosize, live char counter, optional WhatsApp-markup toolbar
+  (`*bold*`/`_italic_`/`~strike~`/```mono```/list/emoji). Enable `toolbar` for
+  message-composition fields (WA templates/replies, broadcasts); pass
+  `toolbar={false}` for plain notes/lists. Drop-in for forms (keeps
+  `name`/`defaultValue`/`value`; output stays plain text — **never** an HTML editor,
+  because WhatsApp bodies must be plain text). **Never** hand-roll a bare `<textarea>`.
 
 ---
 
@@ -158,6 +168,8 @@ exceptions — leave them.
 - Nested cards, or same-radius nesting (outer radius = inner + padding).
 - Pure `#000`/`#fff`; drop `.tabular` on money; squish data tables on mobile.
 - Hand-roll `bg-emerald-600 text-white` CTAs — that's a green button now; use `bg-primary`.
+- Ship a bare `<textarea>` (the "2010 blog" look). Use `RichTextarea` everywhere —
+  any remaining raw textarea is a bug to migrate.
 
 ---
 
