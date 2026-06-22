@@ -210,8 +210,6 @@ export default async function EventRekapPage({
 		};
 	});
 
-	const allCrewHaveFee =
-		crewFeeRows.length > 0 && crewFeeRows.every((r) => r.fee_amount > 0);
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
 	// Estimasi HPP — use the CANONICAL number so the hero matches the committed
@@ -255,16 +253,29 @@ export default async function EventRekapPage({
 		if (total > 0) fieldExpenseBreakdown = { total, items };
 	}
 
-	// Settle gating
+	// Settle gating — name exactly what's blocking so the owner doesn't have to
+	// scroll back and hunt for it.
+	const roleLabel: Record<CrewAssignmentRow["role_in_event"], string> = {
+		lead: "Lead",
+		asisten: "Asisten",
+		crew_c: "Crew",
+	};
+	const crewMissingFee = crewFeeRows.filter((r) => r.fee_amount <= 0);
 	const settleDisabledReason = !rekap
 		? "Rekap belum di-submit. Input data rekap dulu."
 		: !recapApproved
 			? "Approve rekap dulu sebelum settle."
 			: proofCount < 1
 				? "Minimal 1 foto bukti diperlukan."
-				: !allCrewHaveFee
-					? "Set fee crew dulu (semua harus > 0)."
-					: undefined;
+				: crewFeeRows.length === 0
+					? "Belum ada crew di-assign — assign crew dulu sebelum settle."
+					: crewMissingFee.length > 0
+						? `Fee belum diisi: ${crewMissingFee
+								.map(
+									(r) => `${r.user_full_name} (${roleLabel[r.role_in_event]})`,
+								)
+								.join(", ")}.`
+						: undefined;
 
 	const defaults = rekap
 		? {
