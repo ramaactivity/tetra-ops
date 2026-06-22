@@ -185,7 +185,7 @@ export function RichTextarea({
 	return (
 		<div
 			className={cn(
-				"group rounded-xl border border-border-default bg-background shadow-soft-xs transition-colors focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring",
+				"group w-full rounded-xl border border-border-default bg-background shadow-soft-xs transition-colors focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring",
 				disabled && "cursor-not-allowed opacity-60",
 			)}
 		>
