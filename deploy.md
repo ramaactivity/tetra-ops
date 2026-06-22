@@ -3,42 +3,52 @@
 > Akun yang benar ada di `accounts.md`. **Cek akun dulu sebelum deploy.**
 > Mekanisme push + deploy harus SAMA setiap kali.
 
-## ✅ SATU jalur deploy — git push (sejak 2026-06-09)
+## ✅ SATU jalur deploy — git push → GitHub Actions (sejak 2026-06-22)
 
-> ⚠️ **JANGAN deploy lewat dua jalur sekaligus.** Dulu (2026-06-08) git push *dan* `npx vercel
-> --prod` sama-sama dipakai → menghasilkan **dua build berbarengan untuk commit yang sama** =
-> mubazir. Sekarang **cukup git push.**
+> ⚠️ **JANGAN deploy lewat dua jalur sekaligus.** Native Git integration Vercel sudah
+> **di-disconnect** untuk project ini supaya tidak dobel-deploy dengan CI. Cukup `git push`.
 
-Syarat sudah terpenuhi: GitHub `ramaactivity` ter-connect sebagai Sign-in Method di akun
-Vercel `visualtetra-9970`, jadi author commit dikenali → **tidak ke-block lagi**.
+Deploy production dijalankan oleh **GitHub Actions** (`.github/workflows/deploy.yml`) memakai
+**Vercel token** (`VERCEL_TOKEN`, secret di GitHub repo) — **bukan** native Git integration.
 
-### Jalur utama — auto-deploy via git push
+### Kenapa pakai CI token, bukan native Git integration
+Satu GitHub account (`ramaactivity`) cuma bisa **login-connect ke SATU akun Vercel** dalam satu
+waktu. Karena tetra-ops / Tiska / Sinara hidup di **3 akun Vercel berbeda** (email beda,
+masing-masing Hobby/free — sengaja dipisah biar limit free tidak numpuk), native Git integration
+saling rebutan koneksi GitHub → terus lepas & deploy ke-block. **CI token tidak butuh koneksi
+login GitHub↔Vercel sama sekali**, jadi koneksi tidak pernah lepas lagi.
+
+### Jalur utama — push, CI deploy otomatis
 ```bash
-git add -A
+git add <file-saya>           # JANGAN git add -A (ada sesi paralel)
 git commit -m "pesan"
-git push origin main          # Vercel auto-deploy commit terakhir → READY
+git push origin main          # GitHub Actions build + deploy → READY
 ```
-Pantau di dashboard sampai `READY` + alias `https://tetra-ops-lac.vercel.app`.
+Pantau di **tab Actions** repo (`github.com/ramaactivity/tetra-ops/actions`) sampai hijau,
+lalu cek alias `https://tetra-ops-lac.vercel.app`.
 
-### Cadangan — CLI manual (HANYA kalau Git integration mati / butuh deploy tanpa commit)
+### Cadangan — CLI manual (kalau Actions mati / butuh deploy tanpa commit)
 ```bash
-npx vercel --prod --yes --scope visualtetra-9970s-projects
+vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+vercel build --prod --token=$VERCEL_TOKEN
+vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
 ```
-Jangan dijalankan barengan dengan git push. Output sukses berakhir `readyState: "READY"`.
+Jangan dijalankan barengan dengan push (nanti dobel). Token dibuat di akun Vercel pemilik
+project: Settings → Tokens (scope team `visualtetra-9970`).
 
-> `./scripts/deploy.sh` (deploy hook) masih ada sebagai cadangan terakhir, jarang dipakai.
+## 🔑 Setup CI (sekali saja) & kalau deploy bermasalah
 
-## 🔑 Kenapa dulu ke-block & bagaimana fix permanennya
+`orgId` + `projectId` sudah di-inline di workflow (lihat `.vercel/project.json`). Yang perlu
+disetel cuma **1 secret**: `VERCEL_TOKEN` di
+`github.com/ramaactivity/tetra-ops/settings/secrets/actions`.
 
-Akun Vercel (`visualtetra@gmail.com`) beda dari GitHub (`ramaactivity`). Vercel Hobby + repo
-private memblok deploy yang author commit-nya tidak bisa dipetakan ke member team. **Fix yang
-benar (bukan ganti email):** connect GitHub `ramaactivity` di
-https://vercel.com/account/settings/authentication → Sign-in Methods → GitHub. Sudah dilakukan.
-
-Kalau suatu saat block muncul lagi ("commit author could not be matched to a GitHub account"):
-1. Cek https://vercel.com/account/settings/authentication — pastikan GitHub `ramaactivity` masih ter-connect.
-2. Cek `npx vercel whoami` = `visualtetra-9970` & `git config user.email` = noreply ramaactivity.
-3. Jangan otak-atik email commit — itu sudah benar.
+Kalau deploy gagal:
+1. **Actions merah** → buka log step yang gagal. Token kadaluwarsa/dicabut → buat token baru di
+   Vercel (Settings → Tokens), update secret `VERCEL_TOKEN`.
+2. **Tidak ada run sama sekali** → cek file `.github/workflows/deploy.yml` ada di `main`.
+3. **Deploy dobel** → native Git integration belum di-disconnect. Vercel project tetra-ops →
+   Settings → Git → Disconnect.
+4. Jangan otak-atik email commit — author noreply `ramaactivity` sudah benar (lihat `accounts.md`).
 
 ## ⚠️ Env var gotcha
 - Sebelum `vercel env pull`: **SELALU** `cp .env.local .env.local.bak` dulu (env di-scope
