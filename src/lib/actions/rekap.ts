@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
-import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import {
 	bucketHpp,
 	FIELD_TO_BUCKET,
@@ -13,6 +12,7 @@ import {
 	type HppBucket,
 	roundQty,
 } from "@/lib/rekap/recipe";
+import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createClient } from "@/lib/supabase/server";
 
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
@@ -610,10 +610,13 @@ export async function submitRekap(
 		}
 	}
 
-	// Upsert by event_id (UNIQUE)
+	// Upsert by event_id (UNIQUE). Pull the prior quantities too so an owner
+	// override can be recorded as a concrete diff in the audit note.
 	const { data: existing } = await supabase
 		.from("crew_rekap")
-		.select("id, is_approved")
+		.select(
+			"id, is_approved, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used",
+		)
 		.eq("event_id", eventId)
 		.maybeSingle();
 
@@ -707,6 +710,28 @@ export async function submitRekap(
 		}
 	}
 
+	// Audit note: when an owner edits an EXISTING rekap, record exactly which
+	// quantities changed (vs the value already stored — typically the crew's
+	// submission) so the change isn't silent. Falls back to the generic note.
+	let ownerReviewNotes = "Auto-approve (owner submit)";
+	if (me.profile.role !== "crew" && existing) {
+		const numericChanges: Array<[string, number, number]> = [
+			["cetak", existing.cetak_total, payload.cetak_total],
+			["mediaset", existing.media_set_used, payload.media_set_used],
+			["sleeve", existing.sleeve_used, payload.sleeve_used],
+			["flashdisk", existing.flashdisk_used, payload.flashdisk_used],
+			["pouch", existing.pouch_used, payload.pouch_used],
+			["photomagnet", existing.photomagnet_used, payload.photomagnet_used],
+			["keychain", existing.keychain_used, payload.keychain_used],
+		];
+		const diff = numericChanges
+			.filter(([, before, after]) => Number(before ?? 0) !== Number(after ?? 0))
+			.map(([label, before, after]) => `${label} ${before ?? 0}→${after ?? 0}`);
+		if (diff.length > 0) {
+			ownerReviewNotes = `Owner override: ${diff.join(", ")}`.slice(0, 480);
+		}
+	}
+
 	// Owner/super-admin: submit = approve + commit sekaligus. Mereka adalah
 	// otoritas review — tidak masuk akal approve diri sendiri. Crew: tetap
 	// "submitted", owner yang review & approve nanti (commit stok di situ).
@@ -738,7 +763,7 @@ export async function submitRekap(
 				{
 					isApproved: true,
 					status: "reviewed",
-					reviewNotes: "Auto-approve (owner submit)",
+					reviewNotes: ownerReviewNotes,
 				},
 			);
 			if (!commit.ok) {
@@ -1311,7 +1336,8 @@ async function reverseRekapStock(
 		p_reject: opts.reject ?? false,
 		p_review_notes: opts.reviewNotes ?? null,
 	});
-	if (error) return { ok: false, error: `Gagal reverse stok: ${error.message}` };
+	if (error)
+		return { ok: false, error: `Gagal reverse stok: ${error.message}` };
 	return { ok: true };
 }
 
