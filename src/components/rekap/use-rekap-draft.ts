@@ -23,6 +23,7 @@ export function useRekapDraft(
 ): {
 	restoredValues: Record<string, string> | null;
 	restoredAgeMs: number | null;
+	saveState: "idle" | "saving" | "saved";
 	clear: () => void;
 } {
 	const [restoredValues, setRestoredValues] = useState<Record<
@@ -30,6 +31,9 @@ export function useRekapDraft(
 		string
 	> | null>(null);
 	const [restoredAgeMs, setRestoredAgeMs] = useState<number | null>(null);
+	const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+		"idle",
+	);
 	const dirtyRef = useRef(false);
 	const initialSnapshotRef = useRef<string>("");
 
@@ -54,8 +58,10 @@ export function useRekapDraft(
 			return;
 		}
 		dirtyRef.current = true;
+		setSaveState("saving");
 		const id = window.setTimeout(() => {
 			saveDraft(eventId, values);
+			setSaveState("saved");
 		}, 1200);
 		return () => window.clearTimeout(id);
 	}, [eventId, enabled, values]);
@@ -75,6 +81,7 @@ export function useRekapDraft(
 	return {
 		restoredValues,
 		restoredAgeMs,
+		saveState,
 		clear: () => {
 			clearDraft(eventId);
 			dirtyRef.current = false;

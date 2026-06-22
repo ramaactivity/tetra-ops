@@ -347,6 +347,7 @@ export function RekapForm({
 	const {
 		restoredValues,
 		restoredAgeMs,
+		saveState,
 		clear: clearDraftState,
 	} = useRekapDraft(eventId, draftValues, mode === "create");
 	const [draftRestoredNotice, setDraftRestoredNotice] = useState(false);
@@ -727,6 +728,17 @@ export function RekapForm({
 
 	return (
 		<form action={formAction} className="space-y-5 pb-2">
+			{/* Auto-save indicator — reassures crew the form survives an app close */}
+			{saveState !== "idle" && !state?.success && (
+				<p className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
+					<Save
+						className={cn("h-3 w-3", saveState === "saving" && "animate-pulse")}
+					/>
+					{saveState === "saving"
+						? "Menyimpan draft…"
+						: "Draft tersimpan otomatis"}
+				</p>
+			)}
 			{state?.success && (
 				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-fluid-body font-medium text-emerald-700 dark:text-emerald-300">
 					<CheckCircle2 className="h-4 w-4" />
