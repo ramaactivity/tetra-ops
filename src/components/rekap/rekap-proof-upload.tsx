@@ -1,7 +1,9 @@
 "use client";
 
 import {
+	Camera,
 	FileText,
+	ImagePlus,
 	Loader2,
 	RotateCw,
 	UploadCloud,
@@ -52,6 +54,7 @@ export function RekapProofUpload({
 	disabled?: boolean;
 }) {
 	const fileRef = useRef<HTMLInputElement | null>(null);
+	const camRef = useRef<HTMLInputElement | null>(null);
 	const [items, setItems] = useState<RekapProofItem[]>(initial);
 	const [uploading, setUploading] = useState<string[]>([]); // filenames currently uploading
 	const [failed, setFailed] = useState<FailedItem[]>([]);
@@ -63,7 +66,13 @@ export function RekapProofUpload({
 	}
 
 	// Upload one already-compressed-or-raw file. Returns true on success.
-	async function uploadOne(file: File, displayName: string): Promise<boolean> {
+	// `origSize` (pre-compression bytes) lets us reassure crew their photo was
+	// shrunk before sending — meaningful on a near-dead signal.
+	async function uploadOne(
+		file: File,
+		displayName: string,
+		origSize?: number,
+	): Promise<boolean> {
 		// seq is best-effort ordering for the Drive filename; computed from the
 		// current count so concurrent retries don't all claim "01".
 		const seq = String(items.length + 1).padStart(2, "0");
@@ -77,7 +86,11 @@ export function RekapProofUpload({
 				onChange(next.map((it) => it.url));
 				return next;
 			});
-			toast.success(`✓ ${res.name}`);
+			const shrunk =
+				origSize && file.size < origSize * 0.9
+					? ` · ${formatBytes(origSize)} → ${formatBytes(file.size)}`
+					: "";
+			toast.success(`✓ Foto tersimpan${shrunk}`);
 			return true;
 		}
 		setFailed((prev) => [
@@ -100,7 +113,7 @@ export function RekapProofUpload({
 				file = rawFile;
 			}
 			try {
-				await uploadOne(file, rawFile.name);
+				await uploadOne(file, rawFile.name, rawFile.size);
 			} finally {
 				setUploading((prev) => prev.filter((n) => n !== rawFile.name));
 			}
@@ -127,24 +140,63 @@ export function RekapProofUpload({
 
 	return (
 		<div className="space-y-3">
-			<button
-				type="button"
-				onClick={() => fileRef.current?.click()}
-				disabled={disabled || isUploading}
-				className="press-down inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-3 px-3 text-fluid-body font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{isUploading ? (
-					<Loader2 className="size-4 animate-spin" />
-				) : (
-					<UploadCloud className="size-4" />
-				)}
-				{isUploading
-					? `Mengunggah ${uploading.length} foto…`
-					: hasUploaded
-						? "Tambah foto lagi"
-						: "Upload foto bukti"}
-			</button>
+			{/* Empty state — tells crew what to capture before they have any photo */}
+			{!hasUploaded && !isUploading && (
+				<div className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-border-default bg-surface-3 px-4 py-5 text-center">
+					<ImagePlus className="size-7 text-muted-foreground" aria-hidden />
+					<p className="text-fluid-body font-medium text-foreground">
+						Belum ada foto bukti
+					</p>
+					<p className="text-[11px] text-muted-foreground">
+						Foto counter mesin, area event, atau consumable.
+					</p>
+				</div>
+			)}
 
+			{isUploading ? (
+				<div className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-3 px-3 text-fluid-body font-medium text-muted-foreground">
+					<Loader2 className="size-4 animate-spin" />
+					Mengunggah {uploading.length} foto…
+				</div>
+			) : (
+				<div className="grid grid-cols-2 gap-2">
+					<button
+						type="button"
+						onClick={() => camRef.current?.click()}
+						disabled={disabled}
+						className="press-down inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-foreground px-3 text-fluid-body font-medium text-background transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<Camera className="size-4" />
+						Kamera
+					</button>
+					<button
+						type="button"
+						onClick={() => fileRef.current?.click()}
+						disabled={disabled}
+						className="press-down inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-3 px-3 text-fluid-body font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<UploadCloud className="size-4" />
+						Galeri
+					</button>
+				</div>
+			)}
+
+			{/* Rear camera straight to the shot (mobile). Desktop ignores `capture`
+			    and falls back to the file picker. */}
+			<input
+				ref={camRef}
+				type="file"
+				accept="image/*"
+				capture="environment"
+				className="hidden"
+				onChange={(e) => {
+					const fs = e.target.files;
+					if (fs && fs.length > 0) {
+						void handleFiles(fs);
+					}
+					e.currentTarget.value = "";
+				}}
+			/>
 			<input
 				ref={fileRef}
 				type="file"
@@ -216,8 +268,8 @@ export function RekapProofUpload({
 			)}
 
 			<p className="text-[11px] text-muted-foreground">
-				Foto counter mesin / area event / consumable. Boleh lebih dari satu.
-				Otomatis dikompres biar hemat kuota & cepat.
+				Boleh lebih dari satu foto. Otomatis dikompres biar hemat kuota & cepat
+				— gak perlu nunggu lama walau sinyal lemah.
 			</p>
 
 			{/* Lightbox — tap a thumbnail to verify the shot full-size */}
@@ -244,6 +296,12 @@ export function RekapProofUpload({
 			)}
 		</div>
 	);
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+	return `${bytes} B`;
 }
 
 /** A single proof thumbnail tile. Falls back to a file icon if Drive's
