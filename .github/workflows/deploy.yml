@@ -1,0 +1,63 @@
+name: Deploy to Vercel (Production)
+
+# Deploy lewat Vercel CLI + token — BUKAN native Git integration.
+# Kenapa: satu GitHub account hanya bisa "login-connect" ke SATU Vercel
+# account. Karena tetra-ops / Tiska / Sinara hidup di 3 Vercel account
+# (email berbeda, masing-masing Hobby/free), native Git integration saling
+# rebutan koneksi GitHub dan terus lepas. CI pakai token per-account, jadi
+# tidak butuh koneksi login GitHub↔Vercel sama sekali → tidak pernah lepas.
+#
+# SETUP (sekali saja):
+#   1. Di akun Vercel pemilik project ini (visualtetra@gmail.com):
+#      Settings → Tokens → Create Token (scope ke team yang punya project).
+#   2. Di GitHub repo ramaactivity/tetra-ops:
+#      Settings → Secrets and variables → Actions → New repository secret
+#      Name: VERCEL_TOKEN   Value: <token tadi>
+#   3. Di Vercel project tetra-ops: Settings → Git → Disconnect repository
+#      (supaya tidak dobel-deploy dengan CI, dan tidak lagi butuh koneksi
+#      login GitHub di account-level).
+# Setelah itu koneksi GitHub di SEMUA account Vercel boleh dibiarkan lepas.
+
+on:
+  push:
+    branches: [main]
+
+# Hanya satu deploy production berjalan dalam satu waktu; push baru
+# membatalkan build lama yang belum selesai.
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+# orgId & projectId bukan rahasia (cuma identifier) — di-inline dari
+# .vercel/project.json supaya setup cukup 1 secret (VERCEL_TOKEN).
+env:
+  VERCEL_ORG_ID: team_dTn9InAoDuNiGiK1ca7VOSBB
+  VERCEL_PROJECT_ID: prj_UVCHJJqig4Ccbfw6Iwz57pMTrjye
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      # Tarik setting + environment variables production dari Vercel,
+      # jadi build memakai 15 env var yang sudah tersimpan di project.
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Build di CI pakai infra Vercel (pnpm auto-terdeteksi dari lockfile).
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Upload artefak prebuilt & promote ke production.
+      - name: Deploy
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
