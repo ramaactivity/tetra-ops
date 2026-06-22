@@ -2,6 +2,7 @@
 
 import { useActionState, useId, useMemo, useRef, useState } from "react";
 import { RichTextarea } from "@/components/ui/rich-textarea";
+import { WhatsAppPreview } from "@/components/ui/whatsapp-preview";
 import {
 	createWhatsAppTemplate,
 	type TemplateFormState,
@@ -224,20 +225,11 @@ export function WhatsAppTemplateForm({
 				)}
 			</div>
 
-			<div
-				id={previewId}
-				className="border-border-default bg-muted/40 space-y-2 rounded-md border p-3"
-			>
-				<p className="text-muted-foreground text-xs uppercase tracking-wider">
-					Preview (dummy data)
-				</p>
-				<p className="text-foreground whitespace-pre-wrap text-sm">
-					{preview || (
-						<span className="text-muted-foreground italic">
-							Mulai ketik untuk lihat preview…
-						</span>
-					)}
-				</p>
+			<div id={previewId}>
+				<WhatsAppPreview
+					text={preview}
+					label="Preview WhatsApp (data contoh)"
+				/>
 			</div>
 
 			{/* Hidden field — auto-derive from detected vars */}

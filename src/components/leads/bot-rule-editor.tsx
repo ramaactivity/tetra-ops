@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
+import { WhatsAppPreview } from "@/components/ui/whatsapp-preview";
 import {
 	type BotRuleFormState,
 	setBotRuleActive,
@@ -53,6 +54,7 @@ export function BotRuleEditor({ rules }: { rules: BotRule[] }) {
 function BotRuleRow({ rule }: { rule: BotRule }) {
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState(rule.is_active);
+	const [reply, setReply] = useState(rule.reply);
 	const [togglePending, startToggle] = useTransition();
 
 	const [state, formAction, pending] = useActionState<
@@ -182,9 +184,11 @@ function BotRuleRow({ rule }: { rule: BotRule }) {
 							name="reply"
 							rows={8}
 							maxLength={2000}
-							defaultValue={rule.reply}
+							value={reply}
+							onChange={setReply}
 						/>
 					</Field>
+					<WhatsAppPreview text={reply} />
 
 					<Field
 						label="File lampiran (opsional)"

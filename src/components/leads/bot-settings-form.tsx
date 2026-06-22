@@ -5,6 +5,7 @@ import { FormError, fieldInputClass } from "@/components/catalog/form-kit";
 import { Button } from "@/components/ui/button";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
+import { WhatsAppPreview } from "@/components/ui/whatsapp-preview";
 import {
 	type BotSettingsFormState,
 	updateBotSettings,
@@ -85,6 +86,12 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 	// Track unsaved edits so the long, multi-card form signals when there's
 	// something to save (and clears the signal once the save lands).
 	const [dirty, setDirty] = useState(false);
+	// Controlled so the WhatsApp preview updates live as you type. Still submit
+	// via `name`, so the server action reads them unchanged.
+	const [salamReply, setSalamReply] = useState(settings.salam_reply ?? "");
+	const [afterHoursNote, setAfterHoursNote] = useState(
+		settings.after_hours_note ?? "",
+	);
 
 	useEffect(() => {
 		if (wasPending.current && !pending) {
@@ -216,34 +223,42 @@ export function BotSettingsForm({ settings }: { settings: BotSettings }) {
 				description="Teks otomatis yang ditambahkan ke balasan. Kosongkan salah satu untuk mematikannya."
 			>
 				<div className="space-y-5">
-					<Field
-						label="Balasan salam"
-						htmlFor="salam_reply"
-						hint="Diawalkan saat pesan mengandung 'Assalamualaikum'."
-						error={err("salam_reply")}
-					>
-						<RichTextarea
-							id="salam_reply"
-							name="salam_reply"
-							rows={2}
-							maxLength={1000}
-							defaultValue={settings.salam_reply ?? ""}
-						/>
-					</Field>
-					<Field
-						label="Catatan di luar jam kerja"
-						htmlFor="after_hours_note"
-						hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional. Baris kosong di awal sengaja — itu jarak dari balasan utama."
-						error={err("after_hours_note")}
-					>
-						<RichTextarea
-							id="after_hours_note"
-							name="after_hours_note"
-							rows={6}
-							maxLength={1000}
-							defaultValue={settings.after_hours_note ?? ""}
-						/>
-					</Field>
+					<div className="space-y-2">
+						<Field
+							label="Balasan salam"
+							htmlFor="salam_reply"
+							hint="Diawalkan saat pesan mengandung 'Assalamualaikum'."
+							error={err("salam_reply")}
+						>
+							<RichTextarea
+								id="salam_reply"
+								name="salam_reply"
+								rows={2}
+								maxLength={1000}
+								value={salamReply}
+								onChange={setSalamReply}
+							/>
+						</Field>
+						<WhatsAppPreview text={salamReply} />
+					</div>
+					<div className="space-y-2">
+						<Field
+							label="Catatan di luar jam kerja"
+							htmlFor="after_hours_note"
+							hint="Ditambahkan ke balasan saat pesan masuk di luar jam operasional. Baris kosong di awal sengaja — itu jarak dari balasan utama."
+							error={err("after_hours_note")}
+						>
+							<RichTextarea
+								id="after_hours_note"
+								name="after_hours_note"
+								rows={6}
+								maxLength={1000}
+								value={afterHoursNote}
+								onChange={setAfterHoursNote}
+							/>
+						</Field>
+						<WhatsAppPreview text={afterHoursNote} />
+					</div>
 				</div>
 			</Card>
 
