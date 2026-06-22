@@ -100,14 +100,22 @@ export function RekapForm({
 	defaults = EMPTY,
 	mode,
 	context,
+	audience = "owner",
 }: {
 	eventId: string;
 	projectId: string;
 	defaults?: Defaults;
 	mode: "create" | "update";
 	context: RekapContext;
+	/**
+	 * Who's filling this in. Crew just records what happened — they don't deal
+	 * with stock levels, restock warnings, or auto/manual overrides (all of that
+	 * is the owner's concern at settlement). Owner keeps the full toolset.
+	 */
+	audience?: "crew" | "owner";
 }) {
 	const router = useRouter();
+	const isCrew = audience === "crew";
 	const action = submitRekap.bind(null, eventId, projectId);
 	const [state, formAction, pending] = useActionState<RekapFormState, FormData>(
 		action,
@@ -636,9 +644,11 @@ export function RekapForm({
 	// FD/Pouch hint based on package
 	const fdPouchIncluded = context.pkg.include_flashdisk_pouch === true;
 
-	// Soft validation warnings
+	// Soft validation warnings. Crew can't override mediaset/sleeve, so these
+	// (the only warnings) never apply to them — keep their view clean.
 	const warnings = useMemo(() => {
 		const w: string[] = [];
+		if (isCrew) return w;
 		const c = Number(cetak) || 0;
 		// Only flag mismatches when user manually overrode the auto-derived
 		// values — otherwise the math is consistent by construction.
@@ -661,7 +671,7 @@ export function RekapForm({
 			}
 		}
 		return w;
-	}, [cetak, sleeve, media, touched, mappingByField]);
+	}, [cetak, sleeve, media, touched, mappingByField, isCrew]);
 
 	// Custom materials combobox options (exclude already-added)
 	const customComboboxOptions = useMemo<ComboboxOption[]>(() => {
@@ -773,15 +783,23 @@ export function RekapForm({
 							}}
 							error={err("cetak_total")}
 							cost={fieldCost("cetak_total", cetakNum)}
-							stock={fieldStock("cetak_total", cetakNum)}
+							stock={isCrew ? null : fieldStock("cetak_total", cetakNum)}
 							auto={false}
 						/>
 						{/* Auto-derived preview cards */}
 						<div className="border-t border-border-subtle pt-4">
 							<p className="text-fluid-caption text-muted-foreground">
-								Auto-dihitung dari total cetak — klik{" "}
-								<span className="font-medium text-foreground">Sesuaikan</span>{" "}
-								kalau perlu override manual.
+								{isCrew ? (
+									"Mediaset & sleeve dihitung otomatis dari total cetak — kamu nggak perlu isi."
+								) : (
+									<>
+										Auto-dihitung dari total cetak — klik{" "}
+										<span className="font-medium text-foreground">
+											Sesuaikan
+										</span>{" "}
+										kalau perlu override manual.
+									</>
+								)}
 							</p>
 						</div>
 						<div className="grid gap-3 sm:grid-cols-2">
@@ -793,6 +811,7 @@ export function RekapForm({
 								frameSize={frameSize}
 								touched={touched.media_set_used}
 								manualValue={media}
+								readOnly={isCrew}
 								onManualChange={(v) => {
 									setMedia(v);
 									markTouched("media_set_used");
@@ -810,6 +829,7 @@ export function RekapForm({
 								frameSize={frameSize}
 								touched={touched.sleeve_used}
 								manualValue={sleeve}
+								readOnly={isCrew}
 								onManualChange={(v) => {
 									setSleeve(v);
 									markTouched("sleeve_used");
@@ -910,8 +930,9 @@ export function RekapForm({
 								</span>
 							</button>
 
-							{/* Breakdown — same structured layout as the Cetak cards */}
-							{on ? (
+							{/* Breakdown — owner-only (stock is the owner's concern). Crew
+							    just see the toggle confirm "1 set terpakai". */}
+							{on && !isCrew ? (
 								<div
 									className={cn(
 										"rounded-lg border bg-card p-4",
@@ -1005,7 +1026,11 @@ export function RekapForm({
 						onPrefill={() => prefillAddon("photomagnet_used")}
 						error={err("photomagnet_used")}
 						cost={fieldCost("photomagnet_used", Number(photomagnet) || 0)}
-						stock={fieldStock("photomagnet_used", Number(photomagnet) || 0)}
+						stock={
+							isCrew
+								? null
+								: fieldStock("photomagnet_used", Number(photomagnet) || 0)
+						}
 					/>
 					<AddonField
 						label="Keychain"
@@ -1020,7 +1045,9 @@ export function RekapForm({
 						onPrefill={() => prefillAddon("keychain_used")}
 						error={err("keychain_used")}
 						cost={fieldCost("keychain_used", Number(keychain) || 0)}
-						stock={fieldStock("keychain_used", Number(keychain) || 0)}
+						stock={
+							isCrew ? null : fieldStock("keychain_used", Number(keychain) || 0)
+						}
 					/>
 				</div>
 			</NumberedSection>
@@ -1403,6 +1430,7 @@ function AutoDerivedCard({
 	frameSize,
 	touched,
 	manualValue,
+	readOnly = false,
 	onManualChange,
 	onResetToAuto,
 }: {
@@ -1428,10 +1456,28 @@ function AutoDerivedCard({
 	frameSize: string;
 	touched: boolean;
 	manualValue: string;
+	/** Crew view: read-only, no override, no stock/ratio (owner-only details). */
+	readOnly?: boolean;
 	onManualChange: (v: string) => void;
 	onResetToAuto: () => void;
 }) {
 	if (!mapping || !mapping.item) {
+		// Crew don't manage mappings — hide the settings hint, just show the value.
+		if (readOnly) {
+			return (
+				<div className="rounded-lg border border-border-default bg-card p-4">
+					<div className="flex items-center gap-2">
+						<span className="eyebrow text-muted-foreground">{label}</span>
+						<span className="rounded bg-secondary px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+							Otomatis
+						</span>
+					</div>
+					<p className="tabular mt-2.5 text-[26px] font-semibold leading-none text-foreground">
+						{value.toLocaleString("id-ID")}
+					</p>
+				</div>
+			);
+		}
 		return (
 			<div className="rounded-lg border border-dashed border-border-default bg-card p-4">
 				<p className="eyebrow text-muted-foreground">{label}</p>
@@ -1442,6 +1488,27 @@ function AutoDerivedCard({
 		);
 	}
 	const item = mapping.item;
+
+	// Crew view: a calm, read-only confirmation. No override, no stock, no ratio
+	// jargon, no restock warnings — that's all owner territory at settlement.
+	if (readOnly) {
+		return (
+			<div className="rounded-lg border border-border-default bg-card p-4">
+				<div className="flex items-center gap-2">
+					<span className="eyebrow text-muted-foreground">{label}</span>
+					<span className="rounded bg-secondary px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+						Otomatis
+					</span>
+				</div>
+				<p className="tabular mt-2.5 text-[26px] font-semibold leading-none text-foreground">
+					{value.toLocaleString("id-ID")}
+					<span className="ml-1.5 text-[13px] font-normal text-muted-foreground">
+						{item.unit}
+					</span>
+				</p>
+			</div>
+		);
+	}
 	// Cost preview pakai EXACT decimal (match backend reality), bukan ceiled
 	// integer. Backend deduct decimal qty, so display should reflect that.
 	const cost = Math.round(exactValue * item.purchase_price_avg);

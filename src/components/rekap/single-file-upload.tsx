@@ -11,6 +11,7 @@ import {
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 import { compressImage } from "@/lib/crew/image-compression";
+import { uploadToDrive } from "@/lib/crew/upload";
 
 const ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
@@ -53,33 +54,18 @@ export function SingleFileUpload({
 		} catch {
 			file = rawFile;
 		}
-		const fd = new FormData();
-		fd.set("file", file);
-		fd.set("kind", kind);
-		if (seq) fd.set("seq", seq);
 		try {
-			const res = await fetch(`/api/drive/upload/${projectId}`, {
-				method: "POST",
-				body: fd,
+			const res = await uploadToDrive(projectId, file, {
+				kind,
+				...(seq ? { seq } : {}),
 			});
-			const data = (await res.json()) as {
-				ok?: boolean;
-				url?: string;
-				name?: string;
-				error?: string;
-			};
-			if (!res.ok || !data.ok || !data.url) {
-				const msg = data.error ?? `Upload gagal (HTTP ${res.status})`;
-				setLastError(msg);
-				toast.error(`${label}: ${msg}`);
+			if (!res.ok) {
+				setLastError(res.error);
+				toast.error(`${label}: ${res.error}`);
 				return;
 			}
-			onChange(data.url);
+			onChange(res.url);
 			toast.success(`✓ ${label} tersimpan`);
-		} catch (e) {
-			const msg = e instanceof Error ? e.message : "Upload gagal";
-			setLastError(msg);
-			toast.error(`${label}: ${msg}`);
 		} finally {
 			setUploading(false);
 		}

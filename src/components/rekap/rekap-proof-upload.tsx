@@ -4,6 +4,7 @@ import {
 	CheckCircle2,
 	ExternalLink,
 	Loader2,
+	RotateCw,
 	UploadCloud,
 	X,
 	XCircle,
@@ -11,6 +12,7 @@ import {
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 import { compressImage } from "@/lib/crew/image-compression";
+import { uploadToDrive } from "@/lib/crew/upload";
 
 const ACCEPT =
 	"image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,application/pdf";
@@ -20,14 +22,22 @@ export type RekapProofItem = {
 	name: string;
 };
 
+// A file that failed to upload — kept so crew can retry with one tap instead of
+// re-picking it from the gallery (the #1 frustration on weak networks).
+type FailedItem = {
+	file: File;
+	name: string;
+	error: string;
+};
+
 /**
  * <RekapProofUpload /> — multi-file Drive upload. Reuses
  * /api/drive/upload/[projectId] with kind=rekap_proof so files are
  * auto-renamed and dropped into the event's Drive folder.
  *
- * Maintains a list of uploaded {url, name} items in component state.
- * Parent gets the URLs via onChange(urls). Crew can remove an item from
- * the list (just unlinks from form — file remains on Drive).
+ * Uploads go through uploadToDrive() which refreshes the session, times out,
+ * and retries transient failures — so crew don't have to reload the app.
+ * Files that still fail land in a retry queue with a one-tap "Coba lagi".
  */
 export function RekapProofUpload({
 	projectId,
@@ -43,21 +53,43 @@ export function RekapProofUpload({
 	const fileRef = useRef<HTMLInputElement | null>(null);
 	const [items, setItems] = useState<RekapProofItem[]>(initial);
 	const [uploading, setUploading] = useState<string[]>([]); // filenames currently uploading
-	const [lastError, setLastError] = useState<string | null>(null);
+	const [failed, setFailed] = useState<FailedItem[]>([]);
 
 	function emit(next: RekapProofItem[]) {
 		setItems(next);
 		onChange(next.map((it) => it.url));
 	}
 
+	// Upload one already-compressed-or-raw file. Returns true on success.
+	async function uploadOne(file: File, displayName: string): Promise<boolean> {
+		// seq is best-effort ordering for the Drive filename; computed from the
+		// current count so concurrent retries don't all claim "01".
+		const seq = String(items.length + 1).padStart(2, "0");
+		const res = await uploadToDrive(projectId, file, {
+			kind: "rekap_proof",
+			seq,
+		});
+		if (res.ok) {
+			setItems((prev) => {
+				const next = [...prev, { url: res.url, name: res.name }];
+				onChange(next.map((it) => it.url));
+				return next;
+			});
+			toast.success(`✓ ${res.name}`);
+			return true;
+		}
+		setFailed((prev) => [
+			...prev.filter((f) => f.name !== displayName),
+			{ file, name: displayName, error: res.error },
+		]);
+		toast.error(`${displayName}: ${res.error}`);
+		return false;
+	}
+
 	async function handleFiles(files: FileList) {
-		setLastError(null);
 		const filesArr = Array.from(files);
-		// Sequential to avoid Drive rate limits + so seq numbers are
-		// predictable. Item state is updated after each successful upload.
-		for (let i = 0; i < filesArr.length; i++) {
-			const rawFile = filesArr[i];
-			const seq = String(items.length + i + 1).padStart(2, "0");
+		// Sequential to avoid Drive rate limits + keep seq numbers predictable.
+		for (const rawFile of filesArr) {
 			setUploading((prev) => [...prev, rawFile.name]);
 			let file = rawFile;
 			try {
@@ -65,44 +97,21 @@ export function RekapProofUpload({
 			} catch {
 				file = rawFile;
 			}
-			const fd = new FormData();
-			fd.set("file", file);
-			fd.set("kind", "rekap_proof");
-			fd.set("seq", seq);
 			try {
-				const res = await fetch(`/api/drive/upload/${projectId}`, {
-					method: "POST",
-					body: fd,
-				});
-				const data = (await res.json()) as {
-					ok?: boolean;
-					url?: string;
-					name?: string;
-					error?: string;
-				};
-				if (!res.ok || !data.ok || !data.url) {
-					const msg = data.error ?? `Upload gagal (HTTP ${res.status})`;
-					setLastError(`${rawFile.name}: ${msg}`);
-					toast.error(`${rawFile.name}: ${msg}`);
-					continue;
-				}
-				const newItem: RekapProofItem = {
-					url: data.url,
-					name: data.name ?? rawFile.name,
-				};
-				setItems((prev) => {
-					const next = [...prev, newItem];
-					onChange(next.map((it) => it.url));
-					return next;
-				});
-				toast.success(`✓ ${newItem.name}`);
-			} catch (e) {
-				const msg = e instanceof Error ? e.message : "Upload gagal";
-				setLastError(`${rawFile.name}: ${msg}`);
-				toast.error(`${rawFile.name}: ${msg}`);
+				await uploadOne(file, rawFile.name);
 			} finally {
 				setUploading((prev) => prev.filter((n) => n !== rawFile.name));
 			}
+		}
+	}
+
+	async function retryFailed(target: FailedItem) {
+		setFailed((prev) => prev.filter((f) => f.name !== target.name));
+		setUploading((prev) => [...prev, target.name]);
+		try {
+			await uploadOne(target.file, target.name);
+		} finally {
+			setUploading((prev) => prev.filter((n) => n !== target.name));
 		}
 	}
 
@@ -120,7 +129,7 @@ export function RekapProofUpload({
 				type="button"
 				onClick={() => fileRef.current?.click()}
 				disabled={disabled || isUploading}
-				className="press-down inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border-default bg-surface-3 px-3 text-fluid-body font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+				className="press-down inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-3 px-3 text-fluid-body font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{isUploading ? (
 					<Loader2 className="size-4 animate-spin" />
@@ -128,10 +137,10 @@ export function RekapProofUpload({
 					<UploadCloud className="size-4" />
 				)}
 				{isUploading
-					? `Mengunggah ${uploading.length} file…`
+					? `Mengunggah ${uploading.length} foto…`
 					: hasUploaded
 						? "Tambah foto lagi"
-						: "Upload foto bukti ke Drive"}
+						: "Upload foto bukti"}
 			</button>
 
 			<input
@@ -164,11 +173,33 @@ export function RekapProofUpload({
 				</ul>
 			)}
 
-			{lastError && (
-				<div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-fluid-caption text-destructive">
-					<XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-					<span>{lastError}</span>
-				</div>
+			{/* Failed uploads — retry without re-picking from gallery */}
+			{failed.length > 0 && (
+				<ul className="space-y-1.5">
+					{failed.map((f) => (
+						<li
+							key={f.name}
+							className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-fluid-caption text-destructive"
+						>
+							<XCircle className="h-4 w-4 shrink-0" />
+							<span className="min-w-0 flex-1">
+								<span className="block truncate font-medium text-foreground">
+									{f.name}
+								</span>
+								<span className="block truncate text-[11px]">{f.error}</span>
+							</span>
+							<button
+								type="button"
+								onClick={() => void retryFailed(f)}
+								disabled={isUploading}
+								className="press-down inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-foreground px-3 text-[12px] font-medium text-background disabled:opacity-50"
+							>
+								<RotateCw className="h-3.5 w-3.5" />
+								Coba lagi
+							</button>
+						</li>
+					))}
+				</ul>
 			)}
 
 			{/* Uploaded items */}
@@ -176,7 +207,7 @@ export function RekapProofUpload({
 				<ul className="space-y-1.5">
 					{items.map((it, idx) => (
 						<li
-							key={`${it.url}-${idx}`}
+							key={it.url}
 							className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 text-fluid-caption dark:border-emerald-900 dark:bg-emerald-950/30"
 						>
 							<CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -212,8 +243,8 @@ export function RekapProofUpload({
 			)}
 
 			<p className="text-[11px] text-muted-foreground">
-				Foto counter mesin / area event / consumable. Multi-file boleh. Foto
-				di-kompres otomatis sebelum upload (hemat data).
+				Foto counter mesin / area event / consumable. Boleh lebih dari satu.
+				Otomatis dikompres biar hemat kuota & cepat.
 			</p>
 		</div>
 	);

@@ -233,6 +233,7 @@ export default async function CrewRekapPage({
 						defaults={defaults}
 						mode={mode}
 						context={context}
+						audience="crew"
 					/>
 				)}
 			</div>
