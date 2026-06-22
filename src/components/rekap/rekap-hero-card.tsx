@@ -1,6 +1,5 @@
 import { Camera, CheckCircle2, Clock, Printer, XCircle } from "lucide-react";
 import type * as React from "react";
-import { Badge } from "@/components/ui/badge";
 import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
 
 type Pkg = {
@@ -45,15 +44,19 @@ export function RekapHeroCard({
 	reviewedBy,
 }: Props) {
 	return (
-		<div className="overflow-hidden rounded-[16px] border border-border-default bg-card shadow-[var(--shadow-level-3)]">
+		<div className="overflow-hidden rounded-[20px] bg-[#059669] text-white shadow-[var(--shadow-level-3)]">
 			<div className="space-y-3 p-5">
 				<div className="flex items-center justify-between gap-2">
-					<span className="eyebrow text-muted-foreground">{eyebrow}</span>
+					<span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+						{eyebrow}
+					</span>
 					<StatusBadge isApproved={isApproved} submitted={submitted} />
 				</div>
 				<div className="space-y-1">
-					<h1 className="type-display text-balance">{clientName}</h1>
-					<p className="type-secondary">
+					<h1 className="text-balance text-[28px] font-bold leading-[1.08] tracking-[-0.02em] sm:text-[34px]">
+						{clientName}
+					</h1>
+					<p className="text-[13.5px] text-white/70">
 						{formatDateID(eventDate)}
 						{venueName ? <> · {venueName}</> : null}
 					</p>
@@ -75,18 +78,11 @@ export function RekapHeroCard({
 							!!frameLabel && !nameLower.includes(frameLabel.toLowerCase());
 						return (
 							<div className="flex flex-wrap gap-1.5 pt-0.5">
-								<Badge
-									variant="outline"
-									className="border-primary/30 bg-primary/5 text-primary"
-								>
-									{pkg.name}
-								</Badge>
+								<HeroPill>{pkg.name}</HeroPill>
 								{showDuration ? (
-									<Badge variant="outline">{pkg.duration_hours} jam</Badge>
+									<HeroPill>{pkg.duration_hours} jam</HeroPill>
 								) : null}
-								{showFrame ? (
-									<Badge variant="outline">{frameLabel}</Badge>
-								) : null}
+								{showFrame ? <HeroPill>{frameLabel}</HeroPill> : null}
 							</div>
 						);
 					})()}
@@ -95,14 +91,14 @@ export function RekapHeroCard({
 			{/* KPI strip — only meaningful once a rekap exists. No HPP/cost here:
 			    this is the crew view and material cost is a business secret. */}
 			{submitted && (
-				<dl className="grid grid-cols-3 divide-x divide-border-subtle border-t border-border-subtle">
+				<dl className="grid grid-cols-3 divide-x divide-white/15 border-t border-white/15">
 					<Kpi
 						icon={Printer}
 						label="Total cetak"
 						value={
 							<>
 								{totalCetak.toLocaleString("id-ID")}
-								<span className="ml-1 text-[12px] font-normal text-muted-foreground">
+								<span className="ml-1 text-[12px] font-normal text-white/60">
 									pcs
 								</span>
 							</>
@@ -114,7 +110,7 @@ export function RekapHeroCard({
 						value={
 							<>
 								{proofCount}
-								<span className="ml-1 text-[12px] font-normal text-muted-foreground">
+								<span className="ml-1 text-[12px] font-normal text-white/60">
 									foto
 								</span>
 							</>
@@ -133,47 +129,51 @@ export function RekapHeroCard({
 	);
 }
 
+/** Translucent-white chip that reads on the emerald hero. */
+function HeroPill({ children }: { children: React.ReactNode }) {
+	return (
+		<span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-[12px] font-medium text-white">
+			{children}
+		</span>
+	);
+}
+
 function Kpi({
 	icon: Icon,
 	label,
 	value,
 	sub,
-	accent = false,
 }: {
 	icon?: typeof Printer;
 	label: string;
 	value: React.ReactNode;
 	sub?: string;
-	accent?: boolean;
 }) {
 	return (
 		<div className="min-w-0 px-5 py-3.5">
 			<dt className="flex items-center gap-1.5">
 				{Icon ? (
-					<Icon
-						className="size-3 text-muted-foreground/70"
-						aria-hidden
-						strokeWidth={2}
-					/>
+					<Icon className="size-3 text-white/60" aria-hidden strokeWidth={2} />
 				) : null}
-				<span className="eyebrow text-muted-foreground">{label}</span>
+				<span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70">
+					{label}
+				</span>
 			</dt>
-			<dd
-				className={`tabular mt-1 truncate text-[18px] font-semibold leading-none ${
-					accent ? "text-primary" : "text-foreground"
-				}`}
-			>
+			<dd className="tabular mt-1 truncate text-[18px] font-semibold leading-none text-white">
 				{value}
 			</dd>
 			{sub ? (
-				<dd className="mt-1 truncate text-[11px] text-muted-foreground">
-					{sub}
-				</dd>
+				<dd className="mt-1 truncate text-[11px] text-white/60">{sub}</dd>
 			) : null}
 		</div>
 	);
 }
 
+/**
+ * Status pill rendered on the emerald hero. Translucent white for neutral/positive
+ * states; "Perlu revisi" gets a solid white pill with rose text so the call to
+ * action pops against the green.
+ */
 function StatusBadge({
 	isApproved,
 	submitted,
@@ -181,43 +181,36 @@ function StatusBadge({
 	isApproved: boolean | null | undefined;
 	submitted: boolean;
 }) {
+	const base =
+		"inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-semibold backdrop-blur-sm";
 	if (!submitted) {
 		return (
-			<Badge variant="secondary" className="gap-1">
-				<Clock className="size-3" aria-hidden />
+			<span className={`${base} bg-white/15 text-white`}>
+				<Clock className="size-3.5" aria-hidden />
 				Belum submit
-			</Badge>
+			</span>
 		);
 	}
 	if (isApproved === true) {
 		return (
-			<Badge
-				variant="outline"
-				className="gap-1 border-emerald-300 bg-emerald-500/10 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300"
-			>
-				<CheckCircle2 className="size-3" aria-hidden />
+			<span className={`${base} bg-white/20 text-white`}>
+				<CheckCircle2 className="size-3.5" aria-hidden />
 				Approved
-			</Badge>
+			</span>
 		);
 	}
 	if (isApproved === false) {
 		return (
-			<Badge
-				variant="outline"
-				className="gap-1 border-rose-300 bg-rose-500/10 text-rose-700 dark:border-rose-900 dark:text-rose-300"
-			>
-				<XCircle className="size-3" aria-hidden />
+			<span className={`${base} bg-white text-rose-600`}>
+				<XCircle className="size-3.5" aria-hidden />
 				Perlu revisi
-			</Badge>
+			</span>
 		);
 	}
 	return (
-		<Badge
-			variant="outline"
-			className="gap-1 border-amber-300 bg-amber-500/10 text-amber-700 dark:border-amber-900 dark:text-amber-300"
-		>
-			<Clock className="size-3" aria-hidden />
+		<span className={`${base} bg-white/15 text-white`}>
+			<Clock className="size-3.5" aria-hidden />
 			Menunggu review
-		</Badge>
+		</span>
 	);
 }

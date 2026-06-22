@@ -67,8 +67,9 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
 				// active (default) = ink black pill, white label
 				"data-active:bg-primary data-active:text-primary-foreground dark:data-active:bg-primary dark:data-active:text-primary-foreground",
 				"after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
-				// segmented — content-width pills, active = ink black pill.
-				"group-data-[variant=segmented]/tabs-list:h-7 group-data-[variant=segmented]/tabs-list:flex-none group-data-[variant=segmented]/tabs-list:rounded-full group-data-[variant=segmented]/tabs-list:px-3 group-data-[variant=segmented]/tabs-list:text-[12.5px] group-data-[variant=segmented]/tabs-list:text-muted-foreground group-data-[variant=segmented]/tabs-list:hover:text-foreground group-data-[variant=segmented]/tabs-list:data-active:bg-primary group-data-[variant=segmented]/tabs-list:data-active:text-primary-foreground group-data-[variant=segmented]/tabs-list:data-active:shadow-[var(--shadow-level-2)] group-data-[variant=segmented]/tabs-list:after:hidden",
+				// segmented — content-width pills, active = emerald CTA pill (matches
+				// the primary button hue so view-switchers read as the one action color).
+				"group-data-[variant=segmented]/tabs-list:h-7 group-data-[variant=segmented]/tabs-list:flex-none group-data-[variant=segmented]/tabs-list:rounded-full group-data-[variant=segmented]/tabs-list:px-3 group-data-[variant=segmented]/tabs-list:text-[12.5px] group-data-[variant=segmented]/tabs-list:text-muted-foreground group-data-[variant=segmented]/tabs-list:hover:text-foreground group-data-[variant=segmented]/tabs-list:data-active:bg-[#059669] group-data-[variant=segmented]/tabs-list:data-active:text-white dark:group-data-[variant=segmented]/tabs-list:data-active:bg-[#0b9e6a] group-data-[variant=segmented]/tabs-list:data-active:shadow-[var(--shadow-level-2)] group-data-[variant=segmented]/tabs-list:after:hidden",
 				className,
 			)}
 			{...props}
