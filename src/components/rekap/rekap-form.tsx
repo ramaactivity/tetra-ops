@@ -644,6 +644,25 @@ export function RekapForm({
 	// FD/Pouch hint based on package
 	const fdPouchIncluded = context.pkg.include_flashdisk_pouch === true;
 
+	// Progressive disclosure (crew only): optional sections start collapsed when
+	// they have no data yet, so the form reads short and crew aren't scrolling
+	// past empty blocks. Owner always sees everything expanded. `defaultOpen` is
+	// read once on mount, and state is seeded from `defaults`, so this correctly
+	// auto-expands sections that already have values in update mode.
+	const fdSectionOpen = !isCrew || fdPouchIncluded || Number(flashdisk) > 0;
+	const addonSectionOpen =
+		!isCrew ||
+		photomagnetPaid + photomagnetBonus + keychainPaid + keychainBonus > 0 ||
+		Number(photomagnet) > 0 ||
+		Number(keychain) > 0;
+	const transportSectionOpen =
+		!isCrew ||
+		transportMethod !== "none" ||
+		Number(tollCost) > 0 ||
+		Number(parkingCost) > 0;
+	const konsumsiSectionOpen =
+		!isCrew || Number(konsumsiCost) > 0 || lainnyaItems.length > 0;
+
 	// Soft validation warnings. Crew can't override mediaset/sleeve, so these
 	// (the only warnings) never apply to them — keep their view clean.
 	const warnings = useMemo(() => {
@@ -871,6 +890,7 @@ export function RekapForm({
 						<Badge variant="secondary">Skip</Badge>
 					)
 				}
+				defaultOpen={fdSectionOpen}
 			>
 				{(() => {
 					const fdSet = Number(flashdisk) || 0;
@@ -1011,6 +1031,7 @@ export function RekapForm({
 				step={3}
 				title="Add-on"
 				description="Photomagnet / keychain — jumlah yang dipakai (paid + bonus)."
+				defaultOpen={addonSectionOpen}
 			>
 				<div className="grid gap-4 sm:grid-cols-2">
 					<AddonField
@@ -1130,6 +1151,7 @@ export function RekapForm({
 				step={5}
 				title="Transportasi"
 				description="Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau ada."
+				defaultOpen={transportSectionOpen}
 			>
 				<div className="grid grid-cols-3 gap-2">
 					{(
@@ -1225,6 +1247,7 @@ export function RekapForm({
 				step={6}
 				title="Konsumsi & Lain-lain"
 				description="Snack/makan crew + biaya insidental yang nggak masuk kategori di atas."
+				defaultOpen={konsumsiSectionOpen}
 			>
 				<MoneyField
 					label="Konsumsi crew"
