@@ -3,25 +3,47 @@
 import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import { reviewRekap } from "@/lib/actions/rekap";
+import { formatRupiah } from "@/lib/format";
 
 export function RekapReviewButtons({
 	rekapId,
 	projectId,
 	currentApproved,
 	stockCommittedAt = null,
+	cetakTotal = 0,
+	hppTotal = 0,
 }: {
 	rekapId: string;
 	projectId: string;
 	currentApproved: boolean | null;
 	stockCommittedAt?: string | null;
+	/** For the confirm summary — what gets committed on approve. */
+	cetakTotal?: number;
+	hppTotal?: number;
 }) {
+	const confirm = useConfirm();
 	const [pending, startTransition] = useTransition();
 	const [showReject, setShowReject] = useState(false);
 	const [notes, setNotes] = useState("");
 
-	function approve() {
+	async function approve() {
+		// Approve commits stock + snapshots HPP in one shot and can only be undone
+		// via Re-open (super-admin). Confirm with a summary so one misclick doesn't
+		// silently lock the warehouse.
+		const ok = await confirm({
+			title: "Approve & potong stok?",
+			description: `Stok bahan untuk ${cetakTotal.toLocaleString(
+				"id-ID",
+			)} cetak akan dipotong dari warehouse${
+				hppTotal > 0 ? ` (HPP ±${formatRupiah(hppTotal)})` : ""
+			}. Setelah di-approve, stok terkunci & cuma bisa dibatalkan lewat Re-open. Pastikan angka cetak & foto bukti sudah benar.`,
+			confirmLabel: "Ya, approve",
+			cancelLabel: "Cek lagi",
+		});
+		if (!ok) return;
 		startTransition(async () => {
 			const result = await reviewRekap(rekapId, projectId, true, notes);
 			if (result.error) {
@@ -103,7 +125,7 @@ export function RekapReviewButtons({
 					type="button"
 					variant="decisive"
 					size="sm"
-					onClick={approve}
+					onClick={() => void approve()}
 					disabled={pending}
 				>
 					<CheckCircle2 />
@@ -167,7 +189,7 @@ export function RekapReviewButtons({
 					type="button"
 					variant="decisive"
 					size="lg"
-					onClick={approve}
+					onClick={() => void approve()}
 					disabled={pending}
 				>
 					<CheckCircle2 />

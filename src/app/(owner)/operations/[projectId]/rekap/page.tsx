@@ -431,6 +431,8 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						currentApproved={rekap.is_approved}
 						stockCommittedAt={rekap.stock_committed_at ?? null}
+						cetakTotal={rekap.cetak_total}
+						hppTotal={hppTotal}
 					/>
 				</RekapCard>
 			)}
