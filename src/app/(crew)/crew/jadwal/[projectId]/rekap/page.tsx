@@ -5,6 +5,7 @@ import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
 import { AppHeader, AppScreen } from "@/components/ui/mobile";
 import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { getCetakBenchmark } from "@/lib/rekap/benchmark";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -89,6 +90,8 @@ export default async function CrewRekapPage({
 
 	// Load context (paket spec + bonuses + mappings + custom inventory pool)
 	const context = await getRekapContext(event.id as string);
+	// Cetak benchmark for the soft "is this number sane?" warning (best-effort).
+	const cetakBenchmark = await getCetakBenchmark(event.id as string);
 	if ("error" in context) {
 		return (
 			<div className="mx-auto w-full max-w-md px-4 py-6">
@@ -234,6 +237,7 @@ export default async function CrewRekapPage({
 						mode={mode}
 						context={context}
 						audience="crew"
+						cetakBenchmark={cetakBenchmark}
 					/>
 				)}
 			</div>

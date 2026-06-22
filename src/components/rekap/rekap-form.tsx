@@ -101,6 +101,7 @@ export function RekapForm({
 	mode,
 	context,
 	audience = "owner",
+	cetakBenchmark = null,
 }: {
 	eventId: string;
 	projectId: string;
@@ -113,6 +114,11 @@ export function RekapForm({
 	 * is the owner's concern at settlement). Owner keeps the full toolset.
 	 */
 	audience?: "crew" | "owner";
+	/**
+	 * Median cetak for this package across past approved rekaps — drives a soft
+	 * "is this number sane?" warning. Null/low-sample disables it.
+	 */
+	cetakBenchmark?: { typical: number; sampleSize: number } | null;
 }) {
 	const router = useRouter();
 	const isCrew = audience === "crew";
@@ -668,12 +674,30 @@ export function RekapForm({
 	const konsumsiSectionOpen =
 		!isCrew || Number(konsumsiCost) > 0 || lainnyaItems.length > 0;
 
-	// Soft validation warnings. Crew can't override mediaset/sleeve, so these
-	// (the only warnings) never apply to them — keep their view clean.
+	// Soft validation warnings.
 	const warnings = useMemo(() => {
 		const w: string[] = [];
-		if (isCrew) return w;
 		const c = Number(cetak) || 0;
+
+		// Cetak sanity check vs this package's history (crew + owner). Soft only —
+		// never blocks submit; just nudges when the number looks way off. Needs a
+		// real sample so we don't cry wolf on the first few events of a package.
+		if (cetakBenchmark && cetakBenchmark.sampleSize >= 3 && c > 0) {
+			const t = cetakBenchmark.typical;
+			if (t > 0 && c >= t * 2.5) {
+				w.push(
+					`Total cetak ${c.toLocaleString("id-ID")} jauh di atas rata-rata paket ini (~${t.toLocaleString("id-ID")}). Pastikan benar.`,
+				);
+			} else if (t > 0 && c <= t * 0.4) {
+				w.push(
+					`Total cetak ${c.toLocaleString("id-ID")} jauh di bawah rata-rata paket ini (~${t.toLocaleString("id-ID")}). Yakin?`,
+				);
+			}
+		}
+
+		// Override-mismatch warnings are owner-only (crew can't override). Skip the
+		// rest for crew to keep their view clean.
+		if (isCrew) return w;
 		// Only flag mismatches when user manually overrode the auto-derived
 		// values — otherwise the math is consistent by construction.
 		if (touched.sleeve_used) {
@@ -695,7 +719,7 @@ export function RekapForm({
 			}
 		}
 		return w;
-	}, [cetak, sleeve, media, touched, mappingByField, isCrew]);
+	}, [cetak, sleeve, media, touched, mappingByField, isCrew, cetakBenchmark]);
 
 	// Custom materials combobox options (exclude already-added)
 	const customComboboxOptions = useMemo<ComboboxOption[]>(() => {
