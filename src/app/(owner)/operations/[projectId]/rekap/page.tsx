@@ -14,6 +14,7 @@ import { AddonSplitForm } from "@/components/rekap/addon-split-form";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
 import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
 import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
+import { CrewInputSummary } from "@/components/rekap/crew-input-summary";
 import { ProfitPreviewCard } from "@/components/rekap/profit-preview-card";
 import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
 import { RekapForm } from "@/components/rekap/rekap-form";
@@ -377,6 +378,13 @@ export default async function EventRekapPage({
 			)}
 
 			{/* === Tabs view (display) === */}
+			{rekap && (
+				<CrewInputSummary
+					rekap={rekap}
+					customCount={Object.keys(rekap.custom_materials ?? {}).length}
+					submittedBy={rekap.submitted_by_user?.full_name ?? null}
+				/>
+			)}
 			{rekap && (
 				<Tabs defaultValue="ringkasan" className="gap-4">
 					<TabsList variant="segmented">
