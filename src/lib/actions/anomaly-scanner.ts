@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { computeForecast } from "@/lib/actions/forecast";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -127,6 +128,9 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 					break;
 				case "stock_critical":
 					matches = await checkStockCritical(admin);
+					break;
+				case "stock_forecast_low":
+					matches = await checkForecastShortfall(admin);
 					break;
 				case "stock_zero":
 					matches = await checkStockZero(admin);
@@ -615,6 +619,20 @@ async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 		}
 	}
 	return matches;
+}
+
+async function checkForecastShortfall(admin: AdminClient): Promise<Match[]> {
+	// Reuse the warehouse forecast: demand across upcoming events vs on-hand.
+	const result = await computeForecast(admin);
+	if (result.stock_unknown || result.upcoming_count === 0) return [];
+	const round = (n: number) => Math.round(n).toLocaleString("id-ID");
+	return result.rows.map((r) => ({
+		entity_type: "inventory_item",
+		entity_id: r.item_id,
+		title: `Stok kurang untuk event mendatang: ${r.name}`,
+		body: `Perkiraan butuh ${round(r.projected_demand)} ${r.unit} untuk ${result.upcoming_count} event mendatang · stok ${round(r.on_hand)} · kurang ${round(r.shortfall)}.`,
+		action_url: `/warehouse`,
+	}));
 }
 
 async function checkStockZero(admin: AdminClient): Promise<Match[]> {
