@@ -190,7 +190,12 @@ export async function recordWastage(
 			quantity: data.qty_base,
 			unit_cost: avgCost,
 			source: "wastage",
-			source_id: data.event_id,
+			// source_id stays null for wastage: the event link (if any) lives in
+			// wastage_logs.event_id, and the journal/wastage_log reference this
+			// movement — not the other way round. Storing event_id here was wrong
+			// (it mislabels a wastage row as an event reference for reconciliation
+			// joins on (source, source_id)).
+			source_id: null,
 			source_description: sourceDesc,
 			notes: data.reason_detail,
 			performed_by: me.profile.id,
@@ -311,7 +316,9 @@ export async function recordOpnameShortageWastage(
 		// Silent skip — fixed asset opname tidak track wastage
 		return { ok: true };
 	}
-	const avgCost = loaded.config.purchase_price_avg ?? 0;
+	const item = loaded.base;
+	const cfg = loaded.config;
+	const avgCost = cfg.purchase_price_avg ?? 0;
 	const costAtTime = Math.round(args.qty_base * avgCost);
 
 	const { error } = await supabase.from("wastage_logs").insert({
@@ -325,5 +332,65 @@ export async function recordOpnameShortageWastage(
 		reported_by: args.reported_by,
 	});
 	if (error) return { ok: false, error: error.message };
+
+	// Journal: Dr Beban Wastage / Cr Persediaan — SAME as recordWastage. Without
+	// this the opname commit reduces inventory stock but never books the expense,
+	// so the balance-sheet inventory asset drifts from physical. Best-effort
+	// (mirrors recordWastage): the wastage_log above is the canonical record; a
+	// failed journal is logged for manual redo, not rolled back.
+	if (costAtTime > 0) {
+		const inventoryAccount =
+			cfg.coa_account_inventory ?? defaultsForInventorySku(item.sku).inventory;
+		const wastageAccount =
+			cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
+		const today = new Date().toISOString().slice(0, 10);
+		const { data: entry, error: entryErr } = await supabase
+			.from("journal_entries")
+			.insert({
+				ref_id: newJournalRef(),
+				entry_date: today,
+				entry_type: "adjustment",
+				description: `Opname shortage ${item.sku} — ${args.qty_base} ${item.unit}`,
+				source_type: "wastage",
+				source_id: args.stock_movement_id ?? null,
+				total_amount: costAtTime,
+				created_by: args.reported_by,
+			})
+			.select("id")
+			.single();
+		if (entryErr || !entry) {
+			console.error(
+				"[opname-wastage] journal_entries insert failed:",
+				entryErr?.message,
+			);
+		} else {
+			const { error: linesErr } = await supabase.from("journal_lines").insert([
+				{
+					entry_id: entry.id,
+					account_code: wastageAccount,
+					debit_amount: costAtTime,
+					credit_amount: 0,
+					description: `Beban opname shortage ${item.name}`,
+					line_order: 1,
+				},
+				{
+					entry_id: entry.id,
+					account_code: inventoryAccount,
+					debit_amount: 0,
+					credit_amount: costAtTime,
+					description: `Persediaan keluar ${args.qty_base} ${item.unit}`,
+					line_order: 2,
+				},
+			]);
+			if (linesErr) {
+				console.error(
+					"[opname-wastage] journal_lines insert failed:",
+					linesErr.message,
+				);
+				await supabase.from("journal_entries").delete().eq("id", entry.id);
+			}
+		}
+	}
+
 	return { ok: true };
 }
