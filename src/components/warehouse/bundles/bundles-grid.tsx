@@ -1,7 +1,8 @@
-import { Boxes, Pencil, Plus } from "lucide-react";
+import { Boxes, Pencil } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupiah } from "@/lib/format";
 
 export type BundleRow = {
@@ -22,44 +23,38 @@ export type BundleRow = {
 	}>;
 };
 
+const qty = (n: number) =>
+	n.toLocaleString("id-ID", { maximumFractionDigits: 4 });
+
 /**
- * Bundle list — columnar layout sama spirit dengan Market List ItemCard.
- * Parent row: Nama bundle · Komponen count · Potensi siap pakai · HPP/bundle · edit
- * Expanded: tabular component breakdown dengan stock + bottleneck flag.
+ * Bundle list — speaks the same visual language as the other warehouse tables
+ * (ResponsiveTable): card on bg-card with rounded-2xl, `.eyebrow` column labels,
+ * hairline row dividers, pill Badge for status, tabular numbers.
  *
- * Empty state inline di container yang sama.
+ * Each bundle is a master row (name · komponen · siap pakai · HPP) with an
+ * inline tabular component breakdown beneath it.
  */
 export function BundlesGrid({ rows }: { rows: BundleRow[] }) {
 	if (rows.length === 0) {
 		return (
-			<div className="bg-surface-2 flex flex-col items-center justify-center gap-3 rounded-xl px-6 py-16 text-center">
-				<div className="bg-surface-3 inline-flex size-12 items-center justify-center rounded-full">
-					<Boxes className="text-muted-foreground size-5" />
-				</div>
-				<div className="space-y-1">
-					<h3 className="text-sm font-semibold">Belum ada bundle</h3>
-					<p className="text-muted-foreground max-w-md text-[12px]">
-						Bundle = recipe paket yang otomatis ter-deduct ke komponennya
-						saat dipakai event. Contoh:{" "}
-						<strong className="text-foreground">
-							Set Kemasan Flashdisk
-						</strong>{" "}
-						= 1 Flashdisk + 1 Box Custom Flashdisk + 1 Pouch.
-					</p>
-				</div>
-				<Link
-					href="/warehouse/bundles/new"
-					className={buttonVariants({ variant: "default", size: "sm" })}
-				>
-					<Plus className="size-4" />
-					Tambah Bundle Pertama
-				</Link>
-			</div>
+			<EmptyState
+				icon={Boxes}
+				title="Belum ada bundle"
+				description="Bundle = recipe paket yang otomatis ter-deduct ke komponennya saat dipakai event. Contoh: Set Kemasan Flashdisk = 1 Flashdisk + 1 Box Custom + 1 Pouch."
+				action={
+					<Link
+						href="/warehouse/bundles/new"
+						className={buttonVariants({ variant: "default", size: "sm" })}
+					>
+						Tambah Bundle Pertama
+					</Link>
+				}
+			/>
 		);
 	}
 
 	return (
-		<div className="space-y-1.5">
+		<div className="space-y-3">
 			{rows.map((b) => (
 				<BundleCard key={b.id} bundle={b} />
 			))}
@@ -68,17 +63,16 @@ export function BundlesGrid({ rows }: { rows: BundleRow[] }) {
 }
 
 const PARENT_GRID =
-	"grid items-center gap-3 grid-cols-[minmax(0,1fr)_96px_140px_minmax(160px,200px)_40px]";
+	"grid items-center gap-3 grid-cols-[minmax(0,1fr)_88px_132px_minmax(150px,190px)_40px]";
 const INNER_GRID =
-	"grid items-center gap-3 grid-cols-[minmax(0,1fr)_72px_120px_140px_140px]";
+	"grid items-center gap-3 grid-cols-[minmax(0,1fr)_84px_120px_132px_132px]";
 
 function BundleCard({ bundle: b }: { bundle: BundleRow }) {
-	const bottleneck =
-		b.components.reduce(
-			(min, c) =>
-				min === null || c.buildable < min.buildable ? c : min,
-			null as BundleRow["components"][number] | null,
-		);
+	const bottleneck = b.components.reduce(
+		(min, c) => (min === null || c.buildable < min.buildable ? c : min),
+		null as BundleRow["components"][number] | null,
+	);
+	// Same outline+tint badge family the forecast/consumables tables use.
 	const buildableTone =
 		b.maxBuildable === 0
 			? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
@@ -87,46 +81,40 @@ function BundleCard({ bundle: b }: { bundle: BundleRow }) {
 				: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
 
 	return (
-		<div className="overflow-hidden rounded-lg border border-border-default bg-surface-2 transition-colors hover:bg-surface-2/70">
-			{/* Parent row */}
-			<div className={`${PARENT_GRID} px-3 py-2.5`}>
-				{/* Nama bundle */}
+		<div className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-1)]">
+			{/* Master row */}
+			<div className={`${PARENT_GRID} px-4 py-3`}>
 				<div className="min-w-0">
 					<div className="flex items-center gap-2">
 						<span
-							className="truncate text-[13px] font-semibold text-foreground"
+							className="truncate font-medium text-foreground"
 							title={b.name}
 						>
 							{b.name}
 						</span>
 						{!b.is_active && (
-							<Badge variant="outline" className="h-4 px-1 text-[9px]">
-								nonaktif
+							<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+								Nonaktif
 							</Badge>
 						)}
 					</div>
-					<div className="mt-0.5 truncate text-[10px] tabular text-muted-foreground/70">
+					<div className="mt-0.5 truncate tabular text-[11px] text-muted-foreground">
 						{b.sku}
 					</div>
 				</div>
 
-				{/* Komponen count */}
-				<div>
-					<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
-						Komponen
-					</div>
-					<div className="tabular text-[12px] font-medium text-foreground">
+				<div className="space-y-0.5">
+					<div className="eyebrow text-muted-foreground">Komponen</div>
+					<div className="tabular text-[13px] text-foreground">
 						{b.componentCount} item
 					</div>
 				</div>
 
-				{/* Potensi Siap Pakai */}
-				<div>
-					<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
-						Potensi Siap Pakai
-					</div>
-					<span
-						className={`mt-0.5 inline-flex h-5 items-center rounded-md border px-1.5 text-[11px] font-semibold tabular ${buildableTone}`}
+				<div className="space-y-0.5">
+					<div className="eyebrow text-muted-foreground">Siap pakai</div>
+					<Badge
+						variant="outline"
+						className={`h-5 px-1.5 text-[11px] tabular ${buildableTone}`}
 						title={
 							b.maxBuildable === 0 && bottleneck?.item
 								? `Bottleneck: ${bottleneck.item.name} stok ${bottleneck.componentStock}, butuh ${bottleneck.qty}`
@@ -135,38 +123,33 @@ function BundleCard({ bundle: b }: { bundle: BundleRow }) {
 					>
 						{b.maxBuildable}
 						<span className="ml-1 font-normal opacity-80">paket</span>
-					</span>
+					</Badge>
 				</div>
 
-				{/* HPP per bundle */}
-				<div className="text-right">
-					<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60">
-						HPP / bundle
-					</div>
-					<div className="whitespace-nowrap tabular text-[13px] font-semibold text-foreground">
+				<div className="space-y-0.5 text-right">
+					<div className="eyebrow text-muted-foreground">HPP / bundle</div>
+					<div className="whitespace-nowrap tabular text-[13px] font-medium text-foreground">
 						{formatRupiah(b.totalHpp)}
 					</div>
 				</div>
 
-				{/* Edit action */}
 				<div className="flex items-center justify-end">
 					<Link
 						href={`/warehouse/bundles/${b.id}/edit`}
-						title="Edit bundle"
+						title={`Edit ${b.name}`}
 						aria-label={`Edit ${b.name}`}
-						className="press-down inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+						className="press-down inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
 					>
-						<Pencil className="size-4" />
+						<Pencil className="size-4" aria-hidden />
 					</Link>
 				</div>
 			</div>
 
-			{/* Expanded — component breakdown */}
+			{/* Component breakdown */}
 			{b.componentCount > 0 && (
-				<div className="border-t border-border-default/50 bg-surface-1/40">
-					{/* Inner header */}
+				<div className="border-t border-border-subtle bg-secondary/30">
 					<div
-						className={`${INNER_GRID} px-3 py-2 text-[9px] font-medium uppercase tracking-wider text-muted-foreground/60`}
+						className={`${INNER_GRID} eyebrow px-4 py-2 text-muted-foreground`}
 					>
 						<span>Komponen</span>
 						<span className="text-right">Butuh</span>
@@ -175,58 +158,52 @@ function BundleCard({ bundle: b }: { bundle: BundleRow }) {
 						<span className="text-right">Subtotal</span>
 					</div>
 
-					<div className="space-y-1 px-1.5 pb-2">
-						{b.components.map((c, idx) => {
-							const isBottleneck = c.buildable === b.maxBuildable;
-							return (
+					{b.components.map((c, idx) => {
+						const short = c.componentStock < c.qty;
+						return (
+							<div
+								key={c.item?.sku ?? `comp-${idx}`}
+								className={`${INNER_GRID} border-t border-border-subtle px-4 py-2.5 ${
+									b.maxBuildable === 0 && c.buildable === b.maxBuildable
+										? "bg-rose-500/[0.04]"
+										: ""
+								}`}
+							>
+								<div className="min-w-0">
+									<span
+										className="block truncate text-[13px] text-foreground"
+										title={c.item?.name ?? "—"}
+									>
+										{c.item?.name ?? "—"}
+									</span>
+								</div>
+								<div className="whitespace-nowrap text-right tabular text-[13px] text-foreground">
+									{qty(c.qty)}
+									<span className="ml-1 text-[11px] text-muted-foreground">
+										{c.item?.unit}
+									</span>
+								</div>
 								<div
-									key={idx}
-									className={`${INNER_GRID} rounded-md px-1.5 py-2.5 transition-colors ${
-										b.maxBuildable === 0 && isBottleneck
-											? "bg-rose-500/5 ring-1 ring-rose-500/20"
-											: "hover:bg-surface-3/50"
+									className={`whitespace-nowrap text-right tabular text-[13px] ${
+										short
+											? "text-rose-600 dark:text-rose-400"
+											: "text-foreground"
 									}`}
 								>
-									<div className="min-w-0">
-										<span
-											className="block truncate text-[12px] font-medium text-foreground"
-											title={c.item?.name ?? "—"}
-										>
-											{c.item?.name ?? "—"}
-										</span>
-									</div>
-									<div className="whitespace-nowrap text-right tabular text-[12px] font-medium text-foreground">
-										{c.qty.toLocaleString("id-ID", {
-											maximumFractionDigits: 4,
-										})}
-										<span className="ml-1 text-[10px] font-normal text-muted-foreground/70">
-											{c.item?.unit}
-										</span>
-									</div>
-									<div
-										className={`whitespace-nowrap text-right tabular text-[12px] font-medium ${
-											c.componentStock < c.qty
-												? "text-rose-600 dark:text-rose-400"
-												: "text-foreground"
-										}`}
-									>
-										{c.componentStock.toLocaleString("id-ID", {
-											maximumFractionDigits: 4,
-										})}
-										<span className="ml-1 text-[10px] font-normal text-muted-foreground/70">
-											{c.item?.unit}
-										</span>
-									</div>
-									<div className="whitespace-nowrap text-right tabular text-[12px] text-muted-foreground">
-										{formatRupiah(c.avg)}
-									</div>
-									<div className="whitespace-nowrap text-right tabular text-[12px] font-semibold text-foreground">
-										{formatRupiah(c.lineCost)}
-									</div>
+									{qty(c.componentStock)}
+									<span className="ml-1 text-[11px] text-muted-foreground">
+										{c.item?.unit}
+									</span>
 								</div>
-							);
-						})}
-					</div>
+								<div className="whitespace-nowrap text-right tabular text-[13px] text-muted-foreground">
+									{formatRupiah(c.avg)}
+								</div>
+								<div className="whitespace-nowrap text-right tabular text-[13px] font-medium text-foreground">
+									{formatRupiah(c.lineCost)}
+								</div>
+							</div>
+						);
+					})}
 				</div>
 			)}
 		</div>

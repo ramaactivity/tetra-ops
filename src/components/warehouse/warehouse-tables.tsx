@@ -192,7 +192,7 @@ function StockStateBadge({ state }: { state: StockState }) {
 	} as const;
 	const { label, cls } = map[state];
 	return (
-		<Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${cls}`}>
+		<Badge variant="outline" className={`h-5 px-1.5 text-[11px] ${cls}`}>
 			{label}
 		</Badge>
 	);
