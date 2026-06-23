@@ -2,9 +2,11 @@ import {
 	AlertOctagon,
 	AlertTriangle,
 	Boxes,
+	CalendarClock,
 	CheckCircle2,
 	Layers,
 	Plus,
+	ShoppingCart,
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +19,7 @@ import {
 	type BundleRow,
 	BundlesGrid,
 } from "@/components/warehouse/bundles/bundles-grid";
+import { ForecastView } from "@/components/warehouse/forecast/forecast-view";
 import type {
 	MarketListEntry,
 	MarketListItem,
@@ -37,6 +40,7 @@ import {
 	MovementsLog,
 } from "@/components/warehouse/warehouse-tables";
 import { WarehouseTabs } from "@/components/warehouse/warehouse-tabs";
+import { computeForecast, type ForecastResult } from "@/lib/actions/forecast";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,9 +50,15 @@ export default async function WarehousePage({
 	searchParams: Promise<{ tab?: string; from?: string; to?: string }>;
 }) {
 	const params = await searchParams;
-	const tab = params.tab?.trim() || "consumables";
+	const tab = params.tab?.trim() || "forecast";
 
 	const supabase = await createClient();
+
+	// Forecast is the default surface — "what will upcoming events need vs stock".
+	let forecast: ForecastResult | null = null;
+	if (tab === "forecast") {
+		forecast = await computeForecast(supabase);
+	}
 
 	const [
 		consumablesResult,
@@ -477,7 +487,50 @@ export default async function WarehousePage({
 			)}
 
 			<KpiRow>
-				{tab === "bundles" ? (
+				{tab === "forecast" && forecast ? (
+					<>
+						<KpiCard
+							label="Event mendatang"
+							value={forecast.upcoming_count.toLocaleString("id-ID")}
+							hint="status upcoming"
+							icon={CalendarClock}
+							accent="primary"
+						/>
+						<KpiCard
+							label="Item perlu dibeli"
+							value={
+								forecast.stock_unknown
+									? "—"
+									: forecast.rows.length.toLocaleString("id-ID")
+							}
+							hint="estimasi kurang utk event"
+							icon={ShoppingCart}
+							accent={forecast.rows.length > 0 ? "rose" : "emerald"}
+						/>
+						<KpiCard
+							label="Estimasi belanja"
+							value={
+								forecast.stock_unknown
+									? "—"
+									: formatRupiah(forecast.total_est_cost)
+							}
+							hint="perkiraan total kekurangan"
+							icon={Wallet2}
+							accent="amber"
+						/>
+						<KpiCard
+							label="Dasar estimasi"
+							value={
+								forecast.events_observed > 0
+									? `${forecast.events_observed} event`
+									: "—"
+							}
+							hint="rata-rata pemakaian lalu"
+							icon={Layers}
+							accent="sky"
+						/>
+					</>
+				) : tab === "bundles" ? (
 					<>
 						<KpiCard
 							label="Bundle Aktif"
@@ -559,6 +612,13 @@ export default async function WarehousePage({
 			</KpiRow>
 
 			<div className="space-y-3">
+				{tab === "forecast" && forecast && (
+					<ForecastView
+						result={forecast}
+						pembelianItems={pembelianItems}
+						pembelianSuppliers={pembelianSuppliers}
+					/>
+				)}
 				{tab === "consumables" && (
 					<ConsumablesTable
 						rows={consumables}

@@ -12,6 +12,7 @@ import { TabNav } from "@/components/ui/tab-nav";
  * isi section (cards + tabel) — jadi tab harus jadi anchor paling atas.
  */
 const TABS: ReadonlyArray<{ value: string; label: string }> = [
+	{ value: "forecast", label: "Kebutuhan Event" },
 	{ value: "consumables", label: "Persediaan" },
 	{ value: "fixed_asset", label: "Aset Tetap" },
 	{ value: "market", label: "Market List" },
@@ -24,8 +25,15 @@ export function WarehouseTabs({ current }: { current: string }) {
 
 	function buildHref(tab: string): string {
 		const params = new URLSearchParams(searchParams.toString());
-		if (tab === "consumables") params.delete("tab");
+		// "forecast" is the default surface (bare /warehouse). Drop the param for
+		// it so the URL stays clean; keep explicit params for every other tab.
+		if (tab === "forecast") params.delete("tab");
 		else params.set("tab", tab);
+		// Date filters only apply to the movements log — strip them when leaving.
+		if (tab !== "movements") {
+			params.delete("from");
+			params.delete("to");
+		}
 		const qs = params.toString();
 		return qs ? `/warehouse?${qs}` : "/warehouse";
 	}
