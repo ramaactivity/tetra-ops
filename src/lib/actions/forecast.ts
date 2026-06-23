@@ -177,7 +177,8 @@ export async function computeForecast(
 		const bulk = getBulk(it.unit_conversion);
 		const cost = Number(it.purchase_price_avg ?? 0);
 		const suggestedBase = Math.ceil(shortfall);
-		const estCost = shortfall * cost;
+		// Round to whole Rupiah — currency never shows decimals in this system.
+		const estCost = Math.round(shortfall * cost);
 		total_est_cost += estCost;
 
 		rows.push({

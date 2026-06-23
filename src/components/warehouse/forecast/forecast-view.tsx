@@ -93,7 +93,7 @@ export function ForecastView({
 			align: "right",
 			width: "150px",
 			render: (r) => (
-				<span className="tabular text-foreground">
+				<span className="tabular whitespace-nowrap text-foreground">
 					{fmt(r.projected_demand)} {r.unit}
 				</span>
 			),
@@ -143,11 +143,11 @@ export function ForecastView({
 			key: "est_cost",
 			header: "Estimasi",
 			align: "right",
-			width: "140px",
+			width: "160px",
 			hideOnMobile: true,
 			render: (r) =>
 				r.est_cost > 0 ? (
-					<span className="tabular text-muted-foreground">
+					<span className="tabular whitespace-nowrap text-muted-foreground">
 						{formatRupiah(r.est_cost)}
 					</span>
 				) : (
@@ -185,6 +185,7 @@ export function ForecastView({
 			</div>
 
 			<ResponsiveTable
+				className="md:overflow-hidden md:rounded-2xl md:border md:border-border-subtle md:bg-card"
 				columns={columns}
 				rows={rows}
 				keyExtractor={(r) => r.item_id}

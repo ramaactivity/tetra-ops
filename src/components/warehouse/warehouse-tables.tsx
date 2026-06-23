@@ -787,10 +787,10 @@ export function ConsumablesTable({
 				<div className="overflow-hidden rounded-lg border border-border-default bg-card">
 					<div className="max-h-[calc(100vh-22rem)] overflow-y-auto">
 						<ResponsiveTable<ConsumableRow>
+							className="md:overflow-hidden md:rounded-2xl md:border md:border-border-subtle md:bg-card"
 							keyExtractor={(r) => r.id}
 							rows={filtered}
 							columns={columns}
-							stickyHeader
 							rowClassName="transition-colors hover:bg-secondary/40"
 						/>
 					</div>
