@@ -10,10 +10,13 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import {
+	type DeductionLine,
+	projectEventLinesFromSpec,
+} from "@/lib/rekap/project-demand";
+import {
 	bucketHpp,
 	FIELD_TO_BUCKET,
 	type HppBreakdown,
-	type HppBucket,
 	roundQty,
 } from "@/lib/rekap/recipe";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
@@ -814,15 +817,8 @@ type RekapStockSnapshot = {
 	custom_materials: Record<string, number> | null;
 };
 
-type DeductionLine = {
-	item_id: string;
-	sku: string;
-	name: string;
-	qty: number;
-	unit_cost: number;
-	source_label: string; // e.g. "media_set_used" or "extra: ITEM-X"
-	bucket: HppBucket; // HPP bucket — single source for stock + cost
-};
+// DeductionLine now lives in @/lib/rekap/project-demand (shared with the
+// pre-event forecast projector).
 
 /**
  * Compute the deduction plan for a rekap (Inventory v2, 2026-05-21).
@@ -848,18 +844,11 @@ async function planRekapDeduction(
 	rekap: RekapStockSnapshot,
 ): Promise<{ lines: DeductionLine[]; missingMappings: RekapField[] }> {
 	const [{ data: event }, { data: items }] = await Promise.all([
+		// Only frame_size is needed here; the package bundle BOM + bonuses are
+		// handled by projectEventLinesFromSpec (shared with the forecast).
 		supabase
 			.from("events")
-			.select(
-				`frame_size,
-				 package:packages(bundle_id,
-				   bundle:item_bundles(id, sku, name, is_active,
-				     components:bundle_components(qty,
-				       item:inventory_items!bundle_components_item_id_fkey(id, sku, name, purchase_price_avg)
-				     )
-				   )
-				 )`,
-			)
+			.select("frame_size")
 			.eq("id", rekap.event_id)
 			.maybeSingle(),
 		supabase
@@ -1083,152 +1072,17 @@ async function planRekapDeduction(
 		}
 	}
 
-	// Bonuses — item gratis yang kasih ke klien (event_bonuses).
-	// Lookup chain: event_bonuses.addon_id → addons.inventory_item_id →
-	// inventory_items. Addons tanpa inventory_item_id silently skipped.
-	const { data: bonusRows } = await supabase
-		.from("event_bonuses")
-		.select(
-			"quantity, addon:addons(name, inventory_item_id, inventory_item:inventory_items(id, sku, name, purchase_price_avg))",
-		)
-		.eq("event_id", rekap.event_id);
-
-	type BonusRow = {
-		quantity: number;
-		addon:
-			| {
-					name: string;
-					inventory_item_id: string | null;
-					inventory_item:
-						| {
-								id: string;
-								sku: string;
-								name: string;
-								purchase_price_avg: number | null;
-						  }
-						| Array<{
-								id: string;
-								sku: string;
-								name: string;
-								purchase_price_avg: number | null;
-						  }>
-						| null;
-			  }
-			| Array<{
-					name: string;
-					inventory_item_id: string | null;
-					inventory_item:
-						| {
-								id: string;
-								sku: string;
-								name: string;
-								purchase_price_avg: number | null;
-						  }
-						| Array<{
-								id: string;
-								sku: string;
-								name: string;
-								purchase_price_avg: number | null;
-						  }>
-						| null;
-			  }>
-			| null;
-	};
-	for (const row of (bonusRows ?? []) as unknown as BonusRow[]) {
-		const addon = Array.isArray(row.addon) ? row.addon[0] : row.addon;
-		if (!addon) continue;
-		const invItem = Array.isArray(addon.inventory_item)
-			? addon.inventory_item[0]
-			: addon.inventory_item;
-		if (!invItem) continue; // addon not linked to inventory — no stock track
-		const qty = Number(row.quantity ?? 0);
-		if (qty <= 0) continue;
-		lines.push({
-			item_id: invItem.id,
-			sku: invItem.sku,
-			name: invItem.name,
-			qty,
-			unit_cost: Number(invItem.purchase_price_avg ?? 0),
-			source_label: `bonus: ${addon.name}`,
-			bucket: "bonus",
-		});
-	}
-
-	// ─────────────────────────────────────────────────────────────────────
-	// Package Bundle BOM decomposition (Phase 2 — 2026-06-02)
-	// ─────────────────────────────────────────────────────────────────────
-	// Kalau event.package.bundle_id di-set, append bundle components ke
-	// lines dengan dedup: skip kalau item_id sudah ada di lines (covered
-	// by rekap_field_mapping atau assembly atau bonus). Bundle deduction
-	// fires sekali per event (qty = component.qty × 1).
-	type PackageRow = {
-		bundle_id: string | null;
-		bundle:
-			| {
-					id: string;
-					sku: string;
-					name: string;
-					is_active: boolean;
-					components: Array<{
-						qty: number | string;
-						item:
-							| {
-									id: string;
-									sku: string;
-									name: string;
-									purchase_price_avg: number | null;
-							  }
-							| Array<{
-									id: string;
-									sku: string;
-									name: string;
-									purchase_price_avg: number | null;
-							  }>
-							| null;
-					}>;
-			  }
-			| Array<{
-					id: string;
-					sku: string;
-					name: string;
-					is_active: boolean;
-					components: Array<{
-						qty: number | string;
-						item: unknown;
-					}>;
-			  }>
-			| null;
-	};
-	const eventPackage = Array.isArray(
-		(event as unknown as { package?: unknown[] })?.package,
-	)
-		? ((event as unknown as { package?: PackageRow[] }).package ?? [])[0]
-		: ((event as unknown as { package?: PackageRow }).package ?? null);
-	const bundle = eventPackage
-		? Array.isArray(eventPackage.bundle)
-			? eventPackage.bundle[0]
-			: eventPackage.bundle
-		: null;
-	if (bundle && bundle.is_active) {
-		const existingItemIds = new Set(lines.map((l) => l.item_id));
-		for (const comp of bundle.components ?? []) {
-			const compItem = Array.isArray(comp.item) ? comp.item[0] : comp.item;
-			if (!compItem) continue;
-			if (existingItemIds.has(compItem.id)) continue; // dedup
-			const qty = Number(comp.qty);
-			if (!Number.isFinite(qty) || qty <= 0) continue;
-			lines.push({
-				item_id: compItem.id,
-				sku: compItem.sku,
-				name: compItem.name,
-				qty,
-				unit_cost: Number(compItem.purchase_price_avg ?? 0),
-				source_label: `bundle: ${bundle.name}`,
-				bucket: "other",
-			});
-			existingItemIds.add(compItem.id);
-		}
-	}
+	// Bonuses (event_bonuses) + package bundle BOM — the deterministic,
+	// event-spec-derivable lines. Extracted into projectEventLinesFromSpec so
+	// the same logic feeds the pre-event warehouse forecast (Phase 3). The
+	// bundle dedup must see the lines built above (media/sleeve/assembly/custom),
+	// so we pass their item_ids — preserving the original behaviour exactly.
+	const specLines = await projectEventLinesFromSpec(
+		supabase,
+		rekap.event_id,
+		new Set(lines.map((l) => l.item_id)),
+	);
+	lines.push(...specLines);
 
 	// Round semua qty ke presisi ledger (NUMERIC(12,4)) supaya snapshot HPP
 	// (bucketHpp) == nilai stok yang ter-simpan di stock_movements, exact.
