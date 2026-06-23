@@ -132,6 +132,9 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 				case "stock_forecast_low":
 					matches = await checkForecastShortfall(admin);
 					break;
+				case "opname_overdue":
+					matches = await checkOpnameOverdue(admin);
+					break;
 				case "stock_zero":
 					matches = await checkStockZero(admin);
 					break;
@@ -619,6 +622,43 @@ async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 		}
 	}
 	return matches;
+}
+
+async function checkOpnameOverdue(admin: AdminClient): Promise<Match[]> {
+	// Stock accuracy is the foundation the forecast + HPP stand on. Nudge owners
+	// to do a physical count if the last committed stock-take is stale (or never).
+	const { data } = await admin
+		.from("stock_takes")
+		.select("id, committed_at")
+		.eq("status", "committed")
+		.order("committed_at", { ascending: false })
+		.limit(1);
+	const last = data?.[0] as
+		| { id: string; committed_at: string | null }
+		| undefined;
+	const OVERDUE_DAYS = 30;
+	const now = Date.now();
+	const lastMs = last?.committed_at
+		? new Date(last.committed_at).getTime()
+		: null;
+	if (lastMs !== null && now - lastMs < OVERDUE_DAYS * 24 * 3600 * 1000) {
+		return []; // recent enough
+	}
+	const sinceLabel =
+		lastMs !== null
+			? `${Math.floor((now - lastMs) / (24 * 3600 * 1000))} hari lalu`
+			: "belum pernah";
+	return [
+		{
+			entity_type: "stock_take",
+			// Stable id → dedup keeps this a single reminder until read/dismissed
+			// (or until a fresh opname is committed and clears the overdue state).
+			entity_id: last?.id ?? "00000000-0000-0000-0000-000000000000",
+			title: "Saatnya Stock Opname",
+			body: `Opname stok terakhir ${sinceLabel}. Hitung fisik stok biar angka tetap akurat.`,
+			action_url: `/warehouse/stock-take`,
+		},
+	];
 }
 
 async function checkForecastShortfall(admin: AdminClient): Promise<Match[]> {
