@@ -58,10 +58,14 @@ export default async function WarehousePage({
 	] = await Promise.all([
 		supabase
 			.from("inventory_items")
+			// Left embed (NOT !inner): item tanpa baris items_inventory_config tetap
+			// muncul — kalau di-inner-join, item yang config-nya gagal dibuat akan
+			// hilang dari daftar & KPI dan tak bisa di-restock. cfg null di-handle
+			// di mapping bawah.
 			.select(
 				`id, sku, name, unit, unit_conversion, min_stock_alert,
 					 purchase_price_avg, is_active,
-					 config:items_inventory_config!inner(
+					 config:items_inventory_config(
 					   preferred_supplier_id,
 					   supplier:suppliers!items_inventory_config_preferred_supplier_id_fkey(name)
 					 )`,
@@ -71,9 +75,11 @@ export default async function WarehousePage({
 			.order("name", { ascending: true }),
 		supabase
 			.from("inventory_items")
+			// Left embed (NOT !inner): aset tanpa baris items_fixed_asset_config tetap
+			// muncul daripada hilang diam-diam.
 			.select(
 				`id, sku, name, purchase_price, condition, current_location, is_active,
-					 config:items_fixed_asset_config!inner(
+					 config:items_fixed_asset_config(
 					   asset_number, serial_number, acquisition_type,
 					   purchase_price, useful_life_months, depreciation_start_date,
 					   current_location
@@ -208,6 +214,16 @@ export default async function WarehousePage({
 			depreciation_start_date: cfg?.depreciation_start_date ?? null,
 		};
 	});
+	// JANGAN telan error: kalau get_stock_levels gagal (timeout/RLS), data null
+	// → map kosong → SEMUA item terbaca stok 0 → seluruh katalog tampak "habis"
+	// (alarm palsu massal) & Nilai HPP = 0. Tandai gagal supaya UI render "—".
+	const stockLoadFailed = Boolean(stockLevelsResult.error);
+	if (stockLoadFailed) {
+		console.error(
+			"[warehouse] get_stock_levels failed:",
+			stockLevelsResult.error?.message,
+		);
+	}
 	const stockLevels = new Map<string, number>(
 		(
 			(stockLevelsResult.data ?? []) as Array<{
@@ -450,6 +466,16 @@ export default async function WarehousePage({
 
 			<WarehouseTabs current={tab} />
 
+			{stockLoadFailed && (
+				<div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-700 dark:text-amber-300">
+					<AlertTriangle className="size-4 shrink-0" />
+					<span>
+						Stok gagal dimuat — angka stok &amp; nilai HPP mungkin tidak akurat.
+						Muat ulang halaman; kalau tetap, cek koneksi database.
+					</span>
+				</div>
+			)}
+
 			<KpiRow>
 				{tab === "bundles" ? (
 					<>
@@ -500,7 +526,7 @@ export default async function WarehousePage({
 					<>
 						<KpiCard
 							label="Nilai HPP Stok"
-							value={formatRupiah(totalHpp)}
+							value={stockLoadFailed ? "—" : formatRupiah(totalHpp)}
 							hint="Σ (stok × harga avg)"
 							icon={Wallet2}
 							accent="primary"
@@ -514,14 +540,16 @@ export default async function WarehousePage({
 						/>
 						<KpiCard
 							label="Stok Kritis"
-							value={criticalCount.toLocaleString("id-ID")}
+							value={
+								stockLoadFailed ? "—" : criticalCount.toLocaleString("id-ID")
+							}
 							hint="≤ min alert (perlu restock)"
 							icon={AlertTriangle}
 							accent="amber"
 						/>
 						<KpiCard
 							label="Stok Habis"
-							value={emptyCount.toLocaleString("id-ID")}
+							value={stockLoadFailed ? "—" : emptyCount.toLocaleString("id-ID")}
 							hint="stok 0 atau minus"
 							icon={AlertOctagon}
 							accent="rose"
@@ -537,6 +565,7 @@ export default async function WarehousePage({
 						stockEntries={Array.from(stockByItem.entries())}
 						pembelianItems={pembelianItems}
 						pembelianSuppliers={pembelianSuppliers}
+						stockUnknown={stockLoadFailed}
 					/>
 				)}
 				{tab === "fixed_asset" && (

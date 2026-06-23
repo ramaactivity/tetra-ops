@@ -4,10 +4,7 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import {
-	normalizeConversion,
-	toBase,
-} from "@/lib/inventory/unit-conversion";
+import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
 const DIRECTIONS = ["in", "out", "adjustment"] as const;
@@ -50,8 +47,7 @@ const StockMovementInputSchema = z.object({
 	source: z.enum(SOURCES, "Pilih sumber"),
 	supplier_id: z
 		.preprocess(
-			(v) =>
-				v === "" || v === null || v === undefined ? null : String(v),
+			(v) => (v === "" || v === null || v === undefined ? null : String(v)),
 			z.string().uuid("Supplier tidak valid").nullable(),
 		)
 		.optional()
@@ -203,28 +199,13 @@ export async function addStockMovement(
 		};
 	}
 
-	// For purchase-direction-in with unit_cost, compute weighted-average cost
-	// BEFORE inserting the movement (need pre-insert stock count).
+	// For purchase-direction-in with unit_cost, recompute weighted-average cost
+	// via the atomic row-locking RPC AFTER inserting the movement (the RPC reads
+	// post-insert on-hand). Centralizes the formula with purchases/PR-receive.
 	const isPurchaseIn =
 		parsed.data.direction === "in" &&
 		parsed.data.source === "purchase" &&
 		baseUnitCost !== null;
-
-	let weightedAvg: number | null = null;
-	if (isPurchaseIn) {
-		const { data: stockRes } = await supabase.rpc("get_current_stock", {
-			p_item_id: itemId,
-		});
-		const oldStock = Math.max(0, Number(stockRes ?? 0));
-		const oldAvg = Number(itemRow?.purchase_price_avg ?? 0);
-		const newQty = baseUnitQuantity;
-		const newCost = baseUnitCost ?? 0;
-		const totalStock = oldStock + newQty;
-		weightedAvg =
-			totalStock > 0
-				? Math.round((oldStock * oldAvg + newQty * newCost) / totalStock)
-				: Math.round(newCost);
-	}
 
 	// Memo the original input unit when conversion happened (audit trail)
 	const noteWithUnit =
@@ -237,8 +218,7 @@ export async function addStockMovement(
 		item_id: parsed.data.item_id,
 		direction: parsed.data.direction,
 		quantity: baseUnitQuantity,
-		quantity_unit:
-			inputUnit && inputUnit !== baseUnit ? inputUnit : null,
+		quantity_unit: inputUnit && inputUnit !== baseUnit ? inputUnit : null,
 		quantity_in_unit:
 			inputUnit && inputUnit !== baseUnit ? parsed.data.quantity : null,
 		unit_cost: baseUnitCost,
@@ -256,14 +236,21 @@ export async function addStockMovement(
 		};
 	}
 
-	if (isPurchaseIn && weightedAvg !== null) {
-		await supabase
-			.from("inventory_items")
-			.update({
-				purchase_price_avg: weightedAvg,
-				updated_at: new Date().toISOString(),
-			})
-			.eq("id", itemId);
+	if (isPurchaseIn && baseUnitCost !== null) {
+		const { error: avgErr } = await supabase.rpc(
+			"recompute_weighted_avg_cost",
+			{
+				p_item_id: itemId,
+				p_incoming_qty: baseUnitQuantity,
+				p_incoming_cost: baseUnitCost,
+			},
+		);
+		if (avgErr) {
+			console.error(
+				`[stock-movements] recompute_weighted_avg_cost failed for ${itemId}:`,
+				avgErr.message,
+			);
+		}
 	}
 
 	revalidatePath("/warehouse");

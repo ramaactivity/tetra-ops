@@ -305,11 +305,16 @@ export function ConsumablesTable({
 	stockEntries,
 	pembelianItems,
 	pembelianSuppliers,
+	stockUnknown = false,
 }: {
 	rows: ConsumableRow[];
 	stockEntries: Array<[string, number]>;
 	pembelianItems: PembelianItemOption[];
 	pembelianSuppliers: PembelianSupplierOption[];
+	/** True kalau stok gagal dimuat (RPC error). Saat true, jangan tampilkan
+	 *  badge "Habis"/"Kritis" atau angka stok palsu — render "—" supaya owner
+	 *  tahu datanya tidak akurat, bukan menampakkan alarm bohong. */
+	stockUnknown?: boolean;
 }) {
 	const [query, setQuery] = useState("");
 	const [filter, setFilter] = useState<ConsumableFilter>("all");
@@ -319,7 +324,10 @@ export function ConsumablesTable({
 	const stockByItem = useMemo(() => new Map(stockEntries), [stockEntries]);
 
 	// Item IDs yang habis/minus/kritis — kandidat untuk quick-restock.
+	// Saat stok tak dimuat (error), jangan tawarkan "Belanja Kritis" dari data
+	// nol palsu — kembalikan kosong.
 	const restockKritisIds = useMemo(() => {
+		if (stockUnknown) return [];
 		const ids: string[] = [];
 		for (const r of rows) {
 			if (!r.is_active) continue;
@@ -330,7 +338,7 @@ export function ConsumablesTable({
 			}
 		}
 		return ids;
-	}, [rows, stockByItem]);
+	}, [rows, stockByItem, stockUnknown]);
 
 	function toggleOne(id: string) {
 		setSelectedIds((prev) => {
@@ -370,6 +378,12 @@ export function ConsumablesTable({
 				inactive++;
 				continue;
 			}
+			// Stok tak dimuat → status tak diketahui; jangan klasifikasikan jadi
+			// habis/kritis palsu. Hitung sebagai "aman" (netral) saja.
+			if (stockUnknown) {
+				aman++;
+				continue;
+			}
 			const s = stockByItem.get(r.id) ?? 0;
 			const state = classifyStock(s, r.min_stock_alert);
 			if (state === "habis" || state === "minus") habis++;
@@ -377,7 +391,7 @@ export function ConsumablesTable({
 			else aman++;
 		}
 		return { all: rows.length, habis, kritis, aman, inactive };
-	}, [rows, stockByItem]);
+	}, [rows, stockByItem, stockUnknown]);
 
 	const filtered = useMemo(() => {
 		const q = query.trim().toLowerCase();
@@ -497,12 +511,12 @@ export function ConsumablesTable({
 							>
 								{r.name}
 							</span>
-							{r.is_active ? (
-								<StockStateBadge state={state} />
-							) : (
+							{!r.is_active ? (
 								<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
 									Inactive
 								</Badge>
+							) : stockUnknown ? null : (
+								<StockStateBadge state={state} />
 							)}
 						</div>
 						<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular text-[10px] text-muted-foreground">
@@ -538,6 +552,17 @@ export function ConsumablesTable({
 			align: "right",
 			width: "200px",
 			render: (r) => {
+				// Stok gagal dimuat → tampilkan "—" + hint, bukan angka 0 palsu.
+				if (stockUnknown) {
+					return (
+						<div className="flex flex-col items-end gap-0.5">
+							<span className="text-foreground/30 text-base">—</span>
+							<span className="text-[10px] text-muted-foreground/60">
+								tak dimuat
+							</span>
+						</div>
+					);
+				}
 				const stock = stockByItem.get(r.id) ?? 0;
 				const state = classifyStock(stock, r.min_stock_alert);
 				const bulk = getBulkUnit(r.unit_conversion);
@@ -640,6 +665,7 @@ export function ConsumablesTable({
 			width: "160px",
 			hideOnMobile: true,
 			render: (r) => {
+				if (stockUnknown) return <MutedDash variant="dash" />;
 				const stock = stockByItem.get(r.id) ?? 0;
 				const value = stock * (r.purchase_price_avg ?? 0);
 				if (value === 0) return <MutedDash variant="dash" />;

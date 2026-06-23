@@ -237,6 +237,39 @@ export async function receivePurchaseRequest(
 		.insert(movements);
 	if (insErr) return { ok: false, error: insErr.message };
 
+	// Update weighted-avg cost for items received WITH a unit_cost (so the
+	// canonical purchase_price_avg no longer goes stale on PR receipt). Lines
+	// without a cost still increase on-hand but leave the avg untouched.
+	// Aggregate per item (an item can span multiple PR lines), then one atomic
+	// row-locking recompute each. Movements are already inserted above.
+	const costedByItem = new Map<string, { qty: number; costQty: number }>();
+	for (const m of movements) {
+		if (m.unit_cost === null) continue;
+		const agg = costedByItem.get(m.item_id) ?? { qty: 0, costQty: 0 };
+		agg.qty += m.quantity;
+		agg.costQty += m.quantity * m.unit_cost;
+		costedByItem.set(m.item_id, agg);
+	}
+	await Promise.all(
+		Array.from(costedByItem.entries()).map(async ([itemId, agg]) => {
+			if (agg.qty <= 0) return;
+			const { error: avgErr } = await supabase.rpc(
+				"recompute_weighted_avg_cost",
+				{
+					p_item_id: itemId,
+					p_incoming_qty: agg.qty,
+					p_incoming_cost: agg.costQty / agg.qty,
+				},
+			);
+			if (avgErr) {
+				console.error(
+					`[purchase-requests] recompute_weighted_avg_cost failed for ${itemId}:`,
+					avgErr.message,
+				);
+			}
+		}),
+	);
+
 	// Each row gets a distinct qty_received, so this can't be one bulk UPDATE —
 	// but the updates are independent, so fire them concurrently (≈1 round-trip
 	// wall-clock instead of N sequential ones) and surface any failure.

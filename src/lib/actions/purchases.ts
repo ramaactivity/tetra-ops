@@ -341,33 +341,36 @@ export async function recordPurchaseBatch(
 		),
 	);
 
-	// Recompute weighted-avg cost per item — each item's read-then-update chain
-	// is independent of the others, so run the chains concurrently (≈2
-	// round-trips wall-clock instead of 2×N sequential).
+	// Recompute weighted-avg cost per item via the atomic, row-locking RPC.
+	// IMPORTANT: aggregate ALL lines per item first. The previous code used
+	// movements.find() (FIRST line only), so an item appearing on multiple
+	// batch lines undercounted the incoming qty and corrupted the avg. We sum
+	// incoming base-qty and a qty-weighted incoming unit cost per item, then
+	// recompute once. Movements are already inserted above (RPC reads on-hand).
+	const incomingByItem = new Map<string, { qty: number; costQty: number }>();
+	for (const m of movements) {
+		const agg = incomingByItem.get(m.item_id) ?? { qty: 0, costQty: 0 };
+		agg.qty += m.quantity;
+		agg.costQty += m.quantity * m.unit_cost;
+		incomingByItem.set(m.item_id, agg);
+	}
 	await Promise.all(
-		itemIds.map(async (itemId) => {
-			const lineForItem = movements.find((m) => m.item_id === itemId);
-			if (!lineForItem) return;
-			const it = byItem.get(itemId);
-			if (!it) return;
-
-			const { data: stockData } = await supabase.rpc("get_current_stock", {
-				p_item_id: itemId,
-			});
-			const newStock = Number(stockData ?? 0);
-			const oldAvg = Number(it.purchase_price_avg ?? 0);
-			const oldStock = newStock - lineForItem.quantity;
-			if (newStock > 0 && oldStock >= 0) {
-				const newAvg =
-					(oldStock * oldAvg + lineForItem.quantity * lineForItem.unit_cost) /
-					newStock;
-				await supabase
-					.from("inventory_items")
-					.update({
-						purchase_price_avg: Math.round(newAvg),
-						updated_at: new Date().toISOString(),
-					})
-					.eq("id", itemId);
+		Array.from(incomingByItem.entries()).map(async ([itemId, agg]) => {
+			if (agg.qty <= 0) return;
+			const incomingCost = agg.costQty / agg.qty; // qty-weighted incoming cost
+			const { error: avgErr } = await supabase.rpc(
+				"recompute_weighted_avg_cost",
+				{
+					p_item_id: itemId,
+					p_incoming_qty: agg.qty,
+					p_incoming_cost: incomingCost,
+				},
+			);
+			if (avgErr) {
+				console.error(
+					`[purchases] recompute_weighted_avg_cost failed for ${itemId}:`,
+					avgErr.message,
+				);
 			}
 		}),
 	);
