@@ -39,7 +39,7 @@ export function StockTakeFilterTabs({
 						href={href}
 						className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors ${
 							active
-								? "bg-[#059669] text-white"
+								? "bg-primary text-white"
 								: "text-muted-foreground hover:bg-secondary hover:text-foreground"
 						}`}
 						aria-pressed={active}

@@ -11,14 +11,24 @@ import { TabNav } from "@/components/ui/tab-nav";
  * langsung di bawah judul, di ATAS KPI cards, karena tab mengganti SELURUH
  * isi section (cards + tabel) — jadi tab harus jadi anchor paling atas.
  */
+// Top-level tabs are kept deliberately few for non-technical owners. The
+// technical/financial views (fixed_asset, market, movements) + the sub-route
+// pages live under "Lanjutan" (advanced) instead of cluttering the main nav.
 const TABS: ReadonlyArray<{ value: string; label: string }> = [
 	{ value: "forecast", label: "Kebutuhan Event" },
 	{ value: "consumables", label: "Persediaan" },
-	{ value: "fixed_asset", label: "Aset Tetap" },
-	{ value: "market", label: "Market List" },
-	{ value: "movements", label: "Log Mutasi" },
-	{ value: "bundles", label: "Bundle / Set" },
+	{ value: "bundles", label: "Set" },
+	{ value: "advanced", label: "Lanjutan" },
 ];
+
+// Views that render inline but are reached via the "Lanjutan" landing — the
+// Lanjutan tab stays highlighted while viewing them.
+const ADVANCED_VIEWS = new Set([
+	"advanced",
+	"fixed_asset",
+	"market",
+	"movements",
+]);
 
 export function WarehouseTabs({ current }: { current: string }) {
 	const searchParams = useSearchParams();
@@ -44,7 +54,10 @@ export function WarehouseTabs({ current }: { current: string }) {
 			items={TABS.map((tab) => ({
 				label: tab.label,
 				href: buildHref(tab.value),
-				active: current === tab.value,
+				active:
+					tab.value === "advanced"
+						? ADVANCED_VIEWS.has(current)
+						: current === tab.value,
 			}))}
 		/>
 	);

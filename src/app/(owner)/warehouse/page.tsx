@@ -15,6 +15,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
+import { AdvancedLanding } from "@/components/warehouse/advanced/advanced-landing";
 import {
 	type BundleRow,
 	BundlesGrid,
@@ -575,7 +576,35 @@ export default async function WarehousePage({
 							icon={Layers}
 						/>
 					</>
+				) : tab === "consumables" ? (
+					// Persediaan (simple surface) — no finance figure; HPP moves to Lanjutan.
+					<>
+						<KpiCard
+							label="SKU Aktif"
+							value={totalSkus.toLocaleString("id-ID")}
+							hint={`${consumables.length} consumable · ${equipment.length} equipment`}
+							icon={Layers}
+							accent="sky"
+						/>
+						<KpiCard
+							label="Stok Kritis"
+							value={
+								stockLoadFailed ? "—" : criticalCount.toLocaleString("id-ID")
+							}
+							hint="≤ min alert (perlu restock)"
+							icon={AlertTriangle}
+							accent="amber"
+						/>
+						<KpiCard
+							label="Stok Habis"
+							value={stockLoadFailed ? "—" : emptyCount.toLocaleString("id-ID")}
+							hint="stok 0 atau minus"
+							icon={AlertOctagon}
+							accent="rose"
+						/>
+					</>
 				) : (
+					// Lanjutan / Aset / Market / Log Mutasi — full finance summary incl HPP.
 					<>
 						<KpiCard
 							label="Nilai HPP Stok"
@@ -612,6 +641,7 @@ export default async function WarehousePage({
 			</KpiRow>
 
 			<div className="space-y-3">
+				{tab === "advanced" && <AdvancedLanding />}
 				{tab === "forecast" && forecast && (
 					<ForecastView
 						result={forecast}
