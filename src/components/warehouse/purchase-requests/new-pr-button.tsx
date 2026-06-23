@@ -215,7 +215,7 @@ function PRForm({
 									}
 									placeholder="Catatan (opsional)"
 									maxLength={200}
-									className="h-10 rounded-md border border-border-default bg-surface-1 px-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+									className="h-10 rounded-md border border-border-default bg-surface-1 px-2 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 								/>
 								<button
 									type="button"
@@ -250,7 +250,7 @@ function PRForm({
 				<button
 					type="submit"
 					disabled={pending || validLines.length === 0}
-					className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+					className="inline-flex h-10 items-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-sm font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 				>
 					{pending
 						? "Mengirim..."

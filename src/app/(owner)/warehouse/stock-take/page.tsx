@@ -367,7 +367,7 @@ function ProgressCell({
 			</div>
 			<div className="h-1 overflow-hidden rounded-full bg-surface-3">
 				<div
-					className="h-full rounded-full bg-primary transition-all"
+					className="h-full rounded-full bg-[#059669] transition-all"
 					style={{ width: `${pct}%` }}
 				/>
 			</div>

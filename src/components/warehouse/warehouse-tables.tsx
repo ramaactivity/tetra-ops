@@ -99,8 +99,9 @@ function FilterChips<K extends string>({
 	onChange: (v: K) => void;
 	options: ReadonlyArray<{ key: K; label: string; count: number }>;
 }) {
+	// Individual emerald pills — matches the catalog reference (Paket/Add-on).
 	return (
-		<div className="inline-flex h-8 flex-wrap items-center gap-0.5 rounded-full border border-border-subtle bg-card p-0.5 shadow-[var(--shadow-level-1)]">
+		<div className="hide-scrollbar flex min-w-0 items-center gap-2 overflow-x-auto">
 			{options.map((o) => {
 				const active = o.key === value;
 				return (
@@ -109,15 +110,15 @@ function FilterChips<K extends string>({
 						type="button"
 						onClick={() => onChange(o.key)}
 						aria-pressed={active}
-						className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
+						className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
 							active
-								? "bg-primary text-white"
-								: "text-muted-foreground hover:bg-secondary hover:text-foreground"
+								? "border-[#059669] bg-[#059669] text-white"
+								: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 						}`}
 					>
 						{o.label}
 						<span
-							className={`tabular text-[11px] ${active ? "opacity-80" : "text-muted-foreground/70"}`}
+							className={`tabular text-[11px] ${active ? "text-white/70" : "text-muted-foreground/70"}`}
 						>
 							{o.count}
 						</span>
@@ -472,7 +473,7 @@ export function ConsumablesTable({
 						if (el) el.indeterminate = !allSelectedInView && someSelectedInView;
 					}}
 					onChange={() => toggleAll(filteredIds)}
-					className="size-3.5 cursor-pointer accent-primary"
+					className="size-3.5 cursor-pointer accent-[#059669]"
 					aria-label="Pilih semua item di view ini"
 					title={
 						allSelectedInView
@@ -489,7 +490,7 @@ export function ConsumablesTable({
 					checked={selectedIds.has(r.id)}
 					onChange={() => toggleOne(r.id)}
 					onClick={(e) => e.stopPropagation()}
-					className="size-3.5 cursor-pointer accent-primary"
+					className="size-3.5 cursor-pointer accent-[#059669]"
 					aria-label={`Pilih ${r.name}`}
 				/>
 			),
@@ -512,14 +513,14 @@ export function ConsumablesTable({
 								{r.name}
 							</span>
 							{!r.is_active ? (
-								<Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+								<Badge variant="secondary" className="h-5 px-1.5 text-[11px]">
 									Inactive
 								</Badge>
 							) : stockUnknown ? null : (
 								<StockStateBadge state={state} />
 							)}
 						</div>
-						<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular text-[10px] text-muted-foreground">
+						<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular text-[11px] text-muted-foreground">
 							<span>{r.sku}</span>
 							<span className="text-muted-foreground/40">·</span>
 							{(() => {
@@ -557,7 +558,7 @@ export function ConsumablesTable({
 					return (
 						<div className="flex flex-col items-end gap-0.5">
 							<span className="text-foreground/30 text-base">—</span>
-							<span className="text-[10px] text-muted-foreground/60">
+							<span className="text-[11px] text-muted-foreground/60">
 								tak dimuat
 							</span>
 						</div>
@@ -590,7 +591,7 @@ export function ConsumablesTable({
 									{bulk.label}
 								</span>
 							</div>
-							<div className="text-[10px] tabular text-muted-foreground/70">
+							<div className="text-[11px] tabular text-muted-foreground/70">
 								= {stock.toLocaleString("id-ID", { maximumFractionDigits: 2 })}{" "}
 								{r.unit}
 							</div>
@@ -611,7 +612,7 @@ export function ConsumablesTable({
 								{display.breakdown.map((b) => (
 									<span
 										key={b.abbr}
-										className="bg-surface-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] tabular text-muted-foreground"
+										className="bg-surface-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] tabular text-muted-foreground"
 										title={`Kapasitas maksimal ${b.value.toLocaleString("id-ID")} ${b.abbr}`}
 									>
 										<span className="font-semibold text-foreground/80">
@@ -644,7 +645,7 @@ export function ConsumablesTable({
 								{formatRupiah(costPerBulk)}{" "}
 								<span className="text-muted-foreground/60">/ {bulk.label}</span>
 							</span>
-							<span className="tabular text-[10px] text-muted-foreground/70">
+							<span className="tabular text-[11px] text-muted-foreground/70">
 								{formatRupiah(r.purchase_price_avg)} / {r.unit}
 							</span>
 						</div>
@@ -1034,7 +1035,7 @@ function ConditionBadge({ condition }: { condition: string | null }) {
 						: "border-border-default bg-surface-3 text-muted-foreground";
 	const label = EQUIPMENT_CONDITION_LABELS[condition] ?? condition;
 	return (
-		<Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${cls}`}>
+		<Badge variant="outline" className={`h-5 px-1.5 text-[11px] ${cls}`}>
 			{label}
 		</Badge>
 	);
@@ -1138,7 +1139,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 							{acqList.length === 1 && ACQUISITION_LABEL[acqList[0]] && (
 								<Badge
 									variant="outline"
-									className={`h-5 px-1.5 text-[10px] ${ACQUISITION_LABEL[acqList[0]].tone}`}
+									className={`h-5 px-1.5 text-[11px] ${ACQUISITION_LABEL[acqList[0]].tone}`}
 								>
 									{ACQUISITION_LABEL[acqList[0]].label}
 								</Badge>
@@ -1146,13 +1147,13 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 							{acqList.length > 1 && (
 								<Badge
 									variant="outline"
-									className="h-5 px-1.5 text-[10px] border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"
+									className="h-5 px-1.5 text-[11px] border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300"
 								>
 									Mix ({acqList.length} jenis)
 								</Badge>
 							)}
 						</div>
-						<div className="tabular text-[10px] text-foreground/40">
+						<div className="tabular text-[11px] text-foreground/40">
 							{firstSku}
 							{g.count > 1 && ` · +${g.count - 1} unit lain`}
 						</div>
@@ -1170,7 +1171,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 					<div className="tabular text-base font-semibold text-foreground">
 						{g.count}
 					</div>
-					<div className="text-[10px] text-muted-foreground/80">
+					<div className="text-[11px] text-muted-foreground/80">
 						{g.activeCount === g.count
 							? "unit"
 							: `${g.activeCount} aktif / ${g.count}`}
@@ -1188,7 +1189,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 						<Badge
 							key={s.label}
 							variant="outline"
-							className={`h-5 px-1.5 text-[10px] ${s.tone}`}
+							className={`h-5 px-1.5 text-[11px] ${s.tone}`}
 						>
 							{s.count > 1 ? `${s.count} ` : ""}
 							{s.label}
@@ -1214,12 +1215,12 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 							{formatRupiah(g.totalPrice)}
 						</span>
 						{g.count > 1 && (
-							<div className="whitespace-nowrap text-[10px] text-muted-foreground/80">
+							<div className="whitespace-nowrap text-[11px] text-muted-foreground/80">
 								{formatRupiah(Math.round(g.totalPrice / g.count))} / unit
 							</div>
 						)}
 						{isAllOwnerContrib && (
-							<div className="text-[10px] text-muted-foreground italic">
+							<div className="text-[11px] text-muted-foreground italic">
 								estimasi setoran
 							</div>
 						)}
@@ -1246,7 +1247,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 							</span>
 						</span>
 						{g.count > 1 && (
-							<div className="text-[10px] text-muted-foreground/80 italic">
+							<div className="text-[11px] text-muted-foreground/80 italic">
 								avg per unit
 							</div>
 						)}
@@ -1462,7 +1463,7 @@ export function MovementsLog({
 					<div className="tabular text-fluid-caption font-medium text-foreground">
 						{formatDateID(m.created_at)}
 					</div>
-					<div className="tabular text-[10px] text-muted-foreground">
+					<div className="tabular text-[11px] text-muted-foreground">
 						{m.ref_id}
 					</div>
 				</div>
@@ -1476,7 +1477,7 @@ export function MovementsLog({
 					<div className="font-medium text-foreground">
 						{m.item?.name ?? "—"}
 					</div>
-					<div className="tabular text-[10px] text-muted-foreground">
+					<div className="tabular text-[11px] text-muted-foreground">
 						{m.item?.sku ?? "—"}
 					</div>
 				</div>
@@ -1555,12 +1556,12 @@ export function MovementsLog({
 				<div className="space-y-0.5">
 					<Badge
 						variant="outline"
-						className="h-5 px-1.5 text-[10px] text-muted-foreground"
+						className="h-5 px-1.5 text-[11px] text-muted-foreground"
 					>
 						{SOURCE_LABELS[m.source] ?? m.source}
 					</Badge>
 					{m.supplier && (
-						<div className="text-[10px] text-muted-foreground/80">
+						<div className="text-[11px] text-muted-foreground/80">
 							{m.supplier.name}
 						</div>
 					)}
@@ -1674,14 +1675,14 @@ function MovementsDateFilter({
 				type="date"
 				defaultValue={defaultFrom ?? ""}
 				onChange={(e) => update("from", e.target.value)}
-				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 			/>
 			<span className="text-muted-foreground">→</span>
 			<input
 				type="date"
 				defaultValue={defaultTo ?? ""}
 				onChange={(e) => update("to", e.target.value)}
-				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 			/>
 			{hasFilter && (
 				<button

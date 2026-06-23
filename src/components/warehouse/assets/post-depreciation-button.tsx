@@ -108,7 +108,7 @@ export function PostDepreciationButton() {
 											onClick={() => setPeriod(ym)}
 											className={`press-down rounded-md py-1.5 text-[12px] font-medium transition-colors ${
 												isActive
-													? "bg-primary text-white"
+													? "bg-[#059669] text-white"
 													: "bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 											}`}
 										>
@@ -134,7 +134,7 @@ export function PostDepreciationButton() {
 							type="button"
 							onClick={handlePost}
 							disabled={pending}
-							className="bg-primary dark:bg-primary text-white hover:bg-primary/90 dark:hover:bg-primary press-down inline-flex h-9 items-center rounded-md px-3 text-[12px] font-medium disabled:opacity-60"
+							className="bg-[#059669] dark:bg-[#059669] text-white hover:bg-[#047857] dark:hover:bg-[#059669] press-down inline-flex h-9 items-center rounded-md px-3 text-[12px] font-medium disabled:opacity-60"
 						>
 							{pending ? "Posting…" : `Post ${formatYm(period)}`}
 						</button>

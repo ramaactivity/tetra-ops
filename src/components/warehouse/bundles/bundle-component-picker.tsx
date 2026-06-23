@@ -127,7 +127,7 @@ export function BundleComponentPicker({
 											update(idx, { qty: Number(e.target.value) || 0 })
 										}
 										disabled={disabled}
-										className="border-border-default bg-background h-9 w-full rounded-md border px-2 text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+										className="border-border-default bg-background h-9 w-full rounded-md border px-2 text-sm tabular focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 									/>
 									{selectedItem && (
 										<p className="text-muted-foreground text-[11px] tabular">
@@ -150,7 +150,7 @@ export function BundleComponentPicker({
 										disabled={disabled}
 										placeholder="opsional"
 										maxLength={120}
-										className="border-border-default bg-background h-9 w-full rounded-md border px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+										className="border-border-default bg-background h-9 w-full rounded-md border px-2 text-[12px] focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 									/>
 								</div>
 								<div className="flex justify-end pt-5">

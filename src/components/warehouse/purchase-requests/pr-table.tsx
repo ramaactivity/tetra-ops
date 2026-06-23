@@ -310,7 +310,7 @@ function PRDetailExpanded({
 													placeholder={
 														outstanding > 0 ? String(outstanding) : "0"
 													}
-													className="h-8 w-24 rounded-md border border-border-default bg-background px-2 text-right text-sm tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+													className="h-8 w-24 rounded-md border border-border-default bg-background px-2 text-right text-sm tabular focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 												/>
 											</td>
 										)}
@@ -337,7 +337,7 @@ function PRDetailExpanded({
 						type="button"
 						onClick={handleReceive}
 						disabled={pending}
-						className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-primary dark:bg-primary px-3 text-fluid-caption font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+						className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 					>
 						<Package className="size-3.5" />
 						{pending ? "Memproses..." : "Terima Item"}

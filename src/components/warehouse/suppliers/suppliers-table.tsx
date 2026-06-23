@@ -189,7 +189,7 @@ export function SuppliersTable({ rows }: { rows: SupplierRow[] }) {
 						type="checkbox"
 						checked={showInactive}
 						onChange={(e) => setShowInactive(e.target.checked)}
-						className="size-3.5 accent-primary"
+						className="size-3.5 accent-[#059669]"
 					/>
 					Tampilkan non-aktif
 				</label>

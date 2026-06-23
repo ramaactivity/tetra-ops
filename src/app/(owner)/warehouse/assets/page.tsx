@@ -203,7 +203,7 @@ export default async function AssetRegisterPage({
 					href="/warehouse/assets"
 					className={`press-down inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors ${
 						!showDisposed
-							? "border-primary bg-primary text-white"
+							? "border-[#059669] bg-[#059669] text-white"
 							: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 					}`}
 				>
@@ -213,7 +213,7 @@ export default async function AssetRegisterPage({
 					href="/warehouse/assets?show=disposed"
 					className={`press-down inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors ${
 						showDisposed
-							? "border-primary bg-primary text-white"
+							? "border-[#059669] bg-[#059669] text-white"
 							: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 					}`}
 				>

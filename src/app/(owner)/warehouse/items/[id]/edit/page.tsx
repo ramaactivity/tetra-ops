@@ -95,7 +95,7 @@ export default async function WarehouseEditItemPage({
 				backLabel="Warehouse"
 				description={
 					<span className="flex items-center gap-2">
-						<span className="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
+						<span className="bg-[#059669]/10 text-[#059669] inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
 							{categoryLabel}
 						</span>
 						<span className="tabular font-mono text-xs">

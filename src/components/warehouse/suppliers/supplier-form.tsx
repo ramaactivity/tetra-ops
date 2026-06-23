@@ -221,7 +221,7 @@ export function SupplierForm({
 				<button
 					type="submit"
 					disabled={pending}
-					className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+					className="inline-flex h-10 items-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-sm font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 				>
 					{pending
 						? "Menyimpan…"
@@ -235,7 +235,7 @@ export function SupplierForm({
 }
 
 const inputCls =
-	"h-10 w-full rounded-md border border-border-default bg-surface-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40";
+	"h-10 w-full rounded-md border border-border-default bg-surface-2 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40";
 
 function SectionHeader({
 	icon,

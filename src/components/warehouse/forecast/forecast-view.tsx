@@ -2,6 +2,7 @@
 
 import { AlertTriangle, CalendarClock, ShoppingCart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
 	ResponsiveTable,
@@ -160,17 +161,17 @@ export function ForecastView({
 
 	return (
 		<div className="space-y-3">
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<p className="text-[12.5px] text-muted-foreground">
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<p className="max-w-xl text-[13px] leading-snug text-muted-foreground">
 					Estimasi dari rata-rata pemakaian {events_observed} event sebelumnya ×{" "}
 					{upcoming_count} event mendatang.{" "}
-					<span className="text-muted-foreground/70">
-						Angka perkiraan — bukan pasti.
+					<span className="text-muted-foreground/60">
+						Angka perkiraan, bukan pasti.
 					</span>
 				</p>
 				<PembelianDialog
 					trigger={
-						<span className="press-down inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground hover:opacity-90">
+						<span className={buttonVariants({ variant: "default" })}>
 							<ShoppingCart className="size-4" />
 							Belanja kekurangan
 							<span className="tabular text-[11px] opacity-80">

@@ -238,7 +238,7 @@ export function PembelianDialog({
 									name="purchase_date"
 									defaultValue={new Date().toISOString().slice(0, 10)}
 									required
-									className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+									className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 								/>
 							</Field>
 							<Field
@@ -302,7 +302,7 @@ export function PembelianDialog({
 										name="invoice_no"
 										maxLength={60}
 										placeholder="mis. INV-2026-0042"
-										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 									/>
 								</Field>
 							)}
@@ -316,7 +316,7 @@ export function PembelianDialog({
 										name="invoice_no"
 										maxLength={60}
 										placeholder="mis. INV-2026-0042"
-										className="h-10 w-full max-w-xs rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+										className="h-10 w-full max-w-xs rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 									/>
 								</Field>
 							</div>
@@ -559,7 +559,7 @@ export function PembelianDialog({
 						<button
 							type="submit"
 							disabled={pending || validLines.length === 0}
-							className="inline-flex h-10 items-center rounded-md bg-primary dark:bg-primary px-4 text-sm font-medium text-white hover:bg-primary/90 dark:hover:bg-primary disabled:opacity-60"
+							className="inline-flex h-10 items-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-sm font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 						>
 							{pending
 								? "Menyimpan…"
