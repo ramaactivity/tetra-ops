@@ -15,6 +15,10 @@
 -- (e.g. 'purchase_request' on DBs where it was never added) never raises
 -- "invalid input value for enum" — it just doesn't match.
 
+-- DROP first: the RETURNS TABLE shape evolved (added usage_cost), and
+-- CREATE OR REPLACE cannot change a function's return type.
+DROP FUNCTION IF EXISTS get_inventory_rollforward(timestamptz, timestamptz);
+
 CREATE OR REPLACE FUNCTION get_inventory_rollforward(
   p_start timestamptz,
   p_end timestamptz
@@ -28,6 +32,7 @@ RETURNS TABLE(
   purchases_qty numeric,
   purchases_cost numeric,
   usage_qty numeric,
+  usage_cost numeric,
   net_move_in_month numeric,
   current_stock numeric,
   opname_prior_qty numeric,
@@ -56,6 +61,10 @@ AS $$
       COALESCE(SUM(CASE WHEN sm.direction = 'out'
                          AND sm.source::text = 'rekap_consumption'
                         THEN sm.quantity ELSE 0 END), 0) AS usage_qty,
+      -- Exact recorded COGS = qty × the HPP unit_cost at consumption time.
+      COALESCE(SUM(CASE WHEN sm.direction = 'out'
+                         AND sm.source::text = 'rekap_consumption'
+                        THEN sm.quantity * COALESCE(sm.unit_cost, 0) ELSE 0 END), 0) AS usage_cost,
       COALESCE(SUM(CASE sm.direction
                      WHEN 'in' THEN sm.quantity
                      WHEN 'out' THEN -sm.quantity
@@ -101,6 +110,7 @@ AS $$
     COALESCE(pm.purchases_qty, 0),
     COALESCE(pm.purchases_cost, 0),
     COALESCE(pm.usage_qty, 0),
+    COALESCE(pm.usage_cost, 0),
     COALESCE(pm.net_move_in_month, 0),
     COALESCE(cs.current_stock, 0),
     op_prior.counted_qty,

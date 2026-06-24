@@ -76,6 +76,18 @@ function shiftMonth(ym: string, delta: number): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/** Compact Rupiah for KPI tiles so large values never overflow the card.
+ *  Full format under 100 jt; "Rp X,X jt" / "Rp X,X M" above. */
+function rpCompact(v: number): string {
+	const a = Math.abs(v);
+	const sign = v < 0 ? "−" : "";
+	if (a >= 1_000_000_000)
+		return `${sign}Rp ${(a / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`;
+	if (a >= 100_000_000)
+		return `${sign}Rp ${(a / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 0 })} jt`;
+	return formatRupiah(v);
+}
+
 type Tab = "cogs" | "opname";
 
 export default async function PersediaanReportPage({
@@ -144,7 +156,7 @@ export default async function PersediaanReportPage({
 						description={`Belum ada stok awal, pembelian, atau pemakaian untuk ${label}. Coba bulan lain, atau catat pembelian / jalankan opname.`}
 					/>
 				) : (
-					<CogsView data={data} ym={ym} label={label} />
+					<CogsView data={data} label={label} />
 				))}
 
 			{tab === "opname" && <OpnameView supabase={supabase} />}
@@ -154,11 +166,9 @@ export default async function PersediaanReportPage({
 
 function CogsView({
 	data,
-	ym,
 	label,
 }: {
 	data: ReturnType<typeof computeRollforward>;
-	ym: string;
 	label: string;
 }) {
 	const { flags } = data;
@@ -169,16 +179,15 @@ function CogsView({
 				<Banner tone="rose">
 					<strong>{flags.negativeSkus.length} item stok minus</strong> (
 					{flags.negativeSkus.join(", ")}) — konsumsi tercatat tanpa pembelian/
-					opname pembanding. Angka di-valuasi WAC jadi terlihat ekstrem; lakukan{" "}
-					<OpnameLink /> untuk koreksi.
+					opname pembanding, jadi nilai Stok Awal/Akhir-nya tampak ekstrem.
+					Lakukan <OpnameLink /> untuk koreksi.
 				</Banner>
 			)}
 			{!flags.hasThisOpname && (
 				<Banner tone="amber">
 					Belum ada Stock Opname dalam {label}. Stok Akhir memakai stok sistem
-					(belum diaudit fisik) — COGS di bawah adalah{" "}
-					<em>plug roll-forward</em>, bukan hasil opname. Jalankan{" "}
-					<OpnameLink /> untuk mengunci angka akhir & menangkap selisih.
+					(belum diaudit fisik). Jalankan <OpnameLink /> untuk mengunci angka
+					akhir & menangkap selisih antara stok fisik dan pemakaian tercatat.
 				</Banner>
 			)}
 			{!flags.hasPriorOpname && (
@@ -191,35 +200,35 @@ function CogsView({
 			<KpiRow className="lg:grid-cols-5">
 				<KpiCard
 					label="Total COGS"
-					value={formatRupiah(data.kpis.totalCogs)}
-					hint="Σ pemakaian (Awal + Beli − Akhir)"
+					value={rpCompact(data.kpis.totalCogs)}
+					hint="konsumsi event tercatat"
 					icon={Coins}
 					accent="primary"
 				/>
 				<KpiCard
 					label="Mediaset"
-					value={formatRupiah(data.kpis.mediasetCogs)}
+					value={rpCompact(data.kpis.mediasetCogs)}
 					hint="COGS media"
 					icon={Layers}
 					accent="sky"
 				/>
 				<KpiCard
 					label="Sleeve"
-					value={formatRupiah(data.kpis.sleeveCogs)}
+					value={rpCompact(data.kpis.sleeveCogs)}
 					hint="COGS sleeve"
 					icon={Layers}
 					accent="amber"
 				/>
 				<KpiCard
 					label="Flashdisk"
-					value={formatRupiah(data.kpis.flashdiskCogs)}
+					value={rpCompact(data.kpis.flashdiskCogs)}
 					hint="COGS flashdisk + box"
 					icon={Layers}
 					accent="rose"
 				/>
 				<KpiCard
 					label="Nilai Persediaan Akhir"
-					value={formatRupiah(data.kpis.closingValue)}
+					value={rpCompact(data.kpis.closingValue)}
 					hint={`${data.itemCount} item · on-hand × WAC`}
 					icon={Wallet2}
 					accent="emerald"
@@ -227,12 +236,15 @@ function CogsView({
 			</KpiRow>
 
 			<p className="text-[12px] text-muted-foreground">
-				WAC = harga rata-rata tertimbang (purchase_price_avg). Pemakaian = Stok
-				Awal + Pembelian − Stok Akhir. Filter periode pakai tanggal mutasi.
+				<strong className="font-medium text-foreground">
+					COGS / Pemakaian
+				</strong>{" "}
+				= konsumsi event nyata (rekap), dinilai HPP saat pakai — bukan plug.
+				Stok Awal / Akhir = roll-forward persediaan (WAC = purchase_price_avg);
+				selisih dengan pemakaian = variance yang dikoreksi lewat opname.
 			</p>
 
 			<RollforwardTable data={data} />
-			<span className="sr-only">{ym}</span>
 		</div>
 	);
 }
@@ -244,7 +256,7 @@ async function OpnameView({
 }) {
 	const { data: last } = await supabase
 		.from("stock_takes")
-		.select("id, committed_at, committed_by")
+		.select("committed_at")
 		.eq("status", "committed")
 		.order("committed_at", { ascending: false })
 		.limit(1)

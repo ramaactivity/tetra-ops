@@ -20,6 +20,7 @@ export type RollforwardRpcRow = {
 	purchases_qty: number | string | null;
 	purchases_cost: number | string | null;
 	usage_qty: number | string | null;
+	usage_cost: number | string | null;
 	net_move_in_month: number | string | null;
 	current_stock: number | string | null;
 	opname_prior_qty: number | string | null;
@@ -106,8 +107,15 @@ function computeItem(row: RollforwardRpcRow): RollforwardItem {
 	const purchasesPrice =
 		purchasesQty > 0 ? round(purchasesCost / purchasesQty) : wac;
 
-	// Pemakaian = roll-forward plug (everything that left inventory).
-	const usageQty = openingQty + purchasesQty - closingQty;
+	// Pemakaian / COGS = ACTUAL recorded event consumption (rekap_consumption),
+	// valued at the exact HPP unit_cost from each consumption movement. This is
+	// the true material COGS — NOT the roll-forward plug, which on Tetra's
+	// unaudited data conflates stray adjustments/settlements and explodes into
+	// meaningless numbers. Opening/Closing remain the inventory roll-forward
+	// context (with negatives flagged); the gap between (Awal+Beli−Akhir) and
+	// recorded usage is the audit variance that opname resolves.
+	const usageQty = n(row.usage_qty);
+	const usageTotal = round(n(row.usage_cost));
 
 	return {
 		item_id: row.item_id,
@@ -124,8 +132,8 @@ function computeItem(row: RollforwardRpcRow): RollforwardItem {
 		closingQty,
 		closingTotal: round(closingQty * wac),
 		usageQty,
-		usageTotal: round(usageQty * wac),
-		recordedUsageQty: n(row.usage_qty),
+		usageTotal,
+		recordedUsageQty: usageQty,
 		openingDerived,
 		closingDerived,
 		negative: openingQty < 0 || closingQty < 0,

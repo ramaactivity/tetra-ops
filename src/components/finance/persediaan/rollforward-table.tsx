@@ -54,7 +54,7 @@ export function RollforwardTable({ data }: { data: RollforwardResult }) {
 	return (
 		<div className="overflow-hidden rounded-2xl border border-border-default bg-card shadow-[var(--shadow-level-2)]">
 			<div className="overflow-x-auto">
-				<table className="w-full min-w-[920px] text-[13px]">
+				<table className="w-full min-w-[1080px] text-[13px]">
 					<thead className="text-[11px]">
 						<tr className="border-b border-border-default bg-card">
 							<th
@@ -149,10 +149,10 @@ function BucketSection({
 					</td>
 
 					{/* Stok Awal */}
-					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular text-muted-foreground">
+					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.openingQty === 0 ? DASH : fmtQty(it.openingQty)}
 					</td>
-					<td className="px-3 py-2.5 text-right tabular text-muted-foreground">
+					<td className="px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.wac === 0 ? DASH : formatRupiah(it.wac)}
 					</td>
 					<td className="px-3 py-2.5 text-right">
@@ -160,10 +160,10 @@ function BucketSection({
 					</td>
 
 					{/* Pembelian */}
-					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular text-muted-foreground">
+					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.purchasesQty === 0 ? DASH : fmtQty(it.purchasesQty)}
 					</td>
-					<td className="px-3 py-2.5 text-right tabular text-muted-foreground">
+					<td className="px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.purchasesQty === 0 ? DASH : formatRupiah(it.purchasesPrice)}
 					</td>
 					<td className="px-3 py-2.5 text-right">
@@ -188,24 +188,18 @@ function BucketSection({
 							</span>
 						)}
 					</td>
-					<td className="px-3 py-2.5 text-right tabular text-muted-foreground">
+					<td className="px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.wac === 0 ? DASH : formatRupiah(it.wac)}
 					</td>
 					<td className="px-3 py-2.5 text-right">
 						<Money v={it.closingTotal} />
 					</td>
 
-					{/* COGS / Pemakaian — negative usage tinted amber (opname found more) */}
-					<td
-						className={`border-l border-border-subtle px-3 py-2.5 text-right tabular ${
-							it.usageQty < 0
-								? "text-amber-600 dark:text-amber-400"
-								: "text-muted-foreground"
-						}`}
-					>
+					{/* COGS / Pemakaian — recorded event consumption (always ≥ 0) */}
+					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.usageQty === 0 ? DASH : fmtQty(it.usageQty)}
 					</td>
-					<td className="px-3 py-2.5 text-right tabular text-muted-foreground">
+					<td className="px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
 						{it.usageQty === 0 ? DASH : formatRupiah(it.wac)}
 					</td>
 					<td className="px-3 py-2.5 text-right">
