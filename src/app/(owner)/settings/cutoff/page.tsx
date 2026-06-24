@@ -63,6 +63,8 @@ export default async function CutoffPage() {
 			.from("bank_accounts")
 			.select("coa_code, account_name, bank_name")
 			.eq("is_active", true)
+			// 1-100 Kas Tunai punya field khusus (cash) — jangan dobel di daftar bank.
+			.neq("coa_code", "1-100")
 			.order("coa_code"),
 		sb
 			.from("inventory_items")
