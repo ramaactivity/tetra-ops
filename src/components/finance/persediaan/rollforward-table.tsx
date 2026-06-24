@@ -10,9 +10,6 @@ function fmtQty(q: number): string {
 
 const DASH = <span className="text-foreground/25">—</span>;
 
-// 10 columns: Item + (Qty,Total)×4 groups + Selisih.
-const COLSPAN_ALL = 10;
-
 function Money({ v, strong = false }: { v: number; strong?: boolean }) {
 	if (v === 0) return DASH;
 	return (
@@ -62,6 +59,7 @@ function GroupHead({ label }: { label: string }) {
 	return (
 		<th
 			colSpan={2}
+			scope="colgroup"
 			className="eyebrow border-l border-border-subtle px-3 py-2 text-center"
 		>
 			{label}
@@ -71,35 +69,74 @@ function GroupHead({ label }: { label: string }) {
 function SubHead() {
 	return (
 		<>
-			<th className="border-l border-border-subtle px-3 py-2 text-right font-medium text-muted-foreground">
+			<th
+				scope="col"
+				className="border-l border-border-subtle px-3 py-2 text-right font-medium text-muted-foreground"
+			>
 				Qty
 			</th>
-			<th className="px-3 py-2 text-right font-medium text-muted-foreground">
+			<th
+				scope="col"
+				className="px-3 py-2 text-right font-medium text-muted-foreground"
+			>
 				Total
 			</th>
 		</>
 	);
 }
 
+/** A right-aligned Qty + Total pair of body cells. */
+function NumPair({
+	qty,
+	total,
+	strongTotal = false,
+}: {
+	qty: React.ReactNode;
+	total: number;
+	strongTotal?: boolean;
+}) {
+	return (
+		<>
+			<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular">
+				{qty}
+			</td>
+			<td className="px-3 py-2.5 text-right">
+				<Money v={total} strong={strongTotal} />
+			</td>
+		</>
+	);
+}
+
 export function RollforwardTable({ data }: { data: RollforwardResult }) {
+	// Collapse the Pembelian group entirely when the month has no purchases —
+	// common for Tetra, and 2 empty columns is pure noise.
+	const showPurchases =
+		data.grand.purchasesTotal !== 0 ||
+		data.buckets.some((b) => b.items.some((it) => it.purchasesQty !== 0));
+	const colCount = showPurchases ? 10 : 8;
+
 	return (
 		<div className="overflow-hidden rounded-2xl border border-border-default bg-card shadow-[var(--shadow-level-2)]">
 			<div className="overflow-x-auto">
-				<table className="w-full min-w-[860px] text-[13px]">
+				<table
+					className={`w-full text-[13px] ${showPurchases ? "min-w-[860px]" : "min-w-[720px]"}`}
+				>
 					<thead className="text-[11px]">
 						<tr className="border-b border-border-default bg-card">
 							<th
 								rowSpan={2}
+								scope="col"
 								className="eyebrow sticky left-0 z-10 bg-card px-4 py-2 text-left"
 							>
 								Item
 							</th>
 							<GroupHead label="Stok Awal" />
-							<GroupHead label="Pembelian" />
+							{showPurchases && <GroupHead label="Pembelian" />}
 							<GroupHead label="Stok Akhir" />
 							<GroupHead label="Pemakaian" />
 							<th
 								rowSpan={2}
+								scope="col"
 								className="eyebrow border-l border-border-subtle px-3 py-2 text-right"
 							>
 								Selisih
@@ -107,44 +144,38 @@ export function RollforwardTable({ data }: { data: RollforwardResult }) {
 						</tr>
 						<tr className="border-b border-border-default bg-card tabular">
 							<SubHead />
-							<SubHead />
+							{showPurchases && <SubHead />}
 							<SubHead />
 							<SubHead />
 						</tr>
 					</thead>
 					<tbody>
 						{data.buckets.map((bucket) => (
-							<BucketSection key={bucket.key} bucket={bucket} />
+							<BucketSection
+								key={bucket.key}
+								bucket={bucket}
+								showPurchases={showPurchases}
+								colCount={colCount}
+							/>
 						))}
 
 						<tr className="border-t-2 border-border-strong bg-secondary/50 font-semibold">
-							<td className="sticky left-0 z-10 bg-secondary/50 px-4 py-2.5 text-left">
+							<th
+								scope="row"
+								className="sticky left-0 z-10 bg-secondary/50 px-4 py-2.5 text-left font-semibold"
+							>
 								Total Keseluruhan
-							</td>
-							<td className="border-l border-border-subtle px-3 py-2.5 text-right">
-								{DASH}
-							</td>
-							<td className="px-3 py-2.5 text-right">
-								<Money v={data.grand.openingTotal} strong />
-							</td>
-							<td className="border-l border-border-subtle px-3 py-2.5 text-right">
-								{DASH}
-							</td>
-							<td className="px-3 py-2.5 text-right">
-								<Money v={data.grand.purchasesTotal} strong />
-							</td>
-							<td className="border-l border-border-subtle px-3 py-2.5 text-right">
-								{DASH}
-							</td>
-							<td className="px-3 py-2.5 text-right">
-								<Money v={data.grand.closingTotal} strong />
-							</td>
-							<td className="border-l border-border-subtle px-3 py-2.5 text-right">
-								{DASH}
-							</td>
-							<td className="px-3 py-2.5 text-right">
-								<Money v={data.grand.usageTotal} strong />
-							</td>
+							</th>
+							<NumPair qty={DASH} total={data.grand.openingTotal} strongTotal />
+							{showPurchases && (
+								<NumPair
+									qty={DASH}
+									total={data.grand.purchasesTotal}
+									strongTotal
+								/>
+							)}
+							<NumPair qty={DASH} total={data.grand.closingTotal} strongTotal />
+							<NumPair qty={DASH} total={data.grand.usageTotal} strongTotal />
 							<td className="border-l border-border-subtle px-3 py-2.5 text-right">
 								<Variance v={data.grand.varianceTotal} />
 							</td>
@@ -158,14 +189,20 @@ export function RollforwardTable({ data }: { data: RollforwardResult }) {
 
 function BucketSection({
 	bucket,
+	showPurchases,
+	colCount,
 }: {
 	bucket: RollforwardResult["buckets"][number];
+	showPurchases: boolean;
+	colCount: number;
 }) {
+	// Single-item buckets: the subtotal would just repeat the row — skip it.
+	const showSubtotal = bucket.items.length > 1;
 	return (
 		<>
 			<tr className="bg-secondary/30">
 				<td
-					colSpan={COLSPAN_ALL}
+					colSpan={colCount}
 					className="eyebrow sticky left-0 px-4 py-1.5 text-left text-muted-foreground"
 				>
 					{bucket.label}
@@ -176,86 +213,76 @@ function BucketSection({
 					key={it.item_id}
 					className="border-b border-border-subtle last:border-0 hover:bg-secondary/30"
 				>
-					<td className="sticky left-0 z-10 bg-card px-4 py-2.5 text-left">
+					<th
+						scope="row"
+						className="sticky left-0 z-10 bg-card px-4 py-2.5 text-left font-normal"
+					>
 						<div className="font-medium text-foreground">{it.name}</div>
 						<div className="tabular text-[11px] text-muted-foreground">
 							{it.sku} · {it.unit}
 							{it.wac > 0 && <> · WAC {formatRupiah(it.wac)}</>}
 						</div>
-					</td>
-
-					{/* Stok Awal */}
-					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular">
-						<QtyCell q={it.openingQty} />
-					</td>
-					<td className="px-3 py-2.5 text-right">
-						<Money v={it.openingTotal} />
-					</td>
-
-					{/* Pembelian */}
-					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
-						{it.purchasesQty === 0 ? DASH : fmtQty(it.purchasesQty)}
-					</td>
-					<td className="px-3 py-2.5 text-right">
-						<Money v={it.purchasesTotal} />
-					</td>
-
-					{/* Stok Akhir */}
-					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular">
-						<QtyCell q={it.closingQty} />
-					</td>
-					<td className="px-3 py-2.5 text-right">
-						<Money v={it.closingTotal} />
-					</td>
-
-					{/* Pemakaian (recorded, ≥ 0) */}
-					<td className="border-l border-border-subtle px-3 py-2.5 text-right tabular whitespace-nowrap text-muted-foreground">
-						{it.usageQty === 0 ? DASH : fmtQty(it.usageQty)}
-					</td>
-					<td className="px-3 py-2.5 text-right">
-						<Money v={it.usageTotal} strong />
-					</td>
-
-					{/* Selisih */}
+					</th>
+					<NumPair
+						qty={<QtyCell q={it.openingQty} />}
+						total={it.openingTotal}
+					/>
+					{showPurchases && (
+						<NumPair
+							qty={
+								it.purchasesQty === 0 ? (
+									DASH
+								) : (
+									<span className="whitespace-nowrap text-muted-foreground">
+										{fmtQty(it.purchasesQty)}
+									</span>
+								)
+							}
+							total={it.purchasesTotal}
+						/>
+					)}
+					<NumPair
+						qty={<QtyCell q={it.closingQty} />}
+						total={it.closingTotal}
+					/>
+					<NumPair
+						qty={
+							it.usageQty === 0 ? (
+								DASH
+							) : (
+								<span className="whitespace-nowrap text-muted-foreground">
+									{fmtQty(it.usageQty)}
+								</span>
+							)
+						}
+						total={it.usageTotal}
+						strongTotal
+					/>
 					<td className="border-l border-border-subtle px-3 py-2.5 text-right">
 						<Variance v={it.varianceTotal} />
 					</td>
 				</tr>
 			))}
 
-			{/* Subtotal — Rupiah Total columns only */}
-			<tr className="border-b border-border-default bg-surface-3/30 text-[12px] font-medium">
-				<td className="sticky left-0 z-10 bg-surface-3/30 px-4 py-2 text-left text-muted-foreground">
-					Subtotal {bucket.label}
-				</td>
-				<td className="border-l border-border-subtle px-3 py-2 text-right">
-					{DASH}
-				</td>
-				<td className="px-3 py-2 text-right">
-					<Money v={bucket.subtotal.openingTotal} />
-				</td>
-				<td className="border-l border-border-subtle px-3 py-2 text-right">
-					{DASH}
-				</td>
-				<td className="px-3 py-2 text-right">
-					<Money v={bucket.subtotal.purchasesTotal} />
-				</td>
-				<td className="border-l border-border-subtle px-3 py-2 text-right">
-					{DASH}
-				</td>
-				<td className="px-3 py-2 text-right">
-					<Money v={bucket.subtotal.closingTotal} />
-				</td>
-				<td className="border-l border-border-subtle px-3 py-2 text-right">
-					{DASH}
-				</td>
-				<td className="px-3 py-2 text-right">
-					<Money v={bucket.subtotal.usageTotal} />
-				</td>
-				<td className="border-l border-border-subtle px-3 py-2 text-right">
-					<Variance v={bucket.subtotal.varianceTotal} />
-				</td>
-			</tr>
+			{showSubtotal && (
+				<tr className="border-b border-border-default bg-surface-3/30 text-[12px] font-medium">
+					<th
+						scope="row"
+						className="sticky left-0 z-10 bg-surface-3/30 px-4 py-2 text-left font-medium text-muted-foreground"
+					>
+						Subtotal {bucket.label}
+					</th>
+					<NumPair qty={DASH} total={bucket.subtotal.openingTotal} />
+					{showPurchases && (
+						<NumPair qty={DASH} total={bucket.subtotal.purchasesTotal} />
+					)}
+					<NumPair qty={DASH} total={bucket.subtotal.closingTotal} />
+					<NumPair qty={DASH} total={bucket.subtotal.usageTotal} />
+					<td className="border-l border-border-subtle px-3 py-2 text-right">
+						<Variance v={bucket.subtotal.varianceTotal} />
+					</td>
+				</tr>
+			)}
 		</>
 	);
 }

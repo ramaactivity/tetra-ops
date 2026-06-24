@@ -77,14 +77,14 @@ function shiftMonth(ym: string, delta: number): string {
 }
 
 /** Compact Rupiah for KPI tiles so large values never overflow the card.
- *  Full format under 100 jt; "Rp X,X jt" / "Rp X,X M" above. */
+ *  Full format under 10 jt; "Rp X,X jt" / "Rp X,X M" above. */
 function rpCompact(v: number): string {
 	const a = Math.abs(v);
 	const sign = v < 0 ? "−" : "";
 	if (a >= 1_000_000_000)
 		return `${sign}Rp ${(a / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`;
-	if (a >= 100_000_000)
-		return `${sign}Rp ${(a / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 0 })} jt`;
+	if (a >= 10_000_000)
+		return `${sign}Rp ${(a / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
 	return formatRupiah(v);
 }
 
