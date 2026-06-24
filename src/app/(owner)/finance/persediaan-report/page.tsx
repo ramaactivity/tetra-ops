@@ -159,7 +159,14 @@ export default async function PersediaanReportPage({
 					<CogsView data={data} label={label} />
 				))}
 
-			{tab === "opname" && <OpnameView supabase={supabase} />}
+			{tab === "opname" && (
+				<OpnameView
+					supabase={supabase}
+					pStart={pStart}
+					pEnd={pEnd}
+					label={label}
+				/>
+			)}
 		</Container>
 	);
 }
@@ -174,7 +181,7 @@ function CogsView({
 	const { flags } = data;
 	return (
 		<div className="space-y-3">
-			{/* Degradation banners */}
+			{/* Degradation banners — at most two: data-quality (rose) + opname (amber). */}
 			{flags.negativeSkus.length > 0 && (
 				<Banner tone="rose">
 					<strong>{flags.negativeSkus.length} item stok minus</strong> (
@@ -183,17 +190,18 @@ function CogsView({
 					Lakukan <OpnameLink /> untuk koreksi.
 				</Banner>
 			)}
-			{!flags.hasThisOpname && (
+			{(!flags.hasThisOpname || !flags.hasPriorOpname) && (
 				<Banner tone="amber">
-					Belum ada Stock Opname dalam {label}. Stok Akhir memakai stok sistem
-					(belum diaudit fisik). Jalankan <OpnameLink /> untuk mengunci angka
-					akhir & menangkap selisih antara stok fisik dan pemakaian tercatat.
-				</Banner>
-			)}
-			{!flags.hasPriorOpname && (
-				<Banner tone="amber">
-					Belum ada Stock Opname sebelum {label}. Stok Awal diturunkan dari stok
-					saat ini dikurangi mutasi bulan ini — estimasi, bukan angka audit.
+					Belum ada Stock Opname{" "}
+					{!flags.hasThisOpname && !flags.hasPriorOpname
+						? `sebelum & dalam ${label}`
+						: !flags.hasThisOpname
+							? `dalam ${label}`
+							: `sebelum ${label}`}
+					{!flags.hasPriorOpname && " — Stok Awal jadi estimasi"}
+					{!flags.hasThisOpname && " — Stok Akhir pakai stok sistem"}, belum
+					diaudit fisik. Jalankan <OpnameLink /> untuk angka akurat & menangkap
+					selisih.
 				</Banner>
 			)}
 
@@ -244,6 +252,9 @@ function CogsView({
 				idealnya nol; opname mengoreksinya.
 			</p>
 
+			<p className="text-[11px] text-muted-foreground md:hidden">
+				← Geser tabel untuk melihat semua kolom →
+			</p>
 			<RollforwardTable data={data} />
 		</div>
 	);
@@ -251,16 +262,53 @@ function CogsView({
 
 async function OpnameView({
 	supabase,
+	pStart,
+	pEnd,
+	label,
 }: {
 	supabase: Awaited<ReturnType<typeof createClient>>;
+	pStart: string;
+	pEnd: string;
+	label: string;
 }) {
-	const { data: last } = await supabase
-		.from("stock_takes")
-		.select("committed_at")
-		.eq("status", "committed")
-		.order("committed_at", { ascending: false })
-		.limit(1)
-		.maybeSingle();
+	const [{ data: last }, { data: thisMonth }, { count: itemCount }] =
+		await Promise.all([
+			supabase
+				.from("stock_takes")
+				.select("committed_at")
+				.eq("status", "committed")
+				.order("committed_at", { ascending: false })
+				.limit(1)
+				.maybeSingle(),
+			supabase
+				.from("stock_takes")
+				.select("status, committed_at, taken_at")
+				.gte("taken_at", pStart)
+				.lt("taken_at", pEnd)
+				.order("taken_at", { ascending: false })
+				.limit(1)
+				.maybeSingle(),
+			supabase
+				.from("inventory_items")
+				.select("id", { count: "exact", head: true })
+				.eq("category", "inventory")
+				.eq("is_active", true)
+				.is("deleted_at", null),
+		]);
+
+	const thisStatus = (thisMonth as { status?: string } | null)?.status;
+	const thisLabel =
+		thisStatus === "committed"
+			? "Sudah selesai (committed)"
+			: thisStatus === "draft"
+				? "Ada draft (belum di-commit)"
+				: "Belum ada";
+	const thisTone =
+		thisStatus === "committed"
+			? "emerald"
+			: thisStatus === "draft"
+				? "amber"
+				: "rose";
 
 	return (
 		<div className="space-y-3">
@@ -270,29 +318,62 @@ async function OpnameView({
 				melenceng dari kenyataan.
 			</Banner>
 
-			<div className="rounded-2xl border border-border-default bg-card p-5 shadow-[var(--shadow-level-2)]">
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<div className="space-y-1">
-						<div className="eyebrow text-muted-foreground">Opname terakhir</div>
-						<div className="text-[15px] font-semibold text-foreground">
-							{last?.committed_at
-								? formatDateID(last.committed_at.slice(0, 10))
-								: "Belum pernah ada opname"}
-						</div>
-						<div className="text-[12px] text-muted-foreground">
-							{last?.committed_at
-								? "Stock opname mengunci stok fisik per item & menangkap selisih."
-								: "Jalankan opname pertama untuk menganchor valuasi persediaan."}
-						</div>
-					</div>
-					<Link
-						href="/warehouse/stock-take"
-						className={buttonVariants({ variant: "default" })}
-					>
-						<Boxes className="size-4" />
-						Buka Stock Opname
-					</Link>
-				</div>
+			<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+				<InfoTile label={`Opname ${label}`} value={thisLabel} tone={thisTone} />
+				<InfoTile
+					label="Opname terakhir (committed)"
+					value={
+						last?.committed_at
+							? formatDateID(last.committed_at.slice(0, 10))
+							: "Belum pernah"
+					}
+				/>
+				<InfoTile
+					label="Item perlu dihitung"
+					value={`${itemCount ?? 0} item persediaan`}
+				/>
+			</div>
+
+			<div className="flex flex-col gap-2 rounded-2xl border border-border-default bg-card p-5 shadow-[var(--shadow-level-2)] sm:flex-row sm:items-center sm:justify-between">
+				<p className="max-w-xl text-[13px] text-muted-foreground">
+					Stock opname mengunci stok fisik per item, menganchor Stok Awal/Akhir,
+					dan menghilangkan kolom Selisih di laporan COGS.
+				</p>
+				<Link
+					href="/warehouse/stock-take"
+					className={buttonVariants({ variant: "default" })}
+				>
+					<Boxes className="size-4" />
+					Buka Stock Opname
+				</Link>
+			</div>
+		</div>
+	);
+}
+
+function InfoTile({
+	label,
+	value,
+	tone,
+}: {
+	label: string;
+	value: string;
+	tone?: "emerald" | "amber" | "rose";
+}) {
+	const dot =
+		tone === "emerald"
+			? "bg-emerald-500"
+			: tone === "amber"
+				? "bg-amber-500"
+				: tone === "rose"
+					? "bg-rose-500"
+					: null;
+	return (
+		<div className="rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-1)]">
+			<div className="eyebrow text-muted-foreground">{label}</div>
+			<div className="mt-1 flex items-center gap-1.5 text-[15px] font-semibold text-foreground">
+				{dot && <span className={`size-2 rounded-full ${dot}`} />}
+				{value}
 			</div>
 		</div>
 	);
