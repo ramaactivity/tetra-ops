@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
@@ -178,21 +179,27 @@ export async function recordPurchaseBatch(
 		.map((i) => i.id as string);
 	const faConfigByItem = new Map<
 		string,
-		{ coa_account_asset: string | null; asset_number: string | null }
+		{
+			coa_account_asset: string | null;
+			asset_number: string | null;
+			useful_life_months: number | null;
+		}
 	>();
 	if (faItemIds.length > 0) {
 		const { data: faCfgs } = await supabase
 			.from("items_fixed_asset_config")
-			.select("item_id, coa_account_asset, asset_number")
+			.select("item_id, coa_account_asset, asset_number, useful_life_months")
 			.in("item_id", faItemIds);
 		for (const c of (faCfgs ?? []) as Array<{
 			item_id: string;
 			coa_account_asset: string | null;
 			asset_number: string | null;
+			useful_life_months: number | null;
 		}>) {
 			faConfigByItem.set(c.item_id, {
 				coa_account_asset: c.coa_account_asset,
 				asset_number: c.asset_number,
+				useful_life_months: c.useful_life_months,
 			});
 		}
 	}
@@ -227,6 +234,8 @@ export async function recordPurchaseBatch(
 		quantity: number;
 		unit_cost: number;
 		purchase_date: string;
+		/** false → below capitalization policy: expensed (debit 5-250), not an asset. */
+		capitalized: boolean;
 	}> = [];
 
 	// Validate units + compute base qty for each line
@@ -244,7 +253,16 @@ export async function recordPurchaseBatch(
 		if (it.category === "fixed_asset") {
 			const lineTotal = Math.round(line.quantity * line.unit_cost);
 			const faCfg = faConfigByItem.get(line.item_id);
-			const coaAsset = faCfg?.coa_account_asset ?? "1-400";
+			// Capitalization policy decided from the ACTUAL purchase price + the
+			// item's useful life. Below policy → expense it now (debit 5-250),
+			// don't capitalize to the asset account.
+			const capitalized = qualifiesAsFixedAsset(
+				lineTotal,
+				faCfg?.useful_life_months ?? null,
+			);
+			const coaAsset = capitalized
+				? (faCfg?.coa_account_asset ?? "1-400")
+				: "5-250";
 			capexLines.push({
 				item_id: line.item_id,
 				amount: lineTotal,
@@ -253,6 +271,7 @@ export async function recordPurchaseBatch(
 				quantity: line.quantity,
 				unit_cost: line.unit_cost,
 				purchase_date: purchaseDateIso,
+				capitalized,
 			});
 			continue;
 		}
@@ -335,6 +354,9 @@ export async function recordPurchaseBatch(
 					purchase_price: cap.amount,
 					purchase_date: cap.purchase_date.slice(0, 10),
 					depreciation_start_date: cap.purchase_date.slice(0, 10),
+					// Keep the flag in sync with the actual purchase price.
+					is_capitalized: cap.capitalized,
+					depreciation_method: cap.capitalized ? "straight_line" : "none",
 					updated_at: new Date().toISOString(),
 				})
 				.eq("item_id", cap.item_id),

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { defaultsForFixedAsset } from "@/lib/inventory/coa-defaults";
 import {
 	ensureUniqueSku,
@@ -224,11 +225,14 @@ export async function createFixedAssetItem(
 		};
 	}
 
-	// Depreciation: auto straight_line if useful_life provided; else 'none'
-	const deprMethod =
-		data.useful_life_months && data.useful_life_months > 0
-			? "straight_line"
-			: "none";
+	// Capitalization policy: only capitalize + depreciate when price > Rp1,5jt
+	// AND useful life >= 24 months. Below that → expensed (no depreciation),
+	// even if a useful life was entered.
+	const capitalized = qualifiesAsFixedAsset(
+		data.purchase_price,
+		data.useful_life_months,
+	);
+	const deprMethod = capitalized ? "straight_line" : "none";
 
 	// Auto-create journal entry untuk Setoran Modal Owner
 	// (Dr 1-400 Peralatan / Cr 3-100 Modal Owner)
@@ -240,7 +244,11 @@ export async function createFixedAssetItem(
 		data.acquisition_type === "owner_contribution" &&
 		data.purchase_price > 0
 	) {
-		const journalRef = `JE-CONTRIB-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 99999).toString().padStart(5, "0")}`;
+		const journalRef = `JE-CONTRIB-${Date.now().toString(36).toUpperCase()}-${Math.floor(
+			Math.random() * 99999,
+		)
+			.toString()
+			.padStart(5, "0")}`;
 		const { data: entry, error: entryErr } = await supabase
 			.from("journal_entries")
 			.insert({
@@ -260,10 +268,13 @@ export async function createFixedAssetItem(
 			await supabase.from("journal_lines").insert([
 				{
 					entry_id: entry.id,
-					account_code: coa.asset,
+					// Capitalized → asset account; below policy → expense it now.
+					account_code: capitalized ? coa.asset : "5-250",
 					debit_amount: data.purchase_price,
 					credit_amount: 0,
-					description: `Aset masuk (setoran owner): ${data.name}`,
+					description: capitalized
+						? `Aset masuk (setoran owner): ${data.name}`
+						: `Beban perlengkapan (setoran owner): ${data.name}`,
 					line_order: 1,
 				},
 				{
@@ -291,7 +302,9 @@ export async function createFixedAssetItem(
 			salvage_value: data.salvage_value,
 			useful_life_months: data.useful_life_months,
 			depreciation_method: deprMethod,
-			depreciation_start_date: data.depreciation_start_date ?? data.purchase_date,
+			is_capitalized: capitalized,
+			depreciation_start_date:
+				data.depreciation_start_date ?? data.purchase_date,
 			condition: data.condition,
 			current_location: data.current_location,
 			coa_account_asset: coa.asset,
@@ -354,10 +367,12 @@ export async function updateFixedAssetItem(
 		};
 	}
 
-	const deprMethod =
-		data.useful_life_months && data.useful_life_months > 0
-			? "straight_line"
-			: "none";
+	// Re-evaluate capitalization policy on edit (price/life may have changed).
+	const capitalized = qualifiesAsFixedAsset(
+		data.purchase_price,
+		data.useful_life_months,
+	);
+	const deprMethod = capitalized ? "straight_line" : "none";
 
 	const { error: cfgErr } = await supabase
 		.from("items_fixed_asset_config")
@@ -370,6 +385,7 @@ export async function updateFixedAssetItem(
 			salvage_value: data.salvage_value,
 			useful_life_months: data.useful_life_months,
 			depreciation_method: deprMethod,
+			is_capitalized: capitalized,
 			depreciation_start_date: data.depreciation_start_date,
 			condition: data.condition,
 			current_location: data.current_location,

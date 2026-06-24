@@ -42,7 +42,14 @@ export default async function AssetRegisterPage({
 	searchParams: Promise<{ show?: string }>;
 }) {
 	const params = await searchParams;
-	const showDisposed = params.show === "disposed";
+	const view =
+		params.show === "disposed"
+			? "disposed"
+			: params.show === "expense"
+				? "expense"
+				: "active";
+	const showDisposed = view === "disposed";
+	const showExpense = view === "expense";
 
 	const supabase = await createClient();
 
@@ -52,7 +59,7 @@ export default async function AssetRegisterPage({
 			`id, sku, name, unit, image_url, is_active,
 			 config:items_fixed_asset_config!inner(
 			   asset_number, serial_number, purchase_price, purchase_date,
-			   salvage_value, useful_life_months, depreciation_method,
+			   salvage_value, useful_life_months, depreciation_method, is_capitalized,
 			   depreciation_start_date, condition, current_location,
 			   current_event_id, current_crew_id,
 			   disposed_at, disposal_method, disposal_sale_price
@@ -63,9 +70,18 @@ export default async function AssetRegisterPage({
 		.is("deleted_at", null)
 		.order("name");
 
+	// active = capitalized & not disposed (the real asset register);
+	// expense = below policy (is_capitalized=false), not disposed;
+	// disposed = archived.
 	const { data: items } = showDisposed
 		? await baseQuery.not("config.disposed_at", "is", null)
-		: await baseQuery.is("config.disposed_at", null);
+		: showExpense
+			? await baseQuery
+					.is("config.disposed_at", null)
+					.eq("config.is_capitalized", false)
+			: await baseQuery
+					.is("config.disposed_at", null)
+					.eq("config.is_capitalized", true);
 
 	// Accumulated depreciation per item (sum of all postings up to now)
 	const itemIds = (items ?? []).map((i) => i.id as string);
@@ -94,6 +110,7 @@ export default async function AssetRegisterPage({
 		salvage_value: number | string | null;
 		useful_life_months: number | null;
 		depreciation_method: string;
+		is_capitalized: boolean;
 		depreciation_start_date: string | null;
 		condition: string | null;
 		current_location: string | null;
@@ -202,12 +219,22 @@ export default async function AssetRegisterPage({
 				<Link
 					href="/warehouse/assets"
 					className={`press-down inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors ${
-						!showDisposed
+						view === "active"
 							? "border-[#059669] bg-[#059669] text-white"
 							: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
 					}`}
 				>
-					Aktif
+					Aset Tetap (disusutkan)
+				</Link>
+				<Link
+					href="/warehouse/assets?show=expense"
+					className={`press-down inline-flex h-8 items-center rounded-full border px-3 text-[13px] font-medium transition-colors ${
+						showExpense
+							? "border-[#059669] bg-[#059669] text-white"
+							: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground"
+					}`}
+				>
+					Perlengkapan (beban)
 				</Link>
 				<Link
 					href="/warehouse/assets?show=disposed"
@@ -221,7 +248,15 @@ export default async function AssetRegisterPage({
 				</Link>
 			</div>
 
-			{!showDisposed && (
+			{showExpense && (
+				<div className="rounded-md border border-amber-300/60 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-900 dark:text-amber-100">
+					Item di bawah kriteria aset tetap (harga ≤ Rp1.500.000 atau umur &lt;
+					2 tahun). Sudah <strong>dibebankan saat pembelian</strong> — tidak
+					masuk neraca & tidak disusutkan. Tetap dilacak fisik di sini.
+				</div>
+			)}
+
+			{view === "active" && (
 				<KpiRow>
 					<KpiCard
 						label="Nilai Akuisisi"
@@ -257,12 +292,16 @@ export default async function AssetRegisterPage({
 					title={
 						showDisposed
 							? "Belum ada asset yang di-dispose"
-							: "Belum ada aktiva tetap aktif"
+							: showExpense
+								? "Belum ada perlengkapan beban"
+								: "Belum ada aktiva tetap aktif"
 					}
 					description={
 						showDisposed
 							? "Asset yang sudah di-dispose (sold/scrapped) akan muncul di sini sebagai arsip."
-							: "Tambah kamera/printer/lighting via Tambah Item → Aset Tetap."
+							: showExpense
+								? "Item di bawah kriteria aset tetap (≤ Rp1,5jt atau umur < 2 th) muncul di sini — dibebankan saat beli."
+								: "Tambah kamera/printer/lighting via Tambah Item → Aset Tetap."
 					}
 				/>
 			) : (
@@ -434,7 +473,7 @@ export default async function AssetRegisterPage({
 				</div>
 			)}
 
-			{!showDisposed && rows.length > 0 && (
+			{view === "active" && rows.length > 0 && (
 				<div className="bg-surface-1 rounded-md px-4 py-3 text-[12px] text-muted-foreground">
 					<strong className="text-foreground">Tip:</strong> Klik{" "}
 					<strong>Post Depresiasi</strong> di header tiap awal bulan untuk

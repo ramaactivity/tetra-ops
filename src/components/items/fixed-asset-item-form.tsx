@@ -10,6 +10,11 @@ import {
 	type FixedAssetItemFormState,
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
+import {
+	ASSET_MIN_LIFE_MONTHS,
+	ASSET_MIN_PRICE,
+	qualifiesAsFixedAsset,
+} from "@/lib/inventory/capitalization-policy";
 import { generateFixedAssetSku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 import { ItemImageUpload } from "./item-image-upload";
@@ -145,11 +150,21 @@ export function FixedAssetItemForm({
 	);
 	const effectiveSku = skuEditable ? skuOverride || generatedSku : generatedSku;
 
-	const purchasePriceVal = Number(get("purchase_price")) || 0;
-	const salvageVal = Number(get("salvage_value")) || 0;
-	const usefulLifeVal = Number(get("useful_life_months")) || 0;
+	// Controlled so the capitalization-policy banner + depreciation preview
+	// update live as the owner types price / useful life.
+	const [purchasePrice, setPurchasePrice] = useState<string>(
+		get("purchase_price"),
+	);
+	const [salvage, setSalvage] = useState<string>(get("salvage_value"));
+	const [usefulLife, setUsefulLife] = useState<string>(
+		get("useful_life_months"),
+	);
+	const purchasePriceVal = Number(purchasePrice) || 0;
+	const salvageVal = Number(salvage) || 0;
+	const usefulLifeVal = Number(usefulLife) || 0;
+	const capitalized = qualifiesAsFixedAsset(purchasePriceVal, usefulLifeVal);
 	const monthlyDepr =
-		usefulLifeVal > 0
+		capitalized && usefulLifeVal > 0
 			? Math.round((purchasePriceVal - salvageVal) / usefulLifeVal)
 			: 0;
 
@@ -331,7 +346,8 @@ export function FixedAssetItemForm({
 							name="purchase_price"
 							min={0}
 							step={1}
-							defaultValue={get("purchase_price")}
+							value={purchasePrice}
+							onChange={(e) => setPurchasePrice(e.target.value)}
 							className={`${inputClass} tabular`}
 						/>
 					</Field>
@@ -369,7 +385,8 @@ export function FixedAssetItemForm({
 							name="useful_life_months"
 							min={1}
 							step={1}
-							defaultValue={get("useful_life_months")}
+							value={usefulLife}
+							onChange={(e) => setUsefulLife(e.target.value)}
 							placeholder={
 								acquisitionType === "used_commercial"
 									? "mis. 18 = 1.5 tahun"
@@ -391,29 +408,44 @@ export function FixedAssetItemForm({
 						name="salvage_value"
 						min={0}
 						step={1}
-						defaultValue={get("salvage_value")}
+						value={salvage}
+						onChange={(e) => setSalvage(e.target.value)}
 						className={`${inputClass} tabular md:max-w-xs`}
 					/>
 				</Field>
 
-				{monthlyDepr > 0 && (
+				{/* Capitalization policy feedback — live */}
+				{capitalized && monthlyDepr > 0 ? (
 					<div className="rounded-md bg-sky-500/10 px-3 py-2 text-[12px] text-sky-900 dark:text-sky-100">
 						<Info className="mr-1.5 inline size-3.5" />
-						Sistem akan membebankan{" "}
+						Memenuhi kriteria aset tetap. Sistem akan membebankan{" "}
 						<strong className="tabular">
 							Rp {monthlyDepr.toLocaleString("id-ID")}
 						</strong>{" "}
-						per bulan sebagai penyusutan (akuntansi straight-line).
+						per bulan sebagai penyusutan (straight-line).
 					</div>
-				)}
+				) : purchasePriceVal > 0 || usefulLifeVal > 0 ? (
+					<div className="rounded-md border border-amber-300/60 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-100">
+						<Info className="mr-1.5 inline size-3.5" />
+						<strong>Tidak memenuhi kriteria aset tetap</strong> (harga &gt; Rp
+						{ASSET_MIN_PRICE.toLocaleString("id-ID")} DAN umur ≥{" "}
+						{ASSET_MIN_LIFE_MONTHS} bulan). Item ini akan dicatat sebagai{" "}
+						<strong>beban</strong> — langsung habis, tanpa penyusutan.
+					</div>
+				) : null}
 
 				{acquisitionType === "owner_contribution" && (
 					<div className="rounded-md bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-100">
 						<Info className="mr-1.5 inline size-3.5" />
-						<strong>Setoran Modal Owner</strong> — saat aset ini disimpan,
-						sistem otomatis buat jurnal{" "}
-						<code>Dr 1-400 Peralatan / Cr 3-100 Modal Owner</code>. TIDAK ada
-						cash outflow & tidak perlu catat Pembelian terpisah.
+						<strong>Setoran Modal Owner</strong> — saat disimpan, sistem
+						otomatis buat jurnal{" "}
+						<code>
+							{capitalized
+								? "Dr 1-400 Peralatan"
+								: "Dr 5-250 Beban Perlengkapan"}{" "}
+							/ Cr 3-100 Modal Owner
+						</code>
+						. TIDAK ada cash outflow & tidak perlu catat Pembelian terpisah.
 					</div>
 				)}
 
