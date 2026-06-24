@@ -25,6 +25,7 @@ import {
 } from "@/lib/actions/finance-cutoff";
 import {
 	CUTOFF_MAX_DATE,
+	type CutoffBackupPayload,
 	type CutoffBankOption,
 	type CutoffItemOption,
 	type ExecuteCutoffResult,
@@ -33,6 +34,40 @@ import { cn } from "@/lib/utils";
 
 const rp = (n: number) =>
 	`Rp ${new Intl.NumberFormat("id-ID").format(Math.round(n))}`;
+
+function csvEscape(v: unknown): string {
+	if (v == null) return "";
+	const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+	return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** One CSV, one section per table — Excel-friendly backup of all wiped data. */
+function buildBackupCsv(payload: CutoffBackupPayload): string {
+	const out: string[] = [];
+	for (const [table, { count, rows }] of Object.entries(payload.tables)) {
+		out.push(`=== ${table} (${count} baris) ===`);
+		if (rows.length > 0) {
+			const cols = Array.from(
+				rows.reduce<Set<string>>((set, r) => {
+					for (const k of Object.keys(r as object)) set.add(k);
+					return set;
+				}, new Set()),
+			);
+			out.push(cols.map(csvEscape).join(","));
+			for (const r of rows) {
+				out.push(
+					cols
+						.map((c) => csvEscape((r as Record<string, unknown>)[c]))
+						.join(","),
+				);
+			}
+		} else {
+			out.push("(kosong)");
+		}
+		out.push("");
+	}
+	return out.join("\n");
+}
 
 const STEPS = [
 	"Tanggal",
@@ -54,10 +89,11 @@ export function CutoffWizard({ today, banks, items, driveConfigured }: Props) {
 	const [cutoffDate, setCutoffDate] = useState(today);
 
 	// Backup
-	const [backupBusy, setBackupBusy] = useState<"download" | "drive" | null>(
-		null,
-	);
+	const [backupBusy, setBackupBusy] = useState<
+		"json" | "excel" | "drive" | null
+	>(null);
 	const [downloaded, setDownloaded] = useState(false);
+	const [excelDone, setExcelDone] = useState(false);
 	const [driveUrl, setDriveUrl] = useState<string | null>(null);
 
 	// Opening balances
@@ -91,27 +127,54 @@ export function CutoffWizard({ today, banks, items, driveConfigured }: Props) {
 		[stokLines],
 	);
 	const totalAssets = cash + bankTotal + stokTotal;
-	const backupDone = downloaded || Boolean(driveUrl);
+	const backupDone = downloaded || excelDone || Boolean(driveUrl);
+
+	function triggerDownload(blob: Blob, filename: string) {
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		URL.revokeObjectURL(url);
+	}
 
 	async function handleDownload() {
-		setBackupBusy("download");
+		setBackupBusy("json");
 		try {
 			const payload = await getCutoffBackup();
-			const blob = new Blob([JSON.stringify(payload, null, 2)], {
-				type: "application/json",
-			});
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `backup-keuangan-${cutoffDate}.json`;
-			document.body.appendChild(a);
-			a.click();
-			a.remove();
-			URL.revokeObjectURL(url);
+			triggerDownload(
+				new Blob([JSON.stringify(payload, null, 2)], {
+					type: "application/json",
+				}),
+				`backup-keuangan-${cutoffDate}.json`,
+			);
 			setDownloaded(true);
-			toast.success(`Backup ${payload.totalRows} baris ter-download.`);
+			toast.success(`Backup ${payload.totalRows} baris ter-download (JSON).`);
 		} catch (e) {
 			toast.error(`Gagal backup: ${(e as Error).message}`);
+		} finally {
+			setBackupBusy(null);
+		}
+	}
+
+	async function handleExcel() {
+		setBackupBusy("excel");
+		try {
+			const payload = await getCutoffBackup();
+			// Satu CSV (dibuka Excel), satu seksi per tabel. BOM (﻿) agar Excel
+			// membaca UTF-8 dengan benar.
+			triggerDownload(
+				new Blob([`﻿${buildBackupCsv(payload)}`], {
+					type: "text/csv;charset=utf-8",
+				}),
+				`backup-keuangan-${cutoffDate}.csv`,
+			);
+			setExcelDone(true);
+			toast.success(`Backup ${payload.totalRows} baris ter-download (Excel).`);
+		} catch (e) {
+			toast.error(`Gagal backup Excel: ${(e as Error).message}`);
 		} finally {
 			setBackupBusy(null);
 		}
@@ -250,15 +313,30 @@ export function CutoffWizard({ today, banks, items, driveConfigured }: Props) {
 						<div className="flex flex-wrap gap-2">
 							<Button
 								variant="outline"
-								onClick={handleDownload}
+								onClick={handleExcel}
 								disabled={backupBusy !== null}
 							>
-								{backupBusy === "download" ? (
+								{backupBusy === "excel" ? (
 									<Loader2 className="size-4 animate-spin" />
 								) : (
 									<Download className="size-4" />
 								)}
-								Download backup (.json)
+								Download Excel (.csv)
+								{excelDone && (
+									<CheckCircle2 className="size-4 text-emerald-600" />
+								)}
+							</Button>
+							<Button
+								variant="outline"
+								onClick={handleDownload}
+								disabled={backupBusy !== null}
+							>
+								{backupBusy === "json" ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<Download className="size-4" />
+								)}
+								Download JSON
 								{downloaded && (
 									<CheckCircle2 className="size-4 text-emerald-600" />
 								)}
