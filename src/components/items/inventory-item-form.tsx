@@ -349,7 +349,7 @@ export function InventoryItemForm({
 
 					<div className="space-y-1.5">
 						<label className="text-sm font-medium">
-							Average Cost (otomatis)
+							Harga rata-rata (otomatis)
 						</label>
 						<div className="rounded-md bg-surface-3 px-3 py-2.5">
 							<div className="tabular text-sm font-semibold text-foreground">

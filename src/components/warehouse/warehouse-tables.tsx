@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	AlertTriangle,
 	ArrowDownToLine,
 	ArrowDownUp,
 	ArrowUpFromLine,
@@ -298,7 +299,7 @@ const CONSUMABLE_SORT_OPTIONS: ReadonlyArray<{
 	{ value: "alert-urgent", label: "Urgensi restock" },
 	{ value: "stock-low", label: "Stok terendah" },
 	{ value: "stock-high", label: "Stok terbanyak" },
-	{ value: "value-high", label: "Nilai HPP terbesar" },
+	{ value: "value-high", label: "Nilai Stok terbesar" },
 ];
 
 export function ConsumablesTable({
@@ -339,6 +340,17 @@ export function ConsumablesTable({
 			}
 		}
 		return ids;
+	}, [rows, stockByItem, stockUnknown]);
+
+	// Jumlah item stok minus (tercatat terpakai > masuk) — pemicu banner opname.
+	const minusCount = useMemo(() => {
+		if (stockUnknown) return 0;
+		let n = 0;
+		for (const r of rows) {
+			if (!r.is_active) continue;
+			if ((stockByItem.get(r.id) ?? 0) < 0) n++;
+		}
+		return n;
 	}, [rows, stockByItem, stockUnknown]);
 
 	function toggleOne(id: string) {
@@ -576,25 +588,33 @@ export function ConsumablesTable({
 							: state === "kritis"
 								? "text-amber-600 dark:text-amber-400"
 								: "text-foreground";
-				// Kalau item punya bulk (Box, Pack, Roll), display PRIMARY pakai
-				// bulk unit + base unit jadi subtitle. Match cara user mikir
-				// pas restock ("Stok Mediaset 2.5 Box" bukan "5 Roll").
+				const isMinus = state === "minus";
+				// PIMPIN dengan unit pakai (pcs/sheet/roll) — itu yang dipikirkan owner
+				// & yang dihitung di rekap/forecast. Pack/Box jadi konteks belanja kecil
+				// di bawah ("≈ 0,5 Pack"), bukan angka utama (pecahan pack bikin bingung).
 				if (bulk) {
 					const stockInBulk = stock / bulk.multiplier;
 					return (
 						<div className="flex flex-col items-end gap-0.5">
 							<div className={`tabular text-base font-semibold ${primaryTone}`}>
-								{stockInBulk.toLocaleString("id-ID", {
-									maximumFractionDigits: 2,
-								})}
+								{stock.toLocaleString("id-ID", { maximumFractionDigits: 2 })}
 								<span className="ml-1 text-[11px] font-normal text-muted-foreground/80">
-									{bulk.label}
+									{r.unit}
 								</span>
 							</div>
-							<div className="text-[11px] tabular text-muted-foreground/70">
-								= {stock.toLocaleString("id-ID", { maximumFractionDigits: 2 })}{" "}
-								{r.unit}
-							</div>
+							{isMinus ? (
+								<div className="text-[11px] tabular text-rose-600/80 dark:text-rose-400/80">
+									perlu Stock Opname
+								</div>
+							) : (
+								<div className="text-[11px] tabular text-muted-foreground/60">
+									≈{" "}
+									{stockInBulk.toLocaleString("id-ID", {
+										maximumFractionDigits: 2,
+									})}{" "}
+									{bulk.label}
+								</div>
+							)}
 						</div>
 					);
 				}
@@ -607,73 +627,65 @@ export function ConsumablesTable({
 								{display.primaryUnit}
 							</span>
 						</div>
-						{display.breakdown.length > 0 && (
-							<div className="flex flex-wrap items-center justify-end gap-1">
-								{display.breakdown.map((b) => (
-									<span
-										key={b.abbr}
-										className="bg-surface-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] tabular text-muted-foreground"
-										title={`Kapasitas maksimal ${b.value.toLocaleString("id-ID")} ${b.abbr}`}
-									>
-										<span className="font-semibold text-foreground/80">
-											{b.formatted}
-										</span>
-										<span>{b.abbr}</span>
-									</span>
-								))}
+						{isMinus ? (
+							<div className="text-[11px] tabular text-rose-600/80 dark:text-rose-400/80">
+								perlu Stock Opname
 							</div>
+						) : (
+							display.breakdown.length > 0 && (
+								<div className="flex flex-wrap items-center justify-end gap-1">
+									{display.breakdown.map((b) => (
+										<span
+											key={b.abbr}
+											className="bg-surface-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] tabular text-muted-foreground"
+											title={`Kapasitas maksimal ${b.value.toLocaleString("id-ID")} ${b.abbr}`}
+										>
+											<span className="font-semibold text-foreground/80">
+												{b.formatted}
+											</span>
+											<span>{b.abbr}</span>
+										</span>
+									))}
+								</div>
+							)
 						)}
 					</div>
 				);
 			},
 		},
 		{
-			key: "avg_cost",
-			header: "Avg Cost",
-			align: "right",
-			width: "180px",
-			hideOnMobile: true,
-			render: (r) => {
-				if (!r.purchase_price_avg) return <MutedDash variant="dash" />;
-				const bulk = getBulkUnit(r.unit_conversion);
-				// Bulk-aware: tampil per Box/Pack (dengan per-base sebagai subtitle)
-				if (bulk) {
-					const costPerBulk = r.purchase_price_avg * bulk.multiplier;
-					return (
-						<div className="flex flex-col items-end gap-0.5">
-							<span className="tabular whitespace-nowrap text-fluid-caption font-medium text-foreground">
-								{formatRupiah(costPerBulk)}{" "}
-								<span className="text-muted-foreground/60">/ {bulk.label}</span>
-							</span>
-							<span className="tabular text-[11px] text-muted-foreground/70">
-								{formatRupiah(r.purchase_price_avg)} / {r.unit}
-							</span>
-						</div>
-					);
-				}
-				return (
-					<span className="tabular whitespace-nowrap text-fluid-caption text-muted-foreground">
-						{formatRupiah(r.purchase_price_avg)}{" "}
-						<span className="text-muted-foreground/60">/ {r.unit}</span>
-					</span>
-				);
-			},
-		},
-		{
 			key: "value",
-			header: "Nilai HPP",
+			header: "Nilai Stok",
 			align: "right",
-			width: "160px",
+			width: "190px",
 			hideOnMobile: true,
 			render: (r) => {
-				if (stockUnknown) return <MutedDash variant="dash" />;
-				const stock = stockByItem.get(r.id) ?? 0;
-				const value = stock * (r.purchase_price_avg ?? 0);
-				if (value === 0) return <MutedDash variant="dash" />;
+				const avg = r.purchase_price_avg ?? 0;
+				const bulk = getBulkUnit(r.unit_conversion);
+				// Harga satuan ditampilkan dalam unit BELI (yang dikenal owner saat
+				// belanja) — sebagai subtitle kecil, bukan kolom tersendiri.
+				const unitCost = bulk ? avg * bulk.multiplier : avg;
+				const unitLabel = bulk ? bulk.label : r.unit;
+				// Floor stok minus ke 0: persediaan negatif tak punya nilai uang
+				// negatif yang berarti (itu celah data → opname), jangan tampilkan
+				// "Rp -…". Nilai = harga × stok (≥0).
+				const stock = stockUnknown ? 0 : (stockByItem.get(r.id) ?? 0);
+				const value = Math.max(0, stock) * avg;
 				return (
-					<span className="tabular whitespace-nowrap text-fluid-caption font-medium text-foreground">
-						{formatRupiah(value)}
-					</span>
+					<div className="flex flex-col items-end gap-0.5">
+						{stockUnknown || value === 0 ? (
+							<MutedDash variant="dash" />
+						) : (
+							<span className="tabular whitespace-nowrap text-fluid-caption font-medium text-foreground">
+								{formatRupiah(value)}
+							</span>
+						)}
+						{avg > 0 && (
+							<span className="tabular text-[11px] text-muted-foreground/60">
+								@ {formatRupiah(unitCost)} / {unitLabel}
+							</span>
+						)}
+					</div>
 				);
 			},
 		},
@@ -779,6 +791,23 @@ export function ConsumablesTable({
 					</div>
 				</div>
 			</div>
+
+			{minusCount > 0 && (
+				<div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-700 dark:text-rose-300">
+					<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+					<span>
+						<strong className="tabular">{minusCount}</strong> item stok minus —
+						tercatat terpakai melebihi yang masuk.{" "}
+						<Link
+							href="/warehouse/stock-take"
+							className="font-medium underline underline-offset-2 hover:no-underline"
+						>
+							Lakukan Stock Opname
+						</Link>{" "}
+						untuk koreksi.
+					</span>
+				</div>
+			)}
 
 			{filtered.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-6 text-center text-fluid-caption text-muted-foreground">

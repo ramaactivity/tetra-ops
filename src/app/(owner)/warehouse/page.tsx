@@ -252,8 +252,11 @@ export default async function WarehousePage({
 	}
 
 	const totalSkus = consumables.length + equipment.length;
+	// Floor stok minus ke 0: persediaan negatif (celah data) tak boleh menekan
+	// nilai total jadi understated — itu dikoreksi via Stock Opname, bukan uang.
 	const totalHpp = consumables.reduce(
-		(s, c) => s + (stockByItem.get(c.id) ?? 0) * (c.purchase_price_avg ?? 0),
+		(s, c) =>
+			s + Math.max(0, stockByItem.get(c.id) ?? 0) * (c.purchase_price_avg ?? 0),
 		0,
 	);
 
@@ -607,9 +610,9 @@ export default async function WarehousePage({
 					// Lanjutan / Aset / Market / Log Mutasi — full finance summary incl HPP.
 					<>
 						<KpiCard
-							label="Nilai HPP Stok"
+							label="Nilai Stok"
 							value={stockLoadFailed ? "—" : formatRupiah(totalHpp)}
-							hint="Σ (stok × harga avg)"
+							hint="Σ stok × harga rata-rata"
 							icon={Wallet2}
 							accent="primary"
 						/>
