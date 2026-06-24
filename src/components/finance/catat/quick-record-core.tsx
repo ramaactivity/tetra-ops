@@ -422,6 +422,35 @@ export function QuickRecordCore({
 		</div>
 	);
 
+	// Wide modal — ONE compact amount block (no separate hero card): label, a
+	// big editable input, quick chips, and the after-balance caption.
+	const amountSectionWide = (
+		<div className="space-y-2.5">
+			<span className="eyebrow">{dirNoun}</span>
+			<MoneyInput
+				value={amount}
+				onValueChange={setAmount}
+				className="h-14 rounded-2xl text-right text-2xl font-bold tabular"
+			/>
+			<QuickAmountChips
+				onAdd={(v) => setAmount((a) => Math.min(a + v, MAX_AMOUNT))}
+			/>
+			{sourceAcct && amount > 0 ? (
+				<p className="text-[12.5px] text-muted-foreground">
+					{sourceAcct.name} →{" "}
+					<span
+						className={cn(
+							"tabular font-medium",
+							afterSource < 0 ? "text-rose-600" : "text-foreground",
+						)}
+					>
+						{formatRupiah(afterSource)}
+					</span>
+				</p>
+			) : null}
+		</div>
+	);
+
 	const detailsField = (
 		<div className="rounded-xl border border-border-subtle bg-card">
 			<button
@@ -657,8 +686,7 @@ export function QuickRecordCore({
 				<div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
 					<div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
 						<div className="space-y-4">
-							{amountHero}
-							{amountControl}
+							{amountSectionWide}
 							{accountField}
 						</div>
 						<div className="space-y-4">
@@ -810,16 +838,16 @@ function AccountPicker({
 						}}
 						aria-pressed={active}
 						className={cn(
-							"press flex items-center justify-between gap-2 rounded-xl border px-3.5 py-3 text-left transition-colors disabled:opacity-40",
+							"press flex flex-col items-start gap-0.5 rounded-xl border px-3.5 py-2.5 text-left transition-colors disabled:opacity-40",
 							active
 								? "border-[#059669] bg-emerald-50"
 								: "border-border-subtle bg-card hover:bg-secondary",
 						)}
 					>
-						<span className="min-w-0 truncate text-[13px] font-medium text-foreground">
+						<span className="w-full truncate text-[13px] font-medium text-foreground">
 							{a.name}
 						</span>
-						<span className="tabular shrink-0 text-[12px] text-muted-foreground">
+						<span className="tabular text-[12px] text-muted-foreground">
 							{formatRupiah(a.balance)}
 						</span>
 					</button>
