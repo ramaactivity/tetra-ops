@@ -97,11 +97,13 @@ const NAV_SECTIONS: NavSection[] = [
 						label: "Stock Opname",
 						icon: ClipboardList,
 					},
-					{
-						href: "/warehouse/wastage",
-						label: "Wastage",
-						icon: AlertTriangle,
-					},
+					// Wastage hidden until owners are ready to use it (2026-06-24).
+					// Route + page still live; restore this item to re-expose.
+					// {
+					// 	href: "/warehouse/wastage",
+					// 	label: "Wastage",
+					// 	icon: AlertTriangle,
+					// },
 				],
 			},
 			{

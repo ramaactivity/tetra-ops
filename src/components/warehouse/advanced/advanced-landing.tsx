@@ -7,7 +7,6 @@ import {
 	ShoppingBag,
 	Store,
 	Tags,
-	Trash2,
 	Truck,
 	Wrench,
 } from "lucide-react";
@@ -41,12 +40,7 @@ const GROUPS: AdvancedGroup[] = [
 				desc: "Riwayat semua keluar-masuk stok",
 				icon: ArrowUpDown,
 			},
-			{
-				href: "/warehouse/wastage",
-				label: "Wastage",
-				desc: "Catat barang rusak, hilang, atau terbuang",
-				icon: Trash2,
-			},
+			// Wastage hidden until owners are ready (2026-06-24). Route still live.
 		],
 	},
 	{
