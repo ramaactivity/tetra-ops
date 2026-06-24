@@ -28,6 +28,7 @@ RETURNS TABLE(
   sku text,
   name text,
   unit text,
+  unit_conversion jsonb,
   wac_now bigint,
   purchases_qty numeric,
   purchases_cost numeric,
@@ -42,7 +43,7 @@ LANGUAGE sql
 STABLE
 AS $$
   WITH items AS (
-    SELECT i.id, i.sku, i.name, i.unit,
+    SELECT i.id, i.sku, i.name, i.unit, i.unit_conversion,
            COALESCE(i.purchase_price_avg, 0)::bigint AS wac
     FROM inventory_items i
     WHERE i.category = 'inventory'
@@ -106,7 +107,7 @@ AS $$
     ORDER BY l.item_id, t.committed_at DESC
   )
   SELECT
-    it.id, it.sku, it.name, it.unit, it.wac,
+    it.id, it.sku, it.name, it.unit, it.unit_conversion, it.wac,
     COALESCE(pm.purchases_qty, 0),
     COALESCE(pm.purchases_cost, 0),
     COALESCE(pm.usage_qty, 0),

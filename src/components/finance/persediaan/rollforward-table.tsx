@@ -23,21 +23,53 @@ function Money({ v, strong = false }: { v: number; strong?: boolean }) {
 	);
 }
 
-/** Qty cell — negative qty (data artifact) flagged rose with a warning icon. */
-function QtyCell({ q }: { q: number }) {
+/** Qty cell — shown in bulk units (qty / multiplier), with the base qty in a
+ *  tooltip so it matches the warehouse Persediaan display. Negative flagged. */
+function QtyCell({
+	q,
+	mult,
+	baseUnit,
+}: {
+	q: number;
+	mult: number;
+	baseUnit: string;
+}) {
 	if (q === 0) return DASH;
+	const display = q / mult;
+	const title = mult !== 1 ? `= ${fmtQty(q)} ${baseUnit}` : undefined;
 	if (q < 0)
 		return (
 			<span
 				className="inline-flex items-center gap-1 whitespace-nowrap text-rose-600 dark:text-rose-400"
-				title="Stok minus — konsumsi tercatat tanpa pembelian/opname pembanding. Lakukan opname untuk koreksi."
+				title={title ?? "Stok minus — lakukan opname untuk koreksi."}
 			>
 				<AlertTriangle className="size-3" />
-				{fmtQty(q)}
+				{fmtQty(display)}
 			</span>
 		);
 	return (
-		<span className="whitespace-nowrap text-muted-foreground">{fmtQty(q)}</span>
+		<span className="whitespace-nowrap text-muted-foreground" title={title}>
+			{fmtQty(display)}
+		</span>
+	);
+}
+
+/** Plain bulk qty (no negative flag) for Pembelian/Pemakaian. */
+function BulkQty({
+	q,
+	mult,
+	baseUnit,
+}: {
+	q: number;
+	mult: number;
+	baseUnit: string;
+}) {
+	if (q === 0) return DASH;
+	const title = mult !== 1 ? `= ${fmtQty(q)} ${baseUnit}` : undefined;
+	return (
+		<span className="whitespace-nowrap text-muted-foreground" title={title}>
+			{fmtQty(q / mult)}
+		</span>
 	);
 }
 
@@ -219,41 +251,51 @@ function BucketSection({
 					>
 						<div className="font-medium text-foreground">{it.name}</div>
 						<div className="tabular text-[11px] text-muted-foreground">
-							{it.sku} · {it.unit}
-							{it.wac > 0 && <> · WAC {formatRupiah(it.wac)}</>}
+							{it.sku} · {it.bulkLabel ?? it.unit}
+							{it.wac > 0 && (
+								<> · WAC {formatRupiah(it.wac * it.bulkMultiplier)}</>
+							)}
 						</div>
 					</th>
 					<NumPair
-						qty={<QtyCell q={it.openingQty} />}
+						qty={
+							<QtyCell
+								q={it.openingQty}
+								mult={it.bulkMultiplier}
+								baseUnit={it.unit}
+							/>
+						}
 						total={it.openingTotal}
 					/>
 					{showPurchases && (
 						<NumPair
 							qty={
-								it.purchasesQty === 0 ? (
-									DASH
-								) : (
-									<span className="whitespace-nowrap text-muted-foreground">
-										{fmtQty(it.purchasesQty)}
-									</span>
-								)
+								<BulkQty
+									q={it.purchasesQty}
+									mult={it.bulkMultiplier}
+									baseUnit={it.unit}
+								/>
 							}
 							total={it.purchasesTotal}
 						/>
 					)}
 					<NumPair
-						qty={<QtyCell q={it.closingQty} />}
+						qty={
+							<QtyCell
+								q={it.closingQty}
+								mult={it.bulkMultiplier}
+								baseUnit={it.unit}
+							/>
+						}
 						total={it.closingTotal}
 					/>
 					<NumPair
 						qty={
-							it.usageQty === 0 ? (
-								DASH
-							) : (
-								<span className="whitespace-nowrap text-muted-foreground">
-									{fmtQty(it.usageQty)}
-								</span>
-							)
+							<BulkQty
+								q={it.usageQty}
+								mult={it.bulkMultiplier}
+								baseUnit={it.unit}
+							/>
 						}
 						total={it.usageTotal}
 						strongTotal

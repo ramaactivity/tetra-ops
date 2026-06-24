@@ -16,6 +16,7 @@ export type RollforwardRpcRow = {
 	sku: string;
 	name: string;
 	unit: string;
+	unit_conversion: unknown;
 	wac_now: number | string | null;
 	purchases_qty: number | string | null;
 	purchases_cost: number | string | null;
@@ -33,6 +34,10 @@ export type RollforwardItem = {
 	name: string;
 	unit: string;
 	bucket: CogsBucket;
+	// Bulk display unit (e.g. "Pack" = 10 pcs) so the report shows quantities the
+	// SAME way the warehouse Persediaan table does (one shared stock source).
+	bulkLabel: string | null;
+	bulkMultiplier: number; // 1 when the item has no purchase/bulk unit
 	wac: number;
 	openingQty: number;
 	openingTotal: number;
@@ -92,7 +97,33 @@ export type RollforwardResult = {
 const n = (v: number | string | null): number => (v == null ? 0 : Number(v));
 const round = (v: number): number => Math.round(v);
 
+/** Purchase/bulk unit from the v2 unit_conversion JSONB (mirrors the warehouse
+ *  Persediaan table's getBulkUnit), so both surfaces show the same unit. */
+function getBulk(
+	conversion: unknown,
+): { label: string; multiplier: number } | null {
+	const conv = conversion as {
+		units?: Record<
+			string,
+			{ kind?: string; label?: string; multiplier?: number | null }
+		>;
+	} | null;
+	if (!conv?.units) return null;
+	const purchase = Object.entries(conv.units).find(
+		([, def]) => def.kind === "purchase",
+	);
+	if (!purchase) return null;
+	const [code, def] = purchase;
+	const multiplier = Number(def.multiplier ?? 0);
+	if (multiplier <= 0) return null;
+	return {
+		label: (def.label ?? code).replace(/\s*\([^)]*\)\s*$/, "").trim(),
+		multiplier,
+	};
+}
+
 function computeItem(row: RollforwardRpcRow): RollforwardItem {
+	const bulk = getBulk(row.unit_conversion);
 	const wac = n(row.wac_now);
 	const purchasesQty = n(row.purchases_qty);
 	const purchasesCost = n(row.purchases_cost);
@@ -132,6 +163,8 @@ function computeItem(row: RollforwardRpcRow): RollforwardItem {
 		name: row.name,
 		unit: row.unit,
 		bucket: bucketForSku(row.sku),
+		bulkLabel: bulk?.label ?? null,
+		bulkMultiplier: bulk?.multiplier ?? 1,
 		wac,
 		openingQty,
 		openingTotal,
