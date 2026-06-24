@@ -57,11 +57,14 @@ function todayIso(): string {
 export function QuickRecordCore({
 	data,
 	keypad,
+	wide = false,
 	onDone,
 }: {
 	data: CatatData;
 	/** Mobile: on-screen numeric keypad + compact, reordered layout. */
 	keypad: boolean;
+	/** Desktop modal: two-column layout (wider popup). */
+	wide?: boolean;
 	onDone?: () => void;
 }) {
 	const router = useRouter();
@@ -90,6 +93,15 @@ export function QuickRecordCore({
 		QuickRecordFormState,
 		FormData
 	>(recordQuickTransaction, undefined);
+
+	// Synchronous re-entry guard: blocks a second submit before React commits
+	// `pending` (rapid double-tap) and stays locked through a successful save
+	// until the panel unmounts — so a slow save can never create a duplicate
+	// entry. Reset only on an error response so the user can retry.
+	const submittingRef = useRef(false);
+	useEffect(() => {
+		if (state?.error) submittingRef.current = false;
+	}, [state]);
 
 	// Receipt-photo object URL (revoked on change) for the inline preview.
 	useEffect(() => {
@@ -534,7 +546,8 @@ export function QuickRecordCore({
 	return (
 		<form
 			action={(fd) => {
-				if (!canSubmit) return;
+				if (!canSubmit || pending || submittingRef.current) return;
+				submittingRef.current = true;
 				fd.set("direction", direction);
 				fd.set("amount", String(amount));
 				fd.set("entry_date", date);
@@ -548,25 +561,45 @@ export function QuickRecordCore({
 			className="flex min-h-full flex-col gap-4"
 		>
 			{directionSeg}
-			{amountHero}
 
-			{keypad ? (
-				<>
-					{categoryField}
-					{recentsBlock}
-					{accountField}
-					{amountControl}
-					{detailsField}
-					{lihatJurnal}
-				</>
+			{wide ? (
+				// Desktop modal — two columns: money/account on the left, what-for
+				// + details on the right. Action bar spans full width below.
+				<div className="grid grid-cols-1 gap-5 sm:grid-cols-[1.05fr_1fr]">
+					<div className="space-y-4">
+						{amountHero}
+						{amountControl}
+						{accountField}
+					</div>
+					<div className="space-y-4">
+						{categoryField}
+						{recentsBlock}
+						{detailsField}
+						{lihatJurnal}
+					</div>
+				</div>
 			) : (
 				<>
-					{amountControl}
-					{recentsBlock}
-					{categoryField}
-					{accountField}
-					{detailsField}
-					{lihatJurnal}
+					{amountHero}
+					{keypad ? (
+						<>
+							{categoryField}
+							{recentsBlock}
+							{accountField}
+							{amountControl}
+							{detailsField}
+							{lihatJurnal}
+						</>
+					) : (
+						<>
+							{amountControl}
+							{recentsBlock}
+							{categoryField}
+							{accountField}
+							{detailsField}
+							{lihatJurnal}
+						</>
+					)}
 				</>
 			)}
 
@@ -574,7 +607,12 @@ export function QuickRecordCore({
 
 			{/* Action bar — in-flow (mt-auto pins to bottom on short content);
 			    matches the sheet surface so nothing leaks or looks cut. */}
-			<div className="-mx-4 -mb-4 mt-auto border-t border-border-default bg-surface-3 px-4 pt-3 pb-3">
+			<div
+				className={cn(
+					"-mx-4 -mb-4 mt-auto border-t border-border-default bg-surface-3 px-4 pt-3 pb-3",
+					wide && "rounded-b-xl",
+				)}
+			>
 				<button
 					type="submit"
 					disabled={!canSubmit || pending}
