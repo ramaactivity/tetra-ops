@@ -577,7 +577,7 @@ export function QuickRecordCore({
 					</div>
 				</div>
 			) : (
-				<label className="press tap flex min-h-[14rem] flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-default bg-card px-4 text-center text-[13px] text-muted-foreground hover:bg-secondary">
+				<label className="press tap flex min-h-[9.5rem] flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-default bg-card px-4 text-center text-[13px] text-muted-foreground hover:bg-secondary">
 					<Paperclip className="size-6 text-muted-foreground/70" />
 					<span>Tarik atau klik untuk lampirkan foto nota</span>
 					<span className="text-[11.5px] text-muted-foreground/70">
@@ -643,26 +643,34 @@ export function QuickRecordCore({
 				if (note.trim()) fd.set("note", note.trim());
 				formAction(fd);
 			}}
-			className="flex min-h-full flex-col gap-4"
+			className={cn(
+				"flex flex-col gap-4",
+				wide ? "min-h-0 flex-1" : "min-h-full",
+			)}
 		>
 			{directionSeg}
 
 			{wide ? (
-				// Desktop modal — three columns: money/account · what-for + date/note
-				// · receipt preview. Wide enough to avoid vertical scroll.
-				<div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-					<div className="space-y-4">
-						{amountHero}
-						{amountControl}
-						{accountField}
+				// Desktop modal — header (direction) + footer (action bar) stay fixed;
+				// only this 3-column region scrolls if needed. Columns balanced so it
+				// rarely does: money/account · category · receipt + date/note.
+				<div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+					<div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+						<div className="space-y-4">
+							{amountHero}
+							{amountControl}
+							{accountField}
+						</div>
+						<div className="space-y-4">
+							{categoryField}
+							{recentsBlock}
+							{lihatJurnal}
+						</div>
+						<div className="space-y-4">
+							{notaPane}
+							{dateNotePane}
+						</div>
 					</div>
-					<div className="space-y-4">
-						{categoryField}
-						{recentsBlock}
-						{dateNotePane}
-						{lihatJurnal}
-					</div>
-					<div>{notaPane}</div>
 				</div>
 			) : (
 				<>

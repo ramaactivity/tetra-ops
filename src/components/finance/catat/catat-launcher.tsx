@@ -77,8 +77,8 @@ export function CatatLauncher({
 			{isDesktop ? (
 				// Desktop — wide, centered modal with a two-column form.
 				<Dialog open={open} onOpenChange={setOpen}>
-					<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
-						<DialogHeader>
+					<DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-5xl">
+						<DialogHeader className="shrink-0">
 							<DialogTitle>Catat transaksi</DialogTitle>
 							<DialogDescription>
 								Langsung masuk ke pembukuan.
