@@ -43,7 +43,10 @@ export type RollforwardItem = {
 	closingTotal: number;
 	usageQty: number;
 	usageTotal: number;
-	recordedUsageQty: number; // rekap_consumption (reconciliation context)
+	// Audit variance = (Awal + Beli − Akhir) − Pemakaian. The stock change NOT
+	// explained by recorded event consumption (adjustments/settlement/shrinkage/
+	// data gaps). 0 = books reconcile; opname resolves the rest.
+	varianceTotal: number;
 	openingDerived: boolean; // true = no prior committed opname (estimate)
 	closingDerived: boolean; // true = no committed opname this period
 	negative: boolean; // opening or closing qty < 0 (data-quality signal)
@@ -58,6 +61,7 @@ export type RollforwardBucket = {
 		purchasesTotal: number;
 		closingTotal: number;
 		usageTotal: number;
+		varianceTotal: number;
 	};
 };
 
@@ -68,6 +72,7 @@ export type RollforwardResult = {
 		purchasesTotal: number;
 		closingTotal: number;
 		usageTotal: number;
+		varianceTotal: number;
 	};
 	kpis: {
 		totalCogs: number;
@@ -117,6 +122,10 @@ function computeItem(row: RollforwardRpcRow): RollforwardItem {
 	const usageQty = n(row.usage_qty);
 	const usageTotal = round(n(row.usage_cost));
 
+	const openingTotal = round(openingQty * wac);
+	const purchasesTotal = round(purchasesCost);
+	const closingTotal = round(closingQty * wac);
+
 	return {
 		item_id: row.item_id,
 		sku: row.sku,
@@ -125,15 +134,15 @@ function computeItem(row: RollforwardRpcRow): RollforwardItem {
 		bucket: bucketForSku(row.sku),
 		wac,
 		openingQty,
-		openingTotal: round(openingQty * wac),
+		openingTotal,
 		purchasesQty,
 		purchasesPrice,
-		purchasesTotal: round(purchasesCost),
+		purchasesTotal,
 		closingQty,
-		closingTotal: round(closingQty * wac),
+		closingTotal,
 		usageQty,
 		usageTotal,
-		recordedUsageQty: usageQty,
+		varianceTotal: openingTotal + purchasesTotal - closingTotal - usageTotal,
 		openingDerived,
 		closingDerived,
 		negative: openingQty < 0 || closingQty < 0,
@@ -146,8 +155,7 @@ function isActiveRow(it: RollforwardItem): boolean {
 		it.openingQty !== 0 ||
 		it.closingQty !== 0 ||
 		it.purchasesQty !== 0 ||
-		it.usageQty !== 0 ||
-		it.recordedUsageQty !== 0
+		it.usageQty !== 0
 	);
 }
 
@@ -173,8 +181,15 @@ export function computeRollforward(
 				purchasesTotal: acc.purchasesTotal + it.purchasesTotal,
 				closingTotal: acc.closingTotal + it.closingTotal,
 				usageTotal: acc.usageTotal + it.usageTotal,
+				varianceTotal: acc.varianceTotal + it.varianceTotal,
 			}),
-			{ openingTotal: 0, purchasesTotal: 0, closingTotal: 0, usageTotal: 0 },
+			{
+				openingTotal: 0,
+				purchasesTotal: 0,
+				closingTotal: 0,
+				usageTotal: 0,
+				varianceTotal: 0,
+			},
 		);
 		buckets.push({
 			key,
@@ -190,8 +205,15 @@ export function computeRollforward(
 			purchasesTotal: acc.purchasesTotal + b.subtotal.purchasesTotal,
 			closingTotal: acc.closingTotal + b.subtotal.closingTotal,
 			usageTotal: acc.usageTotal + b.subtotal.usageTotal,
+			varianceTotal: acc.varianceTotal + b.subtotal.varianceTotal,
 		}),
-		{ openingTotal: 0, purchasesTotal: 0, closingTotal: 0, usageTotal: 0 },
+		{
+			openingTotal: 0,
+			purchasesTotal: 0,
+			closingTotal: 0,
+			usageTotal: 0,
+			varianceTotal: 0,
+		},
 	);
 
 	const bucketCogs = (key: CogsBucket) =>

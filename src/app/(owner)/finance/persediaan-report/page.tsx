@@ -236,12 +236,12 @@ function CogsView({
 			</KpiRow>
 
 			<p className="text-[12px] text-muted-foreground">
-				<strong className="font-medium text-foreground">
-					COGS / Pemakaian
-				</strong>{" "}
-				= konsumsi event nyata (rekap), dinilai HPP saat pakai — bukan plug.
-				Stok Awal / Akhir = roll-forward persediaan (WAC = purchase_price_avg);
-				selisih dengan pemakaian = variance yang dikoreksi lewat opname.
+				<strong className="font-medium text-foreground">Pemakaian</strong> =
+				konsumsi event nyata (rekap, dinilai HPP saat pakai). Stok Awal/Akhir =
+				nilai persediaan (WAC = purchase_price_avg).{" "}
+				<strong className="font-medium text-foreground">Selisih</strong> =
+				mutasi stok yang belum dijelaskan pemakaian (penyesuaian/shrinkage) —
+				idealnya nol; opname mengoreksinya.
 			</p>
 
 			<RollforwardTable data={data} />
