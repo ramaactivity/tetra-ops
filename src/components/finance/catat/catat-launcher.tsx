@@ -77,7 +77,7 @@ export function CatatLauncher({
 			{isDesktop ? (
 				// Desktop — wide, centered modal with a two-column form.
 				<Dialog open={open} onOpenChange={setOpen}>
-					<DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-2xl">
+					<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
 						<DialogHeader>
 							<DialogTitle>Catat transaksi</DialogTitle>
 							<DialogDescription>

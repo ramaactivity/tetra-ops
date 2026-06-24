@@ -509,6 +509,91 @@ export function QuickRecordCore({
 		</div>
 	);
 
+	// Wide modal panes — date+note shown inline (no collapse) and the receipt
+	// preview gets its own full-height column (mirrors the payment dialog).
+	const dateNotePane = (
+		<div className="space-y-2.5">
+			<span className="eyebrow">Tanggal & catatan</span>
+			<div className="flex flex-wrap items-center gap-2">
+				<button
+					type="button"
+					onClick={() => setDate(todayIso())}
+					className={cn(
+						"press tap h-9 rounded-full border px-3.5 text-[13px]",
+						date === todayIso()
+							? "border-[#059669] bg-emerald-50 text-foreground"
+							: "border-border-default bg-card text-muted-foreground",
+					)}
+				>
+					Hari ini
+				</button>
+				<input
+					type="date"
+					value={date}
+					max={todayIso()}
+					onChange={(e) => setDate(e.target.value)}
+					className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
+				/>
+			</div>
+			<RichTextarea
+				value={note}
+				onChange={setNote}
+				rows={2}
+				maxLength={300}
+				placeholder="Catatan (opsional) — mis. bensin survey lokasi"
+				toolbar={false}
+			/>
+		</div>
+	);
+
+	const notaPane = (
+		<div className="flex h-full flex-col space-y-2.5">
+			<span className="eyebrow">Bukti nota</span>
+			{photo ? (
+				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border-subtle">
+					{photoUrl ? (
+						// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
+						<img
+							src={photoUrl}
+							alt="Preview nota"
+							className="min-h-0 w-full flex-1 bg-surface-3 object-contain"
+						/>
+					) : (
+						<div className="flex flex-1 items-center justify-center bg-surface-3 text-[12.5px] text-muted-foreground">
+							{photo.name}
+						</div>
+					)}
+					<div className="flex items-center justify-between gap-2 border-t border-border-subtle px-3 py-2">
+						<span className="truncate text-[12.5px] text-muted-foreground">
+							{photo.name}
+						</span>
+						<button
+							type="button"
+							onClick={() => setPhoto(null)}
+							className="press tap inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-rose-600 hover:bg-rose-50"
+						>
+							<X className="size-3.5" /> Hapus
+						</button>
+					</div>
+				</div>
+			) : (
+				<label className="press tap flex min-h-[14rem] flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-default bg-card px-4 text-center text-[13px] text-muted-foreground hover:bg-secondary">
+					<Paperclip className="size-6 text-muted-foreground/70" />
+					<span>Tarik atau klik untuk lampirkan foto nota</span>
+					<span className="text-[11.5px] text-muted-foreground/70">
+						Opsional · gambar atau PDF
+					</span>
+					<input
+						type="file"
+						accept="image/*,application/pdf"
+						className="hidden"
+						onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+					/>
+				</label>
+			)}
+		</div>
+	);
+
 	const lihatJurnal = canSubmit ? (
 		<div className="text-center">
 			<button
@@ -563,9 +648,9 @@ export function QuickRecordCore({
 			{directionSeg}
 
 			{wide ? (
-				// Desktop modal — two columns: money/account on the left, what-for
-				// + details on the right. Action bar spans full width below.
-				<div className="grid grid-cols-1 gap-5 sm:grid-cols-[1.05fr_1fr]">
+				// Desktop modal — three columns: money/account · what-for + date/note
+				// · receipt preview. Wide enough to avoid vertical scroll.
+				<div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
 					<div className="space-y-4">
 						{amountHero}
 						{amountControl}
@@ -574,9 +659,10 @@ export function QuickRecordCore({
 					<div className="space-y-4">
 						{categoryField}
 						{recentsBlock}
-						{detailsField}
+						{dateNotePane}
 						{lihatJurnal}
 					</div>
+					<div>{notaPane}</div>
 				</div>
 			) : (
 				<>
