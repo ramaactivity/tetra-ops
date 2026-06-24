@@ -9,6 +9,7 @@ const TABS = [
 	{ href: "/settings/whatsapp-templates", label: "Template WA" },
 	{ href: "/settings/notification-rules", label: "Notifikasi" },
 	{ href: "/settings/audit-log", label: "Log Audit" },
+	{ href: "/settings/cutoff", label: "Cutoff" },
 ];
 
 export function SettingsTabs() {
