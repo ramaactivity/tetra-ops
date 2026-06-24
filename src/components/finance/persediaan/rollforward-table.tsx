@@ -253,7 +253,10 @@ function BucketSection({
 						<div className="tabular text-[11px] text-muted-foreground">
 							{it.sku} · {it.bulkLabel ?? it.unit}
 							{it.wac > 0 && (
-								<> · WAC {formatRupiah(it.wac * it.bulkMultiplier)}</>
+								<>
+									{" "}
+									· WAC {formatRupiah(it.wac)}/{it.unit}
+								</>
 							)}
 						</div>
 					</th>
