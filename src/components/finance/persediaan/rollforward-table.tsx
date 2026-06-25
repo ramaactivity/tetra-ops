@@ -23,52 +23,43 @@ function Money({ v, strong = false }: { v: number; strong?: boolean }) {
 	);
 }
 
-/** Qty cell — shown in bulk units (qty / multiplier), with the base qty in a
- *  tooltip so it matches the warehouse Persediaan display. Negative flagged. */
-function QtyCell({
+/** Qty cell — base unit primary + "≈ bulk" secondary, mirroring the warehouse
+ *  Persediaan display ("9 roll ≈ 4,5 Box") so both surfaces read identically.
+ *  flagNegative highlights minus stock (Stok Awal/Akhir only). */
+function QtyStack({
 	q,
 	mult,
 	baseUnit,
+	bulkLabel,
+	flagNegative = false,
 }: {
 	q: number;
 	mult: number;
 	baseUnit: string;
+	bulkLabel: string | null;
+	flagNegative?: boolean;
 }) {
 	if (q === 0) return DASH;
-	const display = q / mult;
-	const title = mult !== 1 ? `= ${fmtQty(q)} ${baseUnit}` : undefined;
-	if (q < 0)
-		return (
-			<span
-				className="inline-flex items-center gap-1 whitespace-nowrap text-rose-600 dark:text-rose-400"
-				title={title ?? "Stok minus — lakukan opname untuk koreksi."}
-			>
-				<AlertTriangle className="size-3" />
-				{fmtQty(display)}
+	const negative = flagNegative && q < 0;
+	const showBulk = mult > 1 && !!bulkLabel;
+	return (
+		<span
+			className={`inline-flex flex-col items-end leading-tight ${
+				negative ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
+			}`}
+			title={
+				negative ? "Stok minus — lakukan opname untuk koreksi." : undefined
+			}
+		>
+			<span className="inline-flex items-center gap-1 whitespace-nowrap tabular">
+				{negative && <AlertTriangle className="size-3" />}
+				{fmtQty(q)} {baseUnit}
 			</span>
-		);
-	return (
-		<span className="whitespace-nowrap text-muted-foreground" title={title}>
-			{fmtQty(display)}
-		</span>
-	);
-}
-
-/** Plain bulk qty (no negative flag) for Pembelian/Pemakaian. */
-function BulkQty({
-	q,
-	mult,
-	baseUnit,
-}: {
-	q: number;
-	mult: number;
-	baseUnit: string;
-}) {
-	if (q === 0) return DASH;
-	const title = mult !== 1 ? `= ${fmtQty(q)} ${baseUnit}` : undefined;
-	return (
-		<span className="whitespace-nowrap text-muted-foreground" title={title}>
-			{fmtQty(q / mult)}
+			{showBulk && (
+				<span className="whitespace-nowrap text-[10px] text-muted-foreground/70">
+					≈ {fmtQty(q / mult)} {bulkLabel}
+				</span>
+			)}
 		</span>
 	);
 }
@@ -255,17 +246,20 @@ function BucketSection({
 							{it.wac > 0 && (
 								<>
 									{" "}
-									· WAC {formatRupiah(it.wac)}/{it.unit}
+									· WAC {formatRupiah(it.wac * it.bulkMultiplier)}/
+									{it.bulkLabel ?? it.unit}
 								</>
 							)}
 						</div>
 					</th>
 					<NumPair
 						qty={
-							<QtyCell
+							<QtyStack
 								q={it.openingQty}
 								mult={it.bulkMultiplier}
 								baseUnit={it.unit}
+								bulkLabel={it.bulkLabel}
+								flagNegative
 							/>
 						}
 						total={it.openingTotal}
@@ -273,10 +267,11 @@ function BucketSection({
 					{showPurchases && (
 						<NumPair
 							qty={
-								<BulkQty
+								<QtyStack
 									q={it.purchasesQty}
 									mult={it.bulkMultiplier}
 									baseUnit={it.unit}
+									bulkLabel={it.bulkLabel}
 								/>
 							}
 							total={it.purchasesTotal}
@@ -284,20 +279,23 @@ function BucketSection({
 					)}
 					<NumPair
 						qty={
-							<QtyCell
+							<QtyStack
 								q={it.closingQty}
 								mult={it.bulkMultiplier}
 								baseUnit={it.unit}
+								bulkLabel={it.bulkLabel}
+								flagNegative
 							/>
 						}
 						total={it.closingTotal}
 					/>
 					<NumPair
 						qty={
-							<BulkQty
+							<QtyStack
 								q={it.usageQty}
 								mult={it.bulkMultiplier}
 								baseUnit={it.unit}
+								bulkLabel={it.bulkLabel}
 							/>
 						}
 						total={it.usageTotal}
