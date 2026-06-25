@@ -14,6 +14,7 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { NumberField, TextareaField } from "@/components/ui/form-fields";
+import { toast } from "@/components/ui/toaster";
 import {
 	addStockMovement,
 	type StockMovementFormState,
@@ -102,14 +103,23 @@ export function StockAdjustDialog({
 
 	useEffect(() => {
 		if (submitTick === 0 || pending) return;
-		const hasErrors =
-			state?.errors &&
-			Object.values(state.errors).some((arr) => arr && arr.length > 0);
-		if (!hasErrors) {
+		// Hanya tutup saat server konfirmasi sukses (state.ok). Sebelumnya
+		// "tidak ada error" dianggap sukses — padahal throw yang ditelan
+		// useActionState juga menghasilkan state undefined → dialog menutup
+		// senyap tanpa stok berubah. Sekarang sukses & gagal sama-sama jelas.
+		if (state?.ok) {
+			toast.success("Stok berhasil di-adjust.");
 			setOpen(false);
 			setQtyInput("");
 			setNotes("");
+			return;
 		}
+		const firstError =
+			state?.errors?._form?.[0] ??
+			Object.values(state?.errors ?? {})
+				.flat()
+				.find(Boolean);
+		if (firstError) toast.error(firstError);
 	}, [submitTick, pending, state]);
 
 	// Reset reason when reopening
@@ -118,6 +128,7 @@ export function StockAdjustDialog({
 			setReason("opname");
 			setQtyInput("");
 			setNotes("");
+			setSubmitTick(0);
 		}
 	}, [open]);
 
@@ -192,8 +203,8 @@ export function StockAdjustDialog({
 								Adjust Stok
 							</DialogTitle>
 							<DialogDescription className="mt-1.5 text-[12px] text-muted-foreground/80">
-								<span className="font-medium text-foreground">{itemName}</span> ·
-								koreksi non-pembelian (opname / wastage / loss / testing).
+								<span className="font-medium text-foreground">{itemName}</span>{" "}
+								· koreksi non-pembelian (opname / wastage / loss / testing).
 							</DialogDescription>
 						</div>
 						<DialogClose
@@ -207,8 +218,7 @@ export function StockAdjustDialog({
 
 				<form
 					action={(fd) => {
-						if (computed.direction)
-							fd.set("direction", computed.direction);
+						if (computed.direction) fd.set("direction", computed.direction);
 						if (computed.source) fd.set("source", computed.source);
 						fd.set("quantity", String(computed.absoluteQty));
 						setSubmitTick((t) => t + 1);
@@ -236,9 +246,7 @@ export function StockAdjustDialog({
 							<Combobox
 								id="reason"
 								value={reason}
-								onValueChange={(v) =>
-									setReason((v as ReasonCode) ?? "opname")
-								}
+								onValueChange={(v) => setReason((v as ReasonCode) ?? "opname")}
 								options={REASONS.map((r) => ({
 									value: r.value,
 									label: r.label,
