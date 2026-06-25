@@ -571,10 +571,15 @@ export async function recordPurchaseBatch(
 	try {
 		const isCash = parsed.data.payment_method === "cash";
 		if (!isCash && journalEntryId) {
-			const grandTotal = movements.reduce(
-				(s, m) => s + Math.round(m.quantity * m.unit_cost),
-				0,
-			);
+			// Sertakan capexLines: aset tetap yang dibeli TOP juga jadi hutang ke
+			// vendor, dan jurnal sudah meng-kredit 2-101 untuk inventory+capex.
+			// Tanpa ini, batch TOP campur inventory+aset (atau murni aset) bikin
+			// payable < kredit 2-101 → drift kontrol-akun (reconciliation-check).
+			const grandTotal =
+				movements.reduce(
+					(s, m) => s + Math.round(m.quantity * m.unit_cost),
+					0,
+				) + capexLines.reduce((s, c) => s + c.amount, 0);
 			if (grandTotal > 0) {
 				const topDays =
 					parsed.data.payment_method === "top_7"

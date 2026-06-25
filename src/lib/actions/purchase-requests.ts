@@ -124,11 +124,14 @@ export async function createPurchaseRequest(
 	return { success: true, id: pr.id };
 }
 
+// PR-receive sengaja QTY-ONLY: tidak menerima unit_cost / supplier_id.
+// Costing + valuasi + jurnal Persediaan & payable adalah tanggung jawab flow
+// Pembelian (purchases.ts) yang posting GL dengan benar. Kalau receive boleh
+// set cost di sini, ia menaikkan nilai persediaan + WAC tanpa jurnal apa pun →
+// drift GL Persediaan (audit 2026-06-25). PR = stock-safety, bukan finance.
 const ReceiveItemSchema = z.object({
 	pr_item_id: z.uuid(),
 	qty_received: z.coerce.number().nonnegative(),
-	supplier_id: z.uuid().optional().nullable(),
-	unit_cost: z.coerce.number().int().nonnegative().optional().nullable(),
 	notes: z.string().trim().max(200).optional(),
 });
 
@@ -144,7 +147,6 @@ const ReceivePRSchema = z.object({
 			}
 		})
 		.pipe(z.array(ReceiveItemSchema).min(1)),
-	supplier_id: z.uuid().optional().nullable(),
 });
 
 /**
@@ -160,7 +162,6 @@ export async function receivePurchaseRequest(
 	const parsed = ReceivePRSchema.safeParse({
 		pr_id: formData.get("pr_id"),
 		items: formData.get("items") ?? "[]",
-		supplier_id: formData.get("supplier_id") || null,
 	});
 	if (!parsed.success) {
 		return {
@@ -218,13 +219,15 @@ export async function receivePurchaseRequest(
 			item_id: pri.item_id,
 			direction: "in",
 			quantity: incoming.qty_received,
-			unit_cost: incoming.unit_cost ?? null,
+			// QTY-ONLY: cost null & no WAC recompute → tak ada perubahan valuasi
+			// persediaan tanpa jurnal (cegah drift GL). Costing lewat Pembelian.
+			unit_cost: null,
 			source: "purchase_request",
 			source_id: parsed.data.pr_id,
 			source_description: `Terima PR (qty ${incoming.qty_received} ${pri.unit})`,
 			notes: incoming.notes ?? null,
 			performed_by: me.profile.id,
-			supplier_id: parsed.data.supplier_id ?? null,
+			supplier_id: null,
 		});
 	}
 
@@ -236,39 +239,6 @@ export async function receivePurchaseRequest(
 		.from("stock_movements")
 		.insert(movements);
 	if (insErr) return { ok: false, error: insErr.message };
-
-	// Update weighted-avg cost for items received WITH a unit_cost (so the
-	// canonical purchase_price_avg no longer goes stale on PR receipt). Lines
-	// without a cost still increase on-hand but leave the avg untouched.
-	// Aggregate per item (an item can span multiple PR lines), then one atomic
-	// row-locking recompute each. Movements are already inserted above.
-	const costedByItem = new Map<string, { qty: number; costQty: number }>();
-	for (const m of movements) {
-		if (m.unit_cost === null) continue;
-		const agg = costedByItem.get(m.item_id) ?? { qty: 0, costQty: 0 };
-		agg.qty += m.quantity;
-		agg.costQty += m.quantity * m.unit_cost;
-		costedByItem.set(m.item_id, agg);
-	}
-	await Promise.all(
-		Array.from(costedByItem.entries()).map(async ([itemId, agg]) => {
-			if (agg.qty <= 0) return;
-			const { error: avgErr } = await supabase.rpc(
-				"recompute_weighted_avg_cost",
-				{
-					p_item_id: itemId,
-					p_incoming_qty: agg.qty,
-					p_incoming_cost: agg.costQty / agg.qty,
-				},
-			);
-			if (avgErr) {
-				console.error(
-					`[purchase-requests] recompute_weighted_avg_cost failed for ${itemId}:`,
-					avgErr.message,
-				);
-			}
-		}),
-	);
 
 	// Each row gets a distinct qty_received, so this can't be one bulk UPDATE —
 	// but the updates are independent, so fire them concurrently (≈1 round-trip
