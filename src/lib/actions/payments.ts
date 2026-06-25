@@ -1,6 +1,5 @@
 "use server";
 
-import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -49,11 +48,6 @@ async function requireOwnerLevel() {
 		throw new Error("Forbidden — owner-level only");
 	}
 	return me;
-}
-
-function generatePaymentRefId(date: string): string {
-	const compact = date.replaceAll("-", "");
-	return `PAY-${compact}-${randomInt(1000, 10000)}`;
 }
 
 function snapshotValues(formData: FormData): Record<string, string> {
@@ -137,22 +131,21 @@ export async function logPayment(
 			};
 		}
 
-		const refId = generatePaymentRefId(parsed.data.payment_date);
-
-		const { error } = await supabase.from("payments").insert({
-			ref_id: refId,
-			event_id: eventId,
-			amount: parsed.data.amount,
-			payment_date: parsed.data.payment_date,
-			bank_account_id: parsed.data.bank_account_id,
-			payment_type: parsed.data.payment_type,
-			proof_url: parsed.data.proof_url,
-			notes: parsed.data.notes,
-			recorded_by: me.profile.id,
+		// Insert pembayaran + jurnal (Dr Kas/Bank / Cr 4-100) dalam satu RPC atomik
+		// → cash-basis: pendapatan diakui saat uang masuk, kas GL = uang riil.
+		const { error } = await supabase.rpc("record_payment_je", {
+			p_event_id: eventId,
+			p_amount: parsed.data.amount,
+			p_payment_date: parsed.data.payment_date,
+			p_bank_account_id: parsed.data.bank_account_id,
+			p_payment_type: parsed.data.payment_type,
+			p_proof_url: parsed.data.proof_url,
+			p_notes: parsed.data.notes,
+			p_actor: me.profile.id,
 		});
 
 		if (error) {
-			console.error("[logPayment] supabase insert error:", error);
+			console.error("[logPayment] rpc error:", error);
 			return {
 				errors: { _form: [`DB: ${error.message}`] },
 				values: snapshotValues(formData),
@@ -209,18 +202,15 @@ export async function reversePayment(
 			};
 		}
 
-		const { error } = await supabase
-			.from("payments")
-			.update({
-				is_reversed: true,
-				reversed_at: new Date().toISOString(),
-				reversed_by: me.profile.id,
-				reversal_reason: reason,
-			})
-			.eq("id", id);
+		// Tandai reversed + jurnal pembalik (Dr 4-100 / Cr Kas) dalam satu RPC atomik.
+		const { error } = await supabase.rpc("reverse_payment_je", {
+			p_payment_id: id,
+			p_actor: me.profile.id,
+			p_reason: reason,
+		});
 
 		if (error) {
-			console.error("[reversePayment] supabase error:", error);
+			console.error("[reversePayment] rpc error:", error);
 			return { error: error.message };
 		}
 

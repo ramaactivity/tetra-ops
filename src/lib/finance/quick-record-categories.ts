@@ -88,10 +88,13 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
+		// Cash-basis: fee crew di-akrual ke Hutang Crew (2-100) saat settlement.
+		// Membayar crew = melunasi hutang itu → Dr 2-100 / Cr Kas (BUKAN beban lagi,
+		// supaya tidak dobel-beban dengan settlement).
 		id: "fee-crew",
-		label: "Fee crew",
+		label: "Bayar fee crew",
 		icon: Users,
-		coa: "5-200",
+		coa: "2-100",
 		entryType: "expense",
 	},
 	{
