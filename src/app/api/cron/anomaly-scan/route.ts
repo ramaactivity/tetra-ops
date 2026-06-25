@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runAnomalyScannerInternal } from "@/lib/actions/anomaly-scanner";
+import { runReconciliationCheckInternal } from "@/lib/actions/reconciliation-check";
 import { runTbcReminderInternal } from "@/lib/actions/tbc-reminder";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 
@@ -14,9 +15,10 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 	const ranAt = new Date().toISOString();
-	const [anomaly, tbc] = await Promise.allSettled([
+	const [anomaly, tbc, recon] = await Promise.allSettled([
 		runAnomalyScannerInternal(),
 		runTbcReminderInternal(),
+		runReconciliationCheckInternal(),
 	]);
 	return NextResponse.json({
 		ok: anomaly.status === "fulfilled" || tbc.status === "fulfilled",
@@ -29,5 +31,9 @@ export async function GET(request: Request) {
 			tbc.status === "fulfilled"
 				? tbc.value
 				: { error: tbc.reason?.message ?? "tbc reminder failed" },
+		reconciliation:
+			recon.status === "fulfilled"
+				? recon.value
+				: { error: recon.reason?.message ?? "reconciliation check failed" },
 	});
 }
