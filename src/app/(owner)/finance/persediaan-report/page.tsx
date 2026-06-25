@@ -130,7 +130,7 @@ export default async function PersediaanReportPage({
 				aria-label="Persediaan"
 				items={[
 					{
-						label: "Cost of Goods Sold",
+						label: "Biaya Bahan",
 						href: `/finance/persediaan-report?tab=cogs&month=${ym}`,
 						icon: <BarChart3 className="size-4 shrink-0" aria-hidden />,
 						active: tab === "cogs",
@@ -207,37 +207,37 @@ function CogsView({
 
 			<KpiRow className="lg:grid-cols-5">
 				<KpiCard
-					label="Total COGS"
+					label="Total Biaya Bahan"
 					value={rpCompact(data.kpis.totalCogs)}
-					hint="konsumsi event tercatat"
+					hint="bahan terpakai di event (HPP)"
 					icon={Coins}
 					accent="primary"
 				/>
 				<KpiCard
 					label="Mediaset"
 					value={rpCompact(data.kpis.mediasetCogs)}
-					hint="COGS media"
+					hint="biaya media"
 					icon={Layers}
 					accent="sky"
 				/>
 				<KpiCard
 					label="Sleeve"
 					value={rpCompact(data.kpis.sleeveCogs)}
-					hint="COGS sleeve"
+					hint="biaya sleeve"
 					icon={Layers}
 					accent="amber"
 				/>
 				<KpiCard
 					label="Flashdisk"
 					value={rpCompact(data.kpis.flashdiskCogs)}
-					hint="COGS flashdisk + box"
+					hint="biaya flashdisk + box"
 					icon={Layers}
 					accent="rose"
 				/>
 				<KpiCard
-					label="Nilai Persediaan Akhir"
+					label="Nilai Stok Tersisa"
 					value={rpCompact(data.kpis.closingValue)}
-					hint={`${data.itemCount} item · on-hand × WAC`}
+					hint={`${data.itemCount} item · jumlah × harga rata-rata`}
 					icon={Wallet2}
 					accent="emerald"
 				/>

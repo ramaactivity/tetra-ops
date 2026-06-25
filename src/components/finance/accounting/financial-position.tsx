@@ -1,4 +1,5 @@
 import { Check, TriangleAlert } from "lucide-react";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { PositionSummary } from "@/lib/finance/accounting";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -47,16 +48,27 @@ export function FinancialPosition({
 			{/* Headline figures — total assets dominant, cash as the liquid slice */}
 			<div className="grid gap-5 px-5 py-5 sm:grid-cols-[1.4fr_1fr] sm:gap-8 sm:py-6">
 				<div>
-					<div className="eyebrow mb-1.5">Total aset</div>
+					<div className="eyebrow mb-1.5 flex items-center gap-1">
+						Total aset
+						<InfoHint title="Total aset">
+							Semua yang dimiliki bisnis: uang di bank, stok bahan, dan
+							peralatan. Makin besar makin kuat.
+						</InfoHint>
+					</div>
 					<div className="tabular display-tight text-[32px] font-semibold leading-[1.05] text-foreground sm:text-[40px]">
 						{formatRupiah(assets)}
 					</div>
 					<p className="mt-1.5 text-[12px] leading-snug text-muted-foreground">
-						Nilai bersih seluruh aset, setelah penyusutan.
+						Nilai seluruh aset bisnis.
 					</p>
 				</div>
 				<div className="sm:border-l sm:border-border-subtle sm:pl-8">
-					<div className="eyebrow mb-1.5">Kas &amp; bank</div>
+					<div className="eyebrow mb-1.5 flex items-center gap-1">
+						Kas &amp; bank
+						<InfoHint title="Kas & bank">
+							Uang tunai + saldo semua rekening bank yang siap dipakai sekarang.
+						</InfoHint>
+					</div>
 					<div className="tabular text-[22px] font-semibold leading-tight text-foreground sm:text-[26px]">
 						{formatRupiah(cash)}
 					</div>
@@ -69,13 +81,22 @@ export function FinancialPosition({
 			{/* The accounting equation — standing proof the books hang together */}
 			<div className="border-t border-border-subtle bg-secondary/40 px-5 py-4">
 				<div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr]">
-					<EquationTerm label="Aset" value={assets} />
+					<EquationTerm
+						label="Aset"
+						value={assets}
+						info="Semua yang dimiliki bisnis (uang, stok, alat). Selalu = Kewajiban + Ekuitas."
+					/>
 					<Operator symbol="=" />
-					<EquationTerm label="Kewajiban" value={liabilities} />
+					<EquationTerm
+						label="Kewajiban"
+						value={liabilities}
+						info="Yang masih harus dibayar: utang ke supplier, fee crew, dana cadangan."
+					/>
 					<Operator symbol="+" />
 					<EquationTerm
 						label="Ekuitas"
 						value={equity}
+						info="Modal + laba yang jadi milik owner. = Aset − Kewajiban."
 						hint={
 							netIncome !== 0
 								? `termasuk laba berjalan ${formatRupiah(netIncome)}`
@@ -122,14 +143,19 @@ function EquationTerm({
 	label,
 	value,
 	hint,
+	info,
 }: {
 	label: string;
 	value: number;
 	hint?: string;
+	info?: string;
 }) {
 	return (
 		<div className="flex items-baseline justify-between gap-2 sm:block">
-			<div className="eyebrow sm:mb-1">{label}</div>
+			<div className="eyebrow flex items-center gap-1 sm:mb-1">
+				{label}
+				{info ? <InfoHint title={label}>{info}</InfoHint> : null}
+			</div>
 			<div className="text-right sm:text-left">
 				<div
 					className={cn(
