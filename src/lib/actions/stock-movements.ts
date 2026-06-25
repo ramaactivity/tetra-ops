@@ -3,9 +3,13 @@
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { recordAdjustmentJournal } from "@/lib/actions/wastage";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
+
+/** Source koreksi yang wajib ikut posting jurnal Persediaan↔Wastage. */
+const ADJUST_JOURNAL_SOURCES = new Set(["stock_take", "damage", "loss"]);
 
 const DIRECTIONS = ["in", "out", "adjustment"] as const;
 const SOURCES = [
@@ -221,27 +225,57 @@ export async function addStockMovement(
 				? `${parsed.data.notes ? parsed.data.notes + " · " : ""}[Input: ${parsed.data.quantity} ${inputUnit} → ${baseUnitQuantity} ${baseUnit}]`
 				: parsed.data.notes;
 
-		const { error } = await supabase.from("stock_movements").insert({
-			ref_id: refId,
-			item_id: parsed.data.item_id,
-			direction: parsed.data.direction,
-			quantity: baseUnitQuantity,
-			quantity_unit: inputUnit && inputUnit !== baseUnit ? inputUnit : null,
-			quantity_in_unit:
-				inputUnit && inputUnit !== baseUnit ? parsed.data.quantity : null,
-			unit_cost: baseUnitCost,
-			source: parsed.data.source,
-			source_description: null,
-			supplier_id: parsed.data.supplier_id,
-			notes: noteWithUnit,
-			performed_by: me.authId,
-		});
+		const { data: inserted, error } = await supabase
+			.from("stock_movements")
+			.insert({
+				ref_id: refId,
+				item_id: parsed.data.item_id,
+				direction: parsed.data.direction,
+				quantity: baseUnitQuantity,
+				quantity_unit: inputUnit && inputUnit !== baseUnit ? inputUnit : null,
+				quantity_in_unit:
+					inputUnit && inputUnit !== baseUnit ? parsed.data.quantity : null,
+				unit_cost: baseUnitCost,
+				source: parsed.data.source,
+				source_description: null,
+				supplier_id: parsed.data.supplier_id,
+				notes: noteWithUnit,
+				performed_by: me.authId,
+			})
+			.select("id")
+			.single();
 
 		if (error) {
 			return {
 				errors: { _form: [error.message] },
 				values: snapshotValues(formData),
 			};
+		}
+
+		// Auto-jurnal koreksi non-pembelian (opname/damage/loss) supaya GL
+		// Persediaan ikut bergerak — tanpa ini nilai stok berubah tapi GL diam
+		// → drift (ke-flag reconciliation-check, tak auto-heal). Purchase punya
+		// jalur jurnalnya sendiri; transfer/manual_adjust sengaja dilewati.
+		// Best-effort: stock_movements tetap canonical, gagal jurnal cukup di-log.
+		if (
+			ADJUST_JOURNAL_SOURCES.has(parsed.data.source) &&
+			(parsed.data.direction === "in" || parsed.data.direction === "out")
+		) {
+			const jr = await recordAdjustmentJournal(supabase, {
+				item_id: parsed.data.item_id,
+				qty_base: baseUnitQuantity,
+				direction: parsed.data.direction,
+				stock_movement_id: inserted?.id ?? null,
+				reported_by: me.authId,
+				label:
+					parsed.data.source === "stock_take" ? "opname" : parsed.data.source,
+			});
+			if (!jr.ok) {
+				console.error(
+					`[stock-movements] adjust journal failed for ${itemId}:`,
+					jr.error,
+				);
+			}
 		}
 
 		if (isPurchaseIn && baseUnitCost !== null) {

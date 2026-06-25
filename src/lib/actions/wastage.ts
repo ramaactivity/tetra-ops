@@ -481,3 +481,90 @@ export async function recordOpnameOverageGain(
 
 	return { ok: true };
 }
+
+/**
+ * Journal untuk koreksi stok non-pembelian dari dialog Adjust Stok
+ * (opname / damage / testing / loss) yang TIDAK lewat jalur Stock Opname formal
+ * maupun flow Wastage. Tanpa ini, addStockMovement mengubah qty + nilai
+ * persediaan tapi GL Persediaan tak ikut → drift (ke-flag reconciliation-check,
+ * tidak auto-heal). Best-effort, mirror recordOpnameOverageGain/Shortage:
+ *   - 'in'  (opname lebih)                → Dr Persediaan / Cr Beban Wastage (contra)
+ *   - 'out' (rusak / hilang / opname kurang) → Dr Beban Wastage / Cr Persediaan
+ * Pakai COA bucket yang SAMA dengan purchase debit & COGS credit → GL = stok fisik.
+ */
+export async function recordAdjustmentJournal(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	args: {
+		item_id: string;
+		qty_base: number; // absolute, > 0
+		direction: "in" | "out";
+		stock_movement_id?: string | null;
+		reported_by: string;
+		label?: string; // "opname" / "damage" / "loss" — untuk deskripsi entry
+	},
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const loaded = await getItemWithConfig(supabase, args.item_id);
+	if (!loaded || loaded.kind !== "inventory") return { ok: true };
+	const item = loaded.base;
+	const cfg = loaded.config;
+	const avgCost = cfg.purchase_price_avg ?? 0;
+	const costAtTime = Math.round(args.qty_base * avgCost);
+	if (costAtTime <= 0) return { ok: true };
+
+	const inventoryAccount = inventoryCoaForSku(item.sku);
+	const wastageAccount =
+		cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
+	const today = new Date().toISOString().slice(0, 10);
+	const isIn = args.direction === "in";
+
+	const { data: entry, error: entryErr } = await supabase
+		.from("journal_entries")
+		.insert({
+			ref_id: newJournalRef(),
+			entry_date: today,
+			entry_type: "adjustment",
+			description: `Adjust stok (${args.label ?? args.direction}) ${item.sku} — ${args.qty_base} ${item.unit}`,
+			source_type: "wastage",
+			source_id: args.stock_movement_id ?? null,
+			total_amount: costAtTime,
+			created_by: args.reported_by,
+		})
+		.select("id")
+		.single();
+	if (entryErr || !entry) {
+		console.error(
+			"[adjust-journal] journal_entries insert failed:",
+			entryErr?.message,
+		);
+		return { ok: false, error: entryErr?.message ?? "journal insert failed" };
+	}
+
+	const persediaanLine = {
+		entry_id: entry.id,
+		account_code: inventoryAccount,
+		debit_amount: isIn ? costAtTime : 0,
+		credit_amount: isIn ? 0 : costAtTime,
+		description: `Persediaan ${isIn ? "masuk" : "keluar"} ${args.qty_base} ${item.unit}`,
+		line_order: isIn ? 1 : 2,
+	};
+	const wastageLine = {
+		entry_id: entry.id,
+		account_code: wastageAccount,
+		debit_amount: isIn ? 0 : costAtTime,
+		credit_amount: isIn ? costAtTime : 0,
+		description: `Koreksi stok ${item.name}`,
+		line_order: isIn ? 2 : 1,
+	};
+	const { error: linesErr } = await supabase
+		.from("journal_lines")
+		.insert([persediaanLine, wastageLine]);
+	if (linesErr) {
+		console.error(
+			"[adjust-journal] journal_lines insert failed:",
+			linesErr.message,
+		);
+		await supabase.from("journal_entries").delete().eq("id", entry.id);
+		return { ok: false, error: linesErr.message };
+	}
+	return { ok: true };
+}
