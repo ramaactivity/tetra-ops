@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DisposeAssetDialog } from "@/components/warehouse/assets/dispose-asset-dialog";
-import { PostDepreciationButton } from "@/components/warehouse/assets/post-depreciation-button";
 import { formatRupiah } from "@/lib/format";
 import { computeDepreciation } from "@/lib/inventory/depreciation";
 import { createClient } from "@/lib/supabase/server";
@@ -199,7 +198,9 @@ export default async function AssetRegisterPage({
 				description="Daftar aktiva tetap. Book value = purchase price − accum. depresiasi (sumber: depreciation_postings)."
 				actions={
 					<>
-						<PostDepreciationButton />
+						{/* Penyusutan dimatikan (default off) untuk skala UMKM — tak
+						    memengaruhi pajak final, cocok dgn cash-basis. Tombol & cron
+						    di-nonaktifkan; kode tetap ada bila nanti perlu dinyalakan. */}
 						<Link
 							href="/warehouse/items/new"
 							className={buttonVariants({
