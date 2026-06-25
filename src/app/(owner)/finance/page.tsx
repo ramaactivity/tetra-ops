@@ -21,10 +21,12 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
+import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 function lastDayOfMonth(year: number, month: number): string {
 	const d = new Date(year, month, 0).getDate();
@@ -223,6 +225,25 @@ export default async function FinancePage({
 
 	const outstanding = (outstandingData as number | null) ?? 0;
 
+	// Mode Simpel — angka inti dari Buku Besar: uang di bank (1-1xx) & total utang
+	// (2-100 Hutang Crew + 2-101 Hutang Vendor).
+	const { data: glRows } = await supabase
+		.from("journal_lines")
+		.select("account_code, debit_amount, credit_amount")
+		.or("account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101");
+	let cashGl = 0;
+	let utangGl = 0;
+	for (const l of (glRows ?? []) as Array<{
+		account_code: string;
+		debit_amount: number;
+		credit_amount: number;
+	}>) {
+		const net = Number(l.debit_amount) - Number(l.credit_amount);
+		if (l.account_code.startsWith("1-1"))
+			cashGl += net; // aset: debit-normal
+		else utangGl += -net; // kewajiban: credit-normal
+	}
+
 	const inflowByBank = new Map<string, number>();
 	for (const p of (paymentByBankData ?? []) as Array<{
 		amount: number;
@@ -337,14 +358,79 @@ export default async function FinancePage({
 		});
 	}
 
+	// Mode Simpel — 6 angka inti dalam bahasa awam (owner non-akuntan).
+	const simpleStats: Array<{
+		label: string;
+		value: number;
+		hint: string;
+		tone?: "good" | "warn";
+	}> = [
+		{
+			label: "Uang di bank",
+			value: cashGl,
+			hint: "Total uang tunai + saldo semua rekening bank saat ini, menurut pembukuan.",
+		},
+		{
+			label: "Uang masuk bulan ini",
+			value: revenueMtd,
+			hint: "Total pembayaran klien (DP + pelunasan) yang diterima bulan ini.",
+		},
+		{
+			label: "Untung bulan ini",
+			value: netProfitMtd,
+			hint: "Pendapatan dikurangi semua biaya, dari event yang sudah di-settle bulan ini.",
+			tone: netProfitMtd >= 0 ? "good" : "warn",
+		},
+		{
+			label: "Belum dibayar klien",
+			value: outstanding,
+			hint: "Sisa tagihan event yang masih berjalan — uang yang belum masuk.",
+			tone: outstanding > 0 ? "warn" : undefined,
+		},
+		{
+			label: "Saya utang",
+			value: utangGl,
+			hint: "Utang ke supplier + fee crew yang belum dibayar.",
+			tone: utangGl > 0 ? "warn" : undefined,
+		},
+		{
+			label: "Dana cadangan",
+			value: totalSinking,
+			hint: "Uang yang disisihkan tiap event untuk ganti alat, perawatan, darurat, dll.",
+		},
+	];
+
 	return (
 		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Finance"
-				description={`Cash flow, profit, sinking funds, dan owner pool · ${monthLabel}`}
+				description={`Ringkasan keuangan bisnismu · ${monthLabel}`}
 			/>
 
 			<CatatLauncher data={catatData} autoOpen={catat === "1"} />
+
+			{/* Mode Simpel — angka inti yang owner butuh, bahasa awam + penjelasan */}
+			<div className="rounded-2xl border border-border-subtle bg-card p-4 sm:p-5">
+				<div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
+					{simpleStats.map((s) => (
+						<div key={s.label}>
+							<div className="flex items-center gap-1 text-[12.5px] text-muted-foreground">
+								<span>{s.label}</span>
+								<InfoHint title={s.label}>{s.hint}</InfoHint>
+							</div>
+							<div
+								className={cn(
+									"mt-0.5 truncate text-[17px] font-semibold tabular sm:text-lg",
+									s.tone === "good" && "text-emerald-700",
+									s.tone === "warn" && "text-amber-700",
+								)}
+							>
+								{formatRupiah(s.value)}
+							</div>
+						</div>
+					))}
+				</div>
+			</div>
 
 			<KpiRow>
 				<KpiCard
