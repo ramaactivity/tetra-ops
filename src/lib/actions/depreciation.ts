@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -75,11 +76,70 @@ export async function postDepreciationForMonth(
 	};
 }
 
+/**
+ * Cron entrypoint — accrue depreciation for the current month automatically.
+ * No user session, so it uses the service-role client + a system owner as actor.
+ * The RPC is idempotent (UNIQUE item_id+period), so a missed/late run is safe to
+ * repeat. Without this, monthly depreciation was simply never posted unless a
+ * human clicked the button.
+ */
+export async function runDepreciationInternal(
+	periodYm?: string,
+): Promise<PostDeprResult> {
+	const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+	if (!url || !key) return { ok: false, error: "Service key tidak tersedia" };
+	const sb = createServiceClient(url, key, {
+		auth: { persistSession: false, autoRefreshToken: false },
+	});
+
+	// Period default = bulan berjalan (Asia/Jakarta) YYYY-MM.
+	const period =
+		periodYm ??
+		new Date()
+			.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+			.slice(0, 7);
+	const parsed = PeriodYmSchema.safeParse(period);
+	if (!parsed.success)
+		return { ok: false, error: parsed.error.issues[0].message };
+
+	const { data: actor } = await sb
+		.from("users")
+		.select("id")
+		.in("role", ["owner", "super_admin"])
+		.eq("is_active", true)
+		.order("created_at")
+		.limit(1)
+		.maybeSingle();
+	if (!actor) return { ok: false, error: "Tidak ada owner sebagai actor" };
+
+	const { data, error } = await sb.rpc("accrue_monthly_depreciation", {
+		p_period_ym: parsed.data,
+		p_actor: actor.id,
+	});
+	if (error) return { ok: false, error: error.message };
+
+	const result = Array.isArray(data) ? data[0] : data;
+	return {
+		ok: true,
+		posted: Number(result?.posted_count ?? 0),
+		skipped: Number(result?.skipped_count ?? 0),
+		totalAmount: Number(result?.total_amount ?? 0),
+		periodYm: parsed.data,
+	};
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Dispose fixed asset
 // ─────────────────────────────────────────────────────────────────────────
 
-const DISPOSAL_METHODS = ["sold", "scrapped", "lost", "donated", "transferred"] as const;
+const DISPOSAL_METHODS = [
+	"sold",
+	"scrapped",
+	"lost",
+	"donated",
+	"transferred",
+] as const;
 
 const DisposalInputSchema = z.object({
 	disposal_date: z.iso.date(),
@@ -296,7 +356,9 @@ export async function disposeFixedAsset(
 		});
 	}
 
-	const { error: linesErr } = await supabase.from("journal_lines").insert(lines);
+	const { error: linesErr } = await supabase
+		.from("journal_lines")
+		.insert(lines);
 	if (linesErr) {
 		await supabase.from("journal_entries").delete().eq("id", entry.id);
 		return {

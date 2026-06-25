@@ -9,6 +9,10 @@
 		{
 			"path": "/api/cron/anomaly-scan",
 			"schedule": "30 23 * * *"
+		},
+		{
+			"path": "/api/cron/depreciation",
+			"schedule": "0 1 28 * *"
 		}
 	]
 }

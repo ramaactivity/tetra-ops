@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
+	CONTROLLED_ACCOUNT_MSG,
+	isControlledAccount,
+} from "@/lib/finance/control-accounts";
+import {
 	type CatatDirection,
 	findCategory,
 } from "@/lib/finance/quick-record-categories";
@@ -161,6 +165,18 @@ export async function createManualJournalEntry(
 		};
 	}
 
+	// Block free-form manual postings to subledger-controlled accounts → keeps
+	// each control account in lockstep with its subledger (payables/sinking/owner/
+	// depreciation). Those must move via their dedicated flows.
+	const controlled = codes.filter((c) => isControlledAccount(c));
+	if (controlled.length > 0) {
+		return {
+			errors: {
+				lines: [`${CONTROLLED_ACCOUNT_MSG} (${controlled.join(", ")})`],
+			},
+		};
+	}
+
 	const totalAmount = parsed.data.lines.reduce((s, l) => s + l.debit_amount, 0);
 	const refId = newJournalRef(new Date(parsed.data.entry_date));
 
@@ -278,6 +294,11 @@ export async function recordQuickTransaction(
 		const category = findCategory(parsed.data.category_id);
 		if (!override && !category)
 			return { error: "Pilih kategori transaksi dulu" };
+		// Free-form "Akun lain" must not target subledger-controlled accounts
+		// (curated categories may, e.g. "Bayar fee crew" → 2-100, which is allowed).
+		if (override && isControlledAccount(override)) {
+			return { error: CONTROLLED_ACCOUNT_MSG };
+		}
 		counterpartCode = override || category!.coa;
 		entryType = dir === "keluar" ? "expense" : "revenue";
 		defaultLabel =
