@@ -8,17 +8,13 @@ import {
 	notifyRekapSubmitted,
 } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { bucketForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import {
 	type DeductionLine,
 	projectEventLinesFromSpec,
 } from "@/lib/rekap/project-demand";
-import {
-	bucketHpp,
-	FIELD_TO_BUCKET,
-	type HppBreakdown,
-	roundQty,
-} from "@/lib/rekap/recipe";
+import { bucketHpp, type HppBreakdown, roundQty } from "@/lib/rekap/recipe";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -1054,7 +1050,10 @@ async function planRekapDeduction(
 				qty: qty * qtyPerUnit,
 				unit_cost: Number(item.purchase_price_avg ?? 0),
 				source_label: components.length > 1 ? `${field} → ${sku}` : field,
-				bucket: FIELD_TO_BUCKET[field],
+				// Bucket per-KOMPONEN (bukan per-field): pouch yang ikut flashdisk
+				// harus masuk bucket "pouch" supaya kredit persediaan settlement
+				// (1-203) cocok dgn stok pouch fisik — bukan ke 1-202 (flashdisk).
+				bucket: bucketForSku(item.sku),
 			});
 		}
 	}
