@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { ASSEMBLY_FIELDS } from "@/lib/rekap/assembly-fields";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireOwner() {
@@ -13,14 +14,6 @@ async function requireOwner() {
 	}
 	return me;
 }
-
-/** Rekap fields that support component assemblies. */
-export const ASSEMBLY_FIELDS = [
-	"flashdisk_used",
-	"pouch_used",
-	"photomagnet_used",
-	"keychain_used",
-] as const;
 
 const AddSchema = z.object({
 	rekap_field: z.enum(ASSEMBLY_FIELDS),

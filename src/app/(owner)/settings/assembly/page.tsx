@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { AssemblyEditor } from "@/components/assembly/assembly-editor";
-import { ASSEMBLY_FIELDS } from "@/lib/actions/assembly-rules";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { ASSEMBLY_FIELDS } from "@/lib/rekap/assembly-fields";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Resep Bahan" };
