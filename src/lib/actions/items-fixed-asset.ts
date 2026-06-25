@@ -123,9 +123,12 @@ export type FixedAssetItemFormState =
 function parse(formData: FormData) {
 	return FixedAssetItemInputSchema.safeParse({
 		name: formData.get("name"),
-		sku_override: formData.get("sku_override"),
-		asset_number: formData.get("asset_number"),
-		serial_number: formData.get("serial_number"),
+		// ?? undefined pada field string/enum-optional: formData.get() = null saat
+		// field absen (mis. asset_number cuma dirender di mode edit) → optional()
+		// tolak null. Date/number pakai preprocess yg sudah null-safe.
+		sku_override: formData.get("sku_override") ?? undefined,
+		asset_number: formData.get("asset_number") ?? undefined,
+		serial_number: formData.get("serial_number") ?? undefined,
 		unit: formData.get("unit") || "unit",
 		acquisition_type: formData.get("acquisition_type") || "new_commercial",
 		purchase_price: formData.get("purchase_price"),
@@ -133,10 +136,10 @@ function parse(formData: FormData) {
 		salvage_value: formData.get("salvage_value"),
 		useful_life_months: formData.get("useful_life_months"),
 		depreciation_start_date: formData.get("depreciation_start_date"),
-		condition: formData.get("condition"),
-		current_location: formData.get("current_location"),
-		image_url: formData.get("image_url"),
-		notes: formData.get("notes"),
+		condition: formData.get("condition") ?? undefined,
+		current_location: formData.get("current_location") ?? undefined,
+		image_url: formData.get("image_url") ?? undefined,
+		notes: formData.get("notes") ?? undefined,
 		is_active: formData.get("is_active") === "on",
 	});
 }

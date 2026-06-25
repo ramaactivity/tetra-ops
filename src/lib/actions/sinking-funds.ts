@@ -210,7 +210,9 @@ export async function addManualMovement(
 		movement_type: formData.get("movement_type"),
 		amount: formData.get("amount"),
 		description: formData.get("description"),
-		target_bank_account_id: formData.get("target_bank_account_id"),
+		// ?? undefined: deposit (mode default) tak render field ini → get()=null;
+		// optional() cuma izinkan undefined → null bikin Zod tolak tiap deposit.
+		target_bank_account_id: formData.get("target_bank_account_id") ?? undefined,
 	});
 
 	if (!parsed.success) {

@@ -91,14 +91,17 @@ export type InventoryItemFormState =
 function parse(formData: FormData) {
 	return InventoryItemInputSchema.safeParse({
 		name: formData.get("name"),
-		sku_override: formData.get("sku_override"),
+		// ?? undefined: field string-optional = null saat absen (mis.
+		// preferred_supplier_id tak dirender bila belum ada supplier terdaftar) →
+		// optional() tolak null. Samakan dgn pola fix di action lain.
+		sku_override: formData.get("sku_override") ?? undefined,
 		base_unit: formData.get("base_unit"),
 		purchase_unit: formData.get("purchase_unit"),
 		conversion_factor: formData.get("conversion_factor"),
 		min_stock_alert: formData.get("min_stock_alert"),
-		preferred_supplier_id: formData.get("preferred_supplier_id"),
+		preferred_supplier_id: formData.get("preferred_supplier_id") ?? undefined,
 		is_bom_component: formData.get("is_bom_component") === "on",
-		notes: formData.get("notes"),
+		notes: formData.get("notes") ?? undefined,
 		is_active: formData.get("is_active") === "on",
 	});
 }
@@ -223,19 +226,21 @@ export async function createInventoryItem(
 	}
 
 	// Step 2: insert satellite (COA auto, avg cost starts 0 — auto-update via Pembelian)
-	const { error: cfgErr } = await supabase.from("items_inventory_config").insert({
-		item_id: inserted.id,
-		base_unit: data.base_unit,
-		unit_conversion: unitConversion,
-		min_stock_alert: data.min_stock_alert,
-		purchase_price_avg: 0,
-		selling_price: null,
-		preferred_supplier_id: data.preferred_supplier_id,
-		coa_account_inventory: coa.inventory,
-		coa_account_cogs: coa.cogs,
-		coa_account_wastage: coa.wastage,
-		is_bom_component: data.is_bom_component,
-	});
+	const { error: cfgErr } = await supabase
+		.from("items_inventory_config")
+		.insert({
+			item_id: inserted.id,
+			base_unit: data.base_unit,
+			unit_conversion: unitConversion,
+			min_stock_alert: data.min_stock_alert,
+			purchase_price_avg: 0,
+			selling_price: null,
+			preferred_supplier_id: data.preferred_supplier_id,
+			coa_account_inventory: coa.inventory,
+			coa_account_cogs: coa.cogs,
+			coa_account_wastage: coa.wastage,
+			is_bom_component: data.is_bom_component,
+		});
 	if (cfgErr) {
 		await supabase.from("inventory_items").delete().eq("id", inserted.id);
 		return {
@@ -316,7 +321,12 @@ export async function updateInventoryItem(
 	// Pack, dst dengan multiplier>1), semua existing supplier_prices rows
 	// di-sync ke pack_unit + pack_size baru. Tanpa cascade ini, modal Market
 	// List akan tampil unit lama padahal item config sudah berubah.
-	if (data.purchase_unit && data.purchase_unit !== data.base_unit && data.conversion_factor && data.conversion_factor > 0) {
+	if (
+		data.purchase_unit &&
+		data.purchase_unit !== data.base_unit &&
+		data.conversion_factor &&
+		data.conversion_factor > 0
+	) {
 		const { error: cascadeErr } = await supabase
 			.from("supplier_prices")
 			.update({
@@ -327,7 +337,9 @@ export async function updateInventoryItem(
 			.eq("item_id", id);
 		if (cascadeErr) {
 			return {
-				errors: { _form: [`Gagal sync supplier prices: ${cascadeErr.message}`] },
+				errors: {
+					_form: [`Gagal sync supplier prices: ${cascadeErr.message}`],
+				},
 				values: snapshot(formData),
 			};
 		}
