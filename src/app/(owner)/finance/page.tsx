@@ -73,6 +73,21 @@ export default async function FinancePage({
 		lastMonth.getMonth() + 1,
 	);
 
+	// Cash-basis: exclude payments received BEFORE the finance cutoff — that cash
+	// is already baked into the opening balances, so counting it again as this
+	// month's revenue/inflow would double-show. Effective start = max(month-start,
+	// cutoff). Keeps the dashboard's cash tiles consistent with the clean books.
+	const { data: cutoffCfg } = await supabase
+		.from("system_config")
+		.select("value")
+		.eq("key", "finance_cutoff_date")
+		.maybeSingle();
+	const cutoffDate =
+		typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
+			? cutoffCfg.value
+			: null;
+	const revStart = cutoffDate && cutoffDate > ymStart ? cutoffDate : ymStart;
+
 	const [
 		{ data: revenueMtdData },
 		{ data: revenueLmData },
@@ -90,7 +105,7 @@ export default async function FinancePage({
 			.from("payments")
 			.select("amount")
 			.eq("is_reversed", false)
-			.gte("payment_date", ymStart)
+			.gte("payment_date", revStart)
 			.lte("payment_date", ymEnd),
 		supabase
 			.from("payments")
@@ -119,7 +134,7 @@ export default async function FinancePage({
 			.from("payments")
 			.select("amount, bank_account_id")
 			.eq("is_reversed", false)
-			.gte("payment_date", ymStart)
+			.gte("payment_date", revStart)
 			.lte("payment_date", ymEnd),
 		supabase
 			.from("bank_accounts")

@@ -314,13 +314,19 @@ export async function recordPurchaseBatch(
 		});
 	}
 
-	// Insert inventory movements (skipped if all lines were CapEx)
+	// Insert inventory movements (skipped if all lines were CapEx). Capture IDs
+	// so we can roll them back if the journal/payable step later fails.
+	const insertedMovementIds: string[] = [];
 	if (movements.length > 0) {
-		const { error: insErr } = await supabase
+		const { data: insRows, error: insErr } = await supabase
 			.from("stock_movements")
-			.insert(movements);
+			.insert(movements)
+			.select("id");
 		if (insErr) {
 			return { errors: { _form: [insErr.message] } };
+		}
+		for (const r of (insRows ?? []) as Array<{ id: string }>) {
+			insertedMovementIds.push(r.id);
 		}
 	}
 
@@ -357,6 +363,40 @@ export async function recordPurchaseBatch(
 		agg.costQty += m.quantity * m.unit_cost;
 		incomingByItem.set(m.item_id, agg);
 	}
+
+	// Snapshot WAC BEFORE recompute so a later journal/payable failure can restore
+	// it (compensating rollback → no silent partial-success that drifts the GL).
+	const affectedIds = Array.from(incomingByItem.keys());
+	const { data: oldAvgRows } = affectedIds.length
+		? await supabase
+				.from("inventory_items")
+				.select("id, purchase_price_avg")
+				.in("id", affectedIds)
+		: { data: [] };
+	const oldAvgMap = new Map(
+		(
+			(oldAvgRows ?? []) as Array<{ id: string; purchase_price_avg: number }>
+		).map((r) => [r.id, Number(r.purchase_price_avg)]),
+	);
+	const rollbackStock = async () => {
+		if (insertedMovementIds.length > 0) {
+			await supabase
+				.from("stock_movements")
+				.delete()
+				.in("id", insertedMovementIds);
+		}
+		for (const [id, avg] of oldAvgMap) {
+			await supabase
+				.from("inventory_items")
+				.update({ purchase_price_avg: avg })
+				.eq("id", id);
+			await supabase
+				.from("items_inventory_config")
+				.update({ purchase_price_avg: avg })
+				.eq("item_id", id);
+		}
+	};
+
 	await Promise.all(
 		Array.from(incomingByItem.entries()).map(async ([itemId, agg]) => {
 			if (agg.qty <= 0) return;
@@ -451,6 +491,14 @@ export async function recordPurchaseBatch(
 				.single();
 			if (entryErr || !entry) {
 				console.error("[purchases] journal_entries insert failed:", entryErr);
+				await rollbackStock();
+				return {
+					errors: {
+						_form: [
+							`Pembelian dibatalkan — gagal catat jurnal: ${entryErr?.message ?? "unknown"}. Coba lagi.`,
+						],
+					},
+				};
 			} else {
 				const lines: Array<{
 					entry_id: string;
@@ -489,16 +537,31 @@ export async function recordPurchaseBatch(
 					.insert(lines);
 				if (linesErr) {
 					console.error("[purchases] journal_lines insert failed:", linesErr);
-					// Roll back the entry header so we don't leave a hanging journal
+					// Roll back the entry header + stock so nothing is left half-done.
 					await supabase.from("journal_entries").delete().eq("id", entry.id);
-				} else {
-					journalEntryRef = refId;
-					journalEntryId = entry.id;
+					await rollbackStock();
+					return {
+						errors: {
+							_form: [
+								`Pembelian dibatalkan — gagal catat jurnal: ${linesErr.message}. Coba lagi.`,
+							],
+						},
+					};
 				}
+				journalEntryRef = refId;
+				journalEntryId = entry.id;
 			}
 		}
 	} catch (e) {
-		console.error("[purchases] journal entry skipped due to error:", e);
+		console.error("[purchases] journal entry error:", e);
+		await rollbackStock();
+		return {
+			errors: {
+				_form: [
+					`Pembelian dibatalkan — error jurnal: ${e instanceof Error ? e.message : String(e)}.`,
+				],
+			},
+		};
 	}
 
 	// ─── Hutang Dagang (payable) — only for non-cash purchases ────────────
@@ -561,13 +624,37 @@ export async function recordPurchaseBatch(
 					.single();
 				if (payErr) {
 					console.error("[purchases] payable insert failed:", payErr);
-				} else if (payable) {
-					payableId = payable.id;
+					// JE already posted for a TOP purchase — undo JE + stock so the
+					// payable subledger never disagrees with GL 2-101.
+					await supabase
+						.from("journal_entries")
+						.delete()
+						.eq("id", journalEntryId);
+					await rollbackStock();
+					return {
+						errors: {
+							_form: [
+								`Pembelian dibatalkan — gagal catat hutang: ${payErr.message}. Coba lagi.`,
+							],
+						},
+					};
 				}
+				if (payable) payableId = payable.id;
 			}
 		}
 	} catch (e) {
-		console.error("[purchases] payable creation skipped due to error:", e);
+		console.error("[purchases] payable creation error:", e);
+		if (journalEntryId) {
+			await supabase.from("journal_entries").delete().eq("id", journalEntryId);
+		}
+		await rollbackStock();
+		return {
+			errors: {
+				_form: [
+					`Pembelian dibatalkan — error hutang: ${e instanceof Error ? e.message : String(e)}.`,
+				],
+			},
+		};
 	}
 
 	revalidatePath("/warehouse");
