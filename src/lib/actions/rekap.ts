@@ -1011,10 +1011,15 @@ async function planRekapDeduction(
 		components: Array<{ sku: string; qtyPerUnit: number }>;
 	}> = [
 		{
+			// 1 flashdisk diberikan ke klien = unit Flashdisk + Box + Pouch (1:1:1).
+			// Box berisi flashdisk, lalu dimasukkan ke pouch — tiga-tiganya pasti
+			// terpakai. Pouch standalone (untuk cetak foto tanpa flashdisk) tetap
+			// dihitung lewat field pouch_used terpisah.
 			field: "flashdisk_used",
 			components: [
 				{ sku: "FLASHDISK", qtyPerUnit: 1 },
 				{ sku: "FD-BOX", qtyPerUnit: 1 },
+				{ sku: "POUCH", qtyPerUnit: 1 },
 			],
 		},
 		{

@@ -143,8 +143,19 @@ export function RekapForm({
 	const [cetak, setCetak] = useState(get("cetak_total"));
 	const [media, setMedia] = useState(get("media_set_used"));
 	const [sleeve, setSleeve] = useState(get("sleeve_used"));
-	const [flashdisk, setFlashdisk] = useState(get("flashdisk_used"));
-	const [pouch, setPouch] = useState(get("pouch_used"));
+	// Dependent ke flag event (include_flashdisk_pouch): event PAKAI flashdisk →
+	// otomatis set flashdisk (= flashdisk+box+pouch); TIDAK pakai → pouch saja
+	// (cetak foto pasti masuk pouch), tercentang otomatis tanpa aksi crew. Edit
+	// mode tetap pakai nilai tersimpan.
+	const fdFlag = context.pkg.include_flashdisk_pouch === true;
+	const [flashdisk, setFlashdisk] = useState(() => {
+		const d = get("flashdisk_used");
+		return d !== "0" ? d : fdFlag ? "1" : "0";
+	});
+	const [pouch, setPouch] = useState(() => {
+		const d = get("pouch_used");
+		return d !== "0" ? d : fdFlag ? "0" : "1";
+	});
 	const [photomagnet, setPhotomagnet] = useState(get("photomagnet_used"));
 	const [keychain, setKeychain] = useState(get("keychain_used"));
 
@@ -654,7 +665,7 @@ export function RekapForm({
 	}
 
 	// FD/Pouch hint based on package
-	const fdPouchIncluded = context.pkg.include_flashdisk_pouch === true;
+	const fdPouchIncluded = fdFlag;
 
 	// Progressive disclosure (crew only): optional sections start collapsed when
 	// they have no data yet, so the form reads short and crew aren't scrolling
@@ -954,135 +965,138 @@ export function RekapForm({
 				defaultOpen={fdSectionOpen}
 			>
 				{(() => {
-					const fdSet = Number(flashdisk) || 0;
-					const on = fdSet > 0;
-					const setOn = (next: boolean) => {
-						const v = next ? "1" : "0";
-						setFlashdisk(v);
-						setPouch(v);
-						markTouched("flashdisk_used");
-						markTouched("pouch_used");
-					};
-					const fdStock = fieldStock("flashdisk_used", fdSet);
-					const pouchStock = fieldStock("pouch_used", fdSet);
-					const setError = err("flashdisk_used") || err("pouch_used");
-					const setCost =
-						fieldCost("flashdisk_used", fdSet) + fieldCost("pouch_used", fdSet);
-					const critical = !!(fdStock?.critical || pouchStock?.critical);
+					const fdOn = (Number(flashdisk) || 0) > 0;
+					const pouchN = Number(pouch) || 0;
+					const fdStock = fieldStock("flashdisk_used", fdOn ? 1 : 0);
+					const pouchStock = fieldStock("pouch_used", pouchN);
+					const fdErr = err("flashdisk_used");
+					const pouchErr = err("pouch_used");
 					const fmt = (n: number) =>
 						n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 					return (
-						<>
-							{/* Submitted values — driven by the toggle (1 set or 0) */}
+						<div className="space-y-3">
 							<input type="hidden" name="flashdisk_used" value={flashdisk} />
 							<input type="hidden" name="pouch_used" value={pouch} />
 
-							{/* Toggle — 1 set is the norm, so a checkbox beats a number field */}
-							<button
-								type="button"
-								onClick={() => setOn(!on)}
-								aria-pressed={on}
-								className={cn(
-									"flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
-									on
-										? "border-primary/40 bg-primary/5"
-										: "border-border-default bg-card hover:bg-secondary/40",
-								)}
-							>
-								<span
-									className={cn(
-										"grid size-5 shrink-0 place-items-center rounded-[5px] border transition-colors",
-										on
-											? "border-primary bg-[#059669] text-white"
-											: "border-border-strong bg-background",
-									)}
-								>
-									{on ? (
-										<Check className="size-3.5" strokeWidth={3} aria-hidden />
+							{/* Event PAKAI flashdisk → tampil set (flashdisk+box+pouch),
+							    otomatis. Tidak pakai → cuma pouch (cetak foto). Crew tak
+							    perlu pilih manual; ini ngikut flag di booking/edit event. */}
+							{fdPouchIncluded && (
+								<>
+									{/* Flashdisk set = flashdisk + box + pouch (1:1:1) */}
+									<button
+										type="button"
+										onClick={() => {
+											setFlashdisk(fdOn ? "0" : "1");
+											markTouched("flashdisk_used");
+										}}
+										aria-pressed={fdOn}
+										className={cn(
+											"flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+											fdOn
+												? "border-primary/40 bg-primary/5"
+												: "border-border-default bg-card hover:bg-secondary/40",
+										)}
+									>
+										<span
+											className={cn(
+												"grid size-5 shrink-0 place-items-center rounded-[5px] border transition-colors",
+												fdOn
+													? "border-primary bg-[#059669] text-white"
+													: "border-border-strong bg-background",
+											)}
+										>
+											{fdOn ? (
+												<Check
+													className="size-3.5"
+													strokeWidth={3}
+													aria-hidden
+												/>
+											) : null}
+										</span>
+										<span className="min-w-0">
+											<span className="block text-fluid-body font-medium text-foreground">
+												Terpakai flashdisk
+											</span>
+											<span className="block text-fluid-caption text-muted-foreground">
+												1 flashdisk = flashdisk + box + pouch — ketiganya
+												otomatis ke-deduct.
+											</span>
+										</span>
+									</button>
+									{fdOn && fdStock && !isCrew ? (
+										<p className="px-1 text-[12px] text-muted-foreground">
+											Stok flashdisk:{" "}
+											<span
+												className={cn(
+													"tabular font-medium",
+													fdStock.critical
+														? "text-destructive"
+														: fdStock.lowAfter
+															? "text-amber-700 dark:text-amber-400"
+															: "text-foreground",
+												)}
+											>
+												{fmt(fdStock.before)} → {fmt(fdStock.after)}
+											</span>
+										</p>
 									) : null}
-								</span>
-								<span className="min-w-0">
-									<span className="block text-fluid-body font-medium text-foreground">
-										Terpakai 1 set FD + Pouch
-									</span>
-									<span className="block text-fluid-caption text-muted-foreground">
-										1 set = 1 flashdisk + 1 pouch — keduanya otomatis ke-deduct.
-									</span>
-								</span>
-							</button>
+									{fdErr ? (
+										<p className="text-fluid-caption text-destructive">
+											{fdErr}
+										</p>
+									) : null}
+								</>
+							)}
 
-							{/* Breakdown — owner-only (stock is the owner's concern). Crew
-							    just see the toggle confirm "1 set terpakai". */}
-							{on && !isCrew ? (
-								<div
-									className={cn(
-										"rounded-lg border bg-card p-4",
-										critical
-											? "border-destructive/40"
-											: "border-border-default",
-									)}
-								>
-									<p className="eyebrow text-muted-foreground">
-										FD + Pouch · 1 set
-									</p>
-									<dl className="mt-3 space-y-2">
-										{fdStock ? (
-											<div className="flex items-baseline justify-between gap-3">
-												<dt className="text-[12px] text-muted-foreground">
-													Stok Flashdisk
-												</dt>
-												<dd
-													className={cn(
-														"tabular text-[13px] font-medium",
-														fdStock.critical
-															? "text-destructive"
-															: fdStock.lowAfter
-																? "text-amber-700 dark:text-amber-400"
-																: "text-foreground",
-													)}
-												>
-													{fmt(fdStock.before)} → {fmt(fdStock.after)}
-												</dd>
-											</div>
-										) : null}
-										{pouchStock ? (
-											<div className="flex items-baseline justify-between gap-3">
-												<dt className="text-[12px] text-muted-foreground">
-													Stok Pouch
-												</dt>
-												<dd
-													className={cn(
-														"tabular text-[13px] font-medium",
-														pouchStock.critical
-															? "text-destructive"
-															: pouchStock.lowAfter
-																? "text-amber-700 dark:text-amber-400"
-																: "text-foreground",
-													)}
-												>
-													{fmt(pouchStock.before)} → {fmt(pouchStock.after)}
-												</dd>
-											</div>
-										) : null}
-									</dl>
-									{critical ? (
-										<p className="mt-3 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-[12px] font-medium text-destructive">
-											<AlertTriangle
-												className="size-3.5 shrink-0"
-												aria-hidden
-											/>
-											Stok FD/Pouch tidak cukup — perlu restock.
+							{/* Event TIDAK pakai flashdisk → hasil cetak foto masuk pouch.
+							    Otomatis tercentang (default 1), crew tinggal sesuaikan jumlah. */}
+							{!fdPouchIncluded && (
+								<div className="rounded-lg border border-border-default bg-card p-4">
+									<span className="block text-fluid-body font-medium text-foreground">
+										Pouch (cetak foto)
+									</span>
+									<span className="mb-2 block text-fluid-caption text-muted-foreground">
+										Jumlah pouch untuk hasil cetak foto klien. Otomatis terisi —
+										sesuaikan kalau beda.
+									</span>
+									<input
+										type="number"
+										inputMode="numeric"
+										min={0}
+										value={pouch === "0" ? "" : pouch}
+										onChange={(e) => {
+											setPouch(e.target.value === "" ? "0" : e.target.value);
+											markTouched("pouch_used");
+										}}
+										placeholder="0"
+										className="tabular h-10 w-32 rounded-md border border-border-default bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									/>
+									{pouchN > 0 && pouchStock && !isCrew ? (
+										<p className="mt-2 text-[12px] text-muted-foreground">
+											Stok pouch:{" "}
+											<span
+												className={cn(
+													"tabular font-medium",
+													pouchStock.critical
+														? "text-destructive"
+														: pouchStock.lowAfter
+															? "text-amber-700 dark:text-amber-400"
+															: "text-foreground",
+												)}
+											>
+												{fmt(pouchStock.before)} → {fmt(pouchStock.after)}
+											</span>
+										</p>
+									) : null}
+									{pouchErr ? (
+										<p className="mt-1 text-fluid-caption text-destructive">
+											{pouchErr}
 										</p>
 									) : null}
 								</div>
-							) : null}
-
-							{setError ? (
-								<p className="text-fluid-caption text-destructive">
-									{setError}
-								</p>
-							) : null}
-						</>
+							)}
+						</div>
 					);
 				})()}
 			</NumberedSection>
