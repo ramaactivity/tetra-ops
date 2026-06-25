@@ -32,10 +32,13 @@ const StockMovementInputSchema = z.object({
 	 * E.g. "box" for MEDIA-BASIC (1 box = 700 lembar_4r in our model, but
 	 * Tetra tracks rolls; future-proofing).
 	 */
+	// nullish (bukan optional): formData.get() mengembalikan null saat field
+	// absen — Adjust Stok tak pernah kirim quantity_unit. optional() hanya
+	// izinkan undefined → null bikin Zod throw "expected string, received null".
 	quantity_unit: z
 		.string()
 		.trim()
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 	unit_cost: z
 		.preprocess(
@@ -56,7 +59,7 @@ const StockMovementInputSchema = z.object({
 		.string()
 		.trim()
 		.max(500)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 });
 
