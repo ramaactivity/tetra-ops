@@ -131,12 +131,10 @@ function NumPair({
 }
 
 export function RollforwardTable({ data }: { data: RollforwardResult }) {
-	// Collapse the Pembelian group entirely when the month has no purchases —
-	// common for Tetra, and 2 empty columns is pure noise.
-	const showPurchases =
-		data.grand.purchasesTotal !== 0 ||
-		data.buckets.some((b) => b.items.some((it) => it.purchasesQty !== 0));
-	const colCount = showPurchases ? 10 : 8;
+	// Always show the Pembelian group, even when the month has no purchases —
+	// owner prefers the column visible (empty shows as "—") over it disappearing.
+	const showPurchases = true;
+	const colCount = 10;
 
 	return (
 		<div className="overflow-hidden rounded-2xl border border-border-default bg-card shadow-[var(--shadow-level-2)]">
