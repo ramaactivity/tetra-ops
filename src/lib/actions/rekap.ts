@@ -999,7 +999,7 @@ async function planRekapDeduction(
 	// are component-level (FLASHDISK + FD-BOX, KEY-FRAME + KEY-STRAP) since
 	// owner buys parts separately and assembles per event. Pouch + photomagnet
 	// stay 1:1 — they don't have separable sub-components.
-	const ASSEMBLY_RULES: Array<{
+	const HARDCODED_ASSEMBLY: Array<{
 		field: Exclude<
 			RekapField,
 			"cetak_total" | "media_set_used" | "sleeve_used"
@@ -1034,6 +1034,59 @@ async function planRekapDeduction(
 			],
 		},
 	];
+
+	// B: resep assembly data-driven — baca dari tabel rekap_assembly_rules.
+	// Fallback ke HARDCODED_ASSEMBLY kalau tabel kosong/error → tanpa regresi.
+	type AssemblyRule = (typeof HARDCODED_ASSEMBLY)[number];
+	const { data: ruleRows } = await supabase
+		.from("rekap_assembly_rules")
+		.select("rekap_field, component_sku, qty_per_unit, sort_order")
+		.eq("is_active", true)
+		.order("rekap_field", { ascending: true })
+		.order("sort_order", { ascending: true });
+
+	// Muat komponen SKU yang belum ada di itemsBySku (kalau owner pakai SKU baru).
+	const ruleSkus = Array.from(
+		new Set(
+			((ruleRows ?? []) as Array<{ component_sku: string }>).map(
+				(r) => r.component_sku,
+			),
+		),
+	);
+	const missingRuleSkus = ruleSkus.filter((s) => !itemsBySku.has(s));
+	if (missingRuleSkus.length > 0) {
+		const { data: more } = await supabase
+			.from("inventory_items")
+			.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
+			.in("sku", missingRuleSkus)
+			.is("deleted_at", null);
+		for (const it of more ?? []) {
+			if (!itemsBySku.has(it.sku)) itemsBySku.set(it.sku, it as never);
+		}
+	}
+
+	let ASSEMBLY_RULES: AssemblyRule[];
+	if (ruleRows && ruleRows.length > 0) {
+		const byField = new Map<string, AssemblyRule["components"]>();
+		for (const r of ruleRows as Array<{
+			rekap_field: string;
+			component_sku: string;
+			qty_per_unit: number;
+		}>) {
+			const arr = byField.get(r.rekap_field) ?? [];
+			arr.push({ sku: r.component_sku, qtyPerUnit: Number(r.qty_per_unit) });
+			byField.set(r.rekap_field, arr);
+		}
+		ASSEMBLY_RULES = Array.from(byField.entries()).map(
+			([field, components]) => ({
+				field: field as AssemblyRule["field"],
+				components,
+			}),
+		);
+	} else {
+		ASSEMBLY_RULES = HARDCODED_ASSEMBLY;
+	}
+
 	for (const { field, components } of ASSEMBLY_RULES) {
 		const qty = Number(rekap[field] ?? 0);
 		if (qty <= 0) continue;
