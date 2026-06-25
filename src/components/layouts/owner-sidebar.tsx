@@ -158,6 +158,11 @@ const NAV_SECTIONS: NavSection[] = [
 						label: "Persediaan & COGS",
 						icon: Boxes,
 					},
+					{
+						href: "/finance/reconciliation",
+						label: "Rekonsiliasi",
+						icon: Scale,
+					},
 				],
 			},
 			{ href: "/leads", label: "Leads", icon: MessageCircle },
