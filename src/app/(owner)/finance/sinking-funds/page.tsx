@@ -8,6 +8,7 @@ import {
 	SinkingFundsExplorer,
 } from "@/components/sinking-funds/sinking-funds-explorer";
 import { buttonVariants } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -133,14 +134,23 @@ export default async function SinkingFundsListPage() {
 				}
 			/>
 
+			<p className="flex items-center gap-1 px-1 text-[12.5px] text-muted-foreground">
+				Dana Cadangan
+				<InfoHint title="Dana Cadangan">
+					Sebagian untung tiap event otomatis disisihkan ke "celengan" terpisah
+					— untuk ganti alat, perawatan, cadangan crew, dan dana darurat. Biar
+					saat butuh, uangnya sudah siap & tak ganggu kas operasional.
+				</InfoHint>
+				— celengan bisnis yang terisi otomatis tiap event untung.
+			</p>
+
 			<StatRow stats={stats} />
 
 			<SinkingFundsExplorer funds={funds} />
 
-			<p className="text-muted-foreground text-xs">
-				Saldo dihitung dari{" "}
-				<code className="font-mono">sinking_fund_movements</code> (deposit −
-				withdrawal). Settlement engine auto-deposit kalau profit &gt; 0.
+			<p className="px-1 text-xs text-muted-foreground">
+				Saldo = total uang masuk − uang keluar tiap dana. Terisi otomatis dari
+				untung event (kalau event-nya untung).
 			</p>
 		</Container>
 	);
