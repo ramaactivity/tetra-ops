@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, Sliders, X } from "lucide-react";
+import { Loader2, ShoppingCart, Sliders, X } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -368,6 +369,34 @@ export function StockAdjustDialog({
 									Tidak ada perubahan — fisik = stok sistem.
 								</p>
 							)}
+							{reason === "opname" &&
+								computed.delta > 0 &&
+								!computed.willGoNegative && (
+									<div className="mt-3 flex items-start gap-2 border-t border-emerald-500/15 pt-2.5 text-[11px] text-muted-foreground">
+										<ShoppingCart
+											className="mt-0.5 size-3.5 shrink-0 text-emerald-700 dark:text-emerald-400"
+											aria-hidden
+										/>
+										<p>
+											Stok naik lewat opname dinilai pakai{" "}
+											<span className="font-medium text-foreground">
+												harga rata-rata (WAC) yang ada
+											</span>
+											. Kalau ini{" "}
+											<span className="font-medium text-foreground">
+												barang baru dibeli
+											</span>
+											, catat lewat{" "}
+											<Link
+												href="/warehouse/purchases"
+												className="font-semibold text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-400"
+											>
+												menu Pembelian
+											</Link>{" "}
+											biar harga &amp; WAC ikut ter-update.
+										</p>
+									</div>
+								)}
 						</div>
 
 						<Field
