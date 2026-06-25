@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { recordOpnameShortageWastage } from "@/lib/actions/wastage";
+import {
+	recordOpnameOverageGain,
+	recordOpnameShortageWastage,
+} from "@/lib/actions/wastage";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -245,34 +248,45 @@ export async function commitStockTake(
 	});
 	if (error) return { ok: false, error: error.message };
 
-	// Post-commit: auto-log shortage variances as wastage (opname_shortage).
-	// RPC sudah create adjustment movements; kita query yang direction=out
-	// (= shortage) lalu insert wastage_logs untuk audit & cost tracking.
+	// Post-commit: journal BOTH directions so GL inventory tracks physical stock.
+	// RPC sudah create adjustment movements; shortage (out) → Dr wastage/Cr
+	// persediaan + wastage_log; overage (in) → Dr persediaan/Cr wastage (koreksi).
+	// Tanpa sisi overage, opname lebih menaikkan stok fisik tapi GL diam → drift.
 	let wastageLogged = 0;
 	try {
-		const { data: shortageMovements } = await supabase
+		const { data: movements } = await supabase
 			.from("stock_movements")
-			.select("id, item_id, quantity")
+			.select("id, item_id, quantity, direction")
 			.eq("source", "stock_take")
 			.eq("source_id", stockTakeId)
-			.eq("direction", "out");
+			.in("direction", ["out", "in"]);
 
-		for (const m of (shortageMovements ?? []) as Array<{
+		for (const m of (movements ?? []) as Array<{
 			id: string;
 			item_id: string;
 			quantity: number | string;
+			direction: "in" | "out";
 		}>) {
-			const result = await recordOpnameShortageWastage(supabase, {
-				item_id: m.item_id,
-				qty_base: Number(m.quantity),
-				stock_take_id: stockTakeId,
-				stock_movement_id: m.id,
-				reported_by: me.profile.id,
-			});
+			const result =
+				m.direction === "out"
+					? await recordOpnameShortageWastage(supabase, {
+							item_id: m.item_id,
+							qty_base: Number(m.quantity),
+							stock_take_id: stockTakeId,
+							stock_movement_id: m.id,
+							reported_by: me.profile.id,
+						})
+					: await recordOpnameOverageGain(supabase, {
+							item_id: m.item_id,
+							qty_base: Number(m.quantity),
+							stock_take_id: stockTakeId,
+							stock_movement_id: m.id,
+							reported_by: me.profile.id,
+						});
 			if (result.ok) wastageLogged++;
 		}
 	} catch (e) {
-		console.error("[stock-takes] auto-wastage logging failed:", e);
+		console.error("[stock-takes] auto opname journaling failed:", e);
 	}
 
 	revalidatePath("/warehouse");

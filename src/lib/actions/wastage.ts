@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { defaultsForInventorySku } from "@/lib/inventory/coa-defaults";
+import { inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { getItemWithConfig } from "@/lib/inventory/item-loader";
 import { createClient } from "@/lib/supabase/server";
 
@@ -240,8 +241,9 @@ export async function recordWastage(
 	//    Best-effort: log error tapi tidak rollback wastage (data inti sudah
 	//    tersimpan; jurnal bisa di-redo manual jika gagal).
 	if (costAtTime > 0) {
-		const inventoryAccount =
-			cfg.coa_account_inventory ?? defaultsForInventorySku(item.sku).inventory;
+		// Canonical bucket COA so wastage/opname credit the SAME inventory account
+		// purchases debit and COGS credits — keeps GL inventory = physical stock.
+		const inventoryAccount = inventoryCoaForSku(item.sku);
 		const wastageAccount =
 			cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
 		const journalRef = newJournalRef();
@@ -339,8 +341,9 @@ export async function recordOpnameShortageWastage(
 	// (mirrors recordWastage): the wastage_log above is the canonical record; a
 	// failed journal is logged for manual redo, not rolled back.
 	if (costAtTime > 0) {
-		const inventoryAccount =
-			cfg.coa_account_inventory ?? defaultsForInventorySku(item.sku).inventory;
+		// Canonical bucket COA so wastage/opname credit the SAME inventory account
+		// purchases debit and COGS credits — keeps GL inventory = physical stock.
+		const inventoryAccount = inventoryCoaForSku(item.sku);
 		const wastageAccount =
 			cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
 		const today = new Date().toISOString().slice(0, 10);
@@ -390,6 +393,90 @@ export async function recordOpnameShortageWastage(
 				await supabase.from("journal_entries").delete().eq("id", entry.id);
 			}
 		}
+	}
+
+	return { ok: true };
+}
+
+/**
+ * Opname OVERAGE (variance > 0 → found MORE stock than the system knew). Mirror
+ * image of the shortage helper: the commit RPC already raised physical stock via
+ * an adjustment 'in' movement; here we raise the GL inventory asset to match so
+ * the balance sheet doesn't drift. Posts Dr Persediaan / Cr 5-510 (Beban Wastage
+ * as contra → reduces net inventory loss; an overage is effectively a recovered
+ * loss). No wastage_logs row (that table is for losses). Best-effort, mirrors the
+ * shortage path.
+ */
+export async function recordOpnameOverageGain(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	args: {
+		item_id: string;
+		qty_base: number; // always positive (absolute overage)
+		stock_take_id: string;
+		stock_movement_id?: string | null;
+		reported_by: string;
+	},
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const loaded = await getItemWithConfig(supabase, args.item_id);
+	if (!loaded || loaded.kind !== "inventory") return { ok: true };
+	const item = loaded.base;
+	const cfg = loaded.config;
+	const avgCost = cfg.purchase_price_avg ?? 0;
+	const costAtTime = Math.round(args.qty_base * avgCost);
+	if (costAtTime <= 0) return { ok: true };
+
+	const inventoryAccount = inventoryCoaForSku(item.sku);
+	const wastageAccount =
+		cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
+	const today = new Date().toISOString().slice(0, 10);
+
+	const { data: entry, error: entryErr } = await supabase
+		.from("journal_entries")
+		.insert({
+			ref_id: newJournalRef(),
+			entry_date: today,
+			entry_type: "adjustment",
+			description: `Opname lebih ${item.sku} — ${args.qty_base} ${item.unit}`,
+			source_type: "wastage",
+			source_id: args.stock_movement_id ?? null,
+			total_amount: costAtTime,
+			created_by: args.reported_by,
+		})
+		.select("id")
+		.single();
+	if (entryErr || !entry) {
+		console.error(
+			"[opname-overage] journal_entries insert failed:",
+			entryErr?.message,
+		);
+		return { ok: false, error: entryErr?.message ?? "journal insert failed" };
+	}
+
+	const { error: linesErr } = await supabase.from("journal_lines").insert([
+		{
+			entry_id: entry.id,
+			account_code: inventoryAccount,
+			debit_amount: costAtTime,
+			credit_amount: 0,
+			description: `Persediaan masuk ${args.qty_base} ${item.unit}`,
+			line_order: 1,
+		},
+		{
+			entry_id: entry.id,
+			account_code: wastageAccount,
+			debit_amount: 0,
+			credit_amount: costAtTime,
+			description: `Koreksi opname (lebih) ${item.name}`,
+			line_order: 2,
+		},
+	]);
+	if (linesErr) {
+		console.error(
+			"[opname-overage] journal_lines insert failed:",
+			linesErr.message,
+		);
+		await supabase.from("journal_entries").delete().eq("id", entry.id);
+		return { ok: false, error: linesErr.message };
 	}
 
 	return { ok: true };

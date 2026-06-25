@@ -31,6 +31,29 @@ export function bucketLabel(b: CogsBucket): string {
 	return COGS_BUCKET_LABEL[b];
 }
 
+/**
+ * Canonical inventory ASSET account (1-2xx) per bucket. This is the SINGLE
+ * source of truth so a bucket's purchases (Dr), COGS at settlement (Cr), opname
+ * adjustments, and wastage all hit the SAME account — otherwise the GL inventory
+ * asset drifts per-account from physical stock. Matches the bucket→COA wiring
+ * hardcoded in _create_settlement_journal (1-200..1-205, 1-209).
+ */
+const BUCKET_INVENTORY_COA: Record<CogsBucket, string> = {
+	mediaset: "1-200",
+	sleeve: "1-201",
+	flashdisk: "1-202",
+	pouch: "1-203",
+	photomagnet: "1-204",
+	keychain: "1-205",
+	other: "1-209",
+};
+
+/** Inventory asset COA for a SKU (via its bucket). Use everywhere inventory is
+ *  debited/credited so purchases, COGS, opname, and wastage stay reconciled. */
+export function inventoryCoaForSku(sku: string): string {
+	return BUCKET_INVENTORY_COA[bucketForSku(sku)];
+}
+
 /** Map a SKU to its jenis bucket. Prefix-tolerant so future SKU variants land
  *  sensibly; explicit overrides win first. */
 export function bucketForSku(sku: string): CogsBucket {

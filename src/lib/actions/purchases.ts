@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
+import { inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
 
@@ -92,26 +93,6 @@ export type PurchaseFormState =
  *   1-201 Sleeve · 1-202 Flashdisk · 1-203 Pouch · 1-204 Photomagnet · 1-205 Keychain
  *   1-209 Lainnya (catch-all)
  */
-function inventoryAccountFor(sku: string): string {
-	const s = sku.toUpperCase();
-	if (s === "MEDIA-BASIC") return "1-206";
-	if (s === "MEDIA-PERF") return "1-207";
-	if (s.startsWith("SLEEVE-") || s.startsWith("ITM-SLEEVE-")) return "1-201";
-	if (s === "FLASHDISK" || s === "FD-BOX" || s === "ITM-FLASHDISK")
-		return "1-202";
-	if (s === "POUCH" || s === "ITM-POUCH-TOTEBAG") return "1-203";
-	if (s === "PHOTOMAGNET") return "1-204";
-	if (
-		s === "KEY-FRAME" ||
-		s === "KEY-STRAP" ||
-		s === "KEYCHAIN" ||
-		s.startsWith("ITM-KEYCHAIN-") ||
-		s.startsWith("ITM-AUT-")
-	)
-		return "1-205";
-	return "1-209";
-}
-
 function newJournalRef(date: Date): string {
 	const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, "");
 	const rand = Math.floor(Math.random() * 0xffffffff)
@@ -414,7 +395,7 @@ export async function recordPurchaseBatch(
 		for (const m of movements) {
 			const it = byItem.get(m.item_id);
 			const sku = (it as { sku?: string } | undefined)?.sku ?? "";
-			const coa = inventoryAccountFor(sku);
+			const coa = inventoryCoaForSku(sku);
 			const lineTotal = Math.round(m.quantity * m.unit_cost);
 			totalByCoa.set(coa, (totalByCoa.get(coa) ?? 0) + lineTotal);
 			grandTotal += lineTotal;
