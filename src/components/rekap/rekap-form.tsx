@@ -156,8 +156,25 @@ export function RekapForm({
 		const d = get("pouch_used");
 		return d !== "0" ? d : fdFlag ? "0" : "1";
 	});
-	const [photomagnet, setPhotomagnet] = useState(get("photomagnet_used"));
-	const [keychain, setKeychain] = useState(get("keychain_used"));
+	// Auto-isi photomagnet/keychain dari add-on event (paid + bonus) untuk rekap
+	// baru — crew tinggal konfirmasi, tak perlu klik prefill. Edit mode pakai
+	// nilai tersimpan.
+	const expectedAddon = (re: RegExp) =>
+		[...context.paid_addons, ...context.bonuses]
+			.filter((a) => re.test(a.name))
+			.reduce((s, a) => s + a.quantity, 0);
+	const [photomagnet, setPhotomagnet] = useState(() => {
+		const d = get("photomagnet_used");
+		if (d !== "0") return d;
+		const exp = expectedAddon(/photomagnet/i);
+		return exp > 0 ? String(exp) : "0";
+	});
+	const [keychain, setKeychain] = useState(() => {
+		const d = get("keychain_used");
+		if (d !== "0") return d;
+		const exp = expectedAddon(/keychain/i);
+		return exp > 0 ? String(exp) : "0";
+	});
 
 	// Inline validation: flag total cetak the moment the user leaves the field
 	// empty/zero, instead of a generic error only after submit.
