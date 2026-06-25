@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { ArrowUpRight } from "lucide-react";
+import type { ReactNode } from "react";
+import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +37,8 @@ const PCT_TONE: Record<Accent, string> = {
 
 const PILL_TONE: Record<PillTone, string> = {
 	lime: "bg-emerald-300 text-emerald-950 dark:bg-emerald-500/25 dark:text-emerald-200",
-	orange: "bg-amber-300 text-amber-950 dark:bg-amber-500/25 dark:text-amber-200",
+	orange:
+		"bg-amber-300 text-amber-950 dark:bg-amber-500/25 dark:text-amber-200",
 	blue: "bg-sky-300 text-sky-950 dark:bg-sky-500/25 dark:text-sky-200",
 	red: "bg-rose-300 text-rose-950 dark:bg-rose-500/25 dark:text-rose-200",
 	neutral: "bg-secondary text-foreground/80",
@@ -45,6 +48,8 @@ interface KpiCardProps {
 	label: string;
 	value: string;
 	hint?: string;
+	/** Plain-language ℹ️ explainer (tap popover) shown beside the label. */
+	info?: ReactNode;
 	icon?: LucideIcon;
 	accent?: Accent;
 	className?: string;
@@ -70,6 +75,7 @@ export function KpiCard({
 	label,
 	value,
 	hint,
+	info,
 	icon: Icon,
 	accent = "default",
 	className,
@@ -93,8 +99,9 @@ export function KpiCard({
 			)}
 		>
 			<div className="flex items-start justify-between gap-3">
-				<dt className="min-w-0 text-[14.5px] font-medium text-balance text-muted-foreground">
-					{label}
+				<dt className="flex min-w-0 items-center gap-1 text-[14.5px] font-medium text-muted-foreground">
+					<span className="min-w-0 text-balance">{label}</span>
+					{info ? <InfoHint title={label}>{info}</InfoHint> : null}
 				</dt>
 				<span className="grid size-8 shrink-0 place-items-center rounded-full border border-border-default text-muted-foreground">
 					<ArrowOrIcon className="size-[15px]" aria-hidden strokeWidth={1.75} />

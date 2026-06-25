@@ -202,16 +202,18 @@ export default async function PayablesPage({
 
 			<KpiRow className="lg:grid-cols-4">
 				<KpiCard
-					label="Outstanding"
+					label="Belum Dibayar"
 					value={`Rp ${totalOutstanding.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
-					hint={`${outstanding.length} invoice belum lunas`}
+					hint={`${outstanding.length} tagihan belum lunas`}
+					info="Total sisa utang ke supplier yang belum dilunasi."
 					icon={Wallet2}
 					accent={totalOutstanding > 0 ? "amber" : "default"}
 				/>
 				<KpiCard
-					label="Overdue"
+					label="Lewat Jatuh Tempo"
 					value={`Rp ${totalOverdue.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
-					hint={`${overdue.length} invoice lewat jatuh tempo`}
+					hint={`${overdue.length} tagihan lewat jatuh tempo`}
+					info="Utang yang sudah melewati tanggal jatuh tempo — sebaiknya segera dibayar."
 					icon={AlertTriangle}
 					accent={totalOverdue > 0 ? "rose" : "default"}
 				/>
@@ -219,13 +221,15 @@ export default async function PayablesPage({
 					label="Dibayar Bulan Ini"
 					value={`Rp ${totalPaidMtd.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`}
 					hint="total pembayaran bulan berjalan"
+					info="Total utang supplier yang Anda bayar bulan ini."
 					icon={CheckCircle2}
 					accent="emerald"
 				/>
 				<KpiCard
-					label="Total Lifetime"
+					label="Total Semua"
 					value={allRows.length.toLocaleString("id-ID")}
-					hint={`${counts.paid} lunas · ${counts.cancelled} cancelled`}
+					hint={`${counts.paid} lunas · ${counts.cancelled} dibatalkan`}
+					info="Jumlah semua tagihan supplier (lunas + belum)."
 					icon={ClipboardList}
 				/>
 			</KpiRow>

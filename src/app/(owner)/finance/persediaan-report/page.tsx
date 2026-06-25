@@ -210,6 +210,7 @@ function CogsView({
 					label="Total Biaya Bahan"
 					value={rpCompact(data.kpis.totalCogs)}
 					hint="bahan terpakai di event (HPP)"
+					info="Nilai bahan baku (media, sleeve, flashdisk, dll) yang benar-benar terpakai di event bulan ini. Ini 'modal' produk yang Anda jual."
 					icon={Coins}
 					accent="primary"
 				/>
@@ -238,6 +239,7 @@ function CogsView({
 					label="Nilai Stok Tersisa"
 					value={rpCompact(data.kpis.closingValue)}
 					hint={`${data.itemCount} item · jumlah × harga rata-rata`}
+					info="Nilai semua stok bahan yang masih ada di gudang sekarang (jumlah × harga rata-rata beli)."
 					icon={Wallet2}
 					accent="emerald"
 				/>

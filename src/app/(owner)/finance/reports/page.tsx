@@ -10,6 +10,7 @@ import {
 } from "@/components/finance/reports/trial-balance-table";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -171,6 +172,37 @@ export default async function FinanceReportsPage({
 			/>
 
 			<ReportsTabs current={tab} />
+
+			<p className="flex items-center gap-1 px-1 text-[12.5px] text-muted-foreground">
+				{tab === "trial" ? (
+					<>
+						Neraca Saldo
+						<InfoHint title="Neraca Saldo (Trial Balance)">
+							Daftar semua akun + saldonya. Total Debit harus sama dengan total
+							Kredit — bukti pembukuan seimbang & tak ada salah catat.
+						</InfoHint>
+						— pengecekan keseimbangan pembukuan.
+					</>
+				) : tab === "pnl" ? (
+					<>
+						Laba / Rugi
+						<InfoHint title="Laba / Rugi">
+							Pendapatan dikurangi semua biaya (bahan, fee crew, operasional) =
+							untung atau rugi pada periode ini.
+						</InfoHint>
+						— untung/rugi periode terpilih.
+					</>
+				) : (
+					<>
+						Neraca
+						<InfoHint title="Neraca (Balance Sheet)">
+							Potret posisi keuangan pada satu tanggal: yang dimiliki (aset) =
+							yang masih harus dibayar (kewajiban) + milik owner (modal).
+						</InfoHint>
+						— posisi keuangan pada tanggal tertentu.
+					</>
+				)}
+			</p>
 
 			<ReportDateFilter
 				mode={tab === "neraca" ? "as-of" : "range"}
