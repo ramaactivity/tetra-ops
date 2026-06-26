@@ -1,8 +1,8 @@
 "use client";
 
-import { Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Paperclip, Plus, ShoppingCart, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import {
 	Dialog,
@@ -85,6 +85,11 @@ export function PembelianDialog({
 	const [topDays, setTopDays] = useState<string>("0");
 	// Biaya admin/transfer bank (opsional, cash only). String supaya kosong = 0.
 	const [adminFee, setAdminFee] = useState<string>("");
+	const [purchaseDate, setPurchaseDate] = useState<string>(() =>
+		new Date().toISOString().slice(0, 10),
+	);
+	const [photo, setPhoto] = useState<File | null>(null);
+	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 	const [lines, setLines] = useState<LineRow[]>([newLine()]);
 
 	const [state, formAction, pending] = useActionState<
@@ -92,23 +97,72 @@ export function PembelianDialog({
 		FormData
 	>(recordPurchaseBatch, undefined);
 
+	const total = lines.reduce((sum, l) => {
+		const q = Number(l.quantity);
+		const p = Number(l.unit_cost);
+		return Number.isFinite(q) && Number.isFinite(p) ? sum + q * p : sum;
+	}, 0);
+	// Biaya admin hanya relevan untuk pembelian cash (dibayar sekarang via transfer).
+	const feeNum = paymentMethod === "cash" ? Number(adminFee) || 0 : 0;
+	const cashOut = total + feeNum;
+
+	// Receipt-photo object URL (revoked on change) for the inline preview.
 	useEffect(() => {
-		if (state?.success) {
+		if (!photo?.type.startsWith("image/")) {
+			setPhotoUrl(null);
+			return;
+		}
+		const url = URL.createObjectURL(photo);
+		setPhotoUrl(url);
+		return () => URL.revokeObjectURL(url);
+	}, [photo]);
+
+	// On success: optionally upload the receipt to Drive, then toast + reset.
+	// handledRef keyed on the journal ref so the async block runs exactly once
+	// per save (deps include captured values for the upload payload).
+	const handledRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (!state?.success) return;
+		const key = state.journalEntryRef ?? `mov-${state.movementsCreated}`;
+		if (handledRef.current === key) return;
+		handledRef.current = key;
+
+		const ref = state.journalEntryRef;
+		const capturedPhoto = photo;
+		const capturedTotal = total;
+		const capturedDate = purchaseDate;
+		void (async () => {
+			if (capturedPhoto) {
+				try {
+					const fd = new FormData();
+					fd.set("file", capturedPhoto);
+					fd.set("category", "Pembelian");
+					fd.set("description", `Pembelian stok${ref ? ` · ${ref}` : ""}`);
+					fd.set("nota_date", capturedDate);
+					fd.set("amount", String(capturedTotal));
+					const res = await fetch("/api/drive/upload/manual", {
+						method: "POST",
+						body: fd,
+					});
+					if (!res.ok)
+						toast.error("Pembelian tersimpan, tapi foto nota gagal diunggah");
+				} catch {
+					toast.error("Pembelian tersimpan, tapi foto nota gagal diunggah");
+				}
+			}
 			const baseMsg = `Pembelian disimpan — ${state.movementsCreated} stock movement dibuat`;
-			toast.success(
-				state.journalEntryRef
-					? `${baseMsg} · jurnal ${state.journalEntryRef}`
-					: baseMsg,
-			);
+			toast.success(ref ? `${baseMsg} · jurnal ${ref}` : baseMsg);
 			setOpen(false);
 			setLines([newLine()]);
 			setSupplierId("");
 			setPaymentMethod("cash");
 			setTopDays("0");
 			setAdminFee("");
+			setPhoto(null);
+			setPurchaseDate(new Date().toISOString().slice(0, 10));
 			router.refresh();
-		}
-	}, [state, router]);
+		})();
+	}, [state, router, photo, total, purchaseDate]);
 
 	// Auto-fill payment method from supplier default
 	useEffect(() => {
@@ -161,16 +215,6 @@ export function PembelianDialog({
 		);
 	}
 
-	const total = lines.reduce((sum, l) => {
-		const q = Number(l.quantity);
-		const p = Number(l.unit_cost);
-		return Number.isFinite(q) && Number.isFinite(p) ? sum + q * p : sum;
-	}, 0);
-
-	// Biaya admin hanya relevan untuk pembelian cash (dibayar sekarang via transfer).
-	const feeNum = paymentMethod === "cash" ? Number(adminFee) || 0 : 0;
-	const cashOut = total + feeNum;
-
 	const validLines = lines.filter(
 		(l) =>
 			l.item_id &&
@@ -194,7 +238,7 @@ export function PembelianDialog({
 				{trigger}
 			</button>
 
-			<DialogContent className="sm:max-w-5xl">
+			<DialogContent className="sm:max-w-6xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<ShoppingCart className="size-5 text-primary" />
@@ -248,7 +292,8 @@ export function PembelianDialog({
 									type="date"
 									id="purchase_date"
 									name="purchase_date"
-									defaultValue={new Date().toISOString().slice(0, 10)}
+									value={purchaseDate}
+									onChange={(e) => setPurchaseDate(e.target.value)}
 									required
 									className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
 								/>
@@ -489,17 +534,71 @@ export function PembelianDialog({
 						</div>
 					</section>
 
-					<div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+					<div className="grid gap-4 lg:grid-cols-[1.3fr_1fr_minmax(280px,320px)]">
+						{/* Catatan */}
 						<Field
 							label="Catatan"
 							name="notes"
 							hint="opsional — patah, retur, kondisi barang dll"
 						>
-							<TextareaField id="notes" name="notes" rows={4} maxLength={500} />
+							<TextareaField id="notes" name="notes" rows={6} maxLength={500} />
 						</Field>
 
-						<aside className="space-y-2">
-							<div className="flex items-center justify-between rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+						{/* Bukti nota — upload + preview (diunggah ke Drive setelah simpan) */}
+						<div className="space-y-1.5">
+							<span className="text-sm font-medium">
+								Bukti Nota{" "}
+								<span className="font-normal text-muted-foreground">
+									(opsional)
+								</span>
+							</span>
+							{photo ? (
+								<div className="overflow-hidden rounded-lg border border-border-default">
+									{photoUrl ? (
+										// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
+										<img
+											src={photoUrl}
+											alt="Preview nota"
+											className="max-h-44 w-full bg-surface-3 object-contain"
+										/>
+									) : (
+										<div className="flex h-28 items-center justify-center bg-surface-3 px-3 text-center text-[12px] text-muted-foreground">
+											{photo.name}
+										</div>
+									)}
+									<div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-2">
+										<span className="truncate text-[12px] text-muted-foreground">
+											{photo.name}
+										</span>
+										<button
+											type="button"
+											onClick={() => setPhoto(null)}
+											className="press-down inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10"
+										>
+											<X className="size-3.5" /> Hapus
+										</button>
+									</div>
+								</div>
+							) : (
+								<label className="press-down flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-default bg-surface-2/40 px-4 text-center text-[13px] text-muted-foreground hover:bg-surface-3">
+									<Paperclip className="size-5 text-muted-foreground/70" />
+									<span>Klik untuk lampirkan foto nota</span>
+									<span className="text-[11px] text-muted-foreground/70">
+										gambar atau PDF · maks 8 MB
+									</span>
+									<input
+										type="file"
+										accept="image/*,application/pdf"
+										className="hidden"
+										onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+									/>
+								</label>
+							)}
+						</div>
+
+						{/* Ringkasan: total · biaya admin · jurnal */}
+						<aside className="space-y-2.5">
+							<div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
 								<span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
 									Total Pembelian
 								</span>
@@ -510,26 +609,20 @@ export function PembelianDialog({
 
 							{/* Biaya admin bank — cash only. Kosong = tidak ada biaya admin. */}
 							{paymentMethod === "cash" && (
-								<div className="rounded-md border border-border-default bg-surface-2/60 p-3">
-									<div className="mb-1.5 flex items-baseline justify-between gap-2">
-										<label
-											htmlFor="admin_fee"
-											className="text-[12px] font-medium"
-										>
-											Biaya admin{" "}
-											<span className="text-muted-foreground">(opsional)</span>
-										</label>
-										{feeNum > 0 && (
-											<button
-												type="button"
-												onClick={() => setAdminFee("")}
-												className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-											>
-												hapus
-											</button>
-										)}
-									</div>
-									<div className="mb-2 flex flex-wrap gap-1.5">
+								<div className="rounded-lg border border-border-default bg-surface-2/40 p-3">
+									<label
+										htmlFor="admin_fee"
+										className="text-[12px] font-medium"
+									>
+										Biaya admin{" "}
+										<span className="font-normal text-muted-foreground">
+											(opsional)
+										</span>
+									</label>
+									<p className="mb-2 mt-0.5 text-[11px] text-muted-foreground">
+										biaya transfer bank, ditanggung perusahaan
+									</p>
+									<div className="flex items-center gap-1.5">
 										{[
 											{ value: 1000, label: "Rp1.000", hint: "VA / GoPay" },
 											{ value: 2500, label: "Rp2.500", hint: "antar bank" },
@@ -543,7 +636,7 @@ export function PembelianDialog({
 														setAdminFee(active ? "" : String(chip.value))
 													}
 													title={chip.hint}
-													className={`press-down inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-medium ${
+													className={`press-down inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
 														active
 															? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
 															: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-3"
@@ -553,29 +646,29 @@ export function PembelianDialog({
 												</button>
 											);
 										})}
-									</div>
-									<div className="relative">
-										<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-											Rp
-										</span>
-										<NumberField
-											id="admin_fee"
-											name="admin_fee_display"
-											min={0}
-											max={1000000}
-											step={500}
-											value={adminFee}
-											onChange={(e) => setAdminFee(e.target.value)}
-											placeholder="0 — kosongin kalau tunai / tanpa biaya admin"
-											className="pl-8"
-										/>
+										<div className="relative flex-1">
+											<span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+												Rp
+											</span>
+											<NumberField
+												id="admin_fee"
+												name="admin_fee_display"
+												min={0}
+												max={1000000}
+												step={500}
+												value={adminFee}
+												onChange={(e) => setAdminFee(e.target.value)}
+												placeholder="lain"
+												className="pl-7"
+											/>
+										</div>
 									</div>
 								</div>
 							)}
 
 							{total > 0 && (
 								<div
-									className={`rounded-md border p-3 text-[12px] ${
+									className={`rounded-lg border p-3 text-[12px] ${
 										paymentMethod === "cash"
 											? "border-sky-500/30 bg-sky-500/5"
 											: "border-amber-500/30 bg-amber-500/5"
@@ -607,7 +700,7 @@ export function PembelianDialog({
 												</dd>
 											</div>
 										)}
-										<div className="flex items-baseline justify-between gap-2">
+										<div className="flex items-baseline justify-between gap-2 border-t border-border-default/60 pt-1">
 											<dt>
 												CREDIT{" "}
 												{paymentMethod === "cash"
