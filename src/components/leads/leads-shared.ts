@@ -21,6 +21,21 @@ export type LeadRow = {
 	status: string;
 	received_at: string;
 	created_at: string;
+	/** Tanda-terima balasan auto-reply ke customer (ditulis bot via wa_jid).
+	 *  null = belum terkirim · 'delivered' = ✓✓ sampai HP · 'read' = dibaca. */
+	reply_status: string | null;
+	reply_status_at: string | null;
+};
+
+export type ReplyStatus = "delivered" | "read";
+
+/** Label + badge tone + icon untuk tanda-terima balasan. null → tidak dirender. */
+export const REPLY_STATUS_META: Record<
+	ReplyStatus,
+	{ label: string; badge: "success" | "neutral"; icon: string }
+> = {
+	delivered: { label: "Terkirim", badge: "neutral", icon: "✓✓" },
+	read: { label: "Dibaca", badge: "success", icon: "👁️" },
 };
 
 /** Topics come from the bot's rule names — known ones get a friendly label. */

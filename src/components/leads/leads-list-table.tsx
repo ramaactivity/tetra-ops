@@ -5,6 +5,8 @@ import { ContactPhone } from "./contact-phone";
 import {
 	type ContactRow,
 	type LeadRow,
+	REPLY_STATUS_META,
+	type ReplyStatus,
 	STATUS_BADGE,
 	statusLabel,
 	topicLabel,
@@ -33,6 +35,26 @@ function TopicTag({ topic }: { topic: string }) {
 	return (
 		<span className="inline-flex h-[22px] items-center rounded-full bg-secondary px-2.5 text-[11.5px] font-medium text-foreground/80">
 			{topicLabel(topic)}
+		</span>
+	);
+}
+
+/** Tanda-terima balasan auto-reply ke customer (✓✓ Terkirim / 👁️ Dibaca).
+ *  Tidak dirender saat status belum diketahui (null). */
+function ReplyReceipt({ status, at }: { status: string | null; at: string | null }) {
+	const meta = status ? REPLY_STATUS_META[status as ReplyStatus] : undefined;
+	if (!meta) return null;
+	const tone =
+		meta.badge === "success"
+			? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+			: "bg-secondary text-muted-foreground";
+	return (
+		<span
+			title={at ? `${meta.label} ${formatReceived(at)}` : meta.label}
+			className={`inline-flex h-[20px] w-fit items-center gap-1 rounded-full px-2 text-[11px] font-medium ${tone}`}
+		>
+			<span aria-hidden>{meta.icon}</span>
+			{meta.label}
 		</span>
 	);
 }
@@ -131,9 +153,15 @@ export function LeadsListTable({
 									</div>
 								</td>
 								<td className="px-4 py-3 align-top">
-									<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
-										{statusLabel(l.status)}
-									</Badge>
+									<div className="flex flex-col items-start gap-1">
+										<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
+											{statusLabel(l.status)}
+										</Badge>
+										<ReplyReceipt
+											status={l.reply_status}
+											at={l.reply_status_at}
+										/>
+									</div>
 								</td>
 								{canManage ? (
 									<td className="px-4 py-3 text-right align-top">
@@ -169,9 +197,15 @@ export function LeadsListTable({
 								)}
 								<ContactPhone phone={l.phone} waJid={l.wa_jid} />
 							</div>
-							<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
-								{statusLabel(l.status)}
-							</Badge>
+							<div className="flex flex-col items-end gap-1">
+								<Badge variant={STATUS_BADGE[l.status] ?? "neutral"}>
+									{statusLabel(l.status)}
+								</Badge>
+								<ReplyReceipt
+									status={l.reply_status}
+									at={l.reply_status_at}
+								/>
+							</div>
 						</div>
 
 						<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
