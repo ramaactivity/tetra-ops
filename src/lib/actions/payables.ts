@@ -28,6 +28,10 @@ const PaymentSchema = z.object({
 	amount: z.coerce.number().int().positive(),
 	payment_date: z.string().trim().min(8),
 	payment_account_code: z.string().trim().min(2).max(20),
+	// Biaya admin/transfer bank yang ditanggung perusahaan (di luar nilai hutang).
+	// Dibukukan sebagai debit 5-600, nambah kredit kas/bank. TIDAK menambah
+	// amount_paid payable (subledger hutang tetap akurat).
+	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	notes: z
 		.string()
 		.trim()
@@ -56,6 +60,7 @@ export async function recordPayablePayment(
 		amount: formData.get("amount"),
 		payment_date: formData.get("payment_date"),
 		payment_account_code: formData.get("payment_account_code"),
+		admin_fee: formData.get("admin_fee") || 0,
 		notes: formData.get("notes"),
 	});
 	if (!parsed.success) {
@@ -120,7 +125,10 @@ export async function recordPayablePayment(
 		};
 	}
 
-	// Create journal entry: DEBIT 2-101 Hutang Vendor, CREDIT payment_account_code
+	// Create journal entry: DEBIT 2-101 Hutang Vendor, CREDIT payment_account_code.
+	// Plus, if any: DEBIT 5-600 Beban Admin Bank → kas keluar = hutang + biaya admin.
+	const adminFee = parsed.data.admin_fee;
+	const cashOut = parsed.data.amount + adminFee;
 	let journalEntryId: string | null = null;
 	let journalRef: string | undefined;
 	try {
@@ -134,7 +142,7 @@ export async function recordPayablePayment(
 				description: `Bayar hutang${payable.description ? ` — ${payable.description}` : ""}`,
 				source_type: "payment",
 				source_id: payable.id,
-				total_amount: parsed.data.amount,
+				total_amount: cashOut,
 				created_by: me.profile.id,
 			})
 			.select("id")
@@ -142,7 +150,7 @@ export async function recordPayablePayment(
 		if (entryErr || !entry) {
 			console.error("[payables] journal entry insert failed:", entryErr);
 		} else {
-			const { error: linesErr } = await supabase.from("journal_lines").insert([
+			const journalLines = [
 				{
 					entry_id: entry.id,
 					account_code: "2-101",
@@ -151,15 +159,28 @@ export async function recordPayablePayment(
 					description: "Hutang vendor turun",
 					line_order: 1,
 				},
-				{
+			];
+			if (adminFee > 0) {
+				journalLines.push({
 					entry_id: entry.id,
-					account_code: parsed.data.payment_account_code,
-					debit_amount: 0,
-					credit_amount: parsed.data.amount,
-					description: "Pembayaran kas/bank",
+					account_code: "5-600",
+					debit_amount: adminFee,
+					credit_amount: 0,
+					description: "Biaya admin/transfer bank",
 					line_order: 2,
-				},
-			]);
+				});
+			}
+			journalLines.push({
+				entry_id: entry.id,
+				account_code: parsed.data.payment_account_code,
+				debit_amount: 0,
+				credit_amount: cashOut,
+				description: "Pembayaran kas/bank",
+				line_order: journalLines.length + 1,
+			});
+			const { error: linesErr } = await supabase
+				.from("journal_lines")
+				.insert(journalLines);
 			if (linesErr) {
 				console.error("[payables] journal lines insert failed:", linesErr);
 				await supabase.from("journal_entries").delete().eq("id", entry.id);

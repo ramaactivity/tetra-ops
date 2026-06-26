@@ -35,9 +35,12 @@ export function PayDialog({
 	const [accountCode, setAccountCode] = useState<string>(
 		cashAccounts[0]?.code ?? "1-100",
 	);
+	const [adminFee, setAdminFee] = useState<string>("");
 	const [notes, setNotes] = useState<string>("");
 
 	const amountNum = Number(amount);
+	const feeNum = Number(adminFee) || 0;
+	const cashOut = amountNum + feeNum;
 	const isFull = amountNum === payable.remaining;
 	const isValid =
 		Number.isFinite(amountNum) &&
@@ -49,6 +52,7 @@ export function PayDialog({
 		startTransition(async () => {
 			formData.set("payable_id", payable.id);
 			formData.set("amount", amount);
+			formData.set("admin_fee", String(feeNum));
 			formData.set("payment_account_code", accountCode);
 			const res = await recordPayablePayment(formData);
 			if (!res.ok) {
@@ -125,9 +129,7 @@ export function PayDialog({
 										<button
 											type="button"
 											onClick={() =>
-												setAmount(
-													String(Math.floor(payable.remaining / 2)),
-												)
+												setAmount(String(Math.floor(payable.remaining / 2)))
 											}
 											className="press-down rounded-md border border-border-default bg-surface-2 px-2 py-0.5 font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 										>
@@ -158,6 +160,53 @@ export function PayDialog({
 									name="payment_account_code"
 									value={accountCode}
 								/>
+							</Field>
+
+							<Field
+								label="Biaya admin (opsional)"
+								name="admin_fee"
+								hint="biaya transfer/admin bank — dibukukan ke 5-600, ditanggung perusahaan"
+							>
+								<div className="mb-2 flex flex-wrap gap-1.5">
+									{[
+										{ value: 1000, label: "Rp1.000" },
+										{ value: 2500, label: "Rp2.500" },
+									].map((chip) => {
+										const active = feeNum === chip.value;
+										return (
+											<button
+												key={chip.value}
+												type="button"
+												onClick={() =>
+													setAdminFee(active ? "" : String(chip.value))
+												}
+												className={`press-down inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-medium ${
+													active
+														? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+														: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-3"
+												}`}
+											>
+												{chip.label}
+											</button>
+										);
+									})}
+								</div>
+								<div className="relative">
+									<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+										Rp
+									</span>
+									<NumberField
+										id="admin_fee"
+										name="admin_fee_display"
+										min={0}
+										max={1000000}
+										step={500}
+										value={adminFee}
+										onChange={(e) => setAdminFee(e.target.value)}
+										placeholder="0 — kosongin kalau tanpa biaya admin"
+										className="pl-9"
+									/>
+								</div>
 							</Field>
 
 							<Field
@@ -238,10 +287,18 @@ export function PayDialog({
 												{formatRupiah(amountNum)}
 											</span>
 										</div>
+										{feeNum > 0 && (
+											<div className="flex items-baseline justify-between gap-2">
+												<span>DEBIT 5-600 Beban Admin Bank</span>
+												<span className="tabular font-medium text-foreground">
+													{formatRupiah(feeNum)}
+												</span>
+											</div>
+										)}
 										<div className="flex items-baseline justify-between gap-2">
 											<span>CREDIT {accountCode}</span>
 											<span className="tabular font-medium text-foreground">
-												{formatRupiah(amountNum)}
+												{formatRupiah(cashOut)}
 											</span>
 										</div>
 									</div>

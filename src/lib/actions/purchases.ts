@@ -42,6 +42,10 @@ const PurchaseBatchSchema = z.object({
 		"top_custom",
 	]),
 	top_days: z.coerce.number().int().nonnegative().max(365).default(0),
+	// Biaya admin/transfer bank yang ditanggung perusahaan (cash purchase only;
+	// untuk TOP, biaya admin muncul saat pelunasan hutang di flow payables).
+	// Dibukukan sebagai debit 5-600, nambah kredit Kas Tunai.
+	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	invoice_no: z
 		.string()
 		.trim()
@@ -125,6 +129,7 @@ export async function recordPurchaseBatch(
 		purchase_date: formData.get("purchase_date") || new Date().toISOString(),
 		payment_method: formData.get("payment_method") || "cash",
 		top_days: formData.get("top_days") || 0,
+		admin_fee: formData.get("admin_fee") || 0,
 		invoice_no: formData.get("invoice_no"),
 		notes: formData.get("notes"),
 		pr_id: formData.get("pr_id") || null,
@@ -452,7 +457,12 @@ export async function recordPurchaseBatch(
 
 		if (grandTotal > 0) {
 			const isCash = parsed.data.payment_method === "cash";
+			// Biaya admin bank hanya berlaku pada pembelian cash (dibayar sekarang).
+			// TOP → admin fee muncul saat pelunasan hutang (flow payables), bukan di sini.
+			const adminFee = isCash ? parsed.data.admin_fee : 0;
 			const creditAccount = isCash ? "1-100" : "2-101";
+			// Uang kas yang benar-benar keluar = nilai barang + biaya admin.
+			const creditTotal = grandTotal + adminFee;
 			const entryType = isCash ? "transfer" : "asset_in";
 			const refId = newJournalRef(new Date(purchaseDateIso));
 			const entryDate = purchaseDateIso.slice(0, 10);
@@ -484,7 +494,7 @@ export async function recordPurchaseBatch(
 					description: descParts.join(" "),
 					source_type: "purchase",
 					source_id: parsed.data.pr_id ?? null,
-					total_amount: grandTotal,
+					total_amount: creditTotal,
 					created_by: me.profile.id,
 				})
 				.select("id")
@@ -521,11 +531,23 @@ export async function recordPurchaseBatch(
 						line_order: order++,
 					});
 				}
+				// Biaya admin bank → debit 5-600 (beban perusahaan), terpisah dari
+				// nilai persediaan supaya HPP tetap akurat.
+				if (adminFee > 0) {
+					lines.push({
+						entry_id: entry.id,
+						account_code: "5-600",
+						debit_amount: adminFee,
+						credit_amount: 0,
+						description: "Biaya admin/transfer bank",
+						line_order: order++,
+					});
+				}
 				lines.push({
 					entry_id: entry.id,
 					account_code: creditAccount,
 					debit_amount: 0,
-					credit_amount: grandTotal,
+					credit_amount: creditTotal,
 					description: isCash
 						? "Pembayaran kas tunai"
 						: `Hutang vendor (${parsed.data.payment_method.toUpperCase()})`,

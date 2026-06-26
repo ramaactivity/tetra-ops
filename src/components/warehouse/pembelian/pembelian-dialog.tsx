@@ -83,6 +83,8 @@ export function PembelianDialog({
 	const [supplierId, setSupplierId] = useState<string>("");
 	const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 	const [topDays, setTopDays] = useState<string>("0");
+	// Biaya admin/transfer bank (opsional, cash only). String supaya kosong = 0.
+	const [adminFee, setAdminFee] = useState<string>("");
 	const [lines, setLines] = useState<LineRow[]>([newLine()]);
 
 	const [state, formAction, pending] = useActionState<
@@ -103,6 +105,7 @@ export function PembelianDialog({
 			setSupplierId("");
 			setPaymentMethod("cash");
 			setTopDays("0");
+			setAdminFee("");
 			router.refresh();
 		}
 	}, [state, router]);
@@ -150,12 +153,12 @@ export function PembelianDialog({
 	}, [open, initialItemIds, itemsById]);
 
 	function updateLine(id: string, patch: Partial<LineRow>) {
-		setLines((curr) =>
-			curr.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-		);
+		setLines((curr) => curr.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 	}
 	function removeLine(id: string) {
-		setLines((curr) => (curr.length > 1 ? curr.filter((l) => l.id !== id) : curr));
+		setLines((curr) =>
+			curr.length > 1 ? curr.filter((l) => l.id !== id) : curr,
+		);
 	}
 
 	const total = lines.reduce((sum, l) => {
@@ -163,6 +166,10 @@ export function PembelianDialog({
 		const p = Number(l.unit_cost);
 		return Number.isFinite(q) && Number.isFinite(p) ? sum + q * p : sum;
 	}, 0);
+
+	// Biaya admin hanya relevan untuk pembelian cash (dibayar sekarang via transfer).
+	const feeNum = paymentMethod === "cash" ? Number(adminFee) || 0 : 0;
+	const cashOut = total + feeNum;
 
 	const validLines = lines.filter(
 		(l) =>
@@ -212,6 +219,11 @@ export function PembelianDialog({
 									notes: l.notes || undefined,
 								})),
 							),
+						);
+						// Biaya admin hanya dikirim untuk pembelian cash.
+						fd.set(
+							"admin_fee",
+							paymentMethod === "cash" ? String(Number(adminFee) || 0) : "0",
 						);
 						formAction(fd);
 					}}
@@ -356,8 +368,7 @@ export function PembelianDialog({
 									: item
 										? [item.unit]
 										: [];
-								const subtotal =
-									Number(line.quantity) * Number(line.unit_cost);
+								const subtotal = Number(line.quantity) * Number(line.unit_cost);
 								return (
 									<div
 										key={line.id}
@@ -375,10 +386,7 @@ export function PembelianDialog({
 													});
 													// Auto-pick supplier: kalau header supplier masih kosong
 													// dan item punya preferred supplier, set otomatis
-													if (
-														chosen?.preferred_supplier_id &&
-														!supplierId
-													) {
+													if (chosen?.preferred_supplier_id && !supplierId) {
 														setSupplierId(chosen.preferred_supplier_id);
 													}
 												}}
@@ -400,8 +408,8 @@ export function PembelianDialog({
 														className="text-[11px] text-amber-700 dark:text-amber-300 hover:underline text-left"
 													>
 														⚠ Biasanya dari{" "}
-														<strong>{item.preferred_supplier_name}</strong>
-														{" "}— klik untuk pakai supplier ini
+														<strong>{item.preferred_supplier_name}</strong> —
+														klik untuk pakai supplier ini
 													</button>
 												)}
 											{item?.preferred_supplier_id &&
@@ -487,12 +495,7 @@ export function PembelianDialog({
 							name="notes"
 							hint="opsional — patah, retur, kondisi barang dll"
 						>
-							<TextareaField
-								id="notes"
-								name="notes"
-								rows={4}
-								maxLength={500}
-							/>
+							<TextareaField id="notes" name="notes" rows={4} maxLength={500} />
 						</Field>
 
 						<aside className="space-y-2">
@@ -504,6 +507,71 @@ export function PembelianDialog({
 									{formatRupiah(total)}
 								</span>
 							</div>
+
+							{/* Biaya admin bank — cash only. Kosong = tidak ada biaya admin. */}
+							{paymentMethod === "cash" && (
+								<div className="rounded-md border border-border-default bg-surface-2/60 p-3">
+									<div className="mb-1.5 flex items-baseline justify-between gap-2">
+										<label
+											htmlFor="admin_fee"
+											className="text-[12px] font-medium"
+										>
+											Biaya admin{" "}
+											<span className="text-muted-foreground">(opsional)</span>
+										</label>
+										{feeNum > 0 && (
+											<button
+												type="button"
+												onClick={() => setAdminFee("")}
+												className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+											>
+												hapus
+											</button>
+										)}
+									</div>
+									<div className="mb-2 flex flex-wrap gap-1.5">
+										{[
+											{ value: 1000, label: "Rp1.000", hint: "VA / GoPay" },
+											{ value: 2500, label: "Rp2.500", hint: "antar bank" },
+										].map((chip) => {
+											const active = feeNum === chip.value;
+											return (
+												<button
+													key={chip.value}
+													type="button"
+													onClick={() =>
+														setAdminFee(active ? "" : String(chip.value))
+													}
+													title={chip.hint}
+													className={`press-down inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-medium ${
+														active
+															? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+															: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-3"
+													}`}
+												>
+													{chip.label}
+												</button>
+											);
+										})}
+									</div>
+									<div className="relative">
+										<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+											Rp
+										</span>
+										<NumberField
+											id="admin_fee"
+											name="admin_fee_display"
+											min={0}
+											max={1000000}
+											step={500}
+											value={adminFee}
+											onChange={(e) => setAdminFee(e.target.value)}
+											placeholder="0 — kosongin kalau tunai / tanpa biaya admin"
+											className="pl-8"
+										/>
+									</div>
+								</div>
+							)}
 
 							{total > 0 && (
 								<div
@@ -531,6 +599,14 @@ export function PembelianDialog({
 												{formatRupiah(total)}
 											</dd>
 										</div>
+										{feeNum > 0 && (
+											<div className="flex items-baseline justify-between gap-2">
+												<dt>DEBIT Beban Admin Bank (5-600)</dt>
+												<dd className="tabular font-medium text-foreground">
+													{formatRupiah(feeNum)}
+												</dd>
+											</div>
+										)}
 										<div className="flex items-baseline justify-between gap-2">
 											<dt>
 												CREDIT{" "}
@@ -539,7 +615,9 @@ export function PembelianDialog({
 													: "Hutang Vendor (2-101)"}
 											</dt>
 											<dd className="tabular font-medium text-foreground">
-												{formatRupiah(total)}
+												{formatRupiah(
+													paymentMethod === "cash" ? cashOut : total,
+												)}
 											</dd>
 										</div>
 									</dl>
@@ -561,9 +639,7 @@ export function PembelianDialog({
 							disabled={pending || validLines.length === 0}
 							className="inline-flex h-10 items-center rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-sm font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 						>
-							{pending
-								? "Menyimpan…"
-								: `Simpan ${validLines.length} baris`}
+							{pending ? "Menyimpan…" : `Simpan ${validLines.length} baris`}
 						</button>
 					</DialogFooter>
 				</form>

@@ -240,6 +240,9 @@ const QuickRecordSchema = z.object({
 	category_id: z.string().trim().max(40).optional(),
 	// Power-user escape: an explicit counterpart account that overrides category.
 	coa_override: z.string().trim().max(20).optional(),
+	// Biaya admin/transfer bank (keluar & transfer only) — dibukukan ke 5-600,
+	// nambah uang keluar dari rekening asal. Ditanggung perusahaan.
+	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	note: z.string().trim().max(300).optional(),
 });
 
@@ -265,6 +268,7 @@ export async function recordQuickTransaction(
 		to_account_code: formData.get("to_account_code") ?? undefined,
 		category_id: formData.get("category_id") ?? undefined,
 		coa_override: formData.get("coa_override") ?? undefined,
+		admin_fee: formData.get("admin_fee") ?? 0,
 		note: formData.get("note") ?? undefined,
 	});
 	if (!parsed.success) {
@@ -306,10 +310,21 @@ export async function recordQuickTransaction(
 		counterpartLineLabel = defaultLabel;
 	}
 
+	// Biaya admin/transfer bank: hanya untuk uang keluar / transfer (bukan masuk).
+	// Dibukukan terpisah ke 5-600 supaya beban/counterpart tetap akurat.
+	const adminFee =
+		dir === "masuk" ? 0 : Math.max(0, parsed.data.admin_fee ?? 0);
+
 	const supabase = await createClient();
 
 	// Validate both accounts exist + are active (mirrors createManualJournalEntry).
-	const codes = Array.from(new Set([account_code, counterpartCode]));
+	const codes = Array.from(
+		new Set([
+			account_code,
+			counterpartCode,
+			...(adminFee > 0 ? ["5-600"] : []),
+		]),
+	);
 	const { data: coa, error: coaErr } = await supabase
 		.from("chart_of_accounts")
 		.select("code, is_active")
@@ -365,6 +380,19 @@ export async function recordQuickTransaction(
 		};
 	}
 
+	// Biaya admin bank → debit 5-600, dan kas/rekening asal keluar lebih banyak
+	// (amount + fee). lines[1] selalu sisi kredit kas untuk keluar & transfer.
+	if (adminFee > 0) {
+		lines[1].credit_amount += adminFee;
+		lines.push({
+			account_code: "5-600",
+			debit_amount: adminFee,
+			credit_amount: 0,
+			description: "Biaya admin/transfer bank",
+			line_order: 3,
+		});
+	}
+
 	const description = (note && note.length >= 3 ? note : defaultLabel).slice(
 		0,
 		300,
@@ -380,7 +408,7 @@ export async function recordQuickTransaction(
 			description,
 			source_type: "manual",
 			source_id: null,
-			total_amount: amount,
+			total_amount: amount + adminFee,
 			created_by: me.profile.id,
 		})
 		.select("id")
