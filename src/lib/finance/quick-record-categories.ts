@@ -13,15 +13,19 @@ import {
 	Boxes,
 	Camera,
 	Car,
+	Coffee,
 	Fuel,
 	Handshake,
+	Home,
 	type LucideIcon,
 	Megaphone,
 	MoreHorizontal,
+	ShoppingBag,
 	Smartphone,
 	Sparkles,
 	Users,
 	UtensilsCrossed,
+	Wifi,
 	Wrench,
 } from "lucide-react";
 
@@ -60,6 +64,44 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
+		id: "konsumsi-rapat",
+		label: "Konsumsi rapat",
+		icon: Coffee,
+		coa: "5-280",
+		entryType: "expense",
+	},
+	{
+		id: "beli-alat",
+		label: "Beli alat/barang",
+		icon: ShoppingBag,
+		coa: "5-250",
+		entryType: "expense",
+	},
+	{
+		id: "bayar-kost",
+		label: "Bayar kost",
+		icon: Home,
+		coa: "5-260",
+		entryType: "expense",
+	},
+	{
+		id: "bayar-internet",
+		label: "Bayar internet",
+		icon: Wifi,
+		coa: "5-270",
+		entryType: "expense",
+	},
+	{
+		// Cash-basis: fee crew di-akrual ke Hutang Crew (2-100) saat settlement.
+		// Membayar crew = melunasi hutang itu → Dr 2-100 / Cr Kas (BUKAN beban lagi,
+		// supaya tidak dobel-beban dengan settlement).
+		id: "fee-crew",
+		label: "Bayar fee crew",
+		icon: Users,
+		coa: "2-100",
+		entryType: "expense",
+	},
+	{
 		id: "sewa-alat",
 		label: "Sewa alat",
 		icon: Boxes,
@@ -85,16 +127,6 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		label: "Platform / app",
 		icon: Smartphone,
 		coa: "5-400",
-		entryType: "expense",
-	},
-	{
-		// Cash-basis: fee crew di-akrual ke Hutang Crew (2-100) saat settlement.
-		// Membayar crew = melunasi hutang itu → Dr 2-100 / Cr Kas (BUKAN beban lagi,
-		// supaya tidak dobel-beban dengan settlement).
-		id: "fee-crew",
-		label: "Bayar fee crew",
-		icon: Users,
-		coa: "2-100",
 		entryType: "expense",
 	},
 	{

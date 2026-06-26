@@ -124,7 +124,7 @@ export function QuickRecordCore({
 	}, [data]);
 
 	const cats = categoriesFor(direction);
-	const visibleCats = showAllCats ? cats : cats.slice(0, 6);
+	const visibleCats = showAllCats ? cats : cats.slice(0, 8);
 	const sourceAcct = data.cashAccounts.find((a) => a.code === accountCode);
 
 	const counterpartName =
@@ -308,7 +308,7 @@ export function QuickRecordCore({
 			<div className="space-y-2.5">
 				<div className="flex items-center justify-between">
 					<span className="eyebrow">Kategori</span>
-					{cats.length > 6 ? (
+					{cats.length > 8 ? (
 						<button
 							type="button"
 							onClick={() => setShowAllCats((v) => !v)}
