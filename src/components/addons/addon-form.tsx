@@ -2,6 +2,10 @@
 
 import { useActionState, useState } from "react";
 import {
+	AddonComponentPicker,
+	type AddonComponentRow,
+} from "@/components/addons/addon-component-picker";
+import {
 	AffixInput,
 	Field,
 	FormDivider,
@@ -29,7 +33,6 @@ export type AddonDefaults = Partial<{
 	price: number;
 	requires_extra_crew: boolean;
 	is_active: boolean;
-	inventory_item_id: string;
 }>;
 
 export type InventoryItemOption = {
@@ -37,20 +40,25 @@ export type InventoryItemOption = {
 	sku: string;
 	name: string;
 	unit: string;
+	purchase_price_avg: number;
 };
 
 export function AddonForm({
 	action,
 	defaults,
 	inventoryItems = [],
+	defaultComponents = [],
 	submitLabel = "Save",
 }: {
 	action: Action;
 	defaults?: AddonDefaults;
 	inventoryItems?: InventoryItemOption[];
+	defaultComponents?: AddonComponentRow[];
 	submitLabel?: string;
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
+	const [components, setComponents] =
+		useState<AddonComponentRow[]>(defaultComponents);
 	const [isActive, setIsActive] = useState<boolean>(
 		state?.values
 			? state.values.is_active === "on"
@@ -69,7 +77,8 @@ export function AddonForm({
 		)?.toString() ??
 		"";
 
-	const err = (key: keyof AddonInput) => state?.errors?.[key]?.[0];
+	const err = (key: keyof AddonInput | "addon_components") =>
+		state?.errors?.[key]?.[0];
 
 	return (
 		<form action={formAction} className="space-y-6">
@@ -148,15 +157,27 @@ export function AddonForm({
 				</Field>
 
 				<Field
-					label="Link ke Inventory"
-					name="inventory_item_id"
-					error={err("inventory_item_id")}
-					hint="Opsional. Kalau add-on ini consume stock fisik (cth. magnet, keychain, sleeve), link ke item warehouse-nya supaya auto-deduct stok + masuk HPP saat rekap approved."
+					label="Link ke stok (komponen)"
+					name="addon_components"
+					error={err("addon_components")}
+					hint="Opsional. Item stok fisik yang dikonsumsi tiap 1 pesanan add-on ini — auto-deduct stok + masuk HPP saat rekap di-approve. Bisa lebih dari satu (cth. Guest Book = Scrapbook + Spidol)."
 				>
-					<InventoryItemSelect
-						defaultValue={get("inventory_item_id")}
-						options={inventoryItems}
-						error={!!err("inventory_item_id")}
+					<AddonComponentPicker
+						items={inventoryItems}
+						rows={components}
+						onChange={setComponents}
+					/>
+					<input
+						type="hidden"
+						name="addon_components"
+						value={JSON.stringify(
+							components
+								.filter((r) => r.item_id && r.qty > 0)
+								.map((r) => ({
+									inventory_item_id: r.item_id,
+									qty_per_unit: r.qty,
+								})),
+						)}
 					/>
 				</Field>
 			</FormSection>
@@ -230,38 +251,6 @@ function AddonCategorySelect({
 				aria-invalid={error}
 			/>
 			<input type="hidden" name="category" value={category} required />
-		</>
-	);
-}
-
-function InventoryItemSelect({
-	defaultValue,
-	options,
-	error,
-}: {
-	defaultValue: string;
-	options: InventoryItemOption[];
-	error: boolean;
-}) {
-	const [value, setValue] = useState(defaultValue);
-	const selectOptions = [
-		{ value: "", label: "Tidak di-link (no stock tracking)" },
-		...options.map((it) => ({
-			value: it.id,
-			label: `${it.sku} · ${it.name}${it.unit ? ` (${it.unit})` : ""}`,
-		})),
-	];
-	return (
-		<>
-			<NativeSelect
-				value={value}
-				onValueChange={setValue}
-				placeholder="Pilih item inventory…"
-				options={selectOptions}
-				triggerClassName="w-full"
-				aria-invalid={error}
-			/>
-			<input type="hidden" name="inventory_item_id" value={value} />
 		</>
 	);
 }

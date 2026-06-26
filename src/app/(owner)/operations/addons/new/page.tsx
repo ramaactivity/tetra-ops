@@ -14,7 +14,7 @@ export default async function NewAddonPage() {
 	const supabase = await createClient();
 	const { data: inventoryItems } = await supabase
 		.from("inventory_items")
-		.select("id, sku, name, unit")
+		.select("id, sku, name, unit, purchase_price_avg")
 		.eq("category", "inventory")
 		.eq("is_active", true)
 		.is("deleted_at", null)
