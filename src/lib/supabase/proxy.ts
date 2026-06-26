@@ -59,8 +59,14 @@ export async function updateSession(request: NextRequest) {
 	const isPublic = PUBLIC_PATHS.some(
 		(p) => path === p || path.startsWith(`${p}/`),
 	);
+	// API routes authenticate themselves (getCurrentUser → 401, or Bearer-token
+	// gates like isAuthorizedCron / isAuthorizedBot). Bouncing them to the HTML
+	// /login page is wrong — a session-less caller (Vercel cron, the WA bot)
+	// would get a 307 to HTML instead of a JSON 401. Let them through; the
+	// handler decides. Session cookies are still refreshed above.
+	const isApi = path.startsWith("/api/");
 
-	if (!user && !isPublic) {
+	if (!user && !isPublic && !isApi) {
 		const url = request.nextUrl.clone();
 		url.pathname = "/login";
 		return NextResponse.redirect(url);
