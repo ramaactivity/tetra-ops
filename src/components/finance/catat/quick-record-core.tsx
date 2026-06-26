@@ -170,6 +170,7 @@ export function QuickRecordCore({
 					fd.set("description", `${note || "Catat transaksi"} · ${ref}`);
 					fd.set("nota_date", date);
 					fd.set("amount", String(amount));
+					fd.set("entry_ref_id", ref);
 					const res = await fetch("/api/drive/upload/manual", {
 						method: "POST",
 						body: fd,

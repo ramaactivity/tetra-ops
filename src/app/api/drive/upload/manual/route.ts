@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
 	const amount = amountRaw ? Number(amountRaw) : null;
 	const eventIdRaw = String(formData.get("event_id") ?? "").trim();
 	const eventId = eventIdRaw || null;
+	const entryRefRaw = String(formData.get("entry_ref_id") ?? "").trim();
+	const entryRefId = entryRefRaw || null;
 
 	if (!category) {
 		return NextResponse.json(
@@ -154,6 +156,7 @@ export async function POST(req: NextRequest) {
 			upload_year: uploadDate.getFullYear(),
 			upload_month: uploadDate.getMonth() + 1,
 			event_id: eventId,
+			entry_ref_id: entryRefId,
 			uploaded_by: me.profile.id,
 		})
 		.select("id")
@@ -168,6 +171,7 @@ export async function POST(req: NextRequest) {
 	}
 
 	revalidatePath("/finance/arsip-nota");
+	revalidatePath("/finance/accounting");
 	return NextResponse.json({
 		ok: true,
 		id: inserted.id,

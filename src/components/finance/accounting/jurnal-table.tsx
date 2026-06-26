@@ -1,11 +1,24 @@
 "use client";
 
-import { Calendar, Check, ChevronDown } from "lucide-react";
+import {
+	Calendar,
+	Check,
+	ChevronDown,
+	ExternalLink,
+	ImageOff,
+	Loader2,
+	Paperclip,
+	Receipt,
+	Upload,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { toast } from "@/components/ui/toaster";
+import { driveThumbnailUrl } from "@/lib/drive/thumbnail";
 import { ENTRY_TYPE_LABEL, SOURCE_LABEL } from "@/lib/finance/accounting";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -33,6 +46,7 @@ export type JournalEntryRow = {
 	reversed_at: string | null;
 	created_at: string;
 	created_by_name: string | null;
+	proof_url: string | null;
 	lines: JournalLineRow[];
 };
 
@@ -370,6 +384,7 @@ function JournalEntry({
 							</tfoot>
 						</table>
 					</div>
+					<ProofControl entry={entry} />
 					{entry.is_reversed && entry.reversed_at && (
 						<p className="mt-3 rounded-md bg-rose-500/10 px-3 py-2 text-[11px] text-destructive">
 							Entry ini sudah dibalik pada {formatDateID(entry.reversed_at)}.
@@ -377,6 +392,140 @@ function JournalEntry({
 					)}
 				</div>
 			)}
+		</div>
+	);
+}
+
+const PROOF_ACCEPT =
+	"image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
+
+function ProofControl({ entry }: { entry: JournalEntryRow }) {
+	const router = useRouter();
+	const inputId = useId();
+	const inputRef = useRef<HTMLInputElement>(null);
+	const [uploading, setUploading] = useState(false);
+	const [preview, setPreview] = useState(false);
+
+	const proofUrl = entry.proof_url;
+	const thumb = proofUrl ? driveThumbnailUrl(proofUrl, 1200) : null;
+
+	async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		e.target.value = ""; // allow re-picking the same file later
+		if (!file) return;
+		if (file.size > 8 * 1024 * 1024) {
+			toast.error("File terlalu besar (max 8 MB). Kompres dulu ya.");
+			return;
+		}
+		setUploading(true);
+		try {
+			const fd = new FormData();
+			fd.set("file", file);
+			fd.set("category", SOURCE_LABEL[entry.source_type] ?? "Catat");
+			fd.set("description", `${entry.description} · ${entry.ref_id}`);
+			fd.set("nota_date", entry.entry_date);
+			fd.set("amount", String(entry.total_amount));
+			fd.set("entry_ref_id", entry.ref_id);
+			const res = await fetch("/api/drive/upload/manual", {
+				method: "POST",
+				body: fd,
+			});
+			if (!res.ok) {
+				const body = (await res.json().catch(() => null)) as {
+					error?: string;
+				} | null;
+				toast.error(body?.error ?? "Gagal mengunggah bukti");
+				return;
+			}
+			toast.success("Bukti transaksi tersimpan");
+			router.refresh();
+		} catch {
+			toast.error("Gagal mengunggah bukti");
+		} finally {
+			setUploading(false);
+		}
+	}
+
+	return (
+		<div className="mt-3 flex items-center gap-2 border-t border-border-subtle pt-3">
+			<span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+				<Receipt className="size-3.5" aria-hidden />
+				Bukti transaksi
+			</span>
+			<div className="ml-auto flex items-center gap-2">
+				{proofUrl ? (
+					<button
+						type="button"
+						onClick={() => setPreview(true)}
+						className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-card px-2.5 text-[12px] font-medium text-foreground shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary"
+					>
+						<Paperclip className="size-3.5" aria-hidden />
+						Lihat bukti
+					</button>
+				) : (
+					<>
+						<input
+							ref={inputRef}
+							id={inputId}
+							type="file"
+							accept={PROOF_ACCEPT}
+							className="sr-only"
+							onChange={handleFile}
+							disabled={uploading}
+						/>
+						<button
+							type="button"
+							onClick={() => inputRef.current?.click()}
+							disabled={uploading}
+							className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-card px-2.5 text-[12px] font-medium text-foreground shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary disabled:opacity-60"
+						>
+							{uploading ? (
+								<Loader2 className="size-3.5 animate-spin" aria-hidden />
+							) : (
+								<Upload className="size-3.5" aria-hidden />
+							)}
+							{uploading ? "Mengunggah…" : "Upload bukti"}
+						</button>
+					</>
+				)}
+			</div>
+
+			<Dialog open={preview} onOpenChange={setPreview}>
+				<DialogContent className="max-w-2xl">
+					<DialogTitle className="text-[14px] font-semibold">
+						Bukti · {entry.ref_id}
+					</DialogTitle>
+					<div className="mt-1 space-y-3">
+						<div className="flex max-h-[70vh] items-center justify-center overflow-hidden rounded-lg bg-black/90">
+							{thumb ? (
+								// eslint-disable-next-line @next/next/no-img-element
+								<img
+									src={thumb}
+									alt={`Bukti ${entry.ref_id}`}
+									referrerPolicy="no-referrer"
+									className="max-h-[70vh] w-auto object-contain"
+								/>
+							) : (
+								<div className="flex flex-col items-center gap-2 py-12 text-white/70">
+									<ImageOff className="size-6" aria-hidden />
+									<span className="text-[12px]">Pratinjau tidak tersedia</span>
+								</div>
+							)}
+						</div>
+						{proofUrl && (
+							<a
+								href={proofUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-card px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-secondary"
+							>
+								<ExternalLink className="size-3.5" aria-hidden />
+								Buka di Drive
+							</a>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

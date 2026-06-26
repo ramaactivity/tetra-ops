@@ -179,9 +179,58 @@ export default async function AccountingPage({
 			reversed_at: r.reversed_at,
 			created_at: r.created_at,
 			created_by_name: usr?.full_name ?? null,
+			proof_url: null as string | null,
 			lines,
 		};
 	});
+
+	// Resolve "bukti transaksi" per entry: a manually-attached nota keyed by
+	// ref_id (covers Catat transaksi receipts + Jurnal "Upload bukti"), plus the
+	// proof living on the originating record for system entries (keyed by
+	// source_id via v_nota_sistem). Manual attachment wins when both exist.
+	if (journalRows.length > 0) {
+		const refIds = journalRows.map((r) => r.ref_id);
+		const sourceIds = journalRows
+			.map((r) => r.source_id)
+			.filter((v): v is string => !!v);
+		const [{ data: manualNotas }, sourceNotasRes] = await Promise.all([
+			supabase
+				.from("manual_notas")
+				.select("entry_ref_id, drive_url, created_at")
+				.in("entry_ref_id", refIds)
+				.order("created_at", { ascending: false }),
+			sourceIds.length > 0
+				? supabase
+						.from("v_nota_sistem")
+						.select("source_id, drive_url")
+						.in("source_id", sourceIds)
+				: Promise.resolve({
+						data: [] as Array<{ source_id: string; drive_url: string | null }>,
+					}),
+		]);
+		const proofByRef = new Map<string, string>();
+		for (const n of (manualNotas ?? []) as Array<{
+			entry_ref_id: string | null;
+			drive_url: string | null;
+		}>) {
+			// ordered newest-first → first seen per ref is the latest.
+			if (n.entry_ref_id && n.drive_url && !proofByRef.has(n.entry_ref_id))
+				proofByRef.set(n.entry_ref_id, n.drive_url);
+		}
+		const proofBySource = new Map<string, string>();
+		for (const n of (sourceNotasRes.data ?? []) as Array<{
+			source_id: string | null;
+			drive_url: string | null;
+		}>) {
+			if (n.source_id && n.drive_url && !proofBySource.has(n.source_id))
+				proofBySource.set(n.source_id, n.drive_url);
+		}
+		for (const row of journalRows) {
+			row.proof_url =
+				proofByRef.get(row.ref_id) ??
+				(row.source_id ? (proofBySource.get(row.source_id) ?? null) : null);
+		}
+	}
 
 	// Active, postable accounts for the manual-entry dialog (skip header rows).
 	const coaOptions: CoaOption[] = coaRows
