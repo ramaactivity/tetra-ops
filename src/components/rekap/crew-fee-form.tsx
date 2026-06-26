@@ -514,9 +514,10 @@ function PaymentProofUpload({
 		try {
 			const fd = new FormData();
 			fd.set("file", file);
-			fd.set("kind", "payment_proof");
-			fd.set("paymentType", `crew_fee_${crewRow.role_in_event}`);
-			fd.set("paymentDate", new Date().toISOString().slice(0, 10));
+			fd.set("kind", "crew_fee");
+			fd.set("crew_name", crewRow.user_full_name ?? "");
+			fd.set("role", crewRow.role_in_event ?? "");
+			fd.set("payment_date", new Date().toISOString().slice(0, 10));
 			fd.set("amount", String(totalFee));
 			const res = await fetch(`/api/drive/upload/${projectId}`, {
 				method: "POST",
@@ -526,9 +527,16 @@ function PaymentProofUpload({
 				const text = await res.text().catch(() => "");
 				throw new Error(text || `HTTP ${res.status}`);
 			}
-			const { url: uploadedUrl } = (await res.json()) as { url: string };
+			const { url: uploadedUrl, name: renamedName } = (await res.json()) as {
+				url: string;
+				name?: string;
+			};
 			onChange(uploadedUrl);
-			toast.success(`Bukti transfer ${crewRow.user_full_name} ter-upload`);
+			toast.success(
+				renamedName
+					? `Bukti tersimpan: ${renamedName}`
+					: `Bukti transfer ${crewRow.user_full_name} ter-upload`,
+			);
 		} catch (err) {
 			toast.error(
 				`Upload gagal: ${err instanceof Error ? err.message : "Unknown error"}`,

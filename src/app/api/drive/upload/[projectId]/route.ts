@@ -11,6 +11,7 @@ import {
 	uploadFileToFolder,
 } from "@/lib/drive/client";
 import {
+	buildCrewFeeName,
 	buildDesignName,
 	buildGenericName,
 	buildPaymentProofName,
@@ -124,6 +125,11 @@ export async function POST(
 			: null;
 	const seqRaw = formData.get("seq");
 	const seq = typeof seqRaw === "string" ? seqRaw.trim() : null;
+	// Crew-fee proof: who the fee was transferred to (name + role in event).
+	const crewNameRaw = formData.get("crew_name");
+	const crewName = typeof crewNameRaw === "string" ? crewNameRaw.trim() : null;
+	const roleRaw = formData.get("role");
+	const role = typeof roleRaw === "string" ? roleRaw.trim() : null;
 
 	// Authorization branch per kind:
 	// - payment_proof: owner-level only (financial data sensitivity)
@@ -214,6 +220,17 @@ export async function POST(
 			},
 			ext,
 		);
+	} else if (kind === "crew_fee") {
+		finalName = buildCrewFeeName(
+			{
+				projectId: event.project_id as string,
+				crewName,
+				role,
+				paymentDate,
+				amount: amount && Number.isFinite(amount) ? amount : null,
+			},
+			ext,
+		);
 	} else if (kind === "design_frame") {
 		finalName = buildDesignName(
 			{
@@ -237,6 +254,7 @@ export async function POST(
 	// Lainnya) so the Drive structure stays organized.
 	const CATEGORY_BY_KIND: Record<string, DriveCategory> = {
 		payment_proof: "Nota",
+		crew_fee: "Nota",
 		transport_proof: "Nota",
 		rekap_proof: "Hasil Cetak",
 		design_frame: "Design",

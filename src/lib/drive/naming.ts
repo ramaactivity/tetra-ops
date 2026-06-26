@@ -115,6 +115,36 @@ export function buildPaymentProofName(
 }
 
 /**
+ * Bukti transfer fee crew (owner bayar crew):
+ *   `{PRJ-ID} - Fee Crew - {Nama} ({peran}) - {YYYY-MM-DD} - {Rp...}.{ext}`
+ * Pakai nama + peran crew supaya ketahuan dibayar ke siapa (bukan nama klien event).
+ */
+export function buildCrewFeeName(
+	meta: {
+		projectId: string;
+		crewName: string | null;
+		role: string | null;
+		paymentDate: string | null;
+		amount: number | null;
+	},
+	ext: string,
+): string {
+	const who = meta.crewName ? safeSegment(meta.crewName, 40) : null;
+	const role = meta.role ? safeSegment(meta.role.replace(/_/g, " "), 24) : null;
+	const whoRole = who ? (role ? `${who} (${role})` : who) : role;
+	return joinName(
+		[
+			safeSegment(meta.projectId, 30),
+			"Fee Crew",
+			whoRole,
+			formatPaymentDate(meta.paymentDate),
+			rupiahSuffix(meta.amount),
+		],
+		ext,
+	);
+}
+
+/**
  * Bukti rekap crew:
  *   `{PRJ-ID} - REKAP - {YYYY-MM-DD} - {seq}.{ext}`
  * seq dari client (counter multi-file); fallback HHMMSS supaya unik.
