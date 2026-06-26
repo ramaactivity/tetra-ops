@@ -6,14 +6,20 @@ import {
 	Loader2,
 	Save,
 	Upload,
+	Wallet,
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
-import { saveCrewFees } from "@/lib/actions/crew-fees";
+import {
+	payCrewFee,
+	saveCrewFees,
+	unpayCrewFee,
+} from "@/lib/actions/crew-fees";
 import { formatRupiah } from "@/lib/format";
 
 export type CrewAssignmentRow = {
@@ -26,7 +32,11 @@ export type CrewAssignmentRow = {
 	payment_notes: string | null;
 	payment_proof_url: string | null;
 	is_paid: boolean;
+	paid_via_account?: string | null;
+	paid_at?: string | null;
 };
+
+export type CashAccountOption = { code: string; name: string };
 
 type Props = {
 	eventId: string;
@@ -37,6 +47,9 @@ type Props = {
 		items: Array<{ label: string; amount: number }>;
 	};
 	readOnly?: boolean;
+	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
+	allowPayment?: boolean;
+	cashAccounts?: CashAccountOption[];
 };
 
 const ROLE_LABEL: Record<CrewAssignmentRow["role_in_event"], string> = {
@@ -51,6 +64,8 @@ export function CrewFeeForm({
 	rows: initialRows,
 	fieldExpenseBreakdown,
 	readOnly = false,
+	allowPayment = false,
+	cashAccounts = [],
 }: Props) {
 	const router = useRouter();
 	const [rows, setRows] = useState<CrewAssignmentRow[]>(initialRows);
@@ -264,6 +279,19 @@ export function CrewFeeForm({
 									readOnly={readOnly}
 								/>
 							</div>
+
+							{allowPayment && (
+								<CrewPayPanel
+									assignmentId={row.assignment_id}
+									projectId={projectId}
+									crewName={row.user_full_name}
+									totalFee={total}
+									isPaid={row.is_paid}
+									paidViaAccount={row.paid_via_account ?? null}
+									paidAt={row.paid_at ?? null}
+									cashAccounts={cashAccounts}
+								/>
+							)}
 						</div>
 					);
 				})}
@@ -287,6 +315,178 @@ export function CrewFeeForm({
 				</div>
 			)}
 		</section>
+	);
+}
+
+function CrewPayPanel({
+	assignmentId,
+	projectId,
+	crewName,
+	totalFee,
+	isPaid,
+	paidViaAccount,
+	paidAt,
+	cashAccounts,
+}: {
+	assignmentId: string;
+	projectId: string;
+	crewName: string;
+	totalFee: number;
+	isPaid: boolean;
+	paidViaAccount: string | null;
+	paidAt: string | null;
+	cashAccounts: CashAccountOption[];
+}) {
+	const router = useRouter();
+	const [pending, startTransition] = useTransition();
+	const [bankCode, setBankCode] = useState<string>(cashAccounts[0]?.code ?? "");
+	const [adminFee, setAdminFee] = useState<string>("");
+
+	const feeNum = Number(adminFee) || 0;
+	const cashOut = totalFee + feeNum;
+	const bankName = (code: string | null) =>
+		cashAccounts.find((a) => a.code === code)?.name ?? code ?? "—";
+
+	function handlePay() {
+		if (!bankCode) {
+			toast.error("Pilih rekening sumber dulu");
+			return;
+		}
+		startTransition(async () => {
+			const res = await payCrewFee({
+				assignment_id: assignmentId,
+				project_id: projectId,
+				bank_account_code: bankCode,
+				admin_fee: feeNum,
+				payment_date: new Date().toISOString().slice(0, 10),
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			toast.success(
+				`Fee ${crewName} dibayar${res.journalRef ? ` · jurnal ${res.journalRef}` : ""}`,
+			);
+			router.refresh();
+		});
+	}
+
+	function handleUnpay() {
+		startTransition(async () => {
+			const res = await unpayCrewFee({
+				assignment_id: assignmentId,
+				project_id: projectId,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			toast.success(`Pembayaran ${crewName} dibatalkan`);
+			router.refresh();
+		});
+	}
+
+	if (isPaid) {
+		return (
+			<div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+				<span className="inline-flex items-center gap-1.5 font-medium text-emerald-800 dark:text-emerald-200">
+					<CheckCircle2 className="h-3.5 w-3.5" />
+					Sudah dibayar via {bankName(paidViaAccount)}
+					{paidAt ? ` · ${paidAt.slice(0, 10)}` : ""}
+				</span>
+				<button
+					type="button"
+					onClick={handleUnpay}
+					disabled={pending}
+					className="rounded-md border border-border-default bg-surface-1 px-2 py-1 font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground disabled:opacity-50"
+				>
+					{pending ? "Membatalkan…" : "Batalkan"}
+				</button>
+			</div>
+		);
+	}
+
+	return (
+		<div className="mt-3 rounded-md border border-border-default bg-surface-3 p-3">
+			<div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+				<Wallet className="h-3.5 w-3.5" /> Bayar fee crew ini
+			</div>
+			<div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
+				<div className="space-y-1">
+					<label className="block text-xs font-medium text-muted-foreground">
+						Bayar dari
+					</label>
+					<Combobox
+						value={bankCode}
+						onValueChange={(v) => setBankCode(v ?? "")}
+						options={cashAccounts.map((a) => ({
+							value: a.code,
+							label: `${a.code} · ${a.name}`,
+						}))}
+						placeholder="Pilih rekening"
+						allowFreeText={false}
+					/>
+				</div>
+				<div className="space-y-1">
+					<label className="block text-xs font-medium text-muted-foreground">
+						Biaya admin (opsional)
+					</label>
+					<div className="flex items-center gap-1.5">
+						{[1000, 2500].map((v) => {
+							const active = feeNum === v;
+							return (
+								<button
+									key={v}
+									type="button"
+									onClick={() => setAdminFee(active ? "" : String(v))}
+									className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+										active
+											? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+											: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
+									}`}
+								>
+									{formatRupiah(v)}
+								</button>
+							);
+						})}
+						<Input
+							type="number"
+							inputMode="numeric"
+							min={0}
+							value={adminFee}
+							onChange={(e) => setAdminFee(e.target.value)}
+							placeholder="lain"
+							className="tabular text-right"
+						/>
+					</div>
+				</div>
+			</div>
+			<div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+				<p className="text-[11px] text-muted-foreground">
+					Jurnal:{" "}
+					<span className="font-medium text-foreground">
+						Dr Hutang Crew {formatRupiah(totalFee)}
+					</span>
+					{feeNum > 0 ? ` · Dr Beban Admin ${formatRupiah(feeNum)}` : ""} · Cr{" "}
+					{bankName(bankCode)} {formatRupiah(cashOut)}
+				</p>
+				<Button
+					onClick={handlePay}
+					disabled={pending || totalFee <= 0}
+					className="gap-2"
+				>
+					{pending ? (
+						<>
+							<Loader2 className="h-4 w-4 animate-spin" /> Memproses…
+						</>
+					) : (
+						<>
+							<Wallet className="h-4 w-4" /> Bayar {formatRupiah(cashOut)}
+						</>
+					)}
+				</Button>
+			</div>
+		</div>
 	);
 }
 

@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getProfitPreview } from "@/lib/actions/profit-preview";
 import { getRekapContext, previewRekapHpp } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { isCashOrBank } from "@/lib/finance/accounting";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -79,6 +80,8 @@ type AssignmentJoin = {
 	payment_notes: string | null;
 	payment_proof_url: string | null;
 	is_paid: boolean | null;
+	paid_via_account: string | null;
+	paid_at: string | null;
 	user: { full_name: string } | { full_name: string }[] | null;
 };
 
@@ -131,7 +134,7 @@ export default async function EventRekapPage({
 				.from("crew_assignments")
 				.select(
 					`id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
-					payment_notes, payment_proof_url, is_paid,
+					payment_notes, payment_proof_url, is_paid, paid_via_account, paid_at,
 					user:users!crew_assignments_user_id_fkey(full_name)`,
 				)
 				.eq("event_id", event.id),
@@ -208,8 +211,20 @@ export default async function EventRekapPage({
 			payment_notes: aj.payment_notes ?? null,
 			payment_proof_url: aj.payment_proof_url ?? null,
 			is_paid: Boolean(aj.is_paid),
+			paid_via_account: aj.paid_via_account ?? null,
+			paid_at: aj.paid_at ?? null,
 		};
 	});
+
+	// Cash/bank accounts (1-1xx aktif) untuk tombol bayar fee crew post-settle.
+	const { data: cashCoa } = await supabase
+		.from("chart_of_accounts")
+		.select("code, name, account_type, is_active")
+		.eq("is_active", true)
+		.order("code");
+	const cashAccounts = (cashCoa ?? [])
+		.filter((c) => isCashOrBank(c.code as string, c.account_type as string))
+		.map((c) => ({ code: c.code as string, name: c.name as string }));
 
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
@@ -519,6 +534,8 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						rows={crewFeeRows}
 						readOnly
+						cashAccounts={cashAccounts}
+						allowPayment
 					/>
 
 					<AddonSplitForm
