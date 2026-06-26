@@ -318,7 +318,7 @@ export function QuickRecordCore({
 						</button>
 					) : null}
 				</div>
-				<div className="grid grid-cols-2 gap-2.5">
+				<div className="grid grid-cols-2 gap-2">
 					{visibleCats.map((c) => {
 						const active = categoryId === c.id && !coaOverride;
 						const Icon = c.icon;
@@ -333,7 +333,7 @@ export function QuickRecordCore({
 								}}
 								aria-pressed={active}
 								className={cn(
-									"press flex h-12 items-center gap-2 rounded-xl border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#059669]/40",
+									"press flex min-h-9 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-[12.5px] font-medium leading-tight outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#059669]/40",
 									active
 										? "border-[#059669] bg-emerald-50 text-foreground"
 										: "border-border-subtle bg-card text-foreground hover:bg-secondary",
@@ -341,11 +341,11 @@ export function QuickRecordCore({
 							>
 								<Icon
 									className={cn(
-										"size-4 shrink-0",
+										"size-3.5 shrink-0",
 										active ? "text-[#059669]" : "text-muted-foreground",
 									)}
 								/>
-								<span className="truncate">{c.label}</span>
+								<span>{c.label}</span>
 							</button>
 						);
 					})}
@@ -744,7 +744,7 @@ export function QuickRecordCore({
 				// only this 3-column region scrolls if needed. Columns balanced so it
 				// rarely does: money/account · category · receipt + date/note.
 				<div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
-					<div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+					<div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
 						<div className="space-y-4">
 							{amountSectionWide}
 							{accountField}
