@@ -4,6 +4,22 @@ export function formatRupiah(amount: number): string {
 	return `Rp ${RP_FORMATTER.format(amount)}`;
 }
 
+/** Compact Rupiah for dense tables/tiles so values never overflow or wrap:
+ *  M / jt / rb tiers, full value belongs in a `title` for hover. E.g.
+ *  12_105_000 → "Rp 12,1 jt", 175_000 → "Rp 175 rb", 20_000 → "Rp 20 rb".
+ *  Below 10rb stays exact. Uses "−" (minus sign) for negatives. */
+export function formatRupiahCompact(amount: number): string {
+	const a = Math.abs(amount);
+	const sign = amount < 0 ? "−" : "";
+	if (a >= 1_000_000_000)
+		return `${sign}Rp ${(a / 1_000_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} M`;
+	if (a >= 1_000_000)
+		return `${sign}Rp ${(a / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} jt`;
+	if (a >= 10_000)
+		return `${sign}Rp ${Math.round(a / 1000).toLocaleString("id-ID")} rb`;
+	return formatRupiah(amount);
+}
+
 /** Two-letter initials from a person's name, for avatar chips. */
 export function nameInitials(name: string): string {
 	const parts = name.trim().split(/\s+/).filter(Boolean);
