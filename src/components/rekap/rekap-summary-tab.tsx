@@ -1,14 +1,9 @@
 import { Disc, Gift, Package2, Printer, Sparkles } from "lucide-react";
 import type * as React from "react";
 import { Badge } from "@/components/ui/badge";
-import type { RekapContext } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
-import {
-	computeRekapCost,
-	deriveRekapRatio,
-	sumBuckets,
-} from "@/lib/rekap/cost";
-import type { RekapField } from "@/lib/rekap-mapping/types";
+import type { DeductionLine } from "@/lib/rekap/project-demand";
+import type { HppBucket } from "@/lib/rekap/recipe";
 import { cn } from "@/lib/utils";
 
 type RekapData = {
@@ -27,94 +22,49 @@ type RekapData = {
  * (header → grouped item rows with qty + HPP → footer total), mirroring the
  * project-page Recap Event card. Reads top-to-bottom like an itemized receipt.
  *
- * Numbers use computeRekapCost() (same as the crew form live preview) so the
- * displayed totals match what the owner settles.
+ * v3 (2026-06-29): driven by the CANONICAL plan lines (planRekapDeduction),
+ * the SAME array the "Stok" tab + settlement use — not the old field-based
+ * computeRekapCost which ignored assembly expansion (flashdisk → FLASHDISK +
+ * FD-BOX + POUCH). That divergence made the two tabs disagree: e.g. the pouch
+ * bundled with a flashdisk showed −1 in Stok but 0 here, and Mediaset/total
+ * HPP differed by per-bucket rounding. Now both render the exact same numbers.
  */
 export function RekapSummaryTab({
 	rekap,
-	context,
+	lines,
 }: {
 	rekap: RekapData;
-	context: RekapContext;
+	/** Canonical consumption lines from planRekapDeduction (one per SKU). */
+	lines: DeductionLine[];
 }) {
-	const quantities = {
-		cetak_total: rekap.cetak_total,
-		media_set_used: rekap.media_set_used,
-		sleeve_used: rekap.sleeve_used,
-		flashdisk_used: rekap.flashdisk_used,
-		pouch_used: rekap.pouch_used,
-		photomagnet_used: rekap.photomagnet_used,
-		keychain_used: rekap.keychain_used,
-	};
+	// Raw per-line cost — summed without per-bucket rounding so this tab matches
+	// the "Stok" tab's "Total HPP terdeduksi" to the rupiah (it sums the same way).
+	const costOf = (l: DeductionLine) => l.qty * l.unit_cost;
+	const bucketLines = (b: HppBucket) => lines.filter((l) => l.bucket === b);
+	const sumBucket = (b: HppBucket) =>
+		bucketLines(b).reduce((s, l) => s + costOf(l), 0);
+	const sumSku = (predicate: (sku: string) => boolean) =>
+		lines.filter((l) => predicate(l.sku)).reduce((s, l) => s + costOf(l), 0);
+	const qtySku = (predicate: (sku: string) => boolean) =>
+		lines.filter((l) => predicate(l.sku)).reduce((s, l) => s + l.qty, 0);
 
-	const mappedItems = context.mappings
-		.filter((m) => m.item)
-		.map((m) => ({
-			rekap_field: m.rekap_field,
-			frame_size: m.frame_size,
-			item_id: m.item_id ?? "",
-			qty_per_unit: m.qty_per_unit,
-			purchase_price_avg: m.item?.purchase_price_avg ?? 0,
-			base_unit: m.item?.unit,
-			unit_conversion: m.item?.unit_conversion,
-		}));
+	const total = lines.reduce((s, l) => s + costOf(l), 0);
 
-	const bonusLines = context.bonuses.map((b) => ({
-		addon_id: b.addon_id,
-		quantity: b.quantity,
-		purchase_price_avg: b.inventory_item?.purchase_price_avg ?? 0,
-	}));
-
-	const customInventoryBySku = new Map(
-		context.custom_inventory.map((it) => [it.sku, it]),
-	);
-
-	const customMaterialsEntries = Object.entries(rekap.custom_materials ?? {})
-		.map(([sku, qty]) => ({ sku, qty: Number(qty) || 0 }))
-		.filter((e) => e.qty > 0);
-
-	const customLines = customMaterialsEntries.map((e) => {
-		const it = customInventoryBySku.get(e.sku);
-		return {
-			sku: e.sku,
-			quantity: e.qty,
-			purchase_price_avg: it?.purchase_price_avg ?? 0,
-		};
+	// Flashdisk bucket holds both the drive (FLASHDISK) and its box (FD-BOX).
+	// Split them into their own rows so the receipt mirrors the Stok tab.
+	const isBox = (sku: string) => sku.toUpperCase().startsWith("FD-BOX");
+	const flashdiskCost = sumSku((s) => {
+		const u = s.toUpperCase();
+		return (u.startsWith("FLASHDISK") || u.startsWith("FD")) && !isBox(s);
 	});
+	const boxCost = sumSku(isBox);
+	const boxQty = qtySku(isBox);
+	// Pouch consumed = standalone pouch_used + any bundled with a flashdisk.
+	// This is why Stok showed −1 while the old Ringkasan showed 0.
+	const pouchQty = qtySku((s) => s.toUpperCase().startsWith("POUCH"));
 
-	const frameSize = context.pkg.frame_size ?? "";
-	const buckets = computeRekapCost(
-		quantities,
-		mappedItems,
-		bonusLines,
-		customLines,
-		frameSize,
-	);
-	const total = sumBuckets(buckets);
-	const mappedCount = context.mappings.filter((m) => m.item).length;
-
-	function costFor(field: RekapField, qty: number): number {
-		// Size-aware: exact match on frame_size wins, fallback to ''
-		const exact = context.mappings.find(
-			(m) => m.rekap_field === field && m.frame_size === frameSize,
-		);
-		const fallback = context.mappings.find(
-			(m) => m.rekap_field === field && m.frame_size === "",
-		);
-		const map = exact ?? fallback;
-		if (!map?.item) return 0;
-		// derived ratio for media/sleeve (matches backend); raw for others.
-		const ratio = deriveRekapRatio(field, frameSize, {
-			rekap_field: map.rekap_field,
-			frame_size: map.frame_size,
-			item_id: map.item_id ?? "",
-			qty_per_unit: map.qty_per_unit,
-			purchase_price_avg: map.item.purchase_price_avg,
-			base_unit: map.item.unit,
-			unit_conversion: map.item.unit_conversion,
-		});
-		return Math.round(qty * ratio * map.item.purchase_price_avg);
-	}
+	const bonusLines = bucketLines("bonus");
+	const customLines = bucketLines("other");
 
 	return (
 		<div className="overflow-hidden rounded-xl border border-border-default bg-card">
@@ -132,30 +82,25 @@ export function RekapSummaryTab({
 					variant="outline"
 					className="border-primary/40 bg-primary/10 text-primary"
 				>
-					{mappedCount} field ter-mapped
+					{lines.length} baris konsumsi
 				</Badge>
 			</div>
 
 			{/* ITEM BREAKDOWN */}
 			<div className="px-5">
 				<Section icon={Printer} title="Cetak">
-					<ItemRow
-						name="Total cetak"
-						qty={rekap.cetak_total}
-						unit="pcs"
-						cost={costFor("cetak_total", rekap.cetak_total)}
-					/>
+					<ItemRow name="Total cetak" qty={rekap.cetak_total} unit="pcs" />
 					<ItemRow
 						name="Mediaset"
 						qty={rekap.media_set_used}
 						unit="set"
-						cost={costFor("media_set_used", rekap.media_set_used)}
+						cost={sumBucket("mediaset")}
 					/>
 					<ItemRow
 						name="Sleeve"
 						qty={rekap.sleeve_used}
 						unit="pcs"
-						cost={costFor("sleeve_used", rekap.sleeve_used)}
+						cost={sumBucket("sleeve")}
 					/>
 				</Section>
 
@@ -164,13 +109,27 @@ export function RekapSummaryTab({
 						name="Flashdisk"
 						qty={rekap.flashdisk_used}
 						unit="pcs"
-						cost={costFor("flashdisk_used", rekap.flashdisk_used)}
+						cost={flashdiskCost}
 					/>
+					{boxQty > 0 && (
+						<ItemRow
+							name="Box flashdisk"
+							qty={boxQty}
+							unit="pcs"
+							cost={boxCost}
+							note="otomatis ikut flashdisk"
+						/>
+					)}
 					<ItemRow
 						name="Pouch"
-						qty={rekap.pouch_used}
+						qty={pouchQty}
 						unit="pcs"
-						cost={costFor("pouch_used", rekap.pouch_used)}
+						cost={sumBucket("pouch")}
+						note={
+							pouchQty > rekap.pouch_used
+								? "termasuk paket flashdisk"
+								: undefined
+						}
 					/>
 				</Section>
 
@@ -179,52 +138,42 @@ export function RekapSummaryTab({
 						name="Photomagnet"
 						qty={rekap.photomagnet_used}
 						unit="pcs"
-						cost={costFor("photomagnet_used", rekap.photomagnet_used)}
+						cost={sumBucket("photomagnet")}
 					/>
 					<ItemRow
 						name="Keychain"
 						qty={rekap.keychain_used}
 						unit="pcs"
-						cost={costFor("keychain_used", rekap.keychain_used)}
+						cost={sumBucket("keychain")}
 					/>
 				</Section>
 
-				{context.bonuses.length > 0 && (
+				{bonusLines.length > 0 && (
 					<Section icon={Gift} title="Bonus klien (gratis)">
-						{context.bonuses.map((b) => {
-							const inv = b.inventory_item;
-							const cost = inv ? b.quantity * inv.purchase_price_avg : 0;
-							return (
-								<ItemRow
-									key={b.addon_id}
-									name={b.name}
-									qty={b.quantity}
-									unit={b.unit}
-									cost={cost}
-									tone="emerald"
-									note={b.notes ?? undefined}
-								/>
-							);
-						})}
+						{bonusLines.map((l) => (
+							<ItemRow
+								key={`${l.item_id}-${l.source_label}`}
+								name={l.name}
+								qty={l.qty}
+								unit="pcs"
+								cost={costOf(l)}
+								tone="emerald"
+							/>
+						))}
 					</Section>
 				)}
 
-				{customMaterialsEntries.length > 0 && (
+				{customLines.length > 0 && (
 					<Section icon={Sparkles} title="Item tambahan">
-						{customMaterialsEntries.map((e) => {
-							const it = customInventoryBySku.get(e.sku);
-							const cost = e.qty * (it?.purchase_price_avg ?? 0);
-							return (
-								<ItemRow
-									key={e.sku}
-									name={it?.name ?? e.sku}
-									qty={e.qty}
-									unit={it?.unit ?? "pcs"}
-									cost={cost}
-									note={it ? undefined : "item dihapus dari master"}
-								/>
-							);
-						})}
+						{customLines.map((l) => (
+							<ItemRow
+								key={`${l.item_id}-${l.source_label}`}
+								name={l.name}
+								qty={l.qty}
+								unit="pcs"
+								cost={costOf(l)}
+							/>
+						))}
 					</Section>
 				)}
 			</div>
@@ -241,7 +190,7 @@ export function RekapSummaryTab({
 				</div>
 				<p className="text-[11.5px] italic text-muted-foreground">
 					Estimasi pakai harga rata-rata pembelian saat ini. HPP final
-					di-snapshot saat settle event.
+					di-snapshot saat settle event. Angka di sini = tab Stok.
 				</p>
 			</div>
 		</div>
@@ -281,13 +230,15 @@ function ItemRow({
 	name: string;
 	qty: number;
 	unit: string;
-	cost: number;
+	/** Omit for info-only rows (e.g. "Total cetak") that carry no HPP. */
+	cost?: number;
 	tone?: "default" | "emerald";
 	note?: string;
 }) {
 	const isZero = qty === 0;
+	const hasCost = cost != null;
 	const costColor =
-		cost > 0
+		hasCost && cost > 0
 			? tone === "emerald"
 				? "text-emerald-700 dark:text-emerald-300"
 				: "text-foreground"
@@ -316,7 +267,7 @@ function ItemRow({
 			<span
 				className={cn("tabular text-right text-[13px] font-medium", costColor)}
 			>
-				{cost > 0 ? formatRupiah(cost) : "—"}
+				{hasCost ? (cost > 0 ? formatRupiah(cost) : "—") : "—"}
 			</span>
 		</div>
 	);

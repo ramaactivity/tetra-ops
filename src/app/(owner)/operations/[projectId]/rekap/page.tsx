@@ -28,7 +28,11 @@ import { SettledBanner } from "@/components/rekap/settled-banner";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getProfitPreview } from "@/lib/actions/profit-preview";
-import { getRekapContext, previewRekapHpp } from "@/lib/actions/rekap";
+import {
+	getRekapApprovalPreview,
+	getRekapContext,
+	previewRekapHpp,
+} from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { createClient } from "@/lib/supabase/server";
@@ -243,6 +247,15 @@ export default async function EventRekapPage({
 		}
 	}
 
+	// Canonical consumption lines — the SAME array the "Stok" tab + settlement
+	// use (planRekapDeduction). Feeds the "Ringkasan" tab so both tabs show
+	// identical qty + HPP (incl. assembly-bundled pouch/box). Was previously
+	// computed from the divergent field-based computeRekapCost.
+	const rekapPreview = rekap
+		? await getRekapApprovalPreview(rekap.id as string)
+		: null;
+	const rekapLines = rekapPreview?.ok ? rekapPreview.lines : [];
+
 	// Field expense breakdown — ditampilkan sebagai INFO di Fee crew form.
 	// Owner attribute manual ke crew yang sebenarnya bayar (mis. transport
 	// online dibayar Lead, konsumsi dibayar Asisten). Tidak auto-divide
@@ -421,7 +434,7 @@ export default async function EventRekapPage({
 						</TabsTrigger>
 					</TabsList>
 					<TabsContent value="ringkasan">
-						<RekapSummaryTab rekap={rekap} context={context} />
+						<RekapSummaryTab rekap={rekap} lines={rekapLines} />
 						{rekap.crew_notes && (
 							<RekapCard className="mt-4 space-y-1.5">
 								<p className="eyebrow text-muted-foreground">Catatan crew</p>
