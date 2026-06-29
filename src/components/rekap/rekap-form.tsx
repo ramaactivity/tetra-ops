@@ -24,14 +24,7 @@ import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { RekapContext } from "@/lib/actions/rekap";
 import { type RekapFormState, submitRekap } from "@/lib/actions/rekap";
 import { formatRupiah } from "@/lib/format";
-import {
-	type CustomLine,
-	computeRekapCost,
-	deriveRekapRatio,
-	type MappedItem,
-	type RekapQuantities,
-	sumBuckets,
-} from "@/lib/rekap/cost";
+import { deriveRekapRatio } from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
 import { cn } from "@/lib/utils";
 
@@ -490,56 +483,6 @@ export function RekapForm({
 		router.push(`/crew/jadwal/${projectId}/rekap/success`);
 	}, [state?.success, clearDraftState, projectId, router]);
 
-	// === Live cost computation ===
-	const quantities = useMemo<RekapQuantities>(() => {
-		return {
-			cetak_total: Number(cetak) || 0,
-			media_set_used: Number(media) || 0,
-			sleeve_used: Number(sleeve) || 0,
-			flashdisk_used: Number(flashdisk) || 0,
-			pouch_used: Number(pouch) || 0,
-			photomagnet_used: Number(photomagnet) || 0,
-			keychain_used: Number(keychain) || 0,
-		};
-	}, [cetak, media, sleeve, flashdisk, pouch, photomagnet, keychain]);
-
-	const mappedItems = useMemo<MappedItem[]>(() => {
-		return context.mappings
-			.filter((m) => m.item)
-			.map((m) => ({
-				rekap_field: m.rekap_field,
-				frame_size: m.frame_size,
-				item_id: m.item_id ?? "",
-				qty_per_unit: m.qty_per_unit,
-				purchase_price_avg: m.item?.purchase_price_avg ?? 0,
-				base_unit: m.item?.unit,
-				unit_conversion: m.item?.unit_conversion,
-			}));
-	}, [context.mappings]);
-
-	const bonusLines = useMemo(
-		() =>
-			context.bonuses.map((b) => ({
-				addon_id: b.addon_id,
-				quantity: b.quantity,
-				purchase_price_avg: b.inventory_item?.purchase_price_avg ?? 0,
-			})),
-		[context.bonuses],
-	);
-
-	const customLines = useMemo<CustomLine[]>(() => {
-		return Object.entries(customMaterials)
-			.map(([sku, qty]) => {
-				const it = customInventoryBySku.get(sku);
-				return {
-					sku,
-					quantity: qty,
-					purchase_price_avg: it?.purchase_price_avg ?? 0,
-				};
-			})
-			.filter((l) => l.quantity > 0);
-	}, [customMaterials, customInventoryBySku]);
-
 	// Helpers for per-field HPP chip — size-aware mapping resolution
 	const frameSize = context.pkg.frame_size ?? "";
 	const mappingByField = useMemo(() => {
@@ -590,35 +533,11 @@ export function RekapForm({
 		if (!touched.sleeve_used) setSleeve(String(autoSleeveQty));
 	}, [autoSleeveQty, touched.sleeve_used]);
 
-	// HPP uses AUTO media/sleeve (cetak-derived) — same basis as the owner
-	// settlement engine (planRekapDeduction ignores manual media/sleeve). So a
-	// manual override changes the stock note only, never the HPP — crew preview
-	// stays in sync with what the owner will settle.
-	const buckets = useMemo(
-		() =>
-			computeRekapCost(
-				{
-					...quantities,
-					media_set_used: autoMediaLembar,
-					sleeve_used: autoSleeveQty,
-				},
-				mappedItems,
-				bonusLines,
-				customLines,
-				context.pkg.frame_size ?? "",
-			),
-		[
-			quantities,
-			autoMediaLembar,
-			autoSleeveQty,
-			mappedItems,
-			bonusLines,
-			customLines,
-			context.pkg.frame_size,
-		],
-	);
-	const hppTotal = sumBuckets(buckets);
-
+	// Per-field cost chip (owner-only — purchase_price_avg is zeroed for crew in
+	// getRekapContext, so this renders nothing for crew). This is a per-field
+	// estimate next to each input, NOT the settlement total: the canonical HPP
+	// (incl. assembly box/pouch) is computed by planRekapDeduction and shown on
+	// the owner rekap page's Ringkasan + Stok tabs.
 	function fieldCost(field: RekapField, value: number): number {
 		const map = mappingByField.get(field);
 		if (!map?.item) return 0;

@@ -37,9 +37,11 @@ export function RekapSummaryTab({
 	/** Canonical consumption lines from planRekapDeduction (one per SKU). */
 	lines: DeductionLine[];
 }) {
-	// Raw per-line cost — summed without per-bucket rounding so this tab matches
-	// the "Stok" tab's "Total HPP terdeduksi" to the rupiah (it sums the same way).
-	const costOf = (l: DeductionLine) => l.qty * l.unit_cost;
+	// Per-line cost rounded to whole rupiah — the same basis as the official HPP
+	// snapshot (bucketHpp rounds each bucket; the only fractional line, mediaset,
+	// is a single-line bucket so per-line == per-bucket rounding). This makes the
+	// Ringkasan + Stok tabs + hero + settlement all agree to the exact rupiah.
+	const costOf = (l: DeductionLine) => Math.round(l.qty * l.unit_cost);
 	const bucketLines = (b: HppBucket) => lines.filter((l) => l.bucket === b);
 	const sumBucket = (b: HppBucket) =>
 		bucketLines(b).reduce((s, l) => s + costOf(l), 0);

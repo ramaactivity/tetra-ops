@@ -120,7 +120,10 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 	}
 
 	const total = lines.length;
-	const totalCost = lines.reduce((s, l) => s + l.qty * l.unit_cost, 0);
+	// Round each line to whole rupiah — same basis as the official HPP snapshot
+	// (bucketHpp) + the Ringkasan tab, so all displays + the books agree exactly.
+	const lineCost = (l: PreviewLine) => Math.round(l.qty * l.unit_cost);
+	const totalCost = lines.reduce((s, l) => s + lineCost(l), 0);
 
 	return (
 		<div className="space-y-3">
@@ -192,7 +195,7 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 										−{l.qty.toLocaleString("id-ID")}
 									</p>
 									<p className="tabular text-[11px] text-muted-foreground">
-										{formatRupiah(l.qty * l.unit_cost)}
+										{formatRupiah(lineCost(l))}
 									</p>
 								</div>
 							</li>
