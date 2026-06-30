@@ -30,19 +30,18 @@ type Phase =
 			missing: RekapField[];
 			enabled: boolean;
 			committed: boolean;
+			stockByItem: Record<string, number>;
 	  }
 	| { phase: "error"; message: string };
 
 /**
  * Stock deduction preview shown before owner approves. Loads
  * planRekapDeduction output from the server and renders each line with
- * before→after stock context, bonus highlight, and rolling HPP total.
- *
- * Stock-before is reconstructed by inspecting the deduct context — but
- * the server action doesn't currently return it. So we render the
- * deduction qty + cost; pre/post-stock visualization is best-effort
- * unless we extend the server action. For now, just emphasize source
- * labels and bonus rows visually.
+ * its stok awal → penggunaan → stok akhir, bonus highlight, and rolling
+ * HPP total. Stock comes live from get_stock_levels: for a not-yet-committed
+ * rekap it's the stock BEFORE this event (so akhir = awal − pakai is a
+ * projection); once committed it's already AFTER, so awal is reconstructed
+ * as akhir + pakai.
  */
 export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 	const [state, setState] = useState<Phase>({ phase: "loading" });
@@ -61,6 +60,7 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 					missing: res.missingMappings,
 					enabled: res.autoDeductEnabled,
 					committed: res.alreadyCommitted,
+					stockByItem: res.stockByItem,
 				});
 			}
 		})();
@@ -85,7 +85,7 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 		);
 	}
 
-	const { lines, missing, enabled, committed } = state;
+	const { lines, missing, enabled, committed, stockByItem } = state;
 
 	if (committed) {
 		return (
@@ -107,9 +107,7 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 			<div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
 				<div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
 					<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-					<p className="text-sm font-medium">
-						Auto-deduct stock dimatikan
-					</p>
+					<p className="text-sm font-medium">Auto-deduct stock dimatikan</p>
 				</div>
 				<p className="text-fluid-caption text-amber-900/80 dark:text-amber-200/80">
 					Toggle di <code className="font-mono">/settings → integrity</code>.
@@ -125,6 +123,17 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 	const lineCost = (l: PreviewLine) => Math.round(l.qty * l.unit_cost);
 	const totalCost = lines.reduce((s, l) => s + lineCost(l), 0);
 
+	// Total penggunaan per item (an item can appear in >1 line, e.g. POUCH both
+	// standalone + bundled with a flashdisk). Stock awal→akhir is item-level, so
+	// it's shown once on the first line of each item.
+	const usedByItem = lines.reduce<Record<string, number>>((acc, l) => {
+		acc[l.item_id] = (acc[l.item_id] ?? 0) + l.qty;
+		return acc;
+	}, {});
+	const fmtQty = (n: number) =>
+		Number(n.toFixed(4)).toLocaleString("id-ID", { maximumFractionDigits: 4 });
+	const seenItem = new Set<string>();
+
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center gap-2">
@@ -139,14 +148,20 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 
 			{total === 0 ? (
 				<div className="rounded-lg border border-dashed border-border-default bg-surface-2 p-4 text-center text-fluid-caption text-muted-foreground">
-					Tidak ada konsumsi yang ter-mapped. Approve tetap bisa, tapi tidak
-					ada side-effect ke warehouse.
+					Tidak ada konsumsi yang ter-mapped. Approve tetap bisa, tapi tidak ada
+					side-effect ke warehouse.
 				</div>
 			) : (
 				<ul className="space-y-2">
 					{lines.map((l, idx) => {
 						const isBonus = l.source_label.startsWith("bonus:");
 						const isExtra = l.source_label.startsWith("extra:");
+						// Stock awal → akhir is item-level; show once per item.
+						const showStock = !seenItem.has(l.item_id);
+						if (showStock) seenItem.add(l.item_id);
+						const used = usedByItem[l.item_id] ?? 0;
+						const before = stockByItem[l.item_id] ?? 0;
+						const after = before - used;
 						return (
 							<li
 								key={`${l.item_id}-${idx}`}
@@ -189,6 +204,28 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 									<p className="font-mono text-[11px] text-muted-foreground">
 										{l.sku} · {l.source_label.replace(/^(bonus|extra):\s*/, "")}
 									</p>
+									{showStock && (
+										<p className="text-[11px] text-muted-foreground">
+											Stok:{" "}
+											<span className="tabular font-medium text-foreground">
+												{fmtQty(before)}
+											</span>
+											{" → "}
+											<span
+												className={`tabular font-medium ${
+													after < 0
+														? "text-rose-600 dark:text-rose-400"
+														: "text-foreground"
+												}`}
+											>
+												{fmtQty(after)}
+											</span>
+											<span className="text-muted-foreground/70">
+												{" "}
+												(pakai {fmtQty(used)})
+											</span>
+										</p>
+									)}
 								</div>
 								<div className="flex items-baseline gap-3 sm:flex-col sm:items-end sm:gap-0.5">
 									<p className="tabular text-sm font-semibold text-foreground">
@@ -221,8 +258,8 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 						</p>
 						<p className="mt-0.5">
 							{missing.map((m) => REKAP_FIELD_LABELS[m]).join(", ")}. SKU-nya
-							tidak ditemukan di inventory — field ini di-skip dari deduksi.
-							Cek item-nya ada & aktif di Inventaris.
+							tidak ditemukan di inventory — field ini di-skip dari deduksi. Cek
+							item-nya ada & aktif di Inventaris.
 						</p>
 					</div>
 				</div>

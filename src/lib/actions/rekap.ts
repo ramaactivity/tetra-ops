@@ -1330,6 +1330,8 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 			missingMappings: RekapField[];
 			autoDeductEnabled: boolean;
 			alreadyCommitted: boolean;
+			/** Live warehouse stock per item_id — for before→after display. */
+			stockByItem: Record<string, number>;
 	  }
 	| { ok: false; error: string }
 > {
@@ -1349,6 +1351,23 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 
 	const plan = await planRekapDeduction(supabase, rekap as RekapStockSnapshot);
 
+	// Live stock per consumed item (one batched RPC) → lets the UI show
+	// stok awal → penggunaan → stok akhir. For a not-yet-committed rekap this is
+	// the stock BEFORE this event; for a committed one it's already AFTER.
+	const itemIds = [...new Set(plan.lines.map((l) => l.item_id))];
+	const stockByItem: Record<string, number> = {};
+	if (itemIds.length > 0) {
+		const { data: levels } = await supabase.rpc("get_stock_levels", {
+			p_item_ids: itemIds,
+		});
+		for (const r of (levels ?? []) as Array<{
+			item_id: string;
+			stock: number;
+		}>) {
+			stockByItem[r.item_id] = Number(r.stock);
+		}
+	}
+
 	return {
 		ok: true,
 		lines: plan.lines,
@@ -1356,6 +1375,7 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 		// Deduksi stok + snapshot HPP selalu jalan saat approval (single engine).
 		autoDeductEnabled: true,
 		alreadyCommitted: rekap.stock_committed_at !== null,
+		stockByItem,
 	};
 }
 
