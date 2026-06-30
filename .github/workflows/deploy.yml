@@ -35,7 +35,33 @@ env:
   VERCEL_PROJECT_ID: prj_UVCHJJqig4Ccbfw6Iwz57pMTrjye
 
 jobs:
+  # Gate: unit test math finance (cepat, tanpa secret). Kalau merah → deploy
+  # tidak jalan. Mencegah regresi HPP/jurnal naik ke produksi.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests (finance math)
+        run: pnpm test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
