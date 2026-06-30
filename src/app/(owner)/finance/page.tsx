@@ -310,6 +310,64 @@ export default async function FinancePage({
 		event: Array.isArray(s.event) ? s.event[0] : s.event,
 	}));
 
+	// Hutang Crew belum dibayar — fee crew yang di-akrual ke 2-100 oleh settlement
+	// cash-basis tapi belum diklik "Bayar". HANYA event yang ter-settle DI BUKU
+	// SEKARANG (punya settlement, closed_at >= cutoff) — event lama yang ditutup
+	// pre-cutoff (frozen, tanpa posting buku) is_paid-nya stale & TIDAK ada di
+	// 2-100, jadi tak boleh ikut (kalau ikut, totalnya nggak cocok sama buku).
+	const { data: unpaidCrewData } = await supabase
+		.from("crew_assignments")
+		.select(
+			`id, fee_amount, bonus_amount, reimbursement_amount,
+			event:events!inner(project_id, client_name, event_date,
+				settlement:event_settlements(closed_at)),
+			user:users!crew_assignments_user_id_fkey(full_name)`,
+		)
+		.eq("is_paid", false);
+	type UnpaidEvent = {
+		project_id: string;
+		client_name: string;
+		event_date: string;
+		settlement: { closed_at: string } | Array<{ closed_at: string }> | null;
+	};
+	const unpaidCrew = (
+		(unpaidCrewData ?? []) as Array<{
+			id: string;
+			fee_amount: number | null;
+			bonus_amount: number | null;
+			reimbursement_amount: number | null;
+			event: UnpaidEvent | UnpaidEvent[] | null;
+			user: { full_name: string } | { full_name: string }[] | null;
+		}>
+	)
+		.map((r) => {
+			const ev = Array.isArray(r.event) ? r.event[0] : r.event;
+			const u = Array.isArray(r.user) ? r.user[0] : r.user;
+			const st = Array.isArray(ev?.settlement)
+				? ev?.settlement[0]
+				: ev?.settlement;
+			const closedAt = st?.closed_at?.slice(0, 10) ?? null;
+			const amount =
+				Number(r.fee_amount ?? 0) +
+				Number(r.bonus_amount ?? 0) +
+				Number(r.reimbursement_amount ?? 0);
+			return {
+				id: r.id,
+				amount,
+				crewName: u?.full_name ?? "Crew",
+				ev,
+				closedAt,
+			};
+		})
+		.filter(
+			(r) =>
+				r.amount > 0 &&
+				r.closedAt !== null &&
+				(!cutoffDate || r.closedAt >= cutoffDate),
+		)
+		.sort((a, b) => b.amount - a.amount);
+	const unpaidCrewTotal = unpaidCrew.reduce((s, r) => s + r.amount, 0);
+
 	let ownerBreakdown: Array<{
 		id: string;
 		full_name: string;
@@ -518,6 +576,62 @@ export default async function FinancePage({
 						/>
 					</dl>
 				</div>
+			</section>
+
+			<section className="space-y-3">
+				<div className="flex items-baseline justify-between px-5">
+					<h2 className="flex items-center gap-1 text-base font-semibold tracking-tight">
+						Hutang ke crew · belum dibayar
+						<InfoHint title="Hutang ke crew">
+							Fee + reimbursement crew dari event yang sudah di-settle tapi
+							belum kamu klik "Bayar". Angka ini = saldo akun Hutang Crew
+							(2-100) di pembukuan. Klik tiap baris untuk membayar.
+						</InfoHint>
+					</h2>
+					<span
+						className={cn(
+							"tabular text-sm font-semibold",
+							unpaidCrewTotal > 0 ? "text-amber-700" : "text-muted-foreground",
+						)}
+					>
+						{formatRupiah(unpaidCrewTotal)}
+					</span>
+				</div>
+				{unpaidCrew.length === 0 ? (
+					<EmptyCard
+						icon={Wallet}
+						title="Semua fee crew sudah dibayar"
+						hint="Tidak ada utang fee crew yang menunggu pembayaran."
+					/>
+				) : (
+					<div className="border-border-subtle bg-card divide-border overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+						{unpaidCrew.map((r) => (
+							<Link
+								key={r.id}
+								href={`/operations/${r.ev?.project_id}/rekap`}
+								className="press-down border-border-default hover:bg-muted/40 flex items-center justify-between gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
+							>
+								<div className="min-w-0 flex-1 space-y-0.5">
+									<p className="text-foreground truncate text-sm font-medium">
+										{r.crewName}
+									</p>
+									<p className="text-muted-foreground tabular text-xs">
+										{r.ev?.client_name}
+										{r.ev?.event_date
+											? ` · ${formatDateID(r.ev.event_date)}`
+											: ""}
+									</p>
+								</div>
+								<div className="text-right">
+									<p className="tabular text-sm font-semibold text-amber-700">
+										{formatRupiah(r.amount)}
+									</p>
+									<p className="text-muted-foreground text-[10px]">Bayar →</p>
+								</div>
+							</Link>
+						))}
+					</div>
+				)}
 			</section>
 
 			<div className="grid gap-6 lg:grid-cols-2">
