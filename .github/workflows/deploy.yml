@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # butuh history utk diff file yang berubah (lint step)
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -57,8 +59,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # GATE: unit test wajib hijau (lihat job-level needs di deploy).
       - name: Unit tests (finance math)
         run: pnpm test
+
+      # Lint HANYA file yang berubah. NON-BLOKING: repo punya baseline ~336 isu
+      # biome lama (a11y/style) yang menyebar di banyak file, jadi `biome check .`
+      # penuh belum bisa jadi gate keras tanpa cleanup besar. Step ini melaporkan
+      # isu pada file yang kamu sentuh di log Actions tanpa menggagalkan deploy.
+      # Target berikutnya: bersihkan baseline lalu naikkan jadi gate (hapus
+      # continue-on-error).
+      - name: Lint changed files (biome, non-blocking)
+        continue-on-error: true
+        run: |
+          BASE="${{ github.event.before }}"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE="${{ github.sha }}~1"
+          fi
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" "${{ github.sha }}" -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' 2>/dev/null | tr '\n' ' ')
+          if [ -z "$FILES" ]; then echo "Tidak ada file lintable yang berubah."; exit 0; fi
+          echo "Lint file berubah: $FILES"
+          pnpm exec biome check $FILES
 
   deploy:
     needs: test
