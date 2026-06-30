@@ -233,6 +233,7 @@ export default async function FinancePage({
 		.or("account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101");
 	let cashGl = 0;
 	let utangGl = 0;
+	let hutangCrewGl = 0; // saldo 2-100 saja — sumber kebenaran utang ke crew
 	for (const l of (glRows ?? []) as Array<{
 		account_code: string;
 		debit_amount: number;
@@ -242,6 +243,7 @@ export default async function FinancePage({
 		if (l.account_code.startsWith("1-1"))
 			cashGl += net; // aset: debit-normal
 		else utangGl += -net; // kewajiban: credit-normal
+		if (l.account_code === "2-100") hutangCrewGl += -net;
 	}
 
 	const inflowByBank = new Map<string, number>();
@@ -597,6 +599,14 @@ export default async function FinancePage({
 						{formatRupiah(unpaidCrewTotal)}
 					</span>
 				</div>
+				{Math.abs(unpaidCrewTotal - hutangCrewGl) > 0 && (
+					<p className="px-5 text-[11px] text-rose-600 dark:text-rose-400">
+						⚠ Daftar di bawah ({formatRupiah(unpaidCrewTotal)}) beda{" "}
+						{formatRupiah(Math.abs(unpaidCrewTotal - hutangCrewGl))} dari saldo
+						buku Hutang Crew 2-100 ({formatRupiah(hutangCrewGl)}). Kemungkinan
+						ada jurnal manual di 2-100 — cek di Akuntansi.
+					</p>
+				)}
 				{unpaidCrew.length === 0 ? (
 					<EmptyCard
 						icon={Wallet}
