@@ -7,6 +7,7 @@
 		"build": "next build",
 		"start": "next start",
 		"lint": "biome check .",
+		"test": "node --import tsx --test \"src/**/*.test.ts\"",
 		"lint:design-system": "tsx scripts/lint-design-system.ts",
 		"format": "biome format --write .",
 		"brand:place": "tsx scripts/place-brand-assets.ts",
