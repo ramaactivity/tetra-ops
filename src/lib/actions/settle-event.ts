@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { payCrewFee } from "@/lib/actions/crew-fees";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -21,13 +22,26 @@ export type SettleEventResult = {
 	operating_cash: number;
 };
 
+/** Hasil "bayar sambil settle" (opsional). */
+export type CrewPaymentSummary = {
+	paid: number;
+	failed: number;
+	total: number;
+	errors: string[];
+};
+
 export type SettleEventResponse =
-	| { ok: true; data: SettleEventResult }
+	| { ok: true; data: SettleEventResult; crewPayment?: CrewPaymentSummary }
 	| { ok: false; error: string; code?: string };
 
 export async function settleEvent(
 	eventId: string,
 	projectId: string,
+	opts?: {
+		/** Kalau di-set: setelah settle, langsung bayar SEMUA fee crew dari
+		 *  rekening ini (Dr 2-100 / Cr rekening). Null/undefined = settle saja. */
+		payCrewFromAccount?: string | null;
+	},
 ): Promise<SettleEventResponse> {
 	const me = await getCurrentUser();
 	if (!me) return { ok: false, error: "Unauthorized" };
@@ -59,8 +73,45 @@ export async function settleEvent(
 		};
 	}
 
+	// Opsional: "bayar sambil settle". Event sekarang status=completed, jadi
+	// gate payCrewFee lolos. Bayar tiap crew yang belum lunas & total > 0 dari
+	// rekening yang dipilih. Bukti transfer yang sudah di-upload tetap tersimpan.
+	let crewPayment: CrewPaymentSummary | undefined;
+	const acct = opts?.payCrewFromAccount?.trim();
+	if (acct) {
+		const { data: assigns } = await supabase
+			.from("crew_assignments")
+			.select("id, fee_amount, bonus_amount, reimbursement_amount, is_paid")
+			.eq("event_id", eventId);
+		const today = new Date().toISOString().slice(0, 10);
+		let paid = 0;
+		let failed = 0;
+		let total = 0;
+		const errors: string[] = [];
+		for (const a of assigns ?? []) {
+			const amt =
+				Number(a.fee_amount ?? 0) +
+				Number(a.bonus_amount ?? 0) +
+				Number(a.reimbursement_amount ?? 0);
+			if (a.is_paid || amt <= 0) continue;
+			const r = await payCrewFee({
+				assignment_id: a.id as string,
+				project_id: projectId,
+				bank_account_code: acct,
+				payment_date: today,
+			});
+			if (r.ok) {
+				paid += 1;
+				total += amt;
+			} else {
+				failed += 1;
+				errors.push(r.error);
+			}
+		}
+		crewPayment = { paid, failed, total, errors };
+	}
+
 	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
 	revalidatePath("/dashboard");
@@ -69,7 +120,7 @@ export async function settleEvent(
 	// Thank the assigned crew that the event is closed (best-effort).
 	await notifyEventSettled(eventId, projectId);
 
-	return { ok: true, data: data as SettleEventResult };
+	return { ok: true, data: data as SettleEventResult, crewPayment };
 }
 
 export type ReopenResult = {

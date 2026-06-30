@@ -531,6 +531,12 @@ export default async function EventRekapPage({
 								netProfit={profitPreview.net_profit}
 								sinkingEstimate={profitPreview.sinking_estimate}
 								ownerPoolEstimate={profitPreview.owner_pool_estimate}
+								crewTotal={crewFeeRows.reduce(
+									(s, r) =>
+										s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
+									0,
+								)}
+								cashAccounts={cashAccounts}
 								disabled={Boolean(settleDisabledReason)}
 								disabledReason={settleDisabledReason}
 							/>
