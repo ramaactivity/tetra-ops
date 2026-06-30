@@ -127,7 +127,10 @@ function newJournalRef(date: Date): string {
 
 const PayCrewFeeSchema = z.object({
 	assignment_id: z.string().uuid(),
-	project_id: z.string().uuid(),
+	// project_id = kode proyek human ("PRJ-20260628-30644"), BUKAN UUID. Hanya
+	// dipakai untuk revalidatePath, jadi validasi cukup string non-kosong.
+	// (Dulu .uuid() → "Invalid UUID" saat klik Bayar / bayar-sambil-settle.)
+	project_id: z.string().trim().min(1).max(64),
 	bank_account_code: z.string().trim().min(2).max(20),
 	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	payment_date: z.string().trim().min(8),
