@@ -11,7 +11,7 @@ import {
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,14 @@ export function CrewFeeForm({
 	const router = useRouter();
 	const [rows, setRows] = useState<CrewAssignmentRow[]>(initialRows);
 	const [pending, startTransition] = useTransition();
+
+	// Post-settle (readOnly): re-sync dari server setelah router.refresh() — mis.
+	// status lunas berubah sehabis Bayar. useState(initialRows) tidak auto-update
+	// saat prop berubah, jadi tanpa ini banner "belum dibayar" jadi basi. Aman di
+	// mode readOnly karena field dikunci (tidak ada edit lokal yang ke-clobber).
+	useEffect(() => {
+		if (readOnly) setRows(initialRows);
+	}, [initialRows, readOnly]);
 
 	function update(id: string, patch: Partial<CrewAssignmentRow>) {
 		setRows((rs) =>
@@ -379,11 +387,24 @@ function CrewPayPanel({
 	const [pending, startTransition] = useTransition();
 	const [bankCode, setBankCode] = useState<string>(cashAccounts[0]?.code ?? "");
 	const [adminFee, setAdminFee] = useState<string>("");
+	// Optimistic paid-state override. useState(initialRows) di parent tidak
+	// re-sync setelah router.refresh(), jadi tombol Bayar tetap kelihatan walau
+	// sukses → rawan klik dua kali. Override lokal langsung flip UI ke "lunas"
+	// (dan balik saat batalkan). Server tetap punya guard (is_paid) sbg jaring.
+	const [override, setOverride] = useState<{
+		paid: boolean;
+		account?: string;
+		at?: string;
+	} | null>(null);
 
 	const feeNum = Number(adminFee) || 0;
 	const cashOut = totalFee + feeNum;
 	const bankName = (code: string | null) =>
 		cashAccounts.find((a) => a.code === code)?.name ?? code ?? "—";
+
+	const effectivePaid = override ? override.paid : isPaid;
+	const effectiveAccount = override?.account ?? paidViaAccount;
+	const effectivePaidAt = override?.at ?? paidAt;
 
 	function handlePay() {
 		if (!bankCode) {
@@ -405,6 +426,11 @@ function CrewPayPanel({
 			toast.success(
 				`Fee ${crewName} dibayar${res.journalRef ? ` · jurnal ${res.journalRef}` : ""}`,
 			);
+			setOverride({
+				paid: true,
+				account: bankCode,
+				at: new Date().toISOString(),
+			});
 			router.refresh();
 		});
 	}
@@ -420,17 +446,18 @@ function CrewPayPanel({
 				return;
 			}
 			toast.success(`Pembayaran ${crewName} dibatalkan`);
+			setOverride({ paid: false });
 			router.refresh();
 		});
 	}
 
-	if (isPaid) {
+	if (effectivePaid) {
 		return (
-			<div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+			<div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
 				<span className="inline-flex items-center gap-1.5 font-medium text-emerald-800 dark:text-emerald-200">
 					<CheckCircle2 className="h-3.5 w-3.5" />
-					Sudah dibayar via {bankName(paidViaAccount)}
-					{paidAt ? ` · ${paidAt.slice(0, 10)}` : ""}
+					Lunas — dibayar via {bankName(effectiveAccount)}
+					{effectivePaidAt ? ` · ${effectivePaidAt.slice(0, 10)}` : ""}
 				</span>
 				<button
 					type="button"
