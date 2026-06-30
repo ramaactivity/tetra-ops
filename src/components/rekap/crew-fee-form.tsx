@@ -3,6 +3,7 @@
 import {
 	CheckCircle2,
 	ExternalLink,
+	Info,
 	Loader2,
 	Save,
 	Upload,
@@ -129,6 +130,43 @@ export function CrewFeeForm({
 					bayar.
 				</p>
 			</header>
+
+			{allowPayment &&
+				(() => {
+					const unpaid = rows
+						.filter((r) => !r.is_paid)
+						.reduce(
+							(s, r) =>
+								s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
+							0,
+						);
+					if (unpaid <= 0) return null;
+					return (
+						<div className="mb-4 flex items-start gap-2.5 rounded-md border border-amber-300/70 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+							<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+							<div className="space-y-1 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+								<p className="font-semibold">
+									Belum dibayar ke crew: {formatRupiah(unpaid)}
+								</p>
+								<p>
+									Fee + reimbursement crew{" "}
+									<span className="font-medium">sudah tercatat</span> sebagai{" "}
+									<span className="font-medium">Hutang Crew</span> waktu event
+									di-settle. Tapi saldo{" "}
+									<span className="font-medium">
+										Kas &amp; Bank belum berkurang
+									</span>{" "}
+									— uangnya masih di tangan kamu sampai benar-benar ditransfer.
+								</p>
+								<p>
+									Klik <span className="font-medium">Bayar</span> di tiap crew
+									saat kamu sudah transfer → kas berkurang &amp; utang ke crew
+									lunas.
+								</p>
+							</div>
+						</div>
+					);
+				})()}
 
 			{!readOnly && fieldExpenseBreakdown && (
 				<div className="mb-4 rounded-md border border-border-default bg-surface-3 p-3">
@@ -463,12 +501,16 @@ function CrewPayPanel({
 			</div>
 			<div className="mt-3 flex flex-wrap items-center justify-between gap-2">
 				<p className="text-[11px] text-muted-foreground">
-					Jurnal:{" "}
+					Saat dibayar: saldo{" "}
 					<span className="font-medium text-foreground">
-						Dr Hutang Crew {formatRupiah(totalFee)}
+						{bankName(bankCode)}
+					</span>{" "}
+					berkurang{" "}
+					<span className="font-medium text-foreground">
+						{formatRupiah(cashOut)}
 					</span>
-					{feeNum > 0 ? ` · Dr Beban Admin ${formatRupiah(feeNum)}` : ""} · Cr{" "}
-					{bankName(bankCode)} {formatRupiah(cashOut)}
+					{feeNum > 0 ? ` (termasuk biaya admin ${formatRupiah(feeNum)})` : ""}{" "}
+					· utang ke crew lunas {formatRupiah(totalFee)}
 				</p>
 				<Button
 					onClick={handlePay}
