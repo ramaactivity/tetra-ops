@@ -17,6 +17,14 @@ type RekapData = {
 	custom_materials: Record<string, number> | null;
 };
 
+/** Frame-size code → human label for the Mediaset/Sleeve size badge. */
+function frameSizeLabel(frameSize: string): string | undefined {
+	const s = frameSize.trim();
+	if (!s) return undefined;
+	if (s.toLowerCase() === "polaroid") return "Polaroid";
+	return s.toUpperCase(); // "4R" / "2R"
+}
+
 /**
  * <RekapSummaryTab /> — owner-facing "Ringkasan" tab. One structured card
  * (header → grouped item rows with qty + HPP → footer total), mirroring the
@@ -28,14 +36,20 @@ type RekapData = {
  * FD-BOX + POUCH). That divergence made the two tabs disagree: e.g. the pouch
  * bundled with a flashdisk showed −1 in Stok but 0 here, and Mediaset/total
  * HPP differed by per-bucket rounding. Now both render the exact same numbers.
+ *
+ * v3.1 (2026-06-30): show frame-size (2R/4R/Polaroid) on Mediaset/Sleeve +
+ * per-unit price under each line total (warehouse "@ Rp … / unit" convention).
  */
 export function RekapSummaryTab({
 	rekap,
 	lines,
+	frameSize = "",
 }: {
 	rekap: RekapData;
 	/** Canonical consumption lines from planRekapDeduction (one per SKU). */
 	lines: DeductionLine[];
+	/** Event frame_size — labels the Mediaset/Sleeve rows (2R/4R/Polaroid). */
+	frameSize?: string;
 }) {
 	// Per-line cost rounded to whole rupiah — the same basis as the official HPP
 	// snapshot (bucketHpp rounds each bucket; the only fractional line, mediaset,
@@ -51,6 +65,7 @@ export function RekapSummaryTab({
 		lines.filter((l) => predicate(l.sku)).reduce((s, l) => s + l.qty, 0);
 
 	const total = lines.reduce((s, l) => s + costOf(l), 0);
+	const sizeBadge = frameSizeLabel(frameSize);
 
 	// Flashdisk bucket holds both the drive (FLASHDISK) and its box (FD-BOX).
 	// Split them into their own rows so the receipt mirrors the Stok tab.
@@ -94,12 +109,14 @@ export function RekapSummaryTab({
 					<ItemRow name="Total cetak" qty={rekap.cetak_total} unit="pcs" />
 					<ItemRow
 						name="Mediaset"
+						sizeBadge={sizeBadge}
 						qty={rekap.media_set_used}
 						unit="set"
 						cost={sumBucket("mediaset")}
 					/>
 					<ItemRow
 						name="Sleeve"
+						sizeBadge={sizeBadge}
 						qty={rekap.sleeve_used}
 						unit="pcs"
 						cost={sumBucket("sleeve")}
@@ -223,6 +240,7 @@ function Section({
 
 function ItemRow({
 	name,
+	sizeBadge,
 	qty,
 	unit,
 	cost,
@@ -230,6 +248,8 @@ function ItemRow({
 	note,
 }: {
 	name: string;
+	/** Frame-size chip (e.g. "2R") shown after the name — Mediaset/Sleeve only. */
+	sizeBadge?: string;
 	qty: number;
 	unit: string;
 	/** Omit for info-only rows (e.g. "Total cetak") that carry no HPP. */
@@ -238,15 +258,19 @@ function ItemRow({
 	note?: string;
 }) {
 	const isZero = qty === 0;
-	const hasCost = cost != null;
-	const costColor =
-		hasCost && cost > 0
-			? tone === "emerald"
-				? "text-emerald-700 dark:text-emerald-300"
-				: "text-foreground"
-			: "text-muted-foreground/50";
+	const hasCost = cost != null && cost > 0;
+	// Per-unit price derived from the line total ÷ displayed qty — so it always
+	// reconciles with the total shown (unit × qty = total). Mirrors the warehouse
+	// list's "@ Rp … / unit" sub-line.
+	const unitPrice =
+		hasCost && qty > 0 ? Math.round((cost as number) / qty) : null;
+	const costColor = hasCost
+		? tone === "emerald"
+			? "text-emerald-700 dark:text-emerald-300"
+			: "text-foreground"
+		: "text-muted-foreground/50";
 	return (
-		<div className="grid grid-cols-[1fr_auto_6.5rem] items-baseline gap-3 px-1 py-2">
+		<div className="grid grid-cols-[1fr_auto_7.5rem] items-baseline gap-3 px-1 py-2">
 			<div className="min-w-0">
 				<span
 					className={cn(
@@ -256,6 +280,11 @@ function ItemRow({
 				>
 					{name}
 				</span>
+				{sizeBadge ? (
+					<span className="ml-1.5 rounded-full bg-secondary px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+						{sizeBadge}
+					</span>
+				) : null}
 				{note ? (
 					<span className="ml-1.5 text-[11px] italic text-muted-foreground/70">
 						{note}
@@ -266,11 +295,18 @@ function ItemRow({
 				{qty.toLocaleString("id-ID")}
 				<span className="ml-0.5 text-muted-foreground/60">{unit}</span>
 			</span>
-			<span
-				className={cn("tabular text-right text-[13px] font-medium", costColor)}
-			>
-				{hasCost ? (cost > 0 ? formatRupiah(cost) : "—") : "—"}
-			</span>
+			<div className="text-right">
+				<span
+					className={cn("tabular block text-[13px] font-medium", costColor)}
+				>
+					{cost != null ? (cost > 0 ? formatRupiah(cost) : "—") : "—"}
+				</span>
+				{unitPrice != null ? (
+					<span className="tabular block text-[10.5px] leading-tight text-muted-foreground/70">
+						@ {formatRupiah(unitPrice)} / {unit}
+					</span>
+				) : null}
+			</div>
 		</div>
 	);
 }

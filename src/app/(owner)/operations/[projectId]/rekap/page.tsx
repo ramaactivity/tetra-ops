@@ -434,7 +434,11 @@ export default async function EventRekapPage({
 						</TabsTrigger>
 					</TabsList>
 					<TabsContent value="ringkasan">
-						<RekapSummaryTab rekap={rekap} lines={rekapLines} />
+						<RekapSummaryTab
+							rekap={rekap}
+							lines={rekapLines}
+							frameSize={context.pkg.frame_size ?? ""}
+						/>
 						{rekap.crew_notes && (
 							<RekapCard className="mt-4 space-y-1.5">
 								<p className="eyebrow text-muted-foreground">Catatan crew</p>
