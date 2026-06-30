@@ -192,6 +192,30 @@ export default async function EventRekapPage({
 			: (settlement.closed_by_user as { full_name: string }).full_name
 		: null;
 
+	// Fee crew cuma boleh dibayar kalau event benar-benar ter-akrual ke 2-100
+	// Hutang Crew di buku SEKARANG: punya settlement, closed_at >= finance cutoff,
+	// dan belum di-reopen. Event lama yang ditutup pre-cutoff (frozen, tanpa
+	// posting buku) tidak boleh — kalau dibayar, 2-100 jadi minus. payCrewFee juga
+	// menolak server-side (defense in depth); ini menyembunyikan tombol Bayar-nya.
+	const { data: cutoffCfg } = await supabase
+		.from("system_config")
+		.select("value")
+		.eq("key", "finance_cutoff_date")
+		.maybeSingle();
+	const financeCutoff =
+		typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
+			? cutoffCfg.value
+			: null;
+	const settlementClosedDay =
+		typeof settlement?.closed_at === "string"
+			? settlement.closed_at.slice(0, 10)
+			: null;
+	const crewPayable = Boolean(
+		settlementClosedDay &&
+			!settlement?.is_reopened &&
+			(!financeCutoff || settlementClosedDay >= financeCutoff),
+	);
+
 	// Profit preview only fetched if rekap exists (avoid empty RPC calls)
 	const profitPreviewResult = rekap?.id
 		? await getProfitPreview(event.id as string)
@@ -558,7 +582,7 @@ export default async function EventRekapPage({
 						rows={crewFeeRows}
 						readOnly
 						cashAccounts={cashAccounts}
-						allowPayment
+						allowPayment={crewPayable}
 					/>
 
 					<AddonSplitForm

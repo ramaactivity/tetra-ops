@@ -192,8 +192,12 @@ export async function payCrewFee(input: {
 		};
 	}
 
-	// Gate: event harus sudah settle (accrual ke 2-100 sudah ada). Tanpa ini,
-	// Dr 2-100 akan bikin saldo Hutang Crew minus.
+	// Gate: fee crew WAJIB sudah ter-akrual ke 2-100 Hutang Crew, yaitu event
+	// sudah di-settle DI BUKU SEKARANG (punya settlement, closed_at >= finance
+	// cutoff, belum di-reopen). Event lama yang ditutup pre-cutoff (frozen, tanpa
+	// posting buku) TIDAK punya akrual 2-100 — kalau dibayar dari sini, Dr 2-100
+	// bikin saldo Hutang Crew minus + rawan dobel-bayar fee yang sudah dibayar di
+	// sistem lama. (Gate lama cuma cek status='completed' → tembus utk event lama.)
 	const { data: ev } = await supabase
 		.from("events")
 		.select("status")
@@ -203,6 +207,31 @@ export async function payCrewFee(input: {
 		return {
 			ok: false,
 			error: "Settle event ini dulu sebelum bayar fee crew.",
+		};
+	}
+	const { data: cutoffCfg } = await supabase
+		.from("system_config")
+		.select("value")
+		.eq("key", "finance_cutoff_date")
+		.maybeSingle();
+	const cutoff =
+		typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
+			? cutoffCfg.value
+			: null;
+	const { data: settlement } = await supabase
+		.from("event_settlements")
+		.select("closed_at, is_reopened")
+		.eq("event_id", a.event_id as string)
+		.maybeSingle();
+	const closedDay =
+		typeof settlement?.closed_at === "string"
+			? settlement.closed_at.slice(0, 10)
+			: null;
+	if (!closedDay || settlement?.is_reopened || (cutoff && closedDay < cutoff)) {
+		return {
+			ok: false,
+			error:
+				"Fee crew event ini belum tercatat sebagai Hutang Crew di pembukuan sekarang (event lama / pre-cutoff / sudah di-reopen). Tidak bisa dibayar dari sini.",
 		};
 	}
 
