@@ -168,7 +168,9 @@ export default async function FinancePage({
 			? supabase
 					.from("users")
 					.select("id, full_name, role, share_pct")
-					.in("role", ["super_admin", "owner"])
+					// Hanya role 'owner' — super_admin dikecualikan dari pembagian
+					// bagi hasil (selalu Rp0), jadi tak perlu tampil di daftar.
+					.eq("role", "owner")
 					.eq("is_active", true)
 					.order("full_name", { ascending: true })
 			: Promise.resolve({ data: [] }),
