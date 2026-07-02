@@ -3,6 +3,7 @@
 import { ArrowDownToLine, Loader2, Paperclip, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
@@ -279,12 +280,22 @@ export function WithdrawalButton({
 									</Field>
 
 									<Field label="Periode bagi hasil" required>
-										<input
-											type="month"
+										<MonthPicker
 											value={period}
-											max={thisMonthValue()}
-											onChange={(e) => setPeriod(e.target.value)}
-											className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+											onValueChange={setPeriod}
+											className="border-border-default bg-background hover:bg-secondary/60 h-10 w-full justify-between rounded-md px-3 text-sm font-normal"
+											quickActions={[
+												{
+													label: "Bulan ini",
+													onSelect: () => setPeriod(thisMonthValue()),
+													active: period === thisMonthValue(),
+												},
+												{
+													label: "Bulan lalu",
+													onSelect: () => setPeriod(prevMonthValue()),
+													active: period === prevMonthValue(),
+												},
+											]}
 										/>
 										<input
 											type="hidden"
