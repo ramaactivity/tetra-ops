@@ -70,19 +70,30 @@ export function isCashOrBank(code: string, accountType: string): boolean {
 	return accountType === "asset" && /^1-1\d{2}$/.test(code);
 }
 
-/** Where a manual/auto entry came from. */
+/**
+ * Dari mana sebuah jurnal berasal — bahasa awam untuk owner (non-akuntan).
+ * DB tetap pakai kode mesin (settlement, owner_withdrawal, dst); ini hanya
+ * label tampilan. Tambahkan entri baru di sini saat ada source_type baru,
+ * jangan biarkan kode mentah (snake_case) bocor ke UI.
+ */
 export const SOURCE_LABEL: Record<string, string> = {
-	settlement: "Settlement",
-	settlement_reversal: "Settlement (reversal)",
+	settlement: "Hasil event",
+	settlement_reversal: "Pembatalan hasil event",
 	purchase: "Pembelian",
-	payment: "Pembayaran",
-	manual: "Manual",
-	sinking_fund: "Dana Cadangan",
-	stock_take: "Stock Opname",
-	depreciation: "Penyusutan",
+	payment: "Pembayaran klien",
+	manual: "Catat manual",
+	sinking_fund: "Dana cadangan",
+	stock_take: "Stok opname",
+	depreciation: "Penyusutan aset",
+	owner_withdrawal: "Ambil bagi hasil",
+	owner_pool_correction: "Koreksi bagi hasil",
 };
 
-/** Entry-type display label. */
+/**
+ * Jenis jurnal (sifat debit/kredit). Pakai istilah bisnis Indonesia yang
+ * standar & konsisten dgn Laporan Laba/Rugi (Pendapatan/Beban) — bukan istilah
+ * mesin. "Pembalik" diperhalus jadi "Pembatalan".
+ */
 export const ENTRY_TYPE_LABEL: Record<string, string> = {
 	revenue: "Pendapatan",
 	expense: "Beban",
@@ -90,7 +101,7 @@ export const ENTRY_TYPE_LABEL: Record<string, string> = {
 	asset_out: "Aset keluar",
 	transfer: "Transfer",
 	adjustment: "Koreksi",
-	reversal: "Pembalik",
+	reversal: "Pembatalan",
 };
 
 // ── Balance aggregation ────────────────────────────────────────────────
