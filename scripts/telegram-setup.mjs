@@ -64,6 +64,8 @@ const COMMANDS = [
 	{ command: "minggu", description: "Jadwal semua event 7 hari ke depan" },
 	{ command: "bulan", description: "Event bulan ini (atau /bulan <bulan>)" },
 	{ command: "stok", description: "Kondisi stok & perkiraan kebutuhan" },
+	{ command: "bisnis", description: "Rekap bisnis bulan berjalan" },
+	{ command: "langganan", description: "Jatuh tempo VPS, domain, simcard" },
 	{ command: "menu", description: "Panel tombol semua fitur" },
 	{ command: "help", description: "Bantuan & daftar perintah" },
 ];

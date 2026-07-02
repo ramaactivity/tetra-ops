@@ -7,8 +7,10 @@ import {
 	tgApi,
 } from "@/lib/telegram/client";
 import {
+	buildBusinessRecapText,
 	buildDigestText,
 	buildMonthText,
+	buildRenewalsText,
 	buildScheduleText,
 	buildStockText,
 	buildTomorrowText,
@@ -63,6 +65,8 @@ const HELP_TEXT = [
 	"/minggu — jadwal semua event 7 hari ke depan",
 	"/bulan — event bulan ini · /bulan 8 atau /bulan agustus utk bulan lain",
 	"/stok — kondisi stok & perkiraan kebutuhan",
+	"/bisnis — rekap bisnis bulan berjalan (omzet, profit, leads)",
+	"/langganan — jatuh tempo VPS, domain, simcard, dll",
 	"/menu — panel tombol",
 	"/id — chat ID grup ini",
 	"",
@@ -82,6 +86,10 @@ function menuKeyboard(): TgInlineKeyboard {
 		],
 		[
 			{ text: "📦 Stok", callback_data: "stok" },
+			{ text: "📊 Rekap Bisnis", callback_data: "bisnis" },
+		],
+		[
+			{ text: "🔔 Langganan", callback_data: "langganan" },
 			{ text: "❓ Bantuan", callback_data: "help" },
 		],
 		...(appUrl ? [[{ text: "🔗 Buka Tetra Ops", url: appUrl }]] : []),
@@ -109,6 +117,12 @@ async function runAction(action: string, chatId: number): Promise<void> {
 				break;
 			case "stok":
 				await sendTelegramMessage(chatId, await buildStockText());
+				break;
+			case "bisnis":
+				await sendTelegramMessage(chatId, await buildBusinessRecapText());
+				break;
+			case "langganan":
+				await sendTelegramMessage(chatId, await buildRenewalsText());
 				break;
 			case "menu":
 				await sendTelegramMessage(

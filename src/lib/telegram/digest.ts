@@ -588,6 +588,48 @@ function composeBriefing(ev: EventRow, crew: string[]): string {
 	return lines.join("\n");
 }
 
+const CYCLE_LABEL: Record<string, string> = {
+	monthly: "bulanan",
+	quarterly: "per 3 bulan",
+	yearly: "tahunan",
+};
+
+/** /langganan — daftar semua langganan + sisa hari ke jatuh tempo. */
+export async function buildRenewalsText(): Promise<string> {
+	const admin = createAdminClient();
+	const todayISO = isoDateUTC(wibNow());
+	const { data } = await admin
+		.from("telegram_renewals")
+		.select("name, next_due, cycle, is_enabled, notes")
+		.order("next_due", { ascending: true, nullsFirst: false });
+	const rows = (data ?? []) as Array<{
+		name: string;
+		next_due: string | null;
+		cycle: string;
+		is_enabled: boolean;
+		notes: string | null;
+	}>;
+	if (rows.length === 0) return "Belum ada langganan yang terdaftar.";
+	const lines: string[] = ["🔔 <b>LANGGANAN & TAGIHAN RUTIN</b>", ""];
+	for (const r of rows) {
+		if (!r.is_enabled || !r.next_due) {
+			lines.push(`⏸ ${tgEscape(r.name)} — belum aktif`);
+			continue;
+		}
+		const days = daysUntil(todayISO, r.next_due);
+		const sisa =
+			days === 0 ? "🚨 HARI INI" : days < 0 ? "terlewat" : `${days} hari lagi`;
+		lines.push(
+			`• ${tgEscape(r.name)} — ${dateLabel(r.next_due, true)} (${sisa}) · ${CYCLE_LABEL[r.cycle] ?? r.cycle}`,
+		);
+	}
+	lines.push(
+		"",
+		"Reminder otomatis: H-7, H-3, H-1, dan hari-H di digest pagi.",
+	);
+	return lines.join("\n");
+}
+
 // ── Reminder H+1: upload aset digital event kemarin ─────────────────────
 // Softfile & footage dicek dari event_assets; design_frame tidak (itu urusan
 // pra-event). Satu reminder per event (dedup by event_id).
@@ -677,6 +719,31 @@ async function composeMonthlyBusinessRecap(
 	d.setUTCMonth(d.getUTCMonth() - 1);
 	const startISO = isoDateUTC(d); // tanggal 1 bulan lalu
 	const bulan = `${BULAN_FULL[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+	return composeBusinessRecapRange(admin, startISO, todayISO, bulan);
+}
+
+/** /bisnis — rekap bisnis BULAN BERJALAN (on-demand, sampai hari ini). */
+export async function buildBusinessRecapText(): Promise<string> {
+	const admin = createAdminClient();
+	const todayISO = isoDateUTC(wibNow());
+	const startISO = `${todayISO.slice(0, 7)}-01`;
+	const d = new Date(`${todayISO}T00:00:00Z`);
+	const label = `${BULAN_FULL[d.getUTCMonth()]} ${d.getUTCFullYear()} (berjalan)`;
+	return composeBusinessRecapRange(
+		admin,
+		startISO,
+		addDaysISO(todayISO, 1),
+		label,
+	);
+}
+
+async function composeBusinessRecapRange(
+	admin: ReturnType<typeof createAdminClient>,
+	startISO: string,
+	endExclusiveISO: string,
+	bulan: string,
+): Promise<string> {
+	const todayISO = endExclusiveISO;
 
 	const lines: string[] = [`📊 <b>REKAP BISNIS — ${bulan.toUpperCase()}</b>`];
 
