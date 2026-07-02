@@ -54,6 +54,19 @@ function todayIso(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
+// Default rekening sumber (Dari) = saldo terbesar, bukan urutan pertama.
+// Kas Tunai sering Rp 0 dan jadi default lama → user harus ganti manual tiap
+// kali; memilih saldo terbesar otomatis mendarat di Bank BCA (yang berisi uang)
+// dan langsung lolos saldo-guard untuk mayoritas transaksi keluar.
+function pickDefaultSource(accounts: CashAccount[]): string {
+	if (accounts.length === 0) return "";
+	const best = accounts.reduce(
+		(b, a) => (a.balance > b.balance ? a : b),
+		accounts[0],
+	);
+	return best.code;
+}
+
 export function QuickRecordCore({
 	data,
 	keypad,
@@ -75,12 +88,14 @@ export function QuickRecordCore({
 	const [amount, setAmount] = useState(0);
 	const [categoryId, setCategoryId] = useState<string | null>(null);
 	const [coaOverride, setCoaOverride] = useState("");
-	const [accountCode, setAccountCode] = useState(
-		data.cashAccounts[0]?.code ?? "",
+	const [accountCode, setAccountCode] = useState(() =>
+		pickDefaultSource(data.cashAccounts),
 	);
-	const [toAccountCode, setToAccountCode] = useState(
-		data.cashAccounts[1]?.code ?? data.cashAccounts[0]?.code ?? "",
-	);
+	const [toAccountCode, setToAccountCode] = useState(() => {
+		const src = pickDefaultSource(data.cashAccounts);
+		const other = data.cashAccounts.find((a) => a.code !== src);
+		return other?.code ?? src;
+	});
 	const [date, setDate] = useState(todayIso());
 	// Biaya admin/transfer bank — hanya untuk keluar & transfer. 0 = tidak ada.
 	const [adminFee, setAdminFee] = useState(0);
@@ -91,18 +106,32 @@ export function QuickRecordCore({
 	const [showAllCats, setShowAllCats] = useState(false);
 	const [previewOpen, setPreviewOpen] = useState(false);
 
-	const [state, formAction, pending] = useActionState<
-		QuickRecordFormState,
-		FormData
-	>(recordQuickTransaction, undefined);
+	const [state, formAction] = useActionState<QuickRecordFormState, FormData>(
+		recordQuickTransaction,
+		undefined,
+	);
 
 	// Synchronous re-entry guard: blocks a second submit before React commits
 	// `pending` (rapid double-tap) and stays locked through a successful save
 	// until the panel unmounts — so a slow save can never create a duplicate
 	// entry. Reset only on an error response so the user can retry.
 	const submittingRef = useRef(false);
+	// `busy` melingkupi SELURUH umur simpan: klik → server action → upload foto
+	// nota (ke Google Drive, bisa beberapa detik) → refresh → tutup. `pending`
+	// dari useActionState hanya true selama server action; ia keburu false lagi
+	// saat foto masih di-upload, membuat tombol seolah aktif kembali (tanpa
+	// spinner, bisa diklik). `busy` yang kita kontrol sendiri menahan tombol
+	// tetap disabled + spinner sampai modal benar-benar tertutup — jadi selalu
+	// ada feedback dan mustahil terinput dobel. `uploadingNota` hanya untuk
+	// memperjelas label ("Mengunggah nota…") pada fase upload yang lambat itu.
+	const [busy, setBusy] = useState(false);
+	const [uploadingNota, setUploadingNota] = useState(false);
 	useEffect(() => {
-		if (state?.error) submittingRef.current = false;
+		if (state?.error) {
+			submittingRef.current = false;
+			setBusy(false);
+			setUploadingNota(false);
+		}
 	}, [state]);
 
 	// Receipt-photo object URL (revoked on change) for the inline preview.
@@ -166,6 +195,7 @@ export function QuickRecordCore({
 		const ref = state.refId;
 		void (async () => {
 			if (photo) {
+				setUploadingNota(true);
 				try {
 					const fd = new FormData();
 					fd.set("file", photo);
@@ -187,7 +217,15 @@ export function QuickRecordCore({
 			haptic("success");
 			toast.success(`Tersimpan · ${ref}`);
 			router.refresh();
-			onDone?.();
+			if (onDone) {
+				onDone();
+			} else {
+				// Pemakaian tanpa modal (tak ada onDone): buka kunci form agar tak
+				// permanen ter-disable setelah tersimpan.
+				submittingRef.current = false;
+				setBusy(false);
+				setUploadingNota(false);
+			}
 		})();
 	}, [state, photo, categoryId, note, date, amount, haptic, router, onDone]);
 
@@ -728,8 +766,9 @@ export function QuickRecordCore({
 	return (
 		<form
 			action={(fd) => {
-				if (!canSubmit || pending || submittingRef.current) return;
+				if (!canSubmit || busy || submittingRef.current) return;
 				submittingRef.current = true;
+				setBusy(true);
 				fd.set("direction", direction);
 				fd.set("amount", String(amount));
 				fd.set("entry_date", date);
@@ -809,17 +848,19 @@ export function QuickRecordCore({
 			>
 				<button
 					type="submit"
-					disabled={!canSubmit || pending}
+					disabled={!canSubmit || busy}
+					aria-busy={busy}
 					className={cn(
 						"press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white outline-none transition-colors",
-						canSubmit && !pending
+						canSubmit && !busy
 							? "bg-[#059669] hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
 							: "cursor-not-allowed bg-[#059669]/45",
 					)}
 				>
-					{pending ? (
+					{busy ? (
 						<>
-							<Loader2 className="size-4 animate-spin" /> Menyimpan…
+							<Loader2 className="size-4 animate-spin" />
+							{uploadingNota ? "Mengunggah nota…" : "Menyimpan…"}
 						</>
 					) : canSubmit ? (
 						`Simpan · ${formatRupiah(amount)}`
