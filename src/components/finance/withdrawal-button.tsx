@@ -172,7 +172,7 @@ export function WithdrawalButton({
 						onClick={() => !busy && setOpen(false)}
 						className="absolute inset-0 bg-black/40 backdrop-blur-sm"
 					/>
-					<div className="bg-card border-border-default relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border shadow-[var(--shadow-level-5)]">
+					<div className="bg-card border-border-default relative z-10 flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border shadow-[var(--shadow-level-5)]">
 						<div className="border-border-default flex shrink-0 items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">
@@ -196,207 +196,217 @@ export function WithdrawalButton({
 						<form
 							ref={formRef}
 							action={formAction}
-							className="space-y-4 overflow-y-auto px-6 py-5"
+							className="flex min-h-0 flex-1 flex-col overflow-hidden"
 						>
-							<Field label="Owner" required>
-								<NativeSelect
-									value={selectedOwner}
-									onValueChange={setSelectedOwner}
-									options={[
-										...(withdrawableOwners.length > 1
-											? [
-													{
-														value: ALL_OWNERS,
-														label: `Semua owner (${withdrawableOwners.length}) · total ${formatRupiah(grandTotal)}`,
-													},
-												]
-											: []),
-										...owners.map((o) => ({
-											value: o.id,
-											label: `${o.full_name} · sisa ${formatRupiah(o.balance)}`,
-										})),
-									]}
-									triggerClassName="w-full"
-								/>
-								<input
-									type="hidden"
-									name="owner_user_id"
-									value={selectedOwner}
-									required
-								/>
-							</Field>
+							<div className="grid min-h-0 flex-1 gap-x-8 gap-y-4 overflow-y-auto px-6 py-5 md:grid-cols-2">
+								{/* KIRI — detail penarikan */}
+								<div className="space-y-4">
+									<Field label="Owner" required>
+										<NativeSelect
+											value={selectedOwner}
+											onValueChange={setSelectedOwner}
+											options={[
+												...(withdrawableOwners.length > 1
+													? [
+															{
+																value: ALL_OWNERS,
+																label: `Semua owner (${withdrawableOwners.length}) · total ${formatRupiah(grandTotal)}`,
+															},
+														]
+													: []),
+												...owners.map((o) => ({
+													value: o.id,
+													label: `${o.full_name} · sisa ${formatRupiah(o.balance)}`,
+												})),
+											]}
+											triggerClassName="w-full"
+										/>
+										<input
+											type="hidden"
+											name="owner_user_id"
+											value={selectedOwner}
+											required
+										/>
+									</Field>
 
-							<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
-								<p className="text-muted-foreground text-[11px]">
-									{isBulk
-										? `Total semua owner (${withdrawableOwners.length})`
-										: "Bisa diambil"}
-								</p>
-								<p
-									className={`tabular text-lg font-semibold ${
-										available > 0
-											? "text-emerald-600 dark:text-emerald-400"
-											: "text-muted-foreground"
-									}`}
-								>
-									{formatRupiah(available)}
-								</p>
-								{isBulk && (
-									<p className="text-muted-foreground mt-0.5 text-[11px]">
-										Tiap owner ditarik penuh sesuai sisanya, dari rekening di
-										bawah.
-									</p>
-								)}
-							</div>
-
-							{!isBulk && (
-								<Field label="Jumlah diambil (Rp)" required>
-									<input
-										name="amount"
-										type="number"
-										required
-										min="1"
-										step="50000"
-										max={owner?.balance ?? undefined}
-										value={amountValue}
-										onChange={(e) => setAmountValue(e.target.value)}
-										placeholder="500000"
-										className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-									/>
-								</Field>
-							)}
-
-							<Field label="Uang diambil dari (kas/bank)" required>
-								<NativeSelect
-									value={selectedBank}
-									onValueChange={setSelectedBank}
-									options={banks.map((b) => ({
-										value: b.id,
-										label: b.label,
-									}))}
-									triggerClassName="w-full"
-								/>
-								<input
-									type="hidden"
-									name="bank_account_id"
-									value={selectedBank}
-									required
-								/>
-							</Field>
-
-							<div className="grid gap-3 sm:grid-cols-2">
-								<Field label="Cara (transfer/tunai)" required>
-									<WithdrawalMethodSelect />
-								</Field>
-								<Field label="No. rekening / detail">
-									<input
-										name="withdrawal_account"
-										type="text"
-										maxLength={120}
-										placeholder="BCA xxx-xxx (opsional)"
-										className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-									/>
-								</Field>
-							</div>
-
-							<Field label="Bukti transfer (opsional)">
-								<input
-									name="withdrawal_reference"
-									type="text"
-									maxLength={120}
-									placeholder="Bukti transfer ID, dll."
-									className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-								/>
-							</Field>
-
-							<Field label="Catatan" required>
-								<RichTextarea
-									name="description"
-									required
-									rows={2}
-									maxLength={500}
-									placeholder="Bagi hasil bulan ini, dll."
-									toolbar={false}
-								/>
-							</Field>
-
-							{isBulk ? (
-								<div className="space-y-2">
-									<span className="text-foreground block text-xs font-medium">
-										Bukti transfer per owner (opsional)
-									</span>
-									<div className="space-y-2">
-										{withdrawableOwners.map((o) => (
-											<div
-												key={o.id}
-												className="border-border-default rounded-md border p-2.5"
-											>
-												<div className="mb-1.5 flex items-center justify-between gap-2">
-													<span className="text-foreground text-[13px] font-medium">
-														{o.full_name}
-													</span>
-													<span className="tabular text-muted-foreground text-xs">
-														{formatRupiah(o.balance)}
-													</span>
-												</div>
-												<ProofUpload
-													file={photosByOwner[o.id] ?? null}
-													onChange={(f) =>
-														setPhotosByOwner((prev) => {
-															const next = { ...prev };
-															if (f) next[o.id] = f;
-															else delete next[o.id];
-															return next;
-														})
-													}
-												/>
-											</div>
-										))}
+									<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
+										<p className="text-muted-foreground text-[11px]">
+											{isBulk
+												? `Total semua owner (${withdrawableOwners.length})`
+												: "Bisa diambil"}
+										</p>
+										<p
+											className={`tabular text-lg font-semibold ${
+												available > 0
+													? "text-emerald-600 dark:text-emerald-400"
+													: "text-muted-foreground"
+											}`}
+										>
+											{formatRupiah(available)}
+										</p>
+										{isBulk && (
+											<p className="text-muted-foreground mt-0.5 text-[11px]">
+												Tiap owner ditarik penuh sesuai sisanya, dari rekening
+												di bawah.
+											</p>
+										)}
 									</div>
-									<p className="text-muted-foreground text-[11px]">
-										Opsional — yang belum ada bisa dilampirkan nanti di Arsip
-										Nota.
-									</p>
-								</div>
-							) : (
-								<Field label="Foto bukti transfer (opsional)">
-									<ProofUpload file={photo} onChange={setPhoto} />
-								</Field>
-							)}
 
-							{state?.error && (
-								<div className="border-destructive/30 bg-destructive/10 rounded-md border px-3 py-2">
-									<p className="text-destructive text-xs font-medium">
-										{state.error}
-									</p>
-								</div>
-							)}
-
-							<div className="border-border-default flex items-center justify-end gap-2 border-t pt-4">
-								<button
-									type="button"
-									onClick={() => setOpen(false)}
-									disabled={busy}
-									className="text-muted-foreground hover:text-foreground h-9 px-3 text-xs font-medium disabled:opacity-50"
-								>
-									Batal
-								</button>
-								<button
-									type="submit"
-									disabled={busy || available === 0 || !selectedBank}
-									className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
-								>
-									{busy ? (
-										<Loader2 className="h-3.5 w-3.5 animate-spin" />
-									) : (
-										<ArrowDownToLine className="h-3.5 w-3.5" />
+									{!isBulk && (
+										<Field label="Jumlah diambil (Rp)" required>
+											<input
+												name="amount"
+												type="number"
+												required
+												min="1"
+												step="50000"
+												max={owner?.balance ?? undefined}
+												value={amountValue}
+												onChange={(e) => setAmountValue(e.target.value)}
+												placeholder="500000"
+												className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+											/>
+										</Field>
 									)}
-									{uploading
-										? "Mengunggah bukti…"
-										: isBulk
-											? `Ambil semua · ${formatRupiah(grandTotal)}`
-											: "Ambil bagi hasil"}
-								</button>
+
+									<Field label="Uang diambil dari (kas/bank)" required>
+										<NativeSelect
+											value={selectedBank}
+											onValueChange={setSelectedBank}
+											options={banks.map((b) => ({
+												value: b.id,
+												label: b.label,
+											}))}
+											triggerClassName="w-full"
+										/>
+										<input
+											type="hidden"
+											name="bank_account_id"
+											value={selectedBank}
+											required
+										/>
+									</Field>
+
+									<div className="grid gap-3 sm:grid-cols-2">
+										<Field label="Cara (transfer/tunai)" required>
+											<WithdrawalMethodSelect />
+										</Field>
+										<Field label="No. rekening / detail">
+											<input
+												name="withdrawal_account"
+												type="text"
+												maxLength={120}
+												placeholder="BCA xxx-xxx (opsional)"
+												className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+											/>
+										</Field>
+									</div>
+
+									<Field label="Bukti transfer / ID (opsional)">
+										<input
+											name="withdrawal_reference"
+											type="text"
+											maxLength={120}
+											placeholder="Bukti transfer ID, dll."
+											className="border-border-default bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										/>
+									</Field>
+
+									<Field label="Catatan" required>
+										<RichTextarea
+											name="description"
+											required
+											rows={2}
+											maxLength={500}
+											placeholder="Bagi hasil bulan ini, dll."
+											toolbar={false}
+										/>
+									</Field>
+								</div>
+
+								{/* KANAN — foto bukti transfer */}
+								<div className="space-y-2">
+									{isBulk ? (
+										<>
+											<span className="text-foreground block text-xs font-medium">
+												Foto bukti transfer per owner (opsional)
+											</span>
+											<div className="grid gap-2 sm:grid-cols-2">
+												{withdrawableOwners.map((o) => (
+													<div
+														key={o.id}
+														className="border-border-default rounded-md border p-2.5"
+													>
+														<div className="mb-1.5 flex items-center justify-between gap-2">
+															<span className="text-foreground truncate text-[13px] font-medium">
+																{o.full_name}
+															</span>
+															<span className="tabular text-muted-foreground shrink-0 text-xs">
+																{formatRupiah(o.balance)}
+															</span>
+														</div>
+														<ProofUpload
+															file={photosByOwner[o.id] ?? null}
+															onChange={(f) =>
+																setPhotosByOwner((prev) => {
+																	const next = { ...prev };
+																	if (f) next[o.id] = f;
+																	else delete next[o.id];
+																	return next;
+																})
+															}
+														/>
+													</div>
+												))}
+											</div>
+											<p className="text-muted-foreground text-[11px]">
+												Opsional — yang belum ada bisa dilampirkan nanti di
+												Arsip Nota.
+											</p>
+										</>
+									) : (
+										<Field label="Foto bukti transfer (opsional)">
+											<ProofUpload file={photo} onChange={setPhoto} />
+										</Field>
+									)}
+								</div>
+							</div>
+
+							{/* FOOTER — full width, selalu terlihat */}
+							<div className="border-border-default shrink-0 space-y-3 border-t px-6 py-4">
+								{state?.error && (
+									<div className="border-destructive/30 bg-destructive/10 rounded-md border px-3 py-2">
+										<p className="text-destructive text-xs font-medium">
+											{state.error}
+										</p>
+									</div>
+								)}
+								<div className="flex items-center justify-end gap-2">
+									<button
+										type="button"
+										onClick={() => setOpen(false)}
+										disabled={busy}
+										className="text-muted-foreground hover:text-foreground h-9 px-3 text-xs font-medium disabled:opacity-50"
+									>
+										Batal
+									</button>
+									<button
+										type="submit"
+										disabled={busy || available === 0 || !selectedBank}
+										className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
+									>
+										{busy ? (
+											<Loader2 className="h-3.5 w-3.5 animate-spin" />
+										) : (
+											<ArrowDownToLine className="h-3.5 w-3.5" />
+										)}
+										{uploading
+											? "Mengunggah bukti…"
+											: isBulk
+												? `Ambil semua · ${formatRupiah(grandTotal)}`
+												: "Ambil bagi hasil"}
+									</button>
+								</div>
 							</div>
 						</form>
 					</div>
@@ -433,7 +443,7 @@ function ProofUpload({
 					<img
 						src={url}
 						alt="Preview bukti transfer"
-						className="bg-surface-3 max-h-48 w-full object-contain"
+						className="bg-surface-3 max-h-32 w-full object-contain"
 					/>
 				) : null}
 				<div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
