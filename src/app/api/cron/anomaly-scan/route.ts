@@ -3,6 +3,7 @@ import { runAnomalyScannerInternal } from "@/lib/actions/anomaly-scanner";
 import { runReconciliationCheckInternal } from "@/lib/actions/reconciliation-check";
 import { runTbcReminderInternal } from "@/lib/actions/tbc-reminder";
 import { isAuthorizedCron } from "@/lib/cron-auth";
+import { runTelegramDigestInternal } from "@/lib/telegram/digest";
 
 // Vercel Cron triggers this daily — see vercel.json. Manually trigger via
 // curl with the same Authorization header for ad-hoc runs.
@@ -15,10 +16,11 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 	const ranAt = new Date().toISOString();
-	const [anomaly, tbc, recon] = await Promise.allSettled([
+	const [anomaly, tbc, recon, telegram] = await Promise.allSettled([
 		runAnomalyScannerInternal(),
 		runTbcReminderInternal(),
 		runReconciliationCheckInternal(),
+		runTelegramDigestInternal(),
 	]);
 	return NextResponse.json({
 		ok: anomaly.status === "fulfilled" || tbc.status === "fulfilled",
@@ -35,5 +37,9 @@ export async function GET(request: Request) {
 			recon.status === "fulfilled"
 				? recon.value
 				: { error: recon.reason?.message ?? "reconciliation check failed" },
+		telegram:
+			telegram.status === "fulfilled"
+				? telegram.value
+				: { error: telegram.reason?.message ?? "telegram digest failed" },
 	});
 }
