@@ -18,6 +18,7 @@ import {
 	Handshake,
 	Home,
 	type LucideIcon,
+	Martini,
 	Megaphone,
 	MoreHorizontal,
 	ShoppingBag,
@@ -38,6 +39,13 @@ export type CatatCategory = {
 	/** Counterpart account: the expense (5-xxx) or revenue (4-xxx) account. */
 	coa: string;
 	entryType: "expense" | "revenue";
+	/**
+	 * Reimbursement ("patungan owner"): uang MASUK yang mengembalikan sebagian
+	 * beban yang sudah Tetra bayar full → mengkredit AKUN BEBAN (coa 5-xxx),
+	 * bukan pendapatan. Efeknya beban bersih turun & kas Tetra kembali benar.
+	 * Jurnal di-tag entry_type "adjustment" (Koreksi), bukan "revenue".
+	 */
+	reimbursement?: boolean;
 };
 
 /** Uang keluar — beban (debit the expense account, credit kas/bank). */
@@ -82,6 +90,13 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		label: "Bayar kost",
 		icon: Home,
 		coa: "5-260",
+		entryType: "expense",
+	},
+	{
+		id: "entertain",
+		label: "Entertain / jamu klien",
+		icon: Martini,
+		coa: "5-285",
 		entryType: "expense",
 	},
 	{
@@ -161,6 +176,34 @@ export const MASUK_CATEGORIES: readonly CatatCategory[] = [
 		coa: "4-140",
 		entryType: "revenue",
 	},
+	// ── Patungan owner (reimburse) ──────────────────────────────────────────
+	// Tetra bayar full dulu; owner transfer balik patungannya. Uang masuk ini
+	// MENGURANGI beban terkait (bukan pendapatan) → jumlah uang Tetra selalu
+	// benar tanpa perlu pilih akun manual (rawan salah).
+	{
+		id: "patungan-kost",
+		label: "Patungan kost",
+		icon: Home,
+		coa: "5-260",
+		entryType: "expense",
+		reimbursement: true,
+	},
+	{
+		id: "patungan-konsumsi-rapat",
+		label: "Patungan konsumsi rapat",
+		icon: Coffee,
+		coa: "5-280",
+		entryType: "expense",
+		reimbursement: true,
+	},
+	{
+		id: "patungan-entertain",
+		label: "Patungan entertain",
+		icon: Martini,
+		coa: "5-285",
+		entryType: "expense",
+		reimbursement: true,
+	},
 ] as const;
 
 export const ALL_CATEGORIES: readonly CatatCategory[] = [
@@ -184,8 +227,16 @@ export function findCategory(
 	return id ? CATEGORY_BY_ID.get(id) : undefined;
 }
 
-/** Reverse lookup COA → category, used to label recent transactions. */
-const CATEGORY_BY_COA = new Map(ALL_CATEGORIES.map((c) => [c.coa, c]));
+/**
+ * Reverse lookup COA → category, untuk melabeli transaksi terakhir. First-wins:
+ * beberapa kategori berbagi COA (mis. 5-260 dipakai "Bayar kost" DAN "Patungan
+ * kost"); yang didaftar duluan (kategori keluar/pengeluaran) menang supaya
+ * transaksi keluar tak salah dilabeli sebagai reimburse.
+ */
+const CATEGORY_BY_COA = new Map<string, CatatCategory>();
+for (const c of ALL_CATEGORIES) {
+	if (!CATEGORY_BY_COA.has(c.coa)) CATEGORY_BY_COA.set(c.coa, c);
+}
 
 export function categoryByCoa(coa: string): CatatCategory | undefined {
 	return CATEGORY_BY_COA.get(coa);

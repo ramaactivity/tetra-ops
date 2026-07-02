@@ -281,7 +281,7 @@ export async function recordQuickTransaction(
 
 	// Resolve the counterpart account + entry_type + default label.
 	let counterpartCode: string;
-	let entryType: "expense" | "revenue" | "transfer";
+	let entryType: "expense" | "revenue" | "transfer" | "adjustment";
 	let defaultLabel: string;
 	let counterpartLineLabel: string;
 
@@ -305,9 +305,16 @@ export async function recordQuickTransaction(
 			return { error: CONTROLLED_ACCOUNT_MSG };
 		}
 		counterpartCode = override || category!.coa;
-		entryType = dir === "keluar" ? "expense" : "revenue";
-		defaultLabel =
-			category?.label ?? (dir === "keluar" ? "Pengeluaran" : "Pemasukan");
+		// Reimbursement (patungan owner): uang masuk yang mengkredit akun beban →
+		// bukan pendapatan, tag "adjustment" (Koreksi) supaya tak dihitung revenue.
+		if (dir === "masuk" && category?.reimbursement) {
+			entryType = "adjustment";
+			defaultLabel = `${category.label} (ganti biaya)`;
+		} else {
+			entryType = dir === "keluar" ? "expense" : "revenue";
+			defaultLabel =
+				category?.label ?? (dir === "keluar" ? "Pengeluaran" : "Pemasukan");
+		}
 		counterpartLineLabel = defaultLabel;
 	}
 
