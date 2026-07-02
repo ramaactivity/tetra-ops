@@ -188,7 +188,15 @@ export function Combobox({
 		update();
 		// In a scroll container, fixed-popup tracking lags a frame and looks
 		// glitchy — close on scroll instead so the dropdown never trails.
-		const onScroll = closeOnScroll ? () => closeAndReset() : update;
+		// BUT: capture:true also catches scroll INSIDE the popup's own list —
+		// scrolling the options must NOT close it. Ignore events originating
+		// within the popup; only outer/page scroll closes.
+		const onScroll = closeOnScroll
+			? (e: Event) => {
+					if (popupRef.current?.contains(e.target as Node)) return;
+					closeAndReset();
+				}
+			: update;
 		window.addEventListener("scroll", onScroll, true);
 		window.addEventListener("resize", update);
 		return () => {
