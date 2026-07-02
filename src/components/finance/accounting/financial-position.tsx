@@ -108,7 +108,10 @@ export function FinancialPosition({
 					<p className="mt-3 flex items-center gap-1.5 text-[12px] font-medium text-destructive">
 						<TriangleAlert className="size-3.5" aria-hidden />
 						Persamaan tidak seimbang — selisih{" "}
-						{formatRupiah(Math.abs(equationDiff))}. Cek jurnal terakhir.
+						<span className="tabular">
+							{formatRupiah(Math.abs(equationDiff))}
+						</span>
+						. Cek jurnal terakhir.
 					</p>
 				)}
 			</div>
@@ -134,7 +137,8 @@ function BalanceSignal({
 	return (
 		<span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
 			<TriangleAlert className="size-3.5" aria-hidden />
-			Tidak berimbang · selisih {formatRupiah(Math.abs(diff))}
+			Tidak berimbang · selisih{" "}
+			<span className="tabular">{formatRupiah(Math.abs(diff))}</span>
 		</span>
 	);
 }
@@ -166,7 +170,7 @@ function EquationTerm({
 					{formatRupiah(value)}
 				</div>
 				{hint && (
-					<div className="mt-0.5 hidden text-[11px] text-muted-foreground sm:block">
+					<div className="tabular mt-0.5 hidden text-[11px] text-muted-foreground sm:block">
 						{hint}
 					</div>
 				)}

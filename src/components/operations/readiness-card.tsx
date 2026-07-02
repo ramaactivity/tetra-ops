@@ -256,6 +256,7 @@ export function EventReadinessCard(props: ReadinessInput) {
 								<p
 									className={cn(
 										"mt-0.5 text-[12px]",
+										/\d/.test(item.hint) && "tabular",
 										item.state === "overdue"
 											? "text-amber-700 dark:text-amber-400"
 											: "text-muted-foreground",

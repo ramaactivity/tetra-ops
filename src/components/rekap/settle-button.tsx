@@ -280,7 +280,7 @@ export function SettleButton(props: Props) {
 										<Wallet className="h-4 w-4 text-muted-foreground" />
 										Sekalian bayar fee crew sekarang
 									</p>
-									<p className="mt-0.5 text-xs text-muted-foreground">
+									<p className="tabular mt-0.5 text-xs text-muted-foreground">
 										Bayar {formatRupiah(crewTotal)} ke semua crew langsung saat
 										settle. Kalau dimatikan, fee jadi Hutang Crew & bisa dibayar
 										belakangan.
@@ -312,13 +312,13 @@ export function SettleButton(props: Props) {
 										allowFreeText={false}
 									/>
 									{payInsufficient ? (
-										<p className="text-[11px] font-medium text-rose-600">
+										<p className="tabular text-[11px] font-medium text-rose-600">
 											Saldo {payAcct?.name} tidak cukup (
 											{formatRupiah(payAcct?.balance ?? 0)}) untuk bayar{" "}
 											{formatRupiah(crewTotal)} — pilih rekening lain.
 										</p>
 									) : (
-										<p className="text-[11px] text-muted-foreground">
+										<p className="tabular text-[11px] text-muted-foreground">
 											Saldo rekening berkurang {formatRupiah(crewTotal)} · tiap
 											crew ditandai lunas. Bukti transfer yang sudah diupload
 											tetap tersimpan.

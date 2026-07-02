@@ -118,7 +118,7 @@ export function AssetDetailDrawer({
 					<SheetTitle className="text-lg">{modelName}</SheetTitle>
 					<SheetDescription>
 						{units.length} unit fisik · {activeCount} aktif · total nilai{" "}
-						<strong className="text-foreground">
+						<strong className="tabular text-foreground">
 							{formatRupiah(totalPrice)}
 						</strong>
 					</SheetDescription>

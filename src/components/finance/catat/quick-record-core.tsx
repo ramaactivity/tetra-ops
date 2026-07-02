@@ -885,7 +885,7 @@ function AccountPicker({
 							<span className="block truncate text-[13px] font-medium text-muted-foreground">
 								{a.name}
 							</span>
-							<span className="mt-1.5 flex items-baseline gap-1 whitespace-nowrap font-bold tracking-[-0.03em] text-foreground [font-family:var(--font-manrope),var(--font-inter),system-ui] [font-variant-numeric:tabular-nums_slashed-zero]">
+							<span className="tabular mt-1.5 flex items-baseline gap-1 whitespace-nowrap font-bold tracking-[-0.03em] text-foreground [font-family:var(--font-manrope),var(--font-inter),system-ui] [font-variant-numeric:tabular-nums_slashed-zero]">
 								<span className="text-[0.9rem] font-bold text-muted-foreground">
 									Rp
 								</span>

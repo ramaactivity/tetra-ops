@@ -457,7 +457,8 @@
   [data-privacy] .tabular,
   [data-privacy] .type-num,
   [data-privacy] .type-num-lg,
-  [data-privacy] .type-num-xl {
+  [data-privacy] .type-num-xl,
+  [data-privacy] [data-nominal] {
     filter: blur(0.45em);
     opacity: 0.6;
     user-select: none;

@@ -411,7 +411,11 @@ function Field({
 			{error ? (
 				<p className="text-xs text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-xs text-muted-foreground">{hint}</p>
+				<p
+					className={`text-xs text-muted-foreground${/\d/.test(hint) ? " tabular" : ""}`}
+				>
+					{hint}
+				</p>
 			) : null}
 		</div>
 	);

@@ -637,7 +637,7 @@ export default async function EventDetailPage({
 									{pkg ? (
 										<span>
 											{pkg.name}
-											<span className="text-muted-foreground">
+											<span className="tabular text-muted-foreground">
 												{" · "}
 												{pkg.duration_hours}j · {formatRupiah(pkg.base_price)}
 											</span>
@@ -662,13 +662,13 @@ export default async function EventDetailPage({
 												{backdrop.name}
 												{backdrop.type === "rental_owned" &&
 													backdrop.rental_price > 0 && (
-														<span className="text-muted-foreground">
+														<span className="tabular text-muted-foreground">
 															{" · "}
 															sewa {formatRupiah(backdrop.rental_price)}
 														</span>
 													)}
 												{backdrop.type === "vendor_decor" && markup > 0 && (
-													<span className="text-muted-foreground">
+													<span className="tabular text-muted-foreground">
 														{" · "}
 														markup {formatRupiah(markup)}
 													</span>
@@ -965,7 +965,14 @@ export default async function EventDetailPage({
 function SettlementRow({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="flex items-baseline justify-between gap-3">
-			<dt className="text-[12px] text-muted-foreground">{label}</dt>
+			<dt
+				className={cn(
+					"text-[12px] text-muted-foreground",
+					/\d/.test(label) && "tabular",
+				)}
+			>
+				{label}
+			</dt>
 			<dd className="tabular text-[13px] text-foreground">{value}</dd>
 		</div>
 	);

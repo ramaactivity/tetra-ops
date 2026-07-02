@@ -386,7 +386,7 @@ export function MarketEntryDialog({
 								<span className="text-[10px] mr-0.5 font-normal text-muted-foreground/60">
 									≈
 								</span>
-								<span className="text-xl font-bold">
+								<span className="tabular text-xl font-bold">
 									{effective > 0
 										? formatRupiah(Math.round(effective))
 										: "Rp —"}
@@ -447,7 +447,7 @@ export function MarketEntryDialog({
 									cost di atas.
 								</p>
 								{willSyncMessage && (
-									<p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+									<p className="tabular mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
 										{willSyncMessage}
 									</p>
 								)}

@@ -90,6 +90,9 @@ export function KpiCard({
 	const done = pct === null ? 0 : Math.max(0, Math.min(100, pct));
 	const ArrowOrIcon = Icon ?? ArrowUpRight;
 	const { prefix, rest } = splitCurrency(value);
+	// Any text carrying digits gets .tabular so privacy mode ([data-privacy]
+	// in globals.css) can blur it; digit-free captions stay readable.
+	const numeric = (s?: string) => Boolean(s && /\d/.test(s));
 
 	return (
 		<div
@@ -109,7 +112,7 @@ export function KpiCard({
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-2">
-				<dd className="flex items-baseline gap-1 whitespace-nowrap font-bold tracking-[-0.03em] text-foreground [font-family:var(--font-manrope),var(--font-inter),system-ui] [font-variant-numeric:tabular-nums_slashed-zero]">
+				<dd className="tabular flex items-baseline gap-1 whitespace-nowrap font-bold tracking-[-0.03em] text-foreground [font-family:var(--font-manrope),var(--font-inter),system-ui] [font-variant-numeric:tabular-nums_slashed-zero]">
 					{prefix ? (
 						<span className="text-[0.95rem] font-bold text-muted-foreground sm:text-[1.05rem] lg:text-[1.2rem]">
 							{prefix}
@@ -123,6 +126,7 @@ export function KpiCard({
 					<span
 						className={cn(
 							"inline-flex h-[22px] items-center rounded-full px-2.5 text-[11.5px] font-medium",
+							numeric(badge) && "tabular",
 							PILL_TONE[badgeTone],
 						)}
 					>
@@ -132,7 +136,12 @@ export function KpiCard({
 			</div>
 
 			{hint ? (
-				<p className="mt-2 text-[12.5px] leading-snug text-muted-foreground/90">
+				<p
+					className={cn(
+						"mt-2 text-[12.5px] leading-snug text-muted-foreground/90",
+						numeric(hint) && "tabular",
+					)}
+				>
 					{hint}
 				</p>
 			) : null}
@@ -140,7 +149,12 @@ export function KpiCard({
 			{pct !== null && progress ? (
 				<div className="mt-4 flex flex-col gap-1.5">
 					<div className="flex items-center justify-between text-[12px] leading-none">
-						<span className="text-muted-foreground">
+						<span
+							className={cn(
+								"text-muted-foreground",
+								numeric(progress.label ?? String(progress.target)) && "tabular",
+							)}
+						>
 							{progress.label ??
 								`Target ${progress.target.toLocaleString("id-ID")}`}
 						</span>

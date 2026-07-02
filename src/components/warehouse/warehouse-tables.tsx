@@ -1244,7 +1244,7 @@ export function EquipmentTable({ rows }: { rows: EquipmentRow[] }) {
 							{formatRupiah(g.totalPrice)}
 						</span>
 						{g.count > 1 && (
-							<div className="whitespace-nowrap text-[11px] text-muted-foreground/80">
+							<div className="tabular whitespace-nowrap text-[11px] text-muted-foreground/80">
 								{formatRupiah(Math.round(g.totalPrice / g.count))} / unit
 							</div>
 						)}

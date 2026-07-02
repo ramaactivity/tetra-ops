@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 type Audit = {
 	id: string;
@@ -217,7 +218,14 @@ export async function EventActivityFeed({ eventId }: { eventId: string }) {
 									</p>
 								</div>
 								{summary.detail && (
-									<p className="text-muted-foreground text-xs">
+									<p
+										className={cn(
+											"text-muted-foreground text-xs",
+											typeof summary.detail === "string" &&
+												/\d/.test(summary.detail) &&
+												"tabular",
+										)}
+									>
 										{summary.detail}
 									</p>
 								)}

@@ -61,7 +61,16 @@ export function CollapsibleCard({
 							{title}
 						</span>
 						{subtitle ? (
-							<span className="text-[12px] leading-snug text-muted-foreground">
+							<span
+								className={cn(
+									"text-[12px] leading-snug text-muted-foreground",
+									// String subtitles carrying digits (e.g. "Grand total
+									// Rp 15.200.000") get .tabular so privacy mode blurs them.
+									typeof subtitle === "string" &&
+										/\d/.test(subtitle) &&
+										"tabular",
+								)}
+							>
 								{subtitle}
 							</span>
 						) : null}
