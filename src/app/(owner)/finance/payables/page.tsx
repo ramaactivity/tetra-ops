@@ -20,6 +20,7 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { createClient } from "@/lib/supabase/server";
 
 const VALID_FILTERS: PayablesStatusFilter[] = [
@@ -190,8 +191,16 @@ export default async function PayablesPage({
 				? allRows
 				: allRows.filter((r) => r.status === filter);
 
-	const cashAccountOptions: CashAccountOption[] = (cashAccounts ??
-		[]) as CashAccountOption[];
+	// Saldo live per rekening — dipakai pay-dialog untuk disable rekening yang
+	// uangnya tidak cukup (jangan sampai bayar hutang bikin kas minus).
+	const cashAccountOptions: CashAccountOption[] = await Promise.all(
+		((cashAccounts ?? []) as Array<{ code: string; name: string }>).map(
+			async (c) => ({
+				...c,
+				balance: await getCashAccountBalance(supabase, c.code),
+			}),
+		),
+	);
 
 	return (
 		<Container size="xl" className="space-y-3">

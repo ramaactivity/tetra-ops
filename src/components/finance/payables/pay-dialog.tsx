@@ -32,8 +32,12 @@ export function PayDialog({
 	const router = useRouter();
 	const [pending, startTransition] = useTransition();
 	const [amount, setAmount] = useState<string>(String(payable.remaining));
+	// Default rekening = yang saldonya cukup dulu — bukan asal index 0, biar
+	// tidak kepotong dari rekening bersaldo kurang (kas bisa minus).
 	const [accountCode, setAccountCode] = useState<string>(
-		cashAccounts[0]?.code ?? "1-100",
+		cashAccounts.find((a) => (a.balance ?? 0) >= payable.remaining)?.code ??
+			cashAccounts[0]?.code ??
+			"1-100",
 	);
 	const [adminFee, setAdminFee] = useState<string>("");
 	const [notes, setNotes] = useState<string>("");
@@ -42,10 +46,14 @@ export function PayDialog({
 	const feeNum = Number(adminFee) || 0;
 	const cashOut = amountNum + feeNum;
 	const isFull = amountNum === payable.remaining;
+	const selectedAcct = cashAccounts.find((a) => a.code === accountCode);
+	const insufficient =
+		selectedAcct?.balance !== undefined && selectedAcct.balance < cashOut;
 	const isValid =
 		Number.isFinite(amountNum) &&
 		amountNum > 0 &&
-		amountNum <= payable.remaining;
+		amountNum <= payable.remaining &&
+		!insufficient;
 	const remainingAfter = Math.max(0, payable.remaining - amountNum);
 
 	function handleSubmit(formData: FormData) {
@@ -151,10 +159,21 @@ export function PayDialog({
 									onValueChange={(v) => setAccountCode(v ?? "1-100")}
 									options={cashAccounts.map((a) => ({
 										value: a.code,
-										label: `${a.code} · ${a.name}`,
+										label:
+											a.balance !== undefined
+												? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+												: `${a.code} · ${a.name}`,
+										disabled: a.balance !== undefined && a.balance < cashOut,
 									}))}
 									allowFreeText={false}
 								/>
+								{insufficient && (
+									<p className="text-xs font-medium text-rose-600">
+										Saldo {selectedAcct?.name} tidak cukup (
+										{formatRupiah(selectedAcct?.balance ?? 0)}) untuk keluar{" "}
+										{formatRupiah(cashOut)} — pilih rekening lain.
+									</p>
+								)}
 								<input
 									type="hidden"
 									name="payment_account_code"

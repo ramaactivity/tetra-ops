@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import {
 	CONTROLLED_ACCOUNT_MSG,
 	isControlledAccount,
@@ -327,7 +328,7 @@ export async function recordQuickTransaction(
 	);
 	const { data: coa, error: coaErr } = await supabase
 		.from("chart_of_accounts")
-		.select("code, is_active")
+		.select("code, name, is_active")
 		.in("code", codes);
 	if (coaErr) return { error: coaErr.message };
 	const found = new Set((coa ?? []).map((c) => c.code as string));
@@ -339,6 +340,20 @@ export async function recordQuickTransaction(
 		.map((c) => c.code as string);
 	if (inactive.length > 0)
 		return { error: `Akun nonaktif: ${inactive.join(", ")}` };
+
+	// Guard saldo: uang keluar / transfer tidak boleh bikin rekening asal minus.
+	if (dir !== "masuk") {
+		const srcName =
+			((coa ?? []).find((c) => c.code === account_code)?.name as string) ??
+			account_code;
+		const saldoErr = await insufficientBalanceError(
+			supabase,
+			account_code,
+			srcName,
+			amount + adminFee,
+		);
+		if (saldoErr) return { error: saldoErr };
+	}
 
 	// Build the balanced 2 lines. Cash account is `account_code`; counterpart is
 	// the category/destination. Direction decides which side cash sits on.

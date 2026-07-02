@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireOwnerLevel() {
@@ -103,7 +104,7 @@ export async function recordPayablePayment(
 	// Validate payment account exists + active
 	const { data: payAcc, error: payAccErr } = await supabase
 		.from("chart_of_accounts")
-		.select("code, is_active, account_type")
+		.select("code, name, is_active, account_type")
 		.eq("code", parsed.data.payment_account_code)
 		.maybeSingle();
 	if (payAccErr || !payAcc) {
@@ -129,6 +130,16 @@ export async function recordPayablePayment(
 	// Plus, if any: DEBIT 5-600 Beban Admin Bank → kas keluar = hutang + biaya admin.
 	const adminFee = parsed.data.admin_fee;
 	const cashOut = parsed.data.amount + adminFee;
+
+	// Guard saldo: bayar hutang tidak boleh bikin rekening pembayaran minus.
+	const saldoErr = await insufficientBalanceError(
+		supabase,
+		parsed.data.payment_account_code,
+		(payAcc.name as string) ?? parsed.data.payment_account_code,
+		cashOut,
+	);
+	if (saldoErr) return { ok: false, error: saldoErr };
+
 	let journalEntryId: string | null = null;
 	let journalRef: string | undefined;
 	try {

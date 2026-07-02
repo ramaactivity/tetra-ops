@@ -52,6 +52,8 @@ export type PayableRow = {
 export type CashAccountOption = {
 	code: string;
 	name: string;
+	/** Saldo live (debit−credit) — dipakai disable rekening bersaldo kurang. */
+	balance?: number;
 };
 
 const STATUS_TONE: Record<string, string> = {

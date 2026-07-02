@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import { createClient } from "@/lib/supabase/server";
 
 const FeeRow = z.object({
@@ -238,7 +239,7 @@ export async function payCrewFee(input: {
 	// Validate bank account (kas/bank, aktif)
 	const { data: bank, error: bankErr } = await supabase
 		.from("chart_of_accounts")
-		.select("code, is_active, account_type")
+		.select("code, name, is_active, account_type")
 		.eq("code", bank_account_code)
 		.maybeSingle();
 	if (bankErr || !bank) {
@@ -257,6 +258,16 @@ export async function payCrewFee(input: {
 	const u = Array.isArray(a.user) ? a.user[0] : a.user;
 	const crewName = (u as { full_name?: string } | null)?.full_name ?? "crew";
 	const cashOut = total + adminFee;
+
+	// Guard saldo: rekening sumber tidak boleh minus gara-gara bayar fee.
+	// (Kasus nyata: Kas Tunai Rp0 dipakai bayar 2 fee crew → saldo −383rb.)
+	const saldoErr = await insufficientBalanceError(
+		supabase,
+		bank_account_code,
+		(bank.name as string) ?? bank_account_code,
+		cashOut,
+	);
+	if (saldoErr) return { ok: false, error: saldoErr };
 
 	// Post journal: Dr 2-100 (total) [+ Dr 5-600 (admin)] / Cr Bank (cashOut)
 	const refId = newJournalRef(new Date(payment_date));

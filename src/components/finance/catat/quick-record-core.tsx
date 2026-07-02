@@ -151,7 +151,10 @@ export function QuickRecordCore({
 					? "Pilih rekening tujuan"
 					: direction !== "transfer" && !categoryId && !coaOverride
 						? "Pilih kategori"
-						: null;
+						: // Saldo guard: keluar/transfer tidak boleh bikin rekening minus.
+							direction !== "masuk" && afterSource < 0
+							? `Saldo ${sourceAcct?.name ?? "rekening"} tidak cukup`
+							: null;
 	const canSubmit = blockReason === null;
 
 	// ── success → optional photo upload, toast, refresh, close ────────────────
@@ -378,6 +381,11 @@ export function QuickRecordCore({
 				value={accountCode}
 				onChange={setAccountCode}
 				variant={keypad ? "scroll" : "grid"}
+				// Sumber uang keluar/transfer: rekening bersaldo kurang tidak bisa
+				// dipilih — mencegah saldo minus (kasus Kas Tunai −383rb).
+				requiredBalance={
+					direction === "masuk" ? undefined : amount + feeApplied
+				}
 			/>
 			{direction === "transfer" ? (
 				<>
@@ -833,14 +841,19 @@ function AccountPicker({
 	onChange,
 	disabledCode,
 	variant = "grid",
+	requiredBalance,
 }: {
 	accounts: CashAccount[];
 	value: string;
 	onChange: (code: string) => void;
 	disabledCode?: string;
 	variant?: "grid" | "scroll";
+	/** Saldo minimum agar akun bisa dipilih (sumber uang keluar/transfer). */
+	requiredBalance?: number;
 }) {
 	const haptic = useHaptics();
+	const lacksBalance = (a: CashAccount) =>
+		requiredBalance !== undefined && a.balance < requiredBalance;
 
 	if (variant === "scroll") {
 		// Exactly 2 cards per view, flush with the category columns above (same
@@ -850,7 +863,8 @@ function AccountPicker({
 			<div className="hide-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1">
 				{accounts.map((a) => {
 					const active = value === a.code;
-					const disabled = disabledCode === a.code;
+					const kurang = lacksBalance(a);
+					const disabled = disabledCode === a.code || kurang;
 					return (
 						<button
 							key={a.code}
@@ -879,6 +893,11 @@ function AccountPicker({
 									{a.balance.toLocaleString("id-ID")}
 								</span>
 							</span>
+							{kurang ? (
+								<span className="mt-1 block text-[11px] font-medium text-rose-600">
+									Saldo kurang
+								</span>
+							) : null}
 						</button>
 					);
 				})}
@@ -890,7 +909,8 @@ function AccountPicker({
 		<div className="grid gap-2.5 sm:grid-cols-2">
 			{accounts.map((a) => {
 				const active = value === a.code;
-				const disabled = disabledCode === a.code;
+				const kurang = lacksBalance(a);
+				const disabled = disabledCode === a.code || kurang;
 				return (
 					<button
 						key={a.code}
@@ -913,6 +933,11 @@ function AccountPicker({
 						</span>
 						<span className="tabular text-[12px] text-muted-foreground">
 							{formatRupiah(a.balance)}
+							{kurang ? (
+								<span className="ml-1.5 font-medium text-rose-600">
+									· Saldo kurang
+								</span>
+							) : null}
 						</span>
 					</button>
 				);

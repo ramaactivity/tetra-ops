@@ -42,8 +42,8 @@ type Props = {
 	disabledReason?: string;
 	/** Total fee crew (fee+bonus+reimbursement) — untuk opsi "bayar sambil settle". */
 	crewTotal?: number;
-	/** Rekening kas/bank untuk opsi bayar-sambil-settle. */
-	cashAccounts?: Array<{ code: string; name: string }>;
+	/** Rekening kas/bank (+ saldo live) untuk opsi bayar-sambil-settle. */
+	cashAccounts?: Array<{ code: string; name: string; balance?: number }>;
 };
 
 export function SettleButton(props: Props) {
@@ -56,9 +56,17 @@ export function SettleButton(props: Props) {
 	const crewTotal = props.crewTotal ?? 0;
 	const canPayNow = crewTotal > 0 && cashAccounts.length > 0;
 	const [payNow, setPayNow] = useState(false);
+	// Default = rekening pertama yang saldonya cukup untuk semua fee crew —
+	// bukan asal index 0, biar tidak kepotong dari rekening bersaldo kurang.
 	const [payAccount, setPayAccount] = useState(
-		() => cashAccounts[0]?.code ?? "",
+		() =>
+			cashAccounts.find((a) => (a.balance ?? 0) >= crewTotal)?.code ??
+			cashAccounts[0]?.code ??
+			"",
 	);
+	const payAcct = cashAccounts.find((a) => a.code === payAccount);
+	const payInsufficient =
+		payAcct?.balance !== undefined && payAcct.balance < crewTotal;
 
 	async function handleOpen() {
 		if (!props.recapId) {
@@ -293,16 +301,29 @@ export function SettleButton(props: Props) {
 										onValueChange={(v) => setPayAccount(v ?? "")}
 										options={cashAccounts.map((a) => ({
 											value: a.code,
-											label: `${a.code} · ${a.name}`,
+											label:
+												a.balance !== undefined
+													? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+													: `${a.code} · ${a.name}`,
+											disabled:
+												a.balance !== undefined && a.balance < crewTotal,
 										}))}
 										placeholder="Pilih rekening"
 										allowFreeText={false}
 									/>
-									<p className="text-[11px] text-muted-foreground">
-										Saldo rekening berkurang {formatRupiah(crewTotal)} · tiap
-										crew ditandai lunas. Bukti transfer yang sudah diupload
-										tetap tersimpan.
-									</p>
+									{payInsufficient ? (
+										<p className="text-[11px] font-medium text-rose-600">
+											Saldo {payAcct?.name} tidak cukup (
+											{formatRupiah(payAcct?.balance ?? 0)}) untuk bayar{" "}
+											{formatRupiah(crewTotal)} — pilih rekening lain.
+										</p>
+									) : (
+										<p className="text-[11px] text-muted-foreground">
+											Saldo rekening berkurang {formatRupiah(crewTotal)} · tiap
+											crew ditandai lunas. Bukti transfer yang sudah diupload
+											tetap tersimpan.
+										</p>
+									)}
 								</div>
 							)}
 						</div>
@@ -320,7 +341,7 @@ export function SettleButton(props: Props) {
 						<Button
 							type="button"
 							onClick={handleConfirm}
-							disabled={pending || (payNow && !payAccount)}
+							disabled={pending || (payNow && (!payAccount || payInsufficient))}
 						>
 							{pending ? (
 								<>

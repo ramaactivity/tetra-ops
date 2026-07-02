@@ -35,6 +35,7 @@ import {
 } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isCashOrBank } from "@/lib/finance/accounting";
+import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -244,15 +245,22 @@ export default async function EventRekapPage({
 		};
 	});
 
-	// Cash/bank accounts (1-1xx aktif) untuk tombol bayar fee crew post-settle.
+	// Cash/bank accounts (1-1xx aktif) + saldo live, untuk tombol bayar fee crew
+	// post-settle — saldo dipakai men-disable rekening yang uangnya tidak cukup.
 	const { data: cashCoa } = await supabase
 		.from("chart_of_accounts")
 		.select("code, name, account_type, is_active")
 		.eq("is_active", true)
 		.order("code");
-	const cashAccounts = (cashCoa ?? [])
-		.filter((c) => isCashOrBank(c.code as string, c.account_type as string))
-		.map((c) => ({ code: c.code as string, name: c.name as string }));
+	const cashAccounts = await Promise.all(
+		(cashCoa ?? [])
+			.filter((c) => isCashOrBank(c.code as string, c.account_type as string))
+			.map(async (c) => ({
+				code: c.code as string,
+				name: c.name as string,
+				balance: await getCashAccountBalance(supabase, c.code as string),
+			})),
+	);
 
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 

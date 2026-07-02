@@ -37,7 +37,12 @@ export type CrewAssignmentRow = {
 	paid_at?: string | null;
 };
 
-export type CashAccountOption = { code: string; name: string };
+export type CashAccountOption = {
+	code: string;
+	name: string;
+	/** Saldo live (debit−credit). Dipakai disable rekening yang tidak cukup. */
+	balance?: number;
+};
 
 type Props = {
 	eventId: string;
@@ -385,7 +390,14 @@ function CrewPayPanel({
 }) {
 	const router = useRouter();
 	const [pending, startTransition] = useTransition();
-	const [bankCode, setBankCode] = useState<string>(cashAccounts[0]?.code ?? "");
+	// Default rekening = yang saldonya cukup dulu — bukan asal index 0 (Kas
+	// Tunai). Dulu default buta ini yang bikin fee crew kepotong dari Kas Tunai
+	// bersaldo Rp0 → saldo minus.
+	const [bankCode, setBankCode] = useState<string>(
+		cashAccounts.find((a) => (a.balance ?? 0) >= totalFee)?.code ??
+			cashAccounts[0]?.code ??
+			"",
+	);
 	const [adminFee, setAdminFee] = useState<string>("");
 	// Optimistic paid-state override. useState(initialRows) di parent tidak
 	// re-sync setelah router.refresh(), jadi tombol Bayar tetap kelihatan walau
@@ -401,6 +413,9 @@ function CrewPayPanel({
 	const cashOut = totalFee + feeNum;
 	const bankName = (code: string | null) =>
 		cashAccounts.find((a) => a.code === code)?.name ?? code ?? "—";
+	const selectedAcct = cashAccounts.find((a) => a.code === bankCode);
+	const insufficient =
+		selectedAcct?.balance !== undefined && selectedAcct.balance < cashOut;
 
 	const effectivePaid = override ? override.paid : isPaid;
 	const effectiveAccount = override?.account ?? paidViaAccount;
@@ -486,7 +501,11 @@ function CrewPayPanel({
 						onValueChange={(v) => setBankCode(v ?? "")}
 						options={cashAccounts.map((a) => ({
 							value: a.code,
-							label: `${a.code} · ${a.name}`,
+							label:
+								a.balance !== undefined
+									? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+									: `${a.code} · ${a.name}`,
+							disabled: a.balance !== undefined && a.balance < cashOut,
 						}))}
 						placeholder="Pilih rekening"
 						allowFreeText={false}
@@ -528,20 +547,32 @@ function CrewPayPanel({
 			</div>
 			<div className="mt-3 flex flex-wrap items-center justify-between gap-2">
 				<p className="text-[11px] text-muted-foreground">
-					Saat dibayar: saldo{" "}
-					<span className="font-medium text-foreground">
-						{bankName(bankCode)}
-					</span>{" "}
-					berkurang{" "}
-					<span className="font-medium text-foreground">
-						{formatRupiah(cashOut)}
-					</span>
-					{feeNum > 0 ? ` (termasuk biaya admin ${formatRupiah(feeNum)})` : ""}{" "}
-					· utang ke crew lunas {formatRupiah(totalFee)}
+					{insufficient ? (
+						<span className="font-medium text-rose-600">
+							Saldo {bankName(bankCode)} tidak cukup (
+							{formatRupiah(selectedAcct?.balance ?? 0)}) untuk keluar{" "}
+							{formatRupiah(cashOut)} — pilih rekening lain.
+						</span>
+					) : (
+						<>
+							Saat dibayar: saldo{" "}
+							<span className="font-medium text-foreground">
+								{bankName(bankCode)}
+							</span>{" "}
+							berkurang{" "}
+							<span className="font-medium text-foreground">
+								{formatRupiah(cashOut)}
+							</span>
+							{feeNum > 0
+								? ` (termasuk biaya admin ${formatRupiah(feeNum)})`
+								: ""}{" "}
+							· utang ke crew lunas {formatRupiah(totalFee)}
+						</>
+					)}
 				</p>
 				<Button
 					onClick={handlePay}
-					disabled={pending || totalFee <= 0}
+					disabled={pending || totalFee <= 0 || insufficient}
 					className="gap-2"
 				>
 					{pending ? (
