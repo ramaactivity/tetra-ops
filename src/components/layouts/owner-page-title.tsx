@@ -31,6 +31,7 @@ import {
 	Truck,
 	UsersRound,
 	Wallet,
+	Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -56,6 +57,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/warehouse/suppliers", "Supplier", Truck],
 	["/warehouse/purchase-requests", "Permintaan", ClipboardList],
 	["/warehouse/stock-take", "Stock Opname", ClipboardList],
+	["/warehouse/asset-check", "Cek Alat", Wrench],
 	["/warehouse/wastage", "Wastage", AlertTriangle],
 	["/warehouse", "Warehouse", Package],
 	["/finance/reports", "Laporan", FileBarChart],

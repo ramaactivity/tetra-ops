@@ -135,6 +135,9 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 				case "opname_overdue":
 					matches = await checkOpnameOverdue(admin);
 					break;
+				case "asset_check_overdue":
+					matches = await checkAssetCheckOverdue(admin);
+					break;
 				case "stock_zero":
 					matches = await checkStockZero(admin);
 					break;
@@ -657,6 +660,42 @@ async function checkOpnameOverdue(admin: AdminClient): Promise<Match[]> {
 			title: "Saatnya Stock Opname",
 			body: `Opname stok terakhir ${sinceLabel}. Hitung fisik stok biar angka tetap akurat.`,
 			action_url: `/warehouse/stock-take`,
+		},
+	];
+}
+
+async function checkAssetCheckOverdue(admin: AdminClient): Promise<Match[]> {
+	// Mirror checkOpnameOverdue untuk aset tetap: nudge cek fisik alat bulanan
+	// (ada/rusak/hilang) kalau cek terakhir >30 hari atau belum pernah.
+	const { data } = await admin
+		.from("asset_checks")
+		.select("id, committed_at")
+		.eq("status", "committed")
+		.order("committed_at", { ascending: false })
+		.limit(1);
+	const last = data?.[0] as
+		| { id: string; committed_at: string | null }
+		| undefined;
+	const OVERDUE_DAYS = 30;
+	const now = Date.now();
+	const lastMs = last?.committed_at
+		? new Date(last.committed_at).getTime()
+		: null;
+	if (lastMs !== null && now - lastMs < OVERDUE_DAYS * 24 * 3600 * 1000) {
+		return [];
+	}
+	const sinceLabel =
+		lastMs !== null
+			? `${Math.floor((now - lastMs) / (24 * 3600 * 1000))} hari lalu`
+			: "belum pernah";
+	return [
+		{
+			entity_type: "asset_check",
+			// Stable id → satu reminder sampai dibaca / cek baru selesai.
+			entity_id: last?.id ?? "00000000-0000-0000-0000-000000000000",
+			title: "Saatnya Cek Alat",
+			body: `Cek alat terakhir ${sinceLabel}. Pastikan peralatan masih ada dan kondisinya baik.`,
+			action_url: `/warehouse/asset-check`,
 		},
 	];
 }

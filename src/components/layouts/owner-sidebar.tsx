@@ -31,6 +31,7 @@ import {
 	Truck,
 	Users,
 	Wallet,
+	Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -97,6 +98,11 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/warehouse/stock-take",
 						label: "Stock Opname",
 						icon: ClipboardList,
+					},
+					{
+						href: "/warehouse/asset-check",
+						label: "Cek Alat",
+						icon: Wrench,
 					},
 					// Wastage hidden until owners are ready to use it (2026-06-24).
 					// Route + page still live; restore this item to re-expose.
