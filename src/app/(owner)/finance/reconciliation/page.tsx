@@ -16,7 +16,12 @@ type Row = {
 	note?: string;
 };
 
-const RECONCILE_TOLERANCE = 0; // rupiah; > 0 = drift
+// Toleransi pembulatan (rupiah). Qty stok bisa pecahan (mis. media set
+// 8,9229 unit) → nilai fisik = qty × WAC punya sisa sub-rupiah, sementara GL
+// memposting bilangan bulat per event. Selisih ≤ toleransi = sinkron
+// (pembulatan), bukan drift yang butuh jurnal koreksi. Drift nyata (transaksi
+// hilang/dobel) selalu ratusan rupiah ke atas, jadi Rp5 aman.
+const RECONCILE_TOLERANCE = 5;
 
 export default async function ReconciliationPage() {
 	const me = await getCurrentUser();
@@ -69,14 +74,16 @@ export default async function ReconciliationPage() {
 			Number(r.stock),
 		]),
 	);
+	// Akumulasi TANPA pembulatan per item, bulatkan sekali per bucket — round
+	// per item menumpuk error ±0,5/item (kasus nyata: media set qty 8,9229 ×
+	// WAC = xxx,50 → dibulatkan naik → "selisih Rp-1" palsu vs GL).
 	const physByCoa = new Map<string, number>();
 	for (const it of itemRows) {
 		const coa = inventoryCoaForSku(it.sku);
-		const val = Math.round(
-			(stock.get(it.id) ?? 0) * (Number(it.purchase_price_avg) || 0),
-		);
+		const val = (stock.get(it.id) ?? 0) * (Number(it.purchase_price_avg) || 0);
 		physByCoa.set(coa, (physByCoa.get(coa) ?? 0) + val);
 	}
+	for (const [coa, val] of physByCoa) physByCoa.set(coa, Math.round(val));
 	const bucketCoa: Record<string, { code: string; label: string }> = {
 		mediaset: { code: "1-200", label: "Persediaan Media Set" },
 		sleeve: { code: "1-201", label: "Persediaan Sleeve" },
@@ -275,7 +282,19 @@ export default async function ReconciliationPage() {
 													!ok && "font-semibold text-amber-700",
 												)}
 											>
-												{delta === 0 ? "—" : formatRupiah(delta)}
+												{delta === 0 ? (
+													"—"
+												) : ok ? (
+													<span
+														className="text-muted-foreground"
+														title="Sisa pembulatan qty pecahan × harga rata-rata — bukan drift"
+													>
+														{formatRupiah(delta)}{" "}
+														<span className="text-xs">(pembulatan)</span>
+													</span>
+												) : (
+													formatRupiah(delta)
+												)}
 											</td>
 											<td className="px-4 py-2 text-center">
 												{ok ? (
