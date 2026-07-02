@@ -10,7 +10,9 @@ import { buildDigestText } from "@/lib/telegram/digest";
  * 1. Registrasi grup otomatis: saat bot di-invite ke grup owner (update
  *    my_chat_member), chat_id grup disimpan ke telegram_settings id=1.
  *    Tidak perlu copy-paste chat_id manual.
- * 2. Perintah dari grup: /cek (digest on-demand), /id (lihat chat id).
+ * 2. Perintah dari grup: /cek (digest on-demand), /id (lihat chat id),
+ *    /daftar (registrasi manual — fallback kalau bot sudah terlanjur jadi
+ *    member sebelum webhook aktif, sehingga my_chat_member tidak terkirim).
  *
  * Auth: Telegram menyertakan header X-Telegram-Bot-Api-Secret-Token berisi
  * secret yang kita set saat setWebhook. Tanpa header valid → 401.
@@ -128,7 +130,25 @@ export async function POST(request: Request) {
 			return NextResponse.json({ ok: true });
 		}
 
-		// Perintah grup: hanya layani grup yang terdaftar
+		// /daftar — registrasi manual grup ini sebagai tujuan digest. Aman
+		// karena hanya bisa diketik orang yang satu grup dengan bot, dan bot
+		// hanya di-invite owner ke grup owner.
+		if (command === "/daftar") {
+			await saveGroupChat(msg.chat);
+			await sendTelegramMessage(
+				msg.chat.id,
+				[
+					"✅ <b>Grup ini terdaftar sebagai tujuan reminder Tetra Ops.</b>",
+					"",
+					"Setiap pagi ±06:30 WIB: digest kesiapan event 7 hari ke depan + briefing lengkap event besok.",
+					"",
+					"Perintah: /cek — lihat kesiapan event sekarang juga.",
+				].join("\n"),
+			);
+			return NextResponse.json({ ok: true });
+		}
+
+		// Perintah grup lain: hanya layani grup yang terdaftar
 		const registered = await getRegisteredChatId();
 		if (registered !== msg.chat.id) {
 			if (command === "/id") {
