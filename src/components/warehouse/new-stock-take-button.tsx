@@ -19,7 +19,11 @@ export function NewStockTakeButton() {
 			if (!res.ok) {
 				toast.error(res.error);
 			} else {
-				toast.success("Opname dimulai — hitung fisik per item");
+				toast.success(
+					res.resumed
+						? "Masih ada opname yang berjalan — lanjutkan yang ini dulu"
+						: "Opname dimulai — hitung jumlah fisik tiap barang",
+				);
 				router.push(`/warehouse/stock-take/${res.id}`);
 			}
 		});

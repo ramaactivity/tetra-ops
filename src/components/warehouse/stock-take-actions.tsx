@@ -15,9 +15,13 @@ import {
  * Sticky bottom action bar for an editable Stock Opname.
  *
  * Three CTAs:
- *  - Match Semua: bulk-set counted_qty = system_qty for every unaudited row.
- *  - Cancel: abort the draft.
- *  - Commit: generate adjustment movements from the variance rows.
+ *  - Sisanya Anggap Sesuai: tandai semua baris yang belum dihitung sebagai
+ *    "sesuai sistem" (is_match — ikut stok live saat selesai).
+ *  - Batalkan: buang draft ini.
+ *  - Selesai & Simpan: tutup opname. Selisih → stok disesuaikan + jurnal.
+ *    Tanpa selisih pun valid — tersimpan sebagai bukti audit "semua cocok"
+ *    (dulu tombol ini mati saat 0 selisih → owner terjebak, satu-satunya
+ *    jalan keluar Cancel yang menghapus jejak audit).
  */
 export function StockTakeActions({
 	stockTakeId,
@@ -36,8 +40,8 @@ export function StockTakeActions({
 	const [confirmCancel, setConfirmCancel] = useState(false);
 	const [confirmMatch, setConfirmMatch] = useState(false);
 	const pendingCount = Math.max(0, totalLines - auditedCount);
-	const allMatched = pendingCount === 0 && varianceCount === 0;
 	const hasVariance = varianceCount > 0;
+	const nothingCounted = auditedCount === 0;
 
 	function handleCommit() {
 		startTransition(async () => {
@@ -46,7 +50,9 @@ export function StockTakeActions({
 				toast.error(res.error);
 			} else {
 				toast.success(
-					`Committed — ${res.movements} adjustment movement${res.movements === 1 ? "" : "s"} dibuat`,
+					res.movements === 0
+						? "Opname selesai — semua stok cocok, tidak ada yang diubah"
+						: `Opname selesai — stok ${res.movements} item disesuaikan`,
 				);
 				setConfirmCommit(false);
 				router.refresh();
@@ -60,7 +66,7 @@ export function StockTakeActions({
 			if (!res.ok) {
 				toast.error(res.error);
 			} else {
-				toast.success("Stock opname dibatalkan");
+				toast.success("Opname dibatalkan");
 				setConfirmCancel(false);
 				router.push("/warehouse/stock-take");
 			}
@@ -75,8 +81,8 @@ export function StockTakeActions({
 			} else {
 				toast.success(
 					res.matched === 0
-						? "Tidak ada item yang belum dihitung"
-						: `${res.matched} item di-set sesuai stok sistem`,
+						? "Semua item sudah dihitung"
+						: `${res.matched} item dianggap sesuai catatan sistem`,
 				);
 				setConfirmMatch(false);
 				router.refresh();
@@ -84,9 +90,21 @@ export function StockTakeActions({
 		});
 	}
 
-	const commitTitle = !hasVariance
-		? "Tidak ada selisih — stock fisik sama dengan sistem. Kalau mau tutup tanpa adjustment, pakai Cancel."
-		: undefined;
+	const statusLine = nothingCounted
+		? "Mulai hitung fisik per item, atau anggap semua sesuai kalau cuma mau cek cepat."
+		: pendingCount > 0
+			? `${pendingCount} item belum dihitung — dihitung dulu, atau anggap sesuai.`
+			: hasVariance
+				? `Ada ${varianceCount} item yang jumlah fisiknya beda. Klik Selesai untuk menyesuaikan stok.`
+				: "Semua cocok. Klik Selesai untuk menyimpan hasil audit.";
+
+	const commitDescription = !hasVariance
+		? "Semua jumlah fisik cocok dengan catatan sistem — tidak ada stok yang diubah. Hasil opname tetap tersimpan sebagai bukti audit."
+		: `Jumlah fisik ${varianceCount} item beda dengan catatan sistem. Stok akan disesuaikan mengikuti hasil hitunganmu, dan selisihnya otomatis dibukukan. ${
+				pendingCount > 0
+					? `${pendingCount} item yang belum dihitung tidak akan diubah. `
+					: ""
+			}Setelah selesai, opname ini tidak bisa diedit lagi.`;
 
 	return (
 		<>
@@ -101,19 +119,17 @@ export function StockTakeActions({
 							<span className="text-muted-foreground">dihitung</span>
 							{hasVariance && (
 								<span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-									{varianceCount} selisih
+									{varianceCount} beda
 								</span>
 							)}
-							{allMatched && (
+							{pendingCount === 0 && !hasVariance && (
 								<span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-									semua sesuai
+									semua cocok
 								</span>
 							)}
 						</div>
 						<div className="hidden text-[11px] text-muted-foreground sm:block">
-							{pendingCount > 0
-								? `${pendingCount} item belum dihitung — bisa "Match Semua" buat anggap sesuai sistem.`
-								: `Siap commit — akan generate ${varianceCount} adjustment.`}
+							{statusLine}
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
@@ -123,10 +139,10 @@ export function StockTakeActions({
 								onClick={() => setConfirmMatch(true)}
 								disabled={pending}
 								className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium hover:bg-surface-3 disabled:opacity-40"
-								title={`Set ${pendingCount} item belum dihitung = sistem`}
+								title={`Anggap ${pendingCount} item yang belum dihitung sesuai catatan sistem`}
 							>
 								<Equal className="size-3.5" />
-								Match Semua ({pendingCount})
+								Sisanya Anggap Sesuai ({pendingCount})
 							</button>
 						)}
 						<button
@@ -136,18 +152,21 @@ export function StockTakeActions({
 							className="press-down inline-flex h-9 items-center gap-1.5 rounded-md border border-border-default bg-surface-2 px-3 text-fluid-caption font-medium text-muted-foreground hover:bg-surface-3 disabled:opacity-40"
 						>
 							<X className="size-3.5" />
-							Cancel
+							Batalkan
 						</button>
 						<button
 							type="button"
 							onClick={() => setConfirmCommit(true)}
-							disabled={pending || !hasVariance}
-							title={commitTitle}
-							aria-disabled={!hasVariance}
+							disabled={pending || nothingCounted}
+							title={
+								nothingCounted
+									? "Hitung dulu minimal satu item (atau pakai Sisanya Anggap Sesuai)"
+									: undefined
+							}
 							className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40"
 						>
 							<CheckCircle2 className="size-3.5" />
-							Commit ({varianceCount})
+							Selesai & Simpan
 						</button>
 					</div>
 				</div>
@@ -156,26 +175,26 @@ export function StockTakeActions({
 			<ConfirmDialog
 				open={confirmCommit}
 				onOpenChange={setConfirmCommit}
-				title="Commit stock opname?"
-				description={`Akan generate ${varianceCount} adjustment movement (1 per selisih). Item yang sesuai sistem atau belum dihitung di-skip. Setelah commit, opname ini tidak bisa diedit lagi.`}
-				confirmLabel="Commit"
+				title="Selesaikan stock opname?"
+				description={commitDescription}
+				confirmLabel="Ya, Selesaikan"
 				onConfirm={handleCommit}
 			/>
 			<ConfirmDialog
 				open={confirmCancel}
 				onOpenChange={setConfirmCancel}
 				title="Batalkan stock opname?"
-				description="Counted qty yang sudah di-input akan tetap tersimpan, tapi tidak akan generate stock movements. Status akan jadi 'cancelled'. Draft cancelled bisa dihapus permanen dari list."
-				confirmLabel="Ya, batalkan"
+				description="Opname ini ditutup tanpa mengubah stok sama sekali. Angka yang sudah kamu isi tetap tersimpan di riwayat, dan draft yang dibatalkan bisa dihapus dari daftar."
+				confirmLabel="Ya, Batalkan"
 				variant="destructive"
 				onConfirm={handleCancel}
 			/>
 			<ConfirmDialog
 				open={confirmMatch}
 				onOpenChange={setConfirmMatch}
-				title="Match semua item ke sistem?"
-				description={`${pendingCount} item belum dihitung — akan di-set counted_qty = system_qty (anggap fisik sama dengan sistem). Item yang sudah dihitung manual tidak akan ditimpa.`}
-				confirmLabel="Match Semua"
+				title="Anggap sisanya sesuai?"
+				description={`${pendingCount} item yang belum dihitung akan dianggap jumlah fisiknya sama dengan catatan sistem — tidak ada stok yang diubah untuk item ini. Item yang sudah kamu hitung manual tidak disentuh.`}
+				confirmLabel="Ya, Anggap Sesuai"
 				onConfirm={handleMatchAll}
 			/>
 		</>

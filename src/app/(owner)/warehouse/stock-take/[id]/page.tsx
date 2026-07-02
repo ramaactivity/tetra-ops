@@ -6,8 +6,8 @@ import { PageHeader } from "@/components/operations/_shared/page-header";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import {
-	StockOpnameTable,
 	type StockOpnameRow,
+	StockOpnameTable,
 } from "@/components/warehouse/stock-opname-table";
 import { StockTakeActions } from "@/components/warehouse/stock-take-actions";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -15,16 +15,17 @@ import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const STATUS_TONE: Record<string, string> = {
-	draft: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+	draft:
+		"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 	committed:
 		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
 	cancelled: "border-border-default bg-surface-3 text-muted-foreground",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-	draft: "Draft",
-	committed: "Committed",
-	cancelled: "Cancelled",
+	draft: "Sedang Dihitung",
+	committed: "Selesai",
+	cancelled: "Dibatalkan",
 };
 
 export default async function StockTakeDetailPage({
@@ -55,7 +56,7 @@ export default async function StockTakeDetailPage({
 	const { data: lines } = await supabase
 		.from("stock_take_lines")
 		.select(
-			`stock_take_id, item_id, system_qty, counted_qty, counted_breakdown, variance, notes,
+			`stock_take_id, item_id, system_qty, counted_qty, counted_breakdown, variance, notes, is_match, unit_cost,
 			 item:inventory_items(id, sku, name, category, unit, unit_conversion, purchase_price_avg, min_stock_alert, deleted_at, is_active)`,
 		)
 		.eq("stock_take_id", id);
@@ -80,8 +81,27 @@ export default async function StockTakeDetailPage({
 		counted_breakdown: unknown;
 		variance: number | string | null;
 		notes: string | null;
+		is_match: boolean | null;
+		unit_cost: number | string | null;
 		item: ItemRef | ItemRef[] | null;
 	};
+
+	// Draft: tampilkan stok sistem LIVE, bukan snapshot saat draft dibuat.
+	// Commit v2 menghitung selisih terhadap stok live — angka yang owner lihat
+	// harus sama dengan angka yang dipakai engine. Committed/cancelled tetap
+	// pakai snapshot tersimpan (sudah di-refresh saat commit).
+	let liveStock: Map<string, number> | null = null;
+	if (take.status === "draft" && (lines ?? []).length > 0) {
+		const { data: levels } = await supabase.rpc("get_stock_levels", {
+			p_item_ids: (lines ?? []).map((l) => (l as { item_id: string }).item_id),
+		});
+		liveStock = new Map(
+			((levels ?? []) as Array<{ item_id: string; stock: number }>).map((r) => [
+				r.item_id,
+				Number(r.stock),
+			]),
+		);
+	}
 
 	const rows: StockOpnameRow[] = ((lines ?? []) as RawLine[])
 		.map((l): StockOpnameRow | null => {
@@ -90,8 +110,18 @@ export default async function StockTakeDetailPage({
 			// Defensive — drafts from before M5 may have lines pointing to archived
 			// items. Hide them so the audit stays focused on active inventory.
 			if (it.deleted_at || it.is_active === false) return null;
-			const counted = l.counted_qty === null ? null : Number(l.counted_qty);
-			const sys = Number(l.system_qty);
+			const sys = liveStock
+				? (liveStock.get(l.item_id) ?? 0)
+				: Number(l.system_qty);
+			// Baris "anggap sesuai" mengikuti stok sistem ke mana pun ia bergerak
+			// (commit v2 juga begitu) — jangan tampilkan selisih palsu dari
+			// snapshot lama.
+			const counted =
+				l.counted_qty === null
+					? null
+					: l.is_match === true
+						? sys
+						: Number(l.counted_qty);
 			const variance = counted === null ? null : counted - sys;
 			const breakdown = Array.isArray(l.counted_breakdown)
 				? (l.counted_breakdown as StockOpnameRow["counted_breakdown"])
@@ -104,6 +134,8 @@ export default async function StockTakeDetailPage({
 				counted_breakdown: breakdown,
 				variance,
 				notes: l.notes,
+				is_match: l.is_match === true,
+				unit_cost: l.unit_cost === null ? null : Number(l.unit_cost),
 				item: {
 					id: it.id,
 					sku: it.sku,
@@ -125,7 +157,9 @@ export default async function StockTakeDetailPage({
 	).length;
 	const totalVarianceValue = rows.reduce((sum, r) => {
 		if (r.counted_qty === null || r.variance === null) return sum;
-		return sum + r.variance * r.item.purchase_price_avg;
+		// unit_cost = snapshot avg cost saat commit — riwayat tidak berubah
+		// retroaktif kalau avg cost item berubah. Draft pakai avg cost live.
+		return sum + r.variance * (r.unit_cost ?? r.item.purchase_price_avg);
 	}, 0);
 	const progressPct =
 		totalLines === 0 ? 0 : Math.round((auditedLines / totalLines) * 100);
@@ -143,18 +177,15 @@ export default async function StockTakeDetailPage({
 				backLabel="Stock Opname"
 				description={
 					<span className="flex flex-wrap items-center gap-2">
-						<span>By {u?.full_name ?? "—"}</span>
+						<span>Oleh {u?.full_name ?? "—"}</span>
 						<span className="text-muted-foreground/40">·</span>
-						<Badge
-							variant="outline"
-							className={STATUS_TONE[take.status] ?? ""}
-						>
+						<Badge variant="outline" className={STATUS_TONE[take.status] ?? ""}>
 							{STATUS_LABEL[take.status] ?? take.status}
 						</Badge>
 						{take.committed_at && (
 							<>
 								<span className="text-muted-foreground/40">·</span>
-								<span>committed {formatDateID(take.committed_at)}</span>
+								<span>selesai {formatDateID(take.committed_at)}</span>
 							</>
 						)}
 					</span>
@@ -168,16 +199,22 @@ export default async function StockTakeDetailPage({
 					hint={`${progressPct}% progress`}
 					icon={TrendingUp}
 					accent={
-						progressPct === 100 ? "emerald" : progressPct > 0 ? "amber" : "default"
+						progressPct === 100
+							? "emerald"
+							: progressPct > 0
+								? "amber"
+								: "default"
 					}
 				/>
 				<KpiCard
-					label="Ada Selisih"
+					label="Jumlahnya Beda"
 					value={varianceLines.toLocaleString("id-ID")}
 					hint={
 						varianceLines > 0
-							? "akan jadi adjustment movements"
-							: "fisik = sistem (sejauh ini)"
+							? take.status === "committed"
+								? "stok sudah disesuaikan"
+								: "stok akan disesuaikan saat selesai"
+							: "fisik cocok dengan catatan (sejauh ini)"
 					}
 					icon={FileSearch}
 					accent={varianceLines > 0 ? "amber" : "emerald"}
@@ -191,9 +228,9 @@ export default async function StockTakeDetailPage({
 					}
 					hint={
 						totalVarianceValue > 0
-							? "stok lebih (gain) dari hasil opname"
+							? "nilai barang yang ternyata lebih banyak"
 							: totalVarianceValue < 0
-								? "stok kurang (loss) dari hasil opname"
+								? "nilai barang yang hilang / berkurang"
 								: "—"
 					}
 					icon={Wallet}

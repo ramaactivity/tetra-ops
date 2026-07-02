@@ -15,8 +15,11 @@ import { StockBundleInput } from "./stock-bundle-input";
 import type { StockOpnameRow } from "./stock-opname-table";
 
 function formatQty(value: number, fractional: boolean): string {
+	// Maks 2 desimal — "8,92 roll" masih terbaca manusia; presisi penuh 4
+	// desimal ("8,9229") cuma bikin owner bingung. Konversi lembar di bawah
+	// angka ini yang jadi acuan hitung fisik.
 	const opts: Intl.NumberFormatOptions = fractional
-		? { maximumFractionDigits: 4, minimumFractionDigits: 0 }
+		? { maximumFractionDigits: 2, minimumFractionDigits: 0 }
 		: { maximumFractionDigits: 0 };
 	return value.toLocaleString("id-ID", opts);
 }
@@ -88,19 +91,25 @@ export function StockTakeLineRow({
 		return sumBundles(bundles, conversionMap);
 	}, [bundles, conversionMap]);
 
-	const variance =
-		countedNum === null ? null : countedNum - line.system_qty;
-	const valueImpact =
-		variance === null ? null : variance * line.item.purchase_price_avg;
+	const variance = countedNum === null ? null : countedNum - line.system_qty;
+	// Pakai cost snapshot saat commit kalau ada — nilai riwayat tidak boleh
+	// berubah retroaktif ketika avg cost item berubah.
+	const unitCost = line.unit_cost ?? line.item.purchase_price_avg;
+	const valueImpact = variance === null ? null : variance * unitCost;
 
 	const isDirty =
 		!bundlesEqual(bundles, savedBundlesRef.current) ||
 		(notes.trim() || null) !== (savedNotesRef.current ?? null);
 
-	function persist(targetBundles?: Bundle[], targetNotesArg?: string) {
+	function persist(
+		targetBundles?: Bundle[],
+		targetNotesArg?: string,
+		isMatch = false,
+	) {
 		const bs = targetBundles ?? bundles;
 		const ns = (targetNotesArg ?? notes).trim();
-		const computedCounted = bs.length === 0 ? null : sumBundles(bs, conversionMap);
+		const computedCounted =
+			bs.length === 0 ? null : sumBundles(bs, conversionMap);
 
 		startTransition(async () => {
 			const fd = new FormData();
@@ -112,11 +121,9 @@ export function StockTakeLineRow({
 					? ""
 					: String(computedCounted),
 			);
-			fd.set(
-				"counted_breakdown",
-				bs.length === 0 ? "" : JSON.stringify(bs),
-			);
+			fd.set("counted_breakdown", bs.length === 0 ? "" : JSON.stringify(bs));
 			fd.set("notes", ns);
+			fd.set("is_match", isMatch ? "1" : "0");
 			const res = await updateStockTakeLine(fd);
 			if (!res.ok) {
 				toast.error(res.error);
@@ -129,20 +136,30 @@ export function StockTakeLineRow({
 		});
 	}
 
+	// Debounce autosave — dulu SETIAP ketikan menembakkan satu server action
+	// (ngetik "125" = 3 request yang bisa saling balap; nilai antara "12" bisa
+	// menang). Simpan 600ms setelah ketikan terakhir.
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	function schedulePersist(next: Bundle[]) {
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(() => persist(next), 600);
+	}
+	useEffect(
+		() => () => {
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+		},
+		[],
+	);
+
 	function handleMatch() {
-		const matched: Bundle[] = [
-			{ qty: line.system_qty, unit: line.item.unit },
-		];
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		const matched: Bundle[] = [{ qty: line.system_qty, unit: line.item.unit }];
 		setBundles(matched);
-		persist(matched);
+		persist(matched, undefined, true);
 	}
 
 	const state: "pending" | "ok" | "variance" =
-		countedNum === null
-			? "pending"
-			: variance === 0
-				? "ok"
-				: "variance";
+		countedNum === null ? "pending" : variance === 0 ? "ok" : "variance";
 
 	const dotTone =
 		state === "pending"
@@ -156,10 +173,12 @@ export function StockTakeLineRow({
 		state === "pending"
 			? "Belum dihitung"
 			: state === "ok"
-				? "Sesuai sistem"
+				? line.is_match
+					? "Dianggap sesuai catatan sistem (tidak dihitung manual)"
+					: "Cocok dengan catatan sistem"
 				: variance && variance > 0
-					? "Stok lebih (gain)"
-					: "Stok kurang (loss)";
+					? "Fisik lebih banyak dari catatan"
+					: "Fisik lebih sedikit dari catatan";
 
 	const isLowStock =
 		line.item.min_stock_alert > 0 &&
@@ -183,7 +202,7 @@ export function StockTakeLineRow({
 					: "text-rose-600 dark:text-rose-400";
 
 	const valueLabel =
-		valueImpact === null || line.item.purchase_price_avg === 0
+		valueImpact === null || unitCost === 0
 			? "—"
 			: valueImpact === 0
 				? "Rp 0"
@@ -203,9 +222,7 @@ export function StockTakeLineRow({
 	// Capacity breakdown (consumption units only) — e.g. roll → lembar 4R/2R.
 	const systemCapacity = listCapacityBreakdown(line.system_qty, conversionMap);
 	const countedCapacity =
-		countedNum !== null
-			? listCapacityBreakdown(countedNum, conversionMap)
-			: [];
+		countedNum !== null ? listCapacityBreakdown(countedNum, conversionMap) : [];
 
 	function renderCapacity(
 		entries: Array<{ code: string; label: string; value: number }>,
@@ -224,9 +241,7 @@ export function StockTakeLineRow({
 		return (
 			<div
 				className={`rounded-lg bg-surface-2 ring-1 ${
-					state === "variance"
-						? "ring-amber-500/30"
-						: "ring-foreground/[0.04]"
+					state === "variance" ? "ring-amber-500/30" : "ring-foreground/[0.04]"
 				}`}
 			>
 				{/* Item header */}
@@ -316,7 +331,7 @@ export function StockTakeLineRow({
 							bundles={bundles}
 							onChange={(next) => {
 								setBundles(next);
-								persist(next);
+								schedulePersist(next);
 							}}
 							map={conversionMap}
 						/>
@@ -376,10 +391,10 @@ export function StockTakeLineRow({
 							onClick={handleMatch}
 							disabled={pending || countedNum === line.system_qty}
 							className="press-down inline-flex h-8 shrink-0 items-center gap-1 rounded-md bg-surface-1 px-2.5 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
-							title={`Set Stok Fisik = ${formatQty(line.system_qty, isFractional)} ${line.item.unit}`}
+							title={`Anggap fisik sesuai catatan sistem (${formatQty(line.system_qty, isFractional)} ${line.item.unit})`}
 						>
 							<Equal className="size-3" />
-							Match
+							Sesuai
 						</button>
 						<input
 							type="text"
@@ -471,7 +486,7 @@ export function StockTakeLineRow({
 							bundles={bundles}
 							onChange={(next) => {
 								setBundles(next);
-								persist(next);
+								schedulePersist(next);
 							}}
 							map={conversionMap}
 						/>
@@ -550,10 +565,10 @@ export function StockTakeLineRow({
 							onClick={handleMatch}
 							disabled={pending || countedNum === line.system_qty}
 							className="press-down inline-flex h-7 items-center gap-1 rounded-md bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-40"
-							title={`Set Stok Fisik = ${formatQty(line.system_qty, isFractional)} ${line.item.unit}`}
+							title={`Anggap fisik sesuai catatan sistem (${formatQty(line.system_qty, isFractional)} ${line.item.unit})`}
 						>
 							<Equal className="size-3" />
-							Match
+							Sesuai
 						</button>
 					</div>
 				</td>

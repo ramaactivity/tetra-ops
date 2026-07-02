@@ -6,10 +6,10 @@ import { useSearchParams } from "next/navigation";
 type FilterKey = "active" | "all" | "committed" | "cancelled";
 
 const TABS: ReadonlyArray<{ key: FilterKey; label: string }> = [
-	{ key: "active", label: "Aktif" },
+	{ key: "active", label: "Berjalan" },
 	{ key: "all", label: "Semua" },
-	{ key: "committed", label: "Committed" },
-	{ key: "cancelled", label: "Cancelled" },
+	{ key: "committed", label: "Selesai" },
+	{ key: "cancelled", label: "Dibatalkan" },
 ];
 
 export function StockTakeFilterTabs({

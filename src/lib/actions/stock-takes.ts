@@ -2,10 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import {
-	recordOpnameOverageGain,
-	recordOpnameShortageWastage,
-} from "@/lib/actions/wastage";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,19 +15,39 @@ async function requireOwnerLevel() {
 }
 
 /**
- * Create a draft Stock Opname seeded with all active inventory items.
+ * Create a draft Stock Opname seeded with all active *inventory* items.
  *
  * Inventory v2 (2026-05-21): counted_qty stays NULL until the owner actually
  * audits the row. NULL distinguishes "not yet checked" from "checked and
  * matches system". Progress + commit semantics depend on this distinction.
+ *
+ * Opname v2 (2026-07-02):
+ *  - Fixed assets are NOT seeded — they have no stock_movements so system_qty
+ *    is always a fake 0 ("HABIS" noise) and the commit engine skips them anyway.
+ *  - Single active draft: two concurrent drafts commit double adjustments, so
+ *    if one exists we return it instead of creating another.
  */
 export async function createStockTake(
 	formData: FormData,
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+): Promise<
+	{ ok: true; id: string; resumed?: boolean } | { ok: false; error: string }
+> {
 	const me = await requireOwnerLevel();
 	const notes = String(formData.get("notes") ?? "").trim() || null;
 
 	const supabase = await createClient();
+
+	const { data: existingDraft } = await supabase
+		.from("stock_takes")
+		.select("id")
+		.eq("status", "draft")
+		.order("taken_at", { ascending: false })
+		.limit(1)
+		.maybeSingle();
+	if (existingDraft) {
+		return { ok: true, id: existingDraft.id, resumed: true };
+	}
+
 	const { data: take, error } = await supabase
 		.from("stock_takes")
 		.insert({ taken_by: me.profile.id, notes, status: "draft" })
@@ -40,7 +56,7 @@ export async function createStockTake(
 	if (error || !take) {
 		return {
 			ok: false,
-			error: error?.message ?? "Failed to create stock opname",
+			error: error?.message ?? "Gagal membuat stock opname",
 		};
 	}
 
@@ -48,7 +64,8 @@ export async function createStockTake(
 		.from("inventory_items")
 		.select("id")
 		.is("deleted_at", null)
-		.eq("is_active", true);
+		.eq("is_active", true)
+		.eq("category", "inventory");
 
 	if (items && items.length > 0) {
 		const ids = (items as Array<{ id: string }>).map((it) => it.id);
@@ -126,8 +143,17 @@ const UpdateLineSchema = z.object({
 		.string()
 		.trim()
 		.max(200)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
+	/**
+	 * "1" = owner klik "Sesuai" (anggap fisik = sistem, tidak hitung manual).
+	 * Saat commit, baris is_match mengikuti stok LIVE — bukan snapshot draft —
+	 * jadi tidak pernah menciptakan adjustment palsu dari snapshot basi.
+	 */
+	is_match: z
+		.string()
+		.nullish()
+		.transform((v) => v === "1"),
 });
 
 export async function updateStockTakeLine(
@@ -141,6 +167,7 @@ export async function updateStockTakeLine(
 		counted_qty: formData.get("counted_qty"),
 		counted_breakdown: formData.get("counted_breakdown"),
 		notes: formData.get("notes"),
+		is_match: formData.get("is_match"),
 	});
 	if (!parsed.success) {
 		return {
@@ -156,6 +183,7 @@ export async function updateStockTakeLine(
 			counted_qty: parsed.data.counted_qty,
 			counted_breakdown: parsed.data.counted_breakdown,
 			notes: parsed.data.notes,
+			is_match: parsed.data.is_match,
 			updated_at: new Date().toISOString(),
 		})
 		.eq("stock_take_id", parsed.data.stock_take_id)
@@ -167,10 +195,10 @@ export async function updateStockTakeLine(
 }
 
 /**
- * Bulk set counted_qty = system_qty for every still-NULL line in a draft.
- * Used when owner finishes spot-checking and wants to confirm "the rest
- * are fine as-is". Only affects unaudited lines — won't overwrite manual
- * counts.
+ * Bulk "anggap sesuai sistem" untuk semua baris yang belum dihitung.
+ * Satu statement SQL via RPC (dulu: N update paralel). Baris ditandai
+ * is_match=true — saat commit mereka mengikuti stok live, jadi aman
+ * walau stok bergerak selama draft terbuka. Hitungan manual tidak ditimpa.
  */
 export async function matchAllToSystem(
 	stockTakeId: string,
@@ -178,33 +206,13 @@ export async function matchAllToSystem(
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
-
-	const { data: nullLines, error: readErr } = await supabase
-		.from("stock_take_lines")
-		.select("item_id, system_qty")
-		.eq("stock_take_id", stockTakeId)
-		.is("counted_qty", null);
-	if (readErr) return { ok: false, error: readErr.message };
-	if (!nullLines || nullLines.length === 0) {
-		return { ok: true, matched: 0 };
-	}
-
-	const updates = nullLines.map((l) =>
-		supabase
-			.from("stock_take_lines")
-			.update({
-				counted_qty: l.system_qty,
-				updated_at: new Date().toISOString(),
-			})
-			.eq("stock_take_id", stockTakeId)
-			.eq("item_id", l.item_id),
-	);
-	const results = await Promise.all(updates);
-	const firstErr = results.find((r) => r.error)?.error;
-	if (firstErr) return { ok: false, error: firstErr.message };
+	const { data, error } = await supabase.rpc("match_all_stock_take_lines", {
+		p_stock_take_id: stockTakeId,
+	});
+	if (error) return { ok: false, error: error.message };
 
 	revalidatePath(`/warehouse/stock-take/${stockTakeId}`);
-	return { ok: true, matched: nullLines.length };
+	return { ok: true, matched: Number(data ?? 0) };
 }
 
 /**
@@ -236,11 +244,15 @@ export async function updateStockTakeNotes(
 export async function commitStockTake(
 	stockTakeId: string,
 ): Promise<
-	| { ok: true; movements: number; wastageLogged: number }
+	| { ok: true; movements: number; journals: number }
 	| { ok: false; error: string }
 > {
 	const me = await requireOwnerLevel();
 
+	// Opname v2: RPC melakukan SEMUANYA dalam satu transaksi — refresh
+	// system_qty dari stok live (draft basi tidak lagi menghasilkan adjustment
+	// salah), lalu movements + wastage_logs + journal_entries/lines per selisih.
+	// Tidak ada lagi loop journaling best-effort di JS yang bisa mati di tengah.
 	const supabase = await createClient();
 	const { data, error } = await supabase.rpc("commit_stock_take", {
 		p_stock_take_id: stockTakeId,
@@ -248,52 +260,18 @@ export async function commitStockTake(
 	});
 	if (error) return { ok: false, error: error.message };
 
-	// Post-commit: journal BOTH directions so GL inventory tracks physical stock.
-	// RPC sudah create adjustment movements; shortage (out) → Dr wastage/Cr
-	// persediaan + wastage_log; overage (in) → Dr persediaan/Cr wastage (koreksi).
-	// Tanpa sisi overage, opname lebih menaikkan stok fisik tapi GL diam → drift.
-	let wastageLogged = 0;
-	try {
-		const { data: movements } = await supabase
-			.from("stock_movements")
-			.select("id, item_id, quantity, direction")
-			.eq("source", "stock_take")
-			.eq("source_id", stockTakeId)
-			.in("direction", ["out", "in"]);
-
-		for (const m of (movements ?? []) as Array<{
-			id: string;
-			item_id: string;
-			quantity: number | string;
-			direction: "in" | "out";
-		}>) {
-			const result =
-				m.direction === "out"
-					? await recordOpnameShortageWastage(supabase, {
-							item_id: m.item_id,
-							qty_base: Number(m.quantity),
-							stock_take_id: stockTakeId,
-							stock_movement_id: m.id,
-							reported_by: me.profile.id,
-						})
-					: await recordOpnameOverageGain(supabase, {
-							item_id: m.item_id,
-							qty_base: Number(m.quantity),
-							stock_take_id: stockTakeId,
-							stock_movement_id: m.id,
-							reported_by: me.profile.id,
-						});
-			if (result.ok) wastageLogged++;
-		}
-	} catch (e) {
-		console.error("[stock-takes] auto opname journaling failed:", e);
-	}
+	const result = (data ?? {}) as { movements?: number; journals?: number };
 
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/stock-take");
 	revalidatePath(`/warehouse/stock-take/${stockTakeId}`);
 	revalidatePath("/warehouse/wastage");
-	return { ok: true, movements: Number(data ?? 0), wastageLogged };
+	revalidatePath("/finance");
+	return {
+		ok: true,
+		movements: Number(result.movements ?? 0),
+		journals: Number(result.journals ?? 0),
+	};
 }
 
 export async function cancelStockTake(

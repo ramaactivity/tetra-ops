@@ -15,6 +15,10 @@ export interface StockOpnameRow {
 	counted_breakdown: Bundle[] | null;
 	variance: number | null;
 	notes: string | null;
+	/** true = owner "anggap sesuai sistem" (bukan hitung manual). */
+	is_match: boolean;
+	/** Snapshot avg cost saat commit — null selama draft. */
+	unit_cost: number | null;
 	item: {
 		id: string;
 		sku: string;
@@ -37,9 +41,14 @@ const FILTER_TABS: ReadonlyArray<{ key: FilterKey; label: string }> = [
 	{ key: "ok", label: "Sesuai" },
 ];
 
+// Enum item_category di-rename 2026-05-26 (consumable→inventory,
+// equipment→fixed_asset) — label lama sempat tidak ter-map sehingga owner
+// melihat "FIXED_ASSET" mentah. Entri legacy dipertahankan untuk opname lama.
 const CATEGORY_LABEL: Record<string, string> = {
-	consumable: "Consumables",
-	equipment: "Equipment",
+	inventory: "Stok Bahan",
+	fixed_asset: "Peralatan (opname lama)",
+	consumable: "Stok Bahan",
+	equipment: "Peralatan (opname lama)",
 	other: "Lainnya",
 };
 

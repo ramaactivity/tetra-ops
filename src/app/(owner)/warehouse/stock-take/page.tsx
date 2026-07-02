@@ -29,9 +29,9 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-	draft: "Draft",
-	committed: "Committed",
-	cancelled: "Cancelled",
+	draft: "Sedang Dihitung",
+	committed: "Selesai",
+	cancelled: "Dibatalkan",
 };
 
 type FilterKey = "active" | "all" | "committed" | "cancelled";
@@ -55,7 +55,9 @@ export default async function StockTakeListPage({
 		: "active";
 
 	const supabase = await createClient();
-	let query = supabase
+	// Satu query untuk list + KPI sekaligus (dulu dua query, yang kedua tanpa
+	// limit hanya demi 3 angka KPI).
+	const { data: takes } = await supabase
 		.from("stock_takes")
 		.select(
 			`id, taken_at, notes, status, committed_at,
@@ -64,12 +66,6 @@ export default async function StockTakeListPage({
 		)
 		.order("taken_at", { ascending: false })
 		.limit(100);
-
-	if (filter === "active") query = query.eq("status", "draft");
-	else if (filter === "committed") query = query.eq("status", "committed");
-	else if (filter === "cancelled") query = query.eq("status", "cancelled");
-
-	const { data: takes } = await query;
 
 	type RawTake = {
 		id: string;
@@ -88,7 +84,7 @@ export default async function StockTakeListPage({
 		}> | null;
 	};
 
-	const rows = ((takes ?? []) as RawTake[]).map((t) => {
+	const allRows = ((takes ?? []) as RawTake[]).map((t) => {
 		const u = Array.isArray(t.taken_by_user)
 			? t.taken_by_user[0]
 			: t.taken_by_user;
@@ -110,30 +106,26 @@ export default async function StockTakeListPage({
 		};
 	});
 
-	// KPI counters across the full set (not filtered, so user always sees real stats)
-	const { data: allTakes } = await supabase
-		.from("stock_takes")
-		.select(
-			"status, committed_at, lines:stock_take_lines(variance, counted_qty)",
-		)
-		.order("taken_at", { ascending: false });
+	const rows =
+		filter === "all"
+			? allRows
+			: allRows.filter((r) =>
+					filter === "active" ? r.status === "draft" : r.status === filter,
+				);
 
-	const allRows = (allTakes ?? []) as RawTake[];
 	const draftCount = allRows.filter((t) => t.status === "draft").length;
-	const committedCount = allRows.filter((t) => t.status === "committed").length;
-	const totalAdjustments = allRows
-		.filter((t) => t.status === "committed")
-		.reduce((sum, t) => {
-			const v = (t.lines ?? []).filter(
-				(l) => l.counted_qty !== null && Number(l.variance ?? 0) !== 0,
-			).length;
-			return sum + v;
-		}, 0);
+	const lastCommitted = allRows.find((t) => t.status === "committed");
+	const daysSinceLast = lastCommitted?.committed_at
+		? Math.floor(
+				(Date.now() - new Date(lastCommitted.committed_at).getTime()) /
+					86_400_000,
+			)
+		: null;
 
 	const counts = {
 		active: draftCount,
 		all: allRows.length,
-		committed: committedCount,
+		committed: allRows.filter((t) => t.status === "committed").length,
 		cancelled: allRows.filter((t) => t.status === "cancelled").length,
 	};
 
@@ -141,33 +133,57 @@ export default async function StockTakeListPage({
 		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Stock Opname"
-				description="Audit fisik inventory. Owner walk warehouse, isi hitung fisik per item, lalu commit — sistem auto-create adjustment movement buat tiap selisih."
+				description="Hitung stok fisik di gudang dan cocokkan dengan catatan sistem. Kalau ada yang beda, stok otomatis disesuaikan mengikuti hitunganmu."
 				actions={<NewStockTakeButton />}
 			/>
 
 			<KpiRow className="lg:grid-cols-3">
 				<KpiCard
-					label="Draft Aktif"
+					label="Opname Terakhir"
+					value={
+						daysSinceLast === null
+							? "Belum pernah"
+							: daysSinceLast === 0
+								? "Hari ini"
+								: `${daysSinceLast} hari lalu`
+					}
+					hint={
+						daysSinceLast !== null && daysSinceLast > 30
+							? "sudah lewat sebulan — saatnya opname lagi"
+							: daysSinceLast === null
+								? "idealnya sebulan sekali"
+								: `selesai ${formatDateID(lastCommitted?.committed_at ?? "")}`
+					}
+					icon={CheckCircle2}
+					accent={
+						daysSinceLast === null || daysSinceLast > 30 ? "amber" : "emerald"
+					}
+				/>
+				<KpiCard
+					label="Sedang Berjalan"
 					value={draftCount.toLocaleString("id-ID")}
 					hint={
 						draftCount === 0
-							? "tidak ada audit berjalan"
-							: "audit belum di-commit"
+							? "tidak ada hitungan yang menggantung"
+							: "lanjutkan dan selesaikan"
 					}
 					icon={Pencil}
 					accent={draftCount > 0 ? "amber" : "default"}
 				/>
 				<KpiCard
-					label="Total Committed"
-					value={committedCount.toLocaleString("id-ID")}
-					hint="audit yang sudah jadi adjustment"
-					icon={CheckCircle2}
-					accent="emerald"
-				/>
-				<KpiCard
-					label="Total Adjustments"
-					value={totalAdjustments.toLocaleString("id-ID")}
-					hint="stock movements dari opname"
+					label="Selisih Terakhir"
+					value={
+						lastCommitted
+							? `${lastCommitted.variance_lines.toLocaleString("id-ID")} item`
+							: "—"
+					}
+					hint={
+						lastCommitted
+							? lastCommitted.variance_lines === 0
+								? "semua cocok di opname terakhir"
+								: "item yang jumlah fisiknya beda"
+							: "belum ada opname selesai"
+					}
 					icon={ListChecks}
 				/>
 			</KpiRow>
@@ -179,14 +195,14 @@ export default async function StockTakeListPage({
 					icon={ClipboardCheck}
 					title={
 						filter === "active"
-							? "Tidak ada draft aktif"
+							? "Tidak ada opname yang sedang berjalan"
 							: filter === "committed"
-								? "Belum ada opname yang committed"
+								? "Belum ada opname yang selesai"
 								: filter === "cancelled"
-									? "Tidak ada opname yang cancelled"
-									: "Belum ada stock opname"
+									? "Tidak ada opname yang dibatalkan"
+									: "Belum pernah stock opname"
 					}
-					description="Klik Mulai Opname untuk audit fisik. Sistem akan seed semua SKU aktif — owner tinggal isi hitung fisik per item."
+					description="Klik Mulai Opname, lalu hitung jumlah fisik tiap barang di gudang. Riwayat yang sudah selesai bisa dilihat di tab Semua."
 				/>
 			) : (
 				<>
@@ -199,7 +215,7 @@ export default async function StockTakeListPage({
 										Tanggal
 									</th>
 									<th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-										By
+										Oleh
 									</th>
 									<th className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										Progress
@@ -271,7 +287,7 @@ export default async function StockTakeListPage({
 													href={`/warehouse/stock-take/${r.id}`}
 													className="press-down inline-flex items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 py-1 text-fluid-caption font-medium hover:bg-surface-3"
 												>
-													{r.status === "draft" ? "Edit" : "View"}
+													{r.status === "draft" ? "Lanjutkan" : "Lihat"}
 													<ChevronRight className="size-3.5" />
 												</Link>
 												{r.status === "cancelled" && (
