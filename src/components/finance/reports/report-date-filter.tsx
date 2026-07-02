@@ -61,16 +61,24 @@ export function ReportDateFilter({
 		router.push(`${pathname}${qs ? `?${qs}` : ""}`);
 	}
 
+	// Gaya filter-toolbar global: kontrol h-8 pill (rounded-full) text-[13px].
+	// Tanpa wrapper card sendiri — komponen ini di-embed di body toolbar card
+	// halaman Laporan (header judul + hairline di atasnya).
+	const inputCls =
+		"h-8 rounded-full border border-border-default bg-card px-3 text-[13px] tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40";
+	const buttonCls =
+		"press-down inline-flex h-8 items-center rounded-full border border-border-default bg-card px-3 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground";
+
 	if (mode === "as-of") {
 		return (
-			<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-card p-2 text-fluid-caption">
+			<div className="flex flex-wrap items-center gap-2 text-fluid-caption">
 				<Calendar className="size-3.5 text-muted-foreground" />
 				<span className="text-muted-foreground">Per tanggal:</span>
 				<input
 					type="date"
 					defaultValue={defaultAsOf ?? ""}
 					onChange={(e) => update("asOf", e.target.value)}
-					className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+					className={inputCls}
 				/>
 				<span className="text-[11px] text-muted-foreground">
 					Saldo akumulatif sampai tanggal ini
@@ -79,7 +87,7 @@ export function ReportDateFilter({
 					<button
 						type="button"
 						onClick={clear}
-						className="press-down ml-auto inline-flex h-8 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+						className={`${buttonCls} ml-auto`}
 					>
 						Reset
 					</button>
@@ -89,51 +97,47 @@ export function ReportDateFilter({
 	}
 
 	return (
-		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-card p-2 text-fluid-caption">
+		<div className="flex flex-wrap items-center gap-2 text-fluid-caption">
 			<Calendar className="size-3.5 text-muted-foreground" />
 			<span className="text-muted-foreground">Periode:</span>
 			<input
 				type="date"
 				defaultValue={defaultFrom ?? ""}
 				onChange={(e) => update("from", e.target.value)}
-				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+				className={inputCls}
 			/>
 			<span className="text-muted-foreground">→</span>
 			<input
 				type="date"
 				defaultValue={defaultTo ?? ""}
 				onChange={(e) => update("to", e.target.value)}
-				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+				className={inputCls}
 			/>
-			<div className="ml-2 flex items-center gap-1">
+			<div className="ml-2 flex items-center gap-1.5">
 				<button
 					type="button"
 					onClick={() => setPreset("month")}
-					className="press-down inline-flex h-8 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+					className={buttonCls}
 				>
 					Bulan ini
 				</button>
 				<button
 					type="button"
 					onClick={() => setPreset("ytd")}
-					className="press-down inline-flex h-8 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+					className={buttonCls}
 				>
 					YTD
 				</button>
 				<button
 					type="button"
 					onClick={() => setPreset("all")}
-					className="press-down inline-flex h-8 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+					className={buttonCls}
 				>
 					Semua
 				</button>
 			</div>
 			{hasFilter && (
-				<button
-					type="button"
-					onClick={clear}
-					className="press-down inline-flex h-8 items-center rounded-md border border-border-default bg-surface-1 px-2 text-[11px] font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-				>
+				<button type="button" onClick={clear} className={buttonCls}>
 					Reset
 				</button>
 			)}

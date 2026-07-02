@@ -164,52 +164,58 @@ export default async function FinanceReportsPage({
 		.reduce((s, a) => s + a.balance, 0);
 	const retainedEarnings = revenueTotal - expenseTotal;
 
+	// Judul + penjelasan per report — dirender sebagai header card toolbar,
+	// bukan teks mengambang di atas card (konsep bento).
+	const reportMeta: Record<
+		Tab,
+		{ title: string; hintTitle: string; hint: string; desc: string }
+	> = {
+		trial: {
+			title: "Neraca Saldo",
+			hintTitle: "Neraca Saldo (Trial Balance)",
+			hint: "Daftar semua akun + saldonya. Total Debit harus sama dengan total Kredit — bukti pembukuan seimbang & tak ada salah catat.",
+			desc: "Pengecekan keseimbangan pembukuan",
+		},
+		pnl: {
+			title: "Laba / Rugi",
+			hintTitle: "Laba / Rugi",
+			hint: "Pendapatan dikurangi semua biaya (bahan, fee crew, operasional) = untung atau rugi pada periode ini.",
+			desc: "Untung/rugi periode terpilih",
+		},
+		neraca: {
+			title: "Neraca",
+			hintTitle: "Neraca (Balance Sheet)",
+			hint: "Potret posisi keuangan pada satu tanggal: yang dimiliki (aset) = yang masih harus dibayar (kewajiban) + milik owner (modal).",
+			desc: "Posisi keuangan pada tanggal tertentu",
+		},
+	};
+	const meta = reportMeta[tab];
+
 	return (
 		<Container size="xl" className="space-y-3">
+			{/* Tab switcher teleport ke topbar (slot #topbar-actions) */}
 			<SectionHeader
 				title="Laporan Keuangan"
-				description="Neraca Saldo · Laba/Rugi · Neraca. Computed dari journal_lines — entry yang di-reverse & jurnal pembaliknya saling meniadakan (net nol)."
+				actions={<ReportsTabs current={tab} />}
 			/>
 
-			<ReportsTabs current={tab} />
-
-			<p className="flex items-center gap-1 px-1 text-[12.5px] text-muted-foreground">
-				{tab === "trial" ? (
-					<>
-						Neraca Saldo
-						<InfoHint title="Neraca Saldo (Trial Balance)">
-							Daftar semua akun + saldonya. Total Debit harus sama dengan total
-							Kredit — bukti pembukuan seimbang & tak ada salah catat.
-						</InfoHint>
-						— pengecekan keseimbangan pembukuan.
-					</>
-				) : tab === "pnl" ? (
-					<>
-						Laba / Rugi
-						<InfoHint title="Laba / Rugi">
-							Pendapatan dikurangi semua biaya (bahan, fee crew, operasional) =
-							untung atau rugi pada periode ini.
-						</InfoHint>
-						— untung/rugi periode terpilih.
-					</>
-				) : (
-					<>
-						Neraca
-						<InfoHint title="Neraca (Balance Sheet)">
-							Potret posisi keuangan pada satu tanggal: yang dimiliki (aset) =
-							yang masih harus dibayar (kewajiban) + milik owner (modal).
-						</InfoHint>
-						— posisi keuangan pada tanggal tertentu.
-					</>
-				)}
-			</p>
-
-			<ReportDateFilter
-				mode={tab === "neraca" ? "as-of" : "range"}
-				defaultFrom={from}
-				defaultTo={to}
-				defaultAsOf={asOf}
-			/>
+			<section className="border-border-subtle bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+				<div className="border-border-subtle flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b px-4 py-2.5">
+					<h2 className="font-heading flex min-w-0 items-center gap-1 text-[15px] font-semibold tracking-tight">
+						<span className="truncate">{meta.title}</span>
+						<InfoHint title={meta.hintTitle}>{meta.hint}</InfoHint>
+					</h2>
+					<span className="text-muted-foreground text-xs">{meta.desc}</span>
+				</div>
+				<div className="px-4 py-3">
+					<ReportDateFilter
+						mode={tab === "neraca" ? "as-of" : "range"}
+						defaultFrom={from}
+						defaultTo={to}
+						defaultAsOf={asOf}
+					/>
+				</div>
+			</section>
 
 			{tab === "trial" && (
 				<TrialBalanceTable rows={trialAggregates} from={from} to={to} />

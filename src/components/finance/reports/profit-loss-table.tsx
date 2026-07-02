@@ -45,7 +45,7 @@ export function ProfitLossTable({
 	const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-3">
 			{/* Top summary */}
 			<div className="grid gap-3 lg:grid-cols-3">
 				<MetricCard
@@ -69,7 +69,7 @@ export function ProfitLossTable({
 			</div>
 
 			{/* P&L table */}
-			<div className="overflow-hidden rounded-lg border border-border-default bg-card">
+			<div className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 				<table className="w-full text-sm">
 					<tbody className="divide-y divide-border-default/50">
 						{/* Revenue */}
@@ -148,7 +148,7 @@ function MetricCard({
 			? "text-emerald-700 dark:text-emerald-300"
 			: "text-rose-700 dark:text-rose-300";
 	return (
-		<div className={`rounded-lg border p-3 ${cls}`}>
+		<div className={`rounded-[16px] border p-4 ${cls}`}>
 			<div className={`text-[11px] uppercase tracking-wider ${labelTone}`}>
 				{label}
 			</div>

@@ -76,9 +76,9 @@ export function TrialBalanceTable({
 	}
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-3">
 			{/* Summary */}
-			<div className="grid gap-3 rounded-lg border border-border-default bg-card p-4 text-fluid-caption lg:grid-cols-3">
+			<div className="grid gap-3 rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)] p-4 text-fluid-caption lg:grid-cols-3">
 				<div>
 					<div className="text-[11px] uppercase tracking-wider text-muted-foreground">
 						Total Debit
@@ -123,7 +123,7 @@ export function TrialBalanceTable({
 				return (
 					<section
 						key={type}
-						className="overflow-hidden rounded-lg border border-border-default bg-card"
+						className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]"
 					>
 						<header className="flex items-center justify-between border-b border-border-default bg-surface-3/40 px-5 py-2">
 							<div className="flex items-center gap-2">

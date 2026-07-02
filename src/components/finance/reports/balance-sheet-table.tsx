@@ -27,8 +27,8 @@ export function BalanceSheetTable({
 	const isBalanced = Math.abs(diff) < 1;
 
 	return (
-		<div className="space-y-4">
-			<div className="rounded-lg border border-border-default bg-card px-5 py-3 text-fluid-caption">
+		<div className="space-y-3">
+			<div className="rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)] px-5 py-3 text-fluid-caption">
 				<span className="font-medium text-foreground">Snapshot per:</span>{" "}
 				<span className="tabular">{formatDateID(asOf)}</span> · saldo akumulatif
 				dari awal sampai tanggal ini.
@@ -57,9 +57,9 @@ export function BalanceSheetTable({
 			</div>
 
 			{/* Two-column layout: Assets | Liabilities + Equity */}
-			<div className="grid gap-4 lg:grid-cols-2">
+			<div className="grid gap-3 lg:grid-cols-2">
 				{/* ASET */}
-				<section className="overflow-hidden rounded-lg border border-border-default bg-card">
+				<section className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 					<header className="border-b border-border-default bg-emerald-500/10 px-5 py-2">
 						<Badge
 							variant="outline"
@@ -95,7 +95,7 @@ export function BalanceSheetTable({
 				</section>
 
 				{/* KEWAJIBAN + EKUITAS */}
-				<section className="overflow-hidden rounded-lg border border-border-default bg-card">
+				<section className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 					<header className="border-b border-border-default bg-sky-500/10 px-5 py-2">
 						<div className="flex items-center gap-2">
 							<Badge
@@ -233,7 +233,7 @@ function SummaryCard({
 				? "text-sky-700 dark:text-sky-300"
 				: "text-rose-700 dark:text-rose-300";
 	return (
-		<div className={`rounded-lg border p-3 ${cls}`}>
+		<div className={`rounded-[16px] border p-4 ${cls}`}>
 			<div className={`text-[11px] uppercase tracking-wider ${labelTone}`}>
 				{label}
 			</div>
