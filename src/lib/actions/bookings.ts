@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
 import { createClient } from "@/lib/supabase/server";
+import { notifyTelegramBookingCreated } from "@/lib/telegram/notify";
 
 const CHANNELS = ["direct", "vendor", "relasi"] as const;
 const SERVICE_TYPES = [
@@ -584,7 +585,10 @@ export async function createBooking(
 	// a same-day booking "in_progress", a back-dated one "awaiting_settlement".
 	// The daily status-transition cron keeps it in sync afterwards.
 	const todayISO = new Date().toISOString().slice(0, 10);
-	const initialStatus = computeLifecycleStatus(parsed.data.event_date, todayISO);
+	const initialStatus = computeLifecycleStatus(
+		parsed.data.event_date,
+		todayISO,
+	);
 
 	// Resolve vendor master FK — upsert contacts(type='vendor') if user
 	// typed a new vendor name in the free-text combobox. No-op for
@@ -673,6 +677,11 @@ export async function createBooking(
 		} catch {
 			// silent — folder can be created manually from event detail
 		}
+	}
+
+	// Best-effort: kabari grup Telegram owner ada booking baru.
+	if (inserted?.id) {
+		await notifyTelegramBookingCreated(inserted.id as string);
 	}
 
 	revalidatePath("/operations");

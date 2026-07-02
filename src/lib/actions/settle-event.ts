@@ -6,6 +6,7 @@ import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import { notifyTelegramEventSettled } from "@/lib/telegram/notify";
 
 export type SettleEventResult = {
 	settlement_id: string;
@@ -119,6 +120,16 @@ export async function settleEvent(
 
 	// Thank the assigned crew that the event is closed (best-effort).
 	await notifyEventSettled(eventId, projectId);
+
+	// Kabari grup Telegram owner lengkap dengan angka (grup owner-only,
+	// crew tidak di dalamnya — financials aman).
+	const settled = data as SettleEventResult;
+	await notifyTelegramEventSettled(eventId, projectId, {
+		revenue_net: settled.revenue_net,
+		net_profit: settled.net_profit,
+		margin_pct: settled.margin_pct,
+		is_loss: settled.is_loss,
+	});
 
 	return { ok: true, data: data as SettleEventResult, crewPayment };
 }

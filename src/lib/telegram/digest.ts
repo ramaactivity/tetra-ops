@@ -110,13 +110,13 @@ const BULAN_FULL = [
 	"Desember",
 ];
 
-function dateLabel(iso: string, full = false): string {
+export function dateLabel(iso: string, full = false): string {
 	const d = new Date(`${iso}T00:00:00Z`);
 	const hari = (full ? HARI_FULL : HARI)[d.getUTCDay()];
 	return `${hari} ${d.getUTCDate()} ${BULAN[d.getUTCMonth()]}`;
 }
 
-function rp(n: number): string {
+export function rp(n: number): string {
 	return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 }
 
@@ -138,6 +138,8 @@ type GatheredData = {
 	crewByEvent: Map<string, string[]>; // "Lead: Farhan"
 	doubleBooked: string[]; // "Farhan: Anita + Naya (5 Jul)"
 	stockLines: string[]; // sudah diformat, 🚨/⚠️ prefix
+	rutinLines: string[]; // opname / cek alat overdue
+	renewalLines: string[]; // langganan VPS/hosting mendekati jatuh tempo
 };
 
 async function gatherData(
@@ -199,7 +201,8 @@ async function gatherData(
 		}
 	}
 
-	// Stok: habis (🚨) + forecast kekurangan utk event mendatang (⚠️)
+	// Stok, urutan prioritas per item: habis (🚨) → kurang utk event mendatang
+	// (⚠️ forecast) → di bawah minimum (⚠️ low). Satu baris per item.
 	const stockLines: string[] = [];
 	const covered = new Set<string>();
 	const { data: items } = await admin
@@ -213,16 +216,17 @@ async function gatherData(
 		name: string;
 		min_stock_alert: number;
 	}>;
+	const stockMap = new Map<string, number>();
 	if (itemRows.length > 0) {
 		const { data: levels } = await admin.rpc("get_stock_levels", {
 			p_item_ids: itemRows.map((i) => i.id),
 		});
-		const stockMap = new Map(
-			((levels ?? []) as Array<{ item_id: string; stock: number }>).map((r) => [
-				r.item_id,
-				Number(r.stock),
-			]),
-		);
+		for (const r of (levels ?? []) as Array<{
+			item_id: string;
+			stock: number;
+		}>) {
+			stockMap.set(r.item_id, Number(r.stock));
+		}
 		for (const item of itemRows) {
 			if ((stockMap.get(item.id) ?? 0) === 0) {
 				stockLines.push(`🚨 ${tgEscape(item.name)} HABIS — restock segera`);
@@ -238,13 +242,141 @@ async function gatherData(
 				stockLines.push(
 					`⚠️ ${tgEscape(r.name)}: stok ${Math.round(r.on_hand)}, butuh ±${Math.round(r.projected_demand)} ${tgEscape(r.unit)} utk ${forecast.upcoming_count} event (kurang ${Math.round(r.shortfall)})`,
 				);
+				covered.add(r.item_id);
 			}
 		}
 	} catch {
 		// forecast opsional — jangan gagalkan digest
 	}
+	for (const item of itemRows) {
+		const cur = stockMap.get(item.id) ?? 0;
+		if (!covered.has(item.id) && cur > 0 && cur < item.min_stock_alert) {
+			stockLines.push(
+				`⚠️ ${tgEscape(item.name)}: sisa ${cur} (min ${item.min_stock_alert})`,
+			);
+		}
+	}
 
-	return { todayISO, events, crewByEvent, doubleBooked, stockLines };
+	const rutinLines = await gatherRutinLines(admin);
+	const renewalLines = await gatherRenewalLines(admin, todayISO);
+
+	return {
+		todayISO,
+		events,
+		crewByEvent,
+		doubleBooked,
+		stockLines,
+		rutinLines,
+		renewalLines,
+	};
+}
+
+// ── Rutinitas gudang: stock opname & cek alat ────────────────────────────
+
+const OPNAME_OVERDUE_DAYS = 30;
+
+async function gatherRutinLines(
+	admin: ReturnType<typeof createAdminClient>,
+): Promise<string[]> {
+	const lines: string[] = [];
+	try {
+		const { data } = await admin
+			.from("stock_takes")
+			.select("committed_at")
+			.eq("status", "committed")
+			.order("committed_at", { ascending: false })
+			.limit(1);
+		const lastMs = data?.[0]?.committed_at
+			? new Date(data[0].committed_at as string).getTime()
+			: null;
+		const daysAgo =
+			lastMs !== null ? Math.floor((Date.now() - lastMs) / 86400000) : null;
+		if (daysAgo === null || daysAgo >= OPNAME_OVERDUE_DAYS) {
+			lines.push(
+				`🧮 Stock opname terakhir ${daysAgo === null ? "belum pernah" : `${daysAgo} hari lalu`} — jadwalkan hitung fisik stok`,
+			);
+		}
+	} catch {
+		// tabel/aksesnya bermasalah → jangan gagalkan digest
+	}
+	try {
+		const { data } = await admin
+			.from("asset_checks")
+			.select("committed_at")
+			.eq("status", "committed")
+			.order("committed_at", { ascending: false })
+			.limit(1);
+		const lastMs = data?.[0]?.committed_at
+			? new Date(data[0].committed_at as string).getTime()
+			: null;
+		const daysAgo =
+			lastMs !== null ? Math.floor((Date.now() - lastMs) / 86400000) : null;
+		if (daysAgo === null || daysAgo >= OPNAME_OVERDUE_DAYS) {
+			lines.push(
+				`🔧 Cek alat terakhir ${daysAgo === null ? "belum pernah" : `${daysAgo} hari lalu`} — cek kondisi & kelengkapan alat`,
+			);
+		}
+	} catch {
+		// tabel asset_checks belum ada → skip
+	}
+	return lines;
+}
+
+// ── Langganan (VPS, hosting) — telegram_renewals ─────────────────────────
+// Diingatkan H-7 / H-3 / H-1 / hari-H. Lewat jatuh tempo → next_due digeser
+// otomatis ke periode berikutnya (monthly/yearly).
+
+const RENEWAL_REMIND_DAYS = new Set([7, 3, 1, 0]);
+
+function advanceDue(dueISO: string, cycle: string, todayISO: string): string {
+	const d = new Date(`${dueISO}T00:00:00Z`);
+	const today = new Date(`${todayISO}T00:00:00Z`);
+	while (d < today) {
+		if (cycle === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
+		else d.setUTCMonth(d.getUTCMonth() + 1);
+	}
+	return isoDateUTC(d);
+}
+
+async function gatherRenewalLines(
+	admin: ReturnType<typeof createAdminClient>,
+	todayISO: string,
+): Promise<string[]> {
+	const lines: string[] = [];
+	try {
+		const { data } = await admin
+			.from("telegram_renewals")
+			.select("id, name, next_due, cycle")
+			.eq("is_enabled", true)
+			.not("next_due", "is", null);
+		for (const r of (data ?? []) as Array<{
+			id: string;
+			name: string;
+			next_due: string;
+			cycle: string;
+		}>) {
+			let due = r.next_due;
+			if (due < todayISO) {
+				// sudah lewat → roll ke periode berikutnya, simpan balik
+				due = advanceDue(due, r.cycle, todayISO);
+				await admin
+					.from("telegram_renewals")
+					.update({ next_due: due, updated_at: new Date().toISOString() })
+					.eq("id", r.id);
+			}
+			const days = daysUntil(todayISO, due);
+			if (RENEWAL_REMIND_DAYS.has(days)) {
+				lines.push(
+					days === 0
+						? `🚨 ${tgEscape(r.name)} jatuh tempo HARI INI — perpanjang sekarang`
+						: `🔔 ${tgEscape(r.name)} jatuh tempo ${days} hari lagi (${dateLabel(due)})`,
+				);
+			}
+		}
+	} catch {
+		// tabel belum ada / error → skip
+	}
+	return lines;
 }
 
 // ── Issue derivation per event ───────────────────────────────────────────
@@ -318,7 +450,15 @@ function deriveIssues(
 // ── Composers ────────────────────────────────────────────────────────────
 
 export function composeDigest(data: GatheredData): string | null {
-	const { todayISO, events, crewByEvent, doubleBooked, stockLines } = data;
+	const {
+		todayISO,
+		events,
+		crewByEvent,
+		doubleBooked,
+		stockLines,
+		rutinLines,
+		renewalLines,
+	} = data;
 
 	const allCritical: string[] = [
 		...doubleBooked.map((d) => `double-booked — ${tgEscape(d)}`),
@@ -359,8 +499,12 @@ export function composeDigest(data: GatheredData): string | null {
 
 	const noEventIssues = eventBlocks.length === 0;
 	const nothingToSay =
-		events.length === 0 && stockLines.length === 0 && allCritical.length === 0;
-	if (nothingToSay) return null; // tidak ada event & stok aman → diam
+		events.length === 0 &&
+		stockLines.length === 0 &&
+		allCritical.length === 0 &&
+		rutinLines.length === 0 &&
+		renewalLines.length === 0;
+	if (nothingToSay) return null; // tidak ada event, stok aman, rutinitas beres → diam
 
 	const parts: string[] = [
 		`📋 <b>TETRA OPS — ${dateLabel(todayISO, true)}</b>`,
@@ -389,6 +533,18 @@ export function composeDigest(data: GatheredData): string | null {
 	if (stockLines.length > 0) {
 		parts.push(
 			`\n📦 <b>Stok</b>\n${stockLines.map((s) => `      • ${s}`).join("\n")}`,
+		);
+	}
+
+	if (rutinLines.length > 0) {
+		parts.push(
+			`\n🧰 <b>Rutinitas</b>\n${rutinLines.map((s) => `      • ${s}`).join("\n")}`,
+		);
+	}
+
+	if (renewalLines.length > 0) {
+		parts.push(
+			`\n🔔 <b>Langganan</b>\n${renewalLines.map((s) => `      • ${s}`).join("\n")}`,
 		);
 	}
 
@@ -510,6 +666,90 @@ const MONTHLY_ITEMS = [
 	"💸 Withdraw / transfer bagi hasil owner bulan lalu",
 ];
 
+/** Rekap bisnis bulan LALU — dikirim tanggal 1 bersama reminder bulanan. */
+async function composeMonthlyBusinessRecap(
+	admin: ReturnType<typeof createAdminClient>,
+	todayISO: string,
+): Promise<string | null> {
+	if (!todayISO.endsWith("-01")) return null;
+	const d = new Date(`${todayISO}T00:00:00Z`);
+	d.setUTCMonth(d.getUTCMonth() - 1);
+	const startISO = isoDateUTC(d); // tanggal 1 bulan lalu
+	const bulan = `${BULAN_FULL[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+
+	const lines: string[] = [`📊 <b>REKAP BISNIS — ${bulan.toUpperCase()}</b>`];
+
+	const { count: eventCount } = await admin
+		.from("events")
+		.select("id", { count: "exact", head: true })
+		.gte("event_date", startISO)
+		.lt("event_date", todayISO)
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false)
+		.neq("status", "cancelled");
+	lines.push(`🎪 Event terlaksana: ${eventCount ?? 0}`);
+
+	const { data: settlements } = await admin
+		.from("event_settlements")
+		.select("net_profit, revenue_net, is_loss")
+		.eq("is_reopened", false)
+		.gte("closed_at", `${startISO}T00:00:00+07:00`)
+		.lt("closed_at", `${todayISO}T00:00:00+07:00`);
+	const st = (settlements ?? []) as Array<{
+		net_profit: number;
+		revenue_net: number;
+		is_loss: boolean;
+	}>;
+	if (st.length > 0) {
+		const revenue = st.reduce((s, r) => s + Number(r.revenue_net ?? 0), 0);
+		const profit = st.reduce((s, r) => s + Number(r.net_profit ?? 0), 0);
+		const losses = st.filter((r) => r.is_loss).length;
+		const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
+		lines.push(
+			`🧾 Settled: ${st.length} event${losses > 0 ? ` (🚨 ${losses} rugi)` : ""}`,
+			`📈 Omzet settled: ${rp(revenue)}`,
+			`💰 Profit bersih: ${rp(profit)} (margin ${margin}%)`,
+		);
+	} else {
+		lines.push("🧾 Belum ada event yang settled bulan lalu");
+	}
+
+	const { data: pays } = await admin
+		.from("payments")
+		.select("amount")
+		.eq("is_reversed", false)
+		.gte("payment_date", startISO)
+		.lt("payment_date", todayISO);
+	const cashIn = ((pays ?? []) as Array<{ amount: number }>).reduce(
+		(s, p) => s + Number(p.amount ?? 0),
+		0,
+	);
+	lines.push(`💵 Uang masuk (semua pembayaran): ${rp(cashIn)}`);
+
+	try {
+		const { count: leadsTotal } = await admin
+			.from("whatsapp_bot_leads")
+			.select("id", { count: "exact", head: true })
+			.gte("received_at", `${startISO}T00:00:00+07:00`)
+			.lt("received_at", `${todayISO}T00:00:00+07:00`);
+		const { count: leadsConverted } = await admin
+			.from("whatsapp_bot_leads")
+			.select("id", { count: "exact", head: true })
+			.eq("status", "converted")
+			.gte("received_at", `${startISO}T00:00:00+07:00`)
+			.lt("received_at", `${todayISO}T00:00:00+07:00`);
+		lines.push(
+			`📞 Leads WA bot: ${leadsTotal ?? 0} masuk · ${leadsConverted ?? 0} closing`,
+		);
+	} catch {
+		// modul leads opsional
+	}
+
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	if (appUrl) lines.push(`\nDetail: ${appUrl}/finance`);
+	return lines.join("\n");
+}
+
 function composeMonthlyReminder(todayISO: string): string | null {
 	if (!todayISO.endsWith("-01")) return null;
 	const d = new Date(`${todayISO}T00:00:00Z`);
@@ -629,6 +869,27 @@ export async function runTelegramDigestInternal(opts?: {
 	} catch (err) {
 		result.errors.push(
 			`monthly: ${err instanceof Error ? err.message : "unknown"}`,
+		);
+	}
+
+	// 2b. Rekap bisnis bulan lalu — juga tanggal 1
+	try {
+		const recap = await composeMonthlyBusinessRecap(admin, data.todayISO);
+		if (recap) {
+			const d = new Date(`${data.todayISO}T00:00:00Z`);
+			d.setUTCMonth(d.getUTCMonth() - 1);
+			const prevKey = isoDateUTC(d).slice(0, 7); // YYYY-MM bulan lalu
+			if (opts?.force || (await claimSend(admin, "monthly_recap", prevKey))) {
+				const res = await sendTelegramMessage(chatId, recap);
+				if (res.ok) result.sent.push("monthly_recap");
+				else result.errors.push(`monthly_recap: ${res.error}`);
+			} else {
+				result.skipped.push("monthly_recap: sudah terkirim");
+			}
+		}
+	} catch (err) {
+		result.errors.push(
+			`monthly_recap: ${err instanceof Error ? err.message : "unknown"}`,
 		);
 	}
 

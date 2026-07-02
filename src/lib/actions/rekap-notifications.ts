@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyTelegramRekapSubmitted } from "@/lib/telegram/notify";
 
 /**
  * Event-driven rekap notifications — closes the comms loop the crew success
@@ -103,6 +104,7 @@ export async function notifyRekapSubmitted(
 			entity_id: eventId,
 			action_url: `/operations/${projectId}/rekap`,
 		});
+		await notifyTelegramRekapSubmitted(eventId, projectId, submittedByName);
 	} catch (e) {
 		console.error("[rekap-notifications] notifyRekapSubmitted:", e);
 	}
