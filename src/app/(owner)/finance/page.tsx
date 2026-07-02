@@ -11,6 +11,7 @@ import {
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
+import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
 import {
 	type Owner,
@@ -543,53 +544,66 @@ export default async function FinancePage({
 				/>
 			</KpiRow>
 
-			<section className="space-y-3">
-				<div className="flex items-baseline justify-between px-5">
-					<h2 className="text-base font-semibold tracking-tight">
-						Profit breakdown · {monthLabel}
-					</h2>
+			<SectionCard
+				title={
+					<>
+						Profit breakdown
+						<span className="text-muted-foreground font-medium">
+							{" "}
+							· {monthLabel}
+						</span>
+					</>
+				}
+				meta={
 					<span className="text-muted-foreground tabular text-xs">
 						{settlementsMtd.length} settled event
 						{settlementsMtd.length !== 1 ? "s" : ""}
 					</span>
-				</div>
-				<div className="border-border-subtle bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
-					<dl className="divide-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5 lg:divide-y-0">
-						<BreakdownStat
-							label="Revenue net"
-							value={revenueNetMtd}
-							tone="emerald"
-							sign="+"
-						/>
-						<BreakdownStat label="HPP" value={hppMtd} tone="rose" sign="−" />
-						<BreakdownStat label="OpEx" value={opexMtd} tone="rose" sign="−" />
-						<BreakdownStat
-							label="Sinking"
-							value={sinkingMtd}
-							tone="amber"
-							sign="−"
-							hint="Disisihin"
-						/>
-						<BreakdownStat
-							label="Owner pool"
-							value={ownerPoolMtd}
-							tone="primary"
-							hint="Untuk distribusi"
-						/>
-					</dl>
-				</div>
-			</section>
+				}
+			>
+				<dl className="divide-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5 lg:divide-y-0">
+					<BreakdownStat
+						label="Revenue net"
+						value={revenueNetMtd}
+						tone="emerald"
+						sign="+"
+					/>
+					<BreakdownStat label="HPP" value={hppMtd} tone="rose" sign="−" />
+					<BreakdownStat label="OpEx" value={opexMtd} tone="rose" sign="−" />
+					<BreakdownStat
+						label="Sinking"
+						value={sinkingMtd}
+						tone="amber"
+						sign="−"
+						hint="Disisihin"
+					/>
+					<BreakdownStat
+						label="Owner pool"
+						value={ownerPoolMtd}
+						tone="primary"
+						hint="Untuk distribusi"
+					/>
+				</dl>
+			</SectionCard>
 
-			<section className="space-y-3">
-				<div className="flex items-baseline justify-between px-5">
-					<h2 className="flex items-center gap-1 text-base font-semibold tracking-tight">
-						Hutang ke crew · belum dibayar
-						<InfoHint title="Hutang ke crew">
-							Fee + reimbursement crew dari event yang sudah di-settle tapi
-							belum kamu klik "Bayar". Angka ini = saldo akun Hutang Crew
-							(2-100) di pembukuan. Klik tiap baris untuk membayar.
-						</InfoHint>
-					</h2>
+			<SectionCard
+				title={
+					<>
+						Hutang ke crew
+						<span className="text-muted-foreground font-medium">
+							{" "}
+							· belum dibayar
+						</span>
+					</>
+				}
+				titleExtra={
+					<InfoHint title="Hutang ke crew">
+						Fee + reimbursement crew dari event yang sudah di-settle tapi belum
+						kamu klik "Bayar". Angka ini = saldo akun Hutang Crew (2-100) di
+						pembukuan. Klik tiap baris untuk membayar.
+					</InfoHint>
+				}
+				meta={
 					<span
 						className={cn(
 							"tabular text-sm font-semibold",
@@ -598,9 +612,10 @@ export default async function FinancePage({
 					>
 						{formatRupiah(unpaidCrewTotal)}
 					</span>
-				</div>
+				}
+			>
 				{Math.abs(unpaidCrewTotal - hutangCrewGl) > 0 && (
-					<p className="px-5 text-[11px] text-rose-600 dark:text-rose-400">
+					<p className="border-border-subtle bg-rose-100/50 border-b px-4 py-2 text-[11px] text-rose-700">
 						⚠ Daftar di bawah ({formatRupiah(unpaidCrewTotal)}) beda{" "}
 						{formatRupiah(Math.abs(unpaidCrewTotal - hutangCrewGl))} dari saldo
 						buku Hutang Crew 2-100 ({formatRupiah(hutangCrewGl)}). Kemungkinan
@@ -608,13 +623,13 @@ export default async function FinancePage({
 					</p>
 				)}
 				{unpaidCrew.length === 0 ? (
-					<EmptyCard
+					<EmptyState
 						icon={Wallet}
 						title="Semua fee crew sudah dibayar"
 						hint="Tidak ada utang fee crew yang menunggu pembayaran."
 					/>
 				) : (
-					<div className="border-border-subtle bg-card divide-border overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+					<div className="divide-border">
 						{unpaidCrew.map((r) => (
 							<Link
 								key={r.id}
@@ -642,29 +657,21 @@ export default async function FinancePage({
 						))}
 					</div>
 				)}
-			</section>
+			</SectionCard>
 
-			<div className="grid gap-6 lg:grid-cols-2">
-				<section className="space-y-3">
-					<div className="flex items-baseline justify-between px-5">
-						<h2 className="text-base font-semibold tracking-tight">
-							Cash inflow per rekening
-						</h2>
-						<Link
-							href="/finance/bank-accounts"
-							className="text-muted-foreground hover:text-foreground text-xs"
-						>
-							Kelola →
-						</Link>
-					</div>
+			<div className="grid gap-3 lg:grid-cols-2">
+				<SectionCard
+					title="Cash inflow per rekening"
+					meta={<HeaderLink href="/finance/bank-accounts">Kelola</HeaderLink>}
+				>
 					{banks.length === 0 ? (
-						<EmptyCard
+						<EmptyState
 							icon={Wallet}
 							title="Belum ada bank account"
 							hint="Tambah di /finance/bank-accounts"
 						/>
 					) : (
-						<div className="border-border-subtle bg-card divide-border overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+						<div className="divide-border">
 							{banks.map((b) => {
 								const inflow = inflowByBank.get(b.id) ?? 0;
 								return (
@@ -701,28 +708,20 @@ export default async function FinancePage({
 							})}
 						</div>
 					)}
-				</section>
+				</SectionCard>
 
-				<section className="space-y-3">
-					<div className="flex items-baseline justify-between px-5">
-						<h2 className="text-base font-semibold tracking-tight">
-							Sinking funds
-						</h2>
-						<Link
-							href="/finance/sinking-funds"
-							className="text-muted-foreground hover:text-foreground text-xs"
-						>
-							Detail →
-						</Link>
-					</div>
+				<SectionCard
+					title="Sinking funds"
+					meta={<HeaderLink href="/finance/sinking-funds">Detail</HeaderLink>}
+				>
 					{funds.length === 0 ? (
-						<EmptyCard
+						<EmptyState
 							icon={PiggyBank}
 							title="Belum ada sinking fund"
 							hint="Bikin di /finance/sinking-funds"
 						/>
 					) : (
-						<div className="border-border-subtle bg-card divide-border overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+						<div className="divide-border">
 							{funds.map((f) => {
 								const balance = balanceById.get(f.id) ?? 0;
 								const target = f.target_balance ?? 0;
@@ -763,16 +762,14 @@ export default async function FinancePage({
 							})}
 						</div>
 					)}
-				</section>
+				</SectionCard>
 			</div>
 
 			{isSuperAdmin && ownerBreakdown.length > 0 && (
-				<section className="space-y-3">
-					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<h2 className="text-base font-semibold tracking-tight">
-							Owner pool & earnings
-						</h2>
-						<div className="flex items-center gap-2">
+				<SectionCard
+					title="Owner pool & earnings"
+					meta={
+						<div className="flex items-center gap-3">
 							<WithdrawalButton
 								owners={ownerBreakdown.map<Owner>((o) => ({
 									id: o.id,
@@ -785,15 +782,11 @@ export default async function FinancePage({
 									label: b.account_name,
 								}))}
 							/>
-							<Link
-								href="/settings/crew"
-								className="text-muted-foreground hover:text-foreground text-xs"
-							>
-								Investor share →
-							</Link>
+							<HeaderLink href="/settings/crew">Investor share</HeaderLink>
 						</div>
-					</div>
-					<div className="border-border-subtle bg-card overflow-x-auto rounded-[16px] border shadow-[var(--shadow-level-2)]">
+					}
+				>
+					<div className="overflow-x-auto">
 						<table className="w-full text-sm">
 							<thead className="bg-card border-b border-border-subtle">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -851,29 +844,25 @@ export default async function FinancePage({
 							</tbody>
 						</table>
 					</div>
-				</section>
+				</SectionCard>
 			)}
 
-			<section className="space-y-3">
-				<div className="flex items-baseline justify-between px-5">
-					<h2 className="text-base font-semibold tracking-tight">
-						Settlement terakhir
-					</h2>
-					<Link
-						href="/operations?status=completed"
-						className="text-muted-foreground hover:text-foreground text-xs"
-					>
-						Lihat semua →
-					</Link>
-				</div>
+			<SectionCard
+				title="Settlement terakhir"
+				meta={
+					<HeaderLink href="/operations?status=completed">
+						Lihat semua
+					</HeaderLink>
+				}
+			>
 				{recentSettlements.length === 0 ? (
-					<EmptyCard
+					<EmptyState
 						icon={Receipt}
 						title="Belum ada settlement"
 						hint="Settle event pertama via /operations/[id]/settle"
 					/>
 				) : (
-					<div className="border-border-subtle bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+					<div className="overflow-x-auto">
 						<table className="w-full text-xs">
 							<thead className="bg-card border-b border-border-subtle">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
@@ -943,8 +932,55 @@ export default async function FinancePage({
 						</table>
 					</div>
 				)}
-			</section>
+			</SectionCard>
 		</Container>
+	);
+}
+
+/**
+ * SectionCard — bento section: judul + meta/aksi hidup DI DALAM card sebagai
+ * header ber-hairline, bukan teks mengambang di atas card. Konten (list/tabel)
+ * full-bleed di bawahnya.
+ */
+function SectionCard({
+	title,
+	titleExtra,
+	meta,
+	children,
+}: {
+	title: React.ReactNode;
+	titleExtra?: React.ReactNode;
+	meta?: React.ReactNode;
+	children: React.ReactNode;
+}) {
+	return (
+		<section className="border-border-subtle bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
+			<div className="border-border-subtle flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b px-4 py-2.5">
+				<h2 className="font-heading flex min-w-0 items-center gap-1 text-[15px] font-semibold tracking-tight">
+					<span className="truncate">{title}</span>
+					{titleExtra}
+				</h2>
+				{meta}
+			</div>
+			{children}
+		</section>
+	);
+}
+
+function HeaderLink({
+	href,
+	children,
+}: {
+	href: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<Link
+			href={href}
+			className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
+		>
+			{children} →
+		</Link>
 	);
 }
 
@@ -985,7 +1021,7 @@ function BreakdownStat({
 	);
 }
 
-function EmptyCard({
+function EmptyState({
 	icon: Icon,
 	title,
 	hint,
@@ -995,7 +1031,7 @@ function EmptyCard({
 	hint: string;
 }) {
 	return (
-		<div className="border-border-subtle bg-card flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center">
+		<div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
 			<Icon className="text-muted-foreground h-7 w-7" />
 			<div className="space-y-0.5">
 				<p className="text-foreground text-sm font-medium">{title}</p>
