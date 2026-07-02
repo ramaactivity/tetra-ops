@@ -32,13 +32,20 @@ export async function tgApi<T = unknown>(
 	return (await res.json()) as TgResponse<T>;
 }
 
+/** Inline keyboard (tombol di bawah pesan). */
+export type TgInlineKeyboard = Array<
+	Array<{ text: string; callback_data?: string; url?: string }>
+>;
+
 /**
  * Kirim pesan HTML ke satu chat. Pesan > 4096 char dipecah per baris supaya
  * tidak ditolak Telegram (digest dengan banyak event bisa panjang).
+ * replyMarkup (inline keyboard) dipasang di chunk terakhir.
  */
 export async function sendTelegramMessage(
 	chatId: number | string,
 	html: string,
+	opts?: { replyMarkup?: TgInlineKeyboard },
 ): Promise<{ ok: boolean; error?: string }> {
 	const MAX = 4000; // margin di bawah limit 4096
 	const chunks: string[] = [];
@@ -57,16 +64,31 @@ export async function sendTelegramMessage(
 		if (buf) chunks.push(buf);
 	}
 
-	for (const chunk of chunks) {
+	for (let i = 0; i < chunks.length; i++) {
+		const isLast = i === chunks.length - 1;
 		const res = await tgApi("sendMessage", {
 			chat_id: chatId,
-			text: chunk,
+			text: chunks[i],
 			parse_mode: "HTML",
 			link_preview_options: { is_disabled: true },
+			...(isLast && opts?.replyMarkup
+				? { reply_markup: { inline_keyboard: opts.replyMarkup } }
+				: {}),
 		});
 		if (!res.ok) return { ok: false, error: res.description };
 	}
 	return { ok: true };
+}
+
+/** Stop spinner di tombol setelah callback ditekan (wajib dipanggil). */
+export async function answerCallbackQuery(
+	callbackQueryId: string,
+	text?: string,
+): Promise<void> {
+	await tgApi("answerCallbackQuery", {
+		callback_query_id: callbackQueryId,
+		...(text ? { text } : {}),
+	});
 }
 
 /** Escape teks dinamis (nama klien, venue) untuk parse_mode HTML. */

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendTelegramMessage, tgApi } from "@/lib/telegram/client";
+import {
+	answerCallbackQuery,
+	sendTelegramMessage,
+	type TgInlineKeyboard,
+	tgApi,
+} from "@/lib/telegram/client";
 import {
 	buildDigestText,
 	buildMonthText,
@@ -43,7 +48,89 @@ type TgUpdate = {
 		chat: TgChat;
 		new_chat_member: { status: string; user: { is_bot: boolean } };
 	};
+	callback_query?: {
+		id: string;
+		data?: string;
+		message?: { chat: TgChat };
+	};
 };
+
+const HELP_TEXT = [
+	"🤖 <b>Tetra Ops Bot</b>",
+	"",
+	"/cek — kesiapan event 7 hari ke depan (yang belum beres)",
+	"/besok — briefing lengkap event besok",
+	"/minggu — jadwal semua event 7 hari ke depan",
+	"/bulan — event bulan ini · /bulan 8 atau /bulan agustus utk bulan lain",
+	"/stok — kondisi stok & perkiraan kebutuhan",
+	"/menu — panel tombol",
+	"/id — chat ID grup ini",
+	"",
+	"Digest otomatis tiap pagi ±06:30 WIB + briefing event H-1.",
+].join("\n");
+
+function menuKeyboard(): TgInlineKeyboard {
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	return [
+		[
+			{ text: "📋 Kesiapan", callback_data: "cek" },
+			{ text: "📸 Briefing Besok", callback_data: "besok" },
+		],
+		[
+			{ text: "🗓 Minggu Ini", callback_data: "minggu" },
+			{ text: "📆 Bulan Ini", callback_data: "bulan" },
+		],
+		[
+			{ text: "📦 Stok", callback_data: "stok" },
+			{ text: "❓ Bantuan", callback_data: "help" },
+		],
+		...(appUrl ? [[{ text: "🔗 Buka Tetra Ops", url: appUrl }]] : []),
+	];
+}
+
+/**
+ * Eksekutor bersama untuk perintah teks (/cek dst) dan tombol inline
+ * (callback_data yang sama). Error dibalas sebagai pesan, bukan silence.
+ */
+async function runAction(action: string, chatId: number): Promise<void> {
+	try {
+		switch (action) {
+			case "cek":
+				await sendTelegramMessage(chatId, await buildDigestText());
+				break;
+			case "besok":
+				await sendTelegramMessage(chatId, await buildTomorrowText());
+				break;
+			case "minggu":
+				await sendTelegramMessage(chatId, await buildScheduleText());
+				break;
+			case "bulan":
+				await sendTelegramMessage(chatId, await buildMonthText());
+				break;
+			case "stok":
+				await sendTelegramMessage(chatId, await buildStockText());
+				break;
+			case "menu":
+				await sendTelegramMessage(
+					chatId,
+					"🤖 <b>Tetra Ops Bot</b> — pilih menu:",
+					{ replyMarkup: menuKeyboard() },
+				);
+				break;
+			case "help":
+				await sendTelegramMessage(chatId, HELP_TEXT, {
+					replyMarkup: menuKeyboard(),
+				});
+				break;
+		}
+	} catch (err) {
+		console.error(`[telegram] action ${action}`, err);
+		await sendTelegramMessage(
+			chatId,
+			"⚠️ Gagal mengambil data — coba lagi sebentar.",
+		);
+	}
+}
 
 function isAuthorized(request: Request): boolean {
 	const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
@@ -85,6 +172,20 @@ export async function POST(request: Request) {
 	}
 
 	try {
+		// ── 0. Tombol inline ditekan (callback_query) ──
+		const cb = update.callback_query;
+		if (cb) {
+			await answerCallbackQuery(cb.id);
+			const chat = cb.message?.chat;
+			if (chat) {
+				const registered = await getRegisteredChatId();
+				if (chat.type === "private" || registered === chat.id) {
+					await runAction(cb.data ?? "", chat.id);
+				}
+			}
+			return NextResponse.json({ ok: true });
+		}
+
 		// ── 1. Bot di-invite / di-promote di sebuah grup → registrasi ──
 		const mcm = update.my_chat_member;
 		if (
@@ -102,6 +203,7 @@ export async function POST(request: Request) {
 					"",
 					"Perintah: /cek — lihat kesiapan event sekarang juga.",
 				].join("\n"),
+				{ replyMarkup: menuKeyboard() },
 			);
 			return NextResponse.json({ ok: true });
 		}
@@ -152,6 +254,7 @@ export async function POST(request: Request) {
 					"",
 					"Perintah: /cek — lihat kesiapan event sekarang juga.",
 				].join("\n"),
+				{ replyMarkup: menuKeyboard() },
 			);
 			return NextResponse.json({ ok: true });
 		}
@@ -168,45 +271,27 @@ export async function POST(request: Request) {
 			return NextResponse.json({ ok: true });
 		}
 
-		const reply = (build: () => Promise<string> | string) =>
-			Promise.resolve()
-				.then(build)
-				.then((text) => sendTelegramMessage(msg.chat.id, text))
-				.catch((err) => {
-					console.error(`[telegram] ${command}`, err);
-					return sendTelegramMessage(
-						msg.chat.id,
-						"⚠️ Gagal mengambil data — coba lagi sebentar.",
-					);
-				});
-
-		if (command === "/cek") {
-			await reply(buildDigestText);
-		} else if (command === "/besok") {
-			await reply(buildTomorrowText);
-		} else if (command === "/minggu") {
-			await reply(buildScheduleText);
-		} else if (command === "/bulan") {
-			await reply(() => buildMonthText(arg || undefined));
-		} else if (command === "/stok") {
-			await reply(buildStockText);
+		if (command === "/bulan" && arg) {
+			// /bulan dengan argumen (mis. "/bulan agustus") — satu-satunya
+			// perintah berargumen, tidak lewat runAction
+			try {
+				await sendTelegramMessage(msg.chat.id, await buildMonthText(arg));
+			} catch (err) {
+				console.error("[telegram] /bulan", err);
+				await sendTelegramMessage(
+					msg.chat.id,
+					"⚠️ Gagal mengambil data — coba lagi sebentar.",
+				);
+			}
 		} else if (command === "/id") {
-			await reply(() => `Chat ID: <code>${msg.chat.id}</code>`);
-		} else if (command === "/help" || command === "/start") {
-			await reply(() =>
-				[
-					"🤖 <b>Tetra Ops Bot</b>",
-					"",
-					"/cek — kesiapan event 7 hari ke depan (yang belum beres)",
-					"/besok — briefing lengkap event besok",
-					"/minggu — jadwal semua event 7 hari ke depan",
-					"/bulan — event bulan ini · /bulan 8 atau /bulan agustus utk bulan lain",
-					"/stok — kondisi stok & perkiraan kebutuhan",
-					"/id — chat ID grup ini",
-					"",
-					"Digest otomatis tiap pagi ±06:30 WIB + briefing event H-1.",
-				].join("\n"),
+			await sendTelegramMessage(
+				msg.chat.id,
+				`Chat ID: <code>${msg.chat.id}</code>`,
 			);
+		} else if (command === "/start") {
+			await runAction("menu", msg.chat.id);
+		} else if (command.startsWith("/")) {
+			await runAction(command.slice(1), msg.chat.id);
 		}
 	} catch (err) {
 		// Selalu balas 200 supaya Telegram tidak retry-storm; error cukup dicatat.

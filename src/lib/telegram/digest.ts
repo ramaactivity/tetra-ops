@@ -590,7 +590,18 @@ export async function runTelegramDigestInternal(opts?: {
 			opts?.force ||
 			(await claimSend(admin, "digest", data.todayISO))
 		) {
-			const res = await sendTelegramMessage(chatId, digest);
+			const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+			const res = await sendTelegramMessage(
+				chatId,
+				digest,
+				appUrl
+					? {
+							replyMarkup: [
+								[{ text: "🔗 Buka Tetra Ops", url: `${appUrl}/operations` }],
+							],
+						}
+					: undefined,
+			);
 			if (res.ok) result.sent.push("digest");
 			else result.errors.push(`digest: ${res.error}`);
 		} else {

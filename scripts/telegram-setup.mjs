@@ -64,6 +64,7 @@ const COMMANDS = [
 	{ command: "minggu", description: "Jadwal semua event 7 hari ke depan" },
 	{ command: "bulan", description: "Event bulan ini (atau /bulan <bulan>)" },
 	{ command: "stok", description: "Kondisi stok & perkiraan kebutuhan" },
+	{ command: "menu", description: "Panel tombol semua fitur" },
 	{ command: "help", description: "Bantuan & daftar perintah" },
 ];
 for (const scope of [
@@ -86,7 +87,7 @@ const webhookUrl = `${appUrl}/api/telegram/webhook`;
 const set = await tg("setWebhook", {
 	url: webhookUrl,
 	secret_token: secret,
-	allowed_updates: ["message", "my_chat_member"],
+	allowed_updates: ["message", "my_chat_member", "callback_query"],
 	drop_pending_updates: true,
 });
 if (!set.ok) {
