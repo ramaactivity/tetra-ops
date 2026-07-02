@@ -72,7 +72,14 @@ Kalau deploy gagal:
 
 ## ⏰ Cron jobs (via vercel.json)
 - `/api/cron/status-transition` — harian 23:00 UTC (06:00 WIB)
-- `/api/cron/anomaly-scan` — harian 23:30 UTC (06:30 WIB)
+- `/api/cron/anomaly-scan` — harian 23:30 UTC (06:30 WIB); sejak 2026-07-02 juga
+  mengirim digest Telegram ke grup owner (lihat `src/lib/telegram/`)
 - Auth: header `Authorization: Bearer ${CRON_SECRET}`
+- Slot cron Hobby penuh (2/2). Jadwal Telegram tambahan (mis. sore) TIDAK lewat
+  vercel.json — pakai crontab VPS → `GET /api/telegram/dispatch?force=1` dengan
+  Bearer `CRON_SECRET`
+- Env var baru hanya terbaca deployment baru → setelah menambah env tanpa ada
+  commit, trigger 1× `VERCEL_DEPLOY_HOOK` (bukan jalur deploy kedua; tetap kode
+  `main` yang sama)
 
 Lihat juga: `accounts.md`
