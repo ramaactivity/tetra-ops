@@ -333,6 +333,7 @@ function advanceDue(dueISO: string, cycle: string, todayISO: string): string {
 	const today = new Date(`${todayISO}T00:00:00Z`);
 	while (d < today) {
 		if (cycle === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
+		else if (cycle === "quarterly") d.setUTCMonth(d.getUTCMonth() + 3);
 		else d.setUTCMonth(d.getUTCMonth() + 1);
 	}
 	return isoDateUTC(d);
