@@ -5,6 +5,9 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
+// Sentinel untuk "Ambil semua owner sekaligus" pada field owner.
+const ALL_OWNERS = "__ALL__";
+
 const WithdrawalSchema = z.object({
 	owner_user_id: z.uuid(),
 	amount: z.coerce.number().int().positive(),
@@ -25,9 +28,13 @@ const WithdrawalSchema = z.object({
 	description: z.string().trim().min(1).max(500),
 });
 
-export type WithdrawalFormState =
-	| { ok?: boolean; error?: string }
-	| undefined;
+// Mode "semua owner": tanpa owner_user_id/amount (ditarik penuh per owner).
+const AllWithdrawalSchema = WithdrawalSchema.omit({
+	owner_user_id: true,
+	amount: true,
+});
+
+export type WithdrawalFormState = { ok?: boolean; error?: string } | undefined;
 
 export async function recordOwnerWithdrawal(
 	_prev: WithdrawalFormState,
@@ -38,6 +45,44 @@ export async function recordOwnerWithdrawal(
 		if (!me) return { error: "Unauthorized" };
 		if (me.profile.role !== "super_admin") {
 			return { error: "Hanya super_admin yang bisa rekam withdrawal" };
+		}
+
+		// Mode "Ambil semua owner sekaligus" — 1 transaksi all-or-nothing.
+		if (formData.get("owner_user_id") === ALL_OWNERS) {
+			const parsedAll = AllWithdrawalSchema.safeParse({
+				bank_account_id: formData.get("bank_account_id"),
+				withdrawal_method: formData.get("withdrawal_method"),
+				withdrawal_account: String(formData.get("withdrawal_account") ?? ""),
+				withdrawal_reference: String(
+					formData.get("withdrawal_reference") ?? "",
+				),
+				description: String(formData.get("description") ?? ""),
+			});
+			if (!parsedAll.success) {
+				return {
+					error: parsedAll.error.issues
+						.map((iss) =>
+							iss.path.length
+								? `${iss.path.join(".")}: ${iss.message}`
+								: iss.message,
+						)
+						.join("; "),
+				};
+			}
+			const supabase = await createClient();
+			const { error } = await supabase.rpc("record_all_owner_withdrawals", {
+				p_bank_account_id: parsedAll.data.bank_account_id,
+				p_method: parsedAll.data.withdrawal_method,
+				p_account: parsedAll.data.withdrawal_account,
+				p_reference: parsedAll.data.withdrawal_reference,
+				p_description: parsedAll.data.description,
+				p_actor: me.profile.id,
+			});
+			if (error) return { error: error.message };
+			revalidatePath("/finance");
+			revalidatePath("/finance/accounting");
+			revalidatePath("/dashboard");
+			return { ok: true };
 		}
 
 		const parsed = WithdrawalSchema.safeParse({

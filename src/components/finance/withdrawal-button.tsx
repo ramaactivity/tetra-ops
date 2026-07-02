@@ -23,6 +23,9 @@ export type BankOption = {
 	label: string;
 };
 
+// Sentinel "ambil semua owner sekaligus" (harus sama dgn owner-withdrawal.ts).
+const ALL_OWNERS = "__ALL__";
+
 export function WithdrawalButton({
 	owners,
 	banks,
@@ -59,7 +62,14 @@ export function WithdrawalButton({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [open]);
 
-	const owner = owners.find((o) => o.id === selectedOwner) ?? owners[0];
+	const isBulk = selectedOwner === ALL_OWNERS;
+	// Total semua owner bersaldo positif (mode "ambil semua").
+	const withdrawableOwners = owners.filter((o) => o.balance > 0);
+	const grandTotal = withdrawableOwners.reduce((s, o) => s + o.balance, 0);
+	const owner = isBulk
+		? undefined
+		: (owners.find((o) => o.id === selectedOwner) ?? owners[0]);
+	const available = isBulk ? grandTotal : (owner?.balance ?? 0);
 
 	return (
 		<>
@@ -114,10 +124,20 @@ export function WithdrawalButton({
 								<NativeSelect
 									value={selectedOwner}
 									onValueChange={setSelectedOwner}
-									options={owners.map((o) => ({
-										value: o.id,
-										label: `${o.full_name} · sisa ${formatRupiah(o.balance)}`,
-									}))}
+									options={[
+										...(withdrawableOwners.length > 1
+											? [
+													{
+														value: ALL_OWNERS,
+														label: `Semua owner (${withdrawableOwners.length}) · total ${formatRupiah(grandTotal)}`,
+													},
+												]
+											: []),
+										...owners.map((o) => ({
+											value: o.id,
+											label: `${o.full_name} · sisa ${formatRupiah(o.balance)}`,
+										})),
+									]}
 									triggerClassName="w-full"
 								/>
 								<input
@@ -128,35 +148,43 @@ export function WithdrawalButton({
 								/>
 							</Field>
 
-							{owner && (
-								<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
-									<p className="text-muted-foreground text-[11px]">
-										Bisa diambil
+							<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
+								<p className="text-muted-foreground text-[11px]">
+									{isBulk
+										? `Total semua owner (${withdrawableOwners.length})`
+										: "Bisa diambil"}
+								</p>
+								<p
+									className={`tabular text-lg font-semibold ${
+										available > 0
+											? "text-emerald-600 dark:text-emerald-400"
+											: "text-muted-foreground"
+									}`}
+								>
+									{formatRupiah(available)}
+								</p>
+								{isBulk && (
+									<p className="text-muted-foreground mt-0.5 text-[11px]">
+										Tiap owner ditarik penuh sesuai sisanya, dari rekening di
+										bawah.
 									</p>
-									<p
-										className={`tabular text-lg font-semibold ${
-											owner.balance > 0
-												? "text-emerald-600 dark:text-emerald-400"
-												: "text-muted-foreground"
-										}`}
-									>
-										{formatRupiah(owner.balance)}
-									</p>
-								</div>
-							)}
+								)}
+							</div>
 
-							<Field label="Jumlah diambil (Rp)" required>
-								<input
-									name="amount"
-									type="number"
-									required
-									min="1"
-									step="50000"
-									max={owner?.balance ?? undefined}
-									placeholder="500000"
-									className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
-								/>
-							</Field>
+							{!isBulk && (
+								<Field label="Jumlah diambil (Rp)" required>
+									<input
+										name="amount"
+										type="number"
+										required
+										min="1"
+										step="50000"
+										max={owner?.balance ?? undefined}
+										placeholder="500000"
+										className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+									/>
+								</Field>
+							)}
 
 							<Field label="Uang diambil dari (kas/bank)" required>
 								<NativeSelect
@@ -231,9 +259,7 @@ export function WithdrawalButton({
 								</button>
 								<button
 									type="submit"
-									disabled={
-										pending || (owner?.balance ?? 0) === 0 || !selectedBank
-									}
+									disabled={pending || available === 0 || !selectedBank}
 									className="bg-[#059669] dark:bg-[#0b9e6a] text-white hover:bg-[#047857] dark:hover:bg-[#059669] inline-flex h-9 items-center gap-1.5 rounded-md px-4 text-xs font-semibold disabled:opacity-60"
 								>
 									{pending ? (
@@ -241,7 +267,9 @@ export function WithdrawalButton({
 									) : (
 										<ArrowDownToLine className="h-3.5 w-3.5" />
 									)}
-									Ambil bagi hasil
+									{isBulk
+										? `Ambil semua · ${formatRupiah(grandTotal)}`
+										: "Ambil bagi hasil"}
 								</button>
 							</div>
 						</form>
