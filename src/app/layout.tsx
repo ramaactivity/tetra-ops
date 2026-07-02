@@ -82,10 +82,15 @@ export default async function RootLayout({
 	// Default to LIGHT — the UpGradely DNA is light-first (dark mode is a later
 	// phase). Only an explicit "dark" cookie opts into the legacy dark theme.
 	const theme = cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
+	// Privacy mode (eye toggle in the topbar) — masks all money/number
+	// surfaces via CSS. Rendered server-side so a reload never flashes the
+	// numbers before hydration.
+	const privacyOn = cookieStore.get("privacy")?.value === "1";
 
 	return (
 		<html
 			lang="id"
+			data-privacy={privacyOn ? "" : undefined}
 			className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable} ${theme === "dark" ? "dark" : ""} h-full antialiased`}
 		>
 			<body className="flex min-h-dvh flex-col bg-transparent text-foreground">

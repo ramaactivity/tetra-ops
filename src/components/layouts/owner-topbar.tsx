@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NotificationBell } from "@/components/layouts/notification-bell";
 import { OwnerPageTitle } from "@/components/layouts/owner-page-title";
+import { PrivacyToggle } from "@/components/layouts/privacy-toggle";
 import { UserMenu } from "@/components/layouts/user-menu";
 import type { Theme } from "@/lib/actions/theme";
 
@@ -23,6 +24,7 @@ export async function OwnerTopBar({
 	const cookieStore = await cookies();
 	const theme: Theme =
 		cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
+	const privacyOn = cookieStore.get("privacy")?.value === "1";
 
 	return (
 		<header
@@ -50,9 +52,17 @@ export async function OwnerTopBar({
 				className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto empty:hidden [&>*]:shrink-0 [&>a]:h-9 [&>button]:h-9 [&>form>button]:h-9 [&>a]:rounded-full [&>button]:rounded-full [&>form>button]:rounded-full [&>a]:text-[13px] [&>button]:text-[13px] [&>form>button]:text-[13px]"
 			/>
 
+			{/* Privacy eye — always visible (mobile included: it's the fastest way
+			    to hide the numbers when someone is looking over your shoulder).
+			    On mobile it gets the white-pill treatment like the title pill. */}
+			<PrivacyToggle
+				initialOn={privacyOn}
+				className="ml-auto max-md:border max-md:border-border-subtle max-md:bg-card max-md:shadow-[var(--shadow-level-1)]"
+			/>
+
 			{/* Identity cluster — desktop only. On mobile, account + notifications
 			    live in the bottom-nav "More" tab, so the topbar stays slim. */}
-			<div className="ml-auto hidden shrink-0 items-center gap-2 md:flex md:gap-2.5">
+			<div className="hidden shrink-0 items-center gap-2 md:flex md:gap-2.5">
 				<span className="hidden text-[14px] font-medium text-foreground lg:inline">
 					{name}
 				</span>

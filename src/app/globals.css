@@ -449,6 +449,19 @@
     font-variant-numeric: tabular-nums slashed-zero;
     font-feature-settings: "tnum", "ss01", "ss02", "cv11";
   }
+  /* Privacy mode — when <html> carries [data-privacy] (eye toggle in the
+     topbar, persisted in the `privacy` cookie), every money/number surface
+     is blurred out for shoulder-surfing safety. Money/qty is always
+     .tabular or .type-num* per DESIGN.md §3, so masking keys off those
+     classes; the blur radius is in em so it scales with the font size. */
+  [data-privacy] .tabular,
+  [data-privacy] .type-num,
+  [data-privacy] .type-num-lg,
+  [data-privacy] .type-num-xl {
+    filter: blur(0.45em);
+    opacity: 0.6;
+    user-select: none;
+  }
   /* Eyebrow — softened for the UpGradely look: small sans uppercase label
      (no more mono/technical voice) that marks section eyebrows, table headers,
      and KPI captions. 11px / 600 / gentle tracking. */

@@ -1,6 +1,7 @@
-import Image from "next/image";
 import { cookies } from "next/headers";
+import Image from "next/image";
 import { NotificationBell } from "@/components/layouts/notification-bell";
+import { PrivacyToggle } from "@/components/layouts/privacy-toggle";
 import { UserMenu } from "@/components/layouts/user-menu";
 import type { Theme } from "@/lib/actions/theme";
 
@@ -34,6 +35,7 @@ export async function TopBar({
 	const cookieStore = await cookies();
 	const theme: Theme =
 		cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+	const privacyOn = cookieStore.get("privacy")?.value === "1";
 
 	return (
 		<header
@@ -57,6 +59,7 @@ export async function TopBar({
 					<span className="hidden eyebrow sm:inline">Operations</span>
 				</div>
 				<div className="flex shrink-0 items-center gap-0.5">
+					<PrivacyToggle initialOn={privacyOn} />
 					<NotificationBell />
 					<UserMenu name={name} email={email} role={role} theme={theme} />
 				</div>
