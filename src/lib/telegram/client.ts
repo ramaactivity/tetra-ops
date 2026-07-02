@@ -80,6 +80,27 @@ export async function sendTelegramMessage(
 	return { ok: true };
 }
 
+/**
+ * Edit pesan yang sudah ada (teks + keyboard) — dipakai navigasi submenu
+ * supaya panel menu berganti di tempat, bukan menumpuk pesan baru.
+ */
+export async function editTelegramMessage(
+	chatId: number | string,
+	messageId: number,
+	html: string,
+	replyMarkup?: TgInlineKeyboard,
+): Promise<{ ok: boolean; error?: string }> {
+	const res = await tgApi("editMessageText", {
+		chat_id: chatId,
+		message_id: messageId,
+		text: html,
+		parse_mode: "HTML",
+		link_preview_options: { is_disabled: true },
+		...(replyMarkup ? { reply_markup: { inline_keyboard: replyMarkup } } : {}),
+	});
+	return res.ok ? { ok: true } : { ok: false, error: res.description };
+}
+
 /** Stop spinner di tombol setelah callback ditekan (wajib dipanggil). */
 export async function answerCallbackQuery(
 	callbackQueryId: string,

@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	answerCallbackQuery,
+	editTelegramMessage,
 	sendTelegramMessage,
 	type TgInlineKeyboard,
 	tgApi,
 } from "@/lib/telegram/client";
 import {
+	addDaysISO,
 	buildBusinessRecapText,
 	buildDigestText,
 	buildMonthText,
@@ -14,7 +16,16 @@ import {
 	buildScheduleText,
 	buildStockText,
 	buildTomorrowText,
+	dateLabel,
+	isoDateUTC,
+	wibNow,
 } from "@/lib/telegram/digest";
+import {
+	buildAdaText,
+	buildCrewText,
+	buildPiutangText,
+	buildSaldoText,
+} from "@/lib/telegram/queries";
 
 /**
  * Webhook Telegram — didaftarkan via scripts/telegram-setup.mjs (setWebhook).
@@ -53,7 +64,7 @@ type TgUpdate = {
 	callback_query?: {
 		id: string;
 		data?: string;
-		message?: { chat: TgChat };
+		message?: { chat: TgChat; message_id: number };
 	};
 };
 
@@ -65,6 +76,10 @@ const HELP_TEXT = [
 	"/minggu — jadwal semua event 7 hari ke depan",
 	"/bulan — event bulan ini · /bulan 8 atau /bulan agustus utk bulan lain",
 	"/stok — kondisi stok & perkiraan kebutuhan",
+	"/ada 15 agu — cek ketersediaan unit di suatu tanggal",
+	"/piutang — event yang belum lunas",
+	"/saldo — saldo semua rekening kas & bank",
+	"/crew — jadwal crew 7 hari + fee belum dibayar",
 	"/bisnis — rekap bisnis bulan berjalan (omzet, profit, leads)",
 	"/langganan — jatuh tempo VPS, domain, simcard, dll",
 	"/menu — panel tombol",
@@ -73,27 +88,115 @@ const HELP_TEXT = [
 	"Digest otomatis tiap pagi ±06:30 WIB + briefing event H-1.",
 ].join("\n");
 
-function menuKeyboard(): TgInlineKeyboard {
+// ── Menu bertingkat ──────────────────────────────────────────────────────
+// callback_data "m:<view>" = navigasi (edit pesan menu di tempat);
+// "bulan:<n>" / "ada:<iso>" = aksi berparameter; sisanya aksi biasa.
+
+type MenuView = { text: string; keyboard: TgInlineKeyboard };
+
+const BACK_ROW = [{ text: "⬅️ Kembali ke Menu", callback_data: "m:main" }];
+const BULAN_PENDEK = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"Mei",
+	"Jun",
+	"Jul",
+	"Agu",
+	"Sep",
+	"Okt",
+	"Nov",
+	"Des",
+];
+
+function menuView(view: string): MenuView {
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-	return [
-		[
-			{ text: "📋 Kesiapan", callback_data: "cek" },
-			{ text: "📸 Briefing Besok", callback_data: "besok" },
-		],
-		[
-			{ text: "🗓 Minggu Ini", callback_data: "minggu" },
-			{ text: "📆 Bulan Ini", callback_data: "bulan" },
-		],
-		[
-			{ text: "📦 Stok", callback_data: "stok" },
-			{ text: "📊 Rekap Bisnis", callback_data: "bisnis" },
-		],
-		[
-			{ text: "🔔 Langganan", callback_data: "langganan" },
-			{ text: "❓ Bantuan", callback_data: "help" },
-		],
-		...(appUrl ? [[{ text: "🔗 Buka Tetra Ops", url: appUrl }]] : []),
-	];
+	switch (view) {
+		case "jadwal": {
+			// Pilih bulan: bulan ini + 5 berikutnya (tahun berjalan/berikut otomatis)
+			const now = wibNow();
+			const monthBtns: TgInlineKeyboard[number] = [];
+			const rows: TgInlineKeyboard = [
+				[
+					{ text: "🗓 Minggu Ini", callback_data: "minggu" },
+					{ text: "📆 Bulan Ini", callback_data: "bulan" },
+				],
+			];
+			for (let i = 0; i < 6; i++) {
+				const m = (now.getUTCMonth() + i) % 12;
+				monthBtns.push({
+					text: BULAN_PENDEK[m],
+					callback_data: `bulan:${m + 1}`,
+				});
+			}
+			rows.push(monthBtns.slice(0, 3), monthBtns.slice(3, 6), BACK_ROW);
+			return {
+				text: "🗓 <b>Jadwal</b> — mau lihat yang mana?",
+				keyboard: rows,
+			};
+		}
+		case "uang":
+			return {
+				text: "💰 <b>Keuangan</b> — pilih:",
+				keyboard: [
+					[
+						{ text: "💰 Piutang", callback_data: "piutang" },
+						{ text: "💵 Saldo Kas/Bank", callback_data: "saldo" },
+					],
+					[
+						{ text: "📊 Rekap Bisnis", callback_data: "bisnis" },
+						{ text: "🔔 Langganan", callback_data: "langganan" },
+					],
+					BACK_ROW,
+				],
+			};
+		case "tgl": {
+			// 14 hari ke depan sebagai tombol — cek ketersediaan tanpa mengetik
+			const todayISO = isoDateUTC(wibNow());
+			const rows: TgInlineKeyboard = [];
+			for (let i = 0; i < 14; i += 2) {
+				const d1 = addDaysISO(todayISO, i);
+				const d2 = addDaysISO(todayISO, i + 1);
+				rows.push([
+					{ text: dateLabel(d1), callback_data: `ada:${d1}` },
+					{ text: dateLabel(d2), callback_data: `ada:${d2}` },
+				]);
+			}
+			rows.push(BACK_ROW);
+			return {
+				text: "📅 <b>Cek ketersediaan unit</b> — pilih tanggal.\nTanggal lain: ketik <code>/ada 15 agu</code>",
+				keyboard: rows,
+			};
+		}
+		default:
+			return {
+				text: "🤖 <b>Tetra Ops Bot</b> — pilih menu:",
+				keyboard: [
+					[
+						{ text: "📋 Kesiapan", callback_data: "cek" },
+						{ text: "📸 Briefing Besok", callback_data: "besok" },
+					],
+					[
+						{ text: "🗓 Jadwal ▸", callback_data: "m:jadwal" },
+						{ text: "📅 Cek Tanggal ▸", callback_data: "m:tgl" },
+					],
+					[
+						{ text: "💰 Keuangan ▸", callback_data: "m:uang" },
+						{ text: "📦 Stok", callback_data: "stok" },
+					],
+					[
+						{ text: "👥 Crew", callback_data: "crew" },
+						{ text: "❓ Bantuan", callback_data: "help" },
+					],
+					...(appUrl ? [[{ text: "🔗 Buka Tetra Ops", url: appUrl }]] : []),
+				],
+			};
+	}
+}
+
+function menuKeyboard(): TgInlineKeyboard {
+	return menuView("main").keyboard;
 }
 
 /**
@@ -124,13 +227,20 @@ async function runAction(action: string, chatId: number): Promise<void> {
 			case "langganan":
 				await sendTelegramMessage(chatId, await buildRenewalsText());
 				break;
-			case "menu":
-				await sendTelegramMessage(
-					chatId,
-					"🤖 <b>Tetra Ops Bot</b> — pilih menu:",
-					{ replyMarkup: menuKeyboard() },
-				);
+			case "piutang":
+				await sendTelegramMessage(chatId, await buildPiutangText());
 				break;
+			case "saldo":
+				await sendTelegramMessage(chatId, await buildSaldoText());
+				break;
+			case "crew":
+				await sendTelegramMessage(chatId, await buildCrewText());
+				break;
+			case "menu": {
+				const v = menuView("main");
+				await sendTelegramMessage(chatId, v.text, { replyMarkup: v.keyboard });
+				break;
+			}
 			case "help":
 				await sendTelegramMessage(chatId, HELP_TEXT, {
 					replyMarkup: menuKeyboard(),
@@ -194,7 +304,29 @@ export async function POST(request: Request) {
 			if (chat) {
 				const registered = await getRegisteredChatId();
 				if (chat.type === "private" || registered === chat.id) {
-					await runAction(cb.data ?? "", chat.id);
+					const dataStr = cb.data ?? "";
+					if (dataStr.startsWith("m:") && cb.message) {
+						// Navigasi submenu → edit panel menu di tempat
+						const v = menuView(dataStr.slice(2));
+						await editTelegramMessage(
+							chat.id,
+							cb.message.message_id,
+							v.text,
+							v.keyboard,
+						);
+					} else if (dataStr.startsWith("bulan:")) {
+						await sendTelegramMessage(
+							chat.id,
+							await buildMonthText(dataStr.slice(6)),
+						);
+					} else if (dataStr.startsWith("ada:")) {
+						await sendTelegramMessage(
+							chat.id,
+							await buildAdaText(dataStr.slice(4)),
+						);
+					} else {
+						await runAction(dataStr, chat.id);
+					}
 				}
 			}
 			return NextResponse.json({ ok: true });
@@ -285,7 +417,25 @@ export async function POST(request: Request) {
 			return NextResponse.json({ ok: true });
 		}
 
-		if (command === "/bulan" && arg) {
+		if (command === "/ada") {
+			if (arg) {
+				try {
+					await sendTelegramMessage(msg.chat.id, await buildAdaText(arg));
+				} catch (err) {
+					console.error("[telegram] /ada", err);
+					await sendTelegramMessage(
+						msg.chat.id,
+						"⚠️ Gagal mengambil data — coba lagi sebentar.",
+					);
+				}
+			} else {
+				// Tanpa argumen → tampilkan pemilih tanggal (klik-klik)
+				const v = menuView("tgl");
+				await sendTelegramMessage(msg.chat.id, v.text, {
+					replyMarkup: v.keyboard,
+				});
+			}
+		} else if (command === "/bulan" && arg) {
 			// /bulan dengan argumen (mis. "/bulan agustus") — satu-satunya
 			// perintah berargumen, tidak lewat runAction
 			try {

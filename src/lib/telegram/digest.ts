@@ -57,15 +57,15 @@ export type TelegramDispatchResult = {
 // Cron Vercel jalan 23:30 UTC = 06:30 WIB hari BERIKUTNYA. Tanggal server
 // (UTC) salah satu hari — semua hitungan hari di sini pakai UTC+7 eksplisit.
 
-function wibNow(): Date {
+export function wibNow(): Date {
 	return new Date(Date.now() + 7 * 3600 * 1000);
 }
 
-function isoDateUTC(d: Date): string {
+export function isoDateUTC(d: Date): string {
 	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-function addDaysISO(iso: string, n: number): string {
+export function addDaysISO(iso: string, n: number): string {
 	const d = new Date(`${iso}T00:00:00Z`);
 	d.setUTCDate(d.getUTCDate() + n);
 	return isoDateUTC(d);
@@ -387,7 +387,7 @@ type EventIssues = {
 	warning: string[];
 };
 
-function daysUntil(todayISO: string, dateISO: string): number {
+export function daysUntil(todayISO: string, dateISO: string): number {
 	return Math.round(
 		(new Date(`${dateISO}T00:00:00Z`).getTime() -
 			new Date(`${todayISO}T00:00:00Z`).getTime()) /
