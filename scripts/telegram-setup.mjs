@@ -62,6 +62,7 @@ const COMMANDS = [
 	{ command: "cek", description: "Kesiapan event 7 hari ke depan" },
 	{ command: "besok", description: "Briefing lengkap event besok" },
 	{ command: "minggu", description: "Jadwal semua event 7 hari ke depan" },
+	{ command: "bulan", description: "Event bulan ini (atau /bulan <bulan>)" },
 	{ command: "stok", description: "Kondisi stok & perkiraan kebutuhan" },
 	{ command: "help", description: "Bantuan & daftar perintah" },
 ];

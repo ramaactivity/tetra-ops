@@ -95,6 +95,20 @@ const BULAN = [
 	"Nov",
 	"Des",
 ];
+const BULAN_FULL = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+];
 
 function dateLabel(iso: string, full = false): string {
 	const d = new Date(`${iso}T00:00:00Z`);
@@ -427,20 +441,7 @@ const MONTHLY_ITEMS = [
 function composeMonthlyReminder(todayISO: string): string | null {
 	if (!todayISO.endsWith("-01")) return null;
 	const d = new Date(`${todayISO}T00:00:00Z`);
-	const bulan = [
-		"Januari",
-		"Februari",
-		"Maret",
-		"April",
-		"Mei",
-		"Juni",
-		"Juli",
-		"Agustus",
-		"September",
-		"Oktober",
-		"November",
-		"Desember",
-	][d.getUTCMonth()];
+	const bulan = BULAN_FULL[d.getUTCMonth()];
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 	return [
 		`📅 <b>AWAL BULAN — ${bulan} ${d.getUTCFullYear()}</b>`,
@@ -622,6 +623,109 @@ export async function buildScheduleText(): Promise<string> {
 			parts.push(
 				`      • ${jam} — ${tgEscape(ev.client_name)}${kota} · ${crewIcon}`,
 			);
+		}
+	}
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	if (appUrl) parts.push(`\nDetail: ${appUrl}/operations`);
+	return parts.join("\n");
+}
+
+/** Parse argumen bulan: "8", "08", "agustus", "agu" → 0-based month, atau null. */
+function parseMonthArg(arg: string): number | null {
+	const s = arg.trim().toLowerCase();
+	if (/^\d{1,2}$/.test(s)) {
+		const n = Number(s);
+		return n >= 1 && n <= 12 ? n - 1 : null;
+	}
+	if (s.length < 3) return null;
+	const idx = BULAN_FULL.findIndex((b) => b.toLowerCase().startsWith(s));
+	return idx >= 0 ? idx : null;
+}
+
+/** /bulan [bulan] — semua event di satu bulan tahun berjalan (default: bulan ini). */
+export async function buildMonthText(arg?: string): Promise<string> {
+	const admin = createAdminClient();
+	const now = wibNow();
+	const year = now.getUTCFullYear();
+	const todayISO = isoDateUTC(now);
+	let month = now.getUTCMonth();
+	if (arg?.trim()) {
+		const parsed = parseMonthArg(arg);
+		if (parsed === null) {
+			return "❓ Bulan tidak dikenali. Contoh: <code>/bulan 8</code> atau <code>/bulan agustus</code>";
+		}
+		month = parsed;
+	}
+	const startISO = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+	const endISO = isoDateUTC(new Date(Date.UTC(year, month + 1, 0)));
+
+	const { data: eventsData, error } = await admin
+		.from("events")
+		.select(
+			"id, project_id, client_name, event_date, start_time, venue_city, status",
+		)
+		.gte("event_date", startISO)
+		.lte("event_date", endISO)
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false)
+		.neq("status", "cancelled")
+		.order("event_date", { ascending: true })
+		.order("start_time", { ascending: true, nullsFirst: false });
+	if (error) throw new Error(`Fetch events: ${error.message}`);
+	const events = (eventsData ?? []) as Array<
+		Pick<
+			EventRow,
+			| "id"
+			| "project_id"
+			| "client_name"
+			| "event_date"
+			| "start_time"
+			| "venue_city"
+		> & { status: string }
+	>;
+
+	const judul = `${BULAN_FULL[month].toUpperCase()} ${year}`;
+	if (events.length === 0) {
+		return `😌 Tidak ada event di bulan ${BULAN_FULL[month]} ${year}.`;
+	}
+
+	const crewCount = new Map<string, number>();
+	{
+		const { data: crewData } = await admin
+			.from("crew_assignments")
+			.select("event_id")
+			.in(
+				"event_id",
+				events.map((e) => e.id),
+			);
+		for (const c of (crewData ?? []) as Array<{ event_id: string }>) {
+			crewCount.set(c.event_id, (crewCount.get(c.event_id) ?? 0) + 1);
+		}
+	}
+
+	const byDate = new Map<string, typeof events>();
+	for (const ev of events) {
+		const arr = byDate.get(ev.event_date) ?? [];
+		arr.push(ev);
+		byDate.set(ev.event_date, arr);
+	}
+
+	const doneCount = events.filter((e) => e.event_date < todayISO).length;
+	const parts: string[] = [
+		`🗓 <b>EVENT ${judul}</b> — ${events.length} event (${doneCount} selesai, ${events.length - doneCount} akan datang)`,
+	];
+	for (const [date, evs] of byDate.entries()) {
+		const isPast = date < todayISO;
+		const isToday = date === todayISO;
+		const suffix = isToday ? " · HARI INI" : isPast ? " ✔" : "";
+		parts.push(`\n<b>${dateLabel(date)}</b>${suffix}`);
+		for (const ev of evs) {
+			const jam = hhmm(ev.start_time) ?? "❓TBC";
+			const kota = ev.venue_city ? ` · ${tgEscape(ev.venue_city)}` : "";
+			const crew = isPast
+				? ""
+				: ` · ${(crewCount.get(ev.id) ?? 0) > 0 ? `👥${crewCount.get(ev.id)}` : "🚨 no crew"}`;
+			parts.push(`      • ${jam} — ${tgEscape(ev.client_name)}${kota}${crew}`);
 		}
 	}
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";

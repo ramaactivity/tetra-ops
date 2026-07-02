@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage, tgApi } from "@/lib/telegram/client";
 import {
 	buildDigestText,
+	buildMonthText,
 	buildScheduleText,
 	buildStockText,
 	buildTomorrowText,
@@ -123,7 +124,9 @@ export async function POST(request: Request) {
 
 		// ── 3. Perintah teks ──
 		const text = (msg.text ?? "").trim();
-		const command = text.split(/[\s@]/)[0]; // "/cek@tetraph_bot" → "/cek"
+		const [rawCmd = "", ...rest] = text.split(/\s+/);
+		const command = rawCmd.split("@")[0]; // "/cek@tetraph_bot" → "/cek"
+		const arg = rest.join(" "); // "/bulan agustus" → "agustus"
 
 		if (msg.chat.type === "private") {
 			if (command === "/start" || command === "/help") {
@@ -183,6 +186,8 @@ export async function POST(request: Request) {
 			await reply(buildTomorrowText);
 		} else if (command === "/minggu") {
 			await reply(buildScheduleText);
+		} else if (command === "/bulan") {
+			await reply(() => buildMonthText(arg || undefined));
 		} else if (command === "/stok") {
 			await reply(buildStockText);
 		} else if (command === "/id") {
@@ -195,6 +200,7 @@ export async function POST(request: Request) {
 					"/cek — kesiapan event 7 hari ke depan (yang belum beres)",
 					"/besok — briefing lengkap event besok",
 					"/minggu — jadwal semua event 7 hari ke depan",
+					"/bulan — event bulan ini · /bulan 8 atau /bulan agustus utk bulan lain",
 					"/stok — kondisi stok & perkiraan kebutuhan",
 					"/id — chat ID grup ini",
 					"",
