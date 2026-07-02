@@ -25,8 +25,17 @@ const WithdrawalSchema = z.object({
 		.max(120)
 		.optional()
 		.transform((v) => (v ? v : null)),
-	description: z.string().trim().min(1).max(500),
+	// Catatan tambahan opsional; deskripsi final dibentuk dari periode + catatan.
+	description: z.string().trim().max(500).optional(),
+	period_label: z.string().trim().max(60).optional(),
 });
+
+// Deskripsi tersimpan: "Bagi hasil <periode>" + catatan tambahan bila ada.
+function buildDescription(periodLabel?: string, note?: string): string {
+	const base = periodLabel ? `Bagi hasil ${periodLabel}` : "Bagi hasil owner";
+	const extra = note?.trim();
+	return extra ? `${base} — ${extra}` : base;
+}
 
 // Mode "semua owner": tanpa owner_user_id/amount (ditarik penuh per owner).
 const AllWithdrawalSchema = WithdrawalSchema.omit({
@@ -74,6 +83,7 @@ export async function recordOwnerWithdrawal(
 					formData.get("withdrawal_reference") ?? "",
 				),
 				description: String(formData.get("description") ?? ""),
+				period_label: String(formData.get("period_label") ?? ""),
 			});
 			if (!parsedAll.success) {
 				return {
@@ -94,7 +104,10 @@ export async function recordOwnerWithdrawal(
 					p_method: parsedAll.data.withdrawal_method,
 					p_account: parsedAll.data.withdrawal_account,
 					p_reference: parsedAll.data.withdrawal_reference,
-					p_description: parsedAll.data.description,
+					p_description: buildDescription(
+						parsedAll.data.period_label,
+						parsedAll.data.description,
+					),
 					p_actor: me.profile.id,
 				},
 			);
@@ -114,6 +127,7 @@ export async function recordOwnerWithdrawal(
 			withdrawal_account: String(formData.get("withdrawal_account") ?? ""),
 			withdrawal_reference: String(formData.get("withdrawal_reference") ?? ""),
 			description: String(formData.get("description") ?? ""),
+			period_label: String(formData.get("period_label") ?? ""),
 		});
 		if (!parsed.success) {
 			return {
@@ -139,7 +153,10 @@ export async function recordOwnerWithdrawal(
 			p_method: parsed.data.withdrawal_method,
 			p_account: parsed.data.withdrawal_account,
 			p_reference: parsed.data.withdrawal_reference,
-			p_description: parsed.data.description,
+			p_description: buildDescription(
+				parsed.data.period_label,
+				parsed.data.description,
+			),
 			p_actor: me.profile.id,
 		});
 		if (error) return { error: error.message };

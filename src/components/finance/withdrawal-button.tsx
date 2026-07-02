@@ -14,18 +14,55 @@ import { formatRupiah } from "@/lib/format";
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
+const ID_MONTHS = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+];
+
+// Default periode = bulan LALU (withdrawal dilakukan awal bulan untuk bagi hasil
+// bulan sebelumnya). Format "YYYY-MM" untuk <input type="month">.
+function prevMonthValue(): string {
+	const d = new Date();
+	d.setDate(1);
+	d.setMonth(d.getMonth() - 1);
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function thisMonthValue(): string {
+	const d = new Date();
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function monthLabel(value: string): string {
+	const [y, m] = value.split("-").map(Number);
+	if (!y || !m) return value;
+	return `${ID_MONTHS[m - 1]} ${y}`;
+}
+
 // Upload bukti transfer ke Drive + Arsip Nota, tertaut ke entry withdrawal.
 async function uploadProof(
 	file: File,
 	refId: string,
 	ownerName: string,
 	amount: number,
+	periodLabel: string,
 ): Promise<boolean> {
 	try {
 		const fd = new FormData();
 		fd.set("file", file);
 		fd.set("category", "Bagi hasil owner");
-		fd.set("description", `Bagi hasil ${ownerName} · ${refId}`);
+		fd.set(
+			"description",
+			`Bagi hasil ${ownerName} · ${periodLabel} · ${refId}`,
+		);
 		fd.set("nota_date", TODAY());
 		fd.set("amount", String(amount));
 		fd.set("entry_ref_id", refId);
@@ -68,6 +105,7 @@ export function WithdrawalButton({
 		owners[0]?.id ?? "",
 	);
 	const [selectedBank, setSelectedBank] = useState<string>(banks[0]?.id ?? "");
+	const [period, setPeriod] = useState<string>(prevMonthValue());
 	const [amountValue, setAmountValue] = useState("");
 	// Bukti transfer: single = 1 file; bulk = per owner (ownerId → file).
 	const [photo, setPhoto] = useState<File | null>(null);
@@ -87,6 +125,7 @@ export function WithdrawalButton({
 		? undefined
 		: (owners.find((o) => o.id === selectedOwner) ?? owners[0]);
 	const available = isBulk ? grandTotal : (owner?.balance ?? 0);
+	const periodLabel = monthLabel(period);
 
 	// Sukses → unggah bukti transfer (per owner) ke entry-nya, lalu tutup.
 	// Dialog tetap terbuka + tombol terkunci selama upload (feedback jelas,
@@ -102,7 +141,16 @@ export function WithdrawalButton({
 				if (isBulk && state.refs) {
 					for (const r of state.refs) {
 						const f = photosByOwner[r.owner_user_id];
-						if (f && !(await uploadProof(f, r.ref_id, r.full_name, r.amount)))
+						if (
+							f &&
+							!(await uploadProof(
+								f,
+								r.ref_id,
+								r.full_name,
+								r.amount,
+								periodLabel,
+							))
+						)
 							failed++;
 					}
 				} else if (!isBulk && state.refId && photo) {
@@ -111,6 +159,7 @@ export function WithdrawalButton({
 						state.refId,
 						owner?.full_name ?? "Owner",
 						Number(amountValue) || (owner?.balance ?? 0),
+						periodLabel,
 					);
 					if (!ok) failed++;
 				}
@@ -130,7 +179,7 @@ export function WithdrawalButton({
 				setAmountValue("");
 			}
 		})();
-	}, [state, isBulk, photo, photosByOwner, owner, amountValue]);
+	}, [state, isBulk, photo, photosByOwner, owner, amountValue, periodLabel]);
 
 	// Reset guard tiap dialog dibuka lagi.
 	useEffect(() => {
@@ -229,6 +278,24 @@ export function WithdrawalButton({
 										/>
 									</Field>
 
+									<Field label="Periode bagi hasil" required>
+										<input
+											type="month"
+											value={period}
+											max={thisMonthValue()}
+											onChange={(e) => setPeriod(e.target.value)}
+											className="border-border-default bg-background focus-visible:ring-ring tabular h-10 w-full rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+										/>
+										<input
+											type="hidden"
+											name="period_label"
+											value={periodLabel}
+										/>
+										<p className="text-muted-foreground mt-1 text-[11px]">
+											Bagi hasil dari event bulan {periodLabel}.
+										</p>
+									</Field>
+
 									<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
 										<p className="text-muted-foreground text-[11px]">
 											{isBulk
@@ -312,13 +379,12 @@ export function WithdrawalButton({
 										/>
 									</Field>
 
-									<Field label="Catatan" required>
+									<Field label="Catatan tambahan (opsional)">
 										<RichTextarea
 											name="description"
-											required
 											rows={2}
 											maxLength={500}
-											placeholder="Bagi hasil bulan ini, dll."
+											placeholder={`Otomatis tercatat "Bagi hasil ${periodLabel}". Tambah catatan lain di sini bila perlu.`}
 											toolbar={false}
 										/>
 									</Field>
@@ -462,9 +528,12 @@ function ProofUpload({
 		);
 	}
 	return (
-		<label className="border-border-default hover:bg-secondary flex h-10 cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 text-[13px] text-muted-foreground">
-			<Paperclip className="h-4 w-4" />
-			<span>Lampirkan foto bukti transfer</span>
+		<label className="border-border-default text-muted-foreground hover:border-border-strong hover:bg-secondary/60 flex min-h-[7.5rem] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border border-dashed px-3 py-4 text-center transition-colors">
+			<Paperclip className="h-5 w-5 opacity-60" />
+			<span className="text-[12.5px] font-medium leading-tight">
+				Lampirkan bukti transfer
+			</span>
+			<span className="text-[11px] opacity-70">Foto atau PDF</span>
 			<input
 				type="file"
 				accept="image/*,application/pdf"
