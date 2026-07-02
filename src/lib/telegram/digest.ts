@@ -399,9 +399,56 @@ function composeBriefing(ev: EventRow, crew: string[]): string {
 			? `💰 Sisa tagihan ${rp(ev.remaining_balance)} — tagih sebelum/saat acara`
 			: `💰 LUNAS`,
 	);
+	lines.push(
+		"",
+		"☑️ <b>Cek ulang HARI INI sebelum hari H:</b>",
+		"      1. Lokasi & titik venue BENAR? Buka maps-nya, jangan sampai salah gedung/hall",
+		"      2. Jam setup & jam mulai sudah dikonfirmasi ulang ke klien/PIC?",
+		"      3. Crew sudah di-assign DAN sudah dibriefing owner (rundown, dresscode, kontak PIC)?",
+		"      4. Alat sudah disiapkan & dicek: booth, kamera, printer, lighting, kabel, backdrop?",
+		"      5. Stok bahan cukup & sudah dipacking: media set, kertas, tinta, sleeve, dll?",
+		"      6. Desain final sudah ACC & ter-load di sistem?",
+	);
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 	if (appUrl) lines.push(`\nDetail: ${appUrl}/operations/${ev.project_id}`);
 	return lines.join("\n");
+}
+
+// ── Reminder bulanan (tanggal 1) ─────────────────────────────────────────
+// Tagihan rutin & ritual keuangan owner. Hardcoded by design: daftarnya
+// pendek, jarang berubah, dan mengubahnya = edit satu array ini.
+
+const MONTHLY_ITEMS = [
+	"🏠 Bayar kosan",
+	"🌐 Bayar internet / WiFi",
+	"💸 Withdraw / transfer bagi hasil owner bulan lalu",
+];
+
+function composeMonthlyReminder(todayISO: string): string | null {
+	if (!todayISO.endsWith("-01")) return null;
+	const d = new Date(`${todayISO}T00:00:00Z`);
+	const bulan = [
+		"Januari",
+		"Februari",
+		"Maret",
+		"April",
+		"Mei",
+		"Juni",
+		"Juli",
+		"Agustus",
+		"September",
+		"Oktober",
+		"November",
+		"Desember",
+	][d.getUTCMonth()];
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	return [
+		`📅 <b>AWAL BULAN — ${bulan} ${d.getUTCFullYear()}</b>`,
+		"Rutinitas tanggal 1, jangan kelewat:",
+		"",
+		...MONTHLY_ITEMS.map((i) => `      • ${i}`),
+		...(appUrl ? [`\nBagi hasil: ${appUrl}/finance`] : []),
+	].join("\n");
 }
 
 // ── Orchestrator ─────────────────────────────────────────────────────────
@@ -482,7 +529,26 @@ export async function runTelegramDigestInternal(opts?: {
 		);
 	}
 
-	// 2. Briefing per event H-1
+	// 2. Reminder bulanan tiap tanggal 1 (kosan, wifi, bagi hasil owner)
+	try {
+		const monthly = composeMonthlyReminder(data.todayISO);
+		if (monthly) {
+			const monthKey = data.todayISO.slice(0, 7); // YYYY-MM
+			if (opts?.force || (await claimSend(admin, "monthly", monthKey))) {
+				const res = await sendTelegramMessage(chatId, monthly);
+				if (res.ok) result.sent.push("monthly");
+				else result.errors.push(`monthly: ${res.error}`);
+			} else {
+				result.skipped.push("monthly: sudah terkirim bulan ini");
+			}
+		}
+	} catch (err) {
+		result.errors.push(
+			`monthly: ${err instanceof Error ? err.message : "unknown"}`,
+		);
+	}
+
+	// 3. Briefing per event H-1
 	const tomorrowISO = addDaysISO(data.todayISO, 1);
 	for (const ev of data.events.filter((e) => e.event_date === tomorrowISO)) {
 		try {
