@@ -286,12 +286,15 @@ function deriveIssues(
 		push(days <= 2, "crew belum di-assign");
 	}
 
-	// Desain — target H-1
+	// Desain — mulai diingatkan dari H-7 (produksi desain butuh lead time),
+	// kritis kalau H-2 belum dibuat sama sekali atau H-1 belum ACC
 	const designDone =
 		ev.design_status === "approved" || ev.design_approved_at !== null;
-	if (!designDone && days <= 3) {
+	if (!designDone && days <= 7) {
 		const st = ev.design_status === "proses" ? "masih proses" : "belum dibuat";
-		push(days <= 1, `desain belum ACC (${st})`);
+		const isCritical =
+			days <= 1 || (days <= 2 && ev.design_status !== "proses");
+		push(isCritical, `desain belum ACC (${st})`);
 	}
 
 	// Spek cetak — ikut window TBC H-3
@@ -428,6 +431,75 @@ function composeBriefing(ev: EventRow, crew: string[]): string {
 	return lines.join("\n");
 }
 
+// ── Reminder H+1: upload aset digital event kemarin ─────────────────────
+// Softfile & footage dicek dari event_assets; design_frame tidak (itu urusan
+// pra-event). Satu reminder per event (dedup by event_id).
+
+type AssetUploadReminder = {
+	id: string;
+	project_id: string;
+	client_name: string;
+	event_date: string;
+	missing: string[];
+};
+
+async function fetchAssetUploadReminders(
+	admin: ReturnType<typeof createAdminClient>,
+	todayISO: string,
+): Promise<AssetUploadReminder[]> {
+	const yesterdayISO = addDaysISO(todayISO, -1);
+	const { data: eventsData } = await admin
+		.from("events")
+		.select("id, project_id, client_name, event_date")
+		.eq("event_date", yesterdayISO)
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false)
+		.neq("status", "cancelled");
+	const evs = (eventsData ?? []) as Array<
+		Pick<EventRow, "id" | "project_id" | "client_name" | "event_date">
+	>;
+	if (evs.length === 0) return [];
+
+	const { data: assets } = await admin
+		.from("event_assets")
+		.select("event_id, asset_type")
+		.in(
+			"event_id",
+			evs.map((e) => e.id),
+		);
+	const byEvent = new Map<string, Set<string>>();
+	for (const a of (assets ?? []) as Array<{
+		event_id: string;
+		asset_type: string;
+	}>) {
+		const s = byEvent.get(a.event_id) ?? new Set<string>();
+		s.add(a.asset_type);
+		byEvent.set(a.event_id, s);
+	}
+
+	return evs
+		.map((e) => {
+			const have = byEvent.get(e.id) ?? new Set<string>();
+			const missing: string[] = [];
+			if (!have.has("softfile")) missing.push("softfile hasil foto");
+			if (!have.has("footage_crew")) missing.push("footage dokumentasi crew");
+			return { ...e, missing };
+		})
+		.filter((e) => e.missing.length > 0);
+}
+
+function composeAssetUpload(ev: AssetUploadReminder): string {
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	return [
+		`📤 <b>UPLOAD ASET — ${tgEscape(ev.client_name)}</b>`,
+		`Event kemarin (${dateLabel(ev.event_date, true)}) sudah selesai. Jangan lupa upload aset digitalnya hari ini:`,
+		...ev.missing.map((m) => `      • ${m}`),
+		"",
+		"Klien biasanya nagih cepat — makin cepat terupload makin profesional. (Abaikan kalau sudah upload tapi belum tercatat di app.)",
+		...(appUrl ? [`Upload: ${appUrl}/design`] : []),
+	].join("\n");
+}
+
 // ── Reminder bulanan (tanggal 1) ─────────────────────────────────────────
 // Tagihan rutin & ritual keuangan owner. Hardcoded by design: daftarnya
 // pendek, jarang berubah, dan mengubahnya = edit satu array ini.
@@ -549,7 +621,25 @@ export async function runTelegramDigestInternal(opts?: {
 		);
 	}
 
-	// 3. Briefing per event H-1
+	// 3. Reminder H+1: upload aset digital event kemarin
+	try {
+		const uploads = await fetchAssetUploadReminders(admin, data.todayISO);
+		for (const ev of uploads) {
+			if (!opts?.force && !(await claimSend(admin, "asset_upload", ev.id))) {
+				result.skipped.push(`asset_upload ${ev.client_name}: sudah terkirim`);
+				continue;
+			}
+			const res = await sendTelegramMessage(chatId, composeAssetUpload(ev));
+			if (res.ok) result.sent.push(`asset_upload ${ev.client_name}`);
+			else result.errors.push(`asset_upload ${ev.client_name}: ${res.error}`);
+		}
+	} catch (err) {
+		result.errors.push(
+			`asset_upload: ${err instanceof Error ? err.message : "unknown"}`,
+		);
+	}
+
+	// 4. Briefing per event H-1
 	const tomorrowISO = addDaysISO(data.todayISO, 1);
 	for (const ev of data.events.filter((e) => e.event_date === tomorrowISO)) {
 		try {
