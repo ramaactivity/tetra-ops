@@ -34,7 +34,24 @@ const AllWithdrawalSchema = WithdrawalSchema.omit({
 	amount: true,
 });
 
-export type WithdrawalFormState = { ok?: boolean; error?: string } | undefined;
+/** Ref jurnal per owner (untuk lampiran bukti transfer setelah tersimpan). */
+export type WithdrawalRef = {
+	owner_user_id: string;
+	full_name: string;
+	amount: number;
+	ref_id: string;
+};
+
+export type WithdrawalFormState =
+	| {
+			ok?: boolean;
+			error?: string;
+			/** Single: ref jurnal untuk lampiran bukti. */
+			refId?: string;
+			/** Bulk: ref jurnal per owner untuk lampiran bukti. */
+			refs?: WithdrawalRef[];
+	  }
+	| undefined;
 
 export async function recordOwnerWithdrawal(
 	_prev: WithdrawalFormState,
@@ -70,19 +87,23 @@ export async function recordOwnerWithdrawal(
 				};
 			}
 			const supabase = await createClient();
-			const { error } = await supabase.rpc("record_all_owner_withdrawals", {
-				p_bank_account_id: parsedAll.data.bank_account_id,
-				p_method: parsedAll.data.withdrawal_method,
-				p_account: parsedAll.data.withdrawal_account,
-				p_reference: parsedAll.data.withdrawal_reference,
-				p_description: parsedAll.data.description,
-				p_actor: me.profile.id,
-			});
+			const { data, error } = await supabase.rpc(
+				"record_all_owner_withdrawals",
+				{
+					p_bank_account_id: parsedAll.data.bank_account_id,
+					p_method: parsedAll.data.withdrawal_method,
+					p_account: parsedAll.data.withdrawal_account,
+					p_reference: parsedAll.data.withdrawal_reference,
+					p_description: parsedAll.data.description,
+					p_actor: me.profile.id,
+				},
+			);
 			if (error) return { error: error.message };
 			revalidatePath("/finance");
 			revalidatePath("/finance/accounting");
 			revalidatePath("/dashboard");
-			return { ok: true };
+			const refs = (data as { refs?: WithdrawalRef[] } | null)?.refs ?? [];
+			return { ok: true, refs };
 		}
 
 		const parsed = WithdrawalSchema.safeParse({
@@ -111,7 +132,7 @@ export async function recordOwnerWithdrawal(
 		// Atomic + race-free: lock owner row → cek saldo → jurnal (Dr 2-300 /
 		// Cr kas) + owner_earnings dalam 1 transaksi (RPC record_owner_withdrawal).
 		// Menggantikan flow multi-statement lama yang TOCTOU + non-atomik.
-		const { error } = await supabase.rpc("record_owner_withdrawal", {
+		const { data, error } = await supabase.rpc("record_owner_withdrawal", {
 			p_owner_user_id: parsed.data.owner_user_id,
 			p_amount: parsed.data.amount,
 			p_bank_account_id: parsed.data.bank_account_id,
@@ -126,7 +147,8 @@ export async function recordOwnerWithdrawal(
 		revalidatePath("/finance");
 		revalidatePath("/finance/accounting");
 		revalidatePath("/dashboard");
-		return { ok: true };
+		const refId = (data as { ref_id?: string } | null)?.ref_id;
+		return { ok: true, refId };
 	} catch (err) {
 		return { error: err instanceof Error ? err.message : "Unknown error" };
 	}
