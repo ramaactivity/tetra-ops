@@ -578,10 +578,10 @@ export default async function FinancePage({
 						hint="Disisihin"
 					/>
 					<BreakdownStat
-						label="Owner pool"
+						label="Bagi hasil owner"
 						value={ownerPoolMtd}
 						tone="primary"
-						hint="Untuk distribusi"
+						hint="Jatah owner"
 					/>
 				</dl>
 			</SectionCard>
@@ -767,7 +767,13 @@ export default async function FinancePage({
 
 			{isSuperAdmin && ownerBreakdown.length > 0 && (
 				<SectionCard
-					title="Owner pool & earnings"
+					title="Bagi hasil owner"
+					titleExtra={
+						<InfoHint title="Bagi hasil owner">
+							Jatah keuntungan tiap owner dari event yang sudah selesai
+							(Rp50.000 per event). "Bisa diambil" = sisa yang belum ditarik.
+						</InfoHint>
+					}
 					meta={
 						<div className="flex items-center gap-3">
 							<WithdrawalButton
@@ -782,7 +788,7 @@ export default async function FinancePage({
 									label: b.account_name,
 								}))}
 							/>
-							<HeaderLink href="/settings/crew">Investor share</HeaderLink>
+							<HeaderLink href="/settings/crew">Atur porsi</HeaderLink>
 						</div>
 					}
 				>
@@ -791,13 +797,15 @@ export default async function FinancePage({
 							<thead className="bg-card border-b border-border-subtle">
 								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
 									<th className="px-4 py-2.5 text-left font-medium">Owner</th>
-									<th className="px-4 py-2.5 text-right font-medium">Share</th>
-									<th className="px-4 py-2.5 text-right font-medium">Earned</th>
+									<th className="px-4 py-2.5 text-right font-medium">Porsi</th>
 									<th className="px-4 py-2.5 text-right font-medium">
-										Withdrawn
+										Total didapat
 									</th>
 									<th className="px-4 py-2.5 text-right font-medium">
-										Balance
+										Sudah diambil
+									</th>
+									<th className="px-4 py-2.5 text-right font-medium">
+										Bisa diambil
 									</th>
 								</tr>
 							</thead>

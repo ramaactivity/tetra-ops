@@ -70,7 +70,7 @@ export function WithdrawalButton({
 				className={buttonVariants({ variant: "outline", className: "h-9" })}
 			>
 				<ArrowDownToLine className="h-3.5 w-3.5" />
-				Record withdrawal
+				Ambil bagi hasil
 			</button>
 
 			{open && (
@@ -89,10 +89,11 @@ export function WithdrawalButton({
 						<div className="border-border-default flex items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">
-									Record owner withdrawal
+									Ambil bagi hasil owner
 								</h2>
 								<p className="text-muted-foreground text-xs">
-									Catat pengambilan dari owner pool. Saldo otomatis berkurang.
+									Catat uang bagi hasil yang diambil owner. Sisa otomatis
+									berkurang.
 								</p>
 							</div>
 							<button
@@ -115,7 +116,7 @@ export function WithdrawalButton({
 									onValueChange={setSelectedOwner}
 									options={owners.map((o) => ({
 										value: o.id,
-										label: `${o.full_name} · saldo ${formatRupiah(o.balance)}`,
+										label: `${o.full_name} · sisa ${formatRupiah(o.balance)}`,
 									}))}
 									triggerClassName="w-full"
 								/>
@@ -130,7 +131,7 @@ export function WithdrawalButton({
 							{owner && (
 								<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
 									<p className="text-muted-foreground text-[11px]">
-										Saldo tersedia
+										Bisa diambil
 									</p>
 									<p
 										className={`tabular text-lg font-semibold ${
@@ -144,7 +145,7 @@ export function WithdrawalButton({
 								</div>
 							)}
 
-							<Field label="Jumlah withdrawal (Rp)" required>
+							<Field label="Jumlah diambil (Rp)" required>
 								<input
 									name="amount"
 									type="number"
@@ -157,7 +158,7 @@ export function WithdrawalButton({
 								/>
 							</Field>
 
-							<Field label="Sumber dana (kas/bank)" required>
+							<Field label="Uang diambil dari (kas/bank)" required>
 								<NativeSelect
 									value={selectedBank}
 									onValueChange={setSelectedBank}
@@ -176,10 +177,10 @@ export function WithdrawalButton({
 							</Field>
 
 							<div className="grid gap-3 sm:grid-cols-2">
-								<Field label="Method" required>
+								<Field label="Cara (transfer/tunai)" required>
 									<WithdrawalMethodSelect />
 								</Field>
-								<Field label="Account / detail">
+								<Field label="No. rekening / detail">
 									<input
 										name="withdrawal_account"
 										type="text"
@@ -190,7 +191,7 @@ export function WithdrawalButton({
 								</Field>
 							</div>
 
-							<Field label="Reference (opsional)">
+							<Field label="Bukti transfer (opsional)">
 								<input
 									name="withdrawal_reference"
 									type="text"
@@ -206,7 +207,7 @@ export function WithdrawalButton({
 									required
 									rows={2}
 									maxLength={500}
-									placeholder="Withdraw bulan ini, dll."
+									placeholder="Bagi hasil bulan ini, dll."
 									toolbar={false}
 								/>
 							</Field>
@@ -226,7 +227,7 @@ export function WithdrawalButton({
 									disabled={pending}
 									className="text-muted-foreground hover:text-foreground h-9 px-3 text-xs font-medium disabled:opacity-50"
 								>
-									Cancel
+									Batal
 								</button>
 								<button
 									type="submit"
@@ -240,7 +241,7 @@ export function WithdrawalButton({
 									) : (
 										<ArrowDownToLine className="h-3.5 w-3.5" />
 									)}
-									Record withdrawal
+									Ambil bagi hasil
 								</button>
 							</div>
 						</form>
@@ -260,7 +261,7 @@ function WithdrawalMethodSelect() {
 				onValueChange={setMethod}
 				options={[
 					{ value: "transfer", label: "Transfer" },
-					{ value: "cash", label: "Cash" },
+					{ value: "cash", label: "Tunai" },
 				]}
 				triggerClassName="w-full"
 			/>
