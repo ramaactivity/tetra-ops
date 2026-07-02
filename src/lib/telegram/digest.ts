@@ -513,3 +513,68 @@ export async function buildDigestText(): Promise<string> {
 		"✅ Tidak ada event 7 hari ke depan dan stok aman. Santai dulu 😎"
 	);
 }
+
+/** /besok — briefing lengkap semua event besok. */
+export async function buildTomorrowText(): Promise<string> {
+	const admin = createAdminClient();
+	const data = await gatherData(admin);
+	const tomorrowISO = addDaysISO(data.todayISO, 1);
+	const evs = data.events.filter((e) => e.event_date === tomorrowISO);
+	if (evs.length === 0) {
+		return `😌 Tidak ada event besok (${dateLabel(tomorrowISO, true)}).`;
+	}
+	return evs
+		.map((ev) => composeBriefing(ev, data.crewByEvent.get(ev.id) ?? []))
+		.join("\n\n————————————\n\n");
+}
+
+/** /minggu — jadwal ringkas semua event 7 hari ke depan. */
+export async function buildScheduleText(): Promise<string> {
+	const admin = createAdminClient();
+	const data = await gatherData(admin);
+	if (data.events.length === 0) {
+		return "😌 Tidak ada event 7 hari ke depan.";
+	}
+	const byDate = new Map<string, EventRow[]>();
+	for (const ev of data.events) {
+		const arr = byDate.get(ev.event_date) ?? [];
+		arr.push(ev);
+		byDate.set(ev.event_date, arr);
+	}
+	const parts: string[] = [
+		`🗓 <b>JADWAL 7 HARI KE DEPAN</b> (${data.events.length} event)`,
+	];
+	for (const [date, evs] of byDate.entries()) {
+		const days = daysUntil(data.todayISO, date);
+		const hLabel = days === 0 ? "HARI INI" : `H-${days}`;
+		parts.push(`\n<b>${dateLabel(date, true)}</b> · ${hLabel}`);
+		for (const ev of evs) {
+			const crewCount = data.crewByEvent.get(ev.id)?.length ?? 0;
+			const jam = hhmm(ev.start_time) ?? "❓TBC";
+			const kota = ev.venue_city ? ` · ${tgEscape(ev.venue_city)}` : "";
+			const crewIcon = crewCount > 0 ? `👥${crewCount}` : "🚨 no crew";
+			parts.push(
+				`      • ${jam} — ${tgEscape(ev.client_name)}${kota} · ${crewIcon}`,
+			);
+		}
+	}
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	if (appUrl) parts.push(`\nDetail: ${appUrl}/operations`);
+	return parts.join("\n");
+}
+
+/** /stok — kondisi stok: item habis + perkiraan kekurangan utk event mendatang. */
+export async function buildStockText(): Promise<string> {
+	const admin = createAdminClient();
+	const data = await gatherData(admin);
+	if (data.stockLines.length === 0) {
+		return "✅ Stok aman — tidak ada item habis dan tidak ada perkiraan kekurangan untuk event mendatang.";
+	}
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	return [
+		"📦 <b>KONDISI STOK</b>",
+		"",
+		...data.stockLines.map((s) => `• ${s}`),
+		...(appUrl ? [`\nDetail: ${appUrl}/warehouse`] : []),
+	].join("\n");
+}

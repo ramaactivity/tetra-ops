@@ -56,6 +56,31 @@ if (!secret || !appUrl) {
 	process.exit(1);
 }
 
+// Dropdown perintah saat user mengetik "/" (BotFather command menu).
+// /daftar & /id sengaja tidak masuk menu — jarang dipakai, cukup via /help.
+const COMMANDS = [
+	{ command: "cek", description: "Kesiapan event 7 hari ke depan" },
+	{ command: "besok", description: "Briefing lengkap event besok" },
+	{ command: "minggu", description: "Jadwal semua event 7 hari ke depan" },
+	{ command: "stok", description: "Kondisi stok & perkiraan kebutuhan" },
+	{ command: "help", description: "Bantuan & daftar perintah" },
+];
+for (const scope of [
+	{ type: "default" },
+	{ type: "all_group_chats" },
+	{ type: "all_private_chats" },
+]) {
+	const cmd = await tg("setMyCommands", { commands: COMMANDS, scope });
+	if (!cmd.ok)
+		console.error(`⚠️ setMyCommands (${scope.type}):`, cmd.description);
+}
+console.log(`✅ Command menu terdaftar (${COMMANDS.length} perintah)`);
+
+await tg("setMyShortDescription", {
+	short_description:
+		"Reminder kesiapan event Tetra Photobooth untuk grup owner",
+});
+
 const webhookUrl = `${appUrl}/api/telegram/webhook`;
 const set = await tg("setWebhook", {
 	url: webhookUrl,

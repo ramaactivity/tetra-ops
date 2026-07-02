@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramMessage, tgApi } from "@/lib/telegram/client";
-import { buildDigestText } from "@/lib/telegram/digest";
+import {
+	buildDigestText,
+	buildScheduleText,
+	buildStockText,
+	buildTomorrowText,
+} from "@/lib/telegram/digest";
 
 /**
  * Webhook Telegram — didaftarkan via scripts/telegram-setup.mjs (setWebhook).
@@ -160,18 +165,41 @@ export async function POST(request: Request) {
 			return NextResponse.json({ ok: true });
 		}
 
+		const reply = (build: () => Promise<string> | string) =>
+			Promise.resolve()
+				.then(build)
+				.then((text) => sendTelegramMessage(msg.chat.id, text))
+				.catch((err) => {
+					console.error(`[telegram] ${command}`, err);
+					return sendTelegramMessage(
+						msg.chat.id,
+						"⚠️ Gagal mengambil data — coba lagi sebentar.",
+					);
+				});
+
 		if (command === "/cek") {
-			const digest = await buildDigestText();
-			await sendTelegramMessage(msg.chat.id, digest);
+			await reply(buildDigestText);
+		} else if (command === "/besok") {
+			await reply(buildTomorrowText);
+		} else if (command === "/minggu") {
+			await reply(buildScheduleText);
+		} else if (command === "/stok") {
+			await reply(buildStockText);
 		} else if (command === "/id") {
-			await sendTelegramMessage(
-				msg.chat.id,
-				`Chat ID: <code>${msg.chat.id}</code>`,
-			);
+			await reply(() => `Chat ID: <code>${msg.chat.id}</code>`);
 		} else if (command === "/help" || command === "/start") {
-			await sendTelegramMessage(
-				msg.chat.id,
-				"Perintah:\n/cek — kesiapan event 7 hari ke depan\n/id — chat ID grup ini\n\nDigest otomatis tiap pagi ±06:30 WIB.",
+			await reply(() =>
+				[
+					"🤖 <b>Tetra Ops Bot</b>",
+					"",
+					"/cek — kesiapan event 7 hari ke depan (yang belum beres)",
+					"/besok — briefing lengkap event besok",
+					"/minggu — jadwal semua event 7 hari ke depan",
+					"/stok — kondisi stok & perkiraan kebutuhan",
+					"/id — chat ID grup ini",
+					"",
+					"Digest otomatis tiap pagi ±06:30 WIB + briefing event H-1.",
+				].join("\n"),
 			);
 		}
 	} catch (err) {
