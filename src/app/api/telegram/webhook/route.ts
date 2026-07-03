@@ -132,13 +132,13 @@ function menuView(view: string): MenuView {
 			}
 			rows.push(monthBtns.slice(0, 3), monthBtns.slice(3, 6), BACK_ROW);
 			return {
-				text: "🗓 <b>Jadwal</b> — mau lihat yang mana?",
+				text: "🗓 <b>Jadwal Event</b>\n\nLihat daftar event beserta klien, venue, dan crew yang bertugas.\n\n🗓 <b>Minggu Ini</b> — semua event 7 hari ke depan\n📆 <b>Bulan Ini</b> — semua event bulan berjalan\n\nAtau pilih bulan di baris bawah untuk melihat jadwal bulan itu. Bisa juga ketik <code>/bulan agustus</code>.",
 				keyboard: rows,
 			};
 		}
 		case "uang":
 			return {
-				text: "💰 <b>Keuangan</b> — pilih:",
+				text: "💰 <b>Keuangan</b>\n\nPantau kondisi uang bisnis tanpa buka aplikasi. Semua angka diambil langsung dari pembukuan Tetra Ops saat tombol ditekan.\n\n💰 <b>Piutang</b> — event yang pembayarannya belum lunas\n💵 <b>Saldo Kas/Bank</b> — saldo terkini semua rekening\n📊 <b>Rekap Bisnis</b> — omzet, profit & leads bulan berjalan\n🔔 <b>Langganan</b> — jatuh tempo VPS, domain, simcard, dll",
 				keyboard: [
 					[
 						{ text: "💰 Piutang", callback_data: "piutang" },
@@ -165,13 +165,13 @@ function menuView(view: string): MenuView {
 			}
 			rows.push(BACK_ROW);
 			return {
-				text: "📅 <b>Cek ketersediaan unit</b> — pilih tanggal.\nTanggal lain: ketik <code>/ada 15 agu</code>",
+				text: "📅 <b>Cek Ketersediaan Unit</b>\n\nMasih bisa terima booking di tanggal tertentu? Pilih tanggalnya, saya hitung berapa unit photobooth yang masih kosong — sudah memperhitungkan bentrok jadwal dan jarak antar kota.\n\nTombol di bawah = 14 hari ke depan.\nTanggal lain: ketik <code>/ada 15 agu</code>",
 				keyboard: rows,
 			};
 		}
 		default:
 			return {
-				text: "🤖 <b>Tetra Ops Bot</b> — pilih menu:",
+				text: "🤖 <b>Tetra Ops Bot</b> — Menu Utama\n\nPusat kendali bisnis langsung dari Telegram:\n\n📋 <b>Kesiapan</b> — event 7 hari ke depan yang persiapannya belum beres\n📸 <b>Briefing Besok</b> — detail lengkap event besok (crew, alat, venue)\n🗓 <b>Jadwal</b> — daftar event minggu ini / per bulan\n📅 <b>Cek Tanggal</b> — sisa unit kosong di tanggal tertentu\n💰 <b>Keuangan</b> — piutang, saldo, rekap bisnis, langganan\n📦 <b>Stok</b> — kondisi stok & perkiraan kebutuhan\n👥 <b>Crew</b> — jadwal crew 7 hari + fee belum dibayar\n\nTanda ▸ = buka sub-menu. Digest otomatis tiap pagi ±06:30 WIB.",
 				keyboard: [
 					[
 						{ text: "📋 Kesiapan", callback_data: "cek" },
