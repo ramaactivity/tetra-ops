@@ -1,4 +1,9 @@
 import { formatDateID, formatRupiah } from "@/lib/format";
+import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
 
 /**
  * Normalize an Indonesian phone number into wa.me format (digits only, with country code).
@@ -65,6 +70,7 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	const setupT = time(ev.setup_time);
 	const startT = time(ev.start_time);
 	const endT = time(ev.end_time);
+	const segments = parseSegments(ev.session_segments);
 
 	const sections: string[] = [];
 
@@ -102,10 +108,15 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	// Schedule
 	const scheduleLines = [`📅 *JADWAL*`, date];
 	if (setupT) scheduleLines.push(`🛠 Setup: ${setupT}`);
-	if (startT) {
+	if (hasBreak(segments)) {
+		// Acara dengan jeda — booth berhenti di tengah. Rincikan tiap sesi.
 		scheduleLines.push(
-			`🎥 Mulai: ${startT}${endT ? ` - ${endT}` : ""}`,
+			`🎥 Sesi: ${formatScheduleInline(ev.start_time, ev.end_time, segments, {
+				sep: " · ",
+			})}`,
 		);
+	} else if (startT) {
+		scheduleLines.push(`🎥 Mulai: ${startT}${endT ? ` - ${endT}` : ""}`);
 	}
 	sections.push(scheduleLines.join("\n"));
 
@@ -185,9 +196,7 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 
 	// Crew notes / special requests
 	if (ev.crew_notes && ev.crew_notes.trim()) {
-		sections.push(
-			[`📝 *CATATAN KHUSUS*`, ev.crew_notes.trim()].join("\n"),
-		);
+		sections.push([`📝 *CATATAN KHUSUS*`, ev.crew_notes.trim()].join("\n"));
 	}
 
 	// Footer
@@ -208,6 +217,7 @@ export const SUPPORTED_WA_VARIABLES = [
 	"event_date",
 	"setup_time",
 	"start_time",
+	"session_segments",
 	"venue_name",
 	"due_date",
 	"dp_amount",
@@ -228,6 +238,8 @@ export type EventForWA = {
 	setup_time: string | null;
 	start_time: string | null;
 	end_time?: string | null;
+	/** Raw events.session_segments JSONB — array (multi-sesi) or null. */
+	session_segments?: unknown;
 	venue_name: string;
 	venue_address?: string | null;
 	venue_city?: string | null;

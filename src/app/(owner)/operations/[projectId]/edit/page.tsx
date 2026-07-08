@@ -33,7 +33,7 @@ export default async function EditBookingPage({
 			.select(
 				`id, project_id, channel, client_name, client_wa, client_email,
 				service_type, package_id, frame_size, event_category, event_date,
-				setup_time, start_time, end_time,
+				setup_time, start_time, end_time, session_segments,
 				booker_name,
 				venue_name, venue_address, venue_city, venue_province, google_maps_url,
 				vendor_name, vendor_pic_name, vendor_contact,
@@ -151,6 +151,9 @@ export default async function EditBookingPage({
 						setup_time: trimTime(event.setup_time),
 						start_time: trimTime(event.start_time),
 						end_time: trimTime(event.end_time),
+						session_segments: event.session_segments
+							? JSON.stringify(event.session_segments)
+							: "",
 						booker_name: event.booker_name ?? "",
 						venue_name: event.venue_name,
 						venue_address: event.venue_address ?? "",

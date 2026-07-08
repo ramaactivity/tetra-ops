@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
+import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ type AssignedEvent = {
 	event_date: string;
 	setup_time: string | null;
 	start_time: string | null;
+	session_segments: unknown;
 	venue_name: string;
 	venue_city: string | null;
 	is_migrated_legacy: boolean | null;
@@ -74,7 +76,7 @@ export default async function CrewSchedulePage({
 			`role_in_event,
 			event:events!inner(
 				id, project_id, status, client_name, event_date,
-				setup_time, start_time, venue_name, venue_city,
+				setup_time, start_time, session_segments, venue_name, venue_city,
 				is_migrated_legacy, frame_size, backdrop_id,
 				backdrop:backdrops(name)
 			)`,
@@ -182,6 +184,8 @@ export default async function CrewSchedulePage({
 								? ev.backdrop[0]
 								: ev.backdrop;
 							const tbcStart = !ev.start_time;
+							const sessions = parseSegments(ev.session_segments);
+							const multiSesi = hasBreak(sessions);
 							const tbcFrame = !ev.frame_size;
 							const tbcBackdrop = !ev.backdrop_id;
 							const city =
@@ -236,6 +240,11 @@ export default async function CrewSchedulePage({
 															{tbcStart ? "TBC" : ID_TIME(ev.start_time)}
 														</span>
 													</span>
+													{multiSesi && sessions ? (
+														<span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] font-semibold text-amber-700 dark:text-amber-300">
+															{sessions.length} sesi
+														</span>
+													) : null}
 													<span className="eyebrow">
 														{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
 													</span>

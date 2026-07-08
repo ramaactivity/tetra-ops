@@ -24,6 +24,11 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { FRAME_SIZE_LABELS } from "@/lib/format";
+import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +70,7 @@ export default async function CrewEventDetailPage({
 				`
 			id, project_id, status, client_name, event_category,
 			pic_name, pic_wa, include_flashdisk_pouch,
-			frame_size, event_date, setup_time, start_time, end_time,
+			frame_size, event_date, setup_time, start_time, end_time, session_segments,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy,
 			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
@@ -228,6 +233,11 @@ export default async function CrewEventDetailPage({
 	const picName = picContact?.name ?? event.pic_name ?? null;
 	const picPhone = picContact?.phone ?? event.pic_wa ?? null;
 
+	// Multi-sesi (acara dengan jeda): booth buka → tutup → buka lagi. Crew HARUS
+	// tahu boothnya berhenti di tengah, jadi tampilkan rincian sesi + jeda.
+	const segments = parseSegments(event.session_segments);
+	const scheduleHasBreak = hasBreak(segments);
+
 	// Venue often has city == venue_name (e.g. "Braja Mustika") and an address
 	// that just repeats the name. Drop anything that duplicates venue_name so the
 	// location block doesn't read "Braja Mustika / Braja Mustika".
@@ -330,6 +340,23 @@ export default async function CrewEventDetailPage({
 							<TimeCell label="Mulai" time={ID_TIME(event.start_time)} hero />
 							<TimeCell label="Selesai" time={ID_TIME(event.end_time)} />
 						</div>
+						{scheduleHasBreak && (
+							<div className="mt-2.5 flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50/70 p-2.5 dark:border-amber-900/70 dark:bg-amber-950/20">
+								<Clock className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+								<div className="min-w-0">
+									<p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+										Acara dengan jeda — booth berhenti di tengah
+									</p>
+									<p className="type-num mt-0.5 text-[0.9375rem] text-foreground">
+										{formatScheduleInline(
+											event.start_time,
+											event.end_time,
+											segments,
+										)}
+									</p>
+								</div>
+							</div>
+						)}
 					</div>
 
 					{/* Lokasi — merged into the hero */}

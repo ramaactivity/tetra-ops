@@ -1,6 +1,11 @@
 import "server-only";
 
 import { computeForecast } from "@/lib/actions/forecast";
+import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	isTelegramConfigured,
@@ -30,6 +35,7 @@ type EventRow = {
 	setup_time: string | null;
 	start_time: string | null;
 	end_time: string | null;
+	session_segments: unknown;
 	venue_name: string | null;
 	venue_city: string | null;
 	google_maps_url: string | null;
@@ -152,8 +158,8 @@ async function gatherData(
 		.from("events")
 		.select(
 			`id, project_id, client_name, event_date, setup_time, start_time,
-			 end_time, venue_name, venue_city, google_maps_url, frame_size,
-			 backdrop_id, design_status, design_approved_at, total_paid,
+			 end_time, session_segments, venue_name, venue_city, google_maps_url,
+			 frame_size, backdrop_id, design_status, design_approved_at, total_paid,
 			 remaining_balance`,
 		)
 		.gte("event_date", todayISO)
@@ -556,11 +562,20 @@ export function composeDigest(data: GatheredData): string | null {
 }
 
 function composeBriefing(ev: EventRow, crew: string[]): string {
+	const segments = parseSegments(ev.session_segments);
+	const jadwalLine = hasBreak(segments)
+		? // Acara dengan jeda — booth berhenti di tengah. Rincikan tiap sesi.
+			`🕐 Setup ${hhmm(ev.setup_time) ?? "❓ TBC"} · Sesi ${formatScheduleInline(
+				ev.start_time,
+				ev.end_time,
+				segments,
+			)}`
+		: `🕐 Setup ${hhmm(ev.setup_time) ?? "❓ TBC"} · Mulai ${hhmm(ev.start_time) ?? "❓ TBC"} · Selesai ${hhmm(ev.end_time) ?? "❓ TBC"}`;
 	const lines: string[] = [
 		`📸 <b>BRIEFING BESOK — ${tgEscape(ev.client_name)}</b>`,
 		`${dateLabel(ev.event_date, true)}`,
 		"",
-		`🕐 Setup ${hhmm(ev.setup_time) ?? "❓ TBC"} · Mulai ${hhmm(ev.start_time) ?? "❓ TBC"} · Selesai ${hhmm(ev.end_time) ?? "❓ TBC"}`,
+		jadwalLine,
 		`📍 ${tgEscape(ev.venue_name) || "❓ venue TBC"}${ev.venue_city ? `, ${tgEscape(ev.venue_city)}` : ""}`,
 	];
 	if (ev.google_maps_url) lines.push(`🗺 ${ev.google_maps_url}`);

@@ -1,5 +1,10 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
+import {
 	formatDateForPdf,
 	formatDateShortForPdf,
 	formatRupiahForPdf,
@@ -34,6 +39,8 @@ export type InvoiceData = {
 		setupTime: string | null;
 		startTime: string | null;
 		endTime: string | null;
+		/** Raw events.session_segments JSONB — multi-sesi (jeda) or null. */
+		sessionSegments?: unknown;
 		venueName: string;
 		venueAddress?: string | null;
 	};
@@ -69,6 +76,7 @@ function paymentStatusFor(d: InvoiceData): keyof typeof STATUS_TONES {
 export function InvoiceDocument({ data }: { data: InvoiceData }) {
 	const status = paymentStatusFor(data);
 	const tone = STATUS_TONES[status];
+	const segments = parseSegments(data.event.sessionSegments);
 
 	return (
 		<Document title={`Invoice ${data.docNumber}`}>
@@ -95,7 +103,9 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 				<View style={PDF_STYLES.twoCol}>
 					<View style={PDF_STYLES.col}>
 						<Text style={PDF_STYLES.colHeader}>Bill to</Text>
-						<Text style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}>
+						<Text
+							style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}
+						>
 							{data.client.name}
 						</Text>
 						{data.client.wa && (
@@ -110,17 +120,30 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 					</View>
 					<View style={PDF_STYLES.col}>
 						<Text style={PDF_STYLES.colHeader}>Event details</Text>
-						<Text style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}>
+						<Text
+							style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}
+						>
 							{data.event.projectId}
 						</Text>
 						<Text style={PDF_STYLES.colBodyMuted}>
 							{formatDateForPdf(data.event.date)}
 						</Text>
-						<Text style={PDF_STYLES.colBodyMuted}>
-							Setup {formatTimeForPdf(data.event.setupTime)} · Mulai{" "}
-							{formatTimeForPdf(data.event.startTime)} · Selesai{" "}
-							{formatTimeForPdf(data.event.endTime)}
-						</Text>
+						{hasBreak(segments) ? (
+							<Text style={PDF_STYLES.colBodyMuted}>
+								Setup {formatTimeForPdf(data.event.setupTime)} · Sesi{" "}
+								{formatScheduleInline(
+									data.event.startTime,
+									data.event.endTime,
+									segments,
+								)}
+							</Text>
+						) : (
+							<Text style={PDF_STYLES.colBodyMuted}>
+								Setup {formatTimeForPdf(data.event.setupTime)} · Mulai{" "}
+								{formatTimeForPdf(data.event.startTime)} · Selesai{" "}
+								{formatTimeForPdf(data.event.endTime)}
+							</Text>
+						)}
 						<Text style={PDF_STYLES.colBodyMuted}>{data.event.venueName}</Text>
 						{data.event.venueAddress && (
 							<Text style={PDF_STYLES.colBodyMuted}>
@@ -171,7 +194,11 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 							<Text>{item.label}</Text>
 							{item.detail && (
 								<Text
-									style={{ fontSize: 8, color: PDF_COLORS.mutedForeground, marginTop: 2 }}
+									style={{
+										fontSize: 8,
+										color: PDF_COLORS.mutedForeground,
+										marginTop: 2,
+									}}
 								>
 									{item.detail}
 								</Text>
@@ -182,7 +209,10 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 							{formatRupiahForPdf(item.unitPrice)}
 						</Text>
 						<Text
-							style={[PDF_STYLES.tableCellRight, { fontFamily: "Helvetica-Bold" }]}
+							style={[
+								PDF_STYLES.tableCellRight,
+								{ fontFamily: "Helvetica-Bold" },
+							]}
 						>
 							{formatRupiahForPdf(item.total)}
 						</Text>
@@ -202,7 +232,9 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 					{data.discount > 0 && (
 						<View style={PDF_STYLES.totalRow}>
 							<Text style={PDF_STYLES.totalLabel}>Discount</Text>
-							<Text style={[PDF_STYLES.totalValue, { color: PDF_COLORS.emerald }]}>
+							<Text
+								style={[PDF_STYLES.totalValue, { color: PDF_COLORS.emerald }]}
+							>
 								− {formatRupiahForPdf(data.discount)}
 							</Text>
 						</View>
@@ -225,13 +257,18 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 						<>
 							<View style={[PDF_STYLES.totalRow, { marginTop: 6 }]}>
 								<Text style={PDF_STYLES.totalLabel}>Sudah dibayar</Text>
-								<Text style={[PDF_STYLES.totalValue, { color: PDF_COLORS.emerald }]}>
+								<Text
+									style={[PDF_STYLES.totalValue, { color: PDF_COLORS.emerald }]}
+								>
 									{formatRupiahForPdf(data.totalPaid)}
 								</Text>
 							</View>
 							<View style={PDF_STYLES.totalRow}>
 								<Text
-									style={[PDF_STYLES.totalLabel, { fontFamily: "Helvetica-Bold" }]}
+									style={[
+										PDF_STYLES.totalLabel,
+										{ fontFamily: "Helvetica-Bold" },
+									]}
 								>
 									Sisa
 								</Text>
@@ -283,7 +320,9 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 							a.n. {data.bankAccount.accountName}
 						</Text>
 						{data.dueDate && (
-							<Text style={{ fontSize: 9, color: PDF_COLORS.rose, marginTop: 4 }}>
+							<Text
+								style={{ fontSize: 9, color: PDF_COLORS.rose, marginTop: 4 }}
+							>
 								Mohon dilunasi sebelum {formatDateShortForPdf(data.dueDate)}
 							</Text>
 						)}

@@ -1,5 +1,10 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
+import {
 	formatDateForPdf,
 	formatDateShortForPdf,
 	formatRupiahForPdf,
@@ -26,6 +31,8 @@ export type QuotationData = {
 		setupTime: string | null;
 		startTime: string | null;
 		endTime: string | null;
+		/** Raw events.session_segments JSONB — multi-sesi (jeda) or null. */
+		sessionSegments?: unknown;
 		venueName: string;
 	};
 	lineItems: InvoiceLineItem[];
@@ -43,6 +50,7 @@ export type QuotationData = {
 };
 
 export function QuotationDocument({ data }: { data: QuotationData }) {
+	const segments = parseSegments(data.event.sessionSegments);
 	return (
 		<Document title={`Quotation ${data.docNumber}`}>
 			<Page size="A4" style={PDF_STYLES.page}>
@@ -66,7 +74,9 @@ export function QuotationDocument({ data }: { data: QuotationData }) {
 				<View style={PDF_STYLES.twoCol}>
 					<View style={PDF_STYLES.col}>
 						<Text style={PDF_STYLES.colHeader}>Untuk</Text>
-						<Text style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}>
+						<Text
+							style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}
+						>
 							{data.client.name}
 						</Text>
 						{data.client.wa && (
@@ -78,17 +88,30 @@ export function QuotationDocument({ data }: { data: QuotationData }) {
 					</View>
 					<View style={PDF_STYLES.col}>
 						<Text style={PDF_STYLES.colHeader}>Event</Text>
-						<Text style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}>
+						<Text
+							style={[PDF_STYLES.colBody, { fontFamily: "Helvetica-Bold" }]}
+						>
 							{data.event.projectId}
 						</Text>
 						<Text style={PDF_STYLES.colBodyMuted}>
 							{formatDateForPdf(data.event.date)}
 						</Text>
-						<Text style={PDF_STYLES.colBodyMuted}>
-							Setup {formatTimeForPdf(data.event.setupTime)} · Mulai{" "}
-							{formatTimeForPdf(data.event.startTime)} · Selesai{" "}
-							{formatTimeForPdf(data.event.endTime)}
-						</Text>
+						{hasBreak(segments) ? (
+							<Text style={PDF_STYLES.colBodyMuted}>
+								Setup {formatTimeForPdf(data.event.setupTime)} · Sesi{" "}
+								{formatScheduleInline(
+									data.event.startTime,
+									data.event.endTime,
+									segments,
+								)}
+							</Text>
+						) : (
+							<Text style={PDF_STYLES.colBodyMuted}>
+								Setup {formatTimeForPdf(data.event.setupTime)} · Mulai{" "}
+								{formatTimeForPdf(data.event.startTime)} · Selesai{" "}
+								{formatTimeForPdf(data.event.endTime)}
+							</Text>
+						)}
 						<Text style={PDF_STYLES.colBodyMuted}>{data.event.venueName}</Text>
 					</View>
 				</View>
@@ -148,7 +171,10 @@ export function QuotationDocument({ data }: { data: QuotationData }) {
 							{formatRupiahForPdf(item.unitPrice)}
 						</Text>
 						<Text
-							style={[PDF_STYLES.tableCellRight, { fontFamily: "Helvetica-Bold" }]}
+							style={[
+								PDF_STYLES.tableCellRight,
+								{ fontFamily: "Helvetica-Bold" },
+							]}
 						>
 							{formatRupiahForPdf(item.total)}
 						</Text>
@@ -167,7 +193,9 @@ export function QuotationDocument({ data }: { data: QuotationData }) {
 					{data.discount > 0 && (
 						<View style={PDF_STYLES.totalRow}>
 							<Text style={PDF_STYLES.totalLabel}>Discount</Text>
-							<Text style={[PDF_STYLES.totalValue, { color: PDF_COLORS.emerald }]}>
+							<Text
+								style={[PDF_STYLES.totalValue, { color: PDF_COLORS.emerald }]}
+							>
 								− {formatRupiahForPdf(data.discount)}
 							</Text>
 						</View>
@@ -189,7 +217,10 @@ export function QuotationDocument({ data }: { data: QuotationData }) {
 					{data.dpRequired > 0 && (
 						<View style={[PDF_STYLES.totalRow, { marginTop: 6 }]}>
 							<Text
-								style={[PDF_STYLES.totalLabel, { fontFamily: "Helvetica-Bold" }]}
+								style={[
+									PDF_STYLES.totalLabel,
+									{ fontFamily: "Helvetica-Bold" },
+								]}
 							>
 								DP buat lock slot
 							</Text>

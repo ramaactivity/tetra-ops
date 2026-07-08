@@ -7,6 +7,7 @@ import {
 	HelpCircle,
 	Loader2,
 	MapPin,
+	Plus,
 	Sparkles,
 	Users,
 	X,
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
+import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import {
 	Tooltip,
@@ -37,6 +39,19 @@ import {
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
+import {
+	activeMinutes,
+	formatDuration,
+	hasBreak,
+	minutesToTime,
+	parseSegments,
+	type Segment,
+	segmentGaps,
+	segmentsEnvelope,
+	timeToMinutes,
+	validateSegments,
+} from "@/lib/schedule/segments";
+import { cn } from "@/lib/utils";
 
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
 
@@ -157,6 +172,8 @@ export type BookingFormDefaults = Partial<{
 	setup_time: string;
 	start_time: string;
 	end_time: string;
+	/** JSON string of active session windows for acara dengan jeda. */
+	session_segments: string;
 	booker_name: string;
 	venue_name: string;
 	venue_address: string;
@@ -562,6 +579,119 @@ export function BookingForm({
 		setEndTime(newEnd);
 	}, [startTime, selectedPkg, endTouched]);
 
+	// === Session split — acara dengan JEDA (booth buka → tutup → buka lagi) ===
+	// Sesi aktif per-segmen; jeda antar-sesi diturunkan dari selisih (tentatif).
+	const initialSegments = parseSegments(
+		stateValues?.session_segments ?? defaults?.session_segments,
+	);
+	const [splitMode, setSplitMode] = useState<boolean>(
+		hasBreak(initialSegments),
+	);
+	const [sessions, setSessions] = useState<Segment[]>(initialSegments ?? []);
+
+	// Saat split aktif: start/end acara = envelope (mulai sesi pertama → selesai
+	// sesi terakhir). Ini menjaga setup auto-fill (−1 jam dari mulai) tetap jalan
+	// dan hidden input start_time/end_time otomatis benar untuk semua pembaca lama.
+	useEffect(() => {
+		if (!splitMode) return;
+		const env = sessions.length ? segmentsEnvelope(sessions) : null;
+		if (!env) return;
+		setStartTime(env.start);
+		setEndTime(env.end);
+		setEndTouched(true);
+	}, [splitMode, sessions]);
+
+	const sessionValidation = useMemo(
+		() => (splitMode && sessions.length ? validateSegments(sessions) : null),
+		[splitMode, sessions],
+	);
+	const sessionActiveMin = useMemo(() => activeMinutes(sessions), [sessions]);
+	const sessionGaps = useMemo(() => segmentGaps(sessions), [sessions]);
+
+	// Masuk mode jeda: seed Sesi 1 = window sekarang (start..end), lalu owner
+	// tinggal "+ Tambah sesi" yang auto-isi jeda default + sisa jam paket.
+	function enterSplitMode() {
+		let seed: Segment[] = sessions;
+		if (!seed.length) {
+			if (startTime && endTime) seed = [{ start: startTime, end: endTime }];
+			else if (startTime)
+				seed = [
+					{
+						start: startTime,
+						end: minutesToTime((timeToMinutes(startTime) ?? 0) + 60),
+					},
+				];
+			else seed = [];
+		}
+		setSessions(seed);
+		setSplitMode(true);
+	}
+
+	// Keluar mode jeda: kembali ke satu blok, pakai envelope sebagai window.
+	function exitSplitMode() {
+		const env = sessions.length ? segmentsEnvelope(sessions) : null;
+		if (env) {
+			setStartTime(env.start);
+			setEndTime(env.end);
+			setEndTouched(true);
+		}
+		setSplitMode(false);
+		setSessions([]);
+	}
+
+	// Tambah sesi: mulai = selesai sesi terakhir + jeda default 30 menit,
+	// durasi = sisa jam paket yang belum terjadwal (min 30 menit).
+	function addSession() {
+		setSessions((prev) => {
+			const last = prev[prev.length - 1];
+			const anchorEnd = last
+				? (timeToMinutes(last.end) ?? 0)
+				: (timeToMinutes(startTime) ?? 0);
+			const DEFAULT_GAP = 30;
+			const newStart = anchorEnd + DEFAULT_GAP;
+			const pkgMin = selectedPkg ? selectedPkg.duration_hours * 60 : 0;
+			const used = activeMinutes(prev);
+			const remaining = pkgMin > 0 ? Math.max(30, pkgMin - used) : 60;
+			const newEnd = Math.min(24 * 60, newStart + remaining);
+			return [
+				...prev,
+				{ start: minutesToTime(newStart), end: minutesToTime(newEnd) },
+			];
+		});
+	}
+
+	function updateSession(i: number, patch: Partial<Segment>) {
+		setSessions((prev) =>
+			prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+		);
+	}
+
+	function removeSession(i: number) {
+		setSessions((prev) => {
+			const next = prev.filter((_, idx) => idx !== i);
+			if (next.length < 2) {
+				// Turun di bawah 2 sesi → tak ada jeda lagi. Collapse ke satu blok.
+				const env = segmentsEnvelope(next.length ? next : prev);
+				if (env) {
+					setStartTime(env.start);
+					setEndTime(env.end);
+					setEndTouched(true);
+				}
+				setSplitMode(false);
+				return [];
+			}
+			return next;
+		});
+	}
+
+	// Tally: total jam aktif vs durasi paket (soft hint, tidak nge-block simpan).
+	const pkgHours = selectedPkg?.duration_hours ?? null;
+	const pkgMinTarget = pkgHours !== null ? pkgHours * 60 : null;
+	const tallyDiff = pkgMinTarget !== null ? sessionActiveMin - pkgMinTarget : 0;
+	const sessionEnvelope = splitMode ? segmentsEnvelope(sessions) : null;
+	const serializedSegments =
+		splitMode && sessions.length >= 2 ? JSON.stringify(sessions) : "";
+
 	// === Customization
 	const [backdropId, setBackdropId] = useState(get("backdrop_id"));
 	const initialVendorMarkup = Number(
@@ -830,10 +960,15 @@ export function BookingForm({
 	}, [eventDate]);
 
 	const eventTimeRange = useMemo(() => {
+		if (splitMode && sessions.length >= 2) {
+			return sessions
+				.map((s) => `${s.start.slice(0, 5)}–${s.end.slice(0, 5)}`)
+				.join(" · ");
+		}
 		if (!startTime && !endTime) return undefined;
 		const fmt = (t: string) => (t ? t.slice(0, 5) : "—");
 		return `${fmt(startTime)}–${fmt(endTime)}`;
-	}, [startTime, endTime]);
+	}, [splitMode, sessions, startTime, endTime]);
 
 	// Vendor commission preview (mirrors server-side computeVendorCommissionAmount)
 	const vendorCommissionAmount = useMemo(() => {
@@ -1668,8 +1803,20 @@ export function BookingForm({
 					<Section
 						step={showReferrerBlock ? 4 : 3}
 						title="Jadwal"
-						description="Setup auto-fill -1 jam dari mulai. Selesai auto-fill +durasi paket."
+						description="Setup auto-fill −1 jam dari mulai. Kalau ada jeda, acara bisa dipecah jadi beberapa sesi."
 					>
+						{/* Hidden inputs — selalu ada di kedua mode. Saat split aktif,
+						    start/end = envelope (disinkron dari sesi via effect). */}
+						<input type="hidden" name="event_date" value={eventDate} required />
+						<input type="hidden" name="start_time" value={startTime} />
+						<input type="hidden" name="setup_time" value={setupTime} />
+						<input type="hidden" name="end_time" value={endTime} />
+						<input
+							type="hidden"
+							name="session_segments"
+							value={serializedSegments}
+						/>
+
 						<div className="grid gap-6 md:grid-cols-2">
 							<Field
 								label="Tanggal Event"
@@ -1683,65 +1830,81 @@ export function BookingForm({
 									placeholder="Pilih tanggal"
 									aria-invalid={!!err("event_date")}
 								/>
-								<input
-									type="hidden"
-									name="event_date"
-									value={eventDate}
-									required
-								/>
 							</Field>
-							<Field
-								label="Jam Mulai"
-								name="start_time"
-								error={err("start_time")}
-								hint={
-									startTime
-										? "Set ini dulu, setup + selesai auto-fill"
-										: "Klien belum kasih jam? Klik 'Menyusul' untuk tandai TBC"
-								}
-							>
-								<div className="flex items-stretch gap-2">
-									<div className="flex-1">
-										<TimePicker
-											value={startTime}
-											onValueChange={(v) => {
-												setStartTime(v);
-												if (v) {
+
+							{splitMode ? (
+								<Field
+									label="Setup"
+									name="setup_time"
+									error={err("setup_time")}
+									hint={
+										setupTouched
+											? "Manual override"
+											: "Auto: 1 jam sebelum sesi pertama"
+									}
+								>
+									<TimePicker
+										value={setupTime}
+										onValueChange={(v) => {
+											setSetupTime(v);
+											setSetupTouched(true);
+										}}
+										aria-invalid={!!err("setup_time")}
+									/>
+								</Field>
+							) : (
+								<Field
+									label="Jam Mulai"
+									name="start_time"
+									error={err("start_time")}
+									hint={
+										startTime
+											? "Set ini dulu, setup + selesai auto-fill"
+											: "Klien belum kasih jam? Klik 'Menyusul' untuk tandai TBC"
+									}
+								>
+									<div className="flex items-stretch gap-2">
+										<div className="flex-1">
+											<TimePicker
+												value={startTime}
+												onValueChange={(v) => {
+													setStartTime(v);
+													if (v) {
+														setSetupTouched(false);
+														setEndTouched(false);
+													}
+												}}
+												aria-invalid={!!err("start_time")}
+											/>
+										</div>
+										<button
+											type="button"
+											onClick={() => {
+												if (startTime) {
+													// Switch ke TBC — clear semua waktu sekaligus, karena
+													// setup + selesai derive dari start
+													setStartTime("");
+													setSetupTime("");
+													setEndTime("");
 													setSetupTouched(false);
 													setEndTouched(false);
 												}
 											}}
-											aria-invalid={!!err("start_time")}
-										/>
+											aria-pressed={!startTime}
+											className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
+												startTime
+													? "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
+													: "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+											}`}
+										>
+											{startTime ? "Menyusul?" : "✓ Menyusul"}
+										</button>
 									</div>
-									<button
-										type="button"
-										onClick={() => {
-											if (startTime) {
-												// Switch ke TBC — clear semua waktu sekaligus, karena
-												// setup + selesai derive dari start
-												setStartTime("");
-												setSetupTime("");
-												setEndTime("");
-												setSetupTouched(false);
-												setEndTouched(false);
-											}
-										}}
-										aria-pressed={!startTime}
-										className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
-											startTime
-												? "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
-												: "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
-										}`}
-									>
-										{startTime ? "Menyusul?" : "✓ Menyusul"}
-									</button>
-								</div>
-								<input type="hidden" name="start_time" value={startTime} />
-							</Field>
+								</Field>
+							)}
 						</div>
 
-						{!startTime ? (
+						{!splitMode && !startTime ? (
 							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 								<div>
@@ -1754,7 +1917,9 @@ export function BookingForm({
 									</p>
 								</div>
 							</div>
-						) : (
+						) : null}
+
+						{!splitMode && startTime ? (
 							<div className="grid gap-6 md:grid-cols-2">
 								<Field
 									label="Setup"
@@ -1774,7 +1939,6 @@ export function BookingForm({
 										}}
 										aria-invalid={!!err("setup_time")}
 									/>
-									<input type="hidden" name="setup_time" value={setupTime} />
 								</Field>
 								<Field
 									label="Selesai"
@@ -1796,10 +1960,146 @@ export function BookingForm({
 										}}
 										aria-invalid={!!err("end_time")}
 									/>
-									<input type="hidden" name="end_time" value={endTime} />
 								</Field>
 							</div>
-						)}
+						) : null}
+
+						{/* Toggle "Ada jeda?" — muncul kalau jam mulai sudah diisi. */}
+						{startTime || splitMode ? (
+							<div className="flex items-center justify-between gap-3 rounded-xl border border-border-default bg-secondary/40 px-3.5 py-3">
+								<div className="flex items-start gap-2.5">
+									<Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+									<div>
+										<p className="text-fluid-body font-medium">
+											Ada jeda di tengah acara?
+										</p>
+										<p className="text-fluid-caption text-muted-foreground">
+											Booth buka, tutup pas dinner/sambutan, buka lagi. Durasi
+											paket dihitung dari total jam aktif.
+										</p>
+									</div>
+								</div>
+								<Switch
+									checked={splitMode}
+									onCheckedChange={() =>
+										splitMode ? exitSplitMode() : enterSplitMode()
+									}
+									aria-label="Ada jeda di tengah acara"
+								/>
+							</div>
+						) : null}
+
+						{/* Split mode: daftar sesi + tally */}
+						{splitMode ? (
+							<div className="fade-in-on-mount space-y-3 rounded-xl border border-border-default bg-secondary/30 p-3 sm:p-4">
+								<div className="space-y-1.5">
+									{sessions.map((s, i) => {
+										const dMin = Math.max(
+											0,
+											(timeToMinutes(s.end) ?? 0) -
+												(timeToMinutes(s.start) ?? 0),
+										);
+										const gapBefore = i > 0 ? (sessionGaps[i - 1] ?? 0) : 0;
+										return (
+											<div key={`sesi-${i}`}>
+												{i > 0 ? (
+													<div className="flex items-center gap-2 py-1 pl-3.5 text-fluid-caption text-muted-foreground">
+														<span className="h-4 w-px bg-border-strong" />
+														<span>
+															{gapBefore > 0
+																? `jeda ${formatDuration(gapBefore)}`
+																: "langsung lanjut (tanpa jeda)"}
+														</span>
+													</div>
+												) : null}
+												<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg bg-card px-3 py-2.5 shadow-[var(--shadow-level-1)]">
+													<span className="w-12 shrink-0 text-fluid-caption font-semibold">
+														Sesi {i + 1}
+													</span>
+													<div className="flex items-center gap-1.5">
+														<div className="w-[104px]">
+															<TimePicker
+																value={s.start}
+																onValueChange={(v) =>
+																	updateSession(i, { start: v })
+																}
+																aria-label={`Sesi ${i + 1} mulai`}
+															/>
+														</div>
+														<span className="text-muted-foreground">–</span>
+														<div className="w-[104px]">
+															<TimePicker
+																value={s.end}
+																onValueChange={(v) =>
+																	updateSession(i, { end: v })
+																}
+																aria-label={`Sesi ${i + 1} selesai`}
+															/>
+														</div>
+													</div>
+													<span className="tabular ml-auto text-fluid-caption text-muted-foreground">
+														{formatDuration(dMin)}
+													</span>
+													<button
+														type="button"
+														onClick={() => removeSession(i)}
+														aria-label={`Hapus sesi ${i + 1}`}
+														className="shrink-0 rounded-full p-1 text-muted-foreground transition hover:bg-rose-500/10 hover:text-rose-700"
+													>
+														<X className="size-4" />
+													</button>
+												</div>
+											</div>
+										);
+									})}
+								</div>
+
+								<button
+									type="button"
+									onClick={addSession}
+									className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong py-2 text-fluid-caption font-medium text-foreground/70 transition hover:border-primary/40 hover:bg-card hover:text-foreground"
+								>
+									<Plus className="size-4" /> Tambah sesi
+								</button>
+
+								{sessionValidation && !sessionValidation.ok ? (
+									<p className="flex items-center gap-1.5 text-fluid-caption font-medium text-rose-700">
+										<AlertTriangle className="size-3.5 shrink-0" />
+										{sessionValidation.error}
+									</p>
+								) : null}
+
+								<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border-subtle pt-2.5">
+									<span
+										className={cn(
+											"inline-flex items-center gap-1.5 text-fluid-caption font-medium",
+											pkgMinTarget === null
+												? "text-muted-foreground"
+												: tallyDiff === 0
+													? "text-emerald-800 dark:text-emerald-300"
+													: "text-amber-800 dark:text-amber-300",
+										)}
+									>
+										{pkgMinTarget !== null && tallyDiff === 0 ? (
+											<CheckCircle2 className="size-3.5 shrink-0" />
+										) : null}
+										{pkgMinTarget === null
+											? `Total aktif ${formatDuration(sessionActiveMin)}`
+											: tallyDiff === 0
+												? `Total aktif ${formatDuration(sessionActiveMin)} · pas paket ${pkgHours} jam`
+												: tallyDiff < 0
+													? `Total aktif ${formatDuration(sessionActiveMin)} · paket ${pkgHours} jam — kurang ${formatDuration(-tallyDiff)}`
+													: `Total aktif ${formatDuration(sessionActiveMin)} · paket ${pkgHours} jam — lebih ${formatDuration(tallyDiff)}`}
+									</span>
+									{sessionEnvelope ? (
+										<span className="tabular text-fluid-caption text-muted-foreground">
+											Acara {sessionEnvelope.start}–{sessionEnvelope.end}
+											{setupTime ? ` · setup ${setupTime}` : ""}
+										</span>
+									) : null}
+								</div>
+							</div>
+						) : null}
 					</Section>
 
 					{/* === Cluster C anchor === */}
@@ -2742,7 +3042,9 @@ export function BookingForm({
 							</Link>
 							<button
 								type="submit"
-								disabled={pending}
+								disabled={
+									pending || Boolean(sessionValidation && !sessionValidation.ok)
+								}
 								className="press-down h-10 rounded-md bg-[#059669] dark:bg-[#0b9e6a] px-4 text-fluid-body font-medium text-white transition-colors hover:bg-[#047857] dark:hover:bg-[#059669] disabled:opacity-60"
 							>
 								{pending ? "Menyimpan…" : submitLabel}

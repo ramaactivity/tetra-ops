@@ -39,6 +39,7 @@ export async function GET(
 					setupTime: ev.setup_time,
 					startTime: ev.start_time,
 					endTime: ev.end_time,
+					sessionSegments: ev.session_segments,
 					venueName: ev.venue_name,
 					venueAddress: ev.venue_address,
 					packageName: ev.package_name ?? ev.custom_package_name,

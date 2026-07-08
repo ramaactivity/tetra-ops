@@ -16,6 +16,11 @@ import Link from "next/link";
 import type * as React from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
+import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,6 +61,8 @@ interface ProjectHeroRecapProps {
 	eventDate: string;
 	startTime: string | null;
 	endTime: string | null;
+	/** Raw events.session_segments JSONB — drives the multi-sesi (jeda) display. */
+	sessionSegments?: unknown;
 	venueName: string;
 	venueCity: string | null;
 	venueAddress: string | null;
@@ -99,6 +106,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 		eventDate,
 		startTime,
 		endTime,
+		sessionSegments,
 		venueName,
 		venueCity,
 		venueAddress,
@@ -126,6 +134,8 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 			: 0;
 	const channelLabel = CHANNEL_TYPE_LABELS[channel] ?? channel;
 	const venueDetail = [venueCity, venueAddress].filter(Boolean).join(" · ");
+	const segments = parseSegments(sessionSegments);
+	const scheduleHasBreak = hasBreak(segments);
 
 	return (
 		<div className="overflow-hidden rounded-[16px] border border-border-default bg-card">
@@ -198,12 +208,25 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 							{formatDayDate(eventDate)}
 						</div>
 						{startTime && (
-							<div className="mt-1 flex items-center gap-1.5 pl-6 text-[12px] text-muted-foreground">
-								<Clock className="size-3 shrink-0" aria-hidden />
+							<div className="mt-1 flex items-start gap-1.5 pl-6 text-[12px] text-muted-foreground">
+								<Clock className="mt-0.5 size-3 shrink-0" aria-hidden />
 								<span className="tabular">
-									{formatTime(startTime)}
-									{endTime ? ` – ${formatTime(endTime)}` : ""}
-									{packageDurationHours ? ` · ${packageDurationHours} jam` : ""}
+									{scheduleHasBreak ? (
+										<>
+											{formatScheduleInline(startTime, endTime, segments)}
+											{packageDurationHours
+												? ` · ${packageDurationHours} jam`
+												: ""}
+										</>
+									) : (
+										<>
+											{formatTime(startTime)}
+											{endTime ? ` – ${formatTime(endTime)}` : ""}
+											{packageDurationHours
+												? ` · ${packageDurationHours} jam`
+												: ""}
+										</>
+									)}
 								</span>
 							</div>
 						)}

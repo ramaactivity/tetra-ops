@@ -8,6 +8,11 @@ import { ensureVendorContact } from "@/lib/actions/vendors";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
+import {
+	parseSegments,
+	segmentsEnvelope,
+	validateSegments,
+} from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramBookingCreated } from "@/lib/telegram/notify";
 
@@ -75,6 +80,22 @@ const BookingInputSchema = z.object({
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
+	// Acara dengan JEDA — JSON array window aktif per-sesi. "" / <2 sesi = null
+	// (satu blok biasa). Validasi urutan (tak boleh tumpang tindih) di sini juga.
+	session_segments: z
+		.string()
+		.optional()
+		.or(z.literal(""))
+		.transform((v, ctx) => {
+			const parsed = parseSegments(v ?? "");
+			if (!parsed || parsed.length < 2) return null;
+			const val = validateSegments(parsed);
+			if (!val.ok) {
+				ctx.addIssue({ code: "custom", message: val.error });
+				return z.NEVER;
+			}
+			return val.segments;
+		}),
 	booker_name: optionalString(120),
 	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
 	venue_address: optionalString(255),
@@ -202,6 +223,7 @@ const FORM_KEYS = [
 	"setup_time",
 	"start_time",
 	"end_time",
+	"session_segments",
 	"booker_name",
 	"venue_name",
 	"venue_address",
@@ -435,6 +457,10 @@ function buildEventPayload(
 	existingTotalPaid = 0,
 ) {
 	const effectiveAddonsTotal = addonsTotal + backdropContribution;
+	// Acara dengan jeda: rentang keseluruhan diturunkan dari sesi (authoritative).
+	const scheduleEnvelope = input.session_segments
+		? segmentsEnvelope(input.session_segments)
+		: null;
 	const grandTotal = computeGrandTotal({
 		base_price: basePrice,
 		addons_total: effectiveAddonsTotal,
@@ -476,8 +502,12 @@ function buildEventPayload(
 		event_category: input.event_category,
 		event_date: input.event_date,
 		setup_time: input.setup_time,
-		start_time: input.start_time,
-		end_time: input.end_time,
+		// Acara dengan jeda: start/end = envelope (mulai sesi pertama → selesai
+		// sesi terakhir) supaya semua pembaca lama tetap benar. Server yang
+		// authoritative — hitung ulang dari segmen, jangan percaya client.
+		start_time: scheduleEnvelope?.start ?? input.start_time,
+		end_time: scheduleEnvelope?.end ?? input.end_time,
+		session_segments: input.session_segments,
 		booker_name: input.booker_name,
 		venue_name: input.venue_name,
 		venue_address: input.venue_address,

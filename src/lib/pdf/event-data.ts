@@ -23,6 +23,8 @@ export type EventForPdf = {
 	setup_time: string | null;
 	start_time: string | null;
 	end_time: string | null;
+	/** Raw events.session_segments JSONB — array (multi-sesi) or null. */
+	session_segments: unknown;
 	venue_name: string;
 	venue_address: string | null;
 	due_date: string | null;
@@ -76,7 +78,7 @@ export async function fetchEventForPdf(
 			`
 			id, project_id, client_name, client_wa, client_email,
 			pic_name, pic_wa,
-			frame_size, event_date, setup_time, start_time, end_time,
+			frame_size, event_date, setup_time, start_time, end_time, session_segments,
 			venue_name, venue_address,
 			due_date,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
@@ -102,15 +104,17 @@ export async function fetchEventForPdf(
 	if (error || !ev) return null;
 
 	const pkg = Array.isArray(ev.package) ? ev.package[0] : ev.package;
-	const addons = ((ev.event_addons ?? []) as Array<{
-		quantity: number;
-		unit_price: number;
-		total_price: number;
-		addon:
-			| { name: string; unit: string }
-			| Array<{ name: string; unit: string }>
-			| null;
-	}>).map((a) => {
+	const addons = (
+		(ev.event_addons ?? []) as Array<{
+			quantity: number;
+			unit_price: number;
+			total_price: number;
+			addon:
+				| { name: string; unit: string }
+				| Array<{ name: string; unit: string }>
+				| null;
+		}>
+	).map((a) => {
 		const ad = Array.isArray(a.addon) ? a.addon[0] : a.addon;
 		return {
 			quantity: a.quantity,
@@ -123,10 +127,7 @@ export async function fetchEventForPdf(
 
 	const crewAssignments = (ev.crew_assignments ?? []) as Array<{
 		role_in_event: string;
-		user:
-			| { full_name: string }
-			| Array<{ full_name: string }>
-			| null;
+		user: { full_name: string } | Array<{ full_name: string }> | null;
 	}>;
 	const lead = crewAssignments.find((a) => a.role_in_event === "lead");
 	const leadUser = lead
@@ -163,6 +164,7 @@ export async function fetchEventForPdf(
 		setup_time: (ev.setup_time as string | null) ?? null,
 		start_time: (ev.start_time as string | null) ?? null,
 		end_time: (ev.end_time as string | null) ?? null,
+		session_segments: ev.session_segments ?? null,
 		venue_name: ev.venue_name as string,
 		venue_address: (ev.venue_address as string | null) ?? null,
 		due_date: (ev.due_date as string | null) ?? null,
@@ -218,7 +220,8 @@ export function buildLineItems(ev: EventForPdf) {
 	}> = [];
 
 	// Package line
-	const packageLabel = ev.package_name ?? ev.custom_package_name ?? "Paket photobooth";
+	const packageLabel =
+		ev.package_name ?? ev.custom_package_name ?? "Paket photobooth";
 	const packagePrice = ev.package_name
 		? ev.base_price
 		: (ev.custom_package_price ?? ev.base_price);
@@ -250,7 +253,8 @@ export function buildLineItems(ev: EventForPdf) {
 
 export function buildDeliverables(ev: EventForPdf) {
 	const items: Array<{ label: string; quantity: number; notes?: string }> = [];
-	const packageLabel = ev.package_name ?? ev.custom_package_name ?? "Paket photobooth";
+	const packageLabel =
+		ev.package_name ?? ev.custom_package_name ?? "Paket photobooth";
 	items.push({
 		label: `${packageLabel}${
 			ev.package_duration_hours ? ` (${ev.package_duration_hours} jam)` : ""

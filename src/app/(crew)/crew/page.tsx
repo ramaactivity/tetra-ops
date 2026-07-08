@@ -15,6 +15,7 @@ import {
 	StatTile,
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 
 const ID_DATE_FULL = new Intl.DateTimeFormat("id-ID", {
@@ -38,6 +39,7 @@ type EventLite = {
 	setup_time: string | null;
 	start_time: string | null;
 	end_time: string | null;
+	session_segments: unknown;
 	venue_name: string;
 	venue_city: string | null;
 	google_maps_url: string | null;
@@ -87,7 +89,7 @@ export default async function CrewHomePage() {
 					`role_in_event,
 				event:events!inner(
 					id, project_id, status, client_name, event_date,
-					setup_time, start_time, end_time,
+					setup_time, start_time, end_time, session_segments,
 					venue_name, venue_city, google_maps_url,
 					is_migrated_legacy, pic_name, pic_wa
 				)`,
@@ -206,6 +208,8 @@ export default async function CrewHomePage() {
 									? ev.venue_city
 									: null;
 							const crew = crewByEvent.get(ev.id) ?? [];
+							const sessions = parseSegments(ev.session_segments);
+							const multiSesi = hasBreak(sessions);
 							return (
 								<li key={ev.id}>
 									<Link
@@ -233,6 +237,11 @@ export default async function CrewHomePage() {
 														{ev.client_name}
 													</span>
 													<EventStatusBadge status={ev.status} />
+													{multiSesi && sessions ? (
+														<span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[0.625rem] font-semibold text-amber-700 dark:text-amber-300">
+															{sessions.length} sesi
+														</span>
+													) : null}
 												</div>
 												<p className="type-secondary mt-1 flex items-center gap-1">
 													<MapPin className="size-3.5 shrink-0" />

@@ -13,7 +13,6 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
-import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import type { AssignmentRow } from "@/components/booking/crew-assignment-list";
 import { CrewSlotAssign } from "@/components/booking/crew-slot-assign";
 import { DeleteEventButton } from "@/components/booking/delete-event-button";
@@ -25,6 +24,7 @@ import { StatusMenu } from "@/components/booking/status-menu";
 import { EventDriveCard } from "@/components/drive/event-drive-card";
 import { DesignCard } from "@/components/event-design/design-card";
 import { Container } from "@/components/layout/container";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import {
 	ProjectHeroRecap,
@@ -83,7 +83,7 @@ export default async function EventDetailPage({
 			id, project_id, status, channel, client_name, client_wa, client_email,
 			pic_name, pic_wa,
 			service_type, frame_size, package_id, event_category, event_date,
-			setup_time, start_time, end_time, venue_name, venue_address, venue_city, venue_province,
+			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			include_flashdisk_pouch,
@@ -270,6 +270,8 @@ export default async function EventDetailPage({
 		event_date: event.event_date,
 		setup_time: event.setup_time,
 		start_time: event.start_time,
+		end_time: event.end_time,
+		session_segments: event.session_segments,
 		venue_name: event.venue_name,
 		due_date: null,
 		total_paid: event.total_paid,
@@ -446,6 +448,7 @@ export default async function EventDetailPage({
 				eventDate={event.event_date}
 				startTime={event.start_time}
 				endTime={event.end_time}
+				sessionSegments={event.session_segments}
 				venueName={event.venue_name}
 				venueCity={event.venue_city ?? null}
 				venueAddress={event.venue_address ?? null}

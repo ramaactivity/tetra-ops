@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 	const { data, error } = await supabase
 		.from("events")
 		.select(
-			"client_name, start_time, end_time, venue_city, status, package:packages(duration_hours)",
+			"client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
 		)
 		.eq("event_date", date)
 		.is("deleted_at", null);
@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
 		client_name: string | null;
 		start_time: string | null;
 		end_time: string | null;
+		session_segments: unknown;
 		venue_city: string | null;
 		status: string | null;
 		// to-one embed → object (atau null), bukan array.
@@ -91,11 +92,17 @@ export async function GET(req: NextRequest) {
 			client_name: r.client_name,
 			start_time: r.start_time,
 			end_time: r.end_time,
+			session_segments: r.session_segments,
 			venue_city: r.venue_city,
 			package_duration_hours: r.package?.duration_hours ?? null,
 		}));
 
-	const result = computeAvailability({ reqStart, reqEnd, reqCity: city, events });
+	const result = computeAvailability({
+		reqStart,
+		reqEnd,
+		reqCity: city,
+		events,
+	});
 
 	return NextResponse.json({
 		date,

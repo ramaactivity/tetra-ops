@@ -1,5 +1,10 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
+import {
 	formatDateForPdf,
 	formatDateShortForPdf,
 	formatTimeForPdf,
@@ -23,6 +28,8 @@ export type BastData = {
 		setupTime: string | null;
 		startTime: string | null;
 		endTime: string | null;
+		/** Raw events.session_segments JSONB — multi-sesi (jeda) or null. */
+		sessionSegments?: unknown;
 		venueName: string;
 		venueAddress?: string | null;
 		packageName: string | null;
@@ -42,6 +49,7 @@ export type BastData = {
 };
 
 export function BastDocument({ data }: { data: BastData }) {
+	const segments = parseSegments(data.event.sessionSegments);
 	return (
 		<Document title={`BAST ${data.docNumber}`}>
 			<Page size="A4" style={PDF_STYLES.page}>
@@ -74,9 +82,7 @@ export function BastDocument({ data }: { data: BastData }) {
 						{formatDateForPdf(data.issuedAt)}
 					</Text>
 					, telah dilaksanakan serah terima hasil layanan photobooth oleh{" "}
-					<Text style={{ fontFamily: "Helvetica-Bold" }}>
-						Tetra Photobooth
-					</Text>{" "}
+					<Text style={{ fontFamily: "Helvetica-Bold" }}>Tetra Photobooth</Text>{" "}
 					(selanjutnya disebut "Pihak Pertama") kepada{" "}
 					<Text style={{ fontFamily: "Helvetica-Bold" }}>
 						{data.client.name}
@@ -109,11 +115,22 @@ export function BastDocument({ data }: { data: BastData }) {
 						<Text style={PDF_STYLES.colBodyMuted}>
 							{formatDateForPdf(data.event.date)}
 						</Text>
-						<Text style={PDF_STYLES.colBodyMuted}>
-							{formatTimeForPdf(data.event.startTime)} —{" "}
-							{formatTimeForPdf(data.event.endTime)} (Setup{" "}
-							{formatTimeForPdf(data.event.setupTime)})
-						</Text>
+						{hasBreak(segments) ? (
+							<Text style={PDF_STYLES.colBodyMuted}>
+								{formatScheduleInline(
+									data.event.startTime,
+									data.event.endTime,
+									segments,
+								)}{" "}
+								(Setup {formatTimeForPdf(data.event.setupTime)})
+							</Text>
+						) : (
+							<Text style={PDF_STYLES.colBodyMuted}>
+								{formatTimeForPdf(data.event.startTime)} —{" "}
+								{formatTimeForPdf(data.event.endTime)} (Setup{" "}
+								{formatTimeForPdf(data.event.setupTime)})
+							</Text>
+						)}
 						<Text style={PDF_STYLES.colBodyMuted}>{data.event.venueName}</Text>
 						{data.event.venueAddress && (
 							<Text style={PDF_STYLES.colBodyMuted}>

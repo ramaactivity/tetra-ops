@@ -14,6 +14,8 @@
  * Lihat WHATSAPP_BOT_AVAILABILITY_HANDOVER.md untuk konteks lengkap.
  */
 
+import { parseSegments } from "@/lib/schedule/segments";
+
 export const UNITS_TOTAL = 3;
 
 /** Buffer (menit) — lihat tabel di handover. Tanpa data venue kita hanya bisa
@@ -62,6 +64,8 @@ export type AvailabilityEvent = {
 	end_time: string | null;
 	venue_city: string | null;
 	package_duration_hours: number | null;
+	/** Acara dengan jeda: window aktif per-sesi. NULL/[] = satu blok. */
+	session_segments?: unknown;
 };
 
 export type Conflict = {
@@ -125,6 +129,26 @@ export function bufferMinutes(
 	return FAR_BUFFER_MIN;
 }
 
+/** Gabung interval yang saling tumpang tindih jadi union disjoint (urut by start).
+ *  Dipakai agar semua window satu event = maksimal 1 unit di tiap instan. */
+function mergeIntervals(
+	intervals: Array<{ start: number; end: number }>,
+): Array<{ start: number; end: number }> {
+	const sorted = [...intervals]
+		.filter((iv) => iv.end > iv.start)
+		.sort((a, b) => a.start - b.start);
+	const out: Array<{ start: number; end: number }> = [];
+	for (const iv of sorted) {
+		const last = out[out.length - 1];
+		if (last && iv.start <= last.end) {
+			last.end = Math.max(last.end, iv.end);
+		} else {
+			out.push({ ...iv });
+		}
+	}
+	return out;
+}
+
 /** Apakah [aStart,aEnd) overlap dengan [bStart,bEnd)? (titik singgung ≠ overlap) */
 function overlaps(
 	aStart: number,
@@ -138,7 +162,9 @@ function overlaps(
 /** Jumlah maksimum interval yang berbarengan di satu instan (sweep line).
  *  Interval yang cuma bersinggungan di ujung (end == start) TIDAK dihitung
  *  overlap — proses end sebelum start pada koordinat yang sama. */
-function maxConcurrent(intervals: Array<{ start: number; end: number }>): number {
+function maxConcurrent(
+	intervals: Array<{ start: number; end: number }>,
+): number {
 	const points: Array<{ at: number; delta: number }> = [];
 	for (const iv of intervals) {
 		if (iv.end <= iv.start) continue;
@@ -181,49 +207,77 @@ export function computeAvailability(params: {
 
 	for (const ev of events) {
 		const name = ev.client_name?.trim() || "Tanpa nama";
-		const s = parseHHMM(ev.start_time);
 		let buffer = bufferMinutes(reqCity, ev.venue_city);
 		if (!normalizeCity(ev.venue_city)) missingCityCount++;
 
-		let winStart: number;
-		let winEnd: number;
-		let timeLabel: string;
+		// Tentukan window aktif event. Acara dengan JEDA (session_segments) punya
+		// beberapa window terpisah — jeda di tengah TIDAK menahan unit.
+		let windows: Array<{ start: number; end: number }> = [];
+		let timeLabel = "";
 
-		if (s === null) {
-			// Keputusan #3 — jam tak diketahui → tahan 1 unit seluruh hari.
-			winStart = 0;
-			winEnd = MINUTES_PER_DAY;
-			buffer = 0; // sudah seharian penuh, buffer tak menambah apa-apa
-			timeLabel = "tanpa jam (ditahan seharian)";
-			assumptions.add(
-				`Event "${name}" tanpa jam → ditahan seluruh hari (konservatif).`,
-			);
-		} else {
-			let e = parseHHMM(ev.end_time);
-			if (e === null || e <= s) {
-				const durMin = ev.package_duration_hours
-					? ev.package_duration_hours * 60
-					: FALLBACK_DURATION_MIN;
-				e = s + durMin;
-				assumptions.add(
-					`Event "${name}" tanpa jam selesai → diperkirakan ${Math.round(
-						durMin / 60,
-					)} jam dari jam mulai.`,
+		const segments = parseSegments(ev.session_segments);
+		if (segments && segments.length >= 2) {
+			windows = segments
+				.map((sg) => ({ start: parseHHMM(sg.start), end: parseHHMM(sg.end) }))
+				.filter(
+					(w): w is { start: number; end: number } =>
+						w.start !== null && w.end !== null && w.end > w.start,
 				);
-			}
-			winStart = s;
-			winEnd = e;
-			timeLabel = `${formatHHMM(s)}-${formatHHMM(e)}`;
+			timeLabel = windows
+				.map((w) => `${formatHHMM(w.start)}-${formatHHMM(w.end)}`)
+				.join(", ");
 		}
 
-		// Lebarkan window dengan buffer di kedua sisi, lalu cek overlap.
-		const exStart = winStart - buffer;
-		const exEnd = winEnd + buffer;
-		if (overlaps(exStart, exEnd, reqStart, reqEnd)) {
-			occupying.push({
-				start: Math.max(exStart, reqStart),
-				end: Math.min(exEnd, reqEnd),
-			});
+		if (!windows.length) {
+			// Satu blok (atau segmen tak valid → fallback). Termasuk TBC all-day.
+			const s = parseHHMM(ev.start_time);
+			if (s === null) {
+				// Keputusan #3 — jam tak diketahui → tahan 1 unit seluruh hari.
+				windows = [{ start: 0, end: MINUTES_PER_DAY }];
+				buffer = 0; // sudah seharian penuh, buffer tak menambah apa-apa
+				timeLabel = "tanpa jam (ditahan seharian)";
+				assumptions.add(
+					`Event "${name}" tanpa jam → ditahan seluruh hari (konservatif).`,
+				);
+			} else {
+				let e = parseHHMM(ev.end_time);
+				if (e === null || e <= s) {
+					const durMin = ev.package_duration_hours
+						? ev.package_duration_hours * 60
+						: FALLBACK_DURATION_MIN;
+					e = s + durMin;
+					assumptions.add(
+						`Event "${name}" tanpa jam selesai → diperkirakan ${Math.round(
+							durMin / 60,
+						)} jam dari jam mulai.`,
+					);
+				}
+				windows = [{ start: s, end: e }];
+				timeLabel = `${formatHHMM(s)}-${formatHHMM(e)}`;
+			}
+		}
+
+		// Lebarkan tiap window dengan buffer, lalu MERGE agar satu event tak
+		// pernah dihitung >1 unit di instan yang sama (window bisa saling tumpang
+		// tindih setelah dilebarkan buffer). Sesi yang benar-benar terpisah tetap
+		// disjoint → jeda-nya tidak menahan unit.
+		const buffered = windows.map((w) => ({
+			start: w.start - buffer,
+			end: w.end + buffer,
+		}));
+		const merged = mergeIntervals(buffered);
+
+		let conflicted = false;
+		for (const m of merged) {
+			if (overlaps(m.start, m.end, reqStart, reqEnd)) {
+				occupying.push({
+					start: Math.max(m.start, reqStart),
+					end: Math.min(m.end, reqEnd),
+				});
+				conflicted = true;
+			}
+		}
+		if (conflicted) {
 			conflicts.push({
 				project: name,
 				time: timeLabel,
