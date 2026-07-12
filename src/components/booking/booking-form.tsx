@@ -191,6 +191,8 @@ export type BookingFormDefaults = Partial<{
 	referrer_user_id: string;
 	referrer_type: string;
 	referrer_commission: number;
+	sales_user_id: string;
+	direct_sales_commission: number;
 	pic_name: string;
 	pic_wa: string;
 	backdrop_id: string;
@@ -490,6 +492,12 @@ export function BookingForm({
 	const [referrerCommission, setReferrerCommission] = useState(
 		get("referrer_commission"),
 	);
+	// Sales Tetra (channel direct) — komisi default Rp100.000 utk booking baru.
+	const [salesUserId, setSalesUserId] = useState(get("sales_user_id"));
+	const [salesCommission, setSalesCommission] = useState(() => {
+		const v = get("direct_sales_commission");
+		return v && v !== "" ? v : "100000";
+	});
 
 	// === Event Category + sub-fields
 	const [eventCategory, setEventCategory] = useState(get("event_category", ""));
@@ -1684,6 +1692,64 @@ export function BookingForm({
 							</Section>
 						</div>
 					)}
+					{channel === "direct" && (
+						<div className="fade-in-on-mount">
+							<Section
+								step={2}
+								title="Sales Tetra"
+								description="Pilih sales yang closing event ini — komisinya dicatat & bisa dibayar dari halaman Komisi."
+							>
+								<Field
+									label="Sales (User Tetra)"
+									name="sales_user_id"
+									error={err("sales_user_id")}
+									hint="Cari nama owner/crew yang closing. Boleh dikosongkan kalau belum pasti."
+								>
+									<Combobox
+										value={salesUserId}
+										onValueChange={setSalesUserId}
+										options={relasiOptions.map(
+											(r): ComboboxOption => ({
+												value: r.id,
+												label: r.full_name,
+												sublabel: r.role,
+											}),
+										)}
+										placeholder="Cari nama sales…"
+										allowFreeText={false}
+										emptyMessage="Nggak ketemu — cek daftar di Settings → Tim"
+										aria-label="Cari sales"
+									/>
+									<input
+										type="hidden"
+										name="sales_user_id"
+										value={salesUserId}
+									/>
+								</Field>
+								<Field
+									label="Komisi Sales (Rp)"
+									name="direct_sales_commission"
+									error={err("direct_sales_commission")}
+									hint="Default Rp100.000. Biasanya Rp50.000–100.000."
+								>
+									<input
+										type="number"
+										min={0}
+										step={1}
+										value={salesCommission}
+										onChange={(e) => setSalesCommission(e.target.value)}
+										placeholder="100000"
+										className={`${inputClass} tabular`}
+									/>
+									<input
+										type="hidden"
+										name="direct_sales_commission"
+										value={salesCommission}
+									/>
+								</Field>
+							</Section>
+						</div>
+					)}
 					{!showReferrerBlock && (
 						<>
 							<input type="hidden" name="vendor_name" value="" />
@@ -1696,13 +1762,19 @@ export function BookingForm({
 							<input type="hidden" name="referrer_commission" value="" />
 						</>
 					)}
+					{channel !== "direct" && (
+						<>
+							<input type="hidden" name="sales_user_id" value="" />
+							<input type="hidden" name="direct_sales_commission" value="" />
+						</>
+					)}
 
 					{/* === Cluster B anchor === */}
 					<div id="cluster-event" className="scroll-mt-20" />
 
 					{/* === 3. EVENT TYPE + Category sub-fields === */}
 					<Section
-						step={showReferrerBlock ? 3 : 2}
+						step={3}
 						title="Tipe Acara"
 						description="Kategori event nentuin field nama klien yang muncul di bawah."
 					>
@@ -1801,7 +1873,7 @@ export function BookingForm({
 
 					{/* === 4. SCHEDULE === */}
 					<Section
-						step={showReferrerBlock ? 4 : 3}
+						step={4}
 						title="Jadwal"
 						description="Setup auto-fill −1 jam dari mulai. Kalau ada jeda, acara bisa dipecah jadi beberapa sesi."
 					>
@@ -2107,7 +2179,7 @@ export function BookingForm({
 
 					{/* === 5. SERVICE & PACKAGE === */}
 					<Section
-						step={showReferrerBlock ? 5 : 4}
+						step={5}
 						title="Service & Paket"
 						description="Jenis layanan dan paket dari pricelist."
 					>
@@ -2209,7 +2281,7 @@ export function BookingForm({
 
 					{/* === 6. CUSTOMIZATION & BACKDROP === */}
 					<Section
-						step={showReferrerBlock ? 6 : 5}
+						step={6}
 						title="Customization"
 						description="Backdrop + flashdisk. Bisa di-update nanti kalau klien belum mutusin."
 					>
@@ -2339,7 +2411,7 @@ export function BookingForm({
 
 					{/* === 7. LOCATION === */}
 					<Section
-						step={showReferrerBlock ? 7 : 6}
+						step={7}
 						title="Lokasi Event"
 						description="Venue + alamat. Klik 'Cari di Google Maps' buat pin lokasi & paste URL kembali ke kolom."
 					>
@@ -2500,7 +2572,7 @@ export function BookingForm({
 
 					{/* === 8. CONTACTS === */}
 					<Section
-						step={showReferrerBlock ? 8 : 7}
+						step={8}
 						title="Kontak"
 						description="Pembooking (yang booking + utama untuk billing) + PIC di lapangan untuk koordinasi crew hari-H."
 					>
@@ -2677,7 +2749,7 @@ export function BookingForm({
 
 					{/* === 9. ADD-ONS === */}
 					<Section
-						step={showReferrerBlock ? 9 : 8}
+						step={9}
 						title="Add-ons"
 						description="Voucher, print extras, costume, dll."
 					>
@@ -2759,7 +2831,7 @@ export function BookingForm({
 
 					{/* === BONUS (free items, internal only) === */}
 					<Section
-						step={showReferrerBlock ? 10 : 9}
+						step={10}
 						title={
 							<span className="inline-flex items-center gap-2">
 								<Gift className="size-5 text-primary" />
@@ -2889,7 +2961,7 @@ export function BookingForm({
 
 					{/* === 11. FINANCIAL === */}
 					<Section
-						step={showReferrerBlock ? 11 : 10}
+						step={11}
 						title="Financial"
 						description="Harga dan modifier."
 					>

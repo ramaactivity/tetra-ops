@@ -28,7 +28,7 @@ export type CommissionRow = {
 	clientName: string;
 	eventDate: string | null;
 	channel: string;
-	kind: "vendor" | "relasi";
+	kind: "vendor" | "relasi" | "sales";
 	vendorMode: string | null;
 	payeeName: string;
 	payeeContact: string | null;
@@ -66,10 +66,13 @@ export async function getCommissionsOverview(
 			.select(
 				`id, project_id, client_name, event_date, channel, status,
 				vendor_name, vendor_commission_mode, vendor_commission_amount, vendor_contact,
-				referrer_user_id, referrer_commission`,
+				referrer_user_id, referrer_commission,
+				sales_user_id, direct_sales_commission`,
 			)
 			.is("deleted_at", null)
-			.or("vendor_commission_amount.gt.0,referrer_commission.gt.0")
+			.or(
+				"vendor_commission_amount.gt.0,referrer_commission.gt.0,direct_sales_commission.gt.0",
+			)
 			.order("event_date", { ascending: false }),
 	]);
 
@@ -109,9 +112,16 @@ export async function getCommissionsOverview(
 				.select("id, full_name")
 				.in(
 					"id",
-					(events ?? [])
-						.map((e) => e.referrer_user_id as string | null)
-						.filter((v): v is string => !!v),
+					Array.from(
+						new Set(
+							(events ?? [])
+								.flatMap((e) => [
+									e.referrer_user_id as string | null,
+									e.sales_user_id as string | null,
+								])
+								.filter((v): v is string => !!v),
+						),
+					),
 				),
 		]);
 
@@ -144,7 +154,7 @@ export async function getCommissionsOverview(
 		};
 
 		const pushRow = (
-			kind: "vendor" | "relasi",
+			kind: "vendor" | "relasi" | "sales",
 			amount: number,
 			payeeName: string,
 			payeeContact: string | null,
@@ -202,6 +212,16 @@ export async function getCommissionsOverview(
 				"relasi",
 				relAmount,
 				referrerName.get(e.referrer_user_id as string) ?? "Relasi",
+				null,
+				null,
+			);
+		}
+		const salesAmount = Number(e.direct_sales_commission ?? 0);
+		if (e.channel === "direct" && salesAmount > 0) {
+			pushRow(
+				"sales",
+				salesAmount,
+				referrerName.get(e.sales_user_id as string) ?? "Sales Tetra",
 				null,
 				null,
 			);

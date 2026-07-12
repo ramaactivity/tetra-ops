@@ -64,7 +64,12 @@ export function CommissionPayDialog({
 	}
 
 	if (!row) return null;
-	const label = row.kind === "vendor" ? "vendor" : "relasi";
+	const label =
+		row.kind === "vendor"
+			? "vendor"
+			: row.kind === "sales"
+				? "sales"
+				: "relasi";
 
 	async function submit() {
 		if (!row) return;

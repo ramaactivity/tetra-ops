@@ -18,9 +18,11 @@ import { createClient } from "@/lib/supabase/server";
  * komisinya sudah dipotong di muka dari aliran uang (bukan utang).
  */
 
-const PAYABLE_COA: Record<"vendor" | "relasi", string> = {
+// Sales (direct) & relasi berbagi akun utang komisi 2-102 (5-301 "Sales/Relasi").
+const PAYABLE_COA: Record<"vendor" | "relasi" | "sales", string> = {
 	vendor: "2-101",
 	relasi: "2-102",
+	sales: "2-102",
 };
 
 function newJournalRef(date: Date): string {
@@ -40,7 +42,7 @@ function payoutRef(date: Date): string {
 const PayCommissionSchema = z.object({
 	event_id: z.string().uuid(),
 	project_id: z.string().trim().min(1).max(64),
-	kind: z.enum(["vendor", "relasi"]),
+	kind: z.enum(["vendor", "relasi", "sales"]),
 	bank_account_code: z.string().trim().min(2).max(20),
 	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	payment_date: z.string().trim().min(8),
@@ -55,7 +57,7 @@ export type PayCommissionResponse =
 export async function payCommission(input: {
 	event_id: string;
 	project_id: string;
-	kind: "vendor" | "relasi";
+	kind: "vendor" | "relasi" | "sales";
 	bank_account_code: string;
 	admin_fee?: number | string;
 	payment_date: string;
@@ -87,12 +89,26 @@ export async function payCommission(input: {
 		.select(
 			`id, status, channel, vendor_name, vendor_contact,
 			vendor_commission_mode, vendor_commission_amount,
-			referrer_user_id, referrer_commission, finance_frozen_at`,
+			referrer_user_id, referrer_commission,
+			sales_user_id, direct_sales_commission, finance_frozen_at`,
 		)
 		.eq("id", event_id)
 		.maybeSingle();
 	if (evErr) return { ok: false, error: evErr.message };
 	if (!ev) return { ok: false, error: "Event tidak ditemukan" };
+
+	async function lookupName(
+		userId: string | null,
+		fallback: string,
+	): Promise<string> {
+		if (!userId) return fallback;
+		const { data } = await supabase
+			.from("users")
+			.select("full_name")
+			.eq("id", userId)
+			.maybeSingle();
+		return (data?.full_name as string) ?? fallback;
+	}
 
 	let amount = 0;
 	let payeeName = "";
@@ -110,22 +126,21 @@ export async function payCommission(input: {
 		}
 		amount = Number(ev.vendor_commission_amount ?? 0);
 		payeeName = (ev.vendor_name as string) ?? "Vendor";
-	} else {
+	} else if (kind === "relasi") {
 		if (ev.channel !== "relasi") {
 			return { ok: false, error: "Event ini bukan channel relasi" };
 		}
 		amount = Number(ev.referrer_commission ?? 0);
 		payeeUserId = (ev.referrer_user_id as string | null) ?? null;
-		if (payeeUserId) {
-			const { data: refUser } = await supabase
-				.from("users")
-				.select("full_name")
-				.eq("id", payeeUserId)
-				.maybeSingle();
-			payeeName = (refUser?.full_name as string) ?? "Relasi";
-		} else {
-			payeeName = "Relasi";
+		payeeName = await lookupName(payeeUserId, "Relasi");
+	} else {
+		// sales (direct)
+		if (ev.channel !== "direct") {
+			return { ok: false, error: "Event ini bukan channel direct" };
 		}
+		amount = Number(ev.direct_sales_commission ?? 0);
+		payeeUserId = (ev.sales_user_id as string | null) ?? null;
+		payeeName = await lookupName(payeeUserId, "Sales Tetra");
 	}
 	if (amount <= 0) {
 		return { ok: false, error: "Nominal komisi Rp0 — tidak ada yang dibayar" };
@@ -336,7 +351,7 @@ export type UnpayCommissionResponse =
 export async function unpayCommission(input: {
 	event_id: string;
 	project_id: string;
-	kind: "vendor" | "relasi";
+	kind: "vendor" | "relasi" | "sales";
 	reason?: string;
 }): Promise<UnpayCommissionResponse> {
 	const me = await getCurrentUser();

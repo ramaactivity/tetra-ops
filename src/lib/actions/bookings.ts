@@ -152,6 +152,14 @@ const BookingInputSchema = z.object({
 		.or(z.literal(""))
 		.transform((v) => (v === "" || v === undefined ? null : v)),
 	referrer_commission: z.coerce.number().int().min(0).optional().nullable(),
+	// Direct sales (komisi sales Tetra untuk event channel=direct)
+	sales_user_id: z
+		.string()
+		.uuid()
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
+	direct_sales_commission: z.coerce.number().int().min(0).optional().nullable(),
 	// PIC at venue
 	pic_name: optionalString(120),
 	pic_wa: optionalString(20),
@@ -241,6 +249,8 @@ const FORM_KEYS = [
 	"referrer_user_id",
 	"referrer_type",
 	"referrer_commission",
+	"sales_user_id",
+	"direct_sales_commission",
 	"pic_name",
 	"pic_wa",
 	"backdrop_id",
@@ -551,6 +561,10 @@ function buildEventPayload(
 		referrer_type: input.channel === "relasi" ? input.referrer_type : null,
 		referrer_commission:
 			input.channel === "relasi" ? input.referrer_commission : null,
+		// Komisi sales Tetra — hanya untuk channel direct.
+		sales_user_id: input.channel === "direct" ? input.sales_user_id : null,
+		direct_sales_commission:
+			input.channel === "direct" ? (input.direct_sales_commission ?? 0) : 0,
 		// PIC at venue
 		pic_name: input.pic_name,
 		pic_wa: input.pic_wa,
