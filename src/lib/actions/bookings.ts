@@ -487,6 +487,15 @@ function buildEventPayload(
 		grandTotal,
 		basePrice,
 	);
+	// Tagihan efektif: potongan langsung (upfront_cut) dipotong vendor dari
+	// payment flow, jadi kas yang ditunggu = grand_total − potongan ("Tetra
+	// terima"). remaining_balance harus lawan angka ini, bukan grand_total —
+	// kalau tidak, event vendor tak pernah bisa lunas. Mirror
+	// recalculate_event_payment_status (migration 20260712).
+	const billableTotal = Math.max(
+		0,
+		grandTotal - (vendorMode === "upfront_cut" ? computedCommissionAmount : 0),
+	);
 
 	return {
 		channel: input.channel,
@@ -563,7 +572,7 @@ function buildEventPayload(
 		discount_type: input.discount_amount > 0 ? input.discount_type : null,
 		gross_up_pph_amount: input.gross_up_pph_amount,
 		grand_total: grandTotal,
-		remaining_balance: Math.max(0, grandTotal - existingTotalPaid),
+		remaining_balance: Math.max(0, billableTotal - existingTotalPaid),
 		crew_notes: input.crew_notes,
 	};
 }

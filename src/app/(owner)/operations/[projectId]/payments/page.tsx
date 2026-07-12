@@ -8,7 +8,7 @@ import {
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { MoneyAmount } from "@/components/ui/money-amount";
-import { PAYMENT_STATUS_LABELS } from "@/lib/format";
+import { formatRupiah, PAYMENT_STATUS_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ export default async function ManagePaymentsPage({
 	const { data: event } = await supabase
 		.from("events")
 		.select(
-			"id, project_id, client_name, grand_total, total_paid, remaining_balance, payment_status, due_date",
+			"id, project_id, client_name, grand_total, total_paid, remaining_balance, payment_status, due_date, vendor_commission_mode, vendor_commission_amount",
 		)
 		.eq("project_id", projectId)
 		.maybeSingle();
@@ -62,11 +62,18 @@ export default async function ManagePaymentsPage({
 
 	const today = new Date().toISOString().slice(0, 10);
 	const grand = Number(event.grand_total) || 0;
+	// Potongan langsung vendor (upfront_cut) dipotong di muka dari payment
+	// flow — target pelunasan = grand_total − potongan ("Tetra terima").
+	const vendorCut =
+		event.vendor_commission_mode === "upfront_cut"
+			? Number(event.vendor_commission_amount) || 0
+			: 0;
+	const billable = Math.max(0, grand - vendorCut);
 	const paid = Number(event.total_paid) || 0;
 	const remaining = Number(event.remaining_balance) || 0;
 	const status = event.payment_status as string;
 	const paidPct =
-		grand > 0 ? Math.min(100, Math.round((paid / grand) * 100)) : 0;
+		billable > 0 ? Math.min(100, Math.round((paid / billable) * 100)) : 0;
 	const canLog = remaining > 0;
 
 	return (
@@ -99,8 +106,8 @@ export default async function ManagePaymentsPage({
 			{/* Summary — stat row + 2-segment progress (matches dashboard targets) */}
 			<section className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 				<dl className="grid grid-cols-1 divide-y divide-border-subtle sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-					<SummaryCell label="Grand Total">
-						<MoneyAmount value={grand} size="lg" tone="default" />
+					<SummaryCell label={vendorCut > 0 ? "Tetra Terima" : "Grand Total"}>
+						<MoneyAmount value={billable} size="lg" tone="default" />
 					</SummaryCell>
 					<SummaryCell label="Total Dibayar">
 						<MoneyAmount
@@ -117,6 +124,18 @@ export default async function ManagePaymentsPage({
 						/>
 					</SummaryCell>
 				</dl>
+				{vendorCut > 0 && (
+					<p className="border-t border-border-subtle px-5 py-2.5 text-[11.5px] leading-snug text-muted-foreground">
+						Grand total <span className="tabular">{formatRupiah(grand)}</span> −
+						potongan vendor{" "}
+						<span className="tabular">{formatRupiah(vendorCut)}</span> (dipotong
+						di muka dari payment flow) — yang ditunggu masuk ke Tetra{" "}
+						<span className="tabular font-medium text-foreground">
+							{formatRupiah(billable)}
+						</span>
+						.
+					</p>
+				)}
 				<div className="border-t border-border-subtle px-5 py-3.5">
 					<div className="flex items-center justify-between text-[12.5px] leading-none">
 						<span className="text-muted-foreground">Progress pembayaran</span>
@@ -163,7 +182,7 @@ export default async function ManagePaymentsPage({
 							bankAccounts={(banks ?? []) as BankAccountOption[]}
 							defaultDate={today}
 							suggestedAmount={remaining}
-							grandTotal={grand}
+							grandTotal={billable}
 							totalPaid={paid}
 						/>
 					)}

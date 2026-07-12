@@ -93,7 +93,9 @@ export async function logPayment(
 		// Guard: event ada + belum settled + tidak overpayment.
 		const { data: ev } = await supabase
 			.from("events")
-			.select("grand_total, total_paid")
+			.select(
+				"grand_total, total_paid, vendor_commission_mode, vendor_commission_amount",
+			)
 			.eq("id", eventId)
 			.maybeSingle();
 		if (!ev) {
@@ -118,9 +120,16 @@ export async function logPayment(
 				values: snapshotValues(formData),
 			};
 		}
+		// Tagihan efektif: potongan langsung vendor dipotong di muka, jadi kas
+		// yang boleh dicatat maksimal grand_total − potongan ("Tetra terima").
 		const grand = Number(ev.grand_total) || 0;
-		const sisa = Math.max(0, grand - (Number(ev.total_paid) || 0));
-		if (grand > 0 && parsed.data.amount > sisa) {
+		const vendorCut =
+			ev.vendor_commission_mode === "upfront_cut"
+				? Number(ev.vendor_commission_amount) || 0
+				: 0;
+		const billable = Math.max(0, grand - vendorCut);
+		const sisa = Math.max(0, billable - (Number(ev.total_paid) || 0));
+		if (billable > 0 && parsed.data.amount > sisa) {
 			return {
 				errors: {
 					amount: [

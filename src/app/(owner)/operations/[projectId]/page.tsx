@@ -86,6 +86,7 @@ export default async function EventDetailPage({
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
+			vendor_commission_mode, vendor_commission_amount,
 			include_flashdisk_pouch,
 			crew_notes, created_at, updated_at,
 			is_migrated_legacy, legacy_invoice_number,
@@ -286,6 +287,14 @@ export default async function EventDetailPage({
 		? (eventTypeLabelByCode.get(event.event_category) ?? event.event_category)
 		: null;
 
+	// Potongan langsung vendor (upfront_cut) — dipotong dari payment flow,
+	// jadi kas yang ditunggu = grand_total − potongan ("Tetra terima").
+	const vendorCutAmount =
+		event.vendor_commission_mode === "upfront_cut"
+			? Number(event.vendor_commission_amount) || 0
+			: 0;
+	const billableTotal = Math.max(0, (event.grand_total ?? 0) - vendorCutAmount);
+
 	// One canonical spec for every header action so the whole bar reads as a
 	// single, uniform control group (height, radius, surface, type all match).
 	const headerActionCls =
@@ -476,6 +485,7 @@ export default async function EventDetailPage({
 				grandTotal={event.grand_total ?? 0}
 				totalPaid={event.total_paid ?? 0}
 				remainingBalance={event.remaining_balance ?? 0}
+				vendorCutAmount={vendorCutAmount}
 				settlement={
 					settlement
 						? {
@@ -743,6 +753,20 @@ export default async function EventDetailPage({
 										</span>
 									</DetailRow>
 								</div>
+								{vendorCutAmount > 0 && (
+									<>
+										<DetailRow label="Potongan Vendor" align="right">
+											<span className="tabular text-rose-600 dark:text-rose-400">
+												−{formatRupiah(vendorCutAmount)}
+											</span>
+										</DetailRow>
+										<DetailRow label="Tetra Terima" strong align="right">
+											<span className="tabular font-semibold text-emerald-700 dark:text-emerald-400">
+												{formatRupiah(billableTotal)}
+											</span>
+										</DetailRow>
+									</>
+								)}
 								<DetailRow label="Total Paid" align="right">
 									<span className="tabular text-emerald-700 dark:text-emerald-400">
 										{event.total_paid ? formatRupiah(event.total_paid) : "—"}

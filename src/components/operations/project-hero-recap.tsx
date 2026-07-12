@@ -78,6 +78,10 @@ interface ProjectHeroRecapProps {
 	grandTotal: number;
 	totalPaid: number;
 	remainingBalance: number;
+	/** Potongan langsung vendor (mode upfront_cut) — dipotong di muka dari
+	    payment flow, jadi kas yang ditunggu = grandTotal − vendorCutAmount
+	    ("Tetra terima"). 0 untuk mode komisi / non-vendor. */
+	vendorCutAmount?: number;
 	settlement: SettlementSummary;
 	canSettle: boolean;
 	equipmentCount: number;
@@ -121,6 +125,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 		grandTotal,
 		totalPaid,
 		remainingBalance,
+		vendorCutAmount = 0,
 		settlement,
 		canSettle,
 		equipmentCount,
@@ -128,9 +133,12 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 		driveFolderUrl,
 	} = props;
 
+	// Tagihan efektif — potongan langsung vendor tidak pernah masuk kas Tetra,
+	// jadi progress pembayaran diukur terhadap "Tetra terima".
+	const billableTotal = Math.max(0, grandTotal - vendorCutAmount);
 	const paidPct =
-		grandTotal > 0
-			? Math.min(100, Math.round((totalPaid / grandTotal) * 100))
+		billableTotal > 0
+			? Math.min(100, Math.round((totalPaid / billableTotal) * 100))
 			: 0;
 	const channelLabel = CHANNEL_TYPE_LABELS[channel] ?? channel;
 	const venueDetail = [venueCity, venueAddress].filter(Boolean).join(" · ");
@@ -349,6 +357,22 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 						</div>
 					</div>
 
+					{vendorCutAmount > 0 && (
+						<div className="mt-3 space-y-2 border-t border-border-subtle pt-3.5">
+							<MoneyLine
+								label="Potongan vendor"
+								value={-vendorCutAmount}
+								tone="negative"
+							/>
+							<MoneyLine
+								label="Tetra terima"
+								value={billableTotal}
+								tone="positive"
+								strong
+							/>
+						</div>
+					)}
+
 					<div className="mt-4 space-y-2 border-t border-border-subtle pt-3.5">
 						<MoneyLine label="Total Paid" value={totalPaid} tone="positive" />
 						<MoneyLine
@@ -359,7 +383,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 						/>
 					</div>
 
-					{grandTotal > 0 && (
+					{billableTotal > 0 && (
 						<div className="mt-3.5 space-y-1.5">
 							<div className="flex items-baseline justify-between text-[11px] text-muted-foreground">
 								<span>Progress pembayaran</span>
