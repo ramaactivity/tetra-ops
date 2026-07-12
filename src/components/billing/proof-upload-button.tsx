@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckCircle2, Loader2, UploadCloud, XCircle } from "lucide-react";
+import {
+	CheckCircle2,
+	Loader2,
+	Paperclip,
+	UploadCloud,
+	XCircle,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 
@@ -20,11 +26,47 @@ export type PaymentProofMeta = {
 	amount?: number; // IDR
 };
 
+/**
+ * Upload satu bukti (payment_proof) ke Drive folder event via API route.
+ * Dipakai langsung oleh tombol (mode instan) dan oleh PaymentForm saat
+ * submit (mode ditunda — file baru naik setelah klik "Log payment", supaya
+ * tidak ada file yatim kalau owner batal). Throw kalau gagal.
+ */
+export async function uploadProofToDrive(
+	projectId: string,
+	file: File,
+	meta?: PaymentProofMeta,
+): Promise<{ url: string; name: string | null }> {
+	const fd = new FormData();
+	fd.set("file", file);
+	fd.set("kind", "payment_proof");
+	if (meta?.paymentType) fd.set("payment_type", meta.paymentType);
+	if (meta?.paymentDate) fd.set("payment_date", meta.paymentDate);
+	if (meta?.amount !== undefined && meta.amount > 0) {
+		fd.set("amount", String(meta.amount));
+	}
+	const res = await fetch(`/api/drive/upload/${projectId}`, {
+		method: "POST",
+		body: fd,
+	});
+	const data = (await res.json()) as {
+		ok?: boolean;
+		url?: string;
+		name?: string;
+		error?: string;
+	};
+	if (!res.ok || !data.ok || !data.url) {
+		throw new Error(data.error ?? `Upload gagal (HTTP ${res.status})`);
+	}
+	return { url: data.url, name: data.name ?? null };
+}
+
 export function ProofUploadButton({
 	projectId,
 	onUploaded,
 	onFileSelected,
 	disabled = false,
+	deferred = false,
 	meta,
 }: {
 	projectId: string;
@@ -32,11 +74,15 @@ export function ProofUploadButton({
 	/** Fired the moment a file is picked, before upload — lets the caller preview. */
 	onFileSelected?: (file: File) => void;
 	disabled?: boolean;
+	/** Pick-only: cukup teruskan file ke caller (buat preview), JANGAN upload
+	    sekarang. Caller yang upload saat submit → tak ada file yatim di Drive. */
+	deferred?: boolean;
 	meta?: PaymentProofMeta;
 }) {
 	const fileRef = useRef<HTMLInputElement | null>(null);
 	const [state, setState] = useState<
 		| { phase: "idle" }
+		| { phase: "selected"; name: string }
 		| { phase: "uploading"; name: string }
 		| { phase: "success"; name: string; renamedTo: string | null }
 		| { phase: "error"; message: string }
@@ -49,43 +95,19 @@ export function ProofUploadButton({
 
 	async function handleFile(file: File) {
 		onFileSelected?.(file);
-		setState({ phase: "uploading", name: file.name });
-		const fd = new FormData();
-		fd.set("file", file);
-		fd.set("kind", "payment_proof");
-		if (meta?.paymentType) fd.set("payment_type", meta.paymentType);
-		if (meta?.paymentDate) fd.set("payment_date", meta.paymentDate);
-		if (meta?.amount !== undefined && meta.amount > 0) {
-			fd.set("amount", String(meta.amount));
+		// Mode ditunda: berhenti di sini — file di-upload oleh caller saat submit.
+		if (deferred) {
+			setState({ phase: "selected", name: file.name });
+			return;
 		}
+		setState({ phase: "uploading", name: file.name });
 		try {
-			const res = await fetch(`/api/drive/upload/${projectId}`, {
-				method: "POST",
-				body: fd,
-			});
-			const data = (await res.json()) as {
-				ok?: boolean;
-				url?: string;
-				name?: string;
-				error?: string;
-			};
-			if (!res.ok || !data.ok || !data.url) {
-				const msg = data.error ?? `Upload gagal (HTTP ${res.status})`;
-				setState({ phase: "error", message: msg });
-				toast.error(msg);
-				return;
-			}
-			setState({
-				phase: "success",
-				name: file.name,
-				renamedTo: data.name ?? null,
-			});
+			const { url, name } = await uploadProofToDrive(projectId, file, meta);
+			setState({ phase: "success", name: file.name, renamedTo: name });
 			toast.success(
-				data.name
-					? `Ter-upload sebagai "${data.name}"`
-					: "Bukti ter-upload ke Drive",
+				name ? `Ter-upload sebagai "${name}"` : "Bukti ter-upload ke Drive",
 			);
-			onUploaded(data.url, data.name);
+			onUploaded(url, name ?? undefined);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : "Upload gagal";
 			setState({ phase: "error", message: msg });
@@ -98,24 +120,30 @@ export function ProofUploadButton({
 			? Loader2
 			: state.phase === "success"
 				? CheckCircle2
-				: state.phase === "error"
-					? XCircle
-					: UploadCloud;
+				: state.phase === "selected"
+					? Paperclip
+					: state.phase === "error"
+						? XCircle
+						: UploadCloud;
 	const tone =
 		state.phase === "success"
 			? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-			: state.phase === "error"
-				? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-				: "border-border-default bg-surface-2 text-foreground hover:bg-surface-3";
+			: state.phase === "selected"
+				? "border-primary/30 bg-primary/5 text-foreground hover:bg-primary/10"
+				: state.phase === "error"
+					? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+					: "border-border-default bg-surface-2 text-foreground hover:bg-surface-3";
 
 	const label =
 		state.phase === "uploading"
 			? "Mengunggah…"
 			: state.phase === "success"
 				? "Terunggah"
-				: state.phase === "error"
-					? "Coba lagi"
-					: "Upload";
+				: state.phase === "selected"
+					? "Terpilih"
+					: state.phase === "error"
+						? "Coba lagi"
+						: "Upload";
 
 	return (
 		// max-w cap: tanpa ini, nama file panjang (nowrap) memaksa kolom melebar
@@ -137,6 +165,10 @@ export function ProofUploadButton({
 			{state.phase === "uploading" ? (
 				<p className="mt-1 truncate text-[11px] italic text-muted-foreground">
 					{state.name}
+				</p>
+			) : state.phase === "selected" ? (
+				<p className="mt-1 truncate text-[11px] text-muted-foreground">
+					{state.name} · naik saat disimpan
 				</p>
 			) : state.phase === "success" ? (
 				<p className="mt-1 truncate text-[11px] text-emerald-700 dark:text-emerald-400">

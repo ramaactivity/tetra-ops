@@ -2,12 +2,16 @@
 
 import { FileText, Image as ImageIcon, Link2 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
-import { ProofUploadButton } from "@/components/billing/proof-upload-button";
+import {
+	ProofUploadButton,
+	uploadProofToDrive,
+} from "@/components/billing/proof-upload-button";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput, TextareaField } from "@/components/ui/form-fields";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { toast } from "@/components/ui/toaster";
 import { logPayment, type PaymentFormState } from "@/lib/actions/payments";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -74,6 +78,10 @@ export function PaymentForm({
 	const [proofUrl, setProofUrl] = useState(get("proof_url"));
 	const [proofFile, setProofFile] = useState<File | null>(null);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	// Upload bukti DITUNDA: file baru diunggah ke Drive saat submit (setelah
+	// klik "Log payment"), bukan saat dipilih — jadi kalau owner batal, tidak
+	// ada file yatim yang terlanjur naik.
+	const [uploadingProof, setUploadingProof] = useState(false);
 
 	// Local preview of the picked bukti image (revoked on change/unmount).
 	useEffect(() => {
@@ -114,6 +122,31 @@ export function PaymentForm({
 		}
 	}, [isPelunasan, suggestedAmount]);
 
+	// Submit: kalau ada bukti yang baru dipilih (belum diunggah), upload ke
+	// Drive dulu → baru dispatch server action dengan URL-nya. Kalau owner cuma
+	// menempel link Drive (proofUrl) tanpa file, langsung submit apa adanya.
+	async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+		e.preventDefault();
+		const fd = new FormData(e.currentTarget);
+		if (proofFile) {
+			try {
+				setUploadingProof(true);
+				const uploaded = await uploadProofToDrive(projectId, proofFile, {
+					paymentType,
+					paymentDate,
+					amount: amount || undefined,
+				});
+				fd.set("proof_url", uploaded.url);
+			} catch (err) {
+				setUploadingProof(false);
+				toast.error(err instanceof Error ? err.message : "Upload bukti gagal");
+				return;
+			}
+			setUploadingProof(false);
+		}
+		formAction(fd);
+	}
+
 	if (bankAccounts.length === 0) {
 		return (
 			<p className="text-sm italic text-muted-foreground">
@@ -128,7 +161,7 @@ export function PaymentForm({
 	const fieldBox = "h-10! w-full rounded-xl px-3.5 text-[0.9375rem]";
 
 	return (
-		<form action={formAction} className="space-y-3">
+		<form onSubmit={handleSubmit} className="space-y-3">
 			{state?.errors?._form && (
 				<div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
 					<p className="text-sm font-medium text-destructive">
@@ -295,6 +328,7 @@ export function PaymentForm({
 							/>
 							<ProofUploadButton
 								projectId={projectId}
+								deferred
 								onUploaded={setProofUrl}
 								onFileSelected={setProofFile}
 								meta={{
@@ -377,10 +411,14 @@ export function PaymentForm({
 			<Button
 				type="submit"
 				size="lg"
-				disabled={pending}
+				disabled={pending || uploadingProof}
 				className="h-10 w-full"
 			>
-				{pending ? "Menyimpan…" : "Log payment"}
+				{uploadingProof
+					? "Mengunggah bukti…"
+					: pending
+						? "Menyimpan…"
+						: "Log payment"}
 			</Button>
 		</form>
 	);
