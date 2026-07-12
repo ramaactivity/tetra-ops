@@ -118,7 +118,10 @@ export function ProofUploadButton({
 					: "Upload";
 
 	return (
-		<div className="shrink-0">
+		// max-w cap: tanpa ini, nama file panjang (nowrap) memaksa kolom melebar
+		// dan teksnya bocor menembus ke panel Preview di sebelahnya. Dengan batas
+		// lebar, `truncate` di bawah bekerja dan teks terpotong rapi.
+		<div className="max-w-[11rem] shrink-0">
 			<button
 				type="button"
 				onClick={trigger}

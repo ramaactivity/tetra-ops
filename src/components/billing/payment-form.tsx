@@ -213,7 +213,12 @@ export function PaymentForm({
 								)}
 								<FillChip
 									active={amount === remaining}
-									onClick={() => setAmount(remaining)}
+									onClick={() => {
+										setAmount(remaining);
+										// Lunasi penuh = pelunasan: samakan tipe biar konsisten
+										// (dan nominal terkunci penuh via effect isPelunasan).
+										setPaymentType("pelunasan");
+									}}
 								>
 									Lunasi penuh
 								</FillChip>
@@ -279,14 +284,14 @@ export function PaymentForm({
 					</Field>
 
 					<Field label="Bukti transfer" error={err("proof_url")}>
-						<div className="flex items-center gap-2">
+						<div className="flex items-start gap-2">
 							<Input
 								type="url"
 								name="proof_url"
 								value={proofUrl}
 								onChange={(e) => setProofUrl(e.target.value)}
 								placeholder="Link Drive (opsional)…"
-								className="h-10 flex-1 rounded-xl text-[0.9375rem]"
+								className="h-10 min-w-0 flex-1 rounded-xl text-[0.9375rem]"
 							/>
 							<ProofUploadButton
 								projectId={projectId}
