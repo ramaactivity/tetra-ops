@@ -1,223 +1,77 @@
-import { Handshake, UsersRound } from "lucide-react";
-import Link from "next/link";
-import {
-	type VendorStats,
-	VendorsListTable,
-} from "@/components/finance/vendors-list-table";
+import { Handshake } from "lucide-react";
+import type { CommissionBankOption } from "@/components/finance/commissions/commission-pay-dialog";
+import { CommissionsExplorer } from "@/components/finance/commissions/commissions-explorer";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { getCommissionsOverview } from "@/lib/finance/commissions-data";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-const ID_MONTH_NAMES = [
-	"Jan",
-	"Feb",
-	"Mar",
-	"Apr",
-	"Mei",
-	"Jun",
-	"Jul",
-	"Agu",
-	"Sep",
-	"Okt",
-	"Nov",
-	"Des",
-];
-
-function startOfMonth(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
-
-function lastDayOfMonth(year: number, month: number): string {
-	const d = new Date(year, month, 0).getDate();
-	return `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-type VendorEvent = {
-	id: string;
-	project_id: string;
-	vendor_name: string | null;
-	vendor_commission_amount: number | null;
-	event_date: string;
-	client_name: string;
-	status: string;
-	is_migrated_legacy: boolean | null;
-};
-
-export default async function VendorsPage() {
+export default async function CommissionsPage() {
 	const supabase = await createClient();
 	const today = new Date();
-	const ymStart = startOfMonth(today);
-	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
 	const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-	const monthLabel = `${ID_MONTH_NAMES[today.getMonth()]} ${today.getFullYear()}`;
 
-	const [{ data: eventsData, error }, { data: contactsData }] =
-		await Promise.all([
-			supabase
-				.from("events")
-				.select(
-					"id, project_id, vendor_name, vendor_commission_amount, event_date, client_name, status, is_migrated_legacy",
-				)
-				.eq("channel", "vendor")
-				.is("deleted_at", null)
-				.not("vendor_name", "is", null)
-				.order("event_date", { ascending: false }),
-			supabase
-				.from("contacts")
-				.select("id, name, phone, type")
-				.eq("type", "vendor")
-				.eq("is_active", true),
-		]);
+	const [{ rows, totals }, { data: banksData }] = await Promise.all([
+		getCommissionsOverview(supabase),
+		supabase
+			.from("bank_accounts")
+			.select("coa_code, bank_name, account_number, account_holder")
+			.eq("is_active", true)
+			.order("is_default_receive", { ascending: false })
+			.order("bank_name", { ascending: true }),
+	]);
 
-	if (error) {
-		return (
-			<Container size="xl">
-				<div className="rounded-md border border-destructive bg-destructive/10 p-4">
-					<p className="text-fluid-body text-destructive">{error.message}</p>
-				</div>
-			</Container>
-		);
-	}
-
-	const events = (eventsData ?? []) as VendorEvent[];
-	const contacts = (contactsData ?? []) as Array<{
-		id: string;
-		name: string;
-		phone: string | null;
-		type: string;
-	}>;
-
-	const contactByName = new Map(
-		contacts.map((c) => [c.name.trim().toLowerCase(), c]),
-	);
-
-	const vendorMap = new Map<string, VendorStats>();
-	for (const e of events) {
-		if (!e.vendor_name) continue;
-		const name = e.vendor_name.trim();
-		if (!name) continue;
-		const key = name.toLowerCase();
-		const existing = vendorMap.get(key);
-		const isUpcoming =
-			!e.is_migrated_legacy &&
-			e.event_date >= todayISO &&
-			!["cancelled", "completed"].includes(e.status);
-		const isThisMonth =
-			!e.is_migrated_legacy && e.event_date >= ymStart && e.event_date <= ymEnd;
-		const commission = e.vendor_commission_amount ?? 0;
-
-		if (existing) {
-			existing.totalEvents += 1;
-			existing.totalCommission += commission;
-			if (isThisMonth) existing.mtdCommission += commission;
-			if (isUpcoming) existing.upcomingCount += 1;
-			if (!existing.lastEventDate || e.event_date > existing.lastEventDate) {
-				existing.lastEventDate = e.event_date;
-			}
-		} else {
-			const matchingContact = contactByName.get(key);
-			vendorMap.set(key, {
-				name,
-				contactId: matchingContact?.id ?? null,
-				contactPhone: matchingContact?.phone ?? null,
-				totalEvents: 1,
-				totalCommission: commission,
-				mtdCommission: isThisMonth ? commission : 0,
-				lastEventDate: e.event_date,
-				upcomingCount: isUpcoming ? 1 : 0,
-			});
-		}
-	}
-
-	for (const c of contacts) {
-		const key = c.name.trim().toLowerCase();
-		if (!vendorMap.has(key) && c.name.trim()) {
-			vendorMap.set(key, {
-				name: c.name.trim(),
-				contactId: c.id,
-				contactPhone: c.phone,
-				totalEvents: 0,
-				totalCommission: 0,
-				mtdCommission: 0,
-				lastEventDate: null,
-				upcomingCount: 0,
-			});
-		}
-	}
-
-	const vendors = Array.from(vendorMap.values()).sort(
-		(a, b) => b.totalCommission - a.totalCommission,
-	);
-
-	const totalCommissionAll = vendors.reduce((s, v) => s + v.totalCommission, 0);
-	const totalCommissionMtd = vendors.reduce((s, v) => s + v.mtdCommission, 0);
-	const totalEvents = vendors.reduce((s, v) => s + v.totalEvents, 0);
-	const totalUpcoming = vendors.reduce((s, v) => s + v.upcomingCount, 0);
+	const banks: CommissionBankOption[] = (banksData ?? []).map((b) => ({
+		coa_code: b.coa_code as string,
+		label: `${b.bank_name}${b.account_number ? ` · ${b.account_number}` : ""}${b.account_holder ? ` · ${b.account_holder}` : ""}`,
+	}));
 
 	return (
 		<Container size="xl" className="space-y-3">
 			<SectionHeader
-				title="Vendor / Partner Organizer"
-				description="Aggregate komisi vendor dari semua event channel=vendor."
+				title="Komisi Vendor & Relasi"
+				description="Lacak & bayar komisi tiap event. Pembayaran otomatis tercatat di jurnal."
 			/>
 
 			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<SummaryCard
-					label="Total komisi"
-					value={formatRupiah(totalCommissionAll)}
-					hint="All time"
-					tone="primary"
+					label="Perlu dibayar"
+					value={formatRupiah(totals.payableAmount)}
+					hint={`${totals.payableCount} komisi terutang`}
+					tone="rose"
 				/>
 				<SummaryCard
-					label={`Komisi ${monthLabel}`}
-					value={formatRupiah(totalCommissionMtd)}
-					hint="Bulan berjalan"
+					label="Sudah dibayar"
+					value={formatRupiah(totals.paidAmount)}
+					hint="Total komisi terbayar"
 					tone="emerald"
 				/>
 				<SummaryCard
-					label="Total event vendor"
-					value={totalEvents.toLocaleString("id-ID")}
-					hint={`Dari ${vendors.length} vendor`}
-					tone="muted"
+					label="Belum settle"
+					value={formatRupiah(totals.notSettledAmount)}
+					hint="Menunggu event di-settle"
+					tone="amber"
 				/>
 				<SummaryCard
-					label="Upcoming"
-					value={totalUpcoming.toLocaleString("id-ID")}
-					hint="Event aktif via vendor"
-					tone="amber"
+					label="Jumlah komisi"
+					value={rows.length.toLocaleString("id-ID")}
+					hint="Vendor + relasi"
+					tone="muted"
 				/>
 			</dl>
 
-			{vendors.length === 0 ? (
-				<EmptyState
-					icon={Handshake}
-					title="Belum ada vendor"
-					description={
-						<>
-							Tambah lewat{" "}
-							<Link href="/contacts" className="text-primary hover:underline">
-								Contacts
-							</Link>{" "}
-							dengan type=Vendor, atau bikin event channel=vendor.
-						</>
-					}
-				/>
-			) : (
-				<VendorsListTable vendors={vendors} />
-			)}
+			<CommissionsExplorer rows={rows} banks={banks} defaultDate={todayISO} />
 
 			<div className="rounded-lg border border-border-default bg-surface-3/40 p-3 text-fluid-caption text-muted-foreground">
 				<p className="flex items-start gap-2">
-					<UsersRound className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+					<Handshake className="mt-0.5 size-3.5 shrink-0" aria-hidden />
 					<span>
-						Data diaggregat dari <code>events.vendor_name</code> +{" "}
-						<code>contacts.type=vendor</code>. Klik nama vendor → filter
-						operations list. Komisi diambil dari{" "}
-						<code>events.vendor_commission_amount</code> (di-set saat booking
-						channel=vendor). Legacy migrated events di-exclude dari MTD &
-						upcoming.
+						Komisi di-akrual sebagai utang (2-101 vendor / 2-102 relasi) saat
+						event di-settle, lalu bisa dibayar dari sini — Dr utang komisi / Cr
+						kas-bank. Vendor <b>Potongan Langsung</b> ditandai "Potong di muka"
+						(sudah dipotong dari aliran uang, bukan uang keluar). Status{" "}
+						<b>Belum settle</b> = tunggu event di-settle dulu.
 					</span>
 				</p>
 			</div>
@@ -234,11 +88,11 @@ function SummaryCard({
 	label: string;
 	value: string;
 	hint: string;
-	tone: "primary" | "emerald" | "amber" | "muted";
+	tone: "rose" | "emerald" | "amber" | "muted";
 }) {
 	const cls =
-		tone === "primary"
-			? "text-primary"
+		tone === "rose"
+			? "text-rose-600 dark:text-rose-400"
 			: tone === "emerald"
 				? "text-emerald-600 dark:text-emerald-400"
 				: tone === "amber"

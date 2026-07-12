@@ -64,7 +64,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/finance/accounting", "Akuntansi", BookOpen],
 	["/finance/arsip-nota", "Arsip Nota", Archive],
 	["/finance/payables", "Hutang Dagang", Scale],
-	["/finance/vendors", "Komisi Vendor", Handshake],
+	["/finance/vendors", "Komisi", Handshake],
 	["/finance/bank-accounts", "Rekening Bank", Landmark],
 	["/finance/sinking-funds", "Dana Cadangan", PiggyBank],
 	["/finance/reconciliation", "Rekonsiliasi", Scale],

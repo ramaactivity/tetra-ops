@@ -141,7 +141,7 @@ const NAV_SECTIONS: NavSection[] = [
 					},
 					{
 						href: "/finance/vendors",
-						label: "Komisi Vendor",
+						label: "Komisi",
 						icon: Handshake,
 					},
 					{
