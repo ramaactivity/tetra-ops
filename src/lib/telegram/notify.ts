@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+	formatScheduleInline,
+	hasBreak,
+	parseSegments,
+} from "@/lib/schedule/segments";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	isTelegramConfigured,
@@ -32,13 +37,7 @@ export async function sendToOwnerGroup(html: string): Promise<void> {
 	}
 }
 
-const CHANNEL_LABEL: Record<string, string> = {
-	direct: "Direct",
-	vendor: "Vendor",
-	relasi: "Relasi",
-};
-
-/** Booking baru dibuat → kabari grup owner. */
+/** Booking baru dibuat → kabari grup owner (detail ala kartu event). */
 export async function notifyTelegramBookingCreated(
 	eventId: string,
 ): Promise<void> {
@@ -47,24 +46,118 @@ export async function notifyTelegramBookingCreated(
 		const { data: ev } = await admin
 			.from("events")
 			.select(
-				"project_id, client_name, event_date, venue_name, venue_city, channel, grand_total",
+				`project_id, client_name, event_date, setup_time, start_time, end_time,
+				session_segments, venue_name, venue_city, channel, event_category,
+				grand_total, vendor_commission_mode, vendor_commission_amount,
+				vendor_name, vendor_pic_name, vendor_contact,
+				referrer_user_id, referrer_commission,
+				pic_name, pic_wa, booker_name,
+				package:packages(name), backdrop:backdrops(name)`,
 			)
 			.eq("id", eventId)
 			.maybeSingle();
 		if (!ev) return;
+
+		const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
+		const pkg = Array.isArray(ev.package) ? ev.package[0] : ev.package;
+		const backdrop = Array.isArray(ev.backdrop) ? ev.backdrop[0] : ev.backdrop;
+
+		// Kategori event — label dari master event_types, fallback ke code.
+		let kategori: string | null = (ev.event_category as string) ?? null;
+		if (kategori) {
+			const { data: et } = await admin
+				.from("event_types")
+				.select("label")
+				.eq("code", kategori)
+				.maybeSingle();
+			kategori = (et?.label as string) ?? kategori;
+		}
+
+		// Sumber booking — sebut NAMA-nya, bukan cuma channel-nya.
+		const grand = Number(ev.grand_total ?? 0);
+		let sumber: string;
+		let moneyLine = `💰 ${rp(grand)}`;
+		if (ev.channel === "vendor") {
+			const pic = ev.vendor_pic_name
+				? ` (PIC: ${tgEscape(ev.vendor_pic_name as string)}${ev.vendor_contact ? ` · ${tgEscape(ev.vendor_contact as string)}` : ""})`
+				: "";
+			sumber = `🤝 Via vendor <b>${tgEscape((ev.vendor_name as string) ?? "-")}</b>${pic}`;
+			if (
+				ev.vendor_commission_mode === "upfront_cut" &&
+				Number(ev.vendor_commission_amount ?? 0) > 0
+			) {
+				// Potongan langsung: kas yang masuk ke Tetra = grand − potongan.
+				const cut = Number(ev.vendor_commission_amount);
+				moneyLine = `💰 ${rp(grand)} − potongan vendor ${rp(cut)} → Tetra terima <b>${rp(grand - cut)}</b>`;
+			} else if (Number(ev.vendor_commission_amount ?? 0) > 0) {
+				moneyLine = `💰 ${rp(grand)} (komisi vendor ${rp(Number(ev.vendor_commission_amount))} dibayar setelah event)`;
+			}
+		} else if (ev.channel === "relasi") {
+			let nama = "-";
+			if (ev.referrer_user_id) {
+				const { data: u } = await admin
+					.from("users")
+					.select("full_name")
+					.eq("id", ev.referrer_user_id)
+					.maybeSingle();
+				nama = (u?.full_name as string) ?? "-";
+			}
+			const komisi = Number(ev.referrer_commission ?? 0);
+			sumber = `🤝 Via relasi <b>${tgEscape(nama)}</b>${komisi > 0 ? ` (komisi ${rp(komisi)})` : ""}`;
+		} else {
+			sumber = `🤝 Direct${ev.booker_name ? ` — booker ${tgEscape(ev.booker_name as string)}` : ""}`;
+		}
+
+		// Jadwal — dukung acara dengan jeda (multi-sesi).
+		const segments = parseSegments(ev.session_segments);
+		const jam = hasBreak(segments)
+			? formatScheduleInline(
+					ev.start_time as string | null,
+					ev.end_time as string | null,
+					segments,
+				)
+			: [
+					hhmm(ev.start_time as string | null),
+					hhmm(ev.end_time as string | null),
+				]
+					.filter(Boolean)
+					.join("–");
+		const setup = hhmm(ev.setup_time as string | null);
+		const jadwal = [
+			`📅 ${dateLabel(ev.event_date as string, true)}`,
+			jam ? `⏰ ${tgEscape(jam)}${setup ? ` (setup ${setup})` : ""}` : null,
+		]
+			.filter(Boolean)
+			.join(" · ");
+
 		const tempat = [ev.venue_name, ev.venue_city]
 			.filter(Boolean)
 			.map((s) => tgEscape(s as string))
 			.join(", ");
-		const via = CHANNEL_LABEL[ev.channel as string] ?? ev.channel ?? "-";
+		const paket = [
+			pkg?.name ? `📦 ${tgEscape(pkg.name as string)}` : null,
+			backdrop?.name ? `🖼 ${tgEscape(backdrop.name as string)}` : null,
+		]
+			.filter(Boolean)
+			.join(" · ");
+		const picVenue = ev.pic_name
+			? `👤 PIC venue: ${tgEscape(ev.pic_name as string)}${ev.pic_wa ? ` · ${tgEscape(ev.pic_wa as string)}` : ""}`
+			: null;
+
 		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 		await sendToOwnerGroup(
 			[
-				`🆕 <b>BOOKING BARU — ${tgEscape(ev.client_name as string)}</b>`,
-				`📅 ${dateLabel(ev.event_date as string, true)}${tempat ? ` · 📍 ${tempat}` : ""}`,
-				`💰 ${rp(Number(ev.grand_total ?? 0))} · via ${tgEscape(via)}`,
+				`🆕 <b>BOOKING BARU — ${tgEscape(ev.client_name as string)}</b>${kategori ? ` · ${tgEscape(kategori)}` : ""}`,
+				jadwal,
+				tempat ? `📍 ${tempat}` : null,
+				paket || null,
+				sumber,
+				picVenue,
+				moneyLine,
 				...(appUrl ? [`\nDetail: ${appUrl}/operations/${ev.project_id}`] : []),
-			].join("\n"),
+			]
+				.filter(Boolean)
+				.join("\n"),
 		);
 	} catch (e) {
 		console.error("[telegram/notify] booking:", e);
