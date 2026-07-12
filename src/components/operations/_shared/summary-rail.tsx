@@ -117,7 +117,12 @@ export function SummaryRail({
 		<aside
 			data-slot="summary-rail"
 			className={cn(
-				"sticky top-4 flex flex-col gap-5 rounded-lg border border-border-default bg-card p-5",
+				// top-20 (80px) mengosongkan topbar sticky (md:top-3 + tinggi header
+				// ~60px) — sama dgn konvensi scroll-mt-20 section anchor, jadi saat
+				// dipin rail-nya rata atas dengan section teratas & tak ketutup.
+				// max-h + overflow: rail tinggi (semua section terisi) tetap bisa
+				// di-scroll internal supaya tombol Save selalu kejangkau.
+				"sticky top-20 flex max-h-[calc(100dvh-6rem)] flex-col gap-5 overflow-y-auto rounded-lg border border-border-default bg-card p-5",
 				WIDTH_CLASS[width],
 				className,
 			)}

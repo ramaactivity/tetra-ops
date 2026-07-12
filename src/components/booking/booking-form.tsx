@@ -1216,12 +1216,13 @@ export function BookingForm({
 						</div>
 					)}
 
-					{/* === Cluster A anchor === */}
-					<div id="cluster-source" className="scroll-mt-20" />
-
-					{/* === 1. CHANNEL === */}
+					{/* === 1. CHANNEL (Cluster A anchor — id on the section itself so
+					    it's the first flow child; a separate empty div would push
+					    Section 1 down by space-y-8 and misalign it with the rail). === */}
 					<Section
 						step={1}
+						id="cluster-source"
+						className="scroll-mt-20"
 						title="Sumber Booking"
 						description="Pilih dulu dari mana booking ini datang — selanjutnya form akan menyesuaikan."
 					>
@@ -3265,11 +3266,18 @@ function Section({
 	title,
 	description,
 	children,
+	id,
+	className,
 }: {
 	step: number;
 	title: React.ReactNode;
 	description: string;
 	children: React.ReactNode;
+	/** Optional scroll-anchor id/class. When set, wraps the card so the anchor
+	    is the flow element (avoids a separate empty div that would offset the
+	    first section under space-y). */
+	id?: string;
+	className?: string;
 }) {
 	const stepLabel = step.toString().padStart(2, "0");
 	const titleText = typeof title === "string" ? title.toUpperCase() : title;
@@ -3280,10 +3288,17 @@ function Section({
 			<span className="text-foreground">{titleText}</span>
 		</span>
 	);
-	return (
+	const card = (
 		<SectionCard title={eyebrowTitle} subtitle={description} defaultOpen>
 			<div className="space-y-4">{children}</div>
 		</SectionCard>
+	);
+	return id || className ? (
+		<div id={id} className={className}>
+			{card}
+		</div>
+	) : (
+		card
 	);
 }
 
