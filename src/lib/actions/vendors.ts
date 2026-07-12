@@ -317,7 +317,9 @@ export async function updateVendor(
  * Soft-archive a vendor. Sets is_active=false. Does NOT touch historical
  * events.vendor_contact_id (preserves audit trail).
  */
-export async function archiveVendor(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function archiveVendor(
+	id: string,
+): Promise<{ ok: boolean; error?: string }> {
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
@@ -340,7 +342,9 @@ export async function archiveVendor(id: string): Promise<{ ok: boolean; error?: 
 /**
  * Restore an archived vendor.
  */
-export async function restoreVendor(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function restoreVendor(
+	id: string,
+): Promise<{ ok: boolean; error?: string }> {
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
@@ -389,7 +393,28 @@ export async function ensureVendorContact(input: {
 		.ilike("name", name)
 		.maybeSingle();
 
-	if (existing) return existing.id as string;
+	if (existing) {
+		// Vendor sudah ada → "belajar" skema komisi dari booking ini supaya
+		// booking berikutnya untuk vendor yang sama auto-terisi sama (kebiasaan
+		// terakhir). Hanya update kalau booking mengirim skema komisi (channel
+		// vendor selalu mengirim; default commission/percent/nilai).
+		if (input.commission_mode) {
+			const mode = input.commission_mode;
+			const valueType = input.commission_value_type ?? "percent";
+			const value = input.commission_value ?? null;
+			await supabase
+				.from("contacts")
+				.update({
+					commission_mode: mode,
+					commission_value_type: valueType,
+					commission_value_default: value,
+					commission_rate_default:
+						mode === "commission" && valueType === "percent" ? value : null,
+				})
+				.eq("id", existing.id);
+		}
+		return existing.id as string;
+	}
 
 	// Create new vendor master entry. Mode/type/value default to whatever
 	// the booking form sent — owner gets a clean record they can refine
