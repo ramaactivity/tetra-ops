@@ -52,19 +52,24 @@ export function findTool(role: UserRole, name: string): AiTool | null {
 	return toolsForRole(role).find((t) => t.name === name) ?? null;
 }
 
-/** Label ramah untuk indikator "sedang mengerjakan…" di UI. */
+/**
+ * Nama sumber data dalam bahasa owner — sengaja KATA BENDA, bukan kalimat
+ * kerja, supaya satu label bisa dipakai dua tempat: indikator berjalan
+ * ("Membaca jadwal event…") dan catatan sumber di bawah jawaban
+ * ("Dibaca dari: jadwal event, stok gudang"). Jangan sebut nama tool teknis.
+ */
 export const TOOL_LABELS: Record<string, string> = {
-	cari_event: "Membuka jadwal event",
-	detail_event: "Membaca detail event",
-	cek_ketersediaan: "Mengecek ketersediaan unit",
-	ringkasan_bisnis: "Menghitung performa bisnis",
-	saldo_kas: "Mengecek saldo kas & bank",
-	piutang: "Mengumpulkan tagihan belum lunas",
-	fee_crew_belum_dibayar: "Menghitung fee crew",
-	stok: "Mengecek stok gudang",
-	aset_tetap: "Memeriksa daftar alat",
+	cari_event: "jadwal event",
+	detail_event: "detail event",
+	cek_ketersediaan: "ketersediaan unit",
+	ringkasan_bisnis: "performa bisnis",
+	saldo_kas: "saldo kas & bank",
+	piutang: "tagihan belum lunas",
+	fee_crew_belum_dibayar: "fee crew",
+	stok: "stok gudang",
+	aset_tetap: "daftar alat",
 };
 
 export function toolLabel(name: string): string {
-	return TOOL_LABELS[name] ?? `Mengambil data (${name})`;
+	return TOOL_LABELS[name] ?? "data internal";
 }

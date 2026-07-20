@@ -8,6 +8,8 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 
 export const metadata = { title: "Tanya Tetra" };
 
+// Container size="full": halaman chat berbagi lebar PERSIS dengan kartu topbar.
+// size="md" (max-w-5xl) membuatnya tampak menjorok ke dalam dibanding topbar.
 export default async function TanyaPage() {
 	const me = await getCurrentUser();
 	if (!me) redirect("/login");
@@ -17,7 +19,7 @@ export default async function TanyaPage() {
 
 	if (!isAiConfigured()) {
 		return (
-			<Container size="md">
+			<Container size="full">
 				<EmptyState
 					icon={Sparkles}
 					title="Tanya Tetra belum aktif"
@@ -28,7 +30,7 @@ export default async function TanyaPage() {
 	}
 
 	return (
-		<Container size="md">
+		<Container size="full">
 			<TanyaChat isOwner={isOwner} />
 		</Container>
 	);
