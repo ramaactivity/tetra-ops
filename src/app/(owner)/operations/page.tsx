@@ -171,18 +171,22 @@ export default async function OperationsListPage({
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null),
-		// Bulan Ini — every booking with an event date this month, any status.
+		// Bulan Ini — booking bertanggal bulan ini, semua status KECUALI batal.
+		// Event batal bukan pencapaian, jadi tak boleh mendorong progress target;
+		// sekaligus menyamakan angkanya dengan /bulan di bot Telegram.
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.neq("status", "cancelled")
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
-		// Tahun Ini — every booking with an event date this year, any status.
+		// Tahun Ini — idem, semua status kecuali batal.
 		supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.is("deleted_at", null)
+			.neq("status", "cancelled")
 			.gte("event_date", yearStart)
 			.lte("event_date", yearEnd),
 		supabase
@@ -422,7 +426,7 @@ export default async function OperationsListPage({
 				<KpiCard
 					label="Bulan Ini"
 					value={thisMonthCount.toLocaleString("id-ID")}
-					hint={`${today.toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · semua status`}
+					hint={`${today.toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · tanpa yang batal`}
 					icon={CalendarClock}
 					accent="emerald"
 					progress={
@@ -434,7 +438,7 @@ export default async function OperationsListPage({
 				<KpiCard
 					label="Tahun Ini"
 					value={thisYearCount.toLocaleString("id-ID")}
-					hint={`${today.getFullYear()} · semua status`}
+					hint={`${today.getFullYear()} · tanpa yang batal`}
 					icon={CalendarRange}
 					accent="sky"
 					progress={

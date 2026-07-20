@@ -268,7 +268,10 @@ async function gatherData(
 			for (const r of forecast.rows) {
 				if (covered.has(r.item_id)) continue;
 				stockLines.push(
-					`⚠️ ${tgEscape(r.name)}: stok ${Math.round(r.on_hand)}, butuh ±${Math.round(r.projected_demand)} ${tgEscape(r.unit)} utk ${forecast.upcoming_count} event (kurang ${Math.round(r.shortfall)})`,
+					// "event mendatang", bukan "event": angkanya seluruh event yang
+					// akan datang (bisa sampai akhir tahun), bukan yang 7 hari ke
+					// depan seperti judul digest — sama dengan hitungan /warehouse.
+					`⚠️ ${tgEscape(r.name)}: stok ${Math.round(r.on_hand)}, butuh ±${Math.round(r.projected_demand)} ${tgEscape(r.unit)} utk ${forecast.upcoming_count} event mendatang (kurang ${Math.round(r.shortfall)})`,
 				);
 				covered.add(r.item_id);
 			}
