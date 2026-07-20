@@ -7,9 +7,13 @@ import {
 	UNITS_TOTAL,
 } from "@/lib/availability";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
+import { listUnpaidCrew } from "@/lib/finance/unpaid-crew";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tgEscape } from "@/lib/telegram/client";
 import {
+	addDaysISO,
+	type CrewUser,
+	crewDisplayName,
 	dateLabel,
 	daysUntil,
 	isoDateUTC,
@@ -26,7 +30,11 @@ import {
 export async function buildPiutangText(): Promise<string> {
 	const admin = createAdminClient();
 	const todayISO = isoDateUTC(wibNow());
-	const { data } = await admin
+	// Predikat SAMA dengan /billing & get_outstanding_total: belum 'paid' DAN
+	// masih ada sisa. Dulu bot memakai status <> 'cancelled' tanpa cek
+	// payment_status, jadi totalnya bisa beda dari Outstanding di webapp begitu
+	// kedua kolom itu berbeda (mis. jalur upfront_cut / net billing).
+	const { data, error } = await admin
 		.from("events")
 		.select(
 			"project_id, client_name, event_date, total_paid, remaining_balance, grand_total",
@@ -34,8 +42,9 @@ export async function buildPiutangText(): Promise<string> {
 		.gt("remaining_balance", 0)
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
-		.neq("status", "cancelled")
+		.neq("payment_status", "paid")
 		.order("event_date", { ascending: true });
+	if (error) throw new Error(`Fetch piutang: ${error.message}`);
 	const rows = (data ?? []) as Array<{
 		project_id: string;
 		client_name: string;
@@ -80,7 +89,10 @@ export async function buildPiutangText(): Promise<string> {
 		);
 	}
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-	if (appUrl) parts.push(`\nTagih via: ${appUrl}/reminders`);
+	// /billing, bukan /reminders: halaman reminders cuma memuat event H-7/H-3/H-1
+	// dalam jendela sempit, jadi sebagian besar piutang di daftar ini tidak
+	// muncul di sana dan owner melihat halaman kosong.
+	if (appUrl) parts.push(`\nTagih via: ${appUrl}/billing`);
 	return parts.join("\n");
 }
 
@@ -88,20 +100,27 @@ export async function buildPiutangText(): Promise<string> {
 export async function buildCrewText(): Promise<string> {
 	const admin = createAdminClient();
 	const todayISO = isoDateUTC(wibNow());
-	const { data } = await admin
+	// FK hint WAJIB — crew_assignments punya 2 FK ke users (user_id & assigned_by).
+	const { data, error } = await admin
 		.from("crew_assignments")
 		.select(
 			`role_in_event, fee_amount, bonus_amount, is_paid,
-			 user:users(full_name),
+			 user:users!crew_assignments_user_id_fkey(full_name, nickname),
 			 event:events!inner(client_name, event_date, venue_city, status)`,
 		)
-		.gte("event.event_date", isoDateUTC(new Date(Date.now() - 45 * 86400000)));
+		// Batas 45 hari ke belakang dihitung dari HARI WIB, sama seperti endISO
+		// di bawah — jangan campur zona waktu di fungsi yang sama.
+		.gte(
+			"event.event_date",
+			isoDateUTC(new Date(wibNow().getTime() - 45 * 86400000)),
+		);
+	if (error) throw new Error(`Fetch crew assignments: ${error.message}`);
 	type Row = {
 		role_in_event: string;
 		fee_amount: number;
 		bonus_amount: number;
 		is_paid: boolean;
-		user: { full_name: string } | Array<{ full_name: string }> | null;
+		user: CrewUser | Array<CrewUser> | null;
 		event:
 			| {
 					client_name: string;
@@ -132,12 +151,12 @@ export async function buildCrewText(): Promise<string> {
 	};
 
 	// Jadwal 7 hari ke depan, dikelompokkan per orang
-	const endISO = isoDateUTC(new Date(Date.now() + 7 * 86400000 + 7 * 3600000));
+	const endISO = addDaysISO(todayISO, 7);
 	const byPerson = new Map<string, string[]>();
 	for (const r of rows) {
 		const ev = r.ev;
 		if (!ev || ev.event_date < todayISO || ev.event_date > endISO) continue;
-		const name = r.u?.full_name ?? "?";
+		const name = crewDisplayName(r.u);
 		const kota = ev.venue_city ? ` (${tgEscape(ev.venue_city)})` : "";
 		const arr = byPerson.get(name) ?? [];
 		arr.push(
@@ -146,18 +165,16 @@ export async function buildCrewText(): Promise<string> {
 		byPerson.set(name, arr);
 	}
 
-	// Fee belum dibayar untuk event yang sudah lewat
-	const unpaid = rows.filter(
-		(r) => !r.is_paid && r.ev && r.ev.event_date < todayISO,
-	);
+	// Fee belum dibayar — definisi SAMA PERSIS dengan halaman Finance (helper
+	// bersama), bukan sekadar is_paid=false: hanya event yang ter-settle di buku
+	// sekarang. Dulu bot pakai is_paid mentah dan melaporkan utang jutaan rupiah
+	// padahal Buku Besar (2-100) nol.
+	const { rows: unpaidRows } = await listUnpaidCrew(admin);
 	const unpaidByPerson = new Map<string, number>();
-	for (const r of unpaid) {
-		const name = r.u?.full_name ?? "?";
+	for (const r of unpaidRows) {
 		unpaidByPerson.set(
-			name,
-			(unpaidByPerson.get(name) ?? 0) +
-				Number(r.fee_amount ?? 0) +
-				Number(r.bonus_amount ?? 0),
+			r.crewName,
+			(unpaidByPerson.get(r.crewName) ?? 0) + r.amount,
 		);
 	}
 
@@ -175,7 +192,7 @@ export async function buildCrewText(): Promise<string> {
 	if (unpaidByPerson.size > 0) {
 		const totalUnpaid = [...unpaidByPerson.values()].reduce((a, b) => a + b, 0);
 		parts.push(
-			`\n💸 <b>Fee belum dibayar (event sudah lewat)</b> — total ${rp(totalUnpaid)}`,
+			`\n💸 <b>Fee belum dibayar</b> — total ${rp(totalUnpaid)}`,
 			...[...unpaidByPerson.entries()].map(
 				([name, amt]) => `• ${tgEscape(name)}: ${rp(amt)}`,
 			),
@@ -189,24 +206,22 @@ export async function buildCrewText(): Promise<string> {
 /** /saldo — saldo semua rekening kas & bank (dari journal_lines). */
 export async function buildSaldoText(): Promise<string> {
 	const admin = createAdminClient();
-	const { data: banks } = await admin
-		.from("bank_accounts")
-		.select("account_name, bank_name, coa_code")
-		.eq("is_active", true)
-		.order("coa_code");
-	const accounts: Array<{ label: string; code: string }> = [
-		{ label: "Kas Tunai", code: "1-100" },
-		...(
-			(banks ?? []) as Array<{
-				account_name: string;
-				bank_name: string;
-				coa_code: string;
-			}>
-		).map((b) => ({
-			label: `${b.bank_name} — ${b.account_name}`,
-			code: b.coa_code,
-		})),
-	];
+	// Sumber = daftar akun kas/bank di COA (1-1xx), PERSIS seperti halaman
+	// Finance yang menjumlahkan journal_lines account_code like '1-1%'. Dulu
+	// daftar ini dirakit dari 1-100 hardcoded + bank_accounts aktif: 1-100 ikut
+	// dua kali (bank_accounts punya baris "Cash — Kas Tunai" ber-coa 1-100) jadi
+	// dihitung dobel, sementara rekening non-aktif hilang dari total.
+	const { data: coaRows, error: coaErr } = await admin
+		.from("chart_of_accounts")
+		.select("code, name")
+		.like("code", "1-1%")
+		.order("code");
+	if (coaErr) throw new Error(`Fetch COA kas/bank: ${coaErr.message}`);
+	const accounts = ((coaRows ?? []) as Array<{ code: string; name: string }>)
+		.map((a) => ({ label: a.name, code: a.code }))
+		.filter(
+			(a, i, arr) => arr.findIndex((x) => x.code === a.code) === i, // jaga-jaga
+		);
 	const balances = await Promise.all(
 		accounts.map(async (a) => ({
 			...a,
@@ -310,17 +325,20 @@ export async function buildAdaText(arg: string): Promise<string> {
 	const reqEnd = parseHHMM(windowMatch?.[2] ?? "22:00") ?? 1320;
 
 	const admin = createAdminClient();
-	const { data } = await admin
+	const { data, error } = await admin
 		.from("events")
 		.select(
-			"client_name, start_time, end_time, venue_city, status, package:packages(duration_hours)",
+			"client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
 		)
 		.eq("event_date", dateISO)
 		.is("deleted_at", null);
+	if (error)
+		throw new Error(`Fetch booking tanggal ${dateISO}: ${error.message}`);
 	type Row = {
 		client_name: string | null;
 		start_time: string | null;
 		end_time: string | null;
+		session_segments: unknown;
 		venue_city: string | null;
 		status: string | null;
 		package: { duration_hours: number | null } | null;
@@ -332,6 +350,10 @@ export async function buildAdaText(arg: string): Promise<string> {
 			client_name: r.client_name,
 			start_time: r.start_time,
 			end_time: r.end_time,
+			// Acara berjeda: tanpa ini booth yang tutup di tengah tetap dihitung
+			// terkunci — /api/availability (dipakai bot WA) sudah mengirimnya,
+			// jadi /ada dulu bisa bilang "penuh" untuk jam yang sebenarnya bebas.
+			session_segments: r.session_segments,
 			venue_city: r.venue_city,
 			package_duration_hours: r.package?.duration_hours ?? null,
 		}));

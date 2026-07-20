@@ -96,10 +96,18 @@ function getBulk(
 	};
 }
 
+/**
+ * `todayISO` opsional: pemanggil yang jalan di cron (digest Telegram 06:30 WIB
+ * = 23:30 UTC hari sebelumnya) WAJIB mengirim tanggal WIB-nya. Tanpa itu
+ * `new Date()` di server memberi tanggal kemarin menurut WIB, sehingga event
+ * yang sudah lewat ikut terhitung dan "butuh ±X utk N event" jadi lebih besar
+ * dari yang tampil di /warehouse.
+ */
 export async function computeForecast(
 	supabase: AnySupabase,
+	todayISO?: string,
 ): Promise<ForecastResult> {
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayISO ?? new Date().toISOString().slice(0, 10);
 
 	const [upcomingRes, avgRes] = await Promise.all([
 		supabase

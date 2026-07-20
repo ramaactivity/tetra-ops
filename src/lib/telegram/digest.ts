@@ -47,11 +47,18 @@ type EventRow = {
 	remaining_balance: number;
 };
 
+export type CrewUser = { full_name: string; nickname: string | null };
+
 type CrewRow = {
 	event_id: string;
 	role_in_event: string;
-	user: { full_name: string } | Array<{ full_name: string }> | null;
+	user: CrewUser | Array<CrewUser> | null;
 };
+
+/** Nama panggilan seperti yang tampil di webapp (nickname ?? full_name). */
+export function crewDisplayName(u: CrewUser | null | undefined): string {
+	return u?.nickname?.trim() || u?.full_name || "?";
+}
 
 export type TelegramDispatchResult = {
 	sent: string[];
@@ -174,17 +181,23 @@ async function gatherData(
 	const crewByEvent = new Map<string, string[]>();
 	const doubleBooked: string[] = [];
 	if (events.length > 0) {
-		const { data: crewData } = await admin
+		// FK hint WAJIB: crew_assignments punya 2 FK ke users (user_id &
+		// assigned_by). Tanpa hint PostgREST balas PGRST201 dan data-nya null —
+		// dulu bikin digest selalu bilang "crew belum di-assign" padahal sudah ada.
+		const { data: crewData, error: crewErr } = await admin
 			.from("crew_assignments")
-			.select("event_id, role_in_event, user:users(full_name)")
+			.select(
+				"event_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
+			)
 			.in(
 				"event_id",
 				events.map((e) => e.id),
 			);
+		if (crewErr) throw new Error(`Fetch crew: ${crewErr.message}`);
 		const byPerson = new Map<string, EventRow[]>();
 		for (const c of (crewData ?? []) as CrewRow[]) {
 			const u = Array.isArray(c.user) ? c.user[0] : c.user;
-			const name = u?.full_name ?? "?";
+			const name = crewDisplayName(u);
 			const label = `${ROLE_LABEL[c.role_in_event] ?? c.role_in_event}: ${name}`;
 			const arr = crewByEvent.get(c.event_id) ?? [];
 			arr.push(label);
@@ -211,12 +224,16 @@ async function gatherData(
 	// (⚠️ forecast) → di bawah minimum (⚠️ low). Satu baris per item.
 	const stockLines: string[] = [];
 	const covered = new Set<string>();
-	const { data: items } = await admin
+	// Cakupan item HARUS sama dengan /warehouse: semua bahan habis pakai yang
+	// belum dihapus. Dulu difilter is_active + min_stock_alert > 0, jadi item
+	// stok 0 tanpa minimum (mis. Spidol Metalic) muncul "Habis" di webapp tapi
+	// bot diam. Filter min_stock_alert hanya relevan untuk pass "di bawah minimum".
+	const { data: items, error: itemsErr } = await admin
 		.from("inventory_items")
 		.select("id, name, min_stock_alert")
 		.eq("category", "inventory")
-		.eq("is_active", true)
-		.gt("min_stock_alert", 0);
+		.is("deleted_at", null);
+	if (itemsErr) throw new Error(`Fetch inventory items: ${itemsErr.message}`);
 	const itemRows = (items ?? []) as Array<{
 		id: string;
 		name: string;
@@ -224,9 +241,14 @@ async function gatherData(
 	}>;
 	const stockMap = new Map<string, number>();
 	if (itemRows.length > 0) {
-		const { data: levels } = await admin.rpc("get_stock_levels", {
-			p_item_ids: itemRows.map((i) => i.id),
-		});
+		// JANGAN telan error: data null → semua item terbaca stok 0 → seluruh
+		// katalog dilaporkan HABIS (alarm palsu massal). /warehouse menandai
+		// kasus ini dengan "—"; di sini kita bilang terus terang stok tak terbaca.
+		const { data: levels, error: levelsErr } = await admin.rpc(
+			"get_stock_levels",
+			{ p_item_ids: itemRows.map((i) => i.id) },
+		);
+		if (levelsErr) throw new Error(`get_stock_levels: ${levelsErr.message}`);
 		for (const r of (levels ?? []) as Array<{
 			item_id: string;
 			stock: number;
@@ -234,14 +256,14 @@ async function gatherData(
 			stockMap.set(r.item_id, Number(r.stock));
 		}
 		for (const item of itemRows) {
-			if ((stockMap.get(item.id) ?? 0) === 0) {
+			if ((stockMap.get(item.id) ?? 0) <= 0) {
 				stockLines.push(`🚨 ${tgEscape(item.name)} HABIS — restock segera`);
 				covered.add(item.id);
 			}
 		}
 	}
 	try {
-		const forecast = await computeForecast(admin);
+		const forecast = await computeForecast(admin, todayISO);
 		if (!forecast.stock_unknown && forecast.upcoming_count > 0) {
 			for (const r of forecast.rows) {
 				if (covered.has(r.item_id)) continue;
@@ -256,7 +278,14 @@ async function gatherData(
 	}
 	for (const item of itemRows) {
 		const cur = stockMap.get(item.id) ?? 0;
-		if (!covered.has(item.id) && cur > 0 && cur < item.min_stock_alert) {
+		// `<=` supaya sama dengan hitungan "kritis" di /warehouse — item yang
+		// stoknya PAS di angka minimum sudah dianggap kritis di webapp.
+		if (
+			!covered.has(item.id) &&
+			cur > 0 &&
+			item.min_stock_alert > 0 &&
+			cur <= item.min_stock_alert
+		) {
 			stockLines.push(
 				`⚠️ ${tgEscape(item.name)}: sisa ${cur} (min ${item.min_stock_alert})`,
 			);
@@ -351,11 +380,12 @@ async function gatherRenewalLines(
 ): Promise<string[]> {
 	const lines: string[] = [];
 	try {
-		const { data } = await admin
+		const { data, error } = await admin
 			.from("telegram_renewals")
 			.select("id, name, next_due, cycle")
 			.eq("is_enabled", true)
 			.not("next_due", "is", null);
+		if (error) throw new Error(error.message);
 		for (const r of (data ?? []) as Array<{
 			id: string;
 			name: string;
@@ -662,25 +692,27 @@ async function fetchAssetUploadReminders(
 	todayISO: string,
 ): Promise<AssetUploadReminder[]> {
 	const yesterdayISO = addDaysISO(todayISO, -1);
-	const { data: eventsData } = await admin
+	const { data: eventsData, error: evErr } = await admin
 		.from("events")
 		.select("id, project_id, client_name, event_date")
 		.eq("event_date", yesterdayISO)
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
 		.neq("status", "cancelled");
+	if (evErr) throw new Error(`Fetch event kemarin: ${evErr.message}`);
 	const evs = (eventsData ?? []) as Array<
 		Pick<EventRow, "id" | "project_id" | "client_name" | "event_date">
 	>;
 	if (evs.length === 0) return [];
 
-	const { data: assets } = await admin
+	const { data: assets, error: assetErr } = await admin
 		.from("event_assets")
 		.select("event_id, asset_type")
 		.in(
 			"event_id",
 			evs.map((e) => e.id),
 		);
+	if (assetErr) throw new Error(`Fetch event_assets: ${assetErr.message}`);
 	const byEvent = new Map<string, Set<string>>();
 	for (const a of (assets ?? []) as Array<{
 		event_id: string;
@@ -794,7 +826,7 @@ async function composeBusinessRecapRange(
 			`💰 Profit bersih: ${rp(profit)} (margin ${margin}%)`,
 		);
 	} else {
-		lines.push("🧾 Belum ada event yang settled bulan lalu");
+		lines.push(`🧾 Belum ada event yang settled di ${bulan}`);
 	}
 
 	const { data: pays } = await admin
@@ -1112,7 +1144,9 @@ export async function buildMonthText(arg?: string): Promise<string> {
 		.gte("event_date", startISO)
 		.lte("event_date", endISO)
 		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
+		// Event legacy IKUT dihitung supaya jumlahnya sama dengan KPI "Bulan Ini"
+		// di /operations (yang menghitung semua event non-deleted). Semuanya
+		// bertanggal lampau, jadi tidak memicu alarm crew.
 		.neq("status", "cancelled")
 		.order("event_date", { ascending: true })
 		.order("start_time", { ascending: true, nullsFirst: false });
@@ -1157,7 +1191,7 @@ export async function buildMonthText(arg?: string): Promise<string> {
 
 	const doneCount = events.filter((e) => e.event_date < todayISO).length;
 	const parts: string[] = [
-		`🗓 <b>EVENT ${judul}</b> — ${events.length} event (${doneCount} selesai, ${events.length - doneCount} akan datang)`,
+		`🗓 <b>EVENT ${judul}</b> — ${events.length} event (${doneCount} sudah lewat, ${events.length - doneCount} akan datang)`,
 	];
 	for (const [date, evs] of byDate.entries()) {
 		const isPast = date < todayISO;

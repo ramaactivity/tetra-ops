@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
+import { listUnpaidCrew } from "@/lib/finance/unpaid-crew";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -315,63 +316,12 @@ export default async function FinancePage({
 		event: Array.isArray(s.event) ? s.event[0] : s.event,
 	}));
 
-	// Hutang Crew belum dibayar — fee crew yang di-akrual ke 2-100 oleh settlement
-	// cash-basis tapi belum diklik "Bayar". HANYA event yang ter-settle DI BUKU
-	// SEKARANG (punya settlement, closed_at >= cutoff) — event lama yang ditutup
-	// pre-cutoff (frozen, tanpa posting buku) is_paid-nya stale & TIDAK ada di
-	// 2-100, jadi tak boleh ikut (kalau ikut, totalnya nggak cocok sama buku).
-	const { data: unpaidCrewData } = await supabase
-		.from("crew_assignments")
-		.select(
-			`id, fee_amount, bonus_amount, reimbursement_amount,
-			event:events!inner(project_id, client_name, event_date,
-				settlement:event_settlements(closed_at)),
-			user:users!crew_assignments_user_id_fkey(full_name)`,
-		)
-		.eq("is_paid", false);
-	type UnpaidEvent = {
-		project_id: string;
-		client_name: string;
-		event_date: string;
-		settlement: { closed_at: string } | Array<{ closed_at: string }> | null;
-	};
-	const unpaidCrew = (
-		(unpaidCrewData ?? []) as Array<{
-			id: string;
-			fee_amount: number | null;
-			bonus_amount: number | null;
-			reimbursement_amount: number | null;
-			event: UnpaidEvent | UnpaidEvent[] | null;
-			user: { full_name: string } | { full_name: string }[] | null;
-		}>
-	)
-		.map((r) => {
-			const ev = Array.isArray(r.event) ? r.event[0] : r.event;
-			const u = Array.isArray(r.user) ? r.user[0] : r.user;
-			const st = Array.isArray(ev?.settlement)
-				? ev?.settlement[0]
-				: ev?.settlement;
-			const closedAt = st?.closed_at?.slice(0, 10) ?? null;
-			const amount =
-				Number(r.fee_amount ?? 0) +
-				Number(r.bonus_amount ?? 0) +
-				Number(r.reimbursement_amount ?? 0);
-			return {
-				id: r.id,
-				amount,
-				crewName: u?.full_name ?? "Crew",
-				ev,
-				closedAt,
-			};
-		})
-		.filter(
-			(r) =>
-				r.amount > 0 &&
-				r.closedAt !== null &&
-				(!cutoffDate || r.closedAt >= cutoffDate),
-		)
-		.sort((a, b) => b.amount - a.amount);
-	const unpaidCrewTotal = unpaidCrew.reduce((s, r) => s + r.amount, 0);
+	// Hutang Crew belum dibayar — aturannya di listUnpaidCrew() supaya bot
+	// Telegram (/crew) memakai definisi yang sama persis dengan halaman ini.
+	const { rows: unpaidCrew, total: unpaidCrewTotal } = await listUnpaidCrew(
+		supabase,
+		cutoffDate,
+	);
 
 	let ownerBreakdown: Array<{
 		id: string;
@@ -635,7 +585,7 @@ export default async function FinancePage({
 						{unpaidCrew.map((r) => (
 							<Link
 								key={r.id}
-								href={`/operations/${r.ev?.project_id}/rekap`}
+								href={`/operations/${r.event?.project_id}/rekap`}
 								className="press-down border-border-default hover:bg-muted/40 flex items-center justify-between gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
 							>
 								<div className="min-w-0 flex-1 space-y-0.5">
@@ -643,9 +593,9 @@ export default async function FinancePage({
 										{r.crewName}
 									</p>
 									<p className="text-muted-foreground tabular text-xs">
-										{r.ev?.client_name}
-										{r.ev?.event_date
-											? ` · ${formatDateID(r.ev.event_date)}`
+										{r.event?.client_name}
+										{r.event?.event_date
+											? ` · ${formatDateID(r.event.event_date)}`
 											: ""}
 									</p>
 								</div>
