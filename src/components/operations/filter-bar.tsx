@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownUp, Users, X } from "lucide-react";
+import { ArrowDownUp, Handshake, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -52,6 +52,8 @@ export function OperationsFilterBar({
 	monthShowsAll = false,
 	defaultCrew = "",
 	crewOptions = [],
+	defaultVendor = "",
+	vendorOptions = [],
 	defaultSort = DEFAULT_SORT,
 }: {
 	defaultQ: string;
@@ -62,12 +64,14 @@ export function OperationsFilterBar({
 	monthShowsAll?: boolean;
 	defaultCrew?: string;
 	crewOptions?: CrewOption[];
+	defaultVendor?: string;
+	vendorOptions?: string[];
 	defaultSort?: string;
 }) {
 	const router = useRouter();
 	const [q, setQ] = useState(defaultQ);
 	const hasFilters = Boolean(
-		defaultQ || defaultStatus || monthShowsAll || defaultCrew,
+		defaultQ || defaultStatus || monthShowsAll || defaultCrew || defaultVendor,
 	);
 
 	const now = new Date();
@@ -80,6 +84,7 @@ export function OperationsFilterBar({
 			status: defaultStatus,
 			month: monthShowsAll ? "all" : defaultMonth,
 			crew: defaultCrew,
+			vendor: defaultVendor,
 			sort: defaultSort === DEFAULT_SORT ? "" : defaultSort,
 			...updates,
 		};
@@ -166,6 +171,26 @@ export function OperationsFilterBar({
 						placeholder="Semua crew"
 						options={crewSelectOptions}
 						aria-label="Filter crew"
+						triggerClassName="pl-7 rounded-full"
+					/>
+				</div>
+			)}
+
+			{vendorOptions.length > 0 && (
+				<div className="relative">
+					<Handshake
+						className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
+						aria-hidden
+					/>
+					<NativeSelect
+						value={defaultVendor}
+						onValueChange={(value) => router.push(buildHref({ vendor: value }))}
+						placeholder="Semua vendor"
+						options={[
+							{ value: "", label: "Semua vendor" },
+							...vendorOptions.map((v) => ({ value: v, label: v })),
+						]}
+						aria-label="Filter vendor"
 						triggerClassName="pl-7 rounded-full"
 					/>
 				</div>

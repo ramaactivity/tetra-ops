@@ -62,6 +62,7 @@ export default async function OperationsListPage({
 		status?: string;
 		month?: string;
 		crew?: string;
+		vendor?: string;
 		sort?: string;
 	}>;
 }) {
@@ -79,6 +80,7 @@ export default async function OperationsListPage({
 				? monthParam
 				: currentYearMonth();
 	const crewFilter = params.crew?.trim() ?? "";
+	const vendorFilter = params.vendor?.trim() ?? "";
 	const sortParam = params.sort?.trim() ?? "";
 	const sort: SortKey =
 		sortParam in SORT_OPTIONS ? (sortParam as SortKey) : DEFAULT_SORT;
@@ -146,6 +148,7 @@ export default async function OperationsListPage({
 
 	if (q) listQuery = listQuery.ilike("client_name", `%${q}%`);
 	if (status) listQuery = listQuery.eq("status", status);
+	if (vendorFilter) listQuery = listQuery.eq("vendor_name", vendorFilter);
 	if (month && /^\d{4}-\d{2}$/.test(month)) {
 		const [y, m] = month.split("-").map(Number);
 		const start = `${month}-01`;
@@ -176,6 +179,7 @@ export default async function OperationsListPage({
 		targetConfigResult,
 		crewListResult,
 		eventTypesResult,
+		vendorListResult,
 	] = await Promise.all([
 		listQuery,
 		// Total Events — every event ever recorded (incl. archived + legacy).
@@ -228,6 +232,14 @@ export default async function OperationsListPage({
 			.is("deleted_at", null)
 			.order("full_name", { ascending: true }),
 		supabase.from("event_types").select("code, label").eq("is_active", true),
+		// Nama vendor unik utk dropdown filter (dari event yang benar-benar ada,
+		// bukan master vendor — supaya tiap pilihan pasti menghasilkan baris).
+		supabase
+			.from("events")
+			.select("vendor_name")
+			.eq("channel", "vendor")
+			.not("vendor_name", "is", null)
+			.is("deleted_at", null),
 	]);
 
 	const eventTypeLabelByCode = new Map<string, string>(
@@ -370,6 +382,14 @@ export default async function OperationsListPage({
 		tier: "senior" | "junior" | null;
 	}>;
 
+	const vendorNames = [
+		...new Set(
+			((vendorListResult.data ?? []) as Array<{ vendor_name: string | null }>)
+				.map((v) => v.vendor_name?.trim())
+				.filter((v): v is string => Boolean(v)),
+		),
+	].sort((a, b) => a.localeCompare(b, "id"));
+
 	const totalCount = totalCountResult.count ?? 0;
 	const thisMonthCount = thisMonthCountResult.count ?? 0;
 	const thisYearCount = thisYearCountResult.count ?? 0;
@@ -490,6 +510,8 @@ export default async function OperationsListPage({
 					monthShowsAll={monthParam === "all"}
 					defaultCrew={crewFilter}
 					crewOptions={crewList}
+					defaultVendor={vendorFilter}
+					vendorOptions={vendorNames}
 					defaultSort={sort}
 				/>
 
