@@ -359,3 +359,90 @@ export async function buildAdaText(arg: string): Promise<string> {
 	}
 	return lines.join("\n");
 }
+
+/** /vendor — event upcoming yang datang via vendor, dikelompokkan per vendor. */
+export async function buildVendorText(): Promise<string> {
+	const admin = createAdminClient();
+	const todayISO = isoDateUTC(wibNow());
+	const { data } = await admin
+		.from("events")
+		.select(
+			`client_name, event_date, venue_city, grand_total, remaining_balance,
+			 vendor_name, vendor_pic_name, vendor_contact,
+			 vendor_commission_mode, vendor_commission_amount`,
+		)
+		.eq("channel", "vendor")
+		.gte("event_date", todayISO)
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false)
+		.neq("status", "cancelled")
+		.order("event_date", { ascending: true });
+	const rows = (data ?? []) as Array<{
+		client_name: string;
+		event_date: string;
+		venue_city: string | null;
+		grand_total: number;
+		remaining_balance: number;
+		vendor_name: string | null;
+		vendor_pic_name: string | null;
+		vendor_contact: string | null;
+		vendor_commission_mode: string | null;
+		vendor_commission_amount: number | null;
+	}>;
+	if (rows.length === 0) {
+		return "🤝 Tidak ada event upcoming dari channel vendor.";
+	}
+
+	const byVendor = new Map<string, typeof rows>();
+	for (const r of rows) {
+		const key = r.vendor_name?.trim() || "(vendor tanpa nama)";
+		const arr = byVendor.get(key) ?? [];
+		arr.push(r);
+		byVendor.set(key, arr);
+	}
+
+	const totalNilai = rows.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
+	const totalKomisi = rows.reduce(
+		(s, r) => s + Number(r.vendor_commission_amount ?? 0),
+		0,
+	);
+	const parts: string[] = [
+		`🤝 <b>EVENT UPCOMING VIA VENDOR</b> — ${rows.length} event dari ${byVendor.size} vendor`,
+		`Total nilai ${rp(totalNilai)} · total komisi/potongan ${rp(totalKomisi)}`,
+	];
+
+	// Vendor dengan event terdekat tampil duluan (rows sudah urut tanggal).
+	for (const [vendor, evs] of byVendor.entries()) {
+		const komisi = evs.reduce(
+			(s, r) => s + Number(r.vendor_commission_amount ?? 0),
+			0,
+		);
+		const pic = evs.find((e) => e.vendor_pic_name);
+		const picLabel = pic?.vendor_pic_name
+			? ` · PIC ${tgEscape(pic.vendor_pic_name)}${pic.vendor_contact ? ` (${tgEscape(pic.vendor_contact)})` : ""}`
+			: "";
+		parts.push(
+			`\n<b>${tgEscape(vendor)}</b> — ${evs.length} event${komisi > 0 ? ` · komisi ${rp(komisi)}` : ""}${picLabel}`,
+		);
+		for (const r of evs) {
+			const days = daysUntil(todayISO, r.event_date);
+			const hLabel = days === 0 ? "HARI INI" : `H-${days}`;
+			const kota = r.venue_city ? ` · ${tgEscape(r.venue_city)}` : "";
+			const cut =
+				r.vendor_commission_mode === "upfront_cut" &&
+				Number(r.vendor_commission_amount ?? 0) > 0
+					? " · potongan langsung"
+					: "";
+			const lunas =
+				Number(r.remaining_balance ?? 0) > 0
+					? ` · sisa ${rp(Number(r.remaining_balance))}`
+					: " · LUNAS";
+			parts.push(
+				`      • ${dateLabel(r.event_date)} (${hLabel}) — ${tgEscape(r.client_name)}${kota} · ${rp(Number(r.grand_total ?? 0))}${cut}${lunas}`,
+			);
+		}
+	}
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+	if (appUrl) parts.push(`\nDetail: ${appUrl}/finance/vendors`);
+	return parts.join("\n");
+}

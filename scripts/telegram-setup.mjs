@@ -68,6 +68,7 @@ const COMMANDS = [
 	{ command: "piutang", description: "Event yang belum lunas" },
 	{ command: "saldo", description: "Saldo semua rekening kas & bank" },
 	{ command: "crew", description: "Jadwal crew 7 hari + fee belum dibayar" },
+	{ command: "vendor", description: "Event upcoming via vendor" },
 	{ command: "bisnis", description: "Rekap bisnis bulan berjalan" },
 	{ command: "langganan", description: "Jatuh tempo VPS, domain, simcard" },
 	{ command: "menu", description: "Panel tombol semua fitur" },

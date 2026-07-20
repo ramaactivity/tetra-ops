@@ -25,6 +25,7 @@ import {
 	buildCrewText,
 	buildPiutangText,
 	buildSaldoText,
+	buildVendorText,
 } from "@/lib/telegram/queries";
 
 /**
@@ -80,6 +81,7 @@ const HELP_TEXT = [
 	"/piutang — event yang belum lunas",
 	"/saldo — saldo semua rekening kas & bank",
 	"/crew — jadwal crew 7 hari + fee belum dibayar",
+	"/vendor — event upcoming via vendor (nilai, komisi, PIC)",
 	"/bisnis — rekap bisnis bulan berjalan (omzet, profit, leads)",
 	"/langganan — jatuh tempo VPS, domain, simcard, dll",
 	"/menu — panel tombol",
@@ -122,6 +124,7 @@ function menuView(view: string): MenuView {
 					{ text: "🗓 Minggu Ini", callback_data: "minggu" },
 					{ text: "📆 Bulan Ini", callback_data: "bulan" },
 				],
+				[{ text: "🤝 Event via Vendor", callback_data: "vendor" }],
 			];
 			for (let i = 0; i < 6; i++) {
 				const m = (now.getUTCMonth() + i) % 12;
@@ -235,6 +238,9 @@ async function runAction(action: string, chatId: number): Promise<void> {
 				break;
 			case "crew":
 				await sendTelegramMessage(chatId, await buildCrewText());
+				break;
+			case "vendor":
+				await sendTelegramMessage(chatId, await buildVendorText());
 				break;
 			case "menu": {
 				const v = menuView("main");
