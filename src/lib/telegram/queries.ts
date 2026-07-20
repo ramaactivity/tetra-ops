@@ -447,48 +447,56 @@ export async function buildVendorText(filter?: string): Promise<string> {
 		byVendor = new Map([[match, byVendor.get(match) ?? []]]);
 	}
 
-	const all = [...byVendor.values()].flat();
-	const totalNilai = all.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
-	const totalKomisi = all.reduce(
-		(s, r) => s + Number(r.vendor_commission_amount ?? 0),
-		0,
-	);
-	const parts: string[] = [
-		`🤝 <b>EVENT UPCOMING VIA VENDOR</b> — ${all.length} event dari ${byVendor.size} vendor`,
-		`Total nilai ${rp(totalNilai)} · total komisi/potongan ${rp(totalKomisi)}`,
-	];
+	// Format kartu: tiap event = blok pendek 3 baris + baris kosong antar blok.
+	// Satu baris panjang penuh "·" terbukti sulit dipindai di Telegram.
+	const parts: string[] = [];
+
+	const singleVendor = byVendor.size === 1;
+	if (!singleVendor) {
+		const all = [...byVendor.values()].flat();
+		parts.push(
+			`🤝 <b>EVENT UPCOMING VIA VENDOR</b>`,
+			`${all.length} event dari ${byVendor.size} vendor`,
+		);
+	}
 
 	for (const [vendor, evs] of byVendor.entries()) {
 		const komisi = evs.reduce(
 			(s, r) => s + Number(r.vendor_commission_amount ?? 0),
 			0,
 		);
+		const nilai = evs.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
 		const pic = evs.find((e) => e.vendor_pic_name);
-		const picLabel = pic?.vendor_pic_name
-			? ` · PIC ${tgEscape(pic.vendor_pic_name)}${pic.vendor_contact ? ` (${tgEscape(pic.vendor_contact)})` : ""}`
-			: "";
-		parts.push(
-			`\n<b>${tgEscape(vendor)}</b> — ${evs.length} event${komisi > 0 ? ` · komisi ${rp(komisi)}` : ""}${picLabel}`,
-		);
-		for (const r of evs) {
-			const days = daysUntil(todayISO, r.event_date);
-			const hLabel = days === 0 ? "HARI INI" : `H-${days}`;
-			const kota = r.venue_city ? ` · ${tgEscape(r.venue_city)}` : "";
-			const cut =
-				r.vendor_commission_mode === "upfront_cut" &&
-				Number(r.vendor_commission_amount ?? 0) > 0
-					? " · potongan langsung"
-					: "";
-			const lunas =
-				Number(r.remaining_balance ?? 0) > 0
-					? ` · sisa ${rp(Number(r.remaining_balance))}`
-					: " · LUNAS";
+
+		// Header vendor — blok sendiri, satu fakta per baris
+		if (!singleVendor) parts.push("");
+		parts.push(`🤝 <b>${tgEscape(vendor.toUpperCase())}</b>`);
+		if (pic?.vendor_pic_name) {
 			parts.push(
-				`      • ${dateLabel(r.event_date)} (${hLabel}) — ${tgEscape(r.client_name)}${kota} · ${rp(Number(r.grand_total ?? 0))}${cut}${lunas}`,
+				`👤 PIC: ${tgEscape(pic.vendor_pic_name)}${pic.vendor_contact ? ` · ${tgEscape(pic.vendor_contact)}` : ""}`,
 			);
 		}
+		parts.push(
+			`📦 ${evs.length} event upcoming · total ${rp(nilai)}`,
+			...(komisi > 0 ? [`💸 Komisi/potongan: ${rp(komisi)}`] : []),
+		);
+
+		evs.forEach((r, i) => {
+			const days = daysUntil(todayISO, r.event_date);
+			const hLabel = days === 0 ? "HARI INI" : `H-${days}`;
+			const cutAmt = Number(r.vendor_commission_amount ?? 0);
+			const isCut = r.vendor_commission_mode === "upfront_cut" && cutAmt > 0;
+			const sisa = Number(r.remaining_balance ?? 0);
+			parts.push(
+				"",
+				`<b>${i + 1}. ${tgEscape(r.client_name)}</b>`,
+				`📅 ${dateLabel(r.event_date, true)} · ${hLabel}${r.venue_city ? ` · ${tgEscape(r.venue_city)}` : ""}`,
+				`💰 ${rp(Number(r.grand_total ?? 0))}${isCut ? ` (potongan vendor ${rp(cutAmt)} di depan)` : cutAmt > 0 ? ` (komisi ${rp(cutAmt)})` : ""}`,
+				sisa > 0 ? `⏳ Sisa tagihan ${rp(sisa)}` : "✅ Lunas",
+			);
+		});
 	}
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-	if (appUrl) parts.push(`\nDetail: ${appUrl}/finance/vendors`);
+	if (appUrl) parts.push("", `Detail: ${appUrl}/finance/vendors`);
 	return parts.join("\n");
 }
