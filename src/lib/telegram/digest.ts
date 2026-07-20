@@ -143,17 +143,76 @@ const ROLE_LABEL: Record<string, string> = {
 	crew_c: "Crew C",
 };
 
+// Urutan tampil crew: Lead dulu, lalu asisten, lalu sisanya — sama seperti
+// kolom CREW di /operations (LEAD di atas, ASST di bawah).
+const ROLE_ORDER: Record<string, number> = { lead: 0, asisten: 1, crew_c: 2 };
+
+export type CrewMember = { role: string; name: string };
+
+function sortCrew(list: CrewMember[]): CrewMember[] {
+	return [...list].sort(
+		(a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9),
+	);
+}
+
+/** "Lead Mou · Asisten Bona" — satu baris, dipakai di daftar per event. */
+export function formatCrewInline(list: CrewMember[]): string {
+	return sortCrew(list)
+		.map((c) => `${ROLE_LABEL[c.role] ?? c.role} ${tgEscape(c.name)}`)
+		.join(" · ");
+}
+
+/** ["Lead: Mou", "Asisten: Bona"] — dipakai briefing H-1. */
+export function crewLabels(list: CrewMember[]): string[] {
+	return sortCrew(list).map(
+		(c) => `${ROLE_LABEL[c.role] ?? c.role}: ${c.name}`,
+	);
+}
+
 // ── Data gathering ───────────────────────────────────────────────────────
 
 type GatheredData = {
 	todayISO: string;
 	events: EventRow[];
-	crewByEvent: Map<string, string[]>; // "Lead: Farhan"
+	crewByEvent: Map<string, CrewMember[]>;
 	doubleBooked: string[]; // "Farhan: Anita + Naya (5 Jul)"
 	stockLines: string[]; // sudah diformat, 🚨/⚠️ prefix
 	rutinLines: string[]; // opname / cek alat overdue
 	renewalLines: string[]; // langganan VPS/hosting mendekati jatuh tempo
 };
+
+/**
+ * Crew per event — SATU pintu untuk digest, /cek, /minggu dan /crew supaya
+ * keempatnya tak mungkin berbeda.
+ *
+ * FK hint WAJIB: crew_assignments punya 2 FK ke users (user_id & assigned_by).
+ * Tanpa hint PostgREST balas PGRST201 dan data-nya null — dulu bikin digest
+ * selalu bilang "crew belum di-assign" padahal sudah ada.
+ */
+export async function fetchCrewByEvent(
+	admin: ReturnType<typeof createAdminClient>,
+	events: Array<{ id: string }>,
+): Promise<Map<string, CrewMember[]>> {
+	const byEvent = new Map<string, CrewMember[]>();
+	if (events.length === 0) return byEvent;
+	const { data, error } = await admin
+		.from("crew_assignments")
+		.select(
+			"event_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
+		)
+		.in(
+			"event_id",
+			events.map((e) => e.id),
+		);
+	if (error) throw new Error(`Fetch crew: ${error.message}`);
+	for (const c of (data ?? []) as CrewRow[]) {
+		const u = Array.isArray(c.user) ? c.user[0] : c.user;
+		const arr = byEvent.get(c.event_id) ?? [];
+		arr.push({ role: c.role_in_event, name: crewDisplayName(u) });
+		byEvent.set(c.event_id, arr);
+	}
+	return byEvent;
+}
 
 async function gatherData(
 	admin: ReturnType<typeof createAdminClient>,
@@ -178,46 +237,25 @@ async function gatherData(
 	if (evErr) throw new Error(`Fetch events: ${evErr.message}`);
 	const events = (eventsData ?? []) as EventRow[];
 
-	const crewByEvent = new Map<string, string[]>();
-	const doubleBooked: string[] = [];
-	if (events.length > 0) {
-		// FK hint WAJIB: crew_assignments punya 2 FK ke users (user_id &
-		// assigned_by). Tanpa hint PostgREST balas PGRST201 dan data-nya null —
-		// dulu bikin digest selalu bilang "crew belum di-assign" padahal sudah ada.
-		const { data: crewData, error: crewErr } = await admin
-			.from("crew_assignments")
-			.select(
-				"event_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
-			)
-			.in(
-				"event_id",
-				events.map((e) => e.id),
-			);
-		if (crewErr) throw new Error(`Fetch crew: ${crewErr.message}`);
-		const byPerson = new Map<string, EventRow[]>();
-		for (const c of (crewData ?? []) as CrewRow[]) {
-			const u = Array.isArray(c.user) ? c.user[0] : c.user;
-			const name = crewDisplayName(u);
-			const label = `${ROLE_LABEL[c.role_in_event] ?? c.role_in_event}: ${name}`;
-			const arr = crewByEvent.get(c.event_id) ?? [];
-			arr.push(label);
-			crewByEvent.set(c.event_id, arr);
+	const crewByEvent = await fetchCrewByEvent(admin, events);
 
-			const ev = events.find((e) => e.id === c.event_id);
-			if (ev) {
-				const k = `${name}::${ev.event_date}`;
-				const list = byPerson.get(k) ?? [];
-				list.push(ev);
-				byPerson.set(k, list);
-			}
+	// Double-booked: satu orang dua event di hari yang sama.
+	const doubleBooked: string[] = [];
+	const byPerson = new Map<string, EventRow[]>();
+	for (const ev of events) {
+		for (const c of crewByEvent.get(ev.id) ?? []) {
+			const k = `${c.name}::${ev.event_date}`;
+			const list = byPerson.get(k) ?? [];
+			list.push(ev);
+			byPerson.set(k, list);
 		}
-		for (const [k, list] of byPerson.entries()) {
-			if (list.length < 2) continue;
-			const name = k.split("::")[0];
-			doubleBooked.push(
-				`${name}: ${list.map((e) => e.client_name).join(" + ")} (${dateLabel(list[0].event_date)})`,
-			);
-		}
+	}
+	for (const [k, list] of byPerson.entries()) {
+		if (list.length < 2) continue;
+		const name = k.split("::")[0];
+		doubleBooked.push(
+			`${name}: ${list.map((e) => e.client_name).join(" + ")} (${dateLabel(list[0].event_date)})`,
+		);
 	}
 
 	// Stok, urutan prioritas per item: habis (🚨) → kurang utk event mendatang
@@ -594,7 +632,7 @@ export function composeDigest(data: GatheredData): string | null {
 	return parts.join("\n");
 }
 
-function composeBriefing(ev: EventRow, crew: string[]): string {
+function composeBriefing(ev: EventRow, crew: CrewMember[]): string {
 	const segments = parseSegments(ev.session_segments);
 	const jadwalLine = hasBreak(segments)
 		? // Acara dengan jeda — booth berhenti di tengah. Rincikan tiap sesi.
@@ -613,7 +651,7 @@ function composeBriefing(ev: EventRow, crew: string[]): string {
 	];
 	if (ev.google_maps_url) lines.push(`🗺 ${ev.google_maps_url}`);
 	lines.push(
-		`👥 ${crew.length > 0 ? crew.map(tgEscape).join(" · ") : "🚨 CREW BELUM DI-ASSIGN"}`,
+		`👥 ${crew.length > 0 ? formatCrewInline(crew) : "🚨 CREW BELUM DI-ASSIGN"}`,
 	);
 	if (ev.frame_size) lines.push(`🖼 Frame ${tgEscape(ev.frame_size)}`);
 	lines.push(
@@ -1096,12 +1134,14 @@ export async function buildScheduleText(): Promise<string> {
 		const hLabel = days === 0 ? "HARI INI" : `H-${days}`;
 		parts.push(`\n<b>${dateLabel(date, true)}</b> · ${hLabel}`);
 		for (const ev of evs) {
-			const crewCount = data.crewByEvent.get(ev.id)?.length ?? 0;
+			const crew = data.crewByEvent.get(ev.id) ?? [];
 			const jam = hhmm(ev.start_time) ?? "❓TBC";
 			const kota = ev.venue_city ? ` · ${tgEscape(ev.venue_city)}` : "";
-			const crewIcon = crewCount > 0 ? `👥${crewCount}` : "🚨 no crew";
+			// Nama crew langsung, bukan cuma jumlah — "👥2" memaksa owner buka app
+			// untuk tahu siapa, padahal itu justru yang ingin dicek.
 			parts.push(
-				`      • ${jam} — ${tgEscape(ev.client_name)}${kota} · ${crewIcon}`,
+				`      • ${jam} — ${tgEscape(ev.client_name)}${kota}`,
+				`            ${crew.length > 0 ? `👥 ${formatCrewInline(crew)}` : "🚨 crew belum di-assign"}`,
 			);
 		}
 	}
@@ -1204,9 +1244,18 @@ export async function buildMonthText(arg?: string): Promise<string> {
 		for (const ev of evs) {
 			const jam = hhmm(ev.start_time) ?? "❓TBC";
 			const kota = ev.venue_city ? ` · ${tgEscape(ev.venue_city)}` : "";
+			// Alarm crew hanya untuk event yang sudah dekat (≤7 hari). Event 3
+			// bulan lagi memang belum di-assign — menandainya 🚨 di daftar bulanan
+			// cuma bikin owner kebal sama tanda merah.
+			const n = crewCount.get(ev.id) ?? 0;
+			const soon = !isPast && daysUntil(todayISO, date) <= 7;
 			const crew = isPast
 				? ""
-				: ` · ${(crewCount.get(ev.id) ?? 0) > 0 ? `👥${crewCount.get(ev.id)}` : "🚨 no crew"}`;
+				: n > 0
+					? ` · 👥${n}`
+					: soon
+						? " · 🚨 crew belum di-assign"
+						: "";
 			parts.push(`      • ${jam} — ${tgEscape(ev.client_name)}${kota}${crew}`);
 		}
 	}

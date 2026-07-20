@@ -12,10 +12,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { tgEscape } from "@/lib/telegram/client";
 import {
 	addDaysISO,
-	type CrewUser,
-	crewDisplayName,
 	dateLabel,
 	daysUntil,
+	fetchCrewByEvent,
+	formatCrewInline,
 	isoDateUTC,
 	rp,
 	wibNow,
@@ -96,73 +96,51 @@ export async function buildPiutangText(): Promise<string> {
 	return parts.join("\n");
 }
 
-/** /crew — jadwal crew 7 hari ke depan per orang + fee belum dibayar. */
+/** /crew — siapa yang pegang event apa, 7 hari ke depan + fee belum dibayar. */
 export async function buildCrewText(): Promise<string> {
 	const admin = createAdminClient();
 	const todayISO = isoDateUTC(wibNow());
-	// FK hint WAJIB — crew_assignments punya 2 FK ke users (user_id & assigned_by).
-	const { data, error } = await admin
-		.from("crew_assignments")
-		.select(
-			`role_in_event, fee_amount, bonus_amount, is_paid,
-			 user:users!crew_assignments_user_id_fkey(full_name, nickname),
-			 event:events!inner(client_name, event_date, venue_city, status)`,
-		)
-		// Batas 45 hari ke belakang dihitung dari HARI WIB, sama seperti endISO
-		// di bawah — jangan campur zona waktu di fungsi yang sama.
-		.gte(
-			"event.event_date",
-			isoDateUTC(new Date(wibNow().getTime() - 45 * 86400000)),
-		);
-	if (error) throw new Error(`Fetch crew assignments: ${error.message}`);
-	type Row = {
-		role_in_event: string;
-		fee_amount: number;
-		bonus_amount: number;
-		is_paid: boolean;
-		user: CrewUser | Array<CrewUser> | null;
-		event:
-			| {
-					client_name: string;
-					event_date: string;
-					venue_city: string | null;
-					status: string;
-			  }
-			| Array<{
-					client_name: string;
-					event_date: string;
-					venue_city: string | null;
-					status: string;
-			  }>
-			| null;
-	};
-	const rows = ((data ?? []) as Row[])
-		.map((r) => ({
-			...r,
-			u: Array.isArray(r.user) ? r.user[0] : r.user,
-			ev: Array.isArray(r.event) ? r.event[0] : r.event,
-		}))
-		.filter((r) => r.u && r.ev && r.ev.status !== "cancelled");
-
-	const ROLE: Record<string, string> = {
-		lead: "Lead",
-		asisten: "Asisten",
-		crew_c: "Crew C",
-	};
-
-	// Jadwal 7 hari ke depan, dikelompokkan per orang
 	const endISO = addDaysISO(todayISO, 7);
-	const byPerson = new Map<string, string[]>();
-	for (const r of rows) {
-		const ev = r.ev;
-		if (!ev || ev.event_date < todayISO || ev.event_date > endISO) continue;
-		const name = crewDisplayName(r.u);
-		const kota = ev.venue_city ? ` (${tgEscape(ev.venue_city)})` : "";
-		const arr = byPerson.get(name) ?? [];
-		arr.push(
-			`${dateLabel(ev.event_date)}: ${tgEscape(ev.client_name)}${kota} · ${ROLE[r.role_in_event] ?? r.role_in_event}`,
-		);
-		byPerson.set(name, arr);
+
+	// Dikelompokkan PER EVENT, bukan per orang: per orang membuat satu event
+	// tercetak ulang untuk tiap crew-nya (lead & asisten = 2 baris identik),
+	// dan yang justru penting — event yang belum punya crew sama sekali — tak
+	// bisa muncul karena tak punya baris crew_assignments.
+	// Filter event SAMA dengan digest supaya /crew, /cek dan /minggu sepakat.
+	const { data: eventsData, error: evErr } = await admin
+		.from("events")
+		.select("id, client_name, event_date, start_time, venue_city")
+		.gte("event_date", todayISO)
+		.lte("event_date", endISO)
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false)
+		.in("status", ["upcoming", "in_progress"])
+		.order("event_date", { ascending: true })
+		.order("start_time", { ascending: true, nullsFirst: false });
+	if (evErr) throw new Error(`Fetch events: ${evErr.message}`);
+	const events = (eventsData ?? []) as Array<{
+		id: string;
+		client_name: string;
+		event_date: string;
+		start_time: string | null;
+		venue_city: string | null;
+	}>;
+	const crewByEvent = await fetchCrewByEvent(admin, events);
+
+	const parts: string[] = ["👥 <b>CREW</b>"];
+	if (events.length === 0) {
+		parts.push("\nTidak ada event 7 hari ke depan.");
+	} else {
+		parts.push("\n<b>Jadwal 7 hari ke depan</b>");
+		for (const ev of events) {
+			const crew = crewByEvent.get(ev.id) ?? [];
+			const jam = ev.start_time ? `${ev.start_time.slice(0, 5)} ` : "";
+			const kota = ev.venue_city ? ` (${tgEscape(ev.venue_city)})` : "";
+			parts.push(
+				`• <b>${dateLabel(ev.event_date)}</b> ${jam}— ${tgEscape(ev.client_name)}${kota}`,
+				`      ${crew.length > 0 ? formatCrewInline(crew) : "🚨 belum di-assign"}`,
+			);
+		}
 	}
 
 	// Fee belum dibayar — definisi SAMA PERSIS dengan halaman Finance (helper
@@ -176,18 +154,6 @@ export async function buildCrewText(): Promise<string> {
 			r.crewName,
 			(unpaidByPerson.get(r.crewName) ?? 0) + r.amount,
 		);
-	}
-
-	const parts: string[] = ["👥 <b>CREW</b>"];
-	if (byPerson.size === 0) {
-		parts.push("\nTidak ada penugasan 7 hari ke depan.");
-	} else {
-		parts.push("\n<b>Jadwal 7 hari ke depan</b>");
-		for (const [name, jobs] of byPerson.entries()) {
-			parts.push(
-				`• <b>${tgEscape(name)}</b>\n${jobs.map((j) => `      ${j}`).join("\n")}`,
-			);
-		}
 	}
 	if (unpaidByPerson.size > 0) {
 		const totalUnpaid = [...unpaidByPerson.values()].reduce((a, b) => a + b, 0);
