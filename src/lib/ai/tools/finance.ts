@@ -43,13 +43,16 @@ export const ringkasanBisnis: AiTool = {
 		endExcl.setUTCDate(endExcl.getUTCDate() + 1);
 		const sampaiExcl = endExcl.toISOString().slice(0, 10);
 
+		// Tanpa filter is_migrated_legacy — acara historis hasil impor tetap acara
+		// nyata dan IKUT dihitung di KPI "Tahun Ini" halaman Operations. Angka
+		// omzet/profit di bawah tetap bebas-legacy dengan sendirinya, karena
+		// bersumber dari event_settlements yang memang tak pernah ada untuk mereka.
 		const { count: eventCount } = await ctx.supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.gte("event_date", dari)
 			.lt("event_date", sampaiExcl)
 			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
 			.neq("status", "cancelled");
 
 		const { data: settlements } = await ctx.supabase

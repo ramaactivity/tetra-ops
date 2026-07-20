@@ -34,11 +34,13 @@ type EventRow = {
 	remaining_balance: number;
 	channel: string | null;
 	vendor_name: string | null;
+	/** Acara historis hasil impor: nyata & ikut dihitung, tapi tanpa settlement. */
+	is_migrated_legacy: boolean;
 };
 
 const EVENT_COLUMNS = `id, project_id, client_name, event_date, start_time, end_time,
 	venue_name, venue_city, status, payment_status, grand_total, total_paid,
-	remaining_balance, channel, vendor_name`;
+	remaining_balance, channel, vendor_name, is_migrated_legacy`;
 
 export const cariEvent: AiTool = {
 	name: "cari_event",
@@ -87,11 +89,16 @@ export const cariEvent: AiTool = {
 			typeof args.sampai === "string" ? args.sampai : addDaysISO(dari, 30);
 		const status = typeof args.status === "string" ? args.status : null;
 
+		// JANGAN filter is_migrated_legacy di sini. Event "legacy" adalah acara
+		// historis hasil impor — tetap acara nyata yang pernah dikerjakan, dan
+		// halaman Operations MENGHITUNGNYA di KPI "Tahun Ini". Dulu filter itu
+		// terbawa dari digest Telegram (yang benar di sana, karena digest soal
+		// event mendatang yang perlu disiapkan crew) dan membuat AI melaporkan
+		// 14 event untuk 2026 padahal 62 — 35 di antaranya legacy.
 		let q = ctx.supabase
 			.from("events")
 			.select(EVENT_COLUMNS)
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false);
+			.is("deleted_at", null);
 
 		if (cari) {
 			q = q.or(`client_name.ilike.%${cari}%,venue_name.ilike.%${cari}%`);
@@ -101,15 +108,29 @@ export const cariEvent: AiTool = {
 		if (status) q = q.eq("status", status);
 		else q = q.neq("status", "cancelled");
 
+		// Ambil satu baris LEBIH dari batas: kalau kelebihan itu terbawa, kita tahu
+		// daftarnya terpotong tanpa perlu query hitung kedua (hemat kuota & waktu).
+		const MAKS = 120;
 		const { data, error } = await q
 			.order("event_date", { ascending: true })
-			.limit(40);
+			.limit(MAKS + 1);
 		if (error) return { error: error.message };
 
-		const rows = (data ?? []) as EventRow[];
+		const semua = (data ?? []) as EventRow[];
+		const terpotong = semua.length > MAKS;
+		const rows = terpotong ? semua.slice(0, MAKS) : semua;
+
 		return {
 			rentang: cari ? `pencarian "${cari}"` : `${dari} s/d ${sampai}`,
-			jumlah: rows.length,
+			// Saat terpotong, JANGAN kirim `jumlah` — model akan membacanya sebagai
+			// total dan melaporkannya sebagai fakta. Inilah yang membuatnya bilang
+			// "Partner Organizer 4 event" padahal 7.
+			...(terpotong
+				? {
+						jumlah_ditampilkan: rows.length,
+						PERINGATAN: `Daftar ini TERPOTONG (lebih dari ${MAKS} event cocok). Jangan menyebut jumlah total, peringkat, atau "paling banyak" dari daftar ini — panggil statistik_event untuk angka pastinya.`,
+					}
+				: { jumlah: rows.length }),
 			events: rows.map((e) => ({
 				project_id: e.project_id,
 				klien: e.client_name,
@@ -123,6 +144,7 @@ export const cariEvent: AiTool = {
 				status: e.status,
 				channel: e.channel,
 				vendor: e.vendor_name,
+				arsip_lama: e.is_migrated_legacy,
 				// Nilai uang hanya untuk owner — crew tak boleh lihat nominal event.
 				...(ctx.role === "crew"
 					? {}
@@ -133,6 +155,128 @@ export const cariEvent: AiTool = {
 							status_bayar: e.payment_status,
 						}),
 			})),
+		};
+	},
+};
+
+export const statistikEvent: AiTool = {
+	name: "statistik_event",
+	description:
+		"Rekap ANGKA event pada satu rentang: total, per bulan, per vendor, per channel, per status, " +
+		"dan event bernilai terbesar. WAJIB dipakai untuk semua pertanyaan 'berapa banyak', 'paling ramai', " +
+		"'paling sering', 'terbesar', atau perbandingan antar bulan/vendor. JANGAN menghitung sendiri dari " +
+		"daftar cari_event — daftarnya bisa terpotong dan hasil hitunganmu akan salah. " +
+		"Sudah termasuk acara historis hasil impor, sama seperti KPI di halaman Operations.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			dari: { type: "STRING", description: "YYYY-MM-DD (inklusif)" },
+			sampai: { type: "STRING", description: "YYYY-MM-DD (inklusif)" },
+			termasuk_batal: {
+				type: "BOOLEAN",
+				description:
+					"Ikutkan event yang dibatalkan. Default false — event batal bukan pencapaian.",
+			},
+		},
+		required: ["dari", "sampai"],
+	},
+	async run(args, ctx) {
+		const dari = String(args.dari ?? "");
+		const sampai = String(args.sampai ?? "");
+		if (
+			!/^\d{4}-\d{2}-\d{2}$/.test(dari) ||
+			!/^\d{4}-\d{2}-\d{2}$/.test(sampai)
+		) {
+			return { error: "dari & sampai harus format YYYY-MM-DD" };
+		}
+
+		// Predikat SAMA dengan KPI "Tahun Ini" di /operations: hanya buang yang
+		// terhapus dan yang dibatalkan. Acara legacy IKUT dihitung.
+		let q = ctx.supabase
+			.from("events")
+			.select(
+				"event_date, status, channel, vendor_name, client_name, grand_total, is_migrated_legacy",
+			)
+			.is("deleted_at", null)
+			.gte("event_date", dari)
+			.lte("event_date", sampai);
+		if (args.termasuk_batal !== true) q = q.neq("status", "cancelled");
+
+		const { data, error } = await q;
+		if (error) return { error: error.message };
+
+		type Row = {
+			event_date: string;
+			status: string;
+			channel: string | null;
+			vendor_name: string | null;
+			client_name: string;
+			grand_total: number;
+			is_migrated_legacy: boolean;
+		};
+		const rows = (data ?? []) as Row[];
+		if (rows.length === 0) {
+			return { rentang: `${dari} s/d ${sampai}`, total_event: 0 };
+		}
+
+		const tally = (pick: (r: Row) => string | null) => {
+			const m = new Map<string, number>();
+			for (const r of rows) {
+				const k = pick(r);
+				if (!k) continue;
+				m.set(k, (m.get(k) ?? 0) + 1);
+			}
+			return [...m.entries()]
+				.sort((a, b) => b[1] - a[1])
+				.map(([nama, jumlah]) => ({ nama, jumlah }));
+		};
+
+		const perBulan = new Map<string, number>();
+		for (const r of rows) {
+			const k = r.event_date.slice(0, 7);
+			perBulan.set(k, (perBulan.get(k) ?? 0) + 1);
+		}
+		const bulanUrut = [...perBulan.entries()].sort((a, b) =>
+			a[0].localeCompare(b[0]),
+		);
+		const maks = Math.max(...bulanUrut.map(([, n]) => n));
+
+		const owner = ctx.role !== "crew";
+		return {
+			rentang: `${dari} s/d ${sampai}`,
+			total_event: rows.length,
+			sudah_lewat: rows.filter((r) => r.event_date < ctx.todayISO).length,
+			akan_datang: rows.filter((r) => r.event_date >= ctx.todayISO).length,
+			dari_arsip_lama: rows.filter((r) => r.is_migrated_legacy).length,
+			per_bulan: bulanUrut.map(([bulan, jumlah]) => ({ bulan, jumlah })),
+			// Bisa lebih dari satu bulan yang seri di puncak — sebutkan semuanya
+			// supaya model tidak asal memilih satu dan terdengar pasti.
+			bulan_terramai: bulanUrut
+				.filter(([, n]) => n === maks)
+				.map(([bulan]) => bulan),
+			jumlah_event_bulan_terramai: maks,
+			per_vendor: tally((r) => r.vendor_name?.trim() || null),
+			per_channel: tally((r) => r.channel),
+			per_status: tally((r) => r.status),
+			...(owner
+				? {
+						nilai_total: rows.reduce(
+							(s, r) => s + Number(r.grand_total ?? 0),
+							0,
+						),
+						event_terbesar: [...rows]
+							.sort((a, b) => Number(b.grand_total) - Number(a.grand_total))
+							.slice(0, 5)
+							.map((r) => ({
+								klien: r.client_name,
+								tanggal: r.event_date,
+								nilai: Number(r.grand_total ?? 0),
+							})),
+					}
+				: {}),
+			catatan:
+				"Angka ini memakai definisi yang sama dengan KPI di halaman Operations (semua status kecuali batal, termasuk acara historis hasil impor).",
 		};
 	},
 };

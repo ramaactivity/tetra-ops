@@ -10,6 +10,7 @@ import {
 	cariEvent,
 	cekKetersediaan,
 	detailEvent,
+	statistikEvent,
 } from "@/lib/ai/tools/schedule";
 import { asetTetap, stok } from "@/lib/ai/tools/warehouse";
 import type { AiTool, AiToolScope } from "@/lib/ai/types";
@@ -18,6 +19,7 @@ import type { UserRole } from "@/lib/auth/get-user";
 /** Semua tool yang ada. Tambah tool baru cukup di sini. */
 const ALL_TOOLS: AiTool[] = [
 	cariEvent,
+	statistikEvent,
 	detailEvent,
 	cekKetersediaan,
 	ringkasanBisnis,
@@ -60,6 +62,7 @@ export function findTool(role: UserRole, name: string): AiTool | null {
  */
 export const TOOL_LABELS: Record<string, string> = {
 	cari_event: "jadwal event",
+	statistik_event: "rekap angka event",
 	detail_event: "detail event",
 	cek_ketersediaan: "ketersediaan unit",
 	ringkasan_bisnis: "performa bisnis",
