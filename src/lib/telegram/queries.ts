@@ -365,7 +365,10 @@ export async function buildAdaText(arg: string): Promise<string> {
 type VendorEventRow = {
 	client_name: string;
 	event_date: string;
+	venue_name: string | null;
 	venue_city: string | null;
+	frame_size: string | null;
+	custom_package_name: string | null;
 	grand_total: number;
 	remaining_balance: number;
 	vendor_name: string | null;
@@ -373,7 +376,14 @@ type VendorEventRow = {
 	vendor_contact: string | null;
 	vendor_commission_mode: string | null;
 	vendor_commission_amount: number | null;
+	// to-one embed → OBJECT saat runtime (reference_postgrest_to_one_embed)
+	package: { name: string | null } | Array<{ name: string | null }> | null;
 };
+
+function vendorPackageLabel(r: VendorEventRow): string | null {
+	const pkg = Array.isArray(r.package) ? r.package[0] : r.package;
+	return pkg?.name ?? r.custom_package_name ?? null;
+}
 
 async function fetchVendorEvents(): Promise<Map<string, VendorEventRow[]>> {
 	const admin = createAdminClient();
@@ -381,9 +391,11 @@ async function fetchVendorEvents(): Promise<Map<string, VendorEventRow[]>> {
 	const { data } = await admin
 		.from("events")
 		.select(
-			`client_name, event_date, venue_city, grand_total, remaining_balance,
+			`client_name, event_date, venue_name, venue_city, frame_size,
+			 custom_package_name, grand_total, remaining_balance,
 			 vendor_name, vendor_pic_name, vendor_contact,
-			 vendor_commission_mode, vendor_commission_amount`,
+			 vendor_commission_mode, vendor_commission_amount,
+			 package:packages(name)`,
 		)
 		.eq("channel", "vendor")
 		.gte("event_date", todayISO)
@@ -487,10 +499,25 @@ export async function buildVendorText(filter?: string): Promise<string> {
 			const cutAmt = Number(r.vendor_commission_amount ?? 0);
 			const isCut = r.vendor_commission_mode === "upfront_cut" && cutAmt > 0;
 			const sisa = Number(r.remaining_balance ?? 0);
+			const venue = [r.venue_name, r.venue_city]
+				.filter(Boolean)
+				.map((s) => tgEscape(s as string))
+				.join(", ");
+			const paket = vendorPackageLabel(r);
+			const spek = [
+				paket ? `📦 ${tgEscape(paket)}` : null,
+				r.frame_size && r.frame_size !== "none"
+					? `🖼 Frame ${tgEscape(r.frame_size)}`
+					: null,
+			]
+				.filter(Boolean)
+				.join(" · ");
 			parts.push(
 				"",
 				`<b>${i + 1}. ${tgEscape(r.client_name)}</b>`,
-				`📅 ${dateLabel(r.event_date, true)} · ${hLabel}${r.venue_city ? ` · ${tgEscape(r.venue_city)}` : ""}`,
+				`📅 ${dateLabel(r.event_date, true)} · ${hLabel}`,
+				...(venue ? [`📍 ${venue}`] : []),
+				...(spek ? [spek] : []),
 				`💰 ${rp(Number(r.grand_total ?? 0))}${isCut ? ` (potongan vendor ${rp(cutAmt)} di depan)` : cutAmt > 0 ? ` (komisi ${rp(cutAmt)})` : ""}`,
 				sisa > 0 ? `⏳ Sisa tagihan ${rp(sisa)}` : "✅ Lunas",
 			);
