@@ -360,8 +360,22 @@ export async function buildAdaText(arg: string): Promise<string> {
 	return lines.join("\n");
 }
 
-/** /vendor — event upcoming yang datang via vendor, dikelompokkan per vendor. */
-export async function buildVendorText(): Promise<string> {
+// ── /vendor — event upcoming via vendor ──────────────────────────────────
+
+type VendorEventRow = {
+	client_name: string;
+	event_date: string;
+	venue_city: string | null;
+	grand_total: number;
+	remaining_balance: number;
+	vendor_name: string | null;
+	vendor_pic_name: string | null;
+	vendor_contact: string | null;
+	vendor_commission_mode: string | null;
+	vendor_commission_amount: number | null;
+};
+
+async function fetchVendorEvents(): Promise<Map<string, VendorEventRow[]>> {
 	const admin = createAdminClient();
 	const todayISO = isoDateUTC(wibNow());
 	const { data } = await admin
@@ -377,41 +391,73 @@ export async function buildVendorText(): Promise<string> {
 		.eq("is_migrated_legacy", false)
 		.neq("status", "cancelled")
 		.order("event_date", { ascending: true });
-	const rows = (data ?? []) as Array<{
-		client_name: string;
-		event_date: string;
-		venue_city: string | null;
-		grand_total: number;
-		remaining_balance: number;
-		vendor_name: string | null;
-		vendor_pic_name: string | null;
-		vendor_contact: string | null;
-		vendor_commission_mode: string | null;
-		vendor_commission_amount: number | null;
-	}>;
-	if (rows.length === 0) {
-		return "🤝 Tidak ada event upcoming dari channel vendor.";
-	}
-
-	const byVendor = new Map<string, typeof rows>();
+	const rows = (data ?? []) as VendorEventRow[];
+	// Urutan insertion Map = urutan event terdekat (rows sudah urut tanggal).
+	const byVendor = new Map<string, VendorEventRow[]>();
 	for (const r of rows) {
 		const key = r.vendor_name?.trim() || "(vendor tanpa nama)";
 		const arr = byVendor.get(key) ?? [];
 		arr.push(r);
 		byVendor.set(key, arr);
 	}
+	return byVendor;
+}
 
-	const totalNilai = rows.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
-	const totalKomisi = rows.reduce(
+/**
+ * Pemilih vendor — daftar tombol "Nama (N event)". callback_data "v:<nama>"
+ * (dipotong 58 byte, limit Telegram 64); handler mencocokkan by prefix.
+ */
+export async function buildVendorPicker(): Promise<{
+	text: string;
+	buttons: Array<Array<{ text: string; callback_data: string }>>;
+}> {
+	const byVendor = await fetchVendorEvents();
+	if (byVendor.size === 0) {
+		return {
+			text: "🤝 Tidak ada event upcoming dari channel vendor.",
+			buttons: [],
+		};
+	}
+	const buttons = [...byVendor.entries()].map(([vendor, evs]) => [
+		{
+			text: `${vendor} (${evs.length} event)`,
+			callback_data: `v:${vendor.slice(0, 58)}`,
+		},
+	]);
+	buttons.push([{ text: "📋 Semua vendor sekaligus", callback_data: "v:*" }]);
+	return {
+		text: `🤝 <b>Event upcoming via vendor</b> — ${byVendor.size} vendor.\nPilih vendor yang mau dilihat:`,
+		buttons,
+	};
+}
+
+/** Detail event upcoming utk satu vendor ("*" = semua). */
+export async function buildVendorText(filter?: string): Promise<string> {
+	const todayISO = isoDateUTC(wibNow());
+	let byVendor = await fetchVendorEvents();
+	if (byVendor.size === 0) {
+		return "🤝 Tidak ada event upcoming dari channel vendor.";
+	}
+	if (filter && filter !== "*") {
+		// Nama di callback bisa terpotong 58 byte → cocokkan exact dulu, lalu prefix.
+		const match =
+			[...byVendor.keys()].find((k) => k === filter) ??
+			[...byVendor.keys()].find((k) => k.startsWith(filter));
+		if (!match) return `🤝 Vendor "${tgEscape(filter)}" tidak ditemukan.`;
+		byVendor = new Map([[match, byVendor.get(match) ?? []]]);
+	}
+
+	const all = [...byVendor.values()].flat();
+	const totalNilai = all.reduce((s, r) => s + Number(r.grand_total ?? 0), 0);
+	const totalKomisi = all.reduce(
 		(s, r) => s + Number(r.vendor_commission_amount ?? 0),
 		0,
 	);
 	const parts: string[] = [
-		`🤝 <b>EVENT UPCOMING VIA VENDOR</b> — ${rows.length} event dari ${byVendor.size} vendor`,
+		`🤝 <b>EVENT UPCOMING VIA VENDOR</b> — ${all.length} event dari ${byVendor.size} vendor`,
 		`Total nilai ${rp(totalNilai)} · total komisi/potongan ${rp(totalKomisi)}`,
 	];
 
-	// Vendor dengan event terdekat tampil duluan (rows sudah urut tanggal).
 	for (const [vendor, evs] of byVendor.entries()) {
 		const komisi = evs.reduce(
 			(s, r) => s + Number(r.vendor_commission_amount ?? 0),

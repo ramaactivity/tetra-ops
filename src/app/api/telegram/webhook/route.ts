@@ -25,6 +25,7 @@ import {
 	buildCrewText,
 	buildPiutangText,
 	buildSaldoText,
+	buildVendorPicker,
 	buildVendorText,
 } from "@/lib/telegram/queries";
 
@@ -239,9 +240,14 @@ async function runAction(action: string, chatId: number): Promise<void> {
 			case "crew":
 				await sendTelegramMessage(chatId, await buildCrewText());
 				break;
-			case "vendor":
-				await sendTelegramMessage(chatId, await buildVendorText());
+			case "vendor": {
+				// Pemilih vendor — bukan dump semua; tap vendor → detailnya saja
+				const picker = await buildVendorPicker();
+				await sendTelegramMessage(chatId, picker.text, {
+					replyMarkup: [...picker.buttons, BACK_ROW],
+				});
 				break;
+			}
 			case "menu": {
 				const v = menuView("main");
 				await sendTelegramMessage(chatId, v.text, { replyMarkup: v.keyboard });
@@ -319,6 +325,21 @@ export async function POST(request: Request) {
 							cb.message.message_id,
 							v.text,
 							v.keyboard,
+						);
+					} else if (dataStr === "vendor" && cb.message) {
+						// Dari tombol → panel berubah jadi pemilih vendor di tempat
+						const picker = await buildVendorPicker();
+						await editTelegramMessage(
+							chat.id,
+							cb.message.message_id,
+							picker.text,
+							[...picker.buttons, BACK_ROW],
+						);
+					} else if (dataStr.startsWith("v:")) {
+						// Vendor dipilih → kirim detail vendor itu saja
+						await sendTelegramMessage(
+							chat.id,
+							await buildVendorText(dataStr.slice(2)),
 						);
 					} else if (dataStr.startsWith("bulan:")) {
 						await sendTelegramMessage(
