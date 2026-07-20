@@ -16,9 +16,9 @@ import {
 	EventStatusDot,
 	PaymentStatusDot,
 } from "@/components/badges/status-badge";
+import { CrewAvatar } from "@/components/ui/mobile";
 import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CrewAvatar } from "@/components/ui/mobile";
 
 /**
  * <OperationsListTable /> — pass 9 redesign.
@@ -41,6 +41,7 @@ export type EventRow = {
 	project_id: string;
 	status: string;
 	channel: string;
+	vendor_name: string | null;
 	client_name: string;
 	event_date: string;
 	setup_time: string | null;
@@ -220,7 +221,10 @@ export function OperationsListTable({
 										)}
 									</div>
 									<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-										<ChannelTag channel={ev.channel} />
+										<ChannelTag
+											channel={ev.channel}
+											vendorName={ev.vendor_name}
+										/>
 										{ev.event_category && (
 											<CategoryTag
 												code={ev.event_category}
@@ -330,7 +334,10 @@ export function OperationsListTable({
 										)}
 									</h3>
 									<div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-										<ChannelTag channel={ev.channel} />
+										<ChannelTag
+											channel={ev.channel}
+											vendorName={ev.vendor_name}
+										/>
 										{ev.event_category && (
 											<CategoryTag
 												code={ev.event_category}
@@ -485,9 +492,19 @@ function MetaLine({
 	);
 }
 
-function ChannelTag({ channel }: { channel: string }) {
+function ChannelTag({
+	channel,
+	vendorName,
+}: {
+	channel: string;
+	vendorName?: string | null;
+}) {
 	const dot = CHANNEL_DOT[channel] ?? "bg-muted-foreground/50";
-	const label = CHANNEL_TYPE_LABELS[channel] ?? channel;
+	const base = CHANNEL_TYPE_LABELS[channel] ?? channel;
+	// Sebut NAMA vendornya, bukan cuma "VENDOR" — penting saat list diurutkan
+	// per vendor supaya kelompoknya terbaca.
+	const label =
+		channel === "vendor" && vendorName ? `${base} · ${vendorName}` : base;
 	return (
 		<span
 			className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium uppercase tracking-wide text-muted-foreground"

@@ -12,8 +12,8 @@ import {
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { OperationsFilterBar } from "@/components/operations/filter-bar";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
+import { OperationsFilterBar } from "@/components/operations/filter-bar";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { MonthMemory } from "@/components/operations/month-memory";
 import {
@@ -47,6 +47,8 @@ const SORT_OPTIONS = {
 	date_desc: { column: "event_date", ascending: false },
 	name_asc: { column: "client_name", ascending: true },
 	name_desc: { column: "client_name", ascending: false },
+	vendor_asc: { column: "vendor_name", ascending: true },
+	vendor_desc: { column: "vendor_name", ascending: false },
 } as const;
 
 type SortKey = keyof typeof SORT_OPTIONS;
@@ -107,7 +109,7 @@ export default async function OperationsListPage({
 	let listQuery = supabase
 		.from("events")
 		.select(
-			`id, project_id, status, channel, client_name, event_date,
+			`id, project_id, status, channel, vendor_name, client_name, event_date,
 			 setup_time, start_time, end_time,
 			 frame_size, backdrop_color, include_flashdisk_pouch,
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
@@ -117,7 +119,12 @@ export default async function OperationsListPage({
 			 backdrop:backdrops(name, type)`,
 		)
 		.is("deleted_at", null)
-		.order(sortConf.column, { ascending: sortConf.ascending })
+		// nullsFirst:false → sort vendor menaruh event non-vendor (vendor_name
+		// null: direct/relasi) di bawah, bukan menyelip di atas daftar.
+		.order(sortConf.column, {
+			ascending: sortConf.ascending,
+			nullsFirst: false,
+		})
 		.limit(100);
 
 	// Same-day events fall back to start time so the day reads top-to-bottom.
@@ -126,6 +133,11 @@ export default async function OperationsListPage({
 			ascending: sortConf.ascending,
 			nullsFirst: false,
 		});
+	}
+
+	// Dalam satu vendor, event terdekat dulu.
+	if (sortConf.column === "vendor_name") {
+		listQuery = listQuery.order("event_date", { ascending: true });
 	}
 
 	// Archived + legacy events are always listed — they're real jobs the team
@@ -269,6 +281,7 @@ export default async function OperationsListPage({
 				project_id: row.project_id,
 				status: row.status,
 				channel: row.channel,
+				vendor_name: row.vendor_name,
 				client_name: row.client_name,
 				event_date: row.event_date,
 				setup_time: row.setup_time,
@@ -398,7 +411,10 @@ export default async function OperationsListPage({
 							<Link
 								href="/settings/operations/import-projects"
 								title="Bulk-import projects from old Apps Script v1"
-								className={buttonVariants({ variant: "outline", className: "h-9" })}
+								className={buttonVariants({
+									variant: "outline",
+									className: "h-9",
+								})}
 							>
 								<Upload className="size-3.5" />
 								<span className="hidden sm:inline">Import legacy</span>
@@ -406,7 +422,10 @@ export default async function OperationsListPage({
 						)}
 						<Link
 							href="/operations/new"
-							className={buttonVariants({ variant: "default", className: "h-9" })}
+							className={buttonVariants({
+								variant: "default",
+								className: "h-9",
+							})}
 						>
 							<Plus className="size-3.5" />
 							<span className="hidden sm:inline">New booking</span>

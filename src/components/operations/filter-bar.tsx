@@ -32,6 +32,8 @@ const SORT_OPTIONS = [
 	{ value: "date_desc", label: "Tanggal · terjauh" },
 	{ value: "name_asc", label: "Nama klien · A–Z" },
 	{ value: "name_desc", label: "Nama klien · Z–A" },
+	{ value: "vendor_asc", label: "Vendor · A–Z" },
+	{ value: "vendor_desc", label: "Vendor · Z–A" },
 ] as const;
 
 const DEFAULT_SORT = "date_asc";
