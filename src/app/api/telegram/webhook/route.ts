@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildAiAnswer } from "@/lib/ai/telegram-ask";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	answerCallbackQuery,
@@ -85,6 +86,7 @@ const HELP_TEXT = [
 	"/vendor — event upcoming via vendor (nilai, komisi, PIC)",
 	"/bisnis — rekap bisnis bulan berjalan (omzet, profit, leads)",
 	"/langganan — jatuh tempo VPS, domain, simcard, dll",
+	"/tanya ... — tanya bebas ke AI, mis. <code>/tanya profit bulan ini berapa</code>",
 	"/menu — panel tombol",
 	"/id — chat ID grup ini",
 	"",
@@ -472,6 +474,23 @@ export async function POST(request: Request) {
 				await sendTelegramMessage(
 					msg.chat.id,
 					"⚠️ Gagal mengambil data — coba lagi sebentar.",
+				);
+			}
+		} else if (command === "/tanya") {
+			// Tanya bebas ke AI. Bisa makan belasan detik (beberapa putaran ambil
+			// data), jadi kirim tanda "lagi mikir" dulu supaya grup tidak mengira
+			// bot-nya mati.
+			await tgApi("sendChatAction", {
+				chat_id: msg.chat.id,
+				action: "typing",
+			});
+			try {
+				await sendTelegramMessage(msg.chat.id, await buildAiAnswer(arg));
+			} catch (err) {
+				console.error("[telegram] /tanya", err);
+				await sendTelegramMessage(
+					msg.chat.id,
+					"⚠️ Gagal menjawab — coba lagi sebentar.",
 				);
 			}
 		} else if (command === "/id") {

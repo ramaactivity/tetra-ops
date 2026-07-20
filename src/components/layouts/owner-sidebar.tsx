@@ -60,6 +60,7 @@ const NAV_SECTIONS: NavSection[] = [
 	{
 		items: [
 			{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+			{ href: "/tanya", label: "Tanya Tetra", icon: Sparkles },
 			{
 				href: "/operations",
 				label: "Operations",
