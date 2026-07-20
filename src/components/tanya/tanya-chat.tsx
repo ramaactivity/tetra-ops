@@ -232,7 +232,16 @@ export function TanyaChat({ isOwner }: { isOwner: boolean }) {
 							onPick={(s) => send(s)}
 						/>
 					) : (
-						<div className="mx-auto flex max-w-3xl flex-col gap-6">
+						// Tanpa max-w + mx-auto: pesan HARUS berbagi gutter yang sama
+						// dengan header dan composer (px-4 / md:px-6). Kolom sempit yang
+						// di-tengah membuat dua grid berbeda dalam satu kartu — avatar
+						// asisten tak sejajar ikon header, tepi balon user tak sejajar
+						// tombol di kanan atas. Itu yang bikin tampilannya janggal.
+						//
+						// min-h-full + justify-end: percakapan pendek duduk menempel ke
+						// composer, bukan mengambang di atas dengan ruang kosong menganga
+						// di bawahnya. Begitu isinya melebihi tinggi, ia menggulung wajar.
+						<div className="flex min-h-full flex-col justify-end gap-6">
 							{messages.map((m, i) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: pesan hanya ditambah di akhir
 								<Bubble key={i} message={m} />
