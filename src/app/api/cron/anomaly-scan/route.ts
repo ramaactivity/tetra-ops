@@ -1,3 +1,4 @@
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { runAnomalyScannerInternal } from "@/lib/actions/anomaly-scanner";
 import { runReconciliationCheckInternal } from "@/lib/actions/reconciliation-check";
@@ -18,6 +19,32 @@ import { runTelegramDigestInternal } from "@/lib/telegram/digest";
 // diklaim tidak akan pernah dikirim ulang. /api/telegram/dispatch yang hanya
 // menjalankan digest saja sudah memakai 60.
 export const maxDuration = 60;
+
+/**
+ * Housekeeping: buang derau `admin_exec_sql` lama dari audit_log.
+ *
+ * audit_log adalah tabel terbesar sekaligus yang paling sering ditulis
+ * (trigger menulis satu baris tiap mutasi), dan tumbuh tanpa batas. RPC-nya
+ * HANYA menghapus entri mesin — jejak audit bisnis (events, payments, users)
+ * tidak pernah disentuh. Grant EXECUTE-nya khusus service_role.
+ */
+async function pruneAuditLog(): Promise<unknown> {
+	const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+	if (!url || !key) return { skipped: "service key tidak tersedia" };
+	try {
+		const sb = createServiceClient(url, key, {
+			auth: { persistSession: false, autoRefreshToken: false },
+		});
+		const { data, error } = await sb.rpc("prune_audit_log", {
+			p_keep_days: 30,
+		});
+		if (error) return { error: error.message };
+		return data;
+	} catch (e) {
+		return { error: e instanceof Error ? e.message : "unknown" };
+	}
+}
 
 export async function GET(request: Request) {
 	if (!isAuthorizedCron(request)) {
@@ -41,6 +68,10 @@ export async function GET(request: Request) {
 			recon.status === "fulfilled" &&
 			telegram.status === "fulfilled",
 		ranAt,
+		// Retensi audit_log — membuang derau admin_exec_sql lama. Sengaja TIDAK
+		// ikut menentukan `ok`: ini housekeeping, kegagalannya tidak boleh
+		// menandai job harian sebagai gagal.
+		auditPrune: await pruneAuditLog(),
 		anomaly:
 			anomaly.status === "fulfilled"
 				? anomaly.value

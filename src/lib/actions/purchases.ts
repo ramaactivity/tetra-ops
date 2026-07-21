@@ -338,7 +338,7 @@ export async function recordPurchaseBatch(
 	// Update fixed_asset_config for CapEx lines (purchase_price + date) — each
 	// line is an independent update, so run them concurrently (≈1 round-trip
 	// wall-clock instead of N sequential).
-	await Promise.all(
+	const capexResults = await Promise.all(
 		capexLines.map((cap) =>
 			supabase
 				.from("items_fixed_asset_config")
@@ -354,6 +354,26 @@ export async function recordPurchaseBatch(
 				.eq("item_id", cap.item_id),
 		),
 	);
+
+	// Kegagalan di sini TIDAK boleh lewat tanpa suara: jurnalnya sudah mendebit
+	// 1-400, tapi kalau purchase_price / depreciation_start_date / is_capitalized
+	// tidak tersimpan maka accrue_monthly_depreciation tidak punya dasar hitung
+	// — asetnya ADA di neraca tapi TIDAK PERNAH disusutkan, dan tidak ada error
+	// di mana pun. Sebelumnya hasil Promise.all dibuang seluruhnya.
+	const capexErrors = capexResults
+		.map((r, i) => (r.error ? `${capexLines[i].item_id}: ${r.error.message}` : null))
+		.filter((v): v is string => v !== null);
+	if (capexErrors.length > 0) {
+		console.error("[purchases] fixed asset config update gagal:", capexErrors);
+		return {
+			errors: {
+				_form: [
+					`Pembelian tersimpan, tapi konfigurasi aset tetap gagal diperbarui (${capexErrors.join("; ")}). ` +
+						"Perbaiki lewat menu Aset supaya penyusutan bisa berjalan.",
+				],
+			},
+		};
+	}
 
 	// Recompute weighted-avg cost per item via the atomic, row-locking RPC.
 	// IMPORTANT: aggregate ALL lines per item first. The previous code used

@@ -287,6 +287,34 @@ async function saveGroupChat(chat: TgChat) {
 	});
 }
 
+/**
+ * Boleh tidak chat ini didaftarkan sebagai tujuan digest?
+ *
+ * Webhook secret hanya membuktikan request datang dari Telegram — TIDAK
+ * membuktikan siapa yang ada di dalam chat-nya. Username @tetraph_bot bersifat
+ * publik, jadi siapa pun bisa membuat grup, mengundang bot, dan Telegram akan
+ * mengirim my_chat_member → sebelumnya group_chat_id langsung tertimpa. Sejak
+ * saat itu digest 06:30 (omzet, piutang, saldo kas) mengalir ke grup penyerang,
+ * grup owner senyap, dan grup penyerang lolos gate "grup terdaftar" sehingga
+ * /saldo, /piutang, dan /tanya ikut aktif.
+ *
+ * Aturan sekarang:
+ *   • TELEGRAM_ALLOWED_CHAT_IDS diisi → hanya id di daftar itu yang boleh.
+ *   • Belum ada grup terdaftar        → boleh (pairing pertama kali).
+ *   • Sudah terdaftar                 → hanya grup yang sama yang boleh.
+ * Pindah grup dilakukan sadar: kosongkan telegram_settings atau pakai env.
+ */
+async function canRegisterChat(chatId: number): Promise<boolean> {
+	const allow = (process.env.TELEGRAM_ALLOWED_CHAT_IDS ?? "")
+		.split(",")
+		.map((s) => s.trim())
+		.filter(Boolean);
+	if (allow.length > 0) return allow.includes(String(chatId));
+
+	const registered = await getRegisteredChatId();
+	return registered === null || registered === chatId;
+}
+
 async function getRegisteredChatId(): Promise<number | null> {
 	const admin = createAdminClient();
 	const { data } = await admin
@@ -368,6 +396,13 @@ export async function POST(request: Request) {
 			(mcm.chat.type === "group" || mcm.chat.type === "supergroup") &&
 			["member", "administrator"].includes(mcm.new_chat_member.status)
 		) {
+			if (!(await canRegisterChat(mcm.chat.id))) {
+				await sendTelegramMessage(
+					mcm.chat.id,
+					"⛔ <b>Bot ini sudah terikat ke grup lain.</b>\n\nDemi keamanan, tujuan laporan keuangan tidak bisa dipindah hanya dengan mengundang bot. Hubungi owner Tetra Ops kalau grup ini memang seharusnya jadi tujuan baru.",
+				);
+				return NextResponse.json({ ok: true });
+			}
 			await saveGroupChat(mcm.chat);
 			await sendTelegramMessage(
 				mcm.chat.id,
@@ -415,10 +450,17 @@ export async function POST(request: Request) {
 			return NextResponse.json({ ok: true });
 		}
 
-		// /daftar — registrasi manual grup ini sebagai tujuan digest. Aman
-		// karena hanya bisa diketik orang yang satu grup dengan bot, dan bot
-		// hanya di-invite owner ke grup owner.
+		// /daftar — registrasi manual grup ini sebagai tujuan digest.
+		// Dijaga canRegisterChat: sekali terikat ke satu grup, tidak bisa
+		// dibajak dengan mengetik /daftar di grup lain.
 		if (command === "/daftar") {
+			if (!(await canRegisterChat(msg.chat.id))) {
+				await sendTelegramMessage(
+					msg.chat.id,
+					"⛔ <b>Bot ini sudah terikat ke grup lain.</b>\n\nTujuan laporan keuangan tidak bisa dipindah dari sini.",
+				);
+				return NextResponse.json({ ok: true });
+			}
 			await saveGroupChat(msg.chat);
 			await sendTelegramMessage(
 				msg.chat.id,

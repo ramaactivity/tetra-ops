@@ -953,6 +953,60 @@ async function claimSend(
 }
 
 /**
+ * Lepas kembali klaim yang gagal dikirim.
+ *
+ * Tanpa ini, klaim ditandai SEBELUM pesan benar-benar terkirim dan tidak
+ * pernah dibatalkan: sekali Telegram membalas 5xx (atau HTML-nya ditolak),
+ * barisnya tetap tinggal dan percobaan ulang dijawab "sudah terkirim".
+ * Untuk digest harian briefing-nya hilang sehari; untuk klaim "briefing" yang
+ * ber-key event id, briefing itu hilang PERMANEN.
+ */
+async function releaseSend(
+	admin: ReturnType<typeof createAdminClient>,
+	kind: string,
+	dedupKey: string,
+): Promise<void> {
+	const { error } = await admin
+		.from("telegram_sent_log")
+		.delete()
+		.eq("kind", kind)
+		.eq("dedup_key", dedupKey);
+	if (error) {
+		console.error(
+			`[digest] gagal melepas klaim ${kind}/${dedupKey}:`,
+			error.message,
+		);
+	}
+}
+
+/**
+ * Klaim → kirim → lepas-kalau-gagal, dalam satu langkah supaya kelima jenis
+ * kiriman tidak bisa lagi lupa melakukan rollback.
+ */
+async function sendWithClaim(
+	admin: ReturnType<typeof createAdminClient>,
+	chatId: number | string,
+	kind: string,
+	dedupKey: string,
+	force: boolean,
+	html: string,
+	opts?: Parameters<typeof sendTelegramMessage>[2],
+): Promise<{ status: "sent" | "skipped" | "error"; error?: string }> {
+	const claimed = force ? false : await claimSend(admin, kind, dedupKey);
+	if (!force && !claimed) return { status: "skipped" };
+
+	try {
+		const res = await sendTelegramMessage(chatId, html, opts);
+		if (res.ok) return { status: "sent" };
+		if (claimed) await releaseSend(admin, kind, dedupKey);
+		return { status: "error", error: res.error };
+	} catch (err) {
+		if (claimed) await releaseSend(admin, kind, dedupKey);
+		throw err;
+	}
+}
+
+/**
  * Kirim digest pagi + briefing H-1 ke grup owner. force=true melewati dedup
  * (untuk trigger manual/VPS sore hari).
  */
@@ -982,13 +1036,14 @@ export async function runTelegramDigestInternal(opts?: {
 		const digest = composeDigest(data);
 		if (!digest) {
 			result.skipped.push("digest: tidak ada event & stok aman");
-		} else if (
-			opts?.force ||
-			(await claimSend(admin, "digest", data.todayISO))
-		) {
+		} else {
 			const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-			const res = await sendTelegramMessage(
+			const r = await sendWithClaim(
+				admin,
 				chatId,
+				"digest",
+				data.todayISO,
+				opts?.force ?? false,
 				digest,
 				appUrl
 					? {
@@ -998,10 +1053,10 @@ export async function runTelegramDigestInternal(opts?: {
 						}
 					: undefined,
 			);
-			if (res.ok) result.sent.push("digest");
-			else result.errors.push(`digest: ${res.error}`);
-		} else {
-			result.skipped.push("digest: sudah terkirim hari ini");
+			if (r.status === "sent") result.sent.push("digest");
+			else if (r.status === "skipped")
+				result.skipped.push("digest: sudah terkirim hari ini");
+			else result.errors.push(`digest: ${r.error}`);
 		}
 	} catch (err) {
 		result.errors.push(
@@ -1014,13 +1069,18 @@ export async function runTelegramDigestInternal(opts?: {
 		const monthly = composeMonthlyReminder(data.todayISO);
 		if (monthly) {
 			const monthKey = data.todayISO.slice(0, 7); // YYYY-MM
-			if (opts?.force || (await claimSend(admin, "monthly", monthKey))) {
-				const res = await sendTelegramMessage(chatId, monthly);
-				if (res.ok) result.sent.push("monthly");
-				else result.errors.push(`monthly: ${res.error}`);
-			} else {
+			const r = await sendWithClaim(
+				admin,
+				chatId,
+				"monthly",
+				monthKey,
+				opts?.force ?? false,
+				monthly,
+			);
+			if (r.status === "sent") result.sent.push("monthly");
+			else if (r.status === "skipped")
 				result.skipped.push("monthly: sudah terkirim bulan ini");
-			}
+			else result.errors.push(`monthly: ${r.error}`);
 		}
 	} catch (err) {
 		result.errors.push(
@@ -1035,13 +1095,18 @@ export async function runTelegramDigestInternal(opts?: {
 			const d = new Date(`${data.todayISO}T00:00:00Z`);
 			d.setUTCMonth(d.getUTCMonth() - 1);
 			const prevKey = isoDateUTC(d).slice(0, 7); // YYYY-MM bulan lalu
-			if (opts?.force || (await claimSend(admin, "monthly_recap", prevKey))) {
-				const res = await sendTelegramMessage(chatId, recap);
-				if (res.ok) result.sent.push("monthly_recap");
-				else result.errors.push(`monthly_recap: ${res.error}`);
-			} else {
+			const r = await sendWithClaim(
+				admin,
+				chatId,
+				"monthly_recap",
+				prevKey,
+				opts?.force ?? false,
+				recap,
+			);
+			if (r.status === "sent") result.sent.push("monthly_recap");
+			else if (r.status === "skipped")
 				result.skipped.push("monthly_recap: sudah terkirim");
-			}
+			else result.errors.push(`monthly_recap: ${r.error}`);
 		}
 	} catch (err) {
 		result.errors.push(
@@ -1053,13 +1118,18 @@ export async function runTelegramDigestInternal(opts?: {
 	try {
 		const uploads = await fetchAssetUploadReminders(admin, data.todayISO);
 		for (const ev of uploads) {
-			if (!opts?.force && !(await claimSend(admin, "asset_upload", ev.id))) {
+			const r = await sendWithClaim(
+				admin,
+				chatId,
+				"asset_upload",
+				ev.id,
+				opts?.force ?? false,
+				composeAssetUpload(ev),
+			);
+			if (r.status === "sent") result.sent.push(`asset_upload ${ev.client_name}`);
+			else if (r.status === "skipped")
 				result.skipped.push(`asset_upload ${ev.client_name}: sudah terkirim`);
-				continue;
-			}
-			const res = await sendTelegramMessage(chatId, composeAssetUpload(ev));
-			if (res.ok) result.sent.push(`asset_upload ${ev.client_name}`);
-			else result.errors.push(`asset_upload ${ev.client_name}: ${res.error}`);
+			else result.errors.push(`asset_upload ${ev.client_name}: ${r.error}`);
 		}
 	} catch (err) {
 		result.errors.push(
@@ -1071,14 +1141,19 @@ export async function runTelegramDigestInternal(opts?: {
 	const tomorrowISO = addDaysISO(data.todayISO, 1);
 	for (const ev of data.events.filter((e) => e.event_date === tomorrowISO)) {
 		try {
-			if (!opts?.force && !(await claimSend(admin, "briefing", ev.id))) {
-				result.skipped.push(`briefing ${ev.client_name}: sudah terkirim`);
-				continue;
-			}
 			const crew = data.crewByEvent.get(ev.id) ?? [];
-			const res = await sendTelegramMessage(chatId, composeBriefing(ev, crew));
-			if (res.ok) result.sent.push(`briefing ${ev.client_name}`);
-			else result.errors.push(`briefing ${ev.client_name}: ${res.error}`);
+			const r = await sendWithClaim(
+				admin,
+				chatId,
+				"briefing",
+				ev.id,
+				opts?.force ?? false,
+				composeBriefing(ev, crew),
+			);
+			if (r.status === "sent") result.sent.push(`briefing ${ev.client_name}`);
+			else if (r.status === "skipped")
+				result.skipped.push(`briefing ${ev.client_name}: sudah terkirim`);
+			else result.errors.push(`briefing ${ev.client_name}: ${r.error}`);
 		} catch (err) {
 			result.errors.push(
 				`briefing ${ev.client_name}: ${err instanceof Error ? err.message : "unknown"}`,
