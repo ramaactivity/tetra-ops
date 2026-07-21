@@ -136,7 +136,9 @@ export default async function CrewEventDetailPage({
 		{ data: crewRosterRaw },
 	] = await Promise.all([
 		supabase
-			.from("inventory_items")
+			// inventory_items_safe: proyeksi tanpa kolom biaya. Tabel dasarnya
+			// owner-only sejak 20260721g, dan halaman crew memang tidak butuh biaya.
+			.from("inventory_items_safe")
 			.select("id, sku, name, category, condition")
 			.eq("category", "fixed_asset")
 			.eq("current_event_id", event.id),

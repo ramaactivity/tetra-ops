@@ -84,7 +84,9 @@ export default async function CrewEquipmentPage() {
 	const equipmentByEvent = new Map<string, EquipmentItem[]>();
 	if (eventIds.length > 0) {
 		const { data: equipmentRows } = await supabase
-			.from("inventory_items")
+			// inventory_items_safe: proyeksi tanpa kolom biaya. Tabel dasarnya
+			// owner-only sejak 20260721g, dan halaman crew memang tidak butuh biaya.
+			.from("inventory_items_safe")
 			.select("id, sku, name, condition, current_event_id")
 			.eq("category", "fixed_asset")
 			.in("current_event_id", eventIds);

@@ -238,6 +238,18 @@ export async function getRekapContext(
 	const isCrew = me.profile.role === "crew";
 	const supabase = await createClient();
 
+	// Komponen bundle: owner meng-embed inventory_items langsung (butuh
+	// purchase_price_avg untuk HPP). Crew TIDAK BOLEH — sejak 20260721g tabel
+	// dasarnya owner-only, jadi embed-nya akan mengembalikan kosong dan daftar
+	// komponen hilang dari form rekap. Untuk crew kita ambil item_id saja lalu
+	// resolve namanya dari view inventory_items_safe di bawah. Bedanya penting:
+	// biaya bukan "dinol-kan setelah diambil", tapi TIDAK PERNAH diambil.
+	const bundleComponentSelect = isCrew
+		? "components:bundle_components(qty, item_id)"
+		: `components:bundle_components(qty,
+			      item:inventory_items!bundle_components_item_id_fkey(id, sku, name, unit, purchase_price_avg)
+			    )`;
+
 	// 1) Event + paket + include_flashdisk_pouch + bundle BOM (if linked)
 	const { data: event, error: evErr } = await supabase
 		.from("events")
@@ -245,9 +257,7 @@ export async function getRekapContext(
 			`id, include_flashdisk_pouch, frame_size,
 			package:packages(name, duration_hours, bundle_id,
 			  bundle:item_bundles(id, name, is_active,
-			    components:bundle_components(qty,
-			      item:inventory_items!bundle_components_item_id_fkey(id, sku, name, unit, purchase_price_avg)
-			    )
+			    ${bundleComponentSelect}
 			  )
 			),
 			event_addons:event_addons(quantity, unit_price, addon:addons(id, name, unit, inventory_item_id)),
@@ -270,7 +280,9 @@ export async function getRekapContext(
 		is_active: boolean;
 		components: Array<{
 			qty: number | string;
-			item:
+			/** Hanya terisi di jalur crew (embed item sengaja tidak diminta). */
+			item_id?: string | null;
+			item?:
 				| {
 						id: string;
 						sku: string;
@@ -291,24 +303,67 @@ export async function getRekapContext(
 	const bundleRow = pkgBundle as BundleRowShape | null;
 	let bundle: RekapContextBundle | null = null;
 	if (bundleRow && bundleRow.is_active) {
-		bundle = {
-			id: bundleRow.id,
-			name: bundleRow.name,
-			components: (bundleRow.components ?? [])
-				.map((c) => {
-					const it = Array.isArray(c.item) ? c.item[0] : c.item;
-					if (!it) return null;
-					return {
-						item_id: it.id,
-						sku: it.sku,
-						name: it.name,
-						qty: Number(c.qty),
-						unit: it.unit ?? "pcs",
-						purchase_price_avg: Number(it.purchase_price_avg ?? 0),
-					};
-				})
-				.filter((c): c is RekapContextBundleComponent => c !== null),
-		};
+		const rawComponents = bundleRow.components ?? [];
+
+		if (isCrew) {
+			// Resolve nama/unit komponen dari view tanpa kolom biaya.
+			const ids = rawComponents
+				.map((c) => c.item_id)
+				.filter((v): v is string => Boolean(v));
+			const { data: safeItems } = ids.length
+				? await supabase
+						.from("inventory_items_safe")
+						.select("id, sku, name, unit")
+						.in("id", ids)
+				: { data: [] };
+			const byId = new Map(
+				((safeItems ?? []) as Array<{
+					id: string;
+					sku: string;
+					name: string;
+					unit: string | null;
+				}>).map((it) => [it.id, it]),
+			);
+			bundle = {
+				id: bundleRow.id,
+				name: bundleRow.name,
+				components: rawComponents
+					.map((c) => {
+						const it = c.item_id ? byId.get(c.item_id) : undefined;
+						if (!it) return null;
+						return {
+							item_id: it.id,
+							sku: it.sku,
+							name: it.name,
+							qty: Number(c.qty),
+							unit: it.unit ?? "pcs",
+							// Crew tidak pernah menerima biaya — bukan disamarkan, memang
+							// tidak ikut diambil dari database.
+							purchase_price_avg: 0,
+						};
+					})
+					.filter((c): c is RekapContextBundleComponent => c !== null),
+			};
+		} else {
+			bundle = {
+				id: bundleRow.id,
+				name: bundleRow.name,
+				components: rawComponents
+					.map((c) => {
+						const it = Array.isArray(c.item) ? c.item[0] : c.item;
+						if (!it) return null;
+						return {
+							item_id: it.id,
+							sku: it.sku,
+							name: it.name,
+							qty: Number(c.qty),
+							unit: it.unit ?? "pcs",
+							purchase_price_avg: Number(it.purchase_price_avg ?? 0),
+						};
+					})
+					.filter((c): c is RekapContextBundleComponent => c !== null),
+			};
+		}
 	}
 
 	// 2) Mapping + inventory lookup (batch). Multiple rows per rekap_field
@@ -361,10 +416,16 @@ export async function getRekapContext(
 
 	const itemsById = new Map<string, RekapContextItem>();
 	if (allItemIds.length > 0) {
-		const { data: items } = await supabase
-			.from("inventory_items")
-			.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
-			.in("id", allItemIds);
+		// Crew membaca view tanpa kolom biaya; owner tetap dari tabel dasar.
+		const { data: items } = isCrew
+			? await supabase
+					.from("inventory_items_safe")
+					.select("id, sku, name, unit, unit_conversion")
+					.in("id", allItemIds)
+			: await supabase
+					.from("inventory_items")
+					.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
+					.in("id", allItemIds);
 		// Batched stock levels — one grouped query for all mapped items instead
 		// of an N+1 get_current_stock RPC per item. See get_stock_levels migration.
 		const { data: levels } = await supabase.rpc("get_stock_levels", {
@@ -383,7 +444,10 @@ export async function getRekapContext(
 				unit: (it.unit as string | null) ?? "pcs",
 				unit_conversion:
 					(it as { unit_conversion?: unknown }).unit_conversion ?? null,
-				purchase_price_avg: Number(it.purchase_price_avg ?? 0),
+				// Jalur crew memakai view tanpa kolom biaya → selalu 0.
+				purchase_price_avg: Number(
+					(it as { purchase_price_avg?: number | null }).purchase_price_avg ?? 0,
+				),
 				current_stock: stockMap.get(it.id as string) ?? 0,
 			});
 		}
@@ -442,13 +506,21 @@ export async function getRekapContext(
 	// mappings (those have dedicated fields). User picks from this list to
 	// record "kami pakai 50× sticker X dari stok lain".
 	const mappedSet = new Set(allItemIds);
-	const { data: poolRaw } = await supabase
-		.from("inventory_items")
-		.select("id, sku, name, unit, purchase_price_avg")
-		.eq("category", "inventory")
-		.eq("is_active", true)
-		.is("deleted_at", null)
-		.order("sku", { ascending: true });
+	const { data: poolRaw } = isCrew
+		? await supabase
+				.from("inventory_items_safe")
+				.select("id, sku, name, unit")
+				.eq("category", "inventory")
+				.eq("is_active", true)
+				.is("deleted_at", null)
+				.order("sku", { ascending: true })
+		: await supabase
+				.from("inventory_items")
+				.select("id, sku, name, unit, purchase_price_avg")
+				.eq("category", "inventory")
+				.eq("is_active", true)
+				.is("deleted_at", null)
+				.order("sku", { ascending: true });
 
 	const poolRows = (poolRaw ?? []) as Array<{
 		id: string;
