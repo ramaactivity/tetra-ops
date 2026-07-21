@@ -43,16 +43,25 @@ export const ringkasanBisnis: AiTool = {
 		endExcl.setUTCDate(endExcl.getUTCDate() + 1);
 		const sampaiExcl = endExcl.toISOString().slice(0, 10);
 
-		// Tanpa filter is_migrated_legacy — acara historis hasil impor tetap acara
-		// nyata dan IKUT dihitung di KPI "Tahun Ini" halaman Operations. Angka
-		// omzet/profit di bawah tetap bebas-legacy dengan sendirinya, karena
-		// bersumber dari event_settlements yang memang tak pernah ada untuk mereka.
+		// Legacy DIKECUALIKAN di sini. Tool ini adalah ringkasan FINANSIAL —
+		// tiga angka lainnya bersumber dari event_settlements, yang memang tak
+		// pernah ada untuk acara impor. Modul yang dicerminkan tool ini adalah
+		// /bisnis di bot (telegram/digest.ts), yang memakai
+		// .eq("is_migrated_legacy", false) atas label yang sama persis
+		// ("Event terlaksana") untuk rentang yang sama. Tanpa filter ini, owner
+		// menanyakan hal yang sama lewat dua pintu dan menerima dua jawaban
+		// berbeda dari bot yang sama.
+		//
+		// Untuk JUMLAH event murni (KPI "Tahun Ini" di Operations), legacy tetap
+		// ikut dihitung — itu tool statistik_event, bukan yang ini.
+		// Lihat catatan reference_legacy_events_counting.
 		const { count: eventCount } = await ctx.supabase
 			.from("events")
 			.select("id", { count: "exact", head: true })
 			.gte("event_date", dari)
 			.lt("event_date", sampaiExcl)
 			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
 			.neq("status", "cancelled");
 
 		const { data: settlements } = await ctx.supabase

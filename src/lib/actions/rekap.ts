@@ -839,7 +839,8 @@ async function planRekapDeduction(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	rekap: RekapStockSnapshot,
 ): Promise<{ lines: DeductionLine[]; missingMappings: RekapField[] }> {
-	const [{ data: event }, { data: items }] = await Promise.all([
+	const [{ data: event, error: eventErr }, { data: items, error: itemsErr }] =
+		await Promise.all([
 		// Only frame_size is needed here; the package bundle BOM + bonuses are
 		// handled by projectEventLinesFromSpec (shared with the forecast).
 		supabase
@@ -865,6 +866,20 @@ async function planRekapDeduction(
 			])
 			.is("deleted_at", null),
 	]);
+
+	// Baca gagal HARUS menghentikan perencanaan, bukan menghasilkan rencana
+	// kosong. Kalau `items` null, itemsBySku kosong → SEMUA baris jatuh ke
+	// missingMappings → commitRekapStock mengirim p_movements: [] dan
+	// hpp_total: 0. Rekap tetap jadi "reviewed", stock_committed_at terisi,
+	// stok tidak berkurang sepeser pun, lalu event di-settle dengan HPP Rp0 →
+	// margin kotor 100% palsu dan tidak ada error di mana pun.
+	if (eventErr) {
+		throw new Error(`Gagal membaca data event: ${eventErr.message}`);
+	}
+	if (itemsErr) {
+		throw new Error(`Gagal membaca master inventory: ${itemsErr.message}`);
+	}
+
 	// Use the FROZEN snapshot taken at submit time, not live event.frame_size.
 	// If the owner corrects event.frame_size after submit, the stock deduction +
 	// HPP must still reflect what the crew actually shot. Matches the COALESCE
@@ -1173,6 +1188,20 @@ async function commitRekapStock(
 	},
 ): Promise<{ ok: true } | { ok: false; error: string }> {
 	const plan = await planRekapDeduction(supabase, rekap);
+
+	// SKU yang tak ter-resolve = potongan stok & HPP yang hilang diam-diam.
+	// Tolak commit daripada membekukan stock_committed_at dengan rencana
+	// bolong: sekali ter-commit, jalur ini tidak akan mengulang dan event
+	// ter-settle memakai HPP yang kurang.
+	if (plan.missingMappings.length > 0) {
+		return {
+			ok: false,
+			error:
+				`Commit dibatalkan — SKU inventory untuk field berikut tidak ditemukan: ${plan.missingMappings.join(", ")}. ` +
+				"Lengkapi master inventory dulu supaya stok & HPP tidak tercatat kurang.",
+		};
+	}
+
 	const snapshot = bucketHpp(plan.lines);
 	const batchId = plan.lines.length > 0 ? randomUUID() : null;
 	const movements = plan.lines.map((l) => ({
@@ -1211,11 +1240,23 @@ async function reverseRekapStock(
 	actorId: string,
 	opts: { rekapId: string; reject?: boolean; reviewNotes?: string | null },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	const { data: moves } = await supabase
+	const { data: moves, error: movesErr } = await supabase
 		.from("stock_movements")
 		.select("item_id, quantity, direction, unit_cost")
 		.eq("source", "rekap_consumption")
 		.eq("source_id", eventId);
+
+	// Error di sini TIDAK boleh diabaikan: `moves` jadi null → `reversals`
+	// kosong → RPC tetap jalan dan membersihkan stock_committed_at, padahal
+	// tidak ada satu pun stok yang dikembalikan. Owner submit ulang rekap →
+	// commitRekapStock memotong konsumsi penuh untuk KEDUA kalinya.
+	if (movesErr) {
+		return {
+			ok: false,
+			error: `Gagal membaca stok terpakai: ${movesErr.message}. Reversal dibatalkan supaya stok tidak terpotong dua kali.`,
+		};
+	}
+
 	const net = new Map<string, { qty: number; cost: number }>();
 	for (const m of (moves ?? []) as Array<{
 		item_id: string;

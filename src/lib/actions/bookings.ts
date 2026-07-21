@@ -784,11 +784,27 @@ export async function updateBooking(
 
 	// Pembayaran yang sudah masuk — supaya remaining_balance tidak ke-reset ke
 	// grand_total saat edit (membuang progres DP yang sudah dibayar).
-	const { data: curEvent } = await supabase
+	const { data: curEvent, error: curEventErr } = await supabase
 		.from("events")
 		.select("total_paid, status, is_migrated_legacy")
 		.eq("id", id)
 		.maybeSingle();
+
+	// Error di sini TIDAK boleh dibuang: curEvent jadi null → total_paid jatuh
+	// ke 0 → remaining_balance ditulis ulang sebesar grand_total penuh, yaitu
+	// persis hal yang dicegah komentar di atas. Event dengan DP Rp5jt kehilangan
+	// seluruh progres pembayarannya hanya karena owner menyunting judulnya.
+	// Status lifecycle di bawah juga ikut salah kalau curEvent null.
+	if (curEventErr) {
+		return {
+			errors: {
+				_form: [
+					`Gagal membaca data pembayaran event: ${curEventErr.message}. Perubahan dibatalkan supaya progres DP tidak hilang.`,
+				],
+			},
+			values: snapshotValues(formData),
+		};
+	}
 
 	// Re-derive the lifecycle status from the (possibly changed) event date, but
 	// only for auto-managed events. Terminal/manual states (completed, cancelled)

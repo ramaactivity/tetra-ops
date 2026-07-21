@@ -32,15 +32,40 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 	if (!sb) return { ok: false, error: "Service key tidak tersedia" };
 
 	// GL balances per account (raw = Σdebit − Σcredit)
-	const { data: lines } = await sb
-		.from("journal_lines")
-		.select("account_code, debit_amount, credit_amount");
-	const glRaw = new Map<string, number>();
-	for (const l of (lines ?? []) as Array<{
+	//
+	// Dua hal yang WAJIB benar di sini, karena ini satu-satunya job yang
+	// bertugas mendeteksi buku rusak:
+	//  1. Error harus dilaporkan. Kalau dibuang, `lines` jadi null, glRaw
+	//     kosong, dan job melaporkan "drifts: 0" — all-clear PALSU.
+	//  2. Harus paginasi. `.select()` polos diam-diam terpotong di batas
+	//     db-max-rows PostgREST (default 1000), jadi begitu ledger tumbuh,
+	//     total GL dihitung dari potongan data dan job akan meneriakkan drift
+	//     di hampir semua akun tanpa petunjuk bahwa datanya terpotong.
+	const PAGE = 1000;
+	const lines: Array<{
 		account_code: string;
 		debit_amount: number;
 		credit_amount: number;
-	}>) {
+	}> = [];
+	for (let from = 0; ; from += PAGE) {
+		const { data, error } = await sb
+			.from("journal_lines")
+			.select("account_code, debit_amount, credit_amount")
+			.order("id", { ascending: true })
+			.range(from, from + PAGE - 1);
+		if (error) {
+			return {
+				ok: false,
+				error: `Gagal membaca journal_lines: ${error.message}`,
+			};
+		}
+		if (!data || data.length === 0) break;
+		lines.push(...(data as typeof lines));
+		if (data.length < PAGE) break;
+	}
+
+	const glRaw = new Map<string, number>();
+	for (const l of lines) {
 		glRaw.set(
 			l.account_code,
 			(glRaw.get(l.account_code) ?? 0) +

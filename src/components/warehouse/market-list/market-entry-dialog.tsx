@@ -98,28 +98,28 @@ export function MarketEntryDialog({
 		entry?.is_primary ?? false,
 	);
 
-	// Optimistic mode: ketika user klik Simpan, modal close + toast langsung
-	// muncul (assume sukses). Server response handle di useEffect:
-	// - success → router.refresh() refetch data (modal sudah close)
-	// - error → toast.error + re-open modal so user can retry
-	const [optimisticallyClosed, setOptimisticallyClosed] = useState(false);
-
+	// DULU: modal close + toast.success langsung saat klik Simpan (optimistic),
+	// dengan asumsi useEffect bisa membuka lagi kalau server menolak. Asumsi itu
+	// tidak pernah benar: induknya me-render bersyarat
+	// (market-list-table.tsx:322 `{editing && ...}`) dan onOpenChange(false)
+	// menyetel `editing = null`, jadi komponen ini UNMOUNT — state useActionState
+	// beserta effect pemulihannya ikut musnah. Akibatnya setiap kegagalan
+	// tersimpan sebagai "Harga supplier ditambahkan" padahal tidak ada yang
+	// tertulis, dan angka ini yang menyuapi HPP.
+	//
+	// Sekarang: tunggu konfirmasi server. `pending` sudah menonaktifkan tombol,
+	// jadi tidak ada risiko double-submit.
 	useEffect(() => {
-		if (!state) return;
-		if (state.success) {
-			// Confirm success — refresh data. Modal sudah close optimistically.
-			router.refresh();
-			setOptimisticallyClosed(false);
-		} else if (state.errors?._form) {
-			// Server reject — re-open modal so user sees error + can retry
-			if (optimisticallyClosed) {
-				toast.error("Gagal menyimpan", {
-					description: state.errors._form[0],
-				});
-				onOpenChange(true);
-				setOptimisticallyClosed(false);
-			}
-		}
+		if (!state?.success) return;
+		toast.success(
+			mode === "create" ? "Harga supplier ditambahkan" : "Perubahan disimpan",
+			{
+				description: `${item.name} · Avg cost auto-sync ke ${formatRupiah(Math.round(effective))} / ${item.unit}`,
+				duration: 4000,
+			},
+		);
+		router.refresh();
+		onOpenChange(false);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [state]);
 
@@ -215,23 +215,7 @@ export function MarketEntryDialog({
 				</DialogHeader>
 
 				<form
-					action={(fd) => {
-						// Optimistic close + toast langsung — feels instant.
-						// Kalau server reject, useEffect re-open modal + toast.error
-						toast.success(
-							mode === "create"
-								? "Harga supplier ditambahkan"
-								: "Perubahan disimpan",
-							{
-								description: `${item.name} · Avg cost auto-sync ke ${formatRupiah(Math.round(effective))} / ${item.unit}`,
-								duration: 4000,
-							},
-						);
-						setOptimisticallyClosed(true);
-						onOpenChange(false);
-						// Fire server action in background
-						formAction(fd);
-					}}
+					action={formAction}
 					className="flex flex-1 flex-col overflow-hidden"
 				>
 					<div className="flex-1 space-y-6 overflow-y-auto px-8 py-6">

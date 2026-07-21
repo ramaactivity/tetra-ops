@@ -63,8 +63,14 @@ export function CheckOutDialog({
 		}
 		setError(null);
 		const fd = new FormData();
-		if (crewId) fd.set("to_crew_id", crewId);
-		if (notes) fd.set("notes", notes);
+		// Selalu set, walau kosong. Kalau key-nya tidak ada, formData.get()
+		// mengembalikan null dan Zod `z.string().optional()` MELEMPAR
+		// ("expected string, received null") — bukan menganggapnya absen.
+		// Karena kedua state ini default "", check-out di jalur normal
+		// (opsi "Disimpan di event (tanpa crew carry)" + catatan kosong)
+		// selalu gagal dengan "Invalid input".
+		fd.set("to_crew_id", crewId);
+		fd.set("notes", notes);
 		startTransition(async () => {
 			const result = await checkOutEquipment(
 				selectedItem,

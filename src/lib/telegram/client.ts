@@ -53,31 +53,84 @@ export async function sendTelegramMessage(
 		chunks.push(html);
 	} else {
 		let buf = "";
+		const flush = () => {
+			// Jangan pernah push chunk kosong — Telegram menolaknya dengan
+			// "message text is empty" dan sendTelegramMessage berhenti di situ.
+			if (buf.length > 0) chunks.push(buf);
+			buf = "";
+		};
 		for (const line of html.split("\n")) {
+			// Baris tunggal yang lebih panjang dari MAX harus dipotong paksa.
+			// Sebelumnya baris seperti ini dikirim UTUH (ditolak: "message is
+			// too long") dan, karena buf masih "" saat itu, sebuah chunk KOSONG
+			// ikut ter-push lebih dulu. Jawaban AI berupa prosa panjang tanpa
+			// newline persis memicu ini, dan grup hanya melihat kesenyapan.
+			if (line.length > MAX) {
+				flush();
+				let rest = line;
+				while (rest.length > MAX) {
+					// Potong di spasi terakhir sebelum batas supaya kata (dan
+					// sebisa mungkin tag HTML) tidak terbelah di tengah.
+					const cut = rest.lastIndexOf(" ", MAX);
+					const at = cut > MAX * 0.5 ? cut : MAX;
+					chunks.push(rest.slice(0, at));
+					rest = rest.slice(at).trimStart();
+				}
+				if (rest.length > 0) chunks.push(rest);
+				continue;
+			}
 			if (buf.length + line.length + 1 > MAX) {
-				chunks.push(buf);
+				flush();
 				buf = line;
 			} else {
 				buf = buf ? `${buf}\n${line}` : line;
 			}
 		}
-		if (buf) chunks.push(buf);
+		flush();
 	}
 
 	for (let i = 0; i < chunks.length; i++) {
 		const isLast = i === chunks.length - 1;
+		const extra =
+			isLast && opts?.replyMarkup
+				? { reply_markup: { inline_keyboard: opts.replyMarkup } }
+				: {};
 		const res = await tgApi("sendMessage", {
 			chat_id: chatId,
 			text: chunks[i],
 			parse_mode: "HTML",
 			link_preview_options: { is_disabled: true },
-			...(isLast && opts?.replyMarkup
-				? { reply_markup: { inline_keyboard: opts.replyMarkup } }
-				: {}),
+			...extra,
 		});
-		if (!res.ok) return { ok: false, error: res.description };
+		if (res.ok) continue;
+
+		// Pemotongan paksa baris panjang bisa membelah tag HTML, dan Telegram
+		// menolaknya ("can't parse entities"). Daripada pesannya hilang total,
+		// kirim ulang chunk itu sebagai teks polos: isinya sampai, hanya
+		// kehilangan format tebal/miring.
+		const parseIssue = /parse|entities/i.test(res.description ?? "");
+		if (parseIssue) {
+			const plain = await tgApi("sendMessage", {
+				chat_id: chatId,
+				text: stripHtmlTags(chunks[i]),
+				link_preview_options: { is_disabled: true },
+				...extra,
+			});
+			if (plain.ok) continue;
+			return { ok: false, error: plain.description };
+		}
+		return { ok: false, error: res.description };
 	}
 	return { ok: true };
+}
+
+/** Buang tag HTML — dipakai sebagai fallback saat Telegram menolak parse HTML. */
+function stripHtmlTags(s: string): string {
+	return s
+		.replace(/<[^>]*>/g, "")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&amp;/g, "&");
 }
 
 /**

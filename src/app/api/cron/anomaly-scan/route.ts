@@ -11,6 +11,14 @@ import { runTelegramDigestInternal } from "@/lib/telegram/digest";
 // Runs both anomaly scanner + TBC reminder (H-7/H-3 events with missing fields)
 // in the same job to avoid menambah cron entry baru. Errors di salah satu
 // tidak mem-block yang lain.
+// Route ini menjalankan EMPAT job berat, termasuk seluruh
+// runTelegramDigestInternal. Tanpa maxDuration ia memakai batas default
+// platform dan bisa dibunuh di tengah jalan — berbahaya karena digest menandai
+// item sebagai "terkirim" sebelum benar-benar terkirim, jadi yang keburu
+// diklaim tidak akan pernah dikirim ulang. /api/telegram/dispatch yang hanya
+// menjalankan digest saja sudah memakai 60.
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
 	if (!isAuthorizedCron(request)) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,7 +31,15 @@ export async function GET(request: Request) {
 		runTelegramDigestInternal(),
 	]);
 	return NextResponse.json({
-		ok: anomaly.status === "fulfilled" || tbc.status === "fulfilled",
+		// SEMUA job harus sukses. Sebelumnya `anomaly || tbc`: `recon` dan
+		// `telegram` tidak ikut dihitung sama sekali, dan karena OR, satu job
+		// yang hidup menutupi tiga yang mati — monitoring melihat hijau
+		// berminggu-minggu sementara digest harian tidak pernah terkirim.
+		ok:
+			anomaly.status === "fulfilled" &&
+			tbc.status === "fulfilled" &&
+			recon.status === "fulfilled" &&
+			telegram.status === "fulfilled",
 		ranAt,
 		anomaly:
 			anomaly.status === "fulfilled"

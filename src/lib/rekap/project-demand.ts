@@ -148,8 +148,21 @@ type PackageRow = {
  * reconciled with stock regardless of which bucket a line lands in.
  *
  * IMPORTANT — dedup contract (must match planRekapDeduction exactly):
- *   - Add-on lines (bonus + paid) are appended UNCONDITIONALLY (no dedup): each
- *     order/bonus is a distinct real consumption.
+ *   - Add-on lines (bonus + paid) are deduped against `existingItemIds`, TAPI
+ *     tidak terhadap sesama add-on: dua order photomagnet terpisah = dua
+ *     konsumsi nyata dan tetap dijumlahkan.
+ *
+ *     Kenapa dedup ini WAJIB: rekap-form mengisi otomatis field crew
+ *     photomagnet_used/keychain_used dari paid_addons + bonuses
+ *     (rekap-form.tsx:155-171), lalu ASSEMBLY_RULES di planRekapDeduction
+ *     meng-expand field itu ke SKU yang sama. Tanpa dedup, add-on "Photomagnet
+ *     x5" terpotong DUA KALI: 5 dari assembly + 5 dari sini → stok turun 10
+ *     untuk 5 keping fisik dan HPP membengkak 5x harga rata-rata.
+ *     Pasca-event angka konfirmasi crew adalah hitungan fisik sebenarnya,
+ *     jadi baris crew yang menang dan ekspansi add-on di-skip.
+ *
+ *     Forecast pra-event mengoper set KOSONG, jadi di sana add-on tetap
+ *     ter-expand penuh — perilakunya tidak berubah.
  *   - Bundle components are deduped against `existingItemIds` PLUS any add-on
  *     line just added. In the post-event planner, `existingItemIds` carries the
  *     media/sleeve/assembly/custom lines already built before this point, so
@@ -193,14 +206,22 @@ export async function projectEventLinesFromSpec(
 
 	const out: DeductionLine[] = [];
 
-	// ── Free bonuses (event_bonuses) — appended unconditionally ───────────────
-	for (const row of (bonusRows ?? []) as unknown as AddonConsumptionRow[]) {
-		out.push(...expandAddonRow(row, "bonus", "bonus"));
-	}
-
-	// ── Paid add-ons (event_addons) — appended unconditionally, real COGS ─────
-	for (const row of (paidRows ?? []) as unknown as AddonConsumptionRow[]) {
-		out.push(...expandAddonRow(row, "other", "addon"));
+	// ── Bonuses + paid add-ons ────────────────────────────────────────────────
+	// Deduped terhadap `existingItemIds` SAJA (bukan terhadap sesama add-on):
+	// dua order photomagnet terpisah memang dua konsumsi nyata dan harus
+	// dijumlahkan, tapi item yang SUDAH dihitung dari field rekap crew tidak
+	// boleh dipotong lagi di sini. Lihat catatan double-deduct di atas.
+	const addonLines = [
+		...(bonusRows ?? []).flatMap((row) =>
+			expandAddonRow(row as unknown as AddonConsumptionRow, "bonus", "bonus"),
+		),
+		...(paidRows ?? []).flatMap((row) =>
+			expandAddonRow(row as unknown as AddonConsumptionRow, "other", "addon"),
+		),
+	];
+	for (const line of addonLines) {
+		if (existingItemIds.has(line.item_id)) continue;
+		out.push(line);
 	}
 
 	// ── Package bundle BOM — deduped against existing + add-ons just added ─────

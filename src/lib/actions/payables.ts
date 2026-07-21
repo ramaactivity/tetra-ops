@@ -160,6 +160,9 @@ export async function recordPayablePayment(
 			.single();
 		if (entryErr || !entry) {
 			console.error("[payables] journal entry insert failed:", entryErr);
+			throw new Error(
+				entryErr?.message ?? "Gagal membuat jurnal pembayaran hutang",
+			);
 		} else {
 			const journalLines = [
 				{
@@ -194,14 +197,29 @@ export async function recordPayablePayment(
 				.insert(journalLines);
 			if (linesErr) {
 				console.error("[payables] journal lines insert failed:", linesErr);
+				// Rollback header supaya tidak meninggalkan entry tanpa baris.
 				await supabase.from("journal_entries").delete().eq("id", entry.id);
-			} else {
-				journalEntryId = entry.id;
-				journalRef = refId;
+				throw new Error(linesErr.message);
 			}
+			journalEntryId = entry.id;
+			journalRef = refId;
 		}
 	} catch (e) {
+		// JANGAN lanjut menulis payable_payments. Sebelumnya kegagalan jurnal
+		// hanya di-log lalu eksekusi berjalan terus: baris pembayaran tetap
+		// masuk dengan journal_entry_id NULL, trigger menaikkan amount_paid,
+		// status jadi "paid", dan UI menampilkan "Lunas" — padahal GL tidak
+		// pernah mendebit 2-101 maupun mengkredit kas/bank. Hasilnya 2-101 di
+		// Buku Besar lebih tinggi dari subledger hutang dan kas overstated,
+		// tanpa jejak pembayaran mana penyebabnya.
+		// Pola abort ini sama dengan purchases.ts:508-566.
 		console.error("[payables] journal entry creation failed:", e);
+		return {
+			ok: false,
+			error: `Pembayaran dibatalkan — jurnal gagal dibuat: ${
+				e instanceof Error ? e.message : "unknown error"
+			}`,
+		};
 	}
 
 	// Insert payment row → trigger updates payable.amount_paid + status

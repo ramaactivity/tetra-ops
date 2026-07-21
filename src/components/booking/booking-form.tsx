@@ -531,6 +531,13 @@ export function BookingForm({
 		stateValues?.base_price ?? defaults?.base_price ?? 0,
 	);
 	const [basePrice, setBasePrice] = useState(initialBase);
+	// Apakah owner sudah mengetik harga sendiri? Kalau belum, ganti paket wajib
+	// menarik ulang harga paket baru. Sebelumnya syaratnya
+	// `basePrice === 0 || basePrice === initialBase`, yang langsung false
+	// setelah paket PERTAMA dipilih — jadi ganti Paket A (2jt) ke Paket B
+	// (3,5jt) menyisakan harga 2jt secara diam-diam, dan invoice/DP/komisi
+	// ikut kurang 1,5jt.
+	const [basePriceTouched, setBasePriceTouched] = useState(false);
 
 	const selectedPkg = useMemo(
 		() => packages.find((p) => p.id === packageId),
@@ -1098,7 +1105,9 @@ export function BookingForm({
 		setPackageId(id);
 		if (id) {
 			const pkg = packages.find((p) => p.id === id);
-			if (pkg && (basePrice === 0 || basePrice === initialBase)) {
+			// Ikuti harga paket selama owner belum menimpanya manual — termasuk
+			// saat berpindah antar-paket berkali-kali.
+			if (pkg && !basePriceTouched) {
 				setBasePrice(pkg.base_price);
 			}
 		}
@@ -2979,7 +2988,10 @@ export function BookingForm({
 								min={0}
 								step={1}
 								value={basePrice || ""}
-								onChange={(e) => setBasePrice(Number(e.target.value) || 0)}
+								onChange={(e) => {
+									setBasePrice(Number(e.target.value) || 0);
+									setBasePriceTouched(true);
+								}}
 								placeholder="3000000"
 								className={`${inputClass} tabular`}
 							/>

@@ -388,7 +388,7 @@ export async function unpayCrewFee(input: {
 	if (!a.is_paid) return { ok: false, error: "Fee crew ini belum dibayar" };
 
 	// Find the (non-reversed) payment journal posted by payCrewFee.
-	const { data: entry } = await supabase
+	const { data: entry, error: entryErr } = await supabase
 		.from("journal_entries")
 		.select("id, total_amount, entry_date")
 		.eq("source_type", "crew_payment")
@@ -398,11 +398,31 @@ export async function unpayCrewFee(input: {
 		.limit(1)
 		.maybeSingle();
 
+	// Kalau read ini gagal dan error-nya dibuang, `entry` jadi null → SELURUH
+	// blok pembalikan di bawah dilewati → crew ditandai belum dibayar dan
+	// fungsi mengembalikan { ok: true }, sementara jurnal kas keluar aslinya
+	// tetap terposting. Owner lalu membayar fee yang sama untuk KEDUA kalinya.
+	if (entryErr) {
+		return {
+			ok: false,
+			error: `Gagal membaca jurnal pembayaran: ${entryErr.message}. Pembatalan dibatalkan supaya fee tidak terbayar dua kali.`,
+		};
+	}
+
 	if (entry) {
-		const { data: origLines } = await supabase
+		const { data: origLines, error: origLinesErr } = await supabase
 			.from("journal_lines")
 			.select("account_code, debit_amount, credit_amount, description")
 			.eq("entry_id", entry.id);
+
+		// Tanpa baris asli, pembalikan akan tercipta sebagai header bertotal
+		// tapi tanpa satu pun baris → jurnal tidak balance.
+		if (origLinesErr) {
+			return {
+				ok: false,
+				error: `Gagal membaca baris jurnal: ${origLinesErr.message}. Pembatalan dibatalkan.`,
+			};
+		}
 
 		const today = new Date().toISOString().slice(0, 10);
 		const { data: rev, error: revErr } = await supabase

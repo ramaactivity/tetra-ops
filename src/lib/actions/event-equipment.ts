@@ -17,16 +17,19 @@ async function requireOwnerLevel() {
 const CheckOutSchema = z.object({
 	item_id: z.uuid(),
 	event_id: z.uuid(),
+	// .nullish() bukan .optional(): formData.get() mengembalikan null untuk key
+	// yang tidak ada, dan .optional() menolak null dengan "expected string,
+	// received null". Lihat catatan yang sama di stock-movements.ts.
 	to_crew_id: z
 		.string()
 		.trim()
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 	notes: z
 		.string()
 		.trim()
 		.max(300)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 });
 

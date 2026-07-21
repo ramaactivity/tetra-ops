@@ -44,19 +44,68 @@ function serviceClient() {
 }
 
 /**
+ * Ukuran halaman baca backup. PostgREST punya batas `db-max-rows` (default
+ * Supabase 1000): satu `.select("*")` polos DIAM-DIAM terpotong di batas itu.
+ * Lihat catatan sama di src/lib/finance/balance-guard.ts:21-27.
+ */
+const BACKUP_PAGE_SIZE = 1000;
+
+/**
+ * Baca SELURUH baris satu tabel dengan paginasi.
+ *
+ * Diurutkan by `id` supaya jendela halaman stabil — tanpa ORDER BY, urutan
+ * baris antar-request tidak dijamin sehingga paginasi bisa melewati/mengulang
+ * baris. Kalau tabel tidak punya `id`, query akan error dan kita LEMPAR:
+ * gagal berisik jauh lebih aman daripada backup terpotong diam-diam tepat
+ * sebelum penghapusan permanen.
+ */
+async function fetchAllRowsForBackup(
+	sb: Awaited<ReturnType<typeof createClient>>,
+	table: string,
+): Promise<unknown[]> {
+	const rows: unknown[] = [];
+	for (let from = 0; ; from += BACKUP_PAGE_SIZE) {
+		const { data, error } = await sb
+			.from(table)
+			.select("*")
+			.order("id", { ascending: true })
+			.range(from, from + BACKUP_PAGE_SIZE - 1);
+
+		if (error) {
+			throw new Error(
+				`Backup dibatalkan — gagal membaca tabel "${table}": ${error.message}. ` +
+					"Cutoff TIDAK dijalankan supaya data tidak hilang tanpa backup.",
+			);
+		}
+		if (!data || data.length === 0) break;
+		rows.push(...data);
+		if (data.length < BACKUP_PAGE_SIZE) break;
+	}
+	return rows;
+}
+
+/**
  * Snapshot every table the cutoff will wipe. Read-only — used to build the
  * downloadable / Drive backup before the destructive reset.
+ *
+ * KONTRAK: fungsi ini MELEMPAR kalau ada satu saja tabel yang gagal dibaca.
+ * Sebelumnya kegagalan baca diubah jadi `[]` ("0 baris, aman") sementara
+ * wizard tetap menampilkan sukses dan membuka kunci wipe 12 tabel ledger —
+ * artinya jaring pengaman berlubang persis di titik paling berbahaya.
+ * Kedua pemanggil (wizard handleDownload/handleExcel/handleDrive) sudah
+ * menangkap error dan hanya menandai `downloaded` saat sukses.
  */
 export async function getCutoffBackup(): Promise<CutoffBackupPayload> {
 	await requireOwner();
 	const svc = serviceClient();
-	const sb = svc ?? (await createClient());
+	const sb = (svc ?? (await createClient())) as Awaited<
+		ReturnType<typeof createClient>
+	>;
 
 	const tables: CutoffBackupPayload["tables"] = {};
 	let totalRows = 0;
 	for (const t of CUTOFF_BACKUP_TABLES) {
-		const { data, error } = await sb.from(t).select("*");
-		const rows = error ? [] : (data ?? []);
+		const rows = await fetchAllRowsForBackup(sb, t);
 		tables[t] = { count: rows.length, rows };
 		totalRows += rows.length;
 	}

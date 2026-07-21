@@ -49,11 +49,23 @@ export async function updateInvestorShare(
 	// Guard: total share_pct semua owner/super_admin AKTIF tidak boleh > 100%.
 	// settle_event membagi owner pool proporsional dari jumlah share ini; >100%
 	// = over-alokasi. Substitusi nilai baru utk user ini lalu jumlahkan.
-	const { data: activeOwners } = await supabase
+	const { data: activeOwners, error: ownersErr } = await supabase
 		.from("users")
 		.select("id, share_pct")
 		.in("role", ["owner", "super_admin"])
 		.eq("is_active", true);
+
+	// Read ini ADALAH guard-nya. Kalau error-nya dibuang, activeOwners jadi
+	// null → sumPct tetap 0 → syarat `sumPct > 100` di bawah tidak akan pernah
+	// terpenuhi, jadi guard-nya mati diam-diam dan share bisa ditulis melewati
+	// 100% (mis. owner 60% berdampingan dengan dua pemegang 50% → settle_event
+	// mengalokasikan 160% owner pool ke 2-300 di SETIAP event berikutnya).
+	if (ownersErr) {
+		return {
+			error: `Gagal memverifikasi total share owner: ${ownersErr.message}`,
+		};
+	}
+
 	let sumPct = 0;
 	let userInActiveSet = false;
 	for (const u of activeOwners ?? []) {
