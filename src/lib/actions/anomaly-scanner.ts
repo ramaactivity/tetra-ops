@@ -5,6 +5,7 @@ import { computeForecast } from "@/lib/actions/forecast";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 type Severity = "alert" | "warning" | "info" | "success";
 type Category = "operational" | "financial" | "inventory" | "system";
@@ -339,7 +340,7 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 	}
 
 	revalidatePath("/notifications");
-	revalidatePath("/dashboard");
+	revalidateDashboard();
 	revalidatePath("/operations");
 	revalidatePath("/finance");
 	return result;

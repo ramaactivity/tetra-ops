@@ -50,6 +50,40 @@ export async function getCashAccountBalance(
 }
 
 /**
+ * Ambil SELURUH baris journal_lines dengan paginasi.
+ *
+ * Kenapa perlu: `.select(...)` tanpa `.range()` diam-diam terpotong di batas
+ * `db-max-rows` PostgREST (default Supabase 1000). Untuk permukaan yang
+ * MENJUMLAHKAN seluruh buku besar — Bagan Akun, Neraca, Laba-Rugi, Trial
+ * Balance, panel Rekonsiliasi — pemotongan diam-diam berarti neraca tidak
+ * balance dan cron rekonsiliasi meneriakkan drift di hampir semua akun, tanpa
+ * satu pun petunjuk bahwa datanya terpotong.
+ *
+ * `columns` dioper apa adanya supaya pemanggil tetap bisa menyertakan embed
+ * (mis. entry_date/is_reversed untuk laporan berperiode).
+ */
+export async function fetchAllJournalLines<T>(
+	supabase: AnySupabase,
+	columns: string,
+	// biome-ignore lint/suspicious/noExplicitAny: rantai builder PostgREST terlalu
+	// dalam untuk di-infer; pemanggil hanya menambah filter seperti .or()/.eq().
+	refine?: (q: any) => any,
+): Promise<T[]> {
+	const out: T[] = [];
+	for (let from = 0; ; from += PAGE) {
+		// biome-ignore lint/suspicious/noExplicitAny: idem
+		let q: any = supabase.from("journal_lines").select(columns);
+		if (refine) q = refine(q);
+		const { data, error } = await q.range(from, from + PAGE - 1);
+		if (error) throw new Error(`Gagal membaca journal_lines: ${error.message}`);
+		const rows = (data ?? []) as unknown as T[];
+		out.push(...rows);
+		if (rows.length < PAGE) break;
+	}
+	return out;
+}
+
+/**
  * Cek saldo cukup untuk `amountOut` keluar dari `accountCode`.
  * Return null kalau cukup; kalau kurang, return pesan error siap-tampil.
  */

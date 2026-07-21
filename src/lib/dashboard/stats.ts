@@ -1,6 +1,6 @@
 import "server-only";
 
-import { unstable_cache } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -269,11 +269,36 @@ async function fetchDashboardStats(
 	};
 }
 
+export const DASHBOARD_STATS_TAG = "dashboard-stats";
+
 const cachedDashboardStats = unstable_cache(
 	fetchDashboardStats,
 	["dashboard-stats"],
-	{ revalidate: 300, tags: ["dashboard-stats"] },
+	{ revalidate: 300, tags: [DASHBOARD_STATS_TAG] },
 );
+
+/**
+ * Buang cache dashboard SEKALIGUS Router Cache halamannya.
+ *
+ * revalidatePath("/dashboard") saja TIDAK CUKUP: angka di sini dibungkus
+ * unstable_cache dengan tag, dan tag hanya gugur lewat revalidateTag —
+ * `revalidateTag` sebelumnya tidak pernah dipanggil sama sekali di seluruh
+ * src/. Akibatnya membuat booking baru tidak muncul di KPI dashboard maupun
+ * "Event berikutnya" sampai 5 menit (masa revalidate) berlalu, dan owner
+ * mengira datanya hilang.
+ *
+ * Kenapa revalidateTag(tag, "max") dan bukan updateTag: di Next 16 updateTag
+ * memberi efek langsung (read-your-own-writes) tapi HANYA boleh dipanggil dari
+ * Server Action. Fungsi ini juga dipakai oleh jalur cron
+ * (status-transition, anomaly-scanner) yang berjalan di Route Handler, dan di
+ * sana updateTag akan melempar. "max" aman di kedua konteks: tag ditandai basi
+ * lalu disegarkan di latar belakang. Argumen kedua wajib sejak Next 16 —
+ * bentuk satu-argumen sudah deprecated.
+ */
+export function revalidateDashboard(): void {
+	revalidateTag(DASHBOARD_STATS_TAG, "max");
+	revalidatePath("/dashboard");
+}
 
 export function getDashboardStats(
 	params: DashboardStatsParams,

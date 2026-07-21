@@ -70,9 +70,14 @@ export const cariEvent: AiTool = {
 				type: "STRING",
 				description:
 					"Filter status event. Kosongkan untuk semua kecuali yang dibatalkan.",
+				// "draft" & "confirmed" DIBUANG: keduanya dilebur ke lifecycle
+				// berbasis tanggal oleh migrasi 20260618_simplify_event_lifecycle
+				// dan aplikasi tidak pernah menulisnya lagi. Selama masih
+				// terdaftar, pertanyaan "ada berapa event draft?" membuat model
+				// memfilter status=draft, mendapat nol baris, lalu menjawab
+				// "tidak ada event draft" — terdengar seperti pipeline bersih,
+				// padahal konsep itu sudah tidak ada.
 				enum: [
-					"draft",
-					"confirmed",
 					"upcoming",
 					"in_progress",
 					"awaiting_settlement",
@@ -101,7 +106,15 @@ export const cariEvent: AiTool = {
 			.is("deleted_at", null);
 
 		if (cari) {
-			q = q.or(`client_name.ilike.%${cari}%,venue_name.ilike.%${cari}%`);
+			// Netralkan karakter yang punya arti khusus di sintaks filter
+			// PostgREST. String `or=` dipecah berdasarkan koma, jadi pencarian
+			// "Bu Rina, Bu Sari" berubah jadi tiga term dengan term ketiga rusak →
+			// HTTP 400 → tool mengembalikan error dan AI melapor tidak bisa
+			// membaca jadwal. Tanda kurung pada nama venue ("Gedung A (Lantai 2)")
+			// merusaknya dengan cara yang sama. Pola pengamanan yang sama sudah
+			// dipakai di src/app/api/leads/export/route.ts:45.
+			const safe = cari.replace(/[%,()]/g, " ").trim();
+			q = q.or(`client_name.ilike.%${safe}%,venue_name.ilike.%${safe}%`);
 		} else {
 			q = q.gte("event_date", dari).lte("event_date", sampai);
 		}

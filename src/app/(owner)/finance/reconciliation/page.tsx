@@ -5,6 +5,7 @@ import { formatRupiah } from "@/lib/format";
 import { COGS_BUCKETS, inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 export const metadata = { title: "Rekonsiliasi" };
 
@@ -33,9 +34,11 @@ export default async function ReconciliationPage() {
 	const sb = await createClient();
 
 	// ── GL balances per account (raw = Σdebit − Σcredit) ──────────────────────
-	const { data: lines } = await sb
-		.from("journal_lines")
-		.select("account_code, debit_amount, credit_amount");
+	const lines = await fetchAllJournalLines<{
+		account_code: string;
+		debit_amount: number;
+		credit_amount: number;
+	}>(sb, "account_code, debit_amount, credit_amount");
 	const glRaw = new Map<string, number>();
 	for (const l of (lines ?? []) as Array<{
 		account_code: string;

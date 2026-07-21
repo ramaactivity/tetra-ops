@@ -198,9 +198,10 @@ export function BalanceSheetTable({
 						⚠ Neraca tidak seimbang
 					</div>
 					<div className="mt-1 text-muted-foreground">
-						Selisih {formatRupiah(diff)} antara Total Aset (
-						{formatRupiah(totalAssets)}) dan Total Kewajiban + Ekuitas (
-						{formatRupiah(totalLiaEquity)}). Bisa karena ada manual entry yang
+						Selisih <span data-nominal>{formatRupiah(diff)}</span> antara Total Aset (
+						<span data-nominal>{formatRupiah(totalAssets)}</span>) dan Total
+						Kewajiban + Ekuitas (
+						<span data-nominal>{formatRupiah(totalLiaEquity)}</span>). Bisa karena ada manual entry yang
 						ga balanced atau bug di settlement. Cek Trial Balance dulu.
 					</div>
 				</div>

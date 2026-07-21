@@ -26,6 +26,7 @@ import {
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 type Tab = "accounts" | "journal";
 
@@ -65,7 +66,7 @@ export default async function AccountingPage({
 	if (from) journalEntriesQuery = journalEntriesQuery.gte("entry_date", from);
 	if (to) journalEntriesQuery = journalEntriesQuery.lte("entry_date", to);
 
-	const [{ data: coa }, { data: lineData }, { data: rawEntries }] =
+	const [{ data: coa }, lineData, { data: rawEntries }] =
 		await Promise.all([
 			// Chart of accounts (all, incl. inactive — Bagan Akun toggles visibility).
 			supabase
@@ -74,9 +75,13 @@ export default async function AccountingPage({
 				.order("code"),
 			// Every journal line, all-time, for live balances. Reversed entries and
 			// their pembalik counter-entries both stay in and net to zero.
-			supabase
-				.from("journal_lines")
-				.select("account_code, debit_amount, credit_amount"),
+			// Paginated: satu select polos diam-diam terpotong di db-max-rows
+			// (1000) dan saldo Bagan Akun jadi salah tanpa peringatan.
+			fetchAllJournalLines<{
+				account_code: string;
+				debit_amount: number | string;
+				credit_amount: number | string;
+			}>(supabase, "account_code, debit_amount, credit_amount"),
 			journalEntriesQuery,
 		]);
 	const coaBase = (coa ?? []) as Array<{

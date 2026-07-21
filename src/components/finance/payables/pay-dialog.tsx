@@ -131,7 +131,7 @@ export function PayDialog({
 										onClick={() => setAmount(String(payable.remaining))}
 										className="press-down rounded-md border border-border-default bg-surface-2 px-2 py-0.5 font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 									>
-										Bayar penuh ({formatRupiah(payable.remaining)})
+										Bayar penuh (<span data-nominal>{formatRupiah(payable.remaining)}</span>)
 									</button>
 									{payable.remaining > 1 && (
 										<button
@@ -170,8 +170,12 @@ export function PayDialog({
 								{insufficient && (
 									<p className="text-xs font-medium text-rose-600">
 										Saldo {selectedAcct?.name} tidak cukup (
-										{formatRupiah(selectedAcct?.balance ?? 0)}) untuk keluar{" "}
-										{formatRupiah(cashOut)} — pilih rekening lain.
+										<span data-nominal>
+											{formatRupiah(selectedAcct?.balance ?? 0)}
+										</span>
+										) untuk keluar{" "}
+										<span data-nominal>{formatRupiah(cashOut)}</span> — pilih rekening
+										lain.
 									</p>
 								)}
 								<input

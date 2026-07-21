@@ -193,11 +193,11 @@ export function SettleButton(props: Props) {
 									<li>Generate journal entries (double-entry GL)</li>
 									<li>
 										Alokasi sinking funds (estimasi{" "}
-										{formatRupiah(props.sinkingEstimate)})
+										<span data-nominal>{formatRupiah(props.sinkingEstimate)}</span>)
 									</li>
 									<li>
 										Alokasi owner pool (estimasi{" "}
-										{formatRupiah(props.ownerPoolEstimate)})
+										<span data-nominal>{formatRupiah(props.ownerPoolEstimate)}</span>)
 									</li>
 									<li>Lock event + recap</li>
 									<li>Audit log + stock warning entry</li>
@@ -237,11 +237,11 @@ export function SettleButton(props: Props) {
 								<li>Generate journal entries (double-entry GL)</li>
 								<li>
 									Alokasi sinking funds (estimasi{" "}
-									{formatRupiah(props.sinkingEstimate)})
+									<span data-nominal>{formatRupiah(props.sinkingEstimate)}</span>)
 								</li>
 								<li>
 									Alokasi owner pool (estimasi{" "}
-									{formatRupiah(props.ownerPoolEstimate)})
+									<span data-nominal>{formatRupiah(props.ownerPoolEstimate)}</span>)
 								</li>
 								<li>Lock event + recap (tidak bisa di-edit lagi)</li>
 								<li>Audit log dengan timestamp + actor</li>

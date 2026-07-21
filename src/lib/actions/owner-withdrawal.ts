@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 // Sentinel untuk "Ambil semua owner sekaligus" pada field owner.
 const ALL_OWNERS = "__ALL__";
@@ -114,7 +115,7 @@ export async function recordOwnerWithdrawal(
 			if (error) return { error: error.message };
 			revalidatePath("/finance");
 			revalidatePath("/finance/accounting");
-			revalidatePath("/dashboard");
+			revalidateDashboard();
 			const refs = (data as { refs?: WithdrawalRef[] } | null)?.refs ?? [];
 			return { ok: true, refs };
 		}
@@ -163,7 +164,7 @@ export async function recordOwnerWithdrawal(
 
 		revalidatePath("/finance");
 		revalidatePath("/finance/accounting");
-		revalidatePath("/dashboard");
+		revalidateDashboard();
 		const refId = (data as { ref_id?: string } | null)?.ref_id;
 		return { ok: true, refId };
 	} catch (err) {

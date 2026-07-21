@@ -2797,7 +2797,7 @@ export function BookingForm({
 																{addon.name}
 															</div>
 															<div className="text-fluid-caption text-muted-foreground">
-																{formatRupiah(addon.price)} per {addon.unit}
+																<span data-nominal>{formatRupiah(addon.price)}</span> per {addon.unit}
 															</div>
 														</div>
 														{enabled ? (

@@ -11,6 +11,7 @@ import {
 } from "@/lib/csv-import/resilience";
 import type { ImportResult } from "@/lib/csv-import/types";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Auth
@@ -729,7 +730,7 @@ async function commitProjectImportInner(
 	}
 
 	revalidatePath("/operations");
-	revalidatePath("/dashboard");
+	revalidateDashboard();
 	revalidatePath("/settings/operations/import-projects");
 
 	return {

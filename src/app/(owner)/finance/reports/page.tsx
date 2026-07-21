@@ -13,6 +13,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 type Tab = "trial" | "pnl" | "neraca";
 
@@ -52,10 +53,11 @@ export default async function FinanceReportsPage({
 			.select("code, name, account_type")
 			.eq("is_active", true)
 			.order("code"),
-		supabase.from("journal_lines").select(
+		fetchAllJournalLines(
+			supabase,
 			`account_code, debit_amount, credit_amount,
 				 entry:journal_entries!journal_lines_entry_id_fkey(entry_date, is_reversed)`,
-		),
+		).then((d) => ({ data: d })),
 	]);
 
 	const accounts: CoaMeta[] = (coaData ?? []).map((c) => ({

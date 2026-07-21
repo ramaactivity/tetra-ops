@@ -7,6 +7,7 @@ import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramEventSettled } from "@/lib/telegram/notify";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 export type SettleEventResult = {
 	settlement_id: string;
@@ -115,7 +116,7 @@ export async function settleEvent(
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
-	revalidatePath("/dashboard");
+	revalidateDashboard();
 	revalidatePath("/finance");
 
 	// Thank the assigned crew that the event is closed (best-effort).
@@ -181,7 +182,7 @@ export async function reopenSettlement(
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
-	revalidatePath("/dashboard");
+	revalidateDashboard();
 	revalidatePath("/finance");
 
 	return { ok: true, data: data as ReopenResult };

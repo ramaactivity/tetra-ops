@@ -19,6 +19,7 @@ import {
 	categoryByCoa,
 } from "@/lib/finance/quick-record-categories";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 export type CashAccount = { code: string; name: string; balance: number };
 export type CoaOption = { code: string; name: string; account_type: string };
@@ -54,9 +55,13 @@ export async function loadCatatData(): Promise<CatatData> {
 				.select("code, name, account_type, is_active")
 				.eq("is_active", true)
 				.order("code"),
-			supabase
-				.from("journal_lines")
-				.select("account_code, debit_amount, credit_amount"),
+			fetchAllJournalLines<{
+				account_code: string;
+				debit_amount: number | string;
+				credit_amount: number | string;
+			}>(supabase, "account_code, debit_amount, credit_amount").then((d) => ({
+				data: d,
+			})),
 			supabase
 				.from("journal_entries")
 				.select(

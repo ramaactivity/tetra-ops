@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 async function requireAuth() {
 	const me = await getCurrentUser();
@@ -12,7 +13,7 @@ async function requireAuth() {
 
 function bumpCommonPaths() {
 	revalidatePath("/notifications");
-	revalidatePath("/dashboard");
+	revalidateDashboard();
 	revalidatePath("/operations");
 	revalidatePath("/finance");
 }

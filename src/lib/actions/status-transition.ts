@@ -7,6 +7,7 @@ import {
 	type DateTransitionResult,
 } from "@/lib/event-status-transition";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 export type StatusTransitionResult = DateTransitionResult;
 
@@ -37,7 +38,7 @@ export async function runStatusTransitionInternal(): Promise<StatusTransitionRes
 	const result = await applyDateTransitions(createAdminClient());
 
 	revalidatePath("/operations");
-	revalidatePath("/dashboard");
+	revalidateDashboard();
 	revalidatePath("/finance");
 
 	return result;

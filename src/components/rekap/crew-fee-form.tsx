@@ -159,7 +159,8 @@ export function CrewFeeForm({
 							<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
 							<div className="space-y-1 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
 								<p className="font-semibold">
-									Belum dibayar ke crew: {formatRupiah(unpaid)}
+									Belum dibayar ke crew:{" "}
+									<span data-nominal>{formatRupiah(unpaid)}</span>
 								</p>
 								<p>
 									Fee + reimbursement crew{" "}
@@ -268,7 +269,10 @@ export function CrewFeeForm({
 												className="rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
 												title="Set reimbursement crew ini = total field expense rekap"
 											>
-												= Total {formatRupiah(fieldExpenseBreakdown.total)}
+												= Total{" "}
+											<span data-nominal>
+												{formatRupiah(fieldExpenseBreakdown.total)}
+											</span>
 											</button>
 											{fieldExpenseBreakdown.items.map((it) => (
 												<button
@@ -282,7 +286,8 @@ export function CrewFeeForm({
 													}
 													className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
 												>
-													+ {it.label} {formatRupiah(it.amount)}
+													+ {it.label}{" "}
+												<span data-nominal>{formatRupiah(it.amount)}</span>
 												</button>
 											))}
 											{row.reimbursement_amount > 0 && (
@@ -529,7 +534,7 @@ function CrewPayPanel({
 											: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
 									}`}
 								>
-									{formatRupiah(v)}
+									<span data-nominal>{formatRupiah(v)}</span>
 								</button>
 							);
 						})}
@@ -550,8 +555,11 @@ function CrewPayPanel({
 					{insufficient ? (
 						<span className="font-medium text-rose-600">
 							Saldo {bankName(bankCode)} tidak cukup (
-							{formatRupiah(selectedAcct?.balance ?? 0)}) untuk keluar{" "}
-							{formatRupiah(cashOut)} — pilih rekening lain.
+							<span data-nominal>
+								{formatRupiah(selectedAcct?.balance ?? 0)}
+							</span>
+							) untuk keluar <span data-nominal>{formatRupiah(cashOut)}</span> —
+							pilih rekening lain.
 						</span>
 					) : (
 						<>
@@ -560,13 +568,18 @@ function CrewPayPanel({
 								{bankName(bankCode)}
 							</span>{" "}
 							berkurang{" "}
-							<span className="font-medium text-foreground">
+							<span className="font-medium text-foreground" data-nominal>
 								{formatRupiah(cashOut)}
 							</span>
-							{feeNum > 0
-								? ` (termasuk biaya admin ${formatRupiah(feeNum)})`
-								: ""}{" "}
-							· utang ke crew lunas {formatRupiah(totalFee)}
+							{feeNum > 0 ? (
+								<>
+									{" "}
+									(termasuk biaya admin{" "}
+									<span data-nominal>{formatRupiah(feeNum)}</span>)
+								</>
+							) : null}{" "}
+							· utang ke crew lunas{" "}
+							<span data-nominal>{formatRupiah(totalFee)}</span>
 						</>
 					)}
 				</p>
@@ -581,7 +594,8 @@ function CrewPayPanel({
 						</>
 					) : (
 						<>
-							<Wallet className="h-4 w-4" /> Bayar {formatRupiah(cashOut)}
+							<Wallet className="h-4 w-4" /> Bayar{" "}
+						<span data-nominal>{formatRupiah(cashOut)}</span>
 						</>
 					)}
 				</Button>

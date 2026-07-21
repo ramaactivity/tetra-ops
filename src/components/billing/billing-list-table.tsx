@@ -184,7 +184,8 @@ export function BillingListTable({ events, templates }: Props) {
 											icon={Coins}
 											className="font-semibold text-rose-600 dark:text-rose-400"
 										>
-											Sisa {formatRupiah(ev.remaining_balance)}
+											Sisa{" "}
+											<span data-nominal>{formatRupiah(ev.remaining_balance)}</span>
 										</Row>
 									) : null}
 								</div>

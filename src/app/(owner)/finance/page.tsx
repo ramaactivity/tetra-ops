@@ -29,6 +29,7 @@ import { listUnpaidCrew } from "@/lib/finance/unpaid-crew";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 function lastDayOfMonth(year: number, month: number): string {
 	const d = new Date(year, month, 0).getDate();
@@ -231,10 +232,13 @@ export default async function FinancePage({
 
 	// Mode Simpel — angka inti dari Buku Besar: uang di bank (1-1xx) & total utang
 	// (2-100 Hutang Crew + 2-101 Hutang Vendor).
-	const { data: glRows } = await supabase
-		.from("journal_lines")
-		.select("account_code, debit_amount, credit_amount")
-		.or("account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101");
+	const glRows = await fetchAllJournalLines<{
+		account_code: string;
+		debit_amount: number;
+		credit_amount: number;
+	}>(supabase, "account_code, debit_amount, credit_amount", (q) =>
+		q.or("account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101"),
+	);
 	let cashGl = 0;
 	let utangGl = 0;
 	let hutangCrewGl = 0; // saldo 2-100 saja — sumber kebenaran utang ke crew

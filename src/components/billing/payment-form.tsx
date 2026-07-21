@@ -241,7 +241,7 @@ export function PaymentForm({
 										active={amount === halfFill}
 										onClick={() => setAmount(halfFill)}
 									>
-										50% · {formatRupiah(halfFill)}
+										50% · <span data-nominal>{formatRupiah(halfFill)}</span>
 									</FillChip>
 								)}
 								<FillChip

@@ -488,7 +488,8 @@ export function QuickRecordCore({
 				</div>
 				{adminFee > 0 ? (
 					<p className="text-[11.5px] text-muted-foreground">
-						Total keluar {formatRupiah(amount + adminFee)} · biaya admin masuk
+						Total keluar <span data-nominal>{formatRupiah(amount + adminFee)}</span> ·
+						biaya admin masuk
 						beban bank (5-600)
 					</p>
 				) : null}
