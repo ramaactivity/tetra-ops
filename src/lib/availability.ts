@@ -66,6 +66,16 @@ export type AvailabilityEvent = {
 	package_duration_hours: number | null;
 	/** Acara dengan jeda: window aktif per-sesi. NULL/[] = satu blok. */
 	session_segments?: unknown;
+	/**
+	 * Geseran menit relatif tanggal yang ditanyakan. 0 = event di tanggal itu,
+	 * -1440 = event H-1.
+	 *
+	 * Perlu karena buffer melebarkan window 3-4 jam ke KIRI dan KANAN, jadi
+	 * event 19:00-23:30 di luar kota masih menahan unit sampai ~03:30 keesokan
+	 * harinya. Tanpa memuat event H-1 dengan geseran ini, permintaan pukul
+	 * 02:00 di tanggal berikutnya dilaporkan bebas padahal tidak.
+	 */
+	day_offset_min?: number;
 };
 
 export type Conflict = {
@@ -255,6 +265,15 @@ export function computeAvailability(params: {
 				windows = [{ start: s, end: e }];
 				timeLabel = `${formatHHMM(s)}-${formatHHMM(e)}`;
 			}
+		}
+
+		// Geser ke kerangka waktu tanggal yang ditanyakan (H-1 → negatif).
+		const dayShift = ev.day_offset_min ?? 0;
+		if (dayShift !== 0) {
+			windows = windows.map((w) => ({
+				start: w.start + dayShift,
+				end: w.end + dayShift,
+			}));
 		}
 
 		// Lebarkan tiap window dengan buffer, lalu MERGE agar satu event tak

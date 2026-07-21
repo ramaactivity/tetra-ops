@@ -179,6 +179,30 @@ export async function recordWastage(
 	const avgCost = cfg.purchase_price_avg ?? 0;
 	const costAtTime = Math.round(data.qty_base * avgCost);
 
+	// Guard stok: wastage adalah mutasi KELUAR yang diinput manual, jadi tidak
+	// boleh mendorong stok jadi minus. Sebelumnya satu-satunya validasi adalah
+	// qty_base > 0, padahal jalur manual sejenis di stock-movements.ts:180-195
+	// memblokirnya. Salah ketik "handling damage 50 pcs POUCH" saat stok tinggal
+	// 10 membuat stok jadi −40, dan semua perhitungan shortfall/forecast/varians
+	// opname yang bersumber dari get_stock_levels ikut salah sampai ada yang
+	// menyadarinya.
+	const { data: currentStock } = await supabase.rpc("get_current_stock", {
+		p_item_id: data.item_id,
+	});
+	const onHand = Math.max(0, Number(currentStock ?? 0));
+	if (onHand < data.qty_base) {
+		const fmt = (n: number) =>
+			n.toLocaleString("id-ID", { maximumFractionDigits: 3 });
+		return {
+			errors: {
+				qty_base: [
+					`Stok ${item.name} cuma ${fmt(onHand)} ${item.unit ?? ""} — tidak bisa mencatat kerusakan ${fmt(data.qty_base)} ${item.unit ?? ""}.`,
+				],
+			},
+			values: snapshot(formData),
+		};
+	}
+
 	// 2. INSERT stock_movements (direction=out, source=wastage)
 	const movementRef = newMovementRef();
 	const sourceDesc = `Wastage: ${data.reason}${data.reason_detail ? ` — ${data.reason_detail}` : ""}`;

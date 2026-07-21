@@ -63,10 +63,22 @@ export async function POST(req: NextRequest) {
 	const todayISO = isoDateUTC(wibNow());
 
 	const encoder = new TextEncoder();
+	// Sekali stream ditutup/dibatalkan, enqueue & close akan MELEMPAR. Tanpa
+	// penjaga ini, setiap kali user menekan Escape rantainya jadi: AbortError →
+	// catch memanggil send() → melempar lagi → finally memanggil close() →
+	// melempar lagi → start() reject tanpa penangkap → unhandled rejection plus
+	// stack "[ai/chat]" yang menyesatkan di log, seolah ada gangguan server.
+	let closed = false;
 	const stream = new ReadableStream<Uint8Array>({
 		async start(controller) {
 			const send = (event: AiStreamEvent) => {
-				controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+				if (closed || req.signal.aborted) return;
+				try {
+					controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+				} catch {
+					// Consumer sudah pergi — berhenti diam-diam, bukan error.
+					closed = true;
+				}
 			};
 			try {
 				for await (const event of runAgent({
@@ -88,15 +100,32 @@ export async function POST(req: NextRequest) {
 					send(event);
 				}
 			} catch (err) {
-				// Jangan bocorkan stack ke browser — cukup kalimat yang bisa ditindak.
-				console.error("[ai/chat]", err);
-				send({
-					type: "error",
-					message: "Ada gangguan di server. Coba lagi sebentar lagi.",
-				});
+				// Pembatalan oleh user BUKAN error — jangan dicatat sebagai gangguan.
+				const aborted =
+					req.signal.aborted ||
+					(err instanceof Error && err.name === "AbortError");
+				if (!aborted) {
+					// Jangan bocorkan stack ke browser — cukup kalimat yang bisa ditindak.
+					console.error("[ai/chat]", err);
+					send({
+						type: "error",
+						message: "Ada gangguan di server. Coba lagi sebentar lagi.",
+					});
+				}
 			} finally {
-				controller.close();
+				if (!closed) {
+					closed = true;
+					try {
+						controller.close();
+					} catch {
+						// Sudah tertutup dari sisi consumer.
+					}
+				}
 			}
+		},
+		cancel() {
+			// Dipanggil saat browser membatalkan (tombol Escape di tanya-chat).
+			closed = true;
 		},
 	});
 

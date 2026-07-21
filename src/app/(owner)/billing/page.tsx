@@ -77,7 +77,16 @@ export default async function BillingPage({
 		listQuery = listQuery.in("payment_status", ["dp", "partial"]);
 	else if (tab === "paid") listQuery = listQuery.eq("payment_status", "paid");
 	else if (tab === "overdue")
-		listQuery = listQuery.eq("payment_status", "overdue");
+		// Overdue DITURUNKAN dari tanggal, bukan dibaca dari kolom
+		// payment_status. Kolom itu hanya ditulis ulang oleh
+		// recalculate_event_payment_status saat ada pembayaran/perubahan event,
+		// dan tidak ada cron yang menurunkannya ulang seiring waktu — jadi
+		// invoice yang jatuh tempo kemarin tetap "unpaid" selamanya dan tab ini
+		// selalu kosong sementara uangnya benar-benar telat.
+		listQuery = listQuery
+			.lt("due_date", todayISO)
+			.gt("remaining_balance", 0)
+			.neq("payment_status", "paid");
 
 	const [
 		listResult,
@@ -98,13 +107,16 @@ export default async function BillingPage({
 			.eq("is_migrated_legacy", false)
 			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
-		// Overdue specifically (juga exclude legacy, konsisten dgn hanging)
+		// Overdue specifically (juga exclude legacy, konsisten dgn hanging).
+		// Sama seperti tab: diturunkan dari due_date, bukan kolom payment_status.
 		supabase
 			.from("events")
 			.select("remaining_balance")
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
-			.eq("payment_status", "overdue"),
+			.lt("due_date", todayISO)
+			.gt("remaining_balance", 0)
+			.neq("payment_status", "paid"),
 		// Collected this month
 		supabase
 			.from("payments")
@@ -120,7 +132,10 @@ export default async function BillingPage({
 			.gte("event_date", ymStart)
 			.lte("event_date", ymEnd),
 		// Tab counts
-		supabase.from("events").select("payment_status").is("deleted_at", null),
+		supabase
+			.from("events")
+			.select("payment_status, due_date, remaining_balance")
+			.is("deleted_at", null),
 		// WhatsApp templates
 		supabase
 			.from("whatsapp_templates")
@@ -174,7 +189,14 @@ export default async function BillingPage({
 		if (ps === "unpaid") tabCounts.unpaid++;
 		else if (ps === "dp" || ps === "partial") tabCounts.dp_partial++;
 		else if (ps === "paid") tabCounts.paid++;
-		else if (ps === "overdue") tabCounts.overdue++;
+		// Overdue TIDAK eksklusif terhadap tab lain: sebuah invoice bisa
+		// sekaligus "unpaid" dan sudah lewat jatuh tempo. Dihitung dari tanggal
+		// dengan predikat yang sama seperti query tab & KPI di atas.
+		const due = row.due_date as string | null;
+		const remaining = (row.remaining_balance as number | null) ?? 0;
+		if (ps !== "paid" && due && due < todayISO && remaining > 0) {
+			tabCounts.overdue++;
+		}
 	}
 
 	return (

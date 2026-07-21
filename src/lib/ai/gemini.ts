@@ -252,27 +252,38 @@ export async function* streamGemini(
 		}
 	}
 
-	while (true) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		// Normalkan CRLF: sebagian proxy mengubah pemisah SSE jadi \r\n\r\n,
-		// dan pemisah yang tak cocok = seluruh stream terbaca kosong.
-		buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+	// try/finally WAJIB: kalau consumer meninggalkan generator lebih awal
+	// (user menekan Escape → runAgent.return() → generator ini ditutup di titik
+	// `yield`), tanpa finally reader tidak pernah dilepas dan respons HTTP ke
+	// Google menggantung sampai GC.
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			// Normalkan CRLF: sebagian proxy mengubah pemisah SSE jadi \r\n\r\n,
+			// dan pemisah yang tak cocok = seluruh stream terbaca kosong.
+			buffer += decoder
+				.decode(value, { stream: true })
+				.replaceAll("\r\n", "\n");
 
-		// SSE: event dipisah baris kosong, payload pada baris "data: ".
-		let sep = buffer.indexOf("\n\n");
-		while (sep !== -1) {
-			const raw = buffer.slice(0, sep);
-			buffer = buffer.slice(sep + 2);
-			sep = buffer.indexOf("\n\n");
-			yield* parseBlock(raw);
+			// SSE: event dipisah baris kosong, payload pada baris "data: ".
+			let sep = buffer.indexOf("\n\n");
+			while (sep !== -1) {
+				const raw = buffer.slice(0, sep);
+				buffer = buffer.slice(sep + 2);
+				sep = buffer.indexOf("\n\n");
+				yield* parseBlock(raw);
+			}
 		}
-	}
 
-	// WAJIB: event TERAKHIR sering tidak diakhiri baris kosong sebelum stream
-	// ditutup. Tanpa flush ini blok itu hilang — pada jawaban pendek (mis. satu
-	// functionCall) artinya balasan terbaca KOSONG, pada jawaban panjang
-	// artinya kalimat penutup hilang diam-diam.
-	buffer += decoder.decode();
-	if (buffer.trim()) yield* parseBlock(buffer);
+		// WAJIB: event TERAKHIR sering tidak diakhiri baris kosong sebelum stream
+		// ditutup. Tanpa flush ini blok itu hilang — pada jawaban pendek (mis. satu
+		// functionCall) artinya balasan terbaca KOSONG, pada jawaban panjang
+		// artinya kalimat penutup hilang diam-diam.
+		buffer += decoder.decode();
+		if (buffer.trim()) yield* parseBlock(buffer);
+	} finally {
+		// Batalkan upstream; abaikan error kalau memang sudah selesai.
+		await reader.cancel().catch(() => {});
+	}
 }

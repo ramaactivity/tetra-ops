@@ -25,6 +25,7 @@ export type Segment = {
 };
 
 const HHMM_RE = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
+const MINUTES_PER_DAY = 24 * 60;
 
 /** "HH:MM" / "HH:MM:SS" → menit sejak tengah malam; null kalau invalid. */
 export function timeToMinutes(value: string | null | undefined): number | null {
@@ -148,8 +149,13 @@ export function activeMinutes(segments: Segment[]): number {
 	return segments.reduce((sum, s) => {
 		const a = timeToMinutes(s.start);
 		const b = timeToMinutes(s.end);
-		if (a === null || b === null || b <= a) return sum;
-		return sum + (b - a);
+		if (a === null || b === null) return sum;
+		// b < a berarti sesi melewati tengah malam (mis. 22:00-01:00 = 3 jam).
+		// Sebelumnya syaratnya `b <= a` yang membuang sesi semacam itu sebagai 0,
+		// sehingga acara larut malam dilaporkan "0 menit" aktif.
+		// b === a tetap 0 (durasi nol), bukan 24 jam.
+		if (b === a) return sum;
+		return sum + (b < a ? b + MINUTES_PER_DAY - a : b - a);
 	}, 0);
 }
 

@@ -58,14 +58,24 @@ export async function GET(req: NextRequest) {
 		);
 	}
 
-	// ── Ambil booking di tanggal itu ──────────────────────────────────────────
+	// ── Ambil booking tanggal itu DAN H-1 ─────────────────────────────────────
+	// H-1 ikut dimuat karena buffer melebarkan window 3-4 jam: event 19:00-23:30
+	// di luar kota baru benar-benar melepas unit sekitar 03:30 keesokan harinya.
+	// Sebelumnya query hanya `.eq("event_date", date)`, jadi permintaan dini hari
+	// dilaporkan bebas padahal unitnya masih tertahan.
+	const prevDate = (() => {
+		const d = new Date(`${date}T00:00:00Z`);
+		d.setUTCDate(d.getUTCDate() - 1);
+		return d.toISOString().slice(0, 10);
+	})();
+
 	const supabase = createAdminClient();
 	const { data, error } = await supabase
 		.from("events")
 		.select(
-			"client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
+			"event_date, client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
 		)
-		.eq("event_date", date)
+		.in("event_date", [prevDate, date])
 		.is("deleted_at", null);
 
 	if (error) {
@@ -73,6 +83,7 @@ export async function GET(req: NextRequest) {
 	}
 
 	type Row = {
+		event_date: string;
 		client_name: string | null;
 		start_time: string | null;
 		end_time: string | null;
@@ -95,6 +106,9 @@ export async function GET(req: NextRequest) {
 			session_segments: r.session_segments,
 			venue_city: r.venue_city,
 			package_duration_hours: r.package?.duration_hours ?? null,
+			// Event H-1 digeser ke kerangka waktu tanggal yang diminta, supaya
+			// ekor buffer-nya yang melewati tengah malam tetap terhitung.
+			day_offset_min: r.event_date === prevDate ? -1440 : 0,
 		}));
 
 	const result = computeAvailability({

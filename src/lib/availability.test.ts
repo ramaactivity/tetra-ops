@@ -98,3 +98,37 @@ test("tiga event bersamaan → penuh (units_free 0)", () => {
 	});
 	assert.equal(res.units_free, 0);
 });
+
+test("ekor buffer event H-1 masih menahan unit setelah lewat tengah malam", () => {
+	// Event H-1 pukul 19:00-23:30. Dengan buffer default 180 menit, unitnya baru
+	// benar-benar lepas sekitar 02:30 keesokan harinya.
+	//
+	// Regresi: route hanya mengambil `.eq("event_date", date)`, jadi event H-1
+	// tidak pernah dimuat dan permintaan dini hari dilaporkan bebas penuh.
+	// day_offset_min menggeser window-nya ke kerangka waktu tanggal yang diminta.
+	const events = [
+		ev({
+			start_time: "19:00",
+			end_time: "23:30",
+			day_offset_min: -1440,
+		}),
+	];
+
+	// Permintaan 01:00-02:00 di tanggal berikutnya → masih dalam ekor buffer.
+	const bentrok = computeAvailability({
+		reqStart: HHMM(1),
+		reqEnd: HHMM(2),
+		reqCity: null,
+		events,
+	});
+	assert.equal(bentrok.units_free, 2, "unit H-1 harus masih tertahan");
+
+	// Permintaan siang hari berikutnya → sudah lepas.
+	const bebas = computeAvailability({
+		reqStart: HHMM(10),
+		reqEnd: HHMM(12),
+		reqCity: null,
+		events,
+	});
+	assert.equal(bebas.units_free, 3, "siang hari berikutnya harus bebas penuh");
+});

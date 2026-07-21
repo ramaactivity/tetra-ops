@@ -13,7 +13,15 @@ export const runtime = "nodejs";
  */
 
 function csvCell(value: string | null | undefined): string {
-	const s = (value ?? "").toString();
+	let s = (value ?? "").toString();
+	// Netralkan formula injection: Excel/Sheets mengeksekusi sel yang diawali
+	// = + - @ (juga tab/CR yang dipakai sebagai varian bypass). Pesan WhatsApp
+	// dari lead adalah teks yang dikirim orang luar, jadi lead yang menulis
+	// `=HYPERLINK(...)` akan menjadi formula HIDUP begitu owner membuka hasil
+	// ekspor. Awalan kutip satu memaksa Excel memperlakukannya sebagai teks.
+	if (/^[=+\-@\t\r]/.test(s)) {
+		s = `'${s}`;
+	}
 	// Quote if the cell contains a comma, quote, or newline; escape quotes.
 	if (/[",\n\r]/.test(s)) {
 		return `"${s.replace(/"/g, '""')}"`;

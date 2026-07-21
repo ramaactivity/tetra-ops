@@ -27,11 +27,17 @@ export async function getAssignableCrew(
 				.from("crew_assignments")
 				.select("user_id")
 				.eq("event_id", eventId),
+			// Event yang dibatalkan / terhapus TIDAK menahan crew. Tanpa filter ini,
+			// booking Sabtu yang sudah dibatalkan tetap memunculkan badge "bentrok"
+			// merah pada setiap crew yang dulu ditugaskan di sana, sehingga owner
+			// terdorong memilih crew yang kurang cocok untuk event penggantinya.
 			supabase
 				.from("events")
 				.select("id")
 				.eq("event_date", eventDate)
-				.neq("id", eventId),
+				.neq("id", eventId)
+				.is("deleted_at", null)
+				.neq("status", "cancelled"),
 		]);
 
 	const assignedSet = new Set(

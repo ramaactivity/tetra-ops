@@ -177,6 +177,28 @@ export async function updateStockTakeLine(
 	}
 
 	const supabase = await createClient();
+
+	// Hanya opname berstatus draft yang boleh diubah. Tanpa penjaga ini, tab
+	// opname yang basi masih bisa menyunting counted_qty SETELAH commit dari tab
+	// lain: `variance` adalah generated column, jadi jejak audit yang sudah
+	// ter-commit menampilkan selisih yang TIDAK cocok dengan movement & jurnal
+	// yang benar-benar diposting. Saudaranya updateStockTakeNotes dan
+	// cancelStockTake sudah memeriksa ini.
+	const { data: parent, error: parentErr } = await supabase
+		.from("stock_takes")
+		.select("status")
+		.eq("id", parsed.data.stock_take_id)
+		.maybeSingle();
+	if (parentErr) return { ok: false, error: parentErr.message };
+	if (!parent) return { ok: false, error: "Opname tidak ditemukan" };
+	if (parent.status !== "draft") {
+		return {
+			ok: false,
+			error:
+				"Opname ini sudah di-commit — barisnya tidak bisa diubah lagi. Muat ulang halaman untuk melihat data terbaru.",
+		};
+	}
+
 	const { error } = await supabase
 		.from("stock_take_lines")
 		.update({

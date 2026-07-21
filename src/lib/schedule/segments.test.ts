@@ -118,3 +118,14 @@ test("describeSchedule menandai gapBeforeMin & activeMin", () => {
 	assert.equal(single.sessions.length, 1);
 	assert.equal(single.activeMin, 360);
 });
+
+test("activeMinutes menghitung sesi yang melewati tengah malam", () => {
+	// Regresi: syarat lama `b <= a` membuang sesi lintas tengah malam sebagai 0,
+	// jadi acara larut malam dilaporkan "0 menit" aktif.
+	assert.equal(activeMinutes([{ start: "22:00", end: "01:00" }]), 3 * 60);
+	assert.equal(activeMinutes([{ start: "23:30", end: "00:30" }]), 60);
+	// Durasi nol tetap 0, bukan 24 jam.
+	assert.equal(activeMinutes([{ start: "10:00", end: "10:00" }]), 0);
+	// Sesi normal tidak berubah.
+	assert.equal(activeMinutes([{ start: "09:00", end: "17:00" }]), 8 * 60);
+});
