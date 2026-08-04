@@ -56,19 +56,27 @@ export function JurnalTable({
 	rows,
 	defaultFrom,
 	defaultTo,
+	focusRef,
 }: {
 	rows: JournalEntryRow[];
 	defaultFrom?: string;
 	defaultTo?: string;
+	/** ref_id yang datang dari deep-link — cari otomatis & buka barisnya. */
+	focusRef?: string;
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const params = useSearchParams();
 
-	const [query, setQuery] = useState("");
+	// Deep-link: isi kotak cari dengan ref-nya (jadi terlihat KENAPA daftarnya
+	// menyusut, dan owner tinggal mengosongkan untuk kembali ke daftar penuh)
+	// sekaligus langsung buka rinciannya.
+	const [query, setQuery] = useState(focusRef ?? "");
 	const [sourceFilter, setSourceFilter] = useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-	const [expanded, setExpanded] = useState<string | null>(null);
+	const [expanded, setExpanded] = useState<string | null>(
+		() => rows.find((r) => r.ref_id === focusRef)?.id ?? null,
+	);
 
 	const sourceOptions = useMemo(() => {
 		const set = new Set<string>();

@@ -39,38 +39,60 @@ export default async function ManagePaymentsPage({
 		.maybeSingle();
 	if (!event) notFound();
 
-	const [{ data: paymentsData }, { data: banks }, { data: dpCfg }] =
-		await Promise.all([
-			supabase
-				.from("payments")
-				.select(
-					"id, ref_id, amount, payment_date, payment_type, proof_url, notes, is_reversed, reversal_reason, bank:bank_accounts(bank_name, account_number)",
-				)
-				.eq("event_id", event.id)
-				.order("payment_date", { ascending: false }),
-			supabase
-				.from("bank_accounts")
-				.select("id, bank_name, account_number, account_holder")
-				.eq("is_active", true)
-				.order("is_default_receive", { ascending: false })
-				.order("bank_name", { ascending: true }),
-			// Nominal DP standar Tetra — dibaca dari setting, bukan ditanam di
-			// komponen, supaya kebijakannya punya satu sumber kebenaran.
-			supabase
-				.from("system_config")
-				.select("value")
-				.eq("key", "default_dp_amount")
-				.maybeSingle(),
-		]);
+	const [
+		{ data: paymentsData },
+		{ data: banks },
+		{ data: dpCfg },
+		{ data: paymentJEs },
+	] = await Promise.all([
+		supabase
+			.from("payments")
+			.select(
+				"id, ref_id, amount, payment_date, payment_type, proof_url, notes, is_reversed, reversal_reason, bank:bank_accounts(bank_name, account_number)",
+			)
+			.eq("event_id", event.id)
+			.order("payment_date", { ascending: false }),
+		supabase
+			.from("bank_accounts")
+			.select("id, bank_name, account_number, account_holder")
+			.eq("is_active", true)
+			.order("is_default_receive", { ascending: false })
+			.order("bank_name", { ascending: true }),
+		// Nominal DP standar Tetra — dibaca dari setting, bukan ditanam di
+		// komponen, supaya kebijakannya punya satu sumber kebenaran.
+		supabase
+			.from("system_config")
+			.select("value")
+			.eq("key", "default_dp_amount")
+			.maybeSingle(),
+		// Jurnal per pembayaran, untuk tombol "Lihat di jurnal". Difilter
+		// lewat source_event_id (sudah diketahui) alih-alih daftar id
+		// payment, jadi tetap muat di batch paralel yang sama.
+		supabase
+			.from("journal_entries")
+			.select("ref_id, source_id")
+			.eq("source_event_id", event.id)
+			.eq("source_type", "payment"),
+	]);
 
 	const defaultDpAmount =
 		typeof dpCfg?.value === "number" && dpCfg.value > 0
 			? dpCfg.value
 			: undefined;
 
+	// payment.id → ref jurnalnya. Pembayaran pre-cutoff (dicatat sebelum mesin
+	// jurnal ada, atau koreksi manual yang uangnya sudah masuk saldo awal)
+	// memang tidak punya entry — nilainya null dan tombolnya tidak dirender.
+	const journalRefByPayment = new Map(
+		(paymentJEs ?? [])
+			.filter((j) => j.source_id)
+			.map((j) => [j.source_id as string, j.ref_id as string]),
+	);
+
 	const payments = (paymentsData ?? []).map((p) => ({
 		...p,
 		bank: Array.isArray(p.bank) ? p.bank[0] : p.bank,
+		journal_ref: journalRefByPayment.get(p.id as string) ?? null,
 	})) as PaymentRow[];
 
 	const today = new Date().toISOString().slice(0, 10);

@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Loader2, RotateCcw } from "lucide-react";
+import { BookOpen, ExternalLink, Loader2, RotateCcw } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ export type PaymentRow = {
 	is_reversed: boolean;
 	reversal_reason: string | null;
 	bank: { bank_name: string; account_number: string | null } | null;
+	/** ref_id jurnal pembayaran ini. null = memang tak berjurnal (pre-cutoff). */
+	journal_ref: string | null;
 };
 
 export function PaymentList({
@@ -144,6 +146,20 @@ function PaymentItem({
 			</div>
 
 			<div className="flex shrink-0 items-center gap-0.5">
+				{payment.journal_ref && (
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						render={
+							<a
+								href={`/finance/accounting?tab=journal&entry=${encodeURIComponent(payment.journal_ref)}`}
+								title={`Lihat di jurnal · ${payment.journal_ref}`}
+							>
+								<BookOpen />
+							</a>
+						}
+					/>
+				)}
 				{payment.proof_url && (
 					<Button
 						variant="ghost"

@@ -23,17 +23,23 @@ import {
 	type LineForBalance,
 	summarizePosition,
 } from "@/lib/finance/accounting";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 type Tab = "accounts" | "journal";
 
 export default async function AccountingPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ tab?: string; from?: string; to?: string }>;
+	searchParams: Promise<{
+		tab?: string;
+		from?: string;
+		to?: string;
+		/** ref_id jurnal yang mau disorot (deep-link dari Riwayat payment dll). */
+		entry?: string;
+	}>;
 }) {
 	const me = await getCurrentUser();
 	if (!me) redirect("/login");
@@ -41,32 +47,34 @@ export default async function AccountingPage({
 		redirect("/finance");
 	}
 
-	const { tab: tabRaw, from, to } = await searchParams;
-	const tab: Tab = tabRaw === "journal" ? "journal" : "accounts";
+	const { tab: tabRaw, from, to, entry: focusRef } = await searchParams;
+	// Deep-link ke satu entry selalu berarti tab Jurnal — kalau tidak, link dari
+	// Riwayat payment mendarat di Bagan Akun dan sorotan tak pernah terlihat.
+	const tab: Tab = tabRaw === "journal" || focusRef ? "journal" : "accounts";
 
 	const supabase = await createClient();
+
+	const JOURNAL_SELECT = `id, ref_id, entry_date, entry_type, description, source_type,
+		 source_id, total_amount, is_reversed, reversed_at, created_at,
+		 created_by_user:users!journal_entries_created_by_fkey(full_name),
+		 lines:journal_lines(
+			 id, account_code, debit_amount, credit_amount, description, line_order,
+			 account:chart_of_accounts!journal_lines_account_code_fkey(name)
+		 )`;
 
 	// Chart of accounts, all journal lines (for live balances), and recent
 	// journal entries (Jurnal tab) are independent — fetch in parallel (one
 	// round-trip instead of three sequential ones).
 	let journalEntriesQuery = supabase
 		.from("journal_entries")
-		.select(
-			`id, ref_id, entry_date, entry_type, description, source_type,
-			 source_id, total_amount, is_reversed, reversed_at, created_at,
-			 created_by_user:users!journal_entries_created_by_fkey(full_name),
-			 lines:journal_lines(
-				 id, account_code, debit_amount, credit_amount, description, line_order,
-				 account:chart_of_accounts!journal_lines_account_code_fkey(name)
-			 )`,
-		)
+		.select(JOURNAL_SELECT)
 		.order("entry_date", { ascending: false })
 		.order("created_at", { ascending: false })
 		.limit(200);
 	if (from) journalEntriesQuery = journalEntriesQuery.gte("entry_date", from);
 	if (to) journalEntriesQuery = journalEntriesQuery.lte("entry_date", to);
 
-	const [{ data: coa }, lineData, { data: rawEntries }] =
+	const [{ data: coa }, lineData, { data: listEntries }, { data: focusEntry }] =
 		await Promise.all([
 			// Chart of accounts (all, incl. inactive — Bagan Akun toggles visibility).
 			supabase
@@ -83,6 +91,16 @@ export default async function AccountingPage({
 				credit_amount: number | string;
 			}>(supabase, "account_code, debit_amount, credit_amount"),
 			journalEntriesQuery,
+			// Deep-link: entry yang disorot mungkin di luar 200 terbaru atau di
+			// luar rentang tanggal aktif. Ambil terpisah lalu gabungkan, supaya
+			// link dari Riwayat payment tidak pernah mendarat di daftar kosong.
+			focusRef
+				? supabase
+						.from("journal_entries")
+						.select(JOURNAL_SELECT)
+						.eq("ref_id", focusRef)
+						.limit(1)
+				: Promise.resolve({ data: null }),
 		]);
 	const coaBase = (coa ?? []) as Array<{
 		code: string;
@@ -124,10 +142,17 @@ export default async function AccountingPage({
 	});
 
 	// Recent journal entries (with lines) for the Jurnal tab — already fetched
-	// above in the parallel batch (rawEntries).
+	// above in the parallel batch. Entry yang di-deep-link disisipkan di depan
+	// kalau belum ikut terbawa daftar (dedupe by id).
+	const listRows = (listEntries ?? []) as Array<{ id: string }>;
+	const extraFocus = ((focusEntry ?? []) as Array<{ id: string }>).filter(
+		(f) => !listRows.some((r) => r.id === f.id),
+	);
+	const rawEntries = [...extraFocus, ...listRows];
+
 	let journalRows: JournalEntryRow[] = [];
 	journalRows = (
-		(rawEntries ?? []) as Array<{
+		rawEntries as Array<{
 			id: string;
 			ref_id: string;
 			entry_date: string;
@@ -266,7 +291,12 @@ export default async function AccountingPage({
 				{tab === "accounts" ? (
 					<BaganAkunTable rows={coaRows} />
 				) : (
-					<JurnalTable rows={journalRows} defaultFrom={from} defaultTo={to} />
+					<JurnalTable
+						rows={journalRows}
+						defaultFrom={from}
+						defaultTo={to}
+						focusRef={focusRef}
+					/>
 				)}
 			</div>
 		</Container>
