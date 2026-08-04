@@ -7,7 +7,7 @@ import {
 	UploadCloud,
 	XCircle,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useImperativeHandle, useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 
 const ACCEPT =
@@ -61,6 +61,19 @@ export async function uploadProofToDrive(
 	return { url: data.url, name: data.name ?? null };
 }
 
+/**
+ * Kendali imperatif untuk entry-point lain (mis. dropzone di panel preview)
+ * supaya file yang masuk lewat jalur mana pun tetap melewati state machine
+ * yang sama — label tombol ("Terpilih", "Mengunggah…") jadi tidak pernah
+ * desync dengan isi panel preview.
+ */
+export type ProofUploadHandle = {
+	/** Buka file picker milik tombol ini. */
+	open: () => void;
+	/** Suapkan file yang sudah didapat dari luar (mis. hasil drag & drop). */
+	accept: (file: File) => void;
+};
+
 export function ProofUploadButton({
 	projectId,
 	onUploaded,
@@ -68,6 +81,7 @@ export function ProofUploadButton({
 	disabled = false,
 	deferred = false,
 	meta,
+	controlRef,
 }: {
 	projectId: string;
 	onUploaded: (url: string, fileName?: string) => void;
@@ -78,6 +92,8 @@ export function ProofUploadButton({
 	    sekarang. Caller yang upload saat submit → tak ada file yatim di Drive. */
 	deferred?: boolean;
 	meta?: PaymentProofMeta;
+	/** Beri akses ke picker/handler dari luar — lihat ProofUploadHandle. */
+	controlRef?: React.Ref<ProofUploadHandle>;
 }) {
 	const fileRef = useRef<HTMLInputElement | null>(null);
 	const [state, setState] = useState<
@@ -114,6 +130,18 @@ export function ProofUploadButton({
 			toast.error(msg);
 		}
 	}
+
+	// Sengaja TANPA dependency array: handle harus selalu memakai closure
+	// terbaru. `meta` (tipe/tanggal/nominal) berubah tiap ketikan owner, dan
+	// itulah yang dipakai untuk menamai file di Drive — handle yang dibekukan
+	// akan mengunggah dengan nama dari nilai lama.
+	useImperativeHandle(controlRef, () => ({
+		open: trigger,
+		accept: (file: File) => {
+			if (disabled || state.phase === "uploading") return;
+			handleFile(file);
+		},
+	}));
 
 	const Icon =
 		state.phase === "uploading"

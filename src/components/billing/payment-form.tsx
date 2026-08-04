@@ -1,9 +1,10 @@
 "use client";
 
 import { FileText, Image as ImageIcon, Link2 } from "lucide-react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
 	ProofUploadButton,
+	type ProofUploadHandle,
 	uploadProofToDrive,
 } from "@/components/billing/proof-upload-button";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,13 @@ export function PaymentForm({
 	// klik "Log payment"), bukan saat dipilih — jadi kalau owner batal, tidak
 	// ada file yatim yang terlanjur naik.
 	const [uploadingProof, setUploadingProof] = useState(false);
+
+	// Panel preview merangkap dropzone: klik/drop di sana diteruskan ke picker
+	// milik ProofUploadButton, jadi cuma ada SATU state machine bukti (label
+	// tombol tak pernah desync dengan isi panel).
+	const proofControl = useRef<ProofUploadHandle | null>(null);
+	const [draggingProof, setDraggingProof] = useState(false);
+	const proofLocked = pending || uploadingProof;
 
 	// Local preview of the picked bukti image (revoked on change/unmount).
 	useEffect(() => {
@@ -329,6 +337,7 @@ export function PaymentForm({
 							<ProofUploadButton
 								projectId={projectId}
 								deferred
+								controlRef={proofControl}
 								onUploaded={setProofUrl}
 								onFileSelected={setProofFile}
 								meta={{
@@ -357,12 +366,41 @@ export function PaymentForm({
 					<span className="type-label block text-foreground">
 						Preview bukti
 					</span>
+					{/* Panel ini juga dropzone: file yang dijatuhkan di mana pun di
+					    dalamnya (termasuk di atas pratinjau, untuk mengganti bukti)
+					    diteruskan ke picker milik ProofUploadButton. */}
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: drag & drop
+					    memang pointer-only. Padanan yang bisa diakses keyboard sudah
+					    ada dan bukan di elemen ini — tombol "Belum ada bukti" di
+					    dalamnya plus tombol Upload di kolom kiri. Memberi role pada
+					    div ini justru mengumumkan target yang tak bisa difokus. */}
 					<div
+						onDragOver={(e) => {
+							if (proofLocked) return;
+							e.preventDefault();
+							setDraggingProof(true);
+						}}
+						onDragLeave={(e) => {
+							// Abaikan drag yang cuma pindah antar anak elemen.
+							if (e.currentTarget.contains(e.relatedTarget as Node | null)) {
+								return;
+							}
+							setDraggingProof(false);
+						}}
+						onDrop={(e) => {
+							e.preventDefault();
+							setDraggingProof(false);
+							if (proofLocked) return;
+							const file = e.dataTransfer.files?.[0];
+							if (file) proofControl.current?.accept(file);
+						}}
 						className={cn(
 							"flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-2xl transition-colors",
-							hasProof
-								? "border border-border-default bg-secondary/20"
-								: "border border-dashed border-border-strong/50 bg-secondary/30",
+							draggingProof
+								? "border border-dashed border-primary bg-primary/5"
+								: hasProof
+									? "border border-border-default bg-secondary/20"
+									: "border border-dashed border-border-strong/50 bg-secondary/30",
 						)}
 					>
 						{previewUrl ? (
@@ -397,12 +435,20 @@ export function PaymentForm({
 								captionClassName="truncate"
 							/>
 						) : (
-							<PreviewState
-								tone="muted"
-								icon={<ImageIcon className="size-6" aria-hidden />}
-								title="Belum ada bukti"
-								caption="Tarik atau Upload bukti transfer — pratinjau muncul di sini."
-							/>
+							<button
+								type="button"
+								onClick={() => proofControl.current?.open()}
+								disabled={proofLocked}
+								title="Pilih bukti transfer"
+								className="press tap flex flex-1 cursor-pointer flex-col rounded-2xl text-left transition-colors hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								<PreviewState
+									tone="muted"
+									icon={<ImageIcon className="size-6" aria-hidden />}
+									title="Belum ada bukti"
+									caption="Tarik atau klik untuk lampirkan bukti transfer — gambar atau PDF."
+								/>
+							</button>
 						)}
 					</div>
 				</div>
