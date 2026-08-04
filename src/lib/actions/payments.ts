@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const PAYMENT_TYPES = ["dp", "partial", "pelunasan"] as const;
@@ -115,6 +116,30 @@ export async function logPayment(
 				errors: {
 					_form: [
 						"Event sudah di-settle — pembayaran terkunci. Reopen settlement dulu kalau perlu koreksi.",
+					],
+				},
+				values: snapshotValues(formData),
+			};
+		}
+		// Guard cutoff: jurnal dibukukan dengan entry_date = payment_date, dan
+		// neraca menjumlahkan semua baris tanpa filter tanggal. Uang yang masuk
+		// sebelum cutoff sudah tercakup di saldo awal hasil hitung fisik —
+		// mencatatnya lagi bikin kas dobel. Backstop-nya ada di
+		// record_payment_je_impl; ini supaya pesannya nempel di field tanggal.
+		const { data: cutoffCfg } = await supabase
+			.from("system_config")
+			.select("value")
+			.eq("key", "finance_cutoff_date")
+			.maybeSingle();
+		const cutoff =
+			typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
+				? cutoffCfg.value
+				: null;
+		if (cutoff && parsed.data.payment_date < cutoff) {
+			return {
+				errors: {
+					payment_date: [
+						`Sebelum cutoff keuangan (${formatDateID(cutoff)}). Uang yang masuk sebelum cutoff sudah termasuk di saldo awal — kalau dicatat lagi kas jadi dobel.`,
 					],
 				},
 				values: snapshotValues(formData),
