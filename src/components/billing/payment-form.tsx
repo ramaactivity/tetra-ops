@@ -38,6 +38,7 @@ export function PaymentForm({
 	suggestedAmount,
 	grandTotal,
 	totalPaid,
+	defaultDpAmount,
 	onSuccess,
 }: {
 	eventId: string;
@@ -47,6 +48,8 @@ export function PaymentForm({
 	suggestedAmount?: number;
 	grandTotal?: number;
 	totalPaid?: number;
+	/** Nominal DP standar (system_config.default_dp_amount) untuk chip isi-cepat. */
+	defaultDpAmount?: number;
 	onSuccess?: () => void;
 }) {
 	const action = logPayment.bind(null, eventId, projectId);
@@ -119,6 +122,17 @@ export function PaymentForm({
 	// Quick-fill chips: half + full. Rounded to the nearest 1.000 so the
 	// number stays human (50% of an odd remainder is rarely a clean figure).
 	const halfFill = Math.round(remaining / 2 / 1000) * 1000;
+
+	// DP standar Tetra. Hanya ditawarkan kalau masih di bawah sisa tagihan —
+	// kalau sisanya justru ≤ DP, chip "Lunasi penuh" yang benar, dan nominal
+	// di atas sisa akan ditolak guard overpayment.
+	const dpFill = defaultDpAmount ?? 0;
+	const showDpFill = dpFill > 0 && dpFill < remaining;
+	// Jangan tampilkan dua chip dengan angka identik.
+	const showHalfFill =
+		halfFill > 0 &&
+		halfFill < remaining &&
+		!(showDpFill && halfFill === dpFill);
 
 	const hasProof = !!(previewUrl || proofFile || proofUrl);
 
@@ -244,7 +258,19 @@ export function PaymentForm({
 							</p>
 						) : hasRemaining ? (
 							<div className="flex flex-wrap gap-1.5 pt-0.5">
-								{halfFill > 0 && halfFill < remaining && (
+								{showDpFill && (
+									<FillChip
+										active={amount === dpFill}
+										onClick={() => {
+											setAmount(dpFill);
+											// Chip berlabel DP → samakan tipenya, mirror "Lunasi penuh".
+											setPaymentType("dp");
+										}}
+									>
+										DP · <span data-nominal>{formatRupiah(dpFill)}</span>
+									</FillChip>
+								)}
+								{showHalfFill && (
 									<FillChip
 										active={amount === halfFill}
 										onClick={() => setAmount(halfFill)}

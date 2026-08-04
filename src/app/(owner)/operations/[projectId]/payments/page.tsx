@@ -39,21 +39,34 @@ export default async function ManagePaymentsPage({
 		.maybeSingle();
 	if (!event) notFound();
 
-	const [{ data: paymentsData }, { data: banks }] = await Promise.all([
-		supabase
-			.from("payments")
-			.select(
-				"id, ref_id, amount, payment_date, payment_type, proof_url, notes, is_reversed, reversal_reason, bank:bank_accounts(bank_name, account_number)",
-			)
-			.eq("event_id", event.id)
-			.order("payment_date", { ascending: false }),
-		supabase
-			.from("bank_accounts")
-			.select("id, bank_name, account_number, account_holder")
-			.eq("is_active", true)
-			.order("is_default_receive", { ascending: false })
-			.order("bank_name", { ascending: true }),
-	]);
+	const [{ data: paymentsData }, { data: banks }, { data: dpCfg }] =
+		await Promise.all([
+			supabase
+				.from("payments")
+				.select(
+					"id, ref_id, amount, payment_date, payment_type, proof_url, notes, is_reversed, reversal_reason, bank:bank_accounts(bank_name, account_number)",
+				)
+				.eq("event_id", event.id)
+				.order("payment_date", { ascending: false }),
+			supabase
+				.from("bank_accounts")
+				.select("id, bank_name, account_number, account_holder")
+				.eq("is_active", true)
+				.order("is_default_receive", { ascending: false })
+				.order("bank_name", { ascending: true }),
+			// Nominal DP standar Tetra — dibaca dari setting, bukan ditanam di
+			// komponen, supaya kebijakannya punya satu sumber kebenaran.
+			supabase
+				.from("system_config")
+				.select("value")
+				.eq("key", "default_dp_amount")
+				.maybeSingle(),
+		]);
+
+	const defaultDpAmount =
+		typeof dpCfg?.value === "number" && dpCfg.value > 0
+			? dpCfg.value
+			: undefined;
 
 	const payments = (paymentsData ?? []).map((p) => ({
 		...p,
@@ -184,6 +197,7 @@ export default async function ManagePaymentsPage({
 							suggestedAmount={remaining}
 							grandTotal={billable}
 							totalPaid={paid}
+							defaultDpAmount={defaultDpAmount}
 						/>
 					)}
 				</div>

@@ -27,6 +27,7 @@ export function LogPaymentDialog({
 	suggestedAmount,
 	grandTotal,
 	totalPaid,
+	defaultDpAmount,
 }: {
 	eventId: string;
 	projectId: string;
@@ -35,6 +36,8 @@ export function LogPaymentDialog({
 	suggestedAmount?: number;
 	grandTotal?: number;
 	totalPaid?: number;
+	/** Nominal DP standar (system_config.default_dp_amount) untuk chip isi-cepat. */
+	defaultDpAmount?: number;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -59,6 +62,7 @@ export function LogPaymentDialog({
 					suggestedAmount={suggestedAmount}
 					grandTotal={grandTotal}
 					totalPaid={totalPaid}
+					defaultDpAmount={defaultDpAmount}
 					onSuccess={() => setOpen(false)}
 				/>
 			</DialogContent>
