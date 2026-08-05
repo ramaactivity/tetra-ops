@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { NavItem } from "@/components/booking/_shared/section-nav";
 import { FieldGrid } from "@/components/operations/_shared/field-grid";
 import { SectionCard } from "@/components/operations/_shared/section-card";
@@ -576,8 +576,18 @@ export function BookingForm({
 	const [setupTime, setSetupTime] = useState(get("setup_time", ""));
 	const [startTime, setStartTime] = useState(get("start_time", ""));
 	const [endTime, setEndTime] = useState(get("end_time", ""));
+	// Sama seperti venueTbc: eksplisit, supaya tombolnya tidak mati saat jam
+	// memang belum diisi (kondisi default booking baru).
+	const [startTbc, setStartTbc] = useState(!get("start_time"));
 	const [setupTouched, setSetupTouched] = useState(Boolean(get("setup_time")));
 	const [endTouched, setEndTouched] = useState(Boolean(get("end_time")));
+
+	// Mode "acara dengan jeda" mengisi start_time dari envelope sesi, di luar
+	// TimePicker. Tanpa ini, picker bisa tetap terkunci abu-abu padahal jamnya
+	// sudah ada — TBC dan isi tidak boleh hidup bersamaan.
+	useEffect(() => {
+		if (startTime) setStartTbc(false);
+	}, [startTime]);
 
 	// Auto-derive setup = start - 1h on start change (unless owner manually touched)
 	useEffect(() => {
@@ -735,6 +745,13 @@ export function BookingForm({
 
 	// === Location
 	const [venueName, setVenueName] = useState(get("venue_name"));
+	// Status TBC disimpan EKSPLISIT, bukan diturunkan dari "venueName kosong".
+	// Kalau diturunkan, tombolnya mati saat form masih kosong (kondisi default
+	// booking baru): klik → tidak ada yang berubah → owner tidak tahu tombolnya
+	// bekerja atau tidak. Dengan state sendiri, tiap klik selalu mengubah
+	// sesuatu yang kelihatan (input aktif ⇄ input dikunci).
+	const [venueTbc, setVenueTbc] = useState(!get("venue_name"));
+	const venueInputRef = useRef<HTMLInputElement>(null);
 	const [venueAddress, setVenueAddress] = useState(get("venue_address"));
 	const [venueCity, setVenueCity] = useState(get("venue_city"));
 	const [venueProvince, setVenueProvince] = useState(get("venue_province"));
@@ -1972,15 +1989,18 @@ export function BookingForm({
 									name="start_time"
 									error={err("start_time")}
 									hint={
-										startTime
-											? "Set ini dulu, setup + selesai auto-fill"
-											: "Klien belum kasih jam? Klik 'Menyusul' untuk tandai TBC"
+										startTbc
+											? "Ditandai TBC — klik 'Menyusul' lagi kalau mau isi sekarang"
+											: startTime
+												? "Set ini dulu, setup + selesai auto-fill"
+												: "Klien belum kasih jam? Klik 'Menyusul' untuk tandai TBC"
 									}
 								>
 									<div className="flex items-stretch gap-2">
 										<div className="flex-1">
 											<TimePicker
 												value={startTime}
+												disabled={startTbc}
 												onValueChange={(v) => {
 													setStartTime(v);
 													if (v) {
@@ -1994,24 +2014,29 @@ export function BookingForm({
 										<button
 											type="button"
 											onClick={() => {
-												if (startTime) {
-													// Switch ke TBC — clear semua waktu sekaligus, karena
-													// setup + selesai derive dari start
-													setStartTime("");
-													setSetupTime("");
-													setEndTime("");
-													setSetupTouched(false);
-													setEndTouched(false);
+												if (startTbc) {
+													// Balik ke isi manual — cukup buka kuncinya; picker
+													// yang tadinya redup jadi aktif, jelas terlihat.
+													setStartTbc(false);
+													return;
 												}
+												// Ke TBC — kunci + clear semua waktu sekaligus, karena
+												// setup + selesai derive dari start
+												setStartTbc(true);
+												setStartTime("");
+												setSetupTime("");
+												setEndTime("");
+												setSetupTouched(false);
+												setEndTouched(false);
 											}}
-											aria-pressed={!startTime}
+											aria-pressed={startTbc}
 											className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
-												startTime
-													? "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
-													: "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+												startTbc
+													? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+													: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
 											}`}
 										>
-											{startTime ? "Menyusul?" : "✓ Menyusul"}
+											{startTbc ? "✓ Menyusul" : "Menyusul?"}
 										</button>
 									</div>
 								</Field>
@@ -2478,40 +2503,57 @@ export function BookingForm({
 							error={err("venue_name")}
 							layoutMode="grid"
 							hint={
-								venueName
-									? undefined
+								venueTbc
+									? "Ditandai TBC — klik 'Menyusul' lagi kalau mau isi sekarang"
 									: "Klien belum tau tempatnya? Klik 'Menyusul' untuk tandai TBC"
 							}
 						>
 							<div className="flex items-stretch gap-2">
 								<input
+									ref={venueInputRef}
 									type="text"
 									value={venueName}
 									onChange={(e) => setVenueName(e.target.value)}
-									placeholder="cth. Grand Ballroom Hotel ABC"
-									className={`${inputClass} min-w-0 flex-1`}
+									disabled={venueTbc}
+									placeholder={
+										venueTbc
+											? "Menyusul — belum ditentukan"
+											: "cth. Grand Ballroom Hotel ABC"
+									}
+									className={`${inputClass} min-w-0 flex-1 ${
+										venueTbc ? "cursor-not-allowed opacity-60" : ""
+									}`}
 								/>
 								<button
 									type="button"
 									onClick={() => {
-										// Ke TBC — kosongkan venue beserta turunannya supaya tak
-										// ada sisa alamat/kota dari lokasi yang batal.
-										if (venueName) {
-											setVenueName("");
-											setVenueAddress("");
-											setVenueCity("");
-											setVenueProvince("");
-											setMapsUrl("");
+										if (venueTbc) {
+											// Balik ke isi manual — buka kuncinya lalu taruh kursor
+											// di sana, jadi perubahannya langsung terasa.
+											setVenueTbc(false);
+											requestAnimationFrame(() =>
+												venueInputRef.current?.focus(),
+											);
+											return;
 										}
+										// Ke TBC — kunci input + kosongkan venue beserta
+										// turunannya supaya tak ada sisa alamat/kota dari lokasi
+										// yang batal.
+										setVenueTbc(true);
+										setVenueName("");
+										setVenueAddress("");
+										setVenueCity("");
+										setVenueProvince("");
+										setMapsUrl("");
 									}}
-									aria-pressed={!venueName}
+									aria-pressed={venueTbc}
 									className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
-										venueName
-											? "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
-											: "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+										venueTbc
+											? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+											: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
 									}`}
 								>
-									{venueName ? "Menyusul?" : "✓ Menyusul"}
+									{venueTbc ? "✓ Menyusul" : "Menyusul?"}
 								</button>
 							</div>
 							<input type="hidden" name="venue_name" value={venueName} />
