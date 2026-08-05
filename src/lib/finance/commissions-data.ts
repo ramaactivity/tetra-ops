@@ -41,6 +41,11 @@ export type CommissionRow = {
 	payeeContact: string | null;
 	amount: number;
 	status: CommissionStatus;
+	/**
+	 * Boleh dibayar di muka? false untuk event yang sudah ditutup di luar buku
+	 * sekarang (settle pre-cutoff) — uang mukanya takkan pernah di-offset.
+	 */
+	canPayAdvance: boolean;
 	payout: {
 		id: string;
 		paymentDate: string;
@@ -140,12 +145,20 @@ export async function getCommissionsOverview(
 		]);
 
 	const settledInBooks = new Map<string, boolean>();
+	// Event yang sudah ditutup TAPI di luar buku sekarang (settle pre-cutoff,
+	// belum di-reopen): bebannya ada di buku lama & event itu tak akan di-settle
+	// lagi, jadi uang muka takkan pernah habis → payCommission menolaknya. Tandai
+	// supaya UI tidak menawarkan tombol yang pasti gagal.
+	const closedOutsideBooks = new Set<string>();
 	for (const s of settlements ?? []) {
 		const closedDay =
 			typeof s.closed_at === "string" ? s.closed_at.slice(0, 10) : null;
 		const ok =
 			!!closedDay && !s.is_reopened && (!cutoff || closedDay >= cutoff);
 		settledInBooks.set(s.event_id as string, ok);
+		if (!ok && closedDay && !s.is_reopened) {
+			closedOutsideBooks.add(s.event_id as string);
+		}
 	}
 	type PayoutRow = NonNullable<typeof payouts>[number];
 	const payoutByKey = new Map<string, PayoutRow>();
@@ -195,6 +208,8 @@ export async function getCommissionsOverview(
 			}
 			rows.push({
 				...base,
+				canPayAdvance:
+					status === "not_settled" && !closedOutsideBooks.has(eventId),
 				kind,
 				vendorMode,
 				payeeName,

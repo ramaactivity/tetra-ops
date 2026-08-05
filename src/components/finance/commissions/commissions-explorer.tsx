@@ -180,7 +180,7 @@ export function CommissionsExplorer({
 											>
 												Bayar
 											</button>
-										) : row.status === "not_settled" ? (
+										) : row.status === "not_settled" && row.canPayAdvance ? (
 											<button
 												type="button"
 												onClick={() => openPay(row)}
@@ -200,6 +200,13 @@ export function CommissionsExplorer({
 												<RotateCcw className="size-3.5" aria-hidden />
 												{reversingKey === key ? "…" : "Batalkan"}
 											</button>
+										) : row.status === "not_settled" ? (
+											<span
+												className="text-[11.5px] text-muted-foreground"
+												title="Event ini ditutup sebelum cutoff pembukuan — komisinya tidak tercatat di buku sekarang."
+											>
+												Di luar buku
+											</span>
 										) : (
 											<span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
 												<CheckCircle2 className="size-3.5" aria-hidden />
