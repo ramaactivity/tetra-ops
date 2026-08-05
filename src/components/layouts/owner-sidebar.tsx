@@ -8,6 +8,7 @@ import {
 	Box,
 	Boxes,
 	Briefcase,
+	CalendarRange,
 	ChevronRight,
 	ClipboardCheck,
 	ClipboardList,
@@ -120,6 +121,11 @@ const NAV_SECTIONS: NavSection[] = [
 				icon: Wallet,
 				children: [
 					{ href: "/finance", label: "Ringkasan", icon: Wallet },
+					{
+						href: "/finance/bulanan",
+						label: "Bulanan",
+						icon: CalendarRange,
+					},
 					{
 						href: "/finance/reports",
 						label: "Laporan",

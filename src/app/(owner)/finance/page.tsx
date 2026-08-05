@@ -449,6 +449,14 @@ export default async function FinancePage({
 						</div>
 					))}
 				</div>
+				<div className="border-border-subtle mt-4 border-t pt-3">
+					<Link
+						href="/finance/bulanan"
+						className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
+					>
+						Lihat saldo awal/akhir & untung per bulan →
+					</Link>
+				</div>
 			</div>
 
 			<KpiRow>
