@@ -1,5 +1,6 @@
 "use server";
 
+import { listMissingFields } from "@/lib/events/tbc";
 import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -47,18 +48,8 @@ function addDays(d: Date, n: number): Date {
 	return c;
 }
 
-function listMissingFields(ev: TbcEventRow): string[] {
-	const missing: string[] = [];
-	// Tanggal duluan — kalau tanggalnya sendiri masih perkiraan, itu yang paling
-	// mendesak dipastikan (H-7/H-3 dihitung dari tanggal itu).
-	if (ev.event_date_is_estimate) missing.push("tanggal (masih perkiraan)");
-	if (!ev.venue_name) missing.push("lokasi");
-	if (!ev.start_time) missing.push("jam mulai");
-	if (!ev.frame_size) missing.push("frame size");
-	if (!ev.backdrop_id) missing.push("backdrop");
-	if (!ev.pic_name && !ev.pic_wa) missing.push("PIC lapangan");
-	return missing;
-}
+// Daftar TBC dipindah ke @/lib/events/tbc supaya reminder owner, tampilan
+// crew, dan tombol "Ingatkan owner" memakai definisi yang sama persis.
 
 export async function runTbcReminderInternal(): Promise<TbcResult> {
 	const result: TbcResult = {

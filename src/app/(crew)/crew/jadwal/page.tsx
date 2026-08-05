@@ -39,6 +39,7 @@ type AssignedEvent = {
 	status: string;
 	client_name: string;
 	event_date: string;
+	event_date_is_estimate: boolean | null;
 	setup_time: string | null;
 	start_time: string | null;
 	session_segments: unknown;
@@ -75,7 +76,7 @@ export default async function CrewSchedulePage({
 		.select(
 			`role_in_event,
 			event:events!inner(
-				id, project_id, status, client_name, event_date,
+				id, project_id, status, client_name, event_date, event_date_is_estimate,
 				setup_time, start_time, session_segments, venue_name, venue_city,
 				is_migrated_legacy, frame_size, backdrop_id,
 				backdrop:backdrops(name)
@@ -204,13 +205,24 @@ export default async function CrewSchedulePage({
 										}}
 									>
 										<div className="flex items-center gap-3.5">
-											<div className="flex w-[3.4rem] shrink-0 flex-col items-center justify-center rounded-2xl bg-surface-3 py-2">
+											<div
+												className={`flex w-[3.4rem] shrink-0 flex-col items-center justify-center rounded-2xl py-2 ${
+													ev.event_date_is_estimate
+														? "bg-amber-500/15"
+														: "bg-surface-3"
+												}`}
+											>
 												<span className="text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground">
 													{mon}
 												</span>
 												<span className="type-num text-[1.55rem] leading-none text-foreground">
 													{dd}
 												</span>
+												{ev.event_date_is_estimate ? (
+													<span className="text-[0.5rem] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+														TBC
+													</span>
+												) : null}
 											</div>
 											<div className="min-w-0 flex-1">
 												<div className="flex items-center gap-2">

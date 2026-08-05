@@ -20,9 +20,11 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { TbcNudgePanel } from "@/components/crew/tbc-nudge-panel";
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { listMissingFields } from "@/lib/events/tbc";
 import { FRAME_SIZE_LABELS, venueLabel } from "@/lib/format";
 import {
 	formatScheduleInline,
@@ -70,7 +72,8 @@ export default async function CrewEventDetailPage({
 				`
 			id, project_id, status, client_name, event_category,
 			pic_name, pic_wa, include_flashdisk_pouch,
-			frame_size, event_date, setup_time, start_time, end_time, session_segments,
+			frame_size, event_date, event_date_is_estimate,
+			setup_time, start_time, end_time, session_segments, backdrop_id,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy,
 			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
@@ -235,6 +238,19 @@ export default async function CrewEventDetailPage({
 	const picName = picContact?.name ?? event.pic_name ?? null;
 	const picPhone = picContact?.phone ?? event.pic_wa ?? null;
 
+	// Daftar TBC dihitung dari sumber yang sama dengan reminder H-7/H-3 owner,
+	// supaya crew tidak pernah melihat "kosong" untuk sesuatu yang menurut
+	// sistem sudah lengkap (atau sebaliknya).
+	const tbcMissing = listMissingFields({
+		event_date_is_estimate: event.event_date_is_estimate as boolean | null,
+		venue_name: event.venue_name as string | null,
+		start_time: event.start_time as string | null,
+		frame_size: event.frame_size as string | null,
+		backdrop_id: event.backdrop_id as string | null,
+		pic_name: picName,
+		pic_wa: picPhone,
+	});
+
 	// Multi-sesi (acara dengan jeda): booth buka → tutup → buka lagi. Crew HARUS
 	// tahu boothnya berhenti di tengah, jadi tampilkan rincian sesi + jeda.
 	const segments = parseSegments(event.session_segments);
@@ -336,7 +352,14 @@ export default async function CrewEventDetailPage({
 
 					{/* Time strip — start time is the hero */}
 					<div className="border-t border-dashed border-border-default bg-surface-3/40 p-4">
-						<p className="type-label mb-2.5 text-foreground">{fullDate}</p>
+						<p className="type-label mb-2.5 text-foreground">
+							{fullDate}
+							{event.event_date_is_estimate ? (
+								<span className="ml-1.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+									TBC
+								</span>
+							) : null}
+						</p>
 						<div className="grid grid-cols-3 gap-2">
 							<TimeCell label="Setup" time={ID_TIME(event.setup_time)} />
 							<TimeCell label="Mulai" time={ID_TIME(event.start_time)} hero />
@@ -468,6 +491,11 @@ export default async function CrewEventDetailPage({
 					</dl>
 				</section>
 
+				{/* Apa yang masih TBC + jalan buat crew mengingatkan owner. Sengaja
+				    DI ATAS blok kontak: kalau lokasi/jam belum pasti, itu yang perlu
+				    crew lihat duluan, bukan nomor telepon. */}
+				<TbcNudgePanel projectId={event.project_id} missing={tbcMissing} />
+
 				{/* ── Kontak hari-H — contact rows ── */}
 				{(picName || bookerContact) && (
 					<section className="rounded-[16px] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
@@ -475,8 +503,14 @@ export default async function CrewEventDetailPage({
 							Kontak hari-H
 						</span>
 						<div className="mt-3 space-y-2">
-							{picName && (
+							{picName ? (
 								<ContactRow role="PIC Event" name={picName} phone={picPhone} />
+							) : (
+								// Jangan diam-diam menghilangkan barisnya: crew perlu tahu
+								// bedanya "PIC belum ditentukan" dan "lupa ditampilkan".
+								<p className="text-[12.5px] text-amber-900/70 dark:text-amber-200/70">
+									PIC Event · <span className="font-medium">menyusul</span>
+								</p>
 							)}
 							{bookerContact && (
 								<ContactRow
