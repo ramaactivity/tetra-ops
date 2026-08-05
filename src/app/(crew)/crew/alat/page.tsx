@@ -2,7 +2,7 @@ import { ChevronRight, Package2 } from "lucide-react";
 import Link from "next/link";
 import { AppHeader, AppScreen, Section } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatDateID } from "@/lib/format";
+import { formatDateID, venueLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ type AssignedEvent = {
 	client_name: string;
 	event_date: string;
 	start_time: string | null;
-	venue_name: string;
+	venue_name: string | null;
 	venue_city: string | null;
 };
 
@@ -144,7 +144,7 @@ export default async function CrewEquipmentPage() {
 											</p>
 											<p className="type-secondary tabular truncate">
 												{formatDateID(ev.event_date)} · {ID_TIME(ev.start_time)}{" "}
-												· {ev.venue_name}
+												· {venueLabel(ev.venue_name)}
 											</p>
 										</div>
 										<span className="type-num inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary/10 px-2 text-[0.75rem] text-primary">

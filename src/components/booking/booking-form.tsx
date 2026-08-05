@@ -169,6 +169,8 @@ export type BookingFormDefaults = Partial<{
 	frame_size: string;
 	event_category: string;
 	event_date: string;
+	/** "on" = tanggal masih perkiraan (TBC). Tanggalnya sendiri tetap wajib. */
+	event_date_is_estimate: string;
 	setup_time: string;
 	start_time: string;
 	end_time: string;
@@ -566,6 +568,11 @@ export function BookingForm({
 
 	// === Schedule (auto-fill setup/end)
 	const [eventDate, setEventDate] = useState(get("event_date", ""));
+	// Tanggal TETAP wajib (kunci jadwal, availability, cutoff, KPI). Yang
+	// ditandai TBC cuma kepastiannya — lihat 20260805_booking_tbc_venue_date.sql.
+	const [dateIsEstimate, setDateIsEstimate] = useState(
+		get("event_date_is_estimate") === "on",
+	);
 	const [setupTime, setSetupTime] = useState(get("setup_time", ""));
 	const [startTime, setStartTime] = useState(get("start_time", ""));
 	const [endTime, setEndTime] = useState(get("end_time", ""));
@@ -1031,10 +1038,11 @@ export function BookingForm({
 			"start_time",
 			"venue_name",
 		);
-		// start_time tidak lagi required — owner boleh tandai TBC kalau klien
-		// belum kasih jam pasti. Section status "ok" cukup dengan kategori,
-		// tanggal, dan venue terisi.
-		const bOk = Boolean(eventCategory && eventDate && venueName);
+		// start_time & venue_name tidak lagi required — owner boleh tandai TBC
+		// kalau klien belum kasih jam / belum tahu tempatnya. Yang benar-benar
+		// wajib tinggal kategori + tanggal (tanggal tetap wajib karena jadi kunci
+		// jadwal, availability, cutoff, dan KPI — lihat migration 20260805).
+		const bOk = Boolean(eventCategory && eventDate);
 		// C: Service Package (service + package)
 		const cErrN = errCount("service_type", "package_id");
 		const cOk = Boolean(serviceType && packageId);
@@ -1890,6 +1898,9 @@ export function BookingForm({
 						{/* Hidden inputs — selalu ada di kedua mode. Saat split aktif,
 						    start/end = envelope (disinkron dari sesi via effect). */}
 						<input type="hidden" name="event_date" value={eventDate} required />
+						{dateIsEstimate && (
+							<input type="hidden" name="event_date_is_estimate" value="on" />
+						)}
 						<input type="hidden" name="start_time" value={startTime} />
 						<input type="hidden" name="setup_time" value={setupTime} />
 						<input type="hidden" name="end_time" value={endTime} />
@@ -1905,13 +1916,34 @@ export function BookingForm({
 								name="event_date"
 								error={err("event_date")}
 								required
+								hint={
+									dateIsEstimate
+										? "Ditandai perkiraan — tetap dipakai buat jadwal & cek bentrok"
+										: "Klien belum pasti? Klik 'Masih perkiraan'"
+								}
 							>
-								<DatePicker
-									value={eventDate}
-									onValueChange={setEventDate}
-									placeholder="Pilih tanggal"
-									aria-invalid={!!err("event_date")}
-								/>
+								<div className="flex items-stretch gap-2">
+									<div className="min-w-0 flex-1">
+										<DatePicker
+											value={eventDate}
+											onValueChange={setEventDate}
+											placeholder="Pilih tanggal"
+											aria-invalid={!!err("event_date")}
+										/>
+									</div>
+									<button
+										type="button"
+										onClick={() => setDateIsEstimate((v) => !v)}
+										aria-pressed={dateIsEstimate}
+										className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
+											dateIsEstimate
+												? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+												: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
+										}`}
+									>
+										{dateIsEstimate ? "✓ Perkiraan" : "Masih perkiraan?"}
+									</button>
+								</div>
 							</Field>
 
 							{splitMode ? (
@@ -1985,6 +2017,21 @@ export function BookingForm({
 								</Field>
 							)}
 						</div>
+
+						{dateIsEstimate ? (
+							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+								<div>
+									<p className="font-medium">Tanggal masih perkiraan (TBC)</p>
+									<p className="text-amber-900/80 dark:text-amber-200/80">
+										Tanggalnya tetap dipakai buat jadwal &amp; cek bentrok alat
+										/ crew, jadi slot ini aman ditahan. Event ditandai TBC di
+										Operations dan sistem reminder H-7 + H-3 sampai klien
+										memastikan.
+									</p>
+								</div>
+							</div>
+						) : null}
 
 						{!splitMode && !startTime ? (
 							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
@@ -2429,24 +2476,60 @@ export function BookingForm({
 							label="Nama Venue"
 							name="venue_name"
 							error={err("venue_name")}
-							required
 							layoutMode="grid"
+							hint={
+								venueName
+									? undefined
+									: "Klien belum tau tempatnya? Klik 'Menyusul' untuk tandai TBC"
+							}
 						>
-							<input
-								type="text"
-								required
-								value={venueName}
-								onChange={(e) => setVenueName(e.target.value)}
-								placeholder="cth. Grand Ballroom Hotel ABC"
-								className={inputClass}
-							/>
-							<input
-								type="hidden"
-								name="venue_name"
-								value={venueName}
-								required
-							/>
+							<div className="flex items-stretch gap-2">
+								<input
+									type="text"
+									value={venueName}
+									onChange={(e) => setVenueName(e.target.value)}
+									placeholder="cth. Grand Ballroom Hotel ABC"
+									className={`${inputClass} min-w-0 flex-1`}
+								/>
+								<button
+									type="button"
+									onClick={() => {
+										// Ke TBC — kosongkan venue beserta turunannya supaya tak
+										// ada sisa alamat/kota dari lokasi yang batal.
+										if (venueName) {
+											setVenueName("");
+											setVenueAddress("");
+											setVenueCity("");
+											setVenueProvince("");
+											setMapsUrl("");
+										}
+									}}
+									aria-pressed={!venueName}
+									className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
+										venueName
+											? "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
+											: "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+									}`}
+								>
+									{venueName ? "Menyusul?" : "✓ Menyusul"}
+								</button>
+							</div>
+							<input type="hidden" name="venue_name" value={venueName} />
 						</Field>
+
+						{!venueName ? (
+							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+								<div>
+									<p className="font-medium">Lokasi belum ditentukan (TBC)</p>
+									<p className="text-amber-900/80 dark:text-amber-200/80">
+										Booking tetap bisa disimpan. Crew melihat &quot;Lokasi
+										menyusul&quot; di jadwalnya, dan sistem reminder H-7 + H-3
+										kalau masih kosong.
+									</p>
+								</div>
+							</div>
+						) : null}
 						<Field
 							label="Google Maps URL"
 							name="google_maps_url"
@@ -2797,7 +2880,10 @@ export function BookingForm({
 																{addon.name}
 															</div>
 															<div className="text-fluid-caption text-muted-foreground">
-																<span data-nominal>{formatRupiah(addon.price)}</span> per {addon.unit}
+																<span data-nominal>
+																	{formatRupiah(addon.price)}
+																</span>{" "}
+																per {addon.unit}
 															</div>
 														</div>
 														{enabled ? (

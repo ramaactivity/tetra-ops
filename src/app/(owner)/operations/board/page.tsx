@@ -5,7 +5,12 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
-import { CHANNEL_TYPE_LABELS, formatDateID, formatRupiah } from "@/lib/format";
+import {
+	CHANNEL_TYPE_LABELS,
+	formatDateID,
+	formatRupiah,
+	venueLabel,
+} from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 type EventRow = {
@@ -15,7 +20,7 @@ type EventRow = {
 	channel: string;
 	client_name: string;
 	event_date: string;
-	venue_name: string;
+	venue_name: string | null;
 	venue_city: string | null;
 	grand_total: number;
 	payment_status: string;
@@ -204,7 +209,7 @@ function BoardCard({ event }: { event: EventRow }) {
 					</span>
 				</p>
 				<p className="text-muted-foreground truncate">
-					{event.venue_name}
+					{venueLabel(event.venue_name)}
 					{event.venue_city ? ` · ${event.venue_city}` : ""}
 				</p>
 			</div>

@@ -16,7 +16,7 @@ import {
 	Section,
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { FRAME_SIZE_LABELS, formatDateID } from "@/lib/format";
+import { FRAME_SIZE_LABELS, formatDateID, venueLabel } from "@/lib/format";
 import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,7 @@ type AssignedEvent = {
 	setup_time: string | null;
 	start_time: string | null;
 	session_segments: unknown;
-	venue_name: string;
+	venue_name: string | null;
 	venue_city: string | null;
 	is_migrated_legacy: boolean | null;
 	frame_size: string | null;
@@ -222,7 +222,7 @@ export default async function CrewSchedulePage({
 												<p className="type-secondary mt-1 flex items-center gap-1">
 													<MapPin className="size-3.5 shrink-0" />
 													<span className="truncate">
-														{ev.venue_name}
+														{venueLabel(ev.venue_name)}
 														{city ? ` · ${city}` : ""}
 													</span>
 												</p>

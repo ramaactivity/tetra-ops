@@ -79,6 +79,15 @@ export const USER_ROLE_LABELS: Record<string, string> = {
 	pending_approval: "Pending",
 };
 
+/**
+ * Nama venue untuk ditampilkan. NULL/kosong = lokasi masih TBC (klien booking
+ * sebelum tahu tempatnya) — tampilkan kalimatnya, jangan ruang kosong yang
+ * bikin crew mengira datanya hilang.
+ */
+export function venueLabel(name: string | null | undefined): string {
+	return name?.trim() ? name : "Lokasi menyusul";
+}
+
 export function formatDateID(iso: string): string {
 	return new Date(iso).toLocaleDateString("id-ID", {
 		day: "numeric",

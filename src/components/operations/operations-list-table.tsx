@@ -44,6 +44,8 @@ export type EventRow = {
 	vendor_name: string | null;
 	client_name: string;
 	event_date: string;
+	/** true = tanggal masih perkiraan (klien belum memastikan) → chip TBC. */
+	event_date_is_estimate?: boolean | null;
 	setup_time: string | null;
 	start_time: string | null;
 	end_time: string | null;
@@ -238,7 +240,7 @@ export function OperationsListTable({
 								<div className="flex min-w-0 flex-col gap-1 tabular leading-snug">
 									<MetaLine
 										icon={CalendarDays}
-										primary={formatDayDate(ev.event_date)}
+										primary={`${formatDayDate(ev.event_date)}${ev.event_date_is_estimate ? " · TBC" : ""}`}
 										strong
 									/>
 									{ev.start_time && (
@@ -367,7 +369,7 @@ export function OperationsListTable({
 									<span className="eyebrow block">Waktu & Tempat</span>
 									<MetaLine
 										icon={CalendarDays}
-										primary={formatDayDate(ev.event_date)}
+										primary={`${formatDayDate(ev.event_date)}${ev.event_date_is_estimate ? " · TBC" : ""}`}
 										strong
 									/>
 									{ev.start_time && (

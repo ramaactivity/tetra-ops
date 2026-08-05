@@ -15,6 +15,7 @@ import {
 	StatTile,
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { venueLabel } from "@/lib/format";
 import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,7 +41,7 @@ type EventLite = {
 	start_time: string | null;
 	end_time: string | null;
 	session_segments: unknown;
-	venue_name: string;
+	venue_name: string | null;
 	venue_city: string | null;
 	google_maps_url: string | null;
 	is_migrated_legacy: boolean | null;
@@ -246,7 +247,7 @@ export default async function CrewHomePage() {
 												<p className="type-secondary mt-1 flex items-center gap-1">
 													<MapPin className="size-3.5 shrink-0" />
 													<span className="truncate">
-														{ev.venue_name}
+														{venueLabel(ev.venue_name)}
 														{city ? ` · ${city}` : ""}
 													</span>
 												</p>

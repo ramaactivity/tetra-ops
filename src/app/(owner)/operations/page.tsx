@@ -112,7 +112,7 @@ export default async function OperationsListPage({
 		.from("events")
 		.select(
 			`id, project_id, status, channel, vendor_name, client_name, event_date,
-			 setup_time, start_time, end_time,
+			 event_date_is_estimate, setup_time, start_time, end_time,
 			 frame_size, backdrop_color, include_flashdisk_pouch,
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,

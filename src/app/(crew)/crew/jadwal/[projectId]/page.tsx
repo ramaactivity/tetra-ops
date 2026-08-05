@@ -23,7 +23,7 @@ import { EventStatusBadge } from "@/components/badges/status-badge";
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { FRAME_SIZE_LABELS } from "@/lib/format";
+import { FRAME_SIZE_LABELS, venueLabel } from "@/lib/format";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -369,7 +369,9 @@ export default async function CrewEventDetailPage({
 								<MapPin className="size-[1.15rem]" />
 							</span>
 							<div className="min-w-0 flex-1">
-								<p className="type-body-strong">{event.venue_name}</p>
+								<p className="type-body-strong">
+									{venueLabel(event.venue_name)}
+								</p>
 								{venueAddress && (
 									<p className="type-secondary mt-0.5">{venueAddress}</p>
 								)}

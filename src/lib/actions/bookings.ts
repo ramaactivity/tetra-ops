@@ -59,7 +59,12 @@ const BookingInputSchema = z.object({
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
 	event_category: z.string().trim().min(2, "Minimal 2 karakter").max(60),
+	// Tanggal tetap WAJIB walau klien belum memastikan — kolom ini kunci
+	// partisi cron status, availability, guard bentrok crew, freeze cutoff, dan
+	// semua KPI. Yang boleh "menyusul" cuma KEPASTIANNYA, ditandai flag di
+	// bawah; owner mengisi tanggal perkiraan supaya mesin tetap bekerja.
 	event_date: z.iso.date("Format tanggal tidak valid"),
+	event_date_is_estimate: z.coerce.boolean(),
 	// TBC waktu — empty = null di DB. Setup/end auto-fill dari start, jadi
 	// kalau start TBC, ketiganya umumnya TBC juga (UI yang enforce konsistensi).
 	setup_time: z
@@ -97,7 +102,9 @@ const BookingInputSchema = z.object({
 			return val.segments;
 		}),
 	booker_name: optionalString(120),
-	venue_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
+	// TBC lokasi — klien sering booking sebelum tahu tempatnya. NULL = menyusul,
+	// konvensi sama dengan start_time/frame_size.
+	venue_name: optionalString(120),
 	venue_address: optionalString(255),
 	venue_city: optionalString(60),
 	venue_province: optionalString(60),
@@ -277,6 +284,7 @@ function parseFormData(formData: FormData) {
 	return BookingInputSchema.safeParse({
 		...raw,
 		include_flashdisk_pouch: formData.get("include_flashdisk_pouch") === "on",
+		event_date_is_estimate: formData.get("event_date_is_estimate") === "on",
 	});
 }
 
@@ -287,6 +295,8 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		),
 		include_flashdisk_pouch:
 			formData.get("include_flashdisk_pouch") === "on" ? "on" : "",
+		event_date_is_estimate:
+			formData.get("event_date_is_estimate") === "on" ? "on" : "",
 	};
 }
 
@@ -520,6 +530,7 @@ function buildEventPayload(
 		frame_size: input.frame_size,
 		event_category: input.event_category,
 		event_date: input.event_date,
+		event_date_is_estimate: input.event_date_is_estimate,
 		setup_time: input.setup_time,
 		// Acara dengan jeda: start/end = envelope (mulai sesi pertama → selesai
 		// sesi terakhir) supaya semua pembaca lama tetap benar. Server yang

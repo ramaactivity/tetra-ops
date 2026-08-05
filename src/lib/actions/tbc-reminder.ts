@@ -24,6 +24,10 @@ type TbcEventRow = {
 	end_time: string | null;
 	frame_size: string | null;
 	backdrop_id: string | null;
+	venue_name: string | null;
+	pic_name: string | null;
+	pic_wa: string | null;
+	event_date_is_estimate: boolean | null;
 };
 
 type TbcResult = {
@@ -45,9 +49,14 @@ function addDays(d: Date, n: number): Date {
 
 function listMissingFields(ev: TbcEventRow): string[] {
 	const missing: string[] = [];
+	// Tanggal duluan — kalau tanggalnya sendiri masih perkiraan, itu yang paling
+	// mendesak dipastikan (H-7/H-3 dihitung dari tanggal itu).
+	if (ev.event_date_is_estimate) missing.push("tanggal (masih perkiraan)");
+	if (!ev.venue_name) missing.push("lokasi");
 	if (!ev.start_time) missing.push("jam mulai");
 	if (!ev.frame_size) missing.push("frame size");
 	if (!ev.backdrop_id) missing.push("backdrop");
+	if (!ev.pic_name && !ev.pic_wa) missing.push("PIC lapangan");
 	return missing;
 }
 
@@ -72,7 +81,8 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 		.from("events")
 		.select(
 			`id, project_id, client_name, event_date, start_time, setup_time,
-			 end_time, frame_size, backdrop_id`,
+			 end_time, frame_size, backdrop_id, venue_name, pic_name, pic_wa,
+			 event_date_is_estimate`,
 		)
 		.in("event_date", targetDates)
 		.in("status", ["upcoming", "in_progress"]);
@@ -83,15 +93,13 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 	}
 
 	result.scanned = events?.length ?? 0;
-	const tbcEvents = (events ?? []).filter((ev: TbcEventRow) => {
-		return (
-			!ev.start_time ||
-			!ev.setup_time ||
-			!ev.end_time ||
-			!ev.frame_size ||
-			!ev.backdrop_id
-		);
-	}) as TbcEventRow[];
+	// Satu sumber kebenaran: kalau listMissingFields menyebut sesuatu, event itu
+	// perlu diingatkan. Sebelumnya filter di sini punya daftar sendiri yang bisa
+	// melenceng dari daftar yang ditampilkan.
+	const tbcEvents = (events ?? []).filter(
+		(ev: TbcEventRow) =>
+			listMissingFields(ev).length > 0 || !ev.setup_time || !ev.end_time,
+	) as TbcEventRow[];
 	result.withTbc = tbcEvents.length;
 
 	if (tbcEvents.length === 0) return result;
@@ -124,8 +132,7 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 	}
 
 	for (const ev of tbcEvents) {
-		const daysAway =
-			ev.event_date === targetDates[0] ? 7 : 3;
+		const daysAway = ev.event_date === targetDates[0] ? 7 : 3;
 		const missing = listMissingFields(ev);
 		if (missing.length === 0) continue;
 		try {
