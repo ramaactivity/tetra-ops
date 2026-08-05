@@ -310,6 +310,11 @@ export async function recordQuickTransaction(
 		if (dir === "masuk" && category?.reimbursement) {
 			entryType = "adjustment";
 			defaultLabel = `${category.label} (ganti biaya)`;
+		} else if (dir === "masuk" && category?.capital) {
+			// Setoran modal: kredit ekuitas (3-xxx), bukan pendapatan — tag
+			// "adjustment" supaya omzet tidak menggelembung.
+			entryType = "adjustment";
+			defaultLabel = category.label;
 		} else {
 			entryType = dir === "keluar" ? "expense" : "revenue";
 			defaultLabel =

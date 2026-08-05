@@ -4,26 +4,42 @@
  * codes. Each category maps to an account that already exists in the seed
  * (supabase/migrations/20260520_chart_of_accounts_extra_seed.sql).
  *
+ * URUTAN = FREKUENSI PEMAKAIAN NYATA. 8 kategori pertama tampil sebagai chip;
+ * sisanya di balik "Lihat semua". Diurutkan dari audit jurnal manual
+ * 2026-06-24 → 2026-08-02: Konsumsi rapat 8×, Beli alat 5×, Transport 3×,
+ * Komisi sales/relasi 2× (dulu TIDAK ada kategorinya → owner terpaksa pakai
+ * "Akun lain" / label "Pengeluaran"), lalu kost/sewa alat/admin bank/ads 1×.
+ * Transport online, Konsumsi, dan Entertain 0× — digeser ke bawah.
+ *
  * Pure constants + helpers — no "use server", safe to import from both the
  * client chips and the server action. The server action resolves a category by
  * `id` here so the COA code is never trusted from the client.
  */
 
 import {
+	BadgePercent,
 	Boxes,
 	Camera,
 	Car,
+	CarFront,
+	CircleParking,
 	Coffee,
 	Fuel,
+	Gift,
 	Handshake,
 	Home,
+	Landmark,
 	type LucideIcon,
 	Martini,
 	Megaphone,
 	MoreHorizontal,
+	PiggyBank,
+	RotateCcw,
+	Route,
 	ShoppingBag,
 	Smartphone,
 	Sparkles,
+	Tag,
 	Users,
 	UtensilsCrossed,
 	Wifi,
@@ -46,31 +62,19 @@ export type CatatCategory = {
 	 * Jurnal di-tag entry_type "adjustment" (Koreksi), bukan "revenue".
 	 */
 	reimbursement?: boolean;
+	/**
+	 * Setoran modal: uang MASUK yang menambah ekuitas (coa 3-xxx), bukan
+	 * pendapatan — di-tag "adjustment" supaya tidak menggelembungkan omzet.
+	 */
+	capital?: boolean;
 };
 
-/** Uang keluar — beban (debit the expense account, credit kas/bank). */
+/**
+ * Uang keluar — beban (debit the expense account, credit kas/bank).
+ * 8 pertama = chip yang langsung terlihat; urutan berdasar frekuensi nyata.
+ */
 export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
-	{
-		id: "transport-bbm",
-		label: "Transport & BBM",
-		icon: Fuel,
-		coa: "5-210",
-		entryType: "expense",
-	},
-	{
-		id: "transport-online",
-		label: "Transport online",
-		icon: Car,
-		coa: "5-211",
-		entryType: "expense",
-	},
-	{
-		id: "konsumsi",
-		label: "Konsumsi",
-		icon: UtensilsCrossed,
-		coa: "5-240",
-		entryType: "expense",
-	},
+	// ── Top 8 (chip) ────────────────────────────────────────────────────────
 	{
 		id: "konsumsi-rapat",
 		label: "Konsumsi rapat",
@@ -86,10 +90,100 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
+		id: "transport-bbm",
+		label: "Transport & BBM",
+		icon: Fuel,
+		coa: "5-210",
+		entryType: "expense",
+	},
+	{
+		// Sering terjadi tapi dulu tak ada kategorinya — owner mencatat lewat
+		// "Akun lain" dgn label "Pengeluaran". Komisi utk sales/relasi perorangan.
+		id: "komisi-sales",
+		label: "Komisi sales/relasi",
+		icon: Handshake,
+		coa: "5-301",
+		entryType: "expense",
+	},
+	{
 		id: "bayar-kost",
 		label: "Bayar kost",
 		icon: Home,
 		coa: "5-260",
+		entryType: "expense",
+	},
+	{
+		id: "sewa-alat",
+		label: "Sewa alat",
+		icon: Boxes,
+		coa: "5-220",
+		entryType: "expense",
+	},
+	{
+		// Fee transfer/admin yang berdiri sendiri (mis. "admin fee rangga") —
+		// beda dari field "Biaya admin" yang nempel di transaksi lain.
+		id: "admin-bank",
+		label: "Admin / fee bank",
+		icon: Landmark,
+		coa: "5-600",
+		entryType: "expense",
+	},
+	{
+		id: "marketing",
+		label: "Marketing / topup ads",
+		icon: Megaphone,
+		coa: "5-410",
+		entryType: "expense",
+	},
+	// ── Lihat semua ─────────────────────────────────────────────────────────
+	{
+		id: "bayar-internet",
+		label: "Bayar internet",
+		icon: Wifi,
+		coa: "5-270",
+		entryType: "expense",
+	},
+	{
+		// Dulu tercatat ke Transport BBM padahal COA-nya sendiri sudah ada.
+		id: "sewa-mobil",
+		label: "Sewa mobil",
+		icon: CarFront,
+		coa: "5-212",
+		entryType: "expense",
+	},
+	{
+		id: "toll",
+		label: "Toll / e-toll",
+		icon: Route,
+		coa: "5-213",
+		entryType: "expense",
+	},
+	{
+		id: "parkir",
+		label: "Parkir",
+		icon: CircleParking,
+		coa: "5-214",
+		entryType: "expense",
+	},
+	{
+		id: "konsumsi",
+		label: "Konsumsi event",
+		icon: UtensilsCrossed,
+		coa: "5-240",
+		entryType: "expense",
+	},
+	{
+		id: "transport-online",
+		label: "Transport online",
+		icon: Car,
+		coa: "5-211",
+		entryType: "expense",
+	},
+	{
+		id: "perawatan",
+		label: "Perawatan alat",
+		icon: Wrench,
+		coa: "5-230",
 		entryType: "expense",
 	},
 	{
@@ -100,10 +194,10 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
-		id: "bayar-internet",
-		label: "Bayar internet",
-		icon: Wifi,
-		coa: "5-270",
+		id: "bonus-klien",
+		label: "Bonus klien",
+		icon: Gift,
+		coa: "5-411",
 		entryType: "expense",
 	},
 	{
@@ -117,27 +211,6 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
-		id: "sewa-alat",
-		label: "Sewa alat",
-		icon: Boxes,
-		coa: "5-220",
-		entryType: "expense",
-	},
-	{
-		id: "perawatan",
-		label: "Perawatan alat",
-		icon: Wrench,
-		coa: "5-230",
-		entryType: "expense",
-	},
-	{
-		id: "marketing",
-		label: "Marketing",
-		icon: Megaphone,
-		coa: "5-410",
-		entryType: "expense",
-	},
-	{
 		id: "platform",
 		label: "Platform / app",
 		icon: Smartphone,
@@ -145,9 +218,12 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
+		// Komisi utk vendor/WO (bukan sales perorangan). Modul Komisi di
+		// /finance/vendors tetap jalur utama utk komisi per-event; kategori ini
+		// utk komisi lepas di luar ledger event.
 		id: "komisi",
-		label: "Komisi",
-		icon: Handshake,
+		label: "Komisi vendor",
+		icon: BadgePercent,
 		coa: "5-300",
 		entryType: "expense",
 	},
@@ -174,6 +250,15 @@ export const MASUK_CATEGORIES: readonly CatatCategory[] = [
 		label: "Add-on / lainnya",
 		icon: Sparkles,
 		coa: "4-140",
+		entryType: "revenue",
+	},
+	{
+		// Jual flashdisk/alat second dsb. (mis. "Tetra Visual beli flashdisk") —
+		// dulu dicatat lewat "Akun lain" 4-901.
+		id: "jual-bekas",
+		label: "Jual alat/barang",
+		icon: Tag,
+		coa: "4-901",
 		entryType: "revenue",
 	},
 	// ── Patungan owner (reimburse) ──────────────────────────────────────────
@@ -203,6 +288,25 @@ export const MASUK_CATEGORIES: readonly CatatCategory[] = [
 		coa: "5-285",
 		entryType: "expense",
 		reimbursement: true,
+	},
+	{
+		// Barang dibalikin / dana belanja kembali → kurangi beban belanjanya,
+		// bukan pendapatan.
+		id: "refund-belanja",
+		label: "Refund belanja",
+		icon: RotateCcw,
+		coa: "5-250",
+		entryType: "expense",
+		reimbursement: true,
+	},
+	{
+		// Owner nyetor dana segar ke kas Tetra → ekuitas, bukan omzet.
+		id: "modal-owner",
+		label: "Setoran modal owner",
+		icon: PiggyBank,
+		coa: "3-100",
+		entryType: "revenue",
+		capital: true,
 	},
 ] as const;
 
