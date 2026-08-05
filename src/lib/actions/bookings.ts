@@ -20,6 +20,7 @@ import { tgEscape } from "@/lib/telegram/client";
 import { dateLabel, rp } from "@/lib/telegram/digest";
 import {
 	notifyTelegramBookingCreated,
+	notifyTelegramEventDeleted,
 	notifyTelegramEventUpdated,
 } from "@/lib/telegram/notify";
 
@@ -1165,7 +1166,7 @@ export type DeleteEventResult =
  * Owner-level only. Pattern matches addons/packages/items soft-delete.
  */
 export async function deleteEvent(id: string): Promise<DeleteEventResult> {
-	await requireOwnerLevel();
+	const me = await requireOwnerLevel();
 
 	const supabase = await createClient();
 
@@ -1203,6 +1204,10 @@ export async function deleteEvent(id: string): Promise<DeleteEventResult> {
 		.eq("id", id);
 
 	if (error) return { ok: false, error: error.message };
+
+	// Best-effort: kabari grup Telegram owner. Row masih ada (soft-delete),
+	// notify fetch sendiri detailnya.
+	await notifyTelegramEventDeleted(id, me.profile.full_name);
 
 	revalidatePath("/operations");
 	revalidatePath(`/operations/${event.project_id}`);

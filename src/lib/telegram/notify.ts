@@ -227,6 +227,97 @@ export async function notifyTelegramCrewChanged(
 	}
 }
 
+/** Pembayaran masuk (DP/cicilan/pelunasan) → grup owner. Event legacy di-skip. */
+export async function notifyTelegramPaymentReceived(
+	eventId: string,
+	info: {
+		typeLabel: string;
+		amount: number;
+		bankLabel: string | null;
+		remaining: number;
+	},
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select("project_id, client_name, event_date, is_migrated_legacy")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev || ev.is_migrated_legacy) return;
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+		await sendToOwnerGroup(
+			[
+				`💵 <b>PEMBAYARAN MASUK — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				`${info.typeLabel} <b>${rp(info.amount)}</b>${info.bankLabel ? ` → ${tgEscape(info.bankLabel)}` : ""}`,
+				info.remaining <= 0
+					? "✅ Tagihan LUNAS"
+					: `Sisa tagihan: ${rp(info.remaining)}`,
+				...(appUrl
+					? [`\nDetail: ${appUrl}/operations/${ev.project_id}/payments`]
+					: []),
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] payment:", e);
+	}
+}
+
+/** Pembayaran di-reverse (salah catat dsb.) → grup owner. */
+export async function notifyTelegramPaymentReversed(
+	eventId: string,
+	info: { amount: number; reason: string },
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select("project_id, client_name, event_date, is_migrated_legacy")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev || ev.is_migrated_legacy) return;
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+		await sendToOwnerGroup(
+			[
+				`↩️ <b>PEMBAYARAN DIBATALKAN — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				`${rp(info.amount)} di-reverse${info.reason ? ` — ${tgEscape(info.reason)}` : ""}`,
+				...(appUrl
+					? [`\nDetail: ${appUrl}/operations/${ev.project_id}/payments`]
+					: []),
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] payment-reverse:", e);
+	}
+}
+
+/**
+ * Event dihapus (soft-delete) → grup owner. Dipanggil SETELAH delete sukses —
+ * row masih ada (cuma deleted_at terisi) jadi tetap bisa di-fetch.
+ */
+export async function notifyTelegramEventDeleted(
+	eventId: string,
+	deletedByName: string,
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select("client_name, event_date, grand_total, is_migrated_legacy")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev || ev.is_migrated_legacy) return;
+		await sendToOwnerGroup(
+			[
+				`🗑 <b>EVENT DIHAPUS — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				`Nilai booking ${rp(Number(ev.grand_total ?? 0))} · dihapus oleh ${tgEscape(deletedByName)}`,
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] deleted:", e);
+	}
+}
+
 /** Rekap crew masuk → owner diminta review. */
 export async function notifyTelegramRekapSubmitted(
 	eventId: string,

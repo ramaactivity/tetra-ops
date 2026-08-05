@@ -5,8 +5,18 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import {
+	notifyTelegramPaymentReceived,
+	notifyTelegramPaymentReversed,
+} from "@/lib/telegram/notify";
 
 const PAYMENT_TYPES = ["dp", "partial", "pelunasan"] as const;
+
+const PAYMENT_TYPE_LABEL: Record<(typeof PAYMENT_TYPES)[number], string> = {
+	dp: "DP",
+	partial: "Cicilan",
+	pelunasan: "Pelunasan",
+};
 
 const PaymentInputSchema = z.object({
 	amount: z.coerce.number().int().positive("Jumlah harus lebih dari 0"),
@@ -186,6 +196,21 @@ export async function logPayment(
 			};
 		}
 
+		// Best-effort: kabari grup Telegram owner ada uang masuk. Sisa tagihan
+		// dihitung dari `sisa` pra-insert dikurangi jumlah yang baru dicatat.
+		const { data: bank } = await supabase
+			.from("bank_accounts")
+			.select("bank_name, account_name")
+			.eq("id", parsed.data.bank_account_id)
+			.maybeSingle();
+		await notifyTelegramPaymentReceived(eventId, {
+			typeLabel: PAYMENT_TYPE_LABEL[parsed.data.payment_type],
+			amount: parsed.data.amount,
+			bankLabel:
+				[bank?.bank_name, bank?.account_name].filter(Boolean).join(" ") || null,
+			remaining: Math.max(0, sisa - parsed.data.amount),
+		});
+
 		revalidatePath(`/operations/${projectId}`);
 		revalidatePath(`/operations/${projectId}/payments`);
 		return { success: true };
@@ -218,7 +243,7 @@ export async function reversePayment(
 		// event yang sudah selesai sebagai piutang lagi (desync AR vs settlement).
 		const { data: pay } = await supabase
 			.from("payments")
-			.select("event_id, is_reversed")
+			.select("event_id, is_reversed, amount")
 			.eq("id", id)
 			.maybeSingle();
 		if (!pay) return { error: "Pembayaran tidak ditemukan." };
@@ -247,6 +272,12 @@ export async function reversePayment(
 			console.error("[reversePayment] rpc error:", error);
 			return { error: error.message };
 		}
+
+		// Best-effort: kabari grup Telegram owner pembayaran dibatalkan.
+		await notifyTelegramPaymentReversed(pay.event_id, {
+			amount: Number(pay.amount) || 0,
+			reason,
+		});
 
 		revalidatePath(`/operations/${projectId}`);
 		revalidatePath(`/operations/${projectId}/payments`);
