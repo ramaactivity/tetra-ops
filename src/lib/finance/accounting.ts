@@ -87,6 +87,10 @@ export const SOURCE_LABEL: Record<string, string> = {
 	depreciation: "Penyusutan aset",
 	owner_withdrawal: "Ambil bagi hasil",
 	owner_pool_correction: "Koreksi bagi hasil",
+	crew_payment: "Bayar fee crew",
+	commission_payment: "Bayar komisi",
+	commission_payment_reversal: "Pembatalan bayar komisi",
+	wastage: "Barang rusak/hilang",
 };
 
 /**
