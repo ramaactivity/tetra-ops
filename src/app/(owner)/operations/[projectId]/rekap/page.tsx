@@ -109,7 +109,10 @@ export default async function EventRekapPage({
 	const { data: event } = await supabase
 		.from("events")
 		.select(
-			"id, project_id, client_name, event_date, venue_name, status, grand_total",
+			`id, project_id, client_name, event_date, venue_name, status, grand_total,
+			channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
+			referrer_user_id, referrer_commission,
+			sales_user_id, direct_sales_commission`,
 		)
 		.eq("project_id", projectId)
 		.maybeSingle();
@@ -261,6 +264,59 @@ export default async function EventRekapPage({
 				balance: await getCashAccountBalance(supabase, c.code as string),
 			})),
 	);
+
+	// Komisi yang menempel di event ini — untuk opsi "sekalian bayar komisi" di
+	// dialog settle (biar owner tidak perlu mampir ke Finance › Komisi). Vendor
+	// "Potongan Langsung" dilewati: komisinya sudah dipotong dari aliran uang.
+	// Kalau sudah ada pembayaran aktif sebelum settle, itu pasti uang muka →
+	// tidak perlu ditawari bayar lagi, cukup diberitahu.
+	let commissionInfo: {
+		payeeName: string;
+		amount: number;
+		paidInAdvance: boolean;
+	} | null = null;
+	if (!isSettled) {
+		const channel = event.channel as string | null;
+		let amount = 0;
+		let payeeName = "";
+		let payeeUserId: string | null = null;
+		if (
+			channel === "vendor" &&
+			event.vendor_commission_mode !== "upfront_cut"
+		) {
+			amount = Number(event.vendor_commission_amount ?? 0);
+			payeeName = (event.vendor_name as string) ?? "Vendor";
+		} else if (channel === "relasi") {
+			amount = Number(event.referrer_commission ?? 0);
+			payeeUserId = (event.referrer_user_id as string | null) ?? null;
+			payeeName = "Relasi";
+		} else if (channel === "direct") {
+			amount = Number(event.direct_sales_commission ?? 0);
+			payeeUserId = (event.sales_user_id as string | null) ?? null;
+			payeeName = "Sales Tetra";
+		}
+		if (amount > 0) {
+			if (payeeUserId) {
+				const { data: payee } = await supabase
+					.from("users")
+					.select("full_name")
+					.eq("id", payeeUserId)
+					.maybeSingle();
+				payeeName = (payee?.full_name as string) ?? payeeName;
+			}
+			const { data: activePayout } = await supabase
+				.from("commission_payouts")
+				.select("id")
+				.eq("event_id", event.id)
+				.eq("is_reversed", false)
+				.maybeSingle();
+			commissionInfo = {
+				payeeName,
+				amount,
+				paidInAdvance: Boolean(activePayout),
+			};
+		}
+	}
 
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
@@ -569,6 +625,7 @@ export default async function EventRekapPage({
 									0,
 								)}
 								cashAccounts={cashAccounts}
+								commission={commissionInfo}
 								disabled={Boolean(settleDisabledReason)}
 								disabledReason={settleDisabledReason}
 							/>

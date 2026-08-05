@@ -42,22 +42,22 @@ export default async function CommissionsPage() {
 					tone="rose"
 				/>
 				<SummaryCard
+					label="Dibayar di muka"
+					value={formatRupiah(totals.advanceAmount)}
+					hint="Sudah keluar, nunggu event di-settle"
+					tone="sky"
+				/>
+				<SummaryCard
 					label="Sudah dibayar"
 					value={formatRupiah(totals.paidAmount)}
 					hint="Total komisi terbayar"
 					tone="emerald"
 				/>
 				<SummaryCard
-					label="Belum settle"
+					label="Belum dibayar"
 					value={formatRupiah(totals.notSettledAmount)}
-					hint="Menunggu event di-settle"
+					hint={`Event belum settle · ${rows.length} komisi total`}
 					tone="amber"
-				/>
-				<SummaryCard
-					label="Jumlah komisi"
-					value={rows.length.toLocaleString("id-ID")}
-					hint="Vendor + relasi"
-					tone="muted"
 				/>
 			</dl>
 
@@ -67,11 +67,14 @@ export default async function CommissionsPage() {
 				<p className="flex items-start gap-2">
 					<Handshake className="mt-0.5 size-3.5 shrink-0" aria-hidden />
 					<span>
-						Komisi di-akrual sebagai utang (2-101 vendor / 2-102 relasi) saat
-						event di-settle, lalu bisa dibayar dari sini — Dr utang komisi / Cr
-						kas-bank. Vendor <b>Potongan Langsung</b> ditandai "Potong di muka"
-						(sudah dipotong dari aliran uang, bukan uang keluar). Status{" "}
-						<b>Belum settle</b> = tunggu event di-settle dulu.
+						Komisi di-akrual sebagai utang (2-103 vendor / 2-102 relasi) saat
+						event di-settle, lalu dibayar dari sini — Dr utang komisi / Cr
+						kas-bank. Belum di-settle pun tetap bisa dibayar lewat{" "}
+						<b>Bayar di muka</b>: uangnya dicatat sebagai aset Uang Muka Komisi
+						(1-310) dan otomatis diperhitungkan saat event di-settle — jadi
+						tidak pernah tertagih dua kali. Vendor <b>Potongan Langsung</b>{" "}
+						ditandai "Potong di muka" (sudah dipotong dari aliran uang, bukan
+						uang keluar).
 					</span>
 				</p>
 			</div>
@@ -88,7 +91,7 @@ function SummaryCard({
 	label: string;
 	value: string;
 	hint: string;
-	tone: "rose" | "emerald" | "amber" | "muted";
+	tone: "rose" | "emerald" | "amber" | "sky" | "muted";
 }) {
 	const cls =
 		tone === "rose"
@@ -97,7 +100,9 @@ function SummaryCard({
 				? "text-emerald-600 dark:text-emerald-400"
 				: tone === "amber"
 					? "text-amber-600 dark:text-amber-400"
-					: "text-foreground";
+					: tone === "sky"
+						? "text-sky-600 dark:text-sky-400"
+						: "text-foreground";
 	return (
 		<div className="space-y-1 rounded-xl border border-border-default bg-card p-4">
 			<dt className="text-fluid-caption font-medium uppercase tracking-wider text-muted-foreground">

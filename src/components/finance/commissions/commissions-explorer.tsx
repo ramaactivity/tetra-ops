@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Handshake, RotateCcw } from "lucide-react";
+import { CheckCircle2, Clock3, Handshake, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -26,6 +26,10 @@ const STATUS_META: Record<
 	not_settled: {
 		label: "Belum settle",
 		cls: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
+	},
+	advance: {
+		label: "Dibayar di muka",
+		cls: "bg-sky-500/12 text-sky-700 dark:text-sky-400",
 	},
 	payable: {
 		label: "Terutang",
@@ -63,9 +67,13 @@ export function CommissionsExplorer({
 
 	async function reverse(row: CommissionRow) {
 		const key = `${row.eventId}:${row.kind}`;
+		const paid = row.payout?.paidAmount ?? row.amount;
 		const ok = await confirm({
 			title: "Batalkan pembayaran komisi?",
-			description: `Pembayaran komisi ${row.kind} untuk ${row.payeeName} (${formatRupiah(row.amount)}) akan dibatalkan dan jurnal dibalik. Utang komisi muncul lagi.`,
+			description:
+				row.status === "advance"
+					? `Pembayaran di muka untuk ${row.payeeName} (${formatRupiah(paid)}) akan dibatalkan & jurnalnya dibalik. Uang muka komisi hilang, komisi kembali ke status "Belum settle".`
+					: `Pembayaran komisi ${row.kind} untuk ${row.payeeName} (${formatRupiah(paid)}) akan dibatalkan dan jurnal dibalik. Utang komisi muncul lagi.`,
 			confirmLabel: "Batalkan pembayaran",
 			variant: "destructive",
 		});
@@ -149,10 +157,17 @@ export function CommissionsExplorer({
 										>
 											{meta.label}
 										</span>
-										{row.status === "paid" && row.payout ? (
+										{row.payout ? (
 											<div className="mt-0.5 text-[10.5px] text-muted-foreground">
 												{formatDateID(row.payout.paymentDate)}
 												{row.payout.bankName ? ` · ${row.payout.bankName}` : ""}
+												{row.status === "advance" ? " · nunggu settle" : ""}
+											</div>
+										) : null}
+										{row.payout && row.payout.paidAmount !== row.amount ? (
+											<div className="tabular mt-0.5 text-[10.5px] font-medium text-amber-600 dark:text-amber-400">
+												Dibayar {formatRupiah(row.payout.paidAmount)} — komisi
+												sekarang {formatRupiah(row.amount)}
 											</div>
 										) : null}
 									</td>
@@ -165,7 +180,17 @@ export function CommissionsExplorer({
 											>
 												Bayar
 											</button>
-										) : row.status === "paid" ? (
+										) : row.status === "not_settled" ? (
+											<button
+												type="button"
+												onClick={() => openPay(row)}
+												title="Bayar sekarang walau event belum di-settle. Dicatat sebagai uang muka & otomatis diperhitungkan saat settle."
+												className="press tap inline-flex h-8 items-center gap-1.5 rounded-full border border-border-default px-3 text-[12px] font-medium text-foreground transition-colors hover:bg-secondary"
+											>
+												<Clock3 className="size-3.5" aria-hidden />
+												Bayar di muka
+											</button>
+										) : row.status === "paid" || row.status === "advance" ? (
 											<button
 												type="button"
 												onClick={() => reverse(row)}
@@ -175,14 +200,10 @@ export function CommissionsExplorer({
 												<RotateCcw className="size-3.5" aria-hidden />
 												{reversingKey === key ? "…" : "Batalkan"}
 											</button>
-										) : row.status === "upfront" ? (
+										) : (
 											<span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
 												<CheckCircle2 className="size-3.5" aria-hidden />
 												Otomatis
-											</span>
-										) : (
-											<span className="text-[11.5px] text-muted-foreground">
-												Settle dulu
 											</span>
 										)}
 									</td>

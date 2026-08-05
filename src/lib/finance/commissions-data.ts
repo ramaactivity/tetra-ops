@@ -10,17 +10,24 @@ type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
  *
  *   - "upfront"      → vendor Potongan Langsung: komisi sudah dipotong di muka,
  *                      bukan uang keluar. Tidak perlu dibayar.
- *   - "not_settled"  → event belum di-settle di buku sekarang → utang komisi
- *                      belum ter-akrual, jadi belum bisa dibayar.
- *   - "payable"      → sudah ter-akrual (Cr 2-101/2-102), belum dibayar → Bayar.
- *   - "paid"         → sudah dibayar (ada commission_payouts aktif).
+ *   - "not_settled"  → event belum di-settle → utang komisi belum ter-akrual.
+ *                      Tetap BOLEH dibayar sebagai uang muka (Dr 1-310).
+ *   - "advance"      → sudah dibayar di muka, event belum di-settle. Saat settle
+ *                      nanti uang mukanya otomatis dipakai (tidak jadi utang).
+ *   - "payable"      → sudah ter-akrual (Cr 2-103/2-102), belum dibayar → Bayar.
+ *   - "paid"         → sudah dibayar & event sudah ter-settle di buku sekarang.
  *
  * Status settlement mengikuti aturan yang sama dgn bayar fee crew: event
  * status=completed, punya settlement, closed_at >= finance cutoff, belum
  * di-reopen. (Lihat payCrewFee / payCommission.)
  */
 
-export type CommissionStatus = "upfront" | "not_settled" | "payable" | "paid";
+export type CommissionStatus =
+	| "upfront"
+	| "not_settled"
+	| "advance"
+	| "payable"
+	| "paid";
 
 export type CommissionRow = {
 	eventId: string;
@@ -39,6 +46,10 @@ export type CommissionRow = {
 		paymentDate: string;
 		bankName: string | null;
 		proofUrl: string | null;
+		/** Dibayar sebelum event di-settle (aset 1-310, bukan pelunasan utang). */
+		isAdvance: boolean;
+		/** Nominal yang benar-benar dibayar — bisa beda kalau komisi diubah. */
+		paidAmount: number;
 	} | null;
 };
 
@@ -49,6 +60,8 @@ export type CommissionsOverview = {
 		payableAmount: number;
 		paidAmount: number;
 		notSettledAmount: number;
+		/** Sudah dibayar di muka, menunggu event di-settle (saldo 1-310). */
+		advanceAmount: number;
 	};
 };
 
@@ -90,6 +103,7 @@ export async function getCommissionsOverview(
 				payableAmount: 0,
 				paidAmount: 0,
 				notSettledAmount: 0,
+				advanceAmount: 0,
 			},
 		};
 	}
@@ -103,7 +117,7 @@ export async function getCommissionsOverview(
 			supabase
 				.from("commission_payouts")
 				.select(
-					"id, event_id, kind, payment_date, is_reversed, proof_url, bank_account:bank_accounts(bank_name, account_name)",
+					"id, event_id, kind, payment_date, is_reversed, is_advance, amount, proof_url, bank_account:bank_accounts(bank_name, account_name)",
 				)
 				.in("event_id", eventIds)
 				.eq("is_reversed", false),
@@ -167,12 +181,14 @@ export async function getCommissionsOverview(
 				| null
 				| undefined;
 			const bankObj = Array.isArray(bank) ? bank[0] : bank;
+			const settled = settledInBooks.get(eventId) === true;
 			let status: CommissionStatus;
 			if (kind === "vendor" && vendorMode === "upfront_cut") {
 				status = "upfront";
 			} else if (payout) {
-				status = "paid";
-			} else if (settledInBooks.get(eventId)) {
+				// Uang muka baru "selesai" setelah settlement memakainya.
+				status = payout.is_advance && !settled ? "advance" : "paid";
+			} else if (settled) {
 				status = "payable";
 			} else {
 				status = "not_settled";
@@ -191,6 +207,8 @@ export async function getCommissionsOverview(
 							paymentDate: payout.payment_date as string,
 							bankName: bankObj?.bank_name ?? bankObj?.account_name ?? null,
 							proofUrl: (payout.proof_url as string | null) ?? null,
+							isAdvance: payout.is_advance === true,
+							paidAmount: Number(payout.amount ?? 0),
 						}
 					: null,
 			});
@@ -234,13 +252,21 @@ export async function getCommissionsOverview(
 				acc.payableCount += 1;
 				acc.payableAmount += r.amount;
 			} else if (r.status === "paid") {
-				acc.paidAmount += r.amount;
+				acc.paidAmount += r.payout?.paidAmount ?? r.amount;
+			} else if (r.status === "advance") {
+				acc.advanceAmount += r.payout?.paidAmount ?? r.amount;
 			} else if (r.status === "not_settled") {
 				acc.notSettledAmount += r.amount;
 			}
 			return acc;
 		},
-		{ payableCount: 0, payableAmount: 0, paidAmount: 0, notSettledAmount: 0 },
+		{
+			payableCount: 0,
+			payableAmount: 0,
+			paidAmount: 0,
+			notSettledAmount: 0,
+			advanceAmount: 0,
+		},
 	);
 
 	return { rows, totals };

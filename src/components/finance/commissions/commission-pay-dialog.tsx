@@ -1,5 +1,6 @@
 "use client";
 
+import { Clock3 } from "lucide-react";
 import { useState } from "react";
 import {
 	ProofUploadButton,
@@ -30,6 +31,10 @@ export type CommissionBankOption = {
  * Dialog bayar komisi (vendor/relasi) — pola sama dgn bayar fee crew:
  * pilih rekening, biaya admin opsional, bukti opsional (upload ditunda sampai
  * klik Bayar). Nominal komisi read-only (server yang otoritatif).
+ *
+ * Dua rasa, ditentukan status baris: event sudah di-settle → pelunasan utang
+ * komisi; belum di-settle → "bayar di muka" (uang muka komisi, otomatis
+ * diperhitungkan saat event di-settle nanti).
  */
 export function CommissionPayDialog({
 	row,
@@ -70,6 +75,8 @@ export function CommissionPayDialog({
 			: row.kind === "sales"
 				? "sales"
 				: "relasi";
+	// Event belum di-settle → uang keluar dicatat sebagai uang muka komisi.
+	const isAdvance = row.status === "not_settled";
 
 	async function submit() {
 		if (!row) return;
@@ -108,7 +115,11 @@ export function CommissionPayDialog({
 				setBusy(false);
 				return;
 			}
-			toast.success(`Komisi ${label} dibayar · ${res.journalRef}`);
+			toast.success(
+				isAdvance
+					? `Komisi ${label} dibayar di muka · ${res.journalRef}`
+					: `Komisi ${label} dibayar · ${res.journalRef}`,
+			);
 			onDone();
 			onOpenChange(false);
 		} finally {
@@ -122,7 +133,11 @@ export function CommissionPayDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-h-[92vh] overflow-y-auto p-5 sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Bayar komisi {label}</DialogTitle>
+					<DialogTitle>
+						{isAdvance
+							? `Bayar komisi ${label} di muka`
+							: `Bayar komisi ${label}`}
+					</DialogTitle>
 					<DialogDescription className="sr-only">
 						Catat pembayaran komisi. Utang komisi turun & kas berkurang.
 					</DialogDescription>
@@ -142,6 +157,18 @@ export function CommissionPayDialog({
 							{row.clientName} · komisi {label}
 						</p>
 					</div>
+
+					{isAdvance && (
+						<div className="flex items-start gap-2 rounded-xl border border-sky-500/25 bg-sky-500/8 px-3.5 py-2.5 text-[11.5px] leading-relaxed text-sky-800 dark:text-sky-300">
+							<Clock3 className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+							<span>
+								Event ini <b>belum di-settle</b>. Pembayaran dicatat sebagai{" "}
+								<b>uang muka komisi</b> — uangnya keluar sekarang, lalu otomatis
+								diperhitungkan saat event di-settle (tidak akan jadi utang atau
+								tagihan dobel).
+							</span>
+						</div>
+					)}
 
 					<Field label="Rekening sumber" required>
 						<NativeSelect
@@ -199,7 +226,11 @@ export function CommissionPayDialog({
 						onClick={submit}
 						className="h-10 w-full"
 					>
-						{busy ? "Memproses…" : `Bayar ${formatRupiah(cashOut)}`}
+						{busy
+							? "Memproses…"
+							: isAdvance
+								? `Bayar di muka ${formatRupiah(cashOut)}`
+								: `Bayar ${formatRupiah(cashOut)}`}
 					</Button>
 				</div>
 			</DialogContent>

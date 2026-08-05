@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramEventSettled } from "@/lib/telegram/notify";
-import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 export type SettleEventResult = {
 	settlement_id: string;
@@ -32,8 +33,21 @@ export type CrewPaymentSummary = {
 	errors: string[];
 };
 
+/** Hasil "sekalian bayar komisi" saat settle (opsional). */
+export type CommissionPaymentSummary = {
+	paid: boolean;
+	amount: number;
+	payeeName: string;
+	error?: string;
+};
+
 export type SettleEventResponse =
-	| { ok: true; data: SettleEventResult; crewPayment?: CrewPaymentSummary }
+	| {
+			ok: true;
+			data: SettleEventResult;
+			crewPayment?: CrewPaymentSummary;
+			commissionPayment?: CommissionPaymentSummary;
+	  }
 	| { ok: false; error: string; code?: string };
 
 export async function settleEvent(
@@ -43,6 +57,10 @@ export async function settleEvent(
 		/** Kalau di-set: setelah settle, langsung bayar SEMUA fee crew dari
 		 *  rekening ini (Dr 2-100 / Cr rekening). Null/undefined = settle saja. */
 		payCrewFromAccount?: string | null;
+		/** Kalau di-set: setelah settle, langsung bayar komisi event ini
+		 *  (vendor/relasi/sales) dari rekening ini — supaya owner tidak perlu
+		 *  pindah ke halaman Komisi. Null/undefined = tidak bayar komisi. */
+		payCommissionFromAccount?: string | null;
 	},
 ): Promise<SettleEventResponse> {
 	const me = await getCurrentUser();
@@ -113,6 +131,31 @@ export async function settleEvent(
 		crewPayment = { paid, failed, total, errors };
 	}
 
+	// Opsional: "sekalian bayar komisi". Event baru saja jadi completed +
+	// settled, jadi payCommission masuk jalur pelunasan utang (Dr 2-103/2-102 /
+	// Cr rekening) — bukan uang muka. Kalau komisinya sudah dibayar di muka,
+	// payCommission menolak dgn "sudah dibayar" & kita diamkan (bukan error).
+	let commissionPayment: CommissionPaymentSummary | undefined;
+	const komisiAcct = opts?.payCommissionFromAccount?.trim();
+	if (komisiAcct) {
+		const target = await resolveEventCommission(supabase, eventId);
+		if (target) {
+			const r = await payCommission({
+				event_id: eventId,
+				project_id: projectId,
+				kind: target.kind,
+				bank_account_code: komisiAcct,
+				payment_date: new Date().toISOString().slice(0, 10),
+			});
+			commissionPayment = {
+				paid: r.ok,
+				amount: target.amount,
+				payeeName: target.payeeName,
+				error: r.ok ? undefined : r.error,
+			};
+		}
+	}
+
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
@@ -132,7 +175,77 @@ export async function settleEvent(
 		is_loss: settled.is_loss,
 	});
 
-	return { ok: true, data: data as SettleEventResult, crewPayment };
+	return {
+		ok: true,
+		data: data as SettleEventResult,
+		crewPayment,
+		commissionPayment,
+	};
+}
+
+/**
+ * Komisi yang menempel di sebuah event — jenis, nominal, penerima. Null kalau
+ * event ini memang tidak punya komisi yang perlu dibayar (tak ada nominal, atau
+ * vendor "Potongan Langsung" yang sudah dipotong di muka dari aliran uang).
+ * Dipakai untuk opsi "sekalian bayar komisi" saat settle.
+ */
+async function resolveEventCommission(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+): Promise<{
+	kind: "vendor" | "relasi" | "sales";
+	amount: number;
+	payeeName: string;
+} | null> {
+	const { data: ev } = await supabase
+		.from("events")
+		.select(
+			`channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
+			referrer_user_id, referrer_commission,
+			sales_user_id, direct_sales_commission`,
+		)
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return null;
+
+	const nameOf = async (userId: string | null, fallback: string) => {
+		if (!userId) return fallback;
+		const { data } = await supabase
+			.from("users")
+			.select("full_name")
+			.eq("id", userId)
+			.maybeSingle();
+		return (data?.full_name as string) ?? fallback;
+	};
+
+	if (ev.channel === "vendor") {
+		const amount = Number(ev.vendor_commission_amount ?? 0);
+		if (amount <= 0 || ev.vendor_commission_mode === "upfront_cut") return null;
+		return {
+			kind: "vendor",
+			amount,
+			payeeName: (ev.vendor_name as string) ?? "Vendor",
+		};
+	}
+	if (ev.channel === "relasi") {
+		const amount = Number(ev.referrer_commission ?? 0);
+		if (amount <= 0) return null;
+		return {
+			kind: "relasi",
+			amount,
+			payeeName: await nameOf(ev.referrer_user_id as string | null, "Relasi"),
+		};
+	}
+	if (ev.channel === "direct") {
+		const amount = Number(ev.direct_sales_commission ?? 0);
+		if (amount <= 0) return null;
+		return {
+			kind: "sales",
+			amount,
+			payeeName: await nameOf(ev.sales_user_id as string | null, "Sales Tetra"),
+		};
+	}
+	return null;
 }
 
 export type ReopenResult = {

@@ -8,22 +8,37 @@ import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Bayar komisi vendor/relasi — pola sama dgn payCrewFee (cash-basis):
- * settlement meng-akrual komisi ke 2-101 (vendor) / 2-102 (relasi). Membayar =
- * melunasi utang itu → Dr 2-101/2-102 / Cr kas-bank. Biaya admin bank → Dr
- * 5-600 terpisah. Catatan pembayaran disimpan di commission_payouts (1 aktif
- * per event+kind; reversible).
+ * Bayar komisi vendor/relasi — pola sama dgn payCrewFee (cash-basis). Dua jalur,
+ * tergantung event-nya sudah di-settle atau belum:
+ *
+ *   • SETELAH settle ("pelunasan utang") — settlement sudah meng-akrual komisi
+ *     ke 2-103 (vendor) / 2-102 (relasi+sales). Membayar = melunasi utang itu →
+ *     Dr 2-103/2-102 / Cr kas-bank.
+ *
+ *   • SEBELUM settle ("uang muka") — utangnya belum lahir, jadi uang keluar
+ *     dicatat sebagai ASET Dr 1-310 Uang Muka Komisi / Cr kas-bank. Saat event
+ *     di-settle nanti, _create_settlement_journal otomatis memakai uang muka itu
+ *     sebagai lawan beban komisi (Cr 1-310) — jadi TIDAK ada utang ganda dan
+ *     tidak perlu jurnal susulan. Lihat 20260805_commission_advance.sql.
+ *
+ * Biaya admin bank → Dr 5-600 terpisah (dua-duanya). Catatan pembayaran disimpan
+ * di commission_payouts (1 aktif per event+kind; reversible).
  *
  * Vendor "Potongan Langsung" (upfront_cut) TIDAK bisa dibayar dari sini —
  * komisinya sudah dipotong di muka dari aliran uang (bukan utang).
  */
 
 // Sales (direct) & relasi berbagi akun utang komisi 2-102 (5-301 "Sales/Relasi").
+// Vendor pakai 2-103 (BUKAN 2-101 — itu Hutang Dagang/supplier, control account
+// subledger payables; lihat 20260805_commission_advance.sql).
 const PAYABLE_COA: Record<"vendor" | "relasi" | "sales", string> = {
-	vendor: "2-101",
+	vendor: "2-103",
 	relasi: "2-102",
 	sales: "2-102",
 };
+
+/** Aset "Uang Muka Komisi" — dipakai kalau komisi dibayar sebelum settle. */
+const ADVANCE_COA = "1-310";
 
 function newJournalRef(date: Date): string {
 	const yyyymmdd = date.toISOString().slice(0, 10).replace(/-/g, "");
@@ -146,10 +161,10 @@ export async function payCommission(input: {
 		return { ok: false, error: "Nominal komisi Rp0 — tidak ada yang dibayar" };
 	}
 
-	// Gate: komisi WAJIB sudah ter-akrual (event settled di buku sekarang).
-	if (ev.status !== "completed") {
-		return { ok: false, error: "Settle event ini dulu sebelum bayar komisi." };
-	}
+	// Sudah ter-akrual jadi utang di buku SEKARANG? Ini yang menentukan jalur:
+	//   sudah  → pelunasan utang  (Dr 2-103/2-102 / Cr kas)
+	//   belum  → uang muka komisi (Dr 1-310        / Cr kas), di-offset otomatis
+	//            saat event di-settle nanti.
 	const { data: cutoffCfg } = await supabase
 		.from("system_config")
 		.select("value")
@@ -168,12 +183,33 @@ export async function payCommission(input: {
 		typeof settlement?.closed_at === "string"
 			? settlement.closed_at.slice(0, 10)
 			: null;
-	if (!closedDay || settlement?.is_reopened || (cutoff && closedDay < cutoff)) {
-		return {
-			ok: false,
-			error:
-				"Komisi event ini belum tercatat sebagai utang di pembukuan sekarang (event lama / pre-cutoff / sudah di-reopen). Tidak bisa dibayar dari sini.",
-		};
+	const isAccrued = Boolean(
+		closedDay && !settlement?.is_reopened && (!cutoff || closedDay >= cutoff),
+	);
+	const isAdvance = !isAccrued;
+
+	if (isAdvance) {
+		// Event yang SUDAH ditutup tapi di luar buku sekarang (settle pre-cutoff)
+		// tidak boleh: bebannya sudah dibukukan di buku lama & event itu tak akan
+		// di-settle lagi, jadi uang mukanya tak akan pernah habis (nyangkut di
+		// 1-310 selamanya). Event yang di-reopen boleh — nanti di-settle ulang.
+		if (closedDay && !settlement?.is_reopened) {
+			return {
+				ok: false,
+				error:
+					"Event ini ditutup sebelum cutoff pembukuan, jadi komisinya tidak tercatat di buku sekarang. Tidak bisa dibayar dari sini.",
+			};
+		}
+		if (ev.finance_frozen_at) {
+			return {
+				ok: false,
+				error:
+					"Event ini dibekukan oleh cutoff pembukuan — pembayarannya tidak bisa dicatat di buku sekarang.",
+			};
+		}
+		if (ev.status === "cancelled") {
+			return { ok: false, error: "Event batal — komisi tidak perlu dibayar." };
+		}
 	}
 
 	// Sudah pernah dibayar? (guard aplikasi; unique index sbg backstop.)
@@ -246,6 +282,7 @@ export async function payCommission(input: {
 			bank_account_id: bankAcct.id,
 			proof_url: parsed.data.proof_url ?? null,
 			notes: parsed.data.notes ?? null,
+			is_advance: isAdvance,
 			created_by: me.profile.id,
 		})
 		.select("id")
@@ -260,15 +297,20 @@ export async function payCommission(input: {
 		};
 	}
 
-	// 2) Jurnal: Dr 2-101/2-102 (utang komisi turun) [+ Dr 5-600] / Cr bank.
+	// 2) Jurnal. Sudah ter-akrual → Dr 2-103/2-102 (utang turun). Belum →
+	//    Dr 1-310 (uang muka, aset). [+ Dr 5-600 admin] / Cr bank.
 	const refId = newJournalRef(new Date(payment_date));
+	const kindLabel =
+		kind === "vendor" ? "vendor" : kind === "sales" ? "sales" : "relasi";
 	const { data: entry, error: entryErr } = await supabase
 		.from("journal_entries")
 		.insert({
 			ref_id: refId,
 			entry_date: payment_date,
 			entry_type: "asset_out",
-			description: `Bayar komisi ${kind === "vendor" ? "vendor" : "relasi"} — ${payeeName}`,
+			description: isAdvance
+				? `Bayar komisi ${kindLabel} di muka (belum settle) — ${payeeName}`
+				: `Bayar komisi ${kindLabel} — ${payeeName}`,
 			source_type: "commission_payment",
 			source_id: payout.id,
 			source_event_id: event_id,
@@ -288,10 +330,12 @@ export async function payCommission(input: {
 	const lines: Array<Record<string, unknown>> = [
 		{
 			entry_id: entry.id,
-			account_code: PAYABLE_COA[kind],
+			account_code: isAdvance ? ADVANCE_COA : PAYABLE_COA[kind],
 			debit_amount: amount,
 			credit_amount: 0,
-			description: `Pelunasan komisi ${kind === "vendor" ? "vendor" : "relasi"} (utang turun)`,
+			description: isAdvance
+				? `Uang muka komisi ${kindLabel} (dibayar sebelum event di-settle)`
+				: `Pelunasan komisi ${kindLabel} (utang turun)`,
 			line_order: 1,
 		},
 	];
@@ -364,12 +408,44 @@ export async function unpayCommission(input: {
 	const supabase = await createClient();
 	const { data: payout } = await supabase
 		.from("commission_payouts")
-		.select("id, journal_entry_id")
+		.select("id, journal_entry_id, is_advance")
 		.eq("event_id", event_id)
 		.eq("kind", kind)
 		.eq("is_reversed", false)
 		.maybeSingle();
 	if (!payout) return { ok: false, error: "Pembayaran komisi tidak ditemukan" };
+
+	// Uang muka yang SUDAH terpakai saat settle: saldo 1-310-nya sudah habis
+	// dipakai settlement, jadi membalik apa adanya bikin uang muka jadi minus.
+	// Yang benar: uang kembali & komisinya berubah jadi utang lagi →
+	// baris 1-310 di jurnal pembalik dialihkan ke 2-103/2-102.
+	let advanceRedirect: string | null = null;
+	if (payout.is_advance) {
+		const [{ data: cutoffCfg }, { data: settlement }] = await Promise.all([
+			supabase
+				.from("system_config")
+				.select("value")
+				.eq("key", "finance_cutoff_date")
+				.maybeSingle(),
+			supabase
+				.from("event_settlements")
+				.select("closed_at, is_reopened")
+				.eq("event_id", event_id)
+				.maybeSingle(),
+		]);
+		const cutoff =
+			typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
+				? cutoffCfg.value
+				: null;
+		const closedDay =
+			typeof settlement?.closed_at === "string"
+				? settlement.closed_at.slice(0, 10)
+				: null;
+		const consumed = Boolean(
+			closedDay && !settlement?.is_reopened && (!cutoff || closedDay >= cutoff),
+		);
+		if (consumed) advanceRedirect = PAYABLE_COA[kind];
+	}
 
 	// Jurnal pembalik (mirror swap debit↔credit).
 	if (payout.journal_entry_id) {
@@ -406,14 +482,22 @@ export async function unpayCommission(input: {
 					error: `Gagal buat jurnal pembalik: ${revErr?.message ?? "unknown"}`,
 				};
 			}
-			const reversed = (origLines ?? []).map((l, i) => ({
-				entry_id: rev.id,
-				account_code: l.account_code as string,
-				debit_amount: Number(l.credit_amount ?? 0),
-				credit_amount: Number(l.debit_amount ?? 0),
-				description: `Pembalik — ${l.description ?? ""}`.slice(0, 200),
-				line_order: i + 1,
-			}));
+			const reversed = (origLines ?? []).map((l, i) => {
+				const code = l.account_code as string;
+				const redirected =
+					advanceRedirect && code === ADVANCE_COA ? advanceRedirect : code;
+				return {
+					entry_id: rev.id,
+					account_code: redirected,
+					debit_amount: Number(l.credit_amount ?? 0),
+					credit_amount: Number(l.debit_amount ?? 0),
+					description: (redirected !== code
+						? `Pembalik — uang muka sudah terpakai saat settle, komisi jadi utang lagi`
+						: `Pembalik — ${l.description ?? ""}`
+					).slice(0, 200),
+					line_order: i + 1,
+				};
+			});
 			if (reversed.length > 0) {
 				const { error: revLinesErr } = await supabase
 					.from("journal_lines")
