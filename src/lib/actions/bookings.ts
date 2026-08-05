@@ -9,12 +9,19 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
 import {
+	formatScheduleInline,
 	parseSegments,
 	segmentsEnvelope,
+	trimTime,
 	validateSegments,
 } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
-import { notifyTelegramBookingCreated } from "@/lib/telegram/notify";
+import { tgEscape } from "@/lib/telegram/client";
+import { dateLabel, rp } from "@/lib/telegram/digest";
+import {
+	notifyTelegramBookingCreated,
+	notifyTelegramEventUpdated,
+} from "@/lib/telegram/notify";
 
 const CHANNELS = ["direct", "vendor", "relasi"] as const;
 const SERVICE_TYPES = [
@@ -602,6 +609,185 @@ function buildEventPayload(
 	};
 }
 
+type AddonQtyRow = { addon_id: string; quantity: number };
+
+/**
+ * Diff snapshot event lama vs payload baru → baris-baris perubahan (HTML
+ * Telegram, sudah di-escape) untuk notifyTelegramEventUpdated. Hanya field
+ * yang berarti buat owner: tanggal, jam, lokasi, paket, backdrop, add-on,
+ * bonus, kategori, frame, klien, PIC venue, dan grand total.
+ */
+async function buildBookingChangeLines(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	before: {
+		client_name: string | null;
+		event_date: string;
+		event_date_is_estimate: boolean | null;
+		setup_time: string | null;
+		start_time: string | null;
+		end_time: string | null;
+		session_segments: unknown;
+		venue_name: string | null;
+		venue_city: string | null;
+		package_id: string | null;
+		backdrop_id: string | null;
+		frame_size: string | null;
+		event_category: string | null;
+		pic_name: string | null;
+		grand_total: number | null;
+	},
+	after: ReturnType<typeof buildEventPayload>,
+	addonDiff: {
+		oldAddons: AddonQtyRow[];
+		newAddons: AddonQtyRow[];
+		oldBonuses: AddonQtyRow[];
+		newBonuses: AddonQtyRow[];
+	},
+): Promise<string[]> {
+	const lines: string[] = [];
+	const arrow = (a: string, b: string) => `${a} → <b>${b}</b>`;
+
+	if (before.event_date !== after.event_date) {
+		lines.push(
+			`📅 Tanggal: ${arrow(dateLabel(before.event_date, true), dateLabel(after.event_date, true))}`,
+		);
+	} else if (
+		Boolean(before.event_date_is_estimate) !== after.event_date_is_estimate
+	) {
+		lines.push(
+			after.event_date_is_estimate
+				? "📅 Tanggal ditandai jadi perkiraan (TBC)"
+				: "📅 Tanggal dikonfirmasi — bukan perkiraan lagi",
+		);
+	}
+
+	const oldSched = formatScheduleInline(
+		before.start_time,
+		before.end_time,
+		parseSegments(before.session_segments),
+	);
+	const newSched = formatScheduleInline(
+		after.start_time,
+		after.end_time,
+		after.session_segments,
+	);
+	if (oldSched !== newSched) {
+		lines.push(
+			`⏰ Jam: ${arrow(tgEscape(oldSched || "TBC"), tgEscape(newSched || "TBC"))}`,
+		);
+	}
+	const oldSetup = trimTime(before.setup_time);
+	const newSetup = trimTime(after.setup_time);
+	if (oldSetup !== newSetup) {
+		lines.push(`🛠 Setup: ${arrow(oldSetup || "TBC", newSetup || "TBC")}`);
+	}
+
+	const place = (name: string | null, city: string | null) =>
+		[name, city].filter(Boolean).join(", ");
+	const oldPlace = place(before.venue_name, before.venue_city);
+	const newPlace = place(after.venue_name, after.venue_city);
+	if (oldPlace !== newPlace) {
+		lines.push(
+			`📍 Lokasi: ${arrow(tgEscape(oldPlace || "TBC"), tgEscape(newPlace || "TBC"))}`,
+		);
+	}
+
+	if ((before.package_id ?? null) !== (after.package_id ?? null)) {
+		const ids = [before.package_id, after.package_id].filter((v): v is string =>
+			Boolean(v),
+		);
+		const { data: pkgs } = await supabase
+			.from("packages")
+			.select("id, name")
+			.in("id", ids);
+		const pkgName = (pid: string | null) =>
+			pid
+				? (((pkgs ?? []).find((p) => p.id === pid)?.name as string) ?? "?")
+				: "Custom (tanpa paket)";
+		lines.push(
+			`📦 Paket: ${arrow(tgEscape(pkgName(before.package_id)), tgEscape(pkgName(after.package_id)))}`,
+		);
+	}
+
+	if ((before.backdrop_id ?? null) !== (after.backdrop_id ?? null)) {
+		const ids = [before.backdrop_id, after.backdrop_id].filter(
+			(v): v is string => Boolean(v),
+		);
+		const { data: bgs } = await supabase
+			.from("backdrops")
+			.select("id, name")
+			.in("id", ids);
+		const bgName = (bid: string | null) =>
+			bid
+				? (((bgs ?? []).find((b) => b.id === bid)?.name as string) ?? "?")
+				: "Tanpa backdrop";
+		lines.push(
+			`🖼 Backdrop: ${arrow(tgEscape(bgName(before.backdrop_id)), tgEscape(bgName(after.backdrop_id)))}`,
+		);
+	}
+
+	// Add-on & bonus: bandingkan qty per addon_id, sebut nama barangnya.
+	const diffQty = async (
+		oldRows: AddonQtyRow[],
+		newRows: AddonQtyRow[],
+	): Promise<string[]> => {
+		const oldMap = new Map(oldRows.map((r) => [r.addon_id, r.quantity]));
+		const newMap = new Map(newRows.map((r) => [r.addon_id, r.quantity]));
+		const allIds = [...new Set([...oldMap.keys(), ...newMap.keys()])];
+		const changedIds = allIds.filter(
+			(aid) => (oldMap.get(aid) ?? 0) !== (newMap.get(aid) ?? 0),
+		);
+		if (changedIds.length === 0) return [];
+		const { data: addons } = await supabase
+			.from("addons")
+			.select("id, name")
+			.in("id", changedIds);
+		const nameOf = (aid: string) =>
+			tgEscape(
+				((addons ?? []).find((a) => a.id === aid)?.name as string) ?? "Add-on",
+			);
+		return changedIds.map((aid) => {
+			const o = oldMap.get(aid) ?? 0;
+			const n = newMap.get(aid) ?? 0;
+			if (o === 0) return `+${nameOf(aid)}${n > 1 ? ` ×${n}` : ""}`;
+			if (n === 0) return `−${nameOf(aid)}`;
+			return `${nameOf(aid)} ×${o}→×${n}`;
+		});
+	};
+	const addonParts = await diffQty(addonDiff.oldAddons, addonDiff.newAddons);
+	if (addonParts.length > 0) lines.push(`➕ Add-on: ${addonParts.join(", ")}`);
+	const bonusParts = await diffQty(addonDiff.oldBonuses, addonDiff.newBonuses);
+	if (bonusParts.length > 0) lines.push(`🎁 Bonus: ${bonusParts.join(", ")}`);
+
+	if ((before.event_category ?? "") !== after.event_category) {
+		lines.push(
+			`🏷 Kategori: ${arrow(tgEscape(before.event_category ?? "-"), tgEscape(after.event_category))}`,
+		);
+	}
+	if ((before.frame_size ?? null) !== (after.frame_size ?? null)) {
+		lines.push(
+			`📐 Frame: ${arrow(before.frame_size ?? "TBC", after.frame_size ?? "TBC")}`,
+		);
+	}
+	if ((before.client_name ?? "") !== after.client_name) {
+		lines.push(
+			`👤 Nama klien: ${arrow(tgEscape(before.client_name ?? "-"), tgEscape(after.client_name))}`,
+		);
+	}
+	if ((before.pic_name ?? null) !== (after.pic_name ?? null)) {
+		lines.push(
+			`👤 PIC venue: ${arrow(tgEscape(before.pic_name ?? "-"), tgEscape(after.pic_name ?? "-"))}`,
+		);
+	}
+
+	const oldTotal = Number(before.grand_total ?? 0);
+	if (oldTotal !== after.grand_total) {
+		lines.push(`💰 Total: ${arrow(rp(oldTotal), rp(after.grand_total))}`);
+	}
+
+	return lines;
+}
+
 async function resolveBackdropContribution(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	input: BookingInput,
@@ -795,9 +981,17 @@ export async function updateBooking(
 
 	// Pembayaran yang sudah masuk — supaya remaining_balance tidak ke-reset ke
 	// grand_total saat edit (membuang progres DP yang sudah dibayar).
+	// Field lain di-select sebagai snapshot "sebelum" untuk notifikasi
+	// perubahan ke grup Telegram owner (diff lama → baru).
 	const { data: curEvent, error: curEventErr } = await supabase
 		.from("events")
-		.select("total_paid, status, is_migrated_legacy")
+		.select(
+			`total_paid, status, is_migrated_legacy,
+			client_name, event_date, event_date_is_estimate, setup_time,
+			start_time, end_time, session_segments, venue_name, venue_city,
+			package_id, backdrop_id, frame_size, event_category, pic_name,
+			grand_total`,
+		)
 		.eq("id", id)
 		.maybeSingle();
 
@@ -834,17 +1028,30 @@ export async function updateBooking(
 			}
 		: {};
 
+	// Snapshot add-on & bonus LAMA — harus dibaca SEBELUM replace-all di bawah,
+	// dipakai untuk diff notifikasi Telegram.
+	const { data: oldAddonRows } = await supabase
+		.from("event_addons")
+		.select("addon_id, quantity")
+		.eq("event_id", id);
+	const { data: oldBonusRows } = await supabase
+		.from("event_bonuses")
+		.select("addon_id, quantity")
+		.eq("event_id", id);
+
+	const payload = buildEventPayload(
+		parsed.data,
+		basePrice,
+		addonsTotal,
+		backdropContribution,
+		vendorContactId,
+		Number(curEvent?.total_paid ?? 0),
+	);
+
 	const { data: updated, error } = await supabase
 		.from("events")
 		.update({
-			...buildEventPayload(
-				parsed.data,
-				basePrice,
-				addonsTotal,
-				backdropContribution,
-				vendorContactId,
-				Number(curEvent?.total_paid ?? 0),
-			),
+			...payload,
 			...statusPatch,
 		})
 		.eq("id", id)
@@ -915,6 +1122,29 @@ export async function updateBooking(
 				},
 				values: snapshotValues(formData),
 			};
+		}
+	}
+
+	// Best-effort: kabari grup Telegram owner perubahan penting (pindah tanggal,
+	// ganti paket, pindah lokasi, add-on berubah, dst). Event legacy di-skip —
+	// backfill data lama tidak perlu meramaikan grup. Gagal kirim tidak boleh
+	// menggagalkan edit yang sudah tersimpan.
+	if (curEvent && !curEvent.is_migrated_legacy) {
+		try {
+			const changes = await buildBookingChangeLines(
+				supabase,
+				curEvent,
+				payload,
+				{
+					oldAddons: oldAddonRows ?? [],
+					newAddons: addonRows,
+					oldBonuses: oldBonusRows ?? [],
+					newBonuses: bonusesRaw,
+				},
+			);
+			if (changes.length > 0) await notifyTelegramEventUpdated(id, changes);
+		} catch (e) {
+			console.error("[bookings] telegram update notify:", e);
 		}
 	}
 

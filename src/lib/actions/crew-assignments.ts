@@ -4,8 +4,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
+import { tgEscape } from "@/lib/telegram/client";
+import { notifyTelegramCrewChanged } from "@/lib/telegram/notify";
 
 const ROLES = ["lead", "asisten", "crew_c"] as const;
+
+const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {
+	lead: "Lead",
+	asisten: "Asisten",
+	crew_c: "Crew C",
+};
 
 const AssignSchema = z.object({
 	event_id: z.uuid(),
@@ -89,6 +97,18 @@ export async function assignCrew(
 
 	if (error) return { error: error.message };
 
+	// Best-effort: kabari grup Telegram owner susunan crew berubah.
+	const { data: u } = await supabase
+		.from("users")
+		.select("full_name, nickname")
+		.eq("id", parsed.data.user_id)
+		.maybeSingle();
+	const nama = (u?.nickname as string | null)?.trim() || u?.full_name || "Crew";
+	await notifyTelegramCrewChanged(
+		parsed.data.event_id,
+		`➕ ${tgEscape(nama)} ditugaskan sebagai ${ROLE_LABEL[parsed.data.role_in_event]}`,
+	);
+
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/crew`);
 	return {};
@@ -101,11 +121,35 @@ export async function unassignCrew(
 	await requireOwnerLevel();
 
 	const supabase = await createClient();
+
+	// Snapshot dulu sebelum delete — dipakai untuk notifikasi Telegram.
+	// Sengaja TANPA embed users (crew_assignments punya 2 FK ke users →
+	// embed tanpa hint kena PGRST201); nama di-fetch terpisah di bawah.
+	const { data: row } = await supabase
+		.from("crew_assignments")
+		.select("event_id, user_id")
+		.eq("id", id)
+		.maybeSingle();
+
 	const { error } = await supabase
 		.from("crew_assignments")
 		.delete()
 		.eq("id", id);
 	if (error) return { error: error.message };
+
+	if (row) {
+		const { data: u } = await supabase
+			.from("users")
+			.select("full_name, nickname")
+			.eq("id", row.user_id)
+			.maybeSingle();
+		const nama =
+			(u?.nickname as string | null)?.trim() || u?.full_name || "Crew";
+		await notifyTelegramCrewChanged(
+			row.event_id,
+			`➖ ${tgEscape(nama)} dilepas dari event`,
+		);
+	}
 
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/crew`);
@@ -130,6 +174,15 @@ export async function updateCrewAssignment(
 	}
 
 	const supabase = await createClient();
+
+	// Peran lama — untuk notifikasi kalau peran berubah (fee tidak diumumkan
+	// supaya grup tidak berisik; fee toh sudah owner-only di webapp).
+	const { data: prev } = await supabase
+		.from("crew_assignments")
+		.select("event_id, user_id, role_in_event")
+		.eq("id", parsed.data.id)
+		.maybeSingle();
+
 	const { error } = await supabase
 		.from("crew_assignments")
 		.update({
@@ -141,6 +194,23 @@ export async function updateCrewAssignment(
 		.eq("id", parsed.data.id);
 
 	if (error) return { error: error.message };
+
+	if (prev && prev.role_in_event !== parsed.data.role_in_event) {
+		const { data: u } = await supabase
+			.from("users")
+			.select("full_name, nickname")
+			.eq("id", prev.user_id)
+			.maybeSingle();
+		const nama =
+			(u?.nickname as string | null)?.trim() || u?.full_name || "Crew";
+		const oldLabel =
+			ROLE_LABEL[prev.role_in_event as (typeof ROLES)[number]] ??
+			prev.role_in_event;
+		await notifyTelegramCrewChanged(
+			prev.event_id,
+			`🔁 ${tgEscape(nama)}: ${oldLabel} → <b>${ROLE_LABEL[parsed.data.role_in_event]}</b>`,
+		);
+	}
 
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/crew`);

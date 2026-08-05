@@ -164,6 +164,69 @@ export async function notifyTelegramBookingCreated(
 	}
 }
 
+/**
+ * Event diedit owner → ringkas perubahan penting ke grup owner.
+ * `changeLines` sudah berupa baris HTML siap kirim (di-escape pemanggil) —
+ * pemanggil yang tahu nilai lama vs baru; fungsi ini cuma membungkus header.
+ */
+export async function notifyTelegramEventUpdated(
+	eventId: string,
+	changeLines: string[],
+): Promise<void> {
+	try {
+		if (changeLines.length === 0) return;
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select("project_id, client_name, event_date")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev) return;
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+		await sendToOwnerGroup(
+			[
+				`✏️ <b>EVENT DIUBAH — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				...changeLines,
+				...(appUrl ? [`\nDetail: ${appUrl}/operations/${ev.project_id}`] : []),
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] updated:", e);
+	}
+}
+
+/**
+ * Susunan crew berubah (ditambah / dilepas / ganti peran) → grup owner.
+ * `line` sudah di-escape pemanggil. Event legacy di-skip — backfill data
+ * lama tidak perlu meramaikan grup.
+ */
+export async function notifyTelegramCrewChanged(
+	eventId: string,
+	line: string,
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select("project_id, client_name, event_date, is_migrated_legacy")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev || ev.is_migrated_legacy) return;
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+		await sendToOwnerGroup(
+			[
+				`👥 <b>CREW EVENT — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				line,
+				...(appUrl
+					? [`\nDetail: ${appUrl}/operations/${ev.project_id}/crew`]
+					: []),
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] crew:", e);
+	}
+}
+
 /** Rekap crew masuk → owner diminta review. */
 export async function notifyTelegramRekapSubmitted(
 	eventId: string,
