@@ -34,30 +34,82 @@ const NullableUrlSchema = z
 		message: "URL bukti tidak valid",
 	});
 
+/** Pembayar biaya lapangan: ditalangi crew (di-rembers) atau dibayar owner. */
+export type ExpensePaidBy = "crew" | "owner";
+const paidByOf = (v: unknown): ExpensePaidBy =>
+	v === "owner" ? "owner" : "crew";
+
 const LainnyaItemsSchema = z
 	.string()
 	.trim()
 	.optional()
-	.transform((v): Array<{ note: string; amount: number }> => {
-		if (!v) return [];
+	.transform(
+		(v): Array<{ note: string; amount: number; paid_by: ExpensePaidBy }> => {
+			if (!v) return [];
+			try {
+				const parsed = JSON.parse(v);
+				if (!Array.isArray(parsed)) return [];
+				const out: Array<{
+					note: string;
+					amount: number;
+					paid_by: ExpensePaidBy;
+				}> = [];
+				for (const row of parsed) {
+					if (!row || typeof row !== "object") continue;
+					const note = String((row as Record<string, unknown>).note ?? "")
+						.trim()
+						.slice(0, 120);
+					const amount = Number((row as Record<string, unknown>).amount);
+					if (!Number.isFinite(amount) || amount < 0) continue;
+					if (!note && amount === 0) continue;
+					out.push({
+						note,
+						amount: Math.round(amount),
+						paid_by: paidByOf((row as Record<string, unknown>).paid_by),
+					});
+					if (out.length >= 20) break;
+				}
+				return out;
+			} catch {
+				return [];
+			}
+		},
+	);
+
+/**
+ * Map {transport|bensin|toll|parking|konsumsi: 'crew'|'owner'} dari hidden
+ * input JSON. Key tak dikenal dibuang; nilai tak valid jatuh ke 'crew'
+ * (default aman = perilaku lama: talangan crew → Hutang Crew).
+ */
+const EXPENSE_PAID_BY_KEYS = [
+	"transport",
+	"bensin",
+	"toll",
+	"parking",
+	"konsumsi",
+] as const;
+export type ExpensePaidByMap = Partial<
+	Record<(typeof EXPENSE_PAID_BY_KEYS)[number], ExpensePaidBy>
+>;
+const ExpensePaidBySchema = z
+	.string()
+	.trim()
+	.optional()
+	.transform((v): ExpensePaidByMap => {
+		if (!v) return {};
 		try {
 			const parsed = JSON.parse(v);
-			if (!Array.isArray(parsed)) return [];
-			const out: Array<{ note: string; amount: number }> = [];
-			for (const row of parsed) {
-				if (!row || typeof row !== "object") continue;
-				const note = String((row as Record<string, unknown>).note ?? "")
-					.trim()
-					.slice(0, 120);
-				const amount = Number((row as Record<string, unknown>).amount);
-				if (!Number.isFinite(amount) || amount < 0) continue;
-				if (!note && amount === 0) continue;
-				out.push({ note, amount: Math.round(amount) });
-				if (out.length >= 20) break;
+			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+				return {};
+			}
+			const out: ExpensePaidByMap = {};
+			for (const key of EXPENSE_PAID_BY_KEYS) {
+				const raw = (parsed as Record<string, unknown>)[key];
+				if (raw === "owner" || raw === "crew") out[key] = raw;
 			}
 			return out;
 		} catch {
-			return [];
+			return {};
 		}
 	});
 
@@ -126,6 +178,7 @@ const RekapInputSchema = z.object({
 	parking_cost: NonNegMoney,
 	konsumsi_cost: NonNegMoney,
 	lainnya_items: LainnyaItemsSchema,
+	expense_paid_by: ExpensePaidBySchema,
 });
 
 export type RekapInput = z.infer<typeof RekapInputSchema>;
@@ -317,12 +370,14 @@ export async function getRekapContext(
 						.in("id", ids)
 				: { data: [] };
 			const byId = new Map(
-				((safeItems ?? []) as Array<{
-					id: string;
-					sku: string;
-					name: string;
-					unit: string | null;
-				}>).map((it) => [it.id, it]),
+				(
+					(safeItems ?? []) as Array<{
+						id: string;
+						sku: string;
+						name: string;
+						unit: string | null;
+					}>
+				).map((it) => [it.id, it]),
 			);
 			bundle = {
 				id: bundleRow.id,
@@ -446,7 +501,8 @@ export async function getRekapContext(
 					(it as { unit_conversion?: unknown }).unit_conversion ?? null,
 				// Jalur crew memakai view tanpa kolom biaya → selalu 0.
 				purchase_price_avg: Number(
-					(it as { purchase_price_avg?: number | null }).purchase_price_avg ?? 0,
+					(it as { purchase_price_avg?: number | null }).purchase_price_avg ??
+						0,
 				),
 				current_stock: stockMap.get(it.id as string) ?? 0,
 			});
@@ -620,6 +676,7 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		"parking_cost",
 		"konsumsi_cost",
 		"lainnya_items",
+		"expense_paid_by",
 	];
 	const out: Record<string, string> = {};
 	for (const k of keys) out[k] = String(formData.get(k) ?? "");
@@ -656,6 +713,7 @@ export async function submitRekap(
 		parking_cost: formData.get("parking_cost"),
 		konsumsi_cost: formData.get("konsumsi_cost"),
 		lainnya_items: formData.get("lainnya_items"),
+		expense_paid_by: formData.get("expense_paid_by"),
 	});
 	if (!parsed.success) {
 		return {
@@ -762,6 +820,7 @@ export async function submitRekap(
 		parking_cost: parsed.data.parking_cost,
 		konsumsi_cost: parsed.data.konsumsi_cost,
 		lainnya_items: parsed.data.lainnya_items,
+		expense_paid_by: parsed.data.expense_paid_by,
 	};
 
 	if (existing) {
@@ -913,31 +972,31 @@ async function planRekapDeduction(
 ): Promise<{ lines: DeductionLine[]; missingMappings: RekapField[] }> {
 	const [{ data: event, error: eventErr }, { data: items, error: itemsErr }] =
 		await Promise.all([
-		// Only frame_size is needed here; the package bundle BOM + bonuses are
-		// handled by projectEventLinesFromSpec (shared with the forecast).
-		supabase
-			.from("events")
-			.select("frame_size")
-			.eq("id", rekap.event_id)
-			.maybeSingle(),
-		supabase
-			.from("inventory_items")
-			.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
-			.in("sku", [
-				"MEDIA-BASIC",
-				"MEDIA-PERF",
-				"SLEEVE-4R",
-				"SLEEVE-2R",
-				"SLEEVE-PR",
-				"FLASHDISK",
-				"FD-BOX",
-				"POUCH",
-				"PHOTOMAGNET",
-				"KEY-FRAME",
-				"KEY-STRAP",
-			])
-			.is("deleted_at", null),
-	]);
+			// Only frame_size is needed here; the package bundle BOM + bonuses are
+			// handled by projectEventLinesFromSpec (shared with the forecast).
+			supabase
+				.from("events")
+				.select("frame_size")
+				.eq("id", rekap.event_id)
+				.maybeSingle(),
+			supabase
+				.from("inventory_items")
+				.select("id, sku, name, unit, unit_conversion, purchase_price_avg")
+				.in("sku", [
+					"MEDIA-BASIC",
+					"MEDIA-PERF",
+					"SLEEVE-4R",
+					"SLEEVE-2R",
+					"SLEEVE-PR",
+					"FLASHDISK",
+					"FD-BOX",
+					"POUCH",
+					"PHOTOMAGNET",
+					"KEY-FRAME",
+					"KEY-STRAP",
+				])
+				.is("deleted_at", null),
+		]);
 
 	// Baca gagal HARUS menghentikan perencanaan, bukan menghasilkan rencana
 	// kosong. Kalau `items` null, itemsBySku kosong → SEMUA baris jatuh ke

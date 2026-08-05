@@ -71,7 +71,12 @@ type RekapRow = {
 	toll_cost: number | string | null;
 	parking_cost: number | string | null;
 	konsumsi_cost: number | string | null;
-	lainnya_items: Array<{ note: string; amount: number }> | null;
+	lainnya_items: Array<{
+		note: string;
+		amount: number;
+		paid_by?: "crew" | "owner";
+	}> | null;
+	expense_paid_by: Record<string, string> | null;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
 };
@@ -133,6 +138,7 @@ export default async function EventRekapPage({
 					transport_method, transport_cost,
 					transport_proof_berangkat_url, transport_proof_pulang_url,
 					bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
+					expense_paid_by,
 					submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 					reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 				)
@@ -344,30 +350,60 @@ export default async function EventRekapPage({
 		: null;
 	const rekapLines = rekapPreview?.ok ? rekapPreview.lines : [];
 
-	// Field expense breakdown — ditampilkan sebagai INFO di Fee crew form.
-	// Owner attribute manual ke crew yang sebenarnya bayar (mis. transport
-	// online dibayar Lead, konsumsi dibayar Asisten). Tidak auto-divide
-	// per crew karena 1 trip transport biasanya bersamaan, bukan terbagi.
+	// Field expense breakdown — ditampilkan sebagai INFO di Fee crew form,
+	// DIPILAH per pembayar (flag dari form rekap): talangan crew = perlu
+	// di-rembers via kolom Reimburse; dibayar owner = uang perusahaan sudah
+	// keluar, TIDAK ikut Hutang Crew di settlement (owner catat via Catat
+	// transaksi). Owner attribute reimburse manual ke crew yang benar-benar
+	// bayar (mis. transport dibayar Lead, konsumsi dibayar Asisten).
 	let fieldExpenseBreakdown:
 		| {
 				total: number;
-				items: Array<{ label: string; amount: number }>;
+				crewFrontedTotal: number;
+				ownerPaidTotal: number;
+				items: Array<{
+					label: string;
+					amount: number;
+					paidBy: "crew" | "owner";
+				}>;
 		  }
 		| undefined;
 	if (rekap) {
-		const items: Array<{ label: string; amount: number }> = [];
-		const tc = Number(rekap.transport_cost ?? 0);
-		const bc = Number(rekap.bensin_cost ?? 0);
-		const tlc = Number(rekap.toll_cost ?? 0);
-		const pkc = Number(rekap.parking_cost ?? 0);
-		const kc = Number(rekap.konsumsi_cost ?? 0);
-		if (tc > 0) items.push({ label: "Transport", amount: tc });
-		if (bc > 0) items.push({ label: "Bensin", amount: bc });
-		if (tlc > 0) items.push({ label: "Toll", amount: tlc });
-		if (pkc > 0) items.push({ label: "Parkir", amount: pkc });
-		if (kc > 0) items.push({ label: "Konsumsi", amount: kc });
+		const pb = rekap.expense_paid_by ?? {};
+		const payerOf = (key: string): "crew" | "owner" =>
+			pb[key] === "owner" ? "owner" : "crew";
+		const items: Array<{
+			label: string;
+			amount: number;
+			paidBy: "crew" | "owner";
+		}> = [];
+		const push = (label: string, amount: number, paidBy: "crew" | "owner") => {
+			if (amount > 0) items.push({ label, amount, paidBy });
+		};
+		push("Transport", Number(rekap.transport_cost ?? 0), payerOf("transport"));
+		push("Bensin", Number(rekap.bensin_cost ?? 0), payerOf("bensin"));
+		push("Toll", Number(rekap.toll_cost ?? 0), payerOf("toll"));
+		push("Parkir", Number(rekap.parking_cost ?? 0), payerOf("parking"));
+		push("Konsumsi", Number(rekap.konsumsi_cost ?? 0), payerOf("konsumsi"));
+		for (const it of rekap.lainnya_items ?? []) {
+			push(
+				it.note || "Lain-lain",
+				Number(it.amount ?? 0),
+				it.paid_by === "owner" ? "owner" : "crew",
+			);
+		}
 		const total = items.reduce((s, x) => s + x.amount, 0);
-		if (total > 0) fieldExpenseBreakdown = { total, items };
+		const crewFrontedTotal = items
+			.filter((x) => x.paidBy === "crew")
+			.reduce((s, x) => s + x.amount, 0);
+		if (total > 0) {
+			fieldExpenseBreakdown = {
+				total,
+				crewFrontedTotal,
+				ownerPaidTotal: total - crewFrontedTotal,
+				items,
+			};
+		}
 	}
 
 	// Settle gating — name exactly what's blocking so the owner doesn't have to
@@ -419,6 +455,7 @@ export default async function EventRekapPage({
 				parking_cost: String(rekap.parking_cost ?? 0),
 				konsumsi_cost: String(rekap.konsumsi_cost ?? 0),
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
+				expense_paid_by: JSON.stringify(rekap.expense_paid_by ?? {}),
 			}
 		: undefined;
 

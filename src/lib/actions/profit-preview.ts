@@ -30,6 +30,8 @@ export type OpexBreakdown = {
 	misc: number;
 	komisi_vendor: number;
 	komisi_relasi: number;
+	/** Biaya event dibayar langsung owner (via Catat transaksi) — info, BUKAN bagian total. */
+	owner_paid_total: number;
 	total: number;
 };
 
@@ -79,6 +81,7 @@ const EMPTY_OPEX: OpexBreakdown = {
 	misc: 0,
 	komisi_vendor: 0,
 	komisi_relasi: 0,
+	owner_paid_total: 0,
 	total: 0,
 };
 
@@ -160,7 +163,8 @@ export async function getProfitPreview(
 	const total_biaya = hpp.total + opex.total;
 	const net_profit = revenue_net - total_biaya;
 	const is_loss = net_profit <= 0;
-	const margin_pct = revenue_net > 0 ? +((net_profit / revenue_net) * 100).toFixed(2) : 0;
+	const margin_pct =
+		revenue_net > 0 ? +((net_profit / revenue_net) * 100).toFixed(2) : 0;
 
 	// 4) Sinking estimate (mirror RPC: only allocate if profit > 0)
 	let sinking_estimate = 0;
@@ -281,6 +285,7 @@ function normalizeOpex(raw: unknown): OpexBreakdown {
 		misc: n("misc"),
 		komisi_vendor: n("komisi_vendor"),
 		komisi_relasi: n("komisi_relasi"),
+		owner_paid_total: n("owner_paid_total"),
 		total: n("total"),
 	};
 }

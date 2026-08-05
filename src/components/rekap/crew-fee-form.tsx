@@ -50,7 +50,11 @@ type Props = {
 	rows: CrewAssignmentRow[];
 	fieldExpenseBreakdown?: {
 		total: number;
-		items: Array<{ label: string; amount: number }>;
+		/** Porsi yang DITALANGI crew — inilah yang perlu di-rembers. */
+		crewFrontedTotal: number;
+		/** Porsi yang dibayar owner langsung — bukan hutang ke crew. */
+		ownerPaidTotal: number;
+		items: Array<{ label: string; amount: number; paidBy: "crew" | "owner" }>;
 	};
 	readOnly?: boolean;
 	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
@@ -183,23 +187,55 @@ export function CrewFeeForm({
 				})()}
 
 			{!readOnly && fieldExpenseBreakdown && (
-				<div className="mb-4 rounded-md border border-border-default bg-surface-3 p-3">
-					<p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-						Field expense dari rekap · total{" "}
-						{formatRupiah(fieldExpenseBreakdown.total)}
-					</p>
-					<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
-						{fieldExpenseBreakdown.items.map((it) => (
-							<li key={it.label}>
-								<span className="text-muted-foreground">{it.label}:</span>{" "}
-								{formatRupiah(it.amount)}
-							</li>
-						))}
-					</ul>
-					<p className="mt-2 text-[11px] text-muted-foreground">
-						Klik tombol kecil di kolom Reimbursement tiap crew untuk apply nilai
-						ke crew yang sebenarnya bayar item itu.
-					</p>
+				<div className="mb-4 space-y-3 rounded-md border border-border-default bg-surface-3 p-3">
+					{fieldExpenseBreakdown.crewFrontedTotal > 0 && (
+						<div>
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+								💸 Ditalangi crew — perlu di-rembers ·{" "}
+								<span data-nominal className="tabular">
+									{formatRupiah(fieldExpenseBreakdown.crewFrontedTotal)}
+								</span>
+							</p>
+							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
+								{fieldExpenseBreakdown.items
+									.filter((it) => it.paidBy === "crew")
+									.map((it) => (
+										<li key={it.label}>
+											<span className="text-muted-foreground">{it.label}:</span>{" "}
+											<span data-nominal>{formatRupiah(it.amount)}</span>
+										</li>
+									))}
+							</ul>
+							<p className="mt-1.5 text-[11px] text-muted-foreground">
+								Apply ke kolom Reimbursement crew yang benar-benar bayar —
+								dibayar bersama fee lewat Hutang Crew saat settle.
+							</p>
+						</div>
+					)}
+					{fieldExpenseBreakdown.ownerPaidTotal > 0 && (
+						<div>
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+								✓ Dibayar owner ·{" "}
+								<span data-nominal className="tabular">
+									{formatRupiah(fieldExpenseBreakdown.ownerPaidTotal)}
+								</span>
+							</p>
+							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
+								{fieldExpenseBreakdown.items
+									.filter((it) => it.paidBy === "owner")
+									.map((it) => (
+										<li key={it.label}>
+											<span className="text-muted-foreground">{it.label}:</span>{" "}
+											<span data-nominal>{formatRupiah(it.amount)}</span>
+										</li>
+									))}
+							</ul>
+							<p className="mt-1.5 text-[11px] text-muted-foreground">
+								Tidak perlu di-rembers & tidak ikut Hutang Crew di settlement.
+								Pastikan tercatat via Catat transaksi (jangan dicatat dobel).
+							</p>
+						</div>
+					)}
 				</div>
 			)}
 
@@ -256,40 +292,42 @@ export function CrewFeeForm({
 								/>
 								{!readOnly &&
 									fieldExpenseBreakdown &&
-									fieldExpenseBreakdown.items.length > 0 && (
+									fieldExpenseBreakdown.crewFrontedTotal > 0 && (
 										<div className="col-span-full -mt-1 flex flex-wrap gap-1">
 											<button
 												type="button"
 												onClick={() =>
 													applyExpenseToReimbursement(
 														row.assignment_id,
-														fieldExpenseBreakdown.total,
+														fieldExpenseBreakdown.crewFrontedTotal,
 													)
 												}
 												className="rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
-												title="Set reimbursement crew ini = total field expense rekap"
+												title="Set reimbursement crew ini = total talangan crew dari rekap"
 											>
-												= Total{" "}
-											<span data-nominal>
-												{formatRupiah(fieldExpenseBreakdown.total)}
-											</span>
+												= Talangan{" "}
+												<span data-nominal>
+													{formatRupiah(fieldExpenseBreakdown.crewFrontedTotal)}
+												</span>
 											</button>
-											{fieldExpenseBreakdown.items.map((it) => (
-												<button
-													key={it.label}
-													type="button"
-													onClick={() =>
-														applyExpenseToReimbursement(
-															row.assignment_id,
-															row.reimbursement_amount + it.amount,
-														)
-													}
-													className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
-												>
-													+ {it.label}{" "}
-												<span data-nominal>{formatRupiah(it.amount)}</span>
-												</button>
-											))}
+											{fieldExpenseBreakdown.items
+												.filter((it) => it.paidBy === "crew")
+												.map((it) => (
+													<button
+														key={it.label}
+														type="button"
+														onClick={() =>
+															applyExpenseToReimbursement(
+																row.assignment_id,
+																row.reimbursement_amount + it.amount,
+															)
+														}
+														className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
+													>
+														+ {it.label}{" "}
+														<span data-nominal>{formatRupiah(it.amount)}</span>
+													</button>
+												))}
 											{row.reimbursement_amount > 0 && (
 												<button
 													type="button"
@@ -595,7 +633,7 @@ function CrewPayPanel({
 					) : (
 						<>
 							<Wallet className="h-4 w-4" /> Bayar{" "}
-						<span data-nominal>{formatRupiah(cashOut)}</span>
+							<span data-nominal>{formatRupiah(cashOut)}</span>
 						</>
 					)}
 				</Button>

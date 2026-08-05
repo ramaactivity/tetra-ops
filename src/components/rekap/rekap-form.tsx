@@ -68,8 +68,15 @@ type Defaults = {
 	toll_cost: string;
 	parking_cost: string;
 	konsumsi_cost: string;
-	lainnya_items: string; // JSON string of [{note, amount}]
+	lainnya_items: string; // JSON string of [{note, amount, paid_by?}]
+	/** JSON map {transport|bensin|toll|parking|konsumsi: 'crew'|'owner'}. */
+	expense_paid_by?: string;
 };
+
+/** Siapa yang membayar sebuah biaya lapangan. */
+type PaidBy = "crew" | "owner";
+type PaidByKey = "transport" | "bensin" | "toll" | "parking" | "konsumsi";
+const paidByOf = (v: unknown): PaidBy => (v === "owner" ? "owner" : "crew");
 
 const EMPTY: Defaults = {
 	cetak_total: "0",
@@ -91,6 +98,7 @@ const EMPTY: Defaults = {
 	parking_cost: "0",
 	konsumsi_cost: "0",
 	lainnya_items: "[]",
+	expense_paid_by: "{}",
 };
 
 export function RekapForm({
@@ -267,39 +275,69 @@ export function RekapForm({
 	const [parkingCost, setParkingCost] = useState(get("parking_cost"));
 	const [konsumsiCost, setKonsumsiCost] = useState(get("konsumsi_cost"));
 
-	const initialLainnya = useMemo<
-		Array<{ note: string; amount: number }>
-	>(() => {
+	type LainnyaRow = { note: string; amount: number; paid_by: PaidBy };
+	const initialLainnya = useMemo<LainnyaRow[]>(() => {
 		try {
 			const obj = JSON.parse(defaults.lainnya_items || "[]");
 			if (Array.isArray(obj)) {
 				return obj
-					.map((row): { note: string; amount: number } | null => {
+					.map((row): LainnyaRow | null => {
 						if (!row || typeof row !== "object") return null;
 						const r = row as Record<string, unknown>;
 						const note = String(r.note ?? "").slice(0, 120);
 						const amount = Number(r.amount);
 						if (!Number.isFinite(amount) || amount < 0) return null;
-						return { note, amount: Math.round(amount) };
+						return {
+							note,
+							amount: Math.round(amount),
+							paid_by: paidByOf(r.paid_by),
+						};
 					})
-					.filter((v): v is { note: string; amount: number } => v !== null)
+					.filter((v): v is LainnyaRow => v !== null)
 					.slice(0, 20);
 			}
 		} catch {}
 		return [];
 	}, [defaults.lainnya_items]);
 	const [lainnyaItems, setLainnyaItems] =
-		useState<Array<{ note: string; amount: number }>>(initialLainnya);
+		useState<LainnyaRow[]>(initialLainnya);
+
+	// Pembayar per biaya lapangan — tiap ITEM bisa ditalangi crew (di-rembers)
+	// atau dibayar owner langsung. Default 'crew' (perilaku lama: masuk Hutang
+	// Crew saat settle).
+	const initialPaidBy = useMemo<Record<PaidByKey, PaidBy>>(() => {
+		const base: Record<PaidByKey, PaidBy> = {
+			transport: "crew",
+			bensin: "crew",
+			toll: "crew",
+			parking: "crew",
+			konsumsi: "crew",
+		};
+		try {
+			const obj = JSON.parse(defaults.expense_paid_by || "{}");
+			if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+				for (const k of Object.keys(base) as PaidByKey[]) {
+					base[k] = paidByOf((obj as Record<string, unknown>)[k]);
+				}
+			}
+		} catch {}
+		return base;
+	}, [defaults.expense_paid_by]);
+	const [paidBy, setPaidBy] =
+		useState<Record<PaidByKey, PaidBy>>(initialPaidBy);
+	function setPaidByKey(key: PaidByKey, v: PaidBy) {
+		setPaidBy((prev) => ({ ...prev, [key]: v }));
+	}
+	const expensePaidByJson = JSON.stringify(paidBy);
 
 	function addLainnyaRow() {
 		setLainnyaItems((prev) =>
-			prev.length >= 20 ? prev : [...prev, { note: "", amount: 0 }],
+			prev.length >= 20
+				? prev
+				: [...prev, { note: "", amount: 0, paid_by: "crew" }],
 		);
 	}
-	function updateLainnyaRow(
-		idx: number,
-		patch: Partial<{ note: string; amount: number }>,
-	) {
+	function updateLainnyaRow(idx: number, patch: Partial<LainnyaRow>) {
 		setLainnyaItems((prev) =>
 			prev.map((row, i) => (i === idx ? { ...row, ...patch } : row)),
 		);
@@ -309,24 +347,49 @@ export function RekapForm({
 	}
 
 	const lainnyaItemsJson = JSON.stringify(lainnyaItems);
-	const lainnyaTotal = lainnyaItems.reduce((s, r) => s + (r.amount || 0), 0);
 
-	const fieldExpenseTotal = useMemo(() => {
-		const t = transportMethod !== "none" ? Number(transportCost) || 0 : 0;
-		const b = transportMethod === "rental" ? Number(bensinCost) || 0 : 0;
-		const toll = Number(tollCost) || 0;
-		const park = Number(parkingCost) || 0;
-		const ks = Number(konsumsiCost) || 0;
-		return t + b + toll + park + ks + lainnyaTotal;
-	}, [
-		transportMethod,
-		transportCost,
-		bensinCost,
-		tollCost,
-		parkingCost,
-		konsumsiCost,
-		lainnyaTotal,
-	]);
+	// Total biaya lapangan + split talangan crew vs dibayar owner — angka split
+	// inilah yang bikin owner langsung tahu berapa yang perlu di-rembers.
+	const { fieldExpenseTotal, crewFrontedTotal, ownerPaidTotal } =
+		useMemo(() => {
+			const rows: Array<{ amount: number; payer: PaidBy }> = [
+				{
+					amount: transportMethod !== "none" ? Number(transportCost) || 0 : 0,
+					payer: paidBy.transport,
+				},
+				{
+					amount: transportMethod === "rental" ? Number(bensinCost) || 0 : 0,
+					payer: paidBy.bensin,
+				},
+				{ amount: Number(tollCost) || 0, payer: paidBy.toll },
+				{ amount: Number(parkingCost) || 0, payer: paidBy.parking },
+				{ amount: Number(konsumsiCost) || 0, payer: paidBy.konsumsi },
+				...lainnyaItems.map((r) => ({
+					amount: r.amount || 0,
+					payer: r.paid_by,
+				})),
+			];
+			let crew = 0;
+			let owner = 0;
+			for (const r of rows) {
+				if (r.payer === "owner") owner += r.amount;
+				else crew += r.amount;
+			}
+			return {
+				fieldExpenseTotal: crew + owner,
+				crewFrontedTotal: crew,
+				ownerPaidTotal: owner,
+			};
+		}, [
+			transportMethod,
+			transportCost,
+			bensinCost,
+			tollCost,
+			parkingCost,
+			konsumsiCost,
+			lainnyaItems,
+			paidBy,
+		]);
 
 	// === Proof URLs (multi-file upload) ===
 	const initialUrls = useMemo<string[]>(
@@ -357,6 +420,7 @@ export function RekapForm({
 			parking_cost: parkingCost,
 			konsumsi_cost: konsumsiCost,
 			lainnya_items: JSON.stringify(lainnyaItems),
+			expense_paid_by: expensePaidByJson,
 		}),
 		[
 			cetak,
@@ -374,6 +438,7 @@ export function RekapForm({
 			parkingCost,
 			konsumsiCost,
 			lainnyaItems,
+			expensePaidByJson,
 		],
 	);
 
@@ -463,17 +528,36 @@ export function RekapForm({
 			try {
 				const parsed = JSON.parse(li);
 				if (Array.isArray(parsed)) {
-					const out: Array<{ note: string; amount: number }> = [];
+					const out: LainnyaRow[] = [];
 					for (const row of parsed) {
 						if (!row || typeof row !== "object") continue;
 						const r = row as Record<string, unknown>;
 						const note = String(r.note ?? "").slice(0, 120);
 						const amount = Number(r.amount);
 						if (!Number.isFinite(amount) || amount < 0) continue;
-						out.push({ note, amount: Math.round(amount) });
+						out.push({
+							note,
+							amount: Math.round(amount),
+							paid_by: paidByOf(r.paid_by),
+						});
 						if (out.length >= 20) break;
 					}
 					setLainnyaItems(out);
+				}
+			} catch {}
+		}
+		const pb = restoredValues.expense_paid_by;
+		if (pb) {
+			try {
+				const parsed = JSON.parse(pb);
+				if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+					setPaidBy((prev) => {
+						const next = { ...prev };
+						for (const k of Object.keys(next) as PaidByKey[]) {
+							next[k] = paidByOf((parsed as Record<string, unknown>)[k]);
+						}
+						return next;
+					});
 				}
 			} catch {}
 		}
@@ -1217,6 +1301,8 @@ export function RekapForm({
 							name="transport_cost_input"
 							value={transportCost}
 							onChange={setTransportCost}
+							paidBy={paidBy.transport}
+							onPaidByChange={(v) => setPaidByKey("transport", v)}
 						/>
 						<div className="grid gap-3 sm:grid-cols-2">
 							<SingleFileUpload
@@ -1246,12 +1332,16 @@ export function RekapForm({
 							name="transport_cost_input"
 							value={transportCost}
 							onChange={setTransportCost}
+							paidBy={paidBy.transport}
+							onPaidByChange={(v) => setPaidByKey("transport", v)}
 						/>
 						<MoneyField
 							label="Bensin"
 							name="bensin_cost_input"
 							value={bensinCost}
 							onChange={setBensinCost}
+							paidBy={paidBy.bensin}
+							onPaidByChange={(v) => setPaidByKey("bensin", v)}
 						/>
 					</div>
 				)}
@@ -1262,12 +1352,16 @@ export function RekapForm({
 						name="toll_cost_input"
 						value={tollCost}
 						onChange={setTollCost}
+						paidBy={paidBy.toll}
+						onPaidByChange={(v) => setPaidByKey("toll", v)}
 					/>
 					<MoneyField
 						label="Parkir"
 						name="parking_cost_input"
 						value={parkingCost}
 						onChange={setParkingCost}
+						paidBy={paidBy.parking}
+						onPaidByChange={(v) => setPaidByKey("parking", v)}
 					/>
 				</div>
 			</NumberedSection>
@@ -1284,6 +1378,8 @@ export function RekapForm({
 					name="konsumsi_cost_input"
 					value={konsumsiCost}
 					onChange={setKonsumsiCost}
+					paidBy={paidBy.konsumsi}
+					onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
 				/>
 
 				<div className="space-y-2">
@@ -1314,40 +1410,49 @@ export function RekapForm({
 							{lainnyaItems.map((row, idx) => (
 								<li
 									key={idx}
-									className="flex items-start gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
+									className="space-y-2 rounded-md border border-border-default bg-surface-3 p-2.5"
 								>
-									<input
-										type="text"
-										value={row.note}
-										onChange={(e) =>
-											updateLainnyaRow(idx, { note: e.target.value })
-										}
-										maxLength={120}
-										placeholder="Keterangan (cth. P3K)"
-										className={`${inputClass} flex-1`}
-									/>
-									<input
-										type="number"
-										inputMode="numeric"
-										min={0}
-										step={1}
-										value={row.amount}
-										onChange={(e) =>
-											updateLainnyaRow(idx, {
-												amount: Math.max(0, Number(e.target.value) || 0),
-											})
-										}
-										placeholder="0"
-										className={`${inputClass} tabular w-32 text-right`}
-									/>
-									<button
-										type="button"
-										onClick={() => removeLainnyaRow(idx)}
-										title="Hapus baris"
-										className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors"
-									>
-										<X className="h-3.5 w-3.5" />
-									</button>
+									<div className="flex items-start gap-2">
+										<input
+											type="text"
+											value={row.note}
+											onChange={(e) =>
+												updateLainnyaRow(idx, { note: e.target.value })
+											}
+											maxLength={120}
+											placeholder="Keterangan (cth. P3K)"
+											className={`${inputClass} flex-1`}
+										/>
+										<input
+											type="number"
+											inputMode="numeric"
+											min={0}
+											step={1}
+											value={row.amount}
+											onChange={(e) =>
+												updateLainnyaRow(idx, {
+													amount: Math.max(0, Number(e.target.value) || 0),
+												})
+											}
+											placeholder="0"
+											className={`${inputClass} tabular w-32 text-right`}
+										/>
+										<button
+											type="button"
+											onClick={() => removeLainnyaRow(idx)}
+											title="Hapus baris"
+											className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors"
+										>
+											<X className="h-3.5 w-3.5" />
+										</button>
+									</div>
+									{row.amount > 0 && (
+										<PaidByToggle
+											value={row.paid_by}
+											onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
+											compact
+										/>
+									)}
 								</li>
 							))}
 						</ul>
@@ -1355,12 +1460,32 @@ export function RekapForm({
 				</div>
 
 				{fieldExpenseTotal > 0 && (
-					<div className="flex items-center gap-2 rounded-md bg-primary/5 px-3 py-2 text-fluid-caption">
-						<Wallet className="h-3.5 w-3.5 text-primary" />
-						<span className="text-muted-foreground">Total biaya lapangan:</span>
-						<span className="tabular ml-auto font-semibold text-primary">
-							{formatRupiah(fieldExpenseTotal)}
-						</span>
+					<div className="space-y-1.5 rounded-md bg-primary/5 px-3 py-2 text-fluid-caption">
+						<div className="flex items-center gap-2">
+							<Wallet className="h-3.5 w-3.5 text-primary" />
+							<span className="text-muted-foreground">
+								Total biaya lapangan:
+							</span>
+							<span className="tabular ml-auto font-semibold text-primary">
+								{formatRupiah(fieldExpenseTotal)}
+							</span>
+						</div>
+						{crewFrontedTotal > 0 && (
+							<div className="flex items-center justify-between gap-2 text-amber-700 dark:text-amber-300">
+								<span>💸 Ditalangi crew (di-rembers)</span>
+								<span className="tabular font-medium">
+									{formatRupiah(crewFrontedTotal)}
+								</span>
+							</div>
+						)}
+						{ownerPaidTotal > 0 && (
+							<div className="flex items-center justify-between gap-2 text-emerald-700 dark:text-emerald-300">
+								<span>✓ Dibayar owner</span>
+								<span className="tabular font-medium">
+									{formatRupiah(ownerPaidTotal)}
+								</span>
+							</div>
+						)}
 					</div>
 				)}
 			</NumberedSection>
@@ -1393,6 +1518,7 @@ export function RekapForm({
 			<input type="hidden" name="parking_cost" value={parkingCost || "0"} />
 			<input type="hidden" name="konsumsi_cost" value={konsumsiCost || "0"} />
 			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
+			<input type="hidden" name="expense_paid_by" value={expensePaidByJson} />
 
 			{/* ========== BUKTI ========== */}
 			<NumberedSection
@@ -1854,17 +1980,73 @@ function AddonField({
 	);
 }
 
+/**
+ * Toggle kecil "siapa yang bayar" per item biaya. Muncul di bawah tiap input
+ * uang saat nilainya > 0 — crew memutus per ITEM: ditalangi sendiri (nanti
+ * di-rembers) atau sudah dibayar owner (uang perusahaan).
+ */
+function PaidByToggle({
+	value,
+	onChange,
+	compact = false,
+}: {
+	value: PaidBy;
+	onChange: (v: PaidBy) => void;
+	compact?: boolean;
+}) {
+	const opts: Array<{ key: PaidBy; label: string }> = [
+		{ key: "crew", label: compact ? "Uang crew" : "Uang crew · di-rembers" },
+		{ key: "owner", label: compact ? "Owner" : "Dibayar owner" },
+	];
+	return (
+		<div
+			aria-label="Siapa yang bayar"
+			className="inline-flex rounded-full border border-border-default bg-surface-3 p-0.5"
+		>
+			{opts.map((o) => {
+				const active = value === o.key;
+				return (
+					<button
+						key={o.key}
+						type="button"
+						aria-pressed={active}
+						onClick={() => onChange(o.key)}
+						className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+							active
+								? o.key === "crew"
+									? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+									: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+								: "text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						{o.label}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
 function MoneyField({
 	label,
 	name,
 	value,
 	onChange,
+	paidBy,
+	onPaidByChange,
 }: {
 	label: string;
 	name: string;
 	value: string;
 	onChange: (v: string) => void;
+	/** Kalau di-set (bareng onPaidByChange), tampilkan toggle pembayar saat nilai > 0. */
+	paidBy?: PaidBy;
+	onPaidByChange?: (v: PaidBy) => void;
 }) {
+	const showPaidBy =
+		paidBy !== undefined &&
+		onPaidByChange !== undefined &&
+		(Number(value) || 0) > 0;
 	return (
 		<div className="space-y-1.5">
 			<label htmlFor={name} className="text-fluid-body font-medium">
@@ -1891,6 +2073,9 @@ function MoneyField({
 					className={`${inputClass} tabular pl-9`}
 				/>
 			</div>
+			{showPaidBy ? (
+				<PaidByToggle value={paidBy} onChange={onPaidByChange} />
+			) : null}
 		</div>
 	);
 }

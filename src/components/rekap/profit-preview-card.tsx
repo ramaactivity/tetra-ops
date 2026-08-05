@@ -2,12 +2,12 @@
 
 import { ChevronDown, ChevronUp, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
-import { formatRupiah } from "@/lib/format";
 import type {
 	HppBreakdown,
 	OpexBreakdown,
 	ProfitPreview,
 } from "@/lib/actions/profit-preview";
+import { formatRupiah } from "@/lib/format";
 
 type Props = {
 	preview: ProfitPreview;
@@ -25,7 +25,10 @@ const HPP_LABELS: Record<keyof Omit<HppBreakdown, "total">, string> = {
 	other: "Lainnya",
 };
 
-const OPEX_LABELS: Record<keyof Omit<OpexBreakdown, "total">, string> = {
+const OPEX_LABELS: Record<
+	keyof Omit<OpexBreakdown, "total" | "owner_paid_total">,
+	string
+> = {
 	fee_lead: "Fee Lead",
 	fee_asisten: "Fee Asisten",
 	fee_crew_c: "Fee Crew C",
@@ -69,12 +72,7 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 				<Row label="Add-on revenue" value={preview.addon_revenue} muted />
 			)}
 			{preview.discount_total > 0 && (
-				<Row
-					label="Diskon"
-					value={-preview.discount_total}
-					muted
-					sign="−"
-				/>
+				<Row label="Diskon" value={-preview.discount_total} muted sign="−" />
 			)}
 			<Row label="Revenue net" value={preview.revenue_net} bold />
 
@@ -103,12 +101,7 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 							const v = preview.hpp[key];
 							if (v === 0) return null;
 							return (
-								<Row
-									key={key}
-									label={HPP_LABELS[key]}
-									value={v}
-									compact
-								/>
+								<Row key={key} label={HPP_LABELS[key]} value={v} compact />
 							);
 						},
 					)}
@@ -145,18 +138,22 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 							const v = preview.opex[key];
 							if (v === 0) return null;
 							return (
-								<Row
-									key={key}
-									label={OPEX_LABELS[key]}
-									value={v}
-									compact
-								/>
+								<Row key={key} label={OPEX_LABELS[key]} value={v} compact />
 							);
 						},
 					)}
 					{preview.opex.total === 0 && (
 						<p className="text-xs text-muted-foreground">
 							Belum ada OpEx tercatat
+						</p>
+					)}
+					{preview.opex.owner_paid_total > 0 && (
+						<p className="text-xs text-muted-foreground">
+							Dibayar langsung owner:{" "}
+							<span data-nominal className="tabular">
+								{formatRupiah(preview.opex.owner_paid_total)}
+							</span>{" "}
+							— tercatat via Catat transaksi, tidak dihitung di sini.
 						</p>
 					)}
 				</div>
@@ -171,9 +168,7 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 				<span className="text-sm font-medium text-foreground">
 					Net profit (sebelum alokasi)
 				</span>
-				<span
-					className={`tabular text-base font-semibold ${profitClass}`}
-				>
+				<span className={`tabular text-base font-semibold ${profitClass}`}>
 					{formatRupiah(preview.net_profit)}
 					<span className="ml-2 text-xs font-normal tabular text-muted-foreground">
 						· {preview.margin_pct}%
