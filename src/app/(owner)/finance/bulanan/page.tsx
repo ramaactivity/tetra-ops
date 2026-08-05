@@ -192,10 +192,10 @@ export default async function FinanceMonthlyPage({
 						hint="Diakui saat uang klien diterima"
 					/>
 					<FlowStat
-						label="Pengeluaran"
+						label="Biaya"
 						value={m.expense}
 						tone="rose"
-						hint="Semua biaya bulan ini, termasuk pemakaian stok"
+						hint="Beda dgn “uang keluar” — lihat rincian di bawah"
 					/>
 					<FlowStat
 						label="Untung bulan ini"
@@ -203,7 +203,7 @@ export default async function FinanceMonthlyPage({
 						strong
 						tone={m.profitBook >= 0 ? "emerald" : "rose"}
 						icon={m.profitBook >= 0 ? TrendingUp : TrendingDown}
-						hint="Pendapatan − pengeluaran bulan ini"
+						hint="Pendapatan − biaya bulan ini"
 					/>
 					<FlowStat
 						label="Laba event ditutup"
@@ -216,20 +216,28 @@ export default async function FinanceMonthlyPage({
 						}
 					/>
 				</dl>
-				<p className="border-border-subtle text-muted-foreground border-t px-4 py-2.5 text-[11.5px] leading-relaxed">
-					<b className="text-foreground">Untung bulan ini</b> memotret periode:
-					semua pemasukan dikurangi semua biaya yang jatuh di {m.label}.{" "}
-					<b className="text-foreground">Laba event ditutup</b> memotret
-					per-event: untung tiap acara yang bukunya ditutup bulan ini — uangnya
-					bisa saja masuk bulan lain. Wajar kalau keduanya beda.
-				</p>
+				<div className="border-border-subtle text-muted-foreground space-y-1.5 border-t px-4 py-2.5 text-[11.5px] leading-relaxed">
+					<p>
+						<b className="text-foreground">Biaya</b> ≠{" "}
+						<b className="text-foreground">uang keluar</b>. Beli stok = uang
+						keluar, tapi baru jadi biaya saat stoknya dipakai di event. Bayar
+						utang & ambil bagi hasil juga uang keluar yang bukan biaya.
+					</p>
+					<p>
+						<b className="text-foreground">Untung bulan ini</b> memotret
+						periode: semua pemasukan dikurangi semua biaya yang jatuh di{" "}
+						{m.label}. <b className="text-foreground">Laba event ditutup</b>{" "}
+						memotret per-event: untung tiap acara yang bukunya ditutup bulan ini
+						— uangnya bisa saja masuk bulan lain. Wajar kalau keduanya beda.
+					</p>
+				</div>
 			</SectionCard>
 
 			{/* ── 3. Biaya per jenis ───────────────────────────────────────── */}
 			<SectionCard
 				title={
 					<>
-						Pengeluaran per jenis
+						Biaya per jenis
 						<span className="text-muted-foreground font-medium">
 							{" "}
 							· {m.label}
@@ -237,7 +245,7 @@ export default async function FinanceMonthlyPage({
 					</>
 				}
 				titleExtra={
-					<InfoHint title="Pengeluaran per jenis">
+					<InfoHint title="Biaya per jenis">
 						Semua biaya yang dibukukan bulan ini, dikelompokkan. Termasuk
 						pemakaian stok — bahannya mungkin dibeli bulan lalu, tapi biayanya
 						dihitung saat dipakai di event.
@@ -251,7 +259,7 @@ export default async function FinanceMonthlyPage({
 			>
 				{data.expenseGroups.length === 0 ? (
 					<p className="text-muted-foreground px-4 py-8 text-center text-[13px]">
-						Belum ada pengeluaran tercatat di {m.label}.
+						Belum ada biaya tercatat di {m.label}.
 					</p>
 				) : (
 					<ul className="divide-border-subtle divide-y">
