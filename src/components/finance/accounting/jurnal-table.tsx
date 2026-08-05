@@ -47,6 +47,9 @@ export type JournalEntryRow = {
 	created_at: string;
 	created_by_name: string | null;
 	proof_url: string | null;
+	/** Konteks event (kalau entry ini terkait event) — bikin baris jelas siapa. */
+	event_name: string | null;
+	event_project_id: string | null;
 	lines: JournalLineRow[];
 };
 
@@ -89,25 +92,69 @@ export function JurnalTable({
 		];
 	}, [rows]);
 
+	// Dua teks pencarian per entry. `head` = yang terbaca langsung di baris
+	// (judul, sumber, event, tanggal, nominal); `full` = head + isi rincian
+	// (kode/nama akun, keterangan baris). Dihitung sekali per perubahan rows,
+	// bukan tiap ketikan.
+	const haystacks = useMemo(() => {
+		const map = new Map<string, { head: string; full: string }>();
+		for (const r of rows) {
+			const head = [
+				r.ref_id,
+				r.description,
+				ENTRY_TYPE_LABEL[r.entry_type] ?? r.entry_type,
+				SOURCE_LABEL[r.source_type] ?? r.source_type,
+				r.source_type,
+				r.event_name ?? "",
+				r.event_project_id ?? "",
+				String(r.total_amount),
+				formatRupiah(r.total_amount),
+				formatDateID(r.entry_date),
+				r.created_by_name ?? "",
+			]
+				.join(" ")
+				.toLowerCase();
+			const detail = r.lines
+				.flatMap((l) => [
+					l.account_code,
+					l.account_name ?? "",
+					l.description ?? "",
+				])
+				.join(" ")
+				.toLowerCase();
+			map.set(r.id, { head, full: `${head} ${detail}` });
+		}
+		return map;
+	}, [rows]);
+
 	const filtered = useMemo(() => {
-		const q = query.trim().toLowerCase();
-		return rows.filter((r) => {
+		// Pencocokan per-kata, BUKAN substring utuh: "bayar crew" harus menemukan
+		// "Bayar fee crew — Fahmi Kurniawan". Semua kata wajib ada (AND), jadi
+		// menambah kata tetap mempersempit hasil seperti yang diharapkan.
+		const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+		const base = rows.filter((r) => {
 			if (sourceFilter !== "all" && r.source_type !== sourceFilter)
 				return false;
 			if (statusFilter === "posted" && r.is_reversed) return false;
 			if (statusFilter === "reversed" && !r.is_reversed) return false;
-			if (!q) return true;
-			return (
-				r.ref_id.toLowerCase().includes(q) ||
-				r.description.toLowerCase().includes(q) ||
-				r.lines.some(
-					(l) =>
-						l.account_code.toLowerCase().includes(q) ||
-						(l.account_name ?? "").toLowerCase().includes(q),
-				)
-			);
+			if (tokens.length === 0) return true;
+			return tokens.every((t) => (haystacks.get(r.id)?.full ?? "").includes(t));
 		});
-	}, [rows, query, sourceFilter, statusFilter]);
+		if (tokens.length === 0) return base;
+		// Yang cocok di judul/sumber/event didahulukan; yang cocok cuma karena
+		// isi rinciannya (mis. settlement yang kebetulan punya akun "Hutang
+		// Crew") tetap muncul, tapi di bawah. Sort JS stabil → urutan tanggal
+		// di dalam tiap kelompok tidak berubah.
+		const rank = new Map(
+			base.map((r) => [
+				r.id,
+				tokens.every((t) => (haystacks.get(r.id)?.head ?? "").includes(t))
+					? 0
+					: 1,
+			]),
+		);
+		return base.sort((a, b) => (rank.get(a.id) ?? 1) - (rank.get(b.id) ?? 1));
+	}, [rows, haystacks, query, sourceFilter, statusFilter]);
 
 	function updateDate(field: "from" | "to", value: string) {
 		const next = new URLSearchParams(params.toString());
@@ -143,7 +190,7 @@ export function JurnalTable({
 					className="flex-1 lg:max-w-sm"
 					value={query}
 					onValueChange={setQuery}
-					placeholder="Cari ref, deskripsi, akun…"
+					placeholder="Cari transaksi, klien, akun, nominal…"
 					aria-label="Cari jurnal"
 				/>
 				<div className="flex flex-wrap items-center gap-2">
@@ -252,6 +299,20 @@ function JournalEntry({
 	const totalCredit = entry.lines.reduce((s, l) => s + l.credit_amount, 0);
 	const balanced = totalDebit === totalCredit;
 
+	// Konteks event. Nama klien dilewati kalau deskripsinya memang sudah
+	// menyebutnya (mis. settlement "Biaya & alokasi event — Hafizh & Dinda"),
+	// supaya tidak jadi pengulangan; kode proyek tetap ditampilkan karena itu
+	// yang dipakai mencari lintas modul.
+	const eventLabel = [
+		entry.event_name &&
+		!entry.description.toLowerCase().includes(entry.event_name.toLowerCase())
+			? entry.event_name
+			: null,
+		entry.event_project_id,
+	]
+		.filter(Boolean)
+		.join(" · ");
+
 	return (
 		<div className={entry.is_reversed ? "opacity-70" : undefined}>
 			<button
@@ -276,6 +337,11 @@ function JournalEntry({
 					<div className="truncate text-[13px] font-medium text-foreground">
 						{entry.description}
 					</div>
+					{eventLabel && (
+						<div className="truncate text-[11.5px] text-muted-foreground">
+							{eventLabel}
+						</div>
+					)}
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
 						<span>{formatDateID(entry.entry_date)}</span>
 						{entry.created_by_name && (

@@ -54,9 +54,12 @@ export default async function AccountingPage({
 
 	const supabase = await createClient();
 
+	// Embed event pakai hint nama constraint eksplisit — embed ambigu di
+	// PostgREST diam-diam mengembalikan null, bukan error.
 	const JOURNAL_SELECT = `id, ref_id, entry_date, entry_type, description, source_type,
 		 source_id, total_amount, is_reversed, reversed_at, created_at,
 		 created_by_user:users!journal_entries_created_by_fkey(full_name),
+		 source_event:events!journal_entries_source_event_id_fkey(client_name, project_id),
 		 lines:journal_lines(
 			 id, account_code, debit_amount, credit_amount, description, line_order,
 			 account:chart_of_accounts!journal_lines_account_code_fkey(name)
@@ -168,6 +171,10 @@ export default async function AccountingPage({
 				| { full_name: string | null }
 				| { full_name: string | null }[]
 				| null;
+			source_event:
+				| { client_name: string | null; project_id: string | null }
+				| { client_name: string | null; project_id: string | null }[]
+				| null;
 			lines: Array<{
 				id: string;
 				account_code: string;
@@ -182,6 +189,9 @@ export default async function AccountingPage({
 		const usr = Array.isArray(r.created_by_user)
 			? r.created_by_user[0]
 			: r.created_by_user;
+		const ev = Array.isArray(r.source_event)
+			? r.source_event[0]
+			: r.source_event;
 		const lines = (r.lines ?? [])
 			.map((l) => {
 				const acc = Array.isArray(l.account) ? l.account[0] : l.account;
@@ -210,6 +220,8 @@ export default async function AccountingPage({
 			created_at: r.created_at,
 			created_by_name: usr?.full_name ?? null,
 			proof_url: null as string | null,
+			event_name: ev?.client_name ?? null,
+			event_project_id: ev?.project_id ?? null,
 			lines,
 		};
 	});
