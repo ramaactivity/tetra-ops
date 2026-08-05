@@ -222,6 +222,7 @@ export default async function AccountingPage({
 			proof_url: null as string | null,
 			event_name: ev?.client_name ?? null,
 			event_project_id: ev?.project_id ?? null,
+			payment_type: null as string | null,
 			lines,
 		};
 	});
@@ -271,6 +272,27 @@ export default async function AccountingPage({
 			row.proof_url =
 				proofByRef.get(row.ref_id) ??
 				(row.source_id ? (proofBySource.get(row.source_id) ?? null) : null);
+		}
+
+		// Tipe pembayaran (DP / sebagian / pelunasan) untuk judul yang enak
+		// dibaca. source_id kolom generik tanpa FK (menunjuk banyak tabel), jadi
+		// tidak bisa di-embed — harus query terpisah.
+		const paymentSourceIds = journalRows
+			.filter((r) => r.source_type === "payment" && r.source_id)
+			.map((r) => r.source_id as string);
+		if (paymentSourceIds.length > 0) {
+			const { data: payTypes } = await supabase
+				.from("payments")
+				.select("id, payment_type")
+				.in("id", paymentSourceIds);
+			const typeById = new Map(
+				(payTypes ?? []).map((p) => [p.id as string, p.payment_type as string]),
+			);
+			for (const row of journalRows) {
+				if (row.source_id) {
+					row.payment_type = typeById.get(row.source_id) ?? null;
+				}
+			}
 		}
 	}
 

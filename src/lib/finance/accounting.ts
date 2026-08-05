@@ -104,7 +104,63 @@ export const ENTRY_TYPE_LABEL: Record<string, string> = {
 	reversal: "Pembatalan",
 };
 
-// ── Balance aggregation ────────────────────────────────────────────────
+// ── Judul transaksi yang enak dibaca ───────────────────────────────────
+
+/** Kata yang dipakai owner untuk tiap tipe pembayaran klien. */
+const PAYMENT_TYPE_WORD: Record<string, string> = {
+	dp: "DP",
+	partial: "Pembayaran sebagian",
+	pelunasan: "Pelunasan",
+};
+
+/**
+ * Rapikan angka kuantitas yang ditulis mesin: "187.0000 pcs" → "187 pcs",
+ * "2.5000 pcs" → "2,5 pcs" (koma desimal, sesuai cara baca Indonesia).
+ *
+ * Dikunci ke TEPAT 4 angka desimal — itu bentuk numeric(_,4) yang ditulis DB.
+ * Tanpa batas itu, "Rp1.500.000" ikut tercacah jadi "Rp1,5.000": di teks
+ * Indonesia titik juga dipakai sebagai pemisah ribuan. Pola 4-desimal tidak
+ * pernah cocok dengan angka ribuan (tiap kelompoknya cuma 3 digit).
+ */
+function tidyQuantities(text: string): string {
+	return text.replace(
+		/(\d+)\.(\d{4})\b/g,
+		(_whole, intPart: string, frac: string) => {
+			const trimmed = frac.replace(/0+$/, "");
+			return trimmed ? `${intPart},${trimmed}` : intPart;
+		},
+	);
+}
+
+export type EntryTitleInput = {
+	source_type: string;
+	description: string;
+	event_name: string | null;
+	/** Tipe pembayaran klien (dp/partial/pelunasan), kalau entry-nya payment. */
+	payment_type?: string | null;
+};
+
+/**
+ * Judul satu baris jurnal dalam bahasa manusia.
+ *
+ * Deskripsi mentah dari DB kadang berbicara dalam kode mesin — "Pembayaran
+ * klien PAY-20260804-0104" tidak memberi tahu siapa yang bayar dan berapa
+ * jenis pembayarannya. Fungsi ini menyusun kalimat yang bisa dibaca sekali
+ * lihat; deskripsi aslinya TIDAK dibuang (tetap ditampilkan sebagai baris
+ * kecil dan tetap bisa dicari), jadi jejak auditnya utuh.
+ */
+export function humanEntryTitle(entry: EntryTitleInput): string {
+	if (entry.source_type === "payment" && entry.event_name) {
+		const word = entry.payment_type
+			? (PAYMENT_TYPE_WORD[entry.payment_type] ?? "Pembayaran")
+			: "Pembayaran";
+		return `${word} dari ${entry.event_name}`;
+	}
+	if (entry.source_type === "wastage" || entry.source_type === "stock_take") {
+		return tidyQuantities(entry.description);
+	}
+	return entry.description;
+}
 
 export type CoaMeta = {
 	code: string;

@@ -19,7 +19,11 @@ import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { driveThumbnailUrl } from "@/lib/drive/thumbnail";
-import { ENTRY_TYPE_LABEL, SOURCE_LABEL } from "@/lib/finance/accounting";
+import {
+	ENTRY_TYPE_LABEL,
+	humanEntryTitle,
+	SOURCE_LABEL,
+} from "@/lib/finance/accounting";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +54,8 @@ export type JournalEntryRow = {
 	/** Konteks event (kalau entry ini terkait event) — bikin baris jelas siapa. */
 	event_name: string | null;
 	event_project_id: string | null;
+	/** dp/partial/pelunasan, untuk judul entry pembayaran klien. */
+	payment_type: string | null;
 	lines: JournalLineRow[];
 };
 
@@ -101,6 +107,9 @@ export function JurnalTable({
 		for (const r of rows) {
 			const head = [
 				r.ref_id,
+				// Judul yang dibaca owner DAN deskripsi mentahnya — mengetik
+				// "pelunasan putra" maupun "PAY-20260804-0104" sama-sama ketemu.
+				humanEntryTitle(r),
 				r.description,
 				ENTRY_TYPE_LABEL[r.entry_type] ?? r.entry_type,
 				SOURCE_LABEL[r.source_type] ?? r.source_type,
@@ -299,16 +308,26 @@ function JournalEntry({
 	const totalCredit = entry.lines.reduce((s, l) => s + l.credit_amount, 0);
 	const balanced = totalDebit === totalCredit;
 
-	// Konteks event. Nama klien dilewati kalau deskripsinya memang sudah
-	// menyebutnya (mis. settlement "Biaya & alokasi event — Hafizh & Dinda"),
-	// supaya tidak jadi pengulangan; kode proyek tetap ditampilkan karena itu
-	// yang dipakai mencari lintas modul.
-	const eventLabel = [
+	const title = humanEntryTitle(entry);
+
+	// Deskripsi asli hanya diulang kalau judul benar-benar MENGGANTI kalimatnya
+	// (mis. "Pembayaran klien PAY-…" → "Pelunasan dari …"), supaya referensi
+	// mesinnya tidak hilang dari jejak audit. Kalau judul cuma merapikan angka
+	// ("187.0000 pcs" → "187 pcs"), mengulangnya jadi mubazir — bandingkan
+	// setelah angka & tanda baca dibuang.
+	const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+	const rawStillInforms = letters(entry.description) !== letters(title);
+
+	// Baris kecil di bawah judul. Nama klien dilewati kalau judul sudah
+	// menyebutnya; kode proyek selalu ikut karena itu yang dipakai mencari
+	// lintas modul.
+	const subLabel = [
 		entry.event_name &&
-		!entry.description.toLowerCase().includes(entry.event_name.toLowerCase())
+		!title.toLowerCase().includes(entry.event_name.toLowerCase())
 			? entry.event_name
 			: null,
 		entry.event_project_id,
+		rawStillInforms ? entry.description : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
@@ -335,11 +354,11 @@ function JournalEntry({
 						)}
 					</div>
 					<div className="truncate text-[13px] font-medium text-foreground">
-						{entry.description}
+						{title}
 					</div>
-					{eventLabel && (
+					{subLabel && (
 						<div className="truncate text-[11.5px] text-muted-foreground">
-							{eventLabel}
+							{subLabel}
 						</div>
 					)}
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
