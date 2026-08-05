@@ -456,7 +456,9 @@ export async function recordQuickTransaction(
  * (debit↔credit swapped) + setting is_reversed=true on the original.
  * Use case: undo a manual entry that was mis-keyed.
  *
- * Note: not exposed in UI yet — bisa dipakai dari server context kalau perlu.
+ * Berlapis guard, karena tombolnya sekarang ada di UI Jurnal: hanya entry
+ * manual, belum pernah dibalik, tidak menyentuh modal awal, bertanggal setelah
+ * cutoff, dan tidak membuat kas/bank minus.
  */
 export async function reverseJournalEntry(
 	entryId: string,
@@ -464,6 +466,11 @@ export async function reverseJournalEntry(
 ): Promise<{ ok: true; reversalRefId: string } | { ok: false; error: string }> {
 	const me = await requireOwnerLevel();
 	const supabase = await createClient();
+
+	const trimmedReason = reason.trim();
+	if (trimmedReason.length < 3) {
+		return { ok: false, error: "Alasan pembalikan minimal 3 karakter." };
+	}
 
 	const { data: existing, error: readErr } = await supabase
 		.from("journal_entries")
@@ -488,6 +495,78 @@ export async function reverseJournalEntry(
 		};
 	}
 
+	const lines = (existing.lines ?? []) as Array<{
+		account_code: string;
+		debit_amount: number | string;
+		credit_amount: number | string;
+		description: string | null;
+		line_order: number;
+	}>;
+
+	// Guard modal awal. Jurnal saldo awal cutoff dan reklasnya ditulis dengan
+	// source_type 'manual' juga — tanpa guard ini satu klik bisa membalik
+	// seluruh titik nol pembukuan (JE-20260624-001 senilai puluhan juta).
+	// Ekuitas modal bukan sesuatu yang "dibatalkan" lewat tombol.
+	if (
+		lines.some((l) => l.account_code === "3-100" || l.account_code === "3-101")
+	) {
+		return {
+			ok: false,
+			error:
+				"Entry ini menyentuh Modal Awal/Modal Owner (saldo awal pembukuan) — tidak bisa dibalik lewat tombol. Hubungi admin kalau memang perlu dikoreksi.",
+		};
+	}
+
+	// Guard cutoff. Titik nol pembukuan: apa pun yang bertanggal pada/sebelum
+	// cutoff adalah kondisi awal, bukan transaksi berjalan yang boleh dibatalkan
+	// (pembaliknya juga akan bertanggal hari ini → periode jadi timpang).
+	const { data: cutoffCfg } = await supabase
+		.from("system_config")
+		.select("value")
+		.eq("key", "finance_cutoff_date")
+		.maybeSingle();
+	const cutoff =
+		typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
+			? cutoffCfg.value
+			: null;
+	if (cutoff && existing.entry_date <= cutoff) {
+		return {
+			ok: false,
+			error: `Entry bertanggal ${existing.entry_date} — pada/sebelum cutoff keuangan (${cutoff}). Periode itu sudah ditutup dan tidak bisa dibalik.`,
+		};
+	}
+
+	// Guard saldo. Pembalik menukar debit↔kredit, jadi entry yang dulunya
+	// MEMASUKKAN uang akan MENGELUARKAN uang saat dibalik — dan itu bisa bikin
+	// kas/bank minus. Cek tiap akun kas/bank yang uangnya akan keluar.
+	const cashOutByCode = new Map<string, number>();
+	for (const l of lines) {
+		const out = Number(l.debit_amount); // debit asli → kredit di pembalik
+		if (out <= 0 || !/^1-1\d{2}$/.test(l.account_code)) continue;
+		cashOutByCode.set(
+			l.account_code,
+			(cashOutByCode.get(l.account_code) ?? 0) + out,
+		);
+	}
+	if (cashOutByCode.size > 0) {
+		const { data: cashCoa } = await supabase
+			.from("chart_of_accounts")
+			.select("code, name")
+			.in("code", [...cashOutByCode.keys()]);
+		const nameByCode = new Map(
+			(cashCoa ?? []).map((c) => [c.code as string, c.name as string]),
+		);
+		for (const [code, out] of cashOutByCode) {
+			const err = await insufficientBalanceError(
+				supabase,
+				code,
+				nameByCode.get(code) ?? code,
+				out,
+			);
+			if (err) return { ok: false, error: err };
+		}
+	}
+
 	const reversalRefId = newJournalRef(new Date());
 	const { data: reversal, error: revErr } = await supabase
 		.from("journal_entries")
@@ -495,7 +574,7 @@ export async function reverseJournalEntry(
 			ref_id: reversalRefId,
 			entry_date: new Date().toISOString().slice(0, 10),
 			entry_type: "reversal",
-			description: `REVERSAL ${existing.ref_id} — ${reason}`,
+			description: `Pembatalan ${existing.ref_id} — ${trimmedReason}`,
 			source_type: "manual",
 			source_id: null,
 			total_amount: Number(existing.total_amount),
@@ -507,15 +586,7 @@ export async function reverseJournalEntry(
 		return { ok: false, error: revErr?.message ?? "Gagal create reversal" };
 	}
 
-	const reversalLines = (
-		(existing.lines ?? []) as Array<{
-			account_code: string;
-			debit_amount: number | string;
-			credit_amount: number | string;
-			description: string | null;
-			line_order: number;
-		}>
-	).map((l) => ({
+	const reversalLines = lines.map((l) => ({
 		entry_id: reversal.id,
 		account_code: l.account_code,
 		debit_amount: Number(l.credit_amount),

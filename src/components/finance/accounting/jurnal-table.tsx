@@ -9,6 +9,7 @@ import {
 	Loader2,
 	Paperclip,
 	Receipt,
+	Undo2,
 	Upload,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -16,8 +17,10 @@ import { useId, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
+import { TextareaField } from "@/components/ui/form-fields";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
+import { reverseJournalEntry } from "@/lib/actions/journal-entries";
 import { driveThumbnailUrl } from "@/lib/drive/thumbnail";
 import {
 	ENTRY_TYPE_LABEL,
@@ -478,14 +481,121 @@ function JournalEntry({
 						</table>
 					</div>
 					<ProofControl entry={entry} />
-					{entry.is_reversed && entry.reversed_at && (
+					{entry.is_reversed && entry.reversed_at ? (
 						<p className="mt-3 rounded-md bg-rose-500/10 px-3 py-2 text-[11px] text-destructive">
 							Entry ini sudah dibalik pada {formatDateID(entry.reversed_at)}.
 						</p>
+					) : (
+						<ReverseControl entry={entry} />
 					)}
 				</div>
 			)}
 		</div>
+	);
+}
+
+/**
+ * Tombol "Balikkan entry" — bikin jurnal pembalik otomatis, biar owner tidak
+ * perlu mengetik ulang lawan debit/kreditnya (justru itu yang rawan salah).
+ *
+ * Cuma untuk entry manual. Entry otomatis (pembayaran klien, settlement, fee
+ * crew, dst) punya flow pembatalan sendiri di modul asalnya — membalik
+ * jurnalnya saja akan bikin buku dan data operasional tidak sinkron.
+ */
+function ReverseControl({ entry }: { entry: JournalEntryRow }) {
+	const router = useRouter();
+	const [open, setOpen] = useState(false);
+	const [reason, setReason] = useState("");
+	const [pending, setPending] = useState(false);
+
+	if (entry.source_type !== "manual") return null;
+
+	async function submit() {
+		if (reason.trim().length < 3) {
+			toast.error("Alasan pembalikan minimal 3 karakter");
+			return;
+		}
+		setPending(true);
+		const res = await reverseJournalEntry(entry.id, reason.trim());
+		setPending(false);
+		if (!res.ok) {
+			toast.error(res.error);
+			return;
+		}
+		toast.success(`Jurnal pembalik dibuat — ${res.reversalRefId}`);
+		setOpen(false);
+		setReason("");
+		router.refresh();
+	}
+
+	return (
+		<>
+			<div className="mt-3 flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
+				<p className="text-[11px] text-muted-foreground">
+					Salah input? Sistem yang bikin jurnal pembaliknya — entry asli tetap
+					tersimpan sebagai jejak.
+				</p>
+				<button
+					type="button"
+					onClick={() => setOpen(true)}
+					className="press tap inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-border-default px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-rose-50 hover:text-destructive dark:hover:bg-rose-500/10"
+				>
+					<Undo2 className="size-3.5" aria-hidden />
+					Balikkan entry
+				</button>
+			</div>
+
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogTitle>Balikkan entry ini?</DialogTitle>
+					<p className="text-[13px] text-muted-foreground">
+						{entry.ref_id} · {formatRupiah(entry.total_amount)}. Sistem membuat
+						jurnal pembalik bertanggal hari ini (debit↔kredit ditukar). Entry
+						aslinya tidak dihapus — ditandai &quot;Dibalik&quot;.
+					</p>
+					<div className="space-y-1.5">
+						<label
+							htmlFor={`rev-reason-${entry.id}`}
+							className="block text-[13px] font-medium text-foreground"
+						>
+							Alasan <span className="text-destructive">*</span>
+						</label>
+						<TextareaField
+							id={`rev-reason-${entry.id}`}
+							value={reason}
+							onChange={(e) => setReason(e.target.value)}
+							rows={3}
+							placeholder="Contoh: salah nominal, salah akun, dobel catat."
+						/>
+					</div>
+					<div className="flex justify-end gap-2">
+						<button
+							type="button"
+							onClick={() => setOpen(false)}
+							disabled={pending}
+							className="press tap h-9 rounded-full px-3.5 text-[13px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+						>
+							Batal
+						</button>
+						<button
+							type="button"
+							onClick={submit}
+							disabled={pending || reason.trim().length < 3}
+							className="press tap inline-flex h-9 items-center gap-1.5 rounded-full bg-destructive px-4 text-[13px] font-medium text-white disabled:opacity-50"
+						>
+							{pending ? (
+								<>
+									<Loader2 className="size-3.5 animate-spin" aria-hidden />
+									Memproses…
+								</>
+							) : (
+								"Balikkan entry"
+							)}
+						</button>
+					</div>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }
 
