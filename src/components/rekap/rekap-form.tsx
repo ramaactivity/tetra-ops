@@ -40,8 +40,13 @@ function humanizeRatio(qtyPerUnit: number, unit: string): string {
 	return `×${qtyPerUnit.toLocaleString("id-ID", { maximumFractionDigits: 6 })} ${unit}/cetak`;
 }
 
-/** 1 roll media = 1400 lembar (potongan terkecil ukuran 2R/polaroid). */
-const LEMBAR_PER_ROLL = 1400;
+/**
+ * Fallback lembar per roll. Isi lembar per roll TERGANTUNG frame size —
+ * 4R: 700, 2R/polaroid: 1400 — diturunkan dari ratio roll-per-lembar mapping
+ * (kebalikannya). Konstanta ini hanya dipakai saat ratio tidak tersedia/nol.
+ * 1 cetakan SELALU = 1 lembar, apa pun ukurannya.
+ */
+const FALLBACK_LEMBAR_PER_ROLL = 1400;
 
 type Defaults = {
 	cetak_total: string;
@@ -514,13 +519,24 @@ export function RekapForm({
 		return m;
 	}, [context.mappings, frameSize]);
 
-	// Auto-derived: mediaset dalam LEMBAR (1 roll = 1400 lembar), sleeve dalam pcs.
+	// Auto-derived: mediaset dalam LEMBAR — 1 cetakan = 1 lembar untuk SEMUA
+	// ukuran (4R/2R/polaroid). Yang beda per ukuran cuma isi roll (4R: 700
+	// lembar, 2R/polaroid: 1400), dipakai untuk konversi harga/stok di kartu.
+	// Dulu 4R salah tampil 2× cetak karena lembar-per-roll dipatok 1400.
 	// Di-sync ke state saat belum di-override manual → preview, draft, & submit
 	// konsisten. Deduct stok di belakang layar tetap dari cetak_total (roll).
 	const cetakNum = Number(cetak) || 0;
+	const mediaLembarPerRoll = (() => {
+		const map = mappingByField.get("media_set_used");
+		// qty_per_unit = roll per lembar (4R: 1/700, 2R/polaroid: 1/1400) →
+		// kebalikannya = lembar per roll.
+		return map && map.qty_per_unit > 0
+			? 1 / map.qty_per_unit
+			: FALLBACK_LEMBAR_PER_ROLL;
+	})();
 	const autoMediaLembar = (() => {
 		const map = mappingByField.get("media_set_used");
-		return map ? Math.round(cetakNum * map.qty_per_unit * LEMBAR_PER_ROLL) : 0;
+		return map ? Math.round(cetakNum) : 0;
 	})();
 	const autoSleeveQty = (() => {
 		const map = mappingByField.get("sleeve_used");
@@ -658,7 +674,9 @@ export function RekapForm({
 			const m = Number(media) || 0;
 			const mediaMapping = mappingByField.get("media_set_used");
 			if (mediaMapping && c > 0) {
-				const expected = Math.ceil(c * mediaMapping.qty_per_unit);
+				// Pembanding dalam LEMBAR (satuan yang sama dengan input), bukan
+				// roll — 1 cetak = 1 lembar.
+				const expected = Math.round(c);
 				if (m > 0 && Math.abs(m - expected) > expected * 0.5) {
 					w.push(
 						`Mediaset override ${m} berbeda jauh dari auto-derive (${expected}). Pastikan benar.`,
@@ -763,7 +781,7 @@ export function RekapForm({
 				const autoSleeveExact = sleeveMapping
 					? cetakNum * sleeveMapping.qty_per_unit
 					: 0;
-				// Mediaset dalam LEMBAR (integer alami: 2R/polaroid 1/cetak, 4R 2/cetak).
+				// Mediaset dalam LEMBAR — 1 cetak = 1 lembar untuk semua ukuran.
 				const autoMedia = autoMediaLembar;
 				const autoSleeve = autoSleeveQty;
 				const finalMedia = touched.media_set_used
@@ -773,19 +791,20 @@ export function RekapForm({
 					? Number(sleeve) || 0
 					: autoSleeve;
 				// Mapping versi lembar utk kartu Mediaset — cost & stok dikonversi
-				// (avg ÷ 1400 = per lembar; stok roll × 1400 = lembar) supaya angka
-				// di kartu tetap akurat sambil tampil dalam lembar.
+				// pakai isi roll SESUAI UKURAN (4R: 700, 2R/polaroid: 1400): avg ÷
+				// lembarPerRoll = harga per lembar; stok roll × lembarPerRoll =
+				// lembar. Angka kartu tetap akurat sambil tampil dalam lembar.
 				const mediaMappingLembar = mediaMapping?.item
 					? {
 							...mediaMapping,
-							qty_per_unit: mediaMapping.qty_per_unit * LEMBAR_PER_ROLL,
+							qty_per_unit: mediaMapping.qty_per_unit * mediaLembarPerRoll,
 							item: {
 								...mediaMapping.item,
 								unit: "lembar",
 								purchase_price_avg:
-									mediaMapping.item.purchase_price_avg / LEMBAR_PER_ROLL,
+									mediaMapping.item.purchase_price_avg / mediaLembarPerRoll,
 								current_stock:
-									mediaMapping.item.current_stock * LEMBAR_PER_ROLL,
+									mediaMapping.item.current_stock * mediaLembarPerRoll,
 							},
 						}
 					: mediaMapping;
