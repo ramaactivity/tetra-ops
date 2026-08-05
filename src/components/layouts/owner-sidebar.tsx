@@ -76,46 +76,6 @@ const NAV_SECTIONS: NavSection[] = [
 			{ href: "/design", label: "Asset & Design", icon: Palette },
 			{ href: "/billing", label: "Billing", icon: Receipt },
 			{
-				href: "/warehouse",
-				label: "Warehouse",
-				icon: Package,
-				children: [
-					{ href: "/warehouse", label: "Inventaris", icon: Package },
-					{
-						href: "/warehouse/purchases",
-						label: "Pembelian",
-						icon: ShoppingCart,
-					},
-					{
-						href: "/warehouse/suppliers",
-						label: "Supplier",
-						icon: Truck,
-					},
-					{
-						href: "/warehouse/purchase-requests",
-						label: "Permintaan",
-						icon: ClipboardCheck,
-					},
-					{
-						href: "/warehouse/stock-take",
-						label: "Stock Opname",
-						icon: ClipboardList,
-					},
-					{
-						href: "/warehouse/asset-check",
-						label: "Cek Alat",
-						icon: Wrench,
-					},
-					// Wastage hidden until owners are ready to use it (2026-06-24).
-					// Route + page still live; restore this item to re-expose.
-					// {
-					// 	href: "/warehouse/wastage",
-					// 	label: "Wastage",
-					// 	icon: AlertTriangle,
-					// },
-				],
-			},
-			{
 				href: "/finance",
 				label: "Finance",
 				icon: Wallet,
@@ -176,6 +136,46 @@ const NAV_SECTIONS: NavSection[] = [
 						label: "Rekonsiliasi",
 						icon: Scale,
 					},
+				],
+			},
+			{
+				href: "/warehouse",
+				label: "Warehouse",
+				icon: Package,
+				children: [
+					{ href: "/warehouse", label: "Inventaris", icon: Package },
+					{
+						href: "/warehouse/purchases",
+						label: "Pembelian",
+						icon: ShoppingCart,
+					},
+					{
+						href: "/warehouse/suppliers",
+						label: "Supplier",
+						icon: Truck,
+					},
+					{
+						href: "/warehouse/purchase-requests",
+						label: "Permintaan",
+						icon: ClipboardCheck,
+					},
+					{
+						href: "/warehouse/stock-take",
+						label: "Stock Opname",
+						icon: ClipboardList,
+					},
+					{
+						href: "/warehouse/asset-check",
+						label: "Cek Alat",
+						icon: Wrench,
+					},
+					// Wastage hidden until owners are ready to use it (2026-06-24).
+					// Route + page still live; restore this item to re-expose.
+					// {
+					// 	href: "/warehouse/wastage",
+					// 	label: "Wastage",
+					// 	icon: AlertTriangle,
+					// },
 				],
 			},
 			{ href: "/leads", label: "Leads", icon: MessageCircle },
