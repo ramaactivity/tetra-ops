@@ -836,6 +836,10 @@ export function BookingForm({
 	const [picName, setPicName] = useState(get("pic_name"));
 	const [picWa, setPicWa] = useState(get("pic_wa"));
 	const [picSameAsBooker, setPicSameAsBooker] = useState(false);
+	// Pola sama dengan venueTbc/startTbc: eksplisit, supaya tombolnya tetap
+	// terasa hidup walau kedua field PIC memang masih kosong.
+	const [picTbc, setPicTbc] = useState(!get("pic_name") && !get("pic_wa"));
+	const picInputRef = useRef<HTMLInputElement>(null);
 
 	// Toggle: pembooking sama dengan klien (yang punya acara)
 	useEffect(() => {
@@ -2818,16 +2822,59 @@ export function BookingForm({
 									<Users className="size-4 text-primary" />
 									PIC di Lokasi (WO / EO / Panitia / Keluarga)
 								</div>
+								<button
+									type="button"
+									onClick={() => {
+										if (picTbc) {
+											setPicTbc(false);
+											requestAnimationFrame(() => picInputRef.current?.focus());
+											return;
+										}
+										// Ke TBC — kunci + kosongkan, sekaligus lepas "sama dengan
+										// pembooking" supaya tidak diam-diam terisi ulang.
+										setPicTbc(true);
+										setPicSameAsBooker(false);
+										setPicName("");
+										setPicWa("");
+									}}
+									aria-pressed={picTbc}
+									className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
+										picTbc
+											? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+											: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
+									}`}
+								>
+									{picTbc ? "✓ Menyusul" : "Menyusul?"}
+								</button>
 							</div>
 							<p className="text-fluid-caption text-muted-foreground">
 								Orang yang crew koordinasi di lapangan hari-H. Bisa pembooking
 								sendiri, WO, atau keluarga.
 							</p>
 
-							<label className="flex cursor-pointer items-center gap-2 text-fluid-caption">
+							{picTbc ? (
+								<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+									<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+									<div>
+										<p className="font-medium">PIC belum ditentukan (TBC)</p>
+										<p className="text-amber-900/80 dark:text-amber-200/80">
+											Crew melihat &quot;PIC Event · menyusul&quot; di detail
+											jadwalnya dan bisa menekan &quot;Ingatkan owner&quot;
+											kalau hari-H makin dekat. Sistem juga reminder H-7 + H-3.
+										</p>
+									</div>
+								</div>
+							) : null}
+
+							<label
+								className={`flex items-center gap-2 text-fluid-caption ${
+									picTbc ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+								}`}
+							>
 								<input
 									type="checkbox"
 									checked={picSameAsBooker}
+									disabled={picTbc}
 									onChange={(e) => setPicSameAsBooker(e.target.checked)}
 									className="h-4 w-4 rounded text-primary"
 								/>
@@ -2847,15 +2894,20 @@ export function BookingForm({
 									tooltip="Opsional — orang yang crew koordinasi di lapangan hari-H (WO, EO, panitia, atau keluarga)."
 								>
 									<input
+										ref={picInputRef}
 										type="text"
 										value={picName}
 										onChange={(e) => {
 											setPicName(e.target.value);
 											setPicSameAsBooker(false);
 										}}
-										placeholder="cth. Bu Hanna (WO)"
-										disabled={picSameAsBooker}
-										className={`${inputClass} ${picSameAsBooker ? "opacity-60" : ""}`}
+										placeholder={
+											picTbc
+												? "Menyusul — belum ditentukan"
+												: "cth. Bu Hanna (WO)"
+										}
+										disabled={picSameAsBooker || picTbc}
+										className={`${inputClass} ${picSameAsBooker || picTbc ? "cursor-not-allowed opacity-60" : ""}`}
 									/>
 									<input type="hidden" name="pic_name" value={picName} />
 								</Field>
@@ -2872,9 +2924,9 @@ export function BookingForm({
 											setPicWa(e.target.value);
 											setPicSameAsBooker(false);
 										}}
-										placeholder="081234567890"
-										disabled={picSameAsBooker}
-										className={`${inputClass} tabular ${picSameAsBooker ? "opacity-60" : ""}`}
+										placeholder={picTbc ? "Menyusul" : "081234567890"}
+										disabled={picSameAsBooker || picTbc}
+										className={`${inputClass} tabular ${picSameAsBooker || picTbc ? "cursor-not-allowed opacity-60" : ""}`}
 									/>
 									<input type="hidden" name="pic_wa" value={picWa} />
 								</Field>
