@@ -15,6 +15,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
+	type CashMoveRow,
 	getMonthlyOverview,
 	monthLabel,
 	monthLabelShort,
@@ -53,6 +54,8 @@ export default async function FinanceMonthlyPage({
 		data.months.map((ym) => [ym, monthLabel(ym)]),
 	);
 	const cashDelta = m.closing - m.opening;
+	const prev = data.previous;
+	const prevShort = prev ? monthLabelShort(prev.ym) : "";
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -128,6 +131,11 @@ export default async function FinanceMonthlyPage({
 						tone="emerald"
 						icon={ArrowUpRight}
 						hint="Pembayaran klien & pemasukan lain"
+						delta={
+							prev
+								? { value: m.inflow - prev.inflow, prevLabel: prevShort }
+								: undefined
+						}
 					/>
 					<FlowStat
 						label="Uang keluar"
@@ -136,6 +144,11 @@ export default async function FinanceMonthlyPage({
 						tone="rose"
 						icon={ArrowDownRight}
 						hint="Semua uang yang keluar dari kas/bank"
+						delta={
+							prev
+								? { value: m.outflow - prev.outflow, prevLabel: prevShort }
+								: undefined
+						}
 					/>
 					<FlowStat
 						label="Saldo akhir"
@@ -204,6 +217,14 @@ export default async function FinanceMonthlyPage({
 						tone={m.profitBook >= 0 ? "emerald" : "rose"}
 						icon={m.profitBook >= 0 ? TrendingUp : TrendingDown}
 						hint="Pendapatan − biaya bulan ini"
+						delta={
+							prev
+								? {
+										value: m.profitBook - prev.profitBook,
+										prevLabel: prevShort,
+									}
+								: undefined
+						}
 					/>
 					<FlowStat
 						label="Laba event ditutup"
@@ -233,7 +254,51 @@ export default async function FinanceMonthlyPage({
 				</div>
 			</SectionCard>
 
-			{/* ── 3. Biaya per jenis ───────────────────────────────────────── */}
+			{/* ── 3. Transaksi terbesar ────────────────────────────────────── */}
+			{(data.topInflows.length > 0 || data.topOutflows.length > 0) && (
+				<SectionCard
+					title={
+						<>
+							Transaksi terbesar
+							<span className="text-muted-foreground font-medium">
+								{" "}
+								· {m.label}
+							</span>
+						</>
+					}
+					titleExtra={
+						<InfoHint title="Transaksi terbesar">
+							Uang masuk & keluar paling besar bulan ini. Klik satu baris untuk
+							membuka jurnalnya di Akuntansi.
+						</InfoHint>
+					}
+					meta={
+						<Link
+							href={`/finance/accounting?tab=journal&from=${data.range.from}&to=${data.range.to}`}
+							className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
+						>
+							Lihat semua transaksi {m.label} →
+						</Link>
+					}
+				>
+					<div className="divide-border-subtle grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+						<CashMoveList
+							heading="Uang masuk"
+							tone="emerald"
+							rows={data.topInflows}
+							total={data.inflowCount}
+						/>
+						<CashMoveList
+							heading="Uang keluar"
+							tone="rose"
+							rows={data.topOutflows}
+							total={data.outflowCount}
+						/>
+					</div>
+				</SectionCard>
+			)}
+
+			{/* ── 4. Biaya per jenis ───────────────────────────────────────── */}
 			<SectionCard
 				title={
 					<>
@@ -388,6 +453,74 @@ export default async function FinanceMonthlyPage({
 	);
 }
 
+/** Daftar transaksi kas terbesar (satu kolom: masuk atau keluar). */
+function CashMoveList({
+	heading,
+	tone,
+	rows,
+	total,
+}: {
+	heading: string;
+	tone: "emerald" | "rose";
+	rows: CashMoveRow[];
+	total: number;
+}) {
+	const toneCls =
+		tone === "emerald"
+			? "text-emerald-600 dark:text-emerald-400"
+			: "text-rose-600 dark:text-rose-400";
+	return (
+		<div>
+			<p className="text-muted-foreground border-border-subtle border-b px-4 py-2 text-[11px] font-medium uppercase tracking-wider">
+				{heading}
+			</p>
+			{rows.length === 0 ? (
+				<p className="text-muted-foreground px-4 py-6 text-center text-[12.5px]">
+					Tidak ada.
+				</p>
+			) : (
+				<ul className="divide-border-subtle divide-y">
+					{rows.map((r) => (
+						<li key={r.entryId}>
+							<Link
+								href={
+									r.refId
+										? `/finance/accounting?entry=${encodeURIComponent(r.refId)}`
+										: "/finance/accounting?tab=journal"
+								}
+								className="hover:bg-secondary/50 flex items-start justify-between gap-3 px-4 py-2.5 transition-colors"
+							>
+								<div className="min-w-0">
+									<p className="truncate text-[13px] text-foreground">
+										{r.title}
+									</p>
+									<p className="text-muted-foreground tabular mt-0.5 text-[11px]">
+										{formatDateID(r.date)}
+									</p>
+								</div>
+								<span
+									className={cn(
+										"tabular shrink-0 text-[13px] font-semibold",
+										toneCls,
+									)}
+								>
+									{tone === "emerald" ? "+" : "−"}
+									{formatRupiah(r.amount)}
+								</span>
+							</Link>
+						</li>
+					))}
+				</ul>
+			)}
+			{total > rows.length && (
+				<p className="text-muted-foreground px-4 py-2 text-[11px]">
+					+{total - rows.length} transaksi lain
+				</p>
+			)}
+		</div>
+	);
+}
+
 /** Kartu bento: judul + meta di dalam header ber-hairline (sama dgn Ringkasan). */
 function SectionCard({
 	title,
@@ -422,6 +555,7 @@ function FlowStat({
 	hint,
 	icon: Icon,
 	strong,
+	delta,
 }: {
 	label: string;
 	value: number;
@@ -430,6 +564,8 @@ function FlowStat({
 	hint?: string;
 	icon?: React.ComponentType<{ className?: string }>;
 	strong?: boolean;
+	/** Selisih vs bulan sebelumnya — ditulis netral (naik/turun apa adanya). */
+	delta?: { value: number; prevLabel: string };
 }) {
 	const toneCls =
 		tone === "emerald"
@@ -453,6 +589,12 @@ function FlowStat({
 				{sign && value !== 0 ? sign : ""}
 				{formatRupiah(value)}
 			</dd>
+			{delta && delta.value !== 0 && (
+				<p className="text-muted-foreground tabular text-[10.5px]">
+					{delta.value > 0 ? "↑" : "↓"} {formatRupiah(Math.abs(delta.value))}{" "}
+					dari {delta.prevLabel}
+				</p>
+			)}
 			{hint && <p className="text-muted-foreground text-[10.5px]">{hint}</p>}
 		</div>
 	);

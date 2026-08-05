@@ -1,6 +1,6 @@
 import "server-only";
 
-import { isCashOrBank } from "@/lib/finance/accounting";
+import { humanEntryTitle, isCashOrBank } from "@/lib/finance/accounting";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -157,12 +157,33 @@ export type ExpenseGroupRow = {
 	accounts: Array<{ code: string; name: string; amount: number }>;
 };
 
+/** Satu transaksi kas — untuk daftar "uang masuk/keluar terbesar". */
+export type CashMoveRow = {
+	entryId: string;
+	refId: string;
+	date: string;
+	title: string;
+	amount: number;
+	eventName: string | null;
+	projectId: string | null;
+};
+
 export type MonthlyOverview = {
 	/** Bulan yang punya data, ASC (bulan cutoff .. bulan berjalan). */
 	months: string[];
 	current: MonthlyRow;
+	/** Bulan sebelumnya (kalau ada) — untuk pembanding naik/turun. */
+	previous: MonthlyRow | null;
 	prevYm: string | null;
 	nextYm: string | null;
+	/** Uang masuk & keluar terbesar bulan itu (maks 6 masing-masing). */
+	topInflows: CashMoveRow[];
+	topOutflows: CashMoveRow[];
+	/** Total transaksi kas bulan itu (buat tahu ada berapa yang tak tampil). */
+	inflowCount: number;
+	outflowCount: number;
+	/** Rentang tanggal bulan terpilih — untuk deep-link ke Akuntansi. */
+	range: { from: string; to: string };
 	expenseGroups: ExpenseGroupRow[];
 	/** Bagian uang keluar yang jadi biaya bulan itu. */
 	outflowForExpense: number;
@@ -412,11 +433,88 @@ export async function getMonthlyOverview(
 		.map(buildRow)
 		.reverse();
 
+	// Transaksi kas terbesar bulan ini — supaya "uang keluar Rp5,7jt" bisa
+	// langsung ditelusuri tanpa pindah ke Akuntansi.
+	const monthEntries = Array.from(entries.entries())
+		.filter(
+			([, a]) => a.date.slice(0, 7) === ym && !a.isOpening && a.cashDelta !== 0,
+		)
+		.map(([id, a]) => ({ id, date: a.date, delta: a.cashDelta }));
+	const inflowEntries = monthEntries
+		.filter((e) => e.delta > 0)
+		.sort((a, b) => b.delta - a.delta);
+	const outflowEntries = monthEntries
+		.filter((e) => e.delta < 0)
+		.sort((a, b) => a.delta - b.delta);
+	const TOP = 6;
+	const wantedIds = [
+		...inflowEntries.slice(0, TOP).map((e) => e.id),
+		...outflowEntries.slice(0, TOP).map((e) => e.id),
+	];
+
+	type EntryMeta = {
+		id: string;
+		ref_id: string;
+		description: string;
+		source_type: string;
+		source_event:
+			| { client_name: string; project_id: string }
+			| Array<{ client_name: string; project_id: string }>
+			| null;
+	};
+	let metaById = new Map<string, EntryMeta>();
+	if (wantedIds.length > 0) {
+		const { data: metaRows } = await supabase
+			.from("journal_entries")
+			.select(
+				`id, ref_id, description, source_type,
+				 source_event:events!journal_entries_source_event_id_fkey(client_name, project_id)`,
+			)
+			.in("id", wantedIds);
+		metaById = new Map(
+			((metaRows ?? []) as EntryMeta[]).map((r) => [r.id as string, r]),
+		);
+	}
+
+	const toCashMove = (e: {
+		id: string;
+		date: string;
+		delta: number;
+	}): CashMoveRow => {
+		const meta = metaById.get(e.id);
+		const ev = Array.isArray(meta?.source_event)
+			? meta?.source_event[0]
+			: meta?.source_event;
+		return {
+			entryId: e.id,
+			refId: meta?.ref_id ?? "",
+			date: e.date,
+			title: meta
+				? humanEntryTitle({
+						source_type: meta.source_type,
+						description: meta.description,
+						event_name: ev?.client_name ?? null,
+					})
+				: "Transaksi",
+			amount: Math.abs(e.delta),
+			eventName: ev?.client_name ?? null,
+			projectId: ev?.project_id ?? null,
+		};
+	};
+
+	const { start: rangeFrom, end: rangeTo } = monthBounds(ym);
+
 	return {
 		months,
 		current,
+		previous: idx > 0 ? buildRow(months[idx - 1]) : null,
 		prevYm: idx > 0 ? months[idx - 1] : null,
 		nextYm: idx >= 0 && idx < months.length - 1 ? months[idx + 1] : null,
+		topInflows: inflowEntries.slice(0, TOP).map(toCashMove),
+		topOutflows: outflowEntries.slice(0, TOP).map(toCashMove),
+		inflowCount: inflowEntries.length,
+		outflowCount: outflowEntries.length,
+		range: { from: rangeFrom, to: rangeTo },
 		expenseGroups,
 		outflowForExpense: expenseCashOutByMonth.get(ym) ?? 0,
 		outflowNonExpense: Math.max(
