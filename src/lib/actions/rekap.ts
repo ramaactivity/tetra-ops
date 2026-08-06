@@ -35,10 +35,23 @@ const NullableUrlSchema = z
 		message: "URL bukti tidak valid",
 	});
 
-/** Pembayar biaya lapangan: ditalangi crew (di-rembers) atau dibayar owner. */
-export type ExpensePaidBy = "crew" | "owner";
-const paidByOf = (v: unknown): ExpensePaidBy =>
-	v === "owner" ? "owner" : "crew";
+/**
+ * Pembayar biaya lapangan:
+ *  - "owner"  → uang perusahaan; TIDAK masuk OpEx settlement (owner catat
+ *               sendiri via Catat transaksi).
+ *  - <uuid>   → ditalangi crew TERTENTU; reimburse jatuh ke orang itu.
+ *  - "crew"   → ditalangi crew tapi belum ditentukan siapa (nilai lama /
+ *               default aman — owner yang membagi manual).
+ * Yang mengisi rekap belum tentu yang membayar, jadi penalang dipilih per item.
+ */
+export type ExpensePaidBy = string;
+const UUID_RE =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const paidByOf = (v: unknown): ExpensePaidBy => {
+	if (v === "owner") return "owner";
+	if (typeof v === "string" && UUID_RE.test(v.trim())) return v.trim();
+	return "crew";
+};
 
 const LainnyaItemsSchema = z
 	.string()
@@ -148,7 +161,11 @@ const ExpensePaidBySchema = z
 			const out: ExpensePaidByMap = {};
 			for (const key of EXPENSE_PAID_BY_KEYS) {
 				const raw = (parsed as Record<string, unknown>)[key];
-				if (raw === "owner" || raw === "crew") out[key] = raw;
+				// Hanya simpan kalau memang ada nilainya — key yang absen berarti
+				// "belum ditentukan" dan jatuh ke default 'crew' saat dibaca.
+				if (raw !== undefined && raw !== null && raw !== "") {
+					out[key] = paidByOf(raw);
+				}
 			}
 			return out;
 		} catch {
@@ -326,6 +343,13 @@ export type RekapContext = {
 	bonuses: RekapContextBonus[];
 	mappings: RekapContextMapping[];
 	custom_inventory: RekapContextItem[];
+	/**
+	 * Crew yang bertugas di event ini — dipakai memilih SIAPA yang menalangi
+	 * tiap biaya lapangan. Yang mengisi rekap belum tentu yang bayar (mis.
+	 * rekap diisi Asisten, bensin dibayar Lead), jadi penalang dipilih
+	 * eksplisit per item, bukan diasumsikan dari submitter.
+	 */
+	crew: Array<{ user_id: string; name: string; role: string }>;
 };
 
 export async function getRekapContext(
@@ -674,6 +698,29 @@ export async function getRekapContext(
 	const stripItem = (it: RekapContextItem | null) =>
 		it ? stripPrice(it) : null;
 
+	// Crew bertugas — untuk memilih penalang tiap biaya. Embed pakai hint FK
+	// eksplisit: crew_assignments punya 2 FK ke users (user_id & assigned_by),
+	// tanpa hint PostgREST menolak dengan PGRST201 dan datanya jadi null.
+	const { data: crewRows } = await supabase
+		.from("crew_assignments")
+		.select(
+			"user_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
+		)
+		.eq("event_id", eventId);
+	const crew = (crewRows ?? [])
+		.map((r) => {
+			const u = (Array.isArray(r.user) ? r.user[0] : r.user) as {
+				full_name?: string;
+				nickname?: string | null;
+			} | null;
+			return {
+				user_id: r.user_id as string,
+				name: u?.nickname?.trim() || u?.full_name || "Crew",
+				role: (r.role_in_event as string) ?? "",
+			};
+		})
+		.filter((c) => Boolean(c.user_id));
+
 	return {
 		pkg: {
 			name: pkg?.name ?? null,
@@ -696,6 +743,7 @@ export async function getRekapContext(
 		})),
 		mappings: mappings.map((m) => ({ ...m, item: stripItem(m.item) })),
 		custom_inventory: custom_inventory.map(stripPrice),
+		crew,
 	};
 }
 

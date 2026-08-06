@@ -34,7 +34,9 @@ type RekapRow = {
 	lainnya_items: Array<{
 		note: string;
 		amount: number;
-		paid_by?: "crew" | "owner";
+		// "owner" | users.id penalang | "crew" (belum ditentukan) — lihat
+		// ExpensePaidBy di lib/actions/rekap.ts.
+		paid_by?: string;
 		nota_url?: string | null;
 	}> | null;
 	expense_paid_by: Record<string, string> | null;

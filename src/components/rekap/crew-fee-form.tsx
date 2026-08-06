@@ -61,9 +61,16 @@ type Props = {
 			label: string;
 			amount: number;
 			paidBy: "crew" | "owner";
+			/** users.id penalang — null kalau belum ditentukan siapa. */
+			payerUserId: string | null;
+			payerName: string | null;
 			/** Deep-link Catat transaksi terprefill (item dibayar owner). */
 			catatHref?: string;
 		}>;
+		/** Total talangan per crew (users.id) — dasar auto-isi reimbursement. */
+		byCrew: Record<string, number>;
+		/** Talangan crew yang belum ditentukan penalangnya (rekap lama). */
+		unattributedTotal: number;
 	};
 	/**
 	 * users.id crew yang submit rekap — dia yang paling mungkin menalangi biaya
@@ -114,13 +121,39 @@ export function CrewFeeForm({
 		update(id, { reimbursement_amount: amount });
 	}
 
-	// Crew yang submit rekap = kandidat penalang biaya lapangan. Saran hanya
-	// ditawarkan saat SEMUA reimburse masih 0 — begitu owner mulai membagi
-	// manual, tombol ini menghilang supaya tidak menimpa pekerjaannya.
+	// Auto-isi reimbursement SESUAI PENALANG: tiap crew menerima persis jumlah
+	// yang dia talangi (dipilih per item di form rekap). Yang mengisi rekap
+	// belum tentu yang membayar, jadi ini bukan tebakan — datanya eksplisit.
+	function applyPayerAttribution() {
+		const byCrew = fieldExpenseBreakdown?.byCrew ?? {};
+		setRows((rs) =>
+			rs.map((r) =>
+				r.user_id && byCrew[r.user_id] !== undefined
+					? { ...r, reimbursement_amount: byCrew[r.user_id] }
+					: r,
+			),
+		);
+	}
+
+	// Ditawarkan saat ada talangan ber-penalang yang belum tersalin ke kolom
+	// Reimbursement. Begitu semuanya cocok, tombolnya hilang (tidak ada yang
+	// perlu dikerjakan) — dan owner tetap bebas mengoreksi manual.
+	const attributionPending =
+		!readOnly &&
+		Object.keys(fieldExpenseBreakdown?.byCrew ?? {}).length > 0 &&
+		rows.some(
+			(r) =>
+				r.user_id &&
+				fieldExpenseBreakdown?.byCrew[r.user_id] !== undefined &&
+				r.reimbursement_amount !== fieldExpenseBreakdown.byCrew[r.user_id],
+		);
+
+	// Fallback rekap lama (penalang belum ditentukan): saran ke crew yang
+	// submit, hanya kalau semua reimburse masih 0.
 	const suggestedRow =
 		!readOnly &&
 		submittedByUserId &&
-		(fieldExpenseBreakdown?.crewFrontedTotal ?? 0) > 0 &&
+		(fieldExpenseBreakdown?.unattributedTotal ?? 0) > 0 &&
 		rows.every((r) => r.reimbursement_amount === 0)
 			? rows.find((r) => r.user_id === submittedByUserId)
 			: undefined;
@@ -229,12 +262,31 @@ export function CrewFeeForm({
 										<li key={it.label}>
 											<span className="text-muted-foreground">{it.label}:</span>{" "}
 											<span data-nominal>{formatRupiah(it.amount)}</span>
+											<span className="ml-1 text-muted-foreground">
+												·{" "}
+												{it.payerName ?? (
+													<em className="not-italic text-amber-700 dark:text-amber-400">
+														penalang belum dipilih
+													</em>
+												)}
+											</span>
 										</li>
 									))}
 							</ul>
-							{/* Saran satu-klik: crew yang submit rekap paling mungkin yang
-							    menalangi. Muncul hanya kalau reimburse masih kosong semua,
-							    supaya tidak menimpa pembagian yang sudah owner atur. */}
+							{/* Auto-isi sesuai penalang yang dipilih di form rekap — tiap
+							    crew dapat persis jumlah yang dia talangi. */}
+							{attributionPending && (
+								<button
+									type="button"
+									onClick={applyPayerAttribution}
+									className="press-down mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
+								>
+									<Wallet className="h-3 w-3" />
+									Isi reimbursement sesuai penalang
+								</button>
+							)}
+							{/* Fallback rekap lama: penalang belum dipilih per item, jadi
+							    tawarkan crew yang submit sebagai tebakan terbaik. */}
 							{suggestedRow && (
 								<button
 									type="button"
@@ -247,8 +299,7 @@ export function CrewFeeForm({
 									className="press-down mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
 								>
 									<Wallet className="h-3 w-3" />
-									Isi otomatis ke {suggestedRow.user_full_name} (yang submit
-									rekap)
+									Isi ke {suggestedRow.user_full_name} (yang submit rekap)
 								</button>
 							)}
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
@@ -358,15 +409,31 @@ export function CrewFeeForm({
 												onClick={() =>
 													applyExpenseToReimbursement(
 														row.assignment_id,
-														fieldExpenseBreakdown.crewFrontedTotal,
+														row.user_id &&
+															fieldExpenseBreakdown.byCrew[row.user_id] !==
+																undefined
+															? fieldExpenseBreakdown.byCrew[row.user_id]
+															: fieldExpenseBreakdown.crewFrontedTotal,
 													)
 												}
-												className="rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
-												title="Set reimbursement crew ini = total talangan crew dari rekap"
+												className="press-down rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
+												title={
+													row.user_id &&
+													fieldExpenseBreakdown.byCrew[row.user_id] !==
+														undefined
+														? "Set reimbursement = yang dia talangi di rekap"
+														: "Set reimbursement = total talangan crew di rekap"
+												}
 											>
 												= Talangan{" "}
 												<span data-nominal>
-													{formatRupiah(fieldExpenseBreakdown.crewFrontedTotal)}
+													{formatRupiah(
+														row.user_id &&
+															fieldExpenseBreakdown.byCrew[row.user_id] !==
+																undefined
+															? fieldExpenseBreakdown.byCrew[row.user_id]
+															: fieldExpenseBreakdown.crewFrontedTotal,
+													)}
 												</span>
 											</button>
 											{fieldExpenseBreakdown.items

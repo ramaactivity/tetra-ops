@@ -75,10 +75,21 @@ type Defaults = {
 	expense_nota_urls?: string;
 };
 
-/** Siapa yang membayar sebuah biaya lapangan. */
-type PaidBy = "crew" | "owner";
+/**
+ * Siapa yang membayar sebuah biaya lapangan: "owner" (uang perusahaan),
+ * user_id crew tertentu (ditalangi orang itu → reimburse jatuh ke dia), atau
+ * "crew" = ditalangi tapi belum ditentukan siapa (nilai lama / default).
+ * Yang mengisi rekap belum tentu yang membayar, jadi dipilih per item.
+ */
+type PaidBy = string;
 type PaidByKey = "transport" | "bensin" | "toll" | "parking" | "konsumsi";
-const paidByOf = (v: unknown): PaidBy => (v === "owner" ? "owner" : "crew");
+const UUID_RE =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const paidByOf = (v: unknown): PaidBy => {
+	if (v === "owner") return "owner";
+	if (typeof v === "string" && UUID_RE.test(v.trim())) return v.trim();
+	return "crew";
+};
 
 const EMPTY: Defaults = {
 	cetak_total: "0",
@@ -1356,6 +1367,7 @@ export function RekapForm({
 							onChange={setTransportCost}
 							paidBy={paidBy.transport}
 							onPaidByChange={(v) => setPaidByKey("transport", v)}
+							crew={context.crew}
 							nota={{
 								projectId,
 								notaKey: "transport",
@@ -1393,6 +1405,7 @@ export function RekapForm({
 							onChange={setTransportCost}
 							paidBy={paidBy.transport}
 							onPaidByChange={(v) => setPaidByKey("transport", v)}
+							crew={context.crew}
 							nota={{
 								projectId,
 								notaKey: "transport",
@@ -1407,6 +1420,7 @@ export function RekapForm({
 							onChange={setBensinCost}
 							paidBy={paidBy.bensin}
 							onPaidByChange={(v) => setPaidByKey("bensin", v)}
+							crew={context.crew}
 							nota={{
 								projectId,
 								notaKey: "bensin",
@@ -1425,6 +1439,7 @@ export function RekapForm({
 						onChange={setTollCost}
 						paidBy={paidBy.toll}
 						onPaidByChange={(v) => setPaidByKey("toll", v)}
+						crew={context.crew}
 						nota={{
 							projectId,
 							notaKey: "toll",
@@ -1439,6 +1454,7 @@ export function RekapForm({
 						onChange={setParkingCost}
 						paidBy={paidBy.parking}
 						onPaidByChange={(v) => setPaidByKey("parking", v)}
+						crew={context.crew}
 						nota={{
 							projectId,
 							notaKey: "parking",
@@ -1463,6 +1479,7 @@ export function RekapForm({
 					onChange={setKonsumsiCost}
 					paidBy={paidBy.konsumsi}
 					onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
+					crew={context.crew}
 					nota={{
 						projectId,
 						notaKey: "konsumsi",
@@ -1536,10 +1553,10 @@ export function RekapForm({
 										</button>
 									</div>
 									{row.amount > 0 && (
-										<PaidByToggle
+										<PayerPicker
 											value={row.paid_by}
 											onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
-											compact
+											crew={context.crew}
 										/>
 									)}
 								</li>
@@ -2070,48 +2087,69 @@ function AddonField({
 }
 
 /**
- * Toggle kecil "siapa yang bayar" per item biaya. Muncul di bawah tiap input
- * uang saat nilainya > 0 — crew memutus per ITEM: ditalangi sendiri (nanti
- * di-rembers) atau sudah dibayar owner (uang perusahaan).
+ * Pemilih penalang per item biaya. Muncul di bawah tiap input uang saat
+ * nilainya > 0. Opsi: tiap crew yang bertugas (ditalangi orang itu → reimburse
+ * jatuh ke dia) + Owner (uang perusahaan, tidak masuk Hutang Crew). Kalau
+ * daftar crew belum ada, jatuh ke dua opsi lama (uang crew / owner) supaya
+ * form tetap berguna sebelum crew di-assign.
  */
-function PaidByToggle({
+function PayerPicker({
 	value,
 	onChange,
-	compact = false,
+	crew,
 }: {
 	value: PaidBy;
 	onChange: (v: PaidBy) => void;
-	compact?: boolean;
+	crew: Array<{ user_id: string; name: string; role: string }>;
 }) {
-	const opts: Array<{ key: PaidBy; label: string }> = [
-		{ key: "crew", label: compact ? "Uang crew" : "Uang crew · di-rembers" },
-		{ key: "owner", label: compact ? "Owner" : "Dibayar owner" },
-	];
+	const opts: Array<{ key: PaidBy; label: string; tone: "crew" | "owner" }> =
+		crew.length > 0
+			? [
+					...crew.map((c) => ({
+						key: c.user_id,
+						label: c.name,
+						tone: "crew" as const,
+					})),
+					{ key: "owner", label: "Owner", tone: "owner" as const },
+				]
+			: [
+					{ key: "crew", label: "Uang crew", tone: "crew" as const },
+					{ key: "owner", label: "Owner", tone: "owner" as const },
+				];
+	// Nilai lama "crew" (belum ditentukan siapa) tetap bisa ditampilkan walau
+	// daftar crew sudah ada — tanpa ini pilihan tersimpan terlihat kosong.
+	const known = opts.some((o) => o.key === value);
+
 	return (
-		<div
-			aria-label="Siapa yang bayar"
-			className="inline-flex rounded-full border border-border-default bg-surface-3 p-0.5"
-		>
-			{opts.map((o) => {
-				const active = value === o.key;
-				return (
-					<button
-						key={o.key}
-						type="button"
-						aria-pressed={active}
-						onClick={() => onChange(o.key)}
-						className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-							active
-								? o.key === "crew"
-									? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-									: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						{o.label}
-					</button>
-				);
-			})}
+		<div className="space-y-1">
+			<p className="text-[11px] text-muted-foreground">Yang bayar:</p>
+			<div className="flex flex-wrap gap-1">
+				{!known && value === "crew" ? (
+					<span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+						Crew (belum dipilih)
+					</span>
+				) : null}
+				{opts.map((o) => {
+					const active = value === o.key;
+					return (
+						<button
+							key={o.key}
+							type="button"
+							aria-pressed={active}
+							onClick={() => onChange(o.key)}
+							className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+								active
+									? o.tone === "crew"
+										? "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-200"
+										: "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+									: "border-border-default bg-surface-3 text-muted-foreground hover:text-foreground"
+							}`}
+						>
+							{o.label}
+						</button>
+					);
+				})}
+			</div>
 		</div>
 	);
 }
@@ -2123,15 +2161,18 @@ function MoneyField({
 	onChange,
 	paidBy,
 	onPaidByChange,
+	crew = [],
 	nota,
 }: {
 	label: string;
 	name: string;
 	value: string;
 	onChange: (v: string) => void;
-	/** Kalau di-set (bareng onPaidByChange), tampilkan toggle pembayar saat nilai > 0. */
+	/** Kalau di-set (bareng onPaidByChange), tampilkan pemilih penalang saat nilai > 0. */
 	paidBy?: PaidBy;
 	onPaidByChange?: (v: PaidBy) => void;
+	/** Crew bertugas — jadi pilihan penalang. */
+	crew?: Array<{ user_id: string; name: string; role: string }>;
 	/** Slot nota/struk — muncul saat nilai > 0, ikut ke Arsip Nota. */
 	nota?: {
 		projectId: string;
@@ -2170,7 +2211,7 @@ function MoneyField({
 				/>
 			</div>
 			{showPaidBy ? (
-				<PaidByToggle value={paidBy} onChange={onPaidByChange} />
+				<PayerPicker value={paidBy} onChange={onPaidByChange} crew={crew} />
 			) : null}
 			{nota && hasAmount ? (
 				<SingleFileUpload

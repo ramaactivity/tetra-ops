@@ -75,7 +75,9 @@ type RekapRow = {
 	lainnya_items: Array<{
 		note: string;
 		amount: number;
-		paid_by?: "crew" | "owner";
+		// "owner" | users.id penalang | "crew" (belum ditentukan) — lihat
+		// ExpensePaidBy di lib/actions/rekap.ts.
+		paid_by?: string;
 	}> | null;
 	expense_paid_by: Record<string, string> | null;
 	expense_nota_urls: Record<string, string> | null;
@@ -370,19 +372,32 @@ export default async function EventRekapPage({
 					label: string;
 					amount: number;
 					paidBy: "crew" | "owner";
+					/** users.id penalang — null kalau crew tapi belum ditentukan siapa. */
+					payerUserId: string | null;
+					payerName: string | null;
 					/** Deep-link "Catat ke pembukuan" — hanya untuk item dibayar owner. */
 					catatHref?: string;
 				}>;
+				/** Total talangan per crew (users.id) — dasar auto-isi reimbursement. */
+				byCrew: Record<string, number>;
+				/** Talangan crew yang belum ditentukan penalangnya (data lama). */
+				unattributedTotal: number;
 		  }
 		| undefined;
 	if (rekap) {
 		const pb = rekap.expense_paid_by ?? {};
-		const payerOf = (key: string): "crew" | "owner" =>
-			pb[key] === "owner" ? "owner" : "crew";
+		// Nilai bisa: "owner" | users.id penalang | "crew" (belum ditentukan).
+		const rawPayerOf = (key: string): string =>
+			typeof pb[key] === "string" && pb[key] ? (pb[key] as string) : "crew";
+		const crewNameById = new Map(
+			context.crew.map((c) => [c.user_id, c.name] as const),
+		);
 		const items: Array<{
 			label: string;
 			amount: number;
 			paidBy: "crew" | "owner";
+			payerUserId: string | null;
+			payerName: string | null;
 			catatHref?: string;
 		}> = [];
 		// Biaya yang dibayar owner TIDAK masuk OpEx settlement (by design), jadi
@@ -405,14 +420,21 @@ export default async function EventRekapPage({
 		const push = (
 			label: string,
 			amount: number,
-			paidBy: "crew" | "owner",
+			rawPayer: string,
 			catatKey: string,
 		) => {
 			if (amount <= 0) return;
+			const paidBy: "crew" | "owner" = rawPayer === "owner" ? "owner" : "crew";
+			// "crew" = ditalangi tapi belum ditentukan siapa (data lama); selain itu
+			// nilainya users.id penalang.
+			const payerUserId =
+				paidBy === "crew" && rawPayer !== "crew" ? rawPayer : null;
 			items.push({
 				label,
 				amount,
 				paidBy,
+				payerUserId,
+				payerName: payerUserId ? (crewNameById.get(payerUserId) ?? null) : null,
 				catatHref:
 					paidBy === "owner"
 						? catatHrefFor(catatKey, amount, label)
@@ -422,30 +444,35 @@ export default async function EventRekapPage({
 		push(
 			"Transport",
 			Number(rekap.transport_cost ?? 0),
-			payerOf("transport"),
+			rawPayerOf("transport"),
 			rekap.transport_method === "rental"
 				? "transport_rental"
 				: "transport_online",
 		);
-		push("Bensin", Number(rekap.bensin_cost ?? 0), payerOf("bensin"), "bensin");
-		push("Toll", Number(rekap.toll_cost ?? 0), payerOf("toll"), "toll");
+		push(
+			"Bensin",
+			Number(rekap.bensin_cost ?? 0),
+			rawPayerOf("bensin"),
+			"bensin",
+		);
+		push("Toll", Number(rekap.toll_cost ?? 0), rawPayerOf("toll"), "toll");
 		push(
 			"Parkir",
 			Number(rekap.parking_cost ?? 0),
-			payerOf("parking"),
+			rawPayerOf("parking"),
 			"parking",
 		);
 		push(
 			"Konsumsi",
 			Number(rekap.konsumsi_cost ?? 0),
-			payerOf("konsumsi"),
+			rawPayerOf("konsumsi"),
 			"konsumsi",
 		);
 		for (const it of rekap.lainnya_items ?? []) {
 			push(
 				it.note || "Lain-lain",
 				Number(it.amount ?? 0),
-				it.paid_by === "owner" ? "owner" : "crew",
+				it.paid_by || "crew",
 				"misc",
 			);
 		}
@@ -453,12 +480,26 @@ export default async function EventRekapPage({
 		const crewFrontedTotal = items
 			.filter((x) => x.paidBy === "crew")
 			.reduce((s, x) => s + x.amount, 0);
+		// Talangan dikelompokkan per penalang → owner tinggal satu klik untuk
+		// mengisi reimbursement tiap crew sesuai yang benar-benar dia bayar.
+		const byCrew: Record<string, number> = {};
+		let unattributedTotal = 0;
+		for (const it of items) {
+			if (it.paidBy !== "crew") continue;
+			if (it.payerUserId) {
+				byCrew[it.payerUserId] = (byCrew[it.payerUserId] ?? 0) + it.amount;
+			} else {
+				unattributedTotal += it.amount;
+			}
+		}
 		if (total > 0) {
 			fieldExpenseBreakdown = {
 				total,
 				crewFrontedTotal,
 				ownerPaidTotal: total - crewFrontedTotal,
 				items,
+				byCrew,
+				unattributedTotal,
 			};
 		}
 	}
