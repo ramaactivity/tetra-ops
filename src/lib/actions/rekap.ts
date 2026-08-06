@@ -698,28 +698,35 @@ export async function getRekapContext(
 	const stripItem = (it: RekapContextItem | null) =>
 		it ? stripPrice(it) : null;
 
-	// Crew bertugas — untuk memilih penalang tiap biaya. Embed pakai hint FK
-	// eksplisit: crew_assignments punya 2 FK ke users (user_id & assigned_by),
-	// tanpa hint PostgREST menolak dengan PGRST201 dan datanya jadi null.
-	const { data: crewRows } = await supabase
-		.from("crew_assignments")
-		.select(
-			"user_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
-		)
-		.eq("event_id", eventId);
-	const crew = (crewRows ?? [])
-		.map((r) => {
-			const u = (Array.isArray(r.user) ? r.user[0] : r.user) as {
-				full_name?: string;
-				nickname?: string | null;
-			} | null;
-			return {
-				user_id: r.user_id as string,
-				name: u?.nickname?.trim() || u?.full_name || "Crew",
-				role: (r.role_in_event as string) ?? "",
-			};
-		})
-		.filter((c) => Boolean(c.user_id));
+	// Crew bertugas — untuk memilih penalang tiap biaya.
+	//
+	// WAJIB lewat RPC get_event_crew, BUKAN embed crew_assignments→users:
+	// policy `users_read_own` hanya mengizinkan seseorang membaca barisnya
+	// SENDIRI, jadi embed mengembalikan NULL untuk rekan setim begitu form
+	// dibuka crew — daftar penalang jadi berisi "Crew" semua TANPA error apa
+	// pun (lihat 20260615_get_event_crew.sql). RPC-nya SECURITY DEFINER,
+	// memaparkan kolom aman saja, dan hanya bisa dipanggil crew yang bertugas
+	// di event itu atau owner.
+	const { data: crewRows, error: crewErr } = await supabase.rpc(
+		"get_event_crew",
+		{ p_event_id: eventId },
+	);
+	if (crewErr) {
+		console.error("[getRekapContext] get_event_crew:", crewErr.message);
+	}
+	const crew = (
+		(crewRows ?? []) as Array<{
+			user_id: string;
+			full_name: string | null;
+			role_in_event: string | null;
+		}>
+	)
+		.filter((r) => Boolean(r.user_id))
+		.map((r) => ({
+			user_id: r.user_id,
+			name: r.full_name?.trim() || "Crew",
+			role: r.role_in_event ?? "",
+		}));
 
 	return {
 		pkg: {
