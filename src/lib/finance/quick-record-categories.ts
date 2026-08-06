@@ -97,12 +97,17 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
-		// Sering terjadi tapi dulu tak ada kategorinya — owner mencatat lewat
-		// "Akun lain" dgn label "Pengeluaran". Komisi utk sales/relasi perorangan.
+		// Sama polanya dgn "Bayar fee crew": settlement sudah meng-akrual komisi
+		// jadi utang (Cr 2-102), jadi MEMBAYAR = melunasi utang itu → Dr 2-102 /
+		// Cr kas. Dulu kategori ini mendebit beban 5-301, akibatnya beban komisi
+		// tercatat DUA KALI dan utangnya tak pernah lunas (kejadian nyata: komisi
+		// Adit Rahman & Ramadan Saputra, diperbaiki 2026-08-06).
+		// Untuk komisi yang menempel di event, jalur utamanya tetap Finance ›
+		// Komisi — di sana pembayarannya ikut tercatat per event & per penerima.
 		id: "komisi-sales",
-		label: "Komisi sales/relasi",
+		label: "Bayar komisi sales/relasi",
 		icon: Handshake,
-		coa: "5-301",
+		coa: "2-102",
 		entryType: "expense",
 	},
 	{
@@ -218,13 +223,15 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		entryType: "expense",
 	},
 	{
-		// Komisi utk vendor/WO (bukan sales perorangan). Modul Komisi di
-		// /finance/vendors tetap jalur utama utk komisi per-event; kategori ini
-		// utk komisi lepas di luar ledger event.
+		// Komisi utk vendor/WO (bukan sales perorangan). Sama seperti komisi
+		// sales: membayar = melunasi utang komisi vendor (Dr 2-103 / Cr kas),
+		// BUKAN beban baru — settlement sudah membebankan 5-300 saat event
+		// ditutup. Modul Komisi di /finance/vendors tetap jalur utama utk komisi
+		// per-event (tercatat per event + bisa dibayar di muka).
 		id: "komisi",
-		label: "Komisi vendor",
+		label: "Bayar komisi vendor",
 		icon: BadgePercent,
-		coa: "5-300",
+		coa: "2-103",
 		entryType: "expense",
 	},
 	{

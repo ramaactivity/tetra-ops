@@ -4,6 +4,8 @@
  * entry touching them would silently desync the control account from its
  * subledger sum. Block free-form postings to these; use the proper flow instead:
  *   • 2-101 Hutang Vendor      → Pembelian (TOP) / bayar Hutang Dagang
+ *   • 2-102/2-103 Hutang Komisi→ settlement + modul Komisi (bayar/batalkan)
+ *   • 1-310 Uang Muka Komisi   → modul Komisi ("Bayar di muka"), habis saat settle
  *   • 2-200..2-203 Sinking     → Dana Cadangan (deposit/withdrawal)
  *   • 2-300 Owner Pool         → settlement / Record withdrawal
  *   • 1-401 Akum. Penyusutan   → posting depresiasi / disposal
@@ -11,12 +13,20 @@
  * Note: 2-100 Hutang Crew is intentionally NOT here — it has no subledger table
  * (cleared via the "Bayar fee crew" preset), so manual adjustments don't drift.
  *
+ * Kategori kurasi Catat BOLEH menembak akun di sini (lihat guard di
+ * journal-entries.ts) — yang diblokir hanya jurnal manual bebas & "Akun lain".
+ * Itu sebabnya preset "Bayar fee crew" (2-100) dan "Bayar komisi …" (2-102/
+ * 2-103) tetap jalan.
+ *
  * Plain module (no "use server") — importable from server actions + UI.
  */
 
 export const SUBLEDGER_CONTROLLED_ACCOUNTS: ReadonlySet<string> = new Set([
+	"1-310",
 	"1-401",
 	"2-101",
+	"2-102",
+	"2-103",
 	"2-200",
 	"2-201",
 	"2-202",
