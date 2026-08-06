@@ -64,6 +64,7 @@ export default async function FinancePage({
 		amount?: string;
 		cat?: string;
 		note?: string;
+		ev?: string;
 	}>;
 }) {
 	const me = await getCurrentUser();
@@ -74,6 +75,7 @@ export default async function FinancePage({
 		amount: catatAmount,
 		cat: catatCategory,
 		note: catatNote,
+		ev: catatEventId,
 	} = await searchParams;
 	const catatData = await loadCatatData();
 
@@ -88,6 +90,7 @@ export default async function FinancePage({
 					amount: catatPrefillAmount,
 					categoryId: catatCategory,
 					note: catatNote?.slice(0, 300),
+					eventId: catatEventId,
 				}
 			: undefined;
 

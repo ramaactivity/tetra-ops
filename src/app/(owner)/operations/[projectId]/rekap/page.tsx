@@ -412,6 +412,9 @@ export default async function EventRekapPage({
 				catat: "1",
 				amount: String(Math.round(amount)),
 				note: `${label} — ${event.client_name}`.slice(0, 300),
+				// Tautkan ke event → jurnalnya membawa source_event_id, sehingga
+				// panel Rekonsiliasi tahu PASTI biaya ini sudah dicatat.
+				ev: event.id as string,
 			});
 			const cat = REKAP_EXPENSE_CATEGORY[catatKey];
 			if (cat) params.set("cat", cat);
@@ -782,6 +785,10 @@ export default async function EventRekapPage({
 						eventId={event.id as string}
 						projectId={projectId}
 						rows={crewFeeRows}
+						// Sesudah settle, rincian talangan tetap ditampilkan (baca-saja):
+						// owner masih perlu tahu siapa menalangi apa untuk audit &
+						// memastikan biaya "dibayar owner" sudah dicatat.
+						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						readOnly
 						cashAccounts={cashAccounts}
 						allowPayment={crewPayable}

@@ -245,12 +245,12 @@ export function CrewFeeForm({
 					);
 				})()}
 
-			{!readOnly && fieldExpenseBreakdown && (
+			{fieldExpenseBreakdown && (
 				<div className="mb-4 space-y-3 rounded-md border border-border-default bg-surface-3 p-3">
 					{fieldExpenseBreakdown.crewFrontedTotal > 0 && (
 						<div>
 							<p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-								💸 Ditalangi crew — perlu di-rembers ·{" "}
+								💸 Ditalangi crew{readOnly ? "" : " — perlu di-rembers"} ·{" "}
 								<span data-nominal className="tabular">
 									{formatRupiah(fieldExpenseBreakdown.crewFrontedTotal)}
 								</span>
@@ -303,8 +303,9 @@ export function CrewFeeForm({
 								</button>
 							)}
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								Apply ke kolom Reimbursement crew yang benar-benar bayar —
-								dibayar bersama fee lewat Hutang Crew saat settle.
+								{readOnly
+									? "Sudah masuk Hutang Crew saat settle — dibayar bersama fee."
+									: "Apply ke kolom Reimbursement crew yang benar-benar bayar — dibayar bersama fee lewat Hutang Crew saat settle."}
 							</p>
 						</div>
 					)}
@@ -339,10 +340,11 @@ export function CrewFeeForm({
 									))}
 							</ul>
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								Tidak perlu di-rembers & tidak ikut Hutang Crew di settlement —
-								klik <span className="font-medium">Catat ke pembukuan</span>{" "}
-								supaya bebannya tetap masuk (form sudah terisi; jangan catat
-								dobel kalau sudah pernah).
+								Tidak ikut Hutang Crew di settlement — klik{" "}
+								<span className="font-medium">Catat ke pembukuan</span> supaya
+								bebannya tetap masuk (form sudah terisi; jangan catat dobel
+								kalau sudah pernah). Cek Finance › Rekonsiliasi kalau ragu sudah
+								tercatat atau belum.
 							</p>
 						</div>
 					)}

@@ -76,6 +76,8 @@ export type QuickRecordPrefill = {
 	amount?: number;
 	categoryId?: string;
 	note?: string;
+	/** Event asal biaya — ditulis ke journal_entries.source_event_id. */
+	eventId?: string;
 };
 
 export function QuickRecordCore({
@@ -849,6 +851,7 @@ export function QuickRecordCore({
 				if (categoryId) fd.set("category_id", categoryId);
 				if (coaOverride) fd.set("coa_override", coaOverride);
 				fd.set("admin_fee", String(feeApplied));
+				if (prefill?.eventId) fd.set("event_id", prefill.eventId);
 				fd.set(
 					"patungan_per_owner",
 					String(direction === "keluar" ? patunganPerOwner : 0),
