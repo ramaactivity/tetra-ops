@@ -8,6 +8,7 @@ import {
 	CONTROLLED_ACCOUNT_MSG,
 	isControlledAccount,
 } from "@/lib/finance/control-accounts";
+import { recordPatunganFromPool } from "@/lib/finance/owner-patungan";
 import {
 	type CatatDirection,
 	findCategory,
@@ -245,6 +246,17 @@ const QuickRecordSchema = z.object({
 	// nambah uang keluar dari rekening asal. Ditanggung perusahaan.
 	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	note: z.string().trim().max(300).optional(),
+	// Event yang menjadi asal biaya — diisi deep-link "Catat ke pembukuan" dari
+	// rekap owner. Disimpan ke journal_entries.source_event_id supaya panel
+	// rekonsiliasi bisa mencocokkan biaya "dibayar owner" dengan jurnalnya
+	// SECARA PASTI (bukan mencocokkan teks keterangan).
+	event_id: z
+		.string()
+		.trim()
+		.uuid()
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : undefined)),
 });
 
 export type QuickRecordFormState =
@@ -271,6 +283,7 @@ export async function recordQuickTransaction(
 		coa_override: formData.get("coa_override") ?? undefined,
 		admin_fee: formData.get("admin_fee") ?? 0,
 		note: formData.get("note") ?? undefined,
+		event_id: formData.get("event_id") ?? undefined,
 	});
 	if (!parsed.success) {
 		return { error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
@@ -435,6 +448,9 @@ export async function recordQuickTransaction(
 			description,
 			source_type: "manual",
 			source_id: null,
+			// Tautan ke event (kalau dicatat dari rekap) — dipakai rekonsiliasi
+			// "biaya owner belum dicatat". Null untuk Catat biasa.
+			source_event_id: parsed.data.event_id ?? null,
 			total_amount: amount + adminFee,
 			created_by: me.profile.id,
 		})
@@ -449,6 +465,34 @@ export async function recordQuickTransaction(
 	if (linesErr) {
 		await supabase.from("journal_entries").delete().eq("id", entry.id);
 		return { error: linesErr.message };
+	}
+
+	// Sebagian beban ditanggung patungan owner, dipotong dari bagi hasil.
+	// Dicatat sebagai jurnal terpisah (Dr 2-300 / Cr akun beban) supaya
+	// pembayaran penuhnya tetap terlihat apa adanya di buku, dan potongannya
+	// bisa ditelusuri sendiri. Hanya untuk uang KELUAR ke akun beban.
+	const patunganPerOwner = Math.max(
+		0,
+		Number(formData.get("patungan_per_owner") ?? 0) || 0,
+	);
+	if (
+		patunganPerOwner > 0 &&
+		dir === "keluar" &&
+		counterpartCode.startsWith("5-")
+	) {
+		const res = await recordPatunganFromPool(supabase, {
+			expenseCoa: counterpartCode,
+			perOwner: patunganPerOwner,
+			description: `Patungan owner — ${description}`,
+			date: entry_date,
+			actorProfileId: me.profile.id,
+		});
+		if (!res.ok) {
+			// Pengeluarannya sudah tercatat; jangan diam-diam gagal.
+			return {
+				error: `Transaksi tersimpan, tapi patungannya gagal dicatat: ${res.error}. Catat lewat Finance › Ringkasan → Potong patungan.`,
+			};
+		}
 	}
 
 	revalidatePath("/finance");

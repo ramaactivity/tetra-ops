@@ -120,6 +120,9 @@ export function QuickRecordCore({
 	const [date, setDate] = useState(todayIso());
 	// Biaya admin/transfer bank — hanya untuk keluar & transfer. 0 = tidak ada.
 	const [adminFee, setAdminFee] = useState(0);
+	// Patungan owner: sebagian beban ditanggung bersama, dipotong dari bagi
+	// hasil (bukan uang masuk). 0 = tidak ada patungan.
+	const [patunganPerOwner, setPatunganPerOwner] = useState(0);
 	const [note, setNote] = useState(prefill?.note ?? "");
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -517,6 +520,53 @@ export function QuickRecordCore({
 			</div>
 		) : null;
 
+	// Patungan owner — hanya relevan untuk uang keluar ke akun beban.
+	const patunganField =
+		direction === "keluar" ? (
+			<div className="space-y-2.5">
+				<span className="eyebrow">Patungan owner (opsional)</span>
+				<div className="flex flex-wrap items-center gap-2">
+					{[50000, 100000].map((v) => {
+						const active = patunganPerOwner === v;
+						return (
+							<button
+								key={v}
+								type="button"
+								onClick={() => {
+									haptic("tap");
+									setPatunganPerOwner(active ? 0 : v);
+								}}
+								aria-pressed={active}
+								className={cn(
+									"press tap h-9 rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#059669]/40",
+									active
+										? "border-[#059669] bg-emerald-50 text-foreground"
+										: "border-border-subtle bg-card text-muted-foreground hover:bg-secondary",
+								)}
+							>
+								{shortAmount(v)}/owner
+							</button>
+						);
+					})}
+					<div className="min-w-[6.5rem] flex-1">
+						<MoneyInput
+							value={patunganPerOwner}
+							onValueChange={setPatunganPerOwner}
+							className="h-9 text-right text-[13px]"
+						/>
+					</div>
+				</div>
+				{patunganPerOwner > 0 ? (
+					<p className="text-[11.5px] text-muted-foreground">
+						Tiap owner ikut menanggung{" "}
+						<span data-nominal>{formatRupiah(patunganPerOwner)}</span>, dipotong
+						dari bagi hasil — bukan uang masuk. Beban perusahaan berkurang
+						sebesar total patungan.
+					</p>
+				) : null}
+			</div>
+		) : null;
+
 	const amountControl = keypad ? (
 		<div className="space-y-2.5">
 			<QuickAmountChips
@@ -799,6 +849,10 @@ export function QuickRecordCore({
 				if (categoryId) fd.set("category_id", categoryId);
 				if (coaOverride) fd.set("coa_override", coaOverride);
 				fd.set("admin_fee", String(feeApplied));
+				fd.set(
+					"patungan_per_owner",
+					String(direction === "keluar" ? patunganPerOwner : 0),
+				);
 				if (note.trim()) fd.set("note", note.trim());
 				formAction(fd);
 			}}
@@ -819,6 +873,7 @@ export function QuickRecordCore({
 							{amountSectionWide}
 							{accountField}
 							{adminFeeField}
+							{patunganField}
 						</div>
 						<div className="space-y-4">
 							{categoryField}
@@ -840,6 +895,7 @@ export function QuickRecordCore({
 							{recentsBlock}
 							{accountField}
 							{adminFeeField}
+							{patunganField}
 							{amountControl}
 							{detailsField}
 							{lihatJurnal}
@@ -851,6 +907,7 @@ export function QuickRecordCore({
 							{categoryField}
 							{accountField}
 							{adminFeeField}
+							{patunganField}
 							{detailsField}
 							{lihatJurnal}
 						</>

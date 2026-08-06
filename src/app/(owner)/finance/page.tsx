@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
+import { PatunganDialog } from "@/components/finance/patungan-dialog";
 import {
 	type Owner,
 	WithdrawalButton,
@@ -365,6 +366,8 @@ export default async function FinancePage({
 		available: number;
 		/** Jatah dari event bulan berjalan — baru bisa diambil bulan depan. */
 		pending: number;
+		/** Dipotong untuk patungan beban bersama (kost dll). */
+		patungan: number;
 	}> = [];
 	if (isSuperAdmin) {
 		// Aturan bagi hasil: jatah dari event bulan M baru boleh ditarik mulai
@@ -374,7 +377,13 @@ export default async function FinancePage({
 		const currentMonthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 		const earningsByOwner = new Map<
 			string,
-			{ earned: number; withdrawn: number; available: number; pending: number }
+			{
+				earned: number;
+				withdrawn: number;
+				available: number;
+				pending: number;
+				patungan: number;
+			}
 		>();
 		for (const e of (ownerEarningsData ?? []) as Array<{
 			owner_user_id: string;
@@ -387,7 +396,16 @@ export default async function FinancePage({
 				withdrawn: 0,
 				available: 0,
 				pending: 0,
+				patungan: 0,
 			};
+			// Patungan (dipotong dari bagi hasil untuk beban bersama) dipisah dari
+			// "sudah diambil" — uangnya tidak pernah sampai ke owner.
+			if (e.earning_type === "contribution") {
+				cur.patungan += Math.abs(e.amount);
+				cur.available += e.amount;
+				earningsByOwner.set(e.owner_user_id, cur);
+				continue;
+			}
 			const isWithdrawal = e.earning_type === "withdrawal" || e.amount < 0;
 			if (isWithdrawal) {
 				cur.withdrawn += Math.abs(e.amount);
@@ -414,6 +432,7 @@ export default async function FinancePage({
 				withdrawn: 0,
 				available: 0,
 				pending: 0,
+				patungan: 0,
 			};
 			return {
 				...o,
@@ -422,6 +441,7 @@ export default async function FinancePage({
 				balance: e.earned - e.withdrawn,
 				available: e.available,
 				pending: e.pending,
+				patungan: e.patungan,
 			};
 		});
 	}
@@ -810,6 +830,7 @@ export default async function FinancePage({
 									label: b.account_name,
 								}))}
 							/>
+							<PatunganDialog ownerCount={ownerBreakdown.length} />
 							<HeaderLink href="/settings/crew">Atur porsi</HeaderLink>
 						</div>
 					}
@@ -855,6 +876,11 @@ export default async function FinancePage({
 										</td>
 										<td className="text-muted-foreground tabular px-4 py-2.5 text-right">
 											{o.withdrawn > 0 ? formatRupiah(o.withdrawn) : "—"}
+											{o.patungan > 0 && (
+												<span className="block text-[10.5px]">
+													patungan {formatRupiah(o.patungan)}
+												</span>
+											)}
 										</td>
 										<td className="text-foreground tabular px-4 py-2.5 text-right font-semibold">
 											<span
