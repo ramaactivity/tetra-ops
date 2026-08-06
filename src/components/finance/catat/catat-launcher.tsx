@@ -21,7 +21,7 @@ import {
 import type { CatatData } from "@/lib/finance/quick-record-data";
 import { useHaptics } from "@/lib/use-haptics";
 import { useMediaQuery } from "@/lib/use-media-query";
-import { QuickRecordCore } from "./quick-record-core";
+import { QuickRecordCore, type QuickRecordPrefill } from "./quick-record-core";
 
 /**
  * CatatLauncher — the single entry point to quick-record, one component for
@@ -33,9 +33,12 @@ import { QuickRecordCore } from "./quick-record-core";
 export function CatatLauncher({
 	data,
 	autoOpen = false,
+	prefill,
 }: {
 	data: CatatData;
 	autoOpen?: boolean;
+	/** Nilai awal form (deep-link dari rekap owner: biaya dibayar owner). */
+	prefill?: QuickRecordPrefill;
 }) {
 	const [open, setOpen] = useState(false);
 	const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -89,6 +92,7 @@ export function CatatLauncher({
 								data={data}
 								keypad={false}
 								wide
+								prefill={prefill}
 								onDone={() => setOpen(false)}
 							/>
 						) : (
@@ -121,6 +125,7 @@ export function CatatLauncher({
 							<QuickRecordCore
 								data={data}
 								keypad
+								prefill={prefill}
 								onDone={() => setOpen(false)}
 							/>
 						) : (

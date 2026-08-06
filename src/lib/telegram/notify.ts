@@ -318,7 +318,11 @@ export async function notifyTelegramEventDeleted(
 	}
 }
 
-/** Rekap crew masuk → owner diminta review. */
+/**
+ * Rekap crew masuk → owner diminta review. Menyertakan ringkasan biaya
+ * lapangan terpilah (ditalangi crew vs dibayar owner) supaya owner tahu
+ * kewajiban rembers-nya sebelum sempat membuka aplikasi.
+ */
 export async function notifyTelegramRekapSubmitted(
 	eventId: string,
 	projectId: string,
@@ -326,20 +330,62 @@ export async function notifyTelegramRekapSubmitted(
 ): Promise<void> {
 	try {
 		const admin = createAdminClient();
-		const { data: ev } = await admin
-			.from("events")
-			.select("client_name")
-			.eq("id", eventId)
-			.maybeSingle();
+		const [{ data: ev }, { data: rk }] = await Promise.all([
+			admin
+				.from("events")
+				.select("client_name")
+				.eq("id", eventId)
+				.maybeSingle(),
+			admin
+				.from("crew_rekap")
+				.select(
+					`cetak_total, transport_cost, bensin_cost, toll_cost, parking_cost,
+					konsumsi_cost, lainnya_items, expense_paid_by`,
+				)
+				.eq("event_id", eventId)
+				.maybeSingle(),
+		]);
+
+		// Pilah biaya lapangan per pembayar — cermin calculate_recap_opex.
+		let crewFronted = 0;
+		let ownerPaid = 0;
+		if (rk) {
+			const pb = (rk.expense_paid_by ?? {}) as Record<string, string>;
+			const add = (amount: number, payer: string | undefined) => {
+				const n = Number(amount) || 0;
+				if (n <= 0) return;
+				if (payer === "owner") ownerPaid += n;
+				else crewFronted += n;
+			};
+			add(Number(rk.transport_cost), pb.transport);
+			add(Number(rk.bensin_cost), pb.bensin);
+			add(Number(rk.toll_cost), pb.toll);
+			add(Number(rk.parking_cost), pb.parking);
+			add(Number(rk.konsumsi_cost), pb.konsumsi);
+			for (const it of (rk.lainnya_items ?? []) as Array<{
+				amount?: number;
+				paid_by?: string;
+			}>) {
+				add(Number(it?.amount), it?.paid_by);
+			}
+		}
+
 		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 		await sendToOwnerGroup(
 			[
 				`📥 <b>REKAP MASUK — ${tgEscape((ev?.client_name as string) ?? "Event")}</b>`,
 				`${tgEscape(submittedByName)} sudah submit rekap. Review & approve supaya bisa segera settlement.`,
+				rk?.cetak_total ? `🖨 Total cetak ${rk.cetak_total}` : null,
+				crewFronted > 0
+					? `💸 Ditalangi crew (perlu rembers): <b>${rp(crewFronted)}</b>`
+					: null,
+				ownerPaid > 0 ? `✓ Dibayar owner: ${rp(ownerPaid)}` : null,
 				...(appUrl
 					? [`\nReview: ${appUrl}/operations/${projectId}/rekap`]
 					: []),
-			].join("\n"),
+			]
+				.filter(Boolean)
+				.join("\n"),
 		);
 	} catch (e) {
 		console.error("[telegram/notify] rekap:", e);

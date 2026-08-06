@@ -67,10 +67,22 @@ function pickDefaultSource(accounts: CashAccount[]): string {
 	return best.code;
 }
 
+/**
+ * Nilai awal form — dipakai deep-link "Catat ke pembukuan" dari rekap owner
+ * (biaya event yang dibayar owner) supaya owner tinggal pilih rekening & simpan.
+ */
+export type QuickRecordPrefill = {
+	direction?: CatatDirection;
+	amount?: number;
+	categoryId?: string;
+	note?: string;
+};
+
 export function QuickRecordCore({
 	data,
 	keypad,
 	wide = false,
+	prefill,
 	onDone,
 }: {
 	data: CatatData;
@@ -78,15 +90,24 @@ export function QuickRecordCore({
 	keypad: boolean;
 	/** Desktop modal: two-column layout (wider popup). */
 	wide?: boolean;
+	prefill?: QuickRecordPrefill;
 	onDone?: () => void;
 }) {
 	const router = useRouter();
 	const haptic = useHaptics();
 	const noteId = useId();
 
-	const [direction, setDirection] = useState<CatatDirection>("keluar");
-	const [amount, setAmount] = useState(0);
-	const [categoryId, setCategoryId] = useState<string | null>(null);
+	const [direction, setDirection] = useState<CatatDirection>(
+		prefill?.direction ?? "keluar",
+	);
+	const [amount, setAmount] = useState(prefill?.amount ?? 0);
+	const [categoryId, setCategoryId] = useState<string | null>(
+		// Hanya terima id kategori yang benar-benar ada — kalau tidak, biarkan
+		// kosong supaya guard "Pilih kategori" tetap menahan submit.
+		prefill?.categoryId && findCategory(prefill.categoryId)
+			? prefill.categoryId
+			: null,
+	);
 	const [coaOverride, setCoaOverride] = useState("");
 	const [accountCode, setAccountCode] = useState(() =>
 		pickDefaultSource(data.cashAccounts),
@@ -99,7 +120,7 @@ export function QuickRecordCore({
 	const [date, setDate] = useState(todayIso());
 	// Biaya admin/transfer bank — hanya untuk keluar & transfer. 0 = tidak ada.
 	const [adminFee, setAdminFee] = useState(0);
-	const [note, setNote] = useState("");
+	const [note, setNote] = useState(prefill?.note ?? "");
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
@@ -488,9 +509,9 @@ export function QuickRecordCore({
 				</div>
 				{adminFee > 0 ? (
 					<p className="text-[11.5px] text-muted-foreground">
-						Total keluar <span data-nominal>{formatRupiah(amount + adminFee)}</span> ·
-						biaya admin masuk
-						beban bank (5-600)
+						Total keluar{" "}
+						<span data-nominal>{formatRupiah(amount + adminFee)}</span> · biaya
+						admin masuk beban bank (5-600)
 					</p>
 				) : null}
 			</div>

@@ -5,6 +5,7 @@ import {
 	ExternalLink,
 	Info,
 	Loader2,
+	Plus,
 	Save,
 	Upload,
 	Wallet,
@@ -25,6 +26,8 @@ import { formatRupiah } from "@/lib/format";
 
 export type CrewAssignmentRow = {
 	assignment_id: string;
+	/** users.id — dipakai mencocokkan siapa yang submit rekap (saran reimburse). */
+	user_id?: string | null;
 	user_full_name: string;
 	role_in_event: "lead" | "asisten" | "crew_c";
 	fee_amount: number;
@@ -54,8 +57,19 @@ type Props = {
 		crewFrontedTotal: number;
 		/** Porsi yang dibayar owner langsung — bukan hutang ke crew. */
 		ownerPaidTotal: number;
-		items: Array<{ label: string; amount: number; paidBy: "crew" | "owner" }>;
+		items: Array<{
+			label: string;
+			amount: number;
+			paidBy: "crew" | "owner";
+			/** Deep-link Catat transaksi terprefill (item dibayar owner). */
+			catatHref?: string;
+		}>;
 	};
+	/**
+	 * users.id crew yang submit rekap — dia yang paling mungkin menalangi biaya
+	 * lapangan, jadi dipakai untuk saran satu-klik "Isi otomatis ke …".
+	 */
+	submittedByUserId?: string | null;
 	readOnly?: boolean;
 	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
 	allowPayment?: boolean;
@@ -73,6 +87,7 @@ export function CrewFeeForm({
 	projectId,
 	rows: initialRows,
 	fieldExpenseBreakdown,
+	submittedByUserId,
 	readOnly = false,
 	allowPayment = false,
 	cashAccounts = [],
@@ -98,6 +113,17 @@ export function CrewFeeForm({
 	function applyExpenseToReimbursement(id: string, amount: number) {
 		update(id, { reimbursement_amount: amount });
 	}
+
+	// Crew yang submit rekap = kandidat penalang biaya lapangan. Saran hanya
+	// ditawarkan saat SEMUA reimburse masih 0 — begitu owner mulai membagi
+	// manual, tombol ini menghilang supaya tidak menimpa pekerjaannya.
+	const suggestedRow =
+		!readOnly &&
+		submittedByUserId &&
+		(fieldExpenseBreakdown?.crewFrontedTotal ?? 0) > 0 &&
+		rows.every((r) => r.reimbursement_amount === 0)
+			? rows.find((r) => r.user_id === submittedByUserId)
+			: undefined;
 
 	function handleSave() {
 		startTransition(async () => {
@@ -206,6 +232,25 @@ export function CrewFeeForm({
 										</li>
 									))}
 							</ul>
+							{/* Saran satu-klik: crew yang submit rekap paling mungkin yang
+							    menalangi. Muncul hanya kalau reimburse masih kosong semua,
+							    supaya tidak menimpa pembagian yang sudah owner atur. */}
+							{suggestedRow && (
+								<button
+									type="button"
+									onClick={() =>
+										applyExpenseToReimbursement(
+											suggestedRow.assignment_id,
+											fieldExpenseBreakdown.crewFrontedTotal,
+										)
+									}
+									className="press-down mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
+								>
+									<Wallet className="h-3 w-3" />
+									Isi otomatis ke {suggestedRow.user_full_name} (yang submit
+									rekap)
+								</button>
+							)}
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
 								Apply ke kolom Reimbursement crew yang benar-benar bayar —
 								dibayar bersama fee lewat Hutang Crew saat settle.
@@ -220,19 +265,33 @@ export function CrewFeeForm({
 									{formatRupiah(fieldExpenseBreakdown.ownerPaidTotal)}
 								</span>
 							</p>
-							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
+							<ul className="mt-1.5 space-y-1 text-xs text-foreground/80">
 								{fieldExpenseBreakdown.items
 									.filter((it) => it.paidBy === "owner")
 									.map((it) => (
-										<li key={it.label}>
-											<span className="text-muted-foreground">{it.label}:</span>{" "}
-											<span data-nominal>{formatRupiah(it.amount)}</span>
+										<li key={it.label} className="flex items-center gap-2">
+											<span className="text-muted-foreground">{it.label}:</span>
+											<span data-nominal className="tabular">
+												{formatRupiah(it.amount)}
+											</span>
+											{it.catatHref ? (
+												<a
+													href={it.catatHref}
+													className="press-down ml-auto inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+													title="Buka Catat transaksi dengan jumlah & kategori sudah terisi"
+												>
+													<Plus className="h-3 w-3" />
+													Catat ke pembukuan
+												</a>
+											) : null}
 										</li>
 									))}
 							</ul>
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								Tidak perlu di-rembers & tidak ikut Hutang Crew di settlement.
-								Pastikan tercatat via Catat transaksi (jangan dicatat dobel).
+								Tidak perlu di-rembers & tidak ikut Hutang Crew di settlement —
+								klik <span className="font-medium">Catat ke pembukuan</span>{" "}
+								supaya bebannya tetap masuk (form sudah terisi; jangan catat
+								dobel kalau sudah pernah).
 							</p>
 						</div>
 					)}

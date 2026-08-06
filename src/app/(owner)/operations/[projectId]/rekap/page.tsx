@@ -36,6 +36,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
+import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -77,12 +78,15 @@ type RekapRow = {
 		paid_by?: "crew" | "owner";
 	}> | null;
 	expense_paid_by: Record<string, string> | null;
+	expense_nota_urls: Record<string, string> | null;
+	submitted_by: string | null;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
 };
 
 type AssignmentJoin = {
 	id: string;
+	user_id: string | null;
 	role_in_event: "lead" | "asisten" | "crew_c";
 	fee_amount: number | null;
 	bonus_amount: number | null;
@@ -138,7 +142,7 @@ export default async function EventRekapPage({
 					transport_method, transport_cost,
 					transport_proof_berangkat_url, transport_proof_pulang_url,
 					bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
-					expense_paid_by,
+					expense_paid_by, expense_nota_urls, submitted_by,
 					submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 					reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 				)
@@ -147,7 +151,7 @@ export default async function EventRekapPage({
 			supabase
 				.from("crew_assignments")
 				.select(
-					`id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
+					`id, user_id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
 					payment_notes, payment_proof_url, is_paid, paid_via_account, paid_at,
 					user:users!crew_assignments_user_id_fkey(full_name)`,
 				)
@@ -241,6 +245,7 @@ export default async function EventRekapPage({
 		const u = Array.isArray(aj.user) ? aj.user[0] : aj.user;
 		return {
 			assignment_id: aj.id,
+			user_id: aj.user_id ?? null,
 			user_full_name: u?.full_name ?? "—",
 			role_in_event: aj.role_in_event,
 			fee_amount: Number(aj.fee_amount ?? 0),
@@ -365,6 +370,8 @@ export default async function EventRekapPage({
 					label: string;
 					amount: number;
 					paidBy: "crew" | "owner";
+					/** Deep-link "Catat ke pembukuan" — hanya untuk item dibayar owner. */
+					catatHref?: string;
 				}>;
 		  }
 		| undefined;
@@ -376,20 +383,70 @@ export default async function EventRekapPage({
 			label: string;
 			amount: number;
 			paidBy: "crew" | "owner";
+			catatHref?: string;
 		}> = [];
-		const push = (label: string, amount: number, paidBy: "crew" | "owner") => {
-			if (amount > 0) items.push({ label, amount, paidBy });
+		// Biaya yang dibayar owner TIDAK masuk OpEx settlement (by design), jadi
+		// harus dibukukan lewat Catat transaksi. Link ini membawa jumlah +
+		// kategori + catatan nama event supaya owner tinggal pilih rekening.
+		const catatHrefFor = (
+			catatKey: string,
+			amount: number,
+			label: string,
+		): string => {
+			const params = new URLSearchParams({
+				catat: "1",
+				amount: String(Math.round(amount)),
+				note: `${label} — ${event.client_name}`.slice(0, 300),
+			});
+			const cat = REKAP_EXPENSE_CATEGORY[catatKey];
+			if (cat) params.set("cat", cat);
+			return `/finance?${params.toString()}`;
 		};
-		push("Transport", Number(rekap.transport_cost ?? 0), payerOf("transport"));
-		push("Bensin", Number(rekap.bensin_cost ?? 0), payerOf("bensin"));
-		push("Toll", Number(rekap.toll_cost ?? 0), payerOf("toll"));
-		push("Parkir", Number(rekap.parking_cost ?? 0), payerOf("parking"));
-		push("Konsumsi", Number(rekap.konsumsi_cost ?? 0), payerOf("konsumsi"));
+		const push = (
+			label: string,
+			amount: number,
+			paidBy: "crew" | "owner",
+			catatKey: string,
+		) => {
+			if (amount <= 0) return;
+			items.push({
+				label,
+				amount,
+				paidBy,
+				catatHref:
+					paidBy === "owner"
+						? catatHrefFor(catatKey, amount, label)
+						: undefined,
+			});
+		};
+		push(
+			"Transport",
+			Number(rekap.transport_cost ?? 0),
+			payerOf("transport"),
+			rekap.transport_method === "rental"
+				? "transport_rental"
+				: "transport_online",
+		);
+		push("Bensin", Number(rekap.bensin_cost ?? 0), payerOf("bensin"), "bensin");
+		push("Toll", Number(rekap.toll_cost ?? 0), payerOf("toll"), "toll");
+		push(
+			"Parkir",
+			Number(rekap.parking_cost ?? 0),
+			payerOf("parking"),
+			"parking",
+		);
+		push(
+			"Konsumsi",
+			Number(rekap.konsumsi_cost ?? 0),
+			payerOf("konsumsi"),
+			"konsumsi",
+		);
 		for (const it of rekap.lainnya_items ?? []) {
 			push(
 				it.note || "Lain-lain",
 				Number(it.amount ?? 0),
 				it.paid_by === "owner" ? "owner" : "crew",
+				"misc",
 			);
 		}
 		const total = items.reduce((s, x) => s + x.amount, 0);
@@ -456,6 +513,7 @@ export default async function EventRekapPage({
 				konsumsi_cost: String(rekap.konsumsi_cost ?? 0),
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
 				expense_paid_by: JSON.stringify(rekap.expense_paid_by ?? {}),
+				expense_nota_urls: JSON.stringify(rekap.expense_nota_urls ?? {}),
 			}
 		: undefined;
 
@@ -621,6 +679,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						rows={crewFeeRows}
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
+						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}
 					/>
 

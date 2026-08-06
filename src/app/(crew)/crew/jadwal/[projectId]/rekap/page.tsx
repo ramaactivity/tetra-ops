@@ -31,7 +31,14 @@ type RekapRow = {
 	toll_cost: number | string | null;
 	parking_cost: number | string | null;
 	konsumsi_cost: number | string | null;
-	lainnya_items: Array<{ note: string; amount: number }> | null;
+	lainnya_items: Array<{
+		note: string;
+		amount: number;
+		paid_by?: "crew" | "owner";
+		nota_url?: string | null;
+	}> | null;
+	expense_paid_by: Record<string, string> | null;
+	expense_nota_urls: Record<string, string> | null;
 };
 
 export default async function CrewRekapPage({
@@ -80,7 +87,8 @@ export default async function CrewRekapPage({
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
 			transport_method, transport_cost,
 			transport_proof_berangkat_url, transport_proof_pulang_url,
-			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items`,
+			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
+			expense_paid_by, expense_nota_urls`,
 		)
 		.eq("event_id", event.id)
 		.maybeSingle();
@@ -132,6 +140,8 @@ export default async function CrewRekapPage({
 				parking_cost: String(rekap.parking_cost ?? 0),
 				konsumsi_cost: String(rekap.konsumsi_cost ?? 0),
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
+				expense_paid_by: JSON.stringify(rekap.expense_paid_by ?? {}),
+				expense_nota_urls: JSON.stringify(rekap.expense_nota_urls ?? {}),
 			}
 		: undefined;
 

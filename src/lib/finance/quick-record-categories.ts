@@ -351,3 +351,20 @@ export const DIRECTION_LABEL: Record<CatatDirection, string> = {
 	keluar: "Keluar",
 	transfer: "Transfer",
 };
+
+/**
+ * Biaya lapangan rekap → kategori Catat transaksi. Dipakai tombol "Catat ke
+ * pembukuan" di rekap owner untuk biaya yang DIBAYAR OWNER: biaya itu sengaja
+ * tidak masuk OpEx settlement (lihat calculate_recap_opex), jadi harus
+ * dibukukan lewat Catat — tombol ini yang menutup celahnya supaya tidak
+ * bergantung ingatan owner.
+ */
+export const REKAP_EXPENSE_CATEGORY: Record<string, string> = {
+	transport_online: "transport-online",
+	transport_rental: "sewa-mobil",
+	bensin: "transport-bbm",
+	toll: "toll",
+	parking: "parkir",
+	konsumsi: "konsumsi",
+	misc: "operasional-lain",
+};

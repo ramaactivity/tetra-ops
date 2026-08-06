@@ -7,6 +7,7 @@ import {
 	notifyRekapReviewed,
 	notifyRekapSubmitted,
 } from "@/lib/actions/rekap-notifications";
+import { alertRestockAfterCommit } from "@/lib/actions/restock-alert";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { bucketForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
@@ -44,7 +45,14 @@ const LainnyaItemsSchema = z
 	.trim()
 	.optional()
 	.transform(
-		(v): Array<{ note: string; amount: number; paid_by: ExpensePaidBy }> => {
+		(
+			v,
+		): Array<{
+			note: string;
+			amount: number;
+			paid_by: ExpensePaidBy;
+			nota_url: string | null;
+		}> => {
 			if (!v) return [];
 			try {
 				const parsed = JSON.parse(v);
@@ -53,19 +61,22 @@ const LainnyaItemsSchema = z
 					note: string;
 					amount: number;
 					paid_by: ExpensePaidBy;
+					nota_url: string | null;
 				}> = [];
 				for (const row of parsed) {
 					if (!row || typeof row !== "object") continue;
-					const note = String((row as Record<string, unknown>).note ?? "")
+					const r = row as Record<string, unknown>;
+					const note = String(r.note ?? "")
 						.trim()
 						.slice(0, 120);
-					const amount = Number((row as Record<string, unknown>).amount);
+					const amount = Number(r.amount);
 					if (!Number.isFinite(amount) || amount < 0) continue;
 					if (!note && amount === 0) continue;
 					out.push({
 						note,
 						amount: Math.round(amount),
-						paid_by: paidByOf((row as Record<string, unknown>).paid_by),
+						paid_by: paidByOf(r.paid_by),
+						nota_url: safeUrl(r.nota_url),
 					});
 					if (out.length >= 20) break;
 				}
@@ -75,6 +86,38 @@ const LainnyaItemsSchema = z
 			}
 		},
 	);
+
+/** URL nota valid (http/https) atau null — jangan simpan sampah dari client. */
+function safeUrl(v: unknown): string | null {
+	const s = typeof v === "string" ? v.trim() : "";
+	return s && /^https?:\/\//.test(s) ? s.slice(0, 500) : null;
+}
+
+/**
+ * Map {transport|bensin|toll|parking|konsumsi: <drive_url>} — nota per biaya
+ * lapangan, diagregasi ke Arsip Nota lewat v_nota_sistem.
+ */
+const ExpenseNotaSchema = z
+	.string()
+	.trim()
+	.optional()
+	.transform((v): Record<string, string> => {
+		if (!v) return {};
+		try {
+			const parsed = JSON.parse(v);
+			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+				return {};
+			}
+			const out: Record<string, string> = {};
+			for (const key of EXPENSE_PAID_BY_KEYS) {
+				const url = safeUrl((parsed as Record<string, unknown>)[key]);
+				if (url) out[key] = url;
+			}
+			return out;
+		} catch {
+			return {};
+		}
+	});
 
 /**
  * Map {transport|bensin|toll|parking|konsumsi: 'crew'|'owner'} dari hidden
@@ -179,6 +222,7 @@ const RekapInputSchema = z.object({
 	konsumsi_cost: NonNegMoney,
 	lainnya_items: LainnyaItemsSchema,
 	expense_paid_by: ExpensePaidBySchema,
+	expense_nota_urls: ExpenseNotaSchema,
 });
 
 export type RekapInput = z.infer<typeof RekapInputSchema>;
@@ -677,6 +721,7 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		"konsumsi_cost",
 		"lainnya_items",
 		"expense_paid_by",
+		"expense_nota_urls",
 	];
 	const out: Record<string, string> = {};
 	for (const k of keys) out[k] = String(formData.get(k) ?? "");
@@ -714,6 +759,7 @@ export async function submitRekap(
 		konsumsi_cost: formData.get("konsumsi_cost"),
 		lainnya_items: formData.get("lainnya_items"),
 		expense_paid_by: formData.get("expense_paid_by"),
+		expense_nota_urls: formData.get("expense_nota_urls"),
 	});
 	if (!parsed.success) {
 		return {
@@ -821,6 +867,7 @@ export async function submitRekap(
 		konsumsi_cost: parsed.data.konsumsi_cost,
 		lainnya_items: parsed.data.lainnya_items,
 		expense_paid_by: parsed.data.expense_paid_by,
+		expense_nota_urls: parsed.data.expense_nota_urls,
 	};
 
 	if (existing) {
@@ -1357,6 +1404,29 @@ async function commitRekapStock(
 	});
 	if (error)
 		return { ok: false, error: `Gagal commit rekap: ${error.message}` };
+
+	// Best-effort: stok baru saja turun — cek apakah item yang terpakai kini
+	// kurang untuk event mendatang, lalu kabari owner (in-app + Telegram).
+	// Momen inilah satu-satunya saat stok turun banyak sekaligus; tanpa ini
+	// owner harus ingat membuka Forecast sendiri.
+	try {
+		const { data: ev } = await supabase
+			.from("events")
+			.select("project_id, client_name")
+			.eq("id", rekap.event_id)
+			.maybeSingle();
+		await alertRestockAfterCommit(
+			[...new Set(plan.lines.map((l) => l.item_id))],
+			{
+				eventId: rekap.event_id,
+				projectId: (ev?.project_id as string) ?? "",
+				clientName: (ev?.client_name as string) ?? null,
+			},
+		);
+	} catch (e) {
+		console.error("[rekap] restock alert:", e);
+	}
+
 	return { ok: true };
 }
 

@@ -58,13 +58,37 @@ const ID_MONTH_NAMES = [
 export default async function FinancePage({
 	searchParams,
 }: {
-	searchParams: Promise<{ catat?: string }>;
+	searchParams: Promise<{
+		catat?: string;
+		amount?: string;
+		cat?: string;
+		note?: string;
+	}>;
 }) {
 	const me = await getCurrentUser();
 	const isSuperAdmin = me?.profile.role === "super_admin";
 	const supabase = await createClient();
-	const { catat } = await searchParams;
+	const {
+		catat,
+		amount: catatAmount,
+		cat: catatCategory,
+		note: catatNote,
+	} = await searchParams;
 	const catatData = await loadCatatData();
+
+	// Prefill "Catat transaksi" dari deep-link (tombol Catat di rekap owner untuk
+	// biaya event yang dibayar owner). Nilai divalidasi di sini; categoryId yang
+	// tak dikenal diabaikan oleh QuickRecordCore.
+	const catatPrefillAmount = Math.max(0, Math.round(Number(catatAmount) || 0));
+	const catatPrefill =
+		catat === "1" && (catatPrefillAmount > 0 || catatCategory || catatNote)
+			? {
+					direction: "keluar" as const,
+					amount: catatPrefillAmount,
+					categoryId: catatCategory,
+					note: catatNote?.slice(0, 300),
+				}
+			: undefined;
 
 	const today = new Date();
 	const ymStart = startOfMonth(today);
@@ -451,7 +475,11 @@ export default async function FinancePage({
 				description={`Ringkasan keuangan bisnismu · ${monthLabel}`}
 			/>
 
-			<CatatLauncher data={catatData} autoOpen={catat === "1"} />
+			<CatatLauncher
+				data={catatData}
+				autoOpen={catat === "1"}
+				prefill={catatPrefill}
+			/>
 
 			{/* Mode Simpel — angka inti yang owner butuh, bahasa awam + penjelasan */}
 			<div className="rounded-2xl border border-border-subtle bg-card p-4 sm:p-5">

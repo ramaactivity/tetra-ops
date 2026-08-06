@@ -9,7 +9,11 @@ export type NotaSistemSource =
 	| "recap_proof"
 	| "transport_proof"
 	| "crew_fee"
-	| "misc_expense";
+	| "misc_expense"
+	// Nota per biaya lapangan rekap (bensin/toll/parkir/konsumsi/transport) +
+	// per item lain-lain — dari crew_rekap JSONB, lihat 20260806b.
+	| "field_expense"
+	| "field_expense_misc";
 
 export type NotaSistemRow = {
 	source_type: NotaSistemSource;
@@ -53,6 +57,8 @@ export const SOURCE_META: Record<
 	transport_proof: { label: "Transport", tone: "blue" },
 	crew_fee: { label: "Fee Crew", tone: "slate" },
 	misc_expense: { label: "Lain-lain", tone: "slate" },
+	field_expense: { label: "Biaya Lapangan", tone: "blue" },
+	field_expense_misc: { label: "Lain-lain (Rekap)", tone: "slate" },
 };
 
 export const SOURCE_FILTER_OPTIONS: Array<{
@@ -65,6 +71,8 @@ export const SOURCE_FILTER_OPTIONS: Array<{
 	{ value: "transport_proof", label: "Transport" },
 	{ value: "crew_fee", label: "Fee Crew" },
 	{ value: "misc_expense", label: "Lain-lain" },
+	{ value: "field_expense", label: "Biaya Lapangan" },
+	{ value: "field_expense_misc", label: "Lain-lain (Rekap)" },
 ];
 
 /**

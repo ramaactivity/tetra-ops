@@ -71,6 +71,8 @@ type Defaults = {
 	lainnya_items: string; // JSON string of [{note, amount, paid_by?}]
 	/** JSON map {transport|bensin|toll|parking|konsumsi: 'crew'|'owner'}. */
 	expense_paid_by?: string;
+	/** JSON map {transport|bensin|toll|parking|konsumsi: <drive_url>}. */
+	expense_nota_urls?: string;
 };
 
 /** Siapa yang membayar sebuah biaya lapangan. */
@@ -99,6 +101,7 @@ const EMPTY: Defaults = {
 	konsumsi_cost: "0",
 	lainnya_items: "[]",
 	expense_paid_by: "{}",
+	expense_nota_urls: "{}",
 };
 
 export function RekapForm({
@@ -275,7 +278,12 @@ export function RekapForm({
 	const [parkingCost, setParkingCost] = useState(get("parking_cost"));
 	const [konsumsiCost, setKonsumsiCost] = useState(get("konsumsi_cost"));
 
-	type LainnyaRow = { note: string; amount: number; paid_by: PaidBy };
+	type LainnyaRow = {
+		note: string;
+		amount: number;
+		paid_by: PaidBy;
+		nota_url: string | null;
+	};
 	const initialLainnya = useMemo<LainnyaRow[]>(() => {
 		try {
 			const obj = JSON.parse(defaults.lainnya_items || "[]");
@@ -291,6 +299,11 @@ export function RekapForm({
 							note,
 							amount: Math.round(amount),
 							paid_by: paidByOf(r.paid_by),
+							nota_url:
+								typeof r.nota_url === "string" &&
+								/^https?:\/\//.test(r.nota_url)
+									? r.nota_url
+									: null,
 						};
 					})
 					.filter((v): v is LainnyaRow => v !== null)
@@ -330,11 +343,46 @@ export function RekapForm({
 	}
 	const expensePaidByJson = JSON.stringify(paidBy);
 
+	// Nota/struk per biaya lapangan — masuk Arsip Nota lewat v_nota_sistem.
+	// Sebelumnya cuma transport yang punya slot bukti, jadi jejak audit biaya
+	// yang ditalangi crew bolong.
+	const initialNota = useMemo<Partial<Record<PaidByKey, string>>>(() => {
+		try {
+			const obj = JSON.parse(defaults.expense_nota_urls || "{}");
+			if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+				const out: Partial<Record<PaidByKey, string>> = {};
+				for (const k of [
+					"transport",
+					"bensin",
+					"toll",
+					"parking",
+					"konsumsi",
+				] as PaidByKey[]) {
+					const v = (obj as Record<string, unknown>)[k];
+					if (typeof v === "string" && /^https?:\/\//.test(v)) out[k] = v;
+				}
+				return out;
+			}
+		} catch {}
+		return {};
+	}, [defaults.expense_nota_urls]);
+	const [notaUrls, setNotaUrls] =
+		useState<Partial<Record<PaidByKey, string>>>(initialNota);
+	function setNotaUrl(key: PaidByKey, url: string | null) {
+		setNotaUrls((prev) => {
+			const next = { ...prev };
+			if (url) next[key] = url;
+			else delete next[key];
+			return next;
+		});
+	}
+	const expenseNotaJson = JSON.stringify(notaUrls);
+
 	function addLainnyaRow() {
 		setLainnyaItems((prev) =>
 			prev.length >= 20
 				? prev
-				: [...prev, { note: "", amount: 0, paid_by: "crew" }],
+				: [...prev, { note: "", amount: 0, paid_by: "crew", nota_url: null }],
 		);
 	}
 	function updateLainnyaRow(idx: number, patch: Partial<LainnyaRow>) {
@@ -539,6 +587,11 @@ export function RekapForm({
 							note,
 							amount: Math.round(amount),
 							paid_by: paidByOf(r.paid_by),
+							nota_url:
+								typeof r.nota_url === "string" &&
+								/^https?:\/\//.test(r.nota_url)
+									? r.nota_url
+									: null,
 						});
 						if (out.length >= 20) break;
 					}
@@ -1303,6 +1356,12 @@ export function RekapForm({
 							onChange={setTransportCost}
 							paidBy={paidBy.transport}
 							onPaidByChange={(v) => setPaidByKey("transport", v)}
+							nota={{
+								projectId,
+								notaKey: "transport",
+								url: notaUrls.transport ?? null,
+								onChange: (u) => setNotaUrl("transport", u),
+							}}
 						/>
 						<div className="grid gap-3 sm:grid-cols-2">
 							<SingleFileUpload
@@ -1334,6 +1393,12 @@ export function RekapForm({
 							onChange={setTransportCost}
 							paidBy={paidBy.transport}
 							onPaidByChange={(v) => setPaidByKey("transport", v)}
+							nota={{
+								projectId,
+								notaKey: "transport",
+								url: notaUrls.transport ?? null,
+								onChange: (u) => setNotaUrl("transport", u),
+							}}
 						/>
 						<MoneyField
 							label="Bensin"
@@ -1342,6 +1407,12 @@ export function RekapForm({
 							onChange={setBensinCost}
 							paidBy={paidBy.bensin}
 							onPaidByChange={(v) => setPaidByKey("bensin", v)}
+							nota={{
+								projectId,
+								notaKey: "bensin",
+								url: notaUrls.bensin ?? null,
+								onChange: (u) => setNotaUrl("bensin", u),
+							}}
 						/>
 					</div>
 				)}
@@ -1354,6 +1425,12 @@ export function RekapForm({
 						onChange={setTollCost}
 						paidBy={paidBy.toll}
 						onPaidByChange={(v) => setPaidByKey("toll", v)}
+						nota={{
+							projectId,
+							notaKey: "toll",
+							url: notaUrls.toll ?? null,
+							onChange: (u) => setNotaUrl("toll", u),
+						}}
 					/>
 					<MoneyField
 						label="Parkir"
@@ -1362,6 +1439,12 @@ export function RekapForm({
 						onChange={setParkingCost}
 						paidBy={paidBy.parking}
 						onPaidByChange={(v) => setPaidByKey("parking", v)}
+						nota={{
+							projectId,
+							notaKey: "parking",
+							url: notaUrls.parking ?? null,
+							onChange: (u) => setNotaUrl("parking", u),
+						}}
 					/>
 				</div>
 			</NumberedSection>
@@ -1380,6 +1463,12 @@ export function RekapForm({
 					onChange={setKonsumsiCost}
 					paidBy={paidBy.konsumsi}
 					onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
+					nota={{
+						projectId,
+						notaKey: "konsumsi",
+						url: notaUrls.konsumsi ?? null,
+						onChange: (u) => setNotaUrl("konsumsi", u),
+					}}
 				/>
 
 				<div className="space-y-2">
@@ -2034,6 +2123,7 @@ function MoneyField({
 	onChange,
 	paidBy,
 	onPaidByChange,
+	nota,
 }: {
 	label: string;
 	name: string;
@@ -2042,11 +2132,17 @@ function MoneyField({
 	/** Kalau di-set (bareng onPaidByChange), tampilkan toggle pembayar saat nilai > 0. */
 	paidBy?: PaidBy;
 	onPaidByChange?: (v: PaidBy) => void;
+	/** Slot nota/struk — muncul saat nilai > 0, ikut ke Arsip Nota. */
+	nota?: {
+		projectId: string;
+		notaKey: string;
+		url: string | null;
+		onChange: (url: string | null) => void;
+	};
 }) {
+	const hasAmount = (Number(value) || 0) > 0;
 	const showPaidBy =
-		paidBy !== undefined &&
-		onPaidByChange !== undefined &&
-		(Number(value) || 0) > 0;
+		paidBy !== undefined && onPaidByChange !== undefined && hasAmount;
 	return (
 		<div className="space-y-1.5">
 			<label htmlFor={name} className="text-fluid-body font-medium">
@@ -2075,6 +2171,16 @@ function MoneyField({
 			</div>
 			{showPaidBy ? (
 				<PaidByToggle value={paidBy} onChange={onPaidByChange} />
+			) : null}
+			{nota && hasAmount ? (
+				<SingleFileUpload
+					projectId={nota.projectId}
+					kind="nota"
+					seq={nota.notaKey}
+					label={`Nota ${label.toLowerCase()}`}
+					value={nota.url}
+					onChange={nota.onChange}
+				/>
 			) : null}
 		</div>
 	);
