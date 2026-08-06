@@ -46,9 +46,16 @@ const InventoryItemInputSchema = z
 				message: "SKU: huruf kapital, angka, hyphen, underscore",
 			}),
 		base_unit: z.enum(UNIT_OPTIONS, "Pilih unit penggunaan"),
+		// preprocess "" → undefined: pilihan "Sama dengan unit penggunaan"
+		// mengirim string kosong, dan "" BUKAN undefined — tanpa ini .optional()
+		// tetap menolaknya ("Pilih unit pembelian"), sehingga membuat item
+		// persediaan dengan pilihan default selalu gagal. Pola yang sama pernah
+		// menjatuhkan Adjust Stok (formData.get() → null vs optional()).
 		purchase_unit: z
-			.enum(UNIT_OPTIONS, "Pilih unit pembelian")
-			.optional()
+			.preprocess(
+				(v) => (v === "" || v === null ? undefined : v),
+				z.enum(UNIT_OPTIONS, "Pilih unit pembelian").optional(),
+			)
 			.transform((v) => (v ? v : null)),
 		conversion_factor: z
 			.preprocess(
