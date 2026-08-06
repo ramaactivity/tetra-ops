@@ -4,10 +4,7 @@ import { useState } from "react";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { CategoryPicker } from "./category-picker";
 import { FixedAssetItemForm } from "./fixed-asset-item-form";
-import {
-	InventoryItemForm,
-	type SupplierOption,
-} from "./inventory-item-form";
+import { InventoryItemForm, type SupplierOption } from "./inventory-item-form";
 
 /**
  * Orchestrator: picker selalu visible (dengan selected state),
@@ -47,7 +44,11 @@ export function NewItemFlow({
 								suppliers={suppliers}
 							/>
 						) : (
-							<FixedAssetItemForm mode="create" returnTo={returnTo} />
+							<FixedAssetItemForm
+								mode="create"
+								returnTo={returnTo}
+								suppliers={suppliers}
+							/>
 						)}
 					</div>
 				</div>

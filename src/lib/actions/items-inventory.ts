@@ -6,6 +6,11 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { defaultsForInventorySku } from "@/lib/inventory/coa-defaults";
 import {
+	readItemOrigin,
+	recordItemPurchase,
+	recordOwnerContribution,
+} from "@/lib/inventory/item-origin";
+import {
 	ensureUniqueSku,
 	generateInventorySku,
 } from "@/lib/inventory/sku-generator";
@@ -249,8 +254,51 @@ export async function createInventoryItem(
 		};
 	}
 
+	// Step 3: asal barang. Menambah item hampir selalu berarti barangnya baru
+	// dibeli / baru masuk gudang — tanpa langkah ini stok tetap 0 dan uangnya
+	// tidak pernah masuk pembukuan. Pembelian sengaja lewat modul Pembelian
+	// (satu-satunya jalur pembelian), bukan jurnal tulis-sendiri.
+	const origin = readItemOrigin(formData);
+	if (origin === "purchase") {
+		const res = await recordItemPurchase(formData, inserted.id, data.base_unit);
+		if (!res.ok) {
+			return {
+				errors: {
+					_form: [
+						`Item "${data.name}" sudah dibuat, tapi pembeliannya gagal dicatat: ${res.error}. Catat lewat Warehouse › Pembelian.`,
+					],
+				},
+				values: snapshot(formData),
+			};
+		}
+	} else if (origin === "owner_contribution") {
+		const me2 = await getCurrentUser();
+		const res = await recordOwnerContribution(supabase, {
+			itemId: inserted.id,
+			itemName: data.name,
+			coaAccount: coa.inventory,
+			quantity: Number(formData.get("buy_quantity") ?? 0),
+			unitCost: Number(formData.get("buy_unit_cost") ?? 0),
+			date:
+				String(formData.get("buy_date") ?? "") ||
+				new Date().toISOString().slice(0, 10),
+			actorProfileId: me2?.profile.id ?? "",
+			actorAuthId: me2?.authId ?? "",
+		});
+		if (!res.ok) {
+			return {
+				errors: {
+					_form: [
+						`Item "${data.name}" sudah dibuat, tapi stok awalnya gagal dicatat: ${res.error}`,
+					],
+				},
+				values: snapshot(formData),
+			};
+		}
+	}
+
 	revalidatePath("/warehouse");
-	revalidatePath("/warehouse");
+	revalidatePath("/finance/accounting");
 	redirect(safeReturnTo(formData.get("return_to")));
 }
 

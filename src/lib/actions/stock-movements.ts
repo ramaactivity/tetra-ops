@@ -3,7 +3,10 @@
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { recordAdjustmentJournal } from "@/lib/actions/wastage";
+import {
+	recordAdjustmentJournal,
+	recordPurchaseInJournal,
+} from "@/lib/actions/wastage";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import { createClient } from "@/lib/supabase/server";
@@ -252,10 +255,35 @@ export async function addStockMovement(
 			};
 		}
 
+		// Pembelian dari dialog Restock: stok & harga rata-rata ikut bergerak,
+		// jadi jurnalnya WAJIB ikut. Dulu blok ini melewati source='purchase'
+		// dengan asumsi semua pembelian lewat modul Pembelian — padahal dialog
+		// Restock memakai jalur ini, sehingga setiap restock menaikkan nilai stok
+		// tanpa menyentuh GL → drift persediaan yang tak bisa sembuh sendiri.
+		if (
+			parsed.data.source === "purchase" &&
+			parsed.data.direction === "in" &&
+			baseUnitCost !== null
+		) {
+			const jr = await recordPurchaseInJournal(supabase, {
+				item_id: parsed.data.item_id,
+				qty_base: baseUnitQuantity,
+				unit_cost_base: baseUnitCost,
+				actor_profile_id: me.profile.id,
+				supplier_id: parsed.data.supplier_id ?? null,
+			});
+			if (!jr.ok) {
+				console.error(
+					`[stock-movements] purchase journal failed for ${itemId}:`,
+					jr.error,
+				);
+			}
+		}
+
 		// Auto-jurnal koreksi non-pembelian (opname/damage/loss) supaya GL
 		// Persediaan ikut bergerak — tanpa ini nilai stok berubah tapi GL diam
-		// → drift (ke-flag reconciliation-check, tak auto-heal). Purchase punya
-		// jalur jurnalnya sendiri; transfer/manual_adjust sengaja dilewati.
+		// → drift (ke-flag reconciliation-check, tak auto-heal).
+		// transfer/manual_adjust sengaja dilewati.
 		// Best-effort: stock_movements tetap canonical, gagal jurnal cukup di-log.
 		if (
 			ADJUST_JOURNAL_SOURCES.has(parsed.data.source) &&

@@ -26,6 +26,7 @@ import {
 import { formatRupiah } from "@/lib/format";
 import { generateInventorySku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
+import { ItemOriginSection } from "./item-origin-section";
 
 export type SupplierOption = { id: string; name: string };
 
@@ -448,6 +449,26 @@ export function InventoryItemForm({
 					</p>
 				</div>
 			</label>
+
+			{/* ── Asal barang (create only) ────────────────────────────────── */}
+			{mode === "create" && (
+				<div className="space-y-4">
+					<SectionHeader
+						title="Asal barang"
+						subtitle="Menambah item biasanya berarti barangnya baru masuk gudang — di sini stok & pembukuannya ikut tercatat sekaligus."
+					/>
+					<ItemOriginSection
+						suppliers={suppliers}
+						unitLabel={prettyUnit(purchaseUnit || baseUnit)}
+						kind="inventory"
+					/>
+					<input
+						type="hidden"
+						name="buy_unit"
+						value={purchaseUnit || baseUnit}
+					/>
+				</div>
+			)}
 
 			{/* ── Catatan ──────────────────────────────────────────────────── */}
 			<Field

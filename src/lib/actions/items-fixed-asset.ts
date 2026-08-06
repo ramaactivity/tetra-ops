@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { defaultsForFixedAsset } from "@/lib/inventory/coa-defaults";
+import { recordItemPurchase } from "@/lib/inventory/item-origin";
 import {
 	ensureUniqueSku,
 	generateFixedAssetSku,
@@ -328,9 +329,29 @@ export async function createFixedAssetItem(
 		};
 	}
 
+	// Alat yang DIBELI: catat pembeliannya lewat modul Pembelian (stok masuk +
+	// jurnal Dr aset/beban perlengkapan / Cr kas atau Hutang Vendor + kebijakan
+	// kapitalisasi). Sebelumnya jalur ini tidak berjurnal sama sekali — alatnya
+	// masuk daftar tapi uangnya tak pernah terlihat di pembukuan.
+	if (
+		data.acquisition_type !== "owner_contribution" &&
+		Number(formData.get("buy_quantity") ?? 0) > 0
+	) {
+		const res = await recordItemPurchase(formData, inserted.id, "unit");
+		if (!res.ok) {
+			return {
+				errors: {
+					_form: [
+						`Alat "${data.name}" sudah dibuat, tapi pembeliannya gagal dicatat: ${res.error}. Catat lewat Warehouse › Pembelian.`,
+					],
+				},
+				values: snapshot(formData),
+			};
+		}
+	}
+
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/assets");
-	revalidatePath("/warehouse");
 	revalidatePath("/finance/accounting");
 	redirect(safeReturnTo(formData.get("return_to")));
 }

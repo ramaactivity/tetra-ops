@@ -10,6 +10,7 @@ import {
 	type FixedAssetItemFormState,
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
+import { formatRupiah } from "@/lib/format";
 import {
 	ASSET_MIN_LIFE_MONTHS,
 	ASSET_MIN_PRICE,
@@ -97,11 +98,13 @@ export function FixedAssetItemForm({
 	id,
 	defaults = EMPTY_FIXED_ASSET_DEFAULTS,
 	returnTo,
+	suppliers = [],
 }: {
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: FixedAssetItemDefaults;
 	returnTo?: "/warehouse";
+	suppliers?: Array<{ id: string; name: string }>;
 }) {
 	const action =
 		mode === "create"
@@ -397,6 +400,16 @@ export function FixedAssetItemForm({
 					</Field>
 				</div>
 
+				{/* Catat pembelian ke pembukuan — sebelumnya alat yang dibeli hanya
+				    masuk daftar aset, uangnya tak pernah terlihat di buku. */}
+				{mode === "create" && acquisitionType !== "owner_contribution" && (
+					<AssetPurchaseBooking
+						suppliers={suppliers}
+						price={purchasePrice}
+						date={purchaseDate}
+					/>
+				)}
+
 				<Field
 					label="Perkiraan Harga Jual Bekas (Opsional)"
 					name="salvage_value"
@@ -570,5 +583,105 @@ export function FixedAssetItemForm({
 				</button>
 			</div>
 		</form>
+	);
+}
+
+/**
+ * Sambungan ke pembukuan untuk alat yang DIBELI. Nominal & tanggalnya memakai
+ * field "Harga Beli"/"Tanggal Beli" di atas — jadi owner tidak mengetik angka
+ * yang sama dua kali. Yang ditanya di sini hanya info yang belum ada:
+ * dari siapa, dibayar bagaimana, dan nomor notanya.
+ *
+ * Kalau dimatikan, alat tetap terdaftar tapi tidak ada jurnal — untuk alat yang
+ * sudah lama dimiliki tapi baru sekarang didata.
+ */
+function AssetPurchaseBooking({
+	suppliers,
+	price,
+	date,
+}: {
+	suppliers: Array<{ id: string; name: string }>;
+	price: string;
+	date: string;
+}) {
+	const [on, setOn] = useState(true);
+	const [method, setMethod] = useState("cash");
+	const [supplierId, setSupplierId] = useState("");
+	const priceNum = Number(price) || 0;
+
+	return (
+		<div className="rounded-xl border border-border-default bg-surface-2 p-4">
+			<label className="flex items-start justify-between gap-3">
+				<span className="min-w-0">
+					<span className="block text-sm font-medium text-foreground">
+						Catat pembeliannya ke pembukuan
+					</span>
+					<span className="text-muted-foreground mt-0.5 block text-[12px] leading-relaxed">
+						Uang keluar {formatRupiah(priceNum)} ikut tercatat: jurnal dibuat
+						otomatis & alat masuk sebagai aset (atau beban perlengkapan kalau di
+						bawah batas kapitalisasi). Matikan kalau alat ini sudah lama
+						dimiliki dan hanya didata sekarang.
+					</span>
+				</span>
+				<input
+					type="checkbox"
+					checked={on}
+					onChange={(e) => setOn(e.target.checked)}
+					className="border-border-default accent-primary mt-1 h-4 w-4 shrink-0 rounded"
+				/>
+			</label>
+
+			{/* Jumlah 0 = server melewati pencatatan pembelian. */}
+			<input type="hidden" name="buy_quantity" value={on ? "1" : "0"} />
+			<input type="hidden" name="buy_unit" value="unit" />
+			<input type="hidden" name="buy_unit_cost" value={price} />
+			<input type="hidden" name="buy_date" value={date} />
+			<input type="hidden" name="buy_payment_method" value={method} />
+			<input type="hidden" name="buy_supplier_id" value={supplierId} />
+
+			{on && (
+				<div className="mt-3 grid gap-3 sm:grid-cols-3">
+					<div className="space-y-1">
+						<span className="block text-[12px] font-medium text-foreground">
+							Cara bayar
+						</span>
+						<NativeSelect
+							value={method}
+							onValueChange={setMethod}
+							options={[
+								{ value: "cash", label: "Tunai" },
+								{ value: "top_7", label: "Tempo 7 hari" },
+								{ value: "top_14", label: "Tempo 14 hari" },
+								{ value: "top_30", label: "Tempo 30 hari" },
+							]}
+							triggerClassName="h-10! w-full"
+						/>
+					</div>
+					<div className="space-y-1">
+						<span className="block text-[12px] font-medium text-foreground">
+							Supplier (opsional)
+						</span>
+						<NativeSelect
+							value={supplierId}
+							onValueChange={setSupplierId}
+							placeholder="Pilih supplier…"
+							options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+							triggerClassName="h-10! w-full"
+						/>
+					</div>
+					<div className="space-y-1">
+						<span className="block text-[12px] font-medium text-foreground">
+							No. nota (opsional)
+						</span>
+						<input
+							type="text"
+							name="buy_invoice_no"
+							placeholder="INV-8891"
+							className={inputClass}
+						/>
+					</div>
+				</div>
+			)}
+		</div>
 	);
 }

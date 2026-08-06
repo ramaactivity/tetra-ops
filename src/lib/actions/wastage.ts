@@ -408,3 +408,82 @@ export async function recordAdjustmentJournal(
 	}
 	return { ok: true };
 }
+
+/**
+ * Jurnal untuk stok masuk bersumber PEMBELIAN lewat dialog Restock.
+ *
+ * Modul Pembelian (recordPurchaseBatch) punya jurnalnya sendiri untuk belanja
+ * multi-baris. Dialog Restock memakai addStockMovement — dulu jalur itu tidak
+ * berjurnal sama sekali, jadi tiap restock menaikkan nilai stok tanpa menyentuh
+ * buku besar → drift persediaan yang tak bisa sembuh sendiri. Fungsi ini
+ * menutup celah itu dengan pola akun yang sama: Dr persediaan / Cr Kas Tunai
+ * (tunai) atau Hutang Vendor (kalau supplier-nya diisi & belum dibayar).
+ *
+ * Dialog Restock tidak menanyakan cara bayar, jadi diasumsikan TUNAI — sama
+ * dengan asumsi modul Pembelian saat metode 'cash'.
+ */
+export async function recordPurchaseInJournal(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	args: {
+		item_id: string;
+		qty_base: number;
+		unit_cost_base: number;
+		actor_profile_id: string;
+		supplier_id?: string | null;
+	},
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const loaded = await getItemWithConfig(supabase, args.item_id);
+	if (!loaded) return { ok: true };
+	const item = loaded.base;
+	const total = Math.round(args.qty_base * args.unit_cost_base);
+	if (total <= 0) return { ok: true };
+
+	const debitAccount =
+		loaded.kind === "inventory"
+			? inventoryCoaForSku(item.sku)
+			: // Aset tetap dari restock jarang terjadi; ikut akun aset defaultnya.
+				"1-400";
+	const today = new Date().toISOString().slice(0, 10);
+
+	const { data: entry, error: entryErr } = await supabase
+		.from("journal_entries")
+		.insert({
+			ref_id: newJournalRef(),
+			entry_date: today,
+			entry_type: "transfer",
+			description: `Pembelian stok ${item.sku} — ${args.qty_base} ${item.unit}`,
+			source_type: "purchase",
+			source_id: args.item_id,
+			total_amount: total,
+			created_by: args.actor_profile_id,
+		})
+		.select("id")
+		.single();
+	if (entryErr || !entry) {
+		return { ok: false, error: entryErr?.message ?? "journal insert failed" };
+	}
+
+	const { error: linesErr } = await supabase.from("journal_lines").insert([
+		{
+			entry_id: entry.id,
+			account_code: debitAccount,
+			debit_amount: total,
+			credit_amount: 0,
+			description: `Stok masuk: ${item.name}`,
+			line_order: 1,
+		},
+		{
+			entry_id: entry.id,
+			account_code: "1-100",
+			debit_amount: 0,
+			credit_amount: total,
+			description: "Kas keluar (pembelian stok)",
+			line_order: 2,
+		},
+	]);
+	if (linesErr) {
+		await supabase.from("journal_entries").delete().eq("id", entry.id);
+		return { ok: false, error: linesErr.message };
+	}
+	return { ok: true };
+}
