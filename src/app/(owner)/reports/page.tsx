@@ -266,14 +266,14 @@ async function PnlSection({
 					client_name: string;
 					channel: string;
 					event_date: string;
-				}
+			  }
 			| Array<{
 					id: string;
 					project_id: string;
 					client_name: string;
 					channel: string;
 					event_date: string;
-				}>
+			  }>
 			| null;
 	};
 	const rows = (settlements ?? []) as SettlementRow[];
@@ -291,14 +291,14 @@ async function PnlSection({
 	const lossCount = rows.filter((r) => r.is_loss).length;
 	const settlementCount = rows.length;
 
-	const cashIn = (revenueData ?? []).reduce(
-		(s, r) => s + (r.amount ?? 0),
-		0,
-	);
+	const cashIn = (revenueData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
 
 	const opexBreakdown = {
 		fee_crew:
-			sum("fee_lead") + sum("fee_asisten") + sum("fee_crew_c") + sum("fee_extra"),
+			sum("fee_lead") +
+			sum("fee_asisten") +
+			sum("fee_crew_c") +
+			sum("fee_extra"),
 		transport: sum("transport_bbm"),
 		sewa_alat: sum("sewa_alat"),
 		// `perawatan` bucket is now repurposed di Tutup Buku v3 untuk
@@ -311,9 +311,11 @@ async function PnlSection({
 		diskon_tambahan: sum("diskon_tambahan"),
 	};
 
-	const channelBreakdown = ((bookingsByChannel ?? []) as Array<{
-		channel: string;
-	}>).reduce<Record<string, number>>((acc, e) => {
+	const channelBreakdown = (
+		(bookingsByChannel ?? []) as Array<{
+			channel: string;
+		}>
+	).reduce<Record<string, number>>((acc, e) => {
 		acc[e.channel] = (acc[e.channel] ?? 0) + 1;
 		return acc;
 	}, {});
@@ -376,39 +378,39 @@ async function PnlSection({
 							/>
 						)}
 						<PnlRow
-								label="Gross Profit"
-								value={revenue - hpp}
-								strong
-								tone={revenue - hpp < 0 ? "rose" : "emerald"}
-							/>
+							label="Gross Profit"
+							value={revenue - hpp}
+							strong
+							tone={revenue - hpp < 0 ? "rose" : "emerald"}
+						/>
 						<PnlRow label="OpEx" value={-opex} sign="−" />
 						<PnlSubRow label="Fee crew" value={opexBreakdown.fee_crew} />
 						<PnlSubRow
-								label="Transport / BBM (crew)"
-								value={opexBreakdown.transport}
-							/>
+							label="Transport / BBM (crew)"
+							value={opexBreakdown.transport}
+						/>
 						<PnlSubRow label="Sewa alat" value={opexBreakdown.sewa_alat} />
 						<PnlSubRow
-								label="Sewa aplikasi / lainnya"
-								value={opexBreakdown.sewa_aplikasi_lainnya}
-							/>
+							label="Sewa aplikasi / lainnya"
+							value={opexBreakdown.sewa_aplikasi_lainnya}
+						/>
 						<PnlSubRow
-								label="Konsumsi & Lainnya (crew)"
-								value={opexBreakdown.konsumsi}
-							/>
+							label="Konsumsi & Lainnya (crew)"
+							value={opexBreakdown.konsumsi}
+						/>
 						<PnlSubRow label="Komisi" value={opexBreakdown.komisi} />
-							{opexBreakdown.platform_fee > 0 && (
-								<PnlSubRow
-									label="Platform fee"
-									value={opexBreakdown.platform_fee}
-								/>
-							)}
-							{opexBreakdown.diskon_tambahan > 0 && (
-								<PnlSubRow
-									label="Diskon tambahan"
-									value={opexBreakdown.diskon_tambahan}
-								/>
-							)}
+						{opexBreakdown.platform_fee > 0 && (
+							<PnlSubRow
+								label="Platform fee"
+								value={opexBreakdown.platform_fee}
+							/>
+						)}
+						{opexBreakdown.diskon_tambahan > 0 && (
+							<PnlSubRow
+								label="Diskon tambahan"
+								value={opexBreakdown.diskon_tambahan}
+							/>
+						)}
 						<PnlRow
 							label="Operating Profit"
 							value={revenue - hpp - opex}
@@ -598,9 +600,7 @@ async function CrewSection({
 				)
 				.gte("event.event_date", ymStart)
 				.lte("event.event_date", ymEnd),
-			supabase
-				.from("crew_rekap")
-				.select("event_id, submitted_by, is_approved"),
+			supabase.from("crew_rekap").select("event_id, submitted_by, is_approved"),
 			supabase
 				.from("users")
 				.select("id, full_name, nickname, tier")
@@ -622,13 +622,13 @@ async function CrewSection({
 					project_id: string;
 					client_name: string;
 					event_date: string;
-				}
+			  }
 			| Array<{
 					id: string;
 					project_id: string;
 					client_name: string;
 					event_date: string;
-				}>
+			  }>
 			| null;
 	};
 	const rows = ((assignments ?? []) as Row[]).filter((a) => a.event);
@@ -789,9 +789,7 @@ async function CrewSection({
 							<tbody className="divide-border divide-y">
 								{enriched.map((e) => {
 									const submissionRate =
-										e.eventCount > 0
-											? (e.rekapCount / e.eventCount) * 100
-											: 0;
+										e.eventCount > 0 ? (e.rekapCount / e.eventCount) * 100 : 0;
 									return (
 										<tr
 											key={e.id}
@@ -899,7 +897,9 @@ async function OwnerSection({
 			.in("role", ["super_admin", "owner"])
 			.eq("is_active", true)
 			.order("full_name", { ascending: true }),
-		supabase.from("owner_earnings").select("owner_user_id, amount, earning_type"),
+		supabase
+			.from("owner_earnings")
+			.select("owner_user_id, amount, earning_type, period_month"),
 		supabase
 			.from("owner_earnings")
 			.select("owner_user_id, amount, earning_type, created_at")
@@ -911,21 +911,34 @@ async function OwnerSection({
 		owner_user_id: string;
 		amount: number;
 		earning_type: string;
+		period_month?: string | null;
 	};
+
+	// Bagi hasil dari event bulan berjalan belum boleh ditarik — baru bulan
+	// depan (lihat 20260806_owner_pool_period.sql). Kolom "Bisa diambil" wajib
+	// memakai aturan yang sama dengan halaman Finance & RPC withdrawal, kalau
+	// tidak dua halaman menyebut angka berbeda untuk hal yang sama.
+	const periodNow = new Date();
+	const currentMonthStart = `${periodNow.getFullYear()}-${String(periodNow.getMonth() + 1).padStart(2, "0")}-01`;
 
 	const allTimeStats = new Map<
 		string,
-		{ earned: number; withdrawn: number }
+		{ earned: number; withdrawn: number; available: number }
 	>();
 	for (const e of (earningsAll ?? []) as Earning[]) {
 		const cur = allTimeStats.get(e.owner_user_id) ?? {
 			earned: 0,
 			withdrawn: 0,
+			available: 0,
 		};
 		if (e.earning_type === "withdrawal" || e.amount < 0) {
 			cur.withdrawn += Math.abs(e.amount);
+			cur.available += e.amount;
 		} else {
 			cur.earned += e.amount;
+			if ((e.period_month ?? currentMonthStart) < currentMonthStart) {
+				cur.available += e.amount;
+			}
 		}
 		allTimeStats.set(e.owner_user_id, cur);
 	}
@@ -953,13 +966,17 @@ async function OwnerSection({
 			capital_contributed: number | null;
 		}>
 	).map((o) => {
-		const all = allTimeStats.get(o.id) ?? { earned: 0, withdrawn: 0 };
+		const all = allTimeStats.get(o.id) ?? {
+			earned: 0,
+			withdrawn: 0,
+			available: 0,
+		};
 		const mtd = monthStats.get(o.id) ?? { earned: 0, withdrawn: 0 };
 		return {
 			...o,
 			lifetimeEarned: all.earned,
 			lifetimeWithdrawn: all.withdrawn,
-			balance: all.earned - all.withdrawn,
+			balance: all.available,
 			mtdEarned: mtd.earned,
 			mtdWithdrawn: mtd.withdrawn,
 		};
@@ -968,7 +985,7 @@ async function OwnerSection({
 	const totalShare = owners.reduce((s, o) => s + (o.share_pct ?? 0), 0);
 	const totalEarned = owners.reduce((s, o) => s + o.lifetimeEarned, 0);
 	const totalWithdrawn = owners.reduce((s, o) => s + o.lifetimeWithdrawn, 0);
-	const totalBalance = totalEarned - totalWithdrawn;
+	const totalBalance = owners.reduce((acc, o) => acc + o.balance, 0);
 
 	return (
 		<div className="space-y-6">
@@ -997,9 +1014,7 @@ async function OwnerSection({
 				<KpiCard
 					label="Total share"
 					value={`${totalShare.toFixed(2)}%`}
-					hint={
-						Math.abs(totalShare - 100) < 0.5 ? "✓ 100%" : "⚠ belum 100%"
-					}
+					hint={Math.abs(totalShare - 100) < 0.5 ? "✓ 100%" : "⚠ belum 100%"}
 					icon={Users}
 					accent={Math.abs(totalShare - 100) < 0.5 ? "emerald" : "amber"}
 				/>
@@ -1016,9 +1031,7 @@ async function OwnerSection({
 								<th className="px-4 py-3 text-left font-medium">Owner</th>
 								<th className="px-4 py-3 text-right font-medium">Share %</th>
 								<th className="px-4 py-3 text-right font-medium">Capital</th>
-								<th className="px-4 py-3 text-right font-medium">
-									Earned MTD
-								</th>
+								<th className="px-4 py-3 text-right font-medium">Earned MTD</th>
 								<th className="px-4 py-3 text-right font-medium">
 									Withdrawn MTD
 								</th>
@@ -1029,7 +1042,7 @@ async function OwnerSection({
 									Lifetime withdrawn
 								</th>
 								<th className="px-4 py-3 text-right font-medium">
-									Available
+									Bisa diambil
 								</th>
 							</tr>
 						</thead>
@@ -1050,9 +1063,7 @@ async function OwnerSection({
 										</div>
 									</td>
 									<td className="text-muted-foreground tabular px-4 py-3 text-right text-xs">
-										{o.share_pct !== null
-											? `${o.share_pct.toFixed(2)}%`
-											: "—"}
+										{o.share_pct !== null ? `${o.share_pct.toFixed(2)}%` : "—"}
 									</td>
 									<td className="text-muted-foreground tabular px-4 py-3 text-right text-xs">
 										{o.capital_contributed
@@ -1063,9 +1074,7 @@ async function OwnerSection({
 										{o.mtdEarned > 0 ? formatRupiah(o.mtdEarned) : "—"}
 									</td>
 									<td className="text-muted-foreground tabular px-4 py-3 text-right">
-										{o.mtdWithdrawn > 0
-											? formatRupiah(o.mtdWithdrawn)
-											: "—"}
+										{o.mtdWithdrawn > 0 ? formatRupiah(o.mtdWithdrawn) : "—"}
 									</td>
 									<td className="text-foreground tabular px-4 py-3 text-right">
 										{o.lifetimeEarned > 0

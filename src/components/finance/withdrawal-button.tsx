@@ -81,7 +81,10 @@ export type Owner = {
 	id: string;
 	full_name: string;
 	role: string;
+	/** Yang boleh dicairkan sekarang (jatah bulan berjalan TIDAK termasuk). */
 	balance: number;
+	/** Jatah dari event bulan berjalan — tertahan sampai bulan depan. */
+	pending?: number;
 };
 
 export type BankOption = {
@@ -126,6 +129,11 @@ export function WithdrawalButton({
 		? undefined
 		: (owners.find((o) => o.id === selectedOwner) ?? owners[0]);
 	const available = isBulk ? grandTotal : (owner?.balance ?? 0);
+	// Jatah bulan berjalan yang sengaja belum boleh ditarik — ditampilkan supaya
+	// angka "Bisa diambil" yang lebih kecil tidak terbaca sebagai data hilang.
+	const pendingTotal = isBulk
+		? owners.reduce((s, o) => s + (o.pending ?? 0), 0)
+		: (owner?.pending ?? 0);
 	const periodLabel = monthLabel(period);
 
 	// Sukses → unggah bukti transfer (per owner) ke entry-nya, lalu tutup.
@@ -266,7 +274,7 @@ export function WithdrawalButton({
 													: []),
 												...owners.map((o) => ({
 													value: o.id,
-													label: `${o.full_name} · sisa ${formatRupiah(o.balance)}`,
+													label: `${o.full_name} · bisa diambil ${formatRupiah(o.balance)}`,
 												})),
 											]}
 											triggerClassName="w-full"
@@ -326,6 +334,12 @@ export function WithdrawalButton({
 											<p className="text-muted-foreground mt-0.5 text-[11px]">
 												Tiap owner ditarik penuh sesuai sisanya, dari rekening
 												di bawah.
+											</p>
+										)}
+										{pendingTotal > 0 && (
+											<p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+												{formatRupiah(pendingTotal)} dari event bulan ini belum
+												ikut — baru bisa diambil bulan depan.
 											</p>
 										)}
 									</div>

@@ -164,7 +164,7 @@ export default async function FinancePage({
 		isSuperAdmin
 			? supabase
 					.from("owner_earnings")
-					.select("owner_user_id, amount, earning_type")
+					.select("owner_user_id, amount, earning_type, period_month")
 			: Promise.resolve({ data: [] }),
 		isSuperAdmin
 			? supabase
@@ -337,25 +337,43 @@ export default async function FinancePage({
 		earned: number;
 		withdrawn: number;
 		balance: number;
+		/** Yang benar-benar boleh dicairkan sekarang (bulan berjalan belum ikut). */
+		available: number;
+		/** Jatah dari event bulan berjalan — baru bisa diambil bulan depan. */
+		pending: number;
 	}> = [];
 	if (isSuperAdmin) {
+		// Aturan bagi hasil: jatah dari event bulan M baru boleh ditarik mulai
+		// bulan M+1. period_month diisi otomatis dari tanggal EVENT (lihat
+		// 20260806_owner_pool_period.sql), jadi event 31 Jul yang baru di-settle
+		// 2 Agu tetap terhitung jatah Juli.
+		const currentMonthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
 		const earningsByOwner = new Map<
 			string,
-			{ earned: number; withdrawn: number }
+			{ earned: number; withdrawn: number; available: number; pending: number }
 		>();
 		for (const e of (ownerEarningsData ?? []) as Array<{
 			owner_user_id: string;
 			amount: number;
 			earning_type: string;
+			period_month: string | null;
 		}>) {
 			const cur = earningsByOwner.get(e.owner_user_id) ?? {
 				earned: 0,
 				withdrawn: 0,
+				available: 0,
+				pending: 0,
 			};
-			if (e.earning_type === "withdrawal" || e.amount < 0) {
+			const isWithdrawal = e.earning_type === "withdrawal" || e.amount < 0;
+			if (isWithdrawal) {
 				cur.withdrawn += Math.abs(e.amount);
+				// Penarikan selalu mengurangi yang bisa diambil, periode apa pun.
+				cur.available += e.amount;
 			} else {
 				cur.earned += e.amount;
+				const period = e.period_month ?? currentMonthStart;
+				if (period < currentMonthStart) cur.available += e.amount;
+				else cur.pending += e.amount;
 			}
 			earningsByOwner.set(e.owner_user_id, cur);
 		}
@@ -367,12 +385,19 @@ export default async function FinancePage({
 				share_pct: number | null;
 			}>
 		).map((o) => {
-			const e = earningsByOwner.get(o.id) ?? { earned: 0, withdrawn: 0 };
+			const e = earningsByOwner.get(o.id) ?? {
+				earned: 0,
+				withdrawn: 0,
+				available: 0,
+				pending: 0,
+			};
 			return {
 				...o,
 				earned: e.earned,
 				withdrawn: e.withdrawn,
 				balance: e.earned - e.withdrawn,
+				available: e.available,
+				pending: e.pending,
 			};
 		});
 	}
@@ -737,7 +762,9 @@ export default async function FinancePage({
 					titleExtra={
 						<InfoHint title="Bagi hasil owner">
 							Jatah keuntungan tiap owner dari event yang sudah selesai
-							(Rp50.000 per event). "Bisa diambil" = sisa yang belum ditarik.
+							(Rp50.000 per event). Jatah dari event bulan ini baru bisa diambil
+							bulan depan — jadi "Bisa diambil" hanya menghitung bulan-bulan
+							yang sudah lewat, dikurangi yang sudah ditarik.
 						</InfoHint>
 					}
 					meta={
@@ -747,7 +774,8 @@ export default async function FinancePage({
 									id: o.id,
 									full_name: o.full_name,
 									role: o.role,
-									balance: o.balance,
+									balance: o.available,
+									pending: o.pending,
 								}))}
 								banks={banks.map((b) => ({
 									id: b.id,
@@ -803,15 +831,20 @@ export default async function FinancePage({
 										<td className="text-foreground tabular px-4 py-2.5 text-right font-semibold">
 											<span
 												className={
-													o.balance > 0
+													o.available > 0
 														? "text-emerald-600 dark:text-emerald-400"
-														: o.balance < 0
+														: o.available < 0
 															? "text-rose-600 dark:text-rose-400"
 															: "text-muted-foreground"
 												}
 											>
-												{formatRupiah(o.balance)}
+												{formatRupiah(o.available)}
 											</span>
+											{o.pending > 0 && (
+												<span className="text-muted-foreground block text-[10.5px] font-normal">
+													+{formatRupiah(o.pending)} bulan ini
+												</span>
+											)}
 										</td>
 									</tr>
 								))}
