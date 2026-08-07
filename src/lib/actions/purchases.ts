@@ -158,13 +158,19 @@ export async function recordPurchaseBatch(
 
 	// Rekening sumber dana harus kas/bank aktif — kalau tidak, uang keluar bisa
 	// mendarat di akun yang salah dan baru ketahuan saat rekonsiliasi.
+	// Namanya disimpan untuk keterangan jurnal: sejak rekening bisa dipilih,
+	// menulis "kas tunai" pada pembayaran lewat bank jadi keterangan palsu.
+	let paymentAccountName: string | null = null;
 	if (parsed.data.payment_method === "cash") {
 		const { data: acct } = await supabase
 			.from("chart_of_accounts")
 			.select("code, name, account_type, is_active")
 			.eq("code", parsed.data.payment_account_code)
 			.maybeSingle();
-		if (!acct || !isCashOrBank(acct.code as string, acct.account_type as string)) {
+		if (
+			!acct ||
+			!isCashOrBank(acct.code as string, acct.account_type as string)
+		) {
 			return {
 				errors: {
 					_form: [
@@ -176,6 +182,7 @@ export async function recordPurchaseBatch(
 		if (!acct.is_active) {
 			return { errors: { _form: [`Rekening ${acct.name} nonaktif`] } };
 		}
+		paymentAccountName = acct.name as string;
 	}
 
 	// Resolve all referenced items in one query for unit_conversion lookup
@@ -394,7 +401,9 @@ export async function recordPurchaseBatch(
 	// — asetnya ADA di neraca tapi TIDAK PERNAH disusutkan, dan tidak ada error
 	// di mana pun. Sebelumnya hasil Promise.all dibuang seluruhnya.
 	const capexErrors = capexResults
-		.map((r, i) => (r.error ? `${capexLines[i].item_id}: ${r.error.message}` : null))
+		.map((r, i) =>
+			r.error ? `${capexLines[i].item_id}: ${r.error.message}` : null,
+		)
 		.filter((v): v is string => v !== null);
 	if (capexErrors.length > 0) {
 		console.error("[purchases] fixed asset config update gagal:", capexErrors);
@@ -513,9 +522,7 @@ export async function recordPurchaseBatch(
 			// Biaya admin bank hanya berlaku pada pembelian cash (dibayar sekarang).
 			// TOP → admin fee muncul saat pelunasan hutang (flow payables), bukan di sini.
 			const adminFee = isCash ? parsed.data.admin_fee : 0;
-			const creditAccount = isCash
-				? parsed.data.payment_account_code
-				: "2-101";
+			const creditAccount = isCash ? parsed.data.payment_account_code : "2-101";
 			// Uang kas yang benar-benar keluar = nilai barang + biaya admin.
 			const creditTotal = grandTotal + adminFee;
 			const entryType = isCash ? "transfer" : "asset_in";
@@ -604,7 +611,7 @@ export async function recordPurchaseBatch(
 					debit_amount: 0,
 					credit_amount: creditTotal,
 					description: isCash
-						? "Pembayaran kas tunai"
+						? `Pembayaran via ${paymentAccountName ?? "kas/bank"}`
 						: `Hutang vendor (${parsed.data.payment_method.toUpperCase()})`,
 					line_order: order,
 				});
