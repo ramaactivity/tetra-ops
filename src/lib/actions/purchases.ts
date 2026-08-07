@@ -529,11 +529,30 @@ export async function recordPurchaseBatch(
 			const refId = newJournalRef(new Date(purchaseDateIso));
 			const entryDate = purchaseDateIso.slice(0, 10);
 
+			// Deskripsi menyebut APA yang dibeli. Dulu selalu "Pembelian stok",
+			// jadi pembelian alat pun terbaca sebagai belanja stok dan owner tidak
+			// mengenalinya saat mencari di Jurnal. Kalau isinya satu jenis barang,
+			// namanya dipakai langsung; kalau campur, cukup "alat" / "stok".
+			const boughtNames = Array.from(
+				new Set(
+					[
+						...movements.map((m) => m.item_id),
+						...capexLines.map((c) => c.item_id),
+					]
+						.map(
+							(id) => (byItem.get(id) as { name?: string } | undefined)?.name,
+						)
+						.filter((n): n is string => !!n),
+				),
+			);
+			const allCapex = movements.length === 0 && capexLines.length > 0;
+			const whatLabel =
+				boughtNames.length === 1 ? boughtNames[0] : allCapex ? "alat" : "stok";
 			const descParts: string[] = [];
 			if (parsed.data.invoice_no) {
-				descParts.push(`Pembelian inv ${parsed.data.invoice_no}`);
+				descParts.push(`Pembelian ${whatLabel} inv ${parsed.data.invoice_no}`);
 			} else {
-				descParts.push("Pembelian stok");
+				descParts.push(`Pembelian ${whatLabel}`);
 			}
 			if (parsed.data.supplier_id) {
 				const { data: sup } = await supabase
