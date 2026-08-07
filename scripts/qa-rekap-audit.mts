@@ -605,11 +605,12 @@ console.log("\nB. Fee crew — hitungan & pembayaran");
 	const bad: string[] = [];
 	let totalDrift = 0;
 	for (const s of settlements) {
+		// SELURUH jurnal event ini yang MENGKREDIT 2-100, bukan cuma jurnal
+		// settlement: koreksi manual (mis. pembulatan talangan jadi bonus crew)
+		// juga menambah utang yang sah. Pembayaran fee mendebit 2-100, jadi tidak
+		// ikut terhitung di sini.
 		const je = entries.filter(
-			(e) =>
-				e.source_type === "settlement" &&
-				e.source_event_id === s.event_id &&
-				!e.is_reversed,
+			(e) => e.source_event_id === s.event_id && !e.is_reversed,
 		);
 		const kredit = lines
 			.filter(
