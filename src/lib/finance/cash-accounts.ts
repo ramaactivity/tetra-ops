@@ -66,15 +66,23 @@ export async function loadCashAccounts(
 }
 
 /**
- * Rekening default untuk sejumlah uang keluar: yang saldonya cukup lebih dulu,
- * baru rekening pertama. Jangan asal index 0 — itu yang bikin kas tunai minus.
+ * Rekening default untuk sejumlah uang keluar: yang ADA ISINYA dan cukup,
+ * baru yang saldonya paling besar. Jangan asal index 0 — itu yang bikin kas
+ * tunai minus.
+ *
+ * Syarat "ada isinya" penting saat nominalnya belum diketik (amount = 0):
+ * tanpa itu, rekening bersaldo Rp0 lolos uji `saldo >= 0` dan form membuka
+ * dengan "Kas Tunai — Rp 0" terpilih.
  */
 export function defaultCashAccount(
 	accounts: CashAccountOption[],
 	amount: number,
 ): string {
+	const funded = accounts.filter((a) => a.balance > 0);
+	const richest = [...accounts].sort((a, b) => b.balance - a.balance)[0];
 	return (
-		accounts.find((a) => a.balance >= amount)?.code ??
+		funded.find((a) => a.balance >= amount)?.code ??
+		richest?.code ??
 		accounts[0]?.code ??
 		"1-100"
 	);
