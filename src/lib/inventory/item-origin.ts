@@ -38,7 +38,9 @@ function today(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-export type OriginResult = { ok: true } | { ok: false; error: string };
+export type OriginResult =
+	| { ok: true; journalRef?: string }
+	| { ok: false; error: string };
 
 /**
  * Catat pembelian 1 baris untuk item yang baru dibuat (atau item lama yang
@@ -77,6 +79,10 @@ export async function recordItemPurchaseLines(
 
 	const fd = new FormData();
 	fd.set("supplier_id", String(formData.get("buy_supplier_id") ?? ""));
+	fd.set(
+		"payment_account_code",
+		String(formData.get("buy_payment_account_code") ?? ""),
+	);
 	fd.set("purchase_date", String(formData.get("buy_date") || today()));
 	fd.set(
 		"payment_method",
@@ -109,7 +115,30 @@ export async function recordItemPurchaseLines(
 			"Pembelian gagal dicatat";
 		return { ok: false, error: msg };
 	}
-	return { ok: true };
+
+	// Foto nota sudah diunggah client sebelum submit (belum tertaut ke jurnal
+	// apa pun karena ref-nya baru lahir sekarang). Tautkan supaya di Arsip Nota
+	// notanya nyambung ke jurnal pembeliannya — bukan cuma file lepas.
+	const notaId = String(formData.get("buy_nota_id") ?? "").trim();
+	if (notaId && res?.journalEntryRef) {
+		await linkNotaToEntry(notaId, res.journalEntryRef);
+	}
+	return { ok: true, journalRef: res?.journalEntryRef };
+}
+
+/** Tautkan nota manual yang sudah diunggah ke ref jurnal pembeliannya. */
+async function linkNotaToEntry(notaId: string, entryRefId: string) {
+	const { createClient } = await import("@/lib/supabase/server");
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("manual_notas")
+		.update({ entry_ref_id: entryRefId })
+		.eq("id", notaId);
+	if (error) {
+		// Bukan alasan menggagalkan pembelian — notanya tetap ada di Arsip Nota,
+		// cuma belum tertaut. Bisa ditautkan manual dari sana.
+		console.error("[item-origin] gagal tautkan nota:", error.message);
+	}
 }
 
 type SupabaseLike = {

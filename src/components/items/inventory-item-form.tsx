@@ -461,6 +461,7 @@ export function InventoryItemForm({
 						suppliers={suppliers}
 						unitLabel={prettyUnit(purchaseUnit || baseUnit)}
 						kind="inventory"
+						itemName={name}
 					/>
 					<input
 						type="hidden"
