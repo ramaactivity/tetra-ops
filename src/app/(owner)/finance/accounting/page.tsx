@@ -48,9 +48,14 @@ export default async function AccountingPage({
 	}
 
 	const { tab: tabRaw, from, to, entry: focusRef } = await searchParams;
-	// Deep-link ke satu entry selalu berarti tab Jurnal — kalau tidak, link dari
-	// Riwayat payment mendarat di Bagan Akun dan sorotan tak pernah terlihat.
-	const tab: Tab = tabRaw === "journal" || focusRef ? "journal" : "accounts";
+	// Default = Jurnal: yang dicari owner saat membuka Akuntansi hampir selalu
+	// "transaksi apa saja yang masuk", bukan daftar akun. Bagan Akun jadi
+	// tampilan referensi yang dibuka saat dibutuhkan (?tab=accounts).
+	//
+	// Deep-link ke satu entry juga selalu berarti Jurnal — kalau tidak, link
+	// dari Riwayat payment mendarat di Bagan Akun dan sorotan tak pernah
+	// terlihat. `?tab=journal` dari link lama tetap valid (tetap Jurnal).
+	const tab: Tab = tabRaw === "accounts" && !focusRef ? "accounts" : "journal";
 
 	const supabase = await createClient();
 
