@@ -7,6 +7,10 @@ import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { revalidateDashboard } from "@/lib/dashboard/stats";
+import {
+	type ReimbursementSync,
+	syncCrewReimbursement,
+} from "@/lib/rekap/reimbursement";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramEventSettled } from "@/lib/telegram/notify";
 
@@ -47,6 +51,8 @@ export type SettleEventResponse =
 			data: SettleEventResult;
 			crewPayment?: CrewPaymentSummary;
 			commissionPayment?: CommissionPaymentSummary;
+			/** Penyesuaian talangan crew sebelum jurnal dibuat (kalau ada). */
+			reimbursement?: ReimbursementSync;
 	  }
 	| { ok: false; error: string; code?: string };
 
@@ -79,6 +85,17 @@ export async function settleEvent(
 	if (!committed.ok) return { ok: false, error: committed.error };
 
 	const supabase = await createClient();
+
+	// Talangan crew: settle mengkredit 2-100 sebesar OpEx (termasuk biaya yang
+	// ditalangi crew), tapi tombol bayar cuma bisa membayar fee+bonus+
+	// reimbursement. Kalau reimbursement-nya kosong, selisihnya mengendap di
+	// 2-100 tanpa muncul di layar mana pun. Samakan dulu sebelum jurnal lahir.
+	const reimbursement = await syncCrewReimbursement(supabase, eventId);
+	if (reimbursement?.blocked) {
+		console.error(
+			`[settle] talangan crew tidak bisa disamakan (${eventId}): ${reimbursement.blocked}`,
+		);
+	}
 	const { data, error } = await supabase.rpc("settle_event", {
 		p_event_id: eventId,
 		p_owner_user_id: me.authId,
@@ -180,6 +197,7 @@ export async function settleEvent(
 		data: data as SettleEventResult,
 		crewPayment,
 		commissionPayment,
+		reimbursement: reimbursement ?? undefined,
 	};
 }
 
