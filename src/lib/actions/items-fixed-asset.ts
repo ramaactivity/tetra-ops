@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { baseSkuOf } from "@/lib/inventory/asset-models";
 import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { defaultsForFixedAsset } from "@/lib/inventory/coa-defaults";
+import { withItemCreated } from "@/lib/inventory/item-created-toast";
 import { recordItemPurchaseLines } from "@/lib/inventory/item-origin";
 import {
 	ensureUniqueSku,
@@ -421,6 +422,13 @@ export async function createFixedAssetItem(
 	// jurnal Dr aset/beban perlengkapan / Cr kas atau Hutang Vendor + kebijakan
 	// kapitalisasi). Beli beberapa unit sekaligus = SATU nota berisi beberapa
 	// baris, bukan beberapa jurnal terpisah.
+	let purchaseRef: string | null = null;
+	let bookedAmount = 0;
+	let origin: "purchase" | "owner_contribution" | "none" = "none";
+	if (data.acquisition_type === "owner_contribution") {
+		origin = "owner_contribution";
+		bookedAmount = data.purchase_price * createdItemIds.length;
+	}
 	if (
 		data.acquisition_type !== "owner_contribution" &&
 		Number(formData.get("buy_quantity") ?? 0) > 0
@@ -430,6 +438,11 @@ export async function createFixedAssetItem(
 			createdItemIds.map((itemId) => ({ itemId, quantity: 1 })),
 			"unit",
 		);
+		if (res.ok) {
+			origin = "purchase";
+			purchaseRef = res.journalRef ?? null;
+			bookedAmount = data.purchase_price * createdItemIds.length;
+		}
 		if (!res.ok) {
 			return {
 				errors: {
@@ -445,7 +458,17 @@ export async function createFixedAssetItem(
 	revalidatePath("/warehouse");
 	revalidatePath("/warehouse/assets");
 	revalidatePath("/finance/accounting");
-	redirect(safeReturnTo(formData.get("return_to")));
+	// Bawa ringkasannya lewat URL — redirect membuang state, jadi tanpa ini
+	// owner tidak punya tanda apa pun bahwa item & jurnalnya jadi.
+	redirect(
+		withItemCreated(safeReturnTo(formData.get("return_to")), {
+			name,
+			units: createdItemIds.length,
+			origin,
+			journalRef: purchaseRef,
+			amount: bookedAmount,
+		}),
+	);
 }
 
 export async function updateFixedAssetItem(

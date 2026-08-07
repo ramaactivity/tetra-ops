@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { defaultsForInventorySku } from "@/lib/inventory/coa-defaults";
+import { withItemCreated } from "@/lib/inventory/item-created-toast";
 import {
 	readItemOrigin,
 	recordItemPurchase,
@@ -266,8 +267,13 @@ export async function createInventoryItem(
 	// tidak pernah masuk pembukuan. Pembelian sengaja lewat modul Pembelian
 	// (satu-satunya jalur pembelian), bukan jurnal tulis-sendiri.
 	const origin = readItemOrigin(formData);
+	let purchaseRef: string | null = null;
+	const bookedAmount =
+		Number(formData.get("buy_quantity") ?? 0) *
+		Number(formData.get("buy_unit_cost") ?? 0);
 	if (origin === "purchase") {
 		const res = await recordItemPurchase(formData, inserted.id, data.base_unit);
+		if (res.ok) purchaseRef = res.journalRef ?? null;
 		if (!res.ok) {
 			return {
 				errors: {
@@ -306,7 +312,16 @@ export async function createInventoryItem(
 
 	revalidatePath("/warehouse");
 	revalidatePath("/finance/accounting");
-	redirect(safeReturnTo(formData.get("return_to")));
+	// Ringkasan hasil dibawa lewat URL — lihat item-created-toast.ts.
+	redirect(
+		withItemCreated(safeReturnTo(formData.get("return_to")), {
+			name: data.name,
+			units: 1,
+			origin,
+			journalRef: purchaseRef,
+			amount: bookedAmount,
+		}),
+	);
 }
 
 export async function updateInventoryItem(

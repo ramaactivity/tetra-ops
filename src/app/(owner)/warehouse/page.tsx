@@ -10,6 +10,8 @@ import {
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
+import { ItemCreatedToast } from "@/components/items/item-created-toast";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
@@ -694,6 +696,11 @@ export default async function WarehousePage({
 				)}
 				{tab === "bundles" && <BundlesGrid rows={bundleRows} />}
 			</div>
+			{/* Konfirmasi setelah menambah item — dititipkan lewat query oleh
+			    server action, karena redirect membuang state form. */}
+			<Suspense fallback={null}>
+				<ItemCreatedToast />
+			</Suspense>
 		</Container>
 	);
 }
