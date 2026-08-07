@@ -27,7 +27,10 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
-import { listUnpaidCrew } from "@/lib/finance/unpaid-crew";
+import {
+	listCrewLiabilityGaps,
+	listUnpaidCrew,
+} from "@/lib/finance/unpaid-crew";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -356,6 +359,12 @@ export default async function FinancePage({
 		supabase,
 		cutoffDate,
 	);
+	// Kalau saldo buku beda dari daftar, ini yang menjelaskan bedanya per event
+	// — dulu banner-nya cuma menebak "mungkin ada jurnal manual".
+	const crewGaps =
+		Math.abs(unpaidCrewTotal - hutangCrewGl) > 0
+			? await listCrewLiabilityGaps(supabase)
+			: [];
 
 	let ownerBreakdown: Array<{
 		id: string;
@@ -657,12 +666,49 @@ export default async function FinancePage({
 				}
 			>
 				{Math.abs(unpaidCrewTotal - hutangCrewGl) > 0 && (
-					<p className="border-border-subtle bg-rose-100/50 border-b px-4 py-2 text-[11px] text-rose-700">
-						⚠ Daftar di bawah ({formatRupiah(unpaidCrewTotal)}) beda{" "}
-						{formatRupiah(Math.abs(unpaidCrewTotal - hutangCrewGl))} dari saldo
-						buku Hutang Crew 2-100 ({formatRupiah(hutangCrewGl)}). Kemungkinan
-						ada jurnal manual di 2-100 — cek di Akuntansi.
-					</p>
+					<div className="border-border-subtle bg-rose-100/50 border-b px-4 py-2.5 text-[11px] leading-relaxed text-rose-700">
+						<p>
+							⚠ Daftar di bawah ({formatRupiah(unpaidCrewTotal)}) beda{" "}
+							{formatRupiah(Math.abs(unpaidCrewTotal - hutangCrewGl))} dari
+							saldo buku Hutang Crew 2-100 ({formatRupiah(hutangCrewGl)}).
+						</p>
+						{crewGaps.length > 0 ? (
+							<>
+								<p className="mt-1">
+									Penyebabnya talangan crew yang tidak pernah tertaut ke crew
+									mana pun — jadi tidak bisa dibayar lewat tombol Bayar:
+								</p>
+								<ul className="mt-1 space-y-0.5">
+									{crewGaps.map((g) => (
+										<li key={g.projectId}>
+											<Link
+												href={`/operations/${g.projectId}/rekap`}
+												className="underline underline-offset-2 hover:text-rose-900"
+											>
+												{g.clientName}
+											</Link>{" "}
+											— dibukukan {formatRupiah(g.booked)}, bisa dibayar{" "}
+											{formatRupiah(g.payable)} →{" "}
+											<strong>
+												{g.gap > 0 ? "kurang" : "lebih"}{" "}
+												{formatRupiah(Math.abs(g.gap))}
+											</strong>
+										</li>
+									))}
+								</ul>
+								<p className="mt-1 text-rose-700/80">
+									Kalau crew sudah menerima uangnya di luar aplikasi, buat
+									jurnal koreksi di Akuntansi. Kalau belum, isi kolom talangan
+									di rekap event tsb lalu bayar seperti biasa.
+								</p>
+							</>
+						) : (
+							<p className="mt-1">
+								Tidak ketemu event penyebabnya — kemungkinan ada jurnal manual
+								di 2-100, cek di Akuntansi.
+							</p>
+						)}
+					</div>
 				)}
 				{unpaidCrew.length === 0 ? (
 					<EmptyState

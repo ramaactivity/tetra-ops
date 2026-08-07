@@ -120,3 +120,119 @@ export async function listUnpaidCrew(
 
 	return { rows, total: rows.reduce((s, r) => s + r.amount, 0) };
 }
+
+export type CrewLiabilityGap = {
+	projectId: string;
+	clientName: string;
+	eventDate: string;
+	/** Yang diutangkan jurnal settlement ke akun 2-100. */
+	booked: number;
+	/** Yang bisa dibayar lewat tombol Bayar (fee + bonus + reimbursement). */
+	payable: number;
+	/** booked − payable. Positif = ada utang yang tidak tertaut ke crew mana pun. */
+	gap: number;
+};
+
+/**
+ * Kenapa saldo 2-100 beda dari daftar "belum dibayar", dipecah per event.
+ *
+ * Sebabnya hampir selalu satu: settle mengutangkan seluruh OpEx (fee + biaya
+ * lapangan yang ditalangi crew), tapi yang bisa dibayar lewat aplikasi cuma
+ * fee + bonus + reimbursement_amount. Talangan yang tidak pernah dimasukkan ke
+ * reimbursement mengendap di 2-100 tanpa muncul di layar mana pun.
+ *
+ * Sejak 2026-08-07 settleEvent menyamakannya otomatis (lihat
+ * src/lib/rekap/reimbursement.ts), jadi daftar ini seharusnya hanya berisi
+ * event lama. Kalau ada event baru yang muncul di sini, berarti penyamaan itu
+ * gagal — bukan sekadar "ada jurnal manual".
+ */
+export async function listCrewLiabilityGaps(
+	supabase: AnySupabase,
+): Promise<CrewLiabilityGap[]> {
+	const { data: settlements } = await supabase
+		.from("event_settlements")
+		.select(
+			"event_id, event:events!inner(project_id, client_name, event_date)",
+		);
+	if (!settlements?.length) return [];
+
+	const eventIds = settlements.map((s: { event_id: string }) => s.event_id);
+
+	// Utang yang dibukukan: kredit 2-100 pada jurnal settlement event ini.
+	const { data: entries } = await supabase
+		.from("journal_entries")
+		.select("id, source_event_id")
+		.eq("source_type", "settlement")
+		.eq("is_reversed", false)
+		.in("source_event_id", eventIds);
+	const eventByEntry = new Map<string, string>(
+		(entries ?? []).map((e: { id: string; source_event_id: string }) => [
+			e.id,
+			e.source_event_id,
+		]),
+	);
+	const { data: lines } = await supabase
+		.from("journal_lines")
+		.select("entry_id, credit_amount")
+		.eq("account_code", "2-100")
+		.in("entry_id", [...eventByEntry.keys()]);
+	const bookedByEvent = new Map<string, number>();
+	for (const l of (lines ?? []) as Array<{
+		entry_id: string;
+		credit_amount: number | string;
+	}>) {
+		const evId = eventByEntry.get(l.entry_id);
+		if (!evId) continue;
+		bookedByEvent.set(
+			evId,
+			(bookedByEvent.get(evId) ?? 0) + Number(l.credit_amount ?? 0),
+		);
+	}
+
+	// Yang bisa dibayar: seluruh assignment event tsb (dibayar maupun belum —
+	// pembayaran mendebit 2-100 dengan angka yang sama).
+	const { data: assigns } = await supabase
+		.from("crew_assignments")
+		.select("event_id, fee_amount, bonus_amount, reimbursement_amount")
+		.in("event_id", eventIds);
+	const payableByEvent = new Map<string, number>();
+	for (const a of (assigns ?? []) as Array<{
+		event_id: string;
+		fee_amount: number | null;
+		bonus_amount: number | null;
+		reimbursement_amount: number | null;
+	}>) {
+		payableByEvent.set(
+			a.event_id,
+			(payableByEvent.get(a.event_id) ?? 0) +
+				Number(a.fee_amount ?? 0) +
+				Number(a.bonus_amount ?? 0) +
+				Number(a.reimbursement_amount ?? 0),
+		);
+	}
+
+	const out: CrewLiabilityGap[] = [];
+	for (const s of settlements as Array<{
+		event_id: string;
+		event:
+			| { project_id: string; client_name: string; event_date: string }
+			| Array<{ project_id: string; client_name: string; event_date: string }>
+			| null;
+	}>) {
+		const booked = bookedByEvent.get(s.event_id) ?? 0;
+		if (booked <= 0) continue;
+		const payable = payableByEvent.get(s.event_id) ?? 0;
+		const gap = booked - payable;
+		if (Math.abs(gap) < 1) continue;
+		const ev = Array.isArray(s.event) ? s.event[0] : s.event;
+		out.push({
+			projectId: ev?.project_id ?? "",
+			clientName: ev?.client_name ?? "",
+			eventDate: ev?.event_date ?? "",
+			booked,
+			payable,
+			gap,
+		});
+	}
+	return out.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+}

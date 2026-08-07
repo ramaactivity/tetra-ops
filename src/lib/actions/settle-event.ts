@@ -110,6 +110,15 @@ export async function settleEvent(
 		};
 	}
 
+	// Bekukan siapa dapat berapa. Settlement hanya menyimpan total per PERAN,
+	// jadi kalau fee di crew_assignments diubah setelah settle tidak ada jejak
+	// apa yang sebenarnya disepakati saat menutup event.
+	await snapshotCrewFees(
+		supabase,
+		eventId,
+		(data as SettleEventResult)?.settlement_id,
+	);
+
 	// Opsional: "bayar sambil settle". Event sekarang status=completed, jadi
 	// gate payCrewFee lolos. Bayar tiap crew yang belum lunas & total > 0 dari
 	// rekening yang dipilih. Bukti transfer yang sudah di-upload tetap tersimpan.
@@ -317,6 +326,54 @@ export async function reopenSettlement(
 	revalidatePath("/finance");
 
 	return { ok: true, data: data as ReopenResult };
+}
+
+/**
+ * Bekukan fee tiap crew ke event_settlements.crew_fee_snapshot.
+ *
+ * Best-effort: settle-nya sendiri sudah berhasil dan jurnalnya sudah lahir —
+ * gagal menulis catatan sejarah tidak boleh membatalkan itu, cukup dicatat di
+ * log supaya ketahuan kalau berulang.
+ */
+async function snapshotCrewFees(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+	settlementId: string | undefined,
+): Promise<void> {
+	if (!settlementId) return;
+	try {
+		const { data: rows } = await supabase
+			.from("crew_assignments")
+			.select(
+				`user_id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
+				 user:users!crew_assignments_user_id_fkey(full_name, nickname)`,
+			)
+			.eq("event_id", eventId);
+		const snapshot = (rows ?? []).map((r) => {
+			const u = Array.isArray(r.user) ? r.user[0] : r.user;
+			const fee = Number(r.fee_amount ?? 0);
+			const bonus = Number(r.bonus_amount ?? 0);
+			const reimbursement = Number(r.reimbursement_amount ?? 0);
+			return {
+				user_id: r.user_id,
+				name: u?.nickname?.trim() || u?.full_name || "Crew",
+				role: r.role_in_event,
+				fee,
+				bonus,
+				reimbursement,
+				total: fee + bonus + reimbursement,
+			};
+		});
+		const { error } = await supabase
+			.from("event_settlements")
+			.update({ crew_fee_snapshot: snapshot })
+			.eq("id", settlementId);
+		if (error) {
+			console.error(`[settle] snapshot fee crew gagal: ${error.message}`);
+		}
+	} catch (e) {
+		console.error("[settle] snapshot fee crew gagal:", e);
+	}
 }
 
 function humanizeRpcError(msg: string): string {
