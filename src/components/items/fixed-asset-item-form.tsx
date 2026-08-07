@@ -28,6 +28,7 @@ import {
 import { generateFixedAssetSku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
 import { ItemImageUpload } from "./item-image-upload";
+import { NotaUpload } from "./nota-upload";
 
 export type AcquisitionType =
 	| "new_commercial"
@@ -594,6 +595,7 @@ export function FixedAssetItemForm({
 						price={purchasePrice}
 						date={purchaseDate}
 						quantity={qty}
+						itemName={name}
 					/>
 				)}
 
@@ -868,6 +870,7 @@ function AssetPurchaseBooking({
 	price,
 	date,
 	quantity,
+	itemName,
 }: {
 	suppliers: Array<{ id: string; name: string }>;
 	cashAccounts: CashAccountOption[];
@@ -875,6 +878,8 @@ function AssetPurchaseBooking({
 	date: string;
 	/** Beli beberapa unit sekaligus → satu nota berisi beberapa baris. */
 	quantity: number;
+	/** Nama alat — jadi keterangan nota di Arsip Nota. */
+	itemName: string;
 }) {
 	const [on, setOn] = useState(true);
 	const [method, setMethod] = useState("cash");
@@ -985,6 +990,12 @@ function AssetPurchaseBooking({
 							placeholder="INV-8891"
 							className={inputClass}
 						/>
+					</div>
+					<div className="space-y-1 sm:col-span-3">
+						<span className="block text-[12px] font-medium text-foreground">
+							Foto nota (opsional)
+						</span>
+						<NotaUpload itemName={itemName} amount={totalNum} />
 					</div>
 				</div>
 			)}
