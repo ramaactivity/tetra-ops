@@ -70,17 +70,25 @@ export function PembelianDialog({
 	trigger,
 	items,
 	suppliers,
+	cashAccounts = [],
 	initialItemIds,
 }: {
 	trigger: React.ReactNode;
 	items: PembelianItemOption[];
 	suppliers: PembelianSupplierOption[];
+	/** Kas/bank aktif — sumber dana untuk pembelian tunai. */
+	cashAccounts?: Array<{ code: string; name: string }>;
 	/** Item IDs to pre-load as empty lines when dialog opens (e.g. restock kritis flow). */
 	initialItemIds?: string[];
 }) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [supplierId, setSupplierId] = useState<string>("");
+	// Sumber dana pembelian tunai. Dulu selalu Kas Tunai (1-100) walau uangnya
+	// dari bank → saldo Kas Tunai di buku tergerus tanpa sebab.
+	const [payAccount, setPayAccount] = useState<string>(
+		cashAccounts[0]?.code ?? "1-100",
+	);
 	const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 	const [topDays, setTopDays] = useState<string>("0");
 	// Biaya admin/transfer bank (opsional, cash only). String supaya kosong = 0.
@@ -338,6 +346,29 @@ export function PembelianDialog({
 									value={paymentMethod}
 								/>
 							</Field>
+							{paymentMethod === "cash" && cashAccounts.length > 0 ? (
+								<Field
+									label="Uang diambil dari"
+									name="payment_account_code"
+									hint="Rekening yang saldonya berkurang"
+								>
+									<Combobox
+										id="payment_account_code"
+										value={payAccount}
+										onValueChange={(v) => setPayAccount(v ?? "1-100")}
+										options={cashAccounts.map((a) => ({
+											value: a.code,
+											label: `${a.code} · ${a.name}`,
+										}))}
+										allowFreeText={false}
+									/>
+									<input
+										type="hidden"
+										name="payment_account_code"
+										value={payAccount}
+									/>
+								</Field>
+							) : null}
 							{paymentMethod === "top_custom" ? (
 								<Field label="TOP (hari)" name="top_days">
 									<NumberField

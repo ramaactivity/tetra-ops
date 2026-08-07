@@ -3,6 +3,7 @@
  * dedicated subledger table + flow, so a free-form manual journal / quick-record
  * entry touching them would silently desync the control account from its
  * subledger sum. Block free-form postings to these; use the proper flow instead:
+ *   • 1-2xx Persediaan         → Pembelian / Stock Opname / Wastage / settle
  *   • 2-101 Hutang Vendor      → Pembelian (TOP) / bayar Hutang Dagang
  *   • 2-102/2-103 Hutang Komisi→ settlement + modul Komisi (bayar/batalkan)
  *   • 1-310 Uang Muka Komisi   → modul Komisi ("Bayar di muka"), habis saat settle
@@ -22,6 +23,19 @@
  */
 
 export const SUBLEDGER_CONTROLLED_ACCOUNTS: ReadonlySet<string> = new Set([
+	// Persediaan direkonsiliasi terhadap stok fisik × harga rata-rata, jadi
+	// jurnal manual bebas di sini langsung bikin drift yang tak sembuh sendiri.
+	// Semua jalur sahnya sudah ada & menulis jurnalnya sendiri: Pembelian,
+	// Stock Opname, Wastage, dan pemakaian saat settle.
+	"1-200",
+	"1-201",
+	"1-202",
+	"1-203",
+	"1-204",
+	"1-205",
+	"1-206",
+	"1-207",
+	"1-209",
 	"1-310",
 	"1-401",
 	"2-101",

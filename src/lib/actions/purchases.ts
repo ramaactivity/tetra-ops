@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { isCashOrBank } from "@/lib/finance/accounting";
 import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
@@ -46,6 +47,15 @@ const PurchaseBatchSchema = z.object({
 	// untuk TOP, biaya admin muncul saat pelunasan hutang di flow payables).
 	// Dibukukan sebagai debit 5-600, nambah kredit Kas Tunai.
 	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
+	// Rekening sumber dana untuk pembelian TUNAI. Dulu selalu di-hardcode ke
+	// 1-100 Kas Tunai, jadi belanja yang sebenarnya dibayar lewat bank tetap
+	// menggerus saldo Kas Tunai di buku. Kosong = 1-100 (perilaku lama).
+	payment_account_code: z
+		.string()
+		.trim()
+		.max(20)
+		.optional()
+		.transform((v) => (v ? v : "1-100")),
 	invoice_no: z
 		.string()
 		.trim()
@@ -130,6 +140,7 @@ export async function recordPurchaseBatch(
 		payment_method: formData.get("payment_method") || "cash",
 		top_days: formData.get("top_days") || 0,
 		admin_fee: formData.get("admin_fee") || 0,
+		payment_account_code: formData.get("payment_account_code") ?? undefined,
 		invoice_no: formData.get("invoice_no"),
 		notes: formData.get("notes"),
 		pr_id: formData.get("pr_id") || null,
@@ -144,6 +155,28 @@ export async function recordPurchaseBatch(
 	}
 
 	const supabase = await createClient();
+
+	// Rekening sumber dana harus kas/bank aktif — kalau tidak, uang keluar bisa
+	// mendarat di akun yang salah dan baru ketahuan saat rekonsiliasi.
+	if (parsed.data.payment_method === "cash") {
+		const { data: acct } = await supabase
+			.from("chart_of_accounts")
+			.select("code, name, account_type, is_active")
+			.eq("code", parsed.data.payment_account_code)
+			.maybeSingle();
+		if (!acct || !isCashOrBank(acct.code as string, acct.account_type as string)) {
+			return {
+				errors: {
+					_form: [
+						`Rekening ${parsed.data.payment_account_code} bukan kas/bank yang sah`,
+					],
+				},
+			};
+		}
+		if (!acct.is_active) {
+			return { errors: { _form: [`Rekening ${acct.name} nonaktif`] } };
+		}
+	}
 
 	// Resolve all referenced items in one query for unit_conversion lookup
 	const itemIds = Array.from(new Set(parsed.data.lines.map((l) => l.item_id)));
@@ -480,7 +513,9 @@ export async function recordPurchaseBatch(
 			// Biaya admin bank hanya berlaku pada pembelian cash (dibayar sekarang).
 			// TOP → admin fee muncul saat pelunasan hutang (flow payables), bukan di sini.
 			const adminFee = isCash ? parsed.data.admin_fee : 0;
-			const creditAccount = isCash ? "1-100" : "2-101";
+			const creditAccount = isCash
+				? parsed.data.payment_account_code
+				: "2-101";
 			// Uang kas yang benar-benar keluar = nilai barang + biaya admin.
 			const creditTotal = grandTotal + adminFee;
 			const entryType = isCash ? "transfer" : "asset_in";
