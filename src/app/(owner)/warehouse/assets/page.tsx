@@ -1,4 +1,4 @@
-import { Camera, Pencil, Plus } from "lucide-react";
+import { Camera, CopyPlus, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -202,7 +202,7 @@ export default async function AssetRegisterPage({
 						    memengaruhi pajak final, cocok dgn cash-basis. Tombol & cron
 						    di-nonaktifkan; kode tetap ada bila nanti perlu dinyalakan. */}
 						<Link
-							href="/warehouse/items/new"
+							href="/warehouse/items/new?category=fixed_asset"
 							className={buttonVariants({
 								variant: "default",
 								className: "h-9",
@@ -447,6 +447,15 @@ export default async function AssetRegisterPage({
 												<div className="flex items-center justify-end gap-1">
 													{!r.disposed_at && (
 														<>
+															{/* Beli unit ke-sekian dari alat yang sama —
+															    form terbuka di mode "nambah unit". */}
+															<Link
+																href={`/warehouse/items/new?category=fixed_asset&model=${r.id}`}
+																className="text-muted-foreground hover:text-foreground hover:bg-surface-1 inline-flex size-7 items-center justify-center rounded-md"
+																title={`Tambah unit ${r.name}`}
+															>
+																<CopyPlus className="size-3.5" />
+															</Link>
 															<Link
 																href={`/warehouse/items/${r.id}/edit`}
 																className="text-muted-foreground hover:text-foreground hover:bg-surface-1 inline-flex size-7 items-center justify-center rounded-md"

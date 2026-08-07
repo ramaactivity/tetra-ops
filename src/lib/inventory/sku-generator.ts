@@ -139,8 +139,8 @@ export async function ensureUniqueSku(
 			.eq("sku", candidate)
 			.maybeSingle();
 		if (!data) return candidate;
-		attempt++;
-		candidate = `${baseSku}-${attempt}`;
+		// Unit ke-2 dst: -2, -3, -4 … (jangan loncat nomor — SKU unit dibaca orang).
+		candidate = `${baseSku}-${attempt + 1}`;
 	}
 	throw new Error(`Tidak bisa generate SKU unik untuk "${baseSku}"`);
 }

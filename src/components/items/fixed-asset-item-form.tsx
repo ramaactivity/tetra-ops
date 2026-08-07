@@ -1,7 +1,8 @@
 "use client";
 
-import { Info, Wand2 } from "lucide-react";
+import { Info, Layers, Sparkles, Wand2 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
 import { RichTextarea } from "@/components/ui/rich-textarea";
@@ -11,6 +12,10 @@ import {
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
 import { formatRupiah } from "@/lib/format";
+import {
+	type AssetModelOption,
+	normalizeModelName,
+} from "@/lib/inventory/asset-models";
 import {
 	ASSET_MIN_LIFE_MONTHS,
 	ASSET_MIN_PRICE,
@@ -93,18 +98,26 @@ const LOCATION_OPTIONS = [
 	{ value: "lost", label: "Hilang" },
 ];
 
+const MAX_UNITS_PER_SUBMIT = 20;
+
 export function FixedAssetItemForm({
 	mode,
 	id,
 	defaults = EMPTY_FIXED_ASSET_DEFAULTS,
 	returnTo,
 	suppliers = [],
+	assetModels = [],
+	initialModelId,
 }: {
 	mode: "create" | "edit";
 	id?: string;
 	defaults?: FixedAssetItemDefaults;
 	returnTo?: "/warehouse";
 	suppliers?: Array<{ id: string; name: string }>;
+	/** Alat yang sudah terdaftar — dipilih kalau owner menambah unit, bukan alat baru. */
+	assetModels?: AssetModelOption[];
+	/** Pra-pilih model (dari tombol "+ unit" di Asset Register). */
+	initialModelId?: string;
 }) {
 	const action =
 		mode === "create"
@@ -126,12 +139,20 @@ export function FixedAssetItemForm({
 			state?.errors?.[key as keyof typeof state.errors] as string[] | undefined
 		)?.[0];
 
-	const [name, setName] = useState<string>(get("name"));
+	// Pra-pilih model dari tombol "+ unit" di Asset Register.
+	const initialModel =
+		mode === "create" && initialModelId
+			? assetModels.find((m) => m.id === initialModelId)
+			: undefined;
+
+	const [name, setName] = useState<string>(initialModel?.name ?? get("name"));
 	const [skuOverride, setSkuOverride] = useState<string>(
 		mode === "edit" ? defaults.sku : "",
 	);
 	const [skuEditable, setSkuEditable] = useState<boolean>(mode === "edit");
-	const [unit, setUnit] = useState<string>(get("unit"));
+	const [unit, setUnit] = useState<string>(initialModel?.unit ?? get("unit"));
+	const [quantity, setQuantity] = useState<string>("1");
+	const [serials, setSerials] = useState<string[]>([]);
 	const [acquisitionType, setAcquisitionType] = useState<AcquisitionType>(
 		(get("acquisition_type") as AcquisitionType) || "new_commercial",
 	);
@@ -147,21 +168,66 @@ export function FixedAssetItemForm({
 		get("image_url") || null,
 	);
 
+	// Controlled so the capitalization-policy banner + depreciation preview
+	// update live as the owner types price / useful life.
+	const [purchasePrice, setPurchasePrice] = useState<string>(
+		initialModel ? String(initialModel.lastPrice) : get("purchase_price"),
+	);
+	const [salvage, setSalvage] = useState<string>(
+		initialModel ? String(initialModel.salvageValue) : get("salvage_value"),
+	);
+	const [usefulLife, setUsefulLife] = useState<string>(
+		initialModel
+			? String(initialModel.usefulLifeMonths ?? "")
+			: get("useful_life_months"),
+	);
+
+	// Langkah pertama: alat baru, atau unit ke-sekian dari alat yang sudah ada?
+	// Ditentukan dari nama — persis pola vendor picker di New Booking. Pilih dari
+	// daftar (atau ketik nama yang sudah ada) = tambah unit; nama lain = alat baru.
+	const model = useMemo(() => {
+		if (mode !== "create") return undefined;
+		const key = normalizeModelName(name);
+		if (!key) return undefined;
+		return assetModels.find((m) => normalizeModelName(m.name) === key);
+	}, [assetModels, mode, name]);
+
+	const qty = Math.min(
+		Math.max(Number.parseInt(quantity, 10) || 1, 1),
+		MAX_UNITS_PER_SUBMIT,
+	);
+	// Nomor unit yang akan dibuat: lanjut dari unit yang sudah ada.
+	const firstUnitNo = (model?.units.length ?? 0) + 1;
+	const unitNumbers = Array.from({ length: qty }, (_, i) => firstUnitNo + i);
+
+	function pickName(next: string) {
+		setName(next);
+		const key = normalizeModelName(next);
+		const picked = assetModels.find((m) => normalizeModelName(m.name) === key);
+		if (!picked) return;
+		// Ikut spesifikasi unit yang sudah ada — owner tinggal ubah yang beda.
+		setSkuEditable(false);
+		setSkuOverride("");
+		setUnit(picked.unit);
+		if (picked.lastPrice > 0) setPurchasePrice(String(picked.lastPrice));
+		setSalvage(String(picked.salvageValue));
+		if (picked.usefulLifeMonths) setUsefulLife(String(picked.usefulLifeMonths));
+	}
+
 	const generatedSku = useMemo(
 		() => (name.trim() ? generateFixedAssetSku(name) : ""),
 		[name],
 	);
-	const effectiveSku = skuEditable ? skuOverride || generatedSku : generatedSku;
+	const baseSku = model ? model.baseSku : generatedSku;
+	const effectiveSku = skuEditable ? skuOverride || baseSku : baseSku;
+	// Preview penomoran: unit ke-2 dst dapat sufiks; nomor final dipastikan server.
+	const skuPreview =
+		model || qty > 1
+			? qty > 1
+				? `${effectiveSku}${firstUnitNo > 1 ? `-${firstUnitNo}` : ""} … ${effectiveSku}-${firstUnitNo + qty - 1}`
+				: `${effectiveSku}${firstUnitNo > 1 ? `-${firstUnitNo}` : ""}`
+			: effectiveSku;
 
-	// Controlled so the capitalization-policy banner + depreciation preview
-	// update live as the owner types price / useful life.
-	const [purchasePrice, setPurchasePrice] = useState<string>(
-		get("purchase_price"),
-	);
-	const [salvage, setSalvage] = useState<string>(get("salvage_value"));
-	const [usefulLife, setUsefulLife] = useState<string>(
-		get("useful_life_months"),
-	);
 	const purchasePriceVal = Number(purchasePrice) || 0;
 	const salvageVal = Number(salvage) || 0;
 	const usefulLifeVal = Number(usefulLife) || 0;
@@ -185,20 +251,67 @@ export function FixedAssetItemForm({
 
 			{/* ── Identitas ─────────────────────────────────────────────────── */}
 			<div className="space-y-4">
-				<SectionHeader title="Identitas" />
+				<SectionHeader
+					title="Identitas"
+					subtitle={
+						mode === "create"
+							? "Mulai dari nama alat — pilih dari daftar kalau alatnya sudah ada, ketik sendiri kalau alat baru."
+							: undefined
+					}
+				/>
 
-				<Field label="Nama Alat" name="name" error={err("name")} required>
-					<input
-						type="text"
-						name="name"
-						required
-						value={name}
-						onChange={(e) => setName(e.target.value)}
-						placeholder="Canon EOS R6 Mark II, DNP DS620A Printer, Godox AD200…"
-						className={inputClass}
-						autoFocus={mode === "create"}
-					/>
+				<Field
+					label="Nama Alat"
+					name="name"
+					error={err("name")}
+					hint={
+						mode === "create" && assetModels.length > 0
+							? "Klik nama yang sudah ada = nambah unit alat itu. Ketik nama lain = alat baru."
+							: undefined
+					}
+					required
+				>
+					{mode === "create" ? (
+						<>
+							<Combobox
+								id="name"
+								value={name}
+								onValueChange={pickName}
+								options={assetModels.map(
+									(m): ComboboxOption => ({
+										value: m.name,
+										label: m.name,
+										// Tanpa nominal — isi dropdown tak bisa ikut mode privasi.
+										sublabel: `${m.unitCount} unit · ${m.baseSku}`,
+									}),
+								)}
+								placeholder="Canon EOS R6 Mark II, DNP DS620A Printer, Godox AD200…"
+								emptyMessage="Alat baru — belum ada di daftar aset"
+								aria-invalid={!!err("name")}
+							/>
+							<input type="hidden" name="name" value={name} />
+							<input
+								type="hidden"
+								name="base_item_id"
+								value={model?.id ?? ""}
+							/>
+						</>
+					) : (
+						<input
+							type="text"
+							name="name"
+							required
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							placeholder="Canon EOS R6 Mark II, DNP DS620A Printer, Godox AD200…"
+							className={inputClass}
+						/>
+					)}
 				</Field>
+
+				{mode === "create" && name.trim() !== "" && (
+					<ModeBanner model={model} qty={qty} firstUnitNo={firstUnitNo} />
+				)}
 
 				{/* Auto-SKU + asset number preview */}
 				<div className="rounded-md bg-surface-3 px-3 py-2.5 text-[12px]">
@@ -207,10 +320,10 @@ export function FixedAssetItemForm({
 							<Wand2 className="size-3.5 text-muted-foreground" />
 							<span className="text-muted-foreground">SKU otomatis:</span>
 							<span className="font-mono text-sm font-semibold text-foreground">
-								{effectiveSku || "—"}
+								{skuPreview || "—"}
 							</span>
 						</div>
-						{mode === "create" && (
+						{mode === "create" && !model && qty === 1 && (
 							<button
 								type="button"
 								onClick={() => setSkuEditable((v) => !v)}
@@ -255,21 +368,51 @@ export function FixedAssetItemForm({
 					)}
 				</div>
 
-				<div className="grid gap-4 md:grid-cols-2">
-					<Field
-						label="Serial Number"
-						name="serial_number"
-						error={err("serial_number")}
-						hint="Nomor seri dari pabrik (cek body alat)"
-					>
-						<input
-							type="text"
+				<div
+					className={`grid gap-4 ${mode === "create" ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+				>
+					{mode === "create" && (
+						<Field
+							label="Jumlah Unit"
+							name="quantity"
+							error={err("quantity")}
+							hint="Beli 3 printer sekaligus? Isi 3 — dibuat 3 unit terpisah."
+						>
+							<input
+								type="number"
+								name="quantity"
+								min={1}
+								max={MAX_UNITS_PER_SUBMIT}
+								step={1}
+								value={quantity}
+								onChange={(e) => {
+									setQuantity(e.target.value);
+									if ((Number.parseInt(e.target.value, 10) || 1) > 1) {
+										setSkuEditable(false);
+										setSkuOverride("");
+									}
+								}}
+								className={`${inputClass} tabular`}
+							/>
+						</Field>
+					)}
+
+					{qty === 1 && (
+						<Field
+							label="Serial Number"
 							name="serial_number"
-							defaultValue={get("serial_number")}
-							placeholder="opsional"
-							className={`${inputClass} font-mono`}
-						/>
-					</Field>
+							error={err("serial_number")}
+							hint="Nomor seri dari pabrik (cek body alat)"
+						>
+							<input
+								type="text"
+								name="serial_number"
+								defaultValue={get("serial_number")}
+								placeholder="opsional"
+								className={`${inputClass} font-mono`}
+							/>
+						</Field>
+					)}
 
 					<Field label="Unit" name="unit" error={err("unit")} required>
 						<NativeSelect
@@ -281,6 +424,39 @@ export function FixedAssetItemForm({
 						<input type="hidden" name="unit" value={unit} />
 					</Field>
 				</div>
+
+				{/* Tiap unit fisik punya serial sendiri — diisi sekalian di sini. */}
+				{mode === "create" && qty > 1 && (
+					<div className="rounded-lg border border-border-default bg-surface-3 p-3.5">
+						<p className="text-[12px] font-medium text-foreground">
+							Serial number tiap unit{" "}
+							<span className="text-muted-foreground font-normal">
+								(opsional — boleh diisi nanti lewat Edit)
+							</span>
+						</p>
+						<div className="mt-2.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+							{unitNumbers.map((unitNo, i) => (
+								<label key={unitNo} className="flex items-center gap-2">
+									<span className="text-muted-foreground w-14 shrink-0 text-[11px]">
+										Unit #{unitNo}
+									</span>
+									<input
+										type="text"
+										name="serial_numbers"
+										value={serials[i] ?? ""}
+										onChange={(e) => {
+											const next = [...serials];
+											next[i] = e.target.value;
+											setSerials(next);
+										}}
+										placeholder="S/N"
+										className={`${inputClass} h-9 font-mono text-[13px]`}
+									/>
+								</label>
+							))}
+						</div>
+					</div>
+				)}
 			</div>
 
 			{/* ── Info: harga vendor via Market List ─────────────────────── */}
@@ -332,15 +508,17 @@ export function FixedAssetItemForm({
 					<Field
 						label={
 							acquisitionType === "owner_contribution"
-								? "Nilai Estimasi Aset (Rp)"
-								: "Harga Beli (Rp)"
+								? `Nilai Estimasi Aset${qty > 1 ? " / Unit" : ""} (Rp)`
+								: `Harga Beli${qty > 1 ? " / Unit" : ""} (Rp)`
 						}
 						name="purchase_price"
 						error={err("purchase_price")}
 						hint={
 							acquisitionType === "owner_contribution"
 								? "Estimasi nilai wajar saat diserahkan ke perusahaan"
-								: undefined
+								: model
+									? "Terisi dari harga unit terakhir — ubah kalau harganya beda."
+									: undefined
 						}
 						required
 					>
@@ -407,6 +585,7 @@ export function FixedAssetItemForm({
 						suppliers={suppliers}
 						price={purchasePrice}
 						date={purchaseDate}
+						quantity={qty}
 					/>
 				)}
 
@@ -435,7 +614,17 @@ export function FixedAssetItemForm({
 						<strong className="tabular">
 							Rp {monthlyDepr.toLocaleString("id-ID")}
 						</strong>{" "}
-						per bulan sebagai penyusutan (straight-line).
+						per bulan sebagai penyusutan (straight-line)
+						{qty > 1 ? (
+							<>
+								{" "}
+								<span className="tabular">
+									per unit — {qty} unit = Rp{" "}
+									{(monthlyDepr * qty).toLocaleString("id-ID")}/bulan
+								</span>
+							</>
+						) : null}
+						.
 					</div>
 				) : purchasePriceVal > 0 || usefulLifeVal > 0 ? (
 					<div className="rounded-md border border-amber-300/60 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-900 dark:text-amber-100">
@@ -577,12 +766,82 @@ export function FixedAssetItemForm({
 				>
 					{pending
 						? "Menyimpan…"
-						: mode === "create"
-							? "Buat Aset Tetap"
-							: "Simpan perubahan"}
+						: mode !== "create"
+							? "Simpan perubahan"
+							: qty > 1
+								? `Tambah ${qty} Unit`
+								: model
+									? `Tambah Unit ke-${firstUnitNo}`
+									: "Buat Aset Tetap"}
 				</button>
 			</div>
 		</form>
+	);
+}
+
+const CONDITION_SHORT: Record<string, string> = {
+	normal: "normal",
+	service: "service",
+	damaged: "rusak",
+	lost: "hilang",
+};
+
+/**
+ * Jawaban atas pertanyaan pertama: alat baru, atau unit tambahan?
+ * Ditentukan dari nama yang dipilih/diketik — banner ini yang membuat
+ * keputusan itu terlihat sebelum owner mengisi apa pun di bawahnya.
+ */
+function ModeBanner({
+	model,
+	qty,
+	firstUnitNo,
+}: {
+	model: AssetModelOption | undefined;
+	qty: number;
+	firstUnitNo: number;
+}) {
+	if (!model) {
+		return (
+			<div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2.5 text-[12px] leading-relaxed text-emerald-900 dark:text-emerald-100">
+				<Sparkles className="mt-0.5 size-3.5 shrink-0" />
+				<span>
+					<strong>Alat baru</strong> — belum ada di daftar aset.
+					{qty > 1 ? ` Akan dibuat ${qty} unit sekaligus.` : ""}
+				</span>
+			</div>
+		);
+	}
+
+	const active = model.units.filter((u) => !u.disposedAt);
+	return (
+		<div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-2.5 text-[12px] leading-relaxed text-sky-900 dark:text-sky-100">
+			<div className="flex items-start gap-2">
+				<Layers className="mt-0.5 size-3.5 shrink-0" />
+				<span>
+					<strong>
+						{qty > 1
+							? `Nambah ${qty} unit (ke-${firstUnitNo}–${firstUnitNo + qty - 1})`
+							: `Nambah unit ke-${firstUnitNo}`}
+					</strong>{" "}
+					untuk <strong>{model.name}</strong> — sekarang {model.unitCount} unit.
+					Nama & spesifikasinya ikut yang sudah ada; yang beda cuma serial
+					number, harga, dan tanggal beli.
+				</span>
+			</div>
+			{active.length > 0 && (
+				<ul className="mt-2 space-y-0.5 pl-5 text-[11px] text-sky-800/80 dark:text-sky-200/80">
+					{active.map((u) => (
+						<li key={u.id} className="font-mono">
+							{u.assetNumber ?? u.sku}
+							{u.serial ? ` · S/N ${u.serial}` : ""}
+							{u.condition && u.condition !== "normal"
+								? ` · ${CONDITION_SHORT[u.condition] ?? u.condition}`
+								: ""}
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
 	);
 }
 
@@ -599,15 +858,19 @@ function AssetPurchaseBooking({
 	suppliers,
 	price,
 	date,
+	quantity,
 }: {
 	suppliers: Array<{ id: string; name: string }>;
 	price: string;
 	date: string;
+	/** Beli beberapa unit sekaligus → satu nota berisi beberapa baris. */
+	quantity: number;
 }) {
 	const [on, setOn] = useState(true);
 	const [method, setMethod] = useState("cash");
 	const [supplierId, setSupplierId] = useState("");
 	const priceNum = Number(price) || 0;
+	const totalNum = priceNum * quantity;
 
 	return (
 		<div className="rounded-xl border border-border-default bg-surface-2 p-4">
@@ -617,10 +880,16 @@ function AssetPurchaseBooking({
 						Catat pembeliannya ke pembukuan
 					</span>
 					<span className="text-muted-foreground mt-0.5 block text-[12px] leading-relaxed">
-						Uang keluar {formatRupiah(priceNum)} ikut tercatat: jurnal dibuat
-						otomatis & alat masuk sebagai aset (atau beban perlengkapan kalau di
-						bawah batas kapitalisasi). Matikan kalau alat ini sudah lama
-						dimiliki dan hanya didata sekarang.
+						Uang keluar{" "}
+						<span className="tabular">
+							{quantity > 1
+								? `${quantity} × ${formatRupiah(priceNum)} = ${formatRupiah(totalNum)}`
+								: formatRupiah(priceNum)}
+						</span>{" "}
+						ikut tercatat: jurnal dibuat otomatis & alat masuk sebagai aset
+						(atau beban perlengkapan kalau di bawah batas kapitalisasi)
+						{quantity > 1 ? " — satu nota berisi seluruh unit" : ""}. Matikan
+						kalau alat ini sudah lama dimiliki dan hanya didata sekarang.
 					</span>
 				</span>
 				<input
@@ -632,7 +901,11 @@ function AssetPurchaseBooking({
 			</label>
 
 			{/* Jumlah 0 = server melewati pencatatan pembelian. */}
-			<input type="hidden" name="buy_quantity" value={on ? "1" : "0"} />
+			<input
+				type="hidden"
+				name="buy_quantity"
+				value={on ? String(quantity) : "0"}
+			/>
 			<input type="hidden" name="buy_unit" value="unit" />
 			<input type="hidden" name="buy_unit_cost" value={price} />
 			<input type="hidden" name="buy_date" value={date} />

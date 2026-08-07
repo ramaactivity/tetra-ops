@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { AssetModelOption } from "@/lib/inventory/asset-models";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { CategoryPicker } from "./category-picker";
 import { FixedAssetItemForm } from "./fixed-asset-item-form";
@@ -18,10 +19,15 @@ export function NewItemFlow({
 	returnTo,
 	suppliers = [],
 	initialCategory,
+	assetModels = [],
+	initialModelId,
 }: {
 	returnTo?: "/warehouse";
 	suppliers?: SupplierOption[];
 	initialCategory?: ItemCategory;
+	/** Alat tetap yang sudah terdaftar — sumber pilihan "nambah unit". */
+	assetModels?: AssetModelOption[];
+	initialModelId?: string;
 }) {
 	const [category, setCategory] = useState<ItemCategory | null>(
 		initialCategory ?? null,
@@ -48,6 +54,8 @@ export function NewItemFlow({
 								mode="create"
 								returnTo={returnTo}
 								suppliers={suppliers}
+								assetModels={assetModels}
+								initialModelId={initialModelId}
 							/>
 						)}
 					</div>

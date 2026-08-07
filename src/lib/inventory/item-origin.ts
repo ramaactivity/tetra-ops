@@ -51,8 +51,29 @@ export async function recordItemPurchase(
 	fallbackUnit: string,
 ): Promise<OriginResult> {
 	const qty = num(formData, "buy_quantity");
+	return recordItemPurchaseLines(
+		formData,
+		[{ itemId, quantity: qty }],
+		fallbackUnit,
+	);
+}
+
+/**
+ * Satu nota, beberapa baris. Dipakai saat satu kali input menghasilkan lebih
+ * dari satu barang — mis. beli 3 printer sekaligus: tiap unit jadi baris aset
+ * sendiri (serial & penyusutan per unit), tapi uang keluarnya satu nota, bukan
+ * tiga jurnal terpisah.
+ */
+export async function recordItemPurchaseLines(
+	formData: FormData,
+	items: Array<{ itemId: string; quantity: number }>,
+	fallbackUnit: string,
+): Promise<OriginResult> {
 	const unitCost = num(formData, "buy_unit_cost");
-	if (qty <= 0) return { ok: false, error: "Jumlah beli harus lebih dari 0" };
+	const lines = items.filter((l) => l.quantity > 0);
+	if (lines.length === 0) {
+		return { ok: false, error: "Jumlah beli harus lebih dari 0" };
+	}
 
 	const fd = new FormData();
 	fd.set("supplier_id", String(formData.get("buy_supplier_id") ?? ""));
@@ -67,15 +88,15 @@ export async function recordItemPurchase(
 	fd.set("notes", String(formData.get("buy_notes") ?? ""));
 	fd.set(
 		"lines",
-		JSON.stringify([
-			{
-				item_id: itemId,
-				quantity: qty,
+		JSON.stringify(
+			lines.map((l) => ({
+				item_id: l.itemId,
+				quantity: l.quantity,
 				quantity_unit:
 					String(formData.get("buy_unit") ?? "").trim() || fallbackUnit,
 				unit_cost: Math.round(unitCost),
-			},
-		]),
+			})),
+		),
 	);
 
 	const res = await recordPurchaseBatch(undefined, fd);
