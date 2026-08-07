@@ -34,7 +34,10 @@ const env = Object.fromEntries(
 			const i = l.indexOf("=");
 			return [
 				l.slice(0, i).trim(),
-				l.slice(i + 1).trim().replace(/^["']|["']$/g, ""),
+				l
+					.slice(i + 1)
+					.trim()
+					.replace(/^["']|["']$/g, ""),
 			];
 		}),
 ) as Record<string, string>;
@@ -76,18 +79,25 @@ console.log(
 
 // ── A. Talangan menempel ke crew yang mengeluarkan ──────────────────────
 console.log("A. Isi talangan di crew_assignments");
-const targets: Array<{ id: string; name: string; project: string; amount: number }> = [];
+const targets: Array<{
+	id: string;
+	name: string;
+	project: string;
+	amount: number;
+}> = [];
 for (const t of TALANGAN) {
 	const { data: ev } = await sb
 		.from("events")
 		.select("id, client_name")
 		.eq("project_id", t.project)
 		.single();
+	if (!ev) throw new Error(`event ${t.project} tidak ditemukan`);
 	const { data: rk } = await sb
 		.from("crew_rekap")
 		.select("submitted_by")
 		.eq("event_id", ev.id)
 		.single();
+	if (!rk) throw new Error(`rekap ${t.project} tidak ditemukan`);
 	const { data: asg } = await sb
 		.from("crew_assignments")
 		.select(
@@ -96,6 +106,7 @@ for (const t of TALANGAN) {
 		.eq("event_id", ev.id)
 		.eq("user_id", rk.submitted_by)
 		.single();
+	if (!asg) throw new Error(`assignment penalang ${t.project} tidak ditemukan`);
 	const u = Array.isArray(asg.user) ? asg.user[0] : asg.user;
 	const name = u?.nickname?.trim() || u?.full_name || "crew";
 	console.log(
@@ -114,7 +125,9 @@ console.log(`   Dr 5-204 Beban Fee Crew - Bonus ${rp(BONUS_PEMBULATAN)}`);
 console.log(`      Cr 2-100 Hutang Crew ${rp(BONUS_PEMBULATAN)}`);
 
 if (!APPLY) {
-	console.log("\n(rencana saja — jalankan lagi dengan --apply untuk mengerjakan)");
+	console.log(
+		"\n(rencana saja — jalankan lagi dengan --apply untuk mengerjakan)",
+	);
 	process.exit(0);
 }
 
@@ -126,6 +139,8 @@ const { data: owner } = await sb
 	.eq("role", "super_admin")
 	.limit(1)
 	.single();
+if (!owner) throw new Error("akun super_admin tidak ditemukan");
+const ownerId = owner.id as string;
 
 for (const t of targets) {
 	const { error } = await sb
@@ -150,7 +165,12 @@ const ref = (tag: string) =>
 async function postEntry(
 	description: string,
 	total: number,
-	lines: Array<{ account: string; debit?: number; credit?: number; desc: string }>,
+	lines: Array<{
+		account: string;
+		debit?: number;
+		credit?: number;
+		desc: string;
+	}>,
 ) {
 	const { data: entry, error } = await sb
 		.from("journal_entries")
@@ -161,7 +181,7 @@ async function postEntry(
 			description,
 			source_type: "manual",
 			total_amount: total,
-			created_by: owner.id,
+			created_by: ownerId,
 		})
 		.select("id, ref_id")
 		.single();
@@ -199,22 +219,18 @@ await postEntry(
 	],
 );
 
-await postEntry(
-	"Koreksi: pembulatan bonus talangan crew",
-	BONUS_PEMBULATAN,
-	[
-		{
-			account: "5-204",
-			debit: BONUS_PEMBULATAN,
-			desc: "Pembulatan talangan jadi bonus crew (Hafizh & Dinda)",
-		},
-		{
-			account: "2-100",
-			credit: BONUS_PEMBULATAN,
-			desc: "Selisih pembulatan yang sudah dibayar",
-		},
-	],
-);
+await postEntry("Koreksi: pembulatan bonus talangan crew", BONUS_PEMBULATAN, [
+	{
+		account: "5-204",
+		debit: BONUS_PEMBULATAN,
+		desc: "Pembulatan talangan jadi bonus crew (Hafizh & Dinda)",
+	},
+	{
+		account: "2-100",
+		credit: BONUS_PEMBULATAN,
+		desc: "Selisih pembulatan yang sudah dibayar",
+	},
+]);
 
 const sisa = -(await saldo("2-100"));
 console.log(

@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
+import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import {
 	listCrewLiabilityGaps,
@@ -300,7 +301,14 @@ export default async function FinancePage({
 		account_name: string;
 		bank_name: string;
 		account_holder: string | null;
+		coa_code: string | null;
 	}>;
+	// Saldo tiap rekening menurut buku besar. Sebelumnya daftar ini cuma
+	// menampilkan uang masuk bulan ini, jadi uang KELUAR (bayar crew, beli
+	// alat, koreksi) tidak pernah terlihat di sini sama sekali.
+	const saldoByCoa = new Map(
+		(await loadCashAccounts(supabase)).map((a) => [a.code, a.balance]),
+	);
 
 	const funds = (sinkingFundsData ?? []) as Array<{
 		id: string;
@@ -762,6 +770,9 @@ export default async function FinancePage({
 						<div className="divide-border">
 							{banks.map((b) => {
 								const inflow = inflowByBank.get(b.id) ?? 0;
+								const saldo = b.coa_code
+									? saldoByCoa.get(b.coa_code)
+									: undefined;
 								return (
 									<div
 										key={b.id}
@@ -779,16 +790,24 @@ export default async function FinancePage({
 										<div className="text-right">
 											<p
 												className={`tabular text-sm font-semibold ${
-													inflow > 0
-														? "text-emerald-600 dark:text-emerald-400"
-														: "text-muted-foreground"
+													saldo !== undefined && saldo < 0
+														? "text-rose-600 dark:text-rose-400"
+														: "text-foreground"
 												}`}
 											>
-												{inflow > 0 ? "+" : ""}
-												{formatRupiah(inflow)}
+												{saldo === undefined ? "—" : formatRupiah(saldo)}
 											</p>
 											<p className="text-muted-foreground text-[10px]">
-												MTD inflow
+												saldo
+												{inflow > 0 ? (
+													<>
+														{" · "}
+														<span className="tabular text-emerald-600 dark:text-emerald-400">
+															+{formatRupiah(inflow)}
+														</span>{" "}
+														bulan ini
+													</>
+												) : null}
 											</p>
 										</div>
 									</div>
