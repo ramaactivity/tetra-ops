@@ -23,6 +23,7 @@ import {
 	deleteSupplierPrice,
 	setPrimarySupplierPrice,
 } from "@/lib/actions/suppliers";
+import type { CashAccountOption } from "@/lib/finance/cash-accounts";
 import { formatRupiah } from "@/lib/format";
 import { generateInventorySku } from "@/lib/inventory/sku-generator";
 import { Field, inputClass, SectionHeader } from "./item-form-primitives";
@@ -98,6 +99,7 @@ export function InventoryItemForm({
 	defaults = EMPTY_INVENTORY_DEFAULTS,
 	returnTo,
 	suppliers = [],
+	cashAccounts = [],
 	existingPrices = [],
 	itemContext,
 }: {
@@ -106,6 +108,8 @@ export function InventoryItemForm({
 	defaults?: InventoryItemDefaults;
 	returnTo?: "/warehouse";
 	suppliers?: SupplierOption[];
+	/** Rekening kas/bank + saldo — sumber dana kalau barangnya dibeli tunai. */
+	cashAccounts?: CashAccountOption[];
 	/** Existing supplier prices for THIS item (edit mode only) */
 	existingPrices?: InlineSupplierPriceRow[];
 	/** Item context untuk MarketEntryDialog prefill (edit mode only) */
@@ -459,6 +463,7 @@ export function InventoryItemForm({
 					/>
 					<ItemOriginSection
 						suppliers={suppliers}
+						cashAccounts={cashAccounts}
 						unitLabel={prettyUnit(purchaseUnit || baseUnit)}
 						kind="inventory"
 						itemName={name}

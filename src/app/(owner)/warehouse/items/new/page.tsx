@@ -1,6 +1,7 @@
 import { NewItemFlow } from "@/components/items/new-item-flow";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
+import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { loadAssetModels } from "@/lib/inventory/asset-models";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { createClient } from "@/lib/supabase/server";
@@ -21,7 +22,7 @@ export default async function WarehouseNewItemPage({
 			: undefined;
 
 	const supabase = await createClient();
-	const [{ data: suppliers }, assetModels] = await Promise.all([
+	const [{ data: suppliers }, assetModels, cashAccounts] = await Promise.all([
 		supabase
 			.from("suppliers")
 			.select("id, name")
@@ -29,6 +30,9 @@ export default async function WarehouseNewItemPage({
 			.eq("is_active", true)
 			.order("name"),
 		loadAssetModels(supabase),
+		// Sumber dana pembelian tunai — biar belanja lewat bank tidak menggerus
+		// saldo Kas Tunai di buku.
+		loadCashAccounts(supabase),
 	]);
 
 	// Tombol "+ unit" bisa diklik dari baris unit mana pun — petakan ke model
@@ -49,6 +53,7 @@ export default async function WarehouseNewItemPage({
 				<NewItemFlow
 					returnTo="/warehouse"
 					suppliers={(suppliers ?? []) as { id: string; name: string }[]}
+					cashAccounts={cashAccounts}
 					initialCategory={initialCategory}
 					assetModels={assetModels}
 					initialModelId={initialModelId}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CashAccountOption } from "@/lib/finance/cash-accounts";
 import type { AssetModelOption } from "@/lib/inventory/asset-models";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { CategoryPicker } from "./category-picker";
@@ -18,12 +19,15 @@ import { InventoryItemForm, type SupplierOption } from "./inventory-item-form";
 export function NewItemFlow({
 	returnTo,
 	suppliers = [],
+	cashAccounts = [],
 	initialCategory,
 	assetModels = [],
 	initialModelId,
 }: {
 	returnTo?: "/warehouse";
 	suppliers?: SupplierOption[];
+	/** Rekening kas/bank + saldo — pilihan "Uang diambil dari" saat beli tunai. */
+	cashAccounts?: CashAccountOption[];
 	initialCategory?: ItemCategory;
 	/** Alat tetap yang sudah terdaftar — sumber pilihan "nambah unit". */
 	assetModels?: AssetModelOption[];
@@ -48,12 +52,14 @@ export function NewItemFlow({
 								mode="create"
 								returnTo={returnTo}
 								suppliers={suppliers}
+								cashAccounts={cashAccounts}
 							/>
 						) : (
 							<FixedAssetItemForm
 								mode="create"
 								returnTo={returnTo}
 								suppliers={suppliers}
+								cashAccounts={cashAccounts}
 								assetModels={assetModels}
 								initialModelId={initialModelId}
 							/>

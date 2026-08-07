@@ -11,6 +11,10 @@ import {
 	type FixedAssetItemFormState,
 	updateFixedAssetItem,
 } from "@/lib/actions/items-fixed-asset";
+import {
+	type CashAccountOption,
+	defaultCashAccount,
+} from "@/lib/finance/cash-accounts";
 import { formatRupiah } from "@/lib/format";
 import {
 	type AssetModelOption,
@@ -106,6 +110,7 @@ export function FixedAssetItemForm({
 	defaults = EMPTY_FIXED_ASSET_DEFAULTS,
 	returnTo,
 	suppliers = [],
+	cashAccounts = [],
 	assetModels = [],
 	initialModelId,
 }: {
@@ -114,6 +119,8 @@ export function FixedAssetItemForm({
 	defaults?: FixedAssetItemDefaults;
 	returnTo?: "/warehouse";
 	suppliers?: Array<{ id: string; name: string }>;
+	/** Rekening kas/bank + saldo — sumber dana kalau pembeliannya tunai. */
+	cashAccounts?: CashAccountOption[];
 	/** Alat yang sudah terdaftar — dipilih kalau owner menambah unit, bukan alat baru. */
 	assetModels?: AssetModelOption[];
 	/** Pra-pilih model (dari tombol "+ unit" di Asset Register). */
@@ -583,6 +590,7 @@ export function FixedAssetItemForm({
 				{mode === "create" && acquisitionType !== "owner_contribution" && (
 					<AssetPurchaseBooking
 						suppliers={suppliers}
+						cashAccounts={cashAccounts}
 						price={purchasePrice}
 						date={purchaseDate}
 						quantity={qty}
@@ -856,11 +864,13 @@ function ModeBanner({
  */
 function AssetPurchaseBooking({
 	suppliers,
+	cashAccounts,
 	price,
 	date,
 	quantity,
 }: {
 	suppliers: Array<{ id: string; name: string }>;
+	cashAccounts: CashAccountOption[];
 	price: string;
 	date: string;
 	/** Beli beberapa unit sekaligus → satu nota berisi beberapa baris. */
@@ -871,6 +881,12 @@ function AssetPurchaseBooking({
 	const [supplierId, setSupplierId] = useState("");
 	const priceNum = Number(price) || 0;
 	const totalNum = priceNum * quantity;
+	// Rekening sumber dana. Dulu selalu jatuh ke 1-100 Kas Tunai, jadi belanja
+	// yang dibayar lewat bank tetap menggerus saldo kas tunai di buku.
+	const [account, setAccount] = useState<string>("");
+	const payAccount = account || defaultCashAccount(cashAccounts, totalNum);
+	const selected = cashAccounts.find((a) => a.code === payAccount);
+	const insufficient = !!selected && selected.balance < totalNum;
 
 	return (
 		<div className="rounded-xl border border-border-default bg-surface-2 p-4">
@@ -911,6 +927,7 @@ function AssetPurchaseBooking({
 			<input type="hidden" name="buy_date" value={date} />
 			<input type="hidden" name="buy_payment_method" value={method} />
 			<input type="hidden" name="buy_supplier_id" value={supplierId} />
+			<input type="hidden" name="buy_payment_account_code" value={payAccount} />
 
 			{on && (
 				<div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -930,6 +947,22 @@ function AssetPurchaseBooking({
 							triggerClassName="h-10! w-full"
 						/>
 					</div>
+					{method === "cash" && cashAccounts.length > 0 && (
+						<div className="space-y-1">
+							<span className="block text-[12px] font-medium text-foreground">
+								Uang diambil dari
+							</span>
+							<NativeSelect
+								value={payAccount}
+								onValueChange={setAccount}
+								options={cashAccounts.map((a) => ({
+									value: a.code,
+									label: `${a.name} — ${formatRupiah(a.balance)}`,
+								}))}
+								triggerClassName="h-10! w-full"
+							/>
+						</div>
+					)}
 					<div className="space-y-1">
 						<span className="block text-[12px] font-medium text-foreground">
 							Supplier (opsional)
@@ -954,6 +987,18 @@ function AssetPurchaseBooking({
 						/>
 					</div>
 				</div>
+			)}
+
+			{on && method === "cash" && insufficient && (
+				<p className="mt-2 text-[12px] font-medium text-amber-700 dark:text-amber-300">
+					Saldo {selected?.name} tinggal{" "}
+					<span className="tabular">
+						{formatRupiah(selected?.balance ?? 0)}
+					</span>
+					, sedangkan uang keluar{" "}
+					<span className="tabular">{formatRupiah(totalNum)}</span> — pastikan
+					rekeningnya benar, kalau tidak saldo di buku jadi minus.
+				</p>
 			)}
 		</div>
 	);

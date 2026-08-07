@@ -10,6 +10,10 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { NativeSelect } from "@/components/ui/native-select";
+import {
+	type CashAccountOption,
+	defaultCashAccount,
+} from "@/lib/finance/cash-accounts";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -27,11 +31,14 @@ export type OriginSupplier = { id: string; name: string };
  */
 export function ItemOriginSection({
 	suppliers = [],
+	cashAccounts = [],
 	unitLabel,
 	kind,
 	itemName = "",
 }: {
 	suppliers?: OriginSupplier[];
+	/** Rekening kas/bank + saldo — sumber dana kalau belinya tunai. */
+	cashAccounts?: CashAccountOption[];
 	/** Satuan yang dipakai untuk jumlah beli (mis. "pcs" / "unit"). */
 	unitLabel: string;
 	kind: "inventory" | "fixed_asset";
@@ -50,6 +57,13 @@ export function ItemOriginSection({
 	const costNum = Number(unitCost.replace(/[^\d]/g, "")) || 0;
 	const total = Math.round(qtyNum * costNum);
 	const noun = kind === "fixed_asset" ? "alat" : "barang";
+
+	// Rekening sumber dana untuk pembelian tunai. Kosong = default pintar:
+	// rekening pertama yang saldonya cukup, bukan asal 1-100 Kas Tunai.
+	const [account, setAccount] = useState("");
+	const payAccount = account || defaultCashAccount(cashAccounts, total);
+	const selectedAcct = cashAccounts.find((a) => a.code === payAccount);
+	const insufficient = !!selectedAcct && selectedAcct.balance < total;
 
 	const OPTIONS = [
 		{
@@ -166,6 +180,42 @@ export function ItemOriginSection({
 							</Field>
 						)}
 					</div>
+
+					{/* Sumber dana pembelian tunai. Tanpa ini semua belanja diam-diam
+					    memotong 1-100 Kas Tunai, termasuk yang dibayar lewat bank. */}
+					{origin === "purchase" && method === "cash" && (
+						<>
+							<input
+								type="hidden"
+								name="buy_payment_account_code"
+								value={payAccount}
+							/>
+							{cashAccounts.length > 0 && (
+								<Field label="Uang diambil dari">
+									<NativeSelect
+										value={payAccount}
+										onValueChange={setAccount}
+										options={cashAccounts.map((a) => ({
+											value: a.code,
+											label: `${a.name} — ${formatRupiah(a.balance)}`,
+										}))}
+										triggerClassName="h-10! w-full rounded-lg px-3 text-sm"
+									/>
+									{insufficient && (
+										<p className="text-[11.5px] font-medium text-amber-700 dark:text-amber-300">
+											Saldo {selectedAcct?.name} tinggal{" "}
+											<span className="tabular">
+												{formatRupiah(selectedAcct?.balance ?? 0)}
+											</span>
+											, sedangkan uang keluar{" "}
+											<span className="tabular">{formatRupiah(total)}</span> —
+											pastikan rekeningnya benar.
+										</p>
+									)}
+								</Field>
+							)}
+						</>
+					)}
 
 					{origin === "purchase" && (
 						<div className="grid gap-3 sm:grid-cols-2">
