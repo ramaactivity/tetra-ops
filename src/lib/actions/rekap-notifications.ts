@@ -83,13 +83,21 @@ async function insertFor(
 		console.error("[rekap-notifications] insert failed:", error.message);
 }
 
-/** Crew submitted a rekap → ping owners to review. */
+/**
+ * Crew submitted a rekap → ping owners to review.
+ *
+ * `isRevision` = rekap ini SUDAH berstatus submitted lalu crew submit lagi.
+ * Tetap dikabarkan (angkanya bisa berubah), tapi kalimatnya dibedakan supaya
+ * owner tidak melihat dua kabar identik dan mengira rekapnya masuk dua kali.
+ */
 export async function notifyRekapSubmitted(
 	eventId: string,
 	projectId: string,
 	submittedByName: string,
+	opts?: { isRevision?: boolean },
 ): Promise<void> {
 	try {
+		const isRevision = opts?.isRevision === true;
 		const admin = createAdminClient();
 		const [name, recipients] = await Promise.all([
 			eventClientName(admin, eventId),
@@ -98,13 +106,17 @@ export async function notifyRekapSubmitted(
 		await insertFor(admin, recipients, {
 			severity: "info",
 			category: "operational",
-			title: `Rekap baru: ${name}`,
-			body: `${submittedByName} sudah submit rekap. Tap untuk review & approve.`,
+			title: isRevision ? `Rekap diperbarui: ${name}` : `Rekap baru: ${name}`,
+			body: isRevision
+				? `${submittedByName} memperbarui rekap yang tadi. Cek lagi angkanya sebelum approve.`
+				: `${submittedByName} sudah submit rekap. Tap untuk review & approve.`,
 			entity_type: "crew_rekap",
 			entity_id: eventId,
 			action_url: `/operations/${projectId}/rekap`,
 		});
-		await notifyTelegramRekapSubmitted(eventId, projectId, submittedByName);
+		await notifyTelegramRekapSubmitted(eventId, projectId, submittedByName, {
+			isRevision,
+		});
 	} catch (e) {
 		console.error("[rekap-notifications] notifyRekapSubmitted:", e);
 	}

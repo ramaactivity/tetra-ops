@@ -327,8 +327,10 @@ export async function notifyTelegramRekapSubmitted(
 	eventId: string,
 	projectId: string,
 	submittedByName: string,
+	opts?: { isRevision?: boolean },
 ): Promise<void> {
 	try {
+		const isRevision = opts?.isRevision === true;
 		const admin = createAdminClient();
 		const [{ data: ev }, { data: rk }] = await Promise.all([
 			admin
@@ -373,8 +375,12 @@ export async function notifyTelegramRekapSubmitted(
 		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 		await sendToOwnerGroup(
 			[
-				`📥 <b>REKAP MASUK — ${tgEscape((ev?.client_name as string) ?? "Event")}</b>`,
-				`${tgEscape(submittedByName)} sudah submit rekap. Review & approve supaya bisa segera settlement.`,
+				isRevision
+					? `✏️ <b>REKAP DIPERBARUI — ${tgEscape((ev?.client_name as string) ?? "Event")}</b>`
+					: `📥 <b>REKAP MASUK — ${tgEscape((ev?.client_name as string) ?? "Event")}</b>`,
+				isRevision
+					? `${tgEscape(submittedByName)} memperbarui rekap yang tadi (bukan rekap baru). Angka di bawah sudah versi terbaru.`
+					: `${tgEscape(submittedByName)} sudah submit rekap. Review & approve supaya bisa segera settlement.`,
 				rk?.cetak_total ? `🖨 Total cetak ${rk.cetak_total}` : null,
 				crewFronted > 0
 					? `💸 Ditalangi crew (perlu rembers): <b>${rp(crewFronted)}</b>`

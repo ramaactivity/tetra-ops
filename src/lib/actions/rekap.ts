@@ -183,7 +183,7 @@ const ExpensePaidBySchema = z
 const CustomMaterialsSchema = z
 	.string()
 	.trim()
-	.optional()
+	.nullish()
 	.transform((v): Record<string, number> => {
 		if (!v) return {};
 		try {
@@ -228,11 +228,13 @@ const RekapInputSchema = z.object({
 		.refine((arr) => arr.length > 0, {
 			message: "Minimal 1 URL foto bukti",
 		}),
+	// .nullish() bukan .optional(): formData.get() memberi null kalau field-nya
+	// tidak ikut terkirim, dan .optional() menolak null → submit gagal total.
 	crew_notes: z
 		.string()
 		.trim()
 		.max(1000)
-		.optional()
+		.nullish()
 		.transform((v) => (v ? v : null)),
 
 	// Field expenses (Phase F2) — biaya operasional lapangan crew
@@ -856,7 +858,7 @@ export async function submitRekap(
 	const { data: existing } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, is_approved, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used",
+			"id, status, is_approved, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used",
 		)
 		.eq("event_id", eventId)
 		.maybeSingle();
@@ -1030,8 +1032,15 @@ export async function submitRekap(
 
 	// Crew submit → ping owners to review. Owner self-submits don't notify (they
 	// ARE the reviewer). Best-effort: never blocks the submit.
+	//
+	// Crew sering menekan submit lebih dari sekali (nambah nota, betulkan angka).
+	// Kalau tiap submit mengirim pesan yang sama persis, grup owner melihat dua
+	// "REKAP MASUK" identik dan mengira rekapnya dobel. Submit ke-2 dst. tetap
+	// dikabarkan — supaya revisi tidak diam-diam — tapi dengan pesan berbeda.
 	if (me.profile.role === "crew") {
-		await notifyRekapSubmitted(eventId, projectId, me.profile.full_name);
+		await notifyRekapSubmitted(eventId, projectId, me.profile.full_name, {
+			isRevision: existing?.status === "submitted",
+		});
 	}
 	return { success: true };
 }
