@@ -28,6 +28,7 @@ type Phase =
 			phase: "ready";
 			lines: PreviewLine[];
 			missing: RekapField[];
+			unknownFrameSize: boolean;
 			enabled: boolean;
 			committed: boolean;
 			stockByItem: Record<string, number>;
@@ -58,6 +59,7 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 					phase: "ready",
 					lines: res.lines,
 					missing: res.missingMappings,
+					unknownFrameSize: res.unknownFrameSize,
 					enabled: res.autoDeductEnabled,
 					committed: res.alreadyCommitted,
 					stockByItem: res.stockByItem,
@@ -85,7 +87,31 @@ export function RekapApprovalPreview({ rekapId }: { rekapId: string }) {
 		);
 	}
 
-	const { lines, missing, enabled, committed, stockByItem } = state;
+	const { lines, missing, unknownFrameSize, enabled, committed, stockByItem } =
+		state;
+
+	// Ukuran cetak belum ditentukan → resep media & sleeve tidak ada, jadi
+	// approve PASTI ditolak server. Katakan sekarang, sebelum owner menekan
+	// tombolnya — dan sebelum dia mengira HPP event ini memang cuma segini.
+	if (!committed && unknownFrameSize) {
+		return (
+			<div className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-4">
+				<div className="flex items-start gap-2 text-rose-900 dark:text-rose-200">
+					<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+					<p className="text-sm font-medium">
+						Ukuran cetak belum ditentukan — rekap belum bisa di-approve
+					</p>
+				</div>
+				<p className="text-fluid-caption text-rose-900/85 dark:text-rose-200/85">
+					Media &amp; sleeve dihitung dari ukuran cetak (2R/4R/Polaroid). Selama
+					ukurannya masih &quot;menyusul&quot;, dua item itu tidak bisa dipotong
+					dari stok dan HPP event ini akan tercatat jauh lebih kecil dari
+					sebenarnya. Isi frame size di halaman event dulu, lalu buka lagi
+					halaman ini.
+				</p>
+			</div>
+		);
+	}
 
 	if (committed) {
 		return (

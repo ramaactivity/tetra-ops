@@ -80,6 +80,11 @@ export function RekapSummaryTab({
 	// This is why Stok showed −1 while the old Ringkasan showed 0.
 	const pouchQty = qtySku((s) => s.toUpperCase().startsWith("POUCH"));
 
+	// Biaya cetak = mediaset + sleeve (dua-duanya turunan dari jumlah cetak).
+	// Ditampilkan di baris "Total cetak" sebagai subtotal, TIDAK ditambahkan
+	// lagi ke total — nilainya sudah terhitung lewat dua baris di bawahnya.
+	const cetakCost = sumBucket("mediaset") + sumBucket("sleeve");
+
 	const bonusLines = bucketLines("bonus");
 	const customLines = bucketLines("other");
 
@@ -106,7 +111,18 @@ export function RekapSummaryTab({
 			{/* ITEM BREAKDOWN */}
 			<div className="px-5">
 				<Section icon={Printer} title="Cetak">
-					<ItemRow name="Total cetak" qty={rekap.cetak_total} unit="pcs" />
+					{/* Biaya cetak = mediaset + sleeve. Ditampilkan di baris ini juga
+					    (sebagai subtotal, bukan penjumlahan baru) supaya "Total cetak"
+					    tidak pernah terbaca "gratis" — dulu baris ini cuma bergaris
+					    datar dan owner mengira cetakan memang tak berbiaya. */}
+					<ItemRow
+						name="Total cetak"
+						qty={rekap.cetak_total}
+						unit="pcs"
+						cost={cetakCost}
+						note="media + sleeve"
+						subtotal
+					/>
 					<ItemRow
 						name="Mediaset"
 						sizeBadge={sizeBadge}
@@ -121,6 +137,18 @@ export function RekapSummaryTab({
 						unit="pcs"
 						cost={sumBucket("sleeve")}
 					/>
+					{/* Ada cetakan tapi tidak ada biayanya = resep ukuran tidak ketemu
+					    (frame size masih "menyusul"). Angka HPP di halaman ini jadi
+					    JAUH lebih kecil dari sebenarnya, dan stok media/sleeve tidak
+					    akan terpotong saat approve. Jangan biarkan itu senyap. */}
+					{rekap.cetak_total > 0 && cetakCost === 0 && (
+						<p className="mb-2 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[12px] leading-snug text-rose-800 dark:text-rose-300">
+							<b>Ukuran cetak belum ditentukan.</b> Media &amp; sleeve dihitung
+							dari ukuran (2R/4R/Polaroid), jadi biayanya belum masuk ke total
+							di bawah dan stoknya belum bisa dipotong. Isi frame size di
+							halaman event dulu — rekap ini belum bisa di-approve.
+						</p>
+					)}
 				</Section>
 
 				<Section icon={Package2} title="Flashdisk & Pouch">
@@ -246,16 +274,23 @@ function ItemRow({
 	cost,
 	tone = "default",
 	note,
+	subtotal = false,
 }: {
 	name: string;
 	/** Frame-size chip (e.g. "2R") shown after the name — Mediaset/Sleeve only. */
 	sizeBadge?: string;
 	qty: number;
 	unit: string;
-	/** Omit for info-only rows (e.g. "Total cetak") that carry no HPP. */
+	/** Omit for info-only rows that carry no HPP. */
 	cost?: number;
 	tone?: "default" | "emerald";
 	note?: string;
+	/**
+	 * Baris rangkuman dari baris-baris di bawahnya ("Total cetak" = mediaset +
+	 * sleeve). Nominalnya ditulis lebih redup supaya jelas ini BUKAN biaya baru
+	 * yang ikut dijumlahkan ke total.
+	 */
+	subtotal?: boolean;
 }) {
 	const isZero = qty === 0;
 	const hasCost = cost != null && cost > 0;
@@ -263,11 +298,13 @@ function ItemRow({
 	// reconciles with the total shown (unit × qty = total). Mirrors the warehouse
 	// list's "@ Rp … / unit" sub-line.
 	const unitPrice =
-		hasCost && qty > 0 ? Math.round((cost as number) / qty) : null;
+		hasCost && qty > 0 && !subtotal ? Math.round((cost as number) / qty) : null;
 	const costColor = hasCost
-		? tone === "emerald"
-			? "text-emerald-700 dark:text-emerald-300"
-			: "text-foreground"
+		? subtotal
+			? "text-muted-foreground"
+			: tone === "emerald"
+				? "text-emerald-700 dark:text-emerald-300"
+				: "text-foreground"
 		: "text-muted-foreground/50";
 	return (
 		<div className="grid grid-cols-[1fr_auto_7.5rem] items-baseline gap-3 px-1 py-2">

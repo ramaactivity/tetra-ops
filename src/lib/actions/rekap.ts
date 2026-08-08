@@ -1087,7 +1087,12 @@ type RekapStockSnapshot = {
 async function planRekapDeduction(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	rekap: RekapStockSnapshot,
-): Promise<{ lines: DeductionLine[]; missingMappings: RekapField[] }> {
+): Promise<{
+	lines: DeductionLine[];
+	missingMappings: RekapField[];
+	/** true = ada cetakan tapi frame size event belum ditentukan. */
+	unknownFrameSize: boolean;
+}> {
 	const [{ data: event, error: eventErr }, { data: items, error: itemsErr }] =
 		await Promise.all([
 			// Only frame_size is needed here; the package bundle BOM + bonuses are
@@ -1224,8 +1229,21 @@ async function planRekapDeduction(
 	const lines: DeductionLine[] = [];
 	const missingMappings: RekapField[] = [];
 
-	// Media + Sleeve derivation (skip if no prints or unknown frame_size)
+	// Media + Sleeve derivation. Resepnya DITENTUKAN ukuran cetak: tanpa ukuran
+	// tidak ada media & sleeve yang bisa dihitung.
 	const recipe = SIZE_RECIPE[frameSize];
+
+	// Ada cetakan tapi ukurannya tidak dikenal (frame size masih "menyusul").
+	// Dulu blok di bawah ini hanya di-skip diam-diam: rencana keluar TANPA baris
+	// media & sleeve, jadi stok media/sleeve tidak pernah berkurang dan HPP
+	// event kehilangan komponen terbesarnya — tanpa satu pun peringatan. Untuk
+	// event 116 cetak, selisihnya ratusan ribu rupiah yang tampil sebagai
+	// "untung". Sekarang ini diperlakukan sama dengan SKU yang hilang: commit
+	// ditolak sampai ukurannya diisi.
+	if (cetakTotal > 0 && !recipe) {
+		missingMappings.push("cetak_total", "sleeve_used");
+	}
+
 	if (cetakTotal > 0 && recipe) {
 		const mediaItem = itemsBySku.get(recipe.mediaSku);
 		if (mediaItem) {
@@ -1409,7 +1427,11 @@ async function planRekapDeduction(
 	// (bucketHpp) == nilai stok yang ter-simpan di stock_movements, exact.
 	for (const l of lines) l.qty = roundQty(l.qty);
 
-	return { lines, missingMappings };
+	return {
+		lines,
+		missingMappings,
+		unknownFrameSize: cetakTotal > 0 && !recipe,
+	};
 }
 
 function buildRefId(direction: "in" | "out") {
@@ -1443,6 +1465,17 @@ async function commitRekapStock(
 	// bolong: sekali ter-commit, jalur ini tidak akan mengulang dan event
 	// ter-settle memakai HPP yang kurang.
 	if (plan.missingMappings.length > 0) {
+		// Penyebab paling sering bukan master inventory, tapi ukuran cetak yang
+		// belum ditentukan — sebutkan terus terang supaya owner tahu harus ke mana.
+		if (plan.unknownFrameSize) {
+			return {
+				ok: false,
+				error:
+					"Commit dibatalkan — ukuran cetak (frame size) event ini masih 'menyusul', " +
+					"jadi media & sleeve tidak bisa dihitung dan stoknya tidak bisa dipotong. " +
+					"Tentukan ukurannya di halaman event dulu, baru approve rekap ini.",
+			};
+		}
 		return {
 			ok: false,
 			error:
@@ -1641,6 +1674,8 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 			ok: true;
 			lines: DeductionLine[];
 			missingMappings: RekapField[];
+			/** true = ada cetakan tapi ukuran cetak event belum ditentukan. */
+			unknownFrameSize: boolean;
 			autoDeductEnabled: boolean;
 			alreadyCommitted: boolean;
 			/** Live warehouse stock per item_id — for before→after display. */
@@ -1685,6 +1720,7 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 		ok: true,
 		lines: plan.lines,
 		missingMappings: plan.missingMappings,
+		unknownFrameSize: plan.unknownFrameSize,
 		// Deduksi stok + snapshot HPP selalu jalan saat approval (single engine).
 		autoDeductEnabled: true,
 		alreadyCommitted: rekap.stock_committed_at !== null,
