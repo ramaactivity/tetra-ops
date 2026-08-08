@@ -133,9 +133,14 @@ export async function POST(
 
 	// Authorization branch per kind:
 	// - payment_proof: owner-level only (financial data sensitivity)
-	// - rekap_proof / transport_proof: crew assigned to event OR owner
+	// - rekap_proof / transport_proof / nota: crew assigned to event OR owner
 	// - other: owner only
-	if (kind === "rekap_proof" || kind === "transport_proof") {
+	//
+	// "nota" = bukti tiap biaya lapangan di rekap (bensin, toll, parkir,
+	// konsumsi). Yang mengeluarkan uangnya crew, jadi crew HARUS bisa
+	// melampirkannya — sebelumnya kind ini jatuh ke cabang else dan crew
+	// ditolak "owner-level only" padahal dialah yang punya notanya.
+	if (kind === "rekap_proof" || kind === "transport_proof" || kind === "nota") {
 		if (isCrew) {
 			const { data: assignment } = await supabase
 				.from("crew_assignments")
@@ -256,6 +261,8 @@ export async function POST(
 		payment_proof: "Nota",
 		crew_fee: "Nota",
 		transport_proof: "Nota",
+		// Tanpa baris ini nota biaya lapangan mendarat di folder "Lainnya".
+		nota: "Nota",
 		rekap_proof: "Hasil Cetak",
 		design_frame: "Design",
 	};
