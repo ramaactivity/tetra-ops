@@ -25,6 +25,11 @@ type TbcEventRow = {
 	end_time: string | null;
 	frame_size: string | null;
 	backdrop_id: string | null;
+	pending_package_hours: number | null;
+	package:
+		| { frame_size: string | null }
+		| Array<{ frame_size: string | null }>
+		| null;
 	venue_name: string | null;
 	pic_name: string | null;
 	pic_wa: string | null;
@@ -51,6 +56,15 @@ function addDays(d: Date, n: number): Date {
 // Daftar TBC dipindah ke @/lib/events/tbc supaya reminder owner, tampilan
 // crew, dan tombol "Ingatkan owner" memakai definisi yang sama persis.
 
+/** Paket ikut dibaca: paket tanpa cetak frame tidak butuh frame size. */
+function missingOf(ev: TbcEventRow): string[] {
+	const pkg = Array.isArray(ev.package) ? ev.package[0] : ev.package;
+	return listMissingFields({
+		...ev,
+		package_frame_size: pkg?.frame_size ?? null,
+	});
+}
+
 export async function runTbcReminderInternal(): Promise<TbcResult> {
 	const result: TbcResult = {
 		scanned: 0,
@@ -73,7 +87,8 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 		.select(
 			`id, project_id, client_name, event_date, start_time, setup_time,
 			 end_time, frame_size, backdrop_id, venue_name, pic_name, pic_wa,
-			 event_date_is_estimate`,
+			 event_date_is_estimate, pending_package_hours,
+			 package:packages(frame_size)`,
 		)
 		.in("event_date", targetDates)
 		.in("status", ["upcoming", "in_progress"]);
@@ -89,7 +104,7 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 	// melenceng dari daftar yang ditampilkan.
 	const tbcEvents = (events ?? []).filter(
 		(ev: TbcEventRow) =>
-			listMissingFields(ev).length > 0 || !ev.setup_time || !ev.end_time,
+			missingOf(ev).length > 0 || !ev.setup_time || !ev.end_time,
 	) as TbcEventRow[];
 	result.withTbc = tbcEvents.length;
 
@@ -124,7 +139,7 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 
 	for (const ev of tbcEvents) {
 		const daysAway = ev.event_date === targetDates[0] ? 7 : 3;
-		const missing = listMissingFields(ev);
+		const missing = missingOf(ev);
 		if (missing.length === 0) continue;
 		try {
 			const outcomes = await dispatchPushToMany(ownerSubs, {

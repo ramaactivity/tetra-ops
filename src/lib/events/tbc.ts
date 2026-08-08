@@ -18,6 +18,17 @@ export type TbcSnapshot = {
 	backdrop_id?: string | null;
 	pic_name?: string | null;
 	pic_wa?: string | null;
+	/**
+	 * Durasi paket yang sudah disepakati sementara ukurannya belum (lihat
+	 * lib/events/frame-package.ts). Terisi = paket event belum final.
+	 */
+	pending_package_hours?: number | null;
+	/**
+	 * Ukuran paket yang terpilih ("none" = paket memang tanpa cetak frame).
+	 * Dipakai supaya event Videobooth/Photo Stage tidak dituduh kurang frame
+	 * size — paketnya memang tidak punya ukuran.
+	 */
+	package_frame_size?: string | null;
 };
 
 /**
@@ -32,7 +43,22 @@ export function listMissingFields(ev: TbcSnapshot): string[] {
 	if (!ev.venue_name) missing.push("lokasi");
 	if (!ev.start_time) missing.push("jam mulai");
 	if (!ev.pic_name && !ev.pic_wa) missing.push("PIC lapangan");
-	if (!ev.frame_size) missing.push("frame size");
+	// Paket tanpa cetak frame (Videobooth 360, Photo Stage) memang tidak punya
+	// ukuran — menuntutnya cuma bikin alarm palsu tiap hari.
+	const frameIrrelevant = ev.package_frame_size === "none";
+	if (!ev.frame_size && !frameIrrelevant) {
+		// Kalau durasinya sudah disepakati, sebut apa yang kurang persisnya:
+		// paketnya belum final HANYA karena ukurannya belum dipastikan.
+		missing.push(
+			ev.pending_package_hours
+				? `frame size — paket masih ${ev.pending_package_hours} jam tanpa ukuran`
+				: "frame size",
+		);
+	} else if (ev.pending_package_hours) {
+		// Ukuran sudah pasti tapi paket sementara belum ditukar jadi paket
+		// konkret (mis. data lama). Jangan diam — harga & HPP ikut paket.
+		missing.push("paket final (ukuran sudah pasti, paket belum dikunci)");
+	}
 	if (!ev.backdrop_id) missing.push("backdrop");
 	return missing;
 }

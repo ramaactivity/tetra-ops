@@ -78,7 +78,8 @@ export default async function CrewEventDetailPage({
 			crew_notes, is_migrated_legacy,
 			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
 			booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
-			package:packages(name, duration_hours),
+			pending_package_hours,
+			package:packages(name, duration_hours, frame_size),
 			backdrop:backdrops(name, type),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
@@ -249,6 +250,8 @@ export default async function CrewEventDetailPage({
 		backdrop_id: event.backdrop_id as string | null,
 		pic_name: picName,
 		pic_wa: picPhone,
+		pending_package_hours: event.pending_package_hours as number | null,
+		package_frame_size: (pkg?.frame_size as string | null) ?? null,
 	});
 
 	// Multi-sesi (acara dengan jeda): booth buka → tutup → buka lagi. Crew HARUS

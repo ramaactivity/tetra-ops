@@ -1,6 +1,7 @@
 import "server-only";
 
 import { computeForecast } from "@/lib/actions/forecast";
+import { listMissingFields } from "@/lib/events/tbc";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -27,6 +28,16 @@ import {
  * hari yang sama tidak mengirim ulang.
  */
 
+type PackageFrameEmbed =
+	| { frame_size: string | null }
+	| Array<{ frame_size: string | null }>
+	| null;
+
+function pkgFrameSize(p: PackageFrameEmbed): string | null {
+	const one = Array.isArray(p) ? p[0] : p;
+	return one?.frame_size ?? null;
+}
+
 type EventRow = {
 	id: string;
 	project_id: string;
@@ -43,6 +54,14 @@ type EventRow = {
 	backdrop_id: string | null;
 	design_status: string | null;
 	design_approved_at: string | null;
+	design_frame_size: string | null;
+	pending_package_hours: number | null;
+	event_date_is_estimate: boolean | null;
+	pic_name: string | null;
+	pic_wa: string | null;
+	// PostgREST embed to-one: bisa terbaca sebagai objek ATAU array satu isi
+	// tergantung tipe generatednya — selalu lewat pkgFrameSize() di bawah.
+	package: PackageFrameEmbed;
 	total_paid: number;
 	remaining_balance: number;
 };
@@ -179,6 +198,10 @@ type GatheredData = {
 	stockLines: string[]; // sudah diformat, 🚨/⚠️ prefix
 	rutinLines: string[]; // opname / cek alat overdue
 	renewalLines: string[]; // langganan VPS/hosting mendekati jatuh tempo
+	/** Event H-8..H-30 yang datanya masih menyusul (di luar jendela 7 hari). */
+	tbcAheadLines: string[];
+	/** Mention PIC desain di grup, mis. <a href="tg://user?id=…">Iqbal</a>. */
+	designerMention: string | null;
 };
 
 /**
@@ -225,7 +248,9 @@ async function gatherData(
 		.select(
 			`id, project_id, client_name, event_date, setup_time, start_time,
 			 end_time, session_segments, venue_name, venue_city, google_maps_url,
-			 frame_size, backdrop_id, design_status, design_approved_at, total_paid,
+			 frame_size, backdrop_id, design_status, design_approved_at,
+			 design_frame_size, pending_package_hours, event_date_is_estimate,
+			 pic_name, pic_wa, package:packages(frame_size), total_paid,
 			 remaining_balance`,
 		)
 		.gte("event_date", todayISO)
@@ -335,6 +360,8 @@ async function gatherData(
 
 	const rutinLines = await gatherRutinLines(admin);
 	const renewalLines = await gatherRenewalLines(admin, todayISO);
+	const tbcAheadLines = await gatherTbcAheadLines(admin, todayISO);
+	const designerMention = await getDesignerMention(admin);
 
 	return {
 		todayISO,
@@ -344,7 +371,90 @@ async function gatherData(
 		stockLines,
 		rutinLines,
 		renewalLines,
+		tbcAheadLines,
+		designerMention,
 	};
+}
+
+// ── Data menyusul di luar jendela 7 hari ─────────────────────────────────
+//
+// Digest utama hanya melihat 7 hari ke depan, jadi event yang di-booking jauh
+// hari bisa berbulan-bulan menyimpan "frame size: menyusul" tanpa seorang pun
+// diingatkan — lalu ributnya baru di hari-H (8 Agu 2026). Bagian ini menyapu
+// H-8..H-30: cukup sering untuk tidak lupa, cukup pendek untuk tidak berisik.
+
+const TBC_AHEAD_DAYS = 30;
+const TBC_AHEAD_MAX_LINES = 8;
+
+async function gatherTbcAheadLines(
+	admin: ReturnType<typeof createAdminClient>,
+	todayISO: string,
+): Promise<string[]> {
+	try {
+		const { data, error } = await admin
+			.from("events")
+			.select(
+				`id, project_id, client_name, event_date, venue_name, start_time,
+				 frame_size, backdrop_id, pic_name, pic_wa, pending_package_hours,
+				 event_date_is_estimate, package:packages(frame_size)`,
+			)
+			.gt("event_date", addDaysISO(todayISO, 7))
+			.lte("event_date", addDaysISO(todayISO, TBC_AHEAD_DAYS))
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.in("status", ["upcoming", "in_progress"])
+			.order("event_date", { ascending: true });
+		if (error) throw new Error(error.message);
+
+		const lines: string[] = [];
+		type AheadRow = MissingInfoRow & {
+			client_name: string;
+			event_date: string;
+		};
+		for (const ev of (data ?? []) as AheadRow[]) {
+			const missing = eventMissingInfo(ev);
+			if (missing.length === 0) continue;
+			const days = daysUntil(todayISO, ev.event_date);
+			lines.push(
+				`H-${days} <b>${tgEscape(ev.client_name)}</b> (${dateLabel(ev.event_date)}): ${tgEscape(missing.join(", "))}`,
+			);
+		}
+		if (lines.length > TBC_AHEAD_MAX_LINES) {
+			const rest = lines.length - TBC_AHEAD_MAX_LINES;
+			return [
+				...lines.slice(0, TBC_AHEAD_MAX_LINES),
+				`…dan ${rest} event lain — buka daftar event, cari chip "Belum lengkap".`,
+			];
+		}
+		return lines;
+	} catch {
+		// jangan pernah menggagalkan digest karena bagian tambahan
+		return [];
+	}
+}
+
+/**
+ * Mention PIC desain. Telegram tidak memberi tahu user_id seseorang lewat cara
+ * lain, jadi orangnya sendiri yang mendaftar dengan mengetik /desainer di grup
+ * (webhook yang menyimpan). Mention berbasis tg://user?id juga tetap bekerja
+ * untuk akun yang tidak punya @username.
+ */
+async function getDesignerMention(
+	admin: ReturnType<typeof createAdminClient>,
+): Promise<string | null> {
+	try {
+		const { data } = await admin
+			.from("telegram_settings")
+			.select("design_pic_user_id, design_pic_name")
+			.eq("id", 1)
+			.maybeSingle();
+		const uid = data?.design_pic_user_id as number | null;
+		if (!uid) return null;
+		const name = (data?.design_pic_name as string | null) ?? "PIC desain";
+		return `<a href="tg://user?id=${uid}">${tgEscape(name)}</a>`;
+	} catch {
+		return null;
+	}
 }
 
 // ── Rutinitas gudang: stock opname & cek alat ────────────────────────────
@@ -472,6 +582,38 @@ export function daysUntil(todayISO: string, dateISO: string): number {
 	);
 }
 
+/**
+ * Data yang masih menyusul untuk satu event — memakai definisi yang sama
+ * dengan chip "Belum lengkap" di webapp dan reminder push owner. Kalau daftar
+ * ini dipisah, bot dan aplikasi pelan-pelan bicara hal yang berbeda.
+ */
+type MissingInfoRow = Pick<
+	EventRow,
+	| "event_date_is_estimate"
+	| "venue_name"
+	| "start_time"
+	| "frame_size"
+	| "backdrop_id"
+	| "pic_name"
+	| "pic_wa"
+	| "pending_package_hours"
+	| "package"
+>;
+
+function eventMissingInfo(ev: MissingInfoRow): string[] {
+	return listMissingFields({
+		event_date_is_estimate: ev.event_date_is_estimate,
+		venue_name: ev.venue_name,
+		start_time: ev.start_time,
+		frame_size: ev.frame_size,
+		backdrop_id: ev.backdrop_id,
+		pic_name: ev.pic_name,
+		pic_wa: ev.pic_wa,
+		pending_package_hours: ev.pending_package_hours,
+		package_frame_size: pkgFrameSize(ev.package),
+	});
+}
+
 function deriveIssues(
 	ev: EventRow,
 	days: number,
@@ -507,12 +649,19 @@ function deriveIssues(
 		push(isCritical, `desain belum ACC (${st})`);
 	}
 
-	// Spek cetak — ikut window TBC H-3
-	if (days <= 3) {
-		const spek: string[] = [];
-		if (!ev.frame_size) spek.push("frame size");
-		if (!ev.backdrop_id) spek.push("backdrop");
-		if (spek.length > 0) warning.push(`${spek.join(" & ")} belum dipilih`);
+	// Data yang masih menyusul — SATU definisi dengan chip di webapp dan
+	// reminder push owner (lib/events/tbc.ts). Jam & PIC sudah punya barisnya
+	// sendiri di atas, jadi di sini cukup spek yang menentukan hasil cetak.
+	// Ukuran frame naik jadi kritis di H-2: mulai titik itu desain tidak bisa
+	// di-ACC dan cetak tidak bisa disiapkan — persis kejadian 8 Agu 2026.
+	const missing = eventMissingInfo(ev).filter(
+		(m) => !m.startsWith("jam") && !m.startsWith("PIC") && m !== "lokasi",
+	);
+	if (missing.length > 0 && days <= 7) {
+		push(
+			days <= 2 && !ev.frame_size,
+			`belum ditentukan: ${missing.join(", ")}`,
+		);
 	}
 
 	// Pembayaran — DP window H-7, pelunasan window H-3
@@ -536,6 +685,8 @@ export function composeDigest(data: GatheredData): string | null {
 		stockLines,
 		rutinLines,
 		renewalLines,
+		tbcAheadLines,
+		designerMention,
 	} = data;
 
 	const allCritical: string[] = [
@@ -575,13 +726,34 @@ export function composeDigest(data: GatheredData): string | null {
 		);
 	}
 
+	// Desain belum ACC untuk event ≤7 hari — dikumpulkan jadi satu blok dengan
+	// mention PIC desain, karena inilah pekerjaan satu orang tertentu (dan
+	// tanpa ACC, ukuran cetak tidak pernah tervalidasi).
+	const designPending = events
+		.filter(
+			(ev) =>
+				ev.design_status !== "approved" &&
+				ev.design_approved_at === null &&
+				daysUntil(todayISO, ev.event_date) <= 7,
+		)
+		.map((ev) => {
+			const days = daysUntil(todayISO, ev.event_date);
+			const st =
+				ev.design_status === "proses" ? "masih proses" : "belum dibuat";
+			const ukuran = ev.frame_size
+				? `ukuran ${tgEscape(ev.frame_size)}`
+				: "⚠️ ukuran belum ditentukan";
+			return `${days === 0 ? "HARI INI" : `H-${days}`} <b>${tgEscape(ev.client_name)}</b> — ${st} · ${ukuran}`;
+		});
+
 	const noEventIssues = eventBlocks.length === 0;
 	const nothingToSay =
 		events.length === 0 &&
 		stockLines.length === 0 &&
 		allCritical.length === 0 &&
 		rutinLines.length === 0 &&
-		renewalLines.length === 0;
+		renewalLines.length === 0 &&
+		tbcAheadLines.length === 0;
 	if (nothingToSay) return null; // tidak ada event, stok aman, rutinitas beres → diam
 
 	const parts: string[] = [
@@ -606,6 +778,30 @@ export function composeDigest(data: GatheredData): string | null {
 		);
 	} else if (silentReady > 0) {
 		parts.push(`\n✅ ${silentReady} event lain sudah siap.`);
+	}
+
+	if (designPending.length > 0) {
+		parts.push(
+			`\n🎨 <b>DESAIN BELUM ACC</b>${designerMention ? ` — ${designerMention}` : ""}\n${designPending
+				.map((s) => `      • ${s}`)
+				.join(
+					"\n",
+				)}\n      Update statusnya di Asset & Design. Saat ACC kamu akan ditanya ukuran filenya — di situ ukuran dicocokkan dengan pesanan klien.${
+				designerMention
+					? ""
+					: "\n      (Ketik /desainer di grup ini biar kamu yang di-mention tiap pagi.)"
+			}`,
+		);
+	}
+
+	if (tbcAheadLines.length > 0) {
+		parts.push(
+			`\n📝 <b>DATA MASIH MENYUSUL</b> (event ${TBC_AHEAD_DAYS} hari ke depan)\n${tbcAheadLines
+				.map((s) => `      • ${s}`)
+				.join(
+					"\n",
+				)}\n      Konfirmasi ke klien lalu lengkapi — jangan tunggu mepet hari-H.`,
+		);
 	}
 
 	if (stockLines.length > 0) {
@@ -1126,7 +1322,8 @@ export async function runTelegramDigestInternal(opts?: {
 				opts?.force ?? false,
 				composeAssetUpload(ev),
 			);
-			if (r.status === "sent") result.sent.push(`asset_upload ${ev.client_name}`);
+			if (r.status === "sent")
+				result.sent.push(`asset_upload ${ev.client_name}`);
 			else if (r.status === "skipped")
 				result.skipped.push(`asset_upload ${ev.client_name}: sudah terkirim`);
 			else result.errors.push(`asset_upload ${ev.client_name}: ${r.error}`);

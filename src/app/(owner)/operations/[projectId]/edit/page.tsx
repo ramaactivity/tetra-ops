@@ -32,7 +32,8 @@ export default async function EditBookingPage({
 			.from("events")
 			.select(
 				`id, project_id, channel, client_name, client_wa, client_email,
-				service_type, package_id, frame_size, event_category, event_date,
+				service_type, package_id, pending_package_hours, frame_size,
+				event_category, event_date,
 				event_date_is_estimate,
 				setup_time, start_time, end_time, session_segments,
 				booker_name,
@@ -147,6 +148,7 @@ export default async function EditBookingPage({
 						client_email: event.client_email ?? "",
 						service_type: event.service_type,
 						package_id: event.package_id ?? "",
+						pending_package_hours: event.pending_package_hours ?? "",
 						frame_size: event.frame_size,
 						event_category: event.event_category,
 						event_date: event.event_date,

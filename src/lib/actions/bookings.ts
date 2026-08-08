@@ -9,6 +9,14 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
 import {
+	type PackageLike,
+	packageFitsFrame,
+	packageNeedsFrame,
+	pendingPackageLabel,
+	resolvePackage,
+} from "@/lib/events/frame-package";
+import { SERVICE_TYPE_LABELS } from "@/lib/format";
+import {
 	formatScheduleInline,
 	parseSegments,
 	segmentsEnvelope,
@@ -66,6 +74,19 @@ const BookingInputSchema = z.object({
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
+	// Paket sementara saat ukuran belum pasti: yang disepakati cuma DURASI-nya.
+	// package_id tetap kosong sampai ukurannya dipastikan — lihat
+	// lib/events/frame-package.ts. Harga per durasi sama untuk semua ukuran,
+	// jadi nominal booking tidak berubah saat paket dikunci nanti.
+	pending_package_hours: z.coerce
+		.number()
+		.int()
+		.min(1)
+		.max(24)
+		.optional()
+		.nullable()
+		.or(z.literal(""))
+		.transform((v) => (v === "" || v === undefined ? null : v)),
 	event_category: z.string().trim().min(2, "Minimal 2 karakter").max(60),
 	// Tanggal tetap WAJIB walau klien belum memastikan — kolom ini kunci
 	// partisi cron status, availability, guard bentrok crew, freeze cutoff, dan
@@ -240,6 +261,7 @@ const FORM_KEYS = [
 	"client_wa",
 	"service_type",
 	"package_id",
+	"pending_package_hours",
 	"frame_size",
 	"event_category",
 	"event_date",
@@ -409,7 +431,151 @@ async function resolveBasePrice(
 			.maybeSingle();
 		if (pkg?.base_price) return pkg.base_price as number;
 	}
+	// Paket sementara (durasi saja): ambil harga durasi itu dari pricelist.
+	// Harga sama untuk semua ukuran, jadi tidak ada yang berubah saat paket
+	// dikunci nanti; kalau ternyata beda, pakai yang terendah supaya event
+	// tidak pernah menagih klien lebih dari yang disepakati.
+	if (input.pending_package_hours) {
+		const { data: pkgs } = await supabase
+			.from("packages")
+			.select("base_price")
+			.eq("category", input.service_type)
+			.eq("duration_hours", input.pending_package_hours)
+			.is("deleted_at", null)
+			.eq("is_active", true);
+		const prices = (pkgs ?? []).map((p) => Number(p.base_price));
+		if (prices.length > 0) return Math.min(...prices);
+	}
 	return 0;
+}
+
+/**
+ * Gerbang "frame size ↔ paket": data event tidak boleh menyimpan paket
+ * ber-ukuran sementara ukurannya sendiri belum pasti, dan tidak boleh
+ * menyimpan paket yang ukurannya berbeda dari frame size event.
+ *
+ * Sekaligus MENORMALKAN input:
+ *   • ukuran sudah pasti + durasi sementara → ditukar jadi paket konkret
+ *   • paket konkret terpilih                → durasi sementara dibuang
+ *
+ * Dipanggil server-side supaya bug ini tidak bisa lolos lewat form lama,
+ * import, atau siapa pun yang mem-POST manual.
+ */
+type PackageSelection = {
+	package_id: string | null;
+	pending_package_hours: number | null;
+	/** undefined = jangan sentuh kolomnya (mis. nama custom hasil import). */
+	custom_package_name?: string | null;
+};
+
+async function resolvePackageSelection(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	input: BookingInput,
+): Promise<
+	{ ok: true; value: PackageSelection } | { ok: false; errors: BookingErrors }
+> {
+	const serviceLabel = SERVICE_TYPE_LABELS[input.service_type] ?? null;
+
+	if (input.package_id) {
+		const { data: pkgRow } = await supabase
+			.from("packages")
+			.select("id, name, category, frame_size, duration_hours, base_price")
+			.eq("id", input.package_id)
+			.maybeSingle();
+		if (!pkgRow) {
+			return {
+				ok: false,
+				errors: { package_id: ["Paket tidak ditemukan — pilih ulang."] },
+			};
+		}
+		const pkg = pkgRow as PackageLike;
+		if (packageNeedsFrame(pkg) && !input.frame_size) {
+			return {
+				ok: false,
+				errors: {
+					frame_size: [
+						`Paket "${pkg.name}" khusus ukuran ${pkg.frame_size}, tapi frame size event masih menyusul. Tanyakan ukurannya ke klien, atau pilih paket berdasarkan durasi saja (${pkg.duration_hours} jam).`,
+					],
+				},
+			};
+		}
+		if (!packageFitsFrame(pkg.frame_size, input.frame_size)) {
+			return {
+				ok: false,
+				errors: {
+					package_id: [
+						`Paket "${pkg.name}" untuk ukuran ${pkg.frame_size}, sedangkan frame size event ${input.frame_size}. Samakan dulu — inilah yang bikin salah cetak.`,
+					],
+				},
+			};
+		}
+		// Paket konkret menang: durasi sementara tidak boleh ikut tersimpan.
+		return {
+			ok: true,
+			value: {
+				package_id: pkg.id,
+				pending_package_hours: null,
+				custom_package_name: null,
+			},
+		};
+	}
+
+	if (input.pending_package_hours) {
+		const { data: pkgs } = await supabase
+			.from("packages")
+			.select("id, name, category, frame_size, duration_hours, base_price")
+			.eq("category", input.service_type)
+			.eq("duration_hours", input.pending_package_hours)
+			.is("deleted_at", null)
+			.eq("is_active", true);
+		const candidates = (pkgs ?? []) as PackageLike[];
+		if (candidates.length === 0) {
+			return {
+				ok: false,
+				errors: {
+					pending_package_hours: [
+						`Tidak ada paket ${input.pending_package_hours} jam di ${serviceLabel ?? input.service_type}.`,
+					],
+				},
+			};
+		}
+		// Ukuran sudah pasti → kunci paketnya sekarang juga. Owner tidak perlu
+		// ingat untuk kembali menukar (dan tidak bisa lupa).
+		const exact = resolvePackage(
+			candidates,
+			input.service_type,
+			input.pending_package_hours,
+			input.frame_size,
+		);
+		if (input.frame_size && exact) {
+			return {
+				ok: true,
+				value: {
+					package_id: exact.id,
+					pending_package_hours: null,
+					custom_package_name: null,
+				},
+			};
+		}
+		return {
+			ok: true,
+			value: {
+				package_id: null,
+				pending_package_hours: input.pending_package_hours,
+				custom_package_name: pendingPackageLabel(
+					serviceLabel,
+					input.pending_package_hours,
+				),
+			},
+		};
+	}
+
+	// Booking custom (tanpa paket & tanpa durasi) — nama custom dibiarkan
+	// apa adanya; itu milik jalur import/legacy, bukan urusan gerbang ini.
+	return {
+		ok: true,
+		value: { package_id: null, pending_package_hours: null },
+	};
 }
 
 function computeGrandTotal({
@@ -479,6 +645,9 @@ function buildEventPayload(
 	addonsTotal: number,
 	backdropContribution: number,
 	vendorContactId: string | null,
+	// Hasil gerbang frame↔paket (resolvePackageSelection) — bukan input mentah,
+	// supaya paket & ukuran yang tersimpan dijamin tidak saling bertentangan.
+	selection: PackageSelection,
 	// Pembayaran yang SUDAH masuk (untuk kasus edit). Saat edit booking,
 	// remaining_balance harus = grand_total − total_paid, BUKAN reset ke
 	// grand_total (yang membuang progres DP). createBooking pakai default 0.
@@ -530,11 +699,19 @@ function buildEventPayload(
 		client_name: input.client_name,
 		client_wa: input.client_wa,
 		service_type: input.service_type,
-		package_id: input.package_id,
+		package_id: selection.package_id,
+		// Paket sementara: durasi sudah disepakati, ukuran menyusul. Namanya
+		// ikut ditulis ke custom_package_name supaya semua pembaca lama (PDF,
+		// daftar event, halaman crew) menampilkan "2 Jam · ukuran menyusul"
+		// alih-alih "—" tanpa perlu tahu kolom baru ini.
+		pending_package_hours: selection.pending_package_hours,
+		...(selection.custom_package_name !== undefined
+			? { custom_package_name: selection.custom_package_name }
+			: {}),
 		// Custom booking (tanpa paket): simpan harga manual ke custom_package_price
 		// supaya konsisten — downstream (settle/PDF/preview) pakai
 		// custom_package_price ?? base_price.
-		custom_package_price: input.package_id ? null : basePrice,
+		custom_package_price: selection.package_id ? null : basePrice,
 		frame_size: input.frame_size,
 		event_category: input.event_category,
 		event_date: input.event_date,
@@ -631,6 +808,7 @@ async function buildBookingChangeLines(
 		venue_name: string | null;
 		venue_city: string | null;
 		package_id: string | null;
+		pending_package_hours?: number | null;
 		backdrop_id: string | null;
 		frame_size: string | null;
 		event_category: string | null;
@@ -693,7 +871,12 @@ async function buildBookingChangeLines(
 		);
 	}
 
-	if ((before.package_id ?? null) !== (after.package_id ?? null)) {
+	const pendingBefore = before.pending_package_hours ?? null;
+	const pendingAfter = after.pending_package_hours ?? null;
+	if (
+		(before.package_id ?? null) !== (after.package_id ?? null) ||
+		pendingBefore !== pendingAfter
+	) {
 		const ids = [before.package_id, after.package_id].filter((v): v is string =>
 			Boolean(v),
 		);
@@ -701,12 +884,19 @@ async function buildBookingChangeLines(
 			.from("packages")
 			.select("id, name")
 			.in("id", ids);
-		const pkgName = (pid: string | null) =>
+		// Paket sementara harus terbaca apa adanya di grup — "Custom (tanpa
+		// paket)" menyembunyikan justru fakta yang perlu dikejar owner.
+		const pkgName = (pid: string | null, pendingHours: number | null) =>
 			pid
 				? (((pkgs ?? []).find((p) => p.id === pid)?.name as string) ?? "?")
-				: "Custom (tanpa paket)";
+				: pendingHours
+					? `${pendingHours} jam · ukuran menyusul`
+					: "Custom (tanpa paket)";
 		lines.push(
-			`📦 Paket: ${arrow(tgEscape(pkgName(before.package_id)), tgEscape(pkgName(after.package_id)))}`,
+			`📦 Paket: ${arrow(
+				tgEscape(pkgName(before.package_id, pendingBefore)),
+				tgEscape(pkgName(after.package_id, pendingAfter)),
+			)}`,
 		);
 	}
 
@@ -820,6 +1010,12 @@ export async function createBooking(
 	}
 
 	const supabase = await createClient();
+	// Gerbang frame↔paket dulu, sebelum apa pun disimpan: paket ber-ukuran +
+	// frame size "menyusul" adalah kombinasi yang tidak boleh ada.
+	const selection = await resolvePackageSelection(supabase, parsed.data);
+	if (!selection.ok) {
+		return { errors: selection.errors, values: snapshotValues(formData) };
+	}
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
 	const addonsRaw = parseAddonsJson(formData);
 	const { rows: addonRows, total: addonsTotal } = await snapshotAddons(
@@ -868,6 +1064,7 @@ export async function createBooking(
 				addonsTotal,
 				backdropContribution,
 				vendorContactId,
+				selection.value,
 			),
 		})
 		.select("id")
@@ -956,6 +1153,12 @@ export async function updateBooking(
 	}
 
 	const supabase = await createClient();
+	// Gerbang frame↔paket — sama seperti createBooking, supaya edit tidak bisa
+	// mengembalikan event ke keadaan "paket 2R, ukuran menyusul".
+	const selection = await resolvePackageSelection(supabase, parsed.data);
+	if (!selection.ok) {
+		return { errors: selection.errors, values: snapshotValues(formData) };
+	}
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
 	const addonsRaw = parseAddonsJson(formData);
 	const { rows: addonRows, total: addonsTotal } = await snapshotAddons(
@@ -990,8 +1193,8 @@ export async function updateBooking(
 			`total_paid, status, is_migrated_legacy,
 			client_name, event_date, event_date_is_estimate, setup_time,
 			start_time, end_time, session_segments, venue_name, venue_city,
-			package_id, backdrop_id, frame_size, event_category, pic_name,
-			grand_total`,
+			package_id, pending_package_hours, backdrop_id, frame_size,
+			event_category, pic_name, grand_total`,
 		)
 		.eq("id", id)
 		.maybeSingle();
@@ -1046,6 +1249,7 @@ export async function updateBooking(
 		addonsTotal,
 		backdropContribution,
 		vendorContactId,
+		selection.value,
 		Number(curEvent?.total_paid ?? 0),
 	);
 

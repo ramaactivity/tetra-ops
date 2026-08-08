@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	AlertTriangle,
 	Archive,
 	CalendarDays,
 	Clock,
@@ -65,6 +66,13 @@ export type EventRow = {
 	backdrop_type: string | null;
 	event_category: string | null;
 	event_category_label: string | null;
+	/**
+	 * Data yang masih "menyusul" untuk event ini (frame size, backdrop, lokasi,
+	 * jam, PIC). Diisi server dari lib/events/tbc.ts — SATU definisi dengan
+	 * reminder Telegram & tampilan crew. Kosong = lengkap.
+	 */
+	missing_info?: string[];
+	design_status?: string | null;
 };
 
 export type CrewChip = {
@@ -145,6 +153,39 @@ function packageLabel(ev: EventRow): string {
 		.filter(Boolean)
 		.join(" · ");
 	return fallback || "—";
+}
+
+/**
+ * Chip "Belum lengkap" — penanda paling awal bahwa sebuah event masih punya
+ * informasi menyusul. Sengaja menyebutkan APA yang kurang (bukan cuma ikon),
+ * karena yang bikin salah cetak 8 Agu 2026 justru orang tahu ada yang TBC tapi
+ * tidak tahu persis apanya.
+ */
+function MissingInfoChip({
+	missing,
+	className,
+}: {
+	missing: string[];
+	className?: string;
+}) {
+	if (missing.length === 0) return null;
+	const shown = missing.slice(0, 2).join(", ");
+	const rest = missing.length - 2;
+	return (
+		<span
+			className={cn(
+				"inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400",
+				className,
+			)}
+			title={`Belum lengkap: ${missing.join(", ")}`}
+		>
+			<AlertTriangle className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
+			<span className="truncate">
+				Belum lengkap: {shown}
+				{rest > 0 ? ` +${rest}` : ""}
+			</span>
+		</span>
+	);
 }
 
 function backdropLabel(ev: EventRow): string | null {
@@ -234,6 +275,7 @@ export function OperationsListTable({
 											/>
 										)}
 									</div>
+									<MissingInfoChip missing={ev.missing_info ?? []} />
 								</div>
 
 								{/* WAKTU & TEMPAT */}
@@ -347,6 +389,10 @@ export function OperationsListTable({
 											/>
 										)}
 									</div>
+									<MissingInfoChip
+										missing={ev.missing_info ?? []}
+										className="mt-1.5"
+									/>
 								</div>
 								<div className="flex shrink-0 flex-col items-end gap-1">
 									<EventStatusDot

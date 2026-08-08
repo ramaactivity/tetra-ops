@@ -53,12 +53,22 @@ type TgChat = {
 	title?: string;
 };
 
+type TgUser = {
+	id: number;
+	is_bot?: boolean;
+	first_name?: string;
+	last_name?: string;
+	username?: string;
+};
+
 type TgUpdate = {
 	update_id: number;
 	message?: {
 		chat: TgChat;
 		text?: string;
 		migrate_to_chat_id?: number;
+		from?: TgUser;
+		reply_to_message?: { from?: TgUser };
 	};
 	my_chat_member?: {
 		chat: TgChat;
@@ -86,6 +96,7 @@ const HELP_TEXT = [
 	"/vendor — event upcoming via vendor (nilai, komisi, PIC)",
 	"/bisnis — rekap bisnis bulan berjalan (omzet, profit, leads)",
 	"/langganan — jatuh tempo VPS, domain, simcard, dll",
+	"/desainer — daftarkan diri sebagai PIC desain (biar di-mention tiap pagi)",
 	"/tanya ... — tanya bebas ke AI, mis. <code>/tanya profit bulan ini berapa</code>",
 	"/menu — panel tombol",
 	"/id — chat ID grup ini",
@@ -485,6 +496,46 @@ export async function POST(request: Request) {
 					`Chat ID: <code>${msg.chat.id}</code> (grup ini belum terdaftar)`,
 				);
 			}
+			return NextResponse.json({ ok: true });
+		}
+
+		// /desainer — orangnya sendiri yang mendaftar sebagai PIC desain, supaya
+		// reminder "desain belum ACC" tiap pagi bisa me-mention dia. Telegram
+		// tidak membocorkan user_id lewat cara lain, dan mention @username gagal
+		// untuk akun tanpa username — jadi id-nya diambil dari pesan ini.
+		// Balas ke pesan orang lain + ketik /desainer = mendaftarkan orang itu.
+		if (command === "/desainer") {
+			const target = msg.reply_to_message?.from ?? msg.from;
+			if (!target || target.is_bot) {
+				await sendTelegramMessage(
+					msg.chat.id,
+					"Ketik <code>/desainer</code> dari akun PIC desain (atau balas pesan orangnya lalu ketik /desainer).",
+				);
+				return NextResponse.json({ ok: true });
+			}
+			const name =
+				[target.first_name, target.last_name].filter(Boolean).join(" ") ||
+				target.username ||
+				"PIC desain";
+			const admin = createAdminClient();
+			const { error } = await admin
+				.from("telegram_settings")
+				.update({
+					design_pic_user_id: target.id,
+					design_pic_name: name,
+					updated_at: new Date().toISOString(),
+				})
+				.eq("id", 1);
+			await sendTelegramMessage(
+				msg.chat.id,
+				error
+					? `⚠️ Gagal menyimpan PIC desain: ${error.message}`
+					: [
+							`🎨 <b>${name}</b> terdaftar sebagai PIC desain.`,
+							"",
+							"Tiap pagi kamu di-mention untuk event yang desainnya belum ACC. Saat menandai desain Approved, sistem menanyakan ukuran filenya dan mencocokkannya dengan pesanan klien.",
+						].join("\n"),
+			);
 			return NextResponse.json({ ok: true });
 		}
 

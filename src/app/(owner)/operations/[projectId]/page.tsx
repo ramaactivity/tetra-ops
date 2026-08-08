@@ -1,5 +1,6 @@
 import {
 	Activity,
+	AlertTriangle,
 	Archive,
 	Building2,
 	FileText,
@@ -33,11 +34,13 @@ import {
 import { EventReadinessCard } from "@/components/operations/readiness-card";
 import { PdfDownloadMenu } from "@/components/pdf/download-menu";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
+import { listMissingFields } from "@/lib/events/tbc";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
@@ -82,7 +85,9 @@ export default async function EventDetailPage({
 				`
 			id, project_id, status, channel, client_name, client_wa, client_email,
 			pic_name, pic_wa,
-			service_type, frame_size, package_id, event_category, event_date,
+			service_type, frame_size, package_id, pending_package_hours,
+			event_date_is_estimate, design_frame_size,
+			event_category, event_date,
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
@@ -96,7 +101,7 @@ export default async function EventDetailPage({
 			drive_folder_id, drive_folder_url, drive_folder_created_at,
 			backdrop_id, vendor_decor_markup,
 			backdrop:backdrops(name, type, rental_price),
-			package:packages(id, name, base_price, duration_hours),
+			package:packages(id, name, base_price, duration_hours, frame_size),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments(id, user_id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
@@ -154,6 +159,24 @@ export default async function EventDetailPage({
 	);
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
+
+	// Data yang masih menyusul — definisi yang sama persis dengan chip di daftar
+	// event, reminder Telegram, dan tampilan crew (lib/events/tbc.ts).
+	const missingInfo =
+		!event.is_migrated_legacy &&
+		(event.status === "upcoming" || event.status === "in_progress")
+			? listMissingFields({
+					event_date_is_estimate: event.event_date_is_estimate,
+					venue_name: event.venue_name,
+					start_time: event.start_time,
+					frame_size: event.frame_size,
+					backdrop_id: event.backdrop_id,
+					pic_name: event.pic_name,
+					pic_wa: event.pic_wa,
+					pending_package_hours: event.pending_package_hours,
+					package_frame_size: pkg?.frame_size ?? null,
+				})
+			: [];
 	const eventAddons = (event.event_addons ?? []) as Array<{
 		quantity: number;
 		unit_price: number;
@@ -503,6 +526,39 @@ export default async function EventDetailPage({
 				rekapSubmitted={rekapSubmitted}
 				driveFolderUrl={event.drive_folder_url ?? null}
 			/>
+
+			{/* === DATA MENYUSUL — paling atas, sebelum apa pun yang lain ===
+			    Miskomunikasi 8 Agu 2026 terjadi karena "masih menyusul" cuma
+			    terlihat di form edit. Di sini dia jadi hal pertama yang dibaca
+			    siapa pun yang membuka event, lengkap dengan tombol memperbaiki. */}
+			{missingInfo.length > 0 && (
+				<div className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+					<AlertTriangle
+						className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-500"
+						aria-hidden
+					/>
+					<div className="min-w-0 flex-1 space-y-1">
+						<p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
+							Data event belum lengkap — {missingInfo.length} hal masih
+							menyusul
+						</p>
+						<p className="text-[13px] text-amber-900/85 dark:text-amber-200/85">
+							{missingInfo.join(" · ")}. Konfirmasi ke klien lalu lengkapi —
+							desain tidak bisa di-ACC selama ukuran belum pasti, dan grup
+							Telegram akan terus diingatkan tiap pagi.
+						</p>
+					</div>
+					<Link
+						href={`/operations/${event.project_id}/edit`}
+						className={cn(
+							buttonVariants({ variant: "outline", size: "sm" }),
+							"shrink-0 border-amber-500/50 bg-card",
+						)}
+					>
+						Lengkapi sekarang
+					</Link>
+				</div>
+			)}
 
 			{/* === READINESS (collapsible, defaults open) === */}
 			<CollapsibleCard

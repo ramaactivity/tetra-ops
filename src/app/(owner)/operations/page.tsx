@@ -27,6 +27,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Fab } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { applyDateTransitions } from "@/lib/event-status-transition";
+import { listMissingFields } from "@/lib/events/tbc";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -116,8 +117,9 @@ export default async function OperationsListPage({
 			 frame_size, backdrop_color, include_flashdisk_pouch,
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
-			 event_category,
-			 package:packages(name, duration_hours),
+			 event_category, backdrop_id, pic_name, pic_wa, pending_package_hours,
+			 design_status,
+			 package:packages(name, duration_hours, frame_size),
 			 backdrop:backdrops(name, type)`,
 		)
 		.is("deleted_at", null)
@@ -263,6 +265,11 @@ export default async function OperationsListPage({
 		);
 	}
 
+	type PackageEmbed = {
+		name: string | null;
+		duration_hours: number | null;
+		frame_size: string | null;
+	};
 	type RawEventRow = Omit<
 		EventRow,
 		| "package_name"
@@ -270,17 +277,20 @@ export default async function OperationsListPage({
 		| "backdrop_name"
 		| "backdrop_type"
 		| "event_category_label"
+		| "missing_info"
 	> & {
-		package?:
-			| { name: string | null; duration_hours: number | null }
-			| Array<{ name: string | null; duration_hours: number | null }>
-			| null;
+		package?: PackageEmbed | Array<PackageEmbed> | null;
 		backdrop?:
 			| { name: string | null; type: string | null }
 			| Array<{ name: string | null; type: string | null }>
 			| null;
 		custom_package_name?: string | null;
 		event_category?: string | null;
+		backdrop_id?: string | null;
+		pic_name?: string | null;
+		pic_wa?: string | null;
+		pending_package_hours?: number | null;
+		design_status?: string | null;
 	};
 	const events: EventRow[] = ((listResult.data ?? []) as RawEventRow[]).map(
 		(row) => {
@@ -317,6 +327,27 @@ export default async function OperationsListPage({
 				event_category_label: cat
 					? (eventTypeLabelByCode.get(cat) ?? cat)
 					: null,
+				// Data yang masih menyusul — SATU definisi dengan reminder owner,
+				// tampilan crew, dan bot Telegram (lib/events/tbc.ts). Hanya untuk
+				// event yang masih akan/sedang berjalan: event selesai atau batal
+				// tidak ada gunanya lagi dikejar, dan baris legacy memang tidak
+				// pernah punya data lengkap.
+				missing_info:
+					!row.is_migrated_legacy &&
+					(row.status === "upcoming" || row.status === "in_progress")
+						? listMissingFields({
+								event_date_is_estimate: row.event_date_is_estimate,
+								venue_name: row.venue_name,
+								start_time: row.start_time,
+								frame_size: row.frame_size,
+								backdrop_id: row.backdrop_id,
+								pic_name: row.pic_name,
+								pic_wa: row.pic_wa,
+								pending_package_hours: row.pending_package_hours,
+								package_frame_size: pkg?.frame_size ?? null,
+							})
+						: [],
+				design_status: row.design_status ?? null,
 			};
 		},
 	);

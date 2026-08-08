@@ -35,7 +35,8 @@ export async function remindOwnerIncompleteData(
 			.from("events")
 			.select(
 				`id, project_id, client_name, event_date, event_date_is_estimate,
-				 venue_name, start_time, frame_size, backdrop_id, pic_name, pic_wa`,
+				 venue_name, start_time, frame_size, backdrop_id, pic_name, pic_wa,
+				 pending_package_hours, package:packages(frame_size)`,
 			)
 			.eq("project_id", projectId)
 			.maybeSingle();
@@ -57,7 +58,13 @@ export async function remindOwnerIncompleteData(
 			}
 		}
 
-		const missing = listMissingFields(event);
+		// Paket ikut dibaca supaya event yang paketnya memang tanpa cetak frame
+		// (Videobooth, Photo Stage) tidak dianggap kurang "frame size".
+		const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
+		const missing = listMissingFields({
+			...event,
+			package_frame_size: (pkg?.frame_size as string | null) ?? null,
+		});
 		if (missing.length === 0) {
 			return { ok: false, error: "Data event ini sudah lengkap." };
 		}

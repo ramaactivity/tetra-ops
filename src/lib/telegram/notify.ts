@@ -196,6 +196,46 @@ export async function notifyTelegramEventUpdated(
 }
 
 /**
+ * Desain di-ACC → grup owner, LENGKAP dengan ukurannya.
+ *
+ * Ukuran ikut disebut supaya siapa pun di grup bisa menyanggah sebelum cetak
+ * ("lho, klien minta 4R"). Ini pasangan dari reminder "desain belum ACC" di
+ * digest pagi — begitu ACC masuk, alasan reminder itu hilang dan grup tahu
+ * kenapa.
+ */
+export async function notifyTelegramDesignApproved(
+	eventId: string,
+	frameSize: string | null,
+	approvedByName: string,
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select(
+				"project_id, client_name, event_date, is_migrated_legacy, package:packages(name)",
+			)
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev || ev.is_migrated_legacy) return;
+		const pkg = (Array.isArray(ev.package) ? ev.package[0] : ev.package) as {
+			name: string;
+		} | null;
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+		await sendToOwnerGroup(
+			[
+				`🎨 <b>DESAIN SIAP CETAK — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				`Di-ACC ${tgEscape(approvedByName)}${frameSize ? ` · ukuran <b>${tgEscape(frameSize)}</b>` : " · paket tanpa cetak frame"}`,
+				...(pkg ? [`Paket: ${tgEscape(pkg.name)}`] : []),
+				...(appUrl ? [`\nLihat: ${appUrl}/design/${ev.project_id}`] : []),
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] design approved:", e);
+	}
+}
+
+/**
  * Susunan crew berubah (ditambah / dilepas / ganti peran) → grup owner.
  * `line` sudah di-escape pemanggil. Event legacy di-skip — backfill data
  * lama tidak perlu meramaikan grup.

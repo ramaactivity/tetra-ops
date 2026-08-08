@@ -1,6 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { DesignApproveDialog } from "@/components/event-design/design-approve-dialog";
 import { toast } from "@/components/ui/toaster";
 import { setDesignStatus } from "@/lib/actions/event-design";
 import {
@@ -31,9 +33,17 @@ export function DesignStatusSelect({
 	className?: string;
 }) {
 	const [pending, startTransition] = useTransition();
+	const [approveOpen, setApproveOpen] = useState(false);
+	const router = useRouter();
 
 	function set(next: DesignStatus) {
 		if (next === value || pending) return;
+		// "Approved" tidak pernah langsung — desainer harus menyatakan ukuran
+		// file yang dia buat dulu (gerbang terakhir sebelum cetak).
+		if (next === "approved") {
+			setApproveOpen(true);
+			return;
+		}
 		startTransition(async () => {
 			try {
 				const res = await setDesignStatus(eventId, projectId, next);
@@ -49,43 +59,52 @@ export function DesignStatusSelect({
 	}
 
 	return (
-		<div
-			className={cn(
-				"inline-flex h-8 items-center rounded-full border border-border-default bg-secondary p-0.5",
-				pending && "opacity-60",
-				className,
-			)}
-			role="group"
-			aria-label="Status design"
-		>
-			{DESIGN_STATUS_VALUES.map((s) => {
-				const active = s === value;
-				const tone = DESIGN_STATUS_TONE[s];
-				return (
-					<button
-						key={s}
-						type="button"
-						disabled={disabled || pending}
-						aria-pressed={active}
-						onClick={() => set(s)}
-						className={cn(
-							"inline-flex h-7 items-center justify-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed",
-							active
-								? cn("bg-card shadow-[var(--shadow-level-2)]", tone.text)
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						<span
+		<>
+			<DesignApproveDialog
+				eventId={eventId}
+				projectId={projectId}
+				open={approveOpen}
+				onOpenChange={setApproveOpen}
+				onApproved={() => router.refresh()}
+			/>
+			<div
+				className={cn(
+					"inline-flex h-8 items-center rounded-full border border-border-default bg-secondary p-0.5",
+					pending && "opacity-60",
+					className,
+				)}
+				role="group"
+				aria-label="Status design"
+			>
+				{DESIGN_STATUS_VALUES.map((s) => {
+					const active = s === value;
+					const tone = DESIGN_STATUS_TONE[s];
+					return (
+						<button
+							key={s}
+							type="button"
+							disabled={disabled || pending}
+							aria-pressed={active}
+							onClick={() => set(s)}
 							className={cn(
-								"size-1.5 rounded-full",
-								active ? tone.dot : "bg-muted-foreground/30",
+								"inline-flex h-7 items-center justify-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium leading-none transition-colors disabled:cursor-not-allowed",
+								active
+									? cn("bg-card shadow-[var(--shadow-level-2)]", tone.text)
+									: "text-muted-foreground hover:text-foreground",
 							)}
-							aria-hidden
-						/>
-						{DESIGN_STATUS_LABELS[s]}
-					</button>
-				);
-			})}
-		</div>
+						>
+							<span
+								className={cn(
+									"size-1.5 rounded-full",
+									active ? tone.dot : "bg-muted-foreground/30",
+								)}
+								aria-hidden
+							/>
+							{DESIGN_STATUS_LABELS[s]}
+						</button>
+					);
+				})}
+			</div>
+		</>
 	);
 }

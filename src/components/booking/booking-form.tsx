@@ -25,6 +25,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
+import { toast } from "@/components/ui/toaster";
 import {
 	Tooltip,
 	TooltipContent,
@@ -32,6 +33,13 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
+import {
+	durationOptions,
+	packageFitsFrame,
+	resolvePackage,
+	serviceNeedsFrame,
+	swapPackageFrame,
+} from "@/lib/events/frame-package";
 import {
 	ADDON_CATEGORY_LABELS,
 	CHANNEL_TYPE_LABELS,
@@ -166,6 +174,8 @@ export type BookingFormDefaults = Partial<{
 	client_email: string;
 	service_type: string;
 	package_id: string;
+	/** Durasi paket yang disepakati saat ukuran masih menyusul. */
+	pending_package_hours: number | string;
 	frame_size: string;
 	event_category: string;
 	event_date: string;
@@ -529,6 +539,17 @@ export function BookingForm({
 	const [frameSize, setFrameSize] = useState(get("frame_size", ""));
 	const initialPkgId = stateValues?.package_id ?? defaults?.package_id ?? "";
 	const [packageId, setPackageId] = useState(initialPkgId);
+	// Paket sementara saat ukuran masih menyusul: DURASI saja, tanpa ukuran.
+	// Aturan mainnya di lib/events/frame-package.ts — event tidak boleh punya
+	// paket ber-ukuran sementara frame size-nya belum pasti (8 Agu 2026: paket
+	// 2R terpilih, klien ternyata minta 4R, ketahuan di hari-H).
+	const [pendingHours, setPendingHours] = useState(
+		String(
+			stateValues?.pending_package_hours ??
+				defaults?.pending_package_hours ??
+				"",
+		),
+	);
 	const initialBase = Number(
 		stateValues?.base_price ?? defaults?.base_price ?? 0,
 	);
@@ -546,16 +567,28 @@ export function BookingForm({
 		[packageId, packages],
 	);
 
-	// Filter packages by service_type + frame_size — owner only sees relevant
-	// paket. If service_type or frame_size empty, show all (initial state).
+	// Paket yang boleh dipilih: sesuai service, dan ukurannya cocok dengan frame
+	// size event. Selama ukuran masih menyusul, HANYA paket yang memang tanpa
+	// cetak frame (Videobooth, Photo Stage) yang boleh dipilih langsung —
+	// sisanya dipilih sebagai durasi (lihat durationChoices di bawah).
 	const filteredPackages = useMemo(() => {
 		return packages.filter((p) => {
 			if (serviceType && p.category !== serviceType) return false;
-			if (frameSize && p.frame_size !== frameSize && p.frame_size !== "none")
-				return false;
-			return true;
+			return packageFitsFrame(p.frame_size, frameSize || null);
 		});
 	}, [packages, serviceType, frameSize]);
+
+	/** Service ini memang mencetak frame? (Videobooth 360 tidak) */
+	const frameRelevan = useMemo(
+		() => serviceNeedsFrame(packages, serviceType || null),
+		[packages, serviceType],
+	);
+
+	/** Pilihan "durasi saja" — dipakai saat ukuran belum pasti. */
+	const durationChoices = useMemo(
+		() => (frameSize ? [] : durationOptions(packages, serviceType || null)),
+		[packages, serviceType, frameSize],
+	);
 
 	// If currently selected paket no longer in filter, clear it
 	useEffect(() => {
@@ -565,6 +598,17 @@ export function BookingForm({
 			setPackageId("");
 		}
 	}, [filteredPackages, packageId]);
+
+	// Idem untuk durasi sementara: ganti service type bisa membuat durasinya
+	// tidak ada di pricelist. Kalau dibiarkan, input tersembunyi tetap terkirim
+	// dan server menolak dengan pesan yang membingungkan.
+	useEffect(() => {
+		if (!pendingHours || frameSize) return; // frame terisi → urusan handleFrameChange
+		const exists = durationChoices.some(
+			(d) => d.hours === Number(pendingHours),
+		);
+		if (!exists) setPendingHours("");
+	}, [durationChoices, pendingHours, frameSize]);
 
 	// === Schedule (auto-fill setup/end)
 	const [eventDate, setEventDate] = useState(get("event_date", ""));
@@ -1130,14 +1174,82 @@ export function BookingForm({
 		setSelectedAddons((prev) => ({ ...prev, [id]: Math.max(1, qty) }));
 	}
 
-	function handlePackageChange(id: string) {
-		setPackageId(id);
-		if (id) {
-			const pkg = packages.find((p) => p.id === id);
+	/**
+	 * Satu dropdown, dua jenis pilihan: paket konkret (uuid) atau paket
+	 * sementara berbasis durasi ("dur:2") saat ukuran masih menyusul.
+	 */
+	function handlePackageChange(value: string) {
+		if (value.startsWith("dur:")) {
+			const hours = Number(value.slice(4));
+			setPackageId("");
+			setPendingHours(String(hours));
+			const opt = durationChoices.find((d) => d.hours === hours);
+			if (opt && !basePriceTouched) setBasePrice(opt.price);
+			return;
+		}
+		setPackageId(value);
+		setPendingHours("");
+		if (value) {
+			const pkg = packages.find((p) => p.id === value);
 			// Ikuti harga paket selama owner belum menimpanya manual — termasuk
 			// saat berpindah antar-paket berkali-kali.
 			if (pkg && !basePriceTouched) {
 				setBasePrice(pkg.base_price);
+			}
+		}
+	}
+
+	/**
+	 * Ganti ukuran = ganti paket, otomatis dan terlihat.
+	 *
+	 * • menyusul → 2R : durasi sementara dikunci jadi paket 2R durasi yang sama
+	 * • 2R → 4R       : paket ditukar ke padanannya di 4R (durasi dipertahankan)
+	 * • 2R → menyusul : paket dilepas, tinggal durasinya
+	 *
+	 * Tujuannya satu: tidak pernah ada momen di mana ukuran event dan ukuran
+	 * paket berbeda isi.
+	 */
+	function handleFrameChange(next: string) {
+		setFrameSize(next);
+
+		if (packageId) {
+			const swapped = swapPackageFrame(packages, packageId, next || null);
+			if (swapped) {
+				if (swapped.id !== packageId) {
+					setPackageId(swapped.id);
+					if (!basePriceTouched) setBasePrice(swapped.base_price);
+					toast.success(`Paket ikut disesuaikan → ${swapped.name}`);
+				}
+				setPendingHours("");
+				return;
+			}
+			// Tidak ada padanan (mis. ukuran dikosongkan lagi): simpan durasinya
+			// supaya kesepakatan dengan klien tidak hilang, paketnya dilepas.
+			const cur = packages.find((p) => p.id === packageId);
+			setPackageId("");
+			if (cur) {
+				setPendingHours(String(cur.duration_hours));
+				toast.info(
+					next
+						? `Belum ada paket ${cur.duration_hours} jam untuk ukuran ${next} — pilih paketnya manual.`
+						: `Ukuran jadi menyusul — paket disimpan sebagai "${cur.duration_hours} jam · ukuran menyusul".`,
+				);
+			}
+			return;
+		}
+
+		if (pendingHours && next) {
+			const exact = resolvePackage(
+				packages,
+				serviceType || null,
+				Number(pendingHours),
+				next,
+			);
+			if (exact) {
+				setPackageId(exact.id);
+				setPendingHours("");
+				if (!basePriceTouched) setBasePrice(exact.base_price);
+				toast.success(`Ukuran ${next} → paket dikunci: ${exact.name}`);
 			}
 		}
 	}
@@ -2300,13 +2412,13 @@ export function BookingForm({
 								error={err("frame_size")}
 								hint={
 									frameSize
-										? undefined
-										: "Klien belum kasih ukuran? Pilih 'Menyusul' untuk TBC"
+										? "Paket ikut ukuran ini — ganti ukuran, paket otomatis menyesuaikan."
+										: "Klien belum kasih ukuran? Pilih 'Menyusul' — paket cukup dipilih durasinya dulu."
 								}
 							>
 								<Combobox
 									value={frameSize}
-									onValueChange={setFrameSize}
+									onValueChange={handleFrameChange}
 									placeholder="Pilih frame"
 									options={[
 										{ value: "", label: "Menyusul / belum ditentukan" },
@@ -2322,7 +2434,7 @@ export function BookingForm({
 							</Field>
 						</div>
 
-						{!frameSize && (
+						{!frameSize && frameRelevan && (
 							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 								<div>
@@ -2330,8 +2442,11 @@ export function BookingForm({
 										Frame size belum ditentukan (TBC)
 									</p>
 									<p className="text-amber-900/80 dark:text-amber-200/80">
-										Paket akan susah di-filter sebelum frame dipilih. Sistem
-										akan reminder H-7 + H-3 kalau status masih kosong.
+										Paket cuma bisa dipilih <b>durasinya</b> dulu (harga per
+										durasi sama untuk 2R/4R/Polaroid, jadi nominal tidak
+										berubah). Begitu klien memastikan ukurannya, paket otomatis
+										dikunci. Sistem mengingatkan tiap hari di Telegram sampai
+										ukurannya diisi.
 									</p>
 								</div>
 							</div>
@@ -2339,21 +2454,27 @@ export function BookingForm({
 						<Field
 							label="Paket"
 							name="package_id"
-							error={err("package_id")}
+							error={err("package_id") ?? err("pending_package_hours")}
 							hint={
-								!serviceType || !frameSize
-									? "Pilih Service Type + Frame Size dulu buat filter paket."
-									: filteredPackages.length === 0
-										? "Tidak ada paket yang cocok dengan kombinasi ini — pakai custom."
-										: `${filteredPackages.length} paket cocok. Pilih untuk auto-fill base price.`
+								!serviceType
+									? "Pilih Service Type dulu buat filter paket."
+									: !frameSize && frameRelevan
+										? "Ukuran masih menyusul — pilih durasinya saja. Paket final dikunci otomatis begitu ukuran diisi."
+										: filteredPackages.length === 0
+											? "Tidak ada paket yang cocok dengan kombinasi ini — pakai custom."
+											: `${filteredPackages.length} paket cocok. Pilih untuk auto-fill base price.`
 							}
 						>
 							<Combobox
-								value={packageId}
+								value={packageId || (pendingHours ? `dur:${pendingHours}` : "")}
 								onValueChange={(v) => handlePackageChange(v)}
 								placeholder="Custom / belum dipilih"
 								options={[
 									{ value: "", label: "Custom / belum dipilih" },
+									...durationChoices.map((d) => ({
+										value: `dur:${d.hours}`,
+										label: `${d.hours} Jam · ${d.priceVaries ? "mulai " : ""}${formatRupiah(d.price)} · ukuran menyusul`,
+									})),
 									...filteredPackages.map((pkg) => ({
 										value: pkg.id,
 										label: `${pkg.name} · ${pkg.duration_hours}j · ${formatRupiah(pkg.base_price)}`,
@@ -2362,6 +2483,11 @@ export function BookingForm({
 								allowFreeText={false}
 							/>
 							<input type="hidden" name="package_id" value={packageId} />
+							<input
+								type="hidden"
+								name="pending_package_hours"
+								value={packageId ? "" : pendingHours}
+							/>
 						</Field>
 					</Section>
 
