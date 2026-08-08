@@ -1625,6 +1625,11 @@ export function RekapForm({
 			<input type="hidden" name="konsumsi_cost" value={konsumsiCost || "0"} />
 			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
 			<input type="hidden" name="expense_paid_by" value={expensePaidByJson} />
+			{/* Tanpa baris ini submit GAGAL total: server membaca
+			    expense_nota_urls dan formData.get() mengembalikan null untuk
+			    field yang tak dirender — Zod menolak null. Sekaligus bikin nota
+			    yang sudah diunggah crew tidak pernah tersimpan. */}
+			<input type="hidden" name="expense_nota_urls" value={expenseNotaJson} />
 
 			{/* ========== BUKTI ========== */}
 			<NumberedSection

@@ -22,14 +22,18 @@ import { createClient } from "@/lib/supabase/server";
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
 const NonNegMoney = z.coerce.number().nonnegative().default(0);
 
-const TransportMethodSchema = z
-	.enum(["online", "rental", "none"])
-	.default("none");
+// preprocess null → undefined: formData.get() mengembalikan null saat field
+// absen, dan default() hanya berlaku untuk undefined. Tanpa ini, seksi yang
+// belum dibuka crew bisa menjatuhkan seluruh submit.
+const TransportMethodSchema = z.preprocess(
+	(v) => (v === null || v === "" ? undefined : v),
+	z.enum(["online", "rental", "none"]).default("none"),
+);
 
 const NullableUrlSchema = z
 	.string()
 	.trim()
-	.optional()
+	.nullish()
 	.transform((v) => (v && v.length > 0 ? v : null))
 	.refine((v) => v === null || /^https?:\/\//.test(v), {
 		message: "URL bukti tidak valid",
@@ -56,7 +60,7 @@ const paidByOf = (v: unknown): ExpensePaidBy => {
 const LainnyaItemsSchema = z
 	.string()
 	.trim()
-	.optional()
+	.nullish()
 	.transform(
 		(
 			v,
@@ -110,10 +114,13 @@ function safeUrl(v: unknown): string | null {
  * Map {transport|bensin|toll|parking|konsumsi: <drive_url>} — nota per biaya
  * lapangan, diagregasi ke Arsip Nota lewat v_nota_sistem.
  */
+// nullish (bukan optional): formData.get() mengembalikan null saat field
+// absen, dan null BUKAN undefined — optional() menolaknya dan menjatuhkan
+// seluruh submit rekap. Pola yang sama pernah menjatuhkan Adjust Stok.
 const ExpenseNotaSchema = z
 	.string()
 	.trim()
-	.optional()
+	.nullish()
 	.transform((v): Record<string, string> => {
 		if (!v) return {};
 		try {
@@ -150,7 +157,7 @@ export type ExpensePaidByMap = Partial<
 const ExpensePaidBySchema = z
 	.string()
 	.trim()
-	.optional()
+	.nullish()
 	.transform((v): ExpensePaidByMap => {
 		if (!v) return {};
 		try {
