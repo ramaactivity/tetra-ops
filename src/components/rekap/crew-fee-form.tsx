@@ -23,6 +23,7 @@ import {
 	unpayCrewFee,
 } from "@/lib/actions/crew-fees";
 import { formatRupiah } from "@/lib/format";
+import { emitCatatPrefill } from "@/lib/rekap/catat-prefill";
 
 export type CrewAssignmentRow = {
 	assignment_id: string;
@@ -65,7 +66,8 @@ type Props = {
 			payerUserId: string | null;
 			payerName: string | null;
 			/** Deep-link Catat transaksi terprefill (item dibayar owner). */
-			catatHref?: string;
+			catatPrefill?: { categoryId: string; amount: number; note: string };
+			catatRecorded?: boolean;
 		}>;
 		/** Total talangan per crew (users.id) — dasar auto-isi reimbursement. */
 		byCrew: Record<string, number>;
@@ -326,15 +328,23 @@ export function CrewFeeForm({
 											<span data-nominal className="tabular">
 												{formatRupiah(it.amount)}
 											</span>
-											{it.catatHref ? (
-												<a
-													href={it.catatHref}
+											{it.catatRecorded ? (
+												<span className="ml-auto inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+													Sudah dicatat
+												</span>
+											) : it.catatPrefill ? (
+												<button
+													type="button"
+													onClick={() => {
+														const detail = it.catatPrefill;
+														if (detail) emitCatatPrefill(detail);
+													}}
 													className="press-down ml-auto inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
-													title="Buka Catat transaksi dengan jumlah & kategori sudah terisi"
+													title="Isi ke kartu Pemasukan / pengeluaran lain di halaman ini"
 												>
 													<Plus className="h-3 w-3" />
 													Catat ke pembukuan
-												</a>
+												</button>
 											) : null}
 										</li>
 									))}
@@ -342,9 +352,12 @@ export function CrewFeeForm({
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
 								Tidak ikut Hutang Crew di settlement — klik{" "}
 								<span className="font-medium">Catat ke pembukuan</span> supaya
-								bebannya tetap masuk (form sudah terisi; jangan catat dobel
-								kalau sudah pernah). Cek Finance › Rekonsiliasi kalau ragu sudah
-								tercatat atau belum.
+								bebannya tetap masuk — form di kartu{" "}
+								<span className="font-medium">
+									Pemasukan / pengeluaran lain
+								</span>{" "}
+								di bawah langsung terisi, tinggal pilih rekening & simpan. Yang
+								sudah tercatat kelihatan di kartu itu juga, jadi tidak dobel.
 							</p>
 						</div>
 					)}

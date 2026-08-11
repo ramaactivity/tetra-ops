@@ -449,8 +449,14 @@ export default async function EventRekapPage({
 					/** users.id penalang — null kalau crew tapi belum ditentukan siapa. */
 					payerUserId: string | null;
 					payerName: string | null;
-					/** Deep-link "Catat ke pembukuan" — hanya untuk item dibayar owner. */
-					catatHref?: string;
+					/** Prefill kartu "Pemasukan / pengeluaran lain" — item dibayar owner. */
+					catatPrefill?: {
+						categoryId: string;
+						amount: number;
+						note: string;
+					};
+					/** Sudah pernah dicatat ke pembukuan (jurnal dgn keterangan sama). */
+					catatRecorded?: boolean;
 				}>;
 				/** Total talangan per crew (users.id) — dasar auto-isi reimbursement. */
 				byCrew: Record<string, number>;
@@ -472,28 +478,27 @@ export default async function EventRekapPage({
 			paidBy: "crew" | "owner";
 			payerUserId: string | null;
 			payerName: string | null;
-			catatHref?: string;
+			catatPrefill?: { categoryId: string; amount: number; note: string };
+			catatRecorded?: boolean;
 		}> = [];
 		// Biaya yang dibayar owner TIDAK masuk OpEx settlement (by design), jadi
-		// harus dibukukan lewat Catat transaksi. Link ini membawa jumlah +
-		// kategori + catatan nama event supaya owner tinggal pilih rekening.
-		const catatHrefFor = (
+		// harus dibukukan lewat Catat transaksi. Prefill ini mengisi kartu
+		// "Pemasukan / pengeluaran lain" di halaman yang sama — dulu deep-link ke
+		// /finance, yang berarti owner keluar dari halaman rekap di tengah proses.
+		const recordedNotes = new Set(
+			extraTxnRows
+				.filter((r) => r.isOut)
+				.map((r) => r.description.trim().toLowerCase()),
+		);
+		const catatPrefillFor = (
 			catatKey: string,
 			amount: number,
 			label: string,
-		): string => {
-			const params = new URLSearchParams({
-				catat: "1",
-				amount: String(Math.round(amount)),
-				note: `${label} — ${event.client_name}`.slice(0, 300),
-				// Tautkan ke event → jurnalnya membawa source_event_id, sehingga
-				// panel Rekonsiliasi tahu PASTI biaya ini sudah dicatat.
-				ev: event.id as string,
-			});
-			const cat = REKAP_EXPENSE_CATEGORY[catatKey];
-			if (cat) params.set("cat", cat);
-			return `/finance?${params.toString()}`;
-		};
+		) => ({
+			categoryId: REKAP_EXPENSE_CATEGORY[catatKey] ?? "operasional-lain",
+			amount: Math.round(amount),
+			note: `${label} — ${event.client_name}`.slice(0, 300),
+		});
 		const push = (
 			label: string,
 			amount: number,
@@ -512,10 +517,18 @@ export default async function EventRekapPage({
 				paidBy,
 				payerUserId,
 				payerName: payerUserId ? (crewNameById.get(payerUserId) ?? null) : null,
-				catatHref:
+				catatPrefill:
 					paidBy === "owner"
-						? catatHrefFor(catatKey, amount, label)
+						? catatPrefillFor(catatKey, amount, label)
 						: undefined,
+				// Keterangannya deterministik, jadi kalau sudah ada transaksi lain
+				// dgn keterangan persis sama berarti biaya ini sudah dibukukan —
+				// tombolnya diganti penanda supaya tidak dobel catat.
+				catatRecorded:
+					paidBy === "owner" &&
+					recordedNotes.has(
+						`${label} — ${event.client_name}`.slice(0, 300).toLowerCase(),
+					),
 			});
 		};
 		push(

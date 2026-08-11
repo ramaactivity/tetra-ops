@@ -2,7 +2,7 @@
 
 import { ExternalLink, Loader2, Plus, Receipt, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ProofUploadButton } from "@/components/rekap/proof-upload-button";
 import { RekapCard, SectionHeader } from "@/components/rekap/rekap-ui";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,10 @@ import {
 	categoriesFor,
 } from "@/lib/finance/quick-record-categories";
 import { formatRupiah } from "@/lib/format";
+import {
+	CATAT_PREFILL_EVENT,
+	type CatatPrefillDetail,
+} from "@/lib/rekap/catat-prefill";
 
 /**
  * Pemasukan / pengeluaran lain di sebuah event yang TIDAK tercakup form rekap —
@@ -87,6 +91,31 @@ export function EventExtraTransactions({
 	const [amount, setAmount] = useState(0);
 	const [account, setAccount] = useState(() => defaultAccount(cashAccounts));
 	const [proofUrl, setProofUrl] = useState<string | null>(null);
+	const cardRef = useRef<HTMLDivElement>(null);
+
+	// Biaya "dibayar owner" di kartu Fee crew mengisi form ini lewat CustomEvent
+	// — dulu tombolnya deep-link ke /finance & owner keluar dari halaman rekap.
+	useEffect(() => {
+		if (readOnly) return;
+		function onPrefill(e: Event) {
+			const d = (e as CustomEvent<CatatPrefillDetail>).detail;
+			if (!d) return;
+			setDirection("keluar");
+			setCategoryId(d.categoryId);
+			setAmount(d.amount);
+			setNote(d.note);
+			setProofUrl(null);
+			setAdding(true);
+			requestAnimationFrame(() =>
+				cardRef.current?.scrollIntoView({
+					behavior: "smooth",
+					block: "center",
+				}),
+			);
+		}
+		window.addEventListener(CATAT_PREFILL_EVENT, onPrefill);
+		return () => window.removeEventListener(CATAT_PREFILL_EVENT, onPrefill);
+	}, [readOnly]);
 
 	const totalOut = rows
 		.filter((r) => r.isOut)
@@ -166,7 +195,7 @@ export function EventExtraTransactions({
 	}
 
 	return (
-		<RekapCard className="space-y-4">
+		<RekapCard ref={cardRef} className="space-y-4">
 			<SectionHeader
 				icon={Receipt}
 				title="Pemasukan / pengeluaran lain"

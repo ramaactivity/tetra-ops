@@ -17,16 +17,15 @@ import { cn } from "@/lib/utils";
 export function RekapCard({
 	className,
 	children,
-}: {
-	className?: string;
-	children: React.ReactNode;
-}) {
+	...props
+}: React.ComponentProps<"section">) {
 	return (
 		<section
 			className={cn(
 				"rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]",
 				className,
 			)}
+			{...props}
 		>
 			{children}
 		</section>
