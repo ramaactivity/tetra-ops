@@ -18,6 +18,7 @@ import { CrewInputSummary } from "@/components/rekap/crew-input-summary";
 import {
 	EventExtraTransactions,
 	type ExtraTxnRow,
+	type OwnerPaidPending,
 } from "@/components/rekap/event-extra-transactions";
 import { ProfitPreviewCard } from "@/components/rekap/profit-preview-card";
 import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
@@ -454,6 +455,7 @@ export default async function EventRekapPage({
 						categoryId: string;
 						amount: number;
 						note: string;
+						proofUrl: string | null;
 					};
 					/** Sudah pernah dicatat ke pembukuan (jurnal dgn keterangan sama). */
 					catatRecorded?: boolean;
@@ -478,7 +480,12 @@ export default async function EventRekapPage({
 			paidBy: "crew" | "owner";
 			payerUserId: string | null;
 			payerName: string | null;
-			catatPrefill?: { categoryId: string; amount: number; note: string };
+			catatPrefill?: {
+				categoryId: string;
+				amount: number;
+				note: string;
+				proofUrl: string | null;
+			};
 			catatRecorded?: boolean;
 		}> = [];
 		// Biaya yang dibayar owner TIDAK masuk OpEx settlement (by design), jadi
@@ -494,16 +501,22 @@ export default async function EventRekapPage({
 			catatKey: string,
 			amount: number,
 			label: string,
+			notaUrl: string | null,
 		) => ({
 			categoryId: REKAP_EXPENSE_CATEGORY[catatKey] ?? "operasional-lain",
 			amount: Math.round(amount),
 			note: `${label} — ${event.client_name}`.slice(0, 300),
+			// Nota yang sudah di-upload crew ikut menempel ke jurnalnya — owner
+			// tidak perlu meng-upload ulang bukti yang sudah ada.
+			proofUrl: notaUrl,
 		});
+		const notaMap = (rekap.expense_nota_urls ?? {}) as Record<string, string>;
 		const push = (
 			label: string,
 			amount: number,
 			rawPayer: string,
 			catatKey: string,
+			notaUrl: string | null = null,
 		) => {
 			if (amount <= 0) return;
 			const paidBy: "crew" | "owner" = rawPayer === "owner" ? "owner" : "crew";
@@ -519,7 +532,7 @@ export default async function EventRekapPage({
 				payerName: payerUserId ? (crewNameById.get(payerUserId) ?? null) : null,
 				catatPrefill:
 					paidBy === "owner"
-						? catatPrefillFor(catatKey, amount, label)
+						? catatPrefillFor(catatKey, amount, label, notaUrl)
 						: undefined,
 				// Keterangannya deterministik, jadi kalau sudah ada transaksi lain
 				// dgn keterangan persis sama berarti biaya ini sudah dibukukan —
@@ -538,25 +551,35 @@ export default async function EventRekapPage({
 			rekap.transport_method === "rental"
 				? "transport_rental"
 				: "transport_online",
+			notaMap.transport ?? rekap.transport_proof_berangkat_url ?? null,
 		);
 		push(
 			"Bensin",
 			Number(rekap.bensin_cost ?? 0),
 			rawPayerOf("bensin"),
 			"bensin",
+			notaMap.bensin ?? null,
 		);
-		push("Toll", Number(rekap.toll_cost ?? 0), rawPayerOf("toll"), "toll");
+		push(
+			"Toll",
+			Number(rekap.toll_cost ?? 0),
+			rawPayerOf("toll"),
+			"toll",
+			notaMap.toll ?? null,
+		);
 		push(
 			"Parkir",
 			Number(rekap.parking_cost ?? 0),
 			rawPayerOf("parking"),
 			"parking",
+			notaMap.parking ?? null,
 		);
 		push(
 			"Konsumsi",
 			Number(rekap.konsumsi_cost ?? 0),
 			rawPayerOf("konsumsi"),
 			"konsumsi",
+			notaMap.konsumsi ?? null,
 		);
 		for (const it of rekap.lainnya_items ?? []) {
 			push(
@@ -564,6 +587,7 @@ export default async function EventRekapPage({
 				Number(it.amount ?? 0),
 				it.paid_by || "crew",
 				"misc",
+				(it as { nota_url?: string }).nota_url ?? null,
 			);
 		}
 		const total = items.reduce((s, x) => s + x.amount, 0);
@@ -602,6 +626,24 @@ export default async function EventRekapPage({
 		crew_c: "Crew",
 	};
 	const crewMissingFee = crewFeeRows.filter((r) => r.fee_amount <= 0);
+	// Biaya dibayar owner yang BELUM dibukukan — bahan tombol "Catat semua" di
+	// kartu Pemasukan/pengeluaran lain. Mencatat satu per satu bikin owner malas,
+	// dan beban yang tidak pernah dicatat = laba kelihatan lebih besar dari
+	// aslinya (biaya ini sengaja tidak ikut Hutang Crew di settlement).
+	const ownerPaidPending: OwnerPaidPending[] = (
+		fieldExpenseBreakdown?.items ?? []
+	)
+		.filter(
+			(it) => it.paidBy === "owner" && it.catatPrefill && !it.catatRecorded,
+		)
+		.map((it) => ({
+			label: it.label,
+			categoryId: it.catatPrefill?.categoryId ?? "operasional-lain",
+			amount: it.catatPrefill?.amount ?? it.amount,
+			note: it.catatPrefill?.note ?? it.label,
+			proofUrl: it.catatPrefill?.proofUrl ?? null,
+		}));
+
 	const settleDisabledReason = !rekap
 		? "Rekap belum di-submit. Input data rekap dulu."
 		: !recapApproved
@@ -841,6 +883,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						rows={extraTxnRows}
 						cashAccounts={cashAccounts}
+						ownerPaidPending={ownerPaidPending}
 					/>
 
 					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
@@ -941,6 +984,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						rows={extraTxnRows}
 						cashAccounts={cashAccounts}
+						ownerPaidPending={ownerPaidPending}
 					/>
 
 					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}

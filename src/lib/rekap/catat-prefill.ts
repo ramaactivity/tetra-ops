@@ -17,6 +17,8 @@ export type CatatPrefillDetail = {
 	categoryId: string;
 	amount: number;
 	note: string;
+	/** Nota yang sudah di-upload crew (kalau ada) — langsung ikut terlampir. */
+	proofUrl?: string | null;
 };
 
 export function emitCatatPrefill(detail: CatatPrefillDetail): void {

@@ -12,6 +12,7 @@ import { MoneyInput } from "@/components/ui/form-fields";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import {
+	recordEventExpensesBatch,
 	recordQuickTransaction,
 	reverseJournalEntry,
 } from "@/lib/actions/journal-entries";
@@ -36,6 +37,15 @@ import {
  * settlement — ini uang yang benar-benar keluar/masuk sekarang, bukan komponen
  * laba event (perlakuan yang sama dengan biaya rekap "dibayar owner").
  */
+
+/** Biaya lapangan dibayar owner yang belum dibukukan — bahan tombol "Catat semua". */
+export type OwnerPaidPending = {
+	label: string;
+	categoryId: string;
+	amount: number;
+	note: string;
+	proofUrl: string | null;
+};
 
 export type ExtraTxnRow = {
 	id: string;
@@ -72,12 +82,15 @@ export function EventExtraTransactions({
 	projectId,
 	rows,
 	cashAccounts,
+	ownerPaidPending = [],
 	readOnly = false,
 }: {
 	eventId: string;
 	projectId: string;
 	rows: ExtraTxnRow[];
 	cashAccounts: CashAccount[];
+	/** Biaya "dibayar owner" yang belum masuk pembukuan (dari kartu Fee crew). */
+	ownerPaidPending?: OwnerPaidPending[];
 	readOnly?: boolean;
 }) {
 	const router = useRouter();
@@ -92,6 +105,9 @@ export function EventExtraTransactions({
 	const [account, setAccount] = useState(() => defaultAccount(cashAccounts));
 	const [proofUrl, setProofUrl] = useState<string | null>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
+	const [bulkAccount, setBulkAccount] = useState(() =>
+		defaultAccount(cashAccounts),
+	);
 
 	// Biaya "dibayar owner" di kartu Fee crew mengisi form ini lewat CustomEvent
 	// — dulu tombolnya deep-link ke /finance & owner keluar dari halaman rekap.
@@ -104,7 +120,8 @@ export function EventExtraTransactions({
 			setCategoryId(d.categoryId);
 			setAmount(d.amount);
 			setNote(d.note);
-			setProofUrl(null);
+			// Nota yang sudah di-upload crew langsung terlampir.
+			setProofUrl(d.proofUrl ?? null);
 			setAdding(true);
 			requestAnimationFrame(() =>
 				cardRef.current?.scrollIntoView({
@@ -172,6 +189,37 @@ export function EventExtraTransactions({
 		});
 	}
 
+	const pendingTotal = ownerPaidPending.reduce((s, p) => s + p.amount, 0);
+	const bulkAcct = cashAccounts.find((a) => a.code === bulkAccount);
+	const bulkInsufficient =
+		bulkAcct?.balance !== undefined && bulkAcct.balance < pendingTotal;
+
+	function handleRecordAll() {
+		startTransition(async () => {
+			const res = await recordEventExpensesBatch({
+				event_id: eventId,
+				account_code: bulkAccount,
+				items: ownerPaidPending.map((p) => ({
+					category_id: p.categoryId,
+					amount: p.amount,
+					note: p.note,
+					proof_url: p.proofUrl,
+				})),
+			});
+			if (res.recorded > 0) {
+				toast.success(
+					`${res.recorded} biaya dibayar owner masuk pembukuan (${formatRupiah(pendingTotal)}).`,
+				);
+			}
+			if (res.failed > 0) {
+				toast.error(
+					`${res.failed} gagal dicatat: ${res.errors[0] ?? "unknown"}`,
+				);
+			}
+			router.refresh();
+		});
+	}
+
 	function handleDelete(row: ExtraTxnRow) {
 		startTransition(async () => {
 			const ok = await confirm({
@@ -201,6 +249,66 @@ export function EventExtraTransactions({
 				title="Pemasukan / pengeluaran lain"
 				description="Uang keluar atau masuk di event ini yang tidak ada di form rekap — mis. ganti barang rusak, tip klien. Dicatat sebagai transaksi kas yang tertaut ke event ini (tidak mengubah laba settlement)."
 			/>
+
+			{!readOnly && ownerPaidPending.length > 0 && (
+				<div className="space-y-2 rounded-xl border border-amber-300/60 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+					<p className="text-[13px] font-medium text-amber-900 dark:text-amber-200">
+						{ownerPaidPending.length} biaya lapangan dibayar owner belum masuk
+						pembukuan ·{" "}
+						<span className="tabular">{formatRupiah(pendingTotal)}</span>
+					</p>
+					<p className="text-[11px] text-amber-900/80 dark:text-amber-200/80">
+						{ownerPaidPending
+							.map((p) => `${p.label} ${formatRupiah(p.amount)}`)
+							.join(" · ")}
+						. Nota yang sudah di-upload crew ikut terlampir otomatis.
+					</p>
+					<div className="flex flex-wrap items-end gap-2">
+						<div className="min-w-[220px] flex-1 space-y-1">
+							<span className="block text-[11px] font-medium text-amber-900/80 dark:text-amber-200/80">
+								Uang keluar dari rekening
+							</span>
+							<Combobox
+								value={bulkAccount}
+								onValueChange={(v) => setBulkAccount(v ?? "")}
+								options={cashAccounts.map((a) => ({
+									value: a.code,
+									label:
+										a.balance !== undefined
+											? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+											: `${a.code} · ${a.name}`,
+								}))}
+								placeholder="Pilih rekening"
+								allowFreeText={false}
+							/>
+						</div>
+						<Button
+							type="button"
+							onClick={handleRecordAll}
+							disabled={pending || !bulkAccount || bulkInsufficient}
+							className="gap-2"
+						>
+							{pending ? (
+								<>
+									<Loader2 className="h-4 w-4 animate-spin" /> Mencatat…
+								</>
+							) : (
+								<>
+									<Plus className="h-4 w-4" /> Catat semua (
+									{ownerPaidPending.length})
+								</>
+							)}
+						</Button>
+					</div>
+					{bulkInsufficient && (
+						<p className="tabular text-[11px] font-medium text-rose-600">
+							Saldo {bulkAcct?.name} tidak cukup (
+							{formatRupiah(bulkAcct?.balance ?? 0)}) untuk{" "}
+							{formatRupiah(pendingTotal)} — pilih rekening lain.
+						</p>
+					)}
+				</div>
+			)}
 
 			{rows.length > 0 && (
 				<div className="space-y-2">
