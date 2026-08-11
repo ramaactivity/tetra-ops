@@ -885,6 +885,27 @@ export default async function EventRekapPage({
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}
+						cashAccounts={cashAccounts}
+						queuedPayment={
+							queuedEntries.find((q) => q.kind === "crew_fee")
+								? {
+										id: queuedEntries.find((q) => q.kind === "crew_fee")
+											?.id as string,
+										amount:
+											queuedEntries.find((q) => q.kind === "crew_fee")
+												?.amount ?? 0,
+										accountCode:
+											queuedEntries.find((q) => q.kind === "crew_fee")
+												?.accountCode ?? "",
+										adminFee:
+											queuedEntries.find((q) => q.kind === "crew_fee")
+												?.adminFee ?? 0,
+										postError:
+											queuedEntries.find((q) => q.kind === "crew_fee")
+												?.postError ?? null,
+									}
+								: null
+						}
 					/>
 
 					<AddonSplitForm
@@ -963,6 +984,9 @@ export default async function EventRekapPage({
 												amount: salesCommissionState.amount,
 											}
 										: null
+								}
+								crewFeePlanned={
+									queuedEntries.some((q) => q.kind === "crew_fee") ?? false
 								}
 								queued={{
 									expenseOut: queuedEntries

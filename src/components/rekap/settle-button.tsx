@@ -80,6 +80,8 @@ type Props = {
 	} | null;
 	/** Laba akhir event setelah pengeluaran/pemasukan lain. */
 	netProfitAfterExtra?: number;
+	/** Sudah ada rencana bayar fee crew dari kartu Fee crew → jangan tawari lagi. */
+	crewFeePlanned?: boolean;
 };
 
 /**
@@ -121,7 +123,11 @@ export function SettleButton(props: Props) {
 	const [pending, startTransition] = useTransition();
 	const cashAccounts = props.cashAccounts ?? [];
 	const crewTotal = props.crewTotal ?? 0;
-	const canPayNow = crewTotal > 0 && cashAccounts.length > 0;
+	// Kalau rekening & biaya adminnya sudah diatur di kartu Fee crew, dialog ini
+	// tidak menawarkan lagi — supaya tidak ada dua tempat yang mengatur hal sama
+	// (dan tidak ada risiko dobel transfer).
+	const canPayNow =
+		crewTotal > 0 && cashAccounts.length > 0 && !props.crewFeePlanned;
 	const [payNow, setPayNow] = useState(false);
 	const [payAccount, setPayAccount] = useState(() =>
 		defaultAccount(cashAccounts, crewTotal),
@@ -332,6 +338,9 @@ export function SettleButton(props: Props) {
 										</span>
 										)
 									</li>
+									{props.crewFeePlanned && (
+										<li>Transfer fee crew sesuai rencana di kartu Fee crew</li>
+									)}
 									{queued && queued.count > 0 && (
 										<li>
 											Bukukan {queued.count} transaksi dari kartu rekap

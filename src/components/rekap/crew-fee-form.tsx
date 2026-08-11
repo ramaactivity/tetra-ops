@@ -22,6 +22,10 @@ import {
 	saveCrewFees,
 	unpayCrewFee,
 } from "@/lib/actions/crew-fees";
+import {
+	queueCrewFeePayment,
+	removeQueuedEntry,
+} from "@/lib/actions/settle-queue";
 import { formatRupiah } from "@/lib/format";
 import { emitCatatPrefill } from "@/lib/rekap/catat-prefill";
 
@@ -83,6 +87,14 @@ type Props = {
 	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
 	allowPayment?: boolean;
 	cashAccounts?: CashAccountOption[];
+	/** Rencana bayar fee crew yang sudah diantre untuk settle (pre-settle). */
+	queuedPayment?: {
+		id: string;
+		amount: number;
+		accountCode: string;
+		adminFee: number;
+		postError: string | null;
+	} | null;
 };
 
 const ROLE_LABEL: Record<CrewAssignmentRow["role_in_event"], string> = {
@@ -100,6 +112,7 @@ export function CrewFeeForm({
 	readOnly = false,
 	allowPayment = false,
 	cashAccounts = [],
+	queuedPayment = null,
 }: Props) {
 	const router = useRouter();
 	const [rows, setRows] = useState<CrewAssignmentRow[]>(initialRows);
@@ -112,6 +125,72 @@ export function CrewFeeForm({
 	useEffect(() => {
 		if (readOnly) setRows(initialRows);
 	}, [initialRows, readOnly]);
+
+	// ── Rencana bayar fee crew saat settle ────────────────────────────────────
+	// Sama perlakuannya dengan komisi sales: rekening + biaya admin diisi di
+	// kartu ini, transfernya baru jalan saat Konfirmasi settle.
+	const [planOpen, setPlanOpen] = useState(false);
+	const [planAccount, setPlanAccount] = useState(
+		() =>
+			queuedPayment?.accountCode ??
+			cashAccounts.find((a) => /bca/i.test(a.name))?.code ??
+			cashAccounts.find((a) => /bank/i.test(a.name))?.code ??
+			cashAccounts[0]?.code ??
+			"",
+	);
+	const [planAdminFee, setPlanAdminFee] = useState(
+		queuedPayment?.adminFee ?? 0,
+	);
+	const unpaidRows = rows.filter(
+		(r) =>
+			!r.is_paid && r.fee_amount + r.bonus_amount + r.reimbursement_amount > 0,
+	);
+	const unpaidTotal = unpaidRows.reduce(
+		(s, r) => s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
+		0,
+	);
+	const planAdminTotal = planAdminFee * unpaidRows.length;
+	const planAcct = cashAccounts.find((a) => a.code === planAccount);
+	const planInsufficient =
+		planAcct?.balance !== undefined &&
+		planAcct.balance < unpaidTotal + planAdminTotal;
+
+	function handleSavePlan() {
+		startTransition(async () => {
+			const res = await queueCrewFeePayment({
+				event_id: eventId,
+				project_id: projectId,
+				amount: unpaidTotal,
+				account_code: planAccount,
+				admin_fee: planAdminFee,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			toast.success(
+				`Rencana bayar fee crew ${formatRupiah(unpaidTotal)} disimpan — ditransfer saat settle.`,
+			);
+			setPlanOpen(false);
+			router.refresh();
+		});
+	}
+
+	function handleCancelPlan() {
+		if (!queuedPayment) return;
+		startTransition(async () => {
+			const res = await removeQueuedEntry({
+				id: queuedPayment.id,
+				project_id: projectId,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			toast.success("Rencana bayar fee crew dibatalkan.");
+			router.refresh();
+		});
+	}
 
 	function update(id: string, patch: Partial<CrewAssignmentRow>) {
 		setRows((rs) =>
@@ -531,6 +610,161 @@ export function CrewFeeForm({
 					);
 				})}
 			</div>
+
+			{/* Rencana bayar saat settle — cuma relevan sebelum event ditutup &
+			    kalau memang ada fee yang belum lunas. */}
+			{!readOnly && unpaidTotal > 0 && cashAccounts.length > 0 && (
+				<div className="mt-4">
+					{queuedPayment ? (
+						<div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-border-default bg-surface-2 px-3 py-2 text-xs">
+							<Wallet className="h-4 w-4 shrink-0 text-muted-foreground" />
+							<span className="text-foreground">
+								Fee crew dibayar saat settle dari{" "}
+								<span className="font-medium">
+									{planAcct?.name ?? queuedPayment.accountCode}
+								</span>
+								{queuedPayment.adminFee > 0
+									? ` · admin ${formatRupiah(queuedPayment.adminFee)}/transfer`
+									: ""}
+							</span>
+							<span className="tabular font-medium text-foreground">
+								{formatRupiah(
+									unpaidTotal + queuedPayment.adminFee * unpaidRows.length,
+								)}
+							</span>
+							{queuedPayment.postError && (
+								<p className="w-full text-[11px] font-medium text-rose-600">
+									Gagal saat settle: {queuedPayment.postError}
+								</p>
+							)}
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								className="ml-auto text-muted-foreground hover:text-rose-600"
+								disabled={pending}
+								onClick={handleCancelPlan}
+							>
+								<X className="h-3.5 w-3.5" /> Batalkan
+							</Button>
+						</div>
+					) : planOpen ? (
+						<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-3">
+							<div className="grid gap-3 md:grid-cols-2">
+								<div className="space-y-1">
+									<span className="block text-xs font-medium text-muted-foreground">
+										Bayar dari rekening
+									</span>
+									<Combobox
+										value={planAccount}
+										onValueChange={(v) => setPlanAccount(v ?? "")}
+										options={cashAccounts.map((a) => ({
+											value: a.code,
+											label:
+												a.balance !== undefined
+													? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+													: `${a.code} · ${a.name}`,
+										}))}
+										placeholder="Pilih rekening"
+										allowFreeText={false}
+									/>
+								</div>
+								<div className="space-y-1">
+									<span className="block text-xs font-medium text-muted-foreground">
+										Biaya admin bank (opsional)
+									</span>
+									<div className="flex items-center gap-1.5">
+										{[1000, 2500].map((v) => (
+											<button
+												key={v}
+												type="button"
+												onClick={() =>
+													setPlanAdminFee(planAdminFee === v ? 0 : v)
+												}
+												className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+													planAdminFee === v
+														? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+														: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
+												}`}
+											>
+												<span data-nominal>{formatRupiah(v)}</span>
+											</button>
+										))}
+										<Input
+											type="number"
+											inputMode="numeric"
+											min={0}
+											value={planAdminFee === 0 ? "" : planAdminFee}
+											onChange={(e) =>
+												setPlanAdminFee(
+													Math.max(0, Number(e.target.value) || 0),
+												)
+											}
+											placeholder="lain"
+											aria-label="Biaya admin bank"
+											className="tabular text-right"
+										/>
+									</div>
+								</div>
+							</div>
+							<p className="tabular text-[11px] text-muted-foreground">
+								{planInsufficient ? (
+									<span className="font-medium text-rose-600">
+										Saldo {planAcct?.name} tidak cukup (
+										{formatRupiah(planAcct?.balance ?? 0)}) untuk{" "}
+										{formatRupiah(unpaidTotal + planAdminTotal)} — pilih
+										rekening lain.
+									</span>
+								) : (
+									<>
+										{unpaidRows.length} transfer · fee{" "}
+										{formatRupiah(unpaidTotal)}
+										{planAdminFee > 0
+											? ` + admin ${formatRupiah(planAdminFee)} × ${unpaidRows.length} = ${formatRupiah(planAdminTotal)}`
+											: ""}{" "}
+										· total {formatRupiah(unpaidTotal + planAdminTotal)} keluar
+										saat settle.
+									</>
+								)}
+							</p>
+							<div className="flex justify-end gap-2">
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={() => setPlanOpen(false)}
+									disabled={pending}
+								>
+									Batal
+								</Button>
+								<Button
+									type="button"
+									onClick={handleSavePlan}
+									disabled={pending || !planAccount || planInsufficient}
+									className="gap-2"
+								>
+									<Wallet className="h-4 w-4" /> Simpan rencana bayar
+								</Button>
+							</div>
+						</div>
+					) : (
+						<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-default bg-surface-2 px-3 py-2">
+							<p className="text-[11px] text-muted-foreground">
+								Fee crew jadi Hutang Crew saat settle. Mau langsung ditransfer
+								saat settle? Atur rekening & biaya admin banknya di sini.
+							</p>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setPlanOpen(true)}
+								disabled={pending}
+								className="gap-2"
+							>
+								<Wallet className="h-4 w-4" /> Atur pembayaran
+							</Button>
+						</div>
+					)}
+				</div>
+			)}
 
 			{!readOnly && (
 				<div className="mt-4 flex justify-end">

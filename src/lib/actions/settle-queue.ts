@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { payCommission } from "@/lib/actions/commissions";
+import { payCrewFee } from "@/lib/actions/crew-fees";
 import { recordQuickTransaction } from "@/lib/actions/journal-entries";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
@@ -21,7 +22,7 @@ import { createClient } from "@/lib/supabase/server";
  * pernah bisa dilihat utuh sebelum keputusan settle diambil.
  */
 
-export type QueueKind = "expense" | "commission_sales";
+export type QueueKind = "expense" | "commission_sales" | "crew_fee";
 
 export type QueuedEntry = {
 	id: string;
@@ -177,6 +178,46 @@ export async function queueSalesCommissionPayment(input: {
 	return { ok: true };
 }
 
+/**
+ * Rencana bayar fee crew saat settle: satu rekening untuk semua crew + biaya
+ * admin bank PER TRANSFER (tiap crew = satu transfer). Satu rencana aktif per
+ * event — dipanggil ulang = mengganti yang lama.
+ */
+export async function queueCrewFeePayment(input: {
+	event_id: string;
+	project_id: string;
+	amount: number;
+	account_code: string;
+	admin_fee?: number;
+}): Promise<QueueResponse> {
+	const me = await requireOwner();
+	if (!me) return { ok: false, error: "Hanya owner yang bisa mengisi ini" };
+	const amount = Math.trunc(Number(input.amount) || 0);
+	if (amount <= 0)
+		return { ok: false, error: "Belum ada fee crew yang dibayar" };
+
+	const supabase = await createClient();
+	await supabase
+		.from("event_settle_queue")
+		.delete()
+		.eq("event_id", input.event_id)
+		.eq("kind", "crew_fee")
+		.is("posted_at", null);
+
+	const { error } = await supabase.from("event_settle_queue").insert({
+		event_id: input.event_id,
+		kind: "crew_fee",
+		amount,
+		account_code: input.account_code,
+		admin_fee: Math.max(0, Math.trunc(Number(input.admin_fee) || 0)),
+		created_by: me.profile.id,
+	});
+	if (error) return { ok: false, error: error.message };
+
+	revalidatePath(`/operations/${input.project_id}/rekap`);
+	return { ok: true };
+}
+
 /** Batalkan satu baris antrian (hanya yang belum diposting). */
 export async function removeQueuedEntry(input: {
 	id: string;
@@ -237,7 +278,36 @@ export async function postSettleQueue(
 		let err: string | null = null;
 		let ref: string | null = null;
 
-		if (row.kind === "expense") {
+		if (row.kind === "crew_fee") {
+			// Fee crew dibayar per crew (tiap crew = satu transfer + satu biaya
+			// admin). Yang dibayar dihitung ulang di sini dari data terakhir —
+			// bukan dari snapshot amount — supaya perubahan fee menit terakhir ikut.
+			const { data: assigns } = await supabase
+				.from("crew_assignments")
+				.select("id, fee_amount, bonus_amount, reimbursement_amount, is_paid")
+				.eq("event_id", eventId);
+			let paidCount = 0;
+			const failedNames: string[] = [];
+			for (const a of assigns ?? []) {
+				const amt =
+					Number(a.fee_amount ?? 0) +
+					Number(a.bonus_amount ?? 0) +
+					Number(a.reimbursement_amount ?? 0);
+				if (a.is_paid || amt <= 0) continue;
+				const r = await payCrewFee({
+					assignment_id: a.id as string,
+					project_id: projectId,
+					bank_account_code: row.account_code as string,
+					admin_fee: Number(row.admin_fee ?? 0),
+					payment_date: today,
+				});
+				if (r.ok) paidCount += 1;
+				else failedNames.push(r.error);
+			}
+			ok = failedNames.length === 0;
+			err = ok ? null : failedNames[0];
+			ref = ok ? `${paidCount} transfer` : null;
+		} else if (row.kind === "expense") {
 			const fd = new FormData();
 			fd.set("direction", (row.direction as string) ?? "keluar");
 			fd.set("amount", String(row.amount));
@@ -279,7 +349,13 @@ export async function postSettleQueue(
 		} else {
 			failed += 1;
 			errors.push(
-				`${row.kind === "expense" ? (row.note ?? "Transaksi") : "Komisi sales"}: ${err}`,
+				`${
+					row.kind === "expense"
+						? (row.note ?? "Transaksi")
+						: row.kind === "crew_fee"
+							? "Fee crew"
+							: "Komisi sales"
+				}: ${err}`,
 			);
 			await supabase
 				.from("event_settle_queue")
