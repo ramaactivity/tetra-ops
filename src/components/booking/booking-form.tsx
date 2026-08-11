@@ -2,6 +2,7 @@
 
 import {
 	AlertTriangle,
+	Check,
 	CheckCircle2,
 	Gift,
 	HelpCircle,
@@ -632,9 +633,9 @@ export function BookingForm({
 	const [setupTime, setSetupTime] = useState(get("setup_time", ""));
 	const [startTime, setStartTime] = useState(get("start_time", ""));
 	const [endTime, setEndTime] = useState(get("end_time", ""));
-	// Sama seperti venueTbc: eksplisit, supaya tombolnya tidak mati saat jam
-	// memang belum diisi (kondisi default booking baru).
-	const [startTbc, setStartTbc] = useState(!get("start_time"));
+	// Sama seperti venueTbc: eksplisit & default MATI — picker jamnya langsung
+	// bisa dipakai, menyusul cuma kalau owner sengaja menandainya.
+	const [startTbc, setStartTbc] = useState(false);
 	const [setupTouched, setSetupTouched] = useState(Boolean(get("setup_time")));
 	const [endTouched, setEndTouched] = useState(Boolean(get("end_time")));
 
@@ -801,12 +802,16 @@ export function BookingForm({
 
 	// === Location
 	const [venueName, setVenueName] = useState(get("venue_name"));
-	// Status TBC disimpan EKSPLISIT, bukan diturunkan dari "venueName kosong".
-	// Kalau diturunkan, tombolnya mati saat form masih kosong (kondisi default
-	// booking baru): klik → tidak ada yang berubah → owner tidak tahu tombolnya
-	// bekerja atau tidak. Dengan state sendiri, tiap klik selalu mengubah
-	// sesuatu yang kelihatan (input aktif ⇄ input dikunci).
-	const [venueTbc, setVenueTbc] = useState(!get("venue_name"));
+	// Status TBC disimpan EKSPLISIT, bukan diturunkan dari "venueName kosong",
+	// supaya tiap klik selalu mengubah sesuatu yang kelihatan (input aktif ⇄
+	// input dikunci).
+	//
+	// Default MATI, bukan mengikuti kolom yang masih kosong: menandai menyusul
+	// itu keputusan sadar owner. Kalau nyala duluan, tiap kali mau mengetik
+	// venue harus mematikannya dulu — itu kerja tambahan untuk kasus yang
+	// justru paling sering. Kolom kosong tetap kebaca TBC lewat banner di
+	// bawah field + lib/events/tbc.ts (reminder H-7/H-3 & tampilan crew).
+	const [venueTbc, setVenueTbc] = useState(false);
 	const venueInputRef = useRef<HTMLInputElement>(null);
 	const [venueAddress, setVenueAddress] = useState(get("venue_address"));
 	const [venueCity, setVenueCity] = useState(get("venue_city"));
@@ -892,9 +897,8 @@ export function BookingForm({
 	const [picName, setPicName] = useState(get("pic_name"));
 	const [picWa, setPicWa] = useState(get("pic_wa"));
 	const [picSameAsBooker, setPicSameAsBooker] = useState(false);
-	// Pola sama dengan venueTbc/startTbc: eksplisit, supaya tombolnya tetap
-	// terasa hidup walau kedua field PIC memang masih kosong.
-	const [picTbc, setPicTbc] = useState(!get("pic_name") && !get("pic_wa"));
+	// Pola sama dengan venueTbc/startTbc: eksplisit & default MATI.
+	const [picTbc, setPicTbc] = useState(false);
 	const picInputRef = useRef<HTMLInputElement>(null);
 
 	// Toggle: pembooking sama dengan klien (yang punya acara)
@@ -2179,8 +2183,8 @@ export function BookingForm({
 												aria-invalid={!!err("start_time")}
 											/>
 										</div>
-										<button
-											type="button"
+										<TbcToggle
+											active={startTbc}
 											onClick={() => {
 												if (startTbc) {
 													// Balik ke isi manual — cukup buka kuncinya; picker
@@ -2197,15 +2201,7 @@ export function BookingForm({
 												setSetupTouched(false);
 												setEndTouched(false);
 											}}
-											aria-pressed={startTbc}
-											className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
-												startTbc
-													? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
-													: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
-											}`}
-										>
-											{startTbc ? "✓ Menyusul" : "Menyusul?"}
-										</button>
+										/>
 									</div>
 								</Field>
 							)}
@@ -2706,8 +2702,8 @@ export function BookingForm({
 										venueTbc ? "cursor-not-allowed opacity-60" : ""
 									}`}
 								/>
-								<button
-									type="button"
+								<TbcToggle
+									active={venueTbc}
 									onClick={() => {
 										if (venueTbc) {
 											// Balik ke isi manual — buka kuncinya lalu taruh kursor
@@ -2728,20 +2724,17 @@ export function BookingForm({
 										setVenueProvince("");
 										setMapsUrl("");
 									}}
-									aria-pressed={venueTbc}
-									className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
-										venueTbc
-											? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
-											: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
-									}`}
-								>
-									{venueTbc ? "✓ Menyusul" : "Menyusul?"}
-								</button>
+								/>
 							</div>
 							<input type="hidden" name="venue_name" value={venueName} />
 						</Field>
 
-						{!venueName ? (
+						{/* Peringatan amber muncul kalau memang ditandai menyusul, atau saat
+						    mengedit event lama yang venue-nya masih kosong. Di booking baru
+						    yang belum sempat diketik, tidak perlu diomeli duluan — panel
+						    amber yang selalu nongol justru bikin state tombol Menyusul
+						    susah dibedakan. */}
+						{venueTbc || (defaults && !venueName) ? (
 							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
 								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
 								<div>
@@ -3000,8 +2993,8 @@ export function BookingForm({
 									<Users className="size-4 text-primary" />
 									PIC di Lokasi (WO / EO / Panitia / Keluarga)
 								</div>
-								<button
-									type="button"
+								<TbcToggle
+									active={picTbc}
 									onClick={() => {
 										if (picTbc) {
 											setPicTbc(false);
@@ -3015,15 +3008,7 @@ export function BookingForm({
 										setPicName("");
 										setPicWa("");
 									}}
-									aria-pressed={picTbc}
-									className={`shrink-0 rounded-md border px-3 text-fluid-caption font-medium transition ${
-										picTbc
-											? "border-amber-500/60 bg-amber-500/15 text-amber-900 dark:text-amber-200"
-											: "border-border-default text-foreground/70 hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
-									}`}
-								>
-									{picTbc ? "✓ Menyusul" : "Menyusul?"}
-								</button>
+								/>
 							</div>
 							<p className="text-fluid-caption text-muted-foreground">
 								Orang yang crew koordinasi di lapangan hari-H. Bisa pembooking
@@ -3630,6 +3615,46 @@ function SavePopup({
 
 const inputClass =
 	"h-10 w-full rounded-md border border-border-default bg-background px-3 text-fluid-body text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+
+/**
+ * Tombol "Menyusul" (tandai TBC) untuk venue / jam mulai / PIC.
+ *
+ * Nyala = amber pekat + centang, mati = outline netral. Sengaja beda blok
+ * warna (isi vs garis), bukan beda tipis kepekatan — dulu dua state-nya
+ * sama-sama amber muda dan owner tidak sadar tombolnya sedang aktif.
+ */
+function TbcToggle({
+	active,
+	onClick,
+	className,
+	label = "Menyusul",
+}: {
+	active: boolean;
+	onClick: () => void;
+	className?: string;
+	label?: string;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-pressed={active}
+			title={
+				active
+					? "Ditandai menyusul — klik lagi kalau mau isi sekarang"
+					: "Klik kalau datanya belum ditentukan (menyusul)"
+			}
+			className={`press-down inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 text-fluid-caption font-medium transition ${
+				active
+					? "border-amber-600 bg-amber-500 text-amber-950 shadow-sm hover:bg-amber-600"
+					: "border-border-default bg-background text-muted-foreground hover:border-amber-500/60 hover:bg-amber-500/10 hover:text-amber-900 dark:hover:text-amber-200"
+			} ${className ?? ""}`}
+		>
+			{active ? <Check className="size-3.5" /> : null}
+			{active ? label : `${label}?`}
+		</button>
+	);
+}
 
 function Section({
 	step,
