@@ -149,10 +149,9 @@ export async function payCommission(input: {
 		payeeUserId = (ev.referrer_user_id as string | null) ?? null;
 		payeeName = await lookupName(payeeUserId, "Relasi");
 	} else {
-		// sales (direct)
-		if (ev.channel !== "direct") {
-			return { ok: false, error: "Event ini bukan channel direct" };
-		}
+		// Sales Tetra — TIDAK dibatasi channel: event vendor/relasi pun sales yang
+		// closing tetap dapat komisinya sendiri (di luar komisi mitra). Nominalnya
+		// bisa diisi saat settle; yang dipakai di sini tetap kolom event.
 		amount = Number(ev.direct_sales_commission ?? 0);
 		payeeUserId = (ev.sales_user_id as string | null) ?? null;
 		payeeName = await lookupName(payeeUserId, "Sales Tetra");

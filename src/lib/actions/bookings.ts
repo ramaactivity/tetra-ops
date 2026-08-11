@@ -188,7 +188,7 @@ const BookingInputSchema = z.object({
 		.or(z.literal(""))
 		.transform((v) => (v === "" || v === undefined ? null : v)),
 	referrer_commission: z.coerce.number().int().min(0).optional().nullable(),
-	// Direct sales (komisi sales Tetra untuk event channel=direct)
+	// Komisi sales Tetra — berlaku di semua channel (lihat buildEventPayload)
 	sales_user_id: z
 		.string()
 		.uuid()
@@ -757,10 +757,12 @@ function buildEventPayload(
 		referrer_type: input.channel === "relasi" ? input.referrer_type : null,
 		referrer_commission:
 			input.channel === "relasi" ? input.referrer_commission : null,
-		// Komisi sales Tetra — hanya untuk channel direct.
-		sales_user_id: input.channel === "direct" ? input.sales_user_id : null,
-		direct_sales_commission:
-			input.channel === "direct" ? (input.direct_sales_commission ?? 0) : 0,
+		// Komisi sales Tetra — TIDAK terikat channel: event vendor/relasi pun
+		// sales/admin yang closing tetap dapat komisinya sendiri, di luar komisi
+		// mitra. (Dulu dinolkan untuk non-direct → komisi yang diisi saat settle
+		// ikut terhapus kalau bookingnya di-edit setelah reopen.)
+		sales_user_id: input.sales_user_id ?? null,
+		direct_sales_commission: input.direct_sales_commission ?? 0,
 		// PIC at venue
 		pic_name: input.pic_name,
 		pic_wa: input.pic_wa,

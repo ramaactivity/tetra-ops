@@ -51,6 +51,7 @@ export type SettleEventResponse =
 			data: SettleEventResult;
 			crewPayment?: CrewPaymentSummary;
 			commissionPayment?: CommissionPaymentSummary;
+			salesCommissionPayment?: CommissionPaymentSummary;
 			/** Penyesuaian talangan crew sebelum jurnal dibuat (kalau ada). */
 			reimbursement?: ReimbursementSync;
 	  }
@@ -63,10 +64,19 @@ export async function settleEvent(
 		/** Kalau di-set: setelah settle, langsung bayar SEMUA fee crew dari
 		 *  rekening ini (Dr 2-100 / Cr rekening). Null/undefined = settle saja. */
 		payCrewFromAccount?: string | null;
-		/** Kalau di-set: setelah settle, langsung bayar komisi event ini
-		 *  (vendor/relasi/sales) dari rekening ini — supaya owner tidak perlu
-		 *  pindah ke halaman Komisi. Null/undefined = tidak bayar komisi. */
+		/** Kalau di-set: setelah settle, langsung bayar komisi MITRA event ini
+		 *  (vendor/relasi) dari rekening ini — supaya owner tidak perlu pindah ke
+		 *  halaman Komisi. Null/undefined = tidak bayar komisi. */
 		payCommissionFromAccount?: string | null;
+		/**
+		 * Komisi sales Tetra (admin/sales yang closing). Ditulis ke event SEBELUM
+		 * RPC settle supaya ikut jadi beban 5-301 + utang 2-102 di jurnal
+		 * settlement — bukan jurnal susulan. Berlaku untuk SEMUA channel: event
+		 * vendor/relasi pun sales-nya tetap dapat komisi.
+		 */
+		salesCommission?: { user_id: string | null; amount: number } | null;
+		/** Kalau di-set: setelah settle, langsung bayar komisi sales itu. */
+		paySalesCommissionFromAccount?: string | null;
 	},
 ): Promise<SettleEventResponse> {
 	const me = await getCurrentUser();
@@ -96,6 +106,21 @@ export async function settleEvent(
 			`[settle] talangan crew tidak bisa disamakan (${eventId}): ${reimbursement.blocked}`,
 		);
 	}
+	// Komisi sales Tetra: tulis ke event DULU, sebelum RPC. settle_event membaca
+	// events.direct_sales_commission (tanpa lihat channel) → komisinya ikut jadi
+	// beban 5-301 & utang 2-102 di jurnal settlement yang sama. Kalau ditulis
+	// setelah settle, angkanya cuma jadi hiasan di kolom event tanpa jurnal.
+	let salesRollback: { user_id: string | null; amount: number } | null = null;
+	if (opts?.salesCommission !== undefined && opts.salesCommission !== null) {
+		const applied = await applySalesCommission(
+			supabase,
+			eventId,
+			opts.salesCommission,
+		);
+		if (!applied.ok) return { ok: false, error: applied.error };
+		salesRollback = applied.previous;
+	}
+
 	const { data, error } = await supabase.rpc("settle_event", {
 		p_event_id: eventId,
 		p_owner_user_id: me.authId,
@@ -103,6 +128,17 @@ export async function settleEvent(
 	});
 
 	if (error) {
+		// Settle gagal → kembalikan komisi sales ke nilai semula, jangan tinggalkan
+		// event dengan komisi yang tak pernah dibukukan.
+		if (salesRollback) {
+			await supabase
+				.from("events")
+				.update({
+					sales_user_id: salesRollback.user_id,
+					direct_sales_commission: salesRollback.amount,
+				})
+				.eq("id", eventId);
+		}
 		return {
 			ok: false,
 			error: humanizeRpcError(error.message),
@@ -182,11 +218,35 @@ export async function settleEvent(
 		}
 	}
 
+	// Komisi sales Tetra — jalur yang sama (kind='sales', utang 2-102), terpisah
+	// dari komisi mitra supaya keduanya bisa dibayar sekaligus saat settle.
+	let salesCommissionPayment: CommissionPaymentSummary | undefined;
+	const salesAcct = opts?.paySalesCommissionFromAccount?.trim();
+	if (salesAcct) {
+		const target = await resolveSalesCommission(supabase, eventId);
+		if (target) {
+			const r = await payCommission({
+				event_id: eventId,
+				project_id: projectId,
+				kind: "sales",
+				bank_account_code: salesAcct,
+				payment_date: new Date().toISOString().slice(0, 10),
+			});
+			salesCommissionPayment = {
+				paid: r.ok,
+				amount: target.amount,
+				payeeName: target.payeeName,
+				error: r.ok ? undefined : r.error,
+			};
+		}
+	}
+
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
 	revalidateDashboard();
 	revalidatePath("/finance");
+	revalidatePath("/finance/vendors");
 
 	// Thank the assigned crew that the event is closed (best-effort).
 	await notifyEventSettled(eventId, projectId);
@@ -206,21 +266,126 @@ export async function settleEvent(
 		data: data as SettleEventResult,
 		crewPayment,
 		commissionPayment,
+		salesCommissionPayment,
 		reimbursement: reimbursement ?? undefined,
 	};
 }
 
+/** Batas wajar komisi sales — angka lapangan Rp50rb–100rb, cap sbg sanity guard. */
+const SALES_COMMISSION_MAX = 5_000_000;
+
 /**
- * Komisi yang menempel di sebuah event — jenis, nominal, penerima. Null kalau
- * event ini memang tidak punya komisi yang perlu dibayar (tak ada nominal, atau
- * vendor "Potongan Langsung" yang sudah dipotong di muka dari aliran uang).
- * Dipakai untuk opsi "sekalian bayar komisi" saat settle.
+ * Tulis komisi sales Tetra ke event (dipakai settle_event sbg beban + utang).
+ * Mengembalikan nilai LAMA supaya bisa dikembalikan kalau settle-nya gagal.
+ */
+async function applySalesCommission(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+	input: { user_id: string | null; amount: number },
+): Promise<
+	| { ok: true; previous: { user_id: string | null; amount: number } }
+	| { ok: false; error: string }
+> {
+	const amount = Math.trunc(Number(input.amount) || 0);
+	if (amount < 0) return { ok: false, error: "Komisi sales tidak boleh minus" };
+	if (amount > SALES_COMMISSION_MAX) {
+		return {
+			ok: false,
+			error: `Komisi sales maksimal ${SALES_COMMISSION_MAX.toLocaleString("id-ID")} — cek lagi nominalnya.`,
+		};
+	}
+	const userId = input.user_id?.trim() ? input.user_id.trim() : null;
+
+	const { data: ev } = await supabase
+		.from("events")
+		.select("sales_user_id, direct_sales_commission")
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return { ok: false, error: "Event tidak ditemukan" };
+	const previous = {
+		user_id: (ev.sales_user_id as string | null) ?? null,
+		amount: Number(ev.direct_sales_commission ?? 0),
+	};
+
+	// Sudah pernah dibayar di muka? Nominalnya jangan diubah — uang mukanya
+	// di-offset sebesar beban yang diakui, jadi mengubahnya bikin sisa nyangkut
+	// di 1-310. Sama nilai = no-op, boleh lanjut.
+	const { data: paid } = await supabase
+		.from("commission_payouts")
+		.select("id, amount")
+		.eq("event_id", eventId)
+		.eq("kind", "sales")
+		.eq("is_reversed", false)
+		.maybeSingle();
+	if (paid && amount !== previous.amount) {
+		return {
+			ok: false,
+			error:
+				"Komisi sales event ini sudah dibayar di muka — nominalnya tidak bisa diubah di sini. Batalkan pembayarannya dulu di Finance › Komisi.",
+		};
+	}
+
+	if (userId) {
+		const { data: u } = await supabase
+			.from("users")
+			.select("id, is_active, role")
+			.eq("id", userId)
+			.maybeSingle();
+		if (!u || u.is_active !== true) {
+			return {
+				ok: false,
+				error: "Sales yang dipilih tidak ditemukan/nonaktif",
+			};
+		}
+		if (!["super_admin", "owner", "crew"].includes(u.role as string)) {
+			return { ok: false, error: "Penerima komisi sales harus user Tetra" };
+		}
+	} else if (amount > 0) {
+		return { ok: false, error: "Pilih dulu sales penerima komisinya" };
+	}
+
+	if (previous.user_id === userId && previous.amount === amount) {
+		return { ok: true, previous };
+	}
+
+	const { error } = await supabase
+		.from("events")
+		.update({ sales_user_id: userId, direct_sales_commission: amount })
+		.eq("id", eventId);
+	if (error) {
+		return { ok: false, error: `Gagal simpan komisi sales: ${error.message}` };
+	}
+	return { ok: true, previous };
+}
+
+async function lookupUserName(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	userId: string | null,
+	fallback: string,
+): Promise<string> {
+	if (!userId) return fallback;
+	const { data } = await supabase
+		.from("users")
+		.select("full_name")
+		.eq("id", userId)
+		.maybeSingle();
+	return (data?.full_name as string) ?? fallback;
+}
+
+/**
+ * Komisi MITRA yang menempel di sebuah event (vendor/relasi) — jenis, nominal,
+ * penerima. Null kalau tidak ada nominalnya, atau vendor "Potongan Langsung"
+ * yang komisinya sudah dipotong di muka dari aliran uang.
+ *
+ * Komisi sales Tetra sengaja TIDAK di sini — lihat resolveSalesCommission.
+ * Keduanya bisa hidup di event yang sama: vendor dapat komisi, sales Tetra yang
+ * closing juga tetap dapat komisinya sendiri.
  */
 async function resolveEventCommission(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	eventId: string,
 ): Promise<{
-	kind: "vendor" | "relasi" | "sales";
+	kind: "vendor" | "relasi";
 	amount: number;
 	payeeName: string;
 } | null> {
@@ -228,22 +393,11 @@ async function resolveEventCommission(
 		.from("events")
 		.select(
 			`channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
-			referrer_user_id, referrer_commission,
-			sales_user_id, direct_sales_commission`,
+			referrer_user_id, referrer_commission`,
 		)
 		.eq("id", eventId)
 		.maybeSingle();
 	if (!ev) return null;
-
-	const nameOf = async (userId: string | null, fallback: string) => {
-		if (!userId) return fallback;
-		const { data } = await supabase
-			.from("users")
-			.select("full_name")
-			.eq("id", userId)
-			.maybeSingle();
-		return (data?.full_name as string) ?? fallback;
-	};
 
 	if (ev.channel === "vendor") {
 		const amount = Number(ev.vendor_commission_amount ?? 0);
@@ -260,19 +414,37 @@ async function resolveEventCommission(
 		return {
 			kind: "relasi",
 			amount,
-			payeeName: await nameOf(ev.referrer_user_id as string | null, "Relasi"),
-		};
-	}
-	if (ev.channel === "direct") {
-		const amount = Number(ev.direct_sales_commission ?? 0);
-		if (amount <= 0) return null;
-		return {
-			kind: "sales",
-			amount,
-			payeeName: await nameOf(ev.sales_user_id as string | null, "Sales Tetra"),
+			payeeName: await lookupUserName(
+				supabase,
+				ev.referrer_user_id as string | null,
+				"Relasi",
+			),
 		};
 	}
 	return null;
+}
+
+/** Komisi sales Tetra di sebuah event — berlaku di semua channel. */
+async function resolveSalesCommission(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+): Promise<{ amount: number; payeeName: string } | null> {
+	const { data: ev } = await supabase
+		.from("events")
+		.select("sales_user_id, direct_sales_commission")
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return null;
+	const amount = Number(ev.direct_sales_commission ?? 0);
+	if (amount <= 0) return null;
+	return {
+		amount,
+		payeeName: await lookupUserName(
+			supabase,
+			ev.sales_user_id as string | null,
+			"Sales Tetra",
+		),
+	};
 }
 
 export type ReopenResult = {

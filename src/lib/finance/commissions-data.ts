@@ -249,8 +249,10 @@ export async function getCommissionsOverview(
 				null,
 			);
 		}
+		// Komisi sales Tetra tidak terikat channel: event vendor/relasi pun sales
+		// yang closing tetap dapat komisinya (baris terpisah dari komisi mitra).
 		const salesAmount = Number(e.direct_sales_commission ?? 0);
-		if (e.channel === "direct" && salesAmount > 0) {
+		if (salesAmount > 0) {
 			pushRow(
 				"sales",
 				salesAmount,

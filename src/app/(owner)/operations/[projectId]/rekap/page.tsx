@@ -288,6 +288,16 @@ export default async function EventRekapPage({
 		amount: number;
 		paidInAdvance: boolean;
 	} | null = null;
+	// Komisi sales Tetra — SLOT TERPISAH dari komisi mitra di atas & berlaku di
+	// semua channel: event vendor pun sales/admin yang closing tetap dapat komisi.
+	// Nominalnya tentatif (biasanya 50rb/100rb) jadi bisa diisi saat settle.
+	let salesCommissionInfo: {
+		userId: string | null;
+		payeeName: string | null;
+		amount: number;
+		paidInAdvance: boolean;
+	} | null = null;
+	let salesCandidates: Array<{ id: string; name: string; role: string }> = [];
 	if (!isSettled) {
 		const channel = event.channel as string | null;
 		let amount = 0;
@@ -303,11 +313,20 @@ export default async function EventRekapPage({
 			amount = Number(event.referrer_commission ?? 0);
 			payeeUserId = (event.referrer_user_id as string | null) ?? null;
 			payeeName = "Relasi";
-		} else if (channel === "direct") {
-			amount = Number(event.direct_sales_commission ?? 0);
-			payeeUserId = (event.sales_user_id as string | null) ?? null;
-			payeeName = "Sales Tetra";
 		}
+
+		// Satu query untuk semua payout aktif event ini — dipisah per kind. (Dulu
+		// .maybeSingle() tanpa filter kind: begitu ada 2 komisi di satu event,
+		// query-nya error & statusnya salah baca.)
+		const { data: activePayouts } = await supabase
+			.from("commission_payouts")
+			.select("kind")
+			.eq("event_id", event.id)
+			.eq("is_reversed", false);
+		const paidKinds = new Set(
+			(activePayouts ?? []).map((p) => p.kind as string),
+		);
+
 		if (amount > 0) {
 			if (payeeUserId) {
 				const { data: payee } = await supabase
@@ -317,18 +336,46 @@ export default async function EventRekapPage({
 					.maybeSingle();
 				payeeName = (payee?.full_name as string) ?? payeeName;
 			}
-			const { data: activePayout } = await supabase
-				.from("commission_payouts")
-				.select("id")
-				.eq("event_id", event.id)
-				.eq("is_reversed", false)
-				.maybeSingle();
 			commissionInfo = {
 				payeeName,
 				amount,
-				paidInAdvance: Boolean(activePayout),
+				paidInAdvance: paidKinds.has(
+					channel === "vendor" ? "vendor" : "relasi",
+				),
 			};
 		}
+
+		const salesUserId = (event.sales_user_id as string | null) ?? null;
+		const [{ data: salesPayee }, { data: teamUsers }] = await Promise.all([
+			salesUserId
+				? supabase
+						.from("users")
+						.select("full_name")
+						.eq("id", salesUserId)
+						.maybeSingle()
+				: Promise.resolve({ data: null }),
+			supabase
+				.from("users")
+				.select("id, full_name, nickname, role")
+				.in("role", ["super_admin", "owner", "crew"])
+				.eq("is_active", true)
+				.is("deleted_at", null)
+				.order("full_name"),
+		]);
+		salesCandidates = (teamUsers ?? []).map((u) => ({
+			id: u.id as string,
+			name:
+				(u.nickname as string | null)?.trim() ||
+				(u.full_name as string) ||
+				"Tanpa nama",
+			role: u.role as string,
+		}));
+		salesCommissionInfo = {
+			userId: salesUserId,
+			payeeName: (salesPayee?.full_name as string | null) ?? null,
+			amount: Number(event.direct_sales_commission ?? 0),
+			paidInAdvance: paidKinds.has("sales"),
+		};
 	}
 
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
@@ -766,6 +813,8 @@ export default async function EventRekapPage({
 								)}
 								cashAccounts={cashAccounts}
 								commission={commissionInfo}
+								salesCommission={salesCommissionInfo}
+								salesCandidates={salesCandidates}
 								disabled={Boolean(settleDisabledReason)}
 								disabledReason={settleDisabledReason}
 							/>

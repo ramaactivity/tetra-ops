@@ -1843,12 +1843,15 @@ export function BookingForm({
 							</Section>
 						</div>
 					)}
-					{channel === "direct" && (
+					{/* Komisi sales Tetra berlaku di SEMUA channel: event dari vendor/
+					    relasi pun sales/admin yang closing tetap dapat komisinya sendiri
+					    (di luar komisi mitra). Boleh dikosongkan & diisi saat settle. */}
+					{
 						<div className="fade-in-on-mount">
 							<Section
 								step={2}
 								title="Sales Tetra"
-								description="Pilih sales yang closing event ini — komisinya dicatat & bisa dibayar dari halaman Komisi."
+								description="Pilih sales yang closing event ini — komisinya dicatat & bisa dibayar dari halaman Komisi. Tetap dapat komisi walaupun event ini juga bayar komisi vendor/relasi."
 							>
 								<Field
 									label="Sales (User Tetra)"
@@ -1900,7 +1903,7 @@ export function BookingForm({
 								</Field>
 							</Section>
 						</div>
-					)}
+					}
 					{!showReferrerBlock && (
 						<>
 							<input type="hidden" name="vendor_name" value="" />
@@ -1911,12 +1914,6 @@ export function BookingForm({
 							<input type="hidden" name="referrer_user_id" value="" />
 							<input type="hidden" name="referrer_type" value="" />
 							<input type="hidden" name="referrer_commission" value="" />
-						</>
-					)}
-					{channel !== "direct" && (
-						<>
-							<input type="hidden" name="sales_user_id" value="" />
-							<input type="hidden" name="direct_sales_commission" value="" />
 						</>
 					)}
 

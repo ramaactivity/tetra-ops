@@ -30,6 +30,8 @@ export type OpexBreakdown = {
 	misc: number;
 	komisi_vendor: number;
 	komisi_relasi: number;
+	/** Komisi sales Tetra (kolom events.direct_sales_commission, semua channel). */
+	komisi_sales: number;
 	/** Biaya event dibayar langsung owner (via Catat transaksi) — info, BUKAN bagian total. */
 	owner_paid_total: number;
 	total: number;
@@ -81,6 +83,7 @@ const EMPTY_OPEX: OpexBreakdown = {
 	misc: 0,
 	komisi_vendor: 0,
 	komisi_relasi: 0,
+	komisi_sales: 0,
 	owner_paid_total: 0,
 	total: 0,
 };
@@ -109,7 +112,7 @@ export async function getProfitPreview(
 		supabase
 			.from("events")
 			.select(
-				"base_price, custom_package_price, addons_total, discount_amount, grand_total, vendor_commission_amount, referrer_commission",
+				"base_price, custom_package_price, addons_total, discount_amount, grand_total, vendor_commission_amount, referrer_commission, direct_sales_commission",
 			)
 			.eq("id", eventId)
 			.maybeSingle(),
@@ -153,11 +156,15 @@ export async function getProfitPreview(
 	// tidak menghitung komisi, jadi tambahkan di sini supaya preview == settle.
 	const komisi_vendor = Number(ev?.vendor_commission_amount ?? 0);
 	const komisi_relasi = Number(ev?.referrer_commission ?? 0);
+	// Komisi sales Tetra dulu tidak ikut dihitung di sini → preview lebih-saji
+	// laba dibanding hasil settle (settle_event membacanya untuk semua channel).
+	const komisi_sales = Number(ev?.direct_sales_commission ?? 0);
 	opex = {
 		...opex,
 		komisi_vendor,
 		komisi_relasi,
-		total: opex.total + komisi_vendor + komisi_relasi,
+		komisi_sales,
+		total: opex.total + komisi_vendor + komisi_relasi + komisi_sales,
 	};
 
 	const total_biaya = hpp.total + opex.total;
@@ -285,6 +292,7 @@ function normalizeOpex(raw: unknown): OpexBreakdown {
 		misc: n("misc"),
 		komisi_vendor: n("komisi_vendor"),
 		komisi_relasi: n("komisi_relasi"),
+		komisi_sales: n("komisi_sales"),
 		owner_paid_total: n("owner_paid_total"),
 		total: n("total"),
 	};

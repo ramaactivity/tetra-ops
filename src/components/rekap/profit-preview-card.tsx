@@ -41,7 +41,8 @@ const OPEX_LABELS: Record<
 	konsumsi: "Konsumsi",
 	misc: "Lain-lain",
 	komisi_vendor: "Komisi Vendor",
-	komisi_relasi: "Komisi Sales/Relasi",
+	komisi_relasi: "Komisi Relasi",
+	komisi_sales: "Komisi Sales Tetra",
 };
 
 export function ProfitPreviewCard({ preview, className = "" }: Props) {
