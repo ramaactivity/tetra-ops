@@ -20,6 +20,7 @@ export function ProofUploadButton({
 	onChange,
 	label = "Bukti transfer (opsional)",
 	disabled,
+	compact = false,
 }: {
 	projectId: string;
 	/** Jenis bukti — menentukan pola nama file & folder di Drive. */
@@ -29,6 +30,8 @@ export function ProofUploadButton({
 	onChange: (url: string | null) => void;
 	label?: string;
 	disabled?: boolean;
+	/** Tombol kecil inline untuk baris daftar (tanpa label & tanpa lebar penuh). */
+	compact?: boolean;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [uploading, setUploading] = useState(false);
@@ -66,6 +69,37 @@ export function ProofUploadButton({
 			setUploading(false);
 			if (inputRef.current) inputRef.current.value = "";
 		}
+	}
+
+	if (compact) {
+		return (
+			<>
+				<input
+					ref={inputRef}
+					type="file"
+					accept="image/*,application/pdf"
+					className="hidden"
+					onChange={(e) => handleFiles(e.target.files)}
+					disabled={disabled || uploading}
+				/>
+				<button
+					type="button"
+					onClick={() => inputRef.current?.click()}
+					disabled={disabled || uploading}
+					className="inline-flex items-center gap-1 rounded-full border border-dashed border-border-default px-2 py-0.5 text-[11px] text-muted-foreground hover:border-border-strong hover:text-foreground disabled:opacity-50"
+				>
+					{uploading ? (
+						<>
+							<Loader2 className="h-3 w-3 animate-spin" /> Uploading…
+						</>
+					) : (
+						<>
+							<Upload className="h-3 w-3" /> Upload bukti
+						</>
+					)}
+				</button>
+			</>
+		);
 	}
 
 	return (

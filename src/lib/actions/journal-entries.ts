@@ -520,6 +520,34 @@ export async function recordQuickTransaction(
  * manual, belum pernah dibalik, tidak menyentuh modal awal, bertanggal setelah
  * cutoff, dan tidak membuat kas/bank minus.
  */
+/**
+ * Lampirkan/ganti bukti pada jurnal manual yang sudah diposting — buktinya
+ * sering menyusul (struk difoto belakangan, transfer dicek besoknya). Dibatasi
+ * ke source_type='manual' supaya jurnal mesin (settlement, pembelian) tidak
+ * bisa disentuh dari UI.
+ */
+export async function attachJournalProof(input: {
+	entry_id: string;
+	project_id?: string;
+	proof_url: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("journal_entries")
+		.update({ proof_url: input.proof_url })
+		.eq("id", input.entry_id)
+		.eq("source_type", "manual");
+	if (error) return { ok: false, error: error.message };
+
+	if (input.project_id) {
+		revalidatePath(`/operations/${input.project_id}/rekap`);
+	}
+	revalidatePath("/finance");
+	revalidatePath("/finance/arsip-nota");
+	return { ok: true };
+}
+
 export async function reverseJournalEntry(
 	entryId: string,
 	reason: string,

@@ -18,8 +18,12 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { MoneyInput } from "@/components/ui/form-fields";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
-import { reverseJournalEntry } from "@/lib/actions/journal-entries";
 import {
+	attachJournalProof,
+	reverseJournalEntry,
+} from "@/lib/actions/journal-entries";
+import {
+	attachQueuedProof,
 	type QueuedEntry,
 	queueEventExpense,
 	queueEventExpensesBatch,
@@ -251,6 +255,38 @@ export function EventExtraTransactions({
 		});
 	}
 
+	// Bukti sering menyusul (struk difoto belakangan) — baris yang sudah tersimpan
+	// tetap bisa dilampiri tanpa harus dihapus & diinput ulang.
+	function attachProofToQueued(entry: QueuedEntry, url: string | null) {
+		startTransition(async () => {
+			const res = await attachQueuedProof({
+				id: entry.id,
+				project_id: projectId,
+				proof_url: url,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			router.refresh();
+		});
+	}
+
+	function attachProofToPosted(row: ExtraTxnRow, url: string | null) {
+		startTransition(async () => {
+			const res = await attachJournalProof({
+				entry_id: row.id,
+				project_id: projectId,
+				proof_url: url,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			router.refresh();
+		});
+	}
+
 	function handleDelete(row: ExtraTxnRow) {
 		startTransition(async () => {
 			const ok = await confirm({
@@ -381,10 +417,20 @@ export function EventExtraTransactions({
 								>
 									Bukti <ExternalLink className="h-3 w-3" />
 								</a>
-							) : (
+							) : readOnly ? (
 								<span className="text-[11px] text-muted-foreground">
 									Tanpa bukti
 								</span>
+							) : (
+								<ProofUploadButton
+									compact
+									projectId={projectId}
+									kind="event_txn"
+									meta={{ name: q.note ?? "Transaksi", amount: q.amount }}
+									url={null}
+									onChange={(url) => attachProofToQueued(q, url)}
+									disabled={pending}
+								/>
 							)}
 							{!readOnly && (
 								<Button
@@ -450,10 +496,20 @@ export function EventExtraTransactions({
 								>
 									Bukti <ExternalLink className="h-3 w-3" />
 								</a>
-							) : (
+							) : readOnly ? (
 								<span className="text-[11px] text-muted-foreground">
 									Tanpa bukti
 								</span>
+							) : (
+								<ProofUploadButton
+									compact
+									projectId={projectId}
+									kind="event_txn"
+									meta={{ name: row.description, amount: row.amount }}
+									url={null}
+									onChange={(url) => attachProofToPosted(row, url)}
+									disabled={pending}
+								/>
 							)}
 							{!readOnly && (
 								<Button

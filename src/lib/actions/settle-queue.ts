@@ -264,6 +264,27 @@ export async function queuePartnerCommissionPayment(input: {
 	return { ok: true };
 }
 
+/** Lampirkan/ganti bukti pada baris antrian yang belum diposting. */
+export async function attachQueuedProof(input: {
+	id: string;
+	project_id: string;
+	proof_url: string | null;
+}): Promise<QueueResponse> {
+	const me = await requireOwner();
+	if (!me) return { ok: false, error: "Hanya owner yang bisa mengubah ini" };
+
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("event_settle_queue")
+		.update({ proof_url: input.proof_url })
+		.eq("id", input.id)
+		.is("posted_at", null);
+	if (error) return { ok: false, error: error.message };
+
+	revalidatePath(`/operations/${input.project_id}/rekap`);
+	return { ok: true };
+}
+
 /** Batalkan satu baris antrian (hanya yang belum diposting). */
 export async function removeQueuedEntry(input: {
 	id: string;
