@@ -85,8 +85,18 @@ type Props = {
 	salesCandidates?: Array<{ id: string; name: string; role: string }>;
 };
 
-/** Nominal komisi sales yang paling sering dipakai di lapangan. */
-const SALES_QUICK_AMOUNTS = [50_000, 100_000];
+/**
+ * Nominal komisi sales yang paling sering dipakai di lapangan. Rp0 ikut jadi
+ * pilihan: sales-nya tetap tercatat sebagai yang closing, tapi memang tidak
+ * ambil komisi. Sama dengan chip di form booking.
+ */
+const SALES_QUICK_AMOUNTS = [
+	{ amount: 0, label: "Tanpa komisi" },
+	{ amount: 50_000, label: "Rp 50.000" },
+	{ amount: 100_000, label: "Rp 100.000" },
+];
+/** Saran nominal saat toggle komisi baru dinyalakan. */
+const SALES_COMMISSION_SUGGESTION = 100_000;
 
 type CashAccount = { code: string; name: string; balance?: number };
 
@@ -158,7 +168,11 @@ export function SettleButton(props: Props) {
 	const salesInfo = props.salesCommission ?? null;
 	const salesCandidates = props.salesCandidates ?? [];
 	const salesLocked = salesInfo?.paidInAdvance === true;
-	const [salesOn, setSalesOn] = useState(() => (salesInfo?.amount ?? 0) > 0);
+	// Toggle nyala kalau ada komisinya ATAU sales-nya sudah tercatat — event
+	// boleh punya sales dengan komisi Rp0 (tercatat closing, tanpa komisi).
+	const [salesOn, setSalesOn] = useState(
+		() => (salesInfo?.amount ?? 0) > 0 || Boolean(salesInfo?.userId),
+	);
 	const [salesAmount, setSalesAmount] = useState(() => salesInfo?.amount ?? 0);
 	const [salesUserId, setSalesUserId] = useState(() => salesInfo?.userId ?? "");
 	const [paySales, setPaySales] = useState(false);
@@ -173,10 +187,13 @@ export function SettleButton(props: Props) {
 		salesEffective > 0 &&
 		!!salesUserId &&
 		cashAccounts.length > 0;
+	// Sales-nya sendiri bisa berubah walau nominalnya tetap (mis. komisi Rp0
+	// tapi orang yang closing dikoreksi) — itu tetap perlu dikirim ke server.
+	const salesUserEffective = salesOn ? salesUserId : "";
 	const salesChanged =
 		!salesLocked &&
 		(salesEffective !== (salesInfo?.amount ?? 0) ||
-			(salesEffective > 0 && salesUserId !== (salesInfo?.userId ?? "")));
+			salesUserEffective !== (salesInfo?.userId ?? ""));
 
 	// ── Pemasukan / pengeluaran lain di luar form rekap ───────────────────────
 	const [extraRows, setExtraRows] = useState<ExtraRow[]>([]);
@@ -275,7 +292,7 @@ export function SettleButton(props: Props) {
 				// menyentuh kolom komisi event sama sekali.
 				salesCommission: salesChanged
 					? {
-							user_id: salesEffective > 0 ? salesUserId : null,
+							user_id: salesUserEffective || null,
 							amount: salesEffective,
 						}
 					: null,
@@ -605,7 +622,7 @@ export function SettleButton(props: Props) {
 												<p className="mt-0.5 text-xs text-muted-foreground">
 													{salesLocked
 														? "Sudah dibayar di muka — nominalnya dikunci & otomatis diperhitungkan saat settle."
-														: "Sales/admin yang closing tetap dapat komisi, walau komisi vendor/relasi sudah dibayar. Biasanya Rp50.000–100.000."}
+														: "Opsional. Sales/admin yang closing tetap dapat komisi walau komisi vendor/relasi sudah dibayar — tapi boleh juga Rp0 alias tanpa komisi. Matikan kalau memang nggak ada sales-nya."}
 												</p>
 											</div>
 											<Switch
@@ -614,8 +631,8 @@ export function SettleButton(props: Props) {
 												onCheckedChange={() =>
 													setSalesOn((v) => {
 														const next = !v;
-														if (next && salesAmount === 0) {
-															setSalesAmount(SALES_QUICK_AMOUNTS[1]);
+														if (next && salesAmount === 0 && !salesUserId) {
+															setSalesAmount(SALES_COMMISSION_SUGGESTION);
 														}
 														if (!next) setPaySales(false);
 														return next;
@@ -661,20 +678,22 @@ export function SettleButton(props: Props) {
 													) : (
 														<>
 															<div className="flex flex-wrap gap-1.5">
-																{SALES_QUICK_AMOUNTS.map((amt) => (
+																{SALES_QUICK_AMOUNTS.map((preset) => (
 																	<Button
-																		key={amt}
+																		key={preset.amount}
 																		type="button"
 																		size="xs"
 																		variant={
-																			salesAmount === amt
+																			salesAmount === preset.amount
 																				? "default"
 																				: "outline"
 																		}
 																		className="tabular rounded-full"
-																		onClick={() => setSalesAmount(amt)}
+																		onClick={() =>
+																			setSalesAmount(preset.amount)
+																		}
 																	>
-																		{formatRupiah(amt)}
+																		{preset.label}
 																	</Button>
 																))}
 															</div>
@@ -687,9 +706,11 @@ export function SettleButton(props: Props) {
 													)}
 												</div>
 
-												{!salesLocked && salesEffective > 0 && !salesUserId && (
+												{!salesLocked && !salesUserId && (
 													<p className="text-[11px] font-medium text-rose-600">
-														Pilih dulu sales penerimanya.
+														{salesEffective > 0
+															? "Pilih dulu sales penerimanya."
+															: "Pilih sales-nya, atau matikan toggle kalau memang nggak ada."}
 													</p>
 												)}
 
@@ -939,9 +960,9 @@ export function SettleButton(props: Props) {
 								pending ||
 								(payNow && (!payAccount || payInsufficient)) ||
 								(payKomisi && (!komisiAccount || komisiInsufficient)) ||
-								(!salesLocked &&
-									salesOn &&
-									(salesAmount <= 0 || !salesUserId)) ||
+								// Nominal Rp0 boleh (tanpa komisi), tapi kalau toggle-nya
+								// nyala penerimanya harus jelas.
+								(!salesLocked && salesOn && !salesUserId) ||
 								(paySales && (!salesAccount || salesInsufficient))
 							}
 						>

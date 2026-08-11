@@ -762,7 +762,12 @@ function buildEventPayload(
 		// mitra. (Dulu dinolkan untuk non-direct → komisi yang diisi saat settle
 		// ikut terhapus kalau bookingnya di-edit setelah reopen.)
 		sales_user_id: input.sales_user_id ?? null,
-		direct_sales_commission: input.direct_sales_commission ?? 0,
+		// Komisi sales tentatif & tidak wajib: tanpa penerima → nol. Kalau tidak
+		// dinolkan, angka default form nyangkut di event tanpa payee dan ikut
+		// jadi beban 5-301 saat settle padahal tidak ada yang menerimanya.
+		direct_sales_commission: input.sales_user_id
+			? (input.direct_sales_commission ?? 0)
+			: 0,
 		// PIC at venue
 		pic_name: input.pic_name,
 		pic_wa: input.pic_wa,

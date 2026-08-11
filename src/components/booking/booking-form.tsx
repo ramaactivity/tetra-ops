@@ -381,6 +381,17 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 	{ value: "other", label: "Lainnya" },
 ];
 
+/**
+ * Nominal komisi sales yang paling sering dipakai. Rp0 sengaja ikut jadi
+ * pilihan sekali klik — banyak event yang sales-nya memang tidak ambil komisi,
+ * dan nominalnya baru pasti waktu settle. Sama dengan chip di dialog settle.
+ */
+const SALES_COMMISSION_PRESETS = [
+	{ amount: 0, label: "Tanpa komisi" },
+	{ amount: 50_000, label: "Rp 50.000" },
+	{ amount: 100_000, label: "Rp 100.000" },
+];
+
 export function BookingForm({
 	action,
 	packages,
@@ -504,12 +515,13 @@ export function BookingForm({
 	const [referrerCommission, setReferrerCommission] = useState(
 		get("referrer_commission"),
 	);
-	// Sales Tetra (channel direct) — komisi default Rp100.000 utk booking baru.
+	// Sales Tetra — nominalnya TENTATIF: boleh Rp0 / tanpa komisi sama sekali,
+	// boleh juga dikosongkan sekarang lalu diisi saat settle. Makanya booking
+	// baru mulai kosong; Rp100.000 cuma disarankan begitu sales-nya dipilih.
 	const [salesUserId, setSalesUserId] = useState(get("sales_user_id"));
-	const [salesCommission, setSalesCommission] = useState(() => {
-		const v = get("direct_sales_commission");
-		return v && v !== "" ? v : "100000";
-	});
+	const [salesCommission, setSalesCommission] = useState(() =>
+		get("direct_sales_commission"),
+	);
 
 	// === Event Category + sub-fields
 	const [eventCategory, setEventCategory] = useState(get("event_category", ""));
@@ -1851,17 +1863,27 @@ export function BookingForm({
 							<Section
 								step={2}
 								title="Sales Tetra"
-								description="Pilih sales yang closing event ini — komisinya dicatat & bisa dibayar dari halaman Komisi. Tetap dapat komisi walaupun event ini juga bayar komisi vendor/relasi."
+								description="Opsional. Pilih sales yang closing event ini kalau memang ada — komisinya tentatif, boleh Rp0 alias tanpa komisi, boleh juga diisi nanti saat settle event."
 							>
 								<Field
 									label="Sales (User Tetra)"
 									name="sales_user_id"
 									error={err("sales_user_id")}
-									hint="Cari nama owner/crew yang closing. Boleh dikosongkan kalau belum pasti."
+									hint="Cari nama owner/crew yang closing. Kosongkan kalau nggak ada sales-nya atau belum pasti."
 								>
 									<Combobox
 										value={salesUserId}
-										onValueChange={setSalesUserId}
+										onValueChange={(v) => {
+											setSalesUserId(v);
+											// Sales baru dipilih & nominal masih kosong → sarankan
+											// 100rb (tetap boleh diubah/dinolkan). Sales dikosongkan
+											// → nolkan juga, jangan tinggalkan komisi tanpa penerima.
+											if (v && salesCommission.trim() === "") {
+												setSalesCommission("100000");
+											} else if (!v) {
+												setSalesCommission("");
+											}
+										}}
 										options={relasiOptions.map(
 											(r): ComboboxOption => ({
 												value: r.id,
@@ -1884,21 +1906,54 @@ export function BookingForm({
 									label="Komisi Sales (Rp)"
 									name="direct_sales_commission"
 									error={err("direct_sales_commission")}
-									hint="Default Rp100.000. Biasanya Rp50.000–100.000."
+									hint="Tentatif — boleh Rp0 (tanpa komisi) atau dikosongkan dulu, nanti bisa diatur lagi waktu settle event. Biasanya Rp50.000–100.000."
 								>
-									<input
-										type="number"
-										min={0}
-										step={1}
-										value={salesCommission}
-										onChange={(e) => setSalesCommission(e.target.value)}
-										placeholder="100000"
-										className={`${inputClass} tabular`}
-									/>
+									<div className="space-y-2">
+										<div className="flex flex-wrap gap-1.5">
+											{SALES_COMMISSION_PRESETS.map((preset) => {
+												const active =
+													(Number(salesCommission) || 0) === preset.amount &&
+													salesCommission.trim() !== "";
+												return (
+													<button
+														key={preset.amount}
+														type="button"
+														onClick={() =>
+															setSalesCommission(String(preset.amount))
+														}
+														className={`press-down tabular h-8 rounded-full border px-3 text-[13px] transition-colors ${
+															active
+																? "border-primary bg-primary text-primary-foreground"
+																: "border-border-default bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+														}`}
+													>
+														{preset.label}
+													</button>
+												);
+											})}
+										</div>
+										<input
+											type="number"
+											min={0}
+											step={1}
+											value={salesCommission}
+											onChange={(e) => setSalesCommission(e.target.value)}
+											placeholder="0"
+											className={`${inputClass} tabular`}
+										/>
+										{(Number(salesCommission) || 0) > 0 && !salesUserId ? (
+											<p className="text-[11px] font-medium text-rose-600">
+												Pilih dulu sales penerimanya — kalau tidak, komisinya
+												tidak dicatat.
+											</p>
+										) : null}
+									</div>
 									<input
 										type="hidden"
 										name="direct_sales_commission"
-										value={salesCommission}
+										value={
+											salesCommission.trim() === "" ? "0" : salesCommission
+										}
 									/>
 								</Field>
 							</Section>
