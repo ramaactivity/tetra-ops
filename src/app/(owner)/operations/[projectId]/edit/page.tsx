@@ -5,6 +5,7 @@ import {
 	BookingForm,
 	type EventTypeOption,
 	type PackageOption,
+	type RelasiOption,
 } from "@/components/booking/booking-form";
 import { Container } from "@/components/layout/container";
 import { MetaBadge } from "@/components/operations/_shared/meta-badge";
@@ -27,6 +28,7 @@ export default async function EditBookingPage({
 		{ data: backdrops },
 		{ data: eventTypes },
 		{ data: vendorsList },
+		{ data: relasiCandidates },
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -84,6 +86,16 @@ export default async function EditBookingPage({
 			.eq("is_active", true)
 			.order("name", { ascending: true })
 			.limit(200),
+		// Relasi/sales pool — sama persis dengan /operations/new. Tanpa ini
+		// Combobox (allowFreeText=false) tidak bisa memetakan UUID tersimpan ke
+		// nama, jadi field Sales/Relasi tampil KOSONG saat edit event lama.
+		supabase
+			.from("users")
+			.select("id, full_name, role")
+			.in("role", ["super_admin", "owner", "crew"])
+			.eq("is_active", true)
+			.is("deleted_at", null)
+			.order("full_name"),
 	]);
 
 	const vendorOptions = (
@@ -121,6 +133,25 @@ export default async function EditBookingPage({
 
 	if (!event) notFound();
 
+	// Sales/relasi yang tersimpan bisa saja sudah non-aktif (resign) sehingga
+	// tidak ikut di pool di atas. Tarik user-nya sendiri dan tempel ke opsi,
+	// supaya nama lama tetap kebaca — bukan malah blank lalu ketimpa null.
+	const relasiPool = (relasiCandidates ?? []) as RelasiOption[];
+	const savedUserIds = [
+		event.sales_user_id as string | null,
+		event.referrer_user_id as string | null,
+	].filter((id): id is string => Boolean(id));
+	const missingIds = savedUserIds.filter(
+		(id) => !relasiPool.some((u) => u.id === id),
+	);
+	if (missingIds.length > 0) {
+		const { data: extraUsers } = await supabase
+			.from("users")
+			.select("id, full_name, role")
+			.in("id", missingIds);
+		relasiPool.push(...((extraUsers ?? []) as RelasiOption[]));
+	}
+
 	const action = updateBooking.bind(null, event.id);
 	const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "");
 
@@ -139,6 +170,7 @@ export default async function EditBookingPage({
 					addons={(addons ?? []) as AddonOption[]}
 					backdrops={(backdrops ?? []) as BackdropOption[]}
 					eventTypes={(eventTypes ?? []) as EventTypeOption[]}
+					relasiOptions={relasiPool}
 					vendorOptions={vendorOptions}
 					submitLabel="Save changes"
 					defaults={{
