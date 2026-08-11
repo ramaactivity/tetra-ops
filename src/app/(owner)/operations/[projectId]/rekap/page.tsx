@@ -15,6 +15,10 @@ import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
 import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
 import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
 import { CrewInputSummary } from "@/components/rekap/crew-input-summary";
+import {
+	EventExtraTransactions,
+	type ExtraTxnRow,
+} from "@/components/rekap/event-extra-transactions";
 import { ProfitPreviewCard } from "@/components/rekap/profit-preview-card";
 import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
 import { RekapForm } from "@/components/rekap/rekap-form";
@@ -23,6 +27,10 @@ import { RekapProofGallery } from "@/components/rekap/rekap-proof-gallery";
 import { RekapSummaryTab } from "@/components/rekap/rekap-summary-tab";
 import { RekapCard, SectionHeader } from "@/components/rekap/rekap-ui";
 import { RekapReviewButtons } from "@/components/rekap/review-buttons";
+import {
+	SalesCommissionCard,
+	type SalesCommissionState,
+} from "@/components/rekap/sales-commission-card";
 import { SettleButton } from "@/components/rekap/settle-button";
 import { SettledBanner } from "@/components/rekap/settled-banner";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
@@ -279,6 +287,30 @@ export default async function EventRekapPage({
 			})),
 	);
 
+	// Pemasukan/pengeluaran lain yang sudah dicatat untuk event ini (jalur Catat
+	// transaksi, source_type='manual'). Jurnal yang sudah dibalik disembunyikan —
+	// uangnya sudah kembali, jadi bukan lagi biaya/pemasukan event ini.
+	const { data: extraTxns } = await supabase
+		.from("journal_entries")
+		.select(
+			"id, ref_id, entry_date, description, entry_type, total_amount, proof_url, is_reversed",
+		)
+		.eq("source_event_id", event.id)
+		.eq("source_type", "manual")
+		.eq("is_reversed", false)
+		.order("entry_date", { ascending: false });
+	const extraTxnRows: ExtraTxnRow[] = (extraTxns ?? []).map((t) => ({
+		id: t.id as string,
+		refId: t.ref_id as string,
+		entryDate: (t.entry_date as string) ?? "",
+		description: (t.description as string) ?? "Transaksi",
+		amount: Number(t.total_amount ?? 0),
+		// expense = uang keluar; revenue/adjustment = uang masuk (lihat
+		// recordQuickTransaction: reimbursement & setoran modal ditag adjustment).
+		isOut: t.entry_type === "expense",
+		proofUrl: (t.proof_url as string | null) ?? null,
+	}));
+
 	// Komisi yang menempel di event ini — untuk opsi "sekalian bayar komisi" di
 	// dialog settle (biar owner tidak perlu mampir ke Finance › Komisi). Vendor
 	// "Potongan Langsung" dilewati: komisinya sudah dipotong dari aliran uang.
@@ -289,16 +321,19 @@ export default async function EventRekapPage({
 		amount: number;
 		paidInAdvance: boolean;
 	} | null = null;
-	// Komisi sales Tetra — SLOT TERPISAH dari komisi mitra di atas & berlaku di
-	// semua channel: event vendor pun sales/admin yang closing tetap dapat komisi.
-	// Nominalnya tentatif (biasanya 50rb/100rb) jadi bisa diisi saat settle.
-	let salesCommissionInfo: {
-		userId: string | null;
-		payeeName: string | null;
-		amount: number;
-		paidInAdvance: boolean;
-	} | null = null;
-	let salesCandidates: Array<{ id: string; name: string; role: string }> = [];
+
+	// Satu query untuk semua payout komisi aktif event ini — dipisah per kind.
+	// (Dulu .maybeSingle() tanpa filter kind: begitu satu event punya 2 komisi,
+	// query-nya error & statusnya salah baca.)
+	const { data: activePayouts } = await supabase
+		.from("commission_payouts")
+		.select("kind, amount, payment_date, proof_url, is_advance")
+		.eq("event_id", event.id)
+		.eq("is_reversed", false);
+	const payoutByKind = new Map(
+		(activePayouts ?? []).map((p) => [p.kind as string, p]),
+	);
+
 	if (!isSettled) {
 		const channel = event.channel as string | null;
 		let amount = 0;
@@ -315,19 +350,6 @@ export default async function EventRekapPage({
 			payeeUserId = (event.referrer_user_id as string | null) ?? null;
 			payeeName = "Relasi";
 		}
-
-		// Satu query untuk semua payout aktif event ini — dipisah per kind. (Dulu
-		// .maybeSingle() tanpa filter kind: begitu ada 2 komisi di satu event,
-		// query-nya error & statusnya salah baca.)
-		const { data: activePayouts } = await supabase
-			.from("commission_payouts")
-			.select("kind")
-			.eq("event_id", event.id)
-			.eq("is_reversed", false);
-		const paidKinds = new Set(
-			(activePayouts ?? []).map((p) => p.kind as string),
-		);
-
 		if (amount > 0) {
 			if (payeeUserId) {
 				const { data: payee } = await supabase
@@ -340,37 +362,48 @@ export default async function EventRekapPage({
 			commissionInfo = {
 				payeeName,
 				amount,
-				paidInAdvance: paidKinds.has(
+				paidInAdvance: payoutByKind.has(
 					channel === "vendor" ? "vendor" : "relasi",
 				),
 			};
 		}
-
-		const salesUserId = (event.sales_user_id as string | null) ?? null;
-		const [{ data: salesPayee }, teamUsers] = await Promise.all([
-			salesUserId
-				? supabase
-						.from("users")
-						.select("full_name")
-						.eq("id", salesUserId)
-						.maybeSingle()
-				: Promise.resolve({ data: null }),
-			// Urut dari yang paling sering closing, bukan abjad — sama dengan
-			// picker di form booking.
-			fetchSalesCandidates(supabase),
-		]);
-		salesCandidates = teamUsers.map((u) => ({
-			id: u.id,
-			name: u.nickname?.trim() || u.full_name || "Tanpa nama",
-			role: u.role,
-		}));
-		salesCommissionInfo = {
-			userId: salesUserId,
-			payeeName: (salesPayee?.full_name as string | null) ?? null,
-			amount: Number(event.direct_sales_commission ?? 0),
-			paidInAdvance: paidKinds.has("sales"),
-		};
 	}
+
+	// Komisi sales Tetra — kartunya sendiri di halaman ini (bukan di dialog
+	// settle). Berlaku di semua channel: event vendor pun sales/admin yang
+	// closing tetap dapat komisi, terpisah dari komisi mitra.
+	const salesUserId = (event.sales_user_id as string | null) ?? null;
+	const [{ data: salesPayee }, teamUsers] = await Promise.all([
+		salesUserId
+			? supabase
+					.from("users")
+					.select("full_name, nickname")
+					.eq("id", salesUserId)
+					.maybeSingle()
+			: Promise.resolve({ data: null }),
+		// Urut dari yang paling sering closing, bukan abjad — sama dengan
+		// picker di form booking.
+		fetchSalesCandidates(supabase),
+	]);
+	const salesCandidates = teamUsers.map((u) => ({
+		id: u.id,
+		name: u.nickname?.trim() || u.full_name || "Tanpa nama",
+		role: u.role,
+	}));
+	const salesPayout = payoutByKind.get("sales");
+	const salesCommissionState: SalesCommissionState = {
+		userId: salesUserId,
+		payeeName:
+			(salesPayee?.nickname as string | null)?.trim() ||
+			(salesPayee?.full_name as string | null) ||
+			null,
+		amount: Number(event.direct_sales_commission ?? 0),
+		isPaid: Boolean(salesPayout),
+		paidAmount: Number(salesPayout?.amount ?? 0),
+		paidDate: (salesPayout?.payment_date as string | null) ?? null,
+		proofUrl: (salesPayout?.proof_url as string | null) ?? null,
+		isAdvance: salesPayout?.is_advance === true,
+	};
 
 	const proofCount = rekap?.proof_photo_urls?.length ?? 0;
 
@@ -781,6 +814,22 @@ export default async function EventRekapPage({
 						readOnly={recapLocked}
 					/>
 
+					<SalesCommissionCard
+						eventId={event.id as string}
+						projectId={projectId}
+						state={salesCommissionState}
+						candidates={salesCandidates}
+						cashAccounts={cashAccounts}
+						readOnly={isSettled}
+					/>
+
+					<EventExtraTransactions
+						eventId={event.id as string}
+						projectId={projectId}
+						rows={extraTxnRows}
+						cashAccounts={cashAccounts}
+					/>
+
 					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
 
 					<RekapCard className="space-y-4">
@@ -816,8 +865,14 @@ export default async function EventRekapPage({
 								}
 								cashAccounts={cashAccounts}
 								commission={commissionInfo}
-								salesCommission={salesCommissionInfo}
-								salesCandidates={salesCandidates}
+								salesCommission={
+									salesCommissionState.amount > 0
+										? {
+												payeeName: salesCommissionState.payeeName,
+												amount: salesCommissionState.amount,
+											}
+										: null
+								}
 								disabled={Boolean(settleDisabledReason)}
 								disabledReason={settleDisabledReason}
 							/>
@@ -857,6 +912,22 @@ export default async function EventRekapPage({
 						keychainPaid={rekap.keychain_paid}
 						keychainBonus={rekap.keychain_bonus}
 						readOnly
+					/>
+
+					<SalesCommissionCard
+						eventId={event.id as string}
+						projectId={projectId}
+						state={salesCommissionState}
+						candidates={salesCandidates}
+						cashAccounts={cashAccounts}
+						readOnly={isSettled}
+					/>
+
+					<EventExtraTransactions
+						eventId={event.id as string}
+						projectId={projectId}
+						rows={extraTxnRows}
+						cashAccounts={cashAccounts}
 					/>
 
 					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}

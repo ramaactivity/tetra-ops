@@ -533,3 +533,112 @@ export async function unpayCommission(input: {
 	revalidatePath("/finance/reconciliation");
 	return { ok: true };
 }
+
+// ── Komisi sales Tetra: set nominal & penerima di luar settle ───────────────
+// Nominalnya tentatif (biasanya Rp50rb–100rb) dan sering baru ditentukan
+// menjelang tutup buku, jadi diisi dari kartunya sendiri di halaman rekap.
+// Angkanya disimpan di kolom event; settle_event membacanya (semua channel) →
+// jadi beban 5-301 + Hutang Komisi 2-102 di jurnal settlement.
+
+/** Batas wajar komisi sales — angka lapangan Rp50rb–100rb, cap sbg sanity guard. */
+const SALES_COMMISSION_MAX = 5_000_000;
+
+export type SetSalesCommissionResponse =
+	| { ok: true }
+	| { ok: false; error: string };
+
+export async function setSalesCommission(input: {
+	event_id: string;
+	project_id: string;
+	user_id: string | null;
+	amount: number;
+}): Promise<SetSalesCommissionResponse> {
+	const me = await getCurrentUser();
+	if (!me) return { ok: false, error: "Unauthorized" };
+	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
+		return { ok: false, error: "Hanya owner yang bisa atur komisi sales" };
+	}
+
+	const amount = Math.trunc(Number(input.amount) || 0);
+	if (amount < 0) return { ok: false, error: "Komisi sales tidak boleh minus" };
+	if (amount > SALES_COMMISSION_MAX) {
+		return {
+			ok: false,
+			error: `Komisi sales maksimal ${SALES_COMMISSION_MAX.toLocaleString("id-ID")} — cek lagi nominalnya.`,
+		};
+	}
+	const userId = input.user_id?.trim() ? input.user_id.trim() : null;
+	if (amount > 0 && !userId) {
+		return { ok: false, error: "Pilih dulu sales penerima komisinya" };
+	}
+
+	const supabase = await createClient();
+	const { data: ev } = await supabase
+		.from("events")
+		.select("id, status, sales_user_id, direct_sales_commission")
+		.eq("id", input.event_id)
+		.maybeSingle();
+	if (!ev) return { ok: false, error: "Event tidak ditemukan" };
+
+	// Sesudah settle, jurnalnya sudah lahir — mengubah kolom ini cuma bikin angka
+	// di layar beda dengan buku. Reopen dulu kalau memang salah.
+	const { data: settlement } = await supabase
+		.from("event_settlements")
+		.select("id, is_reopened")
+		.eq("event_id", input.event_id)
+		.maybeSingle();
+	if (settlement && !settlement.is_reopened) {
+		return {
+			ok: false,
+			error:
+				"Event sudah di-settle — komisi sales tidak bisa diubah lagi. Reopen settlement dulu kalau memang salah.",
+		};
+	}
+
+	// Sudah dibayar (uang muka)? Nominalnya dikunci: uang muka di-offset sebesar
+	// beban yang diakui, jadi mengubahnya menyisakan saldo nyangkut di 1-310.
+	const { data: paid } = await supabase
+		.from("commission_payouts")
+		.select("id")
+		.eq("event_id", input.event_id)
+		.eq("kind", "sales")
+		.eq("is_reversed", false)
+		.maybeSingle();
+	if (paid && amount !== Number(ev.direct_sales_commission ?? 0)) {
+		return {
+			ok: false,
+			error:
+				"Komisi sales event ini sudah dibayar — batalkan pembayarannya dulu sebelum mengubah nominal.",
+		};
+	}
+
+	if (userId) {
+		const { data: u } = await supabase
+			.from("users")
+			.select("id, is_active, role")
+			.eq("id", userId)
+			.maybeSingle();
+		if (!u || u.is_active !== true) {
+			return {
+				ok: false,
+				error: "Sales yang dipilih tidak ditemukan/nonaktif",
+			};
+		}
+		if (!["super_admin", "owner", "crew"].includes(u.role as string)) {
+			return { ok: false, error: "Penerima komisi sales harus user Tetra" };
+		}
+	}
+
+	const { error } = await supabase
+		.from("events")
+		.update({ sales_user_id: userId, direct_sales_commission: amount })
+		.eq("id", input.event_id);
+	if (error) {
+		return { ok: false, error: `Gagal simpan komisi sales: ${error.message}` };
+	}
+
+	revalidatePath(`/operations/${input.project_id}/rekap`);
+	revalidatePath(`/operations/${input.project_id}`);
+	revalidatePath("/finance/vendors");
+	return { ok: true };
+}

@@ -246,6 +246,15 @@ const QuickRecordSchema = z.object({
 	// nambah uang keluar dari rekening asal. Ditanggung perusahaan.
 	admin_fee: z.coerce.number().int().nonnegative().max(1_000_000).default(0),
 	note: z.string().trim().max(300).optional(),
+	// Bukti transfer/nota (URL Drive) — opsional, disimpan di jurnalnya sendiri
+	// & ikut muncul di Arsip Nota lewat v_nota_sistem.
+	proof_url: z
+		.string()
+		.trim()
+		.max(2000)
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : undefined)),
 	// Event yang menjadi asal biaya — diisi deep-link "Catat ke pembukuan" dari
 	// rekap owner. Disimpan ke journal_entries.source_event_id supaya panel
 	// rekonsiliasi bisa mencocokkan biaya "dibayar owner" dengan jurnalnya
@@ -284,6 +293,7 @@ export async function recordQuickTransaction(
 		admin_fee: formData.get("admin_fee") ?? 0,
 		note: formData.get("note") ?? undefined,
 		event_id: formData.get("event_id") ?? undefined,
+		proof_url: formData.get("proof_url") ?? undefined,
 	});
 	if (!parsed.success) {
 		return { error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
@@ -451,6 +461,7 @@ export async function recordQuickTransaction(
 			// Tautan ke event (kalau dicatat dari rekap) — dipakai rekonsiliasi
 			// "biaya owner belum dicatat". Null untuk Catat biasa.
 			source_event_id: parsed.data.event_id ?? null,
+			proof_url: parsed.data.proof_url ?? null,
 			total_amount: amount + adminFee,
 			created_by: me.profile.id,
 		})

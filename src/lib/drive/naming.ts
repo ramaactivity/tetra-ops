@@ -177,6 +177,31 @@ export function buildCommissionProofName(
 }
 
 /**
+ * Bukti transaksi lain di sebuah event (pemasukan/pengeluaran di luar rekap):
+ *   `{PRJ-ID} - {Kategori} - {YYYY-MM-DD} - {Rp...}.{ext}`
+ */
+export function buildEventTxnProofName(
+	meta: {
+		projectId: string;
+		label: string | null;
+		paymentDate: string | null;
+		amount: number | null;
+	},
+	ext: string,
+): string {
+	return joinName(
+		[
+			safeSegment(meta.projectId, 30),
+			safeSegment(meta.label || "Transaksi", 50),
+			formatPaymentDate(meta.paymentDate) ??
+				formatPaymentDate(new Date().toISOString()),
+			rupiahSuffix(meta.amount),
+		],
+		ext,
+	);
+}
+
+/**
  * Bukti rekap crew:
  *   `{PRJ-ID} - REKAP - {YYYY-MM-DD} - {seq}.{ext}`
  * seq dari client (counter multi-file); fallback HHMMSS supaya unik.

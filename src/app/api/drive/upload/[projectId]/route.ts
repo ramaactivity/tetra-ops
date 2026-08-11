@@ -14,6 +14,7 @@ import {
 	buildCommissionProofName,
 	buildCrewFeeName,
 	buildDesignName,
+	buildEventTxnProofName,
 	buildGenericName,
 	buildPaymentProofName,
 	buildRekapProofName,
@@ -250,6 +251,18 @@ export async function POST(
 			},
 			ext,
 		);
+	} else if (kind === "event_txn") {
+		// Bukti transaksi lain di event — `crew_name` dipakai ulang sbg label
+		// kategori transaksinya.
+		finalName = buildEventTxnProofName(
+			{
+				projectId: event.project_id as string,
+				label: crewName,
+				paymentDate,
+				amount: amount && Number.isFinite(amount) ? amount : null,
+			},
+			ext,
+		);
 	} else if (kind === "design_frame") {
 		finalName = buildDesignName(
 			{
@@ -275,6 +288,7 @@ export async function POST(
 		payment_proof: "Nota",
 		crew_fee: "Nota",
 		commission: "Nota",
+		event_txn: "Nota",
 		transport_proof: "Nota",
 		// Tanpa baris ini nota biaya lapangan mendarat di folder "Lainnya".
 		nota: "Nota",
