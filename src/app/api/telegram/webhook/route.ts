@@ -97,6 +97,7 @@ const HELP_TEXT = [
 	"/bisnis — rekap bisnis bulan berjalan (omzet, profit, leads)",
 	"/langganan — jatuh tempo VPS, domain, simcard, dll",
 	"/desainer — daftarkan diri sebagai PIC desain (biar di-mention tiap pagi)",
+	"/alat — daftarkan diri sebagai PIC alat &amp; bahan (di-mention di briefing H-1)",
 	"/tanya ... — tanya bebas ke AI, mis. <code>/tanya profit bulan ini berapa</code>",
 	"/menu — panel tombol",
 	"/id — chat ID grup ini",
@@ -499,42 +500,58 @@ export async function POST(request: Request) {
 			return NextResponse.json({ ok: true });
 		}
 
-		// /desainer — orangnya sendiri yang mendaftar sebagai PIC desain, supaya
-		// reminder "desain belum ACC" tiap pagi bisa me-mention dia. Telegram
-		// tidak membocorkan user_id lewat cara lain, dan mention @username gagal
-		// untuk akun tanpa username — jadi id-nya diambil dari pesan ini.
-		// Balas ke pesan orang lain + ketik /desainer = mendaftarkan orang itu.
-		if (command === "/desainer") {
+		// /desainer & /alat — orangnya sendiri yang mendaftar sebagai PIC, supaya
+		// reminder bisa me-mention dia. Telegram tidak membocorkan user_id lewat
+		// cara lain, dan mention @username gagal untuk akun tanpa username —
+		// jadi id-nya diambil dari pesan ini. Balas ke pesan orang lain + ketik
+		// perintahnya = mendaftarkan orang itu.
+		if (command === "/desainer" || command === "/alat") {
+			const isDesign = command === "/desainer";
+			const role = isDesign ? "PIC desain" : "PIC alat & bahan";
 			const target = msg.reply_to_message?.from ?? msg.from;
 			if (!target || target.is_bot) {
 				await sendTelegramMessage(
 					msg.chat.id,
-					"Ketik <code>/desainer</code> dari akun PIC desain (atau balas pesan orangnya lalu ketik /desainer).",
+					`Ketik <code>${command}</code> dari akun ${role} (atau balas pesan orangnya lalu ketik ${command}).`,
 				);
 				return NextResponse.json({ ok: true });
 			}
 			const name =
 				[target.first_name, target.last_name].filter(Boolean).join(" ") ||
 				target.username ||
-				"PIC desain";
+				role;
 			const admin = createAdminClient();
 			const { error } = await admin
 				.from("telegram_settings")
-				.update({
-					design_pic_user_id: target.id,
-					design_pic_name: name,
-					updated_at: new Date().toISOString(),
-				})
+				.update(
+					isDesign
+						? {
+								design_pic_user_id: target.id,
+								design_pic_name: name,
+								updated_at: new Date().toISOString(),
+							}
+						: {
+								prep_pic_user_id: target.id,
+								prep_pic_name: name,
+								updated_at: new Date().toISOString(),
+							},
+				)
 				.eq("id", 1);
 			await sendTelegramMessage(
 				msg.chat.id,
 				error
-					? `⚠️ Gagal menyimpan PIC desain: ${error.message}`
-					: [
-							`🎨 <b>${name}</b> terdaftar sebagai PIC desain.`,
-							"",
-							"Tiap pagi kamu di-mention untuk event yang desainnya belum ACC. Saat menandai desain Approved, sistem menanyakan ukuran filenya dan mencocokkannya dengan pesanan klien.",
-						].join("\n"),
+					? `⚠️ Gagal menyimpan ${role}: ${error.message}`
+					: isDesign
+						? [
+								`🎨 <b>${name}</b> terdaftar sebagai PIC desain.`,
+								"",
+								"Tiap pagi kamu di-mention untuk event yang desainnya belum ACC, dan ikut di-mention di briefing H-1 untuk cek ukuran file cetak.",
+							].join("\n")
+						: [
+								`🧰 <b>${name}</b> terdaftar sebagai PIC alat & bahan.`,
+								"",
+								"Di briefing H-1 kamu di-mention untuk memastikan frame, sleeve, dan media set yang dipacking sesuai ukuran pesanan & desain.",
+							].join("\n"),
 			);
 			return NextResponse.json({ ok: true });
 		}

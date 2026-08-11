@@ -1,6 +1,7 @@
 import "server-only";
 
 import { computeForecast } from "@/lib/actions/forecast";
+import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
 import { listMissingFields } from "@/lib/events/tbc";
 import {
 	formatScheduleInline,
@@ -200,8 +201,8 @@ type GatheredData = {
 	renewalLines: string[]; // langganan VPS/hosting mendekati jatuh tempo
 	/** Event H-8..H-30 yang datanya masih menyusul (di luar jendela 7 hari). */
 	tbcAheadLines: string[];
-	/** Mention PIC desain di grup, mis. <a href="tg://user?id=…">Iqbal</a>. */
-	designerMention: string | null;
+	/** Mention PIC desain & PIC alat di grup, mis. <a href="tg://user?id=…">Iqbal</a>. */
+	mentions: PicMentions;
 };
 
 /**
@@ -361,7 +362,7 @@ async function gatherData(
 	const rutinLines = await gatherRutinLines(admin);
 	const renewalLines = await gatherRenewalLines(admin, todayISO);
 	const tbcAheadLines = await gatherTbcAheadLines(admin, todayISO);
-	const designerMention = await getDesignerMention(admin);
+	const mentions = await getPicMentions(admin);
 
 	return {
 		todayISO,
@@ -372,7 +373,7 @@ async function gatherData(
 		rutinLines,
 		renewalLines,
 		tbcAheadLines,
-		designerMention,
+		mentions,
 	};
 }
 
@@ -434,26 +435,48 @@ async function gatherTbcAheadLines(
 }
 
 /**
- * Mention PIC desain. Telegram tidak memberi tahu user_id seseorang lewat cara
- * lain, jadi orangnya sendiri yang mendaftar dengan mengetik /desainer di grup
- * (webhook yang menyimpan). Mention berbasis tg://user?id juga tetap bekerja
- * untuk akun yang tidak punya @username.
+ * Mention PIC desain & PIC alat/bahan. Telegram tidak memberi tahu user_id
+ * seseorang lewat cara lain, jadi orangnya sendiri yang mendaftar dengan
+ * mengetik /desainer atau /alat di grup (webhook yang menyimpan). Mention
+ * berbasis tg://user?id juga tetap bekerja untuk akun tanpa @username.
  */
-async function getDesignerMention(
+export type PicMentions = {
+	/** PIC desain — pemilik file cetak (mis. Iqbal). */
+	designer: string | null;
+	/** PIC alat & bahan — yang packing frame/sleeve/media (mis. Fahmi). */
+	prep: string | null;
+};
+
+function mentionTag(uid: number | null, name: string | null, fallback: string) {
+	if (!uid) return null;
+	return `<a href="tg://user?id=${uid}">${tgEscape(name || fallback)}</a>`;
+}
+
+async function getPicMentions(
 	admin: ReturnType<typeof createAdminClient>,
-): Promise<string | null> {
+): Promise<PicMentions> {
 	try {
 		const { data } = await admin
 			.from("telegram_settings")
-			.select("design_pic_user_id, design_pic_name")
+			.select(
+				"design_pic_user_id, design_pic_name, prep_pic_user_id, prep_pic_name",
+			)
 			.eq("id", 1)
 			.maybeSingle();
-		const uid = data?.design_pic_user_id as number | null;
-		if (!uid) return null;
-		const name = (data?.design_pic_name as string | null) ?? "PIC desain";
-		return `<a href="tg://user?id=${uid}">${tgEscape(name)}</a>`;
+		return {
+			designer: mentionTag(
+				(data?.design_pic_user_id as number | null) ?? null,
+				(data?.design_pic_name as string | null) ?? null,
+				"PIC desain",
+			),
+			prep: mentionTag(
+				(data?.prep_pic_user_id as number | null) ?? null,
+				(data?.prep_pic_name as string | null) ?? null,
+				"PIC alat",
+			),
+		};
 	} catch {
-		return null;
+		return { designer: null, prep: null };
 	}
 }
 
@@ -614,6 +637,70 @@ function eventMissingInfo(ev: MissingInfoRow): string[] {
 	});
 }
 
+// ── Ukuran cetak: pesanan ↔ paket ↔ file desain ──────────────────────────
+//
+// Ukuran yang sama disimpan di tiga tempat dan ketiganya bisa berbeda: yang
+// dipesan klien (events.frame_size), yang melekat di paket, dan ukuran file
+// yang dinyatakan desainer saat ACC. 8 Agustus 2026 ketiganya bertentangan
+// dan baru ketahuan di hari-H — sejak itu bot yang menabraknya, bukan orang.
+// Konsekuensinya bukan cuma salah cetak: sleeve & media set yang dipacking
+// ikut salah, dan rekap dengan ukuran kosong bikin stok tidak terpotong.
+
+type FrameCheckRow = Pick<
+	EventRow,
+	| "frame_size"
+	| "design_frame_size"
+	| "design_status"
+	| "design_approved_at"
+	| "package"
+>;
+
+type FrameCheck = {
+	/** Ukuran pesanan klien; null = belum ditentukan. */
+	size: string | null;
+	pkgSize: string | null;
+	designSize: string | null;
+	designApproved: boolean;
+	/** Paket memang tidak mencetak frame (videobooth dll) → tak perlu dicek. */
+	agnostic: boolean;
+	/** Beda ukuran antar sumber — jangan cetak/packing dulu. */
+	conflicts: string[];
+};
+
+/** Bahan yang HARUS ikut ukuran — disamakan dengan SIZE_RECIPE di rekap. */
+const SIZE_PACKING: Record<string, string> = {
+	"4R": "frame 4R · sleeve 4R · media set Basic",
+	"2R": "frame 2R · sleeve 2R · media set Basic",
+	polaroid: "frame polaroid · sleeve polaroid · media set Perforated",
+};
+
+function checkFrame(ev: FrameCheckRow): FrameCheck {
+	const size = ev.frame_size;
+	const pkgSize = pkgFrameSize(ev.package);
+	const designSize = ev.design_frame_size;
+	const designApproved =
+		ev.design_status === "approved" || ev.design_approved_at !== null;
+	const agnostic =
+		pkgSize === FRAME_AGNOSTIC ||
+		(pkgSize === null && designSize === FRAME_AGNOSTIC);
+
+	const conflicts: string[] = [];
+	if (!agnostic) {
+		if (size && pkgSize && !packageFitsFrame(pkgSize, size)) {
+			conflicts.push(`paket ${pkgSize} ≠ pesanan ${size}`);
+		}
+		if (
+			size &&
+			designSize &&
+			designSize !== FRAME_AGNOSTIC &&
+			designSize !== size
+		) {
+			conflicts.push(`file desain ${designSize} ≠ pesanan ${size}`);
+		}
+	}
+	return { size, pkgSize, designSize, designApproved, agnostic, conflicts };
+}
+
 function deriveIssues(
 	ev: EventRow,
 	days: number,
@@ -664,6 +751,12 @@ function deriveIssues(
 		);
 	}
 
+	// Beda ukuran antar sumber SELALU kritis: selama masih bertentangan, cetak
+	// dan packing (sleeve/media) pasti salah salah satunya.
+	for (const c of checkFrame(ev).conflicts) {
+		push(true, `beda ukuran — ${c}`);
+	}
+
 	// Pembayaran — DP window H-7, pelunasan window H-3
 	if (ev.total_paid === 0 && days <= 7) {
 		warning.push("belum DP sama sekali");
@@ -686,8 +779,9 @@ export function composeDigest(data: GatheredData): string | null {
 		rutinLines,
 		renewalLines,
 		tbcAheadLines,
-		designerMention,
+		mentions,
 	} = data;
+	const designerMention = mentions.designer;
 
 	const allCritical: string[] = [
 		...doubleBooked.map((d) => `double-booked — ${tgEscape(d)}`),
@@ -828,7 +922,61 @@ export function composeDigest(data: GatheredData): string | null {
 	return parts.join("\n");
 }
 
-function composeBriefing(ev: EventRow, crew: CrewMember[]): string {
+/**
+ * Blok "cek ukuran" di briefing H-1 — bagian yang paling mahal kalau salah:
+ * frame, sleeve, dan media set semuanya mengikuti ukuran cetak, dan begitu
+ * booth sudah di venue tidak ada yang bisa dibetulkan. Tiga sumber ukuran
+ * ditampilkan berdampingan supaya bedanya kelihatan tanpa membuka aplikasi,
+ * lalu PIC alat (packing fisik) & PIC desain (file cetak) di-mention.
+ */
+function briefingFrameLines(fc: FrameCheck, mentions: PicMentions): string[] {
+	if (fc.agnostic) return []; // videobooth dll — tidak mencetak frame
+
+	const tag = [mentions.prep, mentions.designer].filter(Boolean).join(" ");
+	const suffix = tag ? ` — ${tag}` : "";
+	const lines: string[] = [
+		"",
+		`🖼 <b>CEK UKURAN sebelum packing</b>${suffix}`,
+		`      • Pesanan klien: ${fc.size ? tgEscape(fc.size) : "🚨 BELUM DITENTUKAN"}`,
+		`      • Paket: ${fc.pkgSize ? tgEscape(fc.pkgSize) : "belum ada paket (ukuran masih menyusul)"}`,
+		`      • File desain: ${
+			fc.designSize
+				? `${tgEscape(fc.designSize)}${fc.designApproved ? " (sudah ACC)" : " (belum ACC)"}`
+				: fc.designApproved
+					? "ACC tanpa ukuran tercatat"
+					: "🚨 belum ACC"
+		}`,
+	];
+
+	if (fc.conflicts.length > 0) {
+		lines.push(
+			`      🚨 <b>BEDA UKURAN — jangan cetak & jangan packing dulu:</b> ${tgEscape(fc.conflicts.join("; "))}`,
+			"      Betulkan dulu di Asset &amp; Design / edit event sampai ketiganya sama.",
+		);
+	} else if (!fc.size) {
+		lines.push(
+			"      🚨 Ukuran belum ada — media &amp; sleeve tidak bisa dipacking (dan rekap nanti ditolak). Konfirmasi ke klien hari ini.",
+		);
+	} else {
+		const packing = SIZE_PACKING[fc.size];
+		lines.push(
+			`      ✅ Ketiganya cocok. Yang dipacking WAJIB ${tgEscape(fc.size)}: ${packing ? tgEscape(packing) : "frame, sleeve & media set ukuran itu"}.`,
+			"      Cek fisiknya sekali lagi — sleeve/frame ukuran lain jangan ikut terbawa.",
+		);
+	}
+	if (!tag) {
+		lines.push(
+			"      (Ketik /alat atau /desainer di grup ini biar kamu yang di-mention tiap briefing.)",
+		);
+	}
+	return lines;
+}
+
+export function composeBriefing(
+	ev: EventRow,
+	crew: CrewMember[],
+	mentions: PicMentions = { designer: null, prep: null },
+): string {
 	const segments = parseSegments(ev.session_segments);
 	const jadwalLine = hasBreak(segments)
 		? // Acara dengan jeda — booth berhenti di tengah. Rincikan tiap sesi.
@@ -849,12 +997,16 @@ function composeBriefing(ev: EventRow, crew: CrewMember[]): string {
 	lines.push(
 		`👥 ${crew.length > 0 ? formatCrewInline(crew) : "🚨 CREW BELUM DI-ASSIGN"}`,
 	);
-	if (ev.frame_size) lines.push(`🖼 Frame ${tgEscape(ev.frame_size)}`);
 	lines.push(
 		ev.remaining_balance > 0
 			? `💰 Sisa tagihan ${rp(ev.remaining_balance)} — tagih sebelum/saat acara`
 			: `💰 LUNAS`,
 	);
+	const fc = checkFrame(ev);
+	lines.push(...briefingFrameLines(fc, mentions));
+	// Poin packing & desain menyebut ukurannya secara eksplisit — checklist
+	// generik ("sleeve, dll") tidak pernah menangkap sleeve ukuran salah.
+	const uk = fc.size ? tgEscape(fc.size) : null;
 	lines.push(
 		"",
 		"☑️ <b>Cek ulang HARI INI sebelum hari H:</b>",
@@ -862,8 +1014,16 @@ function composeBriefing(ev: EventRow, crew: CrewMember[]): string {
 		"      2. Jam setup & jam mulai sudah dikonfirmasi ulang ke klien/PIC?",
 		"      3. Crew sudah di-assign DAN sudah dibriefing owner (rundown, dresscode, kontak PIC)?",
 		"      4. Alat sudah disiapkan & dicek: booth, kamera, printer, lighting, kabel, backdrop?",
-		"      5. Stok bahan cukup & sudah dipacking: media set, kertas, tinta, sleeve, dll?",
-		"      6. Desain final sudah ACC & ter-load di sistem?",
+		fc.agnostic
+			? "      5. Stok bahan cukup & sudah dipacking: media set, kertas, tinta, sleeve, dll?"
+			: uk
+				? `      5. Bahan dipacking DALAM UKURAN ${uk}: media set ${uk}, sleeve ${uk}, frame ${uk}, kertas, tinta — bukan sisa ukuran event lain?`
+				: "      5. Ukuran cetak belum ada — media & sleeve jangan dipacking sampai ukurannya dipastikan hari ini",
+		fc.agnostic
+			? "      6. Desain final sudah ACC & ter-load di sistem?"
+			: uk
+				? `      6. Desain final sudah ACC, ukuran filenya ${uk}, & ter-load di sistem?`
+				: "      6. Desain final sudah ACC & ukuran filenya sama dengan pesanan klien?",
 	);
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 	if (appUrl) lines.push(`\nDetail: ${appUrl}/operations/${ev.project_id}`);
@@ -1345,7 +1505,7 @@ export async function runTelegramDigestInternal(opts?: {
 				"briefing",
 				ev.id,
 				opts?.force ?? false,
-				composeBriefing(ev, crew),
+				composeBriefing(ev, crew, data.mentions),
 			);
 			if (r.status === "sent") result.sent.push(`briefing ${ev.client_name}`);
 			else if (r.status === "skipped")
@@ -1381,7 +1541,9 @@ export async function buildTomorrowText(): Promise<string> {
 		return `😌 Tidak ada event besok (${dateLabel(tomorrowISO, true)}).`;
 	}
 	return evs
-		.map((ev) => composeBriefing(ev, data.crewByEvent.get(ev.id) ?? []))
+		.map((ev) =>
+			composeBriefing(ev, data.crewByEvent.get(ev.id) ?? [], data.mentions),
+		)
 		.join("\n\n————————————\n\n");
 }
 
