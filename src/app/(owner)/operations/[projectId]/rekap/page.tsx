@@ -667,7 +667,7 @@ export default async function EventRekapPage({
 	// kartu Pemasukan/pengeluaran lain. Mencatat satu per satu bikin owner malas,
 	// dan beban yang tidak pernah dicatat = laba kelihatan lebih besar dari
 	// aslinya (biaya ini sengaja tidak ikut Hutang Crew di settlement).
-	const ownerPaidPending: OwnerPaidPending[] = (
+	const ownerPaidPendingList: OwnerPaidPending[] = (
 		fieldExpenseBreakdown?.items ?? []
 	)
 		.filter(
@@ -680,6 +680,11 @@ export default async function EventRekapPage({
 			note: it.catatPrefill?.note ?? it.label,
 			proofUrl: it.catatPrefill?.proofUrl ?? null,
 		}));
+	const ownerPaidPending = ownerPaidPendingList;
+	const ownerPaidPendingTotal = ownerPaidPendingList.reduce(
+		(s, p) => s + p.amount,
+		0,
+	);
 
 	const settleDisabledReason = !rekap
 		? "Rekap belum di-submit. Input data rekap dulu."
@@ -962,7 +967,12 @@ export default async function EventRekapPage({
 						ownerPaidPending={ownerPaidPending}
 					/>
 
-					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
+					{profitPreview && (
+						<ProfitPreviewCard
+							preview={profitPreview}
+							ownerPaidPending={ownerPaidPendingTotal}
+						/>
+					)}
 
 					<RekapCard className="space-y-4">
 						<SectionHeader
@@ -1034,7 +1044,10 @@ export default async function EventRekapPage({
 										queuedEntries.find((q) => q.kind === "commission_sales")
 											?.amount ?? null,
 								}}
-								netProfitAfterExtra={profitPreview.net_profit_after_extra}
+								netProfitAfterExtra={
+									profitPreview.net_profit_after_extra - ownerPaidPendingTotal
+								}
+								ownerPaidPending={ownerPaidPendingTotal}
 								disabled={Boolean(settleDisabledReason)}
 								disabledReason={settleDisabledReason}
 							/>
@@ -1111,7 +1124,12 @@ export default async function EventRekapPage({
 						ownerPaidPending={ownerPaidPending}
 					/>
 
-					{profitPreview && <ProfitPreviewCard preview={profitPreview} />}
+					{profitPreview && (
+						<ProfitPreviewCard
+							preview={profitPreview}
+							ownerPaidPending={ownerPaidPendingTotal}
+						/>
+					)}
 				</>
 			)}
 		</Container>

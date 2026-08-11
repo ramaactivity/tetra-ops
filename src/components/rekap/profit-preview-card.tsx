@@ -11,6 +11,11 @@ import { formatRupiah } from "@/lib/format";
 
 type Props = {
 	preview: ProfitPreview;
+	/**
+	 * Biaya lapangan dibayar owner yang BELUM dibukukan. Dipotong dari "laba
+	 * akhir event" walau belum jadi jurnal — uangnya sudah keluar.
+	 */
+	ownerPaidPending?: number;
 	className?: string;
 };
 
@@ -45,7 +50,21 @@ const OPEX_LABELS: Record<
 	komisi_sales: "Komisi Sales Tetra",
 };
 
-export function ProfitPreviewCard({ preview, className = "" }: Props) {
+export function ProfitPreviewCard({
+	preview,
+	ownerPaidPending = 0,
+	className = "",
+}: Props) {
+	// Biaya lapangan yang dibayar owner memang tidak ikut OpEx settlement (biar
+	// tidak dobel dengan jurnal kasnya sendiri) — tapi tetap uang yang keluar
+	// untuk event ini. Yang belum dicatat pun ikut dipotong di sini supaya "laba
+	// akhir" tidak pernah lebih besar dari kenyataan hanya karena owner belum
+	// sempat membukukannya.
+	const finalProfit = preview.net_profit_after_extra - ownerPaidPending;
+	const hasExtra =
+		preview.extra.expenseTotal > 0 ||
+		preview.extra.incomeTotal > 0 ||
+		ownerPaidPending > 0;
 	const [showHpp, setShowHpp] = useState(false);
 	const [showOpex, setShowOpex] = useState(false);
 
@@ -154,7 +173,8 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 							<span data-nominal className="tabular">
 								{formatRupiah(preview.opex.owner_paid_total)}
 							</span>{" "}
-							— tercatat via Catat transaksi, tidak dihitung di sini.
+							— bukan Hutang Crew, jadi tidak masuk OpEx settlement. Tetap
+							dipotong di "Laba akhir event" di bawah.
 						</p>
 					)}
 				</div>
@@ -181,7 +201,7 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 			    jurnal kas tersendiri — tidak masuk net_profit settlement, tapi tetap
 			    uang event ini. Ditampilkan supaya laba yang dilihat owner = laba
 			    event yang sebenarnya. */}
-			{(preview.extra.expenseTotal > 0 || preview.extra.incomeTotal > 0) && (
+			{hasExtra && (
 				<>
 					{preview.extra.expenseTotal > 0 && (
 						<Row
@@ -198,32 +218,50 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 							muted
 						/>
 					)}
+					{ownerPaidPending > 0 && (
+						<Row
+							label="Biaya dibayar owner (belum dicatat)"
+							value={ownerPaidPending}
+							sign="−"
+							muted
+						/>
+					)}
 					<div className="flex items-baseline justify-between py-1">
 						<span className="text-sm font-medium text-foreground">
 							Laba akhir event
 						</span>
 						<span
 							className={`tabular text-base font-semibold ${
-								preview.net_profit_after_extra <= 0
+								finalProfit <= 0
 									? "text-amber-900 dark:text-amber-200"
 									: "text-foreground"
 							}`}
 						>
-							{formatRupiah(preview.net_profit_after_extra)}
+							{formatRupiah(finalProfit)}
 						</span>
 					</div>
-					{preview.extra.expenseQueued + preview.extra.incomeQueued > 0 && (
-						<p className="pb-1 text-[11px] text-muted-foreground">
-							Termasuk{" "}
-							<span className="tabular">
-								{formatRupiah(
-									preview.extra.expenseQueued + preview.extra.incomeQueued,
-								)}
-							</span>{" "}
-							yang masih menunggu settle. Alokasi sinking fund & owner pool di
-							bawah tetap dihitung dari net profit settlement.
-						</p>
-					)}
+					<p className="pb-1 text-[11px] text-muted-foreground">
+						{preview.extra.expenseQueued + preview.extra.incomeQueued > 0 && (
+							<>
+								Termasuk{" "}
+								<span className="tabular">
+									{formatRupiah(
+										preview.extra.expenseQueued + preview.extra.incomeQueued,
+									)}
+								</span>{" "}
+								yang masih menunggu settle.{" "}
+							</>
+						)}
+						{ownerPaidPending > 0 && (
+							<>
+								Biaya yang dibayar owner sudah ikut dipotong walau belum
+								dibukukan — catat lewat kartu Pemasukan / pengeluaran lain
+								supaya masuk buku.{" "}
+							</>
+						)}
+						Alokasi sinking fund & owner pool di bawah tetap dihitung dari net
+						profit settlement.
+					</p>
 				</>
 			)}
 

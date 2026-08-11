@@ -83,6 +83,8 @@ type Props = {
 	netProfitAfterExtra?: number;
 	/** Sudah ada rencana bayar fee crew dari kartu Fee crew → jangan tawari lagi. */
 	crewFeePlanned?: boolean;
+	/** Biaya dibayar owner yang belum dibukukan — sudah ikut dipotong di laba akhir. */
+	ownerPaidPending?: number;
 };
 
 /**
@@ -381,6 +383,16 @@ export function SettleButton(props: Props) {
 											<dt className="text-muted-foreground">Pemasukan lain</dt>
 											<dd className="tabular text-right text-foreground">
 												{formatRupiah(queued.expenseIn)}
+											</dd>
+										</>
+									)}
+									{(props.ownerPaidPending ?? 0) > 0 && (
+										<>
+											<dt className="text-muted-foreground">
+												Biaya dibayar owner
+											</dt>
+											<dd className="tabular text-right text-foreground">
+												{formatRupiah(props.ownerPaidPending ?? 0)}
 											</dd>
 										</>
 									)}
