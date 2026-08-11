@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
+import { recordQuickTransaction } from "@/lib/actions/journal-entries";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -45,6 +46,13 @@ export type CommissionPaymentSummary = {
 	error?: string;
 };
 
+/** Hasil pencatatan pemasukan/pengeluaran lain saat settle (opsional). */
+export type ExtraTransactionSummary = {
+	recorded: number;
+	failed: number;
+	errors: string[];
+};
+
 export type SettleEventResponse =
 	| {
 			ok: true;
@@ -52,6 +60,7 @@ export type SettleEventResponse =
 			crewPayment?: CrewPaymentSummary;
 			commissionPayment?: CommissionPaymentSummary;
 			salesCommissionPayment?: CommissionPaymentSummary;
+			extras?: ExtraTransactionSummary;
 			/** Penyesuaian talangan crew sebelum jurnal dibuat (kalau ada). */
 			reimbursement?: ReimbursementSync;
 	  }
@@ -77,6 +86,21 @@ export async function settleEvent(
 		salesCommission?: { user_id: string | null; amount: number } | null;
 		/** Kalau di-set: setelah settle, langsung bayar komisi sales itu. */
 		paySalesCommissionFromAccount?: string | null;
+		/** Bukti transfer komisi sales (opsional, hasil upload ke Drive). */
+		salesCommissionProofUrl?: string | null;
+		/**
+		 * Pemasukan/pengeluaran lain yang tidak tercakup form rekap (mis. ganti
+		 * kaca pecah, tip klien). Dicatat lewat jalur "Catat transaksi" yang sama
+		 * — jurnal kas 2 baris + tertaut ke event ini — SETELAH settle berhasil.
+		 */
+		extraTransactions?: Array<{
+			direction: "masuk" | "keluar";
+			category_id: string;
+			amount: number;
+			note?: string | null;
+		}> | null;
+		/** Rekening kas/bank untuk semua baris extraTransactions. */
+		extraAccount?: string | null;
 	},
 ): Promise<SettleEventResponse> {
 	const me = await getCurrentUser();
@@ -231,6 +255,7 @@ export async function settleEvent(
 				kind: "sales",
 				bank_account_code: salesAcct,
 				payment_date: new Date().toISOString().slice(0, 10),
+				proof_url: opts?.salesCommissionProofUrl?.trim() || null,
 			});
 			salesCommissionPayment = {
 				paid: r.ok,
@@ -239,6 +264,40 @@ export async function settleEvent(
 				error: r.ok ? undefined : r.error,
 			};
 		}
+	}
+
+	// Opsional: pemasukan/pengeluaran lain di luar form rekap. Lewat jalur Catat
+	// transaksi yang sama (jurnal kas 2 baris + guard saldo + tertaut event),
+	// jadi tidak ada mesin jurnal kedua. Sengaja SETELAH settle: ini uang yang
+	// benar-benar keluar/masuk sekarang, bukan komponen HPP/OpEx event.
+	let extras: ExtraTransactionSummary | undefined;
+	const extraRows = (opts?.extraTransactions ?? []).filter(
+		(r) => Number(r.amount) > 0,
+	);
+	const extraAcct = opts?.extraAccount?.trim();
+	if (extraRows.length > 0 && extraAcct) {
+		const today = new Date().toISOString().slice(0, 10);
+		let recorded = 0;
+		let failed = 0;
+		const errors: string[] = [];
+		for (const row of extraRows) {
+			const fd = new FormData();
+			fd.set("direction", row.direction);
+			fd.set("amount", String(Math.trunc(Number(row.amount))));
+			fd.set("entry_date", today);
+			fd.set("account_code", extraAcct);
+			fd.set("category_id", row.category_id);
+			fd.set("event_id", eventId);
+			if (row.note?.trim()) fd.set("note", row.note.trim());
+			const res = await recordQuickTransaction(undefined, fd);
+			if (res?.success) {
+				recorded += 1;
+			} else {
+				failed += 1;
+				errors.push(res?.error ?? "Gagal mencatat transaksi");
+			}
+		}
+		extras = { recorded, failed, errors };
 	}
 
 	revalidatePath(`/operations/${projectId}`);
@@ -267,6 +326,7 @@ export async function settleEvent(
 		crewPayment,
 		commissionPayment,
 		salesCommissionPayment,
+		extras,
 		reimbursement: reimbursement ?? undefined,
 	};
 }

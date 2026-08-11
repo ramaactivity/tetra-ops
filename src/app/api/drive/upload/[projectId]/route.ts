@@ -11,6 +11,7 @@ import {
 	uploadFileToFolder,
 } from "@/lib/drive/client";
 import {
+	buildCommissionProofName,
 	buildCrewFeeName,
 	buildDesignName,
 	buildGenericName,
@@ -236,6 +237,19 @@ export async function POST(
 			},
 			ext,
 		);
+	} else if (kind === "commission") {
+		// Bukti transfer komisi — `crew_name` dipakai ulang sebagai nama penerima,
+		// `role` sebagai jenis komisi (sales/vendor/relasi).
+		finalName = buildCommissionProofName(
+			{
+				projectId: event.project_id as string,
+				kind: role,
+				payeeName: crewName,
+				paymentDate,
+				amount: amount && Number.isFinite(amount) ? amount : null,
+			},
+			ext,
+		);
 	} else if (kind === "design_frame") {
 		finalName = buildDesignName(
 			{
@@ -260,6 +274,7 @@ export async function POST(
 	const CATEGORY_BY_KIND: Record<string, DriveCategory> = {
 		payment_proof: "Nota",
 		crew_fee: "Nota",
+		commission: "Nota",
 		transport_proof: "Nota",
 		// Tanpa baris ini nota biaya lapangan mendarat di folder "Lainnya".
 		nota: "Nota",

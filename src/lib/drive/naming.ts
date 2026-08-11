@@ -145,6 +145,38 @@ export function buildCrewFeeName(
 }
 
 /**
+ * Bukti transfer komisi (sales Tetra / vendor / relasi):
+ *   `{PRJ-ID} - Komisi {jenis} - {Nama} - {YYYY-MM-DD} - {Rp...}.{ext}`
+ * Pakai nama penerima, bukan nama klien — biar jelas komisinya ke siapa.
+ */
+export function buildCommissionProofName(
+	meta: {
+		projectId: string;
+		kind: string | null;
+		payeeName: string | null;
+		paymentDate: string | null;
+		amount: number | null;
+	},
+	ext: string,
+): string {
+	const kindLabel = meta.kind
+		? { vendor: "Vendor", relasi: "Relasi", sales: "Sales" }[
+				meta.kind.toLowerCase()
+			]
+		: null;
+	return joinName(
+		[
+			safeSegment(meta.projectId, 30),
+			kindLabel ? `Komisi ${kindLabel}` : "Komisi",
+			meta.payeeName ? safeSegment(meta.payeeName, 40) : null,
+			formatPaymentDate(meta.paymentDate),
+			rupiahSuffix(meta.amount),
+		],
+		ext,
+	);
+}
+
+/**
  * Bukti rekap crew:
  *   `{PRJ-ID} - REKAP - {YYYY-MM-DD} - {seq}.{ext}`
  * seq dari client (counter multi-file); fallback HHMMSS supaya unik.
