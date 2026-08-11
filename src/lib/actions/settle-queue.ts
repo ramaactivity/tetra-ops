@@ -22,7 +22,11 @@ import { createClient } from "@/lib/supabase/server";
  * pernah bisa dilihat utuh sebelum keputusan settle diambil.
  */
 
-export type QueueKind = "expense" | "commission_sales" | "crew_fee";
+export type QueueKind =
+	| "expense"
+	| "commission_sales"
+	| "crew_fee"
+	| "commission_partner";
 
 export type QueuedEntry = {
 	id: string;
@@ -218,6 +222,48 @@ export async function queueCrewFeePayment(input: {
 	return { ok: true };
 }
 
+/**
+ * Rencana bayar komisi mitra (vendor/relasi) saat settle. Jenis komisinya
+ * disimpan di category_id supaya posting tidak menebak ulang dari channel.
+ */
+export async function queuePartnerCommissionPayment(input: {
+	event_id: string;
+	project_id: string;
+	kind: "vendor" | "relasi";
+	amount: number;
+	account_code: string;
+	admin_fee?: number;
+	proof_url?: string | null;
+}): Promise<QueueResponse> {
+	const me = await requireOwner();
+	if (!me) return { ok: false, error: "Hanya owner yang bisa mengisi ini" };
+	const amount = Math.trunc(Number(input.amount) || 0);
+	if (amount <= 0) return { ok: false, error: "Nominal komisi belum diisi" };
+
+	const supabase = await createClient();
+	await supabase
+		.from("event_settle_queue")
+		.delete()
+		.eq("event_id", input.event_id)
+		.eq("kind", "commission_partner")
+		.is("posted_at", null);
+
+	const { error } = await supabase.from("event_settle_queue").insert({
+		event_id: input.event_id,
+		kind: "commission_partner",
+		category_id: input.kind,
+		amount,
+		account_code: input.account_code,
+		admin_fee: Math.max(0, Math.trunc(Number(input.admin_fee) || 0)),
+		proof_url: input.proof_url ?? null,
+		created_by: me.profile.id,
+	});
+	if (error) return { ok: false, error: error.message };
+
+	revalidatePath(`/operations/${input.project_id}/rekap`);
+	return { ok: true };
+}
+
 /** Batalkan satu baris antrian (hanya yang belum diposting). */
 export async function removeQueuedEntry(input: {
 	id: string;
@@ -322,10 +368,14 @@ export async function postSettleQueue(
 			err = res?.success ? null : (res?.error ?? "Gagal mencatat transaksi");
 			ref = res?.refId ?? null;
 		} else {
+			const commissionKind =
+				row.kind === "commission_partner"
+					? ((row.category_id as "vendor" | "relasi" | null) ?? "vendor")
+					: ("sales" as const);
 			const res = await payCommission({
 				event_id: eventId,
 				project_id: projectId,
-				kind: "sales",
+				kind: commissionKind,
 				bank_account_code: row.account_code as string,
 				admin_fee: Number(row.admin_fee ?? 0),
 				payment_date: today,
@@ -354,7 +404,9 @@ export async function postSettleQueue(
 						? (row.note ?? "Transaksi")
 						: row.kind === "crew_fee"
 							? "Fee crew"
-							: "Komisi sales"
+							: row.kind === "commission_partner"
+								? "Komisi mitra"
+								: "Komisi sales"
 				}: ${err}`,
 			);
 			await supabase

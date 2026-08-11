@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
@@ -41,20 +40,11 @@ export type CrewPaymentSummary = {
 	errors: string[];
 };
 
-/** Hasil "sekalian bayar komisi" saat settle (opsional). */
-export type CommissionPaymentSummary = {
-	paid: boolean;
-	amount: number;
-	payeeName: string;
-	error?: string;
-};
-
 export type SettleEventResponse =
 	| {
 			ok: true;
 			data: SettleEventResult;
 			crewPayment?: CrewPaymentSummary;
-			commissionPayment?: CommissionPaymentSummary;
 			/** Hasil posting antrian (pengeluaran/pemasukan lain, komisi sales). */
 			queue?: SettleQueueSummary;
 			/** Penyesuaian talangan crew sebelum jurnal dibuat (kalau ada). */
@@ -75,12 +65,6 @@ export async function settleEvent(
 		 * sekali untuk semua.
 		 */
 		payCrewAdminFee?: number | null;
-		/** Kalau di-set: setelah settle, langsung bayar komisi MITRA event ini
-		 *  (vendor/relasi) dari rekening ini — supaya owner tidak perlu pindah ke
-		 *  halaman Komisi. Null/undefined = tidak bayar komisi. */
-		payCommissionFromAccount?: string | null;
-		/** Biaya admin bank saat bayar komisi mitra (Dr 5-600). */
-		payCommissionAdminFee?: number | null;
 	},
 ): Promise<SettleEventResponse> {
 	const me = await getCurrentUser();
@@ -172,35 +156,6 @@ export async function settleEvent(
 		crewPayment = { paid, failed, total, errors };
 	}
 
-	// Opsional: "sekalian bayar komisi". Event baru saja jadi completed +
-	// settled, jadi payCommission masuk jalur pelunasan utang (Dr 2-103/2-102 /
-	// Cr rekening) — bukan uang muka. Kalau komisinya sudah dibayar di muka,
-	// payCommission menolak dgn "sudah dibayar" & kita diamkan (bukan error).
-	let commissionPayment: CommissionPaymentSummary | undefined;
-	const komisiAcct = opts?.payCommissionFromAccount?.trim();
-	if (komisiAcct) {
-		const target = await resolveEventCommission(supabase, eventId);
-		if (target) {
-			const r = await payCommission({
-				event_id: eventId,
-				project_id: projectId,
-				kind: target.kind,
-				bank_account_code: komisiAcct,
-				payment_date: new Date().toISOString().slice(0, 10),
-				admin_fee: Math.max(
-					0,
-					Math.trunc(Number(opts?.payCommissionAdminFee ?? 0)),
-				),
-			});
-			commissionPayment = {
-				paid: r.ok,
-				amount: target.amount,
-				payeeName: target.payeeName,
-				error: r.ok ? undefined : r.error,
-			};
-		}
-	}
-
 	// Antrian dari kartu-kartu di halaman rekap (pengeluaran/pemasukan lain &
 	// rencana bayar komisi sales) — baru dibukukan sekarang, setelah settle
 	// benar-benar jadi. Best-effort: gagal satu baris tidak membatalkan settle.
@@ -230,77 +185,9 @@ export async function settleEvent(
 		ok: true,
 		data: data as SettleEventResult,
 		crewPayment,
-		commissionPayment,
 		queue,
 		reimbursement: reimbursement ?? undefined,
 	};
-}
-
-async function lookupUserName(
-	supabase: Awaited<ReturnType<typeof createClient>>,
-	userId: string | null,
-	fallback: string,
-): Promise<string> {
-	if (!userId) return fallback;
-	const { data } = await supabase
-		.from("users")
-		.select("full_name")
-		.eq("id", userId)
-		.maybeSingle();
-	return (data?.full_name as string) ?? fallback;
-}
-
-/**
- * Komisi MITRA yang menempel di sebuah event (vendor/relasi) — jenis, nominal,
- * penerima. Null kalau tidak ada nominalnya, atau vendor "Potongan Langsung"
- * yang komisinya sudah dipotong di muka dari aliran uang.
- *
- * Komisi sales Tetra sengaja TIDAK di sini — diurus kartunya sendiri di halaman
- * rekap (setSalesCommission + payCommission kind='sales'). Keduanya bisa hidup
- * di event yang sama: vendor dapat komisi, sales Tetra yang closing juga tetap
- * dapat komisinya sendiri.
- */
-async function resolveEventCommission(
-	supabase: Awaited<ReturnType<typeof createClient>>,
-	eventId: string,
-): Promise<{
-	kind: "vendor" | "relasi";
-	amount: number;
-	payeeName: string;
-} | null> {
-	const { data: ev } = await supabase
-		.from("events")
-		.select(
-			`channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
-			referrer_user_id, referrer_commission`,
-		)
-		.eq("id", eventId)
-		.maybeSingle();
-	if (!ev) return null;
-
-	if (ev.channel === "vendor") {
-		const amount = Number(ev.vendor_commission_amount ?? 0);
-		if (amount <= 0 || ev.vendor_commission_mode === "upfront_cut") return null;
-		return {
-			kind: "vendor",
-			amount,
-			payeeName: (ev.vendor_name as string) ?? "Vendor",
-		};
-	}
-	if (ev.channel === "relasi") {
-		const amount = Number(ev.referrer_commission ?? 0);
-		if (amount <= 0) return null;
-		return {
-			kind: "relasi",
-			amount,
-			payeeName: await lookupUserName(
-				supabase,
-				ev.referrer_user_id as string | null,
-				"Relasi",
-			),
-		};
-	}
-	return null;
 }
 
 export type ReopenResult = {

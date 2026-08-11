@@ -20,6 +20,10 @@ import {
 	type ExtraTxnRow,
 	type OwnerPaidPending,
 } from "@/components/rekap/event-extra-transactions";
+import {
+	PartnerCommissionCard,
+	type PartnerCommissionState,
+} from "@/components/rekap/partner-commission-card";
 import { ProfitPreviewCard } from "@/components/rekap/profit-preview-card";
 import { RekapAuditTab } from "@/components/rekap/rekap-audit-tab";
 import { RekapForm } from "@/components/rekap/rekap-form";
@@ -343,15 +347,9 @@ export default async function EventRekapPage({
 	// "Potongan Langsung" dilewati: komisinya sudah dipotong dari aliran uang.
 	// Kalau sudah ada pembayaran aktif sebelum settle, itu pasti uang muka →
 	// tidak perlu ditawari bayar lagi, cukup diberitahu.
-	let commissionInfo: {
-		payeeName: string;
-		amount: number;
-		paidInAdvance: boolean;
-	} | null = null;
-
-	// Satu query untuk semua payout komisi aktif event ini — dipisah per kind.
-	// (Dulu .maybeSingle() tanpa filter kind: begitu satu event punya 2 komisi,
-	// query-nya error & statusnya salah baca.)
+	// Komisi mitra (vendor/relasi) — kartunya sendiri di halaman ini. Vendor
+	// "Potongan Langsung" dilewati: komisinya sudah dipotong dari aliran uang,
+	// bukan utang yang perlu dibayar.
 	const { data: activePayouts } = await supabase
 		.from("commission_payouts")
 		.select("kind, amount, payment_date, proof_url, is_advance")
@@ -361,8 +359,10 @@ export default async function EventRekapPage({
 		(activePayouts ?? []).map((p) => [p.kind as string, p]),
 	);
 
-	if (!isSettled) {
+	let partnerCommission: PartnerCommissionState | null = null;
+	{
 		const channel = event.channel as string | null;
+		let kind: "vendor" | "relasi" | null = null;
 		let amount = 0;
 		let payeeName = "";
 		let payeeUserId: string | null = null;
@@ -370,14 +370,16 @@ export default async function EventRekapPage({
 			channel === "vendor" &&
 			event.vendor_commission_mode !== "upfront_cut"
 		) {
+			kind = "vendor";
 			amount = Number(event.vendor_commission_amount ?? 0);
 			payeeName = (event.vendor_name as string) ?? "Vendor";
 		} else if (channel === "relasi") {
+			kind = "relasi";
 			amount = Number(event.referrer_commission ?? 0);
 			payeeUserId = (event.referrer_user_id as string | null) ?? null;
 			payeeName = "Relasi";
 		}
-		if (amount > 0) {
+		if (kind && amount > 0) {
 			if (payeeUserId) {
 				const { data: payee } = await supabase
 					.from("users")
@@ -386,12 +388,16 @@ export default async function EventRekapPage({
 					.maybeSingle();
 				payeeName = (payee?.full_name as string) ?? payeeName;
 			}
-			commissionInfo = {
+			const payout = payoutByKind.get(kind);
+			partnerCommission = {
+				kind,
 				payeeName,
 				amount,
-				paidInAdvance: payoutByKind.has(
-					channel === "vendor" ? "vendor" : "relasi",
-				),
+				isPaid: Boolean(payout),
+				paidAmount: Number(payout?.amount ?? 0),
+				paidDate: (payout?.payment_date as string | null) ?? null,
+				proofUrl: (payout?.proof_url as string | null) ?? null,
+				isAdvance: payout?.is_advance === true,
 			};
 		}
 	}
@@ -921,6 +927,20 @@ export default async function EventRekapPage({
 						readOnly={recapLocked}
 					/>
 
+					{partnerCommission && (
+						<PartnerCommissionCard
+							eventId={event.id as string}
+							projectId={projectId}
+							state={partnerCommission}
+							cashAccounts={cashAccounts}
+							queuedPayment={
+								queuedEntries.find((q) => q.kind === "commission_partner") ??
+								null
+							}
+							isSettled={isSettled}
+						/>
+					)}
+
 					<SalesCommissionCard
 						eventId={event.id as string}
 						projectId={projectId}
@@ -976,7 +996,17 @@ export default async function EventRekapPage({
 									).length
 								}
 								cashAccounts={cashAccounts}
-								commission={commissionInfo}
+								commission={
+									partnerCommission && !partnerCommission.isPaid
+										? {
+												payeeName: partnerCommission.payeeName,
+												amount: partnerCommission.amount,
+												planned: queuedEntries.some(
+													(q) => q.kind === "commission_partner",
+												),
+											}
+										: null
+								}
 								salesCommission={
 									salesCommissionState.amount > 0
 										? {
@@ -1045,6 +1075,20 @@ export default async function EventRekapPage({
 						keychainBonus={rekap.keychain_bonus}
 						readOnly
 					/>
+
+					{partnerCommission && (
+						<PartnerCommissionCard
+							eventId={event.id as string}
+							projectId={projectId}
+							state={partnerCommission}
+							cashAccounts={cashAccounts}
+							queuedPayment={
+								queuedEntries.find((q) => q.kind === "commission_partner") ??
+								null
+							}
+							isSettled={isSettled}
+						/>
+					)}
 
 					<SalesCommissionCard
 						eventId={event.id as string}
