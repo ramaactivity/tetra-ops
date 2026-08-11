@@ -110,6 +110,7 @@ type AssignmentJoin = {
 	reimbursement_amount: number | null;
 	payment_notes: string | null;
 	payment_proof_url: string | null;
+	payment_admin_fee: number | null;
 	is_paid: boolean | null;
 	paid_via_account: string | null;
 	paid_at: string | null;
@@ -169,7 +170,7 @@ export default async function EventRekapPage({
 				.from("crew_assignments")
 				.select(
 					`id, user_id, role_in_event, fee_amount, bonus_amount, reimbursement_amount,
-					payment_notes, payment_proof_url, is_paid, paid_via_account, paid_at,
+					payment_notes, payment_proof_url, payment_admin_fee, is_paid, paid_via_account, paid_at,
 					user:users!crew_assignments_user_id_fkey(full_name)`,
 				)
 				.eq("event_id", event.id),
@@ -270,6 +271,7 @@ export default async function EventRekapPage({
 			reimbursement_amount: Number(aj.reimbursement_amount ?? 0),
 			payment_notes: aj.payment_notes ?? null,
 			payment_proof_url: aj.payment_proof_url ?? null,
+			payment_admin_fee: Number(aj.payment_admin_fee ?? 0),
 			is_paid: Boolean(aj.is_paid),
 			paid_via_account: aj.paid_via_account ?? null,
 			paid_at: aj.paid_at ?? null,

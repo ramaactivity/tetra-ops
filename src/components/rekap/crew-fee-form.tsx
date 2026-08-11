@@ -41,6 +41,8 @@ export type CrewAssignmentRow = {
 	reimbursement_amount: number;
 	payment_notes: string | null;
 	payment_proof_url: string | null;
+	/** Ongkos transfer ke rekening crew ini (beda bank tujuan, beda ongkos). */
+	payment_admin_fee: number;
 	is_paid: boolean;
 	paid_via_account?: string | null;
 	paid_at?: string | null;
@@ -140,9 +142,7 @@ export function CrewFeeForm({
 			cashAccounts[0]?.code ??
 			"",
 	);
-	const [planAdminFee, setPlanAdminFee] = useState(
-		queuedPayment?.adminFee ?? 0,
-	);
+
 	const unpaidRows = rows.filter(
 		(r) =>
 			!r.is_paid && r.fee_amount + r.bonus_amount + r.reimbursement_amount > 0,
@@ -151,7 +151,12 @@ export function CrewFeeForm({
 		(s, r) => s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
 		0,
 	);
-	const planAdminTotal = planAdminFee * unpaidRows.length;
+	// Total ongkos transfer = jumlah biaya admin tiap crew yang akan ditransfer
+	// (bukan satu angka dikali jumlah crew — tiap bank tujuan beda ongkosnya).
+	const planAdminTotal = unpaidRows.reduce(
+		(sum, r) => sum + (r.payment_admin_fee ?? 0),
+		0,
+	);
 	const planAcct = cashAccounts.find((a) => a.code === planAccount);
 	const planInsufficient =
 		planAcct?.balance !== undefined &&
@@ -221,14 +226,13 @@ export function CrewFeeForm({
 			orig.bonus_amount !== r.bonus_amount ||
 			orig.reimbursement_amount !== r.reimbursement_amount ||
 			(orig.payment_notes ?? "") !== (r.payment_notes ?? "") ||
-			(orig.payment_proof_url ?? null) !== (r.payment_proof_url ?? null)
+			(orig.payment_proof_url ?? null) !== (r.payment_proof_url ?? null) ||
+			orig.payment_admin_fee !== r.payment_admin_fee
 		);
 	});
 	const planDirty =
 		planEnabled !== Boolean(queuedPayment) ||
-		(planEnabled &&
-			(planAccount !== (queuedPayment?.accountCode ?? "") ||
-				planAdminFee !== (queuedPayment?.adminFee ?? 0)));
+		(planEnabled && planAccount !== (queuedPayment?.accountCode ?? ""));
 	const dirty = feesDirty || planDirty;
 
 	function handleSave() {
@@ -243,6 +247,7 @@ export function CrewFeeForm({
 					reimbursement_amount: r.reimbursement_amount,
 					payment_notes: r.payment_notes,
 					payment_proof_url: r.payment_proof_url,
+					payment_admin_fee: r.payment_admin_fee,
 				})),
 			);
 			if (!result.ok) {
@@ -258,7 +263,9 @@ export function CrewFeeForm({
 					project_id: projectId,
 					amount: unpaidTotal,
 					account_code: planAccount,
-					admin_fee: planAdminFee,
+					// Ongkosnya per crew (crew_assignments.payment_admin_fee); kolom di
+					// antrian dibiarkan 0 supaya tidak ada dua sumber angka.
+					admin_fee: 0,
 				});
 				if (!res.ok) {
 					toast.error(res.error);
@@ -613,6 +620,59 @@ export function CrewFeeForm({
 									}
 									readOnly={readOnly}
 								/>
+								{!readOnly && (
+									<div className="md:col-span-2">
+										<span className="mb-1 block text-xs font-medium text-muted-foreground">
+											Biaya admin bank ke rekening {row.user_full_name}{" "}
+											(opsional)
+										</span>
+										<div className="flex items-center gap-1.5">
+											{[0, 1000, 2500].map((v) => (
+												<button
+													key={v}
+													type="button"
+													onClick={() =>
+														update(row.assignment_id, {
+															payment_admin_fee: v,
+														})
+													}
+													className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+														row.payment_admin_fee === v
+															? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+															: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
+													}`}
+												>
+													{v === 0 ? (
+														"Gratis"
+													) : (
+														<span data-nominal>{formatRupiah(v)}</span>
+													)}
+												</button>
+											))}
+											<Input
+												type="number"
+												inputMode="numeric"
+												min={0}
+												value={
+													row.payment_admin_fee === 0
+														? ""
+														: row.payment_admin_fee
+												}
+												onChange={(e) =>
+													update(row.assignment_id, {
+														payment_admin_fee: Math.max(
+															0,
+															Number(e.target.value) || 0,
+														),
+													})
+												}
+												placeholder="lain"
+												aria-label={`Biaya admin transfer ${row.user_full_name}`}
+												className="tabular text-right"
+											/>
+										</div>
+									</div>
+								)}
 							</div>
 
 							{allowPayment && (
@@ -621,6 +681,7 @@ export function CrewFeeForm({
 									projectId={projectId}
 									crewName={row.user_full_name}
 									totalFee={total}
+									defaultAdminFee={row.payment_admin_fee ?? 0}
 									isPaid={row.is_paid}
 									paidViaAccount={row.paid_via_account ?? null}
 									paidAt={row.paid_at ?? null}
@@ -655,62 +716,23 @@ export function CrewFeeForm({
 
 					{planEnabled && (
 						<div className="mt-3 space-y-2">
-							<div className="grid gap-3 md:grid-cols-2">
-								<div className="space-y-1">
-									<span className="block text-xs font-medium text-muted-foreground">
-										Bayar dari rekening
-									</span>
-									<Combobox
-										value={planAccount}
-										onValueChange={(v) => setPlanAccount(v ?? "")}
-										options={cashAccounts.map((a) => ({
-											value: a.code,
-											label:
-												a.balance !== undefined
-													? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
-													: `${a.code} · ${a.name}`,
-										}))}
-										placeholder="Pilih rekening"
-										allowFreeText={false}
-									/>
-								</div>
-								<div className="space-y-1">
-									<span className="block text-xs font-medium text-muted-foreground">
-										Biaya admin bank (opsional)
-									</span>
-									<div className="flex items-center gap-1.5">
-										{[1000, 2500].map((v) => (
-											<button
-												key={v}
-												type="button"
-												onClick={() =>
-													setPlanAdminFee(planAdminFee === v ? 0 : v)
-												}
-												className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
-													planAdminFee === v
-														? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-														: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
-												}`}
-											>
-												<span data-nominal>{formatRupiah(v)}</span>
-											</button>
-										))}
-										<Input
-											type="number"
-											inputMode="numeric"
-											min={0}
-											value={planAdminFee === 0 ? "" : planAdminFee}
-											onChange={(e) =>
-												setPlanAdminFee(
-													Math.max(0, Number(e.target.value) || 0),
-												)
-											}
-											placeholder="lain"
-											aria-label="Biaya admin bank"
-											className="tabular text-right"
-										/>
-									</div>
-								</div>
+							<div className="space-y-1">
+								<span className="block text-xs font-medium text-muted-foreground">
+									Bayar dari rekening
+								</span>
+								<Combobox
+									value={planAccount}
+									onValueChange={(v) => setPlanAccount(v ?? "")}
+									options={cashAccounts.map((a) => ({
+										value: a.code,
+										label:
+											a.balance !== undefined
+												? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+												: `${a.code} · ${a.name}`,
+									}))}
+									placeholder="Pilih rekening"
+									allowFreeText={false}
+								/>
 							</div>
 							<p className="tabular text-[11px] text-muted-foreground">
 								{planInsufficient ? (
@@ -724,8 +746,8 @@ export function CrewFeeForm({
 									<>
 										{unpaidRows.length} transfer · fee{" "}
 										{formatRupiah(unpaidTotal)}
-										{planAdminFee > 0
-											? ` + admin ${formatRupiah(planAdminFee)} × ${unpaidRows.length} = ${formatRupiah(planAdminTotal)}`
+										{planAdminTotal > 0
+											? ` + admin ${formatRupiah(planAdminTotal)} (dijumlah dari tiap crew)`
 											: ""}{" "}
 										· total {formatRupiah(unpaidTotal + planAdminTotal)} keluar
 										saat settle.
@@ -777,6 +799,7 @@ function CrewPayPanel({
 	projectId,
 	crewName,
 	totalFee,
+	defaultAdminFee = 0,
 	isPaid,
 	paidViaAccount,
 	paidAt,
@@ -786,6 +809,7 @@ function CrewPayPanel({
 	projectId: string;
 	crewName: string;
 	totalFee: number;
+	defaultAdminFee?: number;
 	isPaid: boolean;
 	paidViaAccount: string | null;
 	paidAt: string | null;
@@ -801,7 +825,10 @@ function CrewPayPanel({
 			cashAccounts[0]?.code ??
 			"",
 	);
-	const [adminFee, setAdminFee] = useState<string>("");
+	// Prefill dari yang sudah diisi di kartu (ongkos transfer ke crew ini).
+	const [adminFee, setAdminFee] = useState<string>(
+		defaultAdminFee > 0 ? String(defaultAdminFee) : "",
+	);
 	// Optimistic paid-state override. useState(initialRows) di parent tidak
 	// re-sync setelah router.refresh(), jadi tombol Bayar tetap kelihatan walau
 	// sukses → rawan klik dua kali. Override lokal langsung flip UI ke "lunas"

@@ -13,6 +13,13 @@ const FeeRow = z.object({
 	reimbursement_amount: z.coerce.number().int().nonnegative(),
 	payment_notes: z.string().trim().max(500).optional().nullable(),
 	payment_proof_url: z.string().url().max(2000).optional().nullable(),
+	// Ongkos transfer ke rekening crew ini — beda bank tujuan, beda ongkos.
+	payment_admin_fee: z.coerce
+		.number()
+		.int()
+		.nonnegative()
+		.max(1_000_000)
+		.optional(),
 });
 
 const SaveCrewFeesSchema = z.object({
@@ -33,6 +40,7 @@ export async function saveCrewFees(
 		reimbursement_amount: number | string;
 		payment_notes?: string | null;
 		payment_proof_url?: string | null;
+		payment_admin_fee?: number | string;
 	}>,
 ): Promise<SaveCrewFeesResponse> {
 	const me = await getCurrentUser();
@@ -96,6 +104,7 @@ export async function saveCrewFees(
 					reimbursement_amount: row.reimbursement_amount,
 					payment_notes: row.payment_notes ?? null,
 					payment_proof_url: newProof,
+					payment_admin_fee: row.payment_admin_fee ?? 0,
 					...(uploadedAt ? { payment_proof_uploaded_at: uploadedAt } : {}),
 					updated_at: new Date().toISOString(),
 				})

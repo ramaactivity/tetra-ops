@@ -351,7 +351,9 @@ export async function postSettleQueue(
 			// bukan dari snapshot amount — supaya perubahan fee menit terakhir ikut.
 			const { data: assigns } = await supabase
 				.from("crew_assignments")
-				.select("id, fee_amount, bonus_amount, reimbursement_amount, is_paid")
+				.select(
+					"id, fee_amount, bonus_amount, reimbursement_amount, is_paid, payment_admin_fee",
+				)
 				.eq("event_id", eventId);
 			let paidCount = 0;
 			const failedNames: string[] = [];
@@ -365,7 +367,10 @@ export async function postSettleQueue(
 					assignment_id: a.id as string,
 					project_id: projectId,
 					bank_account_code: row.account_code as string,
-					admin_fee: Number(row.admin_fee ?? 0),
+					// Ongkos transfer per crew (beda bank tujuan) — row.admin_fee lama
+					// dipakai sebagai fallback untuk rencana yang dibuat sebelum kolom
+					// per-crew ada.
+					admin_fee: Number(a.payment_admin_fee ?? row.admin_fee ?? 0),
 					payment_date: today,
 				});
 				if (r.ok) paidCount += 1;
