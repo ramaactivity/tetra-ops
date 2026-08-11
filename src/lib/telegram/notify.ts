@@ -12,6 +12,7 @@ import {
 	tgEscape,
 } from "@/lib/telegram/client";
 import { dateLabel, rp } from "@/lib/telegram/digest";
+import { buildSettledReport } from "@/lib/telegram/settled-report";
 
 /**
  * Ping event-driven ke grup Telegram owner (booking baru, rekap masuk,
@@ -439,6 +440,14 @@ export async function notifyTelegramRekapSubmitted(
 }
 
 /** Event di-tutup buku → kabar profit ke grup owner (grup owner-only). */
+/**
+ * Event ditutup → laporan lengkap ke grup owner.
+ *
+ * Grup ini owner-only (crew tidak di dalamnya), jadi angka biaya & laba aman
+ * ditampilkan. Sengaja detail: ini satu-satunya tempat owner yang tidak sedang
+ * membuka aplikasi bisa tahu event ditutup dengan hasil seperti apa, uang apa
+ * saja yang keluar hari itu, dan apakah masih ada yang perlu ditagih.
+ */
 export async function notifyTelegramEventSettled(
 	eventId: string,
 	projectId: string,
@@ -451,21 +460,89 @@ export async function notifyTelegramEventSettled(
 ): Promise<void> {
 	try {
 		const admin = createAdminClient();
-		const { data: ev } = await admin
-			.from("events")
-			.select("client_name")
-			.eq("id", eventId)
-			.maybeSingle();
-		const icon = result.is_loss ? "🚨" : "✅";
-		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-		await sendToOwnerGroup(
-			[
-				`${icon} <b>EVENT SETTLED — ${tgEscape((ev?.client_name as string) ?? "Event")}</b>`,
-				`📈 Omzet ${rp(Number(result.revenue_net ?? 0))}`,
-				`💰 Profit bersih ${rp(Number(result.net_profit ?? 0))} (margin ${Math.round(Number(result.margin_pct ?? 0))}%)${result.is_loss ? " — RUGI, review settlement-nya" : ""}`,
-				...(appUrl ? [`\nDetail: ${appUrl}/operations/${projectId}`] : []),
-			].join("\n"),
-		);
+		const [
+			{ data: ev },
+			{ data: st },
+			{ data: manualEntries },
+			{ data: queueRows },
+		] = await Promise.all([
+			admin
+				.from("events")
+				.select(
+					`client_name, event_date, remaining_balance, channel,
+					package:packages(name)`,
+				)
+				.eq("id", eventId)
+				.maybeSingle(),
+			admin
+				.from("event_settlements")
+				.select(
+					`hpp_total, opex_total, fee_lead, fee_asisten, fee_crew_c, fee_extra,
+					transport_bbm, konsumsi, komisi_vendor, komisi_relasi,
+					komisi_sales_direct, sinking_total, owner_pool_total,
+					operating_cash_kept`,
+				)
+				.eq("event_id", eventId)
+				.maybeSingle(),
+			admin
+				.from("journal_entries")
+				.select("entry_type, total_amount")
+				.eq("source_event_id", eventId)
+				.eq("source_type", "manual")
+				.eq("is_reversed", false),
+			admin
+				.from("event_settle_queue")
+				.select("kind, amount, category_id, posted_ref, post_error")
+				.eq("event_id", eventId)
+				.not("posted_at", "is", null),
+		]);
+
+		const pkg = Array.isArray(ev?.package) ? ev?.package[0] : ev?.package;
+		const message = buildSettledReport({
+			clientName: (ev?.client_name as string) ?? "Event",
+			eventDate: (ev?.event_date as string | null) ?? null,
+			packageName: (pkg?.name as string | null) ?? null,
+			revenueNet: Number(result.revenue_net ?? 0),
+			netProfit: Number(result.net_profit ?? 0),
+			isLoss: Boolean(result.is_loss),
+			remainingBalance: Number(ev?.remaining_balance ?? 0),
+			settlement: st
+				? {
+						hppTotal: Number(st.hpp_total ?? 0),
+						opexTotal: Number(st.opex_total ?? 0),
+						feeCrew:
+							Number(st.fee_lead ?? 0) +
+							Number(st.fee_asisten ?? 0) +
+							Number(st.fee_crew_c ?? 0) +
+							Number(st.fee_extra ?? 0),
+						transportKonsumsi:
+							Number(st.transport_bbm ?? 0) + Number(st.konsumsi ?? 0),
+						komisi:
+							Number(st.komisi_vendor ?? 0) +
+							Number(st.komisi_relasi ?? 0) +
+							Number(st.komisi_sales_direct ?? 0),
+						sinkingTotal: Number(st.sinking_total ?? 0),
+						ownerPoolTotal: Number(st.owner_pool_total ?? 0),
+						operatingCash: Number(st.operating_cash_kept ?? 0),
+					}
+				: null,
+			manualEntries: (manualEntries ?? []).map((e) => ({
+				entryType: (e.entry_type as string) ?? "",
+				amount: Number(e.total_amount ?? 0),
+			})),
+			postedQueue: (queueRows ?? []).map((q) => ({
+				kind: (q.kind as string) ?? "",
+				amount: Number(q.amount ?? 0),
+				categoryId: (q.category_id as string | null) ?? null,
+				postedRef: (q.posted_ref as string | null) ?? null,
+				postError: (q.post_error as string | null) ?? null,
+			})),
+			detailUrl: process.env.NEXT_PUBLIC_APP_URL
+				? `${process.env.NEXT_PUBLIC_APP_URL}/operations/${projectId}`
+				: null,
+		});
+
+		await sendToOwnerGroup(message);
 	} catch (e) {
 		console.error("[telegram/notify] settled:", e);
 	}
