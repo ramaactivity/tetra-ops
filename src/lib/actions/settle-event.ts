@@ -73,10 +73,18 @@ export async function settleEvent(
 		/** Kalau di-set: setelah settle, langsung bayar SEMUA fee crew dari
 		 *  rekening ini (Dr 2-100 / Cr rekening). Null/undefined = settle saja. */
 		payCrewFromAccount?: string | null;
+		/**
+		 * Biaya admin bank PER TRANSFER saat bayar fee crew (Dr 5-600). Tiap crew
+		 * = satu transfer, jadi angka ini dikenakan ke tiap pembayaran, bukan
+		 * sekali untuk semua.
+		 */
+		payCrewAdminFee?: number | null;
 		/** Kalau di-set: setelah settle, langsung bayar komisi MITRA event ini
 		 *  (vendor/relasi) dari rekening ini — supaya owner tidak perlu pindah ke
 		 *  halaman Komisi. Null/undefined = tidak bayar komisi. */
 		payCommissionFromAccount?: string | null;
+		/** Biaya admin bank saat bayar komisi mitra (Dr 5-600). */
+		payCommissionAdminFee?: number | null;
 		/**
 		 * Komisi sales Tetra (admin/sales yang closing). Ditulis ke event SEBELUM
 		 * RPC settle supaya ikut jadi beban 5-301 + utang 2-102 di jurnal
@@ -86,6 +94,8 @@ export async function settleEvent(
 		salesCommission?: { user_id: string | null; amount: number } | null;
 		/** Kalau di-set: setelah settle, langsung bayar komisi sales itu. */
 		paySalesCommissionFromAccount?: string | null;
+		/** Biaya admin bank saat bayar komisi sales (Dr 5-600). */
+		paySalesCommissionAdminFee?: number | null;
 		/** Bukti transfer komisi sales (opsional, hasil upload ke Drive). */
 		salesCommissionProofUrl?: string | null;
 		/**
@@ -205,6 +215,7 @@ export async function settleEvent(
 				project_id: projectId,
 				bank_account_code: acct,
 				payment_date: today,
+				admin_fee: Math.max(0, Math.trunc(Number(opts?.payCrewAdminFee ?? 0))),
 			});
 			if (r.ok) {
 				paid += 1;
@@ -232,6 +243,10 @@ export async function settleEvent(
 				kind: target.kind,
 				bank_account_code: komisiAcct,
 				payment_date: new Date().toISOString().slice(0, 10),
+				admin_fee: Math.max(
+					0,
+					Math.trunc(Number(opts?.payCommissionAdminFee ?? 0)),
+				),
 			});
 			commissionPayment = {
 				paid: r.ok,
@@ -255,6 +270,10 @@ export async function settleEvent(
 				kind: "sales",
 				bank_account_code: salesAcct,
 				payment_date: new Date().toISOString().slice(0, 10),
+				admin_fee: Math.max(
+					0,
+					Math.trunc(Number(opts?.paySalesCommissionAdminFee ?? 0)),
+				),
 				proof_url: opts?.salesCommissionProofUrl?.trim() || null,
 			});
 			salesCommissionPayment = {

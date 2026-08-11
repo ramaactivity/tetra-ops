@@ -56,6 +56,8 @@ type Props = {
 	disabledReason?: string;
 	/** Total fee crew (fee+bonus+reimbursement) — untuk opsi "bayar sambil settle". */
 	crewTotal?: number;
+	/** Berapa crew yang benar-benar akan ditransfer — pengali biaya admin bank. */
+	crewPayCount?: number;
 	/** Rekening kas/bank (+ saldo live) untuk opsi bayar-sambil-settle. */
 	cashAccounts?: Array<{ code: string; name: string; balance?: number }>;
 	/**
@@ -156,6 +158,11 @@ export function SettleButton(props: Props) {
 	const [payAccount, setPayAccount] = useState(() =>
 		defaultAccount(cashAccounts, crewTotal),
 	);
+	// Biaya admin bank per transfer. Fee crew = 1 transfer per crew, jadi
+	// totalnya dikali jumlah crew yang dibayar; komisi cuma 1 transfer.
+	const [payAdminFee, setPayAdminFee] = useState(0);
+	const crewPayCount = Math.max(1, props.crewPayCount ?? 1);
+	const crewAdminTotal = payAdminFee * crewPayCount;
 	const commission = props.commission ?? null;
 	const komisiTotal = commission?.paidInAdvance ? 0 : (commission?.amount ?? 0);
 	const canPayKomisi = komisiTotal > 0 && cashAccounts.length > 0;
@@ -163,6 +170,7 @@ export function SettleButton(props: Props) {
 	const [komisiAccount, setKomisiAccount] = useState(() =>
 		defaultAccount(cashAccounts, komisiTotal),
 	);
+	const [komisiAdminFee, setKomisiAdminFee] = useState(0);
 
 	// ── Komisi sales Tetra (semua channel, nominal tentatif) ──────────────────
 	const salesInfo = props.salesCommission ?? null;
@@ -179,6 +187,7 @@ export function SettleButton(props: Props) {
 	const [salesAccount, setSalesAccount] = useState(() =>
 		defaultAccount(cashAccounts, props.salesCommission?.amount ?? 0),
 	);
+	const [salesAdminFee, setSalesAdminFee] = useState(0);
 	const [salesProofUrl, setSalesProofUrl] = useState<string | null>(null);
 	// Nominal yang benar-benar dikirim ke server (0 = komisi sales dihapus).
 	const salesEffective = salesOn ? salesAmount : 0;
@@ -228,11 +237,12 @@ export function SettleButton(props: Props) {
 	// yang sama, saldonya harus cukup untuk SEMUANYA, bukan masing-masing.
 	function needFor(code: string): number {
 		let need = 0;
-		if (payNow && canPayNow && payAccount === code) need += crewTotal;
+		if (payNow && canPayNow && payAccount === code)
+			need += crewTotal + crewAdminTotal;
 		if (payKomisi && canPayKomisi && komisiAccount === code)
-			need += komisiTotal;
+			need += komisiTotal + komisiAdminFee;
 		if (paySales && canPaySales && salesAccount === code)
-			need += salesEffective;
+			need += salesEffective + salesAdminFee;
 		// Uang keluar lain ikut menguras rekening yang sama; pemasukan sengaja
 		// TIDAK dipakai menutupi (uangnya belum tentu masuk duluan).
 		if (extraAccount === code) need += extraOut;
@@ -287,7 +297,9 @@ export function SettleButton(props: Props) {
 			const doPaySales = paySales && canPaySales && salesAccount;
 			const result = await settleEvent(props.eventId, props.projectId, {
 				payCrewFromAccount: doPay ? payAccount : null,
+				payCrewAdminFee: doPay ? payAdminFee : null,
 				payCommissionFromAccount: doPayKomisi ? komisiAccount : null,
+				payCommissionAdminFee: doPayKomisi ? komisiAdminFee : null,
 				// Cuma dikirim kalau memang diubah — supaya settle biasa tidak
 				// menyentuh kolom komisi event sama sekali.
 				salesCommission: salesChanged
@@ -297,6 +309,7 @@ export function SettleButton(props: Props) {
 						}
 					: null,
 				paySalesCommissionFromAccount: doPaySales ? salesAccount : null,
+				paySalesCommissionAdminFee: doPaySales ? salesAdminFee : null,
 				salesCommissionProofUrl: doPaySales ? salesProofUrl : null,
 				extraTransactions: extraValid.map((r) => ({
 					direction: r.direction as "masuk" | "keluar",
@@ -545,15 +558,26 @@ export function SettleButton(props: Props) {
 													<p className="tabular text-[11px] font-medium text-rose-600">
 														Saldo {payAcct?.name} tidak cukup (
 														{formatRupiah(payAcct?.balance ?? 0)}) untuk bayar{" "}
-														{formatRupiah(crewTotal)} — pilih rekening lain.
+														{formatRupiah(crewTotal + crewAdminTotal)} — pilih
+														rekening lain.
 													</p>
 												) : (
 													<p className="tabular text-[11px] text-muted-foreground">
-														Saldo rekening berkurang {formatRupiah(crewTotal)} ·
-														tiap crew ditandai lunas. Bukti transfer yang sudah
+														Saldo rekening berkurang{" "}
+														{formatRupiah(crewTotal + crewAdminTotal)} · tiap
+														crew ditandai lunas. Bukti transfer yang sudah
 														diupload tetap tersimpan.
 													</p>
 												)}
+												<AdminFeeField
+													value={payAdminFee}
+													onChange={setPayAdminFee}
+													hint={
+														crewPayCount > 1
+															? `${formatRupiah(payAdminFee)} × ${crewPayCount} transfer = ${formatRupiah(crewAdminTotal)}`
+															: undefined
+													}
+												/>
 											</div>
 										)}
 									</div>
@@ -604,6 +628,10 @@ export function SettleButton(props: Props) {
 														rekening lain.
 													</p>
 												)}
+												<AdminFeeField
+													value={komisiAdminFee}
+													onChange={setKomisiAdminFee}
+												/>
 											</div>
 										)}
 									</div>
@@ -750,6 +778,10 @@ export function SettleButton(props: Props) {
 																		pilih rekening lain.
 																	</p>
 																)}
+																<AdminFeeField
+																	value={salesAdminFee}
+																	onChange={setSalesAdminFee}
+																/>
 																<CommissionProofUpload
 																	projectId={props.projectId}
 																	payeeName={
@@ -1106,6 +1138,57 @@ function CommissionProofUpload({
 						</>
 					)}
 				</button>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Biaya admin bank per transfer (Dr 5-600) — chip nominal yang paling sering
+ * (Rp1.000 / Rp2.500) + isian bebas. Pola sama dgn tombol Bayar fee crew.
+ */
+function AdminFeeField({
+	value,
+	onChange,
+	hint,
+}: {
+	value: number;
+	onChange: (v: number) => void;
+	hint?: string;
+}) {
+	return (
+		<div className="space-y-1">
+			<span className="block text-xs font-medium text-muted-foreground">
+				Biaya admin bank (opsional)
+			</span>
+			<div className="flex items-center gap-1.5">
+				{[1000, 2500].map((v) => (
+					<button
+						key={v}
+						type="button"
+						onClick={() => onChange(value === v ? 0 : v)}
+						className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+							value === v
+								? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+								: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
+						}`}
+					>
+						<span data-nominal>{formatRupiah(v)}</span>
+					</button>
+				))}
+				<input
+					type="number"
+					inputMode="numeric"
+					min={0}
+					value={value === 0 ? "" : value}
+					onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+					placeholder="lain"
+					aria-label="Biaya admin bank"
+					className="tabular h-9 w-full rounded-[10px] border border-border-default bg-card px-3 text-right text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+				/>
+			</div>
+			{hint && value > 0 && (
+				<p className="tabular text-[11px] text-muted-foreground">{hint}</p>
 			)}
 		</div>
 	);

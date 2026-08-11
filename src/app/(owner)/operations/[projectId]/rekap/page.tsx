@@ -805,6 +805,15 @@ export default async function EventRekapPage({
 										s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
 									0,
 								)}
+								// Pengali biaya admin bank: tiap crew = satu transfer sendiri.
+								crewPayCount={
+									crewFeeRows.filter(
+										(r) =>
+											!r.is_paid &&
+											r.fee_amount + r.bonus_amount + r.reimbursement_amount >
+												0,
+									).length
+								}
 								cashAccounts={cashAccounts}
 								commission={commissionInfo}
 								salesCommission={salesCommissionInfo}
