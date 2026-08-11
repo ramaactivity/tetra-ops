@@ -11,6 +11,10 @@ import { Container } from "@/components/layout/container";
 import { MetaBadge } from "@/components/operations/_shared/meta-badge";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { updateBooking } from "@/lib/actions/bookings";
+import {
+	fetchSalesCandidates,
+	fetchVendorCandidates,
+} from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function EditBookingPage({
@@ -27,8 +31,8 @@ export default async function EditBookingPage({
 		{ data: addons },
 		{ data: backdrops },
 		{ data: eventTypes },
-		{ data: vendorsList },
-		{ data: relasiCandidates },
+		vendorOptions,
+		relasiCandidates,
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -77,47 +81,13 @@ export default async function EditBookingPage({
 			.select("code, label")
 			.eq("is_active", true)
 			.order("display_order", { ascending: true }),
-		supabase
-			.from("contacts")
-			.select(
-				"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
-			)
-			.eq("type", "vendor")
-			.eq("is_active", true)
-			.order("name", { ascending: true })
-			.limit(200),
-		// Relasi/sales pool — sama persis dengan /operations/new. Tanpa ini
-		// Combobox (allowFreeText=false) tidak bisa memetakan UUID tersimpan ke
-		// nama, jadi field Sales/Relasi tampil KOSONG saat edit event lama.
-		supabase
-			.from("users")
-			.select("id, full_name, role")
-			.in("role", ["super_admin", "owner", "crew"])
-			.eq("is_active", true)
-			.is("deleted_at", null)
-			.order("full_name"),
+		// Vendor + sales/relasi pool — sama persis dengan /operations/new,
+		// diurutkan dari yang paling sering dipakai. Tanpa pool sales, Combobox
+		// (allowFreeText=false) tidak bisa memetakan UUID tersimpan ke nama,
+		// jadi field Sales/Relasi tampil KOSONG saat edit event lama.
+		fetchVendorCandidates(supabase),
+		fetchSalesCandidates(supabase),
 	]);
-
-	const vendorOptions = (
-		(vendorsList ?? []) as Array<{
-			id: string;
-			name: string;
-			default_pic_name: string | null;
-			default_pic_contact: string | null;
-			commission_mode: "commission" | "upfront_cut" | null;
-			commission_value_type: "percent" | "flat" | null;
-			commission_value_default: number | null;
-			commission_rate_default: number | null;
-		}>
-	).map((v) => ({
-		name: v.name,
-		pic_name: v.default_pic_name,
-		contact: v.default_pic_contact,
-		commission_mode: v.commission_mode,
-		commission_value_type: v.commission_value_type,
-		commission_value: v.commission_value_default,
-		commission_rate: v.commission_rate_default,
-	}));
 
 	if (error) {
 		return (
@@ -136,7 +106,11 @@ export default async function EditBookingPage({
 	// Sales/relasi yang tersimpan bisa saja sudah non-aktif (resign) sehingga
 	// tidak ikut di pool di atas. Tarik user-nya sendiri dan tempel ke opsi,
 	// supaya nama lama tetap kebaca — bukan malah blank lalu ketimpa null.
-	const relasiPool = (relasiCandidates ?? []) as RelasiOption[];
+	const relasiPool: RelasiOption[] = relasiCandidates.map((u) => ({
+		id: u.id,
+		full_name: u.full_name,
+		role: u.role,
+	}));
 	const savedUserIds = [
 		event.sales_user_id as string | null,
 		event.referrer_user_id as string | null,

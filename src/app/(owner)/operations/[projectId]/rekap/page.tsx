@@ -34,6 +34,7 @@ import {
 	previewRekapHpp,
 } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { fetchSalesCandidates } from "@/lib/events/booking-candidates";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
@@ -346,7 +347,7 @@ export default async function EventRekapPage({
 		}
 
 		const salesUserId = (event.sales_user_id as string | null) ?? null;
-		const [{ data: salesPayee }, { data: teamUsers }] = await Promise.all([
+		const [{ data: salesPayee }, teamUsers] = await Promise.all([
 			salesUserId
 				? supabase
 						.from("users")
@@ -354,21 +355,14 @@ export default async function EventRekapPage({
 						.eq("id", salesUserId)
 						.maybeSingle()
 				: Promise.resolve({ data: null }),
-			supabase
-				.from("users")
-				.select("id, full_name, nickname, role")
-				.in("role", ["super_admin", "owner", "crew"])
-				.eq("is_active", true)
-				.is("deleted_at", null)
-				.order("full_name"),
+			// Urut dari yang paling sering closing, bukan abjad — sama dengan
+			// picker di form booking.
+			fetchSalesCandidates(supabase),
 		]);
-		salesCandidates = (teamUsers ?? []).map((u) => ({
-			id: u.id as string,
-			name:
-				(u.nickname as string | null)?.trim() ||
-				(u.full_name as string) ||
-				"Tanpa nama",
-			role: u.role as string,
+		salesCandidates = teamUsers.map((u) => ({
+			id: u.id,
+			name: u.nickname?.trim() || u.full_name || "Tanpa nama",
+			role: u.role,
 		}));
 		salesCommissionInfo = {
 			userId: salesUserId,

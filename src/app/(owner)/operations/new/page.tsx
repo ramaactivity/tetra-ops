@@ -10,6 +10,10 @@ import {
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
+import {
+	fetchSalesCandidates,
+	fetchVendorCandidates,
+} from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function NewBookingPage() {
@@ -19,8 +23,8 @@ export default async function NewBookingPage() {
 		{ data: addons },
 		{ data: backdrops },
 		{ data: eventTypes },
-		{ data: relasiCandidates },
-		{ data: vendorHistory },
+		relasiCandidates,
+		vendorOptions,
 		{ data: grossupConfig },
 	] = await Promise.all([
 		supabase
@@ -47,27 +51,11 @@ export default async function NewBookingPage() {
 			.select("code, label")
 			.eq("is_active", true)
 			.order("display_order", { ascending: true }),
-		// Relasi referrer pool: super_admin + owner + crew users
-		supabase
-			.from("users")
-			.select("id, full_name, role")
-			.in("role", ["super_admin", "owner", "crew"])
-			.eq("is_active", true)
-			.is("deleted_at", null)
-			.order("full_name"),
-		// Vendor master list (contacts where type='vendor' + is_active).
-		// Replaces previous "scan past events" approach — source of truth
-		// is now the contacts table, and new vendors auto-upsert there on
-		// booking submit (see ensureVendorContact in src/lib/actions/vendors.ts).
-		supabase
-			.from("contacts")
-			.select(
-				"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
-			)
-			.eq("type", "vendor")
-			.eq("is_active", true)
-			.order("name", { ascending: true })
-			.limit(200),
+		// Sales/relasi + vendor master — keduanya diurutkan dari yang paling
+		// sering dipakai (lihat src/lib/events/booking-candidates.ts), bukan
+		// abjad, supaya nama yang tiap minggu dipakai ada di paling atas.
+		fetchSalesCandidates(supabase),
+		fetchVendorCandidates(supabase),
 		// Default gross-up PPh rate (Indonesia PPh 23 = 2%)
 		supabase
 			.from("system_config")
@@ -82,31 +70,6 @@ export default async function NewBookingPage() {
 		if (typeof v === "string") return Number(v) || 2;
 		return 2;
 	})();
-
-	// Vendor master → autocomplete options. Carries commission scheme so
-	// the booking form can pre-fill mode + type + value when an existing
-	// vendor is picked. Legacy commission_rate kept as fallback for old
-	// vendor rows that haven't been migrated to the new fields yet.
-	const vendorOptions = (
-		(vendorHistory ?? []) as Array<{
-			id: string;
-			name: string;
-			default_pic_name: string | null;
-			default_pic_contact: string | null;
-			commission_mode: "commission" | "upfront_cut" | null;
-			commission_value_type: "percent" | "flat" | null;
-			commission_value_default: number | null;
-			commission_rate_default: number | null;
-		}>
-	).map((v) => ({
-		name: v.name,
-		pic_name: v.default_pic_name,
-		contact: v.default_pic_contact,
-		commission_mode: v.commission_mode,
-		commission_value_type: v.commission_value_type,
-		commission_value: v.commission_value_default,
-		commission_rate: v.commission_rate_default,
-	}));
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -124,7 +87,7 @@ export default async function NewBookingPage() {
 					backdrops={(backdrops ?? []) as BackdropOption[]}
 					eventTypes={(eventTypes ?? []) as EventTypeOption[]}
 					relasiOptions={
-						((relasiCandidates ?? []) as RelasiOption[]).map((u) => ({
+						relasiCandidates.map((u) => ({
 							id: u.id,
 							full_name: u.full_name,
 							role: u.role,
