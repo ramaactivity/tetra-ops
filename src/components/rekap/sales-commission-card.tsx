@@ -2,6 +2,7 @@
 
 import {
 	CheckCircle2,
+	Clock,
 	ExternalLink,
 	Loader2,
 	UserRound,
@@ -22,6 +23,11 @@ import {
 	setSalesCommission,
 	unpayCommission,
 } from "@/lib/actions/commissions";
+import {
+	type QueuedEntry,
+	queueSalesCommissionPayment,
+	removeQueuedEntry,
+} from "@/lib/actions/settle-queue";
 import { formatRupiah } from "@/lib/format";
 
 /**
@@ -69,6 +75,8 @@ export function SalesCommissionCard({
 	state,
 	candidates,
 	cashAccounts,
+	queuedPayment,
+	isSettled = false,
 	readOnly = false,
 }: {
 	eventId: string;
@@ -76,6 +84,10 @@ export function SalesCommissionCard({
 	state: SalesCommissionState;
 	candidates: Array<{ id: string; name: string; role: string }>;
 	cashAccounts: CashAccount[];
+	/** Rencana bayar yang sudah diantre — dibukukan saat settle. */
+	queuedPayment?: QueuedEntry | null;
+	/** Sesudah settle, pembayaran langsung dibukukan (pelunasan utang). */
+	isSettled?: boolean;
 	readOnly?: boolean;
 }) {
 	const router = useRouter();
@@ -98,7 +110,7 @@ export function SalesCommissionCard({
 
 	// Nominal terkunci begitu sudah dibayar — uang mukanya di-offset sebesar
 	// beban yang diakui, jadi mengubahnya menyisakan saldo nyangkut di 1-310.
-	const locked = readOnly || state.isPaid;
+	const locked = readOnly || state.isPaid || Boolean(queuedPayment);
 
 	function handleSave() {
 		startTransition(async () => {
@@ -123,22 +135,54 @@ export function SalesCommissionCard({
 
 	function handlePay() {
 		startTransition(async () => {
-			const res = await payCommission({
-				event_id: eventId,
+			// Sebelum settle: cuma diantre — jurnalnya lahir bareng jurnal
+			// settlement biar satu event = satu momen pembukuan. Sesudah settle:
+			// utangnya sudah ada di 2-102, jadi bayar = pelunasan, langsung posting.
+			const res = isSettled
+				? await payCommission({
+						event_id: eventId,
+						project_id: projectId,
+						kind: "sales",
+						bank_account_code: account,
+						admin_fee: adminFee,
+						payment_date: new Date().toISOString().slice(0, 10),
+						proof_url: proofUrl,
+					})
+				: await queueSalesCommissionPayment({
+						event_id: eventId,
+						project_id: projectId,
+						amount: state.amount,
+						account_code: account,
+						admin_fee: adminFee,
+						proof_url: proofUrl,
+					});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			toast.success(
+				isSettled
+					? `Komisi sales dibayar ${formatRupiah(state.amount)}.`
+					: `Rencana bayar komisi ${formatRupiah(state.amount)} disimpan — dibukukan saat settle.`,
+			);
+			setPaying(false);
+			setProofUrl(null);
+			router.refresh();
+		});
+	}
+
+	function handleCancelQueued() {
+		if (!queuedPayment) return;
+		startTransition(async () => {
+			const res = await removeQueuedEntry({
+				id: queuedPayment.id,
 				project_id: projectId,
-				kind: "sales",
-				bank_account_code: account,
-				admin_fee: adminFee,
-				payment_date: new Date().toISOString().slice(0, 10),
-				proof_url: proofUrl,
 			});
 			if (!res.ok) {
 				toast.error(res.error);
 				return;
 			}
-			toast.success(`Komisi sales dibayar ${formatRupiah(state.amount)}.`);
-			setPaying(false);
-			setProofUrl(null);
+			toast.success("Rencana bayar dibatalkan.");
 			router.refresh();
 		});
 	}
@@ -258,7 +302,48 @@ export function SalesCommissionCard({
 			)}
 
 			{/* Status pembayaran */}
-			{state.isPaid ? (
+			{queuedPayment && !state.isPaid ? (
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-border-default bg-surface-2 px-3 py-2 text-xs">
+					<Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+					<span className="text-foreground">
+						Akan dibayar saat settle dari{" "}
+						<span className="font-medium">{queuedPayment.accountCode}</span>
+						{queuedPayment.adminFee > 0
+							? ` (+ admin ${formatRupiah(queuedPayment.adminFee)})`
+							: ""}
+					</span>
+					<span className="tabular font-medium text-foreground">
+						{formatRupiah(queuedPayment.amount)}
+					</span>
+					{queuedPayment.proofUrl && (
+						<a
+							href={queuedPayment.proofUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="inline-flex items-center gap-1 text-link hover:underline"
+						>
+							Bukti <ExternalLink className="h-3 w-3" />
+						</a>
+					)}
+					{queuedPayment.postError && (
+						<p className="w-full text-[11px] font-medium text-rose-600">
+							Gagal dibukukan saat settle: {queuedPayment.postError}
+						</p>
+					)}
+					{!readOnly && (
+						<Button
+							type="button"
+							size="sm"
+							variant="ghost"
+							className="ml-auto text-muted-foreground hover:text-rose-600"
+							disabled={pending}
+							onClick={handleCancelQueued}
+						>
+							<X className="h-3.5 w-3.5" /> Batalkan
+						</Button>
+					)}
+				</div>
+			) : state.isPaid ? (
 				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
 					<CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
 					<span className="text-emerald-900 dark:text-emerald-200">
@@ -371,7 +456,7 @@ export function SalesCommissionCard({
 									{formatRupiah(cashOut)} — pilih rekening lain.
 								</span>
 							) : (
-								`Saldo berkurang ${formatRupiah(cashOut)}${adminFee > 0 ? ` (termasuk admin ${formatRupiah(adminFee)})` : ""}.`
+								`Saldo berkurang ${formatRupiah(cashOut)}${adminFee > 0 ? ` (termasuk admin ${formatRupiah(adminFee)})` : ""}${isSettled ? "." : " saat settle nanti."}`
 							)}
 						</p>
 						<div className="flex justify-end gap-2">
@@ -395,7 +480,8 @@ export function SalesCommissionCard({
 									</>
 								) : (
 									<>
-										<Wallet className="h-4 w-4" /> Bayar{" "}
+										<Wallet className="h-4 w-4" />{" "}
+										{isSettled ? "Bayar" : "Simpan rencana bayar"}{" "}
 										{formatRupiah(state.amount)}
 									</>
 								)}
@@ -405,8 +491,9 @@ export function SalesCommissionCard({
 				) : (
 					<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border-default bg-surface-2 px-3 py-2">
 						<p className="text-[11px] text-muted-foreground">
-							Belum dibayar. Kalau dibayar sekarang (sebelum settle), uangnya
-							dicatat sebagai uang muka & otomatis diperhitungkan saat settle.
+							{isSettled
+								? "Belum dibayar — utangnya ada di Hutang Komisi (2-102)."
+								: "Belum diatur. Isi rekening & buktinya sekarang; uangnya baru keluar saat Konfirmasi settle."}
 						</p>
 						<Button
 							type="button"
@@ -415,7 +502,8 @@ export function SalesCommissionCard({
 							disabled={pending || cashAccounts.length === 0}
 							className="gap-2"
 						>
-							<Wallet className="h-4 w-4" /> Bayar komisi
+							<Wallet className="h-4 w-4" />{" "}
+							{isSettled ? "Bayar komisi" : "Atur pembayaran"}
 						</Button>
 					</div>
 				)

@@ -37,6 +37,24 @@ export type OpexBreakdown = {
 	total: number;
 };
 
+/**
+ * Uang keluar/masuk lain yang menempel di event tapi TIDAK lewat mesin
+ * settlement (biaya dibayar owner, ganti barang rusak, tip klien). Dibukukan
+ * sebagai jurnal kas tersendiri — jadi tidak mengubah net_profit settlement,
+ * tapi tetap uang event. Ditampilkan supaya owner lihat laba event yang
+ * sebenarnya sebelum memutuskan settle.
+ */
+export type ExtraCashFlow = {
+	/** Sudah masuk buku (jurnal manual tertaut event ini). */
+	expensePosted: number;
+	incomePosted: number;
+	/** Masih di antrian kartu rekap — dibukukan saat settle. */
+	expenseQueued: number;
+	incomeQueued: number;
+	expenseTotal: number;
+	incomeTotal: number;
+};
+
 export type ProfitPreview = {
 	revenue_gross: number;
 	addon_revenue: number;
@@ -51,6 +69,9 @@ export type ProfitPreview = {
 	sinking_estimate: number;
 	owner_pool_estimate: number;
 	operating_cash_estimate: number;
+	extra: ExtraCashFlow;
+	/** net_profit − pengeluaran lain + pemasukan lain. */
+	net_profit_after_extra: number;
 };
 
 export type ProfitPreviewResponse =
@@ -202,6 +223,47 @@ export async function getProfitPreview(
 		0,
 	);
 
+	// Uang keluar/masuk lain yang menempel di event ini — yang sudah dibukukan
+	// (jurnal manual) maupun yang masih antre di kartu rekap.
+	const [{ data: manualEntries }, { data: queued }] = await Promise.all([
+		supabase
+			.from("journal_entries")
+			.select("entry_type, total_amount")
+			.eq("source_event_id", eventId)
+			.eq("source_type", "manual")
+			.eq("is_reversed", false),
+		supabase
+			.from("event_settle_queue")
+			.select("direction, amount")
+			.eq("event_id", eventId)
+			.eq("kind", "expense")
+			.is("posted_at", null),
+	]);
+	let expensePosted = 0;
+	let incomePosted = 0;
+	for (const e of manualEntries ?? []) {
+		const amt = Number(e.total_amount ?? 0);
+		if (e.entry_type === "expense") expensePosted += amt;
+		else incomePosted += amt;
+	}
+	let expenseQueued = 0;
+	let incomeQueued = 0;
+	for (const q of queued ?? []) {
+		const amt = Number(q.amount ?? 0);
+		if (q.direction === "keluar") expenseQueued += amt;
+		else incomeQueued += amt;
+	}
+	const extra: ExtraCashFlow = {
+		expensePosted,
+		incomePosted,
+		expenseQueued,
+		incomeQueued,
+		expenseTotal: expensePosted + expenseQueued,
+		incomeTotal: incomePosted + incomeQueued,
+	};
+	const net_profit_after_extra =
+		net_profit - extra.expenseTotal + extra.incomeTotal;
+
 	return {
 		ok: true,
 		data: {
@@ -218,6 +280,8 @@ export async function getProfitPreview(
 			sinking_estimate,
 			owner_pool_estimate,
 			operating_cash_estimate,
+			extra,
+			net_profit_after_extra,
 		},
 	};
 }

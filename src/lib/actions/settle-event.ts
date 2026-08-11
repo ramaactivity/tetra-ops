@@ -5,6 +5,10 @@ import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
+import {
+	postSettleQueue,
+	type SettleQueueSummary,
+} from "@/lib/actions/settle-queue";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { revalidateDashboard } from "@/lib/dashboard/stats";
 import {
@@ -51,6 +55,8 @@ export type SettleEventResponse =
 			data: SettleEventResult;
 			crewPayment?: CrewPaymentSummary;
 			commissionPayment?: CommissionPaymentSummary;
+			/** Hasil posting antrian (pengeluaran/pemasukan lain, komisi sales). */
+			queue?: SettleQueueSummary;
 			/** Penyesuaian talangan crew sebelum jurnal dibuat (kalau ada). */
 			reimbursement?: ReimbursementSync;
 	  }
@@ -195,6 +201,11 @@ export async function settleEvent(
 		}
 	}
 
+	// Antrian dari kartu-kartu di halaman rekap (pengeluaran/pemasukan lain &
+	// rencana bayar komisi sales) — baru dibukukan sekarang, setelah settle
+	// benar-benar jadi. Best-effort: gagal satu baris tidak membatalkan settle.
+	const queue = await postSettleQueue(eventId, projectId);
+
 	revalidatePath(`/operations/${projectId}`);
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath("/operations");
@@ -220,6 +231,7 @@ export async function settleEvent(
 		data: data as SettleEventResult,
 		crewPayment,
 		commissionPayment,
+		queue,
 		reimbursement: reimbursement ?? undefined,
 	};
 }

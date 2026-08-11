@@ -1,6 +1,13 @@
 "use client";
 
-import { ExternalLink, Loader2, Plus, Receipt, Trash2 } from "lucide-react";
+import {
+	Clock,
+	ExternalLink,
+	Loader2,
+	Plus,
+	Receipt,
+	Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ProofUploadButton } from "@/components/rekap/proof-upload-button";
@@ -11,11 +18,13 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { MoneyInput } from "@/components/ui/form-fields";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
+import { reverseJournalEntry } from "@/lib/actions/journal-entries";
 import {
-	recordEventExpensesBatch,
-	recordQuickTransaction,
-	reverseJournalEntry,
-} from "@/lib/actions/journal-entries";
+	type QueuedEntry,
+	queueEventExpense,
+	queueEventExpensesBatch,
+	removeQueuedEntry,
+} from "@/lib/actions/settle-queue";
 import {
 	type CatatDirection,
 	categoriesFor,
@@ -81,13 +90,17 @@ export function EventExtraTransactions({
 	eventId,
 	projectId,
 	rows,
+	queued,
 	cashAccounts,
 	ownerPaidPending = [],
 	readOnly = false,
 }: {
 	eventId: string;
 	projectId: string;
+	/** Yang SUDAH masuk buku (jurnalnya lahir saat settle / dicatat manual). */
 	rows: ExtraTxnRow[];
+	/** Yang masih menunggu settle — belum jadi jurnal, bebas dihapus. */
+	queued: QueuedEntry[];
 	cashAccounts: CashAccount[];
 	/** Biaya "dibayar owner" yang belum masuk pembukuan (dari kartu Fee crew). */
 	ownerPaidPending?: OwnerPaidPending[];
@@ -134,12 +147,17 @@ export function EventExtraTransactions({
 		return () => window.removeEventListener(CATAT_PREFILL_EVENT, onPrefill);
 	}, [readOnly]);
 
-	const totalOut = rows
-		.filter((r) => r.isOut)
-		.reduce((s, r) => s + r.amount, 0);
-	const totalIn = rows
-		.filter((r) => !r.isOut)
-		.reduce((s, r) => s + r.amount, 0);
+	const queuedExpenses = queued.filter((q) => q.kind === "expense");
+	const totalOut =
+		rows.filter((r) => r.isOut).reduce((s, r) => s + r.amount, 0) +
+		queuedExpenses
+			.filter((q) => q.direction === "keluar")
+			.reduce((s, q) => s + q.amount, 0);
+	const totalIn =
+		rows.filter((r) => !r.isOut).reduce((s, r) => s + r.amount, 0) +
+		queuedExpenses
+			.filter((q) => q.direction === "masuk")
+			.reduce((s, q) => s + q.amount, 0);
 
 	const acct = cashAccounts.find((a) => a.code === account);
 	const insufficient =
@@ -167,22 +185,22 @@ export function EventExtraTransactions({
 			return;
 		}
 		startTransition(async () => {
-			const fd = new FormData();
-			fd.set("direction", direction);
-			fd.set("amount", String(amount));
-			fd.set("entry_date", new Date().toISOString().slice(0, 10));
-			fd.set("account_code", account);
-			fd.set("category_id", categoryId);
-			fd.set("event_id", eventId);
-			if (note.trim()) fd.set("note", note.trim());
-			if (proofUrl) fd.set("proof_url", proofUrl);
-			const res = await recordQuickTransaction(undefined, fd);
-			if (!res?.success) {
-				toast.error(res?.error ?? "Gagal mencatat transaksi");
+			const res = await queueEventExpense({
+				event_id: eventId,
+				project_id: projectId,
+				direction: direction === "masuk" ? "masuk" : "keluar",
+				category_id: categoryId,
+				amount,
+				note: note.trim() || null,
+				account_code: account,
+				proof_url: proofUrl,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
 				return;
 			}
 			toast.success(
-				`${direction === "keluar" ? "Pengeluaran" : "Pemasukan"} ${formatRupiah(amount)} tercatat.`,
+				`${direction === "keluar" ? "Pengeluaran" : "Pemasukan"} ${formatRupiah(amount)} disimpan — dibukukan saat settle.`,
 			);
 			resetForm();
 			router.refresh();
@@ -196,8 +214,9 @@ export function EventExtraTransactions({
 
 	function handleRecordAll() {
 		startTransition(async () => {
-			const res = await recordEventExpensesBatch({
+			const res = await queueEventExpensesBatch({
 				event_id: eventId,
+				project_id: projectId,
 				account_code: bulkAccount,
 				items: ownerPaidPending.map((p) => ({
 					category_id: p.categoryId,
@@ -206,16 +225,28 @@ export function EventExtraTransactions({
 					proof_url: p.proofUrl,
 				})),
 			});
-			if (res.recorded > 0) {
-				toast.success(
-					`${res.recorded} biaya dibayar owner masuk pembukuan (${formatRupiah(pendingTotal)}).`,
-				);
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
 			}
-			if (res.failed > 0) {
-				toast.error(
-					`${res.failed} gagal dicatat: ${res.errors[0] ?? "unknown"}`,
-				);
+			toast.success(
+				`${res.queued} biaya dibayar owner masuk daftar (${formatRupiah(pendingTotal)}) — dibukukan saat settle.`,
+			);
+			router.refresh();
+		});
+	}
+
+	function handleRemoveQueued(entry: QueuedEntry) {
+		startTransition(async () => {
+			const res = await removeQueuedEntry({
+				id: entry.id,
+				project_id: projectId,
+			});
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
 			}
+			toast.success("Baris dihapus.");
 			router.refresh();
 		});
 	}
@@ -247,7 +278,7 @@ export function EventExtraTransactions({
 			<SectionHeader
 				icon={Receipt}
 				title="Pemasukan / pengeluaran lain"
-				description="Uang keluar atau masuk di event ini yang tidak ada di form rekap — mis. ganti barang rusak, tip klien. Dicatat sebagai transaksi kas yang tertaut ke event ini (tidak mengubah laba settlement)."
+				description="Uang keluar atau masuk di event ini yang tidak ada di form rekap — mis. ganti barang rusak, tip klien. Diisi di sini, dibukukan sekali jalan saat Konfirmasi settle."
 			/>
 
 			{!readOnly && ownerPaidPending.length > 0 && (
@@ -307,6 +338,75 @@ export function EventExtraTransactions({
 							{formatRupiah(pendingTotal)} — pilih rekening lain.
 						</p>
 					)}
+				</div>
+			)}
+
+			{queuedExpenses.length > 0 && (
+				<div className="space-y-2">
+					{queuedExpenses.map((q) => (
+						<div
+							key={q.id}
+							className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-border-default bg-surface-2 px-3 py-2"
+						>
+							<span
+								className={`inline-flex h-6 shrink-0 items-center rounded-full px-2 text-[11px] font-medium ${
+									q.direction === "keluar"
+										? "bg-rose-500/12 text-rose-700 dark:text-rose-300"
+										: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+								}`}
+							>
+								{q.direction === "keluar" ? "Keluar" : "Masuk"}
+							</span>
+							<span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
+								{q.note ?? "Transaksi"}
+							</span>
+							<span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+								<Clock className="h-3 w-3" /> Dibukukan saat settle
+							</span>
+							<span
+								className={`tabular text-sm font-medium ${
+									q.direction === "keluar"
+										? "text-rose-600 dark:text-rose-400"
+										: "text-emerald-600 dark:text-emerald-400"
+								}`}
+							>
+								{q.direction === "keluar" ? "−" : "+"} {formatRupiah(q.amount)}
+							</span>
+							{q.proofUrl ? (
+								<a
+									href={q.proofUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="inline-flex items-center gap-1 text-[11px] text-link hover:underline"
+								>
+									Bukti <ExternalLink className="h-3 w-3" />
+								</a>
+							) : (
+								<span className="text-[11px] text-muted-foreground">
+									Tanpa bukti
+								</span>
+							)}
+							{!readOnly && (
+								<Button
+									type="button"
+									size="icon-sm"
+									variant="ghost"
+									aria-label="Hapus baris"
+									className="text-muted-foreground hover:text-rose-600"
+									disabled={pending}
+									onClick={() => handleRemoveQueued(q)}
+								>
+									<Trash2 className="h-3.5 w-3.5" />
+								</Button>
+							)}
+							{q.postError && (
+								<p className="w-full text-[11px] font-medium text-rose-600">
+									Gagal dibukukan saat settle: {q.postError} — hapus & ulangi
+									lewat Finance › Catat transaksi.
+								</p>
+							)}
+						</div>
+					))}
 				</div>
 			)}
 
@@ -370,12 +470,16 @@ export function EventExtraTransactions({
 							)}
 						</div>
 					))}
-					<p className="tabular text-[11px] text-muted-foreground">
-						{totalOut > 0 ? `Keluar ${formatRupiah(totalOut)}` : ""}
-						{totalOut > 0 && totalIn > 0 ? " · " : ""}
-						{totalIn > 0 ? `Masuk ${formatRupiah(totalIn)}` : ""}
-					</p>
 				</div>
+			)}
+
+			{(totalOut > 0 || totalIn > 0) && (
+				<p className="tabular text-[11px] text-muted-foreground">
+					{totalOut > 0 ? `Keluar ${formatRupiah(totalOut)}` : ""}
+					{totalOut > 0 && totalIn > 0 ? " · " : ""}
+					{totalIn > 0 ? `Masuk ${formatRupiah(totalIn)}` : ""} · sudah ikut
+					dihitung di Profit preview di bawah.
+				</p>
 			)}
 
 			{readOnly ? null : adding ? (

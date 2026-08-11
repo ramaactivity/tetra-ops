@@ -42,6 +42,7 @@ import {
 	getRekapContext,
 	previewRekapHpp,
 } from "@/lib/actions/rekap";
+import type { QueuedEntry } from "@/lib/actions/settle-queue";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchSalesCandidates } from "@/lib/events/booking-candidates";
 import { isCashOrBank } from "@/lib/finance/accounting";
@@ -300,6 +301,31 @@ export default async function EventRekapPage({
 		.eq("source_type", "manual")
 		.eq("is_reversed", false)
 		.order("entry_date", { ascending: false });
+	const { data: queueRows } = await supabase
+		.from("event_settle_queue")
+		.select(
+			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, posted_at, post_error",
+		)
+		.eq("event_id", event.id)
+		.order("created_at", { ascending: true });
+	// Yang belum diposting = masih bisa diubah/dihapus; yang sudah diposting
+	// muncul lewat jurnalnya (extraTxnRows), jadi tidak ditampilkan dua kali.
+	const queuedEntries: QueuedEntry[] = (queueRows ?? [])
+		.filter((q) => !q.posted_at)
+		.map((q) => ({
+			id: q.id as string,
+			kind: q.kind as QueuedEntry["kind"],
+			direction: (q.direction as "masuk" | "keluar" | null) ?? null,
+			categoryId: (q.category_id as string | null) ?? null,
+			note: (q.note as string | null) ?? null,
+			amount: Number(q.amount ?? 0),
+			accountCode: q.account_code as string,
+			adminFee: Number(q.admin_fee ?? 0),
+			proofUrl: (q.proof_url as string | null) ?? null,
+			postedAt: null,
+			postError: (q.post_error as string | null) ?? null,
+		}));
+
 	const extraTxnRows: ExtraTxnRow[] = (extraTxns ?? []).map((t) => ({
 		id: t.id as string,
 		refId: t.ref_id as string,
@@ -492,11 +518,16 @@ export default async function EventRekapPage({
 		// harus dibukukan lewat Catat transaksi. Prefill ini mengisi kartu
 		// "Pemasukan / pengeluaran lain" di halaman yang sama — dulu deep-link ke
 		// /finance, yang berarti owner keluar dari halaman rekap di tengah proses.
-		const recordedNotes = new Set(
-			extraTxnRows
+		// Sudah masuk buku ATAU sudah antre untuk dibukukan saat settle — dua-duanya
+		// berarti "jangan catat lagi".
+		const recordedNotes = new Set([
+			...extraTxnRows
 				.filter((r) => r.isOut)
 				.map((r) => r.description.trim().toLowerCase()),
-		);
+			...queuedEntries
+				.filter((q) => q.kind === "expense" && q.direction === "keluar")
+				.map((q) => (q.note ?? "").trim().toLowerCase()),
+		]);
 		const catatPrefillFor = (
 			catatKey: string,
 			amount: number,
@@ -875,13 +906,17 @@ export default async function EventRekapPage({
 						state={salesCommissionState}
 						candidates={salesCandidates}
 						cashAccounts={cashAccounts}
-						readOnly={isSettled}
+						queuedPayment={
+							queuedEntries.find((q) => q.kind === "commission_sales") ?? null
+						}
+						isSettled={isSettled}
 					/>
 
 					<EventExtraTransactions
 						eventId={event.id as string}
 						projectId={projectId}
 						rows={extraTxnRows}
+						queued={queuedEntries}
 						cashAccounts={cashAccounts}
 						ownerPaidPending={ownerPaidPending}
 					/>
@@ -929,6 +964,23 @@ export default async function EventRekapPage({
 											}
 										: null
 								}
+								queued={{
+									expenseOut: queuedEntries
+										.filter(
+											(q) => q.kind === "expense" && q.direction === "keluar",
+										)
+										.reduce((s, q) => s + q.amount, 0),
+									expenseIn: queuedEntries
+										.filter(
+											(q) => q.kind === "expense" && q.direction === "masuk",
+										)
+										.reduce((s, q) => s + q.amount, 0),
+									count: queuedEntries.length,
+									salesCommissionPayment:
+										queuedEntries.find((q) => q.kind === "commission_sales")
+											?.amount ?? null,
+								}}
+								netProfitAfterExtra={profitPreview.net_profit_after_extra}
 								disabled={Boolean(settleDisabledReason)}
 								disabledReason={settleDisabledReason}
 							/>
@@ -976,13 +1028,17 @@ export default async function EventRekapPage({
 						state={salesCommissionState}
 						candidates={salesCandidates}
 						cashAccounts={cashAccounts}
-						readOnly={isSettled}
+						queuedPayment={
+							queuedEntries.find((q) => q.kind === "commission_sales") ?? null
+						}
+						isSettled={isSettled}
 					/>
 
 					<EventExtraTransactions
 						eventId={event.id as string}
 						projectId={projectId}
 						rows={extraTxnRows}
+						queued={queuedEntries}
 						cashAccounts={cashAccounts}
 						ownerPaidPending={ownerPaidPending}
 					/>

@@ -177,6 +177,56 @@ export function ProfitPreviewCard({ preview, className = "" }: Props) {
 				</span>
 			</div>
 
+			{/* Uang keluar/masuk lain yang menempel di event tapi dibukukan sebagai
+			    jurnal kas tersendiri — tidak masuk net_profit settlement, tapi tetap
+			    uang event ini. Ditampilkan supaya laba yang dilihat owner = laba
+			    event yang sebenarnya. */}
+			{(preview.extra.expenseTotal > 0 || preview.extra.incomeTotal > 0) && (
+				<>
+					{preview.extra.expenseTotal > 0 && (
+						<Row
+							label="Pengeluaran lain (di luar rekap)"
+							value={preview.extra.expenseTotal}
+							sign="−"
+							muted
+						/>
+					)}
+					{preview.extra.incomeTotal > 0 && (
+						<Row
+							label="Pemasukan lain"
+							value={preview.extra.incomeTotal}
+							muted
+						/>
+					)}
+					<div className="flex items-baseline justify-between py-1">
+						<span className="text-sm font-medium text-foreground">
+							Laba akhir event
+						</span>
+						<span
+							className={`tabular text-base font-semibold ${
+								preview.net_profit_after_extra <= 0
+									? "text-amber-900 dark:text-amber-200"
+									: "text-foreground"
+							}`}
+						>
+							{formatRupiah(preview.net_profit_after_extra)}
+						</span>
+					</div>
+					{preview.extra.expenseQueued + preview.extra.incomeQueued > 0 && (
+						<p className="pb-1 text-[11px] text-muted-foreground">
+							Termasuk{" "}
+							<span className="tabular">
+								{formatRupiah(
+									preview.extra.expenseQueued + preview.extra.incomeQueued,
+								)}
+							</span>{" "}
+							yang masih menunggu settle. Alokasi sinking fund & owner pool di
+							bawah tetap dihitung dari net profit settlement.
+						</p>
+					)}
+				</>
+			)}
+
 			{!preview.is_loss && (
 				<>
 					<Row

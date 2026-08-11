@@ -330,7 +330,7 @@ export function CrewFeeForm({
 											</span>
 											{it.catatRecorded ? (
 												<span className="ml-auto inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-													Sudah dicatat
+													Sudah masuk daftar
 												</span>
 											) : it.catatPrefill ? (
 												<button

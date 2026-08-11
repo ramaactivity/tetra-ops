@@ -68,6 +68,18 @@ type Props = {
 		payeeName: string | null;
 		amount: number;
 	} | null;
+	/**
+	 * Yang diisi di kartu-kartu rekap & baru dibukukan saat settle ini —
+	 * ditampilkan sebagai bagian final check, bukan untuk diedit di sini.
+	 */
+	queued?: {
+		expenseOut: number;
+		expenseIn: number;
+		count: number;
+		salesCommissionPayment: number | null;
+	} | null;
+	/** Laba akhir event setelah pengeluaran/pemasukan lain. */
+	netProfitAfterExtra?: number;
 };
 
 /**
@@ -131,6 +143,13 @@ export function SettleButton(props: Props) {
 	// Komisi sales Tetra hanya DITAMPILKAN di sini (final check) — diisi &
 	// dibayar dari kartunya sendiri di halaman rekap.
 	const salesInfo = props.salesCommission ?? null;
+	const queued = props.queued ?? null;
+	// Ditampilkan cuma kalau memang beda dari net profit settlement.
+	const netAfterExtra =
+		props.netProfitAfterExtra !== undefined &&
+		props.netProfitAfterExtra !== props.netProfit
+			? props.netProfitAfterExtra
+			: null;
 
 	// Kebutuhan uang per rekening — kalau fee crew & komisi dibayar dari rekening
 	// yang sama, saldonya harus cukup untuk SEMUANYA, bukan masing-masing.
@@ -185,9 +204,11 @@ export function SettleButton(props: Props) {
 			}
 			const cp = result.crewPayment;
 			const km = result.commissionPayment;
+			const q = result.queue;
 			const done: string[] = [];
 			if (cp && cp.paid > 0) done.push(`${cp.paid} fee crew`);
 			if (km?.paid) done.push(`komisi ${km.payeeName}`);
+			if (q && q.posted > 0) done.push(`${q.posted} transaksi dibukukan`);
 			if (done.length > 0) {
 				toast.success(`Event di-settle + ${done.join(" & ")} dibayar.`);
 			} else {
@@ -198,6 +219,11 @@ export function SettleButton(props: Props) {
 			if (cp && cp.failed > 0) {
 				toast.error(
 					`${cp.failed} fee crew gagal dibayar — cek & bayar manual di Fee crew.`,
+				);
+			}
+			if (q && q.failed > 0) {
+				toast.error(
+					`${q.failed} transaksi gagal dibukukan (${q.errors[0] ?? "unknown"}) — event tetap ter-settle, cek kartu Pemasukan/pengeluaran lain.`,
 				);
 			}
 			if (km && !km.paid) {
@@ -306,6 +332,14 @@ export function SettleButton(props: Props) {
 										</span>
 										)
 									</li>
+									{queued && queued.count > 0 && (
+										<li>
+											Bukukan {queued.count} transaksi dari kartu rekap
+											{queued.salesCommissionPayment
+												? " (termasuk bayar komisi sales)"
+												: ""}
+										</li>
+									)}
 									<li>Lock event + recap (tidak bisa di-edit lagi)</li>
 									<li>
 										Audit log dengan timestamp + actor
@@ -342,12 +376,40 @@ export function SettleButton(props: Props) {
 											</dd>
 										</>
 									)}
+									{queued && queued.expenseOut > 0 && (
+										<>
+											<dt className="text-muted-foreground">
+												Pengeluaran lain
+											</dt>
+											<dd className="tabular text-right text-foreground">
+												{formatRupiah(queued.expenseOut)}
+											</dd>
+										</>
+									)}
+									{queued && queued.expenseIn > 0 && (
+										<>
+											<dt className="text-muted-foreground">Pemasukan lain</dt>
+											<dd className="tabular text-right text-foreground">
+												{formatRupiah(queued.expenseIn)}
+											</dd>
+										</>
+									)}
 									<dt className="border-t border-border-default pt-1.5 text-sm font-medium text-foreground">
 										Net profit
 									</dt>
 									<dd className="tabular border-t border-border-default pt-1.5 text-right text-sm font-semibold text-foreground">
 										{formatRupiah(props.netProfit)}
 									</dd>
+									{netAfterExtra !== null && (
+										<>
+											<dt className="text-sm font-medium text-foreground">
+												Laba akhir event
+											</dt>
+											<dd className="tabular text-right text-sm font-semibold text-foreground">
+												{formatRupiah(netAfterExtra)}
+											</dd>
+										</>
+									)}
 								</dl>
 							</section>
 

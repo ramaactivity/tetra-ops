@@ -520,60 +520,6 @@ export async function recordQuickTransaction(
  * manual, belum pernah dibalik, tidak menyentuh modal awal, bertanggal setelah
  * cutoff, dan tidak membuat kas/bank minus.
  */
-/**
- * Catat SEKALIGUS beberapa biaya event (mis. semua biaya lapangan yang dibayar
- * owner) lewat jalur Catat transaksi yang sama — satu rekening untuk semuanya.
- *
- * Kenapa perlu: biaya yang dibayar owner sengaja TIDAK ikut Hutang Crew di
- * settlement, jadi harus dibukukan terpisah. Mencatatnya satu per satu (pilih
- * rekening, simpan, ulangi) bikin owner malas → beban tidak pernah masuk buku.
- *
- * Best-effort per baris: satu baris gagal (mis. saldo kurang) tidak membatalkan
- * yang lain; yang gagal dilaporkan balik supaya bisa diulang.
- */
-export type RecordEventExpensesResult = {
-	recorded: number;
-	failed: number;
-	errors: string[];
-};
-
-export async function recordEventExpensesBatch(input: {
-	event_id: string;
-	account_code: string;
-	items: Array<{
-		category_id: string;
-		amount: number;
-		note: string;
-		proof_url?: string | null;
-	}>;
-}): Promise<RecordEventExpensesResult> {
-	await requireOwnerLevel();
-	const today = new Date().toISOString().slice(0, 10);
-	let recorded = 0;
-	let failed = 0;
-	const errors: string[] = [];
-	for (const item of input.items) {
-		if (!(Number(item.amount) > 0)) continue;
-		const fd = new FormData();
-		fd.set("direction", "keluar");
-		fd.set("amount", String(Math.trunc(Number(item.amount))));
-		fd.set("entry_date", today);
-		fd.set("account_code", input.account_code);
-		fd.set("category_id", item.category_id);
-		fd.set("event_id", input.event_id);
-		if (item.note?.trim()) fd.set("note", item.note.trim());
-		if (item.proof_url) fd.set("proof_url", item.proof_url);
-		const res = await recordQuickTransaction(undefined, fd);
-		if (res?.success) {
-			recorded += 1;
-		} else {
-			failed += 1;
-			errors.push(`${item.note}: ${res?.error ?? "gagal"}`);
-		}
-	}
-	return { recorded, failed, errors };
-}
-
 export async function reverseJournalEntry(
 	entryId: string,
 	reason: string,
