@@ -12,6 +12,7 @@ import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
+import { waLink } from "@/lib/whatsapp";
 
 const HORIZON_DAYS = 14; // 2 weeks rolling window
 const ROLE_LABELS: Record<string, string> = {
@@ -44,7 +45,13 @@ type AssignmentJoin = {
 	user_id: string;
 	role_in_event: string;
 	event:
-		| { id: string; project_id: string; client_name: string; event_date: string; venue_name: string }
+		| {
+				id: string;
+				project_id: string;
+				client_name: string;
+				event_date: string;
+				venue_name: string;
+		  }
 		| Array<{
 				id: string;
 				project_id: string;
@@ -285,7 +292,7 @@ export default async function CrewScheduleView({
 															<>
 																<span>·</span>
 																<a
-																	href={`https://wa.me/${c.phone_wa.replace(/^\+|^0/, "62")}`}
+																	href={waLink(c.phone_wa) ?? undefined}
 																	target="_blank"
 																	rel="noopener noreferrer"
 																	className="text-primary hover:underline tabular inline-flex items-center gap-0.5"

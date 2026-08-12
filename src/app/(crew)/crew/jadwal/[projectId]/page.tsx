@@ -11,6 +11,7 @@ import {
 	MapPin,
 	Navigation,
 	Package,
+	Plus,
 	Sparkles,
 	Star,
 	User,
@@ -25,7 +26,11 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { listMissingFields } from "@/lib/events/tbc";
-import { FRAME_SIZE_LABELS, venueLabel } from "@/lib/format";
+import {
+	backdropOriginLabel,
+	FRAME_SIZE_LABELS,
+	venueLabel,
+} from "@/lib/format";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -33,6 +38,7 @@ import {
 } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { waLink } from "@/lib/whatsapp";
 
 const ROLE_LABELS: Record<string, string> = {
 	lead: "Lead",
@@ -47,12 +53,9 @@ const TIER_LABELS: Record<string, string> = {
 
 const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
 
-function whatsAppLink(raw: string | null | undefined): string | null {
-	if (!raw) return null;
-	const cleaned = raw.replace(/[^\d+]/g, "");
-	if (!cleaned) return null;
-	return `https://wa.me/${cleaned.replace(/^\+|^0/, "62")}`;
-}
+// Normalisasi nomor dipusatkan di lib/whatsapp (termasuk nomor yang tersimpan
+// tanpa angka 0 di depan) — jangan bikin varian baru di sini.
+const whatsAppLink = waLink;
 
 export default async function CrewEventDetailPage({
 	params,
@@ -81,6 +84,7 @@ export default async function CrewEventDetailPage({
 			pending_package_hours,
 			package:packages(name, duration_hours, frame_size),
 			backdrop:backdrops(name, type),
+			event_addons:event_addons(quantity, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
 				role_in_event,
@@ -111,6 +115,16 @@ export default async function CrewEventDetailPage({
 		user:
 			| { id: string; full_name: string; tier: string | null }
 			| Array<{ id: string; full_name: string; tier: string | null }>
+			| null;
+	}>;
+
+	// Add-on = yang dibayar klien dan HARUS dikasih hari-H. Nama & jumlah saja —
+	// harga tidak pernah diperlihatkan ke crew.
+	const eventAddons = (event.event_addons ?? []) as Array<{
+		quantity: number;
+		addon:
+			| { name: string; unit: string; category: string }
+			| Array<{ name: string; unit: string; category: string }>
 			| null;
 	}>;
 
@@ -217,6 +231,10 @@ export default async function CrewEventDetailPage({
 	const backdrop = Array.isArray(event.backdrop)
 		? event.backdrop[0]
 		: event.backdrop;
+	// Siapa yang membawa backdropnya — pertanyaan pertama crew di lokasi.
+	const backdropOrigin = backdrop?.name
+		? backdropOriginLabel(backdrop.name, backdrop.type)
+		: null;
 	const eventTypeLabelByCode = new Map(
 		((eventTypesData ?? []) as Array<{ code: string; label: string }>).map(
 			(t) => [t.code, t.label],
@@ -464,16 +482,30 @@ export default async function CrewEventDetailPage({
 				<section className="rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
 					<span className="eyebrow">Detail paket</span>
 					<dl className="mt-1 divide-y divide-border-subtle">
+						{/* Baris yang datanya belum turun ditulis "menyusul" — jangan kosong
+						    atau dilabeli "Custom", karena crew membacanya sebagai sudah
+						    diputuskan. Sejalan dengan panel TBC di bawah. */}
 						<DetailRow label="Paket">
-							{pkg?.name ?? (
-								<span className="text-muted-foreground">Custom</span>
-							)}
+							{pkg?.name ??
+								(event.pending_package_hours ? (
+									<span className="text-muted-foreground">
+										Belum final · {event.pending_package_hours} jam
+									</span>
+								) : (
+									<span className="text-muted-foreground">Custom</span>
+								))}
 						</DetailRow>
 						<DetailRow label="Frame">
-							{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
+							{event.frame_size ? (
+								(FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size)
+							) : (
+								<span className="text-muted-foreground">Menyusul</span>
+							)}
 						</DetailRow>
-						{pkg?.duration_hours ? (
-							<DetailRow label="Durasi">{pkg.duration_hours} jam</DetailRow>
+						{pkg?.duration_hours || event.pending_package_hours ? (
+							<DetailRow label="Durasi">
+								{pkg?.duration_hours ?? event.pending_package_hours} jam
+							</DetailRow>
 						) : null}
 						<DetailRow label="Flashdisk & Pouch">
 							{includeFlashdiskPouch === null ? (
@@ -487,8 +519,18 @@ export default async function CrewEventDetailPage({
 							)}
 						</DetailRow>
 						<DetailRow label="Backdrop">
-							{backdrop?.name ?? (
-								<span className="text-muted-foreground">—</span>
+							{backdrop?.name ? (
+								<>
+									{backdrop.name}
+									{backdropOrigin ? (
+										<span className="text-muted-foreground">
+											{" "}
+											({backdropOrigin})
+										</span>
+									) : null}
+								</>
+							) : (
+								<span className="text-muted-foreground">Menyusul</span>
 							)}
 						</DetailRow>
 					</dl>
@@ -637,6 +679,41 @@ export default async function CrewEventDetailPage({
 							Upload footage di Google Drive
 							<ExternalLink className="h-3.5 w-3.5" />
 						</a>
+					</section>
+				)}
+
+				{/* Add-on yang dibeli klien — sama wajibnya dengan bonus, dan sebelumnya
+				    cuma ada di pesan WA. Tanpa harga (rahasia bisnis). */}
+				{eventAddons.length > 0 && (
+					<section className="space-y-2 rounded-2xl border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">
+						<h2 className="eyebrow flex items-center gap-1.5">
+							<Plus className="h-3.5 w-3.5" />
+							Add-on yang dibeli klien
+						</h2>
+						<p className="type-secondary">
+							Sudah dibayar klien — wajib disiapkan &amp; diserahkan hari-H.
+						</p>
+						<ul className="space-y-1.5">
+							{eventAddons.map((a) => {
+								const addon = Array.isArray(a.addon) ? a.addon[0] : a.addon;
+								return (
+									<li
+										key={`${addon?.name ?? "addon"}-${a.quantity}`}
+										className="text-foreground text-sm"
+									>
+										<span className="font-medium">
+											{a.quantity}× {addon?.name ?? "—"}
+										</span>
+										{addon?.unit && (
+											<span className="text-muted-foreground">
+												{" "}
+												({addon.unit})
+											</span>
+										)}
+									</li>
+								);
+							})}
+						</ul>
 					</section>
 				)}
 

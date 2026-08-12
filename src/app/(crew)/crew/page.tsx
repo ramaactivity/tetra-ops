@@ -18,6 +18,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { venueLabel } from "@/lib/format";
 import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
+import { waLink } from "@/lib/whatsapp";
 
 const ID_DATE_FULL = new Intl.DateTimeFormat("id-ID", {
 	weekday: "long",
@@ -271,7 +272,7 @@ export default async function CrewHomePage() {
 													{ev.pic_name}
 												</span>
 												<a
-													href={`https://wa.me/${ev.pic_wa.replace(/^\+|^0/, "62")}`}
+													href={waLink(ev.pic_wa) ?? undefined}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="type-caption tabular ml-auto inline-flex items-center gap-0.5 text-link hover:underline"

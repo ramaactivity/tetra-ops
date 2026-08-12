@@ -6,6 +6,7 @@ import {
 	CatalogExplorer,
 } from "@/components/catalog/catalog-explorer";
 import { Badge } from "@/components/ui/badge";
+import { waLink } from "@/lib/whatsapp";
 
 export type ContactRow = {
 	id: string;
@@ -31,7 +32,7 @@ function typeLabel(t: string) {
 }
 
 function waHref(phone: string) {
-	return `https://wa.me/${phone.replace(/^\+|^0/, "62")}`;
+	return waLink(phone) ?? undefined;
 }
 
 const columns: CatalogColumn<ContactRow>[] = [

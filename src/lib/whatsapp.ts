@@ -1,5 +1,5 @@
 import { listMissingFields } from "@/lib/events/tbc";
-import { formatDateID, formatRupiah } from "@/lib/format";
+import { backdropOriginLabel, formatDateID, formatRupiah } from "@/lib/format";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -11,12 +11,36 @@ import {
  * - "081234567890" → "6281234567890"
  * - "+6281234567890" → "6281234567890"
  * - "62 812 3456 7890" → "6281234567890"
+ * - "81234567890"  → "6281234567890"
+ *
+ * Bentuk terakhir itu bukan teori: 48 event & 70 kontak tersimpan tanpa angka 0
+ * di depan (khas nomor yang lewat Excel/CSV — nol-nya dimakan). Tanpa dinormalkan,
+ * link wa.me-nya mati dan crew mengira nomor PIC-nya salah.
  */
 export function toWaPhone(phone: string): string {
 	const digits = phone.replace(/\D/g, "");
 	if (digits.startsWith("62")) return digits;
 	if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+	if (digits.startsWith("8")) return `62${digits}`;
 	return digits;
+}
+
+/**
+ * Cukup masuk akal untuk dijadikan link wa.me? Nomor Indonesia yang benar jadi
+ * 62 + 9–13 digit. Data lama menyimpan potongan seperti "92908" — lebih baik
+ * ditampilkan apa adanya tanpa link daripada mengirim orang ke chat yang salah.
+ */
+export function isLikelyWaPhone(phone: string | null | undefined): boolean {
+	if (!phone) return false;
+	const normalized = toWaPhone(phone);
+	return /^62\d{9,13}$/.test(normalized);
+}
+
+/** Link wa.me kalau nomornya masuk akal, null kalau tidak. */
+export function waLink(phone: string | null | undefined): string | null {
+	return isLikelyWaPhone(phone)
+		? `https://wa.me/${toWaPhone(phone as string)}`
+		: null;
 }
 
 /**
@@ -55,6 +79,12 @@ const BACKDROP_LABELS: Record<string, string> = {
 	silver: "Silver",
 	custom: "Custom (lihat brief)",
 };
+
+/** "Basic Red (bawaan paket)" — nama backdrop plus siapa yang membawanya. */
+function withBackdropOrigin(name: string, type?: string | null): string {
+	const origin = backdropOriginLabel(name, type);
+	return origin ? `${name} (${origin})` : name;
+}
 
 const DATE_WITH_DAY = new Intl.DateTimeFormat("id-ID", {
 	weekday: "long",
@@ -150,8 +180,15 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 	const picLines = [`👤 *PIC DI LOKASI*`];
 	if (ev.pic_name || ev.pic_wa) {
 		if (ev.pic_name) picLines.push(ev.pic_name);
-		if (ev.pic_wa) picLines.push(`📞 wa.me/${toWaPhone(ev.pic_wa)}`);
-		else picLines.push("📞 Nomor _menyusul_");
+		if (ev.pic_wa) {
+			// Nomor cacat (data lama) dikirim apa adanya — jangan dibungkus jadi
+			// link wa.me yang menuju chat orang lain.
+			picLines.push(
+				isLikelyWaPhone(ev.pic_wa)
+					? `📞 wa.me/${toWaPhone(ev.pic_wa)}`
+					: `📞 ${ev.pic_wa}`,
+			);
+		} else picLines.push("📞 Nomor _menyusul_");
 	} else {
 		picLines.push("_Belum ditentukan._");
 	}
@@ -159,9 +196,7 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 
 	// Package + spec — dedupe frame/duration if already mentioned in package name
 	const backdropLabel = ev.backdrop_name
-		? ev.backdrop_type && ev.backdrop_type !== ev.backdrop_name
-			? `${ev.backdrop_name} (${ev.backdrop_type})`
-			: ev.backdrop_name
+		? withBackdropOrigin(ev.backdrop_name, ev.backdrop_type)
 		: ev.backdrop_color
 			? (BACKDROP_LABELS[ev.backdrop_color] ?? ev.backdrop_color)
 			: null;

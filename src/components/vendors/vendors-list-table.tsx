@@ -8,6 +8,7 @@ import {
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
 import { formatRupiah } from "@/lib/format";
+import { toWaPhone } from "@/lib/whatsapp";
 
 export type VendorRowDisplay = {
 	vendor_id: string;
@@ -86,7 +87,7 @@ export function VendorsListTable({ vendors }: { vendors: VendorRowDisplay[] }) {
 			render: (v) =>
 				v.default_pic_contact ? (
 					<a
-						href={`https://wa.me/${cleanWaNumber(v.default_pic_contact)}`}
+						href={`https://wa.me/${toWaPhone(v.default_pic_contact)}`}
 						target="_blank"
 						rel="noopener noreferrer"
 						className="tabular inline-flex items-center gap-1.5 text-fluid-caption text-link hover:underline"
@@ -182,12 +183,4 @@ export function VendorsListTable({ vendors }: { vendors: VendorRowDisplay[] }) {
 			keyExtractor={(v) => v.vendor_id}
 		/>
 	);
-}
-
-/** Strip non-digits + normalize Indonesian 08x → 628x for wa.me URLs. */
-function cleanWaNumber(raw: string): string {
-	const digits = raw.replace(/\D/g, "");
-	if (digits.startsWith("0")) return `62${digits.slice(1)}`;
-	if (digits.startsWith("62")) return digits;
-	return digits;
 }

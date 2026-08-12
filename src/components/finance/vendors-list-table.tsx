@@ -7,6 +7,7 @@ import {
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
 import { formatDateID, formatRupiah } from "@/lib/format";
+import { waLink } from "@/lib/whatsapp";
 
 /**
  * <VendorsListTable /> — client wrapper for finance/vendors aggregate.
@@ -112,7 +113,7 @@ export function VendorsListTable({ vendors }: { vendors: VendorStats[] }) {
 			render: (v) =>
 				v.contactPhone ? (
 					<a
-						href={`https://wa.me/${v.contactPhone.replace(/^\+|^0/, "62")}`}
+						href={waLink(v.contactPhone) ?? undefined}
 						target="_blank"
 						rel="noopener noreferrer"
 						className="tabular inline-flex items-center gap-1 text-fluid-caption text-primary hover:underline"

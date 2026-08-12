@@ -44,6 +44,35 @@ export const FRAME_SIZE_LABELS: Record<string, string> = {
 	none: "—",
 };
 
+/**
+ * Tipe backdrop dalam bahasa manusia. Crew cuma perlu tahu SIAPA yang membawa
+ * backdropnya — kode mentah ("client_provided") tidak berarti apa-apa di WA.
+ */
+export const BACKDROP_TYPE_LABELS: Record<string, string> = {
+	basic_included: "bawaan paket",
+	rental_owned: "sewa dari Tetra",
+	client_provided: "disiapkan klien",
+	vendor_decor: "dekor vendor",
+};
+
+/**
+ * Keterangan asal backdrop untuk ditempel di belakang namanya — atau null kalau
+ * namanya sudah menyiratkan hal yang sama ("Dari Klien", "Vendor Decor"), biar
+ * tidak jadi "Dari Klien (disiapkan klien)".
+ */
+export function backdropOriginLabel(
+	name: string,
+	type?: string | null,
+): string | null {
+	const origin = type ? BACKDROP_TYPE_LABELS[type] : null;
+	if (!origin) return null;
+	const lowerName = name.toLowerCase();
+	const alreadySaid = origin
+		.split(/\s+/)
+		.some((w) => w.length >= 4 && lowerName.includes(w.toLowerCase()));
+	return alreadySaid ? null : origin;
+}
+
 export const ADDON_CATEGORY_LABELS: Record<string, string> = {
 	voucher: "Voucher",
 	print_extras: "Print Extras",

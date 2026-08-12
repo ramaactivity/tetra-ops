@@ -6,6 +6,7 @@ import {
 	ResponsiveTable,
 	type ResponsiveTableColumn,
 } from "@/components/ui/responsive-table";
+import { waLink } from "@/lib/whatsapp";
 
 /**
  * <ContactsListTable /> — client wrapper for settings/contacts.
@@ -68,7 +69,7 @@ export function ContactsListTable({ contacts }: { contacts: ContactRow[] }) {
 			render: (c) =>
 				c.phone ? (
 					<a
-						href={`https://wa.me/${c.phone.replace(/^\+|^0/, "62")}`}
+						href={waLink(c.phone) ?? undefined}
 						target="_blank"
 						rel="noopener noreferrer"
 						className="tabular inline-flex items-center gap-1 text-fluid-caption text-primary hover:underline"

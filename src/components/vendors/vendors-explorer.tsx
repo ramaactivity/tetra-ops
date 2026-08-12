@@ -9,6 +9,7 @@ import {
 import { EditLink } from "@/components/catalog/form-kit";
 import { Badge } from "@/components/ui/badge";
 import { formatRupiah } from "@/lib/format";
+import { toWaPhone } from "@/lib/whatsapp";
 
 export type VendorRowDisplay = {
 	vendor_id: string;
@@ -47,13 +48,6 @@ function formatDateID(d: string | null): string {
 	});
 }
 
-function cleanWaNumber(raw: string): string {
-	const digits = raw.replace(/\D/g, "");
-	if (digits.startsWith("0")) return `62${digits.slice(1)}`;
-	if (digits.startsWith("62")) return digits;
-	return digits;
-}
-
 const columns: CatalogColumn<VendorRowDisplay>[] = [
 	{
 		key: "name",
@@ -82,7 +76,7 @@ const columns: CatalogColumn<VendorRowDisplay>[] = [
 		cell: (v) =>
 			v.default_pic_contact ? (
 				<a
-					href={`https://wa.me/${cleanWaNumber(v.default_pic_contact)}`}
+					href={`https://wa.me/${toWaPhone(v.default_pic_contact)}`}
 					target="_blank"
 					rel="noopener noreferrer"
 					className="tabular text-link inline-flex items-center gap-1.5 text-sm hover:underline"

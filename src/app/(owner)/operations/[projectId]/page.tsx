@@ -54,6 +54,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { waLink } from "@/lib/whatsapp";
 
 export default async function EventDetailPage({
 	params,
@@ -590,7 +591,7 @@ export default async function EventDetailPage({
 								<DetailRow label="WA Klien">
 									{event.client_wa && event.client_wa !== "-" ? (
 										<a
-											href={`https://wa.me/${event.client_wa.replace(/^\+|^0/, "62")}`}
+											href={waLink(event.client_wa) ?? undefined}
 											target="_blank"
 											rel="noopener noreferrer"
 											className="tabular inline-flex items-center gap-1 text-[#0070f3] hover:underline"
@@ -618,7 +619,7 @@ export default async function EventDetailPage({
 											<span className="block">{bookerContact.name}</span>
 											{bookerContact.phone && (
 												<a
-													href={`https://wa.me/${bookerContact.phone.replace(/^\+|^0/, "62")}`}
+													href={waLink(bookerContact.phone) ?? undefined}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
@@ -639,7 +640,7 @@ export default async function EventDetailPage({
 											)}
 											{picDisplayPhone && (
 												<a
-													href={`https://wa.me/${picDisplayPhone.replace(/^\+|^0/, "62")}`}
+													href={waLink(picDisplayPhone) ?? undefined}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
@@ -672,6 +673,22 @@ export default async function EventDetailPage({
 								<DetailRow label="Provinsi">
 									{event.venue_province ?? "—"}
 								</DetailRow>
+								{/* Link maps ikut terkirim ke crew lewat WA — owner harus bisa
+								    melihat ada/tidaknya dari sini, bukan cuma dari form edit. */}
+								<DetailRow label="Google Maps">
+									{event.google_maps_url ? (
+										<a
+											href={event.google_maps_url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="text-primary underline underline-offset-2"
+										>
+											Buka di Maps
+										</a>
+									) : (
+										<span className="text-muted-foreground">— belum diisi</span>
+									)}
+								</DetailRow>
 							</dl>
 						</CollapsibleCard>
 					</div>
@@ -691,7 +708,13 @@ export default async function EventDetailPage({
 										event.service_type}
 								</DetailRow>
 								<DetailRow label="Frame">
-									{FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size}
+									{event.frame_size ? (
+										(FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size)
+									) : (
+										<span className="text-muted-foreground">
+											— belum dipilih
+										</span>
+									)}
 								</DetailRow>
 								<DetailRow label="Package">
 									{pkg ? (
