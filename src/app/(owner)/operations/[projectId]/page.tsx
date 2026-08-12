@@ -41,6 +41,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { listMissingFields } from "@/lib/events/tbc";
+import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
@@ -89,6 +90,8 @@ export default async function EventDetailPage({
 			event_date_is_estimate, design_frame_size,
 			event_category, event_date,
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
+			google_maps_url, custom_package_name, backdrop_color,
+			vendor_name, vendor_pic_name, vendor_contact,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			vendor_commission_mode, vendor_commission_amount,
@@ -287,24 +290,13 @@ export default async function EventDetailPage({
 		return u?.full_name ?? null;
 	}
 
-	const eventForWA = {
-		project_id: event.project_id,
-		client_name: event.client_name,
-		client_wa: event.client_wa,
-		event_date: event.event_date,
-		setup_time: event.setup_time,
-		start_time: event.start_time,
-		end_time: event.end_time,
-		session_segments: event.session_segments,
-		venue_name: event.venue_name,
-		due_date: null,
-		total_paid: event.total_paid,
-		remaining_balance: event.remaining_balance,
-		package_name: pkg?.name ?? null,
-		duration_hours: pkg?.duration_hours ?? null,
+	// Satu perakit untuk semua pesan WA (klien & crew) — lihat lib/events/wa-event.ts.
+	// Dulu dirakit tangan di sini dan maps + PIC kelupaan, jadi reminder ke crew
+	// berangkat tanpa link lokasi & nomor PIC padahal datanya ada.
+	const eventForWA = toEventForWA(event as unknown as WaEventRow, {
 		crew_lead: crewByRole("lead"),
 		crew_asisten: crewByRole("asisten"),
-	};
+	});
 
 	const categoryLabel = event.event_category
 		? (eventTypeLabelByCode.get(event.event_category) ?? event.event_category)
@@ -539,8 +531,7 @@ export default async function EventDetailPage({
 					/>
 					<div className="min-w-0 flex-1 space-y-1">
 						<p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
-							Data event belum lengkap — {missingInfo.length} hal masih
-							menyusul
+							Data event belum lengkap — {missingInfo.length} hal masih menyusul
 						</p>
 						<p className="text-[13px] text-amber-900/85 dark:text-amber-200/85">
 							{missingInfo.join(" · ")}. Konfirmasi ke klien lalu lengkapi —

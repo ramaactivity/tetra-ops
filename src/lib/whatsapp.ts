@@ -1,3 +1,4 @@
+import { listMissingFields } from "@/lib/events/tbc";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import {
 	formatScheduleInline,
@@ -117,32 +118,44 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 		);
 	} else if (startT) {
 		scheduleLines.push(`🎥 Mulai: ${startT}${endT ? ` - ${endT}` : ""}`);
+	} else {
+		// Diam soal jam bikin crew mengira jamnya memang tidak penting. Sebut
+		// terang-terangan bahwa jamnya belum turun.
+		scheduleLines.push(`🎥 Mulai: _belum dipastikan_`);
 	}
 	sections.push(scheduleLines.join("\n"));
 
 	// Location
 	const locParts = [ev.venue_city, ev.venue_province].filter(Boolean);
-	const venueLine =
-		locParts.length > 0
-			? `${ev.venue_name}, ${locParts.join(", ")}`
-			: ev.venue_name;
-	const locLines = [`📍 *LOKASI*`, venueLine];
-	if (ev.venue_address) {
-		locLines.push(ev.venue_address);
-	}
-	if (ev.google_maps_url) {
-		locLines.push(`🗺 ${ev.google_maps_url}`);
+	const locLines = [`📍 *LOKASI*`];
+	if (ev.venue_name) {
+		locLines.push(
+			locParts.length > 0
+				? `${ev.venue_name}, ${locParts.join(", ")}`
+				: ev.venue_name,
+		);
+		if (ev.venue_address) {
+			locLines.push(ev.venue_address);
+		}
+		locLines.push(
+			ev.google_maps_url ? `🗺 ${ev.google_maps_url}` : "🗺 Link maps _menyusul_",
+		);
+	} else {
+		locLines.push("_Belum dipastikan — nanti dikabari._");
 	}
 	sections.push(locLines.join("\n"));
 
-	// PIC
-	if (ev.pic_name) {
-		const picLines = [`👤 *PIC DI LOKASI*`, ev.pic_name];
-		if (ev.pic_wa) {
-			picLines.push(`📞 wa.me/${toWaPhone(ev.pic_wa)}`);
-		}
-		sections.push(picLines.join("\n"));
+	// PIC — barisnya selalu ada. "Tidak ditampilkan" dan "belum ada PIC" harus
+	// kelihatan bedanya, kalau tidak crew berangkat tanpa tahu harus cari siapa.
+	const picLines = [`👤 *PIC DI LOKASI*`];
+	if (ev.pic_name || ev.pic_wa) {
+		if (ev.pic_name) picLines.push(ev.pic_name);
+		if (ev.pic_wa) picLines.push(`📞 wa.me/${toWaPhone(ev.pic_wa)}`);
+		else picLines.push("📞 Nomor _menyusul_");
+	} else {
+		picLines.push("_Belum ditentukan._");
 	}
+	sections.push(picLines.join("\n"));
 
 	// Package + spec — dedupe frame/duration if already mentioned in package name
 	const backdropLabel = ev.backdrop_name
@@ -199,6 +212,30 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 		sections.push([`📝 *CATATAN KHUSUS*`, ev.crew_notes.trim()].join("\n"));
 	}
 
+	// Yang masih ditunggu — sumbernya SAMA dengan chip TBC di aplikasi crew,
+	// reminder H-7/H-3 ke owner, dan digest Telegram (lib/events/tbc.ts). Dihitung
+	// di sini, bukan dioper pemanggil, supaya tidak ada tombol WA yang lupa.
+	const missing = listMissingFields({
+		event_date_is_estimate: ev.event_date_is_estimate,
+		venue_name: ev.venue_name,
+		start_time: ev.start_time,
+		frame_size: ev.frame_size,
+		backdrop_id: ev.backdrop_id,
+		pic_name: ev.pic_name,
+		pic_wa: ev.pic_wa,
+		pending_package_hours: ev.pending_package_hours,
+		package_frame_size: ev.package_frame_size,
+	});
+	if (missing.length > 0) {
+		sections.push(
+			[
+				`⚠️ *MASIH MENUNGGU KEPASTIAN*`,
+				...missing.map((m) => `• ${m}`),
+				"_Nanti diupdate begitu klien memastikan. Kalau H-1 masih kosong, tanya Managemen ya._",
+			].join("\n"),
+		);
+	}
+
 	// Footer
 	sections.push(
 		"—\nKonfirm di chat ini ya. Kalau ada kendala/pertanyaan langsung kabarin Managemen. Makasih banyak 🙏",
@@ -235,12 +272,15 @@ export type EventForWA = {
 	client_name: string;
 	client_wa: string;
 	event_date: string;
+	/** true = tanggalnya masih perkiraan (klien belum memastikan). */
+	event_date_is_estimate?: boolean | null;
 	setup_time: string | null;
 	start_time: string | null;
 	end_time?: string | null;
 	/** Raw events.session_segments JSONB — array (multi-sesi) or null. */
 	session_segments?: unknown;
-	venue_name: string;
+	/** Bisa null: venue termasuk hal yang boleh "menyusul" saat booking. */
+	venue_name: string | null;
 	venue_address?: string | null;
 	venue_city?: string | null;
 	venue_province?: string | null;
@@ -256,6 +296,10 @@ export type EventForWA = {
 	backdrop_color?: string | null;
 	backdrop_name?: string | null;
 	backdrop_type?: string | null;
+	/** Dipakai menghitung daftar TBC (lihat lib/events/tbc.ts). */
+	backdrop_id?: string | null;
+	package_frame_size?: string | null;
+	pending_package_hours?: number | null;
 	channel?: string | null;
 	vendor_name?: string | null;
 	vendor_pic_name?: string | null;
@@ -286,7 +330,7 @@ export function buildEventVars(
 		event_date: formatDateID(event.event_date),
 		setup_time: trimTime(event.setup_time),
 		start_time: trimTime(event.start_time),
-		venue_name: event.venue_name,
+		venue_name: event.venue_name ?? "—",
 		due_date: event.due_date ? formatDateID(event.due_date) : "—",
 		dp_amount: formatRupiah(event.total_paid ?? 0),
 		remaining_balance: formatRupiah(event.remaining_balance ?? 0),

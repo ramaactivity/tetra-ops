@@ -8,6 +8,11 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { getAssignableCrew } from "@/lib/crew/assignable";
+import {
+	toEventForWA,
+	WA_EVENT_SELECT,
+	type WaEventRow,
+} from "@/lib/events/wa-event";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ManageCrewPage({
@@ -20,19 +25,7 @@ export default async function ManageCrewPage({
 
 	const { data: event } = await supabase
 		.from("events")
-		.select(
-			`id, project_id, client_name, client_wa, event_date,
-			 setup_time, start_time, end_time,
-			 venue_name, venue_address, venue_city, venue_province, google_maps_url,
-			 pic_name, pic_wa,
-			 frame_size, backdrop_color, include_flashdisk_pouch, crew_notes,
-			 channel, vendor_name, vendor_pic_name, vendor_contact,
-			 due_date, total_paid, remaining_balance, custom_package_name,
-			 package:packages(name, duration_hours),
-			 backdrop:backdrops(name, type),
-			 event_addons(quantity, addon:addons(name, unit)),
-			 event_bonuses(quantity, notes, addon:addons(name, unit))`,
-		)
+		.select(`id, due_date, ${WA_EVENT_SELECT}`)
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (!event) notFound();
@@ -55,73 +48,7 @@ export default async function ManageCrewPage({
 		user: Array.isArray(a.user) ? a.user[0] : a.user,
 	})) as AssignmentRow[];
 
-	const pkg = (
-		Array.isArray(event.package) ? event.package[0] : event.package
-	) as { name: string | null; duration_hours: number | null } | null;
-
-	const backdrop = (
-		Array.isArray(event.backdrop) ? event.backdrop[0] : event.backdrop
-	) as { name: string | null; type: string | null } | null;
-
-	const addonRows = ((event.event_addons ?? []) as Array<{
-		quantity: number;
-		addon: { name: string; unit: string } | Array<{ name: string; unit: string }> | null;
-	}>)
-		.map((a) => {
-			const addon = Array.isArray(a.addon) ? a.addon[0] : a.addon;
-			if (!addon) return null;
-			return a.quantity > 1
-				? `${addon.name} × ${a.quantity}${addon.unit ? ` ${addon.unit}` : ""}`
-				: addon.name;
-		})
-		.filter((s): s is string => Boolean(s));
-
-	const bonusRows = ((event.event_bonuses ?? []) as Array<{
-		quantity: number;
-		notes: string | null;
-		addon: { name: string; unit: string } | Array<{ name: string; unit: string }> | null;
-	}>)
-		.map((b) => {
-			const addon = Array.isArray(b.addon) ? b.addon[0] : b.addon;
-			if (!addon) return null;
-			const label = `${b.quantity}× ${addon.name}${addon.unit ? ` (${addon.unit})` : ""}`;
-			return b.notes ? `${label} — ${b.notes}` : label;
-		})
-		.filter((s): s is string => Boolean(s));
-
-	const eventForWa = {
-		project_id: event.project_id,
-		client_name: event.client_name,
-		client_wa: event.client_wa ?? "",
-		event_date: event.event_date,
-		setup_time: event.setup_time,
-		start_time: event.start_time,
-		end_time: event.end_time,
-		venue_name: event.venue_name,
-		venue_address: event.venue_address ?? null,
-		venue_city: event.venue_city ?? null,
-		venue_province: event.venue_province ?? null,
-		google_maps_url: event.google_maps_url ?? null,
-		pic_name: event.pic_name ?? null,
-		pic_wa: event.pic_wa ?? null,
-		due_date: event.due_date ?? null,
-		total_paid: event.total_paid ?? null,
-		remaining_balance: event.remaining_balance ?? null,
-		package_name: pkg?.name ?? event.custom_package_name ?? null,
-		duration_hours: pkg?.duration_hours ?? null,
-		frame_size: event.frame_size ?? null,
-		backdrop_color: event.backdrop_color ?? null,
-		backdrop_name: backdrop?.name ?? null,
-		backdrop_type: backdrop?.type ?? null,
-		channel: event.channel ?? null,
-		vendor_name: event.vendor_name ?? null,
-		vendor_pic_name: event.vendor_pic_name ?? null,
-		vendor_contact: event.vendor_contact ?? null,
-		include_flashdisk_pouch: event.include_flashdisk_pouch ?? null,
-		addons_list: addonRows.length > 0 ? addonRows : null,
-		bonuses_list: bonusRows.length > 0 ? bonusRows : null,
-		crew_notes: event.crew_notes ?? null,
-	};
+	const eventForWa = toEventForWA(event as unknown as WaEventRow);
 
 	const availableCrew = await getAssignableCrew(
 		supabase,
