@@ -19,6 +19,13 @@ export type TbcSnapshot = {
 	pic_name?: string | null;
 	pic_wa?: string | null;
 	/**
+	 * PIC yang dipilih dari buku kontak. Wajib ikut diperiksa: sejak booking
+	 * form memakai contact picker, PIC sering hanya tersimpan sebagai relasi —
+	 * kolom pic_name/pic_wa tetap kosong. Tanpa ini, event yang PIC-nya sudah
+	 * jelas tetap dituduh "PIC lapangan belum ada" tiap hari.
+	 */
+	pic_contact_id?: string | null;
+	/**
 	 * Durasi paket yang sudah disepakati sementara ukurannya belum (lihat
 	 * lib/events/frame-package.ts). Terisi = paket event belum final.
 	 */
@@ -42,7 +49,9 @@ export function listMissingFields(ev: TbcSnapshot): string[] {
 	if (ev.event_date_is_estimate) missing.push("tanggal (masih perkiraan)");
 	if (!ev.venue_name) missing.push("lokasi");
 	if (!ev.start_time) missing.push("jam mulai");
-	if (!ev.pic_name && !ev.pic_wa) missing.push("PIC lapangan");
+	if (!ev.pic_name && !ev.pic_wa && !ev.pic_contact_id) {
+		missing.push("PIC lapangan");
+	}
 	// Paket tanpa cetak frame (Videobooth 360, Photo Stage) memang tidak punya
 	// ukuran — menuntutnya cuma bikin alarm palsu tiap hari.
 	const frameIrrelevant = ev.package_frame_size === "none";

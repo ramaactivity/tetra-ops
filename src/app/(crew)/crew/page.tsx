@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { PushPrompt } from "@/components/push/push-prompt";
 import { NeedsRekapSection } from "@/components/rekap/needs-rekap-section";
 import {
 	AppHeader,
@@ -15,6 +16,7 @@ import {
 	StatTile,
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { shiftISODate, todayWIB } from "@/lib/dates";
 import { venueLabel } from "@/lib/format";
 import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
@@ -27,10 +29,6 @@ const ID_DATE_FULL = new Intl.DateTimeFormat("id-ID", {
 	year: "numeric",
 });
 const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
-
-function isoDate(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 type EventLite = {
 	id: string;
@@ -66,17 +64,16 @@ export default async function CrewHomePage() {
 	if (!me) return null;
 
 	const today = new Date();
-	const todayISO = isoDate(today);
-	const tomorrow = new Date(today);
-	tomorrow.setDate(today.getDate() + 1);
-	const tomorrowISO = isoDate(tomorrow);
+	// Tanggal dihitung di WIB: server Vercel jalan di UTC, jadi antara 00:00–07:00
+	// WIB event hari-H akan dilabeli "Besok" — persis jam crew berangkat setup.
+	const todayISO = todayWIB();
+	const tomorrowISO = shiftISODate(todayISO, 1);
 	// Bulan berjalan — semua event bulan ini, dipisah "sudah selesai" vs "mendatang".
-	const monthStartISO = isoDate(
-		new Date(today.getFullYear(), today.getMonth(), 1),
-	);
-	const monthEndISO = isoDate(
-		new Date(today.getFullYear(), today.getMonth() + 1, 0),
-	);
+	const [curYear, curMonth] = todayISO.split("-").map(Number);
+	const monthStartISO = `${todayISO.slice(0, 7)}-01`;
+	const monthEndISO = new Date(Date.UTC(curYear, curMonth, 0))
+		.toISOString()
+		.slice(0, 10);
 	const monthName = new Intl.DateTimeFormat("id-ID", { month: "long" }).format(
 		today,
 	);
@@ -213,13 +210,16 @@ export default async function CrewHomePage() {
 							const sessions = parseSegments(ev.session_segments);
 							const multiSesi = hasBreak(sessions);
 							return (
-								<li key={ev.id}>
+								<li
+									key={ev.id}
+									className="overflow-hidden rounded-[16px] border border-border-default bg-card shadow-[var(--shadow-level-2)]"
+									style={{
+										viewTransitionName: `crew-event-${ev.project_id}`,
+									}}
+								>
 									<Link
 										href={`/crew/jadwal/${ev.project_id}`}
-										className="press tap block rounded-[16px] border border-border-default bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors active:bg-surface-3"
-										style={{
-											viewTransitionName: `crew-event-${ev.project_id}`,
-										}}
+										className="press tap block p-3.5 transition-colors active:bg-surface-3"
 									>
 										<div className="flex items-center gap-3.5">
 											<div className={cnTimeTone(isToday)} aria-hidden="true">
@@ -263,32 +263,47 @@ export default async function CrewHomePage() {
 											</div>
 											<ChevronRight className="size-4 shrink-0 self-center text-muted-foreground/50" />
 										</div>
-										{ev.pic_name && ev.pic_wa ? (
-											<div className="mt-3 flex items-center gap-1.5 border-t border-border-subtle pt-2.5">
-												<span className="type-caption font-medium text-amber-600 dark:text-amber-400">
-													PIC
-												</span>
-												<span className="type-caption text-foreground">
-													{ev.pic_name}
-												</span>
+									</Link>
+									{/* Baris PIC SENGAJA di luar <Link>: anchor di dalam anchor
+									    itu HTML ilegal — React melempar validateDOMNesting dan
+									    tap ke nomor PIC bisa nyasar membuka detail event. */}
+									{ev.pic_name || ev.pic_wa ? (
+										<div className="flex items-center gap-1.5 border-t border-border-subtle px-3.5 py-2.5">
+											<span className="type-caption font-medium text-amber-600 dark:text-amber-400">
+												PIC
+											</span>
+											<span className="type-caption truncate text-foreground">
+												{ev.pic_name ?? "—"}
+											</span>
+											{ev.pic_wa ? (
 												<a
 													href={waLink(ev.pic_wa) ?? undefined}
 													target="_blank"
 													rel="noopener noreferrer"
-													className="type-caption tabular ml-auto inline-flex items-center gap-0.5 text-link hover:underline"
+													className="type-caption tabular ml-auto inline-flex shrink-0 items-center gap-0.5 text-link hover:underline"
 												>
 													{ev.pic_wa}
 													<ExternalLink className="size-2.5" />
 												</a>
-											</div>
-										) : null}
-									</Link>
+											) : (
+												<span className="type-caption ml-auto shrink-0 text-muted-foreground">
+													nomor menyusul
+												</span>
+											)}
+										</div>
+									) : null}
 								</li>
 							);
 						})}
 					</ul>
 				)}
 			</Section>
+
+			{/* Tawaran aktifkan push — sebelumnya cuma dipasang di halaman owner,
+			    jadi tidak ada satu pun crew yang bisa berlangganan notifikasi. */}
+			<PushPrompt
+				vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+			/>
 		</AppScreen>
 	);
 }

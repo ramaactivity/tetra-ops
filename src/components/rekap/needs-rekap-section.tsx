@@ -1,5 +1,6 @@
 import { AlertCircle, ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
+import { todayWIB } from "@/lib/dates";
 import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -55,7 +56,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export async function NeedsRekapSection({ userId }: { userId: string }) {
 	const supabase = await createClient();
-	const todayISO = new Date().toISOString().slice(0, 10);
+	const todayISO = todayWIB();
 
 	const { data } = await supabase
 		.from("crew_assignments")

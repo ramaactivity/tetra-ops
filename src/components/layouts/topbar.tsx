@@ -60,7 +60,11 @@ export async function TopBar({
 				</div>
 				<div className="flex shrink-0 items-center gap-0.5">
 					<PrivacyToggle initialOn={privacyOn} />
-					<NotificationBell />
+					{/* Crew punya inbox sendiri: /notifications ada di grup (owner) dan
+					    memantulkan crew balik ke /crew — lonceng jadi jalan buntu. */}
+					<NotificationBell
+						href={role === "crew" ? "/crew/notifications" : "/notifications"}
+					/>
 					<UserMenu name={name} email={email} role={role} theme={theme} />
 				</div>
 			</div>

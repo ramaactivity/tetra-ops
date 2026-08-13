@@ -2,6 +2,7 @@ import { ChevronRight, Package2 } from "lucide-react";
 import Link from "next/link";
 import { AppHeader, AppScreen, Section } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { formatDateID, venueLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -19,10 +20,6 @@ const CONDITION_TONES: Record<string, string> = {
 	damaged: "text-rose-600 dark:text-rose-400",
 	lost: "text-rose-600 dark:text-rose-400",
 };
-
-function isoDate(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
 
@@ -58,7 +55,7 @@ export default async function CrewEquipmentPage() {
 	const me = await getCurrentUser();
 	if (!me) return null;
 
-	const todayISO = isoDate(new Date());
+	const todayISO = todayWIB();
 	const supabase = await createClient();
 
 	const { data: assignments } = await supabase

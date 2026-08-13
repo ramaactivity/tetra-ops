@@ -86,7 +86,7 @@ export default async function EventDetailPage({
 			.select(
 				`
 			id, project_id, status, channel, client_name, client_wa, client_email,
-			pic_name, pic_wa,
+			pic_name, pic_wa, pic_contact_id,
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
 			event_category, event_date,
@@ -177,6 +177,7 @@ export default async function EventDetailPage({
 					backdrop_id: event.backdrop_id,
 					pic_name: event.pic_name,
 					pic_wa: event.pic_wa,
+					pic_contact_id: event.pic_contact_id,
 					pending_package_hours: event.pending_package_hours,
 					package_frame_size: pkg?.frame_size ?? null,
 				})

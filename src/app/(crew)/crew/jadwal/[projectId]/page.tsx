@@ -25,6 +25,8 @@ import { TbcNudgePanel } from "@/components/crew/tbc-nudge-panel";
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { getAssignedEventContacts } from "@/lib/crew/event-contacts";
+import { todayWIB } from "@/lib/dates";
 import { listMissingFields } from "@/lib/events/tbc";
 import {
 	backdropOriginLabel,
@@ -78,10 +80,7 @@ export default async function CrewEventDetailPage({
 			frame_size, event_date, event_date_is_estimate,
 			setup_time, start_time, end_time, session_segments, backdrop_id,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
-			crew_notes, is_migrated_legacy,
-			pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
-			booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
-			pending_package_hours,
+			crew_notes, is_migrated_legacy, pending_package_hours,
 			package:packages(name, duration_hours, frame_size),
 			backdrop:backdrops(name, type),
 			event_addons:event_addons(quantity, addon:addons(name, unit, category)),
@@ -152,6 +151,7 @@ export default async function CrewEventDetailPage({
 		{ data: designAssets },
 		{ data: rekapData },
 		{ data: crewRosterRaw },
+		eventContacts,
 	] = await Promise.all([
 		supabase
 			// inventory_items_safe: proyeksi tanpa kolom biaya. Tabel dasarnya
@@ -175,6 +175,9 @@ export default async function CrewEventDetailPage({
 		// crew_assignments embed returns null names. This SECURITY DEFINER RPC
 		// returns only safe columns (name, tier, role) for assigned crew.
 		supabase.rpc("get_event_crew", { p_event_id: event.id }),
+		// PIC & pembooking: `contacts` owner-only, jadi diambil lewat helper
+		// service-role yang memeriksa penugasan crew ini di event ini.
+		getAssignedEventContacts(event.id as string, me.profile.id),
 	]);
 
 	const equipment = (equipmentRows ?? []) as Array<{
@@ -224,7 +227,8 @@ export default async function CrewEventDetailPage({
 				});
 
 	const rekap = rekapData as { id: string; is_approved: boolean | null } | null;
-	const todayISO = new Date().toISOString().slice(0, 10);
+	// Jam Indonesia, bukan jam server (Vercel = UTC). Lihat lib/dates.
+	const todayISO = todayWIB();
 	const isPastOrToday = event.event_date <= todayISO;
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
@@ -247,30 +251,34 @@ export default async function CrewEventDetailPage({
 					event.event_category,
 			}
 		: null;
-	const picContact = Array.isArray(event.pic_contact)
-		? event.pic_contact[0]
-		: event.pic_contact;
-	const bookerContact = Array.isArray(event.booker_contact)
-		? event.booker_contact[0]
-		: event.booker_contact;
-
-	const picName = picContact?.name ?? event.pic_name ?? null;
-	const picPhone = picContact?.phone ?? event.pic_wa ?? null;
+	// Kontak diambil lewat jalur service-role yang dipagari penugasan: tabel
+	// `contacts` owner-only (PII klien), jadi embed lewat sesi crew selalu null
+	// dan PIC yang sudah terisi tampak "menyusul". Lihat lib/crew/event-contacts.
+	const picName = eventContacts.pic?.name ?? event.pic_name ?? null;
+	const picPhone = eventContacts.pic?.phone ?? event.pic_wa ?? null;
+	const bookerContact = eventContacts.booker;
 
 	// Daftar TBC dihitung dari sumber yang sama dengan reminder H-7/H-3 owner,
 	// supaya crew tidak pernah melihat "kosong" untuk sesuatu yang menurut
-	// sistem sudah lengkap (atau sebaliknya).
-	const tbcMissing = listMissingFields({
-		event_date_is_estimate: event.event_date_is_estimate as boolean | null,
-		venue_name: event.venue_name as string | null,
-		start_time: event.start_time as string | null,
-		frame_size: event.frame_size as string | null,
-		backdrop_id: event.backdrop_id as string | null,
-		pic_name: picName,
-		pic_wa: picPhone,
-		pending_package_hours: event.pending_package_hours as number | null,
-		package_frame_size: (pkg?.frame_size as string | null) ?? null,
-	});
+	// sistem sudah lengkap (atau sebaliknya). Event yang sudah kelar / batal /
+	// hasil migrasi lama tidak diapa-apakan lagi — memajang "data belum lengkap"
+	// di sana cuma bikin crew menagih owner soal acara yang sudah lewat.
+	const tbcRelevant =
+		!event.is_migrated_legacy &&
+		(event.status === "upcoming" || event.status === "in_progress");
+	const tbcMissing = tbcRelevant
+		? listMissingFields({
+				event_date_is_estimate: event.event_date_is_estimate as boolean | null,
+				venue_name: event.venue_name as string | null,
+				start_time: event.start_time as string | null,
+				frame_size: event.frame_size as string | null,
+				backdrop_id: event.backdrop_id as string | null,
+				pic_name: picName,
+				pic_wa: picPhone,
+				pending_package_hours: event.pending_package_hours as number | null,
+				package_frame_size: (pkg?.frame_size as string | null) ?? null,
+			})
+		: [];
 
 	// Multi-sesi (acara dengan jeda): booth buka → tutup → buka lagi. Crew HARUS
 	// tahu boothnya berhenti di tengah, jadi tampilkan rincian sesi + jeda.
@@ -542,7 +550,7 @@ export default async function CrewEventDetailPage({
 				<TbcNudgePanel projectId={event.project_id} missing={tbcMissing} />
 
 				{/* ── Kontak hari-H — contact rows ── */}
-				{(picName || bookerContact) && (
+				{(picName || bookerContact?.name) && (
 					<section className="rounded-[16px] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
 						<span className="eyebrow text-amber-700 dark:text-amber-400">
 							Kontak hari-H
@@ -557,7 +565,7 @@ export default async function CrewEventDetailPage({
 									PIC Event · <span className="font-medium">menyusul</span>
 								</p>
 							)}
-							{bookerContact && (
+							{bookerContact?.name && (
 								<ContactRow
 									role="Booker"
 									name={bookerContact.name}

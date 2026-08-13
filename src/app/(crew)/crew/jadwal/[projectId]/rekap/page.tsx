@@ -5,6 +5,7 @@ import { RekapHeroCard } from "@/components/rekap/rekap-hero-card";
 import { AppHeader, AppScreen } from "@/components/ui/mobile";
 import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { getCetakBenchmark } from "@/lib/rekap/benchmark";
 import { createClient } from "@/lib/supabase/server";
 
@@ -114,7 +115,7 @@ export default async function CrewRekapPage({
 		);
 	}
 
-	const todayISO = new Date().toISOString().slice(0, 10);
+	const todayISO = todayWIB();
 	const isPastEvent = event.event_date <= todayISO;
 
 	const defaults = rekap

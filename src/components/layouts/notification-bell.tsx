@@ -8,13 +8,17 @@ import { useUnreadNotifications } from "@/lib/use-unread-notifications";
  * Unread-notification badge in the desktop top bar. Count logic lives in the
  * shared useUnreadNotifications hook (also drives the mobile "More" badge).
  */
-export function NotificationBell() {
+export function NotificationBell({
+	href = "/notifications",
+}: {
+	href?: string;
+}) {
 	const unread = useUnreadNotifications();
 	const display = unread > 99 ? "99+" : String(unread);
 
 	return (
 		<Link
-			href="/notifications"
+			href={href}
 			aria-label={`Notifications${unread > 0 ? ` — ${unread} unread` : ""}`}
 			className="text-muted-foreground hover:text-foreground hover:bg-muted relative inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors"
 		>

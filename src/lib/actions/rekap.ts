@@ -935,13 +935,28 @@ export async function submitRekap(
 	};
 
 	if (existing) {
-		const { error } = await supabase
+		// .select() WAJIB: kalau RLS menolak (rekap terkunci setelah settle, atau
+		// bukan haknya), PostgREST tidak melempar error — UPDATE-nya cuma tidak
+		// kena baris mana pun. Tanpa memeriksa jumlah baris, crew melihat "rekap
+		// tersimpan" padahal isinya hilang.
+		const { data: updated, error } = await supabase
 			.from("crew_rekap")
 			.update(payload)
-			.eq("id", existing.id);
+			.eq("id", existing.id)
+			.select("id");
 		if (error) {
 			return {
 				errors: { _form: [error.message] },
+				values: snapshotValues(formData),
+			};
+		}
+		if (!updated || updated.length === 0) {
+			return {
+				errors: {
+					_form: [
+						"Rekap ini tidak bisa diubah lagi (sudah dikunci owner setelah event di-settle). Hubungi owner kalau ada yang perlu dikoreksi.",
+					],
+				},
 				values: snapshotValues(formData),
 			};
 		}

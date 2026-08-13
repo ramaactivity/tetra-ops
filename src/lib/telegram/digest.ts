@@ -59,6 +59,7 @@ type EventRow = {
 	pending_package_hours: number | null;
 	event_date_is_estimate: boolean | null;
 	pic_name: string | null;
+	pic_contact_id: string | null;
 	pic_wa: string | null;
 	// PostgREST embed to-one: bisa terbaca sebagai objek ATAU array satu isi
 	// tergantung tipe generatednya — selalu lewat pkgFrameSize() di bawah.
@@ -396,7 +397,7 @@ async function gatherTbcAheadLines(
 			.from("events")
 			.select(
 				`id, project_id, client_name, event_date, venue_name, start_time,
-				 frame_size, backdrop_id, pic_name, pic_wa, pending_package_hours,
+				 frame_size, backdrop_id, pic_name, pic_wa, pic_contact_id, pending_package_hours,
 				 event_date_is_estimate, package:packages(frame_size)`,
 			)
 			.gt("event_date", addDaysISO(todayISO, 7))
@@ -619,6 +620,7 @@ type MissingInfoRow = Pick<
 	| "backdrop_id"
 	| "pic_name"
 	| "pic_wa"
+	| "pic_contact_id"
 	| "pending_package_hours"
 	| "package"
 >;
@@ -631,6 +633,7 @@ function eventMissingInfo(ev: MissingInfoRow): string[] {
 		frame_size: ev.frame_size,
 		backdrop_id: ev.backdrop_id,
 		pic_name: ev.pic_name,
+		pic_contact_id: ev.pic_contact_id,
 		pic_wa: ev.pic_wa,
 		pending_package_hours: ev.pending_package_hours,
 		package_frame_size: pkgFrameSize(ev.package),

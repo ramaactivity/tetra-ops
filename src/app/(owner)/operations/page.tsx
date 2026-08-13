@@ -117,7 +117,7 @@ export default async function OperationsListPage({
 			 frame_size, backdrop_color, include_flashdisk_pouch,
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
-			 event_category, backdrop_id, pic_name, pic_wa, pending_package_hours,
+			 event_category, backdrop_id, pic_name, pic_wa, pic_contact_id, pending_package_hours,
 			 design_status,
 			 package:packages(name, duration_hours, frame_size),
 			 backdrop:backdrops(name, type)`,
@@ -289,6 +289,7 @@ export default async function OperationsListPage({
 		backdrop_id?: string | null;
 		pic_name?: string | null;
 		pic_wa?: string | null;
+		pic_contact_id?: string | null;
 		pending_package_hours?: number | null;
 		design_status?: string | null;
 	};
@@ -342,6 +343,7 @@ export default async function OperationsListPage({
 								frame_size: row.frame_size,
 								backdrop_id: row.backdrop_id,
 								pic_name: row.pic_name,
+								pic_contact_id: row.pic_contact_id,
 								pic_wa: row.pic_wa,
 								pending_package_hours: row.pending_package_hours,
 								package_frame_size: pkg?.frame_size ?? null,

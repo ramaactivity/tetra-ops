@@ -16,6 +16,7 @@ import {
 	Section,
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { FRAME_SIZE_LABELS, formatDateID, venueLabel } from "@/lib/format";
 import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
@@ -28,10 +29,6 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ID_TIME = (t: string | null) => (t ? t.slice(0, 5) : "—");
-
-function isoDate(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 type AssignedEvent = {
 	id: string;
@@ -67,7 +64,8 @@ export default async function CrewSchedulePage({
 	const me = await getCurrentUser();
 	if (!me) return null;
 
-	const todayISO = isoDate(new Date());
+	// Tanggal dibandingkan di WIB — lihat lib/dates.
+	const todayISO = todayWIB();
 
 	const supabase = await createClient();
 
@@ -184,11 +182,16 @@ export default async function CrewSchedulePage({
 							const backdrop = Array.isArray(ev.backdrop)
 								? ev.backdrop[0]
 								: ev.backdrop;
-							const tbcStart = !ev.start_time;
+							// Event yang sudah kelar / batal / hasil migrasi lama tidak
+							// perlu ditandai "menyusul" lagi — sama seperti sisi owner.
+							const tbcRelevant =
+								!ev.is_migrated_legacy &&
+								(ev.status === "upcoming" || ev.status === "in_progress");
+							const tbcStart = tbcRelevant && !ev.start_time;
 							const sessions = parseSegments(ev.session_segments);
 							const multiSesi = hasBreak(sessions);
-							const tbcFrame = !ev.frame_size;
-							const tbcBackdrop = !ev.backdrop_id;
+							const tbcFrame = tbcRelevant && !ev.frame_size;
+							const tbcBackdrop = tbcRelevant && !ev.backdrop_id;
 							const city =
 								ev.venue_city && ev.venue_city !== ev.venue_name
 									? ev.venue_city
@@ -218,7 +221,7 @@ export default async function CrewSchedulePage({
 												<span className="type-num text-[1.55rem] leading-none text-foreground">
 													{dd}
 												</span>
-												{ev.event_date_is_estimate ? (
+												{tbcRelevant && ev.event_date_is_estimate ? (
 													<span className="text-[0.5rem] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
 														TBC
 													</span>
