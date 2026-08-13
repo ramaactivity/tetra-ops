@@ -40,7 +40,10 @@ interface TimePickerProps {
 	placeholder?: string;
 }
 
-const DEFAULT_PRESETS = ["08:00", "10:00", "13:00", "19:00"];
+// Empat jam mulai paling sering dipakai, dari 143 event yang punya start_time
+// (audit 2026-08-13): 11:00 ×63, 10:00 ×13, 18:00 ×13, 12:00 ×8 — ±66% event.
+// Preset lama (08:00/13:00/19:00) hampir tak pernah kepakai: 1/3/4 kali.
+const DEFAULT_PRESETS = ["10:00", "11:00", "12:00", "18:00"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
 const MINUTES = Array.from({ length: 12 }, (_, i) =>
 	(i * 5).toString().padStart(2, "0"),
