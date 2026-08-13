@@ -62,6 +62,13 @@ import {
 } from "@/lib/schedule/segments";
 import { cn } from "@/lib/utils";
 
+/** URL yang benar-benar berasal dari Google Maps (share link atau halaman peta). */
+function isGoogleMapsUrl(value: string): boolean {
+	return /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/i.test(
+		value.trim(),
+	);
+}
+
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
 
 const FIELD_LABELS: Record<string, string> = {
@@ -377,6 +384,10 @@ const DISCOUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 	{ value: "promo", label: "Promo (musiman / campaign)" },
 	{ value: "loyalty", label: "Loyalty (klien repeat)" },
 	{ value: "relasi", label: "Relasi (kenalan / referral)" },
+	// Kartu nama Tetra bertuliskan "diskon 10% — hubungi admin". Dipisah dari
+	// promo/relasi karena inilah ukuran apakah booth kita sendiri menghasilkan
+	// booking baru.
+	{ value: "kartu_nama", label: "Kartu nama Tetra (10% dari kartu nama)" },
 	{ value: "owner_override", label: "Owner Override (diskon manual)" },
 	{ value: "package_deal", label: "Package Deal (bundling)" },
 	{ value: "other", label: "Lainnya" },
@@ -824,16 +835,23 @@ export function BookingForm({
 	const [provinceTouched, setProvinceTouched] = useState(
 		Boolean(get("venue_province")),
 	);
+	const mapsWindowRef = useRef<Window | null>(null);
 	const [resolvingMaps, setResolvingMaps] = useState(false);
 	const [resolveStatus, setResolveStatus] = useState<
 		| "idle"
 		| "ok"
 		| "noop"
 		| "search_only"
+		| "share_google"
 		| "no_coordinates"
 		| "geocode_failed"
 		| "error"
 	>("idle");
+	// Alamat dari data Google sendiri vs perkiraan OpenStreetMap. Owner berhak
+	// tahu mana yang boleh dipercaya mentah-mentah dan mana yang perlu dicek.
+	const [addressSource, setAddressSource] = useState<"google" | "osm" | null>(
+		null,
+	);
 
 	// Debounced auto-resolve Maps URL → alamat + kota
 	useEffect(() => {
@@ -857,6 +875,7 @@ export function BookingForm({
 					setResolveStatus(result.reason);
 					return;
 				}
+				setAddressSource(result.source ?? null);
 				let hydratedSomething = false;
 				// Only override if user hasn't manually typed
 				if (!addressTouched && result.address) {
@@ -1293,11 +1312,38 @@ export function BookingForm({
 		}
 	}
 
+	/**
+	 * Tab Maps dibuka TANPA `noopener` supaya handle-nya bisa disimpan — itu
+	 * satu-satunya cara menutupnya lagi begitu URL-nya ditempel balik ke form.
+	 * Yang dibuka cuma google.com/maps (tujuan tetap, bukan URL dari data), jadi
+	 * risiko reverse-tabnabbing tidak berlaku di sini.
+	 */
 	function openMapsSearch() {
 		const query = [venueName, venueCity].filter(Boolean).join(", ");
 		if (!query) return;
 		const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-		window.open(url, "_blank", "noopener,noreferrer");
+		mapsWindowRef.current = window.open(url, "tetra-maps-picker");
+	}
+
+	/** Tutup tab Maps yang kita buka sendiri (kalau masih terbuka). */
+	function closeMapsTab() {
+		const w = mapsWindowRef.current;
+		mapsWindowRef.current = null;
+		if (!w || w.closed) return;
+		try {
+			w.close();
+		} catch {
+			// Browser menolak menutup tab — bukan hal fatal, biarkan terbuka.
+		}
+	}
+
+	/**
+	 * Paste URL Maps = pekerjaan di tab sebelah sudah selesai → tutup tabnya,
+	 * balikkan fokus ke form. Hanya untuk URL yang benar-benar dari Maps.
+	 */
+	function handleMapsUrlChange(value: string) {
+		setMapsUrl(value);
+		if (isGoogleMapsUrl(value)) closeMapsTab();
 	}
 
 	const showReferrerBlock = channel === "vendor" || channel === "relasi";
@@ -2756,25 +2802,36 @@ export function BookingForm({
 								resolvingMaps
 									? "🔄 Mengambil info dari Maps…"
 									: resolveStatus === "ok"
-										? "✓ Alamat + kota terisi otomatis dari pin Maps"
+										? addressSource === "google"
+											? "✓ Alamat + kota diambil dari data Google Maps"
+											: "✓ Alamat + kota terisi dari OpenStreetMap — ini perkiraan, cek dulu sebelum simpan"
 										: resolveStatus === "noop"
 											? "✓ Pin Maps OK — alamat/kota sudah diisi manual, biarin aja."
-											: resolveStatus === "search_only"
-												? "⚠ Ini URL halaman search, belum pinpoint venue. Klik salah satu hasil di Maps dulu, lalu copy URL dari address bar."
-												: resolveStatus === "no_coordinates"
-													? "⚠ URL ini nggak ada info lokasi. Paste URL share dari Maps (yang ada @lat,lng)."
-													: resolveStatus === "geocode_failed"
-														? "⚠ Pin Maps OK, tapi OSM nggak punya data alamat di koordinat itu. Isi manual."
-														: resolveStatus === "error"
-															? "⚠ Gagal akses URL — cek koneksi atau paste ulang."
-															: "Klik 'Cari di Maps' → pin lokasi → copy share URL → paste di sini. Alamat + kota auto-fill."
+											: resolveStatus === "share_google"
+												? "⚠ Ini link share.google (dari hasil Google Search), bukan link Maps. Buka venue-nya di Google Maps → Bagikan → Salin link (maps.app.goo.gl)."
+												: resolveStatus === "search_only"
+													? "⚠ Ini URL halaman search, belum pinpoint venue. Klik salah satu hasil di Maps dulu, lalu copy URL dari address bar."
+													: resolveStatus === "no_coordinates"
+														? "⚠ URL ini nggak ada info lokasi. Paste URL share dari Maps (yang ada @lat,lng)."
+														: resolveStatus === "geocode_failed"
+															? "⚠ Pin Maps OK, tapi data alamat di koordinat itu kosong. Isi manual."
+															: resolveStatus === "error"
+																? "⚠ Gagal akses URL — cek koneksi atau paste ulang."
+																: "Klik 'Cari di Maps' → pin lokasi → copy share URL → paste di sini. Alamat + kota auto-fill."
 							}
 						>
 							<div className="flex gap-2">
 								<input
 									type="url"
 									value={mapsUrl}
-									onChange={(e) => setMapsUrl(e.target.value)}
+									onChange={(e) => handleMapsUrlChange(e.target.value)}
+									// onPaste menutup tab lebih cepat dari onChange (nilai input
+									// belum diperbarui saat paste), tanpa ikut menyetel nilainya.
+									onPaste={(e) => {
+										if (isGoogleMapsUrl(e.clipboardData.getData("text"))) {
+											closeMapsTab();
+										}
+									}}
 									placeholder="https://maps.app.goo.gl/..."
 									className={`${inputClass} flex-1`}
 								/>

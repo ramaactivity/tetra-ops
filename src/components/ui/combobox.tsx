@@ -100,6 +100,8 @@ export function Combobox({
 		left: number;
 		width: number;
 		placement: "below" | "above";
+		/** Tinggi maksimum nyata di layar — bukan angka tetap. */
+		maxHeight: number;
 	} | null>(null);
 
 	const selectedOption = useMemo(
@@ -167,14 +169,20 @@ export function Combobox({
 			if (!trigger) return;
 			const rect = trigger.getBoundingClientRect();
 			const viewportH = window.innerHeight;
-			const POPUP_MAX_H = 320; // matches max-h-72 on the list + padding/empty-state
+			const POPUP_MAX_H = 360; // batas nyaman; sisanya di-scroll di dalam
 			const GAP = 4;
-			const spaceBelow = viewportH - rect.bottom - GAP;
-			const spaceAbove = rect.top - GAP;
+			// Sisakan sedikit napas dari tepi layar supaya tidak menempel/terpotong.
+			const EDGE = 12;
+			const spaceBelow = viewportH - rect.bottom - GAP - EDGE;
+			const spaceAbove = rect.top - GAP - EDGE;
+			// Buka ke atas hanya kalau atas benar-benar lebih lega. Yang bikin
+			// dropdown "kepotong" sebelumnya bukan sisi pilihannya, melainkan
+			// tingginya dipatok tetap (max-h-72) tanpa peduli sisa ruang.
 			const placement: "below" | "above" =
-				spaceBelow < Math.min(POPUP_MAX_H, 200) && spaceAbove > spaceBelow
+				spaceBelow < Math.min(POPUP_MAX_H, 240) && spaceAbove > spaceBelow
 					? "above"
 					: "below";
+			const room = placement === "below" ? spaceBelow : spaceAbove;
 			setPopupRect({
 				top:
 					placement === "below"
@@ -183,6 +191,10 @@ export function Combobox({
 				left: rect.left,
 				width: rect.width,
 				placement,
+				// Minimal 180px: kalau ruangnya benar-benar sempit, biarkan sedikit
+				// menonjol lalu di-scroll di dalam — jauh lebih baik daripada daftar
+				// yang terpotong tanpa bisa digulir.
+				maxHeight: Math.max(180, Math.min(POPUP_MAX_H, room)),
 			});
 		};
 		update();
@@ -334,15 +346,16 @@ export function Combobox({
 							top: popupRect.top,
 							left: popupRect.left,
 							width: popupRect.width,
+							maxHeight: popupRect.maxHeight,
 							transform:
 								popupRect.placement === "above" ? "translateY(-100%)" : undefined,
 						}}
-						className="z-50 overflow-hidden rounded-2xl border border-border-default bg-popover text-popover-foreground shadow-[var(--shadow-level-3)] animate-in fade-in-0 zoom-in-95 duration-100"
+						className="z-50 flex flex-col overflow-hidden rounded-2xl border border-border-default bg-popover text-popover-foreground shadow-[var(--shadow-level-3)] animate-in fade-in-0 zoom-in-95 duration-100"
 					>
 						{/* Selector mode: search lives in the popup so the trigger can
 						    open the list without popping the keyboard. Not autofocused. */}
 						{!allowFreeText ? (
-							<div className="border-b border-border-subtle p-2">
+							<div className="shrink-0 border-b border-border-subtle p-2">
 								<input
 									type="text"
 									value={search}
@@ -367,7 +380,7 @@ export function Combobox({
 								ref={listRef}
 								id={`${inputId}-list`}
 								role="listbox"
-								className="max-h-72 overflow-y-auto p-1"
+								className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1"
 							>
 								{filtered.map((opt, idx) => {
 									const isSelected = opt.value === value;

@@ -954,7 +954,7 @@ export async function submitRekap(
 			return {
 				errors: {
 					_form: [
-						"Rekap ini tidak bisa diubah lagi (sudah dikunci owner setelah event di-settle). Hubungi owner kalau ada yang perlu dikoreksi.",
+						"Rekap ini tidak bisa disimpan — biasanya karena sudah dikunci setelah event di-settle. Hubungi owner kalau masih ada yang perlu dikoreksi.",
 					],
 				},
 				values: snapshotValues(formData),

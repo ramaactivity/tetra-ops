@@ -1,6 +1,7 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { resolveAddressAt } from "@/lib/geo/reverse-geocode";
 
 /**
  * resolveMapsUrl — given a Google Maps share URL, follow redirects,
@@ -17,6 +18,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 
 type ResolveReason =
 	| "search_only" // URL masih halaman search, belum pinpoint venue
+	| "share_google" // Link share.google (kartu Search), bukan link Maps
 	| "no_coordinates" // URL tidak punya pattern @lat,lng atau !3d!4d
 	| "geocode_failed" // Punya koordinat tapi reverse-geocode gagal
 	| "ok"; // Berhasil ekstrak alamat/kota
@@ -31,6 +33,8 @@ type ResolveResult =
 			province: string | null;
 			lat: number | null;
 			lng: number | null;
+			/** Dari mana alamatnya: data Google sendiri, atau perkiraan OSM. */
+			source?: "google" | "osm";
 	  }
 	| { ok: false; error: string };
 
@@ -56,6 +60,26 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 		// Use original URL — parse may still work if URL already expanded
 	}
 
+	// Link "share.google" berasal dari tombol Bagikan di hasil Google Search,
+	// bukan dari Google Maps. Halamannya dirender JavaScript dan tidak memuat
+	// koordinat apa pun di HTML — tidak ada yang bisa diambil, jadi lebih baik
+	// bilang terus terang cara mengambil link yang benar.
+	const isShareGoogle =
+		/^https?:\/\/share\.google\//i.test(trimmed) ||
+		/^https?:\/\/(www\.)?google\.[a-z.]+\/search/i.test(finalUrl);
+	if (isShareGoogle) {
+		return {
+			ok: true,
+			reason: "share_google",
+			venue: null,
+			address: null,
+			city: null,
+			province: null,
+			lat: null,
+			lng: null,
+		};
+	}
+
 	// Detect search-only URL (user clicked "Cari di Maps" tapi belum pinpoint
 	// venue di hasil). Pattern: /maps/search/ atau /maps?q=...
 	const isSearchOnly =
@@ -69,16 +93,15 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 	let lat: number | null = null;
 	let lng: number | null = null;
 
+	// !3d/!4d = titik PIN tempatnya. @lat,lng cuma titik tengah layar peta saat
+	// URL disalin — bisa meleset ratusan meter kalau peta sempat digeser. Jadi
+	// pin didahulukan, @ hanya cadangan.
+	const pinMatch = finalUrl.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
 	const atMatch = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-	if (atMatch) {
-		lat = Number.parseFloat(atMatch[1]);
-		lng = Number.parseFloat(atMatch[2]);
-	} else {
-		const bangMatch = finalUrl.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-		if (bangMatch) {
-			lat = Number.parseFloat(bangMatch[1]);
-			lng = Number.parseFloat(bangMatch[2]);
-		}
+	const coordMatch = pinMatch ?? atMatch;
+	if (coordMatch) {
+		lat = Number.parseFloat(coordMatch[1]);
+		lng = Number.parseFloat(coordMatch[2]);
 	}
 
 	// Parse venue name from URL path: /place/Venue+Name/...
@@ -94,7 +117,10 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 
 	// Early exit kalau tidak ada koordinat — kasih reason yang spesifik
 	const hasCoords =
-		lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng);
+		lat !== null &&
+		lng !== null &&
+		Number.isFinite(lat) &&
+		Number.isFinite(lng);
 
 	if (!hasCoords) {
 		return {
@@ -109,99 +135,13 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 		};
 	}
 
-	// Reverse geocode via Nominatim (OSM)
-	let address: string | null = null;
-	let city: string | null = null;
-	let province: string | null = null;
-	let geocodeOk = false;
-	try {
-		const geoRes = await fetch(
-			`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id&zoom=18&addressdetails=1`,
-			{
-				headers: {
-					"User-Agent": "TetraOps/1.0 (tetra-ops.vercel.app)",
-				},
-			},
-		);
-		if (geoRes.ok) {
-			const geoData = (await geoRes.json()) as {
-				address?: Record<string, string>;
-			};
-			const addr = geoData.address ?? {};
-
-			// Alamat: street-level + konteks geografis (kelurahan/desa)
-			// Nominatim field mapping untuk Indonesia bervariasi — ambil sebanyak
-			// mungkin tanpa overlap sama kota/kabupaten/provinsi.
-			const addressParts = [
-				addr.house_number,
-				addr.road,
-				addr.neighbourhood || addr.suburb || addr.hamlet,
-				addr.village || addr.town,
-			].filter(Boolean);
-			// Dedupe sequential identical parts (cth. road == neighbourhood)
-			const dedupedAddress: string[] = [];
-			for (const part of addressParts) {
-				if (dedupedAddress[dedupedAddress.length - 1] !== part) {
-					dedupedAddress.push(part);
-				}
-			}
-			if (dedupedAddress.length > 0) address = dedupedAddress.join(", ");
-
-			// Kota / Kabupaten resolution:
-			// Untuk daerah urban (Jakarta, Bandung) Nominatim isi `city`.
-			// Untuk daerah peri-urban/rural (Kab. Bogor), `city` kosong tapi
-			// `state_district` atau `county` berisi kabupaten. Prioritaskan
-			// state_district karena lebih konsisten = level admin 4 (kab/kota).
-			const cityCandidate =
-				addr.city ||
-				addr.town ||
-				addr.municipality ||
-				addr.state_district ||
-				addr.county ||
-				null;
-			if (cityCandidate) {
-				// Normalize: "Bogor Regency" (English) → "Kabupaten Bogor" (ID)
-				if (/\bRegency\b/i.test(cityCandidate)) {
-					city = `Kabupaten ${cityCandidate.replace(/\bRegency\b/i, "").trim()}`;
-				} else {
-					city = cityCandidate;
-				}
-			}
-
-			// Provinsi
-			province = addr.state || null;
-			// Normalize "West Java" → "Jawa Barat" untuk konsistensi UI ID
-			if (province) {
-				const provinceMap: Record<string, string> = {
-					"west java": "Jawa Barat",
-					"central java": "Jawa Tengah",
-					"east java": "Jawa Timur",
-					"west kalimantan": "Kalimantan Barat",
-					"central kalimantan": "Kalimantan Tengah",
-					"east kalimantan": "Kalimantan Timur",
-					"north kalimantan": "Kalimantan Utara",
-					"south kalimantan": "Kalimantan Selatan",
-					"north sumatra": "Sumatera Utara",
-					"south sumatra": "Sumatera Selatan",
-					"west sumatra": "Sumatera Barat",
-					"west sulawesi": "Sulawesi Barat",
-					"central sulawesi": "Sulawesi Tengah",
-					"south sulawesi": "Sulawesi Selatan",
-					"southeast sulawesi": "Sulawesi Tenggara",
-					"north sulawesi": "Sulawesi Utara",
-					"special region of yogyakarta": "DI Yogyakarta",
-					"special capital region of jakarta": "DKI Jakarta",
-					"jakarta special capital region": "DKI Jakarta",
-				};
-				const norm = provinceMap[province.toLowerCase()];
-				if (norm) province = norm;
-			}
-
-			geocodeOk = Boolean(address || city);
-		}
-	} catch {
-		// Geocode failed — return whatever we parsed from URL alone
-	}
+	// Alamat: Google dulu (persis seperti kartu tempatnya) → OSM sebagai
+	// cadangan. Lihat lib/geo/reverse-geocode.ts.
+	const resolved = await resolveAddressAt(lat as number, lng as number, venue);
+	const address = resolved?.address ?? null;
+	const city = resolved?.city ?? null;
+	const province = resolved?.province ?? null;
+	const geocodeOk = Boolean(address || city);
 
 	return {
 		ok: true,
@@ -212,5 +152,6 @@ export async function resolveMapsUrl(url: string): Promise<ResolveResult> {
 		province,
 		lat,
 		lng,
+		source: resolved?.source,
 	};
 }

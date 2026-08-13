@@ -229,6 +229,7 @@ const BookingInputSchema = z.object({
 			"promo",
 			"loyalty",
 			"relasi",
+			"kartu_nama",
 			"owner_override",
 			"package_deal",
 			"other",

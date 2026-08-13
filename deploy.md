@@ -70,6 +70,21 @@ Kalau deploy gagal:
 - Jangan set `VERCEL_OIDC_TOKEN` manual — Vercel auto-inject saat runtime.
 - `.vercel/.env.production.local` hasil `vercel pull` berisi rahasia → gitignored, hapus kalau tidak dipakai.
 
+### `GOOGLE_MAPS_API_KEY` (opsional — bikin alamat venue persis seperti Google)
+Auto-fill alamat dari link Maps punya dua sumber (`src/lib/geo/reverse-geocode.ts`):
+1. **Google** — dipakai kalau env `GOOGLE_MAPS_API_KEY` ada. Hasilnya sama persis
+   dengan yang tertulis di kartu tempat Google Maps.
+2. **OpenStreetMap** — cadangan tanpa API key. Gratis, tapi untuk banyak venue
+   Indonesia OSM memang **tidak punya** nama jalan/nomornya. Contoh: Sasono Mulyo
+   Depok — Google "Jl. Raya Kalimulya No.30, Jatimulya, Kec. Cilodong", OSM cuma
+   "Jatimulya". Itu batas datanya, bukan bug parser.
+
+Cara mengaktifkan yang akurat: Google Cloud Console → project mana pun → **Enable
+API**: *Places API (New)* + *Geocoding API* → Credentials → Create API key →
+batasi ke dua API itu → simpan sebagai `GOOGLE_MAPS_API_KEY` di Vercel (Production
++ Preview) dan `.env.local`. Butuh billing aktif; kuota gratis bulanan jauh di atas
+pemakaian Tetra (auto-fill hanya jalan saat owner paste link).
+
 ## ⏰ Cron jobs (via vercel.json)
 - `/api/cron/status-transition` — harian 23:00 UTC (06:00 WIB)
 - `/api/cron/anomaly-scan` — harian 23:30 UTC (06:30 WIB); sejak 2026-07-02 juga
