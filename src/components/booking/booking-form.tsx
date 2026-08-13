@@ -49,6 +49,10 @@ import {
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
 import {
+	looksLikeFullAddress,
+	parseIndonesianAddress,
+} from "@/lib/geo/parse-address";
+import {
 	activeMinutes,
 	formatDuration,
 	hasBreak,
@@ -852,6 +856,8 @@ export function BookingForm({
 	const [addressSource, setAddressSource] = useState<"google" | "osm" | null>(
 		null,
 	);
+	/** Baru saja memecah alamat Google yang ditempel — untuk pesan konfirmasi. */
+	const [addressPasteSplit, setAddressPasteSplit] = useState(false);
 
 	// Debounced auto-resolve Maps URL → alamat + kota
 	useEffect(() => {
@@ -2859,11 +2865,13 @@ export function BookingForm({
 							error={err("venue_address")}
 							layoutMode="grid"
 							hint={
-								addressTouched
-									? "Manual override"
-									: venueAddress
-										? "Auto-fill dari Maps — jalan, kelurahan/desa. Bisa di-edit."
-										: "Opsional — jalan + nomor + kelurahan"
+								addressPasteSplit
+									? "✓ Alamat Google dipecah otomatis ke Alamat + Kota + Provinsi"
+									: addressTouched
+										? "Manual override"
+										: venueAddress
+											? "Auto-fill dari Maps — jalan, kelurahan/desa. Bisa di-edit."
+											: "Tempel alamat lengkap dari Google Maps di sini — kota & provinsi ikut terisi sendiri."
 							}
 						>
 							<input
@@ -2872,6 +2880,24 @@ export function BookingForm({
 								onChange={(e) => {
 									setVenueAddress(e.target.value);
 									setAddressTouched(true);
+									setAddressPasteSplit(false);
+								}}
+								// Alamat versi Google sudah terpampang di layar owner dan
+								// tinggal disalin — jauh lebih akurat daripada tebakan
+								// koordinat. Kalau yang ditempel memang alamat lengkap, dipecah
+								// ke tiga kolom sekaligus.
+								onPaste={(e) => {
+									const pasted = e.clipboardData.getData("text");
+									if (!looksLikeFullAddress(pasted)) return;
+									e.preventDefault();
+									const parsed = parseIndonesianAddress(pasted);
+									if (parsed.address) setVenueAddress(parsed.address);
+									if (parsed.city) setVenueCity(parsed.city);
+									if (parsed.province) setVenueProvince(parsed.province);
+									setAddressTouched(true);
+									setCityTouched(true);
+									setProvinceTouched(true);
+									setAddressPasteSplit(true);
 								}}
 								placeholder="Jl. ..."
 								className={inputClass}
