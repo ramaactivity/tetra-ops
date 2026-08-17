@@ -254,6 +254,24 @@ export function SalesCommissionCard({
 					) : (
 						<div className="space-y-1.5">
 							<div className="flex flex-wrap gap-1.5">
+								{/* "Tanpa komisi" berdiri sendiri sebagai pilihan, bukan
+								    tersirat dari kolom kosong: banyak event memang tidak
+								    berkomisi, dan mengosongkan field terasa seperti "belum
+								    diisi" — bukan keputusan. Sekalian melepas nama sales
+								    supaya tampilan tidak menjanjikan komisi ke seseorang
+								    yang justru tidak akan tersimpan. */}
+								<Button
+									type="button"
+									size="xs"
+									variant={amount === 0 ? "default" : "outline"}
+									className="rounded-full"
+									onClick={() => {
+										setAmount(0);
+										setUserId("");
+									}}
+								>
+									Tanpa komisi
+								</Button>
 								{QUICK_AMOUNTS.map((amt) => (
 									<Button
 										key={amt}
@@ -282,7 +300,11 @@ export function SalesCommissionCard({
 					<p className="text-[11px] text-muted-foreground">
 						{amount > 0 && !userId
 							? "Pilih dulu sales penerimanya."
-							: "Kosongkan nominalnya kalau event ini tanpa komisi sales."}
+							: amount === 0
+								? state.amount > 0
+									? "Tanpa komisi sales — simpan untuk menghapus komisi yang tersimpan."
+									: "Event ini tanpa komisi sales."
+								: "Pilih nominalnya, atau ketik angka lain."}
 					</p>
 					<Button
 						type="button"
