@@ -137,6 +137,7 @@ export default async function EventRekapPage({
 		.from("events")
 		.select(
 			`id, project_id, client_name, event_date, venue_name, status, grand_total,
+			total_paid, remaining_balance, frame_size, gross_up_pph_amount,
 			channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
 			referrer_user_id, referrer_commission,
 			sales_user_id, direct_sales_commission`,

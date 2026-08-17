@@ -9,7 +9,7 @@ import {
 	Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -24,10 +24,13 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toaster";
 import {
 	checkRecapStock,
+	type HppBreakdown,
+	type OpexBreakdown,
 	type StockCheckShortage,
 } from "@/lib/actions/profit-preview";
 import { settleEvent } from "@/lib/actions/settle-event";
 import { formatRupiah } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type Props = {
 	eventId: string;
@@ -79,6 +82,31 @@ type Props = {
 		count: number;
 		salesCommissionPayment: number | null;
 	} | null;
+	/**
+	 * Rincian lengkap angka penutupan — dipakai untuk final check sebelum
+	 * settle. Semua komponennya sudah dihitung getProfitPreview; di sini cuma
+	 * ditampilkan supaya owner bisa memeriksa dari mana angkanya datang, bukan
+	 * cuma melihat empat baris ringkas lalu menekan tombol permanen.
+	 */
+	breakdown?: {
+		revenueGross: number;
+		addonRevenue: number;
+		discountTotal: number;
+		/** Gross-up PPh yang ditambahkan ke tagihan (ikut jadi revenue). */
+		grossUpPph: number;
+		/** Potongan langsung vendor (upfront_cut) — sudah di luar revenue net. */
+		vendorCut: number;
+		hpp: HppBreakdown;
+		opex: OpexBreakdown;
+		marginPct: number;
+		isLoss: boolean;
+		/** Sisa kas operasional setelah sinking + owner pool. */
+		operatingCash: number;
+	} | null;
+	/** Status tagihan klien — settle dengan piutang tersisa perlu terlihat. */
+	billing?: { grandTotal: number; totalPaid: number; remaining: number } | null;
+	/** Konteks rekap: jumlah cetak + ukuran, biar HPP-nya masuk akal dibaca. */
+	printSummary?: { cetakTotal: number; frameSize: string | null } | null;
 	/** Laba akhir event setelah pengeluaran/pemasukan lain. */
 	netProfitAfterExtra?: number;
 	/** Sudah ada rencana bayar fee crew dari kartu Fee crew → jangan tawari lagi. */
@@ -152,6 +180,26 @@ export function SettleButton(props: Props) {
 		props.netProfitAfterExtra !== props.netProfit
 			? props.netProfitAfterExtra
 			: null;
+
+	const bd = props.breakdown ?? null;
+	// Fee crew digabung jadi satu baris: pemisahan lead/asisten/crew C/extra
+	// sudah ada di kartu Fee crew, dan di sini yang dicek "berapa totalnya".
+	const feeCrewTotal = bd
+		? bd.opex.fee_lead +
+			bd.opex.fee_asisten +
+			bd.opex.fee_crew_c +
+			bd.opex.fee_extra
+		: 0;
+	// Ada kolom opsi pembayaran? Kalau tidak, rincian angka yang memakai
+	// ruangnya — kolom kosong tidak membantu siapa pun saat review.
+	const hasPaymentCol = canPayNow || Boolean(commission);
+	// Uang yang benar-benar bergerak saat tombol settle ditekan.
+	const cashOutOnSettle =
+		(payNow && canPayNow ? crewTotal + crewAdminTotal : 0) +
+		(queued?.expenseOut ?? 0) +
+		(queued?.salesCommissionPayment ?? 0) +
+		(commission?.planned ? commission.amount : 0);
+	const cashInOnSettle = queued?.expenseIn ?? 0;
 
 	// Kebutuhan uang per rekening — kalau fee crew & komisi dibayar dari rekening
 	// yang sama, saldonya harus cukup untuk SEMUANYA, bukan masing-masing.
@@ -340,79 +388,262 @@ export function SettleButton(props: Props) {
 								</ul>
 							</section>
 
-							{/* Kolom 2 — angka penutupan */}
-							<section className="rounded-xl border border-border-default bg-surface-2 p-3">
-								<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-									Angka penutupan
-								</p>
-								<dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-									<dt className="text-muted-foreground">Revenue net</dt>
-									<dd className="tabular text-right text-foreground">
-										{formatRupiah(props.revenueNet)}
-									</dd>
-									<dt className="text-muted-foreground">HPP</dt>
-									<dd className="tabular text-right text-foreground">
-										{formatRupiah(props.hppTotal)}
-									</dd>
-									<dt className="text-muted-foreground">OpEx</dt>
-									<dd className="tabular text-right text-foreground">
-										{formatRupiah(props.opexTotal)}
-									</dd>
-									{salesInfo && salesInfo.amount > 0 && (
-										<>
-											<dt className="pl-3 text-xs text-muted-foreground">
-												↳ komisi sales {salesInfo.payeeName ?? "Tetra"}
-											</dt>
-											<dd className="tabular text-right text-xs text-muted-foreground">
-												{formatRupiah(salesInfo.amount)}
-											</dd>
-										</>
+							{/* Kolom 2 — final check: dari mana angkanya datang.
+							    Melebar mengisi kolom 3 kalau tidak ada opsi pembayaran,
+							    supaya ruangnya dipakai untuk rincian, bukan dibiarkan kosong. */}
+							<section
+								className={cn(
+									"rounded-xl border border-border-default bg-surface-2 p-3",
+									hasPaymentCol ? "" : "md:col-span-2 lg:col-span-2",
+								)}
+							>
+								<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+									<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+										Final check — rincian angka
+									</p>
+									{props.printSummary && props.printSummary.cetakTotal > 0 && (
+										<p className="tabular text-[11px] text-muted-foreground">
+											{props.printSummary.cetakTotal} cetak
+											{props.printSummary.frameSize
+												? ` · ${props.printSummary.frameSize}`
+												: " · ukuran belum diisi"}
+										</p>
 									)}
-									{queued && queued.expenseOut > 0 && (
-										<>
+								</div>
+
+								<div
+									className={cn(
+										"mt-2.5 gap-x-6 gap-y-3.5",
+										hasPaymentCol ? "space-y-3.5" : "grid sm:grid-cols-2",
+									)}
+								>
+									{/* Pendapatan */}
+									<MoneyGroup
+										title="Pendapatan"
+										total={props.revenueNet}
+										totalLabel="Revenue net"
+										rows={
+											bd
+												? [
+														{
+															label: "Paket",
+															value: bd.revenueGross - bd.addonRevenue,
+														},
+														{ label: "Add-on", value: bd.addonRevenue },
+														{ label: "Diskon", value: -bd.discountTotal },
+													]
+												: []
+										}
+										footer={
+											props.billing ? (
+												props.billing.remaining > 0 ? (
+													<span className="tabular text-rose-600 dark:text-rose-400">
+														Klien masih kurang bayar{" "}
+														{formatRupiah(props.billing.remaining)} — settle
+														tetap boleh, sisanya jadi piutang.
+													</span>
+												) : (
+													<span className="tabular text-muted-foreground">
+														Tagihan lunas ·{" "}
+														{formatRupiah(props.billing.totalPaid)} diterima
+														{bd && bd.vendorCut > 0
+															? ` (${formatRupiah(bd.vendorCut)} dipotong vendor di muka)`
+															: ""}
+														.
+													</span>
+												)
+											) : null
+										}
+									/>
+
+									{/* HPP */}
+									<MoneyGroup
+										title="HPP (barang terpakai)"
+										total={props.hppTotal}
+										rows={
+											bd
+												? [
+														{ label: "Mediaset", value: bd.hpp.mediaset },
+														{ label: "Sleeve", value: bd.hpp.sleeve },
+														{ label: "Flashdisk", value: bd.hpp.flashdisk },
+														{ label: "Pouch", value: bd.hpp.pouch },
+														{ label: "Photomagnet", value: bd.hpp.photomagnet },
+														{ label: "Keychain", value: bd.hpp.keychain },
+														{ label: "Bonus klien", value: bd.hpp.bonus },
+														{ label: "Lainnya", value: bd.hpp.other },
+													]
+												: []
+										}
+									/>
+
+									{/* OpEx */}
+									<MoneyGroup
+										title="Biaya operasional"
+										total={props.opexTotal}
+										rows={
+											bd
+												? [
+														{ label: "Fee crew", value: feeCrewTotal },
+														{
+															label: "Reimbursement crew",
+															value: bd.opex.reimbursement,
+														},
+														{ label: "Transport", value: bd.opex.transport },
+														{ label: "Bensin", value: bd.opex.bensin },
+														{ label: "Tol", value: bd.opex.toll },
+														{ label: "Parkir", value: bd.opex.parking },
+														{ label: "Konsumsi", value: bd.opex.konsumsi },
+														{ label: "Lain-lain", value: bd.opex.misc },
+														{
+															label: "Komisi vendor",
+															value: bd.opex.komisi_vendor,
+														},
+														{
+															label: "Komisi relasi",
+															value: bd.opex.komisi_relasi,
+														},
+														{
+															label: salesInfo?.payeeName
+																? `Komisi sales ${salesInfo.payeeName}`
+																: "Komisi sales",
+															value: bd.opex.komisi_sales,
+														},
+													]
+												: []
+										}
+									/>
+
+									{/* Hasil + alokasi */}
+									<div className="space-y-2">
+										<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+											Hasil & alokasi
+										</p>
+										<dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[13px]">
+											<dt className="font-medium text-foreground">
+												Net profit
+											</dt>
+											<dd
+												className={cn(
+													"tabular text-right font-semibold",
+													bd?.isLoss
+														? "text-rose-600 dark:text-rose-400"
+														: "text-foreground",
+												)}
+											>
+												{formatRupiah(props.netProfit)}
+											</dd>
+											{bd && (
+												<>
+													<dt className="text-muted-foreground">Margin</dt>
+													<dd className="tabular text-right text-muted-foreground">
+														{Math.round(bd.marginPct)}%
+														{bd.isLoss ? " · RUGI" : ""}
+													</dd>
+												</>
+											)}
+											{queued && queued.expenseOut > 0 && (
+												<>
+													<dt className="text-muted-foreground">
+														Pengeluaran lain
+													</dt>
+													<dd className="tabular text-right text-foreground">
+														−{formatRupiah(queued.expenseOut)}
+													</dd>
+												</>
+											)}
+											{queued && queued.expenseIn > 0 && (
+												<>
+													<dt className="text-muted-foreground">
+														Pemasukan lain
+													</dt>
+													<dd className="tabular text-right text-foreground">
+														+{formatRupiah(queued.expenseIn)}
+													</dd>
+												</>
+											)}
+											{(props.ownerPaidPending ?? 0) > 0 && (
+												<>
+													<dt className="text-muted-foreground">
+														Biaya dibayar owner
+													</dt>
+													<dd className="tabular text-right text-foreground">
+														−{formatRupiah(props.ownerPaidPending ?? 0)}
+													</dd>
+												</>
+											)}
+											{netAfterExtra !== null && (
+												<>
+													<dt className="border-t border-border-default pt-1.5 font-medium text-foreground">
+														Laba akhir event
+													</dt>
+													<dd className="tabular border-t border-border-default pt-1.5 text-right font-semibold text-foreground">
+														{formatRupiah(netAfterExtra)}
+													</dd>
+												</>
+											)}
+											<dt className="pt-1.5 text-muted-foreground">
+												Sinking funds
+											</dt>
+											<dd className="tabular pt-1.5 text-right text-foreground">
+												{formatRupiah(props.sinkingEstimate)}
+											</dd>
 											<dt className="text-muted-foreground">
-												Pengeluaran lain
+												Bagi hasil owner
 											</dt>
 											<dd className="tabular text-right text-foreground">
-												{formatRupiah(queued.expenseOut)}
+												{formatRupiah(props.ownerPoolEstimate)}
 											</dd>
-										</>
-									)}
-									{queued && queued.expenseIn > 0 && (
-										<>
-											<dt className="text-muted-foreground">Pemasukan lain</dt>
-											<dd className="tabular text-right text-foreground">
-												{formatRupiah(queued.expenseIn)}
-											</dd>
-										</>
-									)}
-									{(props.ownerPaidPending ?? 0) > 0 && (
-										<>
-											<dt className="text-muted-foreground">
-												Biaya dibayar owner
-											</dt>
-											<dd className="tabular text-right text-foreground">
-												{formatRupiah(props.ownerPaidPending ?? 0)}
-											</dd>
-										</>
-									)}
-									<dt className="border-t border-border-default pt-1.5 text-sm font-medium text-foreground">
-										Net profit
-									</dt>
-									<dd className="tabular border-t border-border-default pt-1.5 text-right text-sm font-semibold text-foreground">
-										{formatRupiah(props.netProfit)}
-									</dd>
-									{netAfterExtra !== null && (
-										<>
-											<dt className="text-sm font-medium text-foreground">
-												Laba akhir event
-											</dt>
-											<dd className="tabular text-right text-sm font-semibold text-foreground">
-												{formatRupiah(netAfterExtra)}
-											</dd>
-										</>
-									)}
-								</dl>
+											{bd && (
+												<>
+													<dt className="text-muted-foreground">
+														Sisa kas operasional
+													</dt>
+													<dd className="tabular text-right text-foreground">
+														{formatRupiah(bd.operatingCash)}
+													</dd>
+												</>
+											)}
+										</dl>
+
+										{/* Uang yang benar-benar bergerak saat tombol ditekan —
+										    ikut berubah kalau opsi bayar fee crew dinyalakan. */}
+										{(cashOutOnSettle > 0 || cashInOnSettle > 0) && (
+											<div className="rounded-lg border border-dashed border-border-default bg-surface-1 px-2.5 py-2">
+												<p className="text-[11px] font-medium text-muted-foreground">
+													Kas bergerak saat settle
+												</p>
+												<dl className="mt-1 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-[12px]">
+													{cashOutOnSettle > 0 && (
+														<>
+															<dt className="text-muted-foreground">
+																Uang keluar
+															</dt>
+															<dd className="tabular text-right font-medium text-foreground">
+																{formatRupiah(cashOutOnSettle)}
+															</dd>
+														</>
+													)}
+													{cashInOnSettle > 0 && (
+														<>
+															<dt className="text-muted-foreground">
+																Uang masuk
+															</dt>
+															<dd className="tabular text-right font-medium text-foreground">
+																{formatRupiah(cashInOnSettle)}
+															</dd>
+														</>
+													)}
+												</dl>
+												{!payNow && crewTotal > 0 && !props.crewFeePlanned && (
+													<p className="mt-1 text-[11px] text-muted-foreground">
+														Fee crew {formatRupiah(crewTotal)} belum termasuk —
+														jadi Hutang Crew, dibayar belakangan.
+													</p>
+												)}
+											</div>
+										)}
+									</div>
+								</div>
 							</section>
 
 							{/* Kolom 3 — pembayaran sekalian saat settle */}
@@ -536,6 +767,67 @@ export function SettleButton(props: Props) {
 				</DialogContent>
 			</Dialog>
 		</>
+	);
+}
+
+/**
+ * Satu kelompok angka di final check: baris-baris penyusun + totalnya.
+ *
+ * Baris bernilai nol disembunyikan — daftar panjang berisi "Rp 0" bikin mata
+ * lelah dan justru menyamarkan angka yang benar-benar perlu diperiksa. Kalau
+ * rinciannya tidak tersedia (preview lama), totalnya tetap tampil sendiri.
+ */
+function MoneyGroup({
+	title,
+	rows,
+	total,
+	totalLabel = "Total",
+	footer,
+}: {
+	title: string;
+	rows: Array<{ label: string; value: number }>;
+	total: number;
+	totalLabel?: string;
+	footer?: React.ReactNode;
+}) {
+	const listed = rows.filter((r) => r.value !== 0);
+	// Rincian WAJIB berjumlah sama dengan totalnya. Kalau ada selisih (mis.
+	// komponen baru di mesin settlement yang belum punya barisnya sendiri di
+	// sini), tampilkan sebagai "Lainnya" — jangan biarkan ada uang yang
+	// tersembunyi di kolom yang justru dipakai untuk memeriksa.
+	const diff =
+		listed.length > 0 ? total - listed.reduce((s, r) => s + r.value, 0) : 0;
+	const shown =
+		diff !== 0 ? [...listed, { label: "Lainnya", value: diff }] : listed;
+	return (
+		<div className="space-y-1">
+			<div className="flex items-baseline justify-between gap-3">
+				<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+					{title}
+				</p>
+				<span className="tabular text-[13px] font-semibold text-foreground">
+					{formatRupiah(total)}
+				</span>
+			</div>
+			{shown.length > 0 && (
+				<dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-[12.5px]">
+					{shown.map((r) => (
+						<Fragment key={r.label}>
+							<dt className="truncate text-muted-foreground">{r.label}</dt>
+							<dd className="tabular text-right text-foreground/90">
+								{r.value < 0
+									? `−${formatRupiah(Math.abs(r.value))}`
+									: formatRupiah(r.value)}
+							</dd>
+						</Fragment>
+					))}
+				</dl>
+			)}
+			{shown.length > 1 && totalLabel !== "Total" && (
+				<p className="text-[11px] text-muted-foreground">= {totalLabel}</p>
+			)}
+			{footer && <p className="text-[11px]">{footer}</p>}
+		</div>
 	);
 }
 
