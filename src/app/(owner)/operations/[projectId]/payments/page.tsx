@@ -54,7 +54,9 @@ export default async function ManagePaymentsPage({
 			.order("payment_date", { ascending: false }),
 		supabase
 			.from("bank_accounts")
-			.select("id, bank_name, account_number, account_holder")
+			.select(
+				"id, bank_name, account_number, account_holder, is_default_receive",
+			)
 			.eq("is_active", true)
 			.order("is_default_receive", { ascending: false })
 			.order("bank_name", { ascending: true }),

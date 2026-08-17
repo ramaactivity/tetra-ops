@@ -28,6 +28,8 @@ export type BankAccountOption = {
 	bank_name: string;
 	account_number: string | null;
 	account_holder: string | null;
+	/** Rekening penerima standar (Settings → Banks) — dipilih otomatis. */
+	is_default_receive?: boolean | null;
 };
 
 export function PaymentForm({
@@ -78,7 +80,18 @@ export function PaymentForm({
 		get("payment_date", defaultDate),
 	);
 	const [paymentType, setPaymentType] = useState(get("payment_type", "dp"));
-	const [bankAccountId, setBankAccountId] = useState(get("bank_account_id"));
+	// Rekening penerima standar (is_default_receive di Settings → Banks) langsung
+	// terpilih: hampir semua pembayaran klien masuk ke situ, dan memaksa owner
+	// memilih tiap kali cuma menambah satu langkah yang mudah terlewat — sekali
+	// terlewat, pembayaran tercatat di rekening yang salah dan saldo kas/bank
+	// ikut melenceng. Owner tetap bebas menggantinya (mis. Cash).
+	const defaultBankId =
+		bankAccounts.find((b) => b.is_default_receive)?.id ??
+		bankAccounts[0]?.id ??
+		"";
+	const [bankAccountId, setBankAccountId] = useState(
+		get("bank_account_id", defaultBankId),
+	);
 	const [proofUrl, setProofUrl] = useState(get("proof_url"));
 	const [proofFile, setProofFile] = useState<File | null>(null);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
