@@ -132,30 +132,34 @@ export function QuickRecordCore({
 	const [showAllCats, setShowAllCats] = useState(false);
 	const [previewOpen, setPreviewOpen] = useState(false);
 
-	const [state, formAction] = useActionState<QuickRecordFormState, FormData>(
-		recordQuickTransaction,
-		undefined,
-	);
+	// `pending` (elemen ketiga) WAJIB dipakai: state yang di-set DI DALAM form
+	// action adalah update transition — React sengaja menahan render-nya sampai
+	// aksinya selesai, jadi spinner yang hanya bergantung pada state lokal baru
+	// muncul setelah semuanya beres (tombol terlihat "diam" berdetik-detik dan
+	// mengundang klik berulang). `pending` justru dirancang menyala seketika.
+	const [state, formAction, pending] = useActionState<
+		QuickRecordFormState,
+		FormData
+	>(recordQuickTransaction, undefined);
 
 	// Synchronous re-entry guard: blocks a second submit before React commits
 	// `pending` (rapid double-tap) and stays locked through a successful save
 	// until the panel unmounts — so a slow save can never create a duplicate
 	// entry. Reset only on an error response so the user can retry.
 	const submittingRef = useRef(false);
-	// `busy` melingkupi SELURUH umur simpan: klik → server action → upload foto
-	// nota (ke Google Drive, bisa beberapa detik) → refresh → tutup. `pending`
-	// dari useActionState hanya true selama server action; ia keburu false lagi
-	// saat foto masih di-upload, membuat tombol seolah aktif kembali (tanpa
-	// spinner, bisa diklik). `busy` yang kita kontrol sendiri menahan tombol
-	// tetap disabled + spinner sampai modal benar-benar tertutup — jadi selalu
-	// ada feedback dan mustahil terinput dobel. `uploadingNota` hanya untuk
-	// memperjelas label ("Mengunggah nota…") pada fase upload yang lambat itu.
-	const [busy, setBusy] = useState(false);
+	// `pending` hanya menyala selama server action; ia keburu padam saat foto
+	// nota masih di-upload ke Drive (bisa beberapa detik) — tombol jadi terlihat
+	// aktif lagi tanpa spinner. `postBusy` menahan tombol tetap terkunci sampai
+	// modal benar-benar tertutup, jadi feedback-nya tak pernah putus.
+	const [postBusy, setPostBusy] = useState(false);
 	const [uploadingNota, setUploadingNota] = useState(false);
+	// Satu bendera untuk SELURUH umur simpan: klik → server action → upload nota
+	// → refresh → tutup.
+	const busy = pending || postBusy;
 	useEffect(() => {
 		if (state?.error) {
 			submittingRef.current = false;
-			setBusy(false);
+			setPostBusy(false);
 			setUploadingNota(false);
 		}
 	}, [state]);
@@ -249,7 +253,7 @@ export function QuickRecordCore({
 				// Pemakaian tanpa modal (tak ada onDone): buka kunci form agar tak
 				// permanen ter-disable setelah tersimpan.
 				submittingRef.current = false;
-				setBusy(false);
+				setPostBusy(false);
 				setUploadingNota(false);
 			}
 		})();
@@ -840,9 +844,12 @@ export function QuickRecordCore({
 	return (
 		<form
 			action={(fd) => {
-				if (!canSubmit || busy || submittingRef.current) return;
+				// Guard-nya lewat ref (sinkron), bukan `busy` — `busy` sudah ikut
+				// menyala dari `pending` begitu aksi jalan, jadi kalau dipakai di sini
+				// submit ulang yang sah bisa ikut terblokir.
+				if (!canSubmit || submittingRef.current) return;
 				submittingRef.current = true;
-				setBusy(true);
+				setPostBusy(true);
 				fd.set("direction", direction);
 				fd.set("amount", String(amount));
 				fd.set("entry_date", date);
