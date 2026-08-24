@@ -93,6 +93,12 @@ type Props = {
 	 */
 	submittedByUserId?: string | null;
 	readOnly?: boolean;
+	/**
+	 * Ada kartu e-toll/e-money terdaftar? Kalau belum, owner tidak punya cara
+	 * menandai "dibayar pakai kartu" dan biayanya terpaksa jatuh ke "dibayar
+	 * owner" — jadi di sinilah jalan keluarnya ditunjukkan.
+	 */
+	hasEmoneyCard?: boolean;
 	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
 	allowPayment?: boolean;
 	cashAccounts?: CashAccountOption[];
@@ -119,6 +125,7 @@ export function CrewFeeForm({
 	fieldExpenseBreakdown,
 	submittedByUserId,
 	readOnly = false,
+	hasEmoneyCard = false,
 	allowPayment = false,
 	cashAccounts = [],
 	queuedPayment = null,
@@ -472,6 +479,20 @@ export function CrewFeeForm({
 								di bawah langsung terisi, tinggal pilih rekening & simpan. Yang
 								sudah tercatat kelihatan di kartu itu juga, jadi tidak dobel.
 							</p>
+							{!hasEmoneyCard && !readOnly ? (
+								<p className="mt-1.5 text-[11px] text-muted-foreground">
+									Sebenarnya dibayar pakai kartu e-toll?{" "}
+									<a
+										href="/finance/bank-accounts"
+										className="font-medium text-sky-700 underline underline-offset-2 dark:text-sky-300"
+									>
+										Daftarkan kartunya dulu
+									</a>{" "}
+									— setelah itu pembayarnya bisa diubah jadi kartu di rekap, dan
+									saldo kartu otomatis berkurang saat settle tanpa perlu dicatat
+									manual.
+								</p>
+							) : null}
 						</div>
 					)}
 					{fieldExpenseBreakdown.cardPaidTotal > 0 && (

@@ -917,6 +917,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						rows={crewFeeRows}
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
+						hasEmoneyCard={context.cards.length > 0}
 						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}
 						cashAccounts={cashAccounts}
@@ -1094,6 +1095,7 @@ export default async function EventRekapPage({
 						// owner masih perlu tahu siapa menalangi apa untuk audit &
 						// memastikan biaya "dibayar owner" sudah dicatat.
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
+						hasEmoneyCard={context.cards.length > 0}
 						readOnly
 						cashAccounts={cashAccounts}
 						allowPayment={crewPayable}
