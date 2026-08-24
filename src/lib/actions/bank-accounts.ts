@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { BANK_COA_FIRST, BANK_COA_LAST } from "@/lib/finance/emoney";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -124,17 +125,26 @@ export async function createBankAccount(
 		};
 	}
 
+	// Bank hanya boleh mengambil dari bloknya sendiri (1-110..1-139). Kalau
+	// pakai max(semua 1-1xx)+1 seperti dulu, bank baru akan nyempil ke dalam
+	// blok kartu e-money (1-140..1-159) begitu kartu pertama dibuat.
 	const suffixes = (coaRows ?? [])
 		.map((r) => bankCoaSuffix(r.code as string))
-		.filter((n): n is number => n !== null);
-	// Cash holds 1-100; banks start at 1-110. Next = max(existing)+1, floored.
+		.filter(
+			(n): n is number =>
+				n !== null && n >= BANK_COA_FIRST && n <= BANK_COA_LAST,
+		);
 	const nextSuffix = Math.max(
-		110,
-		(suffixes.length ? Math.max(...suffixes) : 109) + 1,
+		BANK_COA_FIRST,
+		(suffixes.length ? Math.max(...suffixes) : BANK_COA_FIRST - 1) + 1,
 	);
-	if (nextSuffix > 199) {
+	if (nextSuffix > BANK_COA_LAST) {
 		return {
-			errors: { _form: ["Range kode COA bank (1-110..1-199) sudah penuh."] },
+			errors: {
+				_form: [
+					`Kode akun bank (1-${BANK_COA_FIRST}..1-${BANK_COA_LAST}) sudah penuh.`,
+				],
+			},
 			values: snapshot(formData),
 		};
 	}

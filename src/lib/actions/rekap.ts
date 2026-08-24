@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/rekap-notifications";
 import { alertRestockAfterCommit } from "@/lib/actions/restock-alert";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { loadEmoneyCards, toPayerOptions } from "@/lib/finance/emoney-data";
 import { bucketForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
 import {
@@ -359,6 +360,12 @@ export type RekapContext = {
 	 * eksplisit per item, bukan diasumsikan dari submitter.
 	 */
 	crew: Array<{ user_id: string; name: string; role: string }>;
+	/**
+	 * Kartu e-money (e-toll) aktif — pilihan "dibayar pakai kartu perusahaan".
+	 * `balance` HANYA diisi untuk owner; crew cuma dapat tanda `isLow` supaya
+	 * tahu kartu mana yang perlu diisi, tanpa melihat nominal saldo.
+	 */
+	cards: Array<{ id: string; name: string; balance?: number; isLow: boolean }>;
 };
 
 export async function getRekapContext(
@@ -737,6 +744,29 @@ export async function getRekapContext(
 			role: r.role_in_event ?? "",
 		}));
 
+	// Kartu e-money. Owner boleh membaca bank_accounts langsung (+ saldo);
+	// crew lewat RPC aman karena RLS bank_accounts owner-only — tanpa ini
+	// pemilihnya kosong diam-diam, bukan error.
+	let cards: RekapContext["cards"] = [];
+	if (isCrew) {
+		const { data: cardRows, error: cardErr } = await supabase.rpc(
+			"list_emoney_cards_safe",
+		);
+		if (cardErr) {
+			console.error(
+				"[getRekapContext] list_emoney_cards_safe:",
+				cardErr.message,
+			);
+		}
+		cards = (
+			(cardRows ?? []) as Array<{ id: string; name: string; is_low: boolean }>
+		).map((c) => ({ id: c.id, name: c.name, isLow: Boolean(c.is_low) }));
+	} else {
+		cards = toPayerOptions(await loadEmoneyCards(supabase), {
+			withBalance: true,
+		});
+	}
+
 	return {
 		pkg: {
 			name: pkg?.name ?? null,
@@ -758,6 +788,7 @@ export async function getRekapContext(
 			inventory_item: stripItem(b.inventory_item),
 		})),
 		mappings: mappings.map((m) => ({ ...m, item: stripItem(m.item) })),
+		cards,
 		custom_inventory: custom_inventory.map(stripPrice),
 		crew,
 	};

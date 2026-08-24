@@ -15,6 +15,8 @@
  * penanda, biaya dianggap ditalangi crew; yang bertanda "owner" tidak ikut.
  */
 
+import { isFrontedByPerson } from "@/lib/finance/emoney";
+
 export type RekapExpenseSource = {
 	transport_cost: number | string | null;
 	bensin_cost: number | string | null;
@@ -28,14 +30,24 @@ export type RekapExpenseSource = {
 
 const num = (v: unknown) => Math.round(Number(v ?? 0)) || 0;
 
-/** Total biaya lapangan yang ditalangi crew — cermin calculate_recap_opex. */
+/**
+ * Total biaya lapangan yang ditalangi crew — cermin calculate_recap_opex.
+ *
+ * Dua bentuk pembayar yang BUKAN talangan crew:
+ *   'owner'             dibayar owner pakai uang pribadi
+ *   'acct:<uuid akun>'  dibayar langsung dari saldo perusahaan (kartu e-toll,
+ *                       kas, bank) — uangnya sudah keluar waktu topup, tidak
+ *                       ada yang perlu diganti ke crew.
+ * Tanpa penyaringan kedua, tap e-toll pakai kartu perusahaan akan jadi
+ * reimbursement fiktif ke crew.
+ */
 export function crewFrontedExpenses(rekap: RekapExpenseSource): number {
 	const paidBy = (
 		rekap.expense_paid_by && typeof rekap.expense_paid_by === "object"
 			? rekap.expense_paid_by
 			: {}
 	) as Record<string, unknown>;
-	const byOwner = (key: string) => String(paidBy[key] ?? "crew") === "owner";
+	const notFronted = (value: unknown) => !isFrontedByPerson(value ?? "crew");
 
 	let total = 0;
 	for (const [key, value] of [
@@ -45,7 +57,7 @@ export function crewFrontedExpenses(rekap: RekapExpenseSource): number {
 		["parking", rekap.parking_cost],
 		["konsumsi", rekap.konsumsi_cost],
 	] as const) {
-		if (!byOwner(key)) total += num(value);
+		if (!notFronted(paidBy[key])) total += num(value);
 	}
 
 	if (Array.isArray(rekap.lainnya_items)) {
@@ -53,7 +65,7 @@ export function crewFrontedExpenses(rekap: RekapExpenseSource): number {
 			const item = (raw ?? {}) as Record<string, unknown>;
 			const amount = num(item.amount);
 			if (amount <= 0) continue;
-			if (String(item.paid_by ?? "crew") === "owner") continue;
+			if (notFronted(item.paid_by)) continue;
 			total += amount;
 		}
 	}

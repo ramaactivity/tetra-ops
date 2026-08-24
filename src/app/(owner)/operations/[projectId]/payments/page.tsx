@@ -58,6 +58,8 @@ export default async function ManagePaymentsPage({
 				"id, bank_name, account_number, account_holder, is_default_receive",
 			)
 			.eq("is_active", true)
+			// Kartu e-toll tidak bisa menerima transfer klien.
+			.neq("account_kind", "emoney")
 			.order("is_default_receive", { ascending: false })
 			.order("bank_name", { ascending: true }),
 		// Nominal DP standar Tetra — dibaca dari setting, bukan ditanam di

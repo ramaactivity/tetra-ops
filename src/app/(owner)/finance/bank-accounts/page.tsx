@@ -1,22 +1,32 @@
-import { CheckCircle2, Landmark, Star, Wallet } from "lucide-react";
+import { CheckCircle2, CreditCard, Landmark, Wallet } from "lucide-react";
 import { AddBankAccountModal } from "@/components/bank-accounts/add-bank-account-modal";
 import {
 	type BankAccountRow,
 	BankAccountsExplorer,
 } from "@/components/bank-accounts/bank-accounts-explorer";
+import { EmoneyCardsPanel } from "@/components/bank-accounts/emoney-cards-panel";
 import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { loadEmoneyCards } from "@/lib/finance/emoney-data";
+import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function BankAccountsListPage() {
 	const supabase = await createClient();
-	const { data, error } = await supabase
-		.from("bank_accounts")
-		.select(
-			"id, account_name, bank_name, account_number, account_holder, coa_code, is_default_receive, is_active",
-		)
-		.order("coa_code", { ascending: true });
+	const [{ data, error }, cards, cashAccounts] = await Promise.all([
+		supabase
+			.from("bank_accounts")
+			.select(
+				"id, account_name, bank_name, account_number, account_holder, coa_code, is_default_receive, is_active",
+			)
+			// Kartu punya panelnya sendiri di bawah — tabel ini khusus kas & bank.
+			.neq("account_kind", "emoney")
+			.order("coa_code", { ascending: true }),
+		loadEmoneyCards(supabase, { includeInactive: true }),
+		loadCashAccounts(supabase),
+	]);
 
 	if (error) {
 		return (
@@ -32,7 +42,14 @@ export default async function BankAccountsListPage() {
 
 	const activeCount = accounts.filter((a) => a.is_active).length;
 	const bankCount = new Set(accounts.map((a) => a.bank_name)).size;
-	const defaultAcc = accounts.find((a) => a.is_default_receive);
+	// Sumber topup: semua kas/bank KECUALI kartu — memindah saldo antar kartu
+	// tidak bisa dilakukan di dunia nyata.
+	const cardCodes = new Set(cards.map((c) => c.coaCode));
+	const sources = cashAccounts
+		.filter((a) => !cardCodes.has(a.code))
+		.map((a) => ({ code: a.code, name: a.name, balance: a.balance }));
+	const activeCards = cards.filter((c) => c.isActive);
+	const cardTotal = activeCards.reduce((s, c) => s + c.balance, 0);
 
 	const stats: StatItem[] = [
 		{
@@ -55,10 +72,10 @@ export default async function BankAccountsListPage() {
 			icon: Landmark,
 		},
 		{
-			label: "Default Penerima",
-			value: defaultAcc ? defaultAcc.bank_name : "—",
-			hint: defaultAcc ? defaultAcc.account_name : "belum diset",
-			icon: Star,
+			label: "Saldo di Kartu",
+			value: formatRupiah(cardTotal),
+			hint: `${activeCards.length} kartu e-toll aktif`,
+			icon: CreditCard,
 			accent: "info",
 		},
 	];
@@ -76,6 +93,8 @@ export default async function BankAccountsListPage() {
 			<StatRow stats={stats} />
 
 			<BankAccountsExplorer accounts={accounts} />
+
+			<EmoneyCardsPanel cards={cards} sources={sources} />
 		</Container>
 	);
 }

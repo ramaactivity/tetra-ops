@@ -18,6 +18,8 @@ export default async function CommissionsPage() {
 			.from("bank_accounts")
 			.select("coa_code, bank_name, account_number, account_holder")
 			.eq("is_active", true)
+			// Komisi tidak pernah dibayar dari kartu e-toll.
+			.neq("account_kind", "emoney")
 			.order("is_default_receive", { ascending: false })
 			.order("bank_name", { ascending: true }),
 	]);

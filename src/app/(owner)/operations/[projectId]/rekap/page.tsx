@@ -51,6 +51,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchSalesCandidates } from "@/lib/events/booking-candidates";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
+import { paidFromAccountId } from "@/lib/finance/emoney";
 import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
 import { createClient } from "@/lib/supabase/server";
 
@@ -478,10 +479,11 @@ export default async function EventRekapPage({
 				total: number;
 				crewFrontedTotal: number;
 				ownerPaidTotal: number;
+				cardPaidTotal: number;
 				items: Array<{
 					label: string;
 					amount: number;
-					paidBy: "crew" | "owner";
+					paidBy: "crew" | "owner" | "card";
 					/** users.id penalang — null kalau crew tapi belum ditentukan siapa. */
 					payerUserId: string | null;
 					payerName: string | null;
@@ -512,7 +514,8 @@ export default async function EventRekapPage({
 		const items: Array<{
 			label: string;
 			amount: number;
-			paidBy: "crew" | "owner";
+			/** "card" = dibayar langsung dari saldo perusahaan (kartu e-toll/kas/bank). */
+			paidBy: "crew" | "owner" | "card";
 			payerUserId: string | null;
 			payerName: string | null;
 			catatPrefill?: {
@@ -559,7 +562,15 @@ export default async function EventRekapPage({
 			notaUrl: string | null = null,
 		) => {
 			if (amount <= 0) return;
-			const paidBy: "crew" | "owner" = rawPayer === "owner" ? "owner" : "crew";
+			// Tiga dunia, bukan dua. Tanpa cabang "card", penanda 'acct:<uuid>'
+			// jatuh ke "crew" dan uuid rekening dipakai sebagai id penalang —
+			// jadi reimbursement fiktif ke crew yang tidak mengeluarkan apa pun.
+			const isCard = paidFromAccountId(rawPayer) !== null;
+			const paidBy: "crew" | "owner" | "card" = isCard
+				? "card"
+				: rawPayer === "owner"
+					? "owner"
+					: "crew";
 			// "crew" = ditalangi tapi belum ditentukan siapa (data lama); selain itu
 			// nilainya users.id penalang.
 			const payerUserId =
@@ -634,6 +645,12 @@ export default async function EventRekapPage({
 		const crewFrontedTotal = items
 			.filter((x) => x.paidBy === "crew")
 			.reduce((s, x) => s + x.amount, 0);
+		const ownerPaidSum = items
+			.filter((x) => x.paidBy === "owner")
+			.reduce((s, x) => s + x.amount, 0);
+		const cardPaidSum = items
+			.filter((x) => x.paidBy === "card")
+			.reduce((s, x) => s + x.amount, 0);
 		// Talangan dikelompokkan per penalang → owner tinggal satu klik untuk
 		// mengisi reimbursement tiap crew sesuai yang benar-benar dia bayar.
 		const byCrew: Record<string, number> = {};
@@ -650,7 +667,10 @@ export default async function EventRekapPage({
 			fieldExpenseBreakdown = {
 				total,
 				crewFrontedTotal,
-				ownerPaidTotal: total - crewFrontedTotal,
+				// Dihitung eksplisit, bukan sisa pengurangan: sejak ada pembayar
+				// kartu, "bukan talangan crew" tidak lagi sama dengan "dibayar owner".
+				ownerPaidTotal: ownerPaidSum,
+				cardPaidTotal: cardPaidSum,
 				items,
 				byCrew,
 				unattributedTotal,

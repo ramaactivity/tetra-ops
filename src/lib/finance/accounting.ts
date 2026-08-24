@@ -91,6 +91,8 @@ export const SOURCE_LABEL: Record<string, string> = {
 	commission_payment: "Bayar komisi",
 	commission_payment_reversal: "Pembatalan bayar komisi",
 	wastage: "Barang rusak/hilang",
+	balance_transfer: "Pindah saldo",
+	emoney_recount: "Cocokkan saldo kartu",
 };
 
 /**

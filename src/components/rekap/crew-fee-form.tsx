@@ -65,10 +65,16 @@ type Props = {
 		crewFrontedTotal: number;
 		/** Porsi yang dibayar owner langsung — bukan hutang ke crew. */
 		ownerPaidTotal: number;
+		/**
+		 * Porsi yang dibayar langsung dari saldo perusahaan (kartu e-toll/kas/
+		 * bank). Bukan hutang ke crew DAN bukan urusan Catat transaksi —
+		 * settlement sudah mengkredit rekeningnya sendiri.
+		 */
+		cardPaidTotal: number;
 		items: Array<{
 			label: string;
 			amount: number;
-			paidBy: "crew" | "owner";
+			paidBy: "crew" | "owner" | "card";
 			/** users.id penalang — null kalau belum ditentukan siapa. */
 			payerUserId: string | null;
 			payerName: string | null;
@@ -465,6 +471,32 @@ export function CrewFeeForm({
 								</span>{" "}
 								di bawah langsung terisi, tinggal pilih rekening & simpan. Yang
 								sudah tercatat kelihatan di kartu itu juga, jadi tidak dobel.
+							</p>
+						</div>
+					)}
+					{fieldExpenseBreakdown.cardPaidTotal > 0 && (
+						<div>
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+								💳 Dibayar kartu perusahaan ·{" "}
+								<span data-nominal className="tabular">
+									{formatRupiah(fieldExpenseBreakdown.cardPaidTotal)}
+								</span>
+							</p>
+							<ul className="mt-1.5 space-y-1 text-xs text-foreground/80">
+								{fieldExpenseBreakdown.items
+									.filter((it) => it.paidBy === "card")
+									.map((it) => (
+										<li key={it.label} className="flex items-center gap-2">
+											<span className="text-muted-foreground">{it.label}:</span>
+											<span data-nominal className="tabular">
+												{formatRupiah(it.amount)}
+											</span>
+										</li>
+									))}
+							</ul>
+							<p className="mt-1.5 text-[11px] text-muted-foreground">
+								Tidak perlu di-rembers dan tidak perlu dicatat manual — saldo
+								kartunya otomatis berkurang saat event di-settle.
 							</p>
 						</div>
 					)}
