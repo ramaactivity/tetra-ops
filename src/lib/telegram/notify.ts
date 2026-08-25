@@ -492,7 +492,9 @@ export async function notifyTelegramEventSettled(
 				.eq("is_reversed", false),
 			admin
 				.from("event_settle_queue")
-				.select("kind, amount, category_id, posted_ref, post_error")
+				.select(
+					"kind, amount, category_id, note, direction, posted_ref, post_error",
+				)
 				.eq("event_id", eventId)
 				.not("posted_at", "is", null),
 		]);
@@ -534,6 +536,8 @@ export async function notifyTelegramEventSettled(
 				kind: (q.kind as string) ?? "",
 				amount: Number(q.amount ?? 0),
 				categoryId: (q.category_id as string | null) ?? null,
+				note: (q.note as string | null) ?? null,
+				direction: (q.direction as string | null) ?? null,
 				postedRef: (q.posted_ref as string | null) ?? null,
 				postError: (q.post_error as string | null) ?? null,
 			})),

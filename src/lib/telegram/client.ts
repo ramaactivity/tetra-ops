@@ -166,9 +166,6 @@ export async function answerCallbackQuery(
 }
 
 /** Escape teks dinamis (nama klien, venue) untuk parse_mode HTML. */
-export function tgEscape(s: string | null | undefined): string {
-	return (s ?? "")
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;");
-}
+// Definisinya pindah ke format.ts (modul murni, bisa dites). Diekspor ulang
+// di sini supaya seluruh pemanggil lama tidak perlu diubah.
+export { tgEscape } from "@/lib/telegram/format";

@@ -14,6 +14,7 @@ import {
 	sendTelegramMessage,
 	tgEscape,
 } from "@/lib/telegram/client";
+import { dateLabel, rp } from "@/lib/telegram/format";
 
 /**
  * Digest kesiapan event untuk grup Telegram owner.
@@ -144,15 +145,9 @@ const BULAN_FULL = [
 	"Desember",
 ];
 
-export function dateLabel(iso: string, full = false): string {
-	const d = new Date(`${iso}T00:00:00Z`);
-	const hari = (full ? HARI_FULL : HARI)[d.getUTCDay()];
-	return `${hari} ${d.getUTCDate()} ${BULAN[d.getUTCMonth()]}`;
-}
-
-export function rp(n: number): string {
-	return `Rp ${Math.round(n).toLocaleString("id-ID")}`;
-}
+// Definisinya pindah ke format.ts (modul murni, bisa dites); diekspor ulang
+// supaya pemanggil lama tidak perlu diubah.
+export { dateLabel, rp };
 
 function hhmm(t: string | null): string | null {
 	return t ? t.slice(0, 5) : null;

@@ -1,5 +1,7 @@
-import { tgEscape } from "@/lib/telegram/client";
-import { dateLabel, rp } from "@/lib/telegram/digest";
+import { findCategory } from "@/lib/finance/quick-record-categories";
+// Sengaja dari format.ts, bukan client.ts/digest.ts: keduanya ber-"server-only"
+// dan menariknya ke sini membuat modul ini mustahil diuji.
+import { dateLabel, rp, tgEscape } from "@/lib/telegram/format";
 
 /**
  * Penyusun laporan "EVENT SETTLED" untuk grup Telegram owner.
@@ -37,11 +39,29 @@ export type SettledReportInput = {
 		kind: string;
 		amount: number;
 		categoryId: string | null;
+		/** Keterangan yang diketik owner, mis. "Toll — BRI — Culture Fest 2026". */
+		note: string | null;
+		direction: string | null;
 		postedRef: string | null;
 		postError: string | null;
 	}>;
 	detailUrl: string | null;
 };
+
+/**
+ * Nama pengeluaran/pemasukan lain untuk laporan.
+ *
+ * Empat baris "Pengeluaran lain" berturut-turut tidak memberi tahu apa pun ke
+ * owner. Keterangannya sudah ada di antrian — bentuknya "<label> — <nama
+ * klien>", jadi nama klien dibuang karena sudah tercetak di judul laporan.
+ * Kalau keterangannya kosong, dipakai nama kategori Catat; kalau itu pun tidak
+ * ada, baru jatuh ke label umum.
+ */
+function extraLabel(note: string | null, categoryId: string | null): string {
+	const head = (note ?? "").split(" — ")[0].trim();
+	if (head) return head;
+	return findCategory(categoryId)?.label ?? "Pengeluaran lain";
+}
 
 export function buildSettledReport(input: SettledReportInput): string {
 	const st = input.settlement;
@@ -61,6 +81,7 @@ export function buildSettledReport(input: SettledReportInput): string {
 			: 0;
 
 	const paidLines: string[] = [];
+	const receivedLines: string[] = [];
 	for (const q of input.postedQueue) {
 		if (q.postError) continue;
 		if (q.kind === "crew_fee") {
@@ -74,7 +95,11 @@ export function buildSettledReport(input: SettledReportInput): string {
 				`   • Komisi ${tgEscape(q.categoryId ?? "mitra")} ${rp(q.amount)}`,
 			);
 		} else if (q.kind === "expense") {
-			paidLines.push(`   • Pengeluaran lain ${rp(q.amount)}`);
+			const line = `   • ${tgEscape(extraLabel(q.note, q.categoryId))} ${rp(q.amount)}`;
+			// Kartu "Pemasukan / pengeluaran lain" bisa dua arah — uang masuk
+			// jangan ikut nongkrong di bawah judul "Uang keluar".
+			if (q.direction === "masuk") receivedLines.push(line);
+			else paidLines.push(line);
 		}
 	}
 	const failedCount = input.postedQueue.filter((q) => q.postError).length;
@@ -116,6 +141,9 @@ export function buildSettledReport(input: SettledReportInput): string {
 	}
 	if (paidLines.length > 0) {
 		lines.push("", "💸 <b>Uang keluar saat settle</b>", ...paidLines);
+	}
+	if (receivedLines.length > 0) {
+		lines.push("", "💵 <b>Uang masuk saat settle</b>", ...receivedLines);
 	}
 	if (failedCount > 0) {
 		lines.push(
