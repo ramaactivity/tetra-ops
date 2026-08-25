@@ -74,9 +74,17 @@ const CardSchema = z.object({
 		.min(2, "Minimal 2 karakter")
 		.max(80, "Maksimal 80 karakter"),
 	card_provider: OptionalText,
+	card_number: OptionalText,
 	holder_note: OptionalText,
 	low_balance_threshold: Money.default(0),
 	opening_balance: Money.default(0),
+	/**
+	 * "existing" = saldo sudah lama ada di kartu; uangnya keluar dari bank di
+	 * periode lalu (dan di Tetra Ops sering sudah terlanjur dibebankan), jadi
+	 * lawannya 3-101 Modal Awal — kas TIDAK disentuh lagi.
+	 * "transfer" = uang baru dipindahkan hari ini dari rekening yang dipilih.
+	 */
+	opening_source: z.enum(["existing", "transfer"]).default("existing"),
 	opening_from_coa: OptionalText,
 	opening_date: z
 		.string()
@@ -95,9 +103,11 @@ export async function createEmoneyCard(
 	const parsed = CardSchema.safeParse({
 		account_name: formData.get("account_name"),
 		card_provider: formData.get("card_provider"),
+		card_number: formData.get("card_number"),
 		holder_note: formData.get("holder_note"),
 		low_balance_threshold: formData.get("low_balance_threshold") || 0,
 		opening_balance: formData.get("opening_balance") || 0,
+		opening_source: formData.get("opening_source") || "existing",
 		opening_from_coa: formData.get("opening_from_coa"),
 		opening_date: formData.get("opening_date"),
 		is_active: formData.get("is_active") === "on",
@@ -107,13 +117,13 @@ export async function createEmoneyCard(
 	}
 	const input = parsed.data;
 
-	if (input.opening_balance > 0 && !input.opening_from_coa) {
+	if (
+		input.opening_balance > 0 &&
+		input.opening_source === "transfer" &&
+		!input.opening_from_coa
+	) {
 		return fail(
-			{
-				opening_from_coa: [
-					"Pilih rekening asalnya — saldo yang sudah ada di kartu itu dulu keluar dari suatu tempat.",
-				],
-			},
+			{ opening_from_coa: ["Pilih rekening asal uangnya"] },
 			formData,
 		);
 	}
@@ -174,6 +184,7 @@ export async function createEmoneyCard(
 		.insert({
 			account_name: input.account_name,
 			bank_name: input.card_provider ?? "E-money",
+			account_number: input.card_number,
 			coa_code: newCode,
 			account_kind: "emoney",
 			card_provider: input.card_provider,
@@ -194,22 +205,30 @@ export async function createEmoneyCard(
 		);
 	}
 
-	// Saldo awal = pindah saldo dari rekening asal. Bukan angka yang
-	// dikarang: uangnya memang pernah keluar dari sana.
-	if (input.opening_balance > 0 && input.opening_from_coa) {
-		const { error: trfErr } = await supabase.rpc("record_balance_transfer", {
-			p_from_coa: input.opening_from_coa,
-			p_to_coa: newCode,
-			p_amount: input.opening_balance,
-			p_admin_fee: 0,
-			p_entry_date: input.opening_date,
-			p_note: "Saldo awal kartu",
-			p_actor_id: user.profile.id,
-		});
-		if (trfErr) {
+	// Saldo awal — dua jalur, dan bedanya menentukan apakah kas ikut berkurang.
+	if (input.opening_balance > 0) {
+		const { error: openErr } =
+			input.opening_source === "transfer" && input.opening_from_coa
+				? await supabase.rpc("record_balance_transfer", {
+						p_from_coa: input.opening_from_coa,
+						p_to_coa: newCode,
+						p_amount: input.opening_balance,
+						p_admin_fee: 0,
+						p_entry_date: input.opening_date,
+						p_note: "Saldo awal kartu",
+						p_actor_id: user.profile.id,
+					})
+				: await supabase.rpc("record_emoney_opening_balance", {
+						p_account_id: inserted.id,
+						p_amount: input.opening_balance,
+						p_entry_date: input.opening_date,
+						p_note: null,
+						p_actor_id: user.profile.id,
+					});
+		if (openErr) {
 			return {
 				ok: true,
-				info: `Kartu tersimpan, tapi saldo awal gagal dicatat: ${trfErr.message}. Isi lewat tombol Isi saldo.`,
+				info: `Kartu tersimpan, tapi saldo awal gagal dicatat: ${openErr.message}. Isi lewat tombol Isi saldo.`,
 			};
 		}
 	}

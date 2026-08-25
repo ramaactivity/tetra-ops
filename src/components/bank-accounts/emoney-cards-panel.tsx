@@ -267,6 +267,7 @@ function AddCardDialog({
 	const [state, action, pending] = useActionState(createEmoneyCard, undefined);
 	const [provider, setProvider] = useState("");
 	const [opening, setOpening] = useState(0);
+	const [openingSource, setOpeningSource] = useState("existing");
 	const [fromCoa, setFromCoa] = useState("");
 	const [date, setDate] = useState(today);
 	const [threshold, setThreshold] = useState(0);
@@ -325,6 +326,21 @@ function AddCardDialog({
 						</Field>
 
 						<Field
+							label="Nomor kartu"
+							name={`${id}-cardno`}
+							hint="Opsional — membantu membedakan saat kartunya lebih dari satu."
+							error={errOf(state, "card_number")}
+						>
+							<input
+								id={`${id}-cardno`}
+								name="card_number"
+								maxLength={40}
+								placeholder="0145 2003 0572 6525"
+								className={fieldInputClass}
+							/>
+						</Field>
+
+						<Field
 							label="Dipegang siapa"
 							name={`${id}-holder`}
 							error={errOf(state, "holder_note")}
@@ -369,41 +385,69 @@ function AddCardDialog({
 						</Field>
 
 						{opening > 0 ? (
-							<div className="grid gap-4 sm:grid-cols-2">
+							<>
 								<Field
-									label="Diambil dari"
-									name={`${id}-from`}
-									error={errOf(state, "opening_from_coa")}
-									required
+									label="Uangnya dari mana"
+									name={`${id}-opensrc`}
+									error={errOf(state, "opening_source")}
 								>
 									<Combobox
-										id={`${id}-from`}
-										value={fromCoa}
-										onValueChange={setFromCoa}
-										options={sourceOptions(sources)}
+										id={`${id}-opensrc`}
+										value={openingSource}
+										onValueChange={setOpeningSource}
+										options={OPENING_SOURCES}
 										allowFreeText={false}
-										placeholder="Pilih rekening…"
-										aria-label="Rekening asal saldo awal"
+										aria-label="Asal saldo awal kartu"
 									/>
 									<input
 										type="hidden"
-										name="opening_from_coa"
-										value={fromCoa}
+										name="opening_source"
+										value={openingSource}
 									/>
 								</Field>
-								<Field
-									label="Tanggal"
-									name={`${id}-opendate`}
-									error={errOf(state, "opening_date")}
-								>
-									<DatePicker
-										id={`${id}-opendate`}
-										value={date}
-										onValueChange={setDate}
-									/>
-									<input type="hidden" name="opening_date" value={date} />
-								</Field>
-							</div>
+								<p className="text-muted-foreground text-[12px]">
+									{openingSource === "existing"
+										? "Saldo dicatat sebagai saldo awal — saldo bank tidak ikut berkurang, karena uangnya memang sudah keluar dulu."
+										: "Saldo bank yang kamu pilih akan berkurang sebesar nominal ini."}
+								</p>
+								<div className="grid gap-4 sm:grid-cols-2">
+									{openingSource === "transfer" ? (
+										<Field
+											label="Diambil dari"
+											name={`${id}-from`}
+											error={errOf(state, "opening_from_coa")}
+											required
+										>
+											<Combobox
+												id={`${id}-from`}
+												value={fromCoa}
+												onValueChange={setFromCoa}
+												options={sourceOptions(sources)}
+												allowFreeText={false}
+												placeholder="Pilih rekening…"
+												aria-label="Rekening asal saldo awal"
+											/>
+											<input
+												type="hidden"
+												name="opening_from_coa"
+												value={fromCoa}
+											/>
+										</Field>
+									) : null}
+									<Field
+										label="Tanggal"
+										name={`${id}-opendate`}
+										error={errOf(state, "opening_date")}
+									>
+										<DatePicker
+											id={`${id}-opendate`}
+											value={date}
+											onValueChange={setDate}
+										/>
+										<input type="hidden" name="opening_date" value={date} />
+									</Field>
+								</div>
+							</>
 						) : null}
 					</div>
 
@@ -604,6 +648,19 @@ function TopupDialog({
 // ---------------------------------------------------------------------------
 // Cocokkan saldo
 // ---------------------------------------------------------------------------
+
+const OPENING_SOURCES: ComboboxOption[] = [
+	{
+		value: "existing",
+		label: "Sudah ada di kartu sejak lama",
+		sublabel: "uangnya keluar dari bank di periode lalu",
+	},
+	{
+		value: "transfer",
+		label: "Baru saya pindahkan dari rekening",
+		sublabel: "saldo rekening itu berkurang sekarang",
+	},
+];
 
 const REASON_OUT: ComboboxOption[] = [
 	{ value: "usage", label: "Kepakai di tol" },
