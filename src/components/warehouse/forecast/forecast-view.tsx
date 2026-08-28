@@ -24,10 +24,12 @@ export function ForecastView({
 	result,
 	pembelianItems,
 	pembelianSuppliers,
+	pembelianCashAccounts = [],
 }: {
 	result: ForecastResult;
 	pembelianItems: PembelianItemOption[];
 	pembelianSuppliers: PembelianSupplierOption[];
+	pembelianCashAccounts?: Array<{ code: string; name: string }>;
 }) {
 	const { upcoming_count, events_observed, rows, stock_unknown } = result;
 
@@ -181,6 +183,7 @@ export function ForecastView({
 					}
 					items={pembelianItems}
 					suppliers={pembelianSuppliers}
+					cashAccounts={pembelianCashAccounts}
 					initialItemIds={shortfallItemIds}
 				/>
 			</div>

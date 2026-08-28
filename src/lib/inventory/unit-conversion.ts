@@ -175,7 +175,9 @@ export function toBase(
 	if (unit.multiplier != null) {
 		return qty * unit.multiplier;
 	}
-	throw new Error(`Unit "${unitCode}" tidak punya multiplier maupun denominator`);
+	throw new Error(
+		`Unit "${unitCode}" tidak punya multiplier maupun denominator`,
+	);
 }
 
 /** Convert a base-unit quantity to display in `unitCode`. */
@@ -197,7 +199,9 @@ export function fromBase(
 	if (unit.multiplier != null && unit.multiplier !== 0) {
 		return qtyBase / unit.multiplier;
 	}
-	throw new Error(`Unit "${unitCode}" tidak punya multiplier maupun denominator`);
+	throw new Error(
+		`Unit "${unitCode}" tidak punya multiplier maupun denominator`,
+	);
 }
 
 /** Sum a list of (qty, unit) bundles into base-unit total. Invalid entries skipped. */
@@ -241,6 +245,22 @@ export function listUnitsByKind(
 		return a.def.label.localeCompare(b.def.label);
 	});
 	return entries;
+}
+
+/**
+ * Satuan yang masuk akal dipakai saat MEMBELI: satuan beli + satuan dasar.
+ *
+ * Satuan pemakaian (mis. "lembar", denominator 1400) sengaja dikecualikan —
+ * memasukkan harga "per lembar" di form pembelian membuat biaya per satuan
+ * dasar jadi ngawur. Fallback ke seluruh satuan input dipakai untuk item yang
+ * (karena salah konfigurasi) tidak punya satu pun satuan beli/dasar, supaya
+ * pemilihnya tidak pernah kosong sama sekali.
+ */
+export function listPurchaseUnits(
+	map: UnitConversionMap,
+): Array<{ code: string; def: UnitDef }> {
+	const buyable = listUnitsByKind(map, "purchase", "base");
+	return buyable.length > 0 ? buyable : listInputUnits(map);
 }
 
 /** All input-friendly units (purchase + base + consumption) for opname bundles. */

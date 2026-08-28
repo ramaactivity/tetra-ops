@@ -16,6 +16,7 @@ import {
 	PurchasesList,
 } from "@/components/warehouse/pembelian/purchases-list";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PurchasesPage() {
@@ -27,35 +28,37 @@ export default async function PurchasesPage() {
 
 	const supabase = await createClient();
 
-	const [purchasesRes, itemsRes, suppliersRes] = await Promise.all([
-		supabase
-			.from("stock_movements")
-			.select(
-				`id, ref_id, item_id, quantity, unit_cost, notes, created_at, supplier_id,
+	const [purchasesRes, itemsRes, suppliersRes, cashAccountsRaw] =
+		await Promise.all([
+			supabase
+				.from("stock_movements")
+				.select(
+					`id, ref_id, item_id, quantity, unit_cost, notes, created_at, supplier_id,
 				 item:inventory_items!stock_movements_item_id_fkey(name, sku, unit),
 				 supplier:suppliers!stock_movements_supplier_id_fkey(name)`,
-			)
-			.eq("source", "purchase")
-			.order("created_at", { ascending: false })
-			.limit(200),
-		supabase
-			.from("inventory_items")
-			.select(
-				`id, sku, name, unit, unit_conversion,
+				)
+				.eq("source", "purchase")
+				.order("created_at", { ascending: false })
+				.limit(200),
+			supabase
+				.from("inventory_items")
+				.select(
+					`id, sku, name, unit, unit_conversion,
 				 config:items_inventory_config!inner(preferred_supplier_id,
 				   supplier:suppliers!items_inventory_config_preferred_supplier_id_fkey(name))`,
-			)
-			.eq("category", "inventory")
-			.is("deleted_at", null)
-			.eq("is_active", true)
-			.order("name"),
-		supabase
-			.from("suppliers")
-			.select("id, name, default_payment_term, default_top_days")
-			.is("deleted_at", null)
-			.eq("is_active", true)
-			.order("name"),
-	]);
+				)
+				.eq("category", "inventory")
+				.is("deleted_at", null)
+				.eq("is_active", true)
+				.order("name"),
+			supabase
+				.from("suppliers")
+				.select("id, name, default_payment_term, default_top_days")
+				.is("deleted_at", null)
+				.eq("is_active", true)
+				.order("name"),
+			loadCashAccounts(supabase),
+		]);
 
 	type RawItem = {
 		id: string;
@@ -92,6 +95,12 @@ export default async function PurchasesPage() {
 		},
 	);
 	const suppliers = (suppliersRes.data ?? []) as PembelianSupplierOption[];
+	// Tanpa ini pemilih "Uang diambil dari" tidak pernah muncul dan SETIAP
+	// belanja tunai diam-diam dicatat keluar dari 1-100 Kas Tunai.
+	const cashAccounts = cashAccountsRaw.map((a) => ({
+		code: a.code,
+		name: a.name,
+	}));
 
 	const rows: PurchaseRow[] = (
 		(purchasesRes.data ?? []) as Array<{
@@ -163,6 +172,7 @@ export default async function PurchasesPage() {
 						}
 						items={items}
 						suppliers={suppliers}
+						cashAccounts={cashAccounts}
 					/>
 				}
 			/>

@@ -19,6 +19,11 @@ import {
 	recordPurchaseBatch,
 } from "@/lib/actions/purchases";
 import { formatRupiah } from "@/lib/format";
+import {
+	listPurchaseUnits,
+	normalizeConversion,
+	toBase,
+} from "@/lib/inventory/unit-conversion";
 
 export type PembelianItemOption = {
 	id: string;
@@ -346,20 +351,31 @@ export function PembelianDialog({
 									value={paymentMethod}
 								/>
 							</Field>
-							{paymentMethod === "cash" && cashAccounts.length > 0 ? (
+							{paymentMethod === "cash" ? (
 								<Field
 									label="Uang diambil dari"
 									name="payment_account_code"
-									hint="Rekening yang saldonya berkurang"
+									hint={
+										cashAccounts.length > 0
+											? "Rekening yang saldonya berkurang"
+											: "Daftar rekening tidak termuat — belanja akan dicatat keluar dari Kas Tunai"
+									}
 								>
 									<Combobox
 										id="payment_account_code"
 										value={payAccount}
 										onValueChange={(v) => setPayAccount(v ?? "1-100")}
-										options={cashAccounts.map((a) => ({
-											value: a.code,
-											label: `${a.code} · ${a.name}`,
-										}))}
+										// Jaring pengaman: kalau daftar rekening gagal termuat,
+										// tetap tampilkan Kas Tunai supaya owner melihat ke mana
+										// uangnya dicatat — bukan menyembunyikan pilihannya.
+										options={
+											cashAccounts.length > 0
+												? cashAccounts.map((a) => ({
+														value: a.code,
+														label: `${a.code} · ${a.name}`,
+													}))
+												: [{ value: "1-100", label: "1-100 · Kas Tunai" }]
+										}
 										allowFreeText={false}
 									/>
 									<input
@@ -427,7 +443,7 @@ export function PembelianDialog({
 						)}
 
 						{/* Column headers (desktop only) */}
-						<div className="hidden grid-cols-[minmax(0,2.4fr)_120px_100px_160px_minmax(0,1fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
+						<div className="hidden grid-cols-[minmax(0,2fr)_110px_minmax(150px,1fr)_150px_minmax(0,1fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
 							<span>Item</span>
 							<span>Qty</span>
 							<span>Unit</span>
@@ -439,16 +455,23 @@ export function PembelianDialog({
 						<div className="space-y-2">
 							{lines.map((line) => {
 								const item = itemsById.get(line.item_id);
-								const unitOptions = item?.unit_conversion
-									? Object.keys(item.unit_conversion)
-									: item
-										? [item.unit]
-										: [];
+								// Object.keys() pada bentuk konversi v2
+								// ({units:{...}, base_unit:"roll"}) mengembalikan
+								// "units" & "base_unit" — nama kunci pembungkus, BUKAN
+								// satuan. Akibatnya 13 item bersatuan ganda menawarkan
+								// pilihan yang tidak ada artinya, dan apa pun yang
+								// dipilih ditolak server ("Unit tidak dikenal").
+								// normalizeConversion menangani dua bentuk (v2 & legacy).
+								const unitMap = normalizeConversion(
+									item?.unit_conversion ?? null,
+									item?.unit ?? "",
+								);
+								const unitOptions = item ? listPurchaseUnits(unitMap) : [];
 								const subtotal = Number(line.quantity) * Number(line.unit_cost);
 								return (
 									<div
 										key={line.id}
-										className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2.4fr)_120px_100px_160px_minmax(0,1fr)_36px] lg:items-center lg:p-2"
+										className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2fr)_110px_minmax(150px,1fr)_150px_minmax(0,1fr)_36px] lg:items-center lg:p-2"
 									>
 										<div className="space-y-1">
 											<Combobox
@@ -516,15 +539,29 @@ export function PembelianDialog({
 														quantity_unit: v ?? item?.unit ?? "",
 													})
 												}
-												options={unitOptions.map((u) => ({
-													value: u,
-													label: u,
-												}))}
+												// Sublabel menyebut rasionya ("= 2 roll"): label sudah
+												// dibersihkan dari keterangan kurung, dan tanpa angka
+												// itu "Box" tidak memberi tahu isinya berapa.
+												options={unitOptions.map((u) => {
+													const ratio = toBase(1, u.code, unitMap);
+													return {
+														value: u.code,
+														label: u.def.label || u.code,
+														sublabel:
+															ratio === 1
+																? undefined
+																: `= ${ratio} ${unitMap.base_unit}`,
+													};
+												})}
 												allowFreeText={false}
 											/>
 										) : (
-											<div className="flex h-10 items-center justify-center rounded-md border border-border-default bg-surface-1 px-2 text-[12px] text-muted-foreground">
-												{line.quantity_unit || "—"}
+											<div className="flex h-10 items-center rounded-md border border-border-default bg-surface-1 px-2.5 text-[12px] text-muted-foreground">
+												<span className="truncate">
+													{unitOptions[0]?.def.label ||
+														line.quantity_unit ||
+														"—"}
+												</span>
 											</div>
 										)}
 										<div className="relative">

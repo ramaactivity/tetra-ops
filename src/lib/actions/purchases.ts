@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isCashOrBank } from "@/lib/finance/accounting";
+import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
@@ -227,6 +228,43 @@ export async function recordPurchaseBatch(
 				asset_number: c.asset_number,
 				useful_life_months: c.useful_life_months,
 			});
+		}
+	}
+
+	// ─── Penjaga saldo (pembelian TUNAI) ──────────────────────────────────
+	// Dicek SEBELUM satu pun stock_movement ditulis. Tanpa ini belanja tunai
+	// bisa mendorong kas/bank jadi minus — satu-satunya alur uang keluar yang
+	// belum memakai penjaga ini (bayar fee crew, bayar hutang, bayar komisi,
+	// pindah saldo semuanya sudah). Pesannya menyebut angka & jalan keluarnya.
+	if (parsed.data.payment_method === "cash") {
+		const totalOut =
+			parsed.data.lines.reduce(
+				(sum, l) => sum + Math.round(l.quantity * l.unit_cost),
+				0,
+			) + parsed.data.admin_fee;
+		if (totalOut > 0) {
+			const code = parsed.data.payment_account_code;
+			const { data: acct } = await supabase
+				.from("chart_of_accounts")
+				.select("name, account_type, is_active")
+				.eq("code", code)
+				.maybeSingle();
+			if (!acct?.is_active || !isCashOrBank(code, acct.account_type)) {
+				return {
+					errors: {
+						_form: [
+							`Rekening pembayaran ${code} bukan kas/bank yang aktif. Pilih rekening lain.`,
+						],
+					},
+				};
+			}
+			const shortfall = await insufficientBalanceError(
+				supabase,
+				code,
+				acct.name as string,
+				totalOut,
+			);
+			if (shortfall) return { errors: { _form: [shortfall] } };
 		}
 	}
 
