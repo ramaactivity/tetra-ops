@@ -71,6 +71,25 @@ function newLine(): LineRow {
 	};
 }
 
+/**
+ * Rekening bawaan untuk belanja tunai.
+ *
+ * Daftarnya urut kode, jadi memakai elemen pertama selalu memilih 1-100 Kas
+ * Tunai — yang saldonya Rp0 dan praktis tak pernah dipakai, sehingga belanja
+ * tercatat keluar dari kas kosong. BCA adalah jalur uang keluar sebenarnya.
+ */
+function defaultPayAccount(
+	accounts: ReadonlyArray<{ code: string; name: string }>,
+): string {
+	return (
+		accounts.find((a) => /bca/i.test(a.name))?.code ??
+		accounts.find((a) => /bank/i.test(a.name))?.code ??
+		accounts.find((a) => a.code !== "1-100")?.code ??
+		accounts[0]?.code ??
+		"1-100"
+	);
+}
+
 export function PembelianDialog({
 	trigger,
 	items,
@@ -92,8 +111,10 @@ export function PembelianDialog({
 	// Sumber dana pembelian tunai. Dulu selalu Kas Tunai (1-100) walau uangnya
 	// dari bank → saldo Kas Tunai di buku tergerus tanpa sebab.
 	const [payAccount, setPayAccount] = useState<string>(
-		cashAccounts[0]?.code ?? "1-100",
+		defaultPayAccount(cashAccounts),
 	);
+	const payAccountName =
+		cashAccounts.find((a) => a.code === payAccount)?.name ?? "Kas Tunai";
 	const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 	const [topDays, setTopDays] = useState<string>("0");
 	// Biaya admin/transfer bank (opsional, cash only). String supaya kosong = 0.
@@ -251,7 +272,7 @@ export function PembelianDialog({
 				{trigger}
 			</button>
 
-			<DialogContent className="sm:max-w-6xl">
+			<DialogContent className="grid-rows-[auto_minmax(0,1fr)] max-h-[92dvh] sm:max-w-6xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<ShoppingCart className="size-5 text-primary" />
@@ -284,510 +305,523 @@ export function PembelianDialog({
 						);
 						formAction(fd);
 					}}
-					className="space-y-4"
+					className="flex min-h-0 flex-col gap-4"
 				>
+					{/* Pesan error sengaja DI LUAR area gulir: kalau ikut tergulir,
+					    owner yang sedang di bagian bawah form menekan Simpan dan
+					    tidak melihat apa pun terjadi. */}
 					{formError && (
-						<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+						<div className="shrink-0 rounded-md border border-destructive bg-destructive/10 p-3">
 							<p className="text-sm font-medium text-destructive">
 								{formError}
 							</p>
 						</div>
 					)}
 
-					{/* Header: date / supplier / method / invoice in single row */}
-					<section className="rounded-lg border border-border-default bg-surface-2/40 p-3">
-						<div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Header Transaksi
-						</div>
-						<div className="grid gap-3 lg:grid-cols-4">
-							<Field label="Tanggal Pembelian" name="purchase_date" required>
-								<input
-									type="date"
-									id="purchase_date"
-									name="purchase_date"
-									value={purchaseDate}
-									onChange={(e) => setPurchaseDate(e.target.value)}
-									required
-									className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
-								/>
-							</Field>
-							<Field
-								label="Supplier"
-								name="supplier_id"
-								hint="opsional — kosongin kalau warung dadakan"
-							>
-								<Combobox
-									id="supplier_id"
-									value={supplierId}
-									onValueChange={(v) => setSupplierId(v ?? "")}
-									options={suppliers.map((s) => ({
-										value: s.id,
-										label: s.name,
-									}))}
-									placeholder="Pilih atau kosong"
-									allowFreeText={false}
-								/>
-								<input type="hidden" name="supplier_id" value={supplierId} />
-							</Field>
-							<Field
-								label="Metode Pembayaran"
-								name="payment_method"
-								hint={
-									paymentMethod === "cash"
-										? "kas tunai turun saat simpan"
-										: "buat utang vendor"
-								}
-							>
-								<Combobox
-									id="payment_method"
-									value={paymentMethod}
-									onValueChange={(v) => setPaymentMethod(v ?? "cash")}
-									options={PAYMENT_OPTIONS}
-									allowFreeText={false}
-								/>
-								<input
-									type="hidden"
-									name="payment_method"
-									value={paymentMethod}
-								/>
-							</Field>
-							{paymentMethod === "cash" ? (
+					{/* Isi form bergulir sendiri supaya tombol Simpan tidak pernah
+					    terdorong keluar layar saat baris/nota bertambah. */}
+					<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+						{/* Header: date / supplier / method / invoice in single row */}
+						<section className="rounded-lg border border-border-default bg-surface-2/40 p-3">
+							<div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+								Header Transaksi
+							</div>
+							<div className="grid gap-3 lg:grid-cols-4">
+								<Field label="Tanggal Pembelian" name="purchase_date" required>
+									<input
+										type="date"
+										id="purchase_date"
+										name="purchase_date"
+										value={purchaseDate}
+										onChange={(e) => setPurchaseDate(e.target.value)}
+										required
+										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
+									/>
+								</Field>
 								<Field
-									label="Uang diambil dari"
-									name="payment_account_code"
+									label="Supplier"
+									name="supplier_id"
+									hint="opsional — kosongin kalau warung dadakan"
+								>
+									<Combobox
+										id="supplier_id"
+										value={supplierId}
+										onValueChange={(v) => setSupplierId(v ?? "")}
+										options={suppliers.map((s) => ({
+											value: s.id,
+											label: s.name,
+										}))}
+										placeholder="Pilih atau kosong"
+										allowFreeText={false}
+									/>
+									<input type="hidden" name="supplier_id" value={supplierId} />
+								</Field>
+								<Field
+									label="Metode Pembayaran"
+									name="payment_method"
 									hint={
-										cashAccounts.length > 0
-											? "Rekening yang saldonya berkurang"
-											: "Daftar rekening tidak termuat — belanja akan dicatat keluar dari Kas Tunai"
+										paymentMethod === "cash"
+											? "kas tunai turun saat simpan"
+											: "buat utang vendor"
 									}
 								>
 									<Combobox
-										id="payment_account_code"
-										value={payAccount}
-										onValueChange={(v) => setPayAccount(v ?? "1-100")}
-										// Jaring pengaman: kalau daftar rekening gagal termuat,
-										// tetap tampilkan Kas Tunai supaya owner melihat ke mana
-										// uangnya dicatat — bukan menyembunyikan pilihannya.
-										options={
-											cashAccounts.length > 0
-												? cashAccounts.map((a) => ({
-														value: a.code,
-														label: `${a.code} · ${a.name}`,
-													}))
-												: [{ value: "1-100", label: "1-100 · Kas Tunai" }]
-										}
+										id="payment_method"
+										value={paymentMethod}
+										onValueChange={(v) => setPaymentMethod(v ?? "cash")}
+										options={PAYMENT_OPTIONS}
 										allowFreeText={false}
 									/>
 									<input
 										type="hidden"
+										name="payment_method"
+										value={paymentMethod}
+									/>
+								</Field>
+								{paymentMethod === "cash" ? (
+									<Field
+										label="Uang diambil dari"
 										name="payment_account_code"
-										value={payAccount}
-									/>
-								</Field>
-							) : null}
-							{paymentMethod === "top_custom" ? (
-								<Field label="TOP (hari)" name="top_days">
-									<NumberField
-										id="top_days"
-										name="top_days"
-										min={1}
-										max={365}
-										step={1}
-										value={topDays}
-										onChange={(e) => setTopDays(e.target.value)}
-										placeholder="30"
-									/>
-								</Field>
-							) : (
-								<Field label="No. Invoice" name="invoice_no" hint="opsional">
-									<input
-										type="text"
-										id="invoice_no"
-										name="invoice_no"
-										maxLength={60}
-										placeholder="mis. INV-2026-0042"
-										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
-									/>
-								</Field>
-							)}
-						</div>
-						{paymentMethod === "top_custom" && (
-							<div className="mt-3">
-								<Field label="No. Invoice" name="invoice_no" hint="opsional">
-									<input
-										type="text"
-										id="invoice_no"
-										name="invoice_no"
-										maxLength={60}
-										placeholder="mis. INV-2026-0042"
-										className="h-10 w-full max-w-xs rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
-									/>
-								</Field>
-							</div>
-						)}
-					</section>
-
-					<section className="space-y-2">
-						<div className="flex items-center justify-between">
-							<label className="text-sm font-medium">Daftar Belanja</label>
-							<button
-								type="button"
-								onClick={() => setLines((l) => [...l, newLine()])}
-								className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-[12px] font-medium hover:bg-surface-3"
-							>
-								<Plus className="size-3.5" /> Tambah Baris
-							</button>
-						</div>
-						{lineError && (
-							<p className="text-xs text-destructive">{lineError}</p>
-						)}
-
-						{/* Column headers (desktop only) */}
-						<div className="hidden grid-cols-[minmax(0,2fr)_110px_minmax(150px,1fr)_150px_minmax(0,1fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
-							<span>Item</span>
-							<span>Qty</span>
-							<span>Unit</span>
-							<span>Harga / unit</span>
-							<span className="text-right">Subtotal</span>
-							<span />
-						</div>
-
-						<div className="space-y-2">
-							{lines.map((line) => {
-								const item = itemsById.get(line.item_id);
-								// Object.keys() pada bentuk konversi v2
-								// ({units:{...}, base_unit:"roll"}) mengembalikan
-								// "units" & "base_unit" — nama kunci pembungkus, BUKAN
-								// satuan. Akibatnya 13 item bersatuan ganda menawarkan
-								// pilihan yang tidak ada artinya, dan apa pun yang
-								// dipilih ditolak server ("Unit tidak dikenal").
-								// normalizeConversion menangani dua bentuk (v2 & legacy).
-								const unitMap = normalizeConversion(
-									item?.unit_conversion ?? null,
-									item?.unit ?? "",
-								);
-								const unitOptions = item ? listPurchaseUnits(unitMap) : [];
-								const subtotal = Number(line.quantity) * Number(line.unit_cost);
-								return (
-									<div
-										key={line.id}
-										className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2fr)_110px_minmax(150px,1fr)_150px_minmax(0,1fr)_36px] lg:items-center lg:p-2"
+										hint={
+											cashAccounts.length > 0
+												? "Rekening yang saldonya berkurang"
+												: "Daftar rekening tidak termuat — belanja akan dicatat keluar dari Kas Tunai"
+										}
 									>
-										<div className="space-y-1">
-											<Combobox
-												id={`item-${line.id}`}
-												value={line.item_id}
-												onValueChange={(v) => {
-													const chosen = itemsById.get(v ?? "");
-													updateLine(line.id, {
-														item_id: v ?? "",
-														quantity_unit: chosen?.unit ?? "",
-													});
-													// Auto-pick supplier: kalau header supplier masih kosong
-													// dan item punya preferred supplier, set otomatis
-													if (chosen?.preferred_supplier_id && !supplierId) {
-														setSupplierId(chosen.preferred_supplier_id);
-													}
-												}}
-												options={items.map((i) => ({
-													value: i.id,
-													label: `${i.name} (${i.sku})`,
-												}))}
-												placeholder="Pilih bahan..."
-												allowFreeText={false}
-											/>
-											{item?.preferred_supplier_id &&
-												supplierId &&
-												item.preferred_supplier_id !== supplierId && (
-													<button
-														type="button"
-														onClick={() =>
-															setSupplierId(item.preferred_supplier_id!)
-														}
-														className="text-[11px] text-amber-700 dark:text-amber-300 hover:underline text-left"
-													>
-														⚠ Biasanya dari{" "}
-														<strong>{item.preferred_supplier_name}</strong> —
-														klik untuk pakai supplier ini
-													</button>
-												)}
-											{item?.preferred_supplier_id &&
-												supplierId &&
-												item.preferred_supplier_id === supplierId && (
-													<p className="text-[11px] text-emerald-700 dark:text-emerald-300">
-														✓ Supplier utama item ini
-													</p>
-												)}
-										</div>
-										<NumberField
-											id={`qty-${line.id}`}
-											name={`qty-${line.id}`}
-											min={item?.unit === "roll" ? 0.01 : 1}
-											step={item?.unit === "roll" ? 0.01 : 1}
-											value={line.quantity}
-											onChange={(e) =>
-												updateLine(line.id, { quantity: e.target.value })
+										<Combobox
+											id="payment_account_code"
+											value={payAccount}
+											onValueChange={(v) => setPayAccount(v ?? "1-100")}
+											// Jaring pengaman: kalau daftar rekening gagal termuat,
+											// tetap tampilkan Kas Tunai supaya owner melihat ke mana
+											// uangnya dicatat — bukan menyembunyikan pilihannya.
+											options={
+												cashAccounts.length > 0
+													? cashAccounts.map((a) => ({
+															value: a.code,
+															label: `${a.code} · ${a.name}`,
+														}))
+													: [{ value: "1-100", label: "1-100 · Kas Tunai" }]
 											}
-											placeholder="0"
+											allowFreeText={false}
 										/>
-										{unitOptions.length > 1 ? (
-											<Combobox
-												id={`unit-${line.id}`}
-												value={line.quantity_unit}
-												onValueChange={(v) =>
-													updateLine(line.id, {
-														quantity_unit: v ?? item?.unit ?? "",
-													})
-												}
-												// Sublabel menyebut rasionya ("= 2 roll"): label sudah
-												// dibersihkan dari keterangan kurung, dan tanpa angka
-												// itu "Box" tidak memberi tahu isinya berapa.
-												options={unitOptions.map((u) => {
-													const ratio = toBase(1, u.code, unitMap);
-													return {
-														value: u.code,
-														label: u.def.label || u.code,
-														sublabel:
-															ratio === 1
-																? undefined
-																: `= ${ratio} ${unitMap.base_unit}`,
-													};
-												})}
-												allowFreeText={false}
-											/>
-										) : (
-											<div className="flex h-10 items-center rounded-md border border-border-default bg-surface-1 px-2.5 text-[12px] text-muted-foreground">
-												<span className="truncate">
-													{unitOptions[0]?.def.label ||
-														line.quantity_unit ||
-														"—"}
-												</span>
+										<input
+											type="hidden"
+											name="payment_account_code"
+											value={payAccount}
+										/>
+									</Field>
+								) : null}
+								{paymentMethod === "top_custom" ? (
+									<Field label="TOP (hari)" name="top_days">
+										<NumberField
+											id="top_days"
+											name="top_days"
+											min={1}
+											max={365}
+											step={1}
+											value={topDays}
+											onChange={(e) => setTopDays(e.target.value)}
+											placeholder="30"
+										/>
+									</Field>
+								) : (
+									<Field label="No. Invoice" name="invoice_no" hint="opsional">
+										<input
+											type="text"
+											id="invoice_no"
+											name="invoice_no"
+											maxLength={60}
+											placeholder="mis. INV-2026-0042"
+											className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
+										/>
+									</Field>
+								)}
+							</div>
+							{paymentMethod === "top_custom" && (
+								<div className="mt-3">
+									<Field label="No. Invoice" name="invoice_no" hint="opsional">
+										<input
+											type="text"
+											id="invoice_no"
+											name="invoice_no"
+											maxLength={60}
+											placeholder="mis. INV-2026-0042"
+											className="h-10 w-full max-w-xs rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
+										/>
+									</Field>
+								</div>
+							)}
+						</section>
+
+						<section className="space-y-2">
+							<div className="flex items-center justify-between">
+								<label className="text-sm font-medium">Daftar Belanja</label>
+								<button
+									type="button"
+									onClick={() => setLines((l) => [...l, newLine()])}
+									className="press-down inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-2 px-2.5 text-[12px] font-medium hover:bg-surface-3"
+								>
+									<Plus className="size-3.5" /> Tambah Baris
+								</button>
+							</div>
+							{lineError && (
+								<p className="text-xs text-destructive">{lineError}</p>
+							)}
+
+							{/* Column headers (desktop only) */}
+							<div className="hidden grid-cols-[minmax(0,2fr)_110px_minmax(150px,1fr)_150px_minmax(0,1fr)_36px] gap-2 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground lg:grid">
+								<span>Item</span>
+								<span>Qty</span>
+								<span>Unit</span>
+								<span>Harga / unit</span>
+								<span className="text-right">Subtotal</span>
+								<span />
+							</div>
+
+							<div className="space-y-2">
+								{lines.map((line) => {
+									const item = itemsById.get(line.item_id);
+									// Object.keys() pada bentuk konversi v2
+									// ({units:{...}, base_unit:"roll"}) mengembalikan
+									// "units" & "base_unit" — nama kunci pembungkus, BUKAN
+									// satuan. Akibatnya 13 item bersatuan ganda menawarkan
+									// pilihan yang tidak ada artinya, dan apa pun yang
+									// dipilih ditolak server ("Unit tidak dikenal").
+									// normalizeConversion menangani dua bentuk (v2 & legacy).
+									const unitMap = normalizeConversion(
+										item?.unit_conversion ?? null,
+										item?.unit ?? "",
+									);
+									const unitOptions = item ? listPurchaseUnits(unitMap) : [];
+									const subtotal =
+										Number(line.quantity) * Number(line.unit_cost);
+									return (
+										<div
+											key={line.id}
+											className="grid items-end gap-2 rounded-md border border-border-default bg-surface-2 p-2.5 lg:grid-cols-[minmax(0,2fr)_110px_minmax(150px,1fr)_150px_minmax(0,1fr)_36px] lg:items-center lg:p-2"
+										>
+											<div className="space-y-1">
+												<Combobox
+													id={`item-${line.id}`}
+													value={line.item_id}
+													onValueChange={(v) => {
+														const chosen = itemsById.get(v ?? "");
+														updateLine(line.id, {
+															item_id: v ?? "",
+															quantity_unit: chosen?.unit ?? "",
+														});
+														// Auto-pick supplier: kalau header supplier masih kosong
+														// dan item punya preferred supplier, set otomatis
+														if (chosen?.preferred_supplier_id && !supplierId) {
+															setSupplierId(chosen.preferred_supplier_id);
+														}
+													}}
+													options={items.map((i) => ({
+														value: i.id,
+														label: `${i.name} (${i.sku})`,
+													}))}
+													placeholder="Pilih bahan..."
+													allowFreeText={false}
+												/>
+												{item?.preferred_supplier_id &&
+													supplierId &&
+													item.preferred_supplier_id !== supplierId && (
+														<button
+															type="button"
+															onClick={() =>
+																setSupplierId(item.preferred_supplier_id!)
+															}
+															className="text-[11px] text-amber-700 dark:text-amber-300 hover:underline text-left"
+														>
+															⚠ Biasanya dari{" "}
+															<strong>{item.preferred_supplier_name}</strong> —
+															klik untuk pakai supplier ini
+														</button>
+													)}
+												{item?.preferred_supplier_id &&
+													supplierId &&
+													item.preferred_supplier_id === supplierId && (
+														<p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+															✓ Supplier utama item ini
+														</p>
+													)}
 											</div>
-										)}
-										<div className="relative">
-											<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-												Rp
-											</span>
 											<NumberField
-												id={`cost-${line.id}`}
-												name={`cost-${line.id}`}
-												min={0}
-												step={1}
-												value={line.unit_cost}
+												id={`qty-${line.id}`}
+												name={`qty-${line.id}`}
+												min={item?.unit === "roll" ? 0.01 : 1}
+												step={item?.unit === "roll" ? 0.01 : 1}
+												value={line.quantity}
 												onChange={(e) =>
-													updateLine(line.id, { unit_cost: e.target.value })
+													updateLine(line.id, { quantity: e.target.value })
 												}
 												placeholder="0"
-												className="pl-8"
 											/>
-										</div>
-										<div className="text-right text-fluid-caption tabular font-medium text-foreground">
-											{Number.isFinite(subtotal) && subtotal > 0
-												? formatRupiah(subtotal)
-												: "—"}
-										</div>
-										<button
-											type="button"
-											onClick={() => removeLine(line.id)}
-											disabled={lines.length === 1}
-											title="Hapus baris"
-											aria-label="Hapus baris"
-											className="press-down inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
-										>
-											<Trash2 className="size-4" />
-										</button>
-									</div>
-								);
-							})}
-						</div>
-					</section>
-
-					<div className="grid gap-4 lg:grid-cols-[1.3fr_1fr_minmax(280px,320px)]">
-						{/* Catatan */}
-						<Field
-							label="Catatan"
-							name="notes"
-							hint="opsional — patah, retur, kondisi barang dll"
-						>
-							<TextareaField id="notes" name="notes" rows={6} maxLength={500} />
-						</Field>
-
-						{/* Bukti nota — upload + preview (diunggah ke Drive setelah simpan) */}
-						<div className="space-y-1.5">
-							<span className="text-sm font-medium">
-								Bukti Nota{" "}
-								<span className="font-normal text-muted-foreground">
-									(opsional)
-								</span>
-							</span>
-							{photo ? (
-								<div className="overflow-hidden rounded-lg border border-border-default">
-									{photoUrl ? (
-										// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
-										<img
-											src={photoUrl}
-											alt="Preview nota"
-											className="max-h-44 w-full bg-surface-3 object-contain"
-										/>
-									) : (
-										<div className="flex h-28 items-center justify-center bg-surface-3 px-3 text-center text-[12px] text-muted-foreground">
-											{photo.name}
-										</div>
-									)}
-									<div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-2">
-										<span className="truncate text-[12px] text-muted-foreground">
-											{photo.name}
-										</span>
-										<button
-											type="button"
-											onClick={() => setPhoto(null)}
-											className="press-down inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10"
-										>
-											<X className="size-3.5" /> Hapus
-										</button>
-									</div>
-								</div>
-							) : (
-								<label className="press-down flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-default bg-surface-2/40 px-4 text-center text-[13px] text-muted-foreground hover:bg-surface-3">
-									<Paperclip className="size-5 text-muted-foreground/70" />
-									<span>Klik untuk lampirkan foto nota</span>
-									<span className="text-[11px] text-muted-foreground/70">
-										gambar atau PDF · maks 8 MB
-									</span>
-									<input
-										type="file"
-										accept="image/*,application/pdf"
-										className="hidden"
-										onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-									/>
-								</label>
-							)}
-						</div>
-
-						{/* Ringkasan: total · biaya admin · jurnal */}
-						<aside className="space-y-2.5">
-							<div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
-								<span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-									Total Pembelian
-								</span>
-								<span className="tabular text-fluid-h3 font-bold text-emerald-700 dark:text-emerald-300">
-									{formatRupiah(total)}
-								</span>
-							</div>
-
-							{/* Biaya admin bank — cash only. Kosong = tidak ada biaya admin. */}
-							{paymentMethod === "cash" && (
-								<div className="rounded-lg border border-border-default bg-surface-2/40 p-3">
-									<label
-										htmlFor="admin_fee"
-										className="text-[12px] font-medium"
-									>
-										Biaya admin{" "}
-										<span className="font-normal text-muted-foreground">
-											(opsional)
-										</span>
-									</label>
-									<p className="mb-2 mt-0.5 text-[11px] text-muted-foreground">
-										biaya transfer bank, ditanggung perusahaan
-									</p>
-									<div className="flex items-center gap-1.5">
-										{[
-											{ value: 1000, label: "Rp1.000", hint: "VA / GoPay" },
-											{ value: 2500, label: "Rp2.500", hint: "antar bank" },
-										].map((chip) => {
-											const active = feeNum === chip.value;
-											return (
-												<button
-													key={chip.value}
-													type="button"
-													onClick={() =>
-														setAdminFee(active ? "" : String(chip.value))
+											{unitOptions.length > 1 ? (
+												<Combobox
+													id={`unit-${line.id}`}
+													value={line.quantity_unit}
+													onValueChange={(v) =>
+														updateLine(line.id, {
+															quantity_unit: v ?? item?.unit ?? "",
+														})
 													}
-													title={chip.hint}
-													className={`press-down inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
-														active
-															? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-															: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-3"
-													}`}
-												>
-													{chip.label}
-												</button>
-											);
-										})}
-										<div className="relative flex-1">
-											<span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-												Rp
-											</span>
-											<NumberField
-												id="admin_fee"
-												name="admin_fee_display"
-												min={0}
-												max={1000000}
-												step={500}
-												value={adminFee}
-												onChange={(e) => setAdminFee(e.target.value)}
-												placeholder="lain"
-												className="pl-7"
-											/>
+													// Sublabel menyebut rasionya ("= 2 roll"): label sudah
+													// dibersihkan dari keterangan kurung, dan tanpa angka
+													// itu "Box" tidak memberi tahu isinya berapa.
+													options={unitOptions.map((u) => {
+														const ratio = toBase(1, u.code, unitMap);
+														return {
+															value: u.code,
+															label: u.def.label || u.code,
+															sublabel:
+																ratio === 1
+																	? undefined
+																	: `= ${ratio} ${unitMap.base_unit}`,
+														};
+													})}
+													allowFreeText={false}
+												/>
+											) : (
+												<div className="flex h-10 items-center rounded-md border border-border-default bg-surface-1 px-2.5 text-[12px] text-muted-foreground">
+													<span className="truncate">
+														{unitOptions[0]?.def.label ||
+															line.quantity_unit ||
+															"—"}
+													</span>
+												</div>
+											)}
+											<div className="relative">
+												<span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+													Rp
+												</span>
+												<NumberField
+													id={`cost-${line.id}`}
+													name={`cost-${line.id}`}
+													min={0}
+													step={1}
+													value={line.unit_cost}
+													onChange={(e) =>
+														updateLine(line.id, { unit_cost: e.target.value })
+													}
+													placeholder="0"
+													className="pl-8"
+												/>
+											</div>
+											<div className="text-right text-fluid-caption tabular font-medium text-foreground">
+												{Number.isFinite(subtotal) && subtotal > 0
+													? formatRupiah(subtotal)
+													: "—"}
+											</div>
+											<button
+												type="button"
+												onClick={() => removeLine(line.id)}
+												disabled={lines.length === 1}
+												title="Hapus baris"
+												aria-label="Hapus baris"
+												className="press-down inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"
+											>
+												<Trash2 className="size-4" />
+											</button>
 										</div>
-									</div>
-								</div>
-							)}
+									);
+								})}
+							</div>
+						</section>
 
-							{total > 0 && (
-								<div
-									className={`rounded-lg border p-3 text-[12px] ${
-										paymentMethod === "cash"
-											? "border-sky-500/30 bg-sky-500/5"
-											: "border-amber-500/30 bg-amber-500/5"
-									}`}
-								>
-									<div
-										className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${
-											paymentMethod === "cash"
-												? "text-sky-700 dark:text-sky-300"
-												: "text-amber-700 dark:text-amber-300"
-										}`}
-									>
-										{paymentMethod === "cash"
-											? "Jurnal: Kas Tunai turun"
-											: "Jurnal: Hutang Vendor naik"}
-									</div>
-									<dl className="space-y-1 text-muted-foreground">
-										<div className="flex items-baseline justify-between gap-2">
-											<dt>DEBIT Persediaan</dt>
-											<dd className="tabular font-medium text-foreground">
-												{formatRupiah(total)}
-											</dd>
-										</div>
-										{feeNum > 0 && (
-											<div className="flex items-baseline justify-between gap-2">
-												<dt>DEBIT Beban Admin Bank (5-600)</dt>
-												<dd className="tabular font-medium text-foreground">
-													{formatRupiah(feeNum)}
-												</dd>
+						<div className="grid gap-4 lg:grid-cols-[1.3fr_1fr_minmax(280px,320px)]">
+							{/* Catatan */}
+							<Field
+								label="Catatan"
+								name="notes"
+								hint="opsional — patah, retur, kondisi barang dll"
+							>
+								<TextareaField
+									id="notes"
+									name="notes"
+									rows={6}
+									maxLength={500}
+								/>
+							</Field>
+
+							{/* Bukti nota — upload + preview (diunggah ke Drive setelah simpan) */}
+							<div className="space-y-1.5">
+								<span className="text-sm font-medium">
+									Bukti Nota{" "}
+									<span className="font-normal text-muted-foreground">
+										(opsional)
+									</span>
+								</span>
+								{photo ? (
+									<div className="overflow-hidden rounded-lg border border-border-default">
+										{photoUrl ? (
+											// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
+											<img
+												src={photoUrl}
+												alt="Preview nota"
+												className="max-h-44 w-full bg-surface-3 object-contain"
+											/>
+										) : (
+											<div className="flex h-28 items-center justify-center bg-surface-3 px-3 text-center text-[12px] text-muted-foreground">
+												{photo.name}
 											</div>
 										)}
-										<div className="flex items-baseline justify-between gap-2 border-t border-border-default/60 pt-1">
-											<dt>
-												CREDIT{" "}
-												{paymentMethod === "cash"
-													? "Kas Tunai (1-100)"
-													: "Hutang Vendor (2-101)"}
-											</dt>
-											<dd className="tabular font-medium text-foreground">
-												{formatRupiah(
-													paymentMethod === "cash" ? cashOut : total,
-												)}
-											</dd>
+										<div className="flex items-center justify-between gap-2 border-t border-border-default px-3 py-2">
+											<span className="truncate text-[12px] text-muted-foreground">
+												{photo.name}
+											</span>
+											<button
+												type="button"
+												onClick={() => setPhoto(null)}
+												className="press-down inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-destructive hover:bg-destructive/10"
+											>
+												<X className="size-3.5" /> Hapus
+											</button>
 										</div>
-									</dl>
+									</div>
+								) : (
+									<label className="press-down flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-default bg-surface-2/40 px-4 text-center text-[13px] text-muted-foreground hover:bg-surface-3">
+										<Paperclip className="size-5 text-muted-foreground/70" />
+										<span>Klik untuk lampirkan foto nota</span>
+										<span className="text-[11px] text-muted-foreground/70">
+											gambar atau PDF · maks 8 MB
+										</span>
+										<input
+											type="file"
+											accept="image/*,application/pdf"
+											className="hidden"
+											onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+										/>
+									</label>
+								)}
+							</div>
+
+							{/* Ringkasan: total · biaya admin · jurnal */}
+							<aside className="space-y-2.5">
+								<div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+									<span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+										Total Pembelian
+									</span>
+									<span className="tabular text-fluid-h3 font-bold text-emerald-700 dark:text-emerald-300">
+										{formatRupiah(total)}
+									</span>
 								</div>
-							)}
-						</aside>
+
+								{/* Biaya admin bank — cash only. Kosong = tidak ada biaya admin. */}
+								{paymentMethod === "cash" && (
+									<div className="rounded-lg border border-border-default bg-surface-2/40 p-3">
+										<label
+											htmlFor="admin_fee"
+											className="text-[12px] font-medium"
+										>
+											Biaya admin{" "}
+											<span className="font-normal text-muted-foreground">
+												(opsional)
+											</span>
+										</label>
+										<p className="mb-2 mt-0.5 text-[11px] text-muted-foreground">
+											biaya transfer bank, ditanggung perusahaan
+										</p>
+										<div className="flex items-center gap-1.5">
+											{[
+												{ value: 1000, label: "Rp1.000", hint: "VA / GoPay" },
+												{ value: 2500, label: "Rp2.500", hint: "antar bank" },
+											].map((chip) => {
+												const active = feeNum === chip.value;
+												return (
+													<button
+														key={chip.value}
+														type="button"
+														onClick={() =>
+															setAdminFee(active ? "" : String(chip.value))
+														}
+														title={chip.hint}
+														className={`press-down inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+															active
+																? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+																: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-3"
+														}`}
+													>
+														{chip.label}
+													</button>
+												);
+											})}
+											<div className="relative flex-1">
+												<span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+													Rp
+												</span>
+												<NumberField
+													id="admin_fee"
+													name="admin_fee_display"
+													min={0}
+													max={1000000}
+													step={500}
+													value={adminFee}
+													onChange={(e) => setAdminFee(e.target.value)}
+													placeholder="lain"
+													className="pl-7"
+												/>
+											</div>
+										</div>
+									</div>
+								)}
+
+								{total > 0 && (
+									<div
+										className={`rounded-lg border p-3 text-[12px] ${
+											paymentMethod === "cash"
+												? "border-sky-500/30 bg-sky-500/5"
+												: "border-amber-500/30 bg-amber-500/5"
+										}`}
+									>
+										<div
+											className={`mb-1.5 text-[10px] font-semibold uppercase tracking-wider ${
+												paymentMethod === "cash"
+													? "text-sky-700 dark:text-sky-300"
+													: "text-amber-700 dark:text-amber-300"
+											}`}
+										>
+											{paymentMethod === "cash"
+												? `Jurnal: ${payAccountName} turun`
+												: "Jurnal: Hutang Vendor naik"}
+										</div>
+										<dl className="space-y-1 text-muted-foreground">
+											<div className="flex items-baseline justify-between gap-2">
+												<dt>DEBIT Persediaan</dt>
+												<dd className="tabular font-medium text-foreground">
+													{formatRupiah(total)}
+												</dd>
+											</div>
+											{feeNum > 0 && (
+												<div className="flex items-baseline justify-between gap-2">
+													<dt>DEBIT Beban Admin Bank (5-600)</dt>
+													<dd className="tabular font-medium text-foreground">
+														{formatRupiah(feeNum)}
+													</dd>
+												</div>
+											)}
+											<div className="flex items-baseline justify-between gap-2 border-t border-border-default/60 pt-1">
+												<dt>
+													CREDIT{" "}
+													{paymentMethod === "cash"
+														? `${payAccountName} (${payAccount})`
+														: "Hutang Vendor (2-101)"}
+												</dt>
+												<dd className="tabular font-medium text-foreground">
+													{formatRupiah(
+														paymentMethod === "cash" ? cashOut : total,
+													)}
+												</dd>
+											</div>
+										</dl>
+									</div>
+								)}
+							</aside>
+						</div>
 					</div>
 
-					<DialogFooter>
+					<DialogFooter className="shrink-0 border-t border-border-default pt-3">
 						<button
 							type="button"
 							onClick={() => setOpen(false)}
