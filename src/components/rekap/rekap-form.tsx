@@ -1493,7 +1493,6 @@ export function RekapForm({
 					paidBy={paidBy.konsumsi}
 					onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
 					crew={context.crew}
-					cards={context.cards}
 					nota={{
 						projectId,
 						notaKey: "konsumsi",
@@ -1571,7 +1570,6 @@ export function RekapForm({
 											value={row.paid_by}
 											onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
 											crew={context.crew}
-											cards={context.cards}
 										/>
 									)}
 								</li>
@@ -2223,7 +2221,15 @@ function MoneyField({
 	onPaidByChange?: (v: PaidBy) => void;
 	/** Crew bertugas — jadi pilihan penalang. */
 	crew?: Array<{ user_id: string; name: string; role: string }>;
-	/** Kartu e-money aktif — pilihan "dibayar langsung dari saldo perusahaan". */
+	/**
+	 * Kartu e-money aktif — pilihan "dibayar langsung dari saldo perusahaan".
+	 *
+	 * SENGAJA hanya dikirim ke baris biaya transportasi (transport, sewa mobil,
+	 * bensin, e-toll, parkir). Kartu e-toll dibatasi untuk kebutuhan
+	 * transportasi saja; menawarkannya di Konsumsi atau Lain-lain cuma
+	 * memperbesar peluang salah pilih dan membuat saldo kartu di buku meleset
+	 * dari kartu fisiknya.
+	 */
 	cards?: PayerCard[];
 	/** Slot nota/struk — muncul saat nilai > 0, ikut ke Arsip Nota. */
 	nota?: {

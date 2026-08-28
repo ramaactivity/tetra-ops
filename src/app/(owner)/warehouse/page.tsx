@@ -45,6 +45,7 @@ import {
 import { WarehouseTabs } from "@/components/warehouse/warehouse-tabs";
 import { computeForecast, type ForecastResult } from "@/lib/actions/forecast";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -160,10 +161,11 @@ export default async function WarehousePage({
 
 	// Pemilih "Uang diambil dari" di dialog Catat Pembelian. Tanpa ini
 	// pilihannya tidak muncul dan belanja tunai diam-diam keluar dari Kas Tunai.
-	const pembelianCashAccounts = (await loadCashAccounts(supabase)).map((a) => ({
-		code: a.code,
-		name: a.name,
-	}));
+	// Kartu e-toll disaring: belanja ke supplier bukan kebutuhan transportasi.
+	const pembelianCashAccounts = filterEmoneyAccounts(
+		await loadCashAccounts(supabase),
+		false,
+	).map((a) => ({ code: a.code, name: a.name }));
 
 	// Map consumables → PembelianItemOption shape (subset of fields).
 	const pembelianItems: PembelianItemOption[] = consumables

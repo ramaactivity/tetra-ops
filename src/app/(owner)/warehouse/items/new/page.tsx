@@ -2,6 +2,7 @@ import { NewItemFlow } from "@/components/items/new-item-flow";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import { loadAssetModels } from "@/lib/inventory/asset-models";
 import type { ItemCategory } from "@/lib/inventory/item-loader";
 import { createClient } from "@/lib/supabase/server";
@@ -31,8 +32,9 @@ export default async function WarehouseNewItemPage({
 			.order("name"),
 		loadAssetModels(supabase),
 		// Sumber dana pembelian tunai — biar belanja lewat bank tidak menggerus
-		// saldo Kas Tunai di buku.
-		loadCashAccounts(supabase),
+		// saldo Kas Tunai di buku. Kartu e-toll disaring: beli alat/bahan bukan
+		// kebutuhan transportasi.
+		loadCashAccounts(supabase).then((a) => filterEmoneyAccounts(a, false)),
 	]);
 
 	// Tombol "+ unit" bisa diklik dari baris unit mana pun — petakan ke model

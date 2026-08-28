@@ -51,7 +51,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchSalesCandidates } from "@/lib/events/booking-candidates";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
-import { paidFromAccountId } from "@/lib/finance/emoney";
+import { filterEmoneyAccounts, paidFromAccountId } from "@/lib/finance/emoney";
 import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
 import { createClient } from "@/lib/supabase/server";
 
@@ -296,6 +296,11 @@ export default async function EventRekapPage({
 				balance: await getCashAccountBalance(supabase, c.code as string),
 			})),
 	);
+	// Kartu e-toll cuma alat bayar kebutuhan transportasi. Semua kartu pembayaran
+	// lain (fee crew, komisi, hutang) memakai daftar tanpa kartu; hanya kartu
+	// "Pemasukan / pengeluaran lain" yang menerimanya, dan di sana pun disaring
+	// lagi per kategori biaya.
+	const cashAccountsNoCard = filterEmoneyAccounts(cashAccounts, false);
 
 	// Pemasukan/pengeluaran lain yang sudah dicatat untuk event ini (jalur Catat
 	// transaksi, source_type='manual'). Jurnal yang sudah dibalik disembunyikan —
@@ -920,7 +925,7 @@ export default async function EventRekapPage({
 						hasEmoneyCard={context.cards.length > 0}
 						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}
-						cashAccounts={cashAccounts}
+						cashAccounts={cashAccountsNoCard}
 						queuedPayment={
 							queuedEntries.find((q) => q.kind === "crew_fee")
 								? {
@@ -961,7 +966,7 @@ export default async function EventRekapPage({
 							eventId={event.id as string}
 							projectId={projectId}
 							state={partnerCommission}
-							cashAccounts={cashAccounts}
+							cashAccounts={cashAccountsNoCard}
 							queuedPayment={
 								queuedEntries.find((q) => q.kind === "commission_partner") ??
 								null
@@ -975,7 +980,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						state={salesCommissionState}
 						candidates={salesCandidates}
-						cashAccounts={cashAccounts}
+						cashAccounts={cashAccountsNoCard}
 						queuedPayment={
 							queuedEntries.find((q) => q.kind === "commission_sales") ?? null
 						}
@@ -1029,7 +1034,7 @@ export default async function EventRekapPage({
 												0,
 									).length
 								}
-								cashAccounts={cashAccounts}
+								cashAccounts={cashAccountsNoCard}
 								commission={
 									partnerCommission && !partnerCommission.isPaid
 										? {
@@ -1097,7 +1102,7 @@ export default async function EventRekapPage({
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						hasEmoneyCard={context.cards.length > 0}
 						readOnly
-						cashAccounts={cashAccounts}
+						cashAccounts={cashAccountsNoCard}
 						allowPayment={crewPayable}
 					/>
 
@@ -1119,7 +1124,7 @@ export default async function EventRekapPage({
 							eventId={event.id as string}
 							projectId={projectId}
 							state={partnerCommission}
-							cashAccounts={cashAccounts}
+							cashAccounts={cashAccountsNoCard}
 							queuedPayment={
 								queuedEntries.find((q) => q.kind === "commission_partner") ??
 								null
@@ -1133,7 +1138,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						state={salesCommissionState}
 						candidates={salesCandidates}
-						cashAccounts={cashAccounts}
+						cashAccounts={cashAccountsNoCard}
 						queuedPayment={
 							queuedEntries.find((q) => q.kind === "commission_sales") ?? null
 						}

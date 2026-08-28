@@ -64,6 +64,42 @@ export function encodePaidFromAccount(accountId: string): string {
 	return `${PAID_FROM_PREFIX}${accountId}`;
 }
 
+/** Kode COA ini kartu e-money? (blok 1-140..1-159) */
+export function isEmoneyCoa(code: string | null | undefined): boolean {
+	if (typeof code !== "string") return false;
+	const m = /^1-1(\d{2})$/.exec(code.trim());
+	if (!m) return false;
+	const n = Number(`1${m[1]}`);
+	return n >= EMONEY_COA_FIRST && n <= EMONEY_COA_LAST;
+}
+
+/**
+ * Beban transportasi: 5-210 BBM · 5-211 online · 5-212 sewa mobil ·
+ * 5-213 toll · 5-214 parkir.
+ *
+ * Dipakai untuk membatasi kartu e-toll: kartunya cuma boleh jadi alat bayar
+ * kebutuhan transportasi. Menawarkannya untuk bayar supplier, fee crew, atau
+ * komisi cuma memperbesar peluang salah pilih — dan kalau tercatat, saldo
+ * kartu di buku langsung meleset dari kartu fisiknya.
+ */
+export function isTransportCoa(coa: string | null | undefined): boolean {
+	return typeof coa === "string" && /^5-21[0-4]$/.test(coa.trim());
+}
+
+/**
+ * Saring kartu e-money dari daftar rekening.
+ *
+ * Bawaannya membuang: sebagian besar alur uang keluar (belanja, fee crew,
+ * hutang, komisi) tidak boleh dibayar pakai kartu tol. Alur transportasi
+ * memanggilnya dengan `allow` = true.
+ */
+export function filterEmoneyAccounts<T extends { code: string }>(
+	accounts: ReadonlyArray<T>,
+	allow: boolean,
+): T[] {
+	return allow ? [...accounts] : accounts.filter((a) => !isEmoneyCoa(a.code));
+}
+
 /** Biaya ini keluar dari kantong seseorang (crew), bukan dari rekening. */
 export function isFrontedByPerson(value: unknown): boolean {
 	if (value === "owner") return false;

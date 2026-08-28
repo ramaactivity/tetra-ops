@@ -17,6 +17,7 @@ import {
 } from "@/components/warehouse/pembelian/purchases-list";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PurchasesPage() {
@@ -97,10 +98,13 @@ export default async function PurchasesPage() {
 	const suppliers = (suppliersRes.data ?? []) as PembelianSupplierOption[];
 	// Tanpa ini pemilih "Uang diambil dari" tidak pernah muncul dan SETIAP
 	// belanja tunai diam-diam dicatat keluar dari 1-100 Kas Tunai.
-	const cashAccounts = cashAccountsRaw.map((a) => ({
-		code: a.code,
-		name: a.name,
-	}));
+	// Kartu e-toll disaring: belanja ke supplier bukan kebutuhan transportasi.
+	const cashAccounts = filterEmoneyAccounts(cashAccountsRaw, false).map(
+		(a) => ({
+			code: a.code,
+			name: a.name,
+		}),
+	);
 
 	const rows: PurchaseRow[] = (
 		(purchasesRes.data ?? []) as Array<{

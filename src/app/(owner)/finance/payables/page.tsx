@@ -21,6 +21,7 @@ import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
+import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import { createClient } from "@/lib/supabase/server";
 
 const VALID_FILTERS: PayablesStatusFilter[] = [
@@ -193,13 +194,15 @@ export default async function PayablesPage({
 
 	// Saldo live per rekening — dipakai pay-dialog untuk disable rekening yang
 	// uangnya tidak cukup (jangan sampai bayar hutang bikin kas minus).
+	// Kartu e-toll disaring: melunasi hutang vendor bukan kebutuhan transportasi.
 	const cashAccountOptions: CashAccountOption[] = await Promise.all(
-		((cashAccounts ?? []) as Array<{ code: string; name: string }>).map(
-			async (c) => ({
-				...c,
-				balance: await getCashAccountBalance(supabase, c.code),
-			}),
-		),
+		filterEmoneyAccounts(
+			(cashAccounts ?? []) as Array<{ code: string; name: string }>,
+			false,
+		).map(async (c) => ({
+			...c,
+			balance: await getCashAccountBalance(supabase, c.code),
+		})),
 	);
 
 	return (

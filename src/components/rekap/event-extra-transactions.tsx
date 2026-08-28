@@ -29,9 +29,11 @@ import {
 	queueEventExpensesBatch,
 	removeQueuedEntry,
 } from "@/lib/actions/settle-queue";
+import { filterEmoneyAccounts, isTransportCoa } from "@/lib/finance/emoney";
 import {
 	type CatatDirection,
 	categoriesFor,
+	findCategory,
 } from "@/lib/finance/quick-record-categories";
 import { formatRupiah } from "@/lib/format";
 import {
@@ -162,6 +164,23 @@ export function EventExtraTransactions({
 		queuedExpenses
 			.filter((q) => q.direction === "masuk")
 			.reduce((s, q) => s + q.amount, 0);
+
+	// Kartu e-toll cuma boleh membayar kebutuhan transportasi. Daftar rekening
+	// ikut kategori yang sedang dipilih, jadi kartu tidak pernah tersedia saat
+	// mencatat konsumsi, perlengkapan, dsb.
+	const formAccounts = filterEmoneyAccounts(
+		cashAccounts,
+		isTransportCoa(findCategory(categoryId)?.coa),
+	);
+	// Tombol "Catat semua" memakai SATU rekening untuk seluruh biaya tertunda,
+	// jadi kartu hanya ditawarkan kalau semuanya memang biaya transportasi.
+	const bulkAccounts = filterEmoneyAccounts(
+		cashAccounts,
+		ownerPaidPending.length > 0 &&
+			ownerPaidPending.every((p) =>
+				isTransportCoa(findCategory(p.categoryId)?.coa),
+			),
+	);
 
 	const acct = cashAccounts.find((a) => a.code === account);
 	const insufficient =
@@ -338,7 +357,7 @@ export function EventExtraTransactions({
 							<Combobox
 								value={bulkAccount}
 								onValueChange={(v) => setBulkAccount(v ?? "")}
-								options={cashAccounts.map((a) => ({
+								options={bulkAccounts.map((a) => ({
 									value: a.code,
 									label:
 										a.balance !== undefined
@@ -608,7 +627,7 @@ export function EventExtraTransactions({
 							<Combobox
 								value={account}
 								onValueChange={(v) => setAccount(v ?? "")}
-								options={cashAccounts.map((a) => ({
+								options={formAccounts.map((a) => ({
 									value: a.code,
 									label:
 										a.balance !== undefined
