@@ -18,6 +18,7 @@ import {
 	type PurchaseFormState,
 	recordPurchaseBatch,
 } from "@/lib/actions/purchases";
+import { compressImage } from "@/lib/crew/image-compression";
 import { formatRupiah } from "@/lib/format";
 import {
 	listPurchaseUnits,
@@ -193,8 +194,13 @@ export function PembelianDialog({
 					{ id: toastId, duration: 12_000 },
 				);
 			try {
+				// Dikompres dulu, sama seperti jalur Arsip Nota yang terbukti
+				// jalan — satu-satunya beda antara kedua jalur ini. Foto WA dari
+				// kamera bisa beberapa MB dan unggahan mentah ke Drive lebih
+				// rawan kehabisan waktu di serverless.
+				const prepared = await compressImage(capturedPhoto);
 				const fd = new FormData();
-				fd.set("file", capturedPhoto);
+				fd.set("file", prepared);
 				fd.set("category", "Pembelian");
 				fd.set("description", `Pembelian stok${ref ? ` · ${ref}` : ""}`);
 				fd.set("nota_date", capturedDate);
