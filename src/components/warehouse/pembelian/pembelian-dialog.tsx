@@ -165,36 +165,55 @@ export function PembelianDialog({
 		const capturedPhoto = photo;
 		const capturedTotal = total;
 		const capturedDate = purchaseDate;
+		// Konfirmasi DULUAN. Pembeliannya sudah benar-benar tersimpan di titik
+		// ini; menunda kabarnya sampai unggahan nota ke Drive selesai bikin
+		// layar diam belasan detik setelah klik Simpan — owner tidak tahu
+		// apakah berhasil, dan kalau unggahannya gagal ia tak dapat kabar
+		// apa pun soal pembeliannya sendiri.
+		const movedMsg = `Pembelian tersimpan — ${state.movementsCreated} stok masuk`;
+		toast.success(ref ? `${movedMsg} · jurnal ${ref}` : movedMsg);
+		setOpen(false);
+		setLines([newLine()]);
+		setSupplierId("");
+		setPaymentMethod("cash");
+		setTopDays("0");
+		setAdminFee("");
+		setPhoto(null);
+		setPurchaseDate(new Date().toISOString().slice(0, 10));
+		router.refresh();
+
+		// Nota menyusul dengan kabarnya sendiri — termasuk alasan asli dari
+		// server kalau gagal, supaya jelas apa yang harus diperbaiki.
+		if (!capturedPhoto) return;
 		void (async () => {
-			if (capturedPhoto) {
-				try {
-					const fd = new FormData();
-					fd.set("file", capturedPhoto);
-					fd.set("category", "Pembelian");
-					fd.set("description", `Pembelian stok${ref ? ` · ${ref}` : ""}`);
-					fd.set("nota_date", capturedDate);
-					fd.set("amount", String(capturedTotal));
-					const res = await fetch("/api/drive/upload/manual", {
-						method: "POST",
-						body: fd,
-					});
-					if (!res.ok)
-						toast.error("Pembelian tersimpan, tapi foto nota gagal diunggah");
-				} catch {
-					toast.error("Pembelian tersimpan, tapi foto nota gagal diunggah");
+			const toastId = toast.loading("Mengunggah foto nota…");
+			const failed = (why: string) =>
+				toast.error(
+					`Foto nota gagal diunggah: ${why}. Pembeliannya tetap tersimpan — unggah ulang lewat Finance → Arsip Nota.`,
+					{ id: toastId, duration: 12_000 },
+				);
+			try {
+				const fd = new FormData();
+				fd.set("file", capturedPhoto);
+				fd.set("category", "Pembelian");
+				fd.set("description", `Pembelian stok${ref ? ` · ${ref}` : ""}`);
+				fd.set("nota_date", capturedDate);
+				fd.set("amount", String(capturedTotal));
+				const res = await fetch("/api/drive/upload/manual", {
+					method: "POST",
+					body: fd,
+				});
+				if (res.ok) {
+					toast.success("Foto nota tersimpan di Arsip Nota", { id: toastId });
+					return;
 				}
+				const body = (await res.json().catch(() => null)) as {
+					error?: string;
+				} | null;
+				failed(body?.error ?? `server menolak (${res.status})`);
+			} catch (e) {
+				failed(e instanceof Error ? e.message : "koneksi terputus");
 			}
-			const baseMsg = `Pembelian disimpan — ${state.movementsCreated} stock movement dibuat`;
-			toast.success(ref ? `${baseMsg} · jurnal ${ref}` : baseMsg);
-			setOpen(false);
-			setLines([newLine()]);
-			setSupplierId("");
-			setPaymentMethod("cash");
-			setTopDays("0");
-			setAdminFee("");
-			setPhoto(null);
-			setPurchaseDate(new Date().toISOString().slice(0, 10));
-			router.refresh();
 		})();
 	}, [state, router, photo, total, purchaseDate]);
 
