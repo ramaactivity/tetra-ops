@@ -308,6 +308,7 @@ export function ConsumablesTable({
 	pembelianItems,
 	pembelianSuppliers,
 	pembelianCashAccounts = [],
+	pembelianSinkingFunds = [],
 	stockUnknown = false,
 }: {
 	rows: ConsumableRow[];
@@ -315,6 +316,7 @@ export function ConsumablesTable({
 	pembelianItems: PembelianItemOption[];
 	pembelianSuppliers: PembelianSupplierOption[];
 	pembelianCashAccounts?: Array<{ code: string; name: string }>;
+	pembelianSinkingFunds?: Array<{ id: string; name: string; balance: number }>;
 	/** True kalau stok gagal dimuat (RPC error). Saat true, jangan tampilkan
 	 *  badge "Habis"/"Kritis" atau angka stok palsu — render "—" supaya owner
 	 *  tahu datanya tidak akurat, bukan menampakkan alarm bohong. */
@@ -766,6 +768,7 @@ export function ConsumablesTable({
 							items={pembelianItems}
 							suppliers={pembelianSuppliers}
 							cashAccounts={pembelianCashAccounts}
+							sinkingFunds={pembelianSinkingFunds}
 							initialItemIds={restockKritisIds}
 						/>
 					)}

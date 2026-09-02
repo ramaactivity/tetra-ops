@@ -57,6 +57,14 @@ const PurchaseBatchSchema = z.object({
 		.max(20)
 		.optional()
 		.transform((v) => (v ? v : "1-100")),
+	// Dana cadangan yang dipakai untuk belanja ini. Hanya untuk pembelian
+	// TUNAI: kalau TOP, uangnya belum keluar sama sekali — penyisihannya baru
+	// pantas dilepas saat hutangnya dilunasi.
+	sinking_fund_id: z
+		.string()
+		.trim()
+		.nullish()
+		.transform((v) => (v ? v : null)),
 	invoice_no: z
 		.string()
 		.trim()
@@ -691,6 +699,42 @@ export async function recordPurchaseBatch(
 				}
 				journalEntryRef = refId;
 				journalEntryId = entry.id;
+
+				// Dana cadangan terpakai. Dilakukan SETELAH jurnal pembelian jadi,
+				// dan kalau gagal seluruh pembelian dibatalkan — cadangan yang
+				// tidak jadi berkurang padahal barangnya sudah masuk membuat saldo
+				// dana bohong sampai ada yang menyadarinya.
+				if (isCash && parsed.data.sinking_fund_id) {
+					const { error: relErr } = await supabase.rpc(
+						"release_sinking_reserve",
+						{
+							p_fund_id: parsed.data.sinking_fund_id,
+							// Sengaja HANYA nilai barang. Biaya admin bank itu ongkos
+							// transfer, bukan bagian dari yang dicadangkan.
+							p_amount: grandTotal,
+							p_note: `Pembelian ${whatLabel}${
+								parsed.data.invoice_no ? ` inv ${parsed.data.invoice_no}` : ""
+							} · ${refId}`,
+							p_entry_date: entryDate,
+							p_actor_id: me.profile.id,
+						},
+					);
+					if (relErr) {
+						await supabase
+							.from("journal_lines")
+							.delete()
+							.eq("entry_id", entry.id);
+						await supabase.from("journal_entries").delete().eq("id", entry.id);
+						await rollbackStock();
+						return {
+							errors: {
+								_form: [
+									`Pembelian dibatalkan — dana cadangan tidak bisa dipakai: ${relErr.message}`,
+								],
+							},
+						};
+					}
+				}
 			}
 		}
 	} catch (e) {

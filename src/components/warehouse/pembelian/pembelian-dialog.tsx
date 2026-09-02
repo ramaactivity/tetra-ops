@@ -96,6 +96,7 @@ export function PembelianDialog({
 	items,
 	suppliers,
 	cashAccounts = [],
+	sinkingFunds = [],
 	initialItemIds,
 }: {
 	trigger: React.ReactNode;
@@ -103,6 +104,8 @@ export function PembelianDialog({
 	suppliers: PembelianSupplierOption[];
 	/** Kas/bank aktif — sumber dana untuk pembelian tunai. */
 	cashAccounts?: Array<{ code: string; name: string }>;
+	/** Dana cadangan aktif + saldonya — opsi "pakai dana cadangan". */
+	sinkingFunds?: Array<{ id: string; name: string; balance: number }>;
 	/** Item IDs to pre-load as empty lines when dialog opens (e.g. restock kritis flow). */
 	initialItemIds?: string[];
 }) {
@@ -114,8 +117,11 @@ export function PembelianDialog({
 	const [payAccount, setPayAccount] = useState<string>(
 		defaultPayAccount(cashAccounts),
 	);
+	// Dana cadangan yang dipakai. Kosong = belanja biasa dari laba berjalan.
+	const [sinkingFundId, setSinkingFundId] = useState("");
 	const payAccountName =
 		cashAccounts.find((a) => a.code === payAccount)?.name ?? "Kas Tunai";
+	const selectedFund = sinkingFunds.find((f) => f.id === sinkingFundId) ?? null;
 	const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 	const [topDays, setTopDays] = useState<string>("0");
 	// Biaya admin/transfer bank (opsional, cash only). String supaya kosong = 0.
@@ -179,6 +185,7 @@ export function PembelianDialog({
 		setPaymentMethod("cash");
 		setTopDays("0");
 		setAdminFee("");
+		setSinkingFundId("");
 		setPhoto(null);
 		setPurchaseDate(new Date().toISOString().slice(0, 10));
 		router.refresh();
@@ -434,6 +441,31 @@ export function PembelianDialog({
 											type="hidden"
 											name="payment_account_code"
 											value={payAccount}
+										/>
+									</Field>
+								) : null}
+								{paymentMethod === "cash" && sinkingFunds.length > 0 ? (
+									<Field
+										label="Pakai dana cadangan"
+										name="sinking_fund_id"
+										hint="Opsional — untuk belanja yang memang sudah dianggarkan (mis. ganti alat)."
+									>
+										<Combobox
+											id="sinking_fund_id"
+											value={sinkingFundId}
+											onValueChange={(v) => setSinkingFundId(v ?? "")}
+											options={sinkingFunds.map((f) => ({
+												value: f.id,
+												label: f.name,
+												sublabel: `sisa ${formatRupiah(f.balance)}`,
+											}))}
+											allowFreeText={false}
+											placeholder="Tidak pakai"
+										/>
+										<input
+											type="hidden"
+											name="sinking_fund_id"
+											value={sinkingFundId}
 										/>
 									</Field>
 								) : null}
@@ -840,6 +872,15 @@ export function PembelianDialog({
 												</dd>
 											</div>
 										</dl>
+										{selectedFund ? (
+											<p className="mt-2 border-t border-border-default/60 pt-2 text-[11px] leading-relaxed">
+												Plus jurnal terpisah: cadangan{" "}
+												<strong>{selectedFund.name}</strong> berkurang{" "}
+												<span className="tabular">{formatRupiah(total)}</span>.
+												Uangnya tetap keluar dari {payAccountName} — dana
+												cadangan itu penyisihan, bukan rekening berisi uang.
+											</p>
+										) : null}
 									</div>
 								)}
 							</aside>

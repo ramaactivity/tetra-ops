@@ -18,6 +18,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { filterEmoneyAccounts } from "@/lib/finance/emoney";
+import { loadSinkingFundOptions } from "@/lib/finance/sinking-options";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function PurchasesPage() {
@@ -29,7 +30,7 @@ export default async function PurchasesPage() {
 
 	const supabase = await createClient();
 
-	const [purchasesRes, itemsRes, suppliersRes, cashAccountsRaw] =
+	const [purchasesRes, itemsRes, suppliersRes, cashAccountsRaw, sinkingFunds] =
 		await Promise.all([
 			supabase
 				.from("stock_movements")
@@ -59,6 +60,7 @@ export default async function PurchasesPage() {
 				.eq("is_active", true)
 				.order("name"),
 			loadCashAccounts(supabase),
+			loadSinkingFundOptions(supabase),
 		]);
 
 	type RawItem = {
@@ -177,6 +179,7 @@ export default async function PurchasesPage() {
 						items={items}
 						suppliers={suppliers}
 						cashAccounts={cashAccounts}
+						sinkingFunds={sinkingFunds}
 					/>
 				}
 			/>

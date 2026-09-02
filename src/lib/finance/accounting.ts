@@ -93,6 +93,8 @@ export const SOURCE_LABEL: Record<string, string> = {
 	wastage: "Barang rusak/hilang",
 	balance_transfer: "Pindah saldo",
 	emoney_recount: "Cocokkan saldo kartu",
+	sinking_release: "Pakai dana cadangan",
+	sinking_movement: "Dana cadangan",
 };
 
 /**

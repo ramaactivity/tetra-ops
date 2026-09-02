@@ -46,6 +46,7 @@ import { WarehouseTabs } from "@/components/warehouse/warehouse-tabs";
 import { computeForecast, type ForecastResult } from "@/lib/actions/forecast";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { filterEmoneyAccounts } from "@/lib/finance/emoney";
+import { loadSinkingFundOptions } from "@/lib/finance/sinking-options";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -166,6 +167,7 @@ export default async function WarehousePage({
 		await loadCashAccounts(supabase),
 		false,
 	).map((a) => ({ code: a.code, name: a.name }));
+	const pembelianSinkingFunds = await loadSinkingFundOptions(supabase);
 
 	// Map consumables → PembelianItemOption shape (subset of fields).
 	const pembelianItems: PembelianItemOption[] = consumables
@@ -663,6 +665,7 @@ export default async function WarehousePage({
 						pembelianItems={pembelianItems}
 						pembelianSuppliers={pembelianSuppliers}
 						pembelianCashAccounts={pembelianCashAccounts}
+						pembelianSinkingFunds={pembelianSinkingFunds}
 					/>
 				)}
 				{tab === "consumables" && (
@@ -672,6 +675,7 @@ export default async function WarehousePage({
 						pembelianItems={pembelianItems}
 						pembelianSuppliers={pembelianSuppliers}
 						pembelianCashAccounts={pembelianCashAccounts}
+						pembelianSinkingFunds={pembelianSinkingFunds}
 						stockUnknown={stockLoadFailed}
 					/>
 				)}
