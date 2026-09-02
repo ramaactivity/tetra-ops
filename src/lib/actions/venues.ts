@@ -110,3 +110,164 @@ export async function ensureVenue(
 
 	return created.id as string;
 }
+
+// ---------------------------------------------------------------------------
+// Master venue — kelola dari halaman /venues
+// ---------------------------------------------------------------------------
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { getCurrentUser } from "@/lib/auth/get-user";
+
+type VenueErrors = Record<string, string[] | undefined>;
+export type VenueFormState =
+	| { ok?: true; errors?: VenueErrors; info?: string }
+	| undefined;
+
+async function requireOwner() {
+	const user = await getCurrentUser();
+	if (!user) throw new Error("Unauthorized");
+	if (user.profile.role !== "super_admin" && user.profile.role !== "owner") {
+		throw new Error("Forbidden — owner-level only");
+	}
+	return user;
+}
+
+function revalidateVenues() {
+	revalidatePath("/venues");
+	revalidatePath("/operations/new");
+}
+
+/** formData.get() mengembalikan null untuk field absen — .nullish() wajib. */
+const OptText = (max: number) =>
+	z
+		.string()
+		.trim()
+		.max(max)
+		.nullish()
+		.transform((v) => (v ? v : null));
+
+const UpdateSchema = z.object({
+	id: z.uuid("Venue tidak valid"),
+	name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
+	address: OptText(255),
+	city: OptText(60),
+	province: OptText(60),
+	google_maps_url: OptText(500),
+});
+
+export async function updateVenue(
+	_prev: VenueFormState,
+	formData: FormData,
+): Promise<VenueFormState> {
+	await requireOwner();
+
+	const parsed = UpdateSchema.safeParse({
+		id: formData.get("id"),
+		name: formData.get("name"),
+		address: formData.get("address"),
+		city: formData.get("city"),
+		province: formData.get("province"),
+		google_maps_url: formData.get("google_maps_url"),
+	});
+	if (!parsed.success) {
+		return { errors: parsed.error.flatten().fieldErrors as VenueErrors };
+	}
+
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("venues")
+		.update({ ...parsed.data, updated_at: new Date().toISOString() })
+		.eq("id", parsed.data.id);
+
+	if (error) {
+		// Indeks unik nama: pesan mentah Postgres tidak berguna buat owner.
+		const dup = error.message.includes("venues_name_unique_active");
+		return {
+			errors: {
+				[dup ? "name" : "_form"]: [
+					dup
+						? "Sudah ada venue aktif dengan nama ini. Gabungkan saja keduanya."
+						: error.message,
+				],
+			},
+		};
+	}
+
+	revalidateVenues();
+	return { ok: true };
+}
+
+const MergeSchema = z.object({
+	source_id: z.uuid("Venue yang mau digabung tidak valid"),
+	target_id: z.uuid("Venue tujuan tidak valid"),
+	rename_events: z.coerce.boolean(),
+});
+
+/**
+ * Gabungkan dua master venue yang sebenarnya tempat yang sama.
+ *
+ * Seluruh langkahnya ada di RPC `merge_venues` supaya atomik — memindahkan
+ * event tapi gagal mengarsipkan sumbernya akan meninggalkan duplikat kosong
+ * yang tetap muncul di daftar pilihan.
+ */
+export async function mergeVenues(
+	_prev: VenueFormState,
+	formData: FormData,
+): Promise<VenueFormState> {
+	await requireOwner();
+
+	const parsed = MergeSchema.safeParse({
+		source_id: formData.get("source_id"),
+		target_id: formData.get("target_id"),
+		rename_events: formData.get("rename_events") === "on",
+	});
+	if (!parsed.success) {
+		return { errors: parsed.error.flatten().fieldErrors as VenueErrors };
+	}
+
+	const supabase = await createClient();
+	const { data, error } = await supabase.rpc("merge_venues", {
+		p_source_id: parsed.data.source_id,
+		p_target_id: parsed.data.target_id,
+		p_rename_events: parsed.data.rename_events,
+	});
+	if (error) return { errors: { _form: [error.message] } };
+
+	const res = data as {
+		moved_events?: number;
+		source_name?: string;
+		target_name?: string;
+	} | null;
+	revalidateVenues();
+	return {
+		ok: true,
+		info: `${res?.source_name ?? "Venue"} digabung ke ${
+			res?.target_name ?? "venue tujuan"
+		} — ${res?.moved_events ?? 0} event dipindah.`,
+	};
+}
+
+/** Arsipkan / aktifkan lagi. Diarsipkan, bukan dihapus — event lama tetap tertaut. */
+export async function setVenueActive(
+	id: string,
+	isActive: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+	await requireOwner();
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("venues")
+		.update({ is_active: isActive, updated_at: new Date().toISOString() })
+		.eq("id", id);
+	if (error) {
+		const dup = error.message.includes("venues_name_unique_active");
+		return {
+			ok: false,
+			error: dup
+				? "Ada venue aktif lain dengan nama sama — ganti namanya dulu."
+				: error.message,
+		};
+	}
+	revalidateVenues();
+	return { ok: true };
+}

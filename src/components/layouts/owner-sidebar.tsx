@@ -8,6 +8,7 @@ import {
 	Box,
 	Boxes,
 	Briefcase,
+	Building2,
 	CalendarRange,
 	ChevronRight,
 	ClipboardCheck,
@@ -186,6 +187,7 @@ const NAV_SECTIONS: NavSection[] = [
 				children: [
 					{ href: "/contacts", label: "Daftar Kontak", icon: Users },
 					{ href: "/vendors", label: "Vendor", icon: Handshake },
+					{ href: "/venues", label: "Venue", icon: Building2 },
 				],
 			},
 		],
