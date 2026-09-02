@@ -270,21 +270,29 @@ export default async function FinancePage({
 		credit_amount: number;
 	}>(supabase, "account_code, debit_amount, credit_amount", (q) =>
 		q.or(
-			"account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101,account_code.eq.2-102,account_code.eq.2-103",
+			"account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101,account_code.eq.2-102,account_code.eq.2-103,account_code.eq.2-300",
 		),
 	);
 	let cashGl = 0;
 	let utangGl = 0;
 	let hutangCrewGl = 0; // saldo 2-100 saja — sumber kebenaran utang ke crew
+	// Bagi hasil owner yang sudah disisihkan tapi belum diambil. Bukan "utang"
+	// dalam bahasa owner (itu ke pihak luar), tapi tetap uang yang sudah ada
+	// pemiliknya — jadi tidak boleh ikut dihitung sebagai uang yang bebas dipakai.
+	let bagiHasilGl = 0;
 	for (const l of (glRows ?? []) as Array<{
 		account_code: string;
 		debit_amount: number;
 		credit_amount: number;
 	}>) {
 		const net = Number(l.debit_amount) - Number(l.credit_amount);
-		if (l.account_code.startsWith("1-1"))
+		if (l.account_code.startsWith("1-1")) {
 			cashGl += net; // aset: debit-normal
-		else utangGl += -net; // kewajiban: credit-normal
+		} else if (l.account_code === "2-300") {
+			bagiHasilGl += -net; // kewajiban: credit-normal
+		} else {
+			utangGl += -net;
+		}
 		if (l.account_code === "2-100") hutangCrewGl += -net;
 	}
 
@@ -466,17 +474,41 @@ export default async function FinancePage({
 		});
 	}
 
+	// "Uang di bank" itu angka kotor: di dalamnya ada dana cadangan yang sudah
+	// disisihkan, bagi hasil owner yang tinggal diambil, dan utang yang tinggal
+	// dibayar. Owner yang melihat 16 juta lalu belanja 15 juta akan kaget saat
+	// owner menarik bagi hasilnya. Angka inilah yang benar-benar bebas dipakai.
+	const uangBebas = cashGl - totalSinking - bagiHasilGl - utangGl;
+	const potongan = [
+		totalSinking > 0 ? `dana cadangan ${formatRupiah(totalSinking)}` : null,
+		bagiHasilGl > 0 ? `bagi hasil owner ${formatRupiah(bagiHasilGl)}` : null,
+		utangGl > 0 ? `utang ${formatRupiah(utangGl)}` : null,
+	].filter(Boolean);
+
 	// Mode Simpel — 6 angka inti dalam bahasa awam (owner non-akuntan).
 	const simpleStats: Array<{
 		label: string;
 		value: number;
 		hint: string;
 		tone?: "good" | "warn";
+		/** Angka pendamping di bawah nilai utama. */
+		sub?: { label: string; value: number; tone?: "good" | "warn" };
 	}> = [
 		{
 			label: "Uang di bank",
 			value: cashGl,
-			hint: "Total uang tunai + saldo semua rekening bank saat ini, menurut pembukuan.",
+			hint:
+				potongan.length > 0
+					? `Total uang tunai + saldo semua rekening & kartu saat ini. Di dalamnya masih ada ${potongan.join(", ")} — yang sudah ada pemiliknya. Sisanya itulah yang bebas dipakai.`
+					: "Total uang tunai + saldo semua rekening bank saat ini, menurut pembukuan.",
+			sub:
+				potongan.length > 0
+					? {
+							label: "Bebas dipakai",
+							value: uangBebas,
+							tone: uangBebas >= 0 ? "good" : "warn",
+						}
+					: undefined,
 		},
 		{
 			label: "Uang masuk bulan ini",
@@ -504,7 +536,7 @@ export default async function FinancePage({
 		{
 			label: "Dana cadangan",
 			value: totalSinking,
-			hint: "Uang yang disisihkan tiap event untuk ganti alat, perawatan, darurat, dll.",
+			hint: "Uang yang disisihkan tiap event untuk ganti alat, perawatan, darurat, dll. Sudah dikeluarkan dari angka 'Bebas dipakai'.",
 		},
 	];
 
@@ -539,6 +571,20 @@ export default async function FinancePage({
 							>
 								{formatRupiah(s.value)}
 							</div>
+							{s.sub ? (
+								<div className="mt-0.5 flex items-baseline gap-1 text-[12px]">
+									<span className="text-muted-foreground">{s.sub.label}</span>
+									<span
+										className={cn(
+											"tabular font-semibold",
+											s.sub.tone === "good" && "text-emerald-700",
+											s.sub.tone === "warn" && "text-amber-700",
+										)}
+									>
+										{formatRupiah(s.sub.value)}
+									</span>
+								</div>
+							) : null}
 						</div>
 					))}
 				</div>
