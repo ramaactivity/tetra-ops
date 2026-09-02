@@ -159,6 +159,15 @@ export type RelasiOption = {
 	role: string;
 };
 
+/** Satu venue di master — pilihan di form + sumber auto-isi turunannya. */
+export type VenueOption = {
+	name: string;
+	address: string | null;
+	city: string | null;
+	province: string | null;
+	google_maps_url: string | null;
+};
+
 export type VendorOption = {
 	name: string;
 	pic_name: string | null;
@@ -416,6 +425,7 @@ export function BookingForm({
 	eventTypes,
 	relasiOptions = [],
 	vendorOptions = [],
+	venueOptions = [],
 	grossupRate = 2,
 	defaults,
 	submitLabel = "Save as draft",
@@ -427,6 +437,7 @@ export function BookingForm({
 	eventTypes: EventTypeOption[];
 	relasiOptions?: RelasiOption[];
 	vendorOptions?: VendorOption[];
+	venueOptions?: VenueOption[];
 	grossupRate?: number;
 	defaults?: BookingFormDefaults;
 	submitLabel?: string;
@@ -827,7 +838,6 @@ export function BookingForm({
 	// justru paling sering. Kolom kosong tetap kebaca TBC lewat banner di
 	// bawah field + lib/events/tbc.ts (reminder H-7/H-3 & tampilan crew).
 	const [venueTbc, setVenueTbc] = useState(false);
-	const venueInputRef = useRef<HTMLInputElement>(null);
 	const [venueAddress, setVenueAddress] = useState(get("venue_address"));
 	const [venueCity, setVenueCity] = useState(get("venue_city"));
 	const [venueProvince, setVenueProvince] = useState(get("venue_province"));
@@ -1315,6 +1325,36 @@ export function BookingForm({
 		} else if (found?.commission_rate != null) {
 			// Legacy fallback (vendor master without new fields populated)
 			setVendorCommissionValue(String(found.commission_rate));
+		}
+	}
+
+	/**
+	 * Venue dipilih dari master → alamat/kota/provinsi/Maps ikut terisi.
+	 *
+	 * Hanya mengisi yang MASIH KOSONG. Owner yang sudah mengetik alamat khusus
+	 * untuk event ini (mis. "Ballroom lantai 3") tidak boleh ketimpa alamat
+	 * umum venue cuma karena namanya cocok.
+	 */
+	function handleVenueAutoFill(name: string) {
+		setVenueName(name);
+		const lookup = name.trim().toLowerCase();
+		const found = venueOptions.find(
+			(v) => v.name.trim().toLowerCase() === lookup,
+		);
+		if (!found) return;
+		if (found.address && !venueAddress.trim()) {
+			setVenueAddress(found.address);
+			setAddressTouched(true);
+		}
+		if (found.city && !venueCity.trim()) {
+			setVenueCity(found.city);
+			setCityTouched(true);
+		}
+		if (found.province && !venueProvince.trim()) {
+			setVenueProvince(found.province);
+		}
+		if (found.google_maps_url && !mapsUrl.trim()) {
+			setMapsUrl(found.google_maps_url);
 		}
 	}
 
@@ -2735,25 +2775,35 @@ export function BookingForm({
 							hint={
 								venueTbc
 									? "Ditandai TBC — klik 'Menyusul' lagi kalau mau isi sekarang"
-									: "Klien belum tau tempatnya? Klik 'Menyusul' untuk tandai TBC"
+									: "Pilih venue yang pernah dipakai (alamat & Maps ikut terisi), atau ketik nama baru. Klien belum tau tempatnya? Klik 'Menyusul'."
 							}
 						>
 							<div className="flex items-stretch gap-2">
-								<input
-									ref={venueInputRef}
-									type="text"
-									value={venueName}
-									onChange={(e) => setVenueName(e.target.value)}
-									disabled={venueTbc}
-									placeholder={
-										venueTbc
-											? "Menyusul — belum ditentukan"
-											: "cth. Grand Ballroom Hotel ABC"
-									}
-									className={`${inputClass} min-w-0 flex-1 ${
-										venueTbc ? "cursor-not-allowed opacity-60" : ""
-									}`}
-								/>
+								<div className="min-w-0 flex-1">
+									<Combobox
+										id="venue_name_input"
+										value={venueName}
+										onValueChange={(v) => handleVenueAutoFill(v ?? "")}
+										options={venueOptions.map(
+											(v): ComboboxOption => ({
+												value: v.name,
+												label: v.name,
+												sublabel:
+													[v.city, v.address].filter(Boolean).join(" · ") ||
+													undefined,
+											}),
+										)}
+										disabled={venueTbc}
+										placeholder={
+											venueTbc
+												? "Menyusul — belum ditentukan"
+												: "cth. Grand Ballroom Hotel ABC"
+										}
+										allowFreeText
+										emptyMessage="Venue baru — akan tersimpan di master saat save"
+										aria-label="Nama venue"
+									/>
+								</div>
 								<TbcToggle
 									active={venueTbc}
 									onClick={() => {
@@ -2761,8 +2811,10 @@ export function BookingForm({
 											// Balik ke isi manual — buka kuncinya lalu taruh kursor
 											// di sana, jadi perubahannya langsung terasa.
 											setVenueTbc(false);
+											// Combobox tidak menerima ref — fokus lewat id yang
+											// dipasang di input-nya.
 											requestAnimationFrame(() =>
-												venueInputRef.current?.focus(),
+												document.getElementById("venue_name_input")?.focus(),
 											);
 											return;
 										}

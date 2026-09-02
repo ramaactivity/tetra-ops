@@ -186,3 +186,69 @@ export async function fetchVendorCandidates(
 		commission_rate: v.commission_rate_default,
 	}));
 }
+
+/** Satu venue di master, siap jadi pilihan di form booking. */
+export type VenueCandidate = {
+	id: string;
+	name: string;
+	address: string | null;
+	city: string | null;
+	province: string | null;
+	google_maps_url: string | null;
+	google_maps_lat: number | null;
+	google_maps_lng: number | null;
+};
+
+/**
+ * Master venue, diurutkan dari yang paling sering dipakai.
+ *
+ * Urutannya penting di sini: dari 154 event, "Grand Savero" saja muncul 14×
+ * sementara 100 venue lain cuma sekali. Abjad akan menenggelamkan yang tiap
+ * bulan dipakai di bawah yang setahun sekali.
+ */
+export async function fetchVenueCandidates(
+	supabase: ServerSupabase,
+): Promise<VenueCandidate[]> {
+	const [{ data: venues }, { data: history }] = await Promise.all([
+		supabase
+			.from("venues")
+			.select(
+				"id, name, address, city, province, google_maps_url, google_maps_lat, google_maps_lng",
+			)
+			.eq("is_active", true)
+			.order("name", { ascending: true })
+			.limit(500),
+		supabase
+			.from("events")
+			.select("venue_id, venue_name, event_date")
+			.order("event_date", { ascending: false, nullsFirst: false })
+			.limit(USAGE_LOOKBACK),
+	]);
+
+	const byId = new Map<string, Usage>();
+	const byName = new Map<string, Usage>();
+	for (const row of history ?? []) {
+		const date = (row.event_date as string | null) ?? null;
+		const venueId = row.venue_id as string | null;
+		if (venueId) {
+			bump(byId, venueId, date);
+			continue; // jangan dihitung dua kali lewat namanya
+		}
+		const name = (row.venue_name as string | null)?.trim().toLowerCase();
+		if (name) bump(byName, name, date);
+	}
+
+	const rows = (venues ?? []) as VenueCandidate[];
+	const usageFor = (v: VenueCandidate): Usage | undefined => {
+		const fk = byId.get(v.id);
+		const named = byName.get(v.name.trim().toLowerCase());
+		if (!fk) return named;
+		if (!named) return fk;
+		return {
+			count: fk.count + named.count,
+			last: fk.last > named.last ? fk.last : named.last,
+		};
+	};
+
+	return byUsage(rows, usageFor, (v) => v.name);
+}

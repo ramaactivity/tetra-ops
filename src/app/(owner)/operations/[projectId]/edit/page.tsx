@@ -14,6 +14,7 @@ import { updateBooking } from "@/lib/actions/bookings";
 import {
 	fetchSalesCandidates,
 	fetchVendorCandidates,
+	fetchVenueCandidates,
 } from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,7 @@ export default async function EditBookingPage({
 		{ data: backdrops },
 		{ data: eventTypes },
 		vendorOptions,
+		venueOptions,
 		relasiCandidates,
 	] = await Promise.all([
 		supabase
@@ -86,6 +88,7 @@ export default async function EditBookingPage({
 		// (allowFreeText=false) tidak bisa memetakan UUID tersimpan ke nama,
 		// jadi field Sales/Relasi tampil KOSONG saat edit event lama.
 		fetchVendorCandidates(supabase),
+		fetchVenueCandidates(supabase),
 		fetchSalesCandidates(supabase),
 	]);
 
@@ -146,6 +149,7 @@ export default async function EditBookingPage({
 					eventTypes={(eventTypes ?? []) as EventTypeOption[]}
 					relasiOptions={relasiPool}
 					vendorOptions={vendorOptions}
+					venueOptions={venueOptions}
 					submitLabel="Save changes"
 					defaults={{
 						channel: event.channel,

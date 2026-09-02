@@ -13,6 +13,7 @@ import { createBooking } from "@/lib/actions/bookings";
 import {
 	fetchSalesCandidates,
 	fetchVendorCandidates,
+	fetchVenueCandidates,
 } from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,6 +26,7 @@ export default async function NewBookingPage() {
 		{ data: eventTypes },
 		relasiCandidates,
 		vendorOptions,
+		venueOptions,
 		{ data: grossupConfig },
 	] = await Promise.all([
 		supabase
@@ -56,6 +58,7 @@ export default async function NewBookingPage() {
 		// abjad, supaya nama yang tiap minggu dipakai ada di paling atas.
 		fetchSalesCandidates(supabase),
 		fetchVendorCandidates(supabase),
+		fetchVenueCandidates(supabase),
 		// Default gross-up PPh rate (Indonesia PPh 23 = 2%)
 		supabase
 			.from("system_config")
@@ -94,6 +97,7 @@ export default async function NewBookingPage() {
 						})) as RelasiOption[]
 					}
 					vendorOptions={vendorOptions as VendorOption[]}
+					venueOptions={venueOptions}
 					grossupRate={grossupRate}
 				/>
 			</div>

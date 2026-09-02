@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createEventFolderInternal } from "@/lib/actions/drive";
 import { ensureVendorContact } from "@/lib/actions/vendors";
+import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
@@ -1060,6 +1061,17 @@ export async function createBooking(
 		});
 	}
 
+	// Master venue — sama polanya dengan vendor: yang sudah ada dipakai ulang,
+	// yang baru dibuat otomatis, dan kolom yang masih kosong di master ikut
+	// terisi dari booking ini.
+	const venueId = await ensureVenue({
+		name: parsed.data.venue_name ?? "",
+		address: parsed.data.venue_address,
+		city: parsed.data.venue_city,
+		province: parsed.data.venue_province,
+		google_maps_url: parsed.data.google_maps_url,
+	});
+
 	const { data: inserted, error } = await supabase
 		.from("events")
 		.insert({
@@ -1074,6 +1086,7 @@ export async function createBooking(
 				vendorContactId,
 				selection.value,
 			),
+			venue_id: venueId,
 		})
 		.select("id")
 		.single();
@@ -1191,6 +1204,17 @@ export async function updateBooking(
 		});
 	}
 
+	// Master venue — sama polanya dengan vendor: yang sudah ada dipakai ulang,
+	// yang baru dibuat otomatis, dan kolom yang masih kosong di master ikut
+	// terisi dari booking ini.
+	const venueId = await ensureVenue({
+		name: parsed.data.venue_name ?? "",
+		address: parsed.data.venue_address,
+		city: parsed.data.venue_city,
+		province: parsed.data.venue_province,
+		google_maps_url: parsed.data.google_maps_url,
+	});
+
 	// Pembayaran yang sudah masuk — supaya remaining_balance tidak ke-reset ke
 	// grand_total saat edit (membuang progres DP yang sudah dibayar).
 	// Field lain di-select sebagai snapshot "sebelum" untuk notifikasi
@@ -1265,6 +1289,7 @@ export async function updateBooking(
 		.from("events")
 		.update({
 			...payload,
+			venue_id: venueId,
 			...statusPatch,
 		})
 		.eq("id", id)
