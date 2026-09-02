@@ -15,6 +15,10 @@ import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
 import { PatunganDialog } from "@/components/finance/patungan-dialog";
 import {
+	SinkingBreakdown,
+	type SinkingFundRow,
+} from "@/components/finance/sinking-breakdown";
+import {
 	type Owner,
 	WithdrawalButton,
 } from "@/components/finance/withdrawal-button";
@@ -182,7 +186,9 @@ export default async function FinancePage({
 			.order("account_name", { ascending: true }),
 		supabase
 			.from("sinking_funds")
-			.select("id, name, target_balance")
+			.select(
+				"id, code, name, description, allocation_type, allocation_value, target_balance",
+			)
 			.eq("is_active", true)
 			.order("display_order", { ascending: true }),
 		supabase
@@ -320,7 +326,11 @@ export default async function FinancePage({
 
 	const funds = (sinkingFundsData ?? []) as Array<{
 		id: string;
+		code: string;
 		name: string;
+		description: string | null;
+		allocation_type: "percentage" | "flat" | null;
+		allocation_value: number | null;
 		target_balance: number | null;
 	}>;
 	// All sinking-fund balances in one grouped query instead of an RPC per
@@ -339,6 +349,16 @@ export default async function FinancePage({
 		(s, f) => s + (balanceById.get(f.id) ?? 0),
 		0,
 	);
+	const sinkingRows: SinkingFundRow[] = funds.map((f) => ({
+		id: f.id,
+		code: f.code,
+		name: f.name,
+		description: f.description,
+		allocationType: f.allocation_type,
+		allocationValue: f.allocation_value,
+		targetBalance: f.target_balance,
+		balance: balanceById.get(f.id) ?? 0,
+	}));
 
 	const recentSettlements = (
 		(recentSettlementsData ?? []) as Array<{
@@ -689,6 +709,17 @@ export default async function FinancePage({
 						hint="Jatah owner"
 					/>
 				</dl>
+			</SectionCard>
+
+			<SectionCard
+				title="Rincian dana cadangan"
+				meta={
+					<span className="text-muted-foreground text-xs">
+						ke mana uang yang disisihkan pergi
+					</span>
+				}
+			>
+				<SinkingBreakdown funds={sinkingRows} total={totalSinking} />
 			</SectionCard>
 
 			<SectionCard
