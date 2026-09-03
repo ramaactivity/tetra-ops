@@ -224,6 +224,27 @@ export async function createManualJournalEntry(
 	return { success: true, refId };
 }
 
+const BULAN_ID = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+];
+
+/** "2026-09-01" → "September 2026". */
+function monthLabelID(iso: string): string {
+	const [y, m] = iso.split("-");
+	return `${BULAN_ID[Number(m) - 1] ?? m} ${y}`;
+}
+
 // ── Quick record ("Catat") ─────────────────────────────────────────────────
 // The friendly money-in/out wrapper. The owner picks direction + category +
 // source-of-funds + amount; this assembles a valid, balanced 2-line journal
@@ -252,6 +273,15 @@ const QuickRecordSchema = z.object({
 		.string()
 		.trim()
 		.max(2000)
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : undefined)),
+	// Bulan yang DIBAYAR untuk biaya rutin (kost/internet/langganan) — "yyyy-MM".
+	// Beda dari entry_date: bayar 3 September untuk periode Agustus itu wajar.
+	period_month: z
+		.string()
+		.trim()
+		.regex(/^\d{4}-\d{2}$/)
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : undefined)),
@@ -294,6 +324,7 @@ export async function recordQuickTransaction(
 		note: formData.get("note") ?? undefined,
 		event_id: formData.get("event_id") ?? undefined,
 		proof_url: formData.get("proof_url") ?? undefined,
+		period_month: formData.get("period_month") ?? undefined,
 	});
 	if (!parsed.success) {
 		return { error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
@@ -443,10 +474,20 @@ export async function recordQuickTransaction(
 		});
 	}
 
-	const description = (note && note.length >= 3 ? note : defaultLabel).slice(
-		0,
-		300,
-	);
+	// Biaya rutin: bulan yang dibayar ditempelkan ke keterangan supaya terbaca
+	// di mana pun jurnalnya muncul (Akuntansi, Arsip Nota, laporan) tanpa perlu
+	// membuka kolom period_month.
+	const periodMonth = parsed.data.period_month
+		? `${parsed.data.period_month}-01`
+		: null;
+	const periodLabel = periodMonth ? monthLabelID(periodMonth) : null;
+	const baseDescription = note && note.length >= 3 ? note : defaultLabel;
+	const description = (
+		periodLabel &&
+		!baseDescription.toLowerCase().includes(periodLabel.toLowerCase())
+			? `${baseDescription} — ${periodLabel}`
+			: baseDescription
+	).slice(0, 300);
 	const refId = newJournalRef(new Date(entry_date));
 
 	const { data: entry, error: entryErr } = await supabase
@@ -462,6 +503,7 @@ export async function recordQuickTransaction(
 			// "biaya owner belum dicatat". Null untuk Catat biasa.
 			source_event_id: parsed.data.event_id ?? null,
 			proof_url: parsed.data.proof_url ?? null,
+			period_month: periodMonth,
 			total_amount: amount + adminFee,
 			created_by: me.profile.id,
 		})
@@ -495,6 +537,7 @@ export async function recordQuickTransaction(
 			expenseCoa: counterpartCode,
 			perOwner: patunganPerOwner,
 			description: `Patungan owner — ${description}`,
+			periodMonth,
 			date: entry_date,
 			actorProfileId: me.profile.id,
 		});

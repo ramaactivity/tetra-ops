@@ -67,6 +67,12 @@ export type CatatCategory = {
 	 * pendapatan — di-tag "adjustment" supaya tidak menggelembungkan omzet.
 	 */
 	capital?: boolean;
+	/**
+	 * Biaya rutin bulanan (kost, internet, langganan app). Yang penting bukan
+	 * tanggal transaksinya melainkan BULAN YANG DIBAYAR, jadi UI wajib meminta
+	 * periodenya & memperingatkan kalau bulan itu sudah pernah dibayar.
+	 */
+	monthly?: boolean;
 };
 
 /**
@@ -116,6 +122,7 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		icon: Home,
 		coa: "5-260",
 		entryType: "expense",
+		monthly: true,
 	},
 	{
 		id: "sewa-alat",
@@ -147,6 +154,7 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		icon: Wifi,
 		coa: "5-270",
 		entryType: "expense",
+		monthly: true,
 	},
 	{
 		// Dulu tercatat ke Transport BBM padahal COA-nya sendiri sudah ada.
@@ -221,6 +229,7 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		icon: Smartphone,
 		coa: "5-400",
 		entryType: "expense",
+		monthly: true,
 	},
 	{
 		// Komisi utk vendor/WO (bukan sales perorangan). Sama seperti komisi

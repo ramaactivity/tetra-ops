@@ -46,11 +46,26 @@ export type OwnerPoolContext = {
 	myName: string | null;
 };
 
+/**
+ * Bulan yang SUDAH pernah dibayar untuk tiap biaya rutin — dasar peringatan
+ * "kost September sudah dicatat" sebelum owner menyimpan yang kedua kalinya.
+ */
+export type PaidPeriod = {
+	/** COA beban (mis. 5-260) — dicocokkan dengan kategori yang dipilih. */
+	coa: string;
+	/** "yyyy-MM" bulan yang dibayar. */
+	month: string;
+	refId: string;
+	entryDate: string;
+	amount: number;
+};
+
 export type CatatData = {
 	cashAccounts: CashAccount[];
 	coaOptions: CoaOption[];
 	recents: RecentTxn[];
 	ownerPool: OwnerPoolContext;
+	paidPeriods: PaidPeriod[];
 };
 
 const ENTRY_TYPE_TO_DIRECTION: Record<string, CatatDirection> = {
@@ -69,6 +84,7 @@ export async function loadCatatData(): Promise<CatatData> {
 		{ data: rawRecents },
 		{ data: ownerRows },
 		{ data: myEarnings },
+		{ data: paidRows },
 	] = await Promise.all([
 		supabase
 			.from("chart_of_accounts")
@@ -105,7 +121,49 @@ export async function loadCatatData(): Promise<CatatData> {
 					.select("amount")
 					.eq("owner_user_id", me.profile.id)
 			: Promise.resolve({ data: [] }),
+		// Pembayaran biaya rutin yang sudah punya periode — 24 terakhir sudah jauh
+		// lebih dari cukup untuk mengecek beberapa bulan ke belakang.
+		supabase
+			.from("journal_entries")
+			.select(
+				`ref_id, entry_date, period_month, total_amount,
+				 lines:journal_lines(account_code, debit_amount)`,
+			)
+			.not("period_month", "is", null)
+			.eq("is_reversed", false)
+			.in("source_type", ["manual", "owner_patungan"])
+			.order("period_month", { ascending: false })
+			.limit(24),
 	]);
+
+	// Akun bebannya = baris DEBIT 5-xxx pada jurnal itu (jurnal patungan cuma
+	// punya baris KREDIT beban, jadi otomatis tidak ikut & tidak dobel hitung).
+	const paidPeriods: PaidPeriod[] = (
+		(paidRows ?? []) as Array<{
+			ref_id: string;
+			entry_date: string;
+			period_month: string;
+			total_amount: number | string;
+			lines: Array<{
+				account_code: string;
+				debit_amount: number | string;
+			}> | null;
+		}>
+	)
+		.map((r) => {
+			const expenseLine = (r.lines ?? []).find(
+				(l) => l.account_code.startsWith("5-") && Number(l.debit_amount) > 0,
+			);
+			if (!expenseLine) return null;
+			return {
+				coa: expenseLine.account_code,
+				month: r.period_month.slice(0, 7),
+				refId: r.ref_id,
+				entryDate: r.entry_date,
+				amount: Number(r.total_amount),
+			};
+		})
+		.filter((p): p is PaidPeriod => p !== null);
 
 	const ownerCount = (ownerRows ?? []).length;
 	const isOwner = me?.profile.role === "owner";
@@ -195,5 +253,5 @@ export async function loadCatatData(): Promise<CatatData> {
 		.filter((r): r is RecentTxn => r !== null)
 		.slice(0, 4);
 
-	return { cashAccounts, coaOptions, recents, ownerPool };
+	return { cashAccounts, coaOptions, recents, ownerPool, paidPeriods };
 }

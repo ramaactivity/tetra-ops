@@ -21,6 +21,7 @@ import {
 } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/form-fields";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import {
@@ -80,6 +81,27 @@ export type QuickRecordPrefill = {
 	eventId?: string;
 };
 
+const BULAN_ID = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+];
+
+/** "2026-09" → "September 2026". */
+function monthLabelID(ym: string): string {
+	const [y, m] = ym.split("-");
+	return `${BULAN_ID[Number(m) - 1] ?? m} ${y}`;
+}
+
 export function QuickRecordCore({
 	data,
 	keypad,
@@ -128,6 +150,11 @@ export function QuickRecordCore({
 	const [note, setNote] = useState(prefill?.note ?? "");
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+	// Biaya rutin: bulan yang DIBAYAR, bukan tanggal transaksinya. Default bulan
+	// berjalan; owner tinggal mundur satu kalau membayar tagihan bulan lalu.
+	const [periodMonth, setPeriodMonth] = useState<string>(() =>
+		new Date().toISOString().slice(0, 7),
+	);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [showAllCats, setShowAllCats] = useState(false);
 	const [previewOpen, setPreviewOpen] = useState(false);
@@ -663,6 +690,64 @@ export function QuickRecordCore({
 			</div>
 		) : null;
 
+	// ── Periode biaya rutin (kost / internet / langganan) ─────────────────────
+	const activeCategory = findCategory(categoryId);
+	const isMonthly = direction === "keluar" && activeCategory?.monthly === true;
+	const monthlyCoa = activeCategory?.coa ?? null;
+	const alreadyPaid = isMonthly
+		? data.paidPeriods.find(
+				(p) => p.coa === monthlyCoa && p.month === periodMonth,
+			)
+		: undefined;
+	const paidMonths = isMonthly
+		? data.paidPeriods
+				.filter((p) => p.coa === monthlyCoa)
+				.map((p) => p.month)
+				.slice(0, 6)
+		: [];
+
+	const periodField = isMonthly ? (
+		<div className="space-y-2.5">
+			<span className="eyebrow">Untuk bulan</span>
+			<MonthPicker
+				value={periodMonth}
+				onValueChange={setPeriodMonth}
+				aria-label="Bulan yang dibayar"
+			/>
+			{alreadyPaid ? (
+				<div className="rounded-xl border border-amber-300/70 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+					<p className="text-[12.5px] font-medium text-amber-900 dark:text-amber-200">
+						{activeCategory?.label} {monthLabelID(periodMonth)} sudah pernah
+						dicatat
+					</p>
+					<p className="tabular mt-0.5 text-[11.5px] text-amber-900/80 dark:text-amber-200/80">
+						{alreadyPaid.entryDate} · {formatRupiah(alreadyPaid.amount)} ·{" "}
+						{alreadyPaid.refId}
+					</p>
+					<p className="mt-1 text-[11.5px] text-amber-900/80 dark:text-amber-200/80">
+						Kalau ini memang pembayaran berbeda, lanjutkan. Kalau tidak, ganti
+						bulannya supaya tidak dobel.
+					</p>
+				</div>
+			) : (
+				<p className="text-[11.5px] text-muted-foreground">
+					Bulan yang dibayar — bukan tanggal transaksinya. Ikut ditulis di
+					keterangan jurnal.
+					{paidMonths.length > 0 ? (
+						<>
+							{" "}
+							Sudah dibayar:{" "}
+							<span className="text-foreground">
+								{paidMonths.map((m) => monthLabelID(m)).join(", ")}
+							</span>
+							.
+						</>
+					) : null}
+				</p>
+			)}
+		</div>
+	) : null;
+
 	const amountControl = keypad ? (
 		<div className="space-y-2.5">
 			<QuickAmountChips
@@ -948,6 +1033,7 @@ export function QuickRecordCore({
 				if (categoryId) fd.set("category_id", categoryId);
 				if (coaOverride) fd.set("coa_override", coaOverride);
 				fd.set("admin_fee", String(feeApplied));
+				if (isMonthly) fd.set("period_month", periodMonth);
 				if (prefill?.eventId) fd.set("event_id", prefill.eventId);
 				fd.set(
 					"patungan_per_owner",
@@ -973,6 +1059,7 @@ export function QuickRecordCore({
 							{amountSectionWide}
 							{accountField}
 							{adminFeeField}
+							{periodField}
 							{patunganField}
 						</div>
 						<div className="space-y-4">
@@ -995,6 +1082,7 @@ export function QuickRecordCore({
 							{recentsBlock}
 							{accountField}
 							{adminFeeField}
+							{periodField}
 							{patunganField}
 							{amountControl}
 							{detailsField}
@@ -1007,6 +1095,7 @@ export function QuickRecordCore({
 							{categoryField}
 							{accountField}
 							{adminFeeField}
+							{periodField}
 							{patunganField}
 							{detailsField}
 							{lihatJurnal}

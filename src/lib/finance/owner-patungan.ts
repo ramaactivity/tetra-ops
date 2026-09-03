@@ -51,6 +51,8 @@ export async function recordPatunganFromPool(
 		description: string;
 		date: string;
 		actorProfileId: string;
+		/** Bulan yang dibayar untuk beban rutin — ikut ke jurnal & sub-ledger. */
+		periodMonth?: string | null;
 	},
 ): Promise<PatunganResult> {
 	const perOwner = Math.round(input.perOwner);
@@ -80,6 +82,7 @@ export async function recordPatunganFromPool(
 			entry_type: "adjustment",
 			description: input.description,
 			source_type: "owner_patungan",
+			period_month: input.periodMonth ?? null,
 			total_amount: total,
 			created_by: input.actorProfileId,
 		})
@@ -118,7 +121,10 @@ export async function recordPatunganFromPool(
 	// Sub-ledger: potongan per owner. period_month = bulan patungan supaya
 	// laporan per periode ikut benar (trigger mengisi otomatis dari created_at,
 	// jadi di-set eksplisit di sini).
-	const period = `${input.date.slice(0, 7)}-01`;
+	// Periode sub-ledger mengikuti bulan yang DIBAYAR kalau ada (kost Agustus
+	// yang dibayar September tetap masuk periode Agustus); kalau tidak, pakai
+	// bulan transaksinya.
+	const period = input.periodMonth ?? `${input.date.slice(0, 7)}-01`;
 	const { error: oeErr } = await supabase.from("owner_earnings").insert(
 		owners.map((o) => ({
 			owner_user_id: o.id as string,
