@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import {
 	useActionState,
+	useCallback,
 	useEffect,
 	useId,
 	useMemo,
@@ -25,6 +26,7 @@ import { MonthPicker } from "@/components/ui/month-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
 import {
+	attachJournalProofByRef,
 	type QuickRecordFormState,
 	recordQuickTransaction,
 } from "@/lib/actions/journal-entries";
@@ -180,6 +182,12 @@ export function QuickRecordCore({
 	// modal benar-benar tertutup, jadi feedback-nya tak pernah putus.
 	const [postBusy, setPostBusy] = useState(false);
 	const [uploadingNota, setUploadingNota] = useState(false);
+	// Nota gagal diunggah = transaksinya SUDAH tersimpan. Dulu ini cuma toast
+	// sekejap lalu modal ditutup — notanya hilang tanpa jejak dan owner harus
+	// mengunggah ulang manual dari halaman Jurnal. Sekarang modal ditahan dengan
+	// pesan + tombol coba lagi, dan fotonya tidak dibuang.
+	const [notaError, setNotaError] = useState<string | null>(null);
+	const [savedRef, setSavedRef] = useState<string | null>(null);
 	// Satu bendera untuk SELURUH umur simpan: klik → server action → upload nota
 	// → refresh → tutup.
 	const busy = pending || postBusy;
@@ -248,33 +256,74 @@ export function QuickRecordCore({
 								: null;
 	const canSubmit = blockReason === null;
 
-	// ── success → optional photo upload, toast, refresh, close ────────────────
+	// ── unggah nota (dipakai jalur simpan & tombol coba lagi) ─────────────────
+	const uploadNota = useCallback(
+		async (
+			ref: string,
+		): Promise<{ ok: true } | { ok: false; error: string }> => {
+			if (!photo) return { ok: true };
+			setUploadingNota(true);
+			try {
+				const fd = new FormData();
+				fd.set("file", photo);
+				fd.set("category", findCategory(categoryId)?.label ?? "Catat");
+				fd.set("description", `${note || "Catat transaksi"} · ${ref}`);
+				fd.set("nota_date", date);
+				fd.set("amount", String(amount));
+				fd.set("entry_ref_id", ref);
+				const res = await fetch("/api/drive/upload/manual", {
+					method: "POST",
+					body: fd,
+				});
+				if (!res.ok) {
+					// Alasan aslinya ditampilkan — "gagal diunggah" saja tidak bisa
+					// ditindaklanjuti (file kebesaran? Drive down? tipe file salah?).
+					const body = (await res.json().catch(() => null)) as {
+						error?: string;
+					} | null;
+					return {
+						ok: false,
+						error: body?.error ?? `Gagal mengunggah (HTTP ${res.status})`,
+					};
+				}
+				// Tempelkan juga ke jurnalnya supaya notanya kelihatan dari halaman
+				// Jurnal, bukan cuma di Arsip Nota.
+				const body = (await res.json().catch(() => null)) as {
+					url?: string;
+				} | null;
+				if (body?.url) {
+					await attachJournalProofByRef({ ref_id: ref, proof_url: body.url });
+				}
+				return { ok: true };
+			} catch (err) {
+				return {
+					ok: false,
+					error:
+						err instanceof Error ? err.message : "Koneksi terputus saat unggah",
+				};
+			} finally {
+				setUploadingNota(false);
+			}
+		},
+		[photo, categoryId, note, date, amount],
+	);
+
+	// ── success → unggah nota, toast, refresh, tutup ──────────────────────────
 	const handled = useRef<string | undefined>(undefined);
 	useEffect(() => {
 		if (!state?.success || !state.refId || handled.current === state.refId)
 			return;
 		handled.current = state.refId;
 		const ref = state.refId;
+		setSavedRef(ref);
 		void (async () => {
-			if (photo) {
-				setUploadingNota(true);
-				try {
-					const fd = new FormData();
-					fd.set("file", photo);
-					fd.set("category", findCategory(categoryId)?.label ?? "Catat");
-					fd.set("description", `${note || "Catat transaksi"} · ${ref}`);
-					fd.set("nota_date", date);
-					fd.set("amount", String(amount));
-					fd.set("entry_ref_id", ref);
-					const res = await fetch("/api/drive/upload/manual", {
-						method: "POST",
-						body: fd,
-					});
-					if (!res.ok)
-						toast.error("Transaksi tersimpan, tapi foto nota gagal diunggah");
-				} catch {
-					toast.error("Transaksi tersimpan, tapi foto nota gagal diunggah");
-				}
+			const up = await uploadNota(ref);
+			if (!up.ok) {
+				// Transaksinya sudah masuk buku; JANGAN tutup modal — notanya masih
+				// dipegang di sini dan bisa dicoba lagi tanpa mengulang input.
+				setNotaError(up.error);
+				setPostBusy(false);
+				return;
 			}
 			haptic("success");
 			toast.success(`Tersimpan · ${ref}`);
@@ -289,7 +338,38 @@ export function QuickRecordCore({
 				setUploadingNota(false);
 			}
 		})();
-	}, [state, photo, categoryId, note, date, amount, haptic, router, onDone]);
+	}, [state, uploadNota, haptic, router, onDone]);
+
+	async function retryNota() {
+		if (!savedRef) return;
+		setNotaError(null);
+		setPostBusy(true);
+		const up = await uploadNota(savedRef);
+		if (!up.ok) {
+			setNotaError(up.error);
+			setPostBusy(false);
+			return;
+		}
+		haptic("success");
+		toast.success(`Nota tersimpan · ${savedRef}`);
+		router.refresh();
+		if (onDone) onDone();
+		else {
+			submittingRef.current = false;
+			setPostBusy(false);
+		}
+	}
+
+	function closeWithoutNota() {
+		toast.success(`Tersimpan · ${savedRef} (tanpa nota)`);
+		router.refresh();
+		if (onDone) onDone();
+		else {
+			submittingRef.current = false;
+			setPostBusy(false);
+			setNotaError(null);
+		}
+	}
 
 	function changeDirection(d: CatatDirection) {
 		haptic("select");
@@ -1007,6 +1087,50 @@ export function QuickRecordCore({
 		</div>
 	) : null;
 
+	// Transaksi sudah masuk buku, notanya belum — dua aksi jelas, tidak ada yang
+	// hilang diam-diam.
+	const notaErrorBanner = notaError ? (
+		<div
+			role="alert"
+			className="space-y-2 rounded-lg border border-amber-400/50 bg-amber-50 px-3 py-2.5 dark:border-amber-900 dark:bg-amber-950/30"
+		>
+			<p className="text-[13px] font-medium text-amber-900 dark:text-amber-200">
+				Transaksi sudah tersimpan ({savedRef}), tapi notanya belum terunggah.
+			</p>
+			<p className="text-[11.5px] text-amber-900/80 dark:text-amber-200/80">
+				{notaError}
+			</p>
+			<div className="flex flex-wrap gap-2">
+				<button
+					type="button"
+					onClick={retryNota}
+					disabled={uploadingNota}
+					className="press inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#059669] px-3 text-[13px] font-semibold text-white disabled:opacity-60"
+				>
+					{uploadingNota ? (
+						<>
+							<Loader2 className="size-3.5 animate-spin" /> Mengunggah…
+						</>
+					) : (
+						"Coba unggah lagi"
+					)}
+				</button>
+				<button
+					type="button"
+					onClick={closeWithoutNota}
+					disabled={uploadingNota}
+					className="press inline-flex h-9 items-center rounded-lg border border-border-default bg-card px-3 text-[13px] font-medium text-muted-foreground disabled:opacity-60"
+				>
+					Tutup tanpa nota
+				</button>
+			</div>
+			<p className="text-[11px] text-amber-900/70 dark:text-amber-200/70">
+				Notanya masih dipegang di sini — tidak perlu mengulang input. Kalau
+				ditutup, nota bisa dilampirkan menyusul dari halaman Jurnal.
+			</p>
+		</div>
+	) : null;
+
 	const errorBanner = state?.error ? (
 		<p
 			role="alert"
@@ -1105,6 +1229,7 @@ export function QuickRecordCore({
 			)}
 
 			{errorBanner}
+			{notaErrorBanner}
 
 			{/* Action bar — in-flow (mt-auto pins to bottom on short content);
 			    matches the sheet surface so nothing leaks or looks cut. */}
@@ -1116,7 +1241,7 @@ export function QuickRecordCore({
 			>
 				<button
 					type="submit"
-					disabled={!canSubmit || busy}
+					disabled={!canSubmit || busy || notaError !== null}
 					aria-busy={busy}
 					className={cn(
 						"press inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white outline-none transition-colors",

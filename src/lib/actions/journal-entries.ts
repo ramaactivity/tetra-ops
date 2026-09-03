@@ -591,6 +591,28 @@ export async function attachJournalProof(input: {
 	return { ok: true };
 }
 
+/**
+ * Sama seperti attachJournalProof tapi dicari lewat ref_id — dipakai modal
+ * Catat, yang cuma memegang nomor jurnalnya (bukan id-nya) setelah menyimpan.
+ */
+export async function attachJournalProofByRef(input: {
+	ref_id: string;
+	proof_url: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("journal_entries")
+		.update({ proof_url: input.proof_url })
+		.eq("ref_id", input.ref_id)
+		.eq("source_type", "manual");
+	if (error) return { ok: false, error: error.message };
+	revalidatePath("/finance");
+	revalidatePath("/finance/accounting");
+	revalidatePath("/finance/arsip-nota");
+	return { ok: true };
+}
+
 export async function reverseJournalEntry(
 	entryId: string,
 	reason: string,
