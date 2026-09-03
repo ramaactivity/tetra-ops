@@ -241,7 +241,7 @@ export function WithdrawalButton({
 						onClick={() => !busy && setOpen(false)}
 						className="absolute inset-0 bg-black/40 backdrop-blur-sm"
 					/>
-					<div className="bg-card border-border-default relative z-10 flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border shadow-[var(--shadow-level-5)]">
+					<div className="bg-card border-border-default relative z-10 flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border shadow-[var(--shadow-level-5)]">
 						<div className="border-border-default flex shrink-0 items-start justify-between gap-3 border-b px-6 py-4">
 							<div className="space-y-0.5">
 								<h2 className="text-foreground text-base font-semibold">
@@ -267,9 +267,12 @@ export function WithdrawalButton({
 							action={formAction}
 							className="flex min-h-0 flex-1 flex-col overflow-hidden"
 						>
-							<div className="grid min-h-0 flex-1 gap-x-8 gap-y-4 overflow-y-auto px-6 py-5 md:grid-cols-2">
+							{/* Kolom kanan (kartu per owner) butuh ruang lebih lega daripada
+							    kolom formulir — chip biaya admin + slot bukti per owner tidak
+							    muat kalau lebarnya dipaksa persis separuh. */}
+							<div className="grid min-h-0 flex-1 gap-x-6 gap-y-4 overflow-y-auto px-6 py-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
 								{/* KIRI — detail penarikan */}
-								<div className="space-y-4">
+								<div className="space-y-3">
 									<Field label="Owner" required>
 										<NativeSelect
 											value={selectedOwner}
@@ -326,39 +329,50 @@ export function WithdrawalButton({
 										</p>
 									</Field>
 
-									<div className="border-border-default bg-muted/30 rounded-md border px-3 py-2">
-										<p className="text-muted-foreground text-[11px]">
-											{isBulk
-												? `Total semua owner (${withdrawableOwners.length})`
-												: "Bisa diambil"}
-										</p>
-										<p
-											className={`tabular text-lg font-semibold ${
-												available > 0
-													? "text-emerald-600 dark:text-emerald-400"
-													: "text-muted-foreground"
-											}`}
-										>
-											{formatRupiah(available)}
-										</p>
+									<div className="border-border-default bg-muted/30 space-y-1.5 rounded-xl border px-3.5 py-3">
+										<div className="flex items-baseline justify-between gap-3">
+											<p className="text-muted-foreground text-[11px]">
+												{isBulk
+													? `Total semua owner (${withdrawableOwners.length})`
+													: "Bisa diambil"}
+											</p>
+											<p
+												className={`tabular text-lg font-semibold leading-none ${
+													available > 0
+														? "text-emerald-600 dark:text-emerald-400"
+														: "text-muted-foreground"
+												}`}
+											>
+												{formatRupiah(available)}
+											</p>
+										</div>
+										{/* Kas yang keluar ≠ jatah owner begitu ada ongkos transfer.
+										    Ditulis sebagai dua baris bertingkat supaya selisihnya
+										    terbaca, bukan terselip di dalam kalimat. */}
+										{feeTotal > 0 && (
+											<dl className="border-border-default/70 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 border-t pt-1.5 text-[11px]">
+												<dt className="text-muted-foreground">
+													Biaya admin bank
+												</dt>
+												<dd className="tabular text-right text-amber-700 dark:text-amber-400">
+													+ <span data-nominal>{formatRupiah(feeTotal)}</span>
+												</dd>
+												<dt className="text-foreground font-medium">
+													Kas keluar
+												</dt>
+												<dd className="tabular text-foreground text-right font-semibold">
+													<span data-nominal>{formatRupiah(cashOut)}</span>
+												</dd>
+											</dl>
+										)}
 										{isBulk && (
-											<p className="text-muted-foreground mt-0.5 text-[11px]">
+											<p className="text-muted-foreground text-[11px]">
 												Tiap owner ditarik penuh sesuai sisanya, dari rekening
 												di bawah.
 											</p>
 										)}
-										{feeTotal > 0 && (
-											<p className="text-muted-foreground mt-1 text-[11px]">
-												+ biaya admin{" "}
-												<span data-nominal>{formatRupiah(feeTotal)}</span> → kas
-												keluar{" "}
-												<span data-nominal className="font-medium">
-													{formatRupiah(cashOut)}
-												</span>
-											</p>
-										)}
 										{pendingTotal > 0 && (
-											<p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+											<p className="text-[11px] text-amber-700 dark:text-amber-400">
 												{formatRupiah(pendingTotal)} dari event bulan ini belum
 												ikut — baru bisa diambil bulan depan.
 											</p>
@@ -454,80 +468,157 @@ export function WithdrawalButton({
 									</Field>
 								</div>
 
-								{/* KANAN — foto bukti transfer */}
-								<div className="space-y-2">
+								{/* KANAN — bukti transfer (+ ongkos transfer per owner saat bulk) */}
+								<div className="space-y-3">
 									{isBulk ? (
 										<>
-											<span className="text-foreground block text-xs font-medium">
-												Transfer per owner — biaya admin & bukti
-											</span>
+											<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+												<span className="text-foreground block text-xs font-medium">
+													Transfer per owner
+												</span>
+												<span className="tabular text-muted-foreground text-[11px]">
+													{withdrawableOwners.length} transfer
+													{feeTotal > 0 ? (
+														<>
+															{" · admin "}
+															<span
+																data-nominal
+																className="text-amber-700 dark:text-amber-400"
+															>
+																{formatRupiah(feeTotal)}
+															</span>
+														</>
+													) : (
+														" · tanpa biaya admin"
+													)}
+												</span>
+											</div>
 											<input
 												type="hidden"
 												name="admin_fees"
 												value={JSON.stringify(feesByOwner)}
 											/>
-											<div className="grid gap-2 sm:grid-cols-2">
-												{withdrawableOwners.map((o) => (
-													<div
-														key={o.id}
-														className="border-border-default rounded-md border p-2.5"
-													>
-														<div className="mb-1.5 flex items-center justify-between gap-2">
-															<span className="text-foreground truncate text-[13px] font-medium">
-																{o.full_name}
-															</span>
-															<span className="tabular text-muted-foreground shrink-0 text-xs">
-																{formatRupiah(o.balance)}
-																{(feesByOwner[o.id] ?? 0) > 0 && (
-																	<span className="text-amber-700 dark:text-amber-400">
-																		{" "}
-																		+ {formatRupiah(feesByOwner[o.id])}
+											{/* Satu kolom dulu, dua kolom baru di layar lebar: tiap
+											    kartu memuat chip biaya admin + slot bukti, dan kartu
+											    sempit itulah yang bikin isiannya meluber. */}
+											<div className="grid gap-3 xl:grid-cols-2">
+												{withdrawableOwners.map((o) => {
+													const fee = feesByOwner[o.id] ?? 0;
+													return (
+														<div
+															key={o.id}
+															className="border-border-default bg-surface-1 space-y-2.5 rounded-xl border p-3"
+														>
+															<div className="flex items-baseline justify-between gap-2">
+																<span className="text-foreground min-w-0 truncate text-[13px] font-medium">
+																	{o.full_name}
+																</span>
+																<span className="tabular text-foreground shrink-0 text-[13px] font-semibold">
+																	{formatRupiah(o.balance)}
+																</span>
+															</div>
+															<div className="space-y-1.5">
+																<div className="flex items-baseline justify-between gap-2">
+																	<span className="text-muted-foreground text-[11px] font-medium">
+																		Biaya admin transfer
 																	</span>
-																)}
-															</span>
-														</div>
-														<div className="mb-2">
-															<span className="text-muted-foreground mb-1 block text-[11px] font-medium">
-																Biaya admin transfer
-															</span>
-															<AdminFeeChips
-																value={feesByOwner[o.id] ?? 0}
-																onChange={(v) =>
-																	setFeesByOwner((prev) => {
+																	{fee > 0 && (
+																		<span className="tabular text-[11px] text-amber-700 dark:text-amber-400">
+																			kas keluar{" "}
+																			<span data-nominal>
+																				{formatRupiah(o.balance + fee)}
+																			</span>
+																		</span>
+																	)}
+																</div>
+																<AdminFeeChips
+																	value={fee}
+																	onChange={(v) =>
+																		setFeesByOwner((prev) => {
+																			const next = { ...prev };
+																			if (v > 0) next[o.id] = v;
+																			else delete next[o.id];
+																			return next;
+																		})
+																	}
+																	ariaLabel={`Biaya admin transfer ${o.full_name}`}
+																/>
+															</div>
+															<ProofUpload
+																compact
+																file={photosByOwner[o.id] ?? null}
+																onChange={(f) =>
+																	setPhotosByOwner((prev) => {
 																		const next = { ...prev };
-																		if (v > 0) next[o.id] = v;
+																		if (f) next[o.id] = f;
 																		else delete next[o.id];
 																		return next;
 																	})
 																}
-																ariaLabel={`Biaya admin transfer ${o.full_name}`}
 															/>
 														</div>
-														<ProofUpload
-															file={photosByOwner[o.id] ?? null}
-															onChange={(f) =>
-																setPhotosByOwner((prev) => {
-																	const next = { ...prev };
-																	if (f) next[o.id] = f;
-																	else delete next[o.id];
-																	return next;
-																})
-															}
-														/>
-													</div>
-												))}
+													);
+												})}
 											</div>
-											<p className="text-muted-foreground text-[11px]">
+											<p className="text-muted-foreground text-[11px] leading-relaxed">
 												Ongkos transfer tiap owner bisa beda (sesama bank
 												gratis, antar bank kena admin) — dibukukan sebagai beban
-												5-600. Bukti transfer opsional, yang belum ada bisa
-												dilampirkan nanti di Arsip Nota.
+												perusahaan (5-600), bukan potongan jatah owner. Bukti
+												transfer opsional; yang belum ada bisa dilampirkan nanti
+												di Arsip Nota.
 											</p>
 										</>
 									) : (
-										<Field label="Foto bukti transfer (opsional)">
-											<ProofUpload file={photo} onChange={setPhoto} />
-										</Field>
+										<>
+											<Field label="Foto bukti transfer (opsional)">
+												<ProofUpload file={photo} onChange={setPhoto} />
+											</Field>
+											{/* Satu owner cuma butuh satu slot bukti — sisa kolomnya
+											    dipakai untuk ringkasan yang akan dicatat, bukan
+											    dibiarkan kosong. */}
+											<div className="border-border-default bg-surface-1 space-y-2 rounded-xl border p-3">
+												<p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
+													Yang akan dicatat
+												</p>
+												<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[12.5px]">
+													<dt className="text-muted-foreground">Owner</dt>
+													<dd className="text-foreground truncate text-right">
+														{owner?.full_name ?? "—"}
+													</dd>
+													<dt className="text-muted-foreground">Periode</dt>
+													<dd className="text-foreground text-right">
+														{periodLabel}
+													</dd>
+													<dt className="text-muted-foreground">Diambil</dt>
+													<dd className="tabular text-foreground text-right font-medium">
+														{formatRupiah(Number(amountValue) || 0)}
+													</dd>
+													<dt className="text-muted-foreground">Biaya admin</dt>
+													<dd className="tabular text-right text-amber-700 dark:text-amber-400">
+														{adminFee > 0 ? formatRupiah(adminFee) : "Gratis"}
+													</dd>
+													<dt className="border-border-default/70 text-foreground border-t pt-1 font-medium">
+														Kas keluar
+													</dt>
+													<dd className="tabular border-border-default/70 text-foreground border-t pt-1 text-right font-semibold">
+														{formatRupiah(
+															(Number(amountValue) || 0) + adminFee,
+														)}
+													</dd>
+													<dt className="text-muted-foreground">Dari</dt>
+													<dd className="text-foreground truncate text-right">
+														{banks.find((b) => b.id === selectedBank)?.label ??
+															"—"}
+													</dd>
+												</dl>
+												{owner && Number(amountValue) > owner.balance && (
+													<p className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
+														Melebihi sisa {formatRupiah(owner.balance)} —
+														kecilkan nominalnya.
+													</p>
+												)}
+											</div>
+										</>
 									)}
 								</div>
 							</div>
@@ -592,9 +683,12 @@ export function WithdrawalButton({
 function ProofUpload({
 	file,
 	onChange,
+	compact = false,
 }: {
 	file: File | null;
 	onChange: (f: File | null) => void;
+	/** Di kartu per-owner slotnya harus pendek — ada 4 kartu sekaligus. */
+	compact?: boolean;
 }) {
 	const [url, setUrl] = useState<string | null>(null);
 	useEffect(() => {
@@ -615,7 +709,7 @@ function ProofUpload({
 					<img
 						src={url}
 						alt="Preview bukti transfer"
-						className="bg-surface-3 max-h-32 w-full object-contain"
+						className={`bg-surface-3 w-full object-contain ${compact ? "max-h-20" : "max-h-32"}`}
 					/>
 				) : null}
 				<div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
@@ -634,12 +728,24 @@ function ProofUpload({
 		);
 	}
 	return (
-		<label className="border-border-default text-muted-foreground hover:border-border-strong hover:bg-secondary/60 flex min-h-[7.5rem] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border border-dashed px-3 py-4 text-center transition-colors">
-			<Paperclip className="h-5 w-5 opacity-60" />
-			<span className="text-[12.5px] font-medium leading-tight">
-				Lampirkan bukti transfer
+		<label
+			className={`border-border-default text-muted-foreground hover:border-border-strong hover:bg-secondary/60 flex cursor-pointer items-center justify-center rounded-xl border border-dashed text-center transition-colors ${
+				compact
+					? "min-h-[3.25rem] gap-2 px-3 py-2"
+					: "min-h-[7.5rem] flex-col gap-1.5 px-3 py-4"
+			}`}
+		>
+			<Paperclip
+				className={compact ? "h-4 w-4 opacity-60" : "h-5 w-5 opacity-60"}
+			/>
+			<span
+				className={`font-medium leading-tight ${compact ? "text-[12px]" : "text-[12.5px]"}`}
+			>
+				{compact ? "Lampirkan bukti" : "Lampirkan bukti transfer"}
 			</span>
-			<span className="text-[11px] opacity-70">Foto atau PDF</span>
+			{!compact && (
+				<span className="text-[11px] opacity-70">Foto atau PDF</span>
+			)}
 			<input
 				type="file"
 				accept="image/*,application/pdf"
@@ -664,14 +770,19 @@ function AdminFeeChips({
 	onChange: (v: number) => void;
 	ariaLabel: string;
 }) {
+	const isPreset = [0, 2500, 6500].includes(value);
 	return (
-		<div className="flex items-center gap-1.5">
+		// flex-wrap + basis kecil pada isian bebas: kartu per-owner cuma seperempat
+		// lebar dialog, dan baris kaku bikin isian "lain" menembus batas kartu
+		// (tampak seperti chip terpotong di tepi kanan). Sekarang barisnya turun
+		// sendiri saat sempit, bukan meluber.
+		<div className="flex flex-wrap items-center gap-1.5">
 			{[0, 2500, 6500].map((v) => (
 				<button
 					key={v}
 					type="button"
 					onClick={() => onChange(v)}
-					className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+					className={`inline-flex h-8 shrink-0 items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors ${
 						value === v
 							? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
 							: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
@@ -689,7 +800,11 @@ function AdminFeeChips({
 				onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
 				placeholder="lain"
 				aria-label={ariaLabel}
-				className="border-border-default bg-background focus-visible:ring-ring tabular h-9 w-full min-w-0 rounded-md border px-3 text-right text-[13px] focus-visible:ring-2 focus-visible:outline-none"
+				className={`border-border-default bg-background focus-visible:ring-ring tabular h-8 min-w-[4rem] flex-1 basis-16 rounded-full border px-2.5 text-right text-[12px] focus-visible:ring-2 focus-visible:outline-none ${
+					value > 0 && !isPreset
+						? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
+						: ""
+				}`}
 			/>
 		</div>
 	);
