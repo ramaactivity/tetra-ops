@@ -213,7 +213,12 @@ export function QuickRecordCore({
 						: // Saldo guard: keluar/transfer tidak boleh bikin rekening minus.
 							direction !== "masuk" && afterSource < 0
 							? `Saldo ${sourceAcct?.name ?? "rekening"} tidak cukup`
-							: null;
+							: // Patungan tidak boleh melebihi bebannya — bebannya akan jadi
+								// minus di pembukuan, dan itu tidak pernah benar.
+								patunganPerOwner > 0 &&
+									patunganPerOwner * data.ownerPool.ownerCount > amount
+								? "Patungan melebihi nominal beban"
+								: null;
 	const canSubmit = blockReason === null;
 
 	// ── success → optional photo upload, toast, refresh, close ────────────────
@@ -527,6 +532,23 @@ export function QuickRecordCore({
 		) : null;
 
 	// Patungan owner — hanya relevan untuk uang keluar ke akun beban.
+	// ── Patungan owner ────────────────────────────────────────────────────────
+	// Mekanisme yang paling gampang disalahpahami: TIDAK ada uang masuk dari
+	// owner. Kas tetap keluar penuh; yang terjadi adalah jatah bagi hasil tiap
+	// owner dipotong, dan beban perusahaan berkurang sebesar total potongan.
+	// Karena itu rinciannya dibuka terang-terangan sebelum disimpan.
+	const ownerCount = data.ownerPool.ownerCount;
+	const patunganTotal = patunganPerOwner * ownerCount;
+	const bebanBersih = Math.max(0, amount - patunganTotal);
+	const myBalanceAfter =
+		data.ownerPool.myBalance !== null
+			? data.ownerPool.myBalance - patunganPerOwner
+			: null;
+	const patunganMelebihiBeban = patunganTotal > amount && amount > 0;
+	const expenseCoaLabel = coaOverride
+		? (nameByCode.get(coaOverride) ?? coaOverride)
+		: (findCategory(categoryId)?.label ?? "beban");
+
 	const patunganField =
 		direction === "keluar" ? (
 			<div className="space-y-2.5">
@@ -562,13 +584,81 @@ export function QuickRecordCore({
 						/>
 					</div>
 				</div>
+
 				{patunganPerOwner > 0 ? (
-					<p className="text-[11.5px] text-muted-foreground">
-						Tiap owner ikut menanggung{" "}
-						<span data-nominal>{formatRupiah(patunganPerOwner)}</span>, dipotong
-						dari bagi hasil — bukan uang masuk. Beban perusahaan berkurang
-						sebesar total patungan.
-					</p>
+					<div className="space-y-2 rounded-xl border border-border-default bg-surface-2 p-3">
+						<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+							Rincian patungan
+						</p>
+						<dl className="space-y-1 text-[12.5px]">
+							<div className="flex items-baseline justify-between gap-3">
+								<dt className="text-muted-foreground">
+									{formatRupiah(patunganPerOwner)} × {ownerCount} owner
+								</dt>
+								<dd className="tabular font-medium text-foreground">
+									{formatRupiah(patunganTotal)}
+								</dd>
+							</div>
+							<div className="flex items-baseline justify-between gap-3">
+								<dt className="text-muted-foreground">
+									Beban {expenseCoaLabel} ditanggung Tetra
+								</dt>
+								<dd className="tabular font-medium text-foreground">
+									{formatRupiah(amount)} − {formatRupiah(patunganTotal)} ={" "}
+									{formatRupiah(bebanBersih)}
+								</dd>
+							</div>
+							<div className="flex items-baseline justify-between gap-3">
+								<dt className="text-muted-foreground">
+									Uang keluar dari {sourceAcct?.name ?? "rekening"}
+								</dt>
+								<dd className="tabular font-medium text-foreground">
+									{formatRupiah(amount + feeApplied)} (tetap penuh)
+								</dd>
+							</div>
+							{myBalanceAfter !== null && data.ownerPool.myBalance !== null ? (
+								<div className="flex items-baseline justify-between gap-3 border-t border-border-default pt-1">
+									<dt className="text-muted-foreground">
+										Bagi hasil {data.ownerPool.myName ?? "kamu"}
+									</dt>
+									<dd
+										className={cn(
+											"tabular font-medium",
+											myBalanceAfter < 0 ? "text-rose-600" : "text-foreground",
+										)}
+									>
+										{formatRupiah(data.ownerPool.myBalance)} →{" "}
+										{formatRupiah(myBalanceAfter)}
+									</dd>
+								</div>
+							) : null}
+						</dl>
+						<p className="text-[11.5px] leading-relaxed text-muted-foreground">
+							Tiap owner ({ownerCount} orang) sama-sama dipotong{" "}
+							<span data-nominal className="font-medium text-foreground">
+								{formatRupiah(patunganPerOwner)}
+							</span>{" "}
+							dari bagi hasilnya —{" "}
+							<span className="font-medium text-foreground">
+								bukan uang masuk
+							</span>
+							. Jurnalnya: Dr 2-300 Hutang Bagi Hasil Owner{" "}
+							{formatRupiah(patunganTotal)} / Cr beban{" "}
+							{formatRupiah(patunganTotal)}, terpisah dari jurnal kas di atas.
+						</p>
+						{myBalanceAfter !== null && myBalanceAfter < 0 ? (
+							<p className="text-[11.5px] font-medium text-rose-600">
+								Saldo bagi hasilmu jadi minus — potongannya lebih besar dari
+								jatah yang terkumpul.
+							</p>
+						) : null}
+						{patunganMelebihiBeban ? (
+							<p className="text-[11.5px] font-medium text-amber-700 dark:text-amber-400">
+								Total patungan lebih besar dari nominal beban — beban jadi minus
+								di pembukuan. Turunkan nominal per owner.
+							</p>
+						) : null}
+					</div>
 				) : null}
 			</div>
 		) : null;

@@ -8,18 +8,19 @@
  * (for one-tap repeat). Plain async server function — not a server action.
  */
 
+import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	aggregateBalances,
 	type CoaMeta,
 	isCashOrBank,
 	type LineForBalance,
 } from "@/lib/finance/accounting";
+import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import {
 	type CatatDirection,
 	categoryByCoa,
 } from "@/lib/finance/quick-record-categories";
 import { createClient } from "@/lib/supabase/server";
-import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 
 export type CashAccount = { code: string; name: string; balance: number };
 export type CoaOption = { code: string; name: string; account_type: string };
@@ -33,10 +34,23 @@ export type RecentTxn = {
 	label: string;
 };
 
+/**
+ * Konteks patungan owner: berapa owner aktif yang ikut menanggung, dan berapa
+ * saldo bagi hasil MILIK pemakai yang sedang login. Saldo owner lain sengaja
+ * tidak dibawa — halaman Ringkasan pun hanya menampilkannya untuk super-admin.
+ */
+export type OwnerPoolContext = {
+	ownerCount: number;
+	/** Saldo bagi hasil sendiri; null kalau pemakainya bukan owner. */
+	myBalance: number | null;
+	myName: string | null;
+};
+
 export type CatatData = {
 	cashAccounts: CashAccount[];
 	coaOptions: CoaOption[];
 	recents: RecentTxn[];
+	ownerPool: OwnerPoolContext;
 };
 
 const ENTRY_TYPE_TO_DIRECTION: Record<string, CatatDirection> = {
@@ -47,32 +61,61 @@ const ENTRY_TYPE_TO_DIRECTION: Record<string, CatatDirection> = {
 
 export async function loadCatatData(): Promise<CatatData> {
 	const supabase = await createClient();
+	const me = await getCurrentUser();
 
-	const [{ data: coa }, { data: lineData }, { data: rawRecents }] =
-		await Promise.all([
-			supabase
-				.from("chart_of_accounts")
-				.select("code, name, account_type, is_active")
-				.eq("is_active", true)
-				.order("code"),
-			fetchAllJournalLines<{
-				account_code: string;
-				debit_amount: number | string;
-				credit_amount: number | string;
-			}>(supabase, "account_code, debit_amount, credit_amount").then((d) => ({
-				data: d,
-			})),
-			supabase
-				.from("journal_entries")
-				.select(
-					`id, entry_type, total_amount, description,
+	const [
+		{ data: coa },
+		{ data: lineData },
+		{ data: rawRecents },
+		{ data: ownerRows },
+		{ data: myEarnings },
+	] = await Promise.all([
+		supabase
+			.from("chart_of_accounts")
+			.select("code, name, account_type, is_active")
+			.eq("is_active", true)
+			.order("code"),
+		fetchAllJournalLines<{
+			account_code: string;
+			debit_amount: number | string;
+			credit_amount: number | string;
+		}>(supabase, "account_code, debit_amount, credit_amount").then((d) => ({
+			data: d,
+		})),
+		supabase
+			.from("journal_entries")
+			.select(
+				`id, entry_type, total_amount, description,
 					 lines:journal_lines(account_code, debit_amount, credit_amount)`,
-				)
-				.eq("source_type", "manual")
-				.in("entry_type", ["expense", "revenue", "transfer"])
-				.order("created_at", { ascending: false })
-				.limit(8),
-		]);
+			)
+			.eq("source_type", "manual")
+			.in("entry_type", ["expense", "revenue", "transfer"])
+			.order("created_at", { ascending: false })
+			.limit(8),
+		// Owner aktif = yang ikut menanggung patungan (super_admin tidak ikut,
+		// sama seperti pembagian owner pool di settle_event).
+		supabase
+			.from("users")
+			.select("id")
+			.eq("role", "owner")
+			.eq("is_active", true),
+		me
+			? supabase
+					.from("owner_earnings")
+					.select("amount")
+					.eq("owner_user_id", me.profile.id)
+			: Promise.resolve({ data: [] }),
+	]);
+
+	const ownerCount = (ownerRows ?? []).length;
+	const isOwner = me?.profile.role === "owner";
+	const ownerPool: OwnerPoolContext = {
+		ownerCount,
+		myBalance: isOwner
+			? (myEarnings ?? []).reduce((sum, e) => sum + Number(e.amount ?? 0), 0)
+			: null,
+		myName: isOwner ? (me?.profile.full_name ?? null) : null,
+	};
 
 	const coaBase = (coa ?? []) as Array<{
 		code: string;
@@ -152,5 +195,5 @@ export async function loadCatatData(): Promise<CatatData> {
 		.filter((r): r is RecentTxn => r !== null)
 		.slice(0, 4);
 
-	return { cashAccounts, coaOptions, recents };
+	return { cashAccounts, coaOptions, recents, ownerPool };
 }
