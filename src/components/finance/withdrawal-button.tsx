@@ -114,6 +114,9 @@ export function WithdrawalButton({
 	// Bukti transfer: single = 1 file; bulk = per owner (ownerId → file).
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photosByOwner, setPhotosByOwner] = useState<Record<string, File>>({});
+	// Ongkos transfer bank: beda rekening → beda ongkos, jadi disimpan per owner.
+	const [adminFee, setAdminFee] = useState(0);
+	const [feesByOwner, setFeesByOwner] = useState<Record<string, number>>({});
 	const [uploading, setUploading] = useState(false);
 	const [state, formAction, pending] = useActionState<
 		WithdrawalFormState,
@@ -135,6 +138,12 @@ export function WithdrawalButton({
 		? owners.reduce((s, o) => s + (o.pending ?? 0), 0)
 		: (owner?.pending ?? 0);
 	const periodLabel = monthLabel(period);
+	// Biaya admin ditanggung perusahaan (Dr 5-600): owner tetap terima penuh,
+	// tapi kas yang keluar lebih besar dari jatahnya.
+	const feeTotal = isBulk
+		? withdrawableOwners.reduce((s, o) => s + (feesByOwner[o.id] ?? 0), 0)
+		: adminFee;
+	const cashOut = available + feeTotal;
 
 	// Sukses → unggah bukti transfer (per owner) ke entry-nya, lalu tutup.
 	// Dialog tetap terbuka + tombol terkunci selama upload (feedback jelas,
@@ -185,6 +194,8 @@ export function WithdrawalButton({
 				formRef.current?.reset();
 				setPhoto(null);
 				setPhotosByOwner({});
+				setAdminFee(0);
+				setFeesByOwner({});
 				setAmountValue("");
 			}
 		})();
@@ -336,6 +347,16 @@ export function WithdrawalButton({
 												di bawah.
 											</p>
 										)}
+										{feeTotal > 0 && (
+											<p className="text-muted-foreground mt-1 text-[11px]">
+												+ biaya admin{" "}
+												<span data-nominal>{formatRupiah(feeTotal)}</span> → kas
+												keluar{" "}
+												<span data-nominal className="font-medium">
+													{formatRupiah(cashOut)}
+												</span>
+											</p>
+										)}
 										{pendingTotal > 0 && (
 											<p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
 												{formatRupiah(pendingTotal)} dari event bulan ini belum
@@ -394,6 +415,24 @@ export function WithdrawalButton({
 										</Field>
 									</div>
 
+									{!isBulk && (
+										<div>
+											<span className="text-foreground mb-1 block text-xs font-medium">
+												Biaya admin bank (opsional)
+											</span>
+											<AdminFeeChips
+												value={adminFee}
+												onChange={setAdminFee}
+												ariaLabel="Biaya admin transfer owner"
+											/>
+											<input type="hidden" name="admin_fee" value={adminFee} />
+											<p className="text-muted-foreground mt-1 text-[11px]">
+												Ongkos transfer ke rekening owner — jadi beban
+												perusahaan (5-600), bukan potongan jatah owner.
+											</p>
+										</div>
+									)}
+
 									<Field label="Bukti transfer / ID (opsional)">
 										<input
 											name="withdrawal_reference"
@@ -420,8 +459,13 @@ export function WithdrawalButton({
 									{isBulk ? (
 										<>
 											<span className="text-foreground block text-xs font-medium">
-												Foto bukti transfer per owner (opsional)
+												Transfer per owner — biaya admin & bukti
 											</span>
+											<input
+												type="hidden"
+												name="admin_fees"
+												value={JSON.stringify(feesByOwner)}
+											/>
 											<div className="grid gap-2 sm:grid-cols-2">
 												{withdrawableOwners.map((o) => (
 													<div
@@ -434,7 +478,30 @@ export function WithdrawalButton({
 															</span>
 															<span className="tabular text-muted-foreground shrink-0 text-xs">
 																{formatRupiah(o.balance)}
+																{(feesByOwner[o.id] ?? 0) > 0 && (
+																	<span className="text-amber-700 dark:text-amber-400">
+																		{" "}
+																		+ {formatRupiah(feesByOwner[o.id])}
+																	</span>
+																)}
 															</span>
+														</div>
+														<div className="mb-2">
+															<span className="text-muted-foreground mb-1 block text-[11px] font-medium">
+																Biaya admin transfer
+															</span>
+															<AdminFeeChips
+																value={feesByOwner[o.id] ?? 0}
+																onChange={(v) =>
+																	setFeesByOwner((prev) => {
+																		const next = { ...prev };
+																		if (v > 0) next[o.id] = v;
+																		else delete next[o.id];
+																		return next;
+																	})
+																}
+																ariaLabel={`Biaya admin transfer ${o.full_name}`}
+															/>
 														</div>
 														<ProofUpload
 															file={photosByOwner[o.id] ?? null}
@@ -451,8 +518,10 @@ export function WithdrawalButton({
 												))}
 											</div>
 											<p className="text-muted-foreground text-[11px]">
-												Opsional — yang belum ada bisa dilampirkan nanti di
-												Arsip Nota.
+												Ongkos transfer tiap owner bisa beda (sesama bank
+												gratis, antar bank kena admin) — dibukukan sebagai beban
+												5-600. Bukti transfer opsional, yang belum ada bisa
+												dilampirkan nanti di Arsip Nota.
 											</p>
 										</>
 									) : (
@@ -471,6 +540,18 @@ export function WithdrawalButton({
 											{state.error}
 										</p>
 									</div>
+								)}
+								{feeTotal > 0 && (
+									<p className="text-muted-foreground text-[11px]">
+										Kas keluar{" "}
+										<span data-nominal className="text-foreground font-medium">
+											{formatRupiah(cashOut)}
+										</span>{" "}
+										= bagi hasil{" "}
+										<span data-nominal>{formatRupiah(available)}</span> + biaya
+										admin bank{" "}
+										<span data-nominal>{formatRupiah(feeTotal)}</span>
+									</p>
 								)}
 								<div className="flex items-center justify-end gap-2">
 									<button
@@ -566,6 +647,51 @@ function ProofUpload({
 				onChange={(e) => onChange(e.target.files?.[0] ?? null)}
 			/>
 		</label>
+	);
+}
+
+/**
+ * Biaya admin bank per transfer — chip nominal yang paling sering (gratis
+ * sesama bank, Rp2.500 BI-FAST, Rp6.500 antar bank) + isian bebas. Pola sama
+ * dengan form fee crew, karena masalahnya sama: tiap penerima beda rekening.
+ */
+function AdminFeeChips({
+	value,
+	onChange,
+	ariaLabel,
+}: {
+	value: number;
+	onChange: (v: number) => void;
+	ariaLabel: string;
+}) {
+	return (
+		<div className="flex items-center gap-1.5">
+			{[0, 2500, 6500].map((v) => (
+				<button
+					key={v}
+					type="button"
+					onClick={() => onChange(v)}
+					className={`inline-flex h-9 shrink-0 items-center rounded-full border px-3 text-[12px] font-medium ${
+						value === v
+							? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+							: "border-border-default bg-surface-1 text-muted-foreground hover:bg-surface-2"
+					}`}
+				>
+					{v === 0 ? "Gratis" : <span data-nominal>{formatRupiah(v)}</span>}
+				</button>
+			))}
+			<input
+				type="number"
+				inputMode="numeric"
+				min={0}
+				max={1000000}
+				value={value === 0 ? "" : value}
+				onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+				placeholder="lain"
+				aria-label={ariaLabel}
+				className="border-border-default bg-background focus-visible:ring-ring tabular h-9 w-full min-w-0 rounded-md border px-3 text-right text-[13px] focus-visible:ring-2 focus-visible:outline-none"
+			/>
+		</div>
 	);
 }
 
