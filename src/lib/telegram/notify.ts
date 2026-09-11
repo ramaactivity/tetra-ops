@@ -333,6 +333,56 @@ export async function notifyTelegramPaymentReversed(
 }
 
 /**
+ * Status event diubah manual (via Change status menu) → grup owner.
+ * Event legacy di-skip — backfill data lama tidak perlu meramaikan grup.
+ */
+export async function notifyTelegramStatusChanged(
+	eventId: string,
+	oldStatus: string,
+	newStatus: string,
+	changedByName: string,
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: ev } = await admin
+			.from("events")
+			.select("project_id, client_name, event_date, is_migrated_legacy")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!ev || ev.is_migrated_legacy) return;
+
+		const STATUS_LABELS: Record<string, string> = {
+			upcoming: "Mendatang",
+			in_progress: "Berlangsung",
+			awaiting_settlement: "Menunggu Settle",
+			completed: "Selesai",
+			cancelled: "Dibatalkan",
+		};
+		const STATUS_EMOJI: Record<string, string> = {
+			upcoming: "🟢",
+			in_progress: "🔵",
+			awaiting_settlement: "🟡",
+			completed: "✅",
+			cancelled: "❌",
+		};
+		const oldLabel = STATUS_LABELS[oldStatus] ?? oldStatus;
+		const newLabel = STATUS_LABELS[newStatus] ?? newStatus;
+		const emoji = STATUS_EMOJI[newStatus] ?? "🔄";
+
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+		await sendToOwnerGroup(
+			[
+				`${emoji} <b>STATUS DIUBAH — ${tgEscape(ev.client_name as string)}</b> · ${dateLabel(ev.event_date as string, true)}`,
+				`${oldLabel} → <b>${newLabel}</b> · oleh ${tgEscape(changedByName)}`,
+				...(appUrl ? [`\nDetail: ${appUrl}/operations/${ev.project_id}`] : []),
+			].join("\n"),
+		);
+	} catch (e) {
+		console.error("[telegram/notify] status-changed:", e);
+	}
+}
+
+/**
  * Event dihapus (soft-delete) → grup owner. Dipanggil SETELAH delete sukses —
  * row masih ada (cuma deleted_at terisi) jadi tetap bisa di-fetch.
  */

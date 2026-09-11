@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
 import { createClient } from "@/lib/supabase/server";
+import { notifyTelegramStatusChanged } from "@/lib/telegram/notify";
 
 // Event lifecycle statuses — see @/lib/event-status. The deprecated
 // draft/confirmed/archived enum values are no longer assignable.
@@ -53,6 +54,14 @@ export async function updateEventStatus(
 			};
 		}
 
+		// Ambil status lama untuk notifikasi Telegram.
+		const { data: current } = await supabase
+			.from("events")
+			.select("status")
+			.eq("id", parsed.data.id)
+			.maybeSingle();
+		const oldStatus = (current?.status as string) ?? "unknown";
+
 		const { error } = await supabase
 			.from("events")
 			.update({ status: parsed.data.status })
@@ -62,6 +71,16 @@ export async function updateEventStatus(
 
 		revalidatePath("/operations");
 		revalidatePath(`/operations/${projectId}`);
+
+		// Best-effort Telegram notification — jangan sampai gagal kirim
+		// menggagalkan aksi status yang sudah sukses.
+		void notifyTelegramStatusChanged(
+			parsed.data.id,
+			oldStatus,
+			parsed.data.status,
+			me.profile.full_name ?? me.email ?? "Unknown",
+		);
+
 		return {};
 	} catch (err) {
 		return {
@@ -69,3 +88,4 @@ export async function updateEventStatus(
 		};
 	}
 }
+
