@@ -6,7 +6,6 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -80,9 +79,9 @@ export function StatusMenu({
 					sideOffset={6}
 					className="w-60"
 				>
-					<DropdownMenuLabel className="text-muted-foreground text-[11px] font-normal">
+					<p className="px-2 py-1.5 text-[11px] font-normal text-muted-foreground">
 						Set status event
-					</DropdownMenuLabel>
+					</p>
 					<DropdownMenuSeparator />
 					{EVENT_STATUSES.map((opt) => {
 						const isCurrent = opt === currentStatus;
