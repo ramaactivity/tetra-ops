@@ -5,6 +5,7 @@ import {
 	Calculator,
 	Check,
 	CheckCircle2,
+	Info,
 	Plus,
 	Save,
 	Wallet,
@@ -1352,7 +1353,14 @@ export function RekapForm({
 							<button
 								key={opt.key}
 								type="button"
-								onClick={() => setTransportMethod(opt.key)}
+								onClick={() => {
+							setTransportMethod(opt.key);
+							// Crew tidak tahu harga sewa mobil — force ke owner.
+							if (isCrew && opt.key === "rental") {
+								setPaidByKey("transport", "owner");
+								setTransportCost("0");
+							}
+						}}
 								className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
 									active
 										? "border-primary bg-primary/10 text-foreground"
@@ -1406,23 +1414,52 @@ export function RekapForm({
 				)}
 
 				{transportMethod === "rental" && (
-					<div className="grid gap-3 sm:grid-cols-2">
-						<MoneyField
-							label="Sewa mobil"
-							name="transport_cost_input"
-							value={transportCost}
-							onChange={setTransportCost}
-							paidBy={paidBy.transport}
-							onPaidByChange={(v) => setPaidByKey("transport", v)}
-							crew={context.crew}
-							cards={context.cards}
-							nota={{
-								projectId,
-								notaKey: "transport",
-								url: notaUrls.transport ?? null,
-								onChange: (u) => setNotaUrl("transport", u),
-							}}
-						/>
+					<div className="space-y-3">
+						{isCrew ? (
+							/* Crew tidak tahu harga sewa — info saja, nominal diisi owner. */
+							<div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80 dark:border-sky-900/60 dark:bg-sky-950/20">
+								<Info className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+								<div className="space-y-1">
+									<p className="font-medium text-foreground">
+										Nominal sewa mobil akan diisi owner.
+									</p>
+									<p>
+										Kamu cukup pilih &ldquo;Sewa mobil&rdquo; dan isi bensin
+										di bawah. Kalau ada nota/struk sewa, boleh di-upload.
+									</p>
+								</div>
+							</div>
+						) : (
+							<MoneyField
+								label="Sewa mobil"
+								name="transport_cost_input"
+								value={transportCost}
+								onChange={setTransportCost}
+								paidBy={paidBy.transport}
+								onPaidByChange={(v) => setPaidByKey("transport", v)}
+								crew={context.crew}
+								cards={context.cards}
+								nota={{
+									projectId,
+									notaKey: "transport",
+									url: notaUrls.transport ?? null,
+									onChange: (u) => setNotaUrl("transport", u),
+								}}
+							/>
+						)}
+
+						{/* Nota sewa mobil — crew bisa upload kalau punya struk rental */}
+						{isCrew && (
+							<SingleFileUpload
+								projectId={projectId}
+								kind="nota"
+								seq="transport"
+								label="Nota sewa mobil"
+								value={notaUrls.transport ?? null}
+								onChange={(u) => setNotaUrl("transport", u)}
+							/>
+						)}
+
 						<MoneyField
 							label="Bensin"
 							name="bensin_cost_input"
@@ -1502,27 +1539,32 @@ export function RekapForm({
 				/>
 
 				<div className="space-y-2">
-					<div className="flex items-center justify-between gap-2">
-						<p className="text-fluid-body font-medium">
-							Lain-lain{" "}
-							<span className="text-muted-foreground text-fluid-caption font-normal">
-								({lainnyaItems.length}/20)
-							</span>
+					<div className="space-y-1">
+						<div className="flex items-center justify-between gap-2">
+							<p className="text-fluid-body font-medium">
+								Lain-lain{" "}
+								<span className="text-muted-foreground text-fluid-caption font-normal">
+									({lainnyaItems.length}/20)
+								</span>
+							</p>
+							{lainnyaItems.length < 20 && (
+								<button
+									type="button"
+									onClick={addLainnyaRow}
+									className="text-primary inline-flex items-center gap-1 text-fluid-caption font-medium hover:underline"
+								>
+									<Plus className="h-3 w-3" />
+									Tambah baris
+								</button>
+							)}
+						</div>
+						<p className="text-muted-foreground text-fluid-caption">
+							Biaya insidental di luar kategori atas — mis. P3K, obat, tisu, parkir tambahan.
 						</p>
-						{lainnyaItems.length < 20 && (
-							<button
-								type="button"
-								onClick={addLainnyaRow}
-								className="text-primary inline-flex items-center gap-1 text-fluid-caption font-medium hover:underline"
-							>
-								<Plus className="h-3 w-3" />
-								Tambah baris
-							</button>
-						)}
 					</div>
 					{lainnyaItems.length === 0 ? (
 						<p className="text-muted-foreground text-fluid-caption italic">
-							Belum ada. Contoh: P3K, obat, parking insidental, dll.
+							Belum ada item. Tekan &ldquo;+ Tambah baris&rdquo; untuk menambahkan.
 						</p>
 					) : (
 						<ul className="space-y-2">
@@ -1531,7 +1573,8 @@ export function RekapForm({
 									key={idx}
 									className="space-y-2 rounded-md border border-border-default bg-surface-3 p-2.5"
 								>
-									<div className="flex items-start gap-2">
+									{/* Baris 1: keterangan + hapus */}
+									<div className="flex items-center gap-2">
 										<input
 											type="text"
 											value={row.note}
@@ -1540,8 +1583,22 @@ export function RekapForm({
 											}
 											maxLength={120}
 											placeholder="Keterangan (cth. P3K)"
-											className={`${inputClass} flex-1`}
+											className={`${inputClass} min-w-0 flex-1`}
 										/>
+										<button
+											type="button"
+											onClick={() => removeLainnyaRow(idx)}
+											title="Hapus baris"
+											className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-colors"
+										>
+											<X className="h-3.5 w-3.5" />
+										</button>
+									</div>
+									{/* Baris 2: nominal (full width) */}
+									<div className="relative">
+										<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
+											Rp
+										</span>
 										<input
 											type="number"
 											inputMode="numeric"
@@ -1554,22 +1611,26 @@ export function RekapForm({
 												})
 											}
 											placeholder="0"
-											className={`${inputClass} tabular w-32 text-right`}
+											className={`${inputClass} tabular pl-9`}
 										/>
-										<button
-											type="button"
-											onClick={() => removeLainnyaRow(idx)}
-											title="Hapus baris"
-											className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors"
-										>
-											<X className="h-3.5 w-3.5" />
-										</button>
 									</div>
+									{/* Baris 3: siapa yang bayar */}
 									{row.amount > 0 && (
 										<PayerPicker
 											value={row.paid_by}
 											onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
 											crew={context.crew}
+										/>
+									)}
+									{/* Baris 4: upload bukti/nota */}
+									{row.amount > 0 && (
+										<SingleFileUpload
+											projectId={projectId}
+											kind="nota"
+											seq={`lainnya-${idx}`}
+											label={`Nota ${row.note || "lain-lain"}`}
+											value={row.nota_url}
+											onChange={(url) => updateLainnyaRow(idx, { nota_url: url })}
 										/>
 									)}
 								</li>
