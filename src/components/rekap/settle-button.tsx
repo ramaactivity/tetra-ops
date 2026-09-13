@@ -483,7 +483,10 @@ export function SettleButton(props: Props) {
 										rows={
 											bd
 												? [
-														{ label: "Fee crew", value: feeCrewTotal },
+														{ label: "Fee Lead", value: bd.opex.fee_lead },
+									{ label: "Fee Asisten", value: bd.opex.fee_asisten },
+									{ label: "Fee Crew C", value: bd.opex.fee_crew_c },
+									{ label: "Bonus crew", value: bd.opex.fee_extra },
 														{
 															label: "Reimbursement crew",
 															value: bd.opex.reimbursement,

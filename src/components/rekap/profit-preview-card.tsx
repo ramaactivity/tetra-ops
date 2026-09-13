@@ -65,8 +65,8 @@ export function ProfitPreviewCard({
 		preview.extra.expenseTotal > 0 ||
 		preview.extra.incomeTotal > 0 ||
 		ownerPaidPending > 0;
-	const [showHpp, setShowHpp] = useState(false);
-	const [showOpex, setShowOpex] = useState(false);
+	const [showHpp, setShowHpp] = useState(true);
+	const [showOpex, setShowOpex] = useState(true);
 
 	const profitClass = preview.is_loss
 		? "text-amber-900 dark:text-amber-200"
