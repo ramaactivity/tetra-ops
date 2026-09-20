@@ -113,12 +113,17 @@ export function DatePicker({
 					/>
 				}
 			>
-				<span>
+				{/* min-w-0 + truncate: tanpa ini "20 September 2026" meluber keluar
+				    tombol saat kolomnya sempit, bukan terpotong rapi. */}
+				<span className="min-w-0 truncate">
 					{selectedDate
 						? format(selectedDate, "d MMMM yyyy", { locale: idLocale })
 						: placeholder}
 				</span>
-				<CalendarIcon className="size-4 text-muted-foreground" aria-hidden />
+				<CalendarIcon
+					className="size-4 shrink-0 text-muted-foreground"
+					aria-hidden
+				/>
 			</PopoverPrimitive.Trigger>
 			<PopoverPrimitive.Portal>
 				<PopoverPrimitive.Positioner sideOffset={6} className="isolate z-50">
