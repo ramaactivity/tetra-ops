@@ -786,6 +786,17 @@ export function QuickRecordCore({
 				.slice(0, 6)
 		: [];
 
+	// Peringatan kategori — muncul begitu kategori dipilih, sebelum uangnya
+	// telanjur dicatat di pos yang salah (lihat warning di quick-record-categories).
+	const categoryWarning =
+		direction === "keluar" && activeCategory?.warning ? (
+			<div className="rounded-xl border border-amber-300/70 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+				<p className="text-[12px] leading-relaxed text-amber-900 dark:text-amber-200">
+					{activeCategory.warning}
+				</p>
+			</div>
+		) : null;
+
 	const periodField = isMonthly ? (
 		<div className="space-y-2.5">
 			<span className="eyebrow">Untuk bulan</span>
@@ -1183,6 +1194,7 @@ export function QuickRecordCore({
 							{amountSectionWide}
 							{accountField}
 							{adminFeeField}
+							{categoryWarning}
 							{periodField}
 							{patunganField}
 						</div>
@@ -1206,6 +1218,7 @@ export function QuickRecordCore({
 							{recentsBlock}
 							{accountField}
 							{adminFeeField}
+							{categoryWarning}
 							{periodField}
 							{patunganField}
 							{amountControl}
@@ -1219,6 +1232,7 @@ export function QuickRecordCore({
 							{categoryField}
 							{accountField}
 							{adminFeeField}
+							{categoryWarning}
 							{periodField}
 							{patunganField}
 							{detailsField}

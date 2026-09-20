@@ -74,6 +74,12 @@ export type CatatCategory = {
 	 * periodenya & memperingatkan kalau bulan itu sudah pernah dibayar.
 	 */
 	monthly?: boolean;
+	/**
+	 * Peringatan yang muncul begitu kategori ini dipilih. Isinya bukan basa-basi:
+	 * tiap teks di bawah lahir dari salah-input yang BENAR-BENAR terjadi dan
+	 * baru ketahuan saat audit jurnal, bukan saat input.
+	 */
+	warning?: string;
 };
 
 /**
@@ -91,17 +97,21 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 	},
 	{
 		id: "beli-alat",
-		label: "Beli alat/barang",
+		label: "Beli alat/barang (bukan bahan jual)",
 		icon: ShoppingBag,
 		coa: "5-250",
 		entryType: "expense",
+		warning:
+			"Khusus alat & perlengkapan pakai-sendiri (kabel, tripod, obeng, properti). Kalau yang dibeli BAHAN JUAL — flashdisk, keychain, box, sleeve, media set, pouch — catat lewat menu Pembelian, bukan di sini: lewat sini barangnya tidak masuk stok dan HPP event jadi salah.",
 	},
 	{
 		id: "transport-bbm",
-		label: "Transport & BBM",
+		label: "Bensin / BBM",
 		icon: Fuel,
 		coa: "5-210",
 		entryType: "expense",
+		warning:
+			'Bensin saja. Sewa/rental mobil → pakai kategori "Sewa mobil". Topup e-toll bukan beban — pakai tab Transfer (kas → kartu e-toll).',
 	},
 	{
 		// Sama polanya dgn "Bayar fee crew": settlement sudah meng-akrual komisi
@@ -147,6 +157,8 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		icon: Megaphone,
 		coa: "5-410",
 		entryType: "expense",
+		warning:
+			'Iklan & promosi saja. Langganan bulanan (VPS, AI, Canva, hosting) → kategori "Platform / langganan app". Biaya ikut pameran → kategori "Pameran / expo".',
 	},
 	{
 		// Semua ongkos ikut pameran dikumpulkan di satu akun — sewa booth,
@@ -232,14 +244,16 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		// Membayar crew = melunasi hutang itu → Dr 2-100 / Cr Kas (BUKAN beban lagi,
 		// supaya tidak dobel-beban dengan settlement).
 		id: "fee-crew",
-		label: "Bayar fee crew",
+		label: "Bayar fee crew (fee event dari settlement)",
 		icon: Users,
 		coa: "2-100",
 		entryType: "expense",
+		warning:
+			'Hanya untuk melunasi fee crew EVENT yang sudah di-settle (melunasi Hutang Crew). Crew jaga booth expo / kerja non-event → kategori "Pameran / expo": lewat sini bebannya tidak pernah masuk laba-rugi dan Hutang Crew jadi minus.',
 	},
 	{
 		id: "platform",
-		label: "Platform / app",
+		label: "Platform / langganan app (VPS, AI, hosting)",
 		icon: Smartphone,
 		coa: "5-400",
 		entryType: "expense",
