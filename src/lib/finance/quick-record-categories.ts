@@ -39,6 +39,7 @@ import {
 	ShoppingBag,
 	Smartphone,
 	Sparkles,
+	Store,
 	Tag,
 	Users,
 	UtensilsCrossed,
@@ -145,6 +146,19 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 		label: "Marketing / topup ads",
 		icon: Megaphone,
 		coa: "5-410",
+		entryType: "expense",
+	},
+	{
+		// Semua ongkos ikut pameran dikumpulkan di satu akun — sewa booth,
+		// brosur, konsumsi, DAN fee crew yang jaga booth. Fee crew expo sengaja
+		// TIDAK lewat kategori "Bayar fee crew": yang itu mendebit Hutang Crew
+		// (melunasi akrual settlement), sementara crew jaga booth tidak punya
+		// event, jadi tidak pernah ada hutangnya — pernah bikin Hutang Crew
+		// minus Rp750.000 dan bebannya hilang dari laba-rugi.
+		id: "expo",
+		label: "Pameran / expo (termasuk fee crew jaga booth)",
+		icon: Store,
+		coa: "5-412",
 		entryType: "expense",
 	},
 	// ── Lihat semua ─────────────────────────────────────────────────────────
