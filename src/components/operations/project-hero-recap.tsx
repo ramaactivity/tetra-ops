@@ -10,6 +10,7 @@ import {
 	Package,
 	Package2,
 	Receipt,
+	StickyNote,
 	Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -71,6 +72,9 @@ interface ProjectHeroRecapProps {
 	frameSize: string | null;
 	backdropName: string | null;
 	includeFlashdiskPouch: boolean | null;
+	/** events.crew_notes — instruksi khusus hari-H. Owner ikut melihatnya di
+	    recap supaya tidak lupa mengingatkan crew. */
+	crewNotes?: string | null;
 	crewAssignments: CrewEntry[];
 	/** Interactive slot assigner (CrewSlotAssign). When provided, replaces the
 	    read-only crew list so assignment happens inline in the recap. */
@@ -118,6 +122,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 		packageDurationHours,
 		backdropName,
 		includeFlashdiskPouch,
+		crewNotes,
 		channel,
 		eventCategoryLabel,
 		crewAssignments,
@@ -262,6 +267,18 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 							muted={!includeFlashdiskPouch}
 						/>
 					</div>
+
+					{crewNotes?.trim() ? (
+						<div className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50/60 p-3 dark:border-amber-900/70 dark:bg-amber-950/20">
+							<span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-amber-700 dark:text-amber-400">
+								<StickyNote className="size-3.5" aria-hidden />
+								Catatan untuk crew
+							</span>
+							<p className="mt-1 whitespace-pre-line text-[12.5px] leading-relaxed text-foreground">
+								{crewNotes.trim()}
+							</p>
+						</div>
+					) : null}
 
 					{/* Meta tags */}
 					<div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border-subtle pt-3.5">

@@ -487,6 +487,7 @@ export default async function EventDetailPage({
 				}
 				backdropName={backdrop?.name ?? null}
 				includeFlashdiskPouch={event.include_flashdisk_pouch}
+				crewNotes={event.crew_notes}
 				crewAssignments={recapCrew}
 				crewSlot={
 					canManageCrew ? (
