@@ -658,7 +658,9 @@ export function DocumentEditor({
 				{/* ── Form ── */}
 				<div
 					className={cn(
-						"space-y-3",
+						// Satu skala untuk semua nilai field di panel ini (14px di desktop;
+						// HP tetap 16px agar iOS tidak auto-zoom).
+						"space-y-3 md:[&_input]:text-[14px]! md:[&_textarea]:text-[14px]!",
 						mobileTab === "preview" && "hidden lg:block",
 					)}
 				>
@@ -854,7 +856,7 @@ export function DocumentEditor({
 												className="w-36"
 												aria-label="Harga satuan"
 											/>
-											<span className="tabular ml-auto w-28 text-right text-[13.5px] font-semibold">
+											<span className="tabular ml-auto w-28 text-right text-[14px] font-medium">
 												{formatRupiah(it.qty * it.unit_price)}
 											</span>
 											<div className="flex items-center">
@@ -991,7 +993,7 @@ export function DocumentEditor({
 							) : null}
 							<div className="flex items-center justify-between border-t border-border-default pt-2">
 								<dt className="font-semibold">Total</dt>
-								<dd className="type-num-lg tabular">
+								<dd className="tabular text-[20px] font-semibold tracking-[-0.01em]">
 									{formatRupiah(totals.total)}
 								</dd>
 							</div>
