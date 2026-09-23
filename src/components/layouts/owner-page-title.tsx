@@ -65,6 +65,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/finance/bulanan", "Bulanan", CalendarRange],
 	["/finance/reports", "Laporan", FileBarChart],
 	["/finance/accounting", "Akuntansi", BookOpen],
+	["/finance/dokumen", "Dokumen", FileText],
 	["/finance/arsip-nota", "Arsip Nota", Archive],
 	["/finance/payables", "Hutang Dagang", Scale],
 	["/finance/vendors", "Komisi", Handshake],
@@ -79,6 +80,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/reminders", "Reminders", MessageCircle],
 	["/notifications", "Notifications", Bell],
 	["/reports", "Reports", FileText],
+	["/settings/dokumen", "Penanda Tangan", FileText],
 	["/settings", "Settings", Settings],
 ];
 

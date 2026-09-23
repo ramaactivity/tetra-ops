@@ -27,6 +27,7 @@ export type EventForPdf = {
 	session_segments: unknown;
 	venue_name: string;
 	venue_address: string | null;
+	venue_city: string | null;
 	due_date: string | null;
 	base_price: number;
 	addons_total: number;
@@ -35,6 +36,13 @@ export type EventForPdf = {
 	grand_total: number;
 	total_paid: number;
 	remaining_balance: number;
+	/** Sewa backdrop — sudah termasuk di addons_total, tapi bukan baris event_addons. */
+	backdrop_rental_total: number;
+	vendor_commission_mode: string | null;
+	vendor_commission_amount: number;
+	/** Tagihan yang benar-benar ditagihkan: grand_total dikurangi potongan
+	 *  langsung vendor (upfront_cut). Sama dengan recalculate_event_payment_status. */
+	billable_total: number;
 	legacy_invoice_number: string | null;
 	package_name: string | null;
 	package_duration_hours: number | null;
@@ -79,10 +87,11 @@ export async function fetchEventForPdf(
 			id, project_id, client_name, client_wa, client_email,
 			pic_name, pic_wa,
 			frame_size, event_date, setup_time, start_time, end_time, session_segments,
-			venue_name, venue_address,
+			venue_name, venue_address, venue_city,
 			due_date,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance,
+			backdrop_rental_total, vendor_commission_mode, vendor_commission_amount,
 			legacy_invoice_number,
 			custom_package_name, custom_package_price,
 			package:packages(name, duration_hours),
@@ -151,6 +160,12 @@ export async function fetchEventForPdf(
 		? ev.pic_contact[0]
 		: ev.pic_contact;
 
+	const grandTotal = (ev.grand_total as number) ?? 0;
+	const upfrontCut =
+		ev.vendor_commission_mode === "upfront_cut"
+			? ((ev.vendor_commission_amount as number) ?? 0)
+			: 0;
+
 	return {
 		id: ev.id as string,
 		project_id: ev.project_id as string,
@@ -167,14 +182,20 @@ export async function fetchEventForPdf(
 		session_segments: ev.session_segments ?? null,
 		venue_name: ev.venue_name as string,
 		venue_address: (ev.venue_address as string | null) ?? null,
+		venue_city: (ev.venue_city as string | null) ?? null,
 		due_date: (ev.due_date as string | null) ?? null,
 		base_price: (ev.base_price as number) ?? 0,
 		addons_total: (ev.addons_total as number) ?? 0,
 		discount_amount: (ev.discount_amount as number) ?? 0,
 		gross_up_pph_amount: (ev.gross_up_pph_amount as number) ?? 0,
-		grand_total: (ev.grand_total as number) ?? 0,
+		grand_total: grandTotal,
 		total_paid: (ev.total_paid as number) ?? 0,
 		remaining_balance: (ev.remaining_balance as number) ?? 0,
+		backdrop_rental_total: (ev.backdrop_rental_total as number) ?? 0,
+		vendor_commission_mode:
+			(ev.vendor_commission_mode as string | null) ?? null,
+		vendor_commission_amount: (ev.vendor_commission_amount as number) ?? 0,
+		billable_total: Math.max(0, grandTotal - upfrontCut),
 		legacy_invoice_number: (ev.legacy_invoice_number as string | null) ?? null,
 		package_name: pkg?.name ?? null,
 		package_duration_hours: pkg?.duration_hours ?? null,
@@ -245,6 +266,17 @@ export function buildLineItems(ev: EventForPdf) {
 			quantity: a.quantity,
 			unitPrice: a.unit_price,
 			total: a.total_price,
+		});
+	}
+
+	// Sewa backdrop ikut addons_total tapi tidak punya baris event_addons —
+	// tanpa baris ini subtotal PDF tidak pernah cocok dengan grand_total.
+	if (ev.backdrop_rental_total > 0) {
+		items.push({
+			label: "Sewa backdrop",
+			quantity: 1,
+			unitPrice: ev.backdrop_rental_total,
+			total: ev.backdrop_rental_total,
 		});
 	}
 

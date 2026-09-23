@@ -98,6 +98,11 @@ const NAV_SECTIONS: NavSection[] = [
 						icon: BookOpen,
 					},
 					{
+						href: "/finance/dokumen",
+						label: "Dokumen",
+						icon: FileText,
+					},
+					{
 						href: "/finance/arsip-nota",
 						label: "Arsip Nota",
 						icon: Archive,

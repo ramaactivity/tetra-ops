@@ -2,6 +2,7 @@
 
 import { BookOpen, ExternalLink, Loader2, RotateCcw } from "lucide-react";
 import { useState, useTransition } from "react";
+import { ReceiptButton } from "@/components/documents/receipt-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,6 +147,7 @@ function PaymentItem({
 			</div>
 
 			<div className="flex shrink-0 items-center gap-0.5">
+				{!payment.is_reversed && <ReceiptButton paymentId={payment.id} />}
 				{payment.journal_ref && (
 					<Button
 						variant="ghost"

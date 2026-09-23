@@ -32,7 +32,7 @@ import {
 	type ProjectHeroRecapCrew,
 } from "@/components/operations/project-hero-recap";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
-import { PdfDownloadMenu } from "@/components/pdf/download-menu";
+import { DocumentMenu } from "@/components/documents/document-menu";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
@@ -398,24 +398,12 @@ export default async function EventDetailPage({
 							templates={templates}
 							size="sm"
 						/>
-						<PdfDownloadMenu
-							options={[
-								{
-									label: "Invoice",
-									href: `/api/pdf/invoice/${event.project_id}`,
-									hint: "Tagihan ke klien",
-								},
-								{
-									label: "Quotation",
-									href: `/api/pdf/quotation/${event.project_id}`,
-									hint: "Estimasi pre-DP",
-								},
-								{
-									label: "BAST",
-									href: `/api/pdf/bast/${event.project_id}`,
-									hint: "Berita Acara Serah Terima",
-								},
-							]}
+						<DocumentMenu
+							eventId={event.id}
+							isPaid={
+								Number(event.remaining_balance) <= 0 &&
+								Number(event.total_paid) > 0
+							}
 						/>
 						<Link
 							href={`/operations/${event.project_id}/edit`}

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PaymentStatusDot } from "@/components/badges/status-badge";
+import { DocumentMenu } from "@/components/documents/document-menu";
 import {
 	SendWhatsAppButton,
 	type WhatsAppTemplate,
@@ -101,6 +102,11 @@ export function BillingListTable({ events, templates }: Props) {
 					<Receipt className="size-3.5 shrink-0" />
 					Payments
 				</Link>
+				<DocumentMenu
+					eventId={ev.id}
+					isPaid={ev.remaining_balance <= 0 && ev.total_paid > 0}
+					label="Invoice"
+				/>
 			</>
 		);
 	}

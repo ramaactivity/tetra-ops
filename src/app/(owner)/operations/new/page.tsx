@@ -10,6 +10,8 @@ import {
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
+import { quotationToBookingDefaults } from "@/lib/documents/booking-defaults";
+import { loadDocument } from "@/lib/documents/load";
 import {
 	fetchSalesCandidates,
 	fetchVendorCandidates,
@@ -17,7 +19,12 @@ import {
 } from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function NewBookingPage() {
+export default async function NewBookingPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ fromQuotation?: string }>;
+}) {
+	const { fromQuotation } = await searchParams;
 	const supabase = await createClient();
 	const [
 		{ data: packages },
@@ -74,6 +81,17 @@ export default async function NewBookingPage() {
 		return 2;
 	})();
 
+	// Deal dari quotation: form terisi dari isi quotation, invoice ikut lahir
+	// saat booking disimpan (lihat createBooking).
+	const quotation = fromQuotation ? await loadDocument(fromQuotation) : null;
+	const fromQuotationDefaults =
+		quotation && quotation.doc_type === "quotation"
+			? quotationToBookingDefaults(
+					quotation,
+					(packages ?? []) as PackageOption[],
+				)
+			: undefined;
+
 	return (
 		<Container size="xl" className="space-y-3">
 			<PageHeader
@@ -82,9 +100,17 @@ export default async function NewBookingPage() {
 				backLabel="Operations"
 				description="Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew dan DP setelah save."
 			/>
+			{fromQuotationDefaults ? (
+				<div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
+					Diisi dari quotation <span className="font-semibold">{quotation?.doc_number}</span>.
+					Lengkapi yang kurang lalu simpan — invoice akan dibuat otomatis dari quotation ini.
+				</div>
+			) : null}
 			<div>
 				<BookingForm
 					action={createBooking}
+					defaults={fromQuotationDefaults}
+					sourceQuotationId={fromQuotationDefaults ? quotation?.id : undefined}
 					packages={(packages ?? []) as PackageOption[]}
 					addons={(addons ?? []) as AddonOption[]}
 					backdrops={(backdrops ?? []) as BackdropOption[]}

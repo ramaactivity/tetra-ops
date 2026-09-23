@@ -11,6 +11,7 @@ const TABS = [
 	{ href: "/settings/audit-log", label: "Log Audit" },
 	{ href: "/settings/assembly", label: "Resep Bahan" },
 	{ href: "/settings/cutoff", label: "Cutoff" },
+	{ href: "/settings/dokumen", label: "Dokumen" },
 ];
 
 export function SettingsTabs() {

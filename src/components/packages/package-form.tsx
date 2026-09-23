@@ -34,7 +34,7 @@ type Defaults = Partial<
 		| "base_price"
 		| "description"
 		| "is_active"
-	>
+	> & { quotation_includes: string[] | null }
 >;
 
 export function PackageForm({
@@ -173,6 +173,26 @@ export function PackageForm({
 						maxLength={500}
 						defaultValue={get("description", defaults?.description ?? "")}
 						placeholder="Detail tambahan tentang paket ini…"
+						toolbar={false}
+					/>
+				</Field>
+
+				<Field
+					label="Include di quotation"
+					name="quotation_includes"
+					error={err("quotation_includes")}
+					hint="Satu poin per baris. Kosongkan untuk memakai template kategori; {hours} diganti durasi paket."
+				>
+					<RichTextarea
+						id="quotation_includes"
+						name="quotation_includes"
+						rows={5}
+						maxLength={2000}
+						defaultValue={get(
+							"quotation_includes",
+							defaults?.quotation_includes?.join("\n") ?? "",
+						)}
+						placeholder={"Unlimited photo & print {hours} hours\n2 professional crews\nCustom template design"}
 						toolbar={false}
 					/>
 				</Field>

@@ -2,6 +2,7 @@
 
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { createInvoiceFromQuotation } from "@/lib/actions/documents";
 import { z } from "zod";
 import { createEventFolderInternal } from "@/lib/actions/drive";
 import { ensureVendorContact } from "@/lib/actions/vendors";
@@ -254,6 +255,8 @@ export type BookingFormState =
 			ok: true;
 			projectId: string;
 			isUpdate?: boolean;
+			/** Terisi kalau booking lahir dari quotation → invoice ikut dibuat. */
+			invoiceId?: string;
 	  }
 	| undefined;
 
@@ -1153,9 +1156,22 @@ export async function createBooking(
 		await notifyTelegramBookingCreated(inserted.id as string);
 	}
 
+	// Deal dari quotation: invoice langsung terbit dari isi quotation dan
+	// quotation ditandai Disetujui. Gagal di sini tidak membatalkan booking —
+	// invoice masih bisa dibuat dari halaman event.
+	let invoiceId: string | undefined;
+	const sourceQuotationId = String(formData.get("source_quotation_id") ?? "");
+	if (sourceQuotationId && inserted?.id) {
+		const res = await createInvoiceFromQuotation(
+			sourceQuotationId,
+			inserted.id as string,
+		);
+		if (res.ok) invoiceId = res.id;
+	}
+
 	revalidatePath("/operations");
 	revalidatePath(`/operations/${projectId}`);
-	return { ok: true, projectId };
+	return { ok: true, projectId, invoiceId };
 }
 
 export async function updateBooking(

@@ -40,6 +40,18 @@ const PackageInputSchema = z.object({
 		.max(500, "Maksimal 500 karakter")
 		.optional()
 		.transform((v) => (v ? v : null)),
+	// Poin "include" quotation, satu per baris. Kosong = template kategori.
+	quotation_includes: z
+		.string()
+		.max(2000, "Maksimal 2000 karakter")
+		.nullish()
+		.transform((v) => {
+			const lines = (v ?? "")
+				.split("\n")
+				.map((l) => l.trim())
+				.filter(Boolean);
+			return lines.length ? lines : null;
+		}),
 	is_active: z.coerce.boolean(),
 });
 
@@ -62,6 +74,7 @@ function parseFormData(formData: FormData) {
 		duration_hours: formData.get("duration_hours"),
 		base_price: formData.get("base_price"),
 		description: formData.get("description"),
+		quotation_includes: formData.get("quotation_includes"),
 		is_active: formData.get("is_active") === "on",
 	});
 }
@@ -74,6 +87,7 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		duration_hours: String(formData.get("duration_hours") ?? ""),
 		base_price: String(formData.get("base_price") ?? ""),
 		description: String(formData.get("description") ?? ""),
+		quotation_includes: String(formData.get("quotation_includes") ?? ""),
 		is_active: formData.get("is_active") === "on" ? "on" : "",
 	};
 }

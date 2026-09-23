@@ -429,6 +429,7 @@ export function BookingForm({
 	grossupRate = 2,
 	defaults,
 	submitLabel = "Save as draft",
+	sourceQuotationId,
 }: {
 	action: Action;
 	packages: PackageOption[];
@@ -441,6 +442,8 @@ export function BookingForm({
 	grossupRate?: number;
 	defaults?: BookingFormDefaults;
 	submitLabel?: string;
+	/** Booking lahir dari quotation ini → invoice dibuat otomatis saat simpan. */
+	sourceQuotationId?: string;
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
 	const router = useRouter();
@@ -490,7 +493,11 @@ export function BookingForm({
 				isUpdate: Boolean(stateOk.isUpdate),
 			});
 			const timer = setTimeout(() => {
-				router.push(`/operations/${stateOk.projectId}`);
+				router.push(
+					stateOk.invoiceId
+						? `/finance/dokumen/${stateOk.invoiceId}`
+						: `/operations/${stateOk.projectId}`,
+				);
 			}, 1100);
 			return () => clearTimeout(timer);
 		}
@@ -1503,6 +1510,13 @@ export function BookingForm({
 								aria-invalid={!!err("channel")}
 							/>
 							<input type="hidden" name="channel" value={channel} required />
+							{sourceQuotationId ? (
+								<input
+									type="hidden"
+									name="source_quotation_id"
+									value={sourceQuotationId}
+								/>
+							) : null}
 						</Field>
 					</Section>
 
