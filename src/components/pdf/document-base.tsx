@@ -2,11 +2,11 @@
  * Token + blok dasar PDF dokumen klien Tetra (quotation / invoice / kuitansi /
  * nota lunas / BAST). @react-pdf/renderer, dirender di server.
  *
- * Layout mengikuti referensi owner (23 Sep 2026): identitas usaha kiri atas,
- * judul + tanggal + nomor kanan, blok "Kepada" di kanan, tabel dengan pita
- * header, garis tegas antar baris, total di kanan dengan pita TOTAL, footer
- * tiga kolom (Pertanyaan · Info pembayaran · Syarat & ketentuan). Aksen
- * warna = tinta hitam Tetra; Inter sebagai font.
+ * Layout mengikuti referensi owner (23 Sep 2026): logo kiri, judul + tanggal
+ * + nomor kanan; "Dari" kiri & "Kepada" kanan; tabel berpita ungu dengan
+ * garis tegas; total di kanan dengan pita TOTAL; blok penutup (terima kasih +
+ * S&K di kiri, tanda tangan di POJOK KANAN BAWAH) menempel di atas footer
+ * tetap dua kolom. Inter sebagai font, ungu #5a4fb5 sebagai aksen.
  */
 
 import { Font, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
@@ -39,13 +39,21 @@ export const PDF_COLORS = {
 	muted: "#6d6c66",
 	subtle: "#a3a29b",
 	border: "#e6e5df",
-	band: "#f0efea",
-	bandSoft: "#f7f6f3",
+	bandSoft: "#f5f4fb",
 	white: "#ffffff",
 	limeText: "#3f6b1a",
 } as const;
 
 const C = PDF_COLORS;
+
+/** Geometri halaman (pt). Semua blok bawah dihitung dari sini. */
+export const PAGE = {
+	padX: 50,
+	padTop: 44,
+	footerBottom: 36,
+	footerHeight: 64,
+	signOffGap: 14,
+} as const;
 
 export const PDF_STYLES = StyleSheet.create({
 	page: {
@@ -54,18 +62,17 @@ export const PDF_STYLES = StyleSheet.create({
 		fontWeight: 400,
 		color: C.ink,
 		lineHeight: 1.4,
-		paddingTop: 44,
-		paddingHorizontal: 50,
-		// Ruang untuk footer tetap (kontak + info pembayaran) di dasar halaman.
-		paddingBottom: 104,
+		paddingTop: PAGE.padTop,
+		paddingHorizontal: PAGE.padX,
+		paddingBottom: 120, // ditimpa per halaman: lihat bottomReserve()
 	},
 
-	// ── Header: identitas usaha kiri, judul kanan
+	// ── Header: logo kiri; judul + tanggal + nomor kanan
 	header: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-start",
-		marginBottom: 22,
+		marginBottom: 24,
 	},
 	logo: {
 		width: 112,
@@ -102,17 +109,21 @@ export const PDF_STYLES = StyleSheet.create({
 		marginTop: 2,
 	},
 
-	// ── Blok "Kepada" (kanan) + info acara
-	toRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		marginBottom: 16,
+	// ── Dua kolom "Dari" / "Kepada" (grid 50/50)
+	twoCol: { flexDirection: "row", marginBottom: 22 },
+	colL: { width: "50%", paddingRight: 16 },
+	colR: { width: "50%" },
+	blockLabel: {
+		fontSize: 7.5,
+		fontWeight: 700,
+		color: C.muted,
+		textTransform: "uppercase",
+		letterSpacing: 1.1,
+		marginBottom: 4,
 	},
-	toCol: { width: "46%" },
-	toLabel: { fontSize: 9, fontWeight: 700, marginBottom: 3 },
-	toName: { fontSize: 10.5, fontWeight: 700 },
-	toLine: { fontSize: 9, lineHeight: 1.45 },
-	toMuted: { fontSize: 9, color: C.muted, lineHeight: 1.45 },
+	blockName: { fontSize: 10.5, fontWeight: 700 },
+	blockLine: { fontSize: 9, lineHeight: 1.45 },
+	blockMuted: { fontSize: 9, color: C.muted, lineHeight: 1.45 },
 
 	// ── Tabel item
 	th: {
@@ -126,30 +137,47 @@ export const PDF_STYLES = StyleSheet.create({
 	tr: {
 		flexDirection: "row",
 		gap: 10,
-		paddingVertical: 8,
+		paddingVertical: 9,
 		paddingHorizontal: 12,
 		borderBottomWidth: 1,
 		borderBottomColor: C.ink,
 	},
 	cName: { flex: 1 },
-	cPrice: { width: 90, textAlign: "left", fontWeight: 600 },
+	cPrice: { width: 92, fontWeight: 600 },
 	cQty: { width: 36, textAlign: "center" },
-	cTotal: { width: 92, textAlign: "right", fontWeight: 700 },
+	cTotal: { width: 96, textAlign: "right", fontWeight: 700 },
 	itemName: { fontSize: 10, fontWeight: 700 },
 	include: { fontSize: 7.8, lineHeight: 1.35, color: C.muted, marginTop: 1 },
 
-	// ── Bawah tabel: catatan kiri, total kanan
+	// ── Bawah tabel: kiri (pembayaran/catatan) — kanan (total)
 	afterTable: {
 		flexDirection: "row",
-		justifyContent: "space-between",
 		alignItems: "flex-start",
-		marginTop: 14,
-		gap: 24,
+		marginTop: 12,
 	},
-	noteCol: { flex: 1, paddingTop: 4 },
-	noteLabel: { fontSize: 8.5, fontWeight: 700, marginBottom: 2 },
-	noteText: { fontSize: 8.5, color: C.muted, lineHeight: 1.45 },
-	totals: { width: 236 },
+	leftCol: { width: "50%", paddingRight: 24, paddingTop: 6 },
+	rightCol: { width: "50%" },
+	sideLabel: {
+		fontSize: 7.5,
+		fontWeight: 700,
+		color: C.muted,
+		textTransform: "uppercase",
+		letterSpacing: 1.1,
+		marginBottom: 4,
+	},
+	sideText: { fontSize: 8.5, color: C.muted, lineHeight: 1.45 },
+	payRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		paddingVertical: 3,
+		borderBottomWidth: 0.75,
+		borderBottomColor: C.border,
+	},
+	payK: { fontSize: 8.5 },
+	payMeta: { fontSize: 7.8, color: C.muted },
+	payV: { fontSize: 8.5, fontWeight: 600 },
+
 	totalRow: {
 		flexDirection: "row",
 		justifyContent: "flex-end",
@@ -164,12 +192,13 @@ export const PDF_STYLES = StyleSheet.create({
 		letterSpacing: 0.4,
 	},
 	totalSep: { fontSize: 8.5, fontWeight: 700, marginHorizontal: 6 },
-	totalV: { width: 82, fontSize: 9.5, fontWeight: 600, textAlign: "right" },
+	totalV: { width: 84, fontSize: 9.5, fontWeight: 600, textAlign: "right" },
 	totalBand: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "center",
 		marginTop: 6,
+		marginBottom: 4,
 		paddingVertical: 10,
 		paddingHorizontal: 12,
 		backgroundColor: C.accent,
@@ -182,73 +211,70 @@ export const PDF_STYLES = StyleSheet.create({
 		textTransform: "uppercase",
 	},
 	totalBandV: { fontSize: 14, fontWeight: 700, color: C.white },
-	paidRow: {
-		flexDirection: "row",
-		justifyContent: "flex-end",
-		alignItems: "center",
-		paddingVertical: 3,
-		paddingHorizontal: 12,
-	},
 
-	// ── Pembayaran diterima (kiri bawah tabel)
-	miniRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		paddingVertical: 2.5,
-	},
-
-	// ── Terima kasih + tanda tangan
-	thanksRow: {
+	// ── Blok penutup (absolut, di atas footer): kiri S&K, kanan tanda tangan
+	signOff: {
+		position: "absolute",
+		left: PAGE.padX,
+		right: PAGE.padX,
+		bottom: PAGE.footerBottom + PAGE.footerHeight + PAGE.signOffGap,
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-end",
-		marginTop: 14,
 	},
-	thanks: { fontSize: 10.5, fontWeight: 700, color: C.accent },
-	sign: { width: 170 },
+	signOffLeft: { flex: 1, paddingRight: 24 },
+	thanks: { fontSize: 10.5, fontWeight: 700, color: C.accent, marginBottom: 8 },
+	termsLabel: {
+		fontSize: 7.5,
+		fontWeight: 700,
+		color: C.muted,
+		textTransform: "uppercase",
+		letterSpacing: 1.1,
+		marginBottom: 3,
+	},
+	bullet: { flexDirection: "row", gap: 4, marginBottom: 1.5 },
+	bulletDot: { width: 6, fontSize: 7.8, color: C.subtle },
+	bulletText: { flex: 1, fontSize: 7.8, lineHeight: 1.4 },
+	sign: { width: 170, alignItems: "flex-start" },
 	signLabel: { fontSize: 8.5, color: C.muted },
 	signImg: {
-		height: 40,
-		width: 120,
+		height: 44,
+		width: 130,
 		objectFit: "contain",
 		objectPosition: "left bottom",
 		marginTop: 4,
 	},
-	signSpace: { height: 40, marginTop: 4 },
+	signSpace: { height: 44, marginTop: 4 },
 	signName: { fontSize: 10, fontWeight: 700, marginTop: 5 },
 	signPos: { fontSize: 8.5, color: C.muted },
 
-	// ── Footer tiga kolom (di atas garis)
+	// ── Footer tetap dua kolom
 	footer: {
 		position: "absolute",
-		bottom: 40,
-		left: 50,
-		right: 50,
+		left: PAGE.padX,
+		right: PAGE.padX,
+		bottom: PAGE.footerBottom,
+		height: PAGE.footerHeight,
 		paddingTop: 10,
 		borderTopWidth: 1.5,
 		borderTopColor: C.accent,
 		flexDirection: "row",
-		gap: 18,
+		gap: 24,
 	},
 	footerCol: { flex: 1 },
-	footerLabel: { fontSize: 9, fontWeight: 700, marginBottom: 4 },
-	footerKv: { flexDirection: "row", gap: 4, marginBottom: 1.5 },
-	footerK: { width: 42, fontSize: 7.8, color: C.muted },
+	footerLabel: { fontSize: 8.5, fontWeight: 700, marginBottom: 3 },
+	footerKv: { flexDirection: "row", gap: 4, marginBottom: 1 },
+	footerK: { width: 44, fontSize: 7.8, color: C.muted },
 	footerV: { flex: 1, fontSize: 7.8, fontWeight: 500 },
-	footerText: { fontSize: 7.8, lineHeight: 1.4 },
-	bullet: { flexDirection: "row", gap: 4, marginBottom: 1.5 },
-	bulletDot: { width: 6, fontSize: 7.8, color: C.subtle },
-	bulletText: { flex: 1, fontSize: 7.8, lineHeight: 1.4 },
-
 	pageNo: {
 		position: "absolute",
-		bottom: 22,
-		right: 50,
+		bottom: 20,
+		right: PAGE.padX,
 		fontSize: 7.5,
 		color: C.subtle,
 	},
 
-	// ── Stempel LUNAS (gambar owner) di ruang kosong header, antara logo & judul
+	// ── Stempel LUNAS (gambar owner) di ruang kosong header
 	stamp: {
 		position: "absolute",
 		width: 130,
@@ -258,23 +284,40 @@ export const PDF_STYLES = StyleSheet.create({
 		opacity: 0.92,
 	},
 
-	// ── Utilitas
+	// ── Utilitas (kuitansi)
 	label: {
-		fontSize: 7,
-		fontWeight: 600,
+		fontSize: 7.5,
+		fontWeight: 700,
 		color: C.muted,
 		textTransform: "uppercase",
-		letterSpacing: 1.2,
-		marginBottom: 5,
+		letterSpacing: 1.1,
+		marginBottom: 4,
 	},
 	body: { fontSize: 9.5 },
-	strong: { fontSize: 10, fontWeight: 600 },
-	muted: { fontSize: 9, color: C.muted },
 	kv: { flexDirection: "row", gap: 8, marginBottom: 2.5 },
-	k: { width: 76, fontSize: 8.5, color: C.muted },
+	k: { width: 84, fontSize: 8.5, color: C.muted },
 	v: { flex: 1, fontSize: 9, fontWeight: 500 },
 	boxBand: { backgroundColor: C.bandSoft, borderRadius: 4, padding: 11 },
 });
+
+/**
+ * Ruang bawah halaman = footer + blok penutup. Tinggi S&K diperkirakan dari
+ * jumlah karakter (kolom kiri ±300pt pada 7.8pt ≈ 78 karakter per baris,
+ * ±11pt per baris). Tanda tangan ±86pt. Lebih longgar sedikit lebih aman
+ * daripada blok penutup menimpa total.
+ */
+export function bottomReserve(terms: string[], thanks: boolean): number {
+	const lines = terms.reduce(
+		(n, t) => n + Math.max(1, Math.ceil(t.length / 78)),
+		0,
+	);
+	const termsH = terms.length ? 14 + lines * 11 : 0;
+	const leftH = (thanks ? 24 : 0) + termsH;
+	const signOffH = Math.max(86, leftH);
+	return (
+		PAGE.footerBottom + PAGE.footerHeight + PAGE.signOffGap + signOffH + 18
+	);
+}
 
 export function formatRupiahForPdf(amount: number): string {
 	if (!Number.isFinite(amount)) return "Rp 0";
@@ -318,7 +361,6 @@ export function formatDateLongForPdf(iso: string | null | undefined): string {
 	return `${DAYS[d.getDay()]}, ${formatDateForPdf(iso)}`;
 }
 
-/** Header: logo kiri; judul, tanggal, nomor (+ baris meta) kanan. */
 export function PdfHeader({
 	title,
 	docNumber,
@@ -358,17 +400,17 @@ export function PdfHeader({
 	);
 }
 
-/** Identitas usaha (kolom kiri, sejajar blok "Kepada"). */
+/** Identitas usaha — kolom kiri, sejajar "Kepada". */
 export function PdfCompanyBlock() {
 	return (
-		<View style={PDF_STYLES.toCol}>
-			<Text style={PDF_STYLES.toLabel}>Dari :</Text>
-			<Text style={[PDF_STYLES.toName, { color: C.accent }]}>
+		<View style={PDF_STYLES.colL}>
+			<Text style={PDF_STYLES.blockLabel}>Dari</Text>
+			<Text style={[PDF_STYLES.blockName, { color: C.accent }]}>
 				{COMPANY.name}
 			</Text>
-			<Text style={PDF_STYLES.toMuted}>{COMPANY.city}</Text>
-			<Text style={PDF_STYLES.toMuted}>WA {COMPANY.whatsapp}</Text>
-			<Text style={PDF_STYLES.toMuted}>{COMPANY.email}</Text>
+			<Text style={PDF_STYLES.blockMuted}>{COMPANY.city}</Text>
+			<Text style={PDF_STYLES.blockMuted}>WA {COMPANY.whatsapp}</Text>
+			<Text style={PDF_STYLES.blockMuted}>{COMPANY.email}</Text>
 		</View>
 	);
 }
@@ -385,7 +427,7 @@ export function PdfPageNo() {
 	);
 }
 
-/** Footer tetap dua kolom: Pertanyaan · Info pembayaran (kuitansi/BAST tanpa rekening). */
+/** Footer tetap: Pertanyaan · Info pembayaran (opsional). */
 export function PdfFooter({
 	bank,
 }: {
@@ -418,42 +460,21 @@ export function PdfFooter({
 						<Text style={PDF_STYLES.footerLabel}>Info pembayaran</Text>
 						<View style={PDF_STYLES.footerKv}>
 							<Text style={PDF_STYLES.footerK}>Bank</Text>
-							<Text style={PDF_STYLES.footerV}>{bank.bankName}</Text>
+							<Text style={PDF_STYLES.footerV}>
+								{bank.bankName}
+								{bank.accountNumber ? ` · ${bank.accountNumber}` : ""}
+							</Text>
 						</View>
-						{bank.accountNumber ? (
-							<View style={PDF_STYLES.footerKv}>
-								<Text style={PDF_STYLES.footerK}>No. rek.</Text>
-								<Text style={PDF_STYLES.footerV}>{bank.accountNumber}</Text>
-							</View>
-						) : null}
 						<View style={PDF_STYLES.footerKv}>
 							<Text style={PDF_STYLES.footerK}>a.n.</Text>
 							<Text style={PDF_STYLES.footerV}>{bank.accountHolder}</Text>
 						</View>
+						<Text style={[PDF_STYLES.footerK, { width: "auto", marginTop: 1 }]}>
+							Kirim bukti transfer ke WhatsApp di samping.
+						</Text>
 					</>
 				) : null}
 			</View>
-			<View style={PDF_STYLES.footerCol}>
-				<Text style={PDF_STYLES.footerLabel}>{COMPANY.name}</Text>
-				<Text style={PDF_STYLES.footerText}>{COMPANY.city}</Text>
-			</View>
-		</View>
-	);
-}
-
-/** Syarat & ketentuan — di alur konten (bukan footer) karena panjangnya berubah-ubah. */
-export function PdfTerms({ terms }: { terms: string[] }) {
-	if (terms.length === 0) return null;
-	return (
-		<View style={{ marginTop: 18 }}>
-			<Text style={PDF_STYLES.footerLabel}>Syarat & ketentuan</Text>
-			{terms.map((l, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis saat render
-				<View key={i} style={PDF_STYLES.bullet}>
-					<Text style={PDF_STYLES.bulletDot}>•</Text>
-					<Text style={PDF_STYLES.bulletText}>{l}</Text>
-				</View>
-			))}
 		</View>
 	);
 }
@@ -466,7 +487,7 @@ export function PdfSignature({
 	label?: string;
 }) {
 	return (
-		<View style={PDF_STYLES.sign} wrap={false}>
+		<View style={PDF_STYLES.sign}>
 			<Text style={PDF_STYLES.signLabel}>{label}</Text>
 			{signer.signatureData ? (
 				<Image src={signer.signatureData} style={PDF_STYLES.signImg} />
@@ -490,11 +511,46 @@ export function PdfSignatureBlank({
 	label: string;
 }) {
 	return (
-		<View style={PDF_STYLES.sign} wrap={false}>
+		<View style={PDF_STYLES.sign}>
 			<Text style={PDF_STYLES.signLabel}>{label}</Text>
 			<View style={PDF_STYLES.signSpace} />
 			<Text style={PDF_STYLES.signName}>{name}</Text>
 			<Text style={PDF_STYLES.signPos}>Nama jelas & tanda tangan</Text>
+		</View>
+	);
+}
+
+/**
+ * Blok penutup di atas footer: kiri = terima kasih + S&K, kanan = tanda
+ * tangan di pojok kanan bawah. Absolut, jadi selalu di tempat yang sama.
+ */
+export function PdfSignOff({
+	thanks,
+	terms = [],
+	right,
+}: {
+	thanks?: string;
+	terms?: string[];
+	right: React.ReactNode;
+}) {
+	return (
+		<View style={PDF_STYLES.signOff}>
+			<View style={PDF_STYLES.signOffLeft}>
+				{thanks ? <Text style={PDF_STYLES.thanks}>{thanks}</Text> : null}
+				{terms.length ? (
+					<View>
+						<Text style={PDF_STYLES.termsLabel}>Syarat & ketentuan</Text>
+						{terms.map((l, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis saat render
+							<View key={i} style={PDF_STYLES.bullet}>
+								<Text style={PDF_STYLES.bulletDot}>•</Text>
+								<Text style={PDF_STYLES.bulletText}>{l}</Text>
+							</View>
+						))}
+					</View>
+				) : null}
+			</View>
+			{right}
 		</View>
 	);
 }

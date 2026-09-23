@@ -11,6 +11,7 @@ import { COMPANY, DOC_TITLE } from "@/lib/documents/types";
 import { formatPhoneLocal } from "@/lib/format";
 import { terbilangRupiah } from "@/lib/terbilang";
 import {
+	bottomReserve,
 	formatDateForPdf,
 	formatDateLongForPdf,
 	formatRupiahForPdf,
@@ -23,7 +24,7 @@ import {
 	PdfPageNo,
 	PdfSignature,
 	PdfSignatureBlank,
-	PdfTerms,
+	PdfSignOff,
 } from "./document-base";
 
 const S = PDF_STYLES;
@@ -58,27 +59,29 @@ function formatRate(r: number) {
 
 /* ───────────────────────── blok bersama ───────────────────────── */
 
-/** Blok "Kepada" di kanan: klien + acara (tanpa jam & kode event). */
+/** "Kepada" (kanan): klien + acara — tanpa jam & kode event. */
 function ToBlock({ d }: { d: PdfDocData }) {
 	const c = d.client;
 	const venue = [d.event.venue, d.event.city].filter(Boolean).join(", ");
 	return (
-		<View style={S.toCol}>
-			<Text style={S.toLabel}>Kepada :</Text>
-			<Text style={S.toName}>{c.name}</Text>
-			{c.org ? <Text style={S.toLine}>{c.org}</Text> : null}
-			{c.address ? <Text style={S.toMuted}>{c.address}</Text> : null}
+		<View style={S.colR}>
+			<Text style={S.blockLabel}>Kepada</Text>
+			<Text style={S.blockName}>{c.name}</Text>
+			{c.org ? <Text style={S.blockLine}>{c.org}</Text> : null}
+			{c.address ? <Text style={S.blockMuted}>{c.address}</Text> : null}
 			{c.phone ? (
-				<Text style={S.toMuted}>WA {formatPhoneLocal(c.phone)}</Text>
+				<Text style={S.blockMuted}>WA {formatPhoneLocal(c.phone)}</Text>
 			) : null}
-			{c.email ? <Text style={S.toMuted}>{c.email}</Text> : null}
+			{c.email ? <Text style={S.blockMuted}>{c.email}</Text> : null}
 			{d.event.date || venue ? (
 				<View style={{ marginTop: 8 }}>
-					<Text style={S.toLabel}>Acara :</Text>
+					<Text style={S.blockLabel}>Acara</Text>
 					{d.event.date ? (
-						<Text style={S.toLine}>{formatDateLongForPdf(d.event.date)}</Text>
+						<Text style={S.blockLine}>
+							{formatDateLongForPdf(d.event.date)}
+						</Text>
 					) : null}
-					{venue ? <Text style={S.toMuted}>{venue}</Text> : null}
+					{venue ? <Text style={S.blockMuted}>{venue}</Text> : null}
 				</View>
 			) : null}
 		</View>
@@ -117,12 +120,30 @@ function ItemsTable({ d }: { d: PdfDocData }) {
 	);
 }
 
-function TotalLine({ k, v }: { k: string; v: string }) {
+function TotalLine({
+	k,
+	v,
+	strong,
+	color,
+}: {
+	k: string;
+	v: string;
+	strong?: boolean;
+	color?: string;
+}) {
 	return (
 		<View style={S.totalRow}>
 			<Text style={S.totalK}>{k}</Text>
 			<Text style={S.totalSep}>:</Text>
-			<Text style={S.totalV}>{v}</Text>
+			<Text
+				style={[
+					S.totalV,
+					strong ? { fontWeight: 700 } : {},
+					color ? { color } : {},
+				]}
+			>
+				{v}
+			</Text>
 		</View>
 	);
 }
@@ -130,9 +151,12 @@ function TotalLine({ k, v }: { k: string; v: string }) {
 function Totals({ d }: { d: PdfDocData }) {
 	const t = d.totals;
 	const paid = isPaid(d);
+	const hasAdjust = t.discount > 0 || t.grossUp > 0;
+	const partial =
+		d.docType === "invoice" && d.payment && d.payment.totalPaid > 0 && !paid;
 	return (
-		<View style={S.totals} wrap={false}>
-			<TotalLine k="Subtotal" v={rp(t.subtotal)} />
+		<View style={S.rightCol}>
+			{hasAdjust ? <TotalLine k="Subtotal" v={rp(t.subtotal)} /> : null}
 			{t.grossUp > 0 ? (
 				<TotalLine
 					k={`Gross-up PPh ${formatRate(d.grossUpRate)}%`}
@@ -143,84 +167,58 @@ function Totals({ d }: { d: PdfDocData }) {
 				<TotalLine k="Diskon" v={`− ${rp(t.discount)}`} />
 			) : null}
 			<View style={S.totalBand}>
-				<Text style={S.totalBandK}>
-					{d.docType === "invoice" &&
-					d.payment &&
-					d.payment.totalPaid > 0 &&
-					!paid
-						? "Total tagihan"
-						: "Total"}
-				</Text>
+				<Text style={S.totalBandK}>{partial ? "Total tagihan" : "Total"}</Text>
 				<Text style={S.totalBandV}>{rp(t.total)}</Text>
 			</View>
 			{d.payment ? (
-				<View style={{ marginTop: 4 }}>
+				<>
 					<TotalLine k="Sudah dibayar" v={rp(d.payment.totalPaid)} />
-					<View style={S.paidRow}>
-						<Text style={S.totalK}>Sisa tagihan</Text>
-						<Text style={S.totalSep}>:</Text>
-						<Text
-							style={[
-								S.totalV,
-								{ fontWeight: 700 },
-								paid ? { color: PDF_COLORS.limeText } : {},
-							]}
-						>
-							{paid ? "LUNAS" : rp(d.payment.remaining)}
-						</Text>
-					</View>
-				</View>
+					<TotalLine
+						k="Sisa tagihan"
+						v={paid ? "LUNAS" : rp(d.payment.remaining)}
+						strong
+						color={paid ? PDF_COLORS.limeText : undefined}
+					/>
+				</>
 			) : null}
 		</View>
 	);
 }
 
 /** Kolom kiri bawah tabel: catatan + pembayaran diterima. */
-function NoteColumn({ d }: { d: PdfDocData }) {
+function LeftColumn({ d }: { d: PdfDocData }) {
 	const history = d.payment?.history ?? [];
 	return (
-		<View style={S.noteCol}>
+		<View style={S.leftCol}>
 			{d.notes ? (
 				<View style={{ marginBottom: 10 }}>
-					<Text style={S.noteLabel}>Catatan :</Text>
-					<Text style={S.noteText}>{d.notes}</Text>
+					<Text style={S.sideLabel}>Catatan</Text>
+					<Text style={S.sideText}>{d.notes}</Text>
 				</View>
 			) : null}
 			{history.length > 0 ? (
 				<View>
-					<Text style={S.noteLabel}>Pembayaran diterima :</Text>
-					{history.map((p) => (
-						<View key={p.ref} style={S.miniRow}>
-							<Text style={S.noteText}>
-								{labelType(p.type)} · {formatDateForPdf(p.date)}
-								{p.bank ? ` · ${p.bank}` : ""}
-							</Text>
-							<Text
-								style={[S.noteText, { fontWeight: 600, color: PDF_COLORS.ink }]}
-							>
-								{rp(p.amount)}
-							</Text>
+					<Text style={S.sideLabel}>Pembayaran diterima</Text>
+					{history.map((p, i) => (
+						<View
+							key={p.ref}
+							style={[
+								S.payRow,
+								i === history.length - 1 ? { borderBottomWidth: 0 } : {},
+							]}
+						>
+							<View>
+								<Text style={S.payK}>{labelType(p.type)}</Text>
+								<Text style={S.payMeta}>
+									{formatDateForPdf(p.date)}
+									{p.bank ? ` · ${p.bank}` : ""}
+								</Text>
+							</View>
+							<Text style={S.payV}>{rp(p.amount)}</Text>
 						</View>
 					))}
 				</View>
 			) : null}
-		</View>
-	);
-}
-
-function ThanksAndSignature({
-	d,
-	thanks,
-	label,
-}: {
-	d: PdfDocData;
-	thanks: string;
-	label?: string;
-}) {
-	return (
-		<View style={S.thanksRow} wrap={false}>
-			<Text style={S.thanks}>{thanks}</Text>
-			<PdfSignature signer={d.signer} label={label} />
 		</View>
 	);
 }
@@ -236,8 +234,15 @@ function BillingPage({ d }: { d: PdfDocData }) {
 		meta.push(`Jatuh tempo ${formatDateForPdf(d.dueDate)}`);
 	const showBank = d.docType === "invoice" && !paid;
 	const terms = termLines(d);
+	const thanks =
+		d.docType === "quotation"
+			? "Terima kasih atas kesempatannya."
+			: "Terima kasih atas kepercayaannya.";
 	return (
-		<Page size="A4" style={S.page}>
+		<Page
+			size="A4"
+			style={[S.page, { paddingBottom: bottomReserve(terms, true) }]}
+		>
 			<PdfHeader
 				title={DOC_TITLE[d.docType]}
 				docNumber={d.docNumber}
@@ -246,7 +251,7 @@ function BillingPage({ d }: { d: PdfDocData }) {
 				small={d.docType === "nota_lunas"}
 				stamp={paid}
 			/>
-			<View style={S.toRow}>
+			<View style={S.twoCol}>
 				<PdfCompanyBlock />
 				<ToBlock d={d} />
 			</View>
@@ -258,19 +263,15 @@ function BillingPage({ d }: { d: PdfDocData }) {
 				</Text>
 			) : null}
 			<ItemsTable d={d} />
-			<View style={S.afterTable}>
-				<NoteColumn d={d} />
+			<View style={S.afterTable} wrap={false}>
+				<LeftColumn d={d} />
 				<Totals d={d} />
 			</View>
-			<ThanksAndSignature
-				d={d}
-				thanks={
-					d.docType === "quotation"
-						? "Terima kasih atas kesempatannya."
-						: "Terima kasih atas kepercayaannya."
-				}
+			<PdfSignOff
+				thanks={thanks}
+				terms={terms}
+				right={<PdfSignature signer={d.signer} />}
 			/>
-			<PdfTerms terms={terms} />
 			<PdfFooter bank={showBank ? d.bank : null} />
 			<PdfPageNo />
 		</Page>
@@ -289,21 +290,28 @@ function ReceiptPage({ d }: { d: PdfDocData }) {
 		.join(" · ");
 	const itemsLine = d.items.map((i) => i.name).join(", ");
 	return (
-		<Page size="A4" style={S.page}>
+		<Page
+			size="A4"
+			style={[S.page, { paddingBottom: bottomReserve([], true) }]}
+		>
 			<PdfHeader
 				title={DOC_TITLE.receipt}
 				docNumber={d.docNumber}
 				date={d.issuedAt}
 				stamp={lunas}
 			/>
-			<View style={S.toRow}>
+			<View style={S.twoCol}>
 				<PdfCompanyBlock />
-				<View style={S.toCol}>
-					<Text style={S.toLabel}>Telah terima dari :</Text>
-					<Text style={S.toName}>{d.client.name}</Text>
-					{d.client.org ? <Text style={S.toLine}>{d.client.org}</Text> : null}
+				<View style={S.colR}>
+					<Text style={S.blockLabel}>Telah terima dari</Text>
+					<Text style={S.blockName}>{d.client.name}</Text>
+					{d.client.org ? (
+						<Text style={S.blockLine}>{d.client.org}</Text>
+					) : null}
 					{d.client.phone ? (
-						<Text style={S.toMuted}>WA {formatPhoneLocal(d.client.phone)}</Text>
+						<Text style={S.blockMuted}>
+							WA {formatPhoneLocal(d.client.phone)}
+						</Text>
 					) : null}
 				</View>
 			</View>
@@ -330,27 +338,26 @@ function ReceiptPage({ d }: { d: PdfDocData }) {
 				</View>
 			</View>
 
-			<View
-				style={[S.totals, { marginTop: 24, alignSelf: "flex-end" }]}
-				wrap={false}
-			>
-				<TotalLine k="Total tagihan" v={rp(r.billable)} />
-				{r.paidBefore > 0 ? (
-					<TotalLine k="Dibayar sebelumnya" v={rp(r.paidBefore)} />
-				) : null}
-				<TotalLine k="Pembayaran ini" v={rp(r.amount)} />
-				<View style={S.totalBand}>
-					<Text style={S.totalBandK}>Sisa tagihan</Text>
-					<Text style={S.totalBandV}>
-						{lunas ? "LUNAS" : rp(r.remainingAfter)}
-					</Text>
+			<View style={S.afterTable} wrap={false}>
+				<View style={S.leftCol} />
+				<View style={S.rightCol}>
+					<TotalLine k="Total tagihan" v={rp(r.billable)} />
+					{r.paidBefore > 0 ? (
+						<TotalLine k="Dibayar sebelumnya" v={rp(r.paidBefore)} />
+					) : null}
+					<TotalLine k="Pembayaran ini" v={rp(r.amount)} />
+					<View style={S.totalBand}>
+						<Text style={S.totalBandK}>Sisa tagihan</Text>
+						<Text style={S.totalBandV}>
+							{lunas ? "LUNAS" : rp(r.remainingAfter)}
+						</Text>
+					</View>
 				</View>
 			</View>
 
-			<ThanksAndSignature
-				d={d}
+			<PdfSignOff
 				thanks="Terima kasih atas pembayarannya."
-				label="Penerima,"
+				right={<PdfSignature signer={d.signer} label="Penerima," />}
 			/>
 			<PdfFooter />
 			<PdfPageNo />
@@ -369,9 +376,12 @@ function BastPage({ d }: { d: PdfDocData }) {
 			notes: i.includes[0],
 		}));
 	return (
-		<Page size="A4" style={S.page}>
+		<Page
+			size="A4"
+			style={[S.page, { paddingBottom: bottomReserve([], false) }]}
+		>
 			<PdfHeader title="BAST" docNumber={d.docNumber} date={d.issuedAt} />
-			<Text style={[S.toLabel, { marginBottom: 6 }]}>
+			<Text style={[S.blockLabel, { marginBottom: 6 }]}>
 				Berita Acara Serah Terima Layanan
 			</Text>
 			<Text style={[S.body, { lineHeight: 1.6, marginBottom: 16 }]}>
@@ -397,24 +407,19 @@ function BastPage({ d }: { d: PdfDocData }) {
 				<View key={i} style={S.tr} wrap={false}>
 					<Text style={[S.itemName, { flex: 1 }]}>{row.label}</Text>
 					<Text style={[S.body, S.cQty]}>{row.quantity}</Text>
-					<Text style={[S.muted, { width: 150 }]}>{row.notes ?? ""}</Text>
+					<Text style={[S.blockMuted, { width: 150 }]}>{row.notes ?? ""}</Text>
 				</View>
 			))}
 
 			{d.notes ? (
 				<View style={{ marginTop: 14 }}>
-					<Text style={S.noteLabel}>Catatan :</Text>
-					<Text style={S.noteText}>{d.notes}</Text>
+					<Text style={S.sideLabel}>Catatan</Text>
+					<Text style={S.sideText}>{d.notes}</Text>
 				</View>
 			) : null}
 
-			<View
-				style={{
-					flexDirection: "row",
-					justifyContent: "space-between",
-					marginTop: 30,
-				}}
-			>
+			{/* Dua tanda tangan di pojok bawah: Pihak Pertama kiri, Pihak Kedua kanan */}
+			<View style={S.signOff}>
 				<PdfSignature signer={d.signer} label="Pihak Pertama," />
 				<PdfSignatureBlank name={picName} label="Pihak Kedua," />
 			</View>
