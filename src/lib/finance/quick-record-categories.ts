@@ -160,6 +160,14 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 	},
 	{
 		id: "marketing",
+		presets: [
+			"Meta Ads",
+			"TikTok Ads",
+			"Google Ads",
+			"KOL / influencer",
+			"Cetak materi promosi",
+			"Produksi konten",
+		],
 		label: "Marketing / topup ads",
 		icon: Megaphone,
 		coa: "5-410",
