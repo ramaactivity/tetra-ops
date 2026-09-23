@@ -184,3 +184,15 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
 	overpaid: "Overpaid",
 	overdue: "Overdue",
 };
+
+/**
+ * Nomor HP untuk ditampilkan ke manusia: "81311320436" / "6281311320436" /
+ * "+62 813…" → "081311320436". Nomor yang tidak dikenali dikembalikan apa adanya.
+ */
+export function formatPhoneLocal(phone: string): string {
+	const digits = phone.replace(/\D/g, "");
+	if (!digits) return phone;
+	if (digits.startsWith("62")) return `0${digits.slice(2)}`;
+	if (digits.startsWith("8")) return `0${digits}`;
+	return digits;
+}

@@ -19,6 +19,7 @@ import {
 	type DocumentRow,
 	defaultTerms,
 } from "@/lib/documents/types";
+import { formatPhoneLocal } from "@/lib/format";
 import type { EventForPdf } from "@/lib/pdf/event-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -242,7 +243,7 @@ function clientFromEvent(ev: EventForPdf): DocClient {
 	return {
 		name: ev.client_name,
 		org: null,
-		phone: ev.client_wa,
+		phone: ev.client_wa ? formatPhoneLocal(ev.client_wa) : null,
 		email: ev.client_email,
 		address: null,
 	};
@@ -351,7 +352,8 @@ export async function ensureInvoiceForEvent(
 				signer_name: signer?.name ?? null,
 				signer_position: signer?.position ?? null,
 				issued_at: todayISO(),
-				due_date: ev.due_date,
+				// Jatuh tempo standar H-1 sebelum acara (bisa diganti chip di editor).
+				due_date: addDays(ev.event_date, -1),
 				status: "sent",
 				created_by: me.profile.id,
 			})
@@ -490,7 +492,7 @@ export async function createInvoiceFromQuotation(
 
 	const { data: ev } = await supabase
 		.from("events")
-		.select("project_id, due_date")
+		.select("project_id, event_date")
 		.eq("id", eventId)
 		.maybeSingle();
 	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
@@ -517,7 +519,7 @@ export async function createInvoiceFromQuotation(
 				signer_name: q.signer_name,
 				signer_position: q.signer_position,
 				issued_at: issuedAt,
-				due_date: (ev.due_date as string | null) ?? null,
+				due_date: ev.event_date ? addDays(ev.event_date as string, -1) : null,
 				status: "sent",
 				created_by: me.profile.id,
 			})

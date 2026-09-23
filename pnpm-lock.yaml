@@ -11,6 +11,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.4.1
         version: 1.4.1(@types/react@19.2.14)(date-fns@4.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@fontsource/inter':
+        specifier: '5'
+        version: 5.3.0
       '@googleapis/drive':
         specifier: ^20.1.0
         version: 20.1.0
@@ -517,6 +520,9 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@fontsource/inter@5.3.0':
+    resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
 
   '@googleapis/drive@20.1.0':
     resolution: {integrity: sha512-8/gapeLuZ3igooEGLE1AL3Zp5fjqigZQNmyjehb4QF7JVJh6FXF+72AcQGGsFypwJb2S68HIuQFomHBw4RJSOg==}
@@ -3771,6 +3777,8 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@fontsource/inter@5.3.0': {}
 
   '@googleapis/drive@20.1.0':
     dependencies:

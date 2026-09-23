@@ -2,217 +2,232 @@
  * Token + blok dasar PDF dokumen klien Tetra (quotation / invoice / kuitansi /
  * nota lunas / BAST). @react-pdf/renderer, dirender di server.
  *
- * Arah desain: editorial bersih — putih, logo Tetra di header, tipografi tegas
- * (Helvetica bawaan supaya tidak bergantung font eksternal), tinta hitam sebagai
- * satu-satunya warna kuat, hijau lime hanya untuk "LUNAS". A4 portrait.
+ * Arah desain: editorial bersih — Inter (font yang sama dengan app), tinta
+ * hitam sebagai satu-satunya warna kuat, label kecil huruf besar, garis tipis,
+ * pita hitam hanya untuk TOTAL. Stempel LUNAS memakai gambar milik owner.
  */
 
-import { Image, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Font, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+	INTER_400,
+	INTER_500,
+	INTER_600,
+	INTER_700,
+} from "@/lib/documents/fonts-data";
 import { LOGO_DATA_URL } from "@/lib/documents/logo-data";
+import { STAMP_LUNAS_DATA_URL } from "@/lib/documents/stamp-lunas-data";
 import { COMPANY } from "@/lib/documents/types";
+
+Font.register({
+	family: "Inter",
+	fonts: [
+		{ src: INTER_400, fontWeight: 400 },
+		{ src: INTER_500, fontWeight: 500 },
+		{ src: INTER_600, fontWeight: 600 },
+		{ src: INTER_700, fontWeight: 700 },
+	],
+});
+// Jangan pisahkan kata dengan tanda hubung ("kesepa-katan") — lebih rapi
+// membiarkan barisnya sedikit pendek.
+Font.registerHyphenationCallback((word) => [word]);
 
 export const PDF_COLORS = {
 	ink: "#1a1a17",
-	foreground: "#1a1a17",
 	muted: "#6d6c66",
 	subtle: "#a3a29b",
-	border: "#e9e8e2",
-	borderStrong: "#b9b8b1",
+	border: "#e6e5df",
 	band: "#f0efea",
 	bandSoft: "#f7f6f3",
 	white: "#ffffff",
-	limeBg: "#cdf2a0",
-	limeText: "#2e4d16",
-	orangeBg: "#ffe2d4",
-	orangeText: "#97350f",
-	roseText: "#d12e36",
+	limeText: "#3f6b1a",
 } as const;
+
+const C = PDF_COLORS;
 
 export const PDF_STYLES = StyleSheet.create({
 	page: {
-		fontFamily: "Helvetica",
+		fontFamily: "Inter",
 		fontSize: 9.5,
-		color: PDF_COLORS.foreground,
+		fontWeight: 400,
+		color: C.ink,
+		lineHeight: 1.4,
 		paddingTop: 40,
-		paddingHorizontal: 44,
+		paddingHorizontal: 48,
 		paddingBottom: 60,
-		lineHeight: 1.35,
 	},
-	// Header
-	headerRow: {
+
+	// ── Header
+	header: {
 		flexDirection: "row",
 		justifyContent: "space-between",
-		alignItems: "flex-start",
+		alignItems: "flex-end",
 		paddingBottom: 12,
 		borderBottomWidth: 1.5,
-		borderBottomColor: PDF_COLORS.ink,
-		marginBottom: 14,
+		borderBottomColor: C.ink,
+		marginBottom: 16,
 	},
 	logo: {
-		width: 112,
-		height: 56,
+		width: 100,
+		height: 50,
 		objectFit: "contain",
-		objectPosition: "left top",
+		objectPosition: "left bottom",
 	},
-	docTitle: {
-		fontSize: 24,
+	title: {
+		fontSize: 22,
 		lineHeight: 1,
-		fontFamily: "Helvetica-Bold",
+		fontWeight: 700,
+		letterSpacing: 2.5,
+		textAlign: "right",
+	},
+	titleSmall: {
+		fontSize: 15,
+		lineHeight: 1,
+		fontWeight: 700,
 		letterSpacing: 2,
 		textAlign: "right",
-		color: PDF_COLORS.ink,
-	},
-	docTitleSmall: {
-		fontSize: 16,
-		lineHeight: 1,
-		fontFamily: "Helvetica-Bold",
-		letterSpacing: 1.5,
-		textAlign: "right",
-		color: PDF_COLORS.ink,
 	},
 	docNumber: {
-		fontSize: 10,
-		fontFamily: "Helvetica-Bold",
+		fontSize: 9.5,
+		fontWeight: 600,
 		textAlign: "right",
-		marginTop: 8,
+		marginTop: 7,
+		color: C.muted,
 	},
-	// Label/value kecil
-	eyebrow: {
-		fontSize: 7.5,
-		fontFamily: "Helvetica-Bold",
-		color: PDF_COLORS.muted,
+
+	// ── Teks
+	label: {
+		fontSize: 7,
+		fontWeight: 600,
+		color: C.muted,
 		textTransform: "uppercase",
-		letterSpacing: 1,
-		marginBottom: 3,
+		letterSpacing: 1.2,
+		marginBottom: 5,
 	},
-	body: { fontSize: 9.5, color: PDF_COLORS.foreground },
-	bodyBold: {
-		fontSize: 10,
-		fontFamily: "Helvetica-Bold",
-		color: PDF_COLORS.foreground,
-	},
-	bodyMuted: { fontSize: 9, color: PDF_COLORS.muted },
-	twoCol: { flexDirection: "row", gap: 28, marginBottom: 14 },
-	col: { flex: 1, gap: 2 },
-	metaRow: { flexDirection: "row", gap: 6 },
-	metaKey: { width: 78, fontSize: 9, color: PDF_COLORS.muted },
-	metaVal: { flex: 1, fontSize: 9, color: PDF_COLORS.foreground },
-	// Tabel item
+	body: { fontSize: 9.5 },
+	strong: { fontSize: 10, fontWeight: 600 },
+	muted: { fontSize: 9, color: C.muted },
+	kv: { flexDirection: "row", gap: 8, marginBottom: 2.5 },
+	k: { width: 70, fontSize: 8.5, color: C.muted },
+	v: { flex: 1, fontSize: 9, fontWeight: 500 },
+
+	// ── Grid meta
+	metaRow: { flexDirection: "row", gap: 32, marginBottom: 16 },
+	metaCol: { flex: 1 },
+
+	// ── Tabel item
 	th: {
 		flexDirection: "row",
-		gap: 8,
-		backgroundColor: PDF_COLORS.ink,
-		paddingVertical: 7,
-		paddingHorizontal: 10,
+		gap: 10,
+		paddingVertical: 6,
+		paddingHorizontal: 8,
+		borderBottomWidth: 1,
+		borderBottomColor: C.ink,
 	},
 	thText: {
-		fontSize: 7.5,
-		fontFamily: "Helvetica-Bold",
-		color: PDF_COLORS.white,
+		fontSize: 7,
+		fontWeight: 600,
 		textTransform: "uppercase",
-		letterSpacing: 1,
+		letterSpacing: 1.2,
+		color: C.muted,
 	},
 	tr: {
 		flexDirection: "row",
-		gap: 8,
+		gap: 10,
 		paddingVertical: 7,
-		paddingHorizontal: 10,
-		borderBottomWidth: 1,
-		borderBottomColor: PDF_COLORS.border,
+		paddingHorizontal: 8,
+		borderBottomWidth: 0.75,
+		borderBottomColor: C.border,
 	},
-	cellName: { flex: 6 },
-	cellQty: { flex: 1, textAlign: "right", color: PDF_COLORS.muted },
-	cellPrice: { flex: 2.4, textAlign: "right" },
-	cellTotal: { flex: 2.6, textAlign: "right", fontFamily: "Helvetica-Bold" },
-	include: {
-		fontSize: 8.5,
-		lineHeight: 1.3,
-		color: PDF_COLORS.muted,
-		marginTop: 1,
-	},
-	// Total
-	totals: { marginTop: 10, alignSelf: "flex-end", width: "52%" },
+	cName: { flex: 6 },
+	cQty: { width: 28, textAlign: "right", color: C.muted },
+	cPrice: { width: 88, textAlign: "right" },
+	cTotal: { width: 92, textAlign: "right", fontWeight: 600 },
+	include: { fontSize: 8.3, lineHeight: 1.3, color: C.muted, marginTop: 0.5 },
+
+	// ── Total
+	totals: { width: 250 },
 	totalRow: {
 		flexDirection: "row",
 		justifyContent: "space-between",
-		paddingVertical: 4,
-		paddingHorizontal: 10,
+		paddingVertical: 3,
+		paddingHorizontal: 8,
 	},
-	totalKey: { fontSize: 9.5, color: PDF_COLORS.muted },
-	totalVal: { fontSize: 9.5 },
-	totalGrand: {
+	totalK: { fontSize: 9, color: C.muted },
+	totalV: { fontSize: 9.5, fontWeight: 500 },
+	totalBand: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "center",
 		marginTop: 4,
+		marginBottom: 2,
 		paddingVertical: 8,
 		paddingHorizontal: 10,
-		backgroundColor: PDF_COLORS.band,
+		backgroundColor: C.ink,
 		borderRadius: 3,
 	},
-	totalGrandKey: { fontSize: 10, fontFamily: "Helvetica-Bold" },
-	totalGrandVal: { fontSize: 13, fontFamily: "Helvetica-Bold" },
-	// Kotak
+	totalBandK: {
+		fontSize: 9,
+		fontWeight: 600,
+		color: C.white,
+		letterSpacing: 1.2,
+		textTransform: "uppercase",
+	},
+	totalBandV: { fontSize: 13.5, fontWeight: 700, color: C.white },
+
+	// ── Kotak & tabel kecil
 	box: {
-		borderWidth: 1,
-		borderColor: PDF_COLORS.border,
+		borderWidth: 0.75,
+		borderColor: C.border,
 		borderRadius: 4,
-		padding: 10,
+		padding: 11,
 	},
-	bulletRow: { flexDirection: "row", gap: 6, marginBottom: 3 },
-	bulletDot: { width: 8, fontSize: 9, color: PDF_COLORS.muted },
-	bulletText: {
-		flex: 1,
-		fontSize: 8.8,
-		color: PDF_COLORS.foreground,
-		lineHeight: 1.4,
-	},
-	// Tanda tangan
-	signRow: {
+	boxBand: { backgroundColor: C.bandSoft, borderRadius: 4, padding: 11 },
+	miniRow: {
 		flexDirection: "row",
-		justifyContent: "flex-end",
-		marginTop: 18,
-		gap: 40,
+		justifyContent: "space-between",
+		paddingVertical: 3.5,
+		borderBottomWidth: 0.75,
+		borderBottomColor: C.border,
 	},
-	signBlock: { width: 180, alignItems: "flex-start" },
+	bullet: { flexDirection: "row", gap: 6, marginBottom: 3 },
+	bulletDot: { width: 7, fontSize: 8.5, color: C.subtle },
+	bulletText: { flex: 1, fontSize: 8.5, lineHeight: 1.45 },
+
+	// ── Tanda tangan
+	sign: { width: 170 },
 	signImg: {
-		height: 48,
+		height: 46,
 		width: 120,
 		objectFit: "contain",
 		objectPosition: "left bottom",
-		marginTop: 4,
+		marginTop: 6,
 	},
-	signSpace: { height: 48, marginTop: 4 },
-	signName: { fontSize: 10, fontFamily: "Helvetica-Bold", marginTop: 4 },
-	signPos: { fontSize: 8.5, color: PDF_COLORS.muted },
-	// Footer
+	signSpace: { height: 46, marginTop: 6 },
+	signName: { fontSize: 10, fontWeight: 700, marginTop: 6 },
+	signPos: { fontSize: 8.5, color: C.muted },
+
+	// ── Footer
 	footer: {
 		position: "absolute",
-		bottom: 28,
-		left: 44,
-		right: 44,
-		paddingTop: 10,
-		borderTopWidth: 1,
-		borderTopColor: PDF_COLORS.border,
+		bottom: 30,
+		left: 48,
+		right: 48,
+		paddingTop: 9,
+		borderTopWidth: 0.75,
+		borderTopColor: C.border,
 		flexDirection: "row",
 		justifyContent: "space-between",
-		alignItems: "center",
 	},
-	footerText: { fontSize: 7.5, color: PDF_COLORS.subtle },
-	// Stempel
-	// Duduk di ruang kosong header, antara logo dan judul.
+	footerText: { fontSize: 7.5, color: C.subtle },
+
+	// ── Stempel LUNAS (gambar owner) di ruang kosong header, antara logo & judul
 	stamp: {
 		position: "absolute",
-		top: 52,
-		left: 210,
-		paddingVertical: 5,
-		paddingHorizontal: 14,
-		borderWidth: 2,
-		borderRadius: 4,
-		fontSize: 16,
-		fontFamily: "Helvetica-Bold",
-		letterSpacing: 3,
+		width: 128,
+		left: 150,
+		top: 2,
 		transform: "rotate(-8deg)",
+		opacity: 0.92,
 	},
 });
 
@@ -262,16 +277,20 @@ export function PdfHeader({
 	title,
 	docNumber,
 	small,
+	stamp,
 }: {
 	title: string;
 	docNumber: string;
 	small?: boolean;
+	/** Tampilkan stempel LUNAS milik owner. */
+	stamp?: boolean;
 }) {
 	return (
-		<View style={PDF_STYLES.headerRow} fixed>
+		<View style={[PDF_STYLES.header, { position: "relative" }]} fixed>
 			<Image src={LOGO_DATA_URL} style={PDF_STYLES.logo} />
+			{stamp ? <PdfStampLunas /> : null}
 			<View>
-				<Text style={small ? PDF_STYLES.docTitleSmall : PDF_STYLES.docTitle}>
+				<Text style={small ? PDF_STYLES.titleSmall : PDF_STYLES.title}>
 					{title}
 				</Text>
 				<Text style={PDF_STYLES.docNumber}>No. {docNumber}</Text>
@@ -295,19 +314,26 @@ export function PdfFooter() {
 	);
 }
 
+export function Kv({ k, v }: { k: string; v: string | null | undefined }) {
+	if (!v) return null;
+	return (
+		<View style={PDF_STYLES.kv}>
+			<Text style={PDF_STYLES.k}>{k}</Text>
+			<Text style={PDF_STYLES.v}>{v}</Text>
+		</View>
+	);
+}
+
 export function PdfSignature({
 	signer,
 	label = "Hormat kami,",
-	place,
 }: {
 	signer: { name: string; position: string; signatureData: string | null };
 	label?: string;
-	place?: string;
 }) {
 	return (
-		<View style={PDF_STYLES.signBlock} wrap={false}>
-			{place ? <Text style={PDF_STYLES.bodyMuted}>{place}</Text> : null}
-			<Text style={PDF_STYLES.body}>{label}</Text>
+		<View style={PDF_STYLES.sign} wrap={false}>
+			<Text style={PDF_STYLES.muted}>{label}</Text>
 			{signer.signatureData ? (
 				<Image src={signer.signatureData} style={PDF_STYLES.signImg} />
 			) : (
@@ -321,7 +347,7 @@ export function PdfSignature({
 	);
 }
 
-/** Kolom tanda tangan kosong (untuk klien di BAST). */
+/** Kolom tanda tangan kosong (klien di BAST). */
 export function PdfSignatureBlank({
 	name,
 	label,
@@ -330,8 +356,8 @@ export function PdfSignatureBlank({
 	label: string;
 }) {
 	return (
-		<View style={PDF_STYLES.signBlock} wrap={false}>
-			<Text style={PDF_STYLES.body}>{label}</Text>
+		<View style={PDF_STYLES.sign} wrap={false}>
+			<Text style={PDF_STYLES.muted}>{label}</Text>
 			<View style={PDF_STYLES.signSpace} />
 			<Text style={PDF_STYLES.signName}>{name}</Text>
 			<Text style={PDF_STYLES.signPos}>Nama jelas & tanda tangan</Text>
@@ -339,35 +365,8 @@ export function PdfSignatureBlank({
 	);
 }
 
-export function PdfStamp({
-	text,
-	tone,
-}: {
-	text: string;
-	tone: "lime" | "orange" | "ink";
-}) {
-	const color =
-		tone === "lime"
-			? PDF_COLORS.limeText
-			: tone === "orange"
-				? PDF_COLORS.orangeText
-				: PDF_COLORS.ink;
-	const bg =
-		tone === "lime"
-			? PDF_COLORS.limeBg
-			: tone === "orange"
-				? PDF_COLORS.orangeBg
-				: PDF_COLORS.white;
-	return (
-		<Text
-			style={[
-				PDF_STYLES.stamp,
-				{ color, borderColor: color, backgroundColor: bg },
-			]}
-		>
-			{text}
-		</Text>
-	);
+export function PdfStampLunas() {
+	return <Image src={STAMP_LUNAS_DATA_URL} style={PDF_STYLES.stamp} />;
 }
 
 export function PdfBullets({ lines }: { lines: string[] }) {
@@ -375,7 +374,7 @@ export function PdfBullets({ lines }: { lines: string[] }) {
 		<View>
 			{lines.map((l, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis saat render
-				<View key={i} style={PDF_STYLES.bulletRow}>
+				<View key={i} style={PDF_STYLES.bullet}>
 					<Text style={PDF_STYLES.bulletDot}>•</Text>
 					<Text style={PDF_STYLES.bulletText}>{l}</Text>
 				</View>

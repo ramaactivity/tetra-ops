@@ -15,6 +15,7 @@ import {
 	loadDocument,
 	loadEventForPdfById,
 } from "@/lib/documents/load";
+import { formatPhoneLocal } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,8 @@ export default async function DocumentPage({
 		client: {
 			name: doc.client.name ?? "",
 			org: doc.client.org ?? "",
-			phone: doc.client.phone ?? "",
+			// Dokumen lama menyimpan nomor tanpa 0 di depan — rapikan saat dimuat.
+			phone: doc.client.phone ? formatPhoneLocal(doc.client.phone) : "",
 			email: doc.client.email ?? "",
 			address: doc.client.address ?? "",
 		},

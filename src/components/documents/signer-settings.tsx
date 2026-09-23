@@ -164,7 +164,7 @@ export function SignerSettings({ signers }: { signers: DocumentSigner[] }) {
 	);
 }
 
-function SignerDialog({
+export function SignerDialog({
 	signer,
 	onClose,
 }: {

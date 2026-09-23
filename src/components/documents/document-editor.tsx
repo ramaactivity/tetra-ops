@@ -3,6 +3,7 @@
 import {
 	ArrowDown,
 	ArrowUp,
+	CalendarDays,
 	Check,
 	ChevronDown,
 	Copy,
@@ -10,6 +11,7 @@ import {
 	Eye,
 	FileText,
 	Handshake,
+	ImagePlus,
 	Loader2,
 	MessageCircle,
 	PenLine,
@@ -57,10 +59,12 @@ import {
 } from "@/lib/actions/documents";
 import { computeTotals } from "@/lib/documents/totals";
 import {
+	addDays,
 	DOC_TYPE_LABEL,
 	type DocItem,
 	type DocStatus,
 	type DocumentSigner,
+	DUE_PRESETS,
 	defaultTerms,
 	includesForPackage,
 } from "@/lib/documents/types";
@@ -70,6 +74,7 @@ import { whatsappUrl } from "@/lib/whatsapp";
 import { ClientPicker } from "./client-picker";
 import { DocStatusBadge } from "./document-status-badge";
 import { PdfPreview } from "./pdf-preview";
+import { SignerDialog } from "./signer-settings";
 
 export type EditorDoc = Omit<
 	DocumentDraftInput,
@@ -204,13 +209,17 @@ export function DocumentEditor({
 	function toggleGrossUp() {
 		setDoc((d) => {
 			const next = !d.gross_up_enabled;
+			const h = hMinusOf(
+				d.due_date ?? null,
+				linkedEvent?.event_date ?? d.event_info?.date ?? null,
+			);
 			const untouched =
 				!d.terms ||
-				d.terms === defaultTerms(d.doc_type, Boolean(d.gross_up_enabled));
+				d.terms === defaultTerms(d.doc_type, Boolean(d.gross_up_enabled), h);
 			return {
 				...d,
 				gross_up_enabled: next,
-				terms: untouched ? defaultTerms(d.doc_type, next) : d.terms,
+				terms: untouched ? defaultTerms(d.doc_type, next, h) : d.terms,
 			};
 		});
 	}
@@ -401,6 +410,29 @@ export function DocumentEditor({
 			})),
 		[addons],
 	);
+
+	// Tanggal acara untuk chip jatuh tempo: dari event (invoice) atau isian (quotation).
+	const eventDate = linkedEvent?.event_date ?? doc.event_info?.date ?? null;
+	const hMinus = hMinusOf(doc.due_date ?? null, eventDate);
+	const currentSigner = signers.find((x) => x.id === doc.signer_id) ?? null;
+	const [signerDialog, setSignerDialog] = useState<DocumentSigner | null>(null);
+
+	function setDueH(n: number) {
+		if (!eventDate) return;
+		setDoc((d) => {
+			const prev = hMinusOf(d.due_date ?? null, eventDate);
+			const untouched =
+				!d.terms ||
+				d.terms === defaultTerms(d.doc_type, Boolean(d.gross_up_enabled), prev);
+			return {
+				...d,
+				due_date: addDays(eventDate, -n),
+				terms: untouched
+					? defaultTerms(d.doc_type, Boolean(d.gross_up_enabled), n)
+					: d.terms,
+			};
+		});
+	}
 
 	const signerOptions = signers.map((s) => ({
 		value: s.id,
@@ -596,9 +628,16 @@ export function DocumentEditor({
 
 					{paymentsPanel}
 
-					{/* Klien */}
+					{/* Klien & acara */}
 					<section className={CARD}>
-						<h2 className="type-heading">Klien</h2>
+						<SectionTitle
+							title="Klien & acara"
+							hint={
+								linkedEvent
+									? "Jadwal & lokasi mengikuti data event."
+									: "Tanggal acara boleh kosong dulu untuk penawaran."
+							}
+						/>
 						<Field label="Nama klien">
 							<ClientPicker
 								name={doc.client.name}
@@ -622,7 +661,7 @@ export function DocumentEditor({
 								<TextField
 									value={doc.client.org ?? ""}
 									onChange={(e) => patchClient("org", e.target.value)}
-									placeholder="PT Mahaka · SMA 1 Bogor"
+									placeholder="opsional"
 								/>
 							</Field>
 							<Field label="WhatsApp">
@@ -647,74 +686,167 @@ export function DocumentEditor({
 								/>
 							</Field>
 						</div>
-					</section>
 
-					{/* Acara */}
-					<section className={CARD}>
-						<div className="flex items-center justify-between gap-2">
-							<h2 className="type-heading">Acara</h2>
+						<div className="border-t border-border-subtle pt-3">
 							{linkedEvent ? (
-								<Link
-									href={`/operations/${linkedEvent.project_id}`}
-									className="text-[12.5px] font-medium text-link hover:underline"
-								>
-									Buka event {linkedEvent.project_id}
-								</Link>
-							) : null}
+								<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/60 px-3 py-2.5 text-[13px]">
+									<span className="inline-flex items-center gap-2">
+										<CalendarDays className="size-4 text-muted-foreground" />
+										<span className="font-medium">
+											{formatDateID(linkedEvent.event_date)}
+										</span>
+										{linkedEvent.venue_name ? (
+											<span className="text-muted-foreground">
+												· {linkedEvent.venue_name}
+											</span>
+										) : null}
+									</span>
+									<Link
+										href={`/operations/${linkedEvent.project_id}`}
+										className="text-[12.5px] font-medium text-link hover:underline"
+									>
+										Ubah di event {linkedEvent.project_id}
+									</Link>
+								</div>
+							) : (
+								<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+									<Field label="Tanggal acara">
+										<DatePicker
+											value={doc.event_info?.date ?? ""}
+											onValueChange={(v) => patchEvent("date", v)}
+											placeholder="belum pasti"
+										/>
+									</Field>
+									<Field label="Jam">
+										<TextField
+											value={doc.event_info?.time ?? ""}
+											onChange={(e) => patchEvent("time", e.target.value)}
+											placeholder="10:00–14:00"
+										/>
+									</Field>
+									<Field label="Venue">
+										<TextField
+											value={doc.event_info?.venue ?? ""}
+											onChange={(e) => patchEvent("venue", e.target.value)}
+											placeholder="Grand Savero Hotel"
+										/>
+									</Field>
+									<Field label="Kota">
+										<TextField
+											value={doc.event_info?.city ?? ""}
+											onChange={(e) => patchEvent("city", e.target.value)}
+											placeholder="Bogor"
+										/>
+									</Field>
+								</div>
+							)}
 						</div>
-						{linkedEvent ? (
-							<p className="text-[13px] text-muted-foreground">
-								Tanggal, jam, dan lokasi diambil langsung dari event —{" "}
-								<span className="text-foreground">
-									{formatDateID(linkedEvent.event_date)}
-									{linkedEvent.venue_name ? ` · ${linkedEvent.venue_name}` : ""}
-								</span>
-								. Ubah di halaman event bila perlu.
-							</p>
-						) : (
-							<div className="grid gap-3 sm:grid-cols-2">
-								<Field label="Tanggal acara">
-									<DatePicker
-										value={doc.event_info?.date ?? ""}
-										onValueChange={(v) => patchEvent("date", v)}
-										placeholder="Belum pasti? kosongkan"
-									/>
-								</Field>
-								<Field label="Jam">
-									<TextField
-										value={doc.event_info?.time ?? ""}
-										onChange={(e) => patchEvent("time", e.target.value)}
-										placeholder="10:00–14:00"
-									/>
-								</Field>
-								<Field label="Venue">
-									<TextField
-										value={doc.event_info?.venue ?? ""}
-										onChange={(e) => patchEvent("venue", e.target.value)}
-										placeholder="Grand Savero Hotel"
-									/>
-								</Field>
-								<Field label="Kota">
-									<TextField
-										value={doc.event_info?.city ?? ""}
-										onChange={(e) => patchEvent("city", e.target.value)}
-										placeholder="Bogor"
-									/>
-								</Field>
-							</div>
-						)}
 					</section>
 
 					{/* Item */}
 					<section className={CARD}>
-						<h2 className="type-heading">Item</h2>
+						<SectionTitle
+							title="Item"
+							hint="Pilih paket — daftar include terisi otomatis dan bebas diedit."
+						/>
+
+						{doc.items.length > 0 ? (
+							<ul className="space-y-2">
+								{doc.items.map((it, i) => (
+									<li
+										// biome-ignore lint/suspicious/noArrayIndexKey: item tak punya id; urutan = identitas
+										key={i}
+										className="rounded-xl border border-border-default bg-background"
+									>
+										<div className="flex flex-wrap items-center gap-2 p-2">
+											<span className="tabular w-5 text-center text-[12px] text-muted-foreground">
+												{i + 1}
+											</span>
+											<TextField
+												value={it.name}
+												onChange={(e) =>
+													updateItem(i, { name: e.target.value })
+												}
+												placeholder="Nama item"
+												className="min-w-[160px] flex-1 font-medium"
+												aria-label="Nama item"
+											/>
+											<NumberField
+												value={it.qty}
+												min={0}
+												onChange={(e) =>
+													updateItem(i, { qty: Number(e.target.value) || 0 })
+												}
+												className="w-16 text-center"
+												aria-label="Qty"
+											/>
+											<MoneyInput
+												value={it.unit_price}
+												onValueChange={(v) => updateItem(i, { unit_price: v })}
+												className="w-36"
+												aria-label="Harga satuan"
+											/>
+											<span className="tabular ml-auto w-28 text-right text-[13.5px] font-semibold">
+												{formatRupiah(it.qty * it.unit_price)}
+											</span>
+											<div className="flex items-center">
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													onClick={() => moveItem(i, -1)}
+													disabled={i === 0}
+													aria-label="Naik"
+												>
+													<ArrowUp className="size-3.5" />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													onClick={() => moveItem(i, 1)}
+													disabled={i === doc.items.length - 1}
+													aria-label="Turun"
+												>
+													<ArrowDown className="size-3.5" />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													onClick={() => removeItem(i)}
+													aria-label="Hapus"
+													className="text-rose-700"
+												>
+													<Trash2 className="size-3.5" />
+												</Button>
+											</div>
+										</div>
+										<div className="px-2 pb-2 sm:pl-9">
+											<RichTextarea
+												toolbar={false}
+												rows={1}
+												value={it.includes.join("\n")}
+												onChange={(v) =>
+													updateItem(i, { includes: v.split("\n") })
+												}
+												placeholder="Include — satu poin per baris (opsional)"
+												className="text-[13px]"
+											/>
+										</div>
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className="rounded-xl border border-dashed border-border-default px-4 py-5 text-center text-[13px] text-muted-foreground">
+								Belum ada item. Pilih paket atau add-on di bawah.
+							</p>
+						)}
+
 						<div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
 							<Combobox
 								value=""
 								onValueChange={addPackage}
 								options={packageOptions}
 								allowFreeText={false}
-								placeholder="+ Tambah paket…"
+								placeholder="+ Paket…"
 								aria-label="Tambah paket"
 							/>
 							<Combobox
@@ -722,7 +854,7 @@ export function DocumentEditor({
 								onValueChange={addAddon}
 								options={addonOptions}
 								allowFreeText={false}
-								placeholder="+ Tambah add-on…"
+								placeholder="+ Add-on…"
 								aria-label="Tambah add-on"
 							/>
 							<Button
@@ -734,97 +866,11 @@ export function DocumentEditor({
 								<Plus className="size-4" /> Baris kosong
 							</Button>
 						</div>
-
-						{doc.items.length === 0 ? (
-							<p className="rounded-xl border border-dashed border-border-default px-4 py-6 text-center text-[13px] text-muted-foreground">
-								Pilih paket di atas — daftar "include"-nya terisi otomatis dan
-								bisa diedit.
-							</p>
-						) : null}
-
-						<ul className="space-y-2">
-							{doc.items.map((it, i) => (
-								<li
-									// biome-ignore lint/suspicious/noArrayIndexKey: item tak punya id; urutan = identitas
-									key={i}
-									className="rounded-xl border border-border-default bg-background p-3"
-								>
-									<div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_72px_150px_auto]">
-										<TextField
-											value={it.name}
-											onChange={(e) => updateItem(i, { name: e.target.value })}
-											placeholder="Nama item"
-											className="font-medium"
-											aria-label="Nama item"
-										/>
-										<NumberField
-											value={it.qty}
-											min={0}
-											onChange={(e) =>
-												updateItem(i, { qty: Number(e.target.value) || 0 })
-											}
-											aria-label="Qty"
-										/>
-										<MoneyInput
-											value={it.unit_price}
-											onValueChange={(v) => updateItem(i, { unit_price: v })}
-											aria-label="Harga satuan"
-										/>
-										<div className="flex items-center justify-end gap-0.5">
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												onClick={() => moveItem(i, -1)}
-												disabled={i === 0}
-												aria-label="Naik"
-											>
-												<ArrowUp className="size-3.5" />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												onClick={() => moveItem(i, 1)}
-												disabled={i === doc.items.length - 1}
-												aria-label="Turun"
-											>
-												<ArrowDown className="size-3.5" />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												onClick={() => removeItem(i)}
-												aria-label="Hapus"
-												className="text-rose-700"
-											>
-												<Trash2 className="size-3.5" />
-											</Button>
-										</div>
-									</div>
-									<div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-										<RichTextarea
-											toolbar={false}
-											rows={2}
-											value={it.includes.join("\n")}
-											onChange={(v) =>
-												updateItem(i, { includes: v.split("\n") })
-											}
-											placeholder="Include — satu poin per baris (opsional)"
-											className="text-[13px]"
-										/>
-										<div className="self-end pb-1 text-right text-[13px] text-muted-foreground sm:w-[150px]">
-											<span className="tabular font-medium text-foreground">
-												{formatRupiah(it.qty * it.unit_price)}
-											</span>
-										</div>
-									</div>
-								</li>
-							))}
-						</ul>
 					</section>
 
 					{/* Harga */}
 					<section className={CARD}>
-						<h2 className="type-heading">Harga & pajak</h2>
+						<SectionTitle title="Harga & pajak" />
 						<div className="grid gap-3 sm:grid-cols-2">
 							<Field label="Diskon (Rp)">
 								<MoneyInput
@@ -842,7 +888,7 @@ export function DocumentEditor({
 									/>
 									<span className="text-[13px] text-muted-foreground">
 										{doc.gross_up_enabled
-											? "Tagihan dinaikkan supaya setelah dipotong"
+											? "Tagihan dinaikkan agar bersih setelah dipotong"
 											: "Klien bayar sesuai nominal"}
 									</span>
 									{doc.gross_up_enabled ? (
@@ -924,13 +970,13 @@ export function DocumentEditor({
 
 					{/* Tanggal & tanda tangan */}
 					<section className={CARD}>
-						<h2 className="type-heading">Tanggal & tanda tangan</h2>
+						<SectionTitle title="Tanggal & tanda tangan" />
 						<div className="grid gap-3 sm:grid-cols-2">
 							<Field
 								label="Tanggal terbit"
 								hint={
 									doc.id
-										? "Nomor dokumen sudah terkunci ke tanggal terbit pertama."
+										? "Nomor dokumen terkunci ke tanggal terbit pertama."
 										: undefined
 								}
 							>
@@ -946,36 +992,108 @@ export function DocumentEditor({
 										onValueChange={(v) => patch("valid_until", v)}
 										placeholder="opsional"
 									/>
+									<div className="flex flex-wrap gap-1.5 pt-1.5">
+										{[3, 7, 14].map((n) => (
+											<Chip
+												key={n}
+												active={doc.valid_until === addDays(doc.issued_at, n)}
+												onClick={() =>
+													patch("valid_until", addDays(doc.issued_at, n))
+												}
+											>
+												{n} hari
+											</Chip>
+										))}
+									</div>
 								</Field>
 							) : (
-								<Field label="Jatuh tempo">
+								<Field
+									label="Jatuh tempo"
+									hint={
+										eventDate
+											? "H-n dihitung dari tanggal acara; S&K ikut menyesuaikan."
+											: "Isi tanggal acara dulu untuk memakai H-n."
+									}
+								>
 									<DatePicker
 										value={doc.due_date ?? ""}
 										onValueChange={(v) => patch("due_date", v)}
 										placeholder="opsional"
 									/>
+									<div className="flex flex-wrap gap-1.5 pt-1.5">
+										{DUE_PRESETS.map((n) => (
+											<Chip
+												key={n}
+												active={
+													Boolean(eventDate) &&
+													doc.due_date === addDays(eventDate as string, -n)
+												}
+												disabled={!eventDate}
+												onClick={() => setDueH(n)}
+											>
+												H-{n}
+											</Chip>
+										))}
+									</div>
 								</Field>
 							)}
-							<Field label="Penanda tangan" className="sm:col-span-2">
-								<NativeSelect
-									options={signerOptions}
-									value={doc.signer_id ?? ""}
-									onValueChange={pickSigner}
-									placeholder="Pilih preset…"
-								/>
-							</Field>
-							<Field label="Nama di dokumen">
-								<TextField
-									value={doc.signer_name ?? ""}
-									onChange={(e) => patch("signer_name", e.target.value)}
-								/>
-							</Field>
-							<Field label="Jabatan">
-								<TextField
-									value={doc.signer_position ?? ""}
-									onChange={(e) => patch("signer_position", e.target.value)}
-								/>
-							</Field>
+						</div>
+
+						<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+							<div className="space-y-3">
+								<Field label="Penanda tangan">
+									<NativeSelect
+										options={signerOptions}
+										value={doc.signer_id ?? ""}
+										onValueChange={pickSigner}
+										placeholder="Pilih preset…"
+									/>
+								</Field>
+								<div className="grid gap-3 sm:grid-cols-2">
+									<Field label="Nama di dokumen">
+										<TextField
+											value={doc.signer_name ?? ""}
+											onChange={(e) => patch("signer_name", e.target.value)}
+										/>
+									</Field>
+									<Field label="Jabatan">
+										<TextField
+											value={doc.signer_position ?? ""}
+											onChange={(e) => patch("signer_position", e.target.value)}
+										/>
+									</Field>
+								</div>
+							</div>
+							<div className="space-y-1.5">
+								<span className={LABEL}>Tanda tangan</span>
+								<div className="flex h-[76px] w-full items-center justify-center rounded-xl border border-dashed border-border-default bg-background sm:w-44">
+									{currentSigner?.signature_data ? (
+										// biome-ignore lint/performance/noImgElement: data URL kecil
+										<img
+											src={currentSigner.signature_data}
+											alt={`Tanda tangan ${currentSigner.name}`}
+											className="max-h-16 max-w-[80%] object-contain"
+										/>
+									) : (
+										<span className="px-3 text-center text-[12px] text-muted-foreground">
+											{currentSigner ? "Belum ada gambar" : "Pilih preset dulu"}
+										</span>
+									)}
+								</div>
+								<Button
+									variant="outline"
+									size="sm"
+									className="w-full"
+									disabled={!currentSigner}
+									onClick={() =>
+										currentSigner && setSignerDialog(currentSigner)
+									}
+								>
+									<ImagePlus className="size-3.5" />
+									{currentSigner?.signature_data ? "Ganti" : "Unggah"} tanda
+									tangan
+								</Button>
+							</div>
 						</div>
 						{signers.length === 0 ? (
 							<p className="text-[12px] text-muted-foreground">
@@ -984,7 +1102,7 @@ export function DocumentEditor({
 									href="/settings/dokumen"
 									className="text-link hover:underline"
 								>
-									tambah penanda tangan & unggah tanda tangan
+									tambah penanda tangan
 								</Link>
 								.
 							</p>
@@ -993,7 +1111,10 @@ export function DocumentEditor({
 
 					{/* Catatan & S&K */}
 					<section className={CARD}>
-						<h2 className="type-heading">Catatan & syarat</h2>
+						<SectionTitle
+							title="Catatan & syarat"
+							hint="S&K menyesuaikan gross-up dan jatuh tempo selama belum diedit manual."
+						/>
 						<Field label="Catatan untuk klien">
 							<RichTextarea
 								toolbar={false}
@@ -1017,7 +1138,11 @@ export function DocumentEditor({
 							onClick={() =>
 								patch(
 									"terms",
-									defaultTerms(doc.doc_type, Boolean(doc.gross_up_enabled)),
+									defaultTerms(
+										doc.doc_type,
+										Boolean(doc.gross_up_enabled),
+										hMinus,
+									),
 								)
 							}
 						>
@@ -1025,6 +1150,17 @@ export function DocumentEditor({
 						</Button>
 					</section>
 				</div>
+
+				{signerDialog ? (
+					<SignerDialog
+						signer={signerDialog}
+						onClose={() => {
+							setSignerDialog(null);
+							// Muat ulang daftar preset (server props) — isi editor tetap.
+							router.refresh();
+						}}
+					/>
+				) : null}
 
 				{/* ── Preview ── */}
 				<div className={cn("lg:block", mobileTab === "form" && "hidden")}>
@@ -1037,6 +1173,57 @@ export function DocumentEditor({
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/** Selisih hari acara − jatuh tempo; 1 kalau tak bisa dihitung (default H-1). */
+function hMinusOf(due: string | null, eventDate: string | null): number {
+	if (!due || !eventDate) return 1;
+	const diff = Math.round(
+		(new Date(`${eventDate}T00:00:00`).getTime() -
+			new Date(`${due}T00:00:00`).getTime()) /
+			86_400_000,
+	);
+	return diff > 0 ? diff : 1;
+}
+
+function SectionTitle({ title, hint }: { title: string; hint?: string }) {
+	return (
+		<div>
+			<h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+			{hint ? (
+				<p className="text-[12.5px] text-muted-foreground">{hint}</p>
+			) : null}
+		</div>
+	);
+}
+
+function Chip({
+	active,
+	disabled,
+	onClick,
+	children,
+}: {
+	active: boolean;
+	disabled?: boolean;
+	onClick: () => void;
+	children: React.ReactNode;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			disabled={disabled}
+			aria-pressed={active}
+			className={cn(
+				"inline-flex h-7 items-center rounded-full border px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40",
+				active
+					? "border-[#059669] bg-[#059669] text-white"
+					: "border-border-default bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+			)}
+		>
+			{children}
+		</button>
 	);
 }
 

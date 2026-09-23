@@ -129,21 +129,28 @@ export const COMPANY = {
 } as const;
 
 /** Syarat & ketentuan baku. Kalimat pajak menyesuaikan toggle gross-up. */
-export function defaultTerms(docType: DocType, grossUp: boolean): string {
+/** Pilihan jatuh tempo relatif ke tanggal acara (chip di editor). Default H-1. */
+export const DUE_PRESETS = [1, 3, 7] as const;
+
+export function defaultTerms(
+	docType: DocType,
+	grossUp: boolean,
+	hMinus: number = 1,
+): string {
 	const tax = grossUp
 		? "Harga belum termasuk pajak (PPN/PPh) karena Tetra merupakan usaha perorangan non-PKP. Apabila terdapat kewajiban pemotongan pajak oleh pihak penyelenggara, nilai yang terpotong di-gross up sehingga jumlah yang diterima Tetra tetap sesuai nominal dasar. Pajak ditanggung pihak penyelenggara sesuai ketentuan yang berlaku."
 		: "Harga belum termasuk pajak (PPN/PPh) karena Tetra merupakan usaha perorangan non-PKP.";
 	if (docType === "quotation") {
 		return [
 			"Setelah quotation ini disetujui, kami akan menerbitkan invoice sebagai dasar pembayaran DP (booking).",
-			"Pelunasan dilakukan maksimal H-3 sebelum acara, atau sesuai kesepakatan bersama.",
+			`Pelunasan dilakukan maksimal H-${hMinus} sebelum acara, atau sesuai kesepakatan bersama.`,
 			tax,
 		].join("\n");
 	}
 	if (docType === "invoice") {
 		return [
 			"Tanggal acara terkunci setelah DP diterima.",
-			"Pelunasan dilakukan maksimal H-3 sebelum acara, atau sesuai kesepakatan bersama.",
+			`Pelunasan dilakukan maksimal H-${hMinus} sebelum acara, atau sesuai kesepakatan bersama.`,
 			tax,
 		].join("\n");
 	}
