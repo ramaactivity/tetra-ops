@@ -4,13 +4,13 @@ import type { AiTool } from "@/lib/ai/types";
 
 /**
  * Leads dari bot WhatsApp (tabel whatsapp_bot_leads). Status yang dipakai
- * bot: new → contacted → converted / lost.
+ * bot: new → contacted → converted / ignored.
  */
 export const leadsWa: AiTool = {
 	name: "leads_wa",
 	description:
 		"Calon pelanggan yang masuk lewat bot WhatsApp: nama, nomor, topik, pesan, dan status " +
-		"(new/contacted/converted/lost). Pakai untuk 'ada leads baru?', 'siapa yang belum di-follow up', " +
+		"(new/contacted/converted/ignored). Pakai untuk 'ada leads baru?', 'siapa yang belum di-follow up', " +
 		"'berapa closing minggu ini'.",
 	scope: "ops",
 	parameters: {
@@ -23,7 +23,7 @@ export const leadsWa: AiTool = {
 			status: {
 				type: "STRING",
 				description: "Filter status. Kosongkan = semua.",
-				enum: ["new", "contacted", "converted", "lost"],
+				enum: ["new", "contacted", "converted", "ignored"],
 			},
 		},
 	},

@@ -44,6 +44,12 @@ export type AiToolContext = {
 	/** Tanggal hari ini di WIB (YYYY-MM-DD) — semua tool wajib memakai ini. */
 	todayISO: string;
 	surface: "web" | "telegram" | "mcp";
+	/**
+	 * users.id yang dicatat sebagai pelaku tulisan (created_by/assigned_by).
+	 * Hanya diisi permukaan yang boleh menulis (MCP); tool tulis wajib
+	 * menolak kalau kosong.
+	 */
+	actorId?: string;
 };
 
 export type AiTool = {
@@ -56,6 +62,15 @@ export type AiTool = {
 	 * yang harus dikonfirmasi owner dulu. Tool baca = false.
 	 */
 	mutates?: boolean;
+	/**
+	 * Hanya tool tulis: validasi + ringkasan apa yang AKAN terjadi, tanpa
+	 * menyimpan. Lapisan MCP mengeksposnya sebagai tool baca `<nama>_usulan`
+	 * dan menolak `run` sebelum owner mengonfirmasi.
+	 */
+	preview?: (
+		args: Record<string, unknown>,
+		ctx: AiToolContext,
+	) => Promise<unknown>;
 	run: (args: Record<string, unknown>, ctx: AiToolContext) => Promise<unknown>;
 };
 

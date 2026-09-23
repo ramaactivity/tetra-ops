@@ -87,3 +87,82 @@ test("tools/call: sukses, error tool, tool tak dikenal, notifikasi", async () =>
 	);
 	assert.equal(notif.status, 202);
 });
+
+const tulis: AiTool = {
+	name: "tulis",
+	description: "simpan sesuatu",
+	scope: "ops",
+	mutates: true,
+	parameters: { type: "OBJECT", properties: { x: { type: "STRING" } } },
+	async preview(args) {
+		return { ringkasan: `akan simpan ${args.x}` };
+	},
+	async run(args) {
+		return { tersimpan: args.x };
+	},
+};
+
+test("tool tulis: usulan dulu, konfirmasi + actorId wajib", async () => {
+	const list = (
+		(await handleMcpRequest({ id: 1, method: "tools/list" }, [tulis], ctx))
+			.body as { result: { tools: Array<Record<string, unknown>> } }
+	).result.tools;
+	assert.deepEqual(
+		list.map((t) => [
+			t.name,
+			(t.annotations as { readOnlyHint: boolean }).readOnlyHint,
+		]),
+		[
+			["tulis_usulan", true],
+			["tulis", false],
+		],
+	);
+	assert.ok(
+		(list[1].inputSchema as { required: string[] }).required.includes(
+			"konfirmasi",
+		),
+	);
+
+	const call = async (name: string, args: unknown, c = ctx) =>
+		(
+			(
+				await handleMcpRequest(
+					{ id: 2, method: "tools/call", params: { name, arguments: args } },
+					[tulis],
+					c,
+				)
+			).body as {
+				result: { content: Array<{ text: string }>; isError: boolean };
+			}
+		).result;
+
+	const usulan = await call("tulis_usulan", { x: "a" });
+	assert.equal(usulan.isError, false);
+	assert.equal(JSON.parse(usulan.content[0].text).perlu_konfirmasi, true);
+
+	const tanpaKonfirmasi = await call("tulis", { x: "a" });
+	assert.equal(tanpaKonfirmasi.isError, true);
+
+	const tanpaActor = await call("tulis", { x: "a", konfirmasi: true });
+	assert.equal(tanpaActor.isError, true);
+
+	const jadi = await call(
+		"tulis",
+		{ x: "a", konfirmasi: true },
+		{ ...ctx, actorId: "u1" },
+	);
+	assert.equal(jadi.isError, false);
+	assert.equal(JSON.parse(jadi.content[0].text).tersimpan, "a");
+
+	// Tool baca tidak boleh punya varian _usulan.
+	const salah = await handleMcpRequest(
+		{
+			id: 3,
+			method: "tools/call",
+			params: { name: "echo_usulan", arguments: {} },
+		},
+		[echo],
+		ctx,
+	);
+	assert.ok((salah.body as { error?: unknown }).error);
+});

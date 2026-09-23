@@ -36,7 +36,8 @@ export async function* runAgent(
 ): AsyncGenerator<AiStreamEvent, void, undefined> {
 	const { messages, toolCtx, promptCtx, signal } = args;
 
-	const available = toolsForRole(toolCtx.role);
+	// Permukaan ini belum punya alur konfirmasi → tool tulis tidak dikirim.
+	const available = toolsForRole(toolCtx.role).filter((t) => !t.mutates);
 	if (available.length === 0) {
 		yield {
 			type: "error",

@@ -74,17 +74,34 @@ export async function assignCrew(
 	formData: FormData,
 ): Promise<{ error?: string }> {
 	const me = await requireOwnerLevel();
-
-	const parsed = AssignSchema.safeParse({
+	const supabase = await createClient();
+	const res = await assignCrewCore(supabase, me.authId, {
 		event_id: formData.get("event_id"),
 		user_id: formData.get("user_id"),
 		role_in_event: formData.get("role_in_event"),
 	});
+	if (!res.error) {
+		revalidatePath(`/operations/${projectId}`);
+		revalidatePath(`/operations/${projectId}/crew`);
+	}
+	return res;
+}
+
+/**
+ * Inti assign crew yang tidak bergantung pada cookie login — dipakai form di
+ * atas dan agent MCP. Fee default + notifikasi Telegram ikut di sini supaya
+ * kedua jalur berperilaku sama.
+ */
+export async function assignCrewCore(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	actorId: string,
+	raw: Record<string, unknown>,
+): Promise<{ error?: string }> {
+	const parsed = AssignSchema.safeParse(raw);
 	if (!parsed.success) {
 		return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 	}
 
-	const supabase = await createClient();
 	const fee = await resolveDefaultFee(supabase, parsed.data.user_id);
 
 	const { error } = await supabase.from("crew_assignments").insert({
@@ -92,7 +109,7 @@ export async function assignCrew(
 		user_id: parsed.data.user_id,
 		role_in_event: parsed.data.role_in_event,
 		fee_amount: fee,
-		assigned_by: me.authId,
+		assigned_by: actorId,
 	});
 
 	if (error) return { error: error.message };
@@ -108,9 +125,6 @@ export async function assignCrew(
 		parsed.data.event_id,
 		`➕ ${tgEscape(nama)} ditugaskan sebagai ${ROLE_LABEL[parsed.data.role_in_event]}`,
 	);
-
-	revalidatePath(`/operations/${projectId}`);
-	revalidatePath(`/operations/${projectId}/crew`);
 	return {};
 }
 

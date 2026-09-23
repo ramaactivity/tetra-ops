@@ -311,8 +311,8 @@ export async function recordQuickTransaction(
 	formData: FormData,
 ): Promise<QuickRecordFormState> {
 	const me = await requireOwnerLevel();
-
-	const parsed = QuickRecordSchema.safeParse({
+	const supabase = await createClient();
+	const res = await recordQuickTransactionCore(supabase, me.profile.id, {
 		direction: formData.get("direction"),
 		amount: formData.get("amount"),
 		entry_date: formData.get("entry_date"),
@@ -325,7 +325,26 @@ export async function recordQuickTransaction(
 		event_id: formData.get("event_id") ?? undefined,
 		proof_url: formData.get("proof_url") ?? undefined,
 		period_month: formData.get("period_month") ?? undefined,
+		patungan_per_owner: formData.get("patungan_per_owner") ?? 0,
 	});
+	if (res?.success) {
+		revalidatePath("/finance");
+		revalidatePath("/finance/accounting");
+	}
+	return res;
+}
+
+/**
+ * Inti Catat transaksi yang tidak bergantung pada cookie login — dipakai form
+ * Catat (di atas) dan agent MCP. Semua guard (akun aktif, saldo tidak minus,
+ * akun terkontrol) ada di sini supaya jalur mana pun lewat aturan yang sama.
+ */
+export async function recordQuickTransactionCore(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	actorProfileId: string,
+	raw: Record<string, unknown>,
+): Promise<QuickRecordFormState> {
+	const parsed = QuickRecordSchema.safeParse(raw);
 	if (!parsed.success) {
 		return { error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
 	}
@@ -381,8 +400,6 @@ export async function recordQuickTransaction(
 	// Dibukukan terpisah ke 5-600 supaya beban/counterpart tetap akurat.
 	const adminFee =
 		dir === "masuk" ? 0 : Math.max(0, parsed.data.admin_fee ?? 0);
-
-	const supabase = await createClient();
 
 	// Validate both accounts exist + are active (mirrors createManualJournalEntry).
 	const codes = Array.from(
@@ -505,7 +522,7 @@ export async function recordQuickTransaction(
 			proof_url: parsed.data.proof_url ?? null,
 			period_month: periodMonth,
 			total_amount: amount + adminFee,
-			created_by: me.profile.id,
+			created_by: actorProfileId,
 		})
 		.select("id")
 		.single();
@@ -526,7 +543,7 @@ export async function recordQuickTransaction(
 	// bisa ditelusuri sendiri. Hanya untuk uang KELUAR ke akun beban.
 	const patunganPerOwner = Math.max(
 		0,
-		Number(formData.get("patungan_per_owner") ?? 0) || 0,
+		Number(raw.patungan_per_owner ?? 0) || 0,
 	);
 	if (
 		patunganPerOwner > 0 &&
@@ -539,7 +556,7 @@ export async function recordQuickTransaction(
 			description: `Patungan owner — ${description}`,
 			periodMonth,
 			date: entry_date,
-			actorProfileId: me.profile.id,
+			actorProfileId,
 		});
 		if (!res.ok) {
 			// Pengeluarannya sudah tercatat; jangan diam-diam gagal.
@@ -549,8 +566,6 @@ export async function recordQuickTransaction(
 		}
 	}
 
-	revalidatePath("/finance");
-	revalidatePath("/finance/accounting");
 	return { success: true, refId };
 }
 

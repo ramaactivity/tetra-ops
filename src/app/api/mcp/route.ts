@@ -20,6 +20,24 @@ export const maxDuration = 60;
  * Hanya POST yang ada: GET/HEAD → 405 dari Next, dan itu yang diharapkan
  * probe Streamable HTTP milik Hermes (non-2xx = lanjut ke handshake).
  */
+/**
+ * Pelaku tulisan dari agent: owner ber-email MCP_ACTOR_EMAIL, atau kalau env
+ * itu kosong, owner aktif tertua (pola yang sama dengan cron depresiasi).
+ */
+async function resolveActorId(
+	supabase: ReturnType<typeof createAdminClient>,
+): Promise<string | null> {
+	const email = process.env.MCP_ACTOR_EMAIL?.trim();
+	let q = supabase
+		.from("users")
+		.select("id")
+		.in("role", ["owner", "super_admin"])
+		.eq("is_active", true);
+	q = email ? q.eq("email", email) : q.order("created_at");
+	const { data } = await q.limit(1).maybeSingle();
+	return (data?.id as string | undefined) ?? null;
+}
+
 export async function POST(req: NextRequest) {
 	if (!isAuthorizedBearer(req, "MCP_API_TOKEN")) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,11 +57,13 @@ export async function POST(req: NextRequest) {
 		);
 	}
 
+	const supabase = createAdminClient();
 	const reply = await handleMcpRequest(body, toolsForRole("owner"), {
-		supabase: createAdminClient(),
+		supabase,
 		role: "owner",
 		todayISO: isoDateUTC(wibNow()),
 		surface: "mcp",
+		actorId: (await resolveActorId(supabase)) ?? undefined,
 	});
 
 	if (reply.body === undefined)

@@ -1,6 +1,13 @@
 import "server-only";
 
 import {
+	akunKategoriCatat,
+	assignCrew,
+	catatTransaksi,
+	daftarCrew,
+	updateStatusLead,
+} from "@/lib/ai/tools/aksi";
+import {
 	feeCrewBelumDibayar,
 	piutang,
 	ringkasanBisnis,
@@ -46,6 +53,12 @@ const ALL_TOOLS: AiTool[] = [
 	komisiVendor,
 	bukuBulanan,
 	leadsWa,
+	daftarCrew,
+	akunKategoriCatat,
+	// Tool tulis — hanya tampil di permukaan yang punya alur konfirmasi (MCP).
+	catatTransaksi,
+	assignCrew,
+	updateStatusLead,
 ];
 
 /**
@@ -97,6 +110,11 @@ export const TOOL_LABELS: Record<string, string> = {
 	komisi_vendor: "komisi vendor",
 	buku_bulanan: "buku bulanan",
 	leads_wa: "leads WhatsApp",
+	daftar_crew: "daftar crew",
+	akun_kategori_catat: "akun & kategori catat",
+	catat_transaksi: "catat transaksi",
+	assign_crew: "penugasan crew",
+	update_status_lead: "status lead",
 };
 
 export function toolLabel(name: string): string {
