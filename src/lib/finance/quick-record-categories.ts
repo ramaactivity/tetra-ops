@@ -80,6 +80,13 @@ export type CatatCategory = {
 	 * baru ketahuan saat audit jurnal, bukan saat input.
 	 */
 	warning?: string;
+	/**
+	 * Nama layanan yang lazim dipakai untuk kategori ini. Satu akun beban
+	 * (5-400) menampung banyak langganan — tanpa nama, "Platform September"
+	 * tidak bisa dibedakan antara Claude dan VPS, dan peringatan dobel-bayar
+	 * ikut salah tuduh. Chip-nya mengisi kolom Catatan.
+	 */
+	presets?: string[];
 };
 
 /**
@@ -253,6 +260,14 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 	},
 	{
 		id: "platform",
+		presets: [
+			"Claude",
+			"VPS Sumopod",
+			"Google Drive",
+			"ChatGPT",
+			"Gemini",
+			"Domain",
+		],
 		label: "Platform / langganan app (VPS, AI, hosting)",
 		icon: Smartphone,
 		coa: "5-400",

@@ -58,6 +58,8 @@ export type PaidPeriod = {
 	refId: string;
 	entryDate: string;
 	amount: number;
+	/** Nama layanan dari keterangan ("Claude — September 2026" → "Claude"). */
+	label: string;
 };
 
 export type CatatData = {
@@ -126,7 +128,7 @@ export async function loadCatatData(): Promise<CatatData> {
 		supabase
 			.from("journal_entries")
 			.select(
-				`ref_id, entry_date, period_month, total_amount,
+				`ref_id, entry_date, period_month, total_amount, description,
 				 lines:journal_lines(account_code, debit_amount)`,
 			)
 			.not("period_month", "is", null)
@@ -144,6 +146,7 @@ export async function loadCatatData(): Promise<CatatData> {
 			entry_date: string;
 			period_month: string;
 			total_amount: number | string;
+			description: string | null;
 			lines: Array<{
 				account_code: string;
 				debit_amount: number | string;
@@ -161,6 +164,7 @@ export async function loadCatatData(): Promise<CatatData> {
 				refId: r.ref_id,
 				entryDate: r.entry_date,
 				amount: Number(r.total_amount),
+				label: (r.description ?? "").split(" — ")[0].trim(),
 			};
 		})
 		.filter((p): p is PaidPeriod => p !== null);

@@ -774,17 +774,17 @@ export function QuickRecordCore({
 	const activeCategory = findCategory(categoryId);
 	const isMonthly = direction === "keluar" && activeCategory?.monthly === true;
 	const monthlyCoa = activeCategory?.coa ?? null;
-	const alreadyPaid = isMonthly
-		? data.paidPeriods.find(
-				(p) => p.coa === monthlyCoa && p.month === periodMonth,
-			)
-		: undefined;
-	const paidMonths = isMonthly
-		? data.paidPeriods
-				.filter((p) => p.coa === monthlyCoa)
-				.map((p) => p.month)
-				.slice(0, 6)
+	// Satu akun beban bisa menampung banyak langganan, jadi kalau layanannya
+	// disebut di catatan, cocokkan sampai nama itu — tanpa ini "Claude
+	// September" ikut tertuduh dobel gara-gara "VPS September" sudah ada.
+	const serviceName = note.trim().toLowerCase();
+	const sameService = (p: { label: string }) =>
+		!serviceName || p.label.toLowerCase() === serviceName;
+	const monthlyPaid = isMonthly
+		? data.paidPeriods.filter((p) => p.coa === monthlyCoa && sameService(p))
 		: [];
+	const alreadyPaid = monthlyPaid.find((p) => p.month === periodMonth);
+	const paidMonths = monthlyPaid.map((p) => p.month).slice(0, 6);
 
 	// Peringatan kategori — muncul begitu kategori dipilih, sebelum uangnya
 	// telanjur dicatat di pos yang salah (lihat warning di quick-record-categories).
@@ -793,6 +793,41 @@ export function QuickRecordCore({
 			<div className="rounded-xl border border-amber-300/70 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
 				<p className="text-[12px] leading-relaxed text-amber-900 dark:text-amber-200">
 					{activeCategory.warning}
+				</p>
+			</div>
+		) : null;
+
+	const presetField =
+		direction === "keluar" && activeCategory?.presets?.length ? (
+			<div className="space-y-2.5">
+				<span className="eyebrow">Layanan</span>
+				<div className="flex flex-wrap gap-2">
+					{activeCategory.presets.map((name) => {
+						const active = note.trim().toLowerCase() === name.toLowerCase();
+						return (
+							<button
+								key={name}
+								type="button"
+								onClick={() => {
+									haptic("tap");
+									setNote(active ? "" : name);
+								}}
+								aria-pressed={active}
+								className={cn(
+									"press tap h-9 rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#059669]/40",
+									active
+										? "border-[#059669] bg-emerald-50 text-foreground"
+										: "border-border-subtle bg-card text-muted-foreground hover:bg-secondary",
+								)}
+							>
+								{name}
+							</button>
+						);
+					})}
+				</div>
+				<p className="text-[11.5px] text-muted-foreground">
+					Ikut jadi keterangan jurnal. Layanan lain tinggal diketik di kolom
+					Catatan.
 				</p>
 			</div>
 		) : null;
@@ -1195,6 +1230,7 @@ export function QuickRecordCore({
 							{accountField}
 							{adminFeeField}
 							{categoryWarning}
+							{presetField}
 							{periodField}
 							{patunganField}
 						</div>
@@ -1219,6 +1255,7 @@ export function QuickRecordCore({
 							{accountField}
 							{adminFeeField}
 							{categoryWarning}
+							{presetField}
 							{periodField}
 							{patunganField}
 							{amountControl}
@@ -1233,6 +1270,7 @@ export function QuickRecordCore({
 							{accountField}
 							{adminFeeField}
 							{categoryWarning}
+							{presetField}
 							{periodField}
 							{patunganField}
 							{detailsField}
