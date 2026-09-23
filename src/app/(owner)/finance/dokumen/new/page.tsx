@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 /** Quotation baru (invoice selalu dibuat dari event lewat dialog "+ Invoice"). */
 export default async function NewQuotationPage() {
-	const { packages, addons, signers, grossupRate } = await loadEditorData();
+	const { packages, addons, signers, grossupRate, venues } =
+		await loadEditorData();
 	const signer = signers.find((s) => s.is_default) ?? signers[0] ?? null;
 	const today = new Date().toISOString().slice(0, 10);
 
@@ -40,6 +41,7 @@ export default async function NewQuotationPage() {
 				packages={packages}
 				addons={addons}
 				signers={signers}
+				venues={venues}
 				grossupRate={grossupRate}
 				linkedEvent={null}
 			/>

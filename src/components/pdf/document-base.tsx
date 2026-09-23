@@ -63,7 +63,8 @@ export const PDF_STYLES = StyleSheet.create({
 		lineHeight: 1.4,
 		paddingTop: PAGE.padTop,
 		paddingHorizontal: PAGE.padX,
-		paddingBottom: PAGE.footerBottom + PAGE.footerHeight + 20,
+		// Ruang untuk footer tetap; penutup mengisi ruang tepat di atasnya.
+		paddingBottom: PAGE.footerBottom + PAGE.footerHeight + 16,
 	},
 
 	// ── Letterhead: logo + alamat kiri; judul + tanggal + nomor kanan
@@ -210,11 +211,12 @@ export const PDF_STYLES = StyleSheet.create({
 	totalBandV: { fontSize: 15, fontWeight: 700, color: C.white },
 
 	// ── Penutup: mengalir setelah total. Kiri terima kasih + S&K, kanan tanda tangan
+	// Penutup: didorong ke dasar halaman oleh PinnedBottom (spacer flexGrow).
 	signOff: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-end",
-		marginTop: 30,
+		paddingTop: 24,
 	},
 	signOffLeft: { flex: 1, paddingRight: 28 },
 	thanks: {
@@ -506,7 +508,7 @@ export function PdfSignOff({
 	right: React.ReactNode;
 }) {
 	return (
-		<View style={PDF_STYLES.signOff} wrap={false}>
+		<PinnedBottom>
 			<View style={PDF_STYLES.signOffLeft}>
 				{thanks ? <Text style={PDF_STYLES.thanks}>{thanks}</Text> : null}
 				{terms.length ? (
@@ -523,6 +525,23 @@ export function PdfSignOff({
 				) : null}
 			</View>
 			{right}
+		</PinnedBottom>
+	);
+}
+
+/**
+ * Blok yang selalu duduk di area bawah halaman terakhir (tepat di atas
+ * footer). Spacer `flexGrow: 1` menghabiskan sisa ruang halaman sehingga blok
+ * terdorong ke bawah — tanpa posisi absolut, jadi react-pdf tetap memindahkan
+ * blok ke halaman baru bila ruangnya memang tidak cukup.
+ */
+export function PinnedBottom({ children }: { children: React.ReactNode }) {
+	return (
+		<View
+			style={{ flexGrow: 1, justifyContent: "flex-end" }}
+			wrap={false}
+		>
+			<View style={PDF_STYLES.signOff}>{children}</View>
 		</View>
 	);
 }

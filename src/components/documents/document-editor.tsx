@@ -30,6 +30,7 @@ import {
 	useState,
 	useTransition,
 } from "react";
+import type { VenueOption } from "@/components/booking/booking-form";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -50,6 +51,7 @@ import {
 import { NativeSelect } from "@/components/ui/native-select";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Switch } from "@/components/ui/switch";
+import { TimePicker } from "@/components/ui/time-picker";
 import { toast } from "@/components/ui/toaster";
 import {
 	copyAsQuotation,
@@ -153,11 +155,14 @@ export function DocumentEditor({
 	grossupRate,
 	linkedEvent,
 	paymentsPanel,
+	venues = [],
 }: {
 	initial: EditorDoc;
 	packages: PackageOption[];
 	addons: AddonOption[];
 	signers: DocumentSigner[];
+	/** Master venue (sama dengan form booking) untuk quotation. */
+	venues?: VenueOption[];
 	grossupRate: number;
 	linkedEvent: LinkedEvent | null;
 	/** Panel pembayaran (server component) — hanya untuk invoice. */
@@ -410,6 +415,42 @@ export function DocumentEditor({
 			})),
 		[addons],
 	);
+
+	// Jam acara disimpan sebagai "10:00–14:00" (format yang juga dibaca
+	// booking-defaults saat quotation di-deal).
+	const [timeStart, timeEnd] = splitTime(doc.event_info?.time ?? "");
+	function setTime(start: string, end: string) {
+		patchEvent("time", start && end ? `${start}–${end}` : start || end);
+	}
+
+	const venueOptions = useMemo(
+		() =>
+			venues.map((v) => ({
+				value: v.name,
+				label: v.name,
+				sublabel: [v.city, v.address].filter(Boolean).join(" · ") || undefined,
+			})),
+		[venues],
+	);
+	const matchedVenue = venues.find(
+		(v) =>
+			v.name.trim().toLowerCase() ===
+			(doc.event_info?.venue ?? "").trim().toLowerCase(),
+	);
+	/** Kota mengikuti venue yang dipilih dari master; venue baru = kota diketik. */
+	function pickVenue(name: string) {
+		const found = venues.find(
+			(v) => v.name.trim().toLowerCase() === name.trim().toLowerCase(),
+		);
+		setDoc((d) => ({
+			...d,
+			event_info: {
+				...d.event_info,
+				venue: name,
+				city: found?.city ?? d.event_info?.city ?? "",
+			},
+		}));
+	}
 
 	// Tanggal acara untuk chip jatuh tempo: dari event (invoice) atau isian (quotation).
 	const eventDate = linkedEvent?.event_date ?? doc.event_info?.date ?? null;
@@ -718,20 +759,46 @@ export function DocumentEditor({
 										/>
 									</Field>
 									<Field label="Jam">
-										<TextField
-											value={doc.event_info?.time ?? ""}
-											onChange={(e) => patchEvent("time", e.target.value)}
-											placeholder="10:00–14:00"
-										/>
+										<div className="flex items-center gap-2">
+											<TimePicker
+												value={timeStart}
+												onValueChange={(v) => setTime(v, timeEnd)}
+												placeholder="Mulai"
+												aria-label="Jam mulai"
+												className="flex-1"
+											/>
+											<span className="text-muted-foreground">–</span>
+											<TimePicker
+												value={timeEnd}
+												onValueChange={(v) => setTime(timeStart, v)}
+												placeholder="Selesai"
+												aria-label="Jam selesai"
+												className="flex-1"
+											/>
+										</div>
 									</Field>
-									<Field label="Venue">
-										<TextField
+									<Field
+										label="Venue"
+										hint="Pilih venue tersimpan atau ketik nama baru — venue baru masuk master saat disimpan."
+									>
+										<Combobox
 											value={doc.event_info?.venue ?? ""}
-											onChange={(e) => patchEvent("venue", e.target.value)}
-											placeholder="Grand Savero Hotel"
+											onValueChange={pickVenue}
+											options={venueOptions}
+											placeholder="cth. Grand Savero Hotel"
+											allowFreeText
+											wrapOptions
+											minPopupWidth={320}
+											emptyMessage="Venue baru — tersimpan di master saat simpan"
+											aria-label="Venue"
 										/>
 									</Field>
-									<Field label="Kota">
+									<Field
+										label="Kota"
+										hint={
+											matchedVenue?.city ? "Mengikuti data venue." : undefined
+										}
+									>
 										<TextField
 											value={doc.event_info?.city ?? ""}
 											onChange={(e) => patchEvent("city", e.target.value)}
@@ -846,6 +913,8 @@ export function DocumentEditor({
 								onValueChange={addPackage}
 								options={packageOptions}
 								allowFreeText={false}
+								wrapOptions
+								minPopupWidth={360}
 								placeholder="+ Paket…"
 								aria-label="Tambah paket"
 							/>
@@ -854,6 +923,8 @@ export function DocumentEditor({
 								onValueChange={addAddon}
 								options={addonOptions}
 								allowFreeText={false}
+								wrapOptions
+								minPopupWidth={360}
 								placeholder="+ Add-on…"
 								aria-label="Tambah add-on"
 							/>
@@ -1174,6 +1245,12 @@ export function DocumentEditor({
 			</div>
 		</div>
 	);
+}
+
+function splitTime(t: string): [string, string] {
+	const m = /(\d{1,2}[:.]\d{2})?\s*[–\-—]?\s*(\d{1,2}[:.]\d{2})?/.exec(t);
+	const norm = (x?: string) => (x ? x.replace(".", ":").padStart(5, "0") : "");
+	return [norm(m?.[1]), norm(m?.[2])];
 }
 
 /** Selisih hari acara − jatuh tempo; 1 kalau tak bisa dihitung (default H-1). */

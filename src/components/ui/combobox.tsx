@@ -69,6 +69,10 @@ export interface ComboboxProps {
 	 * lags a frame behind and looks glitchy. Default false (track on scroll).
 	 */
 	closeOnScroll?: boolean;
+	/** Lebar minimum popup (px). Popup boleh lebih lebar dari trigger-nya. */
+	minPopupWidth?: number;
+	/** Label opsi boleh turun baris alih-alih terpotong "…". */
+	wrapOptions?: boolean;
 }
 
 export function Combobox({
@@ -83,6 +87,8 @@ export function Combobox({
 	id: idProp,
 	size = "default",
 	closeOnScroll = false,
+	minPopupWidth,
+	wrapOptions = false,
 	...ariaProps
 }: ComboboxProps) {
 	const fallbackId = useId();
@@ -188,8 +194,15 @@ export function Combobox({
 					placement === "below"
 						? rect.bottom + GAP
 						: rect.top - GAP, // popup will translate up via CSS
-				left: rect.left,
-				width: rect.width,
+				// Lebih lebar dari trigger bila diminta, tapi tetap di dalam viewport.
+				...(() => {
+					const width = Math.min(
+						Math.max(rect.width, minPopupWidth ?? 0),
+						window.innerWidth - EDGE * 2,
+					);
+					const left = Math.min(rect.left, window.innerWidth - EDGE - width);
+					return { left: Math.max(EDGE, left), width };
+				})(),
 				placement,
 				// Minimal 180px: kalau ruangnya benar-benar sempit, biarkan sedikit
 				// menonjol lalu di-scroll di dalam — jauh lebih baik daripada daftar
@@ -408,9 +421,16 @@ export function Combobox({
 												{isSelected ? <Check className="size-3.5" /> : null}
 											</span>
 											<div className="min-w-0 flex-1 space-y-0.5">
-												<div className="truncate">{opt.label}</div>
+												<div className={wrapOptions ? "break-words" : "truncate"}>
+													{opt.label}
+												</div>
 												{opt.sublabel ? (
-													<div className="truncate text-[11px] text-muted-foreground">
+													<div
+														className={cn(
+															"text-[11px] text-muted-foreground",
+															wrapOptions ? "break-words" : "truncate",
+														)}
+													>
 														{opt.sublabel}
 													</div>
 												) : null}

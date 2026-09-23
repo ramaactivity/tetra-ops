@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	discountFromEvent,
@@ -154,6 +155,17 @@ export async function saveDocument(
 	}
 
 	const supabase = await createClient();
+	// Venue quotation yang baru diketik masuk master venue (sama seperti form
+	// booking), supaya bisa dipilih lagi berikutnya. Gagal tidak memblokir simpan.
+	if (d.doc_type === "quotation" && d.event_info.venue) {
+		await ensureVenue({
+			name: d.event_info.venue,
+			address: null,
+			city: d.event_info.city,
+			province: null,
+			google_maps_url: null,
+		}).catch(() => null);
+	}
 	const payload = {
 		doc_type: d.doc_type,
 		event_id: d.event_id ?? null,

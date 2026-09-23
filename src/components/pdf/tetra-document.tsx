@@ -23,6 +23,7 @@ import {
 	PdfSignature,
 	PdfSignatureBlank,
 	PdfSignOff,
+	PinnedBottom,
 } from "./document-base";
 
 const S = PDF_STYLES;
@@ -245,6 +246,7 @@ function BillingPage({ d }: { d: PdfDocData }) {
 		d.docType === "quotation"
 			? "Terima kasih atas kesempatannya."
 			: "Terima kasih atas kepercayaannya.";
+	const terms = termLines(d);
 	return (
 		<Page size="A4" style={S.page}>
 			<PdfHeader
@@ -273,7 +275,7 @@ function BillingPage({ d }: { d: PdfDocData }) {
 			</View>
 			<PdfSignOff
 				thanks={thanks}
-				terms={termLines(d)}
+				terms={terms}
 				right={<PdfSignature signer={d.signer} />}
 			/>
 			<PdfFooter bank={showBank ? d.bank : null} />
@@ -412,10 +414,10 @@ function BastPage({ d }: { d: PdfDocData }) {
 			) : null}
 
 			{/* Dua tanda tangan: Pihak Pertama kiri, Pihak Kedua kanan */}
-			<View style={[S.signOff, { marginTop: 36 }]} wrap={false}>
+			<PinnedBottom>
 				<PdfSignature signer={d.signer} label="Pihak Pertama," />
 				<PdfSignatureBlank name={picName} label="Pihak Kedua," />
-			</View>
+			</PinnedBottom>
 			<PdfFooter />
 			<PdfPageNo />
 		</Page>

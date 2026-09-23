@@ -44,7 +44,8 @@ export default async function DocumentPage({
 		);
 	}
 
-	const { packages, addons, signers, grossupRate } = await loadEditorData();
+	const { packages, addons, signers, grossupRate, venues } =
+		await loadEditorData();
 
 	const initial: EditorDoc = {
 		id: doc.id,
@@ -108,6 +109,7 @@ export default async function DocumentPage({
 				packages={packages}
 				addons={addons}
 				signers={signers}
+				venues={venues}
 				grossupRate={grossupRate}
 				linkedEvent={linkedEvent}
 				paymentsPanel={
