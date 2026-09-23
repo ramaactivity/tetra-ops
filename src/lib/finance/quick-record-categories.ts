@@ -260,12 +260,17 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 	},
 	{
 		id: "platform",
+		// Diurutkan dari yang paling sering dipakai; yang di luar daftar tetap
+		// bisa diketik manual di kolom Catatan.
 		presets: [
 			"Claude",
 			"VPS Sumopod",
+			"Token AI",
+			"Google Gemini",
 			"Google Drive",
 			"ChatGPT",
-			"Gemini",
+			"Canva",
+			"CapCut",
 			"Domain",
 		],
 		label: "Platform / langganan app (VPS, AI, hosting)",
