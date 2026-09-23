@@ -49,6 +49,35 @@ export type PromptContext = {
 	surface: "web" | "telegram";
 };
 
+/**
+ * Catatan sistem singkat untuk jalur Hermes. Identitas, pengetahuan bisnis,
+ * dan aturan tool sudah hidup di profil `tetra` di VPS; di sini hanya hal
+ * yang cuma diketahui pemanggil: tanggal, siapa yang bertanya, dan format
+ * permukaan. Aksi tulis sengaja ditutup dari jalur ini karena persetujuan
+ * tulis (/approve) hanya ada di Telegram.
+ */
+export function buildHermesSystemNote(ctx: PromptContext): string {
+	const lines = [
+		`Kamu dipanggil dari ${
+			ctx.surface === "web"
+				? 'halaman "Tanya Tetra" di aplikasi Tetra Ops'
+				: "perintah /tanya bot Telegram Tetra Ops"
+		}, bukan dari topic Tetra.`,
+		`Hari ini: ${tanggalPanjang(ctx.todayISO)} (${ctx.todayISO}), WIB.`,
+		ctx.userName
+			? `Yang bertanya: ${ctx.userName} (owner).`
+			: "Yang bertanya: owner.",
+		"Jawab singkat, bahasa Indonesia santai, uang format Rp 1.250.000, tanggal manusiawi.",
+		"Jangan sebut nama tool atau istilah teknis.",
+		ctx.surface === "web"
+			? "Boleh daftar berpoin sederhana. Tanpa judul, tanpa tabel."
+			: "Maksimal sekitar 10 baris. Tebal pakai <b>…</b> (HTML), bukan markdown. Tanpa heading.",
+		"Dari permukaan ini kamu TIDAK boleh menulis data. Kalau diminta mencatat atau mengubah sesuatu,",
+		"tampilkan usulannya (tool _usulan) lalu minta owner mengonfirmasi lewat topic Tetra di Telegram.",
+	];
+	return lines.join("\n");
+}
+
 export function buildSystemPrompt(ctx: PromptContext): string {
 	const isOwner = ctx.role === "owner" || ctx.role === "super_admin";
 

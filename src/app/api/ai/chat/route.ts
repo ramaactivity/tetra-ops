@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
 	if (me.profile.role === "pending_approval" || !me.profile.is_active) {
 		return Response.json({ error: "Akun belum aktif" }, { status: 403 });
 	}
+	// Tanya Tetra khusus owner (halamannya pun hanya ada di grup route owner).
+	if (me.profile.role !== "owner" && me.profile.role !== "super_admin") {
+		return Response.json(
+			{ error: "Fitur ini hanya untuk owner" },
+			{ status: 403 },
+		);
+	}
 
 	let messages: AiChatMessage[];
 	try {

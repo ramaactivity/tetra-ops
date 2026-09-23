@@ -8,7 +8,12 @@ import {
 	humanizeGeminiError,
 	streamGemini,
 } from "@/lib/ai/gemini";
-import { buildSystemPrompt, type PromptContext } from "@/lib/ai/prompt";
+import { getHermesEndpoint, streamHermes } from "@/lib/ai/hermes";
+import {
+	buildHermesSystemNote,
+	buildSystemPrompt,
+	type PromptContext,
+} from "@/lib/ai/prompt";
 import { findTool, toolLabel, toolsForRole } from "@/lib/ai/registry";
 import type {
 	AiChatMessage,
@@ -56,6 +61,43 @@ export async function* runAgent(
 
 	// Riwayat dipangkas dari BELAKANG supaya pertanyaan terakhir selalu utuh.
 	const trimmed = messages.slice(-MAX_HISTORY_TURNS);
+
+	// Owner: coba agent Hermes (VPS) dulu — ia punya memori & pengetahuan
+	// profil. Gagal sebelum ada teks keluar → jatuh diam-diam ke Gemini di
+	// bawah. Gagal setelah teks keluar → beri tahu, jangan mengulang dari nol.
+	const ownerLevel = toolCtx.role === "owner" || toolCtx.role === "super_admin";
+	const hermes = ownerLevel
+		? await getHermesEndpoint(toolCtx.supabase).catch(() => null)
+		: null;
+	if (hermes) {
+		let sawText = false;
+		try {
+			for await (const ev of streamHermes({
+				endpoint: hermes,
+				system: buildHermesSystemNote(promptCtx),
+				messages: trimmed,
+				signal,
+			})) {
+				if (ev.type === "text") sawText = true;
+				yield ev;
+			}
+			return;
+		} catch (err) {
+			if (signal?.aborted) throw err;
+			if (sawText) {
+				yield {
+					type: "error",
+					message: "Sambungan ke asisten terputus di tengah jawaban.",
+				};
+				return;
+			}
+			console.warn(
+				"[ai] Hermes tidak tersedia, jatuh ke Gemini:",
+				err instanceof Error ? err.message : err,
+			);
+		}
+	}
+
 	const contents: GeminiContent[] = trimmed.map((m) => ({
 		role: m.role === "user" ? "user" : "model",
 		parts: [{ text: m.content }],
