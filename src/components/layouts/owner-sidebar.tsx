@@ -76,6 +76,9 @@ const NAV_SECTIONS: NavSection[] = [
 			},
 			{ href: "/design", label: "Asset & Design", icon: Palette },
 			{ href: "/billing", label: "Billing", icon: Receipt },
+			// Finance dipecah dua (permintaan owner 23 Sep 2026: 13 sub-menu bikin
+			// bingung): "Finance" = uang keluar-masuk sehari-hari, "Akuntansi" =
+			// pembukuan & laporan. URL tidak berubah.
 			{
 				href: "/finance",
 				label: "Finance",
@@ -86,16 +89,6 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/bulanan",
 						label: "Bulanan",
 						icon: CalendarRange,
-					},
-					{
-						href: "/finance/reports",
-						label: "Laporan",
-						icon: FileBarChart,
-					},
-					{
-						href: "/finance/accounting",
-						label: "Akuntansi",
-						icon: BookOpen,
 					},
 					{
 						href: "/finance/dokumen",
@@ -122,15 +115,27 @@ const NAV_SECTIONS: NavSection[] = [
 						label: "Rekening Bank",
 						icon: Landmark,
 					},
+				],
+			},
+			{
+				href: "/finance/accounting",
+				label: "Akuntansi",
+				icon: BookOpen,
+				children: [
 					{
-						href: "/finance/sinking-funds",
-						label: "Dana Cadangan",
-						icon: PiggyBank,
+						href: "/finance/accounting",
+						label: "Jurnal & Akun",
+						icon: BookOpen,
 					},
 					{
-						href: "/finance/wastage-report",
-						label: "Laporan Wastage",
-						icon: AlertTriangle,
+						href: "/finance/reports",
+						label: "Laporan",
+						icon: FileBarChart,
+					},
+					{
+						href: "/finance/reconciliation",
+						label: "Rekonsiliasi",
+						icon: Scale,
 					},
 					{
 						href: "/finance/persediaan-report",
@@ -138,9 +143,14 @@ const NAV_SECTIONS: NavSection[] = [
 						icon: Boxes,
 					},
 					{
-						href: "/finance/reconciliation",
-						label: "Rekonsiliasi",
-						icon: Scale,
+						href: "/finance/wastage-report",
+						label: "Laporan Wastage",
+						icon: AlertTriangle,
+					},
+					{
+						href: "/finance/sinking-funds",
+						label: "Dana Cadangan",
+						icon: PiggyBank,
 					},
 				],
 			},

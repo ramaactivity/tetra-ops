@@ -64,7 +64,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/warehouse", "Warehouse", Package],
 	["/finance/bulanan", "Bulanan", CalendarRange],
 	["/finance/reports", "Laporan", FileBarChart],
-	["/finance/accounting", "Akuntansi", BookOpen],
+	["/finance/accounting", "Jurnal & Akun", BookOpen],
 	["/finance/dokumen", "Dokumen", FileText],
 	["/finance/arsip-nota", "Arsip Nota", Archive],
 	["/finance/payables", "Hutang Dagang", Scale],
