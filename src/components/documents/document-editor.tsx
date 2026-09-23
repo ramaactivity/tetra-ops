@@ -75,6 +75,7 @@ import { cn } from "@/lib/utils";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { ClientPicker } from "./client-picker";
 import { DocStatusBadge } from "./document-status-badge";
+import { IncludeList } from "./include-list";
 import { PdfPreview } from "./pdf-preview";
 import { SignerDialog } from "./signer-settings";
 
@@ -887,15 +888,9 @@ export function DocumentEditor({
 											</div>
 										</div>
 										<div className="px-2 pb-2 sm:pl-9">
-											<RichTextarea
-												toolbar={false}
-												rows={1}
-												value={it.includes.join("\n")}
-												onChange={(v) =>
-													updateItem(i, { includes: v.split("\n") })
-												}
-												placeholder="Include — satu poin per baris (opsional)"
-												className="text-[13px]"
+											<IncludeList
+												value={it.includes}
+												onChange={(v) => updateItem(i, { includes: v })}
 											/>
 										</div>
 									</li>

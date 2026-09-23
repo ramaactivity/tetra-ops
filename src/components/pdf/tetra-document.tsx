@@ -110,23 +110,42 @@ function ItemsTable({ d }: { d: PdfDocData }) {
 				<Text style={[S.thText, S.cTotal, { fontWeight: 700 }]}>Jumlah</Text>
 			</View>
 			{d.items.map((it, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
-				<View key={i} style={S.tr} wrap={false}>
-					<View style={S.cName}>
-						<Text style={S.itemName}>{it.name}</Text>
-						{it.includes.filter(Boolean).map((inc, j) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
-							<Text key={j} style={S.include}>
-								{inc}
-							</Text>
-						))}
+				<View
+					// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
+					key={i}
+					style={[S.tr, { flexDirection: "column", gap: 0 }]}
+					wrap={false}
+				>
+					<View style={{ flexDirection: "row", gap: 12 }}>
+						<Text style={[S.itemName, S.cName]}>{it.name}</Text>
+						<Text style={[S.body, S.cPrice]}>{rp(it.unit_price)}</Text>
+						<Text style={[S.body, S.cQty]}>{it.qty}</Text>
+						<Text style={[S.body, S.cTotal]}>{rp(it.qty * it.unit_price)}</Text>
 					</View>
-					<Text style={[S.body, S.cPrice]}>{rp(it.unit_price)}</Text>
-					<Text style={[S.body, S.cQty]}>{it.qty}</Text>
-					<Text style={[S.body, S.cTotal]}>{rp(it.qty * it.unit_price)}</Text>
+					{/* Include selebar tabel (kecuali kolom Jumlah) supaya dua kolomnya lega */}
+					<View style={{ paddingRight: 112 }}>
+						<Includes lines={it.includes.filter((x) => x.trim())} />
+					</View>
 				</View>
 			))}
 			<View style={S.tableEnd} />
+		</View>
+	);
+}
+
+/** Daftar include: satu kolom bila ≤4 poin, dua kolom bila lebih. */
+function Includes({ lines }: { lines: string[] }) {
+	if (lines.length === 0) return null;
+	const width = lines.length > 4 ? "50%" : "100%";
+	return (
+		<View style={S.includeWrap}>
+			{lines.map((l, j) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
+				<View key={j} style={[S.includeItem, { width }]}>
+					<Text style={S.includeDot}>•</Text>
+					<Text style={S.include}>{l}</Text>
+				</View>
+			))}
 		</View>
 	);
 }
@@ -415,7 +434,7 @@ function BastPage({ d }: { d: PdfDocData }) {
 
 			{/* Dua tanda tangan: Pihak Pertama kiri, Pihak Kedua kanan */}
 			<PinnedBottom>
-				<PdfSignature signer={d.signer} label="Pihak Pertama," />
+				<PdfSignature signer={d.signer} label="Pihak Pertama," align="left" />
 				<PdfSignatureBlank name={picName} label="Pihak Kedua," />
 			</PinnedBottom>
 			<PdfFooter />

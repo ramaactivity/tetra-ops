@@ -64,7 +64,7 @@ export const PDF_STYLES = StyleSheet.create({
 		paddingTop: PAGE.padTop,
 		paddingHorizontal: PAGE.padX,
 		// Ruang untuk footer tetap; penutup mengisi ruang tepat di atasnya.
-		paddingBottom: PAGE.footerBottom + PAGE.footerHeight + 16,
+		paddingBottom: PAGE.footerBottom + PAGE.footerHeight + 12,
 	},
 
 	// ── Letterhead: logo + alamat kiri; judul + tanggal + nomor kanan
@@ -108,7 +108,7 @@ export const PDF_STYLES = StyleSheet.create({
 	// ── Dua kolom KEPADA / ACARA
 	twoCol: { flexDirection: "row", marginBottom: 24 },
 	colL: { width: "52%", paddingRight: 20 },
-	colR: { width: "48%" },
+	colR: { width: "48%", alignItems: "flex-end", textAlign: "right" },
 	blockLabel: {
 		fontSize: 8,
 		fontWeight: 700,
@@ -145,7 +145,16 @@ export const PDF_STYLES = StyleSheet.create({
 	cQty: { width: 36, textAlign: "center" },
 	cTotal: { width: 100, textAlign: "right", fontWeight: 700 },
 	itemName: { fontSize: 10.5, fontWeight: 700 },
-	include: { fontSize: 8.5, lineHeight: 1.4, color: C.muted, marginTop: 1.5 },
+	// Include: poin berbullet, dua kolom bila panjang, kontras cukup untuk dibaca.
+	includeWrap: { flexDirection: "row", flexWrap: "wrap", marginTop: 5 },
+	includeItem: {
+		flexDirection: "row",
+		gap: 5,
+		marginBottom: 2.5,
+		paddingRight: 8,
+	},
+	includeDot: { fontSize: 8.5, color: C.accent, lineHeight: 1.45 },
+	include: { flex: 1, fontSize: 8.8, lineHeight: 1.45, color: "#4a4953" },
 
 	// ── Bawah tabel: kiri (pembayaran/catatan) — kanan (total)
 	afterTable: {
@@ -216,7 +225,7 @@ export const PDF_STYLES = StyleSheet.create({
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-end",
-		paddingTop: 24,
+		paddingTop: 14,
 	},
 	signOffLeft: { flex: 1, paddingRight: 28 },
 	thanks: {
@@ -236,16 +245,16 @@ export const PDF_STYLES = StyleSheet.create({
 	bullet: { flexDirection: "row", gap: 5, marginBottom: 2 },
 	bulletDot: { width: 6, fontSize: 8.5, color: C.subtle },
 	bulletText: { flex: 1, fontSize: 8.5, lineHeight: 1.45 },
-	sign: { width: 180 },
+	sign: { width: 180, alignItems: "flex-end", textAlign: "right" },
 	signLabel: { fontSize: 9.5, color: C.muted },
 	signImg: {
-		height: 48,
-		width: 140,
+		height: 64,
+		width: 170,
 		objectFit: "contain",
-		objectPosition: "left bottom",
+		objectPosition: "right bottom",
 		marginTop: 6,
 	},
-	signSpace: { height: 48, marginTop: 6 },
+	signSpace: { height: 64, marginTop: 6 },
 	signName: { fontSize: 11, fontWeight: 700, marginTop: 6 },
 	signPos: { fontSize: 9, color: C.muted },
 
@@ -459,15 +468,30 @@ export function PdfFooter({
 export function PdfSignature({
 	signer,
 	label = "Hormat kami,",
+	align = "right",
 }: {
 	signer: { name: string; position: string; signatureData: string | null };
 	label?: string;
+	/** Rata kanan (pojok kanan bawah, default) atau kiri (Pihak Pertama BAST). */
+	align?: "left" | "right";
 }) {
+	const left = align === "left";
 	return (
-		<View style={PDF_STYLES.sign}>
+		<View
+			style={[
+				PDF_STYLES.sign,
+				left ? { alignItems: "flex-start", textAlign: "left" } : {},
+			]}
+		>
 			<Text style={PDF_STYLES.signLabel}>{label}</Text>
 			{signer.signatureData ? (
-				<Image src={signer.signatureData} style={PDF_STYLES.signImg} />
+				<Image
+					src={signer.signatureData}
+					style={[
+						PDF_STYLES.signImg,
+						left ? { objectPosition: "left bottom" } : {},
+					]}
+				/>
 			) : (
 				<View style={PDF_STYLES.signSpace} />
 			)}
@@ -537,10 +561,7 @@ export function PdfSignOff({
  */
 export function PinnedBottom({ children }: { children: React.ReactNode }) {
 	return (
-		<View
-			style={{ flexGrow: 1, justifyContent: "flex-end" }}
-			wrap={false}
-		>
+		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
 			<View style={PDF_STYLES.signOff}>{children}</View>
 		</View>
 	);
