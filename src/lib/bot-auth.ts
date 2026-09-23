@@ -11,7 +11,12 @@
  * allow the unset-token bypass in local dev so `next dev` keeps working.
  */
 export function isAuthorizedBot(request: Request): boolean {
-	const expected = process.env.AVAILABILITY_API_TOKEN;
+	return isAuthorizedBearer(request, "AVAILABILITY_API_TOKEN");
+}
+
+/** Cek `Authorization: Bearer <token>` terhadap env var bernama `envName`. */
+export function isAuthorizedBearer(request: Request, envName: string): boolean {
+	const expected = process.env[envName];
 	if (!expected) {
 		// No token configured → allow only outside production (local dev).
 		return process.env.NODE_ENV !== "production";

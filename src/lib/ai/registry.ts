@@ -7,6 +7,16 @@ import {
 	saldoKas,
 } from "@/lib/ai/tools/finance";
 import {
+	bukuBulanan,
+	crewMingguIni,
+	digestHarian,
+	komisiVendor,
+	langgananApp,
+	rekapBulan,
+	vendorRelasi,
+} from "@/lib/ai/tools/laporan";
+import { leadsWa } from "@/lib/ai/tools/leads";
+import {
 	cariEvent,
 	cekKetersediaan,
 	detailEvent,
@@ -28,6 +38,14 @@ const ALL_TOOLS: AiTool[] = [
 	feeCrewBelumDibayar,
 	stok,
 	asetTetap,
+	digestHarian,
+	crewMingguIni,
+	rekapBulan,
+	langgananApp,
+	vendorRelasi,
+	komisiVendor,
+	bukuBulanan,
+	leadsWa,
 ];
 
 /**
@@ -71,6 +89,14 @@ export const TOOL_LABELS: Record<string, string> = {
 	fee_crew_belum_dibayar: "fee crew",
 	stok: "stok gudang",
 	aset_tetap: "daftar alat",
+	digest_harian: "ringkasan harian",
+	crew_minggu_ini: "penugasan crew",
+	rekap_bulan: "rekap bulan",
+	langganan_app: "langganan aplikasi",
+	vendor_relasi: "event dari vendor",
+	komisi_vendor: "komisi vendor",
+	buku_bulanan: "buku bulanan",
+	leads_wa: "leads WhatsApp",
 };
 
 export function toolLabel(name: string): string {

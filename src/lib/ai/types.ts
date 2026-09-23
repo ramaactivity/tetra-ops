@@ -43,7 +43,7 @@ export type AiToolContext = {
 	role: UserRole;
 	/** Tanggal hari ini di WIB (YYYY-MM-DD) — semua tool wajib memakai ini. */
 	todayISO: string;
-	surface: "web" | "telegram";
+	surface: "web" | "telegram" | "mcp";
 };
 
 export type AiTool = {
