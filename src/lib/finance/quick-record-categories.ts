@@ -183,6 +183,7 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 	// ── Lihat semua ─────────────────────────────────────────────────────────
 	{
 		id: "bayar-internet",
+		presets: ["Wifi kantor", "Telkomsel admin"],
 		label: "Bayar internet",
 		icon: Wifi,
 		coa: "5-270",

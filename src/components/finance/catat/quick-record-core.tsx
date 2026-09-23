@@ -199,9 +199,10 @@ export function QuickRecordCore({
 		}
 	}, [state]);
 
-	// Receipt-photo object URL (revoked on change) for the inline preview.
+	// Object URL nota (dicabut saat ganti) untuk preview inline — gambar MAUPUN
+	// PDF; invoice langganan hampir selalu PDF.
 	useEffect(() => {
-		if (!photo?.type.startsWith("image/")) {
+		if (!photo) {
 			setPhotoUrl(null);
 			return;
 		}
@@ -928,6 +929,25 @@ export function QuickRecordCore({
 		</div>
 	);
 
+	// PDF dirender pakai viewer bawaan browser — tak perlu library pembaca PDF.
+	const notaPreview = (className: string) =>
+		photoUrl ? (
+			photo?.type === "application/pdf" ? (
+				<iframe
+					src={photoUrl}
+					title={`Preview ${photo.name}`}
+					className={className}
+				/>
+			) : (
+				// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
+				<img
+					src={photoUrl}
+					alt="Preview nota"
+					className={`${className} object-contain`}
+				/>
+			)
+		) : null;
+
 	const detailsField = (
 		<div className="rounded-xl border border-border-subtle bg-card">
 			<button
@@ -977,14 +997,7 @@ export function QuickRecordCore({
 					/>
 					{photo ? (
 						<div className="overflow-hidden rounded-xl border border-border-subtle">
-							{photoUrl ? (
-								// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
-								<img
-									src={photoUrl}
-									alt="Preview nota"
-									className="max-h-64 w-full bg-surface-3 object-contain"
-								/>
-							) : null}
+							{notaPreview("h-64 w-full bg-surface-3")}
 							<div className="flex items-center justify-between gap-2 px-3 py-2">
 								<span className="truncate text-[12.5px] text-muted-foreground">
 									{photo.name}
@@ -1058,12 +1071,7 @@ export function QuickRecordCore({
 			{photo ? (
 				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border-subtle">
 					{photoUrl ? (
-						// biome-ignore lint/performance/noImgElement: local object-URL preview, not a remote asset
-						<img
-							src={photoUrl}
-							alt="Preview nota"
-							className="min-h-0 w-full flex-1 bg-surface-3 object-contain"
-						/>
+						notaPreview("min-h-0 w-full flex-1 bg-surface-3")
 					) : (
 						<div className="flex flex-1 items-center justify-center bg-surface-3 text-[12.5px] text-muted-foreground">
 							{photo.name}
