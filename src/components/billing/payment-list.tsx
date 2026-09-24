@@ -17,7 +17,7 @@ import { TextareaField } from "@/components/ui/form-fields";
 import { MoneyAmount } from "@/components/ui/money-amount";
 import { toast } from "@/components/ui/toaster";
 import { reversePayment } from "@/lib/actions/payments";
-import { formatDateID } from "@/lib/format";
+import { formatDateID, formatRupiah } from "@/lib/format";
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
 	dp: "DP",
@@ -43,9 +43,12 @@ export type PaymentRow = {
 export function PaymentList({
 	projectId,
 	payments,
+	compact = false,
 }: {
 	projectId: string;
 	payments: PaymentRow[];
+	/** Satu baris per pembayaran — untuk panel sempit (editor invoice). */
+	compact?: boolean;
 }) {
 	if (payments.length === 0) {
 		return (
@@ -59,7 +62,12 @@ export function PaymentList({
 	return (
 		<ul className="divide-y divide-border-default">
 			{payments.map((p) => (
-				<PaymentItem key={p.id} projectId={projectId} payment={p} />
+				<PaymentItem
+					key={p.id}
+					projectId={projectId}
+					payment={p}
+					compact={compact}
+				/>
 			))}
 		</ul>
 	);
@@ -68,9 +76,11 @@ export function PaymentList({
 function PaymentItem({
 	projectId,
 	payment,
+	compact,
 }: {
 	projectId: string;
 	payment: PaymentRow;
+	compact: boolean;
 }) {
 	const [pending, startTransition] = useTransition();
 	const [open, setOpen] = useState(false);
@@ -96,55 +106,87 @@ function PaymentItem({
 	const muted = payment.is_reversed;
 
 	return (
-		<li className="flex items-start justify-between gap-3 py-3.5 first:pt-0 last:pb-0">
-			<div className="min-w-0 flex-1 space-y-1">
-				{/* Amount is the hero — the one thing you scan a payment history for */}
-				<div className="flex flex-wrap items-center gap-2">
-					<MoneyAmount
-						value={payment.amount}
-						size="lg"
-						tone={muted ? "muted" : "default"}
-						className={muted ? "line-through" : ""}
-					/>
-					<Badge variant="outline">
+		<li
+			className={
+				compact
+					? "flex items-center justify-between gap-3 py-2"
+					: "flex items-start justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
+			}
+		>
+			{compact ? (
+				<div
+					className="flex min-w-0 flex-1 items-center gap-3"
+					title={[payment.ref_id, payment.notes].filter(Boolean).join(" · ")}
+				>
+					<Badge variant="outline" className="w-[74px] justify-center">
 						{PAYMENT_TYPE_LABELS[payment.payment_type] ?? payment.payment_type}
 					</Badge>
-					{muted && <Badge variant="secondary">Reversed</Badge>}
+					<span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+						<span className="tabular">
+							{formatDateID(payment.payment_date)}
+						</span>
+						{payment.bank ? ` · ${payment.bank.bank_name}` : ""}
+						{muted ? " · Reversed" : ""}
+					</span>
+					<span
+						className={`tabular text-[14px] font-semibold ${muted ? "text-muted-foreground line-through" : ""}`}
+					>
+						{formatRupiah(payment.amount)}
+					</span>
 				</div>
+			) : (
+				<div className="min-w-0 flex-1 space-y-1">
+					{/* Amount is the hero — the one thing you scan a payment history for */}
+					<div className="flex flex-wrap items-center gap-2">
+						<MoneyAmount
+							value={payment.amount}
+							size="lg"
+							tone={muted ? "muted" : "default"}
+							className={muted ? "line-through" : ""}
+						/>
+						<Badge variant="outline">
+							{PAYMENT_TYPE_LABELS[payment.payment_type] ??
+								payment.payment_type}
+						</Badge>
+						{muted && <Badge variant="secondary">Reversed</Badge>}
+					</div>
 
-				{/* When + where the money landed */}
-				<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-muted-foreground">
-					<span className="tabular">{formatDateID(payment.payment_date)}</span>
-					{payment.bank && (
-						<>
-							<span className="text-muted-foreground/40" aria-hidden>
-								·
-							</span>
-							<span>
-								{payment.bank.bank_name}
-								{payment.bank.account_number &&
-									` · ${payment.bank.account_number}`}
-							</span>
-						</>
+					{/* When + where the money landed */}
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-muted-foreground">
+						<span className="tabular">
+							{formatDateID(payment.payment_date)}
+						</span>
+						{payment.bank && (
+							<>
+								<span className="text-muted-foreground/40" aria-hidden>
+									·
+								</span>
+								<span>
+									{payment.bank.bank_name}
+									{payment.bank.account_number &&
+										` · ${payment.bank.account_number}`}
+								</span>
+							</>
+						)}
+					</div>
+
+					{/* Reference ID demoted — for audit, not the headline */}
+					<p
+						className={`tabular font-mono text-[11px] text-muted-foreground/70 ${muted ? "line-through" : ""}`}
+					>
+						{payment.ref_id}
+					</p>
+
+					{payment.notes && (
+						<p className="text-[12px] text-muted-foreground">{payment.notes}</p>
+					)}
+					{muted && payment.reversal_reason && (
+						<p className="text-[12px] italic text-muted-foreground">
+							Reversed: {payment.reversal_reason}
+						</p>
 					)}
 				</div>
-
-				{/* Reference ID demoted — for audit, not the headline */}
-				<p
-					className={`tabular font-mono text-[11px] text-muted-foreground/70 ${muted ? "line-through" : ""}`}
-				>
-					{payment.ref_id}
-				</p>
-
-				{payment.notes && (
-					<p className="text-[12px] text-muted-foreground">{payment.notes}</p>
-				)}
-				{muted && payment.reversal_reason && (
-					<p className="text-[12px] italic text-muted-foreground">
-						Reversed: {payment.reversal_reason}
-					</p>
-				)}
-			</div>
+			)}
 
 			<div className="flex shrink-0 items-center gap-0.5">
 				{!payment.is_reversed && <ReceiptButton paymentId={payment.id} />}

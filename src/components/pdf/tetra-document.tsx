@@ -114,7 +114,12 @@ function ItemsTable({ d }: { d: PdfDocData }) {
 				<View
 					// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
 					key={i}
-					style={[S.tr, { flexDirection: "column", gap: 0 }]}
+					style={[
+						S.tr,
+						{ flexDirection: "column", gap: 0 },
+						// Kotak include menempel ke garis bawah baris.
+						it.includes.some((x) => x.trim()) ? { paddingBottom: 0 } : {},
+					]}
 					wrap={false}
 				>
 					<View style={{ flexDirection: "row", gap: 12 }}>
@@ -125,6 +130,7 @@ function ItemsTable({ d }: { d: PdfDocData }) {
 					</View>
 					{/* Include di kotak abu-abu tersendiri, selebar baris */}
 					<PdfPointList
+						flush
 						lines={it.includes.filter((x) => x.trim())}
 						columns={it.includes.filter((x) => x.trim()).length > 4 ? 2 : 1}
 					/>
@@ -212,24 +218,27 @@ function LeftColumn({ d }: { d: PdfDocData }) {
 				</View>
 			) : null}
 			{history.length > 0 ? (
-				<View>
+				<View style={{ flexGrow: 1 }}>
 					<Text style={S.sideLabel}>Pembayaran diterima</Text>
-					{history.map((p, i) => (
-						<View
-							key={p.ref}
-							style={[
-								S.payRow,
-								i === history.length - 1 ? { borderBottomWidth: 0 } : {},
-							]}
-						>
-							<Text style={S.payType}>{labelType(p.type)}</Text>
-							<Text style={S.payMeta}>
-								{formatDateForPdf(p.date)}
-								{p.bank ? ` · ${p.bank}` : ""}
-							</Text>
-							<Text style={S.payV}>{rp(p.amount)}</Text>
-						</View>
-					))}
+					{/* Baris dibagi rata sampai dasar grup total (Sisa tagihan) */}
+					<View style={{ flexGrow: 1, justifyContent: "space-between" }}>
+						{history.map((p, i) => (
+							<View
+								key={p.ref}
+								style={[
+									S.payRow,
+									i === history.length - 1 ? { borderBottomWidth: 0 } : {},
+								]}
+							>
+								<Text style={S.payType}>{labelType(p.type)}</Text>
+								<Text style={S.payMeta}>
+									{formatDateForPdf(p.date)}
+									{p.bank ? ` · ${p.bank}` : ""}
+								</Text>
+								<Text style={S.payV}>{rp(p.amount)}</Text>
+							</View>
+						))}
+					</View>
 				</View>
 			) : null}
 		</View>

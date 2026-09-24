@@ -152,7 +152,7 @@ export const PDF_STYLES = StyleSheet.create({
 	includeBox: {
 		marginTop: 7,
 		paddingVertical: 7,
-		paddingHorizontal: 10,
+		paddingHorizontal: 14,
 		backgroundColor: C.panel,
 		borderRadius: 3,
 	},
@@ -167,12 +167,13 @@ export const PDF_STYLES = StyleSheet.create({
 	include: { flex: 1, fontSize: 8.8, lineHeight: 1.45, color: "#4a4953" },
 
 	// ── Bawah tabel: kiri (pembayaran/catatan) — kanan (total)
+	// stretch: kolom kiri setinggi grup total supaya atas & bawahnya sejajar.
 	afterTable: {
 		flexDirection: "row",
-		alignItems: "flex-start",
+		alignItems: "stretch",
 		marginTop: 14,
 	},
-	leftCol: { width: "52%", paddingRight: 20, paddingTop: 4 },
+	leftCol: { width: "52%", paddingRight: 20, paddingTop: 6 },
 	rightCol: { width: "48%" },
 	sideLabel: {
 		fontSize: 8,
@@ -541,14 +542,22 @@ export function PdfSignatureBlank({
 export function PdfPointList({
 	lines,
 	columns = 1,
+	flush = false,
 }: {
 	lines: string[];
 	columns?: 1 | 2;
+	/** Di dalam baris tabel: lebarkan melewati padding baris agar rata dengan pita header. */
+	flush?: boolean;
 }) {
 	if (lines.length === 0) return null;
 	const width = columns === 2 ? "50%" : "100%";
 	return (
-		<View style={PDF_STYLES.includeBox}>
+		<View
+			style={[
+				PDF_STYLES.includeBox,
+				flush ? { marginHorizontal: -14, borderRadius: 0 } : {},
+			]}
+		>
 			<View style={PDF_STYLES.includeWrap}>
 				{lines.map((l, j) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis

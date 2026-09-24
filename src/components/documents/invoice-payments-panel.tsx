@@ -101,7 +101,9 @@ export async function InvoicePaymentsPanel({ eventId }: { eventId: string }) {
 		<section className="space-y-3 rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="flex items-center gap-2">
-					<h2 className="type-heading">Pembayaran</h2>
+					<h2 className="text-[15px] font-semibold tracking-[-0.01em]">
+						Pembayaran
+					</h2>
 					<span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[12px] font-medium">
 						<span
 							className={cn(
@@ -126,29 +128,25 @@ export async function InvoicePaymentsPanel({ eventId }: { eventId: string }) {
 				) : null}
 			</div>
 
-			<div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary/60 p-3 text-[13px]">
-				<div>
-					<p className="text-muted-foreground">Tagihan</p>
-					<p className="tabular font-semibold">{formatRupiah(billable)}</p>
-				</div>
-				<div>
-					<p className="text-muted-foreground">Terbayar</p>
-					<p className="tabular font-semibold text-emerald-700">
-						{formatRupiah(paid)}
-					</p>
-				</div>
-				<div>
-					<p className="text-muted-foreground">Sisa</p>
-					<p
+			{/* Ringkasan satu strip: terbayar / tagihan + progres, sisa di kanan */}
+			<div className="space-y-1.5">
+				<div className="flex items-baseline justify-between gap-3 text-[13px]">
+					<span className="text-muted-foreground">
+						<span className="tabular font-semibold text-foreground">
+							{formatRupiah(paid)}
+						</span>{" "}
+						dari <span className="tabular">{formatRupiah(billable)}</span>
+					</span>
+					<span
 						className={cn(
 							"tabular font-semibold",
 							remaining > 0 ? "text-rose-700" : "text-emerald-700",
 						)}
 					>
-						{remaining > 0 ? formatRupiah(remaining) : "Lunas"}
-					</p>
+						{remaining > 0 ? `Sisa ${formatRupiah(remaining)}` : "Lunas"}
+					</span>
 				</div>
-				<div className="col-span-3 h-1.5 overflow-hidden rounded-full bg-border-default">
+				<div className="h-1.5 overflow-hidden rounded-full bg-secondary">
 					<div
 						className="h-full rounded-full bg-emerald-500 transition-[width]"
 						style={{ width: `${pct}%` }}
@@ -156,9 +154,13 @@ export async function InvoicePaymentsPanel({ eventId }: { eventId: string }) {
 				</div>
 			</div>
 
-			<PaymentList projectId={event.project_id as string} payments={payments} />
+			<PaymentList
+				projectId={event.project_id as string}
+				payments={payments}
+				compact
+			/>
 
-			<div className="border-t border-border-subtle pt-3">
+			<div className="border-t border-border-subtle pt-2.5">
 				<PaidDocButtons eventId={event.id as string} isPaid={isPaid} />
 			</div>
 		</section>
