@@ -67,9 +67,9 @@ export function NewInvoiceDialog({ events }: { events: InvoiceEventOption[] }) {
 				<DialogHeader>
 					<DialogTitle>Invoice dari event</DialogTitle>
 					<DialogDescription>
-						Invoice selalu menempel ke event supaya tagihan & pembayarannya satu
-						sumber dengan Billing. Belum ada event-nya? Buat quotation dulu,
-						lalu "Deal → Buat event".
+						Pilih event untuk menagih pelunasan. Klien baru mau DP dan event-nya
+						belum diinput? Buat invoice DP dulu — nanti ditautkan ke event saat
+						DP masuk.
 					</DialogDescription>
 				</DialogHeader>
 				<Combobox
@@ -80,13 +80,16 @@ export function NewInvoiceDialog({ events }: { events: InvoiceEventOption[] }) {
 					placeholder="Cari nama klien / kode event…"
 					aria-label="Event"
 				/>
-				<DialogFooter>
+				<DialogFooter className="sm:justify-between">
 					<Button
-						variant="ghost"
-						onClick={() => setOpen(false)}
+						variant="outline"
+						onClick={() => {
+							setOpen(false);
+							router.push("/finance/dokumen/new?type=invoice");
+						}}
 						disabled={pending}
 					>
-						Batal
+						<Plus /> Invoice DP (belum ada event)
 					</Button>
 					<Button onClick={go} disabled={!eventId || pending}>
 						{pending ? <Loader2 className="animate-spin" /> : <FileText />} Buka

@@ -5,18 +5,19 @@ import { z } from "zod";
 import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
-	discountFromEvent,
-	itemsFromEvent,
-	loadDocument,
-	loadEventForPdfById,
-} from "@/lib/documents/load";
-import {
 	allocateNumber,
 	clientFromEvent,
 	defaultSignerId,
 	findActiveDoc,
 	getOrCreateInvoice,
+	linkInvoiceToEvent,
 } from "@/lib/documents/invoice";
+import {
+	discountFromEvent,
+	itemsFromEvent,
+	loadDocument,
+	loadEventForPdfById,
+} from "@/lib/documents/load";
 import {
 	addDays,
 	DOC_STATUSES,
@@ -135,9 +136,6 @@ export async function saveDocument(
 		};
 	}
 	const d = parsed.data;
-	if (d.doc_type === "invoice" && !d.event_id) {
-		return { ok: false, error: "Invoice harus tertaut ke event." };
-	}
 	if (d.doc_type === "quotation" && d.event_id) {
 		return { ok: false, error: "Quotation tidak tertaut ke event." };
 	}
@@ -145,7 +143,8 @@ export async function saveDocument(
 	const supabase = await createClient();
 	// Venue quotation yang baru diketik masuk master venue (sama seperti form
 	// booking), supaya bisa dipilih lagi berikutnya. Gagal tidak memblokir simpan.
-	if (d.doc_type === "quotation" && d.event_info.venue) {
+	// Quotation & invoice DP (belum ada event) mengetik venue sendiri.
+	if (!d.event_id && d.event_info.venue) {
 		await ensureVenue({
 			name: d.event_info.venue,
 			address: null,
@@ -184,6 +183,7 @@ export async function saveDocument(
 				.select("id, doc_number")
 				.single();
 			if (error) return { ok: false, error: error.message };
+			await syncEventDueDate(supabase, d);
 			revalidateDocs(await projectIdOf(supabase, d.event_id ?? null));
 			return {
 				ok: true,
@@ -204,6 +204,7 @@ export async function saveDocument(
 			}
 			return { ok: false, error: error.message };
 		}
+		await syncEventDueDate(supabase, d);
 		revalidateDocs(await projectIdOf(supabase, d.event_id ?? null));
 		return {
 			ok: true,
@@ -216,6 +217,66 @@ export async function saveDocument(
 			error: e instanceof Error ? e.message : "Gagal menyimpan",
 		};
 	}
+}
+
+/**
+ * Jatuh tempo invoice yang tertaut = tenggat pelunasan event (satu sumber,
+ * dibaca Billing & agent pengingat). Mengubah salah satunya mengubah keduanya.
+ */
+async function syncEventDueDate(
+	supabase: Supabase,
+	d: { doc_type: string; event_id?: string | null; due_date?: string | null },
+) {
+	if (d.doc_type !== "invoice" || !d.event_id || !d.due_date) return;
+	await supabase
+		.from("events")
+		.update({ due_date: d.due_date })
+		.eq("id", d.event_id);
+}
+
+export type LinkableEvent = {
+	id: string;
+	project_id: string;
+	client_name: string;
+	event_date: string;
+};
+
+/** Event yang belum punya invoice aktif — kandidat untuk ditautkan invoice DP. */
+export async function listLinkableEvents(): Promise<LinkableEvent[]> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const [{ data: events }, { data: linked }] = await Promise.all([
+		supabase
+			.from("events")
+			.select("id, project_id, client_name, event_date")
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.order("event_date", { ascending: false })
+			.limit(200),
+		supabase
+			.from("documents")
+			.select("event_id")
+			.eq("doc_type", "invoice")
+			.neq("status", "void")
+			.not("event_id", "is", null),
+	]);
+	const taken = new Set((linked ?? []).map((d) => d.event_id as string));
+	return ((events ?? []) as LinkableEvent[]).filter((e) => !taken.has(e.id));
+}
+
+/** Tautkan invoice DP ke event yang sudah ada (dari editor invoice). */
+export async function linkInvoice(
+	invoiceId: string,
+	eventId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const res = await linkInvoiceToEvent(supabase, invoiceId, eventId);
+	if (res.ok) {
+		revalidateDocs(await projectIdOf(supabase, eventId));
+		revalidatePath(`/finance/dokumen/${invoiceId}`);
+	}
+	return res;
 }
 
 export async function setDocumentStatus(
@@ -426,7 +487,7 @@ export async function createInvoiceFromQuotation(
 
 	const { data: ev } = await supabase
 		.from("events")
-		.select("project_id, event_date")
+		.select("project_id, event_date, due_date")
 		.eq("id", eventId)
 		.maybeSingle();
 	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
@@ -453,7 +514,10 @@ export async function createInvoiceFromQuotation(
 				signer_name: q.signer_name,
 				signer_position: q.signer_position,
 				issued_at: issuedAt,
-				due_date: ev.event_date ? addDays(ev.event_date as string, -1) : null,
+				// Tenggat pelunasan ikut event (form booking); cadangan H-1.
+				due_date:
+					(ev.due_date as string | null) ??
+					(ev.event_date ? addDays(ev.event_date as string, -1) : null),
 				status: "sent",
 				created_by: me.profile.id,
 			})

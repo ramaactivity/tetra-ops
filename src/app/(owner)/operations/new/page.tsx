@@ -7,6 +7,10 @@ import {
 	type RelasiOption,
 	type VendorOption,
 } from "@/components/booking/booking-form";
+import {
+	type SourceDocOption,
+	SourceDocPicker,
+} from "@/components/booking/source-doc-picker";
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
@@ -22,9 +26,9 @@ import { createClient } from "@/lib/supabase/server";
 export default async function NewBookingPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ fromQuotation?: string }>;
+	searchParams: Promise<{ fromQuotation?: string; fromInvoice?: string }>;
 }) {
-	const { fromQuotation } = await searchParams;
+	const { fromQuotation, fromInvoice } = await searchParams;
 	const supabase = await createClient();
 	const [
 		{ data: packages },
@@ -81,16 +85,42 @@ export default async function NewBookingPage({
 		return 2;
 	})();
 
-	// Deal dari quotation: form terisi dari isi quotation, invoice ikut lahir
-	// saat booking disimpan (lihat createBooking).
-	const quotation = fromQuotation ? await loadDocument(fromQuotation) : null;
-	const fromQuotationDefaults =
-		quotation && quotation.doc_type === "quotation"
-			? quotationToBookingDefaults(
-					quotation,
-					(packages ?? []) as PackageOption[],
-				)
-			: undefined;
+	// Isi dari dokumen: invoice DP (ditautkan ke event) atau quotation yang
+	// di-deal (invoice baru dari isinya). Lihat createBooking.
+	const sourceId = fromInvoice ?? fromQuotation ?? null;
+	const sourceDoc = sourceId ? await loadDocument(sourceId) : null;
+	const validSource =
+		sourceDoc &&
+		sourceDoc.status !== "void" &&
+		((sourceDoc.doc_type === "invoice" && !sourceDoc.event_id) ||
+			sourceDoc.doc_type === "quotation")
+			? sourceDoc
+			: null;
+	const sourceDefaults = validSource
+		? quotationToBookingDefaults(
+				validSource,
+				(packages ?? []) as PackageOption[],
+			)
+		: undefined;
+
+	// Pilihan dokumen yang belum punya event: invoice DP & quotation terbuka.
+	const { data: openDocs } = validSource
+		? { data: [] }
+		: await supabase
+				.from("documents")
+				.select("id, doc_type, doc_number, client, event_info")
+				.is("event_id", null)
+				.in("doc_type", ["invoice", "quotation"])
+				.not("status", "in", "(void,accepted,rejected)")
+				.order("created_at", { ascending: false })
+				.limit(50);
+	const sourceOptions: SourceDocOption[] = (openDocs ?? []).map((d) => ({
+		id: d.id as string,
+		doc_type: d.doc_type as "invoice" | "quotation",
+		doc_number: d.doc_number as string,
+		client_name: ((d.client as { name?: string }) ?? {}).name ?? "",
+		event_date: ((d.event_info as { date?: string }) ?? {}).date ?? null,
+	}));
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -100,17 +130,28 @@ export default async function NewBookingPage({
 				backLabel="Operations"
 				description="Booking baru disimpan sebagai draft. Lu bisa lengkapi detail crew dan DP setelah save."
 			/>
-			{fromQuotationDefaults ? (
+			{validSource ? (
 				<div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
-					Diisi dari quotation <span className="font-semibold">{quotation?.doc_number}</span>.
-					Lengkapi yang kurang lalu simpan — invoice akan dibuat otomatis dari quotation ini.
+					Diisi dari{" "}
+					{validSource.doc_type === "invoice" ? "invoice" : "quotation"}{" "}
+					<span className="font-semibold">{validSource.doc_number}</span>.{" "}
+					{validSource.doc_type === "invoice"
+						? "Lengkapi yang kurang lalu simpan — invoice ini akan tertaut ke event (nomor tetap)."
+						: "Lengkapi yang kurang lalu simpan — invoice dibuat otomatis dari quotation ini."}
 				</div>
-			) : null}
+			) : (
+				<SourceDocPicker options={sourceOptions} />
+			)}
 			<div>
 				<BookingForm
 					action={createBooking}
-					defaults={fromQuotationDefaults}
-					sourceQuotationId={fromQuotationDefaults ? quotation?.id : undefined}
+					defaults={sourceDefaults}
+					sourceQuotationId={
+						validSource?.doc_type === "quotation" ? validSource.id : undefined
+					}
+					sourceInvoiceId={
+						validSource?.doc_type === "invoice" ? validSource.id : undefined
+					}
 					packages={(packages ?? []) as PackageOption[]}
 					addons={(addons ?? []) as AddonOption[]}
 					backdrops={(backdrops ?? []) as BackdropOption[]}

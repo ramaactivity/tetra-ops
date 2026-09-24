@@ -3,6 +3,10 @@
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createInvoiceFromQuotation } from "@/lib/actions/documents";
+import {
+	getOrCreateInvoice,
+	linkInvoiceToEvent,
+} from "@/lib/documents/invoice";
 import { z } from "zod";
 import { createEventFolderInternal } from "@/lib/actions/drive";
 import { ensureVendorContact } from "@/lib/actions/vendors";
@@ -96,6 +100,16 @@ const BookingInputSchema = z.object({
 	// bawah; owner mengisi tanggal perkiraan supaya mesin tetap bekerja.
 	event_date: z.iso.date("Format tanggal tidak valid"),
 	event_date_is_estimate: z.coerce.boolean(),
+	// Tenggat pelunasan (H-n dari tanggal acara). Kosong → server isi H-1.
+	due_date: z
+		.string()
+		.trim()
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null))
+		.refine((v) => v === null || /^\d{4}-\d{2}-\d{2}$/.test(v), {
+			message: "Format tanggal tidak valid",
+		}),
 	// TBC waktu — empty = null di DB. Setup/end auto-fill dari start, jadi
 	// kalau start TBC, ketiganya umumnya TBC juga (UI yang enforce konsistensi).
 	setup_time: z
@@ -270,6 +284,7 @@ const FORM_KEYS = [
 	"frame_size",
 	"event_category",
 	"event_date",
+	"due_date",
 	"setup_time",
 	"start_time",
 	"end_time",
@@ -333,6 +348,13 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		event_date_is_estimate:
 			formData.get("event_date_is_estimate") === "on" ? "on" : "",
 	};
+}
+
+/** yyyy-MM-dd ± n hari (tanpa zona waktu). */
+function shiftDate(iso: string, n: number): string {
+	const d = new Date(`${iso}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + n);
+	return d.toISOString().slice(0, 10);
 }
 
 function generateProjectId(eventDateISO: string): string {
@@ -721,6 +743,8 @@ function buildEventPayload(
 		event_category: input.event_category,
 		event_date: input.event_date,
 		event_date_is_estimate: input.event_date_is_estimate,
+		// Satu sumber tenggat pelunasan untuk Billing, invoice & agent reminder.
+		due_date: input.due_date ?? shiftDate(input.event_date, -1),
 		setup_time: input.setup_time,
 		// Acara dengan jeda: start/end = envelope (mulai sesi pertama → selesai
 		// sesi terakhir) supaya semua pembaca lama tetap benar. Server yang
@@ -1156,17 +1180,33 @@ export async function createBooking(
 		await notifyTelegramBookingCreated(inserted.id as string);
 	}
 
-	// Deal dari quotation: invoice langsung terbit dari isi quotation dan
-	// quotation ditandai Disetujui. Gagal di sini tidak membatalkan booking —
-	// invoice masih bisa dibuat dari halaman event.
+	// Setiap event wajib punya invoice. Sumbernya, berurutan:
+	//   1. invoice DP yang sudah dibuat sebelum event → DITAUTKAN (nomor tetap)
+	//   2. quotation yang di-deal → invoice baru dari isi quotation
+	//   3. tanpa sumber → invoice dibuat dari data event
+	// Gagal di sini tidak membatalkan booking; invoice masih bisa dibuat/
+	// ditautkan dari halaman event.
 	let invoiceId: string | undefined;
+	const sourceInvoiceId = String(formData.get("source_invoice_id") ?? "");
 	const sourceQuotationId = String(formData.get("source_quotation_id") ?? "");
-	if (sourceQuotationId && inserted?.id) {
-		const res = await createInvoiceFromQuotation(
-			sourceQuotationId,
-			inserted.id as string,
-		);
-		if (res.ok) invoiceId = res.id;
+	if (inserted?.id) {
+		const eventId = inserted.id as string;
+		if (sourceInvoiceId) {
+			const res = await linkInvoiceToEvent(supabase, sourceInvoiceId, eventId);
+			if (res.ok) invoiceId = sourceInvoiceId;
+		} else if (sourceQuotationId) {
+			const res = await createInvoiceFromQuotation(sourceQuotationId, eventId);
+			if (res.ok) invoiceId = res.id;
+		} else {
+			const res = await getOrCreateInvoice(
+				supabase,
+				eventId,
+				me.profile.id,
+				new Date().toISOString().slice(0, 10),
+			);
+			// Booking biasa tetap diarahkan ke halaman event (bukan invoice).
+			if (!res.ok) console.error("[createBooking] invoice:", res.error);
+		}
 	}
 
 	revalidatePath("/operations");

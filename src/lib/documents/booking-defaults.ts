@@ -50,6 +50,8 @@ export function quotationToBookingDefaults(
 		frame_size: pkg?.frame_size ?? "",
 		base_price: pkgItem ? pkgItem.unit_price : 0,
 		event_date: q.event_info.date ?? "",
+		// Invoice DP membawa jatuh tempo yang sudah disepakati.
+		due_date: q.due_date ?? "",
 		start_time: start,
 		end_time: end,
 		venue_name: q.event_info.venue ?? "",

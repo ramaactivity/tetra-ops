@@ -45,6 +45,7 @@ import {
 	ADDON_CATEGORY_LABELS,
 	CHANNEL_TYPE_LABELS,
 	FRAME_SIZE_LABELS,
+	formatDateID,
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
@@ -76,6 +77,7 @@ function isGoogleMapsUrl(value: string): boolean {
 const CHANNEL_OPTIONS = Object.entries(CHANNEL_TYPE_LABELS);
 
 const FIELD_LABELS: Record<string, string> = {
+	due_date: "Tenggat pelunasan",
 	channel: "Sales Channel",
 	client_name: "Nama Klien",
 	client_wa: "WA Pembooking",
@@ -202,6 +204,8 @@ export type BookingFormDefaults = Partial<{
 	event_date: string;
 	/** "on" = tanggal masih perkiraan (TBC). Tanggalnya sendiri tetap wajib. */
 	event_date_is_estimate: string;
+	/** Tenggat pelunasan yyyy-MM-dd. */
+	due_date: string;
 	setup_time: string;
 	start_time: string;
 	end_time: string;
@@ -346,6 +350,13 @@ const CATEGORY_HINTS: Record<
 	},
 };
 
+/** yyyy-MM-dd ± n hari (UTC, tanpa zona waktu). */
+function shiftIsoDate(iso: string, n: number): string {
+	const d = new Date(`${iso}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + n);
+	return d.toISOString().slice(0, 10);
+}
+
 /**
  * Segmented toggle for "Tipe Nilai" — Persentase (%) vs Nominal (Rp).
  * Shared by both commission schemes (Komisi Langsung & Potongan Langsung)
@@ -430,6 +441,7 @@ export function BookingForm({
 	defaults,
 	submitLabel = "Save as draft",
 	sourceQuotationId,
+	sourceInvoiceId,
 }: {
 	action: Action;
 	packages: PackageOption[];
@@ -444,6 +456,8 @@ export function BookingForm({
 	submitLabel?: string;
 	/** Booking lahir dari quotation ini → invoice dibuat otomatis saat simpan. */
 	sourceQuotationId?: string;
+	/** Booking lahir dari invoice DP ini → invoice ditautkan ke event saat simpan. */
+	sourceInvoiceId?: string;
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
 	const router = useRouter();
@@ -658,6 +672,19 @@ export function BookingForm({
 
 	// === Schedule (auto-fill setup/end)
 	const [eventDate, setEventDate] = useState(get("event_date", ""));
+	// Tenggat pelunasan: disimpan sebagai H-n (hari sebelum acara) supaya ikut
+	// bergeser saat tanggal acara diganti. Default H-1.
+	const [dueHMinus, setDueHMinus] = useState<number>(() => {
+		const due = get("due_date");
+		const ev = get("event_date");
+		if (!due || !ev) return 1;
+		const diff = Math.round(
+			(Date.parse(`${ev}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) /
+				86_400_000,
+		);
+		return diff;
+	});
+	const dueDate = eventDate ? shiftIsoDate(eventDate, -dueHMinus) : "";
 	// Tanggal TETAP wajib (kunci jadwal, availability, cutoff, KPI). Yang
 	// ditandai TBC cuma kepastiannya — lihat 20260805_booking_tbc_venue_date.sql.
 	const [dateIsEstimate, setDateIsEstimate] = useState(
@@ -1510,6 +1537,13 @@ export function BookingForm({
 								aria-invalid={!!err("channel")}
 							/>
 							<input type="hidden" name="channel" value={channel} required />
+							{sourceInvoiceId ? (
+								<input
+									type="hidden"
+									name="source_invoice_id"
+									value={sourceInvoiceId}
+								/>
+							) : null}
 							{sourceQuotationId ? (
 								<input
 									type="hidden"
@@ -2193,6 +2227,7 @@ export function BookingForm({
 						{/* Hidden inputs — selalu ada di kedua mode. Saat split aktif,
 						    start/end = envelope (disinkron dari sesi via effect). */}
 						<input type="hidden" name="event_date" value={eventDate} required />
+						<input type="hidden" name="due_date" value={dueDate} />
 						{dateIsEstimate && (
 							<input type="hidden" name="event_date_is_estimate" value="on" />
 						)}
@@ -2238,6 +2273,44 @@ export function BookingForm({
 									>
 										{dateIsEstimate ? "✓ Perkiraan" : "Masih perkiraan?"}
 									</button>
+								</div>
+							</Field>
+
+							<Field
+								label="Tenggat pelunasan"
+								name="due_date"
+								error={err("due_date")}
+								hint={
+									dueDate
+										? `Jatuh tempo ${formatDateID(dueDate)} — dipakai Billing, invoice & pengingat.`
+										: "Pilih tanggal event dulu."
+								}
+							>
+								<div className="flex flex-wrap gap-2">
+									{[1, 3, 7].map((n) => (
+										<button
+											key={n}
+											type="button"
+											onClick={() => setDueHMinus(n)}
+											aria-pressed={dueHMinus === n}
+											className={`h-10 rounded-md border px-4 text-fluid-caption font-medium transition ${
+												dueHMinus === n
+													? "border-[#059669] bg-[#059669] text-white"
+													: "border-border-default text-foreground/70 hover:bg-secondary"
+											}`}
+										>
+											H-{n}
+										</button>
+									))}
+									{![1, 3, 7].includes(dueHMinus) ? (
+										<span className="inline-flex h-10 items-center rounded-md border border-dashed border-border-default px-3 text-fluid-caption text-muted-foreground">
+											{dueHMinus > 0
+												? `H-${dueHMinus}`
+												: dueHMinus === 0
+													? "Hari-H"
+													: `H+${-dueHMinus} (setelah acara)`}
+										</span>
+									) : null}
 								</div>
 							</Field>
 

@@ -78,6 +78,7 @@ import { DocStatusBadge } from "./document-status-badge";
 import { IncludeList } from "./include-list";
 import { PdfPreview } from "./pdf-preview";
 import { SignerDialog } from "./signer-settings";
+import { StandaloneInvoicePanel } from "./standalone-invoice-panel";
 
 export type EditorDoc = Omit<
 	DocumentDraftInput,
@@ -671,6 +672,9 @@ export function DocumentEditor({
 					) : null}
 
 					{paymentsPanel}
+					{doc.doc_type === "invoice" && !doc.event_id && !readOnly ? (
+						<StandaloneInvoicePanel invoiceId={doc.id ?? null} dirty={dirty} />
+					) : null}
 
 					{/* Klien & acara */}
 					<section className={CARD}>

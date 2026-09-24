@@ -23,7 +23,6 @@ import type { EventForPdf } from "@/lib/pdf/event-data";
  * "use server" jadi endpoint yang bisa dipanggil browser tanpa cek peran.
  */
 
-
 export async function allocateNumber(
 	supabase: SupabaseClient,
 	docType: DocType,
@@ -126,8 +125,8 @@ export async function getOrCreateInvoice(
 				signer_name: signer?.name ?? null,
 				signer_position: signer?.position ?? null,
 				issued_at: today,
-				// Jatuh tempo standar H-1 sebelum acara (bisa diganti chip di editor).
-				due_date: addDays(ev.event_date, -1),
+				// Tenggat ikut event (satu sumber); cadangan H-1 untuk event lama.
+				due_date: ev.due_date ?? addDays(ev.event_date, -1),
 				status: "sent",
 				created_by: actorId,
 			})
@@ -144,4 +143,51 @@ export async function getOrCreateInvoice(
 	} catch (e) {
 		return { ok: false, error: e instanceof Error ? e.message : "Gagal" };
 	}
+}
+
+/**
+ * Tautkan invoice DP yang berdiri sendiri ke event (setelah DP masuk & event
+ * diinput). Nomor invoice tetap; jatuh tempo ikut tenggat event.
+ */
+export async function linkInvoiceToEvent(
+	supabase: SupabaseClient,
+	invoiceId: string,
+	eventId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const { data: inv } = await supabase
+		.from("documents")
+		.select("id, doc_type, event_id, status")
+		.eq("id", invoiceId)
+		.maybeSingle();
+	if (!inv || inv.doc_type !== "invoice") {
+		return { ok: false, error: "Invoice tidak ditemukan." };
+	}
+	if (inv.status === "void")
+		return { ok: false, error: "Invoice sudah dibatalkan." };
+	if (inv.event_id && inv.event_id !== eventId) {
+		return { ok: false, error: "Invoice ini sudah tertaut ke event lain." };
+	}
+	const other = await findActiveDoc(supabase, eventId, "invoice");
+	if (other && other.id !== invoiceId) {
+		return {
+			ok: false,
+			error: `Event ini sudah punya invoice ${other.doc_number}.`,
+		};
+	}
+	const { data: ev } = await supabase
+		.from("events")
+		.select("due_date, event_date")
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
+	const { error } = await supabase
+		.from("documents")
+		.update({
+			event_id: eventId,
+			event_info: {},
+			due_date:
+				(ev.due_date as string | null) ?? addDays(ev.event_date as string, -1),
+		})
+		.eq("id", invoiceId);
+	return error ? { ok: false, error: error.message } : { ok: true };
 }
