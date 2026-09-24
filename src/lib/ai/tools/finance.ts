@@ -3,7 +3,7 @@ import "server-only";
 import type { AiTool } from "@/lib/ai/types";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { listUnpaidCrew } from "@/lib/finance/unpaid-crew";
-import { daysUntil } from "@/lib/telegram/digest";
+import { addDaysISO, daysUntil } from "@/lib/telegram/digest";
 
 /**
  * Tool keuangan — RAHASIA BISNIS. Registry hanya menyerahkan tool ber-scope
@@ -141,7 +141,8 @@ export const piutang: AiTool = {
 	name: "piutang",
 	description:
 		"Daftar event yang belum lunas (piutang / tagihan ke klien), dipisah antara yang eventnya " +
-		"sudah lewat dan yang masih akan datang. Pakai untuk 'siapa yang belum bayar'.",
+		"sudah lewat dan yang masih akan datang. Pakai untuk 'siapa yang belum bayar' dan " +
+		"pengingat pelunasan: jatuh_tempo diambil dari invoice (standar H-1 acara, bisa diubah per invoice).",
 	scope: "finance",
 	parameters: { type: "OBJECT", properties: {} },
 	async run(_args, ctx) {
@@ -151,7 +152,7 @@ export const piutang: AiTool = {
 		const { data, error } = await ctx.supabase
 			.from("events")
 			.select(
-				"project_id, client_name, event_date, total_paid, remaining_balance, grand_total",
+				"id, project_id, client_name, client_wa, event_date, total_paid, remaining_balance, grand_total",
 			)
 			.gt("remaining_balance", 0)
 			.is("deleted_at", null)
@@ -161,24 +162,59 @@ export const piutang: AiTool = {
 		if (error) return { error: error.message };
 
 		const rows = (data ?? []) as Array<{
+			id: string;
 			project_id: string;
 			client_name: string;
+			client_wa: string | null;
 			event_date: string;
 			total_paid: number;
 			remaining_balance: number;
 			grand_total: number;
 		}>;
-		const mapped = rows.map((r) => ({
-			project_id: r.project_id,
-			klien: r.client_name,
-			tanggal_event: r.event_date,
-			sudah_lewat: r.event_date < ctx.todayISO,
-			hari_lagi: daysUntil(ctx.todayISO, r.event_date),
-			nilai: r.grand_total,
-			sudah_dibayar: r.total_paid,
-			sisa: r.remaining_balance,
-			belum_dp_sama_sekali: Number(r.total_paid) === 0,
-		}));
+
+		// Tenggat pelunasan = due_date invoice (satu invoice non-void per event).
+		// Belum ada invoice → standar H-1 acara, sama dengan default invoice baru.
+		// events.due_date sengaja tidak dipakai: hanya dari impor CSV lama dan
+		// tidak ikut bergeser saat tanggal acara diubah.
+		const { data: docs } = await ctx.supabase
+			.from("documents")
+			.select("event_id, doc_number, due_date")
+			.eq("doc_type", "invoice")
+			.neq("status", "void")
+			.in(
+				"event_id",
+				rows.map((r) => r.id),
+			);
+		const invoiceOf = new Map(
+			(
+				(docs ?? []) as Array<{
+					event_id: string;
+					doc_number: string;
+					due_date: string | null;
+				}>
+			).map((d) => [d.event_id, d]),
+		);
+
+		const mapped = rows.map((r) => {
+			const inv = invoiceOf.get(r.id);
+			const jatuhTempo = inv?.due_date ?? addDaysISO(r.event_date, -1);
+			return {
+				project_id: r.project_id,
+				klien: r.client_name,
+				wa_klien: r.client_wa,
+				no_invoice: inv?.doc_number ?? null,
+				tanggal_event: r.event_date,
+				jatuh_tempo: jatuhTempo,
+				jatuh_tempo_dari: inv?.due_date ? "invoice" : "standar H-1",
+				hari_ke_jatuh_tempo: daysUntil(ctx.todayISO, jatuhTempo),
+				sudah_lewat: r.event_date < ctx.todayISO,
+				hari_lagi: daysUntil(ctx.todayISO, r.event_date),
+				nilai: r.grand_total,
+				sudah_dibayar: r.total_paid,
+				sisa: r.remaining_balance,
+				belum_dp_sama_sekali: Number(r.total_paid) === 0,
+			};
+		});
 		return {
 			jumlah_event: mapped.length,
 			total_piutang: mapped.reduce((s, r) => s + Number(r.sisa), 0),

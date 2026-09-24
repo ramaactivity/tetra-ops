@@ -11,16 +11,19 @@ import {
 	loadEventForPdfById,
 } from "@/lib/documents/load";
 import {
+	allocateNumber,
+	clientFromEvent,
+	defaultSignerId,
+	findActiveDoc,
+	getOrCreateInvoice,
+} from "@/lib/documents/invoice";
+import {
 	addDays,
-	DOC_PREFIX,
 	DOC_STATUSES,
 	type DocClient,
 	type DocItem,
-	type DocType,
-	type DocumentRow,
 	defaultTerms,
 } from "@/lib/documents/types";
-import { formatPhoneLocal } from "@/lib/format";
 import type { EventForPdf } from "@/lib/pdf/event-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -94,21 +97,6 @@ export type DocumentDraftInput = z.input<typeof DraftSchema>;
 export type SaveDocumentResult =
 	| { ok: true; id: string; doc_number: string }
 	| { ok: false; error: string; fieldErrors?: Record<string, string[]> };
-
-async function allocateNumber(
-	supabase: Supabase,
-	docType: DocType,
-	issuedAt: string,
-): Promise<string> {
-	const { data, error } = await supabase.rpc("next_document_number", {
-		p_prefix: DOC_PREFIX[docType],
-		p_date: issuedAt,
-	});
-	if (error || !data) {
-		throw new Error(`Gagal alokasi nomor: ${error?.message ?? "kosong"}`);
-	}
-	return data as string;
-}
 
 function revalidateDocs(projectId?: string | null) {
 	revalidatePath("/finance/dokumen");
@@ -251,42 +239,6 @@ export async function setDocumentStatus(
 // Get-or-create per event / pembayaran
 // ---------------------------------------------------------------------------
 
-function clientFromEvent(ev: EventForPdf): DocClient {
-	return {
-		name: ev.client_name,
-		org: null,
-		phone: ev.client_wa ? formatPhoneLocal(ev.client_wa) : null,
-		email: ev.client_email,
-		address: null,
-	};
-}
-
-async function findActiveDoc(
-	supabase: Supabase,
-	eventId: string,
-	docType: DocType,
-): Promise<DocumentRow | null> {
-	const { data } = await supabase
-		.from("documents")
-		.select("*")
-		.eq("event_id", eventId)
-		.eq("doc_type", docType)
-		.neq("status", "void")
-		.order("created_at", { ascending: false })
-		.limit(1)
-		.maybeSingle();
-	return (data as DocumentRow | null) ?? null;
-}
-
-async function defaultSignerId(supabase: Supabase) {
-	const { data } = await supabase
-		.from("document_signers")
-		.select("id, name, position")
-		.eq("is_default", true)
-		.maybeSingle();
-	return data as { id: string; name: string; position: string } | null;
-}
-
 /** Item & pengaturan yang dipakai nota/kuitansi: ikut invoice bila ada, else dari event. */
 async function billingSnapshot(
 	supabase: Supabase,
@@ -338,45 +290,15 @@ export async function ensureInvoiceForEvent(
 ): Promise<IssueResult> {
 	const me = await requireOwnerLevel();
 	const supabase = await createClient();
-	const existing = await findActiveDoc(supabase, eventId, "invoice");
-	if (existing) return { ok: true, id: existing.id, created: false };
-
-	const ev = await loadEventForPdfById(supabase, eventId);
-	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
-	const signer = await defaultSignerId(supabase);
-	const grossUp = ev.gross_up_pph_amount > 0;
-	try {
-		const docNumber = await allocateNumber(supabase, "invoice", todayISO());
-		const { data, error } = await supabase
-			.from("documents")
-			.insert({
-				doc_type: "invoice",
-				doc_number: docNumber,
-				event_id: eventId,
-				client: clientFromEvent(ev),
-				event_info: {},
-				items: itemsFromEvent(ev),
-				discount: discountFromEvent(ev),
-				gross_up_enabled: grossUp,
-				gross_up_rate: 2,
-				terms: defaultTerms("invoice", grossUp),
-				signer_id: signer?.id ?? null,
-				signer_name: signer?.name ?? null,
-				signer_position: signer?.position ?? null,
-				issued_at: todayISO(),
-				// Jatuh tempo standar H-1 sebelum acara (bisa diganti chip di editor).
-				due_date: addDays(ev.event_date, -1),
-				status: "sent",
-				created_by: me.profile.id,
-			})
-			.select("id")
-			.single();
-		if (error) return { ok: false, error: error.message };
-		revalidateDocs(ev.project_id);
-		return { ok: true, id: data.id as string, created: true };
-	} catch (e) {
-		return { ok: false, error: e instanceof Error ? e.message : "Gagal" };
-	}
+	const res = await getOrCreateInvoice(
+		supabase,
+		eventId,
+		me.profile.id,
+		todayISO(),
+	);
+	if (!res.ok) return res;
+	if (res.created) revalidateDocs(res.projectId);
+	return { ok: true, id: res.id, created: res.created };
 }
 
 /** Kuitansi untuk satu pembayaran — nomor tetap kalau diminta ulang. */

@@ -3,6 +3,8 @@ import "server-only";
 import { assignCrewCore } from "@/lib/actions/crew-assignments";
 import { recordQuickTransactionCore } from "@/lib/actions/journal-entries";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
+import { findActiveDoc, getOrCreateInvoice } from "@/lib/documents/invoice";
+import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import {
 	type CashAccountOption,
 	loadCashAccounts,
@@ -13,6 +15,7 @@ import {
 	categoriesFor,
 } from "@/lib/finance/quick-record-categories";
 import { rp } from "@/lib/telegram/digest";
+import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 
 /**
  * Tool TULIS untuk agent. Polanya sama untuk semua:
@@ -461,5 +464,153 @@ export const updateStatusLead: AiTool = {
 			.eq("id", r.lead.id);
 		if (error) return { error: error.message };
 		return { tersimpan: true, ringkasan: r.ringkasan };
+	},
+};
+
+// ── Kirim pengingat pelunasan ke klien (lewat bot WA) ───────────────────
+
+async function resolvePengingat(
+	args: Record<string, unknown>,
+	ctx: AiToolContext,
+) {
+	const projectId = str(args.project_id);
+	const pesan = str(args.pesan);
+	if (!projectId)
+		return { error: "project_id wajib (dapatkan dari piutang/cari_event)" };
+	if (pesan.length < 20 || pesan.length > 1500)
+		return { error: "pesan wajib diisi, 20–1500 karakter" };
+
+	const { data: ev } = await ctx.supabase
+		.from("events")
+		.select(
+			"id, project_id, client_name, client_wa, event_date, remaining_balance, payment_status",
+		)
+		.eq("project_id", projectId)
+		.is("deleted_at", null)
+		.maybeSingle();
+	if (!ev) return { error: `Event ${projectId} tidak ditemukan` };
+	if (ev.payment_status === "paid" || Number(ev.remaining_balance) <= 0)
+		return { error: `${ev.client_name} sudah lunas, tidak perlu diingatkan.` };
+	if (!isLikelyWaPhone(ev.client_wa))
+		return {
+			error: `Nomor WA klien tidak valid ("${ev.client_wa ?? ""}"). Perbaiki di halaman event dulu.`,
+		};
+
+	const nomor = toWaPhone(ev.client_wa as string);
+	const inv = await findActiveDoc(ctx.supabase, ev.id as string, "invoice");
+	return {
+		event: ev,
+		nomor,
+		pesan,
+		invoice: inv?.doc_number ?? null,
+		ringkasan: `Kirim WA ke ${ev.client_name} (+${nomor}) lewat bot Tetra: pesan di bawah + PDF ${
+			inv
+				? `invoice ${inv.doc_number}`
+				: "invoice BARU (dibuat otomatis, tenggat H-1)"
+		}. Sisa tagihan ${rp(Number(ev.remaining_balance))}, acara ${ev.event_date} [${ev.project_id}].`,
+	};
+}
+
+export const kirimPengingatPelunasan: AiTool = {
+	name: "kirim_pengingat_pelunasan",
+	description:
+		"Kirim pesan pengingat pelunasan + PDF invoice terbaru ke WhatsApp klien lewat bot WA Tetra. " +
+		"HANYA kalau owner memintanya untuk klien tertentu. Invoice dibuat otomatis kalau belum ada.",
+	scope: "finance",
+	mutates: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			project_id: { type: "STRING", description: "Kode project event." },
+			pesan: {
+				type: "STRING",
+				description:
+					"Teks pesan untuk klien, persis seperti yang disetujui owner. PDF invoice dilampirkan terpisah.",
+			},
+		},
+		required: ["project_id", "pesan"],
+	},
+	async preview(args, ctx) {
+		const r = await resolvePengingat(args, ctx);
+		if ("error" in r) return r;
+		return {
+			ringkasan: r.ringkasan,
+			nomor_wa: `+${r.nomor}`,
+			invoice: r.invoice ?? "akan dibuat",
+			pesan: r.pesan,
+		};
+	},
+	async run(args, ctx) {
+		const actor = requireActor(ctx);
+		if (typeof actor !== "string") return actor;
+		const r = await resolvePengingat(args, ctx);
+		if ("error" in r) return r;
+
+		const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+		if (!appUrl) return { error: "NEXT_PUBLIC_APP_URL belum diset." };
+		const inv = await getOrCreateInvoice(
+			ctx.supabase,
+			r.event.id as string,
+			actor,
+			ctx.todayISO,
+		);
+		if (!inv.ok) return { error: `Gagal menyiapkan invoice: ${inv.error}` };
+		// 1 jam cukup untuk antrean bot (cek tiap 10 dtk) plus bot yang sedang reconnect.
+		const q = signedPdfQuery(inv.id, 3600);
+		if (!q) return { error: "MCP_API_TOKEN belum diset." };
+		const klien = String(r.event.client_name)
+			.replace(/[^\w\s-]+/g, "")
+			.trim();
+
+		// Koneksi WA hidup di proses bot; perintah dititipkan ke antrean yang
+		// sama dengan tombol dashboard (bot_commands), dieksekusi ≤10 detik.
+		const { data: cmd, error } = await ctx.supabase
+			.from("bot_commands")
+			.insert({
+				command: `send-invoice:${JSON.stringify({
+					nomor: r.nomor,
+					pesan: r.pesan,
+					pdf_url: `${appUrl}/api/pdf/document/${inv.id}?download=1&${q}`,
+					nama_file: `Invoice ${inv.docNumber} - ${klien}.pdf`,
+				})}`,
+				status: "pending",
+			})
+			.select("id")
+			.single();
+		if (error) return { error: `Gagal menitipkan ke bot: ${error.message}` };
+
+		await ctx.supabase.from("event_reminders_log").insert({
+			event_id: r.event.id,
+			template_code: "pelunasan_bot",
+			recipient_phone: r.nomor,
+			recipient_label: r.event.client_name,
+			sent_by: actor,
+			notes: `bot_commands ${cmd.id}, invoice ${inv.docNumber}`,
+		});
+
+		// Tunggu hasil bot sebentar supaya owner langsung tahu terkirim/gagal.
+		for (let i = 0; i < 8; i++) {
+			await new Promise((res) => setTimeout(res, 4000));
+			const { data: st } = await ctx.supabase
+				.from("bot_commands")
+				.select("status, result")
+				.eq("id", cmd.id)
+				.maybeSingle();
+			if (st && st.status !== "pending") {
+				return {
+					status: st.status === "done" ? "terkirim" : "gagal",
+					hasil: st.result,
+					invoice: inv.docNumber,
+					invoice_baru: inv.created,
+				};
+			}
+		}
+		return {
+			status: "antre",
+			hasil:
+				"Bot belum memproses dalam 30 detik (mungkin sedang reconnect). Perintah tetap di antrean.",
+			invoice: inv.docNumber,
+			invoice_baru: inv.created,
+		};
 	},
 };

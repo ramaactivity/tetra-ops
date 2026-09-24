@@ -16,8 +16,11 @@ import type { DocItem, DocumentRow, DocumentSigner } from "./types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-export async function loadDocument(id: string): Promise<DocumentRow | null> {
-	const supabase = await createClient();
+export async function loadDocument(
+	id: string,
+	client?: Supabase,
+): Promise<DocumentRow | null> {
+	const supabase = client ?? (await createClient());
 	const { data } = await supabase
 		.from("documents")
 		.select("*")
@@ -86,7 +89,7 @@ export async function loadEventForPdfById(
 		.eq("id", eventId)
 		.maybeSingle();
 	if (!data?.project_id) return null;
-	return fetchEventForPdf(data.project_id as string);
+	return fetchEventForPdf(data.project_id as string, supabase);
 }
 
 /**
@@ -118,8 +121,9 @@ export function itemsFromEvent(ev: EventForPdf): DocItem[] {
  */
 export async function buildPdfContext(
 	doc: Pick<DocumentRow, "doc_type" | "event_id" | "payment_id" | "signer_id">,
+	client?: Supabase,
 ): Promise<PdfBuildContext> {
-	const supabase = await createClient();
+	const supabase = client ?? (await createClient());
 	const [event, bank, signerRow] = await Promise.all([
 		doc.event_id ? loadEventForPdfById(supabase, doc.event_id) : null,
 		loadDefaultBank(supabase),
@@ -187,9 +191,13 @@ export async function buildPdfContext(
 	};
 }
 
-export async function loadPdfData(id: string): Promise<PdfDocData | null> {
-	const doc = await loadDocument(id);
+/** `client` diisi admin hanya untuk jalur tanpa sesi (link PDF bertanda tangan). */
+export async function loadPdfData(
+	id: string,
+	client?: Supabase,
+): Promise<PdfDocData | null> {
+	const doc = await loadDocument(id, client);
 	if (!doc) return null;
-	const ctx = await buildPdfContext(doc);
+	const ctx = await buildPdfContext(doc, client);
 	return buildPdfData(doc, ctx);
 }

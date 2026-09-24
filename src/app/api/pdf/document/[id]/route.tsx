@@ -3,21 +3,33 @@ import { NextResponse } from "next/server";
 import { TetraDocument } from "@/components/pdf/tetra-document";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadPdfData } from "@/lib/documents/load";
+import { verifyPdfSignature } from "@/lib/documents/pdf-link";
 import { DOC_TYPE_LABEL } from "@/lib/documents/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> },
 ) {
-	const me = await getCurrentUser();
-	if (
-		!me ||
-		(me.profile.role !== "super_admin" && me.profile.role !== "owner")
-	) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-	}
 	const { id } = await params;
-	const data = await loadPdfData(id);
+	const url = new URL(request.url);
+	// Link bertanda tangan (bot WA mengunduh invoice untuk klien): tanpa sesi,
+	// jadi dibaca dengan klien admin — tanda tangannya mengunci ke satu id.
+	const signed = verifyPdfSignature(
+		id,
+		url.searchParams.get("exp"),
+		url.searchParams.get("sig"),
+	);
+	if (!signed) {
+		const me = await getCurrentUser();
+		if (
+			!me ||
+			(me.profile.role !== "super_admin" && me.profile.role !== "owner")
+		) {
+			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+	}
+	const data = await loadPdfData(id, signed ? createAdminClient() : undefined);
 	if (!data) {
 		return NextResponse.json(
 			{ error: "Dokumen tidak ditemukan" },
@@ -26,7 +38,7 @@ export async function GET(
 	}
 
 	const buffer = await renderToBuffer(<TetraDocument data={data} />);
-	const download = new URL(request.url).searchParams.get("download") === "1";
+	const download = url.searchParams.get("download") === "1";
 	const client = data.client.name
 		.replace(/[^\w\s-]+/g, "")
 		.trim()

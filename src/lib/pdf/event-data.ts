@@ -77,8 +77,10 @@ export type EventForPdf = {
 
 export async function fetchEventForPdf(
 	projectId: string,
+	/** Klien lain (mis. admin untuk MCP/link bertanda tangan). Default: sesi login. */
+	client?: Awaited<ReturnType<typeof createClient>>,
 ): Promise<EventForPdf | null> {
-	const supabase = await createClient();
+	const supabase = client ?? (await createClient());
 
 	const { data: ev, error } = await supabase
 		.from("events")

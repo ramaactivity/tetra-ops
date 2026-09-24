@@ -5,6 +5,7 @@ import {
 	assignCrew,
 	catatTransaksi,
 	daftarCrew,
+	kirimPengingatPelunasan,
 	updateStatusLead,
 } from "@/lib/ai/tools/aksi";
 import {
@@ -59,6 +60,7 @@ const ALL_TOOLS: AiTool[] = [
 	catatTransaksi,
 	assignCrew,
 	updateStatusLead,
+	kirimPengingatPelunasan,
 ];
 
 /**
@@ -115,6 +117,7 @@ export const TOOL_LABELS: Record<string, string> = {
 	catat_transaksi: "catat transaksi",
 	assign_crew: "penugasan crew",
 	update_status_lead: "status lead",
+	kirim_pengingat_pelunasan: "pengingat pelunasan klien",
 };
 
 export function toolLabel(name: string): string {
