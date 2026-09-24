@@ -856,9 +856,15 @@ export function DocumentEditor({
 												className="w-36"
 												aria-label="Harga satuan"
 											/>
-											<span className="tabular ml-auto w-28 text-right text-[14px] font-medium">
-												{formatRupiah(it.qty * it.unit_price)}
-											</span>
+											{/* Jumlah baris: blok tersendiri, bukan teks lepas di ujung */}
+											<div className="ml-auto flex h-10 min-w-[128px] flex-col items-end justify-center rounded-lg bg-secondary px-3">
+												<span className="text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-muted-foreground">
+													Jumlah
+												</span>
+												<span className="tabular mt-1 text-[14px] font-semibold leading-none">
+													{formatRupiah(it.qty * it.unit_price)}
+												</span>
+											</div>
 											<div className="flex items-center">
 												<Button
 													variant="ghost"
@@ -1192,12 +1198,14 @@ export function DocumentEditor({
 								placeholder="opsional — tampil di atas S&K"
 							/>
 						</Field>
-						<Field label="Syarat & ketentuan" hint="Satu poin per baris.">
-							<RichTextarea
-								toolbar={false}
-								rows={4}
-								value={doc.terms ?? ""}
-								onChange={(v) => patch("terms", v)}
+						<Field
+							label="Syarat & ketentuan"
+							hint="Enter = poin baru. Backspace di poin kosong = hapus."
+						>
+							<IncludeList
+								value={(doc.terms ?? "").split("\n")}
+								onChange={(v) => patch("terms", v.join("\n"))}
+								addLabel="Tambah syarat"
 							/>
 						</Field>
 						<Button

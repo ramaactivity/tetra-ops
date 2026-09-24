@@ -20,6 +20,7 @@ import {
 	PdfFooter,
 	PdfHeader,
 	PdfPageNo,
+	PdfPointList,
 	PdfSignature,
 	PdfSignatureBlank,
 	PdfSignOff,
@@ -122,30 +123,14 @@ function ItemsTable({ d }: { d: PdfDocData }) {
 						<Text style={[S.body, S.cQty]}>{it.qty}</Text>
 						<Text style={[S.body, S.cTotal]}>{rp(it.qty * it.unit_price)}</Text>
 					</View>
-					{/* Include selebar tabel (kecuali kolom Jumlah) supaya dua kolomnya lega */}
-					<View style={{ paddingRight: 112 }}>
-						<Includes lines={it.includes.filter((x) => x.trim())} />
-					</View>
+					{/* Include di kotak abu-abu tersendiri, selebar baris */}
+					<PdfPointList
+						lines={it.includes.filter((x) => x.trim())}
+						columns={it.includes.filter((x) => x.trim()).length > 4 ? 2 : 1}
+					/>
 				</View>
 			))}
 			<View style={S.tableEnd} />
-		</View>
-	);
-}
-
-/** Daftar include: satu kolom bila ≤4 poin, dua kolom bila lebih. */
-function Includes({ lines }: { lines: string[] }) {
-	if (lines.length === 0) return null;
-	const width = lines.length > 4 ? "50%" : "100%";
-	return (
-		<View style={S.includeWrap}>
-			{lines.map((l, j) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
-				<View key={j} style={[S.includeItem, { width }]}>
-					<Text style={S.includeDot}>•</Text>
-					<Text style={S.include}>{l}</Text>
-				</View>
-			))}
 		</View>
 	);
 }

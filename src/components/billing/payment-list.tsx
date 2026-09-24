@@ -152,6 +152,7 @@ function PaymentItem({
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						nativeButton={false}
 						render={
 							<a
 								href={`/finance/accounting?tab=journal&entry=${encodeURIComponent(payment.journal_ref)}`}
@@ -166,6 +167,7 @@ function PaymentItem({
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						nativeButton={false}
 						render={
 							<a
 								href={payment.proof_url}

@@ -37,6 +37,8 @@ export const PDF_COLORS = {
 	/** Ungu referensi owner — judul, pita tabel/total, terima kasih, garis footer. */
 	accent: "#5a4fb5",
 	accentSoft: "#eeecf8",
+	/** Area abu-abu untuk daftar poin (include & S&K). */
+	panel: "#f4f3f7",
 	muted: "#6b6a75",
 	subtle: "#a5a4ad",
 	border: "#e4e3ea",
@@ -141,17 +143,25 @@ export const PDF_STYLES = StyleSheet.create({
 	},
 	tableEnd: { borderBottomWidth: 1.25, borderBottomColor: C.ink },
 	cName: { flex: 1 },
-	cPrice: { width: 96, fontWeight: 600 },
-	cQty: { width: 36, textAlign: "center" },
-	cTotal: { width: 100, textAlign: "right", fontWeight: 700 },
+	cPrice: { width: 82, textAlign: "right", fontWeight: 500 },
+	cQty: { width: 30, textAlign: "center" },
+	cTotal: { width: 92, textAlign: "right", fontWeight: 700 },
 	itemName: { fontSize: 10.5, fontWeight: 700 },
 	// Include: poin berbullet, dua kolom bila panjang, kontras cukup untuk dibaca.
-	includeWrap: { flexDirection: "row", flexWrap: "wrap", marginTop: 5 },
+	// Kotak abu-abu tersendiri di bawah nama item: jelas bukan bagian kolom harga.
+	includeBox: {
+		marginTop: 7,
+		paddingVertical: 7,
+		paddingHorizontal: 10,
+		backgroundColor: C.panel,
+		borderRadius: 3,
+	},
+	includeWrap: { flexDirection: "row", flexWrap: "wrap" },
 	includeItem: {
 		flexDirection: "row",
 		gap: 5,
-		marginBottom: 2.5,
-		paddingRight: 8,
+		paddingVertical: 1.5,
+		paddingRight: 10,
 	},
 	includeDot: { fontSize: 8.5, color: C.accent, lineHeight: 1.45 },
 	include: { flex: 1, fontSize: 8.8, lineHeight: 1.45, color: "#4a4953" },
@@ -205,19 +215,21 @@ export const PDF_STYLES = StyleSheet.create({
 		alignItems: "center",
 		marginTop: 6,
 		marginBottom: 6,
-		paddingVertical: 11,
+		paddingVertical: 12,
 		paddingHorizontal: 14,
 		backgroundColor: C.accent,
 		borderRadius: 2,
 	},
+	// lineHeight 1 di kedua teks: tanpa itu leading bawah membuat angka tampak turun.
 	totalBandK: {
 		fontSize: 10.5,
+		lineHeight: 1,
 		fontWeight: 700,
 		color: C.white,
 		letterSpacing: 0.8,
 		textTransform: "uppercase",
 	},
-	totalBandV: { fontSize: 15, fontWeight: 700, color: C.white },
+	totalBandV: { fontSize: 15, lineHeight: 1, fontWeight: 700, color: C.white },
 
 	// ── Penutup: mengalir setelah total. Kiri terima kasih + S&K, kanan tanda tangan
 	// Penutup: didorong ke dasar halaman oleh PinnedBottom (spacer flexGrow).
@@ -522,6 +534,34 @@ export function PdfSignatureBlank({
 }
 
 /** Penutup: kiri terima kasih + S&K, kanan tanda tangan. Tidak dipecah lintas halaman. */
+/**
+ * Daftar poin dalam kotak abu-abu — satu gaya untuk include item dan S&K.
+ * `columns` 2 membagi poin ke dua kolom (include yang panjang).
+ */
+export function PdfPointList({
+	lines,
+	columns = 1,
+}: {
+	lines: string[];
+	columns?: 1 | 2;
+}) {
+	if (lines.length === 0) return null;
+	const width = columns === 2 ? "50%" : "100%";
+	return (
+		<View style={PDF_STYLES.includeBox}>
+			<View style={PDF_STYLES.includeWrap}>
+				{lines.map((l, j) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
+					<View key={j} style={[PDF_STYLES.includeItem, { width }]}>
+						<Text style={PDF_STYLES.includeDot}>•</Text>
+						<Text style={PDF_STYLES.include}>{l}</Text>
+					</View>
+				))}
+			</View>
+		</View>
+	);
+}
+
 export function PdfSignOff({
 	thanks,
 	terms = [],
@@ -538,13 +578,7 @@ export function PdfSignOff({
 				{terms.length ? (
 					<View>
 						<Text style={PDF_STYLES.termsLabel}>Syarat & ketentuan</Text>
-						{terms.map((l, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis saat render
-							<View key={i} style={PDF_STYLES.bullet}>
-								<Text style={PDF_STYLES.bulletDot}>•</Text>
-								<Text style={PDF_STYLES.bulletText}>{l}</Text>
-							</View>
-						))}
+						<PdfPointList lines={terms} />
 					</View>
 				) : null}
 			</View>

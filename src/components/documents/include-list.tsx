@@ -10,11 +10,13 @@ import { useRef } from "react";
 export function IncludeList({
 	value,
 	onChange,
+	addLabel = "Tambah poin",
 }: {
 	value: string[];
 	onChange: (next: string[]) => void;
+	addLabel?: string;
 }) {
-	const refs = useRef<Array<HTMLInputElement | null>>([]);
+	const refs = useRef<Array<HTMLTextAreaElement | null>>([]);
 	const focus = (i: number) =>
 		requestAnimationFrame(() => refs.current[i]?.focus());
 
@@ -37,10 +39,10 @@ export function IncludeList({
 						<li
 							// biome-ignore lint/suspicious/noArrayIndexKey: poin tak punya id; urutan = identitas
 							key={i}
-							className="group/inc flex items-center gap-2 rounded-lg px-1.5 hover:bg-card focus-within:bg-card"
+							className="group/inc flex items-start gap-2 rounded-lg px-1.5 hover:bg-card focus-within:bg-card"
 						>
-							<span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
-							<input
+							<span className="mt-[13px] size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
+							<textarea
 								ref={(el) => {
 									refs.current[i] = el;
 								}}
@@ -55,15 +57,17 @@ export function IncludeList({
 										remove(i);
 									}
 								}}
-								placeholder="Tulis poin include…"
-								aria-label={`Include ${i + 1}`}
-								className="h-8 min-w-0 flex-1 bg-transparent text-[13.5px] leading-snug text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+								placeholder="Tulis poin…"
+								aria-label={`Poin ${i + 1}`}
+								rows={1}
+								// Poin panjang (S&K) turun baris & memanjang; Enter tetap = poin baru.
+								className="field-sizing-content min-h-8 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-[13.5px] leading-snug text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
 							/>
 							<button
 								type="button"
 								onClick={() => remove(i)}
 								aria-label="Hapus poin"
-								className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground/60 opacity-0 transition-opacity hover:bg-secondary hover:text-rose-700 group-hover/inc:opacity-100 focus-visible:opacity-100"
+								className="mt-1 grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground/60 opacity-0 transition-opacity hover:bg-secondary hover:text-rose-700 group-hover/inc:opacity-100 focus-visible:opacity-100"
 							>
 								<X className="size-3.5" />
 							</button>
@@ -77,7 +81,7 @@ export function IncludeList({
 				className="mt-0.5 inline-flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[12.5px] font-medium text-muted-foreground hover:bg-card hover:text-foreground"
 			>
 				<Plus className="size-3.5" />
-				{value.length ? "Tambah poin" : "Tambah include"}
+				{addLabel}
 			</button>
 		</div>
 	);
