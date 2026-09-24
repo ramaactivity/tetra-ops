@@ -1054,7 +1054,7 @@ export function DocumentEditor({
 								label="Tanggal terbit"
 								hint={
 									doc.id
-										? "Nomor dokumen terkunci ke tanggal terbit pertama."
+										? "Tanggal di nomor dokumen ikut berubah saat disimpan."
 										: undefined
 								}
 							>

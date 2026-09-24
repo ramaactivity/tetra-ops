@@ -176,9 +176,24 @@ export async function saveDocument(
 
 	try {
 		if (d.id) {
+			// Tanggal terbit diubah → tanggal di nomor ikut (QUO-TP-12-23092026 →
+			// QUO-TP-12-25092026). Urutan dipertahankan dalam bulan yang sama;
+			// pindah bulan = nomor urut baru di bulan itu (urutan reset per bulan).
+			const { data: before } = await supabase
+				.from("documents")
+				.select("doc_number, issued_at")
+				.eq("id", d.id)
+				.single();
+			let docNumber: string | undefined;
+			if (before && before.issued_at !== d.issued_at) {
+				docNumber =
+					String(before.issued_at).slice(0, 7) === d.issued_at.slice(0, 7)
+						? renumberDate(before.doc_number as string, d.issued_at)
+						: await allocateNumber(supabase, d.doc_type, d.issued_at);
+			}
 			const { data, error } = await supabase
 				.from("documents")
-				.update(payload)
+				.update(docNumber ? { ...payload, doc_number: docNumber } : payload)
 				.eq("id", d.id)
 				.select("id, doc_number")
 				.single();
@@ -217,6 +232,12 @@ export async function saveDocument(
 			error: e instanceof Error ? e.message : "Gagal menyimpan",
 		};
 	}
+}
+
+/** Ganti bagian tanggal (DDMMYYYY) di akhir nomor dokumen. */
+function renumberDate(docNumber: string, issuedAt: string): string {
+	const [y, m, dd] = issuedAt.split("-");
+	return docNumber.replace(/\d{8}$/, `${dd}${m}${y}`);
 }
 
 /**
