@@ -2,16 +2,17 @@
 
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { createInvoiceFromQuotation } from "@/lib/actions/documents";
-import {
-	getOrCreateInvoice,
-	linkInvoiceToEvent,
-} from "@/lib/documents/invoice";
 import { z } from "zod";
+import { createInvoiceFromQuotation } from "@/lib/actions/documents";
 import { createEventFolderInternal } from "@/lib/actions/drive";
 import { ensureVendorContact } from "@/lib/actions/vendors";
 import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	getOrCreateInvoice,
+	linkInvoiceToEvent,
+	syncDocClientsFromEvent,
+} from "@/lib/documents/invoice";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
 import {
@@ -61,6 +62,8 @@ const optionalString = (max: number) =>
 const BookingInputSchema = z.object({
 	channel: z.enum(CHANNELS),
 	client_name: z.string().trim().min(2, "Minimal 2 karakter").max(120),
+	client_org: optionalString(120),
+	event_title: optionalString(120),
 	client_wa: z
 		.string()
 		.trim()
@@ -277,6 +280,8 @@ export type BookingFormState =
 const FORM_KEYS = [
 	"channel",
 	"client_name",
+	"client_org",
+	"event_title",
 	"client_wa",
 	"service_type",
 	"package_id",
@@ -724,6 +729,8 @@ function buildEventPayload(
 	return {
 		channel: input.channel,
 		client_name: input.client_name,
+		client_org: input.client_org,
+		event_title: input.event_title,
 		client_wa: input.client_wa,
 		service_type: input.service_type,
 		package_id: selection.package_id,
@@ -1196,7 +1203,11 @@ export async function createBooking(
 			if (res.ok) invoiceId = sourceInvoiceId;
 		} else if (sourceQuotationId) {
 			const res = await createInvoiceFromQuotation(sourceQuotationId, eventId);
-			if (res.ok) invoiceId = res.id;
+			if (res.ok) {
+				invoiceId = res.id;
+				// Invoice disalin dari quotation → klien disamakan dengan event.
+				await syncDocClientsFromEvent(supabase, eventId);
+			}
 		} else {
 			const res = await getOrCreateInvoice(
 				supabase,
@@ -1418,6 +1429,9 @@ export async function updateBooking(
 			};
 		}
 	}
+
+	// Klien/pembooking di invoice, nota & BAST mengikuti event.
+	await syncDocClientsFromEvent(supabase, id);
 
 	// Best-effort: kabari grup Telegram owner perubahan penting (pindah tanggal,
 	// ganti paket, pindah lokasi, add-on berubah, dst). Event legacy di-skip —

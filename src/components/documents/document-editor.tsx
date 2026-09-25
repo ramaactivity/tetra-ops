@@ -114,6 +114,7 @@ export type LinkedEvent = {
 	project_id: string;
 	client_name: string;
 	event_date: string;
+	event_title: string | null;
 	venue_name: string | null;
 	billable_total: number;
 	total_paid: number;
@@ -682,40 +683,70 @@ export function DocumentEditor({
 							title="Klien & acara"
 							hint={
 								linkedEvent
-									? "Jadwal & lokasi mengikuti data event."
+									? "Klien, pembooking & jadwal mengikuti data event."
 									: "Tanggal acara boleh kosong dulu untuk penawaran."
 							}
 						/>
-						<Field label="Nama klien">
-							<ClientPicker
-								name={doc.client.name}
-								onNameChange={(v) => patchClient("name", v)}
-								onPick={(c) =>
-									setDoc((d) => ({
-										...d,
-										client: {
-											name: c.name,
-											org: c.org ?? d.client.org ?? "",
-											phone: c.phone ?? d.client.phone ?? "",
-											email: c.email ?? d.client.email ?? "",
-											address: c.address ?? d.client.address ?? "",
-										},
-									}))
-								}
-							/>
-						</Field>
+						{linkedEvent ? (
+							// Klien, pembooking & WA satu sumber: data event.
+							<div className="grid gap-3 sm:grid-cols-2">
+								<Field label="Klien">
+									<TextField value={doc.client.name} disabled />
+								</Field>
+								<Field label="Pembooking (u.p.)">
+									<TextField
+										value={doc.client.attn ?? ""}
+										placeholder="—"
+										disabled
+									/>
+								</Field>
+							</div>
+						) : (
+							<div className="grid gap-3 sm:grid-cols-2">
+								<Field label="Klien">
+									<ClientPicker
+										name={doc.client.name}
+										onNameChange={(v) => patchClient("name", v)}
+										onPick={(c) =>
+											setDoc((d) => ({
+												...d,
+												// Kontak ber-instansi: klien = instansinya, orangnya jadi u.p.
+												client: {
+													name: c.org || c.name,
+													org: "",
+													attn: c.org ? c.name : (d.client.attn ?? ""),
+													phone: c.phone ?? d.client.phone ?? "",
+													email: c.email ?? d.client.email ?? "",
+													address: c.address ?? d.client.address ?? "",
+												},
+											}))
+										}
+									/>
+								</Field>
+								<Field label="Pembooking (u.p.)">
+									<TextField
+										value={doc.client.attn ?? ""}
+										onChange={(e) => patchClient("attn", e.target.value)}
+										placeholder="opsional — orang yang menghubungi"
+									/>
+								</Field>
+							</div>
+						)}
 						<div className="grid gap-3 sm:grid-cols-2">
-							<Field label="Perusahaan / instansi">
-								<TextField
-									value={doc.client.org ?? ""}
-									onChange={(e) => patchClient("org", e.target.value)}
-									placeholder="opsional"
-								/>
-							</Field>
+							{doc.client.org ? (
+								<Field label="Perusahaan / instansi">
+									<TextField
+										value={doc.client.org}
+										onChange={(e) => patchClient("org", e.target.value)}
+										disabled={!!linkedEvent}
+									/>
+								</Field>
+							) : null}
 							<Field label="WhatsApp">
 								<PhoneInput
 									value={doc.client.phone ?? ""}
 									onChange={(e) => patchClient("phone", e.target.value)}
+									disabled={!!linkedEvent}
 								/>
 							</Field>
 							<Field label="Email">
@@ -740,6 +771,11 @@ export function DocumentEditor({
 								<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-secondary/60 px-3 py-2.5 text-[13px]">
 									<span className="inline-flex items-center gap-2">
 										<CalendarDays className="size-4 text-muted-foreground" />
+										{linkedEvent.event_title ? (
+											<span className="font-medium">
+												{linkedEvent.event_title} ·
+											</span>
+										) : null}
 										<span className="font-medium">
 											{formatDateID(linkedEvent.event_date)}
 										</span>
@@ -758,6 +794,13 @@ export function DocumentEditor({
 								</div>
 							) : (
 								<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+									<Field label="Nama acara" className="sm:col-span-2">
+										<TextField
+											value={doc.event_info?.title ?? ""}
+											onChange={(e) => patchEvent("title", e.target.value)}
+											placeholder="cth. Annual Gathering 2026 (opsional)"
+										/>
+									</Field>
 									<Field label="Tanggal acara">
 										<DatePicker
 											value={doc.event_info?.date ?? ""}

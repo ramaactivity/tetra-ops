@@ -27,7 +27,7 @@ interface FieldGridRowProps {
 	label: ReactNode;
 	name?: string;
 	htmlFor?: string;
-	hint?: string;
+	hint?: ReactNode;
 	tooltip?: string;
 	error?: string;
 	required?: boolean;
@@ -71,9 +71,7 @@ function FieldGridRow({
 					className="text-[13px] font-medium leading-snug text-foreground"
 				>
 					{label}
-					{required ? (
-						<span className="ml-0.5 text-primary">*</span>
-					) : null}
+					{required ? <span className="ml-0.5 text-primary">*</span> : null}
 				</label>
 				{tooltip ? <HelpTooltip text={tooltip} label={String(label)} /> : null}
 			</div>
@@ -126,11 +124,7 @@ export function FieldGrid({
 }: FieldGridProps) {
 	return (
 		<div
-			className={cn(
-				"grid",
-				gap === "tight" ? "gap-y-3" : "gap-y-4",
-				className,
-			)}
+			className={cn("grid", gap === "tight" ? "gap-y-3" : "gap-y-4", className)}
 			data-slot="field-grid"
 		>
 			{children}

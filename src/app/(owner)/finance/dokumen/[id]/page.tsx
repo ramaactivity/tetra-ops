@@ -57,12 +57,14 @@ export default async function DocumentPage({
 		client: {
 			name: doc.client.name ?? "",
 			org: doc.client.org ?? "",
+			attn: doc.client.attn ?? "",
 			// Dokumen lama menyimpan nomor tanpa 0 di depan — rapikan saat dimuat.
 			phone: doc.client.phone ? formatPhoneLocal(doc.client.phone) : "",
 			email: doc.client.email ?? "",
 			address: doc.client.address ?? "",
 		},
 		event_info: {
+			title: doc.event_info.title ?? "",
 			date: doc.event_info.date ?? "",
 			time: doc.event_info.time ?? "",
 			venue: doc.event_info.venue ?? "",
@@ -88,6 +90,7 @@ export default async function DocumentPage({
 				project_id: ev.project_id,
 				client_name: ev.client_name,
 				event_date: ev.event_date,
+				event_title: ev.event_title,
 				venue_name: ev.venue_name,
 				billable_total: ev.billable_total,
 				total_paid: ev.total_paid,

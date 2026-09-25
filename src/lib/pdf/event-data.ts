@@ -13,7 +13,13 @@ import { createClient } from "@/lib/supabase/server";
 export type EventForPdf = {
 	id: string;
 	project_id: string;
+	/** Judul event (daftar operations). Bukan klien — lihat client_org. */
 	client_name: string;
+	/** Klien yang ditagih (perusahaan/instansi/pengantin). */
+	client_org: string | null;
+	event_title: string | null;
+	booker_name: string | null;
+	event_category: string | null;
 	client_wa: string | null;
 	client_email: string | null;
 	pic_name: string | null;
@@ -86,7 +92,8 @@ export async function fetchEventForPdf(
 		.from("events")
 		.select(
 			`
-			id, project_id, client_name, client_wa, client_email,
+			id, project_id, client_name, client_org, event_title, booker_name,
+			event_category, client_wa, client_email,
 			pic_name, pic_wa,
 			frame_size, event_date, setup_time, start_time, end_time, session_segments,
 			venue_name, venue_address, venue_city,
@@ -172,6 +179,10 @@ export async function fetchEventForPdf(
 		id: ev.id as string,
 		project_id: ev.project_id as string,
 		client_name: ev.client_name as string,
+		client_org: (ev.client_org as string | null) ?? null,
+		event_title: (ev.event_title as string | null) ?? null,
+		booker_name: (ev.booker_name as string | null) ?? null,
+		event_category: (ev.event_category as string | null) ?? null,
 		client_wa: (ev.client_wa as string | null) ?? null,
 		client_email: (ev.client_email as string | null) ?? null,
 		pic_name: (ev.pic_name as string | null) ?? null,

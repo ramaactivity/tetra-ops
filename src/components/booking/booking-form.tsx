@@ -193,6 +193,8 @@ export type BonusSelection = {
 export type BookingFormDefaults = Partial<{
 	channel: string;
 	client_name: string;
+	client_org: string;
+	event_title: string;
 	client_wa: string;
 	client_email: string;
 	service_type: string;
@@ -244,110 +246,55 @@ export type BookingFormDefaults = Partial<{
 }>;
 
 /**
- * Category-specific helper fields. Each entry maps event_category code
- * to a small form that builds a structured client_name like
- * "Andi & Sari" (wedding) or "PT Mahaka — Annual Gathering" (corporate).
- *
- * Owner can always override client_name manually.
+ * Tiga nama yang BERBEDA (jangan dicampur):
+ *  - Klien (client_org): perusahaan/instansi/sekolah, atau pengantin/yang ultah.
+ *    Tujuan KEPADA di invoice.
+ *  - Nama acara (event_title): "Annual Gathering 2026", "Sweet 17". Opsional.
+ *  - Pembooking (booker_name): orang yang menghubungi Tetra — di bagian Kontak.
+ * client_name = judul di daftar event, dirangkai dari klien + acara.
  */
-const CATEGORY_HINTS: Record<
-	string,
-	{
-		hint: string;
-		fields: Array<{
-			key: string;
-			label: string;
-			placeholder?: string;
-		}>;
-		assemble: (vals: Record<string, string>) => string;
-	}
-> = {
-	pernikahan: {
-		hint: "Tetra suggest: gabungkan nama kedua pengantin",
-		fields: [
-			{ key: "groom", label: "Nama Pengantin Pria", placeholder: "Andi" },
-			{ key: "bride", label: "Nama Pengantin Wanita", placeholder: "Sari" },
-		],
-		assemble: (v) =>
-			[v.groom, v.bride].filter(Boolean).join(" & ").trim() || "",
-	},
+type NameTpl = {
+	client: { label: string; placeholder: string };
+	title: { label: string; placeholder: string };
+	join?: (client: string, title: string) => string;
+};
+
+const DASH_JOIN = (c: string, t: string) => [c, t].filter(Boolean).join(" — ");
+
+const NAME_TPL: Record<string, NameTpl> = {
 	wedding: {
-		hint: "Tetra suggest: gabungkan nama kedua pengantin",
-		fields: [
-			{ key: "groom", label: "Nama Pengantin Pria", placeholder: "Andi" },
-			{ key: "bride", label: "Nama Pengantin Wanita", placeholder: "Sari" },
-		],
-		assemble: (v) =>
-			[v.groom, v.bride].filter(Boolean).join(" & ").trim() || "",
+		client: { label: "Nama pengantin", placeholder: "Andi & Sari" },
+		title: { label: "Nama acara (opsional)", placeholder: "Akad & Resepsi" },
+		// Judul pernikahan cukup nama pengantin.
+		join: (c, t) => c || t,
 	},
 	birthday: {
-		hint: "Nama yang berulang tahun + (opsional) usia/tema",
-		fields: [
-			{
-				key: "celebrant",
-				label: "Nama yang Berulang Tahun",
-				placeholder: "Andi",
-			},
-			{
-				key: "age",
-				label: "Usia / Tema (opsional)",
-				placeholder: "Sweet 17",
-			},
-		],
-		assemble: (v) =>
-			v.age ? `${v.celebrant ?? ""} ${v.age}`.trim() : (v.celebrant ?? ""),
+		client: { label: "Yang berulang tahun", placeholder: "Aisha" },
+		title: { label: "Nama acara / tema", placeholder: "Sweet 17" },
+		join: (c, t) => [c, t].filter(Boolean).join(" "),
 	},
 	wisuda: {
-		hint: "Nama instansi + nama angkatan/acara",
-		fields: [
-			{
-				key: "instansi",
-				label: "Sekolah / Kampus",
-				placeholder: "SMA Negeri 1 Bogor",
-			},
-			{
-				key: "event_name",
-				label: "Nama Acara / Angkatan",
-				placeholder: "Wisuda 2026",
-			},
-		],
-		assemble: (v) => [v.instansi, v.event_name].filter(Boolean).join(" — "),
+		client: { label: "Sekolah / kampus", placeholder: "SMA Negeri 1 Bogor" },
+		title: { label: "Nama acara / angkatan", placeholder: "Wisuda 2026" },
 	},
 	corporate: {
-		hint: "Nama perusahaan/EO + nama acara",
-		fields: [
-			{ key: "company", label: "Perusahaan / EO", placeholder: "PT Mahaka" },
-			{
-				key: "event_name",
-				label: "Nama Acara",
-				placeholder: "Annual Gathering 2026",
-			},
-		],
-		assemble: (v) => [v.company, v.event_name].filter(Boolean).join(" — "),
+		client: { label: "Perusahaan / EO", placeholder: "PT Mahaka" },
+		title: { label: "Nama acara", placeholder: "Annual Gathering 2026" },
 	},
-	gathering: {
-		hint: "Nama perusahaan/EO + nama acara",
-		fields: [
-			{ key: "company", label: "Perusahaan / EO", placeholder: "PT Mahaka" },
-			{
-				key: "event_name",
-				label: "Nama Acara",
-				placeholder: "Family Gathering",
-			},
-		],
-		assemble: (v) => [v.company, v.event_name].filter(Boolean).join(" — "),
+	instansi: {
+		client: { label: "Instansi", placeholder: "Kemenag DKI" },
+		title: { label: "Nama acara", placeholder: "Rapat Kerja 2026" },
 	},
-	event: {
-		hint: "Nama acara yang tampil di list operations",
-		fields: [
-			{
-				key: "event_name",
-				label: "Nama Acara",
-				placeholder: "cth. Grand Opening Cafe Senja",
-			},
-		],
-		assemble: (v) => v.event_name ?? "",
+};
+NAME_TPL.pernikahan = NAME_TPL.wedding;
+NAME_TPL.gathering = NAME_TPL.corporate;
+
+const DEFAULT_NAME_TPL: NameTpl = {
+	client: {
+		label: "Klien (perusahaan / orang)",
+		placeholder: "cth. Cafe Senja",
 	},
+	title: { label: "Nama acara", placeholder: "cth. Grand Opening" },
 };
 
 /** yyyy-MM-dd ± n hari (UTC, tanpa zona waktu). */
@@ -573,26 +520,30 @@ export function BookingForm({
 
 	// === Event Category + sub-fields
 	const [eventCategory, setEventCategory] = useState(get("event_category", ""));
-	const [categoryMeta, setCategoryMeta] = useState<Record<string, string>>({});
+	const nameTpl = NAME_TPL[eventCategory] ?? DEFAULT_NAME_TPL;
 
-	// Resolve category template
-	const categoryTpl = useMemo(
-		() => CATEGORY_HINTS[eventCategory] ?? null,
-		[eventCategory],
-	);
-
-	// === Client name (auto-derived from category sub-fields, can be overridden)
+	// === Klien + nama acara → judul event (client_name, bisa di-override)
+	const [clientOrg, setClientOrg] = useState(get("client_org"));
+	const [eventTitle, setEventTitle] = useState(get("event_title"));
 	const [clientName, setClientName] = useState(get("client_name"));
-	const [clientNameTouched, setClientNameTouched] = useState(
-		Boolean(get("client_name")),
-	);
+	const [clientNameTouched, setClientNameTouched] = useState(() => {
+		const cur = get("client_name");
+		if (!cur) return false;
+		// Judul lama yang memang hasil rangkaian → tetap ikut otomatis.
+		const tpl = NAME_TPL[get("event_category", "")] ?? DEFAULT_NAME_TPL;
+		return (
+			cur !== (tpl.join ?? DASH_JOIN)(get("client_org"), get("event_title"))
+		);
+	});
 
 	useEffect(() => {
-		if (categoryTpl && !clientNameTouched) {
-			const assembled = categoryTpl.assemble(categoryMeta).trim();
-			if (assembled) setClientName(assembled);
-		}
-	}, [categoryMeta, categoryTpl, clientNameTouched]);
+		if (clientNameTouched) return;
+		const joined = (nameTpl.join ?? DASH_JOIN)(
+			clientOrg.trim(),
+			eventTitle.trim(),
+		);
+		if (joined) setClientName(joined);
+	}, [clientOrg, eventTitle, nameTpl, clientNameTouched]);
 
 	// === Service & Package
 	const [serviceType, setServiceType] = useState(get("service_type", ""));
@@ -972,8 +923,8 @@ export function BookingForm({
 
 	// Toggle: pembooking sama dengan klien (yang punya acara)
 	useEffect(() => {
-		if (bookerSameAsClient) setBookerName(clientName);
-	}, [bookerSameAsClient, clientName]);
+		if (bookerSameAsClient) setBookerName(clientOrg || clientName);
+	}, [bookerSameAsClient, clientOrg, clientName]);
 
 	// Toggle: pembooking adalah vendor (channel vendor — kami nggak komunikasi
 	// langsung sama klien, semua via PIC vendor)
@@ -2123,7 +2074,7 @@ export function BookingForm({
 					<Section
 						step={3}
 						title="Tipe Acara"
-						description="Kategori event nentuin field nama klien yang muncul di bawah."
+						description="Pisahkan klien (yang ditagih) dari nama acaranya. Pembooking diisi di bagian Kontak."
 					>
 						<Field
 							label="Kategori Event"
@@ -2136,8 +2087,6 @@ export function BookingForm({
 								value={eventCategory}
 								onValueChange={(v) => {
 									setEventCategory(v);
-									setCategoryMeta({}); // reset sub-fields
-									setClientNameTouched(false); // re-derive client_name
 								}}
 								placeholder="Pilih kategori"
 								options={eventTypes.map((t) => ({
@@ -2155,45 +2104,55 @@ export function BookingForm({
 							/>
 						</Field>
 
-						{categoryTpl && (
-							<div className="fade-in-on-mount space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-								<p className="text-fluid-caption text-primary inline-flex items-center gap-1.5">
-									<Sparkles className="size-3" />
-									{categoryTpl.hint}
-								</p>
-								<div className="grid gap-3 sm:grid-cols-2">
-									{categoryTpl.fields.map((f) => (
-										<div key={f.key} className="space-y-1">
-											<label className="text-fluid-caption font-medium text-foreground">
-												{f.label}
-											</label>
-											<input
-												type="text"
-												value={categoryMeta[f.key] ?? ""}
-												onChange={(e) =>
-													setCategoryMeta((m) => ({
-														...m,
-														[f.key]: e.target.value,
-													}))
-												}
-												placeholder={f.placeholder}
-												className={inputClass}
-											/>
-										</div>
-									))}
-								</div>
-							</div>
-						)}
+						<div className="grid gap-3 sm:grid-cols-2">
+							<Field
+								label={nameTpl.client.label}
+								name="client_org"
+								error={err("client_org")}
+								tooltip="Klien = pihak yang ditagih & tercetak di KEPADA invoice. Bukan nama acara, bukan orang yang booking."
+							>
+								<input
+									type="text"
+									name="client_org"
+									value={clientOrg}
+									onChange={(e) => setClientOrg(e.target.value)}
+									placeholder={nameTpl.client.placeholder}
+									className={inputClass}
+								/>
+							</Field>
+							<Field
+								label={nameTpl.title.label}
+								name="event_title"
+								error={err("event_title")}
+							>
+								<input
+									type="text"
+									name="event_title"
+									value={eventTitle}
+									onChange={(e) => setEventTitle(e.target.value)}
+									placeholder={nameTpl.title.placeholder}
+									className={inputClass}
+								/>
+							</Field>
+						</div>
 
 						<Field
-							label="Nama Klien (final, akan tampil di event)"
+							label="Judul di daftar event"
 							name="client_name"
 							error={err("client_name")}
-							tooltip="Nama klien atau acara yang muncul di list operations. Saat kategori event diisi, ini auto-derive — edit manual kalau perlu."
+							tooltip="Yang tampil di list operations, kalender, bot & notifikasi. Otomatis dari klien + nama acara."
 							hint={
-								categoryTpl
-									? "Auto-derive dari field di atas. Edit manual kalau perlu."
-									: undefined
+								clientNameTouched ? (
+									<button
+										type="button"
+										onClick={() => setClientNameTouched(false)}
+										className="text-link hover:underline"
+									>
+										Kembalikan ke otomatis
+									</button>
+								) : (
+									"Otomatis dari klien + nama acara. Boleh diubah."
+								)
 							}
 							required
 							layoutMode="grid"
@@ -2206,7 +2165,7 @@ export function BookingForm({
 									setClientName(e.target.value);
 									setClientNameTouched(true);
 								}}
-								placeholder="cth. Andi & Sari"
+								placeholder="cth. PT Mahaka — Annual Gathering 2026"
 								className={inputClass}
 							/>
 							<input
@@ -3118,7 +3077,7 @@ export function BookingForm({
 									bookerSameAsVendor
 										? `Auto: PIC vendor (${vendorPicName || vendorName || "—"})`
 										: bookerSameAsClient
-											? `Auto: sama dengan klien (${clientName || "—"})`
+											? `Auto: sama dengan klien (${clientOrg || clientName || "—"})`
 											: undefined
 								}
 							>
@@ -3716,7 +3675,7 @@ export function BookingForm({
 						}}
 						venueName={venueName || undefined}
 						venueCity={venueCity || undefined}
-						clientName={clientName || undefined}
+						clientName={clientOrg || clientName || undefined}
 						picName={picName || undefined}
 						picContact={picWa || undefined}
 						basePrice={basePrice}
@@ -3931,7 +3890,7 @@ function Field({
 }: {
 	label: string;
 	name: string;
-	hint?: string;
+	hint?: React.ReactNode;
 	tooltip?: string;
 	error?: string;
 	required?: boolean;

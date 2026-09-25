@@ -50,12 +50,14 @@ const nullishStr = (max: number) =>
 const ClientSchema = z.object({
 	name: z.string().trim().min(1, "Nama klien wajib diisi").max(160),
 	org: nullishStr(160),
+	attn: nullishStr(160),
 	phone: nullishStr(40),
 	email: nullishStr(160),
 	address: nullishStr(400),
 });
 
 const EventInfoSchema = z.object({
+	title: nullishStr(160),
 	date: nullishStr(10),
 	time: nullishStr(80),
 	venue: nullishStr(200),

@@ -38,14 +38,81 @@ export async function allocateNumber(
 	return data as string;
 }
 
-export function clientFromEvent(ev: EventForPdf): DocClient {
+/** Kategori yang klien-nya orang (pengantin/yang ultah), bukan organisasi. */
+const PERSONAL_CATEGORIES = new Set(["wedding", "pernikahan", "birthday"]);
+
+type EventClientFields = Pick<
+	EventForPdf,
+	| "client_name"
+	| "client_org"
+	| "booker_name"
+	| "event_category"
+	| "client_wa"
+	| "client_email"
+>;
+
+/**
+ * KEPADA di dokumen = KLIEN (events.client_org), bukan judul event. Pembooking
+ * dicetak sebagai "u.p." bila orangnya lain. Event lama yang klien-nya belum
+ * diisi jatuh ke judul event.
+ */
+export function clientFromEvent(ev: EventClientFields): DocClient {
+	const klien = ev.client_org?.trim() || ev.client_name;
+	const booker = ev.booker_name?.trim() || null;
+	const personal = PERSONAL_CATEGORIES.has(ev.event_category ?? "");
 	return {
-		name: ev.client_name,
+		name: klien,
 		org: null,
+		attn:
+			booker && !personal && booker.toLowerCase() !== klien.toLowerCase()
+				? booker
+				: null,
 		phone: ev.client_wa ? formatPhoneLocal(ev.client_wa) : null,
 		email: ev.client_email,
 		address: null,
 	};
+}
+
+/**
+ * Klien dokumen yang tertaut event SELALU mengikuti data event (satu sumber):
+ * nama, u.p., WA. Email/alamat yang diketik di dokumen dipertahankan.
+ * Dipanggil setelah event dibuat/diubah & saat invoice ditautkan.
+ */
+export async function syncDocClientsFromEvent(
+	supabase: SupabaseClient,
+	eventId: string,
+): Promise<void> {
+	const { data: ev } = await supabase
+		.from("events")
+		.select(
+			"client_name, client_org, booker_name, event_category, client_wa, client_email",
+		)
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return;
+	const live = clientFromEvent(ev as EventClientFields);
+	const { data: docs } = await supabase
+		.from("documents")
+		.select("id, client")
+		.eq("event_id", eventId)
+		.neq("status", "void");
+	for (const d of docs ?? []) {
+		const cur = (d.client ?? {}) as DocClient;
+		const next: DocClient = {
+			...cur,
+			name: live.name,
+			org: null,
+			attn: live.attn,
+			phone: live.phone,
+			email: cur.email || live.email,
+		};
+		if (JSON.stringify(next) === JSON.stringify(cur)) continue;
+		const { error } = await supabase
+			.from("documents")
+			.update({ client: next })
+			.eq("id", d.id);
+		if (error) console.error("[syncDocClientsFromEvent]", d.id, error.message);
+	}
 }
 
 export async function findActiveDoc(
@@ -189,5 +256,7 @@ export async function linkInvoiceToEvent(
 				(ev.due_date as string | null) ?? addDays(ev.event_date as string, -1),
 		})
 		.eq("id", invoiceId);
-	return error ? { ok: false, error: error.message } : { ok: true };
+	if (error) return { ok: false, error: error.message };
+	await syncDocClientsFromEvent(supabase, eventId);
+	return { ok: true };
 }

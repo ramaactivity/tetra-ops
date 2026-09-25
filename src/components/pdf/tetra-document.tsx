@@ -73,6 +73,7 @@ function ClientBlock({
 			<Text style={S.blockLabel}>{label}</Text>
 			<Text style={S.blockName}>{c.name}</Text>
 			{c.org ? <Text style={S.blockLine}>{c.org}</Text> : null}
+			{c.attn ? <Text style={S.blockLine}>u.p. {c.attn}</Text> : null}
 			{c.address ? <Text style={S.blockMuted}>{c.address}</Text> : null}
 			{c.phone ? (
 				<Text style={S.blockMuted}>WA {formatPhoneLocal(c.phone)}</Text>
@@ -82,13 +83,16 @@ function ClientBlock({
 	);
 }
 
-/** ACARA (kanan): tanggal + lokasi — tanpa jam & kode event. */
+/** ACARA (kanan): nama acara + tanggal + lokasi — tanpa jam & kode event. */
 function EventBlock({ d }: { d: PdfDocData }) {
 	const venue = [d.event.venue, d.event.city].filter(Boolean).join(", ");
-	if (!d.event.date && !venue) return <View style={S.colR} />;
+	const title =
+		d.event.title && d.event.title !== d.client.name ? d.event.title : null;
+	if (!title && !d.event.date && !venue) return <View style={S.colR} />;
 	return (
 		<View style={S.colR}>
 			<Text style={S.blockLabel}>Acara</Text>
+			{title ? <Text style={S.blockName}>{title}</Text> : null}
 			{d.event.date ? (
 				<Text style={[S.blockLine, { fontWeight: 600 }]}>
 					{formatDateLongForPdf(d.event.date)}
@@ -396,6 +400,9 @@ function BastPage({ d }: { d: PdfDocData }) {
 				Pertama) telah melaksanakan dan menyerahkan hasil layanan kepada{" "}
 				<Text style={{ fontWeight: 700 }}>{d.client.name}</Text>
 				{d.client.org ? ` (${d.client.org})` : ""} (Pihak Kedua) untuk acara
+				{d.event.title && d.event.title !== d.client.name
+					? ` ${d.event.title}`
+					: ""}{" "}
 				pada {d.event.date ? formatDateLongForPdf(d.event.date) : "—"}
 				{d.event.venue ? ` di ${d.event.venue}` : ""}
 				{d.event.city ? `, ${d.event.city}` : ""}. Pihak Kedua menyatakan telah

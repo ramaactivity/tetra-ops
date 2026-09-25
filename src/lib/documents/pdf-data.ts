@@ -38,6 +38,7 @@ export type PdfDocData = {
 	client: DocClient;
 	event: {
 		projectId: string | null;
+		title: string | null;
 		date: string | null;
 		time: string | null;
 		venue: string | null;
@@ -134,6 +135,7 @@ export function buildPdfData(
 	const eventBlock = ev
 		? {
 				projectId: ev.project_id,
+				title: ev.event_title,
 				date: ev.event_date,
 				time: eventTimeLabel(ev),
 				venue: ev.venue_name || null,
@@ -142,6 +144,7 @@ export function buildPdfData(
 			}
 		: {
 				projectId: null,
+				title: doc.event_info.title ?? null,
 				date: doc.event_info.date ?? null,
 				time: doc.event_info.time ?? null,
 				venue: doc.event_info.venue ?? null,

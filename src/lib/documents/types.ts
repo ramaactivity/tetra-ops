@@ -57,14 +57,20 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
 };
 
 export type DocClient = {
+	/** Klien yang ditagih: perusahaan/instansi, atau pengantin/perorangan. */
 	name: string;
+	/** Lama: instansi terpisah dari nama. Dokumen baru memakai name + attn. */
 	org?: string | null;
+	/** Pembooking / contact person — dicetak "u.p. …". */
+	attn?: string | null;
 	phone?: string | null;
 	email?: string | null;
 	address?: string | null;
 };
 
 export type DocEventInfo = {
+	/** Nama acara, mis. "Annual Gathering 2026". */
+	title?: string | null;
 	/** yyyy-MM-dd */
 	date?: string | null;
 	/** "10:00–14:00" bebas */

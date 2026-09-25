@@ -39,7 +39,7 @@ export default async function EditBookingPage({
 		supabase
 			.from("events")
 			.select(
-				`id, project_id, channel, client_name, client_wa, client_email,
+				`id, project_id, channel, client_name, client_org, event_title, client_wa, client_email,
 				service_type, package_id, pending_package_hours, frame_size,
 				event_category, event_date,
 				event_date_is_estimate, due_date,
@@ -154,6 +154,8 @@ export default async function EditBookingPage({
 					defaults={{
 						channel: event.channel,
 						client_name: event.client_name,
+						client_org: event.client_org ?? "",
+						event_title: event.event_title ?? "",
 						client_wa: event.client_wa,
 						client_email: event.client_email ?? "",
 						service_type: event.service_type,

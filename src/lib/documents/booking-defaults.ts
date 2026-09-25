@@ -38,8 +38,10 @@ export function quotationToBookingDefaults(
 
 	return {
 		channel: "direct",
-		client_name: org ? `${org} — ${q.client.name}` : q.client.name,
-		booker_name: q.client.name,
+		// Form merangkai judul event sendiri dari klien + nama acara.
+		client_org: org || q.client.name,
+		event_title: q.event_info.title ?? "",
+		booker_name: q.client.attn || (org ? q.client.name : ""),
 		client_wa: q.client.phone ? formatPhoneLocal(q.client.phone) : "",
 		client_email: q.client.email ?? "",
 		// Tipe acara belum diketahui dari quotation — tebakan aman yang bisa

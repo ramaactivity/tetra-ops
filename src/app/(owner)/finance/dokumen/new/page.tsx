@@ -24,8 +24,15 @@ export default async function NewDocumentPage({
 	const initial: EditorDoc = {
 		doc_type: isInvoice ? "invoice" : "quotation",
 		status: "draft",
-		client: { name: "", org: "", phone: "", email: "", address: "" },
-		event_info: { date: "", time: "", venue: "", city: "" },
+		client: {
+			name: "",
+			org: "",
+			attn: "",
+			phone: "",
+			email: "",
+			address: "",
+		},
+		event_info: { title: "", date: "", time: "", venue: "", city: "" },
 		items: [],
 		discount: 0,
 		gross_up_enabled: false,
