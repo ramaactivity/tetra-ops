@@ -11,6 +11,7 @@ import {
 	findActiveDoc,
 	getOrCreateInvoice,
 	linkInvoiceToEvent,
+	syncDocClientsFromEvent,
 } from "@/lib/documents/invoice";
 import {
 	discountFromEvent,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/documents/load";
 import {
 	addDays,
+	BILL_TO_MODES,
 	DOC_STATUSES,
 	type DocClient,
 	type DocItem,
@@ -79,6 +81,14 @@ const DraftSchema = z.object({
 	event_id: z.string().uuid().nullish(),
 	source_document_id: z.string().uuid().nullish(),
 	client: ClientSchema,
+	/** Dokumen tertaut event: pilihan "Ditujukan kepada" (disimpan di event). */
+	bill_to: z
+		.object({
+			mode: z.enum(BILL_TO_MODES),
+			name: nullishStr(160),
+			attn: nullishStr(160),
+		})
+		.nullish(),
 	event_info: EventInfoSchema,
 	items: z.array(ItemSchema).min(1, "Minimal satu item").max(50),
 	discount: z.coerce.number().int().min(0).default(0),
@@ -201,6 +211,7 @@ export async function saveDocument(
 				.single();
 			if (error) return { ok: false, error: error.message };
 			await syncEventDueDate(supabase, d);
+			await syncEventBillTo(supabase, d);
 			revalidateDocs(await projectIdOf(supabase, d.event_id ?? null));
 			return {
 				ok: true,
@@ -234,6 +245,36 @@ export async function saveDocument(
 			error: e instanceof Error ? e.message : "Gagal menyimpan",
 		};
 	}
+}
+
+/**
+ * "Ditujukan kepada" disimpan di event lalu disebar ke semua dokumen event itu
+ * (invoice, nota, BAST, kuitansi) — satu pilihan, dokumen seragam.
+ */
+async function syncEventBillTo(
+	supabase: Supabase,
+	d: {
+		event_id?: string | null;
+		bill_to?: {
+			mode: string;
+			name?: string | null;
+			attn?: string | null;
+		} | null;
+	},
+) {
+	if (!d.event_id || !d.bill_to) return;
+	const custom = d.bill_to.mode === "custom";
+	const { error } = await supabase
+		.from("events")
+		.update({
+			bill_to_mode: d.bill_to.mode === "auto" ? null : d.bill_to.mode,
+			bill_to_name: custom ? d.bill_to.name || null : null,
+			bill_to_attn: custom ? d.bill_to.attn || null : null,
+		})
+		.eq("id", d.event_id);
+	if (error)
+		throw new Error(`Gagal menyimpan "Ditujukan kepada": ${error.message}`);
+	await syncDocClientsFromEvent(supabase, d.event_id);
 }
 
 /** Ganti bagian tanggal (DDMMYYYY) di akhir nomor dokumen. */

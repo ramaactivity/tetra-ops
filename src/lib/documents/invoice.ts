@@ -8,6 +8,8 @@ import {
 } from "@/lib/documents/load";
 import {
 	addDays,
+	type BillToSource,
+	billTo,
 	DOC_PREFIX,
 	type DocClient,
 	type DocType,
@@ -38,35 +40,16 @@ export async function allocateNumber(
 	return data as string;
 }
 
-/** Kategori yang klien-nya orang (pengantin/yang ultah), bukan organisasi. */
-const PERSONAL_CATEGORIES = new Set(["wedding", "pernikahan", "birthday"]);
+type EventClientFields = BillToSource &
+	Pick<EventForPdf, "client_wa" | "client_email">;
 
-type EventClientFields = Pick<
-	EventForPdf,
-	| "client_name"
-	| "client_org"
-	| "booker_name"
-	| "event_category"
-	| "client_wa"
-	| "client_email"
->;
-
-/**
- * KEPADA di dokumen = KLIEN (events.client_org), bukan judul event. Pembooking
- * dicetak sebagai "u.p." bila orangnya lain. Event lama yang klien-nya belum
- * diisi jatuh ke judul event.
- */
+/** Klien dokumen dari event: KEPADA/u.p. sesuai pilihan "Ditujukan kepada". */
 export function clientFromEvent(ev: EventClientFields): DocClient {
-	const klien = ev.client_org?.trim() || ev.client_name;
-	const booker = ev.booker_name?.trim() || null;
-	const personal = PERSONAL_CATEGORIES.has(ev.event_category ?? "");
+	const { name, attn } = billTo(ev);
 	return {
-		name: klien,
+		name,
 		org: null,
-		attn:
-			booker && !personal && booker.toLowerCase() !== klien.toLowerCase()
-				? booker
-				: null,
+		attn,
 		phone: ev.client_wa ? formatPhoneLocal(ev.client_wa) : null,
 		email: ev.client_email,
 		address: null,
@@ -85,7 +68,7 @@ export async function syncDocClientsFromEvent(
 	const { data: ev } = await supabase
 		.from("events")
 		.select(
-			"client_name, client_org, booker_name, event_category, client_wa, client_email",
+			"client_name, client_org, booker_name, event_category, bill_to_mode, bill_to_name, bill_to_attn, client_wa, client_email",
 		)
 		.eq("id", eventId)
 		.maybeSingle();

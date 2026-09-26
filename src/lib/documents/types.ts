@@ -243,3 +243,57 @@ export function addDays(iso: string, n: number): string {
 	d.setDate(d.getDate() + n);
 	return d.toISOString().slice(0, 10);
 }
+
+/** "Ditujukan kepada" dokumen event — disimpan di events.bill_to_*. */
+export const BILL_TO_MODES = ["auto", "client", "booker", "custom"] as const;
+export type BillToMode = (typeof BILL_TO_MODES)[number];
+export const BILL_TO_LABEL: Record<BillToMode, string> = {
+	auto: "Klien + u.p.",
+	client: "Klien saja",
+	booker: "Pembooking saja",
+	custom: "Custom",
+};
+
+export type BillToSource = {
+	client_name: string;
+	client_org: string | null;
+	booker_name: string | null;
+	event_category: string | null;
+	bill_to_mode: string | null;
+	bill_to_name: string | null;
+	bill_to_attn: string | null;
+};
+
+/** Kategori yang klien-nya orang (pengantin/yang ultah), bukan organisasi. */
+const PERSONAL_CATEGORIES = new Set(["wedding", "pernikahan", "birthday"]);
+
+/**
+ * Nama di KEPADA + baris "u.p.". Default = klien (events.client_org, jatuh ke
+ * judul event untuk data lama) + pembooking bila orangnya lain.
+ */
+export function billTo(ev: BillToSource): {
+	name: string;
+	attn: string | null;
+} {
+	const klien = ev.client_org?.trim() || ev.client_name;
+	const booker = ev.booker_name?.trim() || null;
+	switch (ev.bill_to_mode) {
+		case "client":
+			return { name: klien, attn: null };
+		case "booker":
+			return { name: booker || klien, attn: null };
+		case "custom":
+			return {
+				name: ev.bill_to_name?.trim() || klien,
+				attn: ev.bill_to_attn?.trim() || null,
+			};
+		default: {
+			const personal = PERSONAL_CATEGORIES.has(ev.event_category ?? "");
+			const attn =
+				booker && !personal && booker.toLowerCase() !== klien.toLowerCase()
+					? booker
+					: null;
+			return { name: klien, attn };
+		}
+	}
+}

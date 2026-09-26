@@ -62,6 +62,11 @@ import {
 import { computeTotals } from "@/lib/documents/totals";
 import {
 	addDays,
+	BILL_TO_LABEL,
+	BILL_TO_MODES,
+	type BillToMode,
+	type BillToSource,
+	billTo,
 	DOC_TYPE_LABEL,
 	type DocItem,
 	type DocStatus,
@@ -115,6 +120,8 @@ export type LinkedEvent = {
 	client_name: string;
 	event_date: string;
 	event_title: string | null;
+	/** Data nama event untuk menghitung "Ditujukan kepada" secara live. */
+	billToSource: BillToSource;
 	venue_name: string | null;
 	billable_total: number;
 	total_paid: number;
@@ -207,6 +214,40 @@ export function DocumentEditor({
 	);
 	const patchClient = (k: keyof EditorDoc["client"], v: string) =>
 		setDoc((d) => ({ ...d, client: { ...d.client, [k]: v } }));
+
+	const billToMode: BillToMode = doc.bill_to?.mode ?? "auto";
+	/** Ubah "Ditujukan kepada"; nama & u.p. di dokumen dihitung ulang live. */
+	const setBillTo = (patch: {
+		mode?: BillToMode;
+		name?: string;
+		attn?: string;
+	}) =>
+		setDoc((d) => {
+			if (!linkedEvent) return d;
+			const cur = d.bill_to ?? { mode: "auto" as BillToMode };
+			const next = { ...cur, ...patch };
+			// Pertama kali pindah ke Custom: mulai dari nama yang sedang tampil.
+			if (patch.mode === "custom" && cur.mode !== "custom") {
+				next.name = cur.name || d.client.name;
+				next.attn = cur.attn || d.client.attn || "";
+			}
+			const r = billTo({
+				...linkedEvent.billToSource,
+				bill_to_mode: next.mode,
+				bill_to_name: next.name ?? null,
+				bill_to_attn: next.attn ?? null,
+			});
+			return {
+				...d,
+				bill_to: next,
+				client: {
+					...d.client,
+					// Custom: tampilkan persis yang diketik (termasuk saat dikosongkan).
+					name: next.mode === "custom" ? (next.name ?? "") : r.name,
+					attn: next.mode === "custom" ? (next.attn ?? "") : (r.attn ?? ""),
+				},
+			};
+		});
 	const patchEvent = (
 		k: keyof NonNullable<EditorDoc["event_info"]>,
 		v: string,
@@ -683,24 +724,45 @@ export function DocumentEditor({
 							title="Klien & acara"
 							hint={
 								linkedEvent
-									? "Klien, pembooking & jadwal mengikuti data event."
+									? "Klien, pembooking & jadwal dari data event."
 									: "Tanggal acara boleh kosong dulu untuk penawaran."
 							}
 						/>
 						{linkedEvent ? (
-							// Klien, pembooking & WA satu sumber: data event.
-							<div className="grid gap-3 sm:grid-cols-2">
-								<Field label="Klien">
-									<TextField value={doc.client.name} disabled />
+							// Klien & pembooking dari event; pilihan "Ditujukan kepada"
+							// disimpan di event → semua dokumen event ini seragam.
+							<>
+								<Field label="Ditujukan kepada">
+									<div className="flex flex-wrap gap-1.5">
+										{BILL_TO_MODES.map((m) => (
+											<Chip
+												key={m}
+												active={billToMode === m}
+												onClick={() => setBillTo({ mode: m })}
+											>
+												{BILL_TO_LABEL[m]}
+											</Chip>
+										))}
+									</div>
 								</Field>
-								<Field label="Pembooking (u.p.)">
-									<TextField
-										value={doc.client.attn ?? ""}
-										placeholder="—"
-										disabled
-									/>
-								</Field>
-							</div>
+								<div className="grid gap-3 sm:grid-cols-2">
+									<Field label="Nama di KEPADA">
+										<TextField
+											value={doc.client.name}
+											onChange={(e) => setBillTo({ name: e.target.value })}
+											disabled={billToMode !== "custom"}
+										/>
+									</Field>
+									<Field label="u.p. (opsional)">
+										<TextField
+											value={doc.client.attn ?? ""}
+											onChange={(e) => setBillTo({ attn: e.target.value })}
+											placeholder="—"
+											disabled={billToMode !== "custom"}
+										/>
+									</Field>
+								</div>
+							</>
 						) : (
 							<div className="grid gap-3 sm:grid-cols-2">
 								<Field label="Klien">

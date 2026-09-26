@@ -20,6 +20,9 @@ export type EventForPdf = {
 	event_title: string | null;
 	booker_name: string | null;
 	event_category: string | null;
+	bill_to_mode: string | null;
+	bill_to_name: string | null;
+	bill_to_attn: string | null;
 	client_wa: string | null;
 	client_email: string | null;
 	pic_name: string | null;
@@ -93,7 +96,8 @@ export async function fetchEventForPdf(
 		.select(
 			`
 			id, project_id, client_name, client_org, event_title, booker_name,
-			event_category, client_wa, client_email,
+			event_category, bill_to_mode, bill_to_name, bill_to_attn,
+			client_wa, client_email,
 			pic_name, pic_wa,
 			frame_size, event_date, setup_time, start_time, end_time, session_segments,
 			venue_name, venue_address, venue_city,
@@ -183,6 +187,9 @@ export async function fetchEventForPdf(
 		event_title: (ev.event_title as string | null) ?? null,
 		booker_name: (ev.booker_name as string | null) ?? null,
 		event_category: (ev.event_category as string | null) ?? null,
+		bill_to_mode: (ev.bill_to_mode as string | null) ?? null,
+		bill_to_name: (ev.bill_to_name as string | null) ?? null,
+		bill_to_attn: (ev.bill_to_attn as string | null) ?? null,
 		client_wa: (ev.client_wa as string | null) ?? null,
 		client_email: (ev.client_email as string | null) ?? null,
 		pic_name: (ev.pic_name as string | null) ?? null,

@@ -15,6 +15,7 @@ import {
 	loadDocument,
 	loadEventForPdfById,
 } from "@/lib/documents/load";
+import type { BillToMode } from "@/lib/documents/types";
 import { formatPhoneLocal } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -63,6 +64,13 @@ export default async function DocumentPage({
 			email: doc.client.email ?? "",
 			address: doc.client.address ?? "",
 		},
+		bill_to: ev
+			? {
+					mode: (ev.bill_to_mode ?? "auto") as BillToMode,
+					name: ev.bill_to_name ?? "",
+					attn: ev.bill_to_attn ?? "",
+				}
+			: null,
 		event_info: {
 			title: doc.event_info.title ?? "",
 			date: doc.event_info.date ?? "",
@@ -91,6 +99,15 @@ export default async function DocumentPage({
 				client_name: ev.client_name,
 				event_date: ev.event_date,
 				event_title: ev.event_title,
+				billToSource: {
+					client_name: ev.client_name,
+					client_org: ev.client_org,
+					booker_name: ev.booker_name,
+					event_category: ev.event_category,
+					bill_to_mode: ev.bill_to_mode,
+					bill_to_name: ev.bill_to_name,
+					bill_to_attn: ev.bill_to_attn,
+				},
 				venue_name: ev.venue_name,
 				billable_total: ev.billable_total,
 				total_paid: ev.total_paid,
