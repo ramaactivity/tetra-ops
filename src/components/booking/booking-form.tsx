@@ -389,6 +389,7 @@ export function BookingForm({
 	submitLabel = "Save as draft",
 	sourceQuotationId,
 	sourceInvoiceId,
+	sourceInboxId,
 }: {
 	action: Action;
 	packages: PackageOption[];
@@ -405,6 +406,8 @@ export function BookingForm({
 	sourceQuotationId?: string;
 	/** Booking lahir dari invoice DP ini → invoice ditautkan ke event saat simpan. */
 	sourceInvoiceId?: string;
+	/** Booking lahir dari Booking Masuk (bot WA) → item ditandai jadi event. */
+	sourceInboxId?: string;
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
 	const router = useRouter();
@@ -1500,6 +1503,13 @@ export function BookingForm({
 									type="hidden"
 									name="source_quotation_id"
 									value={sourceQuotationId}
+								/>
+							) : null}
+							{sourceInboxId ? (
+								<input
+									type="hidden"
+									name="source_inbox_id"
+									value={sourceInboxId}
 								/>
 							) : null}
 						</Field>

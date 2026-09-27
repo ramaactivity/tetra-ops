@@ -17,6 +17,7 @@ import {
 	FileText,
 	Frame,
 	Handshake,
+	Inbox,
 	KanbanSquare,
 	Landmark,
 	LayoutDashboard,
@@ -46,6 +47,7 @@ import { cn } from "@/lib/utils";
  */
 const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/dashboard", "Dashboard", LayoutDashboard],
+	["/operations/booking-masuk", "Booking Masuk", Inbox],
 	["/operations/packages", "Paket", Box],
 	["/operations/addons", "Add-on", Sparkles],
 	["/operations/backdrops", "Backdrop", Frame],

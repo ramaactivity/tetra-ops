@@ -3,8 +3,10 @@ import {
 	type AvailabilityEvent,
 	computeAvailability,
 	formatHHMM,
+	inboxToAvailabilityEvent,
 	parseHHMM,
 } from "@/lib/availability";
+import type { InboxData } from "@/lib/booking-inbox/core";
 import { isAuthorizedBot } from "@/lib/bot-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -110,6 +112,27 @@ export async function GET(req: NextRequest) {
 			// ekor buffer-nya yang melewati tengah malam tetap terhitung.
 			day_offset_min: r.event_date === prevDate ? -1440 : 0,
 		}));
+
+	// Booking Masuk: klien sudah DP tapi event belum diinput → tetap menahan
+	// unit. Item jadi_event/dibatalkan tidak dihitung (event-nya terhitung
+	// sendiri di atas). H-1 ikut, sama seperti events.
+	const { data: inbox, error: inboxErr } = await supabase
+		.from("booking_inbox")
+		.select("client_name, data")
+		.in("status", ["baru", "diproses"])
+		.in("data->>tanggal_iso", [prevDate, date]);
+	if (inboxErr) {
+		return NextResponse.json({ error: inboxErr.message }, { status: 500 });
+	}
+	for (const it of (inbox ?? []) as Array<{
+		client_name: string | null;
+		data: InboxData;
+	}>) {
+		events.push({
+			...inboxToAvailabilityEvent(it),
+			day_offset_min: it.data.tanggal_iso === prevDate ? -1440 : 0,
+		});
+	}
 
 	const result = computeAvailability({
 		reqStart,

@@ -1218,6 +1218,33 @@ export async function createBooking(
 			// Booking biasa tetap diarahkan ke halaman event (bukan invoice).
 			if (!res.ok) console.error("[createBooking] invoice:", res.error);
 		}
+
+		// Dari Booking Masuk (bot WA): tandai jadi event + lead WA-nya converted.
+		// Best-effort — event sudah tersimpan; kegagalan cukup dicatat.
+		const sourceInboxId = String(formData.get("source_inbox_id") ?? "");
+		if (sourceInboxId) {
+			const { data: inboxRow, error: inboxErr } = await supabase
+				.from("booking_inbox")
+				.update({
+					status: "jadi_event",
+					event_id: eventId,
+					berubah_setelah_event: false,
+					updated_by: me.profile.id,
+				})
+				.eq("id", sourceInboxId)
+				.in("status", ["baru", "diproses"])
+				.select("wa_jid")
+				.maybeSingle();
+			if (inboxErr) console.error("[createBooking] inbox:", inboxErr.message);
+			if (inboxRow?.wa_jid) {
+				const { error: leadErr } = await supabase
+					.from("whatsapp_bot_leads")
+					.update({ status: "converted" })
+					.eq("wa_jid", inboxRow.wa_jid);
+				if (leadErr) console.error("[createBooking] lead:", leadErr.message);
+			}
+			revalidatePath("/operations/booking-masuk");
+		}
 	}
 
 	revalidatePath("/operations");

@@ -41,6 +41,7 @@ export function PaymentForm({
 	grandTotal,
 	totalPaid,
 	defaultDpAmount,
+	defaultProofUrl,
 	onSuccess,
 }: {
 	eventId: string;
@@ -52,6 +53,7 @@ export function PaymentForm({
 	totalPaid?: number;
 	/** Nominal DP standar (system_config.default_dp_amount) untuk chip isi-cepat. */
 	defaultDpAmount?: number;
+	defaultProofUrl?: string;
 	onSuccess?: () => void;
 }) {
 	const action = logPayment.bind(null, eventId, projectId);
@@ -92,7 +94,7 @@ export function PaymentForm({
 	const [bankAccountId, setBankAccountId] = useState(
 		get("bank_account_id", defaultBankId),
 	);
-	const [proofUrl, setProofUrl] = useState(get("proof_url"));
+	const [proofUrl, setProofUrl] = useState(get("proof_url", defaultProofUrl));
 	const [proofFile, setProofFile] = useState<File | null>(null);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	// Upload bukti DITUNDA: file baru diunggah ke Drive saat submit (setelah

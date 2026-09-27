@@ -14,6 +14,8 @@
  * Lihat WHATSAPP_BOT_AVAILABILITY_HANDOVER.md untuk konteks lengkap.
  */
 
+import type { InboxData } from "@/lib/booking-inbox/core";
+import { parseInboxTime } from "@/lib/booking-inbox/defaults";
 import { parseSegments } from "@/lib/schedule/segments";
 
 export const UNITS_TOTAL = 3;
@@ -326,5 +328,27 @@ export function computeAvailability(params: {
 		conflicts,
 		buffer_applied_minutes: bufferApplied,
 		assumptions: [...assumptions],
+	};
+}
+
+/**
+ * Item Booking Masuk (klien SUDAH DP, event belum diinput owner) sebagai unit
+ * terpakai — supaya bot tidak menjual slot yang sama ke orang lain. Jam dari
+ * `data.jam`; tanpa jam → aturan "event tanpa jam" (tahan seharian).
+ * Caller hanya mengirim item `baru`/`diproses` yang punya tanggal_iso.
+ */
+export function inboxToAvailabilityEvent(item: {
+	client_name: string | null;
+	data: InboxData;
+}): AvailabilityEvent {
+	const [start, end] = parseInboxTime(item.data.jam);
+	const hours = Number(/(\d+)\s*jam/i.exec(item.data.paket ?? "")?.[1] ?? 0);
+	return {
+		client_name: `Booking masuk: ${item.data.nama_acara ?? item.client_name ?? "tanpa nama"}`,
+		start_time: start || null,
+		end_time: end || null,
+		venue_city: item.data.lokasi ?? null,
+		package_duration_hours: hours || null,
+		session_segments: null,
 	};
 }

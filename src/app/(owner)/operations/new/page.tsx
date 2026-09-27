@@ -14,6 +14,8 @@ import {
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
+import type { InboxRow } from "@/lib/booking-inbox/core";
+import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
 import { quotationToBookingDefaults } from "@/lib/documents/booking-defaults";
 import { loadDocument } from "@/lib/documents/load";
 import {
@@ -26,9 +28,13 @@ import { createClient } from "@/lib/supabase/server";
 export default async function NewBookingPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ fromQuotation?: string; fromInvoice?: string }>;
+	searchParams: Promise<{
+		fromQuotation?: string;
+		fromInvoice?: string;
+		fromInbox?: string;
+	}>;
 }) {
-	const { fromQuotation, fromInvoice } = await searchParams;
+	const { fromQuotation, fromInvoice, fromInbox } = await searchParams;
 	const supabase = await createClient();
 	const [
 		{ data: packages },
@@ -96,24 +102,43 @@ export default async function NewBookingPage({
 			sourceDoc.doc_type === "quotation")
 			? sourceDoc
 			: null;
+	// Booking Masuk dari bot WA (klien sudah DP). Item yang sudah jadi event /
+	// dibatalkan tidak dipakai lagi — mencegah event dobel.
+	const { data: inboxRaw } = fromInbox
+		? await supabase
+				.from("booking_inbox")
+				.select("*")
+				.eq("id", fromInbox)
+				.in("status", ["baru", "diproses"])
+				.maybeSingle()
+		: { data: null };
+	const inboxItem = inboxRaw as InboxRow | null;
+
 	const sourceDefaults = validSource
 		? quotationToBookingDefaults(
 				validSource,
 				(packages ?? []) as PackageOption[],
 			)
-		: undefined;
+		: inboxItem
+			? inboxToBookingDefaults(
+					inboxItem,
+					(packages ?? []) as PackageOption[],
+					(backdrops ?? []) as BackdropOption[],
+				)
+			: undefined;
 
 	// Pilihan dokumen yang belum punya event: invoice DP & quotation terbuka.
-	const { data: openDocs } = validSource
-		? { data: [] }
-		: await supabase
-				.from("documents")
-				.select("id, doc_type, doc_number, client, event_info")
-				.is("event_id", null)
-				.in("doc_type", ["invoice", "quotation"])
-				.not("status", "in", "(void,accepted,rejected)")
-				.order("created_at", { ascending: false })
-				.limit(50);
+	const { data: openDocs } =
+		validSource || inboxItem
+			? { data: [] }
+			: await supabase
+					.from("documents")
+					.select("id, doc_type, doc_number, client, event_info")
+					.is("event_id", null)
+					.in("doc_type", ["invoice", "quotation"])
+					.not("status", "in", "(void,accepted,rejected)")
+					.order("created_at", { ascending: false })
+					.limit(50);
 	const sourceOptions: SourceDocOption[] = (openDocs ?? []).map((d) => ({
 		id: d.id as string,
 		doc_type: d.doc_type as "invoice" | "quotation",
@@ -139,6 +164,13 @@ export default async function NewBookingPage({
 						? "Lengkapi yang kurang lalu simpan — invoice ini akan tertaut ke event (nomor tetap)."
 						: "Lengkapi yang kurang lalu simpan — invoice dibuat otomatis dari quotation ini."}
 				</div>
+			) : inboxItem ? (
+				<div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-900">
+					Diisi dari <span className="font-semibold">Booking Masuk</span> bot WA
+					({inboxItem.client_name ?? inboxItem.client_wa ?? "klien"}). Cek ulang
+					semua isian — terutama paket, jam & backdrop — lalu simpan. Detail
+					yang tak punya kolom ada di Catatan Crew.
+				</div>
 			) : (
 				<SourceDocPicker options={sourceOptions} />
 			)}
@@ -152,6 +184,7 @@ export default async function NewBookingPage({
 					sourceInvoiceId={
 						validSource?.doc_type === "invoice" ? validSource.id : undefined
 					}
+					sourceInboxId={inboxItem?.id}
 					packages={(packages ?? []) as PackageOption[]}
 					addons={(addons ?? []) as AddonOption[]}
 					backdrops={(backdrops ?? []) as BackdropOption[]}

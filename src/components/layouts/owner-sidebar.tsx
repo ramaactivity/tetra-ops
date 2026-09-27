@@ -18,6 +18,7 @@ import {
 	FileText,
 	Frame,
 	Handshake,
+	Inbox,
 	Landmark,
 	LayoutDashboard,
 	type LucideIcon,
@@ -69,6 +70,11 @@ const NAV_SECTIONS: NavSection[] = [
 				icon: Briefcase,
 				children: [
 					{ href: "/operations", label: "Event", icon: Briefcase },
+					{
+						href: "/operations/booking-masuk",
+						label: "Booking Masuk",
+						icon: Inbox,
+					},
 					{ href: "/operations/packages", label: "Paket", icon: Box },
 					{ href: "/operations/addons", label: "Add-on", icon: Sparkles },
 					{ href: "/operations/backdrops", label: "Backdrop", icon: Frame },
@@ -219,7 +225,10 @@ const NAV_SECTIONS: NavSection[] = [
 
 const STORAGE_KEY = "tetra-sidebar-collapsed";
 
-export function OwnerSidebar() {
+/** Angka kecil di samping menu, per href (mis. booking masuk yang baru). */
+type NavBadges = Record<string, number>;
+
+export function OwnerSidebar({ badges = {} }: { badges?: NavBadges }) {
 	const pathname = usePathname();
 
 	function isActive(href: string): boolean {
@@ -288,6 +297,7 @@ export function OwnerSidebar() {
 												expanded={isExpanded(item)}
 												onToggle={() => toggle(item.href)}
 												isActive={isActive}
+												badges={badges}
 											/>
 										);
 									}
@@ -343,11 +353,13 @@ function NavParent({
 	expanded,
 	onToggle,
 	isActive,
+	badges,
 }: {
 	item: NavItem;
 	expanded: boolean;
 	onToggle: () => void;
 	isActive: (href: string) => boolean;
+	badges: NavBadges;
 }) {
 	const Icon = item.icon;
 	const pathname = usePathname();
@@ -409,7 +421,19 @@ function NavParent({
 										aria-hidden
 										strokeWidth={1.85}
 									/>
-									{child.label}
+									<span className="flex-1">{child.label}</span>
+									{badges[child.href] ? (
+										<span
+											className={cn(
+												"tabular grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold",
+												strictActive
+													? "bg-white/25 text-white"
+													: "bg-sky-600 text-white",
+											)}
+										>
+											{badges[child.href]}
+										</span>
+									) : null}
 								</Link>
 							</li>
 						);

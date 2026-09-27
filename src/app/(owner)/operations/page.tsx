@@ -10,6 +10,7 @@ import {
 	Users,
 } from "lucide-react";
 import Link from "next/link";
+import { InboxBanner } from "@/components/booking-inbox/inbox-banner";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
@@ -454,6 +455,7 @@ export default async function OperationsListPage({
 	return (
 		<Container size="xl" className="space-y-3">
 			<MonthMemory />
+			<InboxBanner />
 			<SectionHeader
 				title="Operations"
 				description="Kelola event dari draft sampai pelunasan."

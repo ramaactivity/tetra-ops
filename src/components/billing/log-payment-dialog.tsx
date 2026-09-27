@@ -28,6 +28,8 @@ export function LogPaymentDialog({
 	grandTotal,
 	totalPaid,
 	defaultDpAmount,
+	defaultProofUrl,
+	triggerLabel = "Log payment",
 }: {
 	eventId: string;
 	projectId: string;
@@ -38,6 +40,9 @@ export function LogPaymentDialog({
 	totalPaid?: number;
 	/** Nominal DP standar (system_config.default_dp_amount) untuk chip isi-cepat. */
 	defaultDpAmount?: number;
+	/** Bukti yang sudah ada (mis. dari Booking Masuk bot WA). */
+	defaultProofUrl?: string;
+	triggerLabel?: string;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -45,7 +50,7 @@ export function LogPaymentDialog({
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogTrigger className="press tap inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#059669] px-4 text-sm font-medium text-white transition-colors hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]">
 				<Plus className="size-4" />
-				Log payment
+				{triggerLabel}
 			</DialogTrigger>
 			<DialogContent className="max-h-[92vh] overflow-y-auto p-5 pb-6 sm:max-w-5xl">
 				<DialogHeader>
@@ -63,6 +68,7 @@ export function LogPaymentDialog({
 					grandTotal={grandTotal}
 					totalPaid={totalPaid}
 					defaultDpAmount={defaultDpAmount}
+					defaultProofUrl={defaultProofUrl}
 					onSuccess={() => setOpen(false)}
 				/>
 			</DialogContent>

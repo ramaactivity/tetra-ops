@@ -7,7 +7,9 @@ import { computeTotals } from "./totals";
 import type { DocumentRow } from "./types";
 
 /** "10:00–14:00" / "10.00 - 14.00" → ["10:00", "14:00"]; selain itu kosong. */
-function parseTimeRange(raw: string | null | undefined): [string, string] {
+export function parseTimeRange(
+	raw: string | null | undefined,
+): [string, string] {
 	const m = /(\d{1,2})[:.](\d{2})\s*[–\-—]\s*(\d{1,2})[:.](\d{2})/.exec(
 		raw ?? "",
 	);

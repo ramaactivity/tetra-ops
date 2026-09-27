@@ -22,6 +22,8 @@ import {
 	type WhatsAppTemplate,
 } from "@/components/booking/send-wa-button";
 import { StatusMenu } from "@/components/booking/status-menu";
+import { InboxDpReminder } from "@/components/booking-inbox/inbox-dp-reminder";
+import { DocumentMenu } from "@/components/documents/document-menu";
 import { EventDriveCard } from "@/components/drive/event-drive-card";
 import { DesignCard } from "@/components/event-design/design-card";
 import { Container } from "@/components/layout/container";
@@ -32,7 +34,6 @@ import {
 	type ProjectHeroRecapCrew,
 } from "@/components/operations/project-hero-recap";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
-import { DocumentMenu } from "@/components/documents/document-menu";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
@@ -380,6 +381,13 @@ export default async function EventDetailPage({
 						</div>
 					)}
 				</section>
+
+				<InboxDpReminder
+					eventId={event.id}
+					projectId={event.project_id}
+					totalPaid={Number(event.total_paid ?? 0)}
+					grandTotal={Number(event.grand_total ?? 0)}
+				/>
 
 				{/* Action toolbar — one horizontal-scroll row (no stacking) */}
 				{!isMigratedLegacy && (

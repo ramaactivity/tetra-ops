@@ -132,3 +132,51 @@ test("ekor buffer event H-1 masih menahan unit setelah lewat tengah malam", () =
 	});
 	assert.equal(bebas.units_free, 3, "siang hari berikutnya harus bebas penuh");
 });
+
+test("item Booking Masuk (sudah DP) menahan unit sesuai jamnya", async () => {
+	const { inboxToAvailabilityEvent } = await import("@/lib/availability");
+	const inbox = inboxToAvailabilityEvent({
+		client_name: "Nadia",
+		data: {
+			nama_acara: "Rizky & Nadia",
+			jam: "11.00 - 14.00",
+			lokasi: "Bogor",
+		},
+	});
+	assert.equal(inbox.start_time, "11:00");
+	assert.equal(inbox.end_time, "14:00");
+	// 2 event + 1 inbox bentrok → 0 unit bebas.
+	const busy = [
+		ev({ start_time: "10:00", end_time: "15:00", venue_city: "Bogor" }),
+		ev({ start_time: "10:00", end_time: "15:00", venue_city: "Bogor" }),
+		inbox,
+	];
+	const res = computeAvailability({
+		reqStart: HHMM(12),
+		reqEnd: HHMM(13),
+		reqCity: "Bogor",
+		events: busy,
+	});
+	assert.equal(res.units_free, 0);
+	assert.ok(res.conflicts.some((c) => c.project.startsWith("Booking masuk")));
+	// Jauh dari jam inbox (+ buffer) → unit inbox tidak ditahan.
+	const late = computeAvailability({
+		reqStart: HHMM(21),
+		reqEnd: HHMM(23),
+		reqCity: "Bogor",
+		events: [inbox],
+	});
+	assert.equal(late.units_free, 3);
+});
+
+test("item Booking Masuk tanpa jam → tahan seharian", async () => {
+	const { inboxToAvailabilityEvent } = await import("@/lib/availability");
+	const inbox = inboxToAvailabilityEvent({ client_name: "X", data: {} });
+	const res = computeAvailability({
+		reqStart: HHMM(21),
+		reqEnd: HHMM(23),
+		reqCity: null,
+		events: [inbox],
+	});
+	assert.equal(res.units_free, 2);
+});
