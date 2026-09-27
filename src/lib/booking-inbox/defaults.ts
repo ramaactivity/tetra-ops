@@ -41,7 +41,8 @@ const BACKDROP_WORDS: Array<[RegExp, string]> = [
 	[/merah|red/, "BG-BASIC-RED"],
 	[/gold|emas/, "BG-BASIC-GOLD"],
 	[/silver|perak/, "BG-BASIC-SILVER"],
-	[/hitam|black/, "BG-BASIC-BLACK"],
+	[/emerald|hijau|green/, "BG-BASIC-EMERALD"],
+	[/biru|blue/, "BG-BASIC-BLUE"],
 ];
 
 /** Nama backdrop bebas → id backdrop Tetra; "dekorasi acara" → Dari Klien. */

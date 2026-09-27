@@ -53,6 +53,7 @@ export default async function DocumentPage({
 		doc_number: doc.doc_number,
 		doc_type: doc.doc_type,
 		status: doc.status,
+		proposed_discount: doc.proposed_discount ?? null,
 		event_id: doc.event_id,
 		source_document_id: doc.source_document_id,
 		client: {
@@ -132,6 +133,10 @@ export default async function DocumentPage({
 				venues={venues}
 				grossupRate={grossupRate}
 				linkedEvent={linkedEvent}
+				delivery={{
+					at: doc.delivered_at ?? null,
+					via: doc.delivered_via ?? null,
+				}}
 				paymentsPanel={
 					doc.doc_type === "invoice" && doc.event_id ? (
 						<InvoicePaymentsPanel eventId={doc.event_id} />

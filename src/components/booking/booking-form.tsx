@@ -34,6 +34,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
+import { GROSS_UP_RATE_DEFAULT } from "@/lib/documents/types";
 import {
 	durationOptions,
 	packageFitsFrame,
@@ -384,7 +385,7 @@ export function BookingForm({
 	relasiOptions = [],
 	vendorOptions = [],
 	venueOptions = [],
-	grossupRate = 2,
+	grossupRate = GROSS_UP_RATE_DEFAULT,
 	defaults,
 	submitLabel = "Save as draft",
 	sourceQuotationId,

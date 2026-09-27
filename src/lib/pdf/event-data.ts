@@ -251,6 +251,20 @@ export async function fetchEventForPdf(
 	};
 }
 
+/**
+ * Keterangan format cetak untuk dokumen klien. Jangan pernah mencetak "null":
+ * ukuran belum dipilih → "menyusul", tanpa cetak (360/Magazine) → kosong.
+ */
+export function frameFormatLabel(
+	frame: string | null | undefined,
+): string | null {
+	const f = (frame ?? "").trim().toLowerCase();
+	if (f === "none") return null;
+	if (f === "2r" || f === "4r") return `Format ${f.toUpperCase()}`;
+	if (f === "polaroid") return "Format Polaroid";
+	return "Format cetak menyusul (2R/4R/Polaroid)";
+}
+
 export function buildLineItems(ev: EventForPdf) {
 	const items: Array<{
 		label: string;
@@ -267,11 +281,18 @@ export function buildLineItems(ev: EventForPdf) {
 		? ev.base_price
 		: (ev.custom_package_price ?? ev.base_price);
 	if (packagePrice > 0) {
+		const fmt = frameFormatLabel(ev.frame_size);
 		items.push({
 			label: packageLabel,
-			detail: ev.package_duration_hours
-				? `${ev.package_duration_hours} jam · Frame ${ev.frame_size}`
-				: `Frame ${ev.frame_size}`,
+			detail:
+				[
+					ev.package_duration_hours
+						? `Durasi ${ev.package_duration_hours} jam`
+						: null,
+					fmt,
+				]
+					.filter(Boolean)
+					.join(" · ") || undefined,
 			quantity: 1,
 			unitPrice: packagePrice,
 			total: packagePrice,
@@ -312,7 +333,7 @@ export function buildDeliverables(ev: EventForPdf) {
 			ev.package_duration_hours ? ` (${ev.package_duration_hours} jam)` : ""
 		}`,
 		quantity: 1,
-		notes: `Frame ${ev.frame_size}`,
+		notes: frameFormatLabel(ev.frame_size) ?? undefined,
 	});
 	for (const a of ev.addons) {
 		items.push({

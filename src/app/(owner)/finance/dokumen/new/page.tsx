@@ -4,7 +4,11 @@ import {
 } from "@/components/documents/document-editor";
 import { Container } from "@/components/layout/container";
 import { loadEditorData } from "@/lib/documents/editor-data";
-import { addDays, defaultTerms } from "@/lib/documents/types";
+import {
+	addDays,
+	defaultTerms,
+	QUOTATION_VALID_DAYS,
+} from "@/lib/documents/types";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +47,7 @@ export default async function NewDocumentPage({
 		signer_name: signer?.name ?? "",
 		signer_position: signer?.position ?? "",
 		issued_at: today,
-		valid_until: isInvoice ? null : addDays(today, 7),
+		valid_until: isInvoice ? null : addDays(today, QUOTATION_VALID_DAYS),
 		due_date: null,
 	};
 

@@ -11,6 +11,7 @@ import { Container } from "@/components/layout/container";
 import { MetaBadge } from "@/components/operations/_shared/meta-badge";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { updateBooking } from "@/lib/actions/bookings";
+import { parseGrossUpRate } from "@/lib/documents/types";
 import {
 	fetchSalesCandidates,
 	fetchVendorCandidates,
@@ -35,6 +36,7 @@ export default async function EditBookingPage({
 		vendorOptions,
 		venueOptions,
 		relasiCandidates,
+		{ data: grossupConfig },
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -90,6 +92,11 @@ export default async function EditBookingPage({
 		fetchVendorCandidates(supabase),
 		fetchVenueCandidates(supabase),
 		fetchSalesCandidates(supabase),
+		supabase
+			.from("system_config")
+			.select("value")
+			.eq("key", "tax.default_grossup_rate_pct")
+			.maybeSingle(),
 	]);
 
 	if (error) {
@@ -150,6 +157,7 @@ export default async function EditBookingPage({
 					relasiOptions={relasiPool}
 					vendorOptions={vendorOptions}
 					venueOptions={venueOptions}
+					grossupRate={parseGrossUpRate(grossupConfig?.value)}
 					submitLabel="Save changes"
 					defaults={{
 						channel: event.channel,

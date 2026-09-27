@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { buildAiAnswer } from "@/lib/ai/telegram-ask";
+import { clearKeyboard, handleDocSendTap } from "@/lib/documents/approval";
+import { parseDocSendCallback } from "@/lib/documents/approval-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	answerCallbackQuery,
@@ -77,6 +79,7 @@ type TgUpdate = {
 	callback_query?: {
 		id: string;
 		data?: string;
+		from?: TgUser;
 		message?: { chat: TgChat; message_id: number };
 	};
 };
@@ -352,6 +355,35 @@ export async function POST(request: Request) {
 	try {
 		// ── 0. Tombol inline ditekan (callback_query) ──
 		const cb = update.callback_query;
+		// Tombol "Kirim ke klien" (dokumen berisi uang): hanya owner terdaftar,
+		// bukan sekadar anggota grup — grup juga berisi desainer/crew.
+		const sendReqId = parseDocSendCallback(cb?.data);
+		if (cb && sendReqId) {
+			await answerCallbackQuery(cb.id);
+			const chat = cb.message?.chat;
+			if (!chat) return NextResponse.json({ ok: true });
+			const admin = createAdminClient();
+			const out = await handleDocSendTap(admin, sendReqId, cb.from?.id ?? null);
+			await sendTelegramMessage(chat.id, out.reply);
+			if (out.followUp) {
+				const followUp = out.followUp;
+				if (cb.message) await clearKeyboard(chat.id, cb.message.message_id);
+				// Kirim + tunggu bot setelah respons, supaya Telegram tidak
+				// mengulang update karena webhook lambat.
+				after(async () => {
+					try {
+						await sendTelegramMessage(chat.id, await followUp());
+					} catch (e) {
+						console.error("[telegram] kirim dokumen:", e);
+						await sendTelegramMessage(
+							chat.id,
+							"❌ Gagal mengirim dokumen — cek log.",
+						);
+					}
+				});
+			}
+			return NextResponse.json({ ok: true });
+		}
 		if (cb) {
 			await answerCallbackQuery(cb.id);
 			const chat = cb.message?.chat;
@@ -604,9 +636,11 @@ export async function POST(request: Request) {
 				);
 			}
 		} else if (command === "/id") {
+			// User id pengirim dipakai untuk mendaftarkan owner yang boleh
+			// menekan tombol kirim dokumen (telegram_settings.owner_tg_ids).
 			await sendTelegramMessage(
 				msg.chat.id,
-				`Chat ID: <code>${msg.chat.id}</code>`,
+				`Chat ID: <code>${msg.chat.id}</code>${msg.from ? `\nUser ID kamu: <code>${msg.from.id}</code>` : ""}`,
 			);
 		} else if (command === "/start") {
 			await runAction("menu", msg.chat.id);

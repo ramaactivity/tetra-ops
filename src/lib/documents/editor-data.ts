@@ -7,6 +7,7 @@ import type {
 import { fetchVenueCandidates } from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
 import { loadSigners } from "./load";
+import { parseGrossUpRate } from "./types";
 
 /** Data pendukung editor: paket, add-on, penanda tangan, rate gross-up default. */
 export async function loadEditorData() {
@@ -37,9 +38,7 @@ export async function loadEditorData() {
 				.maybeSingle(),
 			fetchVenueCandidates(supabase),
 		]);
-	const v = cfg?.value;
-	const grossupRate =
-		typeof v === "number" ? v : typeof v === "string" ? Number(v) || 2 : 2;
+	const grossupRate = parseGrossUpRate(cfg?.value);
 	return {
 		packages: (packages ?? []) as PackageOption[],
 		addons: (addons ?? []) as AddonOption[],

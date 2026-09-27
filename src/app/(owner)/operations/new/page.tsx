@@ -18,6 +18,7 @@ import type { InboxRow } from "@/lib/booking-inbox/core";
 import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
 import { quotationToBookingDefaults } from "@/lib/documents/booking-defaults";
 import { loadDocument } from "@/lib/documents/load";
+import { parseGrossUpRate } from "@/lib/documents/types";
 import {
 	fetchSalesCandidates,
 	fetchVendorCandidates,
@@ -76,7 +77,7 @@ export default async function NewBookingPage({
 		fetchSalesCandidates(supabase),
 		fetchVendorCandidates(supabase),
 		fetchVenueCandidates(supabase),
-		// Default gross-up PPh rate (Indonesia PPh 23 = 2%)
+		// Tarif gross-up PPh (config; cadangan GROSS_UP_RATE_DEFAULT)
 		supabase
 			.from("system_config")
 			.select("value")
@@ -84,12 +85,7 @@ export default async function NewBookingPage({
 			.maybeSingle(),
 	]);
 
-	const grossupRate = (() => {
-		const v = grossupConfig?.value;
-		if (typeof v === "number") return v;
-		if (typeof v === "string") return Number(v) || 2;
-		return 2;
-	})();
+	const grossupRate = parseGrossUpRate(grossupConfig?.value);
 
 	// Isi dari dokumen: invoice DP (ditautkan ke event) atau quotation yang
 	// di-deal (invoice baru dari isinya). Lihat createBooking.

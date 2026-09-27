@@ -4,17 +4,13 @@ import { TetraDocument } from "@/components/pdf/tetra-document";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadPdfData } from "@/lib/documents/load";
 import { verifyPdfSignature } from "@/lib/documents/pdf-link";
-import { DOC_TYPE_LABEL } from "@/lib/documents/types";
+import { docFilename } from "@/lib/documents/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PdfDocData } from "./pdf-data";
 
 /** "Invoice INV-TP-01-23092026 - 20th Anniversary PT Gratama Finance Indonesia.pdf" */
 export function pdfFilename(data: PdfDocData): string {
-	const client = data.client.name
-		.replace(/[^\w\s-]+/g, "")
-		.trim()
-		.replace(/\s+/g, " ");
-	return `${DOC_TYPE_LABEL[data.docType]} ${data.docNumber}${client ? ` - ${client}` : ""}.pdf`;
+	return docFilename(data.docType, data.docNumber, data.client.name);
 }
 
 /**

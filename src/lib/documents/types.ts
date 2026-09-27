@@ -86,6 +86,16 @@ export type DocItem = {
 	unit_price: number;
 	package_id?: string | null;
 	addon_id?: string | null;
+	/** Harga wajib diisi Rama sebelum dokumen boleh dikirim (transport luar
+	 *  Jabodetabek / Magazine Box, backdrop Luxury). unit_price 0 = belum. */
+	needs_admin_price?: boolean;
+};
+
+/** Usulan diskon agent — TIDAK masuk total sampai Rama menerapkannya. */
+export type ProposedDiscount = {
+	persen?: number | null;
+	nominal?: number | null;
+	alasan: string;
 };
 
 export type DocumentRow = {
@@ -110,9 +120,23 @@ export type DocumentRow = {
 	due_date: string | null;
 	valid_until: string | null;
 	status: DocStatus;
+	/** Benar-benar sampai ke klien (bot WA / tandai manual) — beda dari status. */
+	delivered_at?: string | null;
+	delivered_via?: "wa_bot" | "manual" | null;
+	proposed_discount?: ProposedDiscount | null;
+	/** Asal draft agent: { jenis: "wa_bot" | "telegram", wa_jid?, lead_id? }. */
+	origin?: Record<string, unknown> | null;
+	external_id?: string | null;
 	created_at: string;
 	updated_at: string;
 };
+
+/** Item harga-admin yang belum diisi → dokumen belum boleh dikirim. */
+export function pendingAdminItems(items: DocItem[]): string[] {
+	return items
+		.filter((i) => i.needs_admin_price && !(i.unit_price > 0))
+		.map((i) => i.name);
+}
 
 export type DocumentSigner = {
 	id: string;
@@ -142,14 +166,21 @@ export function defaultTerms(
 	docType: DocType,
 	grossUp: boolean,
 	hMinus: number = 1,
+	grossUpRate: number = GROSS_UP_RATE_DEFAULT,
 ): string {
+	const rate = String(grossUpRate).replace(".", ",");
 	const tax = grossUp
-		? "Harga belum termasuk pajak (PPN/PPh) karena Tetra merupakan usaha perorangan non-PKP. Apabila terdapat kewajiban pemotongan pajak oleh pihak penyelenggara, nilai yang terpotong di-gross up sehingga jumlah yang diterima Tetra tetap sesuai nominal dasar. Pajak ditanggung pihak penyelenggara sesuai ketentuan yang berlaku."
+		? `Harga belum termasuk pajak (PPN/PPh) karena Tetra merupakan usaha perorangan non-PKP. Karena pajak dicantumkan atas permintaan klien, nilai di-gross up ${rate}% sehingga setelah dipotong pajak jumlah yang diterima Tetra tetap sesuai nominal dasar. Pajak ditanggung pihak penyelenggara sesuai ketentuan yang berlaku.`
 		: "Harga belum termasuk pajak (PPN/PPh) karena Tetra merupakan usaha perorangan non-PKP.";
 	if (docType === "quotation") {
+		// Keputusan Rama 27 Sep 2026.
 		return [
-			"Setelah quotation ini disetujui, kami akan menerbitkan invoice sebagai dasar pembayaran DP (booking).",
-			`Pelunasan dilakukan maksimal H-${hMinus} sebelum acara, atau sesuai kesepakatan bersama.`,
+			`Harga berlaku ${QUOTATION_VALID_DAYS} hari sejak tanggal penawaran.`,
+			"Tanggal acara terkunci setelah DP minimal Rp 500.000 diterima.",
+			`Pelunasan paling lambat H-${hMinus} sebelum acara.`,
+			"Pembatalan setelah DP: DP hangus sebagai biaya pembatalan.",
+			"Extend di hari H Rp 500.000/jam (Photobooth Classic & Videobooth 360).",
+			"Transport gratis se-Jabodetabek, kecuali Magazine Box dan lokasi di luar Jabodetabek.",
 			tax,
 		].join("\n");
 	}
@@ -163,62 +194,69 @@ export function defaultTerms(
 	return "";
 }
 
+/** Masa berlaku quotation (hari sejak terbit). */
+export const QUOTATION_VALID_DAYS = 14;
+
 /**
- * Template "include" quotation per kategori paket. `{hours}` diganti durasi
- * paket. Dipakai kalau packages.quotation_includes masih NULL; hasilnya tetap
- * bisa diedit per dokumen.
+ * Isi paket per kategori (pricelist 2026 di website). Dipakai editor saat
+ * packages.quotation_includes masih NULL dan oleh buat_quotation agent.
+ * `{hours}` diganti durasi paket.
  */
-const PHOTOBOOTH_BASE = [
-	"Professional gear equipment & printer",
-	"2 professional crews",
-	"Softfile via flashdisk / Google Drive",
-	"Custom template design",
-	"Barcode for realtime digital result",
-	"Fun props & basic backdrop",
-	"Transportation",
+const PHOTOBOOTH_CLASSIC = [
+	"Cetak foto unlimited sesuai format yang dipilih",
+	"Peralatan profesional (printer, kamera, lighting)",
+	"Setup rapi & properti",
+	"2 crew profesional",
+	"Desain frame custom sesuai acara",
+	"Softfile real-time via QR code",
+	"Backdrop basic 6 warna (White/Red/Silver/Gold/Emerald Green/Blue)",
+	"Flashdisk kayu berisi seluruh file",
+	"Free transport se-Jabodetabek",
+];
+
+const PHOTO_STAGE = [
+	"Layout desain custom 4R 1–2 pose",
+	"QR code A2 untuk unduh softfile",
+	"Link Google Drive",
+	"Lighting profesional",
+	"Crew pengarah gaya",
 ];
 
 export const DEFAULT_INCLUDES_BY_CATEGORY: Record<string, string[]> = {
-	photobooth_classic: [
-		"Unlimited photo & print {hours} hours",
-		...PHOTOBOOTH_BASE,
-	],
+	photobooth_classic: PHOTOBOOTH_CLASSIC,
 	videobooth_360: [
-		"Unlimited 360° video {hours} hours",
-		"Professional 360 platform & lighting",
-		"2 professional crews",
-		"Instant share via barcode / AirDrop",
-		"Custom overlay & music",
-		"Fun props",
-		"Transportation",
-	],
-	photostage_only: [
-		"Photo stage session {hours} hours",
-		"Professional camera, lighting & backdrop",
-		"2 professional crews",
-		"Softfile via Google Drive (edited)",
-		"Transportation",
-	],
-	photostage_combo: [
-		"Photo stage + photobooth {hours} hours",
-		"Unlimited photo & print (photobooth)",
-		...PHOTOBOOTH_BASE.slice(0, 1),
-		"3 professional crews",
-		"Softfile via flashdisk / Google Drive",
-		"Custom template design",
-		"Barcode for realtime digital result",
-		"Transportation",
-	],
-	magazine_box_only: [
-		"Magazine box installation {hours} hours",
-		"Custom magazine cover design",
-		"Softfile via Google Drive",
-		"Transportation",
+		"Video 360° kualitas tinggi (iPhone)",
+		"Platform spin 2–4 orang (maks. 250 kg)",
+		"Lighting profesional",
+		"Template video custom",
+		"Pilihan musik",
+		"Properti",
+		"Sharing real-time via AirDrop/QR code",
+		"Free transport se-Jabodetabek",
 	],
 	magazine_combo: [
-		"Magazine box + photobooth {hours} hours",
-		"Unlimited photo & print (photobooth)",
-		...PHOTOBOOTH_BASE,
+		"Magazine box booth + semua isi Photobooth Classic",
+		...PHOTOBOOTH_CLASSIC.slice(0, -1),
+		"Syarat: loading 3 jam sebelum mulai, area min. 4×5 m, indoor, listrik ±700 W",
+		"Klien menyiapkan 1 meja + 3 kursi",
+		"Tidak termasuk transport, penggantian sticker & dekorasi tambahan",
+	],
+	magazine_box_only: [
+		"Instalasi magazine box {hours} jam tanpa crew standby",
+		"Sticker default",
+		"Loading H-1 malam / hari H, bongkar maks. 23.00",
+		"Listrik ±100 W, indoor",
+		"Tidak termasuk transport, penggantian sticker & dekorasi",
+	],
+	photostage_only: [
+		...PHOTO_STAGE,
+		"Tanpa cetak",
+		"Free transport se-Jabodetabek",
+	],
+	photostage_combo: [
+		...PHOTO_STAGE,
+		"Cetak instan classic photobooth",
+		"Free transport se-Jabodetabek",
 	],
 };
 
@@ -230,18 +268,32 @@ export function includesForPackage(pkg: {
 	const tpl =
 		pkg.quotation_includes && pkg.quotation_includes.length > 0
 			? pkg.quotation_includes
-			: (DEFAULT_INCLUDES_BY_CATEGORY[pkg.category] ?? PHOTOBOOTH_BASE);
+			: (DEFAULT_INCLUDES_BY_CATEGORY[pkg.category] ?? PHOTOBOOTH_CLASSIC);
 	const hours = pkg.duration_hours ? String(pkg.duration_hours) : "";
 	return tpl.map((s) =>
 		s.replace("{hours}", hours).replace(/\s+/g, " ").trim(),
 	);
 }
 
-/** yyyy-MM-dd + n hari (tanpa zona waktu). */
+/** yyyy-MM-dd + n hari. Dihitung di UTC: dengan jam lokal, browser WIB
+ *  (UTC+7) mundur sehari saat dikonversi balik lewat toISOString. */
 export function addDays(iso: string, n: number): string {
-	const d = new Date(`${iso}T00:00:00`);
-	d.setDate(d.getDate() + n);
+	const d = new Date(`${iso}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + n);
 	return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Tarif gross-up PPh bawaan (%). Tetra usaha perorangan non-PKP; gross-up
+ * hanya bila klien minta pajak dicantumkan (keputusan Rama 27 Sep 2026).
+ * Sumber utama: system_config `tax.default_grossup_rate_pct` — ini cadangan.
+ */
+export const GROSS_UP_RATE_DEFAULT = 2.5;
+
+/** Nilai config tarif gross-up → angka; tak valid → GROSS_UP_RATE_DEFAULT. */
+export function parseGrossUpRate(v: unknown): number {
+	const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+	return Number.isFinite(n) && n > 0 ? n : GROSS_UP_RATE_DEFAULT;
 }
 
 /** "Ditujukan kepada" dokumen event — disimpan di events.bill_to_*. */
@@ -296,4 +348,18 @@ export function billTo(ev: BillToSource): {
 			return { name: klien, attn };
 		}
 	}
+}
+
+/** "Invoice INV-TP-01-23092026 - PT Gratama.pdf" — satu aturan untuk unduhan,
+ *  viewer & lampiran WA bot. */
+export function docFilename(
+	docType: DocType,
+	docNumber: string,
+	clientName: string | null | undefined,
+): string {
+	const client = (clientName ?? "")
+		.replace(/[^\w\s-]+/g, "")
+		.trim()
+		.replace(/\s+/g, " ");
+	return `${DOC_TYPE_LABEL[docType]} ${docNumber}${client ? ` - ${client}` : ""}.pdf`;
 }

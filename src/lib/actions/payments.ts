@@ -3,20 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { formatDateID } from "@/lib/format";
+import { logPaymentCore, PAYMENT_TYPES } from "@/lib/finance/payment-core";
 import { createClient } from "@/lib/supabase/server";
-import {
-	notifyTelegramPaymentReceived,
-	notifyTelegramPaymentReversed,
-} from "@/lib/telegram/notify";
-
-const PAYMENT_TYPES = ["dp", "partial", "pelunasan"] as const;
-
-const PAYMENT_TYPE_LABEL: Record<(typeof PAYMENT_TYPES)[number], string> = {
-	dp: "DP",
-	partial: "Cicilan",
-	pelunasan: "Pelunasan",
-};
+import { notifyTelegramPaymentReversed } from "@/lib/telegram/notify";
 
 const PaymentInputSchema = z.object({
 	amount: z.coerce.number().int().positive("Jumlah harus lebih dari 0"),
@@ -100,116 +89,27 @@ export async function logPayment(
 		}
 
 		const supabase = await createClient();
-
-		// Guard: event ada + belum settled + tidak overpayment.
-		const { data: ev } = await supabase
-			.from("events")
-			.select(
-				"grand_total, total_paid, vendor_commission_mode, vendor_commission_amount",
-			)
-			.eq("id", eventId)
-			.maybeSingle();
-		if (!ev) {
+		// Guard (settled/cutoff/overpay) + RPC jurnal + notif + dokumen otomatis
+		// ada di satu inti yang juga dipakai tool agent catat_pembayaran.
+		const res = await logPaymentCore(
+			supabase,
+			{
+				eventId,
+				amount: parsed.data.amount,
+				paymentDate: parsed.data.payment_date,
+				bankAccountId: parsed.data.bank_account_id,
+				paymentType: parsed.data.payment_type,
+				proofUrl: parsed.data.proof_url,
+				notes: parsed.data.notes,
+			},
+			me.profile.id,
+		);
+		if (!res.ok) {
 			return {
-				errors: { _form: ["Event tidak ditemukan."] },
+				errors: { [res.field]: [res.error] } as PaymentErrors,
 				values: snapshotValues(formData),
 			};
 		}
-		const { data: settled } = await supabase
-			.from("event_settlements")
-			.select("id")
-			.eq("event_id", eventId)
-			.eq("is_reopened", false)
-			.maybeSingle();
-		if (settled) {
-			return {
-				errors: {
-					_form: [
-						"Event sudah di-settle — pembayaran terkunci. Reopen settlement dulu kalau perlu koreksi.",
-					],
-				},
-				values: snapshotValues(formData),
-			};
-		}
-		// Guard cutoff: jurnal dibukukan dengan entry_date = payment_date, dan
-		// neraca menjumlahkan semua baris tanpa filter tanggal. Uang yang masuk
-		// sebelum cutoff sudah tercakup di saldo awal hasil hitung fisik —
-		// mencatatnya lagi bikin kas dobel. Backstop-nya ada di
-		// record_payment_je_impl; ini supaya pesannya nempel di field tanggal.
-		const { data: cutoffCfg } = await supabase
-			.from("system_config")
-			.select("value")
-			.eq("key", "finance_cutoff_date")
-			.maybeSingle();
-		const cutoff =
-			typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
-				? cutoffCfg.value
-				: null;
-		if (cutoff && parsed.data.payment_date < cutoff) {
-			return {
-				errors: {
-					payment_date: [
-						`Sebelum cutoff keuangan (${formatDateID(cutoff)}). Uang yang masuk sebelum cutoff sudah termasuk di saldo awal — kalau dicatat lagi kas jadi dobel.`,
-					],
-				},
-				values: snapshotValues(formData),
-			};
-		}
-		// Tagihan efektif: potongan langsung vendor dipotong di muka, jadi kas
-		// yang boleh dicatat maksimal grand_total − potongan ("Tetra terima").
-		const grand = Number(ev.grand_total) || 0;
-		const vendorCut =
-			ev.vendor_commission_mode === "upfront_cut"
-				? Number(ev.vendor_commission_amount) || 0
-				: 0;
-		const billable = Math.max(0, grand - vendorCut);
-		const sisa = Math.max(0, billable - (Number(ev.total_paid) || 0));
-		if (billable > 0 && parsed.data.amount > sisa) {
-			return {
-				errors: {
-					amount: [
-						`Melebihi sisa tagihan. Sisa: Rp ${sisa.toLocaleString("id-ID")}`,
-					],
-				},
-				values: snapshotValues(formData),
-			};
-		}
-
-		// Insert pembayaran + jurnal (Dr Kas/Bank / Cr 4-100) dalam satu RPC atomik
-		// → cash-basis: pendapatan diakui saat uang masuk, kas GL = uang riil.
-		const { error } = await supabase.rpc("record_payment_je", {
-			p_event_id: eventId,
-			p_amount: parsed.data.amount,
-			p_payment_date: parsed.data.payment_date,
-			p_bank_account_id: parsed.data.bank_account_id,
-			p_payment_type: parsed.data.payment_type,
-			p_proof_url: parsed.data.proof_url,
-			p_notes: parsed.data.notes,
-			p_actor: me.profile.id,
-		});
-
-		if (error) {
-			console.error("[logPayment] rpc error:", error);
-			return {
-				errors: { _form: [`DB: ${error.message}`] },
-				values: snapshotValues(formData),
-			};
-		}
-
-		// Best-effort: kabari grup Telegram owner ada uang masuk. Sisa tagihan
-		// dihitung dari `sisa` pra-insert dikurangi jumlah yang baru dicatat.
-		const { data: bank } = await supabase
-			.from("bank_accounts")
-			.select("bank_name, account_name")
-			.eq("id", parsed.data.bank_account_id)
-			.maybeSingle();
-		await notifyTelegramPaymentReceived(eventId, {
-			typeLabel: PAYMENT_TYPE_LABEL[parsed.data.payment_type],
-			amount: parsed.data.amount,
-			bankLabel:
-				[bank?.bank_name, bank?.account_name].filter(Boolean).join(" ") || null,
-			remaining: Math.max(0, sisa - parsed.data.amount),
-		});
 
 		revalidatePath(`/operations/${projectId}`);
 		revalidatePath(`/operations/${projectId}/payments`);

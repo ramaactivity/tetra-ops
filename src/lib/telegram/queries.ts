@@ -37,7 +37,7 @@ export async function buildPiutangText(): Promise<string> {
 	const { data, error } = await admin
 		.from("events")
 		.select(
-			"project_id, client_name, event_date, total_paid, remaining_balance, grand_total",
+			"project_id, client_name, event_date, due_date, total_paid, remaining_balance, grand_total",
 		)
 		.gt("remaining_balance", 0)
 		.is("deleted_at", null)
@@ -49,6 +49,7 @@ export async function buildPiutangText(): Promise<string> {
 		project_id: string;
 		client_name: string;
 		event_date: string;
+		due_date: string | null;
 		total_paid: number;
 		remaining_balance: number;
 		grand_total: number;
@@ -57,18 +58,21 @@ export async function buildPiutangText(): Promise<string> {
 		return "✅ Tidak ada piutang — semua event sudah lunas. 🎉";
 	}
 
-	const overdue = rows.filter((r) => r.event_date < todayISO);
-	const upcoming = rows.filter((r) => r.event_date >= todayISO);
+	// Jatuh tempo = events.due_date (sama dengan tab Overdue di /billing);
+	// event lama tanpa due_date jatuh ke tanggal acara.
+	const dueOf = (r: (typeof rows)[number]) => r.due_date ?? r.event_date;
+	const overdue = rows.filter((r) => dueOf(r) < todayISO);
+	const upcoming = rows.filter((r) => dueOf(r) >= todayISO);
 	const total = rows.reduce((s, r) => s + Number(r.remaining_balance), 0);
 
 	const fmt = (r: (typeof rows)[number]) => {
-		const days = daysUntil(todayISO, r.event_date);
+		const days = daysUntil(todayISO, dueOf(r));
 		const when =
-			r.event_date < todayISO
-				? `lewat ${-days} hari`
+			dueOf(r) < todayISO
+				? `jatuh tempo lewat ${-days} hari`
 				: days === 0
-					? "HARI INI"
-					: `H-${days}`;
+					? "jatuh tempo HARI INI"
+					: `jatuh tempo ${dateLabel(dueOf(r))}`;
 		const dp = Number(r.total_paid) === 0 ? " · belum DP sama sekali" : "";
 		return `• ${tgEscape(r.client_name)} — ${dateLabel(r.event_date)} (${when}): sisa ${rp(Number(r.remaining_balance))}${dp}`;
 	};
@@ -78,13 +82,13 @@ export async function buildPiutangText(): Promise<string> {
 	];
 	if (overdue.length > 0) {
 		parts.push(
-			`\n🚨 <b>Event sudah lewat, belum lunas (${overdue.length})</b>`,
+			`\n🚨 <b>Lewat jatuh tempo, belum lunas (${overdue.length})</b>`,
 			...overdue.map(fmt),
 		);
 	}
 	if (upcoming.length > 0) {
 		parts.push(
-			`\n📅 <b>Event mendatang (${upcoming.length})</b>`,
+			`\n📅 <b>Belum jatuh tempo (${upcoming.length})</b>`,
 			...upcoming.map(fmt),
 		);
 	}

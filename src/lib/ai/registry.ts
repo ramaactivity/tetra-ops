@@ -9,6 +9,12 @@ import {
 	updateStatusLead,
 } from "@/lib/ai/tools/aksi";
 import {
+	buatQuotation,
+	catatPembayaran,
+	kirimDokumen,
+	tagihanJatuhTempo,
+} from "@/lib/ai/tools/dokumen";
+import {
 	feeCrewBelumDibayar,
 	piutang,
 	ringkasanBisnis,
@@ -56,11 +62,15 @@ const ALL_TOOLS: AiTool[] = [
 	leadsWa,
 	daftarCrew,
 	akunKategoriCatat,
+	tagihanJatuhTempo,
 	// Tool tulis — hanya tampil di permukaan yang punya alur konfirmasi (MCP).
 	catatTransaksi,
 	assignCrew,
 	updateStatusLead,
 	kirimPengingatPelunasan,
+	kirimDokumen,
+	buatQuotation,
+	catatPembayaran,
 ];
 
 /**
@@ -118,6 +128,10 @@ export const TOOL_LABELS: Record<string, string> = {
 	assign_crew: "penugasan crew",
 	update_status_lead: "status lead",
 	kirim_pengingat_pelunasan: "pengingat pelunasan klien",
+	kirim_dokumen: "kirim dokumen ke klien",
+	buat_quotation: "quotation",
+	catat_pembayaran: "catat pembayaran",
+	tagihan_jatuh_tempo: "tagihan jatuh tempo",
 };
 
 export function toolLabel(name: string): string {

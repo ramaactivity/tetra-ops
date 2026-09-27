@@ -108,9 +108,9 @@ test("backdrop: putih, dekorasi acara, dan warna yang tak ada", () => {
 		inboxToBookingDefaults(item({ backdrop: b }), packages, backdrops);
 	assert.equal(bd("Putih").backdrop_id, "white");
 	assert.equal(bd("pakai dekorasi acara").backdrop_id, "client");
-	const emerald = bd("Hijau Emerald");
-	assert.equal(emerald.backdrop_id, "");
-	assert.match(String(emerald.crew_notes), /Backdrop diminta: Hijau Emerald/);
+	const pink = bd("Pink pastel");
+	assert.equal(pink.backdrop_id, "");
+	assert.match(String(pink.crew_notes), /Backdrop diminta: Pink pastel/);
 });
 
 test("tanggal belum ada / belum pasti → perkiraan", () => {

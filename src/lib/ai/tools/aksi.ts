@@ -4,7 +4,7 @@ import { assignCrewCore } from "@/lib/actions/crew-assignments";
 import { recordQuickTransactionCore } from "@/lib/actions/journal-entries";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
 import { findActiveDoc, getOrCreateInvoice } from "@/lib/documents/invoice";
-import { signedPdfQuery } from "@/lib/documents/pdf-link";
+import { sendDocumentCore } from "@/lib/documents/send";
 import {
 	type CashAccountOption,
 	loadCashAccounts,
@@ -546,8 +546,6 @@ export const kirimPengingatPelunasan: AiTool = {
 		const r = await resolvePengingat(args, ctx);
 		if ("error" in r) return r;
 
-		const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-		if (!appUrl) return { error: "NEXT_PUBLIC_APP_URL belum diset." };
 		const inv = await getOrCreateInvoice(
 			ctx.supabase,
 			r.event.id as string,
@@ -555,60 +553,18 @@ export const kirimPengingatPelunasan: AiTool = {
 			ctx.todayISO,
 		);
 		if (!inv.ok) return { error: `Gagal menyiapkan invoice: ${inv.error}` };
-		// 1 jam cukup untuk antrean bot (cek tiap 10 dtk) plus bot yang sedang reconnect.
-		const q = signedPdfQuery(inv.id, 3600);
-		if (!q) return { error: "MCP_API_TOKEN belum diset." };
-		const klien = String(r.event.client_name)
-			.replace(/[^\w\s-]+/g, "")
-			.trim();
-
-		// Koneksi WA hidup di proses bot; perintah dititipkan ke antrean yang
-		// sama dengan tombol dashboard (bot_commands), dieksekusi ≤10 detik.
-		const { data: cmd, error } = await ctx.supabase
-			.from("bot_commands")
-			.insert({
-				command: `send-invoice:${JSON.stringify({
-					nomor: r.nomor,
-					pesan: r.pesan,
-					pdf_url: `${appUrl}/api/pdf/document/${inv.id}?download=1&${q}`,
-					nama_file: `Invoice ${inv.docNumber} - ${klien}.pdf`,
-				})}`,
-				status: "pending",
-			})
-			.select("id")
-			.single();
-		if (error) return { error: `Gagal menitipkan ke bot: ${error.message}` };
-
-		await ctx.supabase.from("event_reminders_log").insert({
-			event_id: r.event.id,
-			template_code: "pelunasan_bot",
-			recipient_phone: r.nomor,
-			recipient_label: r.event.client_name,
-			sent_by: actor,
-			notes: `bot_commands ${cmd.id}, invoice ${inv.docNumber}`,
-		});
-
-		// Tunggu hasil bot sebentar supaya owner langsung tahu terkirim/gagal.
-		for (let i = 0; i < 8; i++) {
-			await new Promise((res) => setTimeout(res, 4000));
-			const { data: st } = await ctx.supabase
-				.from("bot_commands")
-				.select("status, result")
-				.eq("id", cmd.id)
-				.maybeSingle();
-			if (st && st.status !== "pending") {
-				return {
-					status: st.status === "done" ? "terkirim" : "gagal",
-					hasil: st.result,
-					invoice: inv.docNumber,
-					invoice_baru: inv.created,
-				};
-			}
-		}
+		// Inti yang sama dengan kirim_dokumen; format `send-invoice` dipertahankan
+		// supaya bot versi lama tetap bisa mengirim. Log pengingat & delivered_at
+		// hanya dicatat kalau bot melapor terkirim.
+		const res = await sendDocumentCore(
+			ctx.supabase,
+			{ documentId: inv.id, pesan: r.pesan, nomor: r.nomor },
+			{ actorId: actor, command: "send-invoice", logTemplate: "pelunasan_bot" },
+		);
+		if ("error" in res) return res;
 		return {
-			status: "antre",
-			hasil:
-				"Bot belum memproses dalam 30 detik (mungkin sedang reconnect). Perintah tetap di antrean.",
+			status: res.status,
+			hasil: res.hasil,
 			invoice: inv.docNumber,
 			invoice_baru: inv.created,
 		};

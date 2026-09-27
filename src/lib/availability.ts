@@ -128,6 +128,15 @@ function normalizeCity(city: string | null | undefined): string | null {
 	return n || null;
 }
 
+/**
+ * Kota masuk area Jabodetabek (+ Kab. Bogor)? Kosong/tak dikenal → false:
+ * transport di luar area diisi admin, jadi kalau ragu anggap di luar.
+ */
+export function isJabodetabek(city: string | null | undefined): boolean {
+	const c = normalizeCity(city);
+	return c !== null && NEAR_CITIES.has(c);
+}
+
 /** Buffer (menit) antara kota acara yang diminta vs kota event existing. */
 export function bufferMinutes(
 	reqCity: string | null,

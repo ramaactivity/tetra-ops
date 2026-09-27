@@ -74,6 +74,7 @@ import {
 	DUE_PRESETS,
 	defaultTerms,
 	includesForPackage,
+	pendingAdminItems,
 } from "@/lib/documents/types";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,7 @@ import { ClientPicker } from "./client-picker";
 import { DocStatusBadge } from "./document-status-badge";
 import { IncludeList } from "./include-list";
 import { PdfPreview } from "./pdf-preview";
+import { DeliveredInfo, SendToClientButton } from "./send-to-client";
 import { SignerDialog } from "./signer-settings";
 import { StandaloneInvoicePanel } from "./standalone-invoice-panel";
 
@@ -166,6 +168,7 @@ export function DocumentEditor({
 	linkedEvent,
 	paymentsPanel,
 	venues = [],
+	delivery,
 }: {
 	initial: EditorDoc;
 	packages: PackageOption[];
@@ -177,6 +180,8 @@ export function DocumentEditor({
 	linkedEvent: LinkedEvent | null;
 	/** Panel pembayaran (server component) — hanya untuk invoice. */
 	paymentsPanel?: React.ReactNode;
+	/** Benar-benar sampai ke klien (bot WA / tandai manual). */
+	delivery?: { at: string | null; via: string | null };
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -561,6 +566,11 @@ export function DocumentEditor({
 								{doc.doc_number ?? `${typeLabel} baru`}
 							</span>
 							<DocStatusBadge status={doc.status} />
+							<DeliveredInfo
+								documentId={doc.id ?? null}
+								deliveredAt={delivery?.at}
+								deliveredVia={delivery?.via}
+							/>
 							{dirty ? (
 								<span className="inline-flex items-center gap-1 text-[11px] text-amber-700">
 									<span className="size-1.5 rounded-full bg-amber-500" />
@@ -593,6 +603,12 @@ export function DocumentEditor({
 					>
 						<MessageCircle className="size-3.5" /> WA
 					</Button>
+					<SendToClientButton
+						documentId={doc.id ?? null}
+						blockedBy={pendingAdminItems(doc.items)}
+						ensureSaved={async () => (await ensureSaved())?.id ?? null}
+						disabled={saving || readOnly}
+					/>
 					<Button
 						size="sm"
 						onClick={() => void save()}
@@ -959,12 +975,26 @@ export function DocumentEditor({
 												className="w-16 text-center"
 												aria-label="Qty"
 											/>
-											<MoneyInput
-												value={it.unit_price}
-												onValueChange={(v) => updateItem(i, { unit_price: v })}
-												className="w-36"
-												aria-label="Harga satuan"
-											/>
+											<div className="relative">
+												<MoneyInput
+													value={it.unit_price}
+													onValueChange={(v) =>
+														updateItem(i, { unit_price: v })
+													}
+													className={cn(
+														"w-36",
+														it.needs_admin_price &&
+															!(it.unit_price > 0) &&
+															"ring-2 ring-amber-400",
+													)}
+													aria-label="Harga satuan"
+												/>
+												{it.needs_admin_price && !(it.unit_price > 0) ? (
+													<span className="absolute -top-2 left-2 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800">
+														Diisi admin
+													</span>
+												) : null}
+											</div>
 											{/* Jumlah baris: blok tersendiri, bukan teks lepas di ujung */}
 											<div className="ml-auto flex h-10 min-w-[128px] flex-col items-end justify-center rounded-lg bg-secondary px-3">
 												<span className="text-[10px] font-semibold uppercase leading-none tracking-[0.08em] text-muted-foreground">
@@ -1054,6 +1084,23 @@ export function DocumentEditor({
 					{/* Harga */}
 					<section className={CARD}>
 						<SectionTitle title="Harga & pajak" />
+						{doc.proposed_discount ? (
+							<ProposedDiscountBox
+								value={doc.proposed_discount}
+								subtotal={totals.subtotal}
+								onApply={(rp) =>
+									setDoc((d) => ({
+										...d,
+										discount: rp,
+										proposed_discount: null,
+									}))
+								}
+								onDismiss={() =>
+									setDoc((d) => ({ ...d, proposed_discount: null }))
+								}
+								disabled={readOnly}
+							/>
+						) : null}
 						<div className="grid gap-3 sm:grid-cols-2">
 							<Field label="Diskon (Rp)">
 								<MoneyInput
@@ -1423,6 +1470,49 @@ function Row({ k, v }: { k: string; v: string }) {
 		<div className="flex items-center justify-between">
 			<dt className="text-muted-foreground">{k}</dt>
 			<dd className="tabular">{v}</dd>
+		</div>
+	);
+}
+
+/** Usulan diskon agent — tidak masuk total sampai owner menekan Terapkan. */
+function ProposedDiscountBox({
+	value,
+	subtotal,
+	onApply,
+	onDismiss,
+	disabled,
+}: {
+	value: { persen?: number | null; nominal?: number | null; alasan: string };
+	subtotal: number;
+	onApply: (rupiah: number) => void;
+	onDismiss: () => void;
+	disabled?: boolean;
+}) {
+	const rp =
+		value.nominal ?? Math.round((subtotal * (value.persen ?? 0)) / 100);
+	return (
+		<div className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-[13px] text-sky-900">
+			<p className="min-w-0 flex-1">
+				<span className="font-semibold">Usulan diskon dari agent:</span>{" "}
+				<span className="tabular">{formatRupiah(rp)}</span>
+				{value.persen ? ` (${value.persen}%)` : ""} — {value.alasan}
+				<span className="block text-[12px] text-sky-800/80">
+					Belum masuk total. Simpan setelah memilih.
+				</span>
+			</p>
+			<div className="flex gap-1.5">
+				<Button size="sm" onClick={() => onApply(rp)} disabled={disabled}>
+					Terapkan
+				</Button>
+				<Button
+					size="sm"
+					variant="ghost"
+					onClick={onDismiss}
+					disabled={disabled}
+				>
+					Abaikan
+				</Button>
+			</div>
 		</div>
 	);
 }

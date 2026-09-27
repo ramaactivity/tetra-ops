@@ -4,30 +4,26 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { defaultClientMessage } from "@/lib/documents/approval";
 import {
 	allocateNumber,
-	clientFromEvent,
-	defaultSignerId,
 	findActiveDoc,
 	getOrCreateInvoice,
+	issuePaidDocCore,
+	issueReceiptCore,
 	linkInvoiceToEvent,
 	syncDocClientsFromEvent,
 } from "@/lib/documents/invoice";
-import {
-	discountFromEvent,
-	itemsFromEvent,
-	loadDocument,
-	loadEventForPdfById,
-} from "@/lib/documents/load";
+import { loadDocument, loadEventForPdfById } from "@/lib/documents/load";
+import { sendDocumentCore } from "@/lib/documents/send";
 import {
 	addDays,
 	BILL_TO_MODES,
 	DOC_STATUSES,
 	type DocClient,
-	type DocItem,
 	defaultTerms,
+	GROSS_UP_RATE_DEFAULT,
 } from "@/lib/documents/types";
-import type { EventForPdf } from "@/lib/pdf/event-data";
 import { createClient } from "@/lib/supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -73,6 +69,7 @@ const ItemSchema = z.object({
 	unit_price: z.coerce.number().int().min(0),
 	package_id: z.string().uuid().nullish(),
 	addon_id: z.string().uuid().nullish(),
+	needs_admin_price: z.boolean().nullish(),
 });
 
 const DraftSchema = z.object({
@@ -93,7 +90,11 @@ const DraftSchema = z.object({
 	items: z.array(ItemSchema).min(1, "Minimal satu item").max(50),
 	discount: z.coerce.number().int().min(0).default(0),
 	gross_up_enabled: z.boolean().default(false),
-	gross_up_rate: z.coerce.number().min(0).max(99).default(2),
+	gross_up_rate: z.coerce
+		.number()
+		.min(0)
+		.max(99)
+		.default(GROSS_UP_RATE_DEFAULT),
 	notes: nullishStr(2000),
 	terms: nullishStr(4000),
 	signer_id: z.string().uuid().nullish(),
@@ -103,6 +104,14 @@ const DraftSchema = z.object({
 	due_date: nullishStr(10),
 	valid_until: nullishStr(10),
 	status: z.enum(DOC_STATUSES).default("draft"),
+	/** Usulan diskon agent; null = sudah diterapkan/diabaikan owner. */
+	proposed_discount: z
+		.object({
+			persen: z.number().nullish(),
+			nominal: z.number().nullish(),
+			alasan: z.string().max(300),
+		})
+		.nullish(),
 });
 
 export type DocumentDraftInput = z.input<typeof DraftSchema>;
@@ -184,6 +193,10 @@ export async function saveDocument(
 		due_date: d.due_date,
 		valid_until: d.valid_until,
 		status: d.status,
+		// Hanya disentuh kalau editor mengirimnya (terapkan/abaikan usulan).
+		...(d.proposed_discount !== undefined
+			? { proposed_discount: d.proposed_discount }
+			: {}),
 	};
 
 	try {
@@ -364,47 +377,6 @@ export async function setDocumentStatus(
 // Get-or-create per event / pembayaran
 // ---------------------------------------------------------------------------
 
-/** Item & pengaturan yang dipakai nota/kuitansi: ikut invoice bila ada, else dari event. */
-async function billingSnapshot(
-	supabase: Supabase,
-	eventId: string,
-	ev: EventForPdf,
-): Promise<{
-	items: DocItem[];
-	discount: number;
-	gross_up_enabled: boolean;
-	gross_up_rate: number;
-	client: DocClient;
-	signer_id: string | null;
-	signer_name: string | null;
-	signer_position: string | null;
-}> {
-	const inv = await findActiveDoc(supabase, eventId, "invoice");
-	if (inv) {
-		return {
-			items: inv.items,
-			discount: inv.discount,
-			gross_up_enabled: inv.gross_up_enabled,
-			gross_up_rate: inv.gross_up_rate,
-			client: inv.client,
-			signer_id: inv.signer_id,
-			signer_name: inv.signer_name,
-			signer_position: inv.signer_position,
-		};
-	}
-	const signer = await defaultSignerId(supabase);
-	return {
-		items: itemsFromEvent(ev),
-		discount: discountFromEvent(ev),
-		gross_up_enabled: ev.gross_up_pph_amount > 0,
-		gross_up_rate: 2,
-		client: clientFromEvent(ev),
-		signer_id: signer?.id ?? null,
-		signer_name: signer?.name ?? null,
-		signer_position: signer?.position ?? null,
-	};
-}
-
 type IssueResult =
 	| { ok: true; id: string; created: boolean }
 	| { ok: false; error: string };
@@ -430,51 +402,15 @@ export async function ensureInvoiceForEvent(
 export async function issueReceipt(paymentId: string): Promise<IssueResult> {
 	const me = await requireOwnerLevel();
 	const supabase = await createClient();
-	const { data: existing } = await supabase
-		.from("documents")
-		.select("id")
-		.eq("payment_id", paymentId)
-		.eq("doc_type", "receipt")
-		.neq("status", "void")
-		.maybeSingle();
-	if (existing) return { ok: true, id: existing.id as string, created: false };
-
-	const { data: pay } = await supabase
-		.from("payments")
-		.select("event_id, payment_date, is_reversed")
-		.eq("id", paymentId)
-		.maybeSingle();
-	if (!pay) return { ok: false, error: "Pembayaran tidak ditemukan." };
-	if (pay.is_reversed)
-		return { ok: false, error: "Pembayaran ini sudah di-reverse." };
-
-	const ev = await loadEventForPdfById(supabase, pay.event_id as string);
-	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
-	const snap = await billingSnapshot(supabase, pay.event_id as string, ev);
-	try {
-		const issuedAt = todayISO();
-		const docNumber = await allocateNumber(supabase, "receipt", issuedAt);
-		const { data, error } = await supabase
-			.from("documents")
-			.insert({
-				doc_type: "receipt",
-				doc_number: docNumber,
-				event_id: pay.event_id,
-				payment_id: paymentId,
-				...snap,
-				event_info: {},
-				issued_at: issuedAt,
-				status: "sent",
-				created_by: me.profile.id,
-			})
-			.select("id")
-			.single();
-		if (error) return { ok: false, error: error.message };
-		revalidateDocs(ev.project_id);
-		return { ok: true, id: data.id as string, created: true };
-	} catch (e) {
-		return { ok: false, error: e instanceof Error ? e.message : "Gagal" };
-	}
+	const res = await issueReceiptCore(
+		supabase,
+		paymentId,
+		me.profile.id,
+		todayISO(),
+	);
+	if (!res.ok) return res;
+	if (res.created) revalidateDocs(res.projectId);
+	return { ok: true, id: res.id, created: res.created };
 }
 
 async function issuePaidDoc(
@@ -483,41 +419,16 @@ async function issuePaidDoc(
 ): Promise<IssueResult> {
 	const me = await requireOwnerLevel();
 	const supabase = await createClient();
-	const existing = await findActiveDoc(supabase, eventId, docType);
-	if (existing) return { ok: true, id: existing.id, created: false };
-
-	const ev = await loadEventForPdfById(supabase, eventId);
-	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
-	if (ev.remaining_balance > 0 || ev.total_paid <= 0) {
-		return {
-			ok: false,
-			error: `${docType === "bast" ? "BAST" : "Nota Lunas"} hanya bisa diterbitkan setelah event lunas.`,
-		};
-	}
-	const snap = await billingSnapshot(supabase, eventId, ev);
-	try {
-		const issuedAt = todayISO();
-		const docNumber = await allocateNumber(supabase, docType, issuedAt);
-		const { data, error } = await supabase
-			.from("documents")
-			.insert({
-				doc_type: docType,
-				doc_number: docNumber,
-				event_id: eventId,
-				...snap,
-				event_info: {},
-				issued_at: issuedAt,
-				status: "sent",
-				created_by: me.profile.id,
-			})
-			.select("id")
-			.single();
-		if (error) return { ok: false, error: error.message };
-		revalidateDocs(ev.project_id);
-		return { ok: true, id: data.id as string, created: true };
-	} catch (e) {
-		return { ok: false, error: e instanceof Error ? e.message : "Gagal" };
-	}
+	const res = await issuePaidDocCore(
+		supabase,
+		eventId,
+		docType,
+		me.profile.id,
+		todayISO(),
+	);
+	if (!res.ok) return res;
+	if (res.created) revalidateDocs(res.projectId);
+	return { ok: true, id: res.id, created: res.created };
 }
 
 export async function issueNotaLunas(eventId: string) {
@@ -722,6 +633,69 @@ export async function searchClients(q: string): Promise<ClientSuggestion[]> {
 	return out.slice(0, 10);
 }
 
+/** Hari ini di WIB (UTC+7) — dokumen yang terbit dini hari tidak mundur sehari. */
 function todayISO() {
-	return new Date().toISOString().slice(0, 10);
+	return new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Kirim ke klien (B1) & tanda terkirim manual (A4)
+// ---------------------------------------------------------------------------
+
+/** Pesan WA standar untuk dialog "Kirim ke klien via WA". */
+export async function defaultSendMessage(id: string): Promise<string> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const doc = await loadDocument(id);
+	if (!doc) return "";
+	return defaultClientMessage(supabase, doc);
+}
+
+export type SendToClientResult =
+	| { ok: true; status: "terkirim" | "gagal" | "antre"; message: string }
+	| { ok: false; error: string };
+
+/** Tombol editor "Kirim ke klien via WA" — owner sendiri yang menekan. */
+export async function sendDocumentToClient(
+	id: string,
+	pesan: string,
+	nomor?: string | null,
+): Promise<SendToClientResult> {
+	const me = await requireOwnerLevel();
+	const supabase = await createClient();
+	const res = await sendDocumentCore(
+		supabase,
+		{ documentId: id, pesan, nomor },
+		{ actorId: me.profile.id, pollRounds: 6 },
+	);
+	if ("error" in res) return { ok: false, error: res.error };
+	revalidatePath(`/finance/dokumen/${id}`);
+	revalidatePath("/finance/dokumen");
+	return {
+		ok: true,
+		status: res.status,
+		message:
+			res.status === "terkirim"
+				? `${res.doc_number} terkirim ke klien.`
+				: res.status === "gagal"
+					? `Bot gagal mengirim: ${String(res.hasil ?? "")}`
+					: "Bot belum memproses (mungkin reconnect). Perintah tetap di antrean.",
+	};
+}
+
+/** Owner mengirim sendiri (WA pribadi/email) → catat sudah sampai ke klien. */
+export async function markDeliveredManual(
+	id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+	const { error } = await supabase
+		.from("documents")
+		.update({ delivered_at: new Date().toISOString(), delivered_via: "manual" })
+		.eq("id", id)
+		.neq("status", "void");
+	if (error) return { ok: false, error: error.message };
+	revalidatePath(`/finance/dokumen/${id}`);
+	revalidatePath("/finance/dokumen");
+	return { ok: true };
 }

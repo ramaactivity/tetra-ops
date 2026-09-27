@@ -1,6 +1,7 @@
 import "server-only";
 
 import { computeForecast } from "@/lib/actions/forecast";
+import { buildBastReadyOffer } from "@/lib/documents/approval";
 import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
 import { listMissingFields } from "@/lib/events/tbc";
 import {
@@ -1489,6 +1490,30 @@ export async function runTelegramDigestInternal(opts?: {
 	} catch (err) {
 		result.errors.push(
 			`asset_upload: ${err instanceof Error ? err.message : "unknown"}`,
+		);
+	}
+
+	// 3b. BAST siap dikirim (event lewat & lunas) — tombol 1 tap owner.
+	try {
+		const bast = await buildBastReadyOffer(admin, data.todayISO);
+		if (bast) {
+			const r = await sendWithClaim(
+				admin,
+				chatId,
+				"bast_ready",
+				data.todayISO,
+				opts?.force ?? false,
+				bast.html,
+				{ replyMarkup: bast.keyboard },
+			);
+			if (r.status === "sent") result.sent.push("bast_ready");
+			else if (r.status === "skipped")
+				result.skipped.push("bast_ready: sudah terkirim");
+			else result.errors.push(`bast_ready: ${r.error}`);
+		}
+	} catch (err) {
+		result.errors.push(
+			`bast_ready: ${err instanceof Error ? err.message : "unknown"}`,
 		);
 	}
 

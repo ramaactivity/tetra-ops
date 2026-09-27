@@ -71,7 +71,7 @@ export default async function DokumenPage({
 	let query = supabase
 		.from("documents")
 		.select(
-			"id, doc_type, doc_number, client, items, discount, gross_up_enabled, gross_up_rate, issued_at, status, event_id, event:events(project_id, event_date)",
+			"id, doc_type, doc_number, client, items, discount, gross_up_enabled, gross_up_rate, issued_at, status, delivered_at, event_id, event:events(project_id, event_date)",
 		)
 		.order("created_at", { ascending: false })
 		.limit(PAGE_SIZE);

@@ -14,10 +14,15 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import { setDocumentStatus } from "@/lib/actions/documents";
-import { DOC_TYPE_LABEL, type DocumentRow } from "@/lib/documents/types";
+import {
+	DOC_TYPE_LABEL,
+	type DocumentRow,
+	pendingAdminItems,
+} from "@/lib/documents/types";
 import { formatDateID } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { DocStatusBadge } from "./document-status-badge";
+import { DeliveredInfo, SendToClientButton } from "./send-to-client";
 
 /**
  * Dokumen turunan (kuitansi / nota lunas / BAST) tidak diedit — isinya
@@ -78,6 +83,11 @@ export function DocumentViewer({
 					<div className="flex flex-wrap items-center gap-1.5">
 						<span className="text-[14px] font-semibold">{doc.doc_number}</span>
 						<DocStatusBadge status={doc.status} />
+						<DeliveredInfo
+							documentId={doc.status === "void" ? null : doc.id}
+							deliveredAt={doc.delivered_at}
+							deliveredVia={doc.delivered_via}
+						/>
 					</div>
 					<p className="truncate text-[12px] text-muted-foreground">
 						{label} · {doc.client.name} · terbit {formatDateID(doc.issued_at)}
@@ -105,6 +115,11 @@ export function DocumentViewer({
 					<Button variant="outline" size="sm" onClick={sendWa}>
 						<MessageCircle /> WA
 					</Button>
+					<SendToClientButton
+						documentId={doc.id}
+						blockedBy={pendingAdminItems(doc.items)}
+						disabled={doc.status === "void"}
+					/>
 					{doc.status !== "void" ? (
 						<Button
 							variant="ghost"

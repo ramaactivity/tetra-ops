@@ -4,7 +4,7 @@ import { TetraDocument } from "@/components/pdf/tetra-document";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { buildPdfContext } from "@/lib/documents/load";
 import { buildPdfData } from "@/lib/documents/pdf-data";
-import type { DocumentRow } from "@/lib/documents/types";
+import { type DocumentRow, GROSS_UP_RATE_DEFAULT } from "@/lib/documents/types";
 
 /**
  * Preview draft dari editor: body = isi dokumen (belum tentu tersimpan).
@@ -33,10 +33,11 @@ export async function POST(request: Request) {
 			includes: Array.isArray(it.includes) ? it.includes : [],
 			qty: Number(it.qty) || 0,
 			unit_price: Number(it.unit_price) || 0,
+			needs_admin_price: Boolean(it.needs_admin_price),
 		})),
 		discount: Number(body.discount) || 0,
 		gross_up_enabled: Boolean(body.gross_up_enabled),
-		gross_up_rate: Number(body.gross_up_rate) || 2,
+		gross_up_rate: Number(body.gross_up_rate) || GROSS_UP_RATE_DEFAULT,
 		notes: body.notes ?? null,
 		terms: body.terms ?? null,
 		signer_id: body.signer_id ?? null,

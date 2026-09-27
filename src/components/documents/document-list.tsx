@@ -30,6 +30,7 @@ export type DocumentListRow = Pick<
 	| "gross_up_rate"
 	| "issued_at"
 	| "status"
+	| "delivered_at"
 > & { event_project_id: string | null; event_date: string | null };
 
 const STATUS_TONE: Record<DocStatus, StatusTone> = {
@@ -107,7 +108,14 @@ export function DocumentList({ rows }: { rows: DocumentListRow[] }) {
 						<span className="tabular text-right text-[13.5px] font-medium">
 							{formatRupiah(total(r))}
 						</span>
-						<DocStatusBadge status={r.status} />
+						<div className="min-w-0">
+							<DocStatusBadge status={r.status} />
+							{r.delivered_at ? (
+								<p className="mt-0.5 truncate text-[11.5px] text-emerald-700">
+									Dikirim {formatDateID(r.delivered_at)}
+								</p>
+							) : null}
+						</div>
 						<div className="flex items-center justify-end gap-1">
 							{/* Bukan <a>: baris ini sudah <Link>, <a> bersarang = hydration error. */}
 							<button
@@ -151,6 +159,11 @@ export function DocumentList({ rows }: { rows: DocumentListRow[] }) {
 							<p className="flex items-center gap-2 text-[14px]">
 								<CalendarDays className="size-4 text-muted-foreground" />
 								<span className="tabular">{formatDateID(r.issued_at)}</span>
+								{r.delivered_at ? (
+									<span className="truncate text-emerald-700">
+										· Dikirim {formatDateID(r.delivered_at)}
+									</span>
+								) : null}
 								{r.client.org ? (
 									<span className="truncate text-muted-foreground">
 										· {r.client.org}

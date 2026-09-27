@@ -12,7 +12,12 @@ import {
 	type PdfDocData,
 	type PdfPaymentLine,
 } from "./pdf-data";
-import type { DocItem, DocumentRow, DocumentSigner } from "./types";
+import type {
+	DocEventInfo,
+	DocItem,
+	DocumentRow,
+	DocumentSigner,
+} from "./types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -106,6 +111,24 @@ export function discountFromEvent(ev: EventForPdf): number {
 }
 
 /** Baris item dokumen dari event (paket + add-on + backdrop), harga snapshot event. */
+/**
+ * Potret acara untuk kolom documents.event_info. PDF dokumen tertaut tetap
+ * membaca event live; potret ini untuk daftar/pencarian & jejak saat terbit.
+ */
+export function eventInfoFromEvent(ev: EventForPdf): DocEventInfo {
+	const hhmm = (t: string | null) => (t ? t.slice(0, 5) : "");
+	const time = [hhmm(ev.start_time), hhmm(ev.end_time)]
+		.filter(Boolean)
+		.join("–");
+	return {
+		title: ev.event_title ?? ev.client_name,
+		date: ev.event_date,
+		time: time || null,
+		venue: ev.venue_name || null,
+		city: ev.venue_city,
+	};
+}
+
 export function itemsFromEvent(ev: EventForPdf): DocItem[] {
 	return buildLineItems(ev).map((li) => ({
 		name: li.label,

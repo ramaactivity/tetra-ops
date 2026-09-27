@@ -128,9 +128,24 @@ function ItemsTable({ d }: { d: PdfDocData }) {
 				>
 					<View style={{ flexDirection: "row", gap: 12 }}>
 						<Text style={[S.itemName, S.cName]}>{it.name}</Text>
-						<Text style={[S.body, S.cPrice]}>{rp(it.unit_price)}</Text>
-						<Text style={[S.body, S.cQty]}>{it.qty}</Text>
-						<Text style={[S.body, S.cTotal]}>{rp(it.qty * it.unit_price)}</Text>
+						{it.needs_admin_price && !(it.unit_price > 0) ? (
+							<>
+								{/* Draft: harga belum diisi admin — dokumen tak bisa dikirim. */}
+								<Text style={[S.body, S.cPrice, { color: "#b45309" }]}>
+									Diisi admin
+								</Text>
+								<Text style={[S.body, S.cQty]}>{it.qty}</Text>
+								<Text style={[S.body, S.cTotal, { color: "#b45309" }]}>—</Text>
+							</>
+						) : (
+							<>
+								<Text style={[S.body, S.cPrice]}>{rp(it.unit_price)}</Text>
+								<Text style={[S.body, S.cQty]}>{it.qty}</Text>
+								<Text style={[S.body, S.cTotal]}>
+									{rp(it.qty * it.unit_price)}
+								</Text>
+							</>
+						)}
 					</View>
 					{/* Include di kotak abu-abu tersendiri, selebar baris */}
 					<PdfPointList
