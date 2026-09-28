@@ -53,6 +53,14 @@ export type ExtraCashFlow = {
 	incomeQueued: number;
 	expenseTotal: number;
 	incomeTotal: number;
+	/** Rincian per baris — sama dengan kartu "Pemasukan / pengeluaran lain". */
+	items: Array<{
+		label: string;
+		amount: number;
+		direction: "keluar" | "masuk";
+		/** Belum dibukukan (dibukukan saat settle). */
+		queued: boolean;
+	}>;
 };
 
 export type ProfitPreview = {
@@ -228,30 +236,51 @@ export async function getProfitPreview(
 	const [{ data: manualEntries }, { data: queued }] = await Promise.all([
 		supabase
 			.from("journal_entries")
-			.select("entry_type, total_amount")
+			.select("entry_type, total_amount, description, created_at")
 			.eq("source_event_id", eventId)
 			.eq("source_type", "manual")
-			.eq("is_reversed", false),
+			.eq("is_reversed", false)
+			.order("created_at", { ascending: true }),
 		supabase
 			.from("event_settle_queue")
-			.select("direction, amount")
+			.select("direction, amount, note, created_at")
 			.eq("event_id", eventId)
 			.eq("kind", "expense")
-			.is("posted_at", null),
+			.is("posted_at", null)
+			.order("created_at", { ascending: true }),
 	]);
+	// "Pulsa — PT Mitra … — Team Building" → "Pulsa": nama event sudah jelas
+	// dari halamannya.
+	const shortLabel = (s: string | null | undefined) =>
+		(s ?? "").split(" — ")[0].trim() || "Transaksi";
+	const items: ExtraCashFlow["items"] = [];
 	let expensePosted = 0;
 	let incomePosted = 0;
 	for (const e of manualEntries ?? []) {
 		const amt = Number(e.total_amount ?? 0);
-		if (e.entry_type === "expense") expensePosted += amt;
+		const keluar = e.entry_type === "expense";
+		if (keluar) expensePosted += amt;
 		else incomePosted += amt;
+		items.push({
+			label: shortLabel(e.description as string | null),
+			amount: amt,
+			direction: keluar ? "keluar" : "masuk",
+			queued: false,
+		});
 	}
 	let expenseQueued = 0;
 	let incomeQueued = 0;
 	for (const q of queued ?? []) {
 		const amt = Number(q.amount ?? 0);
-		if (q.direction === "keluar") expenseQueued += amt;
+		const keluar = q.direction === "keluar";
+		if (keluar) expenseQueued += amt;
 		else incomeQueued += amt;
+		items.push({
+			label: shortLabel(q.note as string | null),
+			amount: amt,
+			direction: keluar ? "keluar" : "masuk",
+			queued: true,
+		});
 	}
 	const extra: ExtraCashFlow = {
 		expensePosted,
@@ -260,6 +289,7 @@ export async function getProfitPreview(
 		incomeQueued,
 		expenseTotal: expensePosted + expenseQueued,
 		incomeTotal: incomePosted + incomeQueued,
+		items,
 	};
 	const net_profit_after_extra =
 		net_profit - extra.expenseTotal + extra.incomeTotal;

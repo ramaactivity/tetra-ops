@@ -173,8 +173,10 @@ export function ProfitPreviewCard({
 							<span data-nominal className="tabular">
 								{formatRupiah(preview.opex.owner_paid_total)}
 							</span>{" "}
-							— bukan Hutang Crew, jadi tidak masuk OpEx settlement. Tetap
-							dipotong di "Laba akhir event" di bawah.
+							— bukan Hutang Crew, jadi tidak masuk OpEx settlement.{" "}
+							{ownerPaidPending > 0
+								? 'Tetap dipotong di "Laba akhir event" di bawah.'
+								: 'Sudah tercatat di "Pengeluaran lain" di bawah.'}
 						</p>
 					)}
 				</div>
@@ -204,18 +206,20 @@ export function ProfitPreviewCard({
 			{hasExtra && (
 				<>
 					{preview.extra.expenseTotal > 0 && (
-						<Row
-							label="Pengeluaran lain (di luar rekap)"
-							value={preview.extra.expenseTotal}
+						<ExtraGroup
+							title="Pengeluaran lain (di luar rekap)"
+							total={preview.extra.expenseTotal}
+							items={preview.extra.items.filter(
+								(i) => i.direction === "keluar",
+							)}
 							sign="−"
-							muted
 						/>
 					)}
 					{preview.extra.incomeTotal > 0 && (
-						<Row
-							label="Pemasukan lain"
-							value={preview.extra.incomeTotal}
-							muted
+						<ExtraGroup
+							title="Pemasukan lain"
+							total={preview.extra.incomeTotal}
+							items={preview.extra.items.filter((i) => i.direction === "masuk")}
 						/>
 					)}
 					{ownerPaidPending > 0 && (
@@ -333,5 +337,58 @@ function Row({
 				{formatRupiah(Math.abs(value))}
 			</span>
 		</div>
+	);
+}
+
+/** Rincian pemasukan/pengeluaran lain — isinya sama dengan kartu di atas. */
+function ExtraGroup({
+	title,
+	total,
+	items,
+	sign,
+}: {
+	title: string;
+	total: number;
+	items: ProfitPreview["extra"]["items"];
+	sign?: "−";
+}) {
+	const [open, setOpen] = useState(true);
+	// Tanda "menunggu settle" per baris hanya berguna kalau campuran; kalau
+	// semua masih antre, catatan di bawah "Laba akhir event" sudah bilang.
+	const mixed = items.some((i) => i.queued) && items.some((i) => !i.queued);
+	return (
+		<>
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				className="flex w-full items-center justify-between gap-2 rounded-md py-1 text-left text-sm hover:bg-surface-3"
+			>
+				<span className="text-muted-foreground">{title}</span>
+				<span className="flex items-center gap-2">
+					<span data-nominal className="tabular text-muted-foreground">
+						{sign ?? ""}
+						{formatRupiah(total)}
+					</span>
+					{open ? (
+						<ChevronUp className="h-4 w-4 text-muted-foreground" />
+					) : (
+						<ChevronDown className="h-4 w-4 text-muted-foreground" />
+					)}
+				</span>
+			</button>
+			{open && items.length > 0 ? (
+				<div className="ml-3 space-y-1.5 border-l-2 border-border-default py-1.5 pl-3">
+					{items.map((it, i) => (
+						<Row
+							// biome-ignore lint/suspicious/noArrayIndexKey: urutan dari server stabil
+							key={i}
+							label={`${it.label}${mixed && it.queued ? " · menunggu settle" : ""}`}
+							value={it.amount}
+							compact
+						/>
+					))}
+				</div>
+			) : null}
+		</>
 	);
 }
