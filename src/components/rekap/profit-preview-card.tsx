@@ -1,26 +1,45 @@
 "use client";
 
-import { ChevronDown, ChevronUp, TrendingDown, TrendingUp } from "lucide-react";
+import {
+	ArrowDownLeft,
+	ArrowUpRight,
+	Calculator,
+	ChevronDown,
+	PiggyBank,
+} from "lucide-react";
 import { useState } from "react";
+import { RekapCard, SectionHeader } from "@/components/rekap/rekap-ui";
 import type {
 	HppBreakdown,
 	OpexBreakdown,
 	ProfitPreview,
 } from "@/lib/actions/profit-preview";
 import { formatRupiah } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+/**
+ * "Hitungan untung event" — dibaca orang awam dari atas ke bawah:
+ *   uang masuk → uang keluar → untung bersih → dibagi ke mana → sisa kas.
+ *
+ * Angka tetap dari mesin settlement (profit-preview.ts); kartu ini hanya
+ * menyusun ulang supaya jelas. Satu hal yang sengaja dibuat jujur: dana
+ * cadangan & bagi hasil owner dihitung settle dari untung SEBELUM pengeluaran
+ * lain, padahal pengeluaran lain juga dibayar dari kas — jadi "sisa untuk kas
+ * usaha" = untung bersih − pembagian, bukan operating cash versi settle.
+ */
 
 type Props = {
 	preview: ProfitPreview;
 	/**
-	 * Biaya lapangan dibayar owner yang BELUM dibukukan. Dipotong dari "laba
-	 * akhir event" walau belum jadi jurnal — uangnya sudah keluar.
+	 * Biaya lapangan dibayar owner yang BELUM dibukukan. Dipotong dari untung
+	 * walau belum jadi jurnal — uangnya sudah keluar.
 	 */
 	ownerPaidPending?: number;
 	className?: string;
 };
 
 const HPP_LABELS: Record<keyof Omit<HppBreakdown, "total">, string> = {
-	mediaset: "Media Set",
+	mediaset: "Media set (kertas & tinta)",
 	sleeve: "Sleeve",
 	flashdisk: "Flashdisk",
 	pouch: "Pouch",
@@ -34,361 +53,542 @@ const OPEX_LABELS: Record<
 	keyof Omit<OpexBreakdown, "total" | "owner_paid_total">,
 	string
 > = {
-	fee_lead: "Fee Lead",
-	fee_asisten: "Fee Asisten",
-	fee_crew_c: "Fee Crew C",
+	fee_lead: "Fee crew lead",
+	fee_asisten: "Fee asisten",
+	fee_crew_c: "Fee crew C",
 	fee_extra: "Bonus crew",
 	reimbursement: "Reimbursement",
 	transport: "Transport",
 	bensin: "Bensin",
-	toll: "Toll",
+	toll: "Tol",
 	parking: "Parkir",
 	konsumsi: "Konsumsi",
 	misc: "Lain-lain",
-	komisi_vendor: "Komisi Vendor",
-	komisi_relasi: "Komisi Relasi",
-	komisi_sales: "Komisi Sales Tetra",
+	komisi_vendor: "Komisi vendor",
+	komisi_relasi: "Komisi relasi",
+	komisi_sales: "Komisi sales Tetra",
 };
+
+type Line = { label: string; value: number; note?: string };
 
 export function ProfitPreviewCard({
 	preview,
 	ownerPaidPending = 0,
-	className = "",
+	className,
 }: Props) {
-	// Biaya lapangan yang dibayar owner memang tidak ikut OpEx settlement (biar
-	// tidak dobel dengan jurnal kasnya sendiri) — tapi tetap uang yang keluar
-	// untuk event ini. Yang belum dicatat pun ikut dipotong di sini supaya "laba
-	// akhir" tidak pernah lebih besar dari kenyataan hanya karena owner belum
-	// sempat membukukannya.
-	const finalProfit = preview.net_profit_after_extra - ownerPaidPending;
-	const hasExtra =
-		preview.extra.expenseTotal > 0 ||
-		preview.extra.incomeTotal > 0 ||
-		ownerPaidPending > 0;
-	const [showHpp, setShowHpp] = useState(true);
-	const [showOpex, setShowOpex] = useState(true);
+	const ex = preview.extra;
 
-	const profitClass = preview.is_loss
-		? "text-amber-900 dark:text-amber-200"
-		: "text-foreground";
-	const ProfitIcon = preview.is_loss ? TrendingDown : TrendingUp;
+	// ── Uang masuk ──
+	const masukLines: Line[] = [
+		{ label: "Harga paket", value: preview.revenue_gross },
+		...(preview.addon_revenue > 0
+			? [{ label: "Add-on", value: preview.addon_revenue }]
+			: []),
+		...(preview.discount_total > 0
+			? [{ label: "Diskon", value: -preview.discount_total }]
+			: []),
+		...ex.items
+			.filter((i) => i.direction === "masuk")
+			.map((i) => ({
+				label: i.label,
+				value: i.amount,
+				note: "pemasukan lain",
+			})),
+	];
+	const uangMasuk = preview.revenue_net + ex.incomeTotal;
+
+	// ── Uang keluar ──
+	const hppLines: Line[] = (
+		Object.keys(HPP_LABELS) as Array<keyof typeof HPP_LABELS>
+	)
+		.filter((k) => preview.hpp[k] !== 0)
+		.map((k) => ({ label: HPP_LABELS[k], value: preview.hpp[k] }));
+	const opexLines: Line[] = (
+		Object.keys(OPEX_LABELS) as Array<keyof typeof OPEX_LABELS>
+	)
+		.filter((k) => preview.opex[k] !== 0)
+		.map((k) => ({ label: OPEX_LABELS[k], value: preview.opex[k] }));
+	const lainLines: Line[] = [
+		...ex.items
+			.filter((i) => i.direction === "keluar")
+			.map((i) => ({ label: i.label, value: i.amount })),
+		...(ownerPaidPending > 0
+			? [
+					{
+						label: "Dibayar owner, belum dicatat",
+						value: ownerPaidPending,
+						note: "catat di kartu Pemasukan / pengeluaran lain",
+					},
+				]
+			: []),
+	];
+	const lainTotal = ex.expenseTotal + ownerPaidPending;
+	const uangKeluar = preview.total_biaya + lainTotal;
+
+	// ── Hasil ──
+	const untung = uangMasuk - uangKeluar;
+	const rugi = untung < 0;
+	const persen = uangMasuk > 0 ? (untung / uangMasuk) * 100 : 0;
+
+	// ── Pembagian (aturan settle: dari untung sebelum pengeluaran lain) ──
+	const adaPembagian = !preview.is_loss;
+	const cadangan = adaPembagian ? preview.sinking_estimate : 0;
+	const bagiHasil = adaPembagian ? preview.owner_pool_estimate : 0;
+	const sisaKas = untung - cadangan - bagiHasil;
 
 	return (
-		<section
-			className={`rounded-xl border border-border-default bg-surface-2 p-5 ${className}`}
-		>
-			<header className="flex items-baseline justify-between border-b border-border-default pb-3">
-				<h2 className="text-fluid-h3 font-semibold tracking-tight">
-					Profit preview
-				</h2>
-				<span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground tabular">
-					Real-time
-				</span>
-			</header>
+		<RekapCard className={cn("space-y-4", className)}>
+			<SectionHeader
+				icon={Calculator}
+				title="Hitungan untung event"
+				description="Dari uang yang masuk, dikurangi semua biaya, sampai sisa yang masuk kas usaha. Berubah otomatis saat rekap diisi."
+			/>
 
-			{/* Revenue */}
-			<Row label="Revenue gross" value={preview.revenue_gross} muted />
-			{preview.addon_revenue > 0 && (
-				<Row label="Add-on revenue" value={preview.addon_revenue} muted />
-			)}
-			{preview.discount_total > 0 && (
-				<Row label="Diskon" value={-preview.discount_total} muted sign="−" />
-			)}
-			<Row label="Revenue net" value={preview.revenue_net} bold />
-
-			{/* HPP */}
-			<button
-				type="button"
-				onClick={() => setShowHpp((v) => !v)}
-				className="mt-2 flex w-full items-center justify-between gap-2 rounded-md py-1 text-left text-sm hover:bg-surface-3"
-			>
-				<span className="text-foreground">
-					HPP{" "}
-					<span className="ml-1 text-xs text-muted-foreground tabular">
-						({formatRupiah(preview.hpp.total)})
-					</span>
-				</span>
-				{showHpp ? (
-					<ChevronUp className="h-4 w-4 text-muted-foreground" />
-				) : (
-					<ChevronDown className="h-4 w-4 text-muted-foreground" />
-				)}
-			</button>
-			{showHpp && (
-				<div className="ml-3 space-y-1.5 border-l-2 border-border-default py-1.5 pl-3">
-					{(Object.keys(HPP_LABELS) as Array<keyof typeof HPP_LABELS>).map(
-						(key) => {
-							const v = preview.hpp[key];
-							if (v === 0) return null;
-							return (
-								<Row key={key} label={HPP_LABELS[key]} value={v} compact />
-							);
-						},
-					)}
-					{preview.hpp.total === 0 && (
-						<p className="text-xs text-muted-foreground">
-							Belum ada konsumsi tercatat
-						</p>
-					)}
-				</div>
-			)}
-
-			{/* OpEx */}
-			<button
-				type="button"
-				onClick={() => setShowOpex((v) => !v)}
-				className="flex w-full items-center justify-between gap-2 rounded-md py-1 text-left text-sm hover:bg-surface-3"
-			>
-				<span className="text-foreground">
-					OpEx{" "}
-					<span className="ml-1 text-xs text-muted-foreground tabular">
-						({formatRupiah(preview.opex.total)})
-					</span>
-				</span>
-				{showOpex ? (
-					<ChevronUp className="h-4 w-4 text-muted-foreground" />
-				) : (
-					<ChevronDown className="h-4 w-4 text-muted-foreground" />
-				)}
-			</button>
-			{showOpex && (
-				<div className="ml-3 space-y-1.5 border-l-2 border-border-default py-1.5 pl-3">
-					{(Object.keys(OPEX_LABELS) as Array<keyof typeof OPEX_LABELS>).map(
-						(key) => {
-							const v = preview.opex[key];
-							if (v === 0) return null;
-							return (
-								<Row key={key} label={OPEX_LABELS[key]} value={v} compact />
-							);
-						},
-					)}
-					{preview.opex.total === 0 && (
-						<p className="text-xs text-muted-foreground">
-							Belum ada OpEx tercatat
-						</p>
-					)}
-					{preview.opex.owner_paid_total > 0 && (
-						<p className="text-xs text-muted-foreground">
-							Dibayar langsung owner:{" "}
-							<span data-nominal className="tabular">
-								{formatRupiah(preview.opex.owner_paid_total)}
-							</span>{" "}
-							— bukan Hutang Crew, jadi tidak masuk OpEx settlement.{" "}
-							{ownerPaidPending > 0
-								? 'Tetap dipotong di "Laba akhir event" di bawah.'
-								: 'Sudah tercatat di "Pengeluaran lain" di bawah.'}
-						</p>
-					)}
-				</div>
-			)}
-
-			<Row label="Total biaya" value={preview.total_biaya} muted />
-
-			{/* Gross profit (revenue net - total biaya BEFORE allocation) */}
-			<div className="my-3 border-t border-border-default" />
-
-			<div className="flex items-baseline justify-between py-1">
-				<span className="text-sm font-medium text-foreground">
-					Net profit (sebelum alokasi)
-				</span>
-				<span className={`tabular text-base font-semibold ${profitClass}`}>
-					{formatRupiah(preview.net_profit)}
-					<span className="ml-2 text-xs font-normal tabular text-muted-foreground">
-						· {preview.margin_pct}%
-					</span>
-				</span>
+			{/* Ringkasan 3 angka */}
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+				<SummaryTile
+					label="Uang masuk"
+					hint="dari klien"
+					value={uangMasuk}
+					icon={ArrowDownLeft}
+					tone="in"
+				/>
+				<SummaryTile
+					label="Uang keluar"
+					hint="bahan, crew & operasional"
+					value={uangKeluar}
+					icon={ArrowUpRight}
+					tone="out"
+				/>
+				<SummaryTile
+					label={rugi ? "Rugi event" : "Untung bersih"}
+					hint={
+						uangMasuk > 0
+							? `${persen.toFixed(1).replace(".", ",")}% dari uang masuk`
+							: "belum ada uang masuk"
+					}
+					value={untung}
+					tone={rugi ? "loss" : "profit"}
+				/>
 			</div>
 
-			{/* Uang keluar/masuk lain yang menempel di event tapi dibukukan sebagai
-			    jurnal kas tersendiri — tidak masuk net_profit settlement, tapi tetap
-			    uang event ini. Ditampilkan supaya laba yang dilihat owner = laba
-			    event yang sebenarnya. */}
-			{hasExtra && (
-				<>
-					{preview.extra.expenseTotal > 0 && (
-						<ExtraGroup
-							title="Pengeluaran lain (di luar rekap)"
-							total={preview.extra.expenseTotal}
-							items={preview.extra.items.filter(
-								(i) => i.direction === "keluar",
-							)}
-							sign="−"
-						/>
-					)}
-					{preview.extra.incomeTotal > 0 && (
-						<ExtraGroup
-							title="Pemasukan lain"
-							total={preview.extra.incomeTotal}
-							items={preview.extra.items.filter((i) => i.direction === "masuk")}
-						/>
-					)}
-					{ownerPaidPending > 0 && (
-						<Row
-							label="Biaya dibayar owner (belum dicatat)"
-							value={ownerPaidPending}
-							sign="−"
-							muted
-						/>
-					)}
-					<div className="flex items-baseline justify-between py-1">
-						<span className="text-sm font-medium text-foreground">
-							Laba akhir event
-						</span>
+			{/* 1. Uang masuk */}
+			<Step
+				n={1}
+				title="Uang masuk"
+				total={uangMasuk}
+				groups={[{ title: null, lines: masukLines }]}
+			/>
+
+			{/* 2. Uang keluar */}
+			<Step
+				n={2}
+				title="Uang keluar"
+				total={-uangKeluar}
+				groups={[
+					{
+						title: "Bahan habis pakai",
+						hint: "HPP — barang yang terpakai di event",
+						lines: hppLines,
+						empty: "Belum ada pemakaian bahan tercatat",
+					},
+					{
+						title: "Crew & operasional",
+						hint: "OpEx — fee crew, perjalanan, komisi",
+						lines: opexLines,
+						empty: "Belum ada biaya operasional tercatat",
+						footnote:
+							preview.opex.owner_paid_total > 0
+								? `${formatRupiah(preview.opex.owner_paid_total)} dibayar langsung owner — dihitung di "Pengeluaran lain", bukan di sini, supaya tidak dobel.`
+								: undefined,
+					},
+					...(lainLines.length > 0
+						? [
+								{
+									title: "Pengeluaran lain",
+									hint: "dari kartu Pemasukan / pengeluaran lain",
+									lines: lainLines,
+								},
+							]
+						: []),
+				]}
+			/>
+
+			{/* Hasil */}
+			<ResultRow
+				label={rugi ? "Rugi event" : "Untung bersih event"}
+				sub="Uang masuk − uang keluar"
+				value={untung}
+				tone={rugi ? "loss" : "profit"}
+			/>
+
+			{/* 3. Dibagi ke mana */}
+			<section className="rounded-2xl border border-border-subtle bg-secondary/40 p-4">
+				<div className="flex items-start gap-3">
+					<StepBadge n={3} />
+					<div className="min-w-0 flex-1 space-y-3">
+						<div>
+							<h4 className="text-[14px] font-semibold text-foreground">
+								Untungnya dibagi ke mana
+							</h4>
+							<p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
+								{adaPembagian ? (
+									<>
+										Saat settle, sebagian untung disisihkan dulu. Hitungannya
+										dari untung sebelum pengeluaran lain (
+										<span className="tabular">
+											{formatRupiah(preview.net_profit)}
+										</span>
+										).
+									</>
+								) : (
+									"Event ini tidak untung, jadi tidak ada yang disisihkan ke dana cadangan atau bagi hasil owner."
+								)}
+							</p>
+						</div>
+						<div className="space-y-1.5">
+							<AmountRow label="Untung bersih event" value={untung} />
+							{adaPembagian ? (
+								<>
+									<AmountRow
+										label="Disisihkan ke dana cadangan"
+										value={-cadangan}
+										muted
+									/>
+									<AmountRow
+										label="Bagi hasil owner"
+										value={-bagiHasil}
+										muted
+									/>
+								</>
+							) : null}
+						</div>
+						<div className="border-t border-border-default pt-3">
+							<div className="flex items-baseline justify-between gap-3">
+								<span className="flex items-center gap-2 text-[14px] font-semibold text-foreground">
+									<PiggyBank className="size-4 text-muted-foreground" />
+									Sisa untuk kas usaha
+								</span>
+								<span
+									data-nominal
+									className={cn(
+										"tabular text-[20px] font-bold tracking-[-0.01em]",
+										sisaKas < 0 ? "text-amber-700" : "text-foreground",
+									)}
+								>
+									{formatSigned(sisaKas)}
+								</span>
+							</div>
+							{sisaKas < 0 ? (
+								<p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900">
+									Kas usaha <b>nombok {formatRupiah(-sisaKas)}</b> dari event
+									ini: dana cadangan & bagi hasil tetap diambil dari untung
+									sebelum pengeluaran lain, sedangkan pengeluaran lain juga
+									dibayar dari kas.
+								</p>
+							) : null}
+							{lainTotal > 0 && adaPembagian ? (
+								<p className="mt-2 text-[11.5px] leading-snug text-muted-foreground">
+									Di buku settle tercatat{" "}
+									<span className="tabular">
+										{formatRupiah(preview.operating_cash_estimate)}
+									</span>{" "}
+									masuk kas usaha, lalu pengeluaran lain{" "}
+									<span className="tabular">{formatRupiah(lainTotal)}</span>{" "}
+									keluar dari kas — hasil akhirnya angka di atas.
+								</p>
+							) : null}
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{ex.expenseQueued + ex.incomeQueued > 0 ? (
+				<p className="text-[11.5px] text-muted-foreground">
+					<span className="tabular">
+						{formatRupiah(ex.expenseQueued + ex.incomeQueued)}
+					</span>{" "}
+					dari pengeluaran/pemasukan lain baru masuk buku saat event di-settle.
+				</p>
+			) : null}
+		</RekapCard>
+	);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
+function formatSigned(v: number) {
+	return v < 0 ? `−${formatRupiah(-v)}` : formatRupiah(v);
+}
+
+const TILE_TONE = {
+	in: "bg-card border-border-subtle",
+	out: "bg-card border-border-subtle",
+	profit: "bg-[#059669] border-transparent text-white",
+	loss: "bg-amber-50 border-amber-200 text-amber-900",
+} as const;
+
+function SummaryTile({
+	label,
+	hint,
+	value,
+	icon: Icon,
+	tone,
+}: {
+	label: string;
+	hint: string;
+	value: number;
+	icon?: typeof ArrowDownLeft;
+	tone: keyof typeof TILE_TONE;
+}) {
+	const dark = tone === "profit";
+	const hasil = tone === "profit" || tone === "loss";
+	return (
+		<div
+			className={cn(
+				"min-w-0 rounded-2xl border px-4 py-3.5",
+				// HP: hasil selebar penuh di bawah dua kotak masuk/keluar.
+				hasil && "col-span-2 sm:col-span-1",
+				TILE_TONE[tone],
+			)}
+		>
+			<p
+				className={cn(
+					"flex items-center gap-1.5 text-[12.5px] font-medium",
+					dark ? "text-white/80" : "text-muted-foreground",
+				)}
+			>
+				{Icon ? (
+					<Icon
+						className={cn(
+							"size-3.5",
+							tone === "in" && "text-emerald-600",
+							tone === "out" && "text-rose-600",
+						)}
+					/>
+				) : null}
+				{label}
+			</p>
+			<p
+				data-nominal
+				className="tabular mt-1 text-[18px] font-bold leading-tight tracking-[-0.02em] sm:text-[22px]"
+			>
+				{formatSigned(value)}
+			</p>
+			<p
+				className={cn(
+					"mt-0.5 text-[12px]",
+					dark ? "text-white/70" : "text-muted-foreground",
+				)}
+			>
+				{hint}
+			</p>
+		</div>
+	);
+}
+
+function StepBadge({ n }: { n: number }) {
+	return (
+		<span className="tabular grid size-6 shrink-0 place-items-center rounded-full bg-foreground text-[12px] font-semibold text-background">
+			{n}
+		</span>
+	);
+}
+
+type Group = {
+	title: string | null;
+	hint?: string;
+	lines: Line[];
+	empty?: string;
+	footnote?: string;
+};
+
+function Step({
+	n,
+	title,
+	total,
+	groups,
+}: {
+	n: number;
+	title: string;
+	total: number;
+	groups: Group[];
+}) {
+	return (
+		<section className="rounded-2xl border border-border-subtle p-4">
+			<div className="flex items-start gap-3">
+				<StepBadge n={n} />
+				<div className="min-w-0 flex-1 space-y-3">
+					<div className="flex items-baseline justify-between gap-3">
+						<h4 className="text-[14px] font-semibold text-foreground">
+							{title}
+						</h4>
 						<span
-							className={`tabular text-base font-semibold ${
-								finalProfit <= 0
-									? "text-amber-900 dark:text-amber-200"
-									: "text-foreground"
-							}`}
+							data-nominal
+							className="tabular text-[15px] font-semibold text-foreground"
 						>
-							{formatRupiah(finalProfit)}
+							{formatSigned(total)}
 						</span>
 					</div>
-					<p className="pb-1 text-[11px] text-muted-foreground">
-						{preview.extra.expenseQueued + preview.extra.incomeQueued > 0 && (
-							<>
-								Termasuk{" "}
-								<span className="tabular">
-									{formatRupiah(
-										preview.extra.expenseQueued + preview.extra.incomeQueued,
-									)}
-								</span>{" "}
-								yang masih menunggu settle.{" "}
-							</>
-						)}
-						{ownerPaidPending > 0 && (
-							<>
-								Biaya yang dibayar owner sudah ikut dipotong walau belum
-								dibukukan — catat lewat kartu Pemasukan / pengeluaran lain
-								supaya masuk buku.{" "}
-							</>
-						)}
-						Alokasi sinking fund & owner pool di bawah tetap dihitung dari net
-						profit settlement.
-					</p>
-				</>
-			)}
-
-			{!preview.is_loss && (
-				<>
-					<Row
-						label="Alokasi sinking funds (estimasi)"
-						value={preview.sinking_estimate}
-						sign="−"
-						muted
-					/>
-					<Row
-						label="Alokasi owner pool (estimasi)"
-						value={preview.owner_pool_estimate}
-						sign="−"
-						muted
-					/>
-				</>
-			)}
-
-			<div className="my-3 border-t border-border-default" />
-
-			<div className="flex items-baseline justify-between py-2">
-				<span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-					<ProfitIcon className="h-4 w-4" />
-					{preview.is_loss ? "Loss" : "Operating cash"}
-				</span>
-				<span className={`tabular text-lg font-bold ${profitClass}`}>
-					{formatRupiah(preview.operating_cash_estimate)}
-				</span>
+					{groups.map((g) =>
+						g.title ? (
+							<SubGroup key={g.title} group={g} />
+						) : (
+							<div key="_" className="space-y-1.5">
+								{g.lines.map((l) => (
+									<AmountRow
+										key={l.label}
+										label={l.label}
+										value={l.value}
+										note={l.note}
+										muted
+									/>
+								))}
+							</div>
+						),
+					)}
+				</div>
 			</div>
-
-			{preview.is_loss && (
-				<p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-					Event ini rugi. Tidak ada alokasi sinking fund atau owner pool.
-					Settlement tetap bisa di-close untuk record-keeping.
-				</p>
-			)}
 		</section>
 	);
 }
 
-function Row({
+/** Kelompok biaya: judul + subtotal, rincian bisa dibuka-tutup. */
+function SubGroup({ group }: { group: Group }) {
+	const [open, setOpen] = useState(true);
+	const subtotal = group.lines.reduce((s, l) => s + l.value, 0);
+	return (
+		<div className="rounded-xl bg-secondary/50 px-3 py-2.5">
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				aria-expanded={open}
+				className="flex w-full items-start justify-between gap-3 text-left"
+			>
+				<span className="min-w-0">
+					<span className="block text-[13.5px] font-medium text-foreground">
+						{group.title}
+					</span>
+					{group.hint ? (
+						<span className="block text-[11.5px] text-muted-foreground">
+							{group.hint}
+						</span>
+					) : null}
+				</span>
+				<span className="flex shrink-0 items-center gap-1.5">
+					<span data-nominal className="tabular text-[13.5px] font-medium">
+						{formatRupiah(subtotal)}
+					</span>
+					<ChevronDown
+						className={cn(
+							"size-4 text-muted-foreground transition-transform",
+							open && "rotate-180",
+						)}
+					/>
+				</span>
+			</button>
+			{open ? (
+				<div className="mt-2 space-y-1 border-t border-border-default/70 pt-2">
+					{group.lines.length === 0 && group.empty ? (
+						<p className="text-[12.5px] text-muted-foreground">{group.empty}</p>
+					) : null}
+					{group.lines.map((l, i) => (
+						<AmountRow
+							// biome-ignore lint/suspicious/noArrayIndexKey: label bisa kembar (mis. dua baris "Parkir")
+							key={i}
+							label={l.label}
+							value={l.value}
+							note={l.note}
+							small
+						/>
+					))}
+					{group.footnote ? (
+						<p className="pt-1 text-[11.5px] leading-snug text-muted-foreground">
+							{group.footnote}
+						</p>
+					) : null}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function AmountRow({
 	label,
 	value,
-	muted = false,
-	bold = false,
-	compact = false,
-	sign,
+	note,
+	muted,
+	small,
 }: {
 	label: string;
 	value: number;
+	note?: string;
 	muted?: boolean;
-	bold?: boolean;
-	compact?: boolean;
-	sign?: "−";
+	small?: boolean;
 }) {
 	return (
 		<div
-			className={`flex items-baseline justify-between ${compact ? "py-0.5 text-xs" : "py-1 text-sm"}`}
+			className={cn(
+				"flex items-baseline justify-between gap-3",
+				small ? "text-[12.5px]" : "text-[13.5px]",
+			)}
 		>
-			<span className={muted ? "text-muted-foreground" : "text-foreground"}>
+			<span
+				className={cn(
+					"min-w-0",
+					muted || small ? "text-muted-foreground" : "text-foreground",
+				)}
+			>
 				{label}
+				{note ? (
+					<span className="ml-1.5 text-[11px] text-muted-foreground/80">
+						· {note}
+					</span>
+				) : null}
 			</span>
 			<span
-				className={`tabular ${bold ? "font-semibold" : ""} ${muted ? "text-muted-foreground" : "text-foreground"}`}
+				data-nominal
+				className={cn(
+					"tabular shrink-0",
+					small ? "text-foreground/90" : "text-foreground",
+				)}
 			>
-				{sign === "−" && value > 0 ? "−" : ""}
-				{formatRupiah(Math.abs(value))}
+				{formatSigned(value)}
 			</span>
 		</div>
 	);
 }
 
-/** Rincian pemasukan/pengeluaran lain — isinya sama dengan kartu di atas. */
-function ExtraGroup({
-	title,
-	total,
-	items,
-	sign,
+function ResultRow({
+	label,
+	sub,
+	value,
+	tone,
 }: {
-	title: string;
-	total: number;
-	items: ProfitPreview["extra"]["items"];
-	sign?: "−";
+	label: string;
+	sub: string;
+	value: number;
+	tone: "profit" | "loss";
 }) {
-	const [open, setOpen] = useState(true);
-	// Tanda "menunggu settle" per baris hanya berguna kalau campuran; kalau
-	// semua masih antre, catatan di bawah "Laba akhir event" sudah bilang.
-	const mixed = items.some((i) => i.queued) && items.some((i) => !i.queued);
 	return (
-		<>
-			<button
-				type="button"
-				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center justify-between gap-2 rounded-md py-1 text-left text-sm hover:bg-surface-3"
+		<div
+			className={cn(
+				"flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5",
+				tone === "profit"
+					? "bg-emerald-50 text-emerald-950"
+					: "bg-amber-50 text-amber-950",
+			)}
+		>
+			<div>
+				<p className="text-[14px] font-semibold">{label}</p>
+				<p className="text-[12px] opacity-70">{sub}</p>
+			</div>
+			<span
+				data-nominal
+				className="tabular text-[22px] font-bold tracking-[-0.02em]"
 			>
-				<span className="text-muted-foreground">{title}</span>
-				<span className="flex items-center gap-2">
-					<span data-nominal className="tabular text-muted-foreground">
-						{sign ?? ""}
-						{formatRupiah(total)}
-					</span>
-					{open ? (
-						<ChevronUp className="h-4 w-4 text-muted-foreground" />
-					) : (
-						<ChevronDown className="h-4 w-4 text-muted-foreground" />
-					)}
-				</span>
-			</button>
-			{open && items.length > 0 ? (
-				<div className="ml-3 space-y-1.5 border-l-2 border-border-default py-1.5 pl-3">
-					{items.map((it, i) => (
-						<Row
-							// biome-ignore lint/suspicious/noArrayIndexKey: urutan dari server stabil
-							key={i}
-							label={`${it.label}${mixed && it.queued ? " · menunggu settle" : ""}`}
-							value={it.amount}
-							compact
-						/>
-					))}
-				</div>
-			) : null}
-		</>
+				{formatSigned(value)}
+			</span>
+		</div>
 	);
 }

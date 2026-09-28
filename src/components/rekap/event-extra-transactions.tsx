@@ -553,7 +553,7 @@ export function EventExtraTransactions({
 					{totalOut > 0 ? `Keluar ${formatRupiah(totalOut)}` : ""}
 					{totalOut > 0 && totalIn > 0 ? " · " : ""}
 					{totalIn > 0 ? `Masuk ${formatRupiah(totalIn)}` : ""} · sudah ikut
-					dihitung di Profit preview di bawah.
+					dihitung di Hitungan untung event di bawah.
 				</p>
 			)}
 
