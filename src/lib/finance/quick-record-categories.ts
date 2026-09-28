@@ -280,7 +280,10 @@ export const KELUAR_CATEGORIES: readonly CatatCategory[] = [
 			"ChatGPT",
 			"Canva",
 			"CapCut",
-			"Domain",
+			// Dua langganan Hostinger terpisah supaya cek "sudah dicatat bulan
+			// ini" tidak saling menuduh dobel.
+			"Hostinger Domain",
+			"Hostinger Email Bisnis",
 		],
 		label: "Platform / langganan app (VPS, AI, hosting)",
 		icon: Smartphone,
