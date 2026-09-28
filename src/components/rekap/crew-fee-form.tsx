@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import {
+	CorrectPayerDialog,
+	type PayerOptions,
+} from "@/components/rekap/correct-payer-dialog";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
@@ -72,6 +76,10 @@ type Props = {
 		 */
 		cardPaidTotal: number;
 		items: Array<{
+			/** Kunci koreksi pembayar (transport/…/lainnya:<i>). */
+			key?: string;
+			/** Nilai expense_paid_by apa adanya. */
+			rawPayer?: string;
 			label: string;
 			amount: number;
 			paidBy: "crew" | "owner" | "card";
@@ -99,6 +107,8 @@ type Props = {
 	 * owner" — jadi di sinilah jalan keluarnya ditunjukkan.
 	 */
 	hasEmoneyCard?: boolean;
+	/** Pilihan pembayar untuk dialog "Koreksi pembayar" (pre-settle saja). */
+	payerOptions?: PayerOptions;
 	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
 	allowPayment?: boolean;
 	cashAccounts?: CashAccountOption[];
@@ -126,6 +136,7 @@ export function CrewFeeForm({
 	submittedByUserId,
 	readOnly = false,
 	hasEmoneyCard = false,
+	payerOptions,
 	allowPayment = false,
 	cashAccounts = [],
 	queuedPayment = null,
@@ -369,6 +380,26 @@ export function CrewFeeForm({
 
 			{fieldExpenseBreakdown && (
 				<div className="mb-4 space-y-3 rounded-md border border-border-default bg-surface-3 p-3">
+					{!readOnly && payerOptions ? (
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<p className="text-[11px] text-muted-foreground">
+								Crew salah isi siapa yang bayar? Betulkan di sini.
+							</p>
+							<CorrectPayerDialog
+								eventId={eventId}
+								options={payerOptions}
+								items={fieldExpenseBreakdown.items
+									.filter((it) => it.key)
+									.map((it) => ({
+										key: it.key as string,
+										rawPayer: it.rawPayer ?? "crew",
+										label: it.label,
+										amount: it.amount,
+										catatRecorded: it.catatRecorded,
+									}))}
+							/>
+						</div>
+					) : null}
 					{fieldExpenseBreakdown.crewFrontedTotal > 0 && (
 						<div>
 							<p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">

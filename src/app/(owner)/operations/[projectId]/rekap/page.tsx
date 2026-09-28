@@ -486,6 +486,10 @@ export default async function EventRekapPage({
 				ownerPaidTotal: number;
 				cardPaidTotal: number;
 				items: Array<{
+					/** Kunci koreksi: transport/bensin/toll/parking/konsumsi/lainnya:<i>. */
+					key: string;
+					/** Nilai expense_paid_by apa adanya. */
+					rawPayer: string;
 					label: string;
 					amount: number;
 					paidBy: "crew" | "owner" | "card";
@@ -517,6 +521,8 @@ export default async function EventRekapPage({
 			context.crew.map((c) => [c.user_id, c.name] as const),
 		);
 		const items: Array<{
+			key: string;
+			rawPayer: string;
 			label: string;
 			amount: number;
 			/** "card" = dibayar langsung dari saldo perusahaan (kartu e-toll/kas/bank). */
@@ -560,6 +566,7 @@ export default async function EventRekapPage({
 		});
 		const notaMap = (rekap.expense_nota_urls ?? {}) as Record<string, string>;
 		const push = (
+			key: string,
 			label: string,
 			amount: number,
 			rawPayer: string,
@@ -581,6 +588,8 @@ export default async function EventRekapPage({
 			const payerUserId =
 				paidBy === "crew" && rawPayer !== "crew" ? rawPayer : null;
 			items.push({
+				key,
+				rawPayer,
 				label,
 				amount,
 				paidBy,
@@ -601,6 +610,7 @@ export default async function EventRekapPage({
 			});
 		};
 		push(
+			"transport",
 			"Transport",
 			Number(rekap.transport_cost ?? 0),
 			rawPayerOf("transport"),
@@ -610,6 +620,7 @@ export default async function EventRekapPage({
 			notaMap.transport ?? rekap.transport_proof_berangkat_url ?? null,
 		);
 		push(
+			"bensin",
 			"Bensin",
 			Number(rekap.bensin_cost ?? 0),
 			rawPayerOf("bensin"),
@@ -617,6 +628,7 @@ export default async function EventRekapPage({
 			notaMap.bensin ?? null,
 		);
 		push(
+			"toll",
 			"Toll",
 			Number(rekap.toll_cost ?? 0),
 			rawPayerOf("toll"),
@@ -624,6 +636,7 @@ export default async function EventRekapPage({
 			notaMap.toll ?? null,
 		);
 		push(
+			"parking",
 			"Parkir",
 			Number(rekap.parking_cost ?? 0),
 			rawPayerOf("parking"),
@@ -631,14 +644,16 @@ export default async function EventRekapPage({
 			notaMap.parking ?? null,
 		);
 		push(
+			"konsumsi",
 			"Konsumsi",
 			Number(rekap.konsumsi_cost ?? 0),
 			rawPayerOf("konsumsi"),
 			"konsumsi",
 			notaMap.konsumsi ?? null,
 		);
-		for (const it of rekap.lainnya_items ?? []) {
+		for (const [i, it] of (rekap.lainnya_items ?? []).entries()) {
 			push(
+				`lainnya:${i}`,
 				it.note || "Lain-lain",
 				Number(it.amount ?? 0),
 				it.paid_by || "crew",
@@ -923,6 +938,10 @@ export default async function EventRekapPage({
 						rows={crewFeeRows}
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						hasEmoneyCard={context.cards.length > 0}
+						payerOptions={{
+							crew: context.crew.map((c) => ({ id: c.user_id, name: c.name })),
+							cards: context.cards.map((c) => ({ id: c.id, name: c.name })),
+						}}
 						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}
 						cashAccounts={cashAccountsNoCard}

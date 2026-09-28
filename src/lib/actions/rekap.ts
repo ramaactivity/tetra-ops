@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/rekap-notifications";
 import { alertRestockAfterCommit } from "@/lib/actions/restock-alert";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { paidFromAccountId } from "@/lib/finance/emoney";
 import { loadEmoneyCards, toPayerOptions } from "@/lib/finance/emoney-data";
 import { bucketForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
@@ -1853,4 +1854,94 @@ export async function reviewRekap(
 // Re-export REKAP_FIELDS so consumers don't need a second import.
 export async function listRekapFields(): Promise<readonly RekapField[]> {
 	return REKAP_FIELDS;
+}
+
+// ---------------------------------------------------------------------------
+// Koreksi pembayar biaya lapangan (owner)
+// ---------------------------------------------------------------------------
+
+const FIELD_PAYER_KEYS = ["transport", "bensin", "toll", "parking", "konsumsi"];
+
+/**
+ * Owner membetulkan "dibayar oleh" yang salah diisi crew — mis. tol dicatat
+ * ditalangi crew padahal dibayar pakai kartu e-toll perusahaan. Kunci:
+ * transport/bensin/toll/parking/konsumsi, atau `lainnya:<index>`.
+ * Nilai sah: 'crew' | 'owner' | users.id crew event ini | 'acct:<uuid kartu>'.
+ * Hanya sebelum settle; settlement membaca nilai ini (calculate_recap_opex).
+ */
+export async function correctExpensePayers(
+	eventId: string,
+	changes: Record<string, string>,
+): Promise<{ ok: true; changed: number } | { ok: false; error: string }> {
+	await requireOwnerLevel();
+	const supabase = await createClient();
+
+	const { data: ev } = await supabase
+		.from("events")
+		.select("project_id, status")
+		.eq("id", eventId)
+		.maybeSingle();
+	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
+	if (ev.status === "completed")
+		return {
+			ok: false,
+			error: "Event sudah di-settle — reopen settlement dulu untuk mengoreksi.",
+		};
+	const { data: rekap } = await supabase
+		.from("crew_rekap")
+		.select("id, locked, expense_paid_by, lainnya_items")
+		.eq("event_id", eventId)
+		.maybeSingle();
+	if (!rekap) return { ok: false, error: "Rekap belum ada." };
+	if (rekap.locked) return { ok: false, error: "Rekap sudah terkunci." };
+
+	// Pembayar yang sah untuk event ini.
+	const [{ data: crew }, cards] = await Promise.all([
+		supabase.from("crew_assignments").select("user_id").eq("event_id", eventId),
+		loadEmoneyCards(supabase),
+	]);
+	const crewIds = new Set((crew ?? []).map((c) => c.user_id as string));
+	const cardIds = new Set(cards.map((c) => c.id));
+	const valid = (v: string) =>
+		v === "crew" ||
+		v === "owner" ||
+		crewIds.has(v) ||
+		(paidFromAccountId(v) !== null &&
+			cardIds.has(paidFromAccountId(v) as string));
+
+	const paidBy = {
+		...((rekap.expense_paid_by as Record<string, string>) ?? {}),
+	};
+	const lainnya = [
+		...((rekap.lainnya_items as Array<Record<string, unknown>>) ?? []),
+	];
+	let changed = 0;
+	for (const [key, value] of Object.entries(changes)) {
+		if (!valid(value))
+			return { ok: false, error: `Pembayar untuk "${key}" tidak dikenal.` };
+		if (FIELD_PAYER_KEYS.includes(key)) {
+			if ((paidBy[key] ?? "crew") !== value) {
+				paidBy[key] = value;
+				changed++;
+			}
+			continue;
+		}
+		const m = /^lainnya:(\d+)$/.exec(key);
+		if (!m || !lainnya[Number(m[1])])
+			return { ok: false, error: `Biaya "${key}" tidak ditemukan.` };
+		const i = Number(m[1]);
+		if ((lainnya[i].paid_by ?? "crew") !== value) {
+			lainnya[i] = { ...lainnya[i], paid_by: value };
+			changed++;
+		}
+	}
+	if (changed === 0) return { ok: true, changed };
+
+	const { error } = await supabase
+		.from("crew_rekap")
+		.update({ expense_paid_by: paidBy, lainnya_items: lainnya })
+		.eq("id", rekap.id);
+	if (error) return { ok: false, error: error.message };
+	revalidatePath(`/operations/${ev.project_id}/rekap`);
+	return { ok: true, changed };
 }
