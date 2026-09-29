@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
 import { GROSS_UP_RATE_DEFAULT } from "@/lib/documents/types";
+import { extraHoursOf } from "@/lib/events/extra-hours";
 import {
 	durationOptions,
 	packageFitsFrame,
@@ -627,6 +628,71 @@ export function BookingForm({
 		if (!exists) setPendingHours("");
 	}, [durationChoices, pendingHours, frameSize]);
 
+	const initialAddons = useMemo(() => {
+		const map: Record<string, number> = {};
+		for (const a of defaults?.addons ?? []) map[a.addon_id] = a.quantity;
+		return map;
+	}, [defaults?.addons]);
+	const [selectedAddons, setSelectedAddons] =
+		useState<Record<string, number>>(initialAddons);
+
+	const addonsByCategory = useMemo(() => {
+		const groups = new Map<string, AddonOption[]>();
+		for (const a of addons) {
+			if (!groups.has(a.category)) groups.set(a.category, []);
+			groups.get(a.category)!.push(a);
+		}
+		return Array.from(groups.entries());
+	}, [addons]);
+
+	const addonsTotal = useMemo(() => {
+		let sum = 0;
+		for (const a of addons) {
+			const qty = selectedAddons[a.id];
+			if (qty) sum += a.price * qty;
+		}
+		return sum;
+	}, [addons, selectedAddons]);
+
+	const addonsJson = useMemo(
+		() =>
+			JSON.stringify(
+				Object.entries(selectedAddons)
+					.filter(([, qty]) => qty > 0)
+					.map(([addon_id, quantity]) => ({ addon_id, quantity })),
+			),
+		[selectedAddons],
+	);
+
+	// === Bonus (item gratis untuk klien, internal-only)
+	type BonusRow = { addon_id: string; quantity: number; notes: string };
+	const initialBonuses = useMemo<BonusRow[]>(
+		() =>
+			(defaults?.bonuses ?? []).map((b) => ({
+				addon_id: b.addon_id,
+				quantity: b.quantity,
+				notes: b.notes ?? "",
+			})),
+		[defaults?.bonuses],
+	);
+	const [bonusRows, setBonusRows] = useState<BonusRow[]>(initialBonuses);
+
+	// Jam tambahan di luar paket: add-on / bonus "Tambahan Durasi" (mis. bonus
+	// free 1 jam). Jam selesai & target durasi sesi = paket + tambahan.
+	const extraHours = useMemo(() => {
+		const byId = new Map(addons.map((a) => [a.id, a] as const));
+		return extraHoursOf([
+			...Object.entries(selectedAddons).map(([id, quantity]) => ({
+				quantity,
+				addon: byId.get(id),
+			})),
+			...bonusRows.map((b) => ({
+				quantity: b.quantity,
+				addon: byId.get(b.addon_id),
+			})),
+		]);
+	}, [addons, selectedAddons, bonusRows]);
+
 	// === Schedule (auto-fill setup/end)
 	const [eventDate, setEventDate] = useState(get("event_date", ""));
 	// Tenggat pelunasan: disimpan sebagai H-n (hari sebelum acara) supaya ikut
@@ -673,17 +739,19 @@ export function BookingForm({
 		setSetupTime(newSetup);
 	}, [startTime, setupTouched]);
 
-	// Auto-derive end = start + duration_hours on start or package change
+	// Auto-derive end = start + durasi paket + jam tambahan (bonus/extend)
 	useEffect(() => {
 		if (!startTime || endTouched) return;
-		const dur = selectedPkg?.duration_hours;
+		const dur = selectedPkg?.duration_hours
+			? selectedPkg.duration_hours + extraHours
+			: 0;
 		if (!dur) return;
 		const [hh, mm] = startTime.split(":").map(Number);
 		if (Number.isNaN(hh)) return;
 		const endHour = (hh + dur) % 24;
 		const newEnd = `${String(endHour).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 		setEndTime(newEnd);
-	}, [startTime, selectedPkg, endTouched]);
+	}, [startTime, selectedPkg, endTouched, extraHours]);
 
 	// === Session split — acara dengan JEDA (booth buka → tutup → buka lagi) ===
 	// Sesi aktif per-segmen; jeda antar-sesi diturunkan dari selisih (tentatif).
@@ -755,7 +823,9 @@ export function BookingForm({
 				: (timeToMinutes(startTime) ?? 0);
 			const DEFAULT_GAP = 30;
 			const newStart = anchorEnd + DEFAULT_GAP;
-			const pkgMin = selectedPkg ? selectedPkg.duration_hours * 60 : 0;
+			const pkgMin = selectedPkg
+				? (selectedPkg.duration_hours + extraHours) * 60
+				: 0;
 			const used = activeMinutes(prev);
 			const remaining = pkgMin > 0 ? Math.max(30, pkgMin - used) : 60;
 			const newEnd = Math.min(24 * 60, newStart + remaining);
@@ -791,7 +861,7 @@ export function BookingForm({
 	}
 
 	// Tally: total jam aktif vs durasi paket (soft hint, tidak nge-block simpan).
-	const pkgHours = selectedPkg?.duration_hours ?? null;
+	const pkgHours = selectedPkg ? selectedPkg.duration_hours + extraHours : null;
 	const pkgMinTarget = pkgHours !== null ? pkgHours * 60 : null;
 	const tallyDiff = pkgMinTarget !== null ? sessionActiveMin - pkgMinTarget : 0;
 	const sessionEnvelope = splitMode ? segmentsEnvelope(sessions) : null;
@@ -967,42 +1037,6 @@ export function BookingForm({
 	);
 	const [grossUp, setGrossUp] = useState(initialGrossUp);
 
-	const initialAddons = useMemo(() => {
-		const map: Record<string, number> = {};
-		for (const a of defaults?.addons ?? []) map[a.addon_id] = a.quantity;
-		return map;
-	}, [defaults?.addons]);
-	const [selectedAddons, setSelectedAddons] =
-		useState<Record<string, number>>(initialAddons);
-
-	const addonsByCategory = useMemo(() => {
-		const groups = new Map<string, AddonOption[]>();
-		for (const a of addons) {
-			if (!groups.has(a.category)) groups.set(a.category, []);
-			groups.get(a.category)!.push(a);
-		}
-		return Array.from(groups.entries());
-	}, [addons]);
-
-	const addonsTotal = useMemo(() => {
-		let sum = 0;
-		for (const a of addons) {
-			const qty = selectedAddons[a.id];
-			if (qty) sum += a.price * qty;
-		}
-		return sum;
-	}, [addons, selectedAddons]);
-
-	const addonsJson = useMemo(
-		() =>
-			JSON.stringify(
-				Object.entries(selectedAddons)
-					.filter(([, qty]) => qty > 0)
-					.map(([addon_id, quantity]) => ({ addon_id, quantity })),
-			),
-		[selectedAddons],
-	);
-
 	const addonLines = useMemo(() => {
 		const lines: Array<{ name: string; qty: number; total: number }> = [];
 		for (const a of addons) {
@@ -1014,18 +1048,6 @@ export function BookingForm({
 		return lines.sort((x, y) => y.total - x.total);
 	}, [addons, selectedAddons]);
 
-	// === Bonus (item gratis untuk klien, internal-only)
-	type BonusRow = { addon_id: string; quantity: number; notes: string };
-	const initialBonuses = useMemo<BonusRow[]>(
-		() =>
-			(defaults?.bonuses ?? []).map((b) => ({
-				addon_id: b.addon_id,
-				quantity: b.quantity,
-				notes: b.notes ?? "",
-			})),
-		[defaults?.bonuses],
-	);
-	const [bonusRows, setBonusRows] = useState<BonusRow[]>(initialBonuses);
 
 	function addBonusRow(addonId: string) {
 		setBonusRows((prev) => {
@@ -2439,7 +2461,9 @@ export function BookingForm({
 										endTouched
 											? "Manual override"
 											: selectedPkg
-												? `Auto: mulai +${selectedPkg.duration_hours} jam (durasi paket)`
+												? extraHours > 0
+													? `Auto: mulai +${selectedPkg.duration_hours + extraHours} jam (paket ${selectedPkg.duration_hours} + tambahan ${extraHours})`
+													: `Auto: mulai +${selectedPkg.duration_hours} jam (durasi paket)`
 												: "Pilih paket dulu buat auto-fill"
 									}
 								>

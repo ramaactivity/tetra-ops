@@ -27,6 +27,7 @@ import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignedEventContacts } from "@/lib/crew/event-contacts";
 import { todayWIB } from "@/lib/dates";
+import { durationLabel, extraHoursOf } from "@/lib/events/extra-hours";
 import { listMissingFields } from "@/lib/events/tbc";
 import {
 	backdropOriginLabel,
@@ -135,6 +136,14 @@ export default async function CrewEventDetailPage({
 			| Array<{ name: string; unit: string; category: string }>
 			| null;
 	}>;
+
+	// Durasi booth = paket + "Tambahan Durasi" (dibeli / bonus gratis).
+	const bonusHours = extraHoursOf(
+		eventBonuses.map((b) => ({ quantity: b.quantity, addon: one(b.addon) })),
+	);
+	const paidExtraHours = extraHoursOf(
+		eventAddons.map((a) => ({ quantity: a.quantity, addon: one(a.addon) })),
+	);
 
 	// Confirm crew is assigned to this event (security check)
 	const myAssignment = crewAssignments.find((a) => {
@@ -512,7 +521,11 @@ export default async function CrewEventDetailPage({
 						</DetailRow>
 						{pkg?.duration_hours || event.pending_package_hours ? (
 							<DetailRow label="Durasi">
-								{pkg?.duration_hours ?? event.pending_package_hours} jam
+								{durationLabel(
+									pkg?.duration_hours ?? event.pending_package_hours,
+									bonusHours,
+									paidExtraHours,
+								)}
 							</DetailRow>
 						) : null}
 						<DetailRow label="Flashdisk & Pouch">
@@ -977,3 +990,6 @@ function ContactRow({
 		</div>
 	);
 }
+
+const one = <T,>(a: T | T[] | null): T | null =>
+	Array.isArray(a) ? (a[0] ?? null) : a;

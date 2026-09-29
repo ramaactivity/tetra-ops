@@ -41,6 +41,7 @@ import { getDriveStatus } from "@/lib/actions/drive";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
+import { extraHoursOf } from "@/lib/events/extra-hours";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
 import {
@@ -475,7 +476,17 @@ export default async function EventDetailPage({
 				venueCity={event.venue_city ?? null}
 				venueAddress={event.venue_address ?? null}
 				packageName={pkg?.name ?? null}
-				packageDurationHours={pkg?.duration_hours ?? null}
+				packageDurationHours={
+					pkg?.duration_hours
+						? pkg.duration_hours +
+							extraHoursOf(
+								[...eventAddons, ...eventBonuses].map((r) => ({
+									quantity: r.quantity,
+									addon: one(r.addon),
+								})),
+							)
+						: null
+				}
 				frameSize={
 					event.frame_size
 						? (FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size)
@@ -1100,3 +1111,6 @@ function DetailRow({
 		</div>
 	);
 }
+
+const one = <T,>(a: T | T[] | null): T | null =>
+	Array.isArray(a) ? (a[0] ?? null) : a;
