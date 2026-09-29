@@ -79,3 +79,47 @@ test("dasar pembagian: dikurangi pengeluaran lain, tidak melebihi untung settle"
 	assert.equal(allocationBase(723_151, 433_000), 290_151);
 	assert.equal(allocationBase(500_000, -100_000), 500_000);
 });
+
+test("tunggakan: event kurang mencatat tunggakan penuh", () => {
+	const a = run(140_151);
+	assert.equal(a.arrearsCreated, 200_000);
+	assert.equal(a.arrearsPaid, 0);
+	assert.equal(a.sisaKas, 140_151);
+});
+
+test("tunggakan dilunasi dari sisa kas event surplus (setelah cadangan)", () => {
+	// Essilor: untung 780.847 → cadangan penuh 178.083, bagi hasil 200.000,
+	// sisa 402.764 → lunasi tunggakan 200.000, kas 202.764.
+	const a = allocateProfit({
+		available: 780_847,
+		funds,
+		ownerCount: 4,
+		perPerson: 50_000,
+		arrearsOutstanding: 200_000,
+	});
+	assert.equal(a.sinkingTotal, 178_083);
+	assert.equal(a.arrearsPaid, 200_000);
+	assert.equal(a.sisaKas, 202_764);
+	// Sisa kas tidak cukup → lunasi sebagian saja, kas 0.
+	const b = allocateProfit({
+		available: 780_847,
+		funds,
+		ownerCount: 4,
+		perPerson: 50_000,
+		arrearsOutstanding: 1_000_000,
+	});
+	assert.equal(b.arrearsPaid, 402_764);
+	assert.equal(b.sisaKas, 0);
+});
+
+test("event yang dana cadangannya terpotong tidak melunasi tunggakan", () => {
+	const a = allocateProfit({
+		available: 290_151,
+		funds,
+		ownerCount: 4,
+		perPerson: 50_000,
+		arrearsOutstanding: 200_000,
+	});
+	assert.equal(a.arrearsPaid, 0);
+	assert.equal(a.sisaKas, 0);
+});

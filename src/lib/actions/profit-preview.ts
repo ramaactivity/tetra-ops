@@ -281,19 +281,27 @@ export async function getProfitPreview(
 	// 4–5) Pembagian untung — aturan yang SAMA dengan settle_event_impl:
 	// dasar = untung setelah pengeluaran lain; dana cadangan dikorbankan dulu,
 	// bagi hasil owner dihapus kalau untung tidak cukup (profit-allocation.ts).
-	const [{ data: owners }, { data: poolCfg }] = await Promise.all([
-		// Owners = role 'owner' only; super_admin is admin-only, not an owner.
-		supabase
-			.from("users")
-			.select("id")
-			.eq("role", "owner")
-			.eq("is_active", true),
-		supabase
-			.from("system_config")
-			.select("value")
-			.eq("key", "settlement.owner_pool_per_person")
-			.maybeSingle(),
-	]);
+	const [{ data: owners }, { data: poolCfg }, { data: arrears }] =
+		await Promise.all([
+			// Owners = role 'owner' only; super_admin is admin-only, not an owner.
+			supabase
+				.from("users")
+				.select("id")
+				.eq("role", "owner")
+				.eq("is_active", true),
+			supabase
+				.from("system_config")
+				.select("value")
+				.eq("key", "settlement.owner_pool_per_person")
+				.maybeSingle(),
+			// Tunggakan bagi hasil event lain yang belum lunas (subsidi silang).
+			supabase
+				.from("owner_pool_arrears")
+				.select("remaining")
+				.is("voided_at", null)
+				.gt("remaining", 0)
+				.neq("source_event_id", eventId),
+		]);
 	const allocation = allocateProfit({
 		available: allocationBase(
 			net_profit,
@@ -307,11 +315,18 @@ export async function getProfitPreview(
 		})),
 		ownerCount: (owners ?? []).length,
 		perPerson: Number(poolCfg?.value ?? 50000) || 50000,
+		arrearsOutstanding: (arrears ?? []).reduce(
+			(sum, a) => sum + Number(a.remaining ?? 0),
+			0,
+		),
 	});
 	const sinking_estimate = allocation.sinkingTotal;
 	const owner_pool_estimate = allocation.ownerPool;
 	const operating_cash_estimate = Math.max(
-		net_profit - sinking_estimate - owner_pool_estimate,
+		net_profit -
+			sinking_estimate -
+			owner_pool_estimate -
+			allocation.arrearsPaid,
 		0,
 	);
 

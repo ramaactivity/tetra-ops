@@ -416,6 +416,8 @@ export default async function FinancePage({
 		pending: number;
 		/** Dipotong untuk patungan beban bersama (kost dll). */
 		patungan: number;
+		/** Bagi hasil tertunda (event kurang untung) — dilunasi event berikutnya. */
+		arrears: number;
 	}> = [];
 	if (isSuperAdmin) {
 		// Aturan bagi hasil: jatah dari event bulan M baru boleh ditarik mulai
@@ -467,6 +469,19 @@ export default async function FinancePage({
 			}
 			earningsByOwner.set(e.owner_user_id, cur);
 		}
+		// Tunggakan bagi hasil yang belum lunas (subsidi silang antar event).
+		const { data: arrearsData } = await supabase
+			.from("owner_pool_arrears")
+			.select("owner_user_id, remaining")
+			.is("voided_at", null)
+			.gt("remaining", 0);
+		const arrearsByOwner = new Map<string, number>();
+		for (const a of arrearsData ?? [])
+			arrearsByOwner.set(
+				a.owner_user_id as string,
+				(arrearsByOwner.get(a.owner_user_id as string) ?? 0) +
+					Number(a.remaining ?? 0),
+			);
 		ownerBreakdown = (
 			(ownersListData ?? []) as Array<{
 				id: string;
@@ -490,6 +505,7 @@ export default async function FinancePage({
 				available: e.available,
 				pending: e.pending,
 				patungan: e.patungan,
+				arrears: arrearsByOwner.get(o.id) ?? 0,
 			};
 		});
 	}
@@ -955,7 +971,9 @@ export default async function FinancePage({
 					titleExtra={
 						<InfoHint title="Bagi hasil owner">
 							Jatah keuntungan tiap owner dari event yang sudah selesai
-							(Rp50.000 per event). Jatah dari event bulan ini baru bisa diambil
+							(Rp50.000 per event). Kalau untung event tidak cukup, jatahnya
+							"tertunda" dan dibayar dari sisa untung event berikutnya. Jatah
+							dari event bulan ini baru bisa diambil
 							bulan depan — jadi "Bisa diambil" hanya menghitung bulan-bulan
 							yang sudah lewat, dikurangi yang sudah ditarik.
 						</InfoHint>
@@ -1018,6 +1036,14 @@ export default async function FinancePage({
 										</td>
 										<td className="text-foreground tabular px-4 py-2.5 text-right">
 											{o.earned > 0 ? formatRupiah(o.earned) : "—"}
+											{o.arrears > 0 && (
+												<span
+													className="block text-[10.5px] text-amber-700"
+													title="Bagi hasil dari event yang untungnya tidak cukup — dibayar otomatis dari sisa untung event berikutnya."
+												>
+													+ tertunda {formatRupiah(o.arrears)}
+												</span>
+											)}
 										</td>
 										<td className="text-muted-foreground tabular px-4 py-2.5 text-right">
 											{o.withdrawn > 0 ? formatRupiah(o.withdrawn) : "—"}

@@ -6,6 +6,7 @@ import {
 	ArrowUpRight,
 	Calculator,
 	ChevronDown,
+	HandCoins,
 	PiggyBank,
 } from "lucide-react";
 import { useState } from "react";
@@ -136,7 +137,7 @@ export function ProfitPreviewCard({
 	const al = preview.allocation;
 	const cadangan = al.sinkingTotal;
 	const bagiHasil = al.ownerPool;
-	const sisaKas = untung - cadangan - bagiHasil;
+	const sisaKas = untung - cadangan - bagiHasil - al.arrearsPaid;
 
 	return (
 		<RekapCard className={cn("space-y-4", className)}>
@@ -263,14 +264,31 @@ export function ProfitPreviewCard({
 							/>
 							<AmountRow
 								label={
-									bagiHasil < al.ownerPoolTarget
-										? `Bagi hasil owner (target ${formatRupiah(al.ownerPoolTarget)})`
+									al.arrearsCreated > 0
+										? "Bagi hasil owner (ditunda)"
 										: "Bagi hasil owner"
 								}
 								value={-bagiHasil}
 								muted
 							/>
+							{al.arrearsPaid > 0 ? (
+								<AmountRow
+									label="Lunasi bagi hasil tertunda event sebelumnya"
+									value={-al.arrearsPaid}
+									muted
+								/>
+							) : null}
 						</div>
+						{al.arrearsPaid > 0 ? (
+							<p className="flex gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-[12.5px] leading-snug text-emerald-900">
+								<HandCoins className="mt-0.5 size-4 shrink-0" />
+								<span>
+									Subsidi silang: sisa untung event ini melunasi{" "}
+									<b>{formatRupiah(al.arrearsPaid)}</b> bagi hasil owner yang
+									tertunda dari event sebelumnya.
+								</span>
+							</p>
+						) : null}
 						<div className="border-t border-border-default pt-3">
 							<div className="flex items-baseline justify-between gap-3">
 								<span className="flex items-center gap-2 text-[14px] font-semibold text-foreground">
@@ -290,8 +308,7 @@ export function ProfitPreviewCard({
 							{sisaKas < 0 ? (
 								<p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900">
 									Event ini <b>rugi {formatRupiah(-sisaKas)}</b> — kas usaha
-									menutup kekurangannya. Tidak ada dana cadangan maupun bagi
-									hasil owner.
+									menutup kekurangannya.
 								</p>
 							) : null}
 							{ownerPaidPending > 0 ? (
@@ -628,16 +645,17 @@ function AllocationWarning({
 		text = (
 			<>
 				Untung bersih <b>{formatRupiah(available)}</b> lebih kecil dari bagi
-				hasil owner ({formatRupiah(ownerPoolTarget)}). Dana cadangan dan bagi
-				hasil owner <b>tidak dibagikan</b> untuk event ini — semua untung masuk
-				kas usaha.
+				hasil owner ({formatRupiah(ownerPoolTarget)}). Dana cadangan tidak
+				disisihkan dan bagi hasil owner <b>ditunda</b> — dicatat sebagai
+				tunggakan, dibayar dari sisa untung event berikutnya.
 			</>
 		);
 	} else {
 		text = (
 			<>
-				Event ini <b>tidak untung</b> setelah semua biaya. Tidak ada dana
-				cadangan maupun bagi hasil owner.
+				Event ini <b>tidak untung</b> setelah semua biaya. Dana cadangan tidak
+				disisihkan; bagi hasil owner ({formatRupiah(ownerPoolTarget)})
+				<b> ditunda</b> sebagai tunggakan untuk event berikutnya.
 			</>
 		);
 	}

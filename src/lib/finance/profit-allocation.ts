@@ -10,7 +10,12 @@
  *      dibagi ke dana sesuai urutan display_order). Alasannya: uang belanja
  *      sudah diambil dari HPP; dana cadangan hanya tabungan tambahan.
  *   2. Kalau untung bahkan kurang dari total bagi hasil owner → bagi hasil
- *      dihapus penuh (dana cadangan tetap 0); untung yang ada masuk kas usaha.
+ *      event ini TIDAK dibagikan tapi dicatat sebagai TUNGGAKAN (dana
+ *      cadangan tetap 0); untung yang ada masuk kas usaha.
+ *   3. Event yang masih punya sisa kas (setelah bagi hasil & dana cadangan)
+ *      melunasi tunggakan event sebelumnya dulu (tertua dulu), baru sisanya
+ *      masuk kas usaha — subsidi silang antar event, tanpa pernah membagi
+ *      untung yang tidak ada.
  *
  * WAJIB identik dengan langkah 7–9 settle_event_impl
  * (supabase/migrations/20260929_profit_waterfall.sql).
@@ -38,7 +43,11 @@ export type ProfitAllocation = {
 	sinkingTotal: number;
 	ownerPoolTarget: number;
 	ownerPool: number;
-	/** available − dana cadangan − bagi hasil (≥ 0 kecuali available < 0). */
+	/** Bagi hasil event ini yang ditunda (dibayar event berikutnya). */
+	arrearsCreated: number;
+	/** Pelunasan tunggakan event sebelumnya dari sisa kas event ini. */
+	arrearsPaid: number;
+	/** available − dana cadangan − bagi hasil − pelunasan tunggakan. */
 	sisaKas: number;
 	status: AllocationStatus;
 };
@@ -48,6 +57,8 @@ export function allocateProfit(params: {
 	funds: SinkingFundRule[];
 	ownerCount: number;
 	perPerson: number;
+	/** Total tunggakan bagi hasil yang belum lunas (semua event sebelumnya). */
+	arrearsOutstanding?: number;
 }): ProfitAllocation {
 	const available = Math.round(params.available);
 	const ordered = [...params.funds].sort(
@@ -72,6 +83,8 @@ export function allocateProfit(params: {
 			sinkingTotal: 0,
 			ownerPoolTarget,
 			ownerPool: 0,
+			arrearsCreated: ownerPoolTarget,
+			arrearsPaid: 0,
 			sisaKas: available,
 			status: "tanpa_pembagian",
 		};
@@ -85,6 +98,10 @@ export function allocateProfit(params: {
 		return { code: f.code, target, amount };
 	});
 	const sinkingTotal = sinking.reduce((s, x) => s + x.amount, 0);
+	const arrearsPaid = Math.max(
+		0,
+		Math.min(params.arrearsOutstanding ?? 0, room),
+	);
 	return {
 		available,
 		sinking,
@@ -92,7 +109,9 @@ export function allocateProfit(params: {
 		sinkingTotal,
 		ownerPoolTarget,
 		ownerPool: ownerPoolTarget,
-		sisaKas: available - sinkingTotal - ownerPoolTarget,
+		arrearsCreated: 0,
+		arrearsPaid,
+		sisaKas: available - sinkingTotal - ownerPoolTarget - arrearsPaid,
 		status: sinkingTotal < sinkingTarget ? "cadangan_dikurangi" : "penuh",
 	};
 }
