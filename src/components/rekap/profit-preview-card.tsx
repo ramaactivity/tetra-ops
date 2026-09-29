@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	AlertTriangle,
 	ArrowDownLeft,
 	ArrowUpRight,
 	Calculator,
@@ -130,10 +131,11 @@ export function ProfitPreviewCard({
 	const rugi = untung < 0;
 	const persen = uangMasuk > 0 ? (untung / uangMasuk) * 100 : 0;
 
-	// ── Pembagian (aturan settle: dari untung sebelum pengeluaran lain) ──
-	const adaPembagian = !preview.is_loss;
-	const cadangan = adaPembagian ? preview.sinking_estimate : 0;
-	const bagiHasil = adaPembagian ? preview.owner_pool_estimate : 0;
+	// ── Pembagian — aturan settle (profit-allocation.ts): dana cadangan
+	// dikorbankan dulu, bagi hasil owner dihapus kalau untung tidak cukup.
+	const al = preview.allocation;
+	const cadangan = al.sinkingTotal;
+	const bagiHasil = al.ownerPool;
 	const sisaKas = untung - cadangan - bagiHasil;
 
 	return (
@@ -232,36 +234,42 @@ export function ProfitPreviewCard({
 								Untungnya dibagi ke mana
 							</h4>
 							<p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
-								{adaPembagian ? (
-									<>
-										Saat settle, sebagian untung disisihkan dulu. Hitungannya
-										dari untung sebelum pengeluaran lain (
-										<span className="tabular">
-											{formatRupiah(preview.net_profit)}
-										</span>
-										).
-									</>
-								) : (
-									"Event ini tidak untung, jadi tidak ada yang disisihkan ke dana cadangan atau bagi hasil owner."
-								)}
+								Saat settle, untung bersih dibagi: bagi hasil owner dulu, lalu
+								dana cadangan. Kalau untung tidak cukup, dana cadangan yang
+								dikurangi lebih dulu.
 							</p>
 						</div>
+
+						{al.status !== "penuh" ? (
+							<AllocationWarning
+								status={al.status}
+								available={al.available}
+								sinkingTarget={al.sinkingTarget}
+								sinkingTotal={al.sinkingTotal}
+								ownerPoolTarget={al.ownerPoolTarget}
+							/>
+						) : null}
+
 						<div className="space-y-1.5">
 							<AmountRow label="Untung bersih event" value={untung} />
-							{adaPembagian ? (
-								<>
-									<AmountRow
-										label="Disisihkan ke dana cadangan"
-										value={-cadangan}
-										muted
-									/>
-									<AmountRow
-										label="Bagi hasil owner"
-										value={-bagiHasil}
-										muted
-									/>
-								</>
-							) : null}
+							<AmountRow
+								label={
+									cadangan < al.sinkingTarget
+										? `Dana cadangan (target ${formatRupiah(al.sinkingTarget)})`
+										: "Disisihkan ke dana cadangan"
+								}
+								value={-cadangan}
+								muted
+							/>
+							<AmountRow
+								label={
+									bagiHasil < al.ownerPoolTarget
+										? `Bagi hasil owner (target ${formatRupiah(al.ownerPoolTarget)})`
+										: "Bagi hasil owner"
+								}
+								value={-bagiHasil}
+								muted
+							/>
 						</div>
 						<div className="border-t border-border-default pt-3">
 							<div className="flex items-baseline justify-between gap-3">
@@ -281,21 +289,18 @@ export function ProfitPreviewCard({
 							</div>
 							{sisaKas < 0 ? (
 								<p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900">
-									Kas usaha <b>nombok {formatRupiah(-sisaKas)}</b> dari event
-									ini: dana cadangan & bagi hasil tetap diambil dari untung
-									sebelum pengeluaran lain, sedangkan pengeluaran lain juga
-									dibayar dari kas.
+									Event ini <b>rugi {formatRupiah(-sisaKas)}</b> — kas usaha
+									menutup kekurangannya. Tidak ada dana cadangan maupun bagi
+									hasil owner.
 								</p>
 							) : null}
-							{lainTotal > 0 && adaPembagian ? (
+							{ownerPaidPending > 0 ? (
 								<p className="mt-2 text-[11.5px] leading-snug text-muted-foreground">
-									Di buku settle tercatat{" "}
+									Ada biaya dibayar owner yang belum dicatat (
 									<span className="tabular">
-										{formatRupiah(preview.operating_cash_estimate)}
-									</span>{" "}
-									masuk kas usaha, lalu pengeluaran lain{" "}
-									<span className="tabular">{formatRupiah(lainTotal)}</span>{" "}
-									keluar dari kas — hasil akhirnya angka di atas.
+										{formatRupiah(ownerPaidPending)}
+									</span>
+									). Catat dulu sebelum settle supaya pembagian di atas tepat.
 								</p>
 							) : null}
 						</div>
@@ -318,7 +323,9 @@ export function ProfitPreviewCard({
 // ─────────────────────────────────────────────────────────────────────────
 
 function formatSigned(v: number) {
-	return v < 0 ? `−${formatRupiah(-v)}` : formatRupiah(v);
+	// `|| 0` membuang -0 (mis. -cadangan saat cadangan 0) → bukan "Rp -0".
+	const n = v || 0;
+	return n < 0 ? `−${formatRupiah(-n)}` : formatRupiah(n);
 }
 
 const TILE_TONE = {
@@ -589,6 +596,55 @@ function ResultRow({
 			>
 				{formatSigned(value)}
 			</span>
+		</div>
+	);
+}
+
+/** Peringatan saat untung tidak cukup untuk pembagian penuh. */
+function AllocationWarning({
+	status,
+	available,
+	sinkingTarget,
+	sinkingTotal,
+	ownerPoolTarget,
+}: {
+	status: "cadangan_dikurangi" | "tanpa_pembagian";
+	available: number;
+	sinkingTarget: number;
+	sinkingTotal: number;
+	ownerPoolTarget: number;
+}) {
+	let text: React.ReactNode;
+	if (status === "cadangan_dikurangi") {
+		text = (
+			<>
+				Untung bersih belum cukup untuk dana cadangan penuh. Bagi hasil owner
+				tetap <b>{formatRupiah(ownerPoolTarget)}</b>, dana cadangan dikurangi
+				dari {formatRupiah(sinkingTarget)} jadi{" "}
+				<b>{formatRupiah(sinkingTotal)}</b>.
+			</>
+		);
+	} else if (available > 0) {
+		text = (
+			<>
+				Untung bersih <b>{formatRupiah(available)}</b> lebih kecil dari bagi
+				hasil owner ({formatRupiah(ownerPoolTarget)}). Dana cadangan dan bagi
+				hasil owner <b>tidak dibagikan</b> untuk event ini — semua untung masuk
+				kas usaha.
+			</>
+		);
+	} else {
+		text = (
+			<>
+				Event ini <b>tidak untung</b> setelah semua biaya. Tidak ada dana
+				cadangan maupun bagi hasil owner.
+			</>
+		);
+	}
+	return (
+		<div className="flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-snug text-amber-900">
+			<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+			<p>{text}</p>
 		</div>
 	);
 }

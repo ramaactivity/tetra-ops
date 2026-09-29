@@ -2,6 +2,11 @@
 
 import { previewRekapHpp } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import {
+	allocateProfit,
+	allocationBase,
+	type ProfitAllocation,
+} from "@/lib/finance/profit-allocation";
 import { createClient } from "@/lib/supabase/server";
 
 export type HppBreakdown = {
@@ -80,6 +85,8 @@ export type ProfitPreview = {
 	extra: ExtraCashFlow;
 	/** net_profit − pengeluaran lain + pemasukan lain. */
 	net_profit_after_extra: number;
+	/** Rincian pembagian untung (target vs yang benar-benar dibagi). */
+	allocation: ProfitAllocation;
 };
 
 export type ProfitPreviewResponse =
@@ -147,7 +154,9 @@ export async function getProfitPreview(
 			.maybeSingle(),
 		supabase
 			.from("sinking_funds")
-			.select("code, allocation_type, allocation_value, is_active")
+			.select(
+				"code, allocation_type, allocation_value, is_active, display_order",
+			)
 			.eq("is_active", true),
 	]);
 
@@ -202,35 +211,6 @@ export async function getProfitPreview(
 	const margin_pct =
 		revenue_net > 0 ? +((net_profit / revenue_net) * 100).toFixed(2) : 0;
 
-	// 4) Sinking estimate (mirror RPC: only allocate if profit > 0)
-	let sinking_estimate = 0;
-	if (!is_loss) {
-		for (const fund of sinkingFunds ?? []) {
-			const value = Number(fund.allocation_value ?? 0);
-			if (fund.allocation_type === "percentage") {
-				sinking_estimate += Math.floor((net_profit * value) / 100);
-			} else {
-				sinking_estimate += value;
-			}
-		}
-	}
-
-	// 5) Owner pool estimate (mirror RPC: owner_count × per-person).
-	// Owners = role 'owner' only; super_admin is admin-only, not an owner.
-	const { data: owners } = await supabase
-		.from("users")
-		.select("id")
-		.eq("role", "owner")
-		.eq("is_active", true);
-	const ownerCount = (owners ?? []).length;
-	const POOL_PER_PERSON = 50000;
-	const owner_pool_estimate = is_loss ? 0 : ownerCount * POOL_PER_PERSON;
-
-	const operating_cash_estimate = Math.max(
-		net_profit - sinking_estimate - owner_pool_estimate,
-		0,
-	);
-
 	// Uang keluar/masuk lain yang menempel di event ini — yang sudah dibukukan
 	// (jurnal manual) maupun yang masih antre di kartu rekap.
 	const [{ data: manualEntries }, { data: queued }] = await Promise.all([
@@ -257,6 +237,10 @@ export async function getProfitPreview(
 	let expensePosted = 0;
 	let incomePosted = 0;
 	for (const e of manualEntries ?? []) {
+		// Hanya expense / revenue (pemasukan manual). Jurnal reversal/adjustment
+		// bukan pemasukan — dulu ikut terhitung "pemasukan lain" (sama dengan
+		// settle_event_impl).
+		if (e.entry_type !== "expense" && e.entry_type !== "revenue") continue;
 		const amt = Number(e.total_amount ?? 0);
 		const keluar = e.entry_type === "expense";
 		if (keluar) expensePosted += amt;
@@ -294,6 +278,43 @@ export async function getProfitPreview(
 	const net_profit_after_extra =
 		net_profit - extra.expenseTotal + extra.incomeTotal;
 
+	// 4–5) Pembagian untung — aturan yang SAMA dengan settle_event_impl:
+	// dasar = untung setelah pengeluaran lain; dana cadangan dikorbankan dulu,
+	// bagi hasil owner dihapus kalau untung tidak cukup (profit-allocation.ts).
+	const [{ data: owners }, { data: poolCfg }] = await Promise.all([
+		// Owners = role 'owner' only; super_admin is admin-only, not an owner.
+		supabase
+			.from("users")
+			.select("id")
+			.eq("role", "owner")
+			.eq("is_active", true),
+		supabase
+			.from("system_config")
+			.select("value")
+			.eq("key", "settlement.owner_pool_per_person")
+			.maybeSingle(),
+	]);
+	const allocation = allocateProfit({
+		available: allocationBase(
+			net_profit,
+			extra.expenseTotal - extra.incomeTotal,
+		),
+		funds: (sinkingFunds ?? []).map((f) => ({
+			code: f.code as string,
+			allocation_type: f.allocation_type as string,
+			allocation_value: Number(f.allocation_value ?? 0),
+			display_order: (f.display_order as number | null) ?? 0,
+		})),
+		ownerCount: (owners ?? []).length,
+		perPerson: Number(poolCfg?.value ?? 50000) || 50000,
+	});
+	const sinking_estimate = allocation.sinkingTotal;
+	const owner_pool_estimate = allocation.ownerPool;
+	const operating_cash_estimate = Math.max(
+		net_profit - sinking_estimate - owner_pool_estimate,
+		0,
+	);
+
 	return {
 		ok: true,
 		data: {
@@ -312,6 +333,7 @@ export async function getProfitPreview(
 			operating_cash_estimate,
 			extra,
 			net_profit_after_extra,
+			allocation,
 		},
 	};
 }

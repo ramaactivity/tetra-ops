@@ -133,7 +133,7 @@ export function SinkingFundForm({
 						options={[
 							{
 								value: "percentage",
-								label: "Percentage (% dari net profit)",
+								label: "Persentase (% dari untung bersih event)",
 							},
 							{ value: "flat", label: "Flat (Rupiah tetap per event)" },
 						]}
@@ -158,7 +158,7 @@ export function SinkingFundForm({
 					error={err("allocation_value")}
 					hint={
 						allocType === "percentage"
-							? "Misal 5 = 5% dari net profit"
+							? "Misal 5 = 5% dari untung bersih event. Dipotong dulu kalau untung tidak cukup untuk bagi hasil owner."
 							: "Misal 100000 = Rp 100k flat"
 					}
 					required
