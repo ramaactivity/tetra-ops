@@ -108,6 +108,12 @@ export type VendorCandidate = {
 	name: string;
 	pic_name: string | null;
 	contact: string | null;
+	/**
+	 * Semua PIC yang pernah dipakai vendor ini (PIC master + riwayat event),
+	 * terbaru dulu. Satu vendor bisa punya beberapa sales (mis. Partner: Nisa,
+	 * Firda) — form menawarkannya sebagai pilihan.
+	 */
+	pics: Array<{ name: string; contact: string | null }>;
 	commission_mode: "commission" | "upfront_cut" | null;
 	commission_value_type: "percent" | "flat" | null;
 	commission_value: number | null;
@@ -135,7 +141,9 @@ export async function fetchVendorCandidates(
 			.limit(200),
 		supabase
 			.from("events")
-			.select("vendor_contact_id, vendor_name, event_date")
+			.select(
+				"vendor_contact_id, vendor_name, vendor_pic_name, vendor_contact, event_date",
+			)
 			.eq("channel", "vendor")
 			.order("event_date", { ascending: false, nullsFirst: false })
 			.limit(USAGE_LOOKBACK),
@@ -143,9 +151,27 @@ export async function fetchVendorCandidates(
 
 	const byId = new Map<string, Usage>();
 	const byName = new Map<string, Usage>();
+	// PIC per vendor (kunci: id kontak & nama vendor), urutan = event terbaru.
+	const picsByKey = new Map<
+		string,
+		Array<{ name: string; contact: string | null }>
+	>();
+	const addPic = (key: string, name: string, contact: string | null) => {
+		const list = picsByKey.get(key) ?? [];
+		if (!list.some((p) => p.name.toLowerCase() === name.toLowerCase()))
+			list.push({ name, contact });
+		picsByKey.set(key, list);
+	};
 	for (const row of history ?? []) {
 		const date = (row.event_date as string | null) ?? null;
 		const contactId = row.vendor_contact_id as string | null;
+		const picName = (row.vendor_pic_name as string | null)?.trim();
+		if (picName) {
+			const picContact = (row.vendor_contact as string | null) ?? null;
+			if (contactId) addPic(`id:${contactId}`, picName, picContact);
+			const vName = (row.vendor_name as string | null)?.trim().toLowerCase();
+			if (vName) addPic(`name:${vName}`, picName, picContact);
+		}
 		if (contactId) {
 			bump(byId, contactId, date);
 			continue; // jangan dihitung dua kali lewat namanya
@@ -176,10 +202,25 @@ export async function fetchVendorCandidates(
 		};
 	};
 
+	const picsFor = (v: (typeof rows)[number]) => {
+		const out: Array<{ name: string; contact: string | null }> = [];
+		const push = (p: { name: string; contact: string | null }) => {
+			if (!out.some((x) => x.name.toLowerCase() === p.name.toLowerCase()))
+				out.push(p);
+		};
+		if (v.default_pic_name?.trim())
+			push({ name: v.default_pic_name.trim(), contact: v.default_pic_contact });
+		for (const p of picsByKey.get(`id:${v.id}`) ?? []) push(p);
+		for (const p of picsByKey.get(`name:${v.name.trim().toLowerCase()}`) ?? [])
+			push(p);
+		return out;
+	};
+
 	return byUsage(rows, usageFor, (v) => v.name).map((v) => ({
 		name: v.name,
 		pic_name: v.default_pic_name,
 		contact: v.default_pic_contact,
+		pics: picsFor(v),
 		commission_mode: v.commission_mode,
 		commission_value_type: v.commission_value_type,
 		commission_value: v.commission_value_default,

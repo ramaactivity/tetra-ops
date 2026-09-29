@@ -175,6 +175,8 @@ export type VendorOption = {
 	name: string;
 	pic_name: string | null;
 	contact: string | null;
+	/** PIC yang pernah dipakai vendor ini (master + riwayat), terbaru dulu. */
+	pics?: Array<{ name: string; contact: string | null }>;
 	/** Commission scheme from vendor master. Auto-fills booking form
 	 * when an existing vendor is picked. Free-text new vendors send null. */
 	commission_mode?: "commission" | "upfront_cut" | null;
@@ -1294,6 +1296,12 @@ export function BookingForm({
 		}
 	}
 
+	/** PIC milik vendor terpilih (satu vendor bisa punya beberapa sales). */
+	const vendorPics =
+		vendorOptions.find(
+			(v) => v.name.trim().toLowerCase() === vendorName.trim().toLowerCase(),
+		)?.pics ?? [];
+
 	function handleVendorAutoFill(name: string) {
 		// Match against vendor master by case-insensitive trimmed name —
 		// users may free-text-type with slight casing variance.
@@ -1578,12 +1586,28 @@ export function BookingForm({
 												error={err("vendor_pic_name")}
 												tooltip="Orang yang kita kontak dari vendor (mis. nama salesnya)."
 											>
-												<input
-													type="text"
+												<Combobox
 													value={vendorPicName}
-													onChange={(e) => setVendorPicName(e.target.value)}
-													placeholder="cth. Nisa"
-													className={inputClass}
+													onValueChange={(name) => {
+														setVendorPicName(name);
+														// PIC lama → WA-nya ikut terisi; nama baru biarkan
+														// WA diketik manual (tersimpan untuk booking berikutnya).
+														const pic = vendorPics.find(
+															(p) =>
+																p.name.toLowerCase() ===
+																name.trim().toLowerCase(),
+														);
+														if (pic?.contact) setVendorContact(pic.contact);
+													}}
+													options={vendorPics.map((p) => ({
+														value: p.name,
+														label: p.name,
+														sublabel: p.contact ?? undefined,
+													}))}
+													placeholder="Pilih atau ketik PIC baru"
+													allowFreeText
+													emptyMessage="PIC baru — tersimpan untuk booking berikutnya"
+													aria-label="Nama PIC vendor"
 												/>
 												<input
 													type="hidden"
