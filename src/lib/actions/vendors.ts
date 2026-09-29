@@ -371,6 +371,33 @@ export async function restoreVendor(
  *
  * Safe to call from server actions (uses service-role client via SSR).
  */
+type VendorPic = { name: string; contact: string | null };
+
+/**
+ * Tambah/perbarui satu PIC di daftar PIC vendor. Nama sama (abaikan huruf
+ * besar) = orang yang sama → nomornya diperbarui kalau diisi. Terbaru di
+ * depan. null = tidak ada perubahan.
+ */
+function mergeVendorPic(
+	list: VendorPic[],
+	name: string | null | undefined,
+	contact: string | null | undefined,
+): VendorPic[] | null {
+	const n = name?.trim();
+	if (!n) return null;
+	const c = contact?.trim() || null;
+	const i = list.findIndex(
+		(p) => p.name.trim().toLowerCase() === n.toLowerCase(),
+	);
+	if (i === 0 && (!c || list[0].contact === c)) return null;
+	const prev = i >= 0 ? list[i] : null;
+	const rest = list.filter((_, j) => j !== i);
+	return [
+		{ name: prev?.name ?? n, contact: c ?? prev?.contact ?? null },
+		...rest,
+	];
+}
+
 export async function ensureVendorContact(input: {
 	name: string;
 	pic_name?: string | null;
@@ -387,13 +414,25 @@ export async function ensureVendorContact(input: {
 	// Try find existing (case-insensitive)
 	const { data: existing } = await supabase
 		.from("contacts")
-		.select("id")
+		.select("id, vendor_pics")
 		.eq("type", "vendor")
 		.eq("is_active", true)
 		.ilike("name", name)
 		.maybeSingle();
 
 	if (existing) {
+		// PIC booking ini masuk daftar PIC vendor (satu vendor, banyak sales).
+		const pics = mergeVendorPic(
+			(existing.vendor_pics as VendorPic[] | null) ?? [],
+			input.pic_name,
+			input.pic_contact,
+		);
+		if (pics) {
+			await supabase
+				.from("contacts")
+				.update({ vendor_pics: pics })
+				.eq("id", existing.id);
+		}
 		// Vendor sudah ada → "belajar" skema komisi dari booking ini supaya
 		// booking berikutnya untuk vendor yang sama auto-terisi sama (kebiasaan
 		// terakhir). Hanya update kalau booking mengirim skema komisi (channel
@@ -432,6 +471,7 @@ export async function ensureVendorContact(input: {
 			phone: input.pic_contact || null,
 			default_pic_name: input.pic_name || null,
 			default_pic_contact: input.pic_contact || null,
+			vendor_pics: mergeVendorPic([], input.pic_name, input.pic_contact) ?? [],
 			commission_mode: mode,
 			commission_value_type: valueType,
 			commission_value_default: value,

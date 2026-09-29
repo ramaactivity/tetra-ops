@@ -133,7 +133,7 @@ export async function fetchVendorCandidates(
 		supabase
 			.from("contacts")
 			.select(
-				"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
+				"id, name, default_pic_name, default_pic_contact, vendor_pics, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
 			)
 			.eq("type", "vendor")
 			.eq("is_active", true)
@@ -185,6 +185,7 @@ export async function fetchVendorCandidates(
 		name: string;
 		default_pic_name: string | null;
 		default_pic_contact: string | null;
+		vendor_pics: Array<{ name: string; contact: string | null }> | null;
 		commission_mode: "commission" | "upfront_cut" | null;
 		commission_value_type: "percent" | "flat" | null;
 		commission_value_default: number | null;
@@ -208,6 +209,9 @@ export async function fetchVendorCandidates(
 			if (!out.some((x) => x.name.toLowerCase() === p.name.toLowerCase()))
 				out.push(p);
 		};
+		// Daftar tetap di master (diisi otomatis tiap booking) dulu, lalu PIC
+		// default & riwayat event sebagai cadangan data lama.
+		for (const p of v.vendor_pics ?? []) if (p?.name?.trim()) push(p);
 		if (v.default_pic_name?.trim())
 			push({ name: v.default_pic_name.trim(), contact: v.default_pic_contact });
 		for (const p of picsByKey.get(`id:${v.id}`) ?? []) push(p);
