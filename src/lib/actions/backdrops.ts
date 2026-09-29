@@ -20,6 +20,8 @@ const BackdropInputSchema = z
 		type: z.enum(TYPES, "Pilih tipe"),
 		rental_price: z.coerce.number().int().nonnegative().default(0),
 		display_order: z.coerce.number().int().min(0).default(0),
+		/** Jumlah pcs fisik — 2 spot di satu event boleh warna sama kalau ≥ 2. */
+		stock_qty: z.coerce.number().int().min(0).max(99).catch(1),
 		description: z
 			.string()
 			.trim()
@@ -46,6 +48,7 @@ function parseFormData(formData: FormData) {
 		type: formData.get("type"),
 		rental_price: formData.get("rental_price"),
 		display_order: formData.get("display_order"),
+		stock_qty: formData.get("stock_qty") ?? 1,
 		description: formData.get("description"),
 		is_active: formData.get("is_active") === "on",
 	});
@@ -58,6 +61,7 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		"type",
 		"rental_price",
 		"display_order",
+		"stock_qty",
 		"description",
 	];
 	const out: Record<string, string> = {};

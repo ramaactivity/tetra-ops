@@ -153,7 +153,7 @@ export default async function EventRekapPage({
 			supabase
 				.from("crew_rekap")
 				.select(
-					`id, cetak_total, media_set_used, sleeve_used,
+					`id, cetak_total, spot_cetak, media_set_used, sleeve_used,
 					flashdisk_used, pouch_used, photomagnet_used, keychain_used,
 					photomagnet_paid, photomagnet_bonus, keychain_paid, keychain_bonus,
 					custom_materials, status, locked,
@@ -748,6 +748,9 @@ export default async function EventRekapPage({
 	const defaults = rekap
 		? {
 				cetak_total: String(rekap.cetak_total),
+				spot_cetak: JSON.stringify(
+					(rekap as { spot_cetak?: unknown }).spot_cetak ?? {},
+				),
 				media_set_used: String(rekap.media_set_used),
 				sleeve_used: String(rekap.sleeve_used),
 				flashdisk_used: String(rekap.flashdisk_used),

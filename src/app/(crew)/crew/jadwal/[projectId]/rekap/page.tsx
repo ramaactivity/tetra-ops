@@ -84,7 +84,7 @@ export default async function CrewRekapPage({
 	const { data: rekapData } = await supabase
 		.from("crew_rekap")
 		.select(
-			`id, cetak_total, media_set_used, sleeve_used,
+			`id, cetak_total, spot_cetak, media_set_used, sleeve_used,
 			flashdisk_used, pouch_used, photomagnet_used, keychain_used,
 			custom_materials,
 			proof_photo_urls, crew_notes, is_approved, reviewed_at, review_notes,
@@ -121,6 +121,9 @@ export default async function CrewRekapPage({
 	const defaults = rekap
 		? {
 				cetak_total: String(rekap.cetak_total),
+				spot_cetak: JSON.stringify(
+					(rekap as { spot_cetak?: unknown }).spot_cetak ?? {},
+				),
 				media_set_used: String(rekap.media_set_used),
 				sleeve_used: String(rekap.sleeve_used),
 				flashdisk_used: String(rekap.flashdisk_used),

@@ -28,6 +28,7 @@ type Defaults = {
 	type: BackdropType;
 	rental_price: string;
 	display_order: string;
+	stock_qty: string;
 	description: string;
 	is_active: boolean;
 };
@@ -38,6 +39,7 @@ const EMPTY: Defaults = {
 	type: "basic_included",
 	rental_price: "0",
 	display_order: "0",
+	stock_qty: "1",
 	description: "",
 	is_active: true,
 };
@@ -187,6 +189,23 @@ export function BackdropForm({
 							readOnly={!showRentalPrice}
 							prefix="Rp"
 							className="tabular"
+						/>
+					</Field>
+
+					<Field
+						label="Jumlah pcs"
+						name="stock_qty"
+						error={err("stock_qty")}
+						hint="Berapa lembar fisik yang Tetra punya. Event 2 spot bisa pakai warna sama kalau ≥ 2."
+					>
+						<input
+							id="stock_qty"
+							type="number"
+							name="stock_qty"
+							min={0}
+							step={1}
+							defaultValue={get("stock_qty") || "1"}
+							className={cn(fieldInputClass, "tabular")}
 						/>
 					</Field>
 

@@ -78,6 +78,8 @@ export type AvailabilityEvent = {
 	 * 02:00 di tanggal berikutnya dilaporkan bebas padahal tidak.
 	 */
 	day_offset_min?: number;
+	/** Event multi-unit (2–3 spot) memakai sebanyak ini unit sekaligus. */
+	units?: number;
 };
 
 export type Conflict = {
@@ -300,16 +302,18 @@ export function computeAvailability(params: {
 		let conflicted = false;
 		for (const m of merged) {
 			if (overlaps(m.start, m.end, reqStart, reqEnd)) {
-				occupying.push({
-					start: Math.max(m.start, reqStart),
-					end: Math.min(m.end, reqEnd),
-				});
+				// Event 2 spot = 2 unit terpakai di waktu yang sama.
+				for (let u = 0; u < Math.max(1, ev.units ?? 1); u++)
+					occupying.push({
+						start: Math.max(m.start, reqStart),
+						end: Math.min(m.end, reqEnd),
+					});
 				conflicted = true;
 			}
 		}
 		if (conflicted) {
 			conflicts.push({
-				project: name,
+				project: (ev.units ?? 1) > 1 ? `${name} (${ev.units} unit)` : name,
 				time: timeLabel,
 				city: ev.venue_city,
 				buffer_min: buffer,

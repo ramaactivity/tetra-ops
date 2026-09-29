@@ -79,7 +79,7 @@ export default async function CrewEventDetailPage({
 			id, project_id, status, client_name, event_category,
 			pic_name, pic_wa, include_flashdisk_pouch,
 			frame_size, event_date, event_date_is_estimate,
-			setup_time, start_time, end_time, session_segments, backdrop_id,
+			setup_time, start_time, end_time, session_segments, backdrop_id, unit_count, spots,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy, pending_package_hours,
 			package:packages(name, duration_hours, frame_size),
@@ -87,7 +87,7 @@ export default async function CrewEventDetailPage({
 			event_addons:event_addons(quantity, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments!inner(
-				role_in_event,
+				role_in_event, spot_no,
 				user:users!crew_assignments_user_id_fkey(id, full_name, tier)
 			),
 			design_brief_at, design_approved_at, design_drive_folder_url,
@@ -112,6 +112,7 @@ export default async function CrewEventDetailPage({
 
 	const crewAssignments = (event.crew_assignments ?? []) as Array<{
 		role_in_event: string;
+		spot_no: number | null;
 		user:
 			| { id: string; full_name: string; tier: string | null }
 			| Array<{ id: string; full_name: string; tier: string | null }>
@@ -220,6 +221,7 @@ export default async function CrewEventDetailPage({
 		avatar_url: string | null;
 		tier: string | null;
 		role_in_event: string;
+		spot_no?: number | null;
 	}>;
 	const roster =
 		rpcRoster.length > 0
@@ -232,6 +234,7 @@ export default async function CrewEventDetailPage({
 						avatar_url: null as string | null,
 						tier: u?.tier ?? null,
 						role_in_event: a.role_in_event,
+						spot_no: a.spot_no,
 					};
 				});
 
@@ -241,9 +244,35 @@ export default async function CrewEventDetailPage({
 	const isPastOrToday = event.event_date <= todayISO;
 
 	const pkg = Array.isArray(event.package) ? event.package[0] : event.package;
-	const backdrop = Array.isArray(event.backdrop)
+	const mainBackdrop = Array.isArray(event.backdrop)
 		? event.backdrop[0]
 		: event.backdrop;
+	// Event multi-unit: crew melihat ukuran frame & backdrop SPOT-nya sendiri.
+	const unitCount = Math.max(1, Number(event.unit_count ?? 1));
+	const mySpot = Math.min(unitCount, myAssignment.spot_no ?? 1);
+	const myOverride =
+		mySpot > 1
+			? (
+					(event.spots ?? []) as Array<{
+						spot: number;
+						frame_size: string | null;
+						backdrop_id: string | null;
+					}>
+				).find((x) => x.spot === mySpot)
+			: undefined;
+	const { data: spotBackdrop } = myOverride?.backdrop_id
+		? await supabase
+				.from("backdrops")
+				.select("name, type")
+				.eq("id", myOverride.backdrop_id)
+				.maybeSingle()
+		: { data: null };
+	// Spot ≥2 tanpa backdrop sendiri = menyusul (butuh backdrop fisik kedua).
+	const backdrop = mySpot > 1 ? spotBackdrop : mainBackdrop;
+	const myFrameSize =
+		mySpot > 1
+			? (myOverride?.frame_size ?? event.frame_size)
+			: event.frame_size;
 	// Siapa yang membawa backdropnya — pertanyaan pertama crew di lokasi.
 	const backdropOrigin = backdrop?.name
 		? backdropOriginLabel(backdrop.name, backdrop.type)
@@ -370,6 +399,7 @@ export default async function CrewEventDetailPage({
 								<span className="font-semibold text-foreground">
 									{ROLE_LABELS[myAssignment.role_in_event] ??
 										myAssignment.role_in_event}
+									{unitCount > 1 ? ` · Spot ${mySpot} dari ${unitCount}` : ""}
 									{myTier ? ` · ${TIER_LABELS[myTier] ?? myTier}` : ""}
 								</span>
 							</span>
@@ -485,6 +515,7 @@ export default async function CrewEventDetailPage({
 											)}
 										</div>
 										<span className="shrink-0 text-right text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
+											{unitCount > 1 ? `Spot ${m.spot_no ?? 1} · ` : ""}
 											{ROLE_LABELS[m.role_in_event] ?? m.role_in_event}
 											{tierLabel ? ` · ${tierLabel}` : ""}
 										</span>
@@ -503,18 +534,23 @@ export default async function CrewEventDetailPage({
 						    atau dilabeli "Custom", karena crew membacanya sebagai sudah
 						    diputuskan. Sejalan dengan panel TBC di bawah. */}
 						<DetailRow label="Paket">
-							{pkg?.name ??
-								(event.pending_package_hours ? (
-									<span className="text-muted-foreground">
-										Belum final · {event.pending_package_hours} jam
-									</span>
-								) : (
-									<span className="text-muted-foreground">Custom</span>
-								))}
+							{pkg?.name && unitCount > 1
+								? `${pkg.name} × ${unitCount} unit (kamu di Spot ${mySpot})`
+								: null}
+							{pkg?.name && unitCount > 1
+								? null
+								: (pkg?.name ??
+									(event.pending_package_hours ? (
+										<span className="text-muted-foreground">
+											Belum final · {event.pending_package_hours} jam
+										</span>
+									) : (
+										<span className="text-muted-foreground">Custom</span>
+									)))}
 						</DetailRow>
-						<DetailRow label="Frame">
-							{event.frame_size ? (
-								(FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size)
+						<DetailRow label={unitCount > 1 ? `Frame Spot ${mySpot}` : "Frame"}>
+							{myFrameSize ? (
+								(FRAME_SIZE_LABELS[myFrameSize] ?? myFrameSize)
 							) : (
 								<span className="text-muted-foreground">Menyusul</span>
 							)}
@@ -539,7 +575,9 @@ export default async function CrewEventDetailPage({
 								<span className="text-muted-foreground">Tidak termasuk</span>
 							)}
 						</DetailRow>
-						<DetailRow label="Backdrop">
+						<DetailRow
+							label={unitCount > 1 ? `Backdrop Spot ${mySpot}` : "Backdrop"}
+						>
 							{backdrop?.name ? (
 								<>
 									{backdrop.name}

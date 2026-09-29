@@ -20,6 +20,7 @@ export type BackdropRow = {
 	is_active: boolean;
 	display_order: number;
 	description: string | null;
+	stock_qty?: number;
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -104,6 +105,12 @@ const columns: CatalogColumn<BackdropRow>[] = [
 			) : (
 				<span className="text-muted-foreground">—</span>
 			),
+	},
+	{
+		key: "pcs",
+		header: "Pcs",
+		align: "right",
+		cell: (b) => <span className="tabular">{b.stock_qty ?? 1}</span>,
 	},
 	{
 		key: "status",

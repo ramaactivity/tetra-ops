@@ -41,7 +41,7 @@ export default async function EditBookingPage({
 		supabase
 			.from("events")
 			.select(
-				`id, project_id, channel, client_name, client_org, event_title, client_wa, client_email,
+				`id, project_id, channel, client_name, client_org, event_title, client_wa, client_email, unit_count, spots,
 				service_type, package_id, pending_package_hours, frame_size,
 				event_category, event_date,
 				event_date_is_estimate, due_date,
@@ -213,6 +213,8 @@ export default async function EditBookingPage({
 						pic_name: event.pic_name ?? "",
 						pic_wa: event.pic_wa ?? "",
 						backdrop_id: event.backdrop_id ?? "",
+						unit_count: (event.unit_count as number | null) ?? 1,
+						spots: JSON.stringify(event.spots ?? []),
 						vendor_decor_markup: event.vendor_decor_markup ?? 0,
 						include_flashdisk_pouch: event.include_flashdisk_pouch ?? true,
 						base_price: event.base_price ?? 0,

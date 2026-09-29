@@ -8,12 +8,12 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { assignCrew, unassignCrew } from "@/lib/actions/crew-assignments";
 import { formatRupiah } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import {
 	buildCrewReminderMessage,
 	type EventForWA,
 	whatsappUrl,
 } from "@/lib/whatsapp";
-import { cn } from "@/lib/utils";
 import type { CrewOption } from "./assign-crew-form";
 import type { AssignmentRow } from "./crew-assignment-list";
 
@@ -33,9 +33,14 @@ function crewLabel(c: { full_name: string; tier: string | null }): string {
 }
 
 /** Optimistic row so a pick fills the slot instantly (fee -1 = "menyiapkan"). */
-function optimisticRow(crew: CrewOption, role: string): AssignmentRow {
+function optimisticRow(
+	crew: CrewOption,
+	role: string,
+	spot: number,
+): AssignmentRow {
 	return {
 		id: `temp-${crew.id}-${role}`,
+		spot_no: spot,
 		user_id: crew.id,
 		role_in_event: role,
 		fee_amount: -1,
@@ -46,17 +51,25 @@ function optimisticRow(crew: CrewOption, role: string): AssignmentRow {
 }
 
 type OptAction =
-	| { type: "assign"; role: string; crew: CrewOption }
-	| { type: "reassign"; oldId: string; role: string; crew: CrewOption }
+	| { type: "assign"; role: string; crew: CrewOption; spot: number }
+	| {
+			type: "reassign";
+			oldId: string;
+			role: string;
+			crew: CrewOption;
+			spot: number;
+	  }
 	| { type: "remove"; id: string };
 
 function reducer(state: AssignmentRow[], action: OptAction): AssignmentRow[] {
 	switch (action.type) {
 		case "assign":
-			return [...state, optimisticRow(action.crew, action.role)];
+			return [...state, optimisticRow(action.crew, action.role, action.spot)];
 		case "reassign":
 			return state.map((a) =>
-				a.id === action.oldId ? optimisticRow(action.crew, action.role) : a,
+				a.id === action.oldId
+					? optimisticRow(action.crew, action.role, action.spot)
+					: a,
 			);
 		case "remove":
 			return state.filter((a) => a.id !== action.id);
@@ -77,16 +90,19 @@ export function CrewSlotAssign({
 	assignments,
 	availableCrew,
 	event,
+	unitCount = 1,
 }: {
 	projectId: string;
 	eventId: string;
 	assignments: AssignmentRow[];
 	availableCrew: CrewOption[];
 	event: EventForWA;
+	/** Event multi-unit: slot Lead & Asisten per spot. */
+	unitCount?: number;
 }) {
 	const [pending, startTransition] = useTransition();
 	const [optimistic, applyOptimistic] = useOptimistic(assignments, reducer);
-	const [addOpen, setAddOpen] = useState(false);
+	const [addOpen, setAddOpen] = useState<number | null>(null);
 	const confirm = useConfirm();
 	const router = useRouter();
 	// Guards against the dropdown re-emitting a just-removed person (which would
@@ -113,17 +129,22 @@ export function CrewSlotAssign({
 		return [{ value: row.user_id, label: crewLabel(row.user) }, ...baseOptions];
 	}
 
-	function pick(role: string, userId: string, current?: AssignmentRow) {
+	function pick(
+		role: string,
+		userId: string,
+		current?: AssignmentRow,
+		spot = current?.spot_no ?? 1,
+	) {
 		if (!userId || userId === current?.user_id) return;
 		if (suppressed.current.has(`${role}:${userId}`)) return;
 		const crew = availableCrew.find((c) => c.id === userId);
 		if (!crew) return;
-		setAddOpen(false);
+		setAddOpen(null);
 		startTransition(async () => {
 			applyOptimistic(
 				current
-					? { type: "reassign", oldId: current.id, role, crew }
-					: { type: "assign", role, crew },
+					? { type: "reassign", oldId: current.id, role, crew, spot }
+					: { type: "assign", role, crew, spot },
 			);
 			if (current) {
 				const un = await unassignCrew(projectId, current.id);
@@ -136,6 +157,7 @@ export function CrewSlotAssign({
 			fd.set("event_id", eventId);
 			fd.set("user_id", userId);
 			fd.set("role_in_event", role);
+			fd.set("spot_no", String(spot));
 			const res = await assignCrew(projectId, fd);
 			if (res?.error) toast.error(res.error);
 			router.refresh();
@@ -174,64 +196,80 @@ export function CrewSlotAssign({
 		window.open(whatsappUrl(phone, body), "_blank", "noopener,noreferrer");
 	}
 
-	const extras = optimistic.filter(
-		(a) => a.role_in_event !== "lead" && a.role_in_event !== "asisten",
-	);
 	const noBase = baseOptions.length === 0;
+	const spots = Array.from({ length: Math.max(1, unitCount) }, (_, i) => i + 1);
+	const inSpot = (a: AssignmentRow, spot: number) => (a.spot_no ?? 1) === spot;
 
 	return (
-		<div className="mt-3.5 space-y-2">
-			{PRIMARY_SLOTS.map((slot) => {
-				const row = optimistic.find((a) => a.role_in_event === slot.role);
+		<div className="mt-3.5 space-y-3">
+			{spots.map((spot) => {
+				const rows = optimistic.filter((a) => inSpot(a, spot));
+				const extras = rows.filter(
+					(a) => a.role_in_event !== "lead" && a.role_in_event !== "asisten",
+				);
 				return (
-					<Slot
-						key={slot.role}
-						label={slot.label}
-						row={row}
-						options={slotOptions(row)}
-						placeholder={noBase && !row ? "Tidak ada crew" : `Pilih ${slot.label}`}
-						disabled={pending || (noBase && !row)}
-						onPick={(v) => pick(slot.role, v, row)}
-						onWa={row ? () => sendWa(row) : undefined}
-						onRemove={row ? () => remove(row) : undefined}
-					/>
+					<div key={spot} className="space-y-2">
+						{unitCount > 1 ? (
+							<p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+								Spot {spot}
+							</p>
+						) : null}
+						{PRIMARY_SLOTS.map((slot) => {
+							const row = rows.find((a) => a.role_in_event === slot.role);
+							return (
+								<Slot
+									key={slot.role}
+									label={slot.label}
+									row={row}
+									options={slotOptions(row)}
+									placeholder={
+										noBase && !row ? "Tidak ada crew" : `Pilih ${slot.label}`
+									}
+									disabled={pending || (noBase && !row)}
+									onPick={(v) => pick(slot.role, v, row, spot)}
+									onWa={row ? () => sendWa(row) : undefined}
+									onRemove={row ? () => remove(row) : undefined}
+								/>
+							);
+						})}
+
+						{extras.map((row) => (
+							<Slot
+								key={row.id}
+								label={ROLE_LABELS[row.role_in_event] ?? row.role_in_event}
+								row={row}
+								options={slotOptions(row)}
+								placeholder="Pilih crew"
+								disabled={pending}
+								onPick={(v) => pick(row.role_in_event, v, row, spot)}
+								onWa={() => sendWa(row)}
+								onRemove={() => remove(row)}
+							/>
+						))}
+
+						{addOpen === spot ? (
+							<Slot
+								label="Crew C"
+								options={baseOptions}
+								placeholder={noBase ? "Tidak ada crew" : "Pilih crew"}
+								disabled={pending || noBase}
+								onPick={(v) => pick("crew_c", v, undefined, spot)}
+								onCancel={() => setAddOpen(null)}
+							/>
+						) : (
+							<button
+								type="button"
+								onClick={() => setAddOpen(spot)}
+								disabled={noBase}
+								className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-border-default text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-[#059669]/40 hover:text-foreground disabled:opacity-50"
+							>
+								<Plus className="size-3.5" aria-hidden />
+								Tambah crew{unitCount > 1 ? ` Spot ${spot}` : ""}
+							</button>
+						)}
+					</div>
 				);
 			})}
-
-			{extras.map((row) => (
-				<Slot
-					key={row.id}
-					label={ROLE_LABELS[row.role_in_event] ?? row.role_in_event}
-					row={row}
-					options={slotOptions(row)}
-					placeholder="Pilih crew"
-					disabled={pending}
-					onPick={(v) => pick(row.role_in_event, v, row)}
-					onWa={() => sendWa(row)}
-					onRemove={() => remove(row)}
-				/>
-			))}
-
-			{addOpen ? (
-				<Slot
-					label="Crew C"
-					options={baseOptions}
-					placeholder={noBase ? "Tidak ada crew" : "Pilih crew"}
-					disabled={pending || noBase}
-					onPick={(v) => pick("crew_c", v)}
-					onCancel={() => setAddOpen(false)}
-				/>
-			) : (
-				<button
-					type="button"
-					onClick={() => setAddOpen(true)}
-					disabled={noBase}
-					className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-border-default text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-[#059669]/40 hover:text-foreground disabled:opacity-50"
-				>
-					<Plus className="size-3.5" aria-hidden />
-					Tambah crew
-				</button>
-			)}
 		</div>
 	);
 }

@@ -87,6 +87,38 @@ const BookingInputSchema = z.object({
 	// package_id tetap kosong sampai ukurannya dipastikan — lihat
 	// lib/events/frame-package.ts. Harga per durasi sama untuk semua ukuran,
 	// jadi nominal booking tidak berubah saat paket dikunci nanti.
+	/** Jumlah unit/spot photobooth di event ini (1–3). */
+	unit_count: z.coerce.number().int().min(1).max(3).catch(1),
+	/** Override spot ≥2: [{spot, frame_size, backdrop_id}] (JSON string). */
+	spots: z
+		.string()
+		.nullish()
+		.transform((raw, ctx) => {
+			if (!raw) return [] as SpotOverride[];
+			try {
+				const arr = JSON.parse(raw) as SpotOverride[];
+				if (!Array.isArray(arr)) throw new Error();
+				return arr
+					.filter(
+						(x) => Number.isInteger(x?.spot) && x.spot >= 2 && x.spot <= 3,
+					)
+					.map((x) => ({
+						spot: x.spot,
+						frame_size:
+							x.frame_size &&
+							["2R", "4R", "polaroid", "none"].includes(x.frame_size)
+								? x.frame_size
+								: null,
+						backdrop_id:
+							typeof x.backdrop_id === "string" && x.backdrop_id
+								? x.backdrop_id
+								: null,
+					}));
+			} catch {
+				ctx.addIssue({ code: "custom", message: "Data spot tidak valid" });
+				return z.NEVER;
+			}
+		}),
 	pending_package_hours: z.coerce
 		.number()
 		.int()
@@ -316,6 +348,8 @@ const FORM_KEYS = [
 	"pic_name",
 	"pic_wa",
 	"backdrop_id",
+	"unit_count",
+	"spots",
 	"vendor_decor_markup",
 	"base_price",
 	"discount_amount",
@@ -448,6 +482,47 @@ async function snapshotAddons(
 	return { rows, total };
 }
 
+/** Spot ≥2 bisa beda ukuran frame & backdrop dari spot 1 (kolom event). */
+type SpotOverride = {
+	spot: number;
+	frame_size: string | null;
+	backdrop_id: string | null;
+};
+
+/**
+ * Event multi-spot: backdrop yang sama di beberapa spot butuh pcs fisik
+ * sebanyak itu (backdrops.stock_qty, diatur di master backdrop).
+ */
+async function checkBackdropStock(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	input: BookingInput,
+): Promise<string | null> {
+	const used = new Map<string, number>();
+	const add = (id: string | null | undefined) => {
+		if (id) used.set(id, (used.get(id) ?? 0) + 1);
+	};
+	add(input.backdrop_id);
+	for (const sp of input.spots)
+		if (sp.spot <= input.unit_count) add(sp.backdrop_id);
+	const dup = [...used].filter(([, n]) => n > 1);
+	if (dup.length === 0) return null;
+	const { data } = await supabase
+		.from("backdrops")
+		.select("id, name, type, stock_qty")
+		.in(
+			"id",
+			dup.map(([id]) => id),
+		);
+	for (const b of data ?? []) {
+		// Dekorasi dari klien / vendor bukan barang Tetra — tidak dibatasi pcs.
+		if (b.type === "client_provided" || b.type === "vendor_decor") continue;
+		const need = used.get(b.id as string) ?? 0;
+		if (need > Number(b.stock_qty ?? 1))
+			return `Backdrop ${b.name} cuma ${b.stock_qty ?? 1} pcs — tidak bisa dipakai di ${need} spot sekaligus. Pilih warna lain untuk spot berikutnya, atau tambah jumlah pcs di master Backdrop.`;
+	}
+	return null;
+}
+
 async function resolveBasePrice(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	input: BookingInput,
@@ -461,7 +536,8 @@ async function resolveBasePrice(
 			.select("base_price")
 			.eq("id", input.package_id)
 			.maybeSingle();
-		if (pkg?.base_price) return pkg.base_price as number;
+		if (pkg?.base_price)
+			return (pkg.base_price as number) * (input.unit_count ?? 1);
 	}
 	// Paket sementara (durasi saja): ambil harga durasi itu dari pricelist.
 	// Harga sama untuk semua ukuran, jadi tidak ada yang berubah saat paket
@@ -476,7 +552,7 @@ async function resolveBasePrice(
 			.is("deleted_at", null)
 			.eq("is_active", true);
 		const prices = (pkgs ?? []).map((p) => Number(p.base_price));
-		if (prices.length > 0) return Math.min(...prices);
+		if (prices.length > 0) return Math.min(...prices) * (input.unit_count ?? 1);
 	}
 	return 0;
 }
@@ -808,6 +884,9 @@ function buildEventPayload(
 		pic_name: input.pic_name,
 		pic_wa: input.pic_wa,
 		backdrop_id: input.backdrop_id,
+		unit_count: input.unit_count,
+		// Hanya spot yang benar-benar dipakai.
+		spots: input.spots.filter((x) => x.spot <= input.unit_count),
 		vendor_decor_markup: input.vendor_decor_markup,
 		// Legacy columns retained on the events table for back-compat with
 		// historical data; new bookings populate them with neutral defaults.
@@ -1035,6 +1114,20 @@ async function resolveBackdropContribution(
 			.maybeSingle();
 		if (bg && bg.type === "rental_owned") rental = Number(bg.rental_price ?? 0);
 	}
+	// Spot 2/3 dengan backdrop sewa premium ikut ditagih.
+	const spotIds = input.spots
+		.filter((x) => x.spot <= input.unit_count && x.backdrop_id)
+		.map((x) => x.backdrop_id as string);
+	if (spotIds.length > 0) {
+		const { data: bgs } = await supabase
+			.from("backdrops")
+			.select("id, type, rental_price")
+			.in("id", spotIds);
+		for (const id of spotIds) {
+			const b = (bgs ?? []).find((x) => x.id === id);
+			if (b?.type === "rental_owned") rental += Number(b.rental_price ?? 0);
+		}
+	}
 	return rental + (input.vendor_decor_markup ?? 0);
 }
 
@@ -1058,6 +1151,13 @@ export async function createBooking(
 	const selection = await resolvePackageSelection(supabase, parsed.data);
 	if (!selection.ok) {
 		return { errors: selection.errors, values: snapshotValues(formData) };
+	}
+	const backdropErr = await checkBackdropStock(supabase, parsed.data);
+	if (backdropErr) {
+		return {
+			errors: { backdrop_id: [backdropErr] },
+			values: snapshotValues(formData),
+		};
 	}
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
 	const addonsRaw = parseAddonsJson(formData);
@@ -1273,6 +1373,13 @@ export async function updateBooking(
 	const selection = await resolvePackageSelection(supabase, parsed.data);
 	if (!selection.ok) {
 		return { errors: selection.errors, values: snapshotValues(formData) };
+	}
+	const backdropErr = await checkBackdropStock(supabase, parsed.data);
+	if (backdropErr) {
+		return {
+			errors: { backdrop_id: [backdropErr] },
+			values: snapshotValues(formData),
+		};
 	}
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
 	const addonsRaw = parseAddonsJson(formData);

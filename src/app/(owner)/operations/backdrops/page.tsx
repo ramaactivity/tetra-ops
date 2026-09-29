@@ -21,7 +21,7 @@ export default async function BackdropsListPage() {
 	const { data, error } = await supabase
 		.from("backdrops")
 		.select(
-			"id, code, name, type, rental_price, is_active, display_order, description",
+			"id, code, name, type, rental_price, is_active, display_order, description, stock_qty",
 		)
 		.order("display_order", { ascending: true })
 		.order("name", { ascending: true });

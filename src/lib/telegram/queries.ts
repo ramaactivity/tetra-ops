@@ -298,7 +298,7 @@ export async function buildAdaText(arg: string): Promise<string> {
 	const { data, error } = await admin
 		.from("events")
 		.select(
-			"client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
+			"client_name, start_time, end_time, session_segments, venue_city, status, unit_count, package:packages(duration_hours)",
 		)
 		.eq("event_date", dateISO)
 		.is("deleted_at", null);
@@ -311,6 +311,7 @@ export async function buildAdaText(arg: string): Promise<string> {
 		session_segments: unknown;
 		venue_city: string | null;
 		status: string | null;
+		unit_count: number | null;
 		package: { duration_hours: number | null } | null;
 	};
 	const NON_LOCKING = new Set(["cancelled", "archived"]);
@@ -325,6 +326,7 @@ export async function buildAdaText(arg: string): Promise<string> {
 			// jadi /ada dulu bisa bilang "penuh" untuk jam yang sebenarnya bebas.
 			session_segments: r.session_segments,
 			venue_city: r.venue_city,
+			units: r.unit_count ?? 1,
 			package_duration_hours: r.package?.duration_hours ?? null,
 		}));
 

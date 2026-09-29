@@ -33,6 +33,8 @@ export type AssignmentRow = {
 	fee_amount: number;
 	bonus_amount: number;
 	fee_override_reason: string | null;
+	/** Event multi-unit: spot tempat crew bertugas (default 1). */
+	spot_no?: number;
 };
 
 export function CrewAssignmentList({

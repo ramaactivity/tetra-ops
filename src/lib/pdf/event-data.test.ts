@@ -41,3 +41,29 @@ test("event ukuran menyusul: detail tanpa 'null'", () => {
 	assert.equal(named[0].label, "4R Unlimited 3 Jam");
 	assert.equal(named[0].detail, "Durasi 3 jam · Format 4R");
 });
+
+test("event 2 unit: qty 2 × harga per unit, format per spot", () => {
+	const ev = {
+		package_name: "4R Unlimited 3 Jam",
+		package_duration_hours: 3,
+		base_price: 5_000_000,
+		frame_size: "4R",
+		unit_count: 2,
+		spots: [{ spot: 2, frame_size: "2R", backdrop_id: null }],
+		addons: [],
+		backdrop_rental_total: 0,
+	} as unknown as EventForPdf;
+	const [item] = buildLineItems(ev);
+	assert.equal(item.quantity, 2);
+	assert.equal(item.unitPrice, 2_500_000);
+	assert.equal(item.total, 5_000_000);
+	assert.equal(
+		item.detail,
+		"Durasi 3 jam · 2 unit photobooth (2 spot) · Spot 1: Format 4R · Spot 2: Format 2R",
+	);
+	const same = buildLineItems({ ...ev, spots: [] } as EventForPdf)[0];
+	assert.equal(
+		same.detail,
+		"Durasi 3 jam · 2 unit photobooth (2 spot) · Format 4R",
+	);
+});

@@ -105,12 +105,12 @@ export default async function EventDetailPage({
 			pic_contact:contacts!events_pic_contact_id_fkey(id, name, phone, type, legacy_contact_id),
 			design_brief_at, design_approved_at, design_drive_folder_url, design_status,
 			drive_folder_id, drive_folder_url, drive_folder_created_at,
-			backdrop_id, vendor_decor_markup,
+			backdrop_id, vendor_decor_markup, unit_count, spots,
 			backdrop:backdrops(name, type, rental_price),
 			package:packages(id, name, base_price, duration_hours, frame_size),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
-			crew_assignments:crew_assignments(id, user_id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
+			crew_assignments:crew_assignments(id, user_id, role_in_event, spot_no, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
 			settlement:event_settlements(
 				id, revenue_net, hpp_total, opex_total, total_biaya, net_profit,
 				margin_percentage, is_loss, sinking_total, owner_pool_total,
@@ -205,6 +205,7 @@ export default async function EventDetailPage({
 		id: string;
 		user_id: string;
 		role_in_event: string;
+		spot_no: number | null;
 		fee_amount: number;
 		bonus_amount: number | null;
 		fee_override_reason: string | null;
@@ -223,6 +224,7 @@ export default async function EventDetailPage({
 			id: row.id,
 			user_id: row.user_id,
 			role_in_event: row.role_in_event,
+			spot_no: row.spot_no ?? 1,
 			fee_amount: row.fee_amount,
 			bonus_amount: row.bonus_amount ?? 0,
 			fee_override_reason: row.fee_override_reason,
@@ -327,6 +329,34 @@ export default async function EventDetailPage({
 		completed: "bg-emerald-300",
 		cancelled: "bg-rose-300",
 	};
+
+	// Event multi-unit: tiap spot boleh beda ukuran frame & backdrop.
+	const unitCount = Math.max(1, Number(event.unit_count ?? 1));
+	const spotOverrides = (event.spots ?? []) as Array<{
+		spot: number;
+		frame_size: string | null;
+		backdrop_id: string | null;
+	}>;
+	const spotBackdropIds = spotOverrides
+		.map((x) => x.backdrop_id)
+		.filter((x): x is string => Boolean(x));
+	const { data: spotBackdrops } = spotBackdropIds.length
+		? await supabase
+				.from("backdrops")
+				.select("id, name")
+				.in("id", spotBackdropIds)
+		: { data: [] as Array<{ id: string; name: string }> };
+	const spotSummary =
+		unitCount > 1
+			? Array.from({ length: unitCount - 1 }, (_, i) => i + 2).map((n) => {
+					const o = spotOverrides.find((x) => x.spot === n);
+					const frame = o?.frame_size ?? event.frame_size;
+					const bd = o?.backdrop_id
+						? spotBackdrops?.find((b) => b.id === o.backdrop_id)?.name
+						: null;
+					return `Spot ${n}: ${frame ? (FRAME_SIZE_LABELS[frame] ?? frame) : "frame menyusul"} · ${bd ?? "backdrop menyusul"}`;
+				})
+			: [];
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -475,7 +505,13 @@ export default async function EventDetailPage({
 				venueName={event.venue_name}
 				venueCity={event.venue_city ?? null}
 				venueAddress={event.venue_address ?? null}
-				packageName={pkg?.name ?? null}
+				packageName={
+					pkg?.name
+						? unitCount > 1
+							? `${pkg.name} × ${unitCount} unit`
+							: pkg.name
+						: null
+				}
 				packageDurationHours={
 					pkg?.duration_hours
 						? pkg.duration_hours +
@@ -492,7 +528,13 @@ export default async function EventDetailPage({
 						? (FRAME_SIZE_LABELS[event.frame_size] ?? event.frame_size)
 						: null
 				}
-				backdropName={backdrop?.name ?? null}
+				backdropName={
+					unitCount > 1
+						? [`Spot 1: ${backdrop?.name ?? "menyusul"}`, ...spotSummary].join(
+								" · ",
+							)
+						: (backdrop?.name ?? null)
+				}
 				includeFlashdiskPouch={event.include_flashdisk_pouch}
 				crewNotes={event.crew_notes}
 				crewAssignments={recapCrew}
@@ -504,6 +546,7 @@ export default async function EventDetailPage({
 							assignments={crewAssignmentRows}
 							availableCrew={assignableCrew}
 							event={eventForWA}
+							unitCount={unitCount}
 						/>
 					) : undefined
 				}

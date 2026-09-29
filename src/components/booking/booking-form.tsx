@@ -239,6 +239,10 @@ export type BookingFormDefaults = Partial<{
 	pic_name: string;
 	pic_wa: string;
 	backdrop_id: string;
+	/** Jumlah unit/spot photobooth (1–3). */
+	unit_count: number | string;
+	/** JSON [{spot, frame_size, backdrop_id}] untuk spot ≥2. */
+	spots: string;
 	vendor_decor_markup: number;
 	include_flashdisk_pouch: boolean;
 	base_price: number;
@@ -580,6 +584,39 @@ export function BookingForm({
 	// ikut kurang 1,5jt.
 	const [basePriceTouched, setBasePriceTouched] = useState(false);
 
+	// === Multi-unit: 2–3 photobooth (spot) di satu event. Harga = paket × unit.
+	const [unitCount, setUnitCount] = useState<number>(() =>
+		Math.min(3, Math.max(1, Number(get("unit_count", "1")) || 1)),
+	);
+	type SpotRow = { spot: number; frame_size: string; backdrop_id: string };
+	const [spots, setSpots] = useState<SpotRow[]>(() => {
+		try {
+			const raw = JSON.parse(get("spots", "[]") || "[]") as Array<
+				Partial<SpotRow>
+			>;
+			return raw
+				.filter((x) => typeof x.spot === "number")
+				.map((x) => ({
+					spot: x.spot as number,
+					frame_size: x.frame_size ?? "",
+					backdrop_id: x.backdrop_id ?? "",
+				}));
+		} catch {
+			return [];
+		}
+	});
+	const spotRow = (n: number): SpotRow =>
+		spots.find((x) => x.spot === n) ?? {
+			spot: n,
+			frame_size: "",
+			backdrop_id: "",
+		};
+	const patchSpot = (n: number, patch: Partial<SpotRow>) =>
+		setSpots((prev) => [
+			...prev.filter((x) => x.spot !== n),
+			{ ...spotRow(n), ...patch },
+		]);
+
 	const selectedPkg = useMemo(
 		() => packages.find((p) => p.id === packageId),
 		[packageId, packages],
@@ -880,12 +917,20 @@ export function BookingForm({
 	);
 	const isVendorDecor = selectedBackdrop?.type === "vendor_decor";
 	const backdropContribution = useMemo(() => {
-		if (!selectedBackdrop) return 0;
+		// Sewa backdrop spot 2/3 (kalau premium) ikut ditagih.
+		const spotRental = spots
+			.filter((x) => x.spot <= unitCount && x.backdrop_id)
+			.reduce((sum, x) => {
+				const b = backdrops.find((bd) => bd.id === x.backdrop_id);
+				return sum + (b?.type === "rental_owned" ? b.rental_price : 0);
+			}, 0);
+		if (!selectedBackdrop) return spotRental;
 		if (selectedBackdrop.type === "rental_owned")
-			return selectedBackdrop.rental_price;
-		if (selectedBackdrop.type === "vendor_decor") return vendorMarkup;
-		return 0;
-	}, [selectedBackdrop, vendorMarkup]);
+			return selectedBackdrop.rental_price + spotRental;
+		if (selectedBackdrop.type === "vendor_decor")
+			return vendorMarkup + spotRental;
+		return spotRental;
+	}, [selectedBackdrop, vendorMarkup, spots, unitCount, backdrops]);
 
 	// === Location
 	const [venueName, setVenueName] = useState(get("venue_name"));
@@ -1047,7 +1092,6 @@ export function BookingForm({
 		}
 		return lines.sort((x, y) => y.total - x.total);
 	}, [addons, selectedAddons]);
-
 
 	function addBonusRow(addonId: string) {
 		setBonusRows((prev) => {
@@ -1242,13 +1286,24 @@ export function BookingForm({
 	 * Satu dropdown, dua jenis pilihan: paket konkret (uuid) atau paket
 	 * sementara berbasis durasi ("dur:2") saat ukuran masih menyusul.
 	 */
+	// Ganti jumlah unit → harga dasar = harga paket × unit (selama belum diketik
+	// manual). Harga khusus cukup lewat kolom diskon.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: hanya bereaksi ke jumlah unit
+	useEffect(() => {
+		if (basePriceTouched) return;
+		const perUnit =
+			selectedPkg?.base_price ??
+			durationChoices.find((d) => String(d.hours) === pendingHours)?.price;
+		if (perUnit) setBasePrice(perUnit * unitCount);
+	}, [unitCount]);
+
 	function handlePackageChange(value: string) {
 		if (value.startsWith("dur:")) {
 			const hours = Number(value.slice(4));
 			setPackageId("");
 			setPendingHours(String(hours));
 			const opt = durationChoices.find((d) => d.hours === hours);
-			if (opt && !basePriceTouched) setBasePrice(opt.price);
+			if (opt && !basePriceTouched) setBasePrice(opt.price * unitCount);
 			return;
 		}
 		setPackageId(value);
@@ -1258,7 +1313,7 @@ export function BookingForm({
 			// Ikuti harga paket selama owner belum menimpanya manual — termasuk
 			// saat berpindah antar-paket berkali-kali.
 			if (pkg && !basePriceTouched) {
-				setBasePrice(pkg.base_price);
+				setBasePrice(pkg.base_price * unitCount);
 			}
 		}
 	}
@@ -1281,7 +1336,7 @@ export function BookingForm({
 			if (swapped) {
 				if (swapped.id !== packageId) {
 					setPackageId(swapped.id);
-					if (!basePriceTouched) setBasePrice(swapped.base_price);
+					if (!basePriceTouched) setBasePrice(swapped.base_price * unitCount);
 					toast.success(`Paket ikut disesuaikan → ${swapped.name}`);
 				}
 				setPendingHours("");
@@ -1312,7 +1367,7 @@ export function BookingForm({
 			if (exact) {
 				setPackageId(exact.id);
 				setPendingHours("");
-				if (!basePriceTouched) setBasePrice(exact.base_price);
+				if (!basePriceTouched) setBasePrice(exact.base_price * unitCount);
 				toast.success(`Ukuran ${next} → paket dikunci: ${exact.name}`);
 			}
 		}
@@ -2734,6 +2789,105 @@ export function BookingForm({
 								value={packageId ? "" : pendingHours}
 							/>
 						</Field>
+
+						<Field
+							label="Jumlah unit / spot"
+							name="unit_count"
+							hint={
+								unitCount > 1
+									? `${unitCount} photobooth di lokasi yang sama — harga otomatis paket × ${unitCount}. Harga khusus? Isi di kolom Diskon.`
+									: "Klien pesan lebih dari 1 photobooth di acara yang sama? Pilih 2 atau 3."
+							}
+						>
+							<div className="flex flex-wrap gap-2">
+								{[1, 2, 3].map((n) => (
+									<button
+										key={n}
+										type="button"
+										onClick={() => setUnitCount(n)}
+										aria-pressed={unitCount === n}
+										className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
+											unitCount === n
+												? "border-transparent bg-foreground text-background"
+												: "border-border-default bg-card hover:bg-secondary"
+										}`}
+									>
+										{n} unit
+									</button>
+								))}
+							</div>
+							<input type="hidden" name="unit_count" value={unitCount} />
+							<input
+								type="hidden"
+								name="spots"
+								value={JSON.stringify(
+									spots
+										.filter((x) => x.spot <= unitCount)
+										.map((x) => ({
+											spot: x.spot,
+											frame_size: x.frame_size || null,
+											backdrop_id: x.backdrop_id || null,
+										})),
+								)}
+							/>
+						</Field>
+
+						{unitCount > 1 ? (
+							<div className="fade-in-on-mount space-y-3 rounded-xl border border-border-default bg-secondary/40 p-3">
+								<p className="text-[12.5px] text-muted-foreground">
+									<b className="text-foreground">Spot 1</b> memakai Frame Size &
+									Backdrop utama di form ini. Spot lain boleh beda ukuran frame
+									(kosong = ikut Spot 1). Tiap spot butuh backdrop fisik sendiri
+									— warna sama hanya bisa kalau pcs-nya cukup di master
+									Backdrop.
+								</p>
+								{Array.from({ length: unitCount - 1 }, (_, i) => i + 2).map(
+									(n) => (
+										<div
+											key={n}
+											className="grid gap-3 sm:grid-cols-[80px_1fr_1fr] sm:items-center"
+										>
+											<span className="text-[13.5px] font-semibold">
+												Spot {n}
+											</span>
+											<Combobox
+												value={spotRow(n).frame_size}
+												onValueChange={(v) => patchSpot(n, { frame_size: v })}
+												placeholder="Frame ikut Spot 1"
+												options={[
+													{ value: "", label: "Frame ikut Spot 1" },
+													...FRAME_SIZE_OPTIONS.filter(
+														([v]) => v !== "none",
+													).map(([value, label]) => ({
+														value,
+														label: `Frame ${label}`,
+													})),
+												]}
+												allowFreeText={false}
+												aria-label={`Frame spot ${n}`}
+											/>
+											<Combobox
+												value={spotRow(n).backdrop_id}
+												onValueChange={(v) => patchSpot(n, { backdrop_id: v })}
+												placeholder="Backdrop menyusul"
+												options={[
+													{ value: "", label: "Backdrop menyusul" },
+													...backdrops.map((b) => ({
+														value: b.id,
+														label:
+															b.type === "rental_owned" && b.rental_price > 0
+																? `${b.name} · ${formatRupiah(b.rental_price)}`
+																: b.name,
+													})),
+												]}
+												allowFreeText={false}
+												aria-label={`Backdrop spot ${n}`}
+											/>
+										</div>
+									),
+								)}
+							</div>
+						) : null}
 					</Section>
 
 					{/* === 6. CUSTOMIZATION & BACKDROP === */}

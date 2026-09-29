@@ -28,6 +28,14 @@ export type EventForPdf = {
 	pic_name: string | null;
 	pic_wa: string | null;
 	frame_size: string;
+	/** Jumlah unit/spot photobooth (base_price = total semua unit). */
+	unit_count: number;
+	/** Override spot ≥2: ukuran frame & backdrop per spot. */
+	spots: Array<{
+		spot: number;
+		frame_size: string | null;
+		backdrop_id: string | null;
+	}>;
 	event_date: string;
 	setup_time: string | null;
 	start_time: string | null;
@@ -99,7 +107,7 @@ export async function fetchEventForPdf(
 			event_category, bill_to_mode, bill_to_name, bill_to_attn,
 			client_wa, client_email,
 			pic_name, pic_wa,
-			frame_size, event_date, setup_time, start_time, end_time, session_segments,
+			frame_size, unit_count, spots, event_date, setup_time, start_time, end_time, session_segments,
 			venue_name, venue_address, venue_city,
 			due_date,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
@@ -195,6 +203,8 @@ export async function fetchEventForPdf(
 		pic_name: (ev.pic_name as string | null) ?? null,
 		pic_wa: (ev.pic_wa as string | null) ?? null,
 		frame_size: ev.frame_size as string,
+		unit_count: Number(ev.unit_count ?? 1) || 1,
+		spots: (ev.spots as EventForPdf["spots"] | null) ?? [],
 		event_date: ev.event_date as string,
 		setup_time: (ev.setup_time as string | null) ?? null,
 		start_time: (ev.start_time as string | null) ?? null,
@@ -281,7 +291,24 @@ export function buildLineItems(ev: EventForPdf) {
 		? ev.base_price
 		: (ev.custom_package_price ?? ev.base_price);
 	if (packagePrice > 0) {
-		const fmt = frameFormatLabel(ev.frame_size);
+		const units = Math.max(1, ev.unit_count ?? 1);
+		// Format per spot: spot 1 = kolom event, spot ≥2 = override (kosong = ikut 1).
+		const formats =
+			units > 1
+				? Array.from({ length: units }, (_, i) => {
+						const own = ev.spots?.find((x) => x.spot === i + 1)?.frame_size;
+						return frameFormatLabel(
+							i === 0 ? ev.frame_size : (own ?? ev.frame_size),
+						);
+					})
+				: [frameFormatLabel(ev.frame_size)];
+		const sameFormat = formats.every((f) => f === formats[0]);
+		const fmtText = sameFormat
+			? formats[0]
+			: formats.map((f, i) => `Spot ${i + 1}: ${f ?? "—"}`).join(" · ");
+		// base_price = total semua unit; tampilkan qty × harga per unit kalau bulat.
+		const perUnit = packagePrice / units;
+		const splitQty = units > 1 && Number.isInteger(perUnit);
 		items.push({
 			label: packageLabel,
 			detail:
@@ -289,12 +316,13 @@ export function buildLineItems(ev: EventForPdf) {
 					ev.package_duration_hours
 						? `Durasi ${ev.package_duration_hours} jam`
 						: null,
-					fmt,
+					units > 1 ? `${units} unit photobooth (${units} spot)` : null,
+					fmtText,
 				]
 					.filter(Boolean)
 					.join(" · ") || undefined,
-			quantity: 1,
-			unitPrice: packagePrice,
+			quantity: splitQty ? units : 1,
+			unitPrice: splitQty ? perUnit : packagePrice,
 			total: packagePrice,
 		});
 	}
@@ -332,7 +360,7 @@ export function buildDeliverables(ev: EventForPdf) {
 		label: `${packageLabel}${
 			ev.package_duration_hours ? ` (${ev.package_duration_hours} jam)` : ""
 		}`,
-		quantity: 1,
+		quantity: Math.max(1, ev.unit_count ?? 1),
 		notes: frameFormatLabel(ev.frame_size) ?? undefined,
 	});
 	for (const a of ev.addons) {

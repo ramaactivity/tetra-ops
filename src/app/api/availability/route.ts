@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 	const { data, error } = await supabase
 		.from("events")
 		.select(
-			"event_date, client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
+			"event_date, client_name, start_time, end_time, session_segments, venue_city, status, unit_count, package:packages(duration_hours)",
 		)
 		.in("event_date", [prevDate, date])
 		.is("deleted_at", null);
@@ -92,6 +92,7 @@ export async function GET(req: NextRequest) {
 		session_segments: unknown;
 		venue_city: string | null;
 		status: string | null;
+		unit_count: number | null;
 		// to-one embed → object (atau null), bukan array.
 		package: { duration_hours: number | null } | null;
 	};
@@ -111,6 +112,7 @@ export async function GET(req: NextRequest) {
 			// Event H-1 digeser ke kerangka waktu tanggal yang diminta, supaya
 			// ekor buffer-nya yang melewati tengah malam tetap terhitung.
 			day_offset_min: r.event_date === prevDate ? -1440 : 0,
+			units: r.unit_count ?? 1,
 		}));
 
 	// Booking Masuk: klien sudah DP tapi event belum diinput → tetap menahan

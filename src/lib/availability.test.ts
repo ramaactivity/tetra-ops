@@ -180,3 +180,21 @@ test("item Booking Masuk tanpa jam → tahan seharian", async () => {
 	});
 	assert.equal(res.units_free, 2);
 });
+
+test("event 2 unit memakai 2 unit sekaligus", () => {
+	const res = computeAvailability({
+		reqStart: HHMM(12),
+		reqEnd: HHMM(13),
+		reqCity: "Bogor",
+		events: [
+			ev({
+				start_time: "10:00",
+				end_time: "15:00",
+				venue_city: "Bogor",
+				units: 2,
+			}),
+		],
+	});
+	assert.equal(res.units_free, 1);
+	assert.match(res.conflicts[0].project, /2 unit/);
+});

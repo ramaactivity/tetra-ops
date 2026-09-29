@@ -209,6 +209,24 @@ const CustomMaterialsSchema = z
 
 const RekapInputSchema = z.object({
 	cetak_total: NonNegInt,
+	/** Event multi-spot: rincian opsional cetak per spot {"1": n, "2": m}. */
+	spot_cetak: z
+		.string()
+		.nullish()
+		.transform((raw) => {
+			if (!raw) return null;
+			try {
+				const o = JSON.parse(raw) as Record<string, unknown>;
+				const out: Record<string, number> = {};
+				for (const [k, v] of Object.entries(o)) {
+					const n = Math.max(0, Math.round(Number(v)));
+					if (/^[1-3]$/.test(k) && Number.isFinite(n)) out[k] = n;
+				}
+				return Object.keys(out).length ? out : null;
+			} catch {
+				return null;
+			}
+		}),
 	media_set_used: NonNegInt,
 	sleeve_used: NonNegInt,
 	flashdisk_used: NonNegInt,
@@ -367,6 +385,11 @@ export type RekapContext = {
 	 * tahu kartu mana yang perlu diisi, tanpa melihat nominal saldo.
 	 */
 	cards: Array<{ id: string; name: string; balance?: number; isLow: boolean }>;
+	/**
+	 * Event multi-unit: jumlah spot + ukuran frame tiap spot (index 0 = spot 1).
+	 * Rekap tetap satu per event — crew mengisi TOTAL semua spot.
+	 */
+	spots: { unitCount: number; frames: Array<string | null> };
 };
 
 export async function getRekapContext(
@@ -392,7 +415,7 @@ export async function getRekapContext(
 	const { data: event, error: evErr } = await supabase
 		.from("events")
 		.select(
-			`id, include_flashdisk_pouch, frame_size,
+			`id, include_flashdisk_pouch, frame_size, unit_count, spots,
 			package:packages(name, duration_hours, bundle_id,
 			  bundle:item_bundles(id, name, is_active,
 			    ${bundleComponentSelect}
@@ -790,6 +813,23 @@ export async function getRekapContext(
 		})),
 		mappings: mappings.map((m) => ({ ...m, item: stripItem(m.item) })),
 		cards,
+		spots: (() => {
+			const unitCount = Math.max(1, Number(event.unit_count ?? 1));
+			const over = (event.spots ?? []) as Array<{
+				spot: number;
+				frame_size: string | null;
+			}>;
+			return {
+				unitCount,
+				frames: Array.from({ length: unitCount }, (_, i) =>
+					i === 0
+						? ((event.frame_size as string | null) ?? null)
+						: (over.find((x) => x.spot === i + 1)?.frame_size ??
+							(event.frame_size as string | null) ??
+							null),
+				),
+			};
+		})(),
 		custom_inventory: custom_inventory.map(stripPrice),
 		crew,
 	};
@@ -798,6 +838,7 @@ export async function getRekapContext(
 function snapshotValues(formData: FormData): Record<string, string> {
 	const keys = [
 		"cetak_total",
+		"spot_cetak",
 		"media_set_used",
 		"sleeve_used",
 		"flashdisk_used",
@@ -834,6 +875,7 @@ export async function submitRekap(
 
 	const parsed = RekapInputSchema.safeParse({
 		cetak_total: formData.get("cetak_total"),
+		spot_cetak: formData.get("spot_cetak"),
 		media_set_used: formData.get("media_set_used"),
 		sleeve_used: formData.get("sleeve_used"),
 		flashdisk_used: formData.get("flashdisk_used"),
@@ -944,6 +986,7 @@ export async function submitRekap(
 		status: "submitted" as const,
 		frame_size_snapshot: eventSnap?.frame_size ?? null,
 		cetak_total: parsed.data.cetak_total,
+		spot_cetak: parsed.data.spot_cetak,
 		media_set_used: parsed.data.media_set_used,
 		sleeve_used: parsed.data.sleeve_used,
 		flashdisk_used: parsed.data.flashdisk_used,

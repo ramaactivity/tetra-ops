@@ -19,6 +19,8 @@ const AssignSchema = z.object({
 	event_id: z.uuid(),
 	user_id: z.uuid(),
 	role_in_event: z.enum(ROLES),
+	/** Event multi-unit: crew bertugas di spot mana (1–3). */
+	spot_no: z.coerce.number().int().min(1).max(3).catch(1),
 });
 
 const UpdateSchema = z.object({
@@ -79,6 +81,7 @@ export async function assignCrew(
 		event_id: formData.get("event_id"),
 		user_id: formData.get("user_id"),
 		role_in_event: formData.get("role_in_event"),
+		spot_no: formData.get("spot_no") ?? 1,
 	});
 	if (!res.error) {
 		revalidatePath(`/operations/${projectId}`);
@@ -108,6 +111,7 @@ export async function assignCrewCore(
 		event_id: parsed.data.event_id,
 		user_id: parsed.data.user_id,
 		role_in_event: parsed.data.role_in_event,
+		spot_no: parsed.data.spot_no,
 		fee_amount: fee,
 		assigned_by: actorId,
 	});
@@ -123,7 +127,7 @@ export async function assignCrewCore(
 	const nama = (u?.nickname as string | null)?.trim() || u?.full_name || "Crew";
 	await notifyTelegramCrewChanged(
 		parsed.data.event_id,
-		`➕ ${tgEscape(nama)} ditugaskan sebagai ${ROLE_LABEL[parsed.data.role_in_event]}`,
+		`➕ ${tgEscape(nama)} ditugaskan sebagai ${ROLE_LABEL[parsed.data.role_in_event]}${parsed.data.spot_no > 1 ? ` (Spot ${parsed.data.spot_no})` : ""}`,
 	);
 	return {};
 }

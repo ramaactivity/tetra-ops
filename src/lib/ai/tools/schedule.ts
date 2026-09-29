@@ -433,7 +433,7 @@ export const cekKetersediaan: AiTool = {
 		const { data, error } = await ctx.supabase
 			.from("events")
 			.select(
-				"client_name, start_time, end_time, session_segments, venue_city, status, package:packages(duration_hours)",
+				"client_name, start_time, end_time, session_segments, venue_city, status, unit_count, package:packages(duration_hours)",
 			)
 			.eq("event_date", tanggal)
 			.is("deleted_at", null);
@@ -448,6 +448,7 @@ export const cekKetersediaan: AiTool = {
 				session_segments: unknown;
 				venue_city: string | null;
 				status: string | null;
+				unit_count: number | null;
 				package: { duration_hours: number | null } | null;
 			}>
 		)
@@ -458,6 +459,7 @@ export const cekKetersediaan: AiTool = {
 				end_time: r.end_time,
 				session_segments: r.session_segments,
 				venue_city: r.venue_city,
+				units: r.unit_count ?? 1,
 				package_duration_hours: r.package?.duration_hours ?? null,
 			}));
 

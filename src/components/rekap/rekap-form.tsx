@@ -52,6 +52,8 @@ const FALLBACK_LEMBAR_PER_ROLL = 1400;
 
 type Defaults = {
 	cetak_total: string;
+	/** JSON {"1": n, "2": m} — rincian cetak per spot (event multi-unit). */
+	spot_cetak?: string;
 	media_set_used: string;
 	sleeve_used: string;
 	flashdisk_used: string;
@@ -167,6 +169,21 @@ export function RekapForm({
 
 	// === Quantity state (numeric) ===
 	const [cetak, setCetak] = useState(get("cetak_total"));
+	// Event multi-spot: cetak per spot (opsional) → total otomatis dijumlah.
+	const unitCount = context.spots?.unitCount ?? 1;
+	const [spotCetak, setSpotCetak] = useState<Record<string, string>>(() => {
+		try {
+			const o = JSON.parse(defaults.spot_cetak || "{}") as Record<
+				string,
+				number
+			>;
+			return Object.fromEntries(
+				Object.entries(o).map(([k, v]) => [k, String(v)]),
+			);
+		} catch {
+			return {};
+		}
+	});
 	const [media, setMedia] = useState(get("media_set_used"));
 	const [sleeve, setSleeve] = useState(get("sleeve_used"));
 	// Dependent ke flag event (include_flashdisk_pouch): event PAKAI flashdisk →
@@ -971,8 +988,41 @@ export function RekapForm({
 						title="Cetak"
 						description="Cuma isi total cetak — mediaset + sleeve auto-hitung dari mapping per frame size."
 					>
+						{unitCount > 1 ? (
+							<SpotCetak
+								unitCount={unitCount}
+								frames={context.spots.frames}
+								values={spotCetak}
+								onChange={(next) => {
+									setSpotCetak(next);
+									// Stok kertas & sleeve dipotong mengikuti ukuran Spot 1, jadi
+									// total hanya menjumlah spot berukuran sama. Spot beda ukuran
+									// dicatat lewat "Tambah item lain" (lihat SpotCetak).
+									const base = context.spots.frames[0];
+									const sum = Object.entries(next)
+										.filter(([k]) => {
+											const f = context.spots.frames[Number(k) - 1];
+											return !f || !base || f === base;
+										})
+										.reduce((t, [, v]) => t + (Number(v) || 0), 0);
+									if (sum > 0) {
+										setCetak(String(sum));
+										markTouched("cetak_total");
+									}
+								}}
+							/>
+						) : null}
+						<input
+							type="hidden"
+							name="spot_cetak"
+							value={unitCount > 1 ? JSON.stringify(spotCetak) : ""}
+						/>
 						<NumField
-							label="Total cetak (pcs)"
+							label={
+								unitCount > 1
+									? "Total cetak semua spot (pcs)"
+									: "Total cetak (pcs)"
+							}
 							name="cetak_total"
 							value={cetak}
 							onChange={(v) => {
@@ -1354,13 +1404,13 @@ export function RekapForm({
 								key={opt.key}
 								type="button"
 								onClick={() => {
-							setTransportMethod(opt.key);
-							// Crew tidak tahu harga sewa mobil — force ke owner.
-							if (isCrew && opt.key === "rental") {
-								setPaidByKey("transport", "owner");
-								setTransportCost("0");
-							}
-						}}
+									setTransportMethod(opt.key);
+									// Crew tidak tahu harga sewa mobil — force ke owner.
+									if (isCrew && opt.key === "rental") {
+										setPaidByKey("transport", "owner");
+										setTransportCost("0");
+									}
+								}}
 								className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
 									active
 										? "border-primary bg-primary/10 text-foreground"
@@ -1418,14 +1468,17 @@ export function RekapForm({
 						{isCrew ? (
 							/* Crew tidak tahu harga sewa — info saja, nominal diisi owner. */
 							<div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80 dark:border-sky-900/60 dark:bg-sky-950/20">
-								<Info className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+								<Info
+									className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400"
+									aria-hidden
+								/>
 								<div className="space-y-1">
 									<p className="font-medium text-foreground">
 										Nominal sewa mobil akan diisi owner.
 									</p>
 									<p>
-										Kamu cukup pilih &ldquo;Sewa mobil&rdquo; dan isi bensin
-										di bawah. Kalau ada nota/struk sewa, boleh di-upload.
+										Kamu cukup pilih &ldquo;Sewa mobil&rdquo; dan isi bensin di
+										bawah. Kalau ada nota/struk sewa, boleh di-upload.
 									</p>
 								</div>
 							</div>
@@ -1559,12 +1612,14 @@ export function RekapForm({
 							)}
 						</div>
 						<p className="text-muted-foreground text-fluid-caption">
-							Biaya insidental di luar kategori atas — mis. P3K, obat, tisu, parkir tambahan.
+							Biaya insidental di luar kategori atas — mis. P3K, obat, tisu,
+							parkir tambahan.
 						</p>
 					</div>
 					{lainnyaItems.length === 0 ? (
 						<p className="text-muted-foreground text-fluid-caption italic">
-							Belum ada item. Tekan &ldquo;+ Tambah baris&rdquo; untuk menambahkan.
+							Belum ada item. Tekan &ldquo;+ Tambah baris&rdquo; untuk
+							menambahkan.
 						</p>
 					) : (
 						<ul className="space-y-2">
@@ -1630,7 +1685,9 @@ export function RekapForm({
 											seq={`lainnya-${idx}`}
 											label={`Nota ${row.note || "lain-lain"}`}
 											value={row.nota_url}
-											onChange={(url) => updateLainnyaRow(idx, { nota_url: url })}
+											onChange={(url) =>
+												updateLainnyaRow(idx, { nota_url: url })
+											}
 										/>
 									)}
 								</li>
@@ -2379,3 +2436,62 @@ function extractName(url: string): string {
 // is < 16px. h-11 = 44px touch target.
 const inputClass =
 	"h-11 w-full rounded-xl border border-border-default bg-background px-3.5 text-[1rem] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none";
+
+/**
+ * Event multi-spot: rekap tetap satu per event. Crew mengisi cetak per spot
+ * (total dijumlah otomatis). Spot dengan ukuran frame beda dari Spot 1 →
+ * kertasnya dicatat lewat "Tambah item lain" supaya stok ukuran itu yang
+ * berkurang (pengurangan otomatis mengikuti ukuran Spot 1).
+ */
+function SpotCetak({
+	unitCount,
+	frames,
+	values,
+	onChange,
+}: {
+	unitCount: number;
+	frames: Array<string | null>;
+	values: Record<string, string>;
+	onChange: (next: Record<string, string>) => void;
+}) {
+	const base = frames[0];
+	const differing = frames
+		.map((f, i) => ({ spot: i + 1, frame: f }))
+		.filter((x) => x.spot > 1 && x.frame && base && x.frame !== base);
+	return (
+		<div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-[13px] text-sky-950">
+			<p>
+				Event ini <b>{unitCount} spot</b>. Isi cetak tiap spot — total & bahan
+				dihitung dari jumlah semua spot. Flashdisk & pouch tetap 1 untuk klien.
+			</p>
+			<div className="grid gap-2 sm:grid-cols-3">
+				{Array.from({ length: unitCount }, (_, i) => String(i + 1)).map((k) => (
+					<label key={k} className="space-y-1">
+						<span className="text-[12px] font-medium">
+							Cetak Spot {k}
+							{frames[Number(k) - 1] ? ` · ${frames[Number(k) - 1]}` : ""}
+						</span>
+						<input
+							type="number"
+							inputMode="numeric"
+							min={0}
+							value={values[k] ?? ""}
+							onChange={(e) => onChange({ ...values, [k]: e.target.value })}
+							className="h-10 w-full rounded-lg border border-border-default bg-card px-3 tabular"
+							aria-label={`Cetak spot ${k}`}
+						/>
+					</label>
+				))}
+			</div>
+			{differing.length > 0 ? (
+				<p className="text-[12px] text-sky-900/90">
+					{differing.map((d) => `Spot ${d.spot} (${d.frame})`).join(", ")} beda
+					ukuran dari Spot 1 ({base}) — cetakannya <b>tidak</b> ikut Total cetak
+					di bawah. Catat kertas & sleeve{" "}
+					{differing.map((d) => d.frame).join("/")}-nya lewat{" "}
+					<b>Tambah item lain</b> supaya stok ukuran itu yang berkurang.
+				</p>
+			) : null}
+		</div>
+	);
+}
