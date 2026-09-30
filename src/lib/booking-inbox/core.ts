@@ -36,6 +36,8 @@ export const INBOX_DATA_KEYS = [
 	"lokasi",
 	"maps",
 	"paket",
+	/** Event multi-unit: jumlah booth yang diminta klien ("2", "2 unit"). */
+	"jumlah_unit",
 	"jumlah_tamu",
 	"pic",
 	"kontak_wo",
@@ -58,6 +60,7 @@ export const INBOX_DATA_LABEL: Record<InboxDataKey, string> = {
 	lokasi: "Lokasi",
 	maps: "Maps",
 	paket: "Paket",
+	jumlah_unit: "Jumlah unit",
 	jumlah_tamu: "Jumlah tamu",
 	pic: "PIC",
 	kontak_wo: "Kontak WO",

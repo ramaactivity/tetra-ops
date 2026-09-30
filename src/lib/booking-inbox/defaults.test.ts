@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { PackageOption } from "@/components/booking/booking-form";
-import { inboxToBookingDefaults, parsePic } from "./defaults";
+import { inboxToBookingDefaults, parsePic, parseUnitCount } from "./defaults";
 
 const pkg = (
 	id: string,
@@ -152,4 +152,24 @@ test("jam tunggal & PIC berbagai bentuk", () => {
 		wa: "081234567890",
 	});
 	assert.deepEqual(parsePic("Dimas"), { name: "Dimas", wa: "" });
+});
+
+test("jumlah_unit → unit_count & harga × unit", () => {
+	assert.equal(parseUnitCount("2"), 2);
+	assert.equal(parseUnitCount("2 unit"), 2);
+	assert.equal(parseUnitCount("dua booth"), 2);
+	assert.equal(parseUnitCount("5"), 3);
+	assert.equal(parseUnitCount(null), 1);
+	const one = inboxToBookingDefaults(
+		item({ paket: "3 jam", ukuran_frame: "4R" }),
+		packages,
+		backdrops,
+	);
+	const two = inboxToBookingDefaults(
+		item({ paket: "3 jam", ukuran_frame: "4R", jumlah_unit: "2 unit" }),
+		packages,
+		backdrops,
+	);
+	assert.equal(two.unit_count, 2);
+	assert.equal(Number(two.base_price), Number(one.base_price) * 2);
 });

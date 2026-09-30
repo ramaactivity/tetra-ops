@@ -283,6 +283,11 @@ async function diffWithEvent(item: InboxRow, ev: EventSnap) {
 			inbox: pkgName(want.package_id),
 		},
 		{
+			label: "Jumlah unit",
+			event: String(ev.unit_count ?? 1),
+			inbox: item.data?.jumlah_unit ? String(want.unit_count ?? 1) : "",
+		},
+		{
 			label: `Ukuran frame${spot1}`,
 			event: ev.frame_size ?? "",
 			inbox: want.frame_size ?? "",

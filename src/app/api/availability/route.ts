@@ -37,6 +37,15 @@ export async function GET(req: NextRequest) {
 	const startRaw = sp.get("start")?.trim() ?? "";
 	const endRaw = sp.get("end")?.trim() ?? "";
 	const city = sp.get("city")?.trim() || null;
+	// Event multi-unit: berapa booth yang diminta klien (default 1, maks 3).
+	const unitsRaw = sp.get("units")?.trim() || "1";
+	const units = Number(unitsRaw);
+	if (!Number.isInteger(units) || units < 1 || units > 3) {
+		return NextResponse.json(
+			{ error: "Param `units` harus 1–3." },
+			{ status: 400 },
+		);
+	}
 
 	// ── Validasi input ───────────────────────────────────────────────────────
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -148,7 +157,9 @@ export async function GET(req: NextRequest) {
 		window: `${formatHHMM(reqStart)}-${formatHHMM(reqEnd)}`,
 		units_total: result.units_total,
 		units_free: result.units_free,
-		available: result.available,
+		units_requested: units,
+		// Cukup untuk SEMUA unit yang diminta, bukan sekadar ada 1 yang kosong.
+		available: result.units_free >= units,
 		conflicts: result.conflicts.map((c) => ({
 			project: c.project,
 			time: c.time,

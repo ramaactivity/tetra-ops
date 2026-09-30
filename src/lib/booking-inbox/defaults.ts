@@ -86,6 +86,19 @@ export function guessCategory(data: InboxData): string {
 	return "";
 }
 
+/**
+ * "2", "2 unit", "dua booth" → 2 (dibatasi 1–3, batas unit per event).
+ * Kosong/tak terbaca → 1. Permintaan > 3 tetap dicatat mentah di catatan.
+ */
+export function parseUnitCount(v: string | null | undefined): number {
+	const words: Record<string, number> = { satu: 1, dua: 2, tiga: 3 };
+	const s = (v ?? "").toLowerCase();
+	const n =
+		Number(/\d+/.exec(s)?.[0]) ||
+		(Object.entries(words).find(([w]) => s.includes(w))?.[1] ?? 1);
+	return Math.min(3, Math.max(1, n));
+}
+
 const NOTE_KEYS: Array<[keyof InboxData, string]> = [
 	["instagram", "Instagram"],
 	["jumlah_tamu", "Jumlah tamu"],
@@ -114,6 +127,7 @@ export function inboxToBookingDefaults(
 	const [start, end] = parseInboxTime(d.jam);
 	const frame = parseFrameSize(d.ukuran_frame);
 	const pic = parsePic(d.pic);
+	const units = parseUnitCount(d.jumlah_unit);
 
 	// Paket: jam dari teks ("3 jam") + ukuran frame → paket unlimited yang pas.
 	const hours = Number(/(\d+)\s*jam/i.exec(d.paket ?? "")?.[1] ?? 0);
@@ -138,6 +152,8 @@ export function inboxToBookingDefaults(
 	if (d.backdrop && !backdropId)
 		notes.push(`- Backdrop diminta: ${d.backdrop}`);
 	if (d.paket && !pkg) notes.push(`- Paket diminta: ${d.paket}`);
+	if (d.jumlah_unit && Number(/\d+/.exec(d.jumlah_unit)?.[0]) > 3)
+		notes.push(`- Jumlah unit diminta: ${d.jumlah_unit} (maks 3 per event)`);
 	if (d.tanggal && isEstimate) notes.push(`- Tanggal dari klien: ${d.tanggal}`);
 
 	const lokasi = d.lokasi?.trim() ?? "";
@@ -165,7 +181,9 @@ export function inboxToBookingDefaults(
 		// Durasi sementara hanya sah selama ukuran frame belum pasti
 		// (lib/events/frame-package.ts); ukuran pasti tanpa paket cocok → catatan.
 		pending_package_hours: !pkg && hours && !frame ? hours : "",
-		base_price: pkg?.base_price ?? 0,
+		// Event multi-unit: harga paket × unit (sama dengan form booking).
+		unit_count: units,
+		base_price: (pkg?.base_price ?? 0) * units,
 		frame_size: frame,
 		backdrop_id: backdropId,
 		pic_name: pic.name,

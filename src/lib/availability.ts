@@ -15,7 +15,7 @@
  */
 
 import type { InboxData } from "@/lib/booking-inbox/core";
-import { parseInboxTime } from "@/lib/booking-inbox/defaults";
+import { parseInboxTime, parseUnitCount } from "@/lib/booking-inbox/defaults";
 import { parseSegments } from "@/lib/schedule/segments";
 
 export const UNITS_TOTAL = 3;
@@ -363,5 +363,6 @@ export function inboxToAvailabilityEvent(item: {
 		venue_city: item.data.lokasi ?? null,
 		package_duration_hours: hours || null,
 		session_segments: null,
+		units: parseUnitCount(item.data.jumlah_unit),
 	};
 }

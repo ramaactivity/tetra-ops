@@ -198,3 +198,18 @@ test("event 2 unit memakai 2 unit sekaligus", () => {
 	assert.equal(res.units_free, 1);
 	assert.match(res.conflicts[0].project, /2 unit/);
 });
+
+test("Booking Masuk 2 unit menahan 2 unit", async () => {
+	const { inboxToAvailabilityEvent } = await import("@/lib/availability");
+	const inbox = inboxToAvailabilityEvent({
+		client_name: "X",
+		data: { jumlah_unit: "2" },
+	});
+	const res = computeAvailability({
+		reqStart: HHMM(21),
+		reqEnd: HHMM(23),
+		reqCity: null,
+		events: [inbox],
+	});
+	assert.equal(res.units_free, 1);
+});
