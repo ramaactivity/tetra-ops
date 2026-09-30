@@ -1,34 +1,64 @@
 /**
- * Satu komponen PDF untuk semua dokumen klien. Varian per `docType`:
- *   quotation / invoice / nota_lunas → tabel item + total (+ pembayaran)
- *   receipt                          → kuitansi satu pembayaran (terbilang)
- *   bast                             → berita acara + serah terima + 2 ttd
+ * Satu komponen PDF untuk semua dokumen klien — gaya Swiss. Varian per
+ * `docType`:
+ *   quotation / invoice / nota_lunas → tabel harga + total + angka besar
+ *   receipt                          → kwitansi satu pembayaran (terbilang)
+ *   bast                             → paragraf serah terima + tabel + 2 ttd
+ *
+ * Susunan tiap halaman (atas → bawah): letterhead + judul raksasa · meta row ·
+ * pihak & acara · isi · angka besar merah · blok bawah menempel di dasar ·
+ * footer tetap.
  */
 
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import type { PdfDocData } from "@/lib/documents/pdf-data";
-import { COMPANY, DOC_TITLE } from "@/lib/documents/types";
+import { COMPANY, DOC_TITLE, type DocType } from "@/lib/documents/types";
 import { formatPhoneLocal } from "@/lib/format";
 import { terbilangRupiah } from "@/lib/terbilang";
 import {
+	BigFigure,
+	Col,
+	FS,
+	formatDateDots,
 	formatDateForPdf,
 	formatDateLongForPdf,
+	formatNumberForPdf,
 	formatRupiahForPdf,
-	Kv,
+	type HeaderVariant,
+	LabelBlock,
+	MetaRow,
+	Numbered,
 	PDF_COLORS,
 	PDF_STYLES,
+	PdfBottom,
 	PdfFooter,
 	PdfHeader,
-	PdfPageNo,
-	PdfPointList,
+	PdfPageNumber,
 	PdfSignature,
-	PdfSignatureBlank,
-	PdfSignOff,
 	PinnedBottom,
+	Row,
 } from "./document-base";
 
 const S = PDF_STYLES;
-const rp = formatRupiahForPdf;
+const C = PDF_COLORS;
+const n = formatNumberForPdf;
+
+/** Judul raksasa per dokumen (bukan DOC_TITLE — itu untuk nama file & UI). */
+const SWISS_TITLE: Record<DocType, string> = {
+	invoice: "Invoice",
+	quotation: "Quotation",
+	nota_lunas: "Nota",
+	receipt: "Kwitansi",
+	bast: "BAST",
+};
+
+const THANKS: Record<DocType, string> = {
+	invoice: "Terima kasih atas kepercayaannya.",
+	quotation: "Terima kasih atas kesempatannya.",
+	nota_lunas: "Terima kasih atas kepercayaannya.",
+	receipt: "Terima kasih atas pembayarannya.",
+	bast: "Terima kasih atas kepercayaannya.",
+};
 
 function labelType(t: string) {
 	return t === "dp"
@@ -57,340 +87,408 @@ function formatRate(r: number) {
 	return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/\.?0+$/, "");
 }
 
+/** "Transfer BCA" / "Tunai" dari nama bank pembayaran. */
+function methodLabel(bank: string | null) {
+	if (!bank) return "—";
+	return /cash|tunai|kas/i.test(bank) ? "Tunai" : `Transfer ${bank}`;
+}
+
 /* ───────────────────────── blok bersama ───────────────────────── */
 
-/** KEPADA (kiri): klien. */
-function ClientBlock({
-	d,
-	label = "Kepada",
-}: {
-	d: PdfDocData;
-	label?: string;
-}) {
+/** Pihak (kiri) & Acara (kanan), dua kolom span 3. */
+function PartyRow({ d, label }: { d: PdfDocData; label: string }) {
 	const c = d.client;
-	return (
-		<View style={S.colL}>
-			<Text style={S.blockLabel}>{label}</Text>
-			<Text style={S.blockName}>{c.name}</Text>
-			{c.org ? <Text style={S.blockLine}>{c.org}</Text> : null}
-			{c.attn ? <Text style={S.blockLine}>u.p. {c.attn}</Text> : null}
-			{c.address ? <Text style={S.blockMuted}>{c.address}</Text> : null}
-			{c.phone ? (
-				<Text style={S.blockMuted}>WA {formatPhoneLocal(c.phone)}</Text>
-			) : null}
-			{c.email ? <Text style={S.blockMuted}>{c.email}</Text> : null}
-		</View>
-	);
-}
-
-/** ACARA (kanan): nama acara + tanggal + lokasi — tanpa jam & kode event. */
-function EventBlock({ d }: { d: PdfDocData }) {
 	const venue = [d.event.venue, d.event.city].filter(Boolean).join(", ");
 	const title =
-		d.event.title && d.event.title !== d.client.name ? d.event.title : null;
-	if (!title && !d.event.date && !venue) return <View style={S.colR} />;
+		d.event.title && d.event.title !== c.name ? d.event.title : null;
+	const hasEvent = Boolean(title || d.event.date || venue);
 	return (
-		<View style={S.colR}>
-			<Text style={S.blockLabel}>Acara</Text>
-			{title ? <Text style={S.blockName}>{title}</Text> : null}
-			{d.event.date ? (
-				<Text style={[S.blockLine, { fontWeight: 600 }]}>
-					{formatDateLongForPdf(d.event.date)}
-				</Text>
-			) : null}
-			{venue ? <Text style={S.blockMuted}>{venue}</Text> : null}
-		</View>
-	);
-}
-
-function ItemsTable({ d }: { d: PdfDocData }) {
-	return (
-		<View>
-			<View style={S.th} fixed>
-				<Text style={[S.thText, S.cName]}>Deskripsi item</Text>
-				<Text style={[S.thText, S.cPrice, { fontWeight: 700 }]}>
-					Harga satuan
-				</Text>
-				<Text style={[S.thText, S.cQty]}>Qty</Text>
-				<Text style={[S.thText, S.cTotal, { fontWeight: 700 }]}>Jumlah</Text>
-			</View>
-			{d.items.map((it, i) => (
-				<View
-					// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
-					key={i}
-					style={[
-						S.tr,
-						{ flexDirection: "column", gap: 0 },
-						// Kotak include menempel ke garis bawah baris.
-						it.includes.some((x) => x.trim()) ? { paddingBottom: 0 } : {},
+		<Row style={[S.ruleThin, { marginTop: 13.5, paddingTop: 7.5 }]}>
+			<Col span={3}>
+				<LabelBlock
+					label={label}
+					lines={[
+						c.name,
+						c.org && c.org !== c.name ? c.org : null,
+						c.attn ? `u.p. ${c.attn}` : null,
+						c.address,
+						c.phone ? `WA ${formatPhoneLocal(c.phone)}` : null,
+						c.email,
 					]}
-					wrap={false}
-				>
-					<View style={{ flexDirection: "row", gap: 12 }}>
-						<Text style={[S.itemName, S.cName]}>{it.name}</Text>
-						{it.needs_admin_price && !(it.unit_price > 0) ? (
-							<>
-								{/* Draft: harga belum diisi admin — dokumen tak bisa dikirim. */}
-								<Text style={[S.body, S.cPrice, { color: "#b45309" }]}>
-									Diisi admin
-								</Text>
-								<Text style={[S.body, S.cQty]}>{it.qty}</Text>
-								<Text style={[S.body, S.cTotal, { color: "#b45309" }]}>—</Text>
-							</>
-						) : (
-							<>
-								<Text style={[S.body, S.cPrice]}>{rp(it.unit_price)}</Text>
-								<Text style={[S.body, S.cQty]}>{it.qty}</Text>
-								<Text style={[S.body, S.cTotal]}>
-									{rp(it.qty * it.unit_price)}
-								</Text>
-							</>
-						)}
-					</View>
-					{/* Include di kotak abu-abu tersendiri, selebar baris */}
-					<PdfPointList
-						flush
-						lines={it.includes.filter((x) => x.trim())}
-						columns={it.includes.filter((x) => x.trim()).length > 4 ? 2 : 1}
+				/>
+			</Col>
+			<Col span={3}>
+				{hasEvent ? (
+					<LabelBlock
+						label="Acara"
+						lines={[
+							title,
+							d.event.date ? formatDateLongForPdf(d.event.date) : null,
+							venue,
+						]}
 					/>
-				</View>
-			))}
-			<View style={S.tableEnd} />
-		</View>
+				) : null}
+			</Col>
+		</Row>
 	);
 }
 
-function TotalLine({
-	k,
-	v,
-	strong,
-	color,
+/** Header tabel: garis bawah tipis, tebal. */
+function TableHead({
+	cells,
 }: {
-	k: string;
-	v: string;
-	strong?: boolean;
-	color?: string;
+	cells: Array<{ t: string; span: 1 | 2 | 3; right?: boolean }>;
 }) {
 	return (
-		<View style={S.totalRow}>
-			<Text style={S.totalK}>{k}</Text>
-			<Text style={S.totalSep}>:</Text>
-			<Text
-				style={[
-					S.totalV,
-					strong ? { fontWeight: 700 } : {},
-					color ? { color } : {},
+		<Row
+			style={[
+				S.bold,
+				{
+					paddingBottom: 6,
+					borderBottomWidth: 0.75,
+					borderBottomColor: C.ink,
+				},
+			]}
+		>
+			{cells.map((c) => (
+				<Col key={c.t} span={c.span}>
+					<Text style={c.right ? S.num : undefined}>{c.t}</Text>
+				</Col>
+			))}
+		</Row>
+	);
+}
+
+const rowLine = {
+	paddingTop: 6,
+	paddingBottom: 6.75,
+	borderBottomWidth: 0.75,
+	borderBottomColor: C.hairline,
+};
+
+/** Nama item + include (muted) dengan nomor urut. */
+function ItemDesc({
+	i,
+	name,
+	desc,
+}: {
+	i: number;
+	name: string;
+	desc: string | null;
+}) {
+	return (
+		<Numbered n={i + 1}>
+			<Text>{name}</Text>
+			{desc ? <Text style={S.muted}>{desc}</Text> : null}
+		</Numbered>
+	);
+}
+
+function PriceTable({ d }: { d: PdfDocData }) {
+	return (
+		<View style={{ marginTop: 21 }}>
+			<TableHead
+				cells={[
+					{ t: "Deskripsi", span: 3 },
+					{ t: "Harga (Rp)", span: 1 },
+					{ t: "Qty", span: 1 },
+					{ t: "Jumlah (Rp)", span: 1, right: true },
 				]}
-			>
-				{v}
-			</Text>
+			/>
+			{d.items.map((it, i) => {
+				const noPrice = it.needs_admin_price && !(it.unit_price > 0);
+				const desc = it.includes.filter((x) => x.trim()).join(" · ");
+				return (
+					<Row
+						// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
+						key={i}
+						style={rowLine}
+						wrap={false}
+					>
+						<Col span={3}>
+							<ItemDesc i={i} name={it.name} desc={desc || null} />
+						</Col>
+						<Col span={1}>
+							{/* Draft: harga belum diisi admin — dokumen tak bisa dikirim. */}
+							<Text style={noPrice ? { color: C.warn } : undefined}>
+								{noPrice ? "Diisi admin" : n(it.unit_price)}
+							</Text>
+						</Col>
+						<Col span={1}>
+							<Text>{it.qty}</Text>
+						</Col>
+						<Col span={1}>
+							<Text style={[S.num, noPrice ? { color: C.warn } : {}]}>
+								{noPrice ? "—" : n(it.qty * it.unit_price)}
+							</Text>
+						</Col>
+					</Row>
+				);
+			})}
 		</View>
 	);
 }
 
-function Totals({ d }: { d: PdfDocData }) {
+type TotalLine = { k: string; v: string; bold?: boolean };
+
+/** Totals: label mulai kolom 4 (span 2), nilai kolom 6 rata kanan. */
+function Totals({ lines }: { lines: TotalLine[] }) {
+	return (
+		<View style={{ paddingTop: 6 }} wrap={false}>
+			{lines.map((l) => (
+				// Ritme baris ≈ lineHeight 1.85 handoff (padding, bukan lineHeight:
+				// react-pdf melipatgandakan tinggi baris multi-View).
+				<Row key={l.k} style={[{ paddingVertical: 1.7 }, l.bold ? S.bold : {}]}>
+					<Col span={2} start={4}>
+						<Text>{l.k}</Text>
+					</Col>
+					<Col span={1}>
+						<Text style={S.num}>{l.v}</Text>
+					</Col>
+				</Row>
+			))}
+		</View>
+	);
+}
+
+function billingTotals(d: PdfDocData): TotalLine[] {
 	const t = d.totals;
-	const paid = isPaid(d);
-	const hasAdjust = t.discount > 0 || t.grossUp > 0;
-	const partial =
-		d.docType === "invoice" && d.payment && d.payment.totalPaid > 0 && !paid;
+	const lines: TotalLine[] = [{ k: "Subtotal", v: n(t.subtotal) }];
+	if (t.grossUp > 0)
+		lines.push({
+			k: `Gross-up PPh ${formatRate(d.grossUpRate)}%`,
+			v: n(t.grossUp),
+		});
+	if (t.discount > 0) lines.push({ k: "Diskon", v: n(-t.discount) });
+	lines.push({ k: "Total", v: n(t.total), bold: true });
+	if (d.docType === "invoice" && d.payment)
+		lines.push({ k: "Sudah dibayar", v: n(d.payment.totalPaid) });
+	if (d.docType === "nota_lunas")
+		for (const p of d.payment?.history ?? [])
+			lines.push({
+				k: `${labelType(p.type)} · ${formatDateDots(p.date)}`,
+				v: n(p.amount),
+			});
+	return lines;
+}
+
+/** Catatan dokumen (opsional) — baris label/isi sebelum angka besar. */
+function NotesRow({ notes }: { notes: string | null }) {
+	if (!notes?.trim()) return null;
 	return (
-		<View style={S.rightCol}>
-			{hasAdjust ? <TotalLine k="Subtotal" v={rp(t.subtotal)} /> : null}
-			{t.grossUp > 0 ? (
-				<TotalLine
-					k={`Gross-up PPh ${formatRate(d.grossUpRate)}%`}
-					v={rp(t.grossUp)}
-				/>
-			) : null}
-			{t.discount > 0 ? (
-				<TotalLine k="Diskon" v={`− ${rp(t.discount)}`} />
-			) : null}
-			<View style={S.totalBand}>
-				<Text style={S.totalBandK}>{partial ? "Total tagihan" : "Total"}</Text>
-				<Text style={S.totalBandV}>{rp(t.total)}</Text>
-			</View>
-			{d.payment ? (
-				<>
-					<TotalLine k="Sudah dibayar" v={rp(d.payment.totalPaid)} />
-					<TotalLine
-						k="Sisa tagihan"
-						v={paid ? "LUNAS" : rp(d.payment.remaining)}
-						strong
-						color={paid ? PDF_COLORS.limeText : undefined}
-					/>
-				</>
-			) : null}
-		</View>
+		<Row style={{ marginTop: 13.5 }} wrap={false}>
+			<Col span={2}>
+				<Text style={S.bold}>Catatan</Text>
+			</Col>
+			<Col span={4}>
+				<Text>{notes.trim()}</Text>
+			</Col>
+		</Row>
 	);
 }
 
-/** Kiri bawah tabel: catatan + pembayaran diterima (satu baris per pembayaran). */
-function LeftColumn({ d }: { d: PdfDocData }) {
-	const history = d.payment?.history ?? [];
+/**
+ * Kerangka halaman. `bottom` (blok bawah yang menempel di dasar) sengaja anak
+ * langsung <Page>, di luar pembungkus lineHeight — spacer flexGrow-nya hanya
+ * bekerja terhadap tinggi halaman, bukan View pembungkus.
+ */
+function Shell({
+	d,
+	variant,
+	children,
+	bottom,
+}: {
+	d: PdfDocData;
+	variant: HeaderVariant;
+	children: React.ReactNode;
+	bottom: React.ReactNode;
+}) {
 	return (
-		<View style={S.leftCol}>
-			{d.notes ? (
-				<View style={{ marginBottom: 12 }}>
-					<Text style={S.sideLabel}>Catatan</Text>
-					<Text style={S.sideText}>{d.notes}</Text>
-				</View>
-			) : null}
-			{history.length > 0 ? (
-				<View style={{ flexGrow: 1 }}>
-					<Text style={S.sideLabel}>Pembayaran diterima</Text>
-					{/* Baris dibagi rata sampai dasar grup total (Sisa tagihan) */}
-					<View style={{ flexGrow: 1, justifyContent: "space-between" }}>
-						{history.map((p, i) => (
-							<View
-								key={p.ref}
-								style={[
-									S.payRow,
-									i === history.length - 1 ? { borderBottomWidth: 0 } : {},
-								]}
-							>
-								<Text style={S.payType}>{labelType(p.type)}</Text>
-								<Text style={S.payMeta}>
-									{formatDateForPdf(p.date)}
-									{p.bank ? ` · ${p.bank}` : ""}
-								</Text>
-								<Text style={S.payV}>{rp(p.amount)}</Text>
-							</View>
-						))}
-					</View>
-				</View>
-			) : null}
-		</View>
+		<Page size="A4" style={S.page}>
+			<View style={S.content}>
+				<PdfHeader title={SWISS_TITLE[d.docType]} variant={variant} />
+				{children}
+			</View>
+			{bottom}
+			<PdfFooter thanks={THANKS[d.docType]} />
+			<PdfPageNumber docNumber={d.docNumber} />
+		</Page>
 	);
 }
 
 /* ───────────────────────── halaman ───────────────────────── */
 
-function BillingPage({ d }: { d: PdfDocData }) {
+function BillingPage({
+	d,
+	variant,
+}: {
+	d: PdfDocData;
+	variant: HeaderVariant;
+}) {
 	const paid = isPaid(d);
-	const meta: string[] = [];
-	if (d.docType === "quotation" && d.validUntil)
-		meta.push(`Berlaku sampai ${formatDateForPdf(d.validUntil)}`);
-	if (d.docType === "invoice" && d.dueDate && !paid)
-		meta.push(`Jatuh tempo ${formatDateForPdf(d.dueDate)}`);
-	const showBank = d.docType === "invoice" && !paid;
-	const thanks =
+	const payment = d.payment;
+	const status = !payment
+		? "Belum dibayar"
+		: paid
+			? "Lunas"
+			: payment.totalPaid > 0
+				? "DP diterima"
+				: "Belum dibayar";
+
+	const meta: Array<{ k: string; v: string; span: 1 | 2 | 3 | 4 }> =
 		d.docType === "quotation"
-			? "Terima kasih atas kesempatannya."
-			: "Terima kasih atas kepercayaannya.";
-	const terms = termLines(d);
+			? [
+					{ k: "No.", v: d.docNumber, span: 2 },
+					{ k: "Terbit", v: formatDateDots(d.issuedAt), span: 1 },
+					{ k: "Berlaku s.d.", v: formatDateDots(d.validUntil), span: 1 },
+					{ k: "Status", v: "Penawaran", span: 2 },
+				]
+			: d.docType === "nota_lunas"
+				? [
+						{ k: "No.", v: d.docNumber, span: 2 },
+						{ k: "Tanggal", v: formatDateDots(d.issuedAt), span: 1 },
+						{ k: "Referensi", v: d.refNumber ?? "—", span: 3 },
+					]
+				: [
+						{ k: "No.", v: d.docNumber, span: 2 },
+						{ k: "Terbit", v: formatDateDots(d.issuedAt), span: 1 },
+						{ k: "Jatuh tempo", v: formatDateDots(d.dueDate), span: 1 },
+						{ k: "Status", v: status, span: 2 },
+					];
+
+	const big =
+		d.docType === "quotation"
+			? {
+					label: "Estimasi total (Rp)",
+					sub: d.validUntil
+						? `Berlaku hingga ${formatDateForPdf(d.validUntil)}`
+						: null,
+					value: n(d.totals.total),
+				}
+			: d.docType === "nota_lunas" || paid
+				? {
+						label: "Status pembayaran",
+						sub: `Diterima ${formatRupiahForPdf(payment?.totalPaid ?? d.totals.total)}`,
+						value: "Lunas",
+					}
+				: {
+						label: "Sisa tagihan (Rp)",
+						sub: d.dueDate
+							? `Jatuh tempo ${formatDateForPdf(d.dueDate)}`
+							: null,
+						value: n(payment?.remaining ?? d.totals.total),
+					};
+
+	// Rekening hanya saat masih ada yang harus dibayar; kolom tetap ada
+	// (kosong) supaya grid blok bawah stabil.
+	// Quotation = penawaran, bukan tagihan: rekening baru muncul di invoice,
+	// kolomnya dipakai ketentuan quotation yang panjang.
+	const showBank = d.docType === "invoice" && !paid;
+
 	return (
-		<Page size="A4" style={S.page}>
-			<PdfHeader
-				title={DOC_TITLE[d.docType]}
-				docNumber={d.docNumber}
-				date={d.issuedAt}
-				meta={meta}
-				small={d.docType === "nota_lunas"}
-				stamp={paid}
-			/>
-			<View style={S.twoCol}>
-				<ClientBlock d={d} />
-				<EventBlock d={d} />
-			</View>
-			{d.docType === "nota_lunas" ? (
-				<Text style={[S.body, { lineHeight: 1.5, marginBottom: 14 }]}>
-					Dengan ini kami menyatakan tagihan untuk layanan di bawah ini telah
-					dibayar <Text style={{ fontWeight: 700 }}>lunas</Text>. Terima kasih
-					atas kepercayaannya.
-				</Text>
-			) : null}
-			<ItemsTable d={d} />
-			<View style={S.afterTable} wrap={false}>
-				<LeftColumn d={d} />
-				<Totals d={d} />
-			</View>
-			<PdfSignOff
-				thanks={thanks}
-				terms={terms}
-				right={<PdfSignature signer={d.signer} />}
-			/>
-			<PdfFooter bank={showBank ? d.bank : null} />
-			<PdfPageNo />
-		</Page>
+		<Shell
+			d={d}
+			variant={variant}
+			bottom={
+				<PdfBottom
+					bank={showBank ? d.bank : null}
+					terms={termLines(d)}
+					signer={d.signer}
+				/>
+			}
+		>
+			<MetaRow cells={meta} />
+			<PartyRow d={d} label={d.docType === "quotation" ? "Untuk" : "Kepada"} />
+			<PriceTable d={d} />
+			<Totals lines={billingTotals(d)} />
+			<NotesRow notes={d.notes} />
+			<BigFigure label={big.label} sub={big.sub} value={big.value} />
+		</Shell>
 	);
 }
 
-function ReceiptPage({ d }: { d: PdfDocData }) {
+function ReceiptPage({
+	d,
+	variant,
+}: {
+	d: PdfDocData;
+	variant: HeaderVariant;
+}) {
 	const r = d.receipt;
 	if (!r) return null;
 	const lunas = r.remainingAfter <= 0;
-	const eventLine = [
-		d.event.date ? formatDateLongForPdf(d.event.date) : null,
-		d.event.venue,
+	const purpose = [
+		`${r.paymentType}${d.refNumber ? ` Invoice ${d.refNumber}` : ""}`,
+		d.event.title && d.event.title !== d.client.name ? d.event.title : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
-	const itemsLine = d.items.map((i) => i.name).join(", ");
+	const rows: Array<{ k: string; v: string; fs: number }> = [
+		{ k: "Telah terima dari", v: d.client.name, fs: FS.para },
+		{ k: "Uang sejumlah", v: terbilangRupiah(r.amount), fs: 13.5 },
+		{ k: "Untuk pembayaran", v: purpose, fs: FS.para },
+		{
+			k: "Sisa tagihan",
+			v: lunas
+				? "Lunas"
+				: `${formatRupiahForPdf(r.remainingAfter)}${d.dueDate ? `, jatuh tempo ${formatDateForPdf(d.dueDate)}` : ""}`,
+			fs: FS.para,
+		},
+	];
 	return (
-		<Page size="A4" style={S.page}>
-			<PdfHeader
-				title={DOC_TITLE.receipt}
-				docNumber={d.docNumber}
-				date={d.issuedAt}
-				stamp={lunas}
+		<Shell
+			d={d}
+			variant={variant}
+			bottom={
+				<PdfBottom
+					bank={lunas ? null : d.bank}
+					terms={termLines(d)}
+					signer={d.signer}
+					signLabel="Penerima"
+				/>
+			}
+		>
+			<MetaRow
+				cells={[
+					{ k: "No.", v: d.docNumber, span: 2 },
+					{ k: "Tanggal", v: formatDateDots(r.date), span: 1 },
+					{ k: "Metode", v: methodLabel(r.bank), span: 1 },
+					{ k: "Referensi", v: d.refNumber ?? "—", span: 2 },
+				]}
 			/>
-			<View style={S.twoCol}>
-				<ClientBlock d={d} label="Telah terima dari" />
-				<View style={S.colR}>
-					<Text style={S.blockLabel}>Untuk pembayaran</Text>
-					<Text style={[S.blockLine, { fontWeight: 600 }]}>
-						{r.paymentType}
-					</Text>
-					{itemsLine ? <Text style={S.blockMuted}>{itemsLine}</Text> : null}
-					{eventLine ? <Text style={S.blockMuted}>{eventLine}</Text> : null}
-				</View>
+			<PartyRow d={d} label="Diterima dari" />
+			<View style={{ marginTop: 21 }}>
+				{rows.map((row) => (
+					<Row
+						key={row.k}
+						style={{
+							paddingTop: 9,
+							paddingBottom: 10.5,
+							borderBottomWidth: 0.75,
+							borderBottomColor: C.hairline,
+						}}
+						wrap={false}
+					>
+						<Col span={2}>
+							<Text style={S.bold}>{row.k}</Text>
+						</Col>
+						<Col span={4}>
+							<Text style={{ fontSize: row.fs, lineHeight: 1.3 }}>{row.v}</Text>
+						</Col>
+					</Row>
+				))}
 			</View>
-
-			<View style={{ marginBottom: 20 }}>
-				<Text style={S.label}>Uang sejumlah</Text>
-				<Text style={{ fontSize: 30, lineHeight: 1.1, fontWeight: 700 }}>
-					{rp(r.amount)}
-				</Text>
-				<View style={[S.boxBand, { marginTop: 10 }]}>
-					<Text style={[S.body, { fontWeight: 500 }]}>
-						{terbilangRupiah(r.amount)}
-					</Text>
-				</View>
-			</View>
-			<View>
-				<Kv k="Tanggal bayar" v={formatDateForPdf(r.date)} />
-				{r.bank ? <Kv k="Diterima via" v={r.bank} /> : null}
-			</View>
-
-			<View style={S.afterTable} wrap={false}>
-				<View style={S.leftCol} />
-				<View style={S.rightCol}>
-					<TotalLine k="Total tagihan" v={rp(r.billable)} />
-					{r.paidBefore > 0 ? (
-						<TotalLine k="Dibayar sebelumnya" v={rp(r.paidBefore)} />
-					) : null}
-					<TotalLine k="Pembayaran ini" v={rp(r.amount)} />
-					<View style={S.totalBand}>
-						<Text style={S.totalBandK}>Sisa tagihan</Text>
-						<Text style={S.totalBandV}>
-							{lunas ? "LUNAS" : rp(r.remainingAfter)}
-						</Text>
-					</View>
-				</View>
-			</View>
-
-			<PdfSignOff
-				thanks="Terima kasih atas pembayarannya."
-				right={<PdfSignature signer={d.signer} label="Penerima," />}
+			<NotesRow notes={d.notes} />
+			<BigFigure
+				label="Jumlah diterima (Rp)"
+				sub={`Pembayaran ${r.paymentType}`}
+				value={n(r.amount)}
 			/>
-			<PdfFooter />
-			<PdfPageNo />
-		</Page>
+		</Shell>
 	);
 }
 
-function BastPage({ d }: { d: PdfDocData }) {
+function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 	const b = d.bast;
 	const picName = b?.picName ?? d.client.name;
 	const rows =
@@ -400,75 +498,114 @@ function BastPage({ d }: { d: PdfDocData }) {
 			quantity: i.qty,
 			notes: i.includes[0],
 		}));
+	const eventTitle =
+		d.event.title && d.event.title !== d.client.name ? d.event.title : null;
+	const place = [d.event.venue, d.event.city].filter(Boolean).join(", ");
 	return (
-		<Page size="A4" style={S.page}>
-			<PdfHeader title="BAST" docNumber={d.docNumber} date={d.issuedAt} />
-			<View style={S.twoCol}>
-				<ClientBlock d={d} label="Pihak Kedua" />
-				<EventBlock d={d} />
-			</View>
-			<Text style={[S.blockLabel, { marginBottom: 6 }]}>
-				Berita Acara Serah Terima Layanan
-			</Text>
-			<Text style={[S.body, { lineHeight: 1.6, marginBottom: 18 }]}>
-				Pada hari ini, {formatDateLongForPdf(d.issuedAt)}, {COMPANY.name} (Pihak
-				Pertama) telah melaksanakan dan menyerahkan hasil layanan kepada{" "}
-				<Text style={{ fontWeight: 700 }}>{d.client.name}</Text>
-				{d.client.org ? ` (${d.client.org})` : ""} (Pihak Kedua) untuk acara
-				{d.event.title && d.event.title !== d.client.name
-					? ` ${d.event.title}`
-					: ""}{" "}
-				pada {d.event.date ? formatDateLongForPdf(d.event.date) : "—"}
-				{d.event.venue ? ` di ${d.event.venue}` : ""}
-				{d.event.city ? `, ${d.event.city}` : ""}. Pihak Kedua menyatakan telah
-				menerima layanan dalam kondisi baik dan sesuai kesepakatan.
-			</Text>
-
-			<View style={S.th}>
-				<Text style={[S.thText, { flex: 1 }]}>
-					Layanan / hasil yang diserahkan
-				</Text>
-				<Text style={[S.thText, S.cQty]}>Qty</Text>
-				<Text style={[S.thText, { width: 150 }]}>Keterangan</Text>
-			</View>
+		<Shell
+			d={d}
+			variant={variant}
+			bottom={
+				<>
+					{/* Dua tanda tangan: Pihak Kedua kiri (kosong), Pihak Pertama kanan. */}
+					<PinnedBottom>
+						<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
+							<Col span={2}>
+								<Text style={[S.bold, { fontSize: FS.body }]}>
+									Pihak Kedua, penerima
+								</Text>
+								<View style={{ height: 46.5 }} />
+								<View style={[S.ruleThin, { paddingTop: 4.5 }]}>
+									<Text style={[S.bold, { fontSize: FS.body }]}>{picName}</Text>
+								</View>
+								<Text>{d.client.name}</Text>
+							</Col>
+							<Col span={2} />
+							<Col span={2}>
+								<PdfSignature
+									signer={d.signer}
+									label="Pihak Pertama, penyedia"
+									rule
+								/>
+							</Col>
+						</Row>
+					</PinnedBottom>
+				</>
+			}
+		>
+			<MetaRow
+				cells={[
+					{ k: "No.", v: d.docNumber, span: 2 },
+					{ k: "Tanggal", v: formatDateDots(d.issuedAt), span: 1 },
+					{ k: "Referensi", v: d.refNumber ?? "—", span: 3 },
+				]}
+			/>
+			<PartyRow d={d} label="Pihak Kedua" />
+			<Row style={{ marginTop: 21, marginBottom: 21 }}>
+				<Col span={5}>
+					<Text style={{ fontSize: FS.para, lineHeight: 1.45 }}>
+						Pada hari ini, {formatDateLongForPdf(d.issuedAt)}, {COMPANY.name}{" "}
+						(Pihak Pertama) telah melaksanakan dan menyerahkan layanan berikut
+						kepada {d.client.name}
+						{d.client.org && d.client.org !== d.client.name
+							? ` (${d.client.org})`
+							: ""}{" "}
+						(Pihak Kedua)
+						{eventTitle ? ` untuk acara ${eventTitle}` : ""}
+						{d.event.date ? ` pada ${formatDateLongForPdf(d.event.date)}` : ""}
+						{place ? ` di ${place}` : ""}, dan layanan telah diterima dalam
+						keadaan baik dan sesuai kesepakatan.
+					</Text>
+				</Col>
+			</Row>
+			<TableHead
+				cells={[
+					{ t: "Layanan", span: 3 },
+					{ t: "Qty", span: 1 },
+					{ t: "Keterangan", span: 2 },
+				]}
+			/>
 			{rows.map((row, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
-				<View key={i} style={S.tr} wrap={false}>
-					<Text style={[S.itemName, { flex: 1 }]}>{row.label}</Text>
-					<Text style={[S.body, S.cQty]}>{row.quantity}</Text>
-					<Text style={[S.blockMuted, { width: 150 }]}>{row.notes ?? ""}</Text>
-				</View>
+				<Row key={i} style={rowLine} wrap={false}>
+					<Col span={3}>
+						<ItemDesc i={i} name={row.label} desc={null} />
+					</Col>
+					<Col span={1}>
+						<Text>{row.quantity}</Text>
+					</Col>
+					<Col span={2}>
+						<Text>{row.notes ?? ""}</Text>
+					</Col>
+				</Row>
 			))}
-			<View style={S.tableEnd} />
-
-			{d.notes ? (
-				<View style={{ marginTop: 16 }}>
-					<Text style={S.sideLabel}>Catatan</Text>
-					<Text style={S.sideText}>{d.notes}</Text>
-				</View>
-			) : null}
-
-			{/* Dua tanda tangan: Pihak Pertama kiri, Pihak Kedua kanan */}
-			<PinnedBottom>
-				<PdfSignature signer={d.signer} label="Pihak Pertama," align="left" />
-				<PdfSignatureBlank name={picName} label="Pihak Kedua," />
-			</PinnedBottom>
-			<PdfFooter />
-			<PdfPageNo />
-		</Page>
+			<NotesRow notes={d.notes} />
+			<BigFigure
+				label="Berita Acara Serah Terima"
+				sub="Layanan telah diterima baik"
+				value="Selesai"
+			/>
+		</Shell>
 	);
 }
 
-export function TetraDocument({ data }: { data: PdfDocData }) {
+export function TetraDocument({
+	data,
+	variant = "a",
+}: {
+	data: PdfDocData;
+	/** Varian header: a putih (default) · b hitam · c merah. */
+	variant?: HeaderVariant;
+}) {
 	const title = `${DOC_TITLE[data.docType]} ${data.docNumber} — ${data.client.name}`;
 	return (
 		<Document title={title} author={COMPANY.name} creator="Tetra Ops">
 			{data.docType === "receipt" ? (
-				<ReceiptPage d={data} />
+				<ReceiptPage d={data} variant={variant} />
 			) : data.docType === "bast" ? (
-				<BastPage d={data} />
+				<BastPage d={data} variant={variant} />
 			) : (
-				<BillingPage d={data} />
+				<BillingPage d={data} variant={variant} />
 			)}
 		</Document>
 	);

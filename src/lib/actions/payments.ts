@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { logPaymentCore, PAYMENT_TYPES } from "@/lib/finance/payment-core";
+import {
+	type IssuedPaymentDoc,
+	logPaymentCore,
+	PAYMENT_TYPES,
+} from "@/lib/finance/payment-core";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramPaymentReversed } from "@/lib/telegram/notify";
 
@@ -38,6 +42,9 @@ export type PaymentFormState =
 			errors?: PaymentErrors;
 			values?: Record<string, string>;
 			success?: true;
+			/** Dokumen yang langsung terbit (kuitansi + invoice sisa / nota). */
+			docs?: IssuedPaymentDoc[];
+			lunas?: boolean;
 	  }
 	| undefined;
 
@@ -113,7 +120,8 @@ export async function logPayment(
 
 		revalidatePath(`/operations/${projectId}`);
 		revalidatePath(`/operations/${projectId}/payments`);
-		return { success: true };
+		if (res.docs.length > 0) revalidatePath("/finance/dokumen");
+		return { success: true, docs: res.docs, lunas: res.lunas };
 	} catch (err) {
 		// Catch-all so an unhandled throw never bubbles to the global error
 		// boundary (which shows the generic "Ada yang ngga beres" page). Surface

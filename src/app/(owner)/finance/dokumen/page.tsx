@@ -22,11 +22,6 @@ export const dynamic = "force-dynamic";
 const BASE = "/finance/dokumen";
 const PAGE_SIZE = 60;
 
-function currentYearMonth() {
-	const t = new Date();
-	return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}`;
-}
-
 export default async function DokumenPage({
 	searchParams,
 }: {
@@ -60,18 +55,17 @@ export default async function DokumenPage({
 	const q = (sp.q ?? "").trim();
 	const status = sp.status ?? "";
 	const monthParam = sp.month?.trim() ?? "";
-	const monthShowsAll = monthParam === "all";
-	const month = monthShowsAll
-		? ""
-		: /^\d{4}-\d{2}$/.test(monthParam)
-			? monthParam
-			: currentYearMonth();
+	// Default SEMUA bulan: angka di tab dihitung sepanjang waktu, jadi daftar
+	// yang diam-diam terpotong ke bulan ini membuat dokumen tampak "hilang"
+	// (mis. kuitansi DP bulan lalu). Bulan tertentu tetap bisa dipilih.
+	const month = /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : "";
+	const monthShowsAll = !month;
 
 	const supabase = await createClient();
 	let query = supabase
 		.from("documents")
 		.select(
-			"id, doc_type, doc_number, client, items, discount, gross_up_enabled, gross_up_rate, issued_at, status, delivered_at, event_id, event:events(project_id, event_date)",
+			"id, doc_type, doc_number, client, items, discount, gross_up_enabled, gross_up_rate, issued_at, status, delivered_at, event_id, event:events(project_id, event_date), payment:payments(amount)",
 		)
 		.order("created_at", { ascending: false })
 		.limit(PAGE_SIZE);
@@ -115,6 +109,14 @@ export default async function DokumenPage({
 			event_project_id:
 				(ev as { project_id: string } | null)?.project_id ?? null,
 			event_date: (ev as { event_date: string } | null)?.event_date ?? null,
+			payment_amount:
+				d.doc_type === "receipt"
+					? ((
+							(Array.isArray(d.payment) ? d.payment[0] : d.payment) as {
+								amount: number;
+							} | null
+						)?.amount ?? null)
+					: null,
 		};
 	});
 
@@ -141,8 +143,7 @@ export default async function DokumenPage({
 		if (t) p.set("type", t);
 		if (q) p.set("q", q);
 		if (status) p.set("status", status);
-		if (monthShowsAll) p.set("month", "all");
-		else if (month !== currentYearMonth()) p.set("month", month);
+		if (month) p.set("month", month);
 		const s = p.toString();
 		return s ? `${BASE}?${s}` : BASE;
 	};

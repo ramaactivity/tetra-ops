@@ -168,6 +168,22 @@ export async function buildPdfContext(
 	const payments =
 		event && doc.event_id ? await loadPaymentLines(supabase, doc.event_id) : [];
 
+	// Referensi dokumen turunan (kwitansi, nota, BAST) = invoice aktif event.
+	const invoiceNumber =
+		doc.event_id && doc.doc_type !== "invoice" && doc.doc_type !== "quotation"
+			? ((
+					await supabase
+						.from("documents")
+						.select("doc_number")
+						.eq("event_id", doc.event_id)
+						.eq("doc_type", "invoice")
+						.neq("status", "void")
+						.order("created_at", { ascending: false })
+						.limit(1)
+						.maybeSingle()
+				).data?.doc_number ?? null)
+			: null;
+
 	let receiptPayment: PdfBuildContext["receiptPayment"] = null;
 	if (doc.doc_type === "receipt" && doc.payment_id) {
 		const { data: p } = await supabase
@@ -210,6 +226,7 @@ export async function buildPdfContext(
 		payments,
 		receiptPayment,
 		signer: (signerRow as PdfBuildContext["signer"]) ?? null,
+		invoiceNumber,
 		bank,
 	};
 }

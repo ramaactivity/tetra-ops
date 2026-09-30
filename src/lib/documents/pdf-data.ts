@@ -32,6 +32,8 @@ export type PdfPaymentLine = {
 export type PdfDocData = {
 	docType: DocType;
 	docNumber: string;
+	/** Nomor invoice event — "Referensi" di kwitansi, nota lunas & BAST. */
+	refNumber: string | null;
 	issuedAt: string;
 	dueDate: string | null;
 	validUntil: string | null;
@@ -92,6 +94,8 @@ export type PdfBuildContext = {
 		paidThrough: number;
 	} | null;
 	signer: Pick<DocumentSigner, "name" | "position" | "signature_data"> | null;
+	/** Nomor invoice aktif event ini (untuk referensi dokumen turunan). */
+	invoiceNumber?: string | null;
 	bank: {
 		bank_name: string;
 		account_holder: string | null;
@@ -195,8 +199,10 @@ export function buildPdfData(
 	return {
 		docType: doc.doc_type,
 		docNumber: doc.doc_number,
+		refNumber: doc.doc_type === "invoice" ? null : (ctx.invoiceNumber ?? null),
 		issuedAt: doc.issued_at,
-		dueDate: doc.due_date,
+		// Kwitansi tidak menyimpan jatuh tempo sendiri → pakai tenggat event.
+		dueDate: doc.due_date ?? ev?.due_date ?? null,
 		validUntil: doc.valid_until,
 		client: doc.client,
 		event: eventBlock,

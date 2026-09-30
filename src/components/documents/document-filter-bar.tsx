@@ -29,9 +29,7 @@ export function DocumentFilterBar({
 	const [search, setSearch] = useState(q);
 	const now = new Date();
 	const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-	const hasFilters = Boolean(
-		q || status || monthShowsAll || (month && month !== currentMonth),
-	);
+	const hasFilters = Boolean(q || status || !monthShowsAll);
 
 	function href(updates: Record<string, string>) {
 		const p = new URLSearchParams();
@@ -39,7 +37,7 @@ export function DocumentFilterBar({
 			type,
 			q,
 			status,
-			month: monthShowsAll ? "all" : month,
+			month: monthShowsAll ? "" : month,
 			...updates,
 		};
 		for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
@@ -90,7 +88,7 @@ export function DocumentFilterBar({
 						},
 						{
 							label: "Semua bulan",
-							onSelect: () => router.push(href({ month: "all" })),
+							onSelect: () => router.push(href({ month: "" })),
 							active: monthShowsAll,
 						},
 					]}

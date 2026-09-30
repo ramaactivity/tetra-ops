@@ -118,8 +118,20 @@ export async function checkPayment(
 	};
 }
 
+/** Dokumen yang langsung terbit saat pembayaran dicatat. */
+export type IssuedPaymentDoc = {
+	id: string;
+	docType: "receipt" | "invoice" | "nota_lunas";
+	docNumber: string;
+};
+
 export type PaymentCoreResult =
-	| (Extract<PaymentGuard, { ok: true }> & { paymentId: string })
+	| (Extract<PaymentGuard, { ok: true }> & {
+			paymentId: string;
+			/** Kuitansi (+ invoice sisa / nota lunas) — kosong bila gagal terbit. */
+			docs: IssuedPaymentDoc[];
+			lunas: boolean;
+	  })
 	| Extract<PaymentGuard, { ok: false }>;
 
 export async function logPaymentCore(
@@ -159,68 +171,110 @@ export async function logPaymentCore(
 		remaining: guard.sisaSesudah,
 	});
 
-	// B4: dokumen otomatis + tawaran kirim ke klien (1 tap owner). Setelah
-	// respons dikirim, supaya form pembayaran tidak ikut menunggu.
+	// Dokumen terbit SEKARANG (bukan di latar belakang) supaya form bisa
+	// langsung menawarkan unduh/kirim kuitansi. Gagal terbit ≠ gagal bayar:
+	// pembayaran sudah tercatat, dokumen bisa diterbitkan ulang dari Billing.
 	const pid = paymentId as string;
-	after(() =>
-		offerPaymentDocs(
-			input.eventId,
-			pid,
-			input.paymentType,
-			input.amount,
-			actorId,
-		).catch((e) => console.error("[payment-core] dokumen otomatis:", e)),
+	const issued = await issuePaymentDocs(input.eventId, pid, actorId).catch(
+		(e) => {
+			console.error("[payment-core] dokumen otomatis:", e);
+			return null;
+		},
 	);
 
-	return { ...guard, paymentId: pid };
+	// Tawaran kirim ke klien lewat grup owner (1 tap) — setelah respons.
+	if (issued) {
+		after(() =>
+			offerPaymentDocsToOwner(
+				input.eventId,
+				issued,
+				input.paymentType,
+				input.amount,
+			).catch((e) => console.error("[payment-core] tawaran dokumen:", e)),
+		);
+	}
+
+	return {
+		...guard,
+		paymentId: pid,
+		docs: issued?.docs ?? [],
+		lunas: issued?.lunas ?? guard.sisaSesudah <= 0,
+	};
 }
 
 /**
- * DP/cicilan → kuitansi + invoice sisa; lunas → nota lunas. Semua idempoten.
- * Tidak ada yang dikirim ke klien — hanya ditawarkan ke grup owner.
+ * Terbitkan dokumen untuk satu pembayaran. Semua idempoten.
+ *   selalu        → kuitansi pembayaran ini
+ *   belum lunas   → + invoice (sisa tagihan)
+ *   lunas         → + nota lunas
+ * Tidak ada yang dikirim ke klien.
  */
-export async function offerPaymentDocs(
+export async function issuePaymentDocs(
 	eventId: string,
 	paymentId: string,
-	paymentType: PaymentType,
-	amount: number,
 	actorId: string,
-): Promise<void> {
+): Promise<{ docs: IssuedPaymentDoc[]; lunas: boolean; remaining: number }> {
 	const admin = createAdminClient();
 	const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 	const { data: ev } = await admin
 		.from("events")
-		.select("client_name, remaining_balance")
+		.select("remaining_balance")
+		.eq("id", eventId)
+		.maybeSingle();
+	const remaining = Number(ev?.remaining_balance ?? 0);
+	const lunas = remaining <= 0;
+	const [receipt, follow] = await Promise.all([
+		issueReceiptCore(admin, paymentId, actorId, today),
+		lunas
+			? issuePaidDocCore(admin, eventId, "nota_lunas", actorId, today)
+			: getOrCreateInvoice(admin, eventId, actorId, today),
+	]);
+	const docs: IssuedPaymentDoc[] = [];
+	if (receipt.ok)
+		docs.push({
+			id: receipt.id,
+			docType: "receipt",
+			docNumber: receipt.docNumber,
+		});
+	if (follow.ok)
+		docs.push({
+			id: follow.id,
+			docType: lunas ? "nota_lunas" : "invoice",
+			docNumber: follow.docNumber,
+		});
+	return { docs, lunas, remaining };
+}
+
+/** Tawarkan dokumen yang baru terbit ke grup owner (kirim ke klien 1 tap). */
+async function offerPaymentDocsToOwner(
+	eventId: string,
+	issued: Awaited<ReturnType<typeof issuePaymentDocs>>,
+	paymentType: PaymentType,
+	amount: number,
+): Promise<void> {
+	if (issued.docs.length === 0) return;
+	const admin = createAdminClient();
+	const { data: ev } = await admin
+		.from("events")
+		.select("client_name")
 		.eq("id", eventId)
 		.maybeSingle();
 	if (!ev) return;
-	const lunas = Number(ev.remaining_balance) <= 0;
 	const client = tgEscape(ev.client_name as string);
-
-	if (lunas) {
-		const nota = await issuePaidDocCore(
-			admin,
-			eventId,
-			"nota_lunas",
-			actorId,
-			today,
-		);
-		if (!nota.ok) return;
+	const receipt = issued.docs.find((d) => d.docType === "receipt");
+	const nota = issued.docs.find((d) => d.docType === "nota_lunas");
+	const invoice = issued.docs.find((d) => d.docType === "invoice");
+	// Lunas: yang ditawarkan nota lunas (kuitansi pelunasan tetap ada di app).
+	if (issued.lunas && nota) {
 		await offerSendToOwner(admin, {
 			documentIds: [nota.id],
 			headerHtml: `🧾 <b>${client} lunas</b> (${PAYMENT_TYPE_LABEL[paymentType]} ${formatRupiah(amount)}).\nNota lunas <b>${nota.docNumber}</b> siap. Kirim ke klien?`,
 		});
 		return;
 	}
-
-	const [receipt, invoice] = await Promise.all([
-		issueReceiptCore(admin, paymentId, actorId, today),
-		getOrCreateInvoice(admin, eventId, actorId, today),
-	]);
-	if (!receipt.ok) return;
-	const ids = [receipt.id, ...(invoice.ok ? [invoice.id] : [])];
+	if (!receipt) return;
 	await offerSendToOwner(admin, {
-		documentIds: ids,
-		headerHtml: `💵 <b>${PAYMENT_TYPE_LABEL[paymentType]} ${formatRupiah(amount)}</b> dari ${client} tercatat.\nKuitansi <b>${receipt.docNumber}</b>${invoice.ok ? ` + invoice sisa <b>${invoice.docNumber}</b> (${formatRupiah(Number(ev.remaining_balance))})` : ""}. Kirim ke klien?`,
+		documentIds: [receipt.id, ...(invoice ? [invoice.id] : [])],
+		headerHtml: `💵 <b>${PAYMENT_TYPE_LABEL[paymentType]} ${formatRupiah(amount)}</b> dari ${client} tercatat.\nKuitansi <b>${receipt.docNumber}</b>${invoice ? ` + invoice sisa <b>${invoice.docNumber}</b> (${formatRupiah(issued.remaining)})` : ""}. Kirim ke klien?`,
 	});
 }

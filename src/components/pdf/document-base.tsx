@@ -1,333 +1,157 @@
 /**
  * Token + blok dasar PDF dokumen klien Tetra (quotation / invoice / kuitansi /
- * nota lunas / BAST). @react-pdf/renderer, dirender di server.
+ * nota lunas / BAST) — gaya "Swiss" (handoff design_handoff_dokumen_swiss,
+ * 30 Sep 2026). @react-pdf/renderer, dirender di server.
  *
- * Layout mengikuti referensi owner (23 Sep 2026): letterhead (logo + alamat
- * kecil) kiri, judul besar + tanggal + nomor kanan; KEPADA kiri & ACARA kanan;
- * tabel berpita ungu; total kanan dengan pita TOTAL; penutup (terima kasih +
- * S&K kiri, tanda tangan kanan) mengalir setelah total; footer tetap di dasar
- * halaman. Inter, aksen ungu #5a4fb5. Skala: body 10pt, ritme spasi 8/16/24.
+ * Grid 6 kolom di atas konten 523.28pt (A4 − 2×36), gutter 12pt. react-pdf
+ * tidak punya CSS grid → `Row` + `Col span` dengan lebar tetap. Helvetica
+ * bawaan, hitam + satu aksen merah, hierarki murni dari ukuran & tebal huruf.
+ * Tanpa kotak berwarna, radius, atau bayangan — hanya garis 4.5pt / 0.75pt.
+ *
+ * Ukuran huruf sedikit di atas handoff (body 8.5pt, kecil 7.5pt; handoff
+ * 8.25 / 7.1) supaya tetap terbaca saat dicetak — diizinkan README.
  */
 
 import { Font, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
+import type { ComponentProps, ReactNode } from "react";
 import {
-	INTER_400,
-	INTER_500,
-	INTER_600,
-	INTER_700,
-} from "@/lib/documents/fonts-data";
-import { LOGO_DATA_URL } from "@/lib/documents/logo-data";
-import { STAMP_LUNAS_DATA_URL } from "@/lib/documents/stamp-lunas-data";
+	LOGO_BLACK_DATA_URL,
+	LOGO_CREAM_DATA_URL,
+} from "@/lib/documents/logo-swiss-data";
 import { COMPANY } from "@/lib/documents/types";
 
-Font.register({
-	family: "Inter",
-	fonts: [
-		{ src: INTER_400, fontWeight: 400 },
-		{ src: INTER_500, fontWeight: 500 },
-		{ src: INTER_600, fontWeight: 600 },
-		{ src: INTER_700, fontWeight: 700 },
-	],
-});
 // Jangan pisahkan kata dengan tanda hubung ("kesepa-katan").
 Font.registerHyphenationCallback((word) => [word]);
 
 export const PDF_COLORS = {
-	ink: "#1b1b1f",
-	/** Ungu referensi owner — judul, pita tabel/total, terima kasih, garis footer. */
-	accent: "#5a4fb5",
-	accentSoft: "#eeecf8",
-	/** Area abu-abu untuk daftar poin (include & S&K). */
-	panel: "#f4f3f7",
-	muted: "#6b6a75",
-	subtle: "#a5a4ad",
-	border: "#e4e3ea",
-	white: "#ffffff",
-	limeText: "#3f6b1a",
+	ink: "#111111",
+	paper: "#FDFDFC",
+	red: "#E30613",
+	redOnBlack: "#FF3B30",
+	muted: "#6B6B69",
+	index: "#8A8A88",
+	hairline: "#D4D4D2",
+	/** Harga belum diisi admin (draft quotation dari bot). */
+	warn: "#B45309",
 } as const;
 
 const C = PDF_COLORS;
 
-/** Geometri halaman (pt). */
-export const PAGE = {
-	padX: 46,
-	padTop: 40,
-	footerBottom: 32,
-	footerHeight: 70,
+/** Geometri halaman & grid (pt). */
+export const GRID = {
+	padTop: 30,
+	padX: 36,
+	gap: 12,
+	/** Lebar per span: 1 kolom = 77.21pt. */
+	span: [0, 77.21, 166.43, 255.64, 344.85, 434.07, 523.28] as const,
+	/** Tinggi footer yang menempel di dasar tiap halaman. */
+	footerHeight: 38,
+} as const;
+
+export const FS = {
+	body: 8.5,
+	small: 7.5,
+	title: 84,
+	big: 63,
+	para: 10.5,
 } as const;
 
 export const PDF_STYLES = StyleSheet.create({
 	page: {
-		fontFamily: "Inter",
-		fontSize: 10,
-		fontWeight: 400,
+		fontFamily: "Helvetica",
+		fontSize: FS.body,
+		// lineHeight TIDAK di sini: react-pdf 4.5 tidak menggambar teks
+		// `render` (nomor halaman) bila <Page> punya lineHeight. Dipasang di
+		// `content` yang membungkus isi halaman.
 		color: C.ink,
-		lineHeight: 1.4,
-		paddingTop: PAGE.padTop,
-		paddingHorizontal: PAGE.padX,
-		// Ruang untuk footer tetap; penutup mengisi ruang tepat di atasnya.
-		paddingBottom: PAGE.footerBottom + PAGE.footerHeight + 12,
+		backgroundColor: C.paper,
+		paddingTop: GRID.padTop,
+		paddingHorizontal: GRID.padX,
+		// Ruang footer tetap + jarak 18pt di atasnya.
+		paddingBottom: GRID.footerHeight + 18,
+		flexDirection: "column",
 	},
-
-	// ── Letterhead: logo + alamat kiri; judul + tanggal + nomor kanan
-	header: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "flex-start",
-		marginBottom: 28,
-	},
-	logo: {
-		width: 118,
-		height: 58,
-		objectFit: "contain",
-		objectPosition: "left top",
-	},
-	companyLine: { fontSize: 8.5, color: C.muted, lineHeight: 1.45 },
-	title: {
-		fontSize: 28,
-		lineHeight: 1,
-		fontWeight: 700,
-		letterSpacing: 3,
-		textAlign: "right",
-		color: C.accent,
-	},
-	titleSmall: {
-		fontSize: 20,
-		lineHeight: 1,
-		fontWeight: 700,
-		letterSpacing: 2.5,
-		textAlign: "right",
-		color: C.accent,
-	},
-	titleDate: {
-		fontSize: 11,
-		fontWeight: 600,
-		textAlign: "right",
-		marginTop: 8,
-	},
-	titleMeta: { fontSize: 9, color: C.muted, textAlign: "right", marginTop: 2 },
-
-	// ── Dua kolom KEPADA / ACARA
-	twoCol: { flexDirection: "row", marginBottom: 24 },
-	colL: { width: "52%", paddingRight: 20 },
-	colR: { width: "48%", alignItems: "flex-end", textAlign: "right" },
-	blockLabel: {
-		fontSize: 8,
-		fontWeight: 700,
-		color: C.muted,
-		textTransform: "uppercase",
-		letterSpacing: 1.2,
-		marginBottom: 5,
-	},
-	blockName: { fontSize: 12, fontWeight: 700, lineHeight: 1.3 },
-	blockLine: { fontSize: 10, lineHeight: 1.45 },
-	blockMuted: { fontSize: 9.5, color: C.muted, lineHeight: 1.45 },
-
-	// ── Tabel item
-	th: {
-		flexDirection: "row",
-		gap: 12,
-		backgroundColor: C.accent,
-		paddingVertical: 9,
-		paddingHorizontal: 14,
-		borderRadius: 2,
-	},
-	thText: { fontSize: 9, fontWeight: 700, color: C.white },
-	tr: {
-		flexDirection: "row",
-		gap: 12,
-		paddingVertical: 10,
-		paddingHorizontal: 14,
-		borderBottomWidth: 0.75,
-		borderBottomColor: C.border,
-	},
-	tableEnd: { borderBottomWidth: 1.25, borderBottomColor: C.ink },
-	cName: { flex: 1 },
-	cPrice: { width: 82, textAlign: "right", fontWeight: 500 },
-	cQty: { width: 30, textAlign: "center" },
-	cTotal: { width: 92, textAlign: "right", fontWeight: 700 },
-	itemName: { fontSize: 10.5, fontWeight: 700 },
-	// Include: poin berbullet, dua kolom bila panjang, kontras cukup untuk dibaca.
-	// Kotak abu-abu tersendiri di bawah nama item: jelas bukan bagian kolom harga.
-	includeBox: {
-		marginTop: 7,
-		paddingVertical: 7,
-		paddingHorizontal: 14,
-		backgroundColor: C.panel,
-		borderRadius: 3,
-	},
-	includeWrap: { flexDirection: "row", flexWrap: "wrap" },
-	includeItem: {
-		flexDirection: "row",
-		gap: 5,
-		paddingVertical: 1.5,
-		paddingRight: 10,
-	},
-	includeDot: { fontSize: 8.5, color: C.accent, lineHeight: 1.45 },
-	include: { flex: 1, fontSize: 8.8, lineHeight: 1.45, color: "#4a4953" },
-
-	// ── Bawah tabel: kiri (pembayaran/catatan) — kanan (total)
-	// stretch: kolom kiri setinggi grup total supaya atas & bawahnya sejajar.
-	afterTable: {
-		flexDirection: "row",
-		alignItems: "stretch",
-		marginTop: 14,
-	},
-	leftCol: { width: "52%", paddingRight: 20, paddingTop: 6 },
-	rightCol: { width: "48%" },
-	sideLabel: {
-		fontSize: 8,
-		fontWeight: 700,
-		color: C.muted,
-		textTransform: "uppercase",
-		letterSpacing: 1.2,
-		marginBottom: 4,
-	},
-	sideText: { fontSize: 9.5, color: C.muted, lineHeight: 1.45 },
-	payRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: 4,
-		borderBottomWidth: 0.75,
-		borderBottomColor: C.border,
-	},
-	payType: { width: 54, fontSize: 9.5, fontWeight: 600 },
-	payMeta: { flex: 1, fontSize: 8.5, color: C.muted },
-	payV: { width: 78, fontSize: 9.5, fontWeight: 600, textAlign: "right" },
-
-	totalRow: {
-		flexDirection: "row",
-		justifyContent: "flex-end",
-		alignItems: "center",
-		paddingVertical: 4,
-		paddingHorizontal: 14,
-	},
-	totalK: {
-		fontSize: 9,
-		fontWeight: 700,
-		textTransform: "uppercase",
-		letterSpacing: 0.5,
-	},
-	totalSep: { fontSize: 9, fontWeight: 700, marginHorizontal: 6 },
-	totalV: { width: 92, fontSize: 10, fontWeight: 600, textAlign: "right" },
-	totalBand: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		marginTop: 6,
-		marginBottom: 6,
-		paddingVertical: 12,
-		paddingHorizontal: 14,
-		backgroundColor: C.accent,
-		borderRadius: 2,
-	},
-	// lineHeight 1 di kedua teks: tanpa itu leading bawah membuat angka tampak turun.
-	totalBandK: {
-		fontSize: 10.5,
-		lineHeight: 1,
-		fontWeight: 700,
-		color: C.white,
-		letterSpacing: 0.8,
-		textTransform: "uppercase",
-	},
-	totalBandV: { fontSize: 15, lineHeight: 1, fontWeight: 700, color: C.white },
-
-	// ── Penutup: mengalir setelah total. Kiri terima kasih + S&K, kanan tanda tangan
-	// Penutup: didorong ke dasar halaman oleh PinnedBottom (spacer flexGrow).
-	signOff: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "flex-end",
-		paddingTop: 14,
-	},
-	signOffLeft: { flex: 1, paddingRight: 28 },
-	thanks: {
-		fontSize: 11,
-		fontWeight: 700,
-		color: C.accent,
-		marginBottom: 10,
-	},
-	termsLabel: {
-		fontSize: 8,
-		fontWeight: 700,
-		color: C.muted,
-		textTransform: "uppercase",
-		letterSpacing: 1.2,
-		marginBottom: 4,
-	},
-	bullet: { flexDirection: "row", gap: 5, marginBottom: 2 },
-	bulletDot: { width: 6, fontSize: 8.5, color: C.subtle },
-	bulletText: { flex: 1, fontSize: 8.5, lineHeight: 1.45 },
-	sign: { width: 180, alignItems: "flex-end", textAlign: "right" },
-	signLabel: { fontSize: 9.5, color: C.muted },
-	signImg: {
-		height: 64,
-		width: 170,
-		objectFit: "contain",
-		objectPosition: "right bottom",
-		marginTop: 6,
-	},
-	signSpace: { height: 64, marginTop: 6 },
-	signName: { fontSize: 11, fontWeight: 700, marginTop: 6 },
-	signPos: { fontSize: 9, color: C.muted },
-
-	// ── Footer tetap di dasar halaman
-	footer: {
-		position: "absolute",
-		left: PAGE.padX,
-		right: PAGE.padX,
-		bottom: PAGE.footerBottom,
-		height: PAGE.footerHeight,
-		paddingTop: 12,
-		borderTopWidth: 1,
-		borderTopColor: C.accent,
-		flexDirection: "row",
-		gap: 28,
-	},
-	footerCol: { flex: 1 },
-	footerLabel: { fontSize: 9, fontWeight: 700, marginBottom: 4 },
-	footerKv: { flexDirection: "row", gap: 6, marginBottom: 1.5 },
-	footerK: { width: 50, fontSize: 8.5, color: C.muted },
-	footerV: { flex: 1, fontSize: 8.5, fontWeight: 500 },
-	footerNote: { fontSize: 8, color: C.muted, marginTop: 2 },
-	pageNo: {
-		position: "absolute",
-		bottom: 18,
-		right: PAGE.padX,
-		fontSize: 8,
-		color: C.subtle,
-	},
-
-	// ── Stempel LUNAS (gambar owner) di ruang kosong letterhead
-	stamp: {
-		position: "absolute",
-		width: 136,
-		left: 168,
-		top: 2,
-		transform: "rotate(-8deg)",
-		opacity: 0.92,
-	},
-
-	// ── Utilitas (kuitansi)
-	label: {
-		fontSize: 8,
-		fontWeight: 700,
-		color: C.muted,
-		textTransform: "uppercase",
-		letterSpacing: 1.2,
-		marginBottom: 5,
-	},
-	body: { fontSize: 10 },
-	kv: { flexDirection: "row", gap: 8, marginBottom: 3 },
-	k: { width: 96, fontSize: 9.5, color: C.muted },
-	v: { flex: 1, fontSize: 10, fontWeight: 500 },
-	boxBand: { backgroundColor: C.accentSoft, borderRadius: 3, padding: 12 },
+	/** Pembungkus isi halaman — pemegang lineHeight dasar. */
+	// fontSize ikut dipasang: react-pdf mengubah lineHeight tanpa satuan jadi
+	// absolut memakai fontSize node ini (default 18 bila tidak diisi).
+	content: { fontSize: FS.body, lineHeight: 1.45 },
+	row: { flexDirection: "row", gap: GRID.gap },
+	bold: { fontFamily: "Helvetica-Bold" },
+	small: { fontSize: FS.small, lineHeight: 1.5 },
+	muted: { color: C.muted },
+	ruleThick: { borderTopWidth: 4.5, borderTopColor: C.ink },
+	ruleThin: { borderTopWidth: 0.75, borderTopColor: C.ink },
+	num: { textAlign: "right" },
 });
 
+const S = PDF_STYLES;
+
+/** Satu style react-pdf (bukan array). */
+type Style = Exclude<
+	ComponentProps<typeof View>["style"],
+	unknown[] | undefined
+>;
+
+/* ───────────────────────── grid ───────────────────────── */
+
+export function Row({
+	children,
+	style,
+	wrap,
+}: {
+	children: ReactNode;
+	style?: Style | Style[];
+	wrap?: boolean;
+}) {
+	return (
+		<View
+			style={[S.row, ...(Array.isArray(style) ? style : style ? [style] : [])]}
+			wrap={wrap}
+		>
+			{children}
+		</View>
+	);
+}
+
+export function Col({
+	span,
+	start,
+	children,
+	style,
+}: {
+	span: 1 | 2 | 3 | 4 | 5 | 6;
+	/** Kolom awal (1-based) bila tidak mulai dari kiri, mis. totals di col 4. */
+	start?: number;
+	children?: ReactNode;
+	style?: Style | Style[];
+}) {
+	const offset =
+		start && start > 1 ? GRID.span[start - 1] + GRID.gap : undefined;
+	return (
+		<View
+			style={[
+				{ width: GRID.span[span] },
+				offset ? { marginLeft: offset } : {},
+				...(Array.isArray(style) ? style : style ? [style] : []),
+			]}
+		>
+			{children}
+		</View>
+	);
+}
+
+/* ───────────────────────── format ───────────────────────── */
+
+/** 5000000 → "5.000.000" (tanpa "Rp" — satuan ada di header kolom). */
+export function formatNumberForPdf(amount: number): string {
+	if (!Number.isFinite(amount)) return "0";
+	// En dash, bukan U+2212: Helvetica bawaan PDF (WinAnsi) tidak punya "−".
+	const sign = amount < 0 ? "–" : "";
+	return `${sign}${Math.abs(Math.round(amount)).toLocaleString("id-ID")}`;
+}
+
 export function formatRupiahForPdf(amount: number): string {
-	if (!Number.isFinite(amount)) return "Rp 0";
-	const sign = amount < 0 ? "-" : "";
-	return `${sign}Rp ${Math.abs(Math.round(amount)).toLocaleString("id-ID")}`;
+	return `Rp ${formatNumberForPdf(amount)}`;
 }
 
 const MONTHS = [
@@ -346,11 +170,21 @@ const MONTHS = [
 ];
 const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
+/** "2026-10-16" → Date lokal (bukan UTC) supaya tanggal tidak mundur sehari. */
 function parseIso(iso: string) {
 	return new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
 }
 
-/** "23 September 2026" */
+/** "16.10.2026" */
+export function formatDateDots(iso: string | null | undefined): string {
+	if (!iso) return "—";
+	const d = parseIso(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	const p = (n: number) => String(n).padStart(2, "0");
+	return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+/** "16 Oktober 2026" */
 export function formatDateForPdf(iso: string | null | undefined): string {
 	if (!iso) return "—";
 	const d = parseIso(iso);
@@ -358,7 +192,7 @@ export function formatDateForPdf(iso: string | null | undefined): string {
 	return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** "Selasa, 29 September 2026" */
+/** "Jumat, 16 Oktober 2026" */
 export function formatDateLongForPdf(iso: string | null | undefined): string {
 	if (!iso) return "—";
 	const d = parseIso(iso);
@@ -366,259 +200,384 @@ export function formatDateLongForPdf(iso: string | null | undefined): string {
 	return `${DAYS[d.getDay()]}, ${formatDateForPdf(iso)}`;
 }
 
-/** Letterhead: logo + alamat kiri; judul, tanggal, nomor (+ meta) kanan. */
+/* ───────────────────────── header ───────────────────────── */
+
+/** A putih (default) · B hitam · C merah — isi identik, hanya blok judul. */
+export type HeaderVariant = "a" | "b" | "c";
+
+const HEADER_THEME: Record<
+	HeaderVariant,
+	{ bg: string | null; fg: string; dot: string; logo: string }
+> = {
+	a: { bg: null, fg: C.ink, dot: C.red, logo: LOGO_BLACK_DATA_URL },
+	b: { bg: C.ink, fg: C.paper, dot: C.redOnBlack, logo: LOGO_CREAM_DATA_URL },
+	c: { bg: C.red, fg: C.paper, dot: C.ink, logo: LOGO_CREAM_DATA_URL },
+};
+
+/** Letterhead (garis 4.5pt + logo + kontak) lalu judul raksasa bertitik. */
 export function PdfHeader({
 	title,
-	docNumber,
-	date,
-	meta = [],
-	small,
-	stamp,
+	variant = "a",
 }: {
 	title: string;
-	docNumber: string;
-	date: string;
-	/** Baris kecil di bawah nomor, mis. "Jatuh tempo 30 Juli 2026". */
-	meta?: string[];
-	small?: boolean;
-	/** Tampilkan stempel LUNAS milik owner. */
-	stamp?: boolean;
+	variant?: HeaderVariant;
 }) {
-	return (
-		<View style={[PDF_STYLES.header, { position: "relative" }]}>
-			<View>
-				<Image src={LOGO_DATA_URL} style={PDF_STYLES.logo} />
-				<View style={{ marginTop: 8 }}>
-					<Text style={PDF_STYLES.companyLine}>{COMPANY.city}</Text>
-					<Text style={PDF_STYLES.companyLine}>
-						WA {COMPANY.whatsapp} · {COMPANY.email}
-					</Text>
-				</View>
-			</View>
-			{stamp ? (
-				<Image src={STAMP_LUNAS_DATA_URL} style={PDF_STYLES.stamp} />
-			) : null}
-			<View>
-				<Text style={small ? PDF_STYLES.titleSmall : PDF_STYLES.title}>
-					{title}
-				</Text>
-				<Text style={PDF_STYLES.titleDate}>{formatDateForPdf(date)}</Text>
-				<Text style={PDF_STYLES.titleMeta}>No. {docNumber}</Text>
-				{meta.map((m) => (
-					<Text key={m} style={PDF_STYLES.titleMeta}>
-						{m}
-					</Text>
-				))}
-			</View>
-		</View>
-	);
-}
-
-export function PdfPageNo() {
-	return (
-		<Text
-			style={PDF_STYLES.pageNo}
-			fixed
-			render={({ pageNumber, totalPages }) =>
-				totalPages > 1 ? `${pageNumber}/${totalPages}` : ""
+	const t = HEADER_THEME[variant];
+	const bleed = t.bg
+		? {
+				backgroundColor: t.bg,
+				marginTop: -GRID.padTop,
+				marginHorizontal: -GRID.padX,
+				paddingTop: GRID.padTop,
+				paddingHorizontal: GRID.padX,
+				paddingBottom: GRID.padTop,
 			}
-		/>
-	);
-}
-
-/** Footer tetap: Pertanyaan · Info pembayaran (opsional). */
-export function PdfFooter({
-	bank,
-}: {
-	bank?: {
-		bankName: string;
-		accountHolder: string;
-		accountNumber: string | null;
-	} | null;
-}) {
+		: {};
 	return (
-		<View style={PDF_STYLES.footer} fixed>
-			<View style={PDF_STYLES.footerCol}>
-				<Text style={PDF_STYLES.footerLabel}>Pertanyaan?</Text>
-				<View style={PDF_STYLES.footerKv}>
-					<Text style={PDF_STYLES.footerK}>WhatsApp</Text>
-					<Text style={PDF_STYLES.footerV}>{COMPANY.whatsapp}</Text>
-				</View>
-				<View style={PDF_STYLES.footerKv}>
-					<Text style={PDF_STYLES.footerK}>Email</Text>
-					<Text style={PDF_STYLES.footerV}>{COMPANY.email}</Text>
-				</View>
-				<View style={PDF_STYLES.footerKv}>
-					<Text style={PDF_STYLES.footerK}>Instagram</Text>
-					<Text style={PDF_STYLES.footerV}>{COMPANY.instagram}</Text>
-				</View>
-			</View>
-			<View style={PDF_STYLES.footerCol}>
-				{bank ? (
-					<>
-						<Text style={PDF_STYLES.footerLabel}>Info pembayaran</Text>
-						<View style={PDF_STYLES.footerKv}>
-							<Text style={PDF_STYLES.footerK}>Bank</Text>
-							<Text style={PDF_STYLES.footerV}>{bank.bankName}</Text>
-						</View>
-						{bank.accountNumber ? (
-							<View style={PDF_STYLES.footerKv}>
-								<Text style={PDF_STYLES.footerK}>No. rek</Text>
-								<Text style={PDF_STYLES.footerV}>{bank.accountNumber}</Text>
-							</View>
-						) : null}
-						<View style={PDF_STYLES.footerKv}>
-							<Text style={PDF_STYLES.footerK}>a.n.</Text>
-							<Text style={PDF_STYLES.footerV}>{bank.accountHolder}</Text>
-						</View>
-						<Text style={PDF_STYLES.footerNote}>
-							Kirim bukti transfer ke WhatsApp di samping.
-						</Text>
-					</>
-				) : null}
-			</View>
-		</View>
-	);
-}
-
-export function PdfSignature({
-	signer,
-	label = "Hormat kami,",
-	align = "right",
-}: {
-	signer: { name: string; position: string; signatureData: string | null };
-	label?: string;
-	/** Rata kanan (pojok kanan bawah, default) atau kiri (Pihak Pertama BAST). */
-	align?: "left" | "right";
-}) {
-	const left = align === "left";
-	return (
-		<View
-			style={[
-				PDF_STYLES.sign,
-				left ? { alignItems: "flex-start", textAlign: "left" } : {},
-			]}
-		>
-			<Text style={PDF_STYLES.signLabel}>{label}</Text>
-			{signer.signatureData ? (
-				<Image
-					src={signer.signatureData}
-					style={[
-						PDF_STYLES.signImg,
-						left ? { objectPosition: "left bottom" } : {},
-					]}
-				/>
-			) : (
-				<View style={PDF_STYLES.signSpace} />
-			)}
-			<Text style={PDF_STYLES.signName}>{signer.name}</Text>
-			<Text style={PDF_STYLES.signPos}>
-				{signer.position} · {COMPANY.name}
+		<View style={[{ color: t.fg }, bleed]}>
+			<Row
+				style={[
+					S.small,
+					{ borderTopWidth: 4.5, borderTopColor: t.fg, paddingTop: 10.5 },
+				]}
+			>
+				<Col span={2}>
+					{/* Proporsi aset 944×430 → tinggi 28.5pt */}
+					<Image src={t.logo} style={{ height: 28.5, width: 62.6 }} />
+				</Col>
+				<Col span={2}>
+					<Text>{COMPANY.name}</Text>
+					<Text>{COMPANY.city}</Text>
+				</Col>
+				<Col span={1}>
+					<Text>WA {COMPANY.whatsapp}</Text>
+					<Text>{COMPANY.instagram}</Text>
+				</Col>
+				<Col span={1}>
+					{/* Email dipecah di "@" supaya muat satu kolom tanpa terpotong. */}
+					<Text>{COMPANY.email.split("@")[0]}</Text>
+					<Text>@{COMPANY.email.split("@")[1]}</Text>
+				</Col>
+			</Row>
+			<Text
+				style={[
+					S.bold,
+					{
+						marginTop: 27,
+						fontSize: FS.title,
+						lineHeight: 0.8,
+						letterSpacing: -4.6,
+						marginLeft: -4.5,
+						// react-pdf memotong glyph di atas baseline bila lineHeight < 1;
+						// ruang kecil di atas mengompensasi.
+						paddingTop: 4,
+					},
+				]}
+			>
+				{title}
+				<Text style={{ color: t.dot }}>.</Text>
 			</Text>
 		</View>
 	);
 }
 
-/** Kolom tanda tangan kosong (klien di BAST). */
-export function PdfSignatureBlank({
-	name,
+/* ───────────────────────── blok ───────────────────────── */
+
+/** Pasangan label tebal di atas + nilai di bawah (meta row, pihak). */
+export function LabelBlock({
 	label,
-}: {
-	name: string;
-	label: string;
-}) {
-	return (
-		<View style={PDF_STYLES.sign}>
-			<Text style={PDF_STYLES.signLabel}>{label}</Text>
-			<View style={PDF_STYLES.signSpace} />
-			<Text style={PDF_STYLES.signName}>{name}</Text>
-			<Text style={PDF_STYLES.signPos}>Nama jelas & tanda tangan</Text>
-		</View>
-	);
-}
-
-/** Penutup: kiri terima kasih + S&K, kanan tanda tangan. Tidak dipecah lintas halaman. */
-/**
- * Daftar poin dalam kotak abu-abu — satu gaya untuk include item dan S&K.
- * `columns` 2 membagi poin ke dua kolom (include yang panjang).
- */
-export function PdfPointList({
 	lines,
-	columns = 1,
-	flush = false,
 }: {
-	lines: string[];
-	columns?: 1 | 2;
-	/** Di dalam baris tabel: lebarkan melewati padding baris agar rata dengan pita header. */
-	flush?: boolean;
+	label: string;
+	lines: Array<string | null | undefined | false>;
 }) {
-	if (lines.length === 0) return null;
-	const width = columns === 2 ? "50%" : "100%";
 	return (
-		<View
-			style={[
-				PDF_STYLES.includeBox,
-				flush ? { marginHorizontal: -14, borderRadius: 0 } : {},
-			]}
-		>
-			<View style={PDF_STYLES.includeWrap}>
-				{lines.map((l, j) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
-					<View key={j} style={[PDF_STYLES.includeItem, { width }]}>
-						<Text style={PDF_STYLES.includeDot}>•</Text>
-						<Text style={PDF_STYLES.include}>{l}</Text>
-					</View>
+		<View>
+			<Text style={S.bold}>{label}</Text>
+			{lines
+				.filter((l): l is string => Boolean(l))
+				.map((l) => (
+					<Text key={l}>{l}</Text>
 				))}
-			</View>
 		</View>
 	);
 }
 
-export function PdfSignOff({
-	thanks,
-	terms = [],
-	right,
+/** Baris meta: No. · tanggal · status/referensi. */
+export function MetaRow({
+	cells,
 }: {
-	thanks?: string;
-	terms?: string[];
-	right: React.ReactNode;
+	cells: Array<{ k: string; v: string; span: 1 | 2 | 3 | 4 }>;
 }) {
+	return (
+		<Row style={[S.ruleThin, { marginTop: 21, paddingTop: 7.5 }]}>
+			{cells.map((c) => (
+				<Col key={c.k} span={c.span}>
+					<LabelBlock label={c.k} lines={[c.v]} />
+				</Col>
+			))}
+		</Row>
+	);
+}
+
+/**
+ * Angka besar merah — inti dokumen. Rata kanan, tidak boleh wrap: font
+ * diperkecil otomatis bila teksnya terlalu panjang untuk span 4.
+ */
+export function BigFigure({
+	label,
+	sub,
+	value,
+}: {
+	label: string;
+	sub?: string | null;
+	value: string;
+}) {
+	// Helvetica-Bold ≈ 0.55em per karakter setelah letterSpacing −0.05em.
+	const fit = Math.min(FS.big, GRID.span[4] / (value.length * 0.55));
+	return (
+		<Row style={[S.ruleThick, { marginTop: 21, paddingTop: 9 }]} wrap={false}>
+			<Col span={2}>
+				<LabelBlock label={label} lines={[sub]} />
+			</Col>
+			{/* Ruang = 0.85em (lineHeight handoff). react-pdf mengabaikan
+			    lineHeight < 1 dan memakai tinggi glyph penuh (~1.2em) — margin
+			    negatif mengembalikan ±25pt yang dulu mendorong blok bawah ke
+			    halaman 2. Kotak bertinggi tetap tidak bisa: teks yang "tak muat"
+			    dibuang react-pdf. */}
+			<Col span={4}>
+				<Text
+					style={[
+						S.bold,
+						S.num,
+						{
+							fontSize: fit,
+							lineHeight: 1,
+							marginTop: -fit * 0.1,
+							marginBottom: -fit * 0.1,
+							letterSpacing: -fit * 0.05,
+							color: C.red,
+						},
+					]}
+				>
+					{value}
+				</Text>
+			</Col>
+		</Row>
+	);
+}
+
+/** Nomor urut dua digit ("01") di kolom kecil + teks. */
+export function Numbered({
+	n,
+	children,
+	width = 16.5,
+}: {
+	n: number;
+	children: ReactNode;
+	width?: number;
+}) {
+	return (
+		<View style={{ flexDirection: "row" }}>
+			<Text style={{ width, color: C.index }}>
+				{String(n).padStart(2, "0")}
+			</Text>
+			<View style={{ flex: 1 }}>{children}</View>
+		</View>
+	);
+}
+
+export type PdfSigner = {
+	name: string;
+	position: string;
+	signatureData: string | null;
+};
+
+/** Tanda tangan rata kanan: label → gambar → nama → jabatan. */
+export function PdfSignature({
+	signer,
+	label = "Hormat kami",
+	rule = false,
+}: {
+	signer: PdfSigner;
+	label?: string;
+	/** BAST: garis di atas nama selebar kolom. */
+	rule?: boolean;
+}) {
+	return (
+		<View style={{ alignItems: "flex-end", textAlign: "right" }}>
+			<Text style={[S.bold, { fontSize: FS.body }]}>{label}</Text>
+			{signer.signatureData ? (
+				<Image
+					src={signer.signatureData}
+					style={{
+						height: 46.5,
+						width: 110,
+						objectFit: "contain",
+						objectPosition: "right bottom",
+						marginRight: -4.5,
+					}}
+				/>
+			) : (
+				<View style={{ height: 46.5 }} />
+			)}
+			<View
+				style={
+					rule
+						? [S.ruleThin, { alignSelf: "stretch", paddingTop: 4.5 }]
+						: undefined
+				}
+			>
+				<Text style={[S.bold, { fontSize: FS.body, textAlign: "right" }]}>
+					{signer.name}
+				</Text>
+			</View>
+			<Text>
+				{signer.position}, {COMPANY.name}
+			</Text>
+		</View>
+	);
+}
+
+/**
+ * Blok yang selalu duduk di dasar halaman terakhir (di atas footer). Spacer
+ * `flexGrow` menghabiskan sisa ruang — tanpa posisi absolut, jadi react-pdf
+ * tetap memindahkan blok ke halaman baru bila ruangnya tidak cukup.
+ */
+export function PinnedBottom({ children }: { children: ReactNode }) {
+	return (
+		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
+			<View style={{ marginTop: 30 }}>{children}</View>
+		</View>
+	);
+}
+
+/** Blok bawah: Pembayaran · Ketentuan · tanda tangan (rata kanan). */
+export function PdfBottom({
+	bank,
+	terms,
+	signer,
+	signLabel,
+}: {
+	bank: {
+		bankName: string;
+		accountHolder: string;
+		accountNumber: string | null;
+	} | null;
+	terms: string[];
+	signer: PdfSigner;
+	signLabel?: string;
+}) {
+	const termList = (list: string[], from: number) =>
+		list.map((t, i) => (
+			<View key={t} style={{ flexDirection: "row", marginBottom: 2.25 }}>
+				<Text style={{ width: 10.5 }}>{from + i + 1}</Text>
+				<Text style={{ flex: 1 }}>{t}</Text>
+			</View>
+		));
+	const termsLabel = (
+		<Text style={[S.bold, { fontSize: FS.body, marginBottom: 4.5 }]}>
+			Ketentuan
+		</Text>
+	);
+	// Tanpa blok Pembayaran & ketentuan panjang (quotation: 7 poin) →
+	// ketentuan melebar ke kolom 1–4 dalam dua sub-kolom. Di satu kolom sempit
+	// tingginya ±185pt dan selalu mendorong blok bawah ke halaman 2.
+	const wide = !bank && terms.length > 3;
+	const half = Math.ceil(terms.length / 2);
 	return (
 		<PinnedBottom>
-			<View style={PDF_STYLES.signOffLeft}>
-				{thanks ? <Text style={PDF_STYLES.thanks}>{thanks}</Text> : null}
-				{terms.length ? (
-					<View>
-						<Text style={PDF_STYLES.termsLabel}>Syarat & ketentuan</Text>
-						<PdfPointList lines={terms} />
-					</View>
-				) : null}
-			</View>
-			{right}
+			<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
+				{wide ? (
+					<Col span={4}>
+						{termsLabel}
+						<Row>
+							<Col span={2}>{termList(terms.slice(0, half), 0)}</Col>
+							<Col span={2}>{termList(terms.slice(half), half)}</Col>
+						</Row>
+					</Col>
+				) : (
+					<>
+						<Col span={2}>
+							{bank ? (
+								<>
+									<Text
+										style={[S.bold, { fontSize: FS.body, marginBottom: 4.5 }]}
+									>
+										Pembayaran
+									</Text>
+									<Text>
+										{bank.bankName}
+										{bank.accountNumber ? ` ${bank.accountNumber}` : ""}
+									</Text>
+									<Text>a.n. {bank.accountHolder}</Text>
+									<Text>
+										Kirim bukti transfer ke WhatsApp {COMPANY.whatsapp}.
+									</Text>
+								</>
+							) : null}
+						</Col>
+						<Col span={2}>
+							{terms.length > 0 ? (
+								<>
+									{termsLabel}
+									{termList(terms, 0)}
+								</>
+							) : null}
+						</Col>
+					</>
+				)}
+				<Col span={2}>
+					<PdfSignature signer={signer} label={signLabel} />
+				</Col>
+			</Row>
 		</PinnedBottom>
 	);
 }
 
-/**
- * Blok yang selalu duduk di area bawah halaman terakhir (tepat di atas
- * footer). Spacer `flexGrow: 1` menghabiskan sisa ruang halaman sehingga blok
- * terdorong ke bawah — tanpa posisi absolut, jadi react-pdf tetap memindahkan
- * blok ke halaman baru bila ruangnya memang tidak cukup.
- */
-export function PinnedBottom({ children }: { children: React.ReactNode }) {
+/** Footer tetap di dasar tiap halaman: garis + ucapan terima kasih. */
+export function PdfFooter({ thanks }: { thanks: string }) {
 	return (
-		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
-			<View style={PDF_STYLES.signOff}>{children}</View>
+		<View
+			fixed
+			style={[
+				S.ruleThin,
+				S.small,
+				{
+					position: "absolute",
+					left: GRID.padX,
+					right: GRID.padX,
+					bottom: 0,
+					height: GRID.footerHeight,
+					paddingTop: 9,
+				},
+			]}
+		>
+			<Text style={S.bold}>{thanks}</Text>
 		</View>
 	);
 }
 
-export function Kv({ k, v }: { k: string; v: string | null | undefined }) {
-	if (!v) return null;
+/**
+ * "{nomor} · 1/2" di kanan footer. Harus anak langsung <Page> (bukan di dalam
+ * fragment/View footer) — kalau tidak, `render` react-pdf tidak dipanggil.
+ */
+export function PdfPageNumber({ docNumber }: { docNumber: string }) {
 	return (
-		<View style={PDF_STYLES.kv}>
-			<Text style={PDF_STYLES.k}>{k}</Text>
-			<Text style={PDF_STYLES.v}>{v}</Text>
-		</View>
+		<Text
+			fixed
+			style={{
+				position: "absolute",
+				// Sebaris dengan teks footer: 9pt di bawah garis footer.
+				bottom: GRID.footerHeight - 9 - FS.small * 1.5,
+				right: GRID.padX,
+				width: GRID.span[2],
+				fontSize: FS.small,
+				textAlign: "right",
+			}}
+			render={({ pageNumber, totalPages }) =>
+				`${docNumber} · ${pageNumber}/${totalPages}`
+			}
+		/>
 	);
 }

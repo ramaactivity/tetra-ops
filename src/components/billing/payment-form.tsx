@@ -54,7 +54,11 @@ export function PaymentForm({
 	/** Nominal DP standar (system_config.default_dp_amount) untuk chip isi-cepat. */
 	defaultDpAmount?: number;
 	defaultProofUrl?: string;
-	onSuccess?: () => void;
+	/** Dipanggil sekali setelah tersimpan, membawa dokumen yang langsung terbit. */
+	onSuccess?: (result: {
+		docs: NonNullable<NonNullable<PaymentFormState>["docs"]>;
+		lunas: boolean;
+	}) => void;
 }) {
 	const action = logPayment.bind(null, eventId, projectId);
 	const [state, formAction, pending] = useActionState<
@@ -62,10 +66,11 @@ export function PaymentForm({
 		FormData
 	>(action, undefined);
 
-	// Close the dialog (and let the page revalidate) once the payment is logged.
+	// Serahkan hasil ke dialog (yang lalu menampilkan dokumen yang terbit).
 	useEffect(() => {
-		if (state?.success) onSuccess?.();
-	}, [state?.success, onSuccess]);
+		if (state?.success)
+			onSuccess?.({ docs: state.docs ?? [], lunas: Boolean(state.lunas) });
+	}, [state, onSuccess]);
 
 	const get = (key: string, fallback?: string) =>
 		state?.values?.[key] ?? fallback ?? "";

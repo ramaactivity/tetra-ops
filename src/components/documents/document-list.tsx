@@ -31,7 +31,12 @@ export type DocumentListRow = Pick<
 	| "issued_at"
 	| "status"
 	| "delivered_at"
-> & { event_project_id: string | null; event_date: string | null };
+> & {
+	event_project_id: string | null;
+	event_date: string | null;
+	/** Kuitansi: nominal pembayaran yang diterima (bukan total tagihan). */
+	payment_amount: number | null;
+};
 
 const STATUS_TONE: Record<DocStatus, StatusTone> = {
 	draft: "neutral",
@@ -46,6 +51,7 @@ const COLS =
 
 export function DocumentList({ rows }: { rows: DocumentListRow[] }) {
 	const total = (r: DocumentListRow) =>
+		r.payment_amount ??
 		computeTotals(r.items, r.discount, {
 			enabled: r.gross_up_enabled,
 			ratePct: r.gross_up_rate,

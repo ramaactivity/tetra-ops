@@ -378,7 +378,7 @@ export async function setDocumentStatus(
 // ---------------------------------------------------------------------------
 
 type IssueResult =
-	| { ok: true; id: string; created: boolean }
+	| { ok: true; id: string; created: boolean; docNumber?: string }
 	| { ok: false; error: string };
 
 /** Invoice event: buka yang ada, atau buat dari data event. */
@@ -428,7 +428,12 @@ async function issuePaidDoc(
 	);
 	if (!res.ok) return res;
 	if (res.created) revalidateDocs(res.projectId);
-	return { ok: true, id: res.id, created: res.created };
+	return {
+		ok: true,
+		id: res.id,
+		created: res.created,
+		docNumber: res.docNumber,
+	};
 }
 
 export async function issueNotaLunas(eventId: string) {

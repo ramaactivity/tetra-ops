@@ -365,10 +365,16 @@ export const catatPembayaran: AiTool = {
 			tersimpan: true,
 			payment_id: res.paymentId,
 			sisa_tagihan: res.sisaSesudah,
-			dokumen:
-				res.sisaSesudah <= 0
-					? "Nota lunas dibuat & ditawarkan ke grup owner."
-					: "Kuitansi + invoice sisa dibuat & ditawarkan ke grup owner.",
+			// Nomor dokumen yang benar-benar terbit — bisa langsung dikirim lewat
+			// kirim_dokumen.
+			dokumen_terbit: res.docs.map((d) => ({
+				id: d.id,
+				jenis: d.docType,
+				nomor: d.docNumber,
+			})),
+			catatan: res.docs.length
+				? "Dokumen di atas juga ditawarkan ke grup owner."
+				: "Dokumen gagal terbit otomatis — terbitkan dari halaman Payments.",
 		};
 	},
 };
