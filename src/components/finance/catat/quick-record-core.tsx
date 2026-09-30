@@ -122,6 +122,7 @@ export function QuickRecordCore({
 	const router = useRouter();
 	const haptic = useHaptics();
 	const noteId = useId();
+	const [eventId, setEventId] = useState(prefill?.eventId ?? "");
 
 	const [direction, setDirection] = useState<CatatDirection>(
 		prefill?.direction ?? "keluar",
@@ -948,6 +949,20 @@ export function QuickRecordCore({
 			)
 		) : null;
 
+	// Biaya/pemasukan ini untuk event apa (opsional) — ikut terhitung di
+	// "Hitungan untung" & kesehatan event tersebut.
+	const eventField =
+		direction === "transfer" || data.events.length === 0 ? null : (
+			<Combobox
+				value={eventId}
+				onValueChange={(v) => setEventId(v ?? "")}
+				options={data.events.map((e) => ({ value: e.id, label: e.label }))}
+				placeholder="Untuk event (opsional)"
+				allowFreeText={false}
+				aria-label="Untuk event"
+			/>
+		);
+
 	const detailsField = (
 		<div className="rounded-xl border border-border-subtle bg-card">
 			<button
@@ -986,6 +1001,7 @@ export function QuickRecordCore({
 							className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
 						/>
 					</div>
+					{eventField}
 					<RichTextarea
 						id={noteId}
 						value={note}
@@ -1054,6 +1070,7 @@ export function QuickRecordCore({
 					className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
 				/>
 			</div>
+			{eventField}
 			<RichTextarea
 				value={note}
 				onChange={setNote}
@@ -1212,7 +1229,7 @@ export function QuickRecordCore({
 				if (coaOverride) fd.set("coa_override", coaOverride);
 				fd.set("admin_fee", String(feeApplied));
 				if (isMonthly) fd.set("period_month", periodMonth);
-				if (prefill?.eventId) fd.set("event_id", prefill.eventId);
+				if (eventId && direction !== "transfer") fd.set("event_id", eventId);
 				fd.set(
 					"patungan_per_owner",
 					String(direction === "keluar" ? patunganPerOwner : 0),

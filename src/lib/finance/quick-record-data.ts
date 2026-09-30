@@ -20,6 +20,7 @@ import {
 	type CatatDirection,
 	categoryByCoa,
 } from "@/lib/finance/quick-record-categories";
+import { formatDateID } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export type CashAccount = { code: string; name: string; balance: number };
@@ -68,6 +69,8 @@ export type CatatData = {
 	recents: RecentTxn[];
 	ownerPool: OwnerPoolContext;
 	paidPeriods: PaidPeriod[];
+	/** Event terbaru — pilihan "biaya ini untuk event apa" (opsional). */
+	events: Array<{ id: string; label: string }>;
 };
 
 const ENTRY_TYPE_TO_DIRECTION: Record<string, CatatDirection> = {
@@ -257,5 +260,22 @@ export async function loadCatatData(): Promise<CatatData> {
 		.filter((r): r is RecentTxn => r !== null)
 		.slice(0, 4);
 
-	return { cashAccounts, coaOptions, recents, ownerPool, paidPeriods };
+	// 60 hari ke belakang s/d 14 hari ke depan — biaya event hampir selalu
+	// dicatat di sekitar tanggal acaranya.
+	const day = (offset: number) =>
+		new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+	const { data: eventRows } = await supabase
+		.from("events")
+		.select("id, client_name, event_date")
+		.gte("event_date", day(-60))
+		.lte("event_date", day(14))
+		.neq("status", "cancelled")
+		.order("event_date", { ascending: false })
+		.limit(80);
+	const events = (eventRows ?? []).map((e) => ({
+		id: e.id as string,
+		label: `${formatDateID(e.event_date as string)} · ${e.client_name as string}`,
+	}));
+
+	return { cashAccounts, coaOptions, recents, ownerPool, paidPeriods, events };
 }
