@@ -459,11 +459,14 @@ export function PdfFooter({
 						<Text style={PDF_STYLES.footerLabel}>Info pembayaran</Text>
 						<View style={PDF_STYLES.footerKv}>
 							<Text style={PDF_STYLES.footerK}>Bank</Text>
-							<Text style={PDF_STYLES.footerV}>
-								{bank.bankName}
-								{bank.accountNumber ? ` · ${bank.accountNumber}` : ""}
-							</Text>
+							<Text style={PDF_STYLES.footerV}>{bank.bankName}</Text>
 						</View>
+						{bank.accountNumber ? (
+							<View style={PDF_STYLES.footerKv}>
+								<Text style={PDF_STYLES.footerK}>No. rek</Text>
+								<Text style={PDF_STYLES.footerV}>{bank.accountNumber}</Text>
+							</View>
+						) : null}
 						<View style={PDF_STYLES.footerKv}>
 							<Text style={PDF_STYLES.footerK}>a.n.</Text>
 							<Text style={PDF_STYLES.footerV}>{bank.accountHolder}</Text>
