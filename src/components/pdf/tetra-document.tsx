@@ -437,7 +437,6 @@ function ReceiptPage({
 					bank={d.bank}
 					terms={termLines(d)}
 					signer={d.signer}
-					signLabel="Penerima"
 				/>
 			}
 		>
@@ -484,16 +483,36 @@ function ReceiptPage({
 function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 	const b = d.bast;
 	const picName = b?.picName ?? d.client.name;
-	const rows =
-		b?.deliverables ??
-		d.items.map((i) => ({
-			label: i.name,
-			quantity: i.qty,
-			notes: i.includes[0],
-		}));
-	const eventTitle =
-		d.event.title && d.event.title !== d.client.name ? d.event.title : null;
-	const place = [d.event.venue, d.event.city].filter(Boolean).join(", ");
+	// Jam sesi saja ("16.30–19.30"), tanpa "Setup …" — gaya referensi.
+	const session = (d.event.time ?? "")
+		.split(" · ")
+		.filter((p) => !p.startsWith("Setup"))
+		.join(" · ")
+		.replaceAll(":", ".");
+	// Baris layanan = item dokumen (nama + include, sama dengan invoice);
+	// deliverables event hanya cadangan bila dokumen tanpa item.
+	const rows: Array<{
+		name: string;
+		desc: string | null;
+		qty: string;
+		note: string;
+	}> =
+		d.items.length > 0
+			? d.items.map((it, i) => ({
+					name: it.name,
+					desc: it.includes.filter((x) => x.trim()).join(" · ") || null,
+					qty: i === 0 && it.qty > 1 ? `${it.qty} unit` : String(it.qty),
+					note:
+						i === 0
+							? `Terlaksana${session ? `, ${session}` : ""}`
+							: "Diserahkan",
+				}))
+			: (b?.deliverables ?? []).map((x) => ({
+					name: x.label,
+					desc: null,
+					qty: String(x.quantity),
+					note: x.notes ?? "",
+				}));
 	return (
 		<Shell
 			d={d}
@@ -504,12 +523,10 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 					<PinnedBottom>
 						<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
 							<Col span={2}>
-								<Text style={[S.bold, { fontSize: FS.body }]}>
-									Pihak Kedua, penerima
-								</Text>
+								<Text style={S.blockTitle}>Pihak Kedua, penerima</Text>
 								<View style={{ height: 46.5 }} />
 								<View style={[S.ruleThin, { paddingTop: 4.5 }]}>
-									<Text style={[S.bold, { fontSize: FS.body }]}>{picName}</Text>
+									<Text style={S.blockTitle}>{picName}</Text>
 								</View>
 								<Text>{d.client.name}</Text>
 							</Col>
@@ -537,16 +554,10 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 			<Row style={{ marginTop: 21, marginBottom: 21 }}>
 				<Col span={5}>
 					<Text style={{ fontSize: FS.para, lineHeight: 1.45 }}>
+						{/* Kalimat persis referensi Swiss; detail acara ada di blok Acara. */}
 						Pada hari ini, {formatDateLongForPdf(d.issuedAt)}, {COMPANY.name}{" "}
-						(Pihak Pertama) telah melaksanakan dan menyerahkan layanan berikut
-						kepada {d.client.name}
-						{d.client.org && d.client.org !== d.client.name
-							? ` (${d.client.org})`
-							: ""}{" "}
-						(Pihak Kedua)
-						{eventTitle ? ` untuk acara ${eventTitle}` : ""}
-						{d.event.date ? ` pada ${formatDateLongForPdf(d.event.date)}` : ""}
-						{place ? ` di ${place}` : ""}, dan layanan telah diterima dalam
+						(Pihak Pertama) telah menyerahkan layanan berikut kepada{" "}
+						{d.client.name} (Pihak Kedua), dan layanan telah diterima dalam
 						keadaan baik dan sesuai kesepakatan.
 					</Text>
 				</Col>
@@ -562,13 +573,13 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
 				<Row key={i} style={rowLine} wrap={false}>
 					<Col span={3}>
-						<ItemDesc i={i} name={row.label} desc={null} />
+						<ItemDesc i={i} name={row.name} desc={row.desc} />
 					</Col>
 					<Col span={1}>
-						<Text>{row.quantity}</Text>
+						<Text>{row.qty}</Text>
 					</Col>
 					<Col span={2}>
-						<Text>{row.notes ?? ""}</Text>
+						<Text>{row.note}</Text>
 					</Col>
 				</Row>
 			))}

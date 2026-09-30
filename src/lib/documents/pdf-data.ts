@@ -220,7 +220,13 @@ export function buildPdfData(
 				}
 			: null,
 		notes: doc.notes,
-		terms: doc.terms ?? defaultTerms(doc.doc_type, doc.gross_up_enabled),
+		// Kwitansi & nota lunas tak punya S&K sendiri → pakai S&K invoice
+		// (sama dengan referensi desain Swiss). BAST tetap tanpa ketentuan.
+		terms:
+			(doc.doc_type === "receipt" || doc.doc_type === "nota_lunas") &&
+			!doc.terms?.trim()
+				? defaultTerms("invoice", doc.gross_up_enabled)
+				: (doc.terms ?? defaultTerms(doc.doc_type, doc.gross_up_enabled)),
 		signer: {
 			name: doc.signer_name ?? ctx.signer?.name ?? "Tetra Photobooth",
 			position: doc.signer_position ?? ctx.signer?.position ?? "Owner",

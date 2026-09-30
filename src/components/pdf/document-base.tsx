@@ -45,7 +45,7 @@ export const GRID = {
 	/** Lebar per span: 1 kolom = 77.21pt. */
 	span: [0, 77.21, 166.43, 255.64, 344.85, 434.07, 523.28] as const,
 	/** Tinggi footer yang menempel di dasar tiap halaman. */
-	footerHeight: 38,
+	footerHeight: 36,
 } as const;
 
 export const FS = {
@@ -82,6 +82,9 @@ export const PDF_STYLES = StyleSheet.create({
 	ruleThick: { borderTopWidth: 4.5, borderTopColor: C.ink },
 	ruleThin: { borderTopWidth: 0.75, borderTopColor: C.ink },
 	num: { textAlign: "right" },
+	/** Judul blok bawah & nama penanda tangan (11px handoff). lineHeight wajib
+	    eksplisit: react-pdf mewariskan tinggi baris ABSOLUT dari Row 7.1pt. */
+	blockTitle: { fontFamily: "Helvetica-Bold", fontSize: 8.25, lineHeight: 1.5 },
 });
 
 const S = PDF_STYLES;
@@ -238,7 +241,13 @@ export function PdfHeader({
 			<Row
 				style={[
 					S.small,
-					{ borderTopWidth: 4.5, borderTopColor: t.fg, paddingTop: 10.5 },
+					// Kop surat: lineHeight 1.45 (warisan halaman di handoff).
+					{
+						borderTopWidth: 4.5,
+						borderTopColor: t.fg,
+						paddingTop: 10.5,
+						lineHeight: 1.45,
+					},
 				]}
 			>
 				<Col span={2}>
@@ -312,7 +321,7 @@ export function MetaRow({
 	return (
 		// 30 (bukan 21 handoff): kotak judul react-pdf lebih tinggi dari
 		// lineHeight 0.8 desain, judul dinaikkan 9pt → jarak dikembalikan di sini.
-		<Row style={[S.ruleThin, { marginTop: 33.5, paddingTop: 7.5 }]}>
+		<Row style={[S.ruleThin, { marginTop: 32.75, paddingTop: 7.5 }]}>
 			{cells.map((c) => (
 				<Col key={c.k} span={c.span}>
 					<LabelBlock label={c.k} lines={[c.v]} />
@@ -408,7 +417,7 @@ export function PdfSignature({
 }) {
 	return (
 		<View style={{ alignItems: "flex-end", textAlign: "right" }}>
-			<Text style={[S.bold, { fontSize: FS.body }]}>{label}</Text>
+			<Text style={S.blockTitle}>{label}</Text>
 			{signer.signatureData ? (
 				<Image
 					src={signer.signatureData}
@@ -430,7 +439,7 @@ export function PdfSignature({
 						: undefined
 				}
 			>
-				<Text style={[S.bold, { fontSize: FS.body, textAlign: "right" }]}>
+				<Text style={[S.blockTitle, { textAlign: "right" }]}>
 					{signer.name}
 				</Text>
 			</View>
@@ -443,16 +452,14 @@ export function PdfSignature({
 
 /**
  * Blok yang selalu duduk di dasar halaman terakhir (di atas footer). Jarak
- * minimum 24pt ke atas (handoff ≥30; 24 supaya quotation 4 item + 7
- * ketentuan tetap satu halaman — di dokumen biasa jaraknya jauh lebih lega).
- * Spacer
+ * minimum 30pt ke atas (handoff). Spacer
  * `flexGrow` menghabiskan sisa ruang — tanpa posisi absolut, jadi react-pdf
  * tetap memindahkan blok ke halaman baru bila ruangnya tidak cukup.
  */
 export function PinnedBottom({ children }: { children: ReactNode }) {
 	return (
 		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
-			<View style={{ marginTop: 24 }}>{children}</View>
+			<View style={{ marginTop: 30 }}>{children}</View>
 		</View>
 	);
 }
@@ -481,21 +488,15 @@ export function PdfBottom({
 			</View>
 		));
 	const termsLabel = (
-		<Text style={[S.bold, { fontSize: FS.body, marginBottom: 4.5 }]}>
-			Ketentuan
-		</Text>
+		<Text style={[S.blockTitle, { marginBottom: 4.5 }]}>Ketentuan</Text>
 	);
-	// Ketentuan panjang (quotation: 7 poin): di kolom span 2 tingginya ±170pt
-	// dan mendorong blok bawah ke halaman 2 → Ketentuan jadi span 3, tanda
-	// tangan span 1 (tetap rata kanan). ≤4 poin: persis grid handoff 2·2·2.
-	const long = terms.length > 4;
 	return (
 		<PinnedBottom>
 			<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
 				<Col span={2}>
 					{bank ? (
 						<>
-							<Text style={[S.bold, { fontSize: FS.body, marginBottom: 4.5 }]}>
+							<Text style={[S.blockTitle, { marginBottom: 4.5 }]}>
 								Pembayaran
 							</Text>
 							<Text>
@@ -507,7 +508,7 @@ export function PdfBottom({
 						</>
 					) : null}
 				</Col>
-				<Col span={long ? 3 : 2}>
+				<Col span={2}>
 					{terms.length > 0 ? (
 						<>
 							{termsLabel}
@@ -515,7 +516,7 @@ export function PdfBottom({
 						</>
 					) : null}
 				</Col>
-				<Col span={long ? 1 : 2}>
+				<Col span={2}>
 					<PdfSignature signer={signer} label={signLabel} />
 				</Col>
 			</Row>
