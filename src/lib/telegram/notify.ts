@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unitCountOf, withUnits } from "@/lib/events/spots";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -52,7 +53,7 @@ export async function notifyTelegramBookingCreated(
 				grand_total, vendor_commission_mode, vendor_commission_amount,
 				vendor_name, vendor_pic_name, vendor_contact,
 				referrer_user_id, referrer_commission,
-				pic_name, pic_wa, booker_name,
+				pic_name, pic_wa, booker_name, unit_count,
 				package:packages(name), backdrop:backdrops(name)`,
 			)
 			.eq("id", eventId)
@@ -135,9 +136,12 @@ export async function notifyTelegramBookingCreated(
 			.filter(Boolean)
 			.map((s) => tgEscape(s as string))
 			.join(", ");
+		const units = unitCountOf(ev);
 		const paket = [
-			pkg?.name ? `📦 ${tgEscape(pkg.name as string)}` : null,
-			backdrop?.name ? `🖼 ${tgEscape(backdrop.name as string)}` : null,
+			pkg?.name ? `📦 ${tgEscape(withUnits(pkg.name as string, units))}` : null,
+			backdrop?.name
+				? `🖼 ${units > 1 ? "Spot 1: " : ""}${tgEscape(backdrop.name as string)}`
+				: null,
 		]
 			.filter(Boolean)
 			.join(" · ");

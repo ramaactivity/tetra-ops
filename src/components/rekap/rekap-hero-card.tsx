@@ -15,6 +15,8 @@ type Props = {
 	eventDate: string;
 	venueName?: string | null;
 	pkg?: Pkg | null;
+	/** Event multi-unit: jumlah booth. */
+	unitCount?: number;
 	isApproved: boolean | null | undefined; // null/undefined = pending or not yet submitted
 	submitted: boolean; // true if rekap exists
 	hppTotal?: number;
@@ -32,6 +34,7 @@ type Props = {
  */
 export function RekapHeroCard({
 	eyebrow = "REKAP CREW",
+	unitCount = 1,
 	clientName,
 	eventDate,
 	venueName,
@@ -79,6 +82,7 @@ export function RekapHeroCard({
 						return (
 							<div className="flex flex-wrap gap-1.5 pt-0.5">
 								<HeroPill>{pkg.name}</HeroPill>
+								{unitCount > 1 ? <HeroPill>× {unitCount} unit</HeroPill> : null}
 								{showDuration ? (
 									<HeroPill>{pkg.duration_hours} jam</HeroPill>
 								) : null}

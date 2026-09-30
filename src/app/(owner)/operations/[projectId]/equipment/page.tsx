@@ -1,15 +1,15 @@
 import { AlertTriangle, Package } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CheckInButton } from "@/components/event-equipment/check-in-button";
-import { Container } from "@/components/layout/container";
 import {
 	type AvailableItem,
 	CheckOutDialog,
 	type CrewOption,
 } from "@/components/event-equipment/check-out-form";
+import { IncidentDialog } from "@/components/event-equipment/incident-form";
+import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
-import { IncidentDialog } from "@/components/event-equipment/incident-form";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -20,6 +20,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { unitCountOf } from "@/lib/events/spots";
 import {
 	EQUIPMENT_CONDITION_LABELS,
 	EQUIPMENT_LOCATION_LABELS,
@@ -80,7 +81,7 @@ export default async function EventEquipmentPage({
 
 	const { data: event } = await supabase
 		.from("events")
-		.select("id, project_id, client_name, event_date, status")
+		.select("id, project_id, client_name, event_date, status, unit_count")
 		.eq("project_id", projectId)
 		.maybeSingle();
 
@@ -170,7 +171,11 @@ export default async function EventEquipmentPage({
 			<TopbarEntityPortal name={event.client_name} />
 			<SectionHeader
 				title="Equipment"
-				description={`${event.client_name} · ${formatDateID(event.event_date)}`}
+				description={`${event.client_name} · ${formatDateID(event.event_date)}${
+					unitCountOf(event) > 1
+						? ` · ${unitCountOf(event)} unit — siapkan ${unitCountOf(event)} set booth`
+						: ""
+				}`}
 			/>
 
 			<section className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">

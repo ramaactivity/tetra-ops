@@ -315,6 +315,8 @@ export default async function CrewEventDetailPage({
 				pic_wa: picPhone,
 				pending_package_hours: event.pending_package_hours as number | null,
 				package_frame_size: (pkg?.frame_size as string | null) ?? null,
+				unit_count: event.unit_count as number | null,
+				spots: event.spots,
 			})
 		: [];
 

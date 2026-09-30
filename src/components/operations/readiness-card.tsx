@@ -51,6 +51,8 @@ type ReadinessInput = {
 	totalPaid: number;
 	remainingBalance: number;
 	crewCount: number;
+	/** Event multi-unit: spot yang belum punya lead (kosong = aman). */
+	spotsWithoutLead?: number[];
 	designStatus: DesignStatus;
 	rekapSubmitted: boolean;
 };
@@ -100,7 +102,8 @@ export function EventReadinessCard(props: ReadinessInput) {
 			: undefined,
 	});
 
-	// 3) Crew assigned — target H-2
+	// 3) Crew assigned — target H-2. Event multi-unit: tiap spot butuh lead.
+	const noLead = props.spotsWithoutLead ?? [];
 	items.push({
 		id: "crew",
 		label: "Crew di-assign",
@@ -108,15 +111,17 @@ export function EventReadinessCard(props: ReadinessInput) {
 		hint:
 			props.crewCount === 0
 				? "Belum ada crew"
-				: `${props.crewCount} crew sudah di-assign`,
+				: noLead.length > 0
+					? `${noLead.map((n) => `Spot ${n}`).join(", ")} belum ada lead`
+					: `${props.crewCount} crew sudah di-assign`,
 		state:
-			props.crewCount > 0
+			props.crewCount > 0 && noLead.length === 0
 				? "done"
 				: days <= 2 && !isPostEvent
 					? "overdue"
 					: "pending",
 		cta:
-			props.crewCount === 0
+			props.crewCount === 0 || noLead.length > 0
 				? {
 						label: "Assign crew",
 						href: `/operations/${props.projectId}#crew-manage`,

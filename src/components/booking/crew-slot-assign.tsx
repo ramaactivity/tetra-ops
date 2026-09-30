@@ -116,7 +116,11 @@ export function CrewSlotAssign({
 		setTimeout(() => suppressed.current.delete(key), 1200);
 	}
 
-	const team = optimistic.map((a) => a.user.full_name);
+	const team = optimistic.map((a) =>
+		unitCount > 1
+			? `${a.user.full_name} (Spot ${a.spot_no ?? 1})`
+			: a.user.full_name,
+	);
 	const baseOptions = availableCrew.map((c) => ({
 		value: c.id,
 		label: `${crewLabel(c)}${c.hasConflict ? "  ⚠" : ""}`,
@@ -192,6 +196,7 @@ export function CrewSlotAssign({
 			crew_name: row.user.full_name,
 			team,
 			event,
+			spot: row.spot_no,
 		});
 		window.open(whatsappUrl(phone, body), "_blank", "noopener,noreferrer");
 	}

@@ -159,12 +159,13 @@ export async function fetchEventForPdf(
 		role_in_event: string;
 		user: { full_name: string } | Array<{ full_name: string }> | null;
 	}>;
-	const lead = crewAssignments.find((a) => a.role_in_event === "lead");
-	const leadUser = lead
-		? Array.isArray(lead.user)
-			? lead.user[0]
-			: lead.user
-		: null;
+	// Event multi-unit punya lead per spot — BAST menyebut semuanya.
+	const leadNames = crewAssignments
+		.filter((a) => a.role_in_event === "lead")
+		.map((a) => (Array.isArray(a.user) ? a.user[0] : a.user)?.full_name)
+		.filter((n): n is string => Boolean(n));
+	const leadUser =
+		leadNames.length > 0 ? { full_name: leadNames.join(", ") } : null;
 
 	// Default bank account for invoice payment instructions
 	const { data: bankData } = await supabase
@@ -292,20 +293,7 @@ export function buildLineItems(ev: EventForPdf) {
 		: (ev.custom_package_price ?? ev.base_price);
 	if (packagePrice > 0) {
 		const units = Math.max(1, ev.unit_count ?? 1);
-		// Format per spot: spot 1 = kolom event, spot ≥2 = override (kosong = ikut 1).
-		const formats =
-			units > 1
-				? Array.from({ length: units }, (_, i) => {
-						const own = ev.spots?.find((x) => x.spot === i + 1)?.frame_size;
-						return frameFormatLabel(
-							i === 0 ? ev.frame_size : (own ?? ev.frame_size),
-						);
-					})
-				: [frameFormatLabel(ev.frame_size)];
-		const sameFormat = formats.every((f) => f === formats[0]);
-		const fmtText = sameFormat
-			? formats[0]
-			: formats.map((f, i) => `Spot ${i + 1}: ${f ?? "—"}`).join(" · ");
+		const fmtText = formatPerSpot(ev);
 		// base_price = total semua unit; tampilkan qty × harga per unit kalau bulat.
 		const perUnit = packagePrice / units;
 		const splitQty = units > 1 && Number.isInteger(perUnit);
@@ -352,6 +340,27 @@ export function buildLineItems(ev: EventForPdf) {
 	return items;
 }
 
+/**
+ * Format cetak: "Format 4R", atau per spot kalau event multi-unit berbeda
+ * ukuran ("Spot 1: Format 4R · Spot 2: Format 2R"). Spot 1 = kolom event,
+ * spot ≥2 = override (kosong = ikut spot 1).
+ */
+function formatPerSpot(ev: EventForPdf): string | null {
+	const units = Math.max(1, ev.unit_count ?? 1);
+	const formats =
+		units > 1
+			? Array.from({ length: units }, (_, i) => {
+					const own = ev.spots?.find((x) => x.spot === i + 1)?.frame_size;
+					return frameFormatLabel(
+						i === 0 ? ev.frame_size : (own ?? ev.frame_size),
+					);
+				})
+			: [frameFormatLabel(ev.frame_size)];
+	return formats.every((f) => f === formats[0])
+		? formats[0]
+		: formats.map((f, i) => `Spot ${i + 1}: ${f ?? "—"}`).join(" · ");
+}
+
 export function buildDeliverables(ev: EventForPdf) {
 	const items: Array<{ label: string; quantity: number; notes?: string }> = [];
 	const packageLabel =
@@ -361,7 +370,7 @@ export function buildDeliverables(ev: EventForPdf) {
 			ev.package_duration_hours ? ` (${ev.package_duration_hours} jam)` : ""
 		}`,
 		quantity: Math.max(1, ev.unit_count ?? 1),
-		notes: frameFormatLabel(ev.frame_size) ?? undefined,
+		notes: formatPerSpot(ev) ?? undefined,
 	});
 	for (const a of ev.addons) {
 		items.push({

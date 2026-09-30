@@ -166,6 +166,7 @@ export default async function CrewRekapPage({
 					eventDate={event.event_date}
 					venueName={event.venue_name}
 					pkg={context.pkg}
+					unitCount={context.spots.unitCount}
 					isApproved={rekap?.is_approved}
 					submitted={Boolean(rekap)}
 				/>

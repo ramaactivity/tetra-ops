@@ -42,6 +42,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { extraHoursOf } from "@/lib/events/extra-hours";
+import { spotsWithoutLead, withUnits } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
 import {
@@ -182,6 +183,8 @@ export default async function EventDetailPage({
 					pic_contact_id: event.pic_contact_id,
 					pending_package_hours: event.pending_package_hours,
 					package_frame_size: pkg?.frame_size ?? null,
+					unit_count: event.unit_count,
+					spots: event.spots,
 				})
 			: [];
 	const eventAddons = (event.event_addons ?? []) as Array<{
@@ -289,20 +292,14 @@ export default async function EventDetailPage({
 		};
 	});
 
+	// Event multi-unit punya lead/asisten per spot — sebut semuanya.
 	function crewByRole(role: string) {
-		const ca = crewAssignments.find((a) => a.role_in_event === role);
-		if (!ca) return null;
-		const u = Array.isArray(ca.user) ? ca.user[0] : ca.user;
-		return u?.full_name ?? null;
+		const names = crewAssignments
+			.filter((a) => a.role_in_event === role)
+			.map((ca) => (Array.isArray(ca.user) ? ca.user[0] : ca.user)?.full_name)
+			.filter(Boolean);
+		return names.length > 0 ? names.join(", ") : null;
 	}
-
-	// Satu perakit untuk semua pesan WA (klien & crew) — lihat lib/events/wa-event.ts.
-	// Dulu dirakit tangan di sini dan maps + PIC kelupaan, jadi reminder ke crew
-	// berangkat tanpa link lokasi & nomor PIC padahal datanya ada.
-	const eventForWA = toEventForWA(event as unknown as WaEventRow, {
-		crew_lead: crewByRole("lead"),
-		crew_asisten: crewByRole("asisten"),
-	});
 
 	const categoryLabel = event.event_category
 		? (eventTypeLabelByCode.get(event.event_category) ?? event.event_category)
@@ -360,6 +357,20 @@ export default async function EventDetailPage({
 			return `Spot ${n} · ${frame ? (FRAME_SIZE_LABELS[frame] ?? frame) : "frame menyusul"} · ${bd ?? "backdrop menyusul"}`;
 		},
 	);
+
+	// Satu perakit untuk semua pesan WA (klien & crew) — lihat lib/events/wa-event.ts.
+	// Dulu dirakit tangan di sini dan maps + PIC kelupaan, jadi reminder ke crew
+	// berangkat tanpa link lokasi & nomor PIC padahal datanya ada.
+	const eventForWA = toEventForWA(event as unknown as WaEventRow, {
+		crew_lead: crewByRole("lead"),
+		crew_asisten: crewByRole("asisten"),
+		spot_backdrop_names: Object.fromEntries(
+			spotOverrides.flatMap((o) => {
+				const name = spotBackdrops?.find((b) => b.id === o.backdrop_id)?.name;
+				return name ? [[o.spot, name]] : [];
+			}),
+		),
+	});
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -532,9 +543,7 @@ export default async function EventDetailPage({
 						: null
 				}
 				backdropName={
-					unitCount > 1
-						? spotLines.join("\n")
-						: (backdrop?.name ?? null)
+					unitCount > 1 ? spotLines.join("\n") : (backdrop?.name ?? null)
 				}
 				includeFlashdiskPouch={event.include_flashdisk_pouch}
 				crewNotes={event.crew_notes}
@@ -622,6 +631,9 @@ export default async function EventDetailPage({
 					totalPaid={event.total_paid ?? 0}
 					remainingBalance={event.remaining_balance ?? 0}
 					crewCount={crewAssignments.length}
+					spotsWithoutLead={
+						unitCount > 1 ? spotsWithoutLead(unitCount, crewAssignments) : []
+					}
 					designStatus={(event.design_status ?? "belum") as DesignStatus}
 					rekapSubmitted={rekapSubmitted}
 				/>
@@ -751,7 +763,7 @@ export default async function EventDetailPage({
 							title="Service & Package"
 							subtitle={
 								pkg
-									? `${pkg.name} · ${pkg.duration_hours}j`
+									? `${withUnits(pkg.name, unitCount)} · ${pkg.duration_hours}j`
 									: "Custom / belum dipilih"
 							}
 						>

@@ -52,7 +52,9 @@ export function quotationToBookingDefaults(
 		service_type: pkg?.category ?? "",
 		package_id: pkg?.id ?? "",
 		frame_size: pkg?.frame_size ?? "",
-		base_price: pkgItem ? pkgItem.unit_price : 0,
+		// Qty paket di quotation = jumlah unit/booth (event multi-unit, maks 3).
+		unit_count: pkgItem ? Math.min(3, Math.max(1, pkgItem.qty)) : 1,
+		base_price: pkgItem ? pkgItem.unit_price * pkgItem.qty : 0,
 		event_date: q.event_info.date ?? "",
 		// Invoice DP membawa jatuh tempo yang sudah disepakati.
 		due_date: q.due_date ?? "",

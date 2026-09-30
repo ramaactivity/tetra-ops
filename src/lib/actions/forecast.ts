@@ -12,6 +12,7 @@
 // — bundle/bonus) layers in later once that data exists.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unitCountOf } from "@/lib/events/spots";
 
 // biome-ignore lint/suspicious/noExplicitAny: schema-agnostic client (SSR or admin)
 type AnySupabase = SupabaseClient<any, any, any>;
@@ -112,7 +113,7 @@ export async function computeForecast(
 	const [upcomingRes, avgRes] = await Promise.all([
 		supabase
 			.from("events")
-			.select("id, client_name, event_date")
+			.select("id, client_name, event_date, unit_count")
 			.eq("status", "upcoming")
 			.gte("event_date", today)
 			.is("deleted_at", null)
@@ -124,8 +125,16 @@ export async function computeForecast(
 		id: string;
 		client_name: string | null;
 		event_date: string;
+		unit_count?: number | null;
 	}>;
 	const upcoming_count = upcoming_events.length;
+	// Pemakaian bahan mengikuti jumlah BOOTH, bukan jumlah event: event 2 unit
+	// menghabiskan kira-kira dua kali lipat. Rata-rata historis ≈ per booth
+	// karena hampir semua event lama 1 unit.
+	const upcoming_units = upcoming_events.reduce(
+		(sum, e) => sum + unitCountOf(e),
+		0,
+	);
 	const avgRows = (avgRes.data ?? []) as AvgRow[];
 	const events_observed = Number(avgRows[0]?.events_observed ?? 0);
 
@@ -175,7 +184,7 @@ export async function computeForecast(
 	for (const it of (itemsRes.data ?? []) as ItemRow[]) {
 		const avg = avgById.get(it.id) ?? 0;
 		if (avg <= 0) continue;
-		const projected = avg * upcoming_count;
+		const projected = avg * upcoming_units;
 		const onHand = stockById.get(it.id) ?? 0;
 		const shortfall = projected - onHand;
 		if (shortfall <= 0) continue; // enough on hand → not a buy

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
+import { eventSpots, unitCountOf } from "@/lib/events/spots";
 import { createClient } from "@/lib/supabase/server";
 import { tgEscape } from "@/lib/telegram/client";
 import { rp } from "@/lib/telegram/digest";
@@ -204,6 +205,13 @@ export type DesignApprovalContext = {
 	}>;
 	/** Selisih harga dibanding paket sekarang, per packageId. */
 	currentBasePrice: number;
+	/** Event multi-unit: harga alternatif sudah × unit. */
+	unitCount: number;
+	/**
+	 * Spot yang ukurannya beda dari spot 1 — ACC ini hanya memvalidasi ukuran
+	 * spot 1; file desain spot lain dicek manual.
+	 */
+	otherSizeSpots: Array<{ spot: number; frameSize: string }>;
 };
 
 export async function getDesignApprovalContext(
@@ -216,7 +224,7 @@ export async function getDesignApprovalContext(
 			.from("events")
 			.select(
 				`id, project_id, client_name, event_date, frame_size, service_type,
-				 base_price, pending_package_hours,
+				 base_price, pending_package_hours, unit_count, spots,
 				 package:packages(id, name, frame_size, duration_hours, base_price)`,
 			)
 			.eq("id", eventId)
@@ -249,11 +257,13 @@ export async function getDesignApprovalContext(
 				.eq("is_active", true)
 				.is("deleted_at", null)
 				.order("frame_size", { ascending: true });
+			// Event multi-unit: harga paket × unit, sebanding dengan base_price.
+			const units = unitCountOf(ev);
 			alternatives = (alts ?? []).map((a) => ({
 				packageId: a.id as string,
 				frameSize: a.frame_size as string,
 				name: a.name as string,
-				basePrice: Number(a.base_price),
+				basePrice: Number(a.base_price) * units,
 			}));
 		}
 
@@ -269,6 +279,12 @@ export async function getDesignApprovalContext(
 				frameIrrelevant,
 				alternatives,
 				currentBasePrice: Number(ev.base_price ?? 0),
+				unitCount: unitCountOf(ev),
+				otherSizeSpots: eventSpots(ev).flatMap((sp) =>
+					sp.spot > 1 && sp.frame_size && sp.frame_size !== ev.frame_size
+						? [{ spot: sp.spot, frameSize: sp.frame_size }]
+						: [],
+				),
 			},
 		};
 	} catch (err) {
@@ -303,7 +319,7 @@ export async function approveDesign(
 				 addons_total, discount_amount, gross_up_pph_amount, grand_total,
 				 pending_package_hours, design_brief_at, is_migrated_legacy,
 				 total_paid, vendor_commission_mode, vendor_commission_value_type,
-				 vendor_commission_value, vendor_commission_amount,
+				 vendor_commission_value, vendor_commission_amount, unit_count,
 				 package:packages(id, name, frame_size, duration_hours, base_price)`,
 			)
 			.eq("id", eventId)
@@ -366,9 +382,14 @@ export async function approveDesign(
 			// Harga: ikut paket baru HANYA kalau harga lama memang harga paket
 			// lama (owner belum menimpa manual). Kalau sudah ditimpa, angkanya
 			// milik kesepakatan dengan klien — jangan diam-diam ditulis ulang.
+			// Event multi-unit: base_price = harga paket × unit.
+			const units = unitCountOf(ev);
 			const oldBase = Number(ev.base_price ?? 0);
-			const ownerOverrode = pkg ? oldBase !== Number(pkg.base_price) : false;
-			const newBase = newPkg && !ownerOverrode ? newPkg.base_price : oldBase;
+			const ownerOverrode = pkg
+				? oldBase !== Number(pkg.base_price) * units
+				: false;
+			const newBase =
+				newPkg && !ownerOverrode ? newPkg.base_price * units : oldBase;
 
 			const addonsTotal = Number(ev.addons_total ?? 0);
 			const discount = Number(ev.discount_amount ?? 0);

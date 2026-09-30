@@ -182,11 +182,14 @@ function AssignmentItem({
 			);
 			return;
 		}
-		const team = allAssignments.map((a) => a.user.full_name);
+		const team = allAssignments.map((a) =>
+			a.spot_no ? `${a.user.full_name} (Spot ${a.spot_no})` : a.user.full_name,
+		);
 		const body = buildCrewReminderMessage({
 			crew_name: row.user.full_name,
 			team,
 			event,
+			spot: row.spot_no,
 		});
 		const url = whatsappUrl(phone, body);
 		window.open(url, "_blank", "noopener,noreferrer");

@@ -8,6 +8,7 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { getAssignableCrew } from "@/lib/crew/assignable";
+import { eventSpots, unitCountOf } from "@/lib/events/spots";
 import {
 	toEventForWA,
 	WA_EVENT_SELECT,
@@ -25,7 +26,7 @@ export default async function ManageCrewPage({
 
 	const { data: event } = await supabase
 		.from("events")
-		.select(`id, due_date, unit_count, ${WA_EVENT_SELECT}`)
+		.select(`id, due_date, ${WA_EVENT_SELECT}`)
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (!event) notFound();
@@ -39,7 +40,7 @@ export default async function ManageCrewPage({
 		.eq("event_id", event.id)
 		.order("spot_no");
 
-	const unitCount = Math.max(1, Number(event.unit_count ?? 1));
+	const unitCount = unitCountOf(event);
 	const assignments = (assignmentsData ?? []).map((a) => ({
 		id: a.id as string,
 		user_id: a.user_id as string,
@@ -51,7 +52,25 @@ export default async function ManageCrewPage({
 		spot_no: unitCount > 1 ? ((a.spot_no as number | null) ?? 1) : undefined,
 	})) as AssignmentRow[];
 
-	const eventForWa = toEventForWA(event as unknown as WaEventRow);
+	// Nama backdrop spot ≥2 untuk pesan WA crew (events.spots hanya simpan id).
+	const spotBackdropIds = eventSpots(event)
+		.slice(1)
+		.map((sp) => sp.backdrop_id)
+		.filter((x): x is string => Boolean(x));
+	const { data: spotBackdrops } = spotBackdropIds.length
+		? await supabase
+				.from("backdrops")
+				.select("id, name")
+				.in("id", spotBackdropIds)
+		: { data: [] as Array<{ id: string; name: string }> };
+	const eventForWa = toEventForWA(event as unknown as WaEventRow, {
+		spot_backdrop_names: Object.fromEntries(
+			eventSpots(event).flatMap((sp) => {
+				const name = spotBackdrops?.find((b) => b.id === sp.backdrop_id)?.name;
+				return sp.spot > 1 && name ? [[sp.spot, name]] : [];
+			}),
+		),
+	});
 
 	const availableCrew = await getAssignableCrew(
 		supabase,

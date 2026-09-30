@@ -7,6 +7,12 @@ import {
 	parseHHMM,
 	UNITS_TOTAL,
 } from "@/lib/availability";
+import {
+	eventSpots,
+	spotsWithoutLead,
+	unitCountOf,
+	withUnits,
+} from "@/lib/events/spots";
 import { addDaysISO, daysUntil } from "@/lib/telegram/digest";
 
 /**
@@ -36,11 +42,13 @@ type EventRow = {
 	vendor_name: string | null;
 	/** Acara historis hasil impor: nyata & ikut dihitung, tapi tanpa settlement. */
 	is_migrated_legacy: boolean;
+	/** Event multi-unit: jumlah booth/spot (1–3). */
+	unit_count: number | null;
 };
 
 const EVENT_COLUMNS = `id, project_id, client_name, event_date, start_time, end_time,
 	venue_name, venue_city, status, payment_status, grand_total, total_paid,
-	remaining_balance, channel, vendor_name, is_migrated_legacy`;
+	remaining_balance, channel, vendor_name, is_migrated_legacy, unit_count`;
 
 export const cariEvent: AiTool = {
 	name: "cari_event",
@@ -158,6 +166,7 @@ export const cariEvent: AiTool = {
 				channel: e.channel,
 				vendor: e.vendor_name,
 				arsip_lama: e.is_migrated_legacy,
+				...(unitCountOf(e) > 1 ? { jumlah_unit: unitCountOf(e) } : {}),
 				// Nilai uang hanya untuk owner — crew tak boleh lihat nominal event.
 				...(ctx.role === "crew"
 					? {}
@@ -318,8 +327,8 @@ export const detailEvent: AiTool = {
 			.from("events")
 			.select(
 				`${EVENT_COLUMNS}, setup_time, session_segments, google_maps_url,
-				 frame_size, design_status, notes,
-				 package:packages(name, duration_hours, price)`,
+				 frame_size, backdrop_id, design_status, crew_notes, unit_count, spots,
+				 package:packages(name, duration_hours, base_price)`,
 			)
 			.eq("project_id", projectId)
 			.is("deleted_at", null)
@@ -333,14 +342,17 @@ export const detailEvent: AiTool = {
 		type PackageEmbed = {
 			name: string;
 			duration_hours: number;
-			price: number;
+			base_price: number;
 		} | null;
 		const ev = data as unknown as EventRow & {
 			setup_time: string | null;
 			google_maps_url: string | null;
 			frame_size: string | null;
+			backdrop_id: string | null;
 			design_status: string | null;
-			notes: string | null;
+			crew_notes: string | null;
+			unit_count: number | null;
+			spots: unknown;
 			package: PackageEmbed | PackageEmbed[];
 		};
 		const pkg =
@@ -351,14 +363,16 @@ export const detailEvent: AiTool = {
 		const { data: crewData } = await ctx.supabase
 			.from("crew_assignments")
 			.select(
-				"role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
+				"role_in_event, spot_no, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
 			)
 			.eq("event_id", ev.id);
+		const units = unitCountOf(ev);
 
 		type CrewUserEmbed = { full_name: string; nickname: string | null } | null;
 		const crew = (
 			(crewData ?? []) as unknown as Array<{
 				role_in_event: string;
+				spot_no: number | null;
 				user: CrewUserEmbed | CrewUserEmbed[];
 			}>
 		).map((c) => {
@@ -366,6 +380,7 @@ export const detailEvent: AiTool = {
 			return {
 				peran: c.role_in_event,
 				nama: u?.nickname?.trim() || u?.full_name || "?",
+				...(units > 1 ? { spot: c.spot_no ?? 1 } : {}),
 			};
 		});
 
@@ -380,12 +395,30 @@ export const detailEvent: AiTool = {
 			venue: ev.venue_name,
 			kota: ev.venue_city,
 			maps: ev.google_maps_url,
-			paket: pkg?.name ?? null,
+			paket: pkg?.name ? withUnits(pkg.name, units) : null,
 			durasi_jam: pkg?.duration_hours ?? null,
 			ukuran_frame: ev.frame_size,
+			// Event multi-unit: tiap spot = satu booth dengan frame & backdrop sendiri.
+			...(units > 1
+				? {
+						jumlah_unit: units,
+						spot: eventSpots(ev).map((sp) => ({
+							spot: sp.spot,
+							ukuran_frame: sp.frame_size ?? "menyusul",
+							backdrop: sp.backdrop_id ? "sudah dipilih" : "menyusul",
+						})),
+						spot_tanpa_lead: spotsWithoutLead(
+							units,
+							crew.map((c) => ({
+								role_in_event: c.peran,
+								spot_no: "spot" in c ? c.spot : 1,
+							})),
+						),
+					}
+				: {}),
 			status_desain: ev.design_status,
 			status: ev.status,
-			catatan: ev.notes,
+			catatan: ev.crew_notes,
 			crew: crew.length > 0 ? crew : "belum ada crew yang di-assign",
 			...(ctx.role === "crew"
 				? {}

@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { computeForecast } from "@/lib/actions/forecast";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { revalidateDashboard } from "@/lib/dashboard/stats";
+import { spotsWithoutLead, unitCountOf } from "@/lib/events/spots";
 import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidateDashboard } from "@/lib/dashboard/stats";
 
 type Severity = "alert" | "warning" | "info" | "success";
 type Category = "operational" | "financial" | "inventory" | "system";
@@ -359,7 +360,7 @@ async function checkHMinusNoCrew(
 	const dateISO = isoDate(targetDate);
 	const { data: events } = await admin
 		.from("events")
-		.select("id, project_id, client_name, event_date, venue_name")
+		.select("id, project_id, client_name, event_date, venue_name, unit_count")
 		.eq("event_date", dateISO)
 		.is("deleted_at", null)
 		.eq("is_migrated_legacy", false)
@@ -370,11 +371,24 @@ async function checkHMinusNoCrew(
 	const eventIds = events.map((e) => e.id as string);
 	const { data: assignments } = await admin
 		.from("crew_assignments")
-		.select("event_id")
+		.select("event_id, role_in_event, spot_no")
 		.in("event_id", eventIds);
-	const haveCrew = new Set(
-		((assignments ?? []) as Array<{ event_id: string }>).map((a) => a.event_id),
-	);
+	const rows = (assignments ?? []) as Array<{
+		event_id: string;
+		role_in_event: string;
+		spot_no: number | null;
+	}>;
+	const haveCrew = new Set(rows.map((a) => a.event_id));
+	// Event multi-unit: tiap spot butuh lead — "sudah ada crew" belum cukup.
+	const noLeadOf = (e: { id: string; unit_count: number | null }) => {
+		const units = unitCountOf(e);
+		return units > 1
+			? spotsWithoutLead(
+					units,
+					rows.filter((a) => a.event_id === e.id),
+				)
+			: [];
+	};
 
 	return (
 		events as Array<{
@@ -383,16 +397,23 @@ async function checkHMinusNoCrew(
 			client_name: string;
 			event_date: string;
 			venue_name: string;
+			unit_count: number | null;
 		}>
 	)
-		.filter((e) => !haveCrew.has(e.id))
-		.map((e) => ({
-			entity_type: "event",
-			entity_id: e.id,
-			title: `Event H-2 belum ada crew: ${e.client_name}`,
-			body: `${e.event_date} · ${e.venue_name} — assign crew sekarang sebelum hari H.`,
-			action_url: `/operations/${e.project_id}/crew`,
-		}));
+		.filter((e) => !haveCrew.has(e.id) || noLeadOf(e).length > 0)
+		.map((e) => {
+			const noLead = haveCrew.has(e.id) ? noLeadOf(e) : [];
+			return {
+				entity_type: "event",
+				entity_id: e.id,
+				title:
+					noLead.length > 0
+						? `Event H-2 ${noLead.map((n) => `spot ${n}`).join(", ")} belum ada lead: ${e.client_name}`
+						: `Event H-2 belum ada crew: ${e.client_name}`,
+				body: `${e.event_date} · ${e.venue_name} — assign crew sekarang sebelum hari H.`,
+				action_url: `/operations/${e.project_id}/crew`,
+			};
+		});
 }
 
 async function checkHMinusNoDesign(

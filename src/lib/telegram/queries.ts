@@ -6,6 +6,7 @@ import {
 	parseHHMM,
 	UNITS_TOTAL,
 } from "@/lib/availability";
+import { spotsWithoutLead, unitCountOf, withUnits } from "@/lib/events/spots";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { listUnpaidCrew } from "@/lib/finance/unpaid-crew";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -113,7 +114,7 @@ export async function buildCrewText(): Promise<string> {
 	// Filter event SAMA dengan digest supaya /crew, /cek dan /minggu sepakat.
 	const { data: eventsData, error: evErr } = await admin
 		.from("events")
-		.select("id, client_name, event_date, start_time, venue_city")
+		.select("id, client_name, event_date, start_time, venue_city, unit_count")
 		.gte("event_date", todayISO)
 		.lte("event_date", endISO)
 		.is("deleted_at", null)
@@ -128,6 +129,7 @@ export async function buildCrewText(): Promise<string> {
 		event_date: string;
 		start_time: string | null;
 		venue_city: string | null;
+		unit_count: number | null;
 	}>;
 	const crewByEvent = await fetchCrewByEvent(admin, events);
 
@@ -140,10 +142,23 @@ export async function buildCrewText(): Promise<string> {
 			const crew = crewByEvent.get(ev.id) ?? [];
 			const jam = ev.start_time ? `${ev.start_time.slice(0, 5)} ` : "";
 			const kota = ev.venue_city ? ` (${tgEscape(ev.venue_city)})` : "";
+			const units = unitCountOf(ev);
+			const noLead =
+				units > 1 && crew.length > 0
+					? spotsWithoutLead(
+							units,
+							crew.map((c) => ({ role_in_event: c.role, spot_no: c.spot })),
+						)
+					: [];
 			parts.push(
-				`• <b>${dateLabel(ev.event_date)}</b> ${jam}— ${tgEscape(ev.client_name)}${kota}`,
+				`• <b>${dateLabel(ev.event_date)}</b> ${jam}— ${tgEscape(withUnits(ev.client_name, units))}${kota}`,
 				`      ${crew.length > 0 ? formatCrewInline(crew) : "🚨 belum di-assign"}`,
 			);
+			if (noLead.length > 0) {
+				parts.push(
+					`      🚨 ${noLead.map((n) => `spot ${n}`).join(", ")} belum ada lead`,
+				);
+			}
 		}
 	}
 

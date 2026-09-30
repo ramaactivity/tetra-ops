@@ -1,3 +1,4 @@
+import { eventSpots, unitCountOf } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { backdropOriginLabel, formatDateID, formatRupiah } from "@/lib/format";
 import {
@@ -70,6 +71,8 @@ export type CrewReminderInput = {
 	/** Full team roster for this event (names only, including the recipient). */
 	team: string[];
 	event: EventForWA;
+	/** Event multi-unit: spot penerima pesan (default 1). */
+	spot?: number | null;
 };
 
 const BACKDROP_LABELS: Record<string, string> = {
@@ -201,7 +204,8 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 			? (BACKDROP_LABELS[ev.backdrop_color] ?? ev.backdrop_color)
 			: null;
 
-	if (ev.package_name || ev.frame_size || backdropLabel) {
+	const units = unitCountOf(ev);
+	if (ev.package_name || ev.frame_size || backdropLabel || units > 1) {
 		const pkgLines: string[] = [`📦 *PAKET*`];
 		const specBits: string[] = [];
 		const pkgLower = (ev.package_name ?? "").toLowerCase();
@@ -217,7 +221,21 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 			specBits.push(`${ev.duration_hours} jam`);
 		}
 		if (specBits.length) pkgLines.push(specBits.join(" · "));
-		if (backdropLabel) {
+		if (units > 1) {
+			// Event multi-unit: tiap spot bisa beda frame & backdrop — sebut
+			// spot penerima terang-terangan supaya tidak salah bawa.
+			const mine = Math.min(units, input.spot ?? 1);
+			pkgLines.push(`🎪 ${units} unit photobooth · kamu di *Spot ${mine}*`);
+			for (const sp of eventSpots(ev)) {
+				const bd =
+					sp.spot === 1
+						? backdropLabel
+						: (ev.spot_backdrop_names?.[sp.spot] ?? null);
+				pkgLines.push(
+					`${sp.spot === mine ? "👉" : "•"} Spot ${sp.spot}: ${sp.frame_size ?? "frame menyusul"} · ${bd ? `backdrop ${bd}` : "backdrop menyusul"}`,
+				);
+			}
+		} else if (backdropLabel) {
 			pkgLines.push(`🎨 Backdrop: ${backdropLabel}`);
 		}
 		if (ev.include_flashdisk_pouch) {
@@ -260,6 +278,8 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 		pic_wa: ev.pic_wa,
 		pending_package_hours: ev.pending_package_hours,
 		package_frame_size: ev.package_frame_size,
+		unit_count: ev.unit_count,
+		spots: ev.spots,
 	});
 	if (missing.length > 0) {
 		sections.push(
@@ -346,6 +366,11 @@ export type EventForWA = {
 	crew_lead?: string | null;
 	crew_asisten?: string | null;
 	drive_link?: string | null;
+	/** Event multi-unit (lib/events/spots.ts). */
+	unit_count?: number | null;
+	spots?: unknown;
+	/** Nama backdrop spot ≥2 (dari events.spots) — diisi pemanggil. */
+	spot_backdrop_names?: Record<number, string> | null;
 };
 
 const trimTime = (t: string | null | undefined) => (t ? t.slice(0, 5) : "—");

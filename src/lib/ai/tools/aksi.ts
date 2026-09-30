@@ -5,6 +5,7 @@ import { recordQuickTransactionCore } from "@/lib/actions/journal-entries";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
 import { findActiveDoc, getOrCreateInvoice } from "@/lib/documents/invoice";
 import { sendDocumentCore } from "@/lib/documents/send";
+import { unitCountOf } from "@/lib/events/spots";
 import {
 	type CashAccountOption,
 	loadCashAccounts,
@@ -285,11 +286,23 @@ async function resolveAssign(
 
 	const { data: ev } = await ctx.supabase
 		.from("events")
-		.select("id, project_id, client_name, event_date")
+		.select("id, project_id, client_name, event_date, unit_count")
 		.eq("project_id", projectId)
 		.is("deleted_at", null)
 		.maybeSingle();
 	if (!ev) return { error: `Event ${projectId} tidak ditemukan` };
+
+	// Event multi-unit: crew ditugaskan per spot (booth). Tanpa spot → spot 1.
+	const units = unitCountOf(ev);
+	const spot = args.spot == null || args.spot === "" ? 1 : Number(args.spot);
+	if (!Number.isInteger(spot) || spot < 1 || spot > units) {
+		return {
+			error:
+				units > 1
+					? `spot harus 1–${units} (event ini ${units} unit)`
+					: "event ini hanya 1 unit — kosongkan spot",
+		};
+	}
 
 	const { data: crews } = await ctx.supabase
 		.from("users")
@@ -334,7 +347,8 @@ async function resolveAssign(
 		crew,
 		peran,
 		sudah_ditugaskan: existing ? (existing.role_in_event as string) : null,
-		ringkasan: `${crew.nickname || crew.full_name} (${crew.tier ?? "tier ?"}) → ${peran} di ${ev.client_name}, ${ev.event_date} [${ev.project_id}]`,
+		spot,
+		ringkasan: `${crew.nickname || crew.full_name} (${crew.tier ?? "tier ?"}) → ${peran}${units > 1 ? ` spot ${spot}` : ""} di ${ev.client_name}, ${ev.event_date} [${ev.project_id}]`,
 	};
 }
 
@@ -342,7 +356,8 @@ export const assignCrew: AiTool = {
 	name: "assign_crew",
 	description:
 		"Tugaskan crew ke sebuah event dengan peran lead / asisten / crew_c. Fee mengikuti tier crew. " +
-		"Butuh project_id (dari cari_event) dan nama/panggilan crew (dari daftar_crew).",
+		"Butuh project_id (dari cari_event) dan nama/panggilan crew (dari daftar_crew). " +
+		"Event multi-unit (jumlah_unit > 1): isi spot 1..jumlah_unit — tiap spot butuh lead sendiri.",
 	scope: "ops",
 	mutates: true,
 	parameters: {
@@ -354,6 +369,11 @@ export const assignCrew: AiTool = {
 			},
 			crew: { type: "STRING", description: "Nama atau panggilan crew." },
 			peran: { type: "STRING", enum: [...PERAN] },
+			spot: {
+				type: "INTEGER",
+				description:
+					"Nomor spot/booth untuk event multi-unit (1–3). Kosongkan untuk event 1 unit.",
+			},
 		},
 		required: ["project_id", "crew", "peran"],
 	},
@@ -384,6 +404,7 @@ export const assignCrew: AiTool = {
 			event_id: r.event.id,
 			user_id: r.crew.id,
 			role_in_event: r.peran,
+			spot_no: r.spot,
 		});
 		if (res.error) return { error: res.error };
 		return { tersimpan: true, ringkasan: r.ringkasan };

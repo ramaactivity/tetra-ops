@@ -3,6 +3,13 @@ import "server-only";
 import { computeForecast } from "@/lib/actions/forecast";
 import { buildBastReadyOffer } from "@/lib/documents/approval";
 import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
+import {
+	eventSpots,
+	frameSizesOf,
+	spotsWithoutLead,
+	unitCountOf,
+	withUnits,
+} from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import {
 	formatScheduleInline,
@@ -68,6 +75,9 @@ type EventRow = {
 	package: PackageFrameEmbed;
 	total_paid: number;
 	remaining_balance: number;
+	/** Event multi-unit (lib/events/spots.ts). */
+	unit_count: number | null;
+	spots: unknown;
 };
 
 export type CrewUser = { full_name: string; nickname: string | null };
@@ -75,6 +85,7 @@ export type CrewUser = { full_name: string; nickname: string | null };
 type CrewRow = {
 	event_id: string;
 	role_in_event: string;
+	spot_no: number | null;
 	user: CrewUser | Array<CrewUser> | null;
 };
 
@@ -164,7 +175,7 @@ const ROLE_LABEL: Record<string, string> = {
 // kolom CREW di /operations (LEAD di atas, ASST di bawah).
 const ROLE_ORDER: Record<string, number> = { lead: 0, asisten: 1, crew_c: 2 };
 
-export type CrewMember = { role: string; name: string };
+export type CrewMember = { role: string; name: string; spot?: number };
 
 function sortCrew(list: CrewMember[]): CrewMember[] {
 	return [...list].sort(
@@ -172,11 +183,20 @@ function sortCrew(list: CrewMember[]): CrewMember[] {
 	);
 }
 
-/** "Lead Mou · Asisten Bona" — satu baris, dipakai di daftar per event. */
+/**
+ * "Lead Mou · Asisten Bona" — satu baris, dipakai di daftar per event.
+ * Event multi-unit: dikelompokkan "Spot 1: … | Spot 2: …".
+ */
 export function formatCrewInline(list: CrewMember[]): string {
-	return sortCrew(list)
-		.map((c) => `${ROLE_LABEL[c.role] ?? c.role} ${tgEscape(c.name)}`)
-		.join(" · ");
+	const inline = (xs: CrewMember[]) =>
+		sortCrew(xs)
+			.map((c) => `${ROLE_LABEL[c.role] ?? c.role} ${tgEscape(c.name)}`)
+			.join(" · ");
+	if (!list.some((c) => (c.spot ?? 1) > 1)) return inline(list);
+	const spots = [...new Set(list.map((c) => c.spot ?? 1))].sort();
+	return spots
+		.map((n) => `Spot ${n}: ${inline(list.filter((c) => (c.spot ?? 1) === n))}`)
+		.join(" | ");
 }
 
 /** ["Lead: Mou", "Asisten: Bona"] — dipakai briefing H-1. */
@@ -219,7 +239,7 @@ export async function fetchCrewByEvent(
 	const { data, error } = await admin
 		.from("crew_assignments")
 		.select(
-			"event_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
+			"event_id, role_in_event, spot_no, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
 		)
 		.in(
 			"event_id",
@@ -229,7 +249,11 @@ export async function fetchCrewByEvent(
 	for (const c of (data ?? []) as CrewRow[]) {
 		const u = Array.isArray(c.user) ? c.user[0] : c.user;
 		const arr = byEvent.get(c.event_id) ?? [];
-		arr.push({ role: c.role_in_event, name: crewDisplayName(u) });
+		arr.push({
+			role: c.role_in_event,
+			name: crewDisplayName(u),
+			spot: c.spot_no ?? 1,
+		});
 		byEvent.set(c.event_id, arr);
 	}
 	return byEvent;
@@ -249,7 +273,7 @@ async function gatherData(
 			 frame_size, backdrop_id, design_status, design_approved_at,
 			 design_frame_size, pending_package_hours, event_date_is_estimate,
 			 pic_name, pic_wa, package:packages(frame_size), total_paid,
-			 remaining_balance`,
+			 remaining_balance, unit_count, spots`,
 		)
 		.gte("event_date", todayISO)
 		.lte("event_date", endISO)
@@ -394,7 +418,7 @@ async function gatherTbcAheadLines(
 			.select(
 				`id, project_id, client_name, event_date, venue_name, start_time,
 				 frame_size, backdrop_id, pic_name, pic_wa, pic_contact_id, pending_package_hours,
-				 event_date_is_estimate, package:packages(frame_size)`,
+				 event_date_is_estimate, unit_count, spots, package:packages(frame_size)`,
 			)
 			.gt("event_date", addDaysISO(todayISO, 7))
 			.lte("event_date", addDaysISO(todayISO, TBC_AHEAD_DAYS))
@@ -619,6 +643,8 @@ type MissingInfoRow = Pick<
 	| "pic_contact_id"
 	| "pending_package_hours"
 	| "package"
+	| "unit_count"
+	| "spots"
 >;
 
 function eventMissingInfo(ev: MissingInfoRow): string[] {
@@ -633,6 +659,8 @@ function eventMissingInfo(ev: MissingInfoRow): string[] {
 		pic_wa: ev.pic_wa,
 		pending_package_hours: ev.pending_package_hours,
 		package_frame_size: pkgFrameSize(ev.package),
+		unit_count: ev.unit_count,
+		spots: ev.spots,
 	});
 }
 
@@ -652,6 +680,9 @@ type FrameCheckRow = Pick<
 	| "design_status"
 	| "design_approved_at"
 	| "package"
+	| "unit_count"
+	| "spots"
+	| "backdrop_id"
 >;
 
 type FrameCheck = {
@@ -664,6 +695,13 @@ type FrameCheck = {
 	agnostic: boolean;
 	/** Beda ukuran antar sumber — jangan cetak/packing dulu. */
 	conflicts: string[];
+	/** Event multi-unit: ukuran tiap spot (index 0 = spot 1). */
+	spotSizes: Array<string | null>;
+	/**
+	 * Spot yang ukurannya beda dari spot 1 — butuh file desain & bahan
+	 * sendiri, padahal ACC desain baru mencatat satu ukuran.
+	 */
+	otherSizeSpots: Array<{ spot: number; size: string }>;
 };
 
 /** Bahan yang HARUS ikut ukuran — disamakan dengan SIZE_RECIPE di rekap. */
@@ -697,13 +735,28 @@ function checkFrame(ev: FrameCheckRow): FrameCheck {
 			conflicts.push(`file desain ${designSize} ≠ pesanan ${size}`);
 		}
 	}
-	return { size, pkgSize, designSize, designApproved, agnostic, conflicts };
+	const spotSizes = eventSpots(ev).map((sp) => sp.frame_size);
+	const otherSizeSpots = agnostic
+		? []
+		: spotSizes.flatMap((sz, i) =>
+				i > 0 && sz && size && sz !== size ? [{ spot: i + 1, size: sz }] : [],
+			);
+	return {
+		size,
+		pkgSize,
+		designSize,
+		designApproved,
+		agnostic,
+		conflicts,
+		spotSizes,
+		otherSizeSpots,
+	};
 }
 
 function deriveIssues(
 	ev: EventRow,
 	days: number,
-	crewCount: number,
+	crew: CrewMember[],
 ): EventIssues {
 	const critical: string[] = [];
 	const warning: string[] = [];
@@ -720,8 +773,22 @@ function deriveIssues(
 	}
 
 	// Crew — target H-2
-	if (crewCount === 0 && days <= 4) {
+	const units = unitCountOf(ev);
+	if (crew.length === 0 && days <= 4) {
 		push(days <= 2, "crew belum di-assign");
+	} else if (units > 1 && days <= 4) {
+		// Event multi-unit: tiap spot butuh lead sendiri — "sudah ada crew"
+		// belum berarti semua booth terjaga.
+		const noLead = spotsWithoutLead(
+			units,
+			crew.map((c) => ({ role_in_event: c.role, spot_no: c.spot })),
+		);
+		if (noLead.length > 0) {
+			push(
+				days <= 2,
+				`${noLead.map((n) => `spot ${n}`).join(", ")} belum ada lead`,
+			);
+		}
 	}
 
 	// Desain — mulai diingatkan dari H-7 (produksi desain butuh lead time),
@@ -752,8 +819,17 @@ function deriveIssues(
 
 	// Beda ukuran antar sumber SELALU kritis: selama masih bertentangan, cetak
 	// dan packing (sleeve/media) pasti salah salah satunya.
-	for (const c of checkFrame(ev).conflicts) {
+	const fc = checkFrame(ev);
+	for (const c of fc.conflicts) {
 		push(true, `beda ukuran — ${c}`);
+	}
+	// Spot beda ukuran: butuh file desain & bahan sendiri, sementara ACC
+	// desain hanya mencatat satu ukuran — jangan sampai terlewat.
+	if (fc.otherSizeSpots.length > 0 && days <= 7) {
+		push(
+			days <= 2,
+			`${fc.otherSizeSpots.map((o) => `spot ${o.spot} ${o.size}`).join(", ")} beda ukuran dari spot 1 — pastikan desain & bahannya disiapkan terpisah`,
+		);
 	}
 
 	// Pembayaran — DP window H-7, pelunasan window H-3
@@ -790,8 +866,11 @@ export function composeDigest(data: GatheredData): string | null {
 
 	for (const ev of events) {
 		const days = daysUntil(todayISO, ev.event_date);
-		const crewCount = crewByEvent.get(ev.id)?.length ?? 0;
-		const { critical, warning } = deriveIssues(ev, days, crewCount);
+		const { critical, warning } = deriveIssues(
+			ev,
+			days,
+			crewByEvent.get(ev.id) ?? [],
+		);
 		const hLabel = days === 0 ? "HARI INI" : `H-${days}`;
 		const name = tgEscape(ev.client_name);
 		const tempat = ev.venue_city ? ` · ${tgEscape(ev.venue_city)}` : "";
@@ -956,6 +1035,19 @@ function briefingFrameLines(fc: FrameCheck, mentions: PicMentions): string[] {
 		lines.push(
 			"      🚨 Ukuran belum ada — media &amp; sleeve tidak bisa dipacking (dan rekap nanti ditolak). Konfirmasi ke klien hari ini.",
 		);
+	} else if (fc.spotSizes.length > 1) {
+		// Event multi-unit: tiap spot dipacking sesuai ukurannya sendiri.
+		lines.push(
+			`      ✅ Cocok. Packing per spot (${fc.spotSizes.length} set):`,
+			...fc.spotSizes.map((sz, i) => {
+				const size = sz ?? fc.size;
+				const packing = size ? SIZE_PACKING[size] : null;
+				return `         – Spot ${i + 1}: ${size ? tgEscape(size) : "❓"}${packing ? ` — ${tgEscape(packing)}` : ""}`;
+			}),
+			fc.otherSizeSpots.length > 0
+				? `      ⚠️ ${tgEscape(fc.otherSizeSpots.map((o) => `Spot ${o.spot} ${o.size}`).join(", "))} butuh file desain sendiri — ACC di app baru mencatat ukuran spot 1, cek manual.`
+				: "      Semua spot ukurannya sama — sleeve/frame ukuran lain jangan ikut terbawa.",
+		);
 	} else {
 		const packing = SIZE_PACKING[fc.size];
 		lines.push(
@@ -985,9 +1077,10 @@ export function composeBriefing(
 				segments,
 			)}`
 		: `🕐 Setup ${hhmm(ev.setup_time) ?? "❓ TBC"} · Mulai ${hhmm(ev.start_time) ?? "❓ TBC"} · Selesai ${hhmm(ev.end_time) ?? "❓ TBC"}`;
+	const units = unitCountOf(ev);
 	const lines: string[] = [
 		`📸 <b>BRIEFING BESOK — ${tgEscape(ev.client_name)}</b>`,
-		`${dateLabel(ev.event_date, true)}`,
+		`${dateLabel(ev.event_date, true)}${units > 1 ? ` · <b>${units} UNIT / ${units} SPOT</b>` : ""}`,
 		"",
 		jadwalLine,
 		`📍 ${tgEscape(ev.venue_name) || "❓ venue TBC"}${ev.venue_city ? `, ${tgEscape(ev.venue_city)}` : ""}`,
@@ -996,6 +1089,17 @@ export function composeBriefing(
 	lines.push(
 		`👥 ${crew.length > 0 ? formatCrewInline(crew) : "🚨 CREW BELUM DI-ASSIGN"}`,
 	);
+	if (units > 1 && crew.length > 0) {
+		const noLead = spotsWithoutLead(
+			units,
+			crew.map((c) => ({ role_in_event: c.role, spot_no: c.spot })),
+		);
+		if (noLead.length > 0) {
+			lines.push(
+				`🚨 ${noLead.map((n) => `Spot ${n}`).join(", ")} belum ada lead`,
+			);
+		}
+	}
 	lines.push(
 		ev.remaining_balance > 0
 			? `💰 Sisa tagihan ${rp(ev.remaining_balance)} — tagih sebelum/saat acara`
@@ -1005,14 +1109,17 @@ export function composeBriefing(
 	lines.push(...briefingFrameLines(fc, mentions));
 	// Poin packing & desain menyebut ukurannya secara eksplisit — checklist
 	// generik ("sleeve, dll") tidak pernah menangkap sleeve ukuran salah.
-	const uk = fc.size ? tgEscape(fc.size) : null;
+	const uk = fc.size
+		? tgEscape(frameSizesOf({ ...ev, frame_size: fc.size }).join(" + "))
+		: null;
+	const sets = units > 1 ? ` (${units} set — satu per spot)` : "";
 	lines.push(
 		"",
 		"☑️ <b>Cek ulang HARI INI sebelum hari H:</b>",
 		"      1. Lokasi & titik venue BENAR? Buka maps-nya, jangan sampai salah gedung/hall",
 		"      2. Jam setup & jam mulai sudah dikonfirmasi ulang ke klien/PIC?",
 		"      3. Crew sudah di-assign DAN sudah dibriefing owner (rundown, dresscode, kontak PIC)?",
-		"      4. Alat sudah disiapkan & dicek: booth, kamera, printer, lighting, kabel, backdrop?",
+		`      4. Alat sudah disiapkan & dicek${sets}: booth, kamera, printer, lighting, kabel, backdrop?`,
 		fc.agnostic
 			? "      5. Stok bahan cukup & sudah dipacking: media set, kertas, tinta, sleeve, dll?"
 			: uk
@@ -1597,7 +1704,7 @@ export async function buildScheduleText(): Promise<string> {
 			// Nama crew langsung, bukan cuma jumlah — "👥2" memaksa owner buka app
 			// untuk tahu siapa, padahal itu justru yang ingin dicek.
 			parts.push(
-				`      • ${jam} — ${tgEscape(ev.client_name)}${kota}`,
+				`      • ${jam} — ${tgEscape(withUnits(ev.client_name, unitCountOf(ev)))}${kota}`,
 				`            ${crew.length > 0 ? `👥 ${formatCrewInline(crew)}` : "🚨 crew belum di-assign"}`,
 			);
 		}

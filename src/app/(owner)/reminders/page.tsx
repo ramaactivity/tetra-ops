@@ -22,12 +22,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { unitCountOf, withUnits } from "@/lib/events/spots";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 type EventRow = {
 	id: string;
+	unit_count: number | null;
 	project_id: string;
 	status: string;
 	client_name: string;
@@ -146,7 +148,7 @@ export default async function RemindersPage({
 				`
 				id, project_id, status, client_name, client_wa, pic_name, pic_wa,
 				event_date, setup_time, start_time, venue_name, due_date,
-				total_paid, remaining_balance, grand_total, payment_status,
+				total_paid, remaining_balance, grand_total, payment_status, unit_count,
 				booker_contact:contacts!events_booker_contact_id_fkey(name, phone),
 				pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
 				package:packages(name, duration_hours),
@@ -229,9 +231,13 @@ export default async function RemindersPage({
 	);
 
 	// Resolve crew lead/asisten for the variable substitution payload
+	// Event multi-unit punya lead/asisten per spot — sebut semuanya.
 	function nameForRole(e: EventRow, role: string): string {
-		const a = e.crew_assignments?.find((x) => x.role_in_event === role);
-		return a?.user?.nickname ?? a?.user?.full_name ?? "";
+		return (e.crew_assignments ?? [])
+			.filter((x) => x.role_in_event === role)
+			.map((a) => a.user?.nickname ?? a.user?.full_name)
+			.filter(Boolean)
+			.join(", ");
 	}
 
 	// Build payload for client component (only what's needed to send)
@@ -257,7 +263,9 @@ export default async function RemindersPage({
 				due_date: e.due_date ? formatDateID(e.due_date) : "—",
 				dp_amount: formatRupiah(e.total_paid ?? 0),
 				remaining_balance: formatRupiah(e.remaining_balance ?? 0),
-				package_name: e.package?.name ?? "—",
+				package_name: e.package?.name
+					? withUnits(e.package.name, unitCountOf(e))
+					: "—",
 				duration_hours: String(e.package?.duration_hours ?? "—"),
 				crew_lead: nameForRole(e, "lead") || "—",
 				crew_asisten: nameForRole(e, "asisten") || "—",

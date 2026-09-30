@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unitCountOf } from "@/lib/events/spots";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type CetakBenchmark = { typical: number; sampleSize: number };
@@ -21,41 +22,49 @@ export async function getCetakBenchmark(
 
 		const { data: ev } = await admin
 			.from("events")
-			.select("package_id")
+			.select("package_id, unit_count")
 			.eq("id", eventId)
 			.maybeSingle();
 		const packageId = (ev?.package_id as string | null) ?? null;
+		// Event multi-unit: cetak dibandingkan PER UNIT (booth), lalu dikali
+		// jumlah unit event ini — event 3 booth wajar mencetak ~3× lipat.
+		const units = unitCountOf(ev ?? {});
 		if (!packageId) return null;
 
 		const { data: samePkgEvents } = await admin
 			.from("events")
-			.select("id")
+			.select("id, unit_count")
 			.eq("package_id", packageId)
 			.neq("id", eventId)
 			.limit(300);
-		const ids = (samePkgEvents ?? []).map((e) => e.id as string);
+		const unitsById = new Map(
+			(samePkgEvents ?? []).map((e) => [e.id as string, unitCountOf(e)]),
+		);
+		const ids = [...unitsById.keys()];
 		if (ids.length === 0) return null;
 
 		const { data: rekaps } = await admin
 			.from("crew_rekap")
-			.select("cetak_total")
+			.select("event_id, cetak_total")
 			.in("event_id", ids)
 			.eq("is_approved", true)
 			.gt("cetak_total", 0)
 			.limit(500);
 
 		const vals = (rekaps ?? [])
-			.map((r) => Number(r.cetak_total) || 0)
+			.map(
+				(r) =>
+					(Number(r.cetak_total) || 0) /
+					(unitsById.get(r.event_id as string) ?? 1),
+			)
 			.filter((n) => n > 0)
 			.sort((a, b) => a - b);
 		if (vals.length < 3) return { typical: 0, sampleSize: vals.length };
 
 		const mid = Math.floor(vals.length / 2);
 		const median =
-			vals.length % 2 === 1
-				? vals[mid]
-				: Math.round((vals[mid - 1] + vals[mid]) / 2);
-		return { typical: median, sampleSize: vals.length };
+			vals.length % 2 === 1 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+		return { typical: Math.round(median * units), sampleSize: vals.length };
 	} catch {
 		return null;
 	}

@@ -35,6 +35,8 @@ type TbcEventRow = {
 	pic_contact_id: string | null;
 	pic_wa: string | null;
 	event_date_is_estimate: boolean | null;
+	unit_count: number | null;
+	spots: unknown;
 };
 
 type TbcResult = {
@@ -88,7 +90,7 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 		.select(
 			`id, project_id, client_name, event_date, start_time, setup_time,
 			 end_time, frame_size, backdrop_id, venue_name, pic_name, pic_wa, pic_contact_id,
-			 event_date_is_estimate, pending_package_hours,
+			 event_date_is_estimate, pending_package_hours, unit_count, spots,
 			 package:packages(frame_size)`,
 		)
 		.in("event_date", targetDates)

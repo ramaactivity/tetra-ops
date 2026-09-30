@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { todayWIB } from "@/lib/dates";
+import { eventSpots, unitCountOf } from "@/lib/events/spots";
 import { FRAME_SIZE_LABELS, formatDateID, venueLabel } from "@/lib/format";
 import { hasBreak, parseSegments } from "@/lib/schedule/segments";
 import { createClient } from "@/lib/supabase/server";
@@ -46,10 +47,13 @@ type AssignedEvent = {
 	frame_size: string | null;
 	backdrop_id: string | null;
 	backdrop: { name: string } | { name: string }[] | null;
+	unit_count: number | null;
+	spots: unknown;
 };
 
 type AssignmentRow = {
 	role_in_event: string;
+	spot_no: number | null;
 	event: AssignedEvent | AssignedEvent[] | null;
 };
 
@@ -72,11 +76,11 @@ export default async function CrewSchedulePage({
 	let query = supabase
 		.from("crew_assignments")
 		.select(
-			`role_in_event,
+			`role_in_event, spot_no,
 			event:events!inner(
 				id, project_id, status, client_name, event_date, event_date_is_estimate,
 				setup_time, start_time, session_segments, venue_name, venue_city,
-				is_migrated_legacy, frame_size, backdrop_id,
+				is_migrated_legacy, frame_size, backdrop_id, unit_count, spots,
 				backdrop:backdrops(name)
 			)`,
 		)
@@ -139,6 +143,25 @@ export default async function CrewSchedulePage({
 		}
 	}
 
+	// Event multi-unit: kartu menampilkan frame & backdrop SPOT crew itu sendiri.
+	// Nama backdrop spot ≥2 diambil sekali untuk semua kartu.
+	const spotOf = (a: AssignmentRow, ev: AssignedEvent) => {
+		const spots = eventSpots(ev);
+		return spots[Math.min(spots.length, a.spot_no ?? 1) - 1];
+	};
+	const spotBackdropIds = assignments.flatMap((a) => {
+		const ev = Array.isArray(a.event) ? a.event[0] : a.event;
+		if (!ev) return [];
+		const sp = spotOf(a, ev);
+		return sp.spot > 1 && sp.backdrop_id ? [sp.backdrop_id] : [];
+	});
+	const { data: spotBackdrops } = spotBackdropIds.length
+		? await supabase
+				.from("backdrops")
+				.select("id, name")
+				.in("id", spotBackdropIds)
+		: { data: [] as Array<{ id: string; name: string }> };
+
 	return (
 		<AppScreen>
 			<AppHeader title="Jadwal" subtitle="Semua event yang ditugaskan ke lo." />
@@ -179,9 +202,14 @@ export default async function CrewSchedulePage({
 						{assignments.map((a) => {
 							const ev = Array.isArray(a.event) ? a.event[0] : a.event;
 							if (!ev) return null;
-							const backdrop = Array.isArray(ev.backdrop)
-								? ev.backdrop[0]
-								: ev.backdrop;
+							const units = unitCountOf(ev);
+							const mySpot = spotOf(a, ev);
+							const backdrop =
+								mySpot.spot > 1
+									? spotBackdrops?.find((b) => b.id === mySpot.backdrop_id)
+									: Array.isArray(ev.backdrop)
+										? ev.backdrop[0]
+										: ev.backdrop;
 							// Event yang sudah kelar / batal / hasil migrasi lama tidak
 							// perlu ditandai "menyusul" lagi — sama seperti sisi owner.
 							const tbcRelevant =
@@ -190,8 +218,8 @@ export default async function CrewSchedulePage({
 							const tbcStart = tbcRelevant && !ev.start_time;
 							const sessions = parseSegments(ev.session_segments);
 							const multiSesi = hasBreak(sessions);
-							const tbcFrame = tbcRelevant && !ev.frame_size;
-							const tbcBackdrop = tbcRelevant && !ev.backdrop_id;
+							const tbcFrame = tbcRelevant && !mySpot.frame_size;
+							const tbcBackdrop = tbcRelevant && !mySpot.backdrop_id;
 							const city =
 								ev.venue_city && ev.venue_city !== ev.venue_name
 									? ev.venue_city
@@ -262,12 +290,13 @@ export default async function CrewSchedulePage({
 													) : null}
 													<span className="eyebrow">
 														{ROLE_LABELS[a.role_in_event] ?? a.role_in_event}
+														{units > 1 ? ` · Spot ${mySpot.spot}/${units}` : ""}
 													</span>
-													{!tbcFrame && ev.frame_size ? (
+													{!tbcFrame && mySpot.frame_size ? (
 														<span className="type-caption">
 															Frame{" "}
-															{FRAME_SIZE_LABELS[ev.frame_size] ??
-																ev.frame_size}
+															{FRAME_SIZE_LABELS[mySpot.frame_size] ??
+																mySpot.frame_size}
 														</span>
 													) : null}
 													{!tbcBackdrop && backdrop?.name ? (

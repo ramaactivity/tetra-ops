@@ -136,7 +136,7 @@ export function DesignApproveDialog({
 								{frameIrrelevant
 									? "Paket tanpa cetak frame"
 									: ordered
-										? `Ukuran ${FRAME_SIZE_LABELS[ordered] ?? ordered}`
+										? `Ukuran ${FRAME_SIZE_LABELS[ordered] ?? ordered}${ctx.unitCount > 1 ? " (spot 1)" : ""}`
 										: "⚠ Ukuran masih menyusul"}
 							</p>
 							<p className="text-muted-foreground">
@@ -144,8 +144,26 @@ export function DesignApproveDialog({
 									(ctx.durationHours
 										? `${ctx.durationHours} jam · paket belum final`
 										: "Custom / tanpa paket")}
+								{ctx.unitCount > 1 ? ` · × ${ctx.unitCount} unit` : ""}
 							</p>
 						</div>
+
+						{/* Event multi-unit dengan ukuran beda: ACC ini hanya spot 1 */}
+						{!frameIrrelevant && ctx.otherSizeSpots.length > 0 && (
+							<p className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[13px] text-amber-900 dark:text-amber-200">
+								<AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+								<span>
+									{ctx.otherSizeSpots
+										.map(
+											(o) =>
+												`Spot ${o.spot} pakai ${FRAME_SIZE_LABELS[o.frameSize] ?? o.frameSize}`,
+										)
+										.join(", ")}{" "}
+									— butuh file desain sendiri. ACC di sini hanya untuk ukuran
+									spot 1; pastikan file spot lain juga sudah siap.
+								</span>
+							</p>
+						)}
 
 						{!frameIrrelevant && (
 							<div className="space-y-2">

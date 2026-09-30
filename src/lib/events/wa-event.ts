@@ -11,6 +11,7 @@
  * Modul polos (bukan "use server") supaya bisa diimpor server component mana pun.
  */
 
+import { unitCountOf, withUnits } from "@/lib/events/spots";
 import type { EventForWA } from "@/lib/whatsapp";
 
 /**
@@ -24,7 +25,7 @@ export const WA_EVENT_SELECT = `
 	pic_name, pic_wa, channel, vendor_name, vendor_pic_name, vendor_contact,
 	frame_size, backdrop_id, backdrop_color, custom_package_name,
 	pending_package_hours, include_flashdisk_pouch, crew_notes,
-	total_paid, remaining_balance,
+	total_paid, remaining_balance, unit_count, spots,
 	pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
 	package:packages(name, duration_hours, frame_size),
 	backdrop:backdrops(name, type),
@@ -71,6 +72,8 @@ export type WaEventRow = {
 	due_date?: string | null;
 	total_paid?: number | null;
 	remaining_balance?: number | null;
+	unit_count?: number | null;
+	spots?: unknown;
 	pic_contact?: Embed<{ name: string | null; phone: string | null }>;
 	package?: Embed<{
 		name: string | null;
@@ -118,6 +121,7 @@ export function toEventForWA(
 	const picContact = one(row.pic_contact);
 	const addons = addonLabels(row.event_addons);
 	const bonuses = bonusLabels(row.event_bonuses);
+	const pkgName = pkg?.name ?? row.custom_package_name ?? null;
 
 	return {
 		project_id: row.project_id,
@@ -141,7 +145,8 @@ export function toEventForWA(
 		due_date: row.due_date ?? null,
 		total_paid: row.total_paid ?? null,
 		remaining_balance: row.remaining_balance ?? null,
-		package_name: pkg?.name ?? row.custom_package_name ?? null,
+		// Event multi-unit: "… × 2 unit" — klien & crew sama-sama perlu tahu.
+		package_name: pkgName ? withUnits(pkgName, unitCountOf(row)) : null,
 		duration_hours: pkg?.duration_hours ?? row.pending_package_hours ?? null,
 		frame_size: row.frame_size ?? null,
 		backdrop_id: row.backdrop_id ?? null,
@@ -158,6 +163,8 @@ export function toEventForWA(
 		addons_list: addons.length > 0 ? addons : null,
 		bonuses_list: bonuses.length > 0 ? bonuses : null,
 		crew_notes: row.crew_notes ?? null,
+		unit_count: row.unit_count ?? null,
+		spots: row.spots ?? null,
 		...overrides,
 	};
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { unitCountOf } from "@/lib/events/spots";
 import { createClient } from "@/lib/supabase/server";
 import { tgEscape } from "@/lib/telegram/client";
 import { notifyTelegramCrewChanged } from "@/lib/telegram/notify";
@@ -103,6 +104,17 @@ export async function assignCrewCore(
 	const parsed = AssignSchema.safeParse(raw);
 	if (!parsed.success) {
 		return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+	}
+
+	// Spot di luar jumlah unit event = crew "hilang" dari tampilan slot.
+	const { data: ev } = await supabase
+		.from("events")
+		.select("unit_count")
+		.eq("id", parsed.data.event_id)
+		.maybeSingle();
+	const units = unitCountOf(ev ?? {});
+	if (parsed.data.spot_no > units) {
+		return { error: `Event ini hanya ${units} spot.` };
 	}
 
 	const fee = await resolveDefaultFee(supabase, parsed.data.user_id);

@@ -179,7 +179,11 @@ function MissingInfoChip({
 			)}
 			title={`Belum lengkap: ${missing.join(", ")}`}
 		>
-			<AlertTriangle className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
+			<AlertTriangle
+				className="size-3 shrink-0"
+				strokeWidth={2.25}
+				aria-hidden
+			/>
 			<span className="truncate">
 				Belum lengkap: {shown}
 				{rest > 0 ? ` +${rest}` : ""}
@@ -598,10 +602,15 @@ function CrewLine({
 	highlightUserId?: string;
 	compact?: boolean;
 }) {
-	const lead = crew.find((c) => c.role_in_event === "lead");
+	// Event multi-unit punya lead per spot — tampilkan semua lead.
+	const leads = crew.filter((c) => c.role_in_event === "lead");
+	const lead = leads[0];
 	const others = crew.filter((c) => c.role_in_event !== "lead");
 
-	const leadDisplay = lead ? firstWord(lead.nickname ?? lead.full_name) : null;
+	const leadDisplay =
+		leads.length > 0
+			? leads.map((l) => firstWord(l.nickname ?? l.full_name)).join(", ")
+			: null;
 	const asistenSource = others[0];
 	const asistenDisplay = asistenSource
 		? firstWord(asistenSource.nickname ?? asistenSource.full_name)
@@ -627,7 +636,7 @@ function CrewLine({
 								? "text-foreground"
 								: "text-foreground",
 						)}
-						title={lead?.full_name}
+						title={leads.map((l) => l.full_name).join(", ")}
 					>
 						{leadDisplay}
 					</span>

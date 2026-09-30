@@ -22,6 +22,7 @@ import {
 	pendingPackageLabel,
 	resolvePackage,
 } from "@/lib/events/frame-package";
+import { eventSpots, type SpotSource, unitCountOf } from "@/lib/events/spots";
 import { SERVICE_TYPE_LABELS } from "@/lib/format";
 import {
 	formatScheduleInline,
@@ -936,6 +937,8 @@ async function buildBookingChangeLines(
 		event_category: string | null;
 		pic_name: string | null;
 		grand_total: number | null;
+		unit_count?: number | null;
+		spots?: unknown;
 	},
 	after: ReturnType<typeof buildEventPayload>,
 	addonDiff: {
@@ -1081,6 +1084,26 @@ async function buildBookingChangeLines(
 		lines.push(
 			`📐 Frame: ${arrow(before.frame_size ?? "TBC", after.frame_size ?? "TBC")}`,
 		);
+	}
+	// Event multi-unit: jumlah booth & frame/backdrop spot ≥2.
+	const unitsBefore = unitCountOf(before);
+	if (unitsBefore !== after.unit_count) {
+		lines.push(
+			`🎪 Unit: ${arrow(String(unitsBefore), `${after.unit_count} unit`)}`,
+		);
+	}
+	const spotKey = (ev: SpotSource) =>
+		JSON.stringify(
+			eventSpots(ev)
+				.slice(1)
+				.map((sp) => [sp.frame_size, sp.backdrop_id]),
+		);
+	if (
+		unitsBefore === after.unit_count &&
+		after.unit_count > 1 &&
+		spotKey({ ...before, unit_count: unitsBefore }) !== spotKey(after)
+	) {
+		lines.push("🎪 Frame/backdrop spot 2+ diubah");
 	}
 	if ((before.client_name ?? "") !== after.client_name) {
 		lines.push(
@@ -1381,6 +1404,23 @@ export async function updateBooking(
 			values: snapshotValues(formData),
 		};
 	}
+	// Unit dikurangi padahal masih ada crew di spot yang hilang → crew itu tak
+	// terlihat di slot tapi tetap dibayar & dikabari. Minta dipindah dulu.
+	const { count: orphanCrew } = await supabase
+		.from("crew_assignments")
+		.select("id", { count: "exact", head: true })
+		.eq("event_id", id)
+		.gt("spot_no", parsed.data.unit_count);
+	if (orphanCrew) {
+		return {
+			errors: {
+				_form: [
+					`Masih ada ${orphanCrew} crew di spot ${parsed.data.unit_count + 1}+. Hapus atau pindahkan dulu di halaman Crew sebelum mengurangi jumlah unit.`,
+				],
+			},
+			values: snapshotValues(formData),
+		};
+	}
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
 	const addonsRaw = parseAddonsJson(formData);
 	const { rows: addonRows, total: addonsTotal } = await snapshotAddons(
@@ -1427,7 +1467,7 @@ export async function updateBooking(
 			client_name, event_date, event_date_is_estimate, setup_time,
 			start_time, end_time, session_segments, venue_name, venue_city,
 			package_id, pending_package_hours, backdrop_id, frame_size,
-			event_category, pic_name, grand_total`,
+			event_category, pic_name, grand_total, unit_count, spots`,
 		)
 		.eq("id", id)
 		.maybeSingle();
