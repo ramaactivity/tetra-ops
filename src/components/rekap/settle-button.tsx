@@ -71,6 +71,8 @@ type Props = {
 	salesCommission?: {
 		payeeName: string | null;
 		amount: number;
+		/** Sudah dibayar (uang muka) → tidak ikut dibayar saat settle. */
+		isPaid?: boolean;
 	} | null;
 	/**
 	 * Yang diisi di kartu-kartu rekap & baru dibukukan saat settle ini —
@@ -157,23 +159,28 @@ export function SettleButton(props: Props) {
 	// Kalau rekening & biaya adminnya sudah diatur di kartu Fee crew, dialog ini
 	// tidak menawarkan lagi — supaya tidak ada dua tempat yang mengatur hal sama
 	// (dan tidak ada risiko dobel transfer).
-	const canPayNow =
-		crewTotal > 0 && cashAccounts.length > 0 && !props.crewFeePlanned;
-	const [payNow, setPayNow] = useState(false);
+	const commission = props.commission ?? null;
+	const salesInfo = props.salesCommission ?? null;
+	const queued = props.queued ?? null;
+	// Yang belum punya rencana bayar di kartunya → ditawari dibayar sekalian
+	// dari rekening default (BCA). Default ON: owner tinggal konfirmasi.
+	const crewDue = crewTotal > 0 && !props.crewFeePlanned;
+	const partnerDue = commission && !commission.planned ? commission.amount : 0;
+	const salesDue =
+		salesInfo && !salesInfo.isPaid && !queued?.salesCommissionPayment
+			? salesInfo.amount
+			: 0;
+	const commissionDue = partnerDue + salesDue;
+	const canPayNow = (crewDue || commissionDue > 0) && cashAccounts.length > 0;
+	const [payNow, setPayNow] = useState(true);
 	const [payAccount, setPayAccount] = useState(() =>
-		defaultAccount(cashAccounts, crewTotal),
+		defaultAccount(cashAccounts, crewTotal + commissionDue),
 	);
 	// Biaya admin bank per transfer. Fee crew = 1 transfer per crew, jadi
 	// totalnya dikali jumlah crew yang dibayar; komisi cuma 1 transfer.
 	const [payAdminFee, setPayAdminFee] = useState(0);
 	const crewPayCount = Math.max(1, props.crewPayCount ?? 1);
-	const crewAdminTotal = payAdminFee * crewPayCount;
-	const commission = props.commission ?? null;
-
-	// Komisi sales Tetra hanya DITAMPILKAN di sini (final check) — diisi &
-	// dibayar dari kartunya sendiri di halaman rekap.
-	const salesInfo = props.salesCommission ?? null;
-	const queued = props.queued ?? null;
+	const crewAdminTotal = crewDue ? payAdminFee * crewPayCount : 0;
 	// Ditampilkan cuma kalau memang beda dari net profit settlement.
 	const netAfterExtra =
 		props.netProfitAfterExtra !== undefined &&
@@ -190,12 +197,14 @@ export function SettleButton(props: Props) {
 			bd.opex.fee_crew_c +
 			bd.opex.fee_extra
 		: 0;
+	const payNowTotal =
+		(crewDue ? crewTotal : 0) + crewAdminTotal + commissionDue;
 	// Ada kolom opsi pembayaran? Kalau tidak, rincian angka yang memakai
 	// ruangnya — kolom kosong tidak membantu siapa pun saat review.
 	const hasPaymentCol = canPayNow || Boolean(commission);
 	// Uang yang benar-benar bergerak saat tombol settle ditekan.
 	const cashOutOnSettle =
-		(payNow && canPayNow ? crewTotal + crewAdminTotal : 0) +
+		(payNow && canPayNow ? payNowTotal : 0) +
 		(queued?.expenseOut ?? 0) +
 		(queued?.salesCommissionPayment ?? 0) +
 		(commission?.planned ? commission.amount : 0);
@@ -205,8 +214,7 @@ export function SettleButton(props: Props) {
 	// yang sama, saldonya harus cukup untuk SEMUANYA, bukan masing-masing.
 	function needFor(code: string): number {
 		let need = 0;
-		if (payNow && canPayNow && payAccount === code)
-			need += crewTotal + crewAdminTotal;
+		if (payNow && canPayNow && payAccount === code) need += payNowTotal;
 		return need;
 	}
 	const payAcct = cashAccounts.find((a) => a.code === payAccount);
@@ -236,8 +244,10 @@ export function SettleButton(props: Props) {
 		startTransition(async () => {
 			const doPay = payNow && canPayNow && payAccount;
 			const result = await settleEvent(props.eventId, props.projectId, {
-				payCrewFromAccount: doPay ? payAccount : null,
-				payCrewAdminFee: doPay ? payAdminFee : null,
+				payCrewFromAccount: doPay && crewDue ? payAccount : null,
+				payCrewAdminFee: doPay && crewDue ? payAdminFee : null,
+				payCommissionsFromAccount:
+					doPay && commissionDue > 0 ? payAccount : null,
 			});
 			if (!result.ok) {
 				toast.error(result.error || "Gagal settle event");
@@ -246,7 +256,9 @@ export function SettleButton(props: Props) {
 			const cp = result.crewPayment;
 			const q = result.queue;
 			const done: string[] = [];
+			const cm = result.commissionPayment;
 			if (cp && cp.paid > 0) done.push(`${cp.paid} fee crew`);
+			if (cm && cm.paid > 0) done.push(`${cm.paid} komisi`);
 			if (q && q.posted > 0) done.push(`${q.posted} transaksi dibukukan`);
 			if (done.length > 0) {
 				toast.success(`Event di-settle + ${done.join(" & ")} dibayar.`);
@@ -259,6 +271,9 @@ export function SettleButton(props: Props) {
 				toast.error(
 					`${cp.failed} fee crew gagal dibayar — cek & bayar manual di Fee crew.`,
 				);
+			}
+			if (cm && cm.failed > 0) {
+				toast.error(`${cm.errors[0]} — bayar manual dari kartu komisinya.`);
 			}
 			if (q && q.failed > 0) {
 				toast.error(
@@ -368,6 +383,15 @@ export function SettleButton(props: Props) {
 									</li>
 									{props.crewFeePlanned && (
 										<li>Transfer fee crew sesuai rencana di kartu Fee crew</li>
+									)}
+									{payNow && canPayNow && (
+										<li>
+											Bayar{" "}
+											{[crewDue && "fee crew", commissionDue > 0 && "komisi"]
+												.filter(Boolean)
+												.join(" & ")}{" "}
+											dari {payAcct?.name ?? "rekening terpilih"}
+										</li>
 									)}
 									{commission?.planned && (
 										<li>Transfer komisi {commission.payeeName}</li>
@@ -484,9 +508,12 @@ export function SettleButton(props: Props) {
 											bd
 												? [
 														{ label: "Fee Lead", value: bd.opex.fee_lead },
-									{ label: "Fee Asisten", value: bd.opex.fee_asisten },
-									{ label: "Fee Crew C", value: bd.opex.fee_crew_c },
-									{ label: "Bonus crew", value: bd.opex.fee_extra },
+														{
+															label: "Fee Asisten",
+															value: bd.opex.fee_asisten,
+														},
+														{ label: "Fee Crew C", value: bd.opex.fee_crew_c },
+														{ label: "Bonus crew", value: bd.opex.fee_extra },
 														{
 															label: "Reimbursement crew",
 															value: bd.opex.reimbursement,
@@ -657,12 +684,18 @@ export function SettleButton(props: Props) {
 											<div className="min-w-0">
 												<p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
 													<Wallet className="h-4 w-4 text-muted-foreground" />
-													Sekalian bayar fee crew
+													Sekalian bayar{" "}
+													{[
+														crewDue && "fee crew",
+														commissionDue > 0 && "komisi",
+													]
+														.filter(Boolean)
+														.join(" & ")}
 												</p>
 												<p className="tabular mt-0.5 text-xs text-muted-foreground">
-													Bayar {formatRupiah(crewTotal)} ke semua crew langsung
-													saat settle. Kalau dimatikan, fee jadi Hutang Crew &
-													bisa dibayar belakangan.
+													Bayar {formatRupiah(payNowTotal - crewAdminTotal)}{" "}
+													langsung saat settle. Kalau dimatikan, jadi utang
+													(Hutang Crew/Komisi) & bisa dibayar belakangan.
 												</p>
 											</div>
 											<Switch
@@ -685,7 +718,8 @@ export function SettleButton(props: Props) {
 																? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
 																: `${a.code} · ${a.name}`,
 														disabled:
-															a.balance !== undefined && a.balance < crewTotal,
+															a.balance !== undefined &&
+															a.balance < payNowTotal,
 													}))}
 													placeholder="Pilih rekening"
 													allowFreeText={false}
@@ -694,26 +728,26 @@ export function SettleButton(props: Props) {
 													<p className="tabular text-[11px] font-medium text-rose-600">
 														Saldo {payAcct?.name} tidak cukup (
 														{formatRupiah(payAcct?.balance ?? 0)}) untuk bayar{" "}
-														{formatRupiah(crewTotal + crewAdminTotal)} — pilih
-														rekening lain.
+														{formatRupiah(payNowTotal)} — pilih rekening lain.
 													</p>
 												) : (
 													<p className="tabular text-[11px] text-muted-foreground">
-														Saldo rekening berkurang{" "}
-														{formatRupiah(crewTotal + crewAdminTotal)} · tiap
-														crew ditandai lunas. Bukti transfer yang sudah
+														Saldo rekening berkurang {formatRupiah(payNowTotal)}{" "}
+														· langsung ditandai lunas. Bukti transfer yang sudah
 														diupload tetap tersimpan.
 													</p>
 												)}
-												<AdminFeeField
-													value={payAdminFee}
-													onChange={setPayAdminFee}
-													hint={
-														crewPayCount > 1
-															? `${formatRupiah(payAdminFee)} × ${crewPayCount} transfer = ${formatRupiah(crewAdminTotal)}`
-															: undefined
-													}
-												/>
+												{crewDue && (
+													<AdminFeeField
+														value={payAdminFee}
+														onChange={setPayAdminFee}
+														hint={
+															crewPayCount > 1
+																? `${formatRupiah(payAdminFee)} × ${crewPayCount} transfer = ${formatRupiah(crewAdminTotal)}`
+																: undefined
+														}
+													/>
+												)}
 											</div>
 										)}
 									</div>
@@ -733,7 +767,9 @@ export function SettleButton(props: Props) {
 											){" "}
 											{commission.planned
 												? "akan ditransfer saat settle sesuai rencana di kartunya."
-												: "jadi Hutang Komisi saat settle — bisa dibayar dari kartu Komisi mitra."}
+												: payNow && canPayNow
+													? "ikut dibayar saat settle dari rekening di atas."
+													: "jadi Hutang Komisi saat settle — bisa dibayar dari kartu Komisi mitra."}
 										</span>
 									</div>
 								)}
@@ -753,12 +789,15 @@ export function SettleButton(props: Props) {
 						<Button
 							type="button"
 							onClick={handleConfirm}
-							disabled={pending || (payNow && (!payAccount || payInsufficient))}
+							disabled={
+								pending ||
+								(payNow && canPayNow && (!payAccount || payInsufficient))
+							}
 						>
 							{pending ? (
 								<>
 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									{payNow ? "Settle & bayar…" : "Settling…"}
+									{payNow && canPayNow ? "Settle & bayar…" : "Settling…"}
 								</>
 							) : payNow && canPayNow ? (
 								"Konfirmasi settle & bayar"

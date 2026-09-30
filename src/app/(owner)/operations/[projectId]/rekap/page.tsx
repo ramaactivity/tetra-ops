@@ -1074,6 +1074,7 @@ export default async function EventRekapPage({
 										? {
 												payeeName: salesCommissionState.payeeName,
 												amount: salesCommissionState.amount,
+												isPaid: salesCommissionState.isPaid,
 											}
 										: null
 								}

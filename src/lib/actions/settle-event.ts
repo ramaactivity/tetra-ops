@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { ensureRekapCommitted } from "@/lib/actions/rekap";
 import { notifyEventSettled } from "@/lib/actions/rekap-notifications";
@@ -45,6 +46,8 @@ export type SettleEventResponse =
 			ok: true;
 			data: SettleEventResult;
 			crewPayment?: CrewPaymentSummary;
+			/** Komisi yang dibayar otomatis (tanpa rencana di kartunya). */
+			commissionPayment?: CrewPaymentSummary;
 			/** Hasil posting antrian (pengeluaran/pemasukan lain, komisi sales). */
 			queue?: SettleQueueSummary;
 			/** Penyesuaian talangan crew sebelum jurnal dibuat (kalau ada). */
@@ -65,6 +68,9 @@ export async function settleEvent(
 		 * sekali untuk semua.
 		 */
 		payCrewAdminFee?: number | null;
+		/** Kalau di-set: komisi sales & mitra yang BELUM diatur di kartunya
+		 *  langsung dibayar dari rekening ini setelah settle. */
+		payCommissionsFromAccount?: string | null;
 	},
 ): Promise<SettleEventResponse> {
 	const me = await getCurrentUser();
@@ -156,6 +162,67 @@ export async function settleEvent(
 		crewPayment = { paid, failed, total, errors };
 	}
 
+	// Komisi yang belum punya rencana bayar di kartunya → bayar dari rekening
+	// default (BCA) sekalian. Yang sudah diantre dibayar postSettleQueue di bawah;
+	// yang sudah dibayar (uang muka) / Rp0 / potongan langsung dilewati.
+	let commissionPayment: CrewPaymentSummary | undefined;
+	const commissionAcct = opts?.payCommissionsFromAccount?.trim();
+	if (commissionAcct) {
+		commissionPayment = { paid: 0, failed: 0, total: 0, errors: [] };
+		const [{ data: ev }, { data: queuedKinds }, { data: payouts }] =
+			await Promise.all([
+				supabase
+					.from("events")
+					.select(
+						"channel, vendor_commission_mode, vendor_commission_amount, referrer_commission, direct_sales_commission",
+					)
+					.eq("id", eventId)
+					.maybeSingle(),
+				supabase
+					.from("event_settle_queue")
+					.select("kind")
+					.eq("event_id", eventId),
+				supabase
+					.from("commission_payouts")
+					.select("kind")
+					.eq("event_id", eventId)
+					.eq("is_reversed", false),
+			]);
+		const queuedSet = new Set((queuedKinds ?? []).map((q) => q.kind));
+		const paidSet = new Set((payouts ?? []).map((p) => p.kind));
+		const kinds: Array<"vendor" | "relasi" | "sales"> = [];
+		if (
+			Number(ev?.direct_sales_commission ?? 0) > 0 &&
+			!queuedSet.has("commission_sales")
+		)
+			kinds.push("sales");
+		if (!queuedSet.has("commission_partner")) {
+			if (
+				ev?.channel === "vendor" &&
+				ev.vendor_commission_mode !== "upfront_cut" &&
+				Number(ev.vendor_commission_amount ?? 0) > 0
+			)
+				kinds.push("vendor");
+			if (ev?.channel === "relasi" && Number(ev.referrer_commission ?? 0) > 0)
+				kinds.push("relasi");
+		}
+		const today = new Date().toISOString().slice(0, 10);
+		for (const kind of kinds.filter((k) => !paidSet.has(k))) {
+			const r = await payCommission({
+				event_id: eventId,
+				project_id: projectId,
+				kind,
+				bank_account_code: commissionAcct,
+				payment_date: today,
+			});
+			if (r.ok) commissionPayment.paid += 1;
+			else {
+				commissionPayment.failed += 1;
+				commissionPayment.errors.push(`Komisi ${kind}: ${r.error}`);
+			}
+		}
+	}
+
 	// Antrian dari kartu-kartu di halaman rekap (pengeluaran/pemasukan lain &
 	// rencana bayar komisi sales) — baru dibukukan sekarang, setelah settle
 	// benar-benar jadi. Best-effort: gagal satu baris tidak membatalkan settle.
@@ -185,6 +252,7 @@ export async function settleEvent(
 		ok: true,
 		data: data as SettleEventResult,
 		crewPayment,
+		commissionPayment,
 		queue,
 		reimbursement: reimbursement ?? undefined,
 	};

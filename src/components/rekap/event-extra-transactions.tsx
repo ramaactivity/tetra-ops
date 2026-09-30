@@ -29,7 +29,11 @@ import {
 	queueEventExpensesBatch,
 	removeQueuedEntry,
 } from "@/lib/actions/settle-queue";
-import { filterEmoneyAccounts, isTransportCoa } from "@/lib/finance/emoney";
+import {
+	filterEmoneyAccounts,
+	isEmoneyCoa,
+	isTransportCoa,
+} from "@/lib/finance/emoney";
 import {
 	type CatatDirection,
 	categoriesFor,
@@ -81,9 +85,22 @@ const DEFAULT_CATEGORY: Record<CatatDirection, string> = {
 	transfer: "operasional-lain",
 };
 
-function defaultAccount(accounts: CashAccount[]): string {
-	// BCA dulu — rekening operasional Tetra. Kas Tunai kebetulan urutan pertama
-	// tapi saldonya biasanya Rp0.
+function defaultAccount(
+	accounts: CashAccount[],
+	categoryIds: string[] = [],
+): string {
+	// Biaya tol → kartu e-toll (saldo terbesar), karena memang dibayar pakai
+	// kartu. Selain itu BCA dulu — rekening operasional Tetra. Kas Tunai
+	// kebetulan urutan pertama tapi saldonya biasanya Rp0.
+	if (
+		categoryIds.length > 0 &&
+		categoryIds.every((id) => findCategory(id)?.coa === "5-213")
+	) {
+		const card = accounts
+			.filter((a) => isEmoneyCoa(a.code))
+			.sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))[0];
+		if (card) return card.code;
+	}
 	return (
 		accounts.find((a) => /bca/i.test(a.name))?.code ??
 		accounts.find((a) => /bank/i.test(a.name))?.code ??
@@ -125,8 +142,16 @@ export function EventExtraTransactions({
 	const [proofUrl, setProofUrl] = useState<string | null>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const [bulkAccount, setBulkAccount] = useState(() =>
-		defaultAccount(cashAccounts),
+		defaultAccount(
+			cashAccounts,
+			ownerPaidPending.map((p) => p.categoryId),
+		),
 	);
+	// Ganti kategori = rekening ikut default-nya (tol → e-toll, lainnya BCA).
+	function pickCategory(id: string) {
+		setCategoryId(id);
+		setAccount(defaultAccount(cashAccounts, [id]));
+	}
 
 	// Biaya "dibayar owner" di kartu Fee crew mengisi form ini lewat CustomEvent
 	// — dulu tombolnya deep-link ke /finance & owner keluar dari halaman rekap.
@@ -137,6 +162,7 @@ export function EventExtraTransactions({
 			if (!d) return;
 			setDirection("keluar");
 			setCategoryId(d.categoryId);
+			setAccount(defaultAccount(cashAccounts, [d.categoryId]));
 			setAmount(d.amount);
 			setNote(d.note);
 			// Nota yang sudah di-upload crew langsung terlampir.
@@ -151,7 +177,7 @@ export function EventExtraTransactions({
 		}
 		window.addEventListener(CATAT_PREFILL_EVENT, onPrefill);
 		return () => window.removeEventListener(CATAT_PREFILL_EVENT, onPrefill);
-	}, [readOnly]);
+	}, [readOnly, cashAccounts]);
 
 	const queuedExpenses = queued.filter((q) => q.kind === "expense");
 	const totalOut =
@@ -567,7 +593,7 @@ export function EventExtraTransactions({
 									type="button"
 									onClick={() => {
 										setDirection(dir);
-										setCategoryId(DEFAULT_CATEGORY[dir]);
+										pickCategory(DEFAULT_CATEGORY[dir]);
 									}}
 									className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
 										direction === dir
@@ -588,7 +614,7 @@ export function EventExtraTransactions({
 							</span>
 							<NativeSelect
 								value={categoryId}
-								onValueChange={setCategoryId}
+								onValueChange={pickCategory}
 								options={categoriesFor(direction).map((c) => ({
 									value: c.id,
 									label: c.label,
