@@ -167,10 +167,20 @@ export default async function OperationsListPage({
 	}
 
 	const today = new Date();
-	const ymStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
-	const yearStart = `${today.getFullYear()}-01-01`;
-	const yearEnd = `${today.getFullYear()}-12-31`;
+	// KPI Bulan/Tahun ikut bulan yang dipilih di filter (bukan terkunci ke bulan
+	// berjalan). "Semua bulan" jatuh ke bulan berjalan.
+	const kpiMonth = month || currentYearMonth();
+	const [kpiY, kpiM] = kpiMonth.split("-").map(Number);
+	const kpiIsCurrent = kpiMonth === currentYearMonth();
+	const kpiYearIsCurrent = kpiY === today.getFullYear();
+	const kpiMonthLabel = new Date(kpiY, kpiM - 1, 1).toLocaleDateString(
+		"id-ID",
+		{ month: "long", year: "numeric" },
+	);
+	const ymStart = `${kpiMonth}-01`;
+	const ymEnd = lastDayOfMonth(kpiY, kpiM);
+	const yearStart = `${kpiY}-01-01`;
+	const yearEnd = `${kpiY}-12-31`;
 
 	const [
 		listResult,
@@ -505,9 +515,9 @@ export default async function OperationsListPage({
 					accent="primary"
 				/>
 				<KpiCard
-					label="Bulan Ini"
+					label={kpiIsCurrent ? "Bulan Ini" : "Bulan Dipilih"}
 					value={thisMonthCount.toLocaleString("id-ID")}
-					hint={`${today.toLocaleDateString("id-ID", { month: "long", year: "numeric" })} · tanpa yang batal`}
+					hint={`${kpiMonthLabel} · tanpa yang batal`}
 					icon={CalendarClock}
 					accent="emerald"
 					progress={
@@ -517,9 +527,9 @@ export default async function OperationsListPage({
 					}
 				/>
 				<KpiCard
-					label="Tahun Ini"
+					label={kpiYearIsCurrent ? "Tahun Ini" : `Tahun ${kpiY}`}
 					value={thisYearCount.toLocaleString("id-ID")}
-					hint={`${today.getFullYear()} · tanpa yang batal`}
+					hint={`${kpiY} · tanpa yang batal`}
 					icon={CalendarRange}
 					accent="sky"
 					progress={
