@@ -346,17 +346,20 @@ export default async function EventDetailPage({
 				.select("id, name")
 				.in("id", spotBackdropIds)
 		: { data: [] as Array<{ id: string; name: string }> };
-	const spotSummary =
-		unitCount > 1
-			? Array.from({ length: unitCount - 1 }, (_, i) => i + 2).map((n) => {
-					const o = spotOverrides.find((x) => x.spot === n);
-					const frame = o?.frame_size ?? event.frame_size;
-					const bd = o?.backdrop_id
+	// Satu baris per spot: "Spot 1 · 4R · Basic Silver".
+	const spotLines = Array.from({ length: unitCount }, (_, i) => i + 1).map(
+		(n) => {
+			const o = n > 1 ? spotOverrides.find((x) => x.spot === n) : null;
+			const frame = o?.frame_size ?? event.frame_size;
+			const bd =
+				n === 1
+					? backdrop?.name
+					: o?.backdrop_id
 						? spotBackdrops?.find((b) => b.id === o.backdrop_id)?.name
 						: null;
-					return `Spot ${n}: ${frame ? (FRAME_SIZE_LABELS[frame] ?? frame) : "frame menyusul"} · ${bd ?? "backdrop menyusul"}`;
-				})
-			: [];
+			return `Spot ${n} · ${frame ? (FRAME_SIZE_LABELS[frame] ?? frame) : "frame menyusul"} · ${bd ?? "backdrop menyusul"}`;
+		},
+	);
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -530,9 +533,7 @@ export default async function EventDetailPage({
 				}
 				backdropName={
 					unitCount > 1
-						? [`Spot 1: ${backdrop?.name ?? "menyusul"}`, ...spotSummary].join(
-								" · ",
-							)
+						? spotLines.join("\n")
 						: (backdrop?.name ?? null)
 				}
 				includeFlashdiskPouch={event.include_flashdisk_pouch}

@@ -582,7 +582,16 @@ function RecapLine({
 				strokeWidth={2}
 			/>
 			<div className="min-w-0 flex-1">
-				<div className={cn("truncate text-[13px]", tint)}>{primary}</div>
+				<div
+					className={cn(
+						"text-[13px]",
+						// Event multi-unit: satu baris per spot.
+						primary.includes("\n") ? "whitespace-pre-line" : "truncate",
+						tint,
+					)}
+				>
+					{primary}
+				</div>
 				{secondary ? (
 					<div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
 						{secondary}

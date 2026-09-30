@@ -32,12 +32,16 @@ export function AssignCrewForm({
 	projectId,
 	eventId,
 	availableCrew,
+	unitCount = 1,
 }: {
 	projectId: string;
 	eventId: string;
 	availableCrew: CrewOption[];
+	/** Event multi-unit: crew ditugaskan ke spot yang dipilih. */
+	unitCount?: number;
 }) {
 	const [query, setQuery] = useState("");
+	const [spot, setSpot] = useState(1);
 	const [pending, startTransition] = useTransition();
 	const [pendingFor, setPendingFor] = useState<string | null>(null);
 
@@ -65,6 +69,7 @@ export function AssignCrewForm({
 			fd.set("event_id", eventId);
 			fd.set("user_id", userId);
 			fd.set("role_in_event", roleValue);
+			fd.set("spot_no", String(spot));
 			const res = await assignCrew(projectId, fd);
 			setPendingFor(null);
 			if (res.error) {
@@ -74,13 +79,36 @@ export function AssignCrewForm({
 				const roleLabel = ROLE_OPTIONS.find(
 					(r) => r.value === roleValue,
 				)?.label;
-				toast.success(`${crew?.full_name ?? "Crew"} assigned as ${roleLabel}`);
+				toast.success(
+					`${crew?.full_name ?? "Crew"} assigned as ${roleLabel}${unitCount > 1 ? ` (Spot ${spot})` : ""}`,
+				);
 			}
 		});
 	}
 
 	return (
 		<div className="space-y-3">
+			{unitCount > 1 && (
+				<div className="flex flex-wrap items-center gap-1.5">
+					<span className="text-[12px] text-muted-foreground">Tugaskan ke</span>
+					{Array.from({ length: unitCount }, (_, i) => i + 1).map((n) => (
+						<button
+							key={n}
+							type="button"
+							onClick={() => setSpot(n)}
+							aria-pressed={spot === n}
+							className={cn(
+								"press-down inline-flex h-8 items-center rounded-full border px-3 text-[12px] font-medium transition-colors",
+								spot === n
+									? "border-foreground bg-foreground text-background"
+									: "border-border-default bg-card text-foreground hover:bg-secondary",
+							)}
+						>
+							Spot {n}
+						</button>
+					))}
+				</div>
+			)}
 			<div className="relative">
 				<Search
 					className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"

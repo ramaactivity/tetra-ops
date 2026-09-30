@@ -119,7 +119,7 @@ export default async function OperationsListPage({
 			 venue_name, venue_city, grand_total, remaining_balance, payment_status,
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
 			 event_category, backdrop_id, pic_name, pic_wa, pic_contact_id, pending_package_hours,
-			 design_status,
+			 design_status, unit_count,
 			 package:packages(name, duration_hours, frame_size),
 			 backdrop:backdrops(name, type)`,
 		)
@@ -293,6 +293,7 @@ export default async function OperationsListPage({
 		pic_contact_id?: string | null;
 		pending_package_hours?: number | null;
 		design_status?: string | null;
+		unit_count?: number | null;
 	};
 	const events: EventRow[] = ((listResult.data ?? []) as RawEventRow[]).map(
 		(row) => {
@@ -321,7 +322,10 @@ export default async function OperationsListPage({
 				payment_status: row.payment_status,
 				is_migrated_legacy: row.is_migrated_legacy,
 				legacy_invoice_number: row.legacy_invoice_number,
-				package_name: pkg?.name ?? customName ?? null,
+				package_name:
+					(row.unit_count ?? 1) > 1 && (pkg?.name ?? customName)
+						? `${pkg?.name ?? customName} × ${row.unit_count} unit`
+						: (pkg?.name ?? customName ?? null),
 				package_duration_hours: pkg?.duration_hours ?? null,
 				backdrop_name: bd?.name ?? null,
 				backdrop_type: bd?.type ?? null,

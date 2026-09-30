@@ -33,7 +33,7 @@ export type AssignmentRow = {
 	fee_amount: number;
 	bonus_amount: number;
 	fee_override_reason: string | null;
-	/** Event multi-unit: spot tempat crew bertugas (default 1). */
+	/** Event multi-unit: spot tempat crew bertugas (kosong = event 1 unit). */
 	spot_no?: number;
 };
 
@@ -206,6 +206,9 @@ function AssignmentItem({
 						{row.user.full_name}
 					</span>
 					<Badge variant="outline">{ROLE_LABELS[row.role_in_event]}</Badge>
+					{row.spot_no ? (
+						<Badge variant="outline">Spot {row.spot_no}</Badge>
+					) : null}
 					{row.user.tier && (
 						<span className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.04em]">
 							{row.user.tier}

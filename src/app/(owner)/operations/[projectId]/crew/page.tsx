@@ -25,7 +25,7 @@ export default async function ManageCrewPage({
 
 	const { data: event } = await supabase
 		.from("events")
-		.select(`id, due_date, ${WA_EVENT_SELECT}`)
+		.select(`id, due_date, unit_count, ${WA_EVENT_SELECT}`)
 		.eq("project_id", projectId)
 		.maybeSingle();
 	if (!event) notFound();
@@ -34,10 +34,12 @@ export default async function ManageCrewPage({
 	const { data: assignmentsData } = await supabase
 		.from("crew_assignments")
 		.select(
-			"id, user_id, role_in_event, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)",
+			"id, user_id, role_in_event, spot_no, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)",
 		)
-		.eq("event_id", event.id);
+		.eq("event_id", event.id)
+		.order("spot_no");
 
+	const unitCount = Math.max(1, Number(event.unit_count ?? 1));
 	const assignments = (assignmentsData ?? []).map((a) => ({
 		id: a.id as string,
 		user_id: a.user_id as string,
@@ -46,6 +48,7 @@ export default async function ManageCrewPage({
 		bonus_amount: a.bonus_amount as number,
 		fee_override_reason: a.fee_override_reason as string | null,
 		user: Array.isArray(a.user) ? a.user[0] : a.user,
+		spot_no: unitCount > 1 ? ((a.spot_no as number | null) ?? 1) : undefined,
 	})) as AssignmentRow[];
 
 	const eventForWa = toEventForWA(event as unknown as WaEventRow);
@@ -85,6 +88,7 @@ export default async function ManageCrewPage({
 					projectId={event.project_id}
 					eventId={event.id}
 					availableCrew={availableCrew}
+					unitCount={unitCount}
 				/>
 			</div>
 		</Container>
