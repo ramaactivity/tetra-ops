@@ -379,22 +379,15 @@ function BillingPage({
 						value: n(payment?.remaining ?? d.totals.total),
 					};
 
-	// Rekening hanya saat masih ada yang harus dibayar; kolom tetap ada
-	// (kosong) supaya grid blok bawah stabil.
-	// Quotation = penawaran, bukan tagihan: rekening baru muncul di invoice,
-	// kolomnya dipakai ketentuan quotation yang panjang.
-	const showBank = d.docType === "invoice" && !paid;
+	// Rekening selalu tampil (owner, 30 Sep 2026) — juga saat lunas & di
+	// quotation, sama dengan preview Claude Design.
 
 	return (
 		<Shell
 			d={d}
 			variant={variant}
 			bottom={
-				<PdfBottom
-					bank={showBank ? d.bank : null}
-					terms={termLines(d)}
-					signer={d.signer}
-				/>
+				<PdfBottom bank={d.bank} terms={termLines(d)} signer={d.signer} />
 			}
 		>
 			<MetaRow cells={meta} />
@@ -441,7 +434,7 @@ function ReceiptPage({
 			variant={variant}
 			bottom={
 				<PdfBottom
-					bank={lunas ? null : d.bank}
+					bank={d.bank}
 					terms={termLines(d)}
 					signer={d.signer}
 					signLabel="Penerima"

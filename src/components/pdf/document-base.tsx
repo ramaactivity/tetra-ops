@@ -8,8 +8,8 @@
  * bawaan, hitam + satu aksen merah, hierarki murni dari ukuran & tebal huruf.
  * Tanpa kotak berwarna, radius, atau bayangan — hanya garis 4.5pt / 0.75pt.
  *
- * Ukuran huruf sedikit di atas handoff (body 8.5pt, kecil 7.5pt; handoff
- * 8.25 / 7.1) supaya tetap terbaca saat dicetak — diizinkan README.
+ * Ukuran huruf persis handoff (body 8.25pt, kecil 7.1pt) — owner minta hasil
+ * identik dengan preview Claude Design (30 Sep 2026).
  */
 
 import { Font, Image, StyleSheet, Text, View } from "@react-pdf/renderer";
@@ -49,8 +49,8 @@ export const GRID = {
 } as const;
 
 export const FS = {
-	body: 8.5,
-	small: 7.5,
+	body: 8.25,
+	small: 7.1,
 	title: 84,
 	big: 63,
 	para: 10.5,
@@ -263,7 +263,7 @@ export function PdfHeader({
 				style={[
 					S.bold,
 					{
-						marginTop: 27,
+						marginTop: 18,
 						fontSize: FS.title,
 						lineHeight: 0.8,
 						letterSpacing: -4.6,
@@ -310,7 +310,9 @@ export function MetaRow({
 	cells: Array<{ k: string; v: string; span: 1 | 2 | 3 | 4 }>;
 }) {
 	return (
-		<Row style={[S.ruleThin, { marginTop: 21, paddingTop: 7.5 }]}>
+		// 30 (bukan 21 handoff): kotak judul react-pdf lebih tinggi dari
+		// lineHeight 0.8 desain, judul dinaikkan 9pt → jarak dikembalikan di sini.
+		<Row style={[S.ruleThin, { marginTop: 33.5, paddingTop: 7.5 }]}>
 			{cells.map((c) => (
 				<Col key={c.k} span={c.span}>
 					<LabelBlock label={c.k} lines={[c.v]} />
@@ -412,7 +414,7 @@ export function PdfSignature({
 					src={signer.signatureData}
 					style={{
 						height: 46.5,
-						width: 110,
+						width: 150,
 						objectFit: "contain",
 						objectPosition: "right bottom",
 						marginRight: -4.5,
@@ -440,14 +442,17 @@ export function PdfSignature({
 }
 
 /**
- * Blok yang selalu duduk di dasar halaman terakhir (di atas footer). Spacer
+ * Blok yang selalu duduk di dasar halaman terakhir (di atas footer). Jarak
+ * minimum 24pt ke atas (handoff ≥30; 24 supaya quotation 4 item + 7
+ * ketentuan tetap satu halaman — di dokumen biasa jaraknya jauh lebih lega).
+ * Spacer
  * `flexGrow` menghabiskan sisa ruang — tanpa posisi absolut, jadi react-pdf
  * tetap memindahkan blok ke halaman baru bila ruangnya tidak cukup.
  */
 export function PinnedBottom({ children }: { children: ReactNode }) {
 	return (
 		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
-			<View style={{ marginTop: 30 }}>{children}</View>
+			<View style={{ marginTop: 24 }}>{children}</View>
 		</View>
 	);
 }
@@ -480,54 +485,37 @@ export function PdfBottom({
 			Ketentuan
 		</Text>
 	);
-	// Tanpa blok Pembayaran & ketentuan panjang (quotation: 7 poin) →
-	// ketentuan melebar ke kolom 1–4 dalam dua sub-kolom. Di satu kolom sempit
-	// tingginya ±185pt dan selalu mendorong blok bawah ke halaman 2.
-	const wide = !bank && terms.length > 3;
-	const half = Math.ceil(terms.length / 2);
+	// Ketentuan panjang (quotation: 7 poin): di kolom span 2 tingginya ±170pt
+	// dan mendorong blok bawah ke halaman 2 → Ketentuan jadi span 3, tanda
+	// tangan span 1 (tetap rata kanan). ≤4 poin: persis grid handoff 2·2·2.
+	const long = terms.length > 4;
 	return (
 		<PinnedBottom>
 			<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
-				{wide ? (
-					<Col span={4}>
-						{termsLabel}
-						<Row>
-							<Col span={2}>{termList(terms.slice(0, half), 0)}</Col>
-							<Col span={2}>{termList(terms.slice(half), half)}</Col>
-						</Row>
-					</Col>
-				) : (
-					<>
-						<Col span={2}>
-							{bank ? (
-								<>
-									<Text
-										style={[S.bold, { fontSize: FS.body, marginBottom: 4.5 }]}
-									>
-										Pembayaran
-									</Text>
-									<Text>
-										{bank.bankName}
-										{bank.accountNumber ? ` ${bank.accountNumber}` : ""}
-									</Text>
-									<Text>a.n. {bank.accountHolder}</Text>
-									<Text>
-										Kirim bukti transfer ke WhatsApp {COMPANY.whatsapp}.
-									</Text>
-								</>
-							) : null}
-						</Col>
-						<Col span={2}>
-							{terms.length > 0 ? (
-								<>
-									{termsLabel}
-									{termList(terms, 0)}
-								</>
-							) : null}
-						</Col>
-					</>
-				)}
 				<Col span={2}>
+					{bank ? (
+						<>
+							<Text style={[S.bold, { fontSize: FS.body, marginBottom: 4.5 }]}>
+								Pembayaran
+							</Text>
+							<Text>
+								{bank.bankName}
+								{bank.accountNumber ? ` ${bank.accountNumber}` : ""}
+							</Text>
+							<Text>a.n. {bank.accountHolder}</Text>
+							<Text>Kirim bukti transfer ke WhatsApp {COMPANY.whatsapp}.</Text>
+						</>
+					) : null}
+				</Col>
+				<Col span={long ? 3 : 2}>
+					{terms.length > 0 ? (
+						<>
+							{termsLabel}
+							{termList(terms, 0)}
+						</>
+					) : null}
+				</Col>
+				<Col span={long ? 1 : 2}>
 					<PdfSignature signer={signer} label={signLabel} />
 				</Col>
 			</Row>
