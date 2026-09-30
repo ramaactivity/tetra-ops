@@ -1,4 +1,5 @@
 import { Activity } from "lucide-react";
+import Link from "next/link";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,8 @@ export function EventHealth({
 	operasional,
 	lain,
 	untung,
+	href,
+	className,
 }: {
 	uangMasuk: number;
 	/** HPP — bahan habis pakai. */
@@ -56,6 +59,9 @@ export function EventHealth({
 	/** Pengeluaran lain (kartu rekap + dibayar owner belum dicatat). */
 	lain: number;
 	untung: number;
+	/** Di luar halaman rekap: tautan ke rincian lengkapnya. */
+	href?: string;
+	className?: string;
 }) {
 	if (uangMasuk <= 0) return null;
 
@@ -121,7 +127,12 @@ export function EventHealth({
 	const segTotal = seg.reduce((s, x) => s + x.pct, 0) || 1;
 
 	return (
-		<section className="space-y-3 rounded-2xl border border-border-subtle bg-secondary/40 p-4">
+		<section
+			className={cn(
+				"space-y-3 rounded-2xl border border-border-subtle bg-secondary/40 p-4",
+				className,
+			)}
+		>
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="flex min-w-0 items-start gap-2.5">
 					<span className="grid size-8 shrink-0 place-items-center rounded-xl bg-card text-muted-foreground">
@@ -136,7 +147,17 @@ export function EventHealth({
 						</p>
 					</div>
 				</div>
-				<StatusChip status={worst} />
+				<div className="flex items-center gap-3">
+					{href ? (
+						<Link
+							href={href}
+							className="text-[12.5px] font-medium text-sky-700 hover:underline"
+						>
+							Rincian di Rekap →
+						</Link>
+					) : null}
+					<StatusChip status={worst} />
+				</div>
 			</div>
 
 			{/* Tiap Rp100.000 dari klien dipakai untuk apa */}

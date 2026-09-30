@@ -35,10 +35,12 @@ import {
 	type ProjectHeroRecapCrew,
 } from "@/components/operations/project-hero-recap";
 import { EventReadinessCard } from "@/components/operations/readiness-card";
+import { EventHealth } from "@/components/rekap/event-health";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { getDriveStatus } from "@/lib/actions/drive";
+import { getProfitPreview } from "@/lib/actions/profit-preview";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
@@ -285,6 +287,22 @@ export default async function EventDetailPage({
 		]);
 	const equipmentCount = equipmentCountRaw ?? 0;
 	const rekapSubmitted = !!rekapData;
+	// Kesehatan rasio event — angka sama dengan kartu "Hitungan untung" di rekap.
+	const preview =
+		canEdit && rekapSubmitted ? await getProfitPreview(event.id) : null;
+	const health = preview?.ok
+		? (() => {
+				const p = preview.data;
+				const uangMasuk = p.revenue_net + p.extra.incomeTotal;
+				return {
+					uangMasuk,
+					bahan: p.hpp.total,
+					operasional: p.opex.total,
+					lain: p.extra.expenseTotal,
+					untung: uangMasuk - p.total_biaya - p.extra.expenseTotal,
+				};
+			})()
+		: null;
 
 	const backdrop = Array.isArray(event.backdrop)
 		? event.backdrop[0]
@@ -606,6 +624,14 @@ export default async function EventDetailPage({
 				rekapSubmitted={rekapSubmitted}
 				driveFolderUrl={event.drive_folder_url ?? null}
 			/>
+
+			{health && (
+				<EventHealth
+					{...health}
+					href={`/operations/${event.project_id}/rekap`}
+					className="bg-card shadow-[var(--shadow-level-2)]"
+				/>
+			)}
 
 			{/* === DATA MENYUSUL — paling atas, sebelum apa pun yang lain ===
 			    Miskomunikasi 8 Agu 2026 terjadi karena "masih menyusul" cuma
