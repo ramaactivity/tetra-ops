@@ -1,4 +1,5 @@
 import {
+	Car,
 	CheckCircle2,
 	ChevronRight,
 	ClipboardList,
@@ -82,6 +83,7 @@ export default async function CrewEventDetailPage({
 			setup_time, start_time, end_time, session_segments, backdrop_id, unit_count, spots,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy, pending_package_hours,
+			transport_mode, transport_vehicle,
 			package:packages(name, duration_hours, frame_size),
 			backdrop:backdrops(name, type),
 			event_addons:event_addons(quantity, addon:addons(name, unit, category)),
@@ -828,6 +830,25 @@ export default async function CrewEventDetailPage({
 						<p className="text-foreground whitespace-pre-line text-sm">
 							{event.crew_notes}
 						</p>
+					</section>
+				)}
+
+				{/* Transport — diatur owner saat assign crew */}
+				{event.transport_mode && (
+					<section className="flex items-start gap-3 rounded-2xl border border-border-default bg-surface-2 p-4">
+						<Car className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+						<div className="space-y-0.5 text-sm">
+							<p className="font-medium">
+								{event.transport_mode === "rental"
+									? `Sewa ${event.transport_vehicle ?? "mobil"}`
+									: "Transportasi online (Gocar/Grab)"}
+							</p>
+							<p className="text-muted-foreground text-xs">
+								{event.transport_mode === "rental"
+									? "Sewa mobil dibayar owner — di rekap cukup isi bensin, tol & parkir."
+									: "Isi ongkos berangkat + pulang & upload buktinya di rekap."}
+							</p>
+						</div>
 					</section>
 				)}
 

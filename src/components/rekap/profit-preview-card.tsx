@@ -10,6 +10,7 @@ import {
 	PiggyBank,
 } from "lucide-react";
 import { useState } from "react";
+import { EventHealth } from "@/components/rekap/event-health";
 import { RekapCard, SectionHeader } from "@/components/rekap/rekap-ui";
 import type {
 	HppBreakdown,
@@ -175,6 +176,14 @@ export function ProfitPreviewCard({
 				/>
 			</div>
 
+			<EventHealth
+				uangMasuk={uangMasuk}
+				bahan={preview.hpp.total}
+				operasional={preview.opex.total}
+				lain={lainTotal}
+				untung={untung}
+			/>
+
 			{/* 1. Uang masuk */}
 			<Step
 				n={1}
@@ -191,13 +200,13 @@ export function ProfitPreviewCard({
 				groups={[
 					{
 						title: "Bahan habis pakai",
-						hint: "HPP — barang yang terpakai di event",
+						hint: "kertas, tinta & souvenir yang habis dipakai",
 						lines: hppLines,
 						empty: "Belum ada pemakaian bahan tercatat",
 					},
 					{
 						title: "Crew & operasional",
-						hint: "OpEx — fee crew, perjalanan, komisi",
+						hint: "bayar crew, ongkos jalan & komisi",
 						lines: opexLines,
 						empty: "Belum ada biaya operasional tercatat",
 						footnote:

@@ -29,6 +29,7 @@ import { DesignCard } from "@/components/event-design/design-card";
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
+import { EventTransportPlan } from "@/components/operations/event-transport-plan";
 import {
 	ProjectHeroRecap,
 	type ProjectHeroRecapCrew,
@@ -83,6 +84,7 @@ export default async function EventDetailPage({
 		{ data: templatesData },
 		{ data: eventTypesData },
 		driveStatus,
+		{ data: vehiclesData },
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -93,6 +95,7 @@ export default async function EventDetailPage({
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
 			event_category, event_date,
+			transport_mode, transport_vehicle, transport_rental_cost, transport_nota_url,
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			google_maps_url, custom_package_name, backdrop_color,
 			vendor_name, vendor_pic_name, vendor_contact,
@@ -128,6 +131,11 @@ export default async function EventDetailPage({
 			.order("display_order", { ascending: true }),
 		supabase.from("event_types").select("code, label").eq("is_active", true),
 		getDriveStatus(),
+		supabase
+			.from("transport_vehicles")
+			.select("name")
+			.eq("is_active", true)
+			.order("name"),
 	]);
 
 	if (error) {
@@ -557,6 +565,23 @@ export default async function EventDetailPage({
 							availableCrew={assignableCrew}
 							event={eventForWA}
 							unitCount={unitCount}
+						/>
+					) : undefined
+				}
+				transportSlot={
+					canManageCrew ? (
+						<EventTransportPlan
+							eventId={event.id}
+							projectId={event.project_id}
+							initial={{
+								mode:
+									(event.transport_mode as "rental" | "online" | null) ?? null,
+								vehicle: event.transport_vehicle ?? null,
+								rentalCost: event.transport_rental_cost ?? null,
+								notaUrl: event.transport_nota_url ?? null,
+							}}
+							vehicles={(vehiclesData ?? []).map((v) => v.name as string)}
+							locked={event.status === "completed"}
 						/>
 					) : undefined
 				}

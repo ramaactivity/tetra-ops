@@ -390,6 +390,12 @@ export type RekapContext = {
 	 * Rekap tetap satu per event — crew mengisi TOTAL semua spot.
 	 */
 	spots: { unitCount: number; frames: Array<string | null> };
+	/**
+	 * Rencana transport dari owner (halaman event). `rental` = mobil sewa,
+	 * dibayar owner — crew tidak mengisi nominalnya. Harga sewa sengaja tidak
+	 * dikirim ke sini.
+	 */
+	transport: { mode: "rental" | "online"; vehicle: string | null } | null;
 };
 
 export async function getRekapContext(
@@ -416,6 +422,7 @@ export async function getRekapContext(
 		.from("events")
 		.select(
 			`id, include_flashdisk_pouch, frame_size, unit_count, spots,
+			transport_mode, transport_vehicle,
 			package:packages(name, duration_hours, bundle_id,
 			  bundle:item_bundles(id, name, is_active,
 			    ${bundleComponentSelect}
@@ -832,6 +839,12 @@ export async function getRekapContext(
 		})(),
 		custom_inventory: custom_inventory.map(stripPrice),
 		crew,
+		transport: event.transport_mode
+			? {
+					mode: event.transport_mode as "rental" | "online",
+					vehicle: (event.transport_vehicle as string | null) ?? null,
+				}
+			: null,
 	};
 }
 
@@ -950,6 +963,30 @@ export async function submitRekap(
 		};
 	}
 
+	// Rencana transport owner: mobil sewa = dibayar owner dengan harga yang
+	// owner isi di halaman event. Rekap ikut rencana itu, apa pun isian form.
+	const { data: eventSnap } = await supabase
+		.from("events")
+		.select(
+			"frame_size, transport_mode, transport_rental_cost, transport_nota_url",
+		)
+		.eq("id", eventId)
+		.maybeSingle();
+	if (eventSnap?.transport_mode === "rental") {
+		parsed.data.transport_method = "rental";
+		parsed.data.transport_cost = Number(eventSnap.transport_rental_cost ?? 0);
+		parsed.data.expense_paid_by = {
+			...parsed.data.expense_paid_by,
+			transport: "owner",
+		};
+		if (eventSnap.transport_nota_url) {
+			parsed.data.expense_nota_urls = {
+				...parsed.data.expense_nota_urls,
+				transport: eventSnap.transport_nota_url as string,
+			};
+		}
+	}
+
 	// Bensin only relevant for rental method; zero-out for online/none to keep
 	// the data clean (UI hides the input but defensively normalize here).
 	const bensinCost =
@@ -970,12 +1007,6 @@ export async function submitRekap(
 	// Snapshot event.frame_size at submit time. Kalau owner ubah event.frame_size
 	// nanti (mis. typo correction), rekap tetap pakai snapshot frozen → preserves
 	// historical accuracy untuk HPP calculation di settlement.
-	const { data: eventSnap } = await supabase
-		.from("events")
-		.select("frame_size")
-		.eq("id", eventId)
-		.maybeSingle();
-
 	const payload = {
 		event_id: eventId,
 		submitted_by: me.profile.id,

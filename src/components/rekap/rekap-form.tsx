@@ -297,9 +297,21 @@ export function RekapForm({
 	}
 
 	// === Field expenses (Phase F2) ===
+	// Rencana transport dari owner (halaman event): sewa mobil mengunci pilihan
+	// — dibayar owner, crew tidak mengisi nominalnya. Online cuma jadi default.
+	const planRental = context.transport?.mode === "rental";
+	const savedMethod = get("transport_method") as Defaults["transport_method"];
 	const [transportMethod, setTransportMethod] = useState<
 		"online" | "rental" | "none"
-	>((get("transport_method") as Defaults["transport_method"]) || "none");
+	>(
+		planRental
+			? "rental"
+			: savedMethod && savedMethod !== "none"
+				? savedMethod
+				: context.transport?.mode === "online"
+					? "online"
+					: "none",
+	);
 	const [transportCost, setTransportCost] = useState(get("transport_cost"));
 	const [transportProofBerangkat, setTransportProofBerangkat] = useState<
 		string | null
@@ -368,8 +380,9 @@ export function RekapForm({
 				}
 			}
 		} catch {}
+		if (planRental) base.transport = "owner";
 		return base;
-	}, [defaults.expense_paid_by]);
+	}, [defaults.expense_paid_by, planRental]);
 	const [paidBy, setPaidBy] =
 		useState<Record<PaidByKey, PaidBy>>(initialPaidBy);
 	function setPaidByKey(key: PaidByKey, v: PaidBy) {
@@ -1390,39 +1403,58 @@ export function RekapForm({
 				description="Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau ada."
 				defaultOpen={transportSectionOpen}
 			>
-				<div className="grid grid-cols-3 gap-2">
-					{(
-						[
-							{ key: "online", label: "Online", sub: "Gocar/Grab" },
-							{ key: "rental", label: "Sewa mobil", sub: "Rental" },
-							{ key: "none", label: "Tidak ada", sub: "Skip" },
-						] as const
-					).map((opt) => {
-						const active = transportMethod === opt.key;
-						return (
-							<button
-								key={opt.key}
-								type="button"
-								onClick={() => {
-									setTransportMethod(opt.key);
-									// Crew tidak tahu harga sewa mobil — force ke owner.
-									if (isCrew && opt.key === "rental") {
-										setPaidByKey("transport", "owner");
-										setTransportCost("0");
-									}
-								}}
-								className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
-									active
-										? "border-primary bg-primary/10 text-foreground"
-										: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
-								}`}
-							>
-								<span className="font-semibold">{opt.label}</span>
-								<span className="text-[11px] opacity-70">{opt.sub}</span>
-							</button>
-						);
-					})}
-				</div>
+				{planRental ? (
+					<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80">
+						<Info
+							className="mt-0.5 size-4 shrink-0 text-emerald-600"
+							aria-hidden
+						/>
+						<div className="space-y-1">
+							<p className="font-medium text-foreground">
+								Sewa {context.transport?.vehicle ?? "mobil"} — sudah diatur &
+								dibayar owner.
+							</p>
+							<p>
+								Kamu tidak perlu isi biaya sewa. Cukup isi bensin, tol & parkir
+								di bawah kalau ada.
+							</p>
+						</div>
+					</div>
+				) : (
+					<div className="grid grid-cols-3 gap-2">
+						{(
+							[
+								{ key: "online", label: "Online", sub: "Gocar/Grab" },
+								{ key: "rental", label: "Sewa mobil", sub: "Rental" },
+								{ key: "none", label: "Tidak ada", sub: "Skip" },
+							] as const
+						).map((opt) => {
+							const active = transportMethod === opt.key;
+							return (
+								<button
+									key={opt.key}
+									type="button"
+									onClick={() => {
+										setTransportMethod(opt.key);
+										// Crew tidak tahu harga sewa mobil — force ke owner.
+										if (isCrew && opt.key === "rental") {
+											setPaidByKey("transport", "owner");
+											setTransportCost("0");
+										}
+									}}
+									className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
+										active
+											? "border-primary bg-primary/10 text-foreground"
+											: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
+									}`}
+								>
+									<span className="font-semibold">{opt.label}</span>
+									<span className="text-[11px] opacity-70">{opt.sub}</span>
+								</button>
+							);
+						})}
+					</div>
+				)}
 
 				{transportMethod === "online" && (
 					<div className="space-y-3">
@@ -1465,7 +1497,7 @@ export function RekapForm({
 
 				{transportMethod === "rental" && (
 					<div className="space-y-3">
-						{isCrew ? (
+						{planRental ? null : isCrew ? (
 							/* Crew tidak tahu harga sewa — info saja, nominal diisi owner. */
 							<div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80 dark:border-sky-900/60 dark:bg-sky-950/20">
 								<Info
@@ -1502,7 +1534,7 @@ export function RekapForm({
 						)}
 
 						{/* Nota sewa mobil — crew bisa upload kalau punya struk rental */}
-						{isCrew && (
+						{isCrew && !planRental && (
 							<SingleFileUpload
 								projectId={projectId}
 								kind="nota"

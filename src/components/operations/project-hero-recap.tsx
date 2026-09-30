@@ -79,6 +79,8 @@ interface ProjectHeroRecapProps {
 	/** Interactive slot assigner (CrewSlotAssign). When provided, replaces the
 	    read-only crew list so assignment happens inline in the recap. */
 	crewSlot?: React.ReactNode;
+	/** Rencana transport (EventTransportPlan) — di bawah daftar crew. */
+	transportSlot?: React.ReactNode;
 	grandTotal: number;
 	totalPaid: number;
 	remainingBalance: number;
@@ -127,6 +129,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 		eventCategoryLabel,
 		crewAssignments,
 		crewSlot,
+		transportSlot,
 		grandTotal,
 		totalPaid,
 		remainingBalance,
@@ -350,6 +353,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 							))}
 						</ul>
 					)}
+					{transportSlot}
 				</section>
 
 				{/* ── Financial ── */}
@@ -427,7 +431,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 					{settlement && (
 						<div className="mt-4 space-y-2 border-t border-border-subtle pt-3.5">
 							<div className="flex items-baseline justify-between">
-								<span className="eyebrow">P&amp;L</span>
+								<span className="eyebrow">Untung / rugi</span>
 								<span
 									className={cn(
 										"tabular text-[11px] font-semibold",
@@ -436,24 +440,24 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 											: "text-emerald-700 dark:text-emerald-400",
 									)}
 								>
-									{settlement.is_loss ? "RUGI" : "PROFIT"}
+									{settlement.is_loss ? "RUGI" : "UNTUNG"}
 									{" · "}
 									{settlement.margin_percentage}%
 								</span>
 							</div>
-							<MoneyLine label="Revenue Net" value={settlement.revenue_net} />
+							<MoneyLine label="Uang masuk" value={settlement.revenue_net} />
 							<MoneyLine
-								label="HPP"
+								label="Bahan cetak & souvenir"
 								value={-settlement.hpp_total}
 								tone="negative"
 							/>
 							<MoneyLine
-								label="OpEx"
+								label="Crew, jalan & komisi"
 								value={-settlement.opex_total}
 								tone="negative"
 							/>
 							<MoneyLine
-								label="Net Profit"
+								label="Untung bersih"
 								value={settlement.net_profit}
 								tone={settlement.is_loss ? "negative" : "positive"}
 								strong
