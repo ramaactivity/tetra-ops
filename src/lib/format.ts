@@ -196,3 +196,9 @@ export function formatPhoneLocal(phone: string): string {
 	if (digits.startsWith("8")) return `0${digits}`;
 	return digits;
 }
+
+/** Rupiah dengan tanda minus tipografis (−Rp 1.000); -0 dianggap 0. */
+export function formatSignedRupiah(v: number): string {
+	const n = Math.round(v) || 0;
+	return n < 0 ? `−${formatRupiah(-n)}` : formatRupiah(n);
+}

@@ -241,3 +241,39 @@ export async function getMonthlyPnl(
 		clientCash,
 	};
 }
+
+/**
+ * Pengeluaran lain (bersih: keluar − masuk) yang ditautkan ke tiap event di
+ * luar jurnal settle & pembayaran klien — sama dengan "Pengeluaran lain" di
+ * kartu rekap. Settlement.net_profit belum memotongnya.
+ */
+export async function getEventExtras(
+	supabase: ServerSupabase,
+	eventIds: string[],
+): Promise<Map<string, number>> {
+	const out = new Map<string, number>();
+	if (eventIds.length === 0) return out;
+	const [lines, { data: coaRows }] = await Promise.all([
+		fetchAllJournalLines<Line>(supabase, LINE_COLS, (q) =>
+			q.in("entry.source_event_id", eventIds),
+		),
+		supabase.from("chart_of_accounts").select("code, account_type"),
+	]);
+	const typeOf = new Map(
+		(coaRows ?? []).map((c) => [c.code as string, c.account_type as string]),
+	);
+	for (const l of lines) {
+		const e = one(l.entry);
+		if (!e?.source_event_id) continue;
+		if (e.source_type === "settlement" || e.source_type === "payment") continue;
+		const t = typeOf.get(l.account_code);
+		if (t !== "expense" && t !== "revenue") continue;
+		out.set(
+			e.source_event_id,
+			(out.get(e.source_event_id) ?? 0) +
+				Number(l.debit_amount) -
+				Number(l.credit_amount),
+		);
+	}
+	return out;
+}

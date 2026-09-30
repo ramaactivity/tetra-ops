@@ -1,14 +1,19 @@
 import {
-	ArrowDownRight,
-	ArrowUpRight,
-	ChevronRight,
+	CheckCircle2,
+	HandCoins,
 	PiggyBank,
 	Receipt,
+	Users,
 	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
+import {
+	AmountRow,
+	SubGroup,
+	SummaryTile,
+} from "@/components/finance/money-ui";
 import { MonthSwitcher } from "@/components/finance/monthly/month-switcher";
 import { MonthlyReport } from "@/components/finance/monthly-report";
 import { PatunganDialog } from "@/components/finance/patungan-dialog";
@@ -22,8 +27,10 @@ import {
 } from "@/components/finance/withdrawal-button";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { Badge } from "@/components/ui/badge";
-import { InfoHint } from "@/components/ui/info-hint";
+import {
+	RekapCard,
+	SectionHeader as SectionHeader2,
+} from "@/components/rekap/rekap-ui";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
@@ -32,13 +39,13 @@ import {
 	monthLabel as monthLabelLong,
 	ymOf,
 } from "@/lib/finance/monthly-data";
-import { getMonthlyPnl } from "@/lib/finance/monthly-pnl";
+import { getEventExtras, getMonthlyPnl } from "@/lib/finance/monthly-pnl";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import {
 	listCrewLiabilityGaps,
 	listUnpaidCrew,
 } from "@/lib/finance/unpaid-crew";
-import { formatDateID, formatRupiah } from "@/lib/format";
+import { formatDateID, formatRupiah, formatSignedRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -50,21 +57,6 @@ function lastDayOfMonth(year: number, month: number): string {
 function startOfMonth(d: Date): string {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
-
-const ID_MONTH_NAMES = [
-	"Jan",
-	"Feb",
-	"Mar",
-	"Apr",
-	"Mei",
-	"Jun",
-	"Jul",
-	"Agu",
-	"Sep",
-	"Okt",
-	"Nov",
-	"Des",
-];
 
 export default async function FinancePage({
 	searchParams,
@@ -109,7 +101,6 @@ export default async function FinancePage({
 	const today = new Date();
 	const ymStart = startOfMonth(today);
 	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
-	const monthLabel = `${ID_MONTH_NAMES[today.getMonth()]} ${today.getFullYear()}`;
 
 	// Cash-basis: exclude payments received BEFORE the finance cutoff — that cash
 	// is already baked into the opening balances, so counting it again as this
@@ -129,7 +120,6 @@ export default async function FinancePage({
 	const [
 		{ data: revenueMtdData },
 		{ data: outstandingData },
-		{ data: paymentByBankData },
 		{ data: bankAccountsData },
 		{ data: sinkingFundsData },
 		{ data: recentSettlementsData },
@@ -145,12 +135,6 @@ export default async function FinancePage({
 		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
 		// reduce. See get_outstanding_total migration.
 		supabase.rpc("get_outstanding_total"),
-		supabase
-			.from("payments")
-			.select("amount, bank_account_id")
-			.eq("is_reversed", false)
-			.gte("payment_date", revStart)
-			.lte("payment_date", ymEnd),
 		supabase
 			.from("bank_accounts")
 			.select(
@@ -171,6 +155,7 @@ export default async function FinancePage({
 				`id, net_profit, revenue_net, opex_total, hpp_total, is_loss, closed_at,
 				event:events!inner(id, project_id, client_name, event_date)`,
 			)
+			.eq("is_reopened", false)
 			.order("closed_at", { ascending: false })
 			.limit(10),
 		isSuperAdmin
@@ -230,14 +215,6 @@ export default async function FinancePage({
 		if (l.account_code === "2-100") hutangCrewGl += -net;
 	}
 
-	const inflowByBank = new Map<string, number>();
-	for (const p of (paymentByBankData ?? []) as Array<{
-		amount: number;
-		bank_account_id: string;
-	}>) {
-		const key = p.bank_account_id;
-		inflowByBank.set(key, (inflowByBank.get(key) ?? 0) + (p.amount ?? 0));
-	}
 	const banks = (bankAccountsData ?? []) as Array<{
 		id: string;
 		account_name: string;
@@ -459,66 +436,20 @@ export default async function FinancePage({
 	]);
 	const untungBulanIni = (pnlNow ?? pnl).net;
 
-	// Mode Simpel — 6 angka inti dalam bahasa awam (owner non-akuntan).
-	const simpleStats: Array<{
-		label: string;
-		value: number;
-		hint: string;
-		tone?: "good" | "warn";
-		/** Angka pendamping di bawah nilai utama. */
-		sub?: { label: string; value: number; tone?: "good" | "warn" };
-	}> = [
-		{
-			label: "Uang di bank",
-			value: cashGl,
-			hint:
-				potongan.length > 0
-					? `Total uang tunai + saldo semua rekening & kartu saat ini. Di dalamnya masih ada ${potongan.join(", ")} — yang sudah ada pemiliknya. Sisanya itulah yang bebas dipakai.`
-					: "Total uang tunai + saldo semua rekening bank saat ini, menurut pembukuan.",
-			sub:
-				potongan.length > 0
-					? {
-							label: "Bebas dipakai",
-							value: uangBebas,
-							tone: uangBebas >= 0 ? "good" : "warn",
-						}
-					: undefined,
-		},
-		{
-			label: "Uang masuk bulan ini",
-			value: revenueMtd,
-			hint: "Total pembayaran klien (DP + pelunasan) yang diterima bulan ini.",
-		},
-		{
-			label: "Untung bulan ini",
-			value: untungBulanIni,
-			hint: "Pendapatan event bulan ini (yang sudah di-settle) dikurangi biaya event dan biaya bulanan. DP event bulan depan belum dihitung. Rinciannya di Laporan bulan di bawah.",
-			tone: untungBulanIni >= 0 ? "good" : "warn",
-		},
-		{
-			label: "Belum dibayar klien",
-			value: outstanding,
-			hint: "Sisa tagihan event yang masih berjalan — uang yang belum masuk.",
-			tone: outstanding > 0 ? "warn" : undefined,
-		},
-		{
-			label: "Saya utang",
-			value: utangGl,
-			hint: "Utang ke supplier + fee crew yang belum dibayar.",
-			tone: utangGl > 0 ? "warn" : undefined,
-		},
-		{
-			label: "Dana cadangan",
-			value: totalSinking,
-			hint: "Uang yang disisihkan tiap event untuk ganti alat, perawatan, darurat, dll. Sudah dikeluarkan dari angka 'Bebas dipakai'.",
-		},
-	];
+	const extrasByEvent = await getEventExtras(
+		supabase,
+		recentSettlements.flatMap((s) => (s.event ? [s.event.id] : [])),
+	);
+	const bebasHint =
+		potongan.length > 0
+			? `Sudah dikurangi ${potongan.join(", ")}.`
+			: "Tidak ada yang perlu disisihkan.";
 
 	return (
 		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Finance"
-				description={`Ringkasan keuangan bisnismu · ${monthLabel}`}
+				description="Ringkasan keuangan bisnismu — dibaca dari atas ke bawah."
 			/>
 
 			<CatatLauncher
@@ -527,51 +458,91 @@ export default async function FinancePage({
 				prefill={catatPrefill}
 			/>
 
-			{/* Mode Simpel — angka inti yang owner butuh, bahasa awam + penjelasan */}
-			<div className="rounded-2xl border border-border-subtle bg-card p-4 sm:p-5">
-				<div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
-					{simpleStats.map((s) => (
-						<div key={s.label}>
-							<div className="flex items-center gap-1 text-[12.5px] text-muted-foreground">
-								<span>{s.label}</span>
-								<InfoHint title={s.label}>{s.hint}</InfoHint>
-							</div>
-							<div
+			{/* 1. Posisi uang sekarang */}
+			<RekapCard className="space-y-4">
+				<SectionHeader2
+					icon={Wallet}
+					title="Posisi uang sekarang"
+					description="Uang yang ada, yang masih ditunggu, dan yang sudah ada pemiliknya."
+				/>
+				<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+					<SummaryTile
+						label="Uang di rekening"
+						hint="tunai + semua rekening & kartu"
+						value={cashGl}
+						tone="neutral"
+					>
+						<p className="mt-2 border-t border-border-subtle pt-2 text-[12.5px]">
+							<span className="text-muted-foreground">Bebas dipakai </span>
+							<span
+								data-nominal
 								className={cn(
-									"mt-0.5 truncate text-[17px] font-semibold tabular sm:text-lg",
-									s.tone === "good" && "text-emerald-700",
-									s.tone === "warn" && "text-amber-700",
+									"tabular font-semibold",
+									uangBebas >= 0 ? "text-emerald-700" : "text-rose-600",
 								)}
 							>
-								{formatRupiah(s.value)}
-							</div>
-							{s.sub ? (
-								<div className="mt-0.5 flex items-baseline gap-1 text-[12px]">
-									<span className="text-muted-foreground">{s.sub.label}</span>
-									<span
-										className={cn(
-											"tabular font-semibold",
-											s.sub.tone === "good" && "text-emerald-700",
-											s.sub.tone === "warn" && "text-amber-700",
-										)}
-									>
-										{formatRupiah(s.sub.value)}
-									</span>
-								</div>
-							) : null}
-						</div>
-					))}
+								{formatSignedRupiah(uangBebas)}
+							</span>
+							<span className="block text-[11.5px] leading-snug text-muted-foreground">
+								{bebasHint}
+							</span>
+						</p>
+					</SummaryTile>
+					<SummaryTile
+						label="Belum dibayar klien"
+						hint="sisa tagihan event yang masih berjalan"
+						value={outstanding}
+						tone="neutral"
+					/>
+					<SummaryTile
+						label={untungBulanIni < 0 ? "Rugi bulan ini" : "Untung bulan ini"}
+						hint={`${monthLabelLong(thisYm)} · rinciannya di laporan bawah`}
+						value={untungBulanIni}
+						tone={untungBulanIni < 0 ? "loss" : "profit"}
+					/>
 				</div>
-				<div className="border-border-subtle mt-4 border-t pt-3">
-					<Link
-						href="/finance/bulanan"
-						className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
-					>
-						Lihat saldo awal/akhir & untung per bulan →
-					</Link>
-				</div>
-			</div>
 
+				<div className="grid gap-3 sm:grid-cols-3">
+					<Fact
+						label="Uang masuk bulan ini"
+						value={revenueMtd}
+						hint="DP + pelunasan dari klien"
+					/>
+					<Fact
+						label="Utang"
+						value={utangGl}
+						hint="ke supplier, crew & komisi"
+						warn={utangGl > 0}
+					/>
+					<Fact
+						label="Dana cadangan"
+						value={totalSinking}
+						hint="disisihkan untuk alat, perawatan & darurat"
+					/>
+				</div>
+
+				<SubGroup
+					group={{
+						title: "Uangnya ada di mana",
+						hint: "saldo tiap rekening menurut pembukuan",
+						defaultOpen: false,
+						lines: banks.map((b) => ({
+							label: b.account_name,
+							note: b.bank_name,
+							value: b.coa_code ? (saldoByCoa.get(b.coa_code) ?? 0) : 0,
+						})),
+						empty: "Belum ada rekening",
+					}}
+				/>
+				<div className="flex flex-wrap gap-x-4 gap-y-1">
+					<TextLink href="/finance/bank-accounts">Kelola rekening</TextLink>
+					<TextLink href="/finance/bulanan">
+						Saldo awal/akhir per bulan
+					</TextLink>
+				</div>
+			</RekapCard>
+
+			{/* 2. Laporan bulanan */}
 			<MonthlyReport
 				pnl={pnl}
 				cash={{
@@ -597,259 +568,186 @@ export default async function FinancePage({
 				}
 			/>
 
-			<SectionCard
-				title="Rincian dana cadangan"
-				meta={
-					<span className="text-muted-foreground text-xs">
-						ke mana uang yang disisihkan pergi
-					</span>
-				}
-			>
-				<SinkingBreakdown funds={sinkingRows} total={totalSinking} />
-			</SectionCard>
+			{/* 3. Event terakhir ditutup */}
+			<RekapCard className="space-y-3">
+				<div className="flex items-start justify-between gap-3">
+					<SectionHeader2
+						icon={Receipt}
+						title="Event terakhir ditutup"
+						description="Untung akhir tiap event — sama dengan angka di halaman rekapnya."
+					/>
+					<TextLink href="/operations?status=completed">Lihat semua</TextLink>
+				</div>
+				{recentSettlements.length === 0 ? (
+					<p className="text-[12.5px] text-muted-foreground">
+						Belum ada event yang di-settle.
+					</p>
+				) : (
+					<ul className="divide-y divide-border-subtle rounded-2xl border border-border-subtle">
+						{recentSettlements.map((s) => {
+							if (!s.event) return null;
+							const extra = extrasByEvent.get(s.event.id) ?? 0;
+							const profit = s.net_profit - extra;
+							const biaya = s.hpp_total + s.opex_total + extra;
+							return (
+								<li key={s.id}>
+									<Link
+										href={`/operations/${s.event.project_id}/rekap`}
+										className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-secondary/50"
+									>
+										<span className="min-w-0">
+											<span className="block truncate text-[13.5px] font-medium text-foreground">
+												{s.event.client_name}
+											</span>
+											<span className="block text-[12px] text-muted-foreground">
+												{formatDateID(s.event.event_date)} · masuk{" "}
+												<span data-nominal className="tabular">
+													{formatRupiah(s.revenue_net)}
+												</span>{" "}
+												· biaya{" "}
+												<span data-nominal className="tabular">
+													{formatRupiah(Math.round(biaya))}
+												</span>
+											</span>
+										</span>
+										<span className="shrink-0 text-right">
+											<span
+												data-nominal
+												className={cn(
+													"tabular block text-[14px] font-semibold",
+													profit < 0 ? "text-rose-600" : "text-emerald-700",
+												)}
+											>
+												{formatSignedRupiah(profit)}
+											</span>
+											<span className="tabular text-[11.5px] text-muted-foreground">
+												{s.revenue_net > 0
+													? `${Math.round((profit / s.revenue_net) * 100)}% untung`
+													: "—"}
+											</span>
+										</span>
+									</Link>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</RekapCard>
 
-			<SectionCard
-				title={
-					<>
-						Hutang ke crew
-						<span className="text-muted-foreground font-medium">
-							{" "}
-							· belum dibayar
-						</span>
-					</>
-				}
-				titleExtra={
-					<InfoHint title="Hutang ke crew">
-						Fee + reimbursement crew dari event yang sudah di-settle tapi belum
-						kamu klik "Bayar". Angka ini = saldo akun Hutang Crew (2-100) di
-						pembukuan. Klik tiap baris untuk membayar.
-					</InfoHint>
-				}
-				meta={
-					<span
-						className={cn(
-							"tabular text-sm font-semibold",
-							unpaidCrewTotal > 0 ? "text-amber-700" : "text-muted-foreground",
-						)}
-					>
-						{formatRupiah(unpaidCrewTotal)}
-					</span>
-				}
-			>
-				{Math.abs(unpaidCrewTotal - hutangCrewGl) > 0 && (
-					<div className="border-border-subtle bg-rose-100/50 border-b px-4 py-2.5 text-[11px] leading-relaxed text-rose-700">
-						<p>
-							⚠ Daftar di bawah ({formatRupiah(unpaidCrewTotal)}) beda{" "}
-							{formatRupiah(Math.abs(unpaidCrewTotal - hutangCrewGl))} dari
-							saldo buku Hutang Crew 2-100 ({formatRupiah(hutangCrewGl)}).
+			{/* 4. Dana cadangan & utang crew */}
+			<div className="grid gap-3 lg:grid-cols-3">
+				<RekapCard className="space-y-4 lg:col-span-2">
+					<SectionHeader2
+						icon={PiggyBank}
+						title="Dana cadangan"
+						description="Uang yang disisihkan tiap event — sudah tidak dihitung sebagai uang bebas."
+					/>
+					{sinkingRows.length === 0 ? (
+						<p className="text-[12.5px] text-muted-foreground">
+							Belum ada dana cadangan.{" "}
+							<TextLink href="/finance/sinking-funds">Buat</TextLink>
 						</p>
-						{crewGaps.length > 0 ? (
-							<>
-								<p className="mt-1">
-									Penyebabnya talangan crew yang tidak pernah tertaut ke crew
-									mana pun — jadi tidak bisa dibayar lewat tombol Bayar:
-								</p>
-								<ul className="mt-1 space-y-0.5">
+					) : (
+						<SinkingBreakdown funds={sinkingRows} total={totalSinking} />
+					)}
+				</RekapCard>
+
+				<RekapCard className="space-y-3">
+					<SectionHeader2
+						icon={Users}
+						title="Utang ke crew"
+						description="Fee & talangan crew yang belum dibayar."
+						badge={
+							<span
+								data-nominal
+								className={cn(
+									"tabular text-[14px] font-semibold",
+									unpaidCrewTotal > 0
+										? "text-amber-700"
+										: "text-muted-foreground",
+								)}
+							>
+								{formatRupiah(unpaidCrewTotal)}
+							</span>
+						}
+					/>
+					{Math.abs(unpaidCrewTotal - hutangCrewGl) > 0 && (
+						<div className="space-y-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-[12px] leading-snug text-rose-800">
+							<p>
+								Daftar ({formatRupiah(unpaidCrewTotal)}) beda{" "}
+								{formatRupiah(Math.abs(unpaidCrewTotal - hutangCrewGl))} dari
+								saldo buku Hutang Crew ({formatRupiah(hutangCrewGl)}).
+							</p>
+							{crewGaps.length > 0 ? (
+								<ul className="space-y-0.5">
 									{crewGaps.map((g) => (
 										<li key={g.projectId}>
 											<Link
 												href={`/operations/${g.projectId}/rekap`}
-												className="underline underline-offset-2 hover:text-rose-900"
+												className="underline underline-offset-2"
 											>
 												{g.clientName}
 											</Link>{" "}
-											— dibukukan {formatRupiah(g.booked)}, bisa dibayar{" "}
-											{formatRupiah(g.payable)} →{" "}
-											<strong>
-												{g.gap > 0 ? "kurang" : "lebih"}{" "}
-												{formatRupiah(Math.abs(g.gap))}
-											</strong>
+											— {g.gap > 0 ? "kurang" : "lebih"}{" "}
+											{formatRupiah(Math.abs(g.gap))}
 										</li>
 									))}
 								</ul>
-								<p className="mt-1 text-rose-700/80">
-									Kalau crew sudah menerima uangnya di luar aplikasi, buat
-									jurnal koreksi di Akuntansi. Kalau belum, isi kolom talangan
-									di rekap event tsb lalu bayar seperti biasa.
+							) : (
+								<p>
+									Kemungkinan ada jurnal manual di Hutang Crew — cek Akuntansi.
 								</p>
-							</>
-						) : (
-							<p className="mt-1">
-								Tidak ketemu event penyebabnya — kemungkinan ada jurnal manual
-								di 2-100, cek di Akuntansi.
-							</p>
-						)}
-					</div>
-				)}
-				{unpaidCrew.length === 0 ? (
-					<EmptyState
-						icon={Wallet}
-						title="Semua fee crew sudah dibayar"
-						hint="Tidak ada utang fee crew yang menunggu pembayaran."
-					/>
-				) : (
-					<div className="divide-border">
-						{unpaidCrew.map((r) => (
-							<Link
-								key={r.id}
-								href={`/operations/${r.event?.project_id}/rekap`}
-								className="press-down border-border-default hover:bg-muted/40 flex items-center justify-between gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
-							>
-								<div className="min-w-0 flex-1 space-y-0.5">
-									<p className="text-foreground truncate text-sm font-medium">
-										{r.crewName}
-									</p>
-									<p className="text-muted-foreground tabular text-xs">
-										{r.event?.client_name}
-										{r.event?.event_date
-											? ` · ${formatDateID(r.event.event_date)}`
-											: ""}
-									</p>
-								</div>
-								<div className="text-right">
-									<p className="tabular text-sm font-semibold text-amber-700">
-										{formatRupiah(r.amount)}
-									</p>
-									<p className="text-muted-foreground text-[10px]">Bayar →</p>
-								</div>
-							</Link>
-						))}
-					</div>
-				)}
-			</SectionCard>
-
-			<div className="grid gap-3 lg:grid-cols-2">
-				<SectionCard
-					title="Cash inflow per rekening"
-					meta={<HeaderLink href="/finance/bank-accounts">Kelola</HeaderLink>}
-				>
-					{banks.length === 0 ? (
-						<EmptyState
-							icon={Wallet}
-							title="Belum ada bank account"
-							hint="Tambah di /finance/bank-accounts"
-						/>
-					) : (
-						<div className="divide-border">
-							{banks.map((b) => {
-								const inflow = inflowByBank.get(b.id) ?? 0;
-								const saldo = b.coa_code
-									? saldoByCoa.get(b.coa_code)
-									: undefined;
-								return (
-									<div
-										key={b.id}
-										className="border-border-default flex items-center justify-between gap-3 border-b px-4 py-3 last:border-b-0"
-									>
-										<div className="min-w-0 flex-1 space-y-0.5">
-											<p className="text-foreground truncate text-sm font-medium">
-												{b.account_name}
-											</p>
-											<p className="text-muted-foreground tabular text-xs">
-												{b.bank_name}
-												{b.account_holder ? ` · ${b.account_holder}` : ""}
-											</p>
-										</div>
-										<div className="text-right">
-											<p
-												className={`tabular text-sm font-semibold ${
-													saldo !== undefined && saldo < 0
-														? "text-rose-600 dark:text-rose-400"
-														: "text-foreground"
-												}`}
-											>
-												{saldo === undefined ? "—" : formatRupiah(saldo)}
-											</p>
-											<p className="text-muted-foreground text-[10px]">
-												saldo
-												{inflow > 0 ? (
-													<>
-														{" · "}
-														<span className="tabular text-emerald-600 dark:text-emerald-400">
-															+{formatRupiah(inflow)}
-														</span>{" "}
-														bulan ini
-													</>
-												) : null}
-											</p>
-										</div>
-									</div>
-								);
-							})}
+							)}
 						</div>
 					)}
-				</SectionCard>
-
-				<SectionCard
-					title="Sinking funds"
-					meta={<HeaderLink href="/finance/sinking-funds">Detail</HeaderLink>}
-				>
-					{funds.length === 0 ? (
-						<EmptyState
-							icon={PiggyBank}
-							title="Belum ada sinking fund"
-							hint="Bikin di /finance/sinking-funds"
-						/>
+					{unpaidCrew.length === 0 ? (
+						<p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-900">
+							<CheckCircle2 className="size-4 shrink-0" aria-hidden />
+							Semua fee crew sudah dibayar.
+						</p>
 					) : (
-						<div className="divide-border">
-							{funds.map((f) => {
-								const balance = balanceById.get(f.id) ?? 0;
-								const target = f.target_balance ?? 0;
-								const pct =
-									target > 0 ? Math.min(100, (balance / target) * 100) : null;
-								return (
+						<ul className="divide-y divide-border-subtle rounded-xl border border-border-subtle">
+							{unpaidCrew.map((r) => (
+								<li key={r.id}>
 									<Link
-										key={f.id}
-										href={`/finance/sinking-funds/${f.id}/movements`}
-										className="press-down border-border-default hover:bg-muted/40 flex items-center gap-3 border-b px-4 py-3 transition-colors last:border-b-0"
+										href={`/operations/${r.event?.project_id}/rekap`}
+										className="flex items-center justify-between gap-3 px-3 py-2.5 transition-colors hover:bg-secondary/50"
 									>
-										<div className="min-w-0 flex-1 space-y-1">
-											<div className="flex items-center justify-between gap-2">
-												<p className="text-foreground truncate text-sm font-medium">
-													{f.name}
-												</p>
-												<p className="tabular text-foreground text-sm font-semibold">
-													{formatRupiah(balance)}
-												</p>
-											</div>
-											{pct !== null && (
-												<div className="space-y-0.5">
-													<div className="bg-muted h-1.5 overflow-hidden rounded-full">
-														<div
-															className="bg-primary h-full transition-all"
-															style={{ width: `${pct}%` }}
-														/>
-													</div>
-													<p className="text-muted-foreground tabular text-[10px]">
-														{pct.toFixed(0)}% dari target {formatRupiah(target)}
-													</p>
-												</div>
-											)}
-										</div>
-										<ChevronRight className="text-muted-foreground/60 h-4 w-4" />
+										<span className="min-w-0">
+											<span className="block truncate text-[13px] font-medium text-foreground">
+												{r.crewName}
+											</span>
+											<span className="block truncate text-[11.5px] text-muted-foreground">
+												{r.event?.client_name}
+												{r.event?.event_date
+													? ` · ${formatDateID(r.event.event_date)}`
+													: ""}
+											</span>
+										</span>
+										<span
+											data-nominal
+											className="tabular shrink-0 text-[13px] font-semibold text-amber-700"
+										>
+											{formatRupiah(r.amount)} →
+										</span>
 									</Link>
-								);
-							})}
-						</div>
+								</li>
+							))}
+						</ul>
 					)}
-				</SectionCard>
+				</RekapCard>
 			</div>
 
+			{/* 5. Bagi hasil owner */}
 			{isSuperAdmin && ownerBreakdown.length > 0 && (
-				<SectionCard
-					title="Bagi hasil owner"
-					titleExtra={
-						<InfoHint title="Bagi hasil owner">
-							Jatah keuntungan tiap owner dari event yang sudah selesai
-							(Rp50.000 per event). Kalau untung event tidak cukup, jatahnya
-							"tertunda" dan dibayar dari sisa untung event berikutnya. Jatah
-							dari event bulan ini baru bisa diambil bulan depan — jadi "Bisa
-							diambil" hanya menghitung bulan-bulan yang sudah lewat, dikurangi
-							yang sudah ditarik.
-						</InfoHint>
-					}
-					meta={
-						<div className="flex items-center gap-3">
+				<RekapCard className="space-y-3">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<SectionHeader2
+							icon={HandCoins}
+							title="Bagi hasil owner"
+							description="Rp50.000 per event per owner. Jatah bulan ini baru bisa diambil bulan depan; kalau untung event kurang, jatahnya tertunda dan dibayar dari event berikutnya."
+						/>
+						<div className="flex flex-wrap items-center gap-2">
 							<WithdrawalButton
 								owners={ownerBreakdown.map<Owner>((o) => ({
 									id: o.id,
@@ -864,212 +762,101 @@ export default async function FinancePage({
 								}))}
 							/>
 							<PatunganDialog ownerCount={ownerBreakdown.length} />
-							<HeaderLink href="/settings/crew">Atur porsi</HeaderLink>
 						</div>
-					}
-				>
-					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
-							<thead className="bg-card border-b border-border-subtle">
-								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
-									<th className="px-4 py-2.5 text-left font-medium">Owner</th>
-									<th className="px-4 py-2.5 text-right font-medium">Porsi</th>
-									<th className="px-4 py-2.5 text-right font-medium">
-										Total didapat
-									</th>
-									<th className="px-4 py-2.5 text-right font-medium">
-										Sudah diambil
-									</th>
-									<th className="px-4 py-2.5 text-right font-medium">
+					</div>
+					<div className="grid gap-3 sm:grid-cols-2">
+						{ownerBreakdown.map((o) => (
+							<div
+								key={o.id}
+								className="space-y-2 rounded-2xl border border-border-subtle p-4"
+							>
+								<div className="flex items-baseline justify-between gap-3">
+									<span className="truncate text-[14px] font-semibold text-foreground">
+										{o.full_name}
+									</span>
+									<span className="text-[12px] text-muted-foreground">
 										Bisa diambil
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-border divide-y">
-								{ownerBreakdown.map((o) => (
-									<tr key={o.id}>
-										<td className="px-4 py-2.5">
-											<div className="flex items-center gap-2">
-												<span className="text-foreground text-sm font-medium">
-													{o.full_name}
-												</span>
-												<Badge
-													variant="outline"
-													className="text-[10px] uppercase"
-												>
-													{o.role === "super_admin" ? "super" : o.role}
-												</Badge>
-											</div>
-										</td>
-										<td className="text-muted-foreground tabular px-4 py-2.5 text-right text-xs">
-											{o.share_pct !== null ? `${o.share_pct}%` : "—"}
-										</td>
-										<td className="text-foreground tabular px-4 py-2.5 text-right">
-											{o.earned > 0 ? formatRupiah(o.earned) : "—"}
-											{o.arrears > 0 && (
-												<span
-													className="block text-[10.5px] text-amber-700"
-													title="Bagi hasil dari event yang untungnya tidak cukup — dibayar otomatis dari sisa untung event berikutnya."
-												>
-													+ tertunda {formatRupiah(o.arrears)}
-												</span>
-											)}
-										</td>
-										<td className="text-muted-foreground tabular px-4 py-2.5 text-right">
-											{o.withdrawn > 0 ? formatRupiah(o.withdrawn) : "—"}
-											{o.patungan > 0 && (
-												<span className="block text-[10.5px]">
-													patungan {formatRupiah(o.patungan)}
-												</span>
-											)}
-										</td>
-										<td className="text-foreground tabular px-4 py-2.5 text-right font-semibold">
-											<span
-												className={
-													o.available > 0
-														? "text-emerald-600 dark:text-emerald-400"
-														: o.available < 0
-															? "text-rose-600 dark:text-rose-400"
-															: "text-muted-foreground"
-												}
-											>
-												{formatRupiah(o.available)}
-											</span>
-											{o.pending > 0 && (
-												<span className="text-muted-foreground block text-[10.5px] font-normal">
-													+{formatRupiah(o.pending)} bulan ini
-												</span>
-											)}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+									</span>
+								</div>
+								<p
+									data-nominal
+									className={cn(
+										"tabular text-right text-[22px] font-bold leading-none tracking-[-0.02em]",
+										o.available > 0
+											? "text-emerald-700"
+											: o.available < 0
+												? "text-rose-600"
+												: "text-muted-foreground",
+									)}
+								>
+									{formatSignedRupiah(o.available)}
+								</p>
+								<div className="space-y-1 border-t border-border-subtle pt-2">
+									<AmountRow label="Total didapat" value={o.earned} small />
+									{o.pending > 0 && (
+										<AmountRow
+											label="Dari event bulan ini"
+											note="bisa diambil bulan depan"
+											value={o.pending}
+											small
+										/>
+									)}
+									{o.arrears > 0 && (
+										<AmountRow
+											label="Tertunda"
+											note="dibayar dari event berikutnya"
+											value={o.arrears}
+											small
+										/>
+									)}
+									<AmountRow label="Sudah diambil" value={-o.withdrawn} small />
+									{o.patungan > 0 && (
+										<AmountRow
+											label="Dipotong patungan"
+											value={-o.patungan}
+											small
+										/>
+									)}
+								</div>
+							</div>
+						))}
 					</div>
-				</SectionCard>
+					<TextLink href="/settings/crew">Atur porsi</TextLink>
+				</RekapCard>
 			)}
-
-			<SectionCard
-				title="Settlement terakhir"
-				meta={
-					<HeaderLink href="/operations?status=completed">
-						Lihat semua
-					</HeaderLink>
-				}
-			>
-				{recentSettlements.length === 0 ? (
-					<EmptyState
-						icon={Receipt}
-						title="Belum ada settlement"
-						hint="Settle event pertama via /operations/[id]/settle"
-					/>
-				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full text-xs">
-							<thead className="bg-card border-b border-border-subtle">
-								<tr className="text-muted-foreground text-[11px] uppercase tracking-wider">
-									<th className="px-4 py-2.5 text-left font-medium">Event</th>
-									<th className="px-4 py-2.5 text-right font-medium">
-										Revenue
-									</th>
-									<th className="px-4 py-2.5 text-right font-medium">HPP</th>
-									<th className="px-4 py-2.5 text-right font-medium">OpEx</th>
-									<th className="px-4 py-2.5 text-right font-medium">
-										Net Profit
-									</th>
-									<th className="px-4 py-2.5 text-right font-medium">
-										Settled
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-border divide-y">
-								{recentSettlements.map((s) => {
-									if (!s.event) return null;
-									return (
-										<tr key={s.id} className="hover:bg-muted/20">
-											<td className="px-4 py-2.5">
-												<Link
-													href={`/operations/${s.event.project_id}`}
-													className="text-primary text-sm font-medium hover:underline"
-												>
-													{s.event.client_name}
-												</Link>
-												<p className="text-muted-foreground tabular text-[10px]">
-													{s.event.project_id} ·{" "}
-													{formatDateID(s.event.event_date)}
-												</p>
-											</td>
-											<td className="text-foreground tabular px-4 py-2.5 text-right">
-												{formatRupiah(s.revenue_net)}
-											</td>
-											<td className="text-muted-foreground tabular px-4 py-2.5 text-right">
-												{formatRupiah(s.hpp_total)}
-											</td>
-											<td className="text-muted-foreground tabular px-4 py-2.5 text-right">
-												{formatRupiah(s.opex_total)}
-											</td>
-											<td
-												className={`tabular px-4 py-2.5 text-right font-semibold ${
-													s.is_loss
-														? "text-rose-600 dark:text-rose-400"
-														: "text-emerald-600 dark:text-emerald-400"
-												}`}
-											>
-												<span className="inline-flex items-center gap-1">
-													{s.is_loss ? (
-														<ArrowDownRight className="h-3 w-3" />
-													) : (
-														<ArrowUpRight className="h-3 w-3" />
-													)}
-													{formatRupiah(s.net_profit)}
-												</span>
-											</td>
-											<td className="text-muted-foreground tabular px-4 py-2.5 text-right">
-												{formatDateID(s.closed_at.slice(0, 10))}
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
-				)}
-			</SectionCard>
 		</Container>
 	);
 }
 
-/**
- * SectionCard — bento section: judul + meta/aksi hidup DI DALAM card sebagai
- * header ber-hairline, bukan teks mengambang di atas card. Konten (list/tabel)
- * full-bleed di bawahnya.
- */
-function SectionCard({
-	title,
-	titleExtra,
-	meta,
-	children,
+function Fact({
+	label,
+	value,
+	hint,
+	warn,
 }: {
-	title: React.ReactNode;
-	titleExtra?: React.ReactNode;
-	meta?: React.ReactNode;
-	children: React.ReactNode;
+	label: string;
+	value: number;
+	hint: string;
+	warn?: boolean;
 }) {
 	return (
-		<section className="border-border-subtle bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-level-2)]">
-			<div className="border-border-subtle flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b px-4 py-2.5">
-				<h2 className="font-heading flex min-w-0 items-center gap-1 text-[15px] font-semibold tracking-tight">
-					<span className="truncate">{title}</span>
-					{titleExtra}
-				</h2>
-				{meta}
-			</div>
-			{children}
-		</section>
+		<div className="rounded-xl bg-secondary/50 px-3 py-2.5">
+			<p className="text-[12px] text-muted-foreground">{label}</p>
+			<p
+				data-nominal
+				className={cn(
+					"tabular mt-0.5 text-[16px] font-semibold",
+					warn ? "text-amber-700" : "text-foreground",
+				)}
+			>
+				{formatRupiah(Math.round(value))}
+			</p>
+			<p className="text-[11.5px] leading-snug text-muted-foreground">{hint}</p>
+		</div>
 	);
 }
 
-function HeaderLink({
+function TextLink({
 	href,
 	children,
 }: {
@@ -1079,29 +866,9 @@ function HeaderLink({
 	return (
 		<Link
 			href={href}
-			className="text-muted-foreground hover:text-foreground text-xs font-medium transition-colors"
+			className="shrink-0 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 		>
 			{children} →
 		</Link>
-	);
-}
-
-function EmptyState({
-	icon: Icon,
-	title,
-	hint,
-}: {
-	icon: typeof Receipt;
-	title: string;
-	hint: string;
-}) {
-	return (
-		<div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-			<Icon className="text-muted-foreground h-7 w-7" />
-			<div className="space-y-0.5">
-				<p className="text-foreground text-sm font-medium">{title}</p>
-				<p className="text-muted-foreground text-xs">{hint}</p>
-			</div>
-		</div>
 	);
 }
