@@ -133,8 +133,10 @@ export type LinkedEvent = {
 	fromEvent: { items: DocItem[]; discount: number; gross_up_enabled: boolean };
 };
 
+// Kartu lega: jarak ANTAR kartu tetap grid 12px (gap-3), ruang DI DALAM kartu
+// lebih longgar supaya form panjang tidak terasa sesak.
 const CARD =
-	"rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] space-y-3";
+	"rounded-2xl border border-border-subtle bg-card p-5 md:p-6 shadow-[var(--shadow-level-2)] space-y-5";
 const LABEL = "text-[13px] font-medium text-foreground";
 
 function Field({
@@ -149,7 +151,7 @@ function Field({
 	hint?: string;
 }) {
 	return (
-		<div className={cn("space-y-1.5", className)}>
+		<div className={cn("space-y-2", className)}>
 			<span className={LABEL}>{label}</span>
 			{children}
 			{hint ? (
@@ -557,7 +559,7 @@ export function DocumentEditor({
 	return (
 		<div className="space-y-3">
 			{/* ── Bilah aksi ── */}
-			<div className="sticky top-2 z-20 md:top-[76px] flex flex-wrap items-center gap-2 rounded-2xl border border-border-subtle bg-card/90 px-3 py-2 shadow-[var(--shadow-level-2)] backdrop-blur">
+			<div className="sticky top-2 z-20 md:top-[76px] flex flex-wrap items-center gap-2 rounded-2xl border border-border-subtle bg-card px-4 py-2.5 shadow-[var(--shadow-level-2)]">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
 					<FileText className="size-4 shrink-0 text-muted-foreground" />
 					<div className="min-w-0">
@@ -690,7 +692,7 @@ export function DocumentEditor({
 			</div>
 
 			{/* ── Toggle Isi / Preview (mobile) ── */}
-			<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)] lg:hidden">
+			<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)] xl:hidden">
 				{(["form", "preview"] as const).map((t) => (
 					<button
 						key={t}
@@ -713,14 +715,16 @@ export function DocumentEditor({
 				))}
 			</div>
 
-			<div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,42%)]">
+			{/* Dua kolom baru dari 1280px: di bawahnya (termasuk laptop dengan zoom
+			    browser) form selebar penuh dan preview lewat tombol Isi/Preview. */}
+			<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,38%)]">
 				{/* ── Form ── */}
 				<div
 					className={cn(
 						// Satu skala untuk semua nilai field di panel ini (14px di desktop;
 						// HP tetap 16px agar iOS tidak auto-zoom).
 						"space-y-3 md:[&_input]:text-[14px]! md:[&_textarea]:text-[14px]!",
-						mobileTab === "preview" && "hidden lg:block",
+						mobileTab === "preview" && "hidden xl:block",
 					)}
 				>
 					{readOnly ? (
@@ -761,7 +765,7 @@ export function DocumentEditor({
 										))}
 									</div>
 								</Field>
-								<div className="grid gap-3 sm:grid-cols-2">
+								<div className="grid gap-4 sm:grid-cols-2">
 									<Field label="Nama di KEPADA">
 										<TextField
 											value={doc.client.name}
@@ -780,7 +784,7 @@ export function DocumentEditor({
 								</div>
 							</>
 						) : (
-							<div className="grid gap-3 sm:grid-cols-2">
+							<div className="grid gap-4 sm:grid-cols-2">
 								<Field label="Klien">
 									<ClientPicker
 										name={doc.client.name}
@@ -810,7 +814,7 @@ export function DocumentEditor({
 								</Field>
 							</div>
 						)}
-						<div className="grid gap-3 sm:grid-cols-2">
+						<div className="grid gap-4 sm:grid-cols-2">
 							{doc.client.org ? (
 								<Field label="Perusahaan / instansi">
 									<TextField
@@ -1101,7 +1105,7 @@ export function DocumentEditor({
 								disabled={readOnly}
 							/>
 						) : null}
-						<div className="grid gap-3 sm:grid-cols-2">
+						<div className="grid gap-4 sm:grid-cols-2">
 							<Field label="Diskon (Rp)">
 								<MoneyInput
 									value={doc.discount ?? 0}
@@ -1201,7 +1205,7 @@ export function DocumentEditor({
 					{/* Tanggal & tanda tangan */}
 					<section className={CARD}>
 						<SectionTitle title="Tanggal & tanda tangan" />
-						<div className="grid gap-3 sm:grid-cols-2">
+						<div className="grid gap-4 sm:grid-cols-2">
 							<Field
 								label="Tanggal terbit"
 								hint={
@@ -1279,7 +1283,7 @@ export function DocumentEditor({
 										placeholder="Pilih preset…"
 									/>
 								</Field>
-								<div className="grid gap-3 sm:grid-cols-2">
+								<div className="grid gap-4 sm:grid-cols-2">
 									<Field label="Nama di dokumen">
 										<TextField
 											value={doc.signer_name ?? ""}
@@ -1395,8 +1399,8 @@ export function DocumentEditor({
 				) : null}
 
 				{/* ── Preview ── */}
-				<div className={cn("lg:block", mobileTab === "form" && "hidden")}>
-					<div className="lg:sticky lg:top-[136px]">
+				<div className={cn("xl:block", mobileTab === "form" && "hidden")}>
+					<div className="xl:sticky xl:top-[136px]">
 						<PdfPreview
 							draft={previewDraft}
 							className="aspect-[210/297] w-full"
@@ -1428,9 +1432,9 @@ function hMinusOf(due: string | null, eventDate: string | null): number {
 function SectionTitle({ title, hint }: { title: string; hint?: string }) {
 	return (
 		<div>
-			<h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+			<h2 className="text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>
 			{hint ? (
-				<p className="text-[12.5px] text-muted-foreground">{hint}</p>
+				<p className="mt-0.5 text-[13px] text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
 	);
