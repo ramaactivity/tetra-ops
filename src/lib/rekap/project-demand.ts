@@ -225,6 +225,10 @@ export async function projectEventLinesFromSpec(
 	}
 
 	// ── Package bundle BOM — deduped against existing + add-ons just added ─────
+	// Sengaja SEKALI per event, tidak × unit_count: bundle yang ada (set
+	// flashdisk+pouch, keychain, guest book) adalah barang per klien, bukan per
+	// booth — event 2 unit tetap satu flashdisk & pouch (keputusan Rama, 30 Sep
+	// 2026). Kalau kelak ada bundle bahan per booth, kalikan di sini.
 	const pkgField =
 		(event as unknown as { package?: OneOrMany<PackageRow> })?.package ?? null;
 	const eventPackage = Array.isArray(pkgField)

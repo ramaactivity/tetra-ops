@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
-import { eventSpots, unitCountOf } from "@/lib/events/spots";
+import { spotsNeedingOwnDesign, unitCountOf } from "@/lib/events/spots";
 import { createClient } from "@/lib/supabase/server";
 import { tgEscape } from "@/lib/telegram/client";
 import { rp } from "@/lib/telegram/digest";
@@ -151,6 +151,7 @@ export async function setDesignStatus(
 			design_approved_at: null,
 			design_approved_by: null,
 			design_frame_size: null,
+			design_spot_sizes: null,
 			updated_at: now,
 		};
 		// First-touch timestamp when leaving "belum".
@@ -208,10 +209,10 @@ export type DesignApprovalContext = {
 	/** Event multi-unit: harga alternatif sudah × unit. */
 	unitCount: number;
 	/**
-	 * Spot yang ukurannya beda dari spot 1 — ACC ini hanya memvalidasi ukuran
-	 * spot 1; file desain spot lain dicek manual.
+	 * Data spot mentah — dialog menghitung ulang spot yang butuh file desain
+	 * sendiri (spotsNeedingOwnDesign) setelah ukuran spot 1 dikoreksi.
 	 */
-	otherSizeSpots: Array<{ spot: number; frameSize: string }>;
+	spotSource: { unit_count: number; spots: unknown };
 };
 
 export async function getDesignApprovalContext(
@@ -280,11 +281,7 @@ export async function getDesignApprovalContext(
 				alternatives,
 				currentBasePrice: Number(ev.base_price ?? 0),
 				unitCount: unitCountOf(ev),
-				otherSizeSpots: eventSpots(ev).flatMap((sp) =>
-					sp.spot > 1 && sp.frame_size && sp.frame_size !== ev.frame_size
-						? [{ spot: sp.spot, frameSize: sp.frame_size }]
-						: [],
-				),
+				spotSource: { unit_count: unitCountOf(ev), spots: ev.spots ?? [] },
 			},
 		};
 	} catch (err) {
@@ -307,6 +304,8 @@ export async function approveDesign(
 	projectId: string,
 	designFrameSize: string,
 	correction?: { frameSize: string; packageId: string | null },
+	/** Event multi-unit: ukuran file desain spot ≥2 yang beda ukuran, {"2":"2R"}. */
+	spotDesignSizes?: Record<string, string>,
 ): Promise<{ error?: string }> {
 	try {
 		const me = await requireOwnerLevel();
@@ -319,7 +318,7 @@ export async function approveDesign(
 				 addons_total, discount_amount, gross_up_pph_amount, grand_total,
 				 pending_package_hours, design_brief_at, is_migrated_legacy,
 				 total_paid, vendor_commission_mode, vendor_commission_value_type,
-				 vendor_commission_value, vendor_commission_amount, unit_count,
+				 vendor_commission_value, vendor_commission_amount, unit_count, spots,
 				 package:packages(id, name, frame_size, duration_hours, base_price)`,
 			)
 			.eq("id", eventId)
@@ -473,6 +472,29 @@ export async function approveDesign(
 			}
 		}
 
+		// Event multi-unit: spot yang beda ukuran butuh file desain sendiri —
+		// gerbangnya sama, ukuran file wajib dinyatakan & cocok per spot.
+		const ownDesign = frameIrrelevant
+			? []
+			: spotsNeedingOwnDesign(ev, effectiveFrame);
+		for (const o of ownDesign) {
+			const declared = spotDesignSizes?.[String(o.spot)];
+			if (!declared) {
+				return {
+					error: `Spot ${o.spot} pakai ${o.size} — nyatakan juga ukuran file desain spot ${o.spot}.`,
+				};
+			}
+			if (declared !== o.size) {
+				return {
+					error: `Desain spot ${o.spot} ${declared} ≠ pesanan ${o.size}. Perbaiki desainnya, atau ubah ukuran spot ${o.spot} lewat Edit event.`,
+				};
+			}
+		}
+		const designSpotSizes =
+			ownDesign.length > 0
+				? Object.fromEntries(ownDesign.map((o) => [String(o.spot), o.size]))
+				: null;
+
 		const now = new Date().toISOString();
 		const { error } = await supabase
 			.from("events")
@@ -481,6 +503,7 @@ export async function approveDesign(
 				design_approved_at: now,
 				design_approved_by: me.profile.id,
 				design_frame_size: frameIrrelevant ? FRAME_AGNOSTIC : designFrameSize,
+				design_spot_sizes: designSpotSizes,
 				...(ev.design_brief_at ? {} : { design_brief_at: now }),
 				updated_at: now,
 			})
@@ -496,7 +519,12 @@ export async function approveDesign(
 		}
 		await notifyTelegramDesignApproved(
 			eventId,
-			frameIrrelevant ? null : designFrameSize,
+			frameIrrelevant
+				? null
+				: [
+						designFrameSize,
+						...ownDesign.map((o) => `${o.size} (spot ${o.spot})`),
+					].join(" + "),
 			me.profile.full_name ?? "Desainer",
 		);
 

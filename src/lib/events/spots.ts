@@ -10,6 +10,8 @@
  * Modul polos (bukan "use server") supaya bisa diimpor server maupun client.
  */
 
+import { parseHHMM } from "@/lib/availability";
+
 export type SpotOverride = {
 	spot: number;
 	frame_size: string | null;
@@ -81,5 +83,54 @@ export function spotsWithoutLead(
 				(c) =>
 					c.role_in_event === "lead" && Math.min(units, c.spot_no ?? 1) === n,
 			),
+	);
+}
+
+/** Backdrop yang dipakai event ini (semua spot), dengan jumlah pemakaiannya. */
+export function backdropUsage(ev: SpotSource): Map<string, number> {
+	const used = new Map<string, number>();
+	for (const sp of eventSpots(ev)) {
+		if (sp.backdrop_id) {
+			used.set(sp.backdrop_id, (used.get(sp.backdrop_id) ?? 0) + 1);
+		}
+	}
+	return used;
+}
+
+type Window = {
+	setup_time?: string | null;
+	start_time?: string | null;
+	end_time?: string | null;
+};
+
+/**
+ * Dua event di tanggal sama bentrok memakai barang fisik yang sama? Jendela =
+ * setup (atau mulai) s/d selesai. Jam yang belum diisi dianggap bentrok —
+ * lebih aman ditanyakan daripada backdrop ter-booking dobel.
+ */
+export function windowsOverlap(a: Window, b: Window): boolean {
+	const aStart = parseHHMM(a.setup_time) ?? parseHHMM(a.start_time);
+	const aEnd = parseHHMM(a.end_time);
+	const bStart = parseHHMM(b.setup_time) ?? parseHHMM(b.start_time);
+	const bEnd = parseHHMM(b.end_time);
+	if (aStart == null || aEnd == null || bStart == null || bEnd == null) {
+		return true;
+	}
+	return aStart < bEnd && bStart < aEnd;
+}
+
+/**
+ * Spot ≥2 yang ukurannya beda dari spot 1 → butuh file desain sendiri.
+ * `spot1Frame` boleh diisi ukuran spot 1 yang BARU (koreksi saat ACC): spot
+ * yang override-nya kosong ikut spot 1, jadi tidak butuh file terpisah.
+ */
+export function spotsNeedingOwnDesign(
+	ev: SpotSource,
+	spot1Frame: string | null = ev.frame_size ?? null,
+): Array<{ spot: number; size: string }> {
+	return eventSpots({ ...ev, frame_size: spot1Frame }).flatMap((sp) =>
+		sp.spot > 1 && sp.frame_size && spot1Frame && sp.frame_size !== spot1Frame
+			? [{ spot: sp.spot, size: sp.frame_size }]
+			: [],
 	);
 }

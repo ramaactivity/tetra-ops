@@ -6,6 +6,7 @@ import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
 import {
 	eventSpots,
 	frameSizesOf,
+	spotsNeedingOwnDesign,
 	spotsWithoutLead,
 	unitCountOf,
 	withUnits,
@@ -65,6 +66,8 @@ type EventRow = {
 	design_status: string | null;
 	design_approved_at: string | null;
 	design_frame_size: string | null;
+	/** Ukuran file desain spot ≥2 yang beda ukuran, dinyatakan saat ACC. */
+	design_spot_sizes: unknown;
 	pending_package_hours: number | null;
 	event_date_is_estimate: boolean | null;
 	pic_name: string | null;
@@ -271,7 +274,7 @@ async function gatherData(
 			`id, project_id, client_name, event_date, setup_time, start_time,
 			 end_time, session_segments, venue_name, venue_city, google_maps_url,
 			 frame_size, backdrop_id, design_status, design_approved_at,
-			 design_frame_size, pending_package_hours, event_date_is_estimate,
+			 design_frame_size, design_spot_sizes, pending_package_hours, event_date_is_estimate,
 			 pic_name, pic_wa, package:packages(frame_size), total_paid,
 			 remaining_balance, unit_count, spots`,
 		)
@@ -677,6 +680,7 @@ type FrameCheckRow = Pick<
 	EventRow,
 	| "frame_size"
 	| "design_frame_size"
+	| "design_spot_sizes"
 	| "design_status"
 	| "design_approved_at"
 	| "package"
@@ -736,11 +740,19 @@ function checkFrame(ev: FrameCheckRow): FrameCheck {
 		}
 	}
 	const spotSizes = eventSpots(ev).map((sp) => sp.frame_size);
-	const otherSizeSpots = agnostic
-		? []
-		: spotSizes.flatMap((sz, i) =>
-				i > 0 && sz && size && sz !== size ? [{ spot: i + 1, size: sz }] : [],
-			);
+	const otherSizeSpots = agnostic ? [] : spotsNeedingOwnDesign(ev);
+	// Sudah ACC → ukuran file tiap spot beda-ukuran wajib tercatat & cocok.
+	if (designApproved) {
+		const recorded = (ev.design_spot_sizes ?? {}) as Record<string, string>;
+		for (const o of otherSizeSpots) {
+			const got = recorded[String(o.spot)];
+			if (got !== o.size) {
+				conflicts.push(
+					`file desain spot ${o.spot} ${got ?? "belum dinyatakan"} ≠ pesanan ${o.size}`,
+				);
+			}
+		}
+	}
 	return {
 		size,
 		pkgSize,
@@ -823,9 +835,9 @@ function deriveIssues(
 	for (const c of fc.conflicts) {
 		push(true, `beda ukuran — ${c}`);
 	}
-	// Spot beda ukuran: butuh file desain & bahan sendiri, sementara ACC
-	// desain hanya mencatat satu ukuran — jangan sampai terlewat.
-	if (fc.otherSizeSpots.length > 0 && days <= 7) {
+	// Spot beda ukuran: butuh file desain & bahan sendiri. Setelah ACC,
+	// ketidakcocokan per spot sudah masuk `conflicts` di atas.
+	if (fc.otherSizeSpots.length > 0 && !fc.designApproved && days <= 7) {
 		push(
 			days <= 2,
 			`${fc.otherSizeSpots.map((o) => `spot ${o.spot} ${o.size}`).join(", ")} beda ukuran dari spot 1 — pastikan desain & bahannya disiapkan terpisah`,
@@ -1044,9 +1056,11 @@ function briefingFrameLines(fc: FrameCheck, mentions: PicMentions): string[] {
 				const packing = size ? SIZE_PACKING[size] : null;
 				return `         – Spot ${i + 1}: ${size ? tgEscape(size) : "❓"}${packing ? ` — ${tgEscape(packing)}` : ""}`;
 			}),
-			fc.otherSizeSpots.length > 0
-				? `      ⚠️ ${tgEscape(fc.otherSizeSpots.map((o) => `Spot ${o.spot} ${o.size}`).join(", "))} butuh file desain sendiri — ACC di app baru mencatat ukuran spot 1, cek manual.`
-				: "      Semua spot ukurannya sama — sleeve/frame ukuran lain jangan ikut terbawa.",
+			fc.otherSizeSpots.length === 0
+				? "      Semua spot ukurannya sama — sleeve/frame ukuran lain jangan ikut terbawa."
+				: fc.designApproved
+					? `      ✅ File desain ${tgEscape(fc.otherSizeSpots.map((o) => `spot ${o.spot} ${o.size}`).join(", "))} sudah di-ACC terpisah.`
+					: `      ⚠️ ${tgEscape(fc.otherSizeSpots.map((o) => `Spot ${o.spot} ${o.size}`).join(", "))} butuh file desain sendiri — belum di-ACC.`,
 		);
 	} else {
 		const packing = SIZE_PACKING[fc.size];

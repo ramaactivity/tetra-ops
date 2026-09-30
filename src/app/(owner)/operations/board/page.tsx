@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
+import { unitCountOf } from "@/lib/events/spots";
 import {
 	CHANNEL_TYPE_LABELS,
 	formatDateID,
@@ -24,6 +25,7 @@ type EventRow = {
 	venue_city: string | null;
 	grand_total: number;
 	payment_status: string;
+	unit_count: number | null;
 };
 
 type ColumnDef = {
@@ -76,7 +78,7 @@ export default async function OperationsBoardPage() {
 	const { data, error } = await supabase
 		.from("events")
 		.select(
-			"id, project_id, status, channel, client_name, event_date, venue_name, venue_city, grand_total, payment_status",
+			"id, project_id, status, channel, client_name, event_date, venue_name, venue_city, grand_total, payment_status, unit_count",
 		)
 		.is("deleted_at", null)
 		.in(
@@ -187,6 +189,11 @@ function BoardCard({ event }: { event: EventRow }) {
 				<div className="flex items-baseline justify-between gap-2">
 					<p className="text-sm font-semibold leading-tight">
 						{event.client_name}
+						{unitCountOf(event) > 1 && (
+							<span className="text-muted-foreground ml-1 text-xs font-medium">
+								· {unitCountOf(event)} unit
+							</span>
+						)}
 					</p>
 					{isHot && (
 						<span className="bg-rose-500/15 text-rose-600 dark:text-rose-300 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">

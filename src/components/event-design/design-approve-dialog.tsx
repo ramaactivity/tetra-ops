@@ -16,6 +16,7 @@ import {
 	type DesignApprovalContext,
 	getDesignApprovalContext,
 } from "@/lib/actions/event-design";
+import { spotsNeedingOwnDesign } from "@/lib/events/spots";
 import { FRAME_SIZE_LABELS, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,8 @@ export function DesignApproveDialog({
 	const [ctx, setCtx] = useState<DesignApprovalContext | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [size, setSize] = useState<string>("");
+	/** Event multi-unit: ukuran file desain spot ≥2, {"2": "2R"}. */
+	const [spotSizes, setSpotSizes] = useState<Record<string, string>>({});
 	const [loading, startLoad] = useTransition();
 	const [saving, startSave] = useTransition();
 
@@ -57,6 +60,7 @@ export function DesignApproveDialog({
 		if (!open) return;
 		setCtx(null);
 		setSize("");
+		setSpotSizes({});
 		setLoadError(null);
 		startLoad(async () => {
 			const res = await getDesignApprovalContext(eventId);
@@ -76,6 +80,12 @@ export function DesignApproveDialog({
 	const priceDelta = correctionPkg
 		? correctionPkg.basePrice - (ctx?.currentBasePrice ?? 0)
 		: 0;
+	// Spot yang beda ukuran dari spot 1 (setelah koreksi) → file desain sendiri.
+	const ownDesign =
+		ctx && !frameIrrelevant
+			? spotsNeedingOwnDesign(ctx.spotSource, size || ordered)
+			: [];
+	const spotsOk = ownDesign.every((o) => spotSizes[String(o.spot)] === o.size);
 
 	function submit(withCorrection: boolean) {
 		if (!ctx) return;
@@ -87,6 +97,12 @@ export function DesignApproveDialog({
 				withCorrection && size
 					? { frameSize: size, packageId: correctionPkg?.packageId ?? null }
 					: undefined,
+				Object.fromEntries(
+					ownDesign.map((o) => [
+						String(o.spot),
+						spotSizes[String(o.spot)] ?? "",
+					]),
+				),
 			);
 			if (res.error) {
 				toast.error(res.error);
@@ -148,27 +164,12 @@ export function DesignApproveDialog({
 							</p>
 						</div>
 
-						{/* Event multi-unit dengan ukuran beda: ACC ini hanya spot 1 */}
-						{!frameIrrelevant && ctx.otherSizeSpots.length > 0 && (
-							<p className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[13px] text-amber-900 dark:text-amber-200">
-								<AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-								<span>
-									{ctx.otherSizeSpots
-										.map(
-											(o) =>
-												`Spot ${o.spot} pakai ${FRAME_SIZE_LABELS[o.frameSize] ?? o.frameSize}`,
-										)
-										.join(", ")}{" "}
-									— butuh file desain sendiri. ACC di sini hanya untuk ukuran
-									spot 1; pastikan file spot lain juga sudah siap.
-								</span>
-							</p>
-						)}
-
 						{!frameIrrelevant && (
 							<div className="space-y-2">
 								<p className="text-[13px] font-medium">
-									Ukuran file desain yang kamu buat?
+									{ctx.unitCount > 1
+										? "Ukuran file desain spot 1?"
+										: "Ukuran file desain yang kamu buat?"}
 								</p>
 								<div className="flex flex-wrap gap-2">
 									{SIZE_CHOICES.map((s) => (
@@ -191,8 +192,48 @@ export function DesignApproveDialog({
 							</div>
 						)}
 
+						{/* Event multi-unit: spot beda ukuran → ukuran file per spot */}
+						{ownDesign.map((o) => {
+							const picked = spotSizes[String(o.spot)];
+							return (
+								<div key={o.spot} className="space-y-2">
+									<p className="text-[13px] font-medium">
+										Spot {o.spot} pakai {FRAME_SIZE_LABELS[o.size] ?? o.size} —
+										ukuran file desain spot {o.spot}?
+									</p>
+									<div className="flex flex-wrap gap-2">
+										{SIZE_CHOICES.map((sz) => (
+											<button
+												key={sz}
+												type="button"
+												onClick={() =>
+													setSpotSizes((m) => ({ ...m, [String(o.spot)]: sz }))
+												}
+												aria-pressed={picked === sz}
+												className={cn(
+													"h-9 rounded-full border px-4 text-[13px] font-medium transition-colors",
+													picked === sz
+														? "border-foreground bg-foreground text-background"
+														: "border-border-default bg-card hover:bg-secondary",
+												)}
+											>
+												{FRAME_SIZE_LABELS[sz] ?? sz}
+											</button>
+										))}
+									</div>
+									{picked && picked !== o.size && (
+										<p className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px] text-amber-900 dark:text-amber-200">
+											<AlertTriangle className="size-4 shrink-0" aria-hidden />
+											Desain spot {o.spot} {picked} ≠ pesanan {o.size}. Perbaiki
+											filenya, atau ubah ukuran spot {o.spot} lewat Edit event.
+										</p>
+									)}
+								</div>
+							);
+						})}
+
 						{/* Cocok → tinggal ACC */}
-						{!frameIrrelevant && size && !mismatch && (
+						{!frameIrrelevant && size && !mismatch && spotsOk && (
 							<p className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-[13px] text-emerald-800 dark:text-emerald-300">
 								<CheckCircle2 className="size-4 shrink-0" aria-hidden />
 								Ukuran desain sama dengan pesanan. Aman dicetak.
@@ -245,7 +286,7 @@ export function DesignApproveDialog({
 								<Button
 									type="button"
 									onClick={() => submit(true)}
-									disabled={saving}
+									disabled={saving || !spotsOk}
 								>
 									{saving ? "Menyimpan…" : `Betulkan jadi ${size} & ACC`}
 								</Button>
@@ -253,7 +294,7 @@ export function DesignApproveDialog({
 								<Button
 									type="button"
 									onClick={() => submit(false)}
-									disabled={saving || (!frameIrrelevant && !size)}
+									disabled={saving || (!frameIrrelevant && !size) || !spotsOk}
 								>
 									{saving ? "Menyimpan…" : "ACC — siap cetak"}
 								</Button>

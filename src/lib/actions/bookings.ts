@@ -22,7 +22,13 @@ import {
 	pendingPackageLabel,
 	resolvePackage,
 } from "@/lib/events/frame-package";
-import { eventSpots, type SpotSource, unitCountOf } from "@/lib/events/spots";
+import {
+	backdropUsage,
+	eventSpots,
+	type SpotSource,
+	unitCountOf,
+	windowsOverlap,
+} from "@/lib/events/spots";
 import { SERVICE_TYPE_LABELS } from "@/lib/format";
 import {
 	formatScheduleInline,
@@ -497,29 +503,59 @@ type SpotOverride = {
 async function checkBackdropStock(
 	supabase: Awaited<ReturnType<typeof createClient>>,
 	input: BookingInput,
+	/** Event yang sedang diedit — dikecualikan dari hitungan event lain. */
+	eventId?: string,
 ): Promise<string | null> {
-	const used = new Map<string, number>();
-	const add = (id: string | null | undefined) => {
-		if (id) used.set(id, (used.get(id) ?? 0) + 1);
-	};
-	add(input.backdrop_id);
-	for (const sp of input.spots)
-		if (sp.spot <= input.unit_count) add(sp.backdrop_id);
-	const dup = [...used].filter(([, n]) => n > 1);
-	if (dup.length === 0) return null;
+	// Pemakaian di event ini sendiri (semua spot).
+	const used = backdropUsage({
+		unit_count: input.unit_count,
+		backdrop_id: input.backdrop_id,
+		spots: input.spots,
+	});
+	if (used.size === 0) return null;
+
+	// Event lain di tanggal & jam yang bentrok memakai backdrop fisik yang
+	// sama → ikut dihitung (barang yang sama tidak bisa di dua venue).
+	let othersQ = supabase
+		.from("events")
+		.select(
+			"project_id, client_name, setup_time, start_time, end_time, backdrop_id, unit_count, spots",
+		)
+		.eq("event_date", input.event_date)
+		.neq("status", "cancelled")
+		.is("deleted_at", null);
+	if (eventId) othersQ = othersQ.neq("id", eventId);
+	const { data: others } = await othersQ;
+	const clash = (others ?? []).filter((o) =>
+		windowsOverlap(o, {
+			setup_time: input.setup_time,
+			start_time: input.start_time,
+			end_time: input.end_time,
+		}),
+	);
+
 	const { data } = await supabase
 		.from("backdrops")
 		.select("id, name, type, stock_qty")
-		.in(
-			"id",
-			dup.map(([id]) => id),
-		);
+		.in("id", [...used.keys()]);
 	for (const b of data ?? []) {
 		// Dekorasi dari klien / vendor bukan barang Tetra — tidak dibatasi pcs.
 		if (b.type === "client_provided" || b.type === "vendor_decor") continue;
-		const need = used.get(b.id as string) ?? 0;
-		if (need > Number(b.stock_qty ?? 1))
-			return `Backdrop ${b.name} cuma ${b.stock_qty ?? 1} pcs — tidak bisa dipakai di ${need} spot sekaligus. Pilih warna lain untuk spot berikutnya, atau tambah jumlah pcs di master Backdrop.`;
+		const stock = Number(b.stock_qty ?? 1);
+		const mine = used.get(b.id as string) ?? 0;
+		if (mine > stock)
+			return `Backdrop ${b.name} cuma ${stock} pcs — tidak bisa dipakai di ${mine} spot sekaligus. Pilih warna lain untuk spot berikutnya, atau tambah jumlah pcs di master Backdrop.`;
+		const takenBy = clash.filter((o) => backdropUsage(o).has(b.id as string));
+		const taken = takenBy.reduce(
+			(n, o) => n + (backdropUsage(o).get(b.id as string) ?? 0),
+			0,
+		);
+		if (mine + taken > stock) {
+			const who = takenBy
+				.map((o) => `${o.client_name} (${o.project_id})`)
+				.join(", ");
+			return `Backdrop ${b.name} (${stock} pcs) sudah dipakai di jam yang bentrok: ${who}. Pilih warna lain, geser jamnya, atau tambah jumlah pcs di master Backdrop.`;
+		}
 	}
 	return null;
 }
@@ -1397,7 +1433,7 @@ export async function updateBooking(
 	if (!selection.ok) {
 		return { errors: selection.errors, values: snapshotValues(formData) };
 	}
-	const backdropErr = await checkBackdropStock(supabase, parsed.data);
+	const backdropErr = await checkBackdropStock(supabase, parsed.data, id);
 	if (backdropErr) {
 		return {
 			errors: { backdrop_id: [backdropErr] },

@@ -41,6 +41,7 @@ type EventSnap = {
 	backdrop_id: string | null;
 	pic_name: string | null;
 	pic_wa: string | null;
+	unit_count: number | null;
 };
 
 export default async function BookingMasukDetailPage({
@@ -64,7 +65,7 @@ export default async function BookingMasukDetailPage({
 		? await supabase
 				.from("events")
 				.select(
-					"project_id, event_date, start_time, end_time, venue_name, package_id, frame_size, backdrop_id, pic_name, pic_wa",
+					"project_id, event_date, start_time, end_time, venue_name, package_id, frame_size, backdrop_id, pic_name, pic_wa, unit_count",
 				)
 				.eq("id", item.event_id)
 				.maybeSingle()
@@ -247,6 +248,8 @@ async function diffWithEvent(item: InboxRow, ev: EventSnap) {
 	const pkgs = (packages ?? []) as PackageOption[];
 	const bds = (backdrops ?? []) as BackdropOption[];
 	const want: BookingFormDefaults = inboxToBookingDefaults(item, pkgs, bds);
+	// Event multi-unit: data bot hanya satu booth → dibandingkan dengan spot 1.
+	const spot1 = (ev.unit_count ?? 1) > 1 ? " (spot 1)" : "";
 	const pkgName = (id?: string | null) =>
 		pkgs.find((p) => p.id === id)?.name ?? "";
 	const bdName = (id?: string | null) =>
@@ -280,12 +283,12 @@ async function diffWithEvent(item: InboxRow, ev: EventSnap) {
 			inbox: pkgName(want.package_id),
 		},
 		{
-			label: "Ukuran frame",
+			label: `Ukuran frame${spot1}`,
 			event: ev.frame_size ?? "",
 			inbox: want.frame_size ?? "",
 		},
 		{
-			label: "Backdrop",
+			label: `Backdrop${spot1}`,
 			event: bdName(ev.backdrop_id),
 			inbox: bdName(want.backdrop_id),
 		},

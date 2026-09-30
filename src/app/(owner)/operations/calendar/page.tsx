@@ -4,6 +4,7 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { OperationsViewSwitcher } from "@/components/operations/view-switcher";
 import { buttonVariants } from "@/components/ui/button";
+import { unitCountOf, withUnits } from "@/lib/events/spots";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ type EventRow = {
 	event_date: string;
 	start_time: string | null;
 	venue_name: string;
+	unit_count: number | null;
 };
 
 const STATUS_TONE: Record<string, string> = {
@@ -87,7 +89,7 @@ export default async function OperationsCalendarPage({
 	const { data, error } = await supabase
 		.from("events")
 		.select(
-			"id, project_id, status, client_name, event_date, start_time, venue_name",
+			"id, project_id, status, client_name, event_date, start_time, venue_name, unit_count",
 		)
 		.is("deleted_at", null)
 		.gte("event_date", rangeStart)
@@ -233,7 +235,7 @@ export default async function OperationsCalendarPage({
 												STATUS_TONE[ev.status] ??
 													"bg-muted text-muted-foreground",
 											)}
-											title={`${ev.client_name} · ${ev.venue_name}`}
+											title={`${withUnits(ev.client_name, unitCountOf(ev))} · ${ev.venue_name}`}
 										>
 											{ev.start_time && (
 												<span className="tabular mr-1 opacity-70">
@@ -241,6 +243,11 @@ export default async function OperationsCalendarPage({
 												</span>
 											)}
 											{ev.client_name}
+											{unitCountOf(ev) > 1 && (
+												<span className="ml-1 opacity-70">
+													×{unitCountOf(ev)}
+												</span>
+											)}
 										</Link>
 									))}
 									{overflow > 0 && (
