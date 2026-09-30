@@ -96,7 +96,7 @@ export type ExpenseGroupKey =
 	| "bank"
 	| "lain";
 
-const EXPENSE_GROUP_LABEL: Record<ExpenseGroupKey, string> = {
+export const EXPENSE_GROUP_LABEL: Record<ExpenseGroupKey, string> = {
 	bahan: "Bahan cetak & produksi",
 	crew: "Fee & bonus crew",
 	transport: "Transport & bensin",
@@ -110,7 +110,7 @@ const EXPENSE_GROUP_LABEL: Record<ExpenseGroupKey, string> = {
 	lain: "Lain-lain",
 };
 
-function expenseGroupFor(code: string): ExpenseGroupKey {
+export function expenseGroupFor(code: string): ExpenseGroupKey {
 	if (code.startsWith("5-1") || code === "5-411") return "bahan";
 	if (code.startsWith("5-20")) return "crew";
 	if (code.startsWith("5-21")) return "transport";

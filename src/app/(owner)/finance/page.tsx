@@ -1,18 +1,16 @@
 import {
-	AlertCircle,
 	ArrowDownRight,
 	ArrowUpRight,
 	ChevronRight,
 	PiggyBank,
 	Receipt,
-	TrendingDown,
-	TrendingUp,
 	Wallet,
-	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
 import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
+import { MonthSwitcher } from "@/components/finance/monthly/month-switcher";
+import { MonthlyReport } from "@/components/finance/monthly-report";
 import { PatunganDialog } from "@/components/finance/patungan-dialog";
 import {
 	SinkingBreakdown,
@@ -24,13 +22,17 @@ import {
 } from "@/components/finance/withdrawal-button";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
-import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { KpiCard } from "@/components/operations/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import {
+	getMonthlyOverview,
+	monthLabel as monthLabelLong,
+	ymOf,
+} from "@/lib/finance/monthly-data";
+import { getMonthlyPnl } from "@/lib/finance/monthly-pnl";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import {
 	listCrewLiabilityGaps,
@@ -73,6 +75,7 @@ export default async function FinancePage({
 		cat?: string;
 		note?: string;
 		ev?: string;
+		bulan?: string;
 	}>;
 }) {
 	const me = await getCurrentUser();
@@ -84,6 +87,7 @@ export default async function FinancePage({
 		cat: catatCategory,
 		note: catatNote,
 		ev: catatEventId,
+		bulan,
 	} = await searchParams;
 	const catatData = await loadCatatData();
 
@@ -107,13 +111,6 @@ export default async function FinancePage({
 	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
 	const monthLabel = `${ID_MONTH_NAMES[today.getMonth()]} ${today.getFullYear()}`;
 
-	const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-	const lmStart = startOfMonth(lastMonth);
-	const lmEnd = lastDayOfMonth(
-		lastMonth.getFullYear(),
-		lastMonth.getMonth() + 1,
-	);
-
 	// Cash-basis: exclude payments received BEFORE the finance cutoff — that cash
 	// is already baked into the opening balances, so counting it again as this
 	// month's revenue/inflow would double-show. Effective start = max(month-start,
@@ -131,9 +128,6 @@ export default async function FinancePage({
 
 	const [
 		{ data: revenueMtdData },
-		{ data: revenueLmData },
-		{ data: settlementsMtdData },
-		{ data: settlementsLmData },
 		{ data: outstandingData },
 		{ data: paymentByBankData },
 		{ data: bankAccountsData },
@@ -148,26 +142,6 @@ export default async function FinancePage({
 			.eq("is_reversed", false)
 			.gte("payment_date", revStart)
 			.lte("payment_date", ymEnd),
-		supabase
-			.from("payments")
-			.select("amount")
-			.eq("is_reversed", false)
-			.gte("payment_date", lmStart)
-			.lte("payment_date", lmEnd),
-		supabase
-			.from("event_settlements")
-			.select(
-				"net_profit, revenue_net, hpp_total, opex_total, sinking_total, owner_pool_total, is_loss",
-			)
-			.eq("is_reopened", false)
-			.gte("closed_at", `${ymStart}T00:00:00Z`)
-			.lte("closed_at", `${ymEnd}T23:59:59Z`),
-		supabase
-			.from("event_settlements")
-			.select("net_profit")
-			.eq("is_reopened", false)
-			.gte("closed_at", `${lmStart}T00:00:00Z`)
-			.lte("closed_at", `${lmEnd}T23:59:59Z`),
 		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
 		// reduce. See get_outstanding_total migration.
 		supabase.rpc("get_outstanding_total"),
@@ -220,52 +194,6 @@ export default async function FinancePage({
 		(s, r) => s + (r.amount ?? 0),
 		0,
 	);
-	const revenueLm = (revenueLmData ?? []).reduce(
-		(s, r) => s + (r.amount ?? 0),
-		0,
-	);
-	const revenueDelta =
-		revenueLm > 0 ? ((revenueMtd - revenueLm) / revenueLm) * 100 : null;
-
-	const settlementsMtd = (settlementsMtdData ?? []) as Array<{
-		net_profit: number;
-		revenue_net: number;
-		hpp_total: number;
-		opex_total: number;
-		sinking_total: number;
-		owner_pool_total: number;
-		is_loss: boolean;
-	}>;
-	const netProfitMtd = settlementsMtd.reduce(
-		(s, r) => s + (r.net_profit ?? 0),
-		0,
-	);
-	const revenueNetMtd = settlementsMtd.reduce(
-		(s, r) => s + (r.revenue_net ?? 0),
-		0,
-	);
-	const hppMtd = settlementsMtd.reduce((s, r) => s + (r.hpp_total ?? 0), 0);
-	const opexMtd = settlementsMtd.reduce((s, r) => s + (r.opex_total ?? 0), 0);
-	const sinkingMtd = settlementsMtd.reduce(
-		(s, r) => s + (r.sinking_total ?? 0),
-		0,
-	);
-	const ownerPoolMtd = settlementsMtd.reduce(
-		(s, r) => s + (r.owner_pool_total ?? 0),
-		0,
-	);
-	const lossCount = settlementsMtd.filter((s) => s.is_loss).length;
-
-	const netProfitLm = (
-		(settlementsLmData ?? []) as Array<{ net_profit: number }>
-	).reduce((s, r) => s + (r.net_profit ?? 0), 0);
-	const profitDelta =
-		netProfitLm !== 0
-			? ((netProfitMtd - netProfitLm) / Math.abs(netProfitLm)) * 100
-			: null;
-	const marginMtd =
-		revenueNetMtd > 0 ? (netProfitMtd / revenueNetMtd) * 100 : 0;
-
 	const outstanding = (outstandingData as number | null) ?? 0;
 
 	// Mode Simpel — angka inti dari Buku Besar: uang di bank (1-1xx) & total utang
@@ -521,6 +449,16 @@ export default async function FinancePage({
 		utangGl > 0 ? `utang ${formatRupiah(utangGl)}` : null,
 	].filter(Boolean);
 
+	// Laporan bulanan (untung-rugi per event + arus kas) — bulan via ?bulan=.
+	const thisYm = ymOf(today);
+	const reportYm = bulan && /^\d{4}-\d{2}$/.test(bulan) ? bulan : thisYm;
+	const [overview, pnl, pnlNow] = await Promise.all([
+		getMonthlyOverview(supabase, reportYm),
+		getMonthlyPnl(supabase, reportYm),
+		reportYm === thisYm ? null : getMonthlyPnl(supabase, thisYm),
+	]);
+	const untungBulanIni = (pnlNow ?? pnl).net;
+
 	// Mode Simpel — 6 angka inti dalam bahasa awam (owner non-akuntan).
 	const simpleStats: Array<{
 		label: string;
@@ -553,9 +491,9 @@ export default async function FinancePage({
 		},
 		{
 			label: "Untung bulan ini",
-			value: netProfitMtd,
-			hint: "Pendapatan dikurangi semua biaya, dari event yang sudah di-settle bulan ini.",
-			tone: netProfitMtd >= 0 ? "good" : "warn",
+			value: untungBulanIni,
+			hint: "Pendapatan event bulan ini (yang sudah di-settle) dikurangi biaya event dan biaya bulanan. DP event bulan depan belum dihitung. Rinciannya di Laporan bulan di bawah.",
+			tone: untungBulanIni >= 0 ? "good" : "warn",
 		},
 		{
 			label: "Belum dibayar klien",
@@ -634,98 +572,30 @@ export default async function FinancePage({
 				</div>
 			</div>
 
-			<KpiRow>
-				<KpiCard
-					label="Revenue MTD (cash)"
-					value={formatRupiah(revenueMtd)}
-					hint={
-						revenueDelta !== null
-							? `Uang diterima · ${revenueDelta >= 0 ? "+" : ""}${revenueDelta.toFixed(1)}% vs ${ID_MONTH_NAMES[lastMonth.getMonth()]}`
-							: "Uang diterima bulan ini (cash basis). P&L pakai revenue settled (accrual)."
-					}
-					icon={Wallet2}
-					accent={
-						revenueDelta !== null && revenueDelta < 0 ? "amber" : "emerald"
-					}
-				/>
-				<KpiCard
-					label="Net Profit MTD"
-					value={formatRupiah(netProfitMtd)}
-					hint={
-						profitDelta !== null
-							? `${profitDelta >= 0 ? "+" : ""}${profitDelta.toFixed(1)}% vs ${ID_MONTH_NAMES[lastMonth.getMonth()]}${lossCount > 0 ? ` · ${lossCount} loss` : ""}`
-							: marginMtd
-								? `Margin ${marginMtd.toFixed(1)}%`
-								: "Belum ada settlement"
-					}
-					icon={netProfitMtd >= 0 ? TrendingUp : TrendingDown}
-					accent={
-						netProfitMtd < 0 ? "rose" : marginMtd > 25 ? "emerald" : "primary"
-					}
-				/>
-				<KpiCard
-					label="Outstanding"
-					value={formatRupiah(outstanding)}
-					hint="Piutang event live (excl. archive)"
-					icon={AlertCircle}
-					accent={
-						outstanding >= 15_000_000
-							? "rose"
-							: outstanding >= 5_000_000
-								? "amber"
-								: "sky"
-					}
-				/>
-				<KpiCard
-					label="Sinking Total"
-					value={formatRupiah(totalSinking)}
-					hint={`${funds.length} fund${funds.length !== 1 ? "s" : ""} aktif`}
-					icon={PiggyBank}
-					accent="primary"
-				/>
-			</KpiRow>
-
-			<SectionCard
-				title={
-					<>
-						Profit breakdown
-						<span className="text-muted-foreground font-medium">
-							{" "}
-							· {monthLabel}
-						</span>
-					</>
+			<MonthlyReport
+				pnl={pnl}
+				cash={{
+					opening: overview.current.opening,
+					inflow: overview.current.inflow,
+					outflow: overview.current.outflow,
+					closing: overview.current.closing,
+					outflowForExpense: overview.outflowForExpense,
+					outflowNonExpense: overview.outflowNonExpense,
+				}}
+				monthLabel={monthLabelLong(reportYm)}
+				freeCash={uangBebas}
+				switcher={
+					<MonthSwitcher
+						months={overview.months}
+						current={reportYm}
+						prevYm={overview.prevYm}
+						nextYm={overview.nextYm}
+						labelOf={Object.fromEntries(
+							overview.months.map((m) => [m, monthLabelLong(m)]),
+						)}
+					/>
 				}
-				meta={
-					<span className="text-muted-foreground tabular text-xs">
-						{settlementsMtd.length} settled event
-						{settlementsMtd.length !== 1 ? "s" : ""}
-					</span>
-				}
-			>
-				<dl className="divide-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5 lg:divide-y-0">
-					<BreakdownStat
-						label="Revenue net"
-						value={revenueNetMtd}
-						tone="emerald"
-						sign="+"
-					/>
-					<BreakdownStat label="HPP" value={hppMtd} tone="rose" sign="−" />
-					<BreakdownStat label="OpEx" value={opexMtd} tone="rose" sign="−" />
-					<BreakdownStat
-						label="Sinking"
-						value={sinkingMtd}
-						tone="amber"
-						sign="−"
-						hint="Disisihin"
-					/>
-					<BreakdownStat
-						label="Bagi hasil owner"
-						value={ownerPoolMtd}
-						tone="primary"
-						hint="Jatah owner"
-					/>
-				</dl>
-			</SectionCard>
+			/>
 
 			<SectionCard
 				title="Rincian dana cadangan"
@@ -973,9 +843,9 @@ export default async function FinancePage({
 							Jatah keuntungan tiap owner dari event yang sudah selesai
 							(Rp50.000 per event). Kalau untung event tidak cukup, jatahnya
 							"tertunda" dan dibayar dari sisa untung event berikutnya. Jatah
-							dari event bulan ini baru bisa diambil
-							bulan depan — jadi "Bisa diambil" hanya menghitung bulan-bulan
-							yang sudah lewat, dikurangi yang sudah ditarik.
+							dari event bulan ini baru bisa diambil bulan depan — jadi "Bisa
+							diambil" hanya menghitung bulan-bulan yang sudah lewat, dikurangi
+							yang sudah ditarik.
 						</InfoHint>
 					}
 					meta={
@@ -1213,43 +1083,6 @@ function HeaderLink({
 		>
 			{children} →
 		</Link>
-	);
-}
-
-function BreakdownStat({
-	label,
-	value,
-	tone,
-	sign,
-	hint,
-}: {
-	label: string;
-	value: number;
-	tone: "primary" | "emerald" | "amber" | "rose" | "muted";
-	sign?: "+" | "−";
-	hint?: string;
-}) {
-	const cls =
-		tone === "primary"
-			? "text-primary"
-			: tone === "emerald"
-				? "text-emerald-600 dark:text-emerald-400"
-				: tone === "rose"
-					? "text-rose-600 dark:text-rose-400"
-					: tone === "amber"
-						? "text-amber-600 dark:text-amber-400"
-						: "text-muted-foreground";
-	return (
-		<div className="space-y-1 px-4 py-3">
-			<dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">
-				{label}
-			</dt>
-			<dd className={`tabular text-base font-semibold ${cls}`}>
-				{sign && value > 0 ? sign : ""}
-				{formatRupiah(value)}
-			</dd>
-			{hint && <p className="text-muted-foreground text-[10px]">{hint}</p>}
-		</div>
 	);
 }
 

@@ -15,9 +15,12 @@ import { cn } from "@/lib/utils";
  * Sumber: snappic.com, photoboothint.com, bennettfinancials.com (Sep 2026).
  */
 
-type Status = "baik" | "cek" | "buruk";
+export type Status = "baik" | "cek" | "buruk";
 
-const STATUS: Record<Status, { label: string; chip: string; bar: string }> = {
+export const STATUS: Record<
+	Status,
+	{ label: string; chip: string; bar: string }
+> = {
 	baik: {
 		label: "Sehat",
 		chip: "bg-emerald-50 text-emerald-800 border-emerald-200",
@@ -36,7 +39,7 @@ const STATUS: Record<Status, { label: string; chip: string; bar: string }> = {
 };
 
 /** Makin kecil makin bagus (biaya). */
-function costStatus(pct: number, good: number, warn: number): Status {
+export function costStatus(pct: number, good: number, warn: number): Status {
 	return pct <= good ? "baik" : pct <= warn ? "cek" : "buruk";
 }
 
@@ -228,7 +231,7 @@ export function EventHealth({
 	);
 }
 
-function StatusChip({ status }: { status: Status }) {
+export function StatusChip({ status }: { status: Status }) {
 	return (
 		<span
 			className={cn(
