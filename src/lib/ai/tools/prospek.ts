@@ -268,6 +268,18 @@ export const prospekDaftar: AiTool = {
 		},
 	},
 	async run(args, ctx) {
+		if (Array.isArray(args.cek)) {
+			const sudah = await kunciTercatat(ctx);
+			const daftar = args.cek.filter((x): x is string => typeof x === "string");
+			return {
+				sudah_ada: daftar.filter((x) =>
+					[
+						...kunciProspek(x, null),
+						...kunciProspek(null, x.includes(".") ? x : null),
+					].some((k) => sudah.has(k)),
+				),
+			};
+		}
 		const maks =
 			typeof args.maks === "number" ? Math.min(Math.max(args.maks, 1), 50) : 20;
 		let q = ctx.supabase
