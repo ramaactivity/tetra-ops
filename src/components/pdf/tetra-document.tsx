@@ -24,6 +24,7 @@ import {
 	formatDateLongForPdf,
 	formatNumberForPdf,
 	formatRupiahForPdf,
+	GRID,
 	type HeaderVariant,
 	LabelBlock,
 	MetaRow,
@@ -229,7 +230,13 @@ function PriceTable({ d }: { d: PdfDocData }) {
 	);
 }
 
-type TotalLine = { k: string; v: string; bold?: boolean };
+type TotalLine = {
+	k: string;
+	v: string;
+	bold?: boolean;
+	/** Hairline di atas baris — memisahkan kelompok pembayaran dari Total. */
+	rule?: boolean;
+};
 
 /** Totals: label mulai kolom 4 (span 2), nilai kolom 6 rata kanan. */
 function Totals({ lines }: { lines: TotalLine[] }) {
@@ -242,9 +249,22 @@ function Totals({ lines }: { lines: TotalLine[] }) {
 					// Indeks: dua pembayaran sejenis di tanggal sama = label kembar.
 					// biome-ignore lint/suspicious/noArrayIndexKey: urutan baris stabil
 					key={i}
-					style={[{ paddingVertical: 1.7 }, l.bold ? S.bold : {}]}
+					style={[
+						{ paddingVertical: 1.7 },
+						l.bold ? S.bold : {},
+						// Garis hanya selebar kolom 4–6 (area total), bukan selebar halaman.
+						l.rule
+							? {
+									marginLeft: GRID.span[3] + GRID.gap,
+									marginTop: 4,
+									paddingTop: 5.7,
+									borderTopWidth: 0.75,
+									borderTopColor: C.hairline,
+								}
+							: {},
+					]}
 				>
-					<Col span={2} start={4}>
+					<Col span={2} start={l.rule ? undefined : 4}>
 						<Text>{l.k}</Text>
 					</Col>
 					<Col span={1}>
@@ -268,6 +288,8 @@ function billingTotals(d: PdfDocData): TotalLine[] {
 	lines.push({ k: "Total", v: n(t.total), bold: true });
 	// Riwayat pembayaran (urut tanggal): satu baris per pembayaran, pola yang
 	// sama dengan nota lunas. Invoice menutupnya dengan jumlah "Sudah dibayar".
+	// Kelompok ini diawali hairline supaya tidak terbaca sebagai biaya tambahan.
+	const paidStart = lines.length;
 	for (const p of d.payment?.history ?? [])
 		lines.push({
 			k: `${labelType(p.type)} · ${formatDateDots(p.date)}`,
@@ -275,6 +297,7 @@ function billingTotals(d: PdfDocData): TotalLine[] {
 		});
 	if (d.docType === "invoice" && d.payment)
 		lines.push({ k: "Sudah dibayar", v: n(d.payment.totalPaid), bold: true });
+	if (lines[paidStart]) lines[paidStart].rule = true;
 	return lines;
 }
 
