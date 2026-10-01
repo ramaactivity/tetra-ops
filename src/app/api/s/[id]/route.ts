@@ -49,7 +49,7 @@ small{color:#666}</style></head><body>
 ${ke === "email" ? `<p><b>${esc(p.draf_subjek ?? "")}</b></p>` : ""}
 <pre>${esc(p.draf_pesan ?? "")}</pre>
 <a class="b" href="${esc(href)}">Buka ${ke === "wa" ? "WhatsApp" : "aplikasi email"}</a>
-<p><small>Edit seperlunya sebelum kirim. Setelah terkirim, bilang ke agent Sales "sudah kirim".</small></p>
+<p><small>Edit seperlunya sebelum kirim. Setelah terkirim, bilang ke Bruno di topic Sales "sudah kirim".</small></p>
 </body></html>`;
 	return new Response(html, {
 		headers: {
