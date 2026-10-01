@@ -235,10 +235,15 @@ type TotalLine = { k: string; v: string; bold?: boolean };
 function Totals({ lines }: { lines: TotalLine[] }) {
 	return (
 		<View style={{ paddingTop: 6 }} wrap={false}>
-			{lines.map((l) => (
+			{lines.map((l, i) => (
 				// Ritme baris ≈ lineHeight 1.85 handoff (padding, bukan lineHeight:
 				// react-pdf melipatgandakan tinggi baris multi-View).
-				<Row key={l.k} style={[{ paddingVertical: 1.7 }, l.bold ? S.bold : {}]}>
+				<Row
+					// Indeks: dua pembayaran sejenis di tanggal sama = label kembar.
+					// biome-ignore lint/suspicious/noArrayIndexKey: urutan baris stabil
+					key={i}
+					style={[{ paddingVertical: 1.7 }, l.bold ? S.bold : {}]}
+				>
 					<Col span={2} start={4}>
 						<Text>{l.k}</Text>
 					</Col>
@@ -261,14 +266,15 @@ function billingTotals(d: PdfDocData): TotalLine[] {
 		});
 	if (t.discount > 0) lines.push({ k: "Diskon", v: n(-t.discount) });
 	lines.push({ k: "Total", v: n(t.total), bold: true });
+	// Riwayat pembayaran (urut tanggal): satu baris per pembayaran, pola yang
+	// sama dengan nota lunas. Invoice menutupnya dengan jumlah "Sudah dibayar".
+	for (const p of d.payment?.history ?? [])
+		lines.push({
+			k: `${labelType(p.type)} · ${formatDateDots(p.date)}`,
+			v: n(p.amount),
+		});
 	if (d.docType === "invoice" && d.payment)
-		lines.push({ k: "Sudah dibayar", v: n(d.payment.totalPaid) });
-	if (d.docType === "nota_lunas")
-		for (const p of d.payment?.history ?? [])
-			lines.push({
-				k: `${labelType(p.type)} · ${formatDateDots(p.date)}`,
-				v: n(p.amount),
-			});
+		lines.push({ k: "Sudah dibayar", v: n(d.payment.totalPaid), bold: true });
 	return lines;
 }
 
@@ -433,11 +439,7 @@ function ReceiptPage({
 			d={d}
 			variant={variant}
 			bottom={
-				<PdfBottom
-					bank={d.bank}
-					terms={termLines(d)}
-					signer={d.signer}
-				/>
+				<PdfBottom bank={d.bank} terms={termLines(d)} signer={d.signer} />
 			}
 		>
 			<MetaRow
