@@ -7,6 +7,7 @@ import {
 	type Prospek,
 	SEGMEN,
 	STATUS_PROSPEK,
+	sapaHref,
 	sapaLinks,
 } from "@/lib/prospek";
 
@@ -363,10 +364,89 @@ export const prospekUbah: AiTool = {
 	},
 };
 
+export const prospekKirimWa: AiTool = {
+	name: "prospek_kirim_wa",
+	description:
+		"Titipkan sapaan WA pertama ke prospek lewat bot WA Tetra (CS Mintet). Hanya untuk prospek berstatus kandidat " +
+		"dengan nomor HP. Bot membatasi 15 nomor/hari, Senin–Jumat 09–17 WIB, berjeda; kelebihan otomatis antre ke hari berikutnya.",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			id: {
+				type: "STRING",
+				description: "id prospek dari prospek_simpan/prospek_daftar.",
+			},
+			pesan: {
+				type: "STRING",
+				description: "Sapaan WA 40–80 kata, personal, tanpa link.",
+			},
+		},
+		required: ["id", "pesan"],
+	},
+	async run(args, ctx) {
+		const id = str(args.id, 40);
+		const pesan = str(args.pesan, 1000);
+		if (!id || !pesan || pesan.length < 40)
+			return { error: "id dan pesan (min. 40 karakter) wajib" };
+		const { data: p } = await ctx.supabase
+			.from("prospek")
+			.select("id, nama, telepon, status, catatan")
+			.eq("id", id)
+			.maybeSingle();
+		if (!p) return { error: `prospek ${id} tidak ditemukan` };
+		if (p.status !== "kandidat")
+			return {
+				error: `${p.nama} berstatus ${p.status}, bukan kandidat; tidak disapa ulang.`,
+			};
+		const href = sapaHref(
+			{ ...p, email: null, draf_subjek: null, draf_pesan: pesan } as Prospek,
+			"wa",
+		);
+		if (!href)
+			return {
+				error: `${p.nama} tidak punya nomor HP (telepon kantor bukan WA).`,
+			};
+		const nomor = new URL(href).pathname.slice(1);
+
+		const { data: cmd, error } = await ctx.supabase
+			.from("bot_commands")
+			.insert({
+				command: `send-text:${JSON.stringify({ nomor, pesan })}`,
+				status: "pending",
+			})
+			.select("id")
+			.single();
+		if (error) return { error: `Gagal menitipkan ke bot: ${error.message}` };
+		const catatan = [p.catatan, `WA dititipkan ke CS Mintet (cmd ${cmd.id})`]
+			.filter(Boolean)
+			.join("\n");
+		await ctx.supabase
+			.from("prospek")
+			.update({
+				status: "disapa",
+				disapa_at: new Date().toISOString(),
+				draf_pesan: pesan,
+				catatan,
+				updated_at: new Date().toISOString(),
+			})
+			.eq("id", id);
+		return {
+			status: "antre",
+			nama: p.nama,
+			nomor,
+			catatan:
+				"Bot mengirim sesuai rem (maks 15/hari, jam kerja, berjeda). Nomor yang ternyata tidak ada di WhatsApp ditolak bot.",
+		};
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
 	prospekSimpan,
 	prospekDaftar,
 	prospekUbah,
+	prospekKirimWa,
 ];
