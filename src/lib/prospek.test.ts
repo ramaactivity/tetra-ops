@@ -51,3 +51,9 @@ test("kunci anti-duplikat: badan hukum & www diabaikan", () => {
 	assert.deepEqual(kunciProspek(null, "astra.co.id"), ["d:astra.co.id"]);
 	assert.deepEqual(kunciProspek("PT", "bukan url ::"), []);
 });
+
+test("telepon kantor (021) bukan WA", () => {
+	assert.equal(sapaHref({ ...p, telepon: "+62 21 29035123" }, "wa"), null);
+	assert.equal(sapaHref({ ...p, telepon: "(021) 2903-5123" }, "wa"), null);
+	assert.ok(sapaHref({ ...p, telepon: "0812 3456 7890" }, "wa"));
+});

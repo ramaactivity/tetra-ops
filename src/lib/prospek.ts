@@ -48,7 +48,12 @@ export function sapaHref(p: Prospek, ke: "email" | "wa"): string | null {
 		// URLSearchParams menulis spasi sebagai "+", mail client butuh %20.
 		return `mailto:${p.email.trim()}?${q.toString().replace(/\+/g, "%20")}`;
 	}
-	if (!isLikelyWaPhone(p.telepon)) return null;
+	// Hanya nomor HP (62 8…): telepon kantor 021/031 dst. tidak ada di WhatsApp.
+	if (
+		!isLikelyWaPhone(p.telepon) ||
+		!toWaPhone(p.telepon as string).startsWith("628")
+	)
+		return null;
 	return `https://wa.me/${toWaPhone(p.telepon as string)}?text=${encodeURIComponent(pesan)}`;
 }
 
