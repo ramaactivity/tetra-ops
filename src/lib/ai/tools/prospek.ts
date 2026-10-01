@@ -3,6 +3,7 @@ import "server-only";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
 import {
 	emailValid,
+	kunciProspek,
 	type Prospek,
 	SEGMEN,
 	STATUS_PROSPEK,
@@ -185,10 +186,20 @@ function bersihkan(raw: Record<string, unknown>) {
 	};
 }
 
+// ponytail: baca seluruh nama+website tiap simpan; cukup sampai ribuan baris,
+// pindah ke kolom kunci ber-index kalau daftar prospek membengkak.
+async function kunciTercatat(ctx: AiToolContext): Promise<Set<string>> {
+	const { data } = await ctx.supabase
+		.from("prospek")
+		.select("nama, website")
+		.limit(10000);
+	return new Set((data ?? []).flatMap((r) => kunciProspek(r.nama, r.website)));
+}
+
 export const prospekSimpan: AiTool = {
 	name: "prospek_simpan",
 	description:
-		"Catat prospek baru ke daftar (status kandidat) beserta draf sapaannya. Yang place_id-nya sudah ada dilewati. " +
+		"Catat prospek baru ke daftar (status kandidat) beserta draf sapaannya. Yang sudah ada (place_id, nama, atau domain website sama) dilewati. " +
 		"Mengembalikan id + link_email/link_wa untuk dikirim ke Rama; Rama yang menekan kirim.",
 	scope: "ops",
 	langsung: true,
@@ -210,9 +221,19 @@ export const prospekSimpan: AiTool = {
 		if (!rows.length)
 			return { error: "prospek kosong (tiap item wajib punya nama)" };
 
+		const sudah = await kunciTercatat(ctx);
+		const unik = rows.filter((r) => {
+			const k = kunciProspek(r.nama, r.website);
+			if (k.some((x) => sudah.has(x))) return false;
+			for (const x of k) sudah.add(x);
+			return true;
+		});
+		if (!unik.length)
+			return { tersimpan: 0, dilewati_duplikat: rows.length, prospek: [] };
+
 		const { data, error } = await ctx.supabase
 			.from("prospek")
-			.upsert(rows, { onConflict: "place_id", ignoreDuplicates: true })
+			.upsert(unik, { onConflict: "place_id", ignoreDuplicates: true })
 			.select(KOLOM);
 		if (error) return { error: error.message };
 		const baru = (data ?? []) as unknown as Prospek[];
@@ -237,6 +258,12 @@ export const prospekDaftar: AiTool = {
 			segmen: { type: "STRING", enum: [...SEGMEN] },
 			cari: { type: "STRING", description: "Potongan nama." },
 			perlu_follow_up: { type: "BOOLEAN" },
+			cek: {
+				type: "ARRAY",
+				items: { type: "STRING" },
+				description:
+					"Nama perusahaan atau website yang mau dicek sebelum diriset; hasil `sudah_ada` berisi yang sudah tercatat.",
+			},
 			maks: { type: "INTEGER", description: "Default 20, maks 50." },
 		},
 	},

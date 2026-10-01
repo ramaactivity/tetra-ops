@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type Prospek, sapaHref, sapaLinks } from "./prospek";
+import { kunciProspek, type Prospek, sapaHref, sapaLinks } from "./prospek";
 
 const p: Prospek = {
 	id: "11111111-1111-1111-1111-111111111111",
@@ -38,4 +38,16 @@ test("tanpa kontak valid → tanpa link", () => {
 		sapaLinks(p, "https://x.app/").link_wa,
 		`https://x.app/api/s/${p.id}?ke=wa`,
 	);
+});
+
+test("kunci anti-duplikat: badan hukum & www diabaikan", () => {
+	assert.deepEqual(
+		kunciProspek("PT Astra International Tbk", "https://www.astra.co.id/about"),
+		["n:astrainternational", "d:astra.co.id"],
+	);
+	assert.deepEqual(kunciProspek("Astra International", null), [
+		"n:astrainternational",
+	]);
+	assert.deepEqual(kunciProspek(null, "astra.co.id"), ["d:astra.co.id"]);
+	assert.deepEqual(kunciProspek("PT", "bukan url ::"), []);
 });

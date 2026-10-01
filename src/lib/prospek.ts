@@ -60,3 +60,28 @@ export function sapaLinks(p: Prospek, baseUrl: string) {
 		link_wa: sapaHref(p, "wa") ? `${base}?ke=wa` : null,
 	};
 }
+
+/**
+ * Kunci anti-duplikat untuk prospek tanpa place_id (hasil web search):
+ * nama tanpa badan hukum/tanda baca, dan domain website tanpa www.
+ */
+export function kunciProspek(
+	nama?: string | null,
+	website?: string | null,
+): string[] {
+	const out: string[] = [];
+	const n = (nama ?? "")
+		.toLowerCase()
+		.replace(/\b(pt|cv|tbk|persero|indonesia)\b/g, "")
+		.replace(/[^a-z0-9]/g, "");
+	if (n.length >= 3) out.push(`n:${n}`);
+	try {
+		const raw = (website ?? "").trim();
+		if (raw) {
+			const host = new URL(raw.includes("://") ? raw : `https://${raw}`)
+				.hostname;
+			out.push(`d:${host.replace(/^www\./, "")}`);
+		}
+	} catch {}
+	return out;
+}
