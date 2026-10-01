@@ -166,3 +166,30 @@ test("tool tulis: usulan dulu, konfirmasi + actorId wajib", async () => {
 	);
 	assert.ok((salah.body as { error?: unknown }).error);
 });
+
+test("tool langsung: diumumkan sebagai tulis, tetap tanpa konfirmasi", async () => {
+	const catat: AiTool = { ...echo, name: "catat", langsung: true };
+	const list = await handleMcpRequest(
+		{ jsonrpc: "2.0", id: 9, method: "tools/list" },
+		[catat],
+		ctx,
+	);
+	const tool = (
+		list.body as { result: { tools: Array<Record<string, unknown>> } }
+	).result.tools[0];
+	assert.deepEqual(tool.annotations, { readOnlyHint: false });
+	const call = await handleMcpRequest(
+		{
+			jsonrpc: "2.0",
+			id: 10,
+			method: "tools/call",
+			params: { name: "catat", arguments: { teks: "ok" } },
+		},
+		[catat],
+		ctx,
+	);
+	assert.equal(
+		(call.body as { result: { isError: boolean } }).result.isError,
+		false,
+	);
+});

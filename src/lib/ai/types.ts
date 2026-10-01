@@ -63,6 +63,12 @@ export type AiTool = {
 	 */
 	mutates?: boolean;
 	/**
+	 * Tulisan berisiko rendah yang langsung jalan tanpa usulan (mis. mencatat
+	 * prospek ke daftar internal dari cron agent, yang tak bisa minta izin).
+	 * `mutates` tetap kosong; MCP hanya mengumumkannya readOnlyHint=false.
+	 */
+	langsung?: boolean;
+	/**
 	 * Hanya tool tulis: validasi + ringkasan apa yang AKAN terjadi, tanpa
 	 * menyimpan. Lapisan MCP mengeksposnya sebagai tool baca `<nama>_usulan`
 	 * dan menolak `run` sebelum owner mengonfirmasi.

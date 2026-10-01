@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { handleMcpRequest } from "@/lib/ai/mcp";
 import { toolsForRole } from "@/lib/ai/registry";
+import { SALES_TOOLS } from "@/lib/ai/tools/prospek";
 import { isAuthorizedBearer } from "@/lib/bot-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isoDateUTC, wibNow } from "@/lib/telegram/digest";
@@ -39,7 +40,10 @@ async function resolveActorId(
 }
 
 export async function POST(req: NextRequest) {
-	if (!isAuthorizedBearer(req, "MCP_API_TOKEN")) {
+	// MCP_SALES_TOKEN (agent sales Hermes) hanya membuka SALES_TOOLS:
+	// prospek outbound, tanpa data klien/keuangan dan tanpa hak tulis owner.
+	const owner = isAuthorizedBearer(req, "MCP_API_TOKEN");
+	if (!owner && !isAuthorizedBearer(req, "MCP_SALES_TOKEN")) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
@@ -58,13 +62,19 @@ export async function POST(req: NextRequest) {
 	}
 
 	const supabase = createAdminClient();
-	const reply = await handleMcpRequest(body, toolsForRole("owner"), {
-		supabase,
-		role: "owner",
-		todayISO: isoDateUTC(wibNow()),
-		surface: "mcp",
-		actorId: (await resolveActorId(supabase)) ?? undefined,
-	});
+	const reply = await handleMcpRequest(
+		body,
+		owner ? toolsForRole("owner") : SALES_TOOLS,
+		{
+			supabase,
+			role: "owner",
+			todayISO: isoDateUTC(wibNow()),
+			surface: "mcp",
+			actorId: owner
+				? ((await resolveActorId(supabase)) ?? undefined)
+				: undefined,
+		},
+	);
 
 	if (reply.body === undefined)
 		return new Response(null, { status: reply.status });

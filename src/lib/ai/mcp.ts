@@ -63,7 +63,7 @@ export function listMcpTools(tools: AiTool[]): McpToolEntry[] {
 				name: t.name,
 				description: t.description,
 				inputSchema: schema,
-				annotations: { readOnlyHint: true },
+				annotations: { readOnlyHint: !t.langsung },
 			});
 			continue;
 		}

@@ -1,0 +1,41 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { type Prospek, sapaHref, sapaLinks } from "./prospek";
+
+const p: Prospek = {
+	id: "11111111-1111-1111-1111-111111111111",
+	nama: "PT Contoh",
+	email: "hr@contoh.co.id",
+	telepon: "0812-3456-7890",
+	draf_subjek: "Photobooth gathering akhir tahun",
+	draf_pesan: "Halo Tim HR & GA,\nSalam dari Tetra & kawan-kawan?",
+};
+
+test("mailto: subjek & isi ter-encode, spasi %20 bukan +", () => {
+	const href = sapaHref(p, "email") as string;
+	assert.ok(href.startsWith("mailto:hr@contoh.co.id?"));
+	assert.ok(!href.includes("+"));
+	const q = new URLSearchParams(href.split("?")[1]);
+	assert.equal(q.get("subject"), p.draf_subjek);
+	assert.equal(q.get("body"), p.draf_pesan);
+});
+
+test("wa.me: nomor dinormalkan, teks utuh", () => {
+	const href = sapaHref(p, "wa") as string;
+	const u = new URL(href);
+	assert.equal(u.pathname, "/6281234567890");
+	assert.equal(u.searchParams.get("text"), p.draf_pesan);
+});
+
+test("tanpa kontak valid → tanpa link", () => {
+	const kosong = { ...p, email: "bukan-email", telepon: "92908" };
+	assert.equal(sapaHref(kosong, "email"), null);
+	assert.deepEqual(sapaLinks(kosong, "https://x.app/"), {
+		link_email: null,
+		link_wa: null,
+	});
+	assert.equal(
+		sapaLinks(p, "https://x.app/").link_wa,
+		`https://x.app/api/s/${p.id}?ke=wa`,
+	);
+});
