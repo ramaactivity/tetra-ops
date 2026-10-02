@@ -616,6 +616,8 @@ async function antrekanSapaan(
 		tersimpan: r.baru.length,
 		email_diantrekan: emailOk.length,
 		wa_diantrekan: waOk.length,
+		// id dipakai langkah berikut (mis. prospek_dm_ig) tanpa mencari ulang.
+		prospek: r.baru.map((p) => ({ id: p.id, nama: p.nama })),
 		laporan: `${r.baru.length} prospek\n\n${bagian.join("\n\n")}`,
 	};
 }
