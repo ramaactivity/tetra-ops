@@ -223,33 +223,229 @@ export const prospekSimpan: AiTool = {
 		required: ["prospek"],
 	},
 	async run(args, ctx) {
-		const raw = Array.isArray(args.prospek) ? args.prospek.slice(0, 30) : [];
-		const rows = raw
-			.map((r) => bersihkan((r ?? {}) as Record<string, unknown>))
-			.filter((r) => r.nama);
-		if (!rows.length)
-			return { error: "prospek kosong (tiap item wajib punya nama)" };
-
-		const sudah = await kunciTercatat(ctx);
-		const unik = rows.filter((r) => {
-			const k = kunciProspek(r.nama, r.website);
-			if (k.some((x) => sudah.has(x))) return false;
-			for (const x of k) sudah.add(x);
-			return true;
-		});
-		if (!unik.length)
-			return { tersimpan: 0, dilewati_duplikat: rows.length, prospek: [] };
-
-		const { data, error } = await ctx.supabase
-			.from("prospek")
-			.upsert(unik, { onConflict: "place_id", ignoreDuplicates: true })
-			.select(KOLOM);
-		if (error) return { error: error.message };
-		const baru = (data ?? []) as unknown as Prospek[];
+		const r = await simpanUnik(args.prospek, ctx);
+		if ("error" in r) return r;
 		return {
-			tersimpan: baru.length,
-			dilewati_duplikat: rows.length - baru.length,
-			prospek: denganLink(baru),
+			tersimpan: r.baru.length,
+			dilewati_duplikat: r.dilewati,
+			prospek: denganLink(r.baru),
+		};
+	},
+};
+
+async function simpanUnik(
+	input: unknown,
+	ctx: AiToolContext,
+): Promise<
+	| { error: string }
+	| { baru: (Prospek & Record<string, unknown>)[]; dilewati: number }
+> {
+	const raw = Array.isArray(input) ? input.slice(0, 30) : [];
+	const rows = raw
+		.map((r) => bersihkan((r ?? {}) as Record<string, unknown>))
+		.filter((r) => r.nama);
+	if (!rows.length)
+		return { error: "prospek kosong (tiap item wajib punya nama)" };
+
+	const sudah = await kunciTercatat(ctx);
+	const unik = rows.filter((r) => {
+		const k = kunciProspek(r.nama, r.website);
+		if (k.some((x) => sudah.has(x))) return false;
+		for (const x of k) sudah.add(x);
+		return true;
+	});
+	if (!unik.length) return { baru: [], dilewati: rows.length };
+
+	const { data, error } = await ctx.supabase
+		.from("prospek")
+		.upsert(unik, { onConflict: "place_id", ignoreDuplicates: true })
+		.select(KOLOM);
+	if (error) return { error: error.message };
+	const baru = (data ?? []) as unknown as (Prospek & Record<string, unknown>)[];
+	return { baru, dilewati: rows.length - baru.length };
+}
+
+/** Titip satu pesan WA ke bot (antrean bot_commands); rem 15/hari ada di bot. */
+async function titipWa(ctx: AiToolContext, nomor: string, pesan: string) {
+	const { data, error } = await ctx.supabase
+		.from("bot_commands")
+		.insert({
+			command: `send-text:${JSON.stringify({ nomor, pesan })}`,
+			status: "pending",
+		})
+		.select("id")
+		.single();
+	return error ? { error: error.message } : { id: data.id as string };
+}
+
+type HasilColdReach = {
+	email: string;
+	external_ref: string;
+	id?: string;
+	status: string;
+	alasan?: string;
+	catatan?: string;
+};
+
+/** Panggil MCP Cold Reach draf_kirim (server-ke-server). */
+async function coldReachDrafKirim(
+	items: Record<string, unknown>[],
+): Promise<{ error: string } | HasilColdReach[]> {
+	const url =
+		process.env.COLDREACH_MCP_URL ??
+		"https://coldreach-beta.vercel.app/api/mcp";
+	const token = process.env.COLDREACH_MCP_TOKEN;
+	if (!token) return { error: "COLDREACH_MCP_TOKEN belum diisi di Vercel" };
+	try {
+		const res = await fetch(url, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "tools/call",
+				params: { name: "draf_kirim", arguments: { items } },
+			}),
+		});
+		const j = (await res.json()) as {
+			result?: { content?: { text?: string }[]; isError?: boolean };
+		};
+		const teks = j.result?.content?.[0]?.text ?? "{}";
+		const d = JSON.parse(teks) as { hasil?: HasilColdReach[]; error?: string };
+		if (j.result?.isError || d.error)
+			return { error: d.error ?? teks.slice(0, 300) };
+		return d.hasil ?? [];
+	} catch (e) {
+		return {
+			error: `Cold Reach tidak bisa dihubungi: ${e instanceof Error ? e.message : String(e)}`,
+		};
+	}
+}
+
+export const prospekTambah: AiTool = {
+	name: "prospek_tambah",
+	description:
+		"SATU langkah untuk prospek baru: simpan ke daftar, lalu langsung antrekan sapaannya — yang punya email ke Cold Reach " +
+		'(draf_subjek + draf_pesan diakhiri "Salam,"), yang tanpa email tapi punya nomor HP ke bot WA (draf_pesan = teks WA). ' +
+		"Mengembalikan `laporan` dari hasil nyata: salin apa adanya ke laporanmu, jangan mengarang status.",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			prospek: {
+				type: "ARRAY",
+				items: { type: "OBJECT", properties: ITEM_PROPS, required: ["nama"] },
+			},
+		},
+		required: ["prospek"],
+	},
+	async run(args, ctx) {
+		const r = await simpanUnik(args.prospek, ctx);
+		if ("error" in r) return r;
+		const sekarang = () => new Date().toISOString();
+		const catat = (
+			p: Record<string, unknown>,
+			baris: string,
+			extra: Record<string, unknown> = {},
+		) =>
+			ctx.supabase
+				.from("prospek")
+				.update({
+					catatan: [p.catatan, baris].filter(Boolean).join("\n"),
+					updated_at: sekarang(),
+					...extra,
+				})
+				.eq("id", p.id as string);
+
+		const email = r.baru.filter(
+			(p) => emailValid(p.email) && p.draf_subjek && p.draf_pesan,
+		);
+		const emailOk: string[] = [];
+		const emailTolak: string[] = [];
+		const lainnya: string[] = [];
+		if (email.length) {
+			const hasil = await coldReachDrafKirim(
+				email.map((p) => ({
+					email: p.email,
+					nama_perusahaan: p.nama,
+					website: p.website ?? undefined,
+					telepon: p.telepon ?? undefined,
+					nama_pic: p.pic ?? undefined,
+					subjek: p.draf_subjek,
+					isi: p.draf_pesan,
+					external_ref: p.id,
+				})),
+			);
+			if ("error" in hasil) {
+				for (const p of email)
+					await catat(p, `email belum diantrekan: ${hasil.error}`);
+				lainnya.push(
+					`⚠️ Cold Reach gagal (${hasil.error}); ${email.length} email belum diantrekan, prospek tetap tersimpan.`,
+				);
+			} else {
+				const perRef = new Map(hasil.map((h) => [h.external_ref, h]));
+				for (const p of email) {
+					const h = perRef.get(p.id);
+					if (h && h.status !== "ditolak") {
+						await catat(
+							p,
+							`email diantrekan Cold Reach #${(h.id ?? "").slice(0, 4)} (${h.status})`,
+						);
+						emailOk.push(
+							`• ${p.nama} — ${p.email} [#${(h.id ?? "").slice(0, 4)}]${h.catatan ? ` (${h.catatan})` : ""}`,
+						);
+					} else {
+						const alasan = h?.alasan ?? "tidak ada hasil dari Cold Reach";
+						await catat(p, `email ditolak Cold Reach: ${alasan}`);
+						emailTolak.push(`${p.nama} (${alasan})`);
+					}
+				}
+			}
+		}
+
+		const waOk: string[] = [];
+		const tanpaKontak: string[] = [];
+		for (const p of r.baru.filter((x) => !email.includes(x))) {
+			const pesan = String(p.draf_pesan ?? "");
+			const href = sapaHref({ ...p, email: null } as Prospek, "wa");
+			if (href && pesan.length >= 40) {
+				const nomor = new URL(href).pathname.slice(1);
+				const t = await titipWa(ctx, nomor, pesan);
+				if ("error" in t) {
+					lainnya.push(`⚠️ WA ${p.nama} gagal dititipkan: ${t.error}`);
+					continue;
+				}
+				await catat(p, `WA dititipkan ke CS Mintet (cmd ${t.id})`, {
+					status: "disapa",
+					disapa_at: sekarang(),
+				});
+				waOk.push(`• ${p.nama} — ${nomor}`);
+			} else tanpaKontak.push(p.nama);
+		}
+
+		const bagian = [
+			emailOk.length
+				? `Email diantrekan (${emailOk.length})\n${emailOk.join("\n")}`
+				: "",
+			waOk.length ? `WA diantrekan (${waOk.length})\n${waOk.join("\n")}` : "",
+			emailTolak.length
+				? `Email ditolak Cold Reach: ${emailTolak.join(", ")}`
+				: "",
+			tanpaKontak.length
+				? `Disimpan tanpa kontak (${tanpaKontak.length}): ${tanpaKontak.join(", ")}`
+				: "",
+			r.dilewati ? `Duplikat dilewati: ${r.dilewati}` : "",
+			...lainnya,
+		].filter(Boolean);
+		return {
+			tersimpan: r.baru.length,
+			email_diantrekan: emailOk.length,
+			wa_diantrekan: waOk.length,
+			laporan: `${r.baru.length} prospek baru\n\n${bagian.join("\n\n")}`,
 		};
 	},
 };
@@ -614,6 +810,7 @@ export const klienLama: AiTool = {
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
 	prospekSimpan,
+	prospekTambah,
 	prospekDaftar,
 	prospekUbah,
 	prospekKirimWa,
