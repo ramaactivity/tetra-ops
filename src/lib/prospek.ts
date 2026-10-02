@@ -142,3 +142,82 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 		per_kueri: perKueri,
 	};
 }
+
+const TERLARANG =
+	/terkemuka|terdepan|ternama|kebanggaan|menduga|berasumsi|\byakin\b|\btentu\b|\{first_name\}/gi;
+const EMAIL_CS =
+	/^(helpdesk|help|support|cs|care|customer|customerservice|customercare|custserv|pengaduan|complaint|keluhan|promo|noreply|no-reply)[._-]?\w*@/i;
+const EMAIL_GRATIS = new Set([
+	"gmail.com",
+	"yahoo.com",
+	"yahoo.co.id",
+	"hotmail.com",
+	"outlook.com",
+	"live.com",
+	"icloud.com",
+	"ymail.com",
+]);
+
+/** "www.hotelkristal.co.id/kontak" → "hotelkristal"; "a@mail.daikin.co.id" → "daikin". */
+export function labelMerek(hostAtauEmail: string): string {
+	const host = hostAtauEmail
+		.toLowerCase()
+		.split("@")
+		.pop()
+		?.replace(/^https?:\/\//, "")
+		.split(/[/:?#]/)[0]
+		.replace(/^www\./, "");
+	const bagian = (host ?? "").split(".").filter(Boolean);
+	const sld = new Set([
+		"co",
+		"ac",
+		"or",
+		"go",
+		"web",
+		"my",
+		"net",
+		"sch",
+		"biz",
+		"com",
+	]);
+	const n = bagian.length >= 3 && sld.has(bagian[bagian.length - 2]) ? 3 : 2;
+	return bagian[bagian.length - n] ?? "";
+}
+
+/**
+ * Gerbang terakhir sebelum sapaan diantrekan (semua jalur). Kosong = layak.
+ * Email: subjek+isi; WA: isi saja.
+ */
+export function periksaDraf(d: {
+	email?: string | null;
+	website?: string | null;
+	subjek?: string | null;
+	isi?: string | null;
+}): string[] {
+	const salah: string[] = [];
+	const isi = (d.isi ?? "").trim();
+	const kata = [
+		...new Set(
+			[...`${d.subjek ?? ""}\n${isi}`.matchAll(TERLARANG)].map((m) =>
+				m[0].toLowerCase(),
+			),
+		),
+	];
+	if (kata.length) salah.push(`pujian/tebakan: ${kata.join(", ")}`);
+	if (d.email) {
+		if (EMAIL_CS.test(d.email)) salah.push("email layanan pelanggan");
+		const domain = d.email.split("@").pop()?.toLowerCase() ?? "";
+		if (d.website && !EMAIL_GRATIS.has(domain)) {
+			const a = labelMerek(d.email);
+			const b = labelMerek(d.website);
+			if (a && b && !a.includes(b) && !b.includes(a))
+				salah.push(`email (${domain}) bukan domain website`);
+		}
+		if (!isi.endsWith("Salam,")) salah.push('isi tidak diakhiri "Salam,"');
+		const n = isi.split(/\s+/).filter(Boolean).length;
+		if (n < 50 || n > 160) salah.push(`panjang isi ${n} kata`);
+		if ((d.subjek ?? "").split(/\s+/).filter(Boolean).length > 8)
+			salah.push("subjek > 8 kata");
+	} else if (isi.length < 40) salah.push("pesan WA terlalu pendek");
+	return salah;
+}

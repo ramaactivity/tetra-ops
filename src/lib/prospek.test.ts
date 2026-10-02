@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	kunciProspek,
+	labelMerek,
 	type Prospek,
+	periksaDraf,
 	ringkasStatistik,
 	sapaHref,
 	sapaLinks,
@@ -72,7 +74,8 @@ test("statistik: per kueri dari catatan, kontak & status dihitung", () => {
 			sumber: "web",
 			email: "sales@a.id",
 			telepon: null,
-			catatan: "kueri: Gedung Bogor; musim: nikah\nWA dititipkan ke CS Mintet (cmd 1)",
+			catatan:
+				"kueri: Gedung Bogor; musim: nikah\nWA dititipkan ke CS Mintet (cmd 1)",
 		},
 		{
 			segmen: "venue",
@@ -102,4 +105,68 @@ test("statistik: per kueri dari catatan, kontak & status dihitung", () => {
 		membalas: 0,
 	});
 	assert.equal(r.per_kueri["(tanpa kueri)"].membalas, 1);
+});
+
+test("periksaDraf: gerbang terakhir sebelum antre", () => {
+	const isi = `Halo Bapak/Ibu,\n\n${"Hotel X punya ballroom 1.200 tamu di Kuningan. ".repeat(6)}\n\nSalam,`;
+	assert.deepEqual(
+		periksaDraf({
+			email: "sales@hotelkristal.co.id",
+			website: "https://hotelkristal.com",
+			subjek: "Vendor photobooth rekanan",
+			isi,
+		}),
+		[],
+	);
+	assert.deepEqual(
+		periksaDraf({
+			email: "weddings@ayanajakarta.com",
+			website: "https://ayana.com/jakarta",
+			subjek: "Kerja sama photobooth",
+			isi,
+		}),
+		[],
+	);
+	assert.deepEqual(
+		periksaDraf({
+			email: "x@gmail.com",
+			website: "jevahrewedding.com",
+			subjek: "Kerja sama",
+			isi,
+		}),
+		[],
+	);
+	const s = periksaDraf({
+		email: "corsec@bankmaspion.co.id",
+		website: "ccb.com",
+		subjek: "Uji",
+		isi: isi.replace("punya", "ternama punya"),
+	});
+	assert.ok(
+		s.some((x) => x.includes("pujian")) &&
+			s.some((x) => x.includes("bukan domain")),
+	);
+	assert.ok(
+		periksaDraf({
+			email: "helpdesk@a.co.id",
+			website: "a.co.id",
+			subjek: "Uji",
+			isi,
+		}).includes("email layanan pelanggan"),
+	);
+	assert.ok(
+		periksaDraf({
+			email: "hr@a.co.id",
+			website: "a.co.id",
+			subjek: "Uji",
+			isi: `${isi}\nRama`,
+		}).some((x) => x.includes("Salam")),
+	);
+	assert.deepEqual(
+		periksaDraf({
+			isi: "Halo Bapak/Ibu, saya Rama dari Tetra Photobooth, ingin berkenalan.",
+		}),
+		[],
+	);
+	assert.equal(labelMerek("a@mail.daikin.co.id"), "daikin");
 });

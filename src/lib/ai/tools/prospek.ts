@@ -5,6 +5,7 @@ import {
 	emailValid,
 	kunciProspek,
 	type Prospek,
+	periksaDraf,
 	ringkasStatistik,
 	SEGMEN,
 	STATUS_PROSPEK,
@@ -393,6 +394,24 @@ export const prospekAntrekan: AiTool = {
 	},
 };
 
+/** Prioritas, segmen, dan kampanye untuk draf_kirim Cold Reach (opsional di sana). */
+function metaColdReach(p: Record<string, unknown>) {
+	const catatan = String(p.catatan ?? "");
+	const klienLama = p.sumber === "klien_lama";
+	const musim = catatan.match(/musim:\s*([^;\n]+)/i)?.[1]?.trim();
+	return {
+		prioritas:
+			klienLama || /kueri:\s*radar/i.test(catatan) ? "tinggi" : "normal",
+		segmen: SEGMEN.includes(p.segmen as never) ? p.segmen : undefined,
+		kampanye: (klienLama
+			? "klien lama"
+			: musim && musim !== "-"
+				? musim
+				: undefined
+		)?.slice(0, 100),
+	};
+}
+
 /** Antrekan sapaan untuk prospek tersimpan: email → Cold Reach, HP tanpa email → bot WA. */
 async function antrekanSapaan(
 	ctx: AiToolContext,
@@ -413,7 +432,26 @@ async function antrekanSapaan(
 			})
 			.eq("id", p.id as string);
 
-	const email = r.baru.filter(
+	// Gerbang terakhir: draf yang melanggar aturan tidak diantrekan (semua jalur lewat sini).
+	const perbaiki: string[] = [];
+	const layak: typeof r.baru = [];
+	for (const p of r.baru) {
+		if (!p.draf_pesan) {
+			layak.push(p);
+			continue;
+		}
+		const salah = periksaDraf({
+			email: emailValid(p.email) ? p.email : null,
+			website: p.website as string | null,
+			subjek: p.draf_subjek,
+			isi: p.draf_pesan,
+		});
+		if (salah.length) {
+			await catat(p, `draf perlu diperbaiki: ${salah.join("; ")}`);
+			perbaiki.push(`${p.nama} (${salah.join("; ")})`);
+		} else layak.push(p);
+	}
+	const email = layak.filter(
 		(p) => emailValid(p.email) && p.draf_subjek && p.draf_pesan,
 	);
 	const emailOk: string[] = [];
@@ -430,6 +468,7 @@ async function antrekanSapaan(
 				subjek: p.draf_subjek,
 				isi: p.draf_pesan,
 				external_ref: p.id,
+				...metaColdReach(p),
 			})),
 		);
 		if ("error" in hasil) {
@@ -471,7 +510,7 @@ async function antrekanSapaan(
 
 	const waOk: string[] = [];
 	const tanpaKontak: string[] = [];
-	for (const p of r.baru.filter((x) => !email.includes(x))) {
+	for (const p of layak.filter((x) => !email.includes(x))) {
 		const pesan = String(p.draf_pesan ?? "");
 		const href = sapaHref({ ...p, email: null } as Prospek, "wa");
 		if (href && pesan.length >= 40) {
@@ -496,6 +535,9 @@ async function antrekanSapaan(
 		waOk.length ? `WA diantrekan (${waOk.length})\n${waOk.join("\n")}` : "",
 		emailTolak.length
 			? `Email ditolak Cold Reach: ${emailTolak.join(", ")}`
+			: "",
+		perbaiki.length
+			? `Draf perlu diperbaiki, belum diantrekan (${perbaiki.length}): ${perbaiki.join(", ")}`
 			: "",
 		tanpaKontak.length
 			? `Disimpan tanpa kontak (${tanpaKontak.length}): ${tanpaKontak.join(", ")}`
