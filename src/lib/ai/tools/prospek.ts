@@ -390,6 +390,11 @@ export const prospekKirimWa: AiTool = {
 				type: "STRING",
 				description: "Sapaan WA 40–80 kata, personal, tanpa link.",
 			},
+			lanjutan: {
+				type: "BOOLEAN",
+				description:
+					"true = WA lanjutan untuk prospek yang sudah di-email ≥7 hari tanpa balasan (status disapa/follow_up), sekali saja.",
+			},
 		},
 		required: ["id", "pesan"],
 	},
@@ -400,11 +405,23 @@ export const prospekKirimWa: AiTool = {
 			return { error: "id dan pesan (min. 40 karakter) wajib" };
 		const { data: p } = await ctx.supabase
 			.from("prospek")
-			.select("id, nama, telepon, status, catatan")
+			.select("id, nama, telepon, status, catatan, disapa_at")
 			.eq("id", id)
 			.maybeSingle();
 		if (!p) return { error: `prospek ${id} tidak ditemukan` };
-		if (p.status !== "kandidat")
+		const lanjutan = args.lanjutan === true;
+		const sudahWa = /WA (dititipkan|lanjutan)/.test(p.catatan ?? "");
+		if (lanjutan) {
+			const tujuhHari = Date.now() - 7 * 86_400_000;
+			if (!["disapa", "follow_up"].includes(p.status) || sudahWa)
+				return {
+					error: `${p.nama} tidak memenuhi WA lanjutan (status ${p.status}${sudahWa ? ", sudah pernah di-WA" : ""}).`,
+				};
+			if (!p.disapa_at || Date.parse(p.disapa_at) > tujuhHari)
+				return {
+					error: `${p.nama} baru disapa kurang dari 7 hari lalu; tunggu dulu.`,
+				};
+		} else if (p.status !== "kandidat")
 			return {
 				error: `${p.nama} berstatus ${p.status}, bukan kandidat; tidak disapa ulang.`,
 			};
@@ -427,18 +444,26 @@ export const prospekKirimWa: AiTool = {
 			.select("id")
 			.single();
 		if (error) return { error: `Gagal menitipkan ke bot: ${error.message}` };
-		const catatan = [p.catatan, `WA dititipkan ke CS Mintet (cmd ${cmd.id})`]
+		const catatan = [
+			p.catatan,
+			`${lanjutan ? "WA lanjutan" : "WA dititipkan"} ke CS Mintet (cmd ${cmd.id})`,
+		]
 			.filter(Boolean)
 			.join("\n");
+		const sekarang = new Date().toISOString();
 		await ctx.supabase
 			.from("prospek")
-			.update({
-				status: "disapa",
-				disapa_at: new Date().toISOString(),
-				draf_pesan: pesan,
-				catatan,
-				updated_at: new Date().toISOString(),
-			})
+			.update(
+				lanjutan
+					? { catatan, updated_at: sekarang }
+					: {
+							status: "disapa",
+							disapa_at: sekarang,
+							draf_pesan: pesan,
+							catatan,
+							updated_at: sekarang,
+						},
+			)
 			.eq("id", id);
 		return {
 			status: "antre",
