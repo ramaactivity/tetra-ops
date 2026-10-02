@@ -288,6 +288,48 @@ type HasilColdReach = {
 	catatan?: string;
 };
 
+/** external_ref → status di Cold Reach (90 hari terakhir); kosong kalau Cold Reach tak terjangkau. */
+async function statusColdReach(): Promise<Map<string, string>> {
+	const url =
+		process.env.COLDREACH_MCP_URL ??
+		"https://coldreach-beta.vercel.app/api/mcp";
+	const token = process.env.COLDREACH_MCP_TOKEN;
+	const peta = new Map<string, string>();
+	if (!token) return peta;
+	try {
+		const sejak = new Date(Date.now() - 90 * 86_400_000)
+			.toISOString()
+			.slice(0, 10);
+		const res = await fetch(url, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: 1,
+				method: "tools/call",
+				params: { name: "status_kiriman", arguments: { sejak } },
+			}),
+		});
+		const j = (await res.json()) as {
+			result?: { content?: { text?: string }[] };
+		};
+		const d = JSON.parse(j.result?.content?.[0]?.text ?? "[]") as unknown;
+		const baris = Array.isArray(d)
+			? d
+			: ((Object.values(d as Record<string, unknown>).find(Array.isArray) as
+					| unknown[]
+					| undefined) ?? []);
+		for (const b of baris as { external_ref?: string; status?: string }[])
+			if (b.external_ref) peta.set(b.external_ref, b.status ?? "?");
+	} catch {
+		// Cold Reach tak terjangkau: lanjut tanpa penyaring (draf_kirim tetap idempoten per external_ref).
+	}
+	return peta;
+}
+
 /** Panggil MCP Cold Reach draf_kirim (server-ke-server). */
 async function coldReachDrafKirim(
 	items: Record<string, unknown>[],
@@ -377,7 +419,7 @@ export const prospekAntrekan: AiTool = {
 			q = q.in("id", args.ids.map(String).slice(0, 30));
 		const { data, error } = await q;
 		if (error) return { error: error.message };
-		const tertinggal = (
+		const belum = (
 			(data ?? []) as unknown as (Prospek & Record<string, unknown>)[]
 		).filter(
 			(p) =>
@@ -385,6 +427,29 @@ export const prospekAntrekan: AiTool = {
 					String(p.catatan ?? ""),
 				),
 		);
+		// Yang sudah dikenal Cold Reach (terkirim/dijadwalkan/bounce…) bukan tertinggal:
+		// tandai supaya tidak dipindai ulang, jangan diperiksa/antrekan lagi.
+		const dikenal = await statusColdReach();
+		const tertinggal: typeof belum = [];
+		for (const p of belum) {
+			const st = dikenal.get(String(p.id));
+			if (!st) {
+				tertinggal.push(p);
+				continue;
+			}
+			await ctx.supabase
+				.from("prospek")
+				.update({
+					catatan: [
+						p.catatan,
+						`email diantrekan Cold Reach (status ${st}, dari sinkron)`,
+					]
+						.filter(Boolean)
+						.join("\n"),
+					updated_at: new Date().toISOString(),
+				})
+				.eq("id", String(p.id));
+		}
 		if (!tertinggal.length)
 			return {
 				tersimpan: 0,
