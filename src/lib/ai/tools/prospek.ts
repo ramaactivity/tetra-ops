@@ -528,7 +528,7 @@ const KATEGORI_KLIEN_LAMA = [
 export const klienLama: AiTool = {
 	name: "klien_lama",
 	description:
-		"Klien lama non-pernikahan (korporat, gathering, instansi, event, wisuda) dari event yang sudah selesai: satu baris per klien " +
+		"Klien lama non-pernikahan (korporat, gathering, instansi, event, wisuda) dari event yang sudah selesai, sudah tanpa klien yang datang lewat vendor rekanan: satu baris per klien " +
 		"dengan event terakhirnya. Klien yang punya event mendatang tidak ikut. `sudah_prospek` = nomornya sudah ada di daftar prospek. " +
 		"Untuk reaktivasi (sapaan hangat) dan mencari perusahaan sejenis.",
 	scope: "ops",
@@ -597,10 +597,16 @@ export const klienLama: AiTool = {
 					jumlah_event: 1,
 				});
 		}
-		const klien = [...perKlien.values()].filter(
+		const layak = [...perKlien.values()].filter(
 			(k) => !aktif.has(String(k.wa)) && String(k.event_terakhir) <= batas,
 		);
-		return { jumlah: klien.length, klien };
+		// Klien yang datang lewat vendor rekanan (WO/EO) milik relasi vendor itu: jangan disapa langsung.
+		const klien = layak.filter((k) => k.channel !== "vendor");
+		return {
+			jumlah: klien.length,
+			dilewati_lewat_vendor: layak.length - klien.length,
+			klien,
+		};
 	},
 };
 
