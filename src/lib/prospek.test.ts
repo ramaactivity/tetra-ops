@@ -72,7 +72,7 @@ test("statistik: per kueri dari catatan, kontak & status dihitung", () => {
 			sumber: "web",
 			email: "sales@a.id",
 			telepon: null,
-			catatan: "kueri: Gedung Bogor; musim: nikah",
+			catatan: "kueri: Gedung Bogor; musim: nikah\nWA dititipkan ke CS Mintet (cmd 1)",
 		},
 		{
 			segmen: "venue",
@@ -93,6 +93,7 @@ test("statistik: per kueri dari catatan, kontak & status dihitung", () => {
 	]);
 	assert.equal(r.total, 3);
 	assert.equal(r.berkontak, 2);
+	assert.equal(r.wa_dititipkan, 1);
 	assert.deepEqual(r.per_segmen, { venue: 2, corporate: 1 });
 	assert.deepEqual(r.per_kueri["gedung bogor"], {
 		total: 2,

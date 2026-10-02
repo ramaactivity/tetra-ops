@@ -112,11 +112,13 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 		{ total: number; berkontak: number; disapa: number; membalas: number }
 	> = {};
 	let berkontak = 0;
+	let waDititipkan = 0;
 	for (const r of rows) {
 		hitung(perSegmen, r.segmen);
 		hitung(perStatus, r.status);
 		const ada = emailValid(r.email) || isLikelyWaPhone(r.telepon);
 		if (ada) berkontak++;
+		if (/WA (dititipkan|lanjutan)/.test(r.catatan ?? "")) waDititipkan++;
 		const kueri =
 			r.catatan
 				?.match(/kueri:\s*([^;\n]+)/i)?.[1]
@@ -134,6 +136,7 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 	return {
 		total: rows.length,
 		berkontak,
+		wa_dititipkan: waDititipkan,
 		per_segmen: perSegmen,
 		per_status: perStatus,
 		per_kueri: perKueri,
