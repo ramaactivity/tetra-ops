@@ -237,4 +237,44 @@ test("rem DM IG: jam WIB, Minggu, kuota, blokir 48 jam, sekali per orang", () =>
 		}),
 		null,
 	);
+	// vendor maksimal 5/hari; peminat tetap boleh sampai kuota total
+	assert.match(
+		alasanTolakDmIg({
+			...dasar,
+			vendor: true,
+			terkirimVendorHariIni: 5,
+			terkirimHariIni: 5,
+		}) ?? "",
+		/vendor/,
+	);
+	assert.equal(
+		alasanTolakDmIg({ ...dasar, terkirimVendorHariIni: 5, terkirimHariIni: 5 }),
+		null,
+	);
+	assert.equal(
+		alasanTolakDmIg({ ...dasar, vendor: true, terkirimVendorHariIni: 4 }),
+		null,
+	);
+	// mulai 15.00 WIB (08.00 UTC) vendor boleh memakai sisa kuota total
+	const sore = new Date("2026-10-02T08:30:00Z");
+	assert.equal(
+		alasanTolakDmIg({
+			...dasar,
+			sekarang: sore,
+			vendor: true,
+			terkirimVendorHariIni: 7,
+			terkirimHariIni: 7,
+		}),
+		null,
+	);
+	assert.match(
+		alasanTolakDmIg({
+			...dasar,
+			sekarang: sore,
+			vendor: true,
+			terkirimVendorHariIni: 10,
+			terkirimHariIni: 10,
+		}) ?? "",
+		/kuota DM hari ini habis/,
+	);
 });

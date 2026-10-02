@@ -845,7 +845,7 @@ export const prospekDmIg: AiTool = {
 	name: "prospek_dm_ig",
 	description:
 		"Rem & catatan DM Instagram dari akun Tetra ke prospek perorangan (komentator IG kompetitor). " +
-		"aksi 'izin' WAJIB dipanggil tepat sebelum mengetik DM (cek kuota 10/hari, Senin–Sabtu 09–19 WIB, sekali per orang, " +
+		"aksi 'izin' WAJIB dipanggil tepat sebelum mengetik DM (cek kuota 10/hari — vendor WO/EO/venue maks 5 sebelum 15.00 WIB, sesudahnya boleh sisa kuota — Senin–Sabtu 09–19 WIB, sekali per orang, " +
 		"berhenti 48 jam setelah blokir); 'terkirim' setelah DM terkirim; 'gagal' kalau tidak terkirim; " +
 		"'diblokir' kalau Instagram menampilkan peringatan/blokir aksi/verifikasi (semua DM berhenti 48 jam).",
 	scope: "ops",
@@ -875,7 +875,7 @@ export const prospekDmIg: AiTool = {
 		if (!aksi || !id) return { error: "aksi dan id wajib" };
 		const { data: p } = await ctx.supabase
 			.from("prospek")
-			.select("id, nama, instagram, status, catatan")
+			.select("id, nama, segmen, instagram, status, catatan")
 			.eq("id", id)
 			.maybeSingle();
 		if (!p) return { error: `prospek ${id} tidak ditemukan` };
@@ -901,31 +901,46 @@ export const prospekDmIg: AiTool = {
 				Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()) -
 					7 * 3_600_000,
 			).toISOString();
-			const [{ count }, { data: blokir }] = await Promise.all([
-				ctx.supabase
-					.from("prospek")
-					.select("id", { count: "exact", head: true })
-					.ilike("catatan", "%DM IG terkirim%")
-					.gte("disapa_at", awalHariWib),
-				ctx.supabase
-					.from("prospek")
-					.select("updated_at")
-					.ilike("catatan", "%DM IG diblokir%")
-					.order("updated_at", { ascending: false })
-					.limit(1),
-			]);
+			const [{ data: hariIni }, { data: blokir }, { data: terakhir }] =
+				await Promise.all([
+					ctx.supabase
+						.from("prospek")
+						.select("segmen")
+						.ilike("catatan", "%DM IG terkirim%")
+						.gte("disapa_at", awalHariWib),
+					ctx.supabase
+						.from("prospek")
+						.select("updated_at")
+						.ilike("catatan", "%DM IG diblokir%")
+						.order("updated_at", { ascending: false })
+						.limit(1),
+					ctx.supabase
+						.from("prospek")
+						.select("draf_pesan")
+						.ilike("catatan", "%DM IG terkirim%")
+						.order("disapa_at", { ascending: false })
+						.limit(30),
+				]);
+			const count = hariIni?.length ?? 0;
+			const vendor = ["eo_wo", "venue"].includes(p.segmen);
 			const alasan = alasanTolakDmIg({
 				sekarang,
 				status: p.status,
-				terkirimHariIni: count ?? 0,
+				terkirimHariIni: count,
 				blokirTerakhir: blokir?.[0] ? new Date(blokir[0].updated_at) : null,
+				vendor,
+				terkirimVendorHariIni: (hariIni ?? []).filter((r) =>
+					["eo_wo", "venue"].includes(r.segmen),
+				).length,
 			});
 			if (alasan) return { boleh: false, alasan: `${p.nama}: ${alasan}` };
 			return {
 				boleh: true,
 				nama: p.nama,
 				instagram: p.instagram,
-				sisa_kuota_hari_ini: DM_IG_MAKS_HARIAN - (count ?? 0) - 1,
+				sisa_kuota_hari_ini: DM_IG_MAKS_HARIAN - count - 1,
+				// Penjaga Hermes menolak DM baru yang mirip salah satu teks ini.
+				dm_terakhir: (terakhir ?? []).map((r) => r.draf_pesan).filter(Boolean),
 			};
 		}
 		if (aksi === "terkirim") {

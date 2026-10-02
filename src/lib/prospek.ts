@@ -231,6 +231,8 @@ export function periksaDraf(d: {
 }
 
 export const DM_IG_MAKS_HARIAN = 10;
+/** Vendor/rekanan (WO/EO/venue) maksimal segini sebelum 15.00 WIB; sesudahnya boleh memakai sisa kuota total. */
+export const DM_IG_MAKS_VENDOR = 5;
 
 /**
  * Rem DM Instagram dari akun Tetra (otomatis lewat browser, keputusan Rama 2 Okt).
@@ -241,6 +243,8 @@ export function alasanTolakDmIg(a: {
 	status: string;
 	terkirimHariIni: number;
 	blokirTerakhir: Date | null;
+	vendor?: boolean;
+	terkirimVendorHariIni?: number;
 }): string | null {
 	const wib = new Date(a.sekarang.getTime() + 7 * 3_600_000);
 	const jam = wib.getUTCHours();
@@ -255,5 +259,12 @@ export function alasanTolakDmIg(a: {
 		return "di luar jam kirim (Senin–Sabtu 09.00–19.00 WIB).";
 	if (a.terkirimHariIni >= DM_IG_MAKS_HARIAN)
 		return `kuota DM hari ini habis (${DM_IG_MAKS_HARIAN}).`;
+	// Sebelum 15.00 WIB vendor dibatasi agar peminat kebagian; sesudahnya sisa kuota boleh untuk vendor.
+	if (
+		a.vendor &&
+		jam < 15 &&
+		(a.terkirimVendorHariIni ?? 0) >= DM_IG_MAKS_VENDOR
+	)
+		return `jatah DM vendor sebelum 15.00 WIB habis (${DM_IG_MAKS_VENDOR}); sisanya dibuka untuk vendor mulai 15.00.`;
 	return null;
 }
