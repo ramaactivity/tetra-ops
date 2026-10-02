@@ -161,6 +161,11 @@ const ITEM_PROPS = {
 	},
 	draf_subjek: { type: "STRING" as const },
 	draf_pesan: { type: "STRING" as const },
+	catatan: {
+		type: "STRING" as const,
+		description:
+			'Mis. "kueri: <kueri asal>; musim: <musim aktif>" untuk tinjauan mingguan.',
+	},
 };
 
 function bersihkan(raw: Record<string, unknown>) {
@@ -184,6 +189,7 @@ function bersihkan(raw: Record<string, unknown>) {
 		alasan: str(raw.alasan, 1000),
 		draf_subjek: str(raw.draf_subjek, 200),
 		draf_pesan: str(raw.draf_pesan, 3000),
+		catatan: str(raw.catatan, 1000),
 	};
 }
 
