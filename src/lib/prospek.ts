@@ -122,12 +122,9 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 				?.match(/kueri:\s*([^;\n]+)/i)?.[1]
 				?.trim()
 				.toLowerCase() ?? "(tanpa kueri)";
-		const k = (perKueri[kueri] ??= {
-			total: 0,
-			berkontak: 0,
-			disapa: 0,
-			membalas: 0,
-		});
+		if (!perKueri[kueri])
+			perKueri[kueri] = { total: 0, berkontak: 0, disapa: 0, membalas: 0 };
+		const k = perKueri[kueri];
 		k.total++;
 		if (ada) k.berkontak++;
 		if (["disapa", "follow_up", "membalas", "deal"].includes(r.status))
