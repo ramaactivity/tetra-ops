@@ -970,6 +970,170 @@ export const prospekDmIg: AiTool = {
 	},
 };
 
+const KOLOM_BASIS =
+	"id, tab, jenis, nama, perusahaan, jabatan, email, wa, instagram, kategori, area, catatan, status_lama";
+
+export const basisKontakImpor: AiTool = {
+	name: "basis_kontak_impor",
+	description:
+		"Salin baris database lama (Google Sheet Rama) ke tabel basis_kontak. Maks 1000 baris per panggilan; " +
+		"baris dengan kunci yang sudah ada dilewati (aman diulang).",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			baris: {
+				type: "ARRAY",
+				items: {
+					type: "OBJECT",
+					properties: {
+						kunci: { type: "STRING" },
+						tab: { type: "STRING" },
+						jenis: { type: "STRING", enum: ["vendor", "korporat", "hangat"] },
+						nama: { type: "STRING" },
+						perusahaan: { type: "STRING" },
+						jabatan: { type: "STRING" },
+						email: { type: "STRING" },
+						wa: { type: "STRING" },
+						instagram: { type: "STRING" },
+						kategori: { type: "STRING" },
+						area: { type: "STRING" },
+						catatan: { type: "STRING" },
+						status_lama: { type: "STRING" },
+					},
+				},
+			},
+		},
+		required: ["baris"],
+	},
+	async run(args, ctx) {
+		const raw = Array.isArray(args.baris) ? args.baris.slice(0, 1000) : [];
+		const rows = raw
+			.map((b) => b as Record<string, unknown>)
+			.filter(
+				(b) =>
+					str(b.kunci, 300) &&
+					str(b.tab, 60) &&
+					["vendor", "korporat", "hangat"].includes(String(b.jenis)),
+			)
+			.map((b) => ({
+				kunci: str(b.kunci, 300),
+				tab: str(b.tab, 60),
+				jenis: String(b.jenis),
+				nama: str(b.nama, 200),
+				perusahaan: str(b.perusahaan, 200),
+				jabatan: str(b.jabatan, 200),
+				email: emailValid(b.email)
+					? String(b.email).trim().toLowerCase()
+					: null,
+				wa: str(b.wa, 20),
+				instagram: str(b.instagram, 100),
+				kategori: str(b.kategori, 100),
+				area: str(b.area, 100),
+				catatan: str(b.catatan, 500),
+				status_lama: str(b.status_lama, 100),
+			}));
+		if (!rows.length)
+			return { error: "tidak ada baris valid (kunci, tab, jenis wajib)" };
+		const { data, error } = await ctx.supabase
+			.from("basis_kontak")
+			.upsert(rows, { onConflict: "kunci", ignoreDuplicates: true })
+			.select("id");
+		if (error) return { error: error.message };
+		return { diterima: rows.length, baru: data?.length ?? 0 };
+	},
+};
+
+export const basisKontakDaftar: AiTool = {
+	name: "basis_kontak_daftar",
+	description:
+		"Ambil baris basis_kontak yang BELUM diproses (diproses_at kosong), per jenis, urut waktu impor. Plus jumlah sisa per jenis.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			jenis: { type: "STRING", enum: ["vendor", "korporat", "hangat"] },
+			maks: { type: "NUMBER", description: "1–500, default 50." },
+			punya: {
+				type: "STRING",
+				enum: ["email", "wa", "instagram"],
+				description: "Hanya baris yang punya kolom ini.",
+			},
+			tanpa: {
+				type: "STRING",
+				enum: ["email", "wa", "instagram"],
+				description: "Hanya baris yang TIDAK punya kolom ini.",
+			},
+		},
+		required: ["jenis"],
+	},
+	async run(args, ctx) {
+		const jenis = String(args.jenis);
+		const maks = Math.min(500, Math.max(1, Number(args.maks) || 50));
+		const kolom = ["email", "wa", "instagram"];
+		let q = ctx.supabase
+			.from("basis_kontak")
+			.select(KOLOM_BASIS)
+			.eq("jenis", jenis)
+			.is("diproses_at", null)
+			.order("created_at")
+			.order("kunci")
+			.limit(maks);
+		if (kolom.includes(String(args.punya)))
+			q = q.not(String(args.punya), "is", null);
+		if (kolom.includes(String(args.tanpa))) q = q.is(String(args.tanpa), null);
+		const { data, error } = await q;
+		if (error) return { error: error.message };
+		const { count } = await ctx.supabase
+			.from("basis_kontak")
+			.select("id", { count: "exact", head: true })
+			.eq("jenis", jenis)
+			.is("diproses_at", null);
+		return { sisa: count ?? 0, baris: data ?? [] };
+	},
+};
+
+export const basisKontakTandai: AiTool = {
+	name: "basis_kontak_tandai",
+	description:
+		"Tandai baris basis_kontak sudah diproses (tidak diambil lagi) beserta hasilnya, mis. 'diantrekan' atau 'dilewati: <alasan>'.",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			items: {
+				type: "ARRAY",
+				items: {
+					type: "OBJECT",
+					properties: { id: { type: "STRING" }, hasil: { type: "STRING" } },
+				},
+			},
+		},
+		required: ["items"],
+	},
+	async run(args, ctx) {
+		const items = (Array.isArray(args.items) ? args.items : [])
+			.map((i) => i as Record<string, unknown>)
+			.filter((i) => str(i.id, 40))
+			.slice(0, 500);
+		const sekarang = new Date().toISOString();
+		let ditandai = 0;
+		for (const i of items) {
+			const { error } = await ctx.supabase
+				.from("basis_kontak")
+				.update({
+					diproses_at: sekarang,
+					hasil: str(i.hasil, 300) ?? "diproses",
+				})
+				.eq("id", str(i.id, 40) as string);
+			if (!error) ditandai++;
+		}
+		return { ditandai };
+	},
+};
+
 export const prospekStatistik: AiTool = {
 	name: "prospek_statistik",
 	description:
@@ -1115,6 +1279,9 @@ export const SALES_TOOLS: AiTool[] = [
 	prospekUbah,
 	prospekKirimWa,
 	prospekDmIg,
+	basisKontakImpor,
+	basisKontakDaftar,
+	basisKontakTandai,
 	prospekStatistik,
 	klienLama,
 ];
