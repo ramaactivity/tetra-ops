@@ -90,3 +90,55 @@ export function kunciProspek(
 	} catch {}
 	return out;
 }
+
+type BarisStatistik = {
+	segmen: string;
+	status: string;
+	sumber: string | null;
+	email: string | null;
+	telepon: string | null;
+	catatan: string | null;
+};
+
+/** Ringkasan untuk tinjauan mingguan Bruno; kueri asal dibaca dari catatan "kueri: …". */
+export function ringkasStatistik(rows: BarisStatistik[]) {
+	const hitung = (m: Record<string, number>, k: string) => {
+		m[k] = (m[k] ?? 0) + 1;
+	};
+	const perSegmen: Record<string, number> = {};
+	const perStatus: Record<string, number> = {};
+	const perKueri: Record<
+		string,
+		{ total: number; berkontak: number; disapa: number; membalas: number }
+	> = {};
+	let berkontak = 0;
+	for (const r of rows) {
+		hitung(perSegmen, r.segmen);
+		hitung(perStatus, r.status);
+		const ada = emailValid(r.email) || isLikelyWaPhone(r.telepon);
+		if (ada) berkontak++;
+		const kueri =
+			r.catatan
+				?.match(/kueri:\s*([^;\n]+)/i)?.[1]
+				?.trim()
+				.toLowerCase() ?? "(tanpa kueri)";
+		const k = (perKueri[kueri] ??= {
+			total: 0,
+			berkontak: 0,
+			disapa: 0,
+			membalas: 0,
+		});
+		k.total++;
+		if (ada) k.berkontak++;
+		if (["disapa", "follow_up", "membalas", "deal"].includes(r.status))
+			k.disapa++;
+		if (["membalas", "deal"].includes(r.status)) k.membalas++;
+	}
+	return {
+		total: rows.length,
+		berkontak,
+		per_segmen: perSegmen,
+		per_status: perStatus,
+		per_kueri: perKueri,
+	};
+}

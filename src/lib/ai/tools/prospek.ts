@@ -5,6 +5,7 @@ import {
 	emailValid,
 	kunciProspek,
 	type Prospek,
+	ringkasStatistik,
 	SEGMEN,
 	STATUS_PROSPEK,
 	sapaHref,
@@ -448,6 +449,48 @@ export const prospekKirimWa: AiTool = {
 	},
 };
 
+export const prospekStatistik: AiTool = {
+	name: "prospek_statistik",
+	description:
+		"Angka prospek dalam rentang tanggal (default 7 hari terakhir): total, yang punya kontak, per segmen, per status, " +
+		'dan per kueri asal (dari catatan "kueri: …"). Untuk tinjauan mingguan — pakai angka ini, jangan menghitung sendiri.',
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			sejak: {
+				type: "STRING",
+				description: "YYYY-MM-DD (WIB). Default 7 hari lalu.",
+			},
+			sampai: {
+				type: "STRING",
+				description: "YYYY-MM-DD (WIB), inklusif. Default hari ini.",
+			},
+		},
+	},
+	async run(args, ctx) {
+		const tgl = (v: unknown) =>
+			typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+		const sampai = tgl(args.sampai) ?? ctx.todayISO;
+		const dari =
+			tgl(args.sejak) ??
+			new Date(Date.parse(`${ctx.todayISO}T00:00:00+07:00`) - 6 * 86_400_000)
+				.toISOString()
+				.slice(0, 10);
+		const akhir = new Date(
+			Date.parse(`${sampai}T00:00:00+07:00`) + 86_400_000,
+		).toISOString();
+		const { data, error } = await ctx.supabase
+			.from("prospek")
+			.select("segmen, status, sumber, email, telepon, catatan")
+			.gte("created_at", new Date(`${dari}T00:00:00+07:00`).toISOString())
+			.lt("created_at", akhir)
+			.limit(5000);
+		if (error) return { error: error.message };
+		return { sejak: dari, sampai, ...ringkasStatistik(data ?? []) };
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
@@ -455,4 +498,5 @@ export const SALES_TOOLS: AiTool[] = [
 	prospekDaftar,
 	prospekUbah,
 	prospekKirimWa,
+	prospekStatistik,
 ];

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { kunciProspek, type Prospek, sapaHref, sapaLinks } from "./prospek";
+import {
+	kunciProspek,
+	type Prospek,
+	ringkasStatistik,
+	sapaHref,
+	sapaLinks,
+} from "./prospek";
 
 const p: Prospek = {
 	id: "11111111-1111-1111-1111-111111111111",
@@ -56,4 +62,43 @@ test("telepon kantor (021) bukan WA", () => {
 	assert.equal(sapaHref({ ...p, telepon: "+62 21 29035123" }, "wa"), null);
 	assert.equal(sapaHref({ ...p, telepon: "(021) 2903-5123" }, "wa"), null);
 	assert.ok(sapaHref({ ...p, telepon: "0812 3456 7890" }, "wa"));
+});
+
+test("statistik: per kueri dari catatan, kontak & status dihitung", () => {
+	const r = ringkasStatistik([
+		{
+			segmen: "venue",
+			status: "disapa",
+			sumber: "web",
+			email: "sales@a.id",
+			telepon: null,
+			catatan: "kueri: Gedung Bogor; musim: nikah",
+		},
+		{
+			segmen: "venue",
+			status: "kandidat",
+			sumber: "web",
+			email: null,
+			telepon: "021 555",
+			catatan: "kueri: gedung bogor",
+		},
+		{
+			segmen: "corporate",
+			status: "membalas",
+			sumber: "web",
+			email: null,
+			telepon: "0812 3456 7890",
+			catatan: null,
+		},
+	]);
+	assert.equal(r.total, 3);
+	assert.equal(r.berkontak, 2);
+	assert.deepEqual(r.per_segmen, { venue: 2, corporate: 1 });
+	assert.deepEqual(r.per_kueri["gedung bogor"], {
+		total: 2,
+		berkontak: 1,
+		disapa: 1,
+		membalas: 0,
+	});
+	assert.equal(r.per_kueri["(tanpa kueri)"].membalas, 1);
 });
