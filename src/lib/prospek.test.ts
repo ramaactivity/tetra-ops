@@ -169,4 +169,21 @@ test("periksaDraf: gerbang terakhir sebelum antre", () => {
 		[],
 	);
 	assert.equal(labelMerek("a@mail.daikin.co.id"), "daikin");
+	assert.ok(
+		periksaDraf({
+			email: "hukum@katedraljakarta.or.id",
+			website: "katedraljakarta.or.id",
+			subjek: "Uji",
+			isi,
+		}).some((x) => x.includes("salah sasaran")),
+	);
+	assert.deepEqual(
+		periksaDraf({
+			email: "hr@a.co.id",
+			website: "a.co.id",
+			subjek: "Uji",
+			isi,
+		}),
+		[],
+	);
 });

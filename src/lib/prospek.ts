@@ -147,6 +147,9 @@ const TERLARANG =
 	/terkemuka|terdepan|ternama|kebanggaan|menduga|berasumsi|\byakin\b|\btentu\b|\{first_name\}/gi;
 const EMAIL_CS =
 	/^(helpdesk|help|support|cs|care|customer|customerservice|customercare|custserv|pengaduan|complaint|keluhan|promo|noreply|no-reply)[._-]?\w*@/i;
+/** Departemen yang bukan pembuat keputusan acara: salah sasaran. */
+const EMAIL_SALAH_DEPT =
+	/^(hukum|legal|law|career|careers|karir|karier|recruitment|rekrutmen|hrd\.?recruitment|lowongan|jobs|ir|investor|investor\.?relations?|procurement|pengadaan|tender|finance|keuangan|tax|pajak)[._-]?\w*@/i;
 const EMAIL_GRATIS = new Set([
 	"gmail.com",
 	"yahoo.com",
@@ -206,6 +209,10 @@ export function periksaDraf(d: {
 	if (kata.length) salah.push(`pujian/tebakan: ${kata.join(", ")}`);
 	if (d.email) {
 		if (EMAIL_CS.test(d.email)) salah.push("email layanan pelanggan");
+		if (EMAIL_SALAH_DEPT.test(d.email))
+			salah.push(
+				"email departemen salah sasaran (hukum/karir/investor/keuangan)",
+			);
 		const domain = d.email.split("@").pop()?.toLowerCase() ?? "";
 		if (d.website && !EMAIL_GRATIS.has(domain)) {
 			const a = labelMerek(d.email);
