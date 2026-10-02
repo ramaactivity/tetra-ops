@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	alasanTolakDmIg,
 	kunciProspek,
 	labelMerek,
 	type Prospek,
@@ -185,5 +186,55 @@ test("periksaDraf: gerbang terakhir sebelum antre", () => {
 			isi,
 		}),
 		[],
+	);
+});
+
+test("rem DM IG: jam WIB, Minggu, kuota, blokir 48 jam, sekali per orang", () => {
+	// 2026-10-02 Jumat 10.00 WIB = 03.00 UTC
+	const jumatPagi = new Date("2026-10-02T03:00:00Z");
+	const dasar = {
+		sekarang: jumatPagi,
+		status: "kandidat",
+		terkirimHariIni: 0,
+		blokirTerakhir: null,
+	};
+	assert.equal(alasanTolakDmIg(dasar), null);
+	assert.match(
+		alasanTolakDmIg({ ...dasar, status: "disapa" }) ?? "",
+		/bukan kandidat/,
+	);
+	assert.match(
+		alasanTolakDmIg({ ...dasar, terkirimHariIni: 10 }) ?? "",
+		/kuota/,
+	);
+	assert.equal(alasanTolakDmIg({ ...dasar, terkirimHariIni: 9 }), null);
+	// 19.30 WIB dan 08.30 WIB ditolak
+	assert.match(
+		alasanTolakDmIg({ ...dasar, sekarang: new Date("2026-10-02T12:30:00Z") }) ??
+			"",
+		/jam kirim/,
+	);
+	assert.match(
+		alasanTolakDmIg({ ...dasar, sekarang: new Date("2026-10-02T01:30:00Z") }) ??
+			"",
+		/jam kirim/,
+	);
+	// Minggu 4 Okt 10.00 WIB
+	assert.match(
+		alasanTolakDmIg({ ...dasar, sekarang: new Date("2026-10-04T03:00:00Z") }) ??
+			"",
+		/jam kirim/,
+	);
+	const blokir = new Date(jumatPagi.getTime() - 47 * 3_600_000);
+	assert.match(
+		alasanTolakDmIg({ ...dasar, blokirTerakhir: blokir }) ?? "",
+		/memblokir/,
+	);
+	assert.equal(
+		alasanTolakDmIg({
+			...dasar,
+			blokirTerakhir: new Date(jumatPagi.getTime() - 49 * 3_600_000),
+		}),
+		null,
 	);
 });

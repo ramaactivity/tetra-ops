@@ -2,6 +2,8 @@ import "server-only";
 
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
 import {
+	alasanTolakDmIg,
+	DM_IG_MAKS_HARIAN,
 	emailValid,
 	kunciProspek,
 	type Prospek,
@@ -137,7 +139,7 @@ const ITEM_PROPS = {
 	segmen: { type: "STRING" as const, enum: [...SEGMEN] },
 	sumber: {
 		type: "STRING" as const,
-		description: "places | web | threads | manual",
+		description: "places | web | threads | instagram | ig_kompetitor | manual",
 	},
 	place_id: {
 		type: "STRING" as const,
@@ -839,6 +841,120 @@ export const prospekKirimWa: AiTool = {
 	},
 };
 
+export const prospekDmIg: AiTool = {
+	name: "prospek_dm_ig",
+	description:
+		"Rem & catatan DM Instagram dari akun Tetra ke prospek perorangan (komentator IG kompetitor). " +
+		"aksi 'izin' WAJIB dipanggil tepat sebelum mengetik DM (cek kuota 10/hari, Senin–Sabtu 09–19 WIB, sekali per orang, " +
+		"berhenti 48 jam setelah blokir); 'terkirim' setelah DM terkirim; 'gagal' kalau tidak terkirim; " +
+		"'diblokir' kalau Instagram menampilkan peringatan/blokir aksi/verifikasi (semua DM berhenti 48 jam).",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			aksi: { type: "STRING", enum: ["izin", "terkirim", "gagal", "diblokir"] },
+			id: {
+				type: "STRING",
+				description: "id prospek (segmen personal, ada instagram).",
+			},
+			teks: {
+				type: "STRING",
+				description: "Isi DM yang terkirim (aksi terkirim).",
+			},
+			alasan: {
+				type: "STRING",
+				description: "Untuk gagal/diblokir: kutipan peringatan Instagram.",
+			},
+		},
+		required: ["aksi", "id"],
+	},
+	async run(args, ctx) {
+		const aksi = str(args.aksi, 20);
+		const id = str(args.id, 40);
+		if (!aksi || !id) return { error: "aksi dan id wajib" };
+		const { data: p } = await ctx.supabase
+			.from("prospek")
+			.select("id, nama, instagram, status, catatan")
+			.eq("id", id)
+			.maybeSingle();
+		if (!p) return { error: `prospek ${id} tidak ditemukan` };
+		const sekarang = new Date();
+		const tambahCatatan = (baris: string, ubah: Record<string, unknown> = {}) =>
+			ctx.supabase
+				.from("prospek")
+				.update({
+					catatan: [p.catatan, baris].filter(Boolean).join("\n"),
+					updated_at: sekarang.toISOString(),
+					...ubah,
+				})
+				.eq("id", id);
+
+		if (aksi === "izin") {
+			if (!p.instagram)
+				return {
+					boleh: false,
+					alasan: `${p.nama} tidak punya username Instagram.`,
+				};
+			const wib = new Date(sekarang.getTime() + 7 * 3_600_000);
+			const awalHariWib = new Date(
+				Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()) -
+					7 * 3_600_000,
+			).toISOString();
+			const [{ count }, { data: blokir }] = await Promise.all([
+				ctx.supabase
+					.from("prospek")
+					.select("id", { count: "exact", head: true })
+					.ilike("catatan", "%DM IG terkirim%")
+					.gte("disapa_at", awalHariWib),
+				ctx.supabase
+					.from("prospek")
+					.select("updated_at")
+					.ilike("catatan", "%DM IG diblokir%")
+					.order("updated_at", { ascending: false })
+					.limit(1),
+			]);
+			const alasan = alasanTolakDmIg({
+				sekarang,
+				status: p.status,
+				terkirimHariIni: count ?? 0,
+				blokirTerakhir: blokir?.[0] ? new Date(blokir[0].updated_at) : null,
+			});
+			if (alasan) return { boleh: false, alasan: `${p.nama}: ${alasan}` };
+			return {
+				boleh: true,
+				nama: p.nama,
+				instagram: p.instagram,
+				sisa_kuota_hari_ini: DM_IG_MAKS_HARIAN - (count ?? 0) - 1,
+			};
+		}
+		if (aksi === "terkirim") {
+			const teks = str(args.teks, 1000);
+			if (!teks) return { error: "teks DM wajib untuk aksi terkirim" };
+			await tambahCatatan(`DM IG terkirim: ${teks.slice(0, 120)}`, {
+				status: "disapa",
+				disapa_at: sekarang.toISOString(),
+				draf_pesan: teks,
+			});
+			return { status: "disapa", nama: p.nama };
+		}
+		if (aksi === "gagal" || aksi === "diblokir") {
+			const alasan = str(args.alasan, 300) ?? "-";
+			await tambahCatatan(
+				`DM IG ${aksi === "diblokir" ? "diblokir" : "gagal"}: ${alasan}`,
+			);
+			return {
+				dicatat: true,
+				catatan:
+					aksi === "diblokir"
+						? "Semua DM IG berhenti 48 jam. Laporkan ke Rama dan hentikan run ini."
+						: "Lanjut ke prospek berikutnya kalau kuota masih ada.",
+			};
+		}
+		return { error: "aksi harus izin | terkirim | gagal | diblokir" };
+	},
+};
+
 export const prospekStatistik: AiTool = {
 	name: "prospek_statistik",
 	description:
@@ -983,6 +1099,7 @@ export const SALES_TOOLS: AiTool[] = [
 	prospekDaftar,
 	prospekUbah,
 	prospekKirimWa,
+	prospekDmIg,
 	prospekStatistik,
 	klienLama,
 ];

@@ -11,6 +11,7 @@ export const SEGMEN = [
 	"eo_wo",
 	"instansi",
 	"kampus",
+	"personal",
 ] as const;
 export const STATUS_PROSPEK = [
 	"kandidat",
@@ -227,4 +228,32 @@ export function periksaDraf(d: {
 			salah.push("subjek > 8 kata");
 	} else if (isi.length < 40) salah.push("pesan WA terlalu pendek");
 	return salah;
+}
+
+export const DM_IG_MAKS_HARIAN = 10;
+
+/**
+ * Rem DM Instagram dari akun Tetra (otomatis lewat browser, keputusan Rama 2 Okt).
+ * null = boleh kirim; selain itu alasan ditolak. Jam & hari dihitung WIB.
+ */
+export function alasanTolakDmIg(a: {
+	sekarang: Date;
+	status: string;
+	terkirimHariIni: number;
+	blokirTerakhir: Date | null;
+}): string | null {
+	const wib = new Date(a.sekarang.getTime() + 7 * 3_600_000);
+	const jam = wib.getUTCHours();
+	if (a.status !== "kandidat")
+		return `berstatus ${a.status}, bukan kandidat; tidak di-DM ulang.`;
+	if (
+		a.blokirTerakhir &&
+		a.sekarang.getTime() - a.blokirTerakhir.getTime() < 48 * 3_600_000
+	)
+		return "Instagram memblokir aksi dalam 48 jam terakhir; DM dihentikan dulu.";
+	if (wib.getUTCDay() === 0 || jam < 9 || jam >= 19)
+		return "di luar jam kirim (Senin–Sabtu 09.00–19.00 WIB).";
+	if (a.terkirimHariIni >= DM_IG_MAKS_HARIAN)
+		return `kuota DM hari ini habis (${DM_IG_MAKS_HARIAN}).`;
+	return null;
 }
