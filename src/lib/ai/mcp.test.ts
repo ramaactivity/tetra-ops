@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { handleMcpRequest, toJsonSchema } from "./mcp";
+import { bukaArgumen, handleMcpRequest, toJsonSchema } from "./mcp";
 import type { AiTool, AiToolContext } from "./types";
 
 const ctx = {
@@ -192,4 +192,17 @@ test("tool langsung: diumumkan sebagai tulis, tetap tanpa konfirmasi", async () 
 		(call.body as { result: { isError: boolean } }).result.isError,
 		false,
 	);
+});
+
+test("argumen terbungkus dua kali dibuka, argumen normal tidak berubah", () => {
+	assert.deepEqual(
+		bukaArgumen({ arguments: { arguments: { id: "x", draf_pesan: "y" } } }),
+		{ id: "x", draf_pesan: "y" },
+	);
+	assert.deepEqual(bukaArgumen({ arguments: { id: "x" } }), { id: "x" });
+	assert.deepEqual(bukaArgumen({ id: "x", arguments: { a: 1 } }), {
+		id: "x",
+		arguments: { a: 1 },
+	});
+	assert.deepEqual(bukaArgumen(null), {});
 });

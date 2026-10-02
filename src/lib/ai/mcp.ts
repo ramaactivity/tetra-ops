@@ -147,10 +147,7 @@ export async function handleMcpRequest(
 			return ok(id, { tools: listMcpTools(tools) });
 		case "tools/call": {
 			const name = String(params.name ?? "");
-			const args =
-				params.arguments && typeof params.arguments === "object"
-					? (params.arguments as Record<string, unknown>)
-					: {};
+			const args = bukaArgumen(params.arguments);
 
 			const isPreview = name.endsWith(USULAN);
 			const base = isPreview ? name.slice(0, -USULAN.length) : name;
@@ -197,6 +194,28 @@ export async function handleMcpRequest(
 		default:
 			return fail(id, -32601, `Method not found: ${method}`);
 	}
+}
+
+/**
+ * Argumen tool. Model kecil kadang membungkus dua kali ({"arguments": {...}}) lewat
+ * jembatan tool_call; tanpa dibuka, `id` dkk. hilang dan tulisan gagal diam-diam.
+ */
+export function bukaArgumen(raw: unknown): Record<string, unknown> {
+	let a: unknown = raw;
+	for (let i = 0; i < 2; i++) {
+		if (
+			a &&
+			typeof a === "object" &&
+			!Array.isArray(a) &&
+			Object.keys(a).length === 1 &&
+			"arguments" in a &&
+			typeof (a as { arguments: unknown }).arguments === "object"
+		)
+			a = (a as { arguments: unknown }).arguments;
+	}
+	return a && typeof a === "object" && !Array.isArray(a)
+		? (a as Record<string, unknown>)
+		: {};
 }
 
 function hasError(r: unknown): boolean {
