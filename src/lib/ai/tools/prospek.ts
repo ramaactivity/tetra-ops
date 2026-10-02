@@ -11,6 +11,7 @@ import {
 	sapaHref,
 	sapaLinks,
 } from "@/lib/prospek";
+import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 
 /**
  * Tool agent sales (Hermes profil `sales`, token MCP_SALES_TOKEN). Agent
@@ -491,6 +492,93 @@ export const prospekStatistik: AiTool = {
 	},
 };
 
+const KATEGORI_KLIEN_LAMA = [
+	"corporate",
+	"gathering",
+	"instansi",
+	"event",
+	"wisuda",
+];
+
+export const klienLama: AiTool = {
+	name: "klien_lama",
+	description:
+		"Klien lama non-pernikahan (korporat, gathering, instansi, event, wisuda) dari event yang sudah selesai: satu baris per klien " +
+		"dengan event terakhirnya. Klien yang punya event mendatang tidak ikut. `sudah_prospek` = nomornya sudah ada di daftar prospek. " +
+		"Untuk reaktivasi (sapaan hangat) dan mencari perusahaan sejenis.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			minimal_bulan_lalu: {
+				type: "INTEGER",
+				description: "Event terakhir minimal N bulan lalu. Default 3.",
+			},
+		},
+	},
+	async run(args, ctx) {
+		const bulan =
+			typeof args.minimal_bulan_lalu === "number"
+				? Math.max(0, args.minimal_bulan_lalu)
+				: 3;
+		const batas = new Date(
+			Date.parse(`${ctx.todayISO}T00:00:00+07:00`) - bulan * 30 * 86_400_000,
+		)
+			.toISOString()
+			.slice(0, 10);
+		const { data: ev, error } = await ctx.supabase
+			.from("events")
+			.select(
+				"client_name, pic_name, client_wa, event_category, event_date, venue_name, venue_city, status, channel",
+			)
+			.in("event_category", KATEGORI_KLIEN_LAMA)
+			.is("deleted_at", null)
+			.neq("status", "cancelled")
+			.order("event_date", { ascending: false })
+			.limit(1000);
+		if (error) return { error: error.message };
+		const { data: pr } = await ctx.supabase
+			.from("prospek")
+			.select("telepon")
+			.not("telepon", "is", null)
+			.limit(10000);
+		const sudah = new Set((pr ?? []).map((r) => toWaPhone(String(r.telepon))));
+
+		const perKlien = new Map<
+			string,
+			Record<string, unknown> & { jumlah_event: number }
+		>();
+		const aktif = new Set<string>();
+		for (const e of ev ?? []) {
+			if (!isLikelyWaPhone(e.client_wa)) continue;
+			const wa = toWaPhone(String(e.client_wa));
+			if (e.status !== "completed") {
+				aktif.add(wa);
+				continue;
+			}
+			const ada = perKlien.get(wa);
+			if (ada) ada.jumlah_event++;
+			else
+				perKlien.set(wa, {
+					nama: e.client_name,
+					pic: e.pic_name,
+					wa,
+					kategori: e.event_category,
+					event_terakhir: e.event_date,
+					venue:
+						[e.venue_name, e.venue_city].filter(Boolean).join(", ") || null,
+					channel: e.channel,
+					sudah_prospek: sudah.has(wa),
+					jumlah_event: 1,
+				});
+		}
+		const klien = [...perKlien.values()].filter(
+			(k) => !aktif.has(String(k.wa)) && String(k.event_terakhir) <= batas,
+		);
+		return { jumlah: klien.length, klien };
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
@@ -499,4 +587,5 @@ export const SALES_TOOLS: AiTool[] = [
 	prospekUbah,
 	prospekKirimWa,
 	prospekStatistik,
+	klienLama,
 ];
