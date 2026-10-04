@@ -1,10 +1,12 @@
 import { ArrowDownLeft, ArrowUpRight, Landmark, Wallet } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { CashBalanceChart } from "@/components/finance/cash-balance-chart";
 import {
 	CashBookTable,
 	type CashBookTableRow,
 } from "@/components/finance/cash-book-table";
+import { DateRangeFilter } from "@/components/finance/date-range-filter";
 import { MonthSwitcher } from "@/components/finance/monthly/month-switcher";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
@@ -24,14 +26,20 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 /**
- * Buku Kas — mutasi per kas/rekening dengan saldo berjalan, per bulan.
+ * Buku Kas — mutasi per kas/rekening dengan saldo berjalan, per bulan atau
+ * rentang tanggal bebas.
  * Semua baris diambil dari jurnal (kas/bank 1-1xx), jadi tidak ada input
  * terpisah: tiap pembayaran, pembelian, fee crew, dll otomatis muncul.
  */
 export default async function BukuKasPage({
 	searchParams,
 }: {
-	searchParams: Promise<{ akun?: string; bulan?: string }>;
+	searchParams: Promise<{
+		akun?: string;
+		bulan?: string;
+		dari?: string;
+		sampai?: string;
+	}>;
 }) {
 	const me = await getCurrentUser();
 	if (!me) redirect("/login");
@@ -39,7 +47,7 @@ export default async function BukuKasPage({
 		redirect("/finance");
 	}
 
-	const { akun, bulan } = await searchParams;
+	const { akun, bulan, dari, sampai } = await searchParams;
 	const supabase = await createClient();
 
 	type RawLine = {
@@ -122,11 +130,26 @@ export default async function BukuKasPage({
 		ym = ymOf(new Date(y, m, 1));
 	}
 	if (months.length === 0) months.push(thisYm);
-	const ym = bulan && months.includes(bulan) ? bulan : thisYm;
+	const wantYm = bulan ?? dari?.slice(0, 7);
+	const ym = wantYm && months.includes(wantYm) ? wantYm : thisYm;
 	const idx = months.indexOf(ym);
 	const [y, m] = ym.split("-").map(Number);
-	const from = `${ym}-01`;
-	const to = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+	// Rentang bebas (?dari&sampai) mengalahkan pilihan bulan.
+	const isDate = (v?: string): v is string =>
+		!!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+	const custom = isDate(dari) && isDate(sampai) && dari <= sampai;
+	const from = custom ? dari : `${ym}-01`;
+	const to = custom
+		? sampai
+		: `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+	const periodLabel = custom
+		? `${formatDateID(from)} – ${formatDateID(to)}`
+		: monthLabel(ym);
+	// Grafik berhenti di hari ini kalau periodenya masih berjalan.
+	const today = new Date().toLocaleDateString("en-CA", {
+		timeZone: "Asia/Jakarta",
+	});
+	const chartTo = today >= from && today < to ? today : to;
 
 	const book = buildCashBook(lines, scope, from, to);
 
@@ -186,7 +209,10 @@ export default async function BukuKasPage({
 	const scopeLabel = selected?.name ?? "Semua Kas & Bank";
 	const change = book.closing - book.opening;
 	const tabHref = (code: string | null) =>
-		`/finance/buku-kas?${new URLSearchParams({ ...(code ? { akun: code } : {}), bulan: ym })}`;
+		`/finance/buku-kas?${new URLSearchParams({
+			...(code ? { akun: code } : {}),
+			...(custom ? { dari: from, sampai: to } : { bulan: ym }),
+		})}`;
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -213,31 +239,34 @@ export default async function BukuKasPage({
 				}
 			/>
 
-			<nav
-				aria-label="Pilih kas atau rekening"
-				className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
-			>
-				{[{ code: null, name: "Semua Kas & Bank" }, ...cashAccounts].map(
-					(a) => {
-						const active = (a.code ?? null) === (selected?.code ?? null);
-						return (
-							<Link
-								key={a.code ?? "all"}
-								href={tabHref(a.code)}
-								aria-current={active ? "page" : undefined}
-								className={cn(
-									"press inline-flex h-8 shrink-0 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors",
-									active
-										? "border-transparent bg-primary text-primary-foreground"
-										: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
-								)}
-							>
-								{a.name}
-							</Link>
-						);
-					},
-				)}
-			</nav>
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<nav
+					aria-label="Pilih kas atau rekening"
+					className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+				>
+					{[{ code: null, name: "Semua Kas & Bank" }, ...cashAccounts].map(
+						(a) => {
+							const active = (a.code ?? null) === (selected?.code ?? null);
+							return (
+								<Link
+									key={a.code ?? "all"}
+									href={tabHref(a.code)}
+									aria-current={active ? "page" : undefined}
+									className={cn(
+										"press inline-flex h-8 shrink-0 items-center rounded-full border px-3.5 text-[13px] font-medium transition-colors",
+										active
+											? "border-transparent bg-primary text-primary-foreground"
+											: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
+									)}
+								>
+									{a.name}
+								</Link>
+							);
+						},
+					)}
+				</nav>
+				<DateRangeFilter from={from} to={to} active={custom} />
+			</div>
 
 			<dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				<StatCard
@@ -278,16 +307,23 @@ export default async function BukuKasPage({
 				/>
 			</dl>
 
+			<CashBalanceChart
+				rows={book.rows}
+				opening={book.opening}
+				from={from}
+				to={chartTo}
+			/>
+
 			<CashBookTable
-				key={`${selected?.code ?? "all"}-${ym}`}
+				key={`${selected?.code ?? "all"}-${from}-${to}`}
 				rows={rows}
 				opening={book.opening}
 				openingDate={from}
 				closing={book.closing}
 				totalMasuk={book.totalMasuk}
 				totalKeluar={book.totalKeluar}
-				fileName={`buku-kas_${selected?.code ?? "semua"}_${ym}.csv`}
-				scopeLabel={`${scopeLabel} · ${monthLabel(ym)}`}
+				fileName={`buku-kas_${selected?.code ?? "semua"}_${from}_${to}.csv`}
+				scopeLabel={`${scopeLabel} · ${periodLabel}`}
 			/>
 		</Container>
 	);

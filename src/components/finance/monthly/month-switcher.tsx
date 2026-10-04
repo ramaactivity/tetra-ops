@@ -33,6 +33,8 @@ export function MonthSwitcher({
 		// Pertahankan query lain (mis. `akun` di Buku Kas).
 		const next = new URLSearchParams(params.toString());
 		next.set("bulan", ym);
+		next.delete("dari");
+		next.delete("sampai");
 		router.push(`${pathname}?${next}`);
 	}
 
