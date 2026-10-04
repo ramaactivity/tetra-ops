@@ -33,6 +33,7 @@ import {
 } from "@/lib/actions/settle-queue";
 import { formatRupiah } from "@/lib/format";
 import { emitCatatPrefill } from "@/lib/rekap/catat-prefill";
+import { cn } from "@/lib/utils";
 
 export type CrewAssignmentRow = {
 	assignment_id: string;
@@ -46,6 +47,8 @@ export type CrewAssignmentRow = {
 	payment_notes: string | null;
 	/** Semua bukti transfer crew ini (boleh lebih dari satu). */
 	payment_proof_urls: string[];
+	/** Jenis tiap bukti (indeks sama): fee | bonus | reimbursement | "". */
+	payment_proof_labels: string[];
 	/** Ongkos transfer ke rekening crew ini (beda bank tujuan, beda ongkos). */
 	payment_admin_fee: number;
 	is_paid: boolean;
@@ -252,6 +255,8 @@ export function CrewFeeForm({
 			orig.reimbursement_amount !== r.reimbursement_amount ||
 			(orig.payment_notes ?? "") !== (r.payment_notes ?? "") ||
 			orig.payment_proof_urls.join("\n") !== r.payment_proof_urls.join("\n") ||
+			orig.payment_proof_labels.join("\n") !==
+				r.payment_proof_labels.join("\n") ||
 			orig.payment_admin_fee !== r.payment_admin_fee
 		);
 	});
@@ -272,6 +277,7 @@ export function CrewFeeForm({
 					reimbursement_amount: r.reimbursement_amount,
 					payment_notes: r.payment_notes,
 					payment_proof_urls: r.payment_proof_urls,
+					payment_proof_labels: r.payment_proof_labels,
 					payment_admin_fee: r.payment_admin_fee,
 				})),
 			);
@@ -700,8 +706,11 @@ export function CrewFeeForm({
 									projectId={projectId}
 									crewRow={row}
 									totalFee={total}
-									onChange={(urls) =>
-										update(row.assignment_id, { payment_proof_urls: urls })
+									onChange={(urls, labels) =>
+										update(row.assignment_id, {
+											payment_proof_urls: urls,
+											payment_proof_labels: labels,
+										})
 									}
 									readOnly={readOnly}
 								/>
@@ -1114,6 +1123,13 @@ function CrewPayPanel({
 	);
 }
 
+/** Jenis bukti transfer — owner bisa transfer fee & bonus terpisah. */
+const PROOF_LABEL: Record<string, string> = {
+	fee: "Fee",
+	bonus: "Bonus",
+	reimbursement: "Reimburse",
+};
+
 /**
  * Bukti transfer fee crew — boleh lebih dari satu (transfer dipecah, bukti
  * fee & reimbursement terpisah, dll). Tiap file diunggah ke folder Drive event
@@ -1129,13 +1145,24 @@ function PaymentProofUpload({
 	projectId: string;
 	crewRow: CrewAssignmentRow;
 	totalFee: number;
-	onChange: (urls: string[]) => void;
+	onChange: (urls: string[], labels: string[]) => void;
 	readOnly?: boolean;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [uploading, setUploading] = useState(false);
 	const urls = crewRow.payment_proof_urls;
+	const labels = urls.map((_, i) => crewRow.payment_proof_labels[i] ?? "");
 	const MAX = 10;
+
+	// Tebakan jenis untuk bukti baru: fee dulu, lalu bonus (kalau ada bonus),
+	// lalu reimbursement. Owner tetap bisa menggantinya lewat chip.
+	function guessLabel(taken: string[]): string {
+		if (!taken.includes("fee")) return "fee";
+		if (crewRow.bonus_amount > 0 && !taken.includes("bonus")) return "bonus";
+		if (crewRow.reimbursement_amount > 0 && !taken.includes("reimbursement"))
+			return "reimbursement";
+		return "";
+	}
 
 	async function uploadOne(file: File): Promise<string> {
 		const fd = new FormData();
@@ -1175,7 +1202,11 @@ function PaymentProofUpload({
 			);
 		} finally {
 			// Yang sudah berhasil tetap disimpan meski file berikutnya gagal.
-			if (added.length) onChange([...urls, ...added]);
+			if (added.length) {
+				const nextLabels = [...labels];
+				for (const _ of added) nextLabels.push(guessLabel(nextLabels));
+				onChange([...urls, ...added], nextLabels);
+			}
 			setUploading(false);
 			if (inputRef.current) inputRef.current.value = "";
 		}
@@ -1198,7 +1229,7 @@ function PaymentProofUpload({
 			{urls.map((url, i) => (
 				<div
 					key={url}
-					className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs dark:border-emerald-900 dark:bg-emerald-950/30"
+					className="flex flex-wrap items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs dark:border-emerald-900 dark:bg-emerald-950/30"
 				>
 					<CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
 					<a
@@ -1207,8 +1238,37 @@ function PaymentProofUpload({
 						rel="noopener noreferrer"
 						className="flex-1 truncate text-emerald-900 hover:underline dark:text-emerald-200"
 					>
-						{urls.length > 1 ? `Bukti ${i + 1}` : "Lihat bukti"}
+						{PROOF_LABEL[labels[i]]
+							? `Bukti ${PROOF_LABEL[labels[i]].toLowerCase()}`
+							: urls.length > 1
+								? `Bukti ${i + 1}`
+								: "Lihat bukti"}
 					</a>
+					{!readOnly && (
+						<div className="flex gap-1">
+							{Object.entries(PROOF_LABEL).map(([v, t]) => (
+								<button
+									key={v}
+									type="button"
+									aria-pressed={labels[i] === v}
+									onClick={() =>
+										onChange(
+											urls,
+											labels.map((l, j) => (j === i ? (l === v ? "" : v) : l)),
+										)
+									}
+									className={cn(
+										"rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+										labels[i] === v
+											? "border-emerald-700 bg-emerald-700 text-white"
+											: "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100 dark:bg-transparent dark:text-emerald-200",
+									)}
+								>
+									{t}
+								</button>
+							))}
+						</div>
+					)}
 					<a
 						href={url}
 						target="_blank"
@@ -1221,7 +1281,12 @@ function PaymentProofUpload({
 					{!readOnly && (
 						<button
 							type="button"
-							onClick={() => onChange(urls.filter((u) => u !== url))}
+							onClick={() =>
+								onChange(
+									urls.filter((_, j) => j !== i),
+									labels.filter((_, j) => j !== i),
+								)
+							}
 							className="text-emerald-700 hover:text-rose-700 dark:text-emerald-300"
 							aria-label={`Hapus bukti ${i + 1}`}
 						>

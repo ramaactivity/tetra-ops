@@ -15,6 +15,11 @@ const FeeRow = z.object({
 	// Semua bukti transfer crew ini (boleh lebih dari satu). Kolom lama
 	// payment_proof_url diisi bukti pertama demi pembaca lama.
 	payment_proof_urls: z.array(z.string().url().max(2000)).max(10).default([]),
+	// Jenis tiap bukti (indeks sama dengan payment_proof_urls).
+	payment_proof_labels: z
+		.array(z.enum(["fee", "bonus", "reimbursement", ""]))
+		.max(10)
+		.default([]),
 	// Ongkos transfer ke rekening crew ini — beda bank tujuan, beda ongkos.
 	payment_admin_fee: z.coerce
 		.number()
@@ -42,6 +47,7 @@ export async function saveCrewFees(
 		reimbursement_amount: number | string;
 		payment_notes?: string | null;
 		payment_proof_urls?: string[];
+		payment_proof_labels?: string[];
 		payment_admin_fee?: number | string;
 	}>,
 ): Promise<SaveCrewFeesResponse> {
@@ -92,7 +98,11 @@ export async function saveCrewFees(
 			const existingProofs =
 				(existingRow as { payment_proof_urls?: string[] | null } | undefined)
 					?.payment_proof_urls ?? [];
-			const proofs = [...new Set(row.payment_proof_urls)];
+			// Buang URL kembar sambil menjaga pasangan URL ↔ jenisnya.
+			const pairs = row.payment_proof_urls
+				.map((url, i) => ({ url, label: row.payment_proof_labels[i] ?? "" }))
+				.filter((p, i, all) => all.findIndex((q) => q.url === p.url) === i);
+			const proofs = pairs.map((p) => p.url);
 			const uploadedAt = proofs.some((u) => !existingProofs.includes(u))
 				? new Date().toISOString()
 				: undefined;
@@ -105,6 +115,7 @@ export async function saveCrewFees(
 					reimbursement_amount: row.reimbursement_amount,
 					payment_notes: row.payment_notes ?? null,
 					payment_proof_urls: proofs,
+					payment_proof_labels: pairs.map((p) => p.label),
 					payment_proof_url: proofs[0] ?? null,
 					payment_admin_fee: row.payment_admin_fee ?? 0,
 					...(uploadedAt ? { payment_proof_uploaded_at: uploadedAt } : {}),
