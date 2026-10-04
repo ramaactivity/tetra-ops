@@ -10,6 +10,7 @@ import {
 	type LucideIcon,
 	MessageCircle,
 	Moon,
+	NotebookText,
 	Package,
 	Palette,
 	Plus,
@@ -59,6 +60,7 @@ const MORE: NavItem[] = [
 	{ href: "/notifications", label: "Notifications", icon: Bell },
 	{ href: "/design", label: "Design", icon: Palette },
 	{ href: "/finance", label: "Finance", icon: Wallet },
+	{ href: "/finance/buku-kas", label: "Buku Kas", icon: NotebookText },
 	{ href: "/warehouse", label: "Warehouse", icon: Package },
 	{ href: "/reminders", label: "Reminders", icon: MessageCircle },
 	{ href: "/reports", label: "Reports", icon: FileText },
@@ -67,6 +69,15 @@ const MORE: NavItem[] = [
 
 function isActive(pathname: string, href: string) {
 	return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Di sheet More hanya item paling spesifik yang menyala
+ *  (/finance/buku-kas → "Buku Kas", bukan juga "Finance"). */
+function isMoreActive(pathname: string, href: string) {
+	return (
+		isActive(pathname, href) &&
+		!MORE.some((o) => o.href.length > href.length && isActive(pathname, o.href))
+	);
 }
 
 function initialsOf(name: string) {
@@ -284,7 +295,7 @@ export function OwnerBottomNav({
 
 					<nav className="grid grid-cols-2 gap-2">
 						{MORE.map((item) => {
-							const active = isActive(pathname, item.href);
+							const active = isMoreActive(pathname, item.href);
 							const Icon = item.icon;
 							const isNotifications = item.href === "/notifications";
 							return (
