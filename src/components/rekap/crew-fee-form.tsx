@@ -1250,7 +1250,7 @@ function PaymentProofUpload({
 					) : (
 						<>
 							<Upload className="h-3.5 w-3.5" />
-							Upload bukti transfer
+							Upload bukti transfer · bisa lebih dari satu
 						</>
 					)}
 				</button>
