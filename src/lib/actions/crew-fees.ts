@@ -12,7 +12,9 @@ const FeeRow = z.object({
 	bonus_amount: z.coerce.number().int().nonnegative(),
 	reimbursement_amount: z.coerce.number().int().nonnegative(),
 	payment_notes: z.string().trim().max(500).optional().nullable(),
-	payment_proof_url: z.string().url().max(2000).optional().nullable(),
+	// Semua bukti transfer crew ini (boleh lebih dari satu). Kolom lama
+	// payment_proof_url diisi bukti pertama demi pembaca lama.
+	payment_proof_urls: z.array(z.string().url().max(2000)).max(10).default([]),
 	// Ongkos transfer ke rekening crew ini — beda bank tujuan, beda ongkos.
 	payment_admin_fee: z.coerce
 		.number()
@@ -39,7 +41,7 @@ export async function saveCrewFees(
 		bonus_amount: number | string;
 		reimbursement_amount: number | string;
 		payment_notes?: string | null;
-		payment_proof_url?: string | null;
+		payment_proof_urls?: string[];
 		payment_admin_fee?: number | string;
 	}>,
 ): Promise<SaveCrewFeesResponse> {
@@ -66,7 +68,7 @@ export async function saveCrewFees(
 	const ids = parsed.data.rows.map((r) => r.assignment_id);
 	const { data: existing, error: fetchErr } = await supabase
 		.from("crew_assignments")
-		.select("id, event_id, payment_proof_url")
+		.select("id, event_id, payment_proof_urls")
 		.in("id", ids);
 	if (fetchErr) return { ok: false, error: fetchErr.message };
 
@@ -83,18 +85,17 @@ export async function saveCrewFees(
 	// surface the first failure.
 	const feeUpdateResults = await Promise.all(
 		parsed.data.rows.map((row) => {
-			// Look up existing payment_proof_url to detect new uploads (set uploaded_at)
+			// Ada bukti BARU (belum tersimpan sebelumnya) → catat waktu unggah.
 			const existingRow = (existing ?? []).find(
 				(e) => e.id === row.assignment_id,
 			);
-			const existingProof =
-				(existingRow as { payment_proof_url?: string | null } | undefined)
-					?.payment_proof_url ?? null;
-			const newProof = row.payment_proof_url ?? null;
-			const uploadedAt =
-				newProof && newProof !== existingProof
-					? new Date().toISOString()
-					: undefined;
+			const existingProofs =
+				(existingRow as { payment_proof_urls?: string[] | null } | undefined)
+					?.payment_proof_urls ?? [];
+			const proofs = [...new Set(row.payment_proof_urls)];
+			const uploadedAt = proofs.some((u) => !existingProofs.includes(u))
+				? new Date().toISOString()
+				: undefined;
 
 			return supabase
 				.from("crew_assignments")
@@ -103,7 +104,8 @@ export async function saveCrewFees(
 					bonus_amount: row.bonus_amount,
 					reimbursement_amount: row.reimbursement_amount,
 					payment_notes: row.payment_notes ?? null,
-					payment_proof_url: newProof,
+					payment_proof_urls: proofs,
+					payment_proof_url: proofs[0] ?? null,
 					payment_admin_fee: row.payment_admin_fee ?? 0,
 					...(uploadedAt ? { payment_proof_uploaded_at: uploadedAt } : {}),
 					updated_at: new Date().toISOString(),

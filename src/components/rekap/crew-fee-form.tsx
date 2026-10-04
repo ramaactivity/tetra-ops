@@ -44,7 +44,8 @@ export type CrewAssignmentRow = {
 	bonus_amount: number;
 	reimbursement_amount: number;
 	payment_notes: string | null;
-	payment_proof_url: string | null;
+	/** Semua bukti transfer crew ini (boleh lebih dari satu). */
+	payment_proof_urls: string[];
 	/** Ongkos transfer ke rekening crew ini (beda bank tujuan, beda ongkos). */
 	payment_admin_fee: number;
 	is_paid: boolean;
@@ -250,7 +251,7 @@ export function CrewFeeForm({
 			orig.bonus_amount !== r.bonus_amount ||
 			orig.reimbursement_amount !== r.reimbursement_amount ||
 			(orig.payment_notes ?? "") !== (r.payment_notes ?? "") ||
-			(orig.payment_proof_url ?? null) !== (r.payment_proof_url ?? null) ||
+			orig.payment_proof_urls.join("\n") !== r.payment_proof_urls.join("\n") ||
 			orig.payment_admin_fee !== r.payment_admin_fee
 		);
 	});
@@ -270,7 +271,7 @@ export function CrewFeeForm({
 					bonus_amount: r.bonus_amount,
 					reimbursement_amount: r.reimbursement_amount,
 					payment_notes: r.payment_notes,
-					payment_proof_url: r.payment_proof_url,
+					payment_proof_urls: r.payment_proof_urls,
 					payment_admin_fee: r.payment_admin_fee,
 				})),
 			);
@@ -699,8 +700,8 @@ export function CrewFeeForm({
 									projectId={projectId}
 									crewRow={row}
 									totalFee={total}
-									onChange={(url) =>
-										update(row.assignment_id, { payment_proof_url: url })
+									onChange={(urls) =>
+										update(row.assignment_id, { payment_proof_urls: urls })
 									}
 									readOnly={readOnly}
 								/>
@@ -1113,6 +1114,11 @@ function CrewPayPanel({
 	);
 }
 
+/**
+ * Bukti transfer fee crew — boleh lebih dari satu (transfer dipecah, bukti
+ * fee & reimbursement terpisah, dll). Tiap file diunggah ke folder Drive event
+ * dengan nama otomatis; urutan = urutan unggah.
+ */
 function PaymentProofUpload({
 	projectId,
 	crewRow,
@@ -1123,41 +1129,44 @@ function PaymentProofUpload({
 	projectId: string;
 	crewRow: CrewAssignmentRow;
 	totalFee: number;
-	onChange: (url: string | null) => void;
+	onChange: (urls: string[]) => void;
 	readOnly?: boolean;
 }) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [uploading, setUploading] = useState(false);
-	const url = crewRow.payment_proof_url;
+	const urls = crewRow.payment_proof_urls;
+	const MAX = 10;
+
+	async function uploadOne(file: File): Promise<string> {
+		const fd = new FormData();
+		fd.set("file", file);
+		fd.set("kind", "crew_fee");
+		fd.set("crew_name", crewRow.user_full_name ?? "");
+		fd.set("role", crewRow.role_in_event ?? "");
+		fd.set("payment_date", new Date().toISOString().slice(0, 10));
+		fd.set("amount", String(totalFee));
+		const res = await fetch(`/api/drive/upload/${projectId}`, {
+			method: "POST",
+			body: fd,
+		});
+		if (!res.ok) {
+			const text = await res.text().catch(() => "");
+			throw new Error(text || `HTTP ${res.status}`);
+		}
+		return ((await res.json()) as { url: string }).url;
+	}
 
 	async function handleFiles(files: FileList | null) {
 		if (!files || files.length === 0) return;
-		const file = files[0];
+		const picked = Array.from(files).slice(0, MAX - urls.length);
 		setUploading(true);
+		const added: string[] = [];
 		try {
-			const fd = new FormData();
-			fd.set("file", file);
-			fd.set("kind", "crew_fee");
-			fd.set("crew_name", crewRow.user_full_name ?? "");
-			fd.set("role", crewRow.role_in_event ?? "");
-			fd.set("payment_date", new Date().toISOString().slice(0, 10));
-			fd.set("amount", String(totalFee));
-			const res = await fetch(`/api/drive/upload/${projectId}`, {
-				method: "POST",
-				body: fd,
-			});
-			if (!res.ok) {
-				const text = await res.text().catch(() => "");
-				throw new Error(text || `HTTP ${res.status}`);
-			}
-			const { url: uploadedUrl, name: renamedName } = (await res.json()) as {
-				url: string;
-				name?: string;
-			};
-			onChange(uploadedUrl);
+			// Berurutan: nama file otomatis di Drive ikut urutan unggah.
+			for (const f of picked) added.push(await uploadOne(f));
 			toast.success(
-				renamedName
-					? `Bukti tersimpan: ${renamedName}`
+				added.length > 1
+					? `${added.length} bukti transfer ${crewRow.user_full_name} ter-upload`
 					: `Bukti transfer ${crewRow.user_full_name} ter-upload`,
 			);
 		} catch (err) {
@@ -1165,6 +1174,8 @@ function PaymentProofUpload({
 				`Upload gagal: ${err instanceof Error ? err.message : "Unknown error"}`,
 			);
 		} finally {
+			// Yang sudah berhasil tetap disimpan meski file berikutnya gagal.
+			if (added.length) onChange([...urls, ...added]);
 			setUploading(false);
 			if (inputRef.current) inputRef.current.value = "";
 		}
@@ -1172,19 +1183,23 @@ function PaymentProofUpload({
 
 	return (
 		<div className="space-y-1">
-			<label className="block text-xs font-medium text-muted-foreground">
+			<span className="block text-xs font-medium text-muted-foreground">
 				Bukti transfer (optional)
-			</label>
+			</span>
 			<input
 				ref={inputRef}
 				type="file"
+				multiple
 				accept="image/*,application/pdf"
 				className="hidden"
 				onChange={(e) => handleFiles(e.target.files)}
 				disabled={readOnly || uploading}
 			/>
-			{url ? (
-				<div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+			{urls.map((url, i) => (
+				<div
+					key={url}
+					className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs dark:border-emerald-900 dark:bg-emerald-950/30"
+				>
 					<CheckCircle2 className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
 					<a
 						href={url}
@@ -1192,38 +1207,45 @@ function PaymentProofUpload({
 						rel="noopener noreferrer"
 						className="flex-1 truncate text-emerald-900 hover:underline dark:text-emerald-200"
 					>
-						Lihat bukti
+						{urls.length > 1 ? `Bukti ${i + 1}` : "Lihat bukti"}
 					</a>
 					<a
 						href={url}
 						target="_blank"
 						rel="noopener noreferrer"
 						className="text-emerald-700 hover:text-emerald-900 dark:text-emerald-300"
+						aria-label={`Buka bukti ${i + 1}`}
 					>
 						<ExternalLink className="h-3 w-3" />
 					</a>
 					{!readOnly && (
 						<button
 							type="button"
-							onClick={() => onChange(null)}
+							onClick={() => onChange(urls.filter((u) => u !== url))}
 							className="text-emerald-700 hover:text-rose-700 dark:text-emerald-300"
-							aria-label="Hapus bukti"
+							aria-label={`Hapus bukti ${i + 1}`}
 						>
 							<X className="h-3 w-3" />
 						</button>
 					)}
 				</div>
-			) : (
+			))}
+			{!readOnly && urls.length < MAX ? (
 				<button
 					type="button"
 					onClick={() => inputRef.current?.click()}
-					disabled={readOnly || uploading}
+					disabled={uploading}
 					className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border-default bg-surface-1 px-3 text-xs text-muted-foreground hover:border-border-strong hover:bg-surface-3 disabled:opacity-50"
 				>
 					{uploading ? (
 						<>
 							<Loader2 className="h-3.5 w-3.5 animate-spin" />
 							Uploading…
+						</>
+					) : urls.length > 0 ? (
+						<>
+							<Plus className="h-3.5 w-3.5" />
+							Tambah bukti transfer
 						</>
 					) : (
 						<>
@@ -1232,7 +1254,7 @@ function PaymentProofUpload({
 						</>
 					)}
 				</button>
-			)}
+			) : null}
 		</div>
 	);
 }
