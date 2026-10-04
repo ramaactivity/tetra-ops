@@ -23,6 +23,7 @@ import {
 	LayoutDashboard,
 	type LucideIcon,
 	MessageCircle,
+	NotebookText,
 	Package,
 	Palette,
 	PiggyBank,
@@ -95,6 +96,11 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/bulanan",
 						label: "Bulanan",
 						icon: CalendarRange,
+					},
+					{
+						href: "/finance/buku-kas",
+						label: "Buku Kas",
+						icon: NotebookText,
 					},
 					{
 						href: "/finance/dokumen",

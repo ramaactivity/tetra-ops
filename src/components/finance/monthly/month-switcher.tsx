@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { NativeSelect } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 
@@ -26,10 +26,14 @@ export function MonthSwitcher({
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
+	const params = useSearchParams();
 
 	function go(ym: string | null) {
 		if (!ym) return;
-		router.push(`${pathname}?bulan=${ym}`);
+		// Pertahankan query lain (mis. `akun` di Buku Kas).
+		const next = new URLSearchParams(params.toString());
+		next.set("bulan", ym);
+		router.push(`${pathname}?${next}`);
 	}
 
 	const arrowCls =
