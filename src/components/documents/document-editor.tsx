@@ -605,14 +605,18 @@ export function DocumentEditor({
 					>
 						<MessageCircle className="size-3.5" /> WA
 					</Button>
-					<SendToClientButton
-						documentId={doc.id ?? null}
-						blockedBy={pendingAdminItems(doc.items)}
-						ensureSaved={async () => (await ensureSaved())?.id ?? null}
-						disabled={saving || readOnly}
-					/>
+					{/* HP: Simpan dulu, tombol kirim (lebar) turun ke baris kedua. */}
+					<span className="order-last sm:order-none">
+						<SendToClientButton
+							documentId={doc.id ?? null}
+							blockedBy={pendingAdminItems(doc.items)}
+							ensureSaved={async () => (await ensureSaved())?.id ?? null}
+							disabled={saving || readOnly}
+						/>
+					</span>
 					<Button
 						size="sm"
+						className="order-first sm:order-none"
 						onClick={() => void save()}
 						disabled={saving || readOnly || !dirty}
 					>
@@ -717,13 +721,13 @@ export function DocumentEditor({
 
 			{/* Dua kolom baru dari 1280px: di bawahnya (termasuk laptop dengan zoom
 			    browser) form selebar penuh dan preview lewat tombol Isi/Preview. */}
-			<div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,38%)]">
+			<div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,38%)]">
 				{/* ── Form ── */}
 				<div
 					className={cn(
 						// Satu skala untuk semua nilai field di panel ini (14px di desktop;
 						// HP tetap 16px agar iOS tidak auto-zoom).
-						"space-y-3 md:[&_input]:text-[14px]! md:[&_textarea]:text-[14px]!",
+						"min-w-0 space-y-3 md:[&_input]:text-[14px]! md:[&_textarea]:text-[14px]!",
 						mobileTab === "preview" && "hidden xl:block",
 					)}
 				>

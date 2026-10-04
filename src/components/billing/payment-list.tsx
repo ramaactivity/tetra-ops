@@ -109,13 +109,13 @@ function PaymentItem({
 		<li
 			className={
 				compact
-					? "flex items-center justify-between gap-3 py-2"
+					? "flex flex-wrap items-center justify-end gap-x-3 gap-y-0.5 py-2"
 					: "flex items-start justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
 			}
 		>
 			{compact ? (
 				<div
-					className="flex min-w-0 flex-1 items-center gap-3"
+					className="flex min-w-[15rem] flex-1 items-center gap-3"
 					title={[payment.ref_id, payment.notes].filter(Boolean).join(" · ")}
 				>
 					<Badge variant="outline" className="w-[74px] justify-center">

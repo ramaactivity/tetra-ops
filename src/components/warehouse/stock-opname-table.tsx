@@ -146,8 +146,8 @@ export function StockOpnameTable({
 					onValueChange={setQuery}
 					placeholder="Cari item / SKU..."
 				/>
-				<div className="flex items-center gap-2">
-					<div className="inline-flex h-8 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-0.5 text-[12px] shadow-[var(--shadow-level-1)]">
+				<div className="flex min-w-0 items-center gap-2">
+					<div className="hide-scrollbar inline-flex h-8 min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-card p-0.5 [&>*]:shrink-0 text-[12px] shadow-[var(--shadow-level-1)]">
 						{FILTER_TABS.map((t) => {
 							const c = counts[t.key];
 							const active = t.key === filter;
@@ -173,7 +173,7 @@ export function StockOpnameTable({
 							);
 						})}
 					</div>
-					<div className="relative w-36">
+					<div className="relative w-36 shrink-0">
 						<ArrowDownUp
 							className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
 							aria-hidden

@@ -25,7 +25,7 @@ export function SettledBanner({
 	isSuperAdmin,
 }: Props) {
 	return (
-		<aside className="sticky top-0 z-20 -mx-4 border-b border-border-default bg-surface-2/95 px-4 py-3 backdrop-blur-md sm:mx-0 sm:rounded-xl sm:border">
+		<aside className="sticky top-0 z-20 -mx-3 border-b border-border-default bg-surface-2/95 px-4 py-3 backdrop-blur-md sm:mx-0 sm:rounded-xl sm:border">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="flex items-center gap-3">
 					<div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-3">

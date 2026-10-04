@@ -242,7 +242,7 @@ export default async function BukuKasPage({
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<nav
 					aria-label="Pilih kas atau rekening"
-					className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+					className="hide-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
 				>
 					{[{ code: null, name: "Semua Kas & Bank" }, ...cashAccounts].map(
 						(a) => {

@@ -239,7 +239,7 @@ export function MarketListTable({
 				/>
 				{subTab === "items" && (
 					<div className="flex flex-wrap items-center gap-2">
-						<div className="inline-flex h-8 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-0.5 shadow-[var(--shadow-level-1)]">
+						<div className="hide-scrollbar inline-flex h-8 min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-full border border-border-subtle bg-card p-0.5 [&>*]:shrink-0 shadow-[var(--shadow-level-1)]">
 							{(
 								[
 									{ key: "all", label: "Semua", count: counts.items },

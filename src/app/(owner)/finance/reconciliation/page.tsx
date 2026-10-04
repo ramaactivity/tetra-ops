@@ -343,70 +343,76 @@ export default async function ReconciliationPage() {
 							Belum ada saldo.
 						</p>
 					) : (
-						<table className="w-full text-sm">
-							<thead className="bg-secondary/40 text-xs text-muted-foreground">
-								<tr>
-									<th className="px-4 py-2 text-left font-medium">Akun</th>
-									<th className="px-4 py-2 text-right font-medium">
-										Buku Besar
-									</th>
-									<th className="px-4 py-2 text-right font-medium">
-										Sub-ledger / Fisik
-									</th>
-									<th className="px-4 py-2 text-right font-medium">Selisih</th>
-									<th className="px-4 py-2 text-center font-medium">Status</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border-subtle">
-								{sec.rows.map((r) => {
-									const delta = r.gl - r.sub;
-									const ok = Math.abs(delta) <= RECONCILE_TOLERANCE;
-									return (
-										<tr key={`${sec.title}-${r.code}-${r.label}`}>
-											<td className="px-4 py-2">
-												<span className="font-medium">{r.label}</span>{" "}
-												<span className="text-xs text-muted-foreground">
-													{r.code}
-												</span>
-											</td>
-											<td className="px-4 py-2 text-right tabular">
-												{formatRupiah(r.gl)}
-											</td>
-											<td className="px-4 py-2 text-right tabular">
-												{formatRupiah(r.sub)}
-											</td>
-											<td
-												className={cn(
-													"px-4 py-2 text-right tabular",
-													!ok && "font-semibold text-amber-700",
-												)}
-											>
-												{delta === 0 ? (
-													"—"
-												) : ok ? (
-													<span
-														className="text-muted-foreground"
-														title="Sisa pembulatan qty pecahan × harga rata-rata — bukan drift"
-													>
-														{formatRupiah(delta)}{" "}
-														<span className="text-xs">(pembulatan)</span>
+						<div className="overflow-x-auto">
+							<table className="w-full min-w-[560px] text-sm">
+								<thead className="bg-secondary/40 text-xs text-muted-foreground">
+									<tr>
+										<th className="px-4 py-2 text-left font-medium">Akun</th>
+										<th className="px-4 py-2 text-right font-medium">
+											Buku Besar
+										</th>
+										<th className="px-4 py-2 text-right font-medium">
+											Sub-ledger / Fisik
+										</th>
+										<th className="px-4 py-2 text-right font-medium">
+											Selisih
+										</th>
+										<th className="px-4 py-2 text-center font-medium">
+											Status
+										</th>
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-border-subtle">
+									{sec.rows.map((r) => {
+										const delta = r.gl - r.sub;
+										const ok = Math.abs(delta) <= RECONCILE_TOLERANCE;
+										return (
+											<tr key={`${sec.title}-${r.code}-${r.label}`}>
+												<td className="px-4 py-2">
+													<span className="font-medium">{r.label}</span>{" "}
+													<span className="text-xs text-muted-foreground">
+														{r.code}
 													</span>
-												) : (
-													formatRupiah(delta)
-												)}
-											</td>
-											<td className="px-4 py-2 text-center">
-												{ok ? (
-													<CheckCircle2 className="inline size-4 text-emerald-600" />
-												) : (
-													<AlertTriangle className="inline size-4 text-amber-600" />
-												)}
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
+												</td>
+												<td className="px-4 py-2 text-right tabular">
+													{formatRupiah(r.gl)}
+												</td>
+												<td className="px-4 py-2 text-right tabular">
+													{formatRupiah(r.sub)}
+												</td>
+												<td
+													className={cn(
+														"px-4 py-2 text-right tabular",
+														!ok && "font-semibold text-amber-700",
+													)}
+												>
+													{delta === 0 ? (
+														"—"
+													) : ok ? (
+														<span
+															className="text-muted-foreground"
+															title="Sisa pembulatan qty pecahan × harga rata-rata — bukan drift"
+														>
+															{formatRupiah(delta)}{" "}
+															<span className="text-xs">(pembulatan)</span>
+														</span>
+													) : (
+														formatRupiah(delta)
+													)}
+												</td>
+												<td className="px-4 py-2 text-center">
+													{ok ? (
+														<CheckCircle2 className="inline size-4 text-emerald-600" />
+													) : (
+														<AlertTriangle className="inline size-4 text-amber-600" />
+													)}
+												</td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
+						</div>
 					)}
 				</section>
 			))}
@@ -424,69 +430,71 @@ export default async function ReconciliationPage() {
 							laba terlihat lebih besar dari seharusnya.
 						</p>
 					</div>
-					<table className="w-full text-sm">
-						<thead className="bg-secondary/40 text-xs text-muted-foreground">
-							<tr>
-								<th className="px-4 py-2 text-left font-medium">Event</th>
-								<th className="px-4 py-2 text-right font-medium">
-									Ditandai owner
-								</th>
-								<th className="px-4 py-2 text-right font-medium">
-									Sudah dicatat
-								</th>
-								<th className="px-4 py-2 text-right font-medium">Kurang</th>
-								<th className="px-4 py-2 text-center font-medium">Status</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border-subtle">
-							{ownerPaidRows.map((r) => {
-								const gap = r.expected - r.recorded;
-								const ok = gap <= RECONCILE_TOLERANCE;
-								return (
-									<tr key={r.eventId}>
-										<td className="px-4 py-2">
-											{r.projectId ? (
-												<Link
-													href={`/operations/${r.projectId}/rekap`}
-													className="font-medium hover:underline"
-												>
-													{r.clientName}
-												</Link>
-											) : (
-												<span className="font-medium">{r.clientName}</span>
-											)}
-											{r.eventDate ? (
-												<span className="ml-1.5 text-xs text-muted-foreground">
-													{r.eventDate}
-												</span>
-											) : null}
-										</td>
-										<td className="px-4 py-2 text-right tabular">
-											{formatRupiah(r.expected)}
-										</td>
-										<td className="px-4 py-2 text-right tabular">
-											{formatRupiah(r.recorded)}
-										</td>
-										<td
-											className={cn(
-												"px-4 py-2 text-right tabular",
-												!ok && "font-semibold text-amber-700",
-											)}
-										>
-											{gap > 0 ? formatRupiah(gap) : "—"}
-										</td>
-										<td className="px-4 py-2 text-center">
-											{ok ? (
-												<CheckCircle2 className="inline size-4 text-emerald-600" />
-											) : (
-												<AlertTriangle className="inline size-4 text-amber-600" />
-											)}
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-					</table>
+					<div className="overflow-x-auto">
+						<table className="w-full min-w-[560px] text-sm">
+							<thead className="bg-secondary/40 text-xs text-muted-foreground">
+								<tr>
+									<th className="px-4 py-2 text-left font-medium">Event</th>
+									<th className="px-4 py-2 text-right font-medium">
+										Ditandai owner
+									</th>
+									<th className="px-4 py-2 text-right font-medium">
+										Sudah dicatat
+									</th>
+									<th className="px-4 py-2 text-right font-medium">Kurang</th>
+									<th className="px-4 py-2 text-center font-medium">Status</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-border-subtle">
+								{ownerPaidRows.map((r) => {
+									const gap = r.expected - r.recorded;
+									const ok = gap <= RECONCILE_TOLERANCE;
+									return (
+										<tr key={r.eventId}>
+											<td className="px-4 py-2">
+												{r.projectId ? (
+													<Link
+														href={`/operations/${r.projectId}/rekap`}
+														className="font-medium hover:underline"
+													>
+														{r.clientName}
+													</Link>
+												) : (
+													<span className="font-medium">{r.clientName}</span>
+												)}
+												{r.eventDate ? (
+													<span className="ml-1.5 text-xs text-muted-foreground">
+														{r.eventDate}
+													</span>
+												) : null}
+											</td>
+											<td className="px-4 py-2 text-right tabular">
+												{formatRupiah(r.expected)}
+											</td>
+											<td className="px-4 py-2 text-right tabular">
+												{formatRupiah(r.recorded)}
+											</td>
+											<td
+												className={cn(
+													"px-4 py-2 text-right tabular",
+													!ok && "font-semibold text-amber-700",
+												)}
+											>
+												{gap > 0 ? formatRupiah(gap) : "—"}
+											</td>
+											<td className="px-4 py-2 text-center">
+												{ok ? (
+													<CheckCircle2 className="inline size-4 text-emerald-600" />
+												) : (
+													<AlertTriangle className="inline size-4 text-amber-600" />
+												)}
+											</td>
+										</tr>
+									);
+								})}
+							</tbody>
+						</table>
+					</div>
 				</section>
 			)}
 

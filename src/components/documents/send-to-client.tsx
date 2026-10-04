@@ -173,7 +173,7 @@ export function DeliveredInfo({
 			}
 			className="text-[11.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
 		>
-			{pending ? "Menyimpan…" : "Belum dikirim · tandai sudah dikirim manual"}
+			{pending ? "Menyimpan…" : "Tandai sudah diterima klien"}
 		</button>
 	);
 }

@@ -872,6 +872,13 @@
 
 /* Native momentum + no horizontal rubber-banding inside scroll regions. */
 @layer base {
+  /* Grid tanpa grid-cols-* di HP (mis. cuma `md:grid-cols-2`) jalan dengan
+     satu kolom implisit `auto` yang melebar mengikuti isi terlebar → kartu
+     terdorong keluar layar. Default-kan satu kolom yang boleh menyempit;
+     grid-cols-* (layer utilities) tetap menang. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   a, button, [role="button"], label, summary, input, select, textarea {
     touch-action: manipulation;
   }

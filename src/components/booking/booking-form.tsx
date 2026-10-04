@@ -3835,7 +3835,7 @@ export function BookingForm({
 						</Field>
 					</Section>
 
-					<div className="sticky bottom-0 -mx-4 flex flex-col gap-3 border-t border-border-default bg-surface-2 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface-2/85 sm:flex-row sm:items-center sm:justify-between md:-mx-8 md:px-8 lg:hidden">
+					<div className="sticky bottom-0 -mx-3 flex flex-col gap-3 border-t border-border-default bg-surface-2 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-surface-2/85 sm:flex-row sm:items-center sm:justify-between lg:hidden">
 						<dl className="flex items-baseline gap-6 text-fluid-body">
 							<div>
 								<dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
