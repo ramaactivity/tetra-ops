@@ -14,6 +14,14 @@ export function isAuthorizedBot(request: Request): boolean {
 	return isAuthorizedBearer(request, "AVAILABILITY_API_TOKEN");
 }
 
+/**
+ * Server Tetra Booth (booth.tetraphoto.com) membaca booking & paket untuk wizard Buat event
+ * (GET /api/booth/bookings, /api/booth/packages). Token terpisah dari bot WA: `BOOTH_API_TOKEN`.
+ */
+export function isAuthorizedBooth(request: Request): boolean {
+	return isAuthorizedBearer(request, "BOOTH_API_TOKEN");
+}
+
 /** Cek `Authorization: Bearer <token>` terhadap env var bernama `envName`. */
 export function isAuthorizedBearer(request: Request, envName: string): boolean {
 	const expected = process.env[envName];
