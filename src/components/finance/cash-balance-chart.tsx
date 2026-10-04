@@ -98,8 +98,14 @@ export function CashBalanceChart({
 	});
 	path += ` H 100`;
 
-	const lowest = days.reduce((m, d) => (d.saldo < m.saldo ? d : m), days[0]);
-	const highest = days.reduce((m, d) => (d.saldo > m.saldo ? d : m), days[0]);
+	// Saldo awal ikut dibandingkan — kalau tidak, "terendah" bisa lebih besar
+	// dari saldo awal yang tertulis di kartu.
+	const points = [
+		{ saldo: opening, label: "saldo awal" },
+		...days.map((d) => ({ saldo: d.saldo, label: dayLabel(d.date) })),
+	];
+	const lowest = points.reduce((m, p) => (p.saldo < m.saldo ? p : m));
+	const highest = points.reduce((m, p) => (p.saldo > m.saldo ? p : m));
 	const sel = active === null ? null : days[active];
 	const last = days[n - 1];
 
@@ -125,11 +131,11 @@ export function CashBalanceChart({
 					>
 						{formatRupiah(lowest.saldo)}
 					</span>{" "}
-					({dayLabel(lowest.date)}) · Tertinggi{" "}
+					({lowest.label}) · Tertinggi{" "}
 					<span className="tabular font-medium text-foreground">
 						{formatRupiah(highest.saldo)}
 					</span>{" "}
-					({dayLabel(highest.date)})
+					({highest.label})
 				</p>
 			</div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, X } from "lucide-react";
+import { X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -53,11 +53,10 @@ export function DateRangeFilter({
 	return (
 		<div
 			className={cn(
-				"inline-flex h-8 items-center gap-1 rounded-full border bg-card pl-3 pr-1",
+				"inline-flex h-8 items-center gap-1 rounded-full border bg-card pl-2 pr-1",
 				active ? "border-foreground/40" : "border-border-default",
 			)}
 		>
-			<CalendarDays className="size-3.5 text-muted-foreground" aria-hidden />
 			<input
 				type="date"
 				aria-label="Dari tanggal"
