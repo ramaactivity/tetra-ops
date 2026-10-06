@@ -1271,6 +1271,127 @@ export const klienLama: AiTool = {
 	},
 };
 
+/**
+ * Prospek mengarahkan kita ke orang lain ("hubungi Marcom kami, Ibu Aurel 0882…").
+ * Simpan kontak PIC di prospek yang sama (kontak lama tetap di catatan), lalu
+ * langsung antrekan sapaan ke PIC: nomor HP → bot WA, email → Cold Reach.
+ */
+export const prospekAlihkan: AiTool = {
+	name: "prospek_alihkan",
+	description:
+		"Pakai saat prospek MEMBALAS dan mengarahkan ke orang/kontak lain (PIC, Marcom, sales, HRD, email lain). " +
+		"Menyimpan kontak PIC ke prospek yang sama lalu langsung mengantrekan sapaan ke PIC itu (HP → WA lewat bot, email → Cold Reach). " +
+		"Sekali per kontak PIC. pesan WAJIB menyebut bahwa kontak didapat dari arahan tim <nama prospek>, diakhiri 'Salam,'.",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			id: { type: "STRING", description: "id prospek yang membalas." },
+			pic: { type: "STRING", description: "Nama/jabatan PIC, mis. 'Ibu Aurel (Marcom)'." },
+			telepon: { type: "STRING", description: "Nomor HP PIC dari balasan (boleh format +62/08)." },
+			email: { type: "STRING", description: "Email PIC dari balasan." },
+			kutipan: { type: "STRING", description: "Kalimat balasan yang menyebut PIC, apa adanya." },
+			subjek: { type: "STRING", description: "Subjek email (hanya kalau kirim email), ≤8 kata." },
+			pesan: { type: "STRING", description: "Sapaan ke PIC 50–160 kata, diakhiri 'Salam,'." },
+		},
+		required: ["id", "pesan"],
+	},
+	async run(args, ctx) {
+		const id = str(args.id, 40);
+		const pesan = str(args.pesan, 1500);
+		const pic = str(args.pic, 120);
+		const kutipan = str(args.kutipan, 600);
+		const subjek = str(args.subjek, 120);
+		const telepon = str(args.telepon, 40);
+		const email = str(args.email, 200)?.toLowerCase() ?? null;
+		if (!id || !pesan) return { error: "id dan pesan wajib" };
+		const nomor =
+			telepon && isLikelyWaPhone(telepon) && toWaPhone(telepon).startsWith("628")
+				? toWaPhone(telepon)
+				: null;
+		if (!nomor && !emailValid(email))
+			return {
+				error: telepon
+					? `${telepon} bukan nomor HP (telepon kantor tidak bisa di-WA) dan tidak ada email valid.`
+					: "Isi telepon (HP PIC) atau email PIC.",
+			};
+		const { data: p } = await ctx.supabase
+			.from("prospek")
+			.select("id, nama, status, telepon, email, pic, website, catatan")
+			.eq("id", id)
+			.maybeSingle();
+		if (!p) return { error: `prospek ${id} tidak ditemukan` };
+		if (["jangan_hubungi", "tolak"].includes(p.status))
+			return { error: `${p.nama} berstatus ${p.status}; tidak dihubungi lagi.` };
+		const kunci = nomor ?? email;
+		if ((p.catatan ?? "").includes(`dialihkan ke ${kunci}`))
+			return { error: `${p.nama} sudah pernah dialihkan ke ${kunci}.` };
+		const salah = periksaDraf({
+			email: nomor ? null : email,
+			website: nomor ? null : p.website,
+			subjek: nomor ? null : subjek,
+			isi: pesan,
+		});
+		if (!nomor && !subjek) salah.push("subjek email wajib");
+		if (salah.length)
+			return { error: `Pesan belum layak kirim: ${salah.join("; ")}. Perbaiki lalu panggil lagi.` };
+
+		const sekarang = new Date().toISOString();
+		const lama = [p.pic, p.telepon, p.email].filter(Boolean).join(" / ") || "-";
+		let antre: string;
+		if (nomor) {
+			const t = await titipWa(ctx, nomor, pesan);
+			if ("error" in t) return { error: `Gagal menitipkan WA ke bot: ${t.error}` };
+			antre = `WA dititipkan ke CS Mintet (cmd ${t.id})`;
+		} else {
+			const h = await coldReachDrafKirim([
+				{
+					email,
+					nama_perusahaan: p.nama,
+					website: p.website ?? undefined,
+					nama_pic: pic ?? undefined,
+					subjek,
+					isi: pesan,
+					external_ref: `${p.id}-pic`,
+					...metaColdReach(p),
+					prioritas: "tinggi",
+				},
+			]);
+			if ("error" in h) return { error: `Cold Reach gagal: ${h.error}` };
+			const r = h[0];
+			if (!r || !["dijadwalkan", "menunggu_persetujuan", "tertunda", "terkirim"].includes(r.status))
+				return { error: `Email ditolak Cold Reach: ${r?.alasan ?? r?.status ?? "tanpa hasil"}` };
+			antre = `email PIC diantrekan Cold Reach #${(r.id ?? "").slice(0, 4)} (${r.status})`;
+		}
+		const catatan = [
+			p.catatan,
+			`dialihkan ke ${kunci}${pic ? ` (${pic})` : ""}; kontak lama: ${lama}${kutipan ? `; kata mereka: "${kutipan}"` : ""}`,
+			antre,
+		]
+			.filter(Boolean)
+			.join("\n");
+		const { error } = await ctx.supabase
+			.from("prospek")
+			.update({
+				status: "disapa",
+				disapa_at: sekarang,
+				pic: pic ?? p.pic,
+				...(nomor ? { telepon: nomor } : { email }),
+				draf_pesan: pesan,
+				...(nomor ? {} : { draf_subjek: subjek }),
+				catatan,
+				updated_at: sekarang,
+			})
+			.eq("id", id);
+		if (error) return { error: error.message };
+		return {
+			status: "antre",
+			laporan: `${p.nama}: dialihkan ke ${pic ?? kunci} (${kunci}); ${antre}. Kontak lama tetap di catatan.`,
+		};
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
@@ -1280,6 +1401,7 @@ export const SALES_TOOLS: AiTool[] = [
 	prospekDaftar,
 	prospekUbah,
 	prospekKirimWa,
+	prospekAlihkan,
 	prospekDmIg,
 	basisKontakImpor,
 	basisKontakDaftar,
