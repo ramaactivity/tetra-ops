@@ -1288,12 +1288,27 @@ export const prospekAlihkan: AiTool = {
 		type: "OBJECT",
 		properties: {
 			id: { type: "STRING", description: "id prospek yang membalas." },
-			pic: { type: "STRING", description: "Nama/jabatan PIC, mis. 'Ibu Aurel (Marcom)'." },
-			telepon: { type: "STRING", description: "Nomor HP PIC dari balasan (boleh format +62/08)." },
+			pic: {
+				type: "STRING",
+				description: "Nama/jabatan PIC, mis. 'Ibu Aurel (Marcom)'.",
+			},
+			telepon: {
+				type: "STRING",
+				description: "Nomor HP PIC dari balasan (boleh format +62/08).",
+			},
 			email: { type: "STRING", description: "Email PIC dari balasan." },
-			kutipan: { type: "STRING", description: "Kalimat balasan yang menyebut PIC, apa adanya." },
-			subjek: { type: "STRING", description: "Subjek email (hanya kalau kirim email), ≤8 kata." },
-			pesan: { type: "STRING", description: "Sapaan ke PIC 50–160 kata, diakhiri 'Salam,'." },
+			kutipan: {
+				type: "STRING",
+				description: "Kalimat balasan yang menyebut PIC, apa adanya.",
+			},
+			subjek: {
+				type: "STRING",
+				description: "Subjek email (hanya kalau kirim email), ≤8 kata.",
+			},
+			pesan: {
+				type: "STRING",
+				description: "Sapaan ke PIC 50–160 kata, diakhiri 'Salam,'.",
+			},
 		},
 		required: ["id", "pesan"],
 	},
@@ -1307,7 +1322,9 @@ export const prospekAlihkan: AiTool = {
 		const email = str(args.email, 200)?.toLowerCase() ?? null;
 		if (!id || !pesan) return { error: "id dan pesan wajib" };
 		const nomor =
-			telepon && isLikelyWaPhone(telepon) && toWaPhone(telepon).startsWith("628")
+			telepon &&
+			isLikelyWaPhone(telepon) &&
+			toWaPhone(telepon).startsWith("628")
 				? toWaPhone(telepon)
 				: null;
 		if (!nomor && !emailValid(email))
@@ -1323,7 +1340,9 @@ export const prospekAlihkan: AiTool = {
 			.maybeSingle();
 		if (!p) return { error: `prospek ${id} tidak ditemukan` };
 		if (["jangan_hubungi", "tolak"].includes(p.status))
-			return { error: `${p.nama} berstatus ${p.status}; tidak dihubungi lagi.` };
+			return {
+				error: `${p.nama} berstatus ${p.status}; tidak dihubungi lagi.`,
+			};
 		const kunci = nomor ?? email;
 		if ((p.catatan ?? "").includes(`dialihkan ke ${kunci}`))
 			return { error: `${p.nama} sudah pernah dialihkan ke ${kunci}.` };
@@ -1335,14 +1354,17 @@ export const prospekAlihkan: AiTool = {
 		});
 		if (!nomor && !subjek) salah.push("subjek email wajib");
 		if (salah.length)
-			return { error: `Pesan belum layak kirim: ${salah.join("; ")}. Perbaiki lalu panggil lagi.` };
+			return {
+				error: `Pesan belum layak kirim: ${salah.join("; ")}. Perbaiki lalu panggil lagi.`,
+			};
 
 		const sekarang = new Date().toISOString();
 		const lama = [p.pic, p.telepon, p.email].filter(Boolean).join(" / ") || "-";
 		let antre: string;
 		if (nomor) {
 			const t = await titipWa(ctx, nomor, pesan);
-			if ("error" in t) return { error: `Gagal menitipkan WA ke bot: ${t.error}` };
+			if ("error" in t)
+				return { error: `Gagal menitipkan WA ke bot: ${t.error}` };
 			antre = `WA dititipkan ke CS Mintet (cmd ${t.id})`;
 		} else {
 			const h = await coldReachDrafKirim([
@@ -1360,8 +1382,18 @@ export const prospekAlihkan: AiTool = {
 			]);
 			if ("error" in h) return { error: `Cold Reach gagal: ${h.error}` };
 			const r = h[0];
-			if (!r || !["dijadwalkan", "menunggu_persetujuan", "tertunda", "terkirim"].includes(r.status))
-				return { error: `Email ditolak Cold Reach: ${r?.alasan ?? r?.status ?? "tanpa hasil"}` };
+			if (
+				!r ||
+				![
+					"dijadwalkan",
+					"menunggu_persetujuan",
+					"tertunda",
+					"terkirim",
+				].includes(r.status)
+			)
+				return {
+					error: `Email ditolak Cold Reach: ${r?.alasan ?? r?.status ?? "tanpa hasil"}`,
+				};
 			antre = `email PIC diantrekan Cold Reach #${(r.id ?? "").slice(0, 4)} (${r.status})`;
 		}
 		const catatan = [
