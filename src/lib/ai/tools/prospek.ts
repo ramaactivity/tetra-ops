@@ -1486,6 +1486,150 @@ export const klienRetensi: AiTool = {
 	},
 };
 
+/** Nomor WA kontak yang dikenal Tetra: kontak (klien/booker/PIC/vendor) + nomor klien di event. */
+async function kontakDikenal(ctx: AiToolContext) {
+	const [{ data: kontak }, { data: ev }] = await Promise.all([
+		ctx.supabase
+			.from("contacts")
+			.select("name, type, phone, default_pic_name, default_pic_contact")
+			.eq("is_active", true)
+			.limit(10000),
+		ctx.supabase
+			.from("events")
+			.select(
+				"client_org, client_name, pic_name, client_wa, event_date, event_category",
+			)
+			.is("deleted_at", null)
+			.order("event_date", { ascending: false })
+			.limit(10000),
+	]);
+	const daftar: {
+		nama: string;
+		jenis: string;
+		wa: string;
+		info: string | null;
+	}[] = [];
+	for (const k of kontak ?? []) {
+		for (const [nomor, nama] of [
+			[k.phone, k.name],
+			[
+				k.default_pic_contact,
+				k.default_pic_name ? `${k.default_pic_name} (${k.name})` : k.name,
+			],
+		]) {
+			if (isLikelyWaPhone(nomor))
+				daftar.push({
+					nama: String(nama),
+					jenis: String(k.type ?? "kontak"),
+					wa: toWaPhone(String(nomor)),
+					info: null,
+				});
+		}
+	}
+	for (const e of ev ?? []) {
+		if (!isLikelyWaPhone(e.client_wa)) continue;
+		daftar.push({
+			nama: [e.pic_name, e.client_org || e.client_name]
+				.filter(Boolean)
+				.join(" — "),
+			jenis: "klien",
+			wa: toWaPhone(String(e.client_wa)),
+			info: `${e.event_category ?? "event"} ${e.event_date ?? ""}`.trim(),
+		});
+	}
+	return daftar;
+}
+
+export const kontakCari: AiTool = {
+	name: "kontak_cari",
+	description:
+		"Cari nomor WA klien/vendor/PIC yang sudah dikenal Tetra (tabel kontak + data event) dari potongan nama, " +
+		"mis. 'Evi', 'Kipina'. Pakai sebelum wa_kirim_kontak.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			nama: {
+				type: "STRING",
+				description: "Potongan nama orang/vendor/klien/acara.",
+			},
+		},
+		required: ["nama"],
+	},
+	async run(args, ctx) {
+		const q = (str(args.nama, 80) ?? "").toLowerCase();
+		if (q.length < 2) return { error: "nama minimal 2 huruf" };
+		const hasil = new Map<
+			string,
+			{ nama: string; jenis: string; wa: string; info: string | null }
+		>();
+		for (const k of await kontakDikenal(ctx))
+			if (k.nama.toLowerCase().includes(q) && !hasil.has(k.wa))
+				hasil.set(k.wa, k);
+		return { jumlah: hasil.size, kontak: [...hasil.values()].slice(0, 15) };
+	},
+};
+
+export const waKirimKontak: AiTool = {
+	name: "wa_kirim_kontak",
+	description:
+		"Kirim WA ke klien/vendor/PIC yang SUDAH dikenal Tetra (nomor wajib tercatat di kontak atau data event; nomor asing ditolak). " +
+		"Untuk ucapan setelah acara, kabar, follow-up relasi — BUKAN sapaan prospek baru (itu prospek_tambah). " +
+		"Bot mengirim otomatis dengan rem: maks 20/hari, 08–20 WIB, berjeda, satu nomor maks sekali per 12 jam.",
+	scope: "ops",
+	langsung: true,
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			nomor: { type: "STRING", description: "Nomor WA dari kontak_cari." },
+			pesan: {
+				type: "STRING",
+				description: "Isi pesan, natural, singkat, tanpa link.",
+			},
+			alasan: {
+				type: "STRING",
+				description:
+					"Konteks singkat, mis. 'ucapan setelah acara Karina Sweet 17'.",
+			},
+		},
+		required: ["nomor", "pesan", "alasan"],
+	},
+	async run(args, ctx) {
+		const pesan = str(args.pesan, 1000);
+		const alasan = str(args.alasan, 200);
+		if (!pesan || pesan.length < 10 || !alasan)
+			return { error: "pesan (min. 10 karakter) dan alasan wajib" };
+		if (/\bbruno\b/i.test(pesan))
+			return {
+				error: 'pesan menyebut "Bruno"; pesan keluar atas nama tim/Rama',
+			};
+		if (!isLikelyWaPhone(String(args.nomor ?? "")))
+			return { error: "nomor tidak valid" };
+		const nomor = toWaPhone(String(args.nomor));
+		const kenal = (await kontakDikenal(ctx)).find((k) => k.wa === nomor);
+		if (!kenal)
+			return {
+				error: `${nomor} tidak tercatat sebagai klien/vendor/PIC di Tetra Ops; tidak dikirim. Cari dulu dengan kontak_cari.`,
+			};
+		const { data, error } = await ctx.supabase
+			.from("bot_commands")
+			.insert({
+				command: `send-relasi:${JSON.stringify({ nomor, pesan, alasan })}`,
+				status: "pending",
+			})
+			.select("id")
+			.single();
+		if (error) return { error: `Gagal menitipkan ke bot: ${error.message}` };
+		return {
+			status: "antre",
+			kepada: `${kenal.nama} (${kenal.jenis}) ${nomor}`,
+			cmd: data.id,
+			catatan:
+				"Bot mengirim dalam beberapa menit sesuai rem (jam 08–20 WIB, maks 20/hari, satu nomor sekali per 12 jam).",
+		};
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
@@ -1503,4 +1647,6 @@ export const SALES_TOOLS: AiTool[] = [
 	prospekStatistik,
 	klienLama,
 	klienRetensi,
+	kontakCari,
+	waKirimKontak,
 ];
