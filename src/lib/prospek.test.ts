@@ -278,3 +278,10 @@ test("rem DM IG: jam WIB, Minggu, kuota, blokir 48 jam, sekali per orang", () =>
 		/kuota DM hari ini habis/,
 	);
 });
+
+test("periksaDraf: sapaan tidak boleh menyebut nama agent Bruno", () => {
+	const wa =
+		"Halo Ibu Aurel, saya Bruno dari Tetra Photobooth. Kontak Ibu kami dapat dari tim Ibis.";
+	assert.ok(periksaDraf({ isi: wa }).some((x) => x.includes("Bruno")));
+	assert.deepEqual(periksaDraf({ isi: wa.replace("Bruno", "Rama") }), []);
+});

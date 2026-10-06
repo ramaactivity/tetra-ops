@@ -208,6 +208,9 @@ export function periksaDraf(d: {
 		),
 	];
 	if (kata.length) salah.push(`pujian/tebakan: ${kata.join(", ")}`);
+	// Sapaan keluar selalu atas nama Rama; "Bruno" hanya nama agent internal.
+	if (/\bbruno\b/i.test(isi))
+		salah.push('menyebut "Bruno" (sapaan harus atas nama Rama)');
 	if (d.email) {
 		if (EMAIL_CS.test(d.email)) salah.push("email layanan pelanggan");
 		if (EMAIL_SALAH_DEPT.test(d.email))
