@@ -1,16 +1,21 @@
-import { BarChart3, Building2, MessageCircle } from "lucide-react";
+import {
+	BarChart3,
+	Building2,
+	HeartHandshake,
+	MessageCircle,
+} from "lucide-react";
 import { TabNav } from "@/components/ui/tab-nav";
 
 /**
  * <LeadsTabs /> — sub-navigation across the lead log (Leads), the B2B account
- * view (Rekanan) and the analytics dashboard (Analitik). Same segmented-pill
+ * view (Rekanan), the analytics dashboard (Analitik) and B2B client retention (Retensi). Same segmented-pill
  * rail used across the app.
  */
 export function LeadsTabs({
 	active,
 	rekananCount,
 }: {
-	active: "leads" | "rekanan" | "analitik";
+	active: "leads" | "rekanan" | "analitik" | "retensi";
 	rekananCount?: number;
 }) {
 	return (
@@ -35,6 +40,12 @@ export function LeadsTabs({
 					href: "/leads/analitik",
 					active: active === "analitik",
 					icon: <BarChart3 className="size-3.5" aria-hidden />,
+				},
+				{
+					label: "Retensi",
+					href: "/leads/retensi",
+					active: active === "retensi",
+					icon: <HeartHandshake className="size-3.5" aria-hidden />,
 				},
 			]}
 		/>

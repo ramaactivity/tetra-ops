@@ -14,6 +14,7 @@ import {
 	sapaHref,
 	sapaLinks,
 } from "@/lib/prospek";
+import { KATEGORI_B2B, ringkasRetensi } from "@/lib/retensi";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 
 /**
@@ -696,6 +697,11 @@ export const prospekUbah: AiTool = {
 			telepon: { type: "STRING" },
 			pic: { type: "STRING" },
 			catatan: { type: "STRING" },
+			catatan_tambah: {
+				type: "STRING",
+				description:
+					"Satu baris yang DITAMBAHKAN di akhir catatan (catatan lama tetap), mis. 'Tindak lanjut 2027-04-01: rencana photobooth Juni 2027'.",
+			},
 			draf_subjek: { type: "STRING" },
 			draf_pesan: { type: "STRING" },
 		},
@@ -724,6 +730,17 @@ export const prospekUbah: AiTool = {
 			"draf_pesan",
 		] as const) {
 			if (args[k] !== undefined) patch[k] = str(args[k], 3000);
+		}
+		const tambah = str(args.catatan_tambah, 500);
+		if (tambah) {
+			const { data: lama } = await ctx.supabase
+				.from("prospek")
+				.select("catatan")
+				.eq("id", id)
+				.maybeSingle();
+			const dasar =
+				(patch.catatan as string | null | undefined) ?? lama?.catatan;
+			patch.catatan = [dasar, tambah].filter(Boolean).join("\n");
 		}
 		const { data, error } = await ctx.supabase
 			.from("prospek")
@@ -1262,7 +1279,15 @@ export const klienLama: AiTool = {
 			(k) => !aktif.has(String(k.wa)) && String(k.event_terakhir) <= batas,
 		);
 		// Klien yang datang lewat vendor rekanan (WO/EO) milik relasi vendor itu: jangan disapa langsung.
-		const klien = layak.filter((k) => k.channel !== "vendor");
+		const statusRetensi = new Map(
+			ringkasRetensi(ev ?? [], ctx.todayISO).klien.map((k) => [k.wa, k.status]),
+		);
+		const klien = layak
+			.filter((k) => k.channel !== "vendor")
+			.map((k) => ({
+				...k,
+				status_retensi: statusRetensi.get(String(k.wa)) ?? null,
+			}));
 		return {
 			jumlah: klien.length,
 			dilewati_lewat_vendor: layak.length - klien.length,
@@ -1424,6 +1449,43 @@ export const prospekAlihkan: AiTool = {
 	},
 };
 
+/** Statistik retensi klien B2B (lihat src/lib/retensi.ts) untuk tinjauan & reaktivasi Bruno. */
+export const klienRetensi: AiTool = {
+	name: "klien_retensi",
+	description:
+		"Retensi klien B2B (korporat, gathering, instansi, event, wisuda; tanpa pernikahan & klien lewat vendor): " +
+		"jumlah klien, persen yang kembali memakai Tetra, status per klien (setia/kembali/baru/menunggu = perlu dirawat/hilang), " +
+		"dan daftar yang perlu dirawat. Angka PASTI — kutip apa adanya.",
+	scope: "ops",
+	parameters: { type: "OBJECT", properties: {} },
+	async run(_args, ctx) {
+		const { data, error } = await ctx.supabase
+			.from("events")
+			.select(
+				"client_wa, client_org, client_name, pic_name, event_category, event_date, status, channel",
+			)
+			.in("event_category", [...KATEGORI_B2B])
+			.is("deleted_at", null)
+			.limit(10000);
+		if (error) return { error: error.message };
+		const r = ringkasRetensi(data ?? [], ctx.todayISO);
+		return {
+			...r,
+			klien: undefined,
+			perlu_dirawat: r.klien
+				.filter((k) => k.status === "menunggu")
+				.map(({ nama, pic, wa, kategori, terakhir, bulan_sejak_terakhir }) => ({
+					nama,
+					pic,
+					wa,
+					kategori,
+					terakhir,
+					bulan_sejak_terakhir,
+				})),
+		};
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
@@ -1440,4 +1502,5 @@ export const SALES_TOOLS: AiTool[] = [
 	basisKontakTandai,
 	prospekStatistik,
 	klienLama,
+	klienRetensi,
 ];
