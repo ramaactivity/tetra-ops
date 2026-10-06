@@ -841,6 +841,195 @@ If voice drifts (e.g., AI-generic tone creeps in), pull a few exemplars into a `
 
 ---
 
+## DR-026: Booking publik + portal klien; booking pra-DP terpisah dari `events`
+
+**Status:** Accepted (owner 2026-10-06; rencana lengkap di `docs/RENCANA-BOOKING-PORTAL.md`)
+**Date:** 2026-10-06
+
+### Context
+PRD W1/W2 dan non-goal "customer self-service portal" ditulis Mei 2026. Sekarang data klien terkumpul manual lewat WA dan sering tercecer. Owner ingin klien memesan, membayar, dan menyetujui desain sendiri. Status lama `draft/confirmed/design_*` sudah dimatikan (20260618); status event sekarang murni berbasis tanggal.
+
+### Decision
+- Dokumen ini menggantikan PRD W1, W2, dan non-goal portal.
+- Booking dari portal disimpan di tabel baru `client_bookings`. Event Ops baru dibuat lewat `createBookingCore` saat DP diterima. Sejak saat itu event masuk alur yang sudah ada.
+- Draf **tidak** mengunci slot. Slot baru ditahan saat ada pembayaran yang menunggu konfirmasi, dan ketersediaan dicek ulang saat itu.
+- DP minimal Rp500rb (`booking.dp_minimum`). Lead tanpa DP kedaluwarsa setelah 30 hari (`booking.lead_expiry_days`).
+- Status event tidak ditambah. Tahap pipeline (lead → DP → desain → siap → hari H → selesai) dihitung dari data.
+
+### Alternatives Considered
+1. **Menghidupkan lagi status `draft/confirmed`:** semua laporan, cron, dan bot yang sudah menyaring 5 status harus diubah. Risikonya tinggi.
+2. **Memakai `booking_inbox`:** bentuknya khusus bot (jsonb berkunci Indonesia) dan berhenti di `jadi_event`, padahal portal tetap hidup setelah event dibuat.
+
+### Consequences
+- ✅ Lead iseng tidak masuk laporan, jadwal crew, atau `/api/booth/bookings`.
+- ✅ Setelah DP, semua fitur lama (crew, rekap, keuangan) berlaku tanpa perubahan.
+- ⚠️ Ketersediaan perlu sumber tambahan: booking dengan pembayaran menunggu.
+
+---
+
+## DR-027: Identitas klien = nomor WA, sesi portal sendiri, verifikasi WA dari arah klien
+
+**Status:** Accepted (owner 2026-10-06)
+**Date:** 2026-10-06
+
+### Context
+Klien tidak boleh dipaksa membuat akun. Owner ingin verifikasi lewat WA karena klien memang chat dengan admin di WA. Bot WA (Baileys) dibatasi 15 `send-text` per hari dan tidak resmi.
+
+### Decision
+- Satu orang = satu nomor WA (`portal_people`). Email jadi cadangan.
+- Sesi portal **dibuat sendiri, bukan Supabase Auth**: cookie httpOnly, token disimpan sebagai hash, bisa dicabut. Data portal dibaca di server dan dibatasi ke booking milik orang itu.
+- **Verifikasi WA terbalik:** klien menekan tombol yang membuka WA dengan pesan berisi kode. Bot menerima pesan itu dan meneruskannya ke `POST /api/bot/portal-verify`. Kode terikat ke nonce browser, berlaku 10 menit, dan dibatasi jumlah percobaannya.
+- Cadangannya kode OTP lewat email (Resend, gratis sampai 3.000/bulan).
+- Agen AI (Hermes) **tidak** dipakai untuk OTP.
+
+### Alternatives Considered
+1. **Supabase Auth phone OTP:** butuh provider SMS, dan klien jadi bercampur dengan user owner/crew di `auth.users` (risiko kena pengecekan peran yang sudah ada).
+2. **Bot mengirim OTP:** kena batas 15/hari dan risiko blokir untuk nomor baru.
+3. **WhatsApp Cloud API resmi:** ±Rp357 per OTP, harus verifikasi Meta dan pakai nomor terpisah.
+
+### Consequences
+- ✅ Gratis, bukti kepemilikan nomor kuat, dan chat dengan admin otomatis terbuka.
+- ✅ Klien terpisah total dari auth internal. Ini juga lebih mudah untuk SaaS nanti.
+- ⚠️ Butuh perubahan di repo `TETRA WA BOT` (penerima pesan verifikasi + jalur kirim pesan portal di luar batas 15/hari).
+- ⚠️ Klien di laptop tanpa WA harus memakai email.
+
+---
+
+## DR-028: Peran per booking, `managed_by`, dan dasbor WO
+
+**Status:** Accepted (owner 2026-10-06)
+**Date:** 2026-10-06
+
+### Decision
+- `booking_members.role` = `pemesan | pemilik | wo`:
+  - Pemesan melihat tagihan dan membayar.
+  - Pemilik acara mengurus detail dan desain (termasuk ACC).
+  - WO melihat dan mengisi detail. WO juga membayar kalau WO yang memesan.
+- `client_bookings.managed_by` = `klien | wo | tetra`. Admin Tetra selalu bisa mengisi.
+- WO punya dasbor berisi semua booking tempat ia berperan sebagai WO. WO boleh booking langsung tanpa dicek admin. Channel dicatat `vendor`, dan komisi memakai default di `contacts`.
+
+### Consequences
+- ✅ Satu login WO untuk banyak klien. Ini nilai jual untuk SaaS.
+- ⚠️ Pemetaan nomor WA WO ke `contacts` vendor harus dijaga, supaya komisi tidak salah.
+
+---
+
+## DR-029: Alur pembayaran portal (transfer manual dan Midtrans Snap)
+
+**Status:** Accepted (owner 2026-10-06)
+**Date:** 2026-10-06
+
+### Context
+RPC `record_payment_je` hanya menerima actor owner. Akun Midtrans dipakai bersama dengan Tetra Booth (Core API QRIS, `order_id` UUID). Akun produksi belum aktif.
+
+### Decision
+- Klien hanya membuat `payment_submissions`. Pencatatan ke `payments` + jurnal selalu lewat `logPaymentCore` yang sudah ada:
+  - Transfer manual memakai actor = admin yang mengonfirmasi.
+  - Midtrans memakai actor sistem dengan pola `MCP_ACTOR_EMAIL` yang sudah ada.
+- Tolak transfer wajib disertai alasan, dan alasannya dikirim ke klien.
+- Midtrans memakai **Snap**:
+  - `order_id` berawalan `OPS-`.
+  - Header `X-Override-Notification` di setiap transaksi mengarah ke `/api/webhooks/midtrans` milik Ops.
+  - Signature SHA-512 diverifikasi, lalu status ditanya ulang ke API sebelum dicatat.
+  - Dibangun di sandbox sampai akun produksi aktif.
+- Biaya Midtrans **ditanggung Tetra**. Klien membayar sebesar nominal tagihan. Uang masuk dicatat penuh ke akun kliring "Saldo Midtrans", dan biayanya dicatat sebagai beban saat pencairan.
+
+### Consequences
+- ✅ Tidak ada jalur uang baru di luar RPC yang sudah teruji.
+- ✅ Tidak bentrok dengan Booth: webhook Booth mengabaikan `order_id` non-UUID.
+- ⚠️ Butuh akun bank baru (Saldo Midtrans) dan kebiasaan mencatat pencairan.
+
+---
+
+## DR-030: File portal di Supabase Storage privat, arsip di Google Drive
+
+**Status:** Accepted
+**Date:** 2026-10-06
+
+### Context
+Klien harus bisa mengunggah dan melihat file tanpa akun Google. Booth butuh URL frame final yang bisa diunduh server. Sekarang semua bukti dan desain ada di Drive.
+
+### Decision
+- Bukti bayar, brief, logo, referensi, dan versi desain disimpan di bucket privat Supabase Storage dan dibuka lewat signed URL berumur pendek.
+- Saat DP diterima dan saat desain di-ACC, salinannya diarsip ke folder Drive event, sehingga struktur Drive yang sekarang tetap utuh.
+- Setiap upload divalidasi di server: tipe MIME, ukuran, dan untuk desain juga rasio + resolusi minimal (aturan di `INTEGRASI-TETRA-BOOTH.md` §2.3). Gambar klien dikompres di browser.
+
+### Consequences
+- ✅ Klien tidak butuh Google. Signed URL bisa dipakai Booth.
+- ⚠️ Kuota gratis Supabase 1 GB. Versi draf dihapus setelah acara selesai, dan file final hidup di Drive.
+
+---
+
+## DR-031: Modul desain: tahap rinci, diringkas ke `design_status`
+
+**Status:** Accepted (owner 2026-10-06)
+**Date:** 2026-10-06
+
+### Decision
+- Tabel `design_requests` (per event per spot) menyimpan `stage` = `brief | dikerjakan | menunggu_review | revisi | acc`. Nilai ini diringkas ke `events.design_status`: brief = belum; dikerjakan, menunggu_review, dan revisi = proses; acc = approved. Design Hub dan bot Telegram tetap bekerja.
+- ACC oleh klien tetap melewati gate ukuran frame di `approveDesign`.
+- Jalur utama: designer mendesain di Canva/Photoshop, lalu upload PNG overlay ke Ops. Setelah ACC, Booth mengunduh file itu ke R2, dan admin Booth menekan "Pasang desain dari Ops" (disetujui owner, dicatat di papan sinkron). `booth_layout_id` / `booth_preset_id` hanya rujukan opsional.
+- Katalog template dikelola di Ops: gambar pratinjau, kategori, ukuran, dan rujukan Booth opsional.
+- Revisi maksimal 3 kali (`design.revision_limit` = 3). Setelah 3 kali revisi, klien hanya bisa ACC atau menghubungi admin.
+- Designer = `users.is_designer`. Iqbal tetap owner sekaligus designer. Role `designer` tanpa akses keuangan baru dibuat saat ada designer karyawan.
+
+---
+
+## DR-032: Rate limit endpoint publik di Postgres
+
+**Status:** Accepted
+**Date:** 2026-10-06
+
+### Decision
+Tabel `rate_limits` + RPC `hit_rate_limit(key, limit, window_sec)` dengan fixed window. Kuncinya per IP dan per nomor/email. Rate limit ini dipakai di verifikasi, booking, upload, dan webhook.
+
+### Alternatives Considered
+1. **Upstash/Redis:** menambah layanan dan rahasia baru untuk trafik ±puluhan booking per bulan.
+
+### Future Trigger
+Kalau trafik publik sampai membebani DB, pindah ke Redis atau Vercel Firewall.
+
+---
+
+## DR-033: Domain: `tetraphoto.com/booking` dan `/akun` lewat Next.js Multi-Zones
+
+**Status:** Accepted (owner 2026-10-06: "nebeng tetraphoto.com, terasa satu sistem")
+**Date:** 2026-10-06
+
+### Decision
+- Website marketing (repo `TETRA PHOTOBOOTH WEBSITE`) me-rewrite `/booking`, `/akun`, dan aset Ops ke aplikasi Ops.
+- Ops memakai `assetPrefix` dan `serverActions.allowedOrigins: ['tetraphoto.com']`.
+- Dashboard admin tetap di domain Ops.
+- Fase 1 diuji dulu di domain Vercel Ops.
+
+### Alternatives Considered
+1. **Subdomain `booking.tetraphoto.com`:** lebih sederhana, tapi terasa seperti aplikasi lain. Ini dijadikan cadangan.
+
+### Consequences
+- ⚠️ Link antar-zona harus `<a>`, bukan `<Link>`.
+- ⚠️ Vercel Hobby bersifat non-komersial. Naik ke Pro sebelum booking dibuka luas.
+
+---
+
+## DR-034: Kebijakan pembatalan dan pindah tanggal
+
+**Status:** Accepted (owner 2026-10-06)
+**Date:** 2026-10-06
+
+### Decision
+- **Tetra membatalkan:** semua pembayaran dikembalikan penuh.
+- **Force majeure:** pindah tanggal gratis. Kalau tidak bisa, uang dikembalikan dikurangi biaya pembatalan.
+- **Biaya pembatalan** = Rp500.000 (sama dengan DP minimal, `booking.cancellation_fee`). Angka ini menggantikan "biaya riil" yang tadinya harus dirinci per kasus.
+- **Klien membatalkan:**
+  - H-30 atau lebih: semua pembayaran dikembalikan dikurangi biaya pembatalan.
+  - H-29 sampai H-8: dikembalikan 50% dari total pembayaran, dengan potongan paling sedikit sebesar biaya pembatalan.
+  - H-7 sampai hari H: tidak dikembalikan.
+- **Pindah tanggal:** gratis selama slot tersedia, dengan tanggal baru paling lambat 6 bulan dari tanggal awal. Lewat dari itu dianggap batal.
+- Syarat ini tampil dan disetujui di form booking bersama persetujuan PDP. Versinya disimpan di `booking.terms_version`.
+- Refund dijalankan admin secara manual. Portal hanya menampilkan perkiraan nominal refund.
+
+---
+
 ## Template for New Decisions
 
 ```markdown

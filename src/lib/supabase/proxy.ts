@@ -4,7 +4,16 @@ import { type NextRequest, NextResponse } from "next/server";
 // Routes that don't require auth — accessible to anyone, including the
 // landing page and the crew self-register flow. Any path matching one of
 // these (exactly OR starting with `${p}/`) is allowed through.
-const PUBLIC_PATHS = ["/", "/login", "/register", "/crew-portal", "/auth"];
+const PUBLIC_PATHS = [
+	"/",
+	"/login",
+	"/register",
+	"/crew-portal",
+	"/auth",
+	// Booking publik + portal klien: sesi portal sendiri (src/lib/portal/auth.ts).
+	"/booking",
+	"/akun",
+];
 
 // Auth pages — if user is already signed in, bounce to root (which then
 // dispatches to /dashboard | /crew | /pending based on role).

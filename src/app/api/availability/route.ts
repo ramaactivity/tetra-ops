@@ -1,12 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-	type AvailabilityEvent,
-	computeAvailability,
-	formatHHMM,
-	inboxToAvailabilityEvent,
-	parseHHMM,
-} from "@/lib/availability";
-import type { InboxData } from "@/lib/booking-inbox/core";
+import { formatHHMM, parseHHMM } from "@/lib/availability";
+import { loadAvailability } from "@/lib/availability-load";
 import { isAuthorizedBot } from "@/lib/bot-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -20,12 +14,8 @@ export const dynamic = "force-dynamic";
  * kosong di window yang diminta. Read-only. Logika + buffer ada di
  * src/lib/availability.ts. Lihat WHATSAPP_BOT_AVAILABILITY_HANDOVER.md.
  *
- * Status yang MENGUNCI unit: semua kecuali `cancelled` & `archived`
- * (termasuk `draft` — Keputusan #1 tim bot). Soft-deleted selalu dibuang.
+ * Apa saja yang menahan unit: lihat src/lib/availability-load.ts.
  */
-
-// Status yang TIDAK menahan unit (booking batal / arsip historis).
-const NON_LOCKING_STATUSES = new Set(["cancelled", "archived"]);
 
 export async function GET(req: NextRequest) {
 	if (!isAuthorizedBot(req)) {
@@ -69,88 +59,20 @@ export async function GET(req: NextRequest) {
 		);
 	}
 
-	// ── Ambil booking tanggal itu DAN H-1 ─────────────────────────────────────
-	// H-1 ikut dimuat karena buffer melebarkan window 3-4 jam: event 19:00-23:30
-	// di luar kota baru benar-benar melepas unit sekitar 03:30 keesokan harinya.
-	// Sebelumnya query hanya `.eq("event_date", date)`, jadi permintaan dini hari
-	// dilaporkan bebas padahal unitnya masih tertahan.
-	const prevDate = (() => {
-		const d = new Date(`${date}T00:00:00Z`);
-		d.setUTCDate(d.getUTCDate() - 1);
-		return d.toISOString().slice(0, 10);
-	})();
-
-	const supabase = createAdminClient();
-	const { data, error } = await supabase
-		.from("events")
-		.select(
-			"event_date, client_name, start_time, end_time, session_segments, venue_city, status, unit_count, package:packages(duration_hours)",
-		)
-		.in("event_date", [prevDate, date])
-		.is("deleted_at", null);
-
-	if (error) {
-		return NextResponse.json({ error: error.message }, { status: 500 });
-	}
-
-	type Row = {
-		event_date: string;
-		client_name: string | null;
-		start_time: string | null;
-		end_time: string | null;
-		session_segments: unknown;
-		venue_city: string | null;
-		status: string | null;
-		unit_count: number | null;
-		// to-one embed → object (atau null), bukan array.
-		package: { duration_hours: number | null } | null;
-	};
-
-	// PostgREST infers the to-one `package` embed as an array in TS, but a forward
-	// FK returns an OBJECT at runtime (see reference_postgrest_to_one_embed) — so
-	// cast through `unknown`.
-	const events: AvailabilityEvent[] = ((data ?? []) as unknown as Row[])
-		.filter((r) => !NON_LOCKING_STATUSES.has(r.status ?? ""))
-		.map((r) => ({
-			client_name: r.client_name,
-			start_time: r.start_time,
-			end_time: r.end_time,
-			session_segments: r.session_segments,
-			venue_city: r.venue_city,
-			package_duration_hours: r.package?.duration_hours ?? null,
-			// Event H-1 digeser ke kerangka waktu tanggal yang diminta, supaya
-			// ekor buffer-nya yang melewati tengah malam tetap terhitung.
-			day_offset_min: r.event_date === prevDate ? -1440 : 0,
-			units: r.unit_count ?? 1,
-		}));
-
-	// Booking Masuk: klien sudah DP tapi event belum diinput → tetap menahan
-	// unit. Item jadi_event/dibatalkan tidak dihitung (event-nya terhitung
-	// sendiri di atas). H-1 ikut, sama seperti events.
-	const { data: inbox, error: inboxErr } = await supabase
-		.from("booking_inbox")
-		.select("client_name, data")
-		.in("status", ["baru", "diproses"])
-		.in("data->>tanggal_iso", [prevDate, date]);
-	if (inboxErr) {
-		return NextResponse.json({ error: inboxErr.message }, { status: 500 });
-	}
-	for (const it of (inbox ?? []) as Array<{
-		client_name: string | null;
-		data: InboxData;
-	}>) {
-		events.push({
-			...inboxToAvailabilityEvent(it),
-			day_offset_min: it.data.tanggal_iso === prevDate ? -1440 : 0,
+	let result: Awaited<ReturnType<typeof loadAvailability>>;
+	try {
+		result = await loadAvailability(createAdminClient(), {
+			date,
+			reqStart,
+			reqEnd,
+			city,
 		});
+	} catch (e) {
+		return NextResponse.json(
+			{ error: e instanceof Error ? e.message : String(e) },
+			{ status: 500 },
+		);
 	}
-
-	const result = computeAvailability({
-		reqStart,
-		reqEnd,
-		reqCity: city,
-		events,
-	});
 
 	return NextResponse.json({
 		date,

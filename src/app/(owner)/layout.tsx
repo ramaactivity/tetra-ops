@@ -27,24 +27,35 @@ export default async function OwnerLayout({
 	// Initial bot health for the app-wide "bot mati" banner; the client then
 	// keeps it live via realtime + a 60s staleness poll.
 	const supabase = await createClient();
-	const [{ data: botStatusRow }, { count: inboxBaru }] = await Promise.all([
-		supabase
-			.from("bot_status")
-			.select("connection, updated_at")
-			.eq("id", 1)
-			.maybeSingle(),
-		// Badge "Booking Masuk": booking DP dari bot yang belum disentuh owner.
-		supabase
-			.from("booking_inbox")
-			.select("id", { count: "exact", head: true })
-			.eq("status", "baru"),
-	]);
+	const [{ data: botStatusRow }, { count: inboxBaru }, { count: portalCek }] =
+		await Promise.all([
+			supabase
+				.from("bot_status")
+				.select("connection, updated_at")
+				.eq("id", 1)
+				.maybeSingle(),
+			// Badge "Booking Masuk": booking DP dari bot yang belum disentuh owner.
+			supabase
+				.from("booking_inbox")
+				.select("id", { count: "exact", head: true })
+				.eq("status", "baru"),
+			// Badge "Booking Portal": bukti DP dari portal klien yang belum dicek.
+			supabase
+				.from("payment_submissions")
+				.select("id", { count: "exact", head: true })
+				.eq("status", "menunggu"),
+		]);
 
 	return (
 		// UpGradely floating frame: ambient gradient margin around a white
 		// sidebar card + a content column (search topbar card + page content).
 		<div className="flex min-h-dvh gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-			<OwnerSidebar badges={{ "/operations/booking-masuk": inboxBaru ?? 0 }} />
+			<OwnerSidebar
+				badges={{
+					"/operations/booking-masuk": inboxBaru ?? 0,
+					"/operations/portal": portalCek ?? 0,
+				}}
+			/>
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on
 			    smaller laptops (otherwise Container max-w caps push past viewport). */}
 			<div className="flex min-w-0 flex-1 flex-col gap-3">

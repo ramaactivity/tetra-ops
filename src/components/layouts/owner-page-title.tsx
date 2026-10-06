@@ -16,6 +16,7 @@ import {
 	FileBarChart,
 	FileText,
 	Frame,
+	Globe,
 	Handshake,
 	Inbox,
 	KanbanSquare,
@@ -49,6 +50,7 @@ import { cn } from "@/lib/utils";
 const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/dashboard", "Dashboard", LayoutDashboard],
 	["/operations/booking-masuk", "Booking Masuk", Inbox],
+	["/operations/portal", "Booking Portal", Globe],
 	["/operations/packages", "Paket", Box],
 	["/operations/addons", "Add-on", Sparkles],
 	["/operations/backdrops", "Backdrop", Frame],
