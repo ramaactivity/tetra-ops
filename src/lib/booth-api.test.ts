@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	type BoothEventRow,
+	boothSignature,
+	type DesignSource,
+	modulesFor,
 	parseBoothRange,
 	toBoothBooking,
+	toBoothDesign,
 } from "@/lib/booth-api";
 
 test("rentang bawaan hari ini + 60 hari, validasi format & batas", () => {
@@ -67,4 +71,86 @@ test("tidak pernah membawa field uang atau kontak", () => {
 	const keys = Object.keys(toBoothBooking(leaky));
 	for (const k of keys)
 		assert.ok(!/total|price|phone|wa|paid|balance/i.test(k), k);
+});
+
+test("modul paket dari kategori", () => {
+	assert.deepEqual(modulesFor("photostage_combo"), [
+		"photo_stage",
+		"photobooth",
+	]);
+	assert.deepEqual(modulesFor("magazine_box_only"), ["magazine"]);
+	assert.deepEqual(modulesFor(null), []);
+});
+
+test("objek design: frame_url hanya kalau approved & ACC; spot ≥2 terpisah", () => {
+	const reqs: DesignSource[] = [
+		{
+			spot_no: 2,
+			stage: "acc",
+			version: {
+				frame_size: "2R",
+				orientation: "portrait",
+				file_path: "b/2.png",
+				booth_layout_id: null,
+			},
+			template: null,
+		},
+		{
+			spot_no: 1,
+			stage: "acc",
+			version: {
+				frame_size: "4R",
+				orientation: "portrait",
+				file_path: "b/1.png",
+				booth_layout_id: null,
+			},
+			template: {
+				booth_layout_id: "11111111-1111-4111-8111-111111111111",
+				booth_preset_id: "4r-grid",
+			},
+		},
+	];
+	const url = (p: string) => `https://x/${p}`;
+	const ev = {
+		design_status: "approved",
+		design_approved_at: "2026-11-02T02:14:00Z",
+		design_frame_size: "4R",
+		frame_size: "4R",
+	};
+	const d = toBoothDesign(ev, reqs, url, "2026-11-09T00:00:00Z");
+	assert.equal(d.frame_url, "https://x/b/1.png");
+	assert.equal(d.frame_url_expires_at, "2026-11-09T00:00:00Z");
+	assert.equal(d.booth_layout_id, "11111111-1111-4111-8111-111111111111");
+	assert.equal(d.booth_preset_id, "4r-grid");
+	assert.equal(d.spots.length, 1);
+	assert.equal(d.spots[0].frame_url, "https://x/b/2.png");
+	const proses = toBoothDesign(
+		{ ...ev, design_status: "proses" },
+		reqs,
+		url,
+		"x",
+	);
+	assert.equal(proses.frame_url, null);
+	assert.equal(proses.frame_url_expires_at, null);
+	const kosong = toBoothDesign(
+		{
+			design_status: null,
+			design_approved_at: null,
+			design_frame_size: null,
+			frame_size: "2R",
+		},
+		[],
+		url,
+		null,
+	);
+	assert.equal(kosong.status, "belum");
+	assert.equal(kosong.frame_size, "2R");
+	assert.equal(kosong.stage, null);
+});
+
+test("tanda tangan webhook t=…,v1=hex(HMAC(secret, t.body))", () => {
+	const sig = boothSignature("rahasia", 1793865600, '{"a":1}');
+	assert.match(sig, /^t=1793865600,v1=[0-9a-f]{64}$/);
+	assert.equal(sig, boothSignature("rahasia", 1793865600, '{"a":1}'));
+	assert.notEqual(sig, boothSignature("rahasia", 1793865600, '{"a":2}'));
 });

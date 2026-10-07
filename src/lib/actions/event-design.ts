@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { emitBoothEvent } from "@/lib/booth-sync";
 import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
 import { spotsNeedingOwnDesign, unitCountOf } from "@/lib/events/spots";
 import { createClient } from "@/lib/supabase/server";
@@ -527,6 +528,7 @@ export async function approveDesign(
 					].join(" + "),
 			me.profile.full_name ?? "Desainer",
 		);
+		await emitBoothEvent("design.approved", eventId);
 
 		revalidatePath(`/operations/${projectId}`);
 		revalidatePath(`/design/${projectId}`);

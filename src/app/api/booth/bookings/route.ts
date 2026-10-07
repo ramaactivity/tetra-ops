@@ -1,11 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-	BOOTH_EVENT_SELECT,
-	BOOTH_EVENT_STATUSES,
-	type BoothEventRow,
-	parseBoothRange,
-	toBoothBooking,
-} from "@/lib/booth-api";
+import { BOOTH_EVENT_STATUSES, parseBoothRange } from "@/lib/booth-api";
+import { BOOTH_FULL_SELECT, enrichBoothBookings } from "@/lib/booth-sync";
 import { isAuthorizedBooth } from "@/lib/bot-auth";
 import { todayWIB } from "@/lib/dates";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -31,7 +26,7 @@ export async function GET(req: NextRequest) {
 	}
 	const { data, error } = await createAdminClient()
 		.from("events")
-		.select(BOOTH_EVENT_SELECT)
+		.select(BOOTH_FULL_SELECT)
 		.gte("event_date", range.from)
 		.lte("event_date", range.to)
 		.in("status", [...BOOTH_EVENT_STATUSES])
@@ -45,6 +40,10 @@ export async function GET(req: NextRequest) {
 	}
 	return NextResponse.json({
 		...range,
-		bookings: ((data ?? []) as unknown as BoothEventRow[]).map(toBoothBooking),
+		// Field kontrak v0.4 §2.1 tetap; §2.2 (unit_count, modules, cancelled,
+		// design, portal_url) ditambahkan — aditif, Booth membuang yang tak dikenal.
+		bookings: await enrichBoothBookings(
+			(data ?? []) as unknown as Parameters<typeof enrichBoothBookings>[0],
+		),
 	});
 }

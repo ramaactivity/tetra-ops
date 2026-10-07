@@ -2,6 +2,7 @@ import "server-only";
 
 import { ensureEventCategoryFolderInternal } from "@/lib/actions/drive";
 import { appUrl } from "@/lib/app-url";
+import { emitBoothEvent } from "@/lib/booth-sync";
 import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildDesignName } from "@/lib/drive/naming";
 import { eventSpots, spotsNeedingOwnDesign } from "@/lib/events/spots";
@@ -362,6 +363,7 @@ export async function approveFromPortal(
 		}
 	}
 	await notifyTelegramDesignApproved(eventId, spot1Frame, "klien (portal)");
+	await emitBoothEvent("design.approved", eventId);
 	return { approved: true };
 }
 

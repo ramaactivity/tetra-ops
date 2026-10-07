@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { emitBoothEvent } from "@/lib/booth-sync";
 import { clientIp, getPortalPerson, rateLimit } from "@/lib/portal/auth";
 import {
 	DetailSchema,
@@ -232,6 +233,7 @@ async function syncEventDetail(
 	if (Object.keys(upd).length === 0) return;
 	const { error } = await admin.from("events").update(upd).eq("id", eventId);
 	if (error) console.error("[portal] sync event:", error.message);
+	else await emitBoothEvent("booking.updated", eventId);
 }
 
 const PROOF_MIME: Record<string, string> = {

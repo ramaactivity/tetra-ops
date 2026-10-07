@@ -8,6 +8,7 @@ import { createEventFolderInternal } from "@/lib/actions/drive";
 import { ensureVendorContact } from "@/lib/actions/vendors";
 import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { emitBoothEvent } from "@/lib/booth-sync";
 import {
 	getOrCreateInvoice,
 	linkInvoiceToEvent,
@@ -1344,6 +1345,8 @@ export async function createBooking(
 	// Best-effort: kabari grup Telegram owner ada booking baru.
 	if (inserted?.id) {
 		await notifyTelegramBookingCreated(inserted.id as string);
+		// Kabari Tetra Booth (webhook; mati kalau env kosong).
+		await emitBoothEvent("booking.confirmed", inserted.id as string);
 	}
 
 	// Setiap event wajib punya invoice. Sumbernya, berurutan:
@@ -1660,7 +1663,10 @@ export async function updateBooking(
 					newBonuses: bonusesRaw,
 				},
 			);
-			if (changes.length > 0) await notifyTelegramEventUpdated(id, changes);
+			if (changes.length > 0) {
+				await notifyTelegramEventUpdated(id, changes);
+				await emitBoothEvent("booking.updated", id);
+			}
 		} catch (e) {
 			console.error("[bookings] telegram update notify:", e);
 		}
@@ -1725,6 +1731,7 @@ export async function deleteEvent(id: string): Promise<DeleteEventResult> {
 	// Best-effort: kabari grup Telegram owner. Row masih ada (soft-delete),
 	// notify fetch sendiri detailnya.
 	await notifyTelegramEventDeleted(id, me.profile.full_name);
+	await emitBoothEvent("booking.cancelled", id);
 
 	revalidatePath("/operations");
 	revalidatePath(`/operations/${event.project_id}`);

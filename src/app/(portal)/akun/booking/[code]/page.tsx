@@ -12,6 +12,7 @@ import { DetailForm } from "@/components/portal/detail-form";
 import { DpForm, type PortalBank } from "@/components/portal/dp-form";
 import { type Member, MembersCard } from "@/components/portal/members-card";
 import { dateLong, StatusPill } from "@/components/portal/status-pill";
+import { fetchBoothEvents } from "@/lib/booth-sync";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import { getPortalPerson } from "@/lib/portal/auth";
 import {
@@ -95,7 +96,9 @@ export default async function BookingDetailPage({
 		b.event_id
 			? admin
 					.from("events")
-					.select("grand_total, total_paid, remaining_balance, due_date")
+					.select(
+						"project_id, grand_total, total_paid, remaining_balance, due_date",
+					)
 					.eq("id", b.event_id)
 					.maybeSingle()
 			: Promise.resolve({ data: null }),
@@ -147,6 +150,7 @@ export default async function BookingDetailPage({
 	const lastRejected = subs[0]?.status === "ditolak" ? subs[0] : null;
 	const pendingSub = subs.find((s) => s.status === "menunggu");
 	const ev = evRes.data as {
+		project_id: string;
 		grand_total: number;
 		total_paid: number;
 		remaining_balance: number;
@@ -189,9 +193,22 @@ export default async function BookingDetailPage({
 			url: urls.get(t.preview_path as string) ?? null,
 		}));
 	}
+	const evProject = ev?.project_id ?? null;
 	const designDone =
 		design.length > 0 && design.every((r) => r.stage === "acc");
 	const revisionLimit = await configNumber("design.revision_limit", 3);
+	// Acara & Galeri dari Tetra Booth (kontrak §5), di balik portal.gallery_enabled.
+	const galleryOn =
+		!!evProject &&
+		(
+			await admin
+				.from("system_config")
+				.select("value")
+				.eq("key", "portal.gallery_enabled")
+				.maybeSingle()
+		).data?.value === true;
+	const boothEvents =
+		galleryOn && evProject ? await fetchBoothEvents(evProject) : null;
 
 	const steps = [
 		{ label: "Booking tersimpan", done: true },
@@ -358,6 +375,54 @@ export default async function BookingDetailPage({
 								missing={[]}
 							/>
 						</div>
+					)}
+				</section>
+			)}
+
+			{galleryOn && (
+				<section style={{ display: "grid", gap: 6 }}>
+					<h2 className="h2">Acara & Galeri</h2>
+					{boothEvents === null ? (
+						<div className="note">
+							Galeri belum bisa dibuka, coba lagi nanti.
+						</div>
+					) : boothEvents.length === 0 ? (
+						<div className="note">
+							Galeri foto muncul di sini setelah acara kamu berjalan.
+						</div>
+					) : (
+						boothEvents.map((e) => (
+							<div
+								key={e.id}
+								className="card"
+								style={{ display: "grid", gap: 6 }}
+							>
+								<div style={{ fontWeight: 800 }}>{e.name}</div>
+								<div className="cap">
+									{e.phase === "done"
+										? "Acara selesai"
+										: e.phase === "live"
+											? "Sedang berlangsung"
+											: "Akan datang"}
+									{typeof e.photo_count === "number"
+										? ` · ${e.photo_count} foto`
+										: ""}
+									{e.client_expires_at
+										? ` · galeri tersedia sampai ${dateLong(e.client_expires_at.slice(0, 10))}`
+										: ""}
+								</div>
+								{e.gallery_url && (
+									<a
+										className="btn btn-primary btn-block"
+										href={e.gallery_url}
+										target="_blank"
+										rel="noopener"
+									>
+										Buka galeri
+									</a>
+								)}
+							</div>
+						))
 					)}
 				</section>
 			)}

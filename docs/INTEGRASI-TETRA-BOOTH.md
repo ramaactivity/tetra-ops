@@ -1,6 +1,6 @@
 # Kontrak Integrasi Tetra Ops ↔ Tetra Booth
 
-Versi: **0.4 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
+Versi: **0.5 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
 Pemilik dokumen: repo `tetra-ops`. Setiap perubahan dicatat juga di `TETRA BOOTH APP/handoff/OPS-BOOTH-SYNC.md` **sebelum** deploy.
 
 ## 0. Prinsip
@@ -37,7 +37,7 @@ event_date, start_time, end_time, venue_name, venue_city, service_type,
 frame_size ("2R"|"4R"|"polaroid"|"none"|null), package_name, package_duration_hours
 ```
 
-### 2.2 Field tambahan (rencana fase 5, aditif)
+### 2.2 Field tambahan (live sejak v0.5, aditif)
 
 | Field | Tipe | Arti |
 |---|---|---|
@@ -147,7 +147,7 @@ Booth boleh langsung memakai `booking`, atau menarik ulang lewat GET.
 ### 4.4 Pengiriman ulang
 
 - Respons 2xx dianggap terkirim. Selain itu (termasuk timeout 10 detik) dianggap gagal.
-- Ops mencoba langsung 3 kali, dengan jeda ±1 detik, 5 detik, dan 30 detik.
+- Ops mencoba langsung 3 kali (segera, +1 detik, +5 detik), setelah respons aksi pemicunya selesai.
 - Kalau masih gagal, pengiriman disimpan di `booth_webhook_outbox` dan dicoba lagi oleh cron harian Ops selama 7 hari. Jadwal ini menjadi tiap 15 menit kalau Vercel sudah Pro.
 - Semua percobaan dicatat (status, error terakhir).
 - Urutan kiriman tidak dijamin. Booth sebaiknya mengandalkan `occurred_at` dan data terbaru.
@@ -205,6 +205,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 0.5 | 2026-10-07 | Sisi pengirim Ops dibangun (fase 5): field §2.2 live di GET, webhook + outbox `booth_webhook_outbox`, retry langsung 3× lalu cron harian. Event yang DIHAPUS di Ops dikirim sebagai `booking.cancelled` dengan `cancelled: true`. |
 | 0.4 | 2026-10-07 | §5: field `phase` (upcoming/live/done) jadi acuan acara selesai. |
 | 0.3 | 2026-10-07 | §5: daftar status Booth (`completed`, bukan `done`); endpoint Booth sudah live. |
 | 0.2 | 2026-10-06 | Catatan review Booth: satu event Booth per spot (`spot_no` harus stabil), fallback orientasi, refresh `frame_url`, arti `cancelled`. |

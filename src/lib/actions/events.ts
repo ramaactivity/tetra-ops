@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { emitBoothEvent } from "@/lib/booth-sync";
 import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramStatusChanged } from "@/lib/telegram/notify";
@@ -81,11 +82,17 @@ export async function updateEventStatus(
 			me.profile.full_name ?? me.email ?? "Unknown",
 		);
 
+		// Booth hanya peduli batal / batal-dibatalkan (status lain berbasis tanggal).
+		if (parsed.data.status === "cancelled")
+			await emitBoothEvent("booking.cancelled", parsed.data.id);
+		else if (oldStatus === "cancelled")
+			await emitBoothEvent("booking.updated", parsed.data.id);
+
 		return {};
 	} catch (err) {
 		return {
-			error: err instanceof Error ? err.message : "Gagal mengubah status event.",
+			error:
+				err instanceof Error ? err.message : "Gagal mengubah status event.",
 		};
 	}
 }
-
