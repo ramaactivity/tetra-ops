@@ -6,6 +6,9 @@ export function ServiceWorkerRegister() {
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 		if (!("serviceWorker" in navigator)) return;
+		// Halaman klien (booking/portal) bukan PWA admin — tanpa sesi, /sw.js
+		// dialihkan ke /login dan registrasinya gagal.
+		if (/^\/(booking|akun)(\/|$)/.test(window.location.pathname)) return;
 
 		const onLoad = () => {
 			navigator.serviceWorker

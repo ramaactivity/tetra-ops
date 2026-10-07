@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { saveBookingDetail } from "@/lib/actions/portal-booking";
 import type { Detail } from "@/lib/portal/core";
@@ -94,6 +95,7 @@ export function DetailForm({
 	categories: Array<{ code: string; label: string }>;
 	readOnly?: boolean;
 }) {
+	const router = useRouter();
 	const [values, setValues] = useState<Detail>(initial);
 	const saved = useRef<Detail>(initial);
 	const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
@@ -107,6 +109,8 @@ export function DetailForm({
 		if (r.ok) {
 			saved.current = { ...saved.current, [key]: value };
 			setState("saved");
+			// Bagian Bayar DP di halaman ini bergantung pada isian wajib.
+			router.refresh();
 		} else setState("error");
 	}
 

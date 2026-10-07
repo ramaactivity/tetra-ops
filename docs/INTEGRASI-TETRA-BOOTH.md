@@ -1,6 +1,6 @@
 # Kontrak Integrasi Tetra Ops ↔ Tetra Booth
 
-Versi: **0.2 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
+Versi: **0.3 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
 Pemilik dokumen: repo `tetra-ops`. Setiap perubahan dicatat juga di `TETRA BOOTH APP/handoff/OPS-BOOTH-SYNC.md` **sebelum** deploy.
 
 ## 0. Prinsip
@@ -168,7 +168,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
       "id": "uuid",
       "name": "Wedding Rina & Dimas",
       "event_date": "2026-12-12",
-      "status": "done",
+      "status": "completed",
       "modules": ["photobooth"],
       "gallery_url": "https://booth.tetraphoto.com/g/rina-dimas",
       "client_expires_at": "2027-03-12T00:00:00+07:00",
@@ -181,6 +181,8 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 ```
 
 - Nilainya array, karena satu booking bisa menjadi lebih dari satu event di Booth.
+- `status` = status event Booth apa adanya: `draft | ready | live | completed | archived`.
+- Sudah live di `https://booth.tetraphoto.com` (Booth commit 00e2fa6). Endpoint menjawab 503 sampai env Booth terisi.
 - Guest Cam dan grup Photo Stage akan menyusul sebagai field tambahan.
 - Portal Ops menampilkan bagian "Acara & Galeri" hanya kalau `system_config.portal.gallery_enabled = true` dan `TETRA_BOOTH_URL` terisi. Kalau Booth tidak bisa dihubungi, portal menampilkan "Galeri belum bisa dibuka, coba lagi nanti."
 
@@ -201,4 +203,5 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 0.3 | 2026-10-07 | §5: daftar status Booth (`completed`, bukan `done`); endpoint Booth sudah live. |
 | 0.2 | 2026-10-06 | Catatan review Booth: satu event Booth per spot (`spot_no` harus stabil), fallback orientasi, refresh `frame_url`, arti `cancelled`. |
