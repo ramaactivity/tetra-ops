@@ -17,7 +17,6 @@ import {
 	type FrameSize,
 } from "@/lib/portal/design";
 import type { DesignRequestView } from "@/lib/portal/design-server";
-import { createClient } from "@/lib/supabase/client";
 
 /** Baca ukuran + cek ada piksel transparan (alpha < 128) di browser. */
 async function inspectPng(
@@ -76,12 +75,12 @@ export function DesignerPanel({ r }: { r: DesignRequestView }) {
 			if (!check.ok) throw new Error(check.error);
 			const up = await requestVersionUpload(r.id, file.size);
 			if (!up.ok) throw new Error(up.error);
-			const { error } = await createClient()
-				.storage.from("portal-private")
-				.uploadToSignedUrl(up.path, up.token, file, {
-					contentType: "image/png",
-				});
-			if (error) throw new Error("Upload gagal. Coba lagi.");
+			const put = await fetch(up.uploadUrl, {
+				method: "PUT",
+				body: file,
+				headers: { "content-type": "image/png" },
+			});
+			if (!put.ok) throw new Error("Upload gagal. Coba lagi.");
 			const res = await addDesignVersion(r.id, {
 				path: up.path,
 				frameSize: frame,

@@ -9,7 +9,6 @@ import {
 	submitPelunasanTransfer,
 } from "@/lib/actions/portal-booking";
 import { compressImage } from "@/lib/crew/image-compression";
-import { createClient } from "@/lib/supabase/client";
 import { Err } from "./verify-phone";
 
 export type PortalBank = {
@@ -58,10 +57,12 @@ export function DpForm({
 			const f = await compressImage(file, { targetMaxBytes: 2 * 1024 * 1024 });
 			const up = await requestProofUpload(code, { type: f.type, size: f.size });
 			if (!up.ok) throw new Error(up.error);
-			const { error: upErr } = await createClient()
-				.storage.from("portal-private")
-				.uploadToSignedUrl(up.path, up.token, f, { contentType: f.type });
-			if (upErr)
+			const put = await fetch(up.uploadUrl, {
+				method: "PUT",
+				body: f,
+				headers: { "content-type": f.type },
+			});
+			if (!put.ok)
 				throw new Error("Upload bukti gagal. Cek koneksi lalu coba lagi.");
 			const r = await (isDp ? submitDpTransfer : submitPelunasanTransfer)(
 				code,

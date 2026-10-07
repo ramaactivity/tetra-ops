@@ -31,6 +31,7 @@ import {
 	portalUrl,
 	sendClientWa,
 } from "@/lib/portal/notify";
+import { r2Exists, r2UploadUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 
@@ -290,7 +291,7 @@ const PROOF_MAX = 10 * 1024 * 1024;
 export async function requestProofUpload(
 	code: string,
 	file: { type: string; size: number },
-): Promise<{ ok: true; path: string; token: string } | Fail> {
+): Promise<{ ok: true; path: string; uploadUrl: string } | Fail> {
 	const person = await getPortalPerson();
 	if (!person) return { ok: false, error: "Sesi berakhir. Masuk lagi, ya." };
 	const b = await loadMyBooking(person, code);
@@ -307,12 +308,7 @@ export async function requestProofUpload(
 	if (!(await rateLimit(`upload:${person.id}`, 20, 3600)))
 		return { ok: false, error: BUSY };
 	const path = `bookings/${b.id}/bukti/${crypto.randomUUID()}.${ext}`;
-	const { data, error } = await createAdminClient()
-		.storage.from("portal-private")
-		.createSignedUploadUrl(path);
-	if (error || !data)
-		return { ok: false, error: "Gagal menyiapkan upload. Coba lagi, ya." };
-	return { ok: true, path, token: data.token };
+	return { ok: true, path, uploadUrl: r2UploadUrl(path, file.type, file.size) };
 }
 
 const SubmitSchema = z.object({
@@ -326,13 +322,9 @@ async function checkProofAndBank(
 	path: string,
 	bankAccountId: string,
 ): Promise<string | null> {
-	const admin = createAdminClient();
-	const folder = path.slice(0, path.lastIndexOf("/"));
-	const { data: files } = await admin.storage
-		.from("portal-private")
-		.list(folder, { search: path.slice(folder.length + 1) });
-	if (!files?.length) return "Bukti transfer belum terupload. Coba lagi, ya.";
-	const { data: bank } = await admin
+	if (!(await r2Exists(path)))
+		return "Bukti transfer belum terupload. Coba lagi, ya.";
+	const { data: bank } = await createAdminClient()
 		.from("bank_accounts")
 		.select("id")
 		.eq("id", bankAccountId)

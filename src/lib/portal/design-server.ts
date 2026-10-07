@@ -7,6 +7,7 @@ import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildDesignName } from "@/lib/drive/naming";
 import { eventSpots, spotsNeedingOwnDesign } from "@/lib/events/spots";
 import { designStatusFor, type Stage } from "@/lib/portal/design";
+import { r2Get, r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tgEscape } from "@/lib/telegram/client";
 import {
@@ -16,10 +17,8 @@ import {
 
 /**
  * Bagian server modul desain yang dipakai portal klien & antrean designer
- * (DR-031). File di bucket portal-private; URL ke browser selalu signed.
+ * (DR-031). File di R2 (src/lib/storage/r2.ts); URL ke browser selalu signed.
  */
-
-const BUCKET = "portal-private";
 
 type EventForDesign = {
 	id: string;
@@ -85,24 +84,14 @@ export async function signedUrl(
 	seconds = 3600,
 ): Promise<string | null> {
 	if (!path) return null;
-	const { data } = await createAdminClient()
-		.storage.from(BUCKET)
-		.createSignedUrl(path, seconds);
-	return data?.signedUrl ?? null;
+	return r2SignedUrl(path, seconds);
 }
 
 export async function signedUrls(
 	paths: string[],
 	seconds = 3600,
 ): Promise<Map<string, string>> {
-	if (paths.length === 0) return new Map();
-	const { data } = await createAdminClient()
-		.storage.from(BUCKET)
-		.createSignedUrls(paths, seconds);
-	const m = new Map<string, string>();
-	for (const d of data ?? [])
-		if (d.path && d.signedUrl) m.set(d.path, d.signedUrl);
-	return m;
+	return new Map(paths.map((p) => [p, r2SignedUrl(p, seconds)]));
 }
 
 export type DesignVersion = {
@@ -328,10 +317,8 @@ export async function approveFromPortal(
 			const v = r.version as unknown as { file_path: string } | null;
 			if (!folder.id || !v) continue;
 			try {
-				const { data: blob } = await admin.storage
-					.from(BUCKET)
-					.download(v.file_path);
-				if (!blob) continue;
+				const file = await r2Get(v.file_path);
+				if (!file) continue;
 				const name = buildDesignName(
 					{
 						clientName: ev.client_name ?? "",
@@ -344,7 +331,7 @@ export async function approveFromPortal(
 					folder.id,
 					name,
 					"image/png",
-					Buffer.from(await blob.arrayBuffer()),
+					Buffer.from(file.bytes),
 				);
 				await admin.from("event_assets").insert({
 					event_id: eventId,

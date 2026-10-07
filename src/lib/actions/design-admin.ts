@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { checkDesignFile, FRAME_SIZES, readPngInfo } from "@/lib/portal/design";
 import { syncEventDesignStatus } from "@/lib/portal/design-server";
 import { portalUrl, sendClientWa } from "@/lib/portal/notify";
+import { r2Delete, r2Get, r2UploadUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -15,7 +16,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 type Result = { ok: true } | { ok: false; error: string };
-const BUCKET = "portal-private";
 
 async function requireOwnerLevel() {
 	const me = await getCurrentUser();
@@ -39,7 +39,7 @@ export async function requestVersionUpload(
 	requestId: string,
 	size: number,
 ): Promise<
-	{ ok: true; path: string; token: string } | { ok: false; error: string }
+	{ ok: true; path: string; uploadUrl: string } | { ok: false; error: string }
 > {
 	await requireOwnerLevel();
 	const r = await loadReq(requestId);
@@ -47,11 +47,7 @@ export async function requestVersionUpload(
 	if (size <= 0 || size > 25 * 1024 * 1024)
 		return { ok: false, error: "File maksimal 25 MB." };
 	const path = `bookings/${r.booking_id}/desain/${r.id}/versi/${crypto.randomUUID()}.png`;
-	const { data, error } = await createAdminClient()
-		.storage.from(BUCKET)
-		.createSignedUploadUrl(path);
-	if (error || !data) return { ok: false, error: "Gagal menyiapkan upload." };
-	return { ok: true, path, token: data.token };
+	return { ok: true, path, uploadUrl: r2UploadUrl(path, "image/png", size) };
 }
 
 const VersionSchema = z.object({
@@ -83,13 +79,11 @@ export async function addDesignVersion(
 		return { ok: false, error: "File tidak valid." };
 
 	const admin = createAdminClient();
-	const { data: blob } = await admin.storage.from(BUCKET).download(path);
-	if (!blob) return { ok: false, error: "File belum terupload." };
-	const info = readPngInfo(
-		new Uint8Array(await blob.slice(0, 4096).arrayBuffer()),
-	);
+	const head = await r2Get(path, 4096);
+	if (!head) return { ok: false, error: "File belum terupload." };
+	const info = readPngInfo(head.bytes);
 	if (!info) {
-		await admin.storage.from(BUCKET).remove([path]);
+		await r2Delete([path]);
 		return {
 			ok: false,
 			error: "File harus PNG (overlay dengan kotak foto transparan).",
@@ -97,7 +91,7 @@ export async function addDesignVersion(
 	}
 	const check = checkDesignFile(frameSize, info.width, info.height);
 	if (!check.ok) {
-		await admin.storage.from(BUCKET).remove([path]);
+		await r2Delete([path]);
 		return { ok: false, error: check.error };
 	}
 
@@ -197,7 +191,7 @@ export async function requestTemplatePreviewUpload(file: {
 	type: string;
 	size: number;
 }): Promise<
-	{ ok: true; path: string; token: string } | { ok: false; error: string }
+	{ ok: true; path: string; uploadUrl: string } | { ok: false; error: string }
 > {
 	await requireOwnerLevel();
 	const ext = PREVIEW_MIME[file.type];
@@ -205,11 +199,7 @@ export async function requestTemplatePreviewUpload(file: {
 	if (file.size <= 0 || file.size > 10 * 1024 * 1024)
 		return { ok: false, error: "Maksimal 10 MB." };
 	const path = `templates/${crypto.randomUUID()}.${ext}`;
-	const { data, error } = await createAdminClient()
-		.storage.from(BUCKET)
-		.createSignedUploadUrl(path);
-	if (error || !data) return { ok: false, error: "Gagal menyiapkan upload." };
-	return { ok: true, path, token: data.token };
+	return { ok: true, path, uploadUrl: r2UploadUrl(path, file.type, file.size) };
 }
 
 const TemplateSchema = z.object({

@@ -56,7 +56,7 @@ frame_size ("2R"|"4R"|"polaroid"|"none"|null), package_name, package_duration_ho
   "approved_at": "2026-11-02T09:14:00+07:00",
   "frame_size": "4R",
   "orientation": "portrait",
-  "frame_url": "https://<supabase>/storage/v1/object/sign/design-files/...?token=...",
+  "frame_url": "https://<akun>.r2.cloudflarestorage.com/tetra-ops-portal/bookings/...png?X-Amz-Signature=...",
   "frame_url_expires_at": "2026-11-09T09:14:00+07:00",
   "booth_layout_id": null,
   "booth_preset_id": null,

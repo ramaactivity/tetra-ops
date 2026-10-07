@@ -14,6 +14,7 @@ import {
 	toBoothBooking,
 	toBoothDesign,
 } from "@/lib/booth-api";
+import { r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -69,14 +70,9 @@ export async function enrichBoothBookings(
 	const approvedPaths = reqs
 		.filter((r) => r.stage === "acc" && r.version)
 		.map((r) => r.version?.file_path as string);
-	const urls = new Map<string, string>();
-	if (approvedPaths.length) {
-		const { data } = await admin.storage
-			.from("portal-private")
-			.createSignedUrls(approvedPaths, URL_TTL_SEC);
-		for (const d of data ?? [])
-			if (d.path && d.signedUrl) urls.set(d.path, d.signedUrl);
-	}
+	const urls = new Map(
+		approvedPaths.map((p) => [p, r2SignedUrl(p, URL_TTL_SEC)]),
+	);
 	const expiresAt = new Date(Date.now() + URL_TTL_SEC * 1000).toISOString();
 	const code = new Map(
 		(cbRes.data ?? []).map((c) => [

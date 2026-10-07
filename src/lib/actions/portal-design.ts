@@ -10,6 +10,7 @@ import {
 	notifyDesigner,
 	syncEventDesignStatus,
 } from "@/lib/portal/design-server";
+import { r2Exists, r2UploadUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -149,7 +150,7 @@ export async function requestDesignFileUpload(
 	code: string,
 	requestId: string,
 	file: { type: string; size: number },
-): Promise<{ ok: true; path: string; token: string } | Fail> {
+): Promise<{ ok: true; path: string; uploadUrl: string } | Fail> {
 	const r = await myRequest(code, requestId);
 	if ("error" in r) return { ok: false, error: r.error };
 	const ext = FILE_MIME[file.type];
@@ -160,12 +161,7 @@ export async function requestDesignFileUpload(
 	if (!(await rateLimit(`dfile:${r.person.id}`, 30, 3600)))
 		return { ok: false, error: BUSY };
 	const path = `bookings/${r.booking.id}/desain/${r.req.id}/klien/${crypto.randomUUID()}.${ext}`;
-	const { data, error } = await createAdminClient()
-		.storage.from("portal-private")
-		.createSignedUploadUrl(path);
-	if (error || !data)
-		return { ok: false, error: "Gagal menyiapkan upload. Coba lagi, ya." };
-	return { ok: true, path, token: data.token };
+	return { ok: true, path, uploadUrl: r2UploadUrl(path, file.type, file.size) };
 }
 
 export async function addDesignFile(
@@ -180,10 +176,7 @@ export async function addDesignFile(
 	if (!raw.path.startsWith(prefix))
 		return { ok: false, error: "File tidak valid." };
 	const admin = createAdminClient();
-	const { data: files } = await admin.storage
-		.from("portal-private")
-		.list(prefix.slice(0, -1), { search: raw.path.slice(prefix.length) });
-	if (!files?.length)
+	if (!(await r2Exists(raw.path)))
 		return { ok: false, error: "File belum terupload. Coba lagi, ya." };
 	await admin.from("design_files").insert({
 		request_id: r.req.id,

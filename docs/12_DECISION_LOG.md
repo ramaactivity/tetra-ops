@@ -1084,6 +1084,25 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 
 ---
 
+## DR-038: File portal klien di Cloudflare R2, bukan Supabase Storage
+
+**Status:** Accepted (owner 2026-10-07)
+**Date:** 2026-10-07
+
+### Decision
+- Bukti transfer, file desain (referensi/logo, versi PNG), dan pratinjau template disimpan di bucket R2 privat `tetra-ops-portal`, di akun Cloudflare yang sama dengan Tetra Booth tetapi bucket & kunci terpisah (Account API token, Object Read & Write, hanya bucket ini; terbukti 403 ke bucket Booth).
+- Akses lewat endpoint S3 `{akun}.r2.cloudflarestorage.com` dengan SigV4 buatan sendiri (`src/lib/storage/r2.ts`, tanpa SDK). `*.r2.dev` tidak dipakai (diblokir Internet Positif, lihat Booth DECISIONS #63).
+- Upload: server memvalidasi tipe & ukuran, lalu memberi URL PUT 15 menit yang ikut menandatangani `content-type` + `content-length`, jadi R2 menolak file yang beda tipe/ukuran. Baca: URL GET bertanda tangan (bukti 10 menit, portal 1 jam, `frame_url` Booth 7 hari = batas SigV4).
+- CORS bucket: GET/PUT/HEAD dari booking., team., tetra-ops-lac.vercel.app, localhost:3000.
+- Bucket Supabase `portal-private` dibiarkan (kosong saat pindah, tidak ada data dimigrasi).
+
+### Consequences
+- ✅ Kuota 10 GB gratis + unduhan tanpa biaya; pembersihan otomatis file draf tidak mendesak.
+- ✅ Kebocoran kunci satu aplikasi tidak membuka file aplikasi lain; retensi/purge Booth tidak menyentuh file Ops.
+- ⚠️ Env `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` wajib di Vercel; tanpa itu upload portal gagal.
+
+---
+
 ## Template for New Decisions
 
 ```markdown

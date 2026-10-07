@@ -15,7 +15,6 @@ import {
 import { compressImage } from "@/lib/crew/image-compression";
 import type { Stage } from "@/lib/portal/design";
 import type { DesignRequestView } from "@/lib/portal/design-server";
-import { createClient } from "@/lib/supabase/client";
 import { Err } from "./verify-phone";
 
 export type TemplateCard = {
@@ -548,10 +547,12 @@ function FileUploads({ code, r }: { code: string; r: DesignRequestView }) {
 				size: f.size,
 			});
 			if (!up.ok) throw new Error(up.error);
-			const { error: e } = await createClient()
-				.storage.from("portal-private")
-				.uploadToSignedUrl(up.path, up.token, f, { contentType: f.type });
-			if (e) throw new Error("Upload gagal. Cek koneksi lalu coba lagi.");
+			const put = await fetch(up.uploadUrl, {
+				method: "PUT",
+				body: f,
+				headers: { "content-type": f.type },
+			});
+			if (!put.ok) throw new Error("Upload gagal. Cek koneksi lalu coba lagi.");
 			const res = await addDesignFile(code, r.id, {
 				kind,
 				path: up.path,

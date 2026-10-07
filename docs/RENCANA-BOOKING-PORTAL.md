@@ -146,9 +146,9 @@ Fase 1 bisa diuji di domain Vercel Ops sebelum fase 6 selesai.
   - Cron hanya sekali sehari.
   - Syarat penggunaannya non-komersial, sedangkan booking dengan pembayaran itu komersial.
   - Naik ke Pro sebelum dibuka ke publik luas.
-- **Supabase Storage:**
-  - Paket gratis hanya 1 GB. File desain bisa cepat memenuhi kuota.
-  - Mitigasi: gambar dikompres di browser, versi draf lama dihapus setelah acara selesai, dan file final diarsip ke Drive.
+- **Penyimpanan file:**
+  - Sejak DR-038 file portal ada di Cloudflare R2 (`tetra-ops-portal`, gratis 10 GB), bukan Supabase Storage (1 GB).
+  - Mitigasi: gambar dikompres di browser dan file final diarsip ke Drive. Pembersihan draf lama ditambahkan kalau kuota mulai terasa.
 - **Bot WA tidak resmi (Baileys):**
   - Verifikasi memakai pesan masuk dari klien, jadi risiko blokir kecil.
   - Email jadi cadangan kalau bot mati.

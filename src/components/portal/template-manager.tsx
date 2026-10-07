@@ -11,7 +11,6 @@ import {
 	setDesignTemplateActive,
 } from "@/lib/actions/design-admin";
 import { FRAME_SIZES, type FrameSize } from "@/lib/portal/design";
-import { createClient } from "@/lib/supabase/client";
 
 const field =
 	"h-9 w-full rounded-full border border-border-subtle bg-card px-4 text-[13px]";
@@ -41,10 +40,12 @@ export function TemplateForm() {
 				size: file.size,
 			});
 			if (!up.ok) throw new Error(up.error);
-			const { error } = await createClient()
-				.storage.from("portal-private")
-				.uploadToSignedUrl(up.path, up.token, file, { contentType: file.type });
-			if (error) throw new Error("Upload pratinjau gagal");
+			const put = await fetch(up.uploadUrl, {
+				method: "PUT",
+				body: file,
+				headers: { "content-type": file.type },
+			});
+			if (!put.ok) throw new Error("Upload pratinjau gagal");
 			const res = await createDesignTemplate({
 				name,
 				category,

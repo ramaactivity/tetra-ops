@@ -11,6 +11,7 @@ import { logPaymentCore } from "@/lib/finance/payment-core";
 import { formatRupiah } from "@/lib/format";
 import { type Detail, withRundownLine } from "@/lib/portal/core";
 import { portalUrl, sendClientWa } from "@/lib/portal/notify";
+import { r2Get, r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -170,11 +171,8 @@ async function archiveProof(
 ): Promise<string | null> {
 	if (!s.proof_path || !isDriveConfigured()) return null;
 	try {
-		const admin = createAdminClient();
-		const { data: blob } = await admin.storage
-			.from("portal-private")
-			.download(s.proof_path);
-		if (!blob) return null;
+		const file = await r2Get(s.proof_path);
+		if (!file) return null;
 		const folder = await ensureEventCategoryFolderInternal(eventId, "Nota");
 		if (!folder.id) return null;
 		const ext = s.proof_path.split(".").pop() ?? "jpg";
@@ -191,8 +189,8 @@ async function archiveProof(
 		const up = await uploadFileToFolder(
 			folder.id,
 			name,
-			blob.type || "application/octet-stream",
-			Buffer.from(await blob.arrayBuffer()),
+			file.type,
+			Buffer.from(file.bytes),
 		);
 		return up.webViewLink;
 	} catch (e) {
@@ -367,10 +365,7 @@ export async function proofSignedUrl(
 	await requireOwnerLevel();
 	const s = await loadSub(submissionId);
 	if (!s?.proof_path) return null;
-	const { data } = await createAdminClient()
-		.storage.from("portal-private")
-		.createSignedUrl(s.proof_path, 600);
-	return data?.signedUrl ?? null;
+	return r2SignedUrl(s.proof_path, 600);
 }
 
 /**
