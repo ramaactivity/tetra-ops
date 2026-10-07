@@ -106,7 +106,7 @@ export function BookingWizard({
 	// Cek slot otomatis tiap jadwal berubah.
 	const sel = selection();
 	const slotKey = sel
-		? `${sel.date}|${sel.start}|${sel.hours}|${sel.units}|${sel.city}`
+		? `${sel.date}|${sel.start}|${noTime}|${sel.hours}|${sel.units}|${sel.city}`
 		: "";
 	// biome-ignore lint/correctness/useExhaustiveDependencies: slotKey merangkum semua isi jadwal; cek ulang hanya saat jadwal berubah.
 	useEffect(() => {
