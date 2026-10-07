@@ -32,6 +32,7 @@ export default async function OwnerLayout({
 		{ count: inboxBaru },
 		{ count: portalCek },
 		{ count: portalReq },
+		{ count: designQueue },
 	] = await Promise.all([
 		supabase
 			.from("bot_status")
@@ -53,6 +54,11 @@ export default async function OwnerLayout({
 			.from("booking_requests")
 			.select("id", { count: "exact", head: true })
 			.eq("status", "baru"),
+		// Badge "Antrean Desain": brief / revisi portal yang harus dikerjakan.
+		supabase
+			.from("design_requests")
+			.select("id", { count: "exact", head: true })
+			.in("stage", ["dikerjakan", "revisi"]),
 	]);
 
 	return (
@@ -63,6 +69,7 @@ export default async function OwnerLayout({
 				badges={{
 					"/operations/booking-masuk": inboxBaru ?? 0,
 					"/operations/portal": (portalCek ?? 0) + (portalReq ?? 0),
+					"/design/portal": designQueue ?? 0,
 				}}
 			/>
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on

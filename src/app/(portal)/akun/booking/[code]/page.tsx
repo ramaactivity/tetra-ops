@@ -4,6 +4,10 @@ import {
 	ChangeRequest,
 	type OpenRequest,
 } from "@/components/portal/change-request";
+import {
+	DesignSection,
+	type TemplateCard,
+} from "@/components/portal/design-section";
 import { DetailForm } from "@/components/portal/detail-form";
 import { DpForm, type PortalBank } from "@/components/portal/dp-form";
 import { type Member, MembersCard } from "@/components/portal/members-card";
@@ -18,6 +22,12 @@ import {
 	refundEstimate,
 } from "@/lib/portal/core";
 import { configNumber, loadCatalog, loadMyBooking } from "@/lib/portal/data";
+import {
+	type DesignRequestView,
+	ensureDesignRequests,
+	loadDesignState,
+	signedUrls,
+} from "@/lib/portal/design-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toWaPhone } from "@/lib/whatsapp";
 
@@ -148,6 +158,36 @@ export default async function BookingDetailPage({
 	const sisa = ev ? Number(ev.remaining_balance) : 0;
 	const banks = (banksRes.data ?? []) as PortalBank[];
 
+	// Desain frame dibuka setelah DP diterima (event sudah ada).
+	let design: DesignRequestView[] = [];
+	let templates: TemplateCard[] = [];
+	if (b.status === "resmi" && b.event_id) {
+		await ensureDesignRequests(b.id, b.event_id);
+		const [state, tpl] = await Promise.all([
+			loadDesignState(b.event_id),
+			admin
+				.from("design_templates")
+				.select("id, name, category, frame_size, orientation, preview_path")
+				.eq("is_active", true)
+				.order("sort"),
+		]);
+		design = state;
+		const urls = await signedUrls(
+			(tpl.data ?? []).map((t) => t.preview_path as string),
+		);
+		templates = (tpl.data ?? []).map((t) => ({
+			id: t.id,
+			name: t.name,
+			category: t.category,
+			frame_size: t.frame_size,
+			orientation: t.orientation,
+			url: urls.get(t.preview_path as string) ?? null,
+		}));
+	}
+	const designDone =
+		design.length > 0 && design.every((r) => r.stage === "acc");
+	const revisionLimit = await configNumber("design.revision_limit", 3);
+
 	const steps = [
 		{ label: "Booking tersimpan", done: true },
 		{
@@ -157,8 +197,8 @@ export default async function BookingDetailPage({
 		},
 		{
 			label: "Desain frame",
-			done: false,
-			now: b.status === "resmi",
+			done: designDone,
+			now: b.status === "resmi" && !designDone,
 			hint: "Dibuka setelah DP diterima",
 		},
 		{ label: "Pelunasan", done: !!ev && Number(ev.remaining_balance) <= 0 },
@@ -314,6 +354,18 @@ export default async function BookingDetailPage({
 							/>
 						</div>
 					)}
+				</section>
+			)}
+
+			{design.length > 0 && (
+				<section style={{ display: "grid", gap: 6 }}>
+					<h2 className="h2">Desain frame</h2>
+					<DesignSection
+						code={b.public_code}
+						requests={design}
+						templates={templates}
+						revisionLimit={revisionLimit}
+					/>
 				</section>
 			)}
 

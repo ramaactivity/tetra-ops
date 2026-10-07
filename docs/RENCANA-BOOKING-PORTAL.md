@@ -1,6 +1,6 @@
 # Rencana: Booking Engine, Portal Klien, dan Modul Desain Frame
 
-Status: **disetujui owner (Rama) 2026-10-06.** Fase 1 live 2026-10-07. Fase 2 live 2026-10-07.
+Status: **disetujui owner (Rama) 2026-10-06.** Fase 1 live 2026-10-07. Fase 2 live 2026-10-07. Fase 3 live 2026-10-07.
 Tanggal: 2026-10-06. Keputusan resmi dicatat di `docs/12_DECISION_LOG.md` (DR-026 dst.).
 Kontrak dengan Tetra Booth: `docs/INTEGRASI-TETRA-BOOTH.md`.
 
@@ -169,4 +169,10 @@ Disetujui owner 2026-10-06, termasuk revisi maksimal 3 kali dan kebijakan pembat
   - pelunasan / cicilan lewat transfer;
   - permintaan pindah tanggal / batal dengan perkiraan refund DR-034 (tabel `booking_requests`, diproses admin);
   - detail non-keuangan yang diubah klien setelah resmi ikut memperbarui event.
-- **Berikutnya:** fase 3 (desain frame).
+- **Fase 3 (live 2026-10-07):** desain frame.
+  - Satu permintaan desain per spot (spot ≥2 hanya kalau ukurannya beda); tabel `design_requests`, `design_versions`, `design_comments`, `design_files`, `design_templates`.
+  - Klien memilih template (disaring ukuran) atau brief custom + upload referensi/logo, lalu review draf: komentar, minta revisi (maks 3), atau ACC.
+  - Designer di `/design/portal` upload PNG; rasio & resolusi dicek di server dari header PNG, area transparan dicek di browser (hanya peringatan).
+  - ACC semua spot → gerbang ukuran sama dengan Design Hub; cocok → event approved + arsip ke Drive (Design) + aset desain; tidak cocok/menyusul → owner diminta ACC di Design Hub.
+  - Katalog template dikelola di `/design/templates`.
+- **Berikutnya:** fase 4 (Midtrans) — tunggu akun produksi; atau fase 5/6 (integrasi Booth, domain).

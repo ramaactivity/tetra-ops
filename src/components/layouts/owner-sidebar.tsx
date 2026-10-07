@@ -8,6 +8,7 @@ import {
 	Box,
 	Boxes,
 	Briefcase,
+	Brush,
 	Building2,
 	CalendarRange,
 	ChevronRight,
@@ -22,6 +23,7 @@ import {
 	Inbox,
 	Landmark,
 	LayoutDashboard,
+	LayoutTemplate,
 	type LucideIcon,
 	MessageCircle,
 	NotebookText,
@@ -87,7 +89,20 @@ const NAV_SECTIONS: NavSection[] = [
 					{ href: "/operations/backdrops", label: "Backdrop", icon: Frame },
 				],
 			},
-			{ href: "/design", label: "Asset & Design", icon: Palette },
+			{
+				href: "/design",
+				label: "Asset & Design",
+				icon: Palette,
+				children: [
+					{ href: "/design", label: "Asset & Design", icon: Palette },
+					{ href: "/design/portal", label: "Antrean Desain", icon: Brush },
+					{
+						href: "/design/templates",
+						label: "Template Frame",
+						icon: LayoutTemplate,
+					},
+				],
+			},
 			{ href: "/billing", label: "Billing", icon: Receipt },
 			// Finance dipecah dua (permintaan owner 23 Sep 2026: 13 sub-menu bikin
 			// bingung): "Finance" = uang keluar-masuk sehari-hari, "Akuntansi" =
