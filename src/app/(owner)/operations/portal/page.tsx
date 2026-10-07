@@ -155,7 +155,8 @@ export default async function PortalBookingsPage() {
 									<p className="text-[13px]">
 										{r.kind === "batal" ? (
 											<>
-												<b>Minta batal</b> · perkiraan refund (DR-034){" "}
+												<b>Minta batal</b> · perkiraan refund (kebijakan
+												website){" "}
 												<span data-nominal className="tabular-nums">
 													{formatRupiah(Number(r.refund_estimate ?? 0))}
 												</span>

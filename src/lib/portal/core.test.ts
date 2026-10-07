@@ -152,26 +152,23 @@ test("detail wajib sebelum DP", () => {
 	]);
 });
 
-test("refund pembatalan klien sesuai DR-034", () => {
-	const fee = 500_000;
-	assert.equal(refundEstimate(2_000_000, 45, fee), 1_500_000); // H-30+: potong biaya
-	assert.equal(refundEstimate(2_000_000, 30, fee), 1_500_000);
-	assert.equal(refundEstimate(2_000_000, 20, fee), 1_000_000); // 50%
-	assert.equal(refundEstimate(600_000, 20, fee), 100_000); // 50% = 300rb, tapi potongan min 500rb
-	assert.equal(refundEstimate(500_000, 20, fee), 0);
-	assert.equal(refundEstimate(5_000_000, 7, fee), 0); // H-7: hangus
-	assert.equal(refundEstimate(400_000, 60, fee), 0); // DP < biaya batal
+test("refund pembatalan klien sesuai kebijakan website (DP ditahan)", () => {
+	assert.equal(refundEstimate(2_000_000, 15), 2_000_000); // > H-14: penuh
+	assert.equal(refundEstimate(2_000_000, 14), 1_000_000); // H-14..H-3: 50%
+	assert.equal(refundEstimate(2_000_000, 3), 1_000_000);
+	assert.equal(refundEstimate(2_000_000, 2), 0); // < H-3
+	assert.equal(refundEstimate(0, 60), 0); // baru DP: hangus
 });
 
-test("selisih hari & batas pindah tanggal 6 bulan", () => {
+test("pindah tanggal: diajukan paling lambat H-30", () => {
 	assert.equal(daysUntil("2026-11-20", "2026-10-21"), 30);
-	assert.equal(rescheduleError("2027-05-20", "2026-11-20", "2026-10-07"), null);
+	assert.equal(rescheduleError("2027-08-01", "2026-11-20", "2026-10-21"), null);
 	assert.match(
-		rescheduleError("2027-05-21", "2026-11-20", "2026-10-07") ?? "",
-		/6 bulan/,
+		rescheduleError("2027-01-10", "2026-11-20", "2026-10-22") ?? "",
+		/30 hari/,
 	);
 	assert.match(
-		rescheduleError("2026-10-07", "2026-11-20", "2026-10-07") ?? "",
+		rescheduleError("2026-10-07", "2026-12-20", "2026-10-07") ?? "",
 		/besok/,
 	);
 });

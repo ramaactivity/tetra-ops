@@ -97,8 +97,8 @@ export function ChangeRequest({
 			{mode === "pindah_tanggal" && (
 				<>
 					<p className="cap">
-						Gratis selama jadwal baru masih ada, paling lambat 6 bulan dari
-						tanggal awal.
+						Tanpa biaya, diajukan paling lambat 30 hari sebelum acara dan selama
+						jadwal baru masih ada.
 					</p>
 					<Calendar value={date} onChange={setDate} />
 					<div className="label" style={{ margin: 0 }}>
@@ -110,13 +110,13 @@ export function ChangeRequest({
 			{mode === "batal" && !isDraft && (
 				<div className="note" style={{ background: "var(--peach)" }}>
 					{refundEstimate === null
-						? "Belum ada pembayaran tercatat."
+						? "DP ditahan sebagai biaya pembatalan."
 						: refundEstimate > 0
-							? `Perkiraan uang kembali kalau batal sekarang: ${rp(refundEstimate)}.`
-							: "Sesuai syarat booking, pembayaran yang sudah masuk tidak dapat dikembalikan kalau batal sekarang."}{" "}
+							? `DP ditahan sebagai biaya pembatalan. Perkiraan uang kembali kalau batal sekarang: ${rp(refundEstimate)}.`
+							: "Sesuai kebijakan refund, DP ditahan sebagai biaya pembatalan dan pembayaran lain tidak dapat dikembalikan kalau batal sekarang."}{" "}
 					<a
 						className="link"
-						href="/booking/syarat"
+						href="https://tetraphoto.com/kebijakan-refund"
 						target="_blank"
 						rel="noopener"
 					>

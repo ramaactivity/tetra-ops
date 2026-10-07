@@ -8,7 +8,7 @@ import { runTelegramDigestInternal } from "@/lib/telegram/digest";
  * VPS sore hari:
  *
  *   30 9 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" \
- *     "https://tetra-ops-lac.vercel.app/api/telegram/dispatch?force=1"
+ *     "https://booking.tetraphoto.com/api/telegram/dispatch?force=1"
  *
  * (09:30 UTC = 16:30 WIB. force=1 melewati dedup harian.)
  */

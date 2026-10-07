@@ -11,7 +11,7 @@ Disiapkan dari sisi Tetra Ops, 2026-06-26.
 ## 1. Endpoint
 
 ```
-GET https://tetra-ops-lac.vercel.app/api/availability
+GET https://booking.tetraphoto.com/api/availability
 ```
 
 Query params:
@@ -140,7 +140,7 @@ Keputusan konservatif yang dipakai (sesuai jawaban kalian):
 
 ```bash
 curl -H "Authorization: Bearer $AVAILABILITY_API_TOKEN" \
-  "https://tetra-ops-lac.vercel.app/api/availability?date=2026-07-11&start=11:00&end=13:00&city=Bogor"
+  "https://booking.tetraphoto.com/api/availability?date=2026-07-11&start=11:00&end=13:00&city=Bogor"
 ```
 
 Ada yang kurang jelas atau butuh field tambahan di response, kabari ya.

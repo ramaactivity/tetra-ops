@@ -34,7 +34,7 @@ git commit -m "pesan"
 git push origin main          # GitHub Actions → vercel deploy → READY (~2 menit)
 ```
 Pantau di **tab Actions** repo (`github.com/ramaactivity/tetra-ops/actions`) sampai hijau,
-lalu cek alias `https://tetra-ops-lac.vercel.app`.
+lalu cek `https://booking.tetraphoto.com` (alias lama `https://tetra-ops-lac.vercel.app` masih hidup).
 
 Isi `.github/workflows/deploy.yml` (build DI Vercel, bukan prebuilt — prebuilt sempat
 menggantung di "Building…"):
@@ -98,3 +98,11 @@ pemakaian Tetra (auto-fill hanya jalan saat owner paste link).
   `main` yang sama)
 
 Lihat juga: `accounts.md`
+
+## 🌐 Pindah ke domain booking.tetraphoto.com (DR-036)
+
+Urutan saat CNAME `booking` → Vercel sudah aktif (cek: `dig +short booking.tetraphoto.com` tidak kosong dan `https://booking.tetraphoto.com/booking` menjawab 200):
+1. Supabase Dashboard → Auth → URL Configuration: tambah Redirect URL `https://booking.tetraphoto.com/**`, lalu ganti Site URL ke `https://booking.tetraphoto.com`. Biarkan URL vercel.app tetap di daftar selama transisi.
+2. Vercel env `NEXT_PUBLIC_APP_URL` (Production + Preview) dan `.env.local` → `https://booking.tetraphoto.com`, lalu trigger `VERCEL_DEPLOY_HOOK`.
+3. Bot WA (VPS Sumopod `~/tetra-wa-bot/.env`): `TETRA_OPS_ORIGIN=https://booking.tetraphoto.com` lalu `pm2 restart tetra-bot --update-env`. Wajib, karena bot menolak `pdf_url` dari origin lain (kirim invoice/kuitansi lewat WA akan gagal).
+4. Kabari sesi Tetra Booth supaya `TETRA_OPS_URL` ikut diganti.

@@ -21,7 +21,12 @@ import {
 	PRODUCT_LABELS,
 	refundEstimate,
 } from "@/lib/portal/core";
-import { configNumber, loadCatalog, loadMyBooking } from "@/lib/portal/data";
+import {
+	configNumber,
+	loadCatalog,
+	loadMyBooking,
+	paidBeyondDp,
+} from "@/lib/portal/data";
 import {
 	type DesignRequestView,
 	ensureDesignRequests,
@@ -66,7 +71,7 @@ export default async function BookingDetailPage({
 		phoneRes,
 		membersRes,
 		requestRes,
-		cancelFee,
+		beyondDp,
 	] = await Promise.all([
 		loadCatalog(),
 		configNumber("booking.dp_minimum", 500_000),
@@ -121,7 +126,7 @@ export default async function BookingDetailPage({
 			.eq("booking_id", b.id)
 			.eq("status", "baru")
 			.maybeSingle(),
-		configNumber("booking.cancellation_fee", 500_000),
+		b.event_id ? paidBeyondDp(b.event_id) : Promise.resolve(0),
 	]);
 	const members: Member[] = (membersRes.data ?? []).map((m) => {
 		const p = m.person as unknown as {
@@ -425,11 +430,7 @@ export default async function BookingDetailPage({
 						canCancel={canPay}
 						refundEstimate={
 							ev
-								? refundEstimate(
-										Number(ev.total_paid),
-										daysUntil(b.event_date, today),
-										cancelFee,
-									)
+								? refundEstimate(beyondDp, daysUntil(b.event_date, today))
 								: null
 						}
 						openRequest={(requestRes.data as OpenRequest | null) ?? null}

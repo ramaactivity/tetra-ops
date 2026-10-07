@@ -16,7 +16,7 @@
 - **Team**: `visualtetra-9970s-projects` (Hobby)
 - **Project**: `tetra-ops`
 - **Dashboard**: https://vercel.com/visualtetra-9970s-projects/tetra-ops
-- **Production URL**: https://tetra-ops-lac.vercel.app
+- **Production URL**: https://booking.tetraphoto.com (DR-036; aktif setelah CNAME `booking` di Hostinger). Alias lama https://tetra-ops-lac.vercel.app tetap hidup selama transisi
 
 ### Detail GitHub
 - **Repo**: `ramaactivity/tetra-ops` (branch `main` auto-deploy)

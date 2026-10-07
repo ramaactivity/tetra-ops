@@ -993,7 +993,7 @@ Kalau trafik publik sampai membebani DB, pindah ke Redis atau Vercel Firewall.
 
 ## DR-033: Domain: `tetraphoto.com/booking` dan `/akun` lewat Next.js Multi-Zones
 
-**Status:** Accepted (owner 2026-10-06: "nebeng tetraphoto.com, terasa satu sistem")
+**Status:** Superseded by DR-036 (2026-10-07)
 **Date:** 2026-10-06
 
 ### Decision
@@ -1013,7 +1013,7 @@ Kalau trafik publik sampai membebani DB, pindah ke Redis atau Vercel Firewall.
 
 ## DR-034: Kebijakan pembatalan dan pindah tanggal
 
-**Status:** Accepted (owner 2026-10-06)
+**Status:** Superseded by DR-035 (2026-10-07)
 **Date:** 2026-10-06
 
 ### Decision
@@ -1027,6 +1027,43 @@ Kalau trafik publik sampai membebani DB, pindah ke Redis atau Vercel Firewall.
 - **Pindah tanggal:** gratis selama slot tersedia, dengan tanggal baru paling lambat 6 bulan dari tanggal awal. Lewat dari itu dianggap batal.
 - Syarat ini tampil dan disetujui di form booking bersama persetujuan PDP. Versinya disimpan di `booking.terms_version`.
 - Refund dijalankan admin secara manual. Portal hanya menampilkan perkiraan nominal refund.
+
+---
+
+## DR-035: Kebijakan refund & pindah tanggal = halaman resmi tetraphoto.com
+
+**Status:** Accepted (owner 2026-10-07)
+**Date:** 2026-10-07
+
+### Context
+Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ketentuan, Kebijakan Refund, dan Kebijakan Privasi resmi dengan angka berbeda. Dua versi aturan yang berbeda akan membingungkan klien dan menyulitkan saat ada sengketa.
+
+### Decision
+- Sumber tunggal = halaman legal di tetraphoto.com. Portal (`/booking/syarat`) hanya merangkum dan menautkan.
+- DP (minimal Rp500rb) ditahan sebagai biaya pembatalan, tidak dikembalikan.
+- Pembayaran di luar DP saat klien batal: lebih dari H-14 kembali penuh; H-14 sampai H-3 kembali 50%; kurang dari H-3 tidak kembali (`refundEstimate`).
+- Pindah tanggal tanpa biaya, diajukan paling lambat H-30, selama tanggal pengganti tersedia (`rescheduleError`).
+- Tetra yang membatalkan: semua pembayaran termasuk DP dikembalikan.
+
+### Consequences
+- ✅ Satu aturan untuk website, portal, dan admin.
+- ⚠️ Mengubah kebijakan = ubah halaman website, ringkasan portal, `refundEstimate`/`rescheduleError`, lalu naikkan `booking.terms_version`.
+
+---
+
+## DR-036: Domain Ops & portal = booking.tetraphoto.com
+
+**Status:** Accepted (owner 2026-10-07, disampaikan lewat sesi Booth)
+**Date:** 2026-10-07
+
+### Decision
+- Ops (admin + `/booking` + `/akun`) dilayani di subdomain `https://booking.tetraphoto.com`, menggantikan rencana Multi-Zones DR-033. Alamat `tetra-ops-lac.vercel.app` tetap hidup sebagai alias selama transisi.
+- Semua URL absolut di kode memakai `NEXT_PUBLIC_APP_URL` (satu helper `appUrl()`), tanpa alamat Vercel yang di-hardcode.
+- Website tetraphoto.com menautkan "Booking Online" ke domain ini.
+
+### Consequences
+- ✅ Klien tidak lagi melihat alamat vercel.app; tidak perlu `assetPrefix`/rewrite lintas aplikasi.
+- ⚠️ Saat DNS aktif: ganti `NEXT_PUBLIC_APP_URL` (Vercel + `.env.local`), tambah redirect URL Supabase Auth, dan set `TETRA_OPS_ORIGIN` di bot WA (bot menolak `pdf_url` dari origin lain).
 
 ---
 

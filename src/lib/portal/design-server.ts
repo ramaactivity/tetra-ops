@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ensureEventCategoryFolderInternal } from "@/lib/actions/drive";
+import { appUrl } from "@/lib/app-url";
 import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildDesignName } from "@/lib/drive/naming";
 import { eventSpots, spotsNeedingOwnDesign } from "@/lib/events/spots";
@@ -18,8 +19,6 @@ import {
  */
 
 const BUCKET = "portal-private";
-const appUrl = () =>
-	process.env.NEXT_PUBLIC_APP_URL ?? "https://tetra-ops-lac.vercel.app";
 
 type EventForDesign = {
 	id: string;

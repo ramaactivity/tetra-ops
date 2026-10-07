@@ -1,5 +1,6 @@
 import "server-only";
 
+import { appUrl } from "@/lib/app-url";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { PRODUCT_LABELS } from "@/lib/portal/core";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,9 +11,6 @@ import { sendToOwnerGroup } from "@/lib/telegram/notify";
  * Kabar seputar booking portal. Semua best-effort: TIDAK PERNAH throw, karena
  * gagal mengabari tidak boleh menggagalkan booking/pembayaran yang memicunya.
  */
-
-const appUrl = () =>
-	process.env.NEXT_PUBLIC_APP_URL ?? "https://tetra-ops-lac.vercel.app";
 
 /** Link portal yang dikirim ke klien. */
 export function portalUrl(code?: string): string {
@@ -141,7 +139,7 @@ export async function notifyPortalRequest(
 			);
 		if (r.kind === "batal")
 			lines.push(
-				`Perkiraan refund (DR-034): ${tgEscape(formatRupiah(Number(r.refund_estimate ?? 0)))}`,
+				`Perkiraan refund (kebijakan website): ${tgEscape(formatRupiah(Number(r.refund_estimate ?? 0)))}`,
 			);
 		if (r.reason) lines.push(`Alasan: ${tgEscape(r.reason)}`);
 		lines.push(

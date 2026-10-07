@@ -1,9 +1,12 @@
 export const metadata = { title: "Syarat booking & privasi" };
 
+const SITE = "https://tetraphoto.com";
+
 /**
- * Syarat booking + kebijakan privasi (UU PDP) yang disetujui klien di form
- * booking. Versi = system_config booking.terms_version; ubah isi di sini →
- * naikkan versinya juga (DR-034).
+ * Ringkasan syarat yang disetujui klien di form booking. Sumber resminya
+ * halaman legal di tetraphoto.com (keputusan owner 7 Okt 2026: satu sumber,
+ * portal hanya merangkum + menautkan). Ubah di website → sesuaikan ringkasan
+ * ini dan naikkan system_config booking.terms_version.
  */
 export default function SyaratPage() {
 	return (
@@ -14,117 +17,84 @@ export default function SyaratPage() {
 			<h1 className="h1" style={{ margin: "16px 0 6px" }}>
 				Syarat booking
 			</h1>
-			<p className="cap mono">Versi 06.10.2026</p>
+			<p className="body">
+				Ringkasan dari halaman resmi Tetra Photobooth. Yang berlaku adalah isi
+				lengkapnya di tautan di bawah.
+			</p>
 
-			<Section title="Booking & DP">
+			<Section title="Booking & pembayaran">
 				<li>
-					Booking baru resmi setelah DP kami terima. Sebelum itu, tanggal dan
-					jam belum dikunci untuk kamu.
+					Booking resmi setelah DP kami terima. Sebelum itu, tanggal dan jam
+					belum dikunci untuk kamu.
 				</li>
 				<li>
-					DP minimal Rp500.000. Pembayaran lewat transfer ke rekening yang
-					tertera di halaman booking, lalu unggah buktinya.
+					DP minimal Rp500.000. Booking yang belum dibayar DP dalam 30 hari
+					otomatis kedaluwarsa.
 				</li>
-				<li>
-					Booking yang belum dibayar DP dalam 30 hari otomatis kedaluwarsa.
-				</li>
-				<li>Pelunasan paling lambat H-1 sebelum acara.</li>
-				<li>
-					Harga mengikuti pricelist yang berlaku saat booking dibuat. Total
-					resmi tertera di invoice.
-				</li>
+				<li>Pelunasan paling lambat 1 hari sebelum acara.</li>
 			</Section>
 
-			<Section title="Pindah tanggal">
-				<li>Pindah tanggal gratis selama jadwal baru masih tersedia.</li>
+			<Section title="Pembatalan & pindah tanggal">
 				<li>
-					Tanggal baru paling lambat 6 bulan dari tanggal awal. Lewat dari itu,
-					booking dianggap batal.
-				</li>
-			</Section>
-
-			<Section title="Pembatalan">
-				<li>Biaya pembatalan Rp500.000.</li>
-				<li>
-					Dibatalkan oleh kamu H-30 atau lebih: semua pembayaran dikembalikan,
-					dipotong biaya pembatalan.
+					DP ditahan sebagai biaya pembatalan dan tidak dapat dikembalikan.
 				</li>
 				<li>
-					Dibatalkan oleh kamu H-29 sampai H-8: dikembalikan 50% dari total
-					pembayaran, dengan potongan paling sedikit sebesar biaya pembatalan.
+					Pembayaran di luar DP: dibatalkan lebih dari 14 hari sebelum acara
+					kembali penuh, 14 sampai 3 hari kembali 50%, kurang dari 3 hari tidak
+					kembali.
 				</li>
 				<li>
-					Dibatalkan oleh kamu H-7 sampai hari acara: pembayaran tidak dapat
+					Pindah tanggal tanpa biaya, diajukan paling lambat 30 hari sebelum
+					acara dan selama tanggal pengganti tersedia.
+				</li>
+				<li>
+					Kalau Tetra yang membatalkan, semua pembayaran termasuk DP
 					dikembalikan.
 				</li>
+			</Section>
+
+			<Section title="Data pribadi">
 				<li>
-					Dibatalkan oleh Tetra Photobooth: semua pembayaran dikembalikan penuh.
+					Kami memakai nama, nomor WhatsApp, email, dan detail acara kamu untuk
+					mengurus booking, tagihan, dan desain frame.
 				</li>
 				<li>
-					Keadaan kahar (bencana, kerusuhan, aturan pemerintah darurat): pindah
-					tanggal gratis. Kalau tidak memungkinkan, pembayaran dikembalikan
-					dipotong biaya pembatalan.
+					Data tidak dijual. Kamu boleh minta salinan, perbaikan, atau
+					penghapusan data sesuai UU No. 27 Tahun 2022.
 				</li>
 			</Section>
 
-			<h2
+			<section
 				id="privasi"
-				className="h1"
-				style={{ fontSize: 24, margin: "32px 0 12px" }}
+				className="card"
+				style={{ marginTop: 14, display: "grid", gap: 8 }}
 			>
-				Kebijakan privasi
-			</h2>
-			<Section title="Data yang kami kumpulkan">
-				<li>Nama, nomor WhatsApp, dan email (kalau kamu isi).</li>
-				<li>
-					Detail acara: nama acara, tanggal, jam, lokasi, nama pemilik acara,
-					dan kontak PIC hari H.
-				</li>
-				<li>Bukti pembayaran dan file desain yang kamu unggah.</li>
-			</Section>
-			<Section title="Untuk apa">
-				<li>
-					Mengurus booking kamu: jadwal, tagihan, desain frame, dan koordinasi
-					crew di hari acara.
-				</li>
-				<li>Menghubungi kamu lewat WhatsApp atau email soal booking ini.</li>
-				<li>Pembukuan dan kewajiban pajak Tetra Photobooth.</li>
-				<li>
-					Kami tidak menjual data kamu dan tidak memakainya untuk iklan pihak
-					lain.
-				</li>
-			</Section>
-			<Section title="Penyimpanan & keamanan">
-				<li>
-					Data disimpan di layanan cloud dengan akses terbatas untuk tim Tetra
-					Photobooth.
-				</li>
-				<li>
-					Bukti pembayaran dan file disimpan privat; hanya bisa dibuka lewat
-					link sementara.
-				</li>
-				<li>
-					Data booking disimpan selama dibutuhkan untuk pembukuan (paling lama 5
-					tahun), lalu dihapus atau dianonimkan.
-				</li>
-			</Section>
-			<Section title="Hak kamu">
-				<li>
-					Kamu boleh meminta salinan, perbaikan, atau penghapusan data kamu, dan
-					menarik persetujuan ini.
-				</li>
-				<li>
-					Penghapusan tidak berlaku untuk data yang wajib kami simpan untuk
-					pembukuan.
-				</li>
-				<li>
-					Hubungi kami di WhatsApp <span className="mono">0852 1352 6630</span>{" "}
-					atau email <span className="mono">tetraphotobooth@gmail.com</span>.
-				</li>
-			</Section>
-			<p className="cap" style={{ marginTop: 24 }}>
-				Tetra Photobooth · Bogor, Indonesia
-			</p>
+				<h2 className="h2">Baca lengkapnya</h2>
+				<a
+					className="link"
+					href={`${SITE}/syarat-ketentuan`}
+					target="_blank"
+					rel="noopener"
+				>
+					Syarat & Ketentuan
+				</a>
+				<a
+					className="link"
+					href={`${SITE}/kebijakan-refund`}
+					target="_blank"
+					rel="noopener"
+				>
+					Kebijakan Refund & Pembatalan
+				</a>
+				<a
+					className="link"
+					href={`${SITE}/privasi`}
+					target="_blank"
+					rel="noopener"
+				>
+					Kebijakan Privasi
+				</a>
+			</section>
 		</div>
 	);
 }

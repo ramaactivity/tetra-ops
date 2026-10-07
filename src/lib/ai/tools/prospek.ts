@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
+import { appUrl } from "@/lib/app-url";
 import {
 	alasanTolakDmIg,
 	DM_IG_MAKS_HARIAN,
@@ -24,9 +25,6 @@ import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
  * (cron agent tak bisa minta izin, dan yang ditulis hanya daftar internal).
  */
 
-const BASE_URL = () =>
-	process.env.NEXT_PUBLIC_APP_URL ?? "https://tetra-ops-lac.vercel.app";
-
 const KOLOM =
 	"id, nama, segmen, status, area, website, email, telepon, instagram, pic, alasan, draf_subjek, draf_pesan, catatan, disapa_at, created_at";
 
@@ -34,7 +32,7 @@ const str = (v: unknown, max = 2000) =>
 	typeof v === "string" ? v.trim().slice(0, max) || null : null;
 
 function denganLink<T extends Prospek>(rows: T[]) {
-	return rows.map((r) => ({ ...r, ...sapaLinks(r, BASE_URL()) }));
+	return rows.map((r) => ({ ...r, ...sapaLinks(r, appUrl()) }));
 }
 
 // Jabodetabek kira-kira (Bogor–Tangerang–Bekasi). Places memotong hasil di luar kotak ini.

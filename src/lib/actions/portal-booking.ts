@@ -19,6 +19,7 @@ import {
 	configNumber,
 	loadCatalog,
 	loadMyBooking,
+	paidBeyondDp,
 	slotAvailable,
 	vendorForPhone,
 } from "@/lib/portal/data";
@@ -624,15 +625,9 @@ export async function requestChange(
 
 	let estimate: number | null = null;
 	if (kind === "batal" && b.event_id) {
-		const { data: ev } = await admin
-			.from("events")
-			.select("total_paid")
-			.eq("id", b.event_id)
-			.maybeSingle();
 		estimate = refundEstimate(
-			Number(ev?.total_paid ?? 0),
+			await paidBeyondDp(b.event_id),
 			daysUntil(b.event_date, todayWib()),
-			await configNumber("booking.cancellation_fee", 500_000),
 		);
 	}
 	const available =

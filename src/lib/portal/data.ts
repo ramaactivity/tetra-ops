@@ -196,3 +196,15 @@ export async function vendorForPhone(
 	}
 	return null;
 }
+
+/** Total pembayaran event DI LUAR DP (dasar refund, kebijakan website). */
+export async function paidBeyondDp(eventId: string): Promise<number> {
+	const { data } = await createAdminClient()
+		.from("payments")
+		.select("amount, payment_type")
+		.eq("event_id", eventId)
+		.eq("is_reversed", false);
+	return (data ?? [])
+		.filter((p) => p.payment_type !== "dp")
+		.reduce((s, p) => s + Number(p.amount), 0);
+}

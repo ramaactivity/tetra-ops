@@ -264,33 +264,30 @@ export function daysUntil(eventDate: string, today: string): number {
 }
 
 /**
- * Perkiraan uang kembali kalau KLIEN membatalkan (DR-034):
- *   H-30+       : semua dikembalikan dipotong biaya pembatalan
- *   H-29 .. H-8 : 50% dari total bayar, potongan paling sedikit biaya pembatalan
- *   H-7 .. hari H: tidak dikembalikan
+ * Perkiraan uang kembali kalau KLIEN membatalkan — mengikuti kebijakan resmi
+ * tetraphoto.com/kebijakan-refund (keputusan owner 7 Okt 2026, menggantikan
+ * angka DR-034). DP selalu ditahan sebagai biaya pembatalan; yang bisa kembali
+ * hanya pembayaran DI LUAR DP:
+ *   lebih dari 14 hari sebelum acara : kembali penuh
+ *   14 s/d 3 hari                     : kembali 50%
+ *   kurang dari 3 hari                : tidak kembali
  * Hanya perkiraan untuk ditampilkan; refund dijalankan admin.
  */
-export function refundEstimate(
-	paid: number,
-	days: number,
-	fee: number,
-): number {
-	if (paid <= 0 || days <= 7) return 0;
-	if (days >= 30) return Math.max(0, paid - fee);
-	return Math.max(0, Math.min(Math.floor(paid / 2), paid - fee));
+export function refundEstimate(paidBeyondDp: number, days: number): number {
+	if (paidBeyondDp <= 0 || days < 3) return 0;
+	if (days > 14) return paidBeyondDp;
+	return Math.floor(paidBeyondDp / 2);
 }
 
-/** Tanggal baru pindah tanggal: setelah hari ini dan paling lambat 6 bulan dari tanggal awal. */
+/** Pindah tanggal (kebijakan website): diajukan paling lambat H-30, tanggal baru setelah hari ini. */
 export function rescheduleError(
 	newDate: string,
 	original: string,
 	today: string,
 ): string | null {
+	if (daysUntil(original, today) < 30)
+		return "Pindah tanggal paling lambat 30 hari sebelum acara. Hubungi admin lewat WhatsApp, ya.";
 	if (newDate <= today) return "Tanggal baru minimal besok, ya.";
-	const limit = new Date(`${original}T00:00:00Z`);
-	limit.setUTCMonth(limit.getUTCMonth() + 6);
-	if (newDate > limit.toISOString().slice(0, 10))
-		return "Tanggal baru paling lambat 6 bulan dari tanggal awal.";
 	return null;
 }
 
