@@ -226,6 +226,18 @@ export function sha256(v: string): string {
 const opt = (max: number) => z.string().trim().max(max).optional();
 
 /** Field yang boleh diisi klien bertahap. Semua opsional; tiap simpan = patch. */
+export const STAGE_GROUPS_MAX = 300;
+export const STAGE_GROUP_MAX_LEN = 120;
+
+/** Teks "satu grup per baris" → daftar rapi (baris kosong dibuang, dipotong ke batas kontrak Booth). */
+export function parseStageGroups(text: string): string[] {
+	return text
+		.split("\n")
+		.map((l) => l.trim().slice(0, STAGE_GROUP_MAX_LEN))
+		.filter(Boolean)
+		.slice(0, STAGE_GROUPS_MAX);
+}
+
 export const DetailSchema = z.object({
 	nama_acara: opt(120),
 	kategori: opt(40),
@@ -252,6 +264,11 @@ export const DetailSchema = z.object({
 	jumlah_tamu: opt(10),
 	/** Nama usaha WO/vendor yang memesan (booking lewat WO). */
 	wo_nama: opt(120),
+	/** Urutan grup foto pelaminan (modul Photo Stage) → Booth `stage_groups`. */
+	stage_groups: z
+		.array(z.string().trim().min(1).max(STAGE_GROUP_MAX_LEN))
+		.max(STAGE_GROUPS_MAX)
+		.optional(),
 });
 export type Detail = z.infer<typeof DetailSchema>;
 

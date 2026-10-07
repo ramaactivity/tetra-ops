@@ -29,6 +29,8 @@ export type BoothBookingFull = BoothBooking & {
 	cancelled: boolean;
 	design: BoothDesign;
 	portal_url: string | null;
+	/** Urutan grup foto pelaminan dari portal klien; null = belum diisi / bukan booking portal. */
+	stage_groups: string[] | null;
 };
 
 /** Kolom tambahan di atas BOOTH_EVENT_SELECT — tetap tanpa uang/kontak. */
@@ -61,7 +63,7 @@ export async function enrichBoothBookings(
 			.in("event_id", ids),
 		admin
 			.from("client_bookings")
-			.select("event_id, public_code")
+			.select("event_id, public_code, stage_groups:detail->stage_groups")
 			.in("event_id", ids),
 	]);
 	type Req = DesignSource & { event_id: string };
@@ -74,6 +76,11 @@ export async function enrichBoothBookings(
 		approvedPaths.map((p) => [p, r2SignedUrl(p, URL_TTL_SEC)]),
 	);
 	const expiresAt = new Date(Date.now() + URL_TTL_SEC * 1000).toISOString();
+	const groups = new Map(
+		(cbRes.data ?? [])
+			.filter((c) => Array.isArray(c.stage_groups) && c.stage_groups.length)
+			.map((c) => [c.event_id as string, c.stage_groups as string[]]),
+	);
 	const code = new Map(
 		(cbRes.data ?? []).map((c) => [
 			c.event_id as string,
@@ -92,6 +99,7 @@ export async function enrichBoothBookings(
 			(p) => urls.get(p) ?? null,
 			expiresAt,
 		),
+		stage_groups: groups.get(r.id) ?? null,
 		portal_url: code.has(r.id)
 			? `${portalBase()}/akun/booking/${code.get(r.id)}`
 			: null,

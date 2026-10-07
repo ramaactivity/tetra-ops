@@ -12,6 +12,7 @@ import { DetailForm } from "@/components/portal/detail-form";
 import { DpForm, type PortalBank } from "@/components/portal/dp-form";
 import { type Member, MembersCard } from "@/components/portal/members-card";
 import { dateLong, StatusPill } from "@/components/portal/status-pill";
+import { modulesFor } from "@/lib/booth-api";
 import { fetchBoothEvents } from "@/lib/booth-sync";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import { getPortalPerson } from "@/lib/portal/auth";
@@ -473,6 +474,7 @@ export default async function BookingDetailPage({
 						(typesRes.data ?? []) as Array<{ code: string; label: string }>
 					}
 					readOnly={!active}
+					stageGroups={modulesFor(b.service_type).includes("photo_stage")}
 				/>
 			</section>
 

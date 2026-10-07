@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { saveBookingDetail } from "@/lib/actions/portal-booking";
-import type { Detail } from "@/lib/portal/core";
+import { type Detail, parseStageGroups } from "@/lib/portal/core";
 
-type TextKey = Exclude<keyof Detail, "rundown">;
+type TextKey = Exclude<keyof Detail, "rundown" | "stage_groups">;
 type Row = { jam: string; acara: string };
 
 type Field = {
@@ -92,11 +92,14 @@ export function DetailForm({
 	initial,
 	categories,
 	readOnly,
+	stageGroups,
 }: {
 	code: string;
 	initial: Detail;
 	categories: Array<{ code: string; label: string }>;
 	readOnly?: boolean;
+	/** Paket ber-modul Photo Stage → tampilkan daftar grup foto pelaminan. */
+	stageGroups?: boolean;
 }) {
 	const router = useRouter();
 	const [values, setValues] = useState<Detail>(initial);
@@ -126,6 +129,11 @@ export function DetailForm({
 			router.refresh();
 		} else setState("error");
 	}
+
+	const [groupsText, setGroupsText] = useState(
+		(initial.stage_groups ?? []).join("\n"),
+	);
+	const groupCount = parseStageGroups(groupsText).length;
 
 	const saveRows = (next: Row[]) =>
 		save(
@@ -272,6 +280,33 @@ export function DetailForm({
 					</button>
 				)}
 			</fieldset>
+			{stageGroups && (
+				<fieldset
+					className="card"
+					style={{ display: "grid", gap: 10, margin: 0 }}
+					disabled={readOnly}
+				>
+					<legend className="h2" style={{ padding: "0 6px", marginLeft: -6 }}>
+						Grup foto pelaminan
+					</legend>
+					<label className="cap" htmlFor="d-stage-groups">
+						Urutan grup yang foto bersama di pelaminan, satu grup per baris.
+						Fotografer memanggil sesuai urutan ini.
+					</label>
+					<textarea
+						id="d-stage-groups"
+						className="input"
+						rows={6}
+						placeholder={
+							"Keluarga inti pengantin wanita\nKeluarga inti pengantin pria\nSahabat SMA"
+						}
+						value={groupsText}
+						onChange={(e) => setGroupsText(e.target.value)}
+						onBlur={() => save("stage_groups", parseStageGroups(groupsText))}
+					/>
+					<div className="cap mono">{groupCount} / 300 grup</div>
+				</fieldset>
+			)}
 		</div>
 	);
 }

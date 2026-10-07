@@ -267,7 +267,12 @@ async function syncEventDetail(
 			patch.rundown as Array<{ jam: string; acara: string }>,
 		);
 	}
-	if (Object.keys(upd).length === 0) return;
+	if (Object.keys(upd).length === 0) {
+		// Grup foto pelaminan tidak ada kolomnya di events; Booth membacanya dari GET.
+		if (Array.isArray(patch.stage_groups))
+			await emitBoothEvent("booking.updated", eventId);
+		return;
+	}
 	const { error } = await admin.from("events").update(upd).eq("id", eventId);
 	if (error) console.error("[portal] sync event:", error.message);
 	else await emitBoothEvent("booking.updated", eventId);
@@ -284,9 +289,9 @@ const PROOF_MIME: Record<string, string> = {
 const PROOF_MAX = 10 * 1024 * 1024;
 
 /**
- * Upload langsung dari browser ke Storage privat lewat signed upload URL
- * (melewati batas body 4,5 MB Vercel). Bucket sendiri menegakkan tipe & ukuran
- * maksimum; di sini dicek lagi sebelum URL diberikan.
+ * Upload langsung dari browser ke R2 lewat URL PUT bertanda tangan (melewati
+ * batas body 4,5 MB Vercel). Tipe & ukuran dicek di sini lalu ikut
+ * ditandatangani, jadi R2 menolak file lain (DR-038).
  */
 export async function requestProofUpload(
 	code: string,

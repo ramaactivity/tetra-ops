@@ -11,6 +11,7 @@ import {
 	groupCatalog,
 	missingForDp,
 	newWaCode,
+	parseStageGroups,
 	quoteSelection,
 	refundEstimate,
 	rescheduleError,
@@ -188,4 +189,13 @@ test("rundown klien jadi satu baris di catatan crew, catatan owner utuh", () => 
 		"Bawa kabel ekstra\nRundown klien: 18:00 Tamu datang; 19:30 Foto keluarga",
 	);
 	assert.equal(withRundownLine(notes, []), "Bawa kabel ekstra");
+});
+
+test("grup foto pelaminan: satu per baris, kosong dibuang, dipotong ke batas Booth", () => {
+	assert.deepEqual(parseStageGroups("  Keluarga inti \n\nSahabat SMA\n  "), [
+		"Keluarga inti",
+		"Sahabat SMA",
+	]);
+	assert.equal(parseStageGroups("x".repeat(200))[0].length, 120);
+	assert.equal(parseStageGroups(Array(400).fill("g").join("\n")).length, 300);
 });

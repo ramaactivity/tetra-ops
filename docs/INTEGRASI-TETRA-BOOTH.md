@@ -1,6 +1,6 @@
 # Kontrak Integrasi Tetra Ops ↔ Tetra Booth
 
-Versi: **0.5 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
+Versi: **0.6 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
 Pemilik dokumen: repo `tetra-ops`. Setiap perubahan dicatat juga di `TETRA BOOTH APP/handoff/OPS-BOOTH-SYNC.md` **sebelum** deploy.
 
 ## 0. Prinsip
@@ -46,6 +46,7 @@ frame_size ("2R"|"4R"|"polaroid"|"none"|null), package_name, package_duration_ho
 | `cancelled` | boolean | Di GET nilainya selalu `false`, karena event batal tidak ikut terkirim. Field ini baru bermakna di webhook `booking.cancelled`. Booth tidak menghapus event secara otomatis; event hanya ditandai "dibatalkan di Ops" dan admin Booth yang memutuskan. |
 | `design` | object \| null | Lihat di bawah. `null` kalau belum ada data desain. |
 | `portal_url` | string \| null | Link halaman booking di portal klien. Panjangnya bisa lebih dari 200 karakter. |
+| `stage_groups` | string[] \| null | Urutan grup foto pelaminan dari portal klien (modul Photo Stage), maks. 300 × 120 karakter. `null` = belum diisi atau bukan booking portal. Booth mengisi `settings.stageGroups` hanya kalau masih kosong (Booth DECISIONS #182). Ikut di body webhook; perubahan memicu `booking.updated`. |
 
 `design`:
 
@@ -205,6 +206,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 0.6 | 2026-10-07 | §2.2 `stage_groups` (usulan Booth #181/#182). `frame_url` kini URL presigned R2 (DR-038), bentuk tidak berubah. |
 | 0.5 | 2026-10-07 | Sisi pengirim Ops dibangun (fase 5): field §2.2 live di GET, webhook + outbox `booth_webhook_outbox`, retry langsung 3× lalu cron harian. Event yang DIHAPUS di Ops dikirim sebagai `booking.cancelled` dengan `cancelled: true`. |
 | 0.4 | 2026-10-07 | §5: field `phase` (upcoming/live/done) jadi acuan acara selesai. |
 | 0.3 | 2026-10-07 | §5: daftar status Booth (`completed`, bukan `done`); endpoint Booth sudah live. |
