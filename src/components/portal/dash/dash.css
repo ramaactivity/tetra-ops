@@ -46,6 +46,42 @@
 	border-bottom: 1.5px solid var(--ink);
 	background: #fff;
 }
+.dash-tabs {
+	position: sticky;
+	top: 56px;
+	z-index: 9;
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+	padding: 10px 16px;
+	border-bottom: 1.5px solid var(--ink);
+	background: #fff;
+	scrollbar-width: none;
+}
+.dash-tabs::-webkit-scrollbar {
+	display: none;
+}
+.dash-tabs a {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 36px;
+	padding: 0 14px;
+	border-radius: 999px;
+	border: 1.5px solid #d6d3cc;
+	font-size: 13px;
+	font-weight: 600;
+	color: #3a3936;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.dash-tabs a[aria-current="page"] {
+	border-color: var(--ink);
+	background: #f8d98b;
+	color: var(--ink);
+	font-weight: 800;
+}
 .dash-main {
 	display: flex;
 	flex: 1;
@@ -143,7 +179,8 @@
 	.dash {
 		flex-direction: row;
 	}
-	.dash-top {
+	.dash-top,
+	.dash-tabs {
 		display: none;
 	}
 	.dash-side {

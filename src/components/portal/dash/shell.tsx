@@ -44,6 +44,10 @@ export type NavItem = {
 	icon: NavIcon;
 	sub?: boolean;
 	current?: boolean;
+	/** Penanda kecil di kanan, mis. "2/3". */
+	badge?: string;
+	/** Titik oranye = perlu tindakan. */
+	alert?: boolean;
 };
 
 export function DashShell({
@@ -61,9 +65,15 @@ export function DashShell({
 	children: ReactNode;
 }) {
 	const router = useRouter();
-	const [active, setActive] = useState<string | null>(null);
 	const [open, setOpen] = useState(false);
 	const dlg = useRef<HTMLDialogElement>(null);
+
+	// HP: tab aktif digeser ke tengah supaya terlihat.
+	useEffect(() => {
+		document
+			.querySelector('.dash-tabs [aria-current="page"]')
+			?.scrollIntoView({ inline: "center", block: "nearest" });
+	}, []);
 
 	useEffect(() => {
 		if (!open) return;
@@ -75,10 +85,7 @@ export function DashShell({
 		return () => lg.removeEventListener("change", onLg);
 	}, [open]);
 
-	const isOn = (n: NavItem) =>
-		n.href.startsWith("#")
-			? (active ?? nav.find((x) => x.sub)?.href) === n.href
-			: !!n.current;
+	const isOn = (n: NavItem) => !!n.current;
 
 	const logo = (
 		<a
@@ -121,10 +128,7 @@ export function DashShell({
 				key={n.href}
 				href={n.href}
 				className={n.sub ? "sub" : undefined}
-				aria-current={
-					isOn(n) ? (n.href.startsWith("#") ? "true" : "page") : undefined
-				}
-				onClick={() => n.href.startsWith("#") && setActive(n.href)}
+				aria-current={isOn(n) ? "page" : undefined}
 			>
 				<I
 					aria-hidden
@@ -132,7 +136,38 @@ export function DashShell({
 					strokeWidth={2}
 					style={{ flex: "none" }}
 				/>
-				{n.label}
+				<span style={{ flex: 1, minWidth: 0 }}>{n.label}</span>
+				{n.badge && (
+					<span
+						className="mono"
+						style={{ fontSize: 11, fontWeight: 600, color: "#5F5E5A" }}
+					>
+						{n.badge}
+					</span>
+				)}
+				{n.alert && (
+					<span
+						style={{
+							width: 8,
+							height: 8,
+							borderRadius: 4,
+							background: "#E8836F",
+							flex: "none",
+						}}
+					>
+						<span
+							style={{
+								position: "absolute",
+								width: 1,
+								height: 1,
+								overflow: "hidden",
+								clip: "rect(0 0 0 0)",
+							}}
+						>
+							perlu tindakan
+						</span>
+					</span>
+				)}
 			</a>
 		);
 	};
@@ -354,6 +389,30 @@ export function DashShell({
 					</div>
 				)}
 			</dialog>
+			{sub.length > 0 && (
+				<nav className="dash-tabs noscroll" aria-label="Menu booking">
+					{sub.map((n) => (
+						<a
+							key={n.href}
+							href={n.href}
+							aria-current={isOn(n) ? "page" : undefined}
+						>
+							{n.label}
+							{n.alert && (
+								<span
+									aria-hidden
+									style={{
+										width: 7,
+										height: 7,
+										borderRadius: 4,
+										background: "#E8836F",
+									}}
+								/>
+							)}
+						</a>
+					))}
+				</nav>
+			)}
 			<aside className="dash-side">
 				<div style={{ padding: "0 8px 24px" }}>{logo}</div>
 				{panel}
