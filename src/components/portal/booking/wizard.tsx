@@ -6,7 +6,13 @@
  * kontekstual 600px + langkah di kanan. Satu state draf (logic.ts), autosave ke
  * localStorage; harga & slot dicek ulang server saat kirim (createDraftBooking).
  */
-import { Calendar, CirclePlus, LockKeyhole, LockOpen } from "lucide-react";
+import {
+	Calendar,
+	CirclePlus,
+	LockKeyhole,
+	LockOpen,
+	LogIn,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
 	type CSSProperties,
@@ -1212,15 +1218,21 @@ function Intro({ x }: { x: Ctx }) {
 							<a
 								href="/akun"
 								style={{
-									textAlign: "center",
-									fontSize: 14,
-									height: 28,
+									height: 48,
 									display: "flex",
 									alignItems: "center",
 									justifyContent: "center",
+									gap: 8,
+									border: B,
+									borderRadius: 14,
+									background: "#fff",
+									fontSize: 15,
+									fontWeight: 800,
+									textDecoration: "none",
 								}}
 							>
-								Sudah pernah booking? Masuk
+								<LogIn size={18} strokeWidth={2} />
+								Sudah booking? Masuk ke dashboard
 							</a>
 						</>
 					)}
@@ -1268,8 +1280,29 @@ function Intro({ x }: { x: Ctx }) {
 					}}
 				>
 					<Logo h={26} />
-					<a href="/akun" style={{ fontSize: 14 }}>
-						Sudah pernah booking? Masuk
+					<a
+						href="/akun"
+						className="press"
+						style={
+							{
+								"--o": "4px",
+								height: 46,
+								padding: "0 18px",
+								display: "flex",
+								alignItems: "center",
+								gap: 8,
+								border: B,
+								borderRadius: 999,
+								background: "#fff",
+								boxShadow: layered(4),
+								fontSize: 15,
+								fontWeight: 800,
+								textDecoration: "none",
+							} as CSSProperties
+						}
+					>
+						<LogIn size={18} strokeWidth={2} />
+						Sudah booking? Masuk ke dashboard
 					</a>
 				</div>
 				<div
