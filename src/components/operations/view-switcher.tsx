@@ -27,7 +27,7 @@ const VIEWS: Array<{
 	},
 	{
 		value: "board",
-		label: "Board",
+		label: "Pipeline",
 		href: "/operations/board",
 		icon: KanbanSquare,
 	},

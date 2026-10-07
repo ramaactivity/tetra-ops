@@ -57,7 +57,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/operations/addons", "Add-on", Sparkles],
 	["/operations/backdrops", "Backdrop", Frame],
 	["/operations/calendar", "Kalender", Calendar],
-	["/operations/board", "Board", KanbanSquare],
+	["/operations/board", "Pipeline", KanbanSquare],
 	["/operations/team", "Team", UsersRound],
 	["/operations", "Operations", Briefcase],
 	["/design/portal", "Antrean Desain", Brush],
