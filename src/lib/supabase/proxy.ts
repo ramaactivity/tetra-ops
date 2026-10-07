@@ -75,17 +75,22 @@ export async function updateSession(request: NextRequest) {
 	// handler decides. Session cookies are still refreshed above.
 	const isApi = path.startsWith("/api/");
 
-	// booking.tetraphoto.com (DR-036): pengunjung tanpa sesi yang membuka "/"
-	// langsung ke form booking, bukan halaman awal internal. Owner/crew tetap
-	// masuk lewat /login; yang sudah login tetap diarahkan sesuai perannya.
-	if (
-		!user &&
-		path === "/" &&
-		request.nextUrl.hostname === "booking.tetraphoto.com"
-	) {
-		const url = request.nextUrl.clone();
-		url.pathname = "/booking";
-		return NextResponse.redirect(url);
+	// booking.tetraphoto.com (DR-036): alamatnya sendiri sudah "booking", jadi
+	// form booking dilayani di root. "/" tanpa sesi = form (rewrite, alamat
+	// tetap); "/booking" diarahkan permanen ke "/" supaya link lama jalan.
+	// Owner/crew tetap masuk lewat /login dan "/" yang sudah login tetap
+	// diarahkan sesuai perannya.
+	if (request.nextUrl.hostname === "booking.tetraphoto.com") {
+		if (path === "/booking") {
+			const url = request.nextUrl.clone();
+			url.pathname = "/";
+			return NextResponse.redirect(url, 308);
+		}
+		if (!user && path === "/") {
+			const url = request.nextUrl.clone();
+			url.pathname = "/booking";
+			return NextResponse.rewrite(url, { request });
+		}
 	}
 
 	if (!user && !isPublic && !isApi) {

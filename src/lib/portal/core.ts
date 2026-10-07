@@ -248,6 +248,8 @@ export const DetailSchema = z.object({
 		)
 		.max(30)
 		.optional(),
+	/** Perkiraan jumlah tamu (diisi di langkah Acara). */
+	jumlah_tamu: opt(10),
 	/** Nama usaha WO/vendor yang memesan (booking lewat WO). */
 	wo_nama: opt(120),
 });

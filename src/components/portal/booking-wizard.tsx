@@ -2,8 +2,13 @@
 
 import { Check, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { checkSlot, createDraftBooking } from "@/lib/actions/portal-booking";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+	checkSlot,
+	createDraftBooking,
+	fullDatesOf,
+} from "@/lib/actions/portal-booking";
+import { EVENT_KINDS, PRODUCT_CONTENT } from "@/lib/portal/catalog-content";
 import type {
 	CatalogProduct,
 	PublicAddonRow,
@@ -11,7 +16,7 @@ import type {
 } from "@/lib/portal/core";
 import { Err, VerifyPhone } from "./verify-phone";
 
-const STEPS = ["Paket", "Jadwal", "Tambahan", "Data kamu"] as const;
+const STEPS = ["Acara", "Paket", "Tambahan", "Data kamu"] as const;
 const STORE = "tp-booking-v1";
 const FRAME_LABEL: Record<string, string> = {
 	"2R": "2R Photostrip",
@@ -24,6 +29,9 @@ const rp = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 type Draft = Omit<Selection, "category" | "hours"> & {
 	category: string | null;
 	hours: number | null;
+	/** Jenis acara (event_types.code) dan perkiraan tamu — ikut ke detail booking. */
+	kind: string | null;
+	guests: string;
 };
 const EMPTY: Draft = {
 	category: null,
@@ -34,6 +42,8 @@ const EMPTY: Draft = {
 	date: "",
 	start: null,
 	city: null,
+	kind: null,
+	guests: "",
 };
 
 /** Wizard booking publik. Pilihan disimpan di browser sampai nomor terverifikasi. */
@@ -71,6 +81,7 @@ export function BookingWizard({
 				const s = JSON.parse(raw);
 				setD({ ...EMPTY, ...s.d });
 				setStep(s.step ?? 0);
+				window.history.replaceState({ tpStep: s.step ?? 0 }, "");
 				setNoTime(!!s.noTime);
 			}
 		} catch {}
@@ -95,7 +106,10 @@ export function BookingWizard({
 	const selection = (): Selection | null =>
 		d.category && d.hours && d.date
 			? {
-					...d,
+					frame: d.frame,
+					units: d.units,
+					addons: d.addons,
+					date: d.date,
 					category: d.category,
 					hours: d.hours,
 					start: noTime ? null : d.start,
@@ -121,25 +135,72 @@ export function BookingWizard({
 		return () => clearTimeout(t);
 	}, [slotKey]);
 
+	// Tanggal yang sudah penuh (sehari penuh, 1 booth) untuk dicoret di kalender.
+	const [full, setFull] = useState<string[]>([]);
+	const loadMonth = useCallback(async (from: string, to: string) => {
+		const r = await fullDatesOf(from, to).catch(() => null);
+		if (r?.ok)
+			setFull((prev) => [
+				...new Set([...prev.filter((x) => x < from || x > to), ...r.dates]),
+			]);
+	}, []);
+
+	// Rekomendasi sesuai jenis acara tampil paling atas.
+	const sortedProducts = useMemo(
+		() =>
+			[...products].sort(
+				(a, b) =>
+					Number(
+						PRODUCT_CONTENT[b.category]?.recommend.includes(d.kind ?? "") ??
+							false,
+					) -
+					Number(
+						PRODUCT_CONTENT[a.category]?.recommend.includes(d.kind ?? "") ??
+							false,
+					),
+			),
+		[products, d.kind],
+	);
+
+	// Langkah tersinkron dengan history: tombol back HP kembali ke langkah sebelumnya.
+	const go = (n: number) => {
+		setStep(n);
+		window.history.pushState({ tpStep: n }, "");
+		window.scrollTo({ top: 0 });
+	};
+	// biome-ignore lint/correctness/useExhaustiveDependencies: daftar sekali saat mount.
+	useEffect(() => {
+		window.history.replaceState({ tpStep: step }, "");
+		const onPop = (e: PopStateEvent) =>
+			setStep(typeof e.state?.tpStep === "number" ? e.state.tpStep : 0);
+		window.addEventListener("popstate", onPop);
+		return () => window.removeEventListener("popstate", onPop);
+	}, []);
+
 	const canNext = [
-		!!product && !!d.hours,
-		!!d.date && (noTime || !!d.start) && slot === "ada",
+		!!d.kind && !!d.date && (noTime || !!d.start) && !full.includes(d.date),
+		!!product && !!d.hours && slot === "ada",
 		true,
 		false,
 	][step];
 
 	async function finish() {
 		const s = selection();
-		if (!s) return setStep(0);
+		if (!s) return go(0);
 		setSaving(true);
+		const detail = {
+			...(d.kind ? { kategori: d.kind } : {}),
+			...(d.guests ? { jumlah_tamu: d.guests } : {}),
+			...(wo.on && wo.nama.trim() ? { wo_nama: wo.nama.trim() } : {}),
+		};
 		const r = await createDraftBooking({
 			selection: s,
 			consent: true,
+			detail,
 			...(wo.on
 				? {
 						asWo: true,
 						managedBy: wo.kelola,
-						detail: wo.nama.trim() ? { wo_nama: wo.nama.trim() } : undefined,
 						client:
 							wo.klien.trim().length >= 2
 								? {
@@ -218,8 +279,129 @@ export function BookingWizard({
 
 				{step === 0 && (
 					<section className="enter" style={{ display: "grid", gap: 14 }}>
-						<h1 className="h1">Mau booth yang mana?</h1>
-						{products.map((p) => (
+						<h1 className="h1">Acaranya apa & kapan?</h1>
+						<p className="cap">Cek dulu tanggalmu masih ada atau tidak.</p>
+						<div
+							style={{
+								display: "grid",
+								gridTemplateColumns: "repeat(auto-fill, minmax(104px, 1fr))",
+								gap: 10,
+							}}
+						>
+							{EVENT_KINDS.map((k) => (
+								<button
+									key={k.code}
+									type="button"
+									className="opt"
+									aria-pressed={d.kind === k.code}
+									onClick={() => setD({ ...d, kind: k.code })}
+									style={{ padding: 6, textAlign: "center" }}
+								>
+									{/* biome-ignore lint/performance/noImgElement: foto statis kecil di public/. */}
+									<img
+										src={k.image}
+										alt=""
+										loading="lazy"
+										style={{
+											width: "100%",
+											aspectRatio: "1",
+											objectFit: "cover",
+											borderRadius: 10,
+											display: "block",
+										}}
+									/>
+									<div style={{ fontWeight: 700, fontSize: 14, marginTop: 6 }}>
+										{k.label}
+									</div>
+								</button>
+							))}
+						</div>
+						<Calendar
+							value={d.date}
+							full={full}
+							onMonth={loadMonth}
+							onChange={(date) => setD({ ...d, date })}
+						/>
+						{d.date && full.includes(d.date) && (
+							<div className="note" style={{ background: "var(--peach)" }}>
+								Tanggal ini sudah penuh. Coba tanggal lain, ya.
+							</div>
+						)}
+						{d.date && !full.includes(d.date) && (
+							<div className="note" style={{ background: "var(--mint-soft)" }}>
+								Tanggal ini masih tersedia ✓
+							</div>
+						)}
+						<div className="card" style={{ display: "grid", gap: 10 }}>
+							<div className="label" style={{ margin: 0 }}>
+								Jam mulai photobooth
+							</div>
+							<TimeChips
+								value={noTime ? null : d.start}
+								onChange={(start) => {
+									setNoTime(false);
+									setD({ ...d, start });
+								}}
+							/>
+							<button
+								type="button"
+								className="chip"
+								aria-pressed={noTime}
+								onClick={() => setNoTime(!noTime)}
+								style={{ justifySelf: "start" }}
+							>
+								Jam belum pasti
+							</button>
+						</div>
+						<div
+							style={{
+								display: "grid",
+								gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)",
+								gap: 10,
+							}}
+						>
+							<div>
+								<label className="label" htmlFor="b-city">
+									Kota acara
+								</label>
+								<input
+									id="b-city"
+									className="input"
+									autoComplete="address-level2"
+									enterKeyHint="next"
+									placeholder="mis. Bogor"
+									value={d.city ?? ""}
+									onChange={(e) => setD({ ...d, city: e.target.value })}
+								/>
+							</div>
+							<div>
+								<label className="label" htmlFor="b-guests">
+									Perkiraan tamu
+								</label>
+								<input
+									id="b-guests"
+									className="input mono"
+									inputMode="numeric"
+									enterKeyHint="done"
+									placeholder="300"
+									maxLength={5}
+									value={d.guests}
+									onChange={(e) =>
+										setD({ ...d, guests: e.target.value.replace(/\D/g, "") })
+									}
+								/>
+							</div>
+						</div>
+					</section>
+				)}
+
+				{step === 1 && (
+					<section className="enter" style={{ display: "grid", gap: 14 }}>
+						<h1 className="h1">Pilih paketnya</h1>
+						<p className="cap">
+							Harga sudah termasuk crew, setup, dan transport Jabodetabek.
+						</p>
+						{sortedProducts.map((p) => (
 							<button
 								key={p.category}
 								type="button"
@@ -236,27 +418,7 @@ export function BookingWizard({
 									})
 								}
 							>
-								<div
-									style={{
-										display: "flex",
-										justifyContent: "space-between",
-										gap: 12,
-										alignItems: "baseline",
-									}}
-								>
-									<span style={{ fontWeight: 800, fontSize: 16 }}>
-										{p.label}
-									</span>
-									<span className="cap" style={{ whiteSpace: "nowrap" }}>
-										mulai{" "}
-										<span className="mono">{rp(p.options[0]?.price ?? 0)}</span>
-									</span>
-								</div>
-								{p.description && (
-									<div className="body" style={{ marginTop: 4 }}>
-										{p.description}
-									</div>
-								)}
+								<ProductCard p={p} kind={d.kind} />
 							</button>
 						))}
 
@@ -317,59 +479,11 @@ export function BookingWizard({
 								/>
 							</div>
 						)}
-					</section>
-				)}
-
-				{step === 1 && (
-					<section className="enter" style={{ display: "grid", gap: 14 }}>
-						<h1 className="h1">Kapan acaranya?</h1>
-						<Calendar
-							value={d.date}
-							onChange={(date) => setD({ ...d, date })}
-						/>
-						<div className="card" style={{ display: "grid", gap: 10 }}>
-							<div className="label" style={{ margin: 0 }}>
-								Jam mulai photobooth
-							</div>
-							<TimeChips
-								value={noTime ? null : d.start}
-								onChange={(start) => {
-									setNoTime(false);
-									setD({ ...d, start });
-								}}
-							/>
-							<button
-								type="button"
-								className="chip"
-								aria-pressed={noTime}
-								onClick={() => setNoTime(!noTime)}
-								style={{ justifySelf: "start" }}
-							>
-								Jam belum pasti
-							</button>
-						</div>
-						<div>
-							<label className="label" htmlFor="b-city">
-								Kota acara
-							</label>
-							<input
-								id="b-city"
-								className="input"
-								placeholder="mis. Bogor"
-								value={d.city ?? ""}
-								onChange={(e) => setD({ ...d, city: e.target.value })}
-							/>
-						</div>
 						{slot === "cek" && <div className="note">Mengecek jadwal…</div>}
-						{slot === "ada" && (
-							<div className="note" style={{ background: "var(--mint-soft)" }}>
-								Jadwalnya masih ada. Slot baru dikunci setelah DP kamu kami
-								terima.
-							</div>
-						)}
 						{slot === "penuh" && (
 							<div className="note" style={{ background: "var(--peach)" }}>
-								Yah, jadwal itu sudah penuh. Coba jam atau tanggal lain, ya.
+								Untuk durasi/jumlah booth ini jadwalnya sudah penuh. Coba durasi
+								lain, atau ganti tanggal di langkah sebelumnya.
 							</div>
 						)}
 					</section>
@@ -603,7 +717,7 @@ export function BookingWizard({
 							type="button"
 							className="btn"
 							aria-label="Kembali"
-							onClick={() => setStep(step - 1)}
+							onClick={() => window.history.back()}
 							style={{ padding: "0 14px" }}
 						>
 							<ChevronLeft size={20} />
@@ -620,7 +734,7 @@ export function BookingWizard({
 							type="button"
 							className="btn btn-primary"
 							disabled={!canNext}
-							onClick={() => setStep(step + 1)}
+							onClick={() => go(step + 1)}
 						>
 							Lanjut <ChevronRight size={18} />
 						</button>
@@ -628,6 +742,79 @@ export function BookingWizard({
 				</div>
 			</div>
 		</>
+	);
+}
+
+/** Kartu paket: foto cetakan asli, isi paket, harga mulai, rekomendasi per acara. */
+function ProductCard({ p, kind }: { p: CatalogProduct; kind: string | null }) {
+	const c = PRODUCT_CONTENT[p.category];
+	const fit = !!kind && !!c?.recommend.includes(kind);
+	return (
+		<div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+			{c && (
+				// biome-ignore lint/performance/noImgElement: foto statis kecil di public/.
+				<img
+					src={c.image}
+					alt=""
+					loading="lazy"
+					style={{
+						width: 84,
+						minHeight: 84,
+						objectFit: "cover",
+						borderRadius: 10,
+						flex: "none",
+						alignSelf: "flex-start",
+					}}
+				/>
+			)}
+			<div style={{ flex: 1, minWidth: 0, display: "grid", gap: 4 }}>
+				<div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+					{fit && (
+						<span
+							className="pill"
+							style={{ background: "var(--mint-soft)", height: 22 }}
+						>
+							Cocok untuk acaramu
+						</span>
+					)}
+					{c?.badge && (
+						<span
+							className="pill"
+							style={{ background: "var(--butter)", height: 22 }}
+						>
+							{c.badge}
+						</span>
+					)}
+				</div>
+				<div style={{ fontWeight: 800, fontSize: 16 }}>
+					{c?.label ?? p.label}
+				</div>
+				{c && <div className="body">{c.tagline}</div>}
+				{c && (
+					<ul
+						className="cap"
+						style={{ margin: 0, paddingLeft: 16, display: "grid", gap: 2 }}
+					>
+						{c.points.map((pt) => (
+							<li key={pt}>{pt}</li>
+						))}
+					</ul>
+				)}
+				<div className="cap">
+					mulai{" "}
+					<span
+						className="mono"
+						style={{ color: "var(--ink)", fontWeight: 600 }}
+					>
+						{rp(p.options[0]?.price ?? 0)}
+					</span>{" "}
+					·{" "}
+					{p.options.length > 1
+						? `${p.options[0].hours}–${p.options[p.options.length - 1].hours} jam`
+						: `${p.options[0]?.hours} jam`}
+				</div>
+			</div>
+		</div>
 	);
 }
 
@@ -772,9 +959,15 @@ const iso = (y: number, m: number, d: number) =>
 export function Calendar({
 	value,
 	onChange,
+	full = [],
+	onMonth,
 }: {
 	value: string;
 	onChange: (iso: string) => void;
+	/** Tanggal yang sudah penuh — dicoret dan tidak bisa dipilih. */
+	full?: string[];
+	/** Dipanggil saat bulan tampil berganti (from, to) untuk memuat tanggal penuh. */
+	onMonth?: (from: string, to: string) => void;
 }) {
 	const now = new Date();
 	const tomorrow = iso(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -788,6 +981,10 @@ export function Calendar({
 		const t = new Date(ym.y, ym.m + n, 1);
 		setYm({ y: t.getFullYear(), m: t.getMonth() });
 	};
+	// biome-ignore lint/correctness/useExhaustiveDependencies: muat ulang hanya saat bulan berganti.
+	useEffect(() => {
+		onMonth?.(iso(ym.y, ym.m, 1), iso(ym.y, ym.m, days));
+	}, [ym.y, ym.m]);
 	return (
 		<div className="card">
 			<div
@@ -839,7 +1036,8 @@ export function Calendar({
 				))}
 				{Array.from({ length: days }, (_, i) => {
 					const day = iso(ym.y, ym.m, i + 1);
-					const off = day < tomorrow;
+					const penuh = full.includes(day);
+					const off = day < tomorrow || penuh;
 					const on = day === value;
 					return (
 						<button
@@ -847,10 +1045,7 @@ export function Calendar({
 							type="button"
 							disabled={off}
 							aria-pressed={on}
-							aria-label={new Date(`${day}T00:00:00`).toLocaleDateString(
-								"id-ID",
-								{ day: "numeric", month: "long" },
-							)}
+							aria-label={`${new Date(`${day}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long" })}${penuh ? " (penuh)" : ""}`}
 							onClick={() => onChange(day)}
 							className="mono"
 							style={{
@@ -862,7 +1057,8 @@ export function Calendar({
 									? "1.5px solid var(--ink)"
 									: "1.5px solid transparent",
 								background: on ? "var(--mint)" : "transparent",
-								color: off ? "var(--line-soft)" : "var(--ink)",
+								color: off ? "var(--muted)" : "var(--ink)",
+								textDecoration: penuh ? "line-through" : undefined,
 								fontSize: 15,
 								cursor: off ? "default" : "pointer",
 							}}

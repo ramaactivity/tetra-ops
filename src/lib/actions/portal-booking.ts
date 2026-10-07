@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { loadFullDates } from "@/lib/availability-load";
 import { emitBoothEvent } from "@/lib/booth-sync";
 import { clientIp, getPortalPerson, rateLimit } from "@/lib/portal/auth";
 import {
@@ -50,6 +51,41 @@ export async function checkSlot(
 		return { ok: false, error: "Gagal cek jadwal. Coba lagi, ya." };
 	}
 }
+
+/** Tanggal yang sudah penuh sehari penuh (untuk dicoret di kalender booking). */
+export async function fullDatesOf(
+	from: string,
+	to: string,
+): Promise<{ ok: true; dates: string[] } | Fail> {
+	if (!(await rateLimit(`month:${await clientIp()}`, 60, 600)))
+		return { ok: false, error: BUSY };
+	const d = z.iso.date();
+	if (
+		!d.safeParse(from).success ||
+		!d.safeParse(to).success ||
+		to < from ||
+		to > shiftDays(from, 42)
+	)
+		return { ok: false, error: "Rentang tidak valid." };
+	try {
+		return {
+			ok: true,
+			dates: await loadFullDates(createAdminClient(), {
+				from,
+				to,
+				units: 1,
+				city: null,
+			}),
+		};
+	} catch {
+		return { ok: false, error: "Gagal cek jadwal." };
+	}
+}
+
+const shiftDays = (iso: string, n: number) =>
+	new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000)
+		.toISOString()
+		.slice(0, 10);
 
 const DraftSchema = z.object({
 	selection: SelectionSchema,
