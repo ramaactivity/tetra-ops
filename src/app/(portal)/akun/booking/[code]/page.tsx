@@ -1,20 +1,24 @@
-import { Check } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { MON3, PKG } from "@/components/portal/booking/content";
 import {
-	type Fmt,
-	MON3,
-	MONTHS,
-	PKG,
-} from "@/components/portal/booking/content";
-import {
-	type Feature,
-	PortalView,
-	type PortalViewProps,
+	type BankInfo,
+	DataAcara,
+	DpCard,
 } from "@/components/portal/booking/portal-view";
 import {
 	ChangeRequest,
 	type OpenRequest,
 } from "@/components/portal/change-request";
+import { DashShell, type NavItem } from "@/components/portal/dash/shell";
+import {
+	ChatButton,
+	GalleryCard,
+	type NextStep,
+	NextStepCard,
+	PageHead,
+	Section,
+	StatGrid,
+} from "@/components/portal/dash/ui";
 import {
 	DesignSection,
 	type TemplateCard,
@@ -26,7 +30,12 @@ import { modulesFor } from "@/lib/booth-api";
 import { fetchBoothEvents } from "@/lib/booth-sync";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import { getPortalPerson } from "@/lib/portal/auth";
-import { daysUntil, PRODUCT_LABELS, refundEstimate } from "@/lib/portal/core";
+import {
+	daysUntil,
+	missingForDp,
+	PRODUCT_LABELS,
+	refundEstimate,
+} from "@/lib/portal/core";
 import {
 	configNumber,
 	loadCatalog,
@@ -209,345 +218,485 @@ export default async function BookingDetailPage({
 	const boothEvents =
 		galleryOn && evProject ? await fetchBoothEvents(evProject) : null;
 
-	const steps = [
-		{ label: "Booking tersimpan", done: true },
-		{
-			label: "DP diterima",
-			done: b.status === "resmi",
-			now: b.status === "draft" || b.status === "menunggu_konfirmasi",
-		},
-		{
-			label: "Desain frame",
-			done: designDone,
-			now: b.status === "resmi" && !designDone,
-			hint: "Dibuka setelah DP diterima",
-		},
-		{ label: "Pelunasan", done: !!ev && Number(ev.remaining_balance) <= 0 },
-		{ label: "Hari acara", done: false },
-	];
-
 	const DAY3 = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 	const [yy, mm, dd] = b.event_date.split("-").map(Number);
-	const dt = new Date(Date.UTC(yy, mm - 1, dd));
-	const dShort = `${DAY3[dt.getUTCDay()]}, ${dd} ${MON3[mm - 1]} ${yy}`;
-	const fmt: Fmt =
-		b.frame_size === "2R"
-			? "strip"
-			: b.frame_size === "4R"
-				? "4r"
-				: b.frame_size === "polaroid"
-					? "polaroid"
-					: (PKG[b.service_type]?.fmt ?? "4r");
+	const dShort = `${DAY3[new Date(Date.UTC(yy, mm - 1, dd)).getUTCDay()]}, ${dd} ${MON3[mm - 1]} ${yy}`;
 	const pkgName =
 		PKG[b.service_type]?.name ??
 		product?.label ??
 		PRODUCT_LABELS[b.service_type];
 	const dpAmount = Math.min(dpMin, b.quoted_total);
-	const STATUS: Record<string, string> = {
-		draft: pendingSub
-			? "Menunggu verifikasi DP"
-			: "Draf · tanggal belum terkunci",
-		menunggu_konfirmasi: "Menunggu verifikasi DP",
-		resmi: "Resmi · tanggal terkunci",
-		kedaluwarsa: "Kedaluwarsa",
-		batal: "Dibatalkan",
-	};
-	const h2 = { fontSize: 17, fontWeight: 800, margin: 0 } as const;
 	const resmi = b.status === "resmi";
+	const draft = b.status === "draft";
+	const missing = missingForDp(b.detail);
+	const dpPending = !!pendingSub && pendingSub.kind === "dp";
+	const days = daysUntil(b.event_date, today);
 	const hasDocs = canPay && (docsRes.data ?? []).length > 0;
-	const galleryReady = !!boothEvents?.some((e) => e.gallery_url);
-	const features: Feature[] = [
-		{
-			k: "desain",
-			t: "Desain frame",
-			s: "Pilih template atau ajukan desain custom, lalu setujui hasilnya.",
-			badge: resmi ? "Terbuka" : "Setelah DP",
-			open: resmi && design.length > 0,
-			href: "#desain-frame",
-		},
-		{
-			k: "data",
-			t: "Lengkapi data acara",
-			s: "Venue, PIC hari H, rundown. Isi bertahap, tersimpan otomatis.",
-			badge: "Langsung",
-			open: true,
-			href: "#boleh-menyusul",
-		},
+	const gal = (boothEvents ?? []).find((e) => e.gallery_url) ?? null;
+	const photos = (boothEvents ?? []).reduce(
+		(t, e) => t + (e.photo_count ?? 0),
+		0,
+	);
+	const chat = adminWa
+		? `https://wa.me/${adminWa}?text=${encodeURIComponent(`Halo Tetra, saya mau tanya soal booking ${b.public_code}`)}`
+		: null;
+
+	// Status desain (portal): brief → dikerjakan → menunggu_review/revisi → acc.
+	const stages = design.map((r) => r.stage);
+	const designLabel = !resmi
+		? "Setelah DP"
+		: designDone
+			? "Disetujui"
+			: stages.includes("menunggu_review")
+				? "Cek draf"
+				: stages.includes("brief")
+					? "Pilih desain"
+					: "Dikerjakan";
+
+	const STATUS: Record<string, { label: string; bg: string }> = {
+		draft: dpPending
+			? { label: "Menunggu verifikasi DP", bg: "#D6EEF8" }
+			: { label: "Draf · tanggal belum terkunci", bg: "#FCE3C6" },
+		menunggu_konfirmasi: { label: "Menunggu verifikasi DP", bg: "#D6EEF8" },
+		resmi: { label: "Resmi · tanggal terkunci", bg: "#D6F1EA" },
+		kedaluwarsa: { label: "Kedaluwarsa", bg: "#F7D5CC" },
+		batal: { label: "Dibatalkan", bg: "#F7D5CC" },
+	};
+
+	// Satu langkah berikutnya yang paling penting untuk klien.
+	const next: NextStep = !active
+		? {
+				title:
+					b.status === "batal"
+						? "Booking ini dibatalkan"
+						: "Booking ini kedaluwarsa",
+				body: "Kalau masih ingin memakai Tetra, buat booking baru atau chat admin.",
+				cta: { label: "Booking baru", href: "/booking" },
+				tone: "coral",
+				stage: 0,
+			}
+		: draft && !dpPending && missing.length && canPay
+			? {
+					title: `Lengkapi ${missing.length} data acara`,
+					body: `${missing.join(", ")}. Setelah lengkap, tombol bayar DP aktif.`,
+					cta: { label: "Lengkapi data", href: "#data-acara" },
+					tone: "butter",
+					stage: 1,
+				}
+			: draft && !dpPending && canPay
+				? {
+						title: `Bayar DP ${rp(dpAmount)}`,
+						body: "Transfer ke rekening Tetra, lalu unggah buktinya. Tanggalmu terkunci setelah admin memverifikasi.",
+						cta: { label: "Bayar DP", href: "#pembayaran" },
+						tone: "butter",
+						stage: 1,
+					}
+				: !resmi
+					? {
+							title: "Bukti DP sedang dicek admin",
+							body: "Jadwalmu kami tahan selama pengecekan. Kabarnya dikirim lewat WhatsApp.",
+							tone: "sky",
+							stage: 1,
+						}
+					: !designDone &&
+							(stages.includes("brief") || stages.includes("menunggu_review"))
+						? {
+								title: stages.includes("menunggu_review")
+									? "Draf desain siap dicek"
+									: "Pilih desain frame",
+								body: stages.includes("menunggu_review")
+									? "Setujui atau minta revisi dari halaman desain."
+									: "Pilih template dari katalog atau ajukan desain custom.",
+								cta: { label: "Buka desain", href: "#desain-frame" },
+								tone: "butter",
+								stage: 2,
+							}
+						: ev && sisa > 0 && canPay && !pendingSub
+							? {
+									title: `Pelunasan ${rp(sisa)}`,
+									body: ev.due_date
+										? `Paling lambat ${dateLong(ev.due_date)}.`
+										: "Lunasi sebelum hari acara.",
+									cta: { label: "Bayar pelunasan", href: "#pembayaran" },
+									tone: "butter",
+									stage: designDone ? 3 : 2,
+								}
+							: gal && days < 0
+								? {
+										title: "Galeri foto sudah siap",
+										body: `${photos} foto dari acaramu bisa dilihat dan diunduh.`,
+										cta: {
+											label: "Buka galeri",
+											href: gal.gallery_url as string,
+											external: true,
+										},
+										tone: "mint",
+										stage: 5,
+									}
+								: {
+										title:
+											days > 0
+												? `Sampai jumpa ${days} hari lagi!`
+												: days === 0
+													? "Hari ini acaramu!"
+													: "Terima kasih sudah memakai Tetra",
+										body: !designDone
+											? "Tim desain sedang menyiapkan frame-mu. Kami kabari lewat WhatsApp."
+											: "Semua sudah siap. Kalau ada perubahan, chat admin, ya.",
+										tone: "mint",
+										stage: days <= 0 ? 4 : designDone ? 4 : 2,
+									};
+
+	const nav: NavItem[] = [
+		{ href: "/akun", label: "Booking saya", icon: "list" },
+		{ href: "#ringkasan", label: "Ringkasan", icon: "home", sub: true },
 		...(canPay
 			? [
 					{
-						k: "bayar" as const,
-						t: "DP & pelunasan",
-						s: "Lihat tagihan dan unggah bukti transfer.",
-						badge: "Langsung",
-						open: true,
 						href: "#pembayaran",
-					},
-					{
-						k: "dokumen" as const,
-						t: "Invoice & kuitansi",
-						s: "Unduh dokumen resmi booking kamu.",
-						badge: hasDocs ? "Terbuka" : "Setelah DP",
-						open: hasDocs,
-						href: "#dokumen",
+						label: "Pembayaran",
+						icon: "pay" as const,
+						sub: true,
 					},
 				]
 			: []),
-		{
-			k: "galeri",
-			t: "Galeri foto acara",
-			s: "Semua foto booth bisa dilihat dan diunduh setelah acara.",
-			badge: galleryReady ? "Terbuka" : "Setelah acara",
-			open: galleryReady,
-			href: "#galeri",
-		},
+		{ href: "#data-acara", label: "Data acara", icon: "data", sub: true },
+		{ href: "#desain-frame", label: "Desain frame", icon: "design", sub: true },
+		{ href: "#galeri", label: "Galeri foto", icon: "gallery", sub: true },
+		...(canPay
+			? [
+					{
+						href: "#dokumen",
+						label: "Dokumen",
+						icon: "docs" as const,
+						sub: true,
+					},
+				]
+			: []),
+		{ href: "#orang", label: "Orang & akses", icon: "people", sub: true },
+		...(active
+			? [
+					{
+						href: "#ubah",
+						label: "Ubah jadwal",
+						icon: "change" as const,
+						sub: true,
+					},
+				]
+			: []),
+		{ href: "/booking", label: "Booking baru", icon: "plus" },
 	];
+	const title = b.detail.nama_acara || "Booking kamu";
+	const muted = {
+		margin: 0,
+		fontSize: 14,
+		lineHeight: 1.45,
+		color: "#3A3936",
+	} as const;
 
 	return (
-		<PortalView
-			code={b.public_code}
-			title={b.detail.nama_acara || "Booking kamu"}
-			statusLabel={STATUS[b.status] ?? b.status}
-			pv={{
-				fmt,
-				title: b.detail.nama_acara || "Nama acaramu",
-				date: `${dd} ${MONTHS[mm - 1].toUpperCase()} ${yy}`,
-				kicker:
-					b.detail.kategori === "wedding"
-						? "THE WEDDING OF"
-						: b.detail.kategori === "engagement"
-							? "ENGAGEMENT OF"
-							: "",
-				theme: "klasik",
-			}}
-			rows={[
-				{ k: "Tanggal", v: dShort },
-				{ k: "Paket", v: `${pkgName} · ${b.package_hours} jam` },
-				{ k: "DP minimal", v: rp(dpAmount) },
-			]}
-			totalStr={rp(total)}
-			detail={b.detail}
-			readOnly={!active}
-			dpOpen={b.status === "draft" && canPay}
-			dp={dpAmount}
-			bank={(banks[0] as PortalViewProps["bank"]) ?? null}
-			dpSent={!!pendingSub && pendingSub.kind === "dp"}
-			rejectReason={lastRejected?.reject_reason ?? null}
-			stageGroups={modulesFor(b.service_type).includes("photo_stage")}
-			adminWa={adminWa}
-			features={features}
+		<DashShell
+			nav={nav}
+			groupTitle={title}
+			person={{ name: person.name, phone: person.phone }}
+			chatUrl={chat}
 		>
-			<section style={{ display: "grid", gap: 10 }}>
-				<h2 style={h2}>Tahapan booking</h2>
-				<ol
-					className="card"
-					style={{ listStyle: "none", margin: 0, display: "grid", gap: 12 }}
-				>
-					{steps.map((s) => (
-						<li
-							key={s.label}
-							style={{ display: "flex", gap: 12, alignItems: "center" }}
-						>
-							<span
-								className="tick"
-								data-on={s.done}
-								style={
-									s.now && !s.done ? { background: "var(--butter)" } : undefined
-								}
-							>
-								{s.done && <Check size={15} strokeWidth={3} />}
-							</span>
-							<span
-								style={{
-									fontWeight: s.now ? 800 : 600,
-									color: s.done || s.now ? "var(--ink)" : "var(--text-2)",
-								}}
-							>
-								{s.label}
-								{s.now && s.hint && b.status !== "resmi" ? (
-									<span className="cap"> · {s.hint}</span>
-								) : null}
-							</span>
-						</li>
-					))}
-				</ol>
-			</section>
+			<PageHead
+				back={{ href: "/akun", label: "Booking saya" }}
+				title={title}
+				meta={`${dShort}${b.start_time ? ` · ${b.start_time.slice(0, 5)}` : ""}${b.detail.venue_nama ? ` · ${b.detail.venue_nama}` : ""}${b.venue_city ? `, ${b.venue_city}` : ""}`}
+				chip={STATUS[b.status]}
+				code={b.public_code}
+				actions={chat ? <ChatButton href={chat} /> : undefined}
+			/>
 
-			{active &&
-				(b.status !== "draft" || (pendingSub && pendingSub.kind !== "dp")) && (
-					<section id="pembayaran" style={{ display: "grid", gap: 10 }}>
-						<h2 style={h2}>Pembayaran</h2>
-						<div className="card" style={{ display: "grid", gap: 6 }}>
-							<Row
-								label={ev ? "Total tagihan" : "Perkiraan total"}
-								value={rp(total)}
-							/>
-							{ev && canPay && (
-								<Row label="Sudah dibayar" value={rp(Number(ev.total_paid))} />
-							)}
-							{ev && canPay && (
-								<Row
-									label="Sisa"
-									value={rp(Number(ev.remaining_balance))}
-									strong
-								/>
-							)}
-							{ev?.due_date && Number(ev.remaining_balance) > 0 && (
-								<div className="cap">
-									Pelunasan paling lambat {dateLong(ev.due_date)}.
-								</div>
-							)}
-						</div>
-						{pendingSub && b.status !== "draft" && (
-							<div className="note" style={{ background: "var(--sky)" }}>
-								Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
-								{rp(Number(pendingSub.amount))} sedang dicek admin.
-								{pendingSub.kind === "dp"
-									? " Jadwal kamu kami tahan selama itu."
-									: ""}{" "}
-								Kabarnya kami kirim lewat WhatsApp.
-							</div>
-						)}
-						{b.status === "resmi" &&
-							ev &&
-							sisa > 0 &&
-							canPay &&
-							!pendingSub && (
-								<div className="card" style={{ display: "grid", gap: 12 }}>
-									<div className="h2">Bayar pelunasan</div>
-									{lastRejected && (
-										<div
-											className="note"
-											style={{ background: "var(--coral)" }}
-										>
-											Bukti sebelumnya belum bisa kami terima:{" "}
-											{lastRejected.reject_reason}
-										</div>
-									)}
-									<DpForm
-										kind="pelunasan"
+			<NextStepCard s={next} />
+
+			<StatGrid
+				items={[
+					{
+						k: "cal",
+						label: "Hari acara",
+						value:
+							days > 0
+								? `${days} hari lagi`
+								: days === 0
+									? "Hari ini"
+									: "Selesai",
+						sub: `${dShort} · ${pkgName} · ${b.package_hours} jam`,
+						under: "#CEC8F6",
+						href: "#ringkasan",
+					},
+					{
+						k: "pay",
+						label: "Pembayaran",
+						value:
+							resmi && ev
+								? sisa > 0
+									? `Sisa ${rp(sisa)}`
+									: "Lunas"
+								: `DP ${rp(dpAmount)}`,
+						sub:
+							resmi && ev
+								? `Total ${rp(total)}`
+								: dpPending
+									? "Bukti sedang dicek"
+									: "Belum dibayar",
+						under: "#F8D98B",
+						href: "#pembayaran",
+					},
+					{
+						k: "design",
+						label: "Desain frame",
+						value: designLabel,
+						sub: resmi ? `${design.length} desain` : "Terbuka setelah DP",
+						under: "#FCE3C6",
+						href: "#desain-frame",
+					},
+					{
+						k: "gallery",
+						label: "Galeri foto",
+						value: gal ? `${photos} foto` : "Setelah acara",
+						sub: gal ? "Siap dilihat" : "Foto booth muncul di sini",
+						under: "#D6EEF8",
+						href: "#galeri",
+					},
+				]}
+			/>
+
+			<div className="dash-cols">
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						gap: 20,
+						minWidth: 0,
+					}}
+				>
+					{canPay && (
+						<Section
+							id="pembayaran"
+							title="Pembayaran"
+							bare={draft && !dpPending}
+						>
+							{draft && !dpPending ? (
+								<div className="bk" style={{ background: "transparent" }}>
+									<DpCard
 										code={b.public_code}
-										banks={banks}
-										dpMin={0}
-										total={sisa}
-										missing={[]}
+										dp={dpAmount}
+										bank={(banks[0] as BankInfo) ?? null}
+										gateOpen={missing.length === 0}
+										gateLeft={missing.length}
+										sent={false}
+										rejectReason={lastRejected?.reject_reason ?? null}
 									/>
 								</div>
+							) : (
+								<>
+									<div style={{ display: "grid", gap: 6 }}>
+										<Row
+											label={ev ? "Total tagihan" : "Perkiraan total"}
+											value={rp(total)}
+										/>
+										{ev && (
+											<Row
+												label="Sudah dibayar"
+												value={rp(Number(ev.total_paid))}
+											/>
+										)}
+										{ev && (
+											<Row
+												label="Sisa"
+												value={rp(Number(ev.remaining_balance))}
+												strong
+											/>
+										)}
+										{ev?.due_date && Number(ev.remaining_balance) > 0 && (
+											<p style={muted}>
+												Pelunasan paling lambat {dateLong(ev.due_date)}.
+											</p>
+										)}
+									</div>
+									{pendingSub && (
+										<div
+											className="tp"
+											style={{ minHeight: 0, background: "transparent" }}
+										>
+											<div
+												className="note"
+												style={{ background: "var(--sky)" }}
+											>
+												Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
+												{rp(Number(pendingSub.amount))} sedang dicek admin.
+												{pendingSub.kind === "dp"
+													? " Jadwal kamu kami tahan selama itu."
+													: ""}{" "}
+												Kabarnya kami kirim lewat WhatsApp.
+											</div>
+										</div>
+									)}
+									{resmi && ev && sisa > 0 && !pendingSub && (
+										<div
+											className="tp"
+											style={{
+												minHeight: 0,
+												background: "transparent",
+												display: "grid",
+												gap: 12,
+											}}
+										>
+											{lastRejected && (
+												<div
+													className="note"
+													style={{ background: "var(--coral)" }}
+												>
+													Bukti sebelumnya belum bisa kami terima:{" "}
+													{lastRejected.reject_reason}
+												</div>
+											)}
+											<DpForm
+												kind="pelunasan"
+												code={b.public_code}
+												banks={banks}
+												dpMin={0}
+												total={sisa}
+												missing={[]}
+											/>
+										</div>
+									)}
+								</>
 							)}
-					</section>
-				)}
-
-			{galleryOn && (
-				<section id="galeri" style={{ display: "grid", gap: 10 }}>
-					<h2 style={h2}>Acara & Galeri</h2>
-					{boothEvents === null ? (
-						<div className="note">
-							Galeri belum bisa dibuka, coba lagi nanti.
-						</div>
-					) : boothEvents.length === 0 ? (
-						<div className="note">
-							Galeri foto muncul di sini setelah acara kamu berjalan.
-						</div>
-					) : (
-						boothEvents.map((e) => (
-							<div
-								key={e.id}
-								className="card"
-								style={{ display: "grid", gap: 6 }}
-							>
-								<div style={{ fontWeight: 800 }}>{e.name}</div>
-								<div className="cap">
-									{e.phase === "done"
-										? "Acara selesai"
-										: e.phase === "live"
-											? "Sedang berlangsung"
-											: "Akan datang"}
-									{typeof e.photo_count === "number"
-										? ` · ${e.photo_count} foto`
-										: ""}
-									{e.client_expires_at
-										? ` · galeri tersedia sampai ${dateLong(e.client_expires_at.slice(0, 10))}`
-										: ""}
-								</div>
-								{e.gallery_url && (
-									<a
-										className="btn btn-primary btn-block"
-										href={e.gallery_url}
-										target="_blank"
-										rel="noopener"
-									>
-										Buka galeri
-									</a>
-								)}
-							</div>
-						))
+						</Section>
 					)}
-				</section>
-			)}
 
-			{design.length > 0 && (
-				<section id="desain-frame" style={{ display: "grid", gap: 10 }}>
-					<h2 style={h2}>Desain frame</h2>
-					<DesignSection
-						code={b.public_code}
-						requests={design}
-						templates={templates}
-						revisionLimit={revisionLimit}
-					/>
-				</section>
-			)}
+					<Section id="data-acara" title="Data acara" bare>
+						<DataAcara
+							code={b.public_code}
+							detail={b.detail}
+							readOnly={!active}
+							stageGroups={modulesFor(b.service_type).includes("photo_stage")}
+							beforeDp={draft && canPay}
+						/>
+					</Section>
+				</div>
 
-			{canPay && (docsRes.data ?? []).length > 0 && (
-				<section id="dokumen" style={{ display: "grid", gap: 10 }}>
-					<h2 style={h2}>Dokumen</h2>
-					{(docsRes.data ?? []).map((d) => (
-						<a
-							key={d.id}
-							className="card"
-							href={`/api/pdf/document/${d.id}?${signedPdfQuery(d.id, 3600) ?? ""}&download=1`}
-							style={{
-								display: "flex",
-								justifyContent: "space-between",
-								color: "var(--ink)",
-								textDecoration: "none",
-							}}
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						gap: 20,
+						minWidth: 0,
+					}}
+				>
+					<Section
+						id="desain-frame"
+						title="Desain frame"
+						bare={design.length > 0}
+					>
+						{design.length > 0 ? (
+							<div
+								className="tp"
+								style={{ minHeight: 0, background: "transparent" }}
+							>
+								<DesignSection
+									code={b.public_code}
+									requests={design}
+									templates={templates}
+									revisionLimit={revisionLimit}
+								/>
+							</div>
+						) : (
+							<p style={muted}>
+								Terbuka setelah DP diterima. Kamu bisa memilih template dari
+								katalog atau mengajukan desain custom, lalu menyetujui hasilnya
+								di sini.
+							</p>
+						)}
+					</Section>
+
+					<Section id="galeri" title="Galeri foto">
+						{gal ? (
+							<GalleryCard ev={gal} today={today} />
+						) : (
+							<p style={muted}>
+								{galleryOn && boothEvents === null
+									? "Galeri belum bisa dibuka, coba lagi nanti."
+									: "Semua foto dari booth bisa dilihat dan diunduh di sini setelah acara."}
+							</p>
+						)}
+					</Section>
+
+					{canPay && (
+						<Section id="dokumen" title="Dokumen">
+							{hasDocs ? (
+								<div style={{ display: "flex", flexDirection: "column" }}>
+									{(docsRes.data ?? []).map((d, i, a) => (
+										<a
+											key={d.id}
+											href={`/api/pdf/document/${d.id}?${signedPdfQuery(d.id, 3600) ?? ""}&download=1`}
+											style={{
+												display: "flex",
+												justifyContent: "space-between",
+												gap: 12,
+												padding: "10px 0",
+												borderBottom:
+													i < a.length - 1 ? "1.5px dashed #D6D3CC" : "0",
+												textDecoration: "none",
+											}}
+										>
+											<span style={{ fontWeight: 700, fontSize: 14 }}>
+												{DOC_LABEL[d.doc_type] ?? d.doc_type}
+											</span>
+											<span
+												className="mono"
+												style={{ fontSize: 12, color: "#5F5E5A" }}
+											>
+												{d.doc_number} ↓
+											</span>
+										</a>
+									))}
+								</div>
+							) : (
+								<p style={muted}>
+									Invoice dan kuitansi muncul di sini setelah DP diterima.
+								</p>
+							)}
+						</Section>
+					)}
+
+					<Section id="orang" title="Orang di booking ini" bare>
+						<div
+							className="tp"
+							style={{ minHeight: 0, background: "transparent" }}
 						>
-							<span style={{ fontWeight: 700 }}>
-								{DOC_LABEL[d.doc_type] ?? d.doc_type}
-							</span>
-							<span className="mono cap">{d.doc_number} ↓</span>
-						</a>
-					))}
-				</section>
-			)}
+							<MembersCard
+								code={b.public_code}
+								members={members}
+								meId={person.id}
+								canManage={active && b.role !== "pemilik"}
+							/>
+						</div>
+					</Section>
 
-			<section style={{ display: "grid", gap: 10 }}>
-				<h2 style={h2}>Orang di booking ini</h2>
-				<MembersCard
-					code={b.public_code}
-					members={members}
-					meId={person.id}
-					canManage={active && b.role !== "pemilik"}
-				/>
-			</section>
-
-			{active && (
-				<section style={{ display: "grid", gap: 10 }}>
-					<h2 style={h2}>Ubah jadwal atau batal</h2>
-					<ChangeRequest
-						code={b.public_code}
-						isDraft={b.status === "draft"}
-						canCancel={canPay}
-						refundEstimate={
-							ev
-								? refundEstimate(beyondDp, daysUntil(b.event_date, today))
-								: null
-						}
-						openRequest={(requestRes.data as OpenRequest | null) ?? null}
-					/>
-				</section>
-			)}
-		</PortalView>
+					{active && (
+						<Section id="ubah" title="Ubah jadwal atau batal" bare>
+							<div
+								className="tp"
+								style={{ minHeight: 0, background: "transparent" }}
+							>
+								<ChangeRequest
+									code={b.public_code}
+									isDraft={draft}
+									canCancel={canPay}
+									refundEstimate={ev ? refundEstimate(beyondDp, days) : null}
+									openRequest={(requestRes.data as OpenRequest | null) ?? null}
+								/>
+							</div>
+						</Section>
+					)}
+				</div>
+			</div>
+		</DashShell>
 	);
 }
 
@@ -565,6 +714,7 @@ function Row({
 			style={{
 				display: "flex",
 				justifyContent: "space-between",
+				fontSize: 14,
 				fontWeight: strong ? 800 : 600,
 			}}
 		>

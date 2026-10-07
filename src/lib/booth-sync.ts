@@ -255,6 +255,9 @@ export type BoothEventSummary = {
 	purge_at: string | null;
 	session_count?: number;
 	photo_count?: number;
+	/** Aditif (diminta Ops 2026-10-07): sampul + ≤6 thumbnail, presigned ±1 hari — jangan disimpan. */
+	cover_url?: string | null;
+	thumbs?: Array<{ url: string; kind?: string }>;
 };
 
 /** null = fitur mati / Booth tidak bisa dihubungi (portal menampilkan pesan ramah). */

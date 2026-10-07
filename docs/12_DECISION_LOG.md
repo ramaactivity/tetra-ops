@@ -1121,6 +1121,19 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 
 ---
 
+## DR-040: Dashboard klien = kerangka admin Tetra Booth
+
+**Status:** Accepted (owner 2026-10-07)
+**Date:** 2026-10-07
+
+### Decision
+- `/akun` dan `/akun/booking/[kode]` memakai kerangka yang sama dengan admin Tetra Booth (`tetra-booth/apps/web/app/admin/(app)`): sidebar putih 236px (item aktif butter + border tinta, kartu pengguna putus-putus + Keluar), top bar + laci `<dialog>` di bawah 1024px. Kode: `src/components/portal/dash/`.
+- Dashboard booking: kepala halaman (judul, tanggal · venue, chip status, kode), kartu **Langkah berikutnya** (satu aksi sesuai tahap: lengkapi data → bayar DP → menunggu verifikasi → desain → pelunasan → galeri) + stepper 5 tahap, 4 kartu statistik layered (Hari acara, Pembayaran, Desain frame, Galeri), lalu bagian Pembayaran · Data acara | Desain frame · Galeri · Dokumen · Orang · Ubah jadwal.
+- Galeri memakai `GET /api/ops/events/{project}` Booth (kontrak §5) + field aditif Booth #185 `cover_url`, `thumbs` (≤6, presigned 1 hari, tidak disimpan). Tidak di-iframe. Tetap di balik `portal.gallery_enabled` sampai env `TETRA_OPS_*` di Vercel Booth terisi.
+- Kartu "Isi dashboard kamu" (sementara) dihapus — digantikan kartu statistik + langkah berikutnya.
+
+---
+
 ## Template for New Decisions
 
 ```markdown
