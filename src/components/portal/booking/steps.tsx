@@ -31,7 +31,12 @@ import {
 	User,
 	Wallet,
 } from "lucide-react";
-import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import {
+	type CSSProperties,
+	Fragment,
+	type KeyboardEvent,
+	type ReactNode,
+} from "react";
 import {
 	BACKDROPS,
 	BD_COLORS,
@@ -1350,125 +1355,128 @@ function BackdropBlock({ x, standalone }: { x: Ctx; standalone?: boolean }) {
 				</div>
 			)}
 			{BACKDROPS.map((b) => (
-				<button
-					key={b.k}
-					type="button"
-					className="shrink"
-					aria-pressed={s.backdrop === b.k}
-					onClick={() =>
-						x.pick({ backdrop: b.k }, !!standalone && b.k !== "tetra")
-					}
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: 14,
-						minHeight: 76,
-						padding: "12px 14px",
-						border: B,
-						borderRadius: 18,
-						...opt(s.backdrop === b.k),
-						textAlign: "left",
-					}}
-				>
-					<IconChip icon={b.icon} tint={b.tint} />
-					<span style={col(2, { flex: 1 })}>
-						<span style={{ fontSize: 15, fontWeight: 800 }}>{b.label}</span>
-						<span style={sub13}>{b.sub}</span>
-					</span>
-				</button>
-			))}
-			{s.backdrop === "tetra" && (
-				<div
-					className="pop"
-					style={col(12, {
-						padding: 14,
-						border: B,
-						borderRadius: 18,
-						background: "#fff",
-					})}
-				>
-					<span
+				<Fragment key={b.k}>
+					<button
+						type="button"
+						className="shrink"
+						aria-pressed={s.backdrop === b.k}
+						onClick={() =>
+							x.pick({ backdrop: b.k }, !!standalone && b.k !== "tetra")
+						}
 						style={{
 							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "baseline",
-							gap: 8,
+							alignItems: "center",
+							gap: 14,
+							minHeight: 76,
+							padding: "12px 14px",
+							border: B,
+							borderRadius: 18,
+							...opt(s.backdrop === b.k),
+							textAlign: "left",
 						}}
 					>
-						<span style={{ fontSize: 15, fontWeight: 800 }}>Warna kain</span>
-						<span style={{ fontSize: 13, fontWeight: 700 }}>
-							{bdName ?? "Belum dipilih"}
+						<IconChip icon={b.icon} tint={b.tint} />
+						<span style={col(2, { flex: 1 })}>
+							<span style={{ fontSize: 15, fontWeight: 800 }}>{b.label}</span>
+							<span style={sub13}>{b.sub}</span>
 						</span>
-					</span>
-					<div
-						style={{
-							display: "grid",
-							gridTemplateColumns: "repeat(3,minmax(0,1fr))",
-							gap: 10,
-						}}
-					>
-						{BD_COLORS.map(([k, label, hex]) => {
-							const sel = s.bdColor === k;
-							return (
-								<button
-									key={k}
-									type="button"
-									aria-label={label}
-									aria-pressed={sel}
-									onClick={() => x.set({ bdColor: k })}
-									style={{
-										display: "flex",
-										flexDirection: "column",
-										alignItems: "center",
-										gap: 6,
-										padding: 0,
-										border: 0,
-										background: "transparent",
-									}}
-								>
-									<span
-										style={{
-											position: "relative",
-											width: "100%",
-											height: 64,
-											borderRadius: 12,
-											border: B,
-											background: `repeating-linear-gradient(90deg,rgba(0,0,0,0) 0 9px,rgba(0,0,0,.10) 9px 13px,rgba(255,255,255,.14) 13px 16px),${hex}`,
-											boxShadow: sel
-												? "0 0 0 3px #F8F7F4,0 0 0 4.5px #1D1D1B"
-												: "none",
-											transition: "box-shadow 150ms",
-											display: "flex",
-											alignItems: "center",
-											justifyContent: "center",
-											color: ["white", "silver", "gold"].includes(k)
-												? INK
-												: "#FFFFFF",
-											fontSize: 18,
-											fontWeight: 800,
-										}}
-									>
-										{sel ? "✓" : ""}
-									</span>
-									<span
-										style={{
-											fontSize: 12,
-											fontWeight: sel ? 800 : 600,
-											textAlign: "center",
-											lineHeight: 1.2,
-										}}
-									>
-										{label}
-									</span>
-								</button>
-							);
-						})}
-					</div>
-					<span style={{ fontSize: 12, lineHeight: 1.4, color: "#3A3936" }}>
-						Warna di layar bisa sedikit berbeda dengan kain aslinya.
-					</span>
-				</div>
-			)}
+					</button>
+					{b.k === "tetra" && s.backdrop === "tetra" && (
+						<div
+							className="pop"
+							style={col(12, {
+								padding: 14,
+								border: B,
+								borderRadius: 18,
+								background: "#fff",
+							})}
+						>
+							<span
+								style={{
+									display: "flex",
+									justifyContent: "space-between",
+									alignItems: "baseline",
+									gap: 8,
+								}}
+							>
+								<span style={{ fontSize: 15, fontWeight: 800 }}>
+									Warna kain
+								</span>
+								<span style={{ fontSize: 13, fontWeight: 700 }}>
+									{bdName ?? "Belum dipilih"}
+								</span>
+							</span>
+							<div
+								style={{
+									display: "grid",
+									gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+									gap: 10,
+								}}
+							>
+								{BD_COLORS.map(([k, label, hex]) => {
+									const sel = s.bdColor === k;
+									return (
+										<button
+											key={k}
+											type="button"
+											aria-label={label}
+											aria-pressed={sel}
+											onClick={() => x.set({ bdColor: k })}
+											style={{
+												display: "flex",
+												flexDirection: "column",
+												alignItems: "center",
+												gap: 6,
+												padding: 0,
+												border: 0,
+												background: "transparent",
+											}}
+										>
+											<span
+												style={{
+													position: "relative",
+													width: "100%",
+													height: 64,
+													borderRadius: 12,
+													border: B,
+													background: `repeating-linear-gradient(90deg,rgba(0,0,0,0) 0 9px,rgba(0,0,0,.10) 9px 13px,rgba(255,255,255,.14) 13px 16px),${hex}`,
+													boxShadow: sel
+														? "0 0 0 3px #F8F7F4,0 0 0 4.5px #1D1D1B"
+														: "none",
+													transition: "box-shadow 150ms",
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+													color: ["white", "silver", "gold"].includes(k)
+														? INK
+														: "#FFFFFF",
+													fontSize: 18,
+													fontWeight: 800,
+												}}
+											>
+												{sel ? "✓" : ""}
+											</span>
+											<span
+												style={{
+													fontSize: 12,
+													fontWeight: sel ? 800 : 600,
+													textAlign: "center",
+													lineHeight: 1.2,
+												}}
+											>
+												{label}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+							<span style={{ fontSize: 12, lineHeight: 1.4, color: "#3A3936" }}>
+								Warna di layar bisa sedikit berbeda dengan kain aslinya.
+							</span>
+						</div>
+					)}
+				</Fragment>
+			))}
 		</div>
 	);
 }
