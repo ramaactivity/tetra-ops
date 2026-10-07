@@ -1,0 +1,391 @@
+{
+  "_note": "Data prototipe v4. Paket, harga, add-on WAJIB diambil dari tabel Tetra Ops (packages, addons) — JSON ini hanya acuan isi/teks dan untuk seed/dev. Jangan hardcode di UI.",
+  "events": [
+    {
+      "id": "wed",
+      "label": "Wedding",
+      "icon": "heart",
+      "tint": "#FCE3C6",
+      "placeholder": "Rina & Dimas",
+      "kicker": "THE WEDDING OF"
+    },
+    {
+      "id": "eng",
+      "label": "Engagement",
+      "icon": "gem",
+      "tint": "#CEC8F6",
+      "placeholder": "Rina & Dimas",
+      "kicker": "ENGAGEMENT OF"
+    },
+    {
+      "id": "bday",
+      "label": "Ulang tahun / Sweet 17",
+      "icon": "cake",
+      "tint": "#D6EEF8",
+      "placeholder": "Sweet 17 Karina",
+      "kicker": ""
+    },
+    {
+      "id": "corp",
+      "label": "Corporate / Gathering",
+      "icon": "briefcase",
+      "tint": "#D6F1EA",
+      "placeholder": "Gathering PT ABC",
+      "kicker": ""
+    },
+    {
+      "id": "grad",
+      "label": "Wisuda / Kampus",
+      "icon": "graduation-cap",
+      "tint": "#FCE3C6",
+      "placeholder": "Wisuda Angkatan 2026",
+      "kicker": ""
+    },
+    {
+      "id": "other",
+      "label": "Lainnya",
+      "icon": "sparkles",
+      "tint": "#CEC8F6",
+      "placeholder": "Nama acaramu",
+      "kicker": ""
+    }
+  ],
+  "recommendation": {
+    "wed": [
+      "pspb",
+      "Cocok untuk wedding"
+    ],
+    "eng": [
+      "pb",
+      "Cocok untuk engagement"
+    ],
+    "corp": [
+      "v360",
+      "Cocok untuk acara kantor"
+    ],
+    "bday": [
+      "mbpb",
+      "Cocok untuk ulang tahun"
+    ],
+    "grad": [
+      "pb",
+      "Cocok untuk wisuda"
+    ],
+    "other": [
+      "pb",
+      "Paling laris"
+    ]
+  },
+  "packages": [
+    {
+      "id": "pb",
+      "name": "Photobooth Cetak",
+      "icon": "printer",
+      "tint": "#FCE3C6",
+      "hasPrintFormat": true,
+      "defaultFormat": "4r",
+      "prices": {
+        "2": 2000000,
+        "3": 2500000,
+        "4": 3000000,
+        "5": 3500000,
+        "6": 4000000,
+        "8": 5000000
+      },
+      "points": [
+        "Cetak unlimited selama acara",
+        "Frame custom sesuai tema",
+        "QR soft file untuk tamu"
+      ],
+      "desc": "Tamu berfoto di booth, hasilnya langsung tercetak dan bisa dibawa pulang. Cetak tanpa batas selama acara.",
+      "fit": "semua jenis acara, terutama yang tamunya banyak"
+    },
+    {
+      "id": "pspb",
+      "name": "Photo Stage + Photobooth",
+      "icon": "layers",
+      "tint": "#CEC8F6",
+      "hasPrintFormat": true,
+      "defaultFormat": "strip",
+      "bundle": true,
+      "prices": {
+        "2": 4000000,
+        "3": 4500000
+      },
+      "points": [
+        "Photo Stage untuk foto di pelaminan",
+        "Photobooth Cetak, cetak unlimited",
+        "Frame custom dan QR soft file"
+      ],
+      "desc": "Dua layanan dalam satu paket: Photo Stage untuk foto di pelaminan, plus Photobooth Cetak untuk tamu.",
+      "fit": "wedding yang mau foto pelaminan dan photobooth sekaligus"
+    },
+    {
+      "id": "v360",
+      "name": "Video 360°",
+      "icon": "rotate-3d",
+      "tint": "#D6EEF8",
+      "hasPrintFormat": false,
+      "prices": {
+        "2": 2500000,
+        "3": 3000000,
+        "4": 3500000,
+        "5": 4000000,
+        "6": 4500000,
+        "8": 5500000
+      },
+      "points": [
+        "Video berputar 360° untuk tamu"
+      ],
+      "desc": "Tamu berdiri di atas platform, kamera berputar mengelilingi mereka. Hasilnya video pendek yang siap dibagikan ke media sosial.",
+      "fit": "acara kantor, launching, dan pesta yang ingin konten video"
+    },
+    {
+      "id": "mbpb",
+      "name": "Magazine Box + Photobooth",
+      "icon": "book-open",
+      "tint": "#D6F1EA",
+      "hasPrintFormat": true,
+      "defaultFormat": "4r",
+      "prices": {
+        "3": 5500000,
+        "5": 6000000,
+        "8": 7000000
+      },
+      "points": [
+        "Magazine Box",
+        "Photobooth Cetak, cetak unlimited",
+        "Frame custom dan QR soft file"
+      ],
+      "desc": "Magazine Box ditambah Photobooth Cetak. Tamu bisa berfoto dengan properti sampul majalah, lalu mencetak hasil photobooth.",
+      "fit": "ulang tahun dan sweet 17 yang ingin dua jenis spot foto"
+    },
+    {
+      "id": "mb",
+      "name": "Magazine Box",
+      "icon": "newspaper",
+      "tint": "#D6EEF8",
+      "hasPrintFormat": false,
+      "prices": {
+        "8": 2500000
+      },
+      "points": [
+        "Magazine Box selama 8 jam"
+      ],
+      "desc": "Properti berbentuk sampul majalah ukuran besar. Tamu berfoto seolah menjadi cover majalah.",
+      "fit": "pesta yang ingin spot foto tematik sepanjang acara"
+    },
+    {
+      "id": "ps",
+      "name": "Photo Stage (foto pelaminan)",
+      "icon": "camera",
+      "tint": "#FCE3C6",
+      "hasPrintFormat": false,
+      "prices": {
+        "2": 1500000,
+        "3": 2000000
+      },
+      "points": [
+        "Foto keluarga dan tamu di pelaminan"
+      ],
+      "desc": "Sesi foto di pelaminan bersama keluarga dan tamu, tanpa booth cetak.",
+      "fit": "wedding yang sudah punya photobooth atau hanya butuh foto pelaminan"
+    }
+  ],
+  "addons": [
+    {
+      "id": "dur",
+      "name": "Tambah durasi",
+      "unit": "jam",
+      "price": 500000,
+      "icon": "timer",
+      "tint": "#FCE3C6",
+      "benefit": "Booth tetap jalan kalau acara molor.",
+      "desc": "Menambah jam di luar durasi paket. Dihitung per jam, bisa lebih dari satu."
+    },
+    {
+      "id": "mag",
+      "name": "Photomagnet",
+      "unit": "50 cetak",
+      "price": 650000,
+      "icon": "magnet",
+      "tint": "#D6EEF8",
+      "benefit": "Cetakan jadi magnet untuk dibawa pulang.",
+      "desc": "Cetakan diberi lapisan magnet di belakang, jadi bisa ditempel di kulkas. Satu paket untuk 50 cetakan."
+    },
+    {
+      "id": "slv",
+      "name": "Custom sleeve",
+      "unit": "1.000 lembar",
+      "price": 1500000,
+      "icon": "image",
+      "tint": "#CEC8F6",
+      "benefit": "Sampul cetakan dengan desain acaramu.",
+      "desc": "Sampul kertas untuk setiap cetakan, dicetak dengan desain acaramu. Isi 1.000 lembar."
+    },
+    {
+      "id": "gb",
+      "name": "Guest book foto",
+      "unit": "25 lembar",
+      "price": 200000,
+      "icon": "book-heart",
+      "tint": "#D6F1EA",
+      "benefit": "Tamu menempel foto dan menulis ucapan.",
+      "desc": "Buku tamu tempat tamu menempel cetakan foto dan menulis ucapan. Isi 25 lembar."
+    },
+    {
+      "id": "alb",
+      "name": "Album photostrip",
+      "unit": "20 halaman",
+      "price": 100000,
+      "icon": "book-image",
+      "tint": "#FCE3C6",
+      "benefit": "Simpan strip tamu dalam satu album.",
+      "desc": "Album khusus untuk menyimpan strip foto. Isi 20 halaman."
+    },
+    {
+      "id": "brk",
+      "name": "Break time",
+      "unit": "jam",
+      "price": 150000,
+      "icon": "coffee",
+      "tint": "#D6EEF8",
+      "benefit": "Jeda booth saat sesi makan atau ibadah.",
+      "desc": "Booth berhenti sementara, misalnya saat makan atau ibadah, lalu lanjut lagi. Dihitung per jam."
+    },
+    {
+      "id": "vch",
+      "name": "Voucher photobooth",
+      "unit": "100 pcs",
+      "price": 25000,
+      "icon": "ticket",
+      "tint": "#CEC8F6",
+      "benefit": "Voucher fisik untuk dibagikan ke tamu.",
+      "desc": "Voucher fisik yang bisa dibagikan ke tamu. Isi 100 pcs."
+    }
+  ],
+  "printFormats": [
+    {
+      "id": "strip",
+      "label": "Strip 2R",
+      "size": "5 × 15 cm",
+      "desc": "Strip panjang berisi 3 pose. Gaya photobooth klasik, pas disimpan di dompet."
+    },
+    {
+      "id": "4r",
+      "label": "4R",
+      "size": "10 × 15 cm",
+      "desc": "Ukuran foto standar. Muat 1–2 foto dengan ruang desain frame lebih luas."
+    },
+    {
+      "id": "polaroid",
+      "label": "Polaroid",
+      "size": "bingkai polaroid",
+      "desc": "Satu foto dengan bingkai putih lebar di bawah, gaya kamera instan."
+    },
+    {
+      "id": "later",
+      "label": "Belum tahu, nanti saja"
+    }
+  ],
+  "backdrops": [
+    {
+      "id": "tetra",
+      "label": "Backdrop kain Tetra",
+      "sub": "Gratis. Pilih 1 dari 6 warna, tim kami yang pasang.",
+      "icon": "sparkles",
+      "tint": "#CEC8F6",
+      "requiresColor": true
+    },
+    {
+      "id": "client",
+      "label": "Dari klien / dekorasi venue",
+      "sub": "Kamu atau dekorator yang menyiapkan.",
+      "icon": "house",
+      "tint": "#FCE3C6"
+    },
+    {
+      "id": "later",
+      "label": "Belum tahu",
+      "sub": "Bisa diputuskan nanti bersama tim.",
+      "icon": "clock",
+      "tint": "#D6EEF8"
+    }
+  ],
+  "backdropColors": {
+    "_note": "Sumber: BACKDROP TETRA.pdf (Basic). Hex = perkiraan layar, ganti dengan warna/ foto kain asli.",
+    "items": [
+      {
+        "id": "red",
+        "label": "Red",
+        "hex": "#B3262E"
+      },
+      {
+        "id": "white",
+        "label": "White",
+        "hex": "#FFFFFF"
+      },
+      {
+        "id": "gold",
+        "label": "Gold",
+        "hex": "#C9A24A"
+      },
+      {
+        "id": "silver",
+        "label": "Silver",
+        "hex": "#BFC2C6"
+      },
+      {
+        "id": "emerald",
+        "label": "Emerald Green",
+        "hex": "#1E7A57"
+      },
+      {
+        "id": "blue",
+        "label": "Blue",
+        "hex": "#1F4E9E"
+      }
+    ]
+  },
+  "timeChips": [
+    "09:00",
+    "11:00",
+    "13:00",
+    "15:00",
+    "17:00",
+    "18:00",
+    "19:00"
+  ],
+  "manualTime": {
+    "hourStep": 1,
+    "minuteStep": 15,
+    "default": "16:30"
+  },
+  "cityChips": [
+    "Bogor",
+    "Jakarta",
+    "Depok",
+    "Tangerang",
+    "Bekasi"
+  ],
+  "frameThemesPlaceholder": {
+    "_note": "Contoh katalog untuk layar 'intip desain'. Ganti dengan katalog template asli dari modul desain.",
+    "items": [
+      "Klasik",
+      "Garden",
+      "Butter",
+      "Lavender",
+      "Sky",
+      "Peach"
+    ]
+  },
+  "dp": {
+    "_note": "Prototipe: DP flat Rp500.000 (atau total jika lebih kecil). Final dari system_config (persen atau nominal).",
+    "flatPrototype": 500000
+  },
+  "units": {
+    "min": 1,
+    "max": 3,
+    "_note": "Jumlah booth; harga paket × unit."
+  }
+}

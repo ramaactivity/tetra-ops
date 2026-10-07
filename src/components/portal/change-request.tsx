@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { requestChange } from "@/lib/actions/portal-booking";
-import { Calendar, TimeChips } from "./booking-wizard";
+import { Calendar, TimeChips } from "./calendar";
 import { Err } from "./verify-phone";
 
 const rp = (n: number) => `Rp${n.toLocaleString("id-ID")}`;

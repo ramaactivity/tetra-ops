@@ -1,0 +1,309 @@
+/* Booking v4 (docs/design/booking-v4). Nilai ukuran/warna mengikuti prototipe;
+   inline style di komponen untuk nilai statis, di sini hanya yang butuh
+   pseudo-class, animasi, atau media query. Semua di bawah .bk. */
+
+.bk {
+	--ink: #1d1d1b;
+	--paper: #f8f7f4;
+	font-family: var(--font-jakarta), system-ui, sans-serif;
+	color: var(--ink);
+	background: var(--paper);
+	-webkit-font-smoothing: antialiased;
+	line-height: normal;
+}
+.bk *,
+.bk *::before,
+.bk *::after {
+	box-sizing: border-box;
+}
+.bk button,
+.bk input,
+.bk textarea {
+	font-family: inherit;
+	color: var(--ink);
+}
+.bk input::placeholder,
+.bk textarea::placeholder {
+	color: #9a9892;
+	font-weight: 500;
+}
+.bk a {
+	color: var(--ink);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	font-weight: 700;
+}
+.bk a:hover {
+	color: #3a3936;
+}
+.bk .mono {
+	font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+.bk .noscroll {
+	scrollbar-width: none;
+}
+.bk .noscroll::-webkit-scrollbar {
+	display: none;
+}
+.bk button:not(:disabled) {
+	cursor: pointer;
+}
+.bk button:focus-visible,
+.bk a:focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 2px;
+}
+.bk .in:focus {
+	box-shadow: 0 0 0 3px #8edccb;
+}
+.bk .in {
+	outline: none;
+}
+
+/* Tekan: tombol berlapis turun sejauh offset shadow-nya. */
+.bk .press {
+	transition:
+		transform 100ms,
+		box-shadow 100ms;
+}
+.bk .press:active:not(:disabled) {
+	transform: translate(var(--o, 4px), var(--o, 4px));
+	box-shadow: 0 0 0 0 var(--ink) !important;
+}
+.bk .press-hover:hover {
+	box-shadow:
+		8px 8px 0 -1.5px #f8f7f4,
+		8px 8px 0 0 var(--ink) !important;
+}
+.bk .shrink {
+	transition:
+		background 150ms,
+		box-shadow 150ms,
+		transform 120ms;
+}
+.bk .shrink:active {
+	transform: scale(var(--s, 0.98));
+}
+.bk .rowbtn:hover {
+	background: #f8f7f4 !important;
+}
+
+/* ── Animasi (README §Motion) ─────────────────────────────────────────── */
+@keyframes bk-step-f {
+	from {
+		opacity: 0;
+		transform: translateX(16px);
+	}
+}
+@keyframes bk-step-b {
+	from {
+		opacity: 0;
+		transform: translateX(-16px);
+	}
+}
+.bk .step-f {
+	animation: bk-step-f 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bk .step-b {
+	animation: bk-step-b 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes bk-pop {
+	0% {
+		transform: scale(0.92);
+		opacity: 0;
+	}
+	70% {
+		transform: scale(1.02);
+		opacity: 1;
+	}
+	100% {
+		transform: none;
+	}
+}
+.bk .pop {
+	animation: bk-pop 240ms;
+}
+@keyframes bk-bump {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.08) rotate(-2deg);
+	}
+}
+.bk .bump {
+	animation: bk-bump 260ms ease-out;
+}
+@keyframes bk-rise {
+	from {
+		transform: translateY(40px);
+		opacity: 0;
+	}
+}
+.bk .rise {
+	animation: bk-rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+	animation-delay: calc(var(--i, 0) * 90ms);
+}
+@keyframes bk-drop {
+	from {
+		transform: translateY(-30px);
+		opacity: 0;
+	}
+}
+.bk .drop {
+	animation: bk-drop 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+	animation-delay: calc(var(--i, 0) * 120ms);
+}
+@keyframes bk-emerge {
+	from {
+		transform: translateY(-102%);
+	}
+}
+.bk .emerge {
+	animation: bk-emerge 600ms cubic-bezier(0.3, 0.7, 0.2, 1) 120ms backwards;
+}
+@keyframes bk-check {
+	0% {
+		transform: scale(0.4);
+		opacity: 0;
+	}
+	70% {
+		transform: scale(1.08);
+		opacity: 1;
+	}
+	100% {
+		transform: none;
+	}
+}
+.bk .checkpop {
+	animation: bk-check 320ms 500ms backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bk *,
+	.bk *::before,
+	.bk *::after {
+		animation: none !important;
+		transition: none !important;
+	}
+}
+
+/* ── Kerangka: HP (default) & desktop (≥1024px) ───────────────────────── */
+.bk-app {
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	overflow: hidden;
+	transition: background 300ms;
+}
+.bk .only-m {
+	display: contents;
+}
+.bk .only-d {
+	display: none !important;
+}
+.bk-grid {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+.bk-left {
+	display: none;
+}
+.bk-right {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+.bk-right-inner {
+	position: absolute;
+	inset: 0;
+	background: #f8f7f4;
+}
+.bk-scroll {
+	position: absolute;
+	inset: 0;
+	overflow-y: auto;
+}
+.bk-bar {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	padding: 12px 16px max(28px, calc(12px + env(safe-area-inset-bottom)));
+	background: #f8f7f4;
+	border-top: 1.5px solid var(--ink);
+	z-index: 3;
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+/* Halaman booking klien (portal-view.tsx). */
+.bk-pleft {
+	display: none;
+}
+.bk-pcontent {
+	padding: 20px 16px 60px;
+	max-width: 572px;
+	margin: 0 auto;
+}
+
+@media (min-width: 1024px) {
+	.bk-pgrid {
+		display: grid;
+		grid-template-columns: 600px minmax(0, 1fr);
+		align-items: start;
+	}
+	.bk-pleft {
+		display: flex;
+		flex-direction: column;
+		position: sticky;
+		top: 0;
+		height: 100dvh;
+		padding: 28px 56px 36px;
+		background: #fce3c6;
+		border-right: 1.5px solid var(--ink);
+		overflow-y: auto;
+	}
+	.bk-pcontent {
+		padding: 44px 0 60px;
+		width: 540px;
+		max-width: 100%;
+	}
+	.bk .only-m {
+		display: none !important;
+	}
+	.bk .only-d {
+		display: contents !important;
+	}
+	.bk-app {
+		background: #f8f7f4 !important;
+	}
+	.bk-grid {
+		flex: 1;
+		min-height: 0;
+		display: grid;
+		grid-template-columns: 600px minmax(0, 1fr);
+	}
+	.bk-left {
+		display: flex !important;
+		flex-direction: column;
+		padding: 28px 56px 36px;
+		border-right: 1.5px solid var(--ink);
+		min-height: 0;
+		overflow-y: auto;
+		transition: background 300ms;
+	}
+	.bk-right-inner {
+		top: 40px;
+		margin: 0 auto;
+		width: 540px;
+		max-width: 100%;
+	}
+	.bk-bar {
+		padding-bottom: 28px;
+	}
+}

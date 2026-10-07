@@ -264,6 +264,14 @@ export const DetailSchema = z.object({
 	jumlah_tamu: opt(10),
 	/** Nama usaha WO/vendor yang memesan (booking lewat WO). */
 	wo_nama: opt(120),
+	/** Email pemesan (untuk invoice & kuitansi). */
+	email: opt(120),
+	/** Backdrop: tetra (kain Basic) | client | later. */
+	backdrop: opt(10),
+	/** Warna kain Basic kalau backdrop = tetra, mis. "Emerald Green". */
+	backdrop_warna: opt(20),
+	/** Izin foto acara dipakai untuk portofolio Tetra (opsional). */
+	izin_portofolio: z.boolean().optional(),
 	/** Urutan grup foto pelaminan (modul Photo Stage) → Booth `stage_groups`. */
 	stage_groups: z
 		.array(z.string().trim().min(1).max(STAGE_GROUP_MAX_LEN))

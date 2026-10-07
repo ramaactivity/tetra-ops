@@ -1103,6 +1103,24 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 
 ---
 
+## DR-039: Booking publik & halaman booking klien = desain v4
+
+**Status:** Accepted (owner 2026-10-07)
+**Date:** 2026-10-07
+
+### Decision
+- `/booking` (booking.tetraphoto.com) dibangun ulang mengikuti handoff `docs/design/booking-v4` (prototipe Claude Design): 14 layar wizard + pembuka + sukses, HP dan desktop (≥1024px, panel kiri kontekstual 600px). Kode di `src/components/portal/booking/`; state machine murni di `logic.ts` (+ test). Perbandingan berdampingan di `docs/design/booking-v4/compare/`.
+- Verifikasi WA **tetap klien yang mengirim kode** ke WA Tetra (DR-027), bukan OTP keluar seperti di prototipe: layar "Kirim kode ke WhatsApp Tetra" menampilkan kode di 6 kotak + tombol Buka WhatsApp, lanjut otomatis setelah bot menerima. Cadangan email memakai 6 kotak ketik seperti prototipe.
+- "Cek & kirim": dua centang — persetujuan data & syarat (wajib, UU PDP) + izin portofolio (opsional, `detail.izin_portofolio`).
+- Halaman booking klien: bagian atas persis desain (gerbang 3 data = `missingForDp`, kartu Bayar DP sebesar DP minimal ke rekening default, "Boleh menyusul" accordion autosave); bagian lain (tahapan, pelunasan, galeri, desain, dokumen, anggota, ubah jadwal) dipertahankan di bawahnya.
+- Data baru: jenis acara `engagement`; paket combo (Photo Stage/Magazine + Photobooth) kini punya baris 2R & polaroid berharga sama dengan 4R (migrasi `20261008_booking_v4.sql`); `detail.email`, `detail.backdrop` (tetra/client/later), `detail.backdrop_warna`.
+
+### Consequences
+- ✅ Copy, warna, ukuran, dan alur sama dengan prototipe; tanpa select/date/time picker bawaan.
+- ⚠️ Selisih yang disengaja: tanpa skeleton palsu 600ms di layar paket (katalog sudah dimuat server); katalog "Intip desain" masih 6 tema contoh sampai template asli ada; draf hanya tersimpan di browser (belum autosave server sebelum dikirim); padding atas/bawah HP menyesuaikan browser asli (tanpa status bar mockup).
+
+---
+
 ## Template for New Decisions
 
 ```markdown

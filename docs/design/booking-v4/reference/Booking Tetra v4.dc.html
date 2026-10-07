@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDECE8;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#1D1D1B;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#1D1D1B;text-decoration:underline;text-underline-offset:3px;font-weight:700}
+a:hover{color:#3A3936}
+button,input,textarea{font-family:inherit;color:#1D1D1B}
+input::placeholder,textarea::placeholder{color:#9A9892;font-weight:500}
+</style>
+</helmet>
+<section style="padding:72px 80px 120px;display:flex;flex-direction:column;gap:44px">
+
+<div style="display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font-family:'Geist Mono',monospace;font-size:13px;letter-spacing:.06em">TETRA PHOTOBOOTH · BOOKING · V4</div>
+<h1 style="margin:0;font-size:44px;font-weight:800;letter-spacing:-.035em">Booking yang ngobrol</h1>
+<p style="margin:0;font-size:17px;line-height:1.5;color:#5F5E5A;max-width:900px;text-wrap:pretty">Setiap tahap punya warna sendiri, pertanyaannya menyapa pakai jawaban sebelumnya, dan contoh cetakan terisi pelan-pelan sampai jadi milik klien. Tanpa foto klien asli. HP dan desktop berbagi data; klik kotak alur untuk lompat.</p>
+</div>
+<div style="display:flex;align-items:center;flex-wrap:wrap;row-gap:12px">
+<sc-for list="{{ flow }}" as="f" hint-placeholder-count="8">
+<div style="display:flex;align-items:center">
+<sc-if value="{{ f.arrow }}"><span style="width:26px;border-top:1.5px dashed #1D1D1B;margin:0 6px"></span></sc-if>
+<button onClick="{{ f.go }}" style="width:184px;text-align:left;border:1.5px solid #1D1D1B;border-radius:16px;padding:12px 14px;background:{{ f.bg }};display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:background 150ms">
+<span style="display:flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border-radius:7px;border:1.5px solid #1D1D1B;background:{{ f.dot }}"></span><span style="font-size:15px;font-weight:800">{{ f.t }}</span></span>
+<span style="font-size:12px;line-height:1.4;color:#3A3936">{{ f.s }}</span>
+</button>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+<span style="font-size:14px;font-weight:700;margin-right:6px">Cek status:</span>
+<sc-for list="{{ demos }}" as="d" hint-placeholder-count="9"><button onClick="{{ d.go }}" style="height:38px;padding:0 14px;border:1.5px solid #1D1D1B;border-radius:999px;background:{{ d.bg }};font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer">{{ d.t }}</button></sc-for>
+</div>
+</div>
+
+<div style="display:flex;gap:64px;align-items:flex-start">
+
+<!-- HP -->
+<div style="display:flex;flex-direction:column;gap:12px;flex:none">
+<div style="font-family:'Geist Mono',monospace;font-size:13px">HP · 390 × 844</div>
+<div data-frame="m" onMouseDown="{{ markM }}" data-screen-label="HP" style="width:390px;height:844px;border:1.5px solid #1D1D1B;border-radius:44px;overflow:hidden;background:{{ mTopBg }};position:relative;display:flex;flex-direction:column;transition:background 300ms">
+<div style="height:46px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:4px 30px 0;font-family:'Geist Mono',monospace;font-size:14px;font-weight:600;position:relative;z-index:4"><span>9:41</span><span>5G · 82%</span></div>
+<sc-if value="{{ offline }}"><div style="flex:none;margin:0 12px 6px;padding:10px 14px;border:1.5px dashed #1D1D1B;border-radius:12px;background:#D6EEF8;font-size:13px;line-height:1.4;font-weight:600;position:relative;z-index:4">Koneksi terputus. Isianmu tersimpan, lanjutkan saat sinyal kembali.</div></sc-if>
+
+<sc-if value="{{ isIntro }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;right:-70px;top:-50px;width:280px;height:280px;border-radius:50%;background:#8EDCCB;border:1.5px solid #1D1D1B"></div>
+<div style="position:absolute;left:-60px;top:330px;width:170px;height:170px;border-radius:50%;background:#FCE3C6;border:1.5px solid #1D1D1B"></div>
+<div style="position:absolute;right:40px;top:420px;width:46px;height:46px;border-radius:50%;background:#CEC8F6;border:1.5px solid #1D1D1B"></div>
+<div data-anim="1" style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column;padding:6px 24px 0">
+<img src="assets/logo/tetra-putih.png" alt="tetra" style="height:22px;width:max-content;filter:invert(1);position:relative;z-index:2">
+<div style="height:380px;flex:none;position:relative">
+<div data-rise="0" style="position:absolute;left:18px;top:46px;z-index:1"><dc-import name="Print Preview" fmt="strip" title="Nama acaramu" date="TANGGAL ACARAMU" zoom="0.86" rot="-9deg" hint-size="95px,284px"></dc-import></div>
+<div data-rise="2" style="position:absolute;right:6px;top:70px;z-index:1"><dc-import name="Print Preview" fmt="4r" title="Nama acaramu" date="TANGGAL ACARAMU" zoom="0.7" rot="8deg" hint-size="154px,231px"></dc-import></div>
+<div data-rise="1" style="position:absolute;left:84px;top:28px;z-index:2"><dc-import name="Print Preview" fmt="polaroid" title="Nama acaramu" date="TANGGAL ACARAMU" zoom="0.78" rot="2deg" hint-size="200px,257px"></dc-import></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;position:relative;z-index:2">
+<h2 style="margin:0;font-size:34px;line-height:1.04;font-weight:800;letter-spacing:-.045em;text-wrap:balance">Amankan tanggalmu. Kenangannya kami yang cetak.</h2>
+<p style="margin:0;font-size:15px;color:#3A3936">Sekitar 2 menit. Tanggal terkunci setelah DP.</p>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:16px 18px 30px;display:flex;flex-direction:column;gap:10px;z-index:3">
+<sc-if value="{{ resume }}">
+<div style="display:flex;flex-direction:column;gap:12px;padding:16px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;box-shadow:4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B">
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;font-weight:800">Lanjutkan draf booking kamu?</span><span style="font-size:13px;color:#3A3936">{{ resume.line }}</span></span>
+<button onClick="{{ doResume }}" style="height:52px;border:1.5px solid #1D1D1B;border-radius:14px;background:#F8D98B;box-shadow:4px 4px 0 -1.5px #FFFFFF,4px 4px 0 0 #1D1D1B;font-size:16px;font-weight:800;cursor:pointer" style-active="transform:translate(4px,4px);box-shadow:0 0 0 0 #1D1D1B">Lanjutkan</button>
+<button onClick="{{ freshStart }}" style="height:32px;border:0;background:transparent;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Mulai dari awal</button>
+</div>
+</sc-if>
+<sc-if value="{{ noResume }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ start }}" style="height:58px;border:1.5px solid #1D1D1B;border-radius:16px;background:#F8D98B;box-shadow:4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B;font-size:17px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform 100ms,box-shadow 100ms" style-active="transform:translate(4px,4px);box-shadow:0 0 0 0 #1D1D1B">Mulai booking <span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:#8EDCCB;display:flex;align-items:center;justify-content:center;font-size:16px">→</span></button>
+<a href="#" style="text-align:center;font-size:14px;height:28px;display:flex;align-items:center;justify-content:center">Sudah pernah booking? Masuk</a>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWizard }}">
+<div style="flex:none;padding:0 8px 16px;border-bottom:1.5px solid #1D1D1B">
+<div style="display:grid;grid-template-columns:48px minmax(0,1fr) 48px;align-items:center;height:48px">
+<button onClick="{{ back }}" aria-label="Kembali" style="width:44px;height:44px;border:0;border-radius:12px;background:transparent;font-size:22px;cursor:pointer" style-active="background:rgba(255,255,255,.6)">←</button>
+<div style="display:flex;justify-content:center;gap:5px">
+<sc-for list="{{ phases }}" as="ph" hint-placeholder-count="4"><span style="height:8px;width:{{ ph.w }};border-radius:4px;border:1.5px solid #1D1D1B;background:{{ ph.bg }};transition:width 250ms,background 250ms"></span></sc-for>
+</div>
+<span style="text-align:center;font-family:'Geist Mono',monospace;font-size:12px">{{ phaseNum }}/4</span>
+</div>
+<div style="display:flex;gap:12px;align-items:center;padding:6px 12px 0;min-height:122px">
+<div data-anim="1" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:12px;font-weight:800;letter-spacing:.04em">{{ phaseName }}</span>
+<h2 style="margin:0;font-size:25px;line-height:1.12;font-weight:800;letter-spacing:-.035em;text-wrap:balance">{{ q.t }}</h2>
+<sc-if value="{{ q.h }}"><p style="margin:0;font-size:14px;line-height:1.4;color:#3A3936">{{ q.h }}</p></sc-if>
+</div>
+<div data-bump="1" style="flex:none;width:100px;display:flex;justify-content:center"><dc-import name="Print Preview" fmt="{{ pv.fmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="0.34" rot="4deg" hint-size="88px,112px"></dc-import></div>
+</div>
+</div>
+<div style="flex:1;min-height:0;position:relative">
+<dc-import name="Langkah Booking" v="{{ sv }}" mobile="{{ true }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDone }}">
+<div data-anim="1" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;padding:0 0 170px">
+<div style="height:290px;flex:none;position:relative;overflow:hidden;border-bottom:1.5px solid #1D1D1B">
+<div style="position:absolute;left:40px;right:40px;top:14px;height:16px;border-radius:8px;background:#1D1D1B;z-index:2"></div>
+<div style="position:absolute;left:0;right:0;top:22px;bottom:0;overflow:hidden;display:flex;justify-content:center"><div data-emerge="1"><dc-import name="Print Preview" fmt="{{ pv.fmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="0.78" rot="0deg" hint-size="200px,257px"></dc-import></div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;padding:22px 22px 0;background:#F8F7F4;flex:1">
+<div style="display:flex;align-items:center;gap:12px"><span data-pop="1" style="flex:none;width:40px;height:40px;border-radius:20px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span><h2 style="margin:0;font-size:28px;font-weight:800;letter-spacing:-.035em">Booking terkirim!</h2></div>
+<div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:14px;background:#FCE3C6;font-size:14px;line-height:1.45"><img src="https://unpkg.com/lucide-static@0.460.0/icons/lock-open.svg" alt="" style="width:18px;flex:none;margin-top:1px"><span>Status masih <b>draf</b>, jadi <b>tanggalmu belum terkunci</b>. Tanggal terkunci setelah DP dibayar.</span></div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ nextSteps }}" as="n" hint-placeholder-count="3">
+<div style="display:flex;gap:14px">
+<div style="display:flex;flex-direction:column;align-items:center;flex:none"><span style="width:28px;height:28px;border-radius:14px;border:1.5px solid #1D1D1B;background:{{ n.bg }};color:{{ n.fg }};font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ n.n }}</span><sc-if value="{{ n.line }}"><span style="flex:1;border-left:1.5px dashed #1D1D1B;min-height:12px"></span></sc-if></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:4px 0 12px"><span style="font-size:15px;font-weight:800">{{ n.t }}</span><span style="font-size:13px;color:#3A3936">{{ n.s }}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:0;padding:14px 18px 30px;background:#F8F7F4;border-top:1.5px solid #1D1D1B;display:flex;flex-direction:column;gap:8px;z-index:3">
+<button onClick="{{ toPortal }}" style="height:56px;border:1.5px solid #1D1D1B;border-radius:14px;background:#F8D98B;box-shadow:4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B;font-size:17px;font-weight:800;cursor:pointer" style-active="transform:translate(4px,4px);box-shadow:0 0 0 0 #1D1D1B">Lengkapi data booking</button>
+<button style="height:44px;border:0;background:transparent;font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Chat admin di WhatsApp</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPortal }}">
+<div style="flex:none;padding:4px 20px 18px;border-bottom:1.5px solid #1D1D1B;display:flex;gap:14px;align-items:center">
+<div data-anim="1" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+<span style="font-family:'Geist Mono',monospace;font-size:12px">{{ code }}</span>
+<h2 style="margin:0;font-size:25px;line-height:1.12;font-weight:800;letter-spacing:-.035em">{{ portalTitle }}</h2>
+<span style="align-self:flex-start;height:28px;padding:0 10px;border:1.5px solid #1D1D1B;border-radius:999px;background:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;white-space:nowrap">{{ statusLabel }}</span>
+</div>
+<div style="flex:none;width:96px;display:flex;justify-content:center"><dc-import name="Print Preview" fmt="{{ pv.fmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="0.32" rot="4deg" hint-size="82px,106px"></dc-import></div>
+</div>
+<div style="flex:1;min-height:0;position:relative">
+<dc-import name="Langkah Booking" v="{{ sv }}" mobile="{{ true }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+</div>
+</sc-if>
+</div>
+</div>
+
+<!-- DESKTOP -->
+<div style="display:flex;flex-direction:column;gap:12px;flex:none">
+<div style="font-family:'Geist Mono',monospace;font-size:13px">Desktop · 1440 × 900</div>
+<div data-frame="d" onMouseDown="{{ markD }}" data-screen-label="Desktop" style="width:1440px;height:900px;border:1.5px solid #1D1D1B;border-radius:16px;overflow:hidden;background:#F8F7F4;position:relative;display:flex;flex-direction:column">
+
+<sc-if value="{{ isIntro }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;right:-120px;top:-140px;width:520px;height:520px;border-radius:50%;background:#8EDCCB;border:1.5px solid #1D1D1B"></div>
+<div style="position:absolute;left:-110px;bottom:-130px;width:380px;height:380px;border-radius:50%;background:#FCE3C6;border:1.5px solid #1D1D1B"></div>
+<div style="position:absolute;left:240px;top:120px;width:60px;height:60px;border-radius:50%;background:#CEC8F6;border:1.5px solid #1D1D1B"></div>
+<div style="position:relative;z-index:2;height:72px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 48px"><img src="assets/logo/tetra-putih.png" alt="tetra" style="height:26px;filter:invert(1)"><a href="#" style="font-size:14px">Sudah pernah booking? Masuk</a></div>
+<div data-anim="1" style="position:relative;z-index:2;flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;padding:0 48px 0 120px;gap:40px">
+<div style="display:flex;flex-direction:column;gap:22px">
+<h2 style="margin:0;font-size:76px;line-height:.98;font-weight:800;letter-spacing:-.05em;text-wrap:balance">Amankan tanggalmu. Kenangannya kami yang cetak.</h2>
+<p style="margin:0;font-size:19px;line-height:1.5;color:#3A3936;max-width:440px">Sekitar 2 menit. Tanggal terkunci setelah DP.</p>
+<sc-if value="{{ noResume }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ start }}" style="align-self:flex-start;white-space:nowrap;height:64px;padding:0 14px 0 28px;border:1.5px solid #1D1D1B;border-radius:18px;background:#F8D98B;box-shadow:6px 6px 0 -1.5px #F8F7F4,6px 6px 0 0 #1D1D1B;font-size:19px;font-weight:800;display:flex;align-items:center;gap:16px;cursor:pointer;transition:transform 100ms,box-shadow 100ms" style-hover="box-shadow:8px 8px 0 -1.5px #F8F7F4,8px 8px 0 0 #1D1D1B" style-active="transform:translate(6px,6px);box-shadow:0 0 0 0 #1D1D1B">Mulai booking <span style="width:38px;height:38px;border-radius:19px;border:1.5px solid #1D1D1B;background:#8EDCCB;display:flex;align-items:center;justify-content:center;font-size:18px">→</span></button>
+</sc-if>
+<sc-if value="{{ resume }}">
+<div style="width:440px;display:flex;flex-direction:column;gap:12px;padding:18px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;box-shadow:5px 5px 0 -1.5px #F8F7F4,5px 5px 0 0 #1D1D1B">
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:17px;font-weight:800">Lanjutkan draf booking kamu?</span><span style="font-size:14px;color:#3A3936">{{ resume.line }}</span></span>
+<div style="display:flex;align-items:center;gap:18px"><button onClick="{{ doResume }}" style="flex:1;height:52px;border:1.5px solid #1D1D1B;border-radius:14px;background:#F8D98B;box-shadow:4px 4px 0 -1.5px #FFFFFF,4px 4px 0 0 #1D1D1B;font-size:16px;font-weight:800;cursor:pointer">Lanjutkan</button><button onClick="{{ freshStart }}" style="border:0;background:transparent;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Mulai dari awal</button></div>
+</div>
+</sc-if>
+</div>
+<div style="position:relative;height:600px">
+<div data-rise="0" style="position:absolute;left:30px;top:120px"><dc-import name="Print Preview" fmt="strip" title="Nama acaramu" date="TANGGAL ACARAMU" zoom="1.3" rot="-9deg" hint-size="143px,429px"></dc-import></div>
+<div data-rise="2" style="position:absolute;right:20px;top:150px"><dc-import name="Print Preview" fmt="4r" title="Nama acaramu" date="TANGGAL ACARAMU" zoom="1.1" rot="8deg" hint-size="242px,363px"></dc-import></div>
+<div data-rise="1" style="position:absolute;left:150px;top:60px"><dc-import name="Print Preview" fmt="polaroid" title="Nama acaramu" date="TANGGAL ACARAMU" zoom="1.25" rot="2deg" hint-size="321px,412px"></dc-import></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isWizard }}">
+<div style="flex:1;min-height:0;display:grid;grid-template-columns:600px minmax(0,1fr)">
+<div style="background:{{ stageBg }};border-right:1.5px solid #1D1D1B;display:flex;flex-direction:column;padding:28px 56px 36px;transition:background 300ms;min-height:0">
+<div style="display:flex;align-items:center;justify-content:space-between"><img src="assets/logo/tetra-putih.png" alt="tetra" style="height:24px;filter:invert(1)"><a href="#" style="font-size:14px">Chat admin</a></div>
+<div style="display:flex;align-items:center;margin-top:36px">
+<sc-for list="{{ phases }}" as="ph" hint-placeholder-count="4">
+<div style="display:flex;align-items:center">
+<sc-if value="{{ ph.notFirst }}"><span style="width:26px;border-top:1.5px {{ ph.line }} #1D1D1B;margin:0 8px"></span></sc-if>
+<span style="display:flex;align-items:center;gap:7px"><span style="width:26px;height:26px;border-radius:13px;border:1.5px solid #1D1D1B;background:{{ ph.cbg }};color:{{ ph.cfg }};font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ ph.mark }}</span><span style="font-size:13px;font-weight:{{ ph.fw }}">{{ ph.label }}</span></span>
+</div>
+</sc-for>
+</div>
+<div data-anim="1" style="display:flex;flex-direction:column;gap:12px;margin-top:40px">
+<button onClick="{{ back }}" style="align-self:flex-start;height:32px;padding:0;border:0;background:transparent;font-size:14px;font-weight:700;cursor:pointer">← Kembali</button>
+<h2 style="margin:0;font-size:44px;line-height:1.05;font-weight:800;letter-spacing:-.04em;text-wrap:balance">{{ q.t }}</h2>
+<sc-if value="{{ q.h }}"><p style="margin:0;font-size:17px;line-height:1.45;color:#3A3936">{{ q.h }}</p></sc-if>
+</div>
+<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center"><sc-if value="{{ stagePrint }}"><div data-bump="1"><dc-import name="Print Preview" fmt="{{ pv.fmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="0.8" rot="3deg" hint-size="206px,264px"></dc-import></div></sc-if>
+<sc-if value="{{ stagePkg }}">
+<div data-pop="1" style="width:100%;display:flex;flex-direction:column;gap:14px;padding:22px;border:1.5px solid #1D1D1B;border-radius:22px;background:#fff;box-shadow:6px 6px 0 -1.5px #FFFFFF,6px 6px 0 0 #1D1D1B">
+<div style="display:flex;gap:14px;align-items:center"><span style="flex:none;width:56px;height:56px;border-radius:15px;border:1.5px dashed #1D1D1B;background:{{ stagePkg.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ stagePkg.icon }}" alt="" style="width:28px"></span><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;font-weight:800;letter-spacing:.04em;color:#5F5E5A">{{ stagePkg.kicker }}</span><span style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15">{{ stagePkg.name }}</span></span></div>
+<span style="font-size:16px;line-height:1.55">{{ stagePkg.desc }}</span>
+<div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1.5px dashed #1D1D1B">
+<sc-for list="{{ stagePkg.points }}" as="pt" hint-placeholder-count="3"><span style="display:flex;gap:10px;font-size:14px;line-height:1.4"><span style="flex:none;font-weight:800">✓</span>{{ pt }}</span></sc-for>
+</div>
+<div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-end;padding-top:12px;border-top:1.5px dashed #1D1D1B"><span style="font-size:14px;line-height:1.45;color:#3A3936;max-width:280px"><b style="color:#1D1D1B">Cocok untuk:</b> {{ stagePkg.fit }}</span><span style="font-family:'Geist Mono',monospace;font-size:15px;font-weight:600;white-space:nowrap">{{ stagePkg.from }}</span></div>
+</div>
+</sc-if>
+<sc-if value="{{ stageFmt }}">
+<div style="width:100%;display:flex;flex-direction:column;gap:16px">
+<div style="position:relative;display:flex;align-items:flex-end;justify-content:center;gap:16px;height:226px;border-bottom:1.5px solid #1D1D1B;padding:0 0 12px 30px">
+<span style="position:absolute;left:0;top:0;bottom:12px;border-left:1.5px dashed #1D1D1B"></span><span style="position:absolute;left:8px;top:2px;font-family:'Geist Mono',monospace;font-size:12px">15 cm</span>
+<sc-for list="{{ fmtCmp }}" as="c" hint-placeholder-count="3"><div data-slide="1" style="opacity:{{ c.op }};transition:opacity 200ms"><dc-import name="Print Preview" fmt="{{ c.k }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="0.6" rot="0deg" hint-size="132px,198px"></dc-import></div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
+<sc-for list="{{ fmtCmp }}" as="c" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:4px;opacity:{{ c.op }};transition:opacity 200ms"><span style="font-size:15px;font-weight:800">{{ c.label }}</span><span style="font-family:'Geist Mono',monospace;font-size:12px">{{ c.size }}</span><span style="font-size:13px;line-height:1.45;color:#3A3936">{{ c.d }}</span></div></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ stageTitle }}">
+<div style="display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:12px">
+<div data-bump="1"><dc-import name="Print Preview" fmt="{{ pvTitleFmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="1" rot="-2deg" hint-size="257px,330px"></dc-import></div>
+<div style="display:flex;border:1.5px solid #1D1D1B;border-radius:12px;overflow:hidden;height:40px;background:rgba(255,255,255,.5)">
+<sc-for list="{{ pvTabsD }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="width:104px;border:0;border-left:{{ t.bl }};background:{{ t.bg }};font-size:13px;font-weight:800;cursor:pointer">{{ t.label }}</button></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ stageDesign }}">
+<div style="width:100%;display:flex;flex-direction:column;gap:14px">
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+<sc-for list="{{ themesD }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.onClick }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px 8px;border:1.5px solid #1D1D1B;border-radius:16px;background:{{ t.bg }};box-shadow:{{ t.sh }};cursor:pointer;transition:background 150ms"><dc-import name="Print Preview" fmt="{{ pvTitleFmt }}" theme="{{ t.k }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" zoom="0.38" rot="0deg" hint-size="98px,125px"></dc-import><span style="font-size:13px;font-weight:800">{{ t.label }}</span></button></sc-for>
+</div>
+<span style="display:flex;gap:8px;align-items:center;justify-content:center;font-size:13px;font-weight:700"><img src="https://unpkg.com/lucide-static@0.460.0/icons/lock-keyhole.svg" alt="" style="width:16px">Contoh katalog. Pilihan final setelah DP.</span>
+</div>
+</sc-if>
+<sc-if value="{{ stageDash }}">
+<div data-pop="1" style="width:100%;border:1.5px solid #1D1D1B;border-radius:22px;background:#fff;overflow:hidden;box-shadow:6px 6px 0 -1.5px #FFFFFF,6px 6px 0 0 #1D1D1B">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#FCE3C6;border-bottom:1.5px solid #1D1D1B"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;font-weight:800;letter-spacing:.06em">DASHBOARD BOOKING</span><span style="font-size:20px;font-weight:800;letter-spacing:-.02em">{{ sv.dashTitle }}</span></span><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:4px 10px;border:1.5px solid #1D1D1B;border-radius:999px;background:#fff;white-space:nowrap">{{ sv.dashCountdown }}</span></div>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px">
+<sc-for list="{{ sv.dashTiles }}" as="t" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:14px;padding:14px;border:1.5px solid #1D1D1B;border-radius:14px;background:{{ t.bg }};min-height:104px"><span style="display:flex;justify-content:space-between;align-items:center"><span style="width:34px;height:34px;border-radius:10px;border:1.5px dashed #1D1D1B;background:#fff;display:flex;align-items:center;justify-content:center"><img src="{{ t.icon }}" alt="" style="width:17px"></span><span style="font-size:11px;font-weight:800;padding:2px 8px;border:1.5px solid #1D1D1B;border-radius:999px;background:#fff">{{ t.badge }}</span></span><span style="font-size:15px;font-weight:800">{{ t.t }}</span></div></sc-for>
+</div>
+<div style="display:flex;gap:10px;align-items:center;margin:0 14px 14px;padding:12px 14px;border:1.5px dashed #1D1D1B;border-radius:12px;font-size:13px"><span style="width:10px;height:10px;border-radius:5px;background:#5DB978;border:1.5px solid #1D1D1B"></span>Status: Draf · tanggal terkunci setelah DP</div>
+</div>
+</sc-if>
+<sc-if value="{{ stageTicket }}">
+<div data-pop="1" style="width:100%;border:1.5px solid #1D1D1B;border-radius:22px;background:#fff;box-shadow:6px 6px 0 -1.5px #FFFFFF,6px 6px 0 0 #1D1D1B;overflow:hidden">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:16px 22px;background:#F8D98B;border-bottom:1.5px solid #1D1D1B"><span style="font-size:13px;font-weight:800;letter-spacing:.06em">TIKET BOOKING</span><span style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;padding:3px 8px;border:1.5px solid #1D1D1B;border-radius:999px;background:#fff">DRAF</span></div>
+<div style="padding:8px 22px 12px;display:flex;flex-direction:column">
+<sc-for list="{{ ticket }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:12px;align-items:center;padding:9px 0"><img src="{{ r.icon }}" alt="" style="width:18px;flex:none;opacity:.8"><span style="width:70px;flex:none;font-size:13px;color:#5F5E5A">{{ r.k }}</span><span style="flex:1;min-width:0;font-size:14px;font-weight:700">{{ r.v }}</span></div></sc-for>
+</div>
+<div style="position:relative;height:0;border-top:1.5px dashed #1D1D1B"><span style="position:absolute;left:-12px;top:-12px;width:22px;height:22px;border-radius:11px;background:#D6F1EA;border:1.5px solid #1D1D1B"></span><span style="position:absolute;right:-12px;top:-12px;width:22px;height:22px;border-radius:11px;background:#D6F1EA;border:1.5px solid #1D1D1B"></span></div>
+<div style="padding:14px 22px 18px;display:flex;flex-direction:column">
+<span style="font-size:12px;font-weight:800;letter-spacing:.06em;color:#5F5E5A;padding-bottom:4px">PEMESAN</span>
+<sc-for list="{{ tContact }}" as="r" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:center;padding:8px 0"><span style="width:20px;height:20px;flex:none;border-radius:10px;border:1.5px solid {{ r.ring }};background:{{ r.dot }};color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ r.mark }}</span><span style="width:74px;flex:none;font-size:13px;color:#5F5E5A">{{ r.k }}</span><span style="flex:1;min-width:0;font-size:15px;font-weight:700;color:{{ r.c }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.v }}</span></div></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ stageAdd }}">
+<div data-pop="1" style="width:100%;display:flex;flex-direction:column;gap:14px;padding:22px;border:1.5px solid #1D1D1B;border-radius:22px;background:#fff;box-shadow:6px 6px 0 -1.5px #FFFFFF,6px 6px 0 0 #1D1D1B">
+<div style="display:flex;gap:14px;align-items:center"><span style="flex:none;width:56px;height:56px;border-radius:15px;border:1.5px dashed #1D1D1B;background:{{ stageAdd.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ stageAdd.icon }}" alt="" style="width:28px"></span><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:12px;font-weight:800;letter-spacing:.04em;color:#5F5E5A">APA INI?</span><span style="font-size:24px;font-weight:800;letter-spacing:-.02em">{{ stageAdd.name }}</span></span></div>
+<span style="font-size:16px;line-height:1.55">{{ stageAdd.desc }}</span>
+<span style="font-family:'Geist Mono',monospace;font-size:15px;font-weight:600;padding-top:12px;border-top:1.5px dashed #1D1D1B">{{ stageAdd.priceLine }}</span>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ hasTotal }}"><div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border:1.5px solid #1D1D1B;border-radius:16px;background:#fff;box-shadow:4px 4px 0 -1.5px #FFFFFF,4px 4px 0 0 #1D1D1B"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;color:#5F5E5A">Total</span><span style="font-family:'Geist Mono',monospace;font-size:24px;font-weight:600;letter-spacing:-.02em">{{ totalShown }}</span></span><span style="display:flex;flex-direction:column;gap:2px;text-align:right"><span style="font-size:12px;font-weight:700;color:#5F5E5A">DP minimal</span><span style="font-family:'Geist Mono',monospace;font-size:16px;font-weight:600">{{ dpStr }}</span></span></div></sc-if>
+</div>
+<div style="position:relative;min-height:0">
+<div style="position:absolute;top:40px;bottom:0;left:0;right:0;margin:0 auto;width:540px"><dc-import name="Langkah Booking" v="{{ sv }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDone }}">
+<div style="flex:1;min-height:0;display:grid;grid-template-columns:600px minmax(0,1fr)">
+<div style="position:relative;overflow:hidden;border-right:1.5px solid #1D1D1B;background:#D6F1EA">
+<img src="assets/logo/tetra-putih.png" alt="tetra" style="position:absolute;left:56px;top:28px;height:24px;filter:invert(1);z-index:3">
+<div style="position:absolute;left:90px;right:90px;top:130px;height:20px;border-radius:10px;background:#1D1D1B;z-index:2"></div>
+<div style="position:absolute;left:0;right:0;top:140px;bottom:0;overflow:hidden;display:flex;justify-content:center"><div data-emerge="1"><dc-import name="Print Preview" fmt="{{ pv.fmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="1.35" rot="0deg" hint-size="347px,445px"></dc-import></div></div>
+</div>
+<div data-anim="1" style="padding:0 110px;display:flex;flex-direction:column;justify-content:center;gap:24px">
+<div style="display:flex;align-items:center;gap:14px"><span data-pop="1" style="flex:none;width:52px;height:52px;border-radius:26px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span><h2 style="margin:0;font-size:48px;font-weight:800;letter-spacing:-.045em">Booking terkirim!</h2></div>
+<div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1.5px solid #1D1D1B;border-radius:16px;background:#FCE3C6;font-size:15px;line-height:1.5;max-width:520px"><img src="https://unpkg.com/lucide-static@0.460.0/icons/lock-open.svg" alt="" style="width:20px;flex:none;margin-top:2px"><span>Kode <span style="font-family:'Geist Mono',monospace;font-weight:600">{{ code }}</span>. Status masih <b>draf</b>, jadi <b>tanggalmu belum terkunci</b>. Tanggal terkunci setelah DP dibayar.</span></div>
+<div style="display:flex;flex-direction:column;max-width:520px">
+<sc-for list="{{ nextSteps }}" as="n" hint-placeholder-count="3">
+<div style="display:flex;gap:16px">
+<div style="display:flex;flex-direction:column;align-items:center;flex:none"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ n.bg }};color:{{ n.fg }};font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ n.n }}</span><sc-if value="{{ n.line }}"><span style="flex:1;border-left:1.5px dashed #1D1D1B;min-height:14px"></span></sc-if></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:5px 0 14px"><span style="font-size:16px;font-weight:800">{{ n.t }}</span><span style="font-size:14px;color:#3A3936">{{ n.s }}</span></div>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:24px;align-items:center">
+<button onClick="{{ toPortal }}" style="flex:none;white-space:nowrap;height:58px;padding:0 30px;border:1.5px solid #1D1D1B;border-radius:16px;background:#F8D98B;box-shadow:5px 5px 0 -1.5px #F8F7F4,5px 5px 0 0 #1D1D1B;font-size:17px;font-weight:800;cursor:pointer" style-active="transform:translate(5px,5px);box-shadow:0 0 0 0 #1D1D1B">Lengkapi data booking</button>
+<a href="#" style="font-size:15px">Chat admin di WhatsApp</a>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPortal }}">
+<div style="flex:1;min-height:0;display:grid;grid-template-columns:600px minmax(0,1fr)">
+<div style="background:#FCE3C6;border-right:1.5px solid #1D1D1B;display:flex;flex-direction:column;padding:28px 56px 36px;min-height:0">
+<div style="display:flex;align-items:center;justify-content:space-between"><img src="assets/logo/tetra-putih.png" alt="tetra" style="height:24px;filter:invert(1)"><a href="#" style="font-size:14px">Chat admin</a></div>
+<div data-anim="1" style="display:flex;flex-direction:column;gap:12px;margin-top:48px">
+<span style="font-family:'Geist Mono',monospace;font-size:13px">{{ code }}</span>
+<h2 style="margin:0;font-size:44px;line-height:1.05;font-weight:800;letter-spacing:-.04em">{{ portalTitle }}</h2>
+<span style="align-self:flex-start;height:32px;padding:0 12px;border:1.5px solid #1D1D1B;border-radius:999px;background:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;white-space:nowrap">{{ statusLabel }}</span>
+</div>
+<div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center"><dc-import name="Print Preview" fmt="{{ pv.fmt }}" title="{{ pv.title }}" date="{{ pv.date }}" kicker="{{ pv.kicker }}" theme="{{ pv.theme }}" zoom="0.72" rot="3deg" hint-size="185px,238px"></dc-import></div>
+<div style="border:1.5px solid #1D1D1B;border-radius:16px;background:#fff;overflow:hidden">
+<sc-for list="{{ portalRows }}" as="r" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;gap:16px;padding:10px 16px;border-bottom:1.5px dashed #D6D3CC;font-size:14px"><span style="color:#5F5E5A">{{ r.k }}</span><span style="font-weight:700;text-align:right">{{ r.v }}</span></div></sc-for>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#FCE3C6"><span style="font-size:14px;font-weight:800">Total</span><span style="font-family:'Geist Mono',monospace;font-size:18px;font-weight:600">{{ totalShown }}</span></div>
+</div>
+</div>
+<div style="position:relative;min-height:0">
+<div style="position:absolute;top:24px;bottom:0;left:0;right:0;margin:0 auto;width:540px"><dc-import name="Langkah Booking" v="{{ sv }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></div>
+</div>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;offline&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Status&quot;},&quot;returning&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Status&quot;},&quot;dpFlat&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:500000,&quot;min&quot;:100000,&quot;max&quot;:5000000,&quot;step&quot;:50000,&quot;unit&quot;:&quot;Rp&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Harga&quot;}}">
+const L=n=>`https://unpkg.com/lucide-static@0.460.0/icons/${n}.svg`;
+const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MON3=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const DAY3=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+const TODAY=new Date(2026,9,7);
+const LS='tetra-booking-proto-v4';
+const EVENTS=[
+ {id:'wed',label:'Wedding',icon:L('heart'),tint:'#FCE3C6',ph:'Rina & Dimas',kicker:'THE WEDDING OF'},
+ {id:'eng',label:'Engagement',icon:L('gem'),tint:'#CEC8F6',ph:'Rina & Dimas',kicker:'ENGAGEMENT OF'},
+ {id:'bday',label:'Ulang tahun / Sweet 17',icon:L('cake'),tint:'#D6EEF8',ph:'Sweet 17 Karina',kicker:''},
+ {id:'corp',label:'Corporate / Gathering',icon:L('briefcase'),tint:'#D6F1EA',ph:'Gathering PT ABC',kicker:''},
+ {id:'grad',label:'Wisuda / Kampus',icon:L('graduation-cap'),tint:'#FCE3C6',ph:'Wisuda Angkatan 2026',kicker:''},
+ {id:'other',label:'Lainnya',icon:L('sparkles'),tint:'#CEC8F6',ph:'Nama acaramu',kicker:''}
+];
+const REC={wed:['pspb','Cocok untuk wedding'],eng:['pb','Cocok untuk engagement'],corp:['v360','Cocok untuk acara kantor'],bday:['mbpb','Cocok untuk ulang tahun'],grad:['pb','Cocok untuk wisuda'],other:['pb','Paling laris']};
+const PKGS=[
+ {id:'pb',desc:"Tamu berfoto di booth, hasilnya langsung tercetak dan bisa dibawa pulang. Cetak tanpa batas selama acara.",fit:"semua jenis acara, terutama yang tamunya banyak",name:'Photobooth Cetak',icon:L('printer'),prices:{2:2e6,3:2.5e6,4:3e6,5:3.5e6,6:4e6,8:5e6},points:['Cetak unlimited selama acara','Frame custom sesuai tema','QR soft file untuk tamu'],tint:'#FCE3C6',fmt:'4r',hasFmt:true},
+ {id:'pspb',desc:"Dua layanan dalam satu paket: Photo Stage untuk foto di pelaminan, plus Photobooth Cetak untuk tamu.",fit:"wedding yang mau foto pelaminan dan photobooth sekaligus",name:'Photo Stage + Photobooth',icon:L('layers'),prices:{2:4e6,3:4.5e6},points:['Photo Stage untuk foto di pelaminan','Photobooth Cetak, cetak unlimited','Frame custom dan QR soft file'],tint:'#CEC8F6',fmt:'strip',hasFmt:true},
+ {id:'v360',desc:"Tamu berdiri di atas platform, kamera berputar mengelilingi mereka. Hasilnya video pendek yang siap dibagikan ke media sosial.",fit:"acara kantor, launching, dan pesta yang ingin konten video",name:'Video 360°',icon:L('rotate-3d'),prices:{2:2.5e6,3:3e6,4:3.5e6,5:4e6,6:4.5e6,8:5.5e6},points:['Video berputar 360° untuk tamu'],tint:'#D6EEF8',fmt:'polaroid'},
+ {id:'mbpb',desc:"Magazine Box ditambah Photobooth Cetak. Tamu bisa berfoto dengan properti sampul majalah, lalu mencetak hasil photobooth.",fit:"ulang tahun dan sweet 17 yang ingin dua jenis spot foto",name:'Magazine Box + Photobooth',icon:L('book-open'),prices:{3:5.5e6,5:6e6,8:7e6},points:['Magazine Box','Photobooth Cetak, cetak unlimited','Frame custom dan QR soft file'],tint:'#D6F1EA',fmt:'4r',hasFmt:true},
+ {id:'mb',desc:"Properti berbentuk sampul majalah ukuran besar. Tamu berfoto seolah menjadi cover majalah.",fit:"pesta yang ingin spot foto tematik sepanjang acara",name:'Magazine Box',icon:L('newspaper'),prices:{8:2.5e6},points:['Magazine Box selama 8 jam'],tint:'#D6EEF8',fmt:'polaroid'},
+ {id:'ps',desc:"Sesi foto di pelaminan bersama keluarga dan tamu, tanpa booth cetak.",fit:"wedding yang sudah punya photobooth atau hanya butuh foto pelaminan",name:'Photo Stage (foto pelaminan)',icon:L('camera'),prices:{2:1.5e6,3:2e6},points:['Foto keluarga dan tamu di pelaminan'],tint:'#FCE3C6',fmt:'4r'}
+];
+const ADDS=[
+ {id:'dur',desc:"Menambah jam di luar durasi paket. Dihitung per jam, bisa lebih dari satu.",name:'Tambah durasi',unit:'jam',price:5e5,icon:L('timer'),tint:'#FCE3C6',benefit:'Booth tetap jalan kalau acara molor.'},
+ {id:'mag',desc:"Cetakan diberi lapisan magnet di belakang, jadi bisa ditempel di kulkas. Satu paket untuk 50 cetakan.",name:'Photomagnet',unit:'50 cetak',price:65e4,icon:L('magnet'),tint:'#D6EEF8',benefit:'Cetakan jadi magnet untuk dibawa pulang.'},
+ {id:'slv',desc:"Sampul kertas untuk setiap cetakan, dicetak dengan desain acaramu. Isi 1.000 lembar.",name:'Custom sleeve',unit:'1.000 lembar',price:15e5,icon:L('image'),tint:'#CEC8F6',benefit:'Sampul cetakan dengan desain acaramu.'},
+ {id:'gb',desc:"Buku tamu tempat tamu menempel cetakan foto dan menulis ucapan. Isi 25 lembar.",name:'Guest book foto',unit:'25 lembar',price:2e5,icon:L('book-heart'),tint:'#D6F1EA',benefit:'Tamu menempel foto dan menulis ucapan.'},
+ {id:'alb',desc:"Album khusus untuk menyimpan strip foto. Isi 20 halaman.",name:'Album photostrip',unit:'20 halaman',price:1e5,icon:L('book-image'),tint:'#FCE3C6',benefit:'Simpan strip tamu dalam satu album.'},
+ {id:'brk',desc:"Booth berhenti sementara, misalnya saat makan atau ibadah, lalu lanjut lagi. Dihitung per jam.",name:'Break time',unit:'jam',price:15e4,icon:L('coffee'),tint:'#D6EEF8',benefit:'Jeda booth saat sesi makan atau ibadah.'},
+ {id:'vch',desc:"Voucher fisik yang bisa dibagikan ke tamu. Isi 100 pcs.",name:'Voucher photobooth',unit:'100 pcs',price:25e3,icon:L('ticket'),tint:'#CEC8F6',benefit:'Voucher fisik untuk dibagikan ke tamu.'}
+];
+const FMTS=[['strip','Strip 2R'],['4r','4R'],['polaroid','Polaroid']];
+const FMTD={strip:['5 × 15 cm','Strip panjang berisi 3 pose. Gaya photobooth klasik, pas disimpan di dompet.'],'4r':['10 × 15 cm','Ukuran foto standar. Muat 1–2 foto dengan ruang desain frame lebih luas.'],polaroid:['bingkai polaroid','Satu foto dengan bingkai putih lebar di bawah, gaya kamera instan.']};
+const THEMES=[['klasik','Klasik'],['garden','Garden'],['butter','Butter'],['lavender','Lavender'],['sky','Sky'],['peach','Peach']];
+const BD_COLORS=[['red','Red','#B3262E'],['white','White','#FFFFFF'],['gold','Gold','#C9A24A'],['silver','Silver','#BFC2C6'],['emerald','Emerald Green','#1E7A57'],['blue','Blue','#1F4E9E']];
+const BACKDROPS=[['tetra','Backdrop kain Tetra','Gratis. Pilih 1 dari 6 warna, tim kami yang pasang.','sparkles','#CEC8F6'],['client','Dari klien / dekorasi venue','Kamu atau dekorator yang menyiapkan.','house','#FCE3C6'],['later','Belum tahu','Bisa diputuskan nanti bersama tim.','clock','#D6EEF8']];
+const TIMES=['09:00','11:00','13:00','15:00','17:00','18:00','19:00'];
+const PLACES=[['Gedung Kirana','Jl. Pajajaran, Kota Bogor'],['Bogor Convention Center','Kota Bogor, Jawa Barat'],['IPB International Convention Center','Baranangsiang, Kota Bogor'],['Royal Tulip Gunung Geulis','Gadog, Kab. Bogor'],['Balai Kartini','Kuningan, Jakarta Selatan'],['JW Marriott Hotel Jakarta','Mega Kuningan, Jakarta Selatan']];
+const isMaps=s=>/(maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps)/i.test(s||'');
+const mapsQ=q=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q);
+const CITIES=['Bogor','Jakarta','Depok','Tangerang','Bekasi'];
+const GUESTS=['< 100','100–300','300–500','> 500'];
+const SEQ=['type','date','city','pkg','dur','fmt','backdrop','add','title','design','contact','otp','dash','review'];
+const PHASE={type:0,date:0,time:0,city:0,pkg:1,dur:1,fmt:1,backdrop:1,add:2,title:3,design:3,contact:3,otp:3,wo:3,dash:3,review:3};
+const PHASES=['Acaramu','Paket','Tambahan','Data kamu'];
+const PCOL=['#CEC8F6','#FCE3C6','#D6EEF8','#D6F1EA'];
+const rp=n=>'Rp'+Math.round(n).toLocaleString('id-ID');
+const durs=p=>Object.keys(p.prices).map(Number);
+const isFull=(y,m,d)=>((d*31+(m+1)*17+y)%7===0);
+const isBusy=(dt,t)=>dt&&t&&t!=='unsure'&&((dt.d+parseInt(t))%5===0);
+const dig=v=>{let d=(v||'').replace(/\D/g,''); if(d.startsWith('62')) d=d.slice(2); if(d.startsWith('0')) d=d.slice(1); return d;};
+const waOk=v=>/^8\d{8,11}$/.test(dig(v));
+const waFmt=d=>d.replace(/^(\d{3})(\d{0,4})(\d{0,5}).*/,(m,a,b,c)=>[a,b,c].filter(Boolean).join(' '));
+const SEL='4px 4px 0 -1.5px #8EDCCB,4px 4px 0 0 #1D1D1B';
+const P0={eventName:'',ownerName:'',venue:'',ownerWa:'',addr:'',maps:'',picName:'',picWa:'',guests:null,note:''};
+const DEMO={calShut:true,event:'wed',date:{y:2026,m:11,d:12,full:false},cal:{y:2026,m:11},time:'16:00',city:'Bogor',venue:'Gedung Kirana',venueAddr:'Jl. Pajajaran, Kota Bogor',mapsUrl:'https://www.google.com/maps/search/?api=1&query=Gedung%20Kirana%20Bogor',pkg:'pspb',dur:3,units:1,fmt:'strip',backdrop:'tetra',adds:{gb:1},title:'Rina & Dimas',name:'Rina Maharani',wa:'812 3456 7890',waVerified:'81234567890',email:'rina@email.com',wo:'no'};
+const BLANK={screen:'intro',event:null,date:null,cal:{y:2026,m:9},time:null,city:'',pkg:null,dur:null,units:1,bdColor:null,calShut:false,venue:'',venueAddr:'',mapsUrl:'',mapsIn:'',placeQ:'',fromLink:false,pvAlt:null,theme:'klasik',manual:false,mH:16,mM:30,fmt:null,backdrop:null,addOpen:null,addFocus:null,adds:{},title:'',name:'',wa:'',waVerified:'',otp:'',otpState:'',otpT:0,email:'',wo:null,woName:'',woWa:'',consent:false,touched:{},editing:false,p:{...P0},rundown:[],open:null,file:null,fileErr:'',proofSent:false};
+const SAVE=['screen','event','date','cal','time','city','venue','venueAddr','mapsUrl','fromLink','pkg','dur','units','fmt','backdrop','bdColor','adds','title','name','wa','waVerified','email','wo','woName','woWa','consent','p','rundown'];
+
+class Component extends DCLogic {
+  state={...BLANK,dir:1,loading:false,sending:false,shown:0,resume:null,resumeOff:false,offlineLocal:false};
+  componentDidMount(){
+    this.rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches; this.frame='m';
+    try{const s=JSON.parse(localStorage.getItem(LS)||'null'); if(s&&SEQ.includes(s.screen)) this.setState({resume:s});}catch(e){}
+    setTimeout(()=>this.playIntro(),300);
+  }
+  componentWillUnmount(){clearInterval(this._otpI);}
+  componentDidUpdate(pp,ps){
+    const S=this.state;
+    if(ps.screen!==S.screen){
+      setTimeout(()=>{
+        document.querySelectorAll('[data-scroll]').forEach(el=>el.scrollTop=0);
+        if(!this.rm) document.querySelectorAll('[data-anim]').forEach(el=>el.animate([{opacity:0,transform:`translateX(${S.dir*16}px)`},{opacity:1,transform:'none'}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'}));
+        const fr=document.querySelector(`[data-frame="${this.frame}"]`); const inp=fr&&fr.querySelector('[data-auto]'); if(inp&&!inp.value) inp.focus({preventScroll:true});
+      },30);
+      if(S.screen==='intro') this.playIntro();
+      if(S.screen==='fmt'&&!this.rm) setTimeout(()=>document.querySelectorAll('[data-slide]').forEach((el,i)=>el.animate([{transform:'translateY(-30px)',opacity:0},{transform:'none',opacity:1}],{duration:420,delay:(i%3)*120,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'})),40);
+      if(S.screen==='done') this.playDone();
+    }
+    if(!this.rm){
+      const key=[S.event,S.date&&S.date.d,S.title,S.fmt,S.pkg].join('|');
+      if(this._pvKey&&key!==this._pvKey) document.querySelectorAll('[data-bump]').forEach(el=>el.animate([{transform:'scale(1)'},{transform:'scale(1.08) rotate(-2deg)'},{transform:'scale(1)'}],{duration:260,easing:'ease-out'}));
+      this._pvKey=key;
+      ['dateOk','dateFull','timeBusy','otp','wo'].forEach(()=>{});
+      if((S.date!==ps.date)||(S.time!==ps.time)||(S.otpState!==ps.otpState)||(S.wo!==ps.wo)) setTimeout(()=>document.querySelectorAll('[data-pop]').forEach(el=>{if(!el._p){el._p=1; el.animate([{transform:'scale(.92)',opacity:0},{transform:'scale(1.02)',opacity:1,offset:.7},{transform:'none'}],{duration:240});}}),10);
+    }
+    const t=this.total(); if(t!==this._tgt){this._tgt=t; this.tween(t);}
+    try{const o={}; SAVE.forEach(k=>o[k]=S[k]); localStorage.setItem(LS,JSON.stringify(o));}catch(e){}
+  }
+  tween(to){cancelAnimationFrame(this._raf); const from=this.state.shown; if(this.rm||!from){this.setState({shown:to});return;} const t0=performance.now();
+    const f=now=>{const k=Math.min(1,(now-t0)/280); this.setState({shown:Math.round(from+(to-from)*(1-Math.pow(1-k,3)))}); if(k<1) this._raf=requestAnimationFrame(f);}; this._raf=requestAnimationFrame(f);}
+  playIntro(){ if(this.rm) return; setTimeout(()=>document.querySelectorAll('[data-rise]').forEach(el=>{const i=+el.dataset.rise; el.animate([{transform:'translateY(40px)',opacity:0},{transform:'none',opacity:1}],{duration:560,delay:i*90,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});}),20); }
+  playDone(){ if(this.rm) return; setTimeout(()=>{document.querySelectorAll('[data-emerge]').forEach(el=>el.animate([{transform:'translateY(-102%)'},{transform:'none'}],{duration:600,delay:120,easing:'cubic-bezier(.3,.7,.2,1)',fill:'backwards'})); document.querySelectorAll('[data-pop]').forEach(el=>el.animate([{transform:'scale(.4)',opacity:0},{transform:'scale(1.08)',opacity:1,offset:.7},{transform:'none'}],{duration:320,delay:500,fill:'backwards'}));},30); }
+  pkgObj(){return PKGS.find(p=>p.id===this.state.pkg);}
+  addSum(){return ADDS.reduce((s,a)=>s+(this.state.adds[a.id]||0)*a.price,0);}
+  total(){const S=this.state,p=this.pkgObj(); return p&&S.dur&&p.prices[S.dur]?p.prices[S.dur]*S.units+this.addSum():0;}
+  dp(){const t=this.total(), f=this.props.dpFlat??500000; return Math.min(f,t);}
+  seq(){const S=this.state,p=this.pkgObj(); return SEQ.filter(s=>(s!=='fmt'||!p||p.hasFmt)&&(s!=='backdrop'||!p||!p.hasFmt)&&(s!=='otp'||S.waVerified!==dig(S.wa)||S.screen==='otp'));}
+  go(screen,dir=1){const x={}; if(screen==='date'&&this.state.date&&!this.state.date.full) x.calShut=true; if(screen==='pkg'&&!this._loaded){this._loaded=true; x.loading=true; setTimeout(()=>this.setState({loading:false}),600);} if(screen==='otp') this.startOtp(); this.setState({screen,dir,...x});}
+  startOtp(expired){clearInterval(this._otpI); this.setState({otp:'',otpState:expired?'expired':'',otpT:expired?0:45}); if(expired) return; this._otpI=setInterval(()=>{const t=this.state.otpT-1; if(t<=0){clearInterval(this._otpI); this.setState({otpT:0});} else this.setState({otpT:t});},1000);}
+  next(){
+    const S=this.state,p=this.pkgObj();
+    if(S.editing){
+      if(S.screen==='pkg') return this.go('dur');
+      if(S.screen==='dur'&&p&&p.hasFmt&&!S.fmt) return this.go('fmt');
+      if(S.screen==='contact'&&S.waVerified!==dig(S.wa)) return this.go('otp');
+      
+      this.setState({editing:false}); return this.go('review');
+    }
+    const q=this.seq(); const i=q.indexOf(S.screen); this.go(q[i+1]||'review');
+  }
+  back(){
+    const S=this.state;
+    if(S.editing){this.setState({editing:false}); return this.go('review',-1);}
+    const q=this.seq().filter(s=>s!=='otp'||S.screen==='otp'); const i=q.indexOf(S.screen); if(i<=0) return this.go('intro',-1); this.go(q[i-1],-1);
+  }
+  pick(patch,adv=true){this.setState(patch); clearTimeout(this._adv); if(adv) this._adv=setTimeout(()=>this.next(),240);}
+  valid(){const S=this.state; return {title:S.title.trim().length>=2,name:S.name.trim().length>=2,wa:waOk(S.wa),email:!S.email.trim()||/^\S+@\S+\.\S+$/.test(S.email.trim()),woName:S.woName.trim().length>=2,woWa:waOk(S.woWa)};}
+  bar(){
+    const S=this.state, p=this.pkgObj(), hide={show:false}, on=l=>({show:true,on:true,label:S.editing?'Simpan':l}), off=l=>({show:true,on:false,label:l});
+    if(this.props.offline||S.offlineLocal) return off('Menunggu koneksi…');
+    const v=this.valid();
+    switch(S.screen){
+      case 'type': return S.event?on('Lanjut'):hide;
+      case 'date': return !S.date?off('Pilih tanggal dulu'):S.date.full?off('Tanggal penuh, pilih yang lain'):!S.time?off('Pilih jam mulai'):isBusy(S.date,S.time)?off('Jam ini penuh, pilih yang lain'):on('Lanjut');
+      case 'time': return !S.time?hide:isBusy(S.date,S.time)?off('Jam ini penuh, pilih yang lain'):on('Lanjut');
+      case 'city': return S.city.trim().length>=3?on('Lanjut'):off('Isi kota dulu');
+      case 'pkg': return S.pkg?on('Lanjut pilih durasi'):hide;
+      case 'backdrop': return !S.backdrop?hide:S.backdrop==='tetra'&&!S.bdColor?off('Pilih warna backdrop'):on('Lanjut');
+      case 'dur': return S.dur&&p?on(`Lanjut · ${rp(p.prices[S.dur]*S.units)}`):off('Pilih durasi dulu');
+      case 'fmt': return !S.fmt?off('Pilih format cetak'):!S.backdrop?off('Pilih backdrop'):S.backdrop==='tetra'&&!S.bdColor?off('Pilih warna backdrop'):on('Lanjut');
+      case 'add': {const a=this.addSum(); return on(a?`Lanjut · +${rp(a)}`:'Lewati');}
+      case 'title': return v.title?on('Lanjut'):off('Isi nama di cetakan dulu');
+      case 'contact': return !v.name?off('Isi nama kamu dulu'):!v.wa?off('Isi nomor WhatsApp dulu'):!v.email?off('Cek lagi format email'):S.wo==='yes'&&!(v.woName&&v.woWa)?off('Lengkapi data WO dulu'):S.waVerified===dig(S.wa)?on('Lanjut'):on('Kirim kode verifikasi');
+      case 'otp': return S.otpState==='ok'?on('Lanjut'):off('Masukkan kode dulu');
+      case 'wo': return S.wo==='yes'?(v.woName&&v.woWa?on('Lanjut'):off('Lengkapi data WO dulu')):on(S.wo?'Lanjut':'Lewati');
+      case 'design': return on('Oke, lanjut');
+      case 'dash': return on('Lanjut ke ringkasan');
+      case 'review': return S.sending?off('Mengirim…'):{show:true,on:true,label:'Kirim booking'};
+    }
+    return hide;
+  }
+  barGo(){
+    const S=this.state;
+    if(S.screen==='review'){this.setState({sending:true}); return setTimeout(()=>this.setState(s=>({sending:false,screen:'done',dir:1,p:{...s.p,eventName:s.p.eventName||s.title,ownerName:s.p.ownerName||s.name,venue:s.p.venue||s.venue,maps:s.p.maps||s.mapsUrl}})),900);}
+    if(S.screen==='contact') this.setState({wa:waFmt(dig(S.wa))});
+    this.next();
+  }
+  demo(k){
+    const base={...BLANK,...DEMO,resume:null,resumeOff:true,loading:false,sending:false};
+    clearInterval(this._otpI);
+    if(k==='intro') return this.setState({screen:'intro',dir:-1,resumeOff:true});
+    if(k==='type') return this.setState({...base,screen:'type',dir:1});
+    if(['pkg','add','title','review','done'].includes(k)){this._loaded=true; return this.setState({...base,screen:k,dir:1});}
+    if(k==='portal') return this.setState({...base,screen:'portal',p:{...P0,eventName:'Rina & Dimas',ownerName:'Rina Maharani'},dir:1});
+    if(k==='full'){let d=1; while(!isFull(2026,11,d)) d++; return this.setState({...base,time:null,screen:'date',date:{y:2026,m:11,d,full:true}});}
+    if(k==='busy') return this.setState({...base,screen:'date',time:'18:00',date:{y:2026,m:11,d:12,full:false}});
+    if(k==='err') return this.setState({...base,screen:'contact',wa:'812 34',waVerified:'',touched:{wa:1}});
+    if(k==='wrong'){this.setState({...base,screen:'otp',waVerified:''}); this.startOtp(); return setTimeout(()=>this.setState({otp:'123400',otpState:'wrong'}),50);}
+    if(k==='exp'){this.setState({...base,screen:'otp',waVerified:''}); return this.startOtp(true);}
+    if(k==='load'){this._loaded=true; this.setState({...base,screen:'pkg',loading:true}); return setTimeout(()=>this.setState({loading:false}),1600);}
+    if(k==='off') return this.setState(s=>({offlineLocal:!s.offlineLocal}));
+    if(k==='ret') return this.setState({...BLANK,screen:'intro',resume:{...DEMO,screen:'pkg'},resumeOff:false,dir:-1});
+    if(k==='reset'){try{localStorage.removeItem(LS);}catch(e){} this._loaded=false; return this.setState({...BLANK,resume:null,resumeOff:true,offlineLocal:false,dir:-1});}
+  }
+  renderVals(){
+    const S=this.state, P=this.props;
+    const offline=!!(P.offline||S.offlineLocal);
+    const ev=EVENTS.find(e=>e.id===S.event), p=this.pkgObj(), total=this.total(), dp=this.dp();
+    const first=(S.name.trim().split(' ')[0])||'';
+    const dShort=S.date&&!S.date.full?`${DAY3[new Date(S.date.y,S.date.m,S.date.d).getDay()]}, ${S.date.d} ${MON3[S.date.m]} ${S.date.y}`:'';
+    const dLong=S.date?`${DAYS[new Date(S.date.y,S.date.m,S.date.d).getDay()]}, ${S.date.d} ${MONTHS[S.date.m]}`:'';
+    const opt=(sel,tint)=>({sel,bg:sel?'#D6F1EA':'#FFFFFF',sh:sel?SEL:'none',tint:tint||'#FFFFFF'});
+    const {y,m}=S.cal, lead=(new Date(y,m,1).getDay()+6)%7, nd=new Date(y,m+1,0).getDate(), cells=[];
+    for(let i=0;i<lead;i++) cells.push({label:'',vis:'hidden',bd:'0',bg:'transparent',fg:'#1D1D1B',td:'none',fw:500,cur:'default',onClick:null});
+    for(let d=1;d<=nd;d++){const past=new Date(y,m,d)<=TODAY, full=!past&&isFull(y,m,d), sel=S.date&&S.date.y===y&&S.date.m===m&&S.date.d===d;
+      cells.push({label:String(d),vis:'visible',bd:sel?'1.5px solid #1D1D1B':'1.5px solid transparent',bg:sel?(full?'#F7D5CC':'#8EDCCB'):'transparent',fg:past?'#C9C6BF':(full?'#9A9892':'#1D1D1B'),td:full?'line-through':'none',fw:sel?800:500,cur:past?'default':'pointer',onClick:past?null:()=>{this.setState({date:{y,m,d,full}}); if(!full) setTimeout(()=>this.setState({calShut:true}),500);}});}
+    const rec=REC[S.event||'other'], order=[rec[0],...PKGS.map(x=>x.id).filter(id=>id!==rec[0])];
+    const fmtCmp=FMTS.map(([k,l])=>({k,label:l,size:FMTD[k][0],d:FMTD[k][1],op:S.fmt&&S.fmt!=='later'&&S.fmt!==k?.4:1}));
+    const pfmt=p&&S.fmt&&S.fmt!=='later'?S.fmt:(p?p.fmt:'polaroid');
+    const pv={theme:S.theme,fmt:pfmt,title:S.title||(ev?ev.ph:'Nama acaramu'),date:S.date&&!S.date.full?`${S.date.d} ${MONTHS[S.date.m].toUpperCase()} ${S.date.y}`:'TANGGAL ACARAMU',kicker:ev?ev.kicker:''};
+    const v=this.valid(), T=S.touched, fld=(k,msg)=>{const err=T[k]&&!v[k]?msg:''; return {err,bc:err?'#E8836F':'#1D1D1B'};};
+    const setF=k=>e=>this.setState({[k]:e.target.value}), blur=k=>()=>this.setState(s=>{const o={touched:{...s.touched,[k]:1}}; if(k==='wa'){const d=dig(s.wa); if(d) o.wa=waFmt(d);} return o;});
+    const setP=k=>e=>{const val=e&&e.target?e.target.value:e; this.setState(s=>({p:{...s.p,[k]:val}}));};
+    const b=this.bar(), ph=PHASE[S.screen]??0;
+    const busy=isBusy(S.date,S.time);
+    const Q={type:['Hai! Acara apa yang mau kamu rayakan?',''],date:[ev?`${ev.label}! Kapan hari H-nya?`:'Kapan hari H-nya?','Pilih tanggal, lalu jam mulainya.'],time:['Jam berapa acaranya mulai?','Kami cek slot booth di jam itu.'],city:['Di mana acaranya?','Kota wajib. Venue dan link Maps boleh menyusul.'],
+      pkg:['Mau booth yang mana?','Ketuk paket untuk lihat penjelasannya.'],dur:[p?`Berapa jam ${p.name}?`:'Berapa jam?',''],fmt:['Hasil cetak & backdrop','Bandingkan ukurannya. Harga tidak berubah.'],backdrop:['Backdrop-nya pakai punya siapa?','Backdrop = latar di belakang booth.'],add:['Mau tambah sesuatu?','Opsional, boleh dilewati.'],
+      title:['Nama apa yang tercetak di frame?','Ini yang tercetak di frame foto.'],design:['Desain frame-nya kamu pilih nanti','Dari katalog template atau custom. Ketuk template untuk intip.'],dash:[first?`${first}, ini dashboard kamu nanti`:'Ini dashboard kamu nanti','Setelah kirim booking, semua diatur dari sini.'],contact:[first?`Hai ${first}! Tinggal data kontak`:'Kenalan dulu, ya','Sekali isi: nama, WhatsApp, email, dan info WO. Email & WO boleh dikosongkan.'],otp:['Cek WhatsApp kamu',`Kode 6 digit dikirim ke +62 ${waFmt(dig(S.wa))}.`],
+      wo:['Kamu memesan sebagai…','Opsional.'],review:[first?`Ini booking kamu, ${first}`:'Ini booking kamu','Ketuk baris mana saja untuk mengubah.']};
+    const qq=Q[S.screen]||['',''];
+    const edit=s=>()=>{this.setState({editing:true}); this.go(s,-1);};
+    const addTxt=ADDS.filter(a=>S.adds[a.id]).map(a=>a.name+(S.adds[a.id]>1?' ×'+S.adds[a.id]:'')).join(', ');
+    const fmtTxt=S.fmt==='later'?'Menyusul':(S.fmt?FMTS.find(f=>f[0]===S.fmt)[1]:'');
+    const review=[
+      {icon:ev?ev.icon:L('sparkles'),k:'Acara',v:ev?ev.label:'—',edit:edit('type')},
+      {icon:L('calendar'),k:'Tanggal & jam',v:[dShort||'—',S.time==='unsure'?'jam belum pasti':S.time].filter(Boolean).join(' · '),edit:edit('date')},
+      {icon:L('map-pin'),k:'Lokasi',v:[S.venue||'Venue menyusul',S.city].filter(Boolean).join(' · ')+(S.mapsUrl?' · Maps ✓':''),edit:edit('city')},
+      {icon:p?p.icon:L('package'),k:'Paket',v:p?`${p.name} · ${S.dur} jam${S.units>1?' · '+S.units+' booth':''}${p.hasFmt&&fmtTxt?' · '+fmtTxt:''}`:'—',edit:edit('pkg')},
+      {icon:L('image'),k:'Backdrop',v:S.backdrop?(S.backdrop==='tetra'?'Kain Tetra · '+(S.bdColor?BD_COLORS.find(c=>c[0]===S.bdColor)[1]:'warna belum dipilih'):BACKDROPS.find(b=>b[0]===S.backdrop)[1]):'—',edit:edit(p&&p.hasFmt?'fmt':'backdrop')},
+      {icon:L('circle-plus'),k:'Tambahan',v:addTxt||'Tidak ada',edit:edit('add')},
+      {icon:L('type'),k:'Nama di cetakan',v:S.title||'—',edit:edit('title')},
+      {icon:L('user'),k:'Pemesan',v:[S.name,S.wa&&('+62 '+S.wa+(S.waVerified===dig(S.wa)?' ✓':''))].filter(Boolean).join(' · ')||'—',edit:edit('contact')},
+      {icon:L('mail'),k:'Email',v:S.email||'Tidak diisi',edit:edit('contact')},
+      {icon:L('store'),k:'Lewat WO',v:S.wo==='yes'?`${S.woName} · klien +62 ${S.woWa}`:'Tidak',edit:edit('contact')}];
+    const gateDef=[['eventName','Nama acara','Nama acara'],['ownerName','Nama pemilik acara','Nama pemilik acara'],['venue','Nama tempat acara (venue)','Contoh: Gedung Kirana, Bogor']];
+    const gateCount=gateDef.filter(([k])=>S.p[k].trim().length>=2).length, gateOpen=gateCount===3;
+    const laterDef=[['ownerWa','WA pemilik acara',L('phone'),'#D6EEF8',S.p.ownerWa?'+62 '+S.p.ownerWa:'Kalau beda dari pemesan'],['addr','Alamat venue & Google Maps',L('map'),'#FCE3C6',S.p.addr||(S.p.maps?'Link Maps tersimpan':'Opsional')],['pic','PIC di hari H',L('user-check'),'#D6F1EA',S.p.picName?[S.p.picName,S.p.picWa].filter(Boolean).join(' · '):'Opsional'],['guests','Perkiraan jumlah tamu',L('users'),'#CEC8F6',S.p.guests?S.p.guests+' tamu':'Opsional'],['rundown','Rundown acara',L('list-ordered'),'#FCE3C6',S.rundown.length?S.rundown.length+' baris':'Opsional'],['note','Catatan untuk tim',L('message-square'),'#D6EEF8',S.p.note||'Opsional']];
+    const sv={
+      isType:S.screen==='type',isDate:S.screen==='date',isTime:S.screen==='time',isCity:S.screen==='city',isPkg:S.screen==='pkg',isDur:S.screen==='dur',isFmt:S.screen==='fmt',isAdd:S.screen==='add',isTitle:S.screen==='title',isContact:S.screen==='contact',isDesign:S.screen==='design',isDash:S.screen==='dash',
+      themes:THEMES.map(([k,l])=>({k,label:l,cardBg:S.theme===k?'#D6F1EA':'#FFFFFF',sh:S.theme===k?SEL:'none',onClick:()=>this.setState({theme:k})})),
+      dashTitle:S.title||'Booking kamu',dashCountdown:S.date&&!S.date.full?Math.round((new Date(S.date.y,S.date.m,S.date.d)-TODAY)/864e5)+' hari lagi':'H-?',
+      dashTiles:[{icon:L('palette'),badge:'Setelah DP',t:'Pilih desain frame',bg:'#CEC8F6'},{icon:L('list-checks'),badge:'0/3',t:'Lengkapi data',bg:'#FFFFFF'},{icon:L('wallet'),badge:'DP',t:'Pembayaran',bg:'#F8D98B'},{icon:L('images'),badge:'H+1',t:'Galeri foto acara',bg:'#D6EEF8'}],
+      dashList:[{icon:L('palette'),tint:'#CEC8F6',t:'Desain frame',s:'Pilih template atau ajukan desain custom, lalu setujui hasilnya.',badge:'Setelah DP',badgeBg:'#F8D98B'},{icon:L('list-checks'),tint:'#D6F1EA',t:'Lengkapi data acara',s:'Venue, PIC hari H, rundown. Isi bertahap, tersimpan otomatis.',badge:'Langsung',badgeBg:'#D6F1EA'},{icon:L('wallet'),tint:'#FCE3C6',t:'DP & pelunasan',s:'Lihat tagihan dan unggah bukti transfer.',badge:'Langsung',badgeBg:'#D6F1EA'},{icon:L('images'),tint:'#D6EEF8',t:'Galeri foto acara',s:'Semua foto booth bisa dilihat dan diunduh setelah acara.',badge:'Setelah acara',badgeBg:'#FFFFFF'}].map((r,i,a)=>({...r,bb:i<a.length-1?'1.5px dashed #D6D3CC':'0'})),isOtp:S.screen==='otp',isWo:S.screen==='wo',isReview:S.screen==='review',isPortal:S.screen==='portal',
+      events:EVENTS.map(e=>({...e,...opt(S.event===e.id,e.tint),onClick:()=>this.pick({event:e.id})})),
+      cells,calTitle:`${MONTHS[m]} ${y}`,prevOp:(y===2026&&m<=9)?.25:1,
+      prevM:()=>{if(y===2026&&m<=9) return; this.setState({cal:m?{y,m:m-1}:{y:y-1,m:11}});},nextM:()=>this.setState({cal:m===11?{y:y+1,m:0}:{y,m:m+1}}),
+      dateOk:!!S.date&&!S.date.full,dateFull:!!S.date&&S.date.full,dateLong:dLong,
+      times:TIMES.map(t=>({label:t,...opt(S.time===t),onClick:()=>this.setState({time:t})})),
+      timeUnsure:{...opt(S.time==='unsure'),onClick:()=>this.setState({time:'unsure'})},showTime:S.screen==='date'&&!!S.date&&!S.date.full,calClosed:!!S.calShut&&!!S.date&&!S.date.full,calOpen:!(S.calShut&&S.date&&!S.date.full),dateOkOpen:!!S.date&&!S.date.full&&!S.calShut,openCal:()=>this.setState({calShut:false}),datePb:S.date&&!S.date.full?'0':'140px',
+      showBackdrop:S.screen==='backdrop'||S.screen==='fmt',showWo:S.screen==='contact',
+      manualOpen:!!S.manual,manualClosed:!S.manual,openManual:()=>this.setState({manual:true}),closeManual:()=>this.setState({manual:false}),
+      mh:String(S.mH).padStart(2,'0'),mm:String(S.mM).padStart(2,'0'),manualVal:String(S.mH).padStart(2,'0')+':'+String(S.mM).padStart(2,'0'),
+      hDec:()=>this.setState({mH:(S.mH+23)%24}),hInc:()=>this.setState({mH:(S.mH+1)%24}),mDec:()=>this.setState({mM:(S.mM+45)%60}),mInc:()=>this.setState({mM:(S.mM+15)%60}),
+      useManual:()=>{const t=String(S.mH).padStart(2,'0')+':'+String(S.mM).padStart(2,'0'); this.setState({manual:false,time:t});},
+      manualHint:S.time&&S.time!=='unsure'&&!TIMES.includes(S.time)?S.time+' ✓':'Jam lain',manualBg:S.time&&S.time!=='unsure'&&!TIMES.includes(S.time)?'#D6F1EA':'transparent',timeBusy:busy,timeLabel:S.time||'',
+      city:S.city,onCity:setF('city'),
+      venue:S.venue,mapsUrl:S.mapsUrl,mapsIn:S.mapsIn||'',noMaps:!S.mapsUrl,hasMaps:!!S.mapsUrl,mapsErr:!!(S.mapsIn&&S.mapsIn.trim().length>6&&!isMaps(S.mapsIn)),
+      mapsSearch:mapsQ([S.venue,S.city].filter(Boolean).join(' ')||'venue'),mapsBtn:S.venue||S.city?'Cari "'+[S.venue,S.city].filter(Boolean).join(', ')+'" di Maps':'Cari di Google Maps',
+      onMapsIn:e=>{const val=e.target.value; if(isMaps(val)) this.setState({mapsUrl:val.trim(),mapsIn:''}); else this.setState({mapsIn:val});},
+      pasteDemo:()=>this.setState({mapsUrl:'https://maps.app.goo.gl/Xy7kQ2contoh',mapsIn:''}),clearMaps:()=>this.setState({mapsUrl:'',mapsIn:''}),
+      loc:(()=>{const st=ok=>({Dot:ok?'#5DB978':'#FFFFFF',Mark:ok?'✓':''}); const o={}; [['city',S.city.trim().length>=3],['venue',!!S.venue.trim()],['maps',!!S.mapsUrl]].forEach(([k,ok],i)=>{const x=st(ok); o[k+'Dot']=ok?'#5DB978':'#1D1D1B'; o[k+'Mark']=x.Mark||String(i+1);}); return o;})(),
+      onVenue:setF('venue'),clearVenue:()=>this.setState({venue:'',venueAddr:'',mapsUrl:'',fromLink:false,placeQ:''}),cities:CITIES.map(c=>({label:c,bg:S.city===c?'#8EDCCB':'#FFFFFF',onClick:()=>this.setState({city:c})})),
+      loading:S.loading,loaded:!S.loading,
+      pkgs:order.map((id,i)=>{const x=PKGS.find(z=>z.id===id), ds=durs(x); return {name:x.name,icon:x.icon,tag:i===0?rec[1]:'',from:`mulai ${rp(Math.min(...Object.values(x.prices)))} · ${ds.length>1?ds[0]+'–'+ds[ds.length-1]:ds[0]} jam`,...opt(S.pkg===id,x.tint),desc:x.desc,fit:x.fit,points:x.points,ring:S.pkg===id?'#1D1D1B':'#D6D3CC',dot:S.pkg===id?'#5DB978':'#FFFFFF',mark:S.pkg===id?'✓':'',onClick:()=>this.pick({pkg:id,dur:S.pkg===id?S.dur:null,fmt:S.pkg===id?S.fmt:null},false)};}),
+      pk:p||{name:'',points:[],icon:'',tint:'#fff'},
+      durs:p?durs(p).map(d=>({label:d+' jam',price:rp(p.prices[d]*S.units),...opt(S.dur===d),onClick:()=>this.setState({dur:d})})):[],
+      units:S.units,unitDec:()=>this.setState({units:Math.max(1,S.units-1)}),unitInc:()=>this.setState({units:Math.min(3,S.units+1)}),unitDecOp:S.units<=1?.3:1,unitIncOp:S.units>=3?.3:1,
+      fmts:FMTS.map(([k,l])=>({k,label:l,...opt(S.fmt===k),onClick:()=>this.setState({fmt:k})})),fmtUnsure:{...opt(S.fmt==='later'),onClick:()=>this.setState({fmt:'later'})},pv,
+      fmtCmp,fmtDesc:S.fmt&&FMTD[S.fmt]?{t:FMTS.find(f=>f[0]===S.fmt)[1]+' · '+FMTD[S.fmt][0],d:FMTD[S.fmt][1]}:null,
+      isBackdrop:S.screen==='backdrop',backdrops:BACKDROPS.map(([k,label,sub,ic,tint])=>({label,sub,icon:L(ic),...opt(S.backdrop===k,tint),onClick:()=>this.pick({backdrop:k},S.screen==='backdrop'&&k!=='tetra')})),
+      bdTetra:S.backdrop==='tetra',bdColorName:S.bdColor?BD_COLORS.find(c=>c[0]===S.bdColor)[1]:'Belum dipilih',
+      bdColors:BD_COLORS.map(([k,l,hex])=>({label:l,hex,ring:S.bdColor===k?'0 0 0 3px #F8F7F4,0 0 0 4.5px #1D1D1B':'none',mark:S.bdColor===k?'✓':'',mc:['white','silver','gold'].includes(k)?'#1D1D1B':'#FFFFFF',fw:S.bdColor===k?'800':'600',onClick:()=>this.setState({bdColor:k})})),
+      adds:ADDS.map(a=>{const n=S.adds[a.id]||0, set=x=>this.setState(s=>({adds:{...s.adds,[a.id]:Math.max(0,x)}})); return {...a,qty:n,zero:!n,some:!!n,bg:n?'#D6F1EA':'#FFFFFF',sh:n?SEL:'none',priceLine:`${rp(a.price)} / ${a.unit}`,open:S.addOpen===a.id,infoLabel:S.addOpen===a.id?'Tutup':'Apa ini?',info:()=>this.setState({addOpen:S.addOpen===a.id?null:a.id,addFocus:a.id}),hover:()=>{if(this.state.addFocus!==a.id) this.setState({addFocus:a.id});},inc:()=>{this.setState({addFocus:a.id}); set(n+1);},dec:()=>set(n-1)};}),
+      title:S.title,onTitle:setF('title'),blurTitle:blur('title'),fTitle:fld('title','Isi nama yang mau tercetak, ya.'),titlePh:ev?`Contoh: ${ev.ph}`:'Contoh: Rina & Dimas',
+      titleCount:S.title.length,pvTitleFmt:S.pvAlt||pfmt,
+      pvTabs:FMTS.map(([k,l],j)=>({label:l,bl:j?'1.5px solid #1D1D1B':'0',bg:(S.pvAlt||pfmt)===k?'#CEC8F6':'#FFFFFF',onClick:()=>this.setState({pvAlt:k})})),
+      printParts:[{n:'1',bg:'#F8D98B',t:'Nama acara',s:S.title?'“'+S.title+'”, dari isian ini.':'Dari isian di atas.'},{n:'2',bg:'#CEC8F6',t:'Tanggal',s:dShort?'Otomatis: '+dShort+'.':'Otomatis dari langkah Acaramu.'},{n:'3',bg:'#D6EEF8',t:'Desain frame',s:'Warna dan ornamen dibuat tim Tetra sesuai temamu.'}],
+      titleIdeas:(ev&&ev.id==='corp'?['Gathering PT ABC','Annual Meeting 2026']:ev&&ev.id==='bday'?['Sweet 17 Karina','Happy Birthday Alya']:['Rina & Dimas','The Wedding of R & D']).map(t=>({label:t,onClick:()=>this.setState({title:t})})),
+      name:S.name,onName:setF('name'),blurName:blur('name'),fName:fld('name','Nama belum diisi.'),
+      wa:S.wa,onWa:e=>this.setState({wa:e.target.value}),blurWa:blur('wa'),fWa:fld('wa','Nomor WhatsApp belum valid. Contoh: 812 3456 7890'),
+      otp:S.otp,otpBoxes:Array.from({length:6},(_,i)=>({ch:S.otp[i]||'',bc:S.otpState==='wrong'?'#E8836F':'#1D1D1B',ring:i===Math.min(S.otp.length,5)&&S.otpState!=='ok'?'0 0 0 3px #8EDCCB':'none'})),
+      onOtp:e=>{const c=e.target.value.replace(/\D/g,'').slice(0,6); if(this.state.otpState==='expired'){this.setState({otp:c}); return;} if(c.length<6){this.setState({otp:c,otpState:''}); return;} if(c==='123456'){clearInterval(this._otpI); this.setState({otp:c,otpState:'ok',waVerified:dig(this.state.wa)}); setTimeout(()=>{if(this.state.screen==='otp') this.next();},600);} else this.setState({otp:c,otpState:'wrong'});},
+      otpWrong:S.otpState==='wrong',otpExpired:S.otpState==='expired',otpOk:S.otpState==='ok',otpWait:S.otpT>0&&S.otpState!=='ok'&&S.otpState!=='expired',otpCanResend:S.otpT<=0&&S.otpState!=='ok'&&S.otpState!=='expired',otpTimer:'00:'+String(S.otpT).padStart(2,'0'),
+      resend:()=>this.startOtp(),editWa:()=>this.go('contact',-1),
+      c:(()=>{const vv=this.valid(), ver=S.waVerified&&S.waVerified===dig(S.wa); const st=(ok,lock,n)=>({Op:lock?.4:1,Lock:lock,Dot:ok?'#5DB978':(lock?'#FFFFFF':'#1D1D1B'),Fg:ok||!lock?'#FFFFFF':'#1D1D1B',Mark:ok?'✓':n});
+        const a=st(vv.name,false,'1'), b=st(vv.wa,!vv.name,'2'), c=st(!!S.email.trim()&&vv.email,!(vv.name&&vv.wa),'3'); const o={waVer:!!ver}; [['name',a],['wa',b],['email',c]].forEach(([k,x])=>Object.keys(x).forEach(z=>o[k+z]=x[z])); return o;})(),
+      email:S.email,onEmail:setF('email'),blurEmail:blur('email'),fEmail:fld('email','Format email belum benar. Contoh: nama@email.com'),
+      woOpts:[{k:'no',label:'Pemilik acara / keluarga',sub:'Aku sendiri yang punya acara.',icon:L('house'),tint:'#FCE3C6'},{k:'yes',label:'WO / vendor',sub:'Memesan untuk klien.',icon:L('store'),tint:'#CEC8F6'}].map(o=>({...o,...opt(S.wo===o.k,o.tint),onClick:()=>this.setState({wo:S.wo===o.k?null:o.k})})),
+      isWoYes:S.wo==='yes',woName:S.woName,onWoName:setF('woName'),woWa:S.woWa,onWoWa:setF('woWa'),
+      onEnter:e=>{if(e.key!=='Enter') return; e.preventDefault(); const fd=e.currentTarget.dataset.field, nx={name:'wa',wa:'email'}[fd]; if(nx){const el=e.currentTarget.closest('[data-frame]').querySelector(`[data-field="${nx}"]`); if(el){setTimeout(()=>el.focus(),30); this.setState(s=>({touched:{...s.touched,[fd]:1}})); return;}} const bb=this.bar(); if(bb.on) this.barGo(); else this.setState(s=>({touched:{...s.touched,[S.screen]:1}}));},
+      review,totalShown:rp(S.shown||total),dpStr:rp(dp),
+      consentBg:S.consent?'#5DB978':'#FFFFFF',consentMark:S.consent?'✓':'',toggleConsent:()=>this.setState({consent:!S.consent}),
+      gate:gateDef.map(([k,label,phd],i)=>{const ok=S.p[k].trim().length>=2; return {k:label,val:S.p[k],ph:phd,onChange:setP(k),ring:ok?'#1D1D1B':'#D6D3CC',dot:ok?'#5DB978':'#FFFFFF',mark:ok?'✓':'',bb:i<2?'1.5px dashed #D6D3CC':'0'};}),
+      gateCount,gateBg:gateOpen?'#D6F1EA':'#FFFFFF',gateLocked:!gateOpen,gateOpen,gateLeft:3-gateCount,
+      dpCardBg:gateOpen?'#FFFFFF':'#F8F7F4',dpCardSh:gateOpen?'4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B':'none',
+      noFile:!S.file&&!S.proofSent,hasFile:!!S.file&&!S.proofSent,fileName:S.file?S.file.name:'',fileSize:S.file?(S.file.size/1048576).toFixed(1)+' MB':'',fileErr:S.fileErr,
+      onFile:e=>{const f=e.target.files&&e.target.files[0]; if(!f) return; const ok=/\.(jpe?g|png|heic|pdf)$/i.test(f.name); if(!ok) return this.setState({fileErr:'Format belum didukung. Pakai JPG, PNG, HEIC, atau PDF.'}); if(f.size>10*1048576) return this.setState({fileErr:'File lebih dari 10 MB. Coba kompres dulu.'}); this.setState({file:{name:f.name,size:f.size},fileErr:''});},
+      clearFile:()=>this.setState({file:null}),canSend:!!S.file&&!S.proofSent,sendProof:()=>this.setState({proofSent:true}),proofSent:S.proofSent,
+      later:laterDef.map(([k,label,icon,tint,sub],i)=>({label,icon,tint,sub,subC:sub==='Opsional'||sub==='Kalau beda dari pemesan'?'#5F5E5A':'#1D1D1B',rot:S.open===k?'180deg':'0deg',bb:i<laterDef.length-1?'1.5px dashed #D6D3CC':'0',toggle:()=>this.setState({open:S.open===k?null:k}),
+        isOwnerWa:S.open==='ownerWa'&&k==='ownerWa',isAddr:S.open==='addr'&&k==='addr',isPic:S.open==='pic'&&k==='pic',isGuests:S.open==='guests'&&k==='guests',isRundown:S.open==='rundown'&&k==='rundown',isNote:S.open==='note'&&k==='note'})),
+      p:S.p,pf:{ownerWa:setP('ownerWa'),addr:setP('addr'),maps:setP('maps'),picName:setP('picName'),picWa:setP('picWa'),note:setP('note')},
+      guestChips:GUESTS.map(g=>({label:g,bg:S.p.guests===g?'#8EDCCB':'#FFFFFF',onClick:()=>this.setState(s=>({p:{...s.p,guests:s.p.guests===g?null:g}}))})),
+      rundown:S.rundown.map((r,i)=>({t:r.t,a:r.a,onT:e=>{const val=e.target.value; this.setState(s=>({rundown:s.rundown.map((x,j)=>j===i?{...x,t:val}:x)}));},onA:e=>{const val=e.target.value; this.setState(s=>({rundown:s.rundown.map((x,j)=>j===i?{...x,a:val}:x)}));},del:()=>this.setState(s=>({rundown:s.rundown.filter((_,j)=>j!==i)}))})),
+      addRow:()=>this.setState(s=>s.rundown.length>=30?null:{rundown:[...s.rundown,{t:'',a:''}]}),rowCount:S.rundown.length,
+      barShow:S.screen!=='portal'&&!!b.show,barOn:!!b.on,barOff:b.show&&!b.on,barLabel:b.label||'',barGo:()=>this.barGo(),skipShow:false,skipGo:()=>this.next()
+    };
+    const resume=!S.resumeOff&&(S.resume||(P.returning?{...DEMO,screen:'pkg'}:null));
+    let resumeObj=null; if(resume){const re=EVENTS.find(e=>e.id===resume.event), rk=PKGS.find(x=>x.id===resume.pkg), rd=resume.date; resumeObj={line:[re&&re.label,rd&&`${rd.d} ${MON3[rd.m]} ${rd.y}`,rk&&rk.name].filter(Boolean).join(' · ')||'Booking belum selesai'};}
+    const flowDefs=[['intro','Pembuka','3 contoh cetakan, 1 tombol',PCOL[0]],['type','Acaramu','Jenis → tanggal + jam → lokasi',PCOL[0]],['pkg','Paket','Paket → durasi + unit → format + backdrop',PCOL[1]],['add','Tambahan','Opsional',PCOL[2]],['title','Data kamu','Nama cetakan → intip desain → kontak + WO → kode WA → intip dashboard',PCOL[3]],['review','Cek & kirim','Semua bisa diubah · DP flat',PCOL[3]],['done','Sukses','Draf, tanggal belum terkunci','#D6F1EA'],['portal','Halaman booking','Lengkapi data → bayar DP','#FCE3C6']];
+    const cur=['intro','done','review','portal'].includes(S.screen)?S.screen:['type','pkg','add','title'][ph];
+    const stageBg=PCOL[ph];
+    const fp=p||PKGS.find(x=>x.id===rec[0]);
+    const stagePkg=['pkg','dur'].includes(S.screen)?{...fp,kicker:p?'PAKET PILIHANMU':'REKOMENDASI',from:'mulai '+rp(Math.min(...Object.values(fp.prices)))}:null;
+    const fa=ADDS.find(a=>a.id===S.addFocus)||ADDS[0];
+    const stageAdd=S.screen==='add'?{...fa,priceLine:rp(fa.price)+' / '+fa.unit}:null;
+    return {
+      stagePkg,stageAdd,stageFmt:S.screen==='fmt',stagePrint:!['pkg','dur','add','fmt','contact','otp','wo','title','design','dash'].includes(S.screen),stageDesign:S.screen==='design',stageDash:S.screen==='dash',themesD:THEMES.map(([k,l])=>({k,label:l,sh:S.theme===k?SEL:'none',bg:S.theme===k?'#FFFFFF':'transparent',onClick:()=>this.setState({theme:k})})),stageTitle:S.screen==='title',pvTitleFmt:S.pvAlt||pfmt,
+      pvTabsD:FMTS.map(([k,l],j)=>({label:l,bl:j?'1.5px solid #1D1D1B':'0',bg:(S.pvAlt||pfmt)===k?'#FFFFFF':'transparent',onClick:()=>this.setState({pvAlt:k})})),stageTicket:['contact','otp','wo'].includes(S.screen),
+      ticket:[{icon:ev?ev.icon:L('sparkles'),k:'Acara',v:[ev&&ev.label,S.title].filter(Boolean).join(' · ')||'—'},{icon:L('calendar'),k:'Tanggal',v:[dShort,S.time==='unsure'?'jam belum pasti':S.time].filter(Boolean).join(' · ')||'—'},{icon:p?p.icon:L('package'),k:'Paket',v:p?`${p.name} · ${S.dur||'—'} jam`:'—'}],
+      tContact:[{k:'Nama',v:S.name||'…',on:!!S.name,ok:v.name},{k:'WhatsApp',v:S.wa?'+62 '+S.wa:'…',on:!!S.wa,ok:!!(S.waVerified&&S.waVerified===dig(S.wa))},{k:'Email',v:S.email||'opsional',on:!!S.email,ok:!!S.email&&v.email},{k:'Lewat WO',v:S.wo==='yes'?(S.woName||'…'):S.wo==='no'?'Tidak':'—',on:!!S.wo,ok:S.wo==='no'||(S.wo==='yes'&&v.woName&&v.woWa)}].map(r=>({...r,c:r.on?'#1D1D1B':'#9A9892',mark:r.ok?'✓':'',dot:r.ok?'#5DB978':'#FFFFFF',ring:r.ok?'#1D1D1B':'#D6D3CC'})),fmtCmp,
+      offline,isIntro:S.screen==='intro',isWizard:SEQ.includes(S.screen),isDone:S.screen==='done',isPortal:S.screen==='portal',sv,pv,
+      mTopBg:S.screen==='intro'?'#F8F7F4':S.screen==='done'?'#D6F1EA':S.screen==='portal'?'#FCE3C6':stageBg,stageBg,
+      q:{t:qq[0],h:qq[1]},phaseName:PHASES[ph].toUpperCase(),phaseNum:ph+1,
+      phases:PHASES.map((l,i)=>({label:l,w:i===ph?'34px':'8px',bg:i<ph?'#1D1D1B':(i===ph?'#1D1D1B':'#FFFFFF'),notFirst:i>0,line:i<=ph?'solid':'dashed',mark:i<ph?'✓':String(i+1),cbg:i<ph?'#5DB978':(i===ph?'#1D1D1B':'#FFFFFF'),cfg:i<=ph?'#FFFFFF':'#1D1D1B',fw:i===ph?800:600})),
+      back:()=>this.back(),markM:()=>{this.frame='m';},markD:()=>{this.frame='d';},
+      flow:flowDefs.map(([k,t,s,c],i)=>({t,s,arrow:i>0,dot:c,bg:cur===k?'#F8D98B':'#FFFFFF',go:()=>this.demo(k)})),
+      demos:[['full','Tanggal penuh'],['busy','Jam bentrok'],['err','Error WA'],['wrong','Kode salah'],['exp','Kode kedaluwarsa'],['load','Memuat paket'],['off','Tanpa koneksi'],['ret','Klien kembali'],['reset','Reset']].map(([k,t])=>({t,bg:k==='off'&&offline?'#D6EEF8':'#FFFFFF',go:()=>this.demo(k)})),
+      resume:resumeObj,noResume:!resumeObj,
+      doResume:()=>{const r=resume; this._loaded=true; this.setState({...BLANK,...r,resume:null,resumeOff:true,dir:1});},
+      freshStart:()=>{try{localStorage.removeItem(LS);}catch(e){} this.setState({...BLANK,resume:null,resumeOff:true,screen:'type',dir:1});},
+      start:()=>this.go('type'),toPortal:()=>this.go('portal'),
+      hasTotal:total>0,totalShown:rp(S.shown||total),dpStr:rp(dp),
+      code:'TB-26'+String(S.date?S.date.m+1:12).padStart(2,'0')+'0417',
+      portalTitle:S.p.eventName||S.title||'Booking kamu',statusLabel:S.proofSent?'Menunggu verifikasi DP':'Draf · tanggal belum terkunci',
+      portalRows:[{k:'Tanggal',v:dShort||'—'},{k:'Paket',v:p?`${p.name} · ${S.dur} jam`:'—'},{k:'DP minimal',v:rp(dp)}],
+      nextSteps:[{n:'1',bg:'#1D1D1B',fg:'#fff',t:'Lengkapi 3 data',s:'Nama acara, pemilik acara, dan venue.',line:true},{n:'2',bg:'#fff',fg:'#1D1D1B',t:`Bayar DP ${rp(dp)}`,s:'Transfer, lalu unggah buktinya.',line:true},{n:'3',bg:'#fff',fg:'#1D1D1B',t:'Tanggal terkunci',s:'Setelah admin memverifikasi DP.',line:false}]
+    };
+  }
+}
+</script>
+</body>
+</html>

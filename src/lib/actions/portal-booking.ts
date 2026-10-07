@@ -97,7 +97,7 @@ const DraftSchema = z.object({
 	/** WO: klien pemilik acara (opsional) — diundang sebagai anggota "pemilik". */
 	client: z
 		.object({
-			name: z.string().trim().min(2).max(80),
+			name: z.string().trim().max(80).optional(),
 			phone: z.string().trim().max(20).optional(),
 		})
 		.optional(),
@@ -167,7 +167,10 @@ export async function createDraftBooking(
 					...(sel.city ? { venue_kota: sel.city } : {}),
 					...(vendor ? { wo_nama: vendor.name } : {}),
 					...(asWo && client
-						? { pemilik_nama: client.name, pemilik_wa: client.phone }
+						? {
+								...(client.name ? { pemilik_nama: client.name } : {}),
+								pemilik_wa: client.phone,
+							}
 						: {}),
 				},
 				channel: asWo ? "vendor" : "direct",
@@ -190,10 +193,16 @@ export async function createDraftBooking(
 		});
 		if (asWo && client?.phone) {
 			const phone = toWaPhone(client.phone);
-			await addMember(data.id, person.id, phone, client.name, "pemilik");
+			await addMember(
+				data.id,
+				person.id,
+				phone,
+				client.name || null,
+				"pemilik",
+			);
 			await sendClientWa(
 				phone,
-				`Halo ${client.name}! ${vendor?.name ?? detail?.wo_nama ?? person.name ?? "WO kamu"} sudah memesan photobooth Tetra untuk acara kamu (${sel.date}).\n\nKamu bisa ikut melihat dan melengkapi detailnya di sini (masuk pakai nomor WA ini): ${portalUrl(code)}`,
+				`Halo${client.name ? ` ${client.name}` : ""}! ${vendor?.name ?? detail?.wo_nama ?? person.name ?? "WO kamu"} sudah memesan photobooth Tetra untuk acara kamu (${sel.date}).\n\nKamu bisa ikut melihat dan melengkapi detailnya di sini (masuk pakai nomor WA ini): ${portalUrl(code)}`,
 			);
 		}
 		return { ok: true, code };
@@ -504,7 +513,7 @@ async function addMember(
 	bookingId: string,
 	invitedBy: string,
 	phone: string,
-	name: string,
+	name: string | null,
 	role: "pemilik" | "wo",
 ): Promise<string> {
 	const admin = createAdminClient();

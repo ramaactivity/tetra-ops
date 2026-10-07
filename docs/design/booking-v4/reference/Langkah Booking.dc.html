@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="height:100%;display:flex;flex-direction:column;position:relative;background:#F8F7F4">
+<div data-scroll="1" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none">
+
+<sc-if value="{{ v.isType }}" hint-placeholder-val="{{ true }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+<sc-for list="{{ v.events }}" as="o" hint-placeholder-count="6">
+<button onClick="{{ o.onClick }}" style="position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:112px;padding:14px;border:1.5px solid #1D1D1B;border-radius:18px;background:{{ o.bg }};box-shadow:{{ o.sh }};text-align:left;cursor:pointer;transition:background 150ms,box-shadow 150ms,transform 120ms" style-active="transform:scale(.96)">
+<span style="width:46px;height:46px;border-radius:13px;border:1.5px dashed #1D1D1B;background:{{ o.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ o.icon }}" alt="" style="width:22px;height:22px"></span>
+<span style="font-size:15px;font-weight:800;line-height:1.25">{{ o.label }}</span>
+<sc-if value="{{ o.sel }}"><span style="position:absolute;right:10px;top:10px;width:26px;height:26px;border-radius:13px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span></sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isDate }}">
+<div data-anim="1" style="padding:16px 16px {{ v.datePb }};display:flex;flex-direction:column;gap:14px">
+<sc-if value="{{ v.calClosed }}">
+<div data-pop="1" style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#D6F1EA;box-shadow:4px 4px 0 -1.5px #8EDCCB,4px 4px 0 0 #1D1D1B"><span style="flex:none;width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span><span style="flex:1;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:800">{{ v.dateLong }}</span><span style="font-size:13px">Tanggal masih tersedia</span></span><button onClick="{{ v.openCal }}" style="flex:none;height:40px;padding:0 12px;border:1.5px solid #1D1D1B;border-radius:12px;background:#fff;font-size:13px;font-weight:800;cursor:pointer">Ubah</button></div>
+</sc-if>
+<sc-if value="{{ v.calOpen }}">
+<div style="background:#fff;border:1.5px solid #1D1D1B;border-radius:20px;padding:8px 10px 12px;display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;justify-content:space-between">
+<button onClick="{{ v.prevM }}" aria-label="Bulan sebelumnya" style="width:44px;height:44px;border:0;border-radius:12px;background:transparent;font-size:20px;opacity:{{ v.prevOp }};cursor:pointer">‹</button>
+<span style="font-size:16px;font-weight:800">{{ v.calTitle }}</span>
+<button onClick="{{ v.nextM }}" aria-label="Bulan berikutnya" style="width:44px;height:44px;border:0;border-radius:12px;background:transparent;font-size:20px;cursor:pointer">›</button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;font-size:12px;font-weight:700;color:#5F5E5A;height:24px;align-items:center"><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span></div>
+<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px">
+<sc-for list="{{ v.cells }}" as="c" hint-placeholder-count="35"><button onClick="{{ c.onClick }}" style="height:44px;padding:0;border:{{ c.bd }};border-radius:12px;background:{{ c.bg }};color:{{ c.fg }};text-decoration:{{ c.td }};font-family:'Geist Mono',monospace;font-size:15px;font-weight:{{ c.fw }};visibility:{{ c.vis }};cursor:{{ c.cur }};transition:background 120ms">{{ c.label }}</button></sc-for>
+</div>
+</div>
+<div style="display:flex;gap:14px;font-size:12px;font-weight:600;color:#5F5E5A;padding:0 4px"><span style="display:flex;gap:6px;align-items:center"><span style="width:12px;height:12px;border-radius:4px;background:#8EDCCB;border:1.5px solid #1D1D1B"></span>Pilihanmu</span><span style="display:flex;gap:6px;align-items:center"><span style="text-decoration:line-through;font-family:'Geist Mono',monospace">17</span>Penuh</span></div>
+</sc-if>
+<sc-if value="{{ v.dateOkOpen }}"><div data-pop="1" style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#D6F1EA;box-shadow:4px 4px 0 -1.5px #8EDCCB,4px 4px 0 0 #1D1D1B"><span style="flex:none;width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span><span style="font-size:15px;line-height:1.35"><b>{{ v.dateLong }}</b> masih tersedia!</span></div></sc-if>
+<sc-if value="{{ v.dateFull }}"><div data-pop="1" style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#F7D5CC"><span style="flex:none;width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center">✕</span><span style="font-size:15px;line-height:1.35"><b>{{ v.dateLong }}</b> sudah penuh. Coba tanggal lain, ya.</span></div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.showTime }}">
+<div data-pop="1" style="padding:4px 16px 140px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px"><span style="font-size:17px;font-weight:800">Jam mulai</span><span style="font-size:12px;color:#3A3936">Kami cek slot booth-nya</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+<sc-for list="{{ v.times }}" as="t" hint-placeholder-count="7"><button onClick="{{ t.onClick }}" style="height:48px;border:1.5px solid #1D1D1B;border-radius:14px;background:{{ t.bg }};box-shadow:{{ t.sh }};font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;cursor:pointer;transition:background 120ms,transform 100ms" style-active="transform:scale(.95)">{{ t.label }}</button></sc-for>
+<button onClick="{{ v.openManual }}" style="height:48px;border:1.5px dashed #1D1D1B;border-radius:14px;background:{{ v.manualBg }};font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer">{{ v.manualHint }}</button>
+</div>
+<sc-if value="{{ v.manualOpen }}">
+<div data-pop="1" style="display:flex;flex-direction:column;gap:12px;padding:14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#fff">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:800">Atur jam sendiri</span><button onClick="{{ v.closeManual }}" style="border:0;background:transparent;font-size:13px;font-weight:700;text-decoration:underline;cursor:pointer">Tutup</button></div>
+<div style="display:flex;align-items:flex-end;justify-content:center;gap:10px"><span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:11px;font-weight:700;color:#5F5E5A">Jam</span><span style="display:flex;align-items:center;border:1.5px solid #1D1D1B;border-radius:12px;overflow:hidden;background:#fff;height:52px"><button onClick="{{ v.hDec }}" aria-label="Kurangi Jam" style="width:42px;height:100%;border:0;background:#fff;font-size:18px;font-weight:700;cursor:pointer">−</button><span style="width:46px;text-align:center;font-family:'Geist Mono',monospace;font-size:22px;font-weight:600">{{ v.mh }}</span><button onClick="{{ v.hInc }}" aria-label="Tambah Jam" style="width:42px;height:100%;border:0;border-left:1.5px solid #1D1D1B;background:#8EDCCB;font-size:18px;font-weight:700;cursor:pointer">+</button></span></span><span style="font-family:'Geist Mono',monospace;font-size:24px;font-weight:600;padding-bottom:12px">:</span><span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="font-size:11px;font-weight:700;color:#5F5E5A">Menit</span><span style="display:flex;align-items:center;border:1.5px solid #1D1D1B;border-radius:12px;overflow:hidden;background:#fff;height:52px"><button onClick="{{ v.mDec }}" aria-label="Kurangi Menit" style="width:42px;height:100%;border:0;background:#fff;font-size:18px;font-weight:700;cursor:pointer">−</button><span style="width:46px;text-align:center;font-family:'Geist Mono',monospace;font-size:22px;font-weight:600">{{ v.mm }}</span><button onClick="{{ v.mInc }}" aria-label="Tambah Menit" style="width:42px;height:100%;border:0;border-left:1.5px solid #1D1D1B;background:#8EDCCB;font-size:18px;font-weight:700;cursor:pointer">+</button></span></span></div>
+<button onClick="{{ v.useManual }}" style="height:48px;border:1.5px solid #1D1D1B;border-radius:12px;background:#D6F1EA;font-size:15px;font-weight:800;cursor:pointer">Pakai jam {{ v.manualVal }}</button>
+</div>
+</sc-if>
+<button onClick="{{ v.timeUnsure.onClick }}" style="display:flex;align-items:center;gap:12px;height:48px;padding:0 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:{{ v.timeUnsure.bg }};box-shadow:{{ v.timeUnsure.sh }};font-size:15px;font-weight:700;text-align:left;cursor:pointer"><img src="https://unpkg.com/lucide-static@0.460.0/icons/clock.svg" alt="" style="width:20px">Jam belum pasti, nanti dikabari</button>
+<sc-if value="{{ v.timeBusy }}"><div data-pop="1" style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#F7D5CC"><span style="flex:none;width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center">✕</span><span style="font-size:15px;line-height:1.35">Slot jam <b>{{ v.timeLabel }}</b> sudah terisi di tanggal ini. Pilih jam lain atau "Jam belum pasti".</span></div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isCity }}">
+<div data-anim="1" style="padding:22px 16px 140px;display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:14px"><div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ v.loc.cityDot }};color:#fff;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ v.loc.cityMark }}</span><span style="flex:1;border-left:1.5px dashed #1D1D1B;min-height:20px"></span></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:18px">
+<span style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:800">Kota</span><span style="font-size:12px;font-weight:700">Wajib</span></span>
+<input data-auto="1" value="{{ v.city }}" onChange="{{ v.onCity }}" onKeyDown="{{ v.onEnter }}" data-field="city" autoComplete="address-level2" enterKeyHint="next" placeholder="Contoh: Bogor" style="height:54px;border:1.5px solid #1D1D1B;border-radius:14px;background:#fff;padding:0 14px;font-size:17px;font-weight:700;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB">
+<div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ v.cities }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" style="height:36px;padding:0 12px;border:1.5px solid #1D1D1B;border-radius:999px;background:{{ c.bg }};font-size:13px;font-weight:700;cursor:pointer;transition:background 120ms">{{ c.label }}</button></sc-for></div>
+</div>
+</div>
+<div style="display:flex;gap:14px"><div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ v.loc.venueDot }};color:#fff;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ v.loc.venueMark }}</span><span style="flex:1;border-left:1.5px dashed #1D1D1B;min-height:20px"></span></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:18px">
+<span style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:800">Nama venue</span><span style="font-size:12px;font-weight:700;color:#5F5E5A">Boleh menyusul</span></span>
+<span style="font-size:13px;line-height:1.4;color:#3A3936;margin-top:-4px">Nama yang biasa kamu sebut, mis. "Gedung Kirana".</span>
+<input data-field="venue" value="{{ v.venue }}" onChange="{{ v.onVenue }}" onKeyDown="{{ v.onEnter }}" enterKeyHint="next" placeholder="Nama gedung, hotel, atau rumah" style="height:54px;border:1.5px solid #1D1D1B;border-radius:14px;background:#fff;padding:0 14px;font-size:17px;font-weight:700;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB">
+</div>
+</div>
+<div style="display:flex;gap:14px"><div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ v.loc.mapsDot }};color:#fff;font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ v.loc.mapsMark }}</span></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">
+<span style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:800">Lokasi di Google Maps</span><span style="font-size:12px;font-weight:700;color:#5F5E5A">Boleh menyusul</span></span>
+<span style="font-size:13px;line-height:1.4;color:#3A3936;margin-top:-4px">Nama di Maps kadang beda. Link ini membantu tim kami menemukan lokasinya.</span>
+<sc-if value="{{ v.noMaps }}">
+<a href="{{ v.mapsSearch }}" style="display:flex;align-items:center;gap:10px;height:50px;padding:0 14px;border:1.5px solid #1D1D1B;border-radius:14px;background:#D6F1EA;font-size:15px;text-decoration:none;box-shadow:4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B"><img src="https://unpkg.com/lucide-static@0.460.0/icons/map.svg" alt="" style="width:18px"><span style="flex:1">{{ v.mapsBtn }}</span><img src="https://unpkg.com/lucide-static@0.460.0/icons/external-link.svg" alt="" style="width:16px"></a>
+<div style="position:relative"><img src="https://unpkg.com/lucide-static@0.460.0/icons/link.svg" alt="" style="position:absolute;left:14px;top:17px;width:18px"><input value="{{ v.mapsIn }}" onChange="{{ v.onMapsIn }}" type="url" inputMode="url" placeholder="Tempel link dari tombol Bagikan" style="height:52px;border:1.5px dashed #1D1D1B;border-radius:14px;background:#fff;padding:0 14px 0 42px;font-size:16px;font-weight:600;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div>
+<sc-if value="{{ v.mapsErr }}"><span style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>Itu bukan link Google Maps. Salin dari tombol Bagikan di Maps.</span></sc-if>
+<button onClick="{{ v.pasteDemo }}" style="align-self:flex-start;border:0;background:transparent;padding:2px 0;font-family:'Geist Mono',monospace;font-size:11px;color:#5F5E5A;text-decoration:underline;cursor:pointer">Prototipe: isi contoh link</button>
+</sc-if>
+<sc-if value="{{ v.hasMaps }}">
+<div data-pop="1" style="display:flex;gap:12px;align-items:center;padding:10px 12px;border:1.5px solid #1D1D1B;border-radius:14px;background:#fff">
+<span style="flex:none;width:44px;height:44px;border-radius:10px;border:1.5px solid #1D1D1B;background:repeating-linear-gradient(0deg,transparent 0 9px,#D6D3CC 9px 10px),repeating-linear-gradient(90deg,#D6F1EA 0 9px,#D6D3CC 9px 10px);display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/map-pin.svg" alt="" style="width:18px"></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:14px;font-weight:800">✓ Link Maps tersimpan</span><span style="font-family:'Geist Mono',monospace;font-size:11px;color:#3A3936;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.mapsUrl }}</span></span>
+<button onClick="{{ v.clearMaps }}" style="flex:none;border:0;background:transparent;font-size:13px;font-weight:700;text-decoration:underline;cursor:pointer">Ganti</button>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isPkg }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:10px">
+<sc-if value="{{ v.loading }}"><div style="height:84px;border-radius:18px;background:#EFEDE8"></div><div style="height:84px;border-radius:18px;background:#EFEDE8"></div><div style="height:84px;border-radius:18px;background:#EFEDE8"></div><div style="height:84px;border-radius:18px;background:#EFEDE8"></div></sc-if>
+<sc-if value="{{ v.loaded }}">
+<sc-for list="{{ v.pkgs }}" as="o" hint-placeholder-count="6">
+<div style="border:1.5px solid #1D1D1B;border-radius:18px;background:{{ o.bg }};box-shadow:{{ o.sh }};overflow:hidden;transition:background 150ms,box-shadow 150ms">
+<button onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:14px;width:100%;min-height:84px;padding:12px 14px;border:0;background:transparent;text-align:left;cursor:pointer;transition:transform 120ms" style-active="transform:scale(.98)">
+<span style="flex:none;width:50px;height:50px;border-radius:14px;border:1.5px dashed #1D1D1B;background:{{ o.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ o.icon }}" alt="" style="width:24px;height:24px"></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+<sc-if value="{{ o.tag }}"><span style="align-self:flex-start;height:22px;padding:0 8px;border:1.5px solid #1D1D1B;border-radius:999px;background:#F8D98B;font-size:11px;font-weight:800;display:flex;align-items:center;white-space:nowrap">{{ o.tag }}</span></sc-if>
+<span style="font-size:16px;font-weight:800;line-height:1.25">{{ o.name }}</span>
+<span style="font-family:'Geist Mono',monospace;font-size:13px;color:#3A3936">{{ o.from }}</span>
+</span>
+<span style="flex:none;width:24px;height:24px;border-radius:12px;border:1.5px solid {{ o.ring }};background:{{ o.dot }};color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ o.mark }}</span>
+</button>
+<sc-if value="{{ o.sel }}"><sc-if value="{{ mobile }}">
+<div data-pop="1" style="padding:0 14px 16px;display:flex;flex-direction:column;gap:10px">
+<div style="border-top:1.5px dashed #1D1D1B"></div>
+<span style="font-size:14px;line-height:1.5">{{ o.desc }}</span>
+<div style="display:flex;flex-direction:column;gap:4px">
+<sc-for list="{{ o.points }}" as="pt" hint-placeholder-count="3"><span style="display:flex;gap:8px;font-size:13px;line-height:1.4;color:#3A3936"><span style="flex:none;color:#1D1D1B;font-weight:800">✓</span>{{ pt }}</span></sc-for>
+</div>
+<span style="font-size:13px;color:#3A3936"><b>Cocok untuk:</b> {{ o.fit }}</span>
+</div>
+</sc-if></sc-if>
+</div>
+</sc-for>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isDur }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;gap:14px;align-items:flex-start;padding:14px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff">
+<span style="flex:none;width:46px;height:46px;border-radius:13px;border:1.5px dashed #1D1D1B;background:{{ v.pk.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ v.pk.icon }}" alt="" style="width:22px"></span>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+<span style="font-size:16px;font-weight:800">{{ v.pk.name }}</span>
+<sc-for list="{{ v.pk.points }}" as="pt" hint-placeholder-count="3"><span style="display:flex;gap:8px;font-size:13px;line-height:1.4;color:#3A3936"><span style="flex:none;color:#1D1D1B;font-weight:800">✓</span>{{ pt }}</span></sc-for>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ v.durs }}" as="o" hint-placeholder-count="4">
+<button onClick="{{ o.onClick }}" style="display:flex;align-items:center;justify-content:space-between;gap:14px;height:58px;padding:0 16px;border:1.5px solid #1D1D1B;border-radius:16px;background:{{ o.bg }};box-shadow:{{ o.sh }};cursor:pointer;transition:background 150ms,box-shadow 150ms,transform 120ms" style-active="transform:scale(.98)">
+<span style="font-size:16px;font-weight:800">{{ o.label }}</span>
+<span style="font-family:'Geist Mono',monospace;font-size:16px;font-weight:600">{{ o.price }}</span>
+</button>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px dashed #1D1D1B;border-radius:16px">
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:800">Jumlah booth</span><span style="font-size:13px;color:#3A3936">Untuk acara besar, maks 3 spot.</span></span>
+<span style="flex:none;display:flex;align-items:center;border:1.5px solid #1D1D1B;border-radius:12px;overflow:hidden;background:#fff;height:44px">
+<button onClick="{{ v.unitDec }}" aria-label="Kurangi" style="width:40px;height:100%;border:0;background:#fff;font-size:18px;font-weight:700;opacity:{{ v.unitDecOp }};cursor:pointer">−</button>
+<span style="width:28px;text-align:center;font-family:'Geist Mono',monospace;font-size:15px;font-weight:600">{{ v.units }}</span>
+<button onClick="{{ v.unitInc }}" aria-label="Tambah" style="width:40px;height:100%;border:0;border-left:1.5px solid #1D1D1B;background:#8EDCCB;font-size:18px;font-weight:700;opacity:{{ v.unitIncOp }};cursor:pointer">+</button>
+</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isFmt }}">
+<div data-anim="1" style="padding:20px 16px 0;display:flex;flex-direction:column;gap:10px">
+<sc-if value="{{ mobile }}">
+<div style="border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;padding:14px 14px 12px;display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
+<span style="font-size:13px;font-weight:800">Bandingkan ukuran asli</span>
+<div style="display:flex;align-items:flex-end;justify-content:center;gap:14px;height:150px;border-bottom:1.5px solid #1D1D1B;padding-bottom:8px;position:relative">
+<span style="position:absolute;left:0;top:0;bottom:8px;border-left:1.5px dashed #1D1D1B"></span><span style="position:absolute;left:5px;top:0;font-family:'Geist Mono',monospace;font-size:10px">15 cm</span>
+<sc-for list="{{ v.fmtCmp }}" as="c" hint-placeholder-count="3"><div data-slide="1" style="opacity:{{ c.op }};transition:opacity 200ms"><dc-import name="Print Preview" fmt="{{ c.k }}" title="{{ v.pv.title }}" date="{{ v.pv.date }}" kicker="{{ v.pv.kicker }}" theme="{{ v.pv.theme }}" zoom="0.42" rot="0deg" hint-size="90px,139px"></dc-import></div></sc-for>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center;font-family:'Geist Mono',monospace;font-size:11px"><span>5 × 15 cm</span><span>10 × 15 cm</span><span>bingkai polaroid</span></div>
+</div>
+</sc-if>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+<sc-for list="{{ v.fmts }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.onClick }}" style="display:flex;flex-direction:column;padding:0;border:1.5px solid #1D1D1B;border-radius:18px;overflow:hidden;background:{{ o.bg }};box-shadow:{{ o.sh }};cursor:pointer;transition:background 150ms,box-shadow 150ms,transform 120ms" style-active="transform:scale(.96)">
+<span style="height:156px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:1.5px solid #1D1D1B;background:#FCE3C6"><dc-import name="Print Preview" fmt="{{ o.k }}" title="{{ v.pv.title }}" date="{{ v.pv.date }}" kicker="{{ v.pv.kicker }}" theme="{{ v.pv.theme }}" zoom="0.38" rot="0deg" hint-size="84px,126px"></dc-import></span>
+<span style="padding:12px 6px;font-size:15px;font-weight:800;text-align:center;width:100%">{{ o.label }}</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{ v.fmtDesc }}"><div data-pop="1" style="padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#FFFFFF;font-size:14px;line-height:1.5"><b>{{ v.fmtDesc.t }}</b> · {{ v.fmtDesc.d }}</div></sc-if>
+<button onClick="{{ v.fmtUnsure.onClick }}" style="display:flex;align-items:center;justify-content:center;height:56px;border:1.5px solid #1D1D1B;border-radius:16px;background:{{ v.fmtUnsure.bg }};box-shadow:{{ v.fmtUnsure.sh }};font-size:15px;font-weight:700;cursor:pointer">Belum tahu, nanti saja</button>
+<span style="font-size:13px;color:#5F5E5A;text-align:center">Harga tidak berubah. Harga mengikuti durasi.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.showBackdrop }}">
+<div data-anim="1" style="padding:22px 16px 140px;display:flex;flex-direction:column;gap:10px">
+<sc-if value="{{ v.isFmt }}"><div style="display:flex;flex-direction:column;gap:2px;padding:14px 4px 2px;border-top:1.5px dashed #1D1D1B"><span style="font-size:17px;font-weight:800">Backdrop</span><span style="font-size:13px;color:#3A3936">Latar di belakang booth. Pakai punya siapa?</span></div></sc-if>
+<sc-for list="{{ v.backdrops }}" as="o" hint-placeholder-count="3">
+<button onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:14px;min-height:76px;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:18px;background:{{ o.bg }};box-shadow:{{ o.sh }};text-align:left;cursor:pointer;transition:background 150ms,box-shadow 150ms,transform 120ms" style-active="transform:scale(.98)">
+<span style="flex:none;width:46px;height:46px;border-radius:13px;border:1.5px dashed #1D1D1B;background:{{ o.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ o.icon }}" alt="" style="width:22px"></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:800">{{ o.label }}</span><span style="font-size:13px;line-height:1.4;color:#3A3936">{{ o.sub }}</span></span>
+</button>
+</sc-for>
+<sc-if value="{{ v.bdTetra }}">
+<div data-pop="1" style="display:flex;flex-direction:column;gap:12px;padding:14px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff">
+<span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:800">Warna kain</span><span style="font-size:13px;font-weight:700">{{ v.bdColorName }}</span></span>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+<sc-for list="{{ v.bdColors }}" as="c" hint-placeholder-count="6">
+<button onClick="{{ c.onClick }}" aria-label="{{ c.label }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:0;border:0;background:transparent;cursor:pointer">
+<span style="position:relative;width:100%;height:64px;border-radius:12px;border:1.5px solid #1D1D1B;background:repeating-linear-gradient(90deg,rgba(0,0,0,0) 0 9px,rgba(0,0,0,.10) 9px 13px,rgba(255,255,255,.14) 13px 16px),{{ c.hex }};box-shadow:{{ c.ring }};transition:box-shadow 150ms;display:flex;align-items:center;justify-content:center;color:{{ c.mc }};font-size:18px;font-weight:800">{{ c.mark }}</span>
+<span style="font-size:12px;font-weight:{{ c.fw }};text-align:center;line-height:1.2">{{ c.label }}</span>
+</button>
+</sc-for>
+</div>
+<span style="font-size:12px;line-height:1.4;color:#3A3936">Warna di layar bisa sedikit berbeda dengan kain aslinya.</span>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isAdd }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ v.adds }}" as="a" hint-placeholder-count="7">
+<div onMouseEnter="{{ a.hover }}" style="display:flex;gap:12px;align-items:flex-start;padding:12px;border:1.5px solid #1D1D1B;border-radius:18px;background:{{ a.bg }};box-shadow:{{ a.sh }};transition:background 150ms,box-shadow 150ms">
+<span style="flex:none;width:44px;height:44px;border-radius:12px;border:1.5px dashed #1D1D1B;background:{{ a.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ a.icon }}" alt="" style="width:21px"></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<span style="font-size:15px;font-weight:800">{{ a.name }}</span>
+<span style="font-size:13px;line-height:1.35;color:#3A3936">{{ a.benefit }}</span>
+<span style="display:flex;gap:4px 10px;align-items:center;flex-wrap:wrap;margin-top:2px"><span style="font-family:'Geist Mono',monospace;font-size:12px">{{ a.priceLine }}</span><button onClick="{{ a.info }}" style="white-space:nowrap;border:0;background:transparent;padding:4px 0;font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer">{{ a.infoLabel }}</button></span>
+<sc-if value="{{ a.open }}"><span data-pop="1" style="margin-top:6px;padding:10px 12px;border:1.5px dashed #1D1D1B;border-radius:12px;background:#fff;font-size:13px;line-height:1.5">{{ a.desc }}</span></sc-if>
+</span>
+<sc-if value="{{ a.zero }}"><button onClick="{{ a.inc }}" aria-label="Tambah" style="flex:none;width:44px;height:44px;border:1.5px solid #1D1D1B;border-radius:12px;background:#fff;font-size:20px;font-weight:700;cursor:pointer" style-active="transform:scale(.92)">+</button></sc-if>
+<sc-if value="{{ a.some }}">
+<span style="flex:none;display:flex;align-items:center;border:1.5px solid #1D1D1B;border-radius:12px;overflow:hidden;background:#fff;height:44px">
+<button onClick="{{ a.dec }}" aria-label="Kurangi" style="width:36px;height:100%;border:0;background:#fff;font-size:18px;font-weight:700;cursor:pointer">−</button>
+<span style="width:24px;text-align:center;font-family:'Geist Mono',monospace;font-size:15px;font-weight:600">{{ a.qty }}</span>
+<button onClick="{{ a.inc }}" aria-label="Tambah" style="width:36px;height:100%;border:0;border-left:1.5px solid #1D1D1B;background:#8EDCCB;font-size:18px;font-weight:700;cursor:pointer">+</button>
+</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isTitle }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:14px">
+<div style="position:relative">
+<input data-auto="1" value="{{ v.title }}" onChange="{{ v.onTitle }}" onBlur="{{ v.blurTitle }}" onKeyDown="{{ v.onEnter }}" maxLength="40" enterKeyHint="next" placeholder="{{ v.titlePh }}" style="height:60px;border:1.5px solid {{ v.fTitle.bc }};border-radius:16px;background:#fff;padding:0 64px 0 16px;font-size:19px;font-weight:700;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB">
+<span style="position:absolute;right:14px;top:21px;font-family:'Geist Mono',monospace;font-size:12px;color:#5F5E5A">{{ v.titleCount }}/40</span>
+</div>
+<sc-if value="{{ v.fTitle.err }}"><span style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>{{ v.fTitle.err }}</span></sc-if>
+<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+<span style="font-size:13px;font-weight:700;color:#5F5E5A">Contoh:</span>
+<sc-for list="{{ v.titleIdeas }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.onClick }}" style="height:38px;padding:0 14px;border:1.5px dashed #1D1D1B;border-radius:999px;background:#fff;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer">{{ c.label }}</button></sc-for>
+</div>
+<sc-if value="{{ mobile }}">
+<div style="margin-top:4px;border:1.5px solid #1D1D1B;border-radius:22px;background:#FCE3C6;overflow:hidden">
+<div style="height:350px;display:flex;align-items:center;justify-content:center"><div data-bump="1"><dc-import name="Print Preview" fmt="{{ v.pvTitleFmt }}" title="{{ v.pv.title }}" date="{{ v.pv.date }}" kicker="{{ v.pv.kicker }}" theme="{{ v.pv.theme }}" zoom="0.94" rot="-2deg" hint-size="242px,310px"></dc-import></div></div>
+<div style="display:flex;border-top:1.5px solid #1D1D1B;background:#fff;height:46px">
+<sc-for list="{{ v.pvTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="flex:1;border:0;border-left:{{ t.bl }};background:{{ t.bg }};font-size:13px;font-weight:800;cursor:pointer">{{ t.label }}</button></sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;padding:6px 14px">
+<span style="font-size:13px;font-weight:800;padding:8px 0 4px">Yang tercetak di frame</span>
+<sc-for list="{{ v.printParts }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1.5px dashed #D6D3CC"><span style="flex:none;width:24px;height:24px;border-radius:12px;border:1.5px solid #1D1D1B;background:{{ r.bg }};font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ r.n }}</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:800">{{ r.t }}</span><span style="font-size:13px;line-height:1.4;color:#3A3936">{{ r.s }}</span></span></div></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isDesign }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:14px">
+<sc-if value="{{ mobile }}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<span style="font-size:13px;font-weight:800">Intip katalog template</span>
+<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:2px 16px 8px">
+<sc-for list="{{ v.themes }}" as="t" hint-placeholder-count="6">
+<button onClick="{{ t.onClick }}" style="flex:none;width:112px;display:flex;flex-direction:column;padding:0;border:1.5px solid #1D1D1B;border-radius:16px;overflow:hidden;background:{{ t.cardBg }};box-shadow:{{ t.sh }};cursor:pointer">
+<span style="height:150px;width:100%;display:flex;align-items:center;justify-content:center;background:#F8F7F4;border-bottom:1.5px solid #1D1D1B"><dc-import name="Print Preview" fmt="{{ v.pvTitleFmt }}" theme="{{ t.k }}" title="{{ v.pv.title }}" date="{{ v.pv.date }}" kicker="{{ v.pv.kicker }}" zoom="0.38" rot="0deg" hint-size="84px,126px"></dc-import></span>
+<span style="padding:9px 6px;font-size:13px;font-weight:800;text-align:center;width:100%">{{ t.label }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;gap:14px;align-items:flex-start;padding:14px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff">
+<span style="flex:none;width:46px;height:46px;border-radius:13px;border:1.5px dashed #1D1D1B;background:#CEC8F6;display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/layout-template.svg" alt="" style="width:22px"></span>
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:800">Pilih dari katalog</span><span style="font-size:13px;line-height:1.45;color:#3A3936">Template siap pakai. Tinggal pilih, nama dan tanggalmu otomatis masuk.</span></span>
+</div>
+<div style="display:flex;gap:14px;align-items:flex-start;padding:14px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff">
+<span style="flex:none;width:46px;height:46px;border-radius:13px;border:1.5px dashed #1D1D1B;background:#FCE3C6;display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/palette.svg" alt="" style="width:22px"></span>
+<span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:800">Desain custom</span><span style="font-size:13px;line-height:1.45;color:#3A3936">Ceritakan tema, warna, atau kirim referensi. Tim desain Tetra yang membuatkan.</span></span>
+</div>
+</div>
+<div style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#F8D98B"><img src="https://unpkg.com/lucide-static@0.460.0/icons/lock-keyhole.svg" alt="" style="width:20px;flex:none"><span style="font-size:13px;line-height:1.45"><b>Terbuka setelah DP.</b> Diatur dari dashboard booking kamu.</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isDash }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:14px">
+<sc-if value="{{ mobile }}">
+<div style="border:1.5px solid #1D1D1B;border-radius:20px;background:#fff;overflow:hidden;box-shadow:4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#FCE3C6;border-bottom:1.5px solid #1D1D1B"><span style="display:flex;flex-direction:column;gap:1px"><span style="font-size:11px;font-weight:700;color:#3A3936">DASHBOARD BOOKING</span><span style="font-size:15px;font-weight:800">{{ v.dashTitle }}</span></span><span style="flex:none;font-family:'Geist Mono',monospace;font-size:11px;padding:3px 8px;border:1.5px solid #1D1D1B;border-radius:999px;background:#fff;white-space:nowrap">{{ v.dashCountdown }}</span></div>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px">
+<sc-for list="{{ v.dashTiles }}" as="t" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:8px;padding:10px;border:1.5px solid #1D1D1B;border-radius:12px;background:{{ t.bg }}"><span style="display:flex;justify-content:space-between;align-items:center"><img src="{{ t.icon }}" alt="" style="width:18px"><span style="font-size:10px;font-weight:800">{{ t.badge }}</span></span><span style="font-size:13px;font-weight:800;line-height:1.25">{{ t.t }}</span></div></sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-direction:column;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;padding:4px 14px">
+<sc-for list="{{ v.dashList }}" as="r" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:{{ r.bb }}"><span style="flex:none;width:38px;height:38px;border-radius:11px;border:1.5px dashed #1D1D1B;background:{{ r.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ r.icon }}" alt="" style="width:18px"></span><span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span style="font-size:15px;font-weight:800">{{ r.t }}</span><span style="flex:none;font-size:11px;font-weight:800;padding:2px 8px;border:1.5px solid #1D1D1B;border-radius:999px;background:{{ r.badgeBg }};white-space:nowrap">{{ r.badge }}</span></span><span style="font-size:13px;line-height:1.4;color:#3A3936">{{ r.s }}</span></span></div></sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isContact }}">
+<div data-anim="1" style="padding:22px 16px 0;display:flex;flex-direction:column;gap:6px">
+<div style="display:flex;gap:14px;opacity:{{ v.c.nameOp }};transition:opacity 200ms">
+<div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ v.c.nameDot }};color:{{ v.c.nameFg }};font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ v.c.nameMark }}</span><span style="flex:1;border-left:1.5px dashed #1D1D1B;min-height:20px"></span></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:18px">
+<span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:800">Nama kamu</span></span>
+<span style="font-size:13px;line-height:1.4;color:#3A3936;margin-top:-4px">Pemesan sekaligus pemilik acara.</span>
+<input data-field="name" data-auto="1" autoComplete="name" enterKeyHint="next" placeholder="Nama lengkap" disabled="{{ v.c.nameLock }}" value="{{ v.name }}" onChange="{{ v.onName }}" onBlur="{{ v.blurName }}" onKeyDown="{{ v.onEnter }}" style="height:54px;border:1.5px solid {{ v.fName.bc }};border-radius:14px;background:#fff;padding:0 14px;font-size:17px;font-weight:700;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB">
+<sc-if value="{{ v.fName.err }}"><span style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>{{ v.fName.err }}</span></sc-if>
+</div>
+</div>
+<div style="display:flex;gap:14px;opacity:{{ v.c.waOp }};transition:opacity 200ms">
+<div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ v.c.waDot }};color:{{ v.c.waFg }};font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ v.c.waMark }}</span><span style="flex:1;border-left:1.5px dashed #1D1D1B;min-height:20px"></span></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:18px">
+<span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:800">Nomor WhatsApp</span><sc-if value="{{ v.c.waVer }}"><span style="font-size:12px;font-weight:800;white-space:nowrap">✓ Terverifikasi</span></sc-if></span>
+<span style="font-size:13px;line-height:1.4;color:#3A3936;margin-top:-4px">Kode verifikasi dan semua kabar booking dikirim ke sini.</span>
+<div style="position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:62px;display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;border-right:1.5px solid #D6D3CC;pointer-events:none">+62</span><input data-field="wa" type="tel" inputMode="tel" autoComplete="tel-national" enterKeyHint="next" placeholder="812 3456 7890" disabled="{{ v.c.waLock }}" value="{{ v.wa }}" onChange="{{ v.onWa }}" onBlur="{{ v.blurWa }}" onKeyDown="{{ v.onEnter }}" style="height:54px;border:1.5px solid {{ v.fWa.bc }};border-radius:14px;background:#fff;padding:0 14px 0 76px;font-family:'Geist Mono',monospace;font-size:17px;font-weight:700;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div>
+<sc-if value="{{ v.fWa.err }}"><span style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>{{ v.fWa.err }}</span></sc-if>
+</div>
+</div>
+<div style="display:flex;gap:14px;opacity:{{ v.c.emailOp }};transition:opacity 200ms">
+<div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:2px"><span style="width:30px;height:30px;border-radius:15px;border:1.5px solid #1D1D1B;background:{{ v.c.emailDot }};color:{{ v.c.emailFg }};font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:background 200ms">{{ v.c.emailMark }}</span></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-bottom:4px">
+<span style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:800">Email</span><span style="font-size:12px;font-weight:700;color:#5F5E5A">Opsional</span></span>
+<span style="font-size:13px;line-height:1.4;color:#3A3936;margin-top:-4px">Untuk kirim invoice dan kuitansi.</span>
+<input data-field="email" type="email" inputMode="email" autoComplete="email" enterKeyHint="done" placeholder="nama@email.com" disabled="{{ v.c.emailLock }}" value="{{ v.email }}" onChange="{{ v.onEmail }}" onBlur="{{ v.blurEmail }}" onKeyDown="{{ v.onEnter }}" style="height:54px;border:1.5px solid {{ v.fEmail.bc }};border-radius:14px;background:#fff;padding:0 14px;font-size:17px;font-weight:700;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB">
+<sc-if value="{{ v.fEmail.err }}"><span style="display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>{{ v.fEmail.err }}</span></sc-if>
+</div>
+</div>
+<div style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;padding:12px 14px;border:1.5px dashed #1D1D1B;border-radius:14px;background:#D6EEF8;font-size:13px;line-height:1.45"><img src="https://unpkg.com/lucide-static@0.460.0/icons/shield-check.svg" alt="" style="width:18px;flex:none;margin-top:1px"><span>Datamu hanya dipakai untuk booking ini. Tidak ada spam.</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isOtp }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:16px">
+<label style="position:relative;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;cursor:text">
+<sc-for list="{{ v.otpBoxes }}" as="b" hint-placeholder-count="6"><span style="height:60px;border:1.5px solid {{ b.bc }};border-radius:14px;background:#fff;box-shadow:{{ b.ring }};font-family:'Geist Mono',monospace;font-size:24px;font-weight:600;display:flex;align-items:center;justify-content:center;transition:box-shadow 120ms">{{ b.ch }}</span></sc-for>
+<input data-auto="1" value="{{ v.otp }}" onChange="{{ v.onOtp }}" inputMode="numeric" autoComplete="one-time-code" maxLength="6" aria-label="Kode verifikasi" style="position:absolute;inset:0;opacity:0;font-size:16px;width:100%">
+</label>
+<sc-if value="{{ v.otpWrong }}"><span style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>Kodenya belum cocok. Cek lagi pesan WhatsApp-nya.</span></sc-if>
+<sc-if value="{{ v.otpExpired }}"><div style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#F7D5CC;font-size:14px;line-height:1.4"><span style="flex:1">Kodenya sudah kedaluwarsa.</span><button onClick="{{ v.resend }}" style="flex:none;height:40px;padding:0 14px;border:1.5px solid #1D1D1B;border-radius:12px;background:#fff;font-size:14px;font-weight:800;cursor:pointer">Kirim kode baru</button></div></sc-if>
+<sc-if value="{{ v.otpOk }}"><div data-pop="1" style="display:flex;gap:12px;align-items:center;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#D6F1EA;font-size:15px;font-weight:700"><span style="flex:none;width:28px;height:28px;border-radius:14px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span>Nomor terverifikasi</div></sc-if>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px">
+<sc-if value="{{ v.otpWait }}"><span style="color:#5F5E5A">Kirim ulang dalam <span style="font-family:'Geist Mono',monospace;color:#1D1D1B">{{ v.otpTimer }}</span></span></sc-if>
+<sc-if value="{{ v.otpCanResend }}"><button onClick="{{ v.resend }}" style="border:0;background:transparent;padding:6px 0;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Kirim ulang kode</button></sc-if>
+<button onClick="{{ v.editWa }}" style="border:0;background:transparent;padding:6px 0;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Ganti nomor</button>
+</div>
+<div style="display:flex;gap:12px;align-items:center;padding:14px;border:1.5px solid #1D1D1B;border-radius:16px;background:#fff">
+<span style="flex:none;width:42px;height:42px;border-radius:12px;border:1.5px dashed #1D1D1B;background:#D6F1EA;display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/message-circle.svg" alt="" style="width:20px"></span>
+<span style="font-size:13px;line-height:1.45">Buka WhatsApp, cari pesan dari <b>Tetra Photobooth</b>, lalu ketik 6 angka di atas.</span>
+</div>
+<span style="font-family:'Geist Mono',monospace;font-size:12px;color:#5F5E5A">Prototipe: kode benar 123456</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.showWo }}">
+<div style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:10px">
+<div style="display:flex;flex-direction:column;gap:2px;padding:14px 4px 2px;border-top:1.5px dashed #1D1D1B"><span style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:17px;font-weight:800">Kamu memesan sebagai…</span><span style="font-size:12px;font-weight:700;color:#5F5E5A">Opsional</span></span></div>
+<sc-for list="{{ v.woOpts }}" as="o" hint-placeholder-count="2">
+<button onClick="{{ o.onClick }}" style="display:flex;align-items:center;gap:14px;min-height:72px;padding:12px 14px;border:1.5px solid #1D1D1B;border-radius:18px;background:{{ o.bg }};box-shadow:{{ o.sh }};text-align:left;cursor:pointer;transition:background 150ms,box-shadow 150ms">
+<span style="flex:none;width:46px;height:46px;border-radius:13px;border:1.5px dashed #1D1D1B;background:{{ o.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ o.icon }}" alt="" style="width:22px"></span>
+<span style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:800">{{ o.label }}</span><span style="font-size:13px;color:#3A3936">{{ o.sub }}</span></span>
+</button>
+</sc-for>
+<sc-if value="{{ v.isWoYes }}">
+<div data-pop="1" style="margin-top:6px;display:flex;flex-direction:column;gap:14px;padding:16px;border:1.5px solid #1D1D1B;border-radius:18px;background:#fff">
+<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:14px;font-weight:700">Nama usaha WO / vendor</label><input value="{{ v.woName }}" onChange="{{ v.onWoName }}" placeholder="Contoh: Bahagia Organizer" style="height:52px;border:1.5px solid #1D1D1B;border-radius:12px;background:#fff;padding:0 14px;font-size:16px;font-weight:600;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div>
+<div style="display:flex;flex-direction:column;gap:8px"><label style="font-size:14px;font-weight:700">WhatsApp klien / pengantin</label><div style="position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:62px;display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;border-right:1.5px solid #D6D3CC;pointer-events:none">+62</span><input value="{{ v.woWa }}" onChange="{{ v.onWoWa }}" type="tel" inputMode="tel" placeholder="812 3456 7890" style="height:52px;border:1.5px solid #1D1D1B;border-radius:12px;background:#fff;padding:0 14px 0 76px;font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div><span style="font-size:13px;color:#5F5E5A">Klien ikut dikabari soal booking ini.</span></div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isReview }}">
+<div data-anim="1" style="padding:20px 16px 140px;display:flex;flex-direction:column;gap:14px">
+<div style="border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;overflow:hidden">
+<sc-for list="{{ v.review }}" as="r" hint-placeholder-count="8">
+<button onClick="{{ r.edit }}" style="display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border:0;border-bottom:1.5px dashed #D6D3CC;background:#fff;text-align:left;cursor:pointer" style-hover="background:#F8F7F4">
+<img src="{{ r.icon }}" alt="" style="flex:none;width:18px;opacity:.85">
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:12px;font-weight:700;color:#5F5E5A">{{ r.k }}</span><span style="font-size:14px;font-weight:700;line-height:1.35">{{ r.v }}</span></span>
+<span style="flex:none;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px">Ubah</span>
+</button>
+</sc-for>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:#FCE3C6;border-top:1.5px solid #1D1D1B"><span style="font-size:16px;font-weight:800">Total</span><span style="font-family:'Geist Mono',monospace;font-size:20px;font-weight:600;letter-spacing:-.02em">{{ v.totalShown }}</span></div>
+<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-top:1.5px dashed #1D1D1B"><span style="font-size:14px;font-weight:700">DP minimal</span><span style="font-family:'Geist Mono',monospace;font-size:16px;font-weight:600">{{ v.dpStr }}</span></div>
+</div>
+<button onClick="{{ v.toggleConsent }}" role="checkbox" style="display:flex;gap:12px;align-items:flex-start;padding:14px;border:1.5px dashed #1D1D1B;border-radius:16px;background:transparent;text-align:left;cursor:pointer">
+<span style="flex:none;width:24px;height:24px;border-radius:7px;border:1.5px solid #1D1D1B;background:{{ v.consentBg }};color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ v.consentMark }}</span>
+<span style="font-size:14px;line-height:1.45">Boleh, Tetra memakai foto dari acaraku untuk portofolio. <span style="color:#5F5E5A">Opsional.</span></span>
+</button>
+<div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1.5px dashed #1D1D1B;border-radius:14px;background:#D6EEF8;font-size:13px;line-height:1.45"><img src="https://unpkg.com/lucide-static@0.460.0/icons/info.svg" alt="" style="width:18px;flex:none;margin-top:1px"><span>Booking dikirim sebagai <b>draf</b>. Tanggalmu baru terkunci setelah DP dibayar. <a href="#">Kebijakan refund</a></span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ v.isPortal }}">
+<div data-anim="1" style="padding:20px 16px 60px;display:flex;flex-direction:column;gap:22px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:17px;font-weight:800">Sebelum bayar DP</span><span style="height:28px;padding:0 10px;border:1.5px solid #1D1D1B;border-radius:999px;background:{{ v.gateBg }};font-family:'Geist Mono',monospace;font-size:13px;font-weight:600;display:flex;align-items:center">{{ v.gateCount }}/3</span></div>
+<div style="border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;padding:4px 14px">
+<sc-for list="{{ v.gate }}" as="g" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px 0;border-bottom:{{ g.bb }}">
+<span style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="font-size:13px;font-weight:700">{{ g.k }}</span><span style="width:22px;height:22px;border-radius:11px;border:1.5px solid {{ g.ring }};background:{{ g.dot }};color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ g.mark }}</span></span>
+<input value="{{ g.val }}" onChange="{{ g.onChange }}" placeholder="{{ g.ph }}" style="height:48px;border:1.5px solid #1D1D1B;border-radius:12px;background:#fff;padding:0 12px;font-size:16px;font-weight:600;outline:none;width:100%" style-focus="box-shadow:0 0 0 3px #8EDCCB">
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;padding:16px;border:1.5px solid #1D1D1B;border-radius:18px;background:{{ v.dpCardBg }};box-shadow:{{ v.dpCardSh }}">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:17px;font-weight:800">Bayar DP</span><span style="font-family:'Geist Mono',monospace;font-size:22px;font-weight:600">{{ v.dpStr }}</span></div>
+<sc-if value="{{ v.gateLocked }}">
+<span style="font-size:14px;line-height:1.45;color:#3A3936">Lengkapi {{ v.gateLeft }} data di atas dulu, lalu tombol bayar aktif.</span>
+<button disabled style="height:52px;border:1.5px solid #D6D3CC;border-radius:14px;background:#EFEDE8;color:#8A8883;font-size:15px;font-weight:700">Bayar DP</button>
+</sc-if>
+<sc-if value="{{ v.gateOpen }}">
+<div style="border:1.5px solid #1D1D1B;border-radius:14px;background:#fff;overflow:hidden;font-size:14px">
+<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1.5px dashed #D6D3CC"><span style="color:#5F5E5A">Bank</span><span style="font-weight:700">[dari pengaturan admin]</span></div>
+<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1.5px dashed #D6D3CC"><span style="color:#5F5E5A">No. rekening</span><span style="font-family:'Geist Mono',monospace;font-weight:600">[nomor rekening]</span></div>
+<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px"><span style="color:#5F5E5A">Atas nama</span><span style="font-weight:700">[nama rekening]</span></div>
+</div>
+<sc-if value="{{ v.noFile }}">
+<label style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 12px;border:1.5px dashed #1D1D1B;border-radius:14px;background:#fff;text-align:center;cursor:pointer">
+<input type="file" accept="image/jpeg,image/png,image/heic,.heic,application/pdf" onChange="{{ v.onFile }}" style="display:none">
+<img src="https://unpkg.com/lucide-static@0.460.0/icons/upload.svg" alt="" style="width:22px">
+<span style="font-size:15px;font-weight:800">Unggah bukti transfer</span>
+<span style="font-size:12px;color:#5F5E5A">JPG, PNG, HEIC, atau PDF · maks 10 MB</span>
+</label>
+</sc-if>
+<sc-if value="{{ v.fileErr }}"><span style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600"><span style="flex:none;width:8px;height:8px;border-radius:4px;background:#E8836F"></span>{{ v.fileErr }}</span></sc-if>
+<sc-if value="{{ v.hasFile }}">
+<div style="display:flex;gap:10px;align-items:center;padding:12px;border:1.5px solid #1D1D1B;border-radius:14px;background:#fff"><img src="https://unpkg.com/lucide-static@0.460.0/icons/file-check.svg" alt="" style="width:20px"><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.fileName }}</span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#5F5E5A">{{ v.fileSize }}</span></span><button onClick="{{ v.clearFile }}" style="border:0;background:transparent;font-size:13px;font-weight:700;text-decoration:underline;cursor:pointer">Ganti</button></div>
+</sc-if>
+<sc-if value="{{ v.canSend }}"><button onClick="{{ v.sendProof }}" style="height:52px;border:1.5px solid #1D1D1B;border-radius:14px;background:#F8D98B;box-shadow:4px 4px 0 -1.5px #FFFFFF,4px 4px 0 0 #1D1D1B;font-size:16px;font-weight:800;cursor:pointer" style-active="transform:translate(4px,4px);box-shadow:0 0 0 0 #1D1D1B">Kirim bukti DP</button></sc-if>
+<sc-if value="{{ v.proofSent }}"><div style="display:flex;gap:10px;align-items:center;padding:12px;border:1.5px solid #1D1D1B;border-radius:14px;background:#D6F1EA;font-size:14px;line-height:1.4"><span style="flex:none;width:26px;height:26px;border-radius:13px;border:1.5px solid #1D1D1B;background:#5DB978;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center">✓</span>Bukti terkirim. Setelah admin cek, tanggalmu terkunci.</div></sc-if>
+</sc-if>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;font-weight:800">Boleh menyusul</span><span style="font-size:13px;color:#5F5E5A">Tidak menghalangi apa pun. Isi kapan saja.</span></div>
+<div style="border:1.5px solid #1D1D1B;border-radius:18px;background:#fff;overflow:hidden">
+<sc-for list="{{ v.later }}" as="it" hint-placeholder-count="6">
+<div style="border-bottom:{{ it.bb }}">
+<button onClick="{{ it.toggle }}" style="display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:10px 14px;border:0;background:transparent;text-align:left;cursor:pointer">
+<span style="flex:none;width:38px;height:38px;border-radius:11px;border:1.5px dashed #1D1D1B;background:{{ it.tint }};display:flex;align-items:center;justify-content:center"><img src="{{ it.icon }}" alt="" style="width:18px"></span>
+<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span style="font-size:15px;font-weight:700">{{ it.label }}</span><span style="font-size:12px;color:{{ it.subC }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.sub }}</span></span>
+<img src="https://unpkg.com/lucide-static@0.460.0/icons/chevron-down.svg" alt="" style="flex:none;width:18px;transform:rotate({{ it.rot }});transition:transform 150ms">
+</button>
+<sc-if value="{{ it.isOwnerWa }}"><div style="padding:0 14px 14px"><div style="position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:58px;display:flex;align-items:center;justify-content:center;font-family:'Geist Mono',monospace;font-size:15px;font-weight:600;border-right:1.5px solid #D6D3CC">+62</span><input value="{{ v.p.ownerWa }}" onChange="{{ v.pf.ownerWa }}" type="tel" inputMode="tel" placeholder="WA pemilik acara" style="height:48px;border:1.5px solid #1D1D1B;border-radius:12px;padding:0 12px 0 70px;font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;outline:none;width:100%;background:#fff" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div></div></sc-if>
+<sc-if value="{{ it.isAddr }}"><div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px"><textarea value="{{ v.p.addr }}" onChange="{{ v.pf.addr }}" rows="2" placeholder="Alamat lengkap venue" style="border:1.5px solid #1D1D1B;border-radius:12px;padding:10px 12px;font-size:16px;font-weight:500;outline:none;width:100%;resize:none;background:#fff" style-focus="box-shadow:0 0 0 3px #8EDCCB"></textarea><input value="{{ v.p.maps }}" onChange="{{ v.pf.maps }}" type="url" inputMode="url" placeholder="Link Google Maps" style="height:48px;border:1.5px solid #1D1D1B;border-radius:12px;padding:0 12px;font-size:16px;font-weight:500;outline:none;width:100%;background:#fff" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div></sc-if>
+<sc-if value="{{ it.isPic }}"><div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px"><input value="{{ v.p.picName }}" onChange="{{ v.pf.picName }}" placeholder="Nama PIC hari H" style="height:48px;border:1.5px solid #1D1D1B;border-radius:12px;padding:0 12px;font-size:16px;font-weight:600;outline:none;width:100%;background:#fff" style-focus="box-shadow:0 0 0 3px #8EDCCB"><input value="{{ v.p.picWa }}" onChange="{{ v.pf.picWa }}" type="tel" inputMode="tel" placeholder="WA PIC (08…)" style="height:48px;border:1.5px solid #1D1D1B;border-radius:12px;padding:0 12px;font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;outline:none;width:100%;background:#fff" style-focus="box-shadow:0 0 0 3px #8EDCCB"></div></sc-if>
+<sc-if value="{{ it.isGuests }}"><div style="padding:0 14px 14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"><sc-for list="{{ v.guestChips }}" as="g" hint-placeholder-count="4"><button onClick="{{ g.onClick }}" style="height:44px;border:1.5px solid #1D1D1B;border-radius:12px;background:{{ g.bg }};font-family:'Geist Mono',monospace;font-size:13px;font-weight:600;cursor:pointer">{{ g.label }}</button></sc-for></div></sc-if>
+<sc-if value="{{ it.isRundown }}"><div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ v.rundown }}" as="r" hint-placeholder-count="2"><div style="display:flex;gap:6px"><input value="{{ r.t }}" onChange="{{ r.onT }}" type="time" style="flex:none;width:104px;height:46px;border:1.5px solid #1D1D1B;border-radius:12px;padding:0 8px;font-family:'Geist Mono',monospace;font-size:15px;outline:none;background:#fff"><input value="{{ r.a }}" onChange="{{ r.onA }}" placeholder="Kegiatan" style="flex:1;min-width:0;height:46px;border:1.5px solid #1D1D1B;border-radius:12px;padding:0 10px;font-size:16px;font-weight:500;outline:none;background:#fff"><button onClick="{{ r.del }}" aria-label="Hapus baris" style="flex:none;width:40px;height:46px;border:0;background:transparent;font-size:18px;cursor:pointer">×</button></div></sc-for>
+<button onClick="{{ v.addRow }}" style="height:44px;border:1.5px dashed #1D1D1B;border-radius:12px;background:transparent;font-size:14px;font-weight:700;cursor:pointer">+ Tambah baris <span style="font-family:'Geist Mono',monospace;font-weight:500;color:#5F5E5A">{{ v.rowCount }}/30</span></button>
+</div></sc-if>
+<sc-if value="{{ it.isNote }}"><div style="padding:0 14px 14px"><textarea value="{{ v.p.note }}" onChange="{{ v.pf.note }}" rows="3" placeholder="Tema warna, akses loading barang, dsb." style="border:1.5px solid #1D1D1B;border-radius:12px;padding:10px 12px;font-size:16px;font-weight:500;outline:none;width:100%;resize:none;background:#fff" style-focus="box-shadow:0 0 0 3px #8EDCCB"></textarea></div></sc-if>
+</div>
+</sc-for>
+</div>
+<span style="font-size:12px;color:#5F5E5A;display:flex;gap:6px;align-items:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/cloud.svg" alt="" style="width:14px">Tersimpan otomatis</span>
+</div>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ v.barShow }}">
+<div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 28px;background:#F8F7F4;border-top:1.5px solid #1D1D1B;z-index:3;display:flex;gap:10px;align-items:center">
+<sc-if value="{{ v.skipShow }}"><button onClick="{{ v.skipGo }}" style="flex:none;height:56px;padding:0 18px;border:0;background:transparent;font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Lewati</button></sc-if>
+<sc-if value="{{ v.barOn }}"><button onClick="{{ v.barGo }}" style="flex:1;height:56px;border:1.5px solid #1D1D1B;border-radius:14px;background:#F8D98B;box-shadow:4px 4px 0 -1.5px #F8F7F4,4px 4px 0 0 #1D1D1B;font-size:17px;font-weight:800;cursor:pointer;transition:transform 100ms,box-shadow 100ms" style-active="transform:translate(4px,4px);box-shadow:0 0 0 0 #1D1D1B">{{ v.barLabel }}</button></sc-if>
+<sc-if value="{{ v.barOff }}"><button disabled style="flex:1;height:56px;border:1.5px solid #D6D3CC;border-radius:14px;background:#EFEDE8;color:#8A8883;font-size:16px;font-weight:700">{{ v.barLabel }}</button></sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:700},&quot;v&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}"></script>
+</body>
+</html>

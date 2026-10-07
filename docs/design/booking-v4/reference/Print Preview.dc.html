@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="zoom:{{ z }};display:flex;justify-content:center;align-items:center">
+<sc-if value="{{ isStrip }}" hint-placeholder-val="{{ true }}">
+<div style="width:110px;height:330px;background:{{ bg }};border:1.5px solid #1D1D1B;box-shadow:5px 5px 0 -1.5px #FFFFFF,5px 5px 0 0 #1D1D1B;transform:rotate({{ rot }});padding:7px;display:flex;flex-direction:column;gap:5px">
+<div style="height:66px;flex:none;border-radius:3px;background:{{ s1 }};display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/smile.svg" alt="" style="width:20px;opacity:.45"></div>
+<div style="height:66px;flex:none;border-radius:3px;background:{{ s2 }};display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/laugh.svg" alt="" style="width:20px;opacity:.45"></div>
+<div style="height:66px;flex:none;border-radius:3px;background:{{ s3 }};display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/heart.svg" alt="" style="width:20px;opacity:.45"></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center">
+<sc-if value="{{ kicker }}"><span style="font-size:5.5px;letter-spacing:.2em;font-weight:700">{{ kicker }}</span></sc-if>
+<span style="font-size:11.5px;font-weight:800;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere">{{ title }}</span>
+<span style="font-family:'Geist Mono',monospace;font-size:6.5px">{{ date }}</span>
+<img src="assets/logo/tetra-putih.png" alt="" style="height:8px;filter:invert(1);margin-top:6px">
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ is4r }}">
+<div style="width:220px;height:330px;background:{{ bg }};border:1.5px solid #1D1D1B;box-shadow:5px 5px 0 -1.5px #FFFFFF,5px 5px 0 0 #1D1D1B;transform:rotate({{ rot }});padding:9px;display:flex;flex-direction:column;gap:6px">
+<div style="height:126px;flex:none;border-radius:4px;background:{{ s1 }};display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/smile.svg" alt="" style="width:30px;opacity:.45"></div>
+<div style="height:126px;flex:none;border-radius:4px;background:{{ s2 }};display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/party-popper.svg" alt="" style="width:30px;opacity:.45"></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center">
+<sc-if value="{{ kicker }}"><span style="font-size:6px;letter-spacing:.2em;font-weight:700">{{ kicker }}</span></sc-if>
+<span style="font-size:14px;font-weight:800;line-height:1.1;letter-spacing:-.01em">{{ title }}</span>
+<span style="font-family:'Geist Mono',monospace;font-size:7.5px">{{ date }}</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ isPol }}">
+<div style="width:257px;height:330px;background:{{ bg }};border:1.5px solid #1D1D1B;box-shadow:5px 5px 0 -1.5px #FFFFFF,5px 5px 0 0 #1D1D1B;transform:rotate({{ rot }});padding:12px 12px 0;display:flex;flex-direction:column">
+<div style="height:240px;flex:none;border-radius:3px;background:{{ s1 }};display:flex;align-items:center;justify-content:center"><img src="https://unpkg.com/lucide-static@0.460.0/icons/smile.svg" alt="" style="width:44px;opacity:.45"></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center">
+<sc-if value="{{ kicker }}"><span style="font-size:6px;letter-spacing:.2em;font-weight:700">{{ kicker }}</span></sc-if>
+<span style="font-size:17px;font-weight:800;line-height:1.1;letter-spacing:-.01em">{{ title }}</span>
+<span style="font-family:'Geist Mono',monospace;font-size:8px">{{ date }}</span>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:380},&quot;fmt&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;strip&quot;,&quot;4r&quot;,&quot;polaroid&quot;],&quot;default&quot;:&quot;strip&quot;,&quot;tsType&quot;:&quot;'strip'|'4r'|'polaroid'&quot;},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Rina &amp; Dimas&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;date&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;12 DESEMBER 2026&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;kicker&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;THE WEDDING OF&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;zoom&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;min&quot;:0.3,&quot;max&quot;:2,&quot;step&quot;:0.05,&quot;tsType&quot;:&quot;number&quot;},&quot;rot&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;-2deg&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const T={klasik:{bg:'#FFFFFF',s1:'#CEC8F6',s2:'#FCE3C6',s3:'#D6EEF8'},garden:{bg:'#D6F1EA',s1:'#FFFFFF',s2:'#8EDCCB',s3:'#FFFFFF'},butter:{bg:'#F8D98B',s1:'#FFFFFF',s2:'#FCE3C6',s3:'#FFFFFF'},lavender:{bg:'#CEC8F6',s1:'#FFFFFF',s2:'#D6EEF8',s3:'#FFFFFF'},sky:{bg:'#D6EEF8',s1:'#FFFFFF',s2:'#CEC8F6',s3:'#FFFFFF'},peach:{bg:'#FCE3C6',s1:'#FFFFFF',s2:'#F7D5CC',s3:'#FFFFFF'}};
+class Component extends DCLogic {
+  renderVals(){
+    const f=this.props.fmt||'strip';
+    return {isStrip:f==='strip',is4r:f==='4r',isPol:f==='polaroid',
+      title:this.props.title||'Nama acaramu',date:this.props.date||'TANGGAL ACARA',kicker:this.props.kicker||'',
+      z:parseFloat(this.props.zoom??1)||1,rot:this.props.rot||'-2deg',...(T[this.props.theme]||T.klasik)};
+  }
+}
+</script>
+</body>
+</html>

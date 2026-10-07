@@ -1,6 +1,16 @@
 import { Check } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import {
+	type Fmt,
+	MON3,
+	MONTHS,
+	PKG,
+} from "@/components/portal/booking/content";
+import {
+	PortalView,
+	type PortalViewProps,
+} from "@/components/portal/booking/portal-view";
+import {
 	ChangeRequest,
 	type OpenRequest,
 } from "@/components/portal/change-request";
@@ -8,21 +18,14 @@ import {
 	DesignSection,
 	type TemplateCard,
 } from "@/components/portal/design-section";
-import { DetailForm } from "@/components/portal/detail-form";
 import { DpForm, type PortalBank } from "@/components/portal/dp-form";
 import { type Member, MembersCard } from "@/components/portal/members-card";
-import { dateLong, StatusPill } from "@/components/portal/status-pill";
+import { dateLong } from "@/components/portal/status-pill";
 import { modulesFor } from "@/lib/booth-api";
 import { fetchBoothEvents } from "@/lib/booth-sync";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import { getPortalPerson } from "@/lib/portal/auth";
-import {
-	daysUntil,
-	FRAME_LABELS,
-	missingForDp,
-	PRODUCT_LABELS,
-	refundEstimate,
-} from "@/lib/portal/core";
+import { daysUntil, PRODUCT_LABELS, refundEstimate } from "@/lib/portal/core";
 import {
 	configNumber,
 	loadCatalog,
@@ -67,7 +70,6 @@ export default async function BookingDetailPage({
 		dpMin,
 		banksRes,
 		subsRes,
-		typesRes,
 		evRes,
 		docsRes,
 		phoneRes,
@@ -89,11 +91,6 @@ export default async function BookingDetailPage({
 			.select("kind, amount, status, reject_reason, created_at")
 			.eq("booking_id", b.id)
 			.order("created_at", { ascending: false }),
-		admin
-			.from("event_types")
-			.select("code, label")
-			.eq("is_active", true)
-			.order("display_order"),
 		b.event_id
 			? admin
 					.from("events")
@@ -228,161 +225,170 @@ export default async function BookingDetailPage({
 		{ label: "Hari acara", done: false },
 	];
 
-	return (
-		<div className="wrap" style={{ display: "grid", gap: 18 }}>
-			<a href="/akun" className="link cap">
-				← Booking saya
-			</a>
+	const DAY3 = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+	const [yy, mm, dd] = b.event_date.split("-").map(Number);
+	const dt = new Date(Date.UTC(yy, mm - 1, dd));
+	const dShort = `${DAY3[dt.getUTCDay()]}, ${dd} ${MON3[mm - 1]} ${yy}`;
+	const fmt: Fmt =
+		b.frame_size === "2R"
+			? "strip"
+			: b.frame_size === "4R"
+				? "4r"
+				: b.frame_size === "polaroid"
+					? "polaroid"
+					: (PKG[b.service_type]?.fmt ?? "4r");
+	const pkgName =
+		PKG[b.service_type]?.name ??
+		product?.label ??
+		PRODUCT_LABELS[b.service_type];
+	const dpAmount = Math.min(dpMin, b.quoted_total);
+	const STATUS: Record<string, string> = {
+		draft: pendingSub
+			? "Menunggu verifikasi DP"
+			: "Draf · tanggal belum terkunci",
+		menunggu_konfirmasi: "Menunggu verifikasi DP",
+		resmi: "Resmi · tanggal terkunci",
+		kedaluwarsa: "Kedaluwarsa",
+		batal: "Dibatalkan",
+	};
+	const h2 = { fontSize: 17, fontWeight: 800, margin: 0 } as const;
 
-			<section
-				className="card layered"
-				style={{
-					display: "grid",
-					gap: 8,
-					["--under" as string]: "var(--lavender)",
-				}}
-			>
-				<div
-					style={{
-						display: "flex",
-						justifyContent: "space-between",
-						gap: 8,
-						alignItems: "start",
-					}}
+	return (
+		<PortalView
+			code={b.public_code}
+			title={b.detail.nama_acara || "Booking kamu"}
+			statusLabel={STATUS[b.status] ?? b.status}
+			pv={{
+				fmt,
+				title: b.detail.nama_acara || "Nama acaramu",
+				date: `${dd} ${MONTHS[mm - 1].toUpperCase()} ${yy}`,
+				kicker:
+					b.detail.kategori === "wedding"
+						? "THE WEDDING OF"
+						: b.detail.kategori === "engagement"
+							? "ENGAGEMENT OF"
+							: "",
+				theme: "klasik",
+			}}
+			rows={[
+				{ k: "Tanggal", v: dShort },
+				{ k: "Paket", v: `${pkgName} · ${b.package_hours} jam` },
+				{ k: "DP minimal", v: rp(dpAmount) },
+			]}
+			totalStr={rp(total)}
+			detail={b.detail}
+			readOnly={!active}
+			dpOpen={b.status === "draft" && canPay}
+			dp={dpAmount}
+			bank={(banks[0] as PortalViewProps["bank"]) ?? null}
+			dpSent={!!pendingSub && pendingSub.kind === "dp"}
+			rejectReason={lastRejected?.reject_reason ?? null}
+			stageGroups={modulesFor(b.service_type).includes("photo_stage")}
+			adminWa={adminWa}
+		>
+			<section style={{ display: "grid", gap: 10 }}>
+				<h2 style={h2}>Tahapan booking</h2>
+				<ol
+					className="card"
+					style={{ listStyle: "none", margin: 0, display: "grid", gap: 12 }}
 				>
-					<h1 className="h1" style={{ fontSize: 26 }}>
-						{b.detail.nama_acara || "Acara kamu"}
-					</h1>
-					<StatusPill status={b.status} />
-				</div>
-				<hr className="divider" style={{ margin: "4px 0" }} />
-				<div className="body">
-					{dateLong(b.event_date)}
-					{b.start_time
-						? ` · mulai ${b.start_time.slice(0, 5)}`
-						: " · jam menyusul"}
-				</div>
-				<div className="body">
-					{product?.label ?? PRODUCT_LABELS[b.service_type]} · {b.package_hours}{" "}
-					jam
-					{b.frame_size
-						? ` · ${FRAME_LABELS[b.frame_size] ?? b.frame_size}`
-						: ""}
-					{b.unit_count > 1 ? ` · ${b.unit_count} booth` : ""}
-				</div>
-				<div className="cap mono">Kode booking {b.public_code}</div>
+					{steps.map((s) => (
+						<li
+							key={s.label}
+							style={{ display: "flex", gap: 12, alignItems: "center" }}
+						>
+							<span
+								className="tick"
+								data-on={s.done}
+								style={
+									s.now && !s.done ? { background: "var(--butter)" } : undefined
+								}
+							>
+								{s.done && <Check size={15} strokeWidth={3} />}
+							</span>
+							<span
+								style={{
+									fontWeight: s.now ? 800 : 600,
+									color: s.done || s.now ? "var(--ink)" : "var(--text-2)",
+								}}
+							>
+								{s.label}
+								{s.now && s.hint && b.status !== "resmi" ? (
+									<span className="cap"> · {s.hint}</span>
+								) : null}
+							</span>
+						</li>
+					))}
+				</ol>
 			</section>
 
-			<ol
-				className="card"
-				style={{ listStyle: "none", margin: 0, display: "grid", gap: 12 }}
-			>
-				{steps.map((s) => (
-					<li
-						key={s.label}
-						style={{ display: "flex", gap: 12, alignItems: "center" }}
-					>
-						<span
-							className="tick"
-							data-on={s.done}
-							style={
-								s.now && !s.done ? { background: "var(--butter)" } : undefined
-							}
-						>
-							{s.done && <Check size={15} strokeWidth={3} />}
-						</span>
-						<span
-							style={{
-								fontWeight: s.now ? 800 : 600,
-								color: s.done || s.now ? "var(--ink)" : "var(--text-2)",
-							}}
-						>
-							{s.label}
-							{s.now && s.hint && b.status !== "resmi" ? (
-								<span className="cap"> · {s.hint}</span>
-							) : null}
-						</span>
-					</li>
-				))}
-			</ol>
-
-			{active && (
-				<section style={{ display: "grid", gap: 10 }}>
-					<h2 className="h2">Pembayaran</h2>
-					<div className="card" style={{ display: "grid", gap: 6 }}>
-						<Row
-							label={ev ? "Total tagihan" : "Perkiraan total"}
-							value={rp(total)}
-						/>
-						{ev && canPay && (
-							<Row label="Sudah dibayar" value={rp(Number(ev.total_paid))} />
-						)}
-						{ev && canPay && (
+			{active &&
+				(b.status !== "draft" || (pendingSub && pendingSub.kind !== "dp")) && (
+					<section style={{ display: "grid", gap: 10 }}>
+						<h2 style={h2}>Pembayaran</h2>
+						<div className="card" style={{ display: "grid", gap: 6 }}>
 							<Row
-								label="Sisa"
-								value={rp(Number(ev.remaining_balance))}
-								strong
+								label={ev ? "Total tagihan" : "Perkiraan total"}
+								value={rp(total)}
 							/>
-						)}
-						{ev?.due_date && Number(ev.remaining_balance) > 0 && (
-							<div className="cap">
-								Pelunasan paling lambat {dateLong(ev.due_date)}.
+							{ev && canPay && (
+								<Row label="Sudah dibayar" value={rp(Number(ev.total_paid))} />
+							)}
+							{ev && canPay && (
+								<Row
+									label="Sisa"
+									value={rp(Number(ev.remaining_balance))}
+									strong
+								/>
+							)}
+							{ev?.due_date && Number(ev.remaining_balance) > 0 && (
+								<div className="cap">
+									Pelunasan paling lambat {dateLong(ev.due_date)}.
+								</div>
+							)}
+						</div>
+						{pendingSub && b.status !== "draft" && (
+							<div className="note" style={{ background: "var(--sky)" }}>
+								Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
+								{rp(Number(pendingSub.amount))} sedang dicek admin.
+								{pendingSub.kind === "dp"
+									? " Jadwal kamu kami tahan selama itu."
+									: ""}{" "}
+								Kabarnya kami kirim lewat WhatsApp.
 							</div>
 						)}
-					</div>
-					{b.status === "draft" && canPay && (
-						<div className="card" style={{ display: "grid", gap: 12 }}>
-							<div className="h2">Bayar DP</div>
-							{lastRejected && (
-								<div className="note" style={{ background: "var(--coral)" }}>
-									Bukti sebelumnya belum bisa kami terima:{" "}
-									{lastRejected.reject_reason}
+						{b.status === "resmi" &&
+							ev &&
+							sisa > 0 &&
+							canPay &&
+							!pendingSub && (
+								<div className="card" style={{ display: "grid", gap: 12 }}>
+									<div className="h2">Bayar pelunasan</div>
+									{lastRejected && (
+										<div
+											className="note"
+											style={{ background: "var(--coral)" }}
+										>
+											Bukti sebelumnya belum bisa kami terima:{" "}
+											{lastRejected.reject_reason}
+										</div>
+									)}
+									<DpForm
+										kind="pelunasan"
+										code={b.public_code}
+										banks={banks}
+										dpMin={0}
+										total={sisa}
+										missing={[]}
+									/>
 								</div>
 							)}
-							<DpForm
-								code={b.public_code}
-								banks={banks}
-								dpMin={dpMin}
-								total={b.quoted_total}
-								missing={missingForDp(b.detail)}
-							/>
-						</div>
-					)}
-					{pendingSub && (
-						<div className="note" style={{ background: "var(--sky)" }}>
-							Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
-							{rp(Number(pendingSub.amount))} sedang dicek admin.
-							{pendingSub.kind === "dp"
-								? " Jadwal kamu kami tahan selama itu."
-								: ""}{" "}
-							Kabarnya kami kirim lewat WhatsApp.
-						</div>
-					)}
-					{b.status === "resmi" && ev && sisa > 0 && canPay && !pendingSub && (
-						<div className="card" style={{ display: "grid", gap: 12 }}>
-							<div className="h2">Bayar pelunasan</div>
-							{lastRejected && (
-								<div className="note" style={{ background: "var(--coral)" }}>
-									Bukti sebelumnya belum bisa kami terima:{" "}
-									{lastRejected.reject_reason}
-								</div>
-							)}
-							<DpForm
-								kind="pelunasan"
-								code={b.public_code}
-								banks={banks}
-								dpMin={0}
-								total={sisa}
-								missing={[]}
-							/>
-						</div>
-					)}
-				</section>
-			)}
+					</section>
+				)}
 
 			{galleryOn && (
-				<section style={{ display: "grid", gap: 6 }}>
-					<h2 className="h2">Acara & Galeri</h2>
+				<section style={{ display: "grid", gap: 10 }}>
+					<h2 style={h2}>Acara & Galeri</h2>
 					{boothEvents === null ? (
 						<div className="note">
 							Galeri belum bisa dibuka, coba lagi nanti.
@@ -429,8 +435,8 @@ export default async function BookingDetailPage({
 			)}
 
 			{design.length > 0 && (
-				<section style={{ display: "grid", gap: 6 }}>
-					<h2 className="h2">Desain frame</h2>
+				<section style={{ display: "grid", gap: 10 }}>
+					<h2 style={h2}>Desain frame</h2>
 					<DesignSection
 						code={b.public_code}
 						requests={design}
@@ -442,7 +448,7 @@ export default async function BookingDetailPage({
 
 			{canPay && (docsRes.data ?? []).length > 0 && (
 				<section style={{ display: "grid", gap: 10 }}>
-					<h2 className="h2">Dokumen</h2>
+					<h2 style={h2}>Dokumen</h2>
 					{(docsRes.data ?? []).map((d) => (
 						<a
 							key={d.id}
@@ -464,22 +470,8 @@ export default async function BookingDetailPage({
 				</section>
 			)}
 
-			<section style={{ display: "grid", gap: 6 }}>
-				<h2 className="h2">Detail acara</h2>
-				<p className="cap">Boleh diisi bertahap. Semua tersimpan otomatis.</p>
-				<DetailForm
-					code={b.public_code}
-					initial={b.detail}
-					categories={
-						(typesRes.data ?? []) as Array<{ code: string; label: string }>
-					}
-					readOnly={!active}
-					stageGroups={modulesFor(b.service_type).includes("photo_stage")}
-				/>
-			</section>
-
-			<section style={{ display: "grid", gap: 6 }}>
-				<h2 className="h2">Orang di booking ini</h2>
+			<section style={{ display: "grid", gap: 10 }}>
+				<h2 style={h2}>Orang di booking ini</h2>
 				<MembersCard
 					code={b.public_code}
 					members={members}
@@ -489,8 +481,8 @@ export default async function BookingDetailPage({
 			</section>
 
 			{active && (
-				<section style={{ display: "grid", gap: 6 }}>
-					<h2 className="h2">Ubah jadwal atau batal</h2>
+				<section style={{ display: "grid", gap: 10 }}>
+					<h2 style={h2}>Ubah jadwal atau batal</h2>
 					<ChangeRequest
 						code={b.public_code}
 						isDraft={b.status === "draft"}
@@ -504,18 +496,7 @@ export default async function BookingDetailPage({
 					/>
 				</section>
 			)}
-
-			{adminWa && (
-				<a
-					className="btn btn-block"
-					href={`https://wa.me/${adminWa}?text=${encodeURIComponent(`Halo Tetra, saya mau tanya soal booking ${b.public_code}`)}`}
-					target="_blank"
-					rel="noopener"
-				>
-					Tanya admin lewat WhatsApp
-				</a>
-			)}
-		</div>
+		</PortalView>
 	);
 }
 
