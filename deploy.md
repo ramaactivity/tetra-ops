@@ -107,10 +107,10 @@ Urutan saat CNAME `booking` → Vercel sudah aktif (cek: `dig +short booking.tet
 3. Bot WA (VPS Sumopod `~/tetra-wa-bot/.env`): `TETRA_OPS_ORIGIN=https://booking.tetraphoto.com` lalu `pm2 restart tetra-bot --update-env`. Wajib, karena bot menolak `pdf_url` dari origin lain (kirim invoice/kuitansi lewat WA akan gagal).
 4. Kabari sesi Tetra Booth supaya `TETRA_OPS_URL` ikut diganti.
 
-## 🧭 Pisah domain tim: ops.tetraphoto.com (DR-037)
+## 🧭 Pisah domain tim: team.tetraphoto.com (DR-037; ops.tetraphoto.com sudah dipakai Mission Control Hermes)
 
-Domain sudah terdaftar di project Vercel `tetra-ops`. Urutan setelah CNAME `ops` → `5af00503efd44414.vercel-dns-017.com` aktif di Hostinger:
-1. Supabase (akun GitHub `ramaactivity`) → Auth → URL Configuration: Site URL `https://ops.tetraphoto.com`; Redirect URLs tambah `https://ops.tetraphoto.com/**` dan `https://ops.tetraphoto.com/auth/callback`.
-2. Vercel env (Production + Preview): `NEXT_PUBLIC_APP_URL=https://ops.tetraphoto.com`, `PORTAL_BASE_URL=https://booking.tetraphoto.com`, `OPS_HOST=ops.tetraphoto.com`; `.env.local` ikut. Redeploy.
-3. Bot WA (Sumopod `~/tetra-wa-bot/.env`): `TETRA_OPS_ORIGIN=https://ops.tetraphoto.com`, lalu `pm2 restart tetra-bot --update-env`.
+Domain sudah terdaftar di project Vercel `tetra-ops`. Urutan setelah CNAME `team` → `5af00503efd44414.vercel-dns-017.com` aktif di Hostinger:
+1. Supabase (akun GitHub `ramaactivity`) → Auth → URL Configuration: Site URL `https://team.tetraphoto.com`; Redirect URLs tambah `https://team.tetraphoto.com/**` dan `https://team.tetraphoto.com/auth/callback`.
+2. Vercel env (Production + Preview): `NEXT_PUBLIC_APP_URL=https://team.tetraphoto.com`, `PORTAL_BASE_URL=https://booking.tetraphoto.com`, `OPS_HOST=team.tetraphoto.com`; `.env.local` ikut. Redeploy.
+3. Bot WA (Sumopod `~/tetra-wa-bot/.env`): `TETRA_OPS_ORIGIN=https://team.tetraphoto.com`, lalu `pm2 restart tetra-bot --update-env`.
 4. Kabari sesi Booth (opsional: `TETRA_OPS_URL` boleh ops atau booking — `/api/*` jalan di keduanya).

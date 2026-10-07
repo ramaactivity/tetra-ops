@@ -80,7 +80,7 @@ export async function updateSession(request: NextRequest) {
 	// Dua domain, satu aplikasi (DR-036, DR-037):
 	//   booking.tetraphoto.com = klien → "/" form booking (rewrite), /booking
 	//     308 ke "/", /akun = portal. Halaman tim diarahkan ke ops.
-	//   ops.tetraphoto.com (OPS_HOST) = owner & crew; halaman klien diarahkan
+	//   team.tetraphoto.com (OPS_HOST) = owner & crew; halaman klien diarahkan
 	//     ke domain booking.
 	// Pengalihan antar-domain hanya aktif kalau env OPS_HOST diisi (setelah
 	// DNS ops hidup). /api/* tidak pernah dialihkan (bot, Booth, cron, webhook).
