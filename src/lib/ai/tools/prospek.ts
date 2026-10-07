@@ -31,6 +31,15 @@ const KOLOM =
 const str = (v: unknown, max = 2000) =>
 	typeof v === "string" ? v.trim().slice(0, max) || null : null;
 
+/** Nomor HP (628…) yang bisa di-WA; telepon kantor → null. */
+const waHp = (t: unknown) =>
+	typeof t === "string" && isLikelyWaPhone(t) && toWaPhone(t).startsWith("628")
+		? toWaPhone(t)
+		: null;
+
+/** Status prospek yang artinya lead sudah membalas — boleh dikirimi lewat wa_kirim_kontak. */
+const PROSPEK_TERLIBAT = ["membalas", "deal"];
+
 function denganLink<T extends Prospek>(rows: T[]) {
 	return rows.map((r) => ({ ...r, ...sapaLinks(r, appUrl()) }));
 }
@@ -1344,12 +1353,7 @@ export const prospekAlihkan: AiTool = {
 		const telepon = str(args.telepon, 40);
 		const email = str(args.email, 200)?.toLowerCase() ?? null;
 		if (!id || !pesan) return { error: "id dan pesan wajib" };
-		const nomor =
-			telepon &&
-			isLikelyWaPhone(telepon) &&
-			toWaPhone(telepon).startsWith("628")
-				? toWaPhone(telepon)
-				: null;
+		const nomor = waHp(telepon);
 		if (!nomor && !emailValid(email))
 			return {
 				error: telepon
@@ -1484,9 +1488,13 @@ export const klienRetensi: AiTool = {
 	},
 };
 
-/** Nomor WA kontak yang dikenal Tetra: kontak (klien/booker/PIC/vendor) + nomor klien di event. */
-async function kontakDikenal(ctx: AiToolContext) {
-	const [{ data: kontak }, { data: ev }] = await Promise.all([
+/**
+ * Nomor WA kontak yang dikenal Tetra: kontak (klien/booker/PIC/vendor) + nomor klien di event
+ * + lead prospek yang sudah membalas (telepon = nomor PIC kalau sudah dialihkan). Urutan = prioritas:
+ * pencarian pakai yang pertama, jadi klien/vendor didahulukan dari lead bernomor sama.
+ */
+export async function kontakDikenal(ctx: AiToolContext) {
+	const [{ data: kontak }, { data: ev }, { data: lead }] = await Promise.all([
 		ctx.supabase
 			.from("contacts")
 			.select("name, type, phone, default_pic_name, default_pic_contact")
@@ -1500,12 +1508,18 @@ async function kontakDikenal(ctx: AiToolContext) {
 			.is("deleted_at", null)
 			.order("event_date", { ascending: false })
 			.limit(10000),
+		ctx.supabase
+			.from("prospek")
+			.select("id, nama, segmen, status, telepon, pic")
+			.in("status", PROSPEK_TERLIBAT)
+			.limit(10000),
 	]);
 	const daftar: {
 		nama: string;
 		jenis: string;
 		wa: string;
 		info: string | null;
+		prospek_id?: string;
 	}[] = [];
 	for (const k of kontak ?? []) {
 		for (const [nomor, nama] of [
@@ -1535,6 +1549,17 @@ async function kontakDikenal(ctx: AiToolContext) {
 			info: `${e.event_category ?? "event"} ${e.event_date ?? ""}`.trim(),
 		});
 	}
+	for (const p of lead ?? []) {
+		const wa = waHp(p.telepon);
+		if (!wa) continue;
+		daftar.push({
+			nama: p.pic ? `${p.pic} (${p.nama})` : String(p.nama),
+			jenis: "lead",
+			wa,
+			info: `${p.segmen ?? "prospek"} · ${p.status}`,
+			prospek_id: p.id,
+		});
+	}
 	return daftar;
 }
 
@@ -1542,7 +1567,7 @@ export const kontakCari: AiTool = {
 	name: "kontak_cari",
 	description:
 		"Cari nomor WA klien/vendor/PIC yang sudah dikenal Tetra (tabel kontak + data event) dari potongan nama, " +
-		"mis. 'Evi', 'Kipina'. Pakai sebelum wa_kirim_kontak.",
+		"mis. 'Evi', 'Kipina'. Juga mencari lead prospek yang SUDAH membalas (jenis 'lead'). Pakai sebelum wa_kirim_kontak.",
 	scope: "ops",
 	parameters: {
 		type: "OBJECT",
@@ -1559,7 +1584,7 @@ export const kontakCari: AiTool = {
 		if (q.length < 2) return { error: "nama minimal 2 huruf" };
 		const hasil = new Map<
 			string,
-			{ nama: string; jenis: string; wa: string; info: string | null }
+			Awaited<ReturnType<typeof kontakDikenal>>[number]
 		>();
 		for (const k of await kontakDikenal(ctx))
 			if (k.nama.toLowerCase().includes(q) && !hasil.has(k.wa))
@@ -1572,7 +1597,9 @@ export const waKirimKontak: AiTool = {
 	name: "wa_kirim_kontak",
 	description:
 		"Kirim WA ke klien/vendor/PIC yang SUDAH dikenal Tetra (nomor wajib tercatat di kontak atau data event; nomor asing ditolak). " +
-		"Untuk ucapan setelah acara, kabar, follow-up relasi — BUKAN sapaan prospek baru (itu prospek_tambah). " +
+		"Untuk ucapan setelah acara, kabar, follow-up relasi — BUKAN sapaan prospek baru (itu prospek_tambah / prospek_kirim_wa). " +
+		"Boleh juga ke lead yang SUDAH membalas (jenis 'lead' di kontak_cari), hanya atas perintah Rama dengan nama lead yang jelas; " +
+		"isinya dicatat ke catatan prospek. " +
 		"Bot mengirim otomatis dengan rem: maks 20/hari, 08–20 WIB, berjeda, satu nomor maks sekali per 12 jam.",
 	scope: "ops",
 	langsung: true,
@@ -1605,10 +1632,34 @@ export const waKirimKontak: AiTool = {
 			return { error: "nomor tidak valid" };
 		const nomor = toWaPhone(String(args.nomor));
 		const kenal = (await kontakDikenal(ctx)).find((k) => k.wa === nomor);
-		if (!kenal)
+		if (!kenal) {
+			const { data: blokir } = await ctx.supabase
+				.from("prospek")
+				.select("nama, status, telepon")
+				.in("status", ["tolak", "jangan_hubungi"])
+				.not("telepon", "is", null)
+				.limit(10000);
+			const b = (blokir ?? []).find((p) => waHp(p.telepon) === nomor);
 			return {
-				error: `${nomor} tidak tercatat sebagai klien/vendor/PIC di Tetra Ops; tidak dikirim. Cari dulu dengan kontak_cari.`,
+				error: b
+					? `${b.nama} berstatus ${b.status}; tidak dihubungi lagi, tidak dikirim.`
+					: `${nomor} tidak tercatat sebagai klien/vendor/PIC atau lead yang sudah membalas di Tetra Ops; tidak dikirim. Cari dulu dengan kontak_cari.`,
 			};
+		}
+		// Status lead bisa berubah sejak daftar dimuat; cek ulang tepat sebelum kirim.
+		let lead: { status: string; catatan: string | null } | null = null;
+		if (kenal.prospek_id) {
+			const { data } = await ctx.supabase
+				.from("prospek")
+				.select("status, catatan")
+				.eq("id", kenal.prospek_id)
+				.maybeSingle();
+			if (!data || !PROSPEK_TERLIBAT.includes(data.status))
+				return {
+					error: `${kenal.nama} kini berstatus ${data?.status ?? "terhapus"}; tidak dikirim.`,
+				};
+			lead = data;
+		}
 		const { data, error } = await ctx.supabase
 			.from("bot_commands")
 			.insert({
@@ -1618,12 +1669,27 @@ export const waKirimKontak: AiTool = {
 			.select("id")
 			.single();
 		if (error) return { error: `Gagal menitipkan ke bot: ${error.message}` };
+		let gagalCatat: string | undefined;
+		if (lead) {
+			const baris = `WA dari Rama via Bruno (cmd ${data.id}): "${pesan.slice(0, 120)}"`;
+			const { error: e } = await ctx.supabase
+				.from("prospek")
+				.update({
+					catatan: [lead.catatan, baris].filter(Boolean).join("\n"),
+					updated_at: new Date().toISOString(),
+				})
+				.eq("id", kenal.prospek_id);
+			gagalCatat = e?.message;
+		}
 		return {
 			status: "antre",
 			kepada: `${kenal.nama} (${kenal.jenis}) ${nomor}`,
 			cmd: data.id,
 			catatan:
 				"Bot mengirim dalam beberapa menit sesuai rem (jam 08–20 WIB, maks 20/hari, satu nomor sekali per 12 jam).",
+			...(gagalCatat && {
+				peringatan: `WA antre, tapi catatan prospek gagal diperbarui: ${gagalCatat}`,
+			}),
 		};
 	},
 };
