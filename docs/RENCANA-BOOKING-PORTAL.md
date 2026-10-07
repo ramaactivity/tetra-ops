@@ -175,4 +175,7 @@ Disetujui owner 2026-10-06, termasuk revisi maksimal 3 kali dan kebijakan pembat
   - Designer di `/design/portal` upload PNG; rasio & resolusi dicek di server dari header PNG, area transparan dicek di browser (hanya peringatan).
   - ACC semua spot → gerbang ukuran sama dengan Design Hub; cocok → event approved + arsip ke Drive (Design) + aset desain; tidak cocok/menyusul → owner diminta ACC di Design Hub.
   - Katalog template dikelola di `/design/templates`.
-- **Berikutnya:** fase 4 (Midtrans) — tunggu akun produksi; atau fase 5/6 (integrasi Booth, domain).
+- **Fase 5 (live 2026-10-07):** integrasi Booth — field tambahan di `GET /api/booth/bookings` (modul, desain + `frame_url`, `portal_url`, `stage_groups`), webhook keluar ber-HMAC + outbox `booth_webhook_outbox` (aktif begitu `TETRA_BOOTH_URL` diisi), placeholder Acara & Galeri di portal (flag `portal.gallery_enabled`). Kontrak v0.6.
+- **Fase 6 (live 2026-10-07, berubah dari rencana):** bukan Multi-Zones; dua subdomain ke satu aplikasi — `booking.tetraphoto.com` untuk klien, `team.tetraphoto.com` untuk owner/crew (DR-036, DR-037).
+- **Sesudahnya:** file portal pindah ke Cloudflare R2 (DR-038); daftar grup foto pelaminan untuk Photo Stage.
+- **Berikutnya:** fase 4 (Midtrans) — tunggu akun produksi aktif; desain visual halaman booking dari Claude Design.
