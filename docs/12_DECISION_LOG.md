@@ -1131,6 +1131,7 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - Dashboard booking: kepala halaman (judul, tanggal · venue, chip status, kode), kartu **Langkah berikutnya** (satu aksi sesuai tahap: lengkapi data → bayar DP → menunggu verifikasi → desain → pelunasan → galeri) + stepper 5 tahap, 4 kartu statistik layered (Hari acara, Pembayaran, Desain frame, Galeri), lalu bagian Pembayaran · Data acara | Desain frame · Galeri · Dokumen · Orang · Ubah jadwal.
 - Galeri memakai `GET /api/ops/events/{project}` Booth (kontrak §5) + field aditif Booth #185 `cover_url`, `thumbs` (≤6, presigned 1 hari, tidak disimpan). Tidak di-iframe. Tetap di balik `portal.gallery_enabled` sampai env `TETRA_OPS_*` di Vercel Booth terisi.
 - Kartu "Isi dashboard kamu" (sementara) dihapus — digantikan kartu statistik + langkah berikutnya.
+- Event buatan admin bisa diberi dashboard: kartu **Dashboard klien** di detail event Ops (owner) → `inviteClientDashboard` membuat `client_bookings` status `resmi` yang menempel ke event (idempoten per event, `terms_version = "undangan-admin"`) + anggota `pemesan` dari WA klien, lalu kirim link lewat bot. Event yang desainnya sudah approved di Design Hub atau tanggalnya lewat tidak dibuatkan permintaan desain portal.
 
 ---
 

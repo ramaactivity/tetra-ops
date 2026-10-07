@@ -29,6 +29,7 @@ import { DesignCard } from "@/components/event-design/design-card";
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
+import { ClientDashboardCard } from "@/components/operations/client-dashboard-card";
 import { EventTransportPlan } from "@/components/operations/event-transport-plan";
 import {
 	ProjectHeroRecap,
@@ -57,6 +58,7 @@ import {
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
+import { portalUrl } from "@/lib/portal/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -153,6 +155,18 @@ export default async function EventDetailPage({
 	}
 
 	if (!event) notFound();
+	// Booking portal yang menempel ke event → link dashboard klien (owner saja).
+	const portalCode = canEdit
+		? ((
+				await createAdminClient()
+					.from("client_bookings")
+					.select("public_code")
+					.eq("event_id", event.id)
+					.order("created_at")
+					.limit(1)
+					.maybeSingle()
+			).data?.public_code ?? null)
+		: null;
 
 	// Design frames — SAME store as the Asset & Design page (event_assets), so
 	// the Design card here stays in sync with that page (no separate silo).
@@ -1160,6 +1174,14 @@ export default async function EventDetailPage({
 					designStatus={(event.design_status ?? "belum") as DesignStatus}
 					canEdit={canEdit}
 				/>
+				{canEdit && (
+					<ClientDashboardCard
+						eventId={event.id}
+						link={portalCode ? portalUrl(portalCode) : null}
+						defaultName={event.client_name ?? ""}
+						defaultPhone={event.client_wa ?? ""}
+					/>
+				)}
 			</div>
 
 			{/* === ACTIVITY FEED (collapsible, default closed) === */}

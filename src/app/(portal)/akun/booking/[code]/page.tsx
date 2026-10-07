@@ -105,7 +105,7 @@ export default async function BookingDetailPage({
 			? admin
 					.from("events")
 					.select(
-						"project_id, grand_total, total_paid, remaining_balance, due_date",
+						"project_id, grand_total, total_paid, remaining_balance, due_date, design_status",
 					)
 					.eq("id", b.event_id)
 					.maybeSingle()
@@ -163,6 +163,7 @@ export default async function BookingDetailPage({
 		total_paid: number;
 		remaining_balance: number;
 		due_date: string | null;
+		design_status: string | null;
 	} | null;
 	const product = catalog.products.find((p) => p.category === b.service_type);
 	const canPay = b.role !== "pemilik";
@@ -178,7 +179,16 @@ export default async function BookingDetailPage({
 	// Desain frame dibuka setelah DP diterima (event sudah ada).
 	let design: DesignRequestView[] = [];
 	let templates: TemplateCard[] = [];
-	if (b.status === "resmi" && b.event_id) {
+	// Event yang desainnya sudah di-ACC lewat Design Hub, atau acaranya sudah
+	// lewat (mis. dashboard dibuka admin untuk event lama), tidak dibuatkan
+	// permintaan desain portal — klien tidak disuruh memilih desain lagi.
+	const hubApproved = ev?.design_status === "approved";
+	if (
+		b.status === "resmi" &&
+		b.event_id &&
+		!hubApproved &&
+		b.event_date >= today
+	) {
 		await ensureDesignRequests(b.id, b.event_id);
 		const [state, tpl] = await Promise.all([
 			loadDesignState(b.event_id),
@@ -203,7 +213,8 @@ export default async function BookingDetailPage({
 	}
 	const evProject = ev?.project_id ?? null;
 	const designDone =
-		design.length > 0 && design.every((r) => r.stage === "acc");
+		hubApproved ||
+		(design.length > 0 && design.every((r) => r.stage === "acc"));
 	const revisionLimit = await configNumber("design.revision_limit", 3);
 	// Acara & Galeri dari Tetra Booth (kontrak §5), di balik portal.gallery_enabled.
 	const galleryOn =
@@ -449,7 +460,13 @@ export default async function BookingDetailPage({
 						k: "design",
 						label: "Desain frame",
 						value: designLabel,
-						sub: resmi ? `${design.length} desain` : "Terbuka setelah DP",
+						sub: !resmi
+							? "Terbuka setelah DP"
+							: design.length
+								? `${design.length} desain`
+								: designDone
+									? "Siap dipakai di booth"
+									: "Disiapkan tim desain",
 						under: "#FCE3C6",
 						href: "#desain-frame",
 					},
@@ -607,9 +624,11 @@ export default async function BookingDetailPage({
 							</div>
 						) : (
 							<p style={muted}>
-								Terbuka setelah DP diterima. Kamu bisa memilih template dari
-								katalog atau mengajukan desain custom, lalu menyetujui hasilnya
-								di sini.
+								{!resmi
+									? "Terbuka setelah DP diterima. Kamu bisa memilih template dari katalog atau mengajukan desain custom, lalu menyetujui hasilnya di sini."
+									: designDone
+										? "Desain frame acara ini sudah disetujui."
+										: "Tim desain Tetra sedang menyiapkan desain frame-mu. Kabarnya dikirim lewat WhatsApp."}
 							</p>
 						)}
 					</Section>
