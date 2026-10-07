@@ -2937,18 +2937,24 @@ function ReviewStep({ x }: { x: Ctx }) {
 			</div>
 			{/* biome-ignore lint/a11y/useSemanticElements: centang kustom sesuai desain v4; role + aria-checked setara checkbox. */}
 			<button
+				id="bk-consent"
+				key={`consent-${x.flash}`}
 				type="button"
 				role="checkbox"
 				aria-checked={s.consent}
+				className={x.flash && !s.consent ? "pop" : undefined}
 				onClick={() => x.set({ consent: !s.consent })}
 				style={{
 					display: "flex",
 					gap: 12,
 					alignItems: "flex-start",
 					padding: 14,
-					border: `1.5px dashed ${INK}`,
+					border:
+						x.flash && !s.consent
+							? "1.5px solid #E8836F"
+							: `1.5px dashed ${INK}`,
 					borderRadius: 16,
-					background: "transparent",
+					background: x.flash && !s.consent ? "#F7D5CC" : "transparent",
 					textAlign: "left",
 				}}
 			>

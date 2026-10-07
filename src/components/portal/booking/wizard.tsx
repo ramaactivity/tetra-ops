@@ -170,6 +170,7 @@ function useBooking(p: Props) {
 	const [submitErr, setSubmitErr] = useState("");
 	const [code, setCode] = useState<string | null>(null);
 	const [mounted, setMounted] = useState(false);
+	const [flash, setFlash] = useState(0);
 	const advRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const depth = useRef(0);
 	/** State terbaru untuk handler async/timer (hindari efek samping di updater). */
@@ -694,6 +695,8 @@ function useBooking(p: Props) {
 		go,
 		adminWa: p.adminWa,
 		router,
+		flash,
+		setFlash,
 	};
 }
 
@@ -962,6 +965,8 @@ function MobileHeader({ x, ph }: { x: Ctx; ph: number }) {
 function BottomBar({ x }: { x: Ctx }) {
 	const b = x.bar;
 	if (!b.show) return null;
+	const consentHint =
+		x.s.screen === "review" && !x.s.consent && !x.offline && !b.on;
 	return (
 		<div className="bk-bar">
 			{b.on ? (
@@ -971,7 +976,15 @@ function BottomBar({ x }: { x: Ctx }) {
 			) : (
 				<button
 					type="button"
-					disabled
+					// Persetujuan ada di bawah ringkasan: ketuk tombol → scroll ke sana.
+					disabled={!consentHint}
+					aria-disabled={!consentHint}
+					onClick={() => {
+						const el = document.getElementById("bk-consent");
+						el?.scrollIntoView({ behavior: "smooth", block: "center" });
+						x.setFlash((n) => n + 1);
+						el?.focus({ preventScroll: true });
+					}}
 					style={{
 						flex: 1,
 						height: 56,

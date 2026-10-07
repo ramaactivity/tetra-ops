@@ -10,13 +10,19 @@ import {
 	ChevronDown,
 	Cloud,
 	FileCheck,
+	FileText,
+	Images,
+	ListChecks,
 	ListOrdered,
+	LockKeyhole,
 	Map as MapIcon,
 	MessageSquare,
+	Palette,
 	Phone,
 	Upload,
 	UserCheck,
 	Users,
+	Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useRef, useState } from "react";
@@ -67,8 +73,134 @@ export type PortalViewProps = {
 	rejectReason: string | null;
 	stageGroups: boolean;
 	adminWa: string | null;
+	/** Fitur dashboard + kapan terbuka (kartu "Isi dashboard kamu"). */
+	features: Feature[];
 	children?: ReactNode;
 };
+
+export type Feature = {
+	k: "desain" | "data" | "bayar" | "dokumen" | "galeri";
+	t: string;
+	s: string;
+	badge: string;
+	open: boolean;
+	href?: string;
+};
+const FEATURE_ICON = {
+	desain: Palette,
+	data: ListChecks,
+	bayar: Wallet,
+	dokumen: FileText,
+	galeri: Images,
+} as const;
+const FEATURE_TINT = {
+	desain: "#CEC8F6",
+	data: "#D6F1EA",
+	bayar: "#FCE3C6",
+	dokumen: "#D6EEF8",
+	galeri: "#D6EEF8",
+} as const;
+
+function Features({ items }: { items: Feature[] }) {
+	return (
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+			<div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+				<span style={{ fontSize: 17, fontWeight: 800 }}>
+					Isi dashboard kamu
+				</span>
+				<span style={{ fontSize: 13, color: "#5F5E5A" }}>
+					Halaman ini dashboard booking kamu. Fiturnya terbuka bertahap.
+				</span>
+			</div>
+			<div
+				style={{
+					display: "flex",
+					flexDirection: "column",
+					border: B,
+					borderRadius: 18,
+					background: "#fff",
+					padding: "4px 14px",
+				}}
+			>
+				{items.map((r, i) => {
+					const Icon = FEATURE_ICON[r.k];
+					const body = (
+						<>
+							<IconChip
+								icon={Icon}
+								tint={FEATURE_TINT[r.k]}
+								size={38}
+								radius={11}
+								iconSize={18}
+							/>
+							<span
+								style={{
+									flex: 1,
+									display: "flex",
+									flexDirection: "column",
+									gap: 2,
+								}}
+							>
+								<span
+									style={{
+										display: "flex",
+										justifyContent: "space-between",
+										gap: 8,
+										alignItems: "center",
+									}}
+								>
+									<span style={{ fontSize: 15, fontWeight: 800 }}>{r.t}</span>
+									<span
+										style={{
+											flex: "none",
+											display: "flex",
+											alignItems: "center",
+											gap: 4,
+											fontSize: 11,
+											fontWeight: 800,
+											padding: "2px 8px",
+											border: B,
+											borderRadius: 999,
+											background: r.open ? "#D6F1EA" : "#F8D98B",
+											whiteSpace: "nowrap",
+										}}
+									>
+										{!r.open && <LockKeyhole size={11} strokeWidth={2.5} />}
+										{r.badge}
+									</span>
+								</span>
+								<span
+									style={{ fontSize: 13, lineHeight: 1.4, color: "#3A3936" }}
+								>
+									{r.s}
+								</span>
+							</span>
+						</>
+					);
+					const row = {
+						display: "flex",
+						gap: 12,
+						alignItems: "flex-start",
+						padding: "12px 0",
+						borderBottom: i < items.length - 1 ? "1.5px dashed #D6D3CC" : "0",
+						color: INK,
+						textDecoration: "none",
+						fontWeight: 400,
+					} as const;
+					return r.open && r.href ? (
+						<a key={r.k} href={r.href} style={row}>
+							{body}
+						</a>
+					) : (
+						<div key={r.k} style={row}>
+							{body}
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
 
 const rp = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 const PROOF_OK = /\.(jpe?g|png|heic|heif|webp|pdf)$/i;
@@ -384,6 +516,7 @@ export function PortalView(p: PortalViewProps) {
 							/>
 						)}
 
+						<Features items={p.features} />
 						<Later
 							d={d}
 							setF={setF}
@@ -519,6 +652,7 @@ function DpCard({
 
 	return (
 		<div
+			id="pembayaran"
 			style={{
 				display: "flex",
 				flexDirection: "column",
@@ -1150,7 +1284,10 @@ function Later({
 		},
 	];
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+		<div
+			id="boleh-menyusul"
+			style={{ display: "flex", flexDirection: "column", gap: 12 }}
+		>
 			<div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
 				<span style={{ fontSize: 17, fontWeight: 800 }}>Boleh menyusul</span>
 				<span style={{ fontSize: 13, color: "#5F5E5A" }}>

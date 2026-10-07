@@ -7,6 +7,7 @@ import {
 	PKG,
 } from "@/components/portal/booking/content";
 import {
+	type Feature,
 	PortalView,
 	type PortalViewProps,
 } from "@/components/portal/booking/portal-view";
@@ -252,6 +253,55 @@ export default async function BookingDetailPage({
 		batal: "Dibatalkan",
 	};
 	const h2 = { fontSize: 17, fontWeight: 800, margin: 0 } as const;
+	const resmi = b.status === "resmi";
+	const hasDocs = canPay && (docsRes.data ?? []).length > 0;
+	const galleryReady = !!boothEvents?.some((e) => e.gallery_url);
+	const features: Feature[] = [
+		{
+			k: "desain",
+			t: "Desain frame",
+			s: "Pilih template atau ajukan desain custom, lalu setujui hasilnya.",
+			badge: resmi ? "Terbuka" : "Setelah DP",
+			open: resmi && design.length > 0,
+			href: "#desain-frame",
+		},
+		{
+			k: "data",
+			t: "Lengkapi data acara",
+			s: "Venue, PIC hari H, rundown. Isi bertahap, tersimpan otomatis.",
+			badge: "Langsung",
+			open: true,
+			href: "#boleh-menyusul",
+		},
+		...(canPay
+			? [
+					{
+						k: "bayar" as const,
+						t: "DP & pelunasan",
+						s: "Lihat tagihan dan unggah bukti transfer.",
+						badge: "Langsung",
+						open: true,
+						href: "#pembayaran",
+					},
+					{
+						k: "dokumen" as const,
+						t: "Invoice & kuitansi",
+						s: "Unduh dokumen resmi booking kamu.",
+						badge: hasDocs ? "Terbuka" : "Setelah DP",
+						open: hasDocs,
+						href: "#dokumen",
+					},
+				]
+			: []),
+		{
+			k: "galeri",
+			t: "Galeri foto acara",
+			s: "Semua foto booth bisa dilihat dan diunduh setelah acara.",
+			badge: galleryReady ? "Terbuka" : "Setelah acara",
+			open: galleryReady,
+			href: "#galeri",
+		},
+	];
 
 	return (
 		<PortalView
@@ -285,6 +335,7 @@ export default async function BookingDetailPage({
 			rejectReason={lastRejected?.reject_reason ?? null}
 			stageGroups={modulesFor(b.service_type).includes("photo_stage")}
 			adminWa={adminWa}
+			features={features}
 		>
 			<section style={{ display: "grid", gap: 10 }}>
 				<h2 style={h2}>Tahapan booking</h2>
@@ -324,7 +375,7 @@ export default async function BookingDetailPage({
 
 			{active &&
 				(b.status !== "draft" || (pendingSub && pendingSub.kind !== "dp")) && (
-					<section style={{ display: "grid", gap: 10 }}>
+					<section id="pembayaran" style={{ display: "grid", gap: 10 }}>
 						<h2 style={h2}>Pembayaran</h2>
 						<div className="card" style={{ display: "grid", gap: 6 }}>
 							<Row
@@ -387,7 +438,7 @@ export default async function BookingDetailPage({
 				)}
 
 			{galleryOn && (
-				<section style={{ display: "grid", gap: 10 }}>
+				<section id="galeri" style={{ display: "grid", gap: 10 }}>
 					<h2 style={h2}>Acara & Galeri</h2>
 					{boothEvents === null ? (
 						<div className="note">
@@ -435,7 +486,7 @@ export default async function BookingDetailPage({
 			)}
 
 			{design.length > 0 && (
-				<section style={{ display: "grid", gap: 10 }}>
+				<section id="desain-frame" style={{ display: "grid", gap: 10 }}>
 					<h2 style={h2}>Desain frame</h2>
 					<DesignSection
 						code={b.public_code}
@@ -447,7 +498,7 @@ export default async function BookingDetailPage({
 			)}
 
 			{canPay && (docsRes.data ?? []).length > 0 && (
-				<section style={{ display: "grid", gap: 10 }}>
+				<section id="dokumen" style={{ display: "grid", gap: 10 }}>
 					<h2 style={h2}>Dokumen</h2>
 					{(docsRes.data ?? []).map((d) => (
 						<a
