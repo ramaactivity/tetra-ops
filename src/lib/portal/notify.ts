@@ -1,6 +1,6 @@
 import "server-only";
 
-import { appUrl } from "@/lib/app-url";
+import { appUrl, portalBase } from "@/lib/app-url";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { PRODUCT_LABELS } from "@/lib/portal/core";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,7 +14,7 @@ import { sendToOwnerGroup } from "@/lib/telegram/notify";
 
 /** Link portal yang dikirim ke klien. */
 export function portalUrl(code?: string): string {
-	return `${process.env.PORTAL_BASE_URL ?? appUrl()}/akun${code ? `/booking/${code}` : ""}`;
+	return `${portalBase()}/akun${code ? `/booking/${code}` : ""}`;
 }
 
 /**

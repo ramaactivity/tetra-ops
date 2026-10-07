@@ -1,7 +1,7 @@
 import "server-only";
 
 import { after } from "next/server";
-import { appUrl } from "@/lib/app-url";
+import { portalBase } from "@/lib/app-url";
 import {
 	BOOTH_EVENT_SELECT,
 	type BoothBooking,
@@ -97,7 +97,7 @@ export async function enrichBoothBookings(
 			expiresAt,
 		),
 		portal_url: code.has(r.id)
-			? `${appUrl()}/akun/booking/${code.get(r.id)}`
+			? `${portalBase()}/akun/booking/${code.get(r.id)}`
 			: null,
 	}));
 }

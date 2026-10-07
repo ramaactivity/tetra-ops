@@ -18,6 +18,10 @@
 - **Dashboard**: https://vercel.com/visualtetra-9970s-projects/tetra-ops
 - **Production URL**: https://booking.tetraphoto.com (DR-036; aktif setelah CNAME `booking` di Hostinger). Alias lama https://tetra-ops-lac.vercel.app tetap hidup selama transisi
 
+### Detail Supabase
+- **Login dashboard**: GitHub `ramaactivity` (organisasi "ramaactivity", Free)
+- **Project**: `tetra-ops`, ref `rdrkzwesykebhibcwcsj`
+
 ### Detail GitHub
 - **Repo**: `ramaactivity/tetra-ops` (branch `main` auto-deploy)
 - **Git commit author email**: `98883167+ramaactivity@users.noreply.github.com` (noreply — JANGAN diubah)

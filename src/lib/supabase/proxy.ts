@@ -15,6 +15,8 @@ const PUBLIC_PATHS = [
 	"/akun",
 ];
 
+const BOOKING_HOST = "booking.tetraphoto.com";
+
 // Auth pages — if user is already signed in, bounce to root (which then
 // dispatches to /dashboard | /crew | /pending based on role).
 const AUTH_ENTRY_PATHS = ["/login", "/register", "/crew-portal"];
@@ -75,22 +77,50 @@ export async function updateSession(request: NextRequest) {
 	// handler decides. Session cookies are still refreshed above.
 	const isApi = path.startsWith("/api/");
 
-	// booking.tetraphoto.com (DR-036): alamatnya sendiri sudah "booking", jadi
-	// form booking dilayani di root. "/" tanpa sesi = form (rewrite, alamat
-	// tetap); "/booking" diarahkan permanen ke "/" supaya link lama jalan.
-	// Owner/crew tetap masuk lewat /login dan "/" yang sudah login tetap
-	// diarahkan sesuai perannya.
-	if (request.nextUrl.hostname === "booking.tetraphoto.com") {
+	// Dua domain, satu aplikasi (DR-036, DR-037):
+	//   booking.tetraphoto.com = klien → "/" form booking (rewrite), /booking
+	//     308 ke "/", /akun = portal. Halaman tim diarahkan ke ops.
+	//   ops.tetraphoto.com (OPS_HOST) = owner & crew; halaman klien diarahkan
+	//     ke domain booking.
+	// Pengalihan antar-domain hanya aktif kalau env OPS_HOST diisi (setelah
+	// DNS ops hidup). /api/* tidak pernah dialihkan (bot, Booth, cron, webhook).
+	const host = request.nextUrl.hostname;
+	const opsHost = process.env.OPS_HOST;
+	const isClientPath =
+		path === "/" ||
+		path === "/booking" ||
+		path.startsWith("/booking/") ||
+		path === "/akun" ||
+		path.startsWith("/akun/");
+	if (host === BOOKING_HOST) {
 		if (path === "/booking") {
 			const url = request.nextUrl.clone();
 			url.pathname = "/";
 			return NextResponse.redirect(url, 308);
 		}
-		if (!user && path === "/") {
+		if (path === "/" && (!user || opsHost)) {
 			const url = request.nextUrl.clone();
 			url.pathname = "/booking";
 			return NextResponse.rewrite(url, { request });
 		}
+		if (opsHost && !isClientPath && !isApi) {
+			const url = request.nextUrl.clone();
+			url.host = opsHost;
+			url.port = "";
+			return NextResponse.redirect(url);
+		}
+	} else if (
+		opsHost &&
+		host === opsHost &&
+		isClientPath &&
+		path !== "/" &&
+		!isApi
+	) {
+		const url = request.nextUrl.clone();
+		url.host = BOOKING_HOST;
+		url.port = "";
+		if (url.pathname === "/booking") url.pathname = "/";
+		return NextResponse.redirect(url);
 	}
 
 	if (!user && !isPublic && !isApi) {

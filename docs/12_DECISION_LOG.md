@@ -1067,6 +1067,22 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 
 ---
 
+## DR-037: Domain tim = ops.tetraphoto.com, domain klien = booking.tetraphoto.com
+
+**Status:** Accepted (owner 2026-10-07)
+**Date:** 2026-10-07
+
+### Decision
+- Satu aplikasi, dua domain. `booking.tetraphoto.com` hanya untuk klien: `/` = form booking, `/akun` = portal. Owner & crew memakai `ops.tetraphoto.com` (login, dashboard, crew).
+- Proxy mengalihkan halaman tim yang dibuka di domain booking ke ops, dan halaman klien yang dibuka di ops ke booking. Aktif hanya kalau env `OPS_HOST` diisi. `/api/*` tidak pernah dialihkan.
+- `NEXT_PUBLIC_APP_URL` = domain ops (link Telegram, dokumen, admin); `PORTAL_BASE_URL` = domain booking (link WA ke klien, `portal_url` untuk Booth).
+
+### Consequences
+- ✅ Klien tidak pernah melihat halaman internal; tim punya alamat sendiri.
+- ⚠️ Saat beralih: Supabase Site URL/Redirect ke ops, bot `TETRA_OPS_ORIGIN` ke ops (link PDF ikut `NEXT_PUBLIC_APP_URL`).
+
+---
+
 ## Template for New Decisions
 
 ```markdown
