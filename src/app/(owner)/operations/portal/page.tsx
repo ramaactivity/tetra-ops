@@ -1,7 +1,10 @@
 import { CalendarDays, Globe, Package, User } from "lucide-react";
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
-import { PortalReviewActions } from "@/components/portal/admin-review-actions";
+import {
+	PortalRequestActions,
+	PortalReviewActions,
+} from "@/components/portal/admin-review-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { PRODUCT_LABELS } from "@/lib/portal/core";
@@ -36,7 +39,7 @@ type Booking = {
  */
 export default async function PortalBookingsPage() {
 	const supabase = await createClient();
-	const [subsRes, bookingsRes] = await Promise.all([
+	const [subsRes, bookingsRes, reqRes] = await Promise.all([
 		supabase
 			.from("payment_submissions")
 			.select(
@@ -52,13 +55,21 @@ export default async function PortalBookingsPage() {
 			.in("status", ["draft", "menunggu_konfirmasi", "resmi"])
 			.order("event_date")
 			.limit(300),
+		supabase
+			.from("booking_requests")
+			.select(
+				"id, kind, new_date, new_start, reason, refund_estimate, created_at, booking_id",
+			)
+			.eq("status", "baru")
+			.order("created_at"),
 	]);
+	const requests = reqRes.data ?? [];
 	const bookings = (bookingsRes.data ?? []) as unknown as Booking[];
 	const byId = new Map(bookings.map((b) => [b.id, b]));
 	const subs = subsRes.data ?? [];
 	const drafts = bookings.filter((b) => b.status === "draft");
 	const resmi = bookings.filter((b) => b.status === "resmi");
-	const error = subsRes.error ?? bookingsRes.error;
+	const error = subsRes.error ?? bookingsRes.error ?? reqRes.error;
 
 	return (
 		<Container size="lg" className="space-y-3 pb-6">
@@ -101,7 +112,7 @@ export default async function PortalBookingsPage() {
 							>
 								<BookingSummary b={b} />
 								<p className="text-[13px]">
-									DP{" "}
+									{s.kind === "dp" ? "DP" : "Pembayaran"}{" "}
 									<span data-nominal className="font-semibold tabular-nums">
 										{formatRupiah(Number(s.amount))}
 									</span>{" "}
@@ -113,12 +124,68 @@ export default async function PortalBookingsPage() {
 								</p>
 								<PortalReviewActions
 									id={s.id}
-									summary={`${b.detail.nama_acara ?? b.public_code} — DP ${formatRupiah(Number(s.amount))}`}
+									kind={s.kind}
+									summary={`${b.detail.nama_acara ?? b.public_code} — ${s.kind === "dp" ? "DP" : "pembayaran"} ${formatRupiah(Number(s.amount))}`}
 								/>
 							</li>
 						);
 					})}
 				</ul>
+			)}
+
+			{requests.length > 0 && (
+				<>
+					<h2 className="pt-2 text-[15px] font-semibold">
+						Permintaan klien ({requests.length})
+					</h2>
+					<p className="text-[12.5px] text-muted-foreground">
+						Ubah tanggal atau batalkan event di halaman event seperti biasa
+						(refund juga manual), lalu tandai selesai di sini. Jadwal baru
+						disalin otomatis ke portal.
+					</p>
+					<ul className="space-y-2">
+						{requests.map((r) => {
+							const b = byId.get(r.booking_id);
+							return (
+								<li
+									key={r.id}
+									className="space-y-3 rounded-[16px] border border-border-subtle bg-card p-4"
+								>
+									{b && <BookingSummary b={b} />}
+									<p className="text-[13px]">
+										{r.kind === "batal" ? (
+											<>
+												<b>Minta batal</b> · perkiraan refund (DR-034){" "}
+												<span data-nominal className="tabular-nums">
+													{formatRupiah(Number(r.refund_estimate ?? 0))}
+												</span>
+											</>
+										) : (
+											<>
+												<b>Minta pindah tanggal</b> ke{" "}
+												{formatDateID(r.new_date as string)}
+												{r.new_start
+													? ` jam ${String(r.new_start).slice(0, 5)}`
+													: ""}
+											</>
+										)}
+										{r.reason ? ` · "${r.reason}"` : ""} · diajukan{" "}
+										{formatDateID(r.created_at)}
+									</p>
+									{b?.event && (
+										<Link
+											href={`/operations/${b.event.project_id}`}
+											className="inline-block text-[13px] font-medium underline"
+										>
+											Buka event {b.event.project_id}
+										</Link>
+									)}
+									<PortalRequestActions id={r.id} />
+								</li>
+							);
+						})}
+					</ul>
+				</>
 			)}
 
 			<h2 className="pt-2 text-[15px] font-semibold">

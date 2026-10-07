@@ -6,13 +6,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	addHours,
+	daysUntil,
 	extractWaCode,
 	groupCatalog,
 	missingForDp,
 	newWaCode,
 	quoteSelection,
+	refundEstimate,
+	rescheduleError,
 	type Selection,
 	validDp,
+	withRundownLine,
 } from "./core";
 
 const pkg = (
@@ -146,4 +150,45 @@ test("detail wajib sebelum DP", () => {
 		"Nama pemilik acara",
 		"Nama tempat acara",
 	]);
+});
+
+test("refund pembatalan klien sesuai DR-034", () => {
+	const fee = 500_000;
+	assert.equal(refundEstimate(2_000_000, 45, fee), 1_500_000); // H-30+: potong biaya
+	assert.equal(refundEstimate(2_000_000, 30, fee), 1_500_000);
+	assert.equal(refundEstimate(2_000_000, 20, fee), 1_000_000); // 50%
+	assert.equal(refundEstimate(600_000, 20, fee), 100_000); // 50% = 300rb, tapi potongan min 500rb
+	assert.equal(refundEstimate(500_000, 20, fee), 0);
+	assert.equal(refundEstimate(5_000_000, 7, fee), 0); // H-7: hangus
+	assert.equal(refundEstimate(400_000, 60, fee), 0); // DP < biaya batal
+});
+
+test("selisih hari & batas pindah tanggal 6 bulan", () => {
+	assert.equal(daysUntil("2026-11-20", "2026-10-21"), 30);
+	assert.equal(rescheduleError("2027-05-20", "2026-11-20", "2026-10-07"), null);
+	assert.match(
+		rescheduleError("2027-05-21", "2026-11-20", "2026-10-07") ?? "",
+		/6 bulan/,
+	);
+	assert.match(
+		rescheduleError("2026-10-07", "2026-11-20", "2026-10-07") ?? "",
+		/besok/,
+	);
+});
+
+test("rundown klien jadi satu baris di catatan crew, catatan owner utuh", () => {
+	const rd = [
+		{ jam: "18:00", acara: "Tamu datang" },
+		{ jam: "19:30", acara: "Foto keluarga" },
+	];
+	assert.equal(
+		withRundownLine(null, rd),
+		"Rundown klien: 18:00 Tamu datang; 19:30 Foto keluarga",
+	);
+	const notes = "Bawa kabel ekstra\nRundown klien: lama";
+	assert.equal(
+		withRundownLine(notes, rd),
+		"Bawa kabel ekstra\nRundown klien: 18:00 Tamu datang; 19:30 Foto keluarga",
+	);
+	assert.equal(withRundownLine(notes, []), "Bawa kabel ekstra");
 });

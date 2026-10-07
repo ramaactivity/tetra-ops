@@ -1,11 +1,22 @@
 import { Check } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import {
+	ChangeRequest,
+	type OpenRequest,
+} from "@/components/portal/change-request";
 import { DetailForm } from "@/components/portal/detail-form";
 import { DpForm, type PortalBank } from "@/components/portal/dp-form";
+import { type Member, MembersCard } from "@/components/portal/members-card";
 import { dateLong, StatusPill } from "@/components/portal/status-pill";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import { getPortalPerson } from "@/lib/portal/auth";
-import { FRAME_LABELS, missingForDp, PRODUCT_LABELS } from "@/lib/portal/core";
+import {
+	daysUntil,
+	FRAME_LABELS,
+	missingForDp,
+	PRODUCT_LABELS,
+	refundEstimate,
+} from "@/lib/portal/core";
 import { configNumber, loadCatalog, loadMyBooking } from "@/lib/portal/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toWaPhone } from "@/lib/whatsapp";
@@ -43,6 +54,9 @@ export default async function BookingDetailPage({
 		evRes,
 		docsRes,
 		phoneRes,
+		membersRes,
+		requestRes,
+		cancelFee,
 	] = await Promise.all([
 		loadCatalog(),
 		configNumber("booking.dp_minimum", 500_000),
@@ -84,7 +98,35 @@ export default async function BookingDetailPage({
 			.select("value")
 			.eq("key", "business_phone")
 			.maybeSingle(),
+		admin
+			.from("booking_members")
+			.select(
+				"role, person:portal_people!booking_members_person_id_fkey(id, name, phone)",
+			)
+			.eq("booking_id", b.id)
+			.order("created_at"),
+		admin
+			.from("booking_requests")
+			.select("kind, new_date, created_at")
+			.eq("booking_id", b.id)
+			.eq("status", "baru")
+			.maybeSingle(),
+		configNumber("booking.cancellation_fee", 500_000),
 	]);
+	const members: Member[] = (membersRes.data ?? []).map((m) => {
+		const p = m.person as unknown as {
+			id: string;
+			name: string | null;
+			phone: string;
+		};
+		return {
+			id: p.id,
+			name: p.name,
+			phone: p.phone,
+			role: m.role as Member["role"],
+		};
+	});
+	const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
 	const subs = subsRes.data ?? [];
 	const lastRejected = subs[0]?.status === "ditolak" ? subs[0] : null;
@@ -103,6 +145,8 @@ export default async function BookingDetailPage({
 			? toWaPhone(phoneRes.data.value)
 			: null;
 	const total = ev ? Number(ev.grand_total) : b.quoted_total;
+	const sisa = ev ? Number(ev.remaining_balance) : 0;
+	const banks = (banksRes.data ?? []) as PortalBank[];
 
 	const steps = [
 		{ label: "Booking tersimpan", done: true },
@@ -207,10 +251,10 @@ export default async function BookingDetailPage({
 							label={ev ? "Total tagihan" : "Perkiraan total"}
 							value={rp(total)}
 						/>
-						{ev && (
+						{ev && canPay && (
 							<Row label="Sudah dibayar" value={rp(Number(ev.total_paid))} />
 						)}
-						{ev && (
+						{ev && canPay && (
 							<Row
 								label="Sisa"
 								value={rp(Number(ev.remaining_balance))}
@@ -234,30 +278,46 @@ export default async function BookingDetailPage({
 							)}
 							<DpForm
 								code={b.public_code}
-								banks={(banksRes.data ?? []) as PortalBank[]}
+								banks={banks}
 								dpMin={dpMin}
 								total={b.quoted_total}
 								missing={missingForDp(b.detail)}
 							/>
 						</div>
 					)}
-					{b.status === "menunggu_konfirmasi" && pendingSub && (
+					{pendingSub && (
 						<div className="note" style={{ background: "var(--sky)" }}>
-							Bukti DP {rp(Number(pendingSub.amount))} sedang dicek admin.
-							Jadwal kamu kami tahan selama itu. Kabarnya kami kirim lewat
-							WhatsApp.
+							Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
+							{rp(Number(pendingSub.amount))} sedang dicek admin.
+							{pendingSub.kind === "dp"
+								? " Jadwal kamu kami tahan selama itu."
+								: ""}{" "}
+							Kabarnya kami kirim lewat WhatsApp.
 						</div>
 					)}
-					{b.status === "resmi" && ev && Number(ev.remaining_balance) > 0 && (
-						<div className="note">
-							Untuk pelunasan, transfer ke rekening yang sama lalu kirim
-							buktinya ke admin lewat WhatsApp.
+					{b.status === "resmi" && ev && sisa > 0 && canPay && !pendingSub && (
+						<div className="card" style={{ display: "grid", gap: 12 }}>
+							<div className="h2">Bayar pelunasan</div>
+							{lastRejected && (
+								<div className="note" style={{ background: "var(--coral)" }}>
+									Bukti sebelumnya belum bisa kami terima:{" "}
+									{lastRejected.reject_reason}
+								</div>
+							)}
+							<DpForm
+								kind="pelunasan"
+								code={b.public_code}
+								banks={banks}
+								dpMin={0}
+								total={sisa}
+								missing={[]}
+							/>
 						</div>
 					)}
 				</section>
 			)}
 
-			{(docsRes.data ?? []).length > 0 && (
+			{canPay && (docsRes.data ?? []).length > 0 && (
 				<section style={{ display: "grid", gap: 10 }}>
 					<h2 className="h2">Dokumen</h2>
 					{(docsRes.data ?? []).map((d) => (
@@ -293,6 +353,37 @@ export default async function BookingDetailPage({
 					readOnly={!active}
 				/>
 			</section>
+
+			<section style={{ display: "grid", gap: 6 }}>
+				<h2 className="h2">Orang di booking ini</h2>
+				<MembersCard
+					code={b.public_code}
+					members={members}
+					meId={person.id}
+					canManage={active && b.role !== "pemilik"}
+				/>
+			</section>
+
+			{active && (
+				<section style={{ display: "grid", gap: 6 }}>
+					<h2 className="h2">Ubah jadwal atau batal</h2>
+					<ChangeRequest
+						code={b.public_code}
+						isDraft={b.status === "draft"}
+						canCancel={canPay}
+						refundEstimate={
+							ev
+								? refundEstimate(
+										Number(ev.total_paid),
+										daysUntil(b.event_date, today),
+										cancelFee,
+									)
+								: null
+						}
+						openRequest={(requestRes.data as OpenRequest | null) ?? null}
+					/>
+				</section>
+			)}
 
 			{adminWa && (
 				<a

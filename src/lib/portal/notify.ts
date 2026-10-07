@@ -101,3 +101,73 @@ export async function notifyPortalPaymentSubmitted(
 		console.error("[portal/notify] payment submitted:", e);
 	}
 }
+
+/** Owner/admin: klien mengajukan pindah tanggal / batal. */
+export async function notifyPortalRequest(
+	requestId: string,
+	slotAvailable: boolean | null,
+): Promise<void> {
+	try {
+		const admin = createAdminClient();
+		const { data: r } = await admin
+			.from("booking_requests")
+			.select(
+				"kind, new_date, new_start, reason, refund_estimate, booking:client_bookings(public_code, event_date, detail), person:portal_people!booking_requests_requested_by_fkey(name, phone)",
+			)
+			.eq("id", requestId)
+			.maybeSingle();
+		if (!r) return;
+		const b = r.booking as unknown as {
+			public_code: string;
+			event_date: string;
+			detail: { nama_acara?: string };
+		};
+		const p = r.person as unknown as {
+			name: string | null;
+			phone: string;
+		} | null;
+		const acara = b.detail?.nama_acara || b.public_code;
+		const title =
+			r.kind === "batal"
+				? `Klien minta BATAL: ${acara}`
+				: `Klien minta pindah tanggal: ${acara}`;
+		const lines = [
+			`📝 <b>${tgEscape(title)}</b>`,
+			`Tanggal sekarang ${tgEscape(formatDateID(b.event_date))} · ${tgEscape(p?.name ?? "-")} (${tgEscape(p?.phone ?? "-")})`,
+		];
+		if (r.kind === "pindah_tanggal" && r.new_date)
+			lines.push(
+				`Mau pindah ke ${tgEscape(formatDateID(r.new_date))}${r.new_start ? ` jam ${String(r.new_start).slice(0, 5)}` : ""} · slot ${slotAvailable === null ? "belum dicek" : slotAvailable ? "masih ada ✅" : "PENUH ⚠️"}`,
+			);
+		if (r.kind === "batal")
+			lines.push(
+				`Perkiraan refund (DR-034): ${tgEscape(formatRupiah(Number(r.refund_estimate ?? 0)))}`,
+			);
+		if (r.reason) lines.push(`Alasan: ${tgEscape(r.reason)}`);
+		lines.push(
+			`<a href="${appUrl()}/operations/portal">Proses di Booking Portal</a>`,
+		);
+		await sendToOwnerGroup(lines.join("\n"));
+
+		const { data: owners } = await admin
+			.from("users")
+			.select("id, role")
+			.eq("is_active", true)
+			.is("deleted_at", null);
+		const rows = (owners ?? [])
+			.filter((u) => u.role === "owner" || u.role === "super_admin")
+			.map((u) => ({
+				user_id: u.id,
+				severity: r.kind === "batal" ? "alert" : "warning",
+				category: "operational",
+				title,
+				body: "Cek dan proses permintaan klien di Booking Portal.",
+				entity_type: "booking_request",
+				entity_id: requestId,
+				action_url: "/operations/portal",
+			}));
+		if (rows.length) await admin.from("notifications").insert(rows);
+	} catch (e) {
+		console.error("[portal/notify] request:", e);
+	}
+}

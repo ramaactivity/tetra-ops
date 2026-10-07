@@ -9,7 +9,7 @@ import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildPaymentProofName } from "@/lib/drive/naming";
 import { logPaymentCore } from "@/lib/finance/payment-core";
 import { formatRupiah } from "@/lib/format";
-import type { Detail } from "@/lib/portal/core";
+import { type Detail, withRundownLine } from "@/lib/portal/core";
 import { portalUrl, sendClientWa } from "@/lib/portal/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +55,8 @@ type Sub = {
 		venue_city: string | null;
 		detail: Detail;
 		event_id: string | null;
+		channel: string;
+		vendor_contact_id: string | null;
 	};
 	person: { name: string | null; phone: string } | null;
 };
@@ -64,7 +66,7 @@ async function loadSub(id: string): Promise<Sub | null> {
 	const { data } = await createAdminClient()
 		.from("payment_submissions")
 		.select(
-			"id, status, kind, amount, bank_account_id, proof_path, booking:client_bookings(id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, event_id), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
+			"id, status, kind, amount, bank_account_id, proof_path, booking:client_bookings(id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, event_id, channel, vendor_contact_id), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
 		)
 		.eq("id", id)
 		.maybeSingle();
@@ -85,13 +87,17 @@ async function bookingFormData(s: Sub): Promise<FormData> {
 		.maybeSingle();
 	const pemesan = s.person?.name ?? "";
 	const pemilik = d.pemilik_nama?.trim() || pemesan;
-	const notes = [
-		`Booking portal ${b.public_code}.`,
-		d.catatan ? `Catatan klien: ${d.catatan}` : "",
-	]
-		.filter(Boolean)
-		.join(" ")
-		.slice(0, 500);
+	const notes =
+		withRundownLine(
+			[
+				`Booking portal ${b.public_code}.`,
+				d.catatan ? `Catatan klien: ${d.catatan}` : "",
+			]
+				.filter(Boolean)
+				.join(" ")
+				.slice(0, 300),
+			(d.rundown ?? []).slice(0, 8),
+		)?.slice(0, 500) ?? "";
 	const fields: Record<string, string> = {
 		channel: "direct",
 		client_name: pemilik,
@@ -116,6 +122,40 @@ async function bookingFormData(s: Sub): Promise<FormData> {
 		include_flashdisk_pouch: "on",
 		addons_json: JSON.stringify(b.addons),
 	};
+	// Dipesan WO/vendor (DR-028): channel vendor + skema komisi default kontaknya,
+	// sama seperti form booking mengisi otomatis dari master vendor.
+	if (b.channel === "vendor") {
+		const admin = createAdminClient();
+		const { data: v } = b.vendor_contact_id
+			? await admin
+					.from("contacts")
+					.select(
+						"name, commission_mode, commission_value_type, commission_value_default, commission_rate_default",
+					)
+					.eq("id", b.vendor_contact_id)
+					.maybeSingle()
+			: { data: null };
+		const { data: rate } = await admin
+			.from("system_config")
+			.select("value")
+			.eq("key", "vendor_commission_rate")
+			.maybeSingle();
+		Object.assign(fields, {
+			channel: "vendor",
+			vendor_name: (v?.name as string) ?? d.wo_nama ?? "",
+			vendor_pic_name: pemesan,
+			vendor_contact: s.person?.phone ?? "",
+			vendor_commission_mode: (v?.commission_mode as string) ?? "commission",
+			vendor_commission_value_type:
+				(v?.commission_value_type as string) ?? "percent",
+			vendor_commission_value: String(
+				v?.commission_value_default ??
+					v?.commission_rate_default ??
+					Number(rate?.value ?? 10),
+			),
+			booker_name: "",
+		});
+	}
 	const fd = new FormData();
 	for (const [k, v] of Object.entries(fields)) fd.set(k, v);
 	return fd;
@@ -208,7 +248,18 @@ export async function acceptPortalPayment(
 		projectId = ev?.project_id as string;
 	}
 
-	// 2. Pembayaran + jurnal + kuitansi.
+	// 2. Pembayaran + jurnal + kuitansi. Pelunasan yang belum menutup sisa = cicilan.
+	const { data: before } = await admin
+		.from("events")
+		.select("remaining_balance")
+		.eq("id", eventId)
+		.single();
+	const paymentType =
+		s.kind === "dp"
+			? "dp"
+			: Number(s.amount) >= Number(before?.remaining_balance ?? 0)
+				? "pelunasan"
+				: "partial";
 	const proofUrl = await archiveProof(s, eventId, projectId as string, today);
 	const pay = await logPaymentCore(
 		await createClient(),
@@ -217,7 +268,7 @@ export async function acceptPortalPayment(
 			amount: Number(s.amount),
 			paymentDate: today,
 			bankAccountId: s.bank_account_id,
-			paymentType: s.kind === "dp" ? "dp" : "pelunasan",
+			paymentType,
 			proofUrl,
 			notes: `${s.kind === "dp" ? "DP" : "Pembayaran"} lewat portal (${b.public_code})`,
 		},
@@ -238,10 +289,11 @@ export async function acceptPortalPayment(
 			reviewed_at: new Date().toISOString(),
 		})
 		.eq("id", s.id);
-	await admin
-		.from("client_bookings")
-		.update({ status: "resmi" })
-		.eq("id", b.id);
+	if (s.kind === "dp")
+		await admin
+			.from("client_bookings")
+			.update({ status: "resmi" })
+			.eq("id", b.id);
 
 	const { data: ev } = await admin
 		.from("events")
@@ -252,7 +304,9 @@ export async function acceptPortalPayment(
 	if (s.person?.phone)
 		await sendClientWa(
 			s.person.phone,
-			`Halo ${s.person.name ?? ""}! DP ${formatRupiah(Number(s.amount))} untuk ${b.detail?.nama_acara ?? "acara kamu"} sudah kami terima. Booking kamu resmi 🎉\n\nKuitansi dan langkah berikutnya ada di portal: ${portalUrl(b.public_code)}`,
+			s.kind === "dp"
+				? `Halo ${s.person.name ?? ""}! DP ${formatRupiah(Number(s.amount))} untuk ${b.detail?.nama_acara ?? "acara kamu"} sudah kami terima. Booking kamu resmi 🎉\n\nKuitansi dan langkah berikutnya ada di portal: ${portalUrl(b.public_code)}`
+				: `Halo ${s.person.name ?? ""}! Pembayaran ${formatRupiah(Number(s.amount))} untuk ${b.detail?.nama_acara ?? "acara kamu"} sudah kami terima${pay.lunas ? " — tagihan LUNAS 🎉" : ""}.\n\nKuitansinya ada di portal: ${portalUrl(b.public_code)}`,
 		);
 
 	revalidatePath("/operations/portal");
@@ -260,7 +314,7 @@ export async function acceptPortalPayment(
 		ok: true,
 		projectId,
 		note:
-			grand !== Number(b.quoted_total)
+			s.kind === "dp" && grand !== Number(b.quoted_total)
 				? `Total event ${formatRupiah(grand)} berbeda dari perkiraan di portal ${formatRupiah(Number(b.quoted_total))}. Cek harga di halaman event.`
 				: undefined,
 	};
@@ -317,4 +371,84 @@ export async function proofSignedUrl(
 		.storage.from("portal-private")
 		.createSignedUrl(s.proof_path, 600);
 	return data?.signedUrl ?? null;
+}
+
+/**
+ * Tandai permintaan klien selesai / ditolak. Jadwal & refund diubah owner lewat
+ * halaman event seperti biasa; di sini hanya menutup permintaan, menyalin
+ * jadwal baru dari event, dan mengabari klien.
+ */
+export async function resolvePortalRequest(
+	requestId: string,
+	status: "selesai" | "ditolak",
+	note: string,
+): Promise<Result> {
+	const me = await requireOwnerLevel();
+	if (!z.uuid().safeParse(requestId).success)
+		return { ok: false, error: "Permintaan tidak ditemukan." };
+	if (status === "ditolak" && note.trim().length < 5)
+		return { ok: false, error: "Tulis alasan penolakan (minimal 5 huruf)." };
+	const admin = createAdminClient();
+	const { data: r } = await admin
+		.from("booking_requests")
+		.select(
+			"id, kind, status, booking:client_bookings(id, public_code, event_id, detail), person:portal_people!booking_requests_requested_by_fkey(name, phone)",
+		)
+		.eq("id", requestId)
+		.maybeSingle();
+	if (!r || r.status !== "baru")
+		return { ok: false, error: "Permintaan sudah diproses." };
+	const b = r.booking as unknown as {
+		id: string;
+		public_code: string;
+		event_id: string | null;
+		detail: Detail;
+	};
+	const p = r.person as unknown as {
+		name: string | null;
+		phone: string;
+	} | null;
+
+	if (status === "selesai" && r.kind === "pindah_tanggal" && b.event_id) {
+		const { data: ev } = await admin
+			.from("events")
+			.select("event_date, start_time, end_time")
+			.eq("id", b.event_id)
+			.single();
+		if (ev)
+			await admin
+				.from("client_bookings")
+				.update({
+					event_date: ev.event_date,
+					start_time: ev.start_time,
+					end_time: ev.end_time,
+				})
+				.eq("id", b.id);
+	}
+	if (status === "selesai" && r.kind === "batal")
+		await admin
+			.from("client_bookings")
+			.update({ status: "batal" })
+			.eq("id", b.id);
+	await admin
+		.from("booking_requests")
+		.update({
+			status,
+			admin_note: note.trim() || null,
+			resolved_by: me.profile.id,
+			resolved_at: new Date().toISOString(),
+		})
+		.eq("id", r.id);
+
+	if (p?.phone) {
+		const apa = r.kind === "batal" ? "pembatalan" : "pindah tanggal";
+		await sendClientWa(
+			p.phone,
+			status === "selesai"
+				? `Halo ${p.name ?? ""}, permintaan ${apa} untuk ${b.detail?.nama_acara ?? b.public_code} sudah kami proses.${note.trim() ? `\nCatatan admin: ${note.trim()}` : ""}\n\nDetailnya di portal: ${portalUrl(b.public_code)}`
+				: `Halo ${p.name ?? ""}, permintaan ${apa} untuk ${b.detail?.nama_acara ?? b.public_code} belum bisa kami proses.\nAlasan: ${note.trim()}\n\nBalas chat ini kalau mau diskusi, ya.`,
+		);
+	}
+	revalidatePath("/operations/portal");
+	return { ok: true };
 }

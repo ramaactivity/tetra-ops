@@ -5,8 +5,11 @@ import { useRef, useState } from "react";
 import { saveBookingDetail } from "@/lib/actions/portal-booking";
 import type { Detail } from "@/lib/portal/core";
 
+type TextKey = Exclude<keyof Detail, "rundown">;
+type Row = { jam: string; acara: string };
+
 type Field = {
-	key: keyof Detail;
+	key: TextKey;
 	label: string;
 	placeholder?: string;
 	type?: "tel" | "url" | "area";
@@ -102,8 +105,18 @@ export function DetailForm({
 		"idle",
 	);
 
-	async function save(key: keyof Detail, value = values[key]) {
-		if ((value ?? "") === (saved.current[key] ?? "")) return;
+	const [rows, setRows] = useState<Row[]>(
+		initial.rundown?.length ? initial.rundown : [{ jam: "", acara: "" }],
+	);
+
+	async function save<K extends keyof Detail>(
+		key: K,
+		value: Detail[K] = values[key],
+	) {
+		if (
+			JSON.stringify(value ?? "") === JSON.stringify(saved.current[key] ?? "")
+		)
+			return;
 		setState("saving");
 		const r = await saveBookingDetail(code, { [key]: value ?? "" });
 		if (r.ok) {
@@ -113,6 +126,12 @@ export function DetailForm({
 			router.refresh();
 		} else setState("error");
 	}
+
+	const saveRows = (next: Row[]) =>
+		save(
+			"rundown",
+			next.filter((r) => r.jam.trim() || r.acara.trim()),
+		);
 
 	return (
 		<div style={{ display: "grid", gap: 14 }}>
@@ -193,6 +212,66 @@ export function DetailForm({
 					})}
 				</fieldset>
 			))}
+			<fieldset
+				className="card"
+				style={{ display: "grid", gap: 10, margin: 0 }}
+				disabled={readOnly}
+			>
+				<legend className="h2" style={{ padding: "0 6px", marginLeft: -6 }}>
+					Rundown acara
+				</legend>
+				<div className="cap">
+					Jam penting yang perlu diketahui crew, mis. kedatangan tamu atau sesi
+					foto bersama.
+				</div>
+				{rows.map((r, i) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: baris rundown tanpa id; urutan = identitas.
+					<div key={i} style={{ display: "flex", gap: 8 }}>
+						<input
+							className="input mono"
+							style={{ width: 84, flex: "none" }}
+							inputMode="numeric"
+							placeholder="18:00"
+							aria-label={`Jam baris ${i + 1}`}
+							maxLength={5}
+							value={r.jam}
+							onChange={(e) =>
+								setRows(
+									rows.map((x, j) =>
+										j === i ? { ...x, jam: e.target.value } : x,
+									),
+								)
+							}
+							onBlur={() => saveRows(rows)}
+						/>
+						<input
+							className="input"
+							placeholder="mis. Tamu datang, booth mulai"
+							aria-label={`Kegiatan baris ${i + 1}`}
+							maxLength={120}
+							value={r.acara}
+							onChange={(e) =>
+								setRows(
+									rows.map((x, j) =>
+										j === i ? { ...x, acara: e.target.value } : x,
+									),
+								)
+							}
+							onBlur={() => saveRows(rows)}
+						/>
+					</div>
+				))}
+				{rows.length < 30 && (
+					<button
+						type="button"
+						className="chip"
+						style={{ justifySelf: "start" }}
+						onClick={() => setRows([...rows, { jam: "", acara: "" }])}
+					>
+						+ Tambah baris
+					</button>
+				)}
+			</fieldset>
 		</div>
 	);
 }

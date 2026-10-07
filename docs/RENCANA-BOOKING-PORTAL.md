@@ -1,6 +1,6 @@
 # Rencana: Booking Engine, Portal Klien, dan Modul Desain Frame
 
-Status: **disetujui owner (Rama) 2026-10-06.** Fase 1 sedang dikerjakan.
+Status: **disetujui owner (Rama) 2026-10-06.** Fase 1 live 2026-10-07. Fase 2 live 2026-10-07.
 Tanggal: 2026-10-06. Keputusan resmi dicatat di `docs/12_DECISION_LOG.md` (DR-026 dst.).
 Kontrak dengan Tetra Booth: `docs/INTEGRASI-TETRA-BOOTH.md`.
 
@@ -159,4 +159,14 @@ Fase 1 bisa diuji di domain Vercel Ops sebelum fase 6 selesai.
 
 ## 9. Status
 
-Disetujui owner 2026-10-06, termasuk revisi maksimal 3 kali dan kebijakan pembatalan DR-034. Fase 1 mulai dikerjakan.
+Disetujui owner 2026-10-06, termasuk revisi maksimal 3 kali dan kebijakan pembatalan DR-034.
+
+- **Fase 1 (live 2026-10-07):** booking publik, verifikasi WA (bot Sumopod) + email Resend, DP transfer, antrean admin `/operations/portal`.
+- **Fase 2 (live 2026-10-07):**
+  - undang anggota (pemilik acara / WO) lewat WA;
+  - dasbor WO di `/akun`, dan booking oleh WO (channel vendor + komisi default kontak, dikenali dari nomor WA);
+  - rundown (tersinkron ke catatan crew event) dan PIC hari H;
+  - pelunasan / cicilan lewat transfer;
+  - permintaan pindah tanggal / batal dengan perkiraan refund DR-034 (tabel `booking_requests`, diproses admin);
+  - detail non-keuangan yang diubah klien setelah resmi ikut memperbarui event.
+- **Berikutnya:** fase 3 (desain frame).

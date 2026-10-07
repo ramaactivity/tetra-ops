@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
 	requestProofUpload,
 	submitDpTransfer,
+	submitPelunasanTransfer,
 } from "@/lib/actions/portal-booking";
 import { compressImage } from "@/lib/crew/image-compression";
 import { createClient } from "@/lib/supabase/client";
@@ -27,7 +28,10 @@ export function DpForm({
 	dpMin,
 	total,
 	missing,
+	kind = "dp",
 }: {
+	/** dp = DP pertama (slot ditahan); pelunasan = sisa tagihan / cicilan. */
+	kind?: "dp" | "pelunasan";
 	code: string;
 	banks: PortalBank[];
 	dpMin: number;
@@ -36,9 +40,10 @@ export function DpForm({
 	missing: string[];
 }) {
 	const router = useRouter();
-	const min = Math.min(dpMin, total);
+	const isDp = kind === "dp";
+	const min = isDp ? Math.min(dpMin, total) : 1;
 	const [bankId, setBankId] = useState(banks.length === 1 ? banks[0].id : "");
-	const [amount, setAmount] = useState(String(min));
+	const [amount, setAmount] = useState(String(isDp ? min : total));
 	const [file, setFile] = useState<File | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -58,11 +63,14 @@ export function DpForm({
 				.uploadToSignedUrl(up.path, up.token, f, { contentType: f.type });
 			if (upErr)
 				throw new Error("Upload bukti gagal. Cek koneksi lalu coba lagi.");
-			const r = await submitDpTransfer(code, {
-				amount: nominal,
-				bankAccountId: bankId,
-				path: up.path,
-			});
+			const r = await (isDp ? submitDpTransfer : submitPelunasanTransfer)(
+				code,
+				{
+					amount: nominal,
+					bankAccountId: bankId,
+					path: up.path,
+				},
+			);
 			if (!r.ok) throw new Error(r.error);
 			router.refresh();
 		} catch (e) {
@@ -132,7 +140,9 @@ export function DpForm({
 					onChange={(e) => setAmount(e.target.value)}
 				/>
 				<div className="cap" style={{ marginTop: 4 }}>
-					Minimal {rp(min)}. Boleh lebih, maksimal {rp(total)}.
+					{isDp
+						? `Minimal ${rp(min)}. Boleh lebih, maksimal ${rp(total)}.`
+						: `Sisa tagihan ${rp(total)}. Boleh dicicil.`}
 				</div>
 			</div>
 			<label
@@ -163,11 +173,16 @@ export function DpForm({
 				disabled={busy || !file || !bankId || nominal < min || nominal > total}
 				onClick={submit}
 			>
-				{busy ? "Mengirim…" : "Kirim bukti DP"}
+				{busy
+					? "Mengirim…"
+					: isDp
+						? "Kirim bukti DP"
+						: "Kirim bukti pembayaran"}
 			</button>
 			<p className="cap">
-				Setelah bukti terkirim, jadwal kamu kami tahan sambil admin mengecek.
-				Biasanya tidak lama.
+				{isDp
+					? "Setelah bukti terkirim, jadwal kamu kami tahan sambil admin mengecek. Biasanya tidak lama."
+					: "Admin mengecek buktinya lalu kuitansi terbit di halaman ini."}
 			</p>
 		</div>
 	);

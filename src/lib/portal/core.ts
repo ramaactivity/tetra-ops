@@ -238,15 +238,92 @@ export const DetailSchema = z.object({
 	pic_nama: opt(120),
 	pic_wa: opt(20),
 	catatan: opt(1000),
+	/** Susunan acara dari klien; dibaca crew di hari H. */
+	rundown: z
+		.array(
+			z.object({
+				jam: z.string().trim().max(5),
+				acara: z.string().trim().max(120),
+			}),
+		)
+		.max(30)
+		.optional(),
+	/** Nama usaha WO/vendor yang memesan (booking lewat WO). */
+	wo_nama: opt(120),
 });
 export type Detail = z.infer<typeof DetailSchema>;
 
+// ── Pembatalan (DR-034) ─────────────────────────────────────────────────────
+
+/** Selisih hari kalender dari `today` ke `eventDate` (yyyy-mm-dd). */
+export function daysUntil(eventDate: string, today: string): number {
+	return Math.round(
+		(Date.parse(`${eventDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) /
+			86_400_000,
+	);
+}
+
+/**
+ * Perkiraan uang kembali kalau KLIEN membatalkan (DR-034):
+ *   H-30+       : semua dikembalikan dipotong biaya pembatalan
+ *   H-29 .. H-8 : 50% dari total bayar, potongan paling sedikit biaya pembatalan
+ *   H-7 .. hari H: tidak dikembalikan
+ * Hanya perkiraan untuk ditampilkan; refund dijalankan admin.
+ */
+export function refundEstimate(
+	paid: number,
+	days: number,
+	fee: number,
+): number {
+	if (paid <= 0 || days <= 7) return 0;
+	if (days >= 30) return Math.max(0, paid - fee);
+	return Math.max(0, Math.min(Math.floor(paid / 2), paid - fee));
+}
+
+/** Tanggal baru pindah tanggal: setelah hari ini dan paling lambat 6 bulan dari tanggal awal. */
+export function rescheduleError(
+	newDate: string,
+	original: string,
+	today: string,
+): string | null {
+	if (newDate <= today) return "Tanggal baru minimal besok, ya.";
+	const limit = new Date(`${original}T00:00:00Z`);
+	limit.setUTCMonth(limit.getUTCMonth() + 6);
+	if (newDate > limit.toISOString().slice(0, 10))
+		return "Tanggal baru paling lambat 6 bulan dari tanggal awal.";
+	return null;
+}
+
 /** Field wajib sebelum DP diajukan. Sisanya boleh menyusul. */
 export function missingForDp(detail: Detail): string[] {
-	const need: Array<[keyof Detail, string]> = [
+	const need: Array<["nama_acara" | "pemilik_nama" | "venue_nama", string]> = [
 		["nama_acara", "Nama acara"],
 		["pemilik_nama", "Nama pemilik acara"],
 		["venue_nama", "Nama tempat acara"],
 	];
 	return need.filter(([k]) => !detail[k]?.trim()).map(([, label]) => label);
+}
+
+// ── Rundown → catatan crew ──────────────────────────────────────────────────
+
+const RUNDOWN_PREFIX = "Rundown klien: ";
+
+/**
+ * Tulis ulang satu baris "Rundown klien: …" di catatan crew event, tanpa
+ * menyentuh catatan lain yang ditulis owner. Rundown kosong = baris dihapus.
+ */
+export function withRundownLine(
+	notes: string | null,
+	rundown: Array<{ jam: string; acara: string }>,
+): string | null {
+	const keep = (notes ?? "")
+		.split("\n")
+		.filter((l) => !l.startsWith(RUNDOWN_PREFIX));
+	const line = rundown
+		.map((r) => `${r.jam} ${r.acara}`.trim())
+		.filter(Boolean)
+		.join("; ");
+	if (line) keep.push(`${RUNDOWN_PREFIX}${line}`);
+	const out = keep.join("\n").trim();
+	return out || null;
 }

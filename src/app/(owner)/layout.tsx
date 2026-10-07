@@ -27,24 +27,33 @@ export default async function OwnerLayout({
 	// Initial bot health for the app-wide "bot mati" banner; the client then
 	// keeps it live via realtime + a 60s staleness poll.
 	const supabase = await createClient();
-	const [{ data: botStatusRow }, { count: inboxBaru }, { count: portalCek }] =
-		await Promise.all([
-			supabase
-				.from("bot_status")
-				.select("connection, updated_at")
-				.eq("id", 1)
-				.maybeSingle(),
-			// Badge "Booking Masuk": booking DP dari bot yang belum disentuh owner.
-			supabase
-				.from("booking_inbox")
-				.select("id", { count: "exact", head: true })
-				.eq("status", "baru"),
-			// Badge "Booking Portal": bukti DP dari portal klien yang belum dicek.
-			supabase
-				.from("payment_submissions")
-				.select("id", { count: "exact", head: true })
-				.eq("status", "menunggu"),
-		]);
+	const [
+		{ data: botStatusRow },
+		{ count: inboxBaru },
+		{ count: portalCek },
+		{ count: portalReq },
+	] = await Promise.all([
+		supabase
+			.from("bot_status")
+			.select("connection, updated_at")
+			.eq("id", 1)
+			.maybeSingle(),
+		// Badge "Booking Masuk": booking DP dari bot yang belum disentuh owner.
+		supabase
+			.from("booking_inbox")
+			.select("id", { count: "exact", head: true })
+			.eq("status", "baru"),
+		// Badge "Booking Portal": bukti DP dari portal klien yang belum dicek.
+		supabase
+			.from("payment_submissions")
+			.select("id", { count: "exact", head: true })
+			.eq("status", "menunggu"),
+		// + permintaan pindah tanggal / batal dari klien.
+		supabase
+			.from("booking_requests")
+			.select("id", { count: "exact", head: true })
+			.eq("status", "baru"),
+	]);
 
 	return (
 		// UpGradely floating frame: ambient gradient margin around a white
@@ -53,7 +62,7 @@ export default async function OwnerLayout({
 			<OwnerSidebar
 				badges={{
 					"/operations/booking-masuk": inboxBaru ?? 0,
-					"/operations/portal": portalCek ?? 0,
+					"/operations/portal": (portalCek ?? 0) + (portalReq ?? 0),
 				}}
 			/>
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on

@@ -13,6 +13,7 @@ import {
 	type Selection,
 } from "@/lib/portal/core";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toWaPhone } from "@/lib/whatsapp";
 
 export type Catalog = { products: CatalogProduct[]; addons: PublicAddonRow[] };
 
@@ -94,11 +95,14 @@ export type PortalBooking = {
 	expires_at: string;
 	event_id: string | null;
 	created_at: string;
+	channel: "direct" | "vendor" | "relasi";
+	vendor_contact_id: string | null;
+	managed_by: "klien" | "wo" | "tetra";
 	role: "pemesan" | "pemilik" | "wo";
 };
 
 const BOOKING_COLS =
-	"id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, expires_at, event_id, created_at";
+	"id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, expires_at, event_id, created_at, channel, vendor_contact_id, managed_by";
 
 /** Booking milik orang ini saja — satu-satunya pintu baca data booking di portal. */
 export async function loadMyBooking(
@@ -164,3 +168,31 @@ export function selectionOf(b: PortalBooking): Selection {
 }
 
 export { quoteSelection };
+
+/**
+ * WO/vendor yang dikenal dari nomor WA-nya (master kontak vendor: nomor
+ * utama, PIC default, atau salah satu PIC). Dipakai supaya booking dari WO
+ * otomatis tercatat channel vendor dengan skema komisi default-nya.
+ */
+export async function vendorForPhone(
+	phone: string,
+): Promise<{ id: string; name: string } | null> {
+	const { data } = await createAdminClient()
+		.from("contacts")
+		.select("id, name, phone, default_pic_contact, vendor_pics")
+		.eq("type", "vendor")
+		.eq("is_active", true);
+	const norm = (v: unknown) =>
+		typeof v === "string" && v ? toWaPhone(v) : null;
+	for (const c of data ?? []) {
+		const pics = (c.vendor_pics as Array<{ contact?: string }> | null) ?? [];
+		const nums = [
+			c.phone,
+			c.default_pic_contact,
+			...pics.map((p) => p.contact),
+		].map(norm);
+		if (nums.includes(phone))
+			return { id: c.id as string, name: c.name as string };
+	}
+	return null;
+}

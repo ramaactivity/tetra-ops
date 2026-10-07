@@ -51,6 +51,14 @@ export function BookingWizard({
 	const [d, setD] = useState<Draft>(EMPTY);
 	const [noTime, setNoTime] = useState(false);
 	const [consent, setConsent] = useState(false);
+	// Dipesan WO/vendor untuk kliennya (DR-028).
+	const [wo, setWo] = useState({
+		on: false,
+		nama: "",
+		klien: "",
+		klienWa: "",
+		kelola: "wo" as "wo" | "klien",
+	});
 	const [slot, setSlot] = useState<"cek" | "ada" | "penuh" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
@@ -124,7 +132,24 @@ export function BookingWizard({
 		const s = selection();
 		if (!s) return setStep(0);
 		setSaving(true);
-		const r = await createDraftBooking({ selection: s, consent: true });
+		const r = await createDraftBooking({
+			selection: s,
+			consent: true,
+			...(wo.on
+				? {
+						asWo: true,
+						managedBy: wo.kelola,
+						detail: wo.nama.trim() ? { wo_nama: wo.nama.trim() } : undefined,
+						client:
+							wo.klien.trim().length >= 2
+								? {
+										name: wo.klien.trim(),
+										phone: wo.klienWa.trim() || undefined,
+									}
+								: undefined,
+					}
+				: {}),
+		});
 		if (!r.ok) {
 			setSaving(false);
 			return setError(r.error);
@@ -419,6 +444,87 @@ export function BookingWizard({
 						/>
 						<button
 							type="button"
+							className="chip"
+							aria-pressed={wo.on}
+							onClick={() => setWo({ ...wo, on: !wo.on })}
+							style={{ justifySelf: "start" }}
+						>
+							Saya WO / vendor, memesan untuk klien
+						</button>
+						{wo.on && (
+							<div className="card enter" style={{ display: "grid", gap: 12 }}>
+								<div>
+									<label className="label" htmlFor="wo-nama">
+										Nama usaha WO / vendor
+									</label>
+									<input
+										id="wo-nama"
+										className="input"
+										placeholder="mis. Nakisha WO"
+										value={wo.nama}
+										onChange={(e) => setWo({ ...wo, nama: e.target.value })}
+									/>
+									<div className="cap" style={{ marginTop: 4 }}>
+										Kalau nomor kamu sudah terdaftar sebagai rekanan Tetra, kami
+										kenali otomatis.
+									</div>
+								</div>
+								<div>
+									<label className="label" htmlFor="wo-klien">
+										Nama klien (pemilik acara)
+									</label>
+									<input
+										id="wo-klien"
+										className="input"
+										placeholder="mis. Rina & Dimas"
+										value={wo.klien}
+										onChange={(e) => setWo({ ...wo, klien: e.target.value })}
+									/>
+								</div>
+								<div>
+									<label className="label" htmlFor="wo-klien-wa">
+										WhatsApp klien (opsional)
+									</label>
+									<input
+										id="wo-klien-wa"
+										className="input mono"
+										type="tel"
+										inputMode="tel"
+										placeholder="0812 3456 7890"
+										value={wo.klienWa}
+										onChange={(e) => setWo({ ...wo, klienWa: e.target.value })}
+									/>
+									<div className="cap" style={{ marginTop: 4 }}>
+										Kalau diisi, klien ikut bisa membuka booking ini.
+									</div>
+								</div>
+								<div>
+									<div className="label">
+										Siapa yang mengurus detail & desain?
+									</div>
+									<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+										<button
+											type="button"
+											className="chip"
+											aria-pressed={wo.kelola === "wo"}
+											onClick={() => setWo({ ...wo, kelola: "wo" })}
+										>
+											Saya (WO)
+										</button>
+										<button
+											type="button"
+											className="chip"
+											aria-pressed={wo.kelola === "klien"}
+											onClick={() => setWo({ ...wo, kelola: "klien" })}
+										>
+											Klien langsung
+										</button>
+									</div>
+								</div>
+							</div>
+						)}
+						<button
+							type="button"
 							className="note"
 							onClick={() => setConsent(!consent)}
 							style={{
@@ -663,7 +769,7 @@ const iso = (y: number, m: number, d: number) =>
 	`${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
 /** Kalender bulan sendiri (tanpa date picker bawaan browser). Minimal besok. */
-function Calendar({
+export function Calendar({
 	value,
 	onChange,
 }: {
@@ -775,7 +881,7 @@ const TIMES = Array.from({ length: 31 }, (_, i) => {
 	return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 });
 
-function TimeChips({
+export function TimeChips({
 	value,
 	onChange,
 }: {
