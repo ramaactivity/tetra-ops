@@ -10,7 +10,11 @@ import {
 	ChangeRequest,
 	type OpenRequest,
 } from "@/components/portal/change-request";
-import { DashShell, type NavItem } from "@/components/portal/dash/shell";
+import {
+	DashShell,
+	LogoutAndLogin,
+	type NavItem,
+} from "@/components/portal/dash/shell";
 import {
 	btn,
 	ChatButton,
@@ -92,7 +96,46 @@ export default async function BookingDetailPage({
 	if (!person) redirect("/akun");
 	const { code } = await params;
 	const b = await loadMyBooking(person, code.toUpperCase());
-	if (!b) notFound();
+	if (!b) {
+		// Kode benar tapi yang login bukan anggotanya → jelaskan, jangan 404.
+		const { data: other } = await createAdminClient()
+			.from("client_bookings")
+			.select("id")
+			.eq("public_code", code.toUpperCase())
+			.maybeSingle();
+		if (!other) notFound();
+		return (
+			<DashShell
+				nav={[
+					{ href: "/akun", label: "Booking saya", icon: "list" },
+					{ href: "/booking", label: "Booking baru", icon: "plus" },
+				]}
+				person={{ name: person.name, phone: person.phone }}
+				chatUrl={null}
+			>
+				<PageHead
+					back={{ href: "/akun", label: "Booking saya" }}
+					title="Booking ini terhubung ke nomor lain"
+					meta={`Kamu sedang masuk dengan +${person.phone}.`}
+				/>
+				<Section id="nomor-lain" title="Cara membukanya">
+					<p
+						style={{
+							margin: 0,
+							fontSize: 14,
+							lineHeight: 1.5,
+							color: "#3A3936",
+						}}
+					>
+						Keluar dulu, lalu masuk lagi dengan nomor WhatsApp yang didaftarkan
+						untuk booking ini. Kalau perlu menambah nomor, minta pemesan
+						mengundangmu dari menu Orang &amp; akses, atau chat admin Tetra.
+					</p>
+					<LogoutAndLogin />
+				</Section>
+			</DashShell>
+		);
+	}
 
 	const admin = createAdminClient();
 	const [

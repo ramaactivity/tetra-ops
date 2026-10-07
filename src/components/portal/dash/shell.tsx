@@ -423,3 +423,31 @@ export function DashShell({
 		</div>
 	);
 }
+
+/** Keluar dari sesi portal lalu kembali ke halaman masuk (/akun). */
+export function LogoutAndLogin() {
+	const router = useRouter();
+	return (
+		<button
+			type="button"
+			onClick={async () => {
+				await logoutPortal();
+				router.push("/akun");
+				router.refresh();
+			}}
+			style={{
+				alignSelf: "flex-start",
+				height: 44,
+				padding: "0 18px",
+				borderRadius: 12,
+				border: "1.5px solid #1D1D1B",
+				background: "#1D1D1B",
+				color: "#fff",
+				fontSize: 14,
+				fontWeight: 700,
+			}}
+		>
+			Keluar &amp; masuk dengan nomor lain
+		</button>
+	);
+}
