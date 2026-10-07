@@ -31,11 +31,13 @@ import {
 	User,
 	Wallet,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import {
 	type CSSProperties,
 	Fragment,
 	type KeyboardEvent,
 	type ReactNode,
+	useState,
 } from "react";
 import {
 	BACKDROPS,
@@ -2682,6 +2684,7 @@ function OtpStep({ x }: { x: Ctx }) {
 					)}
 				</span>
 			</div>
+			{!emailMode && o.waUrl && <DesktopWa url={o.waUrl} />}
 			{!emailMode && x.s.email.trim() && x.v.email && (
 				<button
 					type="button"
@@ -2696,6 +2699,75 @@ function OtpStep({ x }: { x: Ctx }) {
 					WhatsApp tidak bisa? Kirim kode ke email
 				</button>
 			)}
+		</div>
+	);
+}
+
+/** Desktop: WA biasanya di HP atau sudah terbuka di tab lain — QR + salin pesan. */
+function DesktopWa({ url }: { url: string }) {
+	const [copied, setCopied] = useState(false);
+	const u = new URL(url);
+	const num = u.pathname.replace(/\D/g, "");
+	const text = u.searchParams.get("text") ?? "";
+	const shown =
+		`+${num.slice(0, 2)} ${num.slice(2, 5)} ${num.slice(5, 9)} ${num.slice(9)}`.trim();
+	return (
+		<div className="only-d">
+			<div
+				style={{
+					display: "flex",
+					gap: 16,
+					alignItems: "center",
+					padding: 14,
+					border: B,
+					borderRadius: 16,
+					background: "#fff",
+				}}
+			>
+				<span
+					style={{
+						flex: "none",
+						padding: 6,
+						border: B,
+						borderRadius: 12,
+						background: "#fff",
+						display: "flex",
+					}}
+				>
+					<QRCodeSVG value={url} size={108} fgColor={INK} />
+				</span>
+				<span style={col(8, { minWidth: 0 })}>
+					<span style={{ fontSize: 14, fontWeight: 800 }}>
+						WhatsApp-nya di HP?
+					</span>
+					<span style={sub13}>
+						Scan QR ini dengan kamera HP. Pesannya sudah terisi, tinggal kirim.
+					</span>
+					<span style={sub13}>
+						Atau salin pesannya, lalu kirim ke <b style={mono}>{shown}</b> dari
+						WhatsApp Web yang sudah terbuka.
+					</span>
+					<button
+						type="button"
+						onClick={() => {
+							navigator.clipboard?.writeText(text).then(() => setCopied(true));
+							setTimeout(() => setCopied(false), 1500);
+						}}
+						style={{
+							alignSelf: "flex-start",
+							height: 40,
+							padding: "0 14px",
+							border: B,
+							borderRadius: 12,
+							background: copied ? "#D6F1EA" : "#fff",
+							fontSize: 14,
+							fontWeight: 800,
+						}}
+					>
+						{copied ? "Pesan tersalin ✓" : "Salin pesan"}
+					</button>
+				</span>
+			</div>
 		</div>
 	);
 }

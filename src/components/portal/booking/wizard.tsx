@@ -546,7 +546,7 @@ function useBooking(p: Props) {
 			if (!verifiedNow && editing) return void startVerify();
 		}
 		if (s.screen === "otp" && otp.state !== "ok") {
-			if (otp.waUrl) window.open(otp.waUrl, "_blank", "noopener");
+			if (otp.waUrl) window.open(otp.waUrl, "tetra-wa", "noopener");
 			return;
 		}
 		next();
@@ -1945,8 +1945,8 @@ function LeftPanel({ x, ph }: { x: Ctx; ph: number }) {
 			</div>
 			<div
 				style={{
-					flex: 1,
-					minHeight: 0,
+					// Tidak dijepit: layar pendek → panel kiri yang scroll.
+					flex: "1 0 auto",
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "center",
