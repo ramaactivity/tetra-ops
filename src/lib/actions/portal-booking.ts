@@ -149,14 +149,14 @@ export async function createDraftBooking(
 			person_id: person.id,
 			role: asWo ? "wo" : "pemesan",
 		});
-		if (asWo && client?.phone)
-			await addMember(
-				data.id,
-				person.id,
-				toWaPhone(client.phone),
-				client.name,
-				"pemilik",
+		if (asWo && client?.phone) {
+			const phone = toWaPhone(client.phone);
+			await addMember(data.id, person.id, phone, client.name, "pemilik");
+			await sendClientWa(
+				phone,
+				`Halo ${client.name}! ${vendor?.name ?? detail?.wo_nama ?? person.name ?? "WO kamu"} sudah memesan photobooth Tetra untuk acara kamu (${sel.date}).\n\nKamu bisa ikut melihat dan melengkapi detailnya di sini (masuk pakai nomor WA ini): ${portalUrl(code)}`,
 			);
+		}
 		return { ok: true, code };
 	}
 	return { ok: false, error: "Gagal menyimpan booking. Coba lagi, ya." };
