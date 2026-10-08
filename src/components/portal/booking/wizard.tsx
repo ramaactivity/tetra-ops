@@ -33,6 +33,7 @@ import {
 	checkSlot,
 	createDraftBooking,
 	fullDatesOf,
+	saveWizardLead,
 } from "@/lib/actions/portal-booking";
 import {
 	type CatalogProduct,
@@ -485,6 +486,45 @@ function useBooking(p: Props) {
 		if (r?.ok) verifiedOk();
 		else setOtp((o) => ({ ...o, state: "wrong" }));
 	};
+
+	// Lead: setelah nomor terverifikasi, isian disimpan ke server (jeda 1,5 dtk)
+	// supaya admin bisa follow-up kalau klien berhenti sebelum kirim.
+	const leadKey =
+		verifiedNow && !code && SEQ.includes(s.screen)
+			? JSON.stringify([s, total])
+			: null;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: dipicu oleh leadKey saja.
+	useEffect(() => {
+		if (!leadKey) return;
+		const t = setTimeout(() => {
+			saveWizardLead({
+				screen: s.screen,
+				snapshot: {
+					acara: ev?.label ?? null,
+					kategori: ev?.code ?? null,
+					tanggal: s.date && !s.date.full ? iso(s.date) : null,
+					jam: s.time,
+					kota: s.city || null,
+					venue: s.venue || null,
+					paket: pk?.c.name ?? null,
+					durasi: s.dur,
+					unit: s.units,
+					format: s.fmt,
+					backdrop: s.backdrop,
+					tambahan: adds
+						.filter((a) => s.adds[a.id])
+						.map((a) => `${a.c.name} ×${s.adds[a.id]}`),
+					nama_cetak: s.title || null,
+					nama: s.name || null,
+					email: s.email || null,
+					instagram: parseInstagram(s.ig),
+					wo: s.wo === "yes" ? s.woName || "ya" : null,
+					total: total || null,
+				},
+			}).catch(() => {});
+		}, 1500);
+		return () => clearTimeout(t);
+	}, [leadKey]);
 
 	// ── Kirim ──────────────────────────────────────────────────────────────
 	const submit = async () => {

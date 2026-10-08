@@ -39,7 +39,9 @@ type Booking = {
  */
 export default async function PortalBookingsPage() {
 	const supabase = await createClient();
-	const [subsRes, bookingsRes, reqRes] = await Promise.all([
+	const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+	const quiet = new Date(Date.now() - 15 * 60_000).toISOString();
+	const [subsRes, bookingsRes, reqRes, leadsRes] = await Promise.all([
 		supabase
 			.from("payment_submissions")
 			.select(
@@ -62,7 +64,24 @@ export default async function PortalBookingsPage() {
 			)
 			.eq("status", "baru")
 			.order("created_at"),
+		supabase
+			.from("booking_leads")
+			.select(
+				"id, snapshot, last_screen, updated_at, person:portal_people(name, phone)",
+			)
+			.is("converted_booking_id", null)
+			.gte("updated_at", since)
+			.lte("updated_at", quiet)
+			.order("updated_at", { ascending: false })
+			.limit(100),
 	]);
+	const leads = (leadsRes.data ?? []) as unknown as Array<{
+		id: string;
+		snapshot: Record<string, unknown>;
+		last_screen: string | null;
+		updated_at: string;
+		person: { name: string | null; phone: string } | null;
+	}>;
 	const requests = reqRes.data ?? [];
 	const bookings = (bookingsRes.data ?? []) as unknown as Booking[];
 	const byId = new Map(bookings.map((b) => [b.id, b]));
@@ -182,6 +201,74 @@ export default async function PortalBookingsPage() {
 										</Link>
 									)}
 									<PortalRequestActions id={r.id} />
+								</li>
+							);
+						})}
+					</ul>
+				</>
+			)}
+
+			{leads.length > 0 && (
+				<>
+					<h2 className="pt-2 text-[15px] font-semibold">
+						Berhenti sebelum kirim ({leads.length})
+					</h2>
+					<p className="text-[12.5px] text-muted-foreground">
+						Sudah verifikasi WhatsApp di halaman booking tapi belum menekan
+						Kirim booking (30 hari terakhir). Bagus untuk di-follow-up.
+					</p>
+					<ul className="space-y-2">
+						{leads.map((l) => {
+							const sn = l.snapshot as Record<string, string | number | null>;
+							const nama = l.person?.name ?? (sn.nama as string) ?? "Klien";
+							const isi = [
+								sn.acara,
+								sn.tanggal ? formatDateID(String(sn.tanggal)) : null,
+								sn.paket
+									? `${sn.paket}${sn.durasi ? ` ${sn.durasi} jam` : ""}`
+									: null,
+								sn.kota,
+							]
+								.filter(Boolean)
+								.join(" · ");
+							const text = `Halo ${nama}, ini admin Tetra Photobooth. Kami lihat kamu sempat mengisi booking${sn.acara ? ` untuk ${String(sn.acara).toLowerCase()}` : ""}${sn.tanggal ? ` tanggal ${formatDateID(String(sn.tanggal))}` : ""}. Ada yang bisa kami bantu supaya tanggalnya aman?`;
+							return (
+								<li
+									key={l.id}
+									className="space-y-2 rounded-[16px] border border-border-subtle bg-card p-4"
+								>
+									<p className="text-[15px] font-semibold">
+										{nama}{" "}
+										<span className="font-mono text-[12px] text-muted-foreground">
+											+{l.person?.phone}
+										</span>
+									</p>
+									<p className="text-[13px] text-foreground/80">
+										{isi || "Belum memilih acara"}
+									</p>
+									<p className="text-[12px] text-muted-foreground">
+										Berhenti di langkah {l.last_screen ?? "-"} ·{" "}
+										{formatDateID(l.updated_at)}
+										{typeof sn.total === "number" && sn.total > 0 ? (
+											<>
+												{" "}
+												· perkiraan{" "}
+												<span data-nominal className="tabular-nums">
+													{formatRupiah(sn.total)}
+												</span>
+											</>
+										) : null}
+									</p>
+									{l.person?.phone && (
+										<a
+											href={`https://wa.me/${l.person.phone}?text=${encodeURIComponent(text)}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="inline-flex h-9 items-center rounded-full bg-foreground px-4 text-[13px] font-semibold text-background"
+										>
+											Chat di WhatsApp
+										</a>
+									)}
 								</li>
 							);
 						})}

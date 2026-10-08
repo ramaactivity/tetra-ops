@@ -105,6 +105,40 @@ const DraftSchema = z.object({
 	managedBy: z.enum(["klien", "wo"]).optional(),
 });
 
+const LeadSchema = z.object({
+	screen: z.string().max(20),
+	snapshot: z.record(z.string(), z.unknown()),
+});
+
+/**
+ * Lead wizard: isian klien yang sudah verifikasi WA tapi belum mengirim
+ * booking. Satu baris aktif per orang, diperbarui setiap klien lanjut.
+ * Diam saat gagal (tidak boleh mengganggu wizard).
+ */
+export async function saveWizardLead(raw: unknown): Promise<void> {
+	const person = await getPortalPerson();
+	if (!person) return;
+	const parsed = LeadSchema.safeParse(raw);
+	if (!parsed.success || JSON.stringify(parsed.data.snapshot).length > 8000)
+		return;
+	if (!(await rateLimit(`lead:${person.id}`, 120, 3600))) return;
+	const admin = createAdminClient();
+	const row = {
+		snapshot: parsed.data.snapshot,
+		last_screen: parsed.data.screen,
+		updated_at: new Date().toISOString(),
+	};
+	const { data: open } = await admin
+		.from("booking_leads")
+		.select("id")
+		.eq("person_id", person.id)
+		.is("converted_booking_id", null)
+		.maybeSingle();
+	if (open) await admin.from("booking_leads").update(row).eq("id", open.id);
+	else
+		await admin.from("booking_leads").insert({ person_id: person.id, ...row });
+}
+
 /** Simpan pilihan jadi draf (butuh sesi portal). Draf TIDAK mengunci slot. */
 export async function createDraftBooking(
 	raw: unknown,
@@ -191,6 +225,14 @@ export async function createDraftBooking(
 			person_id: person.id,
 			role: asWo ? "wo" : "pemesan",
 		});
+		await admin
+			.from("booking_leads")
+			.update({
+				converted_booking_id: data.id,
+				updated_at: new Date().toISOString(),
+			})
+			.eq("person_id", person.id)
+			.is("converted_booking_id", null);
 		if (asWo && client?.phone) {
 			const phone = toWaPhone(client.phone);
 			await addMember(
