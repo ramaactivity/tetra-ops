@@ -226,6 +226,29 @@ export function sha256(v: string): string {
 const opt = (max: number) => z.string().trim().max(max).optional();
 
 /** Field yang boleh diisi klien bertahap. Semua opsional; tiap simpan = patch. */
+export const INSTAGRAM_MAX = 6;
+
+/**
+ * "@rina, instagram.com/dimas_ok  @wo.bahagia" → ["rina","dimas_ok","wo.bahagia"].
+ * Pemisah koma/spasi/baris; link instagram.com dibuang; karakter tak sah
+ * membuat handle diabaikan; unik, maks 6 (kontrak Booth v0.7).
+ */
+export function parseInstagram(text: string): string[] {
+	const out: string[] = [];
+	for (const raw of text.split(/[\s,]+/)) {
+		const h = raw
+			.replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+			.replace(/^@/, "")
+			.replace(/[/?#].*$/, "");
+		if (
+			/^[A-Za-z0-9._]{1,30}$/.test(h) &&
+			!out.some((x) => x.toLowerCase() === h.toLowerCase())
+		)
+			out.push(h);
+	}
+	return out.slice(0, INSTAGRAM_MAX);
+}
+
 export const STAGE_GROUPS_MAX = 300;
 export const STAGE_GROUP_MAX_LEN = 120;
 
@@ -272,6 +295,11 @@ export const DetailSchema = z.object({
 	backdrop_warna: opt(20),
 	/** Izin foto acara dipakai untuk portofolio Tetra (opsional). */
 	izin_portofolio: z.boolean().optional(),
+	/** Akun Instagram klien (tanpa @) → Booth `client_instagram`, tampil di halaman foto tamu. */
+	instagram: z
+		.array(z.string().regex(/^[A-Za-z0-9._]{1,30}$/))
+		.max(INSTAGRAM_MAX)
+		.optional(),
 	/** Urutan grup foto pelaminan (modul Photo Stage) → Booth `stage_groups`. */
 	stage_groups: z
 		.array(z.string().trim().min(1).max(STAGE_GROUP_MAX_LEN))

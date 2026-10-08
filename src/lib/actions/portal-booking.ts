@@ -278,7 +278,7 @@ async function syncEventDetail(
 	}
 	if (Object.keys(upd).length === 0) {
 		// Grup foto pelaminan tidak ada kolomnya di events; Booth membacanya dari GET.
-		if (Array.isArray(patch.stage_groups))
+		if (Array.isArray(patch.stage_groups) || Array.isArray(patch.instagram))
 			await emitBoothEvent("booking.updated", eventId);
 		return;
 	}

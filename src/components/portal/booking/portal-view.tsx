@@ -7,6 +7,7 @@
  * ubah jadwal) dirender server dan masuk lewat `children`.
  */
 import {
+	AtSign,
 	ChevronDown,
 	Cloud,
 	FileCheck,
@@ -26,7 +27,7 @@ import {
 	submitDpTransfer,
 } from "@/lib/actions/portal-booking";
 import { compressImage } from "@/lib/crew/image-compression";
-import type { Detail } from "@/lib/portal/core";
+import { type Detail, parseInstagram } from "@/lib/portal/core";
 import "./booking.css";
 import { GUESTS } from "./content";
 import { dig, waFmt } from "./logic";
@@ -544,6 +545,10 @@ function Later({
 	const [open, setOpen] = useState<string | null>(null);
 	const [rows, setRows] = useState<Row[]>(d.rundown?.length ? d.rundown : []);
 	const [groups, setGroups] = useState((d.stage_groups ?? []).join("\n"));
+	const [igText, setIgText] = useState(
+		(d.instagram ?? []).map((h) => `@${h}`).join(" "),
+	);
+	const igList = parseInstagram(igText);
 	const saveRows = (next: Row[]) =>
 		save(
 			"rundown",
@@ -880,6 +885,63 @@ function Later({
 					},
 				]
 			: []),
+		{
+			k: "instagram",
+			label: "Instagram kamu (boleh lebih dari satu)",
+			icon: AtSign,
+			tint: "#F7D5CC",
+			sub: d.instagram?.length
+				? d.instagram.map((h) => `@${h}`).join(" · ")
+				: "Biar tamu bisa tag kamu",
+			body: (
+				<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+					<span style={{ fontSize: 13, lineHeight: 1.5, color: "#3A3936" }}>
+						Isi IG pengantin, perusahaan/acara, atau WO/EO. Di halaman foto,
+						tamu akan diarahkan untuk <b>follow dan tag akun ini</b> saat upload
+						foto ke story, jadi acaramu ikut ramai di Instagram.
+					</span>
+					<input
+						className="in"
+						aria-label="Akun Instagram"
+						placeholder="@rinadimas @bahagia.organizer"
+						value={igText}
+						onChange={(e) => setIgText(e.target.value)}
+						onBlur={() => {
+							setIgText(igList.map((h) => `@${h}`).join(" "));
+							save("instagram", igList);
+						}}
+						style={{ ...inp, ...mono }}
+					/>
+					{igList.length > 0 && (
+						<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+							{igList.map((h) => (
+								<span
+									key={h}
+									style={{
+										height: 28,
+										padding: "0 10px",
+										border: B,
+										borderRadius: 999,
+										background: "#fff",
+										display: "inline-flex",
+										alignItems: "center",
+										...mono,
+										fontSize: 13,
+										fontWeight: 600,
+									}}
+								>
+									@{h}
+								</span>
+							))}
+						</div>
+					)}
+					<span style={{ fontSize: 12, color: "#5F5E5A" }}>
+						Maks. 6 akun, pisahkan dengan spasi. Akun ini ditampilkan di halaman
+						foto tamu.
+					</span>
+				</div>
+			),
+		},
 		{
 			k: "note",
 			label: "Catatan untuk tim",

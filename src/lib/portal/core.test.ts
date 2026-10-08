@@ -11,6 +11,7 @@ import {
 	groupCatalog,
 	missingForDp,
 	newWaCode,
+	parseInstagram,
 	parseStageGroups,
 	quoteSelection,
 	refundEstimate,
@@ -198,4 +199,15 @@ test("grup foto pelaminan: satu per baris, kosong dibuang, dipotong ke batas Boo
 	]);
 	assert.equal(parseStageGroups("x".repeat(200))[0].length, 120);
 	assert.equal(parseStageGroups(Array(400).fill("g").join("\n")).length, 300);
+});
+
+test("instagram: @, link, koma/spasi dibersihkan; unik; maks 6", () => {
+	assert.deepEqual(
+		parseInstagram(
+			"@rina, https://www.instagram.com/dimas_ok/  @wo.bahagia @Rina",
+		),
+		["rina", "dimas_ok", "wo.bahagia"],
+	);
+	assert.deepEqual(parseInstagram("bukan-handle! ok_1"), ["ok_1"]);
+	assert.equal(parseInstagram("a b c d e f g h").length, 6);
 });

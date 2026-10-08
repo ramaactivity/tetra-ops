@@ -31,6 +31,8 @@ export type BoothBookingFull = BoothBooking & {
 	portal_url: string | null;
 	/** Urutan grup foto pelaminan dari portal klien; null = belum diisi / bukan booking portal. */
 	stage_groups: string[] | null;
+	/** v0.7: akun Instagram klien (tanpa @) untuk halaman foto tamu. */
+	client_instagram: string[] | null;
 };
 
 /** Kolom tambahan di atas BOOTH_EVENT_SELECT — tetap tanpa uang/kontak. */
@@ -63,7 +65,9 @@ export async function enrichBoothBookings(
 			.in("event_id", ids),
 		admin
 			.from("client_bookings")
-			.select("event_id, public_code, stage_groups:detail->stage_groups")
+			.select(
+				"event_id, public_code, stage_groups:detail->stage_groups, instagram:detail->instagram",
+			)
 			.in("event_id", ids),
 	]);
 	type Req = DesignSource & { event_id: string };
@@ -76,6 +80,11 @@ export async function enrichBoothBookings(
 		approvedPaths.map((p) => [p, r2SignedUrl(p, URL_TTL_SEC)]),
 	);
 	const expiresAt = new Date(Date.now() + URL_TTL_SEC * 1000).toISOString();
+	const insta = new Map(
+		(cbRes.data ?? [])
+			.filter((c) => Array.isArray(c.instagram) && c.instagram.length)
+			.map((c) => [c.event_id as string, c.instagram as string[]]),
+	);
 	const groups = new Map(
 		(cbRes.data ?? [])
 			.filter((c) => Array.isArray(c.stage_groups) && c.stage_groups.length)
@@ -100,6 +109,7 @@ export async function enrichBoothBookings(
 			expiresAt,
 		),
 		stage_groups: groups.get(r.id) ?? null,
+		client_instagram: insta.get(r.id) ?? null,
 		portal_url: code.has(r.id)
 			? `${portalBase()}/akun/booking/${code.get(r.id)}`
 			: null,
