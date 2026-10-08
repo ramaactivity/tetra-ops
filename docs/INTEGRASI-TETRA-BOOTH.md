@@ -1,6 +1,6 @@
 # Kontrak Integrasi Tetra Ops ↔ Tetra Booth
 
-Versi: **0.8 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
+Versi: **0.9 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
 Pemilik dokumen: repo `tetra-ops`. Setiap perubahan dicatat juga di `TETRA BOOTH APP/handoff/OPS-BOOTH-SYNC.md` **sebelum** deploy.
 
 ## 0. Prinsip
@@ -42,12 +42,16 @@ frame_size ("2R"|"4R"|"polaroid"|"none"|null), package_name, package_duration_ho
 | Field | Tipe | Arti |
 |---|---|---|
 | `unit_count` | int 1–3 | Jumlah unit/spot booth. |
-| `modules` | string[] | Isi paket: `photobooth`, `photo_stage`, `guest_cam`, `videobooth_360`, `magazine`. Diturunkan dari kategori paket + add-on. |
+| `modules` | string[] | Isi paket: `photobooth`, `photo_stage`, `guest_cam`, `videobooth_360`, `magazine`. Diturunkan dari kategori paket + add-on. Sejak v0.9: kategori paket `guest_cam` (Guest Cam tanpa booth) → `["guest_cam"]`; paket lain + add-on/bonus tier Guest Cam → ditambah `guest_cam`. |
 | `cancelled` | boolean | Di GET nilainya selalu `false`, karena event batal tidak ikut terkirim. Field ini baru bermakna di webhook `booking.cancelled`. Booth tidak menghapus event secara otomatis; event hanya ditandai "dibatalkan di Ops" dan admin Booth yang memutuskan. |
 | `design` | object \| null | Lihat di bawah. `null` kalau belum ada data desain. |
 | `portal_url` | string \| null | Link halaman booking di portal klien. Panjangnya bisa lebih dari 200 karakter. |
 | `stage_groups` | string[] \| null | Urutan grup foto pelaminan dari portal klien (modul Photo Stage), maks. 300 × 120 karakter. `null` = belum diisi atau bukan booking portal. Booth mengisi `settings.stageGroups` hanya kalau masih kosong (Booth DECISIONS #182). Ikut di body webhook; perubahan memicu `booking.updated`. |
 | `client_instagram` | string[] \| null | Akun Instagram klien (tanpa @, maks. 6 × 30 karakter `[A-Za-z0-9._]`) dari dashboard klien (`detail.instagram`). Ditampilkan Booth di halaman foto tamu untuk follow/tag. **Pengecualian aturan "tanpa kontak"**: akun publik yang klien isi sendiri justru agar ditampilkan; form menyatakan "Akun ini ditampilkan di halaman foto tamu." Ikut di body webhook; perubahan memicu `booking.updated`. |
+| `guest_cam_max_guests` | int \| null | v0.9. Tier Guest Cam yang dipesan: 100 / 200 / 300 / 500. `null` = tak terbatas **atau** tidak memesan Guest Cam (lihat `modules`). Booth mengisi "Batas tamu". Naik tier → `booking.updated`. |
+| `guest_cam_print` | boolean | v0.9. Klien memesan cetak foto tamu (1 tamu = 1 cetak). Bersama photobooth: antrean printer booth; tanpa booth: ada Print Station. Booth menyalakan "Cetak di lokasi". |
+| `guest_cam_print_size` | string \| null | v0.9, tambahan dari Ops. Ukuran cetak foto tamu: `2R` (strip) \| `polaroid` \| `4R`. Bersama photobooth sama dengan cetakan booth. |
+| `guest_card_design` | string \| null | v0.9. Id desain kartu QR dari katalog Booth `GET /api/guest-cards` (`klasik`, `mint`, `butter`, `gelap`, …), dipilih klien di dashboard (`detail.guest_card_design`). `null` = belum memilih (Booth memakai bawaan). Id tak dikenal diabaikan Booth. Perubahan memicu `booking.updated`. |
 
 `design`:
 
@@ -207,6 +211,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 0.9 | 2026-10-08 | §2.2 Guest Cam (harga final ACC owner, Booth #221/#223/#224/#225): `guest_cam_max_guests`, `guest_cam_print`, `guest_cam_print_size` (tambahan Ops), `guest_card_design`; kategori paket `guest_cam` (tanpa booth) → `modules` `["guest_cam"]`. Sumber data: add-on/bonus Ops dengan `addon_group` (`guest_cam`, `guest_print`, `guest_print_100`). |
 | 0.8 | 2026-10-08 | Kode promo tamu `TAMU-XXXXX` (Booth #218): Ops memanggil `GET /api/ops/promo/{code}` (cek), `POST …/redeem` saat DP diterima, `DELETE …/redeem` saat event batal/dihapus. Potongan disimpan di `client_bookings.promo` dan masuk event sebagai `discount_type = promo`. Wizard membaca `?promo=`. |
 | 0.7 | 2026-10-08 | §2.2 `client_instagram` (usulan Booth #211), pengecualian aturan tanpa kontak. |
 | 0.6 | 2026-10-07 | §2.2 `stage_groups` (usulan Booth #181/#182). `frame_url` kini URL presigned R2 (DR-038), bentuk tidak berubah. |

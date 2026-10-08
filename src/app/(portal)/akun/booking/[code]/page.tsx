@@ -11,6 +11,7 @@ import {
 	ChangeRequest,
 	type OpenRequest,
 } from "@/components/portal/change-request";
+import { GuestCardPicker } from "@/components/portal/dash/guest-card-picker";
 import {
 	DashShell,
 	LogoutAndLogin,
@@ -34,7 +35,7 @@ import { DpForm, type PortalBank } from "@/components/portal/dp-form";
 import { type Member, MembersCard } from "@/components/portal/members-card";
 import { dateLong } from "@/components/portal/status-pill";
 import { modulesFor } from "@/lib/booth-api";
-import { fetchBoothEvents } from "@/lib/booth-sync";
+import { fetchBoothEvents, fetchGuestCards } from "@/lib/booth-sync";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
 import { getPortalPerson } from "@/lib/portal/auth";
 import {
@@ -1163,6 +1164,66 @@ export default async function BookingDetailPage({
 							{helpCard}
 						</div>
 					</div>
+				</>
+			);
+	}
+
+	// Guest Cam (tier di booking atau di event) → pilihan desain kartu QR (Booth v0.9).
+	if (tab === "desain") {
+		const ids = b.addons.map((a) => a.addon_id);
+		const [bookingTier, eventTier] = await Promise.all([
+			ids.length
+				? admin
+						.from("addons")
+						.select("id")
+						.in("id", ids)
+						.eq("addon_group", "guest_cam")
+						.limit(1)
+				: Promise.resolve({ data: [] }),
+			b.event_id
+				? admin
+						.from("event_addons")
+						.select("addon:addons!inner(addon_group)")
+						.eq("event_id", b.event_id)
+						.eq("addon.addon_group", "guest_cam")
+						.limit(1)
+				: Promise.resolve({ data: [] }),
+		]);
+		const guestCam =
+			b.service_type === "guest_cam" ||
+			(bookingTier.data ?? []).length > 0 ||
+			(eventTier.data ?? []).length > 0;
+		const cards = guestCam ? await fetchGuestCards() : [];
+		if (cards.length > 0)
+			body = (
+				<>
+					{body}
+					<Section
+						id="kartu-qr"
+						title="Kartu QR Guest Cam"
+						right={
+							<span style={{ fontSize: 12, color: "#5F5E5A" }}>
+								Ukuran kartu nama · dicetak Tetra
+							</span>
+						}
+					>
+						<p style={muted}>
+							Kartu ini dibagikan ke meja tamu supaya mereka bisa scan dan
+							memotret dari HP. Pilih desain yang paling cocok dengan acaramu
+							{(b.detail as { guest_card_design?: string }).guest_card_design
+								? "."
+								: ". Kalau belum dipilih, kami pakai Klasik."}
+						</p>
+						<GuestCardPicker
+							code={b.public_code}
+							designs={cards}
+							value={
+								(b.detail as { guest_card_design?: string })
+									.guest_card_design ?? null
+							}
+							canEdit={active && !preview}
+						/>
+					</Section>
 				</>
 			);
 	}

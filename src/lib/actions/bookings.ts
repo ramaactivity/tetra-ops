@@ -56,6 +56,7 @@ const SERVICE_TYPES = [
 	"magazine_box_only",
 	"photostage_only",
 	"photostage_combo",
+	"guest_cam",
 ] as const;
 const FRAME_SIZES = ["2R", "4R", "polaroid", "none"] as const;
 

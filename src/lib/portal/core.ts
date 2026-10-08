@@ -22,6 +22,11 @@ export type PublicAddonRow = {
 	unit: string | null;
 	price: number;
 	min_qty: number | null;
+	/** Aturan pilih (lihat addonFits). null = add-on biasa. */
+	addon_group?: string | null;
+	/** Tier Guest Cam/cetak; null di grup guest_cam = tak terbatas. */
+	max_guests?: number | null;
+	print_size?: string | null;
 };
 
 /** Satu produk di halaman booking (mis. "Photobooth Cetak Classic"). */
@@ -41,6 +46,7 @@ export const PRODUCT_LABELS: Record<string, string> = {
 	magazine_box_only: "Magazine Box Only",
 	photostage_only: "Photo Stage Only",
 	photostage_combo: "Photo Stage + Photobooth Classic",
+	guest_cam: "Guest Cam (tanpa booth)",
 };
 
 const PRODUCT_ORDER = Object.keys(PRODUCT_LABELS);
@@ -133,31 +139,131 @@ export type Quote =
 
 /** Hitung harga + validasi pilihan terhadap katalog publik. */
 /**
- * Aturan add-on per paket (keputusan owner 8 Okt 2026):
- * - extend Rp500rb/jam untuk paket 2 crew, Rp750rb/jam untuk paket combo (3+ crew);
- * - Guest Cam Digital & Guest Cam + Print: pilih salah satu, maks 1 per acara;
- * - Guest Cam + Print butuh printer booth di lokasi.
+ * Aturan add-on per paket (owner 8 Okt 2026; DR-041 + DR-042):
+ * - extend Rp500rb/jam paket 2 crew, Rp750rb/jam paket combo (3+ crew); Guest Cam saja tanpa extend booth;
+ * - Guest Cam: pilih satu tier (wajib untuk paket Guest Cam saja); upsell hanya kalau ada tier;
+ * - cetak foto tamu: tier sama dengan Guest Cam (tak terbatas → per 100); ukuran ikut cetakan booth;
+ *   tanpa printer booth wajib + Print Station (Bogor / luar Bogor dari kota acara);
+ * - TV Live Gallery butuh crew di lokasi (paket ber-crew atau Print Station).
  */
 export const EXTEND_2_CREW = "Tambahan Durasi 1 Jam";
 export const EXTEND_3_CREW = "Tambahan Durasi 1 Jam (3+ crew)";
-export const GUEST_CAM = ["Guest Cam Digital", "Guest Cam + Print"];
+export const GUEST_CAM_PKG = "guest_cam";
 const COMBO = ["photostage_combo", "magazine_combo"];
 const HAS_PRINTER = [
 	"photobooth_classic",
 	"photostage_combo",
 	"magazine_combo",
 ];
+/** Grup yang hanya boleh satu baris, qty 1 (cetak tier & per-100 satu keluarga). */
+const SINGLE = ["guest_cam", "guest_print", "print_station", "tv"];
+const family = (g: string | null | undefined) =>
+	g === "guest_print_100" ? "guest_print" : (g ?? null);
 
-export function addonFits(name: string, category: string | null): boolean {
-	if (name === EXTEND_2_CREW) return !COMBO.includes(category ?? "");
-	if (name === EXTEND_3_CREW) return COMBO.includes(category ?? "");
-	if (name === GUEST_CAM[1]) return HAS_PRINTER.includes(category ?? "");
-	return true;
+export type AddonCtx = {
+	category: string | null;
+	/** Ukuran cetak paket (2R/4R/polaroid), null = belum/tidak ada. */
+	frame: string | null;
+	city: string | null;
+	/** Add-on yang sedang dipilih (qty > 0). */
+	chosen: PublicAddonRow[];
+};
+
+export const isBogor = (city: string | null) => /bogor/i.test(city ?? "");
+const hasPrinter = (c: string | null) => HAS_PRINTER.includes(c ?? "");
+
+/** Boleh tampil/dipesan di paket & pilihan ini? */
+export function addonFits(a: PublicAddonRow, x: AddonCtx): boolean {
+	const cat = x.category ?? "";
+	const tier = x.chosen.find((c) => c.addon_group === "guest_cam");
+	const print = x.chosen.some((c) => family(c.addon_group) === "guest_print");
+	const station = x.chosen.some((c) => c.addon_group === "print_station");
+	const sizeOk = () => !hasPrinter(cat) || !x.frame || a.print_size === x.frame;
+	if (a.name === EXTEND_2_CREW)
+		return !COMBO.includes(cat) && cat !== GUEST_CAM_PKG;
+	if (a.name === EXTEND_3_CREW) return COMBO.includes(cat);
+	switch (a.addon_group) {
+		case "guest_cam":
+			return true;
+		case "guest_cam_extra":
+			return !!tier;
+		case "guest_print":
+			return !!tier && tier.max_guests === a.max_guests && sizeOk();
+		case "guest_print_100":
+			return !!tier && tier.max_guests == null && sizeOk();
+		case "print_station":
+			return (
+				!hasPrinter(cat) &&
+				print &&
+				a.name.endsWith("· Bogor") === isBogor(x.city)
+			);
+		case "print_station_extend":
+			return station;
+		case "tv":
+			return (cat !== GUEST_CAM_PKG && cat !== "magazine_box_only") || station;
+		default:
+			return cat !== GUEST_CAM_PKG;
+	}
 }
 
 /** Jumlah maksimal per add-on (null = bebas). */
-export const addonMax = (name: string): number | null =>
-	GUEST_CAM.includes(name) ? 1 : null;
+export const addonMax = (a: PublicAddonRow): number | null =>
+	SINGLE.includes(a.addon_group ?? "") ? 1 : null;
+
+/** Pilihan yang dilepas saat `a` dipilih (satu keluarga hanya satu baris). */
+export const addonSiblings = (a: PublicAddonRow, all: PublicAddonRow[]) => {
+	const f = family(a.addon_group);
+	return f && SINGLE.includes(f)
+		? all.filter((o) => o.id !== a.id && family(o.addon_group) === f)
+		: [];
+};
+
+/**
+ * Add-on yang tampil & yang benar-benar terpilih setelah aturan berantai
+ * (tier dilepas → cetak gugur → Print Station gugur). Dipakai wizard.
+ */
+export function settleAddons(
+	all: PublicAddonRow[],
+	isOn: (a: PublicAddonRow) => boolean,
+	x: Omit<AddonCtx, "chosen">,
+): { visible: PublicAddonRow[]; chosen: PublicAddonRow[] } {
+	let chosen = all.filter(isOn);
+	for (let i = 0; i < 5; i++) {
+		const next = chosen.filter((a) => addonFits(a, { ...x, chosen }));
+		if (next.length === chosen.length) break;
+		chosen = next;
+	}
+	return {
+		visible: all.filter((a) => addonFits(a, { ...x, chosen })),
+		chosen,
+	};
+}
+
+/** Aturan lintas add-on untuk server; null = lolos. */
+export function addonRuleError(
+	chosen: PublicAddonRow[],
+	x: Omit<AddonCtx, "chosen">,
+): string | null {
+	const ctx = { ...x, chosen };
+	for (const a of chosen)
+		if (!addonFits(a, ctx))
+			return `${a.name} tidak tersedia untuk pilihan ini.`;
+	for (const f of SINGLE)
+		if (chosen.filter((a) => family(a.addon_group) === f).length > 1)
+			return "Ada pilihan yang hanya boleh satu (Guest Cam, cetak, Print Station, atau TV).";
+	if (
+		x.category === GUEST_CAM_PKG &&
+		!chosen.some((a) => a.addon_group === "guest_cam")
+	)
+		return "Pilih jumlah tamu Guest Cam dulu.";
+	if (
+		!hasPrinter(x.category) &&
+		chosen.some((a) => family(a.addon_group) === "guest_print") &&
+		!chosen.some((a) => a.addon_group === "print_station")
+	)
+		return "Cetak foto tamu tanpa photobooth perlu Print Station.";
+	return null;
+}
 
 export function quoteSelection(
 	sel: Selection,
@@ -176,12 +282,7 @@ export function quoteSelection(
 	for (const a of sel.addons) {
 		const row = addons.find((r) => r.id === a.id);
 		if (!row) return { ok: false, error: "Ada add-on yang tidak tersedia." };
-		if (!addonFits(row.name, sel.category))
-			return {
-				ok: false,
-				error: `${row.name} tidak tersedia untuk paket ini.`,
-			};
-		const max = addonMax(row.name);
+		const max = addonMax(row);
 		if (max !== null && a.qty > max)
 			return { ok: false, error: `${row.name} maksimal ${max}.` };
 		if (row.min_qty && a.qty < row.min_qty)
@@ -196,11 +297,13 @@ export function quoteSelection(
 			total: row.price * a.qty,
 		});
 	}
-	if (lines.filter((l) => GUEST_CAM.includes(l.name)).length > 1)
-		return {
-			ok: false,
-			error: "Pilih salah satu: Guest Cam Digital atau Guest Cam + Print.",
-		};
+	const ruleErr = addonRuleError(
+		sel.addons
+			.map((a) => addons.find((r) => r.id === a.id))
+			.filter((r): r is PublicAddonRow => !!r),
+		{ category: sel.category, frame: sel.frame, city: sel.city },
+	);
+	if (ruleErr) return { ok: false, error: ruleErr };
 	const base = opt.price * sel.units;
 	return {
 		ok: true,
@@ -339,6 +442,11 @@ export const DetailSchema = z.object({
 	instagram: z
 		.array(z.string().regex(/^[A-Za-z0-9._]{1,30}$/))
 		.max(INSTAGRAM_MAX)
+		.optional(),
+	/** v0.9: id desain kartu QR Guest Cam dari katalog Booth → `guest_card_design`. */
+	guest_card_design: z
+		.string()
+		.regex(/^[a-z0-9_-]{1,30}$/)
 		.optional(),
 	/** Urutan grup foto pelaminan (modul Photo Stage) → Booth `stage_groups`. */
 	stage_groups: z

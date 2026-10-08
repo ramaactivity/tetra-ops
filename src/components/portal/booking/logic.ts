@@ -191,8 +191,11 @@ export function verified(s: Draft): boolean {
 
 /** Urutan layar aktif: format hanya untuk paket bercetak, backdrop saja untuk yang tidak, OTP kalau belum terverifikasi. */
 export function seq(s: Draft, hasFmt: boolean | null): Screen[] {
+	// Guest Cam saja: tanpa durasi/format/backdrop booth.
+	const noBooth = s.pkg === "guest_cam";
 	return SEQ.filter(
 		(x) =>
+			!(noBooth && (x === "dur" || x === "fmt" || x === "backdrop")) &&
 			(x !== "fmt" || hasFmt === null || hasFmt) &&
 			(x !== "backdrop" || hasFmt === null || !hasFmt) &&
 			(x !== "otp" || !verified(s) || s.screen === "otp"),
@@ -205,7 +208,8 @@ export function nextScreen(
 	editing: boolean,
 ): { screen: Screen; editing: boolean } {
 	if (editing) {
-		if (s.screen === "pkg") return { screen: "dur", editing };
+		if (s.screen === "pkg")
+			return { screen: s.pkg === "guest_cam" ? "add" : "dur", editing };
 		if (s.screen === "dur" && hasFmt && !s.fmt)
 			return { screen: "fmt", editing };
 		if (s.screen === "dur" && hasFmt === false && !s.backdrop)
@@ -258,6 +262,8 @@ export function bar(
 		busy: boolean;
 		durPrice: number | null;
 		addSum: number;
+		/** Aturan add-on belum terpenuhi (mis. Guest Cam saja tanpa tier). */
+		addErr?: string | null;
 		sending: boolean;
 		otpOk: boolean;
 	},
@@ -287,7 +293,13 @@ export function bar(
 		case "city":
 			return s.city.trim().length >= 3 ? on("Lanjut") : off("Isi kota dulu");
 		case "pkg":
-			return s.pkg ? on("Lanjut pilih durasi") : hide;
+			return s.pkg
+				? on(
+						s.pkg === "guest_cam"
+							? "Lanjut pilih jumlah tamu"
+							: "Lanjut pilih durasi",
+					)
+				: hide;
 		case "dur":
 			return s.dur && ctx.durPrice !== null
 				? on(`Lanjut · ${rp(ctx.durPrice * s.units)}`)
@@ -307,7 +319,9 @@ export function bar(
 					? off("Pilih warna backdrop")
 					: on("Lanjut");
 		case "add":
-			return on(ctx.addSum ? `Lanjut · +${rp(ctx.addSum)}` : "Lewati");
+			return ctx.addErr
+				? off(ctx.addErr)
+				: on(ctx.addSum ? `Lanjut · +${rp(ctx.addSum)}` : "Lewati");
 		case "title":
 			return v.title ? on("Lanjut") : off("Isi nama di cetakan dulu");
 		case "design":

@@ -30,7 +30,9 @@ export async function loadCatalog(): Promise<Catalog> {
 			.is("deleted_at", null),
 		admin
 			.from("addons")
-			.select("id, name, unit, price, min_qty")
+			.select(
+				"id, name, unit, price, min_qty, addon_group, max_guests, print_size",
+			)
 			.eq("is_public", true)
 			.eq("is_active", true)
 			.is("deleted_at", null)

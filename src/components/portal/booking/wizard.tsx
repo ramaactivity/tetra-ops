@@ -37,18 +37,20 @@ import {
 	saveWizardLead,
 } from "@/lib/actions/portal-booking";
 import {
-	addonFits,
 	addonMax,
+	addonRuleError,
+	addonSiblings,
 	type CatalogProduct,
-	GUEST_CAM,
 	type PublicAddonRow,
 	parseInstagram,
+	settleAddons,
 } from "@/lib/portal/core";
 import "./booking.css";
 import {
 	ADDON,
 	ADDON_ORDER,
 	type AddonContent,
+	addonGroupContent,
 	BACKDROPS,
 	BD_COLORS,
 	DAY3,
@@ -59,6 +61,7 @@ import {
 	FMTD,
 	FMTS,
 	type Fmt,
+	GUEST_EXTRA,
 	MON3,
 	MONTHS,
 	PCOL,
@@ -103,6 +106,16 @@ import {
 } from "./ui";
 
 const LS = "tetra-booking-v4";
+/** Urutan grup add-on di luar ADDON_ORDER: setelah extend (1–2), sebelum add-on booth lain. */
+const GROUP_RANK: Record<string, number> = {
+	guest_cam: 2.1,
+	guest_print: 2.2,
+	guest_print_100: 2.2,
+	print_station: 2.3,
+	print_station_extend: 2.4,
+	guest_cam_extra: 2.5,
+	tv: 2.6,
+};
 const PKG_ORDER = [
 	"photobooth_classic",
 	"photostage_combo",
@@ -110,6 +123,7 @@ const PKG_ORDER = [
 	"magazine_combo",
 	"magazine_box_only",
 	"photostage_only",
+	"guest_cam",
 ];
 
 type Pkg = CatalogProduct & { c: PkgContent; from: string };
@@ -228,46 +242,80 @@ function useBooking(p: Props) {
 			.map((x) => {
 				const hrs = x.options.map((o) => o.hours);
 				const min = Math.min(...x.options.map((o) => o.price));
+				if (x.category === "guest_cam") {
+					const tiers = p.addons
+						.filter((a) => a.addon_group === "guest_cam")
+						.map((a) => a.price);
+					return {
+						...x,
+						c: PKG[x.category],
+						from: `mulai ${rp(tiers.length ? Math.min(...tiers) : 0)} · tanpa booth`,
+					};
+				}
 				return {
 					...x,
 					c: PKG[x.category],
 					from: `mulai ${rp(min)} · ${hrs.length > 1 ? `${hrs[0]}–${hrs[hrs.length - 1]}` : hrs[0]} jam`,
 				};
 			});
-	}, [p.products, rec]);
+	}, [p.products, p.addons, rec]);
 	const pk = pkgs.find((x) => x.category === s.pkg) ?? null;
 	const hasFmt = pk ? pk.frames.length > 0 : null;
+	const frameDb = s.fmt && s.fmt !== "later" ? FMT_DB[s.fmt] : null;
+	const settled = useMemo(
+		() =>
+			settleAddons(p.addons, (a) => (s.adds[a.id] ?? 0) > 0, {
+				category: s.pkg,
+				frame: frameDb,
+				city: s.city,
+			}),
+		[p.addons, s.adds, s.pkg, frameDb, s.city],
+	);
 	const adds: Add[] = useMemo(
 		() =>
-			p.addons
-				.filter((a) => addonFits(a.name, s.pkg))
+			[...settled.visible]
 				.sort(
 					(a, b) =>
-						(ADDON_ORDER.indexOf(a.name) + 1 || 99) -
-						(ADDON_ORDER.indexOf(b.name) + 1 || 99),
+						(ADDON_ORDER.indexOf(a.name) + 1 ||
+							GROUP_RANK[a.addon_group ?? ""] ||
+							99) -
+						(ADDON_ORDER.indexOf(b.name) + 1 ||
+							GROUP_RANK[b.addon_group ?? ""] ||
+							99),
 				)
 				.map((a) => {
-					const c: AddonContent = ADDON[a.name] ?? {
-						name: a.name,
-						unit: a.unit ?? "unit",
-						icon: CirclePlus,
-						tint: "#FFFFFF",
-						benefit: "",
-						desc: a.name,
-					};
+					const c: AddonContent = ADDON[a.name] ??
+						GUEST_EXTRA[a.name] ??
+						addonGroupContent(a) ?? {
+							name: a.name,
+							unit: a.unit ?? "unit",
+							icon: CirclePlus,
+							tint: "#FFFFFF",
+							benefit: "",
+							desc: a.name,
+						};
 					return {
 						...a,
 						c,
 						priceLine: `${rp(a.price)} / ${c.unit}`,
 						min: Math.max(1, a.min_qty ?? 1),
 						step: c.step ?? 1,
-						max: addonMax(a.name),
+						max: addonMax(a),
 					};
 				}),
-		[p.addons, s.pkg],
+		[settled.visible],
 	);
+	const chosenIds = new Set(settled.chosen.map((a) => a.id));
+	const addErr = addonRuleError(settled.chosen, {
+		category: s.pkg,
+		frame: frameDb,
+		city: s.city,
+	});
 	const durPrice = pk?.options.find((o) => o.hours === s.dur)?.price ?? null;
-	const addSum = adds.reduce((t, a) => t + (s.adds[a.id] ?? 0) * a.price, 0);
+	const addSum = adds.reduce(
+		(t, a) => t + (chosenIds.has(a.id) ? (s.adds[a.id] ?? 0) * a.price : 0),
+		0,
+	);
 	const gross = durPrice !== null ? durPrice * s.units + addSum : 0;
 	// Promo: hasil cek terakhir dari server (Booth). Potongan hanya berlaku kalau sah.
 	const [promoRes, setPromoRes] = useState<PromoState>({ status: "idle" });
@@ -546,7 +594,7 @@ function useBooking(p: Props) {
 					format: s.fmt,
 					backdrop: s.backdrop,
 					tambahan: adds
-						.filter((a) => s.adds[a.id])
+						.filter((a) => chosenIds.has(a.id))
 						.map((a) => `${a.c.name} ×${s.adds[a.id]}`),
 					nama_cetak: s.title || null,
 					nama: s.name || null,
@@ -601,7 +649,7 @@ function useBooking(p: Props) {
 				frame: hasFmt && s.fmt && s.fmt !== "later" ? FMT_DB[s.fmt] : null,
 				units: s.units,
 				addons: adds
-					.filter((a) => (s.adds[a.id] ?? 0) > 0)
+					.filter((a) => chosenIds.has(a.id))
 					.map((a) => ({ id: a.id, qty: s.adds[a.id] })),
 				date: iso(s.date),
 				start: s.time && s.time !== "unsure" ? s.time : null,
@@ -648,6 +696,7 @@ function useBooking(p: Props) {
 		busy,
 		durPrice,
 		addSum,
+		addErr,
 		sending,
 		otpOk: otp.state === "ok",
 	});
@@ -742,11 +791,21 @@ function useBooking(p: Props) {
 		recLabel: rec[1],
 		pickPkg: (cat: string) =>
 			pick(
-				{
-					pkg: cat,
-					dur: s.pkg === cat ? s.dur : null,
-					fmt: s.pkg === cat ? s.fmt : null,
-				},
+				cat === "guest_cam"
+					? {
+							// Tanpa booth: durasi tetap (jam Print Station), tanpa cetak/backdrop.
+							pkg: cat,
+							dur:
+								p.products.find((x) => x.category === cat)?.options[0]?.hours ??
+								4,
+							fmt: null,
+							units: 1,
+						}
+					: {
+							pkg: cat,
+							dur: s.pkg === cat ? s.dur : null,
+							fmt: s.pkg === cat ? s.fmt : null,
+						},
 				false,
 			),
 		pk,
@@ -764,20 +823,51 @@ function useBooking(p: Props) {
 		addFocus,
 		setAddFocus,
 		setAdd: (id: string, n: number) => {
-			const name = p.addons.find((a) => a.id === id)?.name ?? "";
-			const max = addonMax(name);
-			// Guest Cam Digital ↔ + Print: memilih satu melepas yang lain.
-			const other = GUEST_CAM.includes(name)
-				? p.addons.filter((a) => a.id !== id && GUEST_CAM.includes(a.name))
-				: [];
-			setS((x) => ({
-				...x,
-				adds: {
-					...x.adds,
-					...Object.fromEntries(other.map((a) => [a.id, 0])),
-					[id]: Math.max(0, max === null ? n : Math.min(max, n)),
-				},
-			}));
+			const a = p.addons.find((r) => r.id === id);
+			if (!a) return;
+			const max = addonMax(a);
+			const qty = Math.max(0, max === null ? n : Math.min(max, n));
+			const patch: Record<string, number> = { [id]: qty };
+			// Satu keluarga satu pilihan (tier, cetak, Print Station, TV).
+			for (const o of addonSiblings(a, p.addons)) patch[o.id] = 0;
+			if (qty > 0) {
+				const sel = (r: PublicAddonRow) =>
+					r.id === id || ((s.adds[r.id] ?? 0) > 0 && patch[r.id] !== 0);
+				const ctx = { category: s.pkg, frame: frameDb, city: s.city };
+				// Ganti tier → cetak ikut pindah ke tier baru (ukuran sama).
+				const oldPrint = settled.chosen.find(
+					(r) =>
+						r.addon_group === "guest_print" ||
+						r.addon_group === "guest_print_100",
+				);
+				if (a.addon_group === "guest_cam" && oldPrint) {
+					const np = p.addons.find(
+						(r) =>
+							r.print_size === oldPrint.print_size &&
+							(a.max_guests == null
+								? r.addon_group === "guest_print_100"
+								: r.addon_group === "guest_print" &&
+									r.max_guests === a.max_guests),
+					);
+					patch[oldPrint.id] = 0;
+					if (np) patch[np.id] = 1;
+				}
+				// Cetak tanpa printer booth → Print Station sesuai kota ikut terpilih.
+				const after = settleAddons(
+					p.addons,
+					(r) => (patch[r.id] ?? (sel(r) ? 1 : 0)) > 0,
+					ctx,
+				);
+				const station = after.visible.find(
+					(r) => r.addon_group === "print_station",
+				);
+				if (
+					station &&
+					!after.chosen.some((r) => r.addon_group === "print_station")
+				)
+					patch[station.id] = 1;
+			}
+			setS((x) => ({ ...x, adds: { ...x.adds, ...patch } }));
 		},
 		touched,
 		touch,
@@ -803,7 +893,7 @@ function useBooking(p: Props) {
 				: (BACKDROPS.find((x) => x.k === s.backdrop)?.label ?? "")
 			: "—",
 		addLine: adds
-			.filter((a) => s.adds[a.id])
+			.filter((a) => chosenIds.has(a.id))
 			.map(
 				(a) => a.c.name + ((s.adds[a.id] ?? 0) > 1 ? ` ×${s.adds[a.id]}` : ""),
 			)

@@ -46,7 +46,9 @@ async function loadLocking(
 			)
 			.gte("event_date", from)
 			.lte("event_date", to)
-			.is("deleted_at", null),
+			.is("deleted_at", null)
+			// Guest Cam tanpa booth tidak memakai unit booth.
+			.or("service_type.is.null,service_type.neq.guest_cam"),
 		supabase
 			.from("booking_inbox")
 			.select("client_name, data")
@@ -59,6 +61,7 @@ async function loadLocking(
 				"id, event_date, start_time, end_time, venue_city, unit_count, package_hours",
 			)
 			.eq("status", "menunggu_konfirmasi")
+			.neq("service_type", "guest_cam")
 			.gte("event_date", from)
 			.lte("event_date", to),
 	]);

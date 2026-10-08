@@ -26,6 +26,11 @@ import {
 
 /** Tarif tambahan durasi di atas paket (Rp/jam). */
 export const EXTRA_HOUR_PRICE = 500_000;
+/** DR-041: paket combo (3+ crew) extend Rp750rb/jam. */
+export const extraHourPrice = (category: string) =>
+	category === "photostage_combo" || category === "magazine_combo"
+		? 750_000
+		: EXTRA_HOUR_PRICE;
 
 export const SERVICE_CATEGORIES = [
 	"photobooth_classic",
@@ -34,6 +39,7 @@ export const SERVICE_CATEGORIES = [
 	"magazine_box_only",
 	"photostage_only",
 	"photostage_combo",
+	"guest_cam",
 ] as const;
 export type ServiceCategory = (typeof SERVICE_CATEGORIES)[number];
 
@@ -44,6 +50,7 @@ export const SERVICE_LABEL: Record<ServiceCategory, string> = {
 	magazine_box_only: "Magazine Box Only",
 	photostage_only: "Photo Stage Only",
 	photostage_combo: "Photo Stage + Photobooth",
+	guest_cam: "Guest Cam (tanpa booth)",
 };
 
 const MAGAZINE = new Set<string>(["magazine_combo", "magazine_box_only"]);
@@ -220,7 +227,7 @@ export function pickPackage(
 		null;
 	for (const p of byFormat) {
 		const extra = Math.max(0, hours - p.duration_hours);
-		const cost = p.base_price + extra * EXTRA_HOUR_PRICE;
+		const cost = p.base_price + extra * extraHourPrice(p.category);
 		if (
 			!best ||
 			cost < best.cost ||
@@ -338,10 +345,10 @@ export function planQuotation(
 			items.push({
 				name: `Tambahan durasi ${extraHours} jam`,
 				includes: [
-					`${SERVICE_LABEL[pkg.category as ServiceCategory] ?? pkg.name} · Rp 500.000/jam`,
+					`${SERVICE_LABEL[pkg.category as ServiceCategory] ?? pkg.name} · Rp ${extraHourPrice(pkg.category).toLocaleString("id-ID")}/jam`,
 				],
 				qty: extraHours * l.qty,
-				unit_price: EXTRA_HOUR_PRICE,
+				unit_price: extraHourPrice(pkg.category),
 			});
 	}
 

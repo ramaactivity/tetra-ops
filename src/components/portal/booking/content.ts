@@ -30,6 +30,7 @@ import {
 	Sparkles,
 	Ticket,
 	Timer,
+	Tv,
 	UsersRound,
 } from "lucide-react";
 
@@ -161,6 +162,19 @@ export type PkgContent = {
 };
 
 export const PKG: Record<string, PkgContent> = {
+	guest_cam: {
+		name: "Guest Cam saja",
+		icon: Smartphone,
+		tint: "#CEC8F6",
+		fmt: "4r",
+		desc: "Tanpa booth. Tamu scan QR lalu memotret dari HP sendiri, tanpa install aplikasi. Semua foto, ucapan suara, dan photo frame masuk satu album.",
+		fit: "acara yang ingin foto dari sudut pandang tamu, tanpa booth di lokasi",
+		points: [
+			"Kartu QR dicetak Tetra + 3 papan meja",
+			"Album bersama, disimpan 6 bulan",
+			"Bisa tambah cetak di lokasi (Print Station)",
+		],
+	},
 	photobooth_classic: {
 		name: "Photobooth Cetak",
 		icon: Printer,
@@ -258,22 +272,6 @@ export const ADDON: Record<string, AddonContent> = {
 		benefit: "Tim tetap bertugas kalau acara molor.",
 		desc: "Menambah jam di luar durasi paket untuk paket combo (tim 3 orang atau lebih). Dihitung per jam, bisa lebih dari satu.",
 	},
-	"Guest Cam Digital": {
-		name: "Guest Cam",
-		unit: "acara",
-		icon: Smartphone,
-		tint: "#CEC8F6",
-		benefit: "Tamu memotret pakai HP-nya, semua masuk satu album.",
-		desc: "Tamu scan QR lalu memotret dari HP tanpa install aplikasi, sampai 300 tamu. Foto tamu menyatu dengan foto booth di satu album, bisa kirim ucapan suara, disimpan 6 bulan.",
-	},
-	"Guest Cam + Print": {
-		name: "Guest Cam + cetak",
-		unit: "acara",
-		icon: Printer,
-		tint: "#D6EEF8",
-		benefit: "Foto dari HP tamu langsung dicetak di booth.",
-		desc: "Semua isi Guest Cam, ditambah foto dari HP tamu bisa dicetak di lokasi lewat printer booth. Hanya untuk paket yang ada photobooth-nya.",
-	},
 	Photomagnet: {
 		name: "Photomagnet",
 		unit: "50 cetak",
@@ -337,8 +335,6 @@ export const ADDON: Record<string, AddonContent> = {
 export const ADDON_ORDER = [
 	"Tambahan Durasi 1 Jam",
 	"Tambahan Durasi 1 Jam (3+ crew)",
-	"Guest Cam Digital",
-	"Guest Cam + Print",
 	"Photomagnet",
 	"Custom Sleeve",
 	"Guest Books Photo",
@@ -346,6 +342,95 @@ export const ADDON_ORDER = [
 	"Break Time",
 	"Voucher Photobooth",
 ];
+
+const PRINT_LABEL: Record<string, string> = {
+	"2R": "strip 2R",
+	polaroid: "polaroid",
+	"4R": "4R",
+};
+const guests = (n: number | null | undefined) =>
+	n ? `${n} tamu` : "tamu tak terbatas";
+
+/** Teks add-on per grup (tier Guest Cam, cetak, Print Station, TV). null = pakai ADDON[name]. */
+export function addonGroupContent(a: {
+	addon_group?: string | null;
+	max_guests?: number | null;
+	print_size?: string | null;
+	name: string;
+}): AddonContent | null {
+	switch (a.addon_group) {
+		case "guest_cam":
+			return {
+				name: `Guest Cam · ${guests(a.max_guests)}`,
+				unit: "acara",
+				icon: Smartphone,
+				tint: "#CEC8F6",
+				benefit: "Tamu memotret dari HP-nya, semua masuk satu album.",
+				desc: `Untuk ${a.max_guests ? `sampai ${a.max_guests}` : "berapa pun"} tamu. Tamu scan QR lalu memotret dari HP tanpa install aplikasi, bisa kirim ucapan suara dan pakai photo frame. Foto tamu menyatu dengan foto booth di satu album, disimpan 6 bulan. Kartu QR ukuran kartu nama dicetak Tetra + 3 papan meja. Tamu dihitung per HP yang mengirim foto.`,
+			};
+		case "guest_print":
+		case "guest_print_100":
+			return {
+				name: `Cetak foto tamu · ${PRINT_LABEL[a.print_size ?? ""] ?? a.print_size}`,
+				unit: a.addon_group === "guest_print_100" ? "100 tamu" : "acara",
+				icon: Printer,
+				tint: "#D6EEF8",
+				benefit: "Foto dari HP tamu dicetak di lokasi.",
+				desc: `Setiap tamu dapat 1 cetakan ${PRINT_LABEL[a.print_size ?? ""] ?? ""} dari foto Guest Cam-nya${a.addon_group === "guest_print_100" ? ", dihitung per 100 tamu" : `, untuk ${guests(a.max_guests)}`}. Bersama photobooth, cetakan masuk antrean printer booth.`,
+			};
+		case "print_station":
+			return {
+				name: a.name.endsWith("· Bogor")
+					? "Print Station · Bogor"
+					: "Print Station · luar Bogor",
+				unit: "acara",
+				icon: Printer,
+				tint: "#FCE3C6",
+				benefit: "Wajib untuk cetak foto tamu tanpa booth.",
+				desc: "1 crew + laptop + printer di lokasi untuk mencetak foto tamu, maksimal 4 jam. Dipilih otomatis sesuai kota acara.",
+			};
+		case "print_station_extend":
+			return {
+				name: "Print Station · tambah jam",
+				unit: "jam",
+				icon: Timer,
+				tint: "#FCE3C6",
+				benefit: "Print Station tetap jalan lewat 4 jam.",
+				desc: "Menambah jam Print Station di luar 4 jam. Dihitung per jam.",
+			};
+		case "tv":
+			return {
+				name: 'TV Live Gallery 55"',
+				unit: "acara",
+				icon: Tv,
+				tint: "#D6F1EA",
+				benefit: "Foto booth & tamu tampil langsung di TV.",
+				desc: "TV 55 inci dengan stand di venue. Menampilkan foto booth, rombongan Photo Stage, foto Guest Cam, dan QR galeri secara langsung selama acara.",
+			};
+		default:
+			return null;
+	}
+}
+
+/** Teks tambahan Guest Cam per nama (upsell). */
+export const GUEST_EXTRA: Record<string, AddonContent> = {
+	"Guest Cam: simpan 1 tahun": {
+		name: "Guest Cam · simpan 1 tahun",
+		unit: "acara",
+		icon: Smartphone,
+		tint: "#CEC8F6",
+		benefit: "Album Guest Cam disimpan 1 tahun, bukan 6 bulan.",
+		desc: "Album foto tamu tetap bisa dibuka dan diunduh selama 1 tahun setelah acara.",
+	},
+	"Guest Cam: kartu QR tambahan": {
+		name: "Kartu QR tambahan",
+		unit: "box",
+		icon: Ticket,
+		tint: "#CEC8F6",
+		benefit: "Kartu QR ekstra untuk meja tamu.",
+		desc: "Satu box kartu QR Guest Cam ukuran kartu nama, isi 100.",
+	},
+};
 
 export type Fmt = "strip" | "4r" | "polaroid";
 export const FMTS: Array<[Fmt, string]> = [

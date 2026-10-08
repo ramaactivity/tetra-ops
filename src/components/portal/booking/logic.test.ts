@@ -103,3 +103,36 @@ test("tombol nonaktif menyebut alasan", () => {
 	);
 	assert.equal(lbl(base({ screen: "review" })), "off:Centang persetujuan dulu");
 });
+
+test("Guest Cam saja: lewati durasi/format/backdrop, tombol paket & add-on sesuai", () => {
+	const s = {
+		...blankDraft({ y: 2026, m: 11, d: 1 }),
+		pkg: "guest_cam",
+		screen: "pkg" as const,
+	};
+	const q = seq(s, false);
+	assert.ok(
+		!q.includes("dur") && !q.includes("fmt") && !q.includes("backdrop"),
+	);
+	assert.equal(nextScreen(s, false, false).screen, "add");
+	const ctx = {
+		editing: false,
+		offline: false,
+		busy: false,
+		durPrice: 0,
+		addSum: 0,
+		sending: false,
+		otpOk: false,
+	};
+	assert.deepEqual(
+		bar(
+			{ ...s, screen: "add" },
+			{ ...ctx, addErr: "Pilih jumlah tamu Guest Cam dulu." },
+		),
+		{
+			show: true,
+			on: false,
+			label: "Pilih jumlah tamu Guest Cam dulu.",
+		},
+	);
+});

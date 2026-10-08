@@ -35,6 +35,7 @@ export const SERVICE_TYPE_LABELS: Record<string, string> = {
 	magazine_box_only: "Magazine Box",
 	photostage_only: "Photostage",
 	photostage_combo: "Photostage Combo",
+	guest_cam: "Guest Cam",
 };
 
 export const FRAME_SIZE_LABELS: Record<string, string> = {

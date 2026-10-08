@@ -7,7 +7,6 @@
  */
 import { createHmac } from "node:crypto";
 import { shiftISODate } from "@/lib/dates";
-import { GUEST_CAM } from "@/lib/portal/core";
 
 /** Booking yang masih akan / sedang berjalan (termasuk status lama draft/confirmed). */
 export const BOOTH_EVENT_STATUSES = [
@@ -116,15 +115,40 @@ export type BoothModule =
 	| "videobooth_360"
 	| "magazine";
 
-/** Isi paket dari kategorinya + Guest Cam kalau add-on/bonus Guest Cam dipesan. */
+/** Isi paket dari kategorinya + Guest Cam kalau ada tier Guest Cam (add-on/bonus). */
 export function modulesFor(
 	serviceType: string | null,
-	addonNames: string[] = [],
+	addons: GuestAddon[] = [],
 ): BoothModule[] {
 	const base = modulesOfPackage(serviceType);
-	return addonNames.some((n) => GUEST_CAM.includes(n))
+	return addons.some((a) => a.addon_group === "guest_cam") &&
+		!base.includes("guest_cam")
 		? [...base, "guest_cam"]
 		: base;
+}
+
+export type GuestAddon = {
+	addon_group: string | null;
+	max_guests: number | null;
+	print_size: string | null;
+};
+
+/** Field v0.9 dari add-on Guest Cam event (null semua kalau tidak memesan Guest Cam). */
+export function guestCamFields(addons: GuestAddon[]): {
+	guest_cam_max_guests: number | null;
+	guest_cam_print: boolean;
+	guest_cam_print_size: string | null;
+} {
+	const tier = addons.find((a) => a.addon_group === "guest_cam");
+	const print = addons.find(
+		(a) =>
+			a.addon_group === "guest_print" || a.addon_group === "guest_print_100",
+	);
+	return {
+		guest_cam_max_guests: tier?.max_guests ?? null,
+		guest_cam_print: !!print,
+		guest_cam_print_size: print?.print_size ?? null,
+	};
 }
 
 function modulesOfPackage(serviceType: string | null): BoothModule[] {
@@ -141,6 +165,8 @@ function modulesOfPackage(serviceType: string | null): BoothModule[] {
 			return ["photo_stage"];
 		case "photostage_combo":
 			return ["photo_stage", "photobooth"];
+		case "guest_cam":
+			return ["guest_cam"];
 		default:
 			return [];
 	}

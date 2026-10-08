@@ -5,6 +5,7 @@ import {
 	type BoothEventRow,
 	boothSignature,
 	type DesignSource,
+	guestCamFields,
 	modulesFor,
 	parseBoothRange,
 	toBoothBooking,
@@ -79,10 +80,23 @@ test("modul paket dari kategori", () => {
 		"photobooth",
 	]);
 	assert.deepEqual(modulesFor("magazine_box_only"), ["magazine"]);
-	assert.deepEqual(
-		modulesFor("photobooth_classic", ["Photomagnet", "Guest Cam + Print"]),
-		["photobooth", "guest_cam"],
-	);
+	const gc = { addon_group: "guest_cam", max_guests: 200, print_size: null };
+	const pr = { addon_group: "guest_print", max_guests: 200, print_size: "2R" };
+	assert.deepEqual(modulesFor("photobooth_classic", [gc, pr]), [
+		"photobooth",
+		"guest_cam",
+	]);
+	assert.deepEqual(modulesFor("guest_cam", [gc]), ["guest_cam"]);
+	assert.deepEqual(guestCamFields([gc, pr]), {
+		guest_cam_max_guests: 200,
+		guest_cam_print: true,
+		guest_cam_print_size: "2R",
+	});
+	assert.deepEqual(guestCamFields([]), {
+		guest_cam_max_guests: null,
+		guest_cam_print: false,
+		guest_cam_print_size: null,
+	});
 	assert.deepEqual(modulesFor(null), []);
 });
 

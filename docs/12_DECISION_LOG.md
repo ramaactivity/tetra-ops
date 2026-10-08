@@ -1182,3 +1182,16 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - Aturan di `src/lib/portal/core.ts` (`addonFits`, `addonMax`, `GUEST_CAM`): extend sesuai paket; Guest Cam Digital vs + Print pilih salah satu, maks 1; + Print hanya paket ber-photobooth. Server (`quoteSelection`) dan wizard memakai aturan yang sama.
 - Ops mengirim modul `guest_cam` ke Booth kalau event punya add-on **atau bonus** Guest Cam (`modulesFor(serviceType, addonNames)`).
 - Pricelist website tetraphoto.com perlu diperbarui (catatan di repo website `docs/UPDATE-PRICELIST-2026-10.md`).
+
+## DR-042: Katalog Guest Cam final — tier per tamu, cetak, Print Station, TV, paket "Guest Cam saja"
+
+**Status:** Accepted (owner 2026-10-08) — menggantikan harga Guest Cam rata di DR-041 (extend DR-041 tetap).
+**Date:** 2026-10-08
+
+### Decision
+- Harga & HPP: `TETRA BOOTH APP/handoff/REKAP-PRICING-GUEST-CAM-ADDON.md` (ACC owner 8 Okt). Disimpan di `addons` (`price` + `hpp` owner-only), dikelompokkan `addon_group`: `guest_cam` (S100 450rb · M200 600rb · L300 750rb · XL500 950rb · tak terbatas 1,2jt), `guest_print` (ukuran × tier) + `guest_print_100` (per 100, untuk tak terbatas), `print_station` (Bogor 750rb / luar Bogor 1,2jt), `print_station_extend` 150rb/jam, `tv` 1,5jt, `guest_cam_extra` (simpan 1 tahun 150rb, kartu tambahan 60rb/box).
+- **Guest Cam saja** dijual di wizard sebagai kategori paket baru `guest_cam` (enum `service_type`): paket Rp0 (constraint `positive_price` dilonggarkan khusus kategori ini), harga = tier wajib; wizard melewati durasi/format/backdrop; tidak mengunci unit booth di cek jadwal.
+- Aturan (`addonFits`/`addonRuleError`/`settleAddons` di `src/lib/portal/core.ts`, dipakai wizard & server): satu tier; cetak satu tier dengan Guest Cam & ukuran ikut cetakan booth; tanpa printer booth wajib Print Station (kota mengandung "Bogor" → Bogor); TV hanya paket ber-crew atau Guest Cam saja + Print Station; add-on booth lain tidak untuk Guest Cam saja.
+- Diskon bundling −15% **ditunda** (owner). Campaign gratis Guest Cam S → `event_bonuses`.
+- Booth v0.9: `guest_cam_max_guests`, `guest_cam_print`, `guest_cam_print_size`, `guest_card_design` (klien pilih di tab Desain dashboard, katalog `GET booth/api/guest-cards`).
+- Quotation: extend combo memakai Rp750rb/jam (`extraHourPrice`), sebelumnya hardcode Rp500rb.

@@ -258,6 +258,13 @@ export const DEFAULT_INCLUDES_BY_CATEGORY: Record<string, string[]> = {
 		"Cetak instan classic photobooth",
 		"Free transport se-Jabodetabek",
 	],
+	guest_cam: [
+		"Tamu memotret dari HP lewat QR, tanpa install aplikasi",
+		"Ucapan suara + photo frame",
+		"Album gabungan, disimpan 6 bulan",
+		"Kartu QR ukuran kartu nama + 3 papan meja",
+		"Tanpa booth & tanpa crew (kecuali + Print Station)",
+	],
 };
 
 export function includesForPackage(pkg: {

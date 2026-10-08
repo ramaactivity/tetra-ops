@@ -247,58 +247,189 @@ test("promo: persen dengan batas, nominal, item, minimal total", () => {
 	assert.equal(normPromo("halo"), null);
 });
 
-test("add-on per paket: extend 2/3+ crew, Guest Cam pilih satu & maks 1, print butuh booth", () => {
+test("add-on per paket: extend, tier Guest Cam, cetak ikut tier & ukuran, Print Station, TV", () => {
 	const cat = groupCatalog([
 		...rows,
 		pkg("photostage_combo", "4R", 3, 4_500_000),
+		{ ...pkg("guest_cam", "none", 4, 0) },
 	]);
-	const ad = (id: string, name: string, price: number) => ({
+	const ad = (
+		id: string,
+		name: string,
+		price: number,
+		addon_group: string | null = null,
+		max_guests: number | null = null,
+		print_size: string | null = null,
+	) => ({
 		id,
 		name,
 		unit: "x",
 		price,
 		min_qty: null,
+		addon_group,
+		max_guests,
+		print_size,
 	});
-	const ex2 = ad("a1", "Tambahan Durasi 1 Jam", 500_000);
-	const ex3 = ad("a2", "Tambahan Durasi 1 Jam (3+ crew)", 750_000);
-	const gcd = ad("a3", "Guest Cam Digital", 750_000);
-	const gcp = ad("a4", "Guest Cam + Print", 1_500_000);
-	const all = [ex2, ex3, gcd, gcp];
-	const q = (category: string, hours: number, adds: [string, number][]) =>
+	const all = [
+		ad("e2", "Tambahan Durasi 1 Jam", 500_000),
+		ad("e3", "Tambahan Durasi 1 Jam (3+ crew)", 750_000),
+		ad("gS", "Guest Cam S", 450_000, "guest_cam", 100),
+		ad("gU", "Guest Cam tak terbatas", 1_200_000, "guest_cam", null),
+		ad("p2S", "Cetak 2R 100", 400_000, "guest_print", 100, "2R"),
+		ad("p4S", "Cetak 4R 100", 750_000, "guest_print", 100, "4R"),
+		ad("p2U", "Cetak 2R per 100", 375_000, "guest_print_100", null, "2R"),
+		ad("sB", "Print Station · Bogor", 750_000, "print_station"),
+		ad("sL", "Print Station · luar Bogor", 1_200_000, "print_station"),
+		ad("tv", "TV Live Gallery", 1_500_000, "tv"),
+		ad("mg", "Photomagnet", 650_000),
+	];
+	const q = (
+		category: string,
+		hours: number,
+		frame: "2R" | "4R" | null,
+		city: string,
+		adds: [string, number][],
+	) =>
 		quoteSelection(
 			{
 				...base,
 				category,
 				hours,
+				frame,
+				city,
 				units: 1,
 				addons: adds.map(([id, qty]) => ({ id, qty })),
 			},
 			cat,
 			all,
 		);
-	const combo = q("photostage_combo", 3, [
-		["a2", 2],
-		["a3", 1],
-	]);
-	assert.ok(combo.ok);
-	assert.equal(combo.total, 4_500_000 + 1_500_000 + 750_000);
-	assert.equal(q("photostage_combo", 3, [["a1", 1]]).ok, false);
-	assert.equal(q("photobooth_classic", 2, [["a2", 1]]).ok, false);
+	// extend sesuai crew
+	assert.equal(q("photostage_combo", 3, "4R", "Bogor", [["e3", 2]]).ok, true);
+	assert.equal(q("photostage_combo", 3, "4R", "Bogor", [["e2", 1]]).ok, false);
 	assert.equal(
-		q("photobooth_classic", 2, [
-			["a1", 1],
-			["a4", 1],
+		q("photobooth_classic", 2, "2R", "Bogor", [["e3", 1]]).ok,
+		false,
+	);
+	assert.equal(
+		q("guest_cam", 4, null, "Bogor", [
+			["gS", 1],
+			["e2", 1],
+		]).ok,
+		false,
+	);
+	// Guest Cam saja wajib tier; harga = tier
+	assert.equal(q("guest_cam", 4, null, "Bogor", []).ok, false);
+	const solo = q("guest_cam", 4, null, "Bogor", [["gS", 1]]);
+	assert.ok(solo.ok);
+	assert.equal(solo.total, 450_000);
+	// cetak: ikut ukuran booth, butuh tier yang sama
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [
+			["gS", 1],
+			["p2S", 1],
 		]).ok,
 		true,
 	);
 	assert.equal(
-		q("photobooth_classic", 2, [
-			["a3", 1],
-			["a4", 1],
+		q("photobooth_classic", 2, "2R", "Bogor", [
+			["gS", 1],
+			["p4S", 1],
 		]).ok,
 		false,
 	);
-	assert.equal(q("photobooth_classic", 2, [["a3", 2]]).ok, false);
-	assert.equal(q("videobooth_360", 2, [["a4", 1]]).ok, false);
-	assert.equal(q("videobooth_360", 2, [["a3", 1]]).ok, true);
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [["p2S", 1]]).ok,
+		false,
+	);
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [
+			["gU", 1],
+			["p2S", 1],
+		]).ok,
+		false,
+	);
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [
+			["gU", 1],
+			["p2U", 3],
+		]).ok,
+		true,
+	);
+	// tanpa booth: cetak bebas ukuran + wajib Print Station sesuai kota
+	assert.equal(
+		q("guest_cam", 4, null, "Bogor", [
+			["gS", 1],
+			["p4S", 1],
+		]).ok,
+		false,
+	);
+	const st = q("guest_cam", 4, null, "Kab. Bogor", [
+		["gS", 1],
+		["p4S", 1],
+		["sB", 1],
+	]);
+	assert.ok(st.ok);
+	assert.equal(st.total, 450_000 + 750_000 + 750_000);
+	assert.equal(
+		q("guest_cam", 4, null, "Jakarta", [
+			["gS", 1],
+			["p4S", 1],
+			["sB", 1],
+		]).ok,
+		false,
+	);
+	assert.equal(
+		q("guest_cam", 4, null, "Jakarta", [
+			["gS", 1],
+			["p4S", 1],
+			["sL", 1],
+		]).ok,
+		true,
+	);
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [
+			["gS", 1],
+			["p2S", 1],
+			["sB", 1],
+		]).ok,
+		false,
+	);
+	// pilih satu, maks 1
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [
+			["gS", 1],
+			["gU", 1],
+		]).ok,
+		false,
+	);
+	assert.equal(
+		q("photobooth_classic", 2, "2R", "Bogor", [["gS", 2]]).ok,
+		false,
+	);
+	// TV: paket ber-crew, atau Guest Cam saja dengan Print Station
+	assert.equal(q("photobooth_classic", 2, "2R", "Bogor", [["tv", 1]]).ok, true);
+	assert.equal(
+		q("guest_cam", 4, null, "Bogor", [
+			["gS", 1],
+			["tv", 1],
+		]).ok,
+		false,
+	);
+	assert.equal(
+		q("guest_cam", 4, null, "Bogor", [
+			["gS", 1],
+			["p2S", 1],
+			["sB", 1],
+			["tv", 1],
+		]).ok,
+		true,
+	);
+	// add-on booth tidak untuk Guest Cam saja
+	assert.equal(
+		q("guest_cam", 4, null, "Bogor", [
+			["gS", 1],
+			["mg", 1],
+		]).ok,
+		false,
+	);
 });

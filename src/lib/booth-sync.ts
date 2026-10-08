@@ -10,6 +10,8 @@ import {
 	type BoothModule,
 	boothSignature,
 	type DesignSource,
+	type GuestAddon,
+	guestCamFields,
 	modulesFor,
 	toBoothBooking,
 	toBoothDesign,
@@ -33,6 +35,13 @@ export type BoothBookingFull = BoothBooking & {
 	stage_groups: string[] | null;
 	/** v0.7: akun Instagram klien (tanpa @) untuk halaman foto tamu. */
 	client_instagram: string[] | null;
+	/** v0.9: tier Guest Cam (null = tak terbatas atau tidak memesan; lihat modules). */
+	guest_cam_max_guests: number | null;
+	guest_cam_print: boolean;
+	/** v0.9 (aditif dari Ops): ukuran cetak foto tamu 2R | polaroid | 4R. */
+	guest_cam_print_size: string | null;
+	/** v0.9: id desain kartu QR dari katalog Booth GET /api/guest-cards. */
+	guest_card_design: string | null;
 };
 
 /** Kolom tambahan di atas BOOTH_EVENT_SELECT — tetap tanpa uang/kontak. */
@@ -66,16 +75,16 @@ export async function enrichBoothBookings(
 		admin
 			.from("client_bookings")
 			.select(
-				"event_id, public_code, stage_groups:detail->stage_groups, instagram:detail->instagram",
+				"event_id, public_code, stage_groups:detail->stage_groups, instagram:detail->instagram, card:detail->>guest_card_design",
 			)
 			.in("event_id", ids),
 		admin
 			.from("event_addons")
-			.select("event_id, addon:addons(name)")
+			.select("event_id, addon:addons(addon_group, max_guests, print_size)")
 			.in("event_id", ids),
 		admin
 			.from("event_bonuses")
-			.select("event_id, addon:addons(name)")
+			.select("event_id, addon:addons(addon_group, max_guests, print_size)")
 			.in("event_id", ids),
 	]);
 	type Req = DesignSource & { event_id: string };
@@ -106,17 +115,24 @@ export async function enrichBoothBookings(
 	);
 
 	// to-one embed → object.
-	const addonNames = new Map<string, string[]>();
+	const guestAddons = new Map<string, GuestAddon[]>();
 	for (const a of [...(addRes.data ?? []), ...(bonusRes.data ?? [])]) {
-		const name = (a.addon as unknown as { name: string } | null)?.name;
-		if (name)
-			addonNames.set(a.event_id, [...(addonNames.get(a.event_id) ?? []), name]);
+		const g = a.addon as unknown as GuestAddon | null;
+		if (g?.addon_group)
+			guestAddons.set(a.event_id, [...(guestAddons.get(a.event_id) ?? []), g]);
 	}
+	const cards = new Map(
+		(cbRes.data ?? [])
+			.filter((c) => typeof c.card === "string" && c.card)
+			.map((c) => [c.event_id as string, c.card as string]),
+	);
 
 	return rows.map((r) => ({
 		...toBoothBooking(r),
 		unit_count: Math.min(3, Math.max(1, Number(r.unit_count ?? 1))),
-		modules: modulesFor(r.service_type, addonNames.get(r.id)),
+		modules: modulesFor(r.service_type, guestAddons.get(r.id)),
+		...guestCamFields(guestAddons.get(r.id) ?? []),
+		guest_card_design: cards.get(r.id) ?? null,
 		cancelled: r.status === "cancelled",
 		design: toBoothDesign(
 			r,
@@ -307,5 +323,27 @@ export async function fetchBoothEvents(
 		return Array.isArray(json.events) ? json.events : [];
 	} catch {
 		return null;
+	}
+}
+
+/** v0.9: katalog desain kartu QR Guest Cam (publik di Booth, cache 1 hari). [] kalau gagal. */
+export async function fetchGuestCards(): Promise<
+	Array<{ id: string; name: string; preview_url: string }>
+> {
+	const base = (
+		process.env.TETRA_BOOTH_URL || "https://booth.tetraphoto.com"
+	).replace(/\/$/, "");
+	try {
+		const res = await fetch(`${base}/api/guest-cards`, {
+			next: { revalidate: 86_400 },
+			signal: AbortSignal.timeout(4000),
+		});
+		if (!res.ok) return [];
+		const j = (await res.json()) as {
+			designs?: Array<{ id: string; name: string; preview_url: string }>;
+		};
+		return (j.designs ?? []).filter((d) => /^[a-z0-9_-]{1,30}$/.test(d.id));
+	} catch {
+		return [];
 	}
 }
