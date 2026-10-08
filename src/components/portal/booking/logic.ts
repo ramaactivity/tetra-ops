@@ -85,6 +85,8 @@ export type Draft = {
 	/** Digit nomor yang sudah terverifikasi (sesi portal). */
 	waVerified: string;
 	email: string;
+	/** Teks bebas akun Instagram (dirapikan parseInstagram saat kirim). */
+	ig: string;
 	wo: "yes" | "no" | null;
 	woName: string;
 	woWa: string;
@@ -114,6 +116,7 @@ export const SAVE_KEYS: Array<keyof Draft> = [
 	"wa",
 	"waVerified",
 	"email",
+	"ig",
 	"wo",
 	"woName",
 	"woWa",
@@ -145,6 +148,7 @@ export function blankDraft(today: YMD): Draft {
 		wa: "",
 		waVerified: "",
 		email: "",
+		ig: "",
 		wo: null,
 		woName: "",
 		woWa: "",

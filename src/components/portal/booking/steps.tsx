@@ -6,6 +6,7 @@
  * di desktop konten serupa ada di panel kiri (wizard.tsx).
  */
 import {
+	AtSign,
 	Calendar as CalIcon,
 	CirclePlus,
 	Clock,
@@ -39,6 +40,7 @@ import {
 	type ReactNode,
 	useState,
 } from "react";
+import { parseInstagram } from "@/lib/portal/core";
 import {
 	BACKDROPS,
 	BD_COLORS,
@@ -2205,6 +2207,7 @@ function WaInput({
 }
 
 function ContactStep({ x }: { x: Ctx }) {
+	const igList = parseInstagram(x.s.ig);
 	const s = x.s;
 	const v = x.v;
 	const T = x.touched;
@@ -2270,13 +2273,7 @@ function ContactStep({ x }: { x: Ctx }) {
 					/>
 					{waErr && <ErrLine text={waErr} />}
 				</Numbered>
-				<Numbered
-					n={3}
-					ok={!!s.email.trim() && v.email}
-					lock={emailLock}
-					last
-					pb={4}
-				>
+				<Numbered n={3} ok={!!s.email.trim() && v.email} lock={emailLock}>
 					<Label text="Email" right="Opsional" />
 					<span style={{ ...sub13, marginTop: -4 }}>
 						Untuk kirim invoice dan kuitansi.
@@ -2287,7 +2284,7 @@ function ContactStep({ x }: { x: Ctx }) {
 						type="email"
 						inputMode="email"
 						autoComplete="email"
-						enterKeyHint="done"
+						enterKeyHint="next"
 						placeholder="nama@email.com"
 						aria-label="Email"
 						aria-invalid={!!emailErr}
@@ -2300,6 +2297,34 @@ function ContactStep({ x }: { x: Ctx }) {
 						style={inputStyle(emailErr ? "#E8836F" : INK)}
 					/>
 					{emailErr && <ErrLine text={emailErr} />}
+				</Numbered>
+				<Numbered n={4} ok={igList.length > 0} lock={emailLock} last pb={4}>
+					<Label text="Instagram" right="Opsional" />
+					<span style={{ ...sub13, marginTop: -4 }}>
+						IG pengantin, perusahaan/acara, atau WO/EO. Di halaman foto, tamu
+						diarahkan untuk <b>follow dan tag akun ini</b> saat upload ke story,
+						jadi acaramu ikut ramai di Instagram.
+					</span>
+					<input
+						className="in"
+						data-field="ig"
+						autoComplete="off"
+						autoCapitalize="none"
+						enterKeyHint="done"
+						placeholder="@rinadimas @bahagia.organizer"
+						aria-label="Instagram"
+						disabled={emailLock}
+						value={s.ig}
+						maxLength={240}
+						onChange={(e) => x.set({ ig: e.target.value })}
+						onBlur={() => x.set({ ig: igList.map((h) => `@${h}`).join(" ") })}
+						onKeyDown={x.onEnter}
+						style={{ ...inputStyle(), ...mono, fontSize: 16 }}
+					/>
+					<span style={{ fontSize: 12, color: "#5F5E5A" }}>
+						Boleh lebih dari satu (maks. 6). Akun ini ditampilkan di halaman
+						foto tamu.
+					</span>
 				</Numbered>
 				<div
 					style={{
@@ -2823,6 +2848,15 @@ function ReviewStep({ x }: { x: Ctx }) {
 			to: "contact",
 		},
 		{ icon: Mail, k: "Email", v: s.email || "Tidak diisi", to: "contact" },
+		{
+			icon: AtSign,
+			k: "Instagram",
+			v:
+				parseInstagram(s.ig)
+					.map((h) => `@${h}`)
+					.join(" ") || "Tidak diisi",
+			to: "contact",
+		},
 		{
 			icon: Store,
 			k: "Lewat WO",

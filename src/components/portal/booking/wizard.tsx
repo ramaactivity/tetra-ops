@@ -34,7 +34,11 @@ import {
 	createDraftBooking,
 	fullDatesOf,
 } from "@/lib/actions/portal-booking";
-import type { CatalogProduct, PublicAddonRow } from "@/lib/portal/core";
+import {
+	type CatalogProduct,
+	type PublicAddonRow,
+	parseInstagram,
+} from "@/lib/portal/core";
 import "./booking.css";
 import {
 	ADDON,
@@ -505,6 +509,9 @@ function useBooking(p: Props) {
 				venue_kota: s.city.trim(),
 				maps_url: s.mapsUrl || undefined,
 				email: s.email.trim() || undefined,
+				...(parseInstagram(s.ig).length
+					? { instagram: parseInstagram(s.ig) }
+					: {}),
 				backdrop: s.backdrop ?? undefined,
 				backdrop_warna: s.backdrop === "tetra" ? bdName : undefined,
 				izin_portofolio: s.portfolio,
@@ -569,7 +576,7 @@ function useBooking(p: Props) {
 		e.preventDefault();
 		const fd = e.currentTarget.dataset.field;
 		const nx = fd
-			? ({ name: "wa", wa: "email" } as Record<string, string>)[fd]
+			? ({ name: "wa", wa: "email", email: "ig" } as Record<string, string>)[fd]
 			: undefined;
 		if (fd) touch(fd);
 		if (nx) {
@@ -829,7 +836,7 @@ function questions(x: Ctx): [string, string] {
 		],
 		contact: [
 			first ? `Hai ${first}! Tinggal data kontak` : "Kenalan dulu, ya",
-			"Sekali isi: nama, WhatsApp, email, dan info WO. Email & WO boleh dikosongkan.",
+			"Sekali isi: nama, WhatsApp, email, Instagram, dan info WO. Yang opsional boleh dikosongkan.",
 		],
 		otp:
 			x.otp.mode === "email"
