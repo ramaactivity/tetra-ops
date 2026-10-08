@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { MON3, PKG } from "@/components/portal/booking/content";
@@ -54,6 +55,7 @@ import {
 	loadDesignState,
 	signedUrls,
 } from "@/lib/portal/design-server";
+import { previewPerson } from "@/lib/portal/preview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toWaPhone } from "@/lib/whatsapp";
 
@@ -92,9 +94,11 @@ export default async function BookingDetailPage({
 	const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? "")
 		? (sp.tab as Tab)
 		: "ringkasan";
-	const person = await getPortalPerson();
-	if (!person) redirect("/akun");
 	const { code } = await params;
+	// Owner "Lihat sebagai klien": tampil sebagai pemesan, tanpa sesi portal.
+	const preview = await previewPerson(code.toUpperCase());
+	const person = preview ?? (await getPortalPerson());
+	if (!person) redirect("/akun");
 	const b = await loadMyBooking(person, code.toUpperCase());
 	if (!b) {
 		// Kode benar tapi yang login bukan anggotanya → jelaskan, jangan 404.
@@ -1170,6 +1174,28 @@ export default async function BookingDetailPage({
 			person={{ name: person.name, phone: person.phone }}
 			chatUrl={chat}
 		>
+			{preview && (
+				<div
+					role="status"
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 10,
+						borderRadius: 12,
+						border: "1.5px dashed #1D1D1B",
+						background: "#D6EEF8",
+						padding: "10px 14px",
+						fontSize: 13,
+						fontWeight: 600,
+						lineHeight: 1.45,
+					}}
+				>
+					<Eye aria-hidden size={18} strokeWidth={2} style={{ flex: "none" }} />
+					Mode lihat owner: kamu melihat dashboard seperti{" "}
+					{person.name ?? "pemesan"}. Tombol bayar, undang, dan ubah tidak akan
+					berjalan.
+				</div>
+			)}
 			{tab === "ringkasan" ? (
 				<PageHead
 					back={{ href: "/akun", label: "Booking saya" }}

@@ -4,6 +4,7 @@ import {
 	Check,
 	Copy,
 	ExternalLink,
+	Eye,
 	LayoutDashboard,
 	Loader2,
 	Send,
@@ -20,11 +21,14 @@ import { inviteClientDashboard } from "@/lib/actions/portal-invite";
 export function ClientDashboardCard({
 	eventId,
 	link: initialLink,
+	previewLink,
 	defaultName,
 	defaultPhone,
 }: {
 	eventId: string;
 	link: string | null;
+	/** Link bertanda tangan "Lihat sebagai klien" (2 jam), null kalau belum ada booking. */
+	previewLink?: string | null;
 	defaultName: string;
 	defaultPhone: string;
 }) {
@@ -92,6 +96,17 @@ export function ClientDashboardCard({
 						<ExternalLink className="size-4" />
 						Buka
 					</a>
+					{previewLink && (
+						<a
+							href={previewLink}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="press tap border-border-default bg-background inline-flex h-11 items-center gap-2 rounded-xl border px-3.5 text-sm font-medium"
+						>
+							<Eye className="size-4" />
+							Lihat sebagai klien
+						</a>
+					)}
 				</div>
 			)}
 

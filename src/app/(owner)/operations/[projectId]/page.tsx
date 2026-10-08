@@ -30,6 +30,7 @@ import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { ClientDashboardCard } from "@/components/operations/client-dashboard-card";
+import { previewUrl } from "@/lib/portal/preview";
 import { EventTransportPlan } from "@/components/operations/event-transport-plan";
 import {
 	ProjectHeroRecap,
@@ -1178,6 +1179,7 @@ export default async function EventDetailPage({
 					<ClientDashboardCard
 						eventId={event.id}
 						link={portalCode ? portalUrl(portalCode) : null}
+						previewLink={portalCode ? previewUrl(portalCode) : null}
 						defaultName={event.client_name ?? ""}
 						defaultPhone={event.client_wa ?? ""}
 					/>
