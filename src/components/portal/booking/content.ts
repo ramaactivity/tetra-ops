@@ -376,7 +376,7 @@ export function addonGroupContent(a: {
 				icon: Printer,
 				tint: "#D6EEF8",
 				benefit: "Foto dari HP tamu dicetak di lokasi.",
-				desc: `Setiap tamu dapat 1 cetakan ${PRINT_LABEL[a.print_size ?? ""] ?? ""} dari foto Guest Cam-nya${a.addon_group === "guest_print_100" ? ", dihitung per 100 tamu" : `, untuk ${guests(a.max_guests)}`}. Bersama photobooth, cetakan masuk antrean printer booth.`,
+				desc: `Setiap tamu dapat 1 cetakan ${PRINT_LABEL[a.print_size ?? ""] ?? ""} dari foto Guest Cam-nya${a.addon_group === "guest_print_100" ? ", dihitung per 100 tamu" : `, untuk ${guests(a.max_guests)}`}. Bersama photobooth, cetakan masuk antrean printer booth; tanpa booth, dicetak lewat Print Station.`,
 			};
 		case "print_station":
 			return {

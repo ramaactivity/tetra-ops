@@ -1039,7 +1039,13 @@ function questions(x: Ctx): [string, string] {
 			"Backdrop-nya pakai punya siapa?",
 			"Backdrop = latar di belakang booth.",
 		],
-		add: ["Mau tambah sesuatu?", "Opsional, boleh dilewati."],
+		add:
+			s.pkg === "guest_cam"
+				? [
+						"Berapa tamu yang ikut memotret?",
+						"Pilih satu paket Guest Cam, lalu tambahan kalau perlu.",
+					]
+				: ["Mau tambah sesuatu?", "Opsional, boleh dilewati."],
 		title: [
 			"Nama apa yang tercetak di frame?",
 			"Ini yang tercetak di frame foto.",
