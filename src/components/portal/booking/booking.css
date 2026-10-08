@@ -56,6 +56,13 @@
 .bk .in:focus {
 	box-shadow: 0 0 0 3px #8edccb;
 }
+.bk .ico {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	line-height: 1;
+}
 .bk .in {
 	outline: none;
 }

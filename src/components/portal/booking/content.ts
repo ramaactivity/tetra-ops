@@ -19,14 +19,17 @@ import {
 	House,
 	Image,
 	KeyRound,
+	Landmark,
 	Layers,
 	Magnet,
 	Newspaper,
+	PartyPopper,
 	Printer,
 	Rotate3d,
 	Sparkles,
 	Ticket,
 	Timer,
+	UsersRound,
 } from "lucide-react";
 
 export type EventKind = {
@@ -80,13 +83,24 @@ export const EVENTS: EventKind[] = [
 	{
 		id: "corp",
 		code: "corporate",
-		label: "Corporate / Gathering",
+		label: "Corporate",
 		icon: Briefcase,
 		tint: "#D6F1EA",
 		ph: "Gathering PT ABC",
 		kicker: "",
 		rec: ["videobooth_360", "Cocok untuk acara kantor"],
 		ideas: ["Gathering PT ABC", "Annual Meeting 2026"],
+	},
+	{
+		id: "gath",
+		code: "gathering",
+		label: "Gathering / Family day",
+		icon: PartyPopper,
+		tint: "#FCE3C6",
+		ph: "Family Day PT ABC",
+		kicker: "",
+		rec: ["videobooth_360", "Cocok untuk gathering"],
+		ideas: ["Family Day PT ABC", "Gathering 2026"],
 	},
 	{
 		id: "grad",
@@ -98,6 +112,28 @@ export const EVENTS: EventKind[] = [
 		kicker: "",
 		rec: ["photobooth_classic", "Cocok untuk wisuda"],
 		ideas: ["Rina & Dimas", "The Wedding of R & D"],
+	},
+	{
+		id: "gov",
+		code: "instansi",
+		label: "Instansi / Pemerintah",
+		icon: Landmark,
+		tint: "#D6EEF8",
+		ph: "HUT Dinas Kota Bogor",
+		kicker: "",
+		rec: ["photobooth_classic", "Cocok untuk acara instansi"],
+		ideas: ["HUT Dinas Kota Bogor", "Rapat Kerja 2026"],
+	},
+	{
+		id: "reuni",
+		code: "reuni",
+		label: "Reuni",
+		icon: UsersRound,
+		tint: "#D6F1EA",
+		ph: "Reuni SMA 3 Angkatan 2010",
+		kicker: "",
+		rec: ["photobooth_classic", "Cocok untuk reuni"],
+		ideas: ["Reuni SMA 3 Angkatan 2010", "Reuni Akbar 2026"],
 	},
 	{
 		id: "other",
@@ -199,6 +235,8 @@ export type AddonContent = {
 	tint: string;
 	benefit: string;
 	desc: string;
+	/** Kelipatan per ketukan +/− (default 1). */
+	step?: number;
 };
 
 /** Kunci = addons.name di DB. Add-on tanpa entri tetap tampil dengan teks dasar. */
@@ -262,6 +300,7 @@ export const ADDON: Record<string, AddonContent> = {
 	"Keychain Photobooth Station": {
 		name: "Keychain photobooth",
 		unit: "pcs",
+		step: 10,
 		icon: KeyRound,
 		tint: "#D6F1EA",
 		benefit: "Tamu membuat gantungan kunci dari fotonya.",

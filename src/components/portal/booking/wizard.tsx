@@ -108,7 +108,12 @@ const PKG_ORDER = [
 ];
 
 type Pkg = CatalogProduct & { c: PkgContent; from: string };
-type Add = PublicAddonRow & { c: AddonContent; priceLine: string; min: number };
+type Add = PublicAddonRow & {
+	c: AddonContent;
+	priceLine: string;
+	min: number;
+	step: number;
+};
 type Otp = {
 	id: string | null;
 	code: string | null;
@@ -228,6 +233,7 @@ function useBooking(p: Props) {
 						c,
 						priceLine: `${rp(a.price)} / ${c.unit}`,
 						min: Math.max(1, a.min_qty ?? 1),
+						step: c.step ?? 1,
 					};
 				}),
 		[p.addons],
@@ -975,37 +981,65 @@ function BottomBar({ x }: { x: Ctx }) {
 	const consentHint =
 		x.s.screen === "review" && !x.s.consent && !x.offline && !b.on;
 	return (
-		<div className="bk-bar">
-			{b.on ? (
-				<Cta onClick={x.barGo} style={{ flex: 1 }}>
-					{b.label}
-				</Cta>
-			) : (
-				<button
-					type="button"
-					// Persetujuan ada di bawah ringkasan: ketuk tombol → scroll ke sana.
-					disabled={!consentHint}
-					aria-disabled={!consentHint}
-					onClick={() => {
-						const el = document.getElementById("bk-consent");
-						el?.scrollIntoView({ behavior: "smooth", block: "center" });
-						x.setFlash((n) => n + 1);
-						el?.focus({ preventScroll: true });
-					}}
-					style={{
-						flex: 1,
-						height: 56,
-						border: "1.5px solid #D6D3CC",
-						borderRadius: 14,
-						background: "#EFEDE8",
-						color: "#8A8883",
-						fontSize: 16,
-						fontWeight: 700,
-					}}
-				>
-					{b.label}
-				</button>
+		<div
+			className="bk-bar"
+			style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}
+		>
+			{x.total > 0 && x.s.screen !== "review" && (
+				<div className="only-m">
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "baseline",
+							fontSize: 13,
+							padding: "0 2px",
+						}}
+					>
+						<span>
+							Total{" "}
+							<b className="mono" style={{ fontWeight: 600 }}>
+								{x.totalShown}
+							</b>
+						</span>
+						<span style={{ color: "#5F5E5A" }}>
+							DP minimal <span className="mono">{x.dpStr}</span>
+						</span>
+					</div>
+				</div>
 			)}
+			<div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+				{b.on ? (
+					<Cta onClick={x.barGo} style={{ flex: 1 }}>
+						{b.label}
+					</Cta>
+				) : (
+					<button
+						type="button"
+						// Persetujuan ada di bawah ringkasan: ketuk tombol → scroll ke sana.
+						disabled={!consentHint}
+						aria-disabled={!consentHint}
+						onClick={() => {
+							const el = document.getElementById("bk-consent");
+							el?.scrollIntoView({ behavior: "smooth", block: "center" });
+							x.setFlash((n) => n + 1);
+							el?.focus({ preventScroll: true });
+						}}
+						style={{
+							flex: 1,
+							height: 56,
+							border: "1.5px solid #D6D3CC",
+							borderRadius: 14,
+							background: "#EFEDE8",
+							color: "#8A8883",
+							fontSize: 16,
+							fontWeight: 700,
+						}}
+					>
+						{b.label}
+					</button>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -1219,6 +1253,24 @@ function Intro({ x }: { x: Ctx }) {
 							>
 								Mulai dari awal
 							</button>
+							<a
+								href="/akun"
+								style={{
+									height: 40,
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									gap: 8,
+									borderTop: "1.5px dashed #D6D3CC",
+									paddingTop: 8,
+									fontSize: 14,
+									fontWeight: 700,
+									textDecoration: "none",
+								}}
+							>
+								<LogIn size={16} strokeWidth={2} />
+								Sudah booking? Masuk ke dashboard
+							</a>
 						</div>
 					) : (
 						<>

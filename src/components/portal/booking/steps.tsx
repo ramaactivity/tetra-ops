@@ -23,8 +23,10 @@ import {
 	Map as MapIcon,
 	MapPin,
 	MessageCircle,
+	Minus,
 	Package,
 	Palette,
+	Plus,
 	ShieldCheck,
 	Sparkles,
 	Store,
@@ -167,6 +169,15 @@ function TypeStep({ x }: { x: Ctx }) {
 								justifyContent: "space-between",
 								gap: 16,
 								minHeight: 112,
+								...(e.id === "other"
+									? {
+											gridColumn: "1 / -1",
+											minHeight: 76,
+											flexDirection: "row",
+											alignItems: "center",
+											justifyContent: "flex-start",
+										}
+									: {}),
 								padding: 14,
 								border: B,
 								borderRadius: 18,
@@ -436,6 +447,7 @@ function TimeBlock({ x }: { x: Ctx }) {
 				}}
 			>
 				<button
+					className="ico"
 					type="button"
 					onClick={dec}
 					aria-label={`Kurangi ${label}`}
@@ -448,7 +460,7 @@ function TimeBlock({ x }: { x: Ctx }) {
 						fontWeight: 700,
 					}}
 				>
-					−
+					<Minus size={18} strokeWidth={2.5} aria-hidden />
 				</button>
 				<span
 					style={{
@@ -462,6 +474,7 @@ function TimeBlock({ x }: { x: Ctx }) {
 					{pad(v)}
 				</span>
 				<button
+					className="ico"
 					type="button"
 					onClick={inc}
 					aria-label={`Tambah ${label}`}
@@ -475,7 +488,7 @@ function TimeBlock({ x }: { x: Ctx }) {
 						fontWeight: 700,
 					}}
 				>
-					+
+					<Plus size={18} strokeWidth={2.5} aria-hidden />
 				</button>
 			</span>
 		</span>
@@ -1572,7 +1585,7 @@ function AddStep({ x }: { x: Ctx }) {
 						{n === 0 ? (
 							<button
 								type="button"
-								className="shrink"
+								className="ico shrink"
 								aria-label={`Tambah ${a.c.name}`}
 								onClick={() => x.setAdd(a.id, a.min)}
 								style={
@@ -1589,16 +1602,18 @@ function AddStep({ x }: { x: Ctx }) {
 									} as CSSProperties
 								}
 							>
-								+
+								<Plus size={18} strokeWidth={2.5} aria-hidden />
 							</button>
 						) : (
 							<Stepper
 								label={a.c.name}
 								value={n}
 								w={36}
-								numW={24}
-								onDec={() => x.setAdd(a.id, n - 1 < a.min ? 0 : n - 1)}
-								onInc={() => x.setAdd(a.id, n + 1)}
+								numW={n >= 100 ? 40 : 24}
+								onDec={() =>
+									x.setAdd(a.id, n - a.step < a.min ? 0 : n - a.step)
+								}
+								onInc={() => x.setAdd(a.id, n + a.step)}
 							/>
 						)}
 					</div>
@@ -2345,7 +2360,9 @@ function ContactStep({ x }: { x: Ctx }) {
 						strokeWidth={2}
 						style={{ flex: "none", marginTop: 1 }}
 					/>
-					<span>Datamu hanya dipakai untuk booking ini. Tidak ada spam.</span>
+					<span>
+						Nomor & email hanya dipakai untuk booking ini. Tidak ada spam.
+					</span>
 				</div>
 				{x.verifyErr && <ErrLine text={x.verifyErr} size={14} />}
 			</div>

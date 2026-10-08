@@ -8,7 +8,9 @@ import {
 	Heart,
 	Laugh,
 	type LucideIcon,
+	Minus,
 	PartyPopper,
+	Plus,
 	Smile,
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
@@ -308,6 +310,7 @@ export function Stepper({
 			}}
 		>
 			<button
+				className="ico"
 				type="button"
 				onClick={onDec}
 				aria-label={label ? `Kurangi ${label}` : "Kurangi"}
@@ -321,7 +324,7 @@ export function Stepper({
 					opacity: decOff ? 0.3 : 1,
 				}}
 			>
-				−
+				<Minus size={18} strokeWidth={2.5} aria-hidden />
 			</button>
 			<span
 				style={{
@@ -335,6 +338,7 @@ export function Stepper({
 				{value}
 			</span>
 			<button
+				className="ico"
 				type="button"
 				onClick={onInc}
 				aria-label={label ? `Tambah ${label}` : "Tambah"}
@@ -349,7 +353,7 @@ export function Stepper({
 					opacity: incOff ? 0.3 : 1,
 				}}
 			>
-				+
+				<Plus size={18} strokeWidth={2.5} aria-hidden />
 			</button>
 		</span>
 	);
