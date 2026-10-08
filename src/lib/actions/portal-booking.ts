@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { loadFullDates } from "@/lib/availability-load";
 import { emitBoothEvent } from "@/lib/booth-sync";
+import { formatDateID, formatRupiah } from "@/lib/format";
 import { clientIp, getPortalPerson, rateLimit } from "@/lib/portal/auth";
 import {
 	DetailSchema,
 	daysUntil,
 	missingForDp,
 	normPromo,
+	PRODUCT_LABELS,
 	promoDiscount,
 	quoteSelection,
 	randomCode,
@@ -28,6 +30,7 @@ import {
 	vendorForPhone,
 } from "@/lib/portal/data";
 import {
+	notifyAdminWaGroup,
 	notifyPortalPaymentSubmitted,
 	notifyPortalRequest,
 	portalUrl,
@@ -313,6 +316,12 @@ export async function createDraftBooking(
 			})
 			.eq("person_id", person.id)
 			.is("converted_booking_id", null);
+		await notifyAdminWaGroup([
+			`📥 Booking baru dari web (draf, belum DP) · ${code}`,
+			`${person.name ?? "-"}${asWo ? " (WO)" : ""} · ${detail?.nama_acara ?? detail?.kategori ?? "acara"}`,
+			`📅 ${formatDateID(sel.date)}${sel.start ? ` ${sel.start}` : ""} · ${sel.city ?? "-"}`,
+			`${PRODUCT_LABELS[sel.category] ?? sel.category}${sel.category === "guest_cam" ? "" : ` ${sel.hours} jam`} · perkiraan ${formatRupiah(q.total - discountIdr)}`,
+		]);
 		if (asWo && client?.phone) {
 			const phone = toWaPhone(client.phone);
 			await addMember(

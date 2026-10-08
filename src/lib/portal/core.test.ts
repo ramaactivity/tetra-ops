@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	addHours,
+	adminGroupCommand,
 	daysUntil,
 	extractWaCode,
 	groupCatalog,
@@ -487,4 +488,29 @@ test("pickAddon: lepas tier lain, cetak pindah tier, Print Station otomatis", ()
 		"photobooth_classic",
 	);
 	assert.equal(pb.sB ?? 0, 0);
+});
+
+test("grup admin WA: format perintah bot + hanya 3 titik kirim (booking baru, bukti bayar, bayar diterima)", async () => {
+	const cmd = adminGroupCommand([
+		"📥 Booking baru · ABC123",
+		"",
+		"x".repeat(3000),
+	]);
+	assert.ok(cmd.startsWith("send-grup-admin:"));
+	const { pesan } = JSON.parse(cmd.slice("send-grup-admin:".length));
+	assert.equal(pesan.length, 2000);
+	assert.ok(pesan.startsWith("📥 Booking baru · ABC123\nxxx"));
+	// Kontrak owner: grup tidak boleh ramai — pemanggil dibatasi.
+	const { readFileSync } = await import("node:fs");
+	const calls = (f: string) =>
+		(
+			readFileSync(new URL(f, import.meta.url), "utf8").match(
+				/notifyAdminWaGroup\(/g,
+			) ?? []
+		).length;
+	assert.equal(calls("../actions/portal-booking.ts"), 1); // booking baru (draf)
+	assert.equal(calls("./notify.ts"), 2); // definisi + bukti DP/pelunasan diunggah
+	assert.equal(calls("../actions/portal-admin.ts"), 1); // DP/pelunasan diterima
+	assert.equal(calls("../actions/design-admin.ts"), 0);
+	assert.equal(calls("../actions/portal-invite.ts"), 0);
 });

@@ -2,7 +2,7 @@ import "server-only";
 
 import { appUrl, portalBase } from "@/lib/app-url";
 import { formatDateID, formatRupiah } from "@/lib/format";
-import { PRODUCT_LABELS } from "@/lib/portal/core";
+import { adminGroupCommand, PRODUCT_LABELS } from "@/lib/portal/core";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tgEscape } from "@/lib/telegram/client";
 import { sendToOwnerGroup } from "@/lib/telegram/notify";
@@ -11,6 +11,22 @@ import { sendToOwnerGroup } from "@/lib/telegram/notify";
  * Kabar seputar booking portal. Semua best-effort: TIDAK PERNAH throw, karena
  * gagal mengabari tidak boleh menggagalkan booking/pembayaran yang memicunya.
  */
+
+/**
+ * Kabar singkat ke grup WA admin "Tetra Photobooth" lewat bot (`send-grup-admin`,
+ * bot menambahkan awalan "pesan otomatis"). Owner hanya mau: booking baru dari
+ * wizard, bukti bayar diunggah, pembayaran diterima — JANGAN dipakai untuk hal lain.
+ * Best-effort, tidak pernah throw.
+ */
+export async function notifyAdminWaGroup(lines: string[]): Promise<void> {
+	try {
+		await createAdminClient()
+			.from("bot_commands")
+			.insert({ command: adminGroupCommand(lines), status: "pending" });
+	} catch (e) {
+		console.error("[portal/notify] grup admin:", e);
+	}
+}
 
 /** Link portal yang dikirim ke klien. */
 export function portalUrl(code?: string): string {
@@ -45,7 +61,7 @@ export async function notifyPortalPaymentSubmitted(
 		const { data: s } = await admin
 			.from("payment_submissions")
 			.select(
-				"amount, kind, booking:client_bookings(public_code, service_type, package_hours, event_date, detail, quoted_total), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
+				"amount, kind, booking:client_bookings(public_code, service_type, package_hours, event_date, detail, quoted_total), person:portal_people!payment_submissions_submitted_by_fkey(name, phone), bank:bank_accounts(bank_name, account_number)",
 			)
 			.eq("id", submissionId)
 			.maybeSingle();
@@ -66,6 +82,16 @@ export async function notifyPortalPaymentSubmitted(
 		const acara = b.detail?.nama_acara || "(belum diberi nama)";
 		const title = `${s.kind === "dp" ? "DP" : "Pembayaran"} portal ${formatRupiah(Number(s.amount))} menunggu dicek`;
 		const url = `${appUrl()}/operations/portal`;
+		const bank = s.bank as unknown as {
+			bank_name: string | null;
+			account_number: string | null;
+		} | null;
+		await notifyAdminWaGroup([
+			`💳 Bukti ${s.kind === "dp" ? "DP" : "pelunasan/cicilan"} masuk, menunggu dicek`,
+			`${b.public_code} · ${p?.name ?? "-"} · ${acara}`,
+			`Nominal ${formatRupiah(Number(s.amount))}${bank ? ` → ${bank.bank_name ?? ""} ${bank.account_number ?? ""}`.trimEnd() : ""}`,
+			`Cek: ${url}`,
+		]);
 
 		await sendToOwnerGroup(
 			[

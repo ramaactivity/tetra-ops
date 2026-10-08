@@ -8,9 +8,13 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildPaymentProofName } from "@/lib/drive/naming";
 import { logPaymentCore } from "@/lib/finance/payment-core";
-import { formatRupiah } from "@/lib/format";
+import { formatDateID, formatRupiah } from "@/lib/format";
 import { type Detail, withRundownLine } from "@/lib/portal/core";
-import { portalUrl, sendClientWa } from "@/lib/portal/notify";
+import {
+	notifyAdminWaGroup,
+	portalUrl,
+	sendClientWa,
+} from "@/lib/portal/notify";
 import { redeemPromo } from "@/lib/promo";
 import { r2Get, r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -346,6 +350,13 @@ export async function acceptPortalPayment(
 				: `Halo ${s.person.name ?? ""}! Pembayaran ${formatRupiah(Number(s.amount))} untuk ${b.detail?.nama_acara ?? "acara kamu"} sudah kami terima${pay.lunas ? " — tagihan LUNAS 🎉" : ""}.\n\nKuitansinya ada di portal: ${portalUrl(b.public_code)}`,
 		);
 
+	await notifyAdminWaGroup([
+		s.kind === "dp"
+			? `✅ DP diterima — booking resmi · ${b.public_code}`
+			: `✅ Pembayaran diterima${pay.lunas ? " — LUNAS" : ""} · ${b.public_code}`,
+		`${s.person?.name ?? "-"} · ${b.detail?.nama_acara ?? "acara"} · ${formatDateID(b.event_date)}`,
+		`Nominal ${formatRupiah(Number(s.amount))}${projectId ? ` · ${projectId}` : ""}`,
+	]);
 	revalidatePath("/operations/portal");
 	return {
 		ok: true,

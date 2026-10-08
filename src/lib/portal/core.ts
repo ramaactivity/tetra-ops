@@ -597,3 +597,9 @@ export function normPromo(raw: string): string | null {
 	const c = raw.trim().toUpperCase().replace(/\s+/g, "");
 	return /^[A-Z]{2,10}-[A-Z0-9]{4,12}$/.test(c) ? c : null;
 }
+
+/** Perintah bot `send-grup-admin` (kontrak bot 1470ab6): baris kosong dibuang, maks 2000 karakter. */
+export function adminGroupCommand(lines: string[]): string {
+	const pesan = lines.filter(Boolean).join("\n").slice(0, 2000);
+	return `send-grup-admin:${JSON.stringify({ pesan })}`;
+}
