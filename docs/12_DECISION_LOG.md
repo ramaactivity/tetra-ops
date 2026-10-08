@@ -1171,7 +1171,7 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 
 ## DR-041: Guest Cam = add-on berbayar; extend 3+ crew Rp750rb/jam
 
-**Status:** Accepted (owner 2026-10-08)
+**Status:** Extend Accepted; **harga Guest Cam DITAHAN** (owner 2026-10-08) — owner membahas harga bertingkat per jumlah tamu di sesi Booth. Add-on Guest Cam disembunyikan dari booking publik (`is_public=false`) sampai final; Booth v1 juga belum punya cetak on-site, jadi "+ Print" belum bisa dijalankan.
 **Date:** 2026-10-08
 
 ### Decision
