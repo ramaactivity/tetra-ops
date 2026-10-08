@@ -11,8 +11,10 @@ import {
 	groupCatalog,
 	missingForDp,
 	newWaCode,
+	normPromo,
 	parseInstagram,
 	parseStageGroups,
+	promoDiscount,
 	quoteSelection,
 	refundEstimate,
 	rescheduleError,
@@ -210,4 +212,37 @@ test("instagram: @, link, koma/spasi dibersihkan; unik; maks 6", () => {
 	);
 	assert.deepEqual(parseInstagram("bukan-handle! ok_1"), ["ok_1"]);
 	assert.equal(parseInstagram("a b c d e f g h").length, 6);
+});
+
+test("promo: persen dengan batas, nominal, item, minimal total", () => {
+	assert.deepEqual(
+		promoDiscount(
+			{ type: "percent", value: 10, max_idr: 300000 },
+			2500000,
+			2000000,
+		),
+		{ ok: true, idr: 250000 },
+	);
+	assert.deepEqual(
+		promoDiscount(
+			{ type: "percent", value: 10, max_idr: 300000 },
+			5000000,
+			null,
+		),
+		{ ok: true, idr: 300000 },
+	);
+	assert.deepEqual(
+		promoDiscount({ type: "amount", value: 9000000 }, 2000000, null),
+		{ ok: true, idr: 2000000 },
+	);
+	assert.deepEqual(
+		promoDiscount({ type: "item", item: "Gratis Guest Cam" }, 2000000, null),
+		{ ok: true, idr: 0 },
+	);
+	assert.deepEqual(
+		promoDiscount({ type: "amount", value: 100000 }, 1500000, 2000000),
+		{ ok: false, reason: "min_total" },
+	);
+	assert.equal(normPromo(" tamu-7kq2m "), "TAMU-7KQ2M");
+	assert.equal(normPromo("halo"), null);
 });

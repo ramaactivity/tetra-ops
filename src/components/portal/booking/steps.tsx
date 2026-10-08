@@ -2814,6 +2814,121 @@ function DesktopWa({ url }: { url: string }) {
 	);
 }
 
+/** Isian kode promo di ringkasan (kode dari link ?promo= sudah terisi & dicek). */
+function PromoBox({ x }: { x: Ctx }) {
+	const r = x.promoRes;
+	const [text, setText] = useState(x.s.promo);
+	const [open, setOpen] = useState(!!x.s.promo);
+	if (!open)
+		return (
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				style={{
+					...link,
+					alignSelf: "flex-start",
+					fontSize: 14,
+					textUnderlineOffset: 3,
+				}}
+			>
+				Punya kode promo?
+			</button>
+		);
+	const apply = () => {
+		x.set({ promo: text.trim().toUpperCase() });
+		x.applyPromo(text, x.gross);
+	};
+	return (
+		<div
+			style={col(10, {
+				padding: 14,
+				border: B,
+				borderRadius: 16,
+				background: "#fff",
+			})}
+		>
+			<span style={{ fontSize: 15, fontWeight: 800 }}>Kode promo</span>
+			{r.status === "ok" ? (
+				<div
+					className="pop"
+					style={{ display: "flex", gap: 12, alignItems: "center" }}
+				>
+					<Dot size={28} font={13} ok />
+					<span style={col(2, { flex: 1, minWidth: 0 })}>
+						<span style={{ fontSize: 15, fontWeight: 800 }}>{r.label}</span>
+						<span style={{ fontSize: 13, color: "#3A3936" }}>
+							<span style={mono}>{r.code}</span>
+							{r.discountIdr > 0
+								? ` · hemat ${x.rp(r.discountIdr)}`
+								: r.item
+									? ` · bonus ${r.item}`
+									: ""}
+						</span>
+					</span>
+					<button
+						type="button"
+						onClick={() => {
+							x.set({ promo: "" });
+							x.applyPromo("", 0);
+							setText("");
+						}}
+						style={{ ...link, flex: "none" }}
+					>
+						Hapus
+					</button>
+				</div>
+			) : (
+				<div style={{ display: "flex", gap: 8 }}>
+					<input
+						className="in"
+						aria-label="Kode promo"
+						placeholder="TAMU-7KQ2M"
+						autoCapitalize="characters"
+						autoComplete="off"
+						value={text}
+						maxLength={30}
+						onChange={(e) => setText(e.target.value.toUpperCase())}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								apply();
+							}
+						}}
+						style={{
+							...inputStyle(r.status === "err" ? "#E8836F" : INK, {
+								height: 50,
+							}),
+							...mono,
+							fontSize: 16,
+							flex: 1,
+							minWidth: 0,
+						}}
+					/>
+					<button
+						type="button"
+						disabled={!text.trim() || r.status === "checking"}
+						onClick={apply}
+						style={{
+							flex: "none",
+							height: 50,
+							padding: "0 18px",
+							border: B,
+							borderRadius: 14,
+							background: "#F8D98B",
+							fontSize: 15,
+							fontWeight: 800,
+							opacity: !text.trim() ? 0.5 : 1,
+						}}
+					>
+						{r.status === "checking" ? "Mengecek…" : "Pakai"}
+					</button>
+				</div>
+			)}
+			{r.status === "err" && <ErrLine text={r.error} />}
+		</div>
+	);
+}
+
 // ── 5 Cek & kirim ───────────────────────────────────────────────────────────
 
 function ReviewStep({ x }: { x: Ctx }) {
@@ -2949,6 +3064,27 @@ function ReviewStep({ x }: { x: Ctx }) {
 						</span>
 					</button>
 				))}
+				{x.promoRes.status === "ok" && (
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "center",
+							gap: 12,
+							padding: "10px 14px",
+							borderTop: `1.5px dashed ${INK}`,
+							background: "#D6F1EA",
+						}}
+					>
+						<span style={{ fontSize: 14, fontWeight: 700 }}>
+							Promo · {x.promoRes.label}
+							{x.promoRes.item ? ` (bonus ${x.promoRes.item})` : ""}
+						</span>
+						<span style={{ ...mono, fontSize: 15, fontWeight: 600 }}>
+							{x.promoOff > 0 ? `−${x.rp(x.promoOff)}` : "Rp0"}
+						</span>
+					</div>
+				)}
 				<div
 					style={{
 						display: "flex",
@@ -2986,6 +3122,7 @@ function ReviewStep({ x }: { x: Ctx }) {
 					</span>
 				</div>
 			</div>
+			<PromoBox x={x} />
 			{/* biome-ignore lint/a11y/useSemanticElements: centang kustom sesuai desain v4; role + aria-checked setara checkbox. */}
 			<button
 				id="bk-consent"

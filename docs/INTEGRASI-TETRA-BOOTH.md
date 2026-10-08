@@ -1,6 +1,6 @@
 # Kontrak Integrasi Tetra Ops ↔ Tetra Booth
 
-Versi: **0.7 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
+Versi: **0.8 (draf, disepakati teknis oleh sesi Booth 2026-10-06; menunggu persetujuan owner dan jadwal)**.
 Pemilik dokumen: repo `tetra-ops`. Setiap perubahan dicatat juga di `TETRA BOOTH APP/handoff/OPS-BOOTH-SYNC.md` **sebelum** deploy.
 
 ## 0. Prinsip
@@ -207,6 +207,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 0.8 | 2026-10-08 | Kode promo tamu `TAMU-XXXXX` (Booth #218): Ops memanggil `GET /api/ops/promo/{code}` (cek), `POST …/redeem` saat DP diterima, `DELETE …/redeem` saat event batal/dihapus. Potongan disimpan di `client_bookings.promo` dan masuk event sebagai `discount_type = promo`. Wizard membaca `?promo=`. |
 | 0.7 | 2026-10-08 | §2.2 `client_instagram` (usulan Booth #211), pengecualian aturan tanpa kontak. |
 | 0.6 | 2026-10-07 | §2.2 `stage_groups` (usulan Booth #181/#182). `frame_url` kini URL presigned R2 (DR-038), bentuk tidak berubah. |
 | 0.5 | 2026-10-07 | Sisi pengirim Ops dibangun (fase 5): field §2.2 live di GET, webhook + outbox `booth_webhook_outbox`, retry langsung 3× lalu cron harian. Event yang DIHAPUS di Ops dikirim sebagai `booking.cancelled` dengan `cancelled: true`. |

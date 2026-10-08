@@ -87,6 +87,8 @@ export type Draft = {
 	email: string;
 	/** Teks bebas akun Instagram (dirapikan parseInstagram saat kirim). */
 	ig: string;
+	/** Kode promo tamu (Booth v0.8), mis. TAMU-7KQ2M. */
+	promo: string;
 	wo: "yes" | "no" | null;
 	woName: string;
 	woWa: string;
@@ -117,6 +119,7 @@ export const SAVE_KEYS: Array<keyof Draft> = [
 	"waVerified",
 	"email",
 	"ig",
+	"promo",
 	"wo",
 	"woName",
 	"woWa",
@@ -149,6 +152,7 @@ export function blankDraft(today: YMD): Draft {
 		waVerified: "",
 		email: "",
 		ig: "",
+		promo: "",
 		wo: null,
 		woName: "",
 		woWa: "",

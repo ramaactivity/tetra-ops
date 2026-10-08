@@ -379,3 +379,34 @@ export function withRundownLine(
 	const out = keep.join("\n").trim();
 	return out || null;
 }
+
+// ── Kode promo tamu (kontrak Booth v0.8) ────────────────────────────────────
+
+export type PromoDiscount =
+	| { type: "percent"; value: number; max_idr: number | null }
+	| { type: "amount"; value: number }
+	| { type: "item"; item: string };
+
+/**
+ * Potongan rupiah dari total sebelum DP. Bonus "item" = Rp0 (dicatat sebagai
+ * item gratis). Total di bawah `minIdr` → tidak berlaku.
+ */
+export function promoDiscount(
+	d: PromoDiscount,
+	total: number,
+	minIdr: number | null,
+): { ok: true; idr: number } | { ok: false; reason: "min_total" } {
+	if (minIdr && total < minIdr) return { ok: false, reason: "min_total" };
+	if (d.type === "item") return { ok: true, idr: 0 };
+	const raw =
+		d.type === "percent" ? Math.floor((total * d.value) / 100) : d.value;
+	const capped =
+		d.type === "percent" && d.max_idr ? Math.min(raw, d.max_idr) : raw;
+	return { ok: true, idr: Math.max(0, Math.min(capped, total)) };
+}
+
+/** Normalisasi input kode: "tamu-7kq2m " → "TAMU-7KQ2M". null kalau formatnya salah. */
+export function normPromo(raw: string): string | null {
+	const c = raw.trim().toUpperCase().replace(/\s+/g, "");
+	return /^[A-Z]{2,10}-[A-Z0-9]{4,12}$/.test(c) ? c : null;
+}

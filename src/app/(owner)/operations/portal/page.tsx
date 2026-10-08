@@ -31,6 +31,13 @@ type Booking = {
 		role: string;
 		person: { name: string | null; phone: string } | null;
 	}>;
+	promo: {
+		code: string;
+		label: string | null;
+		discount_idr: number;
+		whatsapp_match: boolean | null;
+		redeemed_at?: string | null;
+	} | null;
 };
 
 /**
@@ -52,7 +59,7 @@ export default async function PortalBookingsPage() {
 		supabase
 			.from("client_bookings")
 			.select(
-				"id, public_code, status, service_type, package_hours, unit_count, quoted_total, event_date, start_time, venue_city, detail, expires_at, created_at, event:events(project_id), members:booking_members(role, person:portal_people!booking_members_person_id_fkey(name, phone))",
+				"id, public_code, status, service_type, package_hours, unit_count, quoted_total, event_date, start_time, venue_city, detail, expires_at, created_at, promo, event:events(project_id), members:booking_members(role, person:portal_people!booking_members_person_id_fkey(name, phone))",
 			)
 			.in("status", ["draft", "menunggu_konfirmasi", "resmi"])
 			.order("event_date")
@@ -349,6 +356,29 @@ function BookingSummary({ b }: { b: Booking }) {
 					{pemesan ? `${pemesan.name ?? "-"} · ${pemesan.phone}` : "-"}
 				</span>
 			</div>
+			{b.promo && (
+				<p className="mt-1.5 text-[12.5px]">
+					<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700">
+						Promo {b.promo.code}
+					</span>{" "}
+					{b.promo.label}
+					{b.promo.discount_idr > 0 && (
+						<>
+							{" "}
+							· potongan{" "}
+							<span data-nominal className="tabular-nums">
+								{formatRupiah(b.promo.discount_idr)}
+							</span>
+						</>
+					)}
+					{b.promo.redeemed_at ? " · sudah ditandai di Booth" : ""}
+					{b.promo.whatsapp_match === false && (
+						<span className="ml-1 text-amber-700">
+							· kode milik nomor lain (cek wajar/tidak)
+						</span>
+					)}
+				</p>
+			)}
 		</div>
 	);
 }

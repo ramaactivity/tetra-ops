@@ -9,6 +9,8 @@ import {
 	DetailSchema,
 	daysUntil,
 	missingForDp,
+	normPromo,
+	promoDiscount,
 	quoteSelection,
 	randomCode,
 	refundEstimate,
@@ -31,6 +33,7 @@ import {
 	portalUrl,
 	sendClientWa,
 } from "@/lib/portal/notify";
+import { checkPromo, PROMO_REASON } from "@/lib/promo";
 import { r2Exists, r2UploadUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
@@ -94,6 +97,8 @@ const DraftSchema = z.object({
 	detail: DetailSchema.optional(),
 	/** Dipesan oleh WO/vendor untuk kliennya (DR-028). */
 	asWo: z.boolean().optional(),
+	/** Kode promo tamu Booth (v0.8); divalidasi ulang di server. */
+	promo: z.string().max(30).optional(),
 	/** WO: klien pemilik acara (opsional) — diundang sebagai anggota "pemilik". */
 	client: z
 		.object({
@@ -139,6 +144,50 @@ export async function saveWizardLead(raw: unknown): Promise<void> {
 		await admin.from("booking_leads").insert({ person_id: person.id, ...row });
 }
 
+/**
+ * Cek kode promo dari wizard (publik, dibatasi per IP). `total` = total
+ * sebelum potongan menurut pilihan klien; server Booth yang memutuskan sah.
+ */
+export async function checkPromoCode(
+	raw: string,
+	total: number,
+): Promise<
+	| {
+			ok: true;
+			code: string;
+			label: string;
+			discountIdr: number;
+			item: string | null;
+			expiresAt: string | null;
+	  }
+	| Fail
+> {
+	if (!(await rateLimit(`promo:${await clientIp()}`, 30, 600)))
+		return { ok: false, error: BUSY };
+	const code = normPromo(raw);
+	if (!code) return { ok: false, error: PROMO_REASON.format };
+	const person = await getPortalPerson();
+	const chk = await checkPromo(code, person?.phone ?? null);
+	if (!chk) return { ok: false, error: PROMO_REASON.offline };
+	if (!chk.valid || !chk.discount)
+		return { ok: false, error: PROMO_REASON[chk.reason ?? "not_found"] };
+	const t = Math.max(0, Math.round(Number(total) || 0));
+	const d = promoDiscount(chk.discount, t, chk.min_idr);
+	if (!d.ok && t > 0)
+		return {
+			ok: false,
+			error: `${PROMO_REASON.min_total}${chk.min_idr ? ` (minimal Rp${chk.min_idr.toLocaleString("id-ID")})` : ""}`,
+		};
+	return {
+		ok: true,
+		code,
+		label: chk.label ?? "Kode promo",
+		discountIdr: d.ok ? d.idr : 0,
+		item: chk.discount.type === "item" ? chk.discount.item : null,
+		expiresAt: chk.expires_at,
+	};
+}
+
 /** Simpan pilihan jadi draf (butuh sesi portal). Draf TIDAK mengunci slot. */
 export async function createDraftBooking(
 	raw: unknown,
@@ -151,7 +200,14 @@ export async function createDraftBooking(
 	const parsed = DraftSchema.safeParse(raw);
 	if (!parsed.success)
 		return { ok: false, error: parsed.error.issues[0].message };
-	const { selection: sel, detail, asWo, client, managedBy } = parsed.data;
+	const {
+		selection: sel,
+		detail,
+		asWo,
+		client,
+		managedBy,
+		promo,
+	} = parsed.data;
 	if (asWo && !detail?.wo_nama?.trim() && !(await vendorForPhone(person.phone)))
 		return { ok: false, error: "Isi nama usaha WO/vendor kamu dulu, ya." };
 	if (client?.phone && !isLikelyWaPhone(client.phone))
@@ -163,6 +219,29 @@ export async function createDraftBooking(
 	const catalog = await loadCatalog();
 	const q = quoteSelection(sel, catalog.products, catalog.addons);
 	if (!q.ok) return q;
+	// Promo: wajib sah menurut Booth; potongan dihitung dari total sebelum DP.
+	let promoRow: Record<string, unknown> | null = null;
+	let discountIdr = 0;
+	if (promo?.trim()) {
+		const code = normPromo(promo);
+		if (!code) return { ok: false, error: PROMO_REASON.format };
+		const chk = await checkPromo(code, person.phone);
+		if (!chk) return { ok: false, error: PROMO_REASON.offline };
+		if (!chk.valid || !chk.discount)
+			return { ok: false, error: PROMO_REASON[chk.reason ?? "not_found"] };
+		const d = promoDiscount(chk.discount, q.total, chk.min_idr);
+		if (!d.ok) return { ok: false, error: PROMO_REASON.min_total };
+		discountIdr = d.idr;
+		promoRow = {
+			code,
+			label: chk.label,
+			discount: chk.discount,
+			discount_idr: d.idr,
+			gross_total: q.total,
+			expires_at: chk.expires_at,
+			whatsapp_match: chk.whatsapp_match,
+		};
+	}
 	if (!(await slotAvailable(sel)))
 		return {
 			ok: false,
@@ -191,7 +270,8 @@ export async function createDraftBooking(
 				frame_size: sel.frame,
 				unit_count: sel.units,
 				addons: sel.addons.map((a) => ({ addon_id: a.id, quantity: a.qty })),
-				quoted_total: q.total,
+				quoted_total: q.total - discountIdr,
+				promo: promoRow,
 				event_date: sel.date,
 				start_time: sel.start,
 				end_time: q.end,

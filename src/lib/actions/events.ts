@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { emitBoothEvent } from "@/lib/booth-sync";
 import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
+import { releasePromoForEvent } from "@/lib/promo";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTelegramStatusChanged } from "@/lib/telegram/notify";
 
@@ -83,9 +84,10 @@ export async function updateEventStatus(
 		);
 
 		// Booth hanya peduli batal / batal-dibatalkan (status lain berbasis tanggal).
-		if (parsed.data.status === "cancelled")
+		if (parsed.data.status === "cancelled") {
 			await emitBoothEvent("booking.cancelled", parsed.data.id);
-		else if (oldStatus === "cancelled")
+			await releasePromoForEvent(parsed.data.id);
+		} else if (oldStatus === "cancelled")
 			await emitBoothEvent("booking.updated", parsed.data.id);
 
 		return {};

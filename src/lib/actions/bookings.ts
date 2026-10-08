@@ -31,6 +31,7 @@ import {
 	windowsOverlap,
 } from "@/lib/events/spots";
 import { SERVICE_TYPE_LABELS } from "@/lib/format";
+import { releasePromoForEvent } from "@/lib/promo";
 import {
 	formatScheduleInline,
 	parseSegments,
@@ -1732,6 +1733,7 @@ export async function deleteEvent(id: string): Promise<DeleteEventResult> {
 	// notify fetch sendiri detailnya.
 	await notifyTelegramEventDeleted(id, me.profile.full_name);
 	await emitBoothEvent("booking.cancelled", id);
+	await releasePromoForEvent(id);
 
 	revalidatePath("/operations");
 	revalidatePath(`/operations/${event.project_id}`);

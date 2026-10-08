@@ -11,6 +11,7 @@ import { logPaymentCore } from "@/lib/finance/payment-core";
 import { formatRupiah } from "@/lib/format";
 import { type Detail, withRundownLine } from "@/lib/portal/core";
 import { portalUrl, sendClientWa } from "@/lib/portal/notify";
+import { redeemPromo } from "@/lib/promo";
 import { r2Get, r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -58,6 +59,13 @@ type Sub = {
 		event_id: string | null;
 		channel: string;
 		vendor_contact_id: string | null;
+		promo: {
+			code: string;
+			label: string | null;
+			discount_idr: number;
+			discount: { type: string; item?: string };
+			whatsapp_match: boolean | null;
+		} | null;
 	};
 	person: { name: string | null; phone: string } | null;
 };
@@ -67,7 +75,7 @@ async function loadSub(id: string): Promise<Sub | null> {
 	const { data } = await createAdminClient()
 		.from("payment_submissions")
 		.select(
-			"id, status, kind, amount, bank_account_id, proof_path, booking:client_bookings(id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, event_id, channel, vendor_contact_id), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
+			"id, status, kind, amount, bank_account_id, proof_path, booking:client_bookings(id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, event_id, channel, vendor_contact_id, promo), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
 		)
 		.eq("id", id)
 		.maybeSingle();
@@ -119,7 +127,17 @@ async function bookingFormData(s: Sub): Promise<FormData> {
 		google_maps_url: d.maps_url ?? "",
 		pic_name: d.pic_nama ?? "",
 		pic_wa: d.pic_wa ?? "",
-		crew_notes: notes,
+		crew_notes: b.promo
+			? `${notes} Promo ${b.promo.code}: ${b.promo.label ?? ""}${b.promo.discount.type === "item" ? ` (bonus ${b.promo.discount.item})` : ""}.`
+					.trim()
+					.slice(0, 500)
+			: notes,
+		...(b.promo && b.promo.discount_idr > 0
+			? {
+					discount_amount: String(b.promo.discount_idr),
+					discount_type: "promo",
+				}
+			: {}),
 		include_flashdisk_pouch: "on",
 		addons_json: JSON.stringify(b.addons),
 	};
@@ -293,6 +311,26 @@ export async function acceptPortalPayment(
 			.update({ status: "resmi" })
 			.eq("id", b.id);
 
+	// Promo: tandai terpakai di Booth (idempoten). Gagal tidak membatalkan DP —
+	// admin diberi catatan supaya bisa dicek manual.
+	let promoNote: string | undefined;
+	if (s.kind === "dp" && b.promo && projectId) {
+		const r = await redeemPromo(b.promo.code, projectId);
+		if (r.ok)
+			await admin
+				.from("client_bookings")
+				.update({
+					promo: {
+						...b.promo,
+						redeemed_at: new Date().toISOString(),
+						project_id: projectId,
+					},
+				})
+				.eq("id", b.id);
+		else
+			promoNote = `Kode promo ${b.promo.code} gagal ditandai terpakai di Booth (${r.reason}). Cek di admin Booth.`;
+	}
+
 	const { data: ev } = await admin
 		.from("events")
 		.select("grand_total")
@@ -312,9 +350,14 @@ export async function acceptPortalPayment(
 		ok: true,
 		projectId,
 		note:
-			s.kind === "dp" && grand !== Number(b.quoted_total)
-				? `Total event ${formatRupiah(grand)} berbeda dari perkiraan di portal ${formatRupiah(Number(b.quoted_total))}. Cek harga di halaman event.`
-				: undefined,
+			[
+				s.kind === "dp" && grand !== Number(b.quoted_total)
+					? `Total event ${formatRupiah(grand)} berbeda dari perkiraan di portal ${formatRupiah(Number(b.quoted_total))}. Cek harga di halaman event.`
+					: null,
+				promoNote,
+			]
+				.filter(Boolean)
+				.join(" ") || undefined,
 	};
 }
 

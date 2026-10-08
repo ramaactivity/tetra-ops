@@ -30,6 +30,7 @@ import {
 	submitEmailCode,
 } from "@/lib/actions/portal-auth";
 import {
+	checkPromoCode,
 	checkSlot,
 	createDraftBooking,
 	fullDatesOf,
@@ -115,6 +116,18 @@ type Add = PublicAddonRow & {
 	min: number;
 	step: number;
 };
+export type PromoState =
+	| { status: "idle" | "checking" }
+	| { status: "err"; error: string }
+	| {
+			status: "ok";
+			code: string;
+			label: string;
+			discountIdr: number;
+			item: string | null;
+			expiresAt: string | null;
+	  };
+
 type Otp = {
 	id: string | null;
 	code: string | null;
@@ -241,7 +254,11 @@ function useBooking(p: Props) {
 	);
 	const durPrice = pk?.options.find((o) => o.hours === s.dur)?.price ?? null;
 	const addSum = adds.reduce((t, a) => t + (s.adds[a.id] ?? 0) * a.price, 0);
-	const total = durPrice !== null ? durPrice * s.units + addSum : 0;
+	const gross = durPrice !== null ? durPrice * s.units + addSum : 0;
+	// Promo: hasil cek terakhir dari server (Booth). Potongan hanya berlaku kalau sah.
+	const [promoRes, setPromoRes] = useState<PromoState>({ status: "idle" });
+	const promoOff = promoRes.status === "ok" ? promoRes.discountIdr : 0;
+	const total = Math.max(0, gross - promoOff);
 	const dp = Math.min(p.dpMin, total);
 	const shown = useTween(total);
 
@@ -286,6 +303,9 @@ function useBooking(p: Props) {
 	// ── Efek: mount, autosave, online, history ─────────────────────────────
 	useEffect(() => {
 		setMounted(true);
+		// Link dari Hermes/CS: ?promo=KODE → isi otomatis.
+		const fromUrl = new URLSearchParams(window.location.search).get("promo");
+		if (fromUrl) setS((x) => ({ ...x, promo: fromUrl.trim().toUpperCase() }));
 		try {
 			const saved = JSON.parse(
 				localStorage.getItem(LS) ?? "null",
@@ -526,6 +546,34 @@ function useBooking(p: Props) {
 		return () => clearTimeout(t);
 	}, [leadKey]);
 
+	// Cek promo ke server; diulang otomatis saat total berubah supaya potongan tetap benar.
+	const applyPromo = useCallback(async (code: string, t: number) => {
+		if (!code.trim()) return setPromoRes({ status: "idle" });
+		setPromoRes((r) => ({ ...r, status: "checking" }) as PromoState);
+		const r = await checkPromoCode(code, t).catch(() => null);
+		if (!r)
+			return setPromoRes({
+				status: "err",
+				error: "Kode belum bisa dicek. Coba lagi, ya.",
+			});
+		if (!r.ok) return setPromoRes({ status: "err", error: r.error });
+		setS((x) => ({ ...x, promo: r.code }));
+		setPromoRes({
+			status: "ok",
+			code: r.code,
+			label: r.label,
+			discountIdr: r.discountIdr,
+			item: r.item,
+			expiresAt: r.expiresAt,
+		});
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: hanya saat kode/total berubah.
+	useEffect(() => {
+		if (!mounted || !s.promo) return;
+		const t = setTimeout(() => applyPromo(s.promo, gross), 400);
+		return () => clearTimeout(t);
+	}, [mounted, gross]);
+
 	// ── Kirim ──────────────────────────────────────────────────────────────
 	const submit = async () => {
 		if (!pk || !s.date || !s.dur) return;
@@ -546,6 +594,7 @@ function useBooking(p: Props) {
 				city: s.city.trim() || null,
 			},
 			consent: true,
+			...(promoRes.status === "ok" ? { promo: promoRes.code } : {}),
 			asWo,
 			client: asWo && v.woWa ? { phone: waLocal(s.woWa) } : undefined,
 			detail: {
@@ -734,6 +783,10 @@ function useBooking(p: Props) {
 		editTo,
 		total,
 		totalShown: rp(shown || total),
+		gross,
+		promoRes,
+		promoOff,
+		applyPromo,
 		dpStr: rp(dp),
 		dp,
 		submitErr,
@@ -1109,7 +1162,12 @@ function Intro({ x }: { x: Ctx }) {
 	const r = x.resume;
 	const doResume = () => {
 		if (!r) return;
-		x.set({ ...r, calShut: !!r.date && !r.date.full });
+		x.set({
+			...r,
+			calShut: !!r.date && !r.date.full,
+			// Kode dari link ?promo= menang atas draf lama.
+			promo: x.s.promo || r.promo || "",
+		});
 		x.setResume(null);
 		history.pushState({ bk: r.screen }, "");
 	};
