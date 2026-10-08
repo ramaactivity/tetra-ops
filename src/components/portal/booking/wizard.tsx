@@ -85,7 +85,7 @@ import {
 	waLocal,
 	type YMD,
 } from "./logic";
-import { DASH_TILES, Ruler, Steps } from "./steps";
+import { DASH_TILES, Ruler, Steps, sortTemplates } from "./steps";
 import {
 	B,
 	Cta,
@@ -160,6 +160,14 @@ type Props = {
 	verifiedPhone: string | null;
 	signedName: string | null;
 	adminWa: string | null;
+	/** Template Frame aktif (pratinjau bertanda tangan). Kosong = pakai tema contoh. */
+	templates?: Array<{
+		id: string;
+		name: string;
+		category: string | null;
+		frame: string;
+		url: string | null;
+	}>;
 };
 
 function useBooking(p: Props) {
@@ -800,6 +808,7 @@ function useBooking(p: Props) {
 		first,
 		go,
 		adminWa: p.adminWa,
+		templates: p.templates ?? [],
 		router,
 		flash,
 		setFlash,
@@ -2382,35 +2391,79 @@ function LeftPanel({ x, ph }: { x: Ctx; ph: number }) {
 								gap: 12,
 							}}
 						>
-							{THEMES.map(([k, l]) => (
-								<button
-									key={k}
-									type="button"
-									aria-pressed={s.theme === k}
-									onClick={() => x.set({ theme: k })}
-									style={{
-										display: "flex",
-										flexDirection: "column",
-										alignItems: "center",
-										gap: 6,
-										padding: "10px 6px 8px",
-										border: B,
-										borderRadius: 16,
-										background: s.theme === k ? "#FFFFFF" : "transparent",
-										boxShadow: s.theme === k ? SEL : "none",
-										transition: "background 150ms",
-									}}
-								>
-									<PrintPreview
-										{...x.pv}
-										fmt={x.pvTitleFmt}
-										theme={k}
-										zoom={0.38}
-										rot="0deg"
-									/>
-									<span style={{ fontSize: 13, fontWeight: 800 }}>{l}</span>
-								</button>
-							))}
+							{x.templates.length > 0
+								? sortTemplates(x)
+										.slice(0, 9)
+										.map((t) => (
+											<a
+												key={t.id}
+												href={t.url ?? "#"}
+												target="_blank"
+												rel="noopener noreferrer"
+												style={{
+													display: "flex",
+													flexDirection: "column",
+													alignItems: "center",
+													gap: 6,
+													padding: "8px 6px",
+													border: B,
+													borderRadius: 16,
+													background: "#fff",
+													textDecoration: "none",
+												}}
+											>
+												{/* biome-ignore lint/performance/noImgElement: pratinjau template bertanda tangan R2. */}
+												<img
+													src={t.url ?? ""}
+													alt={t.name}
+													style={{
+														width: "100%",
+														aspectRatio: "3 / 4",
+														objectFit: "cover",
+														borderRadius: 10,
+													}}
+												/>
+												<span
+													style={{
+														fontSize: 12,
+														fontWeight: 800,
+														textAlign: "center",
+														lineHeight: 1.2,
+													}}
+												>
+													{t.name}
+												</span>
+											</a>
+										))
+								: THEMES.map(([k, l]) => (
+										<button
+											key={k}
+											type="button"
+											aria-pressed={s.theme === k}
+											onClick={() => x.set({ theme: k })}
+											style={{
+												display: "flex",
+												flexDirection: "column",
+												alignItems: "center",
+												gap: 6,
+												padding: "10px 6px 8px",
+												border: B,
+												borderRadius: 16,
+												background: s.theme === k ? "#FFFFFF" : "transparent",
+												boxShadow: s.theme === k ? SEL : "none",
+												transition: "background 150ms",
+											}}
+										>
+											<PrintPreview
+												{...x.pv}
+												fmt={x.pvTitleFmt}
+												theme={k}
+												zoom={0.38}
+												rot="0deg"
+											/>
+											<span style={{ fontSize: 13, fontWeight: 800 }}>{l}</span>
+										</button>
+									))}
 						</div>
 						<span
 							style={{
@@ -2423,7 +2476,9 @@ function LeftPanel({ x, ph }: { x: Ctx; ph: number }) {
 							}}
 						>
 							<LockKeyhole size={16} strokeWidth={2} />
-							Contoh katalog. Pilihan final setelah DP.
+							{x.templates.length > 0
+								? "Katalog template Tetra. Pilihan final setelah DP."
+								: "Contoh katalog. Pilihan final setelah DP."}
 						</span>
 					</div>
 				)}

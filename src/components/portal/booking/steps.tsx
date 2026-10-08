@@ -1819,6 +1819,21 @@ function TitleStep({ x }: { x: Ctx }) {
 
 // ── 4b Intip desain ─────────────────────────────────────────────────────────
 
+/** Template asli: yang ukurannya cocok dengan format pilihan klien tampil duluan. */
+export function sortTemplates(x: Ctx) {
+	const want =
+		x.s.fmt === "strip"
+			? "2R"
+			: x.s.fmt === "4r"
+				? "4R"
+				: x.s.fmt === "polaroid"
+					? "polaroid"
+					: null;
+	return [...x.templates].sort(
+		(a, b) => Number(b.frame === want) - Number(a.frame === want),
+	);
+}
+
 function DesignStep({ x }: { x: Ctx }) {
 	return (
 		<div style={col(14, { padding: "20px 16px 140px" })}>
@@ -1837,56 +1852,111 @@ function DesignStep({ x }: { x: Ctx }) {
 							padding: "2px 16px 8px",
 						}}
 					>
-						{THEMES.map(([k, l]) => (
-							<button
-								key={k}
-								type="button"
-								aria-pressed={x.s.theme === k}
-								onClick={() => x.set({ theme: k })}
-								style={{
-									flex: "none",
-									width: 112,
-									display: "flex",
-									flexDirection: "column",
-									padding: 0,
-									border: B,
-									borderRadius: 16,
-									overflow: "hidden",
-									...opt(x.s.theme === k),
-								}}
-							>
-								<span
-									style={{
-										height: 150,
-										width: "100%",
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										background: "#F8F7F4",
-										borderBottom: B,
-									}}
-								>
-									<PrintPreview
-										{...x.pv}
-										fmt={x.pvTitleFmt}
-										theme={k}
-										zoom={0.38}
-										rot="0deg"
-									/>
-								</span>
-								<span
-									style={{
-										padding: "9px 6px",
-										fontSize: 13,
-										fontWeight: 800,
-										textAlign: "center",
-										width: "100%",
-									}}
-								>
-									{l}
-								</span>
-							</button>
-						))}
+						{x.templates.length > 0
+							? sortTemplates(x).map((t) => (
+									<a
+										key={t.id}
+										href={t.url ?? "#"}
+										target="_blank"
+										rel="noopener noreferrer"
+										style={{
+											flex: "none",
+											width: 112,
+											display: "flex",
+											flexDirection: "column",
+											border: B,
+											borderRadius: 16,
+											overflow: "hidden",
+											background: "#fff",
+											textDecoration: "none",
+										}}
+									>
+										{/* biome-ignore lint/performance/noImgElement: pratinjau template bertanda tangan R2. */}
+										<img
+											src={t.url ?? ""}
+											alt={t.name}
+											style={{
+												height: 150,
+												width: "100%",
+												objectFit: "cover",
+												borderBottom: B,
+												background: "#F8F7F4",
+											}}
+										/>
+										<span
+											style={{
+												padding: "8px 6px",
+												fontSize: 12,
+												fontWeight: 800,
+												textAlign: "center",
+												lineHeight: 1.25,
+											}}
+										>
+											{t.name}
+											<span
+												style={{
+													display: "block",
+													...mono,
+													fontSize: 10,
+													fontWeight: 600,
+													color: "#5F5E5A",
+												}}
+											>
+												{t.frame}
+											</span>
+										</span>
+									</a>
+								))
+							: THEMES.map(([k, l]) => (
+									<button
+										key={k}
+										type="button"
+										aria-pressed={x.s.theme === k}
+										onClick={() => x.set({ theme: k })}
+										style={{
+											flex: "none",
+											width: 112,
+											display: "flex",
+											flexDirection: "column",
+											padding: 0,
+											border: B,
+											borderRadius: 16,
+											overflow: "hidden",
+											...opt(x.s.theme === k),
+										}}
+									>
+										<span
+											style={{
+												height: 150,
+												width: "100%",
+												display: "flex",
+												alignItems: "center",
+												justifyContent: "center",
+												background: "#F8F7F4",
+												borderBottom: B,
+											}}
+										>
+											<PrintPreview
+												{...x.pv}
+												fmt={x.pvTitleFmt}
+												theme={k}
+												zoom={0.38}
+												rot="0deg"
+											/>
+										</span>
+										<span
+											style={{
+												padding: "9px 6px",
+												fontSize: 13,
+												fontWeight: 800,
+												textAlign: "center",
+												width: "100%",
+											}}
+										>
+											{l}
+										</span>
+									</button>
+								))}
 					</div>
 				</div>
 			</div>
