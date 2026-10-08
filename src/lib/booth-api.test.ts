@@ -79,6 +79,10 @@ test("modul paket dari kategori", () => {
 		"photobooth",
 	]);
 	assert.deepEqual(modulesFor("magazine_box_only"), ["magazine"]);
+	assert.deepEqual(
+		modulesFor("photobooth_classic", ["Photomagnet", "Guest Cam + Print"]),
+		["photobooth", "guest_cam"],
+	);
 	assert.deepEqual(modulesFor(null), []);
 });
 

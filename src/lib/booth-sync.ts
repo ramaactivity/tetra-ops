@@ -56,7 +56,7 @@ export async function enrichBoothBookings(
 	if (rows.length === 0) return [];
 	const admin = createAdminClient();
 	const ids = rows.map((r) => r.id);
-	const [reqRes, cbRes] = await Promise.all([
+	const [reqRes, cbRes, addRes, bonusRes] = await Promise.all([
 		admin
 			.from("design_requests")
 			.select(
@@ -68,6 +68,14 @@ export async function enrichBoothBookings(
 			.select(
 				"event_id, public_code, stage_groups:detail->stage_groups, instagram:detail->instagram",
 			)
+			.in("event_id", ids),
+		admin
+			.from("event_addons")
+			.select("event_id, addon:addons(name)")
+			.in("event_id", ids),
+		admin
+			.from("event_bonuses")
+			.select("event_id, addon:addons(name)")
 			.in("event_id", ids),
 	]);
 	type Req = DesignSource & { event_id: string };
@@ -97,10 +105,18 @@ export async function enrichBoothBookings(
 		]),
 	);
 
+	// to-one embed → object.
+	const addonNames = new Map<string, string[]>();
+	for (const a of [...(addRes.data ?? []), ...(bonusRes.data ?? [])]) {
+		const name = (a.addon as unknown as { name: string } | null)?.name;
+		if (name)
+			addonNames.set(a.event_id, [...(addonNames.get(a.event_id) ?? []), name]);
+	}
+
 	return rows.map((r) => ({
 		...toBoothBooking(r),
 		unit_count: Math.min(3, Math.max(1, Number(r.unit_count ?? 1))),
-		modules: modulesFor(r.service_type),
+		modules: modulesFor(r.service_type, addonNames.get(r.id)),
 		cancelled: r.status === "cancelled",
 		design: toBoothDesign(
 			r,

@@ -26,6 +26,7 @@ import {
 	PartyPopper,
 	Printer,
 	Rotate3d,
+	Smartphone,
 	Sparkles,
 	Ticket,
 	Timer,
@@ -249,6 +250,30 @@ export const ADDON: Record<string, AddonContent> = {
 		benefit: "Booth tetap jalan kalau acara molor.",
 		desc: "Menambah jam di luar durasi paket. Dihitung per jam, bisa lebih dari satu.",
 	},
+	"Tambahan Durasi 1 Jam (3+ crew)": {
+		name: "Tambah durasi",
+		unit: "jam",
+		icon: Timer,
+		tint: "#FCE3C6",
+		benefit: "Tim tetap bertugas kalau acara molor.",
+		desc: "Menambah jam di luar durasi paket untuk paket combo (tim 3 orang atau lebih). Dihitung per jam, bisa lebih dari satu.",
+	},
+	"Guest Cam Digital": {
+		name: "Guest Cam",
+		unit: "acara",
+		icon: Smartphone,
+		tint: "#CEC8F6",
+		benefit: "Tamu memotret pakai HP-nya, semua masuk satu album.",
+		desc: "Tamu scan QR lalu memotret dari HP tanpa install aplikasi, sampai 300 tamu. Foto tamu menyatu dengan foto booth di satu album, bisa kirim ucapan suara, disimpan 6 bulan.",
+	},
+	"Guest Cam + Print": {
+		name: "Guest Cam + cetak",
+		unit: "acara",
+		icon: Printer,
+		tint: "#D6EEF8",
+		benefit: "Foto dari HP tamu langsung dicetak di booth.",
+		desc: "Semua isi Guest Cam, ditambah foto dari HP tamu bisa dicetak di lokasi lewat printer booth. Hanya untuk paket yang ada photobooth-nya.",
+	},
 	Photomagnet: {
 		name: "Photomagnet",
 		unit: "50 cetak",
@@ -311,6 +336,9 @@ export const ADDON: Record<string, AddonContent> = {
 /** Urutan tampil add-on (sama dengan prototipe); sisanya di belakang. */
 export const ADDON_ORDER = [
 	"Tambahan Durasi 1 Jam",
+	"Tambahan Durasi 1 Jam (3+ crew)",
+	"Guest Cam Digital",
+	"Guest Cam + Print",
 	"Photomagnet",
 	"Custom Sleeve",
 	"Guest Books Photo",

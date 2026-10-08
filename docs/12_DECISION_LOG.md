@@ -1168,3 +1168,17 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 **End of Decision Log**
 
 *Next document: [13_ONBOARDING_WIZARD.md](./13_ONBOARDING_WIZARD.md)*
+
+## DR-041: Guest Cam = add-on berbayar; extend 3+ crew Rp750rb/jam
+
+**Status:** Accepted (owner 2026-10-08)
+**Date:** 2026-10-08
+
+### Decision
+- Harga dari riset Booth (`TETRA BOOTH APP/riset-bisnis-2026-10/competitors-b2c.md` §D3, 6 Okt 2026): **Guest Cam Digital Rp750rb/acara** (s.d. 300 tamu, album gabungan dengan booth, ucapan suara, simpan 6 bulan), **Guest Cam + Print Rp1,5 jt/acara** (cetak di printer booth). Upsell admin-only (tidak publik): tamu tak terbatas +Rp250rb, simpan 1 tahun +Rp150rb.
+- Guest Cam **selalu add-on**, tidak termasuk di paket mana pun. Gratis hanya lewat campaign (mis. "booking photobooth sekarang dapat free Guest Cam") → dicatat sebagai `event_bonuses` atau kode promo.
+- Extend: paket 2 crew tetap **Rp500rb/jam**; paket combo (`photostage_combo`, `magazine_combo`, 3+ crew) **Rp750rb/jam** (add-on terpisah "Tambahan Durasi 1 Jam (3+ crew)").
+- Harga Photo Stage tetap pricelist website (keputusan 7 Okt di sesi Booth); tier Essential/Live/Signature riset TIDAK dipakai.
+- Aturan di `src/lib/portal/core.ts` (`addonFits`, `addonMax`, `GUEST_CAM`): extend sesuai paket; Guest Cam Digital vs + Print pilih salah satu, maks 1; + Print hanya paket ber-photobooth. Server (`quoteSelection`) dan wizard memakai aturan yang sama.
+- Ops mengirim modul `guest_cam` ke Booth kalau event punya add-on **atau bonus** Guest Cam (`modulesFor(serviceType, addonNames)`).
+- Pricelist website tetraphoto.com perlu diperbarui (catatan di repo website `docs/UPDATE-PRICELIST-2026-10.md`).

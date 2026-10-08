@@ -7,6 +7,7 @@
  */
 import { createHmac } from "node:crypto";
 import { shiftISODate } from "@/lib/dates";
+import { GUEST_CAM } from "@/lib/portal/core";
 
 /** Booking yang masih akan / sedang berjalan (termasuk status lama draft/confirmed). */
 export const BOOTH_EVENT_STATUSES = [
@@ -115,8 +116,18 @@ export type BoothModule =
 	| "videobooth_360"
 	| "magazine";
 
-/** Isi paket dari kategorinya. Guest Cam belum dijual (belum ada kategori/add-on). */
-export function modulesFor(serviceType: string | null): BoothModule[] {
+/** Isi paket dari kategorinya + Guest Cam kalau add-on/bonus Guest Cam dipesan. */
+export function modulesFor(
+	serviceType: string | null,
+	addonNames: string[] = [],
+): BoothModule[] {
+	const base = modulesOfPackage(serviceType);
+	return addonNames.some((n) => GUEST_CAM.includes(n))
+		? [...base, "guest_cam"]
+		: base;
+}
+
+function modulesOfPackage(serviceType: string | null): BoothModule[] {
 	switch (serviceType) {
 		case "photobooth_classic":
 			return ["photobooth"];

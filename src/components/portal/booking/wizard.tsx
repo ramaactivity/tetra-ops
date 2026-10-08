@@ -37,7 +37,10 @@ import {
 	saveWizardLead,
 } from "@/lib/actions/portal-booking";
 import {
+	addonFits,
+	addonMax,
 	type CatalogProduct,
+	GUEST_CAM,
 	type PublicAddonRow,
 	parseInstagram,
 } from "@/lib/portal/core";
@@ -115,6 +118,7 @@ type Add = PublicAddonRow & {
 	priceLine: string;
 	min: number;
 	step: number;
+	max: number | null;
 };
 export type PromoState =
 	| { status: "idle" | "checking" }
@@ -235,7 +239,8 @@ function useBooking(p: Props) {
 	const hasFmt = pk ? pk.frames.length > 0 : null;
 	const adds: Add[] = useMemo(
 		() =>
-			[...p.addons]
+			p.addons
+				.filter((a) => addonFits(a.name, s.pkg))
 				.sort(
 					(a, b) =>
 						(ADDON_ORDER.indexOf(a.name) + 1 || 99) -
@@ -256,9 +261,10 @@ function useBooking(p: Props) {
 						priceLine: `${rp(a.price)} / ${c.unit}`,
 						min: Math.max(1, a.min_qty ?? 1),
 						step: c.step ?? 1,
+						max: addonMax(a.name),
 					};
 				}),
-		[p.addons],
+		[p.addons, s.pkg],
 	);
 	const durPrice = pk?.options.find((o) => o.hours === s.dur)?.price ?? null;
 	const addSum = adds.reduce((t, a) => t + (s.adds[a.id] ?? 0) * a.price, 0);
@@ -594,9 +600,9 @@ function useBooking(p: Props) {
 				hours: s.dur,
 				frame: hasFmt && s.fmt && s.fmt !== "later" ? FMT_DB[s.fmt] : null,
 				units: s.units,
-				addons: Object.entries(s.adds)
-					.filter(([, q]) => q > 0)
-					.map(([id, qty]) => ({ id, qty })),
+				addons: adds
+					.filter((a) => (s.adds[a.id] ?? 0) > 0)
+					.map((a) => ({ id: a.id, qty: s.adds[a.id] })),
 				date: iso(s.date),
 				start: s.time && s.time !== "unsure" ? s.time : null,
 				city: s.city.trim() || null,
@@ -757,8 +763,22 @@ function useBooking(p: Props) {
 		setAddOpen,
 		addFocus,
 		setAddFocus,
-		setAdd: (id: string, n: number) =>
-			setS((x) => ({ ...x, adds: { ...x.adds, [id]: Math.max(0, n) } })),
+		setAdd: (id: string, n: number) => {
+			const name = p.addons.find((a) => a.id === id)?.name ?? "";
+			const max = addonMax(name);
+			// Guest Cam Digital ↔ + Print: memilih satu melepas yang lain.
+			const other = GUEST_CAM.includes(name)
+				? p.addons.filter((a) => a.id !== id && GUEST_CAM.includes(a.name))
+				: [];
+			setS((x) => ({
+				...x,
+				adds: {
+					...x.adds,
+					...Object.fromEntries(other.map((a) => [a.id, 0])),
+					[id]: Math.max(0, max === null ? n : Math.min(max, n)),
+				},
+			}));
+		},
 		touched,
 		touch,
 		v,

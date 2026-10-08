@@ -246,3 +246,59 @@ test("promo: persen dengan batas, nominal, item, minimal total", () => {
 	assert.equal(normPromo(" tamu-7kq2m "), "TAMU-7KQ2M");
 	assert.equal(normPromo("halo"), null);
 });
+
+test("add-on per paket: extend 2/3+ crew, Guest Cam pilih satu & maks 1, print butuh booth", () => {
+	const cat = groupCatalog([
+		...rows,
+		pkg("photostage_combo", "4R", 3, 4_500_000),
+	]);
+	const ad = (id: string, name: string, price: number) => ({
+		id,
+		name,
+		unit: "x",
+		price,
+		min_qty: null,
+	});
+	const ex2 = ad("a1", "Tambahan Durasi 1 Jam", 500_000);
+	const ex3 = ad("a2", "Tambahan Durasi 1 Jam (3+ crew)", 750_000);
+	const gcd = ad("a3", "Guest Cam Digital", 750_000);
+	const gcp = ad("a4", "Guest Cam + Print", 1_500_000);
+	const all = [ex2, ex3, gcd, gcp];
+	const q = (category: string, hours: number, adds: [string, number][]) =>
+		quoteSelection(
+			{
+				...base,
+				category,
+				hours,
+				units: 1,
+				addons: adds.map(([id, qty]) => ({ id, qty })),
+			},
+			cat,
+			all,
+		);
+	const combo = q("photostage_combo", 3, [
+		["a2", 2],
+		["a3", 1],
+	]);
+	assert.ok(combo.ok);
+	assert.equal(combo.total, 4_500_000 + 1_500_000 + 750_000);
+	assert.equal(q("photostage_combo", 3, [["a1", 1]]).ok, false);
+	assert.equal(q("photobooth_classic", 2, [["a2", 1]]).ok, false);
+	assert.equal(
+		q("photobooth_classic", 2, [
+			["a1", 1],
+			["a4", 1],
+		]).ok,
+		true,
+	);
+	assert.equal(
+		q("photobooth_classic", 2, [
+			["a3", 1],
+			["a4", 1],
+		]).ok,
+		false,
+	);
+	assert.equal(q("photobooth_classic", 2, [["a3", 2]]).ok, false);
+	assert.equal(q("videobooth_360", 2, [["a4", 1]]).ok, false);
+	assert.equal(q("videobooth_360", 2, [["a3", 1]]).ok, true);
+});

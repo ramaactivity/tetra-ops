@@ -132,6 +132,33 @@ export type Quote =
 	| { ok: false; error: string };
 
 /** Hitung harga + validasi pilihan terhadap katalog publik. */
+/**
+ * Aturan add-on per paket (keputusan owner 8 Okt 2026):
+ * - extend Rp500rb/jam untuk paket 2 crew, Rp750rb/jam untuk paket combo (3+ crew);
+ * - Guest Cam Digital & Guest Cam + Print: pilih salah satu, maks 1 per acara;
+ * - Guest Cam + Print butuh printer booth di lokasi.
+ */
+export const EXTEND_2_CREW = "Tambahan Durasi 1 Jam";
+export const EXTEND_3_CREW = "Tambahan Durasi 1 Jam (3+ crew)";
+export const GUEST_CAM = ["Guest Cam Digital", "Guest Cam + Print"];
+const COMBO = ["photostage_combo", "magazine_combo"];
+const HAS_PRINTER = [
+	"photobooth_classic",
+	"photostage_combo",
+	"magazine_combo",
+];
+
+export function addonFits(name: string, category: string | null): boolean {
+	if (name === EXTEND_2_CREW) return !COMBO.includes(category ?? "");
+	if (name === EXTEND_3_CREW) return COMBO.includes(category ?? "");
+	if (name === GUEST_CAM[1]) return HAS_PRINTER.includes(category ?? "");
+	return true;
+}
+
+/** Jumlah maksimal per add-on (null = bebas). */
+export const addonMax = (name: string): number | null =>
+	GUEST_CAM.includes(name) ? 1 : null;
+
 export function quoteSelection(
 	sel: Selection,
 	catalog: CatalogProduct[],
@@ -149,6 +176,14 @@ export function quoteSelection(
 	for (const a of sel.addons) {
 		const row = addons.find((r) => r.id === a.id);
 		if (!row) return { ok: false, error: "Ada add-on yang tidak tersedia." };
+		if (!addonFits(row.name, sel.category))
+			return {
+				ok: false,
+				error: `${row.name} tidak tersedia untuk paket ini.`,
+			};
+		const max = addonMax(row.name);
+		if (max !== null && a.qty > max)
+			return { ok: false, error: `${row.name} maksimal ${max}.` };
 		if (row.min_qty && a.qty < row.min_qty)
 			return {
 				ok: false,
@@ -161,6 +196,11 @@ export function quoteSelection(
 			total: row.price * a.qty,
 		});
 	}
+	if (lines.filter((l) => GUEST_CAM.includes(l.name)).length > 1)
+		return {
+			ok: false,
+			error: "Pilih salah satu: Guest Cam Digital atau Guest Cam + Print.",
+		};
 	const base = opt.price * sel.units;
 	return {
 		ok: true,

@@ -1614,6 +1614,7 @@ function AddStep({ x }: { x: Ctx }) {
 									x.setAdd(a.id, n - a.step < a.min ? 0 : n - a.step)
 								}
 								onInc={() => x.setAdd(a.id, n + a.step)}
+								incOff={a.max !== null && n >= a.max}
 							/>
 						)}
 					</div>
