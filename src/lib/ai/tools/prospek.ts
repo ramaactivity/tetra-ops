@@ -1694,6 +1694,113 @@ export const waKirimKontak: AiTool = {
 	},
 };
 
+export const kontakCekNomor: AiTool = {
+	name: "kontak_cek_nomor",
+	description:
+		"Cek satu nomor WA sebelum disapa: apakah sudah jadi prospek (status + status kirim WA terakhir), " +
+		"ada di kontak, pernah jadi klien event, ada di basis_kontak, atau sudah memakai kode promo. Hanya baca.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			nomor: {
+				type: "STRING",
+				description: "Nomor HP, boleh 08…, +62…, atau 62….",
+			},
+		},
+		required: ["nomor"],
+	},
+	async run(args, ctx) {
+		const nomor = waHp(args.nomor);
+		if (!nomor) return { error: "nomor HP tidak valid (contoh 0812…)" };
+		const sama = (t: unknown) => waHp(t) === nomor;
+		const db = ctx.supabase;
+		const [pr, kt, ev, bk, cmd, orang] = await Promise.all([
+			db
+				.from("prospek")
+				.select("id, nama, status, sumber, telepon, created_at")
+				.not("telepon", "is", null)
+				.limit(10000),
+			db.from("contacts").select("phone, default_pic_contact").limit(10000),
+			db
+				.from("events")
+				.select("id, event_date, created_at, client_wa, pic_wa")
+				.is("deleted_at", null)
+				.limit(10000),
+			db.from("basis_kontak").select("id").eq("wa", nomor).limit(1),
+			db
+				.from("bot_commands")
+				.select("status, created_at")
+				.like("command", `send-text:%"nomor":"${nomor}"%`)
+				.order("created_at", { ascending: false })
+				.limit(1),
+			db.from("portal_people").select("id").eq("phone", nomor).maybeSingle(),
+		]);
+
+		const p = (pr.data ?? [])
+			.filter((r) => sama(r.telepon))
+			.sort((a, b) =>
+				String(b.created_at).localeCompare(String(a.created_at)),
+			)[0];
+		const wa = cmd.data?.[0]?.status as string | undefined;
+
+		let promo: {
+			kode: string;
+			event_id: string | null;
+			dipakai_at: string;
+		} | null = null;
+		if (orang.data) {
+			const { data: m } = await db
+				.from("booking_members")
+				.select("booking_id")
+				.eq("person_id", orang.data.id);
+			const ids = (m ?? []).map((r) => r.booking_id);
+			if (ids.length) {
+				const { data: b } = await db
+					.from("client_bookings")
+					.select("event_id, promo")
+					.in("id", ids)
+					.not("promo", "is", null);
+				for (const r of b ?? []) {
+					const x = r.promo as { code?: string; redeemed_at?: string | null };
+					if (x?.code && x.redeemed_at)
+						promo = {
+							kode: x.code,
+							event_id: r.event_id,
+							dipakai_at: x.redeemed_at,
+						};
+				}
+			}
+		}
+
+		return {
+			nomor,
+			prospek: p
+				? {
+						id: p.id,
+						nama: p.nama,
+						status: p.status,
+						sumber: p.sumber,
+						wa_status:
+							wa === "pending" || wa === "done" || wa === "error" ? wa : null,
+					}
+				: null,
+			kontak: (kt.data ?? []).some(
+				(r) => sama(r.phone) || sama(r.default_pic_contact),
+			),
+			klien: (ev.data ?? [])
+				.filter((r) => sama(r.client_wa) || sama(r.pic_wa))
+				.map((r) => ({
+					event_id: r.id,
+					tanggal: r.event_date,
+					created_at: r.created_at,
+				})),
+			basis_kontak: (bk.data ?? []).length > 0,
+			promo_dipakai: promo,
+		};
+	},
+};
+
 /** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
@@ -1712,5 +1819,6 @@ export const SALES_TOOLS: AiTool[] = [
 	klienLama,
 	klienRetensi,
 	kontakCari,
+	kontakCekNomor,
 	waKirimKontak,
 ];

@@ -54,6 +54,12 @@ function fakeDb(tables: Record<string, Row[]>) {
 				eq: (k: string, v: unknown) => where((r) => r[k] === v),
 				in: (k: string, v: unknown[]) => where((r) => v.includes(r[k])),
 				is: (k: string, v: unknown) => where((r) => (r[k] ?? null) === v),
+				like: (k: string, pat: string) => {
+					const re = new RegExp(
+						`^${pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replaceAll("%", ".*")}$`,
+					);
+					return where((r) => re.test(String(r[k])));
+				},
 				not: (k: string, _o: string, v: unknown) =>
 					where((r) => (r[k] ?? null) !== v),
 				insert: (p: Row) => tulis("insert", p),
@@ -242,4 +248,90 @@ test("wa_kirim_kontak: status lead berubah setelah daftar dimuat → ditolak", a
 	)) as { error?: string };
 	assert.match(r.error ?? "", /kini berstatus jangan_hubungi/);
 	assert.equal(db.tables.bot_commands?.length ?? 0, 0);
+});
+
+test("kontak_cek_nomor: normalisasi nomor + nomor asing = semua kosong", async () => {
+	const { kontakCekNomor } = await tools();
+	const db = fakeDb({ prospek: prospek() });
+	const ctx = { supabase: db } as unknown as AiToolContext;
+	for (const n of ["089900001111", "+62 899-0000-1111", "6289900001111"])
+		assert.deepEqual(await kontakCekNomor.run({ nomor: n }, ctx), {
+			nomor: "6289900001111",
+			prospek: null,
+			kontak: false,
+			klien: [],
+			basis_kontak: false,
+			promo_dipakai: null,
+		});
+	assert.ok(
+		"error" in
+			((await kontakCekNomor.run({ nomor: "021-5551234" }, ctx)) as object),
+	);
+});
+
+test("kontak_cek_nomor: jangan_hubungi terbaca, wa_status ikut bot_commands, klien & promo", async () => {
+	const { kontakCekNomor } = await tools();
+	const nomor = "6281277778888";
+	const db = fakeDb({
+		prospek: prospek(),
+		bot_commands: [
+			{
+				command: `send-text:${JSON.stringify({ nomor, pesan: "Halo" })}`,
+				status: "error",
+			},
+			{
+				command: `send-text:${JSON.stringify({ nomor: "6281233334444", pesan: "x" })}`,
+				status: "done",
+			},
+		],
+		contacts: [{ phone: "0812 7777 8888", default_pic_contact: null }],
+		events: [
+			{
+				id: "e1",
+				event_date: "2026-09-01",
+				created_at: "t",
+				client_wa: null,
+				pic_wa: "+6281277778888",
+				deleted_at: null,
+			},
+			{
+				id: "e2",
+				event_date: "2026-09-02",
+				created_at: "t",
+				client_wa: "081200000000",
+				pic_wa: null,
+				deleted_at: null,
+			},
+		],
+		basis_kontak: [{ id: "b1", wa: nomor }],
+		portal_people: [{ id: "pp1", phone: nomor }],
+		booking_members: [{ booking_id: "cb1", person_id: "pp1" }],
+		client_bookings: [
+			{
+				id: "cb1",
+				event_id: "e1",
+				promo: { code: "TAMU-AB12C", redeemed_at: "2026-10-01" },
+			},
+		],
+	});
+	const r = (await kontakCekNomor.run({ nomor: "081277778888" }, {
+		supabase: db,
+	} as unknown as AiToolContext)) as Record<string, unknown>;
+	assert.deepEqual(r.prospek, {
+		id: "p4",
+		nama: "Jangan Corp",
+		status: "jangan_hubungi",
+		sumber: undefined,
+		wa_status: "error",
+	});
+	assert.equal(r.kontak, true);
+	assert.deepEqual(r.klien, [
+		{ event_id: "e1", tanggal: "2026-09-01", created_at: "t" },
+	]);
+	assert.equal(r.basis_kontak, true);
+	assert.deepEqual(r.promo_dipakai, {
+		kode: "TAMU-AB12C",
+		event_id: "e1",
+		dipakai_at: "2026-10-01",
+	});
 });
