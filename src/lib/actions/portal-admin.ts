@@ -140,6 +140,7 @@ async function bookingFormData(s: Sub): Promise<FormData> {
 			: {}),
 		include_flashdisk_pouch: "on",
 		addons_json: JSON.stringify(b.addons),
+		guest_card_design: d.guest_card_design ?? "",
 	};
 	// Dipesan WO/vendor (DR-028): channel vendor + skema komisi default kontaknya,
 	// sama seperti form booking mengisi otomatis dari master vendor.

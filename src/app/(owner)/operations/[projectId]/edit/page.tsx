@@ -11,6 +11,7 @@ import { Container } from "@/components/layout/container";
 import { MetaBadge } from "@/components/operations/_shared/meta-badge";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { updateBooking } from "@/lib/actions/bookings";
+import { fetchGuestCards } from "@/lib/booth-sync";
 import { parseGrossUpRate } from "@/lib/documents/types";
 import {
 	fetchSalesCandidates,
@@ -54,7 +55,7 @@ export default async function EditBookingPage({
 				referrer_user_id, referrer_type, referrer_commission,
 				sales_user_id, direct_sales_commission,
 				pic_name, pic_wa,
-				backdrop_id, vendor_decor_markup, include_flashdisk_pouch,
+				backdrop_id, vendor_decor_markup, include_flashdisk_pouch, guest_card_design,
 				base_price, discount_amount, gross_up_pph_amount, crew_notes,
 				event_addons(addon_id, quantity),
 				event_bonuses(addon_id, quantity, notes)`,
@@ -70,7 +71,9 @@ export default async function EditBookingPage({
 			.order("base_price", { ascending: true }),
 		supabase
 			.from("addons")
-			.select("id, name, category, unit, price")
+			.select(
+				"id, name, category, unit, price, addon_group, max_guests, print_size",
+			)
 			.eq("is_active", true)
 			.is("deleted_at", null)
 			.order("category", { ascending: true })
@@ -152,6 +155,7 @@ export default async function EditBookingPage({
 					action={action}
 					packages={(packages ?? []) as PackageOption[]}
 					addons={(addons ?? []) as AddonOption[]}
+					guestCards={await fetchGuestCards()}
 					backdrops={(backdrops ?? []) as BackdropOption[]}
 					eventTypes={(eventTypes ?? []) as EventTypeOption[]}
 					relasiOptions={relasiPool}
@@ -216,6 +220,7 @@ export default async function EditBookingPage({
 						unit_count: (event.unit_count as number | null) ?? 1,
 						spots: JSON.stringify(event.spots ?? []),
 						vendor_decor_markup: event.vendor_decor_markup ?? 0,
+						guest_card_design: event.guest_card_design ?? "",
 						include_flashdisk_pouch: event.include_flashdisk_pouch ?? true,
 						base_price: event.base_price ?? 0,
 						discount_amount: event.discount_amount ?? 0,

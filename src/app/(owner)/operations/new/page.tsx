@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
 import type { InboxRow } from "@/lib/booking-inbox/core";
 import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
+import { fetchGuestCards } from "@/lib/booth-sync";
 import { quotationToBookingDefaults } from "@/lib/documents/booking-defaults";
 import { loadDocument } from "@/lib/documents/load";
 import { parseGrossUpRate } from "@/lib/documents/types";
@@ -56,7 +57,9 @@ export default async function NewBookingPage({
 			.order("base_price", { ascending: true }),
 		supabase
 			.from("addons")
-			.select("id, name, category, unit, price")
+			.select(
+				"id, name, category, unit, price, addon_group, max_guests, print_size",
+			)
 			.eq("is_active", true)
 			.is("deleted_at", null)
 			.order("category", { ascending: true })
@@ -183,6 +186,7 @@ export default async function NewBookingPage({
 					sourceInboxId={inboxItem?.id}
 					packages={(packages ?? []) as PackageOption[]}
 					addons={(addons ?? []) as AddonOption[]}
+					guestCards={await fetchGuestCards()}
 					backdrops={(backdrops ?? []) as BackdropOption[]}
 					eventTypes={(eventTypes ?? []) as EventTypeOption[]}
 					relasiOptions={

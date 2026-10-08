@@ -56,6 +56,13 @@ import {
 	parseIndonesianAddress,
 } from "@/lib/geo/parse-address";
 import {
+	addonMax,
+	addonRuleError,
+	type PublicAddonRow,
+	pickAddon,
+	settleAddons,
+} from "@/lib/portal/core";
+import {
 	activeMinutes,
 	formatDuration,
 	hasBreak,
@@ -120,6 +127,22 @@ const FIELD_LABELS: Record<string, string> = {
 	crew_notes: "Catatan Crew",
 };
 const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS);
+
+/** Add-on Guest Cam tampil di bloknya sendiri, bukan di daftar per kategori. */
+const GUEST_GROUPS = new Set([
+	"guest_cam",
+	"guest_print",
+	"guest_print_100",
+	"print_station",
+	"print_station_extend",
+	"guest_cam_extra",
+]);
+const pill = (on: boolean) =>
+	`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
+		on
+			? "border-transparent bg-foreground text-background"
+			: "border-border-default bg-card hover:bg-secondary"
+	}`;
 const FRAME_SIZE_OPTIONS = Object.entries(FRAME_SIZE_LABELS);
 
 type Action = (
@@ -142,6 +165,9 @@ export type AddonOption = {
 	category: string;
 	unit: string;
 	price: number;
+	addon_group?: string | null;
+	max_guests?: number | null;
+	print_size?: string | null;
 };
 
 export type BackdropOption = {
@@ -244,6 +270,7 @@ export type BookingFormDefaults = Partial<{
 	/** JSON [{spot, frame_size, backdrop_id}] untuk spot ≥2. */
 	spots: string;
 	vendor_decor_markup: number;
+	guest_card_design: string;
 	include_flashdisk_pouch: boolean;
 	base_price: number;
 	discount_amount: number;
@@ -387,6 +414,7 @@ export function BookingForm({
 	action,
 	packages,
 	addons,
+	guestCards = [],
 	backdrops,
 	eventTypes,
 	relasiOptions = [],
@@ -402,6 +430,8 @@ export function BookingForm({
 	action: Action;
 	packages: PackageOption[];
 	addons: AddonOption[];
+	/** Katalog desain kartu QR Guest Cam dari Booth (v0.9). */
+	guestCards?: Array<{ id: string; name: string; preview_url: string }>;
 	backdrops: BackdropOption[];
 	eventTypes: EventTypeOption[];
 	relasiOptions?: RelasiOption[];
@@ -673,15 +703,6 @@ export function BookingForm({
 	const [selectedAddons, setSelectedAddons] =
 		useState<Record<string, number>>(initialAddons);
 
-	const addonsByCategory = useMemo(() => {
-		const groups = new Map<string, AddonOption[]>();
-		for (const a of addons) {
-			if (!groups.has(a.category)) groups.set(a.category, []);
-			groups.get(a.category)!.push(a);
-		}
-		return Array.from(groups.entries());
-	}, [addons]);
-
 	const addonsTotal = useMemo(() => {
 		let sum = 0;
 		for (const a of addons) {
@@ -952,6 +973,61 @@ export function BookingForm({
 		Boolean(get("venue_address")),
 	);
 	const [cityTouched, setCityTouched] = useState(Boolean(get("venue_city")));
+
+	// === Aturan add-on (sama dengan wizard booking, src/lib/portal/core.ts):
+	// form hanya menampilkan pilihan yang sah; yang lolos (event lama) diberi
+	// peringatan, simpan tetap boleh (keputusan owner 8 Okt 2026).
+	const ruleRows = useMemo<PublicAddonRow[]>(
+		() => addons.map((a) => ({ ...a, min_qty: null })),
+		[addons],
+	);
+	const addonCtx = {
+		category: serviceType || null,
+		frame: frameSize && frameSize !== "none" ? frameSize : null,
+		city: venueCity || null,
+	};
+	const bonusIds = new Set(bonusRows.map((b) => b.addon_id));
+	const isOnRule = (a: PublicAddonRow) =>
+		(selectedAddons[a.id] ?? 0) > 0 || bonusIds.has(a.id);
+	const settledAddons = settleAddons(ruleRows, isOnRule, addonCtx);
+	const visibleAddonIds = new Set(settledAddons.visible.map((a) => a.id));
+	const addonWarning = addonRuleError(ruleRows.filter(isOnRule), addonCtx);
+	const isGuestCamEvent = serviceType === "guest_cam";
+	const guestTier =
+		settledAddons.chosen.find((a) => a.addon_group === "guest_cam") ?? null;
+	const guestTiers = ruleRows
+		.filter((a) => a.addon_group === "guest_cam")
+		.sort((a, b) => (a.max_guests ?? 1e9) - (b.max_guests ?? 1e9));
+	const addonsByCategory = (() => {
+		const groups = new Map<string, AddonOption[]>();
+		for (const a of addons) {
+			if (GUEST_GROUPS.has(a.addon_group ?? "")) continue;
+			if (!visibleAddonIds.has(a.id) && !selectedAddons[a.id]) continue;
+			if (!groups.has(a.category)) groups.set(a.category, []);
+			groups.get(a.category)?.push(a);
+		}
+		return Array.from(groups.entries());
+	})();
+	const guestOrder = [
+		"guest_print",
+		"guest_print_100",
+		"print_station",
+		"print_station_extend",
+		"guest_cam_extra",
+	];
+	const guestRows = addons
+		.filter(
+			(a) =>
+				visibleAddonIds.has(a.id) &&
+				GUEST_GROUPS.has(a.addon_group ?? "") &&
+				a.addon_group !== "guest_cam",
+		)
+		.sort(
+			(a, b) =>
+				guestOrder.indexOf(a.addon_group ?? "") -
+				guestOrder.indexOf(b.addon_group ?? ""),
+		);
+	const [guestCard, setGuestCard] = useState(get("guest_card_design", ""));
 	const [provinceTouched, setProvinceTouched] = useState(
 		Boolean(get("venue_province")),
 	);
@@ -1269,17 +1345,82 @@ export function BookingForm({
 		router.push("/operations");
 	}
 
-	function toggleAddon(id: string, enabled: boolean) {
+	/** Satu baris add-on (checkbox + qty); peringatan kalau tidak cocok paket. */
+	function renderAddonRow(addon: AddonOption) {
+		const qty = selectedAddons[addon.id];
+		const enabled = qty !== undefined;
+		const misfit = enabled && !visibleAddonIds.has(addon.id);
+		return (
+			<label
+				key={addon.id}
+				className={`flex cursor-pointer items-center gap-3 rounded-md border bg-surface-2 p-3 hover:bg-muted/30 ${misfit ? "border-amber-500/60" : "border-border-default"}`}
+				title={misfit ? "Tidak cocok dengan paket/pilihan ini" : undefined}
+			>
+				<input
+					type="checkbox"
+					checked={enabled}
+					onChange={(e) => toggleAddon(addon.id, e.target.checked)}
+					className="h-4 w-4 shrink-0 rounded text-primary"
+				/>
+				<div className="min-w-0 flex-1">
+					<div className="text-fluid-body font-medium leading-snug">
+						{addon.name}
+					</div>
+					<div className="text-fluid-caption text-muted-foreground">
+						<span data-nominal>{formatRupiah(addon.price)}</span> per{" "}
+						{addon.unit}
+					</div>
+				</div>
+				{enabled ? (
+					<>
+						<input
+							type="number"
+							min={1}
+							max={99}
+							value={qty}
+							onChange={(e) => setAddonQty(addon.id, Number(e.target.value))}
+							onClick={(e) => e.stopPropagation()}
+							className={`${inputClass.replace("w-full", "")} tabular h-8 w-16 shrink-0 text-right`}
+						/>
+						<span className="tabular shrink-0 text-right text-fluid-body font-medium text-foreground">
+							{formatRupiah(addon.price * qty)}
+						</span>
+					</>
+				) : null}
+			</label>
+		);
+	}
+
+	function applyAddonPatch(patch: Record<string, number>) {
 		setSelectedAddons((prev) => {
 			const next = { ...prev };
-			if (enabled) next[id] = next[id] || 1;
-			else delete next[id];
+			for (const [k, q] of Object.entries(patch)) {
+				if (q > 0) next[k] = q;
+				else delete next[k];
+			}
 			return next;
 		});
 	}
 
+	function toggleAddon(id: string, enabled: boolean) {
+		applyAddonPatch(
+			pickAddon(
+				ruleRows,
+				(r) => selectedAddons[r] ?? 0,
+				id,
+				enabled ? selectedAddons[id] || 1 : 0,
+				addonCtx,
+			),
+		);
+	}
+
 	function setAddonQty(id: string, qty: number) {
-		setSelectedAddons((prev) => ({ ...prev, [id]: Math.max(1, qty) }));
+		const a = ruleRows.find((r) => r.id === id);
+		const max = a ? addonMax(a) : null;
+		setSelectedAddons((prev) => ({
+			...prev,
+			[id]: Math.max(1, max === null ? qty : Math.min(max, qty)),
+		}));
 	}
 
 	/**
@@ -1296,6 +1437,18 @@ export function BookingForm({
 			durationChoices.find((d) => String(d.hours) === pendingHours)?.price;
 		if (perUnit) setBasePrice(perUnit * unitCount);
 	}, [unitCount]);
+
+	// Guest Cam tanpa booth: satu paket (harga dari tier), tanpa ukuran & unit.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: hanya bereaksi ke service type
+	useEffect(() => {
+		if (serviceType !== "guest_cam") return;
+		const only = packages.find((p) => p.category === "guest_cam");
+		setUnitCount(1);
+		if (only && packageId !== only.id) {
+			setFrameSize("none");
+			handlePackageChange(only.id);
+		}
+	}, [serviceType]);
 
 	function handlePackageChange(value: string) {
 		if (value.startsWith("dur:")) {
@@ -2706,32 +2859,36 @@ export function BookingForm({
 									required
 								/>
 							</Field>
-							<Field
-								label="Frame Size"
-								name="frame_size"
-								error={err("frame_size")}
-								hint={
-									frameSize
-										? "Paket ikut ukuran ini — ganti ukuran, paket otomatis menyesuaikan."
-										: "Klien belum kasih ukuran? Pilih 'Menyusul' — paket cukup dipilih durasinya dulu."
-								}
-							>
-								<Combobox
-									value={frameSize}
-									onValueChange={handleFrameChange}
-									placeholder="Pilih frame"
-									options={[
-										{ value: "", label: "Menyusul / belum ditentukan" },
-										...FRAME_SIZE_OPTIONS.map(([value, label]) => ({
-											value,
-											label: label === "—" ? "None" : label,
-										})),
-									]}
-									allowFreeText={false}
-									aria-invalid={!!err("frame_size")}
-								/>
+							{serviceType === "guest_cam" ? (
 								<input type="hidden" name="frame_size" value={frameSize} />
-							</Field>
+							) : (
+								<Field
+									label="Frame Size"
+									name="frame_size"
+									error={err("frame_size")}
+									hint={
+										frameSize
+											? "Paket ikut ukuran ini — ganti ukuran, paket otomatis menyesuaikan."
+											: "Klien belum kasih ukuran? Pilih 'Menyusul' — paket cukup dipilih durasinya dulu."
+									}
+								>
+									<Combobox
+										value={frameSize}
+										onValueChange={handleFrameChange}
+										placeholder="Pilih frame"
+										options={[
+											{ value: "", label: "Menyusul / belum ditentukan" },
+											...FRAME_SIZE_OPTIONS.map(([value, label]) => ({
+												value,
+												label: label === "—" ? "None" : label,
+											})),
+										]}
+										allowFreeText={false}
+										aria-invalid={!!err("frame_size")}
+									/>
+									<input type="hidden" name="frame_size" value={frameSize} />
+								</Field>
+							)}
 						</div>
 
 						{!frameSize && frameRelevan && (
@@ -2790,47 +2947,54 @@ export function BookingForm({
 							/>
 						</Field>
 
-						<Field
-							label="Jumlah unit / spot"
-							name="unit_count"
-							hint={
-								unitCount > 1
-									? `${unitCount} photobooth di lokasi yang sama — harga otomatis paket × ${unitCount}. Harga khusus? Isi di kolom Diskon.`
-									: "Klien pesan lebih dari 1 photobooth di acara yang sama? Pilih 2 atau 3."
-							}
-						>
-							<div className="flex flex-wrap gap-2">
-								{[1, 2, 3].map((n) => (
-									<button
-										key={n}
-										type="button"
-										onClick={() => setUnitCount(n)}
-										aria-pressed={unitCount === n}
-										className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
-											unitCount === n
-												? "border-transparent bg-foreground text-background"
-												: "border-border-default bg-card hover:bg-secondary"
-										}`}
-									>
-										{n} unit
-									</button>
-								))}
-							</div>
-							<input type="hidden" name="unit_count" value={unitCount} />
-							<input
-								type="hidden"
-								name="spots"
-								value={JSON.stringify(
-									spots
-										.filter((x) => x.spot <= unitCount)
-										.map((x) => ({
-											spot: x.spot,
-											frame_size: x.frame_size || null,
-											backdrop_id: x.backdrop_id || null,
-										})),
-								)}
-							/>
-						</Field>
+						{serviceType === "guest_cam" ? (
+							<>
+								<input type="hidden" name="unit_count" value={1} />
+								<input type="hidden" name="spots" value="[]" />
+							</>
+						) : (
+							<Field
+								label="Jumlah unit / spot"
+								name="unit_count"
+								hint={
+									unitCount > 1
+										? `${unitCount} photobooth di lokasi yang sama — harga otomatis paket × ${unitCount}. Harga khusus? Isi di kolom Diskon.`
+										: "Klien pesan lebih dari 1 photobooth di acara yang sama? Pilih 2 atau 3."
+								}
+							>
+								<div className="flex flex-wrap gap-2">
+									{[1, 2, 3].map((n) => (
+										<button
+											key={n}
+											type="button"
+											onClick={() => setUnitCount(n)}
+											aria-pressed={unitCount === n}
+											className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
+												unitCount === n
+													? "border-transparent bg-foreground text-background"
+													: "border-border-default bg-card hover:bg-secondary"
+											}`}
+										>
+											{n} unit
+										</button>
+									))}
+								</div>
+								<input type="hidden" name="unit_count" value={unitCount} />
+								<input
+									type="hidden"
+									name="spots"
+									value={JSON.stringify(
+										spots
+											.filter((x) => x.spot <= unitCount)
+											.map((x) => ({
+												spot: x.spot,
+												frame_size: x.frame_size || null,
+												backdrop_id: x.backdrop_id || null,
+											})),
+									)}
+								/>
+							</Field>
+						)}
 
 						{unitCount > 1 ? (
 							<div className="fade-in-on-mount space-y-3 rounded-xl border border-border-default bg-secondary/40 p-3">
@@ -2896,72 +3060,79 @@ export function BookingForm({
 						title="Customization"
 						description="Backdrop + flashdisk. Bisa di-update nanti kalau klien belum mutusin."
 					>
-						<Field
-							label="Backdrop"
-							name="backdrop_id"
-							error={err("backdrop_id")}
-							layoutMode="grid"
-							hint={
-								selectedBackdrop?.type === "rental_owned"
-									? `Premium rental Tetra — auto-add ${formatRupiah(selectedBackdrop.rental_price)} ke grand total`
-									: selectedBackdrop?.type === "vendor_decor"
-										? "Custom request — Tetra cariin vendor rekanan. Isi markup Tetra di field bawah (vendor charge belum termasuk)."
-										: selectedBackdrop?.type === "client_provided"
-											? "Klien bawa vendor dekorasi sendiri — Tetra cuma execute, tanpa markup."
-											: selectedBackdrop?.type === "basic_included"
-												? "Backdrop standar Tetra (gratis bundled di paket)"
-												: "Kosongkan kalau belum ditentukan — sistem akan reminder H-7 + H-3"
-							}
-						>
-							<Combobox
-								value={backdropId}
-								onValueChange={setBackdropId}
-								placeholder="Belum ditentukan / nyusul"
-								options={[
-									{ value: "", label: "Belum ditentukan / nyusul" },
-									// Sort priority: client_provided ("Dari Klien") di paling
-									// atas karena paling sering dipilih owner. Lalu basic,
-									// vendor_decor, rental_owned. Within same type → by name.
-									...[...backdrops]
-										.sort((a, b) => {
-											const order: Record<string, number> = {
-												client_provided: 0,
-												basic_included: 1,
-												vendor_decor: 2,
-												rental_owned: 3,
-											};
-											const pa = order[a.type] ?? 99;
-											const pb = order[b.type] ?? 99;
-											if (pa !== pb) return pa - pb;
-											return a.name.localeCompare(b.name);
-										})
-										.map((b) => ({
-											value: b.id,
-											// Label: cuma {name} + suffix yang BENAR-BENAR informatif.
-											// Hindari repetisi nama vs type label ("Vendor Decor ·
-											// Vendor Decor"). Suffix cuma untuk rental price.
-											label:
-												b.type === "rental_owned" && b.rental_price > 0
-													? `${b.name} · ${formatRupiah(b.rental_price)}`
-													: b.name,
-										})),
-								]}
-								allowFreeText={false}
-							/>
-							<input type="hidden" name="backdrop_id" value={backdropId} />
-						</Field>
+						{serviceType === "guest_cam" ? (
+							<input type="hidden" name="backdrop_id" value="" />
+						) : (
+							<>
+								<Field
+									label="Backdrop"
+									name="backdrop_id"
+									error={err("backdrop_id")}
+									layoutMode="grid"
+									hint={
+										selectedBackdrop?.type === "rental_owned"
+											? `Premium rental Tetra — auto-add ${formatRupiah(selectedBackdrop.rental_price)} ke grand total`
+											: selectedBackdrop?.type === "vendor_decor"
+												? "Custom request — Tetra cariin vendor rekanan. Isi markup Tetra di field bawah (vendor charge belum termasuk)."
+												: selectedBackdrop?.type === "client_provided"
+													? "Klien bawa vendor dekorasi sendiri — Tetra cuma execute, tanpa markup."
+													: selectedBackdrop?.type === "basic_included"
+														? "Backdrop standar Tetra (gratis bundled di paket)"
+														: "Kosongkan kalau belum ditentukan — sistem akan reminder H-7 + H-3"
+									}
+								>
+									<Combobox
+										value={backdropId}
+										onValueChange={setBackdropId}
+										placeholder="Belum ditentukan / nyusul"
+										options={[
+											{ value: "", label: "Belum ditentukan / nyusul" },
+											// Sort priority: client_provided ("Dari Klien") di paling
+											// atas karena paling sering dipilih owner. Lalu basic,
+											// vendor_decor, rental_owned. Within same type → by name.
+											...[...backdrops]
+												.sort((a, b) => {
+													const order: Record<string, number> = {
+														client_provided: 0,
+														basic_included: 1,
+														vendor_decor: 2,
+														rental_owned: 3,
+													};
+													const pa = order[a.type] ?? 99;
+													const pb = order[b.type] ?? 99;
+													if (pa !== pb) return pa - pb;
+													return a.name.localeCompare(b.name);
+												})
+												.map((b) => ({
+													value: b.id,
+													// Label: cuma {name} + suffix yang BENAR-BENAR informatif.
+													// Hindari repetisi nama vs type label ("Vendor Decor ·
+													// Vendor Decor"). Suffix cuma untuk rental price.
+													label:
+														b.type === "rental_owned" && b.rental_price > 0
+															? `${b.name} · ${formatRupiah(b.rental_price)}`
+															: b.name,
+												})),
+										]}
+										allowFreeText={false}
+									/>
+									<input type="hidden" name="backdrop_id" value={backdropId} />
+								</Field>
 
-						{backdropMissing && (
-							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
-								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-								<div>
-									<p className="font-medium">Backdrop belum ditentukan</p>
-									<p className="text-amber-900/80 dark:text-amber-200/80">
-										Sistem akan reminder otomatis H-7 + H-3 kalau status masih
-										kosong. Owner & klien wajib mutusin sebelum hari H.
-									</p>
-								</div>
-							</div>
+								{backdropMissing && (
+									<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+										<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+										<div>
+											<p className="font-medium">Backdrop belum ditentukan</p>
+											<p className="text-amber-900/80 dark:text-amber-200/80">
+												Sistem akan reminder otomatis H-7 + H-3 kalau status
+												masih kosong. Owner & klien wajib mutusin sebelum hari
+												H.
+											</p>
+										</div>
+									</div>
+								)}
+							</>
 						)}
 
 						{isVendorDecor && (
@@ -3495,72 +3666,122 @@ export function BookingForm({
 					<Section
 						step={9}
 						title="Add-ons"
-						description="Voucher, print extras, costume, dll."
+						description="Voucher, print extras, Guest Cam, dll. Yang tampil hanya pilihan yang cocok dengan paket."
 					>
 						<input type="hidden" name="addons_json" value={addonsJson} />
+						<input type="hidden" name="guest_card_design" value={guestCard} />
 						{addons.length === 0 ? (
 							<p className="text-fluid-body italic text-muted-foreground">
 								Belum ada add-on aktif. Tambah dari Operations → Add-on.
 							</p>
 						) : (
 							<div className="space-y-4">
+								{addonWarning && (
+									<div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+										<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+										<p>
+											{addonWarning} Tetap bisa disimpan, tapi cek lagi — data
+											ini dikirim ke Tetra Booth.
+										</p>
+									</div>
+								)}
+
+								{guestTiers.length > 0 && (
+									<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-4">
+										<div>
+											<h4 className="text-fluid-body font-semibold">
+												Guest Cam{isGuestCamEvent ? " · wajib pilih" : ""}
+											</h4>
+											<p className="text-fluid-caption text-muted-foreground">
+												Tamu memotret dari HP lewat QR. Jumlah tamu = batas di
+												Tetra Booth.
+											</p>
+										</div>
+										<div className="flex flex-wrap gap-2">
+											{!isGuestCamEvent && (
+												<button
+													type="button"
+													onClick={() =>
+														guestTier && toggleAddon(guestTier.id, false)
+													}
+													aria-pressed={!guestTier}
+													className={pill(!guestTier)}
+												>
+													Tanpa
+												</button>
+											)}
+											{guestTiers.map((t) => {
+												const on = guestTier?.id === t.id;
+												const viaBonus = on && bonusIds.has(t.id);
+												return (
+													<button
+														key={t.id}
+														type="button"
+														onClick={() => !viaBonus && toggleAddon(t.id, !on)}
+														aria-pressed={on}
+														className={pill(on)}
+														title={
+															viaBonus ? "Dari bonus (campaign)" : undefined
+														}
+													>
+														{t.max_guests
+															? `${t.max_guests} tamu`
+															: "Tak terbatas"}{" "}
+														<span className="tabular opacity-70" data-nominal>
+															{viaBonus ? "bonus" : formatRupiah(t.price)}
+														</span>
+													</button>
+												);
+											})}
+										</div>
+										{guestRows.length > 0 && (
+											<div className="grid grid-cols-1 gap-1.5 xl:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
+												{guestRows.map((a) => renderAddonRow(a))}
+											</div>
+										)}
+										{guestTier && guestCards.length > 0 && (
+											<div className="space-y-1.5">
+												<p className="text-fluid-caption font-medium">
+													Desain kartu QR{" "}
+													<span className="font-normal text-muted-foreground">
+														(klien juga bisa memilih di dashboard)
+													</span>
+												</p>
+												<div className="flex flex-wrap gap-2">
+													{guestCards.map((c) => (
+														<button
+															key={c.id}
+															type="button"
+															onClick={() =>
+																setGuestCard(guestCard === c.id ? "" : c.id)
+															}
+															aria-pressed={guestCard === c.id}
+															className={`flex items-center gap-2 rounded-lg border p-1.5 pr-3 text-[13px] ${guestCard === c.id ? "border-foreground bg-card font-semibold" : "border-border-default bg-card/60"}`}
+														>
+															{/* biome-ignore lint/performance/noImgElement: SVG dari Booth */}
+															<img
+																src={c.preview_url}
+																alt=""
+																width={54}
+																height={33}
+																className="rounded border border-border-default"
+															/>
+															{c.name}
+														</button>
+													))}
+												</div>
+											</div>
+										)}
+									</div>
+								)}
+
 								{addonsByCategory.map(([category, items]) => (
 									<div key={category} className="space-y-2">
 										<h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 											{ADDON_CATEGORY_LABELS[category] ?? category}
 										</h4>
 										<div className="grid grid-cols-1 gap-1.5 xl:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
-											{items.map((addon) => {
-												const qty = selectedAddons[addon.id];
-												const enabled = qty !== undefined;
-												return (
-													<label
-														key={addon.id}
-														className="flex cursor-pointer items-center gap-3 rounded-md border border-border-default bg-surface-2 p-3 hover:bg-muted/30"
-													>
-														<input
-															type="checkbox"
-															checked={enabled}
-															onChange={(e) =>
-																toggleAddon(addon.id, e.target.checked)
-															}
-															className="h-4 w-4 shrink-0 rounded text-primary"
-														/>
-														<div className="min-w-0 flex-1">
-															<div className="text-fluid-body font-medium leading-snug">
-																{addon.name}
-															</div>
-															<div className="text-fluid-caption text-muted-foreground">
-																<span data-nominal>
-																	{formatRupiah(addon.price)}
-																</span>{" "}
-																per {addon.unit}
-															</div>
-														</div>
-														{enabled ? (
-															<>
-																<input
-																	type="number"
-																	min={1}
-																	max={99}
-																	value={qty}
-																	onChange={(e) =>
-																		setAddonQty(
-																			addon.id,
-																			Number(e.target.value),
-																		)
-																	}
-																	onClick={(e) => e.stopPropagation()}
-																	className={`${inputClass} tabular h-8 w-16 shrink-0 text-right`}
-																/>
-																<span className="tabular shrink-0 text-right text-fluid-body font-medium text-foreground">
-																	{formatRupiah(addon.price * qty)}
-																</span>
-															</>
-														) : null}
-													</label>
-												);
-											})}
+											{items.map((addon) => renderAddonRow(addon))}
 										</div>
 									</div>
 								))}

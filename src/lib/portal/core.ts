@@ -239,6 +239,45 @@ export function settleAddons(
 	};
 }
 
+/**
+ * Pilih/ubah satu add-on → patch jumlah (0 = lepas). Dipakai wizard & form admin:
+ * satu keluarga satu pilihan, ganti tier memindahkan cetak ke tier baru (ukuran
+ * sama), cetak tanpa printer booth ikut memilih Print Station sesuai kota.
+ */
+export function pickAddon(
+	all: PublicAddonRow[],
+	qtyOf: (id: string) => number,
+	id: string,
+	n: number,
+	x: Omit<AddonCtx, "chosen">,
+): Record<string, number> {
+	const a = all.find((r) => r.id === id);
+	if (!a) return {};
+	const max = addonMax(a);
+	const qty = Math.max(0, max === null ? n : Math.min(max, n));
+	const patch: Record<string, number> = { [id]: qty };
+	for (const o of addonSiblings(a, all)) patch[o.id] = 0;
+	if (qty === 0) return patch;
+	const before = settleAddons(all, (r) => qtyOf(r.id) > 0, x).chosen;
+	const oldPrint = before.find((r) => family(r.addon_group) === "guest_print");
+	if (a.addon_group === "guest_cam" && oldPrint) {
+		const np = all.find(
+			(r) =>
+				r.print_size === oldPrint.print_size &&
+				(a.max_guests == null
+					? r.addon_group === "guest_print_100"
+					: r.addon_group === "guest_print" && r.max_guests === a.max_guests),
+		);
+		patch[oldPrint.id] = 0;
+		if (np) patch[np.id] = 1;
+	}
+	const after = settleAddons(all, (r) => (patch[r.id] ?? qtyOf(r.id)) > 0, x);
+	const station = after.visible.find((r) => r.addon_group === "print_station");
+	if (station && !after.chosen.some((r) => r.addon_group === "print_station"))
+		patch[station.id] = 1;
+	return patch;
+}
+
 /** Aturan lintas add-on untuk server; null = lolos. */
 export function addonRuleError(
 	chosen: PublicAddonRow[],

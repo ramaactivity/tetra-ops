@@ -27,8 +27,8 @@ type TbcEventRow = {
 	backdrop_id: string | null;
 	pending_package_hours: number | null;
 	package:
-		| { frame_size: string | null }
-		| Array<{ frame_size: string | null }>
+		| { frame_size: string | null; category?: string | null }
+		| Array<{ frame_size: string | null; category?: string | null }>
 		| null;
 	venue_name: string | null;
 	pic_name: string | null;
@@ -65,6 +65,7 @@ function missingOf(ev: TbcEventRow): string[] {
 	return listMissingFields({
 		...ev,
 		package_frame_size: pkg?.frame_size ?? null,
+		package_category: pkg?.category ?? null,
 	});
 }
 
@@ -91,7 +92,7 @@ export async function runTbcReminderInternal(): Promise<TbcResult> {
 			`id, project_id, client_name, event_date, start_time, setup_time,
 			 end_time, frame_size, backdrop_id, venue_name, pic_name, pic_wa, pic_contact_id,
 			 event_date_is_estimate, pending_package_hours, unit_count, spots,
-			 package:packages(frame_size)`,
+			 package:packages(frame_size, category)`,
 		)
 		.in("event_date", targetDates)
 		.in("status", ["upcoming", "in_progress"]);

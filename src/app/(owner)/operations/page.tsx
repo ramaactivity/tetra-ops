@@ -120,7 +120,7 @@ export default async function OperationsListPage({
 			 is_migrated_legacy, legacy_invoice_number, custom_package_name,
 			 event_category, backdrop_id, pic_name, pic_wa, pic_contact_id, pending_package_hours,
 			 design_status, unit_count, spots,
-			 package:packages(name, duration_hours, frame_size),
+			 package:packages(name, duration_hours, frame_size, category),
 			 backdrop:backdrops(name, type)`,
 		)
 		.is("deleted_at", null)
@@ -280,6 +280,7 @@ export default async function OperationsListPage({
 		name: string | null;
 		duration_hours: number | null;
 		frame_size: string | null;
+		category?: string | null;
 	};
 	type RawEventRow = Omit<
 		EventRow,
@@ -363,6 +364,7 @@ export default async function OperationsListPage({
 								pic_wa: row.pic_wa,
 								pending_package_hours: row.pending_package_hours,
 								package_frame_size: pkg?.frame_size ?? null,
+								package_category: pkg?.category ?? null,
 								unit_count: row.unit_count,
 								spots: row.spots,
 							})

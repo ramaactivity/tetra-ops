@@ -1195,3 +1195,5 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - Diskon bundling −15% **ditunda** (owner). Campaign gratis Guest Cam S → `event_bonuses`.
 - Booth v0.9: `guest_cam_max_guests`, `guest_cam_print`, `guest_cam_print_size`, `guest_card_design` (klien pilih di tab Desain dashboard, katalog `GET booth/api/guest-cards`).
 - Quotation: extend combo memakai Rp750rb/jam (`extraHourPrice`), sebelumnya hardcode Rp500rb.
+- Form event admin (`booking-form.tsx`) memakai aturan yang sama (`settleAddons`/`pickAddon`): blok Guest Cam (tier pill, cetak, Print Station otomatis, upsell, desain kartu QR), add-on lain disaring sesuai paket; kombinasi yang tetap lolos (event lama) **diperingatkan, tidak diblok** (owner). Service Type Guest Cam: paket otomatis, tanpa ukuran/unit/backdrop; `listMissingFields` tidak menuntut backdrop untuk `guest_cam`.
+- Desain kartu QR disimpan di `events.guest_card_design` (sumber kebenaran setelah jadi event; dashboard klien & form admin menulis ke sana, ikut terbawa saat DP diterima).

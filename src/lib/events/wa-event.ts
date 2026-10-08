@@ -27,7 +27,7 @@ export const WA_EVENT_SELECT = `
 	pending_package_hours, include_flashdisk_pouch, crew_notes,
 	total_paid, remaining_balance, unit_count, spots,
 	pic_contact:contacts!events_pic_contact_id_fkey(name, phone),
-	package:packages(name, duration_hours, frame_size),
+	package:packages(name, duration_hours, frame_size, category),
 	backdrop:backdrops(name, type),
 	event_addons(quantity, addon:addons(name, unit)),
 	event_bonuses(quantity, notes, addon:addons(name, unit))
@@ -79,6 +79,7 @@ export type WaEventRow = {
 		name: string | null;
 		duration_hours: number | null;
 		frame_size?: string | null;
+		category?: string | null;
 	}>;
 	backdrop?: Embed<{ name: string | null; type: string | null }>;
 	event_addons?: Array<{ quantity: number; addon: AddonEmbed }> | null;
@@ -154,6 +155,7 @@ export function toEventForWA(
 		backdrop_name: backdrop?.name ?? null,
 		backdrop_type: backdrop?.type ?? null,
 		package_frame_size: pkg?.frame_size ?? null,
+		package_category: pkg?.category ?? null,
 		pending_package_hours: row.pending_package_hours ?? null,
 		channel: row.channel ?? null,
 		vendor_name: row.vendor_name ?? null,

@@ -38,6 +38,8 @@ export type TbcSnapshot = {
 	 * size — paketnya memang tidak punya ukuran.
 	 */
 	package_frame_size?: string | null;
+	/** Kategori paket; `guest_cam` (tanpa booth) tidak butuh backdrop. */
+	package_category?: string | null;
 	/** Event multi-unit: tiap spot butuh backdrop sendiri (lib/events/spots.ts). */
 	unit_count?: number | null;
 	spots?: unknown;
@@ -73,7 +75,9 @@ export function listMissingFields(ev: TbcSnapshot): string[] {
 		// konkret (mis. data lama). Jangan diam — harga & HPP ikut paket.
 		missing.push("paket final (ukuran sudah pasti, paket belum dikunci)");
 	}
-	if (unitCountOf(ev) > 1) {
+	if (ev.package_category === "guest_cam") {
+		// Guest Cam tanpa booth: tidak ada backdrop yang perlu dipastikan.
+	} else if (unitCountOf(ev) > 1) {
 		for (const sp of eventSpots(ev)) {
 			if (!sp.backdrop_id) missing.push(`backdrop spot ${sp.spot}`);
 		}

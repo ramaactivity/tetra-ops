@@ -14,6 +14,7 @@ import {
 	normPromo,
 	parseInstagram,
 	parseStageGroups,
+	pickAddon,
 	promoDiscount,
 	quoteSelection,
 	refundEstimate,
@@ -432,4 +433,58 @@ test("add-on per paket: extend, tier Guest Cam, cetak ikut tier & ukuran, Print 
 		]).ok,
 		false,
 	);
+});
+
+test("pickAddon: lepas tier lain, cetak pindah tier, Print Station otomatis", () => {
+	const ad = (
+		id: string,
+		addon_group: string,
+		max_guests: number | null,
+		print_size: string | null = null,
+		name = id,
+	) => ({
+		id,
+		name,
+		unit: "x",
+		price: 1,
+		min_qty: null,
+		addon_group,
+		max_guests,
+		print_size,
+	});
+	const all = [
+		ad("gS", "guest_cam", 100),
+		ad("gM", "guest_cam", 200),
+		ad("p2S", "guest_print", 100, "2R"),
+		ad("p2M", "guest_print", 200, "2R"),
+		ad("sB", "print_station", null, null, "Print Station · Bogor"),
+		ad("sL", "print_station", null, null, "Print Station · luar Bogor"),
+	];
+	const run = (
+		cur: Record<string, number>,
+		id: string,
+		n: number,
+		category = "guest_cam",
+	) => ({
+		...cur,
+		...pickAddon(all, (r) => cur[r] ?? 0, id, n, {
+			category,
+			frame: null,
+			city: "Bogor",
+		}),
+	});
+	let s = run({}, "gS", 1);
+	s = run(s, "p2S", 1);
+	assert.equal(s.sB, 1);
+	assert.equal(s.sL ?? 0, 0);
+	s = run(s, "gM", 1);
+	assert.deepEqual([s.gS, s.gM, s.p2S, s.p2M, s.sB], [0, 1, 0, 1, 1]);
+	// photobooth: tanpa Print Station
+	const pb = run(
+		run({}, "gS", 1, "photobooth_classic"),
+		"p2S",
+		1,
+		"photobooth_classic",
+	);
+	assert.equal(pb.sB ?? 0, 0);
 });

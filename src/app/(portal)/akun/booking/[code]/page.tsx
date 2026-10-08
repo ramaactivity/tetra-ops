@@ -1194,6 +1194,18 @@ export default async function BookingDetailPage({
 			(bookingTier.data ?? []).length > 0 ||
 			(eventTier.data ?? []).length > 0;
 		const cards = guestCam ? await fetchGuestCards() : [];
+		// Setelah jadi event, pilihan admin/klien tersimpan di events.guest_card_design.
+		const { data: evCard } = b.event_id
+			? await admin
+					.from("events")
+					.select("guest_card_design")
+					.eq("id", b.event_id)
+					.maybeSingle()
+			: { data: null };
+		const cardValue =
+			(evCard?.guest_card_design as string | null) ??
+			(b.detail as { guest_card_design?: string }).guest_card_design ??
+			null;
 		if (cards.length > 0)
 			body = (
 				<>
@@ -1210,9 +1222,7 @@ export default async function BookingDetailPage({
 						<p style={muted}>
 							Kartu ini dibagikan ke meja tamu supaya mereka bisa scan dan
 							memotret dari HP. Pilih desain yang paling cocok dengan acaramu
-							{(b.detail as { guest_card_design?: string }).guest_card_design
-								? "."
-								: ". Kalau belum dipilih, kami pakai Klasik."}
+							{cardValue ? "." : ". Kalau belum dipilih, kami pakai Klasik."}
 						</p>
 						<GuestCardPicker
 							code={b.public_code}

@@ -45,7 +45,7 @@ export type BoothBookingFull = BoothBooking & {
 };
 
 /** Kolom tambahan di atas BOOTH_EVENT_SELECT — tetap tanpa uang/kontak. */
-export const BOOTH_FULL_SELECT = `id, status, unit_count, design_status, design_approved_at, design_frame_size, ${BOOTH_EVENT_SELECT}`;
+export const BOOTH_FULL_SELECT = `id, status, unit_count, design_status, design_approved_at, design_frame_size, guest_card_design, ${BOOTH_EVENT_SELECT}`;
 
 type FullRow = BoothEventRow & {
 	id: string;
@@ -54,6 +54,7 @@ type FullRow = BoothEventRow & {
 	design_status: string | null;
 	design_approved_at: string | null;
 	design_frame_size: string | null;
+	guest_card_design?: string | null;
 };
 
 const URL_TTL_SEC = 7 * 86_400;
@@ -132,7 +133,7 @@ export async function enrichBoothBookings(
 		unit_count: Math.min(3, Math.max(1, Number(r.unit_count ?? 1))),
 		modules: modulesFor(r.service_type, guestAddons.get(r.id)),
 		...guestCamFields(guestAddons.get(r.id) ?? []),
-		guest_card_design: cards.get(r.id) ?? null,
+		guest_card_design: r.guest_card_design ?? cards.get(r.id) ?? null,
 		cancelled: r.status === "cancelled",
 		design: toBoothDesign(
 			r,

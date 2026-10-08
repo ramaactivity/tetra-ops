@@ -40,8 +40,8 @@ import { dateLabel, rp } from "@/lib/telegram/format";
  */
 
 type PackageFrameEmbed =
-	| { frame_size: string | null }
-	| Array<{ frame_size: string | null }>
+	| { frame_size: string | null; category?: string | null }
+	| Array<{ frame_size: string | null; category?: string | null }>
 	| null;
 
 function pkgFrameSize(p: PackageFrameEmbed): string | null {
@@ -275,7 +275,7 @@ async function gatherData(
 			 end_time, session_segments, venue_name, venue_city, google_maps_url,
 			 frame_size, backdrop_id, design_status, design_approved_at,
 			 design_frame_size, design_spot_sizes, pending_package_hours, event_date_is_estimate,
-			 pic_name, pic_wa, package:packages(frame_size), total_paid,
+			 pic_name, pic_wa, package:packages(frame_size, category), total_paid,
 			 remaining_balance, unit_count, spots`,
 		)
 		.gte("event_date", todayISO)
@@ -285,7 +285,7 @@ async function gatherData(
 		.in("status", ["upcoming", "in_progress"])
 		.order("event_date", { ascending: true });
 	if (evErr) throw new Error(`Fetch events: ${evErr.message}`);
-	const events = (eventsData ?? []) as EventRow[];
+	const events = (eventsData ?? []) as unknown as EventRow[];
 
 	const crewByEvent = await fetchCrewByEvent(admin, events);
 
@@ -421,7 +421,7 @@ async function gatherTbcAheadLines(
 			.select(
 				`id, project_id, client_name, event_date, venue_name, start_time,
 				 frame_size, backdrop_id, pic_name, pic_wa, pic_contact_id, pending_package_hours,
-				 event_date_is_estimate, unit_count, spots, package:packages(frame_size)`,
+				 event_date_is_estimate, unit_count, spots, package:packages(frame_size, category)`,
 			)
 			.gt("event_date", addDaysISO(todayISO, 7))
 			.lte("event_date", addDaysISO(todayISO, TBC_AHEAD_DAYS))
@@ -662,6 +662,8 @@ function eventMissingInfo(ev: MissingInfoRow): string[] {
 		pic_wa: ev.pic_wa,
 		pending_package_hours: ev.pending_package_hours,
 		package_frame_size: pkgFrameSize(ev.package),
+		package_category: (Array.isArray(ev.package) ? ev.package[0] : ev.package)
+			?.category,
 		unit_count: ev.unit_count,
 		spots: ev.spots,
 	});

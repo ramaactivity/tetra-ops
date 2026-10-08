@@ -36,7 +36,7 @@ export async function remindOwnerIncompleteData(
 			.select(
 				`id, project_id, client_name, event_date, event_date_is_estimate,
 				 venue_name, start_time, frame_size, backdrop_id, pic_name, pic_wa, pic_contact_id,
-				 pending_package_hours, unit_count, spots, package:packages(frame_size)`,
+				 pending_package_hours, unit_count, spots, package:packages(frame_size, category)`,
 			)
 			.eq("project_id", projectId)
 			.maybeSingle();
@@ -64,6 +64,7 @@ export async function remindOwnerIncompleteData(
 		const missing = listMissingFields({
 			...event,
 			package_frame_size: (pkg?.frame_size as string | null) ?? null,
+			package_category: (pkg?.category as string | null) ?? null,
 		});
 		if (missing.length === 0) {
 			return { ok: false, error: "Data event ini sudah lengkap." };

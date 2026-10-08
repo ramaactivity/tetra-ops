@@ -273,6 +273,12 @@ const BookingInputSchema = z.object({
 		.min(0, "Tidak boleh negatif")
 		.default(0),
 	include_flashdisk_pouch: z.coerce.boolean(),
+	/** Booth v0.9: id desain kartu QR Guest Cam ("" = belum dipilih). */
+	guest_card_design: z
+		.string()
+		.regex(/^[a-z0-9_-]{0,30}$/)
+		.transform((v) => v || null)
+		.optional(),
 	// Financial
 	base_price: z.coerce.number().int().min(0, "Tidak boleh negatif").default(0),
 	discount_amount: z.coerce
@@ -361,6 +367,7 @@ const FORM_KEYS = [
 	"unit_count",
 	"spots",
 	"vendor_decor_markup",
+	"guest_card_design",
 	"base_price",
 	"discount_amount",
 	"gross_up_pph_amount",
@@ -928,6 +935,7 @@ function buildEventPayload(
 		// Hanya spot yang benar-benar dipakai.
 		spots: input.spots.filter((x) => x.spot <= input.unit_count),
 		vendor_decor_markup: input.vendor_decor_markup,
+		guest_card_design: input.guest_card_design ?? null,
 		// Legacy columns retained on the events table for back-compat with
 		// historical data; new bookings populate them with neutral defaults.
 		backdrop_source: "basic_tetra",
@@ -1508,7 +1516,7 @@ export async function updateBooking(
 			client_name, event_date, event_date_is_estimate, setup_time,
 			start_time, end_time, session_segments, venue_name, venue_city,
 			package_id, pending_package_hours, backdrop_id, frame_size,
-			event_category, pic_name, grand_total, unit_count, spots`,
+			event_category, pic_name, grand_total, unit_count, spots, guest_card_design`,
 		)
 		.eq("id", id)
 		.maybeSingle();
@@ -1668,7 +1676,12 @@ export async function updateBooking(
 			if (changes.length > 0) {
 				await notifyTelegramEventUpdated(id, changes);
 				await emitBoothEvent("booking.updated", id);
-			}
+			} else if (
+				(curEvent.guest_card_design ?? null) !==
+				(parsed.data.guest_card_design ?? null)
+			)
+				// Ganti desain kartu QR saja: Booth tetap perlu tahu (v0.9).
+				await emitBoothEvent("booking.updated", id);
 		} catch (e) {
 			console.error("[bookings] telegram update notify:", e);
 		}

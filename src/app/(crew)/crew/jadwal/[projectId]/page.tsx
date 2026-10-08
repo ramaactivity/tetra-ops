@@ -84,7 +84,7 @@ export default async function CrewEventDetailPage({
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
 			crew_notes, is_migrated_legacy, pending_package_hours,
 			transport_mode, transport_vehicle,
-			package:packages(name, duration_hours, frame_size),
+			package:packages(name, duration_hours, frame_size, category),
 			backdrop:backdrops(name, type),
 			event_addons:event_addons(quantity, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
@@ -317,6 +317,7 @@ export default async function CrewEventDetailPage({
 				pic_wa: picPhone,
 				pending_package_hours: event.pending_package_hours as number | null,
 				package_frame_size: (pkg?.frame_size as string | null) ?? null,
+				package_category: (pkg?.category as string | null) ?? null,
 				unit_count: event.unit_count as number | null,
 				spots: event.spots,
 			})

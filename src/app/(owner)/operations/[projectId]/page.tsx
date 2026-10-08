@@ -30,7 +30,6 @@ import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { ClientDashboardCard } from "@/components/operations/client-dashboard-card";
-import { previewUrl } from "@/lib/portal/preview";
 import { EventTransportPlan } from "@/components/operations/event-transport-plan";
 import {
 	ProjectHeroRecap,
@@ -60,6 +59,7 @@ import {
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
 import { portalUrl } from "@/lib/portal/notify";
+import { previewUrl } from "@/lib/portal/preview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -116,7 +116,7 @@ export default async function EventDetailPage({
 			drive_folder_id, drive_folder_url, drive_folder_created_at,
 			backdrop_id, vendor_decor_markup, unit_count, spots,
 			backdrop:backdrops(name, type, rental_price),
-			package:packages(id, name, base_price, duration_hours, frame_size),
+			package:packages(id, name, base_price, duration_hours, frame_size, category),
 			event_addons:event_addons(quantity, unit_price, total_price, addon:addons(name, unit, category)),
 			event_bonuses:event_bonuses(quantity, notes, addon:addons(name, unit, category)),
 			crew_assignments:crew_assignments(id, user_id, role_in_event, spot_no, fee_amount, bonus_amount, fee_override_reason, user:users!crew_assignments_user_id_fkey(full_name, tier, phone_wa)),
@@ -208,6 +208,7 @@ export default async function EventDetailPage({
 					pic_contact_id: event.pic_contact_id,
 					pending_package_hours: event.pending_package_hours,
 					package_frame_size: pkg?.frame_size ?? null,
+					package_category: pkg?.category ?? null,
 					unit_count: event.unit_count,
 					spots: event.spots,
 				})

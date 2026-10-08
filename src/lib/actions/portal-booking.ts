@@ -398,13 +398,11 @@ async function syncEventDetail(
 			patch.rundown as Array<{ jam: string; acara: string }>,
 		);
 	}
+	if (typeof patch.guest_card_design === "string")
+		upd.guest_card_design = patch.guest_card_design;
 	if (Object.keys(upd).length === 0) {
 		// Grup foto pelaminan tidak ada kolomnya di events; Booth membacanya dari GET.
-		if (
-			Array.isArray(patch.stage_groups) ||
-			Array.isArray(patch.instagram) ||
-			typeof patch.guest_card_design === "string"
-		)
+		if (Array.isArray(patch.stage_groups) || Array.isArray(patch.instagram))
 			await emitBoothEvent("booking.updated", eventId);
 		return;
 	}

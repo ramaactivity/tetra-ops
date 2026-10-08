@@ -278,6 +278,7 @@ export function buildCrewReminderMessage(input: CrewReminderInput): string {
 		pic_wa: ev.pic_wa,
 		pending_package_hours: ev.pending_package_hours,
 		package_frame_size: ev.package_frame_size,
+		package_category: ev.package_category,
 		unit_count: ev.unit_count,
 		spots: ev.spots,
 	});
@@ -354,6 +355,7 @@ export type EventForWA = {
 	/** Dipakai menghitung daftar TBC (lihat lib/events/tbc.ts). */
 	backdrop_id?: string | null;
 	package_frame_size?: string | null;
+	package_category?: string | null;
 	pending_package_hours?: number | null;
 	channel?: string | null;
 	vendor_name?: string | null;

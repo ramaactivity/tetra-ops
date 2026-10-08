@@ -39,10 +39,10 @@ import {
 import {
 	addonMax,
 	addonRuleError,
-	addonSiblings,
 	type CatalogProduct,
 	type PublicAddonRow,
 	parseInstagram,
+	pickAddon,
 	settleAddons,
 } from "@/lib/portal/core";
 import "./booking.css";
@@ -823,50 +823,11 @@ function useBooking(p: Props) {
 		addFocus,
 		setAddFocus,
 		setAdd: (id: string, n: number) => {
-			const a = p.addons.find((r) => r.id === id);
-			if (!a) return;
-			const max = addonMax(a);
-			const qty = Math.max(0, max === null ? n : Math.min(max, n));
-			const patch: Record<string, number> = { [id]: qty };
-			// Satu keluarga satu pilihan (tier, cetak, Print Station, TV).
-			for (const o of addonSiblings(a, p.addons)) patch[o.id] = 0;
-			if (qty > 0) {
-				const sel = (r: PublicAddonRow) =>
-					r.id === id || ((s.adds[r.id] ?? 0) > 0 && patch[r.id] !== 0);
-				const ctx = { category: s.pkg, frame: frameDb, city: s.city };
-				// Ganti tier → cetak ikut pindah ke tier baru (ukuran sama).
-				const oldPrint = settled.chosen.find(
-					(r) =>
-						r.addon_group === "guest_print" ||
-						r.addon_group === "guest_print_100",
-				);
-				if (a.addon_group === "guest_cam" && oldPrint) {
-					const np = p.addons.find(
-						(r) =>
-							r.print_size === oldPrint.print_size &&
-							(a.max_guests == null
-								? r.addon_group === "guest_print_100"
-								: r.addon_group === "guest_print" &&
-									r.max_guests === a.max_guests),
-					);
-					patch[oldPrint.id] = 0;
-					if (np) patch[np.id] = 1;
-				}
-				// Cetak tanpa printer booth → Print Station sesuai kota ikut terpilih.
-				const after = settleAddons(
-					p.addons,
-					(r) => (patch[r.id] ?? (sel(r) ? 1 : 0)) > 0,
-					ctx,
-				);
-				const station = after.visible.find(
-					(r) => r.addon_group === "print_station",
-				);
-				if (
-					station &&
-					!after.chosen.some((r) => r.addon_group === "print_station")
-				)
-					patch[station.id] = 1;
-			}
+			const patch = pickAddon(p.addons, (r) => s.adds[r] ?? 0, id, n, {
+				category: s.pkg,
+				frame: frameDb,
+				city: s.city,
+			});
 			setS((x) => ({ ...x, adds: { ...x.adds, ...patch } }));
 		},
 		touched,
