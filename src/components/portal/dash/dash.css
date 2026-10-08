@@ -175,6 +175,55 @@
 	scroll-margin-top: 72px;
 }
 
+/* Komponen portal lama (.card/.btn/… dari portal.css) di dalam dashboard:
+   ukurannya disamakan dengan kartu & tombol dash supaya satu bahasa. */
+.tp .dash .card {
+	border-radius: 16px;
+	padding: 16px 20px;
+}
+.tp .dash .btn {
+	min-height: 42px;
+	padding: 0 16px;
+	border-radius: 12px;
+	font-size: 14px;
+	font-weight: 700;
+	box-shadow: none;
+}
+.tp .dash .btn:active:not(:disabled) {
+	transform: translateY(1px);
+}
+.tp .dash .chip {
+	min-height: 38px;
+	font-size: 13px;
+}
+.tp .dash .note {
+	border-radius: 12px;
+}
+.tp .dash .input {
+	min-height: 44px;
+	border-radius: 11px;
+}
+.tp .dash textarea.input {
+	min-height: 88px;
+}
+.tp .dash .opt {
+	border-radius: 12px;
+}
+.dash-row-btn {
+	display: inline-flex;
+	min-height: 32px;
+	align-items: center;
+	border: 0;
+	background: transparent;
+	padding: 0 4px;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 700;
+	color: #5f5e5a;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
 @media (min-width: 1024px) {
 	.dash {
 		flex-direction: row;

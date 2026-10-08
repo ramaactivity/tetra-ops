@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarClock, CircleX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { requestChange } from "@/lib/actions/portal-booking";
@@ -67,31 +68,58 @@ export function ChangeRequest({
 		router.refresh();
 	}
 
+	const options = [
+		!isDraft && {
+			k: "pindah_tanggal" as const,
+			Icon: CalendarClock,
+			title: "Pindah tanggal",
+			hint: "Gratis, paling lambat 30 hari sebelum acara.",
+		},
+		canCancel && {
+			k: "batal" as const,
+			Icon: CircleX,
+			title: isDraft ? "Batalkan draf" : "Batalkan booking",
+			hint: isDraft
+				? "Draf dihapus, tidak ada biaya."
+				: "Diajukan ke admin, lihat kebijakan di samping.",
+		},
+	].filter((o) => !!o);
+
 	return (
-		<div className="card" style={{ display: "grid", gap: 12 }}>
-			<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-				{!isDraft && (
+		<div className="card" style={{ display: "grid", gap: 14 }}>
+			<h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
+				Apa yang mau diubah?
+			</h2>
+			<div
+				style={{
+					display: "grid",
+					gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+					gap: 10,
+				}}
+			>
+				{options.map(({ k, Icon, title, hint }) => (
 					<button
+						key={k}
 						type="button"
-						className="chip"
-						aria-pressed={mode === "pindah_tanggal"}
-						onClick={() =>
-							setMode(mode === "pindah_tanggal" ? null : "pindah_tanggal")
-						}
+						className="opt"
+						aria-pressed={mode === k}
+						onClick={() => setMode(mode === k ? null : k)}
+						style={{ display: "flex", gap: 12, alignItems: "flex-start" }}
 					>
-						Pindah tanggal
+						<Icon
+							aria-hidden
+							size={20}
+							strokeWidth={2}
+							style={{ flex: "none", marginTop: 1 }}
+						/>
+						<span>
+							<span style={{ display: "block", fontSize: 14, fontWeight: 800 }}>
+								{title}
+							</span>
+							<span className="cap">{hint}</span>
+						</span>
 					</button>
-				)}
-				{canCancel && (
-					<button
-						type="button"
-						className="chip"
-						aria-pressed={mode === "batal"}
-						onClick={() => setMode(mode === "batal" ? null : "batal")}
-					>
-						{isDraft ? "Batalkan draf" : "Batalkan booking"}
-					</button>
-				)}
+				))}
 			</div>
 
 			{mode === "pindah_tanggal" && (

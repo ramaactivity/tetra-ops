@@ -310,7 +310,7 @@ export function DpCard({
 			{!gateOpen && !done && (
 				<>
 					<span style={{ fontSize: 14, lineHeight: 1.45, color: "#3A3936" }}>
-						Lengkapi {gateLeft} data di atas dulu, lalu tombol bayar aktif.
+						Lengkapi {gateLeft} data acara wajib dulu, lalu tombol bayar aktif.
 					</span>
 					<button
 						type="button"
