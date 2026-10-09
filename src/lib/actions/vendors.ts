@@ -86,9 +86,8 @@ const VendorInputSchema = z
 			.transform((v) => v || null),
 	})
 	.superRefine((data, ctx) => {
-		// commission + percent: max 100
+		// percent (komisi maupun potongan langsung): max 100
 		if (
-			data.commission_mode === "commission" &&
 			data.commission_value_type === "percent" &&
 			data.commission_value_default != null &&
 			data.commission_value_default > 100

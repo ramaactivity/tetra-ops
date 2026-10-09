@@ -23,7 +23,7 @@ export type VendorFormDefaults = Partial<{
 }>;
 
 const inputClass =
-	"h-10 w-full rounded-md border border-border-default bg-card px-3 text-base md:text-[14px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+	"h-10 w-full rounded-xl border border-border-default bg-background px-3 text-base md:text-[14px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 const labelClass =
 	"flex flex-col gap-1.5 text-[13px] font-medium text-foreground";
@@ -93,48 +93,51 @@ export function VendorForm({
 		}
 	}, [success, router, doneHref]);
 
+	const section =
+		"space-y-4 rounded-2xl border border-border-default bg-card p-5 shadow-[var(--shadow-level-2)]";
+	const head = (title: string, desc: string) => (
+		<header className="space-y-0.5">
+			<h3 className="type-heading">{title}</h3>
+			<p className="type-secondary">{desc}</p>
+		</header>
+	);
+	const isPct = valueType === "percent";
+
 	return (
-		<form action={formAction} className="space-y-6 pb-32">
+		<form action={formAction} className="space-y-3">
 			{success && (
-				<div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-					<div className="flex items-center gap-3">
-						<CheckCircle2
-							className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400"
-							aria-hidden
-						/>
-						<div>
-							<p className="text-[14px] font-medium text-emerald-900 dark:text-emerald-100">
-								{successMessage}
-							</p>
-							<p className="text-[12px] text-emerald-800/80 dark:text-emerald-300/80">
-								Mengarahkan ke daftar vendor…
-							</p>
-						</div>
+				<div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+					<CheckCircle2
+						className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400"
+						aria-hidden
+					/>
+					<div>
+						<p className="text-[14px] font-medium text-emerald-900 dark:text-emerald-100">
+							{successMessage}
+						</p>
+						<p className="text-[12px] text-emerald-800/80 dark:text-emerald-300/80">
+							Mengarahkan kembali…
+						</p>
 					</div>
 				</div>
 			)}
 
 			{formErr && (
-				<div className="rounded-lg border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-900 dark:bg-rose-950/30">
+				<div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-900 dark:bg-rose-950/30">
 					<p className="text-[14px] font-medium text-rose-700 dark:text-rose-300">
 						{formErr}
 					</p>
 				</div>
 			)}
 
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
-				<header className="space-y-0.5">
-					<h3 className="text-[15px] font-semibold tracking-tight">
-						Informasi Vendor
-					</h3>
-					<p className="text-[12px] text-muted-foreground">
-						Nama vendor yang muncul di booking form. Wajib unik.
-					</p>
-				</header>
-
+			<section className={section}>
+				{head(
+					"Profil vendor",
+					"Nama yang muncul di pilihan vendor pada form booking. Harus unik.",
+				)}
 				<label className={labelClass}>
 					<span>
-						Nama Vendor / Perusahaan <span className="text-rose-500">*</span>
+						Nama vendor / perusahaan <span className="text-rose-500">*</span>
 					</span>
 					<input
 						type="text"
@@ -148,40 +151,23 @@ export function VendorForm({
 					/>
 					{err("name") && <span className={errClass}>{err("name")}</span>}
 				</label>
-			</section>
-
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
-				<header className="space-y-0.5">
-					<h3 className="text-[15px] font-semibold tracking-tight">
-						Default PIC
-					</h3>
-					<p className="text-[12px] text-muted-foreground">
-						Sales / account manager utama. Auto-fills booking form saat vendor
-						ini dipilih.
-					</p>
-				</header>
-
 				<div className="grid gap-4 md:grid-cols-2">
 					<label className={labelClass}>
-						Nama PIC / Sales
+						Kontak utama
 						<input
 							type="text"
 							name="default_pic_name"
 							defaultValue={get("default_pic_name")}
-							placeholder="cth. Nisa"
+							placeholder="cth. Teh Puput"
 							maxLength={120}
 							className={inputClass}
 						/>
-						<span className={hintClass}>
-							Nama orang yang biasanya kita kontak dari vendor.
-						</span>
 						{err("default_pic_name") && (
 							<span className={errClass}>{err("default_pic_name")}</span>
 						)}
 					</label>
-
 					<label className={labelClass}>
-						WA / HP PIC
+						Nomor WhatsApp kontak utama
 						<input
 							type="tel"
 							name="default_pic_contact"
@@ -190,39 +176,41 @@ export function VendorForm({
 							maxLength={60}
 							className={`${inputClass} tabular`}
 						/>
-						<span className={hintClass}>
-							Format: 08xxx (auto-convert ke 628xxx di link WhatsApp).
-						</span>
 						{err("default_pic_contact") && (
 							<span className={errClass}>{err("default_pic_contact")}</span>
 						)}
 					</label>
 				</div>
+				<p className={hintClass}>
+					Terisi otomatis di form booking saat vendor ini dipilih. Semua orang
+					vendor (owner, planner, PIC lapangan) & akses dasbornya diatur di
+					Pusat Vendor → Tim.
+				</p>
 			</section>
 
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
-				<header className="space-y-0.5">
-					<h3 className="text-[15px] font-semibold tracking-tight">
-						Skema Komisi
-					</h3>
-					<p className="text-[12px] text-muted-foreground">
-						Cara Tetra deal dengan vendor ini. Bisa di-override per booking.
-					</p>
-				</header>
-
-				{/* Mode segmented control */}
-				<div role="radiogroup" aria-label="Mode komisi" className="space-y-2">
+			<section className={section}>
+				{head(
+					"Cara kerja sama",
+					"Jadi bawaan booking baru vendor ini. Tetap bisa diubah per booking; acara yang sudah ada tidak berubah.",
+				)}
+				<div
+					role="radiogroup"
+					aria-label="Cara kerja sama"
+					className="grid gap-2 md:grid-cols-2"
+				>
 					<ModeOption
 						value="commission"
-						label="Komisi Langsung"
-						description="Klien bayar Tetra full, Tetra transfer komisi ke vendor setelah event."
+						label="Komisi"
+						flow="Klien → Tetra, lalu Tetra → vendor"
+						description="Klien membayar penuh ke Tetra. Setelah acara ditutup, Tetra mentransfer komisi ke vendor."
 						checked={mode === "commission"}
 						onSelect={() => setMode("commission")}
 					/>
 					<ModeOption
 						value="upfront_cut"
-						label="Potongan Langsung"
-						description="Vendor potong jumlah tetap dari setiap event (mis. Rp 500K). Klien tetap pilih paket dari katalog Tetra; vendor ambil fee saat transfer. Tetra terima = base − potongan."
+						label="Potongan langsung"
+						flow="Klien → vendor, lalu vendor → Tetra"
+						description="Klien membayar ke vendor. Vendor memotong bagiannya, lalu menyetor sisanya ke Tetra."
 						checked={mode === "upfront_cut"}
 						onSelect={() => setMode("upfront_cut")}
 					/>
@@ -230,126 +218,80 @@ export function VendorForm({
 				<input type="hidden" name="commission_mode" value={mode} />
 
 				<div className="grid gap-4 md:grid-cols-2">
-					{mode === "commission" ? (
-						<>
-							<div className={labelClass}>
-								<span>Tipe Nilai Komisi</span>
-								<div
-									role="radiogroup"
-									aria-label="Tipe nilai komisi"
-									className="inline-flex rounded-md border border-border-default bg-card p-0.5"
-								>
-									<TypeChip
-										label="Persentase (%)"
-										checked={valueType === "percent"}
-										onSelect={() => setValueType("percent")}
-									/>
-									<TypeChip
-										label="Nominal (Rp)"
-										checked={valueType === "flat"}
-										onSelect={() => setValueType("flat")}
-									/>
-								</div>
-								<input
-									type="hidden"
-									name="commission_value_type"
-									value={valueType}
-								/>
-								<span className={hintClass}>
-									Persentase: 10% dari grand_total. Nominal: rupiah flat per
-									event.
-								</span>
-							</div>
-							<label className={labelClass}>
-								Nilai Komisi Default
-								<div className="relative">
-									{valueType === "flat" && (
-										<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-											Rp
-										</span>
-									)}
-									<input
-										type="number"
-										name="commission_value_default"
-										defaultValue={get("commission_value_default", "10")}
-										min={0}
-										max={valueType === "percent" ? 100 : undefined}
-										step={valueType === "percent" ? 0.5 : 1000}
-										placeholder={valueType === "percent" ? "10" : "500000"}
-										className={cn(
-											inputClass,
-											"tabular",
-											valueType === "flat" ? "pl-9" : "pr-8",
-										)}
-									/>
-									{valueType === "percent" && (
-										<span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-											%
-										</span>
-									)}
-								</div>
-								<span className={hintClass}>
-									{valueType === "percent"
-										? "Standar industri 10%. Owner bisa override saat input booking."
-										: "Komisi flat yang Tetra bayarkan ke vendor per event."}
-								</span>
-								{err("commission_value_default") && (
-									<span className={errClass}>
-										{err("commission_value_default")}
-									</span>
-								)}
-							</label>
-						</>
-					) : (
-						<label className={cn(labelClass, "md:col-span-2")}>
-							Potongan Default Vendor per Event
-							<div className="relative">
+					<div className={labelClass}>
+						<span>Hitung dari</span>
+						<div className="inline-flex w-fit rounded-full border border-border-default bg-background p-0.5">
+							<TypeChip
+								label="Persen (%)"
+								checked={isPct}
+								onSelect={() => setValueType("percent")}
+							/>
+							<TypeChip
+								label="Nominal (Rp)"
+								checked={!isPct}
+								onSelect={() => setValueType("flat")}
+							/>
+						</div>
+						<input
+							type="hidden"
+							name="commission_value_type"
+							value={valueType}
+						/>
+						<span className={hintClass}>
+							{isPct
+								? mode === "upfront_cut"
+									? "Persen dari harga paket Tetra."
+									: "Persen dari total tagihan acara."
+								: "Nominal tetap per acara."}
+						</span>
+					</div>
+					<label className={labelClass}>
+						{mode === "upfront_cut" ? "Potongan vendor" : "Komisi vendor"}
+						<div className="relative">
+							{!isPct && (
 								<span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
 									Rp
 								</span>
-								<input
-									type="number"
-									name="commission_value_default"
-									defaultValue={get("commission_value_default")}
-									min={0}
-									step={50000}
-									placeholder="500000"
-									className={cn(inputClass, "tabular pl-9")}
-								/>
-							</div>
-							<input type="hidden" name="commission_value_type" value="flat" />
-							<span className={hintClass}>
-								Jumlah yang vendor potong dari harga paket Tetra per event.
-								Klien tetap pilih paket dari katalog kita; vendor ambil fee
-								tetap ini saat transfer ke Tetra (mis. Partner Organizer = Rp
-								500.000, Party Planner = Rp 300.000). Bisa di-override per
-								booking.
-							</span>
-							{err("commission_value_default") && (
-								<span className={errClass}>
-									{err("commission_value_default")}
+							)}
+							<input
+								type="number"
+								name="commission_value_default"
+								defaultValue={get("commission_value_default", "10")}
+								min={0}
+								max={isPct ? 100 : undefined}
+								step={isPct ? 0.5 : 1000}
+								placeholder={isPct ? "10" : "500000"}
+								className={cn(inputClass, "tabular", isPct ? "pr-8" : "pl-9")}
+							/>
+							{isPct && (
+								<span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+									%
 								</span>
 							)}
-						</label>
-					)}
-
-					<label
-						className={cn(
-							labelClass,
-							mode === "upfront_cut" && "md:col-span-2",
+						</div>
+						<span className={hintClass}>
+							{mode === "upfront_cut"
+								? "Bagian yang vendor ambil per acara (mis. Rp 500.000)."
+								: "Yang Tetra bayarkan ke vendor per acara."}
+						</span>
+						{err("commission_value_default") && (
+							<span className={errClass}>
+								{err("commission_value_default")}
+							</span>
 						)}
-					>
-						Payment Terms
+					</label>
+					<label className={cn(labelClass, "md:col-span-2")}>
+						Termin bayar
 						<input
 							type="text"
 							name="payment_terms"
 							defaultValue={get("payment_terms")}
-							placeholder='cth. "Net 14" atau "Pelunasan H+7"'
+							placeholder='cth. "Lunas H-7" atau "14 hari setelah acara"'
 							maxLength={200}
 							className={inputClass}
 						/>
 						<span className={hintClass}>
-							Catatan kapan pembayaran flow. Optional, untuk reference.
+							Kesepakatan kapan uang dibayar. Opsional, sebagai catatan.
 						</span>
 						{err("payment_terms") && (
 							<span className={errClass}>{err("payment_terms")}</span>
@@ -358,16 +300,11 @@ export function VendorForm({
 				</div>
 			</section>
 
-			<section className="space-y-4 rounded-lg border border-border-default bg-surface-2 p-5">
-				<header className="space-y-0.5">
-					<h3 className="text-[15px] font-semibold tracking-tight">
-						Detail Tambahan
-					</h3>
-					<p className="text-[12px] text-muted-foreground">
-						Optional — untuk keperluan kontrak / invoice / catatan internal.
-					</p>
-				</header>
-
+			<section className={section}>
+				{head(
+					"Detail tambahan",
+					"Opsional, untuk kontrak, invoice, atau catatan internal.",
+				)}
 				<label className={labelClass}>
 					Email
 					<input
@@ -379,9 +316,8 @@ export function VendorForm({
 					/>
 					{err("email") && <span className={errClass}>{err("email")}</span>}
 				</label>
-
 				<label className={labelClass} htmlFor="company_address">
-					Alamat Perusahaan
+					Alamat perusahaan
 					<RichTextarea
 						id="company_address"
 						name="company_address"
@@ -395,14 +331,13 @@ export function VendorForm({
 						<span className={errClass}>{err("company_address")}</span>
 					)}
 				</label>
-
 				<label className={labelClass} htmlFor="notes">
-					Catatan Internal
+					Catatan internal
 					<RichTextarea
 						id="notes"
 						name="notes"
 						defaultValue={get("notes")}
-						placeholder="Catatan apapun tentang vendor ini (mis. preferensi koordinasi, dll)"
+						placeholder="Mis. preferensi koordinasi, kebiasaan bayar, dll."
 						rows={3}
 						maxLength={1000}
 						toolbar={false}
@@ -411,36 +346,34 @@ export function VendorForm({
 				</label>
 			</section>
 
-			{/* Sticky footer */}
-			<div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-border-default bg-background/95 supports-[backdrop-filter]:bg-background/85 backdrop-blur md:bottom-0">
-				<div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 md:px-8 md:py-4">
-					<Link
-						href="/vendors"
-						className="text-[13px] font-medium text-muted-foreground hover:text-foreground"
-					>
-						Batal
-					</Link>
-					<Button
-						type="submit"
-						variant="default"
-						size="lg"
-						disabled={pending || Boolean(success)}
-					>
-						{pending ? (
-							<>
-								<Loader2 className="size-4 animate-spin" />
-								Menyimpan…
-							</>
-						) : success ? (
-							<>
-								<CheckCircle2 className="size-4" />
-								Tersimpan
-							</>
-						) : (
-							submitLabel
-						)}
-					</Button>
-				</div>
+			{/* Bilah simpan menempel di bawah area konten (tidak menutupi sidebar). */}
+			<div className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-end gap-2 rounded-2xl border border-border-default bg-card/95 p-2.5 shadow-[var(--shadow-level-3)] backdrop-blur md:bottom-3">
+				<Link
+					href={doneHref}
+					className="hover:bg-secondary inline-flex h-10 items-center rounded-full px-4 text-[13px] font-medium text-muted-foreground"
+				>
+					Batal
+				</Link>
+				<Button
+					type="submit"
+					variant="default"
+					disabled={pending || Boolean(success)}
+					className="h-10 rounded-full px-5"
+				>
+					{pending ? (
+						<>
+							<Loader2 className="size-4 animate-spin" />
+							Menyimpan…
+						</>
+					) : success ? (
+						<>
+							<CheckCircle2 className="size-4" />
+							Tersimpan
+						</>
+					) : (
+						submitLabel
+					)}
+				</Button>
 			</div>
 		</form>
 	);
@@ -449,12 +382,14 @@ export function VendorForm({
 function ModeOption({
 	value,
 	label,
+	flow,
 	description,
 	checked,
 	onSelect,
 }: {
 	value: string;
 	label: string;
+	flow: string;
 	description: string;
 	checked: boolean;
 	onSelect: () => void;
@@ -462,10 +397,10 @@ function ModeOption({
 	return (
 		<label
 			className={cn(
-				"flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors",
+				"flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
 				checked
-					? "border-primary bg-primary/5"
-					: "border-border-default bg-card hover:border-border-strong hover:bg-secondary/40",
+					? "border-[#059669] bg-emerald-500/5"
+					: "border-border-default bg-card hover:bg-secondary/40",
 			)}
 		>
 			<input
@@ -474,11 +409,14 @@ function ModeOption({
 				value={value}
 				checked={checked}
 				onChange={onSelect}
-				className="mt-0.5 size-4 accent-primary"
+				className="mt-0.5 size-4 shrink-0 accent-[#059669]"
 			/>
-			<span className="flex flex-col gap-0.5">
-				<span className="text-[14px] font-medium leading-tight text-foreground">
+			<span className="flex min-w-0 flex-col gap-0.5">
+				<span className="text-[14px] font-semibold leading-tight text-foreground">
 					{label}
+				</span>
+				<span className="text-[12.5px] font-medium text-foreground/80">
+					{flow}
 				</span>
 				<span className="text-[12px] leading-snug text-muted-foreground">
 					{description}
@@ -500,11 +438,10 @@ function TypeChip({
 	return (
 		<button
 			type="button"
-			role="radio"
-			aria-checked={checked}
+			aria-pressed={checked}
 			onClick={onSelect}
 			className={cn(
-				"inline-flex h-8 items-center rounded-[4px] px-3 text-[12.5px] font-medium leading-none transition-colors",
+				"inline-flex h-8 items-center rounded-full px-3.5 text-[12.5px] font-medium leading-none transition-colors",
 				checked
 					? "bg-[#059669] text-white"
 					: "text-muted-foreground hover:text-foreground",

@@ -71,7 +71,7 @@ export default async function EditVendorPage({
 
 			<VendorForm
 				action={action}
-				submitLabel="Simpan Perubahan"
+				submitLabel="Simpan perubahan"
 				successMessage="Perubahan disimpan!"
 				doneHref={`/vendors/${vendor.id}`}
 				defaults={{
@@ -96,11 +96,9 @@ export default async function EditVendorPage({
 			/>
 
 			{vendor.is_active && (
-				<div className="rounded-2xl border border-border-default bg-card p-5">
-					<h3 className="text-[14px] font-semibold tracking-tight">
-						Arsipkan vendor
-					</h3>
-					<p className="mt-1 text-[12px] text-muted-foreground">
+				<div className="rounded-2xl border border-border-default bg-card p-5 shadow-[var(--shadow-level-2)]">
+					<h3 className="type-heading">Arsipkan vendor</h3>
+					<p className="type-secondary mt-0.5">
 						Vendor yang diarsipkan tidak muncul lagi di pilihan form booking.
 						Riwayat acaranya tetap utuh dan bisa dipulihkan kapan saja.
 					</p>
@@ -110,11 +108,9 @@ export default async function EditVendorPage({
 				</div>
 			)}
 			{!vendor.is_active && (
-				<div className="rounded-2xl border border-border-default bg-card p-5">
-					<h3 className="text-[14px] font-semibold tracking-tight">
-						Pulihkan vendor
-					</h3>
-					<p className="mt-1 text-[12px] text-muted-foreground">
+				<div className="rounded-2xl border border-border-default bg-card p-5 shadow-[var(--shadow-level-2)]">
+					<h3 className="type-heading">Pulihkan vendor</h3>
+					<p className="type-secondary mt-0.5">
 						Vendor kembali muncul di pilihan form booking.
 					</p>
 					<div className="mt-3">

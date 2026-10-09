@@ -9,11 +9,11 @@ export default function NewVendorPage() {
 			<div className="space-y-2">
 				<SectionHeader
 					as="h1"
-					title="Vendor Baru"
-					description="Daftarkan vendor / partner organizer. Setelah save, vendor langsung muncul di booking form autocomplete."
+					title="Vendor baru"
+					description="Daftarkan vendor / WO rekanan. Setelah disimpan, vendor langsung bisa dipilih di form booking."
 				/>
 			</div>
-			<VendorForm action={createVendor} submitLabel="Simpan Vendor" />
+			<VendorForm action={createVendor} submitLabel="Simpan vendor" />
 		</Container>
 	);
 }

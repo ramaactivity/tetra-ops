@@ -1,11 +1,11 @@
 import {
 	Archive,
+	Banknote,
 	Building2,
 	CalendarRange,
 	Coins,
 	FileSpreadsheet,
 	PlusCircle,
-	TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { type StatItem, StatRow } from "@/components/catalog/stat-tile";
@@ -13,7 +13,8 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { buttonVariants } from "@/components/ui/button";
 import { VendorsExplorer } from "@/components/vendors/vendors-explorer";
-import { formatRupiah } from "@/lib/format";
+import { getCommissionsOverview } from "@/lib/finance/commissions-data";
+import { formatRupiahCompact } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export type VendorRow = {
@@ -30,8 +31,10 @@ export type VendorRow = {
 	is_active: boolean;
 	event_count: number;
 	event_count_ytd: number;
-	commission_ytd: number;
-	gross_revenue_ytd: number;
+	/** Sisa tagihan acara potongan langsung (vendor → Tetra). */
+	owe: number;
+	/** Komisi siap dibayar (Tetra → vendor), status sama dgn Finance → Komisi. */
+	payable: number;
 	last_event_date: string | null;
 };
 
@@ -146,10 +149,14 @@ export default async function VendorsListPage({
 	const vendorIds = vendorList.map((v) => v.id);
 
 	type EventAgg = {
+		id: string;
 		vendor_contact_id: string | null;
 		event_date: string;
+		status: string;
+		is_migrated_legacy: boolean | null;
+		vendor_commission_mode: string | null;
 		vendor_commission_amount: number | string | null;
-		grand_total: number | string | null;
+		remaining_balance: number | string | null;
 	};
 	let events: EventAgg[] = [];
 	let eventsError: {
@@ -163,11 +170,10 @@ export default async function VendorsListPage({
 			const res = await supabase
 				.from("events")
 				.select(
-					"vendor_contact_id, event_date, vendor_commission_amount, grand_total",
+					"id, vendor_contact_id, event_date, status, is_migrated_legacy, vendor_commission_mode, vendor_commission_amount, remaining_balance",
 				)
 				.in("vendor_contact_id", vendorIds)
-				.is("deleted_at", null)
-				.eq("is_migrated_legacy", false);
+				.is("deleted_at", null);
 			if (res.error) {
 				eventsError = {
 					message: res.error.message,
@@ -221,54 +227,51 @@ export default async function VendorsListPage({
 		);
 	}
 
-	// Bucket events by vendor_contact_id, accumulate in O(N).
-	const stats = new Map<
-		string,
-		{
-			count: number;
-			count_ytd: number;
-			commission_ytd: number;
-			gross_ytd: number;
-			last_date: string | null;
-		}
-	>();
-	// NUMERIC columns come back from PostgREST as JSON strings. Coerce
-	// once to avoid `"0" + "0" === "00"` string concat in the reducer.
+	// Komisi: status sama persis dengan Finance → Komisi.
+	const { rows: commRows } = await getCommissionsOverview(supabase);
+	const payableEv = new Map(
+		commRows
+			.filter((r) => r.kind === "vendor" && r.status === "payable")
+			.map((r) => [r.eventId, r.amount]),
+	);
+	// NUMERIC columns come back from PostgREST as JSON strings.
 	const num = (v: number | string | null | undefined): number => {
 		if (v == null) return 0;
 		const n = typeof v === "string" ? Number(v) : v;
 		return Number.isFinite(n) ? n : 0;
 	};
-
+	type Agg = {
+		count: number;
+		count_ytd: number;
+		owe: number;
+		payable: number;
+		last_date: string | null;
+	};
+	const empty = (): Agg => ({
+		count: 0,
+		count_ytd: 0,
+		owe: 0,
+		payable: 0,
+		last_date: null,
+	});
+	const stats = new Map<string, Agg>();
 	for (const e of events) {
-		if (!e.vendor_contact_id) continue;
-		const cur = stats.get(e.vendor_contact_id) ?? {
-			count: 0,
-			count_ytd: 0,
-			commission_ytd: 0,
-			gross_ytd: 0,
-			last_date: null,
-		};
-		cur.count += 1;
-		if (e.event_date >= ytdStart) {
-			cur.count_ytd += 1;
-			cur.commission_ytd += num(e.vendor_commission_amount);
-			cur.gross_ytd += num(e.grand_total);
+		if (!e.vendor_contact_id || e.status === "cancelled") continue;
+		const cur = stats.get(e.vendor_contact_id) ?? empty();
+		// Hitungan acara tanpa data migrasi lama; uang terbuka tetap dihitung.
+		if (!e.is_migrated_legacy) {
+			cur.count += 1;
+			if (e.event_date >= ytdStart) cur.count_ytd += 1;
 		}
-		if (!cur.last_date || e.event_date > cur.last_date) {
+		if (e.vendor_commission_mode === "upfront_cut")
+			cur.owe += Math.max(0, num(e.remaining_balance));
+		cur.payable += payableEv.get(e.id) ?? 0;
+		if (!cur.last_date || e.event_date > cur.last_date)
 			cur.last_date = e.event_date;
-		}
 		stats.set(e.vendor_contact_id, cur);
 	}
-
 	const vendors: VendorRow[] = vendorList.map((v) => {
-		const s = stats.get(v.id) ?? {
-			count: 0,
-			count_ytd: 0,
-			commission_ytd: 0,
-			gross_ytd: 0,
-			last_date: null,
-		};
+		const s = stats.get(v.id) ?? empty();
 		return {
 			vendor_id: v.id,
 			name: v.name,
@@ -289,42 +292,38 @@ export default async function VendorsListPage({
 			is_active: v.is_active,
 			event_count: s.count,
 			event_count_ytd: s.count_ytd,
-			commission_ytd: s.commission_ytd,
-			gross_revenue_ytd: s.gross_ytd,
+			owe: s.owe,
+			payable: s.payable,
 			last_event_date: s.last_date,
 		};
 	});
-
-	// Top-of-page KPIs
-	const totalVendors = vendors.filter((v) => v.is_active).length;
-	const totalEventsYTD = vendors.reduce((s, v) => s + v.event_count_ytd, 0);
-	const totalCommissionYTD = vendors.reduce((s, v) => s + v.commission_ytd, 0);
-	const totalGrossYTD = vendors.reduce((s, v) => s + v.gross_revenue_ytd, 0);
-
+	const year = ytdStart.slice(0, 4);
+	const sum = (k: "owe" | "payable" | "event_count_ytd") =>
+		vendors.reduce((t, v) => t + v[k], 0);
 	const kpiStats: StatItem[] = [
 		{
-			label: "Vendor Aktif",
-			value: totalVendors.toString(),
-			hint: "total terdaftar",
+			label: "Vendor aktif",
+			value: vendors.filter((v) => v.is_active).length.toString(),
+			hint: "terdaftar",
 			icon: Building2,
 		},
 		{
-			label: "Event YTD",
-			value: totalEventsYTD.toLocaleString("id-ID"),
-			hint: "tahun berjalan",
+			label: `Acara ${year}`,
+			value: sum("event_count_ytd").toLocaleString("id-ID"),
+			hint: "lewat vendor",
 			icon: CalendarRange,
 		},
 		{
-			label: "Gross Revenue YTD",
-			value: formatRupiah(totalGrossYTD),
-			hint: "dari semua vendor",
-			icon: TrendingUp,
-			accent: "info",
+			label: "Belum disetor",
+			value: formatRupiahCompact(sum("owe")),
+			hint: "Vendor → Tetra · potongan langsung",
+			icon: Banknote,
+			accent: "emerald",
 		},
 		{
-			label: "Komisi YTD",
-			value: formatRupiah(totalCommissionYTD),
-			hint: "total payable",
+			label: "Komisi",
+			value: formatRupiahCompact(sum("payable")),
+			hint: "Siap dibayar · Tetra → vendor",
 			icon: Coins,
 			accent: "amber",
 		},
@@ -333,7 +332,7 @@ export default async function VendorsListPage({
 	const archiveToggle = (
 		<Link
 			href={showArchived ? "/vendors" : "/vendors?show_archived=1"}
-			className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium transition-colors ${
+			className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
 				showArchived
 					? "border-[#059669] bg-[#059669] text-white"
 					: "border-border-default bg-card text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -351,7 +350,7 @@ export default async function VendorsListPage({
 				as="h1"
 				eyebrow="Kontak"
 				title="Vendor"
-				description="Master vendor / partner organizer. Tiap booking channel = Vendor otomatis terhubung ke sini. Commission default + PIC dipakai auto-fill di form booking."
+				description="Semua vendor & WO rekanan. Buka satu vendor untuk melihat acaranya, tim & akses dasbor, dan uang yang masih terbuka."
 				actions={
 					<div className="flex items-center gap-2">
 						<Link
@@ -359,14 +358,14 @@ export default async function VendorsListPage({
 							className={buttonVariants({ variant: "outline", size: "sm" })}
 						>
 							<FileSpreadsheet className="size-4" />
-							<span className="hidden sm:inline">Lihat Kontak</span>
+							<span className="hidden sm:inline">Lihat kontak</span>
 						</Link>
 						<Link
 							href="/vendors/new"
 							className={buttonVariants({ variant: "default", size: "sm" })}
 						>
 							<PlusCircle className="size-4" />
-							<span className="hidden sm:inline">Tambah Vendor</span>
+							<span className="hidden sm:inline">Tambah vendor</span>
 							<span className="sm:hidden">Tambah</span>
 						</Link>
 					</div>
@@ -377,19 +376,10 @@ export default async function VendorsListPage({
 
 			<VendorsExplorer vendors={vendors} toolbar={archiveToggle} />
 
-			<p className="text-fluid-caption text-muted-foreground">
-				Aggregate dihitung dari{" "}
-				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-					contacts
-				</code>{" "}
-				(type=vendor) ×{" "}
-				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">events</code>{" "}
-				(vendor_contact_id). YTD = year-to-date sesuai tanggal event. Komisi YTD
-				dihitung dari{" "}
-				<code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-					events.vendor_commission_amount
-				</code>{" "}
-				(populated saat settlement).
+			<p className="type-caption text-muted-foreground px-1">
+				"Belum disetor" = sisa tagihan acara potongan langsung yang belum
+				dibayar vendor. "Komisi siap dibayar" = komisi acara yang sudah ditutup,
+				dibayar di Finance → Komisi.
 			</p>
 		</Container>
 	);
