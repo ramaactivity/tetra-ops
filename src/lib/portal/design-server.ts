@@ -56,6 +56,17 @@ export function designSpots(
 	];
 }
 
+/** Ukuran cetak yang dipesan untuk satu spot (null = masih menyusul). */
+export async function expectedSpotSize(
+	eventId: string,
+	spotNo: number,
+): Promise<string | null> {
+	const ev = await loadEvent(eventId);
+	return ev
+		? (designSpots(ev).find((s) => s.spot === spotNo)?.size ?? null)
+		: null;
+}
+
 /** Buat baris permintaan desain yang belum ada (idempoten, spot_no stabil). */
 export async function ensureDesignRequests(
 	bookingId: string,
@@ -106,6 +117,8 @@ export type DesignVersion = {
 	height: number;
 	has_transparency: boolean | null;
 	note: string | null;
+	/** "designer" | "klien" (desain unggahan klien sendiri). */
+	source?: string;
 	created_at: string;
 	url: string | null;
 };
@@ -128,7 +141,7 @@ export type DesignRequestView = {
 	id: string;
 	spot_no: number;
 	size: string | null;
-	mode: "template" | "custom" | null;
+	mode: "template" | "custom" | "upload" | null;
 	template_id: string | null;
 	brief: Record<string, string>;
 	stage: Stage;
@@ -258,11 +271,20 @@ export async function approveFromPortal(
 	const { data: reqs } = await admin
 		.from("design_requests")
 		.select(
-			"spot_no, stage, approved_version_id, version:design_versions!design_requests_approved_version_fkey(frame_size, file_path)",
+			"spot_no, stage, mode, approved_version_id, version:design_versions!design_requests_approved_version_fkey(frame_size, file_path), template:design_templates(frame_size)",
 		)
 		.eq("event_id", eventId);
 	if (!reqs?.length || reqs.some((r) => r.stage !== "acc"))
 		return { approved: false };
+	// Template teks-otomatis (Booth) tidak punya file versi: ukurannya = ukuran template.
+	for (const r of reqs) {
+		const tpl = r.template as unknown as { frame_size: string } | null;
+		if (!r.version && r.mode === "template" && tpl)
+			(r as { version: unknown }).version = {
+				frame_size: tpl.frame_size,
+				file_path: null,
+			};
+	}
 
 	const need = new Map(designSpots(ev).map((s) => [s.spot, s.size]));
 	const mismatch: string[] = [];
@@ -317,8 +339,8 @@ export async function approveFromPortal(
 	if (isDriveConfigured()) {
 		const folder = await ensureEventCategoryFolderInternal(eventId, "Design");
 		for (const r of reqs) {
-			const v = r.version as unknown as { file_path: string } | null;
-			if (!folder.id || !v) continue;
+			const v = r.version as unknown as { file_path: string | null } | null;
+			if (!folder.id || !v?.file_path) continue;
 			try {
 				const file = await r2Get(v.file_path);
 				if (!file) continue;

@@ -172,3 +172,68 @@ test("tanda tangan webhook t=…,v1=hex(HMAC(secret, t.body))", () => {
 	assert.equal(sig, boothSignature("rahasia", 1793865600, '{"a":1}'));
 	assert.notEqual(sig, boothSignature("rahasia", 1793865600, '{"a":2}'));
 });
+
+test("objek design v1.0: source & texts (template otomatis / klien / designer)", () => {
+	const ev = {
+		design_status: "approved",
+		design_approved_at: "2026-10-09T00:00:00Z",
+		design_frame_size: "4R",
+		frame_size: "4R",
+	};
+	const tpl = toBoothDesign(
+		ev,
+		[
+			{
+				spot_no: 1,
+				stage: "acc",
+				mode: "template",
+				brief: {
+					teks_frame: "Rina & Dimas",
+					tanggal_frame: "12.12.2026",
+					catatan: "x",
+				},
+				version: null,
+				template: {
+					booth_layout_id: "11111111-1111-4111-8111-111111111111",
+					booth_preset_id: null,
+					booth_layout_version: 3,
+				},
+			},
+		],
+		() => null,
+		null,
+	);
+	assert.equal(tpl.source, "template");
+	assert.equal(tpl.booth_layout_version, 3);
+	assert.equal(tpl.booth_layout_id, "11111111-1111-4111-8111-111111111111");
+	assert.deepEqual(tpl.texts, {
+		judul: "Rina & Dimas",
+		subjudul: null,
+		tanggal: "12.12.2026",
+		hashtag: null,
+	});
+	const klien = toBoothDesign(
+		ev,
+		[
+			{
+				spot_no: 1,
+				stage: "acc",
+				mode: "upload",
+				brief: {},
+				version: {
+					frame_size: "4R",
+					orientation: "portrait",
+					file_path: "b/k.png",
+					booth_layout_id: null,
+					source: "klien",
+				},
+				template: null,
+			},
+		],
+		(p) => `https://x/${p}`,
+		"2026-11-09T00:00:00Z",
+	);
+	assert.equal(klien.source, "klien");
+	assert.equal(klien.texts, null);
+	assert.equal(klien.frame_url, "https://x/b/k.png");
+});

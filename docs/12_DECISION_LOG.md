@@ -1250,3 +1250,24 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - `events.is_demo` + `client_bookings.is_demo`. Event demo SELALU `deleted_at` terisi → tersaring dari semua yang memakai `deleted_at IS NULL` (KPI, laporan keuangan, digest/notifikasi Telegram, TBC reminder, cek jadwal, feed & webhook Booth, AI/MCP). Portal sengaja menampilkannya: `syncVendorBookings`/`rekananRows` (`deleted_at IS NULL OR is_demo`), dashboard booking membaca event per id. Booking demo disaring dari antrean `/operations/portal` dan cek jadwal; notifikasi pembayaran/permintaan/desain dilewati; `emitBoothEvent` menolak event demo.
 - Tidak pernah ada pembayaran/jurnal demo: "DP/pelunasan diterima" = `simulateDemoPayment` (hanya angka event demo + status pengajuan).
 - `/settings/demo` (owner, tab "Mode Demo"): buka dasbor vendor demo / dashboard klien demo lewat link pribadi sekali ketuk, simulasikan bukti bayar demo, reset data demo. Data: vendor "DEMO · Rekanan Contoh" (diarsipkan → tidak muncul di daftar/form), akun Sari (vendor, 6289900009901) & Nadia (klien, 6289900009902), PRJ-DEMO-01..04 (potongan langsung, komisi, selesai, pribadi), 1 booking draf. Booking yang dibuat akun demo lewat wizard otomatis `is_demo` (src/lib/demo-phones.ts).
+
+---
+
+## DR-048: Template frame — Booth jadi studio, Ops jadi etalase; klien boleh unggah desain sendiri
+
+**Status:** Accepted (owner 2026-10-09)
+**Date:** 2026-10-09
+
+### Context
+Katalog desain Tetra banyak, dan sebelumnya tiap template perlu diedit di Photoshop per acara (nama & tanggal). Booth sudah punya editor lengkap (teks native, 22 font + upload, font pack, chroma key, deteksi slot, versi). Mengelola template di dua tempat = dobel kerja.
+
+### Decision
+- **Booth = studio**: overlay PNG dibuat tanpa teks (Photoshop/Canva), teks & font diatur di editor Booth, berlaku untuk banyak acara. **Ops = etalase**: `/design/templates` menarik katalog Booth (`syncBoothTemplates`, `GET /api/ops/templates`), mengatur tampil/sembunyi, unggulan, tema, dan memantau berapa kali dipilih. Template PNG manual (teks bawaan) tetap didukung, dengan chroma key + deteksi slot di browser.
+- Klien memilih template Booth teks-otomatis → isi teks (judul, subjudul, tanggal) → "Pakai template ini" → langsung ACC tanpa designer (`applyAutoTemplate`); Booth memasang layout + teks (`design.source = template`, `design.texts`). Template manual tetap lewat antrean designer.
+- Klien boleh **unggah desain sendiri** (mode `upload`): diolah di browser (chroma key otomatis/warna pilihan, deteksi kotak foto, cek ukuran vs pesanan), dicek ulang di server (header PNG, rasio §2.3), lalu langsung ACC; designer dikabari untuk mengecek sebelum dipasang di Booth (pilihan owner: tanpa antrean).
+- `src/lib/design/chroma.ts` & `detect.ts` disalin dari Booth `packages/editor` (pure); perubahan algoritma dimulai di Booth.
+- Data: `design_templates` + `source`/`text_mode`/`preview_url`/`featured`/`booth_layout_version`/…; `design_requests.mode` + `upload`; `design_versions.source`/`uploaded_by_person`/`slot_count` (migrasi 20261011).
+
+### Pending (sisi Booth)
+Metadata `category`/`text_mode`/`ops_visible` di layout, endpoint katalog, variabel teks baru, pasang layout otomatis untuk `source = template` — diusulkan di papan OPS-BOOTH-SYNC 2026-10-09. Sampai itu live, etalase hanya berisi template manual dan tombol Sinkron menjawab "katalog Booth belum tersedia".
+

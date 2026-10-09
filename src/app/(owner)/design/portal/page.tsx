@@ -141,7 +141,9 @@ export default async function DesignQueuePage() {
 												? `Template: ${row.template?.name ?? "-"}`
 												: r.mode === "custom"
 													? "Custom"
-													: "Brief belum dikirim"}
+													: r.mode === "upload"
+														? "Desain dari klien — cek sebelum dipasang di Booth"
+														: "Brief belum dikirim"}
 										</b>
 									</p>
 									{Object.entries(r.brief)

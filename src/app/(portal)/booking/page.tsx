@@ -21,15 +21,19 @@ export default async function BookingPage() {
 			.maybeSingle(),
 		createAdminClient()
 			.from("design_templates")
-			.select("id, name, category, frame_size, preview_path")
+			.select("id, name, category, frame_size, preview_path, preview_url")
 			.eq("is_active", true)
+			.eq("booth_archived", false)
+			.order("featured", { ascending: false })
 			.order("sort")
 			.limit(24),
 	]);
 	// Katalog template asli (Template Frame) untuk layar "Intip desain".
 	const tplRows = tpl.data ?? [];
 	const urls = await signedUrls(
-		tplRows.map((t) => t.preview_path as string),
+		tplRows
+			.map((t) => t.preview_path as string | null)
+			.filter((x): x is string => !!x),
 		3600,
 	);
 	const templates = tplRows
@@ -38,7 +42,9 @@ export default async function BookingPage() {
 			name: t.name as string,
 			category: (t.category as string | null) ?? null,
 			frame: t.frame_size as string,
-			url: urls.get(t.preview_path as string) ?? null,
+			url:
+				(t.preview_url as string | null) ??
+				(t.preview_path ? (urls.get(t.preview_path as string) ?? null) : null),
 		}))
 		.filter((t) => t.url);
 	const now = new Date(Date.now() + 7 * 3600_000); // WIB

@@ -196,8 +196,8 @@ export async function requestTemplatePreviewUpload(file: {
 	await requireOwnerLevel();
 	const ext = PREVIEW_MIME[file.type];
 	if (!ext) return { ok: false, error: "Pratinjau harus JPG/PNG/WebP." };
-	if (file.size <= 0 || file.size > 10 * 1024 * 1024)
-		return { ok: false, error: "Maksimal 10 MB." };
+	if (file.size <= 0 || file.size > 25 * 1024 * 1024)
+		return { ok: false, error: "Maksimal 25 MB." };
 	const path = `templates/${crypto.randomUUID()}.${ext}`;
 	return { ok: true, path, uploadUrl: r2UploadUrl(path, file.type, file.size) };
 }
@@ -208,14 +208,31 @@ const TemplateSchema = z.object({
 	frameSize: z.enum(FRAME_SIZES),
 	orientation: z.enum(["portrait", "landscape"]),
 	previewPath: z.string().startsWith("templates/").max(200),
+	textMode: z.enum(["native", "baked"]).default("baked"),
+	slotCount: z.number().int().min(0).max(12).optional(),
 	boothLayoutId: z.union([z.uuid(), z.literal("")]).optional(),
 	boothPresetId: z.string().trim().max(60).optional(),
 });
 
+/** Template manual (PNG overlay, biasanya teks bawaan). Ukuran dicek dari header PNG. */
 export async function createDesignTemplate(raw: unknown): Promise<Result> {
 	await requireOwnerLevel();
 	const p = TemplateSchema.safeParse(raw);
 	if (!p.success) return { ok: false, error: p.error.issues[0].message };
+	if (p.data.previewPath.endsWith(".png")) {
+		const head = await r2Get(p.data.previewPath, 4096);
+		const info = head ? readPngInfo(head.bytes) : null;
+		const check = info
+			? checkDesignFile(p.data.frameSize, info.width, info.height)
+			: null;
+		if (!check?.ok) {
+			await r2Delete([p.data.previewPath]);
+			return {
+				ok: false,
+				error: check && !check.ok ? check.error : "File belum terupload.",
+			};
+		}
+	}
 	const { error } = await createAdminClient()
 		.from("design_templates")
 		.insert({
@@ -224,6 +241,9 @@ export async function createDesignTemplate(raw: unknown): Promise<Result> {
 			frame_size: p.data.frameSize,
 			orientation: p.data.orientation,
 			preview_path: p.data.previewPath,
+			text_mode: p.data.textMode,
+			slot_count: p.data.slotCount ?? null,
+			source: "manual",
 			booth_layout_id: p.data.boothLayoutId || null,
 			booth_preset_id: p.data.boothPresetId || null,
 		});
@@ -236,13 +256,176 @@ export async function setDesignTemplateActive(
 	id: string,
 	active: boolean,
 ): Promise<Result> {
+	return updateDesignTemplate(id, { is_active: active });
+}
+
+const PatchSchema = z
+	.object({
+		name: z.string().trim().min(2).max(80),
+		category: z.string().trim().max(40).nullable(),
+		is_active: z.boolean(),
+		featured: z.boolean(),
+		sort: z.number().int().min(-9999).max(9999),
+	})
+	.partial();
+
+/** Kurasi etalase: tampil/tidak, unggulan, tema, urutan, nama. */
+export async function updateDesignTemplate(
+	id: string,
+	raw: unknown,
+): Promise<Result> {
 	await requireOwnerLevel();
 	if (!z.uuid().safeParse(id).success)
 		return { ok: false, error: "Template tidak ditemukan." };
-	await createAdminClient()
+	const p = PatchSchema.safeParse(raw);
+	if (!p.success) return { ok: false, error: p.error.issues[0].message };
+	const { error } = await createAdminClient()
 		.from("design_templates")
-		.update({ is_active: active })
+		.update({
+			...p.data,
+			...(p.data.category !== undefined
+				? { category: p.data.category || null }
+				: {}),
+			updated_at: new Date().toISOString(),
+		})
 		.eq("id", id);
+	if (error) return { ok: false, error: error.message };
 	revalidatePath("/design/templates");
 	return { ok: true };
+}
+
+/**
+ * Hapus template manual. Yang sudah pernah dipilih klien atau berasal dari
+ * Booth tidak dihapus — cukup disembunyikan (riwayat desain tetap utuh).
+ */
+export async function deleteDesignTemplate(
+	id: string,
+): Promise<Result & { hidden?: boolean }> {
+	await requireOwnerLevel();
+	if (!z.uuid().safeParse(id).success)
+		return { ok: false, error: "Template tidak ditemukan." };
+	const admin = createAdminClient();
+	const { data: t } = await admin
+		.from("design_templates")
+		.select("source, preview_path")
+		.eq("id", id)
+		.maybeSingle();
+	if (!t) return { ok: false, error: "Template tidak ditemukan." };
+	const { count } = await admin
+		.from("design_requests")
+		.select("id", { count: "exact", head: true })
+		.eq("template_id", id);
+	if (t.source === "booth" || (count ?? 0) > 0) {
+		await admin
+			.from("design_templates")
+			.update({ is_active: false })
+			.eq("id", id);
+		revalidatePath("/design/templates");
+		return { ok: true, hidden: true };
+	}
+	const { error } = await admin.from("design_templates").delete().eq("id", id);
+	if (error) return { ok: false, error: error.message };
+	if (t.preview_path) await r2Delete([t.preview_path as string]);
+	revalidatePath("/design/templates");
+	return { ok: true };
+}
+
+const BoothTemplate = z.object({
+	id: z.uuid(),
+	version: z.number().int().optional(),
+	name: z.string().min(1).max(200),
+	frame_size: z.enum(FRAME_SIZES),
+	orientation: z.enum(["portrait", "landscape"]),
+	category: z.string().max(60).nullish(),
+	text_mode: z.enum(["native", "baked"]).catch("native"),
+	slot_count: z.number().int().nullish(),
+	text_fields: z.array(z.string().max(40)).max(20).catch([]),
+	preview_url: z.url(),
+	archived: z.boolean().catch(false),
+});
+
+/**
+ * Tarik katalog template dari Booth (GET /api/ops/templates, papan
+ * OPS-BOOTH-SYNC 2026-10-09). Booth = studio; data desain (nama, ukuran, tema,
+ * mode teks, pratinjau) ikut Booth, kurasi etalase (tampil, unggulan, urutan)
+ * tetap milik Ops. Template baru langsung tampil.
+ */
+export async function syncBoothTemplates(): Promise<
+	{ ok: true; note: string } | { ok: false; error: string }
+> {
+	await requireOwnerLevel();
+	const url = process.env.TETRA_BOOTH_URL;
+	const token = process.env.TETRA_BOOTH_API_TOKEN;
+	if (!url || !token)
+		return { ok: false, error: "Koneksi ke Booth belum diatur." };
+	let list: unknown;
+	try {
+		const res = await fetch(`${url.replace(/\/$/, "")}/api/ops/templates`, {
+			headers: { Authorization: `Bearer ${token}` },
+			cache: "no-store",
+			signal: AbortSignal.timeout(15000),
+		});
+		if (res.status === 404)
+			return {
+				ok: false,
+				error:
+					"Katalog template Booth belum tersedia. Sesi Booth sedang menyiapkannya.",
+			};
+		if (!res.ok) return { ok: false, error: `Booth menjawab ${res.status}.` };
+		list = ((await res.json()) as { templates?: unknown }).templates;
+	} catch {
+		return { ok: false, error: "Booth tidak bisa dihubungi. Coba lagi nanti." };
+	}
+	if (!Array.isArray(list))
+		return { ok: false, error: "Format katalog Booth tidak dikenali." };
+
+	const admin = createAdminClient();
+	const now = new Date().toISOString();
+	let baru = 0;
+	let diperbarui = 0;
+	let dilewati = 0;
+	const { data: existing } = await admin
+		.from("design_templates")
+		.select("id, booth_layout_id")
+		.eq("source", "booth");
+	const byLayout = new Map(
+		(existing ?? []).map((e) => [e.booth_layout_id as string, e.id as string]),
+	);
+	for (const raw of list) {
+		const p = BoothTemplate.safeParse(raw);
+		if (!p.success) {
+			dilewati++;
+			continue;
+		}
+		const t = p.data;
+		const data = {
+			name: t.name,
+			frame_size: t.frame_size,
+			orientation: t.orientation,
+			category: t.category ?? null,
+			text_mode: t.text_mode,
+			text_fields: t.text_fields,
+			slot_count: t.slot_count ?? null,
+			preview_url: t.preview_url,
+			booth_layout_version: t.version ?? null,
+			booth_archived: t.archived,
+			synced_at: now,
+			updated_at: now,
+		};
+		const id = byLayout.get(t.id);
+		if (id) {
+			await admin.from("design_templates").update(data).eq("id", id);
+			diperbarui++;
+		} else if (!t.archived) {
+			await admin
+				.from("design_templates")
+				.insert({ ...data, source: "booth", booth_layout_id: t.id });
+			baru++;
+		}
+	}
+	revalidatePath("/design/templates");
+	return {
+		ok: true,
+		note: `${baru} template baru, ${diperbarui} diperbarui${dilewati ? `, ${dilewati} dilewati (format tidak cocok)` : ""}.`,
+	};
 }

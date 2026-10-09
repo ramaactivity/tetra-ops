@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
 	addDesignFile,
+	applyAutoTemplate,
 	approveDesignVersion,
 	commentDesign,
 	requestDesignFileUpload,
@@ -15,6 +16,7 @@ import {
 import { compressImage } from "@/lib/crew/image-compression";
 import type { Stage } from "@/lib/portal/design";
 import type { DesignRequestView } from "@/lib/portal/design-server";
+import { OwnDesignUpload } from "./own-design-upload";
 import { Err } from "./verify-phone";
 
 export type TemplateCard = {
@@ -24,13 +26,16 @@ export type TemplateCard = {
 	frame_size: string;
 	orientation: string;
 	url: string | null;
+	/** Template Booth dengan teks native: nama & tanggal terisi otomatis, tanpa designer. */
+	auto_text?: boolean;
+	featured?: boolean;
 };
 
 const STAGE: Record<Stage, { label: string; bg: string; text: string }> = {
 	brief: {
 		label: "Menunggu brief",
 		bg: "var(--peach)",
-		text: "Pilih template atau ceritakan desain yang kamu mau.",
+		text: "Pilih template, minta dibuatkan designer, atau unggah desainmu sendiri.",
 	},
 	dikerjakan: {
 		label: "Sedang didesain",
@@ -114,6 +119,9 @@ function DesignCard({
 	const [error, setError] = useState<string | null>(null);
 	const st = STAGE[r.stage];
 	const latest = r.versions[0];
+	const chosen = templates.find((t) => t.id === templateId) ?? null;
+	/** Template Booth teks-otomatis: tanpa antrean designer. */
+	const auto = mode === "template" && !!chosen?.auto_text;
 
 	async function persist(next: {
 		mode?: typeof mode;
@@ -161,29 +169,35 @@ function DesignCard({
 
 			{r.stage === "brief" && (
 				<>
-					<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-						<button
-							type="button"
-							className="chip"
-							aria-pressed={mode === "template"}
-							onClick={() => {
-								setMode("template");
-								persist({ mode: "template" });
-							}}
-						>
-							Pilih dari template
-						</button>
-						<button
-							type="button"
-							className="chip"
-							aria-pressed={mode === "custom"}
-							onClick={() => {
-								setMode("custom");
-								persist({ mode: "custom" });
-							}}
-						>
-							Desain custom
-						</button>
+					<div
+						style={{
+							display: "grid",
+							gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+							gap: 8,
+						}}
+					>
+						{(
+							[
+								["template", "Pilih template", "Teks acaramu langsung masuk"],
+								["custom", "Dibuatkan designer", "Ceritakan konsepnya"],
+								["upload", "Unggah desain sendiri", "Dari Canva / Photoshop"],
+							] as const
+						).map(([m, t, d]) => (
+							<button
+								key={m}
+								type="button"
+								className="opt"
+								aria-pressed={mode === m}
+								style={{ padding: "10px 12px", textAlign: "left" }}
+								onClick={() => {
+									setMode(m);
+									persist({ mode: m });
+								}}
+							>
+								<div style={{ fontWeight: 800, fontSize: 14 }}>{t}</div>
+								<div className="cap">{d}</div>
+							</button>
+						))}
 					</div>
 
 					{mode === "template" &&
@@ -230,17 +244,47 @@ function DesignCard({
 										>
 											{t.name}
 										</div>
-										{t.category && <div className="cap">{t.category}</div>}
+										<div className="cap">
+											{[t.category, t.auto_text ? "Teks otomatis" : null]
+												.filter(Boolean)
+												.join(" · ")}
+										</div>
 									</button>
 								))}
 							</div>
 						))}
 
-					{mode && (
+					{mode === "upload" && (
+						<OwnDesignUpload code={code} requestId={r.id} size={r.size} />
+					)}
+
+					{(mode === "template" || mode === "custom") && (
 						<div style={{ display: "grid", gap: 10 }}>
+							{auto && (
+								<div
+									className="note"
+									style={{ background: "var(--mint-soft)" }}
+								>
+									Template ini mengisi teks otomatis. Tulis teksnya di bawah —
+									langsung masuk ke frame tanpa menunggu designer.
+								</div>
+							)}
 							{(
 								[
-									["teks_frame", "Teks di frame", "mis. Rina & Dimas"],
+									[
+										"teks_frame",
+										auto ? "Teks utama" : "Teks di frame",
+										"mis. Rina & Dimas",
+									],
+									...(auto
+										? ([
+												[
+													"subjudul",
+													"Teks kecil (opsional)",
+													"mis. The Wedding of",
+												],
+											] as const)
+										: []),
 									["tanggal_frame", "Tanggal di frame", "mis. 12.12.2026"],
 									...(mode === "custom"
 										? ([
@@ -304,39 +348,76 @@ function DesignCard({
 									/>
 								</div>
 							)}
-							<div>
-								<label className="label" htmlFor={`b-${r.id}-catatan`}>
-									Catatan untuk designer
-								</label>
-								<textarea
-									id={`b-${r.id}-catatan`}
-									className="input"
-									placeholder="Hal lain yang perlu diketahui designer"
-									value={brief.catatan ?? ""}
-									onChange={(e) =>
-										setBrief({ ...brief, catatan: e.target.value })
-									}
-									onBlur={() => persist({})}
-								/>
-							</div>
+							{!auto && (
+								<div>
+									<label className="label" htmlFor={`b-${r.id}-catatan`}>
+										Catatan untuk designer
+									</label>
+									<textarea
+										id={`b-${r.id}-catatan`}
+										className="input"
+										placeholder="Hal lain yang perlu diketahui designer"
+										value={brief.catatan ?? ""}
+										onChange={(e) =>
+											setBrief({ ...brief, catatan: e.target.value })
+										}
+										onBlur={() => persist({})}
+									/>
+								</div>
+							)}
 							{mode === "custom" && <FileUploads code={code} r={r} />}
 							{error && <Err text={error} />}
 							<button
 								type="button"
 								className="btn btn-primary btn-block"
-								disabled={busy || (mode === "template" && !templateId)}
+								disabled={
+									busy ||
+									(mode === "template" && !templateId) ||
+									(auto && !brief.teks_frame?.trim())
+								}
 								onClick={() =>
 									run(async () => {
 										await persist({});
-										return submitDesignBrief(code, r.id);
+										return auto
+											? applyAutoTemplate(code, r.id)
+											: submitDesignBrief(code, r.id);
 									})
 								}
 							>
-								{busy ? "Mengirim…" : "Kirim ke designer"}
+								{busy
+									? "Mengirim…"
+									: auto
+										? "Pakai template ini"
+										: "Kirim ke designer"}
 							</button>
 						</div>
 					)}
 				</>
+			)}
+
+			{r.stage === "acc" && !latest && chosen && (
+				<div style={{ display: "grid", gap: 10 }}>
+					<hr className="divider" style={{ margin: 0 }} />
+					<div style={{ fontWeight: 800 }}>Template: {chosen.name}</div>
+					{chosen.url && (
+						// biome-ignore lint/performance/noImgElement: pratinjau template (URL eksternal/privat).
+						<img
+							src={chosen.url}
+							alt={chosen.name}
+							style={{
+								width: "100%",
+								maxWidth: 320,
+								borderRadius: 12,
+								border: "1.5px solid var(--ink)",
+							}}
+						/>
+					)}
+					<div className="note">
+						Teks di frame: <b>{r.brief.teks_frame}</b>
+						{r.brief.subjudul ? ` · ${r.brief.subjudul}` : ""}
+						{r.brief.tanggal_frame ? ` · ${r.brief.tanggal_frame}` : ""}
+					</div>
+				</div>
 			)}
 
 			{latest && (
@@ -345,6 +426,7 @@ function DesignCard({
 					<div style={{ display: "flex", justifyContent: "space-between" }}>
 						<span style={{ fontWeight: 800 }}>Draf v{latest.version_no}</span>
 						<span className="cap mono">
+							{latest.source === "klien" ? "Desainmu · " : ""}
 							{latest.frame_size} · {latest.width}×{latest.height}
 						</span>
 					</div>

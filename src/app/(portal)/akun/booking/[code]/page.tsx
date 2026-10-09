@@ -294,13 +294,19 @@ export default async function BookingDetailPage({
 			loadDesignState(b.event_id),
 			admin
 				.from("design_templates")
-				.select("id, name, category, frame_size, orientation, preview_path")
+				.select(
+					"id, name, category, frame_size, orientation, preview_path, preview_url, text_mode, source, featured",
+				)
 				.eq("is_active", true)
+				.eq("booth_archived", false)
+				.order("featured", { ascending: false })
 				.order("sort"),
 		]);
 		design = state;
 		const urls = await signedUrls(
-			(tpl.data ?? []).map((t) => t.preview_path as string),
+			(tpl.data ?? [])
+				.map((t) => t.preview_path as string | null)
+				.filter((x): x is string => !!x),
 		);
 		templates = (tpl.data ?? []).map((t) => ({
 			id: t.id,
@@ -308,7 +314,12 @@ export default async function BookingDetailPage({
 			category: t.category,
 			frame_size: t.frame_size,
 			orientation: t.orientation,
-			url: urls.get(t.preview_path as string) ?? null,
+			url:
+				(t.preview_url as string | null) ??
+				(t.preview_path ? (urls.get(t.preview_path as string) ?? null) : null),
+			// Teks otomatis hanya untuk template Booth (layout dengan teks native).
+			auto_text: t.source === "booth" && t.text_mode === "native",
+			featured: t.featured as boolean,
 		}));
 	}
 	const evProject = ev?.project_id ?? null;
@@ -926,16 +937,16 @@ export default async function BookingDetailPage({
 							<Steps
 								items={[
 									[
-										"Pilih template atau ajukan custom",
-										"Ceritakan tema, warna, dan kirim logo atau referensi.",
+										"Pilih cara desainnya",
+										"Template (teks acaramu langsung masuk), dibuatkan designer, atau unggah desainmu sendiri.",
 									],
 									[
-										"Tim desain membuat draf",
-										"Nama acara dan tanggal otomatis masuk ke frame.",
+										"Template & desain sendiri: langsung jadi",
+										"Kotak foto dideteksi otomatis — tidak perlu menunggu designer.",
 									],
 									[
-										`Setujui atau minta revisi (maks ${revisionLimit}×)`,
-										"Setelah disetujui, frame langsung dipasang di booth.",
+										`Dibuatkan designer: setujui atau minta revisi (maks ${revisionLimit}×)`,
+										"Setelah disetujui, frame dipasang di booth oleh tim kami.",
 									],
 								]}
 							/>

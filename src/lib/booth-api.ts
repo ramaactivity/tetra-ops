@@ -176,16 +176,28 @@ function modulesOfPackage(serviceType: string | null): BoothModule[] {
 export type DesignSource = {
 	spot_no: number;
 	stage: string;
+	mode?: string | null;
+	brief?: Record<string, string> | null;
 	version: {
 		frame_size: string;
 		orientation: string;
 		file_path: string;
 		booth_layout_id: string | null;
+		source?: string | null;
 	} | null;
 	template: {
 		booth_layout_id: string | null;
 		booth_preset_id: string | null;
+		booth_layout_version?: number | null;
 	} | null;
+};
+
+/** v1.0 (aditif): teks frame dari brief klien untuk variabel teks Booth. */
+export type DesignTexts = {
+	judul: string | null;
+	subjudul: string | null;
+	tanggal: string | null;
+	hashtag: string | null;
 };
 
 export type BoothDesignSpot = {
@@ -207,8 +219,31 @@ export type BoothDesign = {
 	frame_url_expires_at: string | null;
 	booth_layout_id: string | null;
 	booth_preset_id: string | null;
+	/** v1.0 (aditif): asal desain — template Booth (teks otomatis), designer Tetra, atau unggahan klien. */
+	source: "template" | "designer" | "klien" | null;
+	booth_layout_version: number | null;
+	texts: DesignTexts | null;
 	spots: BoothDesignSpot[];
 };
+
+function sourceOf(r: DesignSource | undefined): BoothDesign["source"] {
+	if (!r?.mode) return null;
+	if (r.mode === "upload" || r.version?.source === "klien") return "klien";
+	if (r.mode === "template" && !r.version) return "template";
+	return "designer";
+}
+
+function textsOf(r: DesignSource | undefined): DesignTexts | null {
+	const b = r?.brief ?? {};
+	const v = (k: string) => (typeof b[k] === "string" && b[k].trim()) || null;
+	const t = {
+		judul: v("teks_frame"),
+		subjudul: v("subjudul"),
+		tanggal: v("tanggal_frame"),
+		hashtag: v("hashtag"),
+	};
+	return Object.values(t).some(Boolean) ? t : null;
+}
 
 /**
  * Objek `design` kontrak §2.2. frame_url hanya untuk desain yang sudah approved
@@ -238,7 +273,8 @@ export function toBoothDesign(
 			r?.version?.booth_layout_id ?? r?.template?.booth_layout_id ?? null,
 		booth_preset_id: r?.template?.booth_preset_id ?? null,
 	});
-	const s1 = spot(reqs.find((r) => r.spot_no === 1));
+	const r1 = reqs.find((r) => r.spot_no === 1);
+	const s1 = spot(r1);
 	return {
 		status: ev.design_status ?? "belum",
 		stage: reqs.find((r) => r.spot_no === 1)?.stage ?? null,
@@ -249,6 +285,12 @@ export function toBoothDesign(
 		frame_url_expires_at: s1.frame_url ? expiresAt : null,
 		booth_layout_id: s1.booth_layout_id,
 		booth_preset_id: s1.booth_preset_id,
+		source: sourceOf(r1),
+		booth_layout_version:
+			sourceOf(r1) === "template"
+				? (r1?.template?.booth_layout_version ?? null)
+				: null,
+		texts: textsOf(r1),
 		spots: reqs
 			.filter((r) => r.spot_no > 1)
 			.sort((a, b) => a.spot_no - b.spot_no)

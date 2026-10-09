@@ -80,6 +80,16 @@ frame_size ("2R"|"4R"|"polaroid"|"none"|null), package_name, package_duration_ho
 - Kalau `orientation` kosong, Booth membaca orientasi dari rasio PNG.
 - Kalau unduhan `frame_url` gagal atau URL-nya sudah kedaluwarsa, Booth memanggil GET lagi untuk mendapat URL baru.
 
+**v1.0-draf (Ops sudah mengirim, aditif; menunggu persetujuan Booth di papan OPS-BOOTH-SYNC 2026-10-09):**
+
+| Field | Tipe | Arti |
+|---|---|---|
+| `design.source` | `"template" \| "designer" \| "klien" \| null` | Asal desain spot 1. `template` = klien memilih template Booth teks-otomatis, **tanpa file PNG** (`frame_url` null) → Booth memasang `booth_layout_id` langsung dan mengisi teks dari `texts`. `designer` = PNG dari designer Tetra. `klien` = PNG unggahan klien sendiri (sudah lewat chroma key & deteksi kotak foto di Ops; teks sudah di dalam PNG). `null` = belum memilih. |
+| `design.booth_layout_version` | int \| null | Versi layout Booth saat klien memilih (hanya untuk `source = template`). |
+| `design.texts` | object \| null | `{ judul, subjudul, tanggal, hashtag }` (string \| null) dari isian klien. Diusulkan dipetakan ke variabel `{judul}`, `{subjudul}`, `{tanggal}`, `{hashtag}` di template-engine Booth (fallback ke `{event_name}`/`{date_long}`). |
+
+Katalog template: Booth = studio (buat & edit), Ops = etalase. Ops menarik katalog lewat `GET {TETRA_BOOTH_URL}/api/ops/templates` (usulan, Bearer `TETRA_OPS_API_TOKEN`): `{ templates: [{ id, version, name, frame_size, orientation, category, text_mode: "native"|"baked", slot_count, text_fields, preview_url, archived, updated_at }] }`. Template Booth baru tampil di portal klien setelah owner menekan "Sinkron dari Booth" di Ops.
+
 **Urutan pemakaian desain di Booth** (disepakati 2026-10-06):
 1. Kalau `booth_layout_id` terisi (uuid `layouts` di Booth), pakai template itu.
 2. Kalau kosong dan `frame_url` terisi, impor PNG sebagai overlay. Ini **jalur utama**, karena designer biasanya bekerja di Canva/Photoshop. Untuk versi pertama impornya semi-otomatis: Booth mengunduh PNG, lalu admin menekan "Pasang desain dari Ops".
@@ -211,6 +221,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 1.0-draf | 2026-10-09 | Template: Booth = studio, Ops = etalase (keputusan owner). Ops mengirim `design.source`, `design.booth_layout_version`, `design.texts` (aditif). Usulan `GET /api/ops/templates` + variabel teks `{judul}`/`{subjudul}`/`{tanggal}`/`{hashtag}` + pasang layout otomatis untuk `source = template`. Ops memakai salinan `chroma.ts`/`detect.ts` Booth untuk upload desain (termasuk unggahan klien). |
 | 0.9 | 2026-10-08 | §2.2 Guest Cam (harga final ACC owner, Booth #221/#223/#224/#225): `guest_cam_max_guests`, `guest_cam_print`, `guest_cam_print_size` (tambahan Ops), `guest_card_design`; kategori paket `guest_cam` (tanpa booth) → `modules` `["guest_cam"]`. Sumber data: add-on/bonus Ops dengan `addon_group` (`guest_cam`, `guest_print`, `guest_print_100`). |
 | 0.8 | 2026-10-08 | Kode promo tamu `TAMU-XXXXX` (Booth #218): Ops memanggil `GET /api/ops/promo/{code}` (cek), `POST …/redeem` saat DP diterima, `DELETE …/redeem` saat event batal/dihapus. Potongan disimpan di `client_bookings.promo` dan masuk event sebagai `discount_type = promo`. Wizard membaca `?promo=`. |
 | 0.7 | 2026-10-08 | §2.2 `client_instagram` (usulan Booth #211), pengecualian aturan tanpa kontak. |

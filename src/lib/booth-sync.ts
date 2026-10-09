@@ -70,7 +70,7 @@ export async function enrichBoothBookings(
 		admin
 			.from("design_requests")
 			.select(
-				"event_id, spot_no, stage, version:design_versions!design_requests_approved_version_fkey(frame_size, orientation, file_path, booth_layout_id), template:design_templates(booth_layout_id, booth_preset_id)",
+				"event_id, spot_no, stage, mode, brief, version:design_versions!design_requests_approved_version_fkey(frame_size, orientation, file_path, booth_layout_id, source), template:design_templates(booth_layout_id, booth_preset_id, booth_layout_version)",
 			)
 			.in("event_id", ids),
 		admin
