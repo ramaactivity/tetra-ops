@@ -327,22 +327,29 @@ export async function fetchBoothEvents(
 	}
 }
 
-/** v0.9: katalog desain kartu QR Guest Cam (publik di Booth, cache 1 hari). [] kalau gagal. */
-export async function fetchGuestCards(): Promise<
-	Array<{ id: string; name: string; preview_url: string }>
-> {
+export type GuestCard = {
+	id: string;
+	name: string;
+	/** Keterangan singkat gaya desain (Booth #227). */
+	hint?: string;
+	/** Pratinjau kartu meja (A6/A5). */
+	preview_url: string;
+	/** Pratinjau kartu nama 90×55. */
+	card_preview_url?: string;
+};
+
+/** v0.9: katalog desain kartu QR Guest Cam (publik di Booth, cache 1 jam). [] kalau gagal. */
+export async function fetchGuestCards(): Promise<GuestCard[]> {
 	const base = (
 		process.env.TETRA_BOOTH_URL || "https://booth.tetraphoto.com"
 	).replace(/\/$/, "");
 	try {
 		const res = await fetch(`${base}/api/guest-cards`, {
-			next: { revalidate: 86_400 },
+			next: { revalidate: 3_600 },
 			signal: AbortSignal.timeout(4000),
 		});
 		if (!res.ok) return [];
-		const j = (await res.json()) as {
-			designs?: Array<{ id: string; name: string; preview_url: string }>;
-		};
+		const j = (await res.json()) as { designs?: GuestCard[] };
 		return (j.designs ?? []).filter((d) => /^[a-z0-9_-]{1,30}$/.test(d.id));
 	} catch {
 		return [];

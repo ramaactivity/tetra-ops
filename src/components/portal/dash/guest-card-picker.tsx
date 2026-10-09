@@ -10,7 +10,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveBookingDetail } from "@/lib/actions/portal-booking";
 
-export type GuestCardDesign = { id: string; name: string; preview_url: string };
+export type GuestCardDesign = {
+	id: string;
+	name: string;
+	hint?: string;
+	preview_url: string;
+};
 
 export function GuestCardPicker({
 	code,
@@ -43,7 +48,7 @@ export function GuestCardPicker({
 			<div
 				style={{
 					display: "grid",
-					gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+					gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
 					gap: 12,
 				}}
 			>
@@ -75,18 +80,26 @@ export function GuestCardPicker({
 								src={d.preview_url}
 								alt=""
 								width={180}
-								height={110}
+								height={250}
+								loading="lazy"
 								style={{
 									width: "100%",
 									height: "auto",
-									aspectRatio: "90 / 55",
 									borderRadius: 6,
 									border: "1px solid #D6D3CC",
 									background: "#fff",
-									objectFit: "cover",
 								}}
 							/>
-							<span style={{ fontSize: 13, fontWeight: 700 }}>{d.name}</span>
+							<span style={{ display: "grid", gap: 2 }}>
+								<span style={{ fontSize: 13, fontWeight: 700 }}>{d.name}</span>
+								{d.hint && (
+									<span
+										style={{ fontSize: 11, color: "#5F5E5A", lineHeight: 1.35 }}
+									>
+										{d.hint}
+									</span>
+								)}
+							</span>
 							{on && (
 								<Check
 									aria-hidden

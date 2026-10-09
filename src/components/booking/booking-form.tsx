@@ -431,7 +431,12 @@ export function BookingForm({
 	packages: PackageOption[];
 	addons: AddonOption[];
 	/** Katalog desain kartu QR Guest Cam dari Booth (v0.9). */
-	guestCards?: Array<{ id: string; name: string; preview_url: string }>;
+	guestCards?: Array<{
+		id: string;
+		name: string;
+		hint?: string;
+		preview_url: string;
+	}>;
 	backdrops: BackdropOption[];
 	eventTypes: EventTypeOption[];
 	relasiOptions?: RelasiOption[];
@@ -3762,9 +3767,9 @@ export function BookingForm({
 															<img
 																src={c.preview_url}
 																alt=""
-																width={54}
-																height={33}
-																className="rounded border border-border-default"
+																width={40}
+																height={56}
+																className="h-14 w-auto rounded border border-border-default"
 															/>
 															{c.name}
 														</button>
