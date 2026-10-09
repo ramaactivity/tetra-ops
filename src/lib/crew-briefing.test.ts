@@ -4,7 +4,9 @@ import {
 	type BriefingData,
 	composeCrewBriefing,
 	composeHariH,
+	composeSelesai,
 	dueKinds,
+	endAt,
 	MAX_LEN,
 } from "./crew-briefing";
 
@@ -38,27 +40,35 @@ const base: BriefingData = {
 	stok: ["Stok Kertas 4R menipis: sisa 40 lembar — cek sebelum packing"],
 };
 
-test("briefing H-1: format WA, catatan utuh, tanpa info uang", () => {
+test("briefing H-1: santai tapi semua field ada, catatan utuh, tanpa uang & tanpa tanda bot", () => {
 	const t = composeCrewBriefing(base);
-	assert.match(t, /^📸 \*BRIEFING BESOK — Rafi & Dinda\*/);
-	assert.match(t, /Crew tiba & setup: \*14:00\*/);
-	assert.match(t, /Acara: 16:00–19:00 \(3 jam\)/);
-	assert.match(t, /• Lead: Adit\n• Asisten: Rio/);
-	assert.match(t, /⚠️ BELUM ACC — cek ke Iqbal/);
-	assert.match(t, /⚠️ Stok Kertas 4R menipis/);
 	assert.match(
 		t,
-		/Parkir di basement B2\nRundown klien: 16:00 Akad; 18:00 Resepsi/,
+		/^Gaes, besok kita jalan ke Rafi & Dinda ya 🙌\nSabtu 10 Okt/,
 	);
-	assert.match(t, /media & frame ukuran 4R cukup untuk 3 jam/);
-	assert.doesNotMatch(t, /Rp|tagihan|lunas|bayar|<b>|@/i);
-	assert.ok(!t.includes("🤖"), "awalan bot ditambahkan bot sendiri");
+	for (const re of [
+		/• Loading & setup: 14\.00/,
+		/• Acara: 16\.00–19\.00 \(3 jam\)/,
+		/• Gedung Serbaguna, Jl\. Pajajaran 1, Bogor\n• Maps: https:\/\/maps\.app\.goo\.gl\/x/,
+		/👥 Crew\n• Adit \(lead\)\n• Rio \(asisten\)/,
+		/• 4R Unlimited 3 Jam • 1 unit/,
+		/• Cetak: 4R/,
+		/• Backdrop: Basic Tetra · Emerald Green/,
+		/• Add-on: Snapbook \(Guest Cam\) · 200 tamu/,
+		/• ⚠️ Stok Kertas 4R menipis/,
+		/🎨 Desain: ⚠️ belum ACC nih, tolong cek ke Iqbal ya/,
+		/☎️ PIC hari H\n• Bu Rina · 0812/,
+		/📝 Catatan penting\n• Parkir di basement B2\n• Rundown klien: 16:00 Akad; 18:00 Resepsi/,
+		/cek perlengkapan sebelum berangkat ya: media & frame 4R cukup buat 3 jam/,
+	])
+		assert.match(t, re);
+	assert.doesNotMatch(t, /Rp|tagihan|lunas|bayar|<b>|BRIEFING|otomatis|bot/i);
 });
 
-test("catatan kosong → '-', catatan panjang tetap utuh (yang dibuang baris cek)", () => {
+test("catatan kosong → baris jelas; catatan panjang tetap utuh (yang dibuang baris cek)", () => {
 	assert.match(
 		composeCrewBriefing({ ...base, catatan: [] }),
-		/📝 \*Catatan\*\n-/,
+		/📝 Catatan penting\n• belum ada catatan/,
 	);
 	const panjang = "x".repeat(MAX_LEN - 1200);
 	const t = composeCrewBriefing({ ...base, catatan: [panjang] });
@@ -76,22 +86,59 @@ test("multi-unit: crew & format cetak per spot", () => {
 			{ spot: 1, role: "lead", name: "Adit" },
 		],
 	});
-	assert.match(t, /• Spot 1 · Lead: Adit\n• Spot 2 · Lead: Bima/);
-	assert.match(t, /Format cetak: spot 1 4R, spot 2 2R/);
+	assert.match(t, /• Adit \(lead, spot 1\)\n• Bima \(lead, spot 2\)/);
+	assert.match(t, /Cetak: spot 1 4R, spot 2 2R/);
 });
 
-test("hari H: singkat, lead + catatan terpenting", () => {
+test("hari H: singkat, lead + catatan terpenting, tanpa tanda bot", () => {
 	const t = composeHariH(base);
 	assert.equal(
 		t,
 		[
-			"☀️ *Hari ini: Rafi & Dinda*",
-			"Tiba & setup *14:00* · Gedung Serbaguna",
-			"Maps: https://maps.app.goo.gl/x",
-			"Lead Adit · Acara 16:00–19:00 (3 jam)",
-			"Parkir di basement B2",
-			"Semangat dan hati-hati di jalan! 🙌",
+			"Pagi gaes! Hari ini Rafi & Dinda ☀️",
+			"• Loading & setup 14.00 • acara 16.00–19.00 (3 jam)",
+			"• Gedung Serbaguna",
+			"• Maps: https://maps.app.goo.gl/x",
+			"• Lead: Adit",
+			"• Parkir di basement B2",
+			"Semangat & hati-hati di jalan ya! 🙌",
 		].join("\n"),
+	);
+});
+
+test("setelah acara: nama crew, rekap/sudah masuk, footage ke Iqbal, tanpa uang klien", () => {
+	const t = composeSelesai({
+		judul: "Adel & Alpi",
+		project_id: "PRJ-1",
+		crew: ["Mou", "Lutpii"],
+		rekapUrl: "https://team.tetraphoto.com/crew/jadwal/PRJ-1/rekap",
+		rekapMasuk: false,
+	});
+	assert.match(t, /Mou & Lutpii/);
+	assert.match(
+		t,
+		/Rekap di aplikasi crew: foto bukti \+ bukti transfer\/transaksi \(bensin, parkir, tol, dll\.\)\n {2}https:\/\/team\.tetraphoto\.com\/crew\/jadwal\/PRJ-1\/rekap/,
+	);
+	assert.match(t, /Footage dokumentasi langsung kirim ke Iqbal/);
+	assert.match(t, /Hati-hati pulangnya! 🛵$/);
+	assert.doesNotMatch(t, /Rp|tagihan|lunas|otomatis|bot/i);
+	const masuk = composeSelesai({
+		judul: "X",
+		project_id: "PRJ-1",
+		crew: ["Mou"],
+		rekapUrl: null,
+		rekapMasuk: true,
+	});
+	assert.match(masuk, /Rekap udah masuk, makasih! 👍/);
+	assert.doesNotMatch(masuk, /aplikasi crew/);
+	// selesai + 30 menit: endAt selesai 22.00 → 15:00Z; lewat tengah malam → hari berikutnya
+	assert.equal(
+		new Date(endAt("2026-10-09", "19:00", "22:00") ?? 0).toISOString(),
+		"2026-10-09T15:00:00.000Z",
+	);
+	assert.equal(
+		new Date(endAt("2026-10-09", "21:00", "01:00") ?? 0).toISOString(),
+		"2026-10-09T18:00:00.000Z",
 	);
 });
 

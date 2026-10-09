@@ -51,7 +51,7 @@ export type BriefingData = {
 	stok: string[];
 };
 
-const hm = (t: string | null) => (t ? t.slice(0, 5) : null);
+const hm = (t: string | null) => (t ? t.slice(0, 5).replace(":", ".") : null);
 
 function duration(d: BriefingData): string | null {
 	const seg = parseSegments(d.session_segments);
@@ -76,21 +76,18 @@ function acara(d: BriefingData): string {
 }
 
 const roleLabel = (r: string) =>
-	r === "lead"
-		? "Lead"
-		: r === "asisten"
-			? "Asisten"
-			: r.charAt(0).toUpperCase() + r.slice(1);
+	r === "lead" ? "lead" : r === "asisten" ? "asisten" : r.toLowerCase();
 
 function crewLines(d: BriefingData): string[] {
-	if (!d.crew.length) return ["• ⚠️ Crew belum ditugaskan — cek ke Adit"];
+	if (!d.crew.length)
+		return ["• ⚠️ crew belum ditugaskan, tolong cek ke Adit ya"];
 	const sorted = [...d.crew].sort(
 		(a, b) =>
 			a.spot - b.spot || (a.role === "lead" ? -1 : b.role === "lead" ? 1 : 0),
 	);
 	return sorted.map(
 		(c) =>
-			`• ${d.units > 1 ? `Spot ${c.spot} · ` : ""}${roleLabel(c.role)}: ${c.name}`,
+			`• ${c.name} (${roleLabel(c.role)}${d.units > 1 ? `, spot ${c.spot}` : ""})`,
 	);
 }
 
@@ -102,51 +99,64 @@ function formatCetak(d: BriefingData): string {
 }
 
 const DESAIN: Record<BriefingData["desain"], string> = {
-	booth: "ACC & sudah di Booth",
-	acc_belum_booth: "ACC tapi belum di Booth — pastikan sudah dipasang",
-	belum_acc: "⚠️ BELUM ACC — cek ke Iqbal",
-	tanpa_frame: "- (paket tanpa cetak frame)",
+	booth: "udah ACC & udah masuk Booth 👍",
+	acc_belum_booth: "udah ACC, pastiin udah dipasang di Booth ya",
+	belum_acc: "⚠️ belum ACC nih, tolong cek ke Iqbal ya",
+	tanpa_frame: "paket ini nggak cetak frame",
 };
 
-/** Briefing lengkap (H-1, atau hari H untuk event yang baru masuk). */
+/** Catatan → baris "•" (catatan multi-baris dipecah, isinya tidak dipotong). */
+function noteLines(d: BriefingData): string[] {
+	const lines = d.catatan
+		.flatMap((c) => c.split("\n"))
+		.map((l) => l.trim())
+		.filter(Boolean)
+		.map((l) => `• ${l.replace(/^[-•]\s*/, "")}`);
+	return lines.length ? lines : ["• belum ada catatan"];
+}
+
+/** Briefing lengkap (H-1, atau pagi hari H untuk event yang baru masuk). */
 export function composeCrewBriefing(d: BriefingData, besok = true): string {
 	const lokasi = [d.venue_name, d.venue_address, d.venue_city]
 		.filter(Boolean)
 		.join(", ");
 	const sizes = [...new Set(d.sizes.filter(Boolean))].join(" + ");
 	const head = [
-		`📸 *BRIEFING ${besok ? "BESOK" : "HARI INI"} — ${d.judul}*`,
+		`Gaes, ${besok ? "besok" : "hari ini"} kita jalan ke ${d.judul} ya 🙌`,
 		dateLabel(d.event_date, true),
 		"",
-		"🕐 *Jadwal*",
-		`• Crew tiba & setup: *${hm(d.setup_time) ?? "❓ belum ada"}*`,
+		"⏰ Jadwal",
+		`• Loading & setup: ${hm(d.setup_time) ?? "❓ belum ada"}`,
 		`• Acara: ${acara(d)}`,
 		"",
-		"📍 *Lokasi*",
-		lokasi || "❓ belum ada",
-		...(d.maps_url ? [`Maps: ${d.maps_url}`] : []),
+		"📍 Lokasi",
+		`• ${lokasi || "❓ belum ada"}`,
+		...(d.maps_url ? [`• Maps: ${d.maps_url}`] : []),
 		"",
-		`👥 *Crew*`,
+		"👥 Crew",
 		...crewLines(d),
 		"",
-		"🎁 *Paket & perlengkapan*",
-		`• ${d.paket ?? "Paket belum dipilih"} · ${d.units} unit`,
-		`• Format cetak: ${formatCetak(d)}`,
+		"📸 Paket & perlengkapan",
+		`• ${d.paket ?? "paket belum dipilih"} • ${d.units} unit`,
+		`• Cetak: ${formatCetak(d)}`,
 		`• Backdrop: ${d.backdrop}`,
 		`• Add-on: ${d.addons.length ? d.addons.join(", ") : "-"}`,
-		`• Desain frame: ${DESAIN[d.desain]}`,
-		...d.stok.map((s) => `⚠️ ${s}`),
+		...d.stok.map((x) => `• ⚠️ ${x}`),
 		"",
-		"☎️ *PIC hari H*",
-		...(d.pic || d.wo ? [d.pic, d.wo].filter((x): x is string => !!x) : ["-"]),
+		`🎨 Desain: ${DESAIN[d.desain]}`,
 		"",
-		"📝 *Catatan*",
+		"☎️ PIC hari H",
+		...(d.pic || d.wo
+			? [d.pic, d.wo].filter((x): x is string => !!x).map((x) => `• ${x}`)
+			: ["• belum ada"]),
+		"",
+		"📝 Catatan penting",
 	];
 	const tail = [
 		"",
-		`✅ Cek sebelum berangkat: media & frame ukuran ${sizes || "❓"} cukup untuk ${duration(d) ?? "?"} jam, backdrop, properti, kabel & colokan.`,
+		`Jangan lupa cek perlengkapan sebelum berangkat ya: media & frame ${sizes || "❓"} cukup buat ${duration(d) ?? "?"} jam, backdrop, properti, kabel & colokan 🙏`,
 	];
-	const notes = d.catatan.length ? d.catatan : ["-"];
+	const notes = noteLines(d);
 	let text = [...head, ...notes, ...tail].join("\n");
 	// Catatan wajib utuh: kalau kepanjangan, yang dibuang baris cek penutup dulu.
 	if (text.length > MAX_LEN) text = [...head, ...notes].join("\n");
@@ -164,14 +174,15 @@ export function composeHariH(d: BriefingData): string {
 			.join(", ") ||
 		d.crew.map((c) => c.name).join(", ") ||
 		"⚠️ crew belum ditugaskan";
-	const penting = d.catatan.find((c) => c.trim() && c !== "-");
+	const penting = noteLines(d)[0];
 	return [
-		`☀️ *Hari ini: ${d.judul}*`,
-		`Tiba & setup *${hm(d.setup_time) ?? "❓"}* · ${d.venue_name ?? d.venue_city ?? "venue ❓"}`,
-		...(d.maps_url ? [`Maps: ${d.maps_url}`] : []),
-		`Lead ${lead} · Acara ${acara(d)}`,
-		...(penting ? [penting.split("\n")[0].slice(0, 300)] : []),
-		"Semangat dan hati-hati di jalan! 🙌",
+		`Pagi gaes! Hari ini ${d.judul} ☀️`,
+		`• Loading & setup ${hm(d.setup_time) ?? "❓"} • acara ${acara(d)}`,
+		`• ${d.venue_name ?? d.venue_city ?? "venue ❓"}`,
+		...(d.maps_url ? [`• Maps: ${d.maps_url}`] : []),
+		`• Lead: ${lead}`,
+		...(penting !== "• belum ada catatan" ? [penting.slice(0, 300)] : []),
+		"Semangat & hati-hati di jalan ya! 🙌",
 	].join("\n");
 }
 
@@ -185,7 +196,7 @@ export function dueKinds(input: {
 	tomorrow: string;
 	nowMin: number;
 	started: boolean;
-	sent: Set<"h1" | "hari_h">;
+	sent: Set<string>;
 }): Array<"h1" | "hari_h"> {
 	const { event_date, today, tomorrow, nowMin, started, sent } = input;
 	// Grup crew tidak dikirimi pesan di luar 06.00–21.00 WIB.
@@ -198,4 +209,60 @@ export function dueKinds(input: {
 	if (!sent.has("h1")) return ["h1", "hari_h"];
 	if (!sent.has("hari_h")) return ["hari_h"];
 	return [];
+}
+
+const join = (names: string[]) =>
+	names.length <= 1
+		? (names[0] ?? "tim")
+		: `${names.slice(0, -1).join(", ")} & ${names.at(-1)}`;
+
+/** Variasi pembuka supaya tidak monoton (dipilih stabil per event). */
+const OPENERS = [
+	(n: string, j: string) =>
+		`Thank you for today ${n}! 🙌 Acara ${j} beres, kalian keren.`,
+	(n: string, j: string) =>
+		`Makasih banyak ${n}! 🙌 ${j} udah kelar, mantap kerjanya.`,
+	(n: string, j: string) =>
+		`Thank you ${n} buat hari ini! 🙌 ${j} beres dengan lancar.`,
+];
+
+/** Pengingat setelah acara (selesai + 30 menit) ke grup crew. */
+export function composeSelesai(input: {
+	judul: string;
+	project_id: string;
+	crew: string[];
+	rekapUrl: string | null;
+	rekapMasuk: boolean;
+}): string {
+	const names = [...new Set(input.crew)];
+	const seed = [...input.project_id].reduce((s, c) => s + c.charCodeAt(0), 0);
+	const open = OPENERS[seed % OPENERS.length](join(names), input.judul);
+	const rekap = input.rekapMasuk
+		? ["• Rekap udah masuk, makasih! 👍"]
+		: [
+				"• Rekap di aplikasi crew: foto bukti + bukti transfer/transaksi (bensin, parkir, tol, dll.)",
+				...(input.rekapUrl ? [`  ${input.rekapUrl}`] : []),
+			];
+	return [
+		open,
+		"",
+		"Sebelum lupa ya:",
+		...rekap,
+		"• Footage dokumentasi langsung kirim ke Iqbal ya 📸",
+		"",
+		"Hati-hati pulangnya! 🛵",
+	].join("\n");
+}
+
+/** Waktu absolut (ms) jam selesai acara; selesai < mulai = lewat tengah malam. */
+export function endAt(
+	event_date: string,
+	start: string | null,
+	end: string | null,
+): number | null {
+	const e = timeToMinutes(end);
+	if (e === null) return null;
+	const s = timeToMinutes(start);
+	const day = Date.parse(`${event_date}T00:00:00+07:00`);
+	return day + (e + (s !== null && e <= s ? 24 * 60 : 0)) * 60_000;
 }

@@ -1,10 +1,13 @@
 import "server-only";
 
+import { appUrl } from "@/lib/app-url";
 import {
 	type BriefingData,
 	composeCrewBriefing,
 	composeHariH,
+	composeSelesai,
 	dueKinds,
+	endAt,
 } from "@/lib/crew-briefing";
 import { FRAME_AGNOSTIC } from "@/lib/events/frame-package";
 import { eventSpots, unitCountOf } from "@/lib/events/spots";
@@ -397,4 +400,134 @@ export async function runCrewBriefing(
 		});
 	}
 	return result;
+}
+
+const REKAP_MASUK = ["submitted", "reviewed", "settled"];
+
+/**
+ * Pengingat ke grup crew sesudah acara (selesai + 30 menit, malam pun tetap):
+ * thank you + isi rekap & bukti + footage ke Iqbal. Idempoten (crew_briefings
+ * jenis 'selesai'). Tanpa info uang.
+ */
+export async function runPostEventCrew(
+	opts: { now?: Date; dryRun?: boolean; only?: string } = {},
+): Promise<{
+	sent: Array<{ project_id: string; command_id: string }>;
+	previews: Array<{ project_id: string; text: string }>;
+	errors: string[];
+}> {
+	const admin = createAdminClient();
+	const now = (opts.now ?? new Date()).getTime();
+	const today = new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
+	const yesterday = new Date(now + 7 * 3600_000 - 86_400_000)
+		.toISOString()
+		.slice(0, 10);
+	let q = admin
+		.from("events")
+		.select(
+			"id, project_id, client_name, event_title, event_date, start_time, end_time, status",
+		)
+		.in("event_date", [yesterday, today])
+		.neq("status", "cancelled")
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false);
+	if (opts.only) q = q.eq("project_id", opts.only);
+	const { data, error } = await q;
+	const out = {
+		sent: [] as Array<{ project_id: string; command_id: string }>,
+		previews: [] as Array<{ project_id: string; text: string }>,
+		errors: [] as string[],
+	};
+	if (error) return { ...out, errors: [error.message] };
+	const evs = (data ?? []).filter((e) => {
+		const end = endAt(
+			e.event_date as string,
+			e.start_time as string | null,
+			e.end_time as string | null,
+		);
+		// Selesai + 30 menit sudah lewat, tapi belum lebih dari 12 jam (jangan kirim pesan basi).
+		return (
+			end !== null &&
+			(opts.dryRun || (now >= end + 30 * 60_000 && now <= end + 12 * 3600_000))
+		);
+	});
+	if (!evs.length) return out;
+	const ids = evs.map((e) => e.id as string);
+	const [done, crew, rekap] = await Promise.all([
+		admin
+			.from("crew_briefings")
+			.select("event_id")
+			.eq("kind", "selesai")
+			.in("event_id", ids),
+		admin
+			.from("crew_assignments")
+			.select(
+				"event_id, role_in_event, user:users!crew_assignments_user_id_fkey(full_name, nickname)",
+			)
+			.in("event_id", ids),
+		admin.from("crew_rekap").select("event_id, status").in("event_id", ids),
+	]);
+	if (crew.error) return { ...out, errors: [crew.error.message] };
+	const sentIds = new Set((done.data ?? []).map((d) => d.event_id as string));
+	for (const e of evs) {
+		if (!opts.dryRun && sentIds.has(e.id as string)) continue;
+		const names = (
+			(crew.data ?? []) as unknown as Array<{
+				event_id: string;
+				role_in_event: string;
+				user: CrewUser | CrewUser[] | null;
+			}>
+		)
+			.filter((c) => c.event_id === e.id)
+			.sort((a, b) =>
+				a.role_in_event === "lead" ? -1 : b.role_in_event === "lead" ? 1 : 0,
+			)
+			.map((c) => crewDisplayName(Array.isArray(c.user) ? c.user[0] : c.user));
+		if (!names.length) continue; // tanpa crew bertugas tidak ada yang diingatkan
+		const st = (rekap.data ?? []).find((r) => r.event_id === e.id)?.status as
+			| string
+			| undefined;
+		const text = composeSelesai({
+			judul:
+				(e.event_title as string | null) ||
+				(e.client_name as string | null) ||
+				(e.project_id as string),
+			project_id: e.project_id as string,
+			crew: names,
+			rekapUrl: `${appUrl()}/crew/jadwal/${e.project_id}/rekap`,
+			rekapMasuk: REKAP_MASUK.includes(st ?? ""),
+		});
+		if (opts.dryRun) {
+			out.previews.push({ project_id: e.project_id as string, text });
+			continue;
+		}
+		const { data: claim, error: ce } = await admin
+			.from("crew_briefings")
+			.insert({ event_id: e.id, kind: "selesai" })
+			.select("id")
+			.single();
+		if (ce || !claim) continue;
+		const { data: cmd, error: ie } = await admin
+			.from("bot_commands")
+			.insert({
+				command: `send-grup-crew:${JSON.stringify({ pesan: text })}`,
+				status: "pending",
+			})
+			.select("id")
+			.single();
+		if (ie || !cmd) {
+			await admin.from("crew_briefings").delete().eq("id", claim.id);
+			out.errors.push(`${e.project_id}: ${ie?.message ?? "gagal antre"}`);
+			continue;
+		}
+		await admin
+			.from("crew_briefings")
+			.update({ command_id: cmd.id })
+			.eq("id", claim.id);
+		out.sent.push({
+			project_id: e.project_id as string,
+			command_id: cmd.id as string,
+		});
+	}
+	return out;
 }
