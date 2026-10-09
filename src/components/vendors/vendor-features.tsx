@@ -38,7 +38,7 @@ const ROWS: Array<{
 		k: "can_invite_clients",
 		icon: UserPlus,
 		title: "Vendor boleh mengundang klien",
-		on: "Vendor bisa mengundang kliennya ke dashboard acara dari menu Orang & akses.",
+		on: "Vendor bisa mengundang kliennya ke dashboard acara dari menu Orang & akses di tiap acara.",
 		off: "Hanya admin Tetra yang mengundang klien acara vendor ini.",
 	},
 	{
@@ -106,11 +106,18 @@ export function VendorFeatures({
 			</div>
 
 			<div className="border-border-default bg-card divide-border-default divide-y rounded-2xl border shadow-[var(--shadow-level-2)]">
+				<div className="p-5">
+					<h3 className="type-heading">Fitur dasbor rekanan</h3>
+					<p className="type-secondary mt-0.5">
+						Atur apa yang bisa dilihat & dilakukan vendor ini di dasbornya.
+						Tersimpan otomatis.
+					</p>
+				</div>
 				{ROWS.map((r) => {
 					const I = r.icon;
 					const on = s[r.k];
 					return (
-						<div key={r.k} className="flex items-start gap-3 p-4">
+						<div key={r.k} className="flex items-start gap-3 px-5 py-4">
 							<span className="bg-secondary text-muted-foreground grid size-9 shrink-0 place-items-center rounded-xl">
 								<I className="size-4" aria-hidden />
 							</span>

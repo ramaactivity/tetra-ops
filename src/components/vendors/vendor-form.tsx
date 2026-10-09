@@ -37,6 +37,7 @@ export function VendorForm({
 	defaults,
 	submitLabel = "Save vendor",
 	successMessage = "Vendor disimpan!",
+	doneHref = "/vendors",
 }: {
 	action: (
 		prev: VendorFormState,
@@ -45,6 +46,8 @@ export function VendorForm({
 	defaults?: VendorFormDefaults;
 	submitLabel?: string;
 	successMessage?: string;
+	/** Tujuan setelah tersimpan (edit → kembali ke Pusat Vendor). */
+	doneHref?: string;
 }) {
 	const router = useRouter();
 	const [state, formAction, pending] = useActionState<
@@ -84,11 +87,11 @@ export function VendorForm({
 	useEffect(() => {
 		if (success) {
 			const t = setTimeout(() => {
-				router.push("/vendors");
+				router.push(doneHref);
 			}, 1100);
 			return () => clearTimeout(t);
 		}
-	}, [success, router]);
+	}, [success, router, doneHref]);
 
 	return (
 		<form action={formAction} className="space-y-6 pb-32">
@@ -130,7 +133,9 @@ export function VendorForm({
 				</header>
 
 				<label className={labelClass}>
-					Nama Vendor / Perusahaan <span className="text-rose-500">*</span>
+					<span>
+						Nama Vendor / Perusahaan <span className="text-rose-500">*</span>
+					</span>
 					<input
 						type="text"
 						name="name"

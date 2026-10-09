@@ -50,7 +50,7 @@ export function TabNav({
 					href={tab.href}
 					aria-current={tab.active ? "page" : undefined}
 					className={cn(
-						"inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium leading-none transition-colors",
+						"inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] sm:px-3.5 font-medium leading-none transition-colors",
 						tab.active
 							? "bg-[#059669] text-white"
 							: "text-muted-foreground hover:bg-secondary hover:text-foreground",

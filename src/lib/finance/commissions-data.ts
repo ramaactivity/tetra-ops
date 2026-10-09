@@ -72,26 +72,30 @@ export type CommissionsOverview = {
 
 export async function getCommissionsOverview(
 	supabase: ServerSupabase,
+	opts: { vendorContactId?: string } = {},
 ): Promise<CommissionsOverview> {
+	let evq = supabase
+		.from("events")
+		.select(
+			`id, project_id, client_name, event_date, channel, status,
+				vendor_name, vendor_commission_mode, vendor_commission_amount, vendor_contact,
+				referrer_user_id, referrer_commission,
+				sales_user_id, direct_sales_commission`,
+		)
+		.is("deleted_at", null)
+		.or(
+			"vendor_commission_amount.gt.0,referrer_commission.gt.0,direct_sales_commission.gt.0",
+		)
+		.order("event_date", { ascending: false });
+	if (opts.vendorContactId)
+		evq = evq.eq("vendor_contact_id", opts.vendorContactId);
 	const [{ data: cutoffCfg }, { data: events }] = await Promise.all([
 		supabase
 			.from("system_config")
 			.select("value")
 			.eq("key", "finance_cutoff_date")
 			.maybeSingle(),
-		supabase
-			.from("events")
-			.select(
-				`id, project_id, client_name, event_date, channel, status,
-				vendor_name, vendor_commission_mode, vendor_commission_amount, vendor_contact,
-				referrer_user_id, referrer_commission,
-				sales_user_id, direct_sales_commission`,
-			)
-			.is("deleted_at", null)
-			.or(
-				"vendor_commission_amount.gt.0,referrer_commission.gt.0,direct_sales_commission.gt.0",
-			)
-			.order("event_date", { ascending: false }),
+		evq,
 	]);
 
 	const cutoff =
@@ -187,6 +191,8 @@ export async function getCommissionsOverview(
 			payeeContact: string | null,
 			vendorMode: string | null,
 		) => {
+			// Filter per vendor: hanya komisi vendor itu (bukan relasi/sales).
+			if (opts.vendorContactId && kind !== "vendor") return;
 			const payout = payoutByKey.get(`${eventId}:${kind}`) ?? null;
 			const bank = payout?.bank_account as
 				| { bank_name?: string; account_name?: string }

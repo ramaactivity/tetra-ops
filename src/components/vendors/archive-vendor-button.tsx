@@ -25,7 +25,7 @@ export function ArchiveVendorButton({
 			const result = await fn(id);
 			if (result.ok) {
 				toast.success(
-					mode === "archive" ? "Vendor di-archive" : "Vendor di-restore",
+					mode === "archive" ? "Vendor diarsipkan" : "Vendor dipulihkan",
 				);
 				router.push("/vendors");
 				router.refresh();
@@ -52,18 +52,18 @@ export function ArchiveVendorButton({
 				) : (
 					<ArchiveRestore className="size-4" />
 				)}
-				{mode === "archive" ? "Archive vendor" : "Restore vendor"}
+				{mode === "archive" ? "Arsipkan vendor" : "Pulihkan vendor"}
 			</Button>
 			<ConfirmDialog
 				open={open}
 				onOpenChange={setOpen}
-				title={mode === "archive" ? "Archive vendor?" : "Restore vendor?"}
+				title={mode === "archive" ? "Arsipkan vendor?" : "Pulihkan vendor?"}
 				description={
 					mode === "archive"
-						? "Vendor akan disembunyikan dari autocomplete booking form. Event history yang sudah link tetap utuh. Bisa di-restore kapan saja."
-						: "Vendor akan kembali muncul di booking form autocomplete + filter list."
+						? "Vendor tidak muncul lagi di pilihan form booking. Riwayat acaranya tetap utuh dan bisa dipulihkan kapan saja."
+						: "Vendor kembali muncul di pilihan form booking dan daftar vendor."
 				}
-				confirmLabel={mode === "archive" ? "Archive" : "Restore"}
+				confirmLabel={mode === "archive" ? "Arsipkan" : "Pulihkan"}
 				onConfirm={handleConfirm}
 			/>
 		</>

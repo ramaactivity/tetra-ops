@@ -114,7 +114,7 @@ export async function inviteVendorPerson(
 		return {
 			ok: false,
 			error:
-				"Akses dasbor rekanan vendor ini sedang dimatikan. Nyalakan dulu di tab Fitur.",
+				"Akses dasbor rekanan vendor ini sedang dimatikan. Nyalakan dulu di tab Pengaturan.",
 		};
 
 	let { data: person } = await admin

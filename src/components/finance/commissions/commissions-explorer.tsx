@@ -20,11 +20,11 @@ const STATUS_META: Record<
 	{ label: string; cls: string }
 > = {
 	upfront: {
-		label: "Potong di muka",
+		label: "Dipotong vendor",
 		cls: "bg-secondary text-muted-foreground",
 	},
 	not_settled: {
-		label: "Belum settle",
+		label: "Menunggu acara ditutup",
 		cls: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
 	},
 	advance: {
@@ -32,7 +32,7 @@ const STATUS_META: Record<
 		cls: "bg-sky-500/12 text-sky-700 dark:text-sky-400",
 	},
 	payable: {
-		label: "Terutang",
+		label: "Siap dibayar",
 		cls: "bg-rose-500/12 text-rose-700 dark:text-rose-400",
 	},
 	paid: {
@@ -72,7 +72,7 @@ export function CommissionsExplorer({
 			title: "Batalkan pembayaran komisi?",
 			description:
 				row.status === "advance"
-					? `Pembayaran di muka untuk ${row.payeeName} (${formatRupiah(paid)}) akan dibatalkan & jurnalnya dibalik. Uang muka komisi hilang, komisi kembali ke status "Belum settle".`
+					? `Pembayaran di muka untuk ${row.payeeName} (${formatRupiah(paid)}) akan dibatalkan & jurnalnya dibalik. Uang muka komisi hilang, komisi kembali ke status "Menunggu acara ditutup".`
 					: `Pembayaran komisi ${row.kind} untuk ${row.payeeName} (${formatRupiah(paid)}) akan dibatalkan dan jurnal dibalik. Utang komisi muncul lagi.`,
 			confirmLabel: "Batalkan pembayaran",
 			variant: "destructive",
@@ -161,7 +161,9 @@ export function CommissionsExplorer({
 											<div className="mt-0.5 text-[10.5px] text-muted-foreground">
 												{formatDateID(row.payout.paymentDate)}
 												{row.payout.bankName ? ` · ${row.payout.bankName}` : ""}
-												{row.status === "advance" ? " · nunggu settle" : ""}
+												{row.status === "advance"
+													? " · menunggu acara ditutup"
+													: ""}
 											</div>
 										) : null}
 										{row.payout && row.payout.paidAmount !== row.amount ? (
@@ -210,7 +212,7 @@ export function CommissionsExplorer({
 										) : (
 											<span className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground">
 												<CheckCircle2 className="size-3.5" aria-hidden />
-												Otomatis
+												Tanpa transfer
 											</span>
 										)}
 									</td>

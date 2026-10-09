@@ -1,12 +1,13 @@
-import { Archive } from "lucide-react";
+import { Archive, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
+import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { Badge } from "@/components/ui/badge";
 import { ArchiveVendorButton } from "@/components/vendors/archive-vendor-button";
 import { VendorForm } from "@/components/vendors/vendor-form";
 import { updateVendor } from "@/lib/actions/vendors";
-import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function EditVendorPage({
@@ -17,7 +18,7 @@ export default async function EditVendorPage({
 	const { id } = await params;
 	const supabase = await createClient();
 
-	const [{ data: vendor, error }, { data: eventsData }] = await Promise.all([
+	const [{ data: vendor, error }] = await Promise.all([
 		supabase
 			.from("contacts")
 			.select(
@@ -26,13 +27,6 @@ export default async function EditVendorPage({
 			.eq("id", id)
 			.eq("type", "vendor")
 			.maybeSingle(),
-		// Inline aggregate — no view dependency. See note in vendors/page.tsx.
-		supabase
-			.from("events")
-			.select("event_date, vendor_commission_amount, grand_total")
-			.eq("vendor_contact_id", id)
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false),
 	]);
 
 	if (error || !vendor) {
@@ -48,76 +42,38 @@ export default async function EditVendorPage({
 		notFound();
 	}
 
-	// Compute aggregates inline (cheap — typically 1-50 events per vendor).
-	const ytdStart = `${new Date().getFullYear()}-01-01`;
-	const events = (eventsData ?? []) as Array<{
-		event_date: string;
-		vendor_commission_amount: number | null;
-		grand_total: number | null;
-	}>;
-	const aggregate = events.reduce(
-		(acc, e) => {
-			acc.event_count += 1;
-			if (e.event_date >= ytdStart) {
-				acc.event_count_ytd += 1;
-				acc.commission_ytd += e.vendor_commission_amount ?? 0;
-				acc.gross_revenue_ytd += e.grand_total ?? 0;
-			}
-			return acc;
-		},
-		{
-			event_count: 0,
-			event_count_ytd: 0,
-			commission_ytd: 0,
-			gross_revenue_ytd: 0,
-		},
-	);
-
 	const action = updateVendor.bind(null, vendor.id as string);
 
 	return (
 		<Container size="lg" className="space-y-3">
+			<TopbarEntityPortal name={vendor.name as string} />
 			<div className="space-y-2">
+				<Link
+					href={`/vendors/${vendor.id}`}
+					className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[13px] font-medium"
+				>
+					<ArrowLeft className="size-4 shrink-0" /> Pusat Vendor
+				</Link>
 				<SectionHeader
 					as="h1"
-					title={`Edit: ${vendor.name}`}
-					description="Update profil vendor. Perubahan apply ke autocomplete booking form & aggregate di /finance/vendors."
+					title={`Ubah profil & komisi · ${vendor.name}`}
+					description="Data ini dipakai di form booking dan jadi bawaan booking baru vendor. Acara yang sudah ada tidak berubah."
 					actions={
 						!vendor.is_active && (
 							<Badge variant="outline" className="text-[11px]">
 								<Archive className="size-3" />
-								Archived
+								Diarsipkan
 							</Badge>
 						)
 					}
 				/>
 			</div>
 
-			{aggregate && (
-				<dl className="grid gap-3 sm:grid-cols-4">
-					<MiniStat
-						label="Event total"
-						value={(aggregate.event_count ?? 0).toLocaleString("id-ID")}
-					/>
-					<MiniStat
-						label="Event YTD"
-						value={(aggregate.event_count_ytd ?? 0).toLocaleString("id-ID")}
-					/>
-					<MiniStat
-						label="Gross YTD"
-						value={formatRupiah(aggregate.gross_revenue_ytd ?? 0)}
-					/>
-					<MiniStat
-						label="Komisi YTD"
-						value={formatRupiah(aggregate.commission_ytd ?? 0)}
-					/>
-				</dl>
-			)}
-
 			<VendorForm
 				action={action}
 				submitLabel="Simpan Perubahan"
 				successMessage="Perubahan disimpan!"
+				doneHref={`/vendors/${vendor.id}`}
 				defaults={{
 					name: vendor.name,
 					default_pic_name: vendor.default_pic_name ?? "",
@@ -140,14 +96,13 @@ export default async function EditVendorPage({
 			/>
 
 			{vendor.is_active && (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-5">
+				<div className="rounded-2xl border border-border-default bg-card p-5">
 					<h3 className="text-[14px] font-semibold tracking-tight">
-						Archive vendor
+						Arsipkan vendor
 					</h3>
 					<p className="mt-1 text-[12px] text-muted-foreground">
-						Vendor archived tidak muncul di booking form autocomplete, tapi
-						event history yang sudah link tetap utuh. Bisa di-restore kapan
-						saja.
+						Vendor yang diarsipkan tidak muncul lagi di pilihan form booking.
+						Riwayat acaranya tetap utuh dan bisa dipulihkan kapan saja.
 					</p>
 					<div className="mt-3">
 						<ArchiveVendorButton id={vendor.id as string} mode="archive" />
@@ -155,12 +110,12 @@ export default async function EditVendorPage({
 				</div>
 			)}
 			{!vendor.is_active && (
-				<div className="rounded-lg border border-border-default bg-surface-2 p-5">
+				<div className="rounded-2xl border border-border-default bg-card p-5">
 					<h3 className="text-[14px] font-semibold tracking-tight">
-						Restore vendor
+						Pulihkan vendor
 					</h3>
 					<p className="mt-1 text-[12px] text-muted-foreground">
-						Restore → vendor kembali muncul di booking form autocomplete.
+						Vendor kembali muncul di pilihan form booking.
 					</p>
 					<div className="mt-3">
 						<ArchiveVendorButton id={vendor.id as string} mode="restore" />
@@ -168,16 +123,5 @@ export default async function EditVendorPage({
 				</div>
 			)}
 		</Container>
-	);
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="rounded-lg border border-border-default bg-card p-3">
-			<dt className="eyebrow truncate">{label}</dt>
-			<dd className="tabular mt-1 text-[18px] font-semibold leading-tight text-foreground">
-				{value}
-			</dd>
-		</div>
 	);
 }

@@ -1,4 +1,5 @@
-import { Handshake } from "lucide-react";
+import { Handshake, X } from "lucide-react";
+import Link from "next/link";
 import type { CommissionBankOption } from "@/components/finance/commissions/commission-pay-dialog";
 import { CommissionsExplorer } from "@/components/finance/commissions/commissions-explorer";
 import { Container } from "@/components/layout/container";
@@ -7,22 +8,35 @@ import { getCommissionsOverview } from "@/lib/finance/commissions-data";
 import { formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function CommissionsPage() {
+export default async function CommissionsPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ vendor?: string }>;
+}) {
+	const { vendor } = await searchParams;
 	const supabase = await createClient();
 	const today = new Date();
 	const todayISO = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-	const [{ rows, totals }, { data: banksData }] = await Promise.all([
-		getCommissionsOverview(supabase),
-		supabase
-			.from("bank_accounts")
-			.select("coa_code, bank_name, account_number, account_holder")
-			.eq("is_active", true)
-			// Komisi tidak pernah dibayar dari kartu e-toll.
-			.neq("account_kind", "emoney")
-			.order("is_default_receive", { ascending: false })
-			.order("bank_name", { ascending: true }),
-	]);
+	const [{ rows, totals }, { data: banksData }, { data: vendorRow }] =
+		await Promise.all([
+			getCommissionsOverview(supabase, { vendorContactId: vendor }),
+			supabase
+				.from("bank_accounts")
+				.select("coa_code, bank_name, account_number, account_holder")
+				.eq("is_active", true)
+				// Komisi tidak pernah dibayar dari kartu e-toll.
+				.neq("account_kind", "emoney")
+				.order("is_default_receive", { ascending: false })
+				.order("bank_name", { ascending: true }),
+			vendor
+				? supabase
+						.from("contacts")
+						.select("id, name")
+						.eq("id", vendor)
+						.maybeSingle()
+				: Promise.resolve({ data: null }),
+		]);
 
 	const banks: CommissionBankOption[] = (banksData ?? []).map((b) => ({
 		coa_code: b.coa_code as string,
@@ -33,20 +47,40 @@ export default async function CommissionsPage() {
 		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Komisi Vendor & Relasi"
-				description="Lacak & bayar komisi tiap event. Pembayaran otomatis tercatat di jurnal."
+				description="Komisi yang Tetra bayarkan ke vendor & relasi. Bisa dibayar setelah acara ditutup (settle); pembayaran otomatis tercatat di jurnal."
 			/>
+			{vendorRow && (
+				<div className="flex flex-wrap items-center gap-2">
+					<span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-foreground pl-3.5 pr-1 text-[13px] font-medium text-background">
+						Vendor: {vendorRow.name as string}
+						<Link
+							href="/finance/vendors"
+							aria-label="Tampilkan semua komisi"
+							className="grid size-6 place-items-center rounded-full hover:bg-white/15"
+						>
+							<X className="size-3.5" />
+						</Link>
+					</span>
+					<Link
+						href={`/vendors/${vendorRow.id as string}`}
+						className="text-[13px] font-medium text-muted-foreground hover:text-foreground"
+					>
+						Buka Pusat Vendor →
+					</Link>
+				</div>
+			)}
 
 			<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<SummaryCard
-					label="Perlu dibayar"
+					label="Siap dibayar"
 					value={formatRupiah(totals.payableAmount)}
-					hint={`${totals.payableCount} komisi terutang`}
+					hint={`${totals.payableCount} komisi · acara sudah ditutup`}
 					tone="rose"
 				/>
 				<SummaryCard
 					label="Dibayar di muka"
 					value={formatRupiah(totals.advanceAmount)}
-					hint="Sudah keluar, nunggu event di-settle"
+					hint="Sudah ditransfer, acara belum ditutup"
 					tone="sky"
 				/>
 				<SummaryCard
@@ -56,9 +90,9 @@ export default async function CommissionsPage() {
 					tone="emerald"
 				/>
 				<SummaryCard
-					label="Belum dibayar"
+					label="Menunggu acara ditutup"
 					value={formatRupiah(totals.notSettledAmount)}
-					hint={`Event belum settle · ${rows.length} komisi total`}
+					hint={`Belum bisa dibayar · ${rows.length} komisi total`}
 					tone="amber"
 				/>
 			</dl>
@@ -75,7 +109,7 @@ export default async function CommissionsPage() {
 						<b>Bayar di muka</b>: uangnya dicatat sebagai aset Uang Muka Komisi
 						(1-310) dan otomatis diperhitungkan saat event di-settle — jadi
 						tidak pernah tertagih dua kali. Vendor <b>Potongan Langsung</b>{" "}
-						ditandai "Potong di muka" (sudah dipotong dari aliran uang, bukan
+						ditandai "Dipotong vendor" (sudah dipotong dari aliran uang, bukan
 						uang keluar).
 					</span>
 				</p>
