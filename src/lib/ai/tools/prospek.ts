@@ -17,6 +17,7 @@ import {
 } from "@/lib/prospek";
 import { KATEGORI_B2B, ringkasRetensi } from "@/lib/retensi";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
+import { kirimTim, pengingatTim } from "./tim";
 
 /**
  * Tool agent sales (Hermes profil `sales`, token MCP_SALES_TOKEN). Agent
@@ -1821,4 +1822,6 @@ export const SALES_TOOLS: AiTool[] = [
 	kontakCari,
 	kontakCekNomor,
 	waKirimKontak,
+	pengingatTim,
+	kirimTim,
 ];
