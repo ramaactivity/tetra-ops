@@ -1346,7 +1346,7 @@ export default async function BookingDetailPage({
 					{body}
 					<Section
 						id="kartu-qr"
-						title="Kartu QR Guest Cam"
+						title="Kartu QR Snapbook"
 						right={
 							<span style={{ fontSize: 12, color: "#5F5E5A" }}>
 								Ukuran kartu nama · dicetak Tetra

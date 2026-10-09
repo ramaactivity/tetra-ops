@@ -50,7 +50,7 @@ export const SERVICE_LABEL: Record<ServiceCategory, string> = {
 	magazine_box_only: "Magazine Box Only",
 	photostage_only: "Photo Stage Only",
 	photostage_combo: "Photo Stage + Photobooth",
-	guest_cam: "Guest Cam (tanpa booth)",
+	guest_cam: "Snapbook (tanpa booth)",
 };
 
 const MAGAZINE = new Set<string>(["magazine_combo", "magazine_box_only"]);

@@ -3671,7 +3671,7 @@ export function BookingForm({
 					<Section
 						step={9}
 						title="Add-ons"
-						description="Voucher, print extras, Guest Cam, dll. Yang tampil hanya pilihan yang cocok dengan paket."
+						description="Voucher, print extras, Snapbook (Guest Cam), dll. Yang tampil hanya pilihan yang cocok dengan paket."
 					>
 						<input type="hidden" name="addons_json" value={addonsJson} />
 						<input type="hidden" name="guest_card_design" value={guestCard} />
@@ -3695,7 +3695,7 @@ export function BookingForm({
 									<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-4">
 										<div>
 											<h4 className="text-fluid-body font-semibold">
-												Guest Cam{isGuestCamEvent ? " · wajib pilih" : ""}
+												Snapbook (Guest Cam){isGuestCamEvent ? " · wajib pilih" : ""}
 											</h4>
 											<p className="text-fluid-caption text-muted-foreground">
 												Tamu memotret dari HP lewat QR. Jumlah tamu = batas di

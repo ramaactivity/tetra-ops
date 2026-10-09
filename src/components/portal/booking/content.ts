@@ -163,11 +163,11 @@ export type PkgContent = {
 
 export const PKG: Record<string, PkgContent> = {
 	guest_cam: {
-		name: "Guest Cam saja",
+		name: "Snapbook (tanpa booth)",
 		icon: Smartphone,
 		tint: "#CEC8F6",
 		fmt: "4r",
-		desc: "Tanpa booth. Tamu scan QR lalu memotret dari HP sendiri, tanpa install aplikasi. Semua foto, ucapan suara, dan photo frame masuk satu album.",
+		desc: "Buku tamu versi kekinian, tanpa booth. Tamu scan QR lalu memotret dari HP sendiri tanpa install aplikasi; foto, voice note, dan photo frame masuk satu album.",
 		fit: "acara yang ingin foto dari sudut pandang tamu, tanpa booth di lokasi",
 		points: [
 			"Kartu QR dicetak Tetra + 3 papan meja",
@@ -361,12 +361,13 @@ export function addonGroupContent(a: {
 	switch (a.addon_group) {
 		case "guest_cam":
 			return {
-				name: `Guest Cam · ${guests(a.max_guests)}`,
+				name: `Snapbook · ${guests(a.max_guests)}`,
 				unit: "acara",
 				icon: Smartphone,
 				tint: "#CEC8F6",
-				benefit: "Tamu memotret dari HP-nya, semua masuk satu album.",
-				desc: `Untuk ${a.max_guests ? `sampai ${a.max_guests}` : "berapa pun"} tamu. Tamu scan QR lalu memotret dari HP tanpa install aplikasi, bisa kirim ucapan suara dan pakai photo frame. Foto tamu menyatu dengan foto booth di satu album, disimpan 6 bulan. Kartu QR ukuran kartu nama dicetak Tetra + 3 papan meja. Tamu dihitung per HP yang mengirim foto.`,
+				benefit:
+					"Buku tamu versi kekinian: foto, voice note & frame dari HP tamu.",
+				desc: `Snapbook (Guest Cam) untuk ${a.max_guests ? `sampai ${a.max_guests}` : "berapa pun"} tamu. Tamu scan QR lalu memotret dari HP tanpa install aplikasi, bisa kirim ucapan suara dan pakai photo frame. Foto tamu menyatu dengan foto booth di satu album, disimpan 6 bulan. Kartu QR ukuran kartu nama dicetak Tetra + 3 papan meja. Tamu dihitung per HP yang mengirim foto.`,
 			};
 		case "guest_print":
 		case "guest_print_100":
@@ -376,7 +377,7 @@ export function addonGroupContent(a: {
 				icon: Printer,
 				tint: "#D6EEF8",
 				benefit: "Foto dari HP tamu dicetak di lokasi.",
-				desc: `Setiap tamu dapat 1 cetakan ${PRINT_LABEL[a.print_size ?? ""] ?? ""} dari foto Guest Cam-nya${a.addon_group === "guest_print_100" ? ", dihitung per 100 tamu" : `, untuk ${guests(a.max_guests)}`}. Bersama photobooth, cetakan masuk antrean printer booth; tanpa booth, dicetak lewat Print Station.`,
+				desc: `Setiap tamu dapat 1 cetakan ${PRINT_LABEL[a.print_size ?? ""] ?? ""} dari foto Snapbook-nya${a.addon_group === "guest_print_100" ? ", dihitung per 100 tamu" : `, untuk ${guests(a.max_guests)}`}. Bersama photobooth, cetakan masuk antrean printer booth; tanpa booth, dicetak lewat Print Station.`,
 			};
 		case "print_station":
 			return {
@@ -405,30 +406,30 @@ export function addonGroupContent(a: {
 				icon: Tv,
 				tint: "#D6F1EA",
 				benefit: "Foto booth & tamu tampil langsung di TV.",
-				desc: "TV 55 inci dengan stand di venue. Menampilkan foto booth, rombongan Photo Stage, foto Guest Cam, dan QR galeri secara langsung selama acara.",
+				desc: "TV 55 inci dengan stand di venue. Menampilkan foto booth, rombongan Photo Stage, foto Snapbook, dan QR galeri secara langsung selama acara.",
 			};
 		default:
 			return null;
 	}
 }
 
-/** Teks tambahan Guest Cam per nama (upsell). */
+/** Teks tambahan Snapbook (Guest Cam) per nama add-on di DB (upsell). */
 export const GUEST_EXTRA: Record<string, AddonContent> = {
-	"Guest Cam: simpan 1 tahun": {
-		name: "Guest Cam · simpan 1 tahun",
+	"Snapbook: simpan 1 tahun": {
+		name: "Snapbook · simpan 1 tahun",
 		unit: "acara",
 		icon: Smartphone,
 		tint: "#CEC8F6",
-		benefit: "Album Guest Cam disimpan 1 tahun, bukan 6 bulan.",
+		benefit: "Album Snapbook disimpan 1 tahun, bukan 6 bulan.",
 		desc: "Album foto tamu tetap bisa dibuka dan diunduh selama 1 tahun setelah acara.",
 	},
-	"Guest Cam: kartu QR tambahan": {
+	"Snapbook: kartu QR tambahan": {
 		name: "Kartu QR tambahan",
 		unit: "box",
 		icon: Ticket,
 		tint: "#CEC8F6",
 		benefit: "Kartu QR ekstra untuk meja tamu.",
-		desc: "Satu box kartu QR Guest Cam ukuran kartu nama, isi 100.",
+		desc: "Satu box kartu QR Snapbook ukuran kartu nama, isi 100.",
 	},
 };
 

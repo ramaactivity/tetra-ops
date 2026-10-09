@@ -46,7 +46,7 @@ export const PRODUCT_LABELS: Record<string, string> = {
 	magazine_box_only: "Magazine Box Only",
 	photostage_only: "Photo Stage Only",
 	photostage_combo: "Photo Stage + Photobooth Classic",
-	guest_cam: "Guest Cam (tanpa booth)",
+	guest_cam: "Snapbook (tanpa booth)",
 };
 
 const PRODUCT_ORDER = Object.keys(PRODUCT_LABELS);
@@ -289,12 +289,12 @@ export function addonRuleError(
 			return `${a.name} tidak tersedia untuk pilihan ini.`;
 	for (const f of SINGLE)
 		if (chosen.filter((a) => family(a.addon_group) === f).length > 1)
-			return "Ada pilihan yang hanya boleh satu (Guest Cam, cetak, Print Station, atau TV).";
+			return "Ada pilihan yang hanya boleh satu (Snapbook, cetak, Print Station, atau TV).";
 	if (
 		x.category === GUEST_CAM_PKG &&
 		!chosen.some((a) => a.addon_group === "guest_cam")
 	)
-		return "Pilih jumlah tamu Guest Cam dulu.";
+		return "Pilih jumlah tamu Snapbook dulu.";
 	if (
 		!hasPrinter(x.category) &&
 		chosen.some((a) => family(a.addon_group) === "guest_print") &&

@@ -1004,7 +1004,7 @@ function questions(x: Ctx): [string, string] {
 			s.pkg === "guest_cam"
 				? [
 						"Berapa tamu yang ikut memotret?",
-						"Pilih satu paket Guest Cam, lalu tambahan kalau perlu.",
+						"Pilih satu paket Snapbook, lalu tambahan kalau perlu.",
 					]
 				: ["Mau tambah sesuatu?", "Opsional, boleh dilewati."],
 		title: [
