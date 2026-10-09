@@ -7,6 +7,7 @@ import {
 	clearVerifyNonce,
 	clientIp,
 	endSession,
+	getPortalPerson,
 	rateLimit,
 	setVerifyNonce,
 	startSession,
@@ -302,4 +303,36 @@ export async function submitEmailCode(
 
 export async function logoutPortal(): Promise<void> {
 	await endSession();
+}
+
+/** Terima link undangan pribadi → sesi portal untuk orang yang diundang (DR-045). */
+export async function acceptInvite(
+	token: string,
+): Promise<{ ok: true; to: string } | { ok: false; error: string }> {
+	const { readInvite, inviteTarget } = await import("@/lib/portal/invite-link");
+	const v = await readInvite(token);
+	if (!v) return { ok: false, error: "Link undangan tidak dikenali." };
+	if (v.expired)
+		return {
+			ok: false,
+			error: "Link undangan sudah kedaluwarsa. Masuk pakai nomor WhatsApp, ya.",
+		};
+	const me = await getPortalPerson();
+	if (!me || me.id !== v.person.id) {
+		if (me) await endSession();
+		await startSession(v.person.id);
+	}
+	const { data: inv } = await createAdminClient()
+		.from("portal_invites")
+		.select("used_count")
+		.eq("id", v.id)
+		.single();
+	await createAdminClient()
+		.from("portal_invites")
+		.update({
+			used_count: Number(inv?.used_count ?? 0) + 1,
+			last_used_at: new Date().toISOString(),
+		})
+		.eq("id", v.id);
+	return { ok: true, to: inviteTarget(v) };
 }

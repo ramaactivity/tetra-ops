@@ -3,7 +3,7 @@ import { Onboarding } from "@/components/portal/dash/onboarding";
 import { RekananDashboard } from "@/components/portal/dash/rekanan";
 import { DashShell } from "@/components/portal/dash/shell";
 import { btn, PageHead } from "@/components/portal/dash/ui";
-import { PortalLogin } from "@/components/portal/portal-login";
+import { LoginScreen } from "@/components/portal/login-screen";
 import { dateLong } from "@/components/portal/status-pill";
 import { getPortalPerson } from "@/lib/portal/auth";
 import { daysUntil, PRODUCT_LABELS } from "@/lib/portal/core";
@@ -26,30 +26,18 @@ export default async function AkunPage({
 }) {
 	const sp = await searchParams;
 	const person = await getPortalPerson();
-	if (!person)
+	if (!person) {
+		const { data: biz0 } = await createAdminClient()
+			.from("system_config")
+			.select("value")
+			.eq("key", "business_phone")
+			.maybeSingle();
 		return (
-			<div className="wrap" style={{ display: "grid", gap: 18 }}>
-				<a
-					href="/booking"
-					className="h2"
-					style={{ color: "var(--ink)", textDecoration: "none" }}
-				>
-					tetra
-				</a>
-				<h1 className="h1">Masuk ke booking kamu</h1>
-				<p className="body">
-					Pakai nomor WhatsApp yang kamu daftarkan waktu booking. Tanpa
-					password.
-				</p>
-				<PortalLogin />
-				<p className="cap">
-					Belum pernah booking?{" "}
-					<a className="link" href="/booking">
-						Mulai booking
-					</a>
-				</p>
-			</div>
+			<LoginScreen
+				adminWa={typeof biz0?.value === "string" ? toWaPhone(biz0.value) : null}
+			/>
 		);
+	}
 
 	// Dasbor rekanan: vendor terdaftar → semua event vendornya ikut tertaut dulu.
 	const vendors = await vendorContactsOf(person.id);

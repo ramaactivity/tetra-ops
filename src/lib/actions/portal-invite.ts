@@ -15,7 +15,8 @@ import {
 	type EventForBooking,
 	ensureEventBooking,
 } from "@/lib/portal/event-booking";
-import { portalUrl, sendClientWa } from "@/lib/portal/notify";
+import { createInviteLink } from "@/lib/portal/invite-link";
+import { sendClientWa } from "@/lib/portal/notify";
 import { syncVendorBookings } from "@/lib/portal/vendor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
@@ -148,16 +149,28 @@ export async function inviteClientDashboard(
 			.is("deleted_at", null);
 		vendorEvents = count ?? 0;
 	}
-	const url = vendorEvents > 1 ? portalUrl() : portalUrl(b.public_code);
+	// Link pribadi: halaman sambutan sesuai penerima, satu ketuk langsung masuk.
+	const url = await createInviteLink(
+		person.id,
+		as === "wo" ? "vendor" : "klien",
+		{
+			title: ev.event_title || ev.client_name || null,
+			vendor_name: (ev.vendor_name as string | null) ?? null,
+			booking_code: b.public_code,
+			invited_by: "Tetra Photobooth",
+			role_label: as === "wo" ? (parsed.data.role ?? "Vendor / WO") : "Klien",
+			events: vendorEvents || null,
+		},
+	);
 	if (send) {
 		const title = ev.event_title || ev.client_name || "acara kamu";
 		await sendClientWa(
 			phone,
 			as === "wo" && vendorEvents > 1
-				? `Halo ${name}! Dasbor rekanan Tetra Photobooth untuk ${ev.vendor_name ?? "tim kamu"} sudah bisa dibuka.\n\nSemua ${vendorEvents} acara klien kamu yang memakai Tetra ada di satu tempat: status, jadwal, desain, galeri, tagihan, dan komisi. Kamu juga bisa mengundang klien ke dashboard acaranya. Masuk pakai nomor WhatsApp ini (tanpa password):\n${url}`
+				? `Halo ${name}! Dasbor rekanan Tetra Photobooth untuk ${ev.vendor_name ?? "tim kamu"} sudah bisa dibuka.\n\nSemua ${vendorEvents} acara klien kamu yang memakai Tetra ada di satu tempat: status, jadwal, desain, galeri, tagihan, dan komisi. Kamu juga bisa mengundang klien ke dashboard acaranya. Masuk pakai nomor WhatsApp ini — cukup buka link ini, satu ketuk langsung masuk:\n${url}`
 				: as === "wo"
-					? `Halo ${name}! Dashboard booking photobooth ${title} untuk klien kamu sudah bisa dibuka di Tetra.\n\nPantau status, pembayaran, desain, dan galeri, lalu undang klien kamu dari menu Orang & akses. Masuk pakai nomor WhatsApp ini (tanpa password):\n${url}`
-					: `Halo ${name}! Dashboard ${title} dari Tetra Photobooth sudah bisa dibuka.\n\nDi sana ada detail acara, desain frame, dan galeri foto. Masuk pakai nomor WhatsApp ini (tanpa password):\n${url}`,
+					? `Halo ${name}! Dashboard booking photobooth ${title} untuk klien kamu sudah bisa dibuka di Tetra.\n\nPantau status, pembayaran, desain, dan galeri, lalu undang klien kamu dari menu Orang & akses. Masuk pakai nomor WhatsApp ini — cukup buka link ini, satu ketuk langsung masuk:\n${url}`
+					: `Halo ${name}! Dashboard ${title} dari Tetra Photobooth sudah bisa dibuka.\n\nDi sana ada detail acara, desain frame, dan galeri foto. Masuk pakai nomor WhatsApp ini — cukup buka link ini, satu ketuk langsung masuk:\n${url}`,
 		);
 	}
 	revalidatePath(`/operations/${ev.project_id}`);

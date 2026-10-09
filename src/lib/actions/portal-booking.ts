@@ -32,11 +32,11 @@ import {
 	slotAvailable,
 	vendorForPhone,
 } from "@/lib/portal/data";
+import { createInviteLink } from "@/lib/portal/invite-link";
 import {
 	notifyAdminWaGroup,
 	notifyPortalPaymentSubmitted,
 	notifyPortalRequest,
-	portalUrl,
 	sendClientWa,
 } from "@/lib/portal/notify";
 import { checkPromo, PROMO_REASON } from "@/lib/promo";
@@ -327,7 +327,7 @@ export async function createDraftBooking(
 		]);
 		if (asWo && client?.phone) {
 			const phone = toWaPhone(client.phone);
-			await addMember(
+			const clientId = await addMember(
 				data.id,
 				person.id,
 				phone,
@@ -336,7 +336,7 @@ export async function createDraftBooking(
 			);
 			await sendClientWa(
 				phone,
-				`Halo${client.name ? ` ${client.name}` : ""}! ${vendor?.name ?? detail?.wo_nama ?? person.name ?? "WO kamu"} sudah memesan photobooth Tetra untuk acara kamu (${sel.date}).\n\nKamu bisa ikut melihat dan melengkapi detailnya di sini (masuk pakai nomor WA ini): ${portalUrl(code)}`,
+				`Halo${client.name ? ` ${client.name}` : ""}! ${vendor?.name ?? detail?.wo_nama ?? person.name ?? "WO kamu"} sudah memesan photobooth Tetra untuk acara kamu (${sel.date}).\n\nKamu bisa ikut melihat dan melengkapi detailnya di sini — satu ketuk langsung masuk:\n${await createInviteLink(clientId, "anggota", { title: detail?.nama_acara ?? null, booking_code: code, invited_by: vendor?.name ?? detail?.wo_nama ?? person.name ?? "WO kamu", role_label: "Klien" })}`,
 			);
 		}
 		return { ok: true, code };
@@ -716,7 +716,13 @@ export async function inviteMember(
 	const phone = toWaPhone(parsed.data.phone);
 	if (phone === person.phone)
 		return { ok: false, error: "Itu nomor kamu sendiri." };
-	await addMember(b.id, person.id, phone, parsed.data.name, parsed.data.role);
+	const invitedId = await addMember(
+		b.id,
+		person.id,
+		phone,
+		parsed.data.name,
+		parsed.data.role,
+	);
 	// Klien pertama yang diundang jadi "pemilik acara" di data acara (kalau kosong).
 	if (parsed.data.role === "pemilik" && !b.detail.pemilik_nama)
 		await saveDetailFields(b, {
@@ -725,7 +731,7 @@ export async function inviteMember(
 		});
 	await sendClientWa(
 		phone,
-		`Halo ${parsed.data.name}! ${person.name ?? "Pemesan"} menambahkan kamu sebagai ${ROLE_LABEL[parsed.data.role]} untuk ${b.detail.nama_acara ?? "acara"} (${b.event_date}) di Tetra Photobooth.\n\nLihat dan lengkapi detailnya di sini (masuk pakai nomor WA ini): ${portalUrl(b.public_code)}`,
+		`Halo ${parsed.data.name}! ${person.name ?? "Pemesan"} menambahkan kamu sebagai ${ROLE_LABEL[parsed.data.role]} untuk ${b.detail.nama_acara ?? "acara"} (${b.event_date}) di Tetra Photobooth.\n\nLihat dan lengkapi detailnya di sini — satu ketuk langsung masuk:\n${await createInviteLink(invitedId, "anggota", { title: b.detail.nama_acara ?? null, booking_code: b.public_code, invited_by: person.name ?? "Pemesan", role_label: b.role === "wo" && parsed.data.role === "pemilik" ? "Klien" : ROLE_LABEL[parsed.data.role] })}`,
 	);
 	revalidatePath(`/akun/booking/${code}`);
 	return { ok: true };
