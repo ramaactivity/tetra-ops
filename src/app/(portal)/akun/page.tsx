@@ -1,4 +1,5 @@
 import { PKG } from "@/components/portal/booking/content";
+import { Onboarding } from "@/components/portal/dash/onboarding";
 import { DashShell } from "@/components/portal/dash/shell";
 import { btn, PageHead } from "@/components/portal/dash/ui";
 import { PortalLogin } from "@/components/portal/portal-login";
@@ -12,7 +13,12 @@ import { toWaPhone } from "@/lib/whatsapp";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Booking saya" };
 
-export default async function AkunPage() {
+export default async function AkunPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ panduan?: string }>;
+}) {
+	const sp = await searchParams;
 	const person = await getPortalPerson();
 	if (!person)
 		return (
@@ -50,6 +56,7 @@ export default async function AkunPage() {
 	const adminWa =
 		typeof biz.data?.value === "string" ? toWaPhone(biz.data.value) : null;
 	const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+	const isWo = bookings.some((b) => b.role === "wo");
 	// Dasbor WO (DR-028): klien yang dipegang dipisah dari booking pribadi.
 	const groups = [
 		{
@@ -66,10 +73,21 @@ export default async function AkunPage() {
 			]}
 			person={{ name: person.name, phone: person.phone }}
 			chatUrl={adminWa ? `https://wa.me/${adminWa}` : null}
+			guideHref="/akun?panduan=1"
 		>
+			<Onboarding
+				role={isWo ? "wo" : "pemesan"}
+				name={person.name}
+				autoOpen={sp.panduan === "1" || !person.onboarded_at}
+				clearHref={sp.panduan === "1" ? "/akun" : undefined}
+			/>
 			<PageHead
 				title={`Halo, ${person.name?.split(" ")[0] ?? "kamu"}`}
-				meta="Pilih booking untuk melihat dashboard-nya."
+				meta={
+					isWo
+						? "Dasbor rekanan Tetra: semua booking klien kamu ada di sini. Buka satu booking untuk mengundang klien atau memantau pembayaran."
+						: "Pilih booking untuk melihat dashboard-nya."
+				}
 				actions={
 					<a href="/booking" style={btn("#F8D98B")}>
 						+ Booking baru

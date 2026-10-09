@@ -148,6 +148,45 @@
 	background: rgb(29 29 27 / 0.4);
 }
 
+.dash-guide {
+	width: min(440px, calc(100vw - 24px));
+	margin: auto;
+	border: 1.5px solid var(--ink);
+	border-radius: 20px;
+	background: #fff;
+	padding: 0;
+	color: var(--ink);
+	box-shadow:
+		6px 6px 0 -1.5px #f8d98b,
+		6px 6px 0 0 var(--ink);
+}
+.dash-guide::backdrop {
+	background: rgb(29 29 27 / 0.45);
+}
+.dash-guide[open] {
+	animation: dash-guide-in 220ms ease-out;
+}
+@keyframes dash-guide-in {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+.dash-role {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	border-radius: 14px;
+	border: 1.5px solid var(--ink);
+	padding: 12px 16px;
+	font-size: 14px;
+	line-height: 1.45;
+}
+
 .dash-stats {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -36,14 +36,23 @@ export function MembersCard({
 	members,
 	meId,
 	canManage,
+	labels,
+	woView = false,
+	openInitially = false,
 }: {
 	code: string;
 	members: Member[];
 	meId: string;
 	canManage: boolean;
+	/** Label & keterangan per peran sesuai sudut pandang yang melihat. */
+	labels?: Partial<Record<Member["role"], { label: string; hint: string }>>;
+	/** Yang melihat WO/vendor: undangan utama = klien, dengan panduan langkah. */
+	woView?: boolean;
+	openInitially?: boolean;
 }) {
 	const router = useRouter();
-	const [open, setOpen] = useState(false);
+	const R = (r: Member["role"]) => ({ ...ROLE[r], ...labels?.[r] });
+	const [open, setOpen] = useState(openInitially);
 	const [name, setName] = useState("");
 	const [phone, setPhone] = useState("");
 	const [role, setRole] = useState<"pemilik" | "wo">("pemilik");
@@ -77,7 +86,7 @@ export function MembersCard({
 			{canManage && !open && (
 				<button type="button" className="chip" onClick={() => setOpen(true)}>
 					<UserPlus aria-hidden size={16} strokeWidth={2} />
-					Undang
+					{woView ? "Undang klien" : "Undang"}
 				</button>
 			)}
 		</div>
@@ -109,7 +118,7 @@ export function MembersCard({
 								justifyContent: "center",
 								borderRadius: 18,
 								border: "1.5px solid var(--ink)",
-								background: ROLE[m.role].bg,
+								background: R(m.role).bg,
 								fontSize: 13,
 								fontWeight: 800,
 								textTransform: "uppercase",
@@ -130,10 +139,10 @@ export function MembersCard({
 								{m.name ?? "Tanpa nama"}
 								{m.id === meId ? " (kamu)" : ""}
 							</div>
-							<div className="cap">{ROLE[m.role].hint}</div>
+							<div className="cap">{R(m.role).hint}</div>
 						</div>
-						<span className="pill" style={{ background: ROLE[m.role].bg }}>
-							{ROLE[m.role].label}
+						<span className="pill" style={{ background: R(m.role).bg }}>
+							{R(m.role).label}
 						</span>
 						{canManage && m.id !== meId && m.role !== "pemesan" && (
 							<button
@@ -152,6 +161,34 @@ export function MembersCard({
 					</li>
 				))}
 			</ul>
+			{woView &&
+				canManage &&
+				!open &&
+				!members.some((m) => m.role === "pemilik") && (
+					<div
+						className="note"
+						style={{
+							background: "#D6F1EA",
+							display: "grid",
+							gap: 10,
+							justifyItems: "start",
+						}}
+					>
+						<span>
+							<b>Klien kamu belum diundang.</b> Undang supaya mereka bisa
+							melengkapi data acara dan memilih desain sendiri, tanpa kamu perlu
+							meneruskan pesan.
+						</span>
+						<button
+							type="button"
+							className="btn btn-primary"
+							onClick={() => setOpen(true)}
+						>
+							<UserPlus aria-hidden size={16} strokeWidth={2} />
+							Undang klien sekarang
+						</button>
+					</div>
+				)}
 			{open && (
 				<div
 					style={{
@@ -161,6 +198,27 @@ export function MembersCard({
 						paddingTop: 14,
 					}}
 				>
+					{woView && (
+						<ol
+							style={{
+								margin: 0,
+								paddingLeft: 20,
+								listStyle: "decimal",
+								display: "grid",
+								gap: 4,
+								fontSize: 13,
+								lineHeight: 1.45,
+								color: "#3A3936",
+							}}
+						>
+							<li>Isi nama dan nomor WhatsApp klien.</li>
+							<li>Kami kirim link dashboard ke WhatsApp-nya.</li>
+							<li>
+								Klien masuk pakai nomor itu (tanpa password) lalu melengkapi
+								data acara & memilih desain.
+							</li>
+						</ol>
+					)}
 					<div className="label" style={{ margin: 0 }}>
 						Undang sebagai
 					</div>
@@ -180,9 +238,9 @@ export function MembersCard({
 								onClick={() => setRole(r)}
 							>
 								<div style={{ fontSize: 14, fontWeight: 800 }}>
-									{ROLE[r].label}
+									{R(r).label}
 								</div>
-								<div className="cap">{ROLE[r].hint}</div>
+								<div className="cap">{R(r).hint}</div>
 							</button>
 						))}
 					</div>

@@ -20,6 +20,8 @@ export type PortalPerson = {
 	phone: string;
 	name: string | null;
 	email: string | null;
+	/** Panduan dashboard sudah dilihat/dilewati. */
+	onboarded_at?: string | null;
 };
 
 const cookieBase = {
@@ -36,7 +38,7 @@ export const getPortalPerson = cache(async (): Promise<PortalPerson | null> => {
 	const { data } = await admin
 		.from("portal_sessions")
 		.select(
-			"id, expires_at, revoked_at, person:portal_people(id, phone, name, email)",
+			"id, expires_at, revoked_at, person:portal_people(id, phone, name, email, onboarded_at)",
 		)
 		.eq("token_hash", sha256(token))
 		.maybeSingle();

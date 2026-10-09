@@ -1197,3 +1197,16 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - Quotation: extend combo memakai Rp750rb/jam (`extraHourPrice`), sebelumnya hardcode Rp500rb.
 - Form event admin (`booking-form.tsx`) memakai aturan yang sama (`settleAddons`/`pickAddon`): blok Guest Cam (tier pill, cetak, Print Station otomatis, upsell, desain kartu QR), add-on lain disaring sesuai paket; kombinasi yang tetap lolos (event lama) **diperingatkan, tidak diblok** (owner). Service Type Guest Cam: paket otomatis, tanpa ukuran/unit/backdrop; `listMissingFields` tidak menuntut backdrop untuk `guest_cam`.
 - Desain kartu QR disimpan di `events.guest_card_design` (sumber kebenaran setelah jadi event; dashboard klien & form admin menulis ke sana, ikut terbawa saat DP diterima).
+
+## DR-043: Dashboard bersama WO ↔ klien + panduan pertama masuk
+
+**Status:** Accepted (owner 2026-10-09)
+**Date:** 2026-10-09
+
+### Decision
+- **Siapa membayar ke Tetra** per booking ber-WO (`client_bookings.payer`): `klien` = klien bayar penuh ke Tetra, komisi ke WO (`vendor_commission_mode = commission`); `wo` = klien bayar ke WO, WO bayar ke Tetra (`upfront_cut`). Bawaan: mode komisi event → `contacts.commission_mode` vendor. WO menetapkannya di kartu "Atur dulu booking ini" (Ringkasan) / "Pengaturan klien" (Orang & akses); terkunci setelah booking resmi. Saat DP diterima, pilihan ini mengisi `vendor_commission_mode` event.
+- **Harga untuk klien** (`client_price_visible`, bawaan false): kalau WO yang membayar, WO memilih klien melihat harga/tagihan/dokumen (tanpa tombol bayar) atau tidak. Komisi/potongan WO–Tetra tidak pernah terlihat klien.
+- Aturan tunggal `portalAccess` (core.ts) + `bookingAccess` (data.ts) dipakai halaman dan aksi bayar (`requestProofUpload`, `submitDpTransfer`, `submitPelunasanTransfer`): `canPay` (tombol bayar) dipisah dari `seeMoney` (lihat harga, tab Pembayaran & Dokumen, kartu statistik). Kebocoran lama ditutup: kartu statistik Pembayaran tampil ke pemilik acara.
+- Tampilan dibedakan: banner peran (WO: klien & cara bayar; klien: "diurus oleh WO" + chat WO), label Orang & akses per sudut pandang (Klien / WO-vendor), ajakan + panduan 3 langkah "Undang klien", Siapa-bisa-apa versi WO. Klien undangan WO tidak melihat Ubah jadwal.
+- **Panduan pertama masuk** (`portal_people.onboarded_at`): dialog 4 langkah, isi beda untuk WO / klien undangan WO / pemesan; muncul sekali, bisa dibuka lagi lewat "Panduan dashboard" di sidebar (`?panduan=1`).
+- Undangan dari Ops (kartu Dashboard klien) bisa ke **Vendor/WO** (peran `wo`, dasbor rekanan) atau **Klien**; klien di event vendor potongan-langsung masuk sebagai pemilik (tanpa harga Tetra).

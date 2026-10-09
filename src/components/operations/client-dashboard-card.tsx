@@ -24,6 +24,7 @@ export function ClientDashboardCard({
 	previewLink,
 	defaultName,
 	defaultPhone,
+	vendor,
 }: {
 	eventId: string;
 	link: string | null;
@@ -31,10 +32,23 @@ export function ClientDashboardCard({
 	previewLink?: string | null;
 	defaultName: string;
 	defaultPhone: string;
+	/** Event lewat vendor/WO: boleh kirim ke vendor (dasbor rekanan) atau klien. */
+	vendor?: {
+		name: string;
+		phone: string;
+		/** Siapa yang membayar ke Tetra (dari mode komisi event). */
+		payer: "klien" | "wo" | null;
+	} | null;
 }) {
 	const [link, setLink] = useState(initialLink);
-	const [name, setName] = useState(defaultName);
-	const [phone, setPhone] = useState(defaultPhone);
+	const [as, setAs] = useState<"klien" | "wo">(vendor ? "wo" : "klien");
+	const [name, setName] = useState(vendor ? vendor.name : defaultName);
+	const [phone, setPhone] = useState(vendor ? vendor.phone : defaultPhone);
+	const pickAs = (v: "klien" | "wo") => {
+		setAs(v);
+		setName(v === "wo" ? (vendor?.name ?? "") : defaultName);
+		setPhone(v === "wo" ? (vendor?.phone ?? "") : defaultPhone);
+	};
 	const [error, setError] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [pending, start] = useTransition();
@@ -42,12 +56,17 @@ export function ClientDashboardCard({
 	const invite = (send: boolean) => {
 		setError(null);
 		start(async () => {
-			const r = await inviteClientDashboard(eventId, { name, phone, send });
+			const r = await inviteClientDashboard(eventId, {
+				name,
+				phone,
+				send,
+				as,
+			});
 			if (!r.ok) return setError(r.error);
 			setLink(r.url);
 			toast.success(
 				r.sent
-					? "Link dashboard dikirim ke WhatsApp klien"
+					? `Link dashboard dikirim ke WhatsApp ${as === "wo" ? "vendor" : "klien"}`
 					: "Akses dashboard dibuat",
 			);
 		});
@@ -110,9 +129,41 @@ export function ClientDashboardCard({
 				</div>
 			)}
 
+			{vendor && (
+				<div className="space-y-2">
+					<span className="type-caption">Kirim ke</span>
+					<div className="flex flex-wrap gap-2">
+						{(
+							[
+								["wo", "Vendor / WO"],
+								["klien", "Klien"],
+							] as const
+						).map(([v, l]) => (
+							<button
+								key={v}
+								type="button"
+								onClick={() => pickAs(v)}
+								aria-pressed={as === v}
+								className={`h-9 rounded-full border px-4 text-[13px] font-medium ${as === v ? "border-transparent bg-foreground text-background" : "border-border-default bg-card hover:bg-secondary"}`}
+							>
+								{l}
+							</button>
+						))}
+					</div>
+					<p className="type-caption text-muted-foreground">
+						{as === "wo"
+							? `Vendor mendapat dasbor rekanan: memantau booking, ${vendor.payer === "klien" ? "klien yang membayar ke Tetra" : "membayar ke Tetra"}, dan mengundang kliennya sendiri.`
+							: vendor.payer === "wo"
+								? "Klien melihat data acara, desain & galeri — tanpa harga Tetra (potongan langsung vendor)."
+								: "Klien melihat tagihan dan membayar langsung ke Tetra (komisi ke vendor)."}
+					</p>
+				</div>
+			)}
 			<div className="grid gap-3 sm:grid-cols-2">
 				<label className="space-y-1.5">
-					<span className="type-caption">Nama klien</span>
+					<span className="type-caption">
+						{as === "wo" ? "Nama vendor / PIC" : "Nama klien"}
+					</span>
 					<input
 						value={name}
 						onChange={(e) => setName(e.target.value)}
@@ -121,7 +172,9 @@ export function ClientDashboardCard({
 					/>
 				</label>
 				<label className="space-y-1.5">
-					<span className="type-caption">WhatsApp klien</span>
+					<span className="type-caption">
+						WhatsApp {as === "wo" ? "vendor" : "klien"}
+					</span>
 					<input
 						value={phone}
 						onChange={(e) => setPhone(e.target.value)}

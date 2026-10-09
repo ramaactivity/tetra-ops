@@ -1,4 +1,4 @@
-import { Eye } from "lucide-react";
+import { Briefcase, Eye, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { MON3, PKG } from "@/components/portal/booking/content";
@@ -11,7 +11,9 @@ import {
 	ChangeRequest,
 	type OpenRequest,
 } from "@/components/portal/change-request";
+import { ArrangementCard } from "@/components/portal/dash/arrangement-card";
 import { GuestCardPicker } from "@/components/portal/dash/guest-card-picker";
+import { Onboarding } from "@/components/portal/dash/onboarding";
 import {
 	DashShell,
 	LogoutAndLogin,
@@ -42,9 +44,11 @@ import {
 	daysUntil,
 	missingForDp,
 	PRODUCT_LABELS,
+	portalAccess,
 	refundEstimate,
 } from "@/lib/portal/core";
 import {
+	bookingAccess,
 	configNumber,
 	loadCatalog,
 	loadMyBooking,
@@ -89,7 +93,7 @@ export default async function BookingDetailPage({
 	searchParams,
 }: {
 	params: Promise<{ code: string }>;
-	searchParams: Promise<{ tab?: string }>;
+	searchParams: Promise<{ tab?: string; panduan?: string; undang?: string }>;
 }) {
 	const sp = await searchParams;
 	const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? "")
@@ -173,7 +177,7 @@ export default async function BookingDetailPage({
 			? admin
 					.from("events")
 					.select(
-						"project_id, grand_total, total_paid, remaining_balance, due_date, design_status",
+						"project_id, grand_total, total_paid, remaining_balance, due_date, design_status, vendor_commission_mode",
 					)
 					.eq("id", b.event_id)
 					.maybeSingle()
@@ -232,9 +236,33 @@ export default async function BookingDetailPage({
 		remaining_balance: number;
 		due_date: string | null;
 		design_status: string | null;
+		vendor_commission_mode: string | null;
 	} | null;
 	const product = catalog.products.find((p) => p.category === b.service_type);
-	const canPay = b.role !== "pemilik";
+	// Dashboard bersama WO ↔ klien: siapa membayar & siapa melihat harga.
+	const woMember = members.find((m) => m.role === "wo");
+	const hasWo = !!woMember;
+	const woName = b.detail.wo_nama || woMember?.name || null;
+	const clientMember = members.find((m) => m.role === "pemilik");
+	const access = await bookingAccess(b);
+	const defaultPayer = access.payer;
+	const canPay = access.canPay;
+	const seeMoney = access.seeMoney;
+	// WO belum menetapkan cara bayar (dan booking belum resmi) → kartu setup.
+	const needsSetup = b.role === "wo" && hasWo && !b.payer && !b.event_id;
+	const seeClientMoney = portalAccess({
+		role: "pemilik",
+		hasWo,
+		payer: defaultPayer,
+		priceVisible: b.client_price_visible,
+	}).seeMoney;
+	const woChat = woMember
+		? `https://wa.me/${woMember.phone}?text=${encodeURIComponent(`Halo, saya mau tanya soal booking photobooth ${b.detail.nama_acara ?? b.public_code}`)}`
+		: null;
+	const payerName =
+		defaultPayer === "klien"
+			? (clientMember?.name ?? "klien")
+			: (woName ?? "WO kamu");
 	const active = b.status !== "batal" && b.status !== "kedaluwarsa";
 	const adminWa =
 		typeof phoneRes.data?.value === "string"
@@ -312,7 +340,7 @@ export default async function BookingDetailPage({
 	const missing = missingForDp(b.detail);
 	const dpPending = !!pendingSub && pendingSub.kind === "dp";
 	const days = daysUntil(b.event_date, today);
-	const hasDocs = canPay && (docsRes.data ?? []).length > 0;
+	const hasDocs = seeMoney && (docsRes.data ?? []).length > 0;
 	const gal = (boothEvents ?? []).find((e) => e.gallery_url) ?? null;
 	const photos = (boothEvents ?? []).reduce(
 		(t, e) => t + (e.photo_count ?? 0),
@@ -346,7 +374,8 @@ export default async function BookingDetailPage({
 
 	const base = `/akun/booking/${b.public_code}`;
 	// Ubah jadwal/batal hanya untuk acara yang belum lewat.
-	const canChange = active && days >= 0;
+	// Klien undangan WO: jadwal & pembatalan diurus WO.
+	const canChange = active && days >= 0 && !(hasWo && b.role === "pemilik");
 	const to = (t: Tab) => (t === "ringkasan" ? base : `${base}?tab=${t}`);
 
 	// Satu langkah berikutnya yang paling penting untuk klien.
@@ -377,57 +406,77 @@ export default async function BookingDetailPage({
 						tone: "butter",
 						stage: 1,
 					}
-				: !resmi
+				: draft && !dpPending && !canPay
 					? {
-							title: "Bukti DP sedang dicek admin",
-							body: "Jadwalmu kami tahan selama pengecekan. Kabarnya dikirim lewat WhatsApp.",
+							title: `Menunggu DP dari ${payerName}`,
+							body:
+								b.role === "wo"
+									? clientMember
+										? "Klien membayar DP langsung lewat dashboard-nya. Kami kabari begitu buktinya masuk."
+										: "Klien membayar DP lewat dashboard-nya, jadi undang klien kamu dulu."
+									: `Pembayaran diurus oleh ${woName ?? "WO kamu"}. Sambil menunggu, lengkapi data acara, ya.`,
+							...(b.role === "wo" && !clientMember
+								? {
+										cta: {
+											label: "Undang klien",
+											href: `${to("orang")}&undang=1`,
+										},
+									}
+								: { cta: { label: "Data acara", href: to("data") } }),
 							tone: "sky",
 							stage: 1,
 						}
-					: !designDone &&
-							(stages.includes("brief") || stages.includes("menunggu_review"))
+					: !resmi
 						? {
-								title: stages.includes("menunggu_review")
-									? "Draf desain siap dicek"
-									: "Pilih desain frame",
-								body: stages.includes("menunggu_review")
-									? "Setujui atau minta revisi dari halaman desain."
-									: "Pilih template dari katalog atau ajukan desain custom.",
-								cta: { label: "Buka desain", href: to("desain") },
-								tone: "butter",
-								stage: 2,
+								title: "Bukti DP sedang dicek admin",
+								body: "Jadwalmu kami tahan selama pengecekan. Kabarnya dikirim lewat WhatsApp.",
+								tone: "sky",
+								stage: 1,
 							}
-						: ev && sisa > 0 && canPay && !pendingSub
+						: !designDone &&
+								(stages.includes("brief") || stages.includes("menunggu_review"))
 							? {
-									title: `Pelunasan ${rp(sisa)}`,
-									body: ev.due_date
-										? `Paling lambat ${dateLong(ev.due_date)}.`
-										: "Lunasi sebelum hari acara.",
-									cta: { label: "Bayar pelunasan", href: to("pembayaran") },
+									title: stages.includes("menunggu_review")
+										? "Draf desain siap dicek"
+										: "Pilih desain frame",
+									body: stages.includes("menunggu_review")
+										? "Setujui atau minta revisi dari halaman desain."
+										: "Pilih template dari katalog atau ajukan desain custom.",
+									cta: { label: "Buka desain", href: to("desain") },
 									tone: "butter",
-									stage: designDone ? 3 : 2,
+									stage: 2,
 								}
-							: gal && days < 0
+							: ev && sisa > 0 && canPay && !pendingSub
 								? {
-										title: "Galeri foto sudah siap",
-										body: `${photos} foto dari acaramu bisa dilihat dan diunduh.`,
-										cta: { label: "Lihat galeri", href: to("galeri") },
-										tone: "mint",
-										stage: 5,
+										title: `Pelunasan ${rp(sisa)}`,
+										body: ev.due_date
+											? `Paling lambat ${dateLong(ev.due_date)}.`
+											: "Lunasi sebelum hari acara.",
+										cta: { label: "Bayar pelunasan", href: to("pembayaran") },
+										tone: "butter",
+										stage: designDone ? 3 : 2,
 									}
-								: {
-										title:
-											days > 0
-												? `Sampai jumpa ${days} hari lagi!`
-												: days === 0
-													? "Hari ini acaramu!"
-													: "Terima kasih sudah memakai Tetra",
-										body: !designDone
-											? "Tim desain sedang menyiapkan frame-mu. Kami kabari lewat WhatsApp."
-											: "Semua sudah siap. Kalau ada perubahan, chat admin, ya.",
-										tone: "mint",
-										stage: days <= 0 ? 4 : designDone ? 4 : 2,
-									};
+								: gal && days < 0
+									? {
+											title: "Galeri foto sudah siap",
+											body: `${photos} foto dari acaramu bisa dilihat dan diunduh.`,
+											cta: { label: "Lihat galeri", href: to("galeri") },
+											tone: "mint",
+											stage: 5,
+										}
+									: {
+											title:
+												days > 0
+													? `Sampai jumpa ${days} hari lagi!`
+													: days === 0
+														? "Hari ini acaramu!"
+														: "Terima kasih sudah memakai Tetra",
+											body: !designDone
+												? "Tim desain sedang menyiapkan frame-mu. Kami kabari lewat WhatsApp."
+												: "Semua sudah siap. Kalau ada perubahan, chat admin, ya.",
+											tone: "mint",
+											stage: days <= 0 ? 4 : designDone ? 4 : 2,
+										};
 
 	const payAlert =
 		canPay &&
@@ -447,7 +496,7 @@ export default async function BookingDetailPage({
 			sub: true,
 			current: tab === "ringkasan",
 		},
-		...(canPay
+		...(seeMoney
 			? [
 					{
 						href: to("pembayaran"),
@@ -485,7 +534,7 @@ export default async function BookingDetailPage({
 			current: tab === "galeri",
 			...(gal ? { badge: String(photos) } : {}),
 		},
-		...(canPay
+		...(seeMoney
 			? [
 					{
 						href: to("dokumen"),
@@ -708,83 +757,85 @@ export default async function BookingDetailPage({
 		<p style={muted}>Belum ada pembayaran.</p>
 	);
 
-	const payAction =
-		draft && !dpPending ? (
-			<div className="bk" style={{ background: "transparent" }}>
-				<DpCard
-					code={b.public_code}
-					dp={dpAmount}
-					bank={(banks[0] as BankInfo) ?? null}
-					gateOpen={missing.length === 0}
-					gateLeft={missing.length}
-					sent={false}
-					rejectReason={lastRejected?.reject_reason ?? null}
-				/>
-				{missing.length > 0 && (
-					<a
-						href={to("data")}
-						style={{
-							display: "inline-block",
-							marginTop: 10,
-							fontSize: 14,
-							fontWeight: 700,
-						}}
-					>
-						Lengkapi {missing.length} data acara →
-					</a>
-				)}
-			</div>
-		) : pendingSub ? (
-			<Section id="status-bayar" title="Sedang dicek">
-				<p style={muted}>
-					Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
-					<b className="mono">{rp(Number(pendingSub.amount))}</b> sedang dicek
-					admin.
-					{pendingSub.kind === "dp"
-						? " Jadwal kamu kami tahan selama itu."
-						: ""}{" "}
-					Kabarnya kami kirim lewat WhatsApp.
-				</p>
-			</Section>
-		) : resmi && ev && sisa > 0 ? (
-			<Section id="pelunasan" title={`Bayar pelunasan ${rp(sisa)}`}>
-				<div
-					className="tp"
+	const payAction = !canPay ? (
+		<Section id="siapa-bayar" title="Pembayaran">
+			<p style={muted}>
+				{b.role === "wo"
+					? `Pembayaran booking ini dilakukan langsung oleh ${payerName} ke Tetra. Kamu bisa memantau tagihan dan riwayatnya di sini.`
+					: `Pembayaran booking ini diurus oleh ${woName ?? "WO kamu"}. Tagihan dan riwayatnya bisa kamu pantau di sini.`}
+			</p>
+		</Section>
+	) : draft && !dpPending ? (
+		<div className="bk" style={{ background: "transparent" }}>
+			<DpCard
+				code={b.public_code}
+				dp={dpAmount}
+				bank={(banks[0] as BankInfo) ?? null}
+				gateOpen={missing.length === 0}
+				gateLeft={missing.length}
+				sent={false}
+				rejectReason={lastRejected?.reject_reason ?? null}
+			/>
+			{missing.length > 0 && (
+				<a
+					href={to("data")}
 					style={{
-						minHeight: 0,
-						background: "transparent",
-						display: "grid",
-						gap: 12,
+						display: "inline-block",
+						marginTop: 10,
+						fontSize: 14,
+						fontWeight: 700,
 					}}
 				>
-					{lastRejected && (
-						<div className="note" style={{ background: "var(--coral)" }}>
-							Bukti sebelumnya belum bisa kami terima:{" "}
-							{lastRejected.reject_reason}
-						</div>
-					)}
-					<DpForm
-						kind="pelunasan"
-						code={b.public_code}
-						banks={banks}
-						dpMin={0}
-						total={sisa}
-						missing={[]}
-					/>
-				</div>
-			</Section>
-		) : (
-			<Section
-				id="lunas"
-				title={ev && sisa <= 0 ? "Sudah lunas" : "Pembayaran"}
+					Lengkapi {missing.length} data acara →
+				</a>
+			)}
+		</div>
+	) : pendingSub ? (
+		<Section id="status-bayar" title="Sedang dicek">
+			<p style={muted}>
+				Bukti {pendingSub.kind === "dp" ? "DP" : "pembayaran"}{" "}
+				<b className="mono">{rp(Number(pendingSub.amount))}</b> sedang dicek
+				admin.
+				{pendingSub.kind === "dp" ? " Jadwal kamu kami tahan selama itu." : ""}{" "}
+				Kabarnya kami kirim lewat WhatsApp.
+			</p>
+		</Section>
+	) : resmi && ev && sisa > 0 ? (
+		<Section id="pelunasan" title={`Bayar pelunasan ${rp(sisa)}`}>
+			<div
+				className="tp"
+				style={{
+					minHeight: 0,
+					background: "transparent",
+					display: "grid",
+					gap: 12,
+				}}
 			>
-				<p style={muted}>
-					{ev && sisa <= 0
-						? "Terima kasih, tagihan acara ini sudah lunas."
-						: "Tidak ada tagihan yang perlu dibayar sekarang."}
-				</p>
-			</Section>
-		);
+				{lastRejected && (
+					<div className="note" style={{ background: "var(--coral)" }}>
+						Bukti sebelumnya belum bisa kami terima:{" "}
+						{lastRejected.reject_reason}
+					</div>
+				)}
+				<DpForm
+					kind="pelunasan"
+					code={b.public_code}
+					banks={banks}
+					dpMin={0}
+					total={sisa}
+					missing={[]}
+				/>
+			</div>
+		</Section>
+	) : (
+		<Section id="lunas" title={ev && sisa <= 0 ? "Sudah lunas" : "Pembayaran"}>
+			<p style={muted}>
+				{ev && sisa <= 0
+					? "Terima kasih, tagihan acara ini sudah lunas."
+					: "Tidak ada tagihan yang perlu dibayar sekarang."}
+			</p>
+		</Section>
+	);
 
 	const helpCard = (
 		<Section id="bantuan" title="Butuh bantuan?">
@@ -977,21 +1028,76 @@ export default async function BookingDetailPage({
 							members={members}
 							meId={person.id}
 							canManage={active && b.role !== "pemilik"}
+							woView={b.role === "wo"}
+							openInitially={sp.undang === "1"}
+							labels={
+								hasWo
+									? {
+											pemilik: {
+												label: "Klien",
+												hint: seeClientMoney
+													? "Data acara, desain & tagihan"
+													: "Data acara & desain, tanpa harga",
+											},
+											wo: {
+												label: "WO / vendor",
+												hint:
+													defaultPayer === "klien"
+														? "Mengelola booking"
+														: "Mengelola & membayar ke Tetra",
+											},
+										}
+									: undefined
+							}
 						/>
+						{b.role === "wo" && (
+							<div style={{ marginTop: 20 }}>
+								<ArrangementCard
+									code={b.public_code}
+									payer={defaultPayer}
+									priceVisible={b.client_price_visible}
+									locked={!!b.event_id}
+									inviteHref={`${to("orang")}&undang=1`}
+								/>
+							</div>
+						)}
 					</div>
 					<Section id="peran" title="Siapa bisa apa">
 						<Steps
-							items={[
-								[
-									"Pemesan",
-									"Melihat tagihan, membayar, dan mengatur semua isi booking.",
-								],
-								[
-									"Pemilik acara",
-									"Melengkapi data acara dan memilih desain, tanpa melihat tagihan.",
-								],
-								["WO / vendor", "Mengurus booking untuk kliennya."],
-							]}
+							items={
+								hasWo
+									? [
+											[
+												"WO / vendor",
+												defaultPayer === "klien"
+													? "Mengelola booking & mengundang klien. Klien yang membayar ke Tetra."
+													: "Mengelola booking, membayar ke Tetra, dan mengundang klien.",
+											],
+											[
+												"Klien",
+												defaultPayer === "klien"
+													? "Melengkapi data acara, memilih desain, dan membayar DP & pelunasan ke Tetra."
+													: seeClientMoney
+														? "Melengkapi data acara & memilih desain. Bisa melihat tagihan, tanpa membayar."
+														: "Melengkapi data acara & memilih desain. Tidak melihat harga Tetra.",
+											],
+											[
+												"Tidak terlihat oleh klien",
+												"Komisi atau potongan antara WO dan Tetra.",
+											],
+										]
+									: [
+											[
+												"Pemesan",
+												"Melihat tagihan, membayar, dan mengatur semua isi booking.",
+											],
+											[
+												"Pemilik acara",
+												"Melengkapi data acara dan memilih desain, tanpa melihat tagihan.",
+											],
+											["WO / vendor", "Mengurus booking untuk kliennya."],
+										]
+							}
 						/>
 					</Section>
 				</div>
@@ -1007,7 +1113,7 @@ export default async function BookingDetailPage({
 						<ChangeRequest
 							code={b.public_code}
 							isDraft={draft}
-							canCancel={canPay}
+							canCancel={b.role !== "pemilik"}
 							refundEstimate={ev ? refundEstimate(beyondDp, days) : null}
 							openRequest={(requestRes.data as OpenRequest | null) ?? null}
 						/>
@@ -1049,63 +1155,91 @@ export default async function BookingDetailPage({
 		default:
 			body = (
 				<>
+					{needsSetup && (
+						<ArrangementCard
+							setup
+							code={b.public_code}
+							payer={defaultPayer}
+							priceVisible={b.client_price_visible}
+							locked={false}
+							inviteHref={`${to("orang")}&undang=1`}
+						/>
+					)}
+					{b.role === "wo" && !needsSetup && !clientMember && active && (
+						<Section id="undang-klien" title="Undang klien kamu">
+							<p style={muted}>
+								Klien bisa melengkapi data acara dan memilih desain sendiri.
+								{seeClientMoney
+									? " Mereka juga melihat tagihan."
+									: " Harga Tetra tidak terlihat oleh mereka."}
+							</p>
+							<a
+								href={`${to("orang")}&undang=1`}
+								style={{ ...btn("#F8D98B"), alignSelf: "flex-start" }}
+							>
+								Undang klien
+							</a>
+						</Section>
+					)}
 					<NextStepCard s={next} />
 					<StatGrid
-						items={[
-							{
-								k: "cal",
-								label: "Hari acara",
-								value:
-									days > 0
-										? `${days} hari lagi`
-										: days === 0
-											? "Hari ini"
-											: "Selesai",
-								sub: dShort,
-								under: "#CEC8F6",
-								href: to("data"),
-							},
-							{
-								k: "pay",
-								label: "Pembayaran",
-								value:
-									resmi && ev
-										? sisa > 0
-											? `Sisa ${rp(sisa)}`
-											: "Lunas"
-										: `DP ${rp(dpAmount)}`,
-								sub:
-									resmi && ev
-										? `Total ${rp(total)}`
-										: dpPending
-											? "Bukti sedang dicek"
-											: "Belum dibayar",
-								under: "#F8D98B",
-								href: to("pembayaran"),
-							},
-							{
-								k: "design",
-								label: "Desain frame",
-								value: designLabel,
-								sub: !resmi
-									? "Terbuka setelah DP"
-									: design.length
-										? `${design.length} desain`
-										: designDone
-											? "Siap dipakai di booth"
-											: "Disiapkan tim desain",
-								under: "#FCE3C6",
-								href: to("desain"),
-							},
-							{
-								k: "gallery",
-								label: "Galeri foto",
-								value: gal ? `${photos} foto` : "Setelah acara",
-								sub: gal ? "Siap dilihat" : "Foto booth muncul di sini",
-								under: "#D6EEF8",
-								href: to("galeri"),
-							},
-						]}
+						items={(
+							[
+								{
+									k: "cal",
+									label: "Hari acara",
+									value:
+										days > 0
+											? `${days} hari lagi`
+											: days === 0
+												? "Hari ini"
+												: "Selesai",
+									sub: dShort,
+									under: "#CEC8F6",
+									href: to("data"),
+								},
+								{
+									k: "pay",
+									label: "Pembayaran",
+									value:
+										resmi && ev
+											? sisa > 0
+												? `Sisa ${rp(sisa)}`
+												: "Lunas"
+											: `DP ${rp(dpAmount)}`,
+									sub:
+										resmi && ev
+											? `Total ${rp(total)}`
+											: dpPending
+												? "Bukti sedang dicek"
+												: "Belum dibayar",
+									under: "#F8D98B",
+									href: to("pembayaran"),
+								},
+								{
+									k: "design",
+									label: "Desain frame",
+									value: designLabel,
+									sub: !resmi
+										? "Terbuka setelah DP"
+										: design.length
+											? `${design.length} desain`
+											: designDone
+												? "Siap dipakai di booth"
+												: "Disiapkan tim desain",
+									under: "#FCE3C6",
+									href: to("desain"),
+								},
+								{
+									k: "gallery",
+									label: "Galeri foto",
+									value: gal ? `${photos} foto` : "Setelah acara",
+									sub: gal ? "Siap dilihat" : "Foto booth muncul di sini",
+									under: "#D6EEF8",
+									href: to("galeri"),
+								},
+							] as Parameters<typeof StatGrid>[0]["items"]
+						).filter((it) => seeMoney || it.k !== "pay")}
 					/>
 					<div className="dash-cols">
 						<Section
@@ -1145,7 +1279,7 @@ export default async function BookingDetailPage({
 							</dl>
 						</Section>
 						<div style={col}>
-							{canPay && (
+							{seeMoney && (
 								<Section
 									id="ringkas-tagihan"
 									title="Tagihan"
@@ -1244,7 +1378,23 @@ export default async function BookingDetailPage({
 			groupTitle={title}
 			person={{ name: person.name, phone: person.phone }}
 			chatUrl={chat}
+			guideHref={`${base}?${tab === "ringkasan" ? "" : `tab=${tab}&`}panduan=1`}
 		>
+			<Onboarding
+				role={
+					b.role === "wo"
+						? "wo"
+						: b.role === "pemilik" && hasWo
+							? "klien_wo"
+							: "pemesan"
+				}
+				name={person.name}
+				woName={woName}
+				eventName={b.detail.nama_acara ?? null}
+				priceVisible={seeClientMoney}
+				autoOpen={sp.panduan === "1" || (!preview && !person.onboarded_at)}
+				clearHref={sp.panduan === "1" ? to(tab) : undefined}
+			/>
 			{preview && (
 				<div
 					role="status"
@@ -1283,6 +1433,56 @@ export default async function BookingDetailPage({
 					meta={`${title} · ${dShort}`}
 					chip={STATUS[b.status]}
 				/>
+			)}
+			{hasWo && b.role === "wo" && (
+				<div className="dash-role" style={{ background: "#FFF6DD" }}>
+					<Briefcase
+						aria-hidden
+						size={20}
+						strokeWidth={2}
+						style={{ flex: "none", marginTop: 1 }}
+					/>
+					<div>
+						<b>Kamu melihat sebagai WO/vendor.</b>{" "}
+						{clientMember
+							? `Klien: ${clientMember.name ?? `+${clientMember.phone}`}.`
+							: "Klien belum diundang."}{" "}
+						{defaultPayer === "klien"
+							? "Klien bayar langsung ke Tetra."
+							: defaultPayer === "wo"
+								? `Kamu yang bayar ke Tetra; klien ${b.client_price_visible ? "melihat" : "tidak melihat"} harga.`
+								: "Cara bayar belum diatur."}{" "}
+						<a href={to("orang")} style={{ fontWeight: 700 }}>
+							Atur klien →
+						</a>
+					</div>
+				</div>
+			)}
+			{hasWo && b.role === "pemilik" && (
+				<div className="dash-role" style={{ background: "#EAF4FA" }}>
+					<Users
+						aria-hidden
+						size={20}
+						strokeWidth={2}
+						style={{ flex: "none", marginTop: 1 }}
+					/>
+					<div>
+						Booking ini diurus oleh <b>{woName ?? "WO kamu"}</b>.{" "}
+						{canPay
+							? "Pembayaran ke Tetra kamu lakukan di dashboard ini."
+							: `Urusan harga & pembayaran langsung dengan ${woName ?? "WO kamu"}.`}{" "}
+						{woChat && (
+							<a
+								href={woChat}
+								target="_blank"
+								rel="noopener noreferrer"
+								style={{ fontWeight: 700 }}
+							>
+								Chat {woName ?? "WO"} →
+							</a>
+						)}
+					</div>
+				</div>
 			)}
 			{body}
 		</DashShell>

@@ -7,8 +7,11 @@ import {
 	type CatalogProduct,
 	type Detail,
 	groupCatalog,
+	type Payer,
 	type PublicAddonRow,
 	type PublicPackageRow,
+	payerFromCommissionMode,
+	portalAccess,
 	quoteSelection,
 	type Selection,
 } from "@/lib/portal/core";
@@ -100,11 +103,15 @@ export type PortalBooking = {
 	channel: "direct" | "vendor" | "relasi";
 	vendor_contact_id: string | null;
 	managed_by: "klien" | "wo" | "tetra";
+	/** WO mengizinkan klien undangannya melihat harga & dokumen Tetra. */
+	client_price_visible: boolean;
+	/** Siapa yang membayar ke Tetra (booking ber-WO); null = belum diatur. */
+	payer: "klien" | "wo" | null;
 	role: "pemesan" | "pemilik" | "wo";
 };
 
 const BOOKING_COLS =
-	"id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, expires_at, event_id, created_at, channel, vendor_contact_id, managed_by";
+	"id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, expires_at, event_id, created_at, channel, vendor_contact_id, managed_by, client_price_visible, payer";
 
 /** Booking milik orang ini saja — satu-satunya pintu baca data booking di portal. */
 export async function loadMyBooking(
@@ -209,4 +216,49 @@ export async function paidBeyondDp(eventId: string): Promise<number> {
 	return (data ?? [])
 		.filter((p) => p.payment_type !== "dp")
 		.reduce((s, p) => s + Number(p.amount), 0);
+}
+
+/**
+ * Siapa membayar & siapa melihat harga di booking ini (dashboard bersama
+ * WO ↔ klien). Pembayar: pilihan WO → mode komisi event → bawaan vendor.
+ * Satu-satunya sumber aturan untuk halaman dan aksi bayar.
+ */
+export async function bookingAccess(b: PortalBooking): Promise<{
+	hasWo: boolean;
+	payer: Payer | null;
+	canPay: boolean;
+	seeMoney: boolean;
+}> {
+	const admin = createAdminClient();
+	const { data: ms } = await admin
+		.from("booking_members")
+		.select("role")
+		.eq("booking_id", b.id);
+	const hasWo = (ms ?? []).some((m) => m.role === "wo");
+	let payer: Payer | null = b.payer;
+	if (hasWo && !payer && b.event_id) {
+		const { data } = await admin
+			.from("events")
+			.select("vendor_commission_mode")
+			.eq("id", b.event_id)
+			.maybeSingle();
+		payer = payerFromCommissionMode(
+			data?.vendor_commission_mode as string | null,
+		);
+	}
+	if (hasWo && !payer && b.vendor_contact_id) {
+		const { data } = await admin
+			.from("contacts")
+			.select("commission_mode")
+			.eq("id", b.vendor_contact_id)
+			.maybeSingle();
+		payer = payerFromCommissionMode(data?.commission_mode as string | null);
+	}
+	const a = portalAccess({
+		role: b.role,
+		hasWo,
+		payer,
+		priceVisible: b.client_price_visible,
+	});
+	return { hasWo, payer, canPay: a.canPay, seeMoney: a.seeMoney };
 }

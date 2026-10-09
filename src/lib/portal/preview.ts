@@ -44,7 +44,7 @@ export async function previewPerson(
 	const { data: m } = await admin
 		.from("booking_members")
 		.select(
-			"person:portal_people!booking_members_person_id_fkey(id, phone, name, email)",
+			"person:portal_people!booking_members_person_id_fkey(id, phone, name, email, onboarded_at)",
 		)
 		.eq("booking_id", b.id)
 		.eq("role", "pemesan")

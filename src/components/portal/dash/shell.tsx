@@ -7,6 +7,7 @@
  */
 import {
 	CalendarDays,
+	CircleHelp,
 	FileText,
 	Images,
 	LayoutDashboard,
@@ -55,6 +56,7 @@ export function DashShell({
 	groupTitle,
 	person,
 	chatUrl,
+	guideHref,
 	children,
 }: {
 	nav: NavItem[];
@@ -62,6 +64,8 @@ export function DashShell({
 	groupTitle?: string;
 	person: { name: string | null; phone: string };
 	chatUrl: string | null;
+	/** Buka ulang panduan dashboard (mis. "?panduan=1"). */
+	guideHref?: string;
 	children: ReactNode;
 }) {
 	const router = useRouter();
@@ -220,6 +224,25 @@ export function DashShell({
 					paddingTop: 16,
 				}}
 			>
+				{guideHref && (
+					<a
+						href={guideHref}
+						style={{
+							display: "flex",
+							height: 38,
+							alignItems: "center",
+							justifyContent: "center",
+							gap: 8,
+							fontSize: 13,
+							fontWeight: 700,
+							textDecoration: "underline",
+							textUnderlineOffset: 3,
+						}}
+					>
+						<CircleHelp aria-hidden size={16} strokeWidth={2} />
+						Panduan dashboard
+					</a>
+				)}
 				{chatUrl && (
 					<a
 						href={chatUrl}

@@ -603,3 +603,38 @@ export function adminGroupCommand(lines: string[]): string {
 	const pesan = lines.filter(Boolean).join("\n").slice(0, 2000);
 	return `send-grup-admin:${JSON.stringify({ pesan })}`;
 }
+
+// ── Dashboard bersama WO ↔ klien (owner 9 Okt 2026) ─────────────────────────
+
+/** Siapa yang membayar ke Tetra di booking yang ada WO/vendor-nya. */
+export type Payer = "klien" | "wo";
+
+/** klien bayar penuh ke Tetra = komisi dibayar Tetra; WO yang bayar = potongan langsung. */
+export const commissionModeOf = (p: Payer) =>
+	p === "wo" ? "upfront_cut" : "commission";
+export const payerFromCommissionMode = (m: string | null | undefined) =>
+	m === "upfront_cut" ? "wo" : m === "commission" ? "klien" : null;
+
+/**
+ * Hak lihat & bayar per peran. Tanpa WO: pemilik acara tidak melihat uang.
+ * Dengan WO: yang membayar ke Tetra (klien atau WO) yang melihat & membayar
+ * tagihan; WO selalu melihat; klien undangan WO melihat harga hanya kalau WO
+ * mengizinkan. Pembayar belum diatur → WO yang menangani + diminta setup.
+ */
+export function portalAccess(x: {
+	role: "pemesan" | "pemilik" | "wo";
+	hasWo: boolean;
+	payer: Payer | null;
+	priceVisible: boolean;
+}): { canPay: boolean; seeMoney: boolean; needsSetup: boolean } {
+	if (!x.hasWo) {
+		const canPay = x.role !== "pemilik";
+		return { canPay, seeMoney: canPay, needsSetup: false };
+	}
+	const canPay = x.payer === "klien" ? x.role !== "wo" : x.role === "wo";
+	return {
+		canPay,
+		seeMoney: canPay || x.role === "wo" || x.priceVisible,
+		needsSetup: x.role === "wo" && x.payer === null,
+	};
+}

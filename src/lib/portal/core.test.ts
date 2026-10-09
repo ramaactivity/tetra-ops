@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
 	addHours,
 	adminGroupCommand,
+	commissionModeOf,
 	daysUntil,
 	extractWaCode,
 	groupCatalog,
@@ -15,7 +16,9 @@ import {
 	normPromo,
 	parseInstagram,
 	parseStageGroups,
+	payerFromCommissionMode,
 	pickAddon,
+	portalAccess,
 	promoDiscount,
 	quoteSelection,
 	refundEstimate,
@@ -513,4 +516,65 @@ test("grup admin WA: format perintah bot + hanya 3 titik kirim (booking baru, bu
 	assert.equal(calls("../actions/portal-admin.ts"), 1); // DP/pelunasan diterima
 	assert.equal(calls("../actions/design-admin.ts"), 0);
 	assert.equal(calls("../actions/portal-invite.ts"), 0);
+});
+
+test("akses dashboard WO ↔ klien: siapa melihat & membayar tagihan", () => {
+	const A = (
+		role: "pemesan" | "pemilik" | "wo",
+		hasWo: boolean,
+		payer: "klien" | "wo" | null,
+		priceVisible = false,
+	) => portalAccess({ role, hasWo, payer, priceVisible });
+	// tanpa WO: perilaku lama
+	assert.deepEqual(A("pemesan", false, null), {
+		canPay: true,
+		seeMoney: true,
+		needsSetup: false,
+	});
+	assert.deepEqual(A("pemilik", false, null), {
+		canPay: false,
+		seeMoney: false,
+		needsSetup: false,
+	});
+	// WO yang bayar (potongan langsung): klien tidak lihat harga kecuali diizinkan
+	assert.deepEqual(A("wo", true, "wo"), {
+		canPay: true,
+		seeMoney: true,
+		needsSetup: false,
+	});
+	assert.deepEqual(A("pemilik", true, "wo"), {
+		canPay: false,
+		seeMoney: false,
+		needsSetup: false,
+	});
+	assert.deepEqual(A("pemilik", true, "wo", true), {
+		canPay: false,
+		seeMoney: true,
+		needsSetup: false,
+	});
+	// klien bayar langsung ke Tetra (komisi): klien bayar, WO tetap melihat
+	assert.deepEqual(A("pemilik", true, "klien"), {
+		canPay: true,
+		seeMoney: true,
+		needsSetup: false,
+	});
+	assert.deepEqual(A("wo", true, "klien"), {
+		canPay: false,
+		seeMoney: true,
+		needsSetup: false,
+	});
+	// belum diatur: WO menangani + diminta setup
+	assert.deepEqual(A("wo", true, null), {
+		canPay: true,
+		seeMoney: true,
+		needsSetup: true,
+	});
+	assert.deepEqual(A("pemilik", true, null), {
+		canPay: false,
+		seeMoney: false,
+		needsSetup: false,
+	});
+	assert.equal(commissionModeOf("wo"), "upfront_cut");
+	assert.equal(payerFromCommissionMode("commission"), "klien");
+	assert.equal(payerFromCommissionMode(null), null);
 });

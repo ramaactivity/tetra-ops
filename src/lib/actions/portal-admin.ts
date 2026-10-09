@@ -9,7 +9,11 @@ import { isDriveConfigured, uploadFileToFolder } from "@/lib/drive/client";
 import { buildPaymentProofName } from "@/lib/drive/naming";
 import { logPaymentCore } from "@/lib/finance/payment-core";
 import { formatDateID, formatRupiah } from "@/lib/format";
-import { type Detail, withRundownLine } from "@/lib/portal/core";
+import {
+	commissionModeOf,
+	type Detail,
+	withRundownLine,
+} from "@/lib/portal/core";
 import {
 	notifyAdminWaGroup,
 	portalUrl,
@@ -63,6 +67,7 @@ type Sub = {
 		event_id: string | null;
 		channel: string;
 		vendor_contact_id: string | null;
+		payer: "klien" | "wo" | null;
 		promo: {
 			code: string;
 			label: string | null;
@@ -79,7 +84,7 @@ async function loadSub(id: string): Promise<Sub | null> {
 	const { data } = await createAdminClient()
 		.from("payment_submissions")
 		.select(
-			"id, status, kind, amount, bank_account_id, proof_path, booking:client_bookings(id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, event_id, channel, vendor_contact_id, promo), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
+			"id, status, kind, amount, bank_account_id, proof_path, booking:client_bookings(id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, event_id, channel, vendor_contact_id, promo, payer), person:portal_people!payment_submissions_submitted_by_fkey(name, phone)",
 		)
 		.eq("id", id)
 		.maybeSingle();
@@ -169,7 +174,10 @@ async function bookingFormData(s: Sub): Promise<FormData> {
 			vendor_name: (v?.name as string) ?? d.wo_nama ?? "",
 			vendor_pic_name: pemesan,
 			vendor_contact: s.person?.phone ?? "",
-			vendor_commission_mode: (v?.commission_mode as string) ?? "commission",
+			// Pilihan WO di dashboard (siapa yang membayar) menang atas bawaan kontak.
+			vendor_commission_mode: b.payer
+				? commissionModeOf(b.payer)
+				: ((v?.commission_mode as string) ?? "commission"),
 			vendor_commission_value_type:
 				(v?.commission_value_type as string) ?? "percent",
 			vendor_commission_value: String(

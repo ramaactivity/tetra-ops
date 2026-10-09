@@ -7,6 +7,7 @@ import { emitBoothEvent } from "@/lib/booth-sync";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { clientIp, getPortalPerson, rateLimit } from "@/lib/portal/auth";
 import {
+	type Detail,
 	DetailSchema,
 	daysUntil,
 	missingForDp,
@@ -22,9 +23,11 @@ import {
 	withRundownLine,
 } from "@/lib/portal/core";
 import {
+	bookingAccess,
 	configNumber,
 	loadCatalog,
 	loadMyBooking,
+	type PortalBooking,
 	paidBeyondDp,
 	slotAvailable,
 	vendorForPhone,
@@ -442,8 +445,12 @@ export async function requestProofUpload(
 	const person = await getPortalPerson();
 	if (!person) return { ok: false, error: "Sesi berakhir. Masuk lagi, ya." };
 	const b = await loadMyBooking(person, code);
-	if (!b || b.role === "pemilik")
-		return { ok: false, error: "Booking tidak ditemukan." };
+	if (!b) return { ok: false, error: "Booking tidak ditemukan." };
+	if (!(await bookingAccess(b)).canPay)
+		return {
+			ok: false,
+			error: "Pembayaran booking ini dilakukan oleh pihak lain.",
+		};
 	const ext = PROOF_MIME[file.type];
 	if (!ext)
 		return {
@@ -489,8 +496,12 @@ export async function submitDpTransfer(
 	const person = await getPortalPerson();
 	if (!person) return { ok: false, error: "Sesi berakhir. Masuk lagi, ya." };
 	const b = await loadMyBooking(person, code);
-	if (!b || b.role === "pemilik")
-		return { ok: false, error: "Booking tidak ditemukan." };
+	if (!b) return { ok: false, error: "Booking tidak ditemukan." };
+	if (!(await bookingAccess(b)).canPay)
+		return {
+			ok: false,
+			error: "Pembayaran booking ini dilakukan oleh pihak lain.",
+		};
 	if (b.status !== "draft")
 		return { ok: false, error: "DP untuk booking ini sudah diajukan." };
 	const parsed = SubmitSchema.safeParse(raw);
@@ -585,8 +596,12 @@ export async function submitPelunasanTransfer(
 	const person = await getPortalPerson();
 	if (!person) return { ok: false, error: "Sesi berakhir. Masuk lagi, ya." };
 	const b = await loadMyBooking(person, code);
-	if (!b || b.role === "pemilik")
-		return { ok: false, error: "Booking tidak ditemukan." };
+	if (!b) return { ok: false, error: "Booking tidak ditemukan." };
+	if (!(await bookingAccess(b)).canPay)
+		return {
+			ok: false,
+			error: "Pembayaran booking ini dilakukan oleh pihak lain.",
+		};
 	if (b.status !== "resmi" || !b.event_id)
 		return { ok: false, error: "Pelunasan dibuka setelah DP diterima." };
 	const parsed = SubmitSchema.safeParse(raw);
@@ -702,12 +717,26 @@ export async function inviteMember(
 	if (phone === person.phone)
 		return { ok: false, error: "Itu nomor kamu sendiri." };
 	await addMember(b.id, person.id, phone, parsed.data.name, parsed.data.role);
+	// Klien pertama yang diundang jadi "pemilik acara" di data acara (kalau kosong).
+	if (parsed.data.role === "pemilik" && !b.detail.pemilik_nama)
+		await saveDetailFields(b, {
+			pemilik_nama: parsed.data.name,
+			...(b.detail.pemilik_wa ? {} : { pemilik_wa: phone }),
+		});
 	await sendClientWa(
 		phone,
 		`Halo ${parsed.data.name}! ${person.name ?? "Pemesan"} menambahkan kamu sebagai ${ROLE_LABEL[parsed.data.role]} untuk ${b.detail.nama_acara ?? "acara"} (${b.event_date}) di Tetra Photobooth.\n\nLihat dan lengkapi detailnya di sini (masuk pakai nomor WA ini): ${portalUrl(b.public_code)}`,
 	);
 	revalidatePath(`/akun/booking/${code}`);
 	return { ok: true };
+}
+
+async function saveDetailFields(b: PortalBooking, patch: Partial<Detail>) {
+	await createAdminClient()
+		.from("client_bookings")
+		.update({ detail: { ...b.detail, ...patch } })
+		.eq("id", b.id);
+	if (b.event_id) await syncEventDetail(b.event_id, patch);
 }
 
 /** Pemesan / WO mengeluarkan anggota lain (tidak bisa mengeluarkan diri sendiri). */
@@ -837,4 +866,52 @@ export async function requestChange(
 	await notifyPortalRequest(req.id, available);
 	revalidatePath(`/akun/booking/${code}`);
 	return { ok: true };
+}
+
+/**
+ * WO mengatur booking bersama kliennya: siapa yang membayar ke Tetra (klien
+ * langsung = komisi; WO = potongan langsung) dan apakah klien undangan melihat
+ * harga & dokumen. Pembayar dikunci setelah booking resmi (tagihan Ops sudah
+ * mengikuti mode komisinya) — ubah lewat admin.
+ */
+export async function setBookingArrangement(
+	code: string,
+	input: { payer?: "klien" | "wo"; priceVisible?: boolean },
+): Promise<{ ok: true } | Fail> {
+	const person = await getPortalPerson();
+	if (!person) return { ok: false, error: "Sesi berakhir. Masuk lagi, ya." };
+	const b = await loadMyBooking(person, code);
+	if (!b) return { ok: false, error: "Booking tidak ditemukan." };
+	if (b.role !== "wo")
+		return { ok: false, error: "Hanya WO/vendor yang bisa mengatur ini." };
+	const upd: Record<string, unknown> = {};
+	if (input.payer && input.payer !== b.payer) {
+		if (b.event_id)
+			return {
+				ok: false,
+				error:
+					"Booking sudah resmi, cara bayarnya sudah tercatat di tagihan. Chat admin Tetra untuk mengubahnya.",
+			};
+		upd.payer = input.payer;
+	}
+	if (typeof input.priceVisible === "boolean")
+		upd.client_price_visible = input.priceVisible;
+	if (Object.keys(upd).length === 0) return { ok: true };
+	const { error } = await createAdminClient()
+		.from("client_bookings")
+		.update(upd)
+		.eq("id", b.id);
+	if (error) return { ok: false, error: "Gagal menyimpan. Coba lagi, ya." };
+	revalidatePath(`/akun/booking/${code}`);
+	return { ok: true };
+}
+
+/** Panduan dashboard sudah dilihat (atau dilewati) — tidak muncul otomatis lagi. */
+export async function markOnboarded(): Promise<void> {
+	const person = await getPortalPerson();
+	if (!person || person.onboarded_at) return;
+	await createAdminClient()
+		.from("portal_people")
+		.update({ onboarded_at: new Date().toISOString() })
+		.eq("id", person.id);
 }

@@ -11,6 +11,7 @@ import {
 	Sparkles,
 	Wallet,
 } from "lucide-react";
+import { payerFromCommissionMode } from "@/lib/portal/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
@@ -1183,6 +1184,17 @@ export default async function EventDetailPage({
 						previewLink={portalCode ? previewUrl(portalCode) : null}
 						defaultName={event.client_name ?? ""}
 						defaultPhone={event.client_wa ?? ""}
+						vendor={
+							event.channel === "vendor"
+								? {
+										name: event.vendor_pic_name || event.vendor_name || "",
+										phone: event.vendor_contact ?? "",
+										payer: payerFromCommissionMode(
+											event.vendor_commission_mode,
+										),
+									}
+								: null
+						}
 					/>
 				)}
 			</div>
