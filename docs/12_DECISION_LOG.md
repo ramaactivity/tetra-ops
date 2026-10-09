@@ -1240,3 +1240,13 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - `/vendors/[id]` (owner) = Pusat Vendor: hero emerald (mode kerja sama, status, akses dasbor) + tab **Ringkasan** (acara mendatang, pendapatan YTD, komisi belum dibayar, tagihan potongan langsung, acara terdekat, rekanan sekilas) · **Acara** (semua event vendor + komisi dibayar/belum atau sisa tagihan) · **Tim & akses** (daftar orang vendor `vendor_pics` dengan peran Owner/Planner/PIC lapangan/Admin; undang ke dasbor, kirim ulang link pribadi, cabut akses; terakhir aktif) · **Fitur rekanan** · **Kerjasama & komisi** (penjelasan 2 mode + ke form edit & bayar komisi). Daftar `/vendors` kini membuka Pusat Vendor.
 - `contacts.vendor_settings` (src/lib/vendor-settings.ts, kosong = bawaan): `portal_enabled` (tutup dasbor & akses WO semua acara vendor — `vendorContactsOf`, `loadMyBooking`, `rekananRows`), `show_commission` (komisi di dasbor rekanan), `can_invite_clients` (WO boleh undang klien — UI & `inviteMember`), `client_price_visible_default` (bawaan booking baru via `ensureEventBooking`), `partner_level` (Reguler/Prioritas/Jeda sementara, internal).
 - Cabut akses = hapus `vendor_members` + peran `wo` di booking acara vendor itu (booking lain orang itu tetap).
+
+## DR-047: Mode Demo permanen untuk testing
+
+**Status:** Accepted (owner 2026-10-09)
+**Date:** 2026-10-09
+
+### Decision
+- `events.is_demo` + `client_bookings.is_demo`. Event demo SELALU `deleted_at` terisi → tersaring dari semua yang memakai `deleted_at IS NULL` (KPI, laporan keuangan, digest/notifikasi Telegram, TBC reminder, cek jadwal, feed & webhook Booth, AI/MCP). Portal sengaja menampilkannya: `syncVendorBookings`/`rekananRows` (`deleted_at IS NULL OR is_demo`), dashboard booking membaca event per id. Booking demo disaring dari antrean `/operations/portal` dan cek jadwal; notifikasi pembayaran/permintaan/desain dilewati; `emitBoothEvent` menolak event demo.
+- Tidak pernah ada pembayaran/jurnal demo: "DP/pelunasan diterima" = `simulateDemoPayment` (hanya angka event demo + status pengajuan).
+- `/settings/demo` (owner, tab "Mode Demo"): buka dasbor vendor demo / dashboard klien demo lewat link pribadi sekali ketuk, simulasikan bukti bayar demo, reset data demo. Data: vendor "DEMO · Rekanan Contoh" (diarsipkan → tidak muncul di daftar/form), akun Sari (vendor, 6289900009901) & Nadia (klien, 6289900009902), PRJ-DEMO-01..04 (potongan langsung, komisi, selesai, pribadi), 1 booking draf. Booking yang dibuat akun demo lewat wizard otomatis `is_demo` (src/lib/demo-phones.ts).

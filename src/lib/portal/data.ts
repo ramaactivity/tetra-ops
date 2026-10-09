@@ -108,11 +108,13 @@ export type PortalBooking = {
 	client_price_visible: boolean;
 	/** Siapa yang membayar ke Tetra (booking ber-WO); null = belum diatur. */
 	payer: "klien" | "wo" | null;
+	/** Mode Demo (DR-047). */
+	is_demo: boolean;
 	role: "pemesan" | "pemilik" | "wo";
 };
 
 const BOOKING_COLS =
-	"id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, expires_at, event_id, created_at, channel, vendor_contact_id, managed_by, client_price_visible, payer";
+	"id, public_code, status, service_type, package_hours, frame_size, unit_count, addons, quoted_total, event_date, start_time, end_time, venue_city, detail, expires_at, event_id, created_at, channel, vendor_contact_id, managed_by, client_price_visible, payer, is_demo";
 
 /** Booking milik orang ini saja — satu-satunya pintu baca data booking di portal. */
 export async function loadMyBooking(

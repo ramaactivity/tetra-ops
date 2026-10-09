@@ -61,6 +61,7 @@ async function loadLocking(
 				"id, event_date, start_time, end_time, venue_city, unit_count, package_hours",
 			)
 			.eq("status", "menunggu_konfirmasi")
+			.eq("is_demo", false)
 			.neq("service_type", "guest_cam")
 			.gte("event_date", from)
 			.lte("event_date", to),

@@ -181,6 +181,7 @@ export async function emitBoothEvent(
 			.select(BOOTH_FULL_SELECT)
 			.eq("id", eventId)
 			.eq("is_migrated_legacy", false)
+			.eq("is_demo", false) // Mode Demo tidak pernah dikirim ke Booth
 			.maybeSingle();
 		if (!ev) return;
 		const [booking] = await enrichBoothBookings([ev as unknown as FullRow]);

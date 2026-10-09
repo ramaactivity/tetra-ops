@@ -65,7 +65,7 @@ export default async function VendorHubPage({
 				"id, project_id, event_title, client_name, event_date, status, grand_total, remaining_balance, payment_status, vendor_commission_mode, vendor_commission_amount",
 			)
 			.eq("vendor_contact_id", id)
-			.is("deleted_at", null)
+			.or("deleted_at.is.null,is_demo.eq.true")
 			.order("event_date", { ascending: false }),
 		admin
 			.from("vendor_members")

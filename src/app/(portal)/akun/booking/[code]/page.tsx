@@ -1,4 +1,4 @@
-import { Briefcase, Eye, Users } from "lucide-react";
+import { Briefcase, Eye, Sparkles, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { MON3, PKG } from "@/components/portal/booking/content";
@@ -50,10 +50,10 @@ import {
 import {
 	bookingAccess,
 	configNumber,
-	vendorSettingsForBooking,
 	loadCatalog,
 	loadMyBooking,
 	paidBeyondDp,
+	vendorSettingsForBooking,
 } from "@/lib/portal/data";
 import {
 	type DesignRequestView,
@@ -692,7 +692,8 @@ export default async function BookingDetailPage({
 			reason: null as string | null,
 		})),
 		...subs
-			.filter((x) => x.status !== "diterima")
+			// Demo: pembayaran "diterima" lewat simulasi tidak punya baris payments.
+			.filter((x) => x.status !== "diterima" || b.is_demo)
 			.map((x) => ({
 				kind: String(x.kind),
 				amount: Number(x.amount),
@@ -1403,6 +1404,24 @@ export default async function BookingDetailPage({
 				autoOpen={sp.panduan === "1" || (!preview && !person.onboarded_at)}
 				clearHref={sp.panduan === "1" ? to(tab) : undefined}
 			/>
+			{b.is_demo && (
+				<div
+					role="status"
+					className="dash-role"
+					style={{ background: "#EFE9FF", borderStyle: "dashed" }}
+				>
+					<Sparkles
+						aria-hidden
+						size={20}
+						strokeWidth={2}
+						style={{ flex: "none", marginTop: 1 }}
+					/>
+					<div>
+						<b>Mode demo.</b> Data contoh untuk mencoba dashboard — tidak
+						tercatat di laporan Tetra dan tidak ada pembayaran sungguhan.
+					</div>
+				</div>
+			)}
 			{preview && (
 				<div
 					role="status"

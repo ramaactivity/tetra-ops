@@ -74,7 +74,8 @@ export async function syncVendorBookings(personId: string): Promise<void> {
 			"vendor_contact_id",
 			contacts.map((c) => c.id),
 		)
-		.is("deleted_at", null);
+		// Event demo (Mode Demo) disembunyikan lewat deleted_at tapi tetap tampil di portal.
+		.or("deleted_at.is.null,is_demo.eq.true");
 	const events = (evs ?? []) as unknown as EventForBooking[];
 	if (events.length === 0) return;
 	const { data: linked } = await admin
@@ -133,7 +134,7 @@ export async function rekananRows(
 			? admin
 					.from("events")
 					.select(
-						"id, project_id, event_title, client_name, event_date, start_time, venue_name, venue_city, status, remaining_balance, design_status, vendor_commission_mode, vendor_commission_amount, vendor_contact_id, deleted_at",
+						"id, project_id, event_title, client_name, event_date, start_time, venue_name, venue_city, status, remaining_balance, design_status, vendor_commission_mode, vendor_commission_amount, vendor_contact_id, deleted_at, is_demo",
 					)
 					.in("id", evIds)
 			: Promise.resolve({ data: [] }),
@@ -173,7 +174,7 @@ export async function rekananRows(
 	const rows: RekananRow[] = [];
 	for (const b of bks ?? []) {
 		const ev = b.event_id ? evById.get(b.event_id as string) : null;
-		if (ev?.deleted_at) continue;
+		if (ev?.deleted_at && !ev.is_demo) continue;
 		const vset = setOf.get(
 			((ev?.vendor_contact_id as string | null) ??
 				(b.vendor_contact_id as string | null) ??

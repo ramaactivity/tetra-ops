@@ -62,6 +62,7 @@ export default async function PortalBookingsPage() {
 				"id, public_code, status, service_type, package_hours, unit_count, quoted_total, event_date, start_time, venue_city, detail, expires_at, created_at, promo, event:events(project_id), members:booking_members(role, person:portal_people!booking_members_person_id_fkey(name, phone))",
 			)
 			.in("status", ["draft", "menunggu_konfirmasi", "resmi"])
+			.eq("is_demo", false) // Mode Demo: dicoba lewat /settings/demo
 			.order("event_date")
 			.limit(300),
 		supabase
@@ -89,10 +90,16 @@ export default async function PortalBookingsPage() {
 		updated_at: string;
 		person: { name: string | null; phone: string } | null;
 	}>;
-	const requests = reqRes.data ?? [];
 	const bookings = (bookingsRes.data ?? []) as unknown as Booking[];
 	const byId = new Map(bookings.map((b) => [b.id, b]));
-	const subs = subsRes.data ?? [];
+	// Bukti bayar & permintaan dari booking demo tidak masuk antrean admin.
+	const { data: demoRows } = await supabase
+		.from("client_bookings")
+		.select("id")
+		.eq("is_demo", true);
+	const demo = new Set((demoRows ?? []).map((d) => d.id as string));
+	const requests = (reqRes.data ?? []).filter((r) => !demo.has(r.booking_id));
+	const subs = (subsRes.data ?? []).filter((s) => !demo.has(s.booking_id));
 	const drafts = bookings.filter((b) => b.status === "draft");
 	const resmi = bookings.filter((b) => b.status === "resmi");
 	const error = subsRes.error ?? bookingsRes.error ?? reqRes.error;

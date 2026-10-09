@@ -12,6 +12,7 @@ const TABS = [
 	{ href: "/settings/assembly", label: "Resep Bahan" },
 	{ href: "/settings/cutoff", label: "Cutoff" },
 	{ href: "/settings/dokumen", label: "Dokumen" },
+	{ href: "/settings/demo", label: "Mode Demo" },
 ];
 
 export function SettingsTabs() {

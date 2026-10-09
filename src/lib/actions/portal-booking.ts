@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { loadFullDates } from "@/lib/availability-load";
 import { emitBoothEvent } from "@/lib/booth-sync";
+import { isDemoPhone } from "@/lib/demo-phones";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { clientIp, getPortalPerson, rateLimit } from "@/lib/portal/auth";
 import {
@@ -24,7 +25,6 @@ import {
 } from "@/lib/portal/core";
 import {
 	bookingAccess,
-	vendorSettingsForBooking,
 	configNumber,
 	loadCatalog,
 	loadMyBooking,
@@ -32,6 +32,7 @@ import {
 	paidBeyondDp,
 	slotAvailable,
 	vendorForPhone,
+	vendorSettingsForBooking,
 } from "@/lib/portal/data";
 import { createInviteLink } from "@/lib/portal/invite-link";
 import {
@@ -301,6 +302,8 @@ export async function createDraftBooking(
 				terms_version: String(terms.data?.value ?? "2026-10-06"),
 				expires_at: new Date(Date.now() + days * 86_400_000).toISOString(),
 				created_by_person: person.id,
+				// Akun Mode Demo → booking demo (tanpa notifikasi, tidak masuk antrean).
+				is_demo: isDemoPhone(person.phone),
 			})
 			.select("id")
 			.single();
@@ -320,12 +323,13 @@ export async function createDraftBooking(
 			})
 			.eq("person_id", person.id)
 			.is("converted_booking_id", null);
-		await notifyAdminWaGroup([
-			`📥 Booking baru dari web (draf, belum DP) · ${code}`,
-			`${person.name ?? "-"}${asWo ? " (WO)" : ""} · ${detail?.nama_acara ?? detail?.kategori ?? "acara"}`,
-			`📅 ${formatDateID(sel.date)}${sel.start ? ` ${sel.start}` : ""} · ${sel.city ?? "-"}`,
-			`${PRODUCT_LABELS[sel.category] ?? sel.category}${sel.category === "guest_cam" ? "" : ` ${sel.hours} jam`} · perkiraan ${formatRupiah(q.total - discountIdr)}`,
-		]);
+		if (!isDemoPhone(person.phone))
+			await notifyAdminWaGroup([
+				`📥 Booking baru dari web (draf, belum DP) · ${code}`,
+				`${person.name ?? "-"}${asWo ? " (WO)" : ""} · ${detail?.nama_acara ?? detail?.kategori ?? "acara"}`,
+				`📅 ${formatDateID(sel.date)}${sel.start ? ` ${sel.start}` : ""} · ${sel.city ?? "-"}`,
+				`${PRODUCT_LABELS[sel.category] ?? sel.category}${sel.category === "guest_cam" ? "" : ` ${sel.hours} jam`} · perkiraan ${formatRupiah(q.total - discountIdr)}`,
+			]);
 		if (asWo && client?.phone) {
 			const phone = toWaPhone(client.phone);
 			const clientId = await addMember(
@@ -717,10 +721,14 @@ export async function inviteMember(
 	const phone = toWaPhone(parsed.data.phone);
 	if (phone === person.phone)
 		return { ok: false, error: "Itu nomor kamu sendiri." };
-	if (b.role === "wo" && (await vendorSettingsForBooking(b))?.can_invite_clients === false)
+	if (
+		b.role === "wo" &&
+		(await vendorSettingsForBooking(b))?.can_invite_clients === false
+	)
 		return {
 			ok: false,
-			error: "Undangan klien untuk booking ini diatur admin Tetra. Chat admin, ya.",
+			error:
+				"Undangan klien untuk booking ini diatur admin Tetra. Chat admin, ya.",
 		};
 	const invitedId = await addMember(
 		b.id,

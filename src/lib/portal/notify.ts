@@ -61,11 +61,13 @@ export async function notifyPortalPaymentSubmitted(
 		const { data: s } = await admin
 			.from("payment_submissions")
 			.select(
-				"amount, kind, booking:client_bookings(public_code, service_type, package_hours, event_date, detail, quoted_total), person:portal_people!payment_submissions_submitted_by_fkey(name, phone), bank:bank_accounts(bank_name, account_number)",
+				"amount, kind, booking:client_bookings(public_code, service_type, package_hours, event_date, detail, quoted_total, is_demo), person:portal_people!payment_submissions_submitted_by_fkey(name, phone), bank:bank_accounts(bank_name, account_number)",
 			)
 			.eq("id", submissionId)
 			.maybeSingle();
 		if (!s) return;
+		// Mode Demo: tidak ada notifikasi ke Telegram / grup WA / inbox.
+		if ((s.booking as unknown as { is_demo?: boolean } | null)?.is_demo) return;
 		// to-one embed → object.
 		const b = s.booking as unknown as {
 			public_code: string;
@@ -136,11 +138,12 @@ export async function notifyPortalRequest(
 		const { data: r } = await admin
 			.from("booking_requests")
 			.select(
-				"kind, new_date, new_start, reason, refund_estimate, booking:client_bookings(public_code, event_date, detail), person:portal_people!booking_requests_requested_by_fkey(name, phone)",
+				"kind, new_date, new_start, reason, refund_estimate, booking:client_bookings(public_code, event_date, detail, is_demo), person:portal_people!booking_requests_requested_by_fkey(name, phone)",
 			)
 			.eq("id", requestId)
 			.maybeSingle();
 		if (!r) return;
+		if ((r.booking as unknown as { is_demo?: boolean } | null)?.is_demo) return;
 		const b = r.booking as unknown as {
 			public_code: string;
 			event_date: string;

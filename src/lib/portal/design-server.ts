@@ -30,10 +30,12 @@ type EventForDesign = {
 	spots: unknown;
 	design_status: string | null;
 	design_brief_at: string | null;
+	/** Mode Demo: tanpa notifikasi ke desainer/owner. */
+	is_demo?: boolean;
 };
 
 const EVENT_COLS =
-	"id, project_id, client_name, event_date, frame_size, unit_count, spots, design_status, design_brief_at";
+	"id, project_id, client_name, event_date, frame_size, unit_count, spots, design_status, design_brief_at, is_demo";
 
 async function loadEvent(eventId: string): Promise<EventForDesign | null> {
 	const { data } = await createAdminClient()
@@ -278,9 +280,10 @@ export async function approveFromPortal(
 			);
 	}
 	if (mismatch.length) {
-		await sendToOwnerGroup(
-			`🎨 <b>Klien sudah ACC desain</b> ${tgEscape(ev.client_name ?? ev.project_id)}, tapi belum bisa otomatis disetujui:\n${mismatch.map((m) => `• ${tgEscape(m)}`).join("\n")}\nSamakan ukurannya lalu ACC di <a href="${appUrl()}/design/${ev.project_id}">Design Hub</a>.`,
-		);
+		if (!ev.is_demo)
+			await sendToOwnerGroup(
+				`🎨 <b>Klien sudah ACC desain</b> ${tgEscape(ev.client_name ?? ev.project_id)}, tapi belum bisa otomatis disetujui:\n${mismatch.map((m) => `• ${tgEscape(m)}`).join("\n")}\nSamakan ukurannya lalu ACC di <a href="${appUrl()}/design/${ev.project_id}">Design Hub</a>.`,
+			);
 		return { approved: false, reason: mismatch.join("; ") };
 	}
 
@@ -363,6 +366,7 @@ export async function notifyDesigner(
 	try {
 		const admin = createAdminClient();
 		const ev = await loadEvent(eventId);
+		if (ev?.is_demo) return;
 		const { data: designers } = await admin
 			.from("users")
 			.select("id")
