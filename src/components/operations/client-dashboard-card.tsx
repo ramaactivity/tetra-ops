@@ -152,7 +152,7 @@ export function ClientDashboardCard({
 					</div>
 					<p className="type-caption text-muted-foreground">
 						{as === "wo"
-							? `Vendor mendapat dasbor rekanan: memantau booking, ${vendor.payer === "klien" ? "klien yang membayar ke Tetra" : "membayar ke Tetra"}, dan mengundang kliennya sendiri.`
+							? `Vendor mendapat dasbor rekanan: SEMUA acara vendor ini (lampau & mendatang) di satu tempat, cukup sekali undang. Di acara ini ${vendor.payer === "klien" ? "klien yang membayar ke Tetra" : "vendor yang membayar ke Tetra"}; vendor bisa mengundang kliennya sendiri dan melihat rekap komisi.`
 							: vendor.payer === "wo"
 								? "Klien melihat data acara, desain & galeri — tanpa harga Tetra (potongan langsung vendor)."
 								: "Klien melihat tagihan dan membayar langsung ke Tetra (komisi ke vendor)."}

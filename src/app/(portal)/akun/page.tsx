@@ -1,5 +1,6 @@
 import { PKG } from "@/components/portal/booking/content";
 import { Onboarding } from "@/components/portal/dash/onboarding";
+import { RekananDashboard } from "@/components/portal/dash/rekanan";
 import { DashShell } from "@/components/portal/dash/shell";
 import { btn, PageHead } from "@/components/portal/dash/ui";
 import { PortalLogin } from "@/components/portal/portal-login";
@@ -7,6 +8,11 @@ import { dateLong } from "@/components/portal/status-pill";
 import { getPortalPerson } from "@/lib/portal/auth";
 import { daysUntil, PRODUCT_LABELS } from "@/lib/portal/core";
 import { loadMyBookings, type PortalBooking } from "@/lib/portal/data";
+import {
+	rekananRows,
+	syncVendorBookings,
+	vendorContactsOf,
+} from "@/lib/portal/vendor";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toWaPhone } from "@/lib/whatsapp";
 
@@ -45,6 +51,9 @@ export default async function AkunPage({
 			</div>
 		);
 
+	// Dasbor rekanan: vendor terdaftar → semua event vendornya ikut tertaut dulu.
+	const vendors = await vendorContactsOf(person.id);
+	if (vendors.length) await syncVendorBookings(person.id);
 	const [bookings, biz] = await Promise.all([
 		loadMyBookings(person),
 		createAdminClient()
@@ -56,13 +65,11 @@ export default async function AkunPage({
 	const adminWa =
 		typeof biz.data?.value === "string" ? toWaPhone(biz.data.value) : null;
 	const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
-	const isWo = bookings.some((b) => b.role === "wo");
+	const isWo = vendors.length > 0 || bookings.some((b) => b.role === "wo");
+	const rows = isWo ? await rekananRows(person.id, today) : [];
 	// Dasbor WO (DR-028): klien yang dipegang dipisah dari booking pribadi.
+	// Rekanan: klien yang dipegang tampil di dasbor rekanan; di bawahnya booking pribadi.
 	const groups = [
-		{
-			title: "Klien yang kamu pegang",
-			list: bookings.filter((b) => b.role === "wo"),
-		},
 		{ title: "Booking kamu", list: bookings.filter((b) => b.role !== "wo") },
 	].filter((g) => g.list.length);
 	return (
@@ -82,7 +89,11 @@ export default async function AkunPage({
 				clearHref={sp.panduan === "1" ? "/akun" : undefined}
 			/>
 			<PageHead
-				title={`Halo, ${person.name?.split(" ")[0] ?? "kamu"}`}
+				title={
+					isWo
+						? `Dasbor rekanan${vendors.length ? ` · ${vendors.map((v) => v.name).join(", ")}` : ""}`
+						: `Halo, ${person.name?.split(" ")[0] ?? "kamu"}`
+				}
 				meta={
 					isWo
 						? "Dasbor rekanan Tetra: semua booking klien kamu ada di sini. Buka satu booking untuk mengundang klien atau memantau pembayaran."
@@ -94,7 +105,8 @@ export default async function AkunPage({
 					</a>
 				}
 			/>
-			{bookings.length === 0 && (
+			{isWo && <RekananDashboard rows={rows} today={today} />}
+			{bookings.length === 0 && !isWo && (
 				<p
 					style={{
 						margin: 0,
@@ -113,7 +125,7 @@ export default async function AkunPage({
 					key={g.title}
 					style={{ display: "flex", flexDirection: "column", gap: 12 }}
 				>
-					{groups.length > 1 && (
+					{(groups.length > 1 || isWo) && (
 						<h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
 							{g.title}
 						</h2>

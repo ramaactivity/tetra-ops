@@ -1210,3 +1210,13 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - Tampilan dibedakan: banner peran (WO: klien & cara bayar; klien: "diurus oleh WO" + chat WO), label Orang & akses per sudut pandang (Klien / WO-vendor), ajakan + panduan 3 langkah "Undang klien", Siapa-bisa-apa versi WO. Klien undangan WO tidak melihat Ubah jadwal.
 - **Panduan pertama masuk** (`portal_people.onboarded_at`): dialog 4 langkah, isi beda untuk WO / klien undangan WO / pemesan; muncul sekali, bisa dibuka lagi lewat "Panduan dashboard" di sidebar (`?panduan=1`).
 - Undangan dari Ops (kartu Dashboard klien) bisa ke **Vendor/WO** (peran `wo`, dasbor rekanan) atau **Klien**; klien di event vendor potongan-langsung masuk sebagai pemilik (tanpa harga Tetra).
+
+## DR-044: Dasbor rekanan — satu undangan per vendor
+
+**Status:** Accepted (owner 2026-10-09)
+**Date:** 2026-10-09
+
+### Decision
+- `vendor_members (contact_id, person_id)`: orang portal yang mewakili kontak vendor. Undangan "Vendor / WO" dari kartu Dashboard klien di Ops mendaftarkan orang ke kontak `events.vendor_contact_id`; semua event vendor itu (lampau + mendatang + yang dibuat nanti) otomatis punya dashboard (`ensureEventBooking`, `src/lib/portal/event-booking.ts`) dan orang itu jadi anggota `wo` (`syncVendorBookings`, dipanggil saat undangan & tiap buka `/akun`).
+- `/akun` untuk rekanan = **Dasbor rekanan**: kartu Acara mendatang · Perlu tindakan (klien belum diundang, data kurang, belum DP, desain belum ACC ≤30 hari, sisa tagihan) · Tagihan ke Tetra (event potongan langsung) · Komisi (event mode komisi: `vendor_commission_amount`, dibayar = `commission_payouts` vendor aktif); daftar acara dengan cari + filter (Mendatang / Perlu tindakan / Selesai / Semua); rekap komisi per event. Owner setuju komisi tampil ke vendor dan event lama ikut.
+- Booking pribadi orang itu (bukan WO) tetap tampil di bawahnya sebagai "Booking kamu".
