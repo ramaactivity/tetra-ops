@@ -371,7 +371,8 @@ export async function restoreVendor(
  *
  * Safe to call from server actions (uses service-role client via SSR).
  */
-type VendorPic = { name: string; contact: string | null };
+/** role: keterangan bebas (mis. "Owner", "PIC lapangan"), dipertahankan saat digabung. */
+type VendorPic = { name: string; contact: string | null; role?: string | null };
 
 /**
  * Tambah/perbarui satu PIC di daftar PIC vendor. Nama sama (abaikan huruf
@@ -393,7 +394,7 @@ function mergeVendorPic(
 	const prev = i >= 0 ? list[i] : null;
 	const rest = list.filter((_, j) => j !== i);
 	return [
-		{ name: prev?.name ?? n, contact: c ?? prev?.contact ?? null },
+		{ ...prev, name: prev?.name ?? n, contact: c ?? prev?.contact ?? null },
 		...rest,
 	];
 }

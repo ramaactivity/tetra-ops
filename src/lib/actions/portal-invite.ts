@@ -30,6 +30,8 @@ const Input = z.object({
 	send: z.boolean(),
 	/** Untuk siapa link ini: klien acara atau vendor/WO yang membawa booking. */
 	as: z.enum(["klien", "wo"]).default("klien"),
+	/** Vendor: peran orang ini (Owner, Planner, PIC lapangan, …). */
+	role: z.string().trim().max(40).optional(),
 });
 
 export async function inviteClientDashboard(
@@ -101,6 +103,35 @@ export async function inviteClientDashboard(
 	// Vendor: satu undangan → semua event vendor ini masuk dasbor rekanannya.
 	let vendorEvents = 0;
 	if (as === "wo" && ev.vendor_contact_id) {
+		// Orang ini masuk daftar orang vendor (nama + nomor + peran), tanpa duplikat.
+		const { data: vc } = await admin
+			.from("contacts")
+			.select("vendor_pics")
+			.eq("id", ev.vendor_contact_id)
+			.maybeSingle();
+		const pics = (vc?.vendor_pics ?? []) as Array<{
+			name: string;
+			contact: string | null;
+			role?: string | null;
+		}>;
+		const tail = (x: string | null) => (x ?? "").replace(/\D/g, "").slice(-9);
+		const i = pics.findIndex(
+			(p) =>
+				tail(p.contact) === tail(phone) ||
+				p.name.trim().toLowerCase() === name.toLowerCase(),
+		);
+		const me2 = {
+			name: i >= 0 ? pics[i].name : name,
+			contact: i >= 0 && pics[i].contact ? pics[i].contact : phone,
+			role: parsed.data.role || (i >= 0 ? (pics[i].role ?? null) : null),
+		};
+		await admin
+			.from("contacts")
+			.update({
+				vendor_pics:
+					i >= 0 ? pics.map((p, j) => (j === i ? me2 : p)) : [...pics, me2],
+			})
+			.eq("id", ev.vendor_contact_id);
 		await admin.from("vendor_members").upsert(
 			{
 				contact_id: ev.vendor_contact_id,

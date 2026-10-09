@@ -18,6 +18,8 @@ import { inviteClientDashboard } from "@/lib/actions/portal-invite";
  * untuk klien event buatan admin (galeri, invoice, detail acara) lalu kirim
  * link lewat WA bot. Event dari booking portal sudah punya link — tampil saja.
  */
+const VENDOR_ROLES = ["Owner", "Planner", "PIC lapangan"];
+
 export function ClientDashboardCard({
 	eventId,
 	link: initialLink,
@@ -38,14 +40,43 @@ export function ClientDashboardCard({
 		phone: string;
 		/** Siapa yang membayar ke Tetra (dari mode komisi event). */
 		payer: "klien" | "wo" | null;
+		/** Orang vendor dari master vendor (owner, PIC lapangan, planner, …). */
+		people?: Array<{ name: string; phone: string; role: string | null }>;
+		/** Nomor (62…) yang sudah punya dasbor rekanan vendor ini. */
+		invited?: string[];
 	} | null;
 }) {
 	const [link, setLink] = useState(initialLink);
 	const [as, setAs] = useState<"klien" | "wo">(vendor ? "wo" : "klien");
-	const [name, setName] = useState(vendor ? vendor.name : defaultName);
-	const [phone, setPhone] = useState(vendor ? vendor.phone : defaultPhone);
+	const first = vendor?.people?.[0];
+	const [name, setName] = useState(
+		vendor ? (first?.name ?? vendor.name) : defaultName,
+	);
+	const [phone, setPhone] = useState(
+		vendor ? (first?.phone ?? vendor.phone) : defaultPhone,
+	);
+	const people = vendor?.people ?? [];
+	const [role, setRole] = useState<string>(first?.role ?? "Owner");
+	const [who, setWho] = useState<number | "lain">(people.length ? 0 : "lain");
+	const pickPerson = (i: number | "lain") => {
+		setWho(i);
+		if (i === "lain") {
+			setName("");
+			setPhone("");
+			setRole("PIC lapangan");
+		} else {
+			setName(people[i].name);
+			setPhone(people[i].phone);
+			setRole(people[i].role ?? "");
+		}
+	};
+	const isInvited = (p: string) =>
+		(vendor?.invited ?? []).some(
+			(x) => x.replace(/\D/g, "").slice(-9) === p.replace(/\D/g, "").slice(-9),
+		);
 	const pickAs = (v: "klien" | "wo") => {
 		setAs(v);
+		if (v === "wo" && people.length) return pickPerson(0);
 		setName(v === "wo" ? (vendor?.name ?? "") : defaultName);
 		setPhone(v === "wo" ? (vendor?.phone ?? "") : defaultPhone);
 	};
@@ -61,6 +92,7 @@ export function ClientDashboardCard({
 				phone,
 				send,
 				as,
+				...(as === "wo" && role ? { role } : {}),
 			});
 			if (!r.ok) return setError(r.error);
 			setLink(r.url);
@@ -157,6 +189,59 @@ export function ClientDashboardCard({
 								? "Klien melihat data acara, desain & galeri — tanpa harga Tetra (potongan langsung vendor)."
 								: "Klien melihat tagihan dan membayar langsung ke Tetra (komisi ke vendor)."}
 					</p>
+				</div>
+			)}
+			{as === "wo" && vendor && (
+				<div className="space-y-2">
+					<span className="type-caption">
+						Orang dari {vendor.name || "vendor ini"} — bisa diundang lebih dari
+						satu, masing-masing dengan nomornya sendiri
+					</span>
+					<div className="flex flex-wrap gap-2">
+						{people.map((p, i) => (
+							<button
+								key={`${p.name}-${p.phone}`}
+								type="button"
+								onClick={() => pickPerson(i)}
+								aria-pressed={who === i}
+								className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-left text-[13px] ${who === i ? "border-foreground bg-secondary font-semibold" : "border-border-default bg-card hover:bg-secondary"}`}
+							>
+								<span>
+									{p.name}
+									{p.role && (
+										<span className="text-muted-foreground"> · {p.role}</span>
+									)}
+								</span>
+								{p.phone && isInvited(p.phone) && (
+									<span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+										sudah punya akses
+									</span>
+								)}
+							</button>
+						))}
+						<button
+							type="button"
+							onClick={() => pickPerson("lain")}
+							aria-pressed={who === "lain"}
+							className={`h-11 rounded-xl border px-3 text-[13px] ${who === "lain" ? "border-foreground bg-secondary font-semibold" : "border-dashed border-border-default bg-card hover:bg-secondary"}`}
+						>
+							+ Orang lain
+						</button>
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<span className="type-caption">Peran</span>
+						{VENDOR_ROLES.map((r) => (
+							<button
+								key={r}
+								type="button"
+								onClick={() => setRole(r)}
+								aria-pressed={role === r}
+								className={`h-8 rounded-full border px-3 text-[12px] ${role === r ? "border-transparent bg-foreground text-background" : "border-border-default bg-card hover:bg-secondary"}`}
+							>
+								{r}
+							</button>
+						))}
+					</div>
 				</div>
 			)}
 			<div className="grid gap-3 sm:grid-cols-2">

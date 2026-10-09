@@ -11,7 +11,6 @@ import {
 	Sparkles,
 	Wallet,
 } from "lucide-react";
-import { payerFromCommissionMode } from "@/lib/portal/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PaymentStatusBadge } from "@/components/badges/status-badge";
@@ -59,6 +58,7 @@ import {
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
+import { payerFromCommissionMode } from "@/lib/portal/core";
 import { portalUrl } from "@/lib/portal/notify";
 import { previewUrl } from "@/lib/portal/preview";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -104,7 +104,7 @@ export default async function EventDetailPage({
 			transport_mode, transport_vehicle, transport_rental_cost, transport_nota_url,
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			google_maps_url, custom_package_name, backdrop_color,
-			vendor_name, vendor_pic_name, vendor_contact,
+			vendor_name, vendor_pic_name, vendor_contact, vendor_contact_id,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
 			grand_total, total_paid, remaining_balance, payment_status,
 			vendor_commission_mode, vendor_commission_amount,
@@ -169,6 +169,44 @@ export default async function EventDetailPage({
 					.maybeSingle()
 			).data?.public_code ?? null)
 		: null;
+
+	// Orang vendor (owner/PIC/planner) + siapa yang sudah punya dasbor rekanan.
+	const vendorPeople =
+		canEdit && event.channel === "vendor" && event.vendor_contact_id
+			? await (async () => {
+					const admin = createAdminClient();
+					const [{ data: c }, { data: vm }] = await Promise.all([
+						admin
+							.from("contacts")
+							.select("vendor_pics")
+							.eq("id", event.vendor_contact_id)
+							.maybeSingle(),
+						admin
+							.from("vendor_members")
+							.select("person:portal_people(phone)")
+							.eq("contact_id", event.vendor_contact_id),
+					]);
+					return {
+						people: (
+							(c?.vendor_pics ?? []) as Array<{
+								name: string;
+								contact: string | null;
+								role?: string | null;
+							}>
+						).map((p) => ({
+							name: p.name,
+							phone: p.contact ?? "",
+							role: p.role ?? null,
+						})),
+						// to-one embed → object.
+						invited: (vm ?? [])
+							.map(
+								(m) => (m.person as unknown as { phone: string } | null)?.phone,
+							)
+							.filter((x): x is string => !!x),
+					};
+				})()
+			: null;
 
 	// Design frames — SAME store as the Asset & Design page (event_assets), so
 	// the Design card here stays in sync with that page (no separate silo).
@@ -1192,6 +1230,8 @@ export default async function EventDetailPage({
 										payer: payerFromCommissionMode(
 											event.vendor_commission_mode,
 										),
+										people: vendorPeople?.people ?? [],
+										invited: vendorPeople?.invited ?? [],
 									}
 								: null
 						}
