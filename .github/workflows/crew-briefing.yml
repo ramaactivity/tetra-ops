@@ -1,0 +1,20 @@
+# Briefing crew ke grup WA "Tetra Crew" — tiap jam (slot cron Vercel Hobby penuh).
+# Endpoint idempoten per event per jenis; aturan jam (H-1 ≥15.00, hari H ≥06.00,
+# jendela 06–21 WIB) ada di src/lib/crew-briefing.ts.
+name: crew-briefing
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Panggil endpoint briefing
+        run: |
+          code=$(curl -s -o out.json -w "%{http_code}" -m 90 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://booking.tetraphoto.com/api/cron/crew-briefing")
+          cat out.json; echo
+          test "$code" = "200"
