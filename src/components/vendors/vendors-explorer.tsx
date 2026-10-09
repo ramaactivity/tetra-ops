@@ -166,7 +166,7 @@ export function VendorsExplorer({
 			searchPlaceholder="Cari nama vendor…"
 			toolbar={toolbar}
 			renderActions={(v) => (
-				<EditLink href={`/vendors/${v.vendor_id}/edit`} label={v.name} />
+				<EditLink href={`/vendors/${v.vendor_id}`} label={v.name} />
 			)}
 			emptyIcon={Building2}
 			emptyTitle="Belum ada vendor terdaftar"

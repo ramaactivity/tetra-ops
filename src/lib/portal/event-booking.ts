@@ -7,9 +7,10 @@ import "server-only";
  */
 import { payerFromCommissionMode, randomCode } from "@/lib/portal/core";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { vendorSettings } from "@/lib/vendor-settings";
 
 export const EVENT_BOOKING_SELECT =
-	"id, project_id, event_title, client_name, event_date, start_time, end_time, service_type, frame_size, unit_count, grand_total, venue_name, venue_address, venue_city, event_category, deleted_at, channel, vendor_name, vendor_commission_mode, package:packages(duration_hours)";
+	"id, project_id, event_title, client_name, event_date, start_time, end_time, service_type, frame_size, unit_count, grand_total, venue_name, venue_address, venue_city, event_category, deleted_at, channel, vendor_name, vendor_commission_mode, vendor_contact_id, package:packages(duration_hours)";
 
 export type EventForBooking = {
 	id: string;
@@ -30,6 +31,7 @@ export type EventForBooking = {
 	channel: string | null;
 	vendor_name: string | null;
 	vendor_commission_mode: string | null;
+	vendor_contact_id?: string | null;
 	package: unknown;
 };
 
@@ -52,6 +54,19 @@ export async function ensureEventBooking(
 		.limit(1)
 		.maybeSingle();
 	if (!b) {
+		// Bawaan "klien lihat harga" dari Pusat Vendor.
+		const priceVisible =
+			viaVendor && ev.vendor_contact_id
+				? vendorSettings(
+						(
+							await admin
+								.from("contacts")
+								.select("vendor_settings")
+								.eq("id", ev.vendor_contact_id)
+								.maybeSingle()
+						).data?.vendor_settings,
+					).client_price_visible_default
+				: false;
 		// to-one embed → object.
 		const pkg = ev.package as { duration_hours: number | null } | null;
 		const hours = Math.min(24, Math.max(1, Number(pkg?.duration_hours ?? 2)));
@@ -75,6 +90,7 @@ export async function ensureEventBooking(
 					managed_by: opts.asWo || viaVendor ? "wo" : "klien",
 					channel: viaVendor ? "vendor" : "direct",
 					payer,
+					client_price_visible: priceVisible,
 					detail: {
 						nama_acara: ev.event_title || ev.client_name || "",
 						...(viaVendor && ev.vendor_name ? { wo_nama: ev.vendor_name } : {}),

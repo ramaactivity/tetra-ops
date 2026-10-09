@@ -1230,3 +1230,13 @@ Setelah DR-034 disepakati, ternyata tetraphoto.com sudah menayangkan Syarat & Ke
 - Undangan WA (Ops → klien/vendor, WO/pemesan → anggota, WO booking → klien) berisi **link pribadi** `/akun/masuk/<token>` (`portal_invites`, hash token, 14 hari, boleh dipakai ulang selama berlaku). Halaman sambutan menyebut nama penerima, peran, dan isi undangan (mis. "Dasbor rekanan Partner Organizer · 19 acara"); tombol "Buka …" membuat sesi tanpa kode WA (`acceptInvite`). Sesi dibuat lewat tombol (bukan saat link dibuka) supaya pratinjau link WhatsApp tidak memakainya. Link kedaluwarsa → halaman penjelasan + masuk pakai WA.
 - Halaman masuk `/akun` (belum login): pilihan "Saya klien acara / Saya vendor / WO" (penjelasan & fitur berbeda; login tetap nomor WA), 3 langkah cara masuk, bantuan ke admin.
 - Visual mengikuti wizard booking (`AuthShell`, `src/components/portal/dash/auth-shell.tsx`): panel warna + lingkaran pastel bergaris tinta + kartu fitur layered; di HP kartu aksi tampil sebelum daftar fitur.
+
+## DR-046: Pusat Vendor — satu halaman kelola rekanan
+
+**Status:** Accepted (owner 2026-10-09)
+**Date:** 2026-10-09
+
+### Decision
+- `/vendors/[id]` (owner) = Pusat Vendor: hero emerald (mode kerja sama, status, akses dasbor) + tab **Ringkasan** (acara mendatang, pendapatan YTD, komisi belum dibayar, tagihan potongan langsung, acara terdekat, rekanan sekilas) · **Acara** (semua event vendor + komisi dibayar/belum atau sisa tagihan) · **Tim & akses** (daftar orang vendor `vendor_pics` dengan peran Owner/Planner/PIC lapangan/Admin; undang ke dasbor, kirim ulang link pribadi, cabut akses; terakhir aktif) · **Fitur rekanan** · **Kerjasama & komisi** (penjelasan 2 mode + ke form edit & bayar komisi). Daftar `/vendors` kini membuka Pusat Vendor.
+- `contacts.vendor_settings` (src/lib/vendor-settings.ts, kosong = bawaan): `portal_enabled` (tutup dasbor & akses WO semua acara vendor — `vendorContactsOf`, `loadMyBooking`, `rekananRows`), `show_commission` (komisi di dasbor rekanan), `can_invite_clients` (WO boleh undang klien — UI & `inviteMember`), `client_price_visible_default` (bawaan booking baru via `ensureEventBooking`), `partner_level` (Reguler/Prioritas/Jeda sementara, internal).
+- Cabut akses = hapus `vendor_members` + peran `wo` di booking acara vendor itu (booking lain orang itu tetap).

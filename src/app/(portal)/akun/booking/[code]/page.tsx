@@ -50,6 +50,7 @@ import {
 import {
 	bookingAccess,
 	configNumber,
+	vendorSettingsForBooking,
 	loadCatalog,
 	loadMyBooking,
 	paidBeyondDp,
@@ -244,7 +245,10 @@ export default async function BookingDetailPage({
 	const hasWo = !!woMember;
 	const woName = b.detail.wo_nama || woMember?.name || null;
 	const clientMember = members.find((m) => m.role === "pemilik");
-	const access = await bookingAccess(b);
+	const [access, vset] = await Promise.all([
+		bookingAccess(b),
+		vendorSettingsForBooking(b),
+	]);
 	const defaultPayer = access.payer;
 	const canPay = access.canPay;
 	const seeMoney = access.seeMoney;
@@ -1027,7 +1031,11 @@ export default async function BookingDetailPage({
 							code={b.public_code}
 							members={members}
 							meId={person.id}
-							canManage={active && b.role !== "pemilik"}
+							canManage={
+								active &&
+								b.role !== "pemilik" &&
+								!(b.role === "wo" && vset?.can_invite_clients === false)
+							}
 							woView={b.role === "wo"}
 							openInitially={sp.undang === "1"}
 							labels={

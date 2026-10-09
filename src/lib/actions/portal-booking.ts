@@ -24,6 +24,7 @@ import {
 } from "@/lib/portal/core";
 import {
 	bookingAccess,
+	vendorSettingsForBooking,
 	configNumber,
 	loadCatalog,
 	loadMyBooking,
@@ -716,6 +717,11 @@ export async function inviteMember(
 	const phone = toWaPhone(parsed.data.phone);
 	if (phone === person.phone)
 		return { ok: false, error: "Itu nomor kamu sendiri." };
+	if (b.role === "wo" && (await vendorSettingsForBooking(b))?.can_invite_clients === false)
+		return {
+			ok: false,
+			error: "Undangan klien untuk booking ini diatur admin Tetra. Chat admin, ya.",
+		};
 	const invitedId = await addMember(
 		b.id,
 		person.id,

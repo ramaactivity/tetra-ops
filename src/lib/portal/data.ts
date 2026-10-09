@@ -16,6 +16,7 @@ import {
 	type Selection,
 } from "@/lib/portal/core";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { type VendorSettings, vendorSettings } from "@/lib/vendor-settings";
 import { toWaPhone } from "@/lib/whatsapp";
 
 export type Catalog = { products: CatalogProduct[]; addons: PublicAddonRow[] };
@@ -133,11 +134,18 @@ export async function loadMyBooking(
 		.eq("person_id", person.id)
 		.maybeSingle();
 	if (!m) return null;
-	return {
+	const booking = {
 		...(b as Omit<PortalBooking, "role">),
 		quoted_total: Number(b.quoted_total),
 		role: m.role,
 	} as PortalBooking;
+	// Pusat Vendor: akses WO dimatikan owner → booking vendor ini tertutup untuknya.
+	if (
+		m.role === "wo" &&
+		(await vendorSettingsForBooking(booking))?.portal_enabled === false
+	)
+		return null;
+	return booking;
 }
 
 export async function loadMyBookings(
@@ -261,4 +269,27 @@ export async function bookingAccess(b: PortalBooking): Promise<{
 		priceVisible: b.client_price_visible,
 	});
 	return { hasWo, payer, canPay: a.canPay, seeMoney: a.seeMoney };
+}
+
+/** Pengaturan vendor yang memegang booking ini (Pusat Vendor), null = bukan booking vendor. */
+export async function vendorSettingsForBooking(
+	b: Pick<PortalBooking, "vendor_contact_id" | "event_id">,
+): Promise<VendorSettings | null> {
+	const admin = createAdminClient();
+	let contactId = b.vendor_contact_id;
+	if (!contactId && b.event_id) {
+		const { data } = await admin
+			.from("events")
+			.select("vendor_contact_id")
+			.eq("id", b.event_id)
+			.maybeSingle();
+		contactId = (data?.vendor_contact_id as string | null) ?? null;
+	}
+	if (!contactId) return null;
+	const { data } = await admin
+		.from("contacts")
+		.select("vendor_settings")
+		.eq("id", contactId)
+		.maybeSingle();
+	return vendorSettings(data?.vendor_settings);
 }

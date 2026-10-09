@@ -13,6 +13,7 @@ import {
 	ensureEventBooking,
 } from "@/lib/portal/event-booking";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { vendorSettings } from "@/lib/vendor-settings";
 
 export type RekananRow = {
 	code: string;
@@ -39,12 +40,23 @@ export async function vendorContactsOf(
 	const admin = createAdminClient();
 	const { data } = await admin
 		.from("vendor_members")
-		.select("contact:contacts(id, name)")
+		.select("contact:contacts(id, name, vendor_settings)")
 		.eq("person_id", personId);
-	// to-one embed → object.
+	// to-one embed → object. Akses dimatikan di Pusat Vendor → tidak dihitung.
 	return (data ?? [])
-		.map((r) => r.contact as unknown as { id: string; name: string } | null)
-		.filter((c): c is { id: string; name: string } => !!c);
+		.map(
+			(r) =>
+				r.contact as unknown as {
+					id: string;
+					name: string;
+					vendor_settings: unknown;
+				} | null,
+		)
+		.filter(
+			(c): c is { id: string; name: string; vendor_settings: unknown } =>
+				!!c && vendorSettings(c.vendor_settings).portal_enabled,
+		)
+		.map((c) => ({ id: c.id, name: c.name }));
 }
 
 /**
@@ -110,7 +122,7 @@ export async function rekananRows(
 	const { data: bks } = await admin
 		.from("client_bookings")
 		.select(
-			"id, public_code, status, event_date, start_time, venue_city, detail, payer, event_id, members:booking_members(role)",
+			"id, public_code, status, event_date, start_time, venue_city, detail, payer, event_id, vendor_contact_id, members:booking_members(role)",
 		)
 		.in("id", ids);
 	const evIds = (bks ?? [])
@@ -121,7 +133,7 @@ export async function rekananRows(
 			? admin
 					.from("events")
 					.select(
-						"id, project_id, event_title, client_name, event_date, start_time, venue_name, venue_city, status, remaining_balance, design_status, vendor_commission_mode, vendor_commission_amount, deleted_at",
+						"id, project_id, event_title, client_name, event_date, start_time, venue_name, venue_city, status, remaining_balance, design_status, vendor_commission_mode, vendor_commission_amount, vendor_contact_id, deleted_at",
 					)
 					.in("id", evIds)
 			: Promise.resolve({ data: [] }),
@@ -135,6 +147,26 @@ export async function rekananRows(
 			: Promise.resolve({ data: [] }),
 	]);
 	const evById = new Map((evs ?? []).map((e) => [e.id as string, e]));
+	// Pusat Vendor: akses dimatikan → acara vendor itu disembunyikan; komisi
+	// disembunyikan kalau owner mematikan "tampilkan komisi".
+	const vIds = [
+		...new Set(
+			[
+				...(evs ?? []).map((e) => e.vendor_contact_id as string | null),
+				...(bks ?? []).map(
+					(b) =>
+						(b as { vendor_contact_id?: string | null }).vendor_contact_id ??
+						null,
+				),
+			].filter((x): x is string => !!x),
+		),
+	];
+	const { data: vcs } = vIds.length
+		? await admin.from("contacts").select("id, vendor_settings").in("id", vIds)
+		: { data: [] };
+	const setOf = new Map(
+		(vcs ?? []).map((c) => [c.id as string, vendorSettings(c.vendor_settings)]),
+	);
 	const paidAt = new Map(
 		(pays ?? []).map((p) => [p.event_id as string, p.payment_date as string]),
 	);
@@ -142,6 +174,12 @@ export async function rekananRows(
 	for (const b of bks ?? []) {
 		const ev = b.event_id ? evById.get(b.event_id as string) : null;
 		if (ev?.deleted_at) continue;
+		const vset = setOf.get(
+			((ev?.vendor_contact_id as string | null) ??
+				(b.vendor_contact_id as string | null) ??
+				"") as string,
+		);
+		if (vset && !vset.portal_enabled) continue;
 		const detail = (b.detail ?? {}) as {
 			nama_acara?: string;
 			venue_nama?: string;
@@ -191,7 +229,7 @@ export async function rekananRows(
 			designDone: ev?.design_status === "approved",
 			missingData: ev ? 0 : missingForDp(b.detail as never).length,
 			commission:
-				ev && commissionMode
+				ev && commissionMode && (vset?.show_commission ?? true)
 					? {
 							amount: Number(ev.vendor_commission_amount ?? 0),
 							paidAt: paidAt.get(ev.id as string) ?? null,
