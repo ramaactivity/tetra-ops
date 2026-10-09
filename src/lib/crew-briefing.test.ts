@@ -31,7 +31,7 @@ const base: BriefingData = {
 	backdrop: "Basic Tetra · Emerald Green",
 	addons: ["Snapbook (Guest Cam) · 200 tamu"],
 	desain: "belum_acc",
-	pic: "Bu Rina · 0812",
+	pic: { name: "Bu Rina", wa: "0812" },
 	wo: null,
 	catatan: [
 		"Parkir di basement B2",
@@ -68,7 +68,7 @@ test("briefing H-1: santai tapi semua field ada, catatan utuh, tanpa uang & tanp
 test("catatan kosong → baris jelas; catatan panjang tetap utuh (yang dibuang baris cek)", () => {
 	assert.match(
 		composeCrewBriefing({ ...base, catatan: [] }),
-		/📝 Catatan penting\n• belum ada catatan/,
+		/📝 Catatan penting\n• nggak ada catatan khusus dari klien/,
 	);
 	const panjang = "x".repeat(MAX_LEN - 1200);
 	const t = composeCrewBriefing({ ...base, catatan: [panjang] });
@@ -90,7 +90,7 @@ test("multi-unit: crew & format cetak per spot", () => {
 	assert.match(t, /Cetak: spot 1 4R, spot 2 2R/);
 });
 
-test("hari H: singkat, lead + catatan terpenting, tanpa tanda bot", () => {
+test("hari H: singkat, semua crew + PIC + catatan terpenting, tanpa tanda bot", () => {
 	const t = composeHariH(base);
 	assert.equal(
 		t,
@@ -99,7 +99,8 @@ test("hari H: singkat, lead + catatan terpenting, tanpa tanda bot", () => {
 			"• Loading & setup 14.00 • acara 16.00–19.00 (3 jam)",
 			"• Gedung Serbaguna",
 			"• Maps: https://maps.app.goo.gl/x",
-			"• Lead: Adit",
+			"• Crew: Adit (lead) & Rio",
+			"• PIC: Bu Rina · 0812",
 			"• Parkir di basement B2",
 			"Semangat & hati-hati di jalan ya! 🙌",
 		].join("\n"),
@@ -175,4 +176,24 @@ test("jadwal kirim & idempoten", () => {
 	assert.deepEqual(h(7 * 60, { started: true }), [], "acara sudah mulai");
 	// Event dibuat setelah 15.00 H-1: dapat briefing lengkap pagi harinya.
 	assert.deepEqual(h(6 * 60, { sent: new Set() }), ["h1", "hari_h"]);
+});
+
+test("PIC = kontak WO (nomor sama) → satu baris; beda → dua baris", () => {
+	const sama = composeCrewBriefing({
+		...base,
+		pic: { name: "Nisa", wa: "082133200110" },
+		wo: { vendor: "Partner Organizer", name: "Nisa", wa: "+62 821-3320-0110" },
+	});
+	assert.match(
+		sama,
+		/☎️ PIC hari H\n• Nisa · 082133200110 \(WO Partner Organizer\)\n\n/,
+	);
+	const beda = composeCrewBriefing({
+		...base,
+		wo: { vendor: "Partner Organizer", name: "Puput", wa: "0857" },
+	});
+	assert.match(
+		beda,
+		/• Bu Rina · 0812\n• WO: Partner Organizer \(Puput · 0857\)/,
+	);
 });

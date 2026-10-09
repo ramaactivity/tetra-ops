@@ -255,13 +255,14 @@ async function loadBriefing(
 			backdrop,
 			addons: addonNames,
 			desain,
-			pic:
-				e.pic_name || e.pic_wa
-					? [e.pic_name, e.pic_wa].filter(Boolean).join(" · ")
-					: null,
+			pic: e.pic_name || e.pic_wa ? { name: e.pic_name, wa: e.pic_wa } : null,
 			wo:
 				e.vendor_name || bk?.wo
-					? `WO: ${e.vendor_name ?? bk?.wo}${e.vendor_pic_name || e.vendor_contact ? ` (${[e.vendor_pic_name, e.vendor_contact].filter(Boolean).join(" · ")})` : ""}`
+					? {
+							vendor: (e.vendor_name ?? bk?.wo) as string,
+							name: e.vendor_pic_name,
+							wa: e.vendor_contact,
+						}
 					: null,
 			catatan,
 			stok,
