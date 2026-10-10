@@ -4,6 +4,7 @@ import { HandCoins, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { AdminFeeChips } from "@/components/finance/admin-fee-chips";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -286,28 +287,20 @@ export function UangJalanPanel({
 							/>
 						</div>
 						{mode === "beri" && method === "transfer" && (
-							<label className="space-y-1.5">
+							<div className="space-y-1.5">
 								<span className="text-[13px] font-medium">
 									Biaya admin transfer
 								</span>
-								<div className="relative">
-									<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
-										Rp
-									</span>
-									<input
-										type="number"
-										inputMode="numeric"
-										min={0}
-										value={adminFee}
-										onChange={(e) => setAdminFee(e.target.value)}
-										placeholder="0 · mis. 2500"
-										className={`${input} tabular pl-9`}
-									/>
-								</div>
+								<AdminFeeChips
+									presets={[0, 1000, 2500]}
+									value={Number(adminFee) || 0}
+									onChange={(v) => setAdminFee(v ? String(v) : "")}
+									ariaLabel="Biaya admin transfer"
+								/>
 								<span className="type-caption text-muted-foreground">
 									Dicatat sebagai biaya admin bank, bukan uang jalan crew.
 								</span>
-							</label>
+							</div>
 						)}
 					</div>
 					<SingleFileUpload
