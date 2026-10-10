@@ -23,9 +23,7 @@ const ProfileSchema = z.object({
 		.transform((v) => v.replace(/[\s\-()]/g, "")),
 });
 
-export type OnboardingFormState =
-	| { error?: string; ok?: boolean }
-	| undefined;
+export type OnboardingFormState = { error?: string; ok?: boolean } | undefined;
 
 export async function completeCrewProfile(
 	_prev: OnboardingFormState,
@@ -73,8 +71,9 @@ export async function completeCrewProfile(
 	revalidatePath("/crew/profile");
 	revalidatePath("/settings/crew");
 
-	// Crew with completed profile → /pending (waiting for owner approval).
-	// Already-approved crew (edited via /crew/profile) → /crew.
-	const next = me.profile.role === "crew" ? "/crew" : "/pending";
-	redirect(next);
+	// Crew yang sudah aktif mengedit dari /crew/profile → tetap di halaman itu
+	// dengan konfirmasi (dulu dilempar ke /crew, crew mengira nomornya tidak
+	// tersimpan). Profil baru (pending) → /pending menunggu ACC owner.
+	if (me.profile.role === "crew") return { ok: true };
+	redirect("/pending");
 }

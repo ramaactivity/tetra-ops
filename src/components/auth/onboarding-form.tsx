@@ -25,7 +25,7 @@ export function OnboardingForm({
 
 	return (
 		<form action={formAction} className="space-y-4">
-			<Field label="Full name" required hint="Nama lengkap sesuai KTP">
+			<Field label="Nama lengkap" required hint="Sesuai KTP">
 				<input
 					name="full_name"
 					type="text"
@@ -36,7 +36,7 @@ export function OnboardingForm({
 				/>
 			</Field>
 
-			<Field label="Nickname" hint="Panggilan akrab di crew">
+			<Field label="Nama panggilan" hint="Panggilan akrab di crew">
 				<input
 					name="nickname"
 					type="text"
@@ -48,11 +48,12 @@ export function OnboardingForm({
 			</Field>
 
 			<Field
-				label="WhatsApp / Phone"
+				label="Nomor WhatsApp aktif"
 				required
-				hint="Crew assignment notif & panggilan dari PIC akan ke nomor ini"
+				hint="Info tugas & panggilan dari PIC dikirim ke nomor ini. Nomor lama sudah tidak aktif? Ganti di sini lalu simpan."
 			>
 				<input
+					id="phone_wa"
 					name="phone_wa"
 					type="tel"
 					required
@@ -64,6 +65,13 @@ export function OnboardingForm({
 				/>
 			</Field>
 
+			{state?.ok && (
+				<div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+					<p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+						Tersimpan. Nomor WhatsApp & profil kamu sudah diperbarui.
+					</p>
+				</div>
+			)}
 			{state?.error && (
 				<div className="border-destructive/30 bg-destructive/10 rounded-md border px-3 py-2">
 					<p className="text-destructive text-xs font-medium">{state.error}</p>

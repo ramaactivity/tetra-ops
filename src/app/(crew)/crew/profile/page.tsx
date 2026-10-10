@@ -1,4 +1,4 @@
-import { LogOut, Mail, Shield } from "lucide-react";
+import { LogOut, Mail, Phone, Shield } from "lucide-react";
 import { OnboardingForm } from "@/components/auth/onboarding-form";
 import { AppHeader, AppScreen, Section, Surface } from "@/components/ui/mobile";
 import { signOut } from "@/lib/actions/auth";
@@ -68,6 +68,20 @@ export default async function CrewProfilePage() {
 							<Mail className="size-3.5" />
 							<span className="truncate">{me.email}</span>
 						</p>
+						<p className="type-secondary mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+							<span className="inline-flex items-center gap-1">
+								<Phone className="size-3.5" />
+								<span className="tabular">
+									{phoneWa ?? "Nomor WA belum diisi"}
+								</span>
+							</span>
+							<a
+								href="#edit-profil"
+								className="text-[0.75rem] font-semibold text-primary underline"
+							>
+								Ganti nomor
+							</a>
+						</p>
 						<div className="mt-2 flex flex-wrap items-center gap-1.5">
 							<span className="inline-flex items-center gap-1 rounded-full bg-surface-3 px-2 py-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
 								<Shield className="size-3" />
@@ -96,6 +110,7 @@ export default async function CrewProfilePage() {
 				</div>
 			</div>
 
+			<div id="edit-profil" className="scroll-mt-20" />
 			<Section title="Edit profil">
 				<Surface pad>
 					<OnboardingForm
