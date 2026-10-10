@@ -31,6 +31,8 @@ const Input = z.object({
 	accountCode: z.string().min(1).max(20),
 	method: z.enum(["tunai", "transfer"]).optional(),
 	proofUrl: z.url().max(1000).nullish(),
+	/** Biaya admin transfer (hanya saat memberi lewat transfer) → 5-600. */
+	adminFee: z.coerce.number().int().min(0).max(100_000).optional(),
 	date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
@@ -54,6 +56,8 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 	const { eventId, projectId, userId, amount, accountCode, method, date } =
 		p.data;
 	const proofUrl = p.data.proofUrl ?? null;
+	const admin =
+		kind === "beri" && method === "transfer" ? (p.data.adminFee ?? 0) : 0;
 	const db = await createClient();
 	const { data: acct } = await db
 		.from("chart_of_accounts")
@@ -79,7 +83,7 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 			db,
 			accountCode,
 			acct.name as string,
-			amount,
+			amount + admin,
 		);
 		if (saldoErr) return { ok: false, error: saldoErr };
 	} else {
@@ -103,7 +107,7 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 					: `Sisa uang jalan dari ${nama}`,
 			source_type: kind === "beri" ? "uang_jalan" : "uang_jalan_kembali",
 			source_event_id: eventId,
-			total_amount: amount,
+			total_amount: amount + admin,
 			created_by: me.profile.id,
 		})
 		.select("id")
@@ -119,10 +123,20 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 						credit_amount: 0,
 						description: `Uang jalan ${nama}`,
 					},
+					...(admin > 0
+						? [
+								{
+									account_code: "5-600",
+									debit_amount: admin,
+									credit_amount: 0,
+									description: "Biaya admin transfer uang jalan",
+								},
+							]
+						: []),
 					{
 						account_code: accountCode,
 						debit_amount: 0,
-						credit_amount: amount,
+						credit_amount: amount + admin,
 						description: "Kas/bank keluar",
 					},
 				]

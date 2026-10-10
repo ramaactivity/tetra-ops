@@ -101,6 +101,7 @@ export function UangJalanPanel({
 			?.code ?? "",
 	);
 	const [proof, setProof] = useState<string | null>(null);
+	const [adminFee, setAdminFee] = useState("");
 	const [date, setDate] = useState(
 		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
 	);
@@ -116,6 +117,7 @@ export function UangJalanPanel({
 				method,
 				date,
 				proofUrl: proof,
+				adminFee: method === "transfer" ? Number(adminFee) || 0 : 0,
 			};
 			const r =
 				mode === "kembali"
@@ -126,6 +128,7 @@ export function UangJalanPanel({
 			setMode(null);
 			setAmount("");
 			setProof(null);
+			setAdminFee("");
 			router.refresh();
 		});
 
@@ -282,6 +285,30 @@ export function UangJalanPanel({
 								className="h-10 w-full rounded-xl"
 							/>
 						</div>
+						{mode === "beri" && method === "transfer" && (
+							<label className="space-y-1.5">
+								<span className="text-[13px] font-medium">
+									Biaya admin transfer
+								</span>
+								<div className="relative">
+									<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
+										Rp
+									</span>
+									<input
+										type="number"
+										inputMode="numeric"
+										min={0}
+										value={adminFee}
+										onChange={(e) => setAdminFee(e.target.value)}
+										placeholder="0 · mis. 2500"
+										className={`${input} tabular pl-9`}
+									/>
+								</div>
+								<span className="type-caption text-muted-foreground">
+									Dicatat sebagai biaya admin bank, bukan uang jalan crew.
+								</span>
+							</label>
+						)}
 					</div>
 					<SingleFileUpload
 						projectId={projectId}
