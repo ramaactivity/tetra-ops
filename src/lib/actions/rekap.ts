@@ -276,6 +276,9 @@ const RekapInputSchema = z.object({
 	uj_metode: z.enum(["tunai", "transfer"]).nullish().catch(null),
 	uj_holder: z.uuid().nullish().catch(null),
 	uj_sisa: z.enum(["potong_fee", "kembalikan"]).nullish().catch(null),
+	uj_bukti_url: NullableUrlSchema,
+	uj_kembali_metode: z.enum(["tunai", "transfer"]).nullish().catch(null),
+	uj_kembali_bukti_url: NullableUrlSchema,
 });
 
 export type RekapInput = z.infer<typeof RekapInputSchema>;
@@ -953,10 +956,27 @@ export async function submitRekap(
 		uj_metode: formData.get("uj_metode") || null,
 		uj_holder: formData.get("uj_holder") || null,
 		uj_sisa: formData.get("uj_sisa") || null,
+		uj_bukti_url: formData.get("uj_bukti_url") || null,
+		uj_kembali_metode: formData.get("uj_kembali_metode") || null,
+		uj_kembali_bukti_url: formData.get("uj_kembali_bukti_url") || null,
 	});
 	if (!parsed.success) {
 		return {
 			errors: parsed.error.flatten().fieldErrors as RekapErrors,
+			values: snapshotValues(formData),
+		};
+	}
+	// Sisa uang jalan dikembalikan lewat transfer → bukti transfer WAJIB (owner 2026-10-10).
+	if (
+		parsed.data.uj_terima > 0 &&
+		parsed.data.uj_sisa === "kembalikan" &&
+		parsed.data.uj_kembali_metode === "transfer" &&
+		!parsed.data.uj_kembali_bukti_url
+	) {
+		return {
+			errors: {
+				_form: ["Upload bukti transfer pengembalian sisa uang jalan dulu, ya."],
+			} as RekapErrors,
 			values: snapshotValues(formData),
 		};
 	}
@@ -1089,6 +1109,16 @@ export async function submitRekap(
 				: null,
 		uj_sisa:
 			parsed.data.uj_terima > 0 ? (parsed.data.uj_sisa ?? "potong_fee") : null,
+		uj_bukti_url:
+			parsed.data.uj_terima > 0 ? (parsed.data.uj_bukti_url ?? null) : null,
+		uj_kembali_metode:
+			parsed.data.uj_sisa === "kembalikan"
+				? (parsed.data.uj_kembali_metode ?? "tunai")
+				: null,
+		uj_kembali_bukti_url:
+			parsed.data.uj_sisa === "kembalikan"
+				? (parsed.data.uj_kembali_bukti_url ?? null)
+				: null,
 	};
 
 	if (existing) {

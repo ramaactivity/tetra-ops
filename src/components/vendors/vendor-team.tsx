@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	inviteVendorPerson,
 	revokeVendorAccess,
@@ -132,26 +133,22 @@ export function VendorTeam({
 						className={input}
 					/>
 				</label>
-				<label className="space-y-1">
+				<div className="space-y-1">
 					<span className="type-caption text-muted-foreground">Peran</span>
-					<select
+					<NativeSelect
 						value={editing.draft.role ?? ""}
-						onChange={(e) =>
+						onValueChange={(v) =>
 							setEditing({
 								...editing,
-								draft: { ...editing.draft, role: e.target.value || null },
+								draft: { ...editing.draft, role: v || null },
 							})
 						}
-						className={input}
-					>
-						<option value="">Pilih peran</option>
-						{ROLES.map((r) => (
-							<option key={r} value={r}>
-								{r}
-							</option>
-						))}
-					</select>
-				</label>
+						placeholder="Pilih peran"
+						aria-label="Peran"
+						triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
+						options={ROLES.map((r) => ({ value: r, label: r }))}
+					/>
+				</div>
 			</div>
 			<div className="flex justify-end gap-2">
 				<button

@@ -46,6 +46,9 @@ type RekapRow = {
 	uj_metode: string | null;
 	uj_holder: string | null;
 	uj_sisa: string | null;
+	uj_bukti_url: string | null;
+	uj_kembali_metode: string | null;
+	uj_kembali_bukti_url: string | null;
 };
 
 export default async function CrewRekapPage({
@@ -95,7 +98,7 @@ export default async function CrewRekapPage({
 			transport_method, transport_cost,
 			transport_proof_berangkat_url, transport_proof_pulang_url,
 			bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
-			expense_paid_by, expense_nota_urls, uj_terima, uj_metode, uj_holder, uj_sisa`,
+			expense_paid_by, expense_nota_urls, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url`,
 		)
 		.eq("event_id", event.id)
 		.maybeSingle();
@@ -156,6 +159,9 @@ export default async function CrewRekapPage({
 				uj_metode: rekap.uj_metode ?? "",
 				uj_holder: rekap.uj_holder ?? "",
 				uj_sisa: rekap.uj_sisa ?? "",
+				uj_bukti_url: rekap.uj_bukti_url ?? "",
+				uj_kembali_metode: rekap.uj_kembali_metode ?? "",
+				uj_kembali_bukti_url: rekap.uj_kembali_bukti_url ?? "",
 			}
 		: undefined;
 

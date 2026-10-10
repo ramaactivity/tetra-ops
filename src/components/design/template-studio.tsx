@@ -30,6 +30,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
 import {
 	deleteDesignTemplate,
@@ -261,19 +262,16 @@ export function TemplateStudio({
 						placeholder="Cari nama atau tema…"
 						className="w-full sm:max-w-xs"
 					/>
-					<select
+					<NativeSelect
 						value={theme}
-						onChange={(e) => setTheme(e.target.value)}
+						onValueChange={(v) => setTheme(v || "semua")}
 						aria-label="Tema"
-						className="border-border-default bg-card h-8 rounded-full border px-3 text-[13px]"
-					>
-						<option value="semua">Semua tema</option>
-						{themes.map((t) => (
-							<option key={t} value={t}>
-								{t}
-							</option>
-						))}
-					</select>
+						triggerClassName="h-8 rounded-full bg-card px-3.5"
+						options={[
+							{ value: "semua", label: "Semua tema" },
+							...themes.map((t) => ({ value: t, label: t })),
+						]}
+					/>
 				</div>
 				<div className="hide-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
 					{SIZES.map(([k, l]) => (

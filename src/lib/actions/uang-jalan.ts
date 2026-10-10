@@ -30,6 +30,7 @@ const Input = z.object({
 	amount: z.coerce.number().int().positive().max(50_000_000),
 	accountCode: z.string().min(1).max(20),
 	method: z.enum(["tunai", "transfer"]).optional(),
+	proofUrl: z.url().max(1000).nullish(),
 	date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
@@ -52,6 +53,7 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 		};
 	const { eventId, projectId, userId, amount, accountCode, method, date } =
 		p.data;
+	const proofUrl = p.data.proofUrl ?? null;
 	const db = await createClient();
 	const { data: acct } = await db
 		.from("chart_of_accounts")
@@ -153,6 +155,7 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 		kind,
 		amount,
 		method: method ?? null,
+		proof_url: proofUrl,
 		account_code: accountCode,
 		journal_id: entry.id,
 		created_by: me.profile.id,

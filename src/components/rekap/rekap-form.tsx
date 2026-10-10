@@ -82,6 +82,9 @@ type Defaults = {
 	uj_metode?: string;
 	uj_holder?: string;
 	uj_sisa?: string;
+	uj_bukti_url?: string;
+	uj_kembali_metode?: string;
+	uj_kembali_bukti_url?: string;
 };
 
 /**
@@ -474,6 +477,15 @@ export function RekapForm({
 	);
 	const [ujSisa, setUjSisa] = useState<"potong_fee" | "kembalikan">(
 		defaults.uj_sisa === "kembalikan" ? "kembalikan" : "potong_fee",
+	);
+	const [ujBukti, setUjBukti] = useState<string | null>(
+		defaults.uj_bukti_url || null,
+	);
+	const [ujKembaliMetode, setUjKembaliMetode] = useState<"tunai" | "transfer">(
+		defaults.uj_kembali_metode === "transfer" ? "transfer" : "tunai",
+	);
+	const [ujKembaliBukti, setUjKembaliBukti] = useState<string | null>(
+		defaults.uj_kembali_bukti_url || null,
 	);
 	// Uang jalan aktif → biaya yang "belum dipilih siapa yang bayar" otomatis
 	// dibayar pemegang uang jalan (paling sering memang begitu).
@@ -898,6 +910,8 @@ export function RekapForm({
 		photomagnetPaid + photomagnetBonus + keychainPaid + keychainBonus > 0 ||
 		Number(photomagnet) > 0 ||
 		Number(keychain) > 0;
+	// Sisa uang jalan > 0 → pilihan potong fee / kembalikan berlaku.
+	const ujSisaAda = (Number(ujTerima) || 0) - holderSpent > 0;
 	const transportSectionOpen =
 		!isCrew ||
 		transportMethod !== "none" ||
@@ -1496,6 +1510,9 @@ export function RekapForm({
 					onHolder={setUjHolder}
 					crew={context.crew}
 					fromOwner={ujOwnerTotal}
+					projectId={projectId}
+					bukti={ujBukti}
+					onBukti={setUjBukti}
 				/>
 				{planRental ? (
 					<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80">
@@ -1867,6 +1884,11 @@ export function RekapForm({
 								dipakai={holderSpent}
 								sisaAksi={ujSisa}
 								onSisaAksi={setUjSisa}
+								projectId={projectId}
+								kembaliMetode={ujKembaliMetode}
+								onKembaliMetode={setUjKembaliMetode}
+								kembaliBukti={ujKembaliBukti}
+								onKembaliBukti={setUjKembaliBukti}
 							/>
 						)}
 					</div>
@@ -1914,7 +1936,32 @@ export function RekapForm({
 			/>
 			<input type="hidden" name="uj_metode" value={ujAda ? ujMetode : ""} />
 			<input type="hidden" name="uj_holder" value={ujAda ? ujHolder : ""} />
-			<input type="hidden" name="uj_sisa" value={ujAda ? ujSisa : ""} />
+			<input
+				type="hidden"
+				name="uj_sisa"
+				value={ujAda && ujSisaAda ? ujSisa : ""}
+			/>
+			<input
+				type="hidden"
+				name="uj_bukti_url"
+				value={ujAda ? (ujBukti ?? "") : ""}
+			/>
+			<input
+				type="hidden"
+				name="uj_kembali_metode"
+				value={
+					ujAda && ujSisaAda && ujSisa === "kembalikan" ? ujKembaliMetode : ""
+				}
+			/>
+			<input
+				type="hidden"
+				name="uj_kembali_bukti_url"
+				value={
+					ujAda && ujSisaAda && ujSisa === "kembalikan"
+						? (ujKembaliBukti ?? "")
+						: ""
+				}
+			/>
 
 			{/* ========== BUKTI ========== */}
 			<NumberedSection
@@ -2654,6 +2701,9 @@ function UangJalanCard(p: {
 	onHolder: (v: string) => void;
 	crew: Array<{ user_id: string; name: string; role: string }>;
 	fromOwner: number;
+	projectId: string;
+	bukti: string | null;
+	onBukti: (u: string | null) => void;
 }) {
 	const chip = (on: boolean) =>
 		`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
@@ -2756,6 +2806,14 @@ function UangJalanCard(p: {
 							</div>
 						</div>
 					)}
+					<SingleFileUpload
+						projectId={p.projectId}
+						kind="uang_jalan"
+						seq="terima"
+						label="Bukti terima (screenshot transfer / top-up, opsional)"
+						value={p.bukti}
+						onChange={p.onBukti}
+					/>
 					<p className="text-[12px] text-muted-foreground">
 						Biaya di bawah yang dibayar pakai uang ini, pilih{" "}
 						<span className="font-medium text-foreground">
@@ -2775,6 +2833,11 @@ function UangJalanRingkas(p: {
 	dipakai: number;
 	sisaAksi: "potong_fee" | "kembalikan";
 	onSisaAksi: (v: "potong_fee" | "kembalikan") => void;
+	projectId: string;
+	kembaliMetode: "tunai" | "transfer";
+	onKembaliMetode: (v: "tunai" | "transfer") => void;
+	kembaliBukti: string | null;
+	onKembaliBukti: (u: string | null) => void;
 }) {
 	const sisa = Math.max(0, p.terima - p.dipakai);
 	const kurang = Math.max(0, p.dipakai - p.terima);
@@ -2835,6 +2898,52 @@ function UangJalanRingkas(p: {
 						"kembalikan",
 						"Kembalikan ke owner",
 						"Kamu serahkan / transfer balik sisanya ke owner.",
+					)}
+					{p.sisaAksi === "kembalikan" && (
+						<div className="space-y-2 rounded-lg border border-border-default bg-surface-3 p-2.5">
+							<div className="flex gap-1.5">
+								{(["tunai", "transfer"] as const).map((m) => (
+									<button
+										key={m}
+										type="button"
+										onClick={() => p.onKembaliMetode(m)}
+										className={`flex-1 rounded-full border px-3 py-1.5 text-[12.5px] font-medium ${
+											p.kembaliMetode === m
+												? "border-primary bg-primary/10 text-foreground"
+												: "border-border-default text-muted-foreground"
+										}`}
+									>
+										{m === "tunai" ? "Serahkan tunai" : "Transfer balik"}
+									</button>
+								))}
+							</div>
+							{p.kembaliMetode === "transfer" ? (
+								<>
+									<SingleFileUpload
+										projectId={p.projectId}
+										kind="uang_jalan"
+										seq="kembali"
+										label="Bukti transfer pengembalian (wajib)"
+										value={p.kembaliBukti}
+										onChange={p.onKembaliBukti}
+									/>
+									{!p.kembaliBukti && (
+										<p className="text-[11.5px] font-medium text-amber-700 dark:text-amber-300">
+											Upload bukti transfernya dulu sebelum kirim rekap.
+										</p>
+									)}
+								</>
+							) : (
+								<SingleFileUpload
+									projectId={p.projectId}
+									kind="uang_jalan"
+									seq="kembali"
+									label="Foto serah terima (opsional)"
+									value={p.kembaliBukti}
+									onChange={p.onKembaliBukti}
+								/>
+							)}
+						</div>
 					)}
 				</div>
 			)}

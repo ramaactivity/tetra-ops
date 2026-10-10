@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { DatePicker } from "@/components/ui/date-picker";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	batalUangJalan,
 	beriUangJalan,
@@ -12,6 +14,7 @@ import {
 } from "@/lib/actions/uang-jalan";
 import { formatRupiah } from "@/lib/format";
 import type { CashAccountOption } from "./crew-fee-form";
+import { SingleFileUpload } from "./single-file-upload";
 
 export type UangJalanLedgerRow = {
 	id: string;
@@ -22,6 +25,7 @@ export type UangJalanLedgerRow = {
 	account_code: string | null;
 	created_at: string;
 	is_reversed: boolean;
+	proof_url?: string | null;
 };
 
 const KIND: Record<UangJalanLedgerRow["kind"], string> = {
@@ -56,6 +60,9 @@ export function UangJalanPanel({
 		metode: string | null;
 		holder: string | null;
 		sisa: string | null;
+		bukti?: string | null;
+		kembaliMetode?: string | null;
+		kembaliBukti?: string | null;
 	} | null;
 	cashAccounts: CashAccountOption[];
 }) {
@@ -93,6 +100,7 @@ export function UangJalanPanel({
 		[...cashAccounts].sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))[0]
 			?.code ?? "",
 	);
+	const [proof, setProof] = useState<string | null>(null);
 	const [date, setDate] = useState(
 		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
 	);
@@ -107,6 +115,7 @@ export function UangJalanPanel({
 				accountCode: account,
 				method,
 				date,
+				proofUrl: proof,
 			};
 			const r =
 				mode === "kembali"
@@ -116,6 +125,7 @@ export function UangJalanPanel({
 			toast.success(r.note ?? "Tersimpan");
 			setMode(null);
 			setAmount("");
+			setProof(null);
 			router.refresh();
 		});
 
@@ -144,6 +154,7 @@ export function UangJalanPanel({
 							type="button"
 							onClick={() => {
 								setMode(mode === "kembali" ? null : "kembali");
+								setProof(report?.kembaliBukti ?? null);
 								const u = holders.find((x) => saldo(x) > 0) ?? "";
 								setUserId(u);
 								setAmount("");
@@ -174,6 +185,7 @@ export function UangJalanPanel({
 							setMode("beri");
 							setUserId(reportHolder as string);
 							setAmount(String(belumDicatat));
+							setProof(report?.bukti ?? null);
 						}}
 					>
 						Catat sekarang
@@ -197,20 +209,16 @@ export function UangJalanPanel({
 						</p>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2">
-						<label className="space-y-1.5">
+						<div className="space-y-1.5">
 							<span className="text-[13px] font-medium">Crew</span>
-							<select
+							<NativeSelect
 								value={userId}
-								onChange={(e) => setUserId(e.target.value)}
-								className={input}
-							>
-								{crew.map((c) => (
-									<option key={c.user_id} value={c.user_id}>
-										{c.name}
-									</option>
-								))}
-							</select>
-						</label>
+								onValueChange={setUserId}
+								aria-label="Crew"
+								triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
+								options={crew.map((c) => ({ value: c.user_id, label: c.name }))}
+							/>
+						</div>
 						<label className="space-y-1.5">
 							<span className="text-[13px] font-medium">Jumlah</span>
 							<div className="relative">
@@ -250,35 +258,43 @@ export function UangJalanPanel({
 								</div>
 							</div>
 						)}
-						<label className="space-y-1.5">
+						<div className="space-y-1.5">
 							<span className="text-[13px] font-medium">
 								{mode === "beri" ? "Dari rekening" : "Masuk ke rekening"}
 							</span>
-							<select
+							<NativeSelect
 								value={account}
-								onChange={(e) => setAccount(e.target.value)}
-								className={input}
-							>
-								{cashAccounts.map((a) => (
-									<option key={a.code} value={a.code}>
-										{a.name}
-										{a.balance !== undefined
-											? ` · ${formatRupiah(a.balance)}`
-											: ""}
-									</option>
-								))}
-							</select>
-						</label>
-						<label className="space-y-1.5">
-							<span className="text-[13px] font-medium">Tanggal</span>
-							<input
-								type="date"
-								value={date}
-								onChange={(e) => setDate(e.target.value)}
-								className={input}
+								onValueChange={setAccount}
+								aria-label="Rekening"
+								triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
+								options={cashAccounts.map((a) => ({
+									value: a.code,
+									label: `${a.name}${a.balance !== undefined ? ` · ${formatRupiah(a.balance)}` : ""}`,
+								}))}
 							/>
-						</label>
+						</div>
+						<div className="space-y-1.5">
+							<span className="text-[13px] font-medium">Tanggal</span>
+							<DatePicker
+								value={date}
+								onValueChange={setDate}
+								aria-label="Tanggal"
+								className="h-10 w-full rounded-xl"
+							/>
+						</div>
 					</div>
+					<SingleFileUpload
+						projectId={projectId}
+						kind="uang_jalan"
+						seq={mode === "beri" ? "beri" : "kembali"}
+						label={
+							mode === "beri"
+								? "Bukti transfer / foto serah terima (opsional)"
+								: "Bukti pengembalian (opsional)"
+						}
+						value={proof}
+						onChange={setProof}
+					/>
 					<div className="flex justify-end gap-2">
 						<button
 							type="button"
@@ -363,6 +379,44 @@ export function UangJalanPanel({
 				</div>
 			)}
 
+			{report &&
+				(report.bukti ||
+					report.kembaliBukti ||
+					report.sisa === "kembalikan") && (
+					<div className="bg-secondary/60 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-3 py-2 text-[12.5px]">
+						<span className="font-medium">Laporan crew:</span>
+						{report.bukti && (
+							<a
+								href={report.bukti}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-primary underline"
+							>
+								Bukti terima
+							</a>
+						)}
+						{report.sisa === "kembalikan" && (
+							<span>
+								Sisa dikembalikan (
+								{report.kembaliMetode === "transfer" ? "transfer" : "tunai"})
+								{report.kembaliBukti && (
+									<>
+										{" · "}
+										<a
+											href={report.kembaliBukti}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="text-primary underline"
+										>
+											Bukti pengembalian
+										</a>
+									</>
+								)}
+							</span>
+						)}
+					</div>
+				)}
+
 			{ledger.length > 0 && (
 				<ul className="divide-border-default divide-y text-[13px]">
 					{ledger.map((l) => (
@@ -379,6 +433,16 @@ export function UangJalanPanel({
 								</span>
 							</span>
 							<span className="flex items-center gap-2">
+								{l.proof_url && (
+									<a
+										href={l.proof_url}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-[12px] font-medium text-primary underline"
+									>
+										Bukti
+									</a>
+								)}
 								<span className="tabular font-medium" data-nominal>
 									{formatRupiah(l.amount)}
 								</span>
