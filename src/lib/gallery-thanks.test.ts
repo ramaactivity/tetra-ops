@@ -165,3 +165,30 @@ test("pengingat galeri mau habis: H-7 & H-1 sekali sehari di jam 10–20, teks &
 		["628123456789"],
 	);
 });
+
+test("pengingat galeri versi WO (event tanpa nomor klien)", async () => {
+	const { composeExpiry } = await import("./gallery-thanks");
+	const exp = "2027-01-07T17:00:00+00:00";
+	assert.equal(
+		composeExpiry({
+			wo: true,
+			kind: "galeri_h7",
+			panggilan: "Teh Puput",
+			judul: "Rafi & Dinda",
+			url: "u",
+			expiresAt: exp,
+		}),
+		"Halo Teh Puput, mau ngingetin aja, galeri foto photobooth Rafi & Dinda aktif sampai 7 Jan. Kalau kliennya belum sempat download, boleh tolong diingetin ya 🙏\nu",
+	);
+	assert.match(
+		composeExpiry({
+			wo: true,
+			kind: "galeri_h1",
+			panggilan: "Firda",
+			judul: "X",
+			url: "u",
+			expiresAt: exp,
+		}),
+		/^Kak Firda, galeri foto photobooth X tinggal sampai besok ya\. Kalau kliennya belum sempat download, boleh tolong diingetin ya 🙏/,
+	);
+});

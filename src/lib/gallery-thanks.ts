@@ -207,8 +207,9 @@ export function expiryKind(
 	return days === 7 ? "galeri_h7" : days === 1 ? "galeri_h1" : null;
 }
 
-/** Teks pengingat (gaya pendek, tanpa doa). */
+/** Teks pengingat (gaya pendek, tanpa doa). `wo` = minta WO/PIC mengingatkan klien. */
 export function composeExpiry(input: {
+	wo?: boolean;
 	kind: "galeri_h7" | "galeri_h1";
 	panggilan: string | null;
 	judul: string;
@@ -217,6 +218,10 @@ export function composeExpiry(input: {
 }): string {
 	const d = lastActiveDay(input.expiresAt);
 	const tgl = `${Number(d.slice(8, 10))} ${BULAN_PENDEK[Number(d.slice(5, 7)) - 1]}`;
+	if (input.wo)
+		return input.kind === "galeri_h7"
+			? `Halo ${sapa(input.panggilan)}, mau ngingetin aja, galeri foto photobooth ${input.judul} aktif sampai ${tgl}. Kalau kliennya belum sempat download, boleh tolong diingetin ya 🙏\n${input.url}`
+			: `${sapa(input.panggilan)}, galeri foto photobooth ${input.judul} tinggal sampai besok ya. Kalau kliennya belum sempat download, boleh tolong diingetin ya 🙏\n${input.url}`;
 	return input.kind === "galeri_h7"
 		? `Halo ${sapa(input.panggilan)}, mau ngingetin aja, galeri foto photobooth ${input.judul} aktif sampai ${tgl}. Kalau belum sempat, download dulu ya biar fotonya aman 🙏\n${input.url}`
 		: `${sapa(input.panggilan)}, galeri foto photobooth ${input.judul} tinggal sampai besok ya. Kalau belum sempat download, sekarang aja biar fotonya nggak hilang 🙏\n${input.url}`;

@@ -361,14 +361,20 @@ export async function runGalleryExpiry(
 			(e.event_title as string | null) ||
 			(e.client_name as string | null) ||
 			pid;
-		const list = (await loadPenerima(admin, e, false)).filter(
-			(p) =>
-				p.jenis === "klien" &&
-				gotGallery.has(p.phone) &&
-				(opts.dryRun || !done.has(p.phone)),
+		const fresh = (p: Penerima) =>
+			gotGallery.has(p.phone) && (opts.dryRun || !done.has(p.phone));
+		const klien = (await loadPenerima(admin, e, false)).filter(
+			(p) => p.jenis === "klien" && gotGallery.has(p.phone),
 		);
+		// Tanpa nomor klien (event vendor): ingatkan WO/PIC yang dulu menerima
+		// galeri, dengan teks "tolong diingetin ke kliennya".
+		const wo = klien.length === 0;
+		const list = wo
+			? (await loadPenerima(admin, e, true)).filter(fresh)
+			: klien.filter(fresh);
 		for (const p of list) {
 			const text = composeExpiry({
+				wo,
 				kind,
 				panggilan: p.nama,
 				judul,
