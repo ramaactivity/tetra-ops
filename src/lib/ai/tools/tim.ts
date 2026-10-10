@@ -449,3 +449,87 @@ export const kirimTim: AiTool = {
 		};
 	},
 };
+
+/**
+ * Cari link galeri tamu sebuah acara (untuk CS: tamu minta softfile). Link
+ * galeri tidak disimpan di Ops — diambil langsung dari Booth
+ * (GET /api/ops/events/{project}). Hanya baca; acara batal/demo diabaikan.
+ */
+export const cariGaleri: AiTool = {
+	name: "cari_galeri",
+	description:
+		"Cari link galeri foto photobooth sebuah acara dari nama klien/judul acara dan/atau tanggal (YYYY-MM-DD). " +
+		"Mengembalikan judul, tanggal, link galeri, jumlah foto, dan masa aktif dari Booth. Hanya baca.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			q: {
+				type: "STRING",
+				description: "Nama klien / judul acara, mis. 'Dinda Rafi'.",
+			},
+			tanggal: {
+				type: "STRING",
+				description: "Tanggal acara YYYY-MM-DD (opsional).",
+			},
+		},
+	},
+	async run(args, ctx) {
+		const q = typeof args.q === "string" ? args.q.trim().toLowerCase() : "";
+		const tgl =
+			typeof args.tanggal === "string" &&
+			/^\d{4}-\d{2}-\d{2}$/.test(args.tanggal)
+				? args.tanggal
+				: null;
+		if (!q && !tgl) return { error: "isi nama klien atau tanggal" };
+		let query = ctx.supabase
+			.from("events")
+			.select("project_id, event_title, client_name, event_date")
+			.is("deleted_at", null)
+			.neq("status", "cancelled")
+			.order("event_date", { ascending: false })
+			.limit(200);
+		query = tgl
+			? query.eq("event_date", tgl)
+			: query
+					.gte("event_date", addDays(ctx.todayISO, -120))
+					.lte("event_date", ctx.todayISO);
+		const { data, error } = await query;
+		if (error) return { error: error.message };
+		// Semua kata kunci harus ada (urutan bebas: "Dinda Rafi" cocok "Rafi & Dinda").
+		const words = q.split(/[^a-z0-9]+/).filter((w) => w.length > 1);
+		const hits = (data ?? [])
+			.filter((e) => {
+				const hay =
+					`${e.event_title ?? ""} ${e.client_name ?? ""}`.toLowerCase();
+				return words.every((w) => hay.includes(w));
+			})
+			.slice(0, 5);
+		const { fetchBoothEvents } = await import("@/lib/booth-sync");
+		const hasil = await Promise.all(
+			hits.map(async (e) => {
+				const booth = await fetchBoothEvents(e.project_id as string);
+				const g = (booth ?? []).filter((b) => b.gallery_url);
+				return {
+					event_id: e.project_id,
+					judul:
+						(e.event_title as string | null) ||
+						(e.client_name as string | null),
+					tanggal: e.event_date,
+					galeri: g.map((b) => ({
+						url: b.gallery_url,
+						jumlah_foto: b.photo_count ?? null,
+						aktif_sampai: b.client_expires_at,
+					})),
+					...(booth === null && {
+						catatan: "Booth tidak bisa dihubungi, coba lagi",
+					}),
+				};
+			}),
+		);
+		return {
+			hasil,
+			...(hasil.length === 0 && { catatan: "tidak ada acara yang cocok" }),
+		};
+	},
+};

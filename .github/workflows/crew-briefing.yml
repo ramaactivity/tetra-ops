@@ -1,4 +1,4 @@
-# Pesan otomatis seputar acara (briefing crew, pengingat rekap, galeri klien) — tiap 30 menit (slot cron Vercel Hobby penuh).
+# CADANGAN: penjadwal utama = pg_cron Supabase (job ops-event-messages, migrasi 20261012). Jadwal GitHub sering molor berjam-jam; endpoint idempoten jadi aman dobel.
 # Endpoint idempoten per event per jenis; aturan jam (H-1 ≥15.00, hari H ≥06.00,
 # jendela 06–21 WIB) ada di src/lib/crew-briefing.ts.
 name: crew-briefing
