@@ -1,5 +1,6 @@
 import { Clock, FileSpreadsheet, Mail } from "lucide-react";
 import Link from "next/link";
+import { ApproveCrew } from "@/components/crew/approve-crew";
 import { EditCrewDrawer } from "@/components/crew/edit-crew-drawer";
 import { InvitationDeleteButton } from "@/components/crew/invitation-row-actions";
 import { InviteCrewForm } from "@/components/crew/invite-form";
@@ -267,7 +268,7 @@ export default async function MasterCrewPage() {
 								<TableHead className="eyebrow">WA</TableHead>
 								<TableHead className="eyebrow">Joined</TableHead>
 								<TableHead className="eyebrow">Status</TableHead>
-								{isSuperAdmin && (
+								{(isSuperAdmin || pendingCount > 0) && (
 									<TableHead className="eyebrow text-right">Actions</TableHead>
 								)}
 							</TableRow>
@@ -334,6 +335,13 @@ export default async function MasterCrewPage() {
 											{u.is_active ? "Active" : "Inactive"}
 										</span>
 									</TableCell>
+									{!isSuperAdmin && pendingCount > 0 && (
+										<TableCell className="py-3 text-right">
+											{u.role === "pending_approval" && (
+												<ApproveCrew userId={u.id} userName={u.full_name} />
+											)}
+										</TableCell>
+									)}
 									{isSuperAdmin && (
 										<TableCell className="py-3 text-right">
 											<div className="inline-flex items-center justify-end gap-1.5">

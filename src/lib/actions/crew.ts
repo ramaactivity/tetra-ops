@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLES = ["super_admin", "owner", "crew", "pending_approval"] as const;
@@ -92,9 +93,7 @@ const ProfileEditSchema = z.object({
 		.transform((v) => (v ? v : null)),
 });
 
-export type ProfileEditFormState =
-	| { ok?: boolean; error?: string }
-	| undefined;
+export type ProfileEditFormState = { ok?: boolean; error?: string } | undefined;
 
 export async function updateCrewProfile(
 	_prev: ProfileEditFormState,
@@ -107,9 +106,7 @@ export async function updateCrewProfile(
 			full_name: String(formData.get("full_name") ?? ""),
 			nickname: String(formData.get("nickname") ?? ""),
 			phone_wa: String(formData.get("phone_wa") ?? ""),
-			default_fee_override: String(
-				formData.get("default_fee_override") ?? "",
-			),
+			default_fee_override: String(formData.get("default_fee_override") ?? ""),
 			notes: String(formData.get("notes") ?? ""),
 		});
 		if (!parsed.success) {
@@ -170,4 +167,31 @@ export async function setCrewActive(
 	} catch (err) {
 		return { error: err instanceof Error ? err.message : "Unknown error" };
 	}
+}
+
+/**
+ * ACC akun baru (pending_approval) jadi crew. Boleh owner, bukan cuma
+ * super_admin — tapi HANYA dari pending ke crew; ubah role lain tetap
+ * super_admin (updateUserRole).
+ */
+export async function approveCrew(
+	id: string,
+	tier: (typeof TIERS)[number],
+): Promise<{ error?: string }> {
+	const me = await getCurrentUser();
+	if (!me || (me.profile.role !== "owner" && me.profile.role !== "super_admin"))
+		return { error: "Hanya owner yang bisa ACC crew." };
+	if (!z.uuid().safeParse(id).success || !TIERS.includes(tier))
+		return { error: "Data tidak valid." };
+	const { data, error } = await createAdminClient()
+		.from("users")
+		.update({ role: "crew", tier })
+		.eq("id", id)
+		.eq("role", "pending_approval")
+		.select("id")
+		.maybeSingle();
+	if (error) return { error: error.message };
+	if (!data) return { error: "Akun ini sudah tidak menunggu ACC." };
+	revalidatePath("/settings/crew");
+	return {};
 }
