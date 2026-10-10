@@ -164,3 +164,60 @@ export function penerima(
 	}
 	return [...out.values()];
 }
+
+const BULAN_PENDEK = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"Mei",
+	"Jun",
+	"Jul",
+	"Agu",
+	"Sep",
+	"Okt",
+	"Nov",
+	"Des",
+];
+
+/** Hari terakhir galeri aktif (WIB). Booth `client_expires_at` = awal hari berikutnya. */
+export function lastActiveDay(expiresAt: string): string {
+	return new Date(Date.parse(expiresAt) - 1 + 7 * 3600_000)
+		.toISOString()
+		.slice(0, 10);
+}
+
+/**
+ * Pengingat galeri mau habis: H-7 & H-1 sebelum hari terakhir, dikirim mulai
+ * 10.00 WIB dan hanya di jam 08–20 (praktis 10.00–20.00).
+ */
+export function expiryKind(
+	expiresAt: string,
+	nowMs: number,
+): "galeri_h7" | "galeri_h1" | null {
+	const wib = new Date(nowMs + 7 * 3600_000);
+	const min = wib.getUTCHours() * 60 + wib.getUTCMinutes();
+	if (min < 10 * 60 || min >= 20 * 60) return null;
+	const today = wib.toISOString().slice(0, 10);
+	const days = Math.round(
+		(Date.parse(`${lastActiveDay(expiresAt)}T00:00:00Z`) -
+			Date.parse(`${today}T00:00:00Z`)) /
+			86_400_000,
+	);
+	return days === 7 ? "galeri_h7" : days === 1 ? "galeri_h1" : null;
+}
+
+/** Teks pengingat (gaya pendek, tanpa doa). */
+export function composeExpiry(input: {
+	kind: "galeri_h7" | "galeri_h1";
+	panggilan: string | null;
+	judul: string;
+	url: string;
+	expiresAt: string;
+}): string {
+	const d = lastActiveDay(input.expiresAt);
+	const tgl = `${Number(d.slice(8, 10))} ${BULAN_PENDEK[Number(d.slice(5, 7)) - 1]}`;
+	return input.kind === "galeri_h7"
+		? `Halo ${sapa(input.panggilan)}, mau ngingetin aja, galeri foto photobooth ${input.judul} aktif sampai ${tgl}. Kalau belum sempat, download dulu ya biar fotonya aman 🙏\n${input.url}`
+		: `${sapa(input.panggilan)}, galeri foto photobooth ${input.judul} tinggal sampai besok ya. Kalau belum sempat download, sekarang aja biar fotonya nggak hilang 🙏\n${input.url}`;
+}
