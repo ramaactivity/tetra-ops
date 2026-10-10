@@ -77,6 +77,11 @@ type Defaults = {
 	expense_paid_by?: string;
 	/** JSON map {transport|bensin|toll|parking|konsumsi: <drive_url>}. */
 	expense_nota_urls?: string;
+	/** Uang jalan (DR-049). */
+	uj_terima?: string;
+	uj_metode?: string;
+	uj_holder?: string;
+	uj_sisa?: string;
 };
 
 /**
@@ -443,51 +448,127 @@ export function RekapForm({
 
 	const lainnyaItemsJson = JSON.stringify(lainnyaItems);
 
+	// === Uang jalan dari owner (DR-049) ===
+	// Crew hanya melihat uang jalan yang diterima, terpakai, dan sisanya —
+	// TIDAK PERNAH angka fee (owner kadang memberi lebih tanpa diumumkan).
+	const ujGiven = context.uangJalan?.given ?? [];
+	const ujOwnerTotal = ujGiven.reduce((t, g) => t + g.amount, 0);
+	const meId = context.uangJalan?.meId ?? "";
+	const [ujAda, setUjAda] = useState(
+		Number(defaults.uj_terima ?? 0) > 0 || ujOwnerTotal > 0,
+	);
+	const [ujTerima, setUjTerima] = useState(
+		Number(defaults.uj_terima ?? 0) > 0
+			? String(defaults.uj_terima)
+			: ujOwnerTotal > 0
+				? String(ujOwnerTotal)
+				: "",
+	);
+	const [ujMetode, setUjMetode] = useState<"tunai" | "transfer">(
+		(defaults.uj_metode || ujGiven[0]?.method || "tunai") === "transfer"
+			? "transfer"
+			: "tunai",
+	);
+	const [ujHolder, setUjHolder] = useState(
+		defaults.uj_holder || ujGiven[0]?.user_id || meId,
+	);
+	const [ujSisa, setUjSisa] = useState<"potong_fee" | "kembalikan">(
+		defaults.uj_sisa === "kembalikan" ? "kembalikan" : "potong_fee",
+	);
+	// Uang jalan aktif → biaya yang "belum dipilih siapa yang bayar" otomatis
+	// dibayar pemegang uang jalan (paling sering memang begitu).
+	useEffect(() => {
+		if (!ujAda || !ujHolder) return;
+		setPaidBy((prev) => {
+			const next = { ...prev };
+			let changed = false;
+			for (const k of Object.keys(next) as PaidByKey[])
+				if (next[k] === "crew") {
+					next[k] = ujHolder;
+					changed = true;
+				}
+			return changed ? next : prev;
+		});
+		setLainnyaItems((prev) =>
+			prev.some((r) => r.paid_by === "crew")
+				? prev.map((r) =>
+						r.paid_by === "crew" ? { ...r, paid_by: ujHolder } : r,
+					)
+				: prev,
+		);
+	}, [ujAda, ujHolder]);
+	// Penanda di pemilih "yang bayar": pemegang uang jalan.
+	const payerCrew = useMemo(
+		() =>
+			ujAda
+				? context.crew.map((c) =>
+						c.user_id === ujHolder
+							? { ...c, name: `${c.name} · uang jalan` }
+							: c,
+					)
+				: context.crew,
+		[context.crew, ujAda, ujHolder],
+	);
+
 	// Total biaya lapangan + split talangan crew vs dibayar owner — angka split
 	// inilah yang bikin owner langsung tahu berapa yang perlu di-rembers.
-	const { fieldExpenseTotal, crewFrontedTotal, ownerPaidTotal, cardPaidTotal } =
-		useMemo(() => {
-			const rows: Array<{ amount: number; payer: PaidBy }> = [
-				{
-					amount: transportMethod !== "none" ? Number(transportCost) || 0 : 0,
-					payer: paidBy.transport,
-				},
-				{
-					amount: transportMethod === "rental" ? Number(bensinCost) || 0 : 0,
-					payer: paidBy.bensin,
-				},
-				{ amount: Number(tollCost) || 0, payer: paidBy.toll },
-				{ amount: Number(parkingCost) || 0, payer: paidBy.parking },
-				{ amount: Number(konsumsiCost) || 0, payer: paidBy.konsumsi },
-				...lainnyaItems.map((r) => ({
-					amount: r.amount || 0,
-					payer: r.paid_by,
-				})),
-			];
-			let crew = 0;
-			let owner = 0;
-			let card = 0;
-			for (const r of rows) {
-				if (r.payer === "owner") owner += r.amount;
-				else if (paidFromAccountId(r.payer) !== null) card += r.amount;
-				else crew += r.amount;
+	const {
+		fieldExpenseTotal,
+		crewFrontedTotal,
+		ownerPaidTotal,
+		cardPaidTotal,
+		holderSpent,
+	} = useMemo(() => {
+		const rows: Array<{ amount: number; payer: PaidBy }> = [
+			{
+				amount: transportMethod !== "none" ? Number(transportCost) || 0 : 0,
+				payer: paidBy.transport,
+			},
+			{
+				amount: transportMethod === "rental" ? Number(bensinCost) || 0 : 0,
+				payer: paidBy.bensin,
+			},
+			{ amount: Number(tollCost) || 0, payer: paidBy.toll },
+			{ amount: Number(parkingCost) || 0, payer: paidBy.parking },
+			{ amount: Number(konsumsiCost) || 0, payer: paidBy.konsumsi },
+			...lainnyaItems.map((r) => ({
+				amount: r.amount || 0,
+				payer: r.paid_by,
+			})),
+		];
+		let crew = 0;
+		let owner = 0;
+		let card = 0;
+		let holder = 0;
+		for (const r of rows) {
+			if (r.payer === "owner") owner += r.amount;
+			else if (paidFromAccountId(r.payer) !== null) card += r.amount;
+			else {
+				crew += r.amount;
+				// "crew" tanpa nama dihitung milik yang mengisi rekap.
+				if (r.payer === ujHolder || (r.payer === "crew" && ujHolder === meId))
+					holder += r.amount;
 			}
-			return {
-				fieldExpenseTotal: crew + owner + card,
-				crewFrontedTotal: crew,
-				ownerPaidTotal: owner,
-				cardPaidTotal: card,
-			};
-		}, [
-			transportMethod,
-			transportCost,
-			bensinCost,
-			tollCost,
-			parkingCost,
-			konsumsiCost,
-			lainnyaItems,
-			paidBy,
-		]);
+		}
+		return {
+			fieldExpenseTotal: crew + owner + card,
+			crewFrontedTotal: crew,
+			ownerPaidTotal: owner,
+			cardPaidTotal: card,
+			holderSpent: holder,
+		};
+	}, [
+		transportMethod,
+		transportCost,
+		bensinCost,
+		tollCost,
+		parkingCost,
+		konsumsiCost,
+		lainnyaItems,
+		paidBy,
+		ujHolder,
+		meId,
+	]);
 
 	// === Proof URLs (multi-file upload) ===
 	const initialUrls = useMemo<string[]>(
@@ -821,7 +902,8 @@ export function RekapForm({
 		!isCrew ||
 		transportMethod !== "none" ||
 		Number(tollCost) > 0 ||
-		Number(parkingCost) > 0;
+		Number(parkingCost) > 0 ||
+		ujAda;
 	const konsumsiSectionOpen =
 		!isCrew || Number(konsumsiCost) > 0 || lainnyaItems.length > 0;
 
@@ -1403,6 +1485,18 @@ export function RekapForm({
 				description="Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau ada."
 				defaultOpen={transportSectionOpen}
 			>
+				<UangJalanCard
+					ada={ujAda}
+					onAda={setUjAda}
+					terima={ujTerima}
+					onTerima={setUjTerima}
+					metode={ujMetode}
+					onMetode={setUjMetode}
+					holder={ujHolder}
+					onHolder={setUjHolder}
+					crew={context.crew}
+					fromOwner={ujOwnerTotal}
+				/>
 				{planRental ? (
 					<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80">
 						<Info
@@ -1465,7 +1559,7 @@ export function RekapForm({
 							onChange={setTransportCost}
 							paidBy={paidBy.transport}
 							onPaidByChange={(v) => setPaidByKey("transport", v)}
-							crew={context.crew}
+							crew={payerCrew}
 							cards={context.cards}
 							nota={{
 								projectId,
@@ -1522,7 +1616,7 @@ export function RekapForm({
 								onChange={setTransportCost}
 								paidBy={paidBy.transport}
 								onPaidByChange={(v) => setPaidByKey("transport", v)}
-								crew={context.crew}
+								crew={payerCrew}
 								cards={context.cards}
 								nota={{
 									projectId,
@@ -1552,7 +1646,7 @@ export function RekapForm({
 							onChange={setBensinCost}
 							paidBy={paidBy.bensin}
 							onPaidByChange={(v) => setPaidByKey("bensin", v)}
-							crew={context.crew}
+							crew={payerCrew}
 							cards={context.cards}
 							nota={{
 								projectId,
@@ -1572,7 +1666,7 @@ export function RekapForm({
 						onChange={setTollCost}
 						paidBy={paidBy.toll}
 						onPaidByChange={(v) => setPaidByKey("toll", v)}
-						crew={context.crew}
+						crew={payerCrew}
 						cards={context.cards}
 						nota={{
 							projectId,
@@ -1588,7 +1682,7 @@ export function RekapForm({
 						onChange={setParkingCost}
 						paidBy={paidBy.parking}
 						onPaidByChange={(v) => setPaidByKey("parking", v)}
-						crew={context.crew}
+						crew={payerCrew}
 						cards={context.cards}
 						nota={{
 							projectId,
@@ -1614,7 +1708,7 @@ export function RekapForm({
 					onChange={setKonsumsiCost}
 					paidBy={paidBy.konsumsi}
 					onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
-					crew={context.crew}
+					crew={payerCrew}
 					nota={{
 						projectId,
 						notaKey: "konsumsi",
@@ -1706,7 +1800,7 @@ export function RekapForm({
 										<PayerPicker
 											value={row.paid_by}
 											onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
-											crew={context.crew}
+											crew={payerCrew}
 										/>
 									)}
 									{/* Baris 4: upload bukti/nota */}
@@ -1728,7 +1822,7 @@ export function RekapForm({
 					)}
 				</div>
 
-				{fieldExpenseTotal > 0 && (
+				{(fieldExpenseTotal > 0 || (ujAda && (Number(ujTerima) || 0) > 0)) && (
 					<div className="space-y-1.5 rounded-md bg-primary/5 px-3 py-2 text-fluid-caption">
 						<div className="flex items-center gap-2">
 							<Wallet className="h-3.5 w-3.5 text-primary" />
@@ -1741,7 +1835,11 @@ export function RekapForm({
 						</div>
 						{crewFrontedTotal > 0 && (
 							<div className="flex items-center justify-between gap-2 text-amber-700 dark:text-amber-300">
-								<span>💸 Ditalangi crew (di-rembers)</span>
+								<span>
+									{ujAda
+										? "💸 Dibayar crew (uang jalan / uang sendiri)"
+										: "💸 Ditalangi crew (di-rembers)"}
+								</span>
 								<span className="tabular font-medium">
 									{formatRupiah(crewFrontedTotal)}
 								</span>
@@ -1762,6 +1860,14 @@ export function RekapForm({
 									{formatRupiah(cardPaidTotal)}
 								</span>
 							</div>
+						)}
+						{ujAda && (Number(ujTerima) || 0) > 0 && (
+							<UangJalanRingkas
+								terima={Number(ujTerima) || 0}
+								dipakai={holderSpent}
+								sisaAksi={ujSisa}
+								onSisaAksi={setUjSisa}
+							/>
 						)}
 					</div>
 				)}
@@ -1801,6 +1907,14 @@ export function RekapForm({
 			    field yang tak dirender — Zod menolak null. Sekaligus bikin nota
 			    yang sudah diunggah crew tidak pernah tersimpan. */}
 			<input type="hidden" name="expense_nota_urls" value={expenseNotaJson} />
+			<input
+				type="hidden"
+				name="uj_terima"
+				value={ujAda ? ujTerima || "0" : "0"}
+			/>
+			<input type="hidden" name="uj_metode" value={ujAda ? ujMetode : ""} />
+			<input type="hidden" name="uj_holder" value={ujAda ? ujHolder : ""} />
+			<input type="hidden" name="uj_sisa" value={ujAda ? ujSisa : ""} />
 
 			{/* ========== BUKTI ========== */}
 			<NumberedSection
@@ -2524,6 +2638,206 @@ function SpotCetak({
 					<b>Tambah item lain</b> supaya stok ukuran itu yang berkurang.
 				</p>
 			) : null}
+		</div>
+	);
+}
+
+/** Kartu "Uang jalan dari owner" di bagian Transportasi (DR-049). */
+function UangJalanCard(p: {
+	ada: boolean;
+	onAda: (v: boolean) => void;
+	terima: string;
+	onTerima: (v: string) => void;
+	metode: "tunai" | "transfer";
+	onMetode: (v: "tunai" | "transfer") => void;
+	holder: string;
+	onHolder: (v: string) => void;
+	crew: Array<{ user_id: string; name: string; role: string }>;
+	fromOwner: number;
+}) {
+	const chip = (on: boolean) =>
+		`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+			on
+				? "border-primary bg-primary/10 text-foreground"
+				: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
+		}`;
+	return (
+		<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-3">
+			<div className="flex items-start gap-2">
+				<Wallet className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+				<div className="min-w-0">
+					<p className="text-fluid-body font-medium">
+						Dapat uang jalan dari owner?
+					</p>
+					<p className="text-[12px] text-muted-foreground">
+						Uang yang dikasih owner sebelum berangkat (tunai, transfer, atau
+						top-up GoPay) buat bensin, parkir, tol, transport.
+					</p>
+				</div>
+			</div>
+			{p.fromOwner > 0 && (
+				<p className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-[12px] text-emerald-800 dark:text-emerald-300">
+					Owner mencatat uang jalan{" "}
+					<span className="tabular font-semibold">
+						{formatRupiah(p.fromOwner)}
+					</span>{" "}
+					untuk acara ini.
+				</p>
+			)}
+			<div className="flex flex-wrap gap-1.5">
+				<button
+					type="button"
+					className={chip(!p.ada)}
+					onClick={() => p.onAda(false)}
+				>
+					Nggak ada
+				</button>
+				<button
+					type="button"
+					className={chip(p.ada)}
+					onClick={() => p.onAda(true)}
+				>
+					Ada
+				</button>
+			</div>
+			{p.ada && (
+				<div className="space-y-3">
+					<div className="flex flex-wrap gap-1.5">
+						{(["tunai", "transfer"] as const).map((m) => (
+							<button
+								key={m}
+								type="button"
+								className={chip(p.metode === m)}
+								onClick={() => p.onMetode(m)}
+							>
+								{m === "tunai" ? "Tunai" : "Transfer / GoPay"}
+							</button>
+						))}
+					</div>
+					<div className="space-y-1.5">
+						<label
+							htmlFor="uj_terima_input"
+							className="text-fluid-body font-medium"
+						>
+							Jumlah yang diterima
+						</label>
+						<div className="relative">
+							<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
+								Rp
+							</span>
+							<input
+								id="uj_terima_input"
+								type="number"
+								inputMode="numeric"
+								min={0}
+								value={p.terima}
+								onChange={(e) => p.onTerima(e.target.value)}
+								placeholder="0"
+								className={`${inputClass} tabular pl-9`}
+							/>
+						</div>
+					</div>
+					{p.crew.length > 1 && (
+						<div className="space-y-1">
+							<p className="text-[12px] text-muted-foreground">
+								Yang pegang uangnya:
+							</p>
+							<div className="flex flex-wrap gap-1.5">
+								{p.crew.map((c) => (
+									<button
+										key={c.user_id}
+										type="button"
+										className={chip(p.holder === c.user_id)}
+										onClick={() => p.onHolder(c.user_id)}
+									>
+										{c.name}
+									</button>
+								))}
+							</div>
+						</div>
+					)}
+					<p className="text-[12px] text-muted-foreground">
+						Biaya di bawah yang dibayar pakai uang ini, pilih{" "}
+						<span className="font-medium text-foreground">
+							yang bayar: pemegang uang jalan
+						</span>
+						. Sisanya dihitung otomatis di bagian ringkasan.
+					</p>
+				</div>
+			)}
+		</div>
+	);
+}
+
+/** Ringkasan uang jalan + pilihan sisa (tanpa angka fee). */
+function UangJalanRingkas(p: {
+	terima: number;
+	dipakai: number;
+	sisaAksi: "potong_fee" | "kembalikan";
+	onSisaAksi: (v: "potong_fee" | "kembalikan") => void;
+}) {
+	const sisa = Math.max(0, p.terima - p.dipakai);
+	const kurang = Math.max(0, p.dipakai - p.terima);
+	const opt = (k: "potong_fee" | "kembalikan", t: string, d: string) => (
+		<button
+			type="button"
+			onClick={() => p.onSisaAksi(k)}
+			className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+				p.sisaAksi === k
+					? "border-primary bg-primary/10"
+					: "border-border-default bg-surface-3 hover:bg-muted"
+			}`}
+		>
+			<span className="block text-[12.5px] font-semibold text-foreground">
+				{t}
+			</span>
+			<span className="block text-[11.5px] text-muted-foreground">{d}</span>
+		</button>
+	);
+	return (
+		<div className="mt-1 space-y-1.5 border-t border-border-default pt-2">
+			<p className="font-semibold text-foreground">Uang jalan</p>
+			<div className="flex justify-between gap-2">
+				<span>Diterima dari owner</span>
+				<span className="tabular font-medium">{formatRupiah(p.terima)}</span>
+			</div>
+			<div className="flex justify-between gap-2">
+				<span>Dipakai bayar biaya di atas</span>
+				<span className="tabular font-medium">− {formatRupiah(p.dipakai)}</span>
+			</div>
+			{kurang > 0 ? (
+				<div className="flex justify-between gap-2 font-semibold text-amber-700 dark:text-amber-300">
+					<span>Kurang (kamu talangi dulu)</span>
+					<span className="tabular">{formatRupiah(kurang)}</span>
+				</div>
+			) : (
+				<div className="flex justify-between gap-2 font-semibold text-emerald-700 dark:text-emerald-300">
+					<span>Sisa di kamu</span>
+					<span className="tabular">{formatRupiah(sisa)}</span>
+				</div>
+			)}
+			{kurang > 0 && (
+				<p className="text-[11.5px] text-muted-foreground">
+					Kekurangannya diganti owner bareng pembayaran fee.
+				</p>
+			)}
+			{sisa > 0 && (
+				<div className="space-y-1.5 pt-1">
+					<p className="text-[12px] font-medium text-foreground">
+						Sisanya mau diapain?
+					</p>
+					{opt(
+						"potong_fee",
+						"Simpan, potong dari fee",
+						"Sisa uang jalan dihitung sebagai bagian dari pembayaran fee kamu.",
+					)}
+					{opt(
+						"kembalikan",
+						"Kembalikan ke owner",
+						"Kamu serahkan / transfer balik sisanya ke owner.",
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

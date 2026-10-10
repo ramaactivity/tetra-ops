@@ -116,6 +116,8 @@ type Props = {
 	/** Post-settle: enable per-crew "Bayar fee" (posts Dr 2-100 / Cr Bank). */
 	allowPayment?: boolean;
 	cashAccounts?: CashAccountOption[];
+	/** Uang jalan yang akan dipotong saat bayar, per assignment_id (DR-049). */
+	uangJalanPotong?: Record<string, number>;
 	/** Rencana bayar fee crew yang sudah diantre untuk settle (pre-settle). */
 	queuedPayment?: {
 		id: string;
@@ -144,6 +146,7 @@ export function CrewFeeForm({
 	allowPayment = false,
 	cashAccounts = [],
 	queuedPayment = null,
+	uangJalanPotong = {},
 }: Props) {
 	const router = useRouter();
 	const [rows, setRows] = useState<CrewAssignmentRow[]>(initialRows);
@@ -780,6 +783,7 @@ export function CrewFeeForm({
 									paidViaAccount={row.paid_via_account ?? null}
 									paidAt={row.paid_at ?? null}
 									cashAccounts={cashAccounts}
+									potongUangJalan={uangJalanPotong[row.assignment_id] ?? 0}
 								/>
 							)}
 						</div>
@@ -898,7 +902,9 @@ function CrewPayPanel({
 	paidViaAccount,
 	paidAt,
 	cashAccounts,
+	potongUangJalan = 0,
 }: {
+	potongUangJalan?: number;
 	assignmentId: string;
 	projectId: string;
 	crewName: string;
@@ -934,7 +940,7 @@ function CrewPayPanel({
 	} | null>(null);
 
 	const feeNum = Number(adminFee) || 0;
-	const cashOut = totalFee + feeNum;
+	const cashOut = Math.max(0, totalFee - potongUangJalan) + feeNum;
 	const bankName = (code: string | null) =>
 		cashAccounts.find((a) => a.code === code)?.name ?? code ?? "—";
 	const selectedAcct = cashAccounts.find((a) => a.code === bankCode);
@@ -1102,6 +1108,19 @@ function CrewPayPanel({
 						</>
 					)}
 				</p>
+				{potongUangJalan > 0 && (
+					<p className="w-full text-[12px] text-emerald-700 dark:text-emerald-300">
+						Dipotong uang jalan yang masih dipegang crew{" "}
+						<span className="tabular font-semibold" data-nominal>
+							{formatRupiah(potongUangJalan)}
+						</span>{" "}
+						— transfer cukup{" "}
+						<span className="tabular font-semibold" data-nominal>
+							{formatRupiah(Math.max(0, totalFee - potongUangJalan))}
+						</span>
+						.
+					</p>
+				)}
 				<Button
 					onClick={handlePay}
 					disabled={pending || totalFee <= 0 || insufficient}

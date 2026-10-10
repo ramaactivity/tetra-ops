@@ -38,6 +38,10 @@ import {
 } from "@/components/rekap/sales-commission-card";
 import { SettleButton } from "@/components/rekap/settle-button";
 import { SettledBanner } from "@/components/rekap/settled-banner";
+import {
+	type UangJalanLedgerRow,
+	UangJalanPanel,
+} from "@/components/rekap/uang-jalan-panel";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getProfitPreview } from "@/lib/actions/profit-preview";
@@ -53,6 +57,7 @@ import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { filterEmoneyAccounts, paidFromAccountId } from "@/lib/finance/emoney";
 import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
+import { potongFee, saldoUangJalan } from "@/lib/rekap/uang-jalan";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -97,6 +102,10 @@ type RekapRow = {
 	}> | null;
 	expense_paid_by: Record<string, string> | null;
 	expense_nota_urls: Record<string, string> | null;
+	uj_terima: number | null;
+	uj_metode: string | null;
+	uj_holder: string | null;
+	uj_sisa: string | null;
 	submitted_by: string | null;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
@@ -164,7 +173,7 @@ export default async function EventRekapPage({
 					transport_method, transport_cost,
 					transport_proof_berangkat_url, transport_proof_pulang_url,
 					bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
-					expense_paid_by, expense_nota_urls, submitted_by,
+					expense_paid_by, expense_nota_urls, submitted_by, uj_terima, uj_metode, uj_holder, uj_sisa,
 					submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 					reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 				)
@@ -309,6 +318,35 @@ export default async function EventRekapPage({
 	// "Pemasukan / pengeluaran lain" yang menerimanya, dan di sana pun disaring
 	// lagi per kategori biaya.
 	const cashAccountsNoCard = filterEmoneyAccounts(cashAccounts, false);
+
+	// Uang jalan crew (DR-049): buku per acara + potongan saat bayar fee.
+	const { data: ujRows } = await supabase
+		.from("uang_jalan")
+		.select(
+			"id, user_id, kind, amount, method, account_code, created_at, is_reversed",
+		)
+		.eq("event_id", event.id as string)
+		.order("created_at");
+	const ujLedger = ((ujRows ?? []) as UangJalanLedgerRow[]).map((r) => ({
+		...r,
+		amount: Number(r.amount),
+	}));
+	const uangJalanPotong = Object.fromEntries(
+		crewFeeRows.map((r) => [
+			r.assignment_id,
+			r.is_paid || !r.user_id
+				? 0
+				: potongFee({
+						saldo: saldoUangJalan(
+							ujLedger.filter((l) => l.user_id === r.user_id),
+						),
+						total: r.fee_amount + r.bonus_amount + r.reimbursement_amount,
+						reimbursement: r.reimbursement_amount,
+						sisa:
+							(rekap?.uj_sisa as "potong_fee" | "kembalikan" | null) ?? null,
+					}),
+		]),
+	);
 
 	// Pemasukan/pengeluaran lain yang sudah dicatat untuk event ini (jalur Catat
 	// transaksi, source_type='manual'). Jurnal yang sudah dibalik disembunyikan —
@@ -783,6 +821,10 @@ export default async function EventRekapPage({
 				lainnya_items: JSON.stringify(rekap.lainnya_items ?? []),
 				expense_paid_by: JSON.stringify(rekap.expense_paid_by ?? {}),
 				expense_nota_urls: JSON.stringify(rekap.expense_nota_urls ?? {}),
+				uj_terima: String(rekap.uj_terima ?? 0),
+				uj_metode: rekap.uj_metode ?? "",
+				uj_holder: rekap.uj_holder ?? "",
+				uj_sisa: rekap.uj_sisa ?? "",
 			}
 		: undefined;
 
@@ -939,6 +981,26 @@ export default async function EventRekapPage({
 						hppTotal={hppTotal}
 					/>
 				</RekapCard>
+			)}
+
+			{context.crew.length > 0 && (
+				<UangJalanPanel
+					eventId={event.id as string}
+					projectId={projectId}
+					crew={context.crew.map((c) => ({ user_id: c.user_id, name: c.name }))}
+					ledger={ujLedger}
+					report={
+						rekap && Number(rekap.uj_terima ?? 0) > 0
+							? {
+									terima: Number(rekap.uj_terima),
+									metode: rekap.uj_metode,
+									holder: rekap.uj_holder,
+									sisa: rekap.uj_sisa,
+								}
+							: null
+					}
+					cashAccounts={cashAccountsNoCard}
+				/>
 			)}
 
 			{/* === Pre-settle workflow: crew fees + addon split + profit preview + settle button === */}
@@ -1136,6 +1198,7 @@ export default async function EventRekapPage({
 						readOnly
 						cashAccounts={cashAccountsNoCard}
 						allowPayment={crewPayable}
+						uangJalanPotong={uangJalanPotong}
 					/>
 
 					<AddonSplitForm

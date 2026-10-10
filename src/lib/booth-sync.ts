@@ -297,6 +297,7 @@ export type BoothEventSummary = {
 	gallery_url: string | null;
 	/** Galeri publik tamu (/l/{slug}); null = mati/kedaluwarsa. Usulan Ops 2026-10-10. */
 	guest_gallery_url?: string | null;
+	guest_expires_at?: string | null;
 	client_expires_at: string | null;
 	purge_at: string | null;
 	session_count?: number;

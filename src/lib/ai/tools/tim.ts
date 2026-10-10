@@ -506,6 +506,7 @@ export async function cariGaleriData(
 					.map((b) => ({
 						url: b.gallery_url,
 						url_tamu: b.guest_gallery_url ?? null,
+						tamu_aktif_sampai: b.guest_expires_at ?? null,
 						jumlah_foto: b.photo_count ?? null,
 						aktif_sampai: b.client_expires_at,
 					})),

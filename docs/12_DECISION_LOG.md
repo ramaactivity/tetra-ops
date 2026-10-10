@@ -1271,3 +1271,20 @@ Katalog desain Tetra banyak, dan sebelumnya tiap template perlu diedit di Photos
 ### Pending (sisi Booth)
 Metadata `category`/`text_mode`/`ops_visible` di layout, endpoint katalog, variabel teks baru, pasang layout otomatis untuk `source = template` — diusulkan di papan OPS-BOOTH-SYNC 2026-10-09. Sampai itu live, etalase hanya berisi template manual dan tombol Sinkron menjawab "katalog Booth belum tersedia".
 
+---
+
+## DR-049: Uang jalan crew (petty cash per acara)
+
+**Status:** Accepted (owner 2026-10-10)
+**Date:** 2026-10-10
+
+### Context
+Owner sering memberi crew uang di muka (tunai, transfer, top-up GoPay) untuk bensin, parkir, tol, transport online. Belum ada pencatatannya: sisa uang bercampur dengan fee, dan owner menghitung manual berapa yang harus ditransfer.
+
+### Decision
+- Istilah: **uang jalan**. Akun baru **1-320 Uang Jalan Crew** (aset/piutang ke crew). Buku per acara per crew: tabel `uang_jalan` (kind `beri` / `kembali` / `potong_fee`, dibatalkan lewat `is_reversed` + jurnal pembalik — tidak ada hapus).
+- Owner (halaman rekap event, panel "Uang jalan crew"): catat uang jalan keluar (Dr 1-320 / Cr kas-bank, guard saldo), terima sisa (Dr kas-bank / Cr 1-320), batalkan catatan.
+- Crew (form rekap, bagian Transportasi): lapor menerima uang jalan (tunai/transfer, nominal, siapa pemegang); biaya yang "belum dipilih yang bayar" otomatis ke pemegang; ringkasan diterima − terpakai = sisa/kurang; pilih sisa **dipotong dari fee** (bawaan) atau **dikembalikan**. Crew tidak pernah melihat angka fee (owner kadang memberi lebih).
+- Pengeluaran yang dibayar dari uang jalan tetap diperlakukan sebagai talangan crew (reimbursement → 2-100 saat settle) — settle_event tidak diubah.
+- `payCrewFee` memotong saldo uang jalan: Dr 2-100 total / Cr 1-320 potongan / Cr bank sisa (`potongFee`). Contoh: uang jalan 200rb, terpakai 150rb, fee 150rb → transfer 100rb. Kalau crew memilih mengembalikan sisa, yang dipotong hanya bagian terpakai. `unpayCrewFee` ikut membatalkan potongan.
+

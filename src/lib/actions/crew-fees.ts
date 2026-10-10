@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
+import { potongFee } from "@/lib/rekap/uang-jalan";
+import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
 const FeeRow = z.object({
@@ -195,7 +197,7 @@ export async function payCrewFee(input: {
 	const { data: a, error: aErr } = await supabase
 		.from("crew_assignments")
 		.select(
-			`id, event_id, fee_amount, bonus_amount, reimbursement_amount, is_paid,
+			`id, event_id, user_id, fee_amount, bonus_amount, reimbursement_amount, is_paid,
 			user:users!crew_assignments_user_id_fkey(full_name)`,
 		)
 		.eq("id", assignment_id)
@@ -279,16 +281,35 @@ export async function payCrewFee(input: {
 
 	const u = Array.isArray(a.user) ? a.user[0] : a.user;
 	const crewName = (u as { full_name?: string } | null)?.full_name ?? "crew";
-	const cashOut = total + adminFee;
+	// Uang jalan yang masih dipegang crew dipotong dari transfer (Cr 1-320).
+	const { data: rk } = await supabase
+		.from("crew_rekap")
+		.select("uj_sisa")
+		.eq("event_id", a.event_id as string)
+		.maybeSingle();
+	const potong = potongFee({
+		saldo: await saldoUangJalanDb(
+			supabase,
+			a.event_id as string,
+			a.user_id as string,
+		),
+		total,
+		reimbursement: Number(a.reimbursement_amount ?? 0),
+		sisa: (rk?.uj_sisa as "potong_fee" | "kembalikan" | null) ?? null,
+	});
+	const cashOut = total - potong + adminFee;
 
 	// Guard saldo: rekening sumber tidak boleh minus gara-gara bayar fee.
 	// (Kasus nyata: Kas Tunai Rp0 dipakai bayar 2 fee crew → saldo −383rb.)
-	const saldoErr = await insufficientBalanceError(
-		supabase,
-		bank_account_code,
-		(bank.name as string) ?? bank_account_code,
-		cashOut,
-	);
+	const saldoErr =
+		cashOut > 0
+			? await insufficientBalanceError(
+					supabase,
+					bank_account_code,
+					(bank.name as string) ?? bank_account_code,
+					cashOut,
+				)
+			: null;
 	if (saldoErr) return { ok: false, error: saldoErr };
 
 	// Post journal: Dr 2-100 (total) [+ Dr 5-600 (admin)] / Cr Bank (cashOut)
@@ -303,7 +324,7 @@ export async function payCrewFee(input: {
 			source_type: "crew_payment",
 			source_id: assignment_id,
 			source_event_id: a.event_id,
-			total_amount: cashOut,
+			total_amount: total + adminFee,
 			created_by: me.profile.id,
 		})
 		.select("id")
@@ -342,14 +363,24 @@ export async function payCrewFee(input: {
 			line_order: 2,
 		});
 	}
-	lines.push({
-		entry_id: entry.id,
-		account_code: bank_account_code,
-		debit_amount: 0,
-		credit_amount: cashOut,
-		description: "Pembayaran kas/bank",
-		line_order: lines.length + 1,
-	});
+	if (potong > 0)
+		lines.push({
+			entry_id: entry.id,
+			account_code: "1-320",
+			debit_amount: 0,
+			credit_amount: potong,
+			description: "Dipotong dari uang jalan yang dipegang crew",
+			line_order: lines.length + 1,
+		});
+	if (cashOut > 0)
+		lines.push({
+			entry_id: entry.id,
+			account_code: bank_account_code,
+			debit_amount: 0,
+			credit_amount: cashOut,
+			description: "Pembayaran kas/bank",
+			line_order: lines.length + 1,
+		});
 
 	const { error: linesErr } = await supabase
 		.from("journal_lines")
@@ -378,6 +409,17 @@ export async function payCrewFee(input: {
 		await supabase.from("journal_entries").delete().eq("id", entry.id);
 		return { ok: false, error: `Gagal tandai lunas: ${updErr.message}` };
 	}
+
+	if (potong > 0)
+		await supabase.from("uang_jalan").insert({
+			event_id: a.event_id,
+			user_id: a.user_id,
+			kind: "potong_fee",
+			amount: potong,
+			journal_id: entry.id,
+			created_by: me.profile.id,
+			note: "Dipotong saat bayar fee",
+		});
 
 	revalidatePath(`/operations/${project_id}/rekap`);
 	revalidatePath(`/operations/${project_id}`);
@@ -493,6 +535,12 @@ export async function unpayCrewFee(input: {
 			.from("journal_entries")
 			.update({ is_reversed: true, reversed_by_entry_id: rev.id })
 			.eq("id", entry.id);
+		// Potongan uang jalan ikut batal → uang jalan kembali tercatat dipegang crew.
+		await supabase
+			.from("uang_jalan")
+			.update({ is_reversed: true })
+			.eq("journal_id", entry.id)
+			.eq("kind", "potong_fee");
 	}
 
 	const { error: updErr } = await supabase

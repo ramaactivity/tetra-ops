@@ -19,6 +19,7 @@ import {
 } from "@/lib/rekap/project-demand";
 import { bucketHpp, type HppBreakdown, roundQty } from "@/lib/rekap/recipe";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
@@ -269,6 +270,12 @@ const RekapInputSchema = z.object({
 	lainnya_items: LainnyaItemsSchema,
 	expense_paid_by: ExpensePaidBySchema,
 	expense_nota_urls: ExpenseNotaSchema,
+	// Uang jalan (DR-049) — laporan crew: diterima berapa, cara terima, siapa
+	// yang pegang, sisa mau dipotong dari fee atau dikembalikan.
+	uj_terima: NonNegMoney,
+	uj_metode: z.enum(["tunai", "transfer"]).nullish().catch(null),
+	uj_holder: z.uuid().nullish().catch(null),
+	uj_sisa: z.enum(["potong_fee", "kembalikan"]).nullish().catch(null),
 });
 
 export type RekapInput = z.infer<typeof RekapInputSchema>;
@@ -396,6 +403,14 @@ export type RekapContext = {
 	 * dikirim ke sini.
 	 */
 	transport: { mode: "rental" | "online"; vehicle: string | null } | null;
+	/**
+	 * Uang jalan (DR-049): yang mengisi rekap + uang jalan yang sudah dicatat
+	 * owner per crew (hanya nominal yang diterima — tanpa fee apa pun).
+	 */
+	uangJalan: {
+		meId: string;
+		given: Array<{ user_id: string; amount: number; method: string | null }>;
+	};
 };
 
 export async function getRekapContext(
@@ -845,6 +860,29 @@ export async function getRekapContext(
 					vehicle: (event.transport_vehicle as string | null) ?? null,
 				}
 			: null,
+		uangJalan: await (async () => {
+			// Crew tidak punya akses RLS ke buku uang jalan; yang dikirim hanya
+			// jumlah yang diberikan owner per crew untuk acara ini.
+			const { data: uj } = await createAdminClient()
+				.from("uang_jalan")
+				.select("user_id, amount, method")
+				.eq("event_id", eventId)
+				.eq("kind", "beri")
+				.eq("is_reversed", false);
+			const by = new Map<string, { amount: number; method: string | null }>();
+			for (const r of uj ?? []) {
+				const k = r.user_id as string;
+				const cur = by.get(k) ?? { amount: 0, method: null };
+				by.set(k, {
+					amount: cur.amount + Number(r.amount ?? 0),
+					method: (r.method as string | null) ?? cur.method,
+				});
+			}
+			return {
+				meId: me.profile.id,
+				given: [...by].map(([user_id, v]) => ({ user_id, ...v })),
+			};
+		})(),
 	};
 }
 
@@ -911,6 +949,10 @@ export async function submitRekap(
 		lainnya_items: formData.get("lainnya_items"),
 		expense_paid_by: formData.get("expense_paid_by"),
 		expense_nota_urls: formData.get("expense_nota_urls"),
+		uj_terima: formData.get("uj_terima") ?? "0",
+		uj_metode: formData.get("uj_metode") || null,
+		uj_holder: formData.get("uj_holder") || null,
+		uj_sisa: formData.get("uj_sisa") || null,
 	});
 	if (!parsed.success) {
 		return {
@@ -1038,6 +1080,15 @@ export async function submitRekap(
 		lainnya_items: parsed.data.lainnya_items,
 		expense_paid_by: parsed.data.expense_paid_by,
 		expense_nota_urls: parsed.data.expense_nota_urls,
+		uj_terima: parsed.data.uj_terima,
+		uj_metode:
+			parsed.data.uj_terima > 0 ? (parsed.data.uj_metode ?? null) : null,
+		uj_holder:
+			parsed.data.uj_terima > 0
+				? (parsed.data.uj_holder ?? me.profile.id)
+				: null,
+		uj_sisa:
+			parsed.data.uj_terima > 0 ? (parsed.data.uj_sisa ?? "potong_fee") : null,
 	};
 
 	if (existing) {
