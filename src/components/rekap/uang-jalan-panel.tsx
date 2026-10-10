@@ -31,7 +31,7 @@ const KIND: Record<UangJalanLedgerRow["kind"], string> = {
 };
 
 const input =
-	"border-border-default bg-background h-9 w-full rounded-lg border px-2.5 text-[13px]";
+	"border-border-default bg-background h-10 w-full rounded-xl border px-3 text-[13px]";
 
 /**
  * Uang jalan crew di halaman rekap owner (DR-049): catat uang yang diberikan
@@ -127,9 +127,8 @@ export function UangJalanPanel({
 						<HandCoins className="size-4 shrink-0" /> Uang jalan crew
 					</h3>
 					<p className="type-secondary mt-0.5">
-						Uang yang dikasih sebelum berangkat (bensin, parkir, tol,
-						transport). Sisanya otomatis dipotong saat Bayar fee, atau
-						dikembalikan crew.
+						Uang yang dikasih ke crew sebelum berangkat untuk bensin, parkir,
+						tol, dan transport.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
@@ -184,82 +183,107 @@ export function UangJalanPanel({
 			)}
 
 			{mode && (
-				<div className="bg-secondary/60 grid gap-2 rounded-xl p-3 sm:grid-cols-2 lg:grid-cols-5">
-					<label className="space-y-1">
-						<span className="type-caption text-muted-foreground">Crew</span>
-						<select
-							value={userId}
-							onChange={(e) => setUserId(e.target.value)}
-							className={input}
-						>
-							{crew.map((c) => (
-								<option key={c.user_id} value={c.user_id}>
-									{c.name}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="space-y-1">
-						<span className="type-caption text-muted-foreground">Jumlah</span>
-						<input
-							type="number"
-							inputMode="numeric"
-							min={1}
-							value={amount}
-							onChange={(e) => setAmount(e.target.value)}
-							className={`${input} tabular`}
-						/>
-					</label>
-					{mode === "beri" && (
-						<label className="space-y-1">
-							<span className="type-caption text-muted-foreground">Cara</span>
+				<div className="border-border-default bg-background space-y-4 rounded-xl border p-4">
+					<div>
+						<p className="text-[14px] font-semibold">
+							{mode === "beri"
+								? "Catat uang jalan yang diberikan"
+								: "Terima sisa uang jalan"}
+						</p>
+						<p className="type-caption text-muted-foreground">
+							{mode === "beri"
+								? "Saldo rekening berkurang, tercatat sebagai uang yang dipegang crew."
+								: "Saldo rekening bertambah, uang yang dipegang crew berkurang."}
+						</p>
+					</div>
+					<div className="grid gap-3 sm:grid-cols-2">
+						<label className="space-y-1.5">
+							<span className="text-[13px] font-medium">Crew</span>
 							<select
-								value={method}
-								onChange={(e) =>
-									setMethod(
-										e.target.value === "transfer" ? "transfer" : "tunai",
-									)
-								}
+								value={userId}
+								onChange={(e) => setUserId(e.target.value)}
 								className={input}
 							>
-								<option value="tunai">Tunai</option>
-								<option value="transfer">Transfer / top-up</option>
+								{crew.map((c) => (
+									<option key={c.user_id} value={c.user_id}>
+										{c.name}
+									</option>
+								))}
 							</select>
 						</label>
-					)}
-					<label className="space-y-1">
-						<span className="type-caption text-muted-foreground">
-							{mode === "beri" ? "Dari rekening" : "Masuk ke rekening"}
-						</span>
-						<select
-							value={account}
-							onChange={(e) => setAccount(e.target.value)}
-							className={input}
-						>
-							{cashAccounts.map((a) => (
-								<option key={a.code} value={a.code}>
-									{a.name}
-									{a.balance !== undefined
-										? ` · ${formatRupiah(a.balance)}`
-										: ""}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="space-y-1">
-						<span className="type-caption text-muted-foreground">Tanggal</span>
-						<input
-							type="date"
-							value={date}
-							onChange={(e) => setDate(e.target.value)}
-							className={input}
-						/>
-					</label>
-					<div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-5">
+						<label className="space-y-1.5">
+							<span className="text-[13px] font-medium">Jumlah</span>
+							<div className="relative">
+								<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
+									Rp
+								</span>
+								<input
+									type="number"
+									inputMode="numeric"
+									min={1}
+									value={amount}
+									onChange={(e) => setAmount(e.target.value)}
+									placeholder="200000"
+									className={`${input} tabular pl-9`}
+								/>
+							</div>
+						</label>
+						{mode === "beri" && (
+							<div className="space-y-1.5">
+								<span className="text-[13px] font-medium">Cara memberi</span>
+								<div className="flex gap-1.5">
+									{(["tunai", "transfer"] as const).map((m) => (
+										<button
+											key={m}
+											type="button"
+											aria-pressed={method === m}
+											onClick={() => setMethod(m)}
+											className={`h-10 flex-1 rounded-xl border text-[13px] font-medium transition-colors ${
+												method === m
+													? "border-transparent bg-foreground text-background"
+													: "border-border-default hover:bg-secondary"
+											}`}
+										>
+											{m === "tunai" ? "Tunai" : "Transfer / top-up"}
+										</button>
+									))}
+								</div>
+							</div>
+						)}
+						<label className="space-y-1.5">
+							<span className="text-[13px] font-medium">
+								{mode === "beri" ? "Dari rekening" : "Masuk ke rekening"}
+							</span>
+							<select
+								value={account}
+								onChange={(e) => setAccount(e.target.value)}
+								className={input}
+							>
+								{cashAccounts.map((a) => (
+									<option key={a.code} value={a.code}>
+										{a.name}
+										{a.balance !== undefined
+											? ` · ${formatRupiah(a.balance)}`
+											: ""}
+									</option>
+								))}
+							</select>
+						</label>
+						<label className="space-y-1.5">
+							<span className="text-[13px] font-medium">Tanggal</span>
+							<input
+								type="date"
+								value={date}
+								onChange={(e) => setDate(e.target.value)}
+								className={input}
+							/>
+						</label>
+					</div>
+					<div className="flex justify-end gap-2">
 						<button
 							type="button"
 							onClick={() => setMode(null)}
-							className="hover:bg-secondary h-9 rounded-full px-4 text-[13px] font-medium"
+							className="hover:bg-secondary h-10 rounded-full px-4 text-[13px] font-medium"
 						>
 							Batal
 						</button>
@@ -267,7 +291,7 @@ export function UangJalanPanel({
 							type="button"
 							disabled={pending || !(Number(amount) > 0) || !account || !userId}
 							onClick={submit}
-							className="bg-foreground text-background h-9 rounded-full px-5 text-[13px] font-medium disabled:opacity-40"
+							className="bg-foreground text-background h-10 rounded-full px-5 text-[13px] font-medium disabled:opacity-40"
 						>
 							{mode === "beri" ? "Simpan uang jalan" : "Simpan penerimaan"}
 						</button>
@@ -276,9 +300,40 @@ export function UangJalanPanel({
 			)}
 
 			{holders.length === 0 && !belumDicatat ? (
-				<p className="type-caption text-muted-foreground">
-					Belum ada uang jalan untuk acara ini.
-				</p>
+				mode === null && (
+					<ol className="grid gap-2 sm:grid-cols-3">
+						{[
+							[
+								"1",
+								"Catat saat memberi",
+								"Tunai atau transfer/top-up GoPay sebelum crew berangkat.",
+							],
+							[
+								"2",
+								"Crew lapor di rekap",
+								"Crew mengisi uang jalan yang diterima & biaya yang dibayar pakai uang itu.",
+							],
+							[
+								"3",
+								"Sisa beres otomatis",
+								"Sisanya dipotong saat Bayar fee, atau dikembalikan crew.",
+							],
+						].map(([n, t, d]) => (
+							<li
+								key={n}
+								className="bg-secondary/60 flex gap-2.5 rounded-xl p-3"
+							>
+								<span className="bg-foreground text-background grid size-6 shrink-0 place-items-center rounded-full text-[12px] font-semibold">
+									{n}
+								</span>
+								<div className="min-w-0">
+									<p className="text-[13px] font-semibold">{t}</p>
+									<p className="type-caption text-muted-foreground">{d}</p>
+								</div>
+							</li>
+						))}
+					</ol>
+				)
 			) : (
 				<div className="grid gap-2 sm:grid-cols-2">
 					{holders.map((u) => (
