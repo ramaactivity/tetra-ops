@@ -276,10 +276,10 @@ export async function reopenSettlement(
 ): Promise<ReopenResponse> {
 	const me = await getCurrentUser();
 	if (!me) return { ok: false, error: "Unauthorized" };
-	if (me.profile.role !== "super_admin") {
+	if (me.profile.role !== "super_admin" && me.profile.role !== "owner") {
 		return {
 			ok: false,
-			error: "Hanya super_admin yang bisa reopen settlement",
+			error: "Hanya owner yang bisa reopen settlement",
 		};
 	}
 	const trimmed = reason.trim();

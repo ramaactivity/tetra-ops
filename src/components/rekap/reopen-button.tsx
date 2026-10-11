@@ -35,7 +35,7 @@ export function ReopenButton({
 	const [pending, startTransition] = useTransition();
 
 	const disabledReason = !isSuperAdmin
-		? "Hanya super_admin yang bisa reopen settlement"
+		? "Hanya owner yang bisa reopen settlement"
 		: isReopened
 			? "Settlement ini sudah pernah di-reopen"
 			: undefined;

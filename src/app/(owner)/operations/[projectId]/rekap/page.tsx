@@ -865,7 +865,8 @@ export default async function EventRekapPage({
 					netProfit={Number(settlement.net_profit ?? 0)}
 					isReopened={Boolean(settlement.is_reopened)}
 					journalEntryId={settlement.journal_entry_id ?? null}
-					isSuperAdmin={isSuperAdmin}
+					// Reopen: owner & super_admin (RPC memakai is_owner_level()).
+					isSuperAdmin
 				/>
 			)}
 

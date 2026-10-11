@@ -64,19 +64,12 @@ export async function checkPayment(
 		.maybeSingle();
 	if (!ev)
 		return { ok: false, field: "_form", error: "Event tidak ditemukan." };
-	const { data: settled } = await supabase
-		.from("event_settlements")
-		.select("id")
-		.eq("event_id", input.eventId)
-		.eq("is_reopened", false)
-		.maybeSingle();
-	if (settled)
-		return {
-			ok: false,
-			field: "_form",
-			error:
-				"Event sudah di-settle — pembayaran terkunci. Reopen settlement dulu kalau perlu koreksi.",
-		};
+	// Event yang sudah di-settle TETAP boleh menerima pembayaran baru (mis.
+	// pelunasan setelah acara): settle menghitung untung dari grand_total, bukan
+	// dari uang yang sudah masuk, dan pembayaran dibukukan terpisah sebagai kas
+	// masuk (Dr kas / Cr 4-1xx) — jadi tidak ada angka settle yang berubah.
+	// Batasnya tetap sisa tagihan (di bawah). Membatalkan pembayaran setelah
+	// settle masih terkunci (reversePayment).
 	// Uang sebelum cutoff sudah masuk saldo awal hasil hitung fisik — mencatat
 	// lagi bikin kas dobel. Backstop-nya ada di record_payment_je_impl.
 	const { data: cutoffCfg } = await supabase
