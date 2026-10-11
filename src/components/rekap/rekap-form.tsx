@@ -510,17 +510,17 @@ export function RekapForm({
 		);
 	}, [ujAda, ujHolder]);
 	// Penanda di pemilih "yang bayar": pemegang uang jalan.
-	const payerCrew = useMemo(
-		() =>
-			ujAda
-				? context.crew.map((c) =>
-						c.user_id === ujHolder
-							? { ...c, name: `${c.name} · uang jalan` }
-							: c,
-					)
-				: context.crew,
-		[context.crew, ujAda, ujHolder],
-	);
+	// Uang jalan aktif: pemegangnya tampil sebagai pilihan "Uang jalan dari
+	// owner" paling depan (secara pembukuan = ditalangi pemegang, lalu
+	// dipotong otomatis saat bayar fee).
+	const payerCrew = useMemo(() => {
+		if (!ujAda) return context.crew;
+		const holder = context.crew.find((c) => c.user_id === ujHolder);
+		const rest = context.crew.filter((c) => c.user_id !== ujHolder);
+		return holder
+			? [{ ...holder, name: "💵 Uang jalan dari owner" }, ...rest]
+			: context.crew;
+	}, [context.crew, ujAda, ujHolder]);
 
 	// Total biaya lapangan + split talangan crew vs dibayar owner — angka split
 	// inilah yang bikin owner langsung tahu berapa yang perlu di-rembers.

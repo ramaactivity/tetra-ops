@@ -778,6 +778,12 @@ export async function reverseJournalEntry(
 			reversed_at: new Date().toISOString(),
 		})
 		.eq("id", entryId);
+	// Pengeluaran yang dibayar pakai uang jalan ikut batal di buku uang jalan.
+	await supabase
+		.from("uang_jalan")
+		.update({ is_reversed: true })
+		.eq("journal_id", entryId)
+		.eq("kind", "pakai");
 
 	revalidatePath("/finance/accounting");
 	return { ok: true, reversalRefId };

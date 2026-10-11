@@ -117,7 +117,10 @@ export function EventExtraTransactions({
 	cashAccounts,
 	ownerPaidPending = [],
 	readOnly = false,
+	uangJalan = [],
 }: {
+	/** Uang jalan yang masih dipegang crew (sudah dikurangi yang diantre) — DR-049. */
+	uangJalan?: Array<{ user_id: string; name: string; saldo: number }>;
 	eventId: string;
 	projectId: string;
 	/** Yang SUDAH masuk buku (jurnalnya lahir saat settle / dicatat manual). */
@@ -141,12 +144,28 @@ export function EventExtraTransactions({
 	const [account, setAccount] = useState(() => defaultAccount(cashAccounts));
 	const [proofUrl, setProofUrl] = useState<string | null>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
-	const [bulkAccount, setBulkAccount] = useState(() =>
-		defaultAccount(
-			cashAccounts,
-			ownerPaidPending.map((p) => p.categoryId),
-		),
-	);
+	const [bulkAccount, setBulkAccount] = useState(() => {
+		// Biaya lapangan "dibayar owner" biasanya dibayar dari uang jalan crew —
+		// kalau cukup, itu sumber bawaannya.
+		const need = ownerPaidPending.reduce((t, p) => t + p.amount, 0);
+		const uj = uangJalan.find((u) => u.saldo >= need && need > 0);
+		return uj
+			? `uj:${uj.user_id}`
+			: defaultAccount(
+					cashAccounts,
+					ownerPaidPending.map((p) => p.categoryId),
+				);
+	});
+	// Sumber dana "uang jalan" — hanya untuk uang keluar.
+	const ujOptions = uangJalan
+		.filter((u) => u.saldo > 0)
+		.map((u) => ({
+			code: `uj:${u.user_id}`,
+			name: `Uang jalan · ${u.name}`,
+			balance: u.saldo,
+		}));
+	const withUj = (list: CashAccount[], dir: CatatDirection) =>
+		dir === "keluar" ? [...ujOptions, ...list] : list;
 	// Ganti kategori = rekening ikut default-nya (tol → e-toll, lainnya BCA).
 	function pickCategory(id: string) {
 		setCategoryId(id);
@@ -208,7 +227,7 @@ export function EventExtraTransactions({
 			),
 	);
 
-	const acct = cashAccounts.find((a) => a.code === account);
+	const acct = [...ujOptions, ...cashAccounts].find((a) => a.code === account);
 	const insufficient =
 		direction === "keluar" &&
 		amount > 0 &&
@@ -257,7 +276,9 @@ export function EventExtraTransactions({
 	}
 
 	const pendingTotal = ownerPaidPending.reduce((s, p) => s + p.amount, 0);
-	const bulkAcct = cashAccounts.find((a) => a.code === bulkAccount);
+	const bulkAcct = [...ujOptions, ...cashAccounts].find(
+		(a) => a.code === bulkAccount,
+	);
 	const bulkInsufficient =
 		bulkAcct?.balance !== undefined && bulkAcct.balance < pendingTotal;
 
@@ -383,10 +404,11 @@ export function EventExtraTransactions({
 							<Combobox
 								value={bulkAccount}
 								onValueChange={(v) => setBulkAccount(v ?? "")}
-								options={bulkAccounts.map((a) => ({
+								options={withUj(bulkAccounts, "keluar").map((a) => ({
 									value: a.code,
-									label:
-										a.balance !== undefined
+									label: a.code.startsWith("uj:")
+										? `${a.name} — ${formatRupiah(a.balance ?? 0)} dipegang crew`
+										: a.balance !== undefined
 											? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
 											: `${a.code} · ${a.name}`,
 								}))}
@@ -653,10 +675,11 @@ export function EventExtraTransactions({
 							<Combobox
 								value={account}
 								onValueChange={(v) => setAccount(v ?? "")}
-								options={formAccounts.map((a) => ({
+								options={withUj(formAccounts, direction).map((a) => ({
 									value: a.code,
-									label:
-										a.balance !== undefined
+									label: a.code.startsWith("uj:")
+										? `${a.name} — ${formatRupiah(a.balance ?? 0)} dipegang crew`
+										: a.balance !== undefined
 											? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
 											: `${a.code} · ${a.name}`,
 								}))}

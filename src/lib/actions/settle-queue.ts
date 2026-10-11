@@ -6,6 +6,7 @@ import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { recordQuickTransaction } from "@/lib/actions/journal-entries";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -64,6 +65,44 @@ async function requireOwner() {
 
 export type QueueResponse = { ok: true } | { ok: false; error: string };
 
+/**
+ * Sumber dana "uang jalan" (DR-049): UI mengirim `uj:<user_id>`. Diterjemahkan
+ * ke akun 1-320 + crew pemegangnya; jumlah tidak boleh melebihi uang jalan yang
+ * masih dipegang crew itu (dikurangi yang sudah diantre).
+ */
+async function resolveUangJalan(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	eventId: string,
+	accountCode: string,
+	amount: number,
+): Promise<
+	| { ok: true; account_code: string; uj_user_id: string | null }
+	| { ok: false; error: string }
+> {
+	if (!accountCode.startsWith("uj:"))
+		return { ok: true, account_code: accountCode, uj_user_id: null };
+	const userId = accountCode.slice(3);
+	if (!z.uuid().safeParse(userId).success)
+		return { ok: false, error: "Pemegang uang jalan tidak valid" };
+	const [saldo, { data: pending }] = await Promise.all([
+		saldoUangJalanDb(supabase, eventId, userId),
+		supabase
+			.from("event_settle_queue")
+			.select("amount")
+			.eq("event_id", eventId)
+			.eq("uj_user_id", userId)
+			.is("posted_at", null),
+	]);
+	const sisa =
+		saldo - (pending ?? []).reduce((t, r) => t + Number(r.amount ?? 0), 0);
+	if (amount > sisa)
+		return {
+			ok: false,
+			error: `Uang jalan yang masih dipegang crew ini tinggal ${sisa.toLocaleString("id-ID")}.`,
+		};
+	return { ok: true, account_code: "1-320", uj_user_id: userId };
+}
+
 /** Antre satu pemasukan/pengeluaran lain untuk dibukukan saat settle. */
 export async function queueEventExpense(input: {
 	event_id: string;
@@ -87,14 +126,31 @@ export async function queueEventExpense(input: {
 	}
 
 	const supabase = await createClient();
+	const uj =
+		parsed.data.direction === "keluar"
+			? await resolveUangJalan(
+					supabase,
+					parsed.data.event_id,
+					parsed.data.account_code,
+					parsed.data.amount,
+				)
+			: parsed.data.account_code.startsWith("uj:")
+				? ({ ok: false, error: "Uang jalan hanya untuk uang keluar" } as const)
+				: ({
+						ok: true,
+						account_code: parsed.data.account_code,
+						uj_user_id: null,
+					} as const);
+	if (!uj.ok) return uj;
 	const { error } = await supabase.from("event_settle_queue").insert({
+		uj_user_id: uj.uj_user_id,
 		event_id: parsed.data.event_id,
 		kind: "expense",
 		direction: parsed.data.direction,
 		category_id: parsed.data.category_id,
 		note: parsed.data.note ?? null,
 		amount: parsed.data.amount,
-		account_code: parsed.data.account_code,
+		account_code: uj.account_code,
 		proof_url: parsed.data.proof_url ?? null,
 		created_by: me.profile.id,
 	});
@@ -135,7 +191,20 @@ export async function queueEventExpensesBatch(input: {
 	if (rows.length === 0) return { ok: true, queued: 0 };
 
 	const supabase = await createClient();
-	const { error } = await supabase.from("event_settle_queue").insert(rows);
+	const uj = await resolveUangJalan(
+		supabase,
+		input.event_id,
+		input.account_code,
+		rows.reduce((t, r) => t + r.amount, 0),
+	);
+	if (!uj.ok) return uj;
+	const { error } = await supabase.from("event_settle_queue").insert(
+		rows.map((r) => ({
+			...r,
+			account_code: uj.account_code,
+			uj_user_id: uj.uj_user_id,
+		})),
+	);
 	if (error) return { ok: false, error: error.message };
 
 	revalidatePath(`/operations/${input.project_id}/rekap`);
@@ -328,7 +397,7 @@ export async function postSettleQueue(
 	const { data: rows } = await supabase
 		.from("event_settle_queue")
 		.select(
-			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url",
+			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, uj_user_id",
 		)
 		.eq("event_id", eventId)
 		.is("posted_at", null)
@@ -393,6 +462,23 @@ export async function postSettleQueue(
 			ok = Boolean(res?.success);
 			err = res?.success ? null : (res?.error ?? "Gagal mencatat transaksi");
 			ref = res?.refId ?? null;
+			// Dibayar pakai uang jalan → kurangi saldo yang dipegang crew.
+			if (ok && row.uj_user_id && ref) {
+				const { data: je } = await supabase
+					.from("journal_entries")
+					.select("id")
+					.eq("ref_id", ref)
+					.maybeSingle();
+				await supabase.from("uang_jalan").insert({
+					event_id: eventId,
+					user_id: row.uj_user_id,
+					kind: "pakai",
+					amount: row.amount,
+					account_code: "1-320",
+					journal_id: je?.id ?? null,
+					note: (row.note as string | null) ?? "Pengeluaran event",
+				});
+			}
 		} else {
 			const commissionKind =
 				row.kind === "commission_partner"

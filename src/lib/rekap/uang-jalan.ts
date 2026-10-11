@@ -8,7 +8,7 @@
  */
 
 export type UjRow = {
-	kind: "beri" | "kembali" | "potong_fee";
+	kind: "beri" | "kembali" | "potong_fee" | "pakai";
 	amount: number;
 	is_reversed?: boolean;
 };

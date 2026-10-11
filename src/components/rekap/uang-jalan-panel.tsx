@@ -20,7 +20,7 @@ import { SingleFileUpload } from "./single-file-upload";
 export type UangJalanLedgerRow = {
 	id: string;
 	user_id: string;
-	kind: "beri" | "kembali" | "potong_fee";
+	kind: "beri" | "kembali" | "potong_fee" | "pakai";
 	amount: number;
 	method: string | null;
 	account_code: string | null;
@@ -33,6 +33,7 @@ const KIND: Record<UangJalanLedgerRow["kind"], string> = {
 	beri: "Diberikan",
 	kembali: "Sisa dikembalikan",
 	potong_fee: "Dipotong dari fee",
+	pakai: "Dipakai bayar biaya",
 };
 
 const input =
@@ -50,6 +51,7 @@ export function UangJalanPanel({
 	ledger,
 	report,
 	cashAccounts,
+	antre = {},
 }: {
 	eventId: string;
 	projectId: string;
@@ -66,6 +68,8 @@ export function UangJalanPanel({
 		kembaliBukti?: string | null;
 	} | null;
 	cashAccounts: CashAccountOption[];
+	/** Pengeluaran "pakai uang jalan" yang masih diantre (dibukukan saat settle), per crew. */
+	antre?: Record<string, number>;
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -381,6 +385,14 @@ export function UangJalanPanel({
 									{formatRupiah(given(u))}
 								</span>
 							</div>
+							{(antre[u] ?? 0) > 0 && (
+								<div className="flex justify-between text-muted-foreground">
+									<span>Akan dipakai (diantre sampai settle)</span>
+									<span className="tabular" data-nominal>
+										− {formatRupiah(antre[u] ?? 0)}
+									</span>
+								</div>
+							)}
 							<div className="flex justify-between font-semibold">
 								<span>Masih dipegang crew</span>
 								<span className="tabular" data-nominal>
@@ -466,35 +478,36 @@ export function UangJalanPanel({
 								<span className="tabular font-medium" data-nominal>
 									{formatRupiah(l.amount)}
 								</span>
-								{!l.is_reversed && l.kind !== "potong_fee" && (
-									<button
-										type="button"
-										aria-label="Batalkan catatan"
-										disabled={pending}
-										onClick={async () => {
-											if (
-												await confirm({
-													title: "Batalkan catatan uang jalan ini?",
-													description:
-														"Jurnalnya dibalik. Data tidak dihapus, hanya ditandai batal.",
-													confirmLabel: "Batalkan",
-													variant: "destructive",
-												})
-											)
-												start(async () => {
-													const r = await batalUangJalan(l.id, projectId);
-													if (!r.ok) toast.error(r.error);
-													else {
-														toast.success(r.note ?? "Dibatalkan");
-														router.refresh();
-													}
-												});
-										}}
-										className="hover:bg-secondary text-muted-foreground grid size-7 place-items-center rounded-full"
-									>
-										<Undo2 className="size-3.5" />
-									</button>
-								)}
+								{!l.is_reversed &&
+									(l.kind === "beri" || l.kind === "kembali") && (
+										<button
+											type="button"
+											aria-label="Batalkan catatan"
+											disabled={pending}
+											onClick={async () => {
+												if (
+													await confirm({
+														title: "Batalkan catatan uang jalan ini?",
+														description:
+															"Jurnalnya dibalik. Data tidak dihapus, hanya ditandai batal.",
+														confirmLabel: "Batalkan",
+														variant: "destructive",
+													})
+												)
+													start(async () => {
+														const r = await batalUangJalan(l.id, projectId);
+														if (!r.ok) toast.error(r.error);
+														else {
+															toast.success(r.note ?? "Dibatalkan");
+															router.refresh();
+														}
+													});
+											}}
+											className="hover:bg-secondary text-muted-foreground grid size-7 place-items-center rounded-full"
+										>
+											<Undo2 className="size-3.5" />
+										</button>
+									)}
 							</span>
 						</li>
 					))}

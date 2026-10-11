@@ -334,6 +334,25 @@ export default async function EventRekapPage({
 		...r,
 		amount: Number(r.amount),
 	}));
+	// Sumber dana "Uang jalan · crew" di Pemasukan / pengeluaran lain:
+	// saldo dipegang dikurangi pengeluaran uang jalan yang masih diantre.
+	const { data: ujQueued } = await supabase
+		.from("event_settle_queue")
+		.select("uj_user_id, amount")
+		.eq("event_id", event.id as string)
+		.not("uj_user_id", "is", null)
+		.is("posted_at", null);
+	const uangJalanSumber = [...new Set(ujLedger.map((l) => l.user_id))]
+		.map((u) => ({
+			user_id: u,
+			name: context.crew.find((c) => c.user_id === u)?.name ?? "crew",
+			saldo:
+				saldoUangJalan(ujLedger.filter((l) => l.user_id === u)) -
+				(ujQueued ?? [])
+					.filter((q) => q.uj_user_id === u)
+					.reduce((t, q) => t + Number(q.amount ?? 0), 0),
+		}))
+		.filter((u) => u.saldo > 0);
 	const uangJalanPotong = Object.fromEntries(
 		crewFeeRows.map((r) => [
 			r.assignment_id,
@@ -1009,6 +1028,16 @@ export default async function EventRekapPage({
 							: null
 					}
 					cashAccounts={cashAccountsNoCard}
+					antre={Object.fromEntries(
+						[
+							...new Set((ujQueued ?? []).map((q) => q.uj_user_id as string)),
+						].map((u) => [
+							u,
+							(ujQueued ?? [])
+								.filter((q) => q.uj_user_id === u)
+								.reduce((t, q) => t + Number(q.amount ?? 0), 0),
+						]),
+					)}
 				/>
 			)}
 
@@ -1096,6 +1125,7 @@ export default async function EventRekapPage({
 						queued={queuedEntries}
 						cashAccounts={cashAccounts}
 						ownerPaidPending={ownerPaidPending}
+						uangJalan={uangJalanSumber}
 					/>
 
 					{profitPreview && (
@@ -1256,6 +1286,7 @@ export default async function EventRekapPage({
 						queued={queuedEntries}
 						cashAccounts={cashAccounts}
 						ownerPaidPending={ownerPaidPending}
+						uangJalan={uangJalanSumber}
 					/>
 
 					{profitPreview && (

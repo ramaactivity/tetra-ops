@@ -85,3 +85,16 @@ test("saldo: pembatalan diabaikan, potong_fee mengurangi", () => {
 		0,
 	);
 });
+
+test("pakai (pengeluaran dibayar uang jalan) mengurangi saldo yang dipegang crew", () => {
+	// Kasus Rafi & Dinda: diberi 150, transport 82 + konsumsi 15 dari uang jalan, sisa 53 dikembalikan.
+	assert.equal(
+		saldoUangJalan([
+			{ kind: "beri", amount: 150_000 },
+			{ kind: "pakai", amount: 82_000 },
+			{ kind: "pakai", amount: 15_000 },
+			{ kind: "kembali", amount: 53_000 },
+		]),
+		0,
+	);
+});
