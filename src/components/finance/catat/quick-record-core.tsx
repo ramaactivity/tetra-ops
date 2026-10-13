@@ -7,6 +7,7 @@ import {
 	ChevronDown,
 	Loader2,
 	Paperclip,
+	Plus,
 	Repeat2,
 	X,
 } from "lucide-react";
@@ -158,6 +159,12 @@ export function QuickRecordCore({
 	const [periodMonth, setPeriodMonth] = useState<string>(() =>
 		new Date().toISOString().slice(0, 7),
 	);
+	// Pecah transaksi (uang keluar): baris TAMBAHAN di luar kategori utama.
+	// pick = "cat:<id>" | "coa:<kode>"; kategori utama otomatis dapat sisanya.
+	const [splits, setSplits] = useState<
+		Array<{ key: number; pick: string; amount: number }>
+	>([]);
+	const splitKey = useRef(0);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [showAllCats, setShowAllCats] = useState(false);
 	const [previewOpen, setPreviewOpen] = useState(false);
@@ -237,6 +244,9 @@ export function QuickRecordCore({
 			? (sourceAcct?.balance ?? 0) + amount
 			: (sourceAcct?.balance ?? 0) - amount - feeApplied;
 
+	const splitTotal = splits.reduce((t, sp) => t + sp.amount, 0);
+	const mainAmount = amount - splitTotal;
+
 	const blockReason =
 		amount <= 0
 			? "Masukkan jumlah"
@@ -247,15 +257,21 @@ export function QuickRecordCore({
 					? "Pilih rekening tujuan"
 					: direction !== "transfer" && !categoryId && !coaOverride
 						? "Pilih kategori"
-						: // Saldo guard: keluar/transfer tidak boleh bikin rekening minus.
-							direction !== "masuk" && afterSource < 0
-							? `Saldo ${sourceAcct?.name ?? "rekening"} tidak cukup`
-							: // Patungan tidak boleh melebihi bebannya — bebannya akan jadi
-								// minus di pembukuan, dan itu tidak pernah benar.
-								patunganPerOwner > 0 &&
-									patunganPerOwner * data.ownerPool.ownerCount > amount
-								? "Patungan melebihi nominal beban"
-								: null;
+						: splits.some((sp) => !sp.pick)
+							? "Pilih kategori pecahan"
+							: splits.some((sp) => sp.amount <= 0)
+								? "Isi nominal pecahan"
+								: splits.length > 0 && mainAmount <= 0
+									? "Pecahan melebihi jumlah"
+									: // Saldo guard: keluar/transfer tidak boleh bikin rekening minus.
+										direction !== "masuk" && afterSource < 0
+										? `Saldo ${sourceAcct?.name ?? "rekening"} tidak cukup`
+										: // Patungan tidak boleh melebihi bebannya — bebannya akan jadi
+											// minus di pembukuan, dan itu tidak pernah benar.
+											patunganPerOwner > 0 &&
+												patunganPerOwner * data.ownerPool.ownerCount > amount
+											? "Patungan melebihi nominal beban"
+											: null;
 	const canSubmit = blockReason === null;
 
 	// ── unggah nota (dipakai jalur simpan & tombol coba lagi) ─────────────────
@@ -378,6 +394,7 @@ export function QuickRecordCore({
 		setDirection(d);
 		setCategoryId(null);
 		setCoaOverride("");
+		setSplits([]);
 		if (d === "masuk") setAdminFee(0);
 	}
 	function applyRecent(r: RecentTxn) {
@@ -489,6 +506,106 @@ export function QuickRecordCore({
 			</div>
 		) : null;
 
+	const splitOptions = [
+		...categoriesFor("keluar")
+			.filter((c) => c.entryType === "expense")
+			.map((c) => ({ value: `cat:${c.id}`, label: c.label })),
+		...data.coaOptions.map((o) => ({
+			value: `coa:${o.code}`,
+			label: `${o.code} · ${o.name}`,
+		})),
+	];
+	const addSplit = () => {
+		haptic("tap");
+		setPatunganPerOwner(0);
+		setSplits((prev) => [
+			...prev,
+			{ key: ++splitKey.current, pick: "", amount: 0 },
+		]);
+	};
+	const updateSplit = (
+		key: number,
+		patch: Partial<{ pick: string; amount: number }>,
+	) =>
+		setSplits((prev) =>
+			prev.map((sp) => (sp.key === key ? { ...sp, ...patch } : sp)),
+		);
+
+	// Satu transfer, beberapa keperluan (mis. reimburse rapat + perlengkapan
+	// event). Tetap SATU jurnal: rekening keluar sekali, beban per baris.
+	const splitBlock =
+		splits.length === 0 ? (
+			<button
+				type="button"
+				onClick={addSplit}
+				className="press inline-flex items-center gap-1 text-[12.5px] font-semibold text-emerald-700 hover:text-emerald-800"
+			>
+				<Plus className="size-3.5" /> Pecah ke kategori lain
+			</button>
+		) : (
+			<div className="space-y-2 rounded-xl border border-border-subtle bg-surface-2 p-3">
+				<div className="flex items-baseline justify-between gap-2">
+					<span className="eyebrow">Dipecah · satu transfer</span>
+					<span className="tabular text-[12px] text-muted-foreground">
+						Total {formatRupiah(amount)}
+					</span>
+				</div>
+				<div className="flex items-baseline justify-between gap-3 text-[13px]">
+					<span className="min-w-0 truncate text-foreground">
+						{categoryId || coaOverride ? counterpartName : "Kategori di atas"}
+						<span className="text-muted-foreground"> · sisanya</span>
+					</span>
+					<span
+						className={cn(
+							"tabular shrink-0 font-semibold",
+							mainAmount <= 0 ? "text-rose-600" : "text-foreground",
+						)}
+					>
+						{formatRupiah(mainAmount)}
+					</span>
+				</div>
+				{splits.map((sp) => (
+					<div key={sp.key} className="flex items-center gap-2">
+						<div className="min-w-0 flex-1">
+							<Combobox
+								value={sp.pick}
+								onValueChange={(v) => updateSplit(sp.key, { pick: v ?? "" })}
+								options={splitOptions}
+								placeholder="Kategori…"
+								allowFreeText={false}
+								closeOnScroll
+							/>
+						</div>
+						<div className="w-32 shrink-0">
+							<MoneyInput
+								value={sp.amount}
+								onValueChange={(v) => updateSplit(sp.key, { amount: v })}
+								className="h-9 text-right text-[13px]"
+								aria-label="Nominal pecahan"
+							/>
+						</div>
+						<button
+							type="button"
+							onClick={() =>
+								setSplits((prev) => prev.filter((x) => x.key !== sp.key))
+							}
+							aria-label="Hapus pecahan"
+							className="press grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+						>
+							<X className="size-4" />
+						</button>
+					</div>
+				))}
+				<button
+					type="button"
+					onClick={addSplit}
+					className="press inline-flex items-center gap-1 text-[12.5px] font-semibold text-emerald-700 hover:text-emerald-800"
+				>
+					<Plus className="size-3.5" /> Tambah pecahan
+				</button>
+			</div>
+		);
+
 	const categoryField =
 		direction !== "transfer" ? (
 			<div className="space-y-2.5">
@@ -550,6 +667,7 @@ export function QuickRecordCore({
 					allowFreeText={false}
 					closeOnScroll
 				/>
+				{direction === "keluar" ? splitBlock : null}
 			</div>
 		) : null;
 
@@ -658,8 +776,9 @@ export function QuickRecordCore({
 		? (nameByCode.get(coaOverride) ?? coaOverride)
 		: (findCategory(categoryId)?.label ?? "beban");
 
+	// Patungan dihitung untuk SATU akun beban — tidak dipakai saat dipecah.
 	const patunganField =
-		direction === "keluar" ? (
+		direction === "keluar" && splits.length === 0 ? (
 			<div className="space-y-2.5">
 				<span className="eyebrow">Patungan owner (opsional)</span>
 				<div className="flex flex-wrap items-center gap-2">
@@ -1138,8 +1257,15 @@ export function QuickRecordCore({
 				<dl className="mt-2 space-y-1 rounded-lg border border-border-subtle bg-card p-3 text-left text-[12px]">
 					<JournalLine
 						label={`DEBIT · ${direction === "masuk" ? (sourceAcct?.name ?? accountCode) : counterpartName}`}
-						value={formatRupiah(amount)}
+						value={formatRupiah(mainAmount)}
 					/>
+					{splits.map((sp) => (
+						<JournalLine
+							key={sp.key}
+							label={`DEBIT · ${splitOptions.find((o) => o.value === sp.pick)?.label ?? "—"}`}
+							value={formatRupiah(sp.amount)}
+						/>
+					))}
 					{feeApplied > 0 ? (
 						<JournalLine
 							label="DEBIT · Biaya Admin Bank (5-600)"
@@ -1232,8 +1358,23 @@ export function QuickRecordCore({
 				if (eventId && direction !== "transfer") fd.set("event_id", eventId);
 				fd.set(
 					"patungan_per_owner",
-					String(direction === "keluar" ? patunganPerOwner : 0),
+					String(
+						direction === "keluar" && splits.length === 0
+							? patunganPerOwner
+							: 0,
+					),
 				);
+				if (direction === "keluar" && splits.length > 0)
+					fd.set(
+						"splits",
+						JSON.stringify(
+							splits.map((sp) =>
+								sp.pick.startsWith("cat:")
+									? { category_id: sp.pick.slice(4), amount: sp.amount }
+									: { coa_override: sp.pick.slice(4), amount: sp.amount },
+							),
+						),
+					);
 				if (note.trim()) fd.set("note", note.trim());
 				formAction(fd);
 			}}

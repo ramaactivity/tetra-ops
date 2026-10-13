@@ -298,6 +298,19 @@ const QuickRecordSchema = z.object({
 		.transform((v) => (v ? v : undefined)),
 });
 
+// Pecah transaksi: satu transfer dibagi ke beberapa akun beban (mis. reimburse
+// 220rb = rapat 100rb + perlengkapan event 120rb). Hanya baris TAMBAHAN yang
+// dikirim; kategori utama otomatis menerima sisanya, jadi total selalu pas.
+const QuickSplitsSchema = z
+	.array(
+		z.object({
+			category_id: z.string().trim().max(40).nullish(),
+			coa_override: z.string().trim().max(20).nullish(),
+			amount: z.coerce.number().int().positive("Nominal pecahan harus > 0"),
+		}),
+	)
+	.max(10, "Maksimal 10 pecahan");
+
 export type QuickRecordFormState =
 	| {
 			error?: string;
@@ -326,6 +339,7 @@ export async function recordQuickTransaction(
 		proof_url: formData.get("proof_url") ?? undefined,
 		period_month: formData.get("period_month") ?? undefined,
 		patungan_per_owner: formData.get("patungan_per_owner") ?? 0,
+		splits: formData.get("splits") ?? undefined,
 	});
 	if (res?.success) {
 		revalidatePath("/finance");
@@ -396,6 +410,47 @@ export async function recordQuickTransactionCore(
 		counterpartLineLabel = defaultLabel;
 	}
 
+	// Pecahan tambahan (uang keluar saja) → akun beban masing-masing.
+	let splitsRaw: unknown = raw.splits ?? [];
+	if (typeof splitsRaw === "string") {
+		try {
+			splitsRaw = JSON.parse(splitsRaw);
+		} catch {
+			return { error: "Rincian pecahan tidak valid" };
+		}
+	}
+	const splitsParsed = QuickSplitsSchema.safeParse(splitsRaw);
+	if (!splitsParsed.success)
+		return {
+			error: splitsParsed.error.issues[0]?.message ?? "Pecahan tidak valid",
+		};
+	const splits: Array<{ code: string; label: string; amount: number }> = [];
+	for (const sp of splitsParsed.data) {
+		const override = sp.coa_override?.trim();
+		const cat = findCategory(sp.category_id);
+		const code = override || cat?.coa;
+		if (!code) return { error: "Pilih kategori untuk tiap pecahan" };
+		if (override && isControlledAccount(override))
+			return { error: CONTROLLED_ACCOUNT_MSG };
+		if (cat && cat.entryType !== "expense")
+			return { error: `Kategori "${cat.label}" bukan pengeluaran` };
+		splits.push({ code, label: cat?.label ?? code, amount: sp.amount });
+	}
+	const splitTotal = splits.reduce((t, sp) => t + sp.amount, 0);
+	if (splits.length > 0) {
+		if (dir !== "keluar")
+			return { error: "Pecah transaksi hanya untuk uang keluar" };
+		if (splitTotal >= amount)
+			return {
+				error:
+					"Total pecahan harus lebih kecil dari jumlah — kategori utama dapat sisanya",
+			};
+		if (Number(raw.patungan_per_owner ?? 0) > 0)
+			return {
+				error: "Patungan owner tidak bisa dipakai saat transaksi dipecah",
+			};
+	}
+
 	// Biaya admin/transfer bank: hanya untuk uang keluar / transfer (bukan masuk).
 	// Dibukukan terpisah ke 5-600 supaya beban/counterpart tetap akurat.
 	const adminFee =
@@ -406,6 +461,7 @@ export async function recordQuickTransactionCore(
 		new Set([
 			account_code,
 			counterpartCode,
+			...splits.map((sp) => sp.code),
 			...(adminFee > 0 ? ["5-600"] : []),
 		]),
 	);
@@ -447,7 +503,8 @@ export async function recordQuickTransactionCore(
 	const lines = [
 		{
 			account_code: counterpartCode,
-			debit_amount: dir === "masuk" ? 0 : amount,
+			// Dipecah: kategori utama hanya menerima sisanya.
+			debit_amount: dir === "masuk" ? 0 : amount - splitTotal,
 			credit_amount: dir === "masuk" ? amount : 0,
 			description: counterpartLineLabel,
 			line_order: 1,
@@ -478,6 +535,21 @@ export async function recordQuickTransactionCore(
 		};
 	}
 
+	for (const sp of splits) {
+		// Pecahan "Akun lain" berlabel kode → pakai nama akunnya.
+		if (sp.label === sp.code)
+			sp.label =
+				((coa ?? []).find((c) => c.code === sp.code)?.name as string) ??
+				sp.code;
+		lines.push({
+			account_code: sp.code,
+			debit_amount: sp.amount,
+			credit_amount: 0,
+			description: sp.label,
+			line_order: lines.length + 1,
+		});
+	}
+
 	// Biaya admin bank → debit 5-600, dan kas/rekening asal keluar lebih banyak
 	// (amount + fee). lines[1] selalu sisi kredit kas untuk keluar & transfer.
 	if (adminFee > 0) {
@@ -487,7 +559,7 @@ export async function recordQuickTransactionCore(
 			debit_amount: adminFee,
 			credit_amount: 0,
 			description: "Biaya admin/transfer bank",
-			line_order: 3,
+			line_order: lines.length + 1,
 		});
 	}
 
@@ -498,7 +570,10 @@ export async function recordQuickTransactionCore(
 		? `${parsed.data.period_month}-01`
 		: null;
 	const periodLabel = periodMonth ? monthLabelID(periodMonth) : null;
-	const baseDescription = note && note.length >= 3 ? note : defaultLabel;
+	const splitLabel = [defaultLabel, ...splits.map((sp) => sp.label)].join(
+		" + ",
+	);
+	const baseDescription = note && note.length >= 3 ? note : splitLabel;
 	const description = (
 		periodLabel &&
 		!baseDescription.toLowerCase().includes(periodLabel.toLowerCase())
