@@ -44,3 +44,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/.temp/
+
+# Handover bot leads (berisi credentials — JANGAN commit)
+WHATSAPP_BOT_LEADS_HANDOVER.md
+
+WHATSAPP_BOT_SEGMENTASI_HANDOVER.md
+WHATSAPP_BOT_LID_DISPLAY_NOTE.md
+WHATSAPP_BOT_ALERT_ANALITIK_HANDOVER.md
