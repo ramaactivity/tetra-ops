@@ -22,6 +22,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventStatusBadge } from "@/components/badges/status-badge";
+import { BoothStatusPanel } from "@/components/crew/booth-status-panel";
 import { TbcNudgePanel } from "@/components/crew/tbc-nudge-panel";
 import { WhatsAppIcon } from "@/components/icons/whatsapp";
 import { AppHeader, AppScreen, CrewAvatar } from "@/components/ui/mobile";
@@ -631,6 +632,15 @@ export default async function CrewEventDetailPage({
 						</div>
 					</section>
 				)}
+
+				{/* Tetra Assistant (Booth #264): status laptop booth di hari acara. */}
+				{event.event_date === todayISO ? (
+					<BoothStatusPanel
+						projectId={event.project_id}
+						mySpot={mySpot}
+						unitCount={unitCount}
+					/>
+				) : null}
 
 				{/* Equipment card */}
 				<section className="space-y-2 rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-level-2)]">

@@ -42,6 +42,7 @@ frame_size ("2R"|"4R"|"polaroid"|"none"|null), package_name, package_duration_ho
 | Field | Tipe | Arti |
 |---|---|---|
 | `unit_count` | int 1–3 | Jumlah unit/spot booth. |
+| `units` | object[] | **v1.1 (usulan Booth 14 Okt, aditif):** satu elemen per unit, selalu terisi (acara 1 unit = satu elemen). `{ spot_no, frame_size, package_name, package_duration_hours, label }`. `spot_no` 1..N stabil, sama dengan `design.spots[].spot_no`. Diisi dari **isian booking per unit** (bukan desain): unit 1 = kolom event, unit ≥2 = override `events.spots`; ukuran unit ≥2 yang kosong = ikut unit 1. `package_name`: kalau ukuran unit ≠ ukuran paket event, nama paket sekategori & sedurasi dengan ukuran unit itu (mis. "2R Unlimited 3 Jam"; harga sama). `label` (lokasi booth di venue) belum diisi Ops → `null`. `unit_count` & `frame_size` level atas tetap (`frame_size` = unit 1). Perubahan jumlah unit / ukuran per unit memicu `booking.updated`. |
 | `modules` | string[] | Isi paket: `photobooth`, `photo_stage`, `guest_cam`, `videobooth_360`, `magazine`. Diturunkan dari kategori paket + add-on. Sejak v0.9: kategori paket `guest_cam` (Guest Cam tanpa booth) → `["guest_cam"]`; paket lain + add-on/bonus tier Guest Cam → ditambah `guest_cam`. |
 | `cancelled` | boolean | Di GET nilainya selalu `false`, karena event batal tidak ikut terkirim. Field ini baru bermakna di webhook `booking.cancelled`. Booth tidak menghapus event secara otomatis; event hanya ditandai "dibatalkan di Ops" dan admin Booth yang memutuskan. |
 | `design` | object \| null | Lihat di bawah. `null` kalau belum ada data desain. |
@@ -221,6 +222,7 @@ Authorization: Bearer <TETRA_OPS_API_TOKEN>
 | Versi | Tanggal | Isi |
 |---|---|---|
 | 0.1 | 2026-10-06 | Draf awal: field tambahan, aturan file desain, webhook, API galeri, pembagian Midtrans. |
+| 1.1 | 2026-10-14 | §2.2 `units[]` per unit (usulan Booth tetra-booth-app-5f, CIMB 2 unit 4R+2R). Sumber: isian booking per unit Ops (`events.unit_count` + `events.spots`). `label` lokasi belum ada isiannya → `null`. |
 | 1.0-draf | 2026-10-09 | Template: Booth = studio, Ops = etalase (keputusan owner). Ops mengirim `design.source`, `design.booth_layout_version`, `design.texts` (aditif). Usulan `GET /api/ops/templates` + variabel teks `{judul}`/`{subjudul}`/`{tanggal}`/`{hashtag}` + pasang layout otomatis untuk `source = template`. Ops memakai salinan `chroma.ts`/`detect.ts` Booth untuk upload desain (termasuk unggahan klien). |
 | 0.9 | 2026-10-08 | §2.2 Guest Cam (harga final ACC owner, Booth #221/#223/#224/#225): `guest_cam_max_guests`, `guest_cam_print`, `guest_cam_print_size` (tambahan Ops), `guest_card_design`; kategori paket `guest_cam` (tanpa booth) → `modules` `["guest_cam"]`. Sumber data: add-on/bonus Ops dengan `addon_group` (`guest_cam`, `guest_print`, `guest_print_100`). |
 | 0.8 | 2026-10-08 | Kode promo tamu `TAMU-XXXXX` (Booth #218): Ops memanggil `GET /api/ops/promo/{code}` (cek), `POST …/redeem` saat DP diterima, `DELETE …/redeem` saat event batal/dihapus. Potongan disimpan di `client_bookings.promo` dan masuk event sebagai `discount_type = promo`. Wizard membaca `?promo=`. |

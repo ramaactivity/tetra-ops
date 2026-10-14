@@ -10,6 +10,7 @@ import {
 	parseBoothRange,
 	toBoothBooking,
 	toBoothDesign,
+	unitsFor,
 } from "@/lib/booth-api";
 
 test("rentang bawaan hari ini + 60 hari, validasi format & batas", () => {
@@ -236,4 +237,64 @@ test("objek design v1.0: source & texts (template otomatis / klien / designer)",
 	assert.equal(klien.source, "klien");
 	assert.equal(klien.texts, null);
 	assert.equal(klien.frame_url, "https://x/b/k.png");
+});
+
+test("units[]: satu elemen per unit dari isian booking, paket ikut ukuran unit", () => {
+	const pkgs = [
+		{
+			name: "4R Unlimited 3 Jam",
+			category: "photobooth_classic",
+			duration_hours: 3,
+			frame_size: "4R",
+		},
+		{
+			name: "2R Unlimited 3 Jam",
+			category: "photobooth_classic",
+			duration_hours: 3,
+			frame_size: "2R",
+		},
+		{
+			name: "2R Unlimited 2 Jam",
+			category: "photobooth_classic",
+			duration_hours: 2,
+			frame_size: "2R",
+		},
+	];
+	const base = row({
+		frame_size: "4R",
+		package: { name: "4R Unlimited 3 Jam", duration_hours: 3 },
+	});
+	// Acara 1 unit tetap satu elemen.
+	assert.deepEqual(unitsFor(base, pkgs), [
+		{
+			spot_no: 1,
+			frame_size: "4R",
+			package_name: "4R Unlimited 3 Jam",
+			package_duration_hours: 3,
+			label: null,
+		},
+	]);
+	// CIMB: unit 2 = 2R → paket sekategori & sedurasi ukuran 2R.
+	const cimb = unitsFor(
+		{
+			...base,
+			unit_count: 2,
+			spots: [{ spot: 2, frame_size: "2R", backdrop_id: null }],
+		},
+		pkgs,
+	);
+	assert.equal(cimb.length, 2);
+	assert.equal(cimb[1].spot_no, 2);
+	assert.equal(cimb[1].frame_size, "2R");
+	assert.equal(cimb[1].package_name, "2R Unlimited 3 Jam");
+	// Unit ≥2 tanpa ukuran = ikut unit 1 (aturan lib/events/spots).
+	const same = unitsFor({ ...base, unit_count: 3, spots: [] }, pkgs);
+	assert.deepEqual(
+		same.map((u) => [u.spot_no, u.frame_size, u.package_name]),
+		[
+			[1, "4R", "4R Unlimited 3 Jam"],
+			[2, "4R", "4R Unlimited 3 Jam"],
+			[3, "4R", "4R Unlimited 3 Jam"],
+		],
+	);
 });

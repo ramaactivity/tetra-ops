@@ -7,6 +7,7 @@
  */
 import { createHmac } from "node:crypto";
 import { shiftISODate } from "@/lib/dates";
+import { eventSpots } from "@/lib/events/spots";
 
 /** Booking yang masih akan / sedang berjalan (termasuk status lama draft/confirmed). */
 export const BOOTH_EVENT_STATUSES = [
@@ -100,6 +101,58 @@ export function toBoothBooking(r: BoothEventRow): BoothBooking {
 		package_name: pkg?.name ?? r.custom_package_name ?? null,
 		package_duration_hours: pkg?.duration_hours ?? null,
 	};
+}
+
+// ── units[] (aditif, usulan Booth 14 Okt 2026) ──────────────────────────────
+
+/** Satu unit/spot photobooth di acara (acara 1 unit = satu elemen). */
+export type BoothUnit = {
+	/** 1..N, stabil & sama dengan design.spots[].spot_no. */
+	spot_no: number;
+	frame_size: string | null;
+	package_name: string | null;
+	package_duration_hours: number | null;
+	/** Lokasi booth di venue ("Lobby", "Hall B") — belum ada isiannya di Ops. */
+	label: string | null;
+};
+
+export type UnitPackage = {
+	name: string;
+	category: string | null;
+	duration_hours: number | null;
+	frame_size: string | null;
+};
+
+/**
+ * Unit acara dari ISIAN BOOKING per unit (bukan dari desain): unit 1 = kolom
+ * event, unit ≥2 = override events.spots (frame kosong = ikut unit 1, aturan
+ * lib/events/spots). Paket per unit: satu paket event bisa mencakup unit
+ * dengan ukuran beda → kalau ukuran unit ≠ paket event, pakai paket sekategori
+ * & sedurasi dengan ukuran unit itu (harga sama), mis. "2R Unlimited 3 Jam".
+ */
+export function unitsFor(
+	r: BoothEventRow & { unit_count?: number | null; spots?: unknown },
+	packages: UnitPackage[],
+): BoothUnit[] {
+	const base = toBoothBooking(r);
+	return eventSpots(r).map((sp) => {
+		const alt =
+			sp.frame_size && sp.frame_size !== r.frame_size
+				? packages.find(
+						(p) =>
+							p.category === r.service_type &&
+							p.duration_hours === base.package_duration_hours &&
+							p.frame_size === sp.frame_size,
+					)
+				: undefined;
+		return {
+			spot_no: sp.spot,
+			frame_size: sp.frame_size,
+			package_name: alt?.name ?? base.package_name,
+			package_duration_hours: base.package_duration_hours,
+			label: null,
+		};
+	});
 }
 
 /** Kolom yang dibaca dari `events` — sengaja tanpa kolom uang/kontak. */

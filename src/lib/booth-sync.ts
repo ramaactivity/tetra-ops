@@ -8,6 +8,7 @@ import {
 	type BoothDesign,
 	type BoothEventRow,
 	type BoothModule,
+	type BoothUnit,
 	boothSignature,
 	type DesignSource,
 	type GuestAddon,
@@ -15,6 +16,8 @@ import {
 	modulesFor,
 	toBoothBooking,
 	toBoothDesign,
+	type UnitPackage,
+	unitsFor,
 } from "@/lib/booth-api";
 import { r2SignedUrl } from "@/lib/storage/r2";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,6 +30,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type BoothBookingFull = BoothBooking & {
 	unit_count: number;
+	/** Aditif (usulan Booth 14 Okt): satu elemen per unit, selalu terisi. */
+	units: BoothUnit[];
 	modules: BoothModule[];
 	cancelled: boolean;
 	design: BoothDesign;
@@ -45,12 +50,13 @@ export type BoothBookingFull = BoothBooking & {
 };
 
 /** Kolom tambahan di atas BOOTH_EVENT_SELECT — tetap tanpa uang/kontak. */
-export const BOOTH_FULL_SELECT = `id, status, unit_count, design_status, design_approved_at, design_frame_size, guest_card_design, ${BOOTH_EVENT_SELECT}`;
+export const BOOTH_FULL_SELECT = `id, status, unit_count, spots, design_status, design_approved_at, design_frame_size, guest_card_design, ${BOOTH_EVENT_SELECT}`;
 
 type FullRow = BoothEventRow & {
 	id: string;
 	status: string;
 	unit_count: number | null;
+	spots?: unknown;
 	design_status: string | null;
 	design_approved_at: string | null;
 	design_frame_size: string | null;
@@ -66,7 +72,7 @@ export async function enrichBoothBookings(
 	if (rows.length === 0) return [];
 	const admin = createAdminClient();
 	const ids = rows.map((r) => r.id);
-	const [reqRes, cbRes, addRes, bonusRes] = await Promise.all([
+	const [reqRes, cbRes, addRes, bonusRes, pkgRes] = await Promise.all([
 		admin
 			.from("design_requests")
 			.select(
@@ -87,7 +93,13 @@ export async function enrichBoothBookings(
 			.from("event_bonuses")
 			.select("event_id, addon:addons(addon_group, max_guests, print_size)")
 			.in("event_id", ids),
+		// Paket per unit (ukuran beda dari paket event) — tabel kecil.
+		admin
+			.from("packages")
+			.select("name, category, duration_hours, frame_size")
+			.eq("is_active", true),
 	]);
+	const packages = (pkgRes.data ?? []) as UnitPackage[];
 	type Req = DesignSource & { event_id: string };
 	// to-one embeds → object.
 	const reqs = (reqRes.data ?? []) as unknown as Req[];
@@ -131,6 +143,7 @@ export async function enrichBoothBookings(
 	return rows.map((r) => ({
 		...toBoothBooking(r),
 		unit_count: Math.min(3, Math.max(1, Number(r.unit_count ?? 1))),
+		units: unitsFor(r, packages),
 		modules: modulesFor(r.service_type, guestAddons.get(r.id)),
 		...guestCamFields(guestAddons.get(r.id) ?? []),
 		guest_card_design: r.guest_card_design ?? cards.get(r.id) ?? null,
@@ -304,7 +317,27 @@ export type BoothEventSummary = {
 	photo_count?: number;
 	/** Aditif (diminta Ops 2026-10-07): sampul + ≤6 thumbnail, presigned ±1 hari — jangan disimpan. */
 	cover_url?: string | null;
-	thumbs?: Array<{ url: string; kind?: string }>;
+	thumbs?: Array<{
+		url: string;
+		kind?: string;
+	}> /** Booth #262: nomor unit acara multi-unit (1 untuk acara 1 unit). */;
+	unit?: number;
+	/** Booth #264 "Tetra Assistant": laptop yang membuka/ditugaskan ke event ini. */
+	booths?: BoothStatus[];
+};
+
+/** Status satu laptop booth (heartbeat 60 dtk). `issues` = kalimat siap tampil. */
+export type BoothStatus = {
+	name: string;
+	code: string;
+	online: boolean;
+	last_seen_at: string | null;
+	issues: string[];
+	paper: { remaining: number; capacity: number } | null;
+	failed_prints: number;
+	upload_pending: number;
+	camera: { model: string; connected: boolean } | null;
+	printer: { name: string; status: string } | null;
 };
 
 /** null = fitur mati / Booth tidak bisa dihubungi (portal menampilkan pesan ramah). */
