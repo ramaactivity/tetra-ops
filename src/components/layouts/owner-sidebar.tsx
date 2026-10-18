@@ -19,6 +19,7 @@ import {
 	FileText,
 	Frame,
 	Globe,
+	HandCoins,
 	Handshake,
 	Inbox,
 	Landmark,
@@ -137,6 +138,11 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/payables",
 						label: "Hutang Dagang",
 						icon: Scale,
+					},
+					{
+						href: "/finance/hutang-owner",
+						label: "Hutang Owner",
+						icon: HandCoins,
 					},
 					{
 						href: "/finance/vendors",

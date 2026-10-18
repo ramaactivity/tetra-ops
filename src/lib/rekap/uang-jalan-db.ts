@@ -71,7 +71,7 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 		db
 			.from("talangan_owner_bayar")
 			.select(
-				"id, owner_id, direction, amount, is_reversed, created_at, note, event:events(project_id, client_name, event_date)",
+				"id, owner_id, direction, amount, is_reversed, created_at, note, event:events(project_id, client_name, event_date), journal:journal_entries(entry_date)",
 			)
 			.order("created_at", { ascending: false }),
 		db.from("users").select("id, full_name, nickname"),
@@ -92,6 +92,7 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 				created_at: string;
 				note: string | null;
 				event: EvRef;
+				journal: { entry_date: string } | null;
 			}
 		>
 	).filter((b) => !b.is_reversed);
@@ -143,7 +144,12 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 							? ""
 							: acara(b.event)
 					}`,
-					date: tgl(b.created_at, b.event),
+					// Sama dengan riwayat: tanggal acara, kalau tidak ada tanggal
+					// transaksinya (bukan tanggal input).
+					date:
+						b.event?.event_date ??
+						b.journal?.entry_date ??
+						b.created_at.slice(0, 10),
 					amount: Number(b.amount),
 					projectId: b.event?.project_id ?? null,
 					batalId: b.event === null ? b.id : null,
@@ -183,4 +189,151 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 				o.riwayat.some((r) => Date.parse(r.created_at) > recent),
 		)
 		.sort((a, b) => b.saldo - a.saldo);
+}
+
+/** Satu baris riwayat hutang-piutang Tetra ↔ owner. */
+export type TalanganRiwayatRow = {
+	id: string;
+	ownerId: string;
+	/** yyyy-mm-dd */
+	date: string;
+	createdAt: string;
+	jenis:
+		| "uang_jalan"
+		| "sisa_uang_jalan"
+		| "talangan"
+		| "piutang"
+		| "bayar"
+		| "terima";
+	label: string;
+	projectId: string | null;
+	/** + = Tetra makin berutang ke owner, − = berkurang / owner berutang. */
+	amount: number;
+	reversed: boolean;
+	/** Saldo owner itu setelah baris ini (baris batal tidak mengubah saldo). */
+	saldo: number;
+	proofUrl: string | null;
+	/** id talangan_owner_bayar yang boleh dibatalkan dari halaman ini. */
+	batalId: string | null;
+};
+
+/**
+ * Riwayat lengkap hutang-piutang owner (semua acara, termasuk yang dibatalkan)
+ * dengan saldo berjalan per owner — aturan saldo sama dengan saldoTalanganOwner.
+ * Urut terbaru dulu.
+ */
+export async function loadTalanganRiwayat(
+	db: Db,
+): Promise<TalanganRiwayatRow[]> {
+	const [uj, ledger] = await Promise.all([
+		db
+			.from("uang_jalan")
+			.select(
+				"id, kind, amount, admin_fee, owner_id, is_reversed, created_at, proof_url, crew:users!uang_jalan_user_id_fkey(full_name, nickname), event:events(project_id, client_name, event_date)",
+			)
+			.eq("account_code", TALANGAN_OWNER_COA),
+		db
+			.from("talangan_owner_bayar")
+			.select(
+				"id, owner_id, direction, amount, is_reversed, created_at, note, event:events(project_id, client_name, event_date), journal:journal_entries(entry_date, proof_url)",
+			),
+	]);
+	for (const r of [uj, ledger])
+		if (r.error) throw new Error(`riwayat talangan: ${r.error.message}`);
+	type Ev = EvRef;
+	const acara = (ev: Ev) => (ev?.client_name ? ` — ${ev.client_name}` : "");
+	const rows: Omit<TalanganRiwayatRow, "saldo">[] = [];
+	for (const r of (uj.data ?? []) as Array<{
+		id: string;
+		kind: string;
+		amount: number;
+		admin_fee: number | null;
+		owner_id: string | null;
+		is_reversed: boolean;
+		created_at: string;
+		proof_url: string | null;
+		crew: { full_name: string; nickname: string | null } | null;
+		event: Ev;
+	}>) {
+		if (!r.owner_id || (r.kind !== "beri" && r.kind !== "kembali")) continue;
+		const crew = r.crew?.nickname || r.crew?.full_name || "crew";
+		const admin = Number(r.admin_fee || 0);
+		rows.push({
+			id: `uj:${r.id}`,
+			ownerId: r.owner_id,
+			// Tanggal acara (sama dengan rincian di kartu), kalau tidak ada:
+			// tanggal dicatat.
+			date: r.event?.event_date ?? r.created_at.slice(0, 10),
+			createdAt: r.created_at,
+			jenis: r.kind === "beri" ? "uang_jalan" : "sisa_uang_jalan",
+			label:
+				r.kind === "beri"
+					? `Uang jalan ${crew}${acara(r.event)}${admin > 0 ? ` (+ admin ${admin.toLocaleString("id-ID")})` : ""}`
+					: `Sisa uang jalan ${crew} dipegang owner${acara(r.event)}`,
+			projectId: r.event?.project_id ?? null,
+			amount: r.kind === "beri" ? Number(r.amount) + admin : -Number(r.amount),
+			reversed: r.is_reversed,
+			proofUrl: r.proof_url,
+			batalId: null,
+		});
+	}
+	for (const b of (ledger.data ?? []) as Array<{
+		id: string;
+		owner_id: string;
+		direction: TalanganRiwayatRow["jenis"];
+		amount: number;
+		is_reversed: boolean;
+		created_at: string;
+		note: string | null;
+		event: Ev;
+		journal: { entry_date: string; proof_url: string | null } | null;
+	}>) {
+		const keluar = b.direction === "bayar" || b.direction === "piutang";
+		const note = b.note || "";
+		rows.push({
+			id: b.id,
+			ownerId: b.owner_id,
+			// Hutang dari acara → tanggal acara (sama dengan rincian); pelunasan &
+			// catatan langsung → tanggal transaksinya.
+			date:
+				(b.direction === "talangan" || b.direction === "piutang") &&
+				b.event?.event_date
+					? b.event.event_date
+					: (b.journal?.entry_date ?? b.created_at.slice(0, 10)),
+			createdAt: b.created_at,
+			jenis: b.direction,
+			label:
+				b.direction === "bayar"
+					? `Dibayar ke owner${note ? ` — ${note}` : ""}`
+					: b.direction === "terima"
+						? `Diterima dari owner${note ? ` — ${note}` : ""}`
+						: `${note || "Catatan"}${
+								b.event?.client_name && note.includes(b.event.client_name)
+									? ""
+									: acara(b.event)
+							}`,
+			projectId: b.event?.project_id ?? null,
+			amount: (keluar ? -1 : 1) * Number(b.amount),
+			reversed: b.is_reversed,
+			proofUrl: b.journal?.proof_url ?? null,
+			// Catatan dari acara dibatalkan di rekap/jurnal acaranya.
+			batalId:
+				b.is_reversed ||
+				((b.direction === "talangan" || b.direction === "piutang") && b.event)
+					? null
+					: b.id,
+		});
+	}
+	// Saldo berjalan per owner, kronologis; lalu tampil terbaru dulu.
+	rows.sort(
+		(a, b) =>
+			a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt),
+	);
+	const run = new Map<string, number>();
+	const out = rows.map((r) => {
+		const s = (run.get(r.ownerId) ?? 0) + (r.reversed ? 0 : r.amount);
+		run.set(r.ownerId, s);
+		return { ...r, saldo: s };
+	});
+	return out.reverse();
 }

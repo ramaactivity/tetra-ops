@@ -898,8 +898,14 @@ export function UangJalanPanel({
 			{talanganHere.length > 0 && (
 				<div className="space-y-2">
 					<div>
-						<p className="text-[13px] font-semibold">
+						<p className="flex flex-wrap items-baseline justify-between gap-2 text-[13px] font-semibold">
 							Hutang-piutang owner (semua acara)
+							<a
+								href="/finance/hutang-owner"
+								className="text-[12px] font-medium text-muted-foreground hover:text-foreground"
+							>
+								Riwayat & detail →
+							</a>
 						</p>
 						<p className="text-[12px] text-muted-foreground">
 							Bayar langsung sekarang, atau biarkan jadi hutang dulu & lunasi

@@ -59,7 +59,6 @@ function Row({
 	eventId?: string;
 }) {
 	const router = useRouter();
-	const confirm = useConfirm();
 	const [pending, start] = useTransition();
 	const bayar = owner.saldo > 0;
 	const lunas = owner.saldo === 0;
@@ -75,34 +74,7 @@ function Row({
 		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
 	);
 	const verb = bayar ? `Bayar ke ${owner.name}` : `Terima dari ${owner.name}`;
-	const BatalButton = ({ id }: { id: string }) => (
-		<button
-			type="button"
-			aria-label="Batalkan catatan"
-			disabled={pending}
-			onClick={async () => {
-				if (
-					!(await confirm({
-						title: "Batalkan catatan ini?",
-						description:
-							"Jurnalnya dibalik dan saldo hutang-piutang kembali seperti sebelumnya. Data tidak dihapus.",
-						confirmLabel: "Batalkan",
-						variant: "destructive",
-					}))
-				)
-					return;
-				start(async () => {
-					const res = await batalBayarTalangan(id);
-					if (!res.ok) return void toast.error(res.error);
-					toast.success(res.note ?? "Dibatalkan");
-					router.refresh();
-				});
-			}}
-			className="grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
-		>
-			<Undo2 className="size-3.5" />
-		</button>
-	);
+	const BatalButton = BatalTalanganButton;
 
 	return (
 		<div className="space-y-2 rounded-2xl border border-border-subtle bg-card p-4">
@@ -321,7 +293,15 @@ export function HutangPiutangOwner({
 						pinjaman. Dilunasi sekaligus atau dicicil.
 					</p>
 				</div>
-				<CatatTalanganOwner owners={owners} cashAccounts={cashAccounts} />
+				<div className="flex flex-wrap items-center gap-2">
+					<Link
+						href="/finance/hutang-owner"
+						className="text-[12.5px] font-medium text-muted-foreground hover:text-foreground"
+					>
+						Riwayat & detail →
+					</Link>
+					<CatatTalanganOwner owners={owners} cashAccounts={cashAccounts} />
+				</div>
 			</div>
 			{list.length > 0 ? (
 				<TalanganOwnerCard owners={list} cashAccounts={cashAccounts} />
@@ -331,5 +311,40 @@ export function HutangPiutangOwner({
 				</p>
 			)}
 		</div>
+	);
+}
+
+/** Batalkan catatan hutang-piutang owner (jurnal pembalik) — kartu & riwayat. */
+export function BatalTalanganButton({ id }: { id: string }) {
+	const router = useRouter();
+	const confirm = useConfirm();
+	const [pending, start] = useTransition();
+	return (
+		<button
+			type="button"
+			aria-label="Batalkan catatan"
+			disabled={pending}
+			onClick={async () => {
+				if (
+					!(await confirm({
+						title: "Batalkan catatan ini?",
+						description:
+							"Jurnalnya dibalik dan saldo hutang-piutang kembali seperti sebelumnya. Data tidak dihapus.",
+						confirmLabel: "Batalkan",
+						variant: "destructive",
+					}))
+				)
+					return;
+				start(async () => {
+					const res = await batalBayarTalangan(id);
+					if (!res.ok) return void toast.error(res.error);
+					toast.success(res.note ?? "Dibatalkan");
+					router.refresh();
+				});
+			}}
+			className="grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary disabled:opacity-40"
+		>
+			<Undo2 className="size-3.5" />
+		</button>
 	);
 }
