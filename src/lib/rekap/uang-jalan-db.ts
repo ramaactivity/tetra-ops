@@ -137,7 +137,12 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 			for (const b of lRows) {
 				if (b.owner_id !== id) continue;
 				const it = {
-					label: `${b.note || "Catatan"}${acara(b.event)}`,
+					// Keterangan biaya acara sudah memuat nama klien — jangan dobel.
+					label: `${b.note || "Catatan"}${
+						b.event?.client_name && b.note?.includes(b.event.client_name)
+							? ""
+							: acara(b.event)
+					}`,
 					date: tgl(b.created_at, b.event),
 					amount: Number(b.amount),
 					projectId: b.event?.project_id ?? null,

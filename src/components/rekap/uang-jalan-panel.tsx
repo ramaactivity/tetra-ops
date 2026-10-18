@@ -135,10 +135,14 @@ export function UangJalanPanel({
 		saldo(u) - (terpakaiRekap[u] ?? 0) - (antre[u] ?? 0);
 	// Siapa memberi berapa di acara ini — dasar mengganti uang pribadi owner.
 	// Owner yang pakai uang pribadi di acara ini → saldo totalnya bisa dilunasi di sini.
-	const talanganHere = talangan.filter((t) =>
-		live.some(
-			(l) => l.owner_id === t.id && l.account_code === TALANGAN_OWNER_COA,
-		),
+	// Owner yang punya hutang/piutang dari acara ini — uang jalan pribadi
+	// ATAU biaya acara yang dia bayar (sewa mobil, bensin, …) — bisa langsung
+	// dilunasi di sini, atau dibiarkan jadi hutang dulu.
+	const talanganHere = talangan.filter(
+		(t) =>
+			live.some(
+				(l) => l.owner_id === t.id && l.account_code === TALANGAN_OWNER_COA,
+			) || t.rincian.some((it) => it.projectId === projectId),
 	);
 	const givers = [
 		...new Set(live.filter((l) => l.kind === "beri").map((l) => l.owner_id)),
@@ -893,9 +897,15 @@ export function UangJalanPanel({
 
 			{talanganHere.length > 0 && (
 				<div className="space-y-2">
-					<p className="text-[13px] font-semibold">
-						Hutang-piutang owner (semua acara)
-					</p>
+					<div>
+						<p className="text-[13px] font-semibold">
+							Hutang-piutang owner (semua acara)
+						</p>
+						<p className="text-[12px] text-muted-foreground">
+							Bayar langsung sekarang, atau biarkan jadi hutang dulu & lunasi
+							nanti sekalian dari Dashboard / Keuangan.
+						</p>
+					</div>
 					<TalanganOwnerCard
 						owners={talanganHere}
 						cashAccounts={cashAccounts}
