@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AdminFeeChips } from "@/components/finance/admin-fee-chips";
+import { CatatTalanganOwner } from "@/components/finance/catat-talangan-owner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -74,6 +75,34 @@ function Row({
 		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
 	);
 	const verb = bayar ? `Bayar ke ${owner.name}` : `Terima dari ${owner.name}`;
+	const BatalButton = ({ id }: { id: string }) => (
+		<button
+			type="button"
+			aria-label="Batalkan catatan"
+			disabled={pending}
+			onClick={async () => {
+				if (
+					!(await confirm({
+						title: "Batalkan catatan ini?",
+						description:
+							"Jurnalnya dibalik dan saldo hutang-piutang kembali seperti sebelumnya. Data tidak dihapus.",
+						confirmLabel: "Batalkan",
+						variant: "destructive",
+					}))
+				)
+					return;
+				start(async () => {
+					const res = await batalBayarTalangan(id);
+					if (!res.ok) return void toast.error(res.error);
+					toast.success(res.note ?? "Dibatalkan");
+					router.refresh();
+				});
+			}}
+			className="grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
+		>
+			<Undo2 className="size-3.5" />
+		</button>
+	);
 
 	return (
 		<div className="space-y-2 rounded-2xl border border-border-subtle bg-card p-4">
@@ -97,12 +126,12 @@ function Row({
 					{formatRupiah(sisa)}
 				</span>
 			</div>
-			{bayar && owner.rincian.length > 0 && (
+			{!lunas && owner.rincian.length > 0 && (
 				<ul className="space-y-0.5 border-t border-border-subtle pt-2 text-[12.5px]">
 					{owner.rincian.map((it) => (
 						<li
 							key={`${it.label}|${it.date}|${it.amount}`}
-							className="flex justify-between gap-3"
+							className="flex items-center justify-between gap-3"
 						>
 							{it.projectId ? (
 								<Link
@@ -116,11 +145,14 @@ function Row({
 									{labelItem(it)}
 								</span>
 							)}
-							<span className="tabular shrink-0" data-nominal>
-								{formatRupiah(it.sisa)}
-								{it.sisa < it.amount && (
-									<span className="text-muted-foreground"> sisa</span>
-								)}
+							<span className="flex shrink-0 items-center gap-1">
+								<span className="tabular" data-nominal>
+									{formatRupiah(it.sisa)}
+									{it.sisa < it.amount && (
+										<span className="text-muted-foreground"> sisa</span>
+									)}
+								</span>
+								{it.batalId && <BatalButton id={it.batalId} />}
 							</span>
 						</li>
 					))}
@@ -146,32 +178,7 @@ function Row({
 								<span className="tabular" data-nominal>
 									{formatRupiah(r.amount)}
 								</span>
-								<button
-									type="button"
-									aria-label="Batalkan pembayaran"
-									disabled={pending}
-									onClick={async () => {
-										if (
-											!(await confirm({
-												title: "Batalkan pembayaran ini?",
-												description:
-													"Jurnalnya dibalik dan saldo hutang kembali seperti sebelum dibayar. Data tidak dihapus.",
-												confirmLabel: "Batalkan",
-												variant: "destructive",
-											}))
-										)
-											return;
-										start(async () => {
-											const res = await batalBayarTalangan(r.id);
-											if (!res.ok) return void toast.error(res.error);
-											toast.success(res.note ?? "Dibatalkan");
-											router.refresh();
-										});
-									}}
-									className="grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
-								>
-									<Undo2 className="size-3.5" />
-								</button>
+								<BatalButton id={r.id} />
 							</span>
 						</li>
 					))}
@@ -286,6 +293,42 @@ function Row({
 				>
 					{verb}
 				</button>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Bagian "Hutang-piutang owner" lengkap (judul + tombol Catat + kartu per
+ * owner) — satu komponen untuk Dashboard & Keuangan supaya keduanya sama.
+ */
+export function HutangPiutangOwner({
+	owners,
+	list,
+	cashAccounts,
+}: {
+	owners: Array<{ id: string; name: string }>;
+	list: TalanganOwnerSaldo[];
+	cashAccounts: Account[];
+}) {
+	return (
+		<div className="space-y-3">
+			<div className="flex flex-wrap items-start justify-between gap-3">
+				<div className="min-w-0 flex-1 basis-60">
+					<h3 className="type-heading">Hutang-piutang owner</h3>
+					<p className="type-secondary mt-0.5">
+						Antara Tetra dan owner: uang jalan, biaya yang dibayarin owner,
+						pinjaman. Dilunasi sekaligus atau dicicil.
+					</p>
+				</div>
+				<CatatTalanganOwner owners={owners} cashAccounts={cashAccounts} />
+			</div>
+			{list.length > 0 ? (
+				<TalanganOwnerCard owners={list} cashAccounts={cashAccounts} />
+			) : (
+				<p className="rounded-xl bg-secondary/60 px-3 py-2.5 text-[13px] text-muted-foreground">
+					Tidak ada hutang-piutang dengan owner.
+				</p>
 			)}
 		</div>
 	);

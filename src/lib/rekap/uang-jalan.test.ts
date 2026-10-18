@@ -131,6 +131,7 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 			{ owner_id: "fahmi", direction: "bayar", amount: 75_000 },
 			{ owner_id: "iqbal", direction: "terima", amount: 10_000 },
 			{ owner_id: "fahmi", direction: "talangan", amount: 88_000 }, // konsumsi dibayar Fahmi
+			{ owner_id: "iqbal", direction: "piutang", amount: 5_000 }, // Iqbal pinjam uang Tetra
 			{
 				owner_id: "adit",
 				direction: "bayar",
@@ -141,7 +142,7 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 	);
 	assert.equal(m.get("adit"), 102_500);
 	assert.equal(m.get("fahmi"), 88_000);
-	assert.equal(m.get("iqbal"), -30_000); // Iqbal masih berutang ke Tetra
+	assert.equal(m.get("iqbal"), -35_000); // Iqbal masih berutang ke Tetra
 	assert.equal(m.has("rama"), false);
 });
 

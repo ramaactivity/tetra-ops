@@ -21,7 +21,7 @@ import {
 	SinkingBreakdown,
 	type SinkingFundRow,
 } from "@/components/finance/sinking-breakdown";
-import { TalanganOwnerCard } from "@/components/finance/talangan-owner-card";
+import { HutangPiutangOwner } from "@/components/finance/talangan-owner-card";
 import {
 	type Owner,
 	WithdrawalButton,
@@ -233,6 +233,16 @@ export default async function FinancePage({
 
 	// Hutang-piutang Tetra ↔ owner (2-310): uang pribadi owner untuk uang jalan crew.
 	const talanganList = await loadTalanganOwner(supabase);
+	const { data: talanganOwnerRows } = await supabase
+		.from("users")
+		.select("id, full_name, nickname")
+		.eq("role", "owner")
+		.eq("is_active", true)
+		.order("full_name");
+	const talanganOwners = (talanganOwnerRows ?? []).map((o) => ({
+		id: o.id as string,
+		name: (o.nickname as string | null) || (o.full_name as string),
+	}));
 
 	const funds = (sinkingFundsData ?? []) as Array<{
 		id: string;
@@ -743,19 +753,13 @@ export default async function FinancePage({
 				</RekapCard>
 			</div>
 
-			{talanganList.length > 0 && (
-				<RekapCard className="space-y-3">
-					<SectionHeader2
-						icon={Wallet}
-						title="Hutang-piutang owner"
-						description="Uang pribadi owner yang dipakai untuk uang jalan crew, dari semua acara. Bisa dilunasi sekaligus atau dicicil."
-					/>
-					<TalanganOwnerCard
-						owners={talanganList}
-						cashAccounts={filterEmoneyAccounts(cashAccountList, false)}
-					/>
-				</RekapCard>
-			)}
+			<RekapCard>
+				<HutangPiutangOwner
+					owners={talanganOwners}
+					list={talanganList}
+					cashAccounts={filterEmoneyAccounts(cashAccountList, false)}
+				/>
+			</RekapCard>
 
 			{/* 5. Bagi hasil owner */}
 			{isSuperAdmin && ownerBreakdown.length > 0 && (

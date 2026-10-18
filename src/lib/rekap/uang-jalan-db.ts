@@ -33,9 +33,12 @@ export type TalanganOwnerSaldo = {
 	id: string;
 	name: string;
 	saldo: number;
-	/** Yang belum lunas (Tetra berutang ke owner), paling lama dulu. */
+	/**
+	 * Yang belum lunas di sisi saldonya (saldo > 0: hutang Tetra ke owner,
+	 * saldo < 0: piutang owner ke Tetra), paling lama dulu.
+	 */
 	rincian: Array<TalanganItem & { sisa: number }>;
-	/** Bayar/terima terakhir (belum dibatalkan) — untuk tombol batal. */
+	/** Pelunasan terakhir (bayar/terima, belum dibatalkan) — untuk tombol batal. */
 	riwayat: Array<{
 		id: string;
 		direction: "bayar" | "terima";
@@ -107,38 +110,59 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 	const recent = Date.now() - 7 * 86_400_000;
 	return [...saldo.entries()]
 		.map(([id, v]) => {
-			const items: TalanganItem[] = [];
-			let kredit = 0;
+			// H = Tetra berutang ke owner, P = owner berutang ke Tetra. Keduanya
+			// saling mengimpas; bayar menutup H, terima menutup P.
+			const H: TalanganItem[] = [];
+			const P: TalanganItem[] = [];
+			let bayar = 0;
+			let terima = 0;
 			for (const r of ujRows) {
 				if (r.owner_id !== id || r.is_reversed) continue;
+				const crew = r.crew?.nickname || r.crew?.full_name || "crew";
 				if (r.kind === "beri")
-					items.push({
-						label: `Uang jalan ${r.crew?.nickname || r.crew?.full_name || "crew"}${acara(r.event)}`,
+					H.push({
+						label: `Uang jalan ${crew}${acara(r.event)}`,
 						date: tgl(r.created_at, r.event),
 						amount: Number(r.amount) + Number(r.admin_fee || 0),
 						projectId: r.event?.project_id ?? null,
 					});
-				else if (r.kind === "kembali") kredit += Number(r.amount);
+				else if (r.kind === "kembali")
+					P.push({
+						label: `Sisa uang jalan ${crew} dipegang owner${acara(r.event)}`,
+						date: tgl(r.created_at, r.event),
+						amount: Number(r.amount),
+						projectId: r.event?.project_id ?? null,
+					});
 			}
 			for (const b of lRows) {
 				if (b.owner_id !== id) continue;
-				if (b.direction === "talangan")
-					items.push({
-						label: `${b.note || "Pengeluaran"}${acara(b.event)}`,
-						date: tgl(b.created_at, b.event),
-						amount: Number(b.amount),
-						projectId: b.event?.project_id ?? null,
-					});
-				else kredit += (b.direction === "bayar" ? 1 : -1) * Number(b.amount);
+				const it = {
+					label: `${b.note || "Catatan"}${acara(b.event)}`,
+					date: tgl(b.created_at, b.event),
+					amount: Number(b.amount),
+					projectId: b.event?.project_id ?? null,
+					batalId: b.event === null ? b.id : null,
+				};
+				if (b.direction === "talangan") H.push(it);
+				else if (b.direction === "piutang") P.push(it);
+				else if (b.direction === "bayar") bayar += Number(b.amount);
+				else terima += Number(b.amount);
 			}
+			const sum = (xs: TalanganItem[]) => xs.reduce((t, x) => t + x.amount, 0);
+			const rincian =
+				v >= 0
+					? rincianTerbuka(H, sum(P) + bayar - terima)
+					: rincianTerbuka(P, sum(H) + terima - bayar);
 			const pays = lRows.filter(
-				(b) => b.owner_id === id && b.direction !== "talangan",
+				(b) =>
+					b.owner_id === id &&
+					(b.direction === "bayar" || b.direction === "terima"),
 			);
 			return {
 				id,
 				name: nameOf.get(id) ?? "Owner",
 				saldo: Math.round(v),
-				rincian: rincianTerbuka(items, kredit),
+				rincian,
 				riwayat: pays.slice(0, 5).map((b) => ({
 					id: b.id,
 					direction: b.direction as "bayar" | "terima",

@@ -70,8 +70,12 @@ export type TalanganRow = {
 
 export type TalanganBayarRow = {
 	owner_id: string;
-	/** talangan = pengeluaran event yang dibayar owner dulu (Tetra berutang). */
-	direction: "bayar" | "terima" | "talangan";
+	/**
+	 * talangan = Tetra berutang ke owner (biaya dibayar owner / owner
+	 * meminjamkan uang); piutang = owner berutang ke Tetra (pinjam / pakai uang
+	 * Tetra); bayar / terima = pelunasannya.
+	 */
+	direction: "bayar" | "terima" | "talangan" | "piutang";
 	amount: number;
 	is_reversed?: boolean;
 };
@@ -96,7 +100,8 @@ export function saldoTalanganOwner(
 	}
 	for (const b of bayar) {
 		if (b.is_reversed) continue;
-		add(b.owner_id, (b.direction === "bayar" ? -1 : 1) * Number(b.amount || 0));
+		const keluar = b.direction === "bayar" || b.direction === "piutang";
+		add(b.owner_id, (keluar ? -1 : 1) * Number(b.amount || 0));
 	}
 	return out;
 }
@@ -140,6 +145,8 @@ export type TalanganItem = {
 	date: string;
 	amount: number;
 	projectId?: string | null;
+	/** id talangan_owner_bayar kalau dicatat langsung (bisa dibatalkan dari kartu). */
+	batalId?: string | null;
 };
 
 /**

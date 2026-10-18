@@ -19,7 +19,7 @@ import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
 import { HeroMetric } from "@/components/dashboard/hero-metric";
 import { SegmentedBar } from "@/components/dashboard/segmented-bar";
 import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
-import { TalanganOwnerCard } from "@/components/finance/talangan-owner-card";
+import { HutangPiutangOwner } from "@/components/finance/talangan-owner-card";
 import { Container } from "@/components/layout/container";
 import { PipelineCard } from "@/components/operations/pipeline-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -104,12 +104,27 @@ export default async function DashboardPage() {
 		sevenFromNowISO,
 	});
 
-	// Hutang-piutang Tetra ↔ owner (uang pribadi untuk uang jalan crew).
+	// Hutang-piutang Tetra ↔ owner — khusus owner.
+	const isOwnerLevel =
+		userResult.profile.role === "owner" ||
+		userResult.profile.role === "super_admin";
 	const supabase = await createClient();
-	const talangan = await loadTalanganOwner(supabase);
-	const talanganAccounts = talangan.length
-		? filterEmoneyAccounts(await loadCashAccounts(supabase), false)
-		: [];
+	const [talangan, talanganAccounts, { data: talanganOwnerRows }] = isOwnerLevel
+		? await Promise.all([
+				loadTalanganOwner(supabase),
+				loadCashAccounts(supabase).then((a) => filterEmoneyAccounts(a, false)),
+				supabase
+					.from("users")
+					.select("id, full_name, nickname")
+					.eq("role", "owner")
+					.eq("is_active", true)
+					.order("full_name"),
+			])
+		: [[], [], { data: [] }];
+	const talanganOwners = (talanganOwnerRows ?? []).map((o) => ({
+		id: o.id as string,
+		name: (o.nickname as string | null) || (o.full_name as string),
+	}));
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -157,11 +172,11 @@ export default async function DashboardPage() {
 				</div>
 			</section>
 
-			{talangan.length > 0 && (
-				<section className="space-y-3">
-					<p className="eyebrow px-5">Hutang-piutang owner</p>
-					<TalanganOwnerCard
-						owners={talangan}
+			{isOwnerLevel && (
+				<section className="rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
+					<HutangPiutangOwner
+						owners={talanganOwners}
+						list={talangan}
 						cashAccounts={talanganAccounts}
 					/>
 				</section>
