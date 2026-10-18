@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	isiSisa,
 	potongFee,
 	ringkasUangJalan,
 	saldoTalanganOwner,
@@ -139,4 +140,19 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 	assert.equal(m.get("fahmi"), 0);
 	assert.equal(m.get("iqbal"), -30_000); // Iqbal masih berutang ke Tetra
 	assert.equal(m.has("rama"), false);
+});
+
+test("bagi uang jalan: baris yang belum diketik otomatis terisi sisa laporan crew", () => {
+	const r = (amount: string, touched: boolean) => ({ amount, touched });
+	assert.deepEqual(
+		isiSisa([r("75000", true), r("", false)], 105_000)[1],
+		r("30000", false),
+	);
+	// sudah pas/lebih → kosong; tanpa laporan atau 2 baris otomatis → tidak diubah
+	assert.equal(
+		isiSisa([r("110000", true), r("9", false)], 105_000)[1].amount,
+		"",
+	);
+	assert.equal(isiSisa([r("1", true), r("9", false)], 0)[1].amount, "9");
+	assert.equal(isiSisa([r("1", false), r("9", false)], 100)[1].amount, "9");
 });

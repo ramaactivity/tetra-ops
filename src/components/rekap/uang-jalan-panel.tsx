@@ -15,7 +15,11 @@ import {
 	terimaSisaUangJalan,
 } from "@/lib/actions/uang-jalan";
 import { formatRupiah } from "@/lib/format";
-import { TALANGAN_OWNER_COA } from "@/lib/rekap/uang-jalan";
+import {
+	type GiverRow,
+	isiSisa,
+	TALANGAN_OWNER_COA,
+} from "@/lib/rekap/uang-jalan";
 import type { TalanganOwnerSaldo } from "@/lib/rekap/uang-jalan-db";
 import type { CashAccountOption } from "./crew-fee-form";
 import { SingleFileUpload } from "./single-file-upload";
@@ -146,10 +150,11 @@ export function UangJalanPanel({
 	);
 	// Saat mencatat pemberian: cocokkan dengan uang jalan yang dilaporkan crew
 	// diterima, supaya catatan dari beberapa owner jumlahnya pas.
-	const lapor =
-		mode === "beri" && report && report.holder === userId ? report.terima : 0;
-	const sisaLapor = Math.max(0, lapor - given(userId));
-	const lebih = lapor > 0 ? Math.max(0, Number(amount) - sisaLapor) : 0;
+	const sisaFor = (crewId: string) =>
+		report && report.holder === crewId
+			? Math.max(0, report.terima - given(crewId))
+			: 0;
+	const sisaLapor = mode === "beri" ? sisaFor(userId) : 0;
 	const [method, setMethod] = useState<"tunai" | "transfer">(
 		report?.metode === "transfer" ? "transfer" : "tunai",
 	);
@@ -162,11 +167,96 @@ export function UangJalanPanel({
 		owners.some((o) => o.id === meId) ? meId : (owners[0]?.id ?? ""),
 	);
 	const [pribadi, setPribadi] = useState(false);
+	// Catat uang jalan: satu baris per owner pemberi (bisa dibagi beberapa owner).
+	const [rows, setRows] = useState<GiverRow[]>([]);
+	const rowsTotal = rows.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+	const openBeri = (crewId: string, proofUrl: string | null = null) => {
+		const target = sisaFor(crewId);
+		setUserId(crewId);
+		setProof(proofUrl);
+		setRows(
+			ownerId
+				? [
+						{
+							ownerId,
+							amount: target > 0 ? String(target) : "",
+							touched: false,
+							pribadi: true,
+							admin: 0,
+						},
+					]
+				: [],
+		);
+		setMode("beri");
+	};
+	const toggleGiver = (id: string) =>
+		setRows((rs) =>
+			rs.some((r) => r.ownerId === id)
+				? isiSisa(
+						rs.filter((r) => r.ownerId !== id),
+						sisaLapor,
+					)
+				: isiSisa(
+						[
+							...rs.map((r) => ({ ...r, touched: true })),
+							{
+								ownerId: id,
+								amount: "",
+								touched: false,
+								pribadi: true,
+								admin: 0,
+							},
+						],
+						sisaLapor,
+					),
+		);
+	const editRow = (id: string, patch: Partial<GiverRow>) =>
+		setRows((rs) =>
+			isiSisa(
+				rs.map((r) => (r.ownerId === id ? { ...r, ...patch } : r)),
+				sisaLapor,
+			),
+		);
 	const [proof, setProof] = useState<string | null>(null);
 	const [adminFee, setAdminFee] = useState("");
 	const [date, setDate] = useState(
 		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
 	);
+
+	const submitBeri = () =>
+		start(async () => {
+			for (const [i, r] of rows.entries()) {
+				const res = await beriUangJalan({
+					eventId,
+					projectId,
+					userId,
+					amount: Number(r.amount),
+					accountCode: account,
+					ownerId: r.ownerId,
+					pribadi: r.pribadi,
+					method,
+					date,
+					proofUrl: proof,
+					adminFee: method === "transfer" ? r.admin : 0,
+				});
+				if (!res.ok) {
+					toast.error(
+						`${ownerName(r.ownerId)}: ${res.error}${i > 0 ? " (pemberi sebelumnya sudah tersimpan)" : ""}`,
+					);
+					setRows(rows.slice(i));
+					return void router.refresh();
+				}
+			}
+			toast.success(
+				rows.length > 1
+					? `Uang jalan dari ${rows.map((r) => ownerName(r.ownerId)).join(" + ")} tercatat`
+					: "Uang jalan tercatat",
+			);
+			setMode(null);
+			setRows([]);
+			setProof(null);
+			router.refresh();
+		});
 
 	const submit = () =>
 		start(async () => {
@@ -212,7 +302,11 @@ export function UangJalanPanel({
 				<div className="flex flex-wrap gap-2">
 					<button
 						type="button"
-						onClick={() => setMode(mode === "beri" ? null : "beri")}
+						onClick={() =>
+							mode === "beri"
+								? setMode(null)
+								: openBeri(reportHolder ?? userId, report?.bukti ?? null)
+						}
 						className="bg-foreground text-background h-9 rounded-full px-4 text-[13px] font-medium"
 					>
 						Catat uang jalan
@@ -249,12 +343,9 @@ export function UangJalanPanel({
 					<button
 						type="button"
 						className="font-semibold underline"
-						onClick={() => {
-							setMode("beri");
-							setUserId(reportHolder as string);
-							setAmount(String(belumDicatat));
-							setProof(report?.bukti ?? null);
-						}}
+						onClick={() =>
+							openBeri(reportHolder as string, report?.bukti ?? null)
+						}
 					>
 						Catat sekarang
 					</button>{" "}
@@ -271,140 +362,111 @@ export function UangJalanPanel({
 								: "Terima sisa uang jalan"}
 						</p>
 						<p className="type-caption text-muted-foreground">
-							{pribadi
-								? "Uang yang dipegang crew ikut tercatat; saldo rekening Tetra tidak berubah."
-								: mode === "beri"
-									? "Saldo rekening berkurang, tercatat sebagai uang yang dipegang crew."
+							{mode === "beri"
+								? "Tap owner yang memberi — bisa lebih dari satu. Uang pribadi owner tercatat sebagai hutang Tetra ke owner itu."
+								: pribadi
+									? "Uang yang dipegang crew berkurang; saldo rekening Tetra tidak berubah."
 									: "Saldo rekening bertambah, uang yang dipegang crew berkurang."}
 						</p>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2">
-						<div className="space-y-1.5 sm:col-span-2">
-							<span className="text-[13px] font-medium">
-								{mode === "beri" ? "Dari siapa" : "Diterima siapa"}
-							</span>
-							<div className="flex flex-wrap gap-1.5">
-								{owners.map((o) => (
-									<button
-										key={o.id}
-										type="button"
-										aria-pressed={ownerId === o.id}
-										onClick={() => setOwnerId(o.id)}
-										className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
-											ownerId === o.id
-												? "border-transparent bg-foreground text-background"
-												: "border-border-default hover:bg-secondary"
-										}`}
-									>
-										{o.name}
-									</button>
-								))}
-							</div>
-						</div>
-						<div className="space-y-1.5 sm:col-span-2">
-							<span className="text-[13px] font-medium">
-								{mode === "beri" ? "Pakai uang" : "Uangnya masuk ke"}
-							</span>
-							<div className="flex gap-1.5">
-								<button
-									type="button"
-									aria-pressed={!pribadi}
-									onClick={() => setPribadi(false)}
-									className={seg(!pribadi)}
-								>
-									Rekening Tetra
-								</button>
-								<button
-									type="button"
-									aria-pressed={pribadi}
-									onClick={() => setPribadi(true)}
-									className={seg(pribadi)}
-								>
-									{mode === "beri"
-										? `Uang pribadi ${ownerName(ownerId)}`
-										: `Dipegang ${ownerName(ownerId)}`}
-								</button>
-							</div>
-							{pribadi && (
-								<span className="type-caption text-muted-foreground">
-									{mode === "beri"
-										? `Saldo rekening Tetra tidak berkurang. Tercatat Tetra berutang ke ${ownerName(ownerId)} sampai dilunasi (di sini, Dashboard, atau Keuangan).`
-										: `Mengurangi hutang Tetra ke ${ownerName(ownerId)}. Kalau lebih, ${ownerName(ownerId)} jadi berutang ke Tetra.`}
-								</span>
-							)}
-						</div>
+						{mode === "kembali" && (
+							<>
+								<div className="space-y-1.5 sm:col-span-2">
+									<span className="text-[13px] font-medium">
+										Diterima siapa
+									</span>
+									<div className="flex flex-wrap gap-1.5">
+										{owners.map((o) => (
+											<button
+												key={o.id}
+												type="button"
+												aria-pressed={ownerId === o.id}
+												onClick={() => setOwnerId(o.id)}
+												className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
+													ownerId === o.id
+														? "border-transparent bg-foreground text-background"
+														: "border-border-default hover:bg-secondary"
+												}`}
+											>
+												{o.name}
+											</button>
+										))}
+									</div>
+								</div>
+								<div className="space-y-1.5 sm:col-span-2">
+									<span className="text-[13px] font-medium">
+										Uangnya masuk ke
+									</span>
+									<div className="flex gap-1.5">
+										<button
+											type="button"
+											aria-pressed={!pribadi}
+											onClick={() => setPribadi(false)}
+											className={seg(!pribadi)}
+										>
+											Rekening Tetra
+										</button>
+										<button
+											type="button"
+											aria-pressed={pribadi}
+											onClick={() => setPribadi(true)}
+											className={seg(pribadi)}
+										>
+											{`Dipegang ${ownerName(ownerId)}`}
+										</button>
+									</div>
+									{pribadi && (
+										<span className="type-caption text-muted-foreground">
+											{`Mengurangi hutang Tetra ke ${ownerName(ownerId)}. Kalau lebih, ${ownerName(ownerId)} jadi berutang ke Tetra.`}
+										</span>
+									)}
+								</div>
+							</>
+						)}
 						<div className="space-y-1.5">
 							<span className="text-[13px] font-medium">Crew</span>
 							<NativeSelect
 								value={userId}
-								onValueChange={setUserId}
+								onValueChange={(v) => {
+									setUserId(v);
+									if (mode === "beri")
+										setRows((rs) =>
+											isiSisa(
+												rs.map((r, i) =>
+													i === rs.length - 1 ? { ...r, touched: false } : r,
+												),
+												sisaFor(v),
+											),
+										);
+								}}
 								aria-label="Crew"
 								triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
 								options={crew.map((c) => ({ value: c.user_id, label: c.name }))}
 							/>
 						</div>
-						<div className="space-y-1.5">
-							<label htmlFor="uj-amount" className="text-[13px] font-medium">
-								Jumlah
-							</label>
-							<div className="relative">
-								<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
-									Rp
-								</span>
-								<input
-									type="number"
-									inputMode="numeric"
-									min={1}
-									id="uj-amount"
-									value={amount}
-									onChange={(e) => setAmount(e.target.value)}
-									placeholder="200000"
-									className={`${input} tabular pl-9`}
-								/>
+						{mode === "kembali" && (
+							<div className="space-y-1.5">
+								<label htmlFor="uj-amount" className="text-[13px] font-medium">
+									Jumlah
+								</label>
+								<div className="relative">
+									<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
+										Rp
+									</span>
+									<input
+										type="number"
+										inputMode="numeric"
+										min={1}
+										id="uj-amount"
+										value={amount}
+										onChange={(e) => setAmount(e.target.value)}
+										placeholder="200000"
+										className={`${input} tabular pl-9`}
+									/>
+								</div>
 							</div>
-							{lapor > 0 &&
-								(lebih > 0 ? (
-									<p className="text-[12px] font-medium text-amber-700">
-										Lebih{" "}
-										<span className="tabular" data-nominal>
-											{formatRupiah(lebih)}
-										</span>{" "}
-										dari laporan crew (terima{" "}
-										<span className="tabular" data-nominal>
-											{formatRupiah(lapor)}
-										</span>
-										, sudah tercatat{" "}
-										<span className="tabular" data-nominal>
-											{formatRupiah(given(userId))}
-										</span>
-										).
-									</p>
-								) : sisaLapor > 0 ? (
-									<button
-										type="button"
-										onClick={() => setAmount(String(sisaLapor))}
-										className={`h-8 rounded-full border px-3 text-[12px] font-medium transition-colors ${
-											Number(amount) === sisaLapor
-												? "border-transparent bg-lime-100 text-lime-900"
-												: "border-border-default hover:bg-secondary"
-										}`}
-									>
-										Sisa{" "}
-										<span className="tabular" data-nominal>
-											{formatRupiah(sisaLapor)}
-										</span>{" "}
-										dari laporan crew
-									</button>
-								) : (
-									<p className="text-[12px] text-muted-foreground">
-										Sudah sesuai laporan crew (
-										<span className="tabular" data-nominal>
-											{formatRupiah(lapor)}
-										</span>
-										).
-									</p>
-								))}
-						</div>
+						)}
 						{mode === "beri" && (
 							<div className="space-y-1.5">
 								<span className="text-[13px] font-medium">Cara memberi</span>
@@ -423,10 +485,10 @@ export function UangJalanPanel({
 								</div>
 							</div>
 						)}
-						{!pribadi && (
+						{(mode === "kembali" ? !pribadi : rows.some((r) => !r.pribadi)) && (
 							<div className="space-y-1.5">
 								<span className="text-[13px] font-medium">
-									{mode === "beri" ? "Dari rekening" : "Masuk ke rekening"}
+									{mode === "beri" ? "Rekening Tetra" : "Masuk ke rekening"}
 								</span>
 								<NativeSelect
 									value={account}
@@ -449,22 +511,118 @@ export function UangJalanPanel({
 								className="h-10 w-full rounded-xl"
 							/>
 						</div>
-						{mode === "beri" && method === "transfer" && (
-							<div className="space-y-1.5">
-								<span className="text-[13px] font-medium">
-									Biaya admin transfer
-								</span>
-								<AdminFeeChips
-									presets={[0, 1000, 2500]}
-									value={Number(adminFee) || 0}
-									onChange={(v) => setAdminFee(v ? String(v) : "")}
-									ariaLabel="Biaya admin transfer"
-								/>
-								<span className="type-caption text-muted-foreground">
-									{pribadi
-										? `Dicatat sebagai biaya admin bank dan ikut diganti ke ${ownerName(ownerId)}.`
-										: "Dicatat sebagai biaya admin bank, bukan uang jalan crew."}
-								</span>
+						{mode === "beri" && (
+							<div className="space-y-2 sm:col-span-2">
+								<span className="text-[13px] font-medium">Dari siapa</span>
+								<div className="flex flex-wrap gap-1.5">
+									{owners.map((o) => {
+										const on = rows.some((r) => r.ownerId === o.id);
+										return (
+											<button
+												key={o.id}
+												type="button"
+												aria-pressed={on}
+												onClick={() => toggleGiver(o.id)}
+												className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors ${
+													on
+														? "border-transparent bg-foreground text-background"
+														: "border-border-default hover:bg-secondary"
+												}`}
+											>
+												{o.name}
+											</button>
+										);
+									})}
+								</div>
+								{rows.map((r) => (
+									<div
+										key={r.ownerId}
+										className="border-border-default bg-card space-y-2 rounded-xl border p-3"
+									>
+										<div className="flex flex-wrap items-center gap-2">
+											<span className="w-14 shrink-0 text-[13px] font-semibold">
+												{ownerName(r.ownerId)}
+											</span>
+											<div className="relative min-w-0 flex-1 basis-36">
+												<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
+													Rp
+												</span>
+												<input
+													type="number"
+													inputMode="numeric"
+													min={1}
+													aria-label={`Jumlah dari ${ownerName(r.ownerId)}`}
+													value={r.amount}
+													onChange={(e) =>
+														editRow(r.ownerId, {
+															amount: e.target.value,
+															touched: true,
+														})
+													}
+													placeholder="200000"
+													className={`${input} tabular pl-9`}
+												/>
+											</div>
+											<div className="flex shrink-0 gap-1">
+												{([true, false] as const).map((pr) => (
+													<button
+														key={String(pr)}
+														type="button"
+														aria-pressed={r.pribadi === pr}
+														onClick={() => editRow(r.ownerId, { pribadi: pr })}
+														className={`h-10 rounded-xl border px-3 text-[12.5px] font-medium transition-colors ${
+															r.pribadi === pr
+																? "border-transparent bg-foreground text-background"
+																: "border-border-default hover:bg-secondary"
+														}`}
+													>
+														{pr ? "Uang pribadi" : "Rek. Tetra"}
+													</button>
+												))}
+											</div>
+										</div>
+										{method === "transfer" && (
+											<AdminFeeChips
+												presets={[0, 1000, 2500]}
+												value={r.admin}
+												onChange={(v) => editRow(r.ownerId, { admin: v })}
+												ariaLabel={`Biaya admin transfer ${ownerName(r.ownerId)}`}
+											/>
+										)}
+									</div>
+								))}
+								{sisaLapor > 0 && rows.length > 0 && (
+									<p
+										className={`text-[12.5px] ${
+											rowsTotal === sisaLapor
+												? "text-emerald-700"
+												: "font-medium text-amber-700"
+										}`}
+									>
+										Total{" "}
+										<span className="tabular" data-nominal>
+											{formatRupiah(rowsTotal)}
+										</span>{" "}
+										{rowsTotal === sisaLapor
+											? "— pas dengan laporan crew ✓"
+											: rowsTotal > sisaLapor
+												? `— lebih ${formatRupiah(rowsTotal - sisaLapor)} dari laporan crew`
+												: `— kurang ${formatRupiah(sisaLapor - rowsTotal)} dari laporan crew`}
+										{given(userId) > 0 && (
+											<span className="text-muted-foreground font-normal">
+												{" "}
+												(laporan {formatRupiah(report?.terima ?? 0)}, sudah
+												tercatat {formatRupiah(given(userId))})
+											</span>
+										)}
+									</p>
+								)}
+								{method === "transfer" && rows.some((r) => r.admin > 0) && (
+									<p className="type-caption text-muted-foreground">
+										Biaya admin dicatat sebagai biaya admin bank; yang dari uang
+										pribadi ikut diganti ke owner-nya.
+									</p>
+								)}
 							</div>
 						)}
 					</div>
@@ -492,12 +650,14 @@ export function UangJalanPanel({
 							type="button"
 							disabled={
 								pending ||
-								!(Number(amount) > 0) ||
-								(!pribadi && !account) ||
 								!userId ||
-								(mode === "beri" && !ownerId)
+								(mode === "beri"
+									? rows.length === 0 ||
+										rows.some((r) => !(Number(r.amount) > 0)) ||
+										(rows.some((r) => !r.pribadi) && !account)
+									: !(Number(amount) > 0) || (!pribadi && !account))
 							}
-							onClick={submit}
+							onClick={mode === "beri" ? submitBeri : submit}
 							className="bg-foreground text-background h-10 rounded-full px-5 text-[13px] font-medium disabled:opacity-40"
 						>
 							{mode === "beri" ? "Simpan uang jalan" : "Simpan penerimaan"}

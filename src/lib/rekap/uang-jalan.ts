@@ -99,3 +99,33 @@ export function saldoTalanganOwner(
 	}
 	return out;
 }
+
+/** Satu pemberi di form Catat uang jalan (uang jalan bisa dibagi beberapa owner). */
+export type GiverRow = {
+	ownerId: string;
+	amount: string;
+	/** Sudah diketik owner — tidak ditimpa isi otomatis. */
+	touched: boolean;
+	pribadi: boolean;
+	admin: number;
+};
+
+/**
+ * Isi otomatis sisa laporan crew ke satu-satunya baris yang belum diketik:
+ * Rama 75rb diketik, Adit otomatis 30rb kalau crew lapor terima 105rb.
+ */
+export function isiSisa<T extends { amount: string; touched: boolean }>(
+	rows: T[],
+	target: number,
+): T[] {
+	const auto = rows.filter((r) => !r.touched);
+	if (target <= 0 || auto.length !== 1) return rows;
+	const rest =
+		target -
+		rows
+			.filter((r) => r.touched)
+			.reduce((t, r) => t + (Number(r.amount) || 0), 0);
+	return rows.map((r) =>
+		r.touched ? r : { ...r, amount: rest > 0 ? String(rest) : "" },
+	);
+}
