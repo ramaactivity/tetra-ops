@@ -190,8 +190,13 @@ export function CrewFeeForm({
 		(r) =>
 			!r.is_paid && r.fee_amount + r.bonus_amount + r.reimbursement_amount > 0,
 	);
+	// Yang benar-benar keluar dari rekening: pemegang uang jalan sudah memegang
+	// sebagian, jadi yang ditransfer hanya sisanya (sama dengan baris crew).
 	const unpaidTotal = unpaidRows.reduce(
-		(s, r) => s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
+		(s, r) =>
+			s +
+			(rinciUangJalan(r)?.transfer ??
+				r.fee_amount + r.bonus_amount + r.reimbursement_amount),
 		0,
 	);
 	// Total ongkos transfer = jumlah biaya admin tiap crew yang akan ditransfer
@@ -267,6 +272,28 @@ export function CrewFeeForm({
 			sisa: uangJalanSisa[id] as number | undefined,
 		};
 	});
+	/**
+	 * Perkiraan pembayaran pemegang uang jalan (pre-settle): reimbursement
+	 * mengikuti talangan rekap (disalin saat settle), lalu uang jalan yang
+	 * masih ada dipotong — hasilnya transfer dari rekening. Bonus dari sisa
+	 * uang jalan dengan begitu tidak menambah uang keluar dari rekening.
+	 */
+	function rinciUangJalan(row: CrewAssignmentRow) {
+		if (!row.user_id || row.is_paid) return null;
+		const sisa = uangJalanSisa[row.user_id];
+		if (sisa === undefined) return null;
+		const reimb =
+			fieldExpenseBreakdown?.byCrew[row.user_id] ?? row.reimbursement_amount;
+		const tagihan = row.fee_amount + row.bonus_amount + reimb;
+		const dariUj = Math.max(
+			0,
+			Math.min(
+				sisa + (fieldExpenseBreakdown?.byCrew[row.user_id] ?? 0),
+				tagihan,
+			),
+		);
+		return { dariUj, transfer: tagihan - dariUj };
+	}
 	const crewOnlyTotal =
 		(fieldExpenseBreakdown?.crewFrontedTotal ?? 0) - ujTotal;
 
@@ -514,7 +541,7 @@ export function CrewFeeForm({
 												<span data-nominal className="tabular">
 													{formatRupiah(row.bonus_amount)}
 												</span>{" "}
-												sudah diisi.
+												sudah diisi — dibayar dari sisa uang jalan.
 											</span>
 										) : (
 											<button
@@ -524,7 +551,7 @@ export function CrewFeeForm({
 														bonus_amount: row.bonus_amount + (h.sisa ?? 0),
 													});
 													toast.success(
-														`Sisa ${formatRupiah(h.sisa ?? 0)} jadi bonus ${h.name} — tekan Simpan fee crew.`,
+														`Sisa ${formatRupiah(h.sisa ?? 0)} jadi bonus ${h.name} — dibayar dari uang jalan, transfer rekening tidak bertambah. Tekan Simpan fee crew.`,
 													);
 												}}
 												className="press-down ml-1 inline-flex items-center rounded-md border border-sky-600/30 bg-sky-500/10 px-2 py-0.5 font-semibold text-sky-800 hover:bg-sky-500/20 dark:text-sky-200"
@@ -719,9 +746,32 @@ export function CrewFeeForm({
 										)}
 									</p>
 								</div>
-								<span className="tabular text-base font-semibold text-foreground">
-									{formatRupiah(total)}
-								</span>
+								<div className="text-right">
+									<span className="tabular text-base font-semibold text-foreground">
+										{formatRupiah(total)}
+									</span>
+									{(() => {
+										// Pemegang uang jalan: sebagian dibayar dari uang jalan yang
+										// sudah di tangannya — rekening Tetra cuma mentransfer sisanya.
+										const ujRow = rinciUangJalan(row);
+										return ujRow ? (
+											<p className="text-[11px] leading-snug text-muted-foreground">
+												Transfer dari rekening{" "}
+												<span
+													data-nominal
+													className="tabular font-medium text-foreground"
+												>
+													{formatRupiah(ujRow.transfer)}
+												</span>
+												<br />
+												<span data-nominal className="tabular">
+													{formatRupiah(ujRow.dariUj)}
+												</span>{" "}
+												dari uang jalan
+											</p>
+										) : null;
+									})()}
+								</div>
 							</div>
 
 							<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
