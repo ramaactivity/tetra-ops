@@ -29,20 +29,27 @@ export function TalanganOwnerCard({
 	owners,
 	cashAccounts,
 	eventId,
+	compact = false,
 }: {
 	owners: TalanganOwnerSaldo[];
 	cashAccounts: Account[];
 	/** Diisi kalau dilunasi dari halaman rekap acara (untuk jejak jurnal). */
 	eventId?: string;
+	/**
+	 * Hanya saldo + bayar/cicil (rincian & riwayat ditampilkan di tabel
+	 * halaman Hutang Owner).
+	 */
+	compact?: boolean;
 }) {
 	return (
-		<div className="grid gap-3 sm:grid-cols-2">
+		<div className={compact ? "space-y-3" : "grid gap-3 sm:grid-cols-2"}>
 			{owners.map((o) => (
 				<Row
 					key={o.id}
 					owner={o}
 					cashAccounts={cashAccounts}
 					eventId={eventId}
+					compact={compact}
 				/>
 			))}
 		</div>
@@ -53,10 +60,12 @@ function Row({
 	owner,
 	cashAccounts,
 	eventId,
+	compact = false,
 }: {
 	owner: TalanganOwnerSaldo;
 	cashAccounts: Account[];
 	eventId?: string;
+	compact?: boolean;
 }) {
 	const router = useRouter();
 	const [pending, start] = useTransition();
@@ -98,7 +107,7 @@ function Row({
 					{formatRupiah(sisa)}
 				</span>
 			</div>
-			{!lunas && owner.rincian.length > 0 && (
+			{!compact && !lunas && owner.rincian.length > 0 && (
 				<ul className="space-y-0.5 border-t border-border-subtle pt-2 text-[12.5px]">
 					{owner.rincian.map((it) => (
 						<li
@@ -130,7 +139,7 @@ function Row({
 					))}
 				</ul>
 			)}
-			{owner.riwayat.length > 0 && (
+			{!compact && owner.riwayat.length > 0 && (
 				<ul className="space-y-1 border-t border-border-subtle pt-2 text-[12.5px]">
 					{owner.riwayat.map((r) => (
 						<li key={r.id} className="flex items-start justify-between gap-2">

@@ -1,4 +1,4 @@
-import { ExternalLink, HandCoins, Wallet } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CatatTalanganOwner } from "@/components/finance/catat-talangan-owner";
@@ -7,10 +7,6 @@ import {
 	TalanganOwnerCard,
 } from "@/components/finance/talangan-owner-card";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
-import { KpiRow } from "@/components/operations/_shared/kpi-row";
-import { KpiCard } from "@/components/operations/kpi-card";
-import { RekapCard } from "@/components/rekap/rekap-ui";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { filterEmoneyAccounts } from "@/lib/finance/emoney";
@@ -18,37 +14,63 @@ import { formatRupiah } from "@/lib/format";
 import {
 	loadTalanganOwner,
 	loadTalanganRiwayat,
+	type TalanganOwnerSaldo,
 	type TalanganRiwayatRow,
 } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
-const JENIS: Record<
-	TalanganRiwayatRow["jenis"],
-	{ label: string; tone: string }
-> = {
-	uang_jalan: { label: "Uang jalan", tone: "bg-amber-500/12 text-amber-800" },
-	sisa_uang_jalan: {
-		label: "Sisa uang jalan",
-		tone: "bg-sky-500/12 text-sky-800",
-	},
-	talangan: { label: "Ditalangi", tone: "bg-amber-500/12 text-amber-800" },
-	piutang: { label: "Owner pinjam", tone: "bg-sky-500/12 text-sky-800" },
-	bayar: { label: "Dibayar", tone: "bg-emerald-500/12 text-emerald-800" },
-	terima: { label: "Diterima", tone: "bg-emerald-500/12 text-emerald-800" },
+const JENIS: Record<TalanganRiwayatRow["jenis"], string> = {
+	uang_jalan: "Uang jalan",
+	sisa_uang_jalan: "Sisa uang jalan",
+	talangan: "Ditalangi",
+	piutang: "Owner pinjam",
+	bayar: "Dibayar",
+	terima: "Diterima",
 };
 
-const tgl = (d: string) =>
+const tglPendek = (d: string) =>
 	new Date(`${d}T00:00:00`).toLocaleDateString("id-ID", {
 		day: "numeric",
 		month: "short",
-		year: "numeric",
 	});
 
+/** Kartu putih standar halaman ini — satu tingkat, tanpa kartu di dalam kartu. */
+function Panel({
+	title,
+	meta,
+	children,
+	className,
+}: {
+	title?: string;
+	meta?: React.ReactNode;
+	children: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<section
+			className={cn(
+				"rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]",
+				className,
+			)}
+		>
+			{title && (
+				<div className="flex items-baseline justify-between gap-3 border-b border-border-subtle px-5 py-3.5">
+					<h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+					{meta && (
+						<span className="text-[12px] text-muted-foreground">{meta}</span>
+					)}
+				</div>
+			)}
+			{children}
+		</section>
+	);
+}
+
 /**
- * Hutang-piutang Tetra ↔ owner — satu tempat untuk saldo, rincian yang belum
- * lunas, pelunasan/cicilan, dan riwayat lengkap (dengan saldo berjalan).
- * Kartu ringkas di Dashboard/Keuangan/rekap menautkan ke sini.
+ * Hutang-piutang Tetra ↔ owner. Semua: posisi + daftar owner + riwayat.
+ * Per owner (?owner=): saldo & bayar/cicil, yang belum lunas, riwayat dengan
+ * saldo berjalan. Kartu ringkas di Dashboard/Keuangan/rekap menautkan ke sini.
  */
 export default async function HutangOwnerPage({
 	searchParams,
@@ -79,12 +101,12 @@ export default async function HutangOwnerPage({
 	}));
 	const nameOf = (id: string) =>
 		owners.find((o) => o.id === id)?.name ?? "Owner";
+	const saldoOf = (id: string) => saldo.find((s) => s.id === id);
 	const selected = owners.some((o) => o.id === ownerParam)
 		? (ownerParam as string)
 		: null;
 	const cashAccounts = filterEmoneyAccounts(cash, false);
 
-	// Ringkasan (semua owner).
 	const tetraBerutang = saldo
 		.filter((s) => s.saldo > 0)
 		.reduce((t, s) => t + s.saldo, 0);
@@ -101,11 +123,10 @@ export default async function HutangOwnerPage({
 		.reduce((t, r) => t - r.amount, 0);
 	const itemTerbuka = saldo.reduce((t, s) => t + s.rincian.length, 0);
 
-	const kartu = selected ? saldo.filter((s) => s.id === selected) : saldo;
 	const rows = selected
 		? riwayat.filter((r) => r.ownerId === selected)
 		: riwayat;
-	const saldoOf = (id: string) => saldo.find((s) => s.id === id)?.saldo ?? 0;
+	const pilihan = selected ? saldoOf(selected) : undefined;
 
 	return (
 		<Container size="xl" className="space-y-3">
@@ -114,41 +135,13 @@ export default async function HutangOwnerPage({
 				cashAccounts={cashAccounts}
 				inTopbar
 			/>
-			<SectionHeader
-				title="Hutang Owner"
-				description="Uang pribadi owner yang dipakai Tetra (uang jalan, biaya acara, pinjaman) dan sebaliknya. Lunasi sekaligus atau dicicil."
-			/>
 
-			<KpiRow className="lg:grid-cols-4">
-				<KpiCard
-					label="Tetra berutang ke owner"
-					value={formatRupiah(tetraBerutang)}
-					hint={`${saldo.filter((s) => s.saldo > 0).length} owner`}
-					icon={HandCoins}
-					accent={tetraBerutang > 0 ? "amber" : "default"}
-				/>
-				<KpiCard
-					label="Owner berutang ke Tetra"
-					value={formatRupiah(ownerBerutang)}
-					hint={`${saldo.filter((s) => s.saldo < 0).length} owner`}
-					icon={Wallet}
-				/>
-				<KpiCard
-					label="Dibayar ke owner bulan ini"
-					value={formatRupiah(dibayarBulanIni)}
-					hint="pelunasan & cicilan"
-				/>
-				<KpiCard
-					label="Item belum lunas"
-					value={String(itemTerbuka)}
-					hint="uang jalan, biaya acara, pinjaman"
-				/>
-			</KpiRow>
-
-			{/* Filter owner */}
-			<div className="flex flex-wrap gap-1.5">
+			{/* Tab owner */}
+			<nav
+				aria-label="Pilih owner"
+				className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5"
+			>
 				{[{ id: null as string | null, name: "Semua" }, ...owners].map((o) => {
-					const s = o.id ? saldoOf(o.id) : null;
 					const active = selected === o.id;
 					return (
 						<Link
@@ -158,94 +151,280 @@ export default async function HutangOwnerPage({
 									? `/finance/hutang-owner?owner=${o.id}`
 									: "/finance/hutang-owner"
 							}
+							aria-current={active ? "page" : undefined}
 							className={cn(
-								"inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-[13px] font-medium transition-colors",
+								"inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] font-medium transition-colors",
 								active
 									? "border-transparent bg-foreground text-background"
-									: "border-border-default bg-card hover:bg-secondary",
+									: "border-border-default bg-card text-foreground/80 hover:bg-secondary",
 							)}
 						>
 							{o.name}
-							{s ? (
-								<span
-									data-nominal
-									className={cn(
-										"tabular text-[11.5px]",
-										active
-											? "opacity-80"
-											: s > 0
-												? "text-amber-700"
-												: "text-sky-700",
-									)}
-								>
-									{formatRupiah(Math.abs(s))}
-								</span>
-							) : null}
 						</Link>
 					);
 				})}
-			</div>
+			</nav>
 
-			{/* Saldo + bayar/cicil per owner */}
-			{kartu.length > 0 ? (
-				<TalanganOwnerCard owners={kartu} cashAccounts={cashAccounts} />
+			{selected ? (
+				<OwnerDetail
+					name={nameOf(selected)}
+					saldo={pilihan}
+					cashAccounts={cashAccounts}
+				/>
 			) : (
-				<p className="rounded-2xl border border-border-subtle bg-card px-4 py-3 text-[13px] text-muted-foreground">
-					{selected
-						? `Tidak ada hutang-piutang dengan ${nameOf(selected)}.`
-						: "Tidak ada hutang-piutang dengan owner."}
-				</p>
+				<div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+					{/* Posisi: satu angka utama, sisanya keterangan. */}
+					<Panel className="px-5 py-4">
+						<p className="text-[13px] text-muted-foreground">
+							Tetra berutang ke owner
+						</p>
+						<p
+							data-nominal
+							className="tabular mt-0.5 text-[30px] font-bold leading-tight tracking-[-0.02em] text-foreground"
+						>
+							{formatRupiah(tetraBerutang)}
+						</p>
+						<dl className="mt-3 space-y-1 text-[13px]">
+							<Stat label="Belum lunas" value={`${itemTerbuka} item`} />
+							<Stat
+								label="Dibayar bulan ini"
+								value={formatRupiah(dibayarBulanIni)}
+								nominal
+							/>
+							<Stat
+								label="Owner berutang ke Tetra"
+								value={formatRupiah(ownerBerutang)}
+								nominal
+							/>
+						</dl>
+					</Panel>
+
+					<Panel title="Per owner" meta="pilih untuk bayar / cicil">
+						<ul className="divide-y divide-border-subtle">
+							{owners.map((o) => {
+								const s = saldoOf(o.id);
+								const v = s?.saldo ?? 0;
+								return (
+									<li key={o.id}>
+										<Link
+											href={`/finance/hutang-owner?owner=${o.id}`}
+											className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-secondary/60"
+										>
+											<span className="min-w-0 flex-1">
+												<span className="block text-[14px] font-semibold text-foreground">
+													{o.name}
+												</span>
+												<span className="block text-[12px] text-muted-foreground">
+													{v > 0
+														? `${s?.rincian.length ?? 0} item belum lunas`
+														: v < 0
+															? "berutang ke Tetra"
+															: "Lunas"}
+												</span>
+											</span>
+											<span
+												data-nominal
+												className={cn(
+													"tabular text-[15px] font-semibold",
+													v > 0
+														? "text-amber-700"
+														: v < 0
+															? "text-sky-700"
+															: "text-muted-foreground",
+												)}
+											>
+												{formatRupiah(Math.abs(v))}
+											</span>
+											<ChevronRight
+												className="size-4 text-muted-foreground"
+												aria-hidden
+											/>
+										</Link>
+									</li>
+								);
+							})}
+						</ul>
+					</Panel>
+				</div>
 			)}
 
-			{/* Riwayat lengkap */}
-			<RekapCard className="space-y-2">
-				<div className="flex items-baseline justify-between gap-3">
-					<h3 className="type-heading">Riwayat</h3>
-					<span className="text-[12px] text-muted-foreground">
-						{rows.length} transaksi · terbaru dulu
-					</span>
-				</div>
-				{rows.length === 0 ? (
-					<p className="text-[13px] text-muted-foreground">
-						Belum ada transaksi.
+			<Riwayat rows={rows} showOwner={!selected} nameOf={nameOf} />
+		</Container>
+	);
+}
+
+function Stat({
+	label,
+	value,
+	nominal = false,
+}: {
+	label: string;
+	value: string;
+	nominal?: boolean;
+}) {
+	return (
+		<div className="flex items-baseline justify-between gap-3">
+			<dt className="text-muted-foreground">{label}</dt>
+			<dd
+				data-nominal={nominal || undefined}
+				className="tabular font-semibold text-foreground"
+			>
+				{value}
+			</dd>
+		</div>
+	);
+}
+
+/** Per owner: saldo + bayar/cicil, lalu yang belum lunas. */
+function OwnerDetail({
+	name,
+	saldo,
+	cashAccounts,
+}: {
+	name: string;
+	saldo: TalanganOwnerSaldo | undefined;
+	cashAccounts: Array<{ code: string; name: string; balance: number }>;
+}) {
+	if (!saldo)
+		return (
+			<Panel className="px-5 py-4">
+				<p className="text-[14px] font-semibold">{name}</p>
+				<p className="text-[13px] text-muted-foreground">
+					Tidak ada hutang-piutang dengan {name}. Catat lewat tombol di atas
+					kalau ada.
+				</p>
+			</Panel>
+		);
+	return (
+		<div className="grid items-start gap-3 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+			<TalanganOwnerCard owners={[saldo]} cashAccounts={cashAccounts} compact />
+			<Panel
+				title={saldo.saldo >= 0 ? "Belum lunas" : "Piutang belum kembali"}
+				meta={`${saldo.rincian.length} item · paling lama dulu`}
+			>
+				{saldo.rincian.length === 0 ? (
+					<p className="px-5 py-4 text-[13px] text-muted-foreground">
+						Semua sudah lunas.
 					</p>
 				) : (
+					<ul className="divide-y divide-border-subtle">
+						{saldo.rincian.map((it) => (
+							<li
+								key={`${it.label}|${it.date}|${it.amount}`}
+								className="grid grid-cols-[minmax(0,1fr)_auto_2rem] items-center gap-3 px-5 py-2.5 sm:grid-cols-[3.5rem_minmax(0,1fr)_auto_2rem]"
+							>
+								<span className="hidden text-[12px] text-muted-foreground sm:block">
+									{tglPendek(it.date)}
+								</span>
+								<span className="min-w-0 text-[13px]">
+									<span className="block text-[11.5px] text-muted-foreground sm:hidden">
+										{tglPendek(it.date)}
+									</span>
+									{it.projectId ? (
+										<Link
+											href={`/operations/${it.projectId}/rekap`}
+											className="hover:underline"
+										>
+											{it.label}
+										</Link>
+									) : (
+										it.label
+									)}
+								</span>
+								<span className="text-right">
+									<span
+										data-nominal
+										className="tabular block text-[13px] font-semibold"
+									>
+										{formatRupiah(it.sisa)}
+									</span>
+									{it.sisa < it.amount && (
+										<span className="block text-[11px] text-muted-foreground">
+											sisa dari{" "}
+											<span data-nominal className="tabular">
+												{formatRupiah(it.amount)}
+											</span>
+										</span>
+									)}
+								</span>
+								<span className="flex justify-end">
+									{it.batalId && <BatalTalanganButton id={it.batalId} />}
+								</span>
+							</li>
+						))}
+					</ul>
+				)}
+			</Panel>
+		</div>
+	);
+}
+
+/** Riwayat (buku besar) — kolom lurus, saldo berjalan, terbaru dulu. */
+function Riwayat({
+	rows,
+	showOwner,
+	nameOf,
+}: {
+	rows: TalanganRiwayatRow[];
+	showOwner: boolean;
+	nameOf: (id: string) => string;
+}) {
+	const cols = showOwner
+		? "sm:grid-cols-[4.5rem_5rem_minmax(0,1fr)_7.5rem_7.5rem_4rem]"
+		: "sm:grid-cols-[4.5rem_minmax(0,1fr)_7.5rem_7.5rem_4rem]";
+	return (
+		<Panel title="Riwayat" meta={`${rows.length} transaksi · terbaru dulu`}>
+			{rows.length === 0 ? (
+				<p className="px-5 py-4 text-[13px] text-muted-foreground">
+					Belum ada transaksi.
+				</p>
+			) : (
+				<>
+					<div
+						className={cn(
+							"hidden gap-3 border-b border-border-subtle px-5 py-2 text-[11.5px] font-medium text-muted-foreground sm:grid",
+							cols,
+						)}
+					>
+						<span>Tanggal</span>
+						{showOwner && <span>Owner</span>}
+						<span>Keterangan</span>
+						<span className="text-right">Nominal</span>
+						<span className="text-right">Saldo</span>
+						<span />
+					</div>
 					<ul className="divide-y divide-border-subtle">
 						{rows.map((r) => (
 							<li
 								key={r.id}
 								className={cn(
-									"grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1 py-2.5 sm:grid-cols-[6.5rem_1fr_8rem_10rem_4rem]",
+									"grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5 px-5 py-2.5 sm:items-center",
+									cols,
 									r.reversed && "opacity-50",
 								)}
 							>
-								<span className="order-1 text-[12px] text-muted-foreground sm:order-none sm:pt-0.5">
-									{tgl(r.date)}
-								</span>
-								<div className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1">
-									<div className="flex flex-wrap items-center gap-1.5">
-										<span
-											className={cn(
-												"rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
-												JENIS[r.jenis].tone,
-											)}
-										>
-											{JENIS[r.jenis].label}
+								<span className="order-1 text-[12px] text-muted-foreground sm:order-none">
+									{tglPendek(r.date)}
+									{showOwner && (
+										<span className="font-medium text-foreground sm:hidden">
+											{" "}
+											· {nameOf(r.ownerId)}
 										</span>
-										{!selected && (
-											<span className="text-[12.5px] font-semibold">
-												{nameOf(r.ownerId)}
-											</span>
-										)}
-										{r.reversed && (
-											<span className="text-[11px] font-medium text-rose-700">
-												dibatalkan
-											</span>
-										)}
-									</div>
-									<p
+									)}
+								</span>
+								{showOwner && (
+									<span className="hidden text-[13px] font-medium sm:block">
+										{nameOf(r.ownerId)}
+									</span>
+								)}
+								<span className="order-3 col-span-2 min-w-0 sm:order-none sm:col-span-1">
+									<span className="text-[11.5px] font-medium text-muted-foreground">
+										{JENIS[r.jenis]}
+										{r.reversed ? " · dibatalkan" : ""}
+									</span>
+									<span
 										className={cn(
-											"mt-0.5 text-[13px]",
+											"block text-[13px]",
 											r.reversed && "line-through",
 										)}
 									>
@@ -259,8 +438,8 @@ export default async function HutangOwnerPage({
 										) : (
 											r.label
 										)}
-									</p>
-								</div>
+									</span>
+								</span>
 								<span
 									data-nominal
 									className={cn(
@@ -271,14 +450,14 @@ export default async function HutangOwnerPage({
 									{r.amount > 0 ? "+" : "−"}
 									{formatRupiah(Math.abs(r.amount))}
 								</span>
-								<span className="order-5 text-right text-[12px] text-muted-foreground sm:order-none">
-									saldo{" "}
-									<span data-nominal className="tabular text-foreground">
-										{formatRupiah(Math.abs(r.saldo))}
-									</span>
-									{r.saldo < 0 ? " (owner berutang)" : ""}
+								<span
+									data-nominal
+									className="order-5 tabular text-right text-[12.5px] text-muted-foreground sm:order-none"
+								>
+									{formatRupiah(Math.abs(r.saldo))}
+									{r.saldo < 0 ? " ↩" : ""}
 								</span>
-								<span className="order-2 -my-1 flex items-center justify-end gap-1 sm:order-none sm:my-0">
+								<span className="order-2 -my-1 flex items-center justify-end gap-0.5 sm:order-none sm:my-0">
 									{r.proofUrl && (
 										<a
 											href={r.proofUrl}
@@ -295,12 +474,12 @@ export default async function HutangOwnerPage({
 							</li>
 						))}
 					</ul>
-				)}
-				<p className="text-[11.5px] text-muted-foreground">
-					+ = Tetra makin berutang ke owner · − = dibayar / dikurangi. Catatan
-					dari acara (uang jalan, biaya rekap) dibatalkan di rekap acaranya.
-				</p>
-			</RekapCard>
-		</Container>
+					<p className="border-t border-border-subtle px-5 py-2.5 text-[11.5px] text-muted-foreground">
+						+ hutang Tetra ke owner bertambah · − dibayar / berkurang · ↩ owner
+						berutang ke Tetra. Catatan dari acara dibatalkan di rekap acaranya.
+					</p>
+				</>
+			)}
+		</Panel>
 	);
 }
