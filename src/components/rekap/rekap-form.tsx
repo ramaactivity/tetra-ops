@@ -1133,16 +1133,12 @@ export function RekapForm({
 									values={spotCetak}
 									onChange={(next) => {
 										setSpotCetak(next);
-										// Stok kertas & sleeve dipotong mengikuti ukuran Spot 1, jadi
-										// total hanya menjumlah spot berukuran sama. Spot beda ukuran
-										// dicatat lewat "Tambah item lain" (lihat SpotCetak).
-										const base = context.spots.frames[0];
-										const sum = Object.entries(next)
-											.filter(([k]) => {
-												const f = context.spots.frames[Number(k) - 1];
-												return !f || !base || f === base;
-											})
-											.reduce((t, [, v]) => t + (Number(v) || 0), 0);
+										// Total = semua spot. Kertas & sleeve dipotong per ukuran
+										// frame tiap spot (cetakPerUkuran di planner stok).
+										const sum = Object.values(next).reduce(
+											(t, v) => t + (Number(v) || 0),
+											0,
+										);
 										if (sum > 0) {
 											setCetak(String(sum));
 											markTouched("cetak_total");
@@ -2693,9 +2689,8 @@ const inputClass =
 
 /**
  * Event multi-spot: rekap tetap satu per event. Crew mengisi cetak per spot
- * (total dijumlah otomatis). Spot dengan ukuran frame beda dari Spot 1 →
- * kertasnya dicatat lewat "Tambah item lain" supaya stok ukuran itu yang
- * berkurang (pengurangan otomatis mengikuti ukuran Spot 1).
+ * (total dijumlah otomatis); kertas & sleeve dipotong sesuai ukuran frame
+ * tiap spot (4R dan 2R masing-masing).
  */
 function SpotCetak({
 	unitCount,
@@ -2739,11 +2734,9 @@ function SpotCetak({
 			</div>
 			{differing.length > 0 ? (
 				<p className="text-[12px] text-sky-900/90">
-					{differing.map((d) => `Spot ${d.spot} (${d.frame})`).join(", ")} beda
-					ukuran dari Spot 1 ({base}) — cetakannya <b>tidak</b> ikut Total cetak
-					di bawah. Catat kertas & sleeve{" "}
-					{differing.map((d) => d.frame).join("/")}-nya lewat{" "}
-					<b>Tambah item lain</b> supaya stok ukuran itu yang berkurang.
+					Ukuran beda per spot ({frames.filter(Boolean).join(" / ")}) — kertas &
+					sleeve tiap ukuran dihitung otomatis dari cetak spot-nya. Tidak perlu
+					dicatat lagi lewat Tambah item lain.
 				</p>
 			) : null}
 		</div>

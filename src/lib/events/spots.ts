@@ -134,3 +134,35 @@ export function spotsNeedingOwnDesign(
 			: [],
 	);
 }
+
+/**
+ * Cetak per ukuran frame untuk event multi-spot: tiap spot dihitung dengan
+ * ukuran frame spot itu (bahan 4R & 2R dipotong masing-masing). `spotCetak`
+ * dari rekap ({"1": 134, "2": 256}); tanpa rincian spot → seluruh total
+ * memakai ukuran spot 1. Selisih total vs jumlah spot jatuh ke ukuran spot 1.
+ */
+export function cetakPerUkuran(
+	cetakTotal: number,
+	spotCetak: unknown,
+	/** Ukuran frame tiap spot (index 0 = spot 1). */
+	ukuranSpot: Array<string | null>,
+): Map<string, number> {
+	const base = (ukuranSpot[0] ?? "").trim();
+	const out = new Map<string, number>();
+	const add = (size: string, n: number) => {
+		if (n > 0) out.set(size, (out.get(size) ?? 0) + n);
+	};
+	const per =
+		spotCetak && typeof spotCetak === "object"
+			? (spotCetak as Record<string, unknown>)
+			: {};
+	let rinci = 0;
+	for (const [k, v] of Object.entries(per)) {
+		const n = Math.max(0, Math.round(Number(v) || 0));
+		const size = (ukuranSpot[Number(k) - 1] ?? base ?? "").trim() || base;
+		add(size, n);
+		rinci += n;
+	}
+	add(base, Math.max(0, Math.round(cetakTotal) - rinci));
+	return out;
+}

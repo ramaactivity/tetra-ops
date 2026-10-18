@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/rekap-notifications";
 import { alertRestockAfterCommit } from "@/lib/actions/restock-alert";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { cetakPerUkuran, eventSpots } from "@/lib/events/spots";
 import {
 	normalizePayer,
 	ownerIdOfPayer,
@@ -1206,7 +1207,7 @@ export async function submitRekap(
 		const { data: row } = await supabase
 			.from("crew_rekap")
 			.select(
-				"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+				"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, spot_cetak, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 			)
 			.eq("event_id", eventId)
 			.maybeSingle();
@@ -1282,6 +1283,8 @@ type RekapStockSnapshot = {
 	stock_committed_at: string | null;
 	stock_movement_batch_id: string | null;
 	cetak_total: number;
+	/** Event multi-spot: cetak per spot ({"1": 134, "2": 256}). */
+	spot_cetak?: unknown;
 	media_set_used: number;
 	sleeve_used: number;
 	flashdisk_used: number;
@@ -1328,7 +1331,7 @@ async function planRekapDeduction(
 			// handled by projectEventLinesFromSpec (shared with the forecast).
 			supabase
 				.from("events")
-				.select("frame_size")
+				.select("frame_size, unit_count, spots")
 				.eq("id", rekap.event_id)
 				.maybeSingle(),
 			supabase
@@ -1459,50 +1462,59 @@ async function planRekapDeduction(
 	const missingMappings: RekapField[] = [];
 
 	// Media + Sleeve derivation. Resepnya DITENTUKAN ukuran cetak: tanpa ukuran
-	// tidak ada media & sleeve yang bisa dihitung.
-	const recipe = SIZE_RECIPE[frameSize];
+	// tidak ada media & sleeve yang bisa dihitung. Event multi-spot dengan
+	// ukuran berbeda (mis. spot 1 4R, spot 2 2R): tiap spot dipotong sesuai
+	// ukurannya — dulu semua dihitung ukuran spot 1 dan crew harus mencatat
+	// kertas ukuran lain manual lewat "Tambah item lain" (sering terlewat).
+	const ukuranSpot = eventSpots({
+		unit_count: event?.unit_count as number | null,
+		spots: event?.spots,
+		frame_size: frameSize || null,
+	}).map((sp) => sp.frame_size);
+	const perUkuran = cetakPerUkuran(cetakTotal, rekap.spot_cetak, ukuranSpot);
 
 	// Ada cetakan tapi ukurannya tidak dikenal (frame size masih "menyusul").
 	// Dulu blok di bawah ini hanya di-skip diam-diam: rencana keluar TANPA baris
 	// media & sleeve, jadi stok media/sleeve tidak pernah berkurang dan HPP
-	// event kehilangan komponen terbesarnya — tanpa satu pun peringatan. Untuk
-	// event 116 cetak, selisihnya ratusan ribu rupiah yang tampil sebagai
-	// "untung". Sekarang ini diperlakukan sama dengan SKU yang hilang: commit
-	// ditolak sampai ukurannya diisi.
-	if (cetakTotal > 0 && !recipe) {
+	// event kehilangan komponen terbesarnya — tanpa satu pun peringatan.
+	// Sekarang ini diperlakukan sama dengan SKU yang hilang: commit ditolak
+	// sampai ukurannya diisi.
+	if ([...perUkuran.keys()].some((size) => !SIZE_RECIPE[size])) {
 		missingMappings.push("cetak_total", "sleeve_used");
 	}
 
-	if (cetakTotal > 0 && recipe) {
-		const mediaItem = itemsBySku.get(recipe.mediaSku);
-		if (mediaItem) {
-			lines.push({
-				item_id: mediaItem.id,
-				sku: mediaItem.sku,
-				name: mediaItem.name,
-				qty: cetakTotal * recipe.mediaQtyPerPrint,
-				unit_cost: Number(mediaItem.purchase_price_avg ?? 0),
-				source_label: "cetak_total",
-				bucket: "mediaset",
-			});
-		} else {
-			missingMappings.push("cetak_total");
+	// Satu baris per SKU (4R & 2R sama-sama MEDIA-BASIC → digabung).
+	const perSku = new Map<
+		string,
+		{ qty: number; bucket: "mediaset" | "sleeve" }
+	>();
+	for (const [size, n] of perUkuran) {
+		const recipe = SIZE_RECIPE[size];
+		if (!recipe) continue;
+		const media = perSku.get(recipe.mediaSku) ?? { qty: 0, bucket: "mediaset" };
+		media.qty += n * recipe.mediaQtyPerPrint;
+		perSku.set(recipe.mediaSku, media);
+		const sleeve = perSku.get(recipe.sleeveSku) ?? { qty: 0, bucket: "sleeve" };
+		sleeve.qty += n; // 1:1 with prints
+		perSku.set(recipe.sleeveSku, sleeve);
+	}
+	for (const [sku, { qty, bucket }] of perSku) {
+		const item = itemsBySku.get(sku);
+		if (!item) {
+			missingMappings.push(
+				bucket === "mediaset" ? "cetak_total" : "sleeve_used",
+			);
+			continue;
 		}
-
-		const sleeveItem = itemsBySku.get(recipe.sleeveSku);
-		if (sleeveItem) {
-			lines.push({
-				item_id: sleeveItem.id,
-				sku: sleeveItem.sku,
-				name: sleeveItem.name,
-				qty: cetakTotal, // 1:1 with prints
-				unit_cost: Number(sleeveItem.purchase_price_avg ?? 0),
-				source_label: "sleeve_used",
-				bucket: "sleeve",
-			});
-		} else {
-			missingMappings.push("sleeve_used");
-		}
+		lines.push({
+			item_id: item.id,
+			sku: item.sku,
+			name: item.name,
+			qty,
+			unit_cost: Number(item.purchase_price_avg ?? 0),
+			source_label: bucket === "mediaset" ? "cetak_total" : "sleeve_used",
+			bucket,
+		});
 	}
 
 	// Assembly-component recipes (Inventory v2, 2026-05-21).
@@ -1659,7 +1671,7 @@ async function planRekapDeduction(
 	return {
 		lines,
 		missingMappings,
-		unknownFrameSize: cetakTotal > 0 && !recipe,
+		unknownFrameSize: [...perUkuran.keys()].some((size) => !SIZE_RECIPE[size]),
 	};
 }
 
@@ -1851,7 +1863,7 @@ export async function ensureRekapCommitted(
 	const { data: row } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, spot_cetak, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("event_id", eventId)
 		.maybeSingle();
@@ -1885,7 +1897,7 @@ export async function previewRekapHpp(
 	const { data: row } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, spot_cetak, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("event_id", eventId)
 		.maybeSingle();
@@ -1918,7 +1930,7 @@ export async function getRekapApprovalPreview(rekapId: string): Promise<
 	const { data: rekap, error } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, spot_cetak, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("id", rekapId)
 		.maybeSingle();
@@ -1970,7 +1982,7 @@ export async function reviewRekap(
 	const { data: existing } = await supabase
 		.from("crew_rekap")
 		.select(
-			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
+			"id, event_id, is_approved, frame_size_snapshot, stock_committed_at, stock_movement_batch_id, cetak_total, spot_cetak, media_set_used, sleeve_used, flashdisk_used, pouch_used, photomagnet_used, keychain_used, custom_materials",
 		)
 		.eq("id", rekapId)
 		.maybeSingle();

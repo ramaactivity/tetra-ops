@@ -44,7 +44,10 @@ export function RekapSummaryTab({
 	rekap,
 	lines,
 	frameSize = "",
+	perUkuran = [],
 }: {
+	/** Cetak per ukuran frame (event multi-spot beda ukuran), lihat cetakPerUkuran. */
+	perUkuran?: Array<[string, number]>;
 	rekap: RekapData;
 	/** Canonical consumption lines from planRekapDeduction (one per SKU). */
 	lines: DeductionLine[];
@@ -125,18 +128,40 @@ export function RekapSummaryTab({
 					/>
 					<ItemRow
 						name="Mediaset"
-						sizeBadge={sizeBadge}
+						sizeBadge={
+							perUkuran.length > 1
+								? perUkuran
+										.map(([size, n]) => `${frameSizeLabel(size) ?? size} ${n}`)
+										.join(" · ")
+								: sizeBadge
+						}
 						qty={rekap.media_set_used}
 						unit="set"
 						cost={sumBucket("mediaset")}
 					/>
-					<ItemRow
-						name="Sleeve"
-						sizeBadge={sizeBadge}
-						qty={rekap.sleeve_used}
-						unit="pcs"
-						cost={sumBucket("sleeve")}
-					/>
+					{perUkuran.length > 1 ? (
+						// Beda ukuran per spot → satu baris per SKU sleeve (4R, 2R, …).
+						bucketLines("sleeve").map((l) => (
+							<ItemRow
+								key={l.sku}
+								name="Sleeve"
+								sizeBadge={frameSizeLabel(
+									l.sku.replace(/^SLEEVE-/i, "").replace(/^PR$/i, "polaroid"),
+								)}
+								qty={l.qty}
+								unit="pcs"
+								cost={costOf(l)}
+							/>
+						))
+					) : (
+						<ItemRow
+							name="Sleeve"
+							sizeBadge={sizeBadge}
+							qty={rekap.sleeve_used}
+							unit="pcs"
+							cost={sumBucket("sleeve")}
+						/>
+					)}
 					{/* Ada cetakan tapi tidak ada biayanya = resep ukuran tidak ketemu
 					    (frame size masih "menyusul"). Angka HPP di halaman ini jadi
 					    JAUH lebih kecil dari sebenarnya, dan stok media/sleeve tidak

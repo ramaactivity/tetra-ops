@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	backdropUsage,
+	cetakPerUkuran,
 	eventSpots,
 	frameSizesOf,
 	spotsNeedingOwnDesign,
@@ -93,4 +94,29 @@ test("spot butuh desain sendiri hanya kalau beda ukuran", () => {
 	assert.deepEqual(spotsNeedingOwnDesign(ev), [{ spot: 2, size: "2R" }]);
 	// Spot 1 dikoreksi jadi 2R: spot 2 sama, spot 3 (ikut spot 1) ikut 2R.
 	assert.deepEqual(spotsNeedingOwnDesign(ev, "2R"), []);
+});
+
+test("cetakPerUkuran: tiap spot pakai ukuran frame-nya (CIMB 134 × 4R + 256 × 2R)", () => {
+	const m = cetakPerUkuran(390, { "1": 134, "2": 256 }, ["4R", "2R"]);
+	assert.deepEqual(
+		[...m],
+		[
+			["4R", 134],
+			["2R", 256],
+		],
+	);
+	// Ukuran sama → digabung; tanpa rincian spot → semua ukuran spot 1.
+	assert.deepEqual(
+		[...cetakPerUkuran(390, { "1": 134, "2": 256 }, ["4R", "4R"])],
+		[["4R", 390]],
+	);
+	assert.deepEqual([...cetakPerUkuran(100, null, ["2R"])], [["2R", 100]]);
+	// Total lebih besar dari rincian → sisanya ukuran spot 1.
+	assert.deepEqual(
+		[...cetakPerUkuran(400, { "1": 134, "2": 256 }, ["4R", "2R"])],
+		[
+			["4R", 144],
+			["2R", 256],
+		],
+	);
 });

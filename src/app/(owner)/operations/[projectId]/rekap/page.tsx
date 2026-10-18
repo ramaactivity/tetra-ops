@@ -53,6 +53,7 @@ import {
 import type { QueuedEntry } from "@/lib/actions/settle-queue";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchSalesCandidates } from "@/lib/events/booking-candidates";
+import { cetakPerUkuran } from "@/lib/events/spots";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import {
@@ -114,6 +115,7 @@ type RekapRow = {
 	expense_paid_by: Record<string, string> | null;
 	expense_nota_urls: Record<string, string> | null;
 	uj_terima: number | null;
+	spot_cetak?: unknown;
 	uj_metode: string | null;
 	uj_holder: string | null;
 	uj_sisa: string | null;
@@ -960,6 +962,13 @@ export default async function EventRekapPage({
 							rekap={rekap}
 							lines={rekapLines}
 							frameSize={context.pkg.frame_size ?? ""}
+							perUkuran={[
+								...cetakPerUkuran(
+									Number(rekap.cetak_total ?? 0),
+									rekap.spot_cetak,
+									context.spots.frames,
+								),
+							]}
 						/>
 						{rekap.crew_notes && (
 							<RekapCard className="mt-4 space-y-1.5">
