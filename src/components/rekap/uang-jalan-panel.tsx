@@ -144,6 +144,12 @@ export function UangJalanPanel({
 	const [amount, setAmount] = useState(
 		belumDicatat > 0 ? String(belumDicatat) : "",
 	);
+	// Saat mencatat pemberian: cocokkan dengan uang jalan yang dilaporkan crew
+	// diterima, supaya catatan dari beberapa owner jumlahnya pas.
+	const lapor =
+		mode === "beri" && report && report.holder === userId ? report.terima : 0;
+	const sisaLapor = Math.max(0, lapor - given(userId));
+	const lebih = lapor > 0 ? Math.max(0, Number(amount) - sisaLapor) : 0;
 	const [method, setMethod] = useState<"tunai" | "transfer">(
 		report?.metode === "transfer" ? "transfer" : "tunai",
 	);
@@ -337,8 +343,10 @@ export function UangJalanPanel({
 								options={crew.map((c) => ({ value: c.user_id, label: c.name }))}
 							/>
 						</div>
-						<label className="space-y-1.5">
-							<span className="text-[13px] font-medium">Jumlah</span>
+						<div className="space-y-1.5">
+							<label htmlFor="uj-amount" className="text-[13px] font-medium">
+								Jumlah
+							</label>
 							<div className="relative">
 								<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px]">
 									Rp
@@ -347,13 +355,56 @@ export function UangJalanPanel({
 									type="number"
 									inputMode="numeric"
 									min={1}
+									id="uj-amount"
 									value={amount}
 									onChange={(e) => setAmount(e.target.value)}
 									placeholder="200000"
 									className={`${input} tabular pl-9`}
 								/>
 							</div>
-						</label>
+							{lapor > 0 &&
+								(lebih > 0 ? (
+									<p className="text-[12px] font-medium text-amber-700">
+										Lebih{" "}
+										<span className="tabular" data-nominal>
+											{formatRupiah(lebih)}
+										</span>{" "}
+										dari laporan crew (terima{" "}
+										<span className="tabular" data-nominal>
+											{formatRupiah(lapor)}
+										</span>
+										, sudah tercatat{" "}
+										<span className="tabular" data-nominal>
+											{formatRupiah(given(userId))}
+										</span>
+										).
+									</p>
+								) : sisaLapor > 0 ? (
+									<button
+										type="button"
+										onClick={() => setAmount(String(sisaLapor))}
+										className={`h-8 rounded-full border px-3 text-[12px] font-medium transition-colors ${
+											Number(amount) === sisaLapor
+												? "border-transparent bg-lime-100 text-lime-900"
+												: "border-border-default hover:bg-secondary"
+										}`}
+									>
+										Sisa{" "}
+										<span className="tabular" data-nominal>
+											{formatRupiah(sisaLapor)}
+										</span>{" "}
+										dari laporan crew
+									</button>
+								) : (
+									<p className="text-[12px] text-muted-foreground">
+										Sudah sesuai laporan crew (
+										<span className="tabular" data-nominal>
+											{formatRupiah(lapor)}
+										</span>
+										).
+									</p>
+								))}
+						</div>
 						{mode === "beri" && (
 							<div className="space-y-1.5">
 								<span className="text-[13px] font-medium">Cara memberi</span>
