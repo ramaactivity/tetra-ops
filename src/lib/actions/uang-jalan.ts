@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
-import { TALANGAN_OWNER_COA } from "@/lib/rekap/uang-jalan";
+import { TALANGAN_OWNER_COA, uraiPelunasan } from "@/lib/rekap/uang-jalan";
 import { loadTalanganOwner, saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
@@ -427,6 +427,8 @@ export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
 		);
 		if (saldoErr) return { ok: false, error: saldoErr };
 	}
+	// Keterangan: item mana yang dilunasi (apa · acara · kapan), paling lama dulu.
+	const rincian = bayar ? uraiPelunasan(row?.rincian ?? [], amount) : "";
 
 	const { data: entry, error: ee } = await db
 		.from("journal_entries")
@@ -434,9 +436,10 @@ export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
 			ref_id: ref(new Date(date)),
 			entry_date: date,
 			entry_type: "transfer",
-			description: bayar
-				? `Bayar hutang ke ${nama} (uang pribadi untuk uang jalan)`
-				: `Terima pelunasan hutang dari ${nama}`,
+			description: (bayar
+				? `Bayar hutang ke ${nama}${rincian ? ` — ${rincian}` : ""}`
+				: `Terima pelunasan hutang dari ${nama}`
+			).slice(0, 300),
 			source_type: "talangan_owner",
 			source_event_id: p.data.eventId ?? null,
 			total_amount: amount + admin,
@@ -505,6 +508,7 @@ export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
 		account_code: accountCode,
 		journal_id: entry.id,
 		event_id: p.data.eventId ?? null,
+		note: rincian || null,
 		created_by: me.profile.id,
 	});
 	if (ie) {

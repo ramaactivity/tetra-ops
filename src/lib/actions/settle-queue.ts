@@ -6,6 +6,7 @@ import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { recordQuickTransaction } from "@/lib/actions/journal-entries";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { TALANGAN_OWNER_COA } from "@/lib/rekap/uang-jalan";
 import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,6 +42,8 @@ export type QueuedEntry = {
 	proofUrl: string | null;
 	postedAt: string | null;
 	postError: string | null;
+	/** Ditalangi owner ini (hutang, dilunasi nanti) — bukan dari rekening. */
+	ownerId?: string | null;
 };
 
 const ExpenseSchema = z.object({
@@ -69,6 +72,9 @@ export type QueueResponse = { ok: true } | { ok: false; error: string };
  * Sumber dana "uang jalan" (DR-049): UI mengirim `uj:<user_id>`. Diterjemahkan
  * ke akun 1-320 + crew pemegangnya; jumlah tidak boleh melebihi uang jalan yang
  * masih dipegang crew itu (dikurangi yang sudah diantre).
+ *
+ * Sumber "dibayar owner dulu": UI mengirim `owner:<user_id>` → akun 2-310 +
+ * owner-nya; dibukukan saat settle sebagai hutang Tetra ke owner itu.
  */
 async function resolveUangJalan(
 	supabase: Awaited<ReturnType<typeof createClient>>,
@@ -76,9 +82,25 @@ async function resolveUangJalan(
 	accountCode: string,
 	amount: number,
 ): Promise<
-	| { ok: true; account_code: string; uj_user_id: string | null }
+	| {
+			ok: true;
+			account_code: string;
+			uj_user_id: string | null;
+			owner_id?: string | null;
+	  }
 	| { ok: false; error: string }
 > {
+	if (accountCode.startsWith("owner:")) {
+		const ownerId = accountCode.slice(6);
+		if (!z.uuid().safeParse(ownerId).success)
+			return { ok: false, error: "Owner tidak valid" };
+		return {
+			ok: true,
+			account_code: TALANGAN_OWNER_COA,
+			uj_user_id: null,
+			owner_id: ownerId,
+		};
+	}
 	if (!accountCode.startsWith("uj:"))
 		return { ok: true, account_code: accountCode, uj_user_id: null };
 	const userId = accountCode.slice(3);
@@ -134,8 +156,11 @@ export async function queueEventExpense(input: {
 					parsed.data.account_code,
 					parsed.data.amount,
 				)
-			: parsed.data.account_code.startsWith("uj:")
-				? ({ ok: false, error: "Uang jalan hanya untuk uang keluar" } as const)
+			: /^(uj|owner):/.test(parsed.data.account_code)
+				? ({
+						ok: false,
+						error: "Uang jalan / hutang ke owner hanya untuk uang keluar",
+					} as const)
 				: ({
 						ok: true,
 						account_code: parsed.data.account_code,
@@ -144,6 +169,7 @@ export async function queueEventExpense(input: {
 	if (!uj.ok) return uj;
 	const { error } = await supabase.from("event_settle_queue").insert({
 		uj_user_id: uj.uj_user_id,
+		owner_id: "owner_id" in uj ? (uj.owner_id ?? null) : null,
 		event_id: parsed.data.event_id,
 		kind: "expense",
 		direction: parsed.data.direction,
@@ -203,6 +229,7 @@ export async function queueEventExpensesBatch(input: {
 			...r,
 			account_code: uj.account_code,
 			uj_user_id: uj.uj_user_id,
+			owner_id: uj.owner_id ?? null,
 		})),
 	);
 	if (error) return { ok: false, error: error.message };
@@ -397,7 +424,7 @@ export async function postSettleQueue(
 	const { data: rows } = await supabase
 		.from("event_settle_queue")
 		.select(
-			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, uj_user_id",
+			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, uj_user_id, owner_id",
 		)
 		.eq("event_id", eventId)
 		.is("posted_at", null)
@@ -458,6 +485,7 @@ export async function postSettleQueue(
 			fd.set("event_id", eventId);
 			if (row.note) fd.set("note", row.note as string);
 			if (row.proof_url) fd.set("proof_url", row.proof_url as string);
+			if (row.owner_id) fd.set("talangan_owner_id", row.owner_id as string);
 			const res = await recordQuickTransaction(undefined, fd);
 			ok = Boolean(res?.success);
 			err = res?.success ? null : (res?.error ?? "Gagal mencatat transaksi");

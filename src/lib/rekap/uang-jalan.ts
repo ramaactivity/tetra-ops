@@ -70,7 +70,8 @@ export type TalanganRow = {
 
 export type TalanganBayarRow = {
 	owner_id: string;
-	direction: "bayar" | "terima";
+	/** talangan = pengeluaran event yang dibayar owner dulu (Tetra berutang). */
+	direction: "bayar" | "terima" | "talangan";
 	amount: number;
 	is_reversed?: boolean;
 };
@@ -128,4 +129,62 @@ export function isiSisa<T extends { amount: string; touched: boolean }>(
 	return rows.map((r) =>
 		r.touched ? r : { ...r, amount: rest > 0 ? String(rest) : "" },
 	);
+}
+
+/** Satu hal yang ditalangi owner (uang jalan / pengeluaran event). */
+export type TalanganItem = {
+	label: string;
+	/** yyyy-mm-dd — urutan pelunasan (paling lama dulu). */
+	date: string;
+	amount: number;
+	projectId?: string | null;
+};
+
+/**
+ * Item yang belum lunas: pembayaran (+ sisa uang jalan yang dikembalikan ke
+ * owner) melunasi item paling lama dulu.
+ */
+export function rincianTerbuka(
+	items: TalanganItem[],
+	sudahDibayar: number,
+): Array<TalanganItem & { sisa: number }> {
+	let kredit = Math.max(0, sudahDibayar);
+	const out: Array<TalanganItem & { sisa: number }> = [];
+	for (const it of [...items].sort((a, b) => a.date.localeCompare(b.date))) {
+		const pakai = Math.min(kredit, it.amount);
+		kredit -= pakai;
+		if (it.amount - pakai > 0) out.push({ ...it, sisa: it.amount - pakai });
+	}
+	return out;
+}
+
+const tglPendek = (d: string) =>
+	new Date(`${d}T00:00:00`).toLocaleDateString("id-ID", {
+		day: "numeric",
+		month: "short",
+	});
+
+/** Label satu item: "16 Okt · Bensin — CIMB Niaga" (tanggal di depan supaya tak terpotong). */
+export const labelItem = (it: TalanganItem) =>
+	`${tglPendek(it.date)} · ${it.label}`;
+
+/**
+ * Keterangan pelunasan: item mana saja yang tertutup oleh `jumlah`, paling lama
+ * dulu. Contoh: "16 Okt · Bensin — CIMB 100.000; 16 Okt · Konsumsi — CIMB 20.000 sebagian".
+ */
+export function uraiPelunasan(
+	terbuka: Array<TalanganItem & { sisa: number }>,
+	jumlah: number,
+): string {
+	let sisa = Math.max(0, jumlah);
+	const parts: string[] = [];
+	for (const it of terbuka) {
+		if (sisa <= 0) break;
+		const pakai = Math.min(sisa, it.sisa);
+		sisa -= pakai;
+		parts.push(
+			`${labelItem(it)} ${pakai.toLocaleString("id-ID")}${pakai < it.sisa ? " sebagian" : ""}`,
+		);
+	}
+	return parts.join("; ");
 }

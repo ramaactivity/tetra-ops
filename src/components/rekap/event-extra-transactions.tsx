@@ -118,7 +118,10 @@ export function EventExtraTransactions({
 	ownerPaidPending = [],
 	readOnly = false,
 	uangJalan = [],
+	owners = [],
 }: {
+	/** Owner yang bisa menalangi biaya (sumber "Hutang ke owner — dilunasi nanti"). */
+	owners?: Array<{ id: string; name: string }>;
 	/** Uang jalan yang masih dipegang crew (sudah dikurangi yang diantre) — DR-049. */
 	uangJalan?: Array<{ user_id: string; name: string; saldo: number }>;
 	eventId: string;
@@ -164,8 +167,28 @@ export function EventExtraTransactions({
 			name: `Uang jalan · ${u.name}`,
 			balance: u.saldo,
 		}));
+	// Dibayar owner dulu → hutang Tetra ke owner itu, dilunasi nanti di modul
+	// hutang-piutang owner. Bukan uang Tetra, jadi tanpa saldo.
+	const ownerOptions: CashAccount[] = owners.map((o) => ({
+		code: `owner:${o.id}`,
+		name: `Hutang ke ${o.name} — dilunasi nanti`,
+	}));
 	const withUj = (list: CashAccount[], dir: CatatDirection) =>
-		dir === "keluar" ? [...ujOptions, ...list] : list;
+		dir === "keluar" ? [...ujOptions, ...list, ...ownerOptions] : list;
+	const sumberLabel = (a: CashAccount) =>
+		a.code.startsWith("owner:")
+			? a.name
+			: a.code.startsWith("uj:")
+				? `${a.name} — ${formatRupiah(a.balance ?? 0)} dipegang crew`
+				: a.balance !== undefined
+					? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
+					: `${a.code} · ${a.name}`;
+	const ownerHint = (code: string) => {
+		const o = owners.find((x) => `owner:${x.id}` === code);
+		return o
+			? `Biaya tetap masuk hitungan untung event. Tetra berutang ke ${o.name} — lunasi kapan saja di kartu Hutang-piutang owner (Dashboard / Keuangan).`
+			: null;
+	};
 	// Ganti kategori = rekening ikut default-nya (tol → e-toll, lainnya BCA).
 	function pickCategory(id: string) {
 		setCategoryId(id);
@@ -227,7 +250,9 @@ export function EventExtraTransactions({
 			),
 	);
 
-	const acct = [...ujOptions, ...cashAccounts].find((a) => a.code === account);
+	const acct = [...ujOptions, ...ownerOptions, ...cashAccounts].find(
+		(a) => a.code === account,
+	);
 	const insufficient =
 		direction === "keluar" &&
 		amount > 0 &&
@@ -276,7 +301,7 @@ export function EventExtraTransactions({
 	}
 
 	const pendingTotal = ownerPaidPending.reduce((s, p) => s + p.amount, 0);
-	const bulkAcct = [...ujOptions, ...cashAccounts].find(
+	const bulkAcct = [...ujOptions, ...ownerOptions, ...cashAccounts].find(
 		(a) => a.code === bulkAccount,
 	);
 	const bulkInsufficient =
@@ -399,18 +424,14 @@ export function EventExtraTransactions({
 					<div className="flex flex-wrap items-end gap-2">
 						<div className="min-w-[220px] flex-1 space-y-1">
 							<span className="block text-[11px] font-medium text-amber-900/80 dark:text-amber-200/80">
-								Uang keluar dari rekening
+								Dibayar dari
 							</span>
 							<Combobox
 								value={bulkAccount}
 								onValueChange={(v) => setBulkAccount(v ?? "")}
 								options={withUj(bulkAccounts, "keluar").map((a) => ({
 									value: a.code,
-									label: a.code.startsWith("uj:")
-										? `${a.name} — ${formatRupiah(a.balance ?? 0)} dipegang crew`
-										: a.balance !== undefined
-											? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
-											: `${a.code} · ${a.name}`,
+									label: sumberLabel(a),
 								}))}
 								placeholder="Pilih rekening"
 								allowFreeText={false}
@@ -434,6 +455,11 @@ export function EventExtraTransactions({
 							)}
 						</Button>
 					</div>
+					{ownerHint(bulkAccount) && (
+						<p className="text-[11px] text-amber-900/80 dark:text-amber-200/80">
+							{ownerHint(bulkAccount)}
+						</p>
+					)}
 					{bulkInsufficient && (
 						<p className="tabular text-[11px] font-medium text-rose-600">
 							Saldo {bulkAcct?.name} tidak cukup (
@@ -463,6 +489,12 @@ export function EventExtraTransactions({
 							<span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
 								{q.note ?? "Transaksi"}
 							</span>
+							{q.ownerId && (
+								<span className="inline-flex items-center rounded-full bg-amber-500/12 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
+									Ditalangi{" "}
+									{owners.find((o) => o.id === q.ownerId)?.name ?? "owner"}
+								</span>
+							)}
 							<span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
 								<Clock className="h-3 w-3" /> Dibukukan saat settle
 							</span>
@@ -677,15 +709,16 @@ export function EventExtraTransactions({
 								onValueChange={(v) => setAccount(v ?? "")}
 								options={withUj(formAccounts, direction).map((a) => ({
 									value: a.code,
-									label: a.code.startsWith("uj:")
-										? `${a.name} — ${formatRupiah(a.balance ?? 0)} dipegang crew`
-										: a.balance !== undefined
-											? `${a.code} · ${a.name} — ${formatRupiah(a.balance)}`
-											: `${a.code} · ${a.name}`,
+									label: sumberLabel(a),
 								}))}
 								placeholder="Pilih rekening"
 								allowFreeText={false}
 							/>
+							{ownerHint(account) && (
+								<p className="text-[11px] text-muted-foreground">
+									{ownerHint(account)}
+								</p>
+							)}
 						</div>
 						<div className="md:col-span-2">
 							<ProofUploadButton

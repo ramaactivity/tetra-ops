@@ -339,6 +339,10 @@ export default async function EventRekapPage({
 		.eq("is_active", true)
 		.order("full_name");
 	const talanganOwner = await loadTalanganOwner(supabase);
+	const ujOwnerOptions = (ujOwners ?? []).map((o) => ({
+		id: o.id as string,
+		name: (o.nickname as string | null) || (o.full_name as string),
+	}));
 	const ujLedger = ((ujRows ?? []) as UangJalanLedgerRow[]).map((r) => ({
 		...r,
 		amount: Number(r.amount),
@@ -394,7 +398,7 @@ export default async function EventRekapPage({
 	const { data: queueRows } = await supabase
 		.from("event_settle_queue")
 		.select(
-			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, posted_at, post_error",
+			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, posted_at, post_error, owner_id",
 		)
 		.eq("event_id", event.id)
 		.order("created_at", { ascending: true });
@@ -414,6 +418,7 @@ export default async function EventRekapPage({
 			proofUrl: (q.proof_url as string | null) ?? null,
 			postedAt: null,
 			postError: (q.post_error as string | null) ?? null,
+			ownerId: (q.owner_id as string | null) ?? null,
 		}));
 
 	const extraTxnRows: ExtraTxnRow[] = (extraTxns ?? []).map((t) => ({
@@ -1038,10 +1043,7 @@ export default async function EventRekapPage({
 							: null
 					}
 					cashAccounts={cashAccountsNoCard}
-					owners={(ujOwners ?? []).map((o) => ({
-						id: o.id as string,
-						name: (o.nickname as string | null) || (o.full_name as string),
-					}))}
+					owners={ujOwnerOptions}
 					meId={me.profile.id}
 					talangan={talanganOwner}
 					antre={Object.fromEntries(
@@ -1142,6 +1144,7 @@ export default async function EventRekapPage({
 						cashAccounts={cashAccounts}
 						ownerPaidPending={ownerPaidPending}
 						uangJalan={uangJalanSumber}
+						owners={ujOwnerOptions}
 					/>
 
 					{profitPreview && (
@@ -1303,6 +1306,7 @@ export default async function EventRekapPage({
 						cashAccounts={cashAccounts}
 						ownerPaidPending={ownerPaidPending}
 						uangJalan={uangJalanSumber}
+						owners={ujOwnerOptions}
 					/>
 
 					{profitPreview && (

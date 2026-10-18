@@ -13,6 +13,7 @@ import {
 	type CatatDirection,
 	findCategory,
 } from "@/lib/finance/quick-record-categories";
+import { TALANGAN_OWNER_COA } from "@/lib/rekap/uang-jalan";
 import { createClient } from "@/lib/supabase/server";
 
 async function requireOwnerLevel() {
@@ -296,6 +297,15 @@ const QuickRecordSchema = z.object({
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : undefined)),
+	// Sumber dana = hutang ke owner ini (account_code 2-310): pengeluaran yang
+	// dibayar owner dulu, dilunasi nanti di modul hutang-piutang owner.
+	talangan_owner_id: z
+		.string()
+		.trim()
+		.uuid()
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : undefined)),
 });
 
 // Pecah transaksi: satu transfer dibagi ke beberapa akun beban (mis. reimburse
@@ -339,6 +349,7 @@ export async function recordQuickTransaction(
 		proof_url: formData.get("proof_url") ?? undefined,
 		period_month: formData.get("period_month") ?? undefined,
 		patungan_per_owner: formData.get("patungan_per_owner") ?? 0,
+		talangan_owner_id: formData.get("talangan_owner_id") ?? undefined,
 		splits: formData.get("splits") ?? undefined,
 	});
 	if (res?.success) {
@@ -365,6 +376,25 @@ export async function recordQuickTransactionCore(
 
 	const { direction, amount, entry_date, account_code, note } = parsed.data;
 	const dir = direction as CatatDirection;
+
+	// Hutang ke owner (2-310) hanya lewat jalur ini, dan selalu dengan owner-nya,
+	// supaya buku pembantu talangan_owner_bayar tidak pernah selisih dengan GL.
+	const talanganOwnerId =
+		account_code === TALANGAN_OWNER_COA ? parsed.data.talangan_owner_id : null;
+	if (account_code === TALANGAN_OWNER_COA) {
+		if (dir !== "keluar" || !talanganOwnerId)
+			return {
+				error:
+					"Hutang ke owner hanya untuk uang keluar & harus pilih owner-nya",
+			};
+		const { data: o } = await supabase
+			.from("users")
+			.select("role")
+			.eq("id", talanganOwnerId)
+			.maybeSingle();
+		if (o?.role !== "owner" && o?.role !== "super_admin")
+			return { error: "Yang menalangi harus owner" };
+	}
 
 	// Resolve the counterpart account + entry_type + default label.
 	let counterpartCode: string;
@@ -481,7 +511,8 @@ export async function recordQuickTransactionCore(
 		return { error: `Akun nonaktif: ${inactive.join(", ")}` };
 
 	// Guard saldo: uang keluar / transfer tidak boleh bikin rekening asal minus.
-	if (dir !== "masuk") {
+	// Ditalangi owner = uang Tetra tidak keluar, jadi tidak ada saldo yang dicek.
+	if (dir !== "masuk" && !talanganOwnerId) {
 		const srcName =
 			((coa ?? []).find((c) => c.code === account_code)?.name as string) ??
 			account_code;
@@ -610,6 +641,25 @@ export async function recordQuickTransactionCore(
 	if (linesErr) {
 		await supabase.from("journal_entries").delete().eq("id", entry.id);
 		return { error: linesErr.message };
+	}
+
+	if (talanganOwnerId) {
+		const { error: tErr } = await supabase.from("talangan_owner_bayar").insert({
+			owner_id: talanganOwnerId,
+			direction: "talangan",
+			amount: amount + adminFee,
+			account_code: counterpartCode,
+			journal_id: entry.id,
+			event_id: parsed.data.event_id ?? null,
+			note: description,
+			created_by: actorProfileId,
+		});
+		if (tErr) {
+			await supabase.from("journal_lines").delete().eq("entry_id", entry.id);
+			await supabase.from("journal_entries").delete().eq("id", entry.id);
+			return { error: `Gagal mencatat hutang ke owner: ${tErr.message}` };
+		}
+		revalidatePath("/dashboard");
 	}
 
 	// Sebagian beban ditanggung patungan owner, dipotong dari bagi hasil.
@@ -859,6 +909,12 @@ export async function reverseJournalEntry(
 		.update({ is_reversed: true })
 		.eq("journal_id", entryId)
 		.eq("kind", "pakai");
+	// Pengeluaran yang ditalangi owner ikut batal di hutang-piutang owner.
+	await supabase
+		.from("talangan_owner_bayar")
+		.update({ is_reversed: true })
+		.eq("journal_id", entryId)
+		.eq("direction", "talangan");
 
 	revalidatePath("/finance/accounting");
 	return { ok: true, reversalRefId };

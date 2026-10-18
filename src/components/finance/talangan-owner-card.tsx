@@ -1,6 +1,7 @@
 "use client";
 
 import { Undo2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import {
 	bayarTalanganOwner,
 } from "@/lib/actions/uang-jalan";
 import { formatRupiah } from "@/lib/format";
+import { labelItem } from "@/lib/rekap/uang-jalan";
 import type { TalanganOwnerSaldo } from "@/lib/rekap/uang-jalan-db";
 
 type Account = { code: string; name: string; balance?: number };
@@ -95,14 +97,50 @@ function Row({
 					{formatRupiah(sisa)}
 				</span>
 			</div>
+			{bayar && owner.rincian.length > 0 && (
+				<ul className="space-y-0.5 border-t border-border-subtle pt-2 text-[12.5px]">
+					{owner.rincian.map((it) => (
+						<li
+							key={`${it.label}|${it.date}|${it.amount}`}
+							className="flex justify-between gap-3"
+						>
+							{it.projectId ? (
+								<Link
+									href={`/operations/${it.projectId}/rekap`}
+									className="min-w-0 truncate text-muted-foreground hover:text-foreground"
+								>
+									{labelItem(it)}
+								</Link>
+							) : (
+								<span className="min-w-0 truncate text-muted-foreground">
+									{labelItem(it)}
+								</span>
+							)}
+							<span className="tabular shrink-0" data-nominal>
+								{formatRupiah(it.sisa)}
+								{it.sisa < it.amount && (
+									<span className="text-muted-foreground"> sisa</span>
+								)}
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
 			{owner.riwayat.length > 0 && (
-				<ul className="space-y-0.5 text-[12.5px]">
+				<ul className="space-y-1 border-t border-border-subtle pt-2 text-[12.5px]">
 					{owner.riwayat.map((r) => (
-						<li key={r.id} className="flex items-center justify-between gap-2">
-							<span className="min-w-0 truncate text-muted-foreground">
-								{r.direction === "bayar" ? "Dibayar ke" : "Diterima dari"}{" "}
-								{owner.name} ·{" "}
-								{new Date(r.created_at).toLocaleDateString("id-ID")}
+						<li key={r.id} className="flex items-start justify-between gap-2">
+							<span className="min-w-0 text-muted-foreground">
+								<span className="block truncate">
+									{r.direction === "bayar" ? "Dibayar ke" : "Diterima dari"}{" "}
+									{owner.name} ·{" "}
+									{new Date(r.created_at).toLocaleDateString("id-ID")}
+								</span>
+								{r.note && (
+									<span className="block text-[11.5px] leading-snug">
+										{r.note}
+									</span>
+								)}
 							</span>
 							<span className="flex shrink-0 items-center gap-1">
 								<span className="tabular" data-nominal>

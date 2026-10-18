@@ -3,10 +3,12 @@ import { test } from "node:test";
 import {
 	isiSisa,
 	potongFee,
+	rincianTerbuka,
 	ringkasUangJalan,
 	saldoTalanganOwner,
 	saldoUangJalan,
 	type TalanganRow,
+	uraiPelunasan,
 } from "./uang-jalan";
 
 test("contoh owner: uang jalan 200, terpakai 150, fee 150 → transfer 100", () => {
@@ -128,6 +130,7 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 			{ owner_id: "adit", direction: "bayar", amount: 20_000 }, // cicil
 			{ owner_id: "fahmi", direction: "bayar", amount: 75_000 },
 			{ owner_id: "iqbal", direction: "terima", amount: 10_000 },
+			{ owner_id: "fahmi", direction: "talangan", amount: 88_000 }, // konsumsi dibayar Fahmi
 			{
 				owner_id: "adit",
 				direction: "bayar",
@@ -137,7 +140,7 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 		],
 	);
 	assert.equal(m.get("adit"), 102_500);
-	assert.equal(m.get("fahmi"), 0);
+	assert.equal(m.get("fahmi"), 88_000);
 	assert.equal(m.get("iqbal"), -30_000); // Iqbal masih berutang ke Tetra
 	assert.equal(m.has("rama"), false);
 });
@@ -155,4 +158,30 @@ test("bagi uang jalan: baris yang belum diketik otomatis terisi sisa laporan cre
 	);
 	assert.equal(isiSisa([r("1", true), r("9", false)], 0)[1].amount, "9");
 	assert.equal(isiSisa([r("1", false), r("9", false)], 100)[1].amount, "9");
+});
+
+test("rincian hutang owner: dilunasi yang paling lama dulu, keterangan pelunasan menyebut itemnya", () => {
+	const items = [
+		{ label: "Konsumsi — CIMB", date: "2026-10-16", amount: 88_000 },
+		{
+			label: "Uang jalan Fahmi — Kak Echi",
+			date: "2026-10-15",
+			amount: 75_000,
+		},
+		{ label: "Bensin — CIMB", date: "2026-10-16", amount: 100_000 },
+	];
+	const open = rincianTerbuka(items, 80_000);
+	assert.deepEqual(
+		open.map((o) => [o.label, o.sisa]),
+		[
+			["Konsumsi — CIMB", 83_000],
+			["Bensin — CIMB", 100_000],
+		],
+	);
+	const urai = uraiPelunasan(open, 120_000);
+	assert.equal(
+		urai,
+		"16 Okt · Konsumsi — CIMB 83.000; 16 Okt · Bensin — CIMB 37.000 sebagian",
+	);
+	assert.equal(rincianTerbuka(items, 999_999).length, 0);
 });
