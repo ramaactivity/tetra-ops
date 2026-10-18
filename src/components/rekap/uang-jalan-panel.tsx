@@ -175,7 +175,7 @@ export function UangJalanPanel({
 				method,
 				date,
 				proofUrl: proof,
-				adminFee: method === "transfer" && !pribadi ? Number(adminFee) || 0 : 0,
+				adminFee: method === "transfer" ? Number(adminFee) || 0 : 0,
 			};
 			const r =
 				mode === "kembali"
@@ -398,7 +398,7 @@ export function UangJalanPanel({
 								className="h-10 w-full rounded-xl"
 							/>
 						</div>
-						{mode === "beri" && method === "transfer" && !pribadi && (
+						{mode === "beri" && method === "transfer" && (
 							<div className="space-y-1.5">
 								<span className="text-[13px] font-medium">
 									Biaya admin transfer
@@ -410,7 +410,9 @@ export function UangJalanPanel({
 									ariaLabel="Biaya admin transfer"
 								/>
 								<span className="type-caption text-muted-foreground">
-									Dicatat sebagai biaya admin bank, bukan uang jalan crew.
+									{pribadi
+										? `Dicatat sebagai biaya admin bank dan ikut diganti ke ${ownerName(ownerId)}.`
+										: "Dicatat sebagai biaya admin bank, bukan uang jalan crew."}
 								</span>
 							</div>
 						)}

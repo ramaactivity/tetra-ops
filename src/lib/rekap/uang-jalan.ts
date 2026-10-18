@@ -64,6 +64,8 @@ export type TalanganRow = {
 	account_code: string | null;
 	owner_id: string | null;
 	is_reversed?: boolean;
+	/** Biaya admin transfer yang ikut dibayar owner dari uang pribadinya. */
+	admin_fee?: number | null;
 };
 
 export type TalanganBayarRow = {
@@ -87,8 +89,9 @@ export function saldoTalanganOwner(
 	for (const r of uj) {
 		if (r.account_code !== TALANGAN_OWNER_COA || !r.owner_id || r.is_reversed)
 			continue;
-		const sign = r.kind === "beri" ? 1 : r.kind === "kembali" ? -1 : 0;
-		add(r.owner_id, sign * Number(r.amount || 0));
+		if (r.kind === "beri")
+			add(r.owner_id, Number(r.amount || 0) + Number(r.admin_fee || 0));
+		else if (r.kind === "kembali") add(r.owner_id, -Number(r.amount || 0));
 	}
 	for (const b of bayar) {
 		if (b.is_reversed) continue;

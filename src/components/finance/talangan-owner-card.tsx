@@ -1,12 +1,17 @@
 "use client";
 
+import { Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AdminFeeChips } from "@/components/finance/admin-fee-chips";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
-import { bayarTalanganOwner } from "@/lib/actions/uang-jalan";
+import {
+	batalBayarTalangan,
+	bayarTalanganOwner,
+} from "@/lib/actions/uang-jalan";
 import { formatRupiah } from "@/lib/format";
 import type { TalanganOwnerSaldo } from "@/lib/rekap/uang-jalan-db";
 
@@ -51,8 +56,10 @@ function Row({
 	eventId?: string;
 }) {
 	const router = useRouter();
+	const confirm = useConfirm();
 	const [pending, start] = useTransition();
 	const bayar = owner.saldo > 0;
+	const lunas = owner.saldo === 0;
 	const sisa = Math.abs(owner.saldo);
 	const [open, setOpen] = useState(false);
 	const [amount, setAmount] = useState(String(sisa));
@@ -74,19 +81,65 @@ function Row({
 						{owner.name}
 					</p>
 					<p className="text-[12px] text-muted-foreground">
-						{bayar
-							? `Tetra berutang ke ${owner.name}`
-							: `${owner.name} berutang ke Tetra`}
+						{lunas
+							? "Lunas"
+							: bayar
+								? `Tetra berutang ke ${owner.name}`
+								: `${owner.name} berutang ke Tetra`}
 					</p>
 				</div>
 				<span
 					data-nominal
-					className={`tabular shrink-0 text-[18px] font-bold ${bayar ? "text-amber-700" : "text-sky-700"}`}
+					className={`tabular shrink-0 text-[18px] font-bold ${lunas ? "text-emerald-700" : bayar ? "text-amber-700" : "text-sky-700"}`}
 				>
 					{formatRupiah(sisa)}
 				</span>
 			</div>
-			{open ? (
+			{owner.riwayat.length > 0 && (
+				<ul className="space-y-0.5 text-[12.5px]">
+					{owner.riwayat.map((r) => (
+						<li key={r.id} className="flex items-center justify-between gap-2">
+							<span className="min-w-0 truncate text-muted-foreground">
+								{r.direction === "bayar" ? "Dibayar ke" : "Diterima dari"}{" "}
+								{owner.name} ·{" "}
+								{new Date(r.created_at).toLocaleDateString("id-ID")}
+							</span>
+							<span className="flex shrink-0 items-center gap-1">
+								<span className="tabular" data-nominal>
+									{formatRupiah(r.amount)}
+								</span>
+								<button
+									type="button"
+									aria-label="Batalkan pembayaran"
+									disabled={pending}
+									onClick={async () => {
+										if (
+											!(await confirm({
+												title: "Batalkan pembayaran ini?",
+												description:
+													"Jurnalnya dibalik dan saldo hutang kembali seperti sebelum dibayar. Data tidak dihapus.",
+												confirmLabel: "Batalkan",
+												variant: "destructive",
+											}))
+										)
+											return;
+										start(async () => {
+											const res = await batalBayarTalangan(r.id);
+											if (!res.ok) return void toast.error(res.error);
+											toast.success(res.note ?? "Dibatalkan");
+											router.refresh();
+										});
+									}}
+									className="grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
+								>
+									<Undo2 className="size-3.5" />
+								</button>
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
+			{lunas ? null : open ? (
 				<div className="space-y-3 border-t border-border-subtle pt-3">
 					<label className="block space-y-1.5">
 						<span className="text-[13px] font-medium">Jumlah</span>

@@ -67,11 +67,9 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 		return { ok: false, error: "Pilih owner pemilik uangnya." };
 	const accountCode = pribadi ? TALANGAN_OWNER_COA : p.data.accountCode;
 	const proofUrl = p.data.proofUrl ?? null;
-	// Biaya admin dari rekening pribadi ditanggung owner sendiri (tidak dicatat).
+	// Admin dari rekening pribadi owner ikut jadi hutang Tetra ke owner itu.
 	const admin =
-		kind === "beri" && method === "transfer" && !pribadi
-			? (p.data.adminFee ?? 0)
-			: 0;
+		kind === "beri" && method === "transfer" ? (p.data.adminFee ?? 0) : 0;
 	const db = await createClient();
 	const { data: acct } = await db
 		.from("chart_of_accounts")
@@ -205,6 +203,7 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 		proof_url: proofUrl,
 		account_code: accountCode,
 		owner_id: ownerId,
+		admin_fee: admin,
 		journal_id: entry.id,
 		created_by: me.profile.id,
 	});
@@ -270,10 +269,63 @@ export async function batalUangJalan(
 					"Uang jalan ini sudah terpakai untuk potong fee / sudah dikembalikan. Batalkan itu dulu.",
 			};
 	}
+	const balik = await balikJurnal(db, r.journal_id as string, {
+		description: "Pembatalan catatan uang jalan",
+		sourceType: "uang_jalan_reversal",
+		eventId: r.event_id as string,
+		amount: Number(r.amount),
+		by: me.profile.id,
+	});
+	if (balik) return { ok: false, error: balik };
+	await db.from("uang_jalan").update({ is_reversed: true }).eq("id", r.id);
+	revalidatePath(`/operations/${projectId}/rekap`);
+	revalidatePath(`/operations/${projectId}`);
+	return { ok: true, note: "Catatan dibatalkan" };
+}
+
+/**
+ * Jurnal pembalik (debit↔kredit) + tandai jurnal asal dibatalkan. Ditolak kalau
+ * pembalikan bikin saldo kas/bank minus. Mengembalikan pesan error atau null.
+ */
+async function balikJurnal(
+	// biome-ignore lint/suspicious/noExplicitAny: klien Supabase server.
+	db: any,
+	journalId: string,
+	o: {
+		description: string;
+		sourceType: string;
+		eventId: string | null;
+		amount: number;
+		by: string;
+	},
+): Promise<string | null> {
 	const { data: orig } = await db
 		.from("journal_lines")
 		.select("account_code, debit_amount, credit_amount, description")
-		.eq("entry_id", r.journal_id);
+		.eq("entry_id", journalId);
+	const lines = (orig ?? []) as Array<{
+		account_code: string;
+		debit_amount: number | string | null;
+		credit_amount: number | string | null;
+		description: string | null;
+	}>;
+	// Uang yang dulu MASUK ke kas/bank akan keluar lagi saat dibalik.
+	for (const l of lines) {
+		const out = Number(l.debit_amount ?? 0);
+		if (out <= 0 || !/^1-1\d{2}$/.test(l.account_code)) continue;
+		const { data: c } = await db
+			.from("chart_of_accounts")
+			.select("name")
+			.eq("code", l.account_code)
+			.maybeSingle();
+		const err = await insufficientBalanceError(
+			db,
+			l.account_code,
+			(c?.name as string | undefined) ?? l.account_code,
+			out,
+		);
+		if (err) return err;
+	}
 	const { data: rev, error: re } = await db
 		.from("journal_entries")
 		.insert({
@@ -282,21 +334,17 @@ export async function batalUangJalan(
 				.toISOString()
 				.slice(0, 10),
 			entry_type: "reversal",
-			description: "Pembatalan catatan uang jalan",
-			source_type: "uang_jalan_reversal",
-			source_event_id: r.event_id,
-			total_amount: r.amount,
-			created_by: me.profile.id,
+			description: o.description,
+			source_type: o.sourceType,
+			source_event_id: o.eventId,
+			total_amount: o.amount,
+			created_by: o.by,
 		})
 		.select("id")
 		.single();
-	if (re || !rev)
-		return {
-			ok: false,
-			error: re?.message ?? "Gagal membuat jurnal pembalik.",
-		};
-	await db.from("journal_lines").insert(
-		(orig ?? []).map((l, i) => ({
+	if (re || !rev) return re?.message ?? "Gagal membuat jurnal pembalik.";
+	const { error: le } = await db.from("journal_lines").insert(
+		lines.map((l, i) => ({
 			entry_id: rev.id,
 			account_code: l.account_code,
 			debit_amount: Number(l.credit_amount ?? 0),
@@ -305,14 +353,15 @@ export async function batalUangJalan(
 			line_order: i + 1,
 		})),
 	);
+	if (le) {
+		await db.from("journal_entries").delete().eq("id", rev.id);
+		return `Gagal membuat jurnal pembalik: ${le.message}`;
+	}
 	await db
 		.from("journal_entries")
 		.update({ is_reversed: true, reversed_by_entry_id: rev.id })
-		.eq("id", r.journal_id);
-	await db.from("uang_jalan").update({ is_reversed: true }).eq("id", r.id);
-	revalidatePath(`/operations/${projectId}/rekap`);
-	revalidatePath(`/operations/${projectId}`);
-	return { ok: true, note: "Catatan dibatalkan" };
+		.eq("id", journalId);
+	return null;
 }
 
 const Bayar = z.object({
@@ -470,4 +519,35 @@ export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
 			? `Pembayaran ke ${nama} tercatat`
 			: `Pelunasan dari ${nama} tercatat`,
 	};
+}
+
+/** Batalkan pembayaran/penerimaan hutang owner yang salah (jurnal pembalik). */
+export async function batalBayarTalangan(id: string): Promise<Result> {
+	const me = await owner();
+	if (!me) return { ok: false, error: "Hanya owner." };
+	if (!z.uuid().safeParse(id).success)
+		return { ok: false, error: "Catatan tidak ditemukan." };
+	const db = await createClient();
+	const { data: r } = await db
+		.from("talangan_owner_bayar")
+		.select("id, amount, journal_id, event_id, is_reversed")
+		.eq("id", id)
+		.maybeSingle();
+	if (!r || r.is_reversed || !r.journal_id)
+		return { ok: false, error: "Catatan tidak ditemukan." };
+	const balik = await balikJurnal(db, r.journal_id as string, {
+		description: "Pembatalan bayar hutang owner",
+		sourceType: "talangan_owner_reversal",
+		eventId: (r.event_id as string | null) ?? null,
+		amount: Number(r.amount),
+		by: me.profile.id,
+	});
+	if (balik) return { ok: false, error: balik };
+	await db
+		.from("talangan_owner_bayar")
+		.update({ is_reversed: true })
+		.eq("id", r.id);
+	revalidatePath("/finance");
+	revalidatePath("/dashboard");
+	return { ok: true, note: "Pembayaran dibatalkan" };
 }

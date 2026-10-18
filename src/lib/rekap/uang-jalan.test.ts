@@ -116,7 +116,7 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 	const m = saldoTalanganOwner(
 		[
 			t({}),
-			t({ amount: 50_000 }), // minta lagi di jalan
+			t({ amount: 50_000, admin_fee: 2_500 }), // minta lagi di jalan, beda bank
 			t({ kind: "kembali", amount: 30_000 }),
 			t({ owner_id: "fahmi", amount: 75_000 }),
 			t({ owner_id: "fahmi", is_reversed: true }),
@@ -135,7 +135,7 @@ test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal
 			},
 		],
 	);
-	assert.equal(m.get("adit"), 100_000);
+	assert.equal(m.get("adit"), 102_500);
 	assert.equal(m.get("fahmi"), 0);
 	assert.equal(m.get("iqbal"), -30_000); // Iqbal masih berutang ke Tetra
 	assert.equal(m.has("rama"), false);
