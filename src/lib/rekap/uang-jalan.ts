@@ -109,6 +109,8 @@ export type GiverRow = {
 	touched: boolean;
 	pribadi: boolean;
 	admin: number;
+	/** Bukti transfer dari owner ini (tiap owner transfer sendiri). */
+	proof?: string | null;
 };
 
 /**

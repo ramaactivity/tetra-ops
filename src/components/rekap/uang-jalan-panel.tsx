@@ -170,10 +170,9 @@ export function UangJalanPanel({
 	// Catat uang jalan: satu baris per owner pemberi (bisa dibagi beberapa owner).
 	const [rows, setRows] = useState<GiverRow[]>([]);
 	const rowsTotal = rows.reduce((t, r) => t + (Number(r.amount) || 0), 0);
-	const openBeri = (crewId: string, proofUrl: string | null = null) => {
+	const openBeri = (crewId: string) => {
 		const target = sisaFor(crewId);
 		setUserId(crewId);
-		setProof(proofUrl);
 		setRows(
 			ownerId
 				? [
@@ -183,6 +182,7 @@ export function UangJalanPanel({
 							touched: false,
 							pribadi: true,
 							admin: 0,
+							proof: null,
 						},
 					]
 				: [],
@@ -236,7 +236,7 @@ export function UangJalanPanel({
 					pribadi: r.pribadi,
 					method,
 					date,
-					proofUrl: proof,
+					proofUrl: r.proof ?? null,
 					adminFee: method === "transfer" ? r.admin : 0,
 				});
 				if (!res.ok) {
@@ -303,9 +303,7 @@ export function UangJalanPanel({
 					<button
 						type="button"
 						onClick={() =>
-							mode === "beri"
-								? setMode(null)
-								: openBeri(reportHolder ?? userId, report?.bukti ?? null)
+							mode === "beri" ? setMode(null) : openBeri(reportHolder ?? userId)
 						}
 						className="bg-foreground text-background h-9 rounded-full px-4 text-[13px] font-medium"
 					>
@@ -343,9 +341,7 @@ export function UangJalanPanel({
 					<button
 						type="button"
 						className="font-semibold underline"
-						onClick={() =>
-							openBeri(reportHolder as string, report?.bukti ?? null)
-						}
+						onClick={() => openBeri(reportHolder as string)}
 					>
 						Catat sekarang
 					</button>{" "}
@@ -589,6 +585,14 @@ export function UangJalanPanel({
 												ariaLabel={`Biaya admin transfer ${ownerName(r.ownerId)}`}
 											/>
 										)}
+										<SingleFileUpload
+											projectId={projectId}
+											kind="uang_jalan"
+											seq={`beri-${ownerName(r.ownerId).toLowerCase()}`}
+											label={`Bukti transfer ${ownerName(r.ownerId)} (opsional)`}
+											value={r.proof ?? null}
+											onChange={(url) => editRow(r.ownerId, { proof: url })}
+										/>
 									</div>
 								))}
 								{sisaLapor > 0 && rows.length > 0 && (
@@ -626,18 +630,16 @@ export function UangJalanPanel({
 							</div>
 						)}
 					</div>
-					<SingleFileUpload
-						projectId={projectId}
-						kind="uang_jalan"
-						seq={mode === "beri" ? "beri" : "kembali"}
-						label={
-							mode === "beri"
-								? "Bukti transfer / foto serah terima (opsional)"
-								: "Bukti pengembalian (opsional)"
-						}
-						value={proof}
-						onChange={setProof}
-					/>
+					{mode === "kembali" && (
+						<SingleFileUpload
+							projectId={projectId}
+							kind="uang_jalan"
+							seq="kembali"
+							label="Bukti pengembalian (opsional)"
+							value={proof}
+							onChange={setProof}
+						/>
+					)}
 					<div className="flex justify-end gap-2">
 						<button
 							type="button"
