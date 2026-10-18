@@ -100,8 +100,42 @@ export function filterEmoneyAccounts<T extends { code: string }>(
 	return allow ? [...accounts] : accounts.filter((a) => !isEmoneyCoa(a.code));
 }
 
+/**
+ * Biaya ditransfer / dibayar owner tertentu: 'owner:<users.id>'. Bukan
+ * talangan crew — jadi hutang Tetra ke owner itu (lewat antrean settle).
+ */
+export const OWNER_PAYER_PREFIX = "owner:";
+
+export function ownerIdOfPayer(value: unknown): string | null {
+	if (typeof value !== "string" || !value.startsWith(OWNER_PAYER_PREFIX))
+		return null;
+	const id = value.slice(OWNER_PAYER_PREFIX.length).trim();
+	return UUID_RE.test(id) ? id : null;
+}
+
+/** Dibayar owner: 'owner' (lama, belum jelas siapa) atau 'owner:<id>'. */
+export function isOwnerPaid(value: unknown): boolean {
+	return value === "owner" || ownerIdOfPayer(value) !== null;
+}
+
+/**
+ * Satu-satunya pembaca nilai pembayar biaya lapangan (form crew, server,
+ * halaman owner): 'owner' | 'owner:<id>' | 'acct:<id>' (kartu/rekening) |
+ * <users.id crew> | 'crew' (belum dipilih). Nilai lain → 'crew'.
+ */
+export function normalizePayer(value: unknown): string {
+	if (value === "owner") return "owner";
+	const owner = ownerIdOfPayer(value);
+	if (owner) return `${OWNER_PAYER_PREFIX}${owner}`;
+	const acct = paidFromAccountId(value);
+	if (acct) return `${PAID_FROM_PREFIX}${acct}`;
+	if (typeof value === "string" && UUID_RE.test(value.trim()))
+		return value.trim();
+	return "crew";
+}
+
 /** Biaya ini keluar dari kantong seseorang (crew), bukan dari rekening. */
 export function isFrontedByPerson(value: unknown): boolean {
-	if (value === "owner") return false;
+	if (isOwnerPaid(value)) return false;
 	return paidFromAccountId(value) === null;
 }

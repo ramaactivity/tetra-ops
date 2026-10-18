@@ -1,6 +1,7 @@
 import "server-only";
 
 import { unitCountOf, withUnits } from "@/lib/events/spots";
+import { isOwnerPaid } from "@/lib/finance/emoney";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -451,7 +452,7 @@ export async function notifyTelegramRekapSubmitted(
 			const add = (amount: number, payer: string | undefined) => {
 				const n = Number(amount) || 0;
 				if (n <= 0) return;
-				if (payer === "owner") ownerPaid += n;
+				if (isOwnerPaid(payer)) ownerPaid += n;
 				else crewFronted += n;
 			};
 			add(Number(rk.transport_cost), pb.transport);

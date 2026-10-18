@@ -55,8 +55,13 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchSalesCandidates } from "@/lib/events/booking-candidates";
 import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
-import { filterEmoneyAccounts, paidFromAccountId } from "@/lib/finance/emoney";
-import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
+import {
+	filterEmoneyAccounts,
+	isOwnerPaid,
+	ownerIdOfPayer,
+	paidFromAccountId,
+} from "@/lib/finance/emoney";
+import { catatPrefill, rekapExpenseItems } from "@/lib/rekap/expense-items";
 import {
 	pemegangUangJalan,
 	type RekapExpenseSource,
@@ -446,7 +451,7 @@ export default async function EventRekapPage({
 	const { data: queueRows } = await supabase
 		.from("event_settle_queue")
 		.select(
-			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, posted_at, post_error, owner_id",
+			"id, kind, direction, category_id, note, amount, account_code, admin_fee, proof_url, posted_at, post_error, owner_id, rekap_key",
 		)
 		.eq("event_id", event.id)
 		.order("created_at", { ascending: true });
@@ -467,6 +472,7 @@ export default async function EventRekapPage({
 			postedAt: null,
 			postError: (q.post_error as string | null) ?? null,
 			ownerId: (q.owner_id as string | null) ?? null,
+			fromRekap: Boolean(q.rekap_key),
 		}));
 
 	const extraTxnRows: ExtraTxnRow[] = (extraTxns ?? []).map((t) => ({
@@ -625,6 +631,8 @@ export default async function EventRekapPage({
 					paidBy: "crew" | "owner" | "card";
 					/** users.id penalang — null kalau crew tapi belum ditentukan siapa. */
 					payerUserId: string | null;
+					/** Owner tertentu yang membayar ('owner:<id>') — jadi hutang ke dia. */
+					ownerId?: string | null;
 					payerName: string | null;
 					/** Prefill kartu "Pemasukan / pengeluaran lain" — item dibayar owner. */
 					catatPrefill?: {
@@ -643,10 +651,6 @@ export default async function EventRekapPage({
 		  }
 		| undefined;
 	if (rekap) {
-		const pb = rekap.expense_paid_by ?? {};
-		// Nilai bisa: "owner" | users.id penalang | "crew" (belum ditentukan).
-		const rawPayerOf = (key: string): string =>
-			typeof pb[key] === "string" && pb[key] ? (pb[key] as string) : "crew";
 		const crewNameById = new Map(
 			context.crew.map((c) => [c.user_id, c.name] as const),
 		);
@@ -658,6 +662,7 @@ export default async function EventRekapPage({
 			/** "card" = dibayar langsung dari saldo perusahaan (kartu e-toll/kas/bank). */
 			paidBy: "crew" | "owner" | "card";
 			payerUserId: string | null;
+			ownerId?: string | null;
 			payerName: string | null;
 			catatPrefill?: {
 				categoryId: string;
@@ -681,117 +686,49 @@ export default async function EventRekapPage({
 				.filter((q) => q.kind === "expense" && q.direction === "keluar")
 				.map((q) => (q.note ?? "").trim().toLowerCase()),
 		]);
-		const catatPrefillFor = (
-			catatKey: string,
-			amount: number,
-			label: string,
-			notaUrl: string | null,
-		) => ({
-			categoryId: REKAP_EXPENSE_CATEGORY[catatKey] ?? "operasional-lain",
-			amount: Math.round(amount),
-			note: `${label} — ${event.client_name}`.slice(0, 300),
-			// Nota yang sudah di-upload crew ikut menempel ke jurnalnya — owner
-			// tidak perlu meng-upload ulang bukti yang sudah ada.
-			proofUrl: notaUrl,
-		});
-		const notaMap = (rekap.expense_nota_urls ?? {}) as Record<string, string>;
-		const push = (
-			key: string,
-			label: string,
-			amount: number,
-			rawPayer: string,
-			catatKey: string,
-			notaUrl: string | null = null,
-		) => {
-			if (amount <= 0) return;
-			// Tiga dunia, bukan dua. Tanpa cabang "card", penanda 'acct:<uuid>'
-			// jatuh ke "crew" dan uuid rekening dipakai sebagai id penalang —
-			// jadi reimbursement fiktif ke crew yang tidak mengeluarkan apa pun.
-			const isCard = paidFromAccountId(rawPayer) !== null;
-			const paidBy: "crew" | "owner" | "card" = isCard
-				? "card"
-				: rawPayer === "owner"
-					? "owner"
-					: "crew";
-			// "crew" = ditalangi tapi belum ditentukan siapa (data lama); selain itu
-			// nilainya users.id penalang.
+		const ownerNameById = new Map(
+			ujOwnerOptions.map((o) => [o.id, o.name] as const),
+		);
+		for (const it of rekapExpenseItems(rekap)) {
+			// Empat dunia: kartu (acct:), owner (owner / owner:<id>), crew. Tanpa
+			// cabang "card", uuid rekening terbaca sebagai id penalang.
+			const ownerId = ownerIdOfPayer(it.rawPayer);
+			const paidBy: "crew" | "owner" | "card" =
+				paidFromAccountId(it.rawPayer) !== null
+					? "card"
+					: isOwnerPaid(it.rawPayer)
+						? "owner"
+						: "crew";
 			// Tanpa penalang + ada uang jalan → pemegang uang jalan (aturan yang
 			// sama dengan form crew & settle).
 			const payerUserId =
-				paidBy !== "crew" ? null : rawPayer !== "crew" ? rawPayer : ujPemegang;
+				paidBy !== "crew"
+					? null
+					: it.rawPayer !== "crew"
+						? it.rawPayer
+						: ujPemegang;
+			const pre = catatPrefill(it, event.client_name as string);
 			items.push({
-				key,
-				rawPayer,
-				label,
-				amount,
+				key: it.key,
+				rawPayer: it.rawPayer,
+				label: it.label,
+				amount: it.amount,
 				paidBy,
 				payerUserId,
-				payerName: payerUserId ? (crewNameById.get(payerUserId) ?? null) : null,
-				catatPrefill:
-					paidBy === "owner"
-						? catatPrefillFor(catatKey, amount, label, notaUrl)
-						: undefined,
-				// Keterangannya deterministik, jadi kalau sudah ada transaksi lain
-				// dgn keterangan persis sama berarti biaya ini sudah dibukukan —
-				// tombolnya diganti penanda supaya tidak dobel catat.
+				ownerId,
+				payerName: ownerId
+					? (ownerNameById.get(ownerId) ?? "owner")
+					: payerUserId
+						? (crewNameById.get(payerUserId) ?? null)
+						: null,
+				// Owner tertentu → otomatis jadi hutang ke owner itu lewat antrean
+				// settle (syncOwnerPaidQueue), jadi tanpa tombol Catat.
+				catatPrefill: paidBy === "owner" && !ownerId ? pre : undefined,
+				// Keterangannya deterministik: transaksi lain dgn keterangan persis
+				// sama = biaya ini sudah dibukukan / diantre.
 				catatRecorded:
-					paidBy === "owner" &&
-					recordedNotes.has(
-						`${label} — ${event.client_name}`.slice(0, 300).toLowerCase(),
-					),
+					paidBy === "owner" && recordedNotes.has(pre.note.toLowerCase()),
 			});
-		};
-		push(
-			"transport",
-			"Transport",
-			Number(rekap.transport_cost ?? 0),
-			rawPayerOf("transport"),
-			rekap.transport_method === "rental"
-				? "transport_rental"
-				: "transport_online",
-			notaMap.transport ?? rekap.transport_proof_berangkat_url ?? null,
-		);
-		push(
-			"bensin",
-			"Bensin",
-			Number(rekap.bensin_cost ?? 0),
-			rawPayerOf("bensin"),
-			"bensin",
-			notaMap.bensin ?? null,
-		);
-		push(
-			"toll",
-			"Toll",
-			Number(rekap.toll_cost ?? 0),
-			rawPayerOf("toll"),
-			"toll",
-			notaMap.toll ?? null,
-		);
-		push(
-			"parking",
-			"Parkir",
-			Number(rekap.parking_cost ?? 0),
-			rawPayerOf("parking"),
-			"parking",
-			notaMap.parking ?? null,
-		);
-		push(
-			"konsumsi",
-			"Konsumsi",
-			Number(rekap.konsumsi_cost ?? 0),
-			rawPayerOf("konsumsi"),
-			"konsumsi",
-			notaMap.konsumsi ?? null,
-		);
-		for (const [i, it] of (rekap.lainnya_items ?? []).entries()) {
-			push(
-				`lainnya:${i}`,
-				it.note || "Lain-lain",
-				Number(it.amount ?? 0),
-				it.paid_by || "crew",
-				"misc",
-				(it as { nota_url?: string }).nota_url ?? null,
-			);
 		}
 		const total = items.reduce((s, x) => s + x.amount, 0);
 		const crewFrontedTotal = items
@@ -1125,6 +1062,7 @@ export default async function EventRekapPage({
 							crew: context.crew.map((c) => ({ id: c.user_id, name: c.name })),
 							cards: context.cards.map((c) => ({ id: c.id, name: c.name })),
 							ujHolders: Object.keys(uangJalanDiberi),
+							owners: ujOwnerOptions,
 						}}
 						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}

@@ -11,6 +11,7 @@ import {
 } from "@/lib/actions/settle-queue";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { revalidateDashboard } from "@/lib/dashboard/stats";
+import { syncOwnerPaidQueue } from "@/lib/rekap/owner-paid-sync";
 import {
 	type ReimbursementSync,
 	syncCrewReimbursement,
@@ -95,6 +96,10 @@ export async function settleEvent(
 	// reimbursement. Kalau reimbursement-nya kosong, selisihnya mengendap di
 	// 2-100 tanpa muncul di layar mana pun. Samakan dulu sebelum jurnal lahir.
 	const reimbursement = await syncCrewReimbursement(supabase, eventId);
+	// Biaya "dibayar owner X" → antrean hutang ke owner, pasti terkini sebelum
+	// antrean diposting setelah settle.
+	const ownerPaid = await syncOwnerPaidQueue(eventId, me.profile.id);
+	if (!ownerPaid.ok) return { ok: false, error: ownerPaid.error };
 	if (reimbursement?.blocked) {
 		console.error(
 			`[settle] talangan crew tidak bisa disamakan (${eventId}): ${reimbursement.blocked}`,

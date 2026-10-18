@@ -9,10 +9,15 @@ import {
 } from "@/lib/actions/rekap-notifications";
 import { alertRestockAfterCommit } from "@/lib/actions/restock-alert";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { paidFromAccountId } from "@/lib/finance/emoney";
+import {
+	normalizePayer,
+	ownerIdOfPayer,
+	paidFromAccountId,
+} from "@/lib/finance/emoney";
 import { loadEmoneyCards, toPayerOptions } from "@/lib/finance/emoney-data";
 import { bucketForSku } from "@/lib/inventory/cogs-buckets";
 import { normalizeConversion, toBase } from "@/lib/inventory/unit-conversion";
+import { syncOwnerPaidQueue } from "@/lib/rekap/owner-paid-sync";
 import {
 	type DeductionLine,
 	projectEventLinesFromSpec,
@@ -52,13 +57,9 @@ const NullableUrlSchema = z
  * Yang mengisi rekap belum tentu yang membayar, jadi penalang dipilih per item.
  */
 export type ExpensePaidBy = string;
-const UUID_RE =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const paidByOf = (v: unknown): ExpensePaidBy => {
-	if (v === "owner") return "owner";
-	if (typeof v === "string" && UUID_RE.test(v.trim())) return v.trim();
-	return "crew";
-};
+// Kartu (acct:) & owner tertentu (owner:) dulu jatuh ke "crew" di sini —
+// pilihan kartu e-toll crew hilang jadi talangan crew. Satu pembaca bersama.
+const paidByOf = (v: unknown): ExpensePaidBy => normalizePayer(v);
 
 const LainnyaItemsSchema = z
 	.string()
@@ -395,6 +396,11 @@ export type RekapContext = {
 	 * tahu kartu mana yang perlu diisi, tanpa melihat nominal saldo.
 	 */
 	cards: Array<{ id: string; name: string; balance?: number; isLow: boolean }>;
+	/**
+	 * Owner aktif — pilihan "ditransfer / dibayar owner X" ('owner:<id>'),
+	 * otomatis jadi hutang Tetra ke owner itu.
+	 */
+	owners: Array<{ id: string; name: string }>;
 	/**
 	 * Event multi-unit: jumlah spot + ukuran frame tiap spot (index 0 = spot 1).
 	 * Rekap tetap satu per event — crew mengisi TOTAL semua spot.
@@ -796,6 +802,19 @@ export async function getRekapContext(
 	// Kartu e-money. Owner boleh membaca bank_accounts langsung (+ saldo);
 	// crew lewat RPC aman karena RLS bank_accounts owner-only — tanpa ini
 	// pemilihnya kosong diam-diam, bukan error.
+	// Nama owner saja (tanpa data lain) — crew perlu memilih owner yang
+	// mentransfer; RLS users bisa membatasi crew, jadi lewat admin client.
+	const { data: ownerRows } = await createAdminClient()
+		.from("users")
+		.select("id, full_name, nickname")
+		.eq("role", "owner")
+		.eq("is_active", true)
+		.order("full_name");
+	const owners = (ownerRows ?? []).map((o) => ({
+		id: o.id as string,
+		name: (o.nickname as string | null) || (o.full_name as string),
+	}));
+
 	let cards: RekapContext["cards"] = [];
 	if (isCrew) {
 		const { data: cardRows, error: cardErr } = await supabase.rpc(
@@ -838,6 +857,7 @@ export async function getRekapContext(
 		})),
 		mappings: mappings.map((m) => ({ ...m, item: stripItem(m.item) })),
 		cards,
+		owners,
 		spots: (() => {
 			const unitCount = Math.max(1, Number(event.unit_count ?? 1));
 			const over = (event.spots ?? []) as Array<{
@@ -1221,6 +1241,13 @@ export async function submitRekap(
 			}
 		}
 	}
+
+	// Biaya yang ditransfer owner tertentu langsung diantre jadi hutang ke owner.
+	const ownerPaid = await syncOwnerPaidQueue(eventId, me.profile.id);
+	if (!ownerPaid.ok)
+		console.error(
+			`[rekap] antrean hutang owner gagal (${eventId}): ${ownerPaid.error}`,
+		);
 
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
@@ -2028,7 +2055,7 @@ export async function correctExpensePayers(
 	eventId: string,
 	changes: Record<string, string>,
 ): Promise<{ ok: true; changed: number } | { ok: false; error: string }> {
-	await requireOwnerLevel();
+	const me = await requireOwnerLevel();
 	const supabase = await createClient();
 
 	const { data: ev } = await supabase
@@ -2051,15 +2078,22 @@ export async function correctExpensePayers(
 	if (rekap.locked) return { ok: false, error: "Rekap sudah terkunci." };
 
 	// Pembayar yang sah untuk event ini.
-	const [{ data: crew }, cards] = await Promise.all([
+	const [{ data: crew }, cards, { data: ownerRows }] = await Promise.all([
 		supabase.from("crew_assignments").select("user_id").eq("event_id", eventId),
 		loadEmoneyCards(supabase),
+		supabase
+			.from("users")
+			.select("id")
+			.eq("role", "owner")
+			.eq("is_active", true),
 	]);
 	const crewIds = new Set((crew ?? []).map((c) => c.user_id as string));
 	const cardIds = new Set(cards.map((c) => c.id));
+	const ownerIds = new Set((ownerRows ?? []).map((o) => o.id as string));
 	const valid = (v: string) =>
 		v === "crew" ||
 		v === "owner" ||
+		ownerIds.has(ownerIdOfPayer(v) ?? "") ||
 		crewIds.has(v) ||
 		(paidFromAccountId(v) !== null &&
 			cardIds.has(paidFromAccountId(v) as string));
@@ -2097,6 +2131,8 @@ export async function correctExpensePayers(
 		.update({ expense_paid_by: paidBy, lainnya_items: lainnya })
 		.eq("id", rekap.id);
 	if (error) return { ok: false, error: error.message };
+	const ownerPaid = await syncOwnerPaidQueue(eventId, me.profile.id);
+	if (!ownerPaid.ok) return { ok: false, error: ownerPaid.error };
 	revalidatePath(`/operations/${ev.project_id}/rekap`);
 	return { ok: true, changed };
 }

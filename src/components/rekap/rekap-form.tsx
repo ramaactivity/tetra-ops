@@ -12,7 +12,14 @@ import {
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import {
+	createContext,
+	useActionState,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { NumberedSection } from "@/components/operations/_shared/numbered-section";
 import { RekapContextCard } from "@/components/rekap/rekap-context-card";
 import { RekapProofUpload } from "@/components/rekap/rekap-proof-upload";
@@ -24,7 +31,13 @@ import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { RekapContext } from "@/lib/actions/rekap";
 import { type RekapFormState, submitRekap } from "@/lib/actions/rekap";
-import { encodePaidFromAccount, paidFromAccountId } from "@/lib/finance/emoney";
+import {
+	encodePaidFromAccount,
+	isOwnerPaid,
+	normalizePayer,
+	OWNER_PAYER_PREFIX,
+	paidFromAccountId,
+} from "@/lib/finance/emoney";
 import { formatRupiah } from "@/lib/format";
 import { deriveRekapRatio } from "@/lib/rekap/cost";
 import type { RekapField } from "@/lib/rekap-mapping/types";
@@ -97,15 +110,7 @@ type PaidBy = string;
 type PaidByKey = "transport" | "bensin" | "toll" | "parking" | "konsumsi";
 /** Kartu e-money yang bisa dipilih sebagai pembayar. */
 type PayerCard = { id: string; name: string; balance?: number; isLow: boolean };
-const UUID_RE =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const paidByOf = (v: unknown): PaidBy => {
-	if (v === "owner") return "owner";
-	// Dibayar langsung dari saldo perusahaan (kartu e-toll/kas/bank).
-	if (paidFromAccountId(v) !== null) return String(v).trim();
-	if (typeof v === "string" && UUID_RE.test(v.trim())) return v.trim();
-	return "crew";
-};
+const paidByOf = (v: unknown): PaidBy => normalizePayer(v);
 
 const EMPTY: Defaults = {
 	cetak_total: "0",
@@ -540,6 +545,7 @@ export function RekapForm({
 		ownerPaidTotal,
 		cardPaidTotal,
 		holderSpent,
+		payerUnclear,
 	} = useMemo(() => {
 		const rows: Array<{ amount: number; payer: PaidBy }> = [
 			{
@@ -562,8 +568,12 @@ export function RekapForm({
 		let owner = 0;
 		let card = 0;
 		let holder = 0;
+		// Biaya > 0 yang pembayarnya belum jelas ("crew" / "owner" tanpa nama).
+		let unclear = 0;
 		for (const r of rows) {
-			if (r.payer === "owner") owner += r.amount;
+			if (r.amount > 0 && (r.payer === "crew" || r.payer === "owner"))
+				unclear += 1;
+			if (isOwnerPaid(r.payer)) owner += r.amount;
 			else if (paidFromAccountId(r.payer) !== null) card += r.amount;
 			else {
 				crew += r.amount;
@@ -578,6 +588,7 @@ export function RekapForm({
 			ownerPaidTotal: owner,
 			cardPaidTotal: card,
 			holderSpent: holder,
+			payerUnclear: unclear,
 		};
 	}, [
 		transportMethod,
@@ -1006,637 +1017,593 @@ export function RekapForm({
 						label: "Upload bukti dulu",
 						reason: "Wajib upload minimal 1 foto bukti event.",
 					}
-				: null;
+				: payerUnclear > 0
+					? {
+							label: "Pilih yang bayar",
+							reason: `${payerUnclear} pengeluaran belum jelas dibayar pakai uang siapa (crew, uang jalan, owner yang mana, atau kartu).`,
+						}
+					: null;
 
 	return (
-		<form action={formAction} className="space-y-5 pb-2">
-			{/* Auto-save indicator — reassures crew the form survives an app close */}
-			{saveState !== "idle" && !state?.success && (
-				<p className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
-					<Save
-						className={cn("h-3 w-3", saveState === "saving" && "animate-pulse")}
-					/>
-					{saveState === "saving"
-						? "Menyimpan draft…"
-						: "Draft tersimpan otomatis"}
-				</p>
-			)}
-			{state?.success && (
-				<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-fluid-body font-medium text-emerald-700 dark:text-emerald-300">
-					<CheckCircle2 className="h-4 w-4" />
-					Rekap tersimpan. Mengarahkan ke ringkasan…
-				</div>
-			)}
-			{draftRestoredNotice && !state?.success && (
-				<div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50/60 p-3 text-fluid-caption leading-relaxed dark:border-blue-900 dark:bg-blue-950/30">
-					<Save className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-					<div className="flex-1">
-						<p className="text-blue-900 dark:text-blue-200 font-medium">
-							Draft dipulihkan
-						</p>
-						<p className="text-blue-900/80 dark:text-blue-200/80">
-							{restoredAgeMs !== null
-								? `Tersimpan ${formatRelativeAge(restoredAgeMs)}. `
-								: ""}
-							Edit seperlunya & submit.
-						</p>
-					</div>
-					<button
-						type="button"
-						onClick={() => setDraftRestoredNotice(false)}
-						className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-						aria-label="Tutup notice"
-					>
-						<X className="h-3.5 w-3.5" />
-					</button>
-				</div>
-			)}
-			{state?.errors?._form && (
-				<div className="rounded-md border border-destructive bg-destructive/10 p-3">
-					<p className="text-fluid-body font-medium text-destructive">
-						{state.errors._form[0]}
+		<PayerOwnersContext.Provider value={context.owners ?? []}>
+			<form action={formAction} className="space-y-5 pb-2">
+				{/* Auto-save indicator — reassures crew the form survives an app close */}
+				{saveState !== "idle" && !state?.success && (
+					<p className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
+						<Save
+							className={cn(
+								"h-3 w-3",
+								saveState === "saving" && "animate-pulse",
+							)}
+						/>
+						{saveState === "saving"
+							? "Menyimpan draft…"
+							: "Draft tersimpan otomatis"}
 					</p>
-				</div>
-			)}
-
-			<RekapContextCard
-				includeFlashdiskPouch={context.pkg.include_flashdisk_pouch}
-				paidAddons={context.paid_addons}
-				bonuses={context.bonuses}
-				bundle={context.bundle}
-			/>
-
-			{/* ========== CETAK ========== */}
-			{(() => {
-				const mediaMapping = mappingByField.get("media_set_used");
-				const sleeveMapping = mappingByField.get("sleeve_used");
-				const autoSleeveExact = sleeveMapping
-					? cetakNum * sleeveMapping.qty_per_unit
-					: 0;
-				// Mediaset dalam LEMBAR — 1 cetak = 1 lembar untuk semua ukuran.
-				const autoMedia = autoMediaLembar;
-				const autoSleeve = autoSleeveQty;
-				const finalMedia = touched.media_set_used
-					? Number(media) || 0
-					: autoMedia;
-				const finalSleeve = touched.sleeve_used
-					? Number(sleeve) || 0
-					: autoSleeve;
-				// Mapping versi lembar utk kartu Mediaset — cost & stok dikonversi
-				// pakai isi roll SESUAI UKURAN (4R: 700, 2R/polaroid: 1400): avg ÷
-				// lembarPerRoll = harga per lembar; stok roll × lembarPerRoll =
-				// lembar. Angka kartu tetap akurat sambil tampil dalam lembar.
-				const mediaMappingLembar = mediaMapping?.item
-					? {
-							...mediaMapping,
-							qty_per_unit: mediaMapping.qty_per_unit * mediaLembarPerRoll,
-							item: {
-								...mediaMapping.item,
-								unit: "lembar",
-								purchase_price_avg:
-									mediaMapping.item.purchase_price_avg / mediaLembarPerRoll,
-								current_stock:
-									mediaMapping.item.current_stock * mediaLembarPerRoll,
-							},
-						}
-					: mediaMapping;
-				return (
-					<NumberedSection
-						step={1}
-						title="Cetak"
-						description="Cuma isi total cetak — mediaset + sleeve auto-hitung dari mapping per frame size."
-					>
-						{unitCount > 1 ? (
-							<SpotCetak
-								unitCount={unitCount}
-								frames={context.spots.frames}
-								values={spotCetak}
-								onChange={(next) => {
-									setSpotCetak(next);
-									// Stok kertas & sleeve dipotong mengikuti ukuran Spot 1, jadi
-									// total hanya menjumlah spot berukuran sama. Spot beda ukuran
-									// dicatat lewat "Tambah item lain" (lihat SpotCetak).
-									const base = context.spots.frames[0];
-									const sum = Object.entries(next)
-										.filter(([k]) => {
-											const f = context.spots.frames[Number(k) - 1];
-											return !f || !base || f === base;
-										})
-										.reduce((t, [, v]) => t + (Number(v) || 0), 0);
-									if (sum > 0) {
-										setCetak(String(sum));
-										markTouched("cetak_total");
-									}
-								}}
-							/>
-						) : null}
-						<input
-							type="hidden"
-							name="spot_cetak"
-							value={unitCount > 1 ? JSON.stringify(spotCetak) : ""}
-						/>
-						<NumField
-							label={
-								unitCount > 1
-									? "Total cetak semua spot (pcs)"
-									: "Total cetak (pcs)"
-							}
-							name="cetak_total"
-							value={cetak}
-							onChange={(v) => {
-								setCetak(v);
-								markTouched("cetak_total");
-							}}
-							onBlur={() => setCetakBlurred(true)}
-							error={
-								cetakBlurred && cetakNum <= 0
-									? "Isi total cetak (lebih dari 0)."
-									: err("cetak_total")
-							}
-							cost={fieldCost("cetak_total", cetakNum)}
-							stock={isCrew ? null : fieldStock("cetak_total", cetakNum)}
-							auto={false}
-						/>
-						{/* Auto-derived preview cards */}
-						<div className="border-t border-border-subtle pt-4">
-							<p className="text-fluid-caption text-muted-foreground">
-								{isCrew ? (
-									"Mediaset & sleeve dihitung otomatis dari total cetak — kamu nggak perlu isi."
-								) : (
-									<>
-										Auto-dihitung dari total cetak — klik{" "}
-										<span className="font-medium text-foreground">
-											Sesuaikan
-										</span>{" "}
-										kalau perlu override manual.
-									</>
-								)}
-							</p>
-						</div>
-						<div className="grid gap-3 sm:grid-cols-2">
-							<AutoDerivedCard
-								label="Mediaset"
-								value={finalMedia}
-								exactValue={touched.media_set_used ? finalMedia : autoMedia}
-								mapping={mediaMappingLembar}
-								frameSize={frameSize}
-								touched={touched.media_set_used}
-								manualValue={media}
-								readOnly={isCrew}
-								onManualChange={(v) => {
-									setMedia(v);
-									markTouched("media_set_used");
-								}}
-								onResetToAuto={() => {
-									setTouched((t) => ({ ...t, media_set_used: false }));
-									setMedia(String(autoMedia));
-								}}
-							/>
-							<AutoDerivedCard
-								label="Sleeve"
-								value={finalSleeve}
-								exactValue={touched.sleeve_used ? finalSleeve : autoSleeveExact}
-								mapping={sleeveMapping}
-								frameSize={frameSize}
-								touched={touched.sleeve_used}
-								manualValue={sleeve}
-								readOnly={isCrew}
-								onManualChange={(v) => {
-									setSleeve(v);
-									markTouched("sleeve_used");
-								}}
-								onResetToAuto={() => {
-									setTouched((t) => ({ ...t, sleeve_used: false }));
-									setSleeve(String(autoSleeve));
-								}}
-							/>
-						</div>
-						{/* Hidden inputs — submit auto value when not touched, manual otherwise */}
-						<input
-							type="hidden"
-							name="media_set_used"
-							value={String(finalMedia)}
-						/>
-						<input
-							type="hidden"
-							name="sleeve_used"
-							value={String(finalSleeve)}
-						/>
-					</NumberedSection>
-				);
-			})()}
-
-			{/* ========== FLASHDISK & POUCH ========== */}
-			<NumberedSection
-				step={2}
-				title="Flashdisk & Pouch"
-				description={
-					fdPouchIncluded
-						? "FD + Pouch itu 1 paket — biasanya 1 set per event. Centang aja kalau dipakai."
-						: "Paket tidak include. Skip kecuali emang dipakai."
-				}
-				badge={
-					fdPouchIncluded ? (
-						<Badge variant="success">Include</Badge>
-					) : (
-						<Badge variant="secondary">Skip</Badge>
-					)
-				}
-				defaultOpen={fdSectionOpen}
-			>
-				{(() => {
-					const fdOn = (Number(flashdisk) || 0) > 0;
-					const pouchN = Number(pouch) || 0;
-					const fdStock = fieldStock("flashdisk_used", fdOn ? 1 : 0);
-					const pouchStock = fieldStock("pouch_used", pouchN);
-					const fdErr = err("flashdisk_used");
-					const pouchErr = err("pouch_used");
-					const fmt = (n: number) =>
-						n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
-					return (
-						<div className="space-y-3">
-							<input type="hidden" name="flashdisk_used" value={flashdisk} />
-							<input type="hidden" name="pouch_used" value={pouch} />
-
-							{/* Event PAKAI flashdisk → tampil set (flashdisk+box+pouch),
-							    otomatis. Tidak pakai → cuma pouch (cetak foto). Crew tak
-							    perlu pilih manual; ini ngikut flag di booking/edit event. */}
-							{fdPouchIncluded && (
-								<>
-									{/* Flashdisk set = flashdisk + box + pouch (1:1:1) */}
-									<button
-										type="button"
-										onClick={() => {
-											setFlashdisk(fdOn ? "0" : "1");
-											markTouched("flashdisk_used");
-										}}
-										aria-pressed={fdOn}
-										className={cn(
-											"flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
-											fdOn
-												? "border-primary/40 bg-primary/5"
-												: "border-border-default bg-card hover:bg-secondary/40",
-										)}
-									>
-										<span
-											className={cn(
-												"grid size-5 shrink-0 place-items-center rounded-[5px] border transition-colors",
-												fdOn
-													? "border-primary bg-[#059669] text-white"
-													: "border-border-strong bg-background",
-											)}
-										>
-											{fdOn ? (
-												<Check
-													className="size-3.5"
-													strokeWidth={3}
-													aria-hidden
-												/>
-											) : null}
-										</span>
-										<span className="min-w-0">
-											<span className="block text-fluid-body font-medium text-foreground">
-												Terpakai flashdisk
-											</span>
-											<span className="block text-fluid-caption text-muted-foreground">
-												1 flashdisk = flashdisk + box + pouch — ketiganya
-												otomatis ke-deduct.
-											</span>
-										</span>
-									</button>
-									{fdOn && fdStock && !isCrew ? (
-										<p className="px-1 text-[12px] text-muted-foreground">
-											Stok flashdisk:{" "}
-											<span
-												className={cn(
-													"tabular font-medium",
-													fdStock.critical
-														? "text-destructive"
-														: fdStock.lowAfter
-															? "text-amber-700 dark:text-amber-400"
-															: "text-foreground",
-												)}
-											>
-												{fmt(fdStock.before)} → {fmt(fdStock.after)}
-											</span>
-										</p>
-									) : null}
-									{fdErr ? (
-										<p className="text-fluid-caption text-destructive">
-											{fdErr}
-										</p>
-									) : null}
-								</>
-							)}
-
-							{/* Event TIDAK pakai flashdisk → hasil cetak foto masuk pouch.
-							    Otomatis tercentang (default 1), crew tinggal sesuaikan jumlah. */}
-							{!fdPouchIncluded && (
-								<div className="rounded-lg border border-border-default bg-card p-4">
-									<span className="block text-fluid-body font-medium text-foreground">
-										Pouch (cetak foto)
-									</span>
-									<span className="mb-2 block text-fluid-caption text-muted-foreground">
-										Jumlah pouch untuk hasil cetak foto klien. Otomatis terisi —
-										sesuaikan kalau beda.
-									</span>
-									<input
-										type="number"
-										inputMode="numeric"
-										min={0}
-										value={pouch === "0" ? "" : pouch}
-										onChange={(e) => {
-											setPouch(e.target.value === "" ? "0" : e.target.value);
-											markTouched("pouch_used");
-										}}
-										placeholder="0"
-										className="tabular h-10 w-32 rounded-md border border-border-default bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									/>
-									{pouchN > 0 && pouchStock && !isCrew ? (
-										<p className="mt-2 text-[12px] text-muted-foreground">
-											Stok pouch:{" "}
-											<span
-												className={cn(
-													"tabular font-medium",
-													pouchStock.critical
-														? "text-destructive"
-														: pouchStock.lowAfter
-															? "text-amber-700 dark:text-amber-400"
-															: "text-foreground",
-												)}
-											>
-												{fmt(pouchStock.before)} → {fmt(pouchStock.after)}
-											</span>
-										</p>
-									) : null}
-									{pouchErr ? (
-										<p className="mt-1 text-fluid-caption text-destructive">
-											{pouchErr}
-										</p>
-									) : null}
-								</div>
-							)}
-						</div>
-					);
-				})()}
-			</NumberedSection>
-
-			{/* ========== ADD-ON ========== */}
-			<NumberedSection
-				step={3}
-				title="Add-on"
-				description="Photomagnet / keychain — jumlah yang dipakai (paid + bonus)."
-				defaultOpen={addonSectionOpen}
-			>
-				<div className="grid gap-4 sm:grid-cols-2">
-					<AddonField
-						label="Photomagnet"
-						name="photomagnet_used"
-						value={photomagnet}
-						paid={photomagnetPaid}
-						bonus={photomagnetBonus}
-						onChange={(v) => {
-							setPhotomagnet(v);
-							markTouched("photomagnet_used");
-						}}
-						onPrefill={() => prefillAddon("photomagnet_used")}
-						error={err("photomagnet_used")}
-						cost={fieldCost("photomagnet_used", Number(photomagnet) || 0)}
-						stock={
-							isCrew
-								? null
-								: fieldStock("photomagnet_used", Number(photomagnet) || 0)
-						}
-					/>
-					<AddonField
-						label="Keychain"
-						name="keychain_used"
-						value={keychain}
-						paid={keychainPaid}
-						bonus={keychainBonus}
-						onChange={(v) => {
-							setKeychain(v);
-							markTouched("keychain_used");
-						}}
-						onPrefill={() => prefillAddon("keychain_used")}
-						error={err("keychain_used")}
-						cost={fieldCost("keychain_used", Number(keychain) || 0)}
-						stock={
-							isCrew ? null : fieldStock("keychain_used", Number(keychain) || 0)
-						}
-					/>
-				</div>
-			</NumberedSection>
-
-			{/* ========== ITEM TAMBAHAN (custom_materials) ========== */}
-			<NumberedSection
-				step={4}
-				title="Item tambahan"
-				description="Item dari stok yang kepake selain 7 item standar di atas (cth. sticker, magnetik, dll.)."
-				badge={
-					<span className="text-[11px] text-muted-foreground">
-						{Object.keys(customMaterials).length} item
-					</span>
-				}
-				defaultOpen={Object.keys(customMaterials).length > 0}
-			>
-				{Object.keys(customMaterials).length > 0 && (
-					<ul className="space-y-2">
-						{Object.entries(customMaterials).map(([sku, qty]) => {
-							const it = customInventoryBySku.get(sku);
-							if (!it) return null;
-							return (
-								<li
-									key={sku}
-									className="flex items-center gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
-								>
-									<div className="min-w-0 flex-1">
-										<p className="text-fluid-body font-medium text-foreground">
-											{it.name}
-										</p>
-										<p className="font-mono text-[11px] text-muted-foreground">
-											{it.sku} · Stok {it.current_stock} {it.unit}
-										</p>
-									</div>
-									<input
-										type="number"
-										inputMode="numeric"
-										value={qty}
-										onChange={(e) =>
-											updateCustomQty(sku, Number(e.target.value))
-										}
-										className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-[1rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									/>
-									<button
-										type="button"
-										onClick={() => removeCustomItem(sku)}
-										title="Hapus"
-										className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
-									>
-										<X className="h-3.5 w-3.5" />
-									</button>
-								</li>
-							);
-						})}
-					</ul>
 				)}
-
-				{customComboboxOptions.length > 0 && (
-					<div className="flex items-end gap-2">
+				{state?.success && (
+					<div className="inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-fluid-body font-medium text-emerald-700 dark:text-emerald-300">
+						<CheckCircle2 className="h-4 w-4" />
+						Rekap tersimpan. Mengarahkan ke ringkasan…
+					</div>
+				)}
+				{draftRestoredNotice && !state?.success && (
+					<div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50/60 p-3 text-fluid-caption leading-relaxed dark:border-blue-900 dark:bg-blue-950/30">
+						<Save className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
 						<div className="flex-1">
-							<Combobox
-								value=""
-								onValueChange={(id) => id && addCustomItem(id)}
-								options={customComboboxOptions}
-								placeholder="Cari item — SKU / nama…"
-								allowFreeText={false}
-								emptyMessage="Tidak ada item match. Tambah master item di Settings → Inventory."
-								aria-label="Tambah item tambahan"
-							/>
+							<p className="text-blue-900 dark:text-blue-200 font-medium">
+								Draft dipulihkan
+							</p>
+							<p className="text-blue-900/80 dark:text-blue-200/80">
+								{restoredAgeMs !== null
+									? `Tersimpan ${formatRelativeAge(restoredAgeMs)}. `
+									: ""}
+								Edit seperlunya & submit.
+							</p>
 						</div>
-						<div className="hidden h-10 items-center text-muted-foreground sm:inline-flex">
-							<Plus className="h-4 w-4" />
-						</div>
+						<button
+							type="button"
+							onClick={() => setDraftRestoredNotice(false)}
+							className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+							aria-label="Tutup notice"
+						>
+							<X className="h-3.5 w-3.5" />
+						</button>
 					</div>
 				)}
-			</NumberedSection>
-
-			{/* ========== TRANSPORTASI ========== */}
-			<NumberedSection
-				step={5}
-				title="Transportasi"
-				description="Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau ada."
-				defaultOpen={transportSectionOpen}
-			>
-				<UangJalanCard
-					ada={ujAda}
-					onAda={setUjAda}
-					terima={ujTerima}
-					onTerima={setUjTerima}
-					metode={ujMetode}
-					onMetode={setUjMetode}
-					holder={ujHolder}
-					onHolder={setUjHolder}
-					crew={context.crew}
-					fromOwner={ujOwnerTotal}
-					projectId={projectId}
-					bukti={ujBukti}
-					onBukti={setUjBukti}
-				/>
-				{planRental ? (
-					<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80">
-						<Info
-							className="mt-0.5 size-4 shrink-0 text-emerald-600"
-							aria-hidden
-						/>
-						<div className="space-y-1">
-							<p className="font-medium text-foreground">
-								Sewa {context.transport?.vehicle ?? "mobil"} — sudah diatur &
-								dibayar owner.
-							</p>
-							<p>
-								Kamu tidak perlu isi biaya sewa. Cukup isi bensin, tol & parkir
-								di bawah kalau ada.
-							</p>
-						</div>
+				{state?.errors?._form && (
+					<div className="rounded-md border border-destructive bg-destructive/10 p-3">
+						<p className="text-fluid-body font-medium text-destructive">
+							{state.errors._form[0]}
+						</p>
 					</div>
-				) : (
-					<div className="grid grid-cols-3 gap-2">
-						{(
-							[
-								{ key: "online", label: "Online", sub: "Gocar/Grab" },
-								{ key: "rental", label: "Sewa mobil", sub: "Rental" },
-								{ key: "none", label: "Tidak ada", sub: "Skip" },
-							] as const
-						).map((opt) => {
-							const active = transportMethod === opt.key;
-							return (
-								<button
-									key={opt.key}
-									type="button"
-									onClick={() => {
-										setTransportMethod(opt.key);
-										// Crew tidak tahu harga sewa mobil — force ke owner.
-										if (isCrew && opt.key === "rental") {
-											setPaidByKey("transport", "owner");
-											setTransportCost("0");
+				)}
+
+				<RekapContextCard
+					includeFlashdiskPouch={context.pkg.include_flashdisk_pouch}
+					paidAddons={context.paid_addons}
+					bonuses={context.bonuses}
+					bundle={context.bundle}
+				/>
+
+				{/* ========== CETAK ========== */}
+				{(() => {
+					const mediaMapping = mappingByField.get("media_set_used");
+					const sleeveMapping = mappingByField.get("sleeve_used");
+					const autoSleeveExact = sleeveMapping
+						? cetakNum * sleeveMapping.qty_per_unit
+						: 0;
+					// Mediaset dalam LEMBAR — 1 cetak = 1 lembar untuk semua ukuran.
+					const autoMedia = autoMediaLembar;
+					const autoSleeve = autoSleeveQty;
+					const finalMedia = touched.media_set_used
+						? Number(media) || 0
+						: autoMedia;
+					const finalSleeve = touched.sleeve_used
+						? Number(sleeve) || 0
+						: autoSleeve;
+					// Mapping versi lembar utk kartu Mediaset — cost & stok dikonversi
+					// pakai isi roll SESUAI UKURAN (4R: 700, 2R/polaroid: 1400): avg ÷
+					// lembarPerRoll = harga per lembar; stok roll × lembarPerRoll =
+					// lembar. Angka kartu tetap akurat sambil tampil dalam lembar.
+					const mediaMappingLembar = mediaMapping?.item
+						? {
+								...mediaMapping,
+								qty_per_unit: mediaMapping.qty_per_unit * mediaLembarPerRoll,
+								item: {
+									...mediaMapping.item,
+									unit: "lembar",
+									purchase_price_avg:
+										mediaMapping.item.purchase_price_avg / mediaLembarPerRoll,
+									current_stock:
+										mediaMapping.item.current_stock * mediaLembarPerRoll,
+								},
+							}
+						: mediaMapping;
+					return (
+						<NumberedSection
+							step={1}
+							title="Cetak"
+							description="Cuma isi total cetak — mediaset + sleeve auto-hitung dari mapping per frame size."
+						>
+							{unitCount > 1 ? (
+								<SpotCetak
+									unitCount={unitCount}
+									frames={context.spots.frames}
+									values={spotCetak}
+									onChange={(next) => {
+										setSpotCetak(next);
+										// Stok kertas & sleeve dipotong mengikuti ukuran Spot 1, jadi
+										// total hanya menjumlah spot berukuran sama. Spot beda ukuran
+										// dicatat lewat "Tambah item lain" (lihat SpotCetak).
+										const base = context.spots.frames[0];
+										const sum = Object.entries(next)
+											.filter(([k]) => {
+												const f = context.spots.frames[Number(k) - 1];
+												return !f || !base || f === base;
+											})
+											.reduce((t, [, v]) => t + (Number(v) || 0), 0);
+										if (sum > 0) {
+											setCetak(String(sum));
+											markTouched("cetak_total");
 										}
 									}}
-									className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
-										active
-											? "border-primary bg-primary/10 text-foreground"
-											: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
-									}`}
-								>
-									<span className="font-semibold">{opt.label}</span>
-									<span className="text-[11px] opacity-70">{opt.sub}</span>
-								</button>
-							);
-						})}
-					</div>
-				)}
-
-				{transportMethod === "online" && (
-					<div className="space-y-3">
-						<MoneyField
-							label="Total transport (berangkat + pulang)"
-							name="transport_cost_input"
-							value={transportCost}
-							onChange={setTransportCost}
-							paidBy={paidBy.transport}
-							onPaidByChange={(v) => setPaidByKey("transport", v)}
-							crew={payerCrew}
-							cards={context.cards}
-							nota={{
-								projectId,
-								notaKey: "transport",
-								url: notaUrls.transport ?? null,
-								onChange: (u) => setNotaUrl("transport", u),
-							}}
-						/>
-						<div className="grid gap-3 sm:grid-cols-2">
-							<SingleFileUpload
-								projectId={projectId}
-								kind="transport_proof"
-								seq="berangkat"
-								label="Bukti Berangkat"
-								value={transportProofBerangkat}
-								onChange={setTransportProofBerangkat}
-							/>
-							<SingleFileUpload
-								projectId={projectId}
-								kind="transport_proof"
-								seq="pulang"
-								label="Bukti Pulang"
-								value={transportProofPulang}
-								onChange={setTransportProofPulang}
-							/>
-						</div>
-					</div>
-				)}
-
-				{transportMethod === "rental" && (
-					<div className="space-y-3">
-						{planRental ? null : isCrew ? (
-							/* Crew tidak tahu harga sewa — info saja, nominal diisi owner. */
-							<div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80 dark:border-sky-900/60 dark:bg-sky-950/20">
-								<Info
-									className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400"
-									aria-hidden
 								/>
-								<div className="space-y-1">
-									<p className="font-medium text-foreground">
-										Nominal sewa mobil akan diisi owner.
-									</p>
-									<p>
-										Kamu cukup pilih &ldquo;Sewa mobil&rdquo; dan isi bensin di
-										bawah. Kalau ada nota/struk sewa, boleh di-upload.
-									</p>
-								</div>
+							) : null}
+							<input
+								type="hidden"
+								name="spot_cetak"
+								value={unitCount > 1 ? JSON.stringify(spotCetak) : ""}
+							/>
+							<NumField
+								label={
+									unitCount > 1
+										? "Total cetak semua spot (pcs)"
+										: "Total cetak (pcs)"
+								}
+								name="cetak_total"
+								value={cetak}
+								onChange={(v) => {
+									setCetak(v);
+									markTouched("cetak_total");
+								}}
+								onBlur={() => setCetakBlurred(true)}
+								error={
+									cetakBlurred && cetakNum <= 0
+										? "Isi total cetak (lebih dari 0)."
+										: err("cetak_total")
+								}
+								cost={fieldCost("cetak_total", cetakNum)}
+								stock={isCrew ? null : fieldStock("cetak_total", cetakNum)}
+								auto={false}
+							/>
+							{/* Auto-derived preview cards */}
+							<div className="border-t border-border-subtle pt-4">
+								<p className="text-fluid-caption text-muted-foreground">
+									{isCrew ? (
+										"Mediaset & sleeve dihitung otomatis dari total cetak — kamu nggak perlu isi."
+									) : (
+										<>
+											Auto-dihitung dari total cetak — klik{" "}
+											<span className="font-medium text-foreground">
+												Sesuaikan
+											</span>{" "}
+											kalau perlu override manual.
+										</>
+									)}
+								</p>
 							</div>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<AutoDerivedCard
+									label="Mediaset"
+									value={finalMedia}
+									exactValue={touched.media_set_used ? finalMedia : autoMedia}
+									mapping={mediaMappingLembar}
+									frameSize={frameSize}
+									touched={touched.media_set_used}
+									manualValue={media}
+									readOnly={isCrew}
+									onManualChange={(v) => {
+										setMedia(v);
+										markTouched("media_set_used");
+									}}
+									onResetToAuto={() => {
+										setTouched((t) => ({ ...t, media_set_used: false }));
+										setMedia(String(autoMedia));
+									}}
+								/>
+								<AutoDerivedCard
+									label="Sleeve"
+									value={finalSleeve}
+									exactValue={
+										touched.sleeve_used ? finalSleeve : autoSleeveExact
+									}
+									mapping={sleeveMapping}
+									frameSize={frameSize}
+									touched={touched.sleeve_used}
+									manualValue={sleeve}
+									readOnly={isCrew}
+									onManualChange={(v) => {
+										setSleeve(v);
+										markTouched("sleeve_used");
+									}}
+									onResetToAuto={() => {
+										setTouched((t) => ({ ...t, sleeve_used: false }));
+										setSleeve(String(autoSleeve));
+									}}
+								/>
+							</div>
+							{/* Hidden inputs — submit auto value when not touched, manual otherwise */}
+							<input
+								type="hidden"
+								name="media_set_used"
+								value={String(finalMedia)}
+							/>
+							<input
+								type="hidden"
+								name="sleeve_used"
+								value={String(finalSleeve)}
+							/>
+						</NumberedSection>
+					);
+				})()}
+
+				{/* ========== FLASHDISK & POUCH ========== */}
+				<NumberedSection
+					step={2}
+					title="Flashdisk & Pouch"
+					description={
+						fdPouchIncluded
+							? "FD + Pouch itu 1 paket — biasanya 1 set per event. Centang aja kalau dipakai."
+							: "Paket tidak include. Skip kecuali emang dipakai."
+					}
+					badge={
+						fdPouchIncluded ? (
+							<Badge variant="success">Include</Badge>
 						) : (
+							<Badge variant="secondary">Skip</Badge>
+						)
+					}
+					defaultOpen={fdSectionOpen}
+				>
+					{(() => {
+						const fdOn = (Number(flashdisk) || 0) > 0;
+						const pouchN = Number(pouch) || 0;
+						const fdStock = fieldStock("flashdisk_used", fdOn ? 1 : 0);
+						const pouchStock = fieldStock("pouch_used", pouchN);
+						const fdErr = err("flashdisk_used");
+						const pouchErr = err("pouch_used");
+						const fmt = (n: number) =>
+							n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+						return (
+							<div className="space-y-3">
+								<input type="hidden" name="flashdisk_used" value={flashdisk} />
+								<input type="hidden" name="pouch_used" value={pouch} />
+
+								{/* Event PAKAI flashdisk → tampil set (flashdisk+box+pouch),
+							    otomatis. Tidak pakai → cuma pouch (cetak foto). Crew tak
+							    perlu pilih manual; ini ngikut flag di booking/edit event. */}
+								{fdPouchIncluded && (
+									<>
+										{/* Flashdisk set = flashdisk + box + pouch (1:1:1) */}
+										<button
+											type="button"
+											onClick={() => {
+												setFlashdisk(fdOn ? "0" : "1");
+												markTouched("flashdisk_used");
+											}}
+											aria-pressed={fdOn}
+											className={cn(
+												"flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+												fdOn
+													? "border-primary/40 bg-primary/5"
+													: "border-border-default bg-card hover:bg-secondary/40",
+											)}
+										>
+											<span
+												className={cn(
+													"grid size-5 shrink-0 place-items-center rounded-[5px] border transition-colors",
+													fdOn
+														? "border-primary bg-[#059669] text-white"
+														: "border-border-strong bg-background",
+												)}
+											>
+												{fdOn ? (
+													<Check
+														className="size-3.5"
+														strokeWidth={3}
+														aria-hidden
+													/>
+												) : null}
+											</span>
+											<span className="min-w-0">
+												<span className="block text-fluid-body font-medium text-foreground">
+													Terpakai flashdisk
+												</span>
+												<span className="block text-fluid-caption text-muted-foreground">
+													1 flashdisk = flashdisk + box + pouch — ketiganya
+													otomatis ke-deduct.
+												</span>
+											</span>
+										</button>
+										{fdOn && fdStock && !isCrew ? (
+											<p className="px-1 text-[12px] text-muted-foreground">
+												Stok flashdisk:{" "}
+												<span
+													className={cn(
+														"tabular font-medium",
+														fdStock.critical
+															? "text-destructive"
+															: fdStock.lowAfter
+																? "text-amber-700 dark:text-amber-400"
+																: "text-foreground",
+													)}
+												>
+													{fmt(fdStock.before)} → {fmt(fdStock.after)}
+												</span>
+											</p>
+										) : null}
+										{fdErr ? (
+											<p className="text-fluid-caption text-destructive">
+												{fdErr}
+											</p>
+										) : null}
+									</>
+								)}
+
+								{/* Event TIDAK pakai flashdisk → hasil cetak foto masuk pouch.
+							    Otomatis tercentang (default 1), crew tinggal sesuaikan jumlah. */}
+								{!fdPouchIncluded && (
+									<div className="rounded-lg border border-border-default bg-card p-4">
+										<span className="block text-fluid-body font-medium text-foreground">
+											Pouch (cetak foto)
+										</span>
+										<span className="mb-2 block text-fluid-caption text-muted-foreground">
+											Jumlah pouch untuk hasil cetak foto klien. Otomatis terisi
+											— sesuaikan kalau beda.
+										</span>
+										<input
+											type="number"
+											inputMode="numeric"
+											min={0}
+											value={pouch === "0" ? "" : pouch}
+											onChange={(e) => {
+												setPouch(e.target.value === "" ? "0" : e.target.value);
+												markTouched("pouch_used");
+											}}
+											placeholder="0"
+											className="tabular h-10 w-32 rounded-md border border-border-default bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										/>
+										{pouchN > 0 && pouchStock && !isCrew ? (
+											<p className="mt-2 text-[12px] text-muted-foreground">
+												Stok pouch:{" "}
+												<span
+													className={cn(
+														"tabular font-medium",
+														pouchStock.critical
+															? "text-destructive"
+															: pouchStock.lowAfter
+																? "text-amber-700 dark:text-amber-400"
+																: "text-foreground",
+													)}
+												>
+													{fmt(pouchStock.before)} → {fmt(pouchStock.after)}
+												</span>
+											</p>
+										) : null}
+										{pouchErr ? (
+											<p className="mt-1 text-fluid-caption text-destructive">
+												{pouchErr}
+											</p>
+										) : null}
+									</div>
+								)}
+							</div>
+						);
+					})()}
+				</NumberedSection>
+
+				{/* ========== ADD-ON ========== */}
+				<NumberedSection
+					step={3}
+					title="Add-on"
+					description="Photomagnet / keychain — jumlah yang dipakai (paid + bonus)."
+					defaultOpen={addonSectionOpen}
+				>
+					<div className="grid gap-4 sm:grid-cols-2">
+						<AddonField
+							label="Photomagnet"
+							name="photomagnet_used"
+							value={photomagnet}
+							paid={photomagnetPaid}
+							bonus={photomagnetBonus}
+							onChange={(v) => {
+								setPhotomagnet(v);
+								markTouched("photomagnet_used");
+							}}
+							onPrefill={() => prefillAddon("photomagnet_used")}
+							error={err("photomagnet_used")}
+							cost={fieldCost("photomagnet_used", Number(photomagnet) || 0)}
+							stock={
+								isCrew
+									? null
+									: fieldStock("photomagnet_used", Number(photomagnet) || 0)
+							}
+						/>
+						<AddonField
+							label="Keychain"
+							name="keychain_used"
+							value={keychain}
+							paid={keychainPaid}
+							bonus={keychainBonus}
+							onChange={(v) => {
+								setKeychain(v);
+								markTouched("keychain_used");
+							}}
+							onPrefill={() => prefillAddon("keychain_used")}
+							error={err("keychain_used")}
+							cost={fieldCost("keychain_used", Number(keychain) || 0)}
+							stock={
+								isCrew
+									? null
+									: fieldStock("keychain_used", Number(keychain) || 0)
+							}
+						/>
+					</div>
+				</NumberedSection>
+
+				{/* ========== ITEM TAMBAHAN (custom_materials) ========== */}
+				<NumberedSection
+					step={4}
+					title="Item tambahan"
+					description="Item dari stok yang kepake selain 7 item standar di atas (cth. sticker, magnetik, dll.)."
+					badge={
+						<span className="text-[11px] text-muted-foreground">
+							{Object.keys(customMaterials).length} item
+						</span>
+					}
+					defaultOpen={Object.keys(customMaterials).length > 0}
+				>
+					{Object.keys(customMaterials).length > 0 && (
+						<ul className="space-y-2">
+							{Object.entries(customMaterials).map(([sku, qty]) => {
+								const it = customInventoryBySku.get(sku);
+								if (!it) return null;
+								return (
+									<li
+										key={sku}
+										className="flex items-center gap-2 rounded-md border border-border-default bg-surface-3 p-2.5"
+									>
+										<div className="min-w-0 flex-1">
+											<p className="text-fluid-body font-medium text-foreground">
+												{it.name}
+											</p>
+											<p className="font-mono text-[11px] text-muted-foreground">
+												{it.sku} · Stok {it.current_stock} {it.unit}
+											</p>
+										</div>
+										<input
+											type="number"
+											inputMode="numeric"
+											value={qty}
+											onChange={(e) =>
+												updateCustomQty(sku, Number(e.target.value))
+											}
+											className="tabular h-9 w-20 rounded-md border border-border-default bg-background px-2 text-right text-[1rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										/>
+										<button
+											type="button"
+											onClick={() => removeCustomItem(sku)}
+											title="Hapus"
+											className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
+										>
+											<X className="h-3.5 w-3.5" />
+										</button>
+									</li>
+								);
+							})}
+						</ul>
+					)}
+
+					{customComboboxOptions.length > 0 && (
+						<div className="flex items-end gap-2">
+							<div className="flex-1">
+								<Combobox
+									value=""
+									onValueChange={(id) => id && addCustomItem(id)}
+									options={customComboboxOptions}
+									placeholder="Cari item — SKU / nama…"
+									allowFreeText={false}
+									emptyMessage="Tidak ada item match. Tambah master item di Settings → Inventory."
+									aria-label="Tambah item tambahan"
+								/>
+							</div>
+							<div className="hidden h-10 items-center text-muted-foreground sm:inline-flex">
+								<Plus className="h-4 w-4" />
+							</div>
+						</div>
+					)}
+				</NumberedSection>
+
+				{/* ========== TRANSPORTASI ========== */}
+				<NumberedSection
+					step={5}
+					title="Transportasi"
+					description="Biaya gocar/grabcar atau sewa mobil. Toll & parkir tetap diisi kalau ada."
+					defaultOpen={transportSectionOpen}
+				>
+					<UangJalanCard
+						ada={ujAda}
+						onAda={setUjAda}
+						terima={ujTerima}
+						onTerima={setUjTerima}
+						metode={ujMetode}
+						onMetode={setUjMetode}
+						holder={ujHolder}
+						onHolder={setUjHolder}
+						crew={context.crew}
+						fromOwner={ujOwnerTotal}
+						projectId={projectId}
+						bukti={ujBukti}
+						onBukti={setUjBukti}
+					/>
+					{planRental ? (
+						<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80">
+							<Info
+								className="mt-0.5 size-4 shrink-0 text-emerald-600"
+								aria-hidden
+							/>
+							<div className="space-y-1">
+								<p className="font-medium text-foreground">
+									Sewa {context.transport?.vehicle ?? "mobil"} — sudah diatur &
+									dibayar owner.
+								</p>
+								<p>
+									Kamu tidak perlu isi biaya sewa. Cukup isi bensin, tol &
+									parkir di bawah kalau ada.
+								</p>
+							</div>
+						</div>
+					) : (
+						<div className="grid grid-cols-3 gap-2">
+							{(
+								[
+									{ key: "online", label: "Online", sub: "Gocar/Grab" },
+									{ key: "rental", label: "Sewa mobil", sub: "Rental" },
+									{ key: "none", label: "Tidak ada", sub: "Skip" },
+								] as const
+							).map((opt) => {
+								const active = transportMethod === opt.key;
+								return (
+									<button
+										key={opt.key}
+										type="button"
+										onClick={() => {
+											setTransportMethod(opt.key);
+											// Crew tidak tahu harga sewa mobil — force ke owner.
+											if (isCrew && opt.key === "rental") {
+												setPaidByKey("transport", "owner");
+												setTransportCost("0");
+											}
+										}}
+										className={`flex flex-col items-center gap-0.5 rounded-md border px-2 py-2 text-fluid-caption transition-colors ${
+											active
+												? "border-primary bg-primary/10 text-foreground"
+												: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
+										}`}
+									>
+										<span className="font-semibold">{opt.label}</span>
+										<span className="text-[11px] opacity-70">{opt.sub}</span>
+									</button>
+								);
+							})}
+						</div>
+					)}
+
+					{transportMethod === "online" && (
+						<div className="space-y-3">
 							<MoneyField
-								label="Sewa mobil"
+								label="Total transport (berangkat + pulang)"
 								name="transport_cost_input"
 								value={transportCost}
 								onChange={setTransportCost}
@@ -1651,394 +1618,459 @@ export function RekapForm({
 									onChange: (u) => setNotaUrl("transport", u),
 								}}
 							/>
-						)}
+							<div className="grid gap-3 sm:grid-cols-2">
+								<SingleFileUpload
+									projectId={projectId}
+									kind="transport_proof"
+									seq="berangkat"
+									label="Bukti Berangkat"
+									value={transportProofBerangkat}
+									onChange={setTransportProofBerangkat}
+								/>
+								<SingleFileUpload
+									projectId={projectId}
+									kind="transport_proof"
+									seq="pulang"
+									label="Bukti Pulang"
+									value={transportProofPulang}
+									onChange={setTransportProofPulang}
+								/>
+							</div>
+						</div>
+					)}
 
-						{/* Nota sewa mobil — crew bisa upload kalau punya struk rental */}
-						{isCrew && !planRental && (
-							<SingleFileUpload
-								projectId={projectId}
-								kind="nota"
-								seq="transport"
-								label="Nota sewa mobil"
-								value={notaUrls.transport ?? null}
-								onChange={(u) => setNotaUrl("transport", u)}
+					{transportMethod === "rental" && (
+						<div className="space-y-3">
+							{planRental ? null : isCrew ? (
+								/* Crew tidak tahu harga sewa — info saja, nominal diisi owner. */
+								<div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80 dark:border-sky-900/60 dark:bg-sky-950/20">
+									<Info
+										className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400"
+										aria-hidden
+									/>
+									<div className="space-y-1">
+										<p className="font-medium text-foreground">
+											Nominal sewa mobil akan diisi owner.
+										</p>
+										<p>
+											Kamu cukup pilih &ldquo;Sewa mobil&rdquo; dan isi bensin
+											di bawah. Kalau ada nota/struk sewa, boleh di-upload.
+										</p>
+									</div>
+								</div>
+							) : (
+								<MoneyField
+									label="Sewa mobil"
+									name="transport_cost_input"
+									value={transportCost}
+									onChange={setTransportCost}
+									paidBy={paidBy.transport}
+									onPaidByChange={(v) => setPaidByKey("transport", v)}
+									crew={payerCrew}
+									cards={context.cards}
+									nota={{
+										projectId,
+										notaKey: "transport",
+										url: notaUrls.transport ?? null,
+										onChange: (u) => setNotaUrl("transport", u),
+									}}
+								/>
+							)}
+
+							{/* Nota sewa mobil — crew bisa upload kalau punya struk rental */}
+							{isCrew && !planRental && (
+								<SingleFileUpload
+									projectId={projectId}
+									kind="nota"
+									seq="transport"
+									label="Nota sewa mobil"
+									value={notaUrls.transport ?? null}
+									onChange={(u) => setNotaUrl("transport", u)}
+								/>
+							)}
+
+							<MoneyField
+								label="Bensin"
+								name="bensin_cost_input"
+								value={bensinCost}
+								onChange={setBensinCost}
+								paidBy={paidBy.bensin}
+								onPaidByChange={(v) => setPaidByKey("bensin", v)}
+								crew={payerCrew}
+								cards={context.cards}
+								nota={{
+									projectId,
+									notaKey: "bensin",
+									url: notaUrls.bensin ?? null,
+									onChange: (u) => setNotaUrl("bensin", u),
+								}}
 							/>
-						)}
+						</div>
+					)}
 
+					<div className="grid gap-3 sm:grid-cols-2">
 						<MoneyField
-							label="Bensin"
-							name="bensin_cost_input"
-							value={bensinCost}
-							onChange={setBensinCost}
-							paidBy={paidBy.bensin}
-							onPaidByChange={(v) => setPaidByKey("bensin", v)}
+							label="E-toll"
+							name="toll_cost_input"
+							value={tollCost}
+							onChange={setTollCost}
+							paidBy={paidBy.toll}
+							onPaidByChange={(v) => setPaidByKey("toll", v)}
 							crew={payerCrew}
 							cards={context.cards}
 							nota={{
 								projectId,
-								notaKey: "bensin",
-								url: notaUrls.bensin ?? null,
-								onChange: (u) => setNotaUrl("bensin", u),
+								notaKey: "toll",
+								url: notaUrls.toll ?? null,
+								onChange: (u) => setNotaUrl("toll", u),
+							}}
+						/>
+						<MoneyField
+							label="Parkir"
+							name="parking_cost_input"
+							value={parkingCost}
+							onChange={setParkingCost}
+							paidBy={paidBy.parking}
+							onPaidByChange={(v) => setPaidByKey("parking", v)}
+							crew={payerCrew}
+							cards={context.cards}
+							nota={{
+								projectId,
+								notaKey: "parking",
+								url: notaUrls.parking ?? null,
+								onChange: (u) => setNotaUrl("parking", u),
 							}}
 						/>
 					</div>
-				)}
+				</NumberedSection>
 
-				<div className="grid gap-3 sm:grid-cols-2">
+				{/* ========== KONSUMSI & LAIN-LAIN ========== */}
+				<NumberedSection
+					step={6}
+					title="Konsumsi & Lain-lain"
+					description="Snack/makan crew + biaya insidental yang nggak masuk kategori di atas."
+					defaultOpen={konsumsiSectionOpen}
+				>
 					<MoneyField
-						label="E-toll"
-						name="toll_cost_input"
-						value={tollCost}
-						onChange={setTollCost}
-						paidBy={paidBy.toll}
-						onPaidByChange={(v) => setPaidByKey("toll", v)}
+						label="Konsumsi crew"
+						name="konsumsi_cost_input"
+						value={konsumsiCost}
+						onChange={setKonsumsiCost}
+						paidBy={paidBy.konsumsi}
+						onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
 						crew={payerCrew}
-						cards={context.cards}
 						nota={{
 							projectId,
-							notaKey: "toll",
-							url: notaUrls.toll ?? null,
-							onChange: (u) => setNotaUrl("toll", u),
+							notaKey: "konsumsi",
+							url: notaUrls.konsumsi ?? null,
+							onChange: (u) => setNotaUrl("konsumsi", u),
 						}}
 					/>
-					<MoneyField
-						label="Parkir"
-						name="parking_cost_input"
-						value={parkingCost}
-						onChange={setParkingCost}
-						paidBy={paidBy.parking}
-						onPaidByChange={(v) => setPaidByKey("parking", v)}
-						crew={payerCrew}
-						cards={context.cards}
-						nota={{
-							projectId,
-							notaKey: "parking",
-							url: notaUrls.parking ?? null,
-							onChange: (u) => setNotaUrl("parking", u),
-						}}
-					/>
-				</div>
-			</NumberedSection>
 
-			{/* ========== KONSUMSI & LAIN-LAIN ========== */}
-			<NumberedSection
-				step={6}
-				title="Konsumsi & Lain-lain"
-				description="Snack/makan crew + biaya insidental yang nggak masuk kategori di atas."
-				defaultOpen={konsumsiSectionOpen}
-			>
-				<MoneyField
-					label="Konsumsi crew"
-					name="konsumsi_cost_input"
-					value={konsumsiCost}
-					onChange={setKonsumsiCost}
-					paidBy={paidBy.konsumsi}
-					onPaidByChange={(v) => setPaidByKey("konsumsi", v)}
-					crew={payerCrew}
-					nota={{
-						projectId,
-						notaKey: "konsumsi",
-						url: notaUrls.konsumsi ?? null,
-						onChange: (u) => setNotaUrl("konsumsi", u),
-					}}
-				/>
-
-				<div className="space-y-2">
-					<div className="space-y-1">
-						<div className="flex items-center justify-between gap-2">
-							<p className="text-fluid-body font-medium">
-								Lain-lain{" "}
-								<span className="text-muted-foreground text-fluid-caption font-normal">
-									({lainnyaItems.length}/20)
-								</span>
+					<div className="space-y-2">
+						<div className="space-y-1">
+							<div className="flex items-center justify-between gap-2">
+								<p className="text-fluid-body font-medium">
+									Lain-lain{" "}
+									<span className="text-muted-foreground text-fluid-caption font-normal">
+										({lainnyaItems.length}/20)
+									</span>
+								</p>
+								{lainnyaItems.length < 20 && (
+									<button
+										type="button"
+										onClick={addLainnyaRow}
+										className="text-primary inline-flex items-center gap-1 text-fluid-caption font-medium hover:underline"
+									>
+										<Plus className="h-3 w-3" />
+										Tambah baris
+									</button>
+								)}
+							</div>
+							<p className="text-muted-foreground text-fluid-caption">
+								Biaya insidental di luar kategori atas — mis. P3K, obat, tisu,
+								parkir tambahan.
 							</p>
-							{lainnyaItems.length < 20 && (
-								<button
-									type="button"
-									onClick={addLainnyaRow}
-									className="text-primary inline-flex items-center gap-1 text-fluid-caption font-medium hover:underline"
-								>
-									<Plus className="h-3 w-3" />
-									Tambah baris
-								</button>
+						</div>
+						{lainnyaItems.length === 0 ? (
+							<p className="text-muted-foreground text-fluid-caption italic">
+								Belum ada item. Tekan &ldquo;+ Tambah baris&rdquo; untuk
+								menambahkan.
+							</p>
+						) : (
+							<ul className="space-y-2">
+								{lainnyaItems.map((row, idx) => (
+									<li
+										key={idx}
+										className="space-y-2 rounded-md border border-border-default bg-surface-3 p-2.5"
+									>
+										{/* Baris 1: keterangan + hapus */}
+										<div className="flex items-center gap-2">
+											<input
+												type="text"
+												value={row.note}
+												onChange={(e) =>
+													updateLainnyaRow(idx, { note: e.target.value })
+												}
+												maxLength={120}
+												placeholder="Keterangan (cth. P3K)"
+												className={`${inputClass} min-w-0 flex-1`}
+											/>
+											<button
+												type="button"
+												onClick={() => removeLainnyaRow(idx)}
+												title="Hapus baris"
+												className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-colors"
+											>
+												<X className="h-3.5 w-3.5" />
+											</button>
+										</div>
+										{/* Baris 2: nominal (full width) */}
+										<div className="relative">
+											<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
+												Rp
+											</span>
+											<input
+												type="number"
+												inputMode="numeric"
+												min={0}
+												step={1}
+												value={row.amount}
+												onChange={(e) =>
+													updateLainnyaRow(idx, {
+														amount: Math.max(0, Number(e.target.value) || 0),
+													})
+												}
+												placeholder="0"
+												className={`${inputClass} tabular pl-9`}
+											/>
+										</div>
+										{/* Baris 3: siapa yang bayar */}
+										{row.amount > 0 && (
+											<PayerPicker
+												value={row.paid_by}
+												onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
+												crew={payerCrew}
+											/>
+										)}
+										{/* Baris 4: upload bukti/nota */}
+										{row.amount > 0 && (
+											<SingleFileUpload
+												projectId={projectId}
+												kind="nota"
+												seq={`lainnya-${idx}`}
+												label={`Nota ${row.note || "lain-lain"}`}
+												value={row.nota_url}
+												onChange={(url) =>
+													updateLainnyaRow(idx, { nota_url: url })
+												}
+											/>
+										)}
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
+
+					{(fieldExpenseTotal > 0 ||
+						(ujAda && (Number(ujTerima) || 0) > 0)) && (
+						<div className="space-y-1.5 rounded-md bg-primary/5 px-3 py-2 text-fluid-caption">
+							<div className="flex items-center gap-2">
+								<Wallet className="h-3.5 w-3.5 text-primary" />
+								<span className="text-muted-foreground">
+									Total biaya lapangan:
+								</span>
+								<span className="tabular ml-auto font-semibold text-primary">
+									{formatRupiah(fieldExpenseTotal)}
+								</span>
+							</div>
+							{crewFrontedTotal > 0 && (
+								<div className="flex items-center justify-between gap-2 text-amber-700 dark:text-amber-300">
+									<span>
+										{ujAda
+											? "💸 Dibayar crew (uang jalan / uang sendiri)"
+											: "💸 Ditalangi crew (di-rembers)"}
+									</span>
+									<span className="tabular font-medium">
+										{formatRupiah(crewFrontedTotal)}
+									</span>
+								</div>
+							)}
+							{ownerPaidTotal > 0 && (
+								<div className="flex items-center justify-between gap-2 text-emerald-700 dark:text-emerald-300">
+									<span>✓ Dibayar owner</span>
+									<span className="tabular font-medium">
+										{formatRupiah(ownerPaidTotal)}
+									</span>
+								</div>
+							)}
+							{cardPaidTotal > 0 && (
+								<div className="flex items-center justify-between gap-2 text-sky-700 dark:text-sky-300">
+									<span>💳 Dibayar kartu perusahaan</span>
+									<span className="tabular font-medium">
+										{formatRupiah(cardPaidTotal)}
+									</span>
+								</div>
+							)}
+							{ujAda && (Number(ujTerima) || 0) > 0 && (
+								<UangJalanRingkas
+									terima={Number(ujTerima) || 0}
+									dipakai={holderSpent}
+									sisaAksi={ujSisa}
+									onSisaAksi={setUjSisa}
+									projectId={projectId}
+									kembaliMetode={ujKembaliMetode}
+									onKembaliMetode={setUjKembaliMetode}
+									kembaliBukti={ujKembaliBukti}
+									onKembaliBukti={setUjKembaliBukti}
+								/>
 							)}
 						</div>
-						<p className="text-muted-foreground text-fluid-caption">
-							Biaya insidental di luar kategori atas — mis. P3K, obat, tisu,
-							parkir tambahan.
-						</p>
-					</div>
-					{lainnyaItems.length === 0 ? (
-						<p className="text-muted-foreground text-fluid-caption italic">
-							Belum ada item. Tekan &ldquo;+ Tambah baris&rdquo; untuk
-							menambahkan.
-						</p>
-					) : (
-						<ul className="space-y-2">
-							{lainnyaItems.map((row, idx) => (
-								<li
-									key={idx}
-									className="space-y-2 rounded-md border border-border-default bg-surface-3 p-2.5"
-								>
-									{/* Baris 1: keterangan + hapus */}
-									<div className="flex items-center gap-2">
-										<input
-											type="text"
-											value={row.note}
-											onChange={(e) =>
-												updateLainnyaRow(idx, { note: e.target.value })
-											}
-											maxLength={120}
-											placeholder="Keterangan (cth. P3K)"
-											className={`${inputClass} min-w-0 flex-1`}
-										/>
-										<button
-											type="button"
-											onClick={() => removeLainnyaRow(idx)}
-											title="Hapus baris"
-											className="text-muted-foreground hover:bg-muted hover:text-destructive inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-colors"
-										>
-											<X className="h-3.5 w-3.5" />
-										</button>
-									</div>
-									{/* Baris 2: nominal (full width) */}
-									<div className="relative">
-										<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
-											Rp
-										</span>
-										<input
-											type="number"
-											inputMode="numeric"
-											min={0}
-											step={1}
-											value={row.amount}
-											onChange={(e) =>
-												updateLainnyaRow(idx, {
-													amount: Math.max(0, Number(e.target.value) || 0),
-												})
-											}
-											placeholder="0"
-											className={`${inputClass} tabular pl-9`}
-										/>
-									</div>
-									{/* Baris 3: siapa yang bayar */}
-									{row.amount > 0 && (
-										<PayerPicker
-											value={row.paid_by}
-											onChange={(v) => updateLainnyaRow(idx, { paid_by: v })}
-											crew={payerCrew}
-										/>
-									)}
-									{/* Baris 4: upload bukti/nota */}
-									{row.amount > 0 && (
-										<SingleFileUpload
-											projectId={projectId}
-											kind="nota"
-											seq={`lainnya-${idx}`}
-											label={`Nota ${row.note || "lain-lain"}`}
-											value={row.nota_url}
-											onChange={(url) =>
-												updateLainnyaRow(idx, { nota_url: url })
-											}
-										/>
-									)}
-								</li>
-							))}
-						</ul>
 					)}
-				</div>
+				</NumberedSection>
 
-				{(fieldExpenseTotal > 0 || (ujAda && (Number(ujTerima) || 0) > 0)) && (
-					<div className="space-y-1.5 rounded-md bg-primary/5 px-3 py-2 text-fluid-caption">
-						<div className="flex items-center gap-2">
-							<Wallet className="h-3.5 w-3.5 text-primary" />
-							<span className="text-muted-foreground">
-								Total biaya lapangan:
-							</span>
-							<span className="tabular ml-auto font-semibold text-primary">
-								{formatRupiah(fieldExpenseTotal)}
-							</span>
-						</div>
-						{crewFrontedTotal > 0 && (
-							<div className="flex items-center justify-between gap-2 text-amber-700 dark:text-amber-300">
-								<span>
-									{ujAda
-										? "💸 Dibayar crew (uang jalan / uang sendiri)"
-										: "💸 Ditalangi crew (di-rembers)"}
-								</span>
-								<span className="tabular font-medium">
-									{formatRupiah(crewFrontedTotal)}
-								</span>
-							</div>
-						)}
-						{ownerPaidTotal > 0 && (
-							<div className="flex items-center justify-between gap-2 text-emerald-700 dark:text-emerald-300">
-								<span>✓ Dibayar owner</span>
-								<span className="tabular font-medium">
-									{formatRupiah(ownerPaidTotal)}
-								</span>
-							</div>
-						)}
-						{cardPaidTotal > 0 && (
-							<div className="flex items-center justify-between gap-2 text-sky-700 dark:text-sky-300">
-								<span>💳 Dibayar kartu perusahaan</span>
-								<span className="tabular font-medium">
-									{formatRupiah(cardPaidTotal)}
-								</span>
-							</div>
-						)}
-						{ujAda && (Number(ujTerima) || 0) > 0 && (
-							<UangJalanRingkas
-								terima={Number(ujTerima) || 0}
-								dipakai={holderSpent}
-								sisaAksi={ujSisa}
-								onSisaAksi={setUjSisa}
-								projectId={projectId}
-								kembaliMetode={ujKembaliMetode}
-								onKembaliMetode={setUjKembaliMetode}
-								kembaliBukti={ujKembaliBukti}
-								onKembaliBukti={setUjKembaliBukti}
-							/>
-						)}
-					</div>
-				)}
-			</NumberedSection>
-
-			{/* Hidden inputs for expense fields (Phase F2) */}
-			<input type="hidden" name="transport_method" value={transportMethod} />
-			<input
-				type="hidden"
-				name="transport_cost"
-				value={transportMethod === "none" ? "0" : transportCost || "0"}
-			/>
-			<input
-				type="hidden"
-				name="transport_proof_berangkat_url"
-				value={
-					transportMethod === "online" ? (transportProofBerangkat ?? "") : ""
-				}
-			/>
-			<input
-				type="hidden"
-				name="transport_proof_pulang_url"
-				value={transportMethod === "online" ? (transportProofPulang ?? "") : ""}
-			/>
-			<input
-				type="hidden"
-				name="bensin_cost"
-				value={transportMethod === "rental" ? bensinCost || "0" : "0"}
-			/>
-			<input type="hidden" name="toll_cost" value={tollCost || "0"} />
-			<input type="hidden" name="parking_cost" value={parkingCost || "0"} />
-			<input type="hidden" name="konsumsi_cost" value={konsumsiCost || "0"} />
-			<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
-			<input type="hidden" name="expense_paid_by" value={expensePaidByJson} />
-			{/* Tanpa baris ini submit GAGAL total: server membaca
+				{/* Hidden inputs for expense fields (Phase F2) */}
+				<input type="hidden" name="transport_method" value={transportMethod} />
+				<input
+					type="hidden"
+					name="transport_cost"
+					value={transportMethod === "none" ? "0" : transportCost || "0"}
+				/>
+				<input
+					type="hidden"
+					name="transport_proof_berangkat_url"
+					value={
+						transportMethod === "online" ? (transportProofBerangkat ?? "") : ""
+					}
+				/>
+				<input
+					type="hidden"
+					name="transport_proof_pulang_url"
+					value={
+						transportMethod === "online" ? (transportProofPulang ?? "") : ""
+					}
+				/>
+				<input
+					type="hidden"
+					name="bensin_cost"
+					value={transportMethod === "rental" ? bensinCost || "0" : "0"}
+				/>
+				<input type="hidden" name="toll_cost" value={tollCost || "0"} />
+				<input type="hidden" name="parking_cost" value={parkingCost || "0"} />
+				<input type="hidden" name="konsumsi_cost" value={konsumsiCost || "0"} />
+				<input type="hidden" name="lainnya_items" value={lainnyaItemsJson} />
+				<input type="hidden" name="expense_paid_by" value={expensePaidByJson} />
+				{/* Tanpa baris ini submit GAGAL total: server membaca
 			    expense_nota_urls dan formData.get() mengembalikan null untuk
 			    field yang tak dirender — Zod menolak null. Sekaligus bikin nota
 			    yang sudah diunggah crew tidak pernah tersimpan. */}
-			<input type="hidden" name="expense_nota_urls" value={expenseNotaJson} />
-			<input
-				type="hidden"
-				name="uj_terima"
-				value={ujAda ? ujTerima || "0" : "0"}
-			/>
-			<input type="hidden" name="uj_metode" value={ujAda ? ujMetode : ""} />
-			<input type="hidden" name="uj_holder" value={ujAda ? ujHolder : ""} />
-			<input
-				type="hidden"
-				name="uj_sisa"
-				value={ujAda && ujSisaAda ? ujSisa : ""}
-			/>
-			<input
-				type="hidden"
-				name="uj_bukti_url"
-				value={ujAda ? (ujBukti ?? "") : ""}
-			/>
-			<input
-				type="hidden"
-				name="uj_kembali_metode"
-				value={
-					ujAda && ujSisaAda && ujSisa === "kembalikan" ? ujKembaliMetode : ""
-				}
-			/>
-			<input
-				type="hidden"
-				name="uj_kembali_bukti_url"
-				value={
-					ujAda && ujSisaAda && ujSisa === "kembalikan"
-						? (ujKembaliBukti ?? "")
-						: ""
-				}
-			/>
-
-			{/* ========== BUKTI ========== */}
-			<NumberedSection
-				step={7}
-				title="Bukti"
-				description="Foto counter mesin, area event, atau consumable. Wajib minimal 1."
-			>
-				<RekapProofUpload
-					projectId={projectId}
-					initial={initialUrls.map((url) => ({
-						url,
-						name: extractName(url),
-					}))}
-					onChange={setProofUrls}
+				<input type="hidden" name="expense_nota_urls" value={expenseNotaJson} />
+				<input
+					type="hidden"
+					name="uj_terima"
+					value={ujAda ? ujTerima || "0" : "0"}
 				/>
-				<input type="hidden" name="proof_photo_urls" value={proofUrlsHidden} />
-				{err("proof_photo_urls") && (
-					<p className="text-fluid-caption text-destructive">
-						{err("proof_photo_urls")}
-					</p>
+				<input type="hidden" name="uj_metode" value={ujAda ? ujMetode : ""} />
+				<input type="hidden" name="uj_holder" value={ujAda ? ujHolder : ""} />
+				<input
+					type="hidden"
+					name="uj_sisa"
+					value={ujAda && ujSisaAda ? ujSisa : ""}
+				/>
+				<input
+					type="hidden"
+					name="uj_bukti_url"
+					value={ujAda ? (ujBukti ?? "") : ""}
+				/>
+				<input
+					type="hidden"
+					name="uj_kembali_metode"
+					value={
+						ujAda && ujSisaAda && ujSisa === "kembalikan" ? ujKembaliMetode : ""
+					}
+				/>
+				<input
+					type="hidden"
+					name="uj_kembali_bukti_url"
+					value={
+						ujAda && ujSisaAda && ujSisa === "kembalikan"
+							? (ujKembaliBukti ?? "")
+							: ""
+					}
+				/>
+
+				{/* ========== BUKTI ========== */}
+				<NumberedSection
+					step={7}
+					title="Bukti"
+					description="Foto counter mesin, area event, atau consumable. Wajib minimal 1."
+				>
+					<RekapProofUpload
+						projectId={projectId}
+						initial={initialUrls.map((url) => ({
+							url,
+							name: extractName(url),
+						}))}
+						onChange={setProofUrls}
+					/>
+					<input
+						type="hidden"
+						name="proof_photo_urls"
+						value={proofUrlsHidden}
+					/>
+					{err("proof_photo_urls") && (
+						<p className="text-fluid-caption text-destructive">
+							{err("proof_photo_urls")}
+						</p>
+					)}
+
+					<div className="space-y-1.5">
+						<label htmlFor="crew_notes" className="text-fluid-body font-medium">
+							Catatan crew
+						</label>
+						<RichTextarea
+							id="crew_notes"
+							name="crew_notes"
+							rows={3}
+							maxLength={1000}
+							defaultValue={get("crew_notes")}
+							placeholder="Apa yang perlu owner tahu — alat rusak, request klien, dst"
+							toolbar={false}
+						/>
+					</div>
+				</NumberedSection>
+
+				{/* Soft warnings */}
+				{warnings.length > 0 && (
+					<ul className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50/60 p-3 text-fluid-caption dark:border-amber-900 dark:bg-amber-950/30">
+						{warnings.map((w) => (
+							<li
+								key={w}
+								className="flex items-start gap-2 text-amber-900 dark:text-amber-200"
+							>
+								<span className="mt-0.5 size-1 shrink-0 rounded-full bg-amber-600 dark:bg-amber-400" />
+								<span>{w}</span>
+							</li>
+						))}
+					</ul>
 				)}
 
-				<div className="space-y-1.5">
-					<label htmlFor="crew_notes" className="text-fluid-body font-medium">
-						Catatan crew
-					</label>
-					<RichTextarea
-						id="crew_notes"
-						name="crew_notes"
-						rows={3}
-						maxLength={1000}
-						defaultValue={get("crew_notes")}
-						placeholder="Apa yang perlu owner tahu — alat rusak, request klien, dst"
-						toolbar={false}
-					/>
-				</div>
-			</NumberedSection>
+				<input
+					type="hidden"
+					name="custom_materials"
+					value={customMaterialsJson}
+				/>
 
-			{/* Soft warnings */}
-			{warnings.length > 0 && (
-				<ul className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50/60 p-3 text-fluid-caption dark:border-amber-900 dark:bg-amber-950/30">
-					{warnings.map((w) => (
-						<li
-							key={w}
-							className="flex items-start gap-2 text-amber-900 dark:text-amber-200"
-						>
-							<span className="mt-0.5 size-1 shrink-0 rounded-full bg-amber-600 dark:bg-amber-400" />
-							<span>{w}</span>
-						</li>
-					))}
-				</ul>
-			)}
-
-			<input
-				type="hidden"
-				name="custom_materials"
-				value={customMaterialsJson}
-			/>
-
-			<RekapSummaryBar
-				cetakTotal={Number(cetak) || 0}
-				pending={pending}
-				submitLabel={mode === "create" ? "Submit rekap" : "Update rekap"}
-				disabled={Boolean(submitBlock)}
-				disabledLabel={submitBlock?.label}
-				disabledReason={submitBlock?.reason}
-			/>
-		</form>
+				<RekapSummaryBar
+					cetakTotal={Number(cetak) || 0}
+					pending={pending}
+					submitLabel={mode === "create" ? "Submit rekap" : "Update rekap"}
+					disabled={Boolean(submitBlock)}
+					disabledLabel={submitBlock?.label}
+					disabledReason={submitBlock?.reason}
+				/>
+			</form>
+		</PayerOwnersContext.Provider>
 	);
 }
 
@@ -2432,12 +2464,19 @@ function AddonField({
 	);
 }
 
+/** Owner aktif untuk pilihan "ditransfer / dibayar owner X" di PayerPicker. */
+const PayerOwnersContext = createContext<Array<{ id: string; name: string }>>(
+	[],
+);
+
 /**
- * Pemilih penalang per item biaya. Muncul di bawah tiap input uang saat
- * nilainya > 0. Opsi: tiap crew yang bertugas (ditalangi orang itu → reimburse
- * jatuh ke dia) + Owner (uang perusahaan, tidak masuk Hutang Crew). Kalau
- * daftar crew belum ada, jatuh ke dua opsi lama (uang crew / owner) supaya
- * form tetap berguna sebelum crew di-assign.
+ * Pemilih "dibayar pakai uang siapa" per item biaya — WAJIB jelas supaya owner
+ * tidak menebak. Kelompok:
+ *  - uang jalan / uang pribadi crew (pemegang uang jalan tampil "💵 Uang jalan
+ *    dari owner"; crew lain = ditalangi orang itu → reimburse ke dia)
+ *  - ditransfer / dibayar owner X → 'owner:<id>', otomatis hutang ke owner itu
+ *  - kartu perusahaan → 'acct:<id>'
+ * Nilai lama "crew" / "owner" (belum jelas siapa) tampil sebagai peringatan.
  */
 function PayerPicker({
 	value,
@@ -2450,73 +2489,86 @@ function PayerPicker({
 	crew: Array<{ user_id: string; name: string; role: string }>;
 	cards?: PayerCard[];
 }) {
+	const owners = useContext(PayerOwnersContext);
 	type Tone = "crew" | "owner" | "card";
-	const people: Array<{ key: PaidBy; label: string; tone: Tone }> =
-		crew.length > 0
-			? [
-					...crew.map((c) => ({
-						key: c.user_id,
-						label: c.name,
-						tone: "crew" as const,
-					})),
-					{ key: "owner", label: "Owner", tone: "owner" as const },
-				]
-			: [
-					{ key: "crew", label: "Uang crew", tone: "crew" as const },
-					{ key: "owner", label: "Owner", tone: "owner" as const },
-				];
-
-	// Kartu perusahaan: bukan talangan siapa pun — uangnya sudah keluar waktu
-	// topup. Saldo hanya tampil untuk owner (crew cukup tanda "menipis").
-	const opts: Array<{ key: PaidBy; label: string; tone: Tone }> = [
-		...people,
-		...cards.map((c) => ({
-			key: encodePaidFromAccount(c.id),
-			label:
-				c.balance !== undefined
-					? `${c.name} · ${formatRupiah(c.balance)}`
-					: c.isLow
-						? `${c.name} · menipis`
-						: c.name,
-			tone: "card" as const,
-		})),
-	];
-	// Nilai lama "crew" (belum ditentukan siapa) tetap bisa ditampilkan walau
-	// daftar crew sudah ada — tanpa ini pilihan tersimpan terlihat kosong.
-	const known = opts.some((o) => o.key === value);
+	const groups: Array<{
+		title: string;
+		tone: Tone;
+		opts: Array<{ key: PaidBy; label: string }>;
+	}> = [
+		{
+			title: "Uang crew / uang jalan",
+			tone: "crew",
+			opts: crew.map((c) => ({ key: c.user_id, label: c.name })),
+		},
+		{
+			title: "Ditransfer / dibayar owner",
+			tone: "owner",
+			opts: owners.map((o) => ({
+				key: `${OWNER_PAYER_PREFIX}${o.id}`,
+				label: o.name,
+			})),
+		},
+		{
+			title: "Kartu perusahaan",
+			tone: "card",
+			// Saldo hanya tampil untuk owner (crew cukup tanda "menipis").
+			opts: cards.map((c) => ({
+				key: encodePaidFromAccount(c.id),
+				label:
+					c.balance !== undefined
+						? `${c.name} · ${formatRupiah(c.balance)}`
+						: c.isLow
+							? `${c.name} · menipis`
+							: c.name,
+			})),
+		},
+	].filter((g) => g.opts.length > 0) as typeof groups;
+	const belumJelas = value === "crew" || value === "owner";
+	const tone: Record<Tone, string> = {
+		crew: "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-200",
+		owner:
+			"border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
+		card: "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-200",
+	};
 
 	return (
-		<div className="space-y-1">
-			<p className="text-[11px] text-muted-foreground">Yang bayar:</p>
-			<div className="flex flex-wrap gap-1">
-				{!known && value === "crew" ? (
-					<span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-						Crew (belum dipilih)
+		<div className="space-y-1.5">
+			<p className="text-[11px] font-medium text-muted-foreground">
+				Dibayar pakai uang siapa?
+				{belumJelas && (
+					<span className="ml-1.5 rounded-full bg-rose-500/12 px-2 py-0.5 text-[10.5px] font-semibold text-rose-700 dark:text-rose-300">
+						{value === "owner"
+							? "Owner yang mana? Pilih namanya"
+							: "Wajib dipilih"}
 					</span>
-				) : null}
-				{opts.map((o) => {
-					const active = value === o.key;
-					return (
-						<button
-							key={o.key}
-							type="button"
-							aria-pressed={active}
-							onClick={() => onChange(o.key)}
-							className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-								active
-									? o.tone === "crew"
-										? "border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-200"
-										: o.tone === "card"
-											? "border-sky-500/40 bg-sky-500/15 text-sky-800 dark:text-sky-200"
-											: "border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
-									: "border-border-default bg-surface-3 text-muted-foreground hover:text-foreground"
-							}`}
-						>
-							{o.label}
-						</button>
-					);
-				})}
-			</div>
+				)}
+			</p>
+			{groups.map((g) => (
+				<div key={g.title} className="flex flex-wrap items-center gap-1">
+					<span className="w-full text-[10.5px] text-muted-foreground sm:w-auto sm:min-w-36">
+						{g.title}:
+					</span>
+					{g.opts.map((o) => {
+						const active = value === o.key;
+						return (
+							<button
+								key={o.key}
+								type="button"
+								aria-pressed={active}
+								onClick={() => onChange(o.key)}
+								className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+									active
+										? tone[g.tone]
+										: "border-border-default bg-surface-3 text-muted-foreground hover:text-foreground"
+								}`}
+							>
+								{o.label}
+							</button>
+						);
+					})}
+				</div>
+			))}
 		</div>
 	);
 }

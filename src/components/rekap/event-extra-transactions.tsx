@@ -531,18 +531,24 @@ export function EventExtraTransactions({
 									disabled={pending}
 								/>
 							)}
-							{!readOnly && (
-								<Button
-									type="button"
-									size="icon-sm"
-									variant="ghost"
-									aria-label="Hapus baris"
-									className="text-muted-foreground hover:text-rose-600"
-									disabled={pending}
-									onClick={() => handleRemoveQueued(q)}
-								>
-									<Trash2 className="h-3.5 w-3.5" />
-								</Button>
+							{q.fromRekap ? (
+								<span className="text-[10px] text-muted-foreground">
+									otomatis dari rekap
+								</span>
+							) : (
+								!readOnly && (
+									<Button
+										type="button"
+										size="icon-sm"
+										variant="ghost"
+										aria-label="Hapus baris"
+										className="text-muted-foreground hover:text-rose-600"
+										disabled={pending}
+										onClick={() => handleRemoveQueued(q)}
+									>
+										<Trash2 className="h-3.5 w-3.5" />
+									</Button>
+								)
 							)}
 							{q.postError && (
 								<p className="w-full text-[11px] font-medium text-rose-600">

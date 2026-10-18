@@ -97,3 +97,24 @@ test("settle: reimbursement per penalang — pemegang uang jalan dapat bagiannya
 		after: 100_500,
 	});
 });
+
+test("pembayar 'owner:<id>' = dibayar owner tertentu, bukan talangan crew; kartu tidak hilang", async () => {
+	const { normalizePayer, isFrontedByPerson, ownerIdOfPayer } = await import(
+		"@/lib/finance/emoney"
+	);
+	const id = "394a45b4-ed5c-4ddb-891b-5c9c0b51a804";
+	assert.equal(normalizePayer(`owner:${id}`), `owner:${id}`);
+	assert.equal(normalizePayer(`acct:${id}`), `acct:${id}`); // dulu jadi "crew"
+	assert.equal(normalizePayer("owner:bukan-uuid"), "crew");
+	assert.equal(ownerIdOfPayer(`owner:${id}`), id);
+	assert.equal(isFrontedByPerson(`owner:${id}`), false);
+	const r = talanganPerCrew(
+		{
+			...rekap,
+			expense_paid_by: { transport: "fahmi", konsumsi: `owner:${id}` },
+			lainnya_items: [],
+		},
+		"fahmi",
+	);
+	assert.deepEqual(r.byUser, { fahmi: 50_500 });
+});

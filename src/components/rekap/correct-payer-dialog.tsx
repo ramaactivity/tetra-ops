@@ -15,6 +15,7 @@ import {
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { correctExpensePayers } from "@/lib/actions/rekap";
+import { isOwnerPaid } from "@/lib/finance/emoney";
 import { formatRupiah } from "@/lib/format";
 
 export type PayerOptions = {
@@ -26,6 +27,8 @@ export type PayerOptions = {
 	 * talangan → uang jalan dipotong otomatis saat bayar fee).
 	 */
 	ujHolders?: string[];
+	/** Owner aktif — "Ditransfer / dibayar <owner>" = 'owner:<id>' → hutang ke dia. */
+	owners?: Array<{ id: string; name: string }>;
 };
 
 type Item = {
@@ -73,14 +76,17 @@ export function CorrectPayerDialog({
 			value: `acct:${c.id}`,
 			label: `Kartu e-toll/e-money: ${c.name}`,
 		})),
-		{ value: "owner", label: "Dibayar owner (uang pribadi)" },
+		...(options.owners ?? []).map((o) => ({
+			value: `owner:${o.id}`,
+			label: `Ditransfer / dibayar ${o.name} (jadi hutang ke ${o.name})`,
+		})),
 	];
 	const payerOf = (it: Item) => draft[it.key] ?? it.rawPayer;
 	const changed = items.filter((it) => payerOf(it) !== it.rawPayer);
 	// Sudah dicatat sebagai pengeluaran owner lalu dipindah → bebannya dobel
 	// kalau catatannya tidak dihapus.
 	const doubleRisk = changed.filter(
-		(it) => it.catatRecorded && payerOf(it) !== "owner",
+		(it) => it.catatRecorded && !isOwnerPaid(payerOf(it)),
 	);
 
 	function save() {
@@ -153,7 +159,13 @@ export function CorrectPayerDialog({
 										choices.some((c) => c.value === it.rawPayer)
 											? choices
 											: [
-													{ value: it.rawPayer, label: "Pembayar lama" },
+													{
+														value: it.rawPayer,
+														label:
+															it.rawPayer === "owner"
+																? "Owner (belum dipilih siapa)"
+																: "Pembayar lama",
+													},
 													...choices,
 												]
 									}
@@ -168,8 +180,9 @@ export function CorrectPayerDialog({
 							<b>Uang jalan dari owner</b> → sisa uang jalan dipotong otomatis
 							saat bayar fee. <b>Ditalangi crew</b> → masuk Hutang Crew, dibayar
 							lewat kolom Reimbursement. <b>Kartu</b> → saldo kartu berkurang
-							otomatis saat settle. <b>Owner</b> → catat lewat Pemasukan /
-							pengeluaran lain.
+							otomatis saat settle. <b>Owner</b> → otomatis jadi hutang ke owner
+							itu (kartu Hutang-piutang owner), lunasi kapan saja. Pilihan lama
+							tanpa nama → catat lewat Pemasukan / pengeluaran lain.
 						</p>
 						<p>Setelah menyimpan, cek lagi kolom Reimbursement tiap crew.</p>
 						{doubleRisk.length > 0 ? (

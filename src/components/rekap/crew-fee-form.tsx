@@ -84,6 +84,8 @@ type Props = {
 			key?: string;
 			/** Nilai expense_paid_by apa adanya. */
 			rawPayer?: string;
+			/** Owner tertentu yang membayar ('owner:<id>') — jadi hutang ke dia. */
+			ownerId?: string | null;
 			label: string;
 			amount: number;
 			paidBy: "crew" | "owner" | "card";
@@ -647,7 +649,11 @@ export function CrewFeeForm({
 											<span data-nominal className="tabular">
 												{formatRupiah(it.amount)}
 											</span>
-											{it.catatRecorded ? (
+											{it.ownerId ? (
+												<span className="ml-auto inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+													Ditransfer {it.payerName} → hutang ke {it.payerName}
+												</span>
+											) : it.catatRecorded ? (
 												<span className="ml-auto inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
 													Sudah masuk daftar
 												</span>
@@ -669,7 +675,9 @@ export function CrewFeeForm({
 									))}
 							</ul>
 							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								Tidak ikut Hutang Crew di settlement — klik{" "}
+								Owner yang namanya dipilih → otomatis jadi hutang Tetra ke owner
+								itu saat settle (kartu Hutang-piutang owner). Yang belum ada
+								namanya: pilih owner-nya lewat Koreksi pembayar, atau klik{" "}
 								<span className="font-medium">Catat ke pembukuan</span> supaya
 								bebannya tetap masuk — form di kartu{" "}
 								<span className="font-medium">

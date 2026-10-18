@@ -6,7 +6,11 @@ import { AppHeader, AppScreen } from "@/components/ui/mobile";
 import { getRekapContext } from "@/lib/actions/rekap";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { todayWIB } from "@/lib/dates";
+import { ownerIdOfPayer, paidFromAccountId } from "@/lib/finance/emoney";
 import { getCetakBenchmark } from "@/lib/rekap/benchmark";
+import { labelPembayar, rekapExpenseItems } from "@/lib/rekap/expense-items";
+import { pemegangUangJalan } from "@/lib/rekap/reimbursement";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -105,6 +109,42 @@ export default async function CrewRekapPage({
 
 	const rekap = rekapData as RekapRow | null;
 	const mode: "create" | "update" = rekap ? "update" : "create";
+
+	// Pengeluaran + "dibayar pakai uang siapa" untuk ringkasan rekap yang sudah
+	// di-approve — bahasa yang sama dengan pemilih di form.
+	const pengeluaran = rekap ? rekapExpenseItems(rekap) : [];
+	const ujHolder = rekap ? pemegangUangJalan(rekap, []) : null;
+	const payerIds = [
+		...new Set(
+			pengeluaran
+				.flatMap((it) => [
+					ownerIdOfPayer(it.rawPayer),
+					/^[0-9a-f-]{36}$/i.test(it.rawPayer) ? it.rawPayer : null,
+				])
+				.concat(ujHolder),
+		),
+	].filter((x): x is string => Boolean(x));
+	const cardIds = pengeluaran
+		.map((it) => paidFromAccountId(it.rawPayer))
+		.filter((x): x is string => Boolean(x));
+	const admin = createAdminClient();
+	const [{ data: payerUsers }, { data: payerCards }] = await Promise.all([
+		payerIds.length
+			? admin.from("users").select("id, full_name, nickname").in("id", payerIds)
+			: Promise.resolve({ data: [] }),
+		cardIds.length
+			? admin.from("bank_accounts").select("id, account_name").in("id", cardIds)
+			: Promise.resolve({ data: [] }),
+	]);
+	const namaOf = new Map(
+		(payerUsers ?? []).map((u) => [
+			u.id as string,
+			((u.nickname as string | null) || (u.full_name as string)) ?? "",
+		]),
+	);
+	const kartuOf = new Map(
+		(payerCards ?? []).map((c) => [c.id as string, c.account_name as string]),
+	);
 
 	// Load context (paket spec + bonuses + mappings + custom inventory pool)
 	const context = await getRekapContext(event.id as string);
@@ -223,6 +263,33 @@ export default async function CrewRekapPage({
 							<DetailRow label="Photomagnet" value={rekap.photomagnet_used} />
 							<DetailRow label="Keychain" value={rekap.keychain_used} />
 						</dl>
+						{pengeluaran.length > 0 && (
+							<div className="space-y-1.5">
+								<p className="text-muted-foreground text-[11px] uppercase tracking-wider">
+									Pengeluaran
+								</p>
+								<ul className="space-y-1.5">
+									{pengeluaran.map((it) => (
+										<li key={it.key} className="text-xs">
+											<div className="flex justify-between gap-3">
+												<span className="text-foreground">{it.label}</span>
+												<span className="tabular text-foreground font-medium">
+													{it.amount.toLocaleString("id-ID")}
+												</span>
+											</div>
+											<p className="text-muted-foreground text-[11px]">
+												{labelPembayar(
+													it.rawPayer,
+													(id) => namaOf.get(id),
+													(id) => kartuOf.get(id),
+													ujHolder,
+												)}
+											</p>
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
 						{rekap.proof_photo_urls.length > 0 && (
 							<div className="space-y-1.5">
 								<p className="text-muted-foreground text-[11px] uppercase tracking-wider">

@@ -44,6 +44,8 @@ export type QueuedEntry = {
 	postError: string | null;
 	/** Ditalangi owner ini (hutang, dilunasi nanti) — bukan dari rekening. */
 	ownerId?: string | null;
+	/** Dibuat otomatis dari biaya rekap "dibayar owner X" — ubah lewat rekap. */
+	fromRekap?: boolean;
 };
 
 const ExpenseSchema = z.object({

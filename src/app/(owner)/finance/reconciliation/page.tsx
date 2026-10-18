@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
+import { isOwnerPaid } from "@/lib/finance/emoney";
 import { formatRupiah } from "@/lib/format";
 import { COGS_BUCKETS, inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { createClient } from "@/lib/supabase/server";
@@ -211,7 +212,7 @@ export default async function ReconciliationPage() {
 		let expected = 0;
 		const add = (amount: unknown, payer: string | undefined) => {
 			const n = Number(amount) || 0;
-			if (n > 0 && payer === "owner") expected += n;
+			if (n > 0 && isOwnerPaid(payer)) expected += n;
 		};
 		add(r.transport_cost, pb.transport);
 		add(r.bensin_cost, pb.bensin);
