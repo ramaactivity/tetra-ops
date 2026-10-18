@@ -123,6 +123,11 @@ type Props = {
 	 * "ditalangi" pemegangnya sebenarnya dibayar pakai uang jalan ini.
 	 */
 	uangJalanDiberi?: Record<string, number>;
+	/**
+	 * Sisa uang jalan di tangan crew (negatif = kurang) — angka yang sama
+	 * dengan panel uang jalan. Tidak ada = sudah diperhitungkan saat bayar fee.
+	 */
+	uangJalanSisa?: Record<string, number>;
 	/** Rencana bayar fee crew yang sudah diantre untuk settle (pre-settle). */
 	queuedPayment?: {
 		id: string;
@@ -153,6 +158,7 @@ export function CrewFeeForm({
 	queuedPayment = null,
 	uangJalanPotong = {},
 	uangJalanDiberi = {},
+	uangJalanSisa = {},
 }: Props) {
 	const router = useRouter();
 	const [rows, setRows] = useState<CrewAssignmentRow[]>(initialRows);
@@ -258,6 +264,7 @@ export function CrewFeeForm({
 			name: ujItems.find((it) => it.payerUserId === id)?.payerName ?? "crew",
 			diberi,
 			terpakai,
+			sisa: uangJalanSisa[id] as number | undefined,
 		};
 	});
 	const crewOnlyTotal =
@@ -470,12 +477,14 @@ export function CrewFeeForm({
 									<span data-nominal className="tabular">
 										{formatRupiah(h.terpakai)}
 									</span>
-									{h.diberi >= h.terpakai ? (
+									{h.sisa === undefined ? (
+										" → sudah diperhitungkan saat bayar fee."
+									) : h.sisa >= 0 ? (
 										<>
 											{" "}
-											→ sisa{" "}
+											→ sisa di crew{" "}
 											<span data-nominal className="tabular">
-												{formatRupiah(h.diberi - h.terpakai)}
+												{formatRupiah(h.sisa)}
 											</span>{" "}
 											dipotong otomatis saat bayar fee (atau dikembalikan crew).
 										</>
@@ -484,12 +493,13 @@ export function CrewFeeForm({
 											{" "}
 											→ kurang{" "}
 											<span data-nominal className="tabular">
-												{formatRupiah(h.terpakai - h.diberi)}
+												{formatRupiah(-h.sisa)}
 											</span>{" "}
 											ditalangi crew, ikut dibayar bersama fee.
 										</>
 									)}{" "}
-									Tidak perlu isi apa-apa — hitungannya otomatis saat settle.
+									{!readOnly &&
+										"Tidak perlu isi apa-apa — hitungannya otomatis saat settle."}
 								</p>
 							))}
 						</div>

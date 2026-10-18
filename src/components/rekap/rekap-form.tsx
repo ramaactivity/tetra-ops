@@ -437,7 +437,17 @@ export function RekapForm({
 		setLainnyaItems((prev) =>
 			prev.length >= 20
 				? prev
-				: [...prev, { note: "", amount: 0, paid_by: "crew", nota_url: null }],
+				: [
+						...prev,
+						{
+							note: "",
+							amount: 0,
+							// Ada uang jalan → bawaannya dibayar pakai uang jalan, sama
+							// dengan baris yang sudah ada (lihat efek di bawah).
+							paid_by: ujAda && ujHolder ? ujHolder : "crew",
+							nota_url: null,
+						},
+					],
 		);
 	}
 	function updateLainnyaRow(idx: number, patch: Partial<LainnyaRow>) {
@@ -557,9 +567,9 @@ export function RekapForm({
 			else if (paidFromAccountId(r.payer) !== null) card += r.amount;
 			else {
 				crew += r.amount;
-				// "crew" tanpa nama dihitung milik yang mengisi rekap.
-				if (r.payer === ujHolder || (r.payer === "crew" && ujHolder === meId))
-					holder += r.amount;
+				// "crew" tanpa nama = dibayar pemegang uang jalan — aturan yang sama
+				// dengan halaman owner & settle (pemegangUangJalan/talanganPerCrew).
+				if (r.payer === ujHolder || r.payer === "crew") holder += r.amount;
 			}
 		}
 		return {
@@ -579,7 +589,6 @@ export function RekapForm({
 		lainnyaItems,
 		paidBy,
 		ujHolder,
-		meId,
 	]);
 
 	// === Proof URLs (multi-file upload) ===

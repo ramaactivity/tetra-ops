@@ -57,6 +57,11 @@ import { isCashOrBank } from "@/lib/finance/accounting";
 import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { filterEmoneyAccounts, paidFromAccountId } from "@/lib/finance/emoney";
 import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
+import {
+	pemegangUangJalan,
+	type RekapExpenseSource,
+	talanganPerCrew,
+} from "@/lib/rekap/reimbursement";
 import { potongFee, saldoUangJalan } from "@/lib/rekap/uang-jalan";
 import { loadTalanganOwner } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
@@ -355,17 +360,54 @@ export default async function EventRekapPage({
 		.eq("event_id", event.id as string)
 		.not("uj_user_id", "is", null)
 		.is("posted_at", null);
+	// Satu aturan (DR-049): biaya rekap tanpa penalang = dibayar pemegang uang
+	// jalan, sama dengan form crew & settle (syncCrewReimbursement). Biaya rekap
+	// pemegang uang jalan memakai uang jalannya sampai dipotong saat bayar fee.
+	const ujPenerima = [
+		...new Set(
+			ujLedger
+				.filter((l) => l.kind === "beri" && !l.is_reversed)
+				.map((l) => l.user_id),
+		),
+	];
+	const ujPemegang = rekap ? pemegangUangJalan(rekap, ujPenerima) : null;
+	const talanganRekap = rekap
+		? talanganPerCrew(rekap as unknown as RekapExpenseSource, ujPemegang).byUser
+		: {};
+	const ujSudahPotong = (u: string) =>
+		ujLedger.some(
+			(l) => l.user_id === u && l.kind === "potong_fee" && !l.is_reversed,
+		);
+	const ujTerpakaiRekap: Record<string, number> = Object.fromEntries(
+		ujPenerima.map((u) => [u, ujSudahPotong(u) ? 0 : (talanganRekap[u] ?? 0)]),
+	);
 	const uangJalanSumber = [...new Set(ujLedger.map((l) => l.user_id))]
 		.map((u) => ({
 			user_id: u,
 			name: context.crew.find((c) => c.user_id === u)?.name ?? "crew",
 			saldo:
 				saldoUangJalan(ujLedger.filter((l) => l.user_id === u)) -
+				(ujTerpakaiRekap[u] ?? 0) -
 				(ujQueued ?? [])
 					.filter((q) => q.uj_user_id === u)
 					.reduce((t, q) => t + Number(q.amount ?? 0), 0),
 		}))
 		.filter((u) => u.saldo > 0);
+	// Sisa uang jalan yang masih di tangan crew (negatif = kurang, ditalangi
+	// crew) — angka yang SAMA di panel uang jalan & kartu Fee crew. Kosong
+	// untuk crew yang uang jalannya sudah diperhitungkan saat bayar fee.
+	const uangJalanSisa: Record<string, number> = Object.fromEntries(
+		ujPenerima
+			.filter((u) => !ujSudahPotong(u))
+			.map((u) => [
+				u,
+				saldoUangJalan(ujLedger.filter((l) => l.user_id === u)) -
+					(ujTerpakaiRekap[u] ?? 0) -
+					(ujQueued ?? [])
+						.filter((q) => q.uj_user_id === u)
+						.reduce((t, q) => t + Number(q.amount ?? 0), 0),
+			]),
+	);
 	// Uang jalan yang diberikan per crew — biaya atas nama pemegangnya
 	// ditampilkan "dibayar pakai uang jalan" di kartu Fee crew.
 	const uangJalanDiberi: Record<string, number> = {};
@@ -673,8 +715,10 @@ export default async function EventRekapPage({
 					: "crew";
 			// "crew" = ditalangi tapi belum ditentukan siapa (data lama); selain itu
 			// nilainya users.id penalang.
+			// Tanpa penalang + ada uang jalan → pemegang uang jalan (aturan yang
+			// sama dengan form crew & settle).
 			const payerUserId =
-				paidBy === "crew" && rawPayer !== "crew" ? rawPayer : null;
+				paidBy !== "crew" ? null : rawPayer !== "crew" ? rawPayer : ujPemegang;
 			items.push({
 				key,
 				rawPayer,
@@ -1052,6 +1096,7 @@ export default async function EventRekapPage({
 					owners={ujOwnerOptions}
 					meId={me.profile.id}
 					talangan={talanganOwner}
+					terpakaiRekap={ujTerpakaiRekap}
 					antre={Object.fromEntries(
 						[
 							...new Set((ujQueued ?? []).map((q) => q.uj_user_id as string)),
@@ -1074,6 +1119,7 @@ export default async function EventRekapPage({
 						rows={crewFeeRows}
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						uangJalanDiberi={uangJalanDiberi}
+						uangJalanSisa={uangJalanSisa}
 						hasEmoneyCard={context.cards.length > 0}
 						payerOptions={{
 							crew: context.crew.map((c) => ({ id: c.user_id, name: c.name })),
@@ -1261,6 +1307,7 @@ export default async function EventRekapPage({
 						// memastikan biaya "dibayar owner" sudah dicatat.
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
 						uangJalanDiberi={uangJalanDiberi}
+						uangJalanSisa={uangJalanSisa}
 						hasEmoneyCard={context.cards.length > 0}
 						readOnly
 						cashAccounts={cashAccountsNoCard}

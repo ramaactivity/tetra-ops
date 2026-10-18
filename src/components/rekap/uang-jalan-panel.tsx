@@ -69,6 +69,7 @@ export function UangJalanPanel({
 	owners,
 	meId,
 	talangan = [],
+	terpakaiRekap = {},
 	antre = {},
 }: {
 	eventId: string;
@@ -91,6 +92,11 @@ export function UangJalanPanel({
 	meId: string;
 	/** Saldo hutang-piutang Tetra ↔ owner (semua acara). */
 	talangan?: TalanganOwnerSaldo[];
+	/**
+	 * Biaya lapangan di rekap yang dibayar pemegang uang jalan, per crew —
+	 * belum mengurangi buku uang jalan (dipotong saat bayar fee).
+	 */
+	terpakaiRekap?: Record<string, number>;
 	/** Pengeluaran "pakai uang jalan" yang masih diantre (dibukukan saat settle), per crew. */
 	antre?: Record<string, number>;
 }) {
@@ -112,6 +118,10 @@ export function UangJalanPanel({
 			.filter((l) => l.user_id === u)
 			.reduce((s, l) => s + (l.kind === "beri" ? l.amount : -l.amount), 0);
 	const holders = [...new Set(live.map((l) => l.user_id))];
+	// Uang di tangan crew = buku uang jalan − biaya rekap yang dia bayar pakai
+	// uang jalan − yang diantre. Sama dengan "sisa" di kartu Fee crew.
+	const sisaDiCrew = (u: string) =>
+		saldo(u) - (terpakaiRekap[u] ?? 0) - (antre[u] ?? 0);
 	// Siapa memberi berapa di acara ini — dasar mengganti uang pribadi owner.
 	// Owner yang pakai uang pribadi di acara ini → saldo totalnya bisa dilunasi di sini.
 	const talanganHere = talangan.filter((t) =>
@@ -714,6 +724,22 @@ export function UangJalanPanel({
 									{formatRupiah(given(u))}
 								</span>
 							</div>
+							{given(u) - saldo(u) > 0 && (
+								<div className="flex justify-between text-muted-foreground">
+									<span>Sudah dipakai / dikembalikan / dipotong</span>
+									<span className="tabular" data-nominal>
+										− {formatRupiah(given(u) - saldo(u))}
+									</span>
+								</div>
+							)}
+							{(terpakaiRekap[u] ?? 0) > 0 && (
+								<div className="flex justify-between text-muted-foreground">
+									<span>Dipakai biaya lapangan (rekap crew)</span>
+									<span className="tabular" data-nominal>
+										− {formatRupiah(terpakaiRekap[u] ?? 0)}
+									</span>
+								</div>
+							)}
 							{(antre[u] ?? 0) > 0 && (
 								<div className="flex justify-between text-muted-foreground">
 									<span>Akan dipakai (diantre sampai settle)</span>
@@ -722,19 +748,30 @@ export function UangJalanPanel({
 									</span>
 								</div>
 							)}
-							<div className="flex justify-between font-semibold">
-								<span>Masih dipegang crew</span>
-								<span className="tabular" data-nominal>
-									{formatRupiah(saldo(u))}
-								</span>
-							</div>
-							{saldo(u) > 0 && (
-								<p className="mt-1 text-[12px] text-muted-foreground">
-									{report?.holder === u && report.sisa === "kembalikan"
-										? "Crew memilih mengembalikan sisanya — tekan Terima sisa saat uangnya sudah masuk. Yang terpakai tetap dipotong saat Bayar fee."
-										: "Otomatis dipotong saat Bayar fee crew ini."}
-								</p>
+							{sisaDiCrew(u) >= 0 ? (
+								<div className="flex justify-between font-semibold">
+									<span>Masih dipegang crew</span>
+									<span className="tabular" data-nominal>
+										{formatRupiah(sisaDiCrew(u))}
+									</span>
+								</div>
+							) : (
+								<div className="flex justify-between font-semibold text-amber-700">
+									<span>Kurang — ditalangi crew</span>
+									<span className="tabular" data-nominal>
+										{formatRupiah(-sisaDiCrew(u))}
+									</span>
+								</div>
 							)}
+							<p className="mt-1 text-[12px] text-muted-foreground">
+								{sisaDiCrew(u) < 0
+									? "Kekurangannya ikut dibayar bersama fee crew ini."
+									: sisaDiCrew(u) === 0
+										? "Uang jalan habis terpakai."
+										: report?.holder === u && report.sisa === "kembalikan"
+											? "Crew memilih mengembalikan sisanya — tekan Terima sisa saat uangnya sudah masuk. Yang terpakai tetap dipotong saat Bayar fee."
+											: "Sisanya otomatis dipotong saat Bayar fee crew ini."}
+							</p>
 						</div>
 					))}
 				</div>
