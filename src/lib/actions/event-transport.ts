@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { OWNER_PAYER_PREFIX } from "@/lib/finance/emoney";
+import { syncOwnerPaidQueue } from "@/lib/rekap/owner-paid-sync";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -17,6 +19,8 @@ const Schema = z.object({
 	vehicle: z.string().trim().max(80).nullish(),
 	rental_cost: z.coerce.number().int().min(0).max(100_000_000).nullish(),
 	nota_url: z.string().trim().url().max(2000).nullish(),
+	/** Owner yang membayar sewa (users.id) → otomatis hutang ke owner itu. */
+	paid_by_owner_id: z.string().uuid().nullish(),
 });
 
 export async function saveEventTransport(
@@ -43,6 +47,19 @@ export async function saveEventTransport(
 
 	const supabase = await createClient();
 
+	// Pembayar sewa harus owner aktif.
+	let paidBy: string | null = null;
+	if (rental && d.paid_by_owner_id) {
+		const { data: o } = await supabase
+			.from("users")
+			.select("role")
+			.eq("id", d.paid_by_owner_id)
+			.maybeSingle();
+		if (o?.role !== "owner" && o?.role !== "super_admin")
+			return { ok: false, error: "Pembayar sewa harus owner" };
+		paidBy = `${OWNER_PAYER_PREFIX}${d.paid_by_owner_id}`;
+	}
+
 	// Mobil baru yang diketik langsung masuk daftar pilihan.
 	if (vehicle) {
 		const { data: known } = await supabase
@@ -65,6 +82,7 @@ export async function saveEventTransport(
 			transport_vehicle: vehicle,
 			transport_rental_cost: rental ? (d.rental_cost ?? null) : null,
 			transport_nota_url: rental ? (d.nota_url ?? null) : null,
+			transport_paid_by: paidBy,
 		})
 		.eq("id", d.event_id)
 		.select("id");
@@ -90,7 +108,9 @@ export async function saveEventTransport(
 					transport_proof_pulang_url: null,
 					expense_paid_by: {
 						...((rekap.expense_paid_by as Record<string, string>) ?? {}),
-						transport: "owner",
+						// Owner tertentu → hutang ke dia (antrean settle); belum
+						// dipilih → "dibayar owner" lama (dicatat manual).
+						transport: paidBy ?? "owner",
 					},
 					...(d.nota_url
 						? {
@@ -104,6 +124,11 @@ export async function saveEventTransport(
 				})
 				.eq("id", rekap.id);
 		}
+	}
+
+	if (rental) {
+		const sync = await syncOwnerPaidQueue(d.event_id, me.profile.id);
+		if (!sync.ok) return { ok: false, error: sync.error };
 	}
 
 	revalidatePath(`/operations/${d.project_id}`);

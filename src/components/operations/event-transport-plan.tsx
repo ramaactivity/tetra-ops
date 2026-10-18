@@ -29,6 +29,7 @@ export function EventTransportPlan({
 	projectId,
 	initial,
 	vehicles,
+	owners = [],
 	locked = false,
 }: {
 	eventId: string;
@@ -38,8 +39,12 @@ export function EventTransportPlan({
 		vehicle: string | null;
 		rentalCost: number | null;
 		notaUrl: string | null;
+		/** Owner pembayar sewa (users.id) — jadi hutang ke owner itu. */
+		paidByOwnerId?: string | null;
 	};
 	vehicles: string[];
+	/** Owner aktif — pilihan "Dibayar oleh". */
+	owners?: Array<{ id: string; name: string }>;
 	/** Event sudah di-settle — tampil saja. */
 	locked?: boolean;
 }) {
@@ -49,13 +54,19 @@ export function EventTransportPlan({
 	const [vehicle, setVehicle] = useState(initial.vehicle ?? "");
 	const [cost, setCost] = useState(initial.rentalCost ?? 0);
 	const [nota, setNota] = useState<string | null>(initial.notaUrl);
+	const [paidBy, setPaidBy] = useState<string | null>(
+		initial.paidByOwnerId ?? null,
+	);
+	const ownerName = (id: string | null | undefined) =>
+		owners.find((o) => o.id === id)?.name;
 
 	const dirty =
 		mode !== initial.mode ||
 		(mode === "rental" &&
 			(vehicle !== (initial.vehicle ?? "") ||
 				cost !== (initial.rentalCost ?? 0) ||
-				nota !== initial.notaUrl));
+				nota !== initial.notaUrl ||
+				paidBy !== (initial.paidByOwnerId ?? null)));
 
 	function save(next: Mode = mode) {
 		startTransition(async () => {
@@ -66,6 +77,7 @@ export function EventTransportPlan({
 				vehicle,
 				rental_cost: cost > 0 ? cost : null,
 				nota_url: nota,
+				paid_by_owner_id: paidBy,
 			});
 			if (!res.ok) {
 				toast.error(res.error);
@@ -93,6 +105,9 @@ export function EventTransportPlan({
 						: "Transport belum diatur"}
 				{initial.mode === "rental" && initial.rentalCost ? (
 					<span className="tabular">· {formatRupiah(initial.rentalCost)}</span>
+				) : null}
+				{initial.mode === "rental" && ownerName(initial.paidByOwnerId) ? (
+					<span>· dibayar {ownerName(initial.paidByOwnerId)}</span>
 				) : null}
 			</div>
 		);
@@ -125,7 +140,16 @@ export function EventTransportPlan({
 
 			{mode === "online" && (
 				<p className="text-[12px] leading-snug text-muted-foreground">
-					Crew mengisi ongkos gocar/grab & buktinya sendiri di rekap.
+					Crew mengisi ongkos gocar/grab & buktinya sendiri di rekap. Top-up
+					saldo GoPay/OVO dari owner ke crew dicatat sebagai{" "}
+					<a
+						href={`/operations/${projectId}/rekap`}
+						className="font-medium text-foreground underline underline-offset-2"
+					>
+						uang jalan
+					</a>{" "}
+					(Catat uang jalan → Transfer / top-up → pilih owner pemberi); crew
+					memilih &ldquo;💵 Uang jalan dari owner&rdquo; di ongkosnya.
 				</p>
 			)}
 
@@ -157,9 +181,37 @@ export function EventTransportPlan({
 						value={nota}
 						onChange={setNota}
 					/>
+					{owners.length > 0 && (
+						<div className="space-y-1">
+							<span className="block text-[12px] font-medium text-muted-foreground">
+								Dibayar oleh
+							</span>
+							<div className="flex flex-wrap gap-1.5">
+								{owners.map((o) => (
+									<button
+										key={o.id}
+										type="button"
+										aria-pressed={paidBy === o.id}
+										onClick={() => setPaidBy(paidBy === o.id ? null : o.id)}
+										className={cn(
+											"h-8 rounded-full border px-3 text-[13px] font-medium transition-colors",
+											paidBy === o.id
+												? "border-[#059669] bg-[#059669] text-white"
+												: "border-border-default bg-card text-muted-foreground hover:text-foreground",
+										)}
+									>
+										{o.name}
+									</button>
+								))}
+							</div>
+						</div>
+					)}
 					<p className="text-[11.5px] leading-snug text-muted-foreground">
-						Dibayar owner. Rekap crew otomatis terisi &ldquo;Sewa mobil&rdquo; —
-						crew cukup isi bensin, tol & parkir.
+						{paidBy
+							? `Dibayar ${ownerName(paidBy)} — otomatis jadi hutang Tetra ke ${ownerName(paidBy)} (kartu Hutang-piutang owner).`
+							: "Dibayar owner — pilih siapa supaya otomatis jadi hutang ke owner itu."}{" "}
+						Rekap crew otomatis terisi &ldquo;Sewa mobil&rdquo; — crew cukup isi
+						bensin, tol & parkir.
 					</p>
 				</div>
 			)}

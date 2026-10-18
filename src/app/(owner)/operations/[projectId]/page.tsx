@@ -49,6 +49,7 @@ import { extraHoursOf } from "@/lib/events/extra-hours";
 import { spotsWithoutLead, withUnits } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
+import { ownerIdOfPayer } from "@/lib/finance/emoney";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
@@ -91,6 +92,7 @@ export default async function EventDetailPage({
 		{ data: eventTypesData },
 		driveStatus,
 		{ data: vehiclesData },
+		{ data: ownerRows },
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -101,7 +103,7 @@ export default async function EventDetailPage({
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
 			event_category, event_date,
-			transport_mode, transport_vehicle, transport_rental_cost, transport_nota_url,
+			transport_mode, transport_vehicle, transport_rental_cost, transport_nota_url, transport_paid_by,
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			google_maps_url, custom_package_name, backdrop_color,
 			vendor_name, vendor_pic_name, vendor_contact, vendor_contact_id,
@@ -142,6 +144,13 @@ export default async function EventDetailPage({
 			.select("name")
 			.eq("is_active", true)
 			.order("name"),
+		// Pilihan "Dibayar oleh" sewa mobil.
+		supabase
+			.from("users")
+			.select("id, full_name, nickname")
+			.eq("role", "owner")
+			.eq("is_active", true)
+			.order("full_name"),
 	]);
 
 	if (error) {
@@ -652,7 +661,12 @@ export default async function EventDetailPage({
 								vehicle: event.transport_vehicle ?? null,
 								rentalCost: event.transport_rental_cost ?? null,
 								notaUrl: event.transport_nota_url ?? null,
+								paidByOwnerId: ownerIdOfPayer(event.transport_paid_by),
 							}}
+							owners={(ownerRows ?? []).map((o) => ({
+								id: o.id as string,
+								name: (o.nickname as string | null) || (o.full_name as string),
+							}))}
 							vehicles={(vehiclesData ?? []).map((v) => v.name as string)}
 							locked={event.status === "completed"}
 						/>

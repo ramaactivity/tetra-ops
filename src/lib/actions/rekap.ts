@@ -1051,7 +1051,7 @@ export async function submitRekap(
 	const { data: eventSnap } = await supabase
 		.from("events")
 		.select(
-			"frame_size, transport_mode, transport_rental_cost, transport_nota_url",
+			"frame_size, transport_mode, transport_rental_cost, transport_nota_url, transport_paid_by",
 		)
 		.eq("id", eventId)
 		.maybeSingle();
@@ -1060,7 +1060,8 @@ export async function submitRekap(
 		parsed.data.transport_cost = Number(eventSnap.transport_rental_cost ?? 0);
 		parsed.data.expense_paid_by = {
 			...parsed.data.expense_paid_by,
-			transport: "owner",
+			// Owner pembayar sewa (owner:<id>) → otomatis hutang ke dia.
+			transport: normalizePayer(eventSnap.transport_paid_by ?? "owner"),
 		};
 		if (eventSnap.transport_nota_url) {
 			parsed.data.expense_nota_urls = {
