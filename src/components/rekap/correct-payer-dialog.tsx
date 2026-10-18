@@ -20,6 +20,12 @@ import { formatRupiah } from "@/lib/format";
 export type PayerOptions = {
 	crew: Array<{ id: string; name: string }>;
 	cards: Array<{ id: string; name: string }>;
+	/**
+	 * Crew pemegang uang jalan dari owner (DR-049). Pilihannya tampil sebagai
+	 * "Uang jalan dari owner"; nilainya tetap id crew itu (pembukuannya
+	 * talangan → uang jalan dipotong otomatis saat bayar fee).
+	 */
+	ujHolders?: string[];
 };
 
 type Item = {
@@ -51,8 +57,17 @@ export function CorrectPayerDialog({
 	const [draft, setDraft] = useState<Record<string, string>>({});
 	const [pending, start] = useTransition();
 
+	const holders = options.ujHolders ?? [];
 	const choices = [
-		...options.crew.map((c) => ({ value: c.id, label: `Ditalangi ${c.name}` })),
+		...options.crew
+			.filter((c) => holders.includes(c.id))
+			.map((c) => ({
+				value: c.id,
+				label: `💵 Uang jalan dari owner (${c.name.split(" ")[0]})`,
+			})),
+		...options.crew
+			.filter((c) => !holders.includes(c.id))
+			.map((c) => ({ value: c.id, label: `Ditalangi ${c.name}` })),
 		{ value: "crew", label: "Ditalangi crew (belum dipilih siapa)" },
 		...options.cards.map((c) => ({
 			value: `acct:${c.id}`,
@@ -143,15 +158,18 @@ export function CorrectPayerDialog({
 												]
 									}
 									aria-label={`Pembayar ${it.label}`}
+									className="w-full min-w-0 *:data-[slot=select-value]:truncate"
 								/>
 							</li>
 						))}
 					</ul>
 					<div className="space-y-1.5 text-[12px] leading-snug text-muted-foreground">
 						<p>
-							<b>Ditalangi crew</b> → masuk Hutang Crew, dibayar lewat kolom
-							Reimbursement. <b>Kartu</b> → saldo kartu berkurang otomatis saat
-							settle. <b>Owner</b> → catat lewat Pemasukan / pengeluaran lain.
+							<b>Uang jalan dari owner</b> → sisa uang jalan dipotong otomatis
+							saat bayar fee. <b>Ditalangi crew</b> → masuk Hutang Crew, dibayar
+							lewat kolom Reimbursement. <b>Kartu</b> → saldo kartu berkurang
+							otomatis saat settle. <b>Owner</b> → catat lewat Pemasukan /
+							pengeluaran lain.
 						</p>
 						<p>Setelah menyimpan, cek lagi kolom Reimbursement tiap crew.</p>
 						{doubleRisk.length > 0 ? (

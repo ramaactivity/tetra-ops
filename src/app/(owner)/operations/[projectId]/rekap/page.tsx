@@ -1078,6 +1078,7 @@ export default async function EventRekapPage({
 						payerOptions={{
 							crew: context.crew.map((c) => ({ id: c.user_id, name: c.name })),
 							cards: context.cards.map((c) => ({ id: c.id, name: c.name })),
+							ujHolders: Object.keys(uangJalanDiberi),
 						}}
 						submittedByUserId={rekap.submitted_by ?? null}
 						readOnly={recapLocked}
