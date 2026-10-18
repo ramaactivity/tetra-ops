@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
+import { PROOF_LABEL_RE } from "@/lib/rekap/proof-labels";
 import { potongFee } from "@/lib/rekap/uang-jalan";
 import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
@@ -17,9 +18,10 @@ const FeeRow = z.object({
 	// Semua bukti transfer crew ini (boleh lebih dari satu). Kolom lama
 	// payment_proof_url diisi bukti pertama demi pembaca lama.
 	payment_proof_urls: z.array(z.string().url().max(2000)).max(10).default([]),
-	// Jenis tiap bukti (indeks sama dengan payment_proof_urls).
+	// Jenis tiap bukti (indeks sama dengan payment_proof_urls). Satu transfer
+	// bisa sekaligus beberapa jenis: "fee+bonus" (urutan fee, bonus, reimbursement).
 	payment_proof_labels: z
-		.array(z.enum(["fee", "bonus", "reimbursement", ""]))
+		.array(z.string().regex(PROOF_LABEL_RE))
 		.max(10)
 		.default([]),
 	// Ongkos transfer ke rekening crew ini — beda bank tujuan, beda ongkos.

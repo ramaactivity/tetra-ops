@@ -33,6 +33,11 @@ import {
 } from "@/lib/actions/settle-queue";
 import { formatRupiah } from "@/lib/format";
 import { emitCatatPrefill } from "@/lib/rekap/catat-prefill";
+import {
+	guessProofLabel,
+	proofParts,
+	toggleProofPart,
+} from "@/lib/rekap/proof-labels";
 import { cn } from "@/lib/utils";
 
 export type CrewAssignmentRow = {
@@ -1322,7 +1327,10 @@ function CrewPayPanel({
 	);
 }
 
-/** Jenis bukti transfer — owner bisa transfer fee & bonus terpisah. */
+/**
+ * Jenis bukti transfer — owner bisa transfer fee & bonus terpisah, atau
+ * sekaligus dalam satu transfer (label gabungan "fee+bonus").
+ */
 const PROOF_LABEL: Record<string, string> = {
 	fee: "Fee",
 	bonus: "Bonus",
@@ -1353,14 +1361,14 @@ function PaymentProofUpload({
 	const labels = urls.map((_, i) => crewRow.payment_proof_labels[i] ?? "");
 	const MAX = 10;
 
-	// Tebakan jenis untuk bukti baru: fee dulu, lalu bonus (kalau ada bonus),
-	// lalu reimbursement. Owner tetap bisa menggantinya lewat chip.
+	// Tebakan jenis untuk bukti baru: semua yang dibayar dan belum punya bukti
+	// sekaligus (biasanya fee + bonus ditransfer dalam satu kali). Owner tetap
+	// bisa mengubahnya lewat chip.
 	function guessLabel(taken: string[]): string {
-		if (!taken.includes("fee")) return "fee";
-		if (crewRow.bonus_amount > 0 && !taken.includes("bonus")) return "bonus";
-		if (crewRow.reimbursement_amount > 0 && !taken.includes("reimbursement"))
-			return "reimbursement";
-		return "";
+		return guessProofLabel(taken, {
+			bonus: crewRow.bonus_amount > 0,
+			reimbursement: crewRow.reimbursement_amount > 0,
+		});
 	}
 
 	async function uploadOne(file: File): Promise<string> {
@@ -1437,8 +1445,10 @@ function PaymentProofUpload({
 						rel="noopener noreferrer"
 						className="flex-1 truncate text-emerald-900 hover:underline dark:text-emerald-200"
 					>
-						{PROOF_LABEL[labels[i]]
-							? `Bukti ${PROOF_LABEL[labels[i]].toLowerCase()}`
+						{proofParts(labels[i]).length > 0
+							? `Bukti ${proofParts(labels[i])
+									.map((p) => PROOF_LABEL[p]?.toLowerCase() ?? p)
+									.join(" + ")}`
 							: urls.length > 1
 								? `Bukti ${i + 1}`
 								: "Lihat bukti"}
@@ -1449,16 +1459,18 @@ function PaymentProofUpload({
 								<button
 									key={v}
 									type="button"
-									aria-pressed={labels[i] === v}
+									aria-pressed={proofParts(labels[i]).includes(v)}
 									onClick={() =>
 										onChange(
 											urls,
-											labels.map((l, j) => (j === i ? (l === v ? "" : v) : l)),
+											labels.map((l, j) =>
+												j === i ? toggleProofPart(l, v) : l,
+											),
 										)
 									}
 									className={cn(
 										"rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
-										labels[i] === v
+										proofParts(labels[i]).includes(v)
 											? "border-emerald-700 bg-emerald-700 text-white"
 											: "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100 dark:bg-transparent dark:text-emerald-200",
 									)}
