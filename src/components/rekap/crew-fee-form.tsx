@@ -500,6 +500,43 @@ export function CrewFeeForm({
 									)}{" "}
 									{!readOnly &&
 										"Tidak perlu isi apa-apa — hitungannya otomatis saat settle."}
+									{(() => {
+										// Sisa kecil biasa diberikan ke crew: jadi bonus → tetap
+										// dipotong dari uang jalan, tapi transfer fee naik sebesar
+										// itu, dan tercatat sebagai biaya event.
+										const row = rows.find(
+											(r) => r.user_id === h.id && !r.is_paid,
+										);
+										if (readOnly || !row || !h.sisa || h.sisa <= 0) return null;
+										return row.bonus_amount >= h.sisa ? (
+											<span className="ml-1 font-medium text-emerald-700">
+												Bonus{" "}
+												<span data-nominal className="tabular">
+													{formatRupiah(row.bonus_amount)}
+												</span>{" "}
+												sudah diisi.
+											</span>
+										) : (
+											<button
+												type="button"
+												onClick={() => {
+													update(row.assignment_id, {
+														bonus_amount: row.bonus_amount + (h.sisa ?? 0),
+													});
+													toast.success(
+														`Sisa ${formatRupiah(h.sisa ?? 0)} jadi bonus ${h.name} — tekan Simpan fee crew.`,
+													);
+												}}
+												className="press-down ml-1 inline-flex items-center rounded-md border border-sky-600/30 bg-sky-500/10 px-2 py-0.5 font-semibold text-sky-800 hover:bg-sky-500/20 dark:text-sky-200"
+											>
+												Jadikan bonus {h.name.split(" ")[0]} (
+												<span data-nominal className="tabular">
+													{formatRupiah(h.sisa)}
+												</span>
+												)
+											</button>
+										);
+									})()}
 								</p>
 							))}
 						</div>
@@ -712,42 +749,33 @@ export function CrewFeeForm({
 								/>
 								{!readOnly &&
 									fieldExpenseBreakdown &&
-									fieldExpenseBreakdown.crewFrontedTotal > 0 && (
+									row.user_id &&
+									(fieldExpenseBreakdown.byCrew[row.user_id] ?? 0) > 0 && (
 										<div className="col-span-full -mt-1 flex flex-wrap gap-1">
 											<button
 												type="button"
 												onClick={() =>
 													applyExpenseToReimbursement(
 														row.assignment_id,
-														row.user_id &&
-															fieldExpenseBreakdown.byCrew[row.user_id] !==
-																undefined
-															? fieldExpenseBreakdown.byCrew[row.user_id]
-															: fieldExpenseBreakdown.crewFrontedTotal,
+														fieldExpenseBreakdown.byCrew[row.user_id as string],
 													)
 												}
 												className="press-down rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
-												title={
-													row.user_id &&
-													fieldExpenseBreakdown.byCrew[row.user_id] !==
-														undefined
-														? "Set reimbursement = yang dia talangi di rekap"
-														: "Set reimbursement = total talangan crew di rekap"
-												}
+												title="Set reimbursement = yang dia bayar di rekap (otomatis juga saat settle)"
 											>
 												= Talangan{" "}
 												<span data-nominal>
 													{formatRupiah(
-														row.user_id &&
-															fieldExpenseBreakdown.byCrew[row.user_id] !==
-																undefined
-															? fieldExpenseBreakdown.byCrew[row.user_id]
-															: fieldExpenseBreakdown.crewFrontedTotal,
+														fieldExpenseBreakdown.byCrew[row.user_id as string],
 													)}
 												</span>
 											</button>
 											{fieldExpenseBreakdown.items
-												.filter((it) => it.paidBy === "crew")
+												.filter(
+													(it) =>
+														it.paidBy === "crew" &&
+														it.payerUserId === row.user_id,
+												)
 												.map((it) => (
 													<button
 														key={it.label}
