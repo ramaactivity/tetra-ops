@@ -121,7 +121,7 @@ export function AddonComponentPicker({
 										type="number"
 										min={0.0001}
 										step="any"
-										value={r.qty}
+										value={r.qty === 0 ? "" : r.qty}
 										onChange={(e) =>
 											update(idx, { qty: Number(e.target.value) || 0 })
 										}

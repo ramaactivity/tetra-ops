@@ -75,7 +75,7 @@ export function BundleComponentPicker({
 						const selectedItem = itemMap.get(r.item_id);
 						// Filter: tampilkan semua item, tapi disable yg sudah dipakai (kecuali current row)
 						// Combobox option label = nama saja (clean), SKU di sublabel.
-					const itemOptions = [
+						const itemOptions = [
 							{ value: "", label: "Pilih item komponen" },
 							...items.map((i) => ({
 								value: i.id,
@@ -109,8 +109,8 @@ export function BundleComponentPicker({
 									/>
 									{selectedItem && (
 										<p className="text-muted-foreground text-[11px] tabular">
-											Avg cost {formatRupiah(selectedItem.purchase_price_avg)}{" "}
-											/ {selectedItem.unit}
+											Avg cost {formatRupiah(selectedItem.purchase_price_avg)} /{" "}
+											{selectedItem.unit}
 										</p>
 									)}
 								</div>
@@ -122,7 +122,7 @@ export function BundleComponentPicker({
 										type="number"
 										min={0.0001}
 										step="any"
-										value={r.qty}
+										value={r.qty === 0 ? "" : r.qty}
 										onChange={(e) =>
 											update(idx, { qty: Number(e.target.value) || 0 })
 										}
@@ -144,7 +144,8 @@ export function BundleComponentPicker({
 										value={r.notes ?? ""}
 										onChange={(e) =>
 											update(idx, {
-												notes: e.target.value.trim() === "" ? null : e.target.value,
+												notes:
+													e.target.value.trim() === "" ? null : e.target.value,
 											})
 										}
 										disabled={disabled}

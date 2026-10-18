@@ -1543,7 +1543,8 @@ function FeeField({
 				type="number"
 				inputMode="numeric"
 				min={0}
-				value={value}
+				value={value === 0 ? "" : value}
+				placeholder="0"
 				onChange={(e) => onChange(Number(e.target.value) || 0)}
 				disabled={readOnly}
 				className="tabular text-right"

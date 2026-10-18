@@ -1,8 +1,8 @@
 "use client";
 
 import { Loader2, Save } from "lucide-react";
-import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
@@ -53,7 +53,8 @@ export function AddonSplitForm({
 		}
 	}, [kcPaid, keychainTotal]);
 
-	const pmMismatch = pmPaid + pmBonus !== photomagnetTotal && photomagnetTotal > 0;
+	const pmMismatch =
+		pmPaid + pmBonus !== photomagnetTotal && photomagnetTotal > 0;
 	const kcMismatch = kcPaid + kcBonus !== keychainTotal && keychainTotal > 0;
 
 	function handleSave() {
@@ -138,7 +139,8 @@ export function AddonSplitForm({
 
 			{(pmMismatch || kcMismatch) && !readOnly && (
 				<p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-					Total paid + bonus harus sama dengan total terpakai. Koreksi dulu sebelum simpan.
+					Total paid + bonus harus sama dengan total terpakai. Koreksi dulu
+					sebelum simpan.
 				</p>
 			)}
 		</section>
@@ -182,7 +184,7 @@ function SplitRow({
 						inputMode="numeric"
 						min={0}
 						max={total}
-						value={paid}
+						value={paid === 0 ? "" : paid}
 						onChange={(e) => onPaid(Number(e.target.value) || 0)}
 						disabled={readOnly}
 						className={`tabular text-right ${mismatch ? "border-amber-300" : ""}`}
@@ -196,7 +198,7 @@ function SplitRow({
 						type="number"
 						inputMode="numeric"
 						min={0}
-						value={bonus}
+						value={bonus === 0 ? "" : bonus}
 						onChange={(e) => onBonus(Number(e.target.value) || 0)}
 						disabled={readOnly}
 						className={`tabular text-right ${mismatch ? "border-amber-300" : ""}`}

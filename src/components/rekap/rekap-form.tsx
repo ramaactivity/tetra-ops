@@ -1835,7 +1835,7 @@ export function RekapForm({
 												inputMode="numeric"
 												min={0}
 												step={1}
-												value={row.amount}
+												value={row.amount === 0 ? "" : row.amount}
 												onChange={(e) =>
 													updateLainnyaRow(idx, {
 														amount: Math.max(0, Number(e.target.value) || 0),

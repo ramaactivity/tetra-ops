@@ -975,7 +975,7 @@ export function DocumentEditor({
 												aria-label="Nama item"
 											/>
 											<NumberField
-												value={it.qty}
+												value={it.qty === 0 ? "" : it.qty}
 												min={0}
 												onChange={(e) =>
 													updateItem(i, { qty: Number(e.target.value) || 0 })
