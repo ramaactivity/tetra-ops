@@ -1043,6 +1043,18 @@ export default async function EventRekapPage({
 					meId={me.profile.id}
 					talangan={talanganOwner}
 					terpakaiRekap={ujTerpakaiRekap}
+					transferOwner={(fieldExpenseBreakdown?.items ?? []).flatMap((it) =>
+						it.ownerId
+							? [
+									{
+										ownerId: it.ownerId,
+										ownerName: it.payerName ?? "owner",
+										label: it.label,
+										amount: it.amount,
+									},
+								]
+							: [],
+					)}
 					antre={Object.fromEntries(
 						[
 							...new Set((ujQueued ?? []).map((q) => q.uj_user_id as string)),

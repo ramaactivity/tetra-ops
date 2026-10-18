@@ -70,6 +70,7 @@ export function UangJalanPanel({
 	meId,
 	talangan = [],
 	terpakaiRekap = {},
+	transferOwner = [],
 	antre = {},
 }: {
 	eventId: string;
@@ -97,6 +98,16 @@ export function UangJalanPanel({
 	 * belum mengurangi buku uang jalan (dipotong saat bayar fee).
 	 */
 	terpakaiRekap?: Record<string, number>;
+	/**
+	 * Biaya rekap yang ditransfer / dibayar owner langsung ('owner:<id>') —
+	 * uang dari owner ke crew di luar uang jalan, sudah jadi hutang ke owner.
+	 */
+	transferOwner?: Array<{
+		ownerId: string;
+		ownerName: string;
+		label: string;
+		amount: number;
+	}>;
 	/** Pengeluaran "pakai uang jalan" yang masih diantre (dibukukan saat settle), per crew. */
 	antre?: Record<string, number>;
 }) {
@@ -305,8 +316,8 @@ export function UangJalanPanel({
 						<HandCoins className="size-4 shrink-0" /> Uang jalan crew
 					</h3>
 					<p className="type-secondary mt-0.5">
-						Uang yang dikasih ke crew sebelum berangkat untuk bensin, parkir,
-						tol, dan transport.
+						Uang dari owner ke crew untuk bensin, parkir, tol, transport, dll —
+						sebelum berangkat, di tengah, atau sesudah acara.
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
@@ -678,8 +689,51 @@ export function UangJalanPanel({
 				</div>
 			)}
 
+			{transferOwner.length > 0 && (
+				<div className="space-y-2 rounded-xl border border-emerald-600/20 bg-emerald-500/5 p-3 text-[13px]">
+					<p className="font-semibold">
+						Transfer owner untuk biaya{" "}
+						<span className="font-normal text-muted-foreground">
+							(di luar uang jalan)
+						</span>
+					</p>
+					{[...new Set(transferOwner.map((t) => t.ownerId))].map((id) => {
+						const rows = transferOwner.filter((t) => t.ownerId === id);
+						return (
+							<div key={id} className="space-y-0.5">
+								<div className="flex justify-between gap-3 font-medium">
+									<span>{rows[0].ownerName}</span>
+									<span className="tabular" data-nominal>
+										{formatRupiah(rows.reduce((t, r) => t + r.amount, 0))}
+									</span>
+								</div>
+								{rows.map((r) => (
+									<div
+										key={r.label}
+										className="flex justify-between gap-3 pl-3 text-muted-foreground"
+									>
+										<span>{r.label}</span>
+										<span className="tabular" data-nominal>
+											{formatRupiah(r.amount)}
+										</span>
+									</div>
+								))}
+							</div>
+						);
+					})}
+					<p className="text-[12px] text-muted-foreground">
+						Uangnya langsung habis untuk biaya itu — tidak dipotong dari fee
+						crew. Sudah tercatat jadi hutang Tetra ke owner-nya (lunasi di
+						Hutang-piutang owner). Kalau transfernya lebih dari biayanya, catat
+						lewat <b>Catat uang jalan</b> supaya sisanya ikut dipotong saat
+						bayar fee.
+					</p>
+				</div>
+			)}
+
 			{holders.length === 0 && !belumDicatat ? (
-				mode === null && (
+				mode === null &&
+				transferOwner.length === 0 && (
 					<ol className="grid gap-2 sm:grid-cols-3">
 						{[
 							[
