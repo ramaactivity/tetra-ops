@@ -21,6 +21,11 @@ const Schema = z.object({
 	nota_url: z.string().trim().url().max(2000).nullish(),
 	/** Owner yang membayar sewa (users.id) → otomatis hutang ke owner itu. */
 	paid_by_owner_id: z.string().uuid().nullish(),
+	/**
+	 * Diganti langsung saat settle dari rekening Tetra ini (kode 1-1xx) —
+	 * tanpa hutang. Kosong = jadi hutang dulu ke owner.
+	 */
+	reimburse_account: z.string().trim().max(20).nullish(),
 });
 
 export async function saveEventTransport(
@@ -59,6 +64,21 @@ export async function saveEventTransport(
 			return { ok: false, error: "Pembayar sewa harus owner" };
 		paidBy = `${OWNER_PAYER_PREFIX}${d.paid_by_owner_id}`;
 	}
+	let reimburse: string | null = null;
+	if (paidBy && d.reimburse_account) {
+		const { data: acct } = await supabase
+			.from("chart_of_accounts")
+			.select("account_type, is_active")
+			.eq("code", d.reimburse_account)
+			.maybeSingle();
+		if (
+			!acct?.is_active ||
+			acct.account_type !== "asset" ||
+			!/^1-1\d{2}$/.test(d.reimburse_account)
+		)
+			return { ok: false, error: "Pilih rekening Tetra yang aktif" };
+		reimburse = d.reimburse_account;
+	}
 
 	// Mobil baru yang diketik langsung masuk daftar pilihan.
 	if (vehicle) {
@@ -83,6 +103,7 @@ export async function saveEventTransport(
 			transport_rental_cost: rental ? (d.rental_cost ?? null) : null,
 			transport_nota_url: rental ? (d.nota_url ?? null) : null,
 			transport_paid_by: paidBy,
+			transport_reimburse_account: reimburse,
 		})
 		.eq("id", d.event_id)
 		.select("id");

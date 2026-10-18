@@ -49,7 +49,8 @@ import { extraHoursOf } from "@/lib/events/extra-hours";
 import { spotsWithoutLead, withUnits } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
-import { ownerIdOfPayer } from "@/lib/finance/emoney";
+import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { filterEmoneyAccounts, ownerIdOfPayer } from "@/lib/finance/emoney";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
@@ -93,6 +94,7 @@ export default async function EventDetailPage({
 		driveStatus,
 		{ data: vehiclesData },
 		{ data: ownerRows },
+		{ data: lastRentals },
 	] = await Promise.all([
 		supabase
 			.from("events")
@@ -103,7 +105,7 @@ export default async function EventDetailPage({
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
 			event_category, event_date,
-			transport_mode, transport_vehicle, transport_rental_cost, transport_nota_url, transport_paid_by,
+			transport_mode, transport_vehicle, transport_rental_cost, transport_nota_url, transport_paid_by, transport_reimburse_account,
 			setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, venue_province,
 			google_maps_url, custom_package_name, backdrop_color,
 			vendor_name, vendor_pic_name, vendor_contact, vendor_contact_id,
@@ -151,6 +153,14 @@ export default async function EventDetailPage({
 			.eq("role", "owner")
 			.eq("is_active", true)
 			.order("full_name"),
+		// Harga sewa terakhir — saran harga di rencana transport.
+		supabase
+			.from("events")
+			.select("transport_vehicle, transport_rental_cost")
+			.not("transport_rental_cost", "is", null)
+			.neq("project_id", projectId)
+			.order("event_date", { ascending: false })
+			.limit(200),
 	]);
 
 	if (error) {
@@ -662,12 +672,21 @@ export default async function EventDetailPage({
 								rentalCost: event.transport_rental_cost ?? null,
 								notaUrl: event.transport_nota_url ?? null,
 								paidByOwnerId: ownerIdOfPayer(event.transport_paid_by),
+								reimburseAccount: event.transport_reimburse_account ?? null,
 							}}
+							cashAccounts={filterEmoneyAccounts(
+								await loadCashAccounts(supabase),
+								false,
+							)}
 							owners={(ownerRows ?? []).map((o) => ({
 								id: o.id as string,
 								name: (o.nickname as string | null) || (o.full_name as string),
 							}))}
 							vehicles={(vehiclesData ?? []).map((v) => v.name as string)}
+							lastPrices={(lastRentals ?? []).map((r) => ({
+								vehicle: (r.transport_vehicle as string | null) ?? null,
+								cost: Number(r.transport_rental_cost),
+							}))}
 							locked={event.status === "completed"}
 						/>
 					) : undefined

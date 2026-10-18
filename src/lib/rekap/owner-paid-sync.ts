@@ -37,10 +37,16 @@ export async function syncOwnerPaidQueue(
 				)
 				.eq("event_id", eventId)
 				.maybeSingle(),
-			db.from("events").select("client_name").eq("id", eventId).maybeSingle(),
+			db
+				.from("events")
+				.select("client_name, transport_reimburse_account")
+				.eq("id", eventId)
+				.maybeSingle(),
 			db
 				.from("event_settle_queue")
-				.select("id, rekap_key, owner_id, amount, note, posted_at")
+				.select(
+					"id, rekap_key, owner_id, account_code, amount, note, posted_at",
+				)
 				.eq("event_id", eventId)
 				.eq("kind", "expense"),
 			db
@@ -56,6 +62,7 @@ export async function syncOwnerPaidQueue(
 		id: string;
 		rekap_key: string | null;
 		owner_id: string | null;
+		account_code: string;
 		amount: number | string;
 		note: string | null;
 		posted_at: string | null;
@@ -86,11 +93,20 @@ export async function syncOwnerPaidQueue(
 			(x): x is { it: (typeof x)["it"]; ownerId: string } =>
 				x.ownerId !== null && !posted.has(x.it.key),
 		)
-		.map(({ it, ownerId }) => ({
-			key: it.key,
-			ownerId,
-			...catatPrefill(it, String(ev.client_name ?? "")),
-		}))
+		.map(({ it, ownerId }) => {
+			// Sewa mobil "diganti langsung saat settle": dibayar dari rekening
+			// Tetra (owner diganti di tempat) — tidak jadi hutang.
+			const langsung =
+				it.key === "transport"
+					? ((ev.transport_reimburse_account as string | null) ?? null)
+					: null;
+			return {
+				key: it.key,
+				ownerId: langsung ? null : ownerId,
+				account: langsung ?? TALANGAN_OWNER_COA,
+				...catatPrefill(it, String(ev.client_name ?? "")),
+			};
+		})
 		.filter((w) => !sudahDicatat.has(w.note.toLowerCase()));
 	const wantKeys = new Set(want.map((w) => w.key));
 
@@ -101,6 +117,7 @@ export async function syncOwnerPaidQueue(
 			!wantKeys.has(r.rekap_key as string) ||
 			!w ||
 			w.ownerId !== r.owner_id ||
+			w.account !== r.account_code ||
 			w.amount !== Number(r.amount) ||
 			w.note !== r.note
 		);
@@ -131,7 +148,7 @@ export async function syncOwnerPaidQueue(
 				category_id: w.categoryId,
 				note: w.note,
 				amount: w.amount,
-				account_code: TALANGAN_OWNER_COA,
+				account_code: w.account,
 				owner_id: w.ownerId,
 				proof_url: w.proofUrl,
 				rekap_key: w.key,
