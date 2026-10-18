@@ -543,10 +543,12 @@ async function checkLossEvent(admin: AdminClient): Promise<Match[]> {
 		.from("event_settlements")
 		.select(
 			`event_id, net_profit, closed_at,
-			event:events!inner(id, project_id, client_name)`,
+			event:events!inner(id, project_id, client_name, is_compliment)`,
 		)
 		.eq("is_loss", true)
-		.eq("is_reopened", false);
+		.eq("is_reopened", false)
+		// Acara compliment memang "rugi" (hadiah dari Tetra) — bukan anomali.
+		.eq("event.is_compliment", false);
 	return (
 		(settlements ?? []) as Array<{
 			event_id: string;

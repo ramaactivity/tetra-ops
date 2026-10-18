@@ -44,6 +44,8 @@ type SettlementSummary = {
 	net_profit: number;
 	margin_percentage: number;
 	is_loss: boolean;
+	/** Acara compliment (hadiah dari Tetra) — rugi bukan alarm. */
+	is_compliment?: boolean;
 } | null;
 
 type CrewEntry = {
@@ -435,12 +437,18 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 								<span
 									className={cn(
 										"tabular text-[11px] font-semibold",
-										settlement.is_loss
-											? "text-rose-600 dark:text-rose-400"
-											: "text-emerald-700 dark:text-emerald-400",
+										settlement.is_compliment
+											? "text-muted-foreground"
+											: settlement.is_loss
+												? "text-rose-600 dark:text-rose-400"
+												: "text-emerald-700 dark:text-emerald-400",
 									)}
 								>
-									{settlement.is_loss ? "RUGI" : "UNTUNG"}
+									{settlement.is_compliment
+										? "COMPLIMENT"
+										: settlement.is_loss
+											? "RUGI"
+											: "UNTUNG"}
 									{" · "}
 									{settlement.margin_percentage}%
 								</span>

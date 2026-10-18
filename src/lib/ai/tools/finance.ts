@@ -66,14 +66,15 @@ export const ringkasanBisnis: AiTool = {
 
 		const { data: settlements } = await ctx.supabase
 			.from("event_settlements")
-			.select("net_profit, revenue_net, is_loss")
+			.select("net_profit, revenue_net, is_loss, event:events(is_compliment)")
 			.eq("is_reopened", false)
 			.gte("closed_at", `${dari}T00:00:00+07:00`)
 			.lt("closed_at", `${sampaiExcl}T00:00:00+07:00`);
-		const st = (settlements ?? []) as Array<{
+		const st = (settlements ?? []) as unknown as Array<{
 			net_profit: number;
 			revenue_net: number;
 			is_loss: boolean;
+			event: { is_compliment: boolean } | null;
 		}>;
 		const omzet = st.reduce((s, r) => s + Number(r.revenue_net ?? 0), 0);
 		const profit = st.reduce((s, r) => s + Number(r.net_profit ?? 0), 0);
@@ -93,7 +94,9 @@ export const ringkasanBisnis: AiTool = {
 			rentang: `${dari} s/d ${sampai}`,
 			event_terlaksana: eventCount ?? 0,
 			event_settled: st.length,
-			event_rugi: st.filter((r) => r.is_loss).length,
+			// Acara compliment (gratis, hadiah dari Tetra) dihitung terpisah.
+			event_rugi: st.filter((r) => r.is_loss && !r.event?.is_compliment).length,
+			event_compliment: st.filter((r) => r.event?.is_compliment).length,
 			omzet_settled: omzet,
 			profit_bersih: profit,
 			margin_persen: omzet > 0 ? Math.round((profit / omzet) * 100) : 0,

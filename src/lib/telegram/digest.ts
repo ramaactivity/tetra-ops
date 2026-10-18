@@ -1325,19 +1325,23 @@ async function composeBusinessRecapRange(
 
 	const { data: settlements } = await admin
 		.from("event_settlements")
-		.select("net_profit, revenue_net, is_loss")
+		.select("net_profit, revenue_net, is_loss, event:events(is_compliment)")
 		.eq("is_reopened", false)
 		.gte("closed_at", `${startISO}T00:00:00+07:00`)
 		.lt("closed_at", `${todayISO}T00:00:00+07:00`);
-	const st = (settlements ?? []) as Array<{
+	const st = (settlements ?? []) as unknown as Array<{
 		net_profit: number;
 		revenue_net: number;
 		is_loss: boolean;
+		event: { is_compliment: boolean } | null;
 	}>;
 	if (st.length > 0) {
 		const revenue = st.reduce((s, r) => s + Number(r.revenue_net ?? 0), 0);
 		const profit = st.reduce((s, r) => s + Number(r.net_profit ?? 0), 0);
-		const losses = st.filter((r) => r.is_loss).length;
+		// Acara compliment (hadiah dari Tetra) bukan "rugi".
+		const losses = st.filter(
+			(r) => r.is_loss && !r.event?.is_compliment,
+		).length;
 		const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
 		lines.push(
 			`🧾 Settled: ${st.length} event${losses > 0 ? ` (🚨 ${losses} rugi)` : ""}`,

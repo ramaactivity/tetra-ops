@@ -59,6 +59,12 @@ export function allocateProfit(params: {
 	perPerson: number;
 	/** Total tunggakan bagi hasil yang belum lunas (semua event sebelumnya). */
 	arrearsOutstanding?: number;
+	/**
+	 * Saklar bagi hasil owner acara ini mati (events.owner_pool_enabled=false,
+	 * mis. compliment): tanpa bagi hasil & tanpa tunggakan — kembar dengan
+	 * settle_event_impl (20261018k).
+	 */
+	ownerPoolOff?: boolean;
 }): ProfitAllocation {
 	const available = Math.round(params.available);
 	const ordered = [...params.funds].sort(
@@ -69,7 +75,9 @@ export function allocateProfit(params: {
 			? Math.floor((Math.max(0, available) * f.allocation_value) / 100)
 			: Math.round(f.allocation_value);
 	const sinkingTarget = ordered.reduce((s, f) => s + targetOf(f), 0);
-	const ownerPoolTarget = params.ownerCount * params.perPerson;
+	const ownerPoolTarget = params.ownerPoolOff
+		? 0
+		: params.ownerCount * params.perPerson;
 
 	if (available <= 0 || available < ownerPoolTarget) {
 		return {

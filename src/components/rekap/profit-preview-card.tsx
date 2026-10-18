@@ -36,6 +36,8 @@ type Props = {
 	 * walau belum jadi jurnal — uangnya sudah keluar.
 	 */
 	ownerPaidPending?: number;
+	/** Acara compliment (hadiah dari Tetra) — rugi dibaca sebagai biaya hadiah. */
+	compliment?: boolean;
 	className?: string;
 };
 
@@ -75,6 +77,7 @@ type Line = { label: string; value: number; note?: string };
 export function ProfitPreviewCard({
 	preview,
 	ownerPaidPending = 0,
+	compliment = false,
 	className,
 }: Props) {
 	const ex = preview.extra;
@@ -129,6 +132,8 @@ export function ProfitPreviewCard({
 	// ── Hasil ──
 	const untung = uangMasuk - uangKeluar;
 	const rugi = untung < 0;
+	// Compliment: "rugi" = biaya hadiah yang memang ditanggung Tetra, bukan alarm.
+	const hadiah = compliment && rugi;
 	const persen = uangMasuk > 0 ? (untung / uangMasuk) * 100 : 0;
 
 	// ── Pembagian — aturan settle (profit-allocation.ts): dana cadangan
@@ -163,14 +168,18 @@ export function ProfitPreviewCard({
 					tone="out"
 				/>
 				<SummaryTile
-					label={rugi ? "Rugi event" : "Untung bersih"}
+					label={
+						hadiah ? "Biaya compliment" : rugi ? "Rugi event" : "Untung bersih"
+					}
 					hint={
-						uangMasuk > 0
-							? `${persen.toFixed(1).replace(".", ",")}% dari uang masuk`
-							: "belum ada uang masuk"
+						hadiah
+							? "hadiah dari Tetra"
+							: uangMasuk > 0
+								? `${persen.toFixed(1).replace(".", ",")}% dari uang masuk`
+								: "belum ada uang masuk"
 					}
 					value={untung}
-					tone={rugi ? "loss" : "profit"}
+					tone={hadiah ? "neutral" : rugi ? "loss" : "profit"}
 				/>
 			</div>
 
@@ -226,10 +235,20 @@ export function ProfitPreviewCard({
 
 			{/* Hasil */}
 			<ResultRow
-				label={rugi ? "Rugi event" : "Untung bersih event"}
-				sub="Uang masuk − uang keluar"
+				label={
+					hadiah
+						? "Biaya compliment (hadiah dari Tetra)"
+						: rugi
+							? "Rugi event"
+							: "Untung bersih event"
+				}
+				sub={
+					hadiah
+						? "Acara gratis — crew & biaya tetap dibayar, ditanggung Tetra"
+						: "Uang masuk − uang keluar"
+				}
 				value={untung}
-				tone={rugi ? "loss" : "profit"}
+				tone={hadiah ? "neutral" : rugi ? "loss" : "profit"}
 			/>
 
 			{/* 3. Dibagi ke mana */}
@@ -271,9 +290,11 @@ export function ProfitPreviewCard({
 							/>
 							<AmountRow
 								label={
-									al.arrearsCreated > 0
-										? "Bagi hasil owner (ditunda)"
-										: "Bagi hasil owner"
+									al.ownerPoolTarget === 0
+										? "Bagi hasil owner (dimatikan)"
+										: al.arrearsCreated > 0
+											? "Bagi hasil owner (ditunda)"
+											: "Bagi hasil owner"
 								}
 								value={-bagiHasil}
 								muted
@@ -306,17 +327,27 @@ export function ProfitPreviewCard({
 									data-nominal
 									className={cn(
 										"tabular text-[20px] font-bold tracking-[-0.01em]",
-										sisaKas < 0 ? "text-amber-700" : "text-foreground",
+										sisaKas < 0 && !compliment
+											? "text-amber-700"
+											: "text-foreground",
 									)}
 								>
 									{formatSignedRupiah(sisaKas)}
 								</span>
 							</div>
 							{sisaKas < 0 ? (
-								<p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900">
-									Event ini <b>rugi {formatRupiah(-sisaKas)}</b> — kas usaha
-									menutup kekurangannya.
-								</p>
+								compliment ? (
+									<p className="mt-2 rounded-xl bg-secondary px-3 py-2 text-[12.5px] leading-snug text-foreground/80">
+										Acara compliment — kas usaha menanggung{" "}
+										<b>{formatRupiah(-sisaKas)}</b> sebagai hadiah dari Tetra.
+										Tidak ada bagi hasil &amp; dana cadangan dari acara ini.
+									</p>
+								) : (
+									<p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900">
+										Event ini <b>rugi {formatRupiah(-sisaKas)}</b> — kas usaha
+										menutup kekurangannya.
+									</p>
+								)
 							) : null}
 							{ownerPaidPending > 0 ? (
 								<p className="mt-2 text-[11.5px] leading-snug text-muted-foreground">
@@ -361,7 +392,18 @@ function AllocationWarning({
 	ownerPoolTarget: number;
 }) {
 	let text: React.ReactNode;
-	if (status === "cadangan_dikurangi") {
+	if (ownerPoolTarget === 0) {
+		// Saklar bagi hasil owner acara ini mati (mis. compliment).
+		text = (
+			<>
+				Bagi hasil owner <b>dimatikan</b> untuk acara ini — tidak dibagi dan
+				tidak jadi tunggakan.
+				{available <= 0
+					? " Dana cadangan tidak disisihkan karena acara tidak untung."
+					: ""}
+			</>
+		);
+	} else if (status === "cadangan_dikurangi") {
 		text = (
 			<>
 				Untung bersih belum cukup untuk dana cadangan penuh. Bagi hasil owner

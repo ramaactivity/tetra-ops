@@ -21,6 +21,8 @@ export type SettledReportInput = {
 	/** Laba versi settlement (belum termasuk pengeluaran/pemasukan lain). */
 	netProfit: number;
 	isLoss: boolean;
+	/** Acara compliment (hadiah dari Tetra): rugi = biaya hadiah, bukan alarm. */
+	isCompliment?: boolean;
 	remainingBalance: number;
 	settlement: {
 		hppTotal: number;
@@ -112,7 +114,7 @@ export function buildSettledReport(input: SettledReportInput): string {
 		.join(" · ");
 
 	const lines: Array<string | null> = [
-		`${input.isLoss ? "🚨" : "✅"} <b>EVENT SETTLED — ${tgEscape(input.clientName)}</b>`,
+		`${input.isCompliment ? "🎁" : input.isLoss ? "🚨" : "✅"} <b>EVENT SETTLED — ${tgEscape(input.clientName)}</b>${input.isCompliment ? " (compliment)" : ""}`,
 		subtitle || null,
 		"",
 		`📈 Omzet ${rp(input.revenueNet)}`,
@@ -126,7 +128,11 @@ export function buildSettledReport(input: SettledReportInput): string {
 		extraOut > 0 ? `➖ Pengeluaran lain ${rp(extraOut)}` : null,
 		extraIn > 0 ? `➕ Pemasukan lain ${rp(extraIn)}` : null,
 		`💰 <b>Laba akhir ${rp(finalProfit)}</b> (margin ${finalMargin}%)${
-			input.isLoss ? " — RUGI, review settlement-nya" : ""
+			input.isCompliment
+				? " — biaya compliment, hadiah dari Tetra"
+				: input.isLoss
+					? " — RUGI, review settlement-nya"
+					: ""
 		}`,
 	];
 

@@ -123,3 +123,25 @@ test("event yang dana cadangannya terpotong tidak melunasi tunggakan", () => {
 	assert.equal(a.arrearsPaid, 0);
 	assert.equal(a.sisaKas, 0);
 });
+
+test("saklar bagi hasil mati (mis. compliment): tanpa bagi hasil & tanpa tunggakan", () => {
+	const r = allocateProfit({
+		available: -629_575,
+		funds: [],
+		ownerCount: 4,
+		perPerson: 50_000,
+		ownerPoolOff: true,
+	});
+	assert.equal(r.ownerPool, 0);
+	assert.equal(r.arrearsCreated, 0);
+	// Tanpa penanda: jadi tunggakan 200rb.
+	assert.equal(
+		allocateProfit({
+			available: -629_575,
+			funds: [],
+			ownerCount: 4,
+			perPerson: 50_000,
+		}).arrearsCreated,
+		200_000,
+	);
+});

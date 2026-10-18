@@ -42,6 +42,8 @@ type Props = {
 	netProfit: number;
 	sinkingEstimate: number;
 	ownerPoolEstimate: number;
+	/** Acara compliment — rugi = biaya hadiah dari Tetra, bukan alarm. */
+	compliment?: boolean;
 	disabled: boolean;
 	disabledReason?: string;
 	/** Total fee crew (fee+bonus+reimbursement) — untuk opsi "bayar sambil settle". */
@@ -555,7 +557,7 @@ export function SettleButton(props: Props) {
 											<dd
 												className={cn(
 													"tabular text-right font-semibold",
-													bd?.isLoss
+													bd?.isLoss && !props.compliment
 														? "text-rose-600 dark:text-rose-400"
 														: "text-foreground",
 												)}
@@ -567,7 +569,11 @@ export function SettleButton(props: Props) {
 													<dt className="text-muted-foreground">Margin</dt>
 													<dd className="tabular text-right text-muted-foreground">
 														{Math.round(bd.marginPct)}%
-														{bd.isLoss ? " · RUGI" : ""}
+														{bd.isLoss
+															? props.compliment
+																? " · COMPLIMENT"
+																: " · RUGI"
+															: ""}
 													</dd>
 												</>
 											)}

@@ -12,6 +12,10 @@ import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { AddonSplitForm } from "@/components/rekap/addon-split-form";
 import { RekapApprovalPreview } from "@/components/rekap/approval-preview";
+import {
+	ComplimentToggle,
+	OwnerPoolToggle,
+} from "@/components/rekap/compliment-toggle";
 import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
 import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
 import { CrewInputSummary } from "@/components/rekap/crew-input-summary";
@@ -168,7 +172,7 @@ export default async function EventRekapPage({
 			total_paid, remaining_balance, frame_size, gross_up_pph_amount,
 			channel, vendor_name, vendor_commission_mode, vendor_commission_amount,
 			referrer_user_id, referrer_commission,
-			sales_user_id, direct_sales_commission`,
+			sales_user_id, direct_sales_commission, is_compliment, owner_pool_enabled`,
 		)
 		.eq("project_id", projectId)
 		.maybeSingle();
@@ -1160,10 +1164,23 @@ export default async function EventRekapPage({
 						owners={ujOwnerOptions}
 					/>
 
+					<div className="flex flex-wrap justify-end gap-2">
+						<OwnerPoolToggle
+							eventId={event.id as string}
+							projectId={projectId}
+							value={event.owner_pool_enabled !== false}
+						/>
+						<ComplimentToggle
+							eventId={event.id as string}
+							projectId={projectId}
+							value={Boolean(event.is_compliment)}
+						/>
+					</div>
 					{profitPreview && (
 						<ProfitPreviewCard
 							preview={profitPreview}
 							ownerPaidPending={ownerPaidPendingTotal}
+							compliment={Boolean(event.is_compliment)}
 						/>
 					)}
 
@@ -1175,6 +1192,7 @@ export default async function EventRekapPage({
 						/>
 						{profitPreview ? (
 							<SettleButton
+								compliment={Boolean(event.is_compliment)}
 								eventId={event.id as string}
 								projectId={projectId}
 								recapId={rekap.id}
@@ -1324,10 +1342,23 @@ export default async function EventRekapPage({
 						owners={ujOwnerOptions}
 					/>
 
+					<div className="flex flex-wrap justify-end gap-2">
+						<OwnerPoolToggle
+							eventId={event.id as string}
+							projectId={projectId}
+							value={event.owner_pool_enabled !== false}
+						/>
+						<ComplimentToggle
+							eventId={event.id as string}
+							projectId={projectId}
+							value={Boolean(event.is_compliment)}
+						/>
+					</div>
 					{profitPreview && (
 						<ProfitPreviewCard
 							preview={profitPreview}
 							ownerPaidPending={ownerPaidPendingTotal}
+							compliment={Boolean(event.is_compliment)}
 						/>
 					)}
 				</>

@@ -215,7 +215,7 @@ async function PnlSection({
 				komisi_vendor, komisi_relasi, komisi_sales_direct,
 				platform_fee, diskon_tambahan,
 				is_loss, closed_at,
-				event:events!inner(id, project_id, client_name, channel, event_date)`,
+				event:events!inner(id, project_id, client_name, channel, event_date, is_compliment)`,
 			)
 			.eq("is_reopened", false)
 			.gte("closed_at", `${ymStart}T00:00:00Z`)
@@ -266,6 +266,7 @@ async function PnlSection({
 					client_name: string;
 					channel: string;
 					event_date: string;
+					is_compliment?: boolean;
 			  }
 			| Array<{
 					id: string;
@@ -288,7 +289,11 @@ async function PnlSection({
 	const ownerPool = sum("owner_pool_total");
 	const netProfit = sum("net_profit");
 	const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-	const lossCount = rows.filter((r) => r.is_loss).length;
+	// Acara compliment (hadiah dari Tetra) bukan "rugi".
+	const lossCount = rows.filter((r) => {
+		const ev = Array.isArray(r.event) ? r.event[0] : r.event;
+		return r.is_loss && !(ev && "is_compliment" in ev && ev.is_compliment);
+	}).length;
 	const settlementCount = rows.length;
 
 	const cashIn = (revenueData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
@@ -487,13 +492,18 @@ async function PnlSection({
 											</p>
 											<p className="text-muted-foreground tabular text-[10px]">
 												{ev.project_id} · {ev.event_date}
+												{"is_compliment" in ev && ev.is_compliment
+													? " · 🎁 compliment"
+													: ""}
 											</p>
 										</div>
 										<p
 											className={`tabular text-sm font-semibold ${
-												r.is_loss
-													? "text-rose-600 dark:text-rose-400"
-													: "text-emerald-600 dark:text-emerald-400"
+												"is_compliment" in ev && ev.is_compliment
+													? "text-muted-foreground"
+													: r.is_loss
+														? "text-rose-600 dark:text-rose-400"
+														: "text-emerald-600 dark:text-emerald-400"
 											}`}
 										>
 											{r.is_loss ? "− " : "+ "}

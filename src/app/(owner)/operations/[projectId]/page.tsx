@@ -96,7 +96,7 @@ export default async function EventDetailPage({
 			.from("events")
 			.select(
 				`
-			id, project_id, status, channel, client_name, client_wa, client_email,
+			id, project_id, status, channel, client_name, client_wa, client_email, is_compliment,
 			pic_name, pic_wa, pic_contact_id,
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
@@ -671,6 +671,7 @@ export default async function EventDetailPage({
 								net_profit: settlement.net_profit,
 								margin_percentage: settlement.margin_percentage,
 								is_loss: settlement.is_loss,
+								is_compliment: Boolean(event.is_compliment),
 							}
 						: null
 				}
@@ -1130,7 +1131,11 @@ export default async function EventDetailPage({
 						icon={<Wallet className="size-4" aria-hidden strokeWidth={2} />}
 						title="Settlement Detail"
 						subtitle={`Ditutup ${formatDateID(settlement.closed_at)} · ${
-							settlement.is_loss ? "RUGI" : "PROFIT"
+							event.is_compliment
+								? "COMPLIMENT"
+								: settlement.is_loss
+									? "RUGI"
+									: "PROFIT"
 						} ${settlement.margin_percentage}%`}
 						className="md:col-span-2"
 					>
@@ -1159,9 +1164,11 @@ export default async function EventDetailPage({
 									<dd
 										className={cn(
 											"tabular text-[13.5px] font-semibold",
-											settlement.is_loss
+											settlement.is_loss && !event.is_compliment
 												? "text-rose-600 dark:text-rose-400"
-												: "text-emerald-700 dark:text-emerald-400",
+												: event.is_compliment
+													? "text-foreground"
+													: "text-emerald-700 dark:text-emerald-400",
 										)}
 									>
 										{formatRupiah(settlement.net_profit)}

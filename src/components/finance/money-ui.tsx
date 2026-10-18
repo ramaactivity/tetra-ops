@@ -292,7 +292,7 @@ export function ResultRow({
 	label: string;
 	sub: string;
 	value: number;
-	tone: "profit" | "loss";
+	tone: "profit" | "loss" | "neutral";
 }) {
 	return (
 		<div
@@ -300,7 +300,9 @@ export function ResultRow({
 				"flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5",
 				tone === "profit"
 					? "bg-emerald-50 text-emerald-950"
-					: "bg-amber-50 text-amber-950",
+					: tone === "neutral"
+						? "bg-secondary text-foreground"
+						: "bg-amber-50 text-amber-950",
 			)}
 		>
 			<div>

@@ -148,7 +148,7 @@ export async function getProfitPreview(
 		supabase
 			.from("events")
 			.select(
-				"base_price, custom_package_price, addons_total, discount_amount, grand_total, vendor_commission_amount, referrer_commission, direct_sales_commission",
+				"base_price, custom_package_price, addons_total, discount_amount, grand_total, vendor_commission_amount, referrer_commission, direct_sales_commission, owner_pool_enabled",
 			)
 			.eq("id", eventId)
 			.maybeSingle(),
@@ -315,6 +315,7 @@ export async function getProfitPreview(
 		})),
 		ownerCount: (owners ?? []).length,
 		perPerson: Number(poolCfg?.value ?? 50000) || 50000,
+		ownerPoolOff: ev?.owner_pool_enabled === false,
 		arrearsOutstanding: (arrears ?? []).reduce(
 			(sum, a) => sum + Number(a.remaining ?? 0),
 			0,

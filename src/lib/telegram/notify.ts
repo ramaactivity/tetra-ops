@@ -524,7 +524,7 @@ export async function notifyTelegramEventSettled(
 			admin
 				.from("events")
 				.select(
-					`client_name, event_date, remaining_balance, channel,
+					`client_name, event_date, remaining_balance, channel, is_compliment,
 					package:packages(name)`,
 				)
 				.eq("id", eventId)
@@ -562,6 +562,7 @@ export async function notifyTelegramEventSettled(
 			revenueNet: Number(result.revenue_net ?? 0),
 			netProfit: Number(result.net_profit ?? 0),
 			isLoss: Boolean(result.is_loss),
+			isCompliment: Boolean(ev?.is_compliment),
 			remainingBalance: Number(ev?.remaining_balance ?? 0),
 			settlement: st
 				? {
