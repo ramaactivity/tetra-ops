@@ -1,0 +1,201 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { AdminFeeChips } from "@/components/finance/admin-fee-chips";
+import { DatePicker } from "@/components/ui/date-picker";
+import { NativeSelect } from "@/components/ui/native-select";
+import { bayarTalanganOwner } from "@/lib/actions/uang-jalan";
+import { formatRupiah } from "@/lib/format";
+import type { TalanganOwnerSaldo } from "@/lib/rekap/uang-jalan-db";
+
+type Account = { code: string; name: string; balance?: number };
+
+/**
+ * Hutang-piutang Tetra ↔ owner (uang pribadi owner untuk uang jalan crew).
+ * Saldo positif = Tetra berutang ke owner → "Bayar"; negatif = owner berutang
+ * ke Tetra → "Terima". Jumlah boleh sebagian (dicicil).
+ */
+export function TalanganOwnerCard({
+	owners,
+	cashAccounts,
+	eventId,
+}: {
+	owners: TalanganOwnerSaldo[];
+	cashAccounts: Account[];
+	/** Diisi kalau dilunasi dari halaman rekap acara (untuk jejak jurnal). */
+	eventId?: string;
+}) {
+	return (
+		<div className="grid gap-3 sm:grid-cols-2">
+			{owners.map((o) => (
+				<Row
+					key={o.id}
+					owner={o}
+					cashAccounts={cashAccounts}
+					eventId={eventId}
+				/>
+			))}
+		</div>
+	);
+}
+
+function Row({
+	owner,
+	cashAccounts,
+	eventId,
+}: {
+	owner: TalanganOwnerSaldo;
+	cashAccounts: Account[];
+	eventId?: string;
+}) {
+	const router = useRouter();
+	const [pending, start] = useTransition();
+	const bayar = owner.saldo > 0;
+	const sisa = Math.abs(owner.saldo);
+	const [open, setOpen] = useState(false);
+	const [amount, setAmount] = useState(String(sisa));
+	const [account, setAccount] = useState(
+		[...cashAccounts].sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))[0]
+			?.code ?? "",
+	);
+	const [adminFee, setAdminFee] = useState(0);
+	const [date, setDate] = useState(
+		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
+	);
+	const verb = bayar ? `Bayar ke ${owner.name}` : `Terima dari ${owner.name}`;
+
+	return (
+		<div className="space-y-2 rounded-2xl border border-border-subtle bg-card p-4">
+			<div className="flex items-start justify-between gap-3">
+				<div className="min-w-0">
+					<p className="truncate text-[14px] font-semibold text-foreground">
+						{owner.name}
+					</p>
+					<p className="text-[12px] text-muted-foreground">
+						{bayar
+							? `Tetra berutang ke ${owner.name}`
+							: `${owner.name} berutang ke Tetra`}
+					</p>
+				</div>
+				<span
+					data-nominal
+					className={`tabular shrink-0 text-[18px] font-bold ${bayar ? "text-amber-700" : "text-sky-700"}`}
+				>
+					{formatRupiah(sisa)}
+				</span>
+			</div>
+			{open ? (
+				<div className="space-y-3 border-t border-border-subtle pt-3">
+					<label className="block space-y-1.5">
+						<span className="text-[13px] font-medium">Jumlah</span>
+						<div className="relative">
+							<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[13px] text-muted-foreground">
+								Rp
+							</span>
+							<input
+								type="number"
+								inputMode="numeric"
+								min={1}
+								max={sisa}
+								value={amount}
+								onChange={(e) => setAmount(e.target.value)}
+								className="tabular h-10 w-full rounded-xl border border-border-default bg-background pr-3 pl-9 text-[13px]"
+							/>
+						</div>
+						<span className="type-caption text-muted-foreground">
+							Isi sebagian kalau dicicil.
+						</span>
+					</label>
+					<div className="space-y-1.5">
+						<span className="text-[13px] font-medium">
+							{bayar ? "Dari rekening" : "Masuk ke rekening"}
+						</span>
+						<NativeSelect
+							value={account}
+							onValueChange={setAccount}
+							aria-label="Rekening"
+							triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
+							options={cashAccounts.map((a) => ({
+								value: a.code,
+								label: `${a.name}${a.balance !== undefined ? ` · ${formatRupiah(a.balance)}` : ""}`,
+							}))}
+						/>
+					</div>
+					<div className="space-y-1.5">
+						<span className="text-[13px] font-medium">Tanggal</span>
+						<DatePicker
+							value={date}
+							onValueChange={setDate}
+							aria-label="Tanggal"
+							className="h-10 w-full rounded-xl"
+						/>
+					</div>
+					{bayar && (
+						<div className="space-y-1.5">
+							<span className="text-[13px] font-medium">
+								Biaya admin transfer
+							</span>
+							<AdminFeeChips
+								presets={[0, 1000, 2500]}
+								value={adminFee}
+								onChange={setAdminFee}
+								ariaLabel="Biaya admin transfer"
+							/>
+						</div>
+					)}
+					<div className="flex justify-end gap-2">
+						<button
+							type="button"
+							onClick={() => setOpen(false)}
+							className="h-10 rounded-full px-4 text-[13px] font-medium hover:bg-secondary"
+						>
+							Batal
+						</button>
+						<button
+							type="button"
+							disabled={
+								pending ||
+								!account ||
+								!(Number(amount) > 0) ||
+								Number(amount) > sisa
+							}
+							onClick={() =>
+								start(async () => {
+									const r = await bayarTalanganOwner({
+										ownerId: owner.id,
+										direction: bayar ? "bayar" : "terima",
+										amount: Number(amount),
+										accountCode: account,
+										adminFee: bayar ? adminFee : 0,
+										date,
+										eventId: eventId ?? null,
+									});
+									if (!r.ok) return void toast.error(r.error);
+									toast.success(r.note ?? "Tersimpan");
+									setOpen(false);
+									router.refresh();
+								})
+							}
+							className="h-10 rounded-full bg-foreground px-5 text-[13px] font-medium text-background disabled:opacity-40"
+						>
+							Simpan
+						</button>
+					</div>
+				</div>
+			) : (
+				<button
+					type="button"
+					onClick={() => {
+						setAmount(String(sisa));
+						setOpen(true);
+					}}
+					className="h-9 w-full rounded-full bg-foreground text-[13px] font-medium text-background"
+				>
+					{verb}
+				</button>
+			)}
+		</div>
+	);
+}

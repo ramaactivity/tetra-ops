@@ -9,6 +9,7 @@
  *   • 1-310 Uang Muka Komisi   → modul Komisi ("Bayar di muka"), habis saat settle
  *   • 2-200..2-203 Sinking     → Dana Cadangan (deposit/withdrawal)
  *   • 2-300 Owner Pool         → settlement / Record withdrawal
+ *   • 2-310 Talangan Owner     → Uang jalan (uang pribadi owner) / Ganti ke owner
  *   • 1-401 Akum. Penyusutan   → posting depresiasi / disposal
  *
  * Note: 2-100 Hutang Crew is intentionally NOT here — it has no subledger table
@@ -46,6 +47,7 @@ export const SUBLEDGER_CONTROLLED_ACCOUNTS: ReadonlySet<string> = new Set([
 	"2-202",
 	"2-203",
 	"2-300",
+	"2-310",
 ]);
 
 export function isControlledAccount(code: string | null | undefined): boolean {

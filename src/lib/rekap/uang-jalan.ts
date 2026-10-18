@@ -54,3 +54,45 @@ export function ringkasUangJalan(terima: number, dipakai: number) {
 		kurang: Math.max(0, d - t),
 	};
 }
+
+/** Akun utang perusahaan ke owner yang memberi uang jalan dari uang pribadi. */
+export const TALANGAN_OWNER_COA = "2-310";
+
+export type TalanganRow = {
+	kind: string;
+	amount: number;
+	account_code: string | null;
+	owner_id: string | null;
+	is_reversed?: boolean;
+};
+
+export type TalanganBayarRow = {
+	owner_id: string;
+	direction: "bayar" | "terima";
+	amount: number;
+	is_reversed?: boolean;
+};
+
+/**
+ * Saldo hutang-piutang Tetra ↔ owner, per owner. Positif = Tetra berutang ke
+ * owner (uang pribadinya dipakai uang jalan), negatif = owner berutang ke Tetra
+ * (mis. sisa uang jalan dikembalikan crew ke owner melebihi talangannya).
+ */
+export function saldoTalanganOwner(
+	uj: TalanganRow[],
+	bayar: TalanganBayarRow[] = [],
+): Map<string, number> {
+	const out = new Map<string, number>();
+	const add = (o: string, v: number) => out.set(o, (out.get(o) ?? 0) + v);
+	for (const r of uj) {
+		if (r.account_code !== TALANGAN_OWNER_COA || !r.owner_id || r.is_reversed)
+			continue;
+		const sign = r.kind === "beri" ? 1 : r.kind === "kembali" ? -1 : 0;
+		add(r.owner_id, sign * Number(r.amount || 0));
+	}
+	for (const b of bayar) {
+		if (b.is_reversed) continue;
+		add(b.owner_id, (b.direction === "bayar" ? -1 : 1) * Number(b.amount || 0));
+	}
+	return out;
+}

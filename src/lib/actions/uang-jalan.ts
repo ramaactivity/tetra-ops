@@ -10,7 +10,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
-import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
+import { TALANGAN_OWNER_COA } from "@/lib/rekap/uang-jalan";
+import { loadTalanganOwner, saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
 type Result = { ok: true; note?: string } | { ok: false; error: string };
@@ -29,6 +30,10 @@ const Input = z.object({
 	userId: z.uuid(),
 	amount: z.coerce.number().int().positive().max(50_000_000),
 	accountCode: z.string().min(1).max(20),
+	/** Owner yang memberi (beri) / menerima sisa (kembali). */
+	ownerId: z.uuid().nullish(),
+	/** Uang pribadi owner (bukan rekening Tetra) → utang ke owner di 2-310. */
+	pribadi: z.boolean().optional(),
 	method: z.enum(["tunai", "transfer"]).optional(),
 	proofUrl: z.url().max(1000).nullish(),
 	/** Biaya admin transfer (hanya saat memberi lewat transfer) → 5-600. */
@@ -53,11 +58,20 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 			ok: false,
 			error: p.error.issues[0]?.message ?? "Isian belum valid.",
 		};
-	const { eventId, projectId, userId, amount, accountCode, method, date } =
-		p.data;
+	const { eventId, projectId, userId, amount, method, date } = p.data;
+	const ownerId = p.data.ownerId ?? null;
+	const pribadi = Boolean(p.data.pribadi);
+	if (kind === "beri" && !ownerId)
+		return { ok: false, error: "Pilih siapa yang memberi uang jalan." };
+	if (pribadi && !ownerId)
+		return { ok: false, error: "Pilih owner pemilik uangnya." };
+	const accountCode = pribadi ? TALANGAN_OWNER_COA : p.data.accountCode;
 	const proofUrl = p.data.proofUrl ?? null;
+	// Biaya admin dari rekening pribadi ditanggung owner sendiri (tidak dicatat).
 	const admin =
-		kind === "beri" && method === "transfer" ? (p.data.adminFee ?? 0) : 0;
+		kind === "beri" && method === "transfer" && !pribadi
+			? (p.data.adminFee ?? 0)
+			: 0;
 	const db = await createClient();
 	const { data: acct } = await db
 		.from("chart_of_accounts")
@@ -65,11 +79,23 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 		.eq("code", accountCode)
 		.maybeSingle();
 	if (
-		!acct?.is_active ||
-		acct.account_type !== "asset" ||
-		accountCode === "1-320"
+		!pribadi &&
+		(!acct?.is_active ||
+			acct.account_type !== "asset" ||
+			accountCode === "1-320")
 	)
 		return { ok: false, error: "Pilih rekening kas/bank yang aktif." };
+	let ownerName = "";
+	if (ownerId) {
+		const { data: o } = await db
+			.from("users")
+			.select("full_name, nickname, role")
+			.eq("id", ownerId)
+			.maybeSingle();
+		if (o?.role !== "owner" && o?.role !== "super_admin")
+			return { ok: false, error: "Pemberi harus owner." };
+		ownerName = (o.nickname as string | null) || (o.full_name as string);
+	}
 	const { data: u } = await db
 		.from("users")
 		.select("full_name, nickname")
@@ -78,15 +104,15 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 	const nama =
 		(u?.nickname as string | null) || (u?.full_name as string | null) || "crew";
 
-	if (kind === "beri") {
+	if (kind === "beri" && !pribadi) {
 		const saldoErr = await insufficientBalanceError(
 			db,
 			accountCode,
-			acct.name as string,
+			acct?.name as string,
 			amount + admin,
 		);
 		if (saldoErr) return { ok: false, error: saldoErr };
-	} else {
+	} else if (kind === "kembali") {
 		const saldo = await saldoUangJalanDb(db, eventId, userId);
 		if (amount > saldo)
 			return {
@@ -102,9 +128,12 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 			entry_date: date,
 			entry_type: "transfer",
 			description:
-				kind === "beri"
+				(kind === "beri"
 					? `Uang jalan untuk ${nama}`
-					: `Sisa uang jalan dari ${nama}`,
+					: `Sisa uang jalan dari ${nama}`) +
+				(ownerName
+					? ` (${kind === "beri" ? "dari" : "ke"} ${ownerName}${pribadi ? ", uang pribadi" : ""})`
+					: ""),
 			source_type: kind === "beri" ? "uang_jalan" : "uang_jalan_kembali",
 			source_event_id: eventId,
 			total_amount: amount + admin,
@@ -137,7 +166,9 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 						account_code: accountCode,
 						debit_amount: 0,
 						credit_amount: amount + admin,
-						description: "Kas/bank keluar",
+						description: pribadi
+							? `Talangan uang pribadi ${ownerName}`
+							: "Kas/bank keluar",
 					},
 				]
 			: [
@@ -145,7 +176,9 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 						account_code: accountCode,
 						debit_amount: amount,
 						credit_amount: 0,
-						description: "Kas/bank masuk",
+						description: pribadi
+							? `Sisa dikembalikan ke ${ownerName}`
+							: "Kas/bank masuk",
 					},
 					{
 						account_code: "1-320",
@@ -171,6 +204,7 @@ async function post(kind: "beri" | "kembali", raw: unknown): Promise<Result> {
 		method: method ?? null,
 		proof_url: proofUrl,
 		account_code: accountCode,
+		owner_id: ownerId,
 		journal_id: entry.id,
 		created_by: me.profile.id,
 	});
@@ -279,4 +313,161 @@ export async function batalUangJalan(
 	revalidatePath(`/operations/${projectId}/rekap`);
 	revalidatePath(`/operations/${projectId}`);
 	return { ok: true, note: "Catatan dibatalkan" };
+}
+
+const Bayar = z.object({
+	ownerId: z.uuid(),
+	direction: z.enum(["bayar", "terima"]),
+	amount: z.coerce.number().int().positive().max(100_000_000),
+	accountCode: z.string().min(1).max(20),
+	adminFee: z.coerce.number().int().min(0).max(100_000).optional(),
+	date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+	eventId: z.uuid().nullish(),
+});
+
+/**
+ * Lunasi / cicil hutang-piutang Tetra ↔ owner (akumulasi semua acara):
+ *   bayar  — Tetra transfer ke owner: Dr 2-310 / Cr kas-bank
+ *   terima — owner setor ke Tetra:    Dr kas-bank / Cr 2-310
+ */
+export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
+	const me = await owner();
+	if (!me) return { ok: false, error: "Hanya owner." };
+	const p = Bayar.safeParse(raw);
+	if (!p.success)
+		return {
+			ok: false,
+			error: p.error.issues[0]?.message ?? "Isian belum valid.",
+		};
+	const { ownerId, direction, amount, accountCode, date } = p.data;
+	const bayar = direction === "bayar";
+	const admin = bayar ? (p.data.adminFee ?? 0) : 0;
+	const db = await createClient();
+	const { data: acct } = await db
+		.from("chart_of_accounts")
+		.select("name, account_type, is_active")
+		.eq("code", accountCode)
+		.maybeSingle();
+	if (
+		!acct?.is_active ||
+		acct.account_type !== "asset" ||
+		accountCode === "1-320"
+	)
+		return { ok: false, error: "Pilih rekening kas/bank yang aktif." };
+	const row = (await loadTalanganOwner(db)).find((o) => o.id === ownerId);
+	const nama = row?.name ?? "owner";
+	const sisa = bayar ? (row?.saldo ?? 0) : -(row?.saldo ?? 0);
+	if (sisa <= 0)
+		return {
+			ok: false,
+			error: bayar
+				? `Tetra tidak sedang berutang ke ${nama}.`
+				: `${nama} tidak sedang berutang ke Tetra.`,
+		};
+	if (amount > sisa)
+		return {
+			ok: false,
+			error: `Maksimal ${sisa.toLocaleString("id-ID")} (sisa hutangnya).`,
+		};
+	if (bayar) {
+		const saldoErr = await insufficientBalanceError(
+			db,
+			accountCode,
+			acct.name as string,
+			amount + admin,
+		);
+		if (saldoErr) return { ok: false, error: saldoErr };
+	}
+
+	const { data: entry, error: ee } = await db
+		.from("journal_entries")
+		.insert({
+			ref_id: ref(new Date(date)),
+			entry_date: date,
+			entry_type: "transfer",
+			description: bayar
+				? `Bayar hutang ke ${nama} (uang pribadi untuk uang jalan)`
+				: `Terima pelunasan hutang dari ${nama}`,
+			source_type: "talangan_owner",
+			source_event_id: p.data.eventId ?? null,
+			total_amount: amount + admin,
+			created_by: me.profile.id,
+		})
+		.select("id")
+		.single();
+	if (ee || !entry)
+		return { ok: false, error: `Gagal catat jurnal: ${ee?.message ?? "?"}` };
+	const lines = bayar
+		? [
+				{
+					account_code: TALANGAN_OWNER_COA,
+					debit_amount: amount,
+					credit_amount: 0,
+					description: `Bayar hutang ke ${nama}`,
+				},
+				...(admin > 0
+					? [
+							{
+								account_code: "5-600",
+								debit_amount: admin,
+								credit_amount: 0,
+								description: "Biaya admin transfer ke owner",
+							},
+						]
+					: []),
+				{
+					account_code: accountCode,
+					debit_amount: 0,
+					credit_amount: amount + admin,
+					description: "Kas/bank keluar",
+				},
+			]
+		: [
+				{
+					account_code: accountCode,
+					debit_amount: amount,
+					credit_amount: 0,
+					description: "Kas/bank masuk",
+				},
+				{
+					account_code: TALANGAN_OWNER_COA,
+					debit_amount: 0,
+					credit_amount: amount,
+					description: `Pelunasan hutang ${nama}`,
+				},
+			];
+	const rollback = async () => {
+		await db.from("journal_lines").delete().eq("entry_id", entry.id);
+		await db.from("journal_entries").delete().eq("id", entry.id);
+	};
+	const { error: le } = await db
+		.from("journal_lines")
+		.insert(
+			lines.map((l, i) => ({ ...l, entry_id: entry.id, line_order: i + 1 })),
+		);
+	if (le) {
+		await rollback();
+		return { ok: false, error: `Gagal catat jurnal: ${le.message}` };
+	}
+	const { error: ie } = await db.from("talangan_owner_bayar").insert({
+		owner_id: ownerId,
+		direction,
+		amount,
+		account_code: accountCode,
+		journal_id: entry.id,
+		event_id: p.data.eventId ?? null,
+		created_by: me.profile.id,
+	});
+	if (ie) {
+		await rollback();
+		return { ok: false, error: ie.message };
+	}
+	revalidatePath("/finance");
+	revalidatePath("/dashboard");
+	return {
+		ok: true,
+		note: bayar
+			? `Pembayaran ke ${nama} tercatat`
+			: `Pelunasan dari ${nama} tercatat`,
+	};
 }

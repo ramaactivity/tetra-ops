@@ -21,6 +21,7 @@ import {
 	SinkingBreakdown,
 	type SinkingFundRow,
 } from "@/components/finance/sinking-breakdown";
+import { TalanganOwnerCard } from "@/components/finance/talangan-owner-card";
 import {
 	type Owner,
 	WithdrawalButton,
@@ -34,6 +35,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import {
 	getMonthlyOverview,
 	monthLabel as monthLabelLong,
@@ -46,6 +48,7 @@ import {
 	listUnpaidCrew,
 } from "@/lib/finance/unpaid-crew";
 import { formatDateID, formatRupiah, formatSignedRupiah } from "@/lib/format";
+import { loadTalanganOwner } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -189,7 +192,7 @@ export default async function FinancePage({
 		credit_amount: number;
 	}>(supabase, "account_code, debit_amount, credit_amount", (q) =>
 		q.or(
-			"account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101,account_code.eq.2-102,account_code.eq.2-103,account_code.eq.2-300",
+			"account_code.like.1-1%,account_code.eq.2-100,account_code.eq.2-101,account_code.eq.2-102,account_code.eq.2-103,account_code.eq.2-300,account_code.eq.2-310",
 		),
 	);
 	let cashGl = 0;
@@ -225,9 +228,11 @@ export default async function FinancePage({
 	// Saldo tiap rekening menurut buku besar. Sebelumnya daftar ini cuma
 	// menampilkan uang masuk bulan ini, jadi uang KELUAR (bayar crew, beli
 	// alat, koreksi) tidak pernah terlihat di sini sama sekali.
-	const saldoByCoa = new Map(
-		(await loadCashAccounts(supabase)).map((a) => [a.code, a.balance]),
-	);
+	const cashAccountList = await loadCashAccounts(supabase);
+	const saldoByCoa = new Map(cashAccountList.map((a) => [a.code, a.balance]));
+
+	// Hutang-piutang Tetra ↔ owner (2-310): uang pribadi owner untuk uang jalan crew.
+	const talanganList = await loadTalanganOwner(supabase);
 
 	const funds = (sinkingFundsData ?? []) as Array<{
 		id: string;
@@ -511,7 +516,7 @@ export default async function FinancePage({
 					<Fact
 						label="Utang"
 						value={utangGl}
-						hint="ke supplier, crew & komisi"
+						hint="ke supplier, crew, komisi & talangan owner"
 						warn={utangGl > 0}
 					/>
 					<Fact
@@ -737,6 +742,20 @@ export default async function FinancePage({
 					)}
 				</RekapCard>
 			</div>
+
+			{talanganList.length > 0 && (
+				<RekapCard className="space-y-3">
+					<SectionHeader2
+						icon={Wallet}
+						title="Hutang-piutang owner"
+						description="Uang pribadi owner yang dipakai untuk uang jalan crew, dari semua acara. Bisa dilunasi sekaligus atau dicicil."
+					/>
+					<TalanganOwnerCard
+						owners={talanganList}
+						cashAccounts={filterEmoneyAccounts(cashAccountList, false)}
+					/>
+				</RekapCard>
+			)}
 
 			{/* 5. Bagi hasil owner */}
 			{isSuperAdmin && ownerBreakdown.length > 0 && (

@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { potongFee, ringkasUangJalan, saldoUangJalan } from "./uang-jalan";
+import {
+	potongFee,
+	ringkasUangJalan,
+	saldoTalanganOwner,
+	saldoUangJalan,
+	type TalanganRow,
+} from "./uang-jalan";
 
 test("contoh owner: uang jalan 200, terpakai 150, fee 150 → transfer 100", () => {
 	const saldo = saldoUangJalan([{ kind: "beri", amount: 200_000 }]);
@@ -97,4 +103,40 @@ test("pakai (pengeluaran dibayar uang jalan) mengurangi saldo yang dipegang crew
 		]),
 		0,
 	);
+});
+
+test("talangan owner: transfer berkali-kali, dicicil, sisa balik ke owner, batal tidak dihitung", () => {
+	const t = (o: Partial<TalanganRow>): TalanganRow => ({
+		kind: "beri",
+		amount: 100_000,
+		account_code: "2-310",
+		owner_id: "adit",
+		...o,
+	});
+	const m = saldoTalanganOwner(
+		[
+			t({}),
+			t({ amount: 50_000 }), // minta lagi di jalan
+			t({ kind: "kembali", amount: 30_000 }),
+			t({ owner_id: "fahmi", amount: 75_000 }),
+			t({ owner_id: "fahmi", is_reversed: true }),
+			t({ account_code: "1-110", owner_id: "rama" }), // rekening Tetra
+			t({ owner_id: "iqbal", kind: "kembali", amount: 40_000 }), // sisa dipegang Iqbal
+		],
+		[
+			{ owner_id: "adit", direction: "bayar", amount: 20_000 }, // cicil
+			{ owner_id: "fahmi", direction: "bayar", amount: 75_000 },
+			{ owner_id: "iqbal", direction: "terima", amount: 10_000 },
+			{
+				owner_id: "adit",
+				direction: "bayar",
+				amount: 99_000,
+				is_reversed: true,
+			},
+		],
+	);
+	assert.equal(m.get("adit"), 100_000);
+	assert.equal(m.get("fahmi"), 0);
+	assert.equal(m.get("iqbal"), -30_000); // Iqbal masih berutang ke Tetra
+	assert.equal(m.has("rama"), false);
 });

@@ -58,6 +58,7 @@ import { getCashAccountBalance } from "@/lib/finance/balance-guard";
 import { filterEmoneyAccounts, paidFromAccountId } from "@/lib/finance/emoney";
 import { REKAP_EXPENSE_CATEGORY } from "@/lib/finance/quick-record-categories";
 import { potongFee, saldoUangJalan } from "@/lib/rekap/uang-jalan";
+import { loadTalanganOwner } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
 type RekapRow = {
@@ -326,10 +327,18 @@ export default async function EventRekapPage({
 	const { data: ujRows } = await supabase
 		.from("uang_jalan")
 		.select(
-			"id, user_id, kind, amount, method, account_code, created_at, is_reversed, proof_url",
+			"id, user_id, kind, amount, method, account_code, created_at, is_reversed, proof_url, owner_id",
 		)
 		.eq("event_id", event.id as string)
 		.order("created_at");
+	// Pemberi uang jalan: owner aktif (Rama, Adit, Fahmi, Iqbal).
+	const { data: ujOwners } = await supabase
+		.from("users")
+		.select("id, full_name, nickname")
+		.eq("role", "owner")
+		.eq("is_active", true)
+		.order("full_name");
+	const talanganOwner = await loadTalanganOwner(supabase);
 	const ujLedger = ((ujRows ?? []) as UangJalanLedgerRow[]).map((r) => ({
 		...r,
 		amount: Number(r.amount),
@@ -1029,6 +1038,12 @@ export default async function EventRekapPage({
 							: null
 					}
 					cashAccounts={cashAccountsNoCard}
+					owners={(ujOwners ?? []).map((o) => ({
+						id: o.id as string,
+						name: (o.nickname as string | null) || (o.full_name as string),
+					}))}
+					meId={me.profile.id}
+					talangan={talanganOwner}
 					antre={Object.fromEntries(
 						[
 							...new Set((ujQueued ?? []).map((q) => q.uj_user_id as string)),

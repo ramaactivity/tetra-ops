@@ -19,11 +19,16 @@ import { AnomalyRadarWidget } from "@/components/dashboard/anomaly-radar";
 import { HeroMetric } from "@/components/dashboard/hero-metric";
 import { SegmentedBar } from "@/components/dashboard/segmented-bar";
 import { TargetProgressCard } from "@/components/dashboard/target-progress-card";
+import { TalanganOwnerCard } from "@/components/finance/talangan-owner-card";
 import { Container } from "@/components/layout/container";
 import { PipelineCard } from "@/components/operations/pipeline-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { getDashboardStats } from "@/lib/dashboard/stats";
+import { loadCashAccounts } from "@/lib/finance/cash-accounts";
+import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import { formatRupiah } from "@/lib/format";
+import { loadTalanganOwner } from "@/lib/rekap/uang-jalan-db";
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 function lastDayOfMonth(year: number, month: number): string {
@@ -99,6 +104,13 @@ export default async function DashboardPage() {
 		sevenFromNowISO,
 	});
 
+	// Hutang-piutang Tetra ↔ owner (uang pribadi untuk uang jalan crew).
+	const supabase = await createClient();
+	const talangan = await loadTalanganOwner(supabase);
+	const talanganAccounts = talangan.length
+		? filterEmoneyAccounts(await loadCashAccounts(supabase), false)
+		: [];
+
 	return (
 		<Container size="xl" className="space-y-3">
 			{/* HERO + supporting */}
@@ -144,6 +156,16 @@ export default async function DashboardPage() {
 					</div>
 				</div>
 			</section>
+
+			{talangan.length > 0 && (
+				<section className="space-y-3">
+					<p className="eyebrow px-5">Hutang-piutang owner</p>
+					<TalanganOwnerCard
+						owners={talangan}
+						cashAccounts={talanganAccounts}
+					/>
+				</section>
+			)}
 
 			{/* Target */}
 			<section className="space-y-3">
