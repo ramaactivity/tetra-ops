@@ -109,13 +109,15 @@ export default async function HutangOwnerPage({
 
 	return (
 		<Container size="xl" className="space-y-3">
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<SectionHeader
-					title="Hutang Owner"
-					description="Uang pribadi owner yang dipakai Tetra (uang jalan, biaya acara, pinjaman) dan sebaliknya. Lunasi sekaligus atau dicicil."
-				/>
-				<CatatTalanganOwner owners={owners} cashAccounts={cashAccounts} />
-			</div>
+			<CatatTalanganOwner
+				owners={owners}
+				cashAccounts={cashAccounts}
+				inTopbar
+			/>
+			<SectionHeader
+				title="Hutang Owner"
+				description="Uang pribadi owner yang dipakai Tetra (uang jalan, biaya acara, pinjaman) dan sebaliknya. Lunasi sekaligus atau dicicil."
+			/>
 
 			<KpiRow className="lg:grid-cols-4">
 				<KpiCard

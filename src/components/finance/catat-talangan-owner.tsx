@@ -4,6 +4,7 @@ import { Loader2, Paperclip, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { TopbarActionPortal } from "@/components/layouts/topbar-action-portal";
 import { Combobox } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -60,7 +61,10 @@ const field =
 export function CatatTalanganOwner({
 	owners,
 	cashAccounts,
+	inTopbar = false,
 }: {
+	/** Tombol ditaruh di topbar (halaman Hutang Owner), bukan di badan halaman. */
+	inTopbar?: boolean;
 	owners: Array<{ id: string; name: string }>;
 	cashAccounts: Account[];
 }) {
@@ -143,13 +147,28 @@ export function CatatTalanganOwner({
 
 	return (
 		<>
-			<button
-				type="button"
-				onClick={() => setOpen(true)}
-				className="inline-flex h-9 items-center gap-1.5 rounded-full bg-foreground px-4 text-[13px] font-medium text-background"
-			>
-				<Plus className="size-4" /> Catat hutang / piutang
-			</button>
+			{inTopbar ? (
+				// Aksi utama halaman Hutang Owner — di topbar, sama dengan Catat transaksi.
+				<TopbarActionPortal>
+					<button
+						type="button"
+						onClick={() => setOpen(true)}
+						className="press-down inline-flex h-9 items-center gap-1.5 rounded-md bg-[#059669] px-3 text-fluid-caption font-medium text-white hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]"
+					>
+						<Plus className="size-4" />
+						<span className="sm:hidden">Catat</span>
+						<span className="hidden sm:inline">Catat hutang / piutang</span>
+					</button>
+				</TopbarActionPortal>
+			) : (
+				<button
+					type="button"
+					onClick={() => setOpen(true)}
+					className="inline-flex h-9 items-center gap-1.5 rounded-full bg-foreground px-4 text-[13px] font-medium text-background"
+				>
+					<Plus className="size-4" /> Catat hutang / piutang
+				</button>
+			)}
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
