@@ -366,6 +366,12 @@ export default async function EventRekapPage({
 					.reduce((t, q) => t + Number(q.amount ?? 0), 0),
 		}))
 		.filter((u) => u.saldo > 0);
+	// Uang jalan yang diberikan per crew — biaya atas nama pemegangnya
+	// ditampilkan "dibayar pakai uang jalan" di kartu Fee crew.
+	const uangJalanDiberi: Record<string, number> = {};
+	for (const l of ujLedger)
+		if (l.kind === "beri" && !l.is_reversed)
+			uangJalanDiberi[l.user_id] = (uangJalanDiberi[l.user_id] ?? 0) + l.amount;
 	const uangJalanPotong = Object.fromEntries(
 		crewFeeRows.map((r) => [
 			r.assignment_id,
@@ -1067,6 +1073,7 @@ export default async function EventRekapPage({
 						projectId={projectId}
 						rows={crewFeeRows}
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
+						uangJalanDiberi={uangJalanDiberi}
 						hasEmoneyCard={context.cards.length > 0}
 						payerOptions={{
 							crew: context.crew.map((c) => ({ id: c.user_id, name: c.name })),
@@ -1252,6 +1259,7 @@ export default async function EventRekapPage({
 						// owner masih perlu tahu siapa menalangi apa untuk audit &
 						// memastikan biaya "dibayar owner" sudah dicatat.
 						fieldExpenseBreakdown={fieldExpenseBreakdown}
+						uangJalanDiberi={uangJalanDiberi}
 						hasEmoneyCard={context.cards.length > 0}
 						readOnly
 						cashAccounts={cashAccountsNoCard}

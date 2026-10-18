@@ -118,6 +118,11 @@ type Props = {
 	cashAccounts?: CashAccountOption[];
 	/** Uang jalan yang akan dipotong saat bayar, per assignment_id (DR-049). */
 	uangJalanPotong?: Record<string, number>;
+	/**
+	 * Uang jalan yang diberikan owner, per users.id (DR-049). Biaya yang
+	 * "ditalangi" pemegangnya sebenarnya dibayar pakai uang jalan ini.
+	 */
+	uangJalanDiberi?: Record<string, number>;
 	/** Rencana bayar fee crew yang sudah diantre untuk settle (pre-settle). */
 	queuedPayment?: {
 		id: string;
@@ -147,6 +152,7 @@ export function CrewFeeForm({
 	cashAccounts = [],
 	queuedPayment = null,
 	uangJalanPotong = {},
+	uangJalanDiberi = {},
 }: Props) {
 	const router = useRouter();
 	const [rows, setRows] = useState<CrewAssignmentRow[]>(initialRows);
@@ -232,6 +238,31 @@ export function CrewFeeForm({
 
 	// Fallback rekap lama (penalang belum ditentukan): saran ke crew yang
 	// submit, hanya kalau semua reimburse masih 0.
+	// Biaya yang dicatat atas nama pemegang uang jalan = dibayar pakai uang
+	// jalan (pembukuannya tetap talangan → dipotong otomatis saat bayar fee).
+	const pakaiUj = (it: { paidBy: string; payerUserId: string | null }) =>
+		it.paidBy === "crew" &&
+		!!it.payerUserId &&
+		(uangJalanDiberi[it.payerUserId] ?? 0) > 0;
+	const ujItems = (fieldExpenseBreakdown?.items ?? []).filter(pakaiUj);
+	const ujTotal = ujItems.reduce((t, it) => t + it.amount, 0);
+	const ujHolders = [
+		...new Set(ujItems.map((it) => it.payerUserId as string)),
+	].map((id) => {
+		const diberi = uangJalanDiberi[id] ?? 0;
+		const terpakai = ujItems
+			.filter((it) => it.payerUserId === id)
+			.reduce((t, it) => t + it.amount, 0);
+		return {
+			id,
+			name: ujItems.find((it) => it.payerUserId === id)?.payerName ?? "crew",
+			diberi,
+			terpakai,
+		};
+	});
+	const crewOnlyTotal =
+		(fieldExpenseBreakdown?.crewFrontedTotal ?? 0) - ujTotal;
+
 	const suggestedRow =
 		!readOnly &&
 		submittedByUserId &&
@@ -410,17 +441,70 @@ export function CrewFeeForm({
 							/>
 						</div>
 					) : null}
-					{fieldExpenseBreakdown.crewFrontedTotal > 0 && (
+					{ujTotal > 0 && (
+						<div>
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+								💵 Dibayar pakai uang jalan ·{" "}
+								<span data-nominal className="tabular">
+									{formatRupiah(ujTotal)}
+								</span>
+							</p>
+							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
+								{ujItems.map((it) => (
+									<li key={it.label}>
+										<span className="text-muted-foreground">{it.label}:</span>{" "}
+										<span data-nominal>{formatRupiah(it.amount)}</span>
+									</li>
+								))}
+							</ul>
+							{ujHolders.map((h) => (
+								<p
+									key={h.id}
+									className="mt-1.5 text-[11px] text-muted-foreground"
+								>
+									Uang jalan {h.name}{" "}
+									<span data-nominal className="tabular">
+										{formatRupiah(h.diberi)}
+									</span>
+									, terpakai{" "}
+									<span data-nominal className="tabular">
+										{formatRupiah(h.terpakai)}
+									</span>
+									{h.diberi >= h.terpakai ? (
+										<>
+											{" "}
+											→ sisa{" "}
+											<span data-nominal className="tabular">
+												{formatRupiah(h.diberi - h.terpakai)}
+											</span>{" "}
+											dipotong otomatis saat bayar fee (atau dikembalikan crew).
+										</>
+									) : (
+										<>
+											{" "}
+											→ kurang{" "}
+											<span data-nominal className="tabular">
+												{formatRupiah(h.terpakai - h.diberi)}
+											</span>{" "}
+											ditalangi crew, ikut dibayar bersama fee.
+										</>
+									)}{" "}
+									Tidak perlu isi apa-apa — hitungannya otomatis saat settle.
+								</p>
+							))}
+						</div>
+					)}
+					{crewOnlyTotal > 0 && (
 						<div>
 							<p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
 								💸 Ditalangi crew{readOnly ? "" : " — perlu di-rembers"} ·{" "}
 								<span data-nominal className="tabular">
-									{formatRupiah(fieldExpenseBreakdown.crewFrontedTotal)}
+									{formatRupiah(crewOnlyTotal)}
 								</span>
 							</p>
 							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
 								{fieldExpenseBreakdown.items
-									.filter((it) => it.paidBy === "crew")
+									.filter((it) => it.paidBy === "crew" && !pakaiUj(it))
 									.map((it) => (
 										<li key={it.label}>
 											<span className="text-muted-foreground">{it.label}:</span>{" "}
