@@ -272,7 +272,7 @@ function Row({
 										const fd = new FormData();
 										fd.set("file", file);
 										fd.set("category", "Hutang-piutang owner");
-										fd.set("description", `${r.note} · ${r.refId}`);
+										fd.set("description", `${verb} · ${r.refId}`);
 										fd.set("nota_date", date);
 										fd.set("amount", amount);
 										fd.set("entry_ref_id", r.refId);
