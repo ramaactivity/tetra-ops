@@ -381,7 +381,11 @@ const Bayar = z.object({
  *   bayar  — Tetra transfer ke owner: Dr 2-310 / Cr kas-bank
  *   terima — owner setor ke Tetra:    Dr kas-bank / Cr 2-310
  */
-export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
+export async function bayarTalanganOwner(
+	raw: unknown,
+): Promise<
+	{ ok: true; note: string; refId: string } | { ok: false; error: string }
+> {
 	const me = await owner();
 	if (!me) return { ok: false, error: "Hanya owner." };
 	const p = Bayar.safeParse(raw);
@@ -429,13 +433,14 @@ export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
 		);
 		if (saldoErr) return { ok: false, error: saldoErr };
 	}
+	const refId = ref(new Date(date));
 	// Keterangan: item mana yang dilunasi (apa · acara · kapan), paling lama dulu.
 	const rincian = bayar ? uraiPelunasan(row?.rincian ?? [], amount) : "";
 
 	const { data: entry, error: ee } = await db
 		.from("journal_entries")
 		.insert({
-			ref_id: ref(new Date(date)),
+			ref_id: refId,
 			entry_date: date,
 			entry_type: "transfer",
 			description: (bayar
@@ -521,6 +526,7 @@ export async function bayarTalanganOwner(raw: unknown): Promise<Result> {
 	revalidatePath("/dashboard");
 	return {
 		ok: true,
+		refId,
 		note: bayar
 			? `Pembayaran ke ${nama} tercatat`
 			: `Pelunasan dari ${nama} tercatat`,

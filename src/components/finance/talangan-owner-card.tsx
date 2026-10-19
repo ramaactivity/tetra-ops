@@ -1,6 +1,6 @@
 "use client";
 
-import { Undo2 } from "lucide-react";
+import { Paperclip, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import {
 	batalBayarTalangan,
 	bayarTalanganOwner,
+	lampirBuktiTalangan,
 } from "@/lib/actions/uang-jalan";
 import { formatRupiah } from "@/lib/format";
 import { labelItem } from "@/lib/rekap/uang-jalan";
@@ -79,6 +80,7 @@ function Row({
 			?.code ?? "",
 	);
 	const [adminFee, setAdminFee] = useState(0);
+	const [file, setFile] = useState<File | null>(null);
 	const [date, setDate] = useState(
 		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
 	);
@@ -224,6 +226,18 @@ function Row({
 							/>
 						</div>
 					)}
+					<label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border-default px-3 text-[13px] text-muted-foreground hover:bg-secondary">
+						<Paperclip className="size-4 shrink-0" />
+						<span className="min-w-0 truncate">
+							{file ? file.name : "Lampirkan bukti transfer (opsional)"}
+						</span>
+						<input
+							type="file"
+							accept="image/*,application/pdf"
+							className="sr-only"
+							onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+						/>
+					</label>
 					<div className="flex justify-end gap-2">
 						<button
 							type="button"
@@ -252,7 +266,32 @@ function Row({
 										eventId: eventId ?? null,
 									});
 									if (!r.ok) return void toast.error(r.error);
+									// Bukti → Arsip Nota (jalur unggah yang sama dengan Catat
+									// hutang / piutang), lalu ditempel ke jurnalnya.
+									if (file) {
+										const fd = new FormData();
+										fd.set("file", file);
+										fd.set("category", "Hutang-piutang owner");
+										fd.set("description", `${r.note} · ${r.refId}`);
+										fd.set("nota_date", date);
+										fd.set("amount", amount);
+										fd.set("entry_ref_id", r.refId);
+										const up = await fetch("/api/drive/upload/manual", {
+											method: "POST",
+											body: fd,
+										}).catch(() => null);
+										const body = (await up?.json().catch(() => null)) as {
+											url?: string;
+										} | null;
+										if (up?.ok && body?.url)
+											await lampirBuktiTalangan(r.refId, body.url);
+										else
+											toast.error(
+												"Pembayaran tersimpan, tapi buktinya gagal diunggah — unggah lewat Arsip Nota.",
+											);
+									}
 									toast.success(r.note ?? "Tersimpan");
+									setFile(null);
 									setOpen(false);
 									router.refresh();
 								})
