@@ -25,6 +25,10 @@ import {
 	getCommissionsOverview,
 } from "@/lib/finance/commissions-data";
 import { formatDateID, formatRupiah, formatRupiahCompact } from "@/lib/format";
+import {
+	JENIS_REKANAN,
+	type JenisRekanan,
+} from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -147,7 +151,7 @@ export default async function VendorHubPage({
 			admin
 				.from("contacts")
 				.select(
-					"id, name, phone, is_active, commission_mode, commission_value_type, commission_value_default, payment_terms, vendor_pics, vendor_settings",
+					"id, name, phone, is_active, commission_mode, commission_value_type, commission_value_default, payment_terms, vendor_pics, vendor_settings, vendor_signup",
 				)
 				.eq("id", id)
 				.eq("type", "vendor")
@@ -168,6 +172,13 @@ export default async function VendorHubPage({
 		]);
 	if (!v) notFound();
 	const set = vendorSettings(v.vendor_settings);
+	// Daftar sendiri / diundang bot WA (DR-050).
+	const signup = v.vendor_signup as {
+		jenis: JenisRekanan;
+		kota: string | null;
+		instagram: string | null;
+		sumber: "portal" | "wa_bot";
+	} | null;
 	const events = (evs ?? []) as Ev[];
 	const persons = (vm ?? [])
 		.map(
@@ -269,7 +280,9 @@ export default async function VendorHubPage({
 									? "bg-amber-300"
 									: set.partner_level === "jeda"
 										? "bg-rose-300"
-										: "bg-white",
+										: set.partner_level === "calon"
+											? "bg-sky-300"
+											: "bg-white",
 							)}
 							aria-hidden
 						/>
@@ -301,6 +314,16 @@ export default async function VendorHubPage({
 					{(v.phone as string | null) && (
 						<span className="rounded-full bg-white/15 px-2.5 py-1 font-medium">
 							{v.phone as string}
+						</span>
+					)}
+					{signup && (
+						<span className="rounded-full bg-white/15 px-2.5 py-1 font-medium">
+							{signup.sumber === "wa_bot"
+								? "Diundang bot WA"
+								: "Daftar sendiri"}{" "}
+							· {JENIS_REKANAN[signup.jenis] ?? signup.jenis}
+							{signup.kota ? ` · ${signup.kota}` : ""}
+							{signup.instagram ? ` · IG @${signup.instagram}` : ""}
 						</span>
 					)}
 				</div>

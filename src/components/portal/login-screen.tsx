@@ -141,13 +141,14 @@ export function LoginScreen({ adminWa }: { adminWa: string | null }) {
 			<p className="auth-help">
 				{role === "vendor" ? (
 					<>
-						Belum punya akses?{" "}
-						{help ? (
-							<a href={help} target="_blank" rel="noopener noreferrer">
-								Minta ke admin Tetra
-							</a>
-						) : (
-							"Minta ke admin Tetra."
+						Belum punya akun? <a href="/rekanan/daftar">Daftar jadi rekanan</a>
+						{help && (
+							<>
+								{" · "}
+								<a href={help} target="_blank" rel="noopener noreferrer">
+									Tanya admin
+								</a>
+							</>
 						)}
 					</>
 				) : (

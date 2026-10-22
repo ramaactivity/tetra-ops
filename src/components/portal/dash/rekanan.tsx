@@ -102,9 +102,12 @@ function Stat({
 export function RekananDashboard({
 	rows,
 	today,
+	sample = false,
 }: {
 	rows: RekananRow[];
 	today: string;
+	/** Baris contoh untuk rekanan baru (DR-050): bisa difilter, tidak bisa dibuka. */
+	sample?: boolean;
 }) {
 	const [filter, setFilter] = useState<Filter>("mendatang");
 	const [q, setQ] = useState("");
@@ -317,7 +320,7 @@ export function RekananDashboard({
 							return (
 								<a
 									key={r.code}
-									href={`/akun/booking/${r.code}`}
+									href={sample ? undefined : `/akun/booking/${r.code}`}
 									style={{
 										display: "flex",
 										alignItems: "center",

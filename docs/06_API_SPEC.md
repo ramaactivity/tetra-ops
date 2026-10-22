@@ -1226,6 +1226,68 @@ This pattern keeps validation and types in sync — change the schema, type upda
 
 ---
 
+## 20. API bot WA — undang calon rekanan (DR-050)
+
+`POST /api/bot/undang-vendor` — bot WA mengundang WO/EO/venue/vendor dari chat ke dasbor rekanan. Satu mesin dengan halaman publik `/rekanan/daftar` (`src/lib/portal/vendor-signup.ts`). Tetra Ops **tidak** mengirim WA di jalur ini; bot yang menyampaikan `url` di percakapan yang sedang berjalan.
+
+**Auth:** `Authorization: Bearer <AVAILABILITY_API_TOKEN>` (sama dengan `/api/bot/booking`, `/api/bot/quotation`).
+
+**Input (JSON):**
+
+| Field | Wajib | Keterangan |
+|---|---|---|
+| `nama_usaha` | ya | 2–80 huruf |
+| `jenis` | ya | `wo` / `eo` / `venue` / `vendor` (huruf besar boleh; nilai lain → `vendor`) |
+| `nama_pic` | ya | 2–80 huruf |
+| `phone` | ya | **nomor WA lawan bicara** (08…/62…/+62…). Link masuk membuka sesi untuk nomor ini, jadi jangan isi nomor orang lain. |
+| `kota` | tidak | maks 60 |
+| `instagram` | tidak | `@akun` / URL / `akun`; dibersihkan, isian ngawur diabaikan |
+| `sumber` | tidak | `"wa_bot"` (diabaikan, selalu dicatat `wa_bot`) |
+| `wa_jid` | tidak | disimpan untuk jejak |
+
+**Perilaku:** idempoten per nomor.
+1. Nomor sudah anggota vendor → vendor itu (`baru: false`).
+2. Nomor tercatat sebagai nomor/PIC vendor lama → ditautkan ke vendor lama (`baru: false`, tidak dobel).
+3. Selain itu → kontak vendor baru berstatus **calon** (`vendor_settings.partner_level = "calon"`, isian di `contacts.vendor_signup`).
+Owner dikabari (Telegram grup owner + notifikasi in-app) saat kontak baru dibuat / nomor baru ditautkan. Nama usaha yang mirip vendor lama **tidak** menautkan (nama bukan bukti); owner diberi peringatan "nama mirip".
+
+**Output 200:**
+```json
+{
+  "ok": true,
+  "url": "https://booking.tetraphoto.com/akun/masuk/<token>",
+  "masuk": "link_pribadi",
+  "contact_id": "uuid",
+  "vendor_name": "Bunga Wedding Organizer",
+  "baru": true,
+  "status": "calon"
+}
+```
+- `masuk: "link_pribadi"` → `url` = link undangan pribadi 14 hari (sekali ketuk masuk). Hanya untuk akun **calon yang masih kosong** (belum ada acara/booking).
+- `masuk: "login_wa"` → `url` = `https://booking.tetraphoto.com/akun`; orang masuk dengan kode WA seperti biasa. Dipakai untuk rekanan resmi / akun yang sudah berisi data, karena nomor di jalur bot tidak diverifikasi.
+- `status`: `"calon"` (menunggu ditinjau owner) atau `"rekanan"` (sudah resmi).
+
+**Error** (`{ ok: false, error: <kode>, pesan: <kalimat untuk manusia> }`):
+
+| HTTP | `error` | Arti |
+|---|---|---|
+| 400 | `input_tidak_valid` | field wajib kosong/salah; `pesan` menyebut yang kurang |
+| 400 | `nomor_tidak_valid` | nomor bukan nomor WA Indonesia |
+| 401 | `unauthorized` | token salah/kosong |
+| 409 | `nomor_tim` | nomor tim Tetra (`system_config.tim_wa` atau nomor WA user) |
+| 409 | `portal_dimatikan` | dasbor rekanan vendor itu dimatikan owner di Pusat Vendor |
+| 429 | `terlalu_sering` | > 20 permintaan/jam untuk nomor yang sama |
+| 500 | `gagal` | gagal simpan; aman diulang |
+
+**Contoh:**
+```bash
+curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
+  -H "Authorization: Bearer $AVAILABILITY_API_TOKEN" -H "Content-Type: application/json" \
+  -d '{"nama_usaha":"Bunga Wedding Organizer","jenis":"wo","nama_pic":"Sari","phone":"081234567890","kota":"Bogor","instagram":"@bunga.wo","sumber":"wa_bot","wa_jid":"6281234567890@s.whatsapp.net"}'
+```
+
+---
+
 **End of API Specification**
 
 *Next document: [07_FOLDER_STRUCTURE.md](./07_FOLDER_STRUCTURE.md)*

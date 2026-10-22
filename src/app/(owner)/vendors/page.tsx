@@ -16,6 +16,7 @@ import { VendorsExplorer } from "@/components/vendors/vendors-explorer";
 import { getCommissionsOverview } from "@/lib/finance/commissions-data";
 import { formatRupiahCompact } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { vendorSettings } from "@/lib/vendor-settings";
 
 export type VendorRow = {
 	vendor_id: string;
@@ -29,6 +30,8 @@ export type VendorRow = {
 	payment_terms: string | null;
 	company_address: string | null;
 	is_active: boolean;
+	/** Daftar sendiri / diundang bot, belum ditinjau (DR-050). */
+	calon: boolean;
 	event_count: number;
 	event_count_ytd: number;
 	/** Sisa tagihan acara potongan langsung (vendor → Tetra). */
@@ -55,7 +58,7 @@ export default async function VendorsListPage({
 	let vendorQuery = supabase
 		.from("contacts")
 		.select(
-			"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default, payment_terms, company_address, is_active",
+			"id, name, default_pic_name, default_pic_contact, commission_mode, commission_value_type, commission_value_default, commission_rate_default, payment_terms, company_address, is_active, vendor_settings",
 		)
 		.eq("type", "vendor")
 		.order("name", { ascending: true });
@@ -139,6 +142,7 @@ export default async function VendorsListPage({
 		payment_terms: string | null;
 		company_address: string | null;
 		is_active: boolean;
+		vendor_settings: unknown;
 	}>;
 
 	// 2) Aggregate per-vendor stats from events. Single query indexed by
@@ -290,6 +294,7 @@ export default async function VendorsListPage({
 			payment_terms: v.payment_terms,
 			company_address: v.company_address,
 			is_active: v.is_active,
+			calon: vendorSettings(v.vendor_settings).partner_level === "calon",
 			event_count: s.count,
 			event_count_ytd: s.count_ytd,
 			owe: s.owe,

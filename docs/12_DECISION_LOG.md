@@ -1288,3 +1288,23 @@ Owner sering memberi crew uang di muka (tunai, transfer, top-up GoPay) untuk ben
 - Pengeluaran yang dibayar dari uang jalan tetap diperlakukan sebagai talangan crew (reimbursement → 2-100 saat settle) — settle_event tidak diubah.
 - `payCrewFee` memotong saldo uang jalan: Dr 2-100 total / Cr 1-320 potongan / Cr bank sisa (`potongFee`). Contoh: uang jalan 200rb, terpakai 150rb, fee 150rb → transfer 100rb. Kalau crew memilih mengembalikan sisa, yang dipotong hanya bagian terpakai. `unpayCrewFee` ikut membatalkan potongan.
 
+
+---
+
+## DR-050: Rekanan bisa daftar sendiri & diundang bot WA (status calon)
+
+**Status:** Accepted (owner 2026-10-22, lewat sesi HERMES)
+**Date:** 2026-10-22
+
+### Context
+Bot WA rutin ngobrol dengan calon rekanan (WO/EO/venue/vendor). Owner ingin mereka minimal punya akun vendor dulu supaya melihat sistemnya. Sebelumnya akun vendor hanya bisa dibuat owner lewat Pusat Vendor (`inviteVendorPerson`).
+
+### Decision
+- **Satu mesin** `ensureVendorSignup` (`src/lib/portal/vendor-signup.ts`) untuk dua pintu: halaman publik `/rekanan/daftar` (portal) dan `POST /api/bot/undang-vendor` (bot). Isinya sama dengan undangan owner: `contacts` vendor + `portal_people` + `vendor_members`. Tidak ada sistem akun/undangan kedua.
+- **Status calon** = `vendor_settings.partner_level = "calon"` (label "Calon · perlu ditinjau" di Pusat Vendor); owner meninjau dan mengganti ke Reguler/Prioritas. Isian pendaftaran (jenis, kota, IG, sumber, wa_jid) di kolom baru `contacts.vendor_signup` (migrasi aditif 20261022).
+- **Idempoten per nomor**: anggota vendor → vendor itu; nomor tercatat sebagai nomor/PIC vendor lama → ditautkan ke vendor lama. **Nama usaha yang mirip tidak menautkan** — menautkan membuka acara & komisi vendor itu, dan nama bukan bukti; owner diberi peringatan "nama mirip vendor lama".
+- **Bukti nomor**: halaman daftar hanya menerima verifikasi kode WA (opsi email disembunyikan, `daftarRekanan` menolak sesi tanpa `wa_verified_at`). Jalur bot tidak memverifikasi nomor, jadi link masuk sekali-ketuk hanya diberikan untuk akun calon yang masih kosong; selain itu bot memberi `/akun` (masuk dengan kode WA).
+- **Nomor tim** (`system_config.tim_wa` + nomor WA user) ditolak. Rate limit: halaman 10/jam per IP + 5/jam per nomor; API 20/jam per nomor.
+- Tetra Ops **tidak mengirim WA** di jalur bot (bot yang menyampaikan link). Owner dikabari lewat Telegram grup owner + notifikasi in-app — bukan grup WA admin (yang dibatasi owner untuk booking/pembayaran).
+- Dasbor rekanan tanpa acara menampilkan sambutan + cara kerja + skema resmi (**komisi 10% atau potongan 10% dari harga publish**, satu angka untuk semua; harga khusus vendor lain tidak pernah tampil) + contoh dasbor berlabel "CONTOH" (data rekaan, tidak bisa dibuka).
+- Kontrak API: `docs/06_API_SPEC.md` §20.

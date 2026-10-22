@@ -1,6 +1,7 @@
 import { PKG } from "@/components/portal/booking/content";
 import { Onboarding } from "@/components/portal/dash/onboarding";
 import { RekananDashboard } from "@/components/portal/dash/rekanan";
+import { RekananWelcome } from "@/components/portal/dash/rekanan-welcome";
 import { DashShell } from "@/components/portal/dash/shell";
 import { btn, PageHead } from "@/components/portal/dash/ui";
 import { LoginScreen } from "@/components/portal/login-screen";
@@ -8,6 +9,7 @@ import { dateLong } from "@/components/portal/status-pill";
 import { getPortalPerson } from "@/lib/portal/auth";
 import { daysUntil, PRODUCT_LABELS } from "@/lib/portal/core";
 import { loadMyBookings, type PortalBooking } from "@/lib/portal/data";
+import { sampleRekananRows } from "@/lib/portal/rekanan-sample";
 import {
 	rekananRows,
 	syncVendorBookings,
@@ -93,7 +95,51 @@ export default async function AkunPage({
 					</a>
 				}
 			/>
-			{isWo && <RekananDashboard rows={rows} today={today} />}
+			{isWo && rows.length === 0 && vendors.length > 0 ? (
+				// Rekanan baru tanpa acara (DR-050): sambutan + contoh dasbor.
+				<>
+					<RekananWelcome
+						vendorName={vendors[0].name}
+						calon={vendors[0].calon}
+						chatUrl={adminWa ? `https://wa.me/${adminWa}` : null}
+					/>
+					<div
+						style={{
+							display: "flex",
+							flexWrap: "wrap",
+							alignItems: "baseline",
+							gap: 8,
+						}}
+					>
+						<h2 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
+							Seperti ini dasbor kamu nanti
+						</h2>
+						<span
+							style={{
+								borderRadius: 8,
+								border: "1.5px solid #1D1D1B",
+								background: "#EFEDE8",
+								padding: "1px 8px",
+								fontSize: 11,
+								fontWeight: 800,
+								letterSpacing: "0.04em",
+							}}
+						>
+							CONTOH
+						</span>
+						<span style={{ fontSize: 12, color: "#5F5E5A" }}>
+							Data rekaan, bukan acara siapa pun.
+						</span>
+					</div>
+					<RekananDashboard
+						rows={sampleRekananRows(today)}
+						today={today}
+						sample
+					/>
+				</>
+			) : (
+				isWo && <RekananDashboard rows={rows} today={today} />
+			)}
 			{bookings.length === 0 && !isWo && (
 				<p
 					style={{

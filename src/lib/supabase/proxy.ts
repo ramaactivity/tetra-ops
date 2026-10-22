@@ -13,6 +13,8 @@ const PUBLIC_PATHS = [
 	// Booking publik + portal klien: sesi portal sendiri (src/lib/portal/auth.ts).
 	"/booking",
 	"/akun",
+	// Daftar rekanan mandiri (DR-050).
+	"/rekanan",
 ];
 
 const BOOKING_HOST = "booking.tetraphoto.com";
@@ -91,7 +93,8 @@ export async function updateSession(request: NextRequest) {
 		path === "/booking" ||
 		path.startsWith("/booking/") ||
 		path === "/akun" ||
-		path.startsWith("/akun/");
+		path.startsWith("/akun/") ||
+		path.startsWith("/rekanan/");
 	if (host === BOOKING_HOST) {
 		if (path === "/booking") {
 			const url = request.nextUrl.clone();

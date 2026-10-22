@@ -20,9 +20,12 @@ export function VerifyPhone({
 	cta,
 	beforeStart,
 	onDone,
+	allowEmail = true,
 }: {
 	askName: boolean;
 	cta: string;
+	/** false = hanya WA (email tidak membuktikan pemilik nomor). */
+	allowEmail?: boolean;
 	beforeStart?: () => string | null;
 	onDone: () => void | Promise<void>;
 }) {
@@ -221,19 +224,21 @@ export function VerifyPhone({
 			>
 				{busy ? "Sebentar…" : mode === "wa" ? cta : "Kirim kode ke email"}
 			</button>
-			<button
-				type="button"
-				className="link cap"
-				style={{ justifySelf: "center" }}
-				onClick={() => {
-					setMode(mode === "wa" ? "email" : "wa");
-					setError(null);
-				}}
-			>
-				{mode === "wa"
-					? "Tidak bisa pakai WhatsApp? Pakai email"
-					: "Pakai WhatsApp saja"}
-			</button>
+			{allowEmail && (
+				<button
+					type="button"
+					className="link cap"
+					style={{ justifySelf: "center" }}
+					onClick={() => {
+						setMode(mode === "wa" ? "email" : "wa");
+						setError(null);
+					}}
+				>
+					{mode === "wa"
+						? "Tidak bisa pakai WhatsApp? Pakai email"
+						: "Pakai WhatsApp saja"}
+				</button>
+			)}
 		</div>
 	);
 }

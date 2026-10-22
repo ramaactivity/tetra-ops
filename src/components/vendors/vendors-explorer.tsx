@@ -21,6 +21,7 @@ export type VendorRowDisplay = {
 	commission_rate_default: number | null;
 	payment_terms: string | null;
 	is_active: boolean;
+	calon: boolean;
 	event_count: number;
 	event_count_ytd: number;
 	owe: number;
@@ -90,6 +91,11 @@ const columns: CatalogColumn<VendorRowDisplay>[] = [
 					{!v.is_active && (
 						<Badge variant="outline" className="text-[10px]">
 							Arsip
+						</Badge>
+					)}
+					{v.calon && (
+						<Badge variant="outline" className="text-[10px]">
+							Calon · perlu ditinjau
 						</Badge>
 					)}
 				</Link>

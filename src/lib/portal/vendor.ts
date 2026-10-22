@@ -36,7 +36,7 @@ export type RekananRow = {
 /** Kontak vendor yang dipegang orang ini. */
 export async function vendorContactsOf(
 	personId: string,
-): Promise<Array<{ id: string; name: string }>> {
+): Promise<Array<{ id: string; name: string; calon: boolean }>> {
 	const admin = createAdminClient();
 	const { data } = await admin
 		.from("vendor_members")
@@ -56,7 +56,11 @@ export async function vendorContactsOf(
 			(c): c is { id: string; name: string; vendor_settings: unknown } =>
 				!!c && vendorSettings(c.vendor_settings).portal_enabled,
 		)
-		.map((c) => ({ id: c.id, name: c.name }));
+		.map((c) => ({
+			id: c.id,
+			name: c.name,
+			calon: vendorSettings(c.vendor_settings).partner_level === "calon",
+		}));
 }
 
 /**

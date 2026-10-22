@@ -11,8 +11,11 @@ export type VendorSettings = {
 	can_invite_clients: boolean;
 	/** Booking baru vendor ini: klien undangan melihat harga Tetra. */
 	client_price_visible_default: boolean;
-	/** Label internal hubungan kerja sama. */
-	partner_level: "reguler" | "prioritas" | "jeda";
+	/**
+	 * Label internal hubungan kerja sama. "calon" = daftar sendiri / diundang
+	 * bot WA, menunggu ditinjau owner (DR-050).
+	 */
+	partner_level: "calon" | "reguler" | "prioritas" | "jeda";
 };
 
 export const VENDOR_DEFAULTS: VendorSettings = {
@@ -24,6 +27,7 @@ export const VENDOR_DEFAULTS: VendorSettings = {
 };
 
 export const PARTNER_LEVELS: Record<VendorSettings["partner_level"], string> = {
+	calon: "Calon · perlu ditinjau",
 	reguler: "Reguler",
 	prioritas: "Prioritas",
 	jeda: "Jeda sementara",
@@ -45,7 +49,9 @@ export function vendorSettings(raw: unknown): VendorSettings {
 		can_invite_clients: b("can_invite_clients"),
 		client_price_visible_default: b("client_price_visible_default"),
 		partner_level:
-			r.partner_level === "prioritas" || r.partner_level === "jeda"
+			r.partner_level === "prioritas" ||
+			r.partner_level === "jeda" ||
+			r.partner_level === "calon"
 				? r.partner_level
 				: "reguler",
 	};
