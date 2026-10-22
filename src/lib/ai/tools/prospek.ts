@@ -1,5 +1,6 @@
 import "server-only";
 
+import { kpiKonversiWa } from "@/lib/ai/tools/kpi-wa";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
 import { appUrl } from "@/lib/app-url";
 import {
@@ -1802,7 +1803,10 @@ export const kontakCekNomor: AiTool = {
 	},
 };
 
-/** Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien. */
+/**
+ * Hanya ini yang terbuka untuk MCP_SALES_TOKEN — tanpa data keuangan/klien,
+ * kecuali KPI konversi WA (jumlah + nilai booking dari lead, DR-051).
+ */
 export const SALES_TOOLS: AiTool[] = [
 	placesCari,
 	prospekSimpan,
@@ -1825,4 +1829,6 @@ export const SALES_TOOLS: AiTool[] = [
 	pengingatTim,
 	kirimTim,
 	cariGaleri,
+	// KPI konversi lead WA (DR-051) — owner setuju dibuka untuk laporan CS.
+	kpiKonversiWa,
 ];

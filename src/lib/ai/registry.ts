@@ -20,6 +20,7 @@ import {
 	ringkasanBisnis,
 	saldoKas,
 } from "@/lib/ai/tools/finance";
+import { kpiKonversiWa } from "@/lib/ai/tools/kpi-wa";
 import {
 	bukuBulanan,
 	crewMingguIni,
@@ -60,6 +61,7 @@ const ALL_TOOLS: AiTool[] = [
 	komisiVendor,
 	bukuBulanan,
 	leadsWa,
+	kpiKonversiWa,
 	daftarCrew,
 	akunKategoriCatat,
 	tagihanJatuhTempo,

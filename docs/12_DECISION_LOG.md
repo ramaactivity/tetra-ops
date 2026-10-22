@@ -1308,3 +1308,20 @@ Bot WA rutin ngobrol dengan calon rekanan (WO/EO/venue/vendor). Owner ingin mere
 - Tetra Ops **tidak mengirim WA** di jalur bot (bot yang menyampaikan link). Owner dikabari lewat Telegram grup owner + notifikasi in-app — bukan grup WA admin (yang dibatasi owner untuk booking/pembayaran).
 - Dasbor rekanan tanpa acara menampilkan sambutan + cara kerja + skema resmi (**komisi 10% atau potongan 10% dari harga publish**, satu angka untuk semua; harga khusus vendor lain tidak pernah tampil) + contoh dasbor berlabel "CONTOH" (data rekaan, tidak bisa dibuka).
 - Kontrak API: `docs/06_API_SPEC.md` §20.
+
+---
+
+## DR-051: KPI konversi lead WA — lead ditandai converted otomatis dari event
+
+**Status:** Accepted (owner 2026-10-22, lewat sesi HERMES)
+**Date:** 2026-10-22
+
+### Context
+Semua lead bot WA (`whatsapp_bot_leads`, satu baris per pesan/intent) berstatus `new`; tidak pernah ada yang ditandai converted, jadi konversi bot tidak terukur. Hermes tidak bisa mencocokkan sendiri karena tool event tidak memuat nomor klien.
+
+### Decision
+- **Satu aturan di database**: `wa_lead_convert(event_id)` + pemicu `events_wa_lead_convert` (AFTER INSERT / UPDATE OF client_wa, pic_wa). Semua jalur booking (portal, input owner, booking dari bot) berakhir di `events`, jadi satu pemicu menangkap semuanya. Gagal menandai tidak menggagalkan simpan event.
+- Cocok = 9 digit terakhir `client_wa`/`pic_wa` event = nomor lead, dan lead masuk **sebelum** event dibuat. Hanya status `new`/`contacted` yang belum pernah dikonversi — `ignored`/`converted` manual tidak ditimpa; sekali saja (`converted_at`). Kolom baru: `converted_at`, `converted_event_id` (booking portal bisa dicari lewat `client_bookings.event_id`).
+- **Hanya event direct** (dan relasi): event lewat vendor dilewati — nomornya PIC rekanan (WO/EO yang sering chat bot), bukan klien hasil chat. Event demo/dihapus/legacy dilewati.
+- Tool MCP baca `kpi_konversi_wa { dari, sampai }` (scope finance — nilai booking bukan untuk crew; juga dibuka untuk `MCP_SALES_TOKEN` atas permintaan owner untuk laporan CS). Definisi: lead_wa = nomor unik yang **pertama kali** chat di rentang (tanpa nomor tim `tim_wa`); converted = event direct **dibuat** di rentang yang berasal dari lead WA; konversi = converted / lead_wa; minggu Senin–Minggu WIB.
+- Backfill sejak 1 Sep 2026 lewat fungsi yang sama, DRY-RUN dulu (DO-block di-rollback), apply setelah owner setuju.
