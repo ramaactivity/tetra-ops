@@ -1,11 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	// Enable React 19.2 + browser View Transitions API.
-	// Used by <SharedElement> and <PageTransition> at src/components/transitions/.
-	// Per docs/04a_MOTION_GUIDELINES.md: zero-JS-bloat motion strategy.
+	// View Transitions API (dipakai <SharedElement>/<PageTransition> di
+	// src/components/transitions/) aktif bawaan sejak Next 16.4 — flag
+	// experimental.viewTransition sudah dihapus dari Next.
 	experimental: {
-		viewTransition: true,
 		// Barrel-import optimization: rewrite `import { X } from "pkg"` into deep
 		// path imports so the bundler only ships the icons/primitives actually
 		// used, not the whole package. Cuts client JS + speeds compile across the

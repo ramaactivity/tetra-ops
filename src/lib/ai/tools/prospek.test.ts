@@ -198,7 +198,7 @@ test("wa_kirim_kontak ke lead membalas → antre send-relasi + catatan bertambah
 	assert.equal(r.status, "antre");
 	assert.equal(r.kepada, "Violetta Wedding (lead) 6281211112222");
 	assert.ok(
-		db.tables.bot_commands[0].command.toString().startsWith("send-relasi:"),
+		String(db.tables.bot_commands[0].command).startsWith("send-relasi:"),
 	);
 	const p1 = db.tables.prospek.find((p) => p.id === "p1") as Row;
 	assert.equal(
