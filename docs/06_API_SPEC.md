@@ -1291,3 +1291,27 @@ curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
 **End of API Specification**
 
 *Next document: [07_FOLDER_STRUCTURE.md](./07_FOLDER_STRUCTURE.md)*
+
+## 21. API bot WA — cek klien sudah booking (DR-052)
+
+`POST /api/bot/klien` — bot WA mengecek apakah lawan bicara sudah punya acara, supaya tidak menjawab "tanggalnya kosong" ke klien sendiri atau menanyakan ulang data booking. Hanya baca.
+
+**Auth:** `Authorization: Bearer <AVAILABILITY_API_TOKEN>` (sama dengan `/api/bot/booking`).
+
+**Input (JSON):** `{ "phone": "081234567890" }` — 08…/62…/+62…; dicocokkan 9 digit terakhir dengan `client_wa` atau `pic_wa` event (aturan DR-051).
+
+**Output 200:**
+```json
+{
+  "ok": true,
+  "booking": [
+    { "tanggal": "2026-11-28", "jam_mulai": "18:00", "jam_selesai": "22:00", "paket": "Unlimited Photobooth 4 Jam",
+      "venue": "Gedung X, Bogor", "nama_acara": "Aisy & Raka", "status_bayar": "dp", "lewat_vendor": false }
+  ]
+}
+```
+- Hanya acara hari ini & mendatang (WIB), tidak dibatalkan, bukan demo; urut tanggal. Tidak ada booking → `booking: []`.
+- `status_bayar`: `belum` / `dp` / `lunas`. Tidak ada nominal uang.
+- `lewat_vendor: true` → nomor cocok dengan event lewat vendor (bisa PIC rekanan).
+
+**Error:** 400 `nomor_tidak_valid` (kurang dari 9 digit), 401 `unauthorized`, 500 `gagal` (aman diulang).

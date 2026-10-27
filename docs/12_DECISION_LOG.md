@@ -1325,3 +1325,19 @@ Semua lead bot WA (`whatsapp_bot_leads`, satu baris per pesan/intent) berstatus 
 - **Hanya event direct** (dan relasi): event lewat vendor dilewati — nomornya PIC rekanan (WO/EO yang sering chat bot), bukan klien hasil chat. Event demo/dihapus/legacy dilewati.
 - Tool MCP baca `kpi_konversi_wa { dari, sampai }` (scope finance — nilai booking bukan untuk crew; juga dibuka untuk `MCP_SALES_TOKEN` atas permintaan owner untuk laporan CS). Definisi: lead_wa = nomor unik yang **pertama kali** chat di rentang (tanpa nomor tim `tim_wa`); converted = event direct **dibuat** di rentang yang berasal dari lead WA; konversi = converted / lead_wa; minggu Senin–Minggu WIB.
 - Backfill sejak 1 Sep 2026 lewat fungsi yang sama, DRY-RUN dulu (DO-block di-rollback), apply setelah owner setuju.
+
+---
+
+## DR-052: Bot WA mengenali klien yang sudah booking
+
+**Status:** Accepted (owner 2026-10-27, lewat sesi HERMES: "tolong perbaiki yang bermasalah")
+**Date:** 2026-10-27
+
+### Context
+Audit chat bot WA 27 Okt: klien yang sudah booking (Aisy, 28 Nov) dijawab seperti calon klien — "28 November masih kosong… aman", lalu ditanya ulang tanggal & jam. Bot tidak punya cara andal tahu sebuah nomor sudah punya acara (catatan booking lokal bot hanya berisi alur DP lewat bot).
+
+### Decision
+- Endpoint baca `POST /api/bot/klien {phone}` (auth bot yang sama dengan `/api/bot/booking`). Cocok = 9 digit terakhir `client_wa`/`pic_wa`, aturan yang sama dengan DR-051. Hanya acara hari ini & mendatang, tidak dibatalkan, bukan demo.
+- Output tanpa nominal uang: tanggal, jam, paket, venue, nama acara, `status_bayar` (`belum`/`dp`/`lunas`), `lewat_vendor`.
+- Bot memanggilnya sekali per giliran (cache singkat) dan memberi AI konteks "klien sudah booking"; gagal = lanjut tanpa konteks.
+- Kontrak API: `docs/06_API_SPEC.md` §21.
