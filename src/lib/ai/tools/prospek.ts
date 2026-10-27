@@ -652,9 +652,28 @@ export const prospekDaftar: AiTool = {
 					"Nama perusahaan atau website yang mau dicek sebelum diriset; hasil `sudah_ada` berisi yang sudah tercatat.",
 			},
 			maks: { type: "INTEGER", description: "Default 20, maks 50." },
+			ids: {
+				type: "ARRAY",
+				items: { type: "STRING" },
+				description:
+					"Ambil prospek tertentu berdasarkan id (maks 50), mis. untuk mencocokkan external_ref kiriman Cold Reach.",
+			},
 		},
 	},
 	async run(args, ctx) {
+		if (Array.isArray(args.ids)) {
+			// Sinkron status Cold Reach → prospek: daftar terbaru (maks 50) tak menjangkau ratusan kandidat.
+			const ids = args.ids.map(String).slice(0, 50);
+			const { data, error } = await ctx.supabase
+				.from("prospek")
+				.select(KOLOM)
+				.in("id", ids);
+			if (error) return { error: error.message };
+			return {
+				jumlah: data?.length ?? 0,
+				prospek: denganLink((data ?? []) as unknown as Prospek[]),
+			};
+		}
 		if (Array.isArray(args.cek)) {
 			const sudah = await kunciTercatat(ctx);
 			const daftar = args.cek.filter((x): x is string => typeof x === "string");
