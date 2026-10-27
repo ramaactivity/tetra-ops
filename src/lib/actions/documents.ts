@@ -448,13 +448,17 @@ export async function issueBast(eventId: string) {
 // ---------------------------------------------------------------------------
 
 /**
- * Deal: quotation → invoice event yang baru dibuat. Dipanggil dari
- * createBooking setelah event tersimpan. Item/klien/gross-up disalin,
- * quotation ditandai Disetujui.
+ * Quotation → invoice. Item/klien/gross-up disalin, quotation ditandai
+ * Disetujui. Dua jalan:
+ *   - eventId diisi (Deal dari createBooking): invoice tertaut event baru.
+ *     Kalau quotation ini sudah pernah dijadikan invoice lepas, invoice itu
+ *     yang DITAUTKAN (nomor tetap) — tidak dibuat dobel.
+ *   - eventId null ("Jadikan invoice"): invoice lepas untuk menagih DP;
+ *     booking dibuat belakangan dari panel invoice lepas (?fromInvoice).
  */
 export async function createInvoiceFromQuotation(
 	quotationId: string,
-	eventId: string,
+	eventId: string | null,
 ): Promise<IssueResult> {
 	const me = await requireOwnerLevel();
 	const supabase = await createClient();
@@ -462,15 +466,41 @@ export async function createInvoiceFromQuotation(
 	if (!q || q.doc_type !== "quotation") {
 		return { ok: false, error: "Quotation tidak ditemukan." };
 	}
-	const existing = await findActiveDoc(supabase, eventId, "invoice");
-	if (existing) return { ok: true, id: existing.id, created: false };
-
-	const { data: ev } = await supabase
-		.from("events")
-		.select("project_id, event_date, due_date")
-		.eq("id", eventId)
+	if (eventId) {
+		const existing = await findActiveDoc(supabase, eventId, "invoice");
+		if (existing) return { ok: true, id: existing.id, created: false };
+	}
+	const { data: prior } = await supabase
+		.from("documents")
+		.select("id, event_id")
+		.eq("source_document_id", q.id)
+		.eq("doc_type", "invoice")
+		.neq("status", "void")
+		.order("created_at", { ascending: false })
+		.limit(1)
 		.maybeSingle();
-	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
+	if (prior && !eventId) return { ok: true, id: prior.id, created: false };
+	if (prior && eventId && !prior.event_id) {
+		const res = await linkInvoiceToEvent(supabase, prior.id, eventId);
+		if (!res.ok) return res;
+		return { ok: true, id: prior.id, created: false };
+	}
+
+	let ev: {
+		project_id: string | null;
+		event_date: string | null;
+		due_date: string | null;
+	} | null = null;
+	if (eventId) {
+		const { data } = await supabase
+			.from("events")
+			.select("project_id, event_date, due_date")
+			.eq("id", eventId)
+			.maybeSingle();
+		if (!data) return { ok: false, error: "Event tidak ditemukan." };
+		ev = data;
+	}
+	const eventDate = ev ? ev.event_date : (q.event_info.date ?? null);
 
 	try {
 		const issuedAt = todayISO();
@@ -483,7 +513,8 @@ export async function createInvoiceFromQuotation(
 				event_id: eventId,
 				source_document_id: q.id,
 				client: q.client,
-				event_info: {},
+				// Invoice lepas belum punya event → info acara dari quotation.
+				event_info: eventId ? {} : q.event_info,
 				items: q.items,
 				discount: q.discount,
 				gross_up_enabled: q.gross_up_enabled,
@@ -495,10 +526,8 @@ export async function createInvoiceFromQuotation(
 				signer_position: q.signer_position,
 				issued_at: issuedAt,
 				// Tenggat pelunasan ikut event (form booking); cadangan H-1.
-				due_date:
-					(ev.due_date as string | null) ??
-					(ev.event_date ? addDays(ev.event_date as string, -1) : null),
-				status: "sent",
+				due_date: ev?.due_date ?? (eventDate ? addDays(eventDate, -1) : null),
+				status: eventId ? "sent" : "draft",
 				created_by: me.profile.id,
 			})
 			.select("id")
@@ -508,7 +537,7 @@ export async function createInvoiceFromQuotation(
 			.from("documents")
 			.update({ status: "accepted" })
 			.eq("id", q.id);
-		revalidateDocs(ev.project_id as string);
+		revalidateDocs(ev?.project_id);
 		return { ok: true, id: data.id as string, created: true };
 	} catch (e) {
 		return { ok: false, error: e instanceof Error ? e.message : "Gagal" };

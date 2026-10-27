@@ -16,6 +16,7 @@ import {
 	MessageCircle,
 	PenLine,
 	Plus,
+	Receipt,
 	RefreshCw,
 	Save,
 	Trash2,
@@ -55,6 +56,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { toast } from "@/components/ui/toaster";
 import {
 	copyAsQuotation,
+	createInvoiceFromQuotation,
 	type DocumentDraftInput,
 	saveDocument,
 	setDocumentStatus,
@@ -399,6 +401,30 @@ export function DocumentEditor({
 		});
 	}
 
+	function quotationToInvoice() {
+		startBusy(async () => {
+			const saved = await ensureSaved();
+			if (!saved) return;
+			const res = await createInvoiceFromQuotation(saved.id, null);
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			toast.success(
+				res.created ? "Invoice dibuat" : "Membuka invoice dari quotation ini",
+			);
+			router.push(`/finance/dokumen/${res.id}`);
+		});
+	}
+
+	function quotationToBooking() {
+		startBusy(async () => {
+			const saved = await ensureSaved();
+			if (!saved) return;
+			router.push(`/operations/new?fromQuotation=${saved.id}`);
+		});
+	}
+
 	// ---- item helpers
 	const setItems = (fn: (items: DocItem[]) => DocItem[]) =>
 		setDoc((d) => ({ ...d, items: fn(d.items) }));
@@ -560,7 +586,7 @@ export function DocumentEditor({
 		<div className="space-y-3">
 			{/* ── Bilah aksi ── */}
 			<div className="sticky top-2 z-20 md:top-[76px] flex flex-wrap items-center gap-2 rounded-2xl border border-border-subtle bg-card px-4 py-2.5 shadow-[var(--shadow-level-2)]">
-				<div className="flex min-w-0 flex-1 items-center gap-2">
+				<div className="flex min-w-0 flex-1 basis-[280px] items-center gap-2">
 					<FileText className="size-4 shrink-0 text-muted-foreground" />
 					<div className="min-w-0">
 						<div className="flex flex-wrap items-center gap-1.5">
@@ -614,6 +640,26 @@ export function DocumentEditor({
 							disabled={saving || readOnly}
 						/>
 					</span>
+					{isQuotation ? (
+						<>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={quotationToInvoice}
+								disabled={busy || saving || readOnly}
+							>
+								<Receipt className="size-3.5" /> Jadikan invoice
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={quotationToBooking}
+								disabled={busy || saving || readOnly}
+							>
+								<Handshake className="size-3.5" /> Buat booking
+							</Button>
+						</>
+					) : null}
 					<Button
 						size="sm"
 						className="order-first sm:order-none"
@@ -636,21 +682,6 @@ export function DocumentEditor({
 							<ChevronDown className="size-3.5" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" sideOffset={6} className="w-64">
-							{isQuotation && doc.id ? (
-								<DropdownMenuItem
-									onClick={() =>
-										router.push(`/operations/new?fromQuotation=${doc.id}`)
-									}
-									className="gap-2"
-								>
-									<Handshake className="size-4" /> Deal → Buat event + invoice
-								</DropdownMenuItem>
-							) : null}
-							{isQuotation && !doc.id ? (
-								<p className="px-2 py-1.5 text-[11px] text-muted-foreground">
-									Simpan dulu untuk membuat event dari quotation ini.
-								</p>
-							) : null}
 							<DropdownMenuItem
 								onClick={duplicateAsQuotation}
 								className="gap-2"
