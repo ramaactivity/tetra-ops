@@ -8,14 +8,7 @@ import { formatPhoneLocal } from "@/lib/format";
 import type { InboxData, InboxRow } from "./core";
 
 /** Jam dari teks bebas: "11.00 - 14.00" → [11:00, 14:00]; "19.00" → [19:00, ""]. */
-export function parseInboxTime(
-	raw: string | null | undefined,
-): [string, string] {
-	const range = parseTimeRange(raw);
-	if (range[0]) return range;
-	const m = /(\d{1,2})[:.](\d{2})/.exec(raw ?? "");
-	return m ? [`${m[1].padStart(2, "0")}:${m[2]}`, ""] : ["", ""];
-}
+export const parseInboxTime = parseTimeRange;
 
 /** "4R" / "polaroid" / "2r landscape" → enum FRAME_SIZES; tak jelas → "". */
 export function parseFrameSize(raw: string | null | undefined): string {

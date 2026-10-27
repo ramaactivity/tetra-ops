@@ -6,16 +6,20 @@ import { formatPhoneLocal } from "@/lib/format";
 import { computeTotals } from "./totals";
 import type { DocumentRow } from "./types";
 
-/** "10:00–14:00" / "10.00 - 14.00" → ["10:00", "14:00"]; selain itu kosong. */
+/**
+ * "10:00–14:00" / "10.00 - 14.00" → ["10:00", "14:00"]; jam tunggal
+ * "18:00" → ["18:00", ""] (jam selesai diturunkan form dari durasi paket).
+ */
 export function parseTimeRange(
 	raw: string | null | undefined,
 ): [string, string] {
+	const pad = (h: string, mm: string) => `${h.padStart(2, "0")}:${mm}`;
 	const m = /(\d{1,2})[:.](\d{2})\s*[–\-—]\s*(\d{1,2})[:.](\d{2})/.exec(
 		raw ?? "",
 	);
-	if (!m) return ["", ""];
-	const pad = (h: string, mm: string) => `${h.padStart(2, "0")}:${mm}`;
-	return [pad(m[1], m[2]), pad(m[3], m[4])];
+	if (m) return [pad(m[1], m[2]), pad(m[3], m[4])];
+	const one = /(\d{1,2})[:.](\d{2})/.exec(raw ?? "");
+	return one ? [pad(one[1], one[2]), ""] : ["", ""];
 }
 
 /**
