@@ -857,7 +857,14 @@ export function DocumentEditor({
 							// Klien & pembooking dari event; pilihan "Ditujukan kepada"
 							// disimpan di event → semua dokumen event ini seragam.
 							<>
-								<Field label="Ditujukan kepada">
+								<Field
+									label="Ditujukan kepada"
+									hint={
+										billToMode === "vendor"
+											? "Nama vendor & u.p. ikut PIC vendor di data event — ganti PIC lewat tombol Edit di halaman event."
+											: undefined
+									}
+								>
 									<div className="flex flex-wrap gap-1.5">
 										{BILL_TO_MODES.filter(
 											(m) =>
