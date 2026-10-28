@@ -19,6 +19,7 @@ import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
 import { fetchGuestCards } from "@/lib/booth-sync";
 import { quotationToBookingDefaults } from "@/lib/documents/booking-defaults";
 import { loadDocument } from "@/lib/documents/load";
+import { computeTotals } from "@/lib/documents/totals";
 import { parseGrossUpRate } from "@/lib/documents/types";
 import {
 	fetchSalesCandidates,
@@ -184,6 +185,21 @@ export default async function NewBookingPage({
 						validSource?.doc_type === "invoice" ? validSource.id : undefined
 					}
 					sourceInboxId={inboxItem?.id}
+					sourceDoc={
+						validSource
+							? {
+									number: validSource.doc_number ?? "dokumen asal",
+									total: computeTotals(
+										validSource.items,
+										validSource.discount,
+										{
+											enabled: validSource.gross_up_enabled,
+											ratePct: Number(validSource.gross_up_rate),
+										},
+									).total,
+								}
+							: undefined
+					}
 					packages={(packages ?? []) as PackageOption[]}
 					addons={(addons ?? []) as AddonOption[]}
 					guestCards={await fetchGuestCards()}

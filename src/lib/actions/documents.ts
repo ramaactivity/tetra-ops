@@ -533,6 +533,11 @@ export async function createInvoiceFromQuotation(
 			.select("id")
 			.single();
 		if (error) return { ok: false, error: error.message };
+		// Deal langsung ke event: samakan angka invoice dengan event.
+		if (eventId) {
+			const linked = await linkInvoiceToEvent(supabase, data.id, eventId);
+			if (!linked.ok) return linked;
+		}
 		await supabase
 			.from("documents")
 			.update({ status: "accepted" })

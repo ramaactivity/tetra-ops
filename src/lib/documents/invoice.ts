@@ -13,6 +13,7 @@ import {
 	billTo,
 	DOC_PREFIX,
 	type DocClient,
+	type DocItem,
 	type DocType,
 	type DocumentRow,
 	defaultTerms,
@@ -102,6 +103,56 @@ export async function syncDocClientsFromEvent(
 			.update({ client: next })
 			.eq("id", d.id);
 		if (error) console.error("[syncDocClientsFromEvent]", d.id, error.message);
+	}
+}
+
+/**
+ * Angka dokumen = angka event (satu sumber dengan Billing & kuitansi). Isi
+ * item dari quotation/DP dipertahankan kalau subtotalnya sama; diskon &
+ * gross-up selalu dari event — termasuk potongan langsung vendor. Tanpa ini
+ * invoice bisa 2,25jt sementara sisa di kuitansi dihitung dari tagihan event
+ * 2jt (PT. BIPO, 28 Okt 2026).
+ */
+function numbersFromEvent(ev: EventForPdf, curItems: DocItem[]) {
+	const subtotal = (items: DocItem[]) =>
+		items.reduce((s, i) => s + i.unit_price * i.qty, 0);
+	const evItems = itemsFromEvent(ev);
+	return {
+		items: subtotal(curItems) === subtotal(evItems) ? curItems : evItems,
+		discount: discountFromEvent(ev),
+		gross_up_enabled: ev.gross_up_pph_amount > 0,
+	};
+}
+
+/**
+ * Setelah event diubah (form booking): invoice & nota lunas aktif ikut angka
+ * event. Kuitansi tidak perlu — jumlahnya = pembayaran, sisanya dibaca live.
+ */
+export async function syncDocNumbersFromEvent(
+	supabase: SupabaseClient,
+	eventId: string,
+): Promise<void> {
+	const ev = await loadEventForPdfById(supabase, eventId);
+	if (!ev) return;
+	const { data: docs } = await supabase
+		.from("documents")
+		.select("id, items, discount, gross_up_enabled")
+		.eq("event_id", eventId)
+		.in("doc_type", ["invoice", "nota_lunas"])
+		.neq("status", "void");
+	for (const d of docs ?? []) {
+		const next = numbersFromEvent(ev, (d.items ?? []) as DocItem[]);
+		if (
+			next.discount === Number(d.discount) &&
+			next.gross_up_enabled === d.gross_up_enabled &&
+			JSON.stringify(next.items) === JSON.stringify(d.items)
+		)
+			continue;
+		const { error } = await supabase
+			.from("documents")
+			.update(next)
+			.eq("id", d.id);
+		if (error) console.error("[syncDocNumbersFromEvent]", d.id, error.message);
 	}
 }
 
@@ -230,7 +281,7 @@ export async function linkInvoiceToEvent(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
 	const { data: inv } = await supabase
 		.from("documents")
-		.select("id, doc_type, event_id, status")
+		.select("id, doc_type, event_id, status, items")
 		.eq("id", invoiceId)
 		.maybeSingle();
 	if (!inv || inv.doc_type !== "invoice") {
@@ -256,6 +307,7 @@ export async function linkInvoiceToEvent(
 			event_id: eventId,
 			event_info: eventInfoFromEvent(ev),
 			due_date: ev.due_date ?? addDays(ev.event_date, -1),
+			...numbersFromEvent(ev, (inv.items ?? []) as DocItem[]),
 		})
 		.eq("id", invoiceId);
 	if (error) return { ok: false, error: error.message };

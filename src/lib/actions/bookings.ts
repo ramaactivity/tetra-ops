@@ -13,6 +13,7 @@ import {
 	getOrCreateInvoice,
 	linkInvoiceToEvent,
 	syncDocClientsFromEvent,
+	syncDocNumbersFromEvent,
 } from "@/lib/documents/invoice";
 import { BILL_TO_MODES } from "@/lib/documents/types";
 import { isDriveConfigured } from "@/lib/drive/client";
@@ -1678,6 +1679,7 @@ export async function updateBooking(
 
 	// Klien/pembooking di invoice, nota & BAST mengikuti event.
 	await syncDocClientsFromEvent(supabase, id);
+	await syncDocNumbersFromEvent(supabase, id);
 
 	// Best-effort: kabari grup Telegram owner perubahan penting (pindah tanggal,
 	// ganti paket, pindah lokasi, add-on berubah, dst). Event legacy di-skip —

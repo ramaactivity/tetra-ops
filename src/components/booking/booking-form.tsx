@@ -450,6 +450,7 @@ export function BookingForm({
 	sourceQuotationId,
 	sourceInvoiceId,
 	sourceInboxId,
+	sourceDoc,
 }: {
 	action: Action;
 	packages: PackageOption[];
@@ -475,6 +476,8 @@ export function BookingForm({
 	sourceInvoiceId?: string;
 	/** Booking lahir dari Booking Masuk (bot WA) → item ditandai jadi event. */
 	sourceInboxId?: string;
+	/** Quotation/invoice DP asal: total yang sudah disepakati klien. */
+	sourceDoc?: { number: string; total: number };
 }) {
 	const [state, formAction, pending] = useActionState(action, undefined);
 	const router = useRouter();
@@ -1314,6 +1317,11 @@ export function BookingForm({
 		grandTotal,
 		basePrice,
 	]);
+	// Yang benar-benar ditagih ke klien/vendor (= tagihan Billing): potongan
+	// langsung vendor mengurangi, komisi biasa tidak.
+	const billedToClient =
+		grandTotal -
+		(vendorCommissionMode === "upfront_cut" ? vendorCommissionAmount : 0);
 
 	// Section progress — derived from state + server errors.
 	const navItems = useMemo<NavItem[]>(() => {
@@ -1593,6 +1601,13 @@ export function BookingForm({
 		setVendorName(name);
 		if (found?.pic_name) setVendorPicName(found.pic_name);
 		if (found?.contact) setVendorContact(found.contact);
+		// Harga sudah disepakati di quotation/invoice DP → jangan pasang komisi
+		// default vendor diam-diam; diskon di dokumen itu bisa jadi sudah jatah
+		// vendor (PT. BIPO, 28 Okt 2026: 250rb terpotong dua kali).
+		if (sourceDoc) {
+			setVendorCommissionValue("0");
+			return;
+		}
 		// Apply commission scheme defaults from vendor master.
 		if (found?.commission_mode) setVendorCommissionMode(found.commission_mode);
 		if (found?.commission_value_type) {
@@ -1950,6 +1965,34 @@ export function BookingForm({
 												))}
 											</div>
 										</div>
+										{sourceDoc ? (
+											<p className="text-[12px] text-muted-foreground">
+												Harga sudah disepakati di {sourceDoc.number}, jadi
+												komisi vendor tidak diisi otomatis. Isi hanya kalau
+												memang ada komisi di luar diskon dokumen itu.
+											</p>
+										) : null}
+										{discount > 0 && vendorCommissionAmount > 0 ? (
+											<div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
+												<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+												<p>
+													Ada diskon{" "}
+													<span className="tabular">
+														{formatRupiah(discount)}
+													</span>{" "}
+													dan{" "}
+													{vendorCommissionMode === "upfront_cut"
+														? "potongan"
+														: "komisi"}{" "}
+													vendor{" "}
+													<span className="tabular">
+														{formatRupiah(vendorCommissionAmount)}
+													</span>{" "}
+													sekaligus. Kalau diskon itu sudah jatah vendor, isi
+													komisi 0 supaya tidak terpotong dua kali.
+												</p>
+											</div>
+										) : null}
 										{/* Commission scheme — mode + type segmented controls */}
 										<div className="space-y-3">
 											<div className="space-y-1">
@@ -4123,6 +4166,35 @@ export function BookingForm({
 						title="Financial"
 						description="Harga dan modifier."
 					>
+						{sourceDoc ? (
+							<div
+								className={`flex items-start gap-2 rounded-md border p-3 text-fluid-caption ${
+									billedToClient === sourceDoc.total
+										? "border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200"
+										: "border-rose-500/40 bg-rose-500/10 text-rose-900 dark:text-rose-200"
+								}`}
+							>
+								{billedToClient === sourceDoc.total ? (
+									<Check className="mt-0.5 size-4 shrink-0" />
+								) : (
+									<AlertTriangle className="mt-0.5 size-4 shrink-0" />
+								)}
+								<p>
+									Total di {sourceDoc.number}:{" "}
+									<span className="tabular font-medium">
+										{formatRupiah(sourceDoc.total)}
+									</span>
+									{" · "}tagihan event ini:{" "}
+									<span className="tabular font-medium">
+										{formatRupiah(billedToClient)}
+									</span>
+									.{" "}
+									{billedToClient === sourceDoc.total
+										? "Sama — invoice & kuitansi akan cocok."
+										: "Beda! Invoice & kuitansi akan ikut angka event, bukan angka yang sudah dikirim ke klien. Cek diskon, potongan vendor, dan harga."}
+								</p>
+							</div>
+						) : null}
 						<Field
 							label="Base Price (IDR)"
 							name="base_price"
