@@ -395,6 +395,20 @@ export function PaymentForm({
 						</div>
 					</Field>
 
+					<Field label="Nama pengirim" error={err("payer_name")}>
+						<Input
+							name="payer_name"
+							maxLength={120}
+							defaultValue={get("payer_name")}
+							placeholder="Sesuai nama rekening pengirim (opsional)"
+							className="h-10 rounded-xl text-[0.9375rem]"
+						/>
+						<p className="mt-1 text-[12px] text-muted-foreground">
+							Dicetak di kuitansi sebagai &ldquo;Telah terima dari&rdquo;.
+							Kosongkan kalau pengirimnya sama dengan yang ditagih.
+						</p>
+					</Field>
+
 					<Field label="Catatan" error={err("notes")}>
 						<TextareaField
 							name="notes"

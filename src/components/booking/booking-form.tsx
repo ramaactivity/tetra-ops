@@ -267,6 +267,8 @@ export type BookingFormDefaults = Partial<{
 	pic_wa: string;
 	/** JSON [{name, wa}] PIC cadangan — lihat lib/events/extra-pics. */
 	extra_pics: string;
+	/** events.bill_to_mode ("" = belum dipilih). */
+	bill_to_mode: string;
 	backdrop_id: string;
 	/** Jumlah unit/spot photobooth (1–3). */
 	unit_count: number | string;
@@ -335,7 +337,6 @@ const DEFAULT_NAME_TPL: NameTpl = {
 	title: { label: "Nama acara", placeholder: "cth. Grand Opening" },
 };
 
-/** yyyy-MM-dd ± n hari (UTC, tanpa zona waktu). */
 /** Pilihan tenggat pelunasan: n = hari sebelum acara (negatif = sesudah). */
 const DUE_PRESETS = [
 	{ n: 7, label: "H-7" },
@@ -355,6 +356,7 @@ function daysBetween(from: string, to: string): number {
 	);
 }
 
+/** yyyy-MM-dd ± n hari (UTC, tanpa zona waktu). */
 function shiftIsoDate(iso: string, n: number): string {
 	const d = new Date(`${iso}T00:00:00Z`);
 	d.setUTCDate(d.getUTCDate() + n);
@@ -558,6 +560,11 @@ export function BookingForm({
 	const [vendorName, setVendorName] = useState(get("vendor_name"));
 	const [vendorPicName, setVendorPicName] = useState(get("vendor_pic_name"));
 	const [vendorContact, setVendorContact] = useState(get("vendor_contact"));
+	// "Ditujukan kepada" dokumen (events.bill_to_mode). Form ini cuma memilih
+	// vendor vs klien langsung; pilihan lain (pembooking/custom) dari editor
+	// invoice dipertahankan.
+	const initialBillTo = get("bill_to_mode", "");
+	const [billToVendor, setBillToVendor] = useState(initialBillTo === "vendor");
 	// New commission model — see migration 20260520_vendor_commission_mode.sql
 	const [vendorCommissionMode, setVendorCommissionMode] = useState<
 		"commission" | "upfront_cut"
@@ -1897,6 +1904,40 @@ export function BookingForm({
 													value={vendorContact}
 												/>
 											</Field>
+										</div>
+										<div className="space-y-2">
+											<div className="space-y-1">
+												<span className="text-[13px] font-medium text-foreground">
+													Invoice & kuitansi ditujukan ke
+												</span>
+												<p className="text-[12px] text-muted-foreground">
+													Vendor = ditagih ke {vendorName || "vendor"}, u.p. PIC
+													vendor. Klien langsung = vendor meneruskan ke
+													kliennya.
+												</p>
+											</div>
+											<div className="flex flex-wrap gap-2">
+												{(
+													[
+														[true, "Vendor"],
+														[false, "Klien langsung"],
+													] as const
+												).map(([v, label]) => (
+													<button
+														key={label}
+														type="button"
+														onClick={() => setBillToVendor(v)}
+														aria-pressed={billToVendor === v}
+														className={`h-9 rounded-full border px-4 text-fluid-caption font-medium transition ${
+															billToVendor === v
+																? "border-[#059669] bg-[#059669] text-white"
+																: "border-border-default text-foreground/70 hover:bg-secondary"
+														}`}
+													>
+														{label}
+													</button>
+												))}
+											</div>
 										</div>
 										{/* Commission scheme — mode + type segmented controls */}
 										<div className="space-y-3">
@@ -3715,6 +3756,17 @@ export function BookingForm({
 								</Field>
 							</div>
 
+							<input
+								type="hidden"
+								name="bill_to_mode"
+								value={
+									channel === "vendor" && billToVendor
+										? "vendor"
+										: initialBillTo === "vendor"
+											? "auto"
+											: initialBillTo
+								}
+							/>
 							{/* PIC cadangan: dihubungi crew kalau PIC utama slow respon. */}
 							<input
 								type="hidden"

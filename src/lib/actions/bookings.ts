@@ -14,6 +14,7 @@ import {
 	linkInvoiceToEvent,
 	syncDocClientsFromEvent,
 } from "@/lib/documents/invoice";
+import { BILL_TO_MODES } from "@/lib/documents/types";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
 import { parseExtraPics } from "@/lib/events/extra-pics";
@@ -263,6 +264,12 @@ const BookingInputSchema = z.object({
 	pic_wa: optionalString(20),
 	/** PIC cadangan [{name, wa}] (JSON string) — lihat lib/events/extra-pics. */
 	extra_pics: z.string().nullish().transform(parseExtraPics),
+	/** "Ditujukan kepada" dokumen; "" = tidak diubah. */
+	bill_to_mode: z
+		.enum(BILL_TO_MODES)
+		.or(z.literal(""))
+		.nullish()
+		.transform((v) => v || null),
 	// Customization (new model — backdrop master)
 	backdrop_id: z
 		.string()
@@ -367,6 +374,7 @@ const FORM_KEYS = [
 	"pic_name",
 	"pic_wa",
 	"extra_pics",
+	"bill_to_mode",
 	"backdrop_id",
 	"unit_count",
 	"spots",
@@ -935,6 +943,16 @@ function buildEventPayload(
 		pic_name: input.pic_name,
 		pic_wa: input.pic_wa,
 		extra_pics: input.extra_pics,
+		// Tagih ke vendor hanya bermakna untuk event vendor.
+		...(input.bill_to_mode
+			? {
+					bill_to_mode:
+						input.bill_to_mode === "auto" ||
+						(input.bill_to_mode === "vendor" && input.channel !== "vendor")
+							? null
+							: input.bill_to_mode,
+				}
+			: {}),
 		backdrop_id: input.backdrop_id,
 		unit_count: input.unit_count,
 		// Hanya spot yang benar-benar dipakai.

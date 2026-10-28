@@ -304,12 +304,19 @@ export function parseGrossUpRate(v: unknown): number {
 }
 
 /** "Ditujukan kepada" dokumen event — disimpan di events.bill_to_*. */
-export const BILL_TO_MODES = ["auto", "client", "booker", "custom"] as const;
+export const BILL_TO_MODES = [
+	"auto",
+	"client",
+	"booker",
+	"vendor",
+	"custom",
+] as const;
 export type BillToMode = (typeof BILL_TO_MODES)[number];
 export const BILL_TO_LABEL: Record<BillToMode, string> = {
 	auto: "Klien + u.p.",
 	client: "Klien saja",
 	booker: "Pembooking saja",
+	vendor: "Vendor (WO/EO)",
 	custom: "Custom",
 };
 
@@ -321,30 +328,46 @@ export type BillToSource = {
 	bill_to_mode: string | null;
 	bill_to_name: string | null;
 	bill_to_attn: string | null;
+	client_wa?: string | null;
+	/** Vendor (WO/EO) yang membawa acara — dipakai mode "vendor". */
+	vendor_name?: string | null;
+	vendor_pic_name?: string | null;
+	vendor_contact?: string | null;
 };
 
 /** Kategori yang klien-nya orang (pengantin/yang ultah), bukan organisasi. */
 const PERSONAL_CATEGORIES = new Set(["wedding", "pernikahan", "birthday"]);
 
 /**
- * Nama di KEPADA + baris "u.p.". Default = klien (events.client_org, jatuh ke
- * judul event untuk data lama) + pembooking bila orangnya lain.
+ * Nama di KEPADA + baris "u.p." + nomor WA tujuan kirim. Default = klien
+ * (events.client_org, jatuh ke judul event untuk data lama) + pembooking bila
+ * orangnya lain. Mode "vendor": tagihan ke WO/EO, u.p. PIC vendor.
  */
 export function billTo(ev: BillToSource): {
 	name: string;
 	attn: string | null;
+	phone: string | null;
 } {
 	const klien = ev.client_org?.trim() || ev.client_name;
 	const booker = ev.booker_name?.trim() || null;
+	const phone = ev.client_wa ?? null;
 	switch (ev.bill_to_mode) {
 		case "client":
-			return { name: klien, attn: null };
+			return { name: klien, attn: null, phone };
 		case "booker":
-			return { name: booker || klien, attn: null };
+			return { name: booker || klien, attn: null, phone };
+		case "vendor":
+			if (!ev.vendor_name?.trim()) return { name: klien, attn: null, phone };
+			return {
+				name: ev.vendor_name.trim(),
+				attn: ev.vendor_pic_name?.trim() || null,
+				phone: ev.vendor_contact || phone,
+			};
 		case "custom":
 			return {
 				name: ev.bill_to_name?.trim() || klien,
 				attn: ev.bill_to_attn?.trim() || null,
+				phone,
 			};
 		default: {
 			const personal = PERSONAL_CATEGORIES.has(ev.event_category ?? "");
@@ -352,7 +375,7 @@ export function billTo(ev: BillToSource): {
 				booker && !personal && booker.toLowerCase() !== klien.toLowerCase()
 					? booker
 					: null;
-			return { name: klien, attn };
+			return { name: klien, attn, phone };
 		}
 	}
 }

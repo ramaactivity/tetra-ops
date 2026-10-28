@@ -37,6 +37,8 @@ export type PaymentCoreInput = {
 	paymentType: PaymentType;
 	proofUrl: string | null;
 	notes: string | null;
+	/** Nama pengirim / pemilik rekening → "Telah terima dari" di kuitansi. */
+	payerName?: string | null;
 };
 
 export type PaymentGuard =
@@ -148,6 +150,15 @@ export async function logPaymentCore(
 	if (error) {
 		console.error("[logPaymentCore] rpc error:", error);
 		return { ok: false, field: "_form", error: `DB: ${error.message}` };
+	}
+
+	// Sebelum kuitansi terbit (di bawah) supaya "Telah terima dari" = pengirim.
+	if (input.payerName) {
+		const { error: payerErr } = await supabase
+			.from("payments")
+			.update({ payer_name: input.payerName })
+			.eq("id", paymentId as string);
+		if (payerErr) console.error("[logPaymentCore] payer_name:", payerErr);
 	}
 
 	// Best-effort: kabari grup owner ada uang masuk.

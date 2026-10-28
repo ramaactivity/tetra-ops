@@ -78,7 +78,7 @@ import {
 	includesForPackage,
 	pendingAdminItems,
 } from "@/lib/documents/types";
-import { formatDateID, formatRupiah } from "@/lib/format";
+import { formatDateID, formatPhoneLocal, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { ClientPicker } from "./client-picker";
@@ -254,6 +254,8 @@ export function DocumentEditor({
 					// Custom: tampilkan persis yang diketik (termasuk saat dikosongkan).
 					name: next.mode === "custom" ? (next.name ?? "") : r.name,
 					attn: next.mode === "custom" ? (next.attn ?? "") : (r.attn ?? ""),
+					// Ke vendor → kirim WA ke PIC vendor; selain itu ke klien.
+					phone: r.phone ? formatPhoneLocal(r.phone) : d.client.phone,
 				},
 			};
 		});
@@ -789,7 +791,11 @@ export function DocumentEditor({
 							<>
 								<Field label="Ditujukan kepada">
 									<div className="flex flex-wrap gap-1.5">
-										{BILL_TO_MODES.map((m) => (
+										{BILL_TO_MODES.filter(
+											(m) =>
+												m !== "vendor" ||
+												!!linkedEvent.billToSource.vendor_name,
+										).map((m) => (
 											<Chip
 												key={m}
 												active={billToMode === m}

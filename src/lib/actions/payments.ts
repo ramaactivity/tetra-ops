@@ -31,6 +31,13 @@ const PaymentInputSchema = z.object({
 		.optional()
 		.or(z.literal(""))
 		.transform((v) => (v ? v : null)),
+	payer_name: z
+		.string()
+		.trim()
+		.max(120)
+		.optional()
+		.or(z.literal(""))
+		.transform((v) => (v ? v : null)),
 });
 
 export type PaymentInput = z.infer<typeof PaymentInputSchema>;
@@ -65,6 +72,7 @@ function snapshotValues(formData: FormData): Record<string, string> {
 		"payment_type",
 		"proof_url",
 		"notes",
+		"payer_name",
 	];
 	return Object.fromEntries(
 		keys.map((k) => [k, String(formData.get(k) ?? "")]),
@@ -87,6 +95,7 @@ export async function logPayment(
 			payment_type: formData.get("payment_type"),
 			proof_url: formData.get("proof_url") ?? "",
 			notes: formData.get("notes") ?? "",
+			payer_name: formData.get("payer_name") ?? "",
 		});
 		if (!parsed.success) {
 			return {
@@ -108,6 +117,7 @@ export async function logPayment(
 				paymentType: parsed.data.payment_type,
 				proofUrl: parsed.data.proof_url,
 				notes: parsed.data.notes,
+				payerName: parsed.data.payer_name,
 			},
 			me.profile.id,
 		);

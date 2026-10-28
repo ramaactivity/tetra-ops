@@ -42,17 +42,16 @@ export async function allocateNumber(
 	return data as string;
 }
 
-type EventClientFields = BillToSource &
-	Pick<EventForPdf, "client_wa" | "client_email">;
+type EventClientFields = BillToSource & Pick<EventForPdf, "client_email">;
 
 /** Klien dokumen dari event: KEPADA/u.p. sesuai pilihan "Ditujukan kepada". */
 export function clientFromEvent(ev: EventClientFields): DocClient {
-	const { name, attn } = billTo(ev);
+	const { name, attn, phone } = billTo(ev);
 	return {
 		name,
 		org: null,
 		attn,
-		phone: ev.client_wa ? formatPhoneLocal(ev.client_wa) : null,
+		phone: phone ? formatPhoneLocal(phone) : null,
 		email: ev.client_email,
 		address: null,
 	};
@@ -70,7 +69,7 @@ export async function syncDocClientsFromEvent(
 	const { data: ev } = await supabase
 		.from("events")
 		.select(
-			"client_name, client_org, booker_name, event_category, bill_to_mode, bill_to_name, bill_to_attn, client_wa, client_email",
+			"client_name, client_org, booker_name, event_category, bill_to_mode, bill_to_name, bill_to_attn, client_wa, client_email, vendor_name, vendor_pic_name, vendor_contact",
 		)
 		.eq("id", eventId)
 		.maybeSingle();
@@ -78,16 +77,22 @@ export async function syncDocClientsFromEvent(
 	const live = clientFromEvent(ev as EventClientFields);
 	const { data: docs } = await supabase
 		.from("documents")
-		.select("id, client")
+		.select("id, client, payment_id")
 		.eq("event_id", eventId)
 		.neq("status", "void");
+	const payers = await payerNames(
+		supabase,
+		(docs ?? []).map((d) => d.payment_id as string | null),
+	);
 	for (const d of docs ?? []) {
 		const cur = (d.client ?? {}) as DocClient;
+		// Kuitansi dengan nama pengirim: "Telah terima dari" tetap si pengirim.
+		const payer = d.payment_id ? payers.get(d.payment_id as string) : null;
 		const next: DocClient = {
 			...cur,
-			name: live.name,
+			name: payer ?? live.name,
 			org: null,
-			attn: live.attn,
+			attn: payer ? null : live.attn,
 			phone: live.phone,
 			email: cur.email || live.email,
 		};
@@ -98,6 +103,23 @@ export async function syncDocClientsFromEvent(
 			.eq("id", d.id);
 		if (error) console.error("[syncDocClientsFromEvent]", d.id, error.message);
 	}
+}
+
+/** payment_id → nama pengirim (payments.payer_name) yang terisi saja. */
+async function payerNames(
+	supabase: SupabaseClient,
+	paymentIds: Array<string | null>,
+): Promise<Map<string, string>> {
+	const ids = paymentIds.filter((x): x is string => !!x);
+	if (ids.length === 0) return new Map();
+	const { data } = await supabase
+		.from("payments")
+		.select("id, payer_name")
+		.in("id", ids)
+		.not("payer_name", "is", null);
+	return new Map(
+		(data ?? []).map((p) => [p.id as string, (p.payer_name as string).trim()]),
+	);
 }
 
 export async function findActiveDoc(
@@ -313,7 +335,7 @@ export async function issueReceiptCore(
 
 	const { data: pay } = await supabase
 		.from("payments")
-		.select("event_id, is_reversed")
+		.select("event_id, is_reversed, payer_name")
 		.eq("id", paymentId)
 		.maybeSingle();
 	if (!pay) return { ok: false, error: "Pembayaran tidak ditemukan." };
@@ -323,6 +345,8 @@ export async function issueReceiptCore(
 	const ev = await loadEventForPdfById(supabase, pay.event_id as string);
 	if (!ev) return { ok: false, error: "Event tidak ditemukan." };
 	const snap = await billingSnapshot(supabase, pay.event_id as string, ev);
+	const payer = (pay.payer_name as string | null)?.trim();
+	if (payer) snap.client = { ...snap.client, name: payer, attn: null };
 	try {
 		const docNumber = await allocateNumber(supabase, "receipt", today);
 		const { data, error } = await supabase
