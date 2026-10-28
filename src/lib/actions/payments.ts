@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { syncDocClientsFromEvent } from "@/lib/documents/invoice";
 import {
 	type IssuedPaymentDoc,
 	logPaymentCore,
@@ -142,6 +143,36 @@ export async function logPayment(
 			errors: { _form: [`Unexpected: ${message}`] },
 			values: snapshotValues(formData),
 		};
+	}
+}
+
+/**
+ * Ganti nama pengirim pembayaran yang sudah tercatat (mis. PIC vendor
+ * berganti). Kuitansinya ikut: "Telah terima dari" = nama ini; dikosongkan →
+ * kembali ke pihak yang ditagih.
+ */
+export async function setPayerName(
+	projectId: string,
+	paymentId: string,
+	name: string,
+): Promise<{ error?: string }> {
+	try {
+		await requireOwnerLevel();
+		const supabase = await createClient();
+		const { data: pay, error } = await supabase
+			.from("payments")
+			.update({ payer_name: name.trim().slice(0, 120) || null })
+			.eq("id", paymentId)
+			.select("event_id")
+			.maybeSingle();
+		if (error) return { error: error.message };
+		if (!pay) return { error: "Pembayaran tidak ditemukan." };
+		await syncDocClientsFromEvent(supabase, pay.event_id as string);
+		revalidatePath(`/operations/${projectId}/payments`);
+		revalidatePath("/finance/dokumen");
+		return {};
+	} catch (err) {
+		return { error: err instanceof Error ? err.message : "Gagal menyimpan" };
 	}
 }
 

@@ -1,6 +1,12 @@
 "use client";
 
-import { BookOpen, ExternalLink, Loader2, RotateCcw } from "lucide-react";
+import {
+	BookOpen,
+	ExternalLink,
+	Loader2,
+	Pencil,
+	RotateCcw,
+} from "lucide-react";
 import { useState, useTransition } from "react";
 import { ReceiptButton } from "@/components/documents/receipt-button";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +20,10 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { TextareaField } from "@/components/ui/form-fields";
+import { Input } from "@/components/ui/input";
 import { MoneyAmount } from "@/components/ui/money-amount";
 import { toast } from "@/components/ui/toaster";
-import { reversePayment } from "@/lib/actions/payments";
+import { reversePayment, setPayerName } from "@/lib/actions/payments";
 import { formatDateID, formatRupiah } from "@/lib/format";
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
@@ -33,6 +40,8 @@ export type PaymentRow = {
 	payment_type: string;
 	proof_url: string | null;
 	notes: string | null;
+	/** Nama pengirim → "Telah terima dari" di kuitansi. */
+	payer_name?: string | null;
 	is_reversed: boolean;
 	reversal_reason: string | null;
 	bank: { bank_name: string; account_number: string | null } | null;
@@ -85,6 +94,20 @@ function PaymentItem({
 	const [pending, startTransition] = useTransition();
 	const [open, setOpen] = useState(false);
 	const [reason, setReason] = useState("");
+	const [payerOpen, setPayerOpen] = useState(false);
+	const [payer, setPayer] = useState(payment.payer_name ?? "");
+
+	function savePayer() {
+		startTransition(async () => {
+			const result = await setPayerName(projectId, payment.id, payer);
+			if (result.error) {
+				toast.error(result.error);
+				return;
+			}
+			toast.success("Nama pengirim disimpan — kuitansi ikut berubah");
+			setPayerOpen(false);
+		});
+	}
 
 	function handleReverse() {
 		if (reason.trim().length < 3) {
@@ -177,6 +200,19 @@ function PaymentItem({
 						{payment.ref_id}
 					</p>
 
+					{!muted && (
+						<button
+							type="button"
+							onClick={() => setPayerOpen(true)}
+							className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+						>
+							Pengirim:{" "}
+							<span className="font-medium text-foreground">
+								{payment.payer_name || "sama dengan yang ditagih"}
+							</span>
+							<Pencil className="size-3" aria-hidden />
+						</button>
+					)}
 					{payment.notes && (
 						<p className="text-[12px] text-muted-foreground">{payment.notes}</p>
 					)}
@@ -234,6 +270,41 @@ function PaymentItem({
 					</Button>
 				)}
 			</div>
+
+			<Dialog open={payerOpen} onOpenChange={setPayerOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Nama pengirim</DialogTitle>
+						<DialogDescription>
+							Sesuai nama rekening yang transfer. Dicetak di kuitansi sebagai
+							&ldquo;Telah terima dari&rdquo;. Kosongkan kalau sama dengan yang
+							ditagih.
+						</DialogDescription>
+					</DialogHeader>
+					<Input
+						value={payer}
+						onChange={(e) => setPayer(e.target.value)}
+						maxLength={120}
+						placeholder="cth. Ani (High Five EO)"
+						aria-label="Nama pengirim"
+						className="h-10 rounded-xl"
+					/>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="ghost"
+							onClick={() => setPayerOpen(false)}
+							disabled={pending}
+						>
+							Batal
+						</Button>
+						<Button type="button" onClick={savePayer} disabled={pending}>
+							{pending ? <Loader2 className="animate-spin" /> : null}
+							Simpan
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent className="sm:max-w-md">

@@ -48,7 +48,7 @@ export default async function ManagePaymentsPage({
 		supabase
 			.from("payments")
 			.select(
-				"id, ref_id, amount, payment_date, payment_type, proof_url, notes, is_reversed, reversal_reason, bank:bank_accounts(bank_name, account_number)",
+				"id, ref_id, amount, payment_date, payment_type, proof_url, notes, payer_name, is_reversed, reversal_reason, bank:bank_accounts(bank_name, account_number)",
 			)
 			.eq("event_id", event.id)
 			.order("payment_date", { ascending: false }),
