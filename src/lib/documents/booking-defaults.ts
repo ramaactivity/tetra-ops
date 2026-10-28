@@ -4,7 +4,7 @@ import type {
 } from "@/components/booking/booking-form";
 import { formatPhoneLocal } from "@/lib/format";
 import { computeTotals } from "./totals";
-import type { DocumentRow } from "./types";
+import { type DocumentRow, dealVendorCut } from "./types";
 
 /**
  * "10:00–14:00" / "10.00 - 14.00" → ["10:00", "14:00"]; jam tunggal
@@ -41,9 +41,27 @@ export function quotationToBookingDefaults(
 		ratePct: q.gross_up_rate,
 	});
 	const org = q.client.org?.trim();
+	// Rincian kesepakatan dari editor dokumen (isian sama dengan form booking).
+	// documents.discount = diskon klien + potongan langsung vendor → di event
+	// keduanya terpisah lagi (discount_amount vs vendor_commission_*).
+	const deal = q.deal;
+	const vendor = deal?.channel === "vendor";
+	const vendorCut = dealVendorCut(deal, q.items);
 
 	return {
-		channel: "direct",
+		channel: vendor ? "vendor" : "direct",
+		...(vendor
+			? {
+					vendor_name: deal.vendor_name ?? "",
+					vendor_pic_name: deal.vendor_pic_name ?? "",
+					vendor_contact: deal.vendor_contact ?? "",
+					vendor_commission_mode: deal.vendor_commission_mode ?? "commission",
+					vendor_commission_value_type:
+						deal.vendor_commission_value_type ?? "percent",
+					vendor_commission_value: deal.vendor_commission_value ?? 0,
+				}
+			: {}),
+		discount_type: deal?.discount_type ?? "",
 		// Form merangkai judul event sendiri dari klien + nama acara.
 		client_org: org || q.client.name,
 		event_title: q.event_info.title ?? "",
@@ -69,7 +87,7 @@ export function quotationToBookingDefaults(
 		addons: q.items
 			.filter((i) => i.addon_id)
 			.map((i) => ({ addon_id: i.addon_id as string, quantity: i.qty })),
-		discount_amount: q.discount,
+		discount_amount: Math.max(0, q.discount - vendorCut),
 		gross_up_pph_amount: totals.grossUp,
 		crew_notes: `Dari quotation ${q.doc_number}`,
 	};

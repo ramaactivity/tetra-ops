@@ -104,6 +104,20 @@ const DraftSchema = z.object({
 	due_date: nullishStr(10),
 	valid_until: nullishStr(10),
 	status: z.enum(DOC_STATUSES).default("draft"),
+	/** Rincian kesepakatan (quotation / invoice DP) — lihat DocDeal. */
+	deal: z
+		.object({
+			channel: z.enum(["direct", "vendor"]),
+			vendor_name: nullishStr(120),
+			vendor_pic_name: nullishStr(120),
+			vendor_contact: nullishStr(40),
+			vendor_commission_mode: z.enum(["commission", "upfront_cut"]).nullish(),
+			vendor_commission_value_type: z.enum(["percent", "flat"]).nullish(),
+			vendor_commission_value: z.coerce.number().min(0).nullish(),
+			vendor_cut: z.coerce.number().int().min(0).nullish(),
+			discount_type: nullishStr(40),
+		})
+		.nullish(),
 	/** Usulan diskon agent; null = sudah diterapkan/diabaikan owner. */
 	proposed_discount: z
 		.object({
@@ -193,6 +207,8 @@ export async function saveDocument(
 		due_date: d.due_date,
 		valid_until: d.valid_until,
 		status: d.status,
+		// Dokumen tertaut event: rincian ada di event (form booking).
+		deal: d.event_id ? null : (d.deal ?? null),
 		// Hanya disentuh kalau editor mengirimnya (terapkan/abaikan usulan).
 		...(d.proposed_discount !== undefined
 			? { proposed_discount: d.proposed_discount }
@@ -519,6 +535,7 @@ export async function createInvoiceFromQuotation(
 				discount: q.discount,
 				gross_up_enabled: q.gross_up_enabled,
 				gross_up_rate: q.gross_up_rate,
+				deal: q.deal ?? null,
 				notes: q.notes,
 				terms: defaultTerms("invoice", q.gross_up_enabled),
 				signer_id: q.signer_id,
@@ -583,6 +600,7 @@ export async function copyAsQuotation(sourceId: string): Promise<IssueResult> {
 				discount: src.discount,
 				gross_up_enabled: src.gross_up_enabled,
 				gross_up_rate: src.gross_up_rate,
+				deal: src.deal ?? null,
 				notes: src.notes,
 				terms: defaultTerms("quotation", src.gross_up_enabled),
 				signer_id: src.signer_id,

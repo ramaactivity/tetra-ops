@@ -31,7 +31,11 @@ import {
 	useState,
 	useTransition,
 } from "react";
-import type { VenueOption } from "@/components/booking/booking-form";
+import {
+	DISCOUNT_TYPE_OPTIONS,
+	type VendorOption,
+	type VenueOption,
+} from "@/components/booking/booking-form";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -70,10 +74,12 @@ import {
 	type BillToSource,
 	billTo,
 	DOC_TYPE_LABEL,
+	type DocDeal,
 	type DocItem,
 	type DocStatus,
 	type DocumentSigner,
 	DUE_PRESETS,
+	dealVendorCut,
 	defaultTerms,
 	includesForPackage,
 	pendingAdminItems,
@@ -91,8 +97,14 @@ import { StandaloneInvoicePanel } from "./standalone-invoice-panel";
 
 export type EditorDoc = Omit<
 	DocumentDraftInput,
-	"items" | "discount" | "gross_up_enabled" | "gross_up_rate" | "status"
+	| "items"
+	| "discount"
+	| "gross_up_enabled"
+	| "gross_up_rate"
+	| "status"
+	| "deal"
 > & {
+	deal?: DocDeal | null;
 	id?: string | null;
 	doc_number?: string | null;
 	status: DocStatus;
@@ -172,6 +184,7 @@ export function DocumentEditor({
 	linkedEvent,
 	paymentsPanel,
 	venues = [],
+	vendors = [],
 	delivery,
 }: {
 	initial: EditorDoc;
@@ -180,6 +193,8 @@ export function DocumentEditor({
 	signers: DocumentSigner[];
 	/** Master venue (sama dengan form booking) untuk quotation. */
 	venues?: VenueOption[];
+	/** Master vendor (sama dengan form booking) untuk rincian kesepakatan. */
+	vendors?: VendorOption[];
 	grossupRate: number;
 	linkedEvent: LinkedEvent | null;
 	/** Panel pembayaran (server component) — hanya untuk invoice. */
@@ -501,6 +516,59 @@ export function DocumentEditor({
 	function setTime(start: string, end: string) {
 		patchEvent("time", start && end ? `${start}–${end}` : start || end);
 	}
+
+	// ---- Rincian kesepakatan (quotation / invoice DP) — isian sama dengan
+	// form booking. documents.discount = diskon klien + potongan langsung
+	// vendor; deal.vendor_cut menyimpan bagian vendor supaya bisa dipisah lagi.
+	const deal: DocDeal = doc.deal ?? { channel: "direct" };
+	const vendorCut = deal.vendor_cut ?? 0;
+	const clientDiscount = Math.max(0, (doc.discount ?? 0) - vendorCut);
+	const setDeal = (patch: Partial<DocDeal>) =>
+		setDoc((d) => {
+			const cur: DocDeal = d.deal ?? { channel: "direct" };
+			const next = { ...cur, ...patch };
+			const cut = dealVendorCut(next, d.items);
+			const client = Math.max(0, (d.discount ?? 0) - (cur.vendor_cut ?? 0));
+			return {
+				...d,
+				deal: { ...next, vendor_cut: cut },
+				discount: client + cut,
+			};
+		});
+	const setClientDiscount = (v: number) =>
+		setDoc((d) => ({ ...d, discount: v + (d.deal?.vendor_cut ?? 0) }));
+	// Potongan persen ikut harga paket: item berubah → hitung ulang.
+	useEffect(() => {
+		setDoc((d) => {
+			if (!d.deal) return d;
+			const prev = d.deal.vendor_cut ?? 0;
+			const cut = dealVendorCut(d.deal, d.items);
+			if (cut === prev) return d;
+			return {
+				...d,
+				deal: { ...d.deal, vendor_cut: cut },
+				discount: Math.max(0, (d.discount ?? 0) - prev) + cut,
+			};
+		});
+	}, [doc.items]);
+	const pickDealVendor = (name: string) => {
+		const v = vendors.find(
+			(x) => x.name.trim().toLowerCase() === name.trim().toLowerCase(),
+		);
+		setDeal({
+			vendor_name: name,
+			...(v
+				? {
+						vendor_pic_name: v.pic_name ?? null,
+						vendor_contact: v.contact ?? null,
+						vendor_commission_mode: v.commission_mode ?? "commission",
+						vendor_commission_value_type: v.commission_value_type ?? "percent",
+						vendor_commission_value:
+							v.commission_value ?? v.commission_rate ?? null,
+					}
+				: {}),
+		});
+	};
 
 	const venueOptions = useMemo(
 		() =>
@@ -1136,7 +1204,7 @@ export function DocumentEditor({
 								onApply={(rp) =>
 									setDoc((d) => ({
 										...d,
-										discount: rp,
+										discount: rp + (d.deal?.vendor_cut ?? 0),
 										proposed_discount: null,
 									}))
 								}
@@ -1146,13 +1214,159 @@ export function DocumentEditor({
 								disabled={readOnly}
 							/>
 						) : null}
+						{!linkedEvent ? (
+							<div className="space-y-3 rounded-xl border border-border-subtle p-3">
+								<Field
+									label="Sumber booking"
+									hint="Sama dengan form booking — dibawa otomatis saat Deal."
+								>
+									<div className="flex flex-wrap gap-1.5">
+										<Chip
+											active={deal.channel === "direct"}
+											onClick={() => setDeal({ channel: "direct" })}
+										>
+											Langsung
+										</Chip>
+										<Chip
+											active={deal.channel === "vendor"}
+											onClick={() => setDeal({ channel: "vendor" })}
+										>
+											Vendor (WO/EO)
+										</Chip>
+									</div>
+								</Field>
+								{deal.channel === "vendor" ? (
+									<>
+										<div className="grid gap-3 sm:grid-cols-3">
+											<Field label="Vendor">
+												<Combobox
+													value={deal.vendor_name ?? ""}
+													onValueChange={pickDealVendor}
+													options={vendors.map((v) => ({
+														value: v.name,
+														label: v.name,
+													}))}
+													placeholder="cth. High Five EO"
+													allowFreeText
+													aria-label="Vendor"
+												/>
+											</Field>
+											<Field label="PIC vendor">
+												<TextField
+													value={deal.vendor_pic_name ?? ""}
+													onChange={(e) =>
+														setDeal({ vendor_pic_name: e.target.value })
+													}
+													placeholder="Nama PIC"
+												/>
+											</Field>
+											<Field label="WA PIC vendor">
+												<TextField
+													value={deal.vendor_contact ?? ""}
+													onChange={(e) =>
+														setDeal({ vendor_contact: e.target.value })
+													}
+													placeholder="08xxxxxxxxxx"
+												/>
+											</Field>
+										</div>
+										<Field
+											label="Skema komisi vendor"
+											hint={
+												deal.vendor_commission_mode === "upfront_cut"
+													? `Vendor memotong saat bayar ke Tetra — masuk total dokumen: −${formatRupiah(vendorCut)}.`
+													: "Tetra transfer komisi ke vendor setelah acara — tidak mengubah total dokumen."
+											}
+										>
+											<div className="flex flex-wrap items-center gap-1.5">
+												<Chip
+													active={deal.vendor_commission_mode !== "upfront_cut"}
+													onClick={() =>
+														setDeal({ vendor_commission_mode: "commission" })
+													}
+												>
+													Komisi langsung
+												</Chip>
+												<Chip
+													active={deal.vendor_commission_mode === "upfront_cut"}
+													onClick={() =>
+														setDeal({ vendor_commission_mode: "upfront_cut" })
+													}
+												>
+													Potongan langsung
+												</Chip>
+												<span className="mx-1 h-4 w-px bg-border-default" />
+												<Chip
+													active={deal.vendor_commission_value_type !== "flat"}
+													onClick={() =>
+														setDeal({ vendor_commission_value_type: "percent" })
+													}
+												>
+													%
+												</Chip>
+												<Chip
+													active={deal.vendor_commission_value_type === "flat"}
+													onClick={() =>
+														setDeal({ vendor_commission_value_type: "flat" })
+													}
+												>
+													Rp
+												</Chip>
+												<NumberField
+													value={deal.vendor_commission_value ?? 0}
+													min={0}
+													step={
+														deal.vendor_commission_value_type === "flat"
+															? 1000
+															: 0.5
+													}
+													onChange={(e) =>
+														setDeal({
+															vendor_commission_value:
+																Number(e.target.value) || 0,
+														})
+													}
+													className="w-28 text-right"
+													aria-label="Nilai komisi vendor"
+												/>
+											</div>
+										</Field>
+									</>
+								) : null}
+							</div>
+						) : null}
 						<div className="grid gap-4 sm:grid-cols-2">
-							<Field label="Diskon (Rp)">
-								<MoneyInput
-									value={doc.discount ?? 0}
-									onValueChange={(v) => patch("discount", v)}
-								/>
-							</Field>
+							{linkedEvent ? (
+								<Field label="Diskon (Rp)">
+									<MoneyInput
+										value={doc.discount ?? 0}
+										onValueChange={(v) => patch("discount", v)}
+									/>
+								</Field>
+							) : (
+								<div className="space-y-3">
+									<Field label="Diskon untuk klien (Rp)">
+										<MoneyInput
+											value={clientDiscount}
+											onValueChange={setClientDiscount}
+										/>
+									</Field>
+									{clientDiscount > 0 ? (
+										<Field label="Tipe diskon">
+											<Combobox
+												value={deal.discount_type ?? ""}
+												onValueChange={(v) =>
+													setDeal({ discount_type: v || null })
+												}
+												options={DISCOUNT_TYPE_OPTIONS.filter((o) => o.value)}
+												placeholder="Pilih tipe diskon"
+												allowFreeText={false}
+												aria-label="Tipe diskon"
+											/>
+										</Field>
+									) : null}
+								</div>
+							)}
 							<div className="space-y-1.5">
 								<span className={LABEL}>Gross-up PPh</span>
 								<div className="flex h-10 items-center gap-3">
@@ -1189,7 +1403,20 @@ export function DocumentEditor({
 						</div>
 						<dl className="space-y-1 rounded-xl bg-secondary/60 px-4 py-3 text-[13px]">
 							<Row k="Subtotal" v={formatRupiah(totals.subtotal)} />
-							{totals.discount > 0 ? (
+							{!linkedEvent && vendorCut > 0 ? (
+								<>
+									{clientDiscount > 0 ? (
+										<Row
+											k="Diskon klien"
+											v={`- ${formatRupiah(clientDiscount)}`}
+										/>
+									) : null}
+									<Row
+										k={`Potongan langsung ${deal.vendor_name || "vendor"}`}
+										v={`- ${formatRupiah(vendorCut)}`}
+									/>
+								</>
+							) : totals.discount > 0 ? (
 								<Row k="Diskon" v={`- ${formatRupiah(totals.discount)}`} />
 							) : null}
 							{totals.grossUp > 0 ? (

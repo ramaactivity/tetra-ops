@@ -269,6 +269,7 @@ export type BookingFormDefaults = Partial<{
 	extra_pics: string;
 	/** events.bill_to_mode ("" = belum dipilih). */
 	bill_to_mode: string;
+	discount_type: string;
 	backdrop_id: string;
 	/** Jumlah unit/spot photobooth (1–3). */
 	unit_count: number | string;
@@ -409,7 +410,7 @@ function ValueTypeToggle({
 	);
 }
 
-const DISCOUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+export const DISCOUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 	{ value: "", label: "Pilih tipe diskon" },
 	{ value: "promo", label: "Promo (musiman / campaign)" },
 	{ value: "loyalty", label: "Loyalty (klien repeat)" },

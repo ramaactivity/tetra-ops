@@ -20,7 +20,7 @@ export default async function NewDocumentPage({
 }) {
 	// ?type=invoice → invoice DP yang belum punya event (ditautkan saat DP masuk).
 	const isInvoice = (await searchParams).type === "invoice";
-	const { packages, addons, signers, grossupRate, venues } =
+	const { packages, addons, signers, grossupRate, venues, vendors } =
 		await loadEditorData();
 	const signer = signers.find((s) => s.is_default) ?? signers[0] ?? null;
 	const today = new Date().toISOString().slice(0, 10);
@@ -59,6 +59,7 @@ export default async function NewDocumentPage({
 				addons={addons}
 				signers={signers}
 				venues={venues}
+				vendors={vendors}
 				grossupRate={grossupRate}
 				linkedEvent={null}
 			/>

@@ -98,6 +98,49 @@ export type ProposedDiscount = {
 	alasan: string;
 };
 
+/**
+ * Rincian kesepakatan quotation / invoice DP — isian yang sama dengan form
+ * booking, supaya Deal → booking → invoice → kuitansi tidak simpang siur.
+ * documents.discount = diskon klien + vendor_cut (potongan langsung vendor).
+ */
+export type DocDeal = {
+	channel: "direct" | "vendor";
+	vendor_name?: string | null;
+	vendor_pic_name?: string | null;
+	vendor_contact?: string | null;
+	vendor_commission_mode?: "commission" | "upfront_cut" | null;
+	vendor_commission_value_type?: "percent" | "flat" | null;
+	vendor_commission_value?: number | null;
+	/** Nominal potongan langsung vendor yang sudah masuk documents.discount. */
+	vendor_cut?: number | null;
+	discount_type?: string | null;
+};
+
+/**
+ * Potongan langsung vendor (Rp) — rumus sama dengan form booking: persen
+ * dihitung dari harga paket (base price), nominal apa adanya. Mode komisi
+ * biasa tidak memotong tagihan (Tetra bayar belakangan) → 0.
+ */
+export function dealVendorCut(
+	deal: DocDeal | null | undefined,
+	items: ReadonlyArray<Pick<DocItem, "qty" | "unit_price" | "package_id">>,
+): number {
+	if (
+		!deal ||
+		deal.channel !== "vendor" ||
+		deal.vendor_commission_mode !== "upfront_cut"
+	)
+		return 0;
+	const v = Number(deal.vendor_commission_value) || 0;
+	if (deal.vendor_commission_value_type !== "percent") return Math.round(v);
+	const pkg = items.filter((i) => i.package_id);
+	const base = (pkg.length ? pkg : items).reduce(
+		(s, i) => s + i.unit_price * i.qty,
+		0,
+	);
+	return Math.round((base * v) / 100);
+}
+
 export type DocumentRow = {
 	id: string;
 	doc_type: DocType;
@@ -119,6 +162,8 @@ export type DocumentRow = {
 	issued_at: string;
 	due_date: string | null;
 	valid_until: string | null;
+	/** Quotation / invoice DP: rincian kesepakatan (lihat DocDeal). */
+	deal?: DocDeal | null;
 	status: DocStatus;
 	/** Benar-benar sampai ke klien (bot WA / tandai manual) — beda dari status. */
 	delivered_at?: string | null;
