@@ -336,6 +336,25 @@ const DEFAULT_NAME_TPL: NameTpl = {
 };
 
 /** yyyy-MM-dd ± n hari (UTC, tanpa zona waktu). */
+/** Pilihan tenggat pelunasan: n = hari sebelum acara (negatif = sesudah). */
+const DUE_PRESETS = [
+	{ n: 7, label: "H-7" },
+	{ n: 3, label: "H-3" },
+	{ n: 1, label: "H-1" },
+	{ n: 0, label: "Hari H" },
+	{ n: -1, label: "H+1" },
+	{ n: -3, label: "H+3" },
+	{ n: -7, label: "H+7" },
+];
+
+/** Selisih hari to − from (yyyy-MM-dd). */
+function daysBetween(from: string, to: string): number {
+	return Math.round(
+		(Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+			86_400_000,
+	);
+}
+
 function shiftIsoDate(iso: string, n: number): string {
 	const d = new Date(`${iso}T00:00:00Z`);
 	d.setUTCDate(d.getUTCDate() + n);
@@ -761,19 +780,18 @@ export function BookingForm({
 
 	// === Schedule (auto-fill setup/end)
 	const [eventDate, setEventDate] = useState(get("event_date", ""));
-	// Tenggat pelunasan: disimpan sebagai H-n (hari sebelum acara) supaya ikut
-	// bergeser saat tanggal acara diganti. Default H-1.
+	// Tenggat pelunasan: disimpan sebagai H-n (hari sebelum acara; negatif =
+	// setelah acara) supaya ikut bergeser saat tanggal acara diganti. Default H-1.
 	const [dueHMinus, setDueHMinus] = useState<number>(() => {
 		const due = get("due_date");
 		const ev = get("event_date");
 		if (!due || !ev) return 1;
-		const diff = Math.round(
-			(Date.parse(`${ev}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) /
-				86_400_000,
-		);
-		return diff;
+		return daysBetween(due, ev);
 	});
 	const dueDate = eventDate ? shiftIsoDate(eventDate, -dueHMinus) : "";
+	const [dueCustom, setDueCustom] = useState(
+		() => !DUE_PRESETS.some((p) => p.n === dueHMinus),
+	);
 	// Tanggal TETAP wajib (kunci jadwal, availability, cutoff, KPI). Yang
 	// ditandai TBC cuma kepastiannya — lihat 20260805_booking_tbc_venue_date.sql.
 	const [dateIsEstimate, setDateIsEstimate] = useState(
@@ -2526,31 +2544,53 @@ export function BookingForm({
 								}
 							>
 								<div className="flex flex-wrap gap-2">
-									{[1, 3, 7].map((n) => (
-										<button
-											key={n}
-											type="button"
-											onClick={() => setDueHMinus(n)}
-											aria-pressed={dueHMinus === n}
-											className={`h-10 rounded-md border px-4 text-fluid-caption font-medium transition ${
-												dueHMinus === n
-													? "border-[#059669] bg-[#059669] text-white"
-													: "border-border-default text-foreground/70 hover:bg-secondary"
-											}`}
-										>
-											H-{n}
-										</button>
-									))}
-									{![1, 3, 7].includes(dueHMinus) ? (
-										<span className="inline-flex h-10 items-center rounded-md border border-dashed border-border-default px-3 text-fluid-caption text-muted-foreground">
-											{dueHMinus > 0
-												? `H-${dueHMinus}`
-												: dueHMinus === 0
-													? "Hari-H"
-													: `H+${-dueHMinus} (setelah acara)`}
-										</span>
-									) : null}
+									{DUE_PRESETS.map(({ n, label }) => {
+										const active = !dueCustom && dueHMinus === n;
+										return (
+											<button
+												key={n}
+												type="button"
+												onClick={() => {
+													setDueHMinus(n);
+													setDueCustom(false);
+												}}
+												aria-pressed={active}
+												className={`h-10 rounded-md border px-4 text-fluid-caption font-medium transition ${
+													active
+														? "border-[#059669] bg-[#059669] text-white"
+														: "border-border-default text-foreground/70 hover:bg-secondary"
+												}`}
+											>
+												{label}
+											</button>
+										);
+									})}
+									<button
+										type="button"
+										onClick={() => setDueCustom(true)}
+										aria-pressed={dueCustom}
+										className={`h-10 rounded-md border px-4 text-fluid-caption font-medium transition ${
+											dueCustom
+												? "border-[#059669] bg-[#059669] text-white"
+												: "border-dashed border-border-default text-foreground/70 hover:bg-secondary"
+										}`}
+									>
+										Tanggal lain
+									</button>
 								</div>
+								{dueCustom ? (
+									<div className="fade-in-on-mount mt-2">
+										<DatePicker
+											value={dueDate || undefined}
+											onValueChange={(d) => {
+												if (eventDate) setDueHMinus(daysBetween(d, eventDate));
+											}}
+											disabled={!eventDate}
+											placeholder="Pilih tanggal jatuh tempo"
+											aria-label="Tanggal jatuh tempo"
+										/>
+									</div>
+								) : null}
 							</Field>
 
 							{splitMode ? (
