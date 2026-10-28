@@ -30,6 +30,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignedEventContacts } from "@/lib/crew/event-contacts";
 import { todayWIB } from "@/lib/dates";
 import { durationLabel, extraHoursOf } from "@/lib/events/extra-hours";
+import { parseExtraPics } from "@/lib/events/extra-pics";
 import { listMissingFields } from "@/lib/events/tbc";
 import {
 	backdropOriginLabel,
@@ -79,7 +80,7 @@ export default async function CrewEventDetailPage({
 			.select(
 				`
 			id, project_id, status, client_name, event_category,
-			pic_name, pic_wa, include_flashdisk_pouch,
+			pic_name, pic_wa, extra_pics, include_flashdisk_pouch,
 			frame_size, event_date, event_date_is_estimate,
 			setup_time, start_time, end_time, session_segments, backdrop_id, unit_count, spots,
 			venue_name, venue_address, venue_city, venue_province, google_maps_url,
@@ -298,6 +299,7 @@ export default async function CrewEventDetailPage({
 	const picName = eventContacts.pic?.name ?? event.pic_name ?? null;
 	const picPhone = eventContacts.pic?.phone ?? event.pic_wa ?? null;
 	const bookerContact = eventContacts.booker;
+	const extraPics = parseExtraPics(event.extra_pics);
 
 	// Daftar TBC dihitung dari sumber yang sama dengan reminder H-7/H-3 owner,
 	// supaya crew tidak pernah melihat "kosong" untuk sesuatu yang menurut
@@ -607,7 +609,7 @@ export default async function CrewEventDetailPage({
 				<TbcNudgePanel projectId={event.project_id} missing={tbcMissing} />
 
 				{/* ── Kontak hari-H — contact rows ── */}
-				{(picName || bookerContact?.name) && (
+				{(picName || bookerContact?.name || extraPics.length > 0) && (
 					<section className="rounded-[16px] border border-amber-300/60 bg-amber-50/60 p-4 shadow-[var(--shadow-level-2)] dark:border-amber-900/70 dark:bg-amber-950/20">
 						<span className="eyebrow text-amber-700 dark:text-amber-400">
 							Kontak hari-H
@@ -622,6 +624,15 @@ export default async function CrewEventDetailPage({
 									PIC Event · <span className="font-medium">menyusul</span>
 								</p>
 							)}
+							{extraPics.map((p, i) => (
+								<ContactRow
+									// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis dari DB
+									key={i}
+									role="PIC cadangan — kalau PIC utama slow respon"
+									name={p.name || "PIC cadangan"}
+									phone={p.wa || null}
+								/>
+							))}
 							{bookerContact?.name && (
 								<ContactRow
 									role="Booker"

@@ -46,6 +46,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { extraHoursOf } from "@/lib/events/extra-hours";
+import { parseExtraPics } from "@/lib/events/extra-pics";
 import { spotsWithoutLead, withUnits } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
@@ -101,7 +102,7 @@ export default async function EventDetailPage({
 			.select(
 				`
 			id, project_id, status, channel, client_name, client_wa, client_email, is_compliment,
-			pic_name, pic_wa, pic_contact_id,
+			pic_name, pic_wa, pic_contact_id, extra_pics,
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
 			event_category, event_date,
@@ -343,6 +344,7 @@ export default async function EventDetailPage({
 		: event.pic_contact;
 	const picDisplayName = picContact?.name ?? event.pic_name ?? null;
 	const picDisplayPhone = picContact?.phone ?? event.pic_wa ?? null;
+	const extraPics = parseExtraPics(event.extra_pics);
 	const [{ count: equipmentCountRaw }, { data: rekapData }, assignableCrew] =
 		await Promise.all([
 			supabase
@@ -859,6 +861,35 @@ export default async function EventDetailPage({
 										</span>
 									</DetailRow>
 								)}
+								{extraPics.map((p, i) => (
+									<DetailRow
+										// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis dari DB
+										key={i}
+										label={
+											extraPics.length > 1
+												? `PIC Cadangan ${i + 1}`
+												: "PIC Cadangan"
+										}
+									>
+										<span className="block space-y-0.5">
+											{p.name && (
+												<span className="block font-medium text-foreground">
+													{p.name}
+												</span>
+											)}
+											{p.wa && (
+												<a
+													href={waLink(p.wa) ?? undefined}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+												>
+													{p.wa}
+												</a>
+											)}
+										</span>
+									</DetailRow>
+								))}
 							</dl>
 						</CollapsibleCard>
 

@@ -197,3 +197,18 @@ test("PIC = kontak WO (nomor sama) → satu baris; beda → dua baris", () => {
 		/• Bu Rina · 0812\n• WO: Partner Organizer \(Puput · 0857\)/,
 	);
 });
+
+test("PIC cadangan ikut di briefing H-1 & hari H", () => {
+	const d: BriefingData = {
+		...base,
+		pic_cadangan: [{ name: "Pak Budi", wa: "0813" }],
+	};
+	assert.match(
+		composeCrewBriefing(d),
+		/• Bu Rina · 0812\n• Cadangan: Pak Budi · 0813/,
+	);
+	const h = composeHariH(d);
+	assert.match(h, /• PIC: Bu Rina · 0812/);
+	assert.match(h, /• Cadangan: Pak Budi · 0813/);
+	assert.doesNotMatch(h, /PIC: Cadangan/);
+});

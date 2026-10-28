@@ -44,6 +44,8 @@ export type BriefingData = {
 	addons: string[];
 	desain: "booth" | "acc_belum_booth" | "belum_acc" | "tanpa_frame";
 	pic: { name: string | null; wa: string | null } | null;
+	/** PIC cadangan — dihubungi kalau PIC utama slow respon. */
+	pic_cadangan?: Array<{ name: string; wa: string }>;
 	wo: { vendor: string; name: string | null; wa: string | null } | null;
 	/** Sudah digabung: catatan acara, briefing owner, catatan & rundown klien. */
 	catatan: string[];
@@ -114,14 +116,21 @@ function picLines(d: BriefingData): string[] {
 	const wo = d.wo;
 	const fmt = (n: string | null, w: string | null) =>
 		[n, w].filter(Boolean).join(" · ");
+	const cadangan = (d.pic_cadangan ?? []).map(
+		(c) => `• Cadangan: ${fmt(c.name, c.wa)}`,
+	);
 	if (pic && wo && pic.wa && digits(pic.wa) === digits(wo.wa))
-		return [`• ${fmt(pic.name ?? wo.name, pic.wa)} (WO ${wo.vendor})`];
+		return [
+			`• ${fmt(pic.name ?? wo.name, pic.wa)} (WO ${wo.vendor})`,
+			...cadangan,
+		];
 	const out: string[] = [];
 	if (pic) out.push(`• ${fmt(pic.name, pic.wa)}`);
 	if (wo)
 		out.push(
 			`• WO: ${wo.vendor}${wo.name || wo.wa ? ` (${fmt(wo.name, wo.wa)})` : ""}`,
 		);
+	out.push(...cadangan);
 	return out.length ? out : ["• belum ada"];
 }
 
@@ -198,7 +207,7 @@ export function composeHariH(d: BriefingData): string {
 		`• ${d.venue_name ?? d.venue_city ?? "venue ❓"}`,
 		...(d.maps_url ? [`• Maps: ${d.maps_url}`] : []),
 		`• Crew: ${crew}`,
-		...picLines(d).map((l) => l.replace(/^• /, "• PIC: ")),
+		...picLines(d).map((l) => l.replace(/^• (?!Cadangan)/, "• PIC: ")),
 		...(penting !== NO_NOTES ? [penting.slice(0, 300)] : []),
 		"Semangat & hati-hati di jalan ya! 🙌",
 	].join("\n");

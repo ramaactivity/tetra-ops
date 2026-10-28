@@ -16,6 +16,7 @@ import {
 } from "@/lib/documents/invoice";
 import { isDriveConfigured } from "@/lib/drive/client";
 import { computeLifecycleStatus } from "@/lib/event-status";
+import { parseExtraPics } from "@/lib/events/extra-pics";
 import {
 	type PackageLike,
 	packageFitsFrame,
@@ -260,6 +261,8 @@ const BookingInputSchema = z.object({
 	// PIC at venue
 	pic_name: optionalString(120),
 	pic_wa: optionalString(20),
+	/** PIC cadangan [{name, wa}] (JSON string) — lihat lib/events/extra-pics. */
+	extra_pics: z.string().nullish().transform(parseExtraPics),
 	// Customization (new model — backdrop master)
 	backdrop_id: z
 		.string()
@@ -363,6 +366,7 @@ const FORM_KEYS = [
 	"direct_sales_commission",
 	"pic_name",
 	"pic_wa",
+	"extra_pics",
 	"backdrop_id",
 	"unit_count",
 	"spots",
@@ -930,6 +934,7 @@ function buildEventPayload(
 		// PIC at venue
 		pic_name: input.pic_name,
 		pic_wa: input.pic_wa,
+		extra_pics: input.extra_pics,
 		backdrop_id: input.backdrop_id,
 		unit_count: input.unit_count,
 		// Hanya spot yang benar-benar dipakai.

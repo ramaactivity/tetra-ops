@@ -36,6 +36,7 @@ import {
 import type { BookingFormState, BookingInput } from "@/lib/actions/bookings";
 import { GROSS_UP_RATE_DEFAULT } from "@/lib/documents/types";
 import { extraHoursOf } from "@/lib/events/extra-hours";
+import { type ExtraPic, parseExtraPics } from "@/lib/events/extra-pics";
 import {
 	durationOptions,
 	packageFitsFrame,
@@ -264,6 +265,8 @@ export type BookingFormDefaults = Partial<{
 	direct_sales_commission: number;
 	pic_name: string;
 	pic_wa: string;
+	/** JSON [{name, wa}] PIC cadangan — lihat lib/events/extra-pics. */
+	extra_pics: string;
 	backdrop_id: string;
 	/** Jumlah unit/spot photobooth (1–3). */
 	unit_count: number | string;
@@ -1119,6 +1122,13 @@ export function BookingForm({
 	const [picName, setPicName] = useState(get("pic_name"));
 	const [picWa, setPicWa] = useState(get("pic_wa"));
 	const [picSameAsBooker, setPicSameAsBooker] = useState(false);
+	const [extraPics, setExtraPics] = useState<ExtraPic[]>(() =>
+		parseExtraPics(get("extra_pics", "[]")),
+	);
+	const setExtraPic = (i: number, patch: Partial<ExtraPic>) =>
+		setExtraPics((list) =>
+			list.map((p, j) => (j === i ? { ...p, ...patch } : p)),
+		);
 	// Pola sama dengan venueTbc/startTbc: eksplisit & default MATI.
 	const [picTbc, setPicTbc] = useState(false);
 	const picInputRef = useRef<HTMLInputElement>(null);
@@ -3664,6 +3674,68 @@ export function BookingForm({
 									<input type="hidden" name="pic_wa" value={picWa} />
 								</Field>
 							</div>
+
+							{/* PIC cadangan: dihubungi crew kalau PIC utama slow respon. */}
+							<input
+								type="hidden"
+								name="extra_pics"
+								value={JSON.stringify(extraPics)}
+							/>
+							{extraPics.map((p, i) => (
+								<div
+									// biome-ignore lint/suspicious/noArrayIndexKey: baris tanpa id, urutan hanya berubah lewat hapus
+									key={i}
+									className="fade-in-on-mount space-y-2 border-t border-border-subtle pt-3"
+								>
+									<div className="flex items-center justify-between">
+										<p className="text-fluid-caption font-medium">
+											PIC cadangan {extraPics.length > 1 ? i + 1 : ""}
+										</p>
+										<button
+											type="button"
+											onClick={() =>
+												setExtraPics((list) => list.filter((_, j) => j !== i))
+											}
+											className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+											aria-label="Hapus PIC cadangan"
+										>
+											<X className="size-4" />
+										</button>
+									</div>
+									<div className="grid gap-3 md:grid-cols-2">
+										<input
+											type="text"
+											value={p.name}
+											onChange={(e) => setExtraPic(i, { name: e.target.value })}
+											placeholder="Nama, cth. Pak Budi (keluarga)"
+											aria-label="Nama PIC cadangan"
+											className={inputClass}
+										/>
+										<input
+											type="tel"
+											value={p.wa}
+											onChange={(e) => setExtraPic(i, { wa: e.target.value })}
+											placeholder="081234567890"
+											aria-label="WA PIC cadangan"
+											className={`${inputClass} tabular`}
+										/>
+									</div>
+								</div>
+							))}
+							{extraPics.length < 5 ? (
+								<button
+									type="button"
+									onClick={() =>
+										setExtraPics((list) => [...list, { name: "", wa: "" }])
+									}
+									className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong py-2 text-fluid-caption font-medium text-foreground/70 transition hover:border-primary/40 hover:bg-card hover:text-foreground"
+								>
+									<Plus className="size-4" /> Tambah PIC cadangan
+								</button>
+							) : null}
+							<p className="text-fluid-caption text-muted-foreground">
+								Dihubungi crew kalau PIC utama slow respon atau ada kendala.
+							</p>
 						</div>
 					</Section>
 
@@ -3695,7 +3767,8 @@ export function BookingForm({
 									<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-4">
 										<div>
 											<h4 className="text-fluid-body font-semibold">
-												Snapbook (Guest Cam){isGuestCamEvent ? " · wajib pilih" : ""}
+												Snapbook (Guest Cam)
+												{isGuestCamEvent ? " · wajib pilih" : ""}
 											</h4>
 											<p className="text-fluid-caption text-muted-foreground">
 												Tamu memotret dari HP lewat QR. Jumlah tamu = batas di

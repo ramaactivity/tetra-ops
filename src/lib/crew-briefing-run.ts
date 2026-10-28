@@ -9,6 +9,7 @@ import {
 	dueKinds,
 	endAt,
 } from "@/lib/crew-briefing";
+import { parseExtraPics } from "@/lib/events/extra-pics";
 import { FRAME_AGNOSTIC } from "@/lib/events/frame-package";
 import { eventSpots, unitCountOf } from "@/lib/events/spots";
 import { timeToMinutes } from "@/lib/schedule/segments";
@@ -18,7 +19,7 @@ import { type CrewUser, crewDisplayName } from "@/lib/telegram/digest";
 type Admin = ReturnType<typeof createAdminClient>;
 
 const EV_COLS =
-	"id, project_id, client_name, event_title, event_date, status, setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, google_maps_url, unit_count, spots, frame_size, design_status, backdrop_source, backdrop_color, backdrop_id, pic_name, pic_wa, vendor_name, vendor_pic_name, vendor_contact, logistic_notes, crew_notes, custom_package_name, service_type, package:packages(name, frame_size)";
+	"id, project_id, client_name, event_title, event_date, status, setup_time, start_time, end_time, session_segments, venue_name, venue_address, venue_city, google_maps_url, unit_count, spots, frame_size, design_status, backdrop_source, backdrop_color, backdrop_id, pic_name, pic_wa, extra_pics, vendor_name, vendor_pic_name, vendor_contact, logistic_notes, crew_notes, custom_package_name, service_type, package:packages(name, frame_size)";
 
 type Ev = {
 	id: string;
@@ -43,6 +44,7 @@ type Ev = {
 	backdrop_id: string | null;
 	pic_name: string | null;
 	pic_wa: string | null;
+	extra_pics: unknown;
 	vendor_name: string | null;
 	vendor_pic_name: string | null;
 	vendor_contact: string | null;
@@ -256,6 +258,7 @@ async function loadBriefing(
 			addons: addonNames,
 			desain,
 			pic: e.pic_name || e.pic_wa ? { name: e.pic_name, wa: e.pic_wa } : null,
+			pic_cadangan: parseExtraPics(e.extra_pics),
 			wo:
 				e.vendor_name || bk?.wo
 					? {
