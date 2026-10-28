@@ -22,14 +22,15 @@ export function ReceiptButton({ paymentId }: { paymentId: string }) {
 	}
 	return (
 		<Button
-			variant="ghost"
-			size="icon-sm"
+			variant="outline"
+			size="sm"
 			onClick={open}
 			disabled={pending}
-			title="Kuitansi pembayaran ini"
-			aria-label="Kuitansi"
+			title="Buka kuitansi pembayaran ini (PDF)"
+			className="mr-1 rounded-full"
 		>
 			{pending ? <Loader2 className="animate-spin" /> : <Receipt />}
+			Kuitansi
 		</Button>
 	);
 }
