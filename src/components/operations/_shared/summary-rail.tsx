@@ -194,7 +194,7 @@ export function SummaryRail({
 					) : null}
 					{picName ? (
 						<p className="text-[12px] text-muted-foreground">
-							PIC: {picName}
+							PIC lokasi: {picName}
 							{picContact ? (
 								<span className="tabular"> · {picContact}</span>
 							) : null}

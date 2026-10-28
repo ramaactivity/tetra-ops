@@ -318,7 +318,7 @@ const NAME_TPL: Record<string, NameTpl> = {
 		title: { label: "Nama acara / angkatan", placeholder: "Wisuda 2026" },
 	},
 	corporate: {
-		client: { label: "Perusahaan / EO", placeholder: "PT Mahaka" },
+		client: { label: "Perusahaan klien", placeholder: "PT Mahaka" },
 		title: { label: "Nama acara", placeholder: "Annual Gathering 2026" },
 	},
 	instansi: {
@@ -1143,7 +1143,18 @@ export function BookingForm({
 	const [clientWa, setClientWa] = useState(get("client_wa"));
 	const [bookerName, setBookerName] = useState(get("booker_name"));
 	const [bookerSameAsClient, setBookerSameAsClient] = useState(false);
-	const [bookerSameAsVendor, setBookerSameAsVendor] = useState(false);
+	// Edit event vendor yang pembookingnya PIC vendor itu sendiri → langsung
+	// tampil tercentang, supaya jelas pembooking ini orang vendor, bukan klien.
+	const [bookerSameAsVendor, setBookerSameAsVendor] = useState(() => {
+		const digits = (x: string) => x.replace(/\D/g, "").slice(-9);
+		const b = get("booker_name").trim().toLowerCase();
+		return (
+			get("channel") === "vendor" &&
+			!!b &&
+			b === get("vendor_pic_name").trim().toLowerCase() &&
+			digits(get("client_wa")) === digits(get("vendor_contact"))
+		);
+	});
 	const [picName, setPicName] = useState(get("pic_name"));
 	const [picWa, setPicWa] = useState(get("pic_wa"));
 	const [picSameAsBooker, setPicSameAsBooker] = useState(false);
@@ -1801,7 +1812,7 @@ export function BookingForm({
 								step={2}
 								title={
 									channel === "vendor"
-										? "Direferensikan oleh Vendor"
+										? "Vendor (WO/EO) yang membawa acara"
 										: "Direferensikan oleh"
 								}
 								description={
@@ -2412,8 +2423,12 @@ export function BookingForm({
 					{/* === 3. EVENT TYPE + Category sub-fields === */}
 					<Section
 						step={3}
-						title="Tipe Acara"
-						description="Pisahkan klien (yang ditagih) dari nama acaranya. Pembooking diisi di bagian Kontak."
+						title="Klien & Acara"
+						description={
+							channel === "vendor"
+								? `Klien = pemilik acara (perusahaan, pengantin, yang ultah), bukan vendor${vendorName ? ` ${vendorName}` : ""}. Kosongkan kalau vendor tidak menyebutkan kliennya.`
+								: "Klien = pemilik acara (perusahaan, pengantin, yang ultah). Pembooking diisi di bagian Kontak."
+						}
 					>
 						<Field
 							label="Kategori Event"
@@ -2448,7 +2463,12 @@ export function BookingForm({
 								label={nameTpl.client.label}
 								name="client_org"
 								error={err("client_org")}
-								tooltip="Klien = pihak yang ditagih & tercetak di KEPADA invoice. Bukan nama acara, bukan orang yang booking."
+								tooltip="Pemilik acara. Bukan nama acara, bukan orang yang booking, bukan vendor/EO."
+								hint={
+									channel === "vendor"
+										? "Opsional untuk acara dari vendor"
+										: undefined
+								}
 							>
 								<input
 									type="text"

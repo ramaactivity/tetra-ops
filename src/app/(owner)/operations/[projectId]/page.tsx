@@ -4,6 +4,7 @@ import {
 	Archive,
 	Building2,
 	FileText,
+	Handshake,
 	Inbox,
 	Mail,
 	Pencil,
@@ -101,7 +102,7 @@ export default async function EventDetailPage({
 			.from("events")
 			.select(
 				`
-			id, project_id, status, channel, client_name, client_wa, client_email, is_compliment,
+			id, project_id, status, channel, client_name, client_org, event_title, booker_name, bill_to_mode, client_wa, client_email, is_compliment,
 			pic_name, pic_wa, pic_contact_id, extra_pics,
 			service_type, frame_size, package_id, pending_package_hours,
 			event_date_is_estimate, design_frame_size,
@@ -343,6 +344,18 @@ export default async function EventDetailPage({
 		? event.pic_contact[0]
 		: event.pic_contact;
 	const picDisplayName = picContact?.name ?? event.pic_name ?? null;
+	const isVendorEvent = event.channel === "vendor";
+	// client_wa = WA pembooking (label form "WA Pembooking").
+	const bookerPhone =
+		bookerContact?.phone ||
+		(event.client_wa && event.client_wa !== "-" ? event.client_wa : null);
+	const bookerName = (bookerContact?.name ?? event.booker_name ?? "")
+		.trim()
+		.toLowerCase();
+	const bookerIsVendor =
+		isVendorEvent &&
+		!!bookerName &&
+		bookerName === (event.vendor_pic_name ?? "").trim().toLowerCase();
 	const picDisplayPhone = picContact?.phone ?? event.pic_wa ?? null;
 	const extraPics = parseExtraPics(event.extra_pics);
 	const [{ count: equipmentCountRaw }, { data: rekapData }, assignableCrew] =
@@ -790,25 +803,24 @@ export default async function EventDetailPage({
 					<div className="space-y-3">
 						<CollapsibleCard
 							icon={<Phone className="size-4" aria-hidden strokeWidth={2} />}
-							title="Klien & Kontak"
-							subtitle="Nama, WA, email, booker, dan PIC event."
+							title="Klien & Acara"
+							subtitle="Pemilik acara, pembooking, dan PIC di lokasi."
 						>
 							<dl className="space-y-2.5">
-								<DetailRow label="Klien">{event.client_name}</DetailRow>
-								<DetailRow label="WA Klien">
-									{event.client_wa && event.client_wa !== "-" ? (
-										<a
-											href={waLink(event.client_wa) ?? undefined}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="tabular inline-flex items-center gap-1 text-[#0070f3] hover:underline"
-										>
-											{event.client_wa}
-										</a>
+								<DetailRow label="Klien">
+									{event.client_org ? (
+										event.client_org
+									) : isVendorEvent ? (
+										<span className="text-muted-foreground">
+											Tidak disebutkan vendor
+										</span>
 									) : (
-										<span className="text-muted-foreground">—</span>
+										event.client_name
 									)}
 								</DetailRow>
+								{event.event_title && (
+									<DetailRow label="Nama acara">{event.event_title}</DetailRow>
+								)}
 								{event.client_email && (
 									<DetailRow label="Email">
 										<a
@@ -820,23 +832,25 @@ export default async function EventDetailPage({
 										</a>
 									</DetailRow>
 								)}
-								{bookerContact && (
-									<DetailRow label="Booker">
-										<span className="block space-y-0.5">
-											<span className="block">{bookerContact.name}</span>
-											{bookerContact.phone && (
-												<a
-													href={waLink(bookerContact.phone) ?? undefined}
-													target="_blank"
-													rel="noopener noreferrer"
-													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
-												>
-													{bookerContact.phone}
-												</a>
-											)}
+								<DetailRow
+									label={bookerIsVendor ? "Pembooking (vendor)" : "Pembooking"}
+								>
+									<span className="block space-y-0.5">
+										<span className="block">
+											{bookerContact?.name || event.booker_name || "—"}
 										</span>
-									</DetailRow>
-								)}
+										{bookerPhone && (
+											<a
+												href={waLink(bookerPhone) ?? undefined}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+											>
+												{bookerPhone}
+											</a>
+										)}
+									</span>
+								</DetailRow>
 								{(picDisplayName || picDisplayPhone) && (
 									<DetailRow label="PIC Event">
 										<span className="block space-y-0.5">
@@ -893,6 +907,54 @@ export default async function EventDetailPage({
 							</dl>
 						</CollapsibleCard>
 
+						{isVendorEvent && (
+							<CollapsibleCard
+								icon={
+									<Handshake className="size-4" aria-hidden strokeWidth={2} />
+								}
+								title="Vendor (WO/EO)"
+								subtitle={event.vendor_name ?? "Vendor yang membawa acara"}
+							>
+								<dl className="space-y-2.5">
+									<DetailRow label="Vendor">
+										{event.vendor_name ?? "—"}
+									</DetailRow>
+									<DetailRow label="PIC vendor">
+										<span className="block space-y-0.5">
+											<span className="block">
+												{event.vendor_pic_name ?? "—"}
+											</span>
+											{event.vendor_contact && (
+												<a
+													href={waLink(event.vendor_contact) ?? undefined}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="tabular inline-flex items-center gap-1 text-[11.5px] text-[#0070f3] hover:underline"
+												>
+													{event.vendor_contact}
+												</a>
+											)}
+										</span>
+									</DetailRow>
+									<DetailRow
+										label={
+											event.vendor_commission_mode === "upfront_cut"
+												? "Potongan langsung"
+												: "Komisi vendor"
+										}
+									>
+										<span className="tabular">
+											{formatRupiah(event.vendor_commission_amount ?? 0)}
+										</span>
+									</DetailRow>
+									<DetailRow label="Invoice ke">
+										{event.bill_to_mode === "vendor"
+											? `Vendor (${event.vendor_name ?? "—"})`
+											: "Klien langsung"}
+									</DetailRow>
+								</dl>
+							</CollapsibleCard>
+						)}
 						<CollapsibleCard
 							icon={
 								<Building2 className="size-4" aria-hidden strokeWidth={2} />
