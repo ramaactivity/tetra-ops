@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { emitBoothEvent } from "@/lib/booth-sync";
+import { syncDocNumbersFromEvent } from "@/lib/documents/invoice";
 import { FRAME_AGNOSTIC, packageFitsFrame } from "@/lib/events/frame-package";
 import { spotsNeedingOwnDesign, unitCountOf } from "@/lib/events/spots";
 import { createClient } from "@/lib/supabase/server";
@@ -510,6 +511,12 @@ export async function approveDesign(
 			})
 			.eq("id", eventId);
 		if (error) return { error: error.message };
+
+		// Ukuran/paket dikoreksi di dialog ini → invoice & nota lunas ikut
+		// (jalur sama dengan edit booking). Tanpa ini dokumen tetap
+		// "ukuran menyusul" padahal event sudah 2R (CIMB, 29 Okt 2026).
+		if (changeLines.length > 0)
+			await syncDocNumbersFromEvent(supabase, eventId);
 
 		// Kabari grup: koreksi pesanan dulu (kalau ada), lalu ACC-nya.
 		if (changeLines.length > 0 && !ev.is_migrated_legacy) {
