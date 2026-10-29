@@ -117,8 +117,17 @@ function numbersFromEvent(ev: EventForPdf, curItems: DocItem[]) {
 	const subtotal = (items: DocItem[]) =>
 		items.reduce((s, i) => s + i.unit_price * i.qty, 0);
 	const evItems = itemsFromEvent(ev);
+	// Item quotation (bawa package_id) dipertahankan hanya kalau paketnya masih
+	// paket event & harganya sama. Selain itu baris dari event: ganti ukuran
+	// "4 Jam · ukuran menyusul" → "2R Unlimited 4 Jam" harganya sama, tapi
+	// barisnya tetap harus ikut (CIMB, 29 Okt 2026).
+	const pkgItem = curItems.find((i) => i.package_id);
+	const keep =
+		!!pkgItem &&
+		pkgItem.package_id === ev.package_id &&
+		subtotal(curItems) === subtotal(evItems);
 	return {
-		items: subtotal(curItems) === subtotal(evItems) ? curItems : evItems,
+		items: keep ? curItems : evItems,
 		discount: discountFromEvent(ev),
 		gross_up_enabled: ev.gross_up_pph_amount > 0,
 	};

@@ -64,6 +64,7 @@ export type EventForPdf = {
 	 *  langsung vendor (upfront_cut). Sama dengan recalculate_event_payment_status. */
 	billable_total: number;
 	legacy_invoice_number: string | null;
+	package_id: string | null;
 	package_name: string | null;
 	package_duration_hours: number | null;
 	custom_package_name: string | null;
@@ -111,7 +112,7 @@ export async function fetchEventForPdf(
 			vendor_name, vendor_pic_name, vendor_contact,
 			client_wa, client_email,
 			pic_name, pic_wa,
-			frame_size, unit_count, spots, event_date, setup_time, start_time, end_time, session_segments,
+			package_id, frame_size, unit_count, spots, event_date, setup_time, start_time, end_time, session_segments,
 			venue_name, venue_address, venue_city,
 			due_date,
 			base_price, addons_total, discount_amount, gross_up_pph_amount,
@@ -235,6 +236,7 @@ export async function fetchEventForPdf(
 		vendor_commission_amount: (ev.vendor_commission_amount as number) ?? 0,
 		billable_total: Math.max(0, grandTotal - upfrontCut),
 		legacy_invoice_number: (ev.legacy_invoice_number as string | null) ?? null,
+		package_id: (ev.package_id as string | null) ?? null,
 		package_name: pkg?.name ?? null,
 		package_duration_hours: pkg?.duration_hours ?? null,
 		custom_package_name: (ev.custom_package_name as string | null) ?? null,
