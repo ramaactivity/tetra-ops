@@ -110,6 +110,12 @@ type PaidBy = string;
 type PaidByKey = "transport" | "bensin" | "toll" | "parking" | "konsumsi";
 /** Kartu e-money yang bisa dipilih sebagai pembayar. */
 type PayerCard = { id: string; name: string; balance?: number; isLow: boolean };
+// Satu paket add-on bisa berisi banyak lembar ("50 cetak", "100 cetak") — rekap
+// menghitung lembar fisik yang dipakai, bukan jumlah paket. Unit tanpa angka
+// ("pcs") = 1 per qty.
+const addonPcs = (a: { quantity: number; unit: string | null }) =>
+	a.quantity * (Number.parseInt(a.unit ?? "", 10) || 1);
+
 const paidByOf = (v: unknown): PaidBy => normalizePayer(v);
 
 const EMPTY: Defaults = {
@@ -218,7 +224,7 @@ export function RekapForm({
 	const expectedAddon = (re: RegExp) =>
 		[...context.paid_addons, ...context.bonuses]
 			.filter((a) => re.test(a.name))
-			.reduce((s, a) => s + a.quantity, 0);
+			.reduce((s, a) => s + addonPcs(a), 0);
 	const [photomagnet, setPhotomagnet] = useState(() => {
 		const d = get("photomagnet_used");
 		if (d !== "0") return d;
@@ -881,28 +887,28 @@ export function RekapForm({
 		() =>
 			context.paid_addons
 				.filter((a) => /photomagnet/i.test(a.name))
-				.reduce((s, a) => s + a.quantity, 0),
+				.reduce((s, a) => s + addonPcs(a), 0),
 		[context.paid_addons],
 	);
 	const photomagnetBonus = useMemo(
 		() =>
 			context.bonuses
 				.filter((b) => /photomagnet/i.test(b.name))
-				.reduce((s, b) => s + b.quantity, 0),
+				.reduce((s, b) => s + addonPcs(b), 0),
 		[context.bonuses],
 	);
 	const keychainPaid = useMemo(
 		() =>
 			context.paid_addons
 				.filter((a) => /keychain/i.test(a.name))
-				.reduce((s, a) => s + a.quantity, 0),
+				.reduce((s, a) => s + addonPcs(a), 0),
 		[context.paid_addons],
 	);
 	const keychainBonus = useMemo(
 		() =>
 			context.bonuses
 				.filter((b) => /keychain/i.test(b.name))
-				.reduce((s, b) => s + b.quantity, 0),
+				.reduce((s, b) => s + addonPcs(b), 0),
 		[context.bonuses],
 	);
 
