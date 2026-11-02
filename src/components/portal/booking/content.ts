@@ -280,6 +280,14 @@ export const ADDON: Record<string, AddonContent> = {
 		benefit: "Cetakan jadi magnet untuk dibawa pulang.",
 		desc: "Cetakan diberi lapisan magnet di belakang, jadi bisa ditempel di kulkas. Satu paket untuk 50 cetakan.",
 	},
+	"Photomagnet 100 cetak": {
+		name: "Photomagnet 100",
+		unit: "100 cetak",
+		icon: Magnet,
+		tint: "#D6EEF8",
+		benefit: "Lebih hemat untuk tamu yang banyak.",
+		desc: "Cetakan diberi lapisan magnet di belakang, jadi bisa ditempel di kulkas. Satu paket untuk 100 cetakan, lebih hemat dari dua paket 50.",
+	},
 	"Custom Sleeve": {
 		name: "Custom sleeve",
 		unit: "1.000 lembar",
@@ -336,6 +344,7 @@ export const ADDON_ORDER = [
 	"Tambahan Durasi 1 Jam",
 	"Tambahan Durasi 1 Jam (3+ crew)",
 	"Photomagnet",
+	"Photomagnet 100 cetak",
 	"Custom Sleeve",
 	"Guest Books Photo",
 	"Album Photostripe",
