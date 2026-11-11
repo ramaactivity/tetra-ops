@@ -3,7 +3,6 @@ import { test } from "node:test";
 import {
 	composeKlien,
 	composeWo,
-	doaFor,
 	galleryWindow,
 	penerima,
 } from "./gallery-thanks";
@@ -31,16 +30,6 @@ test("jam kirim: max(17.00, selesai+60'); malam tetap malam itu", () => {
 	);
 });
 
-test("doa sesuai jenis acara", () => {
-	assert.match(doaFor("wedding", null), /hidup baru/);
-	assert.match(doaFor("engagement", null), /pertunangannya/);
-	assert.match(doaFor("birthday", "Nadia"), /ulang tahun untuk Nadia/);
-	assert.match(doaFor("gathering", "PT Maju"), /seluruh tim .* PT Maju/);
-	assert.match(doaFor("instansi", null), /seluruh tim/);
-	assert.match(doaFor("wisuda", null), /kelulusannya/);
-	assert.match(doaFor(null, null), /kenangan yang indah/);
-});
-
 test("teks klien vs WO; kedaluwarsa opsional", () => {
 	const k = composeKlien({
 		panggilan: "Rafi & Dinda",
@@ -50,7 +39,10 @@ test("teks klien vs WO; kedaluwarsa opsional", () => {
 		expiresAt: "2027-01-10T00:00:00+07:00",
 	});
 	assert.match(k, /^Halo Kak Rafi & Dinda 👋/);
-	assert.match(k, /hari bahagia kalian hari ini\. Selamat menempuh hidup baru/);
+	assert.match(k, /untuk hari bahagia kalian hari ini\./);
+	// Tanpa doa/penutup kaku dan emoji maks 1 (usulan CS Mintet #47, Rama 11 Nov).
+	assert.doesNotMatch(k + "\n", /semoga|selamat|sukses selalu/i);
+	assert.equal((k.match(/\p{Extended_Pictographic}/gu) || []).length, 1);
 	assert.match(k, /https:\/\/g\/1/);
 	assert.match(k, /aktif sampai 10 Januari 2027/);
 	const tanpa = composeKlien({
@@ -62,7 +54,8 @@ test("teks klien vs WO; kedaluwarsa opsional", () => {
 	});
 	assert.match(tanpa, /^Halo Kak 👋/);
 	assert.match(tanpa, /untuk acaranya hari ini/);
-	assert.match(tanpa, /Jangan lupa disimpan ya 😊$/);
+	assert.match(tanpa, /Disimpan dulu ya\.$/);
+	assert.doesNotMatch(tanpa, /semoga|sukses/i);
 	const w = composeWo({
 		nama: "Puput",
 		judul: "Rafi & Dinda",

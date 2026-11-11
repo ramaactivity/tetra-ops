@@ -1,6 +1,7 @@
 /**
  * Ucapan terima kasih + link galeri Booth ke klien setelah acara (permintaan
- * owner 2026-10-09 lewat Hermes, template A). Bagian murni: jadwal, doa,
+ * owner 2026-10-09 lewat Hermes, template A; tanpa doa/penutup sejak 11 Nov — usulan
+ * CS Mintet #47, gaya pesan Rama). Bagian murni: jadwal,
  * teks, daftar penerima. Pengambil data & pengirim di gallery-thanks-run.ts.
  */
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
@@ -38,24 +39,6 @@ export function kindOf(category: string | null): Kind {
 		return "corporate";
 	if (/wisuda|graduat|sekolah|lulus/.test(c)) return "wisuda";
 	return "lain";
-}
-
-/** Doa netral per jenis acara (tanpa ungkapan agama tertentu). */
-export function doaFor(category: string | null, nama: string | null): string {
-	switch (kindOf(category)) {
-		case "wedding":
-			return "Selamat menempuh hidup baru, semoga jadi keluarga yang bahagia, rukun, dan langgeng selalu";
-		case "engagement":
-			return "Selamat atas pertunangannya, semoga lancar sampai hari pernikahan nanti";
-		case "birthday":
-			return `Selamat ulang tahun${nama ? ` untuk ${nama}` : ""}, semoga sehat, bahagia, dan makin sukses`;
-		case "corporate":
-			return `Semoga acaranya berkesan untuk seluruh tim dan sukses selalu${nama ? ` untuk ${nama}` : ""}`;
-		case "wisuda":
-			return "Selamat atas kelulusannya, semoga sukses di langkah berikutnya";
-		default:
-			return "Semoga acaranya menyenangkan dan jadi kenangan yang indah";
-	}
 }
 
 const BULAN = [
@@ -102,15 +85,15 @@ export function composeKlien(input: {
 	return [
 		salam,
 		"",
-		`Terima kasih banyak sudah mempercayakan Tetra Photobooth untuk ${acara} hari ini. ${doaFor(input.category, input.nama)} ✨`,
+		`Makasih ya sudah pakai Tetra Photobooth untuk ${acara} hari ini.`,
 		"",
-		"Semua foto photobooth hari ini sudah bisa dilihat & diunduh di sini:",
+		"Semua foto photobooth-nya sudah bisa dilihat & diunduh di sini:",
 		input.galleryUrl,
 		"",
-		`Di galeri itu Kakak bisa download semua foto sekaligus, tandai favorit, dan bagikan ke keluarga. ${
+		`Bisa download semua sekaligus, tandai favorit, dan bagikan ke keluarga. ${
 			input.expiresAt
-				? `Galerinya aktif sampai ${tanggal(input.expiresAt)}, jangan lupa disimpan ya 😊`
-				: "Jangan lupa disimpan ya 😊"
+				? `Galerinya aktif sampai ${tanggal(input.expiresAt)}, disimpan dulu ya.`
+				: "Disimpan dulu ya."
 		}`,
 	].join("\n");
 }
@@ -120,7 +103,7 @@ export function composeWo(input: {
 	judul: string;
 	galleryUrl: string;
 }): string {
-	return `Halo ${sapa(input.nama)} 👋 terima kasih sudah kerja bareng Tetra di acara ${input.judul} hari ini 🙏 Ini link galeri foto photobooth-nya, boleh diteruskan ke klien ya: ${input.galleryUrl}`;
+	return `Halo ${sapa(input.nama)} 👋 terima kasih sudah kerja bareng Tetra di acara ${input.judul} hari ini. Ini link galeri foto photobooth-nya, boleh diteruskan ke klien ya: ${input.galleryUrl}`;
 }
 
 export type Penerima = {
