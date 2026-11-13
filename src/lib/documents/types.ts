@@ -247,71 +247,73 @@ export const QUOTATION_VALID_DAYS = 14;
  * packages.quotation_includes masih NULL dan oleh buat_quotation agent.
  * `{hours}` diganti durasi paket.
  */
-// Copy rincian paket (ditulis ulang 13 Nov 2026, permintaan owner): satu
-// fakta per baris, frasa pendek, tanpa "profesional" berulang. Yang belum
-// pasti ditulis di dokumen sebagai "Menyusul: …" (lihat splitIncludes).
+// Copy rincian paket (ditulis ulang 13 Nov 2026, permintaan owner): bahasa
+// dokumen bisnis yang formal tapi tetap ringkas, satu fakta per baris. Yang
+// belum pasti diawali PENDING_PREFIX → PDF memisahkannya ke "Belum
+// ditentukan" (splitIncludes). Urutan: transport selalu baris terakhir
+// (magazine_combo membuangnya dengan slice(0, -1)).
 const PHOTOBOOTH_CLASSIC = [
-	"Cetak foto sepuasnya (unlimited)",
+	"Cetak foto unlimited selama durasi acara",
 	"Desain frame custom sesuai tema acara",
-	"Kamera, printer & lighting",
-	"2 crew selama acara",
-	"Setup booth & properti foto",
-	"Backdrop pilihan 6 warna: putih, merah, silver, gold, emerald, biru",
-	"Softcopy langsung via QR code",
-	"Flashdisk kayu berisi semua foto",
-	"Transport gratis se-Jabodetabek",
+	"Peralatan: kamera, printer, dan lighting",
+	"2 kru bertugas selama acara",
+	"Instalasi booth dan properti foto",
+	"Softcopy foto via QR code",
+	"Flashdisk kayu berisi seluruh file foto",
+	"Menyusul: Backdrop: basic Tetra atau disediakan klien",
+	"Transportasi gratis area Jabodetabek",
 ];
 
 const PHOTO_STAGE = [
 	"Desain layout custom 4R, 1–2 pose",
 	"QR code ukuran A2 untuk unduh softcopy",
-	"Link Google Drive berisi semua foto",
+	"Link Google Drive berisi seluruh file foto",
 	"Lighting",
-	"Crew pengarah gaya",
+	"Kru pengarah gaya",
 ];
 
 export const DEFAULT_INCLUDES_BY_CATEGORY: Record<string, string[]> = {
 	photobooth_classic: PHOTOBOOTH_CLASSIC,
 	videobooth_360: [
-		"Video 360° kualitas tinggi (iPhone)",
-		"Platform putar untuk 2–4 orang (maks. 250 kg)",
+		"Video 360° resolusi tinggi (iPhone)",
+		"Platform putar kapasitas 2–4 orang (maks. 250 kg)",
 		"Lighting",
 		"Template video custom",
-		"Pilihan musik",
+		"Pilihan musik latar",
 		"Properti foto",
-		"Kirim langsung via AirDrop / QR code",
-		"Transport gratis se-Jabodetabek",
+		"Pengiriman video via AirDrop / QR code",
+		"Transportasi gratis area Jabodetabek",
 	],
 	magazine_combo: [
-		"Magazine box booth + semua isi Photobooth Classic",
+		"Magazine box booth beserta seluruh fasilitas Photobooth Classic",
 		...PHOTOBOOTH_CLASSIC.slice(0, -1),
-		"Syarat: loading 3 jam sebelum acara, area min. 4×5 m, indoor, listrik ±700 W",
-		"Klien menyiapkan 1 meja + 3 kursi",
-		"Belum termasuk transport, ganti sticker & dekorasi tambahan",
+		"Syarat teknis: loading 3 jam sebelum acara, area min. 4×5 m, indoor, daya listrik ±700 W",
+		"Klien menyediakan 1 meja dan 3 kursi",
+		"Belum termasuk transportasi, penggantian sticker, dan dekorasi tambahan",
 	],
 	magazine_box_only: [
-		"Instalasi magazine box {hours} jam, tanpa crew standby",
+		"Instalasi magazine box {hours} jam, tanpa kru standby",
 		"Sticker standar",
-		"Loading H-1 malam / hari H, bongkar maks. 23.00",
-		"Listrik ±100 W, indoor",
-		"Belum termasuk transport, ganti sticker & dekorasi",
+		"Loading H-1 malam atau hari H, pembongkaran maks. pukul 23.00",
+		"Daya listrik ±100 W, indoor",
+		"Belum termasuk transportasi, penggantian sticker, dan dekorasi",
 	],
 	photostage_only: [
 		...PHOTO_STAGE,
-		"Tanpa cetak",
-		"Transport gratis se-Jabodetabek",
+		"Tidak termasuk cetak foto",
+		"Transportasi gratis area Jabodetabek",
 	],
 	photostage_combo: [
 		...PHOTO_STAGE,
 		"Cetak instan photobooth classic",
-		"Transport gratis se-Jabodetabek",
+		"Transportasi gratis area Jabodetabek",
 	],
 	guest_cam: [
-		"Tamu foto dari HP lewat QR, tanpa install aplikasi",
-		"Ucapan suara + photo frame",
-		"Album gabungan, disimpan 6 bulan",
-		"Kartu QR ukuran kartu nama + 3 papan meja",
-		"Tanpa booth & tanpa crew (kecuali + Print Station)",
+		"Tamu memotret melalui HP dengan QR code, tanpa instalasi aplikasi",
+		"Ucapan suara dan photo frame",
+		"Album gabungan, tersimpan selama 6 bulan",
+		"Kartu QR ukuran kartu nama dan 3 papan meja",
+		"Tanpa booth dan tanpa kru (kecuali dengan tambahan Print Station)",
 	],
 };
 

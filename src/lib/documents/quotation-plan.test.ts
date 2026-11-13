@@ -110,7 +110,11 @@ test("kategori + jam + format → paket master (nama & harga dari master)", () =
 	assert.equal(p.items[0].package_id, "4R Unlimited 3 Jam");
 	assert.equal(p.items[0].unit_price, 2_500_000);
 	// Durasi & format sudah di nama paket — rincian tidak mengulang.
-	assert.ok(!p.items[0].includes.some((s) => /Durasi|menyusul/i.test(s)));
+	assert.ok(
+		!p.items[0].includes.some((s) =>
+			/^Total durasi|format cetak|^Format /i.test(s),
+		),
+	);
 	const v = ok(plan({ layanan: [{ kategori: "videobooth_360", jam: 4 }] }));
 	assert.equal(v.items[0].name, "Videobooth 360 - 4 Jam");
 	assert.ok(!v.items[0].includes.some((s) => /Durasi/.test(s)));
@@ -120,9 +124,14 @@ test("format belum dipilih → harga acuan, tanpa package_id, 'menyusul'", () =>
 	const p = ok(plan({ layanan: [{ kategori: "photobooth_classic", jam: 4 }] }));
 	assert.equal(p.items[0].unit_price, 3_000_000);
 	assert.equal(p.items[0].package_id, null);
-	const pending = p.items[0].includes.filter((s) => s.startsWith("Menyusul:"));
-	assert.equal(pending.length, 1);
-	assert.match(pending[0], /Format cetak 2R \/ 4R \/ Polaroid/);
+	const { pending } = splitIncludes(p.items[0].includes);
+	assert.ok(
+		pending.includes(
+			"Pilihan format cetak: 2R, 4R, atau Polaroid (harga sama)",
+		),
+	);
+	// Sumber backdrop selalu belum dipilih saat penawaran.
+	assert.ok(pending.includes("Backdrop: basic Tetra atau disediakan klien"));
 });
 
 test("paket nonaktif / tidak ada ditolak", () => {
@@ -233,6 +242,14 @@ test("backdrop basic masuk include; nonaktif (Hitam) ditolak", () => {
 		}),
 	);
 	assert.ok(p.items[0].includes.includes("Backdrop: Basic Gold"));
+	// Classic: backdrop dipilih → poin "Backdrop … menyusul" bawaan hilang.
+	const c = ok(
+		plan({
+			layanan: [{ kategori: "photobooth_classic", jam: 3, format: "4R" }],
+			backdrop: "BG-BASIC-GOLD",
+		}),
+	);
+	assert.deepEqual(splitIncludes(c.items[0].includes).pending, []);
 	assert.equal(
 		plan({
 			layanan: [{ kategori: "videobooth_360", jam: 4 }],

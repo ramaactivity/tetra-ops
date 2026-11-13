@@ -243,7 +243,7 @@ function formatLine(category: string, frame: string, fmt: string | null) {
 	if (frame === "none") return null;
 	if (category !== "photobooth_classic") return `Format ${frame.toUpperCase()}`;
 	if (!fmt)
-		return `${PENDING_PREFIX} Format cetak 2R / 4R / Polaroid (harga sama)`;
+		return `${PENDING_PREFIX} Pilihan format cetak: 2R, 4R, atau Polaroid (harga sama)`;
 	return fmt === "polaroid" ? "Format Polaroid" : `Format ${fmt.toUpperCase()}`;
 }
 
@@ -338,7 +338,12 @@ export function planQuotation(
 			// tambahan jam, format yang belum dipilih masuk "Belum ditentukan".
 			includes: [
 				extraHours > 0 ? `Total durasi ${totalHours} jam` : null,
-				fmtLine && !fmtLine.startsWith(PENDING_PREFIX) ? fmtLine : null,
+				// "Format 4R" tak diulang kalau nama paket sudah menyebutnya.
+				fmtLine &&
+				!fmtLine.startsWith(PENDING_PREFIX) &&
+				!pkg.name.toLowerCase().includes(pkg.frame_size.toLowerCase())
+					? fmtLine
+					: null,
 				...base.map((s) => s.replace("{hours}", String(pkg.duration_hours))),
 				fmtLine?.startsWith(PENDING_PREFIX) ? fmtLine : null,
 			].filter((s): s is string => Boolean(s)),
@@ -403,6 +408,10 @@ export function planQuotation(
 	const bd = r.backdrop?.trim();
 	if (bd) {
 		const main = items[0];
+		// Backdrop sudah diputuskan → buang poin "Menyusul: Backdrop …" bawaan.
+		main.includes = main.includes.filter(
+			(s) => !s.startsWith(`${PENDING_PREFIX} Backdrop`),
+		);
 		if (
 			/^dekorasi[_\s]?klien$/i.test(bd) ||
 			bd.toUpperCase() === "CLIENT-PROVIDED"
