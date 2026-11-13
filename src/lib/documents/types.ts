@@ -261,7 +261,7 @@ const PHOTOBOOTH_CLASSIC = [
 	"Softcopy foto via QR code",
 	"Flashdisk kayu berisi seluruh file foto",
 	"Menyusul: Backdrop: basic Tetra atau disediakan klien",
-	"Transportasi gratis area Jabodetabek",
+	"Sudah termasuk transportasi area Jabodetabek",
 ];
 
 const PHOTO_STAGE = [
@@ -282,7 +282,7 @@ export const DEFAULT_INCLUDES_BY_CATEGORY: Record<string, string[]> = {
 		"Pilihan musik latar",
 		"Properti foto",
 		"Pengiriman video via AirDrop / QR code",
-		"Transportasi gratis area Jabodetabek",
+		"Sudah termasuk transportasi area Jabodetabek",
 	],
 	magazine_combo: [
 		"Magazine box booth beserta seluruh fasilitas Photobooth Classic",
@@ -301,12 +301,12 @@ export const DEFAULT_INCLUDES_BY_CATEGORY: Record<string, string[]> = {
 	photostage_only: [
 		...PHOTO_STAGE,
 		"Tidak termasuk cetak foto",
-		"Transportasi gratis area Jabodetabek",
+		"Sudah termasuk transportasi area Jabodetabek",
 	],
 	photostage_combo: [
 		...PHOTO_STAGE,
 		"Cetak instan photobooth classic",
-		"Transportasi gratis area Jabodetabek",
+		"Sudah termasuk transportasi area Jabodetabek",
 	],
 	guest_cam: [
 		"Tamu memotret melalui HP dengan QR code, tanpa instalasi aplikasi",
