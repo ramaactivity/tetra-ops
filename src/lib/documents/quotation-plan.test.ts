@@ -148,7 +148,7 @@ test("> 8 jam: paket 8 jam + tambahan durasi @500rb", () => {
 		}),
 	);
 	assert.equal(p.items[0].name, "4R Unlimited 8 Jam");
-	assert.equal(p.items[1].name, "Tambahan durasi 2 jam");
+	assert.equal(p.items[1].name, "Tambahan durasi 1 jam");
 	assert.equal(p.items[1].unit_price, 500_000);
 	assert.equal(p.items[1].qty, 2);
 	assert.equal(p.subtotal, 6_000_000);

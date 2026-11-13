@@ -343,7 +343,9 @@ export function planQuotation(
 		});
 		if (extraHours > 0)
 			items.push({
-				name: `Tambahan durasi ${extraHours} jam`,
+				// Harga per jam × jumlah jam di kolom Qty. "Tambahan durasi 3 jam"
+				// × 3 terbaca 9 jam oleh klien (Ruangguru, 13 Nov 2026).
+				name: "Tambahan durasi 1 jam",
 				includes: [
 					`${SERVICE_LABEL[pkg.category as ServiceCategory] ?? pkg.name} · Rp ${extraHourPrice(pkg.category).toLocaleString("id-ID")}/jam`,
 				],
