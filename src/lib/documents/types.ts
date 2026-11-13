@@ -225,7 +225,7 @@ export function defaultTerms(
 			`Pelunasan paling lambat H-${hMinus} sebelum acara.`,
 			"Pembatalan setelah DP: DP hangus sebagai biaya pembatalan.",
 			"Extend di hari H Rp 500.000/jam (Photobooth Classic & Videobooth 360).",
-			"Transport gratis se-Jabodetabek, kecuali Magazine Box dan lokasi di luar Jabodetabek.",
+			"Harga sudah termasuk transportasi area Jabodetabek, kecuali Magazine Box dan lokasi di luar Jabodetabek.",
 			tax,
 		].join("\n");
 	}

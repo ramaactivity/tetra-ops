@@ -193,24 +193,28 @@ function ItemDesc({
 	return (
 		<Numbered n={i + 1}>
 			<Text>{name}</Text>
-			{fixed.map((s, k) => (
+			<Bullets lines={fixed} />
+			{pending.length > 0 ? (
+				<View style={{ marginTop: 4 }}>
+					<Text style={[S.bold, { color: C.warn }]}>Belum ditentukan</Text>
+					<Bullets lines={pending} />
+				</View>
+			) : null}
+		</Numbered>
+	);
+}
+
+/** Poin rincian, satu per baris. */
+function Bullets({ lines }: { lines: readonly string[] }) {
+	return (
+		<>
+			{lines.map((s, k) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: urutan rincian stabil
 				<Text key={k} style={[S.muted, { paddingLeft: 7, textIndent: -7 }]}>
 					{`– ${s}`}
 				</Text>
 			))}
-			{pending.length > 0 ? (
-				<View style={{ marginTop: 4 }}>
-					<Text style={[S.bold, { color: C.warn }]}>Belum ditentukan</Text>
-					{pending.map((s, k) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: urutan rincian stabil
-						<Text key={k} style={[S.muted, { paddingLeft: 7, textIndent: -7 }]}>
-							{`– ${s}`}
-						</Text>
-					))}
-				</View>
-			) : null}
-		</Numbered>
+		</>
 	);
 }
 
@@ -266,10 +270,46 @@ type TotalLine = {
 	rule?: boolean;
 };
 
-/** Totals: label mulai kolom 4 (span 2), nilai kolom 6 rata kanan. */
-function Totals({ lines }: { lines: TotalLine[] }) {
+/**
+ * Totals: label kolom 4 (span 2), nilai kolom 6 rata kanan. Catatan
+ * quotation/invoice mengisi kolom 1–3 di sebelahnya (sejajar Deskripsi) —
+ * dulu baris sendiri di bawah: tampak mengambang dan mendorong blok
+ * Pembayaran/Ketentuan ke halaman 2.
+ */
+function Totals({
+	lines,
+	notes,
+}: {
+	lines: TotalLine[];
+	notes?: string | null;
+}) {
+	const note = notes?.trim();
+	// Catatan absolut → jaga tinggi blok minimal setinggi catatan (±60
+	// karakter per baris di 3 kolom, ±11,5pt per baris) supaya tak menimpa
+	// angka besar di bawahnya.
+	const noteLines = note
+		? 1 +
+			note
+				.split("\n")
+				.reduce((s, l) => s + Math.max(1, Math.ceil(l.length / 60)), 0)
+		: 0;
 	return (
-		<View style={{ paddingTop: 6 }} wrap={false}>
+		<View
+			style={{ paddingTop: 6, minHeight: noteLines ? 9 + noteLines * 11.5 : 0 }}
+			wrap={false}
+		>
+			{note ? (
+				<View
+					style={{
+						position: "absolute",
+						left: 0,
+						top: 7.7,
+						width: GRID.span[3],
+					}}
+				>
+					<LabelBlock label="Catatan" lines={note.split("\n")} />
+				</View>
+			) : null}
 			{lines.map((l, i) => (
 				// Ritme baris ≈ lineHeight 1.85 handoff (padding, bukan lineHeight:
 				// react-pdf melipatgandakan tinggi baris multi-View).
@@ -329,7 +369,7 @@ function billingTotals(d: PdfDocData): TotalLine[] {
 	return lines;
 }
 
-/** Catatan dokumen (opsional) — baris label/isi sebelum angka besar. */
+/** Catatan kuitansi/BAST — sejajar baris label/isi di atasnya. */
 function NotesRow({ notes }: { notes: string | null }) {
 	if (!notes?.trim()) return null;
 	return (
@@ -450,8 +490,7 @@ function BillingPage({
 			<MetaRow cells={meta} />
 			<PartyRow d={d} label={d.docType === "quotation" ? "Untuk" : "Kepada"} />
 			<PriceTable d={d} />
-			<Totals lines={billingTotals(d)} />
-			<NotesRow notes={d.notes} />
+			<Totals lines={billingTotals(d)} notes={d.notes} />
 			<BigFigure label={big.label} sub={big.sub} value={big.value} />
 		</Shell>
 	);

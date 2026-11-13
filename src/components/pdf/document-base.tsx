@@ -443,23 +443,26 @@ export function PdfSignature({
 					{signer.name}
 				</Text>
 			</View>
-			<Text>
-				{signer.position}, {COMPANY.name}
-			</Text>
+			{/* Dua baris (jabatan / perusahaan): kolom tanda tangan 1 kolom, dulu
+			    "Owner, Tetra Photobooth" patah sembarang di tengah. */}
+			<Text>{signer.position}</Text>
+			<Text>{COMPANY.name}</Text>
 		</View>
 	);
 }
 
 /**
  * Blok yang selalu duduk di dasar halaman terakhir (di atas footer). Jarak
- * minimum 30pt ke atas (handoff). Spacer
+ * minimum 14pt ke atas (dulu 30pt handoff — mendorong blok ke halaman 2
+ * padahal hanya kurang ±15pt; saat ruang lega, spacer tetap mendorongnya ke
+ * dasar sehingga tampilan tidak berubah). Spacer
  * `flexGrow` menghabiskan sisa ruang — tanpa posisi absolut, jadi react-pdf
  * tetap memindahkan blok ke halaman baru bila ruangnya tidak cukup.
  */
 export function PinnedBottom({ children }: { children: ReactNode }) {
 	return (
 		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
-			<View style={{ marginTop: 30 }}>{children}</View>
+			<View style={{ marginTop: 14 }}>{children}</View>
 		</View>
 	);
 }
@@ -508,7 +511,10 @@ export function PdfBottom({
 						</>
 					) : null}
 				</Col>
-				<Col span={2}>
+				{/* Pembayaran 2 · Ketentuan 3 · tanda tangan 1 (dulu 2·2·2): poin
+				    ketentuan tak patah dua baris, blok bawah cukup pendek untuk muat
+				    satu halaman bersama rincian paket (owner: jangan 2 halaman). */}
+				<Col span={3}>
 					{terms.length > 0 ? (
 						<>
 							{termsLabel}
@@ -516,7 +522,7 @@ export function PdfBottom({
 						</>
 					) : null}
 				</Col>
-				<Col span={2}>
+				<Col span={1}>
 					<PdfSignature signer={signer} label={signLabel} />
 				</Col>
 			</Row>
