@@ -422,7 +422,8 @@ export function PdfSignature({
 				<Image
 					src={signer.signatureData}
 					style={{
-						height: 46.5,
+						// 46,5 → 60pt (owner 13 Nov 2026: tanda tangan kurang besar).
+						height: 60,
 						width: 150,
 						objectFit: "contain",
 						objectPosition: "right bottom",
@@ -430,7 +431,7 @@ export function PdfSignature({
 					}}
 				/>
 			) : (
-				<View style={{ height: 46.5 }} />
+				<View style={{ height: 60 }} />
 			)}
 			<View
 				style={
