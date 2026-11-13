@@ -443,9 +443,8 @@ export function PdfSignature({
 					{signer.name}
 				</Text>
 			</View>
-			{/* Dua baris (jabatan / perusahaan): kolom tanda tangan 1 kolom, dulu
-			    "Owner, Tetra Photobooth" patah sembarang di tengah. */}
-			<Text>{signer.position}</Text>
+			{/* Hanya nama perusahaan di bawah nama penanda tangan (owner, 13 Nov
+			    2026: jabatan "Owner" tidak dicetak). */}
 			<Text>{COMPANY.name}</Text>
 		</View>
 	);
