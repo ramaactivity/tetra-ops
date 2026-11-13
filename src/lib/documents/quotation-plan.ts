@@ -20,6 +20,7 @@ import {
 	type DocEventInfo,
 	type DocItem,
 	defaultTerms,
+	PENDING_PREFIX,
 	type ProposedDiscount,
 	QUOTATION_VALID_DAYS,
 } from "./types";
@@ -241,7 +242,8 @@ export function pickPackage(
 function formatLine(category: string, frame: string, fmt: string | null) {
 	if (frame === "none") return null;
 	if (category !== "photobooth_classic") return `Format ${frame.toUpperCase()}`;
-	if (!fmt) return "Format cetak menyusul (2R/4R/Polaroid)";
+	if (!fmt)
+		return `${PENDING_PREFIX} Format cetak 2R / 4R / Polaroid (harga sama)`;
 	return fmt === "polaroid" ? "Format Polaroid" : `Format ${fmt.toUpperCase()}`;
 }
 
@@ -332,10 +334,14 @@ export function planQuotation(
 				pkg.category === "photobooth_classic" && !fmt
 					? `Photobooth Classic Unlimited ${pkg.duration_hours} Jam`
 					: pkg.name,
+			// Satu poin per baris; durasi cukup di nama paket kecuali ada
+			// tambahan jam, format yang belum dipilih masuk "Belum ditentukan".
 			includes: [
-				[`Durasi ${totalHours} jam`, fmtLine].filter(Boolean).join(" · "),
+				extraHours > 0 ? `Total durasi ${totalHours} jam` : null,
+				fmtLine && !fmtLine.startsWith(PENDING_PREFIX) ? fmtLine : null,
 				...base.map((s) => s.replace("{hours}", String(pkg.duration_hours))),
-			],
+				fmtLine?.startsWith(PENDING_PREFIX) ? fmtLine : null,
+			].filter((s): s is string => Boolean(s)),
 			qty: l.qty,
 			unit_price: pkg.base_price,
 			// Format belum pasti → jangan kunci ke paket ber-ukuran saat Deal.

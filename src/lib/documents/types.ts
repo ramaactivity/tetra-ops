@@ -247,23 +247,26 @@ export const QUOTATION_VALID_DAYS = 14;
  * packages.quotation_includes masih NULL dan oleh buat_quotation agent.
  * `{hours}` diganti durasi paket.
  */
+// Copy rincian paket (ditulis ulang 13 Nov 2026, permintaan owner): satu
+// fakta per baris, frasa pendek, tanpa "profesional" berulang. Yang belum
+// pasti ditulis di dokumen sebagai "Menyusul: …" (lihat splitIncludes).
 const PHOTOBOOTH_CLASSIC = [
-	"Cetak foto unlimited sesuai format yang dipilih",
-	"Peralatan profesional (printer, kamera, lighting)",
-	"Setup rapi & properti",
-	"2 crew profesional",
-	"Desain frame custom sesuai acara",
-	"Softfile real-time via QR code",
-	"Backdrop basic 6 warna (White/Red/Silver/Gold/Emerald Green/Blue)",
-	"Flashdisk kayu berisi seluruh file",
-	"Free transport se-Jabodetabek",
+	"Cetak foto sepuasnya (unlimited)",
+	"Desain frame custom sesuai tema acara",
+	"Kamera, printer & lighting",
+	"2 crew selama acara",
+	"Setup booth & properti foto",
+	"Backdrop pilihan 6 warna: putih, merah, silver, gold, emerald, biru",
+	"Softcopy langsung via QR code",
+	"Flashdisk kayu berisi semua foto",
+	"Transport gratis se-Jabodetabek",
 ];
 
 const PHOTO_STAGE = [
-	"Layout desain custom 4R 1–2 pose",
-	"QR code A2 untuk unduh softfile",
-	"Link Google Drive",
-	"Lighting profesional",
+	"Desain layout custom 4R, 1–2 pose",
+	"QR code ukuran A2 untuk unduh softcopy",
+	"Link Google Drive berisi semua foto",
+	"Lighting",
 	"Crew pengarah gaya",
 ];
 
@@ -271,40 +274,40 @@ export const DEFAULT_INCLUDES_BY_CATEGORY: Record<string, string[]> = {
 	photobooth_classic: PHOTOBOOTH_CLASSIC,
 	videobooth_360: [
 		"Video 360° kualitas tinggi (iPhone)",
-		"Platform spin 2–4 orang (maks. 250 kg)",
-		"Lighting profesional",
+		"Platform putar untuk 2–4 orang (maks. 250 kg)",
+		"Lighting",
 		"Template video custom",
 		"Pilihan musik",
-		"Properti",
-		"Sharing real-time via AirDrop/QR code",
-		"Free transport se-Jabodetabek",
+		"Properti foto",
+		"Kirim langsung via AirDrop / QR code",
+		"Transport gratis se-Jabodetabek",
 	],
 	magazine_combo: [
 		"Magazine box booth + semua isi Photobooth Classic",
 		...PHOTOBOOTH_CLASSIC.slice(0, -1),
-		"Syarat: loading 3 jam sebelum mulai, area min. 4×5 m, indoor, listrik ±700 W",
+		"Syarat: loading 3 jam sebelum acara, area min. 4×5 m, indoor, listrik ±700 W",
 		"Klien menyiapkan 1 meja + 3 kursi",
-		"Tidak termasuk transport, penggantian sticker & dekorasi tambahan",
+		"Belum termasuk transport, ganti sticker & dekorasi tambahan",
 	],
 	magazine_box_only: [
-		"Instalasi magazine box {hours} jam tanpa crew standby",
-		"Sticker default",
+		"Instalasi magazine box {hours} jam, tanpa crew standby",
+		"Sticker standar",
 		"Loading H-1 malam / hari H, bongkar maks. 23.00",
 		"Listrik ±100 W, indoor",
-		"Tidak termasuk transport, penggantian sticker & dekorasi",
+		"Belum termasuk transport, ganti sticker & dekorasi",
 	],
 	photostage_only: [
 		...PHOTO_STAGE,
 		"Tanpa cetak",
-		"Free transport se-Jabodetabek",
+		"Transport gratis se-Jabodetabek",
 	],
 	photostage_combo: [
 		...PHOTO_STAGE,
-		"Cetak instan classic photobooth",
-		"Free transport se-Jabodetabek",
+		"Cetak instan photobooth classic",
+		"Transport gratis se-Jabodetabek",
 	],
 	guest_cam: [
-		"Tamu memotret dari HP lewat QR, tanpa install aplikasi",
+		"Tamu foto dari HP lewat QR, tanpa install aplikasi",
 		"Ucapan suara + photo frame",
 		"Album gabungan, disimpan 6 bulan",
 		"Kartu QR ukuran kartu nama + 3 papan meja",
@@ -437,4 +440,27 @@ export function docFilename(
 		.trim()
 		.replace(/\s+/g, " ");
 	return `${DOC_TYPE_LABEL[docType]} ${docNumber}${client ? ` - ${client}` : ""}.pdf`;
+}
+
+/**
+ * Rincian item yang belum pasti ditulis "Menyusul: …" (generator quotation
+ * atau diketik di editor). PDF memisahkannya ke bagian "Belum ditentukan"
+ * supaya klien tidak mencampur yang sudah pasti dengan yang belum.
+ */
+export const PENDING_PREFIX = "Menyusul:";
+
+export function splitIncludes(includes: readonly string[]): {
+	fixed: string[];
+	pending: string[];
+} {
+	const fixed: string[] = [];
+	const pending: string[] = [];
+	for (const raw of includes) {
+		const s = raw.trim();
+		if (!s) continue;
+		if (s.toLowerCase().startsWith(PENDING_PREFIX.toLowerCase()))
+			pending.push(s.slice(PENDING_PREFIX.length).trim());
+		else fixed.push(s);
+	}
+	return { fixed, pending };
 }

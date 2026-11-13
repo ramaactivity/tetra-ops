@@ -11,7 +11,7 @@ import {
 	planQuotation,
 	QuotationRequestSchema,
 } from "./quotation-plan";
-import { pendingAdminItems } from "./types";
+import { pendingAdminItems, splitIncludes } from "./types";
 
 const P = (
 	name: string,
@@ -109,17 +109,20 @@ test("kategori + jam + format → paket master (nama & harga dari master)", () =
 	assert.equal(p.items[0].name, "4R Unlimited 3 Jam");
 	assert.equal(p.items[0].package_id, "4R Unlimited 3 Jam");
 	assert.equal(p.items[0].unit_price, 2_500_000);
-	assert.equal(p.items[0].includes[0], "Durasi 3 jam · Format 4R");
+	// Durasi & format sudah di nama paket — rincian tidak mengulang.
+	assert.ok(!p.items[0].includes.some((s) => /Durasi|menyusul/i.test(s)));
 	const v = ok(plan({ layanan: [{ kategori: "videobooth_360", jam: 4 }] }));
 	assert.equal(v.items[0].name, "Videobooth 360 - 4 Jam");
-	assert.equal(v.items[0].includes[0], "Durasi 4 jam");
+	assert.ok(!v.items[0].includes.some((s) => /Durasi/.test(s)));
 });
 
 test("format belum dipilih → harga acuan, tanpa package_id, 'menyusul'", () => {
 	const p = ok(plan({ layanan: [{ kategori: "photobooth_classic", jam: 4 }] }));
 	assert.equal(p.items[0].unit_price, 3_000_000);
 	assert.equal(p.items[0].package_id, null);
-	assert.match(p.items[0].includes[0], /Format cetak menyusul/);
+	const pending = p.items[0].includes.filter((s) => s.startsWith("Menyusul:"));
+	assert.equal(pending.length, 1);
+	assert.match(pending[0], /Format cetak 2R \/ 4R \/ Polaroid/);
 });
 
 test("paket nonaktif / tidak ada ditolak", () => {
@@ -286,4 +289,16 @@ test("add-on dari master + minimal order; klien organisasi → u.p.", () => {
 	assert.equal(p.items[2].qty, 100);
 	assert.equal(p.client.name, "PT Maju");
 	assert.equal(p.client.attn, "Dimas");
+});
+
+test("splitIncludes: poin 'Menyusul:' dipisah, sisanya tetap urut", () => {
+	assert.deepEqual(
+		splitIncludes([
+			"Cetak unlimited",
+			" ",
+			"Menyusul: Format cetak",
+			"Free transport",
+		]),
+		{ fixed: ["Cetak unlimited", "Free transport"], pending: ["Format cetak"] },
+	);
 });

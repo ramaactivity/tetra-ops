@@ -12,7 +12,12 @@
 
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import type { PdfDocData } from "@/lib/documents/pdf-data";
-import { COMPANY, DOC_TITLE, type DocType } from "@/lib/documents/types";
+import {
+	COMPANY,
+	DOC_TITLE,
+	type DocType,
+	splitIncludes,
+} from "@/lib/documents/types";
 import { formatPhoneLocal } from "@/lib/format";
 import { terbilangRupiah } from "@/lib/terbilang";
 import {
@@ -125,7 +130,10 @@ function PartyRow({ d, label }: { d: PdfDocData; label: string }) {
 						lines={[
 							title,
 							d.event.date ? formatDateLongForPdf(d.event.date) : null,
-							venue,
+							venue ||
+								(d.docType === "quotation" && d.event.date
+									? "Lokasi: menyusul"
+									: null),
 						]}
 					/>
 				) : null}
@@ -167,20 +175,41 @@ const rowLine = {
 	borderBottomColor: C.hairline,
 };
 
-/** Nama item + include (muted) dengan nomor urut. */
+/**
+ * Nama item + rincian dengan nomor urut. Rincian satu poin per baris (dulu
+ * disambung " · " jadi paragraf padat); poin "Menyusul: …" dipisah ke
+ * "Belum ditentukan" supaya klien tahu mana yang sudah pasti.
+ */
 function ItemDesc({
 	i,
 	name,
-	desc,
+	includes,
 }: {
 	i: number;
 	name: string;
-	desc: string | null;
+	includes: readonly string[];
 }) {
+	const { fixed, pending } = splitIncludes(includes);
 	return (
 		<Numbered n={i + 1}>
 			<Text>{name}</Text>
-			{desc ? <Text style={S.muted}>{desc}</Text> : null}
+			{fixed.map((s, k) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: urutan rincian stabil
+				<Text key={k} style={[S.muted, { paddingLeft: 7, textIndent: -7 }]}>
+					{`– ${s}`}
+				</Text>
+			))}
+			{pending.length > 0 ? (
+				<View style={{ marginTop: 4 }}>
+					<Text style={[S.bold, { color: C.warn }]}>Belum ditentukan</Text>
+					{pending.map((s, k) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: urutan rincian stabil
+						<Text key={k} style={[S.muted, { paddingLeft: 7, textIndent: -7 }]}>
+							{`– ${s}`}
+						</Text>
+					))}
+				</View>
+			) : null}
 		</Numbered>
 	);
 }
@@ -198,7 +227,6 @@ function PriceTable({ d }: { d: PdfDocData }) {
 			/>
 			{d.items.map((it, i) => {
 				const noPrice = it.needs_admin_price && !(it.unit_price > 0);
-				const desc = it.includes.filter((x) => x.trim()).join(" · ");
 				return (
 					<Row
 						// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
@@ -207,7 +235,7 @@ function PriceTable({ d }: { d: PdfDocData }) {
 						wrap={false}
 					>
 						<Col span={3}>
-							<ItemDesc i={i} name={it.name} desc={desc || null} />
+							<ItemDesc i={i} name={it.name} includes={it.includes} />
 						</Col>
 						<Col span={1}>
 							{/* Draft: harga belum diisi admin — dokumen tak bisa dikirim. */}
@@ -518,14 +546,15 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 	// deliverables event hanya cadangan bila dokumen tanpa item.
 	const rows: Array<{
 		name: string;
-		desc: string | null;
+		includes: string[];
 		qty: string;
 		note: string;
 	}> =
 		d.items.length > 0
 			? d.items.map((it, i) => ({
 					name: it.name,
-					desc: it.includes.filter((x) => x.trim()).join(" · ") || null,
+					// BAST = setelah acara: yang dulu "menyusul" tak relevan lagi.
+					includes: splitIncludes(it.includes).fixed,
 					qty: i === 0 && it.qty > 1 ? `${it.qty} unit` : String(it.qty),
 					note:
 						i === 0
@@ -534,7 +563,7 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 				}))
 			: (b?.deliverables ?? []).map((x) => ({
 					name: x.label,
-					desc: null,
+					includes: [],
 					qty: String(x.quantity),
 					note: x.notes ?? "",
 				}));
@@ -598,7 +627,7 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 				// biome-ignore lint/suspicious/noArrayIndexKey: daftar statis
 				<Row key={i} style={rowLine} wrap={false}>
 					<Col span={3}>
-						<ItemDesc i={i} name={row.name} desc={row.desc} />
+						<ItemDesc i={i} name={row.name} includes={row.includes} />
 					</Col>
 					<Col span={1}>
 						<Text>{row.qty}</Text>
