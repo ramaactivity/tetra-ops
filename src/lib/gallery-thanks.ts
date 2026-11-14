@@ -90,7 +90,7 @@ export function composeKlien(input: {
 		"Semua foto photobooth-nya sudah bisa dilihat & diunduh di sini:",
 		input.galleryUrl,
 		"",
-		`Bisa download semua sekaligus, tandai favorit, dan bagikan ke keluarga. ${
+		`Bisa download semua sekaligus, tandai favorit, dan bagikan ke ${k === "corporate" ? "peserta & tim" : k === "wisuda" ? "teman & keluarga" : "keluarga"}. ${
 			input.expiresAt
 				? `Galerinya aktif sampai ${tanggal(input.expiresAt)}, disimpan dulu ya.`
 				: "Disimpan dulu ya."
@@ -107,17 +107,26 @@ export function composeWo(input: {
 }
 
 /**
- * PIC hari H (pic_wa) = orang venue/EO/keluarga yang mengoordinasi, BUKAN pemilik acara
- * (owner 14 Nov: Ibu April PIC venue dapat "hari bahagia kalian"). Dapat teks PIC sendiri.
+ * PIC hari H (pic_wa) biasanya keluarga atau perwakilan EO/WO, jarang pemilik acara
+ * (owner 14 Nov: Ibu April PIC dapat "hari bahagia kalian"). Wedding dan event dibedakan:
+ * galeri diteruskan ke mempelai / yang punya acara, atau dibagikan ke peserta & tim.
  */
+const TERUSKAN: Record<Kind, string> = {
+	wedding: "boleh diteruskan ke kedua mempelai",
+	engagement: "boleh diteruskan ke pasangan yang lamaran",
+	birthday: "boleh diteruskan ke yang punya acara",
+	corporate: "boleh dibagikan ke peserta & tim",
+	wisuda: "boleh dibagikan ke para wisudawan",
+	lain: "boleh diteruskan ke yang punya acara",
+};
+
 export function composePic(input: {
 	nama: string | null;
 	judul: string;
-	klien: string | null;
+	category: string | null;
 	galleryUrl: string;
 }): string {
-	const ke = input.klien?.trim() ? ` ke ${input.klien.trim()}` : "";
-	return `Halo ${sapa(input.nama)} 👋 terima kasih sudah bantu koordinasi acara ${input.judul} hari ini. Ini link galeri foto photobooth-nya, boleh diteruskan${ke} ya: ${input.galleryUrl}`;
+	return `Halo ${sapa(input.nama)} 👋 terima kasih sudah bantu koordinasi di acara ${input.judul} hari ini. Ini link galeri foto photobooth-nya, ${TERUSKAN[kindOf(input.category)]} ya: ${input.galleryUrl}`;
 }
 
 export type JenisPenerima = "klien" | "wo" | "pic";

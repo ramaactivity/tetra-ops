@@ -204,19 +204,34 @@ test("PIC hari H (venue/EO) dapat teks PIC, bukan ucapan pengantin; nomor sama d
 			["6281992543208", "pic"],
 		],
 	);
-	const t = composePic({
+	const w = composePic({
 		nama: "Ibu April",
 		judul: "Ngunduh Mantu",
-		klien: "Yusro Iqbal Fathoni & Indri Rahma",
+		category: "wedding",
 		galleryUrl: "https://x/g/a",
 	});
 	assert.match(
-		t,
-		/^Halo Ibu April 👋 terima kasih sudah bantu koordinasi acara Ngunduh Mantu/,
+		w,
+		/^Halo Ibu April 👋 terima kasih sudah bantu koordinasi di acara Ngunduh Mantu hari ini\./,
 	);
-	assert.match(
-		t,
-		/diteruskan ke Yusro Iqbal Fathoni & Indri Rahma ya: https:\/\/x\/g\/a$/,
-	);
-	assert.doesNotMatch(t, /hari bahagia|kalian/);
+	assert.match(w, /diteruskan ke kedua mempelai ya: https:\/\/x\/g\/a$/);
+	assert.doesNotMatch(w, /hari bahagia|kalian/);
+	const c = composePic({
+		nama: "Pak Dimas",
+		judul: "Gathering PT BIPO",
+		category: "corporate",
+		galleryUrl: "https://x/g/b",
+	});
+	assert.match(c, /dibagikan ke peserta & tim ya/);
+	assert.doesNotMatch(c, /mempelai|keluarga/);
+	// Teks klien event kantor tidak menyuruh "bagikan ke keluarga".
+	const k = composeKlien({
+		panggilan: "Bu Ani",
+		category: "corporate",
+		nama: "PT BIPO",
+		galleryUrl: "https://x",
+		expiresAt: null,
+	});
+	assert.match(k, /bagikan ke peserta & tim\./);
+	assert.doesNotMatch(k, /hari bahagia|keluarga/);
 });

@@ -133,7 +133,7 @@ export async function runGalleryThanks(
 						? composePic({
 								nama: p.nama,
 								judul,
-								klien: (e.client_name as string | null) ?? null,
+								category: e.event_category as string | null,
 								galleryUrl,
 							})
 						: composeKlien({
