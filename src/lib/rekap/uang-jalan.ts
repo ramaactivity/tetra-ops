@@ -197,3 +197,24 @@ export function uraiPelunasan(
 	}
 	return parts.join("; ");
 }
+
+/**
+ * Owner yang memegang rekening bank Tetra (nama di bank_accounts.account_holder
+ * memuat semua kata nama owner, mis. "Ramadan Saputra" ⊂ "Muhamad Ramadan
+ * Saputra"). Aturan owner 14 Nov 2026: uang jalan dari owner ini = Rek. Tetra;
+ * dari owner lain = uang pribadi (Tetra berutang ke owner itu).
+ */
+export function pegangRekeningTetra(
+	ownerName: string,
+	holders: ReadonlyArray<string | null>,
+): boolean {
+	const words = ownerName
+		.toLowerCase()
+		.split(/\s+/)
+		.filter((w) => w.length >= 3);
+	if (words.length === 0) return false;
+	return holders.some((h) => {
+		const holder = ` ${(h ?? "").toLowerCase()} `;
+		return words.every((w) => holder.includes(` ${w} `));
+	});
+}

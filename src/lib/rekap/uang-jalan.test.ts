@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	isiSisa,
+	pegangRekeningTetra,
 	potongFee,
 	rincianTerbuka,
 	ringkasUangJalan,
@@ -185,4 +186,13 @@ test("rincian hutang owner: dilunasi yang paling lama dulu, keterangan pelunasan
 		"16 Okt · Konsumsi — CIMB 83.000; 16 Okt · Bensin — CIMB 37.000 sebagian",
 	);
 	assert.equal(rincianTerbuka(items, 999_999).length, 0);
+});
+
+test("pegangRekeningTetra: nama owner ⊂ pemilik rekening Tetra", () => {
+	const holders = ["Muhamad Ramadan Saputra", null, "Tetra Photobooth"];
+	assert.equal(pegangRekeningTetra("Ramadan Saputra", holders), true);
+	assert.equal(pegangRekeningTetra("Fahmi Baharudin", holders), false);
+	// Kata parsial tidak dihitung ("Rama" ≠ "Ramadan").
+	assert.equal(pegangRekeningTetra("Rama", holders), false);
+	assert.equal(pegangRekeningTetra("", holders), false);
 });

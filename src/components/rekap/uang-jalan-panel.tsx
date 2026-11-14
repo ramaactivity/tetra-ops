@@ -89,7 +89,8 @@ export function UangJalanPanel({
 	} | null;
 	cashAccounts: CashAccountOption[];
 	/** Owner yang bisa memberi uang jalan (Rama, Adit, …). */
-	owners: Array<{ id: string; name: string }>;
+	/** rekTetra: owner pemegang rekening Tetra → bawaan "Rek. Tetra". */
+	owners: Array<{ id: string; name: string; rekTetra?: boolean }>;
 	meId: string;
 	/** Saldo hutang-piutang Tetra ↔ owner (semua acara). */
 	talangan?: TalanganOwnerSaldo[];
@@ -192,6 +193,10 @@ export function UangJalanPanel({
 		owners.some((o) => o.id === meId) ? meId : (owners[0]?.id ?? ""),
 	);
 	const [pribadi, setPribadi] = useState(false);
+	// Owner lain memberi dari uang pribadi (Tetra berutang); pemegang rekening
+	// Tetra (Rama) memberi dari Rek. Tetra — aturan owner 14 Nov 2026.
+	const pribadiBawaan = (id: string) =>
+		!owners.find((o) => o.id === id)?.rekTetra;
 	// Catat uang jalan: satu baris per owner pemberi (bisa dibagi beberapa owner).
 	const [rows, setRows] = useState<GiverRow[]>([]);
 	const rowsTotal = rows.reduce((t, r) => t + (Number(r.amount) || 0), 0);
@@ -205,7 +210,7 @@ export function UangJalanPanel({
 							ownerId,
 							amount: target > 0 ? String(target) : "",
 							touched: false,
-							pribadi: true,
+							pribadi: pribadiBawaan(ownerId),
 							admin: 0,
 							proof: null,
 						},
@@ -228,7 +233,7 @@ export function UangJalanPanel({
 								ownerId: id,
 								amount: "",
 								touched: false,
-								pribadi: true,
+								pribadi: pribadiBawaan(id),
 								admin: 0,
 							},
 						],

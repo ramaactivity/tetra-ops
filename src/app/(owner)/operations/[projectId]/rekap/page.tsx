@@ -72,7 +72,11 @@ import {
 	type RekapExpenseSource,
 	talanganPerCrew,
 } from "@/lib/rekap/reimbursement";
-import { potongFee, saldoUangJalan } from "@/lib/rekap/uang-jalan";
+import {
+	pegangRekeningTetra,
+	potongFee,
+	saldoUangJalan,
+} from "@/lib/rekap/uang-jalan";
 import { loadTalanganOwner } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 
@@ -355,9 +359,20 @@ export default async function EventRekapPage({
 		.eq("is_active", true)
 		.order("full_name");
 	const talanganOwner = await loadTalanganOwner(supabase);
+	// Pemegang rekening bank Tetra → bawaan "Rek. Tetra"; owner lain → uang
+	// pribadi (aturan owner 14 Nov 2026).
+	const { data: bankHolders } = await supabase
+		.from("bank_accounts")
+		.select("account_holder")
+		.eq("is_active", true)
+		.eq("account_kind", "bank");
+	const holderNames = (bankHolders ?? []).map(
+		(b) => b.account_holder as string | null,
+	);
 	const ujOwnerOptions = (ujOwners ?? []).map((o) => ({
 		id: o.id as string,
 		name: (o.nickname as string | null) || (o.full_name as string),
+		rekTetra: pegangRekeningTetra(o.full_name as string, holderNames),
 	}));
 	const ujLedger = ((ujRows ?? []) as UangJalanLedgerRow[]).map((r) => ({
 		...r,
@@ -688,8 +703,14 @@ export default async function EventRekapPage({
 			...extraTxnRows
 				.filter((r) => r.isOut)
 				.map((r) => r.description.trim().toLowerCase()),
+			// Antrean dari rekap (fromRekap) dikelola syncOwnerPaidQueue: ikut
+			// terhapus saat pembayar dikoreksi, jadi bukan "catatan yang harus
+			// dihapus manual" (dulu memicu peringatan dobel palsu, 14 Nov 2026).
 			...queuedEntries
-				.filter((q) => q.kind === "expense" && q.direction === "keluar")
+				.filter(
+					(q) =>
+						q.kind === "expense" && q.direction === "keluar" && !q.fromRekap,
+				)
 				.map((q) => (q.note ?? "").trim().toLowerCase()),
 		]);
 		const ownerNameById = new Map(
