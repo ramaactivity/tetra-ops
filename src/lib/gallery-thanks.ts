@@ -106,10 +106,26 @@ export function composeWo(input: {
 	return `Halo ${sapa(input.nama)} 👋 terima kasih sudah kerja bareng Tetra di acara ${input.judul} hari ini. Ini link galeri foto photobooth-nya, boleh diteruskan ke klien ya: ${input.galleryUrl}`;
 }
 
+/**
+ * PIC hari H (pic_wa) = orang venue/EO/keluarga yang mengoordinasi, BUKAN pemilik acara
+ * (owner 14 Nov: Ibu April PIC venue dapat "hari bahagia kalian"). Dapat teks PIC sendiri.
+ */
+export function composePic(input: {
+	nama: string | null;
+	judul: string;
+	klien: string | null;
+	galleryUrl: string;
+}): string {
+	const ke = input.klien?.trim() ? ` ke ${input.klien.trim()}` : "";
+	return `Halo ${sapa(input.nama)} 👋 terima kasih sudah bantu koordinasi acara ${input.judul} hari ini. Ini link galeri foto photobooth-nya, boleh diteruskan${ke} ya: ${input.galleryUrl}`;
+}
+
+export type JenisPenerima = "klien" | "wo" | "pic";
+
 export type Penerima = {
 	phone: string;
 	nama: string | null;
-	jenis: "klien" | "wo";
+	jenis: JenisPenerima;
 };
 
 /**
@@ -120,7 +136,7 @@ export function penerima(
 	list: Array<{
 		phone: string | null;
 		nama: string | null;
-		jenis: "klien" | "wo";
+		jenis: JenisPenerima;
 	}>,
 ): Penerima[] {
 	const norm = (p: string | null) =>
@@ -137,7 +153,7 @@ export function penerima(
 	for (const x of list) {
 		const phone = norm(x.phone);
 		if (!phone || out.has(phone)) continue;
-		const jenis = wo.has(phone) ? "wo" : "klien";
+		const jenis: JenisPenerima = wo.has(phone) ? "wo" : x.jenis;
 		const nama =
 			jenis === x.jenis
 				? x.nama

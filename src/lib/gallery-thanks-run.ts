@@ -5,6 +5,7 @@ import { endAt } from "@/lib/crew-briefing";
 import {
 	composeExpiry,
 	composeKlien,
+	composePic,
 	composeWo,
 	expiryKind,
 	galleryWindow,
@@ -128,13 +129,20 @@ export async function runGalleryThanks(
 			const text =
 				p.jenis === "wo"
 					? composeWo({ nama: p.nama, judul, galleryUrl })
-					: composeKlien({
-							panggilan: p.nama,
-							category: e.event_category as string | null,
-							nama: (e.client_name as string | null) ?? null,
-							galleryUrl,
-							expiresAt: g?.client_expires_at ?? null,
-						});
+					: p.jenis === "pic"
+						? composePic({
+								nama: p.nama,
+								judul,
+								klien: (e.client_name as string | null) ?? null,
+								galleryUrl,
+							})
+						: composeKlien({
+								panggilan: p.nama,
+								category: e.event_category as string | null,
+								nama: (e.client_name as string | null) ?? null,
+								galleryUrl,
+								expiresAt: g?.client_expires_at ?? null,
+							});
 			if (opts.dryRun) {
 				out.previews.push({
 					project_id: pid,
@@ -257,7 +265,7 @@ async function loadPenerima(
 					{
 						phone: (e.pic_wa as string | null) ?? null,
 						nama: (e.pic_name as string | null) ?? null,
-						jenis: "klien" as const,
+						jenis: "pic" as const,
 					},
 				]
 			: []),

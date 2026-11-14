@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	composeKlien,
+	composePic,
 	composeWo,
 	galleryWindow,
 	penerima,
@@ -184,4 +185,38 @@ test("pengingat galeri versi WO (event tanpa nomor klien)", async () => {
 		}),
 		/^Kak Firda, galeri foto photobooth X tinggal sampai besok ya\. Kalau kliennya belum sempat download, boleh tolong diingetin ya 🙏/,
 	);
+});
+
+test("PIC hari H (venue/EO) dapat teks PIC, bukan ucapan pengantin; nomor sama dengan klien tetap klien", () => {
+	const l = penerima([
+		{
+			phone: "085173172514",
+			nama: "Yusro Iqbal Fathoni & Indri Rahma",
+			jenis: "klien",
+		},
+		{ phone: "081992543208", nama: "Ibu April", jenis: "pic" },
+		{ phone: "6285173172514", nama: "Indri", jenis: "pic" },
+	]);
+	assert.deepEqual(
+		l.map((p) => [p.phone, p.jenis]),
+		[
+			["6285173172514", "klien"],
+			["6281992543208", "pic"],
+		],
+	);
+	const t = composePic({
+		nama: "Ibu April",
+		judul: "Ngunduh Mantu",
+		klien: "Yusro Iqbal Fathoni & Indri Rahma",
+		galleryUrl: "https://x/g/a",
+	});
+	assert.match(
+		t,
+		/^Halo Ibu April 👋 terima kasih sudah bantu koordinasi acara Ngunduh Mantu/,
+	);
+	assert.match(
+		t,
+		/diteruskan ke Yusro Iqbal Fathoni & Indri Rahma ya: https:\/\/x\/g\/a$/,
+	);
+	assert.doesNotMatch(t, /hari bahagia|kalian/);
 });
