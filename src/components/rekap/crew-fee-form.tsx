@@ -311,6 +311,26 @@ export function CrewFeeForm({
 		);
 		return { dariUj, transfer: tagihan - dariUj };
 	}
+	/**
+	 * Pemegang uang jalan: biaya lapangan yang dia bayar sudah tertutup uang
+	 * jalan — itu BUKAN uang tambahan ke crew. Di kartu, reimbursement-nya cuma
+	 * bagian uang pribadinya (kekurangan uang jalan). Angka di DB tetap talangan
+	 * penuh (disamakan saat settle) karena bayar fee memotong seluruh uang jalan;
+	 * transfernya sama (lihat rinciUangJalan).
+	 */
+	const ujHolderOf = (uid?: string | null) =>
+		uid ? ujHolders.find((h) => h.id === uid) : undefined;
+	function reimbShown(row: CrewAssignmentRow) {
+		const h = ujHolderOf(row.user_id);
+		if (!h) return row.reimbursement_amount;
+		if (h.sisa !== undefined) return Math.max(0, -h.sisa);
+		return Math.max(
+			0,
+			row.reimbursement_amount - Math.min(h.terpakai, h.diberi),
+		);
+	}
+	const rowTotal = (row: CrewAssignmentRow) =>
+		row.fee_amount + row.bonus_amount + reimbShown(row);
 	const crewOnlyTotal =
 		(fieldExpenseBreakdown?.crewFrontedTotal ?? 0) - ujTotal;
 
@@ -434,13 +454,9 @@ export function CrewFeeForm({
 
 			{allowPayment &&
 				(() => {
-					const unpaid = rows
-						.filter((r) => !r.is_paid)
-						.reduce(
-							(s, r) =>
-								s + r.fee_amount + r.bonus_amount + r.reimbursement_amount,
-							0,
-						);
+					// Yang masih harus ditransfer (uang jalan yang dipegang crew sudah
+					// dipotong) — sama dengan angka "Transfer dari rekening" tiap crew.
+					const unpaid = unpaidTotal;
 					if (unpaid <= 0) return null;
 					return (
 						<div className="mb-4 flex items-start gap-2.5 rounded-md border border-amber-300/70 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
@@ -701,8 +717,8 @@ export function CrewFeeForm({
 
 			<div className="space-y-4">
 				{rows.map((row) => {
-					const total =
-						row.fee_amount + row.bonus_amount + row.reimbursement_amount;
+					const total = rowTotal(row);
+					const holder = ujHolderOf(row.user_id);
 					return (
 						<div
 							key={row.assignment_id}
@@ -747,7 +763,7 @@ export function CrewFeeForm({
 													<>
 														<br />
 														{potong > 0
-															? "dari uang jalan "
+															? "dipotong sisa uang jalan "
 															: "+ ganti talangan crew "}
 														<span data-nominal className="tabular">
 															{formatRupiah(Math.abs(potong))}
@@ -777,16 +793,30 @@ export function CrewFeeForm({
 								/>
 								<FeeField
 									label="Reimbursement"
-									value={row.reimbursement_amount}
+									value={holder ? reimbShown(row) : row.reimbursement_amount}
 									onChange={(v) =>
 										update(row.assignment_id, { reimbursement_amount: v })
 									}
-									readOnly={readOnly}
+									readOnly={readOnly || Boolean(holder)}
 								/>
 								{/* Settle selalu menyamakan reimbursement crew yang belum
 								    dibayar dengan talangannya di rekap — isi manual cuma
 								    pratinjau, jadi cukup satu tombol, tanpa chip per item. */}
+								{holder && holder.terpakai > 0 && (
+									<p className="col-span-full -mt-1 text-[12px] text-muted-foreground">
+										Biaya lapangan <Money v={holder.terpakai} /> dibayar pakai
+										uang jalan, jadi tidak ditransfer lagi.
+										{holder.sisa !== undefined && holder.sisa < 0 && (
+											<>
+												{" "}
+												Kekurangannya <Money v={-holder.sisa} /> pakai uang
+												pribadi crew, diganti di Reimbursement.
+											</>
+										)}
+									</p>
+								)}
 								{!readOnly &&
+									!holder &&
 									fieldExpenseBreakdown &&
 									row.user_id &&
 									(fieldExpenseBreakdown.byCrew[row.user_id] ?? 0) > 0 &&
