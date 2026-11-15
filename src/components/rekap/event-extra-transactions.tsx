@@ -293,7 +293,7 @@ export function EventExtraTransactions({
 				return;
 			}
 			toast.success(
-				`${direction === "keluar" ? "Pengeluaran" : "Pemasukan"} ${formatRupiah(amount)} disimpan — dibukukan saat settle.`,
+				`${direction === "keluar" ? "Pengeluaran" : "Pemasukan"} ${formatRupiah(amount)} ${res.posted ? "langsung dibukukan (acara sudah di-settle)." : "disimpan — dibukukan saat settle."}`,
 			);
 			resetForm();
 			router.refresh();
@@ -325,7 +325,7 @@ export function EventExtraTransactions({
 				return;
 			}
 			toast.success(
-				`${res.queued} biaya dibayar owner masuk daftar (${formatRupiah(pendingTotal)}) — dibukukan saat settle.`,
+				`${res.queued} biaya dibayar owner masuk daftar (${formatRupiah(pendingTotal)}) — ${res.posted ? "langsung dibukukan." : "dibukukan saat settle."}`,
 			);
 			router.refresh();
 		});

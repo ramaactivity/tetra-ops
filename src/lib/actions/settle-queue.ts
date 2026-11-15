@@ -69,7 +69,38 @@ async function requireOwner() {
 	return me;
 }
 
-export type QueueResponse = { ok: true } | { ok: false; error: string };
+export type QueueResponse =
+	| {
+			ok: true /** Event sudah settle → langsung dibukukan, tidak antre. */;
+			posted?: boolean;
+	  }
+	| { ok: false; error: string };
+
+/**
+ * Antrean hanya diposting oleh settleEvent. Pengeluaran yang baru ketahuan
+ * SESUDAH settle (crew lupa lapor) jadi langsung dibukukan di sini — kalau
+ * tidak, barisnya diam di antrean selamanya & tidak pernah masuk buku.
+ */
+async function postIfSettled(
+	// biome-ignore lint/suspicious/noExplicitAny: klien Supabase server.
+	supabase: any,
+	eventId: string,
+	projectId: string,
+): Promise<QueueResponse> {
+	const { data: ev } = await supabase
+		.from("events")
+		.select("status")
+		.eq("id", eventId)
+		.maybeSingle();
+	if (ev?.status !== "completed") return { ok: true };
+	const res = await postSettleQueue(eventId, projectId);
+	if (res && res.failed > 0)
+		return {
+			ok: false,
+			error: `Tersimpan, tapi gagal dibukukan: ${res.errors.join("; ")}`,
+		};
+	return { ok: true, posted: true };
+}
 
 /**
  * Sumber dana "uang jalan" (DR-049): UI mengirim `uj:<user_id>`. Diterjemahkan
@@ -185,8 +216,13 @@ export async function queueEventExpense(input: {
 	});
 	if (error) return { ok: false, error: error.message };
 
+	const late = await postIfSettled(
+		supabase,
+		parsed.data.event_id,
+		parsed.data.project_id,
+	);
 	revalidatePath(`/operations/${parsed.data.project_id}/rekap`);
-	return { ok: true };
+	return late;
 }
 
 /** Antre beberapa pengeluaran sekaligus (mis. semua biaya dibayar owner). */
@@ -200,7 +236,9 @@ export async function queueEventExpensesBatch(input: {
 		note: string;
 		proof_url?: string | null;
 	}>;
-}): Promise<{ ok: true; queued: number } | { ok: false; error: string }> {
+}): Promise<
+	{ ok: true; queued: number; posted?: boolean } | { ok: false; error: string }
+> {
 	const me = await requireOwner();
 	if (!me) return { ok: false, error: "Hanya owner yang bisa mengisi ini" };
 
@@ -237,8 +275,9 @@ export async function queueEventExpensesBatch(input: {
 	);
 	if (error) return { ok: false, error: error.message };
 
+	const late = await postIfSettled(supabase, input.event_id, input.project_id);
 	revalidatePath(`/operations/${input.project_id}/rekap`);
-	return { ok: true, queued: rows.length };
+	return late.ok ? { ...late, queued: rows.length } : late;
 }
 
 /**
