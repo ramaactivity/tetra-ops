@@ -525,56 +525,90 @@ export function CrewFeeForm({
 									const row = rows.find(
 										(r) => r.user_id === h.id && !r.is_paid,
 									);
+									const sisa = h.sisa ?? 0;
+									// Sisa uang jalan: bawaannya jadi bagian fee (transfer tinggal
+									// sisanya); atau jadi bonus → crew menyimpan sisanya & fee
+									// tetap ditransfer penuh (tercatat sebagai biaya event).
+									const bonusSel = Boolean(
+										row && sisa > 0 && row.bonus_amount >= sisa,
+									);
+									const pilih = (bonus: boolean) => {
+										if (!row || bonus === bonusSel) return;
+										const next = bonus
+											? row.bonus_amount + sisa
+											: Math.max(0, row.bonus_amount - sisa);
+										update(row.assignment_id, { bonus_amount: next });
+										const tf = rinciUangJalan({
+											...row,
+											bonus_amount: next,
+										})?.transfer;
+										toast.success(
+											`${bonus ? `Sisa ${formatRupiah(sisa)} jadi bonus ${first}` : `Sisa ${formatRupiah(sisa)} jadi bagian fee ${first}`}${tf !== undefined ? ` — transfer jadi ${formatRupiah(tf)}` : ""}. Tekan Simpan fee crew.`,
+										);
+									};
 									return (
-										<p
-											key={h.id}
-											className="flex flex-wrap items-center gap-x-2 gap-y-1"
-										>
-											<span>
+										<div key={h.id} className="space-y-1.5">
+											<p>
 												{ujHolders.length > 1 && `${first}: `}
 												{h.sisa === undefined ? (
 													"Sudah diperhitungkan saat bayar fee."
-												) : h.sisa > 0 ? (
+												) : sisa > 0 ? (
 													<>
-														Sisa <Money v={h.sisa} /> dipotong dari fee {first}.
+														Sisa uang jalan <Money v={sisa} /> masih di {first}.
 													</>
-												) : h.sisa === 0 ? (
+												) : sisa === 0 ? (
 													"Uang jalan habis terpakai."
 												) : (
 													<>
-														Kurang <Money v={-h.sisa} />, dibayar bersama fee{" "}
+														Kurang <Money v={-sisa} />, dibayar bersama fee{" "}
 														{first}.
 													</>
 												)}
-											</span>
-											{/* Sisa kecil biasa diberikan ke crew: jadi bonus → tetap
-											    dipotong dari uang jalan, transfer fee naik sebesar itu,
-											    tercatat sebagai biaya event. */}
-											{!readOnly &&
-												row &&
-												h.sisa !== undefined &&
-												h.sisa > 0 &&
-												(row.bonus_amount >= h.sisa ? (
-													<span className="font-medium text-emerald-700">
-														Sudah jadi bonus.
-													</span>
+											</p>
+											{row &&
+												sisa > 0 &&
+												(readOnly ? (
+													<p>
+														{bonusSel
+															? `Jadi bonus ${first}.`
+															: `Dipotong dari fee ${first}.`}
+													</p>
 												) : (
-													<button
-														type="button"
-														onClick={() => {
-															update(row.assignment_id, {
-																bonus_amount: row.bonus_amount + (h.sisa ?? 0),
-															});
-															toast.success(
-																`Sisa ${formatRupiah(h.sisa ?? 0)} jadi bonus ${h.name} — dibayar dari uang jalan, transfer rekening tidak bertambah. Tekan Simpan fee crew.`,
-															);
-														}}
-														className={PILL}
-													>
-														Jadikan bonus
-													</button>
+													<div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+														<fieldset className="inline-flex rounded-full bg-card p-0.5 ring-1 ring-border-default">
+															<legend className="sr-only">
+																Sisa uang jalan dipakai untuk
+															</legend>
+															{(
+																[
+																	[false, "Potong dari fee"],
+																	[true, "Jadikan bonus"],
+																] as const
+															).map(([bonus, label]) => (
+																<button
+																	key={label}
+																	type="button"
+																	aria-pressed={bonusSel === bonus}
+																	onClick={() => pilih(bonus)}
+																	className={`h-7 rounded-full px-3 text-[12px] font-medium transition-colors ${
+																		bonusSel === bonus
+																			? "bg-foreground text-background"
+																			: "text-muted-foreground hover:text-foreground"
+																	}`}
+																>
+																	{label}
+																</button>
+															))}
+														</fieldset>
+														<span>
+															Transfer ke {first}:{" "}
+															<span className="font-medium text-foreground">
+																<Money v={rinciUangJalan(row)?.transfer ?? 0} />
+															</span>
+														</span>
+													</div>
 												))}
-										</p>
+										</div>
 									);
 								})}
 							</PayerGroup>
