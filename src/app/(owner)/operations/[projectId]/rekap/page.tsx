@@ -1172,6 +1172,7 @@ export default async function EventRekapPage({
 						ownerPaidPending={ownerPaidPending}
 						uangJalan={uangJalanSumber}
 						owners={ujOwnerOptions}
+						eventName={(event.client_name as string | null) ?? undefined}
 					/>
 
 					<div className="flex flex-wrap justify-end gap-2">
@@ -1198,7 +1199,7 @@ export default async function EventRekapPage({
 						<SectionHeader
 							icon={Lock}
 							title="Settle event"
-							description="Tutup buku event ini & commit ke ledger. Aksi destruktif — hanya bisa di-undo via Reopen Settlement."
+							description="Kunci angka acara ini dan bukukan semuanya ke keuangan. Kalau ada yang salah, bisa dibuka lagi lewat Reopen Settlement."
 						/>
 						{profitPreview ? (
 							<SettleButton
@@ -1350,6 +1351,7 @@ export default async function EventRekapPage({
 						ownerPaidPending={ownerPaidPending}
 						uangJalan={uangJalanSumber}
 						owners={ujOwnerOptions}
+						eventName={(event.client_name as string | null) ?? undefined}
 					/>
 
 					<div className="flex flex-wrap justify-end gap-2">

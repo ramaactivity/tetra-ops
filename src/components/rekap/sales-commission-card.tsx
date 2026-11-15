@@ -217,7 +217,7 @@ export function SalesCommissionCard({
 			<SectionHeader
 				icon={UserRound}
 				title="Komisi sales Tetra"
-				description="Sales/admin yang closing event ini tetap dapat komisi — walau event-nya juga bayar komisi vendor/relasi. Biasanya Rp50.000–100.000. Masuk sebagai beban & Hutang Komisi saat event di-settle."
+				description="Untuk sales/admin yang closing acara ini, terpisah dari komisi vendor. Biasanya Rp50.000–100.000."
 			/>
 
 			<div className="grid gap-3 md:grid-cols-2">
@@ -304,7 +304,7 @@ export function SalesCommissionCard({
 								? state.amount > 0
 									? "Tanpa komisi sales — simpan untuk menghapus komisi yang tersimpan."
 									: "Event ini tanpa komisi sales."
-								: "Pilih nominalnya, atau ketik angka lain."}
+								: null}
 					</p>
 					<Button
 						type="button"
@@ -515,7 +515,7 @@ export function SalesCommissionCard({
 						<p className="text-[11px] text-muted-foreground">
 							{isSettled
 								? "Belum dibayar — utangnya ada di Hutang Komisi (2-102)."
-								: "Belum diatur. Isi rekening & buktinya sekarang; uangnya baru keluar saat Konfirmasi settle."}
+								: "Pembayaran belum diatur. Uangnya baru keluar saat settle."}
 						</p>
 						<Button
 							type="button"

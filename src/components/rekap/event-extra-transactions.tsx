@@ -1,13 +1,6 @@
 "use client";
 
-import {
-	Clock,
-	ExternalLink,
-	Loader2,
-	Plus,
-	Receipt,
-	Trash2,
-} from "lucide-react";
+import { Loader2, Plus, Receipt, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ProofUploadButton } from "@/components/rekap/proof-upload-button";
@@ -119,7 +112,10 @@ export function EventExtraTransactions({
 	readOnly = false,
 	uangJalan = [],
 	owners = [],
+	eventName,
 }: {
+	/** Nama acara — dibuang dari keterangan baris (sudah jelas di halaman ini). */
+	eventName?: string;
 	/** Owner yang bisa menalangi biaya (sumber "Hutang ke owner — dilunasi nanti"). */
 	owners?: Array<{ id: string; name: string }>;
 	/** Uang jalan yang masih dipegang crew (sudah dikurangi yang diantre) — DR-049. */
@@ -137,6 +133,8 @@ export function EventExtraTransactions({
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
+	const tanpaAcara = (t: string) =>
+		eventName ? t.replace(` — ${eventName}`, "") : t;
 	const [pending, startTransition] = useTransition();
 	const [adding, setAdding] = useState(false);
 
@@ -405,7 +403,7 @@ export function EventExtraTransactions({
 			<SectionHeader
 				icon={Receipt}
 				title="Pemasukan / pengeluaran lain"
-				description="Uang keluar atau masuk di event ini yang tidak ada di form rekap — mis. ganti barang rusak, tip klien. Diisi di sini, dibukukan sekali jalan saat Konfirmasi settle."
+				description="Biaya atau pemasukan acara ini yang tidak ada di rekap crew, mis. ganti barang rusak, ongkos tambahan, tip klien."
 			/>
 
 			{!readOnly && ownerPaidPending.length > 0 && (
@@ -470,168 +468,145 @@ export function EventExtraTransactions({
 				</div>
 			)}
 
-			{queuedExpenses.length > 0 && (
-				<div className="space-y-2">
-					{queuedExpenses.map((q) => (
-						<div
-							key={q.id}
-							className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-border-default bg-surface-2 px-3 py-2"
-						>
-							<span
-								className={`inline-flex h-6 shrink-0 items-center rounded-full px-2 text-[11px] font-medium ${
-									q.direction === "keluar"
-										? "bg-rose-500/12 text-rose-700 dark:text-rose-300"
-										: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-								}`}
+			{(queuedExpenses.length > 0 || rows.length > 0) && (
+				<ul className="divide-y divide-border-subtle rounded-xl bg-secondary/50 px-4">
+					{queuedExpenses.map((q) => {
+						const out = q.direction === "keluar";
+						const sumber = q.ownerId
+							? `Ditalangi ${owners.find((o) => o.id === q.ownerId)?.name ?? "owner"}`
+							: q.accountCode === "1-320"
+								? "Pakai uang jalan crew"
+								: cashAccounts.find((a) => a.code === q.accountCode)?.name;
+						return (
+							<li
+								key={q.id}
+								className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5"
 							>
-								{q.direction === "keluar" ? "Keluar" : "Masuk"}
-							</span>
-							<span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
-								{q.note ?? "Transaksi"}
-							</span>
-							{q.ownerId && (
-								<span className="inline-flex items-center rounded-full bg-amber-500/12 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
-									Ditalangi{" "}
-									{owners.find((o) => o.id === q.ownerId)?.name ?? "owner"}
-								</span>
-							)}
-							<span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-								<Clock className="h-3 w-3" /> Dibukukan saat settle
-							</span>
-							<span
-								className={`tabular text-sm font-medium ${
-									q.direction === "keluar"
-										? "text-rose-600 dark:text-rose-400"
-										: "text-emerald-600 dark:text-emerald-400"
-								}`}
-							>
-								{q.direction === "keluar" ? "−" : "+"} {formatRupiah(q.amount)}
-							</span>
-							{q.proofUrl ? (
-								<a
-									href={q.proofUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="inline-flex items-center gap-1 text-[11px] text-link hover:underline"
+								<div className="w-full min-w-0 sm:w-auto sm:flex-1">
+									<p className="text-[13px] text-foreground">
+										{tanpaAcara(q.note ?? "Transaksi")}
+									</p>
+									<p className="text-[12px] text-muted-foreground">
+										{[
+											sumber,
+											"dibukukan saat settle",
+											q.fromRekap ? "otomatis dari rekap" : null,
+										]
+											.filter(Boolean)
+											.join(" · ")}
+									</p>
+									{q.postError && (
+										<p className="text-[12px] font-medium text-rose-600">
+											Gagal dibukukan: {q.postError} — hapus & ulangi lewat
+											Finance › Catat transaksi.
+										</p>
+									)}
+								</div>
+								<span
+									className={`tabular mr-auto shrink-0 whitespace-nowrap text-[13px] font-medium sm:mr-0 ${out ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
+									data-nominal
 								>
-									Bukti <ExternalLink className="h-3 w-3" />
-								</a>
-							) : readOnly ? (
-								<span className="text-[11px] text-muted-foreground">
-									Tanpa bukti
+									{out ? "−" : "+"} {formatRupiah(q.amount)}
 								</span>
-							) : (
-								<ProofUploadButton
-									compact
-									projectId={projectId}
-									kind="event_txn"
-									meta={{ name: q.note ?? "Transaksi", amount: q.amount }}
-									url={null}
-									onChange={(url) => attachProofToQueued(q, url)}
-									disabled={pending}
-								/>
-							)}
-							{q.fromRekap ? (
-								<span className="text-[10px] text-muted-foreground">
-									otomatis dari rekap
+								<span className="flex shrink-0 items-center gap-1">
+									{q.proofUrl ? (
+										<a
+											href={q.proofUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="inline-flex items-center gap-1 text-[12px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+										>
+											Bukti
+										</a>
+									) : readOnly ? null : (
+										<ProofUploadButton
+											compact
+											projectId={projectId}
+											kind="event_txn"
+											meta={{ name: q.note ?? "Transaksi", amount: q.amount }}
+											url={null}
+											onChange={(url) => attachProofToQueued(q, url)}
+											disabled={pending}
+										/>
+									)}
+									{!readOnly && !q.fromRekap && (
+										<Button
+											type="button"
+											size="icon-sm"
+											variant="ghost"
+											aria-label="Hapus baris"
+											className="text-muted-foreground hover:text-rose-600"
+											disabled={pending}
+											onClick={() => handleRemoveQueued(q)}
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</Button>
+									)}
 								</span>
-							) : (
-								!readOnly && (
+							</li>
+						);
+					})}
+					{rows.map((row) => (
+						<li
+							key={row.id}
+							className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5"
+						>
+							<div className="w-full min-w-0 sm:w-auto sm:flex-1">
+								<p className="text-[13px] text-foreground">
+									{tanpaAcara(row.description)}
+								</p>
+								<p className="tabular text-[12px] text-muted-foreground">
+									Sudah dibukukan ·{" "}
+									{new Date(`${row.entryDate}T00:00:00`).toLocaleDateString(
+										"id-ID",
+										{ day: "numeric", month: "short", year: "numeric" },
+									)}
+								</p>
+							</div>
+							<span
+								className={`tabular mr-auto shrink-0 whitespace-nowrap text-[13px] font-medium sm:mr-0 ${row.isOut ? "text-rose-600 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
+								data-nominal
+							>
+								{row.isOut ? "−" : "+"} {formatRupiah(row.amount)}
+							</span>
+							<span className="flex shrink-0 items-center gap-1">
+								{row.proofUrl ? (
+									<a
+										href={row.proofUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="inline-flex items-center gap-1 text-[12px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+									>
+										Bukti
+									</a>
+								) : readOnly ? null : (
+									<ProofUploadButton
+										compact
+										projectId={projectId}
+										kind="event_txn"
+										meta={{ name: row.description, amount: row.amount }}
+										url={null}
+										onChange={(url) => attachProofToPosted(row, url)}
+										disabled={pending}
+									/>
+								)}
+								{!readOnly && (
 									<Button
 										type="button"
 										size="icon-sm"
 										variant="ghost"
-										aria-label="Hapus baris"
+										aria-label="Batalkan transaksi"
 										className="text-muted-foreground hover:text-rose-600"
 										disabled={pending}
-										onClick={() => handleRemoveQueued(q)}
+										onClick={() => handleDelete(row)}
 									>
 										<Trash2 className="h-3.5 w-3.5" />
 									</Button>
-								)
-							)}
-							{q.postError && (
-								<p className="w-full text-[11px] font-medium text-rose-600">
-									Gagal dibukukan saat settle: {q.postError} — hapus & ulangi
-									lewat Finance › Catat transaksi.
-								</p>
-							)}
-						</div>
+								)}
+							</span>
+						</li>
 					))}
-				</div>
-			)}
-
-			{rows.length > 0 && (
-				<div className="space-y-2">
-					{rows.map((row) => (
-						<div
-							key={row.id}
-							className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border-default bg-surface-2 px-3 py-2"
-						>
-							<span
-								className={`inline-flex h-6 shrink-0 items-center rounded-full px-2 text-[11px] font-medium ${
-									row.isOut
-										? "bg-rose-500/12 text-rose-700 dark:text-rose-300"
-										: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-								}`}
-							>
-								{row.isOut ? "Keluar" : "Masuk"}
-							</span>
-							<span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
-								{row.description}
-							</span>
-							<span className="tabular text-xs text-muted-foreground">
-								{row.entryDate}
-							</span>
-							<span
-								className={`tabular text-sm font-medium ${
-									row.isOut
-										? "text-rose-600 dark:text-rose-400"
-										: "text-emerald-600 dark:text-emerald-400"
-								}`}
-							>
-								{row.isOut ? "−" : "+"} {formatRupiah(row.amount)}
-							</span>
-							{row.proofUrl ? (
-								<a
-									href={row.proofUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="inline-flex items-center gap-1 text-[11px] text-link hover:underline"
-								>
-									Bukti <ExternalLink className="h-3 w-3" />
-								</a>
-							) : readOnly ? (
-								<span className="text-[11px] text-muted-foreground">
-									Tanpa bukti
-								</span>
-							) : (
-								<ProofUploadButton
-									compact
-									projectId={projectId}
-									kind="event_txn"
-									meta={{ name: row.description, amount: row.amount }}
-									url={null}
-									onChange={(url) => attachProofToPosted(row, url)}
-									disabled={pending}
-								/>
-							)}
-							{!readOnly && (
-								<Button
-									type="button"
-									size="icon-sm"
-									variant="ghost"
-									aria-label="Batalkan transaksi"
-									className="text-muted-foreground hover:text-rose-600"
-									disabled={pending}
-									onClick={() => handleDelete(row)}
-								>
-									<Trash2 className="h-3.5 w-3.5" />
-								</Button>
-							)}
-						</div>
-					))}
-				</div>
+				</ul>
 			)}
 
 			{(totalOut > 0 || totalIn > 0) && (

@@ -427,8 +427,8 @@ export function CrewFeeForm({
 			<header className="mb-4">
 				<h2 className="text-fluid-h3 font-semibold tracking-tight">Fee crew</h2>
 				<p className="mt-1 text-xs text-muted-foreground">
-					Reimbursement bisa beda per crew — assign manual ke yang sebenarnya
-					bayar.
+					Fee tiap crew. Biaya lapangan yang mereka bayar ikut diganti bersama
+					fee.
 				</p>
 			</header>
 
