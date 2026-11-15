@@ -61,7 +61,7 @@ type EvRef = {
  * supaya pelunasan yang salah masih bisa dibatalkan.
  */
 export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
-	const [uj, ledger, owners] = await Promise.all([
+	const [uj, ledger, owners, antre] = await Promise.all([
 		db
 			.from("uang_jalan")
 			.select(
@@ -75,8 +75,21 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 			)
 			.order("created_at", { ascending: false }),
 		db.from("users").select("id, full_name, nickname"),
+		// Biaya acara yang dibayar owner tapi acaranya belum di-settle: masih
+		// antre (posted_at kosong), belum ada baris talangan. Tetap hutang Tetra
+		// ke owner — tampilkan sekarang supaya bisa langsung dilunasi. Saat settle
+		// antrean ini jadi baris talangan (posted_at terisi) → tidak dobel.
+		db
+			.from("event_settle_queue")
+			.select(
+				"id, owner_id, amount, admin_fee, note, created_at, event:events(project_id, client_name, event_date, deleted_at)",
+			)
+			.eq("account_code", TALANGAN_OWNER_COA)
+			.eq("direction", "keluar")
+			.not("owner_id", "is", null)
+			.is("posted_at", null),
 	]);
-	for (const r of [uj, ledger, owners])
+	for (const r of [uj, ledger, owners, antre])
 		if (r.error) throw new Error(`talangan owner: ${r.error.message}`);
 	const ujRows = (uj.data ?? []) as Array<
 		TalanganRow & {
@@ -96,6 +109,28 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 			}
 		>
 	).filter((b) => !b.is_reversed);
+	for (const q of (antre.data ?? []) as Array<{
+		id: string;
+		owner_id: string;
+		amount: number;
+		admin_fee: number | null;
+		note: string | null;
+		created_at: string;
+		event: (EvRef & { deleted_at: string | null }) | null;
+	}>) {
+		if (!q.event || q.event.deleted_at) continue;
+		lRows.push({
+			id: q.id,
+			owner_id: q.owner_id,
+			direction: "talangan",
+			amount: Number(q.amount) + Number(q.admin_fee || 0),
+			is_reversed: false,
+			created_at: q.created_at,
+			note: `${q.note || "Biaya acara"} (belum settle)`,
+			event: q.event,
+			journal: null,
+		});
+	}
 	const saldo = saldoTalanganOwner(ujRows, lRows);
 	const nameOf = new Map(
 		(
