@@ -36,7 +36,10 @@ import {
 	ProjectHeroRecap,
 	type ProjectHeroRecapCrew,
 } from "@/components/operations/project-hero-recap";
-import { EventReadinessCard } from "@/components/operations/readiness-card";
+import {
+	EventReadinessCard,
+	readinessItems,
+} from "@/components/operations/readiness-card";
 import { EventHealth } from "@/components/rekap/event-health";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -486,6 +489,23 @@ export default async function EventDetailPage({
 		),
 	});
 
+	const readinessProps = {
+		projectId: event.project_id,
+		eventId: event.id,
+		eventDate: event.event_date,
+		status: event.status,
+		paymentStatus: event.payment_status,
+		totalPaid: event.total_paid ?? 0,
+		remainingBalance: event.remaining_balance ?? 0,
+		crewCount: crewAssignments.length,
+		spotsWithoutLead:
+			unitCount > 1 ? spotsWithoutLead(unitCount, crewAssignments) : [],
+		designStatus: (event.design_status ?? "belum") as DesignStatus,
+		rekapSubmitted,
+	};
+	const readinessList = readinessItems(readinessProps);
+	const allReady = readinessList?.every((i) => i.state === "done") === true;
+
 	return (
 		<Container size="xl" className="space-y-3">
 			<TopbarEntityPortal name={event.client_name} />
@@ -763,30 +783,22 @@ export default async function EventDetailPage({
 				</div>
 			)}
 
-			{/* === READINESS (collapsible, defaults open) === */}
-			<CollapsibleCard
-				icon={<Sparkles className="size-4" aria-hidden strokeWidth={2} />}
-				title="Kesiapan Event"
-				subtitle="Checklist progres menuju hari-H — pembayaran, crew, design, rekap."
-				defaultOpen
-				bodyClassName="!p-0"
-			>
-				<EventReadinessCard
-					projectId={event.project_id}
-					eventId={event.id}
-					eventDate={event.event_date}
-					status={event.status}
-					paymentStatus={event.payment_status}
-					totalPaid={event.total_paid ?? 0}
-					remainingBalance={event.remaining_balance ?? 0}
-					crewCount={crewAssignments.length}
-					spotsWithoutLead={
-						unitCount > 1 ? spotsWithoutLead(unitCount, crewAssignments) : []
+			{/* === READINESS — terbuka hanya kalau masih ada yang belum siap === */}
+			{readinessList && (
+				<CollapsibleCard
+					icon={<Sparkles className="size-4" aria-hidden strokeWidth={2} />}
+					title="Kesiapan Event"
+					subtitle={
+						allReady
+							? `Semua siap (${readinessList.length}/${readinessList.length})`
+							: "Checklist menuju hari-H — pembayaran, crew, design, rekap."
 					}
-					designStatus={(event.design_status ?? "belum") as DesignStatus}
-					rekapSubmitted={rekapSubmitted}
-				/>
-			</CollapsibleCard>
+					defaultOpen={!allReady}
+					bodyClassName="!p-0"
+				>
+					<EventReadinessCard {...readinessProps} />
+				</CollapsibleCard>
+			)}
 
 			{/* === DETAIL CARDS (collapsible, default closed) === */}
 			<div className="space-y-3">
@@ -987,7 +999,7 @@ export default async function EventDetailPage({
 					<div className="space-y-3">
 						<CollapsibleCard
 							icon={<FileText className="size-4" aria-hidden strokeWidth={2} />}
-							title="Service & Package"
+							title="Paket & layanan"
 							subtitle={
 								pkg
 									? `${withUnits(pkg.name, unitCount)} · ${pkg.duration_hours}j`
@@ -1068,31 +1080,31 @@ export default async function EventDetailPage({
 
 						<CollapsibleCard
 							icon={<Wallet className="size-4" aria-hidden strokeWidth={2} />}
-							title="Financial"
-							subtitle={`Grand total ${formatRupiah(event.grand_total ?? 0)} · Outstanding ${formatRupiah(event.remaining_balance ?? 0)}`}
+							title="Rincian harga"
+							subtitle={`Total ${formatRupiah(event.grand_total ?? 0)} · Sisa ${formatRupiah(event.remaining_balance ?? 0)}`}
 							actions={
 								<Link
 									href={`/operations/${event.project_id}/payments`}
 									className={headerActionCls}
 								>
-									Manage payments
+									Kelola pembayaran
 								</Link>
 							}
 						>
 							<dl className="space-y-2.5">
-								<DetailRow label="Base Price" align="right">
+								<DetailRow label="Harga paket" align="right">
 									<span className="tabular text-muted-foreground">
 										{event.base_price ? formatRupiah(event.base_price) : "—"}
 									</span>
 								</DetailRow>
-								<DetailRow label="Add-ons" align="right">
+								<DetailRow label="Add-on" align="right">
 									<span className="tabular text-muted-foreground">
 										{event.addons_total
 											? formatRupiah(event.addons_total)
 											: "—"}
 									</span>
 								</DetailRow>
-								<DetailRow label="Discount" align="right">
+								<DetailRow label="Diskon" align="right">
 									<span className="tabular text-muted-foreground">
 										{event.discount_amount
 											? `−${formatRupiah(event.discount_amount)}`
@@ -1107,7 +1119,7 @@ export default async function EventDetailPage({
 									</span>
 								</DetailRow>
 								<div className="border-t border-border-subtle pt-2.5">
-									<DetailRow label="Grand Total" strong align="right">
+									<DetailRow label="Total tagihan" strong align="right">
 										<span className="tabular font-semibold text-foreground">
 											{event.grand_total
 												? formatRupiah(event.grand_total)
@@ -1117,24 +1129,24 @@ export default async function EventDetailPage({
 								</div>
 								{vendorCutAmount > 0 && (
 									<>
-										<DetailRow label="Potongan Vendor" align="right">
+										<DetailRow label="Potongan vendor" align="right">
 											<span className="tabular text-rose-600 dark:text-rose-400">
 												−{formatRupiah(vendorCutAmount)}
 											</span>
 										</DetailRow>
-										<DetailRow label="Tetra Terima" strong align="right">
+										<DetailRow label="Tetra terima" strong align="right">
 											<span className="tabular font-semibold text-emerald-700 dark:text-emerald-400">
 												{formatRupiah(billableTotal)}
 											</span>
 										</DetailRow>
 									</>
 								)}
-								<DetailRow label="Total Paid" align="right">
+								<DetailRow label="Sudah dibayar" align="right">
 									<span className="tabular text-emerald-700 dark:text-emerald-400">
 										{event.total_paid ? formatRupiah(event.total_paid) : "—"}
 									</span>
 								</DetailRow>
-								<DetailRow label="Remaining" strong align="right">
+								<DetailRow label="Sisa tagihan" strong align="right">
 									<span
 										className={cn(
 											"tabular font-semibold",
@@ -1325,14 +1337,18 @@ export default async function EventDetailPage({
 
 			{/* === DRIVE + DESIGN (always visible — have inline actions) === */}
 			<div className="grid gap-3 md:grid-cols-2">
-				<EventDriveCard
-					projectId={event.project_id}
-					folderUrl={event.drive_folder_url ?? null}
-					folderCreatedAt={event.drive_folder_created_at ?? null}
-					canEdit={canEdit}
-					driveConfigured={driveStatus.configured}
-					driveConfigMissing={driveStatus.missing}
-				/>
+				{/* Folder sudah ada → tautannya cukup di kaki kartu Recap (dulu tampil
+				    dua kali). Kartu ini hanya muncul untuk MEMBUAT folder. */}
+				{!event.drive_folder_url && (
+					<EventDriveCard
+						projectId={event.project_id}
+						folderUrl={null}
+						folderCreatedAt={null}
+						canEdit={canEdit}
+						driveConfigured={driveStatus.configured}
+						driveConfigMissing={driveStatus.missing}
+					/>
+				)}
 
 				<DesignCard
 					eventId={event.id}
@@ -1369,8 +1385,8 @@ export default async function EventDetailPage({
 			{/* === ACTIVITY FEED (collapsible, default closed) === */}
 			<CollapsibleCard
 				icon={<Activity className="size-4" aria-hidden strokeWidth={2} />}
-				title="Activity"
-				subtitle="Timeline status, payments, dan perubahan event."
+				title="Riwayat"
+				subtitle="Perubahan status, pembayaran, dan data acara."
 				bodyClassName="!p-0"
 			>
 				<EventActivityFeed eventId={event.id} />

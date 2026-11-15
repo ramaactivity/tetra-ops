@@ -117,9 +117,10 @@ export function DesignCard({
 					))}
 				</ul>
 			) : (
-				<p className="text-muted-foreground text-xs italic">
-					Belum ada design. Tempel link folder/design di bawah, atau kelola di
-					halaman Asset &amp; Design.
+				<p className="text-muted-foreground text-[12.5px]">
+					{designStatus === "approved"
+						? "Desain sudah disetujui, tapi link file-nya belum ditempel di sini."
+						: "Belum ada link desain. Tempel di bawah, atau kelola di Asset & Design."}
 				</p>
 			)}
 

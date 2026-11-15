@@ -54,6 +54,8 @@ export function EventTransportPlan({
 	const router = useRouter();
 	const [pending, startTransition] = useTransition();
 	const [mode, setMode] = useState<Mode>(initial.mode);
+	// Sudah diatur → cukup ringkasan satu baris; form dibuka lewat "Ubah".
+	const [editing, setEditing] = useState(false);
 	const [vehicle, setVehicle] = useState(initial.vehicle ?? "");
 	const [cost, setCost] = useState(initial.rentalCost ?? 0);
 	const [nota, setNota] = useState<string | null>(initial.notaUrl);
@@ -102,6 +104,7 @@ export function EventTransportPlan({
 				return;
 			}
 			toast.success("Transport disimpan — rekap crew ikut menyesuaikan.");
+			setEditing(false);
 			router.refresh();
 		});
 	}
@@ -131,12 +134,76 @@ export function EventTransportPlan({
 		);
 	}
 
+	function tutup() {
+		setMode(initial.mode);
+		setVehicle(initial.vehicle ?? "");
+		setCost(initial.rentalCost ?? 0);
+		setNota(initial.notaUrl);
+		setPaidBy(initial.paidByOwnerId ?? null);
+		setEditing(false);
+	}
+
+	if (!editing && initial.mode !== null) {
+		const meta =
+			initial.mode === "rental"
+				? [
+						initial.rentalCost ? null : "harga belum diisi",
+						ownerName(initial.paidByOwnerId)
+							? `dibayar ${ownerName(initial.paidByOwnerId)}`
+							: "pembayar belum dipilih",
+						initial.notaUrl ? "ada nota" : null,
+					]
+						.filter(Boolean)
+						.join(" · ")
+				: "Crew isi ongkos & buktinya di rekap";
+		return (
+			<div className="mt-3 flex items-center gap-3 rounded-2xl border border-border-default px-3 py-2.5">
+				<Car className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+				<div className="min-w-0 flex-1">
+					<p className="text-[13px] font-medium text-foreground">
+						{initial.mode === "rental"
+							? `Sewa ${initial.vehicle ?? "mobil"}`
+							: "Transport online (Gocar/Grab)"}
+						{initial.mode === "rental" && initial.rentalCost ? (
+							<span
+								className="tabular whitespace-nowrap font-normal"
+								data-nominal
+							>
+								{" "}
+								· {formatRupiah(initial.rentalCost)}
+							</span>
+						) : null}
+					</p>
+					<p className="text-[12px] text-muted-foreground">{meta}</p>
+				</div>
+				<button
+					type="button"
+					onClick={() => setEditing(true)}
+					className="h-8 shrink-0 rounded-full border border-border-default bg-card px-3 text-[12.5px] font-medium text-foreground transition-[transform,background-color] duration-150 ease-out hover:bg-secondary active:scale-[0.97]"
+				>
+					Ubah
+				</button>
+			</div>
+		);
+	}
+
 	return (
 		<div className="mt-3 space-y-3 rounded-2xl border border-border-default p-3">
-			<p className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-				<Car className="size-4" aria-hidden />
-				Transport
-			</p>
+			<div className="flex items-center justify-between gap-2">
+				<p className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+					<Car className="size-4 text-muted-foreground" aria-hidden />
+					Transport
+				</p>
+				{initial.mode !== null && (
+					<button
+						type="button"
+						onClick={tutup}
+						className="text-[12px] font-medium text-muted-foreground hover:text-foreground"
+					>
+						Tutup
+					</button>
+				)}
+			</div>
 			<div className="flex flex-wrap gap-1.5">
 				{MODES.map((m) => (
 					<button

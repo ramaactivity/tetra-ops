@@ -2,6 +2,7 @@
 
 import { Check, ChevronDown } from "lucide-react";
 import { useState, useTransition } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -9,7 +10,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useConfirm } from "@/components/ui/confirm-dialog";
 import { updateEventStatus } from "@/lib/actions/events";
 import { EVENT_STATUSES, type EventStatus } from "@/lib/event-status";
 import { EVENT_STATUS_LABELS } from "@/lib/format";
@@ -70,7 +70,7 @@ export function StatusMenu({
 						)}
 						aria-hidden
 					/>
-					{pending ? "Updating…" : "Change status"}
+					{pending ? "Menyimpan…" : "Ubah status"}
 					<ChevronDown className="text-muted-foreground size-3.5" />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent

@@ -57,15 +57,14 @@ type ReadinessInput = {
 	rekapSubmitted: boolean;
 };
 
-export function EventReadinessCard(props: ReadinessInput) {
+/**
+ * Checklist menuju hari-H. null = acara batal/selesai (tidak ada checklist).
+ * Dipakai kartu ini dan halaman acara (kartu ditutup kalau semua sudah siap).
+ */
+export function readinessItems(props: ReadinessInput): CheckItem[] | null {
 	const days = daysUntil(props.eventDate);
 	const isPostEvent = days < 0;
-	const isCancelledOrCompleted =
-		props.status === "cancelled" || props.status === "completed";
-
-	if (isCancelledOrCompleted) {
-		return null;
-	}
+	if (props.status === "cancelled" || props.status === "completed") return null;
 
 	const items: CheckItem[] = [];
 
@@ -163,6 +162,14 @@ export function EventReadinessCard(props: ReadinessInput) {
 				: undefined,
 		});
 	}
+
+	return items;
+}
+
+export function EventReadinessCard(props: ReadinessInput) {
+	const items = readinessItems(props);
+	if (!items) return null;
+	const days = daysUntil(props.eventDate);
 
 	const doneCount = items.filter((i) => i.state === "done").length;
 	const overdueCount = items.filter((i) => i.state === "overdue").length;

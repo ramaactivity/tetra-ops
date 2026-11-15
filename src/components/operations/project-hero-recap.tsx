@@ -161,11 +161,8 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
 				<div className="min-w-0">
 					<h2 className="text-[15px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
-						Recap Event
+						Ringkasan acara
 					</h2>
-					<p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-						Ringkasan informasi, crew, dan financial event ini.
-					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-1.5">
 					<Link
@@ -173,7 +170,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 						className={buttonVariants({ variant: "outline", size: "sm" })}
 					>
 						<Receipt className="size-3.5" aria-hidden strokeWidth={2} />
-						Payments
+						Pembayaran
 					</Link>
 					<Link
 						href={`/operations/${projectId}/crew`}
@@ -187,7 +184,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 						className={buttonVariants({ variant: "outline", size: "sm" })}
 					>
 						<Package className="size-3.5" aria-hidden strokeWidth={2} />
-						Equipment
+						Alat
 						{equipmentCount > 0 && (
 							<span className="tabular rounded-full bg-secondary px-1.5 text-[10.5px] font-bold">
 								{equipmentCount}
@@ -213,7 +210,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 			<div className="grid grid-cols-1 divide-y divide-border-subtle md:grid-cols-3 md:divide-x md:divide-y-0">
 				{/* ── Event Info ── */}
 				<section className="px-5 py-5">
-					<SectionHead>Event Info</SectionHead>
+					<SectionHead>Info acara</SectionHead>
 
 					{/* When — the anchor of this column */}
 					<div className="mt-3.5">
@@ -304,7 +301,7 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 							)
 						}
 					>
-						Crew Incharge
+						Crew bertugas
 					</SectionHead>
 
 					{crewSlot ? (
@@ -363,17 +360,17 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 					<SectionHead
 						action={
 							<HeadLink href={`/operations/${projectId}/payments`}>
-								Manage →
+								Kelola →
 							</HeadLink>
 						}
 					>
-						Financial
+						Pembayaran
 					</SectionHead>
 
 					{/* Grand total — anchor number */}
 					<div className="mt-3.5">
 						<div className="text-[10.5px] font-medium uppercase tracking-[0.05em] text-muted-foreground">
-							Grand Total
+							Total tagihan
 						</div>
 						<div className="tabular mt-1 text-[20px] font-semibold leading-none tracking-[-0.01em] text-foreground">
 							{formatRupiah(grandTotal)}
@@ -397,9 +394,13 @@ export function ProjectHeroRecap(props: ProjectHeroRecapProps) {
 					)}
 
 					<div className="mt-4 space-y-2 border-t border-border-subtle pt-3.5">
-						<MoneyLine label="Total Paid" value={totalPaid} tone="positive" />
 						<MoneyLine
-							label="Outstanding"
+							label="Sudah dibayar"
+							value={totalPaid}
+							tone="positive"
+						/>
+						<MoneyLine
+							label="Sisa tagihan"
 							value={remainingBalance}
 							tone={remainingBalance > 0 ? "negative" : "default"}
 							strong
