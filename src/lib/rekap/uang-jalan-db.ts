@@ -61,7 +61,7 @@ type EvRef = {
  * settle antrean ini jadi baris talangan_owner_bayar (posted_at terisi) →
  * tidak dobel.
  */
-async function loadAntreTalangan(db: Db) {
+export async function loadAntreTalangan(db: Db) {
 	const { data, error } = await db
 		.from("event_settle_queue")
 		.select(

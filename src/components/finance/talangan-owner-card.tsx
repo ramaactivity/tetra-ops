@@ -258,7 +258,10 @@ function Row({
 									{new Date(r.created_at).toLocaleDateString("id-ID")}
 								</span>
 								{r.note && (
-									<span className="block text-[11.5px] leading-snug">
+									<span
+										className="line-clamp-2 text-[11.5px] leading-snug"
+										title={r.note}
+									>
 										{r.note}
 									</span>
 								)}

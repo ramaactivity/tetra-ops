@@ -5,11 +5,9 @@ import {
 	ResultRow,
 	Step,
 	SubGroup,
-	SummaryTile,
 } from "@/components/finance/money-ui";
 import {
 	costStatus,
-	STATUS,
 	type Status,
 	StatusChip,
 } from "@/components/rekap/event-health";
@@ -162,41 +160,14 @@ export function MonthlyReport({
 				{switcher}
 			</div>
 
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-				<SummaryTile
-					label="Pendapatan"
-					hint={`dari ${n} event${pnl.otherIncome ? " + pemasukan lain" : ""}`}
-					value={pendapatan}
-					icon="in"
-					tone="in"
-				/>
-				<SummaryTile
-					label="Total biaya"
-					hint="biaya event + biaya bulanan"
-					value={totalBiaya}
-					icon="out"
-					tone="out"
-				/>
-				<SummaryTile
-					label={rugi ? "Rugi bersih" : "Untung bersih"}
-					hint={
-						pendapatan > 0
-							? `${pNet.toFixed(1).replace(".", ",")}% dari pendapatan`
-							: "belum ada event selesai"
-					}
-					value={pnl.net}
-					tone={rugi ? "loss" : "profit"}
-				/>
-			</div>
-
 			{pnl.pending.length > 0 && (
 				<Note>
 					{pnl.pending.length} event bulan ini belum di-settle (
 					<span className="tabular">
 						{rp(pnl.pending.reduce((s, p) => s + p.grandTotal, 0))}
 					</span>
-					) — untungnya baru masuk hitungan setelah settle, jadi angka di atas
-					masih akan berubah.
+					) — untungnya baru dihitung setelah settle, jadi angka di bawah masih
+					berubah.
 				</Note>
 			)}
 
@@ -222,40 +193,26 @@ export function MonthlyReport({
 						{worst && <StatusChip status={worst} />}
 					</div>
 
-					<ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+					<ul className="grid gap-x-6 gap-y-2 text-[12.5px] sm:grid-cols-2">
 						{ratios.map((r) => (
 							<li
 								key={r.title}
-								className="space-y-1.5 rounded-xl border border-border-default bg-card p-3"
+								title={r.note}
+								className="flex flex-wrap items-center gap-x-1.5"
 							>
-								<div className="flex items-center justify-between gap-2">
-									<span className="text-[13px] font-medium text-foreground">
-										{r.title}
-									</span>
-									<StatusChip status={r.status} />
-								</div>
-								<p className="tabular text-[22px] font-bold leading-none tracking-[-0.01em] text-foreground">
+								<span className="text-foreground">{r.title}</span>
+								<b className="tabular font-semibold text-foreground">
 									{pctText(r.pct)}
-								</p>
-								<div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-									<div
-										className={cn("h-full rounded-full", STATUS[r.status].bar)}
-										style={{
-											width: `${Math.min(100, Math.max(0, r.pct))}%`,
-										}}
-									/>
-								</div>
-								<p className="text-[11.5px] font-medium text-muted-foreground">
-									{r.target}
-								</p>
-								<p className="text-[12px] leading-snug text-muted-foreground">
-									{r.note}
-								</p>
+								</b>
+								<span className="text-muted-foreground">
+									· {r.target.replace("Idealnya", "ideal")}
+								</span>
+								{r.status !== "baik" ? <StatusChip status={r.status} /> : null}
 							</li>
 						))}
 					</ul>
 
-					<div className="grid gap-3 md:grid-cols-2">
+					<div className="grid gap-x-6 gap-y-2 border-t border-border-subtle pt-3 md:grid-cols-2">
 						{impas !== null && (
 							<Insight icon={<Scale className="size-4" aria-hidden />}>
 								Satu event rata-rata untung{" "}
@@ -318,7 +275,11 @@ export function MonthlyReport({
 
 			<ResultRow
 				label={rugi ? "Rugi bersih bulan ini" : "Untung bersih bulan ini"}
-				sub="Uang dari event − semua biaya"
+				sub={
+					pendapatan > 0
+						? `Uang dari event − semua biaya · ${pNet.toFixed(1).replace(".", ",")}% dari pendapatan`
+						: "Uang dari event − semua biaya"
+				}
 				value={pnl.net}
 				tone={rugi ? "loss" : "profit"}
 			/>
@@ -463,7 +424,7 @@ function Insight({
 	children: React.ReactNode;
 }) {
 	return (
-		<p className="flex gap-2 rounded-xl bg-card px-3 py-2.5 text-[12.5px] leading-snug text-foreground/85">
+		<p className="flex gap-2 text-[12.5px] leading-snug text-foreground/85">
 			<span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
 			<span>{children}</span>
 		</p>

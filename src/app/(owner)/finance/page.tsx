@@ -48,18 +48,12 @@ import {
 	listUnpaidCrew,
 } from "@/lib/finance/unpaid-crew";
 import { formatDateID, formatRupiah, formatSignedRupiah } from "@/lib/format";
-import { loadTalanganOwner } from "@/lib/rekap/uang-jalan-db";
+import {
+	loadAntreTalangan,
+	loadTalanganOwner,
+} from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-
-function lastDayOfMonth(year: number, month: number): string {
-	const d = new Date(year, month, 0).getDate();
-	return `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-function startOfMonth(d: Date): string {
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
 
 export default async function FinancePage({
 	searchParams,
@@ -102,13 +96,9 @@ export default async function FinancePage({
 			: undefined;
 
 	const today = new Date();
-	const ymStart = startOfMonth(today);
-	const ymEnd = lastDayOfMonth(today.getFullYear(), today.getMonth() + 1);
 
-	// Cash-basis: exclude payments received BEFORE the finance cutoff — that cash
-	// is already baked into the opening balances, so counting it again as this
-	// month's revenue/inflow would double-show. Effective start = max(month-start,
-	// cutoff). Keeps the dashboard's cash tiles consistent with the clean books.
+	// Tanggal tutup buku keuangan (cutoff) — data sebelum ini sudah jadi saldo
+	// awal.
 	const { data: cutoffCfg } = await supabase
 		.from("system_config")
 		.select("value")
@@ -118,10 +108,8 @@ export default async function FinancePage({
 		typeof cutoffCfg?.value === "string" && cutoffCfg.value.length > 0
 			? cutoffCfg.value
 			: null;
-	const revStart = cutoffDate && cutoffDate > ymStart ? cutoffDate : ymStart;
 
 	const [
-		{ data: revenueMtdData },
 		{ data: outstandingData },
 		{ data: bankAccountsData },
 		{ data: sinkingFundsData },
@@ -129,12 +117,6 @@ export default async function FinancePage({
 		{ data: ownerEarningsData },
 		{ data: ownersListData },
 	] = await Promise.all([
-		supabase
-			.from("payments")
-			.select("amount")
-			.eq("is_reversed", false)
-			.gte("payment_date", revStart)
-			.lte("payment_date", ymEnd),
 		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
 		// reduce. See get_outstanding_total migration.
 		supabase.rpc("get_outstanding_total"),
@@ -160,7 +142,8 @@ export default async function FinancePage({
 			)
 			.eq("is_reopened", false)
 			.order("closed_at", { ascending: false })
-			.limit(10),
+			// 5 cukup untuk sekilas; sisanya lewat "Lihat semua".
+			.limit(5),
 		isSuperAdmin
 			? supabase
 					.from("owner_earnings")
@@ -178,10 +161,6 @@ export default async function FinancePage({
 			: Promise.resolve({ data: [] }),
 	]);
 
-	const revenueMtd = (revenueMtdData ?? []).reduce(
-		(s, r) => s + (r.amount ?? 0),
-		0,
-	);
 	const outstanding = (outstandingData as number | null) ?? 0;
 
 	// Mode Simpel — angka inti dari Buku Besar: uang di bank (1-1xx) & total utang
@@ -217,6 +196,14 @@ export default async function FinancePage({
 		}
 		if (l.account_code === "2-100") hutangCrewGl += -net;
 	}
+	// Biaya acara yang dibayar owner tapi acaranya belum di-settle belum jadi
+	// jurnal 2-310 — padahal hutangnya sudah ada (dan bisa sudah dilunasi).
+	// Tanpa ini, owner yang dibayar duluan membuat Utang minus & uang bebas
+	// kelebihan. Sumber yang sama dengan kartu Hutang-piutang owner.
+	utangGl += (await loadAntreTalangan(supabase)).reduce(
+		(t, q) => t + q.amount,
+		0,
+	);
 
 	const banks = (bankAccountsData ?? []) as Array<{
 		id: string;
@@ -444,12 +431,10 @@ export default async function FinancePage({
 	// Laporan bulanan (untung-rugi per event + arus kas) — bulan via ?bulan=.
 	const thisYm = ymOf(today);
 	const reportYm = bulan && /^\d{4}-\d{2}$/.test(bulan) ? bulan : thisYm;
-	const [overview, pnl, pnlNow] = await Promise.all([
+	const [overview, pnl] = await Promise.all([
 		getMonthlyOverview(supabase, reportYm),
 		getMonthlyPnl(supabase, reportYm),
-		reportYm === thisYm ? null : getMonthlyPnl(supabase, thisYm),
 	]);
-	const untungBulanIni = (pnlNow ?? pnl).net;
 
 	const extrasByEvent = await getEventExtras(
 		supabase,
@@ -480,7 +465,7 @@ export default async function FinancePage({
 					title="Posisi uang sekarang"
 					description="Uang yang ada, yang masih ditunggu, dan yang sudah ada pemiliknya."
 				/>
-				<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+				<div className="grid gap-3 sm:grid-cols-3">
 					<SummaryTile
 						label="Uang di rekening"
 						hint="tunai + semua rekening & kartu"
@@ -510,29 +495,10 @@ export default async function FinancePage({
 						tone="neutral"
 					/>
 					<SummaryTile
-						label={untungBulanIni < 0 ? "Rugi bulan ini" : "Untung bulan ini"}
-						hint={`${monthLabelLong(thisYm)} · rinciannya di laporan bawah`}
-						value={untungBulanIni}
-						tone={untungBulanIni < 0 ? "loss" : "profit"}
-					/>
-				</div>
-
-				<div className="grid gap-3 sm:grid-cols-3">
-					<Fact
-						label="Uang masuk bulan ini"
-						value={revenueMtd}
-						hint="DP + pelunasan dari klien"
-					/>
-					<Fact
 						label="Utang"
+						hint="ke supplier, crew, komisi & owner"
 						value={utangGl}
-						hint="ke supplier, crew, komisi & talangan owner"
-						warn={utangGl > 0}
-					/>
-					<Fact
-						label="Dana cadangan"
-						value={totalSinking}
-						hint="disisihkan untuk alat, perawatan & darurat"
+						tone="neutral"
 					/>
 				</div>
 
@@ -589,7 +555,7 @@ export default async function FinancePage({
 					<SectionHeader2
 						icon={Receipt}
 						title="Event terakhir ditutup"
-						description="Untung akhir tiap event — sama dengan angka di halaman rekapnya."
+						description="Untung akhir 5 event terakhir, sama dengan angka di rekapnya."
 					/>
 					<TextLink href="/operations?status=completed">Lihat semua</TextLink>
 				</div>
@@ -848,34 +814,6 @@ export default async function FinancePage({
 				</RekapCard>
 			)}
 		</Container>
-	);
-}
-
-function Fact({
-	label,
-	value,
-	hint,
-	warn,
-}: {
-	label: string;
-	value: number;
-	hint: string;
-	warn?: boolean;
-}) {
-	return (
-		<div className="rounded-xl bg-secondary/50 px-3 py-2.5">
-			<p className="text-[12px] text-muted-foreground">{label}</p>
-			<p
-				data-nominal
-				className={cn(
-					"tabular mt-0.5 text-[16px] font-semibold",
-					warn ? "text-amber-700" : "text-foreground",
-				)}
-			>
-				{formatRupiah(Math.round(value))}
-			</p>
-			<p className="text-[11.5px] leading-snug text-muted-foreground">{hint}</p>
-		</div>
 	);
 }
 

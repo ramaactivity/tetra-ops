@@ -196,3 +196,18 @@ test("pegangRekeningTetra: nama owner ⊂ pemilik rekening Tetra", () => {
 	assert.equal(pegangRekeningTetra("Rama", holders), false);
 	assert.equal(pegangRekeningTetra("", holders), false);
 });
+
+test("uraiPelunasan: label antrean '(belum settle)' tidak ikut ke catatan pelunasan", () => {
+	const urai = uraiPelunasan(
+		[
+			{
+				label: "Transport — Iqbal & Indri (belum settle)",
+				date: "2026-11-14",
+				amount: 250_000,
+				sisa: 250_000,
+			},
+		],
+		250_000,
+	);
+	assert.equal(urai, "14 Nov · Transport — Iqbal & Indri 250.000");
+});

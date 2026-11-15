@@ -191,8 +191,11 @@ export function uraiPelunasan(
 		if (sisa <= 0) break;
 		const pakai = Math.min(sisa, it.sisa);
 		sisa -= pakai;
+		// "(belum settle)" hanya status tampilan antrean — di catatan pelunasan
+		// yang disimpan permanen jadi menyesatkan setelah acaranya di-settle.
+		const label = labelItem(it).replace(/ \(belum settle\)$/, "");
 		parts.push(
-			`${labelItem(it)} ${pakai.toLocaleString("id-ID")}${pakai < it.sisa ? " sebagian" : ""}`,
+			`${label} ${pakai.toLocaleString("id-ID")}${pakai < it.sisa ? " sebagian" : ""}`,
 		);
 	}
 	return parts.join("; ");
