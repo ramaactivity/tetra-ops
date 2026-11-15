@@ -55,6 +55,49 @@ type EvRef = {
 } | null;
 
 /**
+ * Biaya acara yang dibayar owner tapi acaranya belum di-settle: masih antre
+ * (posted_at kosong), belum ada baris talangan. Tetap hutang Tetra ke owner —
+ * ditampilkan sebagai baris 'talangan' supaya bisa langsung dilunasi. Saat
+ * settle antrean ini jadi baris talangan_owner_bayar (posted_at terisi) →
+ * tidak dobel.
+ */
+async function loadAntreTalangan(db: Db) {
+	const { data, error } = await db
+		.from("event_settle_queue")
+		.select(
+			"id, owner_id, amount, admin_fee, note, created_at, event:events(project_id, client_name, event_date, deleted_at)",
+		)
+		.eq("account_code", TALANGAN_OWNER_COA)
+		.eq("direction", "keluar")
+		.not("owner_id", "is", null)
+		.is("posted_at", null);
+	if (error) throw new Error(`antrean talangan owner: ${error.message}`);
+	return (
+		(data ?? []) as Array<{
+			id: string;
+			owner_id: string;
+			amount: number;
+			admin_fee: number | null;
+			note: string | null;
+			created_at: string;
+			event: (NonNullable<EvRef> & { deleted_at: string | null }) | null;
+		}>
+	)
+		.filter((q) => q.event && !q.event.deleted_at)
+		.map((q) => ({
+			id: q.id,
+			owner_id: q.owner_id,
+			direction: "talangan" as const,
+			amount: Number(q.amount) + Number(q.admin_fee || 0),
+			is_reversed: false,
+			created_at: q.created_at,
+			note: `${q.note || "Biaya acara"} (belum settle)`,
+			event: q.event,
+			journal: null,
+		}));
+}
+
+/**
  * Hutang-piutang Tetra ↔ tiap owner (lihat saldoTalanganOwner) + rinciannya:
  * uang jalan dari uang pribadi & pengeluaran event yang dibayar owner dulu.
  * Owner yang saldonya nol tetap tampil 7 hari setelah pembayaran terakhir
@@ -75,21 +118,9 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 			)
 			.order("created_at", { ascending: false }),
 		db.from("users").select("id, full_name, nickname"),
-		// Biaya acara yang dibayar owner tapi acaranya belum di-settle: masih
-		// antre (posted_at kosong), belum ada baris talangan. Tetap hutang Tetra
-		// ke owner — tampilkan sekarang supaya bisa langsung dilunasi. Saat settle
-		// antrean ini jadi baris talangan (posted_at terisi) → tidak dobel.
-		db
-			.from("event_settle_queue")
-			.select(
-				"id, owner_id, amount, admin_fee, note, created_at, event:events(project_id, client_name, event_date, deleted_at)",
-			)
-			.eq("account_code", TALANGAN_OWNER_COA)
-			.eq("direction", "keluar")
-			.not("owner_id", "is", null)
-			.is("posted_at", null),
+		loadAntreTalangan(db),
 	]);
-	for (const r of [uj, ledger, owners, antre])
+	for (const r of [uj, ledger, owners])
 		if (r.error) throw new Error(`talangan owner: ${r.error.message}`);
 	const ujRows = (uj.data ?? []) as Array<
 		TalanganRow & {
@@ -109,28 +140,7 @@ export async function loadTalanganOwner(db: Db): Promise<TalanganOwnerSaldo[]> {
 			}
 		>
 	).filter((b) => !b.is_reversed);
-	for (const q of (antre.data ?? []) as Array<{
-		id: string;
-		owner_id: string;
-		amount: number;
-		admin_fee: number | null;
-		note: string | null;
-		created_at: string;
-		event: (EvRef & { deleted_at: string | null }) | null;
-	}>) {
-		if (!q.event || q.event.deleted_at) continue;
-		lRows.push({
-			id: q.id,
-			owner_id: q.owner_id,
-			direction: "talangan",
-			amount: Number(q.amount) + Number(q.admin_fee || 0),
-			is_reversed: false,
-			created_at: q.created_at,
-			note: `${q.note || "Biaya acara"} (belum settle)`,
-			event: q.event,
-			journal: null,
-		});
-	}
+	lRows.push(...antre);
 	const saldo = saldoTalanganOwner(ujRows, lRows);
 	const nameOf = new Map(
 		(
@@ -260,7 +270,7 @@ export type TalanganRiwayatRow = {
 export async function loadTalanganRiwayat(
 	db: Db,
 ): Promise<TalanganRiwayatRow[]> {
-	const [uj, ledger] = await Promise.all([
+	const [uj, ledger, antre] = await Promise.all([
 		db
 			.from("uang_jalan")
 			.select(
@@ -272,6 +282,7 @@ export async function loadTalanganRiwayat(
 			.select(
 				"id, owner_id, direction, amount, is_reversed, created_at, note, event:events(project_id, client_name, event_date), journal:journal_entries(entry_date, proof_url)",
 			),
+		loadAntreTalangan(db),
 	]);
 	for (const r of [uj, ledger])
 		if (r.error) throw new Error(`riwayat talangan: ${r.error.message}`);
@@ -312,7 +323,7 @@ export async function loadTalanganRiwayat(
 			batalId: null,
 		});
 	}
-	for (const b of (ledger.data ?? []) as Array<{
+	for (const b of [...(ledger.data ?? []), ...antre] as Array<{
 		id: string;
 		owner_id: string;
 		direction: TalanganRiwayatRow["jenis"];
