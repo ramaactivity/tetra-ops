@@ -55,7 +55,8 @@ const ExpenseSchema = z.object({
 	category_id: z.string().trim().min(1).max(40),
 	amount: z.coerce.number().int().positive().max(500_000_000),
 	note: z.string().trim().max(300).nullish(),
-	account_code: z.string().trim().min(2).max(20),
+	// Kode akun (1-101) ATAU sumber "uj:<uuid>" / "owner:<uuid>" (39–42 karakter).
+	account_code: z.string().trim().min(2).max(60),
 	proof_url: z.string().trim().max(2000).nullish(),
 });
 
