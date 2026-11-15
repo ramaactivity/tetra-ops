@@ -70,8 +70,8 @@ export function UangJalanPanel({
 	meId,
 	talangan = [],
 	terpakaiRekap = {},
-	transferOwner = [],
 	antre = {},
+	eventName,
 }: {
 	eventId: string;
 	projectId: string;
@@ -99,18 +99,10 @@ export function UangJalanPanel({
 	 * belum mengurangi buku uang jalan (dipotong saat bayar fee).
 	 */
 	terpakaiRekap?: Record<string, number>;
-	/**
-	 * Biaya rekap yang ditransfer / dibayar owner langsung ('owner:<id>') —
-	 * uang dari owner ke crew di luar uang jalan, sudah jadi hutang ke owner.
-	 */
-	transferOwner?: Array<{
-		ownerId: string;
-		ownerName: string;
-		label: string;
-		amount: number;
-	}>;
 	/** Pengeluaran "pakai uang jalan" yang masih diantre (dibukukan saat settle), per crew. */
 	antre?: Record<string, number>;
+	/** Nama acara — dibuang dari keterangan hutang owner (sudah jelas di halaman ini). */
+	eventName?: string;
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -145,25 +137,6 @@ export function UangJalanPanel({
 				(l) => l.owner_id === t.id && l.account_code === TALANGAN_OWNER_COA,
 			) || t.rincian.some((it) => it.projectId === projectId),
 	);
-	const givers = [
-		...new Set(live.filter((l) => l.kind === "beri").map((l) => l.owner_id)),
-	]
-		.filter((o): o is string => Boolean(o))
-		.map((o) => {
-			const rows = live.filter((l) => l.owner_id === o);
-			const sum = (k: string, pr: boolean) =>
-				rows
-					.filter(
-						(l) =>
-							l.kind === k && (l.account_code === TALANGAN_OWNER_COA) === pr,
-					)
-					.reduce((s, l) => s + l.amount, 0);
-			return {
-				id: o,
-				tetra: sum("beri", false),
-				pribadi: sum("beri", true) - sum("kembali", true),
-			};
-		});
 	const reportHolder = report?.holder ?? null;
 	const belumDicatat =
 		report && report.terima > 0 && reportHolder
@@ -325,8 +298,8 @@ export function UangJalanPanel({
 						<HandCoins className="size-4 shrink-0" /> Uang jalan crew
 					</h3>
 					<p className="type-secondary mt-0.5">
-						Uang dari owner ke crew untuk bensin, parkir, tol, transport, dll —
-						sebelum berangkat, di tengah, atau sesudah acara.
+						Uang dari owner untuk biaya lapangan crew (bensin, tol, parkir,
+						dll).
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
@@ -698,51 +671,9 @@ export function UangJalanPanel({
 				</div>
 			)}
 
-			{transferOwner.length > 0 && (
-				<div className="space-y-2 rounded-xl border border-emerald-600/20 bg-emerald-500/5 p-3 text-[13px]">
-					<p className="font-semibold">
-						Transfer owner untuk biaya{" "}
-						<span className="font-normal text-muted-foreground">
-							(di luar uang jalan)
-						</span>
-					</p>
-					{[...new Set(transferOwner.map((t) => t.ownerId))].map((id) => {
-						const rows = transferOwner.filter((t) => t.ownerId === id);
-						return (
-							<div key={id} className="space-y-0.5">
-								<div className="flex justify-between gap-3 font-medium">
-									<span>{rows[0].ownerName}</span>
-									<span className="tabular" data-nominal>
-										{formatRupiah(rows.reduce((t, r) => t + r.amount, 0))}
-									</span>
-								</div>
-								{rows.map((r) => (
-									<div
-										key={r.label}
-										className="flex justify-between gap-3 pl-3 text-muted-foreground"
-									>
-										<span>{r.label}</span>
-										<span className="tabular" data-nominal>
-											{formatRupiah(r.amount)}
-										</span>
-									</div>
-								))}
-							</div>
-						);
-					})}
-					<p className="text-[12px] text-muted-foreground">
-						Uangnya langsung habis untuk biaya itu — tidak dipotong dari fee
-						crew. Sudah tercatat jadi hutang Tetra ke owner-nya (lunasi di
-						Hutang-piutang owner). Kalau transfernya lebih dari biayanya, catat
-						lewat <b>Catat uang jalan</b> supaya sisanya ikut dipotong saat
-						bayar fee.
-					</p>
-				</div>
-			)}
-
 			{holders.length === 0 && !belumDicatat ? (
 				mode === null &&
-				transferOwner.length === 0 && (
+				talanganHere.length === 0 && (
 					<ol className="grid gap-2 sm:grid-cols-3">
 						{[
 							[
@@ -777,222 +708,189 @@ export function UangJalanPanel({
 					</ol>
 				)
 			) : (
-				<div className="grid gap-2 sm:grid-cols-2">
-					{holders.map((u) => (
-						<div key={u} className="bg-secondary/60 rounded-xl p-3 text-[13px]">
-							<p className="font-semibold">{nameOf(u)}</p>
-							<div className="mt-1 flex justify-between">
-								<span className="text-muted-foreground">Diberikan</span>
-								<span className="tabular" data-nominal>
-									{formatRupiah(given(u))}
-								</span>
-							</div>
-							{given(u) - saldo(u) > 0 && (
-								<div className="flex justify-between text-muted-foreground">
-									<span>Sudah dipakai / dikembalikan / dipotong</span>
-									<span className="tabular" data-nominal>
-										− {formatRupiah(given(u) - saldo(u))}
-									</span>
-								</div>
-							)}
-							{(terpakaiRekap[u] ?? 0) > 0 && (
-								<div className="flex justify-between text-muted-foreground">
-									<span>Dipakai biaya lapangan (rekap crew)</span>
-									<span className="tabular" data-nominal>
-										− {formatRupiah(terpakaiRekap[u] ?? 0)}
-									</span>
-								</div>
-							)}
-							{(antre[u] ?? 0) > 0 && (
-								<div className="flex justify-between text-muted-foreground">
-									<span>Akan dipakai (diantre sampai settle)</span>
-									<span className="tabular" data-nominal>
-										− {formatRupiah(antre[u] ?? 0)}
-									</span>
-								</div>
-							)}
-							{sisaDiCrew(u) >= 0 ? (
-								<div className="flex justify-between font-semibold">
-									<span>Masih dipegang crew</span>
-									<span className="tabular" data-nominal>
-										{formatRupiah(sisaDiCrew(u))}
-									</span>
-								</div>
-							) : (
-								<div className="flex justify-between font-semibold text-amber-700">
-									<span>Kurang — ditalangi crew</span>
-									<span className="tabular" data-nominal>
-										{formatRupiah(-sisaDiCrew(u))}
-									</span>
-								</div>
-							)}
-							<p className="mt-1 text-[12px] text-muted-foreground">
-								{sisaDiCrew(u) < 0
-									? "Kekurangannya ikut dibayar bersama fee crew ini."
-									: sisaDiCrew(u) === 0
-										? "Uang jalan habis terpakai."
-										: report?.holder === u && report.sisa === "kembalikan"
-											? "Crew memilih mengembalikan sisanya — tekan Terima sisa saat uangnya sudah masuk. Yang terpakai tetap dipotong saat Bayar fee."
-											: "Sisanya otomatis dipotong saat Bayar fee crew ini."}
-							</p>
-						</div>
-					))}
-				</div>
-			)}
-
-			{report &&
-				(report.bukti ||
-					report.kembaliBukti ||
-					report.sisa === "kembalikan") && (
-					<div className="bg-secondary/60 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-3 py-2 text-[12.5px]">
-						<span className="font-medium">Laporan crew:</span>
-						{report.bukti && (
-							<a
-								href={report.bukti}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-primary underline"
+				<div className="space-y-3">
+					{holders.map((u) => {
+						const rows = ledger.filter((l) => l.user_id === u);
+						const sisa = sisaDiCrew(u);
+						const bukti = report?.holder === u ? report.bukti : null;
+						const kembaliBukti =
+							report?.holder === u ? report.kembaliBukti : null;
+						return (
+							<div
+								key={u}
+								className="rounded-xl border border-border-subtle bg-secondary/40 px-4 py-3 text-[13px]"
 							>
-								Bukti terima
-							</a>
-						)}
-						{report.sisa === "kembalikan" && (
-							<span>
-								Sisa dikembalikan (
-								{report.kembaliMetode === "transfer" ? "transfer" : "tunai"})
-								{report.kembaliBukti && (
-									<>
-										{" · "}
-										<a
-											href={report.kembaliBukti}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="text-primary underline"
-										>
-											Bukti pengembalian
-										</a>
-									</>
-								)}
-							</span>
-						)}
-					</div>
-				)}
-
-			{givers.length > 0 && (
-				<div className="bg-secondary/60 space-y-1 rounded-xl px-3 py-2.5 text-[13px]">
-					<p className="font-semibold">Dari siapa</p>
-					{givers.map((g) => (
-						<div key={g.id} className="flex flex-wrap justify-between gap-x-3">
-							<span>
-								{ownerName(g.id)}
-								{g.pribadi > 0 && (
-									<span className="text-muted-foreground">
-										{" "}
-										· uang pribadi {formatRupiah(g.pribadi)}
+								<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+									<p className="font-semibold">{nameOf(u)}</p>
+									<span className="flex flex-wrap gap-x-3 text-[12px] text-muted-foreground">
+										{bukti && (
+											<a
+												href={bukti}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="underline underline-offset-2 hover:text-foreground"
+											>
+												Bukti terima dari crew
+											</a>
+										)}
+										{kembaliBukti && (
+											<a
+												href={kembaliBukti}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="underline underline-offset-2 hover:text-foreground"
+											>
+												Bukti pengembalian
+											</a>
+										)}
 									</span>
-								)}
-							</span>
-							<span className="tabular font-medium" data-nominal>
-								{formatRupiah(g.tetra + g.pribadi)}
-							</span>
-						</div>
-					))}
+								</div>
+								<ul className="mt-2 space-y-1">
+									{rows.map((l) => (
+										<li
+											key={l.id}
+											className={`flex items-center justify-between gap-3 ${l.is_reversed ? "text-muted-foreground line-through opacity-60" : ""}`}
+										>
+											<span className="min-w-0">
+												{KIND[l.kind]}
+												<span className="text-muted-foreground">
+													{l.owner_id
+														? ` · ${l.kind === "beri" ? "dari" : "ke"} ${ownerName(l.owner_id)}${
+																l.account_code === TALANGAN_OWNER_COA
+																	? " (uang pribadi)"
+																	: ""
+															}`
+														: ""}
+													{" · "}
+													{new Date(l.created_at).toLocaleDateString("id-ID", {
+														day: "numeric",
+														month: "short",
+													})}
+												</span>
+												{l.proof_url && (
+													<a
+														href={l.proof_url}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="ml-2 text-[12px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+													>
+														Bukti
+													</a>
+												)}
+											</span>
+											<span className="flex shrink-0 items-center gap-1">
+												<span className="tabular" data-nominal>
+													{l.kind === "beri" ? "" : "− "}
+													{formatRupiah(l.amount)}
+												</span>
+												{!l.is_reversed &&
+												(l.kind === "beri" || l.kind === "kembali") ? (
+													<button
+														type="button"
+														aria-label="Batalkan catatan"
+														disabled={pending}
+														onClick={async () => {
+															if (
+																await confirm({
+																	title: "Batalkan catatan uang jalan ini?",
+																	description:
+																		"Jurnalnya dibalik. Data tidak dihapus, hanya ditandai batal.",
+																	confirmLabel: "Batalkan",
+																	variant: "destructive",
+																})
+															)
+																start(async () => {
+																	const r = await batalUangJalan(
+																		l.id,
+																		projectId,
+																	);
+																	if (!r.ok) toast.error(r.error);
+																	else {
+																		toast.success(r.note ?? "Dibatalkan");
+																		router.refresh();
+																	}
+																});
+														}}
+														className="hover:bg-secondary text-muted-foreground grid size-7 place-items-center rounded-full"
+													>
+														<Undo2 className="size-3.5" />
+													</button>
+												) : (
+													<span className="size-7" aria-hidden />
+												)}
+											</span>
+										</li>
+									))}
+									{(terpakaiRekap[u] ?? 0) > 0 && (
+										<li className="flex justify-between gap-3">
+											<span>Dipakai biaya lapangan (rekap crew)</span>
+											<span
+												className="tabular shrink-0 whitespace-nowrap pr-8"
+												data-nominal
+											>
+												− {formatRupiah(terpakaiRekap[u] ?? 0)}
+											</span>
+										</li>
+									)}
+									{(antre[u] ?? 0) > 0 && (
+										<li className="flex justify-between gap-3">
+											<span>Pengeluaran lain (dicatat owner)</span>
+											<span
+												className="tabular shrink-0 whitespace-nowrap pr-8"
+												data-nominal
+											>
+												− {formatRupiah(antre[u] ?? 0)}
+											</span>
+										</li>
+									)}
+								</ul>
+								<div
+									className={`mt-2 flex items-baseline justify-between gap-3 border-t border-border-subtle pt-2 font-semibold ${sisa < 0 ? "text-amber-700" : ""}`}
+								>
+									<span>
+										{sisa < 0 ? "Kurang, ditalangi crew" : "Sisa di crew"}
+										<span className="block text-[12px] font-normal text-muted-foreground sm:ml-2 sm:inline">
+											{sisa < 0
+												? "dibayar bersama fee"
+												: sisa === 0
+													? "habis terpakai"
+													: report?.holder === u && report.sisa === "kembalikan"
+														? "crew mengembalikan, tekan Terima sisa"
+														: "dipotong otomatis dari fee"}
+										</span>
+									</span>
+									<span
+										className="tabular shrink-0 whitespace-nowrap pr-8"
+										data-nominal
+									>
+										{formatRupiah(Math.abs(sisa))}
+									</span>
+								</div>
+							</div>
+						);
+					})}
 				</div>
 			)}
 
 			{talanganHere.length > 0 && (
-				<div className="space-y-2">
-					<div>
-						<p className="flex flex-wrap items-baseline justify-between gap-2 text-[13px] font-semibold">
-							Hutang-piutang owner (semua acara)
-							<a
-								href="/finance/hutang-owner"
-								className="text-[12px] font-medium text-muted-foreground hover:text-foreground"
-							>
-								Riwayat & detail →
-							</a>
-						</p>
-						<p className="text-[12px] text-muted-foreground">
-							Bayar langsung sekarang, atau biarkan jadi hutang dulu & lunasi
-							nanti sekalian dari Dashboard / Keuangan.
-						</p>
+				<div className="space-y-2 pt-1">
+					<div className="flex flex-wrap items-baseline justify-between gap-2">
+						<p className="text-[13px] font-semibold">Hutang-piutang owner</p>
+						<a
+							href="/finance/hutang-owner"
+							className="text-[12px] text-muted-foreground hover:text-foreground"
+						>
+							Semua hutang-piutang owner →
+						</a>
 					</div>
 					<TalanganOwnerCard
 						owners={talanganHere}
 						cashAccounts={cashAccounts}
 						eventId={eventId}
+						projectId={projectId}
+						eventName={eventName}
 					/>
 				</div>
-			)}
-
-			{ledger.length > 0 && (
-				<ul className="divide-border-default divide-y text-[13px]">
-					{ledger.map((l) => (
-						<li
-							key={l.id}
-							className={`flex flex-wrap items-center justify-between gap-2 py-2 ${l.is_reversed ? "opacity-50 line-through" : ""}`}
-						>
-							<span className="min-w-0">
-								{KIND[l.kind]} · {nameOf(l.user_id)}
-								{l.method ? ` · ${l.method}` : ""}
-								{l.owner_id
-									? ` · ${l.kind === "beri" ? "dari" : "ke"} ${ownerName(l.owner_id)}${
-											l.account_code === TALANGAN_OWNER_COA ? " (pribadi)" : ""
-										}`
-									: ""}
-								<span className="text-muted-foreground">
-									{" "}
-									· {new Date(l.created_at).toLocaleDateString("id-ID")}
-								</span>
-							</span>
-							<span className="flex items-center gap-2">
-								{l.proof_url && (
-									<a
-										href={l.proof_url}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="text-[12px] font-medium text-primary underline"
-									>
-										Bukti
-									</a>
-								)}
-								<span className="tabular font-medium" data-nominal>
-									{formatRupiah(l.amount)}
-								</span>
-								{!l.is_reversed &&
-									(l.kind === "beri" || l.kind === "kembali") && (
-										<button
-											type="button"
-											aria-label="Batalkan catatan"
-											disabled={pending}
-											onClick={async () => {
-												if (
-													await confirm({
-														title: "Batalkan catatan uang jalan ini?",
-														description:
-															"Jurnalnya dibalik. Data tidak dihapus, hanya ditandai batal.",
-														confirmLabel: "Batalkan",
-														variant: "destructive",
-													})
-												)
-													start(async () => {
-														const r = await batalUangJalan(l.id, projectId);
-														if (!r.ok) toast.error(r.error);
-														else {
-															toast.success(r.note ?? "Dibatalkan");
-															router.refresh();
-														}
-													});
-											}}
-											className="hover:bg-secondary text-muted-foreground grid size-7 place-items-center rounded-full"
-										>
-											<Undo2 className="size-3.5" />
-										</button>
-									)}
-							</span>
-						</li>
-					))}
-				</ul>
 			)}
 		</section>
 	);

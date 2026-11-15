@@ -2,17 +2,27 @@
 
 import {
 	CheckCircle2,
+	CreditCard,
 	ExternalLink,
+	HandCoins,
 	Info,
 	Loader2,
+	type LucideIcon,
 	Plus,
 	Save,
 	Upload,
+	UserRound,
 	Wallet,
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+	type ReactNode,
+	useEffect,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
 import {
 	CorrectPayerDialog,
 	type PayerOptions,
@@ -461,12 +471,12 @@ export function CrewFeeForm({
 				})()}
 
 			{fieldExpenseBreakdown && (
-				<div className="mb-4 space-y-3 rounded-md border border-border-default bg-surface-3 p-3">
-					{!readOnly && payerOptions ? (
-						<div className="flex flex-wrap items-center justify-between gap-2">
-							<p className="text-[11px] text-muted-foreground">
-								Crew salah isi siapa yang bayar? Betulkan di sini.
-							</p>
+				<div className="mb-4 rounded-xl bg-secondary/50 p-4">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<p className="text-[13px] font-semibold text-foreground">
+							Biaya lapangan dari rekap crew
+						</p>
+						{!readOnly && payerOptions ? (
 							<CorrectPayerDialog
 								eventId={eventId}
 								options={payerOptions}
@@ -480,259 +490,212 @@ export function CrewFeeForm({
 										catatRecorded: it.catatRecorded,
 									}))}
 							/>
-						</div>
-					) : null}
-					{ujTotal > 0 && (
-						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-								💵 Dibayar pakai uang jalan ·{" "}
-								<span data-nominal className="tabular">
-									{formatRupiah(ujTotal)}
-								</span>
-							</p>
-							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
-								{ujItems.map((it) => (
-									<li key={it.label}>
-										<span className="text-muted-foreground">{it.label}:</span>{" "}
-										<span data-nominal>{formatRupiah(it.amount)}</span>
-									</li>
-								))}
-							</ul>
-							{ujHolders.map((h) => (
-								<p
-									key={h.id}
-									className="mt-1.5 text-[11px] text-muted-foreground"
-								>
-									Uang jalan {h.name}{" "}
-									<span data-nominal className="tabular">
-										{formatRupiah(h.diberi)}
-									</span>
-									, terpakai{" "}
-									<span data-nominal className="tabular">
-										{formatRupiah(h.terpakai)}
-									</span>
-									{h.sisa === undefined ? (
-										" → sudah diperhitungkan saat bayar fee."
-									) : h.sisa >= 0 ? (
-										<>
-											{" "}
-											→ sisa di crew{" "}
-											<span data-nominal className="tabular">
-												{formatRupiah(h.sisa)}
-											</span>{" "}
-											dipotong otomatis saat bayar fee (atau dikembalikan crew).
-										</>
-									) : (
-										<>
-											{" "}
-											→ kurang{" "}
-											<span data-nominal className="tabular">
-												{formatRupiah(-h.sisa)}
-											</span>{" "}
-											ditalangi crew, ikut dibayar bersama fee.
-										</>
-									)}{" "}
-									{!readOnly &&
-										"Tidak perlu isi apa-apa — hitungannya otomatis saat settle."}
-									{(() => {
-										// Sisa kecil biasa diberikan ke crew: jadi bonus → tetap
-										// dipotong dari uang jalan, tapi transfer fee naik sebesar
-										// itu, dan tercatat sebagai biaya event.
-										const row = rows.find(
-											(r) => r.user_id === h.id && !r.is_paid,
-										);
-										if (readOnly || !row || !h.sisa || h.sisa <= 0) return null;
-										return row.bonus_amount >= h.sisa ? (
-											<span className="ml-1 font-medium text-emerald-700">
-												Bonus{" "}
-												<span data-nominal className="tabular">
-													{formatRupiah(row.bonus_amount)}
-												</span>{" "}
-												sudah diisi — dibayar dari sisa uang jalan.
-											</span>
-										) : (
-											<button
-												type="button"
-												onClick={() => {
-													update(row.assignment_id, {
-														bonus_amount: row.bonus_amount + (h.sisa ?? 0),
-													});
-													toast.success(
-														`Sisa ${formatRupiah(h.sisa ?? 0)} jadi bonus ${h.name} — dibayar dari uang jalan, transfer rekening tidak bertambah. Tekan Simpan fee crew.`,
-													);
-												}}
-												className="press-down ml-1 inline-flex items-center rounded-md border border-sky-600/30 bg-sky-500/10 px-2 py-0.5 font-semibold text-sky-800 hover:bg-sky-500/20 dark:text-sky-200"
-											>
-												Jadikan bonus {h.name.split(" ")[0]} (
-												<span data-nominal className="tabular">
-													{formatRupiah(h.sisa)}
-												</span>
-												)
-											</button>
-										);
-									})()}
-								</p>
-							))}
-						</div>
-					)}
-					{crewOnlyTotal > 0 && (
-						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-								💸 Ditalangi crew{readOnly ? "" : " — perlu di-rembers"} ·{" "}
-								<span data-nominal className="tabular">
-									{formatRupiah(crewOnlyTotal)}
-								</span>
-							</p>
-							<ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs tabular text-foreground/80">
-								{fieldExpenseBreakdown.items
-									.filter((it) => it.paidBy === "crew" && !pakaiUj(it))
-									.map((it) => (
-										<li key={it.label}>
-											<span className="text-muted-foreground">{it.label}:</span>{" "}
-											<span data-nominal>{formatRupiah(it.amount)}</span>
-											<span className="ml-1 text-muted-foreground">
-												·{" "}
-												{it.payerName ?? (
-													<em className="not-italic text-amber-700 dark:text-amber-400">
-														penalang belum dipilih
-													</em>
+						) : null}
+					</div>
+					<ul className="mt-1 divide-y divide-border-subtle">
+						{ujTotal > 0 && (
+							<PayerGroup
+								icon={Wallet}
+								title={
+									ujHolders.length === 1
+										? `Pakai uang jalan ${ujHolders[0].name}`
+										: "Pakai uang jalan"
+								}
+								total={ujTotal}
+								items={ujItems}
+							>
+								{ujHolders.map((h) => {
+									const first = h.name.split(" ")[0];
+									const row = rows.find(
+										(r) => r.user_id === h.id && !r.is_paid,
+									);
+									return (
+										<p
+											key={h.id}
+											className="flex flex-wrap items-center gap-x-2 gap-y-1"
+										>
+											<span>
+												{ujHolders.length > 1 && `${first}: `}
+												{h.sisa === undefined ? (
+													"Sudah diperhitungkan saat bayar fee."
+												) : h.sisa > 0 ? (
+													<>
+														Sisa <Money v={h.sisa} /> dipotong dari fee {first}.
+													</>
+												) : h.sisa === 0 ? (
+													"Uang jalan habis terpakai."
+												) : (
+													<>
+														Kurang <Money v={-h.sisa} />, dibayar bersama fee{" "}
+														{first}.
+													</>
 												)}
 											</span>
-										</li>
-									))}
-							</ul>
-							{/* Auto-isi sesuai penalang yang dipilih di form rekap — tiap
-							    crew dapat persis jumlah yang dia talangi. */}
-							{attributionPending && (
-								<button
-									type="button"
-									onClick={applyPayerAttribution}
-									className="press-down mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
-								>
-									<Wallet className="h-3 w-3" />
-									Isi reimbursement sesuai penalang
-								</button>
-							)}
-							{/* Fallback rekap lama: penalang belum dipilih per item, jadi
-							    tawarkan crew yang submit sebagai tebakan terbaik. */}
-							{suggestedRow && (
-								<button
-									type="button"
-									onClick={() =>
-										applyExpenseToReimbursement(
-											suggestedRow.assignment_id,
-											fieldExpenseBreakdown.crewFrontedTotal,
-										)
-									}
-									className="press-down mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-600/30 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
-								>
-									<Wallet className="h-3 w-3" />
-									Isi ke {suggestedRow.user_full_name} (yang submit rekap)
-								</button>
-							)}
-							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								{readOnly
-									? "Sudah masuk Hutang Crew saat settle — dibayar bersama fee."
-									: "Apply ke kolom Reimbursement crew yang benar-benar bayar — dibayar bersama fee lewat Hutang Crew saat settle."}
-							</p>
-						</div>
-					)}
-					{fieldExpenseBreakdown.ownerPaidTotal > 0 && (
-						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-								✓ Dibayar owner ·{" "}
-								<span data-nominal className="tabular">
-									{formatRupiah(fieldExpenseBreakdown.ownerPaidTotal)}
-								</span>
-							</p>
-							<ul className="mt-1.5 space-y-1 text-xs text-foreground/80">
-								{fieldExpenseBreakdown.items
-									.filter((it) => it.paidBy === "owner")
-									.map((it) => (
-										<li key={it.label} className="flex items-center gap-2">
-											<span className="text-muted-foreground">{it.label}:</span>
-											<span data-nominal className="tabular">
-												{formatRupiah(it.amount)}
+											{/* Sisa kecil biasa diberikan ke crew: jadi bonus → tetap
+											    dipotong dari uang jalan, transfer fee naik sebesar itu,
+											    tercatat sebagai biaya event. */}
+											{!readOnly &&
+												row &&
+												h.sisa !== undefined &&
+												h.sisa > 0 &&
+												(row.bonus_amount >= h.sisa ? (
+													<span className="font-medium text-emerald-700">
+														Sudah jadi bonus.
+													</span>
+												) : (
+													<button
+														type="button"
+														onClick={() => {
+															update(row.assignment_id, {
+																bonus_amount: row.bonus_amount + (h.sisa ?? 0),
+															});
+															toast.success(
+																`Sisa ${formatRupiah(h.sisa ?? 0)} jadi bonus ${h.name} — dibayar dari uang jalan, transfer rekening tidak bertambah. Tekan Simpan fee crew.`,
+															);
+														}}
+														className={PILL}
+													>
+														Jadikan bonus
+													</button>
+												))}
+										</p>
+									);
+								})}
+							</PayerGroup>
+						)}
+						{crewOnlyTotal > 0 && (
+							<PayerGroup
+								icon={HandCoins}
+								title="Ditalangi crew"
+								total={crewOnlyTotal}
+								items={fieldExpenseBreakdown.items
+									.filter((it) => it.paidBy === "crew" && !pakaiUj(it))
+									.map((it) => ({
+										label: it.label,
+										amount: it.amount,
+										note: it.payerName ? (
+											<span className="text-muted-foreground">
+												{" "}
+												({it.payerName})
 											</span>
-											{it.ownerId ? (
-												<span className="ml-auto inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-													Ditransfer {it.payerName} → hutang ke {it.payerName}
-												</span>
-											) : it.catatRecorded ? (
-												<span className="ml-auto inline-flex items-center gap-1 rounded-md border border-border-default px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-													Sudah masuk daftar
-												</span>
-											) : it.catatPrefill ? (
-												<button
-													type="button"
-													onClick={() => {
-														const detail = it.catatPrefill;
-														if (detail) emitCatatPrefill(detail);
-													}}
-													className="press-down ml-auto inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
-													title="Isi ke kartu Pemasukan / pengeluaran lain di halaman ini"
-												>
-													<Plus className="h-3 w-3" />
-													Catat ke pembukuan
-												</button>
-											) : null}
-										</li>
-									))}
-							</ul>
-							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								Owner yang namanya dipilih → otomatis jadi hutang Tetra ke owner
-								itu saat settle (kartu Hutang-piutang owner). Yang belum ada
-								namanya: pilih owner-nya lewat Koreksi pembayar, atau klik{" "}
-								<span className="font-medium">Catat ke pembukuan</span> supaya
-								bebannya tetap masuk — form di kartu{" "}
-								<span className="font-medium">
-									Pemasukan / pengeluaran lain
-								</span>{" "}
-								di bawah langsung terisi, tinggal pilih rekening & simpan. Yang
-								sudah tercatat kelihatan di kartu itu juga, jadi tidak dobel.
-							</p>
-							{!hasEmoneyCard && !readOnly ? (
-								<p className="mt-1.5 text-[11px] text-muted-foreground">
-									Sebenarnya dibayar pakai kartu e-toll?{" "}
-									<a
-										href="/finance/bank-accounts"
-										className="font-medium text-sky-700 underline underline-offset-2 dark:text-sky-300"
-									>
-										Daftarkan kartunya dulu
-									</a>{" "}
-									— setelah itu pembayarnya bisa diubah jadi kartu di rekap, dan
-									saldo kartu otomatis berkurang saat settle tanpa perlu dicatat
-									manual.
+										) : (
+											<span className="text-amber-700 dark:text-amber-400">
+												{" "}
+												(penalang belum dipilih)
+											</span>
+										),
+									}))}
+							>
+								<p>
+									{readOnly
+										? "Sudah masuk Hutang Crew, dibayar bersama fee."
+										: "Ikut dibayar bersama fee crew yang menalangi."}
 								</p>
-							) : null}
-						</div>
-					)}
-					{fieldExpenseBreakdown.cardPaidTotal > 0 && (
-						<div>
-							<p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-								💳 Dibayar kartu perusahaan ·{" "}
-								<span data-nominal className="tabular">
-									{formatRupiah(fieldExpenseBreakdown.cardPaidTotal)}
-								</span>
-							</p>
-							<ul className="mt-1.5 space-y-1 text-xs text-foreground/80">
-								{fieldExpenseBreakdown.items
-									.filter((it) => it.paidBy === "card")
-									.map((it) => (
-										<li key={it.label} className="flex items-center gap-2">
-											<span className="text-muted-foreground">{it.label}:</span>
-											<span data-nominal className="tabular">
-												{formatRupiah(it.amount)}
-											</span>
-										</li>
-									))}
-							</ul>
-							<p className="mt-1.5 text-[11px] text-muted-foreground">
-								Tidak perlu di-rembers dan tidak perlu dicatat manual — saldo
-								kartunya otomatis berkurang saat event di-settle.
-							</p>
-						</div>
-					)}
+								{(attributionPending || suggestedRow) && (
+									<div className="flex flex-wrap gap-2 pt-1">
+										{/* Auto-isi sesuai penalang yang dipilih di form rekap. */}
+										{attributionPending && (
+											<button
+												type="button"
+												onClick={applyPayerAttribution}
+												className={PILL}
+											>
+												Isi reimbursement sesuai penalang
+											</button>
+										)}
+										{/* Fallback rekap lama: penalang belum dipilih per item. */}
+										{suggestedRow && (
+											<button
+												type="button"
+												onClick={() =>
+													applyExpenseToReimbursement(
+														suggestedRow.assignment_id,
+														fieldExpenseBreakdown.crewFrontedTotal,
+													)
+												}
+												className={PILL}
+											>
+												Isi ke {suggestedRow.user_full_name} (yang submit rekap)
+											</button>
+										)}
+									</div>
+								)}
+							</PayerGroup>
+						)}
+						{fieldExpenseBreakdown.ownerPaidTotal > 0 && (
+							<PayerGroup
+								icon={UserRound}
+								title="Dibayar owner"
+								total={fieldExpenseBreakdown.ownerPaidTotal}
+							>
+								<ul className="space-y-1">
+									{fieldExpenseBreakdown.items
+										.filter((it) => it.paidBy === "owner")
+										.map((it) => (
+											<li
+												key={`${it.label}|${it.amount}`}
+												className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
+											>
+												<span className="text-foreground/80">
+													{it.label} <Money v={it.amount} />
+												</span>
+												{it.ownerId ? (
+													<span>· hutang ke {it.payerName}</span>
+												) : it.catatRecorded ? (
+													<span>· sudah dicatat</span>
+												) : it.catatPrefill ? (
+													<button
+														type="button"
+														onClick={() => {
+															const detail = it.catatPrefill;
+															if (detail) emitCatatPrefill(detail);
+														}}
+														className={PILL}
+														title="Isi ke kartu Pemasukan / pengeluaran lain di halaman ini"
+													>
+														Catat ke pembukuan
+													</button>
+												) : null}
+											</li>
+										))}
+								</ul>
+								{!readOnly &&
+									fieldExpenseBreakdown.items.some(
+										(it) =>
+											it.paidBy === "owner" && !it.ownerId && !it.catatRecorded,
+									) && (
+										<p>
+											Pilih owner-nya lewat Koreksi pembayar, atau catat ke
+											pembukuan supaya bebannya ikut masuk.
+										</p>
+									)}
+								{!hasEmoneyCard && !readOnly ? (
+									<p>
+										Dibayar pakai kartu e-toll?{" "}
+										<a
+											href="/finance/bank-accounts"
+											className="font-medium text-foreground underline underline-offset-2"
+										>
+											Daftarkan kartunya
+										</a>{" "}
+										dulu, nanti saldo kartu berkurang otomatis saat settle.
+									</p>
+								) : null}
+							</PayerGroup>
+						)}
+						{fieldExpenseBreakdown.cardPaidTotal > 0 && (
+							<PayerGroup
+								icon={CreditCard}
+								title="Kartu e-toll Tetra"
+								total={fieldExpenseBreakdown.cardPaidTotal}
+								items={fieldExpenseBreakdown.items.filter(
+									(it) => it.paidBy === "card",
+								)}
+							>
+								<p>Saldo kartu berkurang otomatis saat settle.</p>
+							</PayerGroup>
+						)}
+					</ul>
 				</div>
 			)}
 
@@ -784,7 +747,7 @@ export function CrewFeeForm({
 													<>
 														<br />
 														{potong > 0
-															? "dipotong sisa uang jalan "
+															? "dari uang jalan "
 															: "+ ganti talangan crew "}
 														<span data-nominal className="tabular">
 															{formatRupiah(Math.abs(potong))}
@@ -820,11 +783,19 @@ export function CrewFeeForm({
 									}
 									readOnly={readOnly}
 								/>
+								{/* Settle selalu menyamakan reimbursement crew yang belum
+								    dibayar dengan talangannya di rekap — isi manual cuma
+								    pratinjau, jadi cukup satu tombol, tanpa chip per item. */}
 								{!readOnly &&
 									fieldExpenseBreakdown &&
 									row.user_id &&
-									(fieldExpenseBreakdown.byCrew[row.user_id] ?? 0) > 0 && (
-										<div className="col-span-full -mt-1 flex flex-wrap gap-1">
+									(fieldExpenseBreakdown.byCrew[row.user_id] ?? 0) > 0 &&
+									row.reimbursement_amount !==
+										fieldExpenseBreakdown.byCrew[row.user_id] && (
+										<p className="col-span-full -mt-1 text-[12px] text-muted-foreground">
+											Reimbursement otomatis jadi{" "}
+											<Money v={fieldExpenseBreakdown.byCrew[row.user_id]} />{" "}
+											saat settle (biaya lapangan yang dia bayar).{" "}
 											<button
 												type="button"
 												onClick={() =>
@@ -833,50 +804,11 @@ export function CrewFeeForm({
 														fieldExpenseBreakdown.byCrew[row.user_id as string],
 													)
 												}
-												className="press-down rounded-md border border-foreground/15 bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background hover:bg-foreground/90"
-												title="Set reimbursement = yang dia bayar di rekap (otomatis juga saat settle)"
+												className="font-medium text-foreground underline underline-offset-2 hover:no-underline"
 											>
-												= Talangan{" "}
-												<span data-nominal>
-													{formatRupiah(
-														fieldExpenseBreakdown.byCrew[row.user_id as string],
-													)}
-												</span>
+												Isi sekarang
 											</button>
-											{fieldExpenseBreakdown.items
-												.filter(
-													(it) =>
-														it.paidBy === "crew" &&
-														it.payerUserId === row.user_id,
-												)
-												.map((it) => (
-													<button
-														key={it.label}
-														type="button"
-														onClick={() =>
-															applyExpenseToReimbursement(
-																row.assignment_id,
-																row.reimbursement_amount + it.amount,
-															)
-														}
-														className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-link hover:bg-surface-3"
-													>
-														+ {it.label}{" "}
-														<span data-nominal>{formatRupiah(it.amount)}</span>
-													</button>
-												))}
-											{row.reimbursement_amount > 0 && (
-												<button
-													type="button"
-													onClick={() =>
-														applyExpenseToReimbursement(row.assignment_id, 0)
-													}
-													className="rounded-md border border-border-default bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-surface-3"
-												>
-													reset 0
-												</button>
-											)}
-										</div>
+										</p>
 									)}
 							</div>
 
@@ -1572,5 +1504,58 @@ function FeeField({
 				className="tabular text-right"
 			/>
 		</div>
+	);
+}
+
+const PILL =
+	"inline-flex h-7 items-center rounded-full border border-border-default bg-card px-2.5 text-[12px] font-medium text-foreground transition-[transform,background-color] duration-150 ease-out hover:bg-secondary active:scale-[0.97]";
+
+function Money({ v }: { v: number }) {
+	return (
+		<span className="tabular whitespace-nowrap" data-nominal>
+			{formatRupiah(v)}
+		</span>
+	);
+}
+
+/** Satu kelompok pembayar di kotak "Biaya lapangan dari rekap crew". */
+function PayerGroup({
+	icon: Icon,
+	title,
+	total,
+	items,
+	children,
+}: {
+	icon: LucideIcon;
+	title: string;
+	total: number;
+	items?: Array<{ label: string; amount: number; note?: ReactNode }>;
+	children?: ReactNode;
+}) {
+	return (
+		<li className="flex gap-3 py-3 last:pb-0">
+			<Icon
+				className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+				aria-hidden
+			/>
+			<div className="min-w-0 flex-1 space-y-1 text-[12.5px] text-muted-foreground">
+				<div className="flex items-baseline justify-between gap-3 text-[13px] text-foreground">
+					<p className="min-w-0 font-medium">{title}</p>
+					<Money v={total} />
+				</div>
+				{items && items.length > 0 && (
+					<p className="text-foreground/80">
+						{items.map((it, i) => (
+							<span key={`${it.label}|${it.amount}`}>
+								{i > 0 && <span className="text-muted-foreground"> · </span>}
+								{it.label} <Money v={it.amount} />
+								{it.note}
+							</span>
+						))}
+					</p>
+				)}
+				{children}
+			</div>
+		</li>
 	);
 }

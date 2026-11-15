@@ -31,6 +31,8 @@ export function TalanganOwnerCard({
 	cashAccounts,
 	eventId,
 	compact = false,
+	projectId,
+	eventName,
 }: {
 	owners: TalanganOwnerSaldo[];
 	cashAccounts: Account[];
@@ -41,7 +43,29 @@ export function TalanganOwnerCard({
 	 * halaman Hutang Owner).
 	 */
 	compact?: boolean;
+	/**
+	 * Mode halaman acara: satu baris per owner, rincian hanya acara ini, tanpa
+	 * riwayat pelunasan acara lain (ada di halaman Hutang Owner).
+	 */
+	projectId?: string;
+	/** Nama acara — dibuang dari keterangan karena sudah jelas di halamannya. */
+	eventName?: string;
 }) {
+	if (projectId)
+		return (
+			<div className="divide-y divide-border-subtle rounded-xl bg-secondary/50 px-4">
+				{owners.map((o) => (
+					<Row
+						key={o.id}
+						owner={o}
+						cashAccounts={cashAccounts}
+						eventId={eventId}
+						projectId={projectId}
+						eventName={eventName}
+					/>
+				))}
+			</div>
+		);
 	return (
 		<div className={compact ? "space-y-3" : "grid gap-3 sm:grid-cols-2"}>
 			{owners.map((o) => (
@@ -62,30 +86,112 @@ function Row({
 	cashAccounts,
 	eventId,
 	compact = false,
+	projectId,
+	eventName,
 }: {
 	owner: TalanganOwnerSaldo;
 	cashAccounts: Account[];
 	eventId?: string;
 	compact?: boolean;
+	projectId?: string;
+	eventName?: string;
 }) {
 	const router = useRouter();
-	const [pending, start] = useTransition();
 	const bayar = owner.saldo > 0;
 	const lunas = owner.saldo === 0;
 	const sisa = Math.abs(owner.saldo);
 	const [open, setOpen] = useState(false);
-	const [amount, setAmount] = useState(String(sisa));
-	const [account, setAccount] = useState(
-		[...cashAccounts].sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))[0]
-			?.code ?? "",
-	);
-	const [adminFee, setAdminFee] = useState(0);
-	const [file, setFile] = useState<File | null>(null);
-	const [date, setDate] = useState(
-		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
-	);
 	const verb = bayar ? `Bayar ke ${owner.name}` : `Terima dari ${owner.name}`;
 	const BatalButton = BatalTalanganButton;
+	const form = open ? (
+		<PayForm
+			owner={owner}
+			cashAccounts={cashAccounts}
+			eventId={eventId}
+			bayar={bayar}
+			sisa={sisa}
+			verb={verb}
+			onDone={() => {
+				setOpen(false);
+				router.refresh();
+			}}
+			onCancel={() => setOpen(false)}
+		/>
+	) : null;
+
+	if (projectId) {
+		// Halaman acara: yang relevan cuma rincian acara ini. Sisanya (acara
+		// lain) diringkas satu baris supaya angka di kanan tetap terjelaskan.
+		const ini = owner.rincian.filter((it) => it.projectId === projectId);
+		const lain = owner.rincian
+			.filter((it) => it.projectId !== projectId)
+			.reduce((t, it) => t + it.sisa, 0);
+		const ket = (label: string) =>
+			eventName ? label.replace(` — ${eventName}`, "") : label;
+		const satuBaris = ini.length === 1 && lain === 0;
+		return (
+			<div className="py-3">
+				<div className="flex items-center gap-3">
+					<div className="min-w-0 flex-1">
+						<p className="text-[13px] font-semibold text-foreground">
+							{owner.name}
+							{!bayar && !lunas && (
+								<span className="font-normal text-muted-foreground">
+									{" "}
+									· berutang ke Tetra
+								</span>
+							)}
+						</p>
+						{satuBaris && (
+							<p className="text-[12.5px] text-muted-foreground">
+								{ket(ini[0].label)}
+							</p>
+						)}
+					</div>
+					<span
+						data-nominal
+						className={`tabular shrink-0 text-[14px] font-semibold ${lunas ? "text-emerald-700" : "text-foreground"}`}
+					>
+						{lunas ? "Lunas" : formatRupiah(sisa)}
+					</span>
+					{!lunas && (
+						<button
+							type="button"
+							aria-expanded={open}
+							onClick={() => setOpen((v) => !v)}
+							className="h-8 w-[76px] shrink-0 rounded-full border border-border-default bg-card text-[12.5px] font-medium text-foreground transition-[transform,background-color] duration-150 ease-out hover:bg-secondary active:scale-[0.97]"
+						>
+							{open ? "Tutup" : bayar ? "Bayar" : "Terima"}
+						</button>
+					)}
+				</div>
+				{!satuBaris && !lunas && (ini.length > 0 || lain > 0) && (
+					<ul className="mt-1.5 space-y-0.5 pr-[88px] text-[12.5px] text-muted-foreground">
+						{ini.map((it) => (
+							<li
+								key={`${it.label}|${it.date}|${it.amount}`}
+								className="flex justify-between gap-3"
+							>
+								<span className="min-w-0 truncate">{ket(it.label)}</span>
+								<span className="tabular shrink-0" data-nominal>
+									{formatRupiah(it.sisa)}
+								</span>
+							</li>
+						))}
+						{lain > 0 && (
+							<li className="flex justify-between gap-3">
+								<span>Dari acara lain</span>
+								<span className="tabular shrink-0" data-nominal>
+									{formatRupiah(lain)}
+								</span>
+							</li>
+						)}
+					</ul>
+				)}
+				{form && <div className="mt-3">{form}</div>}
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-2 rounded-2xl border border-border-subtle bg-card p-4">
@@ -168,152 +274,181 @@ function Row({
 				</ul>
 			)}
 			{lunas ? null : open ? (
-				<div className="space-y-3 border-t border-border-subtle pt-3">
-					<label className="block space-y-1.5">
-						<span className="text-[13px] font-medium">Jumlah</span>
-						<div className="relative">
-							<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[13px] text-muted-foreground">
-								Rp
-							</span>
-							<input
-								type="number"
-								inputMode="numeric"
-								min={1}
-								max={sisa}
-								value={amount}
-								onChange={(e) => setAmount(e.target.value)}
-								className="tabular h-10 w-full rounded-xl border border-border-default bg-background pr-3 pl-9 text-[13px]"
-							/>
-						</div>
-						<span className="type-caption text-muted-foreground">
-							Isi sebagian kalau dicicil.
-						</span>
-					</label>
-					<div className="space-y-1.5">
-						<span className="text-[13px] font-medium">
-							{bayar ? "Dari rekening" : "Masuk ke rekening"}
-						</span>
-						<NativeSelect
-							value={account}
-							onValueChange={setAccount}
-							aria-label="Rekening"
-							triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
-							options={cashAccounts.map((a) => ({
-								value: a.code,
-								label: `${a.name}${a.balance !== undefined ? ` · ${formatRupiah(a.balance)}` : ""}`,
-							}))}
-						/>
-					</div>
-					<div className="space-y-1.5">
-						<span className="text-[13px] font-medium">Tanggal</span>
-						<DatePicker
-							value={date}
-							onValueChange={setDate}
-							aria-label="Tanggal"
-							className="h-10 w-full rounded-xl"
-						/>
-					</div>
-					{bayar && (
-						<div className="space-y-1.5">
-							<span className="text-[13px] font-medium">
-								Biaya admin transfer
-							</span>
-							<AdminFeeChips
-								presets={[0, 1000, 2500]}
-								value={adminFee}
-								onChange={setAdminFee}
-								ariaLabel="Biaya admin transfer"
-							/>
-						</div>
-					)}
-					<label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border-default px-3 text-[13px] text-muted-foreground hover:bg-secondary">
-						<Paperclip className="size-4 shrink-0" />
-						<span className="min-w-0 truncate">
-							{file ? file.name : "Lampirkan bukti transfer (opsional)"}
-						</span>
-						<input
-							type="file"
-							accept="image/*,application/pdf"
-							className="sr-only"
-							onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-						/>
-					</label>
-					<div className="flex justify-end gap-2">
-						<button
-							type="button"
-							onClick={() => setOpen(false)}
-							className="h-10 rounded-full px-4 text-[13px] font-medium hover:bg-secondary"
-						>
-							Batal
-						</button>
-						<button
-							type="button"
-							disabled={
-								pending ||
-								!account ||
-								!(Number(amount) > 0) ||
-								Number(amount) > sisa
-							}
-							onClick={() =>
-								start(async () => {
-									const r = await bayarTalanganOwner({
-										ownerId: owner.id,
-										direction: bayar ? "bayar" : "terima",
-										amount: Number(amount),
-										accountCode: account,
-										adminFee: bayar ? adminFee : 0,
-										date,
-										eventId: eventId ?? null,
-									});
-									if (!r.ok) return void toast.error(r.error);
-									// Bukti → Arsip Nota (jalur unggah yang sama dengan Catat
-									// hutang / piutang), lalu ditempel ke jurnalnya.
-									if (file) {
-										const fd = new FormData();
-										fd.set("file", file);
-										fd.set("category", "Hutang-piutang owner");
-										fd.set("description", `${verb} · ${r.refId}`);
-										fd.set("nota_date", date);
-										fd.set("amount", amount);
-										fd.set("entry_ref_id", r.refId);
-										const up = await fetch("/api/drive/upload/manual", {
-											method: "POST",
-											body: fd,
-										}).catch(() => null);
-										const body = (await up?.json().catch(() => null)) as {
-											url?: string;
-										} | null;
-										if (up?.ok && body?.url)
-											await lampirBuktiTalangan(r.refId, body.url);
-										else
-											toast.error(
-												"Pembayaran tersimpan, tapi buktinya gagal diunggah — unggah lewat Arsip Nota.",
-											);
-									}
-									toast.success(r.note ?? "Tersimpan");
-									setFile(null);
-									setOpen(false);
-									router.refresh();
-								})
-							}
-							className="h-10 rounded-full bg-foreground px-5 text-[13px] font-medium text-background disabled:opacity-40"
-						>
-							Simpan
-						</button>
-					</div>
-				</div>
+				<div className="border-t border-border-subtle pt-3">{form}</div>
 			) : (
 				<button
 					type="button"
-					onClick={() => {
-						setAmount(String(sisa));
-						setOpen(true);
-					}}
+					onClick={() => setOpen(true)}
 					className="h-9 w-full rounded-full bg-foreground text-[13px] font-medium text-background"
 				>
 					{verb}
 				</button>
 			)}
+		</div>
+	);
+}
+
+/** Form bayar / terima (dicicil boleh) — dipakai kartu & baris halaman acara. */
+function PayForm({
+	owner,
+	eventId,
+	cashAccounts,
+	bayar,
+	sisa,
+	verb,
+	onDone,
+	onCancel,
+}: {
+	owner: TalanganOwnerSaldo;
+	eventId?: string;
+	cashAccounts: Account[];
+	bayar: boolean;
+	sisa: number;
+	verb: string;
+	onDone: () => void;
+	onCancel: () => void;
+}) {
+	const [pending, start] = useTransition();
+	const [amount, setAmount] = useState(String(sisa));
+	const [account, setAccount] = useState(
+		[...cashAccounts].sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))[0]
+			?.code ?? "",
+	);
+	const [adminFee, setAdminFee] = useState(0);
+	const [file, setFile] = useState<File | null>(null);
+	const [date, setDate] = useState(
+		new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10),
+	);
+	return (
+		<div className="space-y-3">
+			<label className="block space-y-1.5">
+				<span className="text-[13px] font-medium">Jumlah</span>
+				<div className="relative">
+					<span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[13px] text-muted-foreground">
+						Rp
+					</span>
+					<input
+						type="number"
+						inputMode="numeric"
+						min={1}
+						max={sisa}
+						value={amount}
+						onChange={(e) => setAmount(e.target.value)}
+						className="tabular h-10 w-full rounded-xl border border-border-default bg-background pr-3 pl-9 text-[13px]"
+					/>
+				</div>
+				<span className="type-caption text-muted-foreground">
+					Isi sebagian kalau dicicil.
+				</span>
+			</label>
+			<div className="space-y-1.5">
+				<span className="text-[13px] font-medium">
+					{bayar ? "Dari rekening" : "Masuk ke rekening"}
+				</span>
+				<NativeSelect
+					value={account}
+					onValueChange={setAccount}
+					aria-label="Rekening"
+					triggerClassName="h-10 w-full rounded-xl bg-background px-3 data-[size=default]:h-10"
+					options={cashAccounts.map((a) => ({
+						value: a.code,
+						label: `${a.name}${a.balance !== undefined ? ` · ${formatRupiah(a.balance)}` : ""}`,
+					}))}
+				/>
+			</div>
+			<div className="space-y-1.5">
+				<span className="text-[13px] font-medium">Tanggal</span>
+				<DatePicker
+					value={date}
+					onValueChange={setDate}
+					aria-label="Tanggal"
+					className="h-10 w-full rounded-xl"
+				/>
+			</div>
+			{bayar && (
+				<div className="space-y-1.5">
+					<span className="text-[13px] font-medium">Biaya admin transfer</span>
+					<AdminFeeChips
+						presets={[0, 1000, 2500]}
+						value={adminFee}
+						onChange={setAdminFee}
+						ariaLabel="Biaya admin transfer"
+					/>
+				</div>
+			)}
+			<label className="flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border-default px-3 text-[13px] text-muted-foreground hover:bg-secondary">
+				<Paperclip className="size-4 shrink-0" />
+				<span className="min-w-0 truncate">
+					{file ? file.name : "Lampirkan bukti transfer (opsional)"}
+				</span>
+				<input
+					type="file"
+					accept="image/*,application/pdf"
+					className="sr-only"
+					onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+				/>
+			</label>
+			<div className="flex justify-end gap-2">
+				<button
+					type="button"
+					onClick={onCancel}
+					className="h-10 rounded-full px-4 text-[13px] font-medium hover:bg-secondary"
+				>
+					Batal
+				</button>
+				<button
+					type="button"
+					disabled={
+						pending ||
+						!account ||
+						!(Number(amount) > 0) ||
+						Number(amount) > sisa
+					}
+					onClick={() =>
+						start(async () => {
+							const r = await bayarTalanganOwner({
+								ownerId: owner.id,
+								direction: bayar ? "bayar" : "terima",
+								amount: Number(amount),
+								accountCode: account,
+								adminFee: bayar ? adminFee : 0,
+								date,
+								eventId: eventId ?? null,
+							});
+							if (!r.ok) return void toast.error(r.error);
+							// Bukti → Arsip Nota (jalur unggah yang sama dengan Catat
+							// hutang / piutang), lalu ditempel ke jurnalnya.
+							if (file) {
+								const fd = new FormData();
+								fd.set("file", file);
+								fd.set("category", "Hutang-piutang owner");
+								fd.set("description", `${verb} · ${r.refId}`);
+								fd.set("nota_date", date);
+								fd.set("amount", amount);
+								fd.set("entry_ref_id", r.refId);
+								const up = await fetch("/api/drive/upload/manual", {
+									method: "POST",
+									body: fd,
+								}).catch(() => null);
+								const body = (await up?.json().catch(() => null)) as {
+									url?: string;
+								} | null;
+								if (up?.ok && body?.url)
+									await lampirBuktiTalangan(r.refId, body.url);
+								else
+									toast.error(
+										"Pembayaran tersimpan, tapi buktinya gagal diunggah — unggah lewat Arsip Nota.",
+									);
+							}
+							toast.success(r.note ?? "Tersimpan");
+							onDone();
+						})
+					}
+					className="h-10 rounded-full bg-foreground px-5 text-[13px] font-medium text-background disabled:opacity-40"
+				>
+					Simpan
+				</button>
+			</div>
 		</div>
 	);
 }
