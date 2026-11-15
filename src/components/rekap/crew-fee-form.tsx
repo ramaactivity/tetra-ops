@@ -767,6 +767,10 @@ export function CrewFeeForm({
 										// Pemegang uang jalan: sebagian dibayar dari uang jalan yang
 										// sudah di tangannya — rekening Tetra cuma mentransfer sisanya.
 										const ujRow = rinciUangJalan(row);
+										// Angka yang menyambung ke total di atas: total − transfer.
+										// (dariUj ikut menghitung uang jalan yang sudah habis untuk
+										// biaya lapangan — benar untuk hitungan, membingungkan dibaca.)
+										const potong = ujRow ? total - ujRow.transfer : 0;
 										return ujRow ? (
 											<p className="text-[11px] leading-snug text-muted-foreground">
 												Transfer dari rekening{" "}
@@ -776,11 +780,17 @@ export function CrewFeeForm({
 												>
 													{formatRupiah(ujRow.transfer)}
 												</span>
-												<br />
-												<span data-nominal className="tabular">
-													{formatRupiah(ujRow.dariUj)}
-												</span>{" "}
-												dari uang jalan
+												{potong !== 0 && (
+													<>
+														<br />
+														{potong > 0
+															? "dipotong sisa uang jalan "
+															: "+ ganti talangan crew "}
+														<span data-nominal className="tabular">
+															{formatRupiah(Math.abs(potong))}
+														</span>
+													</>
+												)}
 											</p>
 										) : null;
 									})()}
