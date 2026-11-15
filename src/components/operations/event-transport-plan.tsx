@@ -7,7 +7,6 @@ import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { Button } from "@/components/ui/button";
 import { Combobox } from "@/components/ui/combobox";
 import { MoneyInput } from "@/components/ui/form-fields";
-import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import { saveEventTransport } from "@/lib/actions/event-transport";
 import { formatRupiah } from "@/lib/format";
@@ -32,7 +31,6 @@ export function EventTransportPlan({
 	vehicles,
 	owners = [],
 	lastPrices = [],
-	cashAccounts = [],
 	locked = false,
 }: {
 	eventId: string;
@@ -44,11 +42,7 @@ export function EventTransportPlan({
 		notaUrl: string | null;
 		/** Owner pembayar sewa (users.id) — jadi hutang ke owner itu. */
 		paidByOwnerId?: string | null;
-		/** Diganti langsung saat settle dari rekening ini (null = hutang dulu). */
-		reimburseAccount?: string | null;
 	};
-	/** Rekening Tetra (tanpa kartu e-toll) — pilihan "diganti langsung". */
-	cashAccounts?: Array<{ code: string; name: string; balance: number }>;
 	vehicles: string[];
 	/** Owner aktif — pilihan "Dibayar oleh". */
 	owners?: Array<{ id: string; name: string }>;
@@ -66,11 +60,6 @@ export function EventTransportPlan({
 	const [paidBy, setPaidBy] = useState<string | null>(
 		initial.paidByOwnerId ?? null,
 	);
-	const [reimburse, setReimburse] = useState<string | null>(
-		initial.reimburseAccount ?? null,
-	);
-	const rekeningBawaan =
-		[...cashAccounts].sort((a, b) => b.balance - a.balance)[0]?.code ?? null;
 	const ownerName = (id: string | null | undefined) =>
 		owners.find((o) => o.id === id)?.name;
 	// Saran harga: harga terakhir mobil yang sama, kalau belum pernah →
@@ -92,8 +81,7 @@ export function EventTransportPlan({
 			(vehicle !== (initial.vehicle ?? "") ||
 				cost !== (initial.rentalCost ?? 0) ||
 				nota !== initial.notaUrl ||
-				paidBy !== (initial.paidByOwnerId ?? null) ||
-				reimburse !== (initial.reimburseAccount ?? null)));
+				paidBy !== (initial.paidByOwnerId ?? null)));
 
 	function save(next: Mode = mode) {
 		startTransition(async () => {
@@ -105,7 +93,9 @@ export function EventTransportPlan({
 				rental_cost: cost > 0 ? cost : null,
 				nota_url: nota,
 				paid_by_owner_id: paidBy,
-				reimburse_account: paidBy ? reimburse : null,
+				// Dibayar owner = selalu jadi hutang Tetra ke owner itu (owner
+				// 15 Nov: pilihan "diganti langsung saat settle" bikin bingung).
+				reimburse_account: null,
 			});
 			if (!res.ok) {
 				toast.error(res.error);
@@ -135,10 +125,7 @@ export function EventTransportPlan({
 					<span className="tabular">· {formatRupiah(initial.rentalCost)}</span>
 				) : null}
 				{initial.mode === "rental" && ownerName(initial.paidByOwnerId) ? (
-					<span>
-						· dibayar {ownerName(initial.paidByOwnerId)}
-						{initial.reimburseAccount ? " (diganti langsung)" : " (hutang)"}
-					</span>
+					<span>· dibayar {ownerName(initial.paidByOwnerId)}</span>
 				) : null}
 			</div>
 		);
@@ -249,55 +236,10 @@ export function EventTransportPlan({
 							</div>
 						</div>
 					)}
-					{paidBy && (
-						<div className="space-y-1.5">
-							<div className="flex flex-wrap gap-1.5">
-								{(
-									[
-										[false, "Jadi hutang dulu"],
-										[true, "Diganti langsung saat settle"],
-									] as const
-								).map(([langsung, label]) => (
-									<button
-										key={label}
-										type="button"
-										aria-pressed={Boolean(reimburse) === langsung}
-										onClick={() =>
-											setReimburse(
-												langsung ? (reimburse ?? rekeningBawaan) : null,
-											)
-										}
-										className={cn(
-											"h-8 rounded-full border px-3 text-[13px] font-medium transition-colors",
-											Boolean(reimburse) === langsung
-												? "border-[#059669] bg-[#059669] text-white"
-												: "border-border-default bg-card text-muted-foreground hover:text-foreground",
-										)}
-									>
-										{label}
-									</button>
-								))}
-							</div>
-							{reimburse && (
-								<NativeSelect
-									value={reimburse}
-									onValueChange={setReimburse}
-									aria-label="Rekening pengganti"
-									triggerClassName="h-9 w-full rounded-xl bg-background px-3"
-									options={cashAccounts.map((a) => ({
-										value: a.code,
-										label: `${a.name} · ${formatRupiah(a.balance)}`,
-									}))}
-								/>
-							)}
-						</div>
-					)}
 					<p className="text-[11.5px] leading-snug text-muted-foreground">
 						{!paidBy
 							? "Dibayar owner — pilih siapa supaya otomatis jadi hutang ke owner itu."
-							: reimburse
-								? `Dibayar ${ownerName(paidBy)}, diganti langsung saat settle dari rekening di atas — tidak jadi hutang.`
-								: `Dibayar ${ownerName(paidBy)} — jadi hutang Tetra ke ${ownerName(paidBy)}, lunasi kapan saja (kartu Hutang-piutang owner).`}{" "}
+							: `${ownerName(paidBy)} bayar dulu ke pemilik mobil — jadi hutang Tetra ke ${ownerName(paidBy)}, langsung muncul di kartu Hutang-piutang owner & bisa dilunasi kapan saja.`}{" "}
 						Rekap crew otomatis terisi &ldquo;Sewa mobil&rdquo; — crew cukup isi
 						bensin, tol & parkir.
 					</p>

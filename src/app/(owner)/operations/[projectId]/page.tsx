@@ -51,8 +51,7 @@ import { parseExtraPics } from "@/lib/events/extra-pics";
 import { spotsWithoutLead, withUnits } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
-import { loadCashAccounts } from "@/lib/finance/cash-accounts";
-import { filterEmoneyAccounts, ownerIdOfPayer } from "@/lib/finance/emoney";
+import { ownerIdOfPayer } from "@/lib/finance/emoney";
 import {
 	CHANNEL_TYPE_LABELS,
 	type DesignStatus,
@@ -687,12 +686,7 @@ export default async function EventDetailPage({
 								rentalCost: event.transport_rental_cost ?? null,
 								notaUrl: event.transport_nota_url ?? null,
 								paidByOwnerId: ownerIdOfPayer(event.transport_paid_by),
-								reimburseAccount: event.transport_reimburse_account ?? null,
 							}}
-							cashAccounts={filterEmoneyAccounts(
-								await loadCashAccounts(supabase),
-								false,
-							)}
 							owners={(ownerRows ?? []).map((o) => ({
 								id: o.id as string,
 								name: (o.nickname as string | null) || (o.full_name as string),
