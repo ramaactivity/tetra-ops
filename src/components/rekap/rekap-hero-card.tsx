@@ -123,7 +123,9 @@ export function RekapHeroCard({
 					<Kpi
 						label="Di-submit"
 						value={
-							<span className="truncate text-[15px]">{submittedBy ?? "—"}</span>
+							<span className="text-[15px] leading-tight">
+								{submittedBy ?? "—"}
+							</span>
 						}
 						sub={reviewedBy ? `Review: ${reviewedBy}` : undefined}
 					/>
@@ -154,7 +156,7 @@ function Kpi({
 	sub?: string;
 }) {
 	return (
-		<div className="min-w-0 px-5 py-3.5">
+		<div className="min-w-0 px-3.5 py-3.5 sm:px-5">
 			<dt className="flex items-center gap-1.5">
 				{Icon ? (
 					<Icon className="size-3 text-white/60" aria-hidden strokeWidth={2} />
@@ -163,11 +165,13 @@ function Kpi({
 					{label}
 				</span>
 			</dt>
-			<dd className="tabular mt-1 truncate text-[18px] font-semibold leading-none text-white">
+			<dd className="tabular mt-1 break-words text-[18px] font-semibold leading-none text-white">
 				{value}
 			</dd>
 			{sub ? (
-				<dd className="mt-1 truncate text-[11px] text-white/60">{sub}</dd>
+				<dd className="mt-1 break-words text-[11px] leading-snug text-white/60">
+					{sub}
+				</dd>
 			) : null}
 		</div>
 	);

@@ -18,7 +18,6 @@ import {
 } from "@/components/rekap/compliment-toggle";
 import type { CrewAssignmentRow } from "@/components/rekap/crew-fee-form";
 import { CrewFeeForm } from "@/components/rekap/crew-fee-form";
-import { CrewInputSummary } from "@/components/rekap/crew-input-summary";
 import {
 	EventExtraTransactions,
 	type ExtraTxnRow,
@@ -941,8 +940,8 @@ export default async function EventRekapPage({
 			{rekap && !recapLocked && (
 				<CollapsibleCard
 					icon={<Pencil className="size-4" aria-hidden strokeWidth={2} />}
-					title="Edit rekap (owner override)"
-					subtitle="Koreksi angka rekap manual sebelum di-approve."
+					title="Koreksi rekap"
+					subtitle="Ubah angka yang diisi crew kalau ada yang salah."
 				>
 					<RekapForm
 						eventId={event.id}
@@ -955,13 +954,6 @@ export default async function EventRekapPage({
 			)}
 
 			{/* === Tabs view (display) === */}
-			{rekap && (
-				<CrewInputSummary
-					rekap={rekap}
-					customCount={Object.keys(rekap.custom_materials ?? {}).length}
-					submittedBy={rekap.submitted_by_user?.full_name ?? null}
-				/>
-			)}
 			{rekap && (
 				<Tabs defaultValue="ringkasan" className="gap-4">
 					<TabsList variant="segmented">
@@ -997,7 +989,9 @@ export default async function EventRekapPage({
 						/>
 						{rekap.crew_notes && (
 							<RekapCard className="mt-4 space-y-1.5">
-								<p className="eyebrow text-muted-foreground">Catatan crew</p>
+								<p className="text-[13px] font-semibold text-foreground">
+									Catatan crew
+								</p>
 								<p className="text-foreground whitespace-pre-wrap text-[13px] leading-relaxed">
 									{rekap.crew_notes}
 								</p>

@@ -72,41 +72,47 @@ export function EventHealth({
 	const pOps = ((operasional + lain) / uangMasuk) * 100;
 	const pUntung = (untung / uangMasuk) * 100;
 
+	// Patokan ditulis per Rp100.000 — satuan yang sama dengan batangnya, jadi
+	// angka & batas idealnya bisa dibandingkan langsung tanpa hitung persen.
 	const rows: Array<{
 		key: string;
+		label: string;
 		title: string;
-		what: string;
 		pct: number;
-		target: string;
+		ideal: string;
 		status: Status;
 		tip: string;
+		cls: string;
 	}> = [
 		{
 			key: "bahan",
+			label: "Bahan",
 			title: "Biaya bahan",
-			what: "Kertas, tinta, sleeve, flashdisk & souvenir yang habis dipakai.",
 			pct: pBahan,
-			target: "Idealnya di bawah 25%",
+			ideal: "Ideal di bawah Rp25.000",
 			status: costStatus(pBahan, 25, 35),
 			tip: "Cetakan banyak untuk harga paket ini. Cek apakah paket unlimited terlalu murah, atau ada cetak ulang/gagal cetak.",
+			cls: "bg-amber-400",
 		},
 		{
 			key: "ops",
+			label: "Crew & jalan",
 			title: "Biaya crew & jalan",
-			what: "Fee crew, transport, bensin, tol, parkir, makan, komisi & pengeluaran lain.",
 			pct: pOps,
-			target: "Idealnya di bawah 35%",
+			ideal: "Ideal di bawah Rp35.000",
 			status: costStatus(pOps, 35, 45),
 			tip: "Biaya orang & perjalanan makan porsi besar. Biasanya karena lokasi jauh, crew kebanyakan, atau komisi besar — pertimbangkan biaya transport/jarak di harga.",
+			cls: "bg-sky-400",
 		},
 		{
 			key: "untung",
+			label: "Untung",
 			title: "Untung bersih",
-			what: "Sisa setelah semua biaya event dibayar.",
 			pct: pUntung,
-			target: "Idealnya 35% atau lebih",
+			ideal: "Ideal Rp35.000 ke atas",
 			status: pUntung >= 35 ? "baik" : pUntung >= 20 ? "cek" : "buruk",
-			tip: "Untung event ini tipis. Ingat, dari untung ini masih harus bayar biaya bulanan (kost, cicilan alat, perawatan) — jadi di bawah 20% gampang jadi rugi.",
+			tip: "Dari untung ini masih harus bayar biaya bulanan (kost, cicilan alat, perawatan), jadi di bawah 20% gampang jadi rugi.",
+			cls: "bg-emerald-500",
 		},
 	];
 
@@ -118,16 +124,11 @@ export function EventHealth({
 	const worstRow = rows.find((r) => r.status === worst);
 	const verdict =
 		worst === "baik"
-			? "Semua biaya masih wajar dan untungnya bagus. Event seperti ini layak diulang dengan harga yang sama."
-			: `Yang paling perlu diperhatikan: ${worstRow?.title.toLowerCase()} (${pctText(worstRow?.pct ?? 0)}).`;
+			? "Biaya wajar dan untungnya bagus — harga ini layak dipertahankan."
+			: `Perlu diperhatikan: ${worstRow?.title.toLowerCase()} (${pctText(worstRow?.pct ?? 0)}). ${worstRow?.tip}`;
 
 	// Batang "tiap Rp100.000": porsi tidak boleh negatif (rugi = untung 0).
-	const seg = [
-		{ label: "Bahan", pct: Math.max(0, pBahan), cls: "bg-amber-400" },
-		{ label: "Crew & jalan", pct: Math.max(0, pOps), cls: "bg-sky-400" },
-		{ label: "Untung", pct: Math.max(0, pUntung), cls: "bg-emerald-500" },
-	];
-	const segTotal = seg.reduce((s, x) => s + x.pct, 0) || 1;
+	const segTotal = rows.reduce((s, r) => s + Math.max(0, r.pct), 0) || 1;
 
 	return (
 		<section
@@ -164,68 +165,48 @@ export function EventHealth({
 			</div>
 
 			{/* Tiap Rp100.000 dari klien dipakai untuk apa */}
-			<div className="space-y-1.5">
-				<p className="text-[12px] font-medium text-muted-foreground">
+			<div className="space-y-2">
+				<p className="text-[12px] text-muted-foreground">
 					Dari tiap <span className="tabular">Rp100.000</span> yang dibayar
 					klien:
 				</p>
-				<div className="flex h-3 overflow-hidden rounded-full bg-card">
-					{seg.map((s) => (
+				<div className="flex h-2.5 overflow-hidden rounded-full bg-card">
+					{rows.map((r) => (
 						<div
-							key={s.label}
-							className={s.cls}
-							style={{ width: `${(s.pct / segTotal) * 100}%` }}
+							key={r.key}
+							className={r.cls}
+							style={{ width: `${(Math.max(0, r.pct) / segTotal) * 100}%` }}
 						/>
 					))}
 				</div>
-				<div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-					{seg.map((s) => (
-						<span key={s.label} className="flex items-center gap-1.5">
-							<span className={cn("size-2 rounded-full", s.cls)} />
-							{s.label}{" "}
-							<b className="tabular font-semibold text-foreground">
-								{formatRupiah(Math.round(s.pct * 1000))}
-							</b>
-						</span>
+				<ul className="grid gap-x-4 gap-y-2 text-[12.5px] md:grid-cols-3">
+					{rows.map((r) => (
+						<li
+							key={r.key}
+							className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5"
+						>
+							<span className={cn("size-2 rounded-full", r.cls)} aria-hidden />
+							<span className="flex flex-wrap items-center gap-x-1.5">
+								<span className="text-foreground">{r.label}</span>
+								<b
+									className="tabular font-semibold text-foreground"
+									data-nominal
+								>
+									{formatRupiah(Math.round(Math.max(0, r.pct) * 1000))}
+								</b>
+								{r.status !== "baik" ? <StatusChip status={r.status} /> : null}
+							</span>
+							<span className="col-start-2 text-[12px] text-muted-foreground">
+								{r.ideal}
+							</span>
+						</li>
 					))}
-				</div>
+				</ul>
 			</div>
 
-			<ul className="grid gap-3 md:grid-cols-3">
-				{rows.map((r) => (
-					<li
-						key={r.key}
-						className="space-y-1.5 rounded-xl border border-border-default bg-card p-3"
-					>
-						<div className="flex items-center justify-between gap-2">
-							<span className="text-[13px] font-medium text-foreground">
-								{r.title}
-							</span>
-							<StatusChip status={r.status} />
-						</div>
-						<p className="tabular text-[22px] font-bold leading-none tracking-[-0.01em] text-foreground">
-							{pctText(r.pct)}
-						</p>
-						<div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-							<div
-								className={cn("h-full rounded-full", STATUS[r.status].bar)}
-								style={{ width: `${Math.min(100, Math.max(0, r.pct))}%` }}
-							/>
-						</div>
-						<p className="text-[11.5px] font-medium text-muted-foreground">
-							{r.target}
-						</p>
-						<p className="text-[12px] leading-snug text-muted-foreground">
-							{r.status === "baik" ? r.what : r.tip}
-						</p>
-					</li>
-				))}
-			</ul>
-
-			<p className="text-[11px] leading-snug text-muted-foreground">
-				Patokan dari rata-rata usaha photobooth & jasa event. Angka ini per
-				event — biaya bulanan (kost, cicilan alat) belum masuk, jadi untung
-				event memang perlu cukup besar untuk menutupnya.
+			<p className="text-[11.5px] leading-snug text-muted-foreground">
+				Patokan rata-rata usaha photobooth, per acara — belum termasuk biaya
+				bulanan seperti kost &amp; cicilan alat.
 			</p>
 		</section>
 	);

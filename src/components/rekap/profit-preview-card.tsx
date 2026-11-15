@@ -6,7 +6,6 @@ import {
 	ResultRow,
 	Step,
 	StepBadge,
-	SummaryTile,
 } from "@/components/finance/money-ui";
 import { EventHealth } from "@/components/rekap/event-health";
 import { RekapCard, SectionHeader } from "@/components/rekap/rekap-ui";
@@ -148,40 +147,8 @@ export function ProfitPreviewCard({
 			<SectionHeader
 				icon={Calculator}
 				title="Hitungan untung event"
-				description="Dari uang yang masuk, dikurangi semua biaya, sampai sisa yang masuk kas usaha. Berubah otomatis saat rekap diisi."
+				description="Uang masuk dikurangi semua biaya, lalu dibagi. Ikut berubah saat rekap diubah."
 			/>
-
-			{/* Ringkasan 3 angka */}
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-				<SummaryTile
-					label="Uang masuk"
-					hint="dari klien"
-					value={uangMasuk}
-					icon="in"
-					tone="in"
-				/>
-				<SummaryTile
-					label="Uang keluar"
-					hint="bahan, crew & operasional"
-					value={uangKeluar}
-					icon="out"
-					tone="out"
-				/>
-				<SummaryTile
-					label={
-						hadiah ? "Biaya compliment" : rugi ? "Rugi event" : "Untung bersih"
-					}
-					hint={
-						hadiah
-							? "hadiah dari Tetra"
-							: uangMasuk > 0
-								? `${persen.toFixed(1).replace(".", ",")}% dari uang masuk`
-								: "belum ada uang masuk"
-					}
-					value={untung}
-					tone={hadiah ? "neutral" : rugi ? "loss" : "profit"}
-				/>
-			</div>
 
 			<EventHealth
 				uangMasuk={uangMasuk}
@@ -218,7 +185,7 @@ export function ProfitPreviewCard({
 						empty: "Belum ada biaya operasional tercatat",
 						footnote:
 							preview.opex.owner_paid_total > 0
-								? `${formatRupiah(preview.opex.owner_paid_total)} dibayar langsung owner — dihitung di "Pengeluaran lain", bukan di sini, supaya tidak dobel.`
+								? `${formatRupiah(preview.opex.owner_paid_total)} yang dibayar owner ada di Pengeluaran lain (supaya tidak dobel).`
 								: undefined,
 					},
 					...(lainLines.length > 0
@@ -245,7 +212,9 @@ export function ProfitPreviewCard({
 				sub={
 					hadiah
 						? "Acara gratis — crew & biaya tetap dibayar, ditanggung Tetra"
-						: "Uang masuk − uang keluar"
+						: uangMasuk > 0
+							? `Uang masuk − uang keluar · ${persen.toFixed(1).replace(".", ",")}% dari uang masuk`
+							: "Uang masuk − uang keluar"
 				}
 				value={untung}
 				tone={hadiah ? "neutral" : rugi ? "loss" : "profit"}
@@ -261,9 +230,8 @@ export function ProfitPreviewCard({
 								Untungnya dibagi ke mana
 							</h4>
 							<p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
-								Saat settle, untung bersih dibagi: bagi hasil owner dulu, lalu
-								dana cadangan. Kalau untung tidak cukup, dana cadangan yang
-								dikurangi lebih dulu.
+								Saat settle, bagi hasil owner diambil dulu, sisanya disisihkan
+								ke dana cadangan.
 							</p>
 						</div>
 
@@ -278,16 +246,6 @@ export function ProfitPreviewCard({
 						) : null}
 
 						<div className="space-y-1.5">
-							<AmountRow label="Untung bersih event" value={untung} />
-							<AmountRow
-								label={
-									cadangan < al.sinkingTarget
-										? `Dana cadangan (target ${formatRupiah(al.sinkingTarget)})`
-										: "Disisihkan ke dana cadangan"
-								}
-								value={-cadangan}
-								muted
-							/>
 							<AmountRow
 								label={
 									al.ownerPoolTarget === 0
@@ -297,6 +255,15 @@ export function ProfitPreviewCard({
 											: "Bagi hasil owner"
 								}
 								value={-bagiHasil}
+								muted
+							/>
+							<AmountRow
+								label={
+									cadangan < al.sinkingTarget
+										? `Dana cadangan (target ${formatRupiah(al.sinkingTarget)})`
+										: "Disisihkan ke dana cadangan"
+								}
+								value={-cadangan}
 								muted
 							/>
 							{al.arrearsPaid > 0 ? (
@@ -326,7 +293,7 @@ export function ProfitPreviewCard({
 								<span
 									data-nominal
 									className={cn(
-										"tabular text-[20px] font-bold tracking-[-0.01em]",
+										"tabular shrink-0 whitespace-nowrap text-[20px] font-bold tracking-[-0.01em]",
 										sisaKas < 0 && !compliment
 											? "text-amber-700"
 											: "text-foreground",
@@ -362,15 +329,6 @@ export function ProfitPreviewCard({
 					</div>
 				</div>
 			</section>
-
-			{ex.expenseQueued + ex.incomeQueued > 0 ? (
-				<p className="text-[11.5px] text-muted-foreground">
-					<span className="tabular">
-						{formatRupiah(ex.expenseQueued + ex.incomeQueued)}
-					</span>{" "}
-					dari pengeluaran/pemasukan lain baru masuk buku saat event di-settle.
-				</p>
-			) : null}
 		</RekapCard>
 	);
 }

@@ -305,13 +305,13 @@ export function ResultRow({
 						: "bg-amber-50 text-amber-950",
 			)}
 		>
-			<div>
+			<div className="min-w-0">
 				<p className="text-[14px] font-semibold">{label}</p>
 				<p className="text-[12px] opacity-70">{sub}</p>
 			</div>
 			<span
 				data-nominal
-				className="tabular text-[22px] font-bold tracking-[-0.02em]"
+				className="tabular shrink-0 whitespace-nowrap text-[20px] font-bold tracking-[-0.02em] sm:text-[22px]"
 			>
 				{formatSignedRupiah(value)}
 			</span>

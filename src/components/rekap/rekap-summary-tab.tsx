@@ -1,6 +1,5 @@
 import { Disc, Gift, Package2, Printer, Sparkles } from "lucide-react";
 import type * as React from "react";
-import { Badge } from "@/components/ui/badge";
 import { formatRupiah } from "@/lib/format";
 import type { DeductionLine } from "@/lib/rekap/project-demand";
 import type { HppBucket } from "@/lib/rekap/recipe";
@@ -84,9 +83,16 @@ export function RekapSummaryTab({
 	const pouchQty = qtySku((s) => s.toUpperCase().startsWith("POUCH"));
 
 	// Biaya cetak = mediaset + sleeve (dua-duanya turunan dari jumlah cetak).
-	// Ditampilkan di baris "Total cetak" sebagai subtotal, TIDAK ditambahkan
+	// Ditampilkan di judul kelompok "Cetak" sebagai subtotal, TIDAK ditambahkan
 	// lagi ke total — nilainya sudah terhitung lewat dua baris di bawahnya.
 	const cetakCost = sumBucket("mediaset") + sumBucket("sleeve");
+
+	// Item yang nol tidak dijadikan baris (cuma bikin ramai) — cukup disebut.
+	const tidakDipakai = [
+		rekap.flashdisk_used + boxQty + pouchQty === 0 ? "Flashdisk & pouch" : null,
+		rekap.photomagnet_used === 0 ? "Photomagnet" : null,
+		rekap.keychain_used === 0 ? "Keychain" : null,
+	].filter((x): x is string => x !== null);
 
 	const bonusLines = bucketLines("bonus");
 	const customLines = bucketLines("other");
@@ -100,32 +106,22 @@ export function RekapSummaryTab({
 						Material &amp; estimasi HPP
 					</h2>
 					<p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-						Qty terpakai + estimasi biaya pokok per item.
+						Bahan yang terpakai di acara ini dan perkiraan biayanya.
 					</p>
 				</div>
-				<Badge
-					variant="outline"
-					className="border-primary/40 bg-primary/10 text-primary"
-				>
-					{lines.length} baris konsumsi
-				</Badge>
 			</div>
 
 			{/* ITEM BREAKDOWN */}
 			<div className="px-5">
-				<Section icon={Printer} title="Cetak">
-					{/* Biaya cetak = mediaset + sleeve. Ditampilkan di baris ini juga
-					    (sebagai subtotal, bukan penjumlahan baru) supaya "Total cetak"
-					    tidak pernah terbaca "gratis" — dulu baris ini cuma bergaris
-					    datar dan owner mengira cetakan memang tak berbiaya. */}
-					<ItemRow
-						name="Total cetak"
-						qty={rekap.cetak_total}
-						unit="pcs"
-						cost={cetakCost}
-						note="media + sleeve"
-						subtotal
-					/>
+				{/* Biaya cetak = mediaset + sleeve, ditulis di judul kelompok sebagai
+				    subtotal (bukan penjumlahan baru) supaya cetakan tidak pernah
+				    terbaca "gratis". */}
+				<Section
+					icon={Printer}
+					title="Cetak"
+					meta={`${rekap.cetak_total.toLocaleString("id-ID")} pcs`}
+					subtotal={cetakCost}
+				>
 					<ItemRow
 						name="Mediaset"
 						sizeBadge={
@@ -176,49 +172,69 @@ export function RekapSummaryTab({
 					)}
 				</Section>
 
-				<Section icon={Package2} title="Flashdisk & Pouch">
-					<ItemRow
-						name="Flashdisk"
-						qty={rekap.flashdisk_used}
-						unit="pcs"
-						cost={flashdiskCost}
-					/>
-					{boxQty > 0 && (
-						<ItemRow
-							name="Box flashdisk"
-							qty={boxQty}
-							unit="pcs"
-							cost={boxCost}
-							note="otomatis ikut flashdisk"
-						/>
-					)}
-					<ItemRow
-						name="Pouch"
-						qty={pouchQty}
-						unit="pcs"
-						cost={sumBucket("pouch")}
-						note={
-							pouchQty > rekap.pouch_used
-								? "termasuk paket flashdisk"
-								: undefined
-						}
-					/>
-				</Section>
+				{rekap.flashdisk_used + boxQty + pouchQty > 0 && (
+					<Section
+						icon={Package2}
+						title="Flashdisk & pouch"
+						subtotal={flashdiskCost + boxCost + sumBucket("pouch")}
+					>
+						{rekap.flashdisk_used > 0 && (
+							<ItemRow
+								name="Flashdisk"
+								qty={rekap.flashdisk_used}
+								unit="pcs"
+								cost={flashdiskCost}
+							/>
+						)}
+						{boxQty > 0 && (
+							<ItemRow
+								name="Box flashdisk"
+								qty={boxQty}
+								unit="pcs"
+								cost={boxCost}
+								note="otomatis ikut flashdisk"
+							/>
+						)}
+						{pouchQty > 0 && (
+							<ItemRow
+								name="Pouch"
+								qty={pouchQty}
+								unit="pcs"
+								cost={sumBucket("pouch")}
+								note={
+									pouchQty > rekap.pouch_used
+										? "termasuk paket flashdisk"
+										: undefined
+								}
+							/>
+						)}
+					</Section>
+				)}
 
-				<Section icon={Disc} title="Add-on">
-					<ItemRow
-						name="Photomagnet"
-						qty={rekap.photomagnet_used}
-						unit="pcs"
-						cost={sumBucket("photomagnet")}
-					/>
-					<ItemRow
-						name="Keychain"
-						qty={rekap.keychain_used}
-						unit="pcs"
-						cost={sumBucket("keychain")}
-					/>
-				</Section>
+				{rekap.photomagnet_used + rekap.keychain_used > 0 && (
+					<Section
+						icon={Disc}
+						title="Add-on"
+						subtotal={sumBucket("photomagnet") + sumBucket("keychain")}
+					>
+						{rekap.photomagnet_used > 0 && (
+							<ItemRow
+								name="Photomagnet"
+								qty={rekap.photomagnet_used}
+								unit="pcs"
+								cost={sumBucket("photomagnet")}
+							/>
+						)}
+						{rekap.keychain_used > 0 && (
+							<ItemRow
+								name="Keychain"
+								qty={rekap.keychain_used}
+								unit="pcs"
+								cost={sumBucket("keychain")}
+							/>
+						)}
+					</Section>
+				)}
 
 				{bonusLines.length > 0 && (
 					<Section icon={Gift} title="Bonus klien (gratis)">
@@ -250,6 +266,12 @@ export function RekapSummaryTab({
 				)}
 			</div>
 
+			{tidakDipakai.length > 0 && (
+				<p className="px-5 pb-3 text-[12px] text-muted-foreground">
+					Tidak dipakai: {tidakDipakai.join(", ")}
+				</p>
+			)}
+
 			{/* FOOTER TOTAL */}
 			<div className="space-y-1.5 border-t border-border-subtle bg-secondary/30 px-5 py-4">
 				<div className="flex items-center justify-between gap-3">
@@ -260,9 +282,9 @@ export function RekapSummaryTab({
 						{formatRupiah(total)}
 					</span>
 				</div>
-				<p className="text-[11.5px] italic text-muted-foreground">
-					Estimasi pakai harga rata-rata pembelian saat ini. HPP final
-					di-snapshot saat settle event. Angka di sini = tab Stok.
+				<p className="text-[12px] text-muted-foreground">
+					Pakai harga beli rata-rata saat ini. Angka finalnya dikunci saat
+					settle.
 				</p>
 			</div>
 		</div>
@@ -274,19 +296,41 @@ export function RekapSummaryTab({
 function Section({
 	icon: Icon,
 	title,
+	meta,
+	subtotal,
 	children,
 }: {
 	icon: typeof Printer;
 	title: string;
+	/** Keterangan kecil setelah judul, mis. "126 pcs". */
+	meta?: string;
+	/** Jumlah biaya baris-baris di kelompok ini (bukan biaya tambahan). */
+	subtotal?: number;
 	children: React.ReactNode;
 }) {
 	return (
 		<section className="border-b border-border-subtle py-2 last:border-b-0">
-			<div className="flex items-center gap-2 px-1 pb-1 pt-1.5">
-				<Icon className="size-3.5 text-muted-foreground" aria-hidden />
-				<h3 className="eyebrow text-muted-foreground">{title}</h3>
+			<div className="flex items-baseline gap-2 px-1 pb-1 pt-1.5">
+				<Icon
+					className="size-3.5 shrink-0 translate-y-0.5 text-muted-foreground"
+					aria-hidden
+				/>
+				<h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
+				{meta ? (
+					<span className="tabular text-[12px] text-muted-foreground">
+						{meta}
+					</span>
+				) : null}
+				{subtotal != null && subtotal > 0 ? (
+					<span
+						className="tabular ml-auto text-[13px] font-semibold text-foreground"
+						data-nominal
+					>
+						{formatRupiah(subtotal)}
+					</span>
+				) : null}
 			</div>
-			<div className="divide-y divide-border-subtle/60">{children}</div>
+			<div className="divide-y divide-border-subtle/60 pl-5">{children}</div>
 		</section>
 	);
 }
@@ -299,7 +343,6 @@ function ItemRow({
 	cost,
 	tone = "default",
 	note,
-	subtotal = false,
 }: {
 	name: string;
 	/** Frame-size chip (e.g. "2R") shown after the name — Mediaset/Sleeve only. */
@@ -310,12 +353,6 @@ function ItemRow({
 	cost?: number;
 	tone?: "default" | "emerald";
 	note?: string;
-	/**
-	 * Baris rangkuman dari baris-baris di bawahnya ("Total cetak" = mediaset +
-	 * sleeve). Nominalnya ditulis lebih redup supaya jelas ini BUKAN biaya baru
-	 * yang ikut dijumlahkan ke total.
-	 */
-	subtotal?: boolean;
 }) {
 	const isZero = qty === 0;
 	const hasCost = cost != null && cost > 0;
@@ -323,13 +360,11 @@ function ItemRow({
 	// reconciles with the total shown (unit × qty = total). Mirrors the warehouse
 	// list's "@ Rp … / unit" sub-line.
 	const unitPrice =
-		hasCost && qty > 0 && !subtotal ? Math.round((cost as number) / qty) : null;
+		hasCost && qty > 0 ? Math.round((cost as number) / qty) : null;
 	const costColor = hasCost
-		? subtotal
-			? "text-muted-foreground"
-			: tone === "emerald"
-				? "text-emerald-700 dark:text-emerald-300"
-				: "text-foreground"
+		? tone === "emerald"
+			? "text-emerald-700 dark:text-emerald-300"
+			: "text-foreground"
 		: "text-muted-foreground/50";
 	return (
 		<div className="grid grid-cols-[1fr_auto_7.5rem] items-baseline gap-3 px-1 py-2">
@@ -348,7 +383,7 @@ function ItemRow({
 					</span>
 				) : null}
 				{note ? (
-					<span className="ml-1.5 text-[11px] italic text-muted-foreground/70">
+					<span className="block text-[11.5px] text-muted-foreground">
 						{note}
 					</span>
 				) : null}
