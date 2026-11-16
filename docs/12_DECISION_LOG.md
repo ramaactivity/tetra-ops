@@ -1341,3 +1341,20 @@ Audit chat bot WA 27 Okt: klien yang sudah booking (Aisy, 28 Nov) dijawab sepert
 - Output tanpa nominal uang: tanggal, jam, paket, venue, nama acara, `status_bayar` (`belum`/`dp`/`lunas`), `lewat_vendor`.
 - Bot memanggilnya sekali per giliran (cache singkat) dan memberi AI konteks "klien sudah booking"; gagal = lanjut tanpa konteks.
 - Kontrak API: `docs/06_API_SPEC.md` §21.
+
+---
+
+## DR-053: Persetujuan kirim dokumen juga di aplikasi + menu Billing
+
+**Status:** Accepted (owner 2026-11-16: "tombol approve dan kirim ke kliennya pengen ada di aplikasi juga bukan hanya di telegram")
+**Date:** 2026-11-16
+
+### Context
+Dokumen uang (quotation dari bot WA/agent, kuitansi/nota setelah bayar, BAST digest pagi) hanya bisa disetujui lewat tombol Telegram "Kirim ke klien" (`doc_send_requests`). Di aplikasi tidak ada tanda dokumen sedang menunggu, tidak ada notifikasi, dan tombol editor "Kirim ke klien via WA" tidak menutup permintaan Telegram (bisa kirim dobel). Per 16 Nov ada 34 permintaan yang tak pernah ditap sejak 27 Sep.
+
+### Decision
+- Antrean = permintaan belum ditangani **≤14 hari**, dokumen belum `delivered_at`, tidak void (`src/lib/documents/pending-approval.ts`, satu sumber untuk badge menu, kotak "Perlu persetujuan" di daftar Dokumen, banner di halaman dokumen). Permintaan lama tidak ikut (sengaja, supaya tidak muncul 34 sekaligus).
+- "Setujui & kirim" memakai dialog kirim yang sudah ada (pesan bisa diubah). "Abaikan" = tutup tanpa kirim (`result.how = dismissed`); BAST yang diabaikan tidak ditawarkan lagi di digest pagi.
+- Kirim lewat jalur mana pun (`sendDocumentCore`) atau tandai manual mengeluarkan dokumen dari permintaan terbuka; permintaan kosong ditutup → tombol Telegram menjawab "sudah diproses".
+- Lonceng: `offerSendToOwner` membuat notifikasi untuk semua owner/super_admin (`entity_type = doc_send_request`), otomatis selesai saat permintaan ditutup/ditap. Tanpa web push (Telegram sudah memberi tahu HP owner).
+- Menu: Billing jadi grup (Tagihan + Dokumen); Dokumen keluar dari Finance. URL `/finance/dokumen` tetap supaya link lama/Telegram tidak putus.
