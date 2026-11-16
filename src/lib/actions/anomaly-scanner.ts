@@ -396,6 +396,7 @@ const STATE_RULES = new Set([
 	"asset_check_overdue",
 	"crew_double_booked",
 	"equipment_missing",
+	"stock_forecast_low",
 ]);
 
 /**
@@ -404,7 +405,8 @@ const STATE_RULES = new Set([
  * lunas, DP masuk) ATAU acaranya sudah lewat / selesai / batal / dihapus.
  * Aturan kondisi: beres kalau entitasnya tidak ada lagi di temuan scan ini
  * (check-nya melempar error kalau query gagal, jadi kosong = memang kosong).
- * Aturan lain (mis. prakiraan stok) dilewati.
+ * Salah tandai beres pulih sendiri: yang beres ikut ditandai dibaca, jadi
+ * scan berikutnya membuat notifikasi baru kalau masalahnya ternyata masih ada.
  */
 async function resolveCleared(
 	admin: AdminClient,
@@ -522,8 +524,8 @@ async function resolveCleared(
 /**
  * Notifikasi alur kerja (anomaly_rule_id kosong) yang sudah tidak perlu
  * ditindak, ditandai beres + dibaca (tidak dihapus):
- * - "Rekap baru / di-approve / diperbarui", "Event selesai" (entity_id = id
- *   acara) — acaranya sudah selesai/batal/dihapus DAN umurnya > 3 hari (crew
+ * - "Rekap baru / di-approve / diperbarui", "Event selesai", "Data belum
+ *   lengkap" (entity_id = id acara) — acaranya sudah selesai/batal/dihapus DAN umurnya > 3 hari (crew
  *   tetap sempat melihat "Event selesai").
  * - "Stok menipis untuk N event mendatang" — tiap approve rekap membuat yang
  *   baru; yang lama per orang sudah tergantikan, sisakan yang terbaru.
@@ -565,7 +567,9 @@ async function housekeepFeed(admin: AdminClient): Promise<number> {
 	const cutoff = Date.now() - 3 * 86_400_000;
 	const feed = open.filter(
 		(n) =>
-			(n.entity_type === "crew_rekap" || n.entity_type === "event") &&
+			(n.entity_type === "crew_rekap" ||
+				n.entity_type === "event" ||
+				n.entity_type === "event_tbc_nudge") &&
 			n.entity_id &&
 			Date.parse(n.created_at) < cutoff,
 	);
@@ -1033,7 +1037,9 @@ async function checkAssetCheckOverdue(admin: AdminClient): Promise<Match[]> {
 async function checkForecastShortfall(admin: AdminClient): Promise<Match[]> {
 	// Reuse the warehouse forecast: demand across upcoming events vs on-hand.
 	const result = await computeForecast(admin);
-	if (result.stock_unknown || result.upcoming_count === 0) return [];
+	// Stok gagal dibaca ≠ "tidak ada kekurangan" — jangan sampai menandai beres.
+	if (result.stock_unknown) throw new Error("stok tidak terbaca");
+	if (result.upcoming_count === 0) return [];
 	const round = (n: number) => Math.round(n).toLocaleString("id-ID");
 	return result.rows.map((r) => ({
 		entity_type: "inventory_item",
