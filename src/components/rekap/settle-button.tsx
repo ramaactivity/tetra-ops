@@ -2,6 +2,7 @@
 
 import {
 	AlertTriangle,
+	Check,
 	CheckCircle2,
 	Handshake,
 	Loader2,
@@ -201,9 +202,6 @@ export function SettleButton(props: Props) {
 		: 0;
 	const payNowTotal =
 		(crewDue ? crewTotal : 0) + crewAdminTotal + commissionDue;
-	// Ada kolom opsi pembayaran? Kalau tidak, rincian angka yang memakai
-	// ruangnya — kolom kosong tidak membantu siapa pun saat review.
-	const hasPaymentCol = canPayNow || Boolean(commission);
 	// Uang yang benar-benar bergerak saat tombol settle ditekan.
 	const cashOutOnSettle =
 		(payNow && canPayNow ? payNowTotal : 0) +
@@ -327,11 +325,11 @@ export function SettleButton(props: Props) {
 							) : (
 								<CheckCircle2 className="h-5 w-5 text-foreground" />
 							)}
-							Konfirmasi settle event
+							Settle acara ini?
 						</DialogTitle>
 						<DialogDescription>
-							Settlement akan mengubah data secara permanen. Aksi ini hanya bisa
-							di-reverse via Reopen Settlement (super-admin).
+							Angka acara dikunci dan dibukukan ke keuangan. Kalau ada yang
+							salah, bisa dibuka lagi lewat Reopen Settlement.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -357,75 +355,14 @@ export function SettleButton(props: Props) {
 							</div>
 						)}
 
-						<div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-							{/* Kolom 1 — apa yang akan terjadi */}
-							<section className="rounded-xl border border-border-default bg-surface-2 p-3">
-								<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-									Aksi yang akan dijalankan
-								</p>
-								<ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-foreground/90">
-									<li>
-										Potong stok warehouse sesuai konsumsi rekap
-										{hasShortage ? " (bisa minus)" : ""}
-									</li>
-									<li>Generate journal entries (double-entry GL)</li>
-									<li>
-										Alokasi sinking funds (estimasi{" "}
-										<span data-nominal>
-											{formatRupiah(props.sinkingEstimate)}
-										</span>
-										)
-									</li>
-									<li>
-										Alokasi owner pool (estimasi{" "}
-										<span data-nominal>
-											{formatRupiah(props.ownerPoolEstimate)}
-										</span>
-										)
-									</li>
-									{props.crewFeePlanned && (
-										<li>Transfer fee crew sesuai rencana di kartu Fee crew</li>
-									)}
-									{payNow && canPayNow && (
-										<li>
-											Bayar{" "}
-											{[crewDue && "fee crew", commissionDue > 0 && "komisi"]
-												.filter(Boolean)
-												.join(" & ")}{" "}
-											dari {payAcct?.name ?? "rekening terpilih"}
-										</li>
-									)}
-									{commission?.planned && (
-										<li>Transfer komisi {commission.payeeName}</li>
-									)}
-									{queued && queued.count > 0 && (
-										<li>
-											Bukukan {queued.count} transaksi dari kartu rekap
-											{queued.salesCommissionPayment
-												? " (termasuk bayar komisi sales)"
-												: ""}
-										</li>
-									)}
-									<li>Lock event + recap (tidak bisa di-edit lagi)</li>
-									<li>
-										Audit log dengan timestamp + actor
-										{hasShortage ? " + stock warning entry" : ""}
-									</li>
-								</ul>
-							</section>
-
+						<div className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
 							{/* Kolom 2 — final check: dari mana angkanya datang.
 							    Melebar mengisi kolom 3 kalau tidak ada opsi pembayaran,
 							    supaya ruangnya dipakai untuk rincian, bukan dibiarkan kosong. */}
-							<section
-								className={cn(
-									"rounded-xl border border-border-default bg-surface-2 p-3",
-									hasPaymentCol ? "" : "md:col-span-2 lg:col-span-2",
-								)}
-							>
+							<section className="rounded-xl border border-border-default bg-card p-3.5">
 								<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-									<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-										Final check — rincian angka
+									<p className="text-[13px] font-semibold text-foreground">
+										Hitungan akhir
 									</p>
 									{props.printSummary && props.printSummary.cetakTotal > 0 && (
 										<p className="tabular text-[11px] text-muted-foreground">
@@ -437,17 +374,11 @@ export function SettleButton(props: Props) {
 									)}
 								</div>
 
-								<div
-									className={cn(
-										"mt-2.5 gap-x-6 gap-y-3.5",
-										hasPaymentCol ? "space-y-3.5" : "grid sm:grid-cols-2",
-									)}
-								>
+								<div className="mt-3 space-y-3">
 									{/* Pendapatan */}
 									<MoneyGroup
-										title="Pendapatan"
+										title="Uang masuk"
 										total={props.revenueNet}
-										totalLabel="Revenue net"
 										rows={
 											bd
 												? [
@@ -484,7 +415,7 @@ export function SettleButton(props: Props) {
 
 									{/* HPP */}
 									<MoneyGroup
-										title="HPP (barang terpakai)"
+										title="Bahan habis pakai"
 										total={props.hppTotal}
 										rows={
 											bd
@@ -504,17 +435,17 @@ export function SettleButton(props: Props) {
 
 									{/* OpEx */}
 									<MoneyGroup
-										title="Biaya operasional"
+										title="Crew & operasional"
 										total={props.opexTotal}
 										rows={
 											bd
 												? [
-														{ label: "Fee Lead", value: bd.opex.fee_lead },
+														{ label: "Fee crew lead", value: bd.opex.fee_lead },
 														{
-															label: "Fee Asisten",
+															label: "Fee asisten",
 															value: bd.opex.fee_asisten,
 														},
-														{ label: "Fee Crew C", value: bd.opex.fee_crew_c },
+														{ label: "Fee crew C", value: bd.opex.fee_crew_c },
 														{ label: "Bonus crew", value: bd.opex.fee_extra },
 														{
 															label: "Reimbursement crew",
@@ -547,12 +478,14 @@ export function SettleButton(props: Props) {
 
 									{/* Hasil + alokasi */}
 									<div className="space-y-2">
-										<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-											Hasil & alokasi
+										<p className="border-t border-border-subtle pt-3 text-[13px] font-medium text-foreground">
+											Hasil
 										</p>
-										<dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-[13px]">
+										<dl className="grid grid-cols-[1fr_auto] gap-y-1 text-[13px] [&>dd]:pl-4">
 											<dt className="font-medium text-foreground">
-												Net profit
+												{netAfterExtra !== null
+													? "Untung sebelum pengeluaran lain"
+													: "Untung bersih"}
 											</dt>
 											<dd
 												className={cn(
@@ -566,7 +499,9 @@ export function SettleButton(props: Props) {
 											</dd>
 											{bd && (
 												<>
-													<dt className="text-muted-foreground">Margin</dt>
+													<dt className="text-muted-foreground">
+														Persen dari uang masuk
+													</dt>
 													<dd className="tabular text-right text-muted-foreground">
 														{Math.round(bd.marginPct)}%
 														{bd.isLoss
@@ -610,7 +545,7 @@ export function SettleButton(props: Props) {
 											{netAfterExtra !== null && (
 												<>
 													<dt className="border-t border-border-default pt-1.5 font-medium text-foreground">
-														Laba akhir event
+														Untung bersih
 													</dt>
 													<dd className="tabular border-t border-border-default pt-1.5 text-right font-semibold text-foreground">
 														{formatRupiah(netAfterExtra)}
@@ -618,35 +553,35 @@ export function SettleButton(props: Props) {
 												</>
 											)}
 											<dt className="pt-1.5 text-muted-foreground">
-												Sinking funds
-											</dt>
-											<dd className="tabular pt-1.5 text-right text-foreground">
-												{formatRupiah(props.sinkingEstimate)}
-											</dd>
-											<dt className="text-muted-foreground">
 												Bagi hasil owner
 											</dt>
-											<dd className="tabular text-right text-foreground">
-												{formatRupiah(props.ownerPoolEstimate)}
+											<dd className="tabular pt-1.5 text-right text-foreground">
+												−{formatRupiah(props.ownerPoolEstimate)}
 											</dd>
-											{bd && (
-												<>
-													<dt className="text-muted-foreground">
-														Sisa kas operasional
-													</dt>
-													<dd className="tabular text-right text-foreground">
-														{formatRupiah(bd.operatingCash)}
-													</dd>
-												</>
-											)}
+											<dt className="text-muted-foreground">Dana cadangan</dt>
+											<dd className="tabular text-right text-foreground">
+												−{formatRupiah(props.sinkingEstimate)}
+											</dd>
+											{/* Sama dengan "Sisa untuk kas usaha" di kartu Hitungan
+											    untung event: untung bersih − pembagian. */}
+											<dt className="border-t border-border-default pt-1.5 font-medium text-foreground">
+												Sisa untuk kas usaha
+											</dt>
+											<dd className="tabular border-t border-border-default pt-1.5 text-right font-semibold text-foreground">
+												{formatRupiah(
+													(netAfterExtra ?? props.netProfit) -
+														props.ownerPoolEstimate -
+														props.sinkingEstimate,
+												)}
+											</dd>
 										</dl>
 
 										{/* Uang yang benar-benar bergerak saat tombol ditekan —
 										    ikut berubah kalau opsi bayar fee crew dinyalakan. */}
 										{(cashOutOnSettle > 0 || cashInOnSettle > 0) && (
 											<div className="rounded-lg border border-dashed border-border-default bg-surface-1 px-2.5 py-2">
-												<p className="text-[11px] font-medium text-muted-foreground">
-													Kas bergerak saat settle
+												<p className="text-[12px] font-medium text-foreground">
+													Uang keluar/masuk rekening saat settle
 												</p>
 												<dl className="mt-1 grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 text-[12px]">
 													{cashOutOnSettle > 0 && (
@@ -682,8 +617,112 @@ export function SettleButton(props: Props) {
 								</div>
 							</section>
 
-							{/* Kolom 3 — pembayaran sekalian saat settle */}
-							<div className="space-y-3 md:col-span-2 lg:col-span-1">
+							{/* Kolom kanan — apa yang terjadi + bayar sekalian saat settle */}
+							<div className="space-y-3">
+								{/* Apa yang terjadi saat tombol ditekan — bahasa owner. */}
+								<section className="rounded-xl bg-secondary/50 p-3.5">
+									<p className="text-[13px] font-semibold text-foreground">
+										Yang terjadi saat settle
+									</p>
+									<ul className="mt-2 space-y-1.5 text-[12.5px] leading-snug text-foreground/85">
+										<li className="flex gap-2">
+											<Check
+												className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+												aria-hidden
+											/>
+											<span>
+												Stok gudang dipotong sesuai pemakaian di rekap
+												{hasShortage ? " (ada yang jadi minus)" : ""}
+											</span>
+										</li>
+										<li className="flex gap-2">
+											<Check
+												className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+												aria-hidden
+											/>
+											<span>Semua angka dibukukan ke keuangan</span>
+										</li>
+										<li className="flex gap-2">
+											<Check
+												className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+												aria-hidden
+											/>
+											<span>
+												Bagi hasil owner{" "}
+												<span className="tabular" data-nominal>
+													{formatRupiah(props.ownerPoolEstimate)}
+												</span>{" "}
+												&amp; dana cadangan{" "}
+												<span className="tabular" data-nominal>
+													{formatRupiah(props.sinkingEstimate)}
+												</span>{" "}
+												disisihkan
+											</span>
+										</li>
+										{props.crewFeePlanned && (
+											<li className="flex gap-2">
+												<Check
+													className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+													aria-hidden
+												/>
+												<span>
+													Fee crew ditransfer sesuai rencana di kartu Fee crew
+												</span>
+											</li>
+										)}
+										{payNow && canPayNow && (
+											<li className="flex gap-2">
+												<Check
+													className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+													aria-hidden
+												/>
+												<span>
+													Bayar{" "}
+													{[
+														crewDue && "fee crew",
+														commissionDue > 0 && "komisi",
+													]
+														.filter(Boolean)
+														.join(" & ")}{" "}
+													dari {payAcct?.name ?? "rekening terpilih"}
+												</span>
+											</li>
+										)}
+										{commission?.planned && (
+											<li className="flex gap-2">
+												<Check
+													className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+													aria-hidden
+												/>
+												<span>Transfer komisi {commission.payeeName}</span>
+											</li>
+										)}
+										{queued && queued.count > 0 && (
+											<li className="flex gap-2">
+												<Check
+													className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+													aria-hidden
+												/>
+												<span>
+													{queued.count} transaksi dari kartu rekap dibukukan
+													{queued.salesCommissionPayment
+														? " (termasuk bayar komisi sales)"
+														: ""}
+												</span>
+											</li>
+										)}
+										<li className="flex gap-2">
+											<Check
+												className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+												aria-hidden
+											/>
+											<span>
+												Acara &amp; rekap dikunci, tidak bisa diubah lagi
+											</span>
+										</li>
+									</ul>
+								</section>
+
 								{canPayNow && (
 									<div className="rounded-xl border border-border-default bg-surface-2 p-3">
 										<div className="flex items-start justify-between gap-3">
@@ -850,9 +889,7 @@ function MoneyGroup({
 	return (
 		<div className="space-y-1">
 			<div className="flex items-baseline justify-between gap-3">
-				<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-					{title}
-				</p>
+				<p className="text-[13px] font-medium text-foreground">{title}</p>
 				<span className="tabular text-[13px] font-semibold text-foreground">
 					{formatRupiah(total)}
 				</span>
