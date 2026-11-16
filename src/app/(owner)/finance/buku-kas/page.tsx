@@ -1,4 +1,3 @@
-import { ArrowDownLeft, ArrowUpRight, Landmark, Wallet } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CashBalanceChart } from "@/components/finance/cash-balance-chart";
@@ -7,11 +6,11 @@ import {
 	type CashBookTableRow,
 } from "@/components/finance/cash-book-table";
 import { DateRangeFilter } from "@/components/finance/date-range-filter";
+import { SummaryTile } from "@/components/finance/money-ui";
 import { MonthSwitcher } from "@/components/finance/monthly/month-switcher";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { InfoHint } from "@/components/ui/info-hint";
-import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import {
 	humanEntryTitle,
@@ -268,44 +267,38 @@ export default async function BukuKasPage({
 				<DateRangeFilter from={from} to={to} active={custom} />
 			</div>
 
-			<dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-				<StatCard
+			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+				<SummaryTile
 					label="Saldo awal"
-					value={formatRupiah(book.opening)}
-					icon={Landmark}
-					tone={book.opening < 0 ? "negative" : "default"}
+					value={book.opening}
+					tone="neutral"
 					hint={`per ${formatDateID(from)}`}
 				/>
-				<StatCard
+				<SummaryTile
 					label="Uang masuk"
-					value={`+ ${formatRupiah(book.totalMasuk)}`}
-					icon={ArrowDownLeft}
-					tone="positive"
+					value={book.totalMasuk}
+					tone="in"
+					icon="in"
 					hint={`${book.countMasuk} transaksi`}
 				/>
-				<StatCard
+				<SummaryTile
 					label="Uang keluar"
-					value={`− ${formatRupiah(book.totalKeluar)}`}
-					icon={ArrowUpRight}
-					tone="negative"
+					value={-book.totalKeluar}
+					tone="out"
+					icon="out"
 					hint={`${book.countKeluar} transaksi`}
 				/>
-				<StatCard
+				<SummaryTile
 					label="Saldo akhir"
-					value={formatRupiah(book.closing)}
-					icon={Wallet}
-					tone={book.closing < 0 ? "negative" : "default"}
-					delta={
-						change !== 0
-							? {
-									value: `${change > 0 ? "naik" : "turun"} ${formatRupiah(Math.abs(change))}`,
-									tone: change > 0 ? "positive" : "negative",
-								}
-							: undefined
+					value={book.closing}
+					tone="neutral"
+					hint={
+						change === 0
+							? `per ${formatDateID(to)}`
+							: `${change > 0 ? "naik" : "turun"} ${formatRupiah(Math.abs(change))} · per ${formatDateID(to)}`
 					}
-					hint={`per ${formatDateID(to)}`}
 				/>
-			</dl>
+			</div>
 
 			<CashBalanceChart
 				rows={book.rows}

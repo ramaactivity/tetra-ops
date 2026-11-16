@@ -95,6 +95,14 @@ export const SOURCE_LABEL: Record<string, string> = {
 	emoney_recount: "Cocokkan saldo kartu",
 	sinking_release: "Pakai dana cadangan",
 	sinking_movement: "Dana cadangan",
+	talangan_owner: "Hutang ke owner",
+	owner_patungan: "Patungan owner",
+	owner_contribution: "Setoran modal owner",
+	uang_jalan: "Uang jalan crew",
+	uang_jalan_kembali: "Sisa uang jalan kembali",
+	emoney_opening: "Saldo awal kartu",
+	crew_payment_reversal: "Pembatalan bayar fee crew",
+	asset_disposal: "Pelepasan aset",
 };
 
 /**

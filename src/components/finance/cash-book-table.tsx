@@ -171,7 +171,6 @@ export function CashBookTable({
 					<thead>
 						<tr className="border-b border-border-subtle text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
 							<th className="px-4 py-2.5">Tanggal</th>
-							<th className="px-4 py-2.5">Ref</th>
 							<th className="px-4 py-2.5">Uraian</th>
 							<th className="px-4 py-2.5 text-right">Masuk</th>
 							<th className="px-4 py-2.5 text-right">Keluar</th>
@@ -184,7 +183,6 @@ export function CashBookTable({
 							<td className="px-4 py-2.5 text-muted-foreground">
 								{shortDay(openingDate)}
 							</td>
-							<td />
 							<td className="px-4 py-2.5 font-medium italic">Saldo awal</td>
 							<td />
 							<td />
@@ -209,22 +207,31 @@ export function CashBookTable({
 								<td className="whitespace-nowrap px-4 py-2.5">
 									{shortDay(r.date)}
 								</td>
-								<td className="whitespace-nowrap px-4 py-2.5">
+								<td className="px-4 py-2.5">
+									{/* Judul = tautan ke jurnalnya (nomor ref ada di tooltip & Excel). */}
 									<Link
 										href={`/finance/accounting?entry=${encodeURIComponent(r.refId)}`}
-										className="tabular text-[12px] text-muted-foreground hover:text-foreground hover:underline"
+										title={r.refId}
+										className="line-clamp-2 text-foreground hover:underline"
 									>
-										{r.refId}
+										{r.title}
 									</Link>
-								</td>
-								<td className="px-4 py-2.5">
-									<div className="line-clamp-2 text-foreground">{r.title}</div>
 									<ContraLine row={r} />
 								</td>
-								<td className={cn("tabular px-4 py-2.5 text-right", POS)}>
+								<td
+									className={cn(
+										"tabular whitespace-nowrap px-4 py-2.5 text-right",
+										POS,
+									)}
+								>
 									{r.masuk > 0 ? `+ ${formatRupiah(r.masuk)}` : ""}
 								</td>
-								<td className={cn("tabular px-4 py-2.5 text-right", NEG)}>
+								<td
+									className={cn(
+										"tabular whitespace-nowrap px-4 py-2.5 text-right",
+										NEG,
+									)}
+								>
 									{r.keluar > 0 ? `− ${formatRupiah(r.keluar)}` : ""}
 								</td>
 								<td
@@ -243,7 +250,7 @@ export function CashBookTable({
 						{visible.length === 0 && (
 							<tr>
 								<td
-									colSpan={7}
+									colSpan={6}
 									className="px-4 py-8 text-center text-muted-foreground"
 								>
 									{rows.length === 0
@@ -255,18 +262,28 @@ export function CashBookTable({
 					</tbody>
 					<tfoot>
 						<tr className="border-t-2 border-border-default font-semibold">
-							<td colSpan={3} className="px-4 py-3">
+							<td colSpan={2} className="px-4 py-3">
 								Total periode ini
 							</td>
-							<td className={cn("tabular px-4 py-3 text-right", POS)}>
+							<td
+								className={cn(
+									"tabular whitespace-nowrap px-4 py-3 text-right",
+									POS,
+								)}
+							>
 								+ {formatRupiah(totalMasuk)}
 							</td>
-							<td className={cn("tabular px-4 py-3 text-right", NEG)}>
+							<td
+								className={cn(
+									"tabular whitespace-nowrap px-4 py-3 text-right",
+									NEG,
+								)}
+							>
 								− {formatRupiah(totalKeluar)}
 							</td>
 							<td
 								className={cn(
-									"tabular px-4 py-3 text-right",
+									"tabular whitespace-nowrap px-4 py-3 text-right",
 									closing < 0 && NEG,
 								)}
 							>
@@ -405,7 +422,7 @@ function SourcePill({ row }: { row: CashBookTableRow }) {
 	return (
 		<div className="flex flex-wrap gap-1">
 			{row.sourceLabel && (
-				<span className="inline-flex rounded-full bg-secondary px-2 py-0.5 text-[11.5px] text-foreground/80">
+				<span className="inline-flex whitespace-nowrap rounded-full bg-secondary px-2 py-0.5 text-[11.5px] text-foreground/80">
 					{row.sourceLabel}
 				</span>
 			)}

@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,30 +48,29 @@ export function DateRangeFilter({
 		push(next);
 	}
 
-	const inputCls =
-		"tabular h-7 rounded-full bg-transparent px-1.5 text-[13px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
+	// Pemilih tanggal app (bukan <input type="date"> bawaan browser).
+	const pickerCls =
+		"tabular h-7 w-auto rounded-full border-0 bg-transparent px-2 text-[13px] shadow-none hover:bg-secondary";
 
 	return (
 		<div
 			className={cn(
-				"inline-flex h-8 items-center gap-1 rounded-full border bg-card pl-2 pr-1",
+				"inline-flex h-8 items-center gap-0.5 rounded-full border bg-card px-0.5",
 				active ? "border-foreground/40" : "border-border-default",
 			)}
 		>
-			<input
-				type="date"
+			<DatePicker
 				aria-label="Dari tanggal"
 				value={from}
-				onChange={(e) => set("dari", e.target.value)}
-				className={inputCls}
+				onValueChange={(v) => set("dari", v)}
+				className={pickerCls}
 			/>
 			<span className="text-muted-foreground">–</span>
-			<input
-				type="date"
+			<DatePicker
 				aria-label="Sampai tanggal"
 				value={to}
-				onChange={(e) => set("sampai", e.target.value)}
-				className={inputCls}
+				onValueChange={(v) => set("sampai", v)}
+				className={pickerCls}
 			/>
 			{active && (
 				<button
