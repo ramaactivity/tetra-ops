@@ -529,6 +529,7 @@ async function resolveCleared(
  *   tetap sempat melihat "Event selesai").
  * - "Stok menipis untuk N event mendatang" — tiap approve rekap membuat yang
  *   baru; yang lama per orang sudah tergantikan, sisakan yang terbaru.
+ * - "DP/Pembayaran portal … menunggu dicek" — buktinya sudah diproses/hilang.
  */
 async function housekeepFeed(admin: AdminClient): Promise<number> {
 	const open = await fetchAllRows<{
@@ -596,6 +597,33 @@ async function housekeepFeed(admin: AdminClient): Promise<number> {
 				done.delete(e.id);
 	}
 	for (const n of feed) if (done.has(n.entity_id as string)) resolve.add(n.id);
+
+	// Bukti transfer portal ("DP portal Rp … menunggu dicek", entity_id =
+	// payment_submissions.id): beres kalau sudah diterima/ditolak/kedaluwarsa
+	// atau buktinya sudah tidak ada. Judul dibatasi supaya notifikasi portal
+	// lain (pengajuan pindah tanggal, dll) tidak ikut tertutup.
+	const portal = open.filter(
+		(n) =>
+			n.entity_type === "client_booking" &&
+			n.entity_id &&
+			/ portal .* menunggu dicek$/.test(n.title),
+	);
+	const subIds = [...new Set(portal.map((n) => n.entity_id as string))];
+	const subDone = new Set<string>(subIds);
+	for (let i = 0; i < subIds.length; i += 200) {
+		const subs = (must(
+			await admin
+				.from("payment_submissions")
+				.select("id, status")
+				.in("id", subIds.slice(i, i + 200)),
+			"bukti portal (bersih-bersih)",
+		) ?? []) as Array<{ id: string; status: string }>;
+		for (const sub of subs)
+			if (sub.status === "menunggu" || sub.status === "pending")
+				subDone.delete(sub.id);
+	}
+	for (const n of portal)
+		if (subDone.has(n.entity_id as string)) resolve.add(n.id);
 
 	const list = [...resolve];
 	const now = new Date().toISOString();

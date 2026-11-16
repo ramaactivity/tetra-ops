@@ -170,7 +170,25 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 		if (d !== 0) drifts.push(`${f.coa_account} (${d})`);
 	}
 
-	if (drifts.length === 0) return { ok: true, drifts: 0, notified: 0 };
+	if (drifts.length === 0) {
+		// Selisih sudah nol → notifikasi "ada selisih" yang masih terbuka sudah
+		// tidak berlaku (dulu tetap belum dibaca berbulan-bulan).
+		const now = new Date().toISOString();
+		const { error: resolveErr } = await sb
+			.from("notifications")
+			.update({
+				is_resolved: true,
+				resolved_at: now,
+				is_read: true,
+				read_at: now,
+			})
+			.eq("entity_type", "reconciliation")
+			.eq("is_resolved", false)
+			.eq("is_dismissed", false);
+		if (resolveErr)
+			console.error("[reconciliation-check] tandai beres:", resolveErr.message);
+		return { ok: true, drifts: 0, notified: 0 };
+	}
 
 	// Notify owners (dedup: skip if an unread/undismissed recon notif exists)
 	const { data: owners } = await sb
