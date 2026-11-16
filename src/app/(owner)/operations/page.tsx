@@ -1,5 +1,4 @@
 import {
-	AlertCircle,
 	Briefcase,
 	CalendarClock,
 	CalendarPlus,
@@ -8,6 +7,7 @@ import {
 	Plus,
 	Upload,
 	Users,
+	Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { InboxBanner } from "@/components/booking-inbox/inbox-banner";
@@ -29,6 +29,7 @@ import { Fab } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { listMissingFields } from "@/lib/events/tbc";
+import { formatRupiahCompact } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -189,6 +190,7 @@ export default async function OperationsListPage({
 		thisYearCountResult,
 		awaitingCountResult,
 		completedCountResult,
+		monthMoneyResult,
 		targetConfigResult,
 		crewListResult,
 		eventTypesResult,
@@ -232,6 +234,16 @@ export default async function OperationsListPage({
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
 			.eq("status", "completed"),
+		// Uang bulan terpilih — event yang sama dengan kotak "Bulan Ini":
+		// sudah masuk (total_paid) vs tagihan (total_paid + sisa; sisa sudah
+		// memperhitungkan potongan langsung vendor).
+		supabase
+			.from("events")
+			.select("total_paid, remaining_balance")
+			.is("deleted_at", null)
+			.neq("status", "cancelled")
+			.gte("event_date", ymStart)
+			.lte("event_date", ymEnd),
 		// Owner-set event targets (editable in Settings → system_config).
 		supabase
 			.from("system_config")
@@ -448,6 +460,22 @@ export default async function OperationsListPage({
 	const thisYearCount = thisYearCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
 	const completedCount = completedCountResult.count ?? 0;
+	const monthMoney = (
+		(monthMoneyResult.data ?? []) as Array<{
+			total_paid: number | null;
+			remaining_balance: number | null;
+		}>
+	).reduce(
+		(t, e) => {
+			const paid = Number(e.total_paid ?? 0);
+			const left = Math.max(0, Number(e.remaining_balance ?? 0));
+			return { paid: t.paid + paid, billed: t.billed + paid + left };
+		},
+		{ paid: 0, billed: 0 },
+	);
+	const monthShort = new Date(kpiY, kpiM - 1, 1).toLocaleDateString("id-ID", {
+		month: "long",
+	});
 
 	// Targets live in system_config (category "targets"), editable in Settings.
 	// Values are JSONB numbers; fall back to 0 (no progress bar) if unset.
@@ -510,7 +538,7 @@ export default async function OperationsListPage({
 
 			<KpiRow className="lg:grid-cols-5">
 				<KpiCard
-					label="Total Events"
+					label="Total event"
 					value={totalCount.toLocaleString("id-ID")}
 					hint="Semua event tercatat (termasuk arsip)"
 					icon={Briefcase}
@@ -540,19 +568,40 @@ export default async function OperationsListPage({
 							: undefined
 					}
 				/>
+				{/* Dulu "Awaiting Settlement" (hampir selalu 0) — owner 16 Nov:
+				    ganti uang yang sudah & belum masuk di bulan tersebut. */}
 				<KpiCard
-					label="Awaiting Settlement"
-					value={awaitingCount.toLocaleString("id-ID")}
-					hint="Event selesai, belum di-settle"
-					icon={AlertCircle}
-					accent="amber"
+					label={`Uang ${monthShort}`}
+					value={formatRupiahCompact(monthMoney.paid)}
+					hint={
+						monthMoney.billed > monthMoney.paid
+							? `belum masuk ${formatRupiahCompact(monthMoney.billed - monthMoney.paid)}`
+							: monthMoney.billed > 0
+								? "semua sudah masuk"
+								: "belum ada tagihan"
+					}
+					icon={Wallet}
+					accent="emerald"
+					progress={
+						monthMoney.billed > 0
+							? {
+									current: monthMoney.paid,
+									target: monthMoney.billed,
+									label: `dari ${formatRupiahCompact(monthMoney.billed)}`,
+								}
+							: undefined
+					}
 				/>
 				<KpiCard
-					label="Completed"
+					label="Selesai"
 					value={completedCount.toLocaleString("id-ID")}
 					hint="Event selesai & sudah di-settle"
 					icon={CheckCircle2}
 					accent="emerald"
+					badge={
+						awaitingCount > 0 ? `${awaitingCount} belum di-settle` : undefined
+					}
+					badgeTone="orange"
 				/>
 			</KpiRow>
 
