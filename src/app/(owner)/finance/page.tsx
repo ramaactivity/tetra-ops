@@ -24,7 +24,6 @@ import {
 	RekapCard,
 	SectionHeader as SectionHeader2,
 } from "@/components/rekap/rekap-ui";
-import { getCurrentUser } from "@/lib/auth/get-user";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { filterEmoneyAccounts } from "@/lib/finance/emoney";
@@ -60,7 +59,6 @@ export default async function FinancePage({
 		bulan?: string;
 	}>;
 }) {
-	const me = await getCurrentUser();
 	const supabase = await createClient();
 	const {
 		catat,
@@ -136,11 +134,7 @@ export default async function FinancePage({
 			// 5 cukup untuk sekilas; sisanya lewat "Lihat semua".
 			.limit(5),
 		// Rincian lengkap di /finance/bagi-hasil; di sini cuma totalnya.
-		// Owner hanya boleh membaca jatahnya sendiri (RLS) — super admin semua.
-		loadOwnerShares(
-			supabase,
-			me?.profile.role === "super_admin" ? undefined : me?.profile.id,
-		),
+		loadOwnerShares(supabase),
 	]);
 
 	const outstanding = (outstandingData as number | null) ?? 0;
@@ -615,7 +609,7 @@ export default async function FinancePage({
 				>
 					<span className="flex items-center gap-2 text-[14px] font-semibold text-foreground">
 						<HandCoins className="size-4 text-muted-foreground" aria-hidden />
-						{ownerShares.length === 1 ? "Bagi hasil kamu" : "Bagi hasil owner"}
+						Bagi hasil owner
 					</span>
 					<span className="flex items-center gap-3 text-[13px] text-muted-foreground">
 						<span>

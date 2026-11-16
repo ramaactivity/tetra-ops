@@ -32,16 +32,15 @@ export default async function BagiHasilPage() {
 	if (!me) redirect("/login");
 	const role = me.profile.role;
 	if (role !== "super_admin" && role !== "owner") redirect("/finance");
-	// Super admin melihat & mencatat semua. Owner hanya boleh membaca jatahnya
-	// sendiri (RLS owner_earnings) — tanpa filter, owner lain tampil Rp0 palsu.
+	// Semua owner melihat semua jatah (RLS owner_earnings_owner_read,
+	// 20261116c). Mencatat "ambil bagi hasil" tetap hanya super admin.
 	const canWithdraw = role === "super_admin";
-	const mine = canWithdraw ? undefined : me.profile.id;
 
 	const supabase = await createClient();
 	const [owners, moves, { data: banks }, { count: ownerCount }] =
 		await Promise.all([
-			loadOwnerShares(supabase, mine),
-			loadOwnerShareMoves(supabase, mine),
+			loadOwnerShares(supabase),
+			loadOwnerShareMoves(supabase),
 			canWithdraw
 				? supabase
 						.from("bank_accounts")
@@ -51,8 +50,7 @@ export default async function BagiHasilPage() {
 				: Promise.resolve({
 						data: [] as Array<{ id: string; account_name: string }>,
 					}),
-			// Patungan memotong SEMUA owner aktif — jumlah asli untuk pratinjau
-			// total, bukan jumlah kartu yang tampil (owner hanya melihat miliknya).
+			// Patungan memotong SEMUA owner aktif — jumlah asli untuk pratinjau.
 			supabase
 				.from("users")
 				.select("id", { count: "exact", head: true })

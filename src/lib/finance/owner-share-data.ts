@@ -36,17 +36,14 @@ type EarningRow = {
  */
 export async function loadOwnerShares(
 	supabase: SupabaseClient,
-	/** Owner (bukan super admin) hanya boleh membaca miliknya sendiri (RLS). */
-	onlyOwnerId?: string,
 ): Promise<OwnerShare[]> {
 	const currentMonthStart = `${todayWIB().slice(0, 7)}-01`;
-	let ownersQ = supabase
+	const ownersQ = supabase
 		.from("users")
 		.select("id, full_name, role, share_pct")
 		.eq("role", "owner")
 		.eq("is_active", true)
 		.order("full_name", { ascending: true });
-	if (onlyOwnerId) ownersQ = ownersQ.eq("id", onlyOwnerId);
 	const [{ data: owners, error: ownersErr }, earnings, { data: arrears }] =
 		await Promise.all([
 			ownersQ,
@@ -128,16 +125,14 @@ export type OwnerShareMove = {
 /** Riwayat ambil bagi hasil, patungan, dan koreksi (terbaru dulu). */
 export async function loadOwnerShareMoves(
 	supabase: SupabaseClient,
-	onlyOwnerId?: string,
 	limit = 50,
 ): Promise<OwnerShareMove[]> {
-	let q = supabase
+	const q = supabase
 		.from("owner_earnings")
 		.select("id, owner_user_id, earning_type, amount, description, created_at")
 		.in("earning_type", ["withdrawal", "contribution", "adjustment"])
 		.order("created_at", { ascending: false })
 		.limit(limit);
-	if (onlyOwnerId) q = q.eq("owner_user_id", onlyOwnerId);
 	const { data, error } = await q;
 	if (error) throw new Error(`Gagal membaca riwayat: ${error.message}`);
 	return (data ?? []).map((r) => ({
