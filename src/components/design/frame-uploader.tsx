@@ -1,60 +1,88 @@
 "use client";
 
 import { CheckCircle2, Loader2, Pipette, Upload, Wand2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	createDesignTemplate,
 	requestTemplatePreviewUpload,
 } from "@/lib/actions/design-admin";
 import { DEFAULT_TOLERANCE } from "@/lib/design/chroma";
-import { toPngBlob } from "@/lib/design/process-frame";
+import { type FrameResult, toPngBlob } from "@/lib/design/process-frame";
 import { cn } from "@/lib/utils";
 import { useFrame } from "./use-frame";
 
-const checker =
+export const checker =
 	"repeating-conic-gradient(#efede8 0% 25%, #fff 0% 50%) 50% / 14px 14px";
 
-/** Tambah template PNG manual: chroma key + deteksi slot + validasi ukuran. */
+/** Unggah hasil olahan ke R2 lalu daftarkan sebagai template manual. */
+export async function uploadTemplate(
+	r: FrameResult,
+	name: string,
+	category: string,
+): Promise<void> {
+	if (r.error || !r.frameSize)
+		throw new Error(r.error ?? "Ukuran tidak dikenali.");
+	const blob = await toPngBlob(r);
+	const up = await requestTemplatePreviewUpload({
+		type: "image/png",
+		size: blob.size,
+	});
+	if (!up.ok) throw new Error(up.error);
+	const put = await fetch(up.uploadUrl, {
+		method: "PUT",
+		body: blob,
+		headers: { "content-type": "image/png" },
+	});
+	if (!put.ok) throw new Error("Upload gagal. Cek koneksi lalu coba lagi.");
+	const res = await createDesignTemplate({
+		name: name.trim(),
+		category,
+		frameSize: r.frameSize,
+		orientation: r.orientation,
+		previewPath: up.path,
+		textMode: "baked",
+		slotCount: r.slots.length,
+	});
+	if (!res.ok) throw new Error(res.error);
+}
+
+/**
+ * Atur satu template PNG manual: chroma key + deteksi slot + validasi ukuran.
+ * Dipakai dari daftar unggahan banyak file (tombol "Atur") dengan file awal.
+ */
 export function FrameUploader({
 	themes,
 	onDone,
+	initialFile,
+	defaultName = "",
+	defaultCategory = "",
+	onCancel,
 }: {
 	themes: string[];
 	onDone: () => void;
+	initialFile?: File;
+	defaultName?: string;
+	defaultCategory?: string;
+	/** Ada → tombol "Kembali ke daftar" menggantikan "Ganti file". */
+	onCancel?: () => void;
 }) {
 	const f = useFrame(520);
-	const [name, setName] = useState("");
-	const [category, setCategory] = useState("");
+	const [name, setName] = useState(defaultName);
+	const [category, setCategory] = useState(defaultCategory);
 	const [saving, setSaving] = useState(false);
 	const r = f.result;
+	const { load } = f;
+
+	useEffect(() => {
+		if (initialFile) load(initialFile);
+	}, [initialFile, load]);
 
 	async function save() {
-		if (!r || r.error || !r.frameSize) return;
+		if (!r) return;
 		setSaving(true);
 		try {
-			const blob = await toPngBlob(r);
-			const up = await requestTemplatePreviewUpload({
-				type: "image/png",
-				size: blob.size,
-			});
-			if (!up.ok) throw new Error(up.error);
-			const put = await fetch(up.uploadUrl, {
-				method: "PUT",
-				body: blob,
-				headers: { "content-type": "image/png" },
-			});
-			if (!put.ok) throw new Error("Upload gagal. Cek koneksi lalu coba lagi.");
-			const res = await createDesignTemplate({
-				name: name.trim(),
-				category,
-				frameSize: r.frameSize,
-				orientation: r.orientation,
-				previewPath: up.path,
-				textMode: "baked",
-				slotCount: r.slots.length,
-			});
-			if (!res.ok) throw new Error(res.error);
+			await uploadTemplate(r, name, category);
 			toast.success("Template ditambahkan");
 			onDone();
 		} catch (e) {
@@ -269,10 +297,10 @@ export function FrameUploader({
 				<div className="flex flex-wrap justify-end gap-2">
 					<button
 						type="button"
-						onClick={f.reset}
+						onClick={onCancel ?? f.reset}
 						className="hover:bg-secondary h-9 rounded-full px-4 text-[13px] font-medium"
 					>
-						Ganti file
+						{onCancel ? "Kembali ke daftar" : "Ganti file"}
 					</button>
 					<button
 						type="button"

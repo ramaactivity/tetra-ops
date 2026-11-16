@@ -38,7 +38,7 @@ import {
 	updateDesignTemplate,
 } from "@/lib/actions/design-admin";
 import { cn } from "@/lib/utils";
-import { FrameUploader } from "./frame-uploader";
+import { BatchFrameUploader } from "./batch-frame-uploader";
 
 export type StudioTemplate = {
 	id: string;
@@ -477,17 +477,16 @@ export function TemplateStudio({
 			<Dialog open={adding} onOpenChange={setAdding}>
 				<DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
 					<DialogHeader>
-						<DialogTitle>Tambah template PNG manual</DialogTitle>
+						<DialogTitle>Tambah template PNG</DialogTitle>
 						<DialogDescription>
 							Untuk desain dengan teks sudah di PNG. Kotak foto boleh transparan
-							atau diisi satu warna polos — warnanya dihapus otomatis (chroma
-							key).
+							atau satu warna polos — warnanya dihapus otomatis.
 						</DialogDescription>
 					</DialogHeader>
-					<FrameUploader
+					<BatchFrameUploader
 						themes={themes}
-						onDone={() => {
-							setAdding(false);
+						onDone={(close) => {
+							if (close) setAdding(false);
 							router.refresh();
 						}}
 					/>
