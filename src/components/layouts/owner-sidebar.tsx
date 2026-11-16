@@ -14,6 +14,7 @@ import {
 	ChevronRight,
 	ClipboardCheck,
 	ClipboardList,
+	Coins,
 	Contact,
 	FileBarChart,
 	FileText,
@@ -149,6 +150,11 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/hutang-owner",
 						label: "Hutang Owner",
 						icon: HandCoins,
+					},
+					{
+						href: "/finance/bagi-hasil",
+						label: "Bagi Hasil Owner",
+						icon: Coins,
 					},
 					{
 						href: "/finance/vendors",

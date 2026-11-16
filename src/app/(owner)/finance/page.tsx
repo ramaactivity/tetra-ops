@@ -1,5 +1,6 @@
 import {
 	CheckCircle2,
+	ChevronRight,
 	HandCoins,
 	PiggyBank,
 	Receipt,
@@ -9,23 +10,14 @@ import {
 import Link from "next/link";
 import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
-import {
-	AmountRow,
-	SubGroup,
-	SummaryTile,
-} from "@/components/finance/money-ui";
+import { SubGroup, SummaryTile } from "@/components/finance/money-ui";
 import { MonthSwitcher } from "@/components/finance/monthly/month-switcher";
 import { MonthlyReport } from "@/components/finance/monthly-report";
-import { PatunganDialog } from "@/components/finance/patungan-dialog";
 import {
 	SinkingBreakdown,
 	type SinkingFundRow,
 } from "@/components/finance/sinking-breakdown";
 import { HutangPiutangOwner } from "@/components/finance/talangan-owner-card";
-import {
-	type Owner,
-	WithdrawalButton,
-} from "@/components/finance/withdrawal-button";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import {
@@ -42,6 +34,7 @@ import {
 	ymOf,
 } from "@/lib/finance/monthly-data";
 import { getEventExtras, getMonthlyPnl } from "@/lib/finance/monthly-pnl";
+import { loadOwnerShares } from "@/lib/finance/owner-share-data";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import {
 	listCrewLiabilityGaps,
@@ -68,7 +61,6 @@ export default async function FinancePage({
 	}>;
 }) {
 	const me = await getCurrentUser();
-	const isSuperAdmin = me?.profile.role === "super_admin";
 	const supabase = await createClient();
 	const {
 		catat,
@@ -114,8 +106,7 @@ export default async function FinancePage({
 		{ data: bankAccountsData },
 		{ data: sinkingFundsData },
 		{ data: recentSettlementsData },
-		{ data: ownerEarningsData },
-		{ data: ownersListData },
+		ownerShares,
 	] = await Promise.all([
 		// Outstanding receivables — SUM in Postgres instead of fetch-all + JS
 		// reduce. See get_outstanding_total migration.
@@ -144,21 +135,12 @@ export default async function FinancePage({
 			.order("closed_at", { ascending: false })
 			// 5 cukup untuk sekilas; sisanya lewat "Lihat semua".
 			.limit(5),
-		isSuperAdmin
-			? supabase
-					.from("owner_earnings")
-					.select("owner_user_id, amount, earning_type, period_month")
-			: Promise.resolve({ data: [] }),
-		isSuperAdmin
-			? supabase
-					.from("users")
-					.select("id, full_name, role, share_pct")
-					// Hanya role 'owner' — super_admin dikecualikan dari pembagian
-					// bagi hasil (selalu Rp0), jadi tak perlu tampil di daftar.
-					.eq("role", "owner")
-					.eq("is_active", true)
-					.order("full_name", { ascending: true })
-			: Promise.resolve({ data: [] }),
+		// Rincian lengkap di /finance/bagi-hasil; di sini cuma totalnya.
+		// Owner hanya boleh membaca jatahnya sendiri (RLS) — super admin semua.
+		loadOwnerShares(
+			supabase,
+			me?.profile.role === "super_admin" ? undefined : me?.profile.id,
+		),
 	]);
 
 	const outstanding = (outstandingData as number | null) ?? 0;
@@ -309,113 +291,11 @@ export default async function FinancePage({
 			? await listCrewLiabilityGaps(supabase)
 			: [];
 
-	let ownerBreakdown: Array<{
-		id: string;
-		full_name: string;
-		role: string;
-		share_pct: number | null;
-		earned: number;
-		withdrawn: number;
-		balance: number;
-		/** Yang benar-benar boleh dicairkan sekarang (bulan berjalan belum ikut). */
-		available: number;
-		/** Jatah dari event bulan berjalan — baru bisa diambil bulan depan. */
-		pending: number;
-		/** Dipotong untuk patungan beban bersama (kost dll). */
-		patungan: number;
-		/** Bagi hasil tertunda (event kurang untung) — dilunasi event berikutnya. */
-		arrears: number;
-	}> = [];
-	if (isSuperAdmin) {
-		// Aturan bagi hasil: jatah dari event bulan M baru boleh ditarik mulai
-		// bulan M+1. period_month diisi otomatis dari tanggal EVENT (lihat
-		// 20260806_owner_pool_period.sql), jadi event 31 Jul yang baru di-settle
-		// 2 Agu tetap terhitung jatah Juli.
-		const currentMonthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-		const earningsByOwner = new Map<
-			string,
-			{
-				earned: number;
-				withdrawn: number;
-				available: number;
-				pending: number;
-				patungan: number;
-			}
-		>();
-		for (const e of (ownerEarningsData ?? []) as Array<{
-			owner_user_id: string;
-			amount: number;
-			earning_type: string;
-			period_month: string | null;
-		}>) {
-			const cur = earningsByOwner.get(e.owner_user_id) ?? {
-				earned: 0,
-				withdrawn: 0,
-				available: 0,
-				pending: 0,
-				patungan: 0,
-			};
-			// Patungan (dipotong dari bagi hasil untuk beban bersama) dipisah dari
-			// "sudah diambil" — uangnya tidak pernah sampai ke owner.
-			if (e.earning_type === "contribution") {
-				cur.patungan += Math.abs(e.amount);
-				cur.available += e.amount;
-				earningsByOwner.set(e.owner_user_id, cur);
-				continue;
-			}
-			const isWithdrawal = e.earning_type === "withdrawal" || e.amount < 0;
-			if (isWithdrawal) {
-				cur.withdrawn += Math.abs(e.amount);
-				// Penarikan selalu mengurangi yang bisa diambil, periode apa pun.
-				cur.available += e.amount;
-			} else {
-				cur.earned += e.amount;
-				const period = e.period_month ?? currentMonthStart;
-				if (period < currentMonthStart) cur.available += e.amount;
-				else cur.pending += e.amount;
-			}
-			earningsByOwner.set(e.owner_user_id, cur);
-		}
-		// Tunggakan bagi hasil yang belum lunas (subsidi silang antar event).
-		const { data: arrearsData } = await supabase
-			.from("owner_pool_arrears")
-			.select("owner_user_id, remaining")
-			.is("voided_at", null)
-			.gt("remaining", 0);
-		const arrearsByOwner = new Map<string, number>();
-		for (const a of arrearsData ?? [])
-			arrearsByOwner.set(
-				a.owner_user_id as string,
-				(arrearsByOwner.get(a.owner_user_id as string) ?? 0) +
-					Number(a.remaining ?? 0),
-			);
-		ownerBreakdown = (
-			(ownersListData ?? []) as Array<{
-				id: string;
-				full_name: string;
-				role: string;
-				share_pct: number | null;
-			}>
-		).map((o) => {
-			const e = earningsByOwner.get(o.id) ?? {
-				earned: 0,
-				withdrawn: 0,
-				available: 0,
-				pending: 0,
-				patungan: 0,
-			};
-			return {
-				...o,
-				earned: e.earned,
-				withdrawn: e.withdrawn,
-				balance: e.earned - e.withdrawn,
-				available: e.available,
-				pending: e.pending,
-				patungan: e.patungan,
-				arrears: arrearsByOwner.get(o.id) ?? 0,
-			};
-		});
-	}
+	const shareAvailable = ownerShares.reduce(
+		(t, o) => t + Math.max(0, o.available),
+		0,
+	);
+	const sharePending = ownerShares.reduce((t, o) => t + o.pending, 0);
 
 	// "Uang di bank" itu angka kotor: di dalamnya ada dana cadangan yang sudah
 	// disisihkan, bagi hasil owner yang tinggal diambil, dan utang yang tinggal
@@ -727,91 +607,35 @@ export default async function FinancePage({
 				/>
 			</RekapCard>
 
-			{/* 5. Bagi hasil owner */}
-			{isSuperAdmin && ownerBreakdown.length > 0 && (
-				<RekapCard className="space-y-3">
-					<div className="flex flex-wrap items-start justify-between gap-3">
-						<SectionHeader2
-							icon={HandCoins}
-							title="Bagi hasil owner"
-							description="Rp50.000 per event per owner. Jatah bulan ini baru bisa diambil bulan depan; kalau untung event kurang, jatahnya tertunda dan dibayar dari event berikutnya."
-						/>
-						<div className="flex flex-wrap items-center gap-2">
-							<WithdrawalButton
-								owners={ownerBreakdown.map<Owner>((o) => ({
-									id: o.id,
-									full_name: o.full_name,
-									role: o.role,
-									balance: o.available,
-									pending: o.pending,
-								}))}
-								banks={banks.map((b) => ({
-									id: b.id,
-									label: b.account_name,
-								}))}
-							/>
-							<PatunganDialog ownerCount={ownerBreakdown.length} />
-						</div>
-					</div>
-					<div className="grid gap-3 sm:grid-cols-2">
-						{ownerBreakdown.map((o) => (
-							<div
-								key={o.id}
-								className="space-y-2 rounded-2xl border border-border-subtle p-4"
-							>
-								<div className="flex items-baseline justify-between gap-3">
-									<span className="truncate text-[14px] font-semibold text-foreground">
-										{o.full_name}
+			{/* 5. Bagi hasil owner — rinciannya di sub menu sendiri */}
+			{ownerShares.length > 0 && (
+				<Link
+					href="/finance/bagi-hasil"
+					className="press flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-border-subtle bg-card px-4 py-3 shadow-[var(--shadow-level-1)] transition-colors hover:bg-secondary/40"
+				>
+					<span className="flex items-center gap-2 text-[14px] font-semibold text-foreground">
+						<HandCoins className="size-4 text-muted-foreground" aria-hidden />
+						{ownerShares.length === 1 ? "Bagi hasil kamu" : "Bagi hasil owner"}
+					</span>
+					<span className="flex items-center gap-3 text-[13px] text-muted-foreground">
+						<span>
+							Bisa diambil{" "}
+							<b data-nominal className="tabular text-foreground">
+								{formatRupiah(shareAvailable)}
+							</b>
+							{sharePending > 0 && (
+								<>
+									{" "}
+									· bulan ini{" "}
+									<span data-nominal className="tabular">
+										{formatRupiah(sharePending)}
 									</span>
-									<span className="text-[12px] text-muted-foreground">
-										Bisa diambil
-									</span>
-								</div>
-								<p
-									data-nominal
-									className={cn(
-										"tabular text-right text-[22px] font-bold leading-none tracking-[-0.02em]",
-										o.available > 0
-											? "text-emerald-700"
-											: o.available < 0
-												? "text-rose-600"
-												: "text-muted-foreground",
-									)}
-								>
-									{formatSignedRupiah(o.available)}
-								</p>
-								<div className="space-y-1 border-t border-border-subtle pt-2">
-									<AmountRow label="Total didapat" value={o.earned} small />
-									{o.pending > 0 && (
-										<AmountRow
-											label="Dari event bulan ini"
-											note="bisa diambil bulan depan"
-											value={o.pending}
-											small
-										/>
-									)}
-									{o.arrears > 0 && (
-										<AmountRow
-											label="Tertunda"
-											note="dibayar dari event berikutnya"
-											value={o.arrears}
-											small
-										/>
-									)}
-									<AmountRow label="Sudah diambil" value={-o.withdrawn} small />
-									{o.patungan > 0 && (
-										<AmountRow
-											label="Dipotong patungan"
-											value={-o.patungan}
-											small
-										/>
-									)}
-								</div>
-							</div>
-						))}
-					</div>
-					<TextLink href="/settings/crew">Atur porsi</TextLink>
-				</RekapCard>
+								</>
+							)}
+						</span>
+						<ChevronRight className="size-4" aria-hidden />
+					</span>
+				</Link>
 			)}
 		</Container>
 	);
