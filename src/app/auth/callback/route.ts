@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { todayWIB } from "@/lib/dates";
 
 export async function GET(request: Request) {
 	const { searchParams, origin } = new URL(request.url);
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
 	const baseRow = {
 		id: user.id,
 		email: user.email,
-		joined_date: new Date().toISOString().split("T")[0],
+		joined_date: todayWIB(),
 		is_active: true,
 	};
 
