@@ -162,7 +162,7 @@ export default async function EditBookingPage({
 					vendorOptions={vendorOptions}
 					venueOptions={venueOptions}
 					grossupRate={parseGrossUpRate(grossupConfig?.value)}
-					submitLabel="Save changes"
+					submitLabel="Simpan perubahan"
 					defaults={{
 						channel: event.channel,
 						client_name: event.client_name,

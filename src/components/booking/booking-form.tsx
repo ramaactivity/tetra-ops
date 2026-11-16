@@ -17,7 +17,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { NavItem } from "@/components/booking/_shared/section-nav";
-import { FieldGrid } from "@/components/operations/_shared/field-grid";
 import { SectionCard } from "@/components/operations/_shared/section-card";
 import { SummaryRail } from "@/components/operations/_shared/summary-rail";
 import { Badge } from "@/components/ui/badge";
@@ -92,11 +91,11 @@ const FIELD_LABELS: Record<string, string> = {
 	client_name: "Nama Klien",
 	client_wa: "WA Pembooking",
 	client_email: "Email Klien",
-	service_type: "Service Type",
+	service_type: "Jenis layanan",
 	package_id: "Paket",
-	frame_size: "Frame Size",
+	frame_size: "Ukuran cetak",
 	event_category: "Tipe Acara",
-	event_date: "Tanggal Event",
+	event_date: "Tanggal acara",
 	setup_time: "Waktu Setup",
 	start_time: "Waktu Mulai",
 	end_time: "Waktu Selesai",
@@ -121,7 +120,7 @@ const FIELD_LABELS: Record<string, string> = {
 	pic_wa: "WA PIC di Lokasi",
 	backdrop_id: "Backdrop",
 	vendor_decor_markup: "Markup Vendor Decor",
-	base_price: "Base Price",
+	base_price: "Harga paket",
 	discount_amount: "Discount",
 	gross_up_pph_amount: "Gross-up PPh",
 	discount_type: "Tipe Diskon",
@@ -447,7 +446,7 @@ export function BookingForm({
 	venueOptions = [],
 	grossupRate = GROSS_UP_RATE_DEFAULT,
 	defaults,
-	submitLabel = "Save as draft",
+	submitLabel = "Simpan draf",
 	sourceQuotationId,
 	sourceInvoiceId,
 	sourceInboxId,
@@ -1368,19 +1367,19 @@ export function BookingForm({
 			},
 			{
 				id: "cluster-event",
-				label: "Event Details",
+				label: "Detail acara",
 				status: bErrN > 0 ? "error" : bOk ? "ok" : "empty",
 				issueCount: bErrN,
 			},
 			{
 				id: "cluster-service",
-				label: "Service Package",
+				label: "Paket",
 				status: cErrN > 0 ? "error" : cOk ? "ok" : "empty",
 				issueCount: cErrN,
 			},
 			{
 				id: "cluster-contact",
-				label: "Contact & Pricing",
+				label: "Kontak & harga",
 				status: dErrN > 0 ? "error" : dOk ? "ok" : "empty",
 				issueCount: dErrN,
 			},
@@ -1413,7 +1412,7 @@ export function BookingForm({
 		return (
 			<label
 				key={addon.id}
-				className={`flex cursor-pointer items-center gap-3 rounded-md border bg-surface-2 p-3 hover:bg-muted/30 ${misfit ? "border-amber-500/60" : "border-border-default"}`}
+				className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40 ${misfit ? "bg-amber-500/10" : ""}`}
 				title={misfit ? "Tidak cocok dengan paket/pilihan ini" : undefined}
 			>
 				<input
@@ -1423,10 +1422,10 @@ export function BookingForm({
 					className="h-4 w-4 shrink-0 rounded text-primary"
 				/>
 				<div className="min-w-0 flex-1">
-					<div className="text-fluid-body font-medium leading-snug">
+					<div className="text-[13.5px] font-medium leading-snug text-foreground">
 						{addon.name}
 					</div>
-					<div className="text-fluid-caption text-muted-foreground">
+					<div className="text-[12px] text-muted-foreground">
 						<span data-nominal>{formatRupiah(addon.price)}</span> per{" "}
 						{addon.unit}
 					</div>
@@ -1442,7 +1441,10 @@ export function BookingForm({
 							onClick={(e) => e.stopPropagation()}
 							className={`${inputClass.replace("w-full", "")} tabular h-8 w-16 shrink-0 text-right`}
 						/>
-						<span className="tabular shrink-0 text-right text-fluid-body font-medium text-foreground">
+						<span
+							className="tabular shrink-0 text-right text-[13px] font-medium text-foreground"
+							data-nominal
+						>
 							{formatRupiah(addon.price * qty)}
 						</span>
 					</>
@@ -1775,15 +1777,14 @@ export function BookingForm({
 						step={1}
 						id="cluster-source"
 						className="scroll-mt-20"
-						title="Sumber Booking"
+						title="Sumber booking"
 						description="Pilih dulu dari mana booking ini datang — selanjutnya form akan menyesuaikan."
 					>
 						<Field
-							label="Sales Channel"
+							label="Sumber"
 							name="channel"
 							error={err("channel")}
 							required
-							layoutMode="grid"
 						>
 							<Combobox
 								value={channel}
@@ -1845,7 +1846,6 @@ export function BookingForm({
 											error={err("vendor_name")}
 											hint="Pilih dari master vendor, atau ketik nama baru (auto-create di /vendors saat save)."
 											required
-											layoutMode="grid"
 										>
 											<Combobox
 												value={vendorName}
@@ -2319,7 +2319,7 @@ export function BookingForm({
 											<input type="hidden" name="referrer_type" value="owner" />
 										</Field>
 										<Field
-											label="Komisi Relasi (Rp)"
+											label="Komisi relasi"
 											name="referrer_commission"
 											error={err("referrer_commission")}
 											hint="Default Rp100.000. Tentatif/nego boleh override."
@@ -2352,13 +2352,12 @@ export function BookingForm({
 							<Section
 								step={2}
 								title="Sales Tetra"
-								description="Opsional. Pilih sales yang closing event ini kalau memang ada — komisinya tentatif, boleh Rp0 alias tanpa komisi, boleh juga diisi nanti saat settle event."
+								description="Opsional — sales/admin yang closing acara ini."
 							>
 								<Field
-									label="Sales (User Tetra)"
+									label="Sales Tetra"
 									name="sales_user_id"
 									error={err("sales_user_id")}
-									hint="Cari nama owner/crew yang closing. Kosongkan kalau nggak ada sales-nya atau belum pasti."
 								>
 									<Combobox
 										value={salesUserId}
@@ -2392,10 +2391,10 @@ export function BookingForm({
 									/>
 								</Field>
 								<Field
-									label="Komisi Sales (Rp)"
+									label="Komisi sales"
 									name="direct_sales_commission"
 									error={err("direct_sales_commission")}
-									hint="Tentatif — boleh Rp0 (tanpa komisi) atau dikosongkan dulu, nanti bisa diatur lagi waktu settle event. Biasanya Rp50.000–100.000."
+									hint="Boleh Rp0 atau diisi nanti saat settle. Biasanya Rp50.000–100.000."
 								>
 									<div className="space-y-2">
 										<div className="flex flex-wrap gap-1.5">
@@ -2467,7 +2466,7 @@ export function BookingForm({
 					{/* === 3. EVENT TYPE + Category sub-fields === */}
 					<Section
 						step={3}
-						title="Klien & Acara"
+						title="Klien & acara"
 						description={
 							channel === "vendor"
 								? `Klien = pemilik acara (perusahaan, pengantin, yang ultah), bukan vendor${vendorName ? ` ${vendorName}` : ""}. Kosongkan kalau vendor tidak menyebutkan kliennya.`
@@ -2475,11 +2474,10 @@ export function BookingForm({
 						}
 					>
 						<Field
-							label="Kategori Event"
+							label="Kategori acara"
 							name="event_category"
 							error={err("event_category")}
 							required
-							layoutMode="grid"
 						>
 							<Combobox
 								value={eventCategory}
@@ -2558,7 +2556,6 @@ export function BookingForm({
 								)
 							}
 							required
-							layoutMode="grid"
 						>
 							<input
 								type="text"
@@ -2604,7 +2601,7 @@ export function BookingForm({
 
 						<div className="grid gap-6 md:grid-cols-2">
 							<Field
-								label="Tanggal Event"
+								label="Tanggal acara"
 								name="event_date"
 								error={err("event_date")}
 								required
@@ -2728,7 +2725,7 @@ export function BookingForm({
 											? "Ditandai TBC — klik 'Menyusul' lagi kalau mau isi sekarang"
 											: startTime
 												? "Set ini dulu, setup + selesai auto-fill"
-												: "Klien belum kasih jam? Klik 'Menyusul' untuk tandai TBC"
+												: undefined
 									}
 								>
 									<div className="flex items-stretch gap-2">
@@ -2786,18 +2783,10 @@ export function BookingForm({
 						) : null}
 
 						{!splitMode && !startTime ? (
-							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
-								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-								<div>
-									<p className="font-medium">
-										Jam mulai belum ditentukan (TBC)
-									</p>
-									<p className="text-amber-900/80 dark:text-amber-200/80">
-										Setup + selesai akan auto-fill setelah jam mulai diisi.
-										Sistem akan reminder H-7 + H-3 kalau masih kosong.
-									</p>
-								</div>
-							</div>
+							<PendingNote>
+								Jam mulai menyusul — setup &amp; selesai terisi setelah jamnya
+								diisi. Diingatkan H-7 &amp; H-3.
+							</PendingNote>
 						) : null}
 
 						{!splitMode && startTime ? (
@@ -2991,12 +2980,12 @@ export function BookingForm({
 					{/* === 5. SERVICE & PACKAGE === */}
 					<Section
 						step={5}
-						title="Service & Paket"
+						title="Layanan & paket"
 						description="Jenis layanan dan paket dari pricelist."
 					>
 						<div className="grid gap-6 md:grid-cols-2">
 							<Field
-								label="Service Type"
+								label="Jenis layanan"
 								name="service_type"
 								error={err("service_type")}
 								required
@@ -3004,7 +2993,7 @@ export function BookingForm({
 								<Combobox
 									value={serviceType}
 									onValueChange={setServiceType}
-									placeholder="Pilih service"
+									placeholder="Pilih layanan"
 									options={SERVICE_TYPE_OPTIONS.map(([value, label]) => ({
 										value,
 										label,
@@ -3023,13 +3012,13 @@ export function BookingForm({
 								<input type="hidden" name="frame_size" value={frameSize} />
 							) : (
 								<Field
-									label="Frame Size"
+									label="Ukuran cetak"
 									name="frame_size"
 									error={err("frame_size")}
 									hint={
 										frameSize
 											? "Paket ikut ukuran ini — ganti ukuran, paket otomatis menyesuaikan."
-											: "Klien belum kasih ukuran? Pilih 'Menyusul' — paket cukup dipilih durasinya dulu."
+											: undefined
 									}
 								>
 									<Combobox
@@ -3052,21 +3041,10 @@ export function BookingForm({
 						</div>
 
 						{!frameSize && frameRelevan && (
-							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
-								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-								<div>
-									<p className="font-medium">
-										Frame size belum ditentukan (TBC)
-									</p>
-									<p className="text-amber-900/80 dark:text-amber-200/80">
-										Paket cuma bisa dipilih <b>durasinya</b> dulu (harga per
-										durasi sama untuk 2R/4R/Polaroid, jadi nominal tidak
-										berubah). Begitu klien memastikan ukurannya, paket otomatis
-										dikunci. Sistem mengingatkan tiap hari di Telegram sampai
-										ukurannya diisi.
-									</p>
-								</div>
-							</div>
+							<PendingNote>
+								Ukuran menyusul — cukup pilih durasi paket dulu (harganya sama).
+								Diingatkan tiap hari di Telegram sampai diisi.
+							</PendingNote>
 						)}
 						<Field
 							label="Paket"
@@ -3074,7 +3052,7 @@ export function BookingForm({
 							error={err("package_id") ?? err("pending_package_hours")}
 							hint={
 								!serviceType
-									? "Pilih Service Type dulu buat filter paket."
+									? "Pilih jenis layanan dulu."
 									: !frameSize && frameRelevan
 										? "Ukuran masih menyusul — pilih durasinya saja. Paket final dikunci otomatis begitu ukuran diisi."
 										: filteredPackages.length === 0
@@ -3217,7 +3195,7 @@ export function BookingForm({
 					{/* === 6. CUSTOMIZATION & BACKDROP === */}
 					<Section
 						step={6}
-						title="Customization"
+						title="Backdrop & flashdisk"
 						description="Backdrop + flashdisk. Bisa di-update nanti kalau klien belum mutusin."
 					>
 						{serviceType === "guest_cam" ? (
@@ -3228,7 +3206,6 @@ export function BookingForm({
 									label="Backdrop"
 									name="backdrop_id"
 									error={err("backdrop_id")}
-									layoutMode="grid"
 									hint={
 										selectedBackdrop?.type === "rental_owned"
 											? `Premium rental Tetra — auto-add ${formatRupiah(selectedBackdrop.rental_price)} ke grand total`
@@ -3238,7 +3215,7 @@ export function BookingForm({
 													? "Klien bawa vendor dekorasi sendiri — Tetra cuma execute, tanpa markup."
 													: selectedBackdrop?.type === "basic_included"
 														? "Backdrop standar Tetra (gratis bundled di paket)"
-														: "Kosongkan kalau belum ditentukan — sistem akan reminder H-7 + H-3"
+														: undefined
 									}
 								>
 									<Combobox
@@ -3280,17 +3257,9 @@ export function BookingForm({
 								</Field>
 
 								{backdropMissing && (
-									<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
-										<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-										<div>
-											<p className="font-medium">Backdrop belum ditentukan</p>
-											<p className="text-amber-900/80 dark:text-amber-200/80">
-												Sistem akan reminder otomatis H-7 + H-3 kalau status
-												masih kosong. Owner & klien wajib mutusin sebelum hari
-												H.
-											</p>
-										</div>
-									</div>
+									<PendingNote>
+										Backdrop menyusul — diingatkan H-7 &amp; H-3.
+									</PendingNote>
 								)}
 							</>
 						)}
@@ -3302,7 +3271,6 @@ export function BookingForm({
 									name="vendor_decor_markup"
 									error={err("vendor_decor_markup")}
 									hint="Otomatis ditambahkan ke grand total. Default Rp 300k baseline."
-									layoutMode="grid"
 								>
 									<input
 										type="number"
@@ -3340,7 +3308,7 @@ export function BookingForm({
 							/>
 							<div className="space-y-0.5">
 								<div className="text-fluid-body font-medium">
-									Include flashdisk + pouch
+									Termasuk flashdisk + pouch
 								</div>
 								<div className="text-fluid-caption text-muted-foreground">
 									Standar Tetra: pouch + flashdisk berisi semua foto/video
@@ -3354,14 +3322,13 @@ export function BookingForm({
 					{/* === 7. LOCATION === */}
 					<Section
 						step={7}
-						title="Lokasi Event"
+						title="Lokasi acara"
 						description="Venue + alamat. Klik 'Cari di Google Maps' buat pin lokasi & paste URL kembali ke kolom."
 					>
 						<Field
 							label="Nama Venue"
 							name="venue_name"
 							error={err("venue_name")}
-							layoutMode="grid"
 							hint={
 								venueTbc
 									? "Ditandai TBC — klik 'Menyusul' lagi kalau mau isi sekarang"
@@ -3429,23 +3396,15 @@ export function BookingForm({
 						    amber yang selalu nongol justru bikin state tombol Menyusul
 						    susah dibedakan. */}
 						{venueTbc || (defaults && !venueName) ? (
-							<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
-								<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-								<div>
-									<p className="font-medium">Lokasi belum ditentukan (TBC)</p>
-									<p className="text-amber-900/80 dark:text-amber-200/80">
-										Booking tetap bisa disimpan. Crew melihat &quot;Lokasi
-										menyusul&quot; di jadwalnya, dan sistem reminder H-7 + H-3
-										kalau masih kosong.
-									</p>
-								</div>
-							</div>
+							<PendingNote>
+								Lokasi menyusul — booking tetap bisa disimpan, crew melihat
+								&quot;Lokasi menyusul&quot;. Diingatkan H-7 &amp; H-3.
+							</PendingNote>
 						) : null}
 						<Field
 							label="Google Maps URL"
 							name="google_maps_url"
 							error={err("google_maps_url")}
-							layoutMode="grid"
 							hint={
 								resolvingMaps
 									? "🔄 Mengambil info dari Maps…"
@@ -3505,7 +3464,6 @@ export function BookingForm({
 							label="Alamat"
 							name="venue_address"
 							error={err("venue_address")}
-							layoutMode="grid"
 							hint={
 								addressPasteSplit
 									? "✓ Alamat Google dipecah otomatis ke Alamat + Kota + Provinsi"
@@ -3741,17 +3699,10 @@ export function BookingForm({
 							</p>
 
 							{picTbc ? (
-								<div className="fade-in-on-mount flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-fluid-caption text-amber-900 dark:text-amber-200">
-									<AlertTriangle className="mt-0.5 size-4 shrink-0" />
-									<div>
-										<p className="font-medium">PIC belum ditentukan (TBC)</p>
-										<p className="text-amber-900/80 dark:text-amber-200/80">
-											Crew melihat &quot;PIC Event · menyusul&quot; di detail
-											jadwalnya dan bisa menekan &quot;Ingatkan owner&quot;
-											kalau hari-H makin dekat. Sistem juga reminder H-7 + H-3.
-										</p>
-									</div>
-								</div>
+								<PendingNote>
+									PIC menyusul — crew bisa menekan &quot;Ingatkan owner&quot; di
+									jadwalnya. Diingatkan H-7 &amp; H-3.
+								</PendingNote>
 							) : null}
 
 							<label
@@ -3898,7 +3849,7 @@ export function BookingForm({
 					{/* === 9. ADD-ONS === */}
 					<Section
 						step={9}
-						title="Add-ons"
+						title="Add-on"
 						description="Voucher, print extras, Snapbook (Guest Cam), dll. Yang tampil hanya pilihan yang cocok dengan paket."
 					>
 						<input type="hidden" name="addons_json" value={addonsJson} />
@@ -4010,19 +3961,17 @@ export function BookingForm({
 								)}
 
 								{addonsByCategory.map(([category, items]) => (
-									<div key={category} className="space-y-2">
-										<h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									<div key={category} className="space-y-1.5">
+										<h4 className="text-[12px] font-semibold text-muted-foreground">
 											{ADDON_CATEGORY_LABELS[category] ?? category}
 										</h4>
-										<div className="grid grid-cols-1 gap-1.5 xl:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
+										<div className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-default bg-card">
 											{items.map((addon) => renderAddonRow(addon))}
 										</div>
 									</div>
 								))}
 								<div className="flex items-center justify-between rounded-md bg-muted px-4 py-2 text-fluid-body">
-									<span className="text-muted-foreground">
-										Add-ons subtotal
-									</span>
+									<span className="text-muted-foreground">Subtotal add-on</span>
 									<span className="tabular font-medium">
 										{formatRupiah(addonsTotal)}
 									</span>
@@ -4162,11 +4111,7 @@ export function BookingForm({
 					</Section>
 
 					{/* === 11. FINANCIAL === */}
-					<Section
-						step={11}
-						title="Financial"
-						description="Harga dan modifier."
-					>
+					<Section step={11} title="Harga" description="Harga dan modifier.">
 						{sourceDoc ? (
 							<div
 								className={`flex items-start gap-2 rounded-md border p-3 text-fluid-caption ${
@@ -4197,11 +4142,10 @@ export function BookingForm({
 							</div>
 						) : null}
 						<Field
-							label="Base Price (IDR)"
+							label="Harga paket"
 							name="base_price"
 							error={err("base_price")}
 							hint="Auto-fill dari paket; bisa override manual"
-							layoutMode="grid"
 						>
 							<input
 								type="number"
@@ -4220,7 +4164,7 @@ export function BookingForm({
 
 						<div className="grid gap-6 md:grid-cols-2">
 							<Field
-								label="Discount (IDR)"
+								label="Diskon"
 								name="discount_amount"
 								error={err("discount_amount")}
 								hint="Potongan dalam Rupiah"
@@ -4237,7 +4181,7 @@ export function BookingForm({
 								/>
 							</Field>
 							<Field
-								label="Gross-up PPh (IDR)"
+								label="Gross-up PPh"
 								name="gross_up_pph_amount"
 								error={err("gross_up_pph_amount")}
 								hint={`Markup pajak untuk corporate. Auto-calc pakai ${grossupRate}% (config di Settings → Sistem).`}
@@ -4280,7 +4224,6 @@ export function BookingForm({
 									error={err("discount_type")}
 									hint="Klasifikasi diskon — dipakai reports untuk slice 'diskon per kategori' dan journal."
 									required
-									layoutMode="grid"
 								>
 									<Combobox
 										value={discountType}
@@ -4306,7 +4249,6 @@ export function BookingForm({
 							name="crew_notes"
 							error={err("crew_notes")}
 							hint="Optional — instruksi spesifik untuk tim lapangan"
-							layoutMode="grid"
 						>
 							<RichTextarea
 								name="crew_notes"
@@ -4344,7 +4286,7 @@ export function BookingForm({
 								href="/operations"
 								className="h-10 rounded-md border border-border-default bg-surface-2 px-4 text-fluid-body font-medium leading-10 hover:bg-muted"
 							>
-								Cancel
+								Batal
 							</Link>
 							<button
 								type="submit"
@@ -4552,13 +4494,12 @@ function Section({
 	id?: string;
 	className?: string;
 }) {
-	const stepLabel = step.toString().padStart(2, "0");
-	const titleText = typeof title === "string" ? title.toUpperCase() : title;
 	const eyebrowTitle = (
-		<span className="eyebrow text-muted-foreground">
-			<span className="tabular text-primary">{stepLabel}</span>
-			<span className="mx-1.5 text-muted-foreground/50">·</span>
-			<span className="text-foreground">{titleText}</span>
+		<span className="text-[14px] font-semibold text-foreground">
+			<span className="tabular mr-2 font-medium text-muted-foreground">
+				{step}
+			</span>
+			{title}
 		</span>
 	);
 	const card = (
@@ -4583,7 +4524,6 @@ function Field({
 	error,
 	required,
 	children,
-	layoutMode = "stacked",
 }: {
 	label: string;
 	name: string;
@@ -4592,28 +4532,17 @@ function Field({
 	error?: string;
 	required?: boolean;
 	children: React.ReactNode;
-	/** "stacked" — label on top (default, used inside paired wrappers).
-	 *  "grid" — label-LEFT via FieldGrid.Row (operations-consistency layout). */
-	layoutMode?: "stacked" | "grid";
 }) {
-	if (layoutMode === "grid") {
-		return (
-			<FieldGrid.Row
-				label={label}
-				name={name}
-				hint={hint}
-				tooltip={tooltip}
-				error={error}
-				required={required}
-			>
-				{children}
-			</FieldGrid.Row>
-		);
-	}
+	// Satu gaya untuk semua isian: label di atas, 13px. Dulu sebagian label di
+	// kiri (FieldGrid) dan sebagian di atas dengan ukuran lebih besar —
+	// bercampur dalam satu kartu.
 	return (
 		<div className="space-y-1.5">
 			<div className="flex items-center gap-1.5">
-				<label htmlFor={name} className="text-fluid-body font-medium">
+				<label
+					htmlFor={name}
+					className="text-[13px] font-medium leading-snug text-foreground"
+				>
 					{label}
 					{required && <span className="ml-0.5 text-primary">*</span>}
 				</label>
@@ -4621,9 +4550,9 @@ function Field({
 			</div>
 			{children}
 			{error ? (
-				<p className="text-fluid-caption text-destructive">{error}</p>
+				<p className="text-[12px] text-destructive">{error}</p>
 			) : hint ? (
-				<p className="text-fluid-caption text-muted-foreground">{hint}</p>
+				<p className="text-[12px] leading-snug text-muted-foreground">{hint}</p>
 			) : null}
 		</div>
 	);
@@ -4645,5 +4574,15 @@ function HelpTooltip({ text, label }: { text: string; label: string }) {
 			/>
 			<TooltipContent>{text}</TooltipContent>
 		</Tooltip>
+	);
+}
+
+/** Keterangan "menyusul" satu baris — pengganti panel kuning yang ramai. */
+function PendingNote({ children }: { children: React.ReactNode }) {
+	return (
+		<p className="fade-in-on-mount flex items-start gap-1.5 text-[12px] leading-snug text-amber-800 dark:text-amber-300">
+			<AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
+			<span>{children}</span>
+		</p>
 	);
 }

@@ -42,7 +42,9 @@ const STATUS_ICON: Record<
 export function SectionNav({ items }: { items: NavItem[] }) {
 	return (
 		<nav aria-label="Section navigation" className="space-y-1">
-			<p className="eyebrow mb-2">Progress</p>
+			<p className="mb-2 text-[12px] font-semibold text-muted-foreground">
+				Kelengkapan
+			</p>
 			<ul className="flex flex-col gap-0.5">
 				{items.map((item) => {
 					const StatusIcon = STATUS_ICON[item.status].icon;

@@ -207,10 +207,10 @@ export function SummaryRail({
 				<div className="space-y-2">
 					<p className="eyebrow flex items-center gap-1.5">
 						<Wallet className="size-3" aria-hidden strokeWidth={2.25} />
-						Pricing
+						Harga
 					</p>
 					<dl className="space-y-1 text-[12.5px]">
-						<Row label="Base price" value={basePrice} />
+						<Row label="Harga paket" value={basePrice} />
 						{backdropContribution > 0 ? (
 							<Row label="Backdrop" value={backdropContribution} />
 						) : null}
@@ -243,7 +243,7 @@ export function SummaryRail({
 							</>
 						) : null}
 						{discount > 0 ? (
-							<Row label="Discount" value={-discount} muted />
+							<Row label="Diskon" value={-discount} muted />
 						) : null}
 						{grossUp > 0 ? <Row label="Gross-up PPh" value={grossUp} /> : null}
 						<div className="flex items-baseline justify-between gap-3 border-t border-border-default pt-1.5">
@@ -314,7 +314,7 @@ export function SummaryRail({
 					onClick={onCancel}
 					className="inline-flex h-10 items-center justify-center rounded-md border border-border-default bg-card px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
 				>
-					Cancel
+					Batal
 				</button>
 			</div>
 		</aside>
