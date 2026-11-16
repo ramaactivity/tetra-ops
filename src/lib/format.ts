@@ -1,7 +1,11 @@
 const RP_FORMATTER = new Intl.NumberFormat("id-ID");
 
 export function formatRupiah(amount: number): string {
-	return `Rp ${RP_FORMATTER.format(amount)}`;
+	// Negatif: "−Rp 63.841" (tanda di depan), bukan "Rp -63.841" — satu gaya
+	// dengan formatSignedRupiah. PDF punya formatter sendiri (font WinAnsi).
+	return amount < 0
+		? `−Rp ${RP_FORMATTER.format(-amount)}`
+		: `Rp ${RP_FORMATTER.format(amount)}`;
 }
 
 /** Compact Rupiah for dense tables/tiles so values never overflow or wrap:
