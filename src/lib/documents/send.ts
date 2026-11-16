@@ -42,8 +42,8 @@ export async function resolveSendDocument(
 	input: SendDocInput,
 ): Promise<ResolvedSend | { error: string }> {
 	const pesan = input.pesan.trim();
-	if (pesan.length < 20 || pesan.length > 1500)
-		return { error: "pesan wajib diisi, 20–1500 karakter" };
+	// Kosong = PDF saja (bot WA melewati gelembung teks).
+	if (pesan.length > 1500) return { error: "pesan maksimal 1500 karakter" };
 
 	const { data } = await supabase
 		.from("documents")
@@ -84,7 +84,7 @@ export async function resolveSendDocument(
 			doc.doc_number,
 			doc.client.name,
 		).replace(/\.pdf$/, isRevision(doc) ? " (revisi).pdf" : ".pdf"),
-		ringkasan: `Kirim ${jenis} ${doc.doc_number} (${doc.client.name}) ke WA +${nomor} lewat bot Tetra, dengan pesan di bawah + PDF terlampir.`,
+		ringkasan: `Kirim ${jenis} ${doc.doc_number} (${doc.client.name}) ke WA +${nomor} lewat bot Tetra, ${pesan ? "dengan pesan di bawah + PDF terlampir" : "PDF saja tanpa pesan"}.`,
 	};
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCheck, Loader2, Send } from "lucide-react";
+import { CheckCheck, FileText, Loader2, Send } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/actions/documents";
 import type { DocType } from "@/lib/documents/types";
 import { formatDateID, formatRupiah } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { DocTypeBadge } from "./document-status-badge";
 
 /**
@@ -52,6 +53,8 @@ export function SendToClientButton({
 	const [open, setOpen] = useState(false);
 	const [id, setId] = useState<string | null>(documentId);
 	const [pesan, setPesan] = useState("");
+	// PDF selalu terkirim; pesan teks di gelembung terpisah, boleh tidak ada.
+	const [withText, setWithText] = useState(true);
 	const [nomor, setNomor] = useState("");
 	const [pending, start] = useTransition();
 
@@ -70,7 +73,11 @@ export function SendToClientButton({
 	function kirim() {
 		if (!id) return;
 		start(async () => {
-			const res = await sendDocumentToClient(id, pesan, nomor || null);
+			const res = await sendDocumentToClient(
+				id,
+				withText ? pesan : "",
+				nomor || null,
+			);
 			if (!res.ok) {
 				toast.error(res.error);
 				return;
@@ -98,21 +105,53 @@ export function SendToClientButton({
 					<DialogHeader>
 						<DialogTitle>Kirim ke klien via WA</DialogTitle>
 						<DialogDescription>
-							Perubahan disimpan dulu, lalu bot WA Tetra mengirim pesan ini +
-							PDF versi terbaru ke klien. Periksa dulu isinya.
+							Perubahan disimpan dulu, lalu bot WA Tetra mengirim PDF versi
+							terbaru ke klien.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">
-						<div className="space-y-1.5">
-							<span className="text-[13px] font-medium">Pesan</span>
-							<RichTextarea
-								value={pesan}
-								onChange={setPesan}
-								rows={7}
-								maxLength={1500}
-								disabled={pending && !pesan}
-							/>
+						<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1">
+							{(
+								[
+									[true, "PDF + pesan"],
+									[false, "PDF saja"],
+								] as const
+							).map(([v, text]) => (
+								<button
+									key={text}
+									type="button"
+									onClick={() => setWithText(v)}
+									aria-pressed={withText === v}
+									className={cn(
+										"inline-flex h-7 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+										withText === v
+											? "bg-[#059669] text-white"
+											: "text-muted-foreground hover:text-foreground",
+									)}
+								>
+									{text}
+								</button>
+							))}
 						</div>
+						{withText ? (
+							<div className="space-y-1.5">
+								<span className="text-[13px] font-medium">
+									Pesan (dikirim dulu, lalu PDF)
+								</span>
+								<RichTextarea
+									value={pesan}
+									onChange={setPesan}
+									rows={7}
+									maxLength={1500}
+									disabled={pending && !pesan}
+								/>
+							</div>
+						) : (
+							<p className="flex items-center gap-2 rounded-2xl bg-secondary px-3.5 py-2.5 text-[13px] text-muted-foreground">
+								<FileText className="size-4 shrink-0" />
+								Hanya file PDF yang dikirim, tanpa pesan teks.
+							</p>
+						)}
 						<div className="space-y-1.5">
 							<span className="text-[13px] font-medium">
 								Nomor WA (opsional)
@@ -134,7 +173,7 @@ export function SendToClientButton({
 						</Button>
 						<Button
 							onClick={kirim}
-							disabled={pending || pesan.trim().length < 20}
+							disabled={pending || (withText && !pesan.trim())}
 						>
 							{pending ? <Loader2 className="animate-spin" /> : <Send />} Kirim
 						</Button>
