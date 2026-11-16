@@ -11,8 +11,8 @@ import Link from "next/link";
 import type * as React from "react";
 import { CatatLauncher } from "@/components/finance/catat/catat-launcher";
 import { SubGroup, SummaryTile } from "@/components/finance/money-ui";
-import { MonthSwitcher } from "@/components/finance/monthly/month-switcher";
 import { MonthlyReport } from "@/components/finance/monthly-report";
+import { ReportPeriodFilter } from "@/components/finance/report-period-filter";
 import {
 	SinkingBreakdown,
 	type SinkingFundRow,
@@ -24,17 +24,18 @@ import {
 	RekapCard,
 	SectionHeader as SectionHeader2,
 } from "@/components/rekap/rekap-ui";
+import { todayWIB } from "@/lib/dates";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
 import { loadCashAccounts } from "@/lib/finance/cash-accounts";
 import { filterEmoneyAccounts } from "@/lib/finance/emoney";
 import {
 	getMonthlyOverview,
 	monthLabel as monthLabelLong,
-	ymOf,
 } from "@/lib/finance/monthly-data";
 import { getEventExtras, getMonthlyPnl } from "@/lib/finance/monthly-pnl";
 import { loadOwnerShares } from "@/lib/finance/owner-share-data";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
+import { resolvePeriod } from "@/lib/finance/report-period";
 import {
 	listCrewLiabilityGaps,
 	listUnpaidCrew,
@@ -57,6 +58,7 @@ export default async function FinancePage({
 		note?: string;
 		ev?: string;
 		bulan?: string;
+		periode?: string;
 	}>;
 }) {
 	const supabase = await createClient();
@@ -67,6 +69,7 @@ export default async function FinancePage({
 		note: catatNote,
 		ev: catatEventId,
 		bulan,
+		periode,
 	} = await searchParams;
 	const catatData = await loadCatatData();
 
@@ -84,8 +87,6 @@ export default async function FinancePage({
 					eventId: catatEventId,
 				}
 			: undefined;
-
-	const today = new Date();
 
 	// Tanggal tutup buku keuangan (cutoff) — data sebelum ini sudah jadi saldo
 	// awal.
@@ -302,12 +303,16 @@ export default async function FinancePage({
 		utangGl > 0 ? `utang ${formatRupiah(utangGl)}` : null,
 	].filter(Boolean);
 
-	// Laporan bulanan (untung-rugi per event + arus kas) — bulan via ?bulan=.
-	const thisYm = ymOf(today);
-	const reportYm = bulan && /^\d{4}-\d{2}$/.test(bulan) ? bulan : thisYm;
+	// Laporan (untung-rugi per event + arus kas): satu bulan (?bulan=) atau
+	// rentang (?periode=bulan-lalu|3-bulan|tahun-ini|semua). Bulan berjalan WIB.
+	const period = resolvePeriod(
+		{ periode, bulan },
+		todayWIB().slice(0, 7),
+		cutoffDate?.slice(0, 7) ?? null,
+	);
 	const [overview, pnl] = await Promise.all([
-		getMonthlyOverview(supabase, reportYm),
-		getMonthlyPnl(supabase, reportYm),
+		getMonthlyOverview(supabase, period.to, period.from),
+		getMonthlyPnl(supabase, period.from, period.to),
 	]);
 
 	const extrasByEvent = await getEventExtras(
@@ -400,20 +405,14 @@ export default async function FinancePage({
 			{/* 2. Laporan bulanan */}
 			<MonthlyReport
 				pnl={pnl}
-				cash={{
-					opening: overview.current.opening,
-					inflow: overview.current.inflow,
-					outflow: overview.current.outflow,
-					closing: overview.current.closing,
-					outflowForExpense: overview.outflowForExpense,
-					outflowNonExpense: overview.outflowNonExpense,
-				}}
-				monthLabel={monthLabelLong(reportYm)}
+				cash={overview.span}
+				monthLabel={period.label}
+				periodMonths={period.months}
 				freeCash={uangBebas}
 				switcher={
-					<MonthSwitcher
+					<ReportPeriodFilter
+						period={period}
 						months={overview.months}
-						current={reportYm}
 						prevYm={overview.prevYm}
 						nextYm={overview.nextYm}
 						labelOf={Object.fromEntries(

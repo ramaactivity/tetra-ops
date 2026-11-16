@@ -15,6 +15,7 @@ export function MonthSwitcher({
 	prevYm,
 	nextYm,
 	labelOf,
+	placeholder,
 }: {
 	/** Bulan tersedia, ASC. */
 	months: string[];
@@ -23,6 +24,8 @@ export function MonthSwitcher({
 	nextYm: string | null;
 	/** ym → label siap tampil (dihitung di server biar konsisten). */
 	labelOf: Record<string, string>;
+	/** Tampil saat `current` kosong (mis. sedang memakai rentang periode). */
+	placeholder?: string;
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -35,7 +38,8 @@ export function MonthSwitcher({
 		next.set("bulan", ym);
 		next.delete("dari");
 		next.delete("sampai");
-		router.push(`${pathname}?${next}`);
+		next.delete("periode");
+		router.push(`${pathname}?${next}`, { scroll: false });
 	}
 
 	const arrowCls =
@@ -54,6 +58,7 @@ export function MonthSwitcher({
 			</button>
 			<NativeSelect
 				value={current}
+				placeholder={placeholder}
 				onValueChange={(v) => go(v)}
 				options={[...months]
 					.reverse()

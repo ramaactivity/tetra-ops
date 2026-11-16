@@ -34,32 +34,11 @@ type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 /** Akun ekuitas yang menandai jurnal saldo awal / cutoff pembukuan. */
 const OPENING_EQUITY_COA = "3-101";
 
-export const ID_MONTH_NAMES = [
-	"Januari",
-	"Februari",
-	"Maret",
-	"April",
-	"Mei",
-	"Juni",
-	"Juli",
-	"Agustus",
-	"September",
-	"Oktober",
-	"November",
-	"Desember",
-] as const;
+// Nama & label bulan tinggal di lib/dates (aman dipakai client & test);
+// diteruskan dari sini supaya impor lama tetap jalan.
+import { ID_MONTH_NAMES, monthLabel, monthLabelShort } from "@/lib/dates";
 
-export function monthLabel(ym: string): string {
-	const [y, m] = ym.split("-");
-	const idx = Number(m) - 1;
-	return `${ID_MONTH_NAMES[idx] ?? m} ${y}`;
-}
-
-export function monthLabelShort(ym: string): string {
-	const [y, m] = ym.split("-");
-	const idx = Number(m) - 1;
-	return `${(ID_MONTH_NAMES[idx] ?? m).slice(0, 3)} ${y}`;
-}
+export { ID_MONTH_NAMES, monthLabel, monthLabelShort };
 
 /** YYYY-MM dari sebuah tanggal lokal (bukan UTC — hindari geser sehari). */
 export function ymOf(d: Date): string {
@@ -191,6 +170,16 @@ export type MonthlyOverview = {
 	outflowNonExpense: number;
 	/** 12 bulan terakhir, DESC (terbaru dulu). */
 	history: MonthlyRow[];
+	/** Arus kas untuk rentang `spanFrom`..bulan terpilih (= bulan itu saja
+	 *  kalau tanpa spanFrom) — dipakai filter periode di Ringkasan. */
+	span: {
+		opening: number;
+		inflow: number;
+		outflow: number;
+		closing: number;
+		outflowForExpense: number;
+		outflowNonExpense: number;
+	};
 	cutoffDate: string | null;
 	/** Bulan terpilih ada sebelum cutoff → buku belum dimulai. */
 	beforeBooks: boolean;
@@ -207,6 +196,8 @@ type LineRow = {
 export async function getMonthlyOverview(
 	supabase: ServerSupabase,
 	requestedYm?: string,
+	/** Awal rentang (YYYY-MM) untuk `span`; bulan terpilih = akhir rentang. */
+	spanFrom?: string,
 ): Promise<MonthlyOverview> {
 	const [{ data: coaData }, { data: cutoffCfg }, { data: settlementsData }] =
 		await Promise.all([
@@ -504,6 +495,35 @@ export async function getMonthlyOverview(
 
 	const { start: rangeFrom, end: rangeTo } = monthBounds(ym);
 
+	const spanRows = months
+		.filter((mm) => mm >= (spanFrom ?? ym) && mm <= ym)
+		.map(buildRow);
+	const spanOut = spanRows.reduce((t, r) => t + r.outflow, 0);
+	const spanForExpense = spanRows.reduce(
+		(t, r) => t + (expenseCashOutByMonth.get(r.ym) ?? 0),
+		0,
+	);
+	const span = spanRows.length
+		? {
+				opening: spanRows[0].opening,
+				inflow: spanRows.reduce((t, r) => t + r.inflow, 0),
+				outflow: spanOut,
+				closing: spanRows[spanRows.length - 1].closing,
+				outflowForExpense: spanForExpense,
+				outflowNonExpense: Math.max(0, spanOut - spanForExpense),
+			}
+		: {
+				opening: current.opening,
+				inflow: current.inflow,
+				outflow: current.outflow,
+				closing: current.closing,
+				outflowForExpense: expenseCashOutByMonth.get(ym) ?? 0,
+				outflowNonExpense: Math.max(
+					0,
+					current.outflow - (expenseCashOutByMonth.get(ym) ?? 0),
+				),
+			};
+
 	return {
 		months,
 		current,
@@ -522,6 +542,7 @@ export async function getMonthlyOverview(
 			current.outflow - (expenseCashOutByMonth.get(ym) ?? 0),
 		),
 		history,
+		span,
 		cutoffDate,
 		beforeBooks: Boolean(cutoffDate && ym < cutoffDate.slice(0, 7)),
 	};

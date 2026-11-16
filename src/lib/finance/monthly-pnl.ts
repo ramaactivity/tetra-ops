@@ -100,22 +100,37 @@ const LINE_COLS = `account_code, debit_amount, credit_amount,
 export async function getMonthlyPnl(
 	supabase: ServerSupabase,
 	ym: string,
+	/** Akhir rentang (YYYY-MM, inklusif) — default satu bulan `ym`. */
+	toYm: string = ym,
 ): Promise<MonthlyPnl> {
-	const [y, m] = ym.split("-").map(Number);
+	const [y, m] = toYm.split("-").map(Number);
 	const start = `${ym}-01`;
-	const end = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+	const end = `${toYm}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
 
-	const { data: evRows } = await supabase
-		.from("events")
-		.select(
-			`id, project_id, client_name, event_date, grand_total,
+	const [{ data: evRows }, { data: cutoffCfg }] = await Promise.all([
+		supabase
+			.from("events")
+			.select(
+				`id, project_id, client_name, event_date, grand_total,
 			 settlement:event_settlements(revenue_net, hpp_total, opex_total, komisi_vendor, komisi_relasi, komisi_sales_direct, net_profit, is_reopened)`,
-		)
-		.gte("event_date", start)
-		.lte("event_date", end)
-		.neq("status", "cancelled")
-		.is("deleted_at", null)
-		.order("event_date");
+			)
+			.gte("event_date", start)
+			.lte("event_date", end)
+			.neq("status", "cancelled")
+			.is("deleted_at", null)
+			.order("event_date"),
+		supabase
+			.from("system_config")
+			.select("value")
+			.eq("key", "finance_cutoff_date")
+			.maybeSingle(),
+	]);
+	// Acara sebelum tutup buku dibekukan saat cutoff — tidak akan pernah
+	// di-settle, jadi bukan "belum di-settle" (dulu Juni tampil 9 event).
+	const cutoff =
+		typeof cutoffCfg?.value === "string" && cutoffCfg.value
+			? cutoffCfg.value
+			: null;
 
 	type SettleRow = {
 		revenue_net: number;
@@ -146,7 +161,7 @@ export async function getMonthlyPnl(
 				extra: 0,
 				profit: 0,
 			});
-		} else {
+		} else if (!cutoff || (e.event_date as string) >= cutoff) {
 			pending.push({
 				projectId: e.project_id as string,
 				name: e.client_name as string,
@@ -200,12 +215,13 @@ export async function getMonthlyPnl(
 		if (e.source_type === "payment") {
 			if (isCash(code)) {
 				const evMonth = one(e.event)?.event_date?.slice(0, 7) ?? ym;
+				// "Bulan ini" = di dalam rentang; sesudah/sebelum rentang dipisah.
 				const k =
-					evMonth === ym
-						? "sameMonth"
-						: evMonth > ym
-							? "futureEvents"
-							: "pastEvents";
+					evMonth > toYm
+						? "futureEvents"
+						: evMonth < ym
+							? "pastEvents"
+							: "sameMonth";
 				clientCash[k] += d;
 			}
 			continue;

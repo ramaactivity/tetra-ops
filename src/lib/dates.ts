@@ -44,3 +44,30 @@ export function timeAgo(iso: string): string {
 	if (Math.abs(months) < 12) return RELATIVE.format(months, "month");
 	return RELATIVE.format(Math.round(days / 365), "year");
 }
+
+export const ID_MONTH_NAMES = [
+	"Januari",
+	"Februari",
+	"Maret",
+	"April",
+	"Mei",
+	"Juni",
+	"Juli",
+	"Agustus",
+	"September",
+	"Oktober",
+	"November",
+	"Desember",
+] as const;
+
+export function monthLabel(ym: string): string {
+	const [y, m] = ym.split("-");
+	const idx = Number(m) - 1;
+	return `${ID_MONTH_NAMES[idx] ?? m} ${y}`;
+}
+
+export function monthLabelShort(ym: string): string {
+	const [y, m] = ym.split("-");
+	const idx = Number(m) - 1;
+	return `${(ID_MONTH_NAMES[idx] ?? m).slice(0, 3)} ${y}`;
+}

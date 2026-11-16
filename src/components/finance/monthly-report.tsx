@@ -43,12 +43,15 @@ export function MonthlyReport({
 	pnl,
 	cash,
 	monthLabel,
+	periodMonths = 1,
 	switcher,
 	freeCash,
 }: {
 	pnl: MonthlyPnl;
 	cash: MonthlyCash;
 	monthLabel: string;
+	/** Panjang rentang (bulan). >1 → teks "periode ini" & rata-rata per bulan. */
+	periodMonths?: number;
 	/** MonthSwitcher (client) — diteruskan dari page. */
 	switcher: React.ReactNode;
 	/** Uang "bebas dipakai" SAAT INI — untuk daya tahan kas. */
@@ -61,10 +64,16 @@ export function MonthlyReport({
 	const totalBiaya = biayaEvent + pnl.overhead;
 	const rugi = pnl.net < 0;
 	const n = pnl.events.length;
+	const multi = periodMonths > 1;
+	const scope = multi ? "periode ini" : "bulan ini";
 	const avgEventProfit = n > 0 ? pnl.eventProfit / n : 0;
+	// Titik impas & daya tahan kas selalu per BULAN — rentang panjang dirata-rata.
+	const overheadPerMonth = pnl.overhead / periodMonths;
+	const eventsPerMonth = n / periodMonths;
 	const impas =
-		avgEventProfit > 0 ? Math.ceil(pnl.overhead / avgEventProfit) : null;
-	const bulanTahan = pnl.overhead > 0 ? freeCash / pnl.overhead : null;
+		avgEventProfit > 0 ? Math.ceil(overheadPerMonth / avgEventProfit) : null;
+	const bulanTahan = overheadPerMonth > 0 ? freeCash / overheadPerMonth : null;
+	const dec = (x: number) => x.toFixed(1).replace(".", ",").replace(/,0$/, "");
 
 	const pBahan = pct(pnl.hpp, pendapatan);
 	const pCrew = pct(crewJalan, pendapatan);
@@ -118,7 +127,7 @@ export function MonthlyReport({
 						pct: pNet,
 						target: "Idealnya 20% atau lebih",
 						status: pNet >= 20 ? "baik" : pNet >= 10 ? "cek" : "buruk",
-						note: "Sisa setelah SEMUA biaya bulan ini.",
+						note: `Sisa setelah SEMUA biaya ${scope}.`,
 					},
 				]
 			: [];
@@ -171,14 +180,14 @@ export function MonthlyReport({
 				<SectionHeader
 					icon={Calculator}
 					title={`Laporan ${monthLabel}`}
-					description="Untung-rugi dihitung dari event yang berlangsung bulan ini — bukan dari uang yang kebetulan masuk."
+					description={`Untung-rugi dihitung dari event yang berlangsung ${scope} — bukan dari uang yang kebetulan masuk.`}
 				/>
 				{switcher}
 			</div>
 
 			{pnl.pending.length > 0 && (
 				<Note>
-					{pnl.pending.length} event bulan ini belum di-settle (
+					{pnl.pending.length} event {scope} belum di-settle (
 					<span className="tabular">
 						{rp(pnl.pending.reduce((s, p) => s + p.grandTotal, 0))}
 					</span>
@@ -187,7 +196,7 @@ export function MonthlyReport({
 				</Note>
 			)}
 
-			{/* Sehat nggak bulan ini? */}
+			{/* Sehat nggak bulan/periode ini? */}
 			{ratios.length > 0 && (
 				<section className="space-y-3 rounded-2xl border border-border-subtle bg-secondary/40 p-4">
 					<div className="flex flex-wrap items-start justify-between gap-2">
@@ -197,7 +206,7 @@ export function MonthlyReport({
 							</span>
 							<div className="min-w-0">
 								<h4 className="text-[14px] font-semibold text-foreground">
-									Sehat nggak bulan ini?
+									Sehat nggak {scope}?
 								</h4>
 								<p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">
 									{worst === "baik"
@@ -233,11 +242,16 @@ export function MonthlyReport({
 							<Insight icon={<Scale className="size-4" aria-hidden />}>
 								Satu event rata-rata untung{" "}
 								<b className="tabular">{rp(avgEventProfit)}</b>, biaya bulanan{" "}
-								<b className="tabular">{rp(pnl.overhead)}</b>. Butuh{" "}
-								<b>{impas} event</b> sebulan supaya biaya bulanan tertutup —{" "}
-								{n >= impas
-									? `bulan ini ada ${n}, sudah lewat titik impas.`
-									: `bulan ini baru ${n}, kurang ${impas - n} event.`}
+								<b className="tabular">{rp(overheadPerMonth)}</b>
+								{multi ? " per bulan" : ""}. Butuh <b>{impas} event</b> sebulan
+								supaya biaya bulanan tertutup —{" "}
+								{multi
+									? eventsPerMonth >= impas
+										? `periode ini rata-rata ${dec(eventsPerMonth)} event per bulan, sudah lewat titik impas.`
+										: `periode ini rata-rata ${dec(eventsPerMonth)} event per bulan, kurang ${dec(impas - eventsPerMonth)} per bulan.`
+									: n >= impas
+										? `bulan ini ada ${n}, sudah lewat titik impas.`
+										: `bulan ini baru ${n}, kurang ${impas - n} event.`}
 							</Insight>
 						)}
 						{bulanTahan !== null && (
@@ -261,7 +275,7 @@ export function MonthlyReport({
 			<Step
 				n={1}
 				title="Uang dari event"
-				description="Harga paket + add-on − diskon, dari event bulan ini yang sudah selesai."
+				description={`Harga paket + add-on − diskon, dari event ${scope} yang sudah selesai.`}
 				total={pendapatan}
 				groups={[
 					{
@@ -290,7 +304,7 @@ export function MonthlyReport({
 			/>
 
 			<ResultRow
-				label={rugi ? "Rugi bersih bulan ini" : "Untung bersih bulan ini"}
+				label={rugi ? `Rugi bersih ${scope}` : `Untung bersih ${scope}`}
 				sub={
 					pendapatan > 0
 						? `Uang dari event − semua biaya · ${pNet.toFixed(1).replace(".", ",")}% dari pendapatan`
@@ -335,14 +349,18 @@ export function MonthlyReport({
 						title: "Uang masuk dari klien",
 						hint: "dipilah menurut bulan eventnya",
 						lines: [
-							{ label: "Event bulan ini", value: pnl.clientCash.sameMonth },
+							{ label: `Event ${scope}`, value: pnl.clientCash.sameMonth },
 							{
-								label: "DP/pelunasan event bulan depan dst.",
+								label: multi
+									? "DP/pelunasan event sesudah periode ini"
+									: "DP/pelunasan event bulan depan dst.",
 								value: pnl.clientCash.futureEvents,
 								note: "titipan, belum untung",
 							},
 							{
-								label: "Pelunasan event bulan lalu",
+								label: multi
+									? "Pelunasan event sebelum periode ini"
+									: "Pelunasan event bulan lalu",
 								value: pnl.clientCash.pastEvents,
 							},
 						],
@@ -383,7 +401,7 @@ export function MonthlyReport({
 						</p>
 					)}
 					<p>
-						Sebaliknya, bahan dari stok lama tetap jadi biaya walau bulan ini
+						Sebaliknya, bahan dari stok lama tetap jadi biaya walau {scope}{" "}
 						tidak ada uang keluar untuk membelinya.
 					</p>
 				</div>
