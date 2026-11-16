@@ -2,11 +2,9 @@ import {
 	AlertOctagon,
 	AlertTriangle,
 	Boxes,
-	CalendarClock,
 	CheckCircle2,
 	Layers,
 	Plus,
-	ShoppingCart,
 	Wallet2,
 } from "lucide-react";
 import Link from "next/link";
@@ -468,19 +466,19 @@ export default async function WarehousePage({
 					: "/warehouse/items/new";
 	const primaryActionLabel =
 		tab === "bundles"
-			? "Tambah Bundle"
+			? "Tambah set"
 			: tab === "fixed_asset"
-				? "Tambah Aset"
+				? "Tambah aset"
 				: tab === "consumables"
-					? "Tambah Persediaan"
-					: "Tambah Item";
+					? "Tambah persediaan"
+					: "Tambah barang";
 
 	return (
 		<Container size="xl" className="space-y-3">
 			<WarehouseRealtimeSync />
 			<SectionHeader
 				title="Warehouse"
-				description="Track stok consumables, equipment, supplier, dan log mutasi."
+				description="Stok persediaan, alat, supplier, dan riwayat keluar-masuk barang."
 				actions={
 					<Link
 						href={primaryActionHref}
@@ -504,158 +502,122 @@ export default async function WarehousePage({
 				</div>
 			)}
 
-			<KpiRow>
-				{tab === "forecast" && forecast ? (
-					<>
-						<KpiCard
-							label="Event mendatang"
-							value={forecast.upcoming_count.toLocaleString("id-ID")}
-							hint="status upcoming"
-							icon={CalendarClock}
-							accent="primary"
-						/>
-						<KpiCard
-							label="Item perlu dibeli"
-							value={
-								forecast.stock_unknown
-									? "—"
-									: forecast.rows.length.toLocaleString("id-ID")
-							}
-							hint="estimasi kurang utk event"
-							icon={ShoppingCart}
-							accent={forecast.rows.length > 0 ? "rose" : "emerald"}
-						/>
-						<KpiCard
-							label="Estimasi belanja"
-							value={
-								forecast.stock_unknown
-									? "—"
-									: formatRupiah(forecast.total_est_cost)
-							}
-							hint="perkiraan total kekurangan"
-							icon={Wallet2}
-							accent="amber"
-						/>
-						<KpiCard
-							label="Dasar estimasi"
-							value={
-								forecast.events_observed > 0
-									? `${forecast.events_observed} event`
-									: "—"
-							}
-							hint="rata-rata pemakaian lalu"
-							icon={Layers}
-							accent="sky"
-						/>
-					</>
-				) : tab === "bundles" ? (
-					<>
-						<KpiCard
-							label="Bundle Aktif"
-							value={bundlesActiveCount.toLocaleString("id-ID")}
-							hint={`dari ${bundleRows.length} total recipe`}
-							icon={Boxes}
-							accent="primary"
-						/>
-						<KpiCard
-							label="Siap Pakai"
-							value={
-								bundlesActiveCount === 0
-									? "—"
-									: `${bundlesActiveCount - bundlesIncompleteCount} / ${bundlesActiveCount}`
-							}
-							hint={
-								bundlesIncompleteCount === 0 && bundlesActiveCount > 0
-									? "semua bundle stok cukup"
-									: `${bundlesIncompleteCount} bundle komponen habis`
-							}
-							icon={CheckCircle2}
-							accent={bundlesIncompleteCount === 0 ? "emerald" : "amber"}
-						/>
-						<KpiCard
-							label="Total Recipe Value"
-							value={formatRupiah(bundlesTotalHpp)}
-							hint="Σ estimasi HPP per 1× bundle"
-							icon={Wallet2}
-							accent="sky"
-						/>
-						<KpiCard
-							label="Avg Komponen / Bundle"
-							value={
-								bundleRows.length > 0
-									? (
-											bundleRows.reduce((s, b) => s + b.componentCount, 0) /
-											bundleRows.length
-										).toFixed(1)
-									: "—"
-							}
-							hint="rata-rata komponen per recipe"
-							icon={Layers}
-						/>
-					</>
-				) : tab === "consumables" ? (
-					// Persediaan (simple surface) — no finance figure; HPP moves to Lanjutan.
-					<>
-						<KpiCard
-							label="SKU Aktif"
-							value={totalSkus.toLocaleString("id-ID")}
-							hint={`${consumables.length} consumable · ${equipment.length} equipment`}
-							icon={Layers}
-							accent="sky"
-						/>
-						<KpiCard
-							label="Stok Kritis"
-							value={
-								stockLoadFailed ? "—" : criticalCount.toLocaleString("id-ID")
-							}
-							hint="≤ min alert (perlu restock)"
-							icon={AlertTriangle}
-							accent="amber"
-						/>
-						<KpiCard
-							label="Stok Habis"
-							value={stockLoadFailed ? "—" : emptyCount.toLocaleString("id-ID")}
-							hint="stok 0 atau minus"
-							icon={AlertOctagon}
-							accent="rose"
-						/>
-					</>
-				) : (
-					// Lanjutan / Aset / Market / Log Mutasi — full finance summary incl HPP.
-					<>
-						<KpiCard
-							label="Nilai Stok"
-							value={stockLoadFailed ? "—" : formatRupiah(totalHpp)}
-							hint="Σ stok × harga rata-rata"
-							icon={Wallet2}
-							accent="primary"
-						/>
-						<KpiCard
-							label="SKU Aktif"
-							value={totalSkus.toLocaleString("id-ID")}
-							hint={`${consumables.length} consumable · ${equipment.length} equipment`}
-							icon={Layers}
-							accent="sky"
-						/>
-						<KpiCard
-							label="Stok Kritis"
-							value={
-								stockLoadFailed ? "—" : criticalCount.toLocaleString("id-ID")
-							}
-							hint="≤ min alert (perlu restock)"
-							icon={AlertTriangle}
-							accent="amber"
-						/>
-						<KpiCard
-							label="Stok Habis"
-							value={stockLoadFailed ? "—" : emptyCount.toLocaleString("id-ID")}
-							hint="stok 0 atau minus"
-							icon={AlertOctagon}
-							accent="rose"
-						/>
-					</>
-				)}
-			</KpiRow>
+			{/* Kebutuhan Event merangkum dirinya sendiri di ForecastView. */}
+			{tab !== "forecast" && (
+				<KpiRow>
+					{tab === "bundles" ? (
+						<>
+							<KpiCard
+								label="Set aktif"
+								value={bundlesActiveCount.toLocaleString("id-ID")}
+								hint={`dari ${bundleRows.length} set`}
+								icon={Boxes}
+								accent="primary"
+							/>
+							<KpiCard
+								label="Siap dipakai"
+								value={
+									bundlesActiveCount === 0
+										? "—"
+										: `${bundlesActiveCount - bundlesIncompleteCount} / ${bundlesActiveCount}`
+								}
+								hint={
+									bundlesIncompleteCount === 0 && bundlesActiveCount > 0
+										? "stok semua set cukup"
+										: `${bundlesIncompleteCount} set kekurangan komponen`
+								}
+								icon={CheckCircle2}
+								accent={bundlesIncompleteCount === 0 ? "emerald" : "amber"}
+							/>
+							<KpiCard
+								label="Nilai bahan semua set"
+								value={formatRupiah(bundlesTotalHpp)}
+								hint="perkiraan HPP, 1× tiap set"
+								icon={Wallet2}
+								accent="sky"
+							/>
+							<KpiCard
+								label="Rata-rata komponen"
+								value={
+									bundleRows.length > 0
+										? (
+												bundleRows.reduce((s, b) => s + b.componentCount, 0) /
+												bundleRows.length
+											).toLocaleString("id-ID", { maximumFractionDigits: 1 })
+										: "—"
+								}
+								hint="per set"
+								icon={Layers}
+							/>
+						</>
+					) : tab === "consumables" ? (
+						// Persediaan (simple surface) — no finance figure; HPP moves to Lanjutan.
+						<>
+							<KpiCard
+								label="Barang aktif"
+								value={totalSkus.toLocaleString("id-ID")}
+								hint={`${consumables.length} persediaan · ${equipment.length} alat`}
+								icon={Layers}
+								accent="sky"
+							/>
+							<KpiCard
+								label="Stok menipis"
+								value={
+									stockLoadFailed ? "—" : criticalCount.toLocaleString("id-ID")
+								}
+								hint="di bawah batas minimum"
+								icon={AlertTriangle}
+								accent="amber"
+							/>
+							<KpiCard
+								label="Stok habis"
+								value={
+									stockLoadFailed ? "—" : emptyCount.toLocaleString("id-ID")
+								}
+								hint="stok 0 atau minus"
+								icon={AlertOctagon}
+								accent="rose"
+							/>
+						</>
+					) : (
+						// Lanjutan / Aset / Market / Log Mutasi — full finance summary incl HPP.
+						<>
+							<KpiCard
+								label="Nilai stok"
+								value={stockLoadFailed ? "—" : formatRupiah(totalHpp)}
+								hint="stok × harga rata-rata"
+								icon={Wallet2}
+								accent="primary"
+							/>
+							<KpiCard
+								label="Barang aktif"
+								value={totalSkus.toLocaleString("id-ID")}
+								hint={`${consumables.length} persediaan · ${equipment.length} alat`}
+								icon={Layers}
+								accent="sky"
+							/>
+							<KpiCard
+								label="Stok menipis"
+								value={
+									stockLoadFailed ? "—" : criticalCount.toLocaleString("id-ID")
+								}
+								hint="di bawah batas minimum"
+								icon={AlertTriangle}
+								accent="amber"
+							/>
+							<KpiCard
+								label="Stok habis"
+								value={
+									stockLoadFailed ? "—" : emptyCount.toLocaleString("id-ID")
+								}
+								hint="stok 0 atau minus"
+								icon={AlertOctagon}
+								accent="rose"
+							/>
+						</>
+					)}
+				</KpiRow>
+			)}
 
 			<div className="space-y-3">
 				{tab === "advanced" && <AdvancedLanding />}
@@ -683,14 +645,14 @@ export default async function WarehousePage({
 					<div className="space-y-3">
 						<div className="bg-surface-3 flex items-center justify-between rounded-md px-3 py-2 text-[12px]">
 							<span className="text-muted-foreground">
-								Tampilan operasional — kondisi, lokasi, check-out.
+								Kondisi, lokasi, dan siapa yang membawa.
 							</span>
 							<Link
 								href="/warehouse/assets"
 								className="text-primary inline-flex items-center gap-1 font-medium hover:underline"
 							>
 								<Wallet2 className="size-3.5" />
-								Asset Register (Financial)
+								Daftar aset (keuangan)
 							</Link>
 						</div>
 						<EquipmentTable rows={equipment} />

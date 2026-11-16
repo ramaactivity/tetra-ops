@@ -33,7 +33,13 @@ export function ForecastView({
 	pembelianCashAccounts?: Array<{ code: string; name: string }>;
 	pembelianSinkingFunds?: Array<{ id: string; name: string; balance: number }>;
 }) {
-	const { upcoming_count, events_observed, rows, stock_unknown } = result;
+	const {
+		upcoming_count,
+		events_observed,
+		rows,
+		stock_unknown,
+		total_est_cost,
+	} = result;
 
 	// ── Honest empty / edge states ───────────────────────────────────────────
 	if (stock_unknown) {
@@ -165,14 +171,21 @@ export function ForecastView({
 
 	return (
 		<div className="space-y-3">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<p className="max-w-xl text-[13px] leading-snug text-muted-foreground">
-					Estimasi dari rata-rata pemakaian {events_observed} event sebelumnya ×{" "}
-					{upcoming_count} event mendatang.{" "}
-					<span className="text-muted-foreground/60">
-						Angka perkiraan, bukan pasti.
-					</span>
-				</p>
+			{/* Ringkasan satu kalimat (dulu 4 kotak KPI + kalimat yang mengulang). */}
+			<div className="flex flex-col gap-3 rounded-2xl border border-border-subtle bg-card px-4 py-3.5 shadow-[var(--shadow-level-1)] sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
+					<p className="text-[15px] font-semibold text-foreground">
+						{rows.length} barang kurang untuk {upcoming_count} acara mendatang
+					</p>
+					<p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">
+						Perkiraan belanja{" "}
+						<span className="tabular font-medium text-foreground">
+							{formatRupiah(total_est_cost)}
+						</span>{" "}
+						· dari rata-rata pemakaian {events_observed} acara terakhir (angka
+						perkiraan, bukan pasti)
+					</p>
+				</div>
 				<PembelianDialog
 					trigger={
 						<span className={buttonVariants({ variant: "default" })}>

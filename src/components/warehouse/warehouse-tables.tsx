@@ -188,7 +188,7 @@ function StockStateBadge({ state }: { state: StockState }) {
 			cls: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
 		},
 		kritis: {
-			label: "Kritis",
+			label: "Menipis",
 			cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 		},
 	} as const;
@@ -737,9 +737,9 @@ export function ConsumablesTable({
 	}> = [
 		{ key: "all", label: "Semua", count: counts.all },
 		{ key: "habis", label: "Habis", count: counts.habis },
-		{ key: "kritis", label: "Kritis", count: counts.kritis },
+		{ key: "kritis", label: "Menipis", count: counts.kritis },
 		{ key: "aman", label: "Aman", count: counts.aman },
-		{ key: "inactive", label: "Inactive", count: counts.inactive },
+		{ key: "inactive", label: "Nonaktif", count: counts.inactive },
 	];
 
 	return (
@@ -759,7 +759,7 @@ export function ConsumablesTable({
 									title={`Buka Catat Pembelian dengan ${restockKritisIds.length} item kritis pre-loaded`}
 								>
 									<ShoppingCart className="size-3.5" />
-									Belanja Kritis
+									Belanja yang menipis
 									<span className="tabular text-[11px] opacity-80">
 										{restockKritisIds.length}
 									</span>
@@ -923,7 +923,7 @@ function classifyAssetStatus(
 ): { label: string; tone: string } {
 	if (!isActive) {
 		return {
-			label: "Inactive",
+			label: "Nonaktif",
 			tone: "border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
 		};
 	}
