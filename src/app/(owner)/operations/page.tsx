@@ -502,7 +502,7 @@ export default async function OperationsListPage({
 							})}
 						>
 							<Plus className="size-3.5" />
-							<span className="hidden sm:inline">New booking</span>
+							<span className="hidden sm:inline">Booking baru</span>
 						</Link>
 					</>
 				}
@@ -603,7 +603,7 @@ export default async function OperationsListPage({
 						description={
 							hasFilters
 								? "Coba ubah atau hapus filter di atas."
-								: "Klik New booking buat bikin event pertama. Bookingan masuk akan muncul di sini."
+								: "Klik Booking baru buat bikin event pertama. Bookingan masuk akan muncul di sini."
 						}
 						action={
 							!hasFilters ? (
@@ -612,7 +612,7 @@ export default async function OperationsListPage({
 									className={buttonVariants({ variant: "default" })}
 								>
 									<Plus className="size-4" />
-									New booking
+									Booking baru
 								</Link>
 							) : undefined
 						}

@@ -136,10 +136,14 @@ export default async function OperationsCalendarPage({
 						<OperationsViewSwitcher current="calendar" />
 						<Link
 							href="/operations/new"
-							className={buttonVariants({ variant: "default" })}
+							aria-label="Booking baru"
+							className={buttonVariants({
+								variant: "default",
+								className: "h-9",
+							})}
 						>
-							<Plus className="size-4" />
-							New booking
+							<Plus className="size-3.5" />
+							<span className="hidden sm:inline">Booking baru</span>
 						</Link>
 					</>
 				}
@@ -172,9 +176,9 @@ export default async function OperationsCalendarPage({
 					{monthLabelID(year, monthIndex)}
 				</h2>
 				<div className="hidden gap-3 sm:flex">
-					<LegendDot tone="bg-primary" label="Upcoming" />
-					<LegendDot tone="bg-amber-500" label="In Progress" />
-					<LegendDot tone="bg-emerald-500" label="Done" />
+					<LegendDot tone="bg-primary" label="Mendatang" />
+					<LegendDot tone="bg-amber-500" label="Berlangsung" />
+					<LegendDot tone="bg-emerald-500" label="Selesai" />
 				</div>
 			</div>
 

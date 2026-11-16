@@ -207,10 +207,14 @@ export default async function OperationsBoardPage() {
 						<OperationsViewSwitcher current="board" />
 						<Link
 							href="/operations/new"
-							className={buttonVariants({ variant: "default" })}
+							aria-label="Booking baru"
+							className={buttonVariants({
+								variant: "default",
+								className: "h-9",
+							})}
 						>
-							<Plus className="size-4" />
-							New booking
+							<Plus className="size-3.5" />
+							<span className="hidden sm:inline">Booking baru</span>
 						</Link>
 					</>
 				}

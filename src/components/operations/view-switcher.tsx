@@ -18,10 +18,10 @@ const VIEWS: Array<{
 	href: string;
 	icon: typeof List;
 }> = [
-	{ value: "list", label: "List", href: "/operations", icon: List },
+	{ value: "list", label: "Daftar", href: "/operations", icon: List },
 	{
 		value: "calendar",
-		label: "Calendar",
+		label: "Kalender",
 		href: "/operations/calendar",
 		icon: Calendar,
 	},
@@ -33,7 +33,7 @@ const VIEWS: Array<{
 	},
 	{
 		value: "team",
-		label: "Team",
+		label: "Tim",
 		href: "/operations/team",
 		icon: UsersRound,
 	},

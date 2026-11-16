@@ -66,9 +66,9 @@ const SEVERITY_TONE: Record<
 };
 
 const RESOLUTION_LABEL: Record<string, string> = {
-	pending: "Pending",
-	in_progress: "In Progress",
-	resolved: "Resolved",
+	pending: "Menunggu",
+	in_progress: "Diproses",
+	resolved: "Selesai",
 };
 
 export default async function EventEquipmentPage({

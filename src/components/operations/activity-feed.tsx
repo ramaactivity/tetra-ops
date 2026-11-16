@@ -6,6 +6,7 @@ import {
 	RefreshCw,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { EVENT_STATUS_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -19,17 +20,12 @@ type Audit = {
 	actor: { full_name: string } | null;
 };
 
+// Satu sumber label status acara (lib/format); dua status lama di bawah
+// tidak ada lagi di EVENT_STATUS_LABELS tapi masih bisa muncul di log lama.
 const STATUS_LABELS: Record<string, string> = {
-	draft: "Draft",
-	confirmed: "Confirmed",
-	design_brief: "Design Brief",
-	design_approved: "Design Approved",
-	upcoming: "Upcoming",
-	in_progress: "In Progress",
-	awaiting_settlement: "Awaiting Settlement",
-	completed: "Completed",
-	cancelled: "Cancelled",
-	archived: "Archived",
+	...EVENT_STATUS_LABELS,
+	design_brief: "Brief desain",
+	design_approved: "Desain di-ACC",
 };
 
 function formatDateTime(iso: string): string {
