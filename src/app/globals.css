@@ -885,4 +885,50 @@
   /* Headings set in the app default to balanced wrapping for tidy line breaks. */
   h1, h2, h3 { text-wrap: balance; }
   p { text-wrap: pretty; }
+
+  /* Kotak centang bawaan browser → gaya app (DESIGN.md: tanpa kontrol
+     native). Semantik & form tetap native; hanya tampilannya. Ukuran dari
+     utility (h-4 w-4 / size-3.5) tetap menang. */
+  input[type="checkbox"]:not(.sr-only) {
+    appearance: none;
+    flex-shrink: 0;
+    inline-size: 1rem;
+    block-size: 1rem;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--card) center / 80% no-repeat;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+  input[type="checkbox"]:not(.sr-only):checked,
+  input[type="checkbox"]:not(.sr-only):indeterminate {
+    border-color: #059669;
+    background-color: #059669;
+  }
+  input[type="checkbox"]:not(.sr-only):checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:not(.sr-only):indeterminate {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
+  }
+  input[type="checkbox"]:not(.sr-only):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"]:not(.sr-only):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Kotak angka: tanpa panah naik-turun bawaan (roda mouse dijaga terpisah
+     oleh NumberWheelGuard). */
+  input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }

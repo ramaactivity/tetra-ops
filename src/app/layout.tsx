@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Manrope } from "next/font/google";
 import { cookies } from "next/headers";
 import { ServiceWorkerRegister } from "@/components/push/sw-register";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { NumberWheelGuard } from "@/components/ui/number-wheel-guard";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -95,6 +96,7 @@ export default async function RootLayout({
 		>
 			<body className="flex min-h-dvh flex-col bg-transparent text-foreground">
 				<ServiceWorkerRegister />
+				<NumberWheelGuard />
 				<ConfirmProvider>{children}</ConfirmProvider>
 				<Toaster />
 			</body>
