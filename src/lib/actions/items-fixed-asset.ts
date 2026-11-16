@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { baseSkuOf } from "@/lib/inventory/asset-models";
 import { qualifiesAsFixedAsset } from "@/lib/inventory/capitalization-policy";
 import { defaultsForFixedAsset } from "@/lib/inventory/coa-defaults";
@@ -355,8 +356,7 @@ export async function createFixedAssetItem(
 				.from("journal_entries")
 				.insert({
 					ref_id: journalRef,
-					entry_date:
-						data.purchase_date ?? new Date().toISOString().slice(0, 10),
+					entry_date: data.purchase_date ?? todayWIB(),
 					entry_type: "adjustment",
 					description: `Setoran Modal Owner — ${name} (${sku})`,
 					source_type: "owner_contribution",

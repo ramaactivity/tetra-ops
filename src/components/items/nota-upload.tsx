@@ -2,6 +2,7 @@
 
 import { Loader2, Paperclip, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { todayWIB } from "@/lib/dates";
 
 /**
  * Unggah foto/PDF nota langsung dari form Tambah Item.
@@ -44,7 +45,7 @@ export function NotaUpload({
 				"description",
 				`Pembelian ${itemName.trim() || "item baru"}`.slice(0, 200),
 			);
-			fd.set("nota_date", new Date().toISOString().slice(0, 10));
+			fd.set("nota_date", todayWIB());
 			if (amount > 0) fd.set("amount", String(Math.round(amount)));
 			const res = await fetch("/api/drive/upload/manual", {
 				method: "POST",

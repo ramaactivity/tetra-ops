@@ -4,6 +4,7 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import { createClient } from "@/lib/supabase/server";
 
@@ -459,7 +460,7 @@ export async function unpayCommission(input: {
 			.maybeSingle();
 
 		if (origEntry && !origEntry.is_reversed) {
-			const today = new Date().toISOString().slice(0, 10);
+			const today = todayWIB();
 			const { data: rev, error: revErr } = await supabase
 				.from("journal_entries")
 				.insert({

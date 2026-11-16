@@ -10,8 +10,9 @@ import {
 	withTimeout,
 } from "@/lib/csv-import/resilience";
 import type { ImportResult } from "@/lib/csv-import/types";
-import { createClient } from "@/lib/supabase/server";
 import { revalidateDashboard } from "@/lib/dashboard/stats";
+import { todayWIB } from "@/lib/dates";
+import { createClient } from "@/lib/supabase/server";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Auth
@@ -196,8 +197,7 @@ function resolveBackdrop(
 		}
 	}
 	const m = backdrops.find(
-		(b) =>
-			b.name.toLowerCase().includes(v) || v.includes(b.name.toLowerCase()),
+		(b) => b.name.toLowerCase().includes(v) || v.includes(b.name.toLowerCase()),
 	);
 	if (m) return { id: m.id };
 	const fallback = backdrops.find((b) => b.code === "BG-BASIC-GOLD");
@@ -253,8 +253,7 @@ function resolvePackage(
 	const m = packages.find((p) => p.name.toLowerCase() === v);
 	if (m) return m.id;
 	const fuzzy = packages.find(
-		(p) =>
-			p.name.toLowerCase().includes(v) || v.includes(p.name.toLowerCase()),
+		(p) => p.name.toLowerCase().includes(v) || v.includes(p.name.toLowerCase()),
 	);
 	return fuzzy?.id ?? null;
 }
@@ -380,10 +379,7 @@ async function commitProjectImportInner(
 	] = await Promise.all([
 		withRetry(() => supabase.from("backdrops").select("id, code, name")),
 		withRetry(() =>
-			supabase
-				.from("event_types")
-				.select("code, label")
-				.eq("is_active", true),
+			supabase.from("event_types").select("code, label").eq("is_active", true),
 		),
 		withRetry(() => supabase.from("packages").select("id, name")),
 		withRetry(() =>
@@ -418,7 +414,9 @@ async function commitProjectImportInner(
 	]);
 
 	const existingProjectIds = new Set<string>();
-	for (const r of (existingProjectRows ?? []) as Array<{ project_id: string }>) {
+	for (const r of (existingProjectRows ?? []) as Array<{
+		project_id: string;
+	}>) {
 		existingProjectIds.add(r.project_id);
 	}
 
@@ -437,7 +435,7 @@ async function commitProjectImportInner(
 		if (c.legacy_contact_id) contactsByLegacy.set(c.legacy_contact_id, c);
 	}
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 
 	let archivedCount = 0;
 	let liveCount = 0;
@@ -510,7 +508,11 @@ async function commitProjectImportInner(
 			continue;
 		}
 
-		const { isPast, mappedStatus } = classify(eventDate, obj.status_project, today);
+		const { isPast, mappedStatus } = classify(
+			eventDate,
+			obj.status_project,
+			today,
+		);
 
 		// Resolve Booker + PIC contacts via legacy CT-XXX id
 		const bookerLegacyId = (obj.booker_contact_id ?? "").trim();
@@ -518,7 +520,9 @@ async function commitProjectImportInner(
 		const bookerContact = bookerLegacyId
 			? contactsByLegacy.get(bookerLegacyId)
 			: undefined;
-		const picContact = picLegacyId ? contactsByLegacy.get(picLegacyId) : undefined;
+		const picContact = picLegacyId
+			? contactsByLegacy.get(picLegacyId)
+			: undefined;
 		if (bookerLegacyId && !bookerContact) {
 			warnings.push(
 				`booker contact "${bookerLegacyId}" not in contacts master`,
@@ -559,11 +563,7 @@ async function commitProjectImportInner(
 			warnings.push("Past+Unpaid: forced lunas; review manually");
 		}
 
-		if (
-			!isPast &&
-			balance > 0 &&
-			Math.abs(paid + balance - totalPrice) > 1
-		) {
+		if (!isPast && balance > 0 && Math.abs(paid + balance - totalPrice) > 1) {
 			warnings.push(
 				`paid (${paid}) + balance (${balance}) ≠ total (${totalPrice})`,
 			);
@@ -739,7 +739,11 @@ async function commitProjectImportInner(
 			{ label: "📦 Archived", value: archivedCount, tone: "amber" },
 			{ label: "📥 Live", value: liveCount, tone: "emerald" },
 			{ label: "Skipped", value: skippedCount, tone: "muted" },
-			{ label: "Errors", value: errorCount, tone: errorCount > 0 ? "rose" : "muted" },
+			{
+				label: "Errors",
+				value: errorCount,
+				tone: errorCount > 0 ? "rose" : "muted",
+			},
 		],
 		rows: resultRows,
 	};

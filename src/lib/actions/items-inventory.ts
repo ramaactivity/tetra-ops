@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { defaultsForInventorySku } from "@/lib/inventory/coa-defaults";
 import { withItemCreated } from "@/lib/inventory/item-created-toast";
 import {
@@ -292,9 +293,7 @@ export async function createInventoryItem(
 			coaAccount: coa.inventory,
 			quantity: Number(formData.get("buy_quantity") ?? 0),
 			unitCost: Number(formData.get("buy_unit_cost") ?? 0),
-			date:
-				String(formData.get("buy_date") ?? "") ||
-				new Date().toISOString().slice(0, 10),
+			date: String(formData.get("buy_date") ?? "") || todayWIB(),
 			actorProfileId: me2?.profile.id ?? "",
 			actorAuthId: me2?.authId ?? "",
 		});

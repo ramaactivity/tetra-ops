@@ -1,4 +1,5 @@
 import { recordPurchaseBatch } from "@/lib/actions/purchases";
+import { todayWIB } from "@/lib/dates";
 
 /**
  * "Asal barang" saat menambah item baru — dari mana barang ini datang, dan
@@ -35,7 +36,7 @@ function num(formData: FormData, key: string): number {
 }
 
 function today(): string {
-	return new Date().toISOString().slice(0, 10);
+	return todayWIB();
 }
 
 export type OriginResult =

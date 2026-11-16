@@ -30,6 +30,7 @@ import type {
 	ImportStat,
 	WizardConfig,
 } from "@/lib/csv-import/types";
+import { todayWIB } from "@/lib/dates";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -1279,7 +1280,7 @@ function DownloadReportButton({ result }: { result: ImportResult }) {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `import-report-${new Date().toISOString().slice(0, 10)}.csv`;
+		a.download = `import-report-${todayWIB()}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	};

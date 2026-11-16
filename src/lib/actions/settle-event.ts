@@ -11,6 +11,7 @@ import {
 } from "@/lib/actions/settle-queue";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { revalidateDashboard } from "@/lib/dashboard/stats";
+import { todayWIB } from "@/lib/dates";
 import { syncOwnerPaidQueue } from "@/lib/rekap/owner-paid-sync";
 import {
 	type ReimbursementSync,
@@ -138,7 +139,7 @@ export async function settleEvent(
 			.from("crew_assignments")
 			.select("id, fee_amount, bonus_amount, reimbursement_amount, is_paid")
 			.eq("event_id", eventId);
-		const today = new Date().toISOString().slice(0, 10);
+		const today = todayWIB();
 		let paid = 0;
 		let failed = 0;
 		let total = 0;
@@ -211,7 +212,7 @@ export async function settleEvent(
 			if (ev?.channel === "relasi" && Number(ev.referrer_commission ?? 0) > 0)
 				kinds.push("relasi");
 		}
-		const today = new Date().toISOString().slice(0, 10);
+		const today = todayWIB();
 		for (const kind of kinds.filter((k) => !paidSet.has(k))) {
 			const r = await payCommission({
 				event_id: eventId,

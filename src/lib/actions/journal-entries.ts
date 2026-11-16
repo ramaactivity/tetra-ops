@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import {
 	CONTROLLED_ACCOUNT_MSG,
@@ -865,7 +866,7 @@ export async function reverseJournalEntry(
 		.from("journal_entries")
 		.insert({
 			ref_id: reversalRefId,
-			entry_date: new Date().toISOString().slice(0, 10),
+			entry_date: todayWIB(),
 			entry_type: "reversal",
 			description: `Pembatalan ${existing.ref_id} — ${trimmedReason}`,
 			source_type: "manual",

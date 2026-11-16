@@ -23,6 +23,7 @@ import {
 	queuePartnerCommissionPayment,
 	removeQueuedEntry,
 } from "@/lib/actions/settle-queue";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 
 /**
@@ -103,7 +104,7 @@ export function PartnerCommissionCard({
 						kind: state.kind,
 						bank_account_code: account,
 						admin_fee: adminFee,
-						payment_date: new Date().toISOString().slice(0, 10),
+						payment_date: todayWIB(),
 						proof_url: proofUrl,
 					})
 				: await queuePartnerCommissionPayment({

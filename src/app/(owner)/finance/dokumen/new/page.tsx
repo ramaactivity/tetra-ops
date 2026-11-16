@@ -3,6 +3,7 @@ import {
 	type EditorDoc,
 } from "@/components/documents/document-editor";
 import { Container } from "@/components/layout/container";
+import { todayWIB } from "@/lib/dates";
 import { loadEditorData } from "@/lib/documents/editor-data";
 import {
 	addDays,
@@ -23,7 +24,7 @@ export default async function NewDocumentPage({
 	const { packages, addons, signers, grossupRate, venues, vendors } =
 		await loadEditorData();
 	const signer = signers.find((s) => s.is_default) ?? signers[0] ?? null;
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 
 	const initial: EditorDoc = {
 		doc_type: isInvoice ? "invoice" : "quotation",

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { EMONEY_COA_FIRST, EMONEY_COA_LAST } from "@/lib/finance/emoney";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,7 +48,7 @@ const OptionalText = z
 
 const Money = z.coerce.number().int().nonnegative();
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayWIB();
 
 function fail(errors: Errors, formData: FormData): EmoneyFormState {
 	const values: Record<string, string> = {};

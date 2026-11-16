@@ -12,6 +12,7 @@
 // — bundle/bonus) layers in later once that data exists.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { todayWIB } from "@/lib/dates";
 import { unitCountOf } from "@/lib/events/spots";
 
 // biome-ignore lint/suspicious/noExplicitAny: schema-agnostic client (SSR or admin)
@@ -108,7 +109,7 @@ export async function computeForecast(
 	supabase: AnySupabase,
 	todayISO?: string,
 ): Promise<ForecastResult> {
-	const today = todayISO ?? new Date().toISOString().slice(0, 10);
+	const today = todayISO ?? todayWIB();
 
 	const [upcomingRes, avgRes] = await Promise.all([
 		supabase

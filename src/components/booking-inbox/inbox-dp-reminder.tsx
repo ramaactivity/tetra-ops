@@ -2,6 +2,7 @@ import { BadgeDollarSign } from "lucide-react";
 import Link from "next/link";
 import { LogPaymentDialog } from "@/components/billing/log-payment-dialog";
 import type { BankAccountOption } from "@/components/billing/payment-form";
+import { todayWIB } from "@/lib/dates";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,7 +61,7 @@ export async function InboxDpReminder({
 				eventId={eventId}
 				projectId={projectId}
 				bankAccounts={(banks ?? []) as BankAccountOption[]}
-				defaultDate={new Date().toISOString().slice(0, 10)}
+				defaultDate={todayWIB()}
 				suggestedAmount={BOT_DP_AMOUNT}
 				grandTotal={grandTotal}
 				totalPaid={totalPaid}

@@ -6,6 +6,7 @@ import { payCommission } from "@/lib/actions/commissions";
 import { payCrewFee } from "@/lib/actions/crew-fees";
 import { recordQuickTransaction } from "@/lib/actions/journal-entries";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { TALANGAN_OWNER_COA } from "@/lib/rekap/uang-jalan";
 import { saldoUangJalanDb } from "@/lib/rekap/uang-jalan-db";
 import { createClient } from "@/lib/supabase/server";
@@ -473,7 +474,7 @@ export async function postSettleQueue(
 		.order("created_at", { ascending: true });
 	if (!rows || rows.length === 0) return undefined;
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 	let posted = 0;
 	let failed = 0;
 	const errors: string[] = [];

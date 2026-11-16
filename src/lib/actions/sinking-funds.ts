@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 
 const ALLOCATION_TYPES = ["percentage", "flat"] as const;
@@ -283,7 +284,7 @@ export async function addManualMovement(
 		.from("journal_entries")
 		.insert({
 			ref_id: refId,
-			entry_date: new Date().toISOString().slice(0, 10),
+			entry_date: todayWIB(),
 			entry_type: isWithdrawal ? "asset_out" : "transfer",
 			description: `Sinking ${fund.name} (${parsed.data.movement_type}) — ${parsed.data.description}`,
 			source_type: "sinking_movement",

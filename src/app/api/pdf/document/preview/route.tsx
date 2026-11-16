@@ -2,6 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { TetraDocument } from "@/components/pdf/tetra-document";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { buildPdfContext } from "@/lib/documents/load";
 import { buildPdfData } from "@/lib/documents/pdf-data";
 import { type DocumentRow, GROSS_UP_RATE_DEFAULT } from "@/lib/documents/types";
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
 		signer_id: body.signer_id ?? null,
 		signer_name: body.signer_name ?? null,
 		signer_position: body.signer_position ?? null,
-		issued_at: body.issued_at || new Date().toISOString().slice(0, 10),
+		issued_at: body.issued_at || todayWIB(),
 		due_date: body.due_date ?? null,
 		valid_until: body.valid_until ?? null,
 		status: body.status ?? "draft",

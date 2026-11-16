@@ -4,6 +4,7 @@ import {
 	PaymentList,
 	type PaymentRow,
 } from "@/components/billing/payment-list";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah, PAYMENT_STATUS_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -91,7 +92,7 @@ export async function InvoicePaymentsPanel({ eventId }: { eventId: string }) {
 	const isPaid = remaining <= 0 && paid > 0;
 	const pct =
 		billable > 0 ? Math.min(100, Math.round((paid / billable) * 100)) : 0;
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 	const defaultDp =
 		typeof dpCfg?.value === "number" && dpCfg.value > 0
 			? dpCfg.value

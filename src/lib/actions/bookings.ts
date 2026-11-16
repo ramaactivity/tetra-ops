@@ -9,6 +9,7 @@ import { ensureVendorContact } from "@/lib/actions/vendors";
 import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { emitBoothEvent } from "@/lib/booth-sync";
+import { todayWIB } from "@/lib/dates";
 import {
 	getOrCreateInvoice,
 	linkInvoiceToEvent,
@@ -1268,7 +1269,7 @@ export async function createBooking(
 	// Status is date-driven from the start: a future booking is "upcoming",
 	// a same-day booking "in_progress", a back-dated one "awaiting_settlement".
 	// The daily status-transition cron keeps it in sync afterwards.
-	const todayISO = new Date().toISOString().slice(0, 10);
+	const todayISO = todayWIB();
 	const initialStatus = computeLifecycleStatus(
 		parsed.data.event_date,
 		todayISO,
@@ -1409,7 +1410,7 @@ export async function createBooking(
 				supabase,
 				eventId,
 				me.profile.id,
-				new Date().toISOString().slice(0, 10),
+				todayWIB(),
 			);
 			// Booking biasa tetap diarahkan ke halaman event (bukan invoice).
 			if (!res.ok) console.error("[createBooking] invoice:", res.error);
@@ -1571,10 +1572,7 @@ export async function updateBooking(
 			curEvent?.status === "awaiting_settlement");
 	const statusPatch = autoManaged
 		? {
-				status: computeLifecycleStatus(
-					parsed.data.event_date,
-					new Date().toISOString().slice(0, 10),
-				),
+				status: computeLifecycleStatus(parsed.data.event_date, todayWIB()),
 			}
 		: {};
 

@@ -27,6 +27,7 @@ import {
 	recountEmoneyCard,
 	topupEmoneyCard,
 } from "@/lib/actions/emoney";
+import { todayWIB } from "@/lib/dates";
 import { CARD_PROVIDERS } from "@/lib/finance/emoney";
 import { formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -57,7 +58,7 @@ export type CardRow = {
 
 export type SourceAccount = { code: string; name: string; balance: number };
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayWIB();
 
 function errOf(state: EmoneyFormState, key: string): string | undefined {
 	return (state?.errors as Record<string, string[] | undefined> | undefined)?.[

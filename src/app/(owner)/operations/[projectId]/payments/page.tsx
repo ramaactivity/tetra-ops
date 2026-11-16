@@ -8,6 +8,7 @@ import {
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { MoneyAmount } from "@/components/ui/money-amount";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah, PAYMENT_STATUS_LABELS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -99,7 +100,7 @@ export default async function ManagePaymentsPage({
 		journal_ref: journalRefByPayment.get(p.id as string) ?? null,
 	})) as PaymentRow[];
 
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 	const grand = Number(event.grand_total) || 0;
 	// Potongan langsung vendor (upfront_cut) dipotong di muka dari payment
 	// flow — target pelunasan = grand_total − potongan ("Tetra terima").

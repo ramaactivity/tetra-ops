@@ -21,6 +21,7 @@ import {
 	type DisposalFormState,
 	disposeFixedAsset,
 } from "@/lib/actions/depreciation";
+import { todayWIB } from "@/lib/dates";
 
 const DISPOSAL_OPTIONS = [
 	{ value: "sold", label: "Sold — dijual ke pihak lain" },
@@ -51,9 +52,7 @@ export function DisposeAssetDialog({
 		FormData
 	>(action, undefined);
 
-	const [date, setDate] = useState<string>(
-		new Date().toISOString().slice(0, 10),
-	);
+	const [date, setDate] = useState<string>(todayWIB());
 	const [method, setMethod] = useState<string>("sold");
 	const [salePrice, setSalePrice] = useState<string>("0");
 

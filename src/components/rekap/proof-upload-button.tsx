@@ -3,6 +3,7 @@
 import { CheckCircle2, ExternalLink, Loader2, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
+import { todayWIB } from "@/lib/dates";
 
 /**
  * Tombol upload bukti transfer/nota ke folder Drive event — satu komponen untuk
@@ -45,7 +46,7 @@ export function ProofUploadButton({
 			fd.set("kind", kind);
 			if (meta?.name) fd.set("crew_name", meta.name);
 			if (meta?.role) fd.set("role", meta.role);
-			fd.set("payment_date", new Date().toISOString().slice(0, 10));
+			fd.set("payment_date", todayWIB());
 			fd.set("amount", String(meta?.amount ?? 0));
 			const res = await fetch(`/api/drive/upload/${projectId}`, {
 				method: "POST",

@@ -41,6 +41,7 @@ import {
 	queueCrewFeePayment,
 	removeQueuedEntry,
 } from "@/lib/actions/settle-queue";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 import { emitCatatPrefill } from "@/lib/rekap/catat-prefill";
 import {
@@ -1153,7 +1154,7 @@ function CrewPayPanel({
 				project_id: projectId,
 				bank_account_code: bankCode,
 				admin_fee: feeNum,
-				payment_date: new Date().toISOString().slice(0, 10),
+				payment_date: todayWIB(),
 			});
 			if (!res.ok) {
 				toast.error(res.error);
@@ -1383,7 +1384,7 @@ function PaymentProofUpload({
 		fd.set("kind", "crew_fee");
 		fd.set("crew_name", crewRow.user_full_name ?? "");
 		fd.set("role", crewRow.role_in_event ?? "");
-		fd.set("payment_date", new Date().toISOString().slice(0, 10));
+		fd.set("payment_date", todayWIB());
 		fd.set("amount", String(totalFee));
 		const res = await fetch(`/api/drive/upload/${projectId}`, {
 			method: "POST",

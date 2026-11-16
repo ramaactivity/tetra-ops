@@ -12,9 +12,10 @@ import {
 	recordOwnerWithdrawal,
 	type WithdrawalFormState,
 } from "@/lib/actions/owner-withdrawal";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 
-const TODAY = () => new Date().toISOString().slice(0, 10);
+const TODAY = () => todayWIB();
 
 const ID_MONTHS = [
 	"Januari",

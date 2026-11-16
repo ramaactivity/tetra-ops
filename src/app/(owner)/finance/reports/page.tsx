@@ -12,8 +12,9 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { createClient } from "@/lib/supabase/server";
+import { todayWIB } from "@/lib/dates";
 import { fetchAllJournalLines } from "@/lib/finance/balance-guard";
+import { createClient } from "@/lib/supabase/server";
 
 type Tab = "trial" | "pnl" | "neraca";
 
@@ -42,7 +43,7 @@ export default async function FinanceReportsPage({
 				: "trial";
 	const from = params.from;
 	const to = params.to;
-	const asOf = params.asOf ?? new Date().toISOString().slice(0, 10);
+	const asOf = params.asOf ?? todayWIB();
 
 	const supabase = await createClient();
 

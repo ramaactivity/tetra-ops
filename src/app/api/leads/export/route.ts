@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type LeadRow, periodStartISO } from "@/components/leads/leads-shared";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
 	// Prepend a UTF-8 BOM so Excel renders accents/emoji correctly.
 	const csv = `﻿${lines.join("\r\n")}`;
 
-	const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+	const today = todayWIB().replace(/-/g, "");
 	return new NextResponse(csv, {
 		status: 200,
 		headers: {

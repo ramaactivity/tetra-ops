@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { defaultsForInventorySku } from "@/lib/inventory/coa-defaults";
 import { inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 import { getItemWithConfig } from "@/lib/inventory/item-loader";
@@ -271,7 +272,7 @@ export async function recordWastage(
 		const wastageAccount =
 			cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
 		const journalRef = newJournalRef();
-		const today = new Date().toISOString().slice(0, 10);
+		const today = todayWIB();
 
 		const { data: entry, error: entryErr } = await supabase
 			.from("journal_entries")
@@ -354,7 +355,7 @@ export async function recordAdjustmentJournal(
 	const inventoryAccount = inventoryCoaForSku(item.sku);
 	const wastageAccount =
 		cfg.coa_account_wastage ?? defaultsForInventorySku(item.sku).wastage;
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 	const isIn = args.direction === "in";
 
 	const { data: entry, error: entryErr } = await supabase
@@ -443,7 +444,7 @@ export async function recordPurchaseInJournal(
 			? inventoryCoaForSku(item.sku)
 			: // Aset tetap dari restock jarang terjadi; ikut akun aset defaultnya.
 				"1-400";
-	const today = new Date().toISOString().slice(0, 10);
+	const today = todayWIB();
 
 	const { data: entry, error: entryErr } = await supabase
 		.from("journal_entries")

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { insufficientBalanceError } from "@/lib/finance/balance-guard";
 import { PROOF_LABEL_RE } from "@/lib/rekap/proof-labels";
 import { potongFee } from "@/lib/rekap/uang-jalan";
@@ -490,7 +491,7 @@ export async function unpayCrewFee(input: {
 			};
 		}
 
-		const today = new Date().toISOString().slice(0, 10);
+		const today = todayWIB();
 		const { data: rev, error: revErr } = await supabase
 			.from("journal_entries")
 			.insert({
