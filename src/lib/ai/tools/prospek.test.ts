@@ -51,6 +51,9 @@ function fakeDb(tables: Record<string, Row[]>) {
 				select: () => q,
 				order: () => q,
 				limit: () => q,
+				// Kode asli membaca per halaman (fetchAllRows → .range); data uji
+				// < 1 halaman, jadi kembalikan semuanya.
+				range: () => q,
 				eq: (k: string, v: unknown) => where((r) => r[k] === v),
 				in: (k: string, v: unknown[]) => where((r) => v.includes(r[k])),
 				is: (k: string, v: unknown) => where((r) => (r[k] ?? null) === v),
