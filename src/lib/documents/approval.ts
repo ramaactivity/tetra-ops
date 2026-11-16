@@ -14,6 +14,7 @@ import {
 	notifyApprovalNeeded,
 	resolveApprovalNotifications,
 } from "./pending-approval";
+import { sapaKlien, teksQuotation } from "./pesan-klien";
 import { sendDocumentCore } from "./send";
 import { computeTotals } from "./totals";
 import { DOC_TYPE_LABEL, type DocumentRow, pendingAdminItems } from "./types";
@@ -84,7 +85,7 @@ export async function defaultClientMessage(
 	doc: DocumentRow,
 	index = 0,
 ): Promise<string> {
-	const nama = doc.client.name || "Kak";
+	const nama = sapaKlien(doc.client);
 	const jenis = DOC_TYPE_LABEL[doc.doc_type];
 	const acara = doc.event_info?.date
 		? ` untuk acara ${formatDateID(doc.event_info.date)}`
@@ -94,14 +95,14 @@ export async function defaultClientMessage(
 			enabled: doc.gross_up_enabled,
 			ratePct: doc.gross_up_rate,
 		}).total;
-		return [
-			`Halo ${nama} 👋`,
-			"",
-			`Berikut penawaran harga (quotation) *${doc.doc_number}* dari Tetra Photobooth${acara}.`,
-			`Total: *${formatRupiah(total)}*${doc.valid_until ? `, berlaku sampai ${formatDateID(doc.valid_until)}` : ""}.`,
-			"",
-			"Tanggal acara terkunci setelah DP minimal Rp 500.000. Kabari kami kalau ada yang ingin disesuaikan ya 🙏",
-		].join("\n");
+		return teksQuotation({
+			client: doc.client,
+			tanggalAcara: doc.event_info?.date
+				? formatDateID(doc.event_info.date)
+				: null,
+			total: formatRupiah(total),
+			berlakuSampai: doc.valid_until ? formatDateID(doc.valid_until) : null,
+		});
 	}
 	// Dokumen kedua dalam satu kiriman cukup kalimat pendek.
 	if (index > 0)
