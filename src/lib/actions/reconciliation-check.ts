@@ -1,20 +1,29 @@
 "use server";
 
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { todayWIB } from "@/lib/dates";
+import {
+	type InventoryDrift,
+	roundingJournalLines,
+	splitInventoryDrift,
+} from "@/lib/finance/inventory-rounding";
 import { inventoryCoaForSku } from "@/lib/inventory/cogs-buckets";
 
 /**
  * Proactive reconciliation guard (run by the daily anomaly-scan cron). Compares
  * GL control accounts against their subledgers / physical stock; if anything
  * drifts, notifies owners (with dedup) pointing to /finance/reconciliation.
- * No session — uses the service-role client. Read-only except the notification
- * insert (only when drift exists).
+ * No session — uses the service-role client. Writes only the notification
+ * insert (when drift exists) and a "Koreksi pembulatan otomatis" journal for
+ * inventory drifts ≤ Rp100 (see inventory-rounding.ts).
  */
 export type ReconCheckResult = {
 	ok: boolean;
 	drifts?: number;
 	notified?: number;
 	detail?: string[];
+	/** Selisih pembulatan persediaan yang dikoreksi otomatis hari ini. */
+	rounding?: InventoryDrift[];
 	error?: string;
 };
 
@@ -79,16 +88,16 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 	const drifts: string[] = [];
 
 	// Persediaan: GL 1-2xx vs nilai stok fisik per bucket
-	const { data: items } = await sb
+	const { data: items, error: itemsErr } = await sb
 		.from("inventory_items")
 		.select("id, sku, purchase_price_avg")
 		.eq("category", "inventory")
 		.eq("is_active", true)
 		.is("deleted_at", null);
 	const ids = ((items ?? []) as Array<{ id: string }>).map((i) => i.id);
-	const { data: levels } = ids.length
+	const { data: levels, error: levelsErr } = ids.length
 		? await sb.rpc("get_stock_levels", { p_item_ids: ids })
-		: { data: [] };
+		: { data: [], error: null };
 	const stock = new Map(
 		((levels ?? []) as Array<{ item_id: string; stock: number }>).map((r) => [
 			r.item_id,
@@ -110,7 +119,7 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 				),
 		);
 	}
-	for (const c of [
+	const invDrifts = [
 		"1-200",
 		"1-201",
 		"1-202",
@@ -118,10 +127,31 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 		"1-204",
 		"1-205",
 		"1-209",
-	]) {
-		const d = assetGl(c) - (phys.get(c) ?? 0);
-		if (d !== 0) drifts.push(`${c} (${d > 0 ? "+" : ""}${d})`);
-	}
+	].map((coa) => ({ coa, drift: assetGl(coa) - (phys.get(coa) ?? 0) }));
+	// Stok gagal dibaca → nilai fisik palsu; jangan pernah dikoreksi otomatis.
+	const inv =
+		itemsErr || levelsErr
+			? { rounding: [], alert: invDrifts.filter((d) => d.drift !== 0) }
+			: splitInventoryDrift(invDrifts);
+	for (const { coa, drift } of inv.alert)
+		drifts.push(`${coa} (${drift > 0 ? "+" : ""}${drift})`);
+
+	const { data: owners } = await sb
+		.from("users")
+		.select("id")
+		.in("role", ["owner", "super_admin"])
+		.eq("is_active", true)
+		.order("created_at", { ascending: true });
+	const ownerIds = ((owners ?? []) as Array<{ id: string }>).map((o) => o.id);
+
+	const rounding = inv.rounding.length
+		? await postRoundingCorrection(sb, inv.rounding, ownerIds[0])
+		: [];
+	// Jurnal gagal → selisihnya tetap dilaporkan, jangan hilang diam-diam.
+	for (const { coa, drift } of inv.rounding.filter(
+		(d) => !rounding.includes(d),
+	))
+		drifts.push(`${coa} (${drift > 0 ? "+" : ""}${drift})`);
 
 	// Hutang Vendor 2-101 vs payables terbuka
 	const { data: payables } = await sb
@@ -187,16 +217,10 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 			.eq("is_dismissed", false);
 		if (resolveErr)
 			console.error("[reconciliation-check] tandai beres:", resolveErr.message);
-		return { ok: true, drifts: 0, notified: 0 };
+		return { ok: true, drifts: 0, notified: 0, rounding };
 	}
 
 	// Notify owners (dedup: skip if an unread/undismissed recon notif exists)
-	const { data: owners } = await sb
-		.from("users")
-		.select("id")
-		.in("role", ["owner", "super_admin"])
-		.eq("is_active", true);
-	const ownerIds = ((owners ?? []) as Array<{ id: string }>).map((o) => o.id);
 	const { data: existing } = await sb
 		.from("notifications")
 		.select("user_id")
@@ -226,5 +250,47 @@ export async function runReconciliationCheckInternal(): Promise<ReconCheckResult
 		drifts: drifts.length,
 		notified: rows.length,
 		detail: drifts,
+		rounding,
 	};
+}
+
+/**
+ * Satu jurnal penyesuaian untuk semua selisih pembulatan persediaan hari ini.
+ * Mengembalikan selisih yang berhasil dikoreksi ([] kalau gagal → dilaporkan).
+ */
+async function postRoundingCorrection(
+	sb: NonNullable<ReturnType<typeof serviceClient>>,
+	rounding: InventoryDrift[],
+	actorId: string | undefined,
+): Promise<InventoryDrift[]> {
+	if (!actorId) return [];
+	const lines = roundingJournalLines(rounding);
+	const total = lines.reduce((t, l) => t + l.debit_amount, 0);
+	const today = todayWIB();
+	const { data: entry, error } = await sb
+		.from("journal_entries")
+		.insert({
+			ref_id: `JE-${today.replace(/-/g, "")}-${crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`,
+			entry_date: today,
+			entry_type: "adjustment",
+			description: `Koreksi pembulatan otomatis nilai persediaan (${rounding.map((d) => `${d.coa} ${d.drift > 0 ? "+" : ""}${d.drift}`).join(", ")})`,
+			source_type: "manual",
+			total_amount: total,
+			created_by: actorId,
+		})
+		.select("id")
+		.single();
+	if (error || !entry) {
+		console.error("[reconciliation-check] jurnal pembulatan:", error?.message);
+		return [];
+	}
+	const { error: linesErr } = await sb
+		.from("journal_lines")
+		.insert(lines.map((l) => ({ ...l, entry_id: entry.id })));
+	if (linesErr) {
+		console.error("[reconciliation-check] baris pembulatan:", linesErr.message);
+		await sb.from("journal_entries").delete().eq("id", entry.id);
+		return [];
+	}
+	return rounding;
 }
