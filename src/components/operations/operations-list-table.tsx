@@ -114,8 +114,20 @@ const CATEGORY_DOT: Record<string, string> = {
 /* Three substantive columns + crew (narrow) + status (right-aligned).
    Waktu & Tempat gets the most flex so venue lines breathe; Detail Paket
    and Crew get tighter. Status is right-aligned at the auto end. */
+// Lebar minimum total harus muat di jendela ~1.230 px dengan sidebar (kotak
+// tabel ±940 px) — dulu 55rem + jarak sehingga kolom Status terpotong.
 const COLS_DESKTOP =
-	"grid-cols-[minmax(13rem,1.15fr)_minmax(13rem,1.55fr)_minmax(12rem,1fr)_minmax(6rem,0.45fr)_minmax(11rem,0.85fr)]";
+	"grid-cols-[minmax(11rem,1.15fr)_minmax(11rem,1.55fr)_minmax(10rem,1fr)_minmax(6rem,0.45fr)_minmax(8rem,0.7fr)]";
+
+/**
+ * Acara sudah selesai (di-settle) DAN lunas — tidak perlu ditindaklanjuti.
+ * Diredupkan & abu-abu supaya acara yang belum jalan menonjol; kembali normal
+ * saat disorot/difokus. Selesai tapi belum lunas tetap normal (masih ditagih).
+ */
+const isDone = (ev: { status: string; payment_status: string }) =>
+	ev.status === "completed" && ev.payment_status === "paid";
+const DONE_CLS =
+	"bg-secondary/40 opacity-60 grayscale hover:opacity-100 hover:grayscale-0 focus-visible:opacity-100 focus-visible:grayscale-0";
 
 function formatTime(t: string | null): string {
 	return t ? t.slice(0, 5) : "—";
@@ -242,8 +254,9 @@ export function OperationsListTable({
 									viewTransitionName: `event-${ev.project_id}`,
 								}}
 								className={cn(
-									"group grid items-start gap-5 border-b border-border-subtle px-5 py-4 transition-colors last:border-b-0 hover:bg-secondary/60",
+									"group grid items-start gap-5 border-b border-border-subtle px-5 py-4 transition-[background-color,opacity,filter] duration-200 last:border-b-0 hover:bg-secondary/60",
 									COLS_DESKTOP,
+									isDone(ev) && DONE_CLS,
 								)}
 							>
 								{/* PROJECT */}
@@ -367,7 +380,10 @@ export function OperationsListTable({
 							key={ev.id}
 							href={`/operations/${ev.project_id}`}
 							style={{ viewTransitionName: `event-${ev.project_id}` }}
-							className="press tap block rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)] transition-transform active:scale-[0.98]"
+							className={cn(
+								"press tap block rounded-[16px] border border-border-default bg-card p-4 shadow-[var(--shadow-soft)] transition-[transform,opacity,filter] active:scale-[0.98]",
+								isDone(ev) && DONE_CLS,
+							)}
 						>
 							<div className="flex items-start justify-between gap-3">
 								<div className="min-w-0">
