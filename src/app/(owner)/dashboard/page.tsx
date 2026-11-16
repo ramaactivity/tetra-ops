@@ -206,7 +206,7 @@ export default async function DashboardPage() {
 									Tidak ada acara hari ini / besok
 								</p>
 								<p className="type-caption">
-									Free time — booking baru muncul di sini otomatis.
+									Booking baru otomatis muncul di sini.
 								</p>
 							</div>
 						</div>

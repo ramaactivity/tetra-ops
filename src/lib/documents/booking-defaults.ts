@@ -89,6 +89,7 @@ export function quotationToBookingDefaults(
 			.map((i) => ({ addon_id: i.addon_id as string, quantity: i.qty })),
 		discount_amount: Math.max(0, q.discount - vendorCut),
 		gross_up_pph_amount: totals.grossUp,
-		crew_notes: `Dari quotation ${q.doc_number}`,
+		// crew_notes sengaja kosong: dulu diisi "Dari quotation <nomor>" dan
+		// tampil ke crew sebagai "Catatan untuk crew" (ikut briefing H-1).
 	};
 }

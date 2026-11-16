@@ -191,7 +191,9 @@ export default async function CrewHomePage() {
 				{nextAssignments.length === 0 ? (
 					<div className="rounded-[16px] border border-dashed border-border-default bg-card/40 px-5 py-9 text-center">
 						<CalendarClock className="mx-auto mb-2.5 size-7 text-muted-foreground/50" />
-						<p className="type-body-strong">Free time hari ini & besok</p>
+						<p className="type-body-strong">
+							Belum ada jadwal hari ini & besok
+						</p>
 						<p className="type-secondary mx-auto mt-1 max-w-[16rem]">
 							Cek tab Jadwal buat event yang masih jauh.
 						</p>
