@@ -1,12 +1,8 @@
 "use client";
 
-import { CalendarDays, ChevronRight, Download, FileText } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import Link from "next/link";
-import {
-	RecordCard,
-	StatusChip,
-	type StatusTone,
-} from "@/components/ui/mobile";
+import { StatusChip, type StatusTone } from "@/components/ui/mobile";
 import { computeTotals } from "@/lib/documents/totals";
 import {
 	DOC_STATUS_LABEL,
@@ -85,18 +81,24 @@ export function DocumentList({ rows }: { rows: DocumentListRow[] }) {
 						)}
 					>
 						<div className="min-w-0">
-							<div className="flex items-center gap-2">
+							<p className="tabular truncate text-[13.5px] font-semibold">
+								{r.doc_number}
+							</p>
+							<div className="mt-1 flex min-w-0 items-center gap-2">
 								<DocTypeBadge type={r.doc_type} />
-								<span className="truncate text-[13.5px] font-semibold">
-									{r.doc_number}
-								</span>
+								{r.event_project_id ? (
+									<span
+										className="tabular truncate text-[12px] text-muted-foreground"
+										title={
+											r.event_date
+												? `Acara ${formatDateID(r.event_date)}`
+												: undefined
+										}
+									>
+										{r.event_project_id}
+									</span>
+								) : null}
 							</div>
-							{r.event_project_id ? (
-								<p className="mt-0.5 text-[12px] text-muted-foreground">
-									{r.event_project_id}
-									{r.event_date ? ` · ${formatDateID(r.event_date)}` : ""}
-								</p>
-							) : null}
 						</div>
 						<div className="min-w-0">
 							<p className="truncate text-[13.5px] font-medium">
@@ -143,49 +145,46 @@ export function DocumentList({ rows }: { rows: DocumentListRow[] }) {
 				))}
 			</div>
 
-			{/* Mobile */}
-			<div className="space-y-3 md:hidden">
+			{/* Mobile — satu daftar ringkas (dulu kartu tinggi per dokumen) */}
+			<div className="divide-y divide-border-subtle overflow-hidden rounded-2xl border border-border-subtle bg-card md:hidden">
 				{rows.map((r) => (
-					<RecordCard
+					<Link
 						key={r.id}
 						href={`/finance/dokumen/${r.id}`}
-						category={
-							<span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-								<FileText className="size-3.5" />
-								{DOC_TYPE_LABEL[r.doc_type]} · {r.doc_number}
-							</span>
-						}
-						title={r.client.name || "—"}
-						status={
-							<StatusChip tone={STATUS_TONE[r.status]}>
-								{DOC_STATUS_LABEL[r.status]}
-							</StatusChip>
-						}
-						meta={
-							<p className="flex items-center gap-2 text-[14px]">
-								<CalendarDays className="size-4 text-muted-foreground" />
-								<span className="tabular">{formatDateID(r.issued_at)}</span>
-								{r.delivered_at ? (
-									<span className="truncate text-emerald-700">
-										· Dikirim {formatDateID(r.delivered_at)}
-									</span>
-								) : null}
-								{r.client.org ? (
-									<span className="truncate text-muted-foreground">
-										· {r.client.org}
-									</span>
-								) : null}
+						className={cn(
+							"flex items-center gap-3 px-4 py-3 transition-colors active:bg-secondary/60",
+							r.status === "void" && "opacity-60",
+						)}
+					>
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center justify-between gap-2">
+								<span className="tabular truncate text-[11.5px] font-medium text-muted-foreground">
+									{DOC_TYPE_LABEL[r.doc_type]} · {r.doc_number}
+								</span>
+								<StatusChip tone={STATUS_TONE[r.status]}>
+									{DOC_STATUS_LABEL[r.status]}
+								</StatusChip>
+							</div>
+							<p className="mt-0.5 truncate text-[14px] font-semibold text-foreground">
+								{r.client.name || "—"}
 							</p>
-						}
-						footer={
-							<>
-								<span className="tabular text-[15px] font-semibold">
+							<p className="mt-0.5 flex items-center justify-between gap-2 text-[12.5px] text-muted-foreground">
+								<span className="tabular truncate">
+									{formatDateID(r.issued_at)}
+									{r.delivered_at
+										? ` · dikirim ${formatDateID(r.delivered_at)}`
+										: ""}
+								</span>
+								<span
+									className="tabular shrink-0 font-semibold text-foreground"
+									data-nominal
+								>
 									{formatRupiah(total(r))}
 								</span>
-								<ChevronRight className="size-4 text-muted-foreground/60" />
-							</>
-						}
-					/>
+							</p>
+						</div>
+						<ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
+					</Link>
 				))}
 			</div>
 		</div>
