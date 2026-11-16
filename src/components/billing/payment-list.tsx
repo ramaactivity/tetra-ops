@@ -28,7 +28,7 @@ import { formatDateID, formatRupiah } from "@/lib/format";
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
 	dp: "DP",
-	partial: "Partial",
+	partial: "Cicilan",
 	pelunasan: "Pelunasan",
 };
 
@@ -133,7 +133,8 @@ function PaymentItem({
 			className={
 				compact
 					? "flex flex-wrap items-center justify-end gap-x-3 gap-y-0.5 py-2"
-					: "flex items-start justify-between gap-3 py-3.5 first:pt-0 last:pb-0"
+					: // HP: tombol turun ke baris sendiri supaya teks tidak tergencet.
+						"flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5 py-3.5 first:pt-0 last:pb-0 sm:flex-nowrap"
 			}
 		>
 			{compact ? (
@@ -149,7 +150,7 @@ function PaymentItem({
 							{formatDateID(payment.payment_date)}
 						</span>
 						{payment.bank ? ` · ${payment.bank.bank_name}` : ""}
-						{muted ? " · Reversed" : ""}
+						{muted ? " · Dibatalkan" : ""}
 					</span>
 					<span
 						className={`tabular text-[14px] font-semibold ${muted ? "text-muted-foreground line-through" : ""}`}
@@ -158,7 +159,7 @@ function PaymentItem({
 					</span>
 				</div>
 			) : (
-				<div className="min-w-0 flex-1 space-y-1">
+				<div className="min-w-0 flex-1 basis-full space-y-1 sm:basis-0">
 					{/* Amount is the hero — the one thing you scan a payment history for */}
 					<div className="flex flex-wrap items-center gap-2">
 						<MoneyAmount
@@ -171,11 +172,15 @@ function PaymentItem({
 							{PAYMENT_TYPE_LABELS[payment.payment_type] ??
 								payment.payment_type}
 						</Badge>
-						{muted && <Badge variant="secondary">Reversed</Badge>}
+						{muted && <Badge variant="secondary">Dibatalkan</Badge>}
 					</div>
 
-					{/* When + where the money landed */}
-					<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-muted-foreground">
+					{/* Satu baris: kapan · ke rekening mana · dari siapa (nomor ref di
+					    tooltip & tombol jurnal — untuk audit, bukan untuk dibaca). */}
+					<div
+						title={payment.ref_id}
+						className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-muted-foreground"
+					>
 						<span className="tabular">
 							{formatDateID(payment.payment_date)}
 						</span>
@@ -187,44 +192,43 @@ function PaymentItem({
 								<span>
 									{payment.bank.bank_name}
 									{payment.bank.account_number &&
-										` · ${payment.bank.account_number}`}
+										` ${payment.bank.account_number}`}
 								</span>
 							</>
 						)}
+						{!muted && (
+							<>
+								<span className="text-muted-foreground/40" aria-hidden>
+									·
+								</span>
+								<button
+									type="button"
+									onClick={() => setPayerOpen(true)}
+									className="inline-flex items-center gap-1 hover:text-foreground"
+								>
+									dari{" "}
+									<span className="font-medium text-foreground">
+										{payment.payer_name || "yang ditagih"}
+									</span>
+									<Pencil className="size-3" aria-hidden />
+								</button>
+							</>
+						)}
 					</div>
-
-					{/* Reference ID demoted — for audit, not the headline */}
-					<p
-						className={`tabular font-mono text-[11px] text-muted-foreground/70 ${muted ? "line-through" : ""}`}
-					>
-						{payment.ref_id}
-					</p>
-
-					{!muted && (
-						<button
-							type="button"
-							onClick={() => setPayerOpen(true)}
-							className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
-						>
-							Pengirim:{" "}
-							<span className="font-medium text-foreground">
-								{payment.payer_name || "sama dengan yang ditagih"}
-							</span>
-							<Pencil className="size-3" aria-hidden />
-						</button>
-					)}
 					{payment.notes && (
 						<p className="text-[12px] text-muted-foreground">{payment.notes}</p>
 					)}
 					{muted && payment.reversal_reason && (
 						<p className="text-[12px] italic text-muted-foreground">
-							Reversed: {payment.reversal_reason}
+							Dibatalkan: {payment.reversal_reason}
 						</p>
 					)}
 				</div>
 			)}
 
-			<div className="flex shrink-0 items-center gap-0.5">
+			<div
+				className={`flex shrink-0 items-center gap-0.5 ${compact ? "" : "-ml-1.5 sm:ml-0"}`}
+			>
 				{!payment.is_reversed && <ReceiptButton paymentId={payment.id} />}
 				{payment.journal_ref && (
 					<Button
@@ -263,7 +267,8 @@ function PaymentItem({
 						variant="ghost"
 						size="icon-sm"
 						onClick={() => setOpen(true)}
-						title="Reverse payment"
+						title="Batalkan pembayaran"
+						aria-label="Batalkan pembayaran"
 						className="text-muted-foreground hover:text-destructive"
 					>
 						<RotateCcw />
@@ -309,7 +314,7 @@ function PaymentItem({
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
-						<DialogTitle>Reverse payment</DialogTitle>
+						<DialogTitle>Batalkan pembayaran</DialogTitle>
 						<DialogDescription>
 							{payment.ref_id} · membatalkan pembayaran ini. Total &amp; status
 							event akan dihitung ulang otomatis.
@@ -331,7 +336,7 @@ function PaymentItem({
 							placeholder="Contoh: salah input nominal, transfer dibatalkan, dobel."
 						/>
 						<p className="text-xs text-muted-foreground">
-							Disimpan sebagai catatan historis pada payment ini.
+							Disimpan sebagai catatan di pembayaran ini.
 						</p>
 					</div>
 
@@ -356,7 +361,7 @@ function PaymentItem({
 									Memproses…
 								</>
 							) : (
-								"Reverse payment"
+								"Batalkan pembayaran"
 							)}
 						</Button>
 					</DialogFooter>

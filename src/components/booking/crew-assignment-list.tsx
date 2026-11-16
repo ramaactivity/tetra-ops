@@ -49,7 +49,7 @@ export function CrewAssignmentList({
 	if (assignments.length === 0) {
 		return (
 			<p className="text-muted-foreground text-[13px] italic">
-				Belum ada crew di-assign.
+				Belum ada crew.
 			</p>
 		);
 	}
@@ -237,18 +237,20 @@ function AssignmentItem({
 					onClick={handleSendWa}
 					title={
 						row.user.phone_wa
-							? `Send WA reminder ke ${row.user.full_name}`
+							? `Kirim pengingat WA ke ${row.user.full_name}`
 							: "Belum ada nomor WA — set di Master Crew"
 					}
-					className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors disabled:opacity-50"
+					aria-label="Kirim pengingat WA"
+					className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors disabled:opacity-50 sm:px-3"
 				>
 					<MessageCircle className="size-3.5" aria-hidden />
-					WA
+					<span className="hidden sm:inline">WA</span>
 				</button>
 				<button
 					type="button"
 					onClick={() => setEditing(true)}
-					title="Edit fee / role"
+					title="Ubah fee / peran"
+					aria-label="Ubah fee / peran"
 					className="text-muted-foreground hover:bg-secondary hover:text-foreground inline-flex size-8 items-center justify-center rounded-full transition-colors"
 				>
 					<Pencil className="size-3.5" aria-hidden />
@@ -258,6 +260,7 @@ function AssignmentItem({
 					onClick={handleUnassign}
 					disabled={pending}
 					title="Lepas crew"
+					aria-label="Lepas crew"
 					className="text-muted-foreground hover:bg-secondary hover:text-destructive inline-flex size-8 items-center justify-center rounded-full transition-colors disabled:opacity-50"
 				>
 					<Trash2 className="size-3.5" aria-hidden />

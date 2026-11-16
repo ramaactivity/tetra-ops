@@ -178,12 +178,12 @@ export const DESIGN_STATUS_TONE: Record<
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-	unpaid: "Unpaid",
-	partial: "Partial",
+	unpaid: "Belum bayar",
+	partial: "Sebagian",
 	dp: "DP",
 	paid: "Lunas",
-	overpaid: "Overpaid",
-	overdue: "Overdue",
+	overpaid: "Lebih bayar",
+	overdue: "Telat bayar",
 };
 
 /**

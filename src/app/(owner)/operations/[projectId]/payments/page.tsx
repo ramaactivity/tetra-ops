@@ -145,17 +145,17 @@ export default async function ManagePaymentsPage({
 			{/* Summary — stat row + 2-segment progress (matches dashboard targets) */}
 			<section className="overflow-hidden rounded-[16px] border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
 				<dl className="grid grid-cols-1 divide-y divide-border-subtle sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-					<SummaryCell label={vendorCut > 0 ? "Tetra Terima" : "Grand Total"}>
+					<SummaryCell label={vendorCut > 0 ? "Tetra terima" : "Total tagihan"}>
 						<MoneyAmount value={billable} size="lg" tone="default" />
 					</SummaryCell>
-					<SummaryCell label="Total Dibayar">
+					<SummaryCell label="Sudah dibayar">
 						<MoneyAmount
 							value={paid}
 							size="lg"
 							tone={paid > 0 ? "positive" : "muted"}
 						/>
 					</SummaryCell>
-					<SummaryCell label="Sisa Tagihan">
+					<SummaryCell label="Sisa tagihan">
 						<MoneyAmount
 							value={remaining}
 							size="lg"
@@ -168,7 +168,7 @@ export default async function ManagePaymentsPage({
 						Grand total <span className="tabular">{formatRupiah(grand)}</span> −
 						potongan vendor{" "}
 						<span className="tabular">{formatRupiah(vendorCut)}</span> (dipotong
-						di muka dari payment flow) — yang ditunggu masuk ke Tetra{" "}
+						langsung oleh vendor) — yang ditunggu masuk ke Tetra{" "}
 						<span className="tabular font-medium text-foreground">
 							{formatRupiah(billable)}
 						</span>
@@ -177,7 +177,7 @@ export default async function ManagePaymentsPage({
 				)}
 				<div className="border-t border-border-subtle px-5 py-3.5">
 					<div className="flex items-center justify-between text-[12.5px] leading-none">
-						<span className="text-muted-foreground">Progress pembayaran</span>
+						<span className="text-muted-foreground">Persentase terbayar</span>
 						<span
 							className={cn(
 								"tabular font-semibold",
@@ -203,11 +203,11 @@ export default async function ManagePaymentsPage({
 				</div>
 			</section>
 
-			{/* Riwayat — full width; form lives in the Log payment modal */}
+			{/* Riwayat — full width; form ada di modal Catat pembayaran */}
 			<section className="rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)] sm:p-5">
 				<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
 					<div className="flex items-baseline gap-2">
-						<h2 className="type-heading">Riwayat payment</h2>
+						<h2 className="type-heading">Riwayat pembayaran</h2>
 						{payments.length > 0 && (
 							<span className="type-caption tabular">
 								{payments.length} transaksi
@@ -242,7 +242,9 @@ function SummaryCell({
 }) {
 	return (
 		<div className="flex min-w-0 items-center justify-between gap-3 px-5 py-3 sm:flex-col sm:items-start sm:gap-0 sm:py-3">
-			<dt className="eyebrow shrink-0">{label}</dt>
+			<dt className="shrink-0 text-[12.5px] font-medium text-muted-foreground">
+				{label}
+			</dt>
 			<dd className="min-w-0 text-right sm:mt-1 sm:text-left">{children}</dd>
 		</div>
 	);

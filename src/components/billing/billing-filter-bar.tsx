@@ -31,13 +31,13 @@ const TABS: TabMeta[] = [
 	},
 	{
 		value: "unpaid",
-		label: "Unpaid",
+		label: "Belum bayar",
 		dot: "bg-muted-foreground/60",
 		badge: "border-foreground/15 bg-foreground/[0.06] text-foreground",
 	},
 	{
 		value: "dp_partial",
-		label: "DP / Partial",
+		label: "DP / Sebagian",
 		dot: "bg-amber-500",
 		badge:
 			"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
@@ -51,7 +51,7 @@ const TABS: TabMeta[] = [
 	},
 	{
 		value: "overdue",
-		label: "Overdue",
+		label: "Telat bayar",
 		dot: "bg-rose-500",
 		badge: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400",
 	},

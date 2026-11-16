@@ -5,7 +5,6 @@ import {
 	CrewAssignmentList,
 } from "@/components/booking/crew-assignment-list";
 import { Container } from "@/components/layout/container";
-import { SectionHeader } from "@/components/layout/section-header";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { getAssignableCrew } from "@/lib/crew/assignable";
 import { eventSpots, unitCountOf } from "@/lib/events/spots";
@@ -79,28 +78,31 @@ export default async function ManageCrewPage({
 	);
 
 	return (
-		<Container size="sm" className="space-y-3">
+		<Container size="xl" className="grid items-start gap-3 lg:grid-cols-2">
 			<TopbarEntityPortal name={event.client_name} />
-			<SectionHeader
-				title="Manage Crew"
-				description={`${event.client_name} · ${event.event_date}`}
-			/>
 
-			<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
-				<h2 className="text-base font-semibold">Assignments saat ini</h2>
+			<section className="space-y-3 rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-1)] sm:p-5">
+				<h2 className="text-base font-semibold">
+					Crew di acara ini
+					{assignments.length > 0 && (
+						<span className="tabular ml-1.5 text-sm font-normal text-muted-foreground">
+							{assignments.length}
+						</span>
+					)}
+				</h2>
 				<CrewAssignmentList
 					projectId={event.project_id}
 					assignments={assignments}
 					event={eventForWa}
 				/>
-			</div>
+			</section>
 
-			<div className="border-border-default bg-surface-2 space-y-4 rounded-lg border p-5">
+			<section className="space-y-3 rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-1)] sm:p-5">
 				<div>
 					<h2 className="text-base font-semibold">Tambah crew</h2>
-					<p className="text-muted-foreground text-xs">
-						Fee otomatis dari tier (senior / junior). Tanda ⚠ = crew ini punya
-						assignment lain di tanggal sama.
+					<p className="text-[12.5px] text-muted-foreground">
+						Klik peran di samping nama. Fee otomatis dari tier (senior/junior);
+						tanda ⚠ = sudah ada jadwal lain di tanggal yang sama.
 					</p>
 				</div>
 				<AssignCrewForm
@@ -109,7 +111,7 @@ export default async function ManageCrewPage({
 					availableCrew={availableCrew}
 					unitCount={unitCount}
 				/>
-			</div>
+			</section>
 		</Container>
 	);
 }

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 const PAYMENT_TYPE_OPTIONS: Array<[string, string]> = [
 	["dp", "DP"],
-	["partial", "Partial"],
+	["partial", "Cicilan"],
 	["pelunasan", "Pelunasan"],
 ];
 
@@ -524,7 +524,7 @@ export function PaymentForm({
 					? "Mengunggah bukti…"
 					: pending
 						? "Menyimpan…"
-						: "Log payment"}
+						: "Simpan pembayaran"}
 			</Button>
 		</form>
 	);

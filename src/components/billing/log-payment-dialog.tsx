@@ -30,7 +30,7 @@ export function LogPaymentDialog({
 	totalPaid,
 	defaultDpAmount,
 	defaultProofUrl,
-	triggerLabel = "Log payment",
+	triggerLabel = "Catat pembayaran",
 }: {
 	eventId: string;
 	projectId: string;
@@ -63,14 +63,14 @@ export function LogPaymentDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogTrigger className="press tap inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#059669] px-4 text-sm font-medium text-white transition-colors hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]">
+			<DialogTrigger className="press tap inline-flex h-9 items-center gap-1.5 rounded-full bg-[#059669] px-4 text-sm font-medium text-white transition-colors hover:bg-[#047857] dark:bg-[#0b9e6a] dark:hover:bg-[#059669]">
 				<Plus className="size-4" />
 				{triggerLabel}
 			</DialogTrigger>
 			<DialogContent className="max-h-[92vh] overflow-y-auto p-5 pb-6 sm:max-w-5xl">
 				<DialogHeader>
 					<DialogTitle>
-						{done ? "Pembayaran tercatat" : "Log payment baru"}
+						{done ? "Pembayaran tercatat" : "Catat pembayaran"}
 					</DialogTitle>
 					<DialogDescription className="sr-only">
 						Catat pembayaran masuk. Total & status event update otomatis.

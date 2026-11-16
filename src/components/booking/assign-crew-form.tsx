@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Search, UserPlus } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "@/components/ui/toaster";
 import { assignCrew } from "@/lib/actions/crew-assignments";
@@ -140,16 +140,6 @@ export function AssignCrewForm({
 					))}
 				</div>
 			)}
-
-			<p className="flex flex-wrap items-center gap-x-1 text-[11.5px] leading-relaxed text-muted-foreground">
-				<UserPlus className="size-3.5" aria-hidden />
-				Klik tombol role di samping nama untuk assign instan.
-				<AlertTriangle
-					className="size-3 text-amber-600 dark:text-amber-400"
-					aria-hidden
-				/>
-				= crew punya assignment lain di tanggal sama.
-			</p>
 		</div>
 	);
 }
