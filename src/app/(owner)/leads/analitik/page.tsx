@@ -19,6 +19,7 @@ import {
 import { LeadsTabs } from "@/components/leads/leads-tabs";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -84,12 +85,17 @@ export default async function LeadsAnalyticsPage({
 			? new Date(now.getTime() - rangeDef.days * DAY_MS).toISOString()
 			: null;
 
-	let leadsQuery = supabase
-		.from("whatsapp_bot_leads")
-		.select("received_at, topic, status, phone, wa_jid, is_after_hours")
-		.order("received_at", { ascending: true })
-		.limit(20000);
-	if (startISO) leadsQuery = leadsQuery.gte("received_at", startISO);
+	// Semua baris (bukan .limit — PostgREST memotong di 1.000).
+	const leadsQuery = fetchAllRows((from, to) => {
+		let q = supabase
+			.from("whatsapp_bot_leads")
+			.select("received_at, topic, status, phone, wa_jid, is_after_hours")
+			.order("received_at", { ascending: true })
+			.order("id", { ascending: true })
+			.range(from, to);
+		if (startISO) q = q.gte("received_at", startISO);
+		return q;
+	}, "analitik leads").then((data) => ({ data }));
 
 	const [leadsRes, contactsRes] = await Promise.all([
 		leadsQuery,

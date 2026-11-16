@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type LeadRow, periodStartISO } from "@/components/leads/leads-shared";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -43,26 +44,36 @@ export async function GET(req: NextRequest) {
 
 	const supabase = await createClient();
 
-	let query = supabase
-		.from("whatsapp_bot_leads")
-		.select("phone, name, topic, message, is_after_hours, status, received_at")
-		.order("received_at", { ascending: false })
-		.limit(10000);
-
-	if (q) {
-		const safe = q.replace(/[%,]/g, " ").trim();
-		query = query.or(
-			`phone.ilike.%${safe}%,name.ilike.%${safe}%,message.ilike.%${safe}%`,
-		);
-	}
-	if (topic) query = query.eq("topic", topic);
-	if (status) query = query.eq("status", status);
 	const startISO = periodStartISO(period, new Date());
-	if (startISO) query = query.gte("received_at", startISO);
-
-	const { data, error } = await query;
-	if (error) {
-		return NextResponse.json({ error: error.message }, { status: 500 });
+	const build = (from: number, to: number) => {
+		let query = supabase
+			.from("whatsapp_bot_leads")
+			.select(
+				"phone, name, topic, message, is_after_hours, status, received_at",
+			)
+			.order("received_at", { ascending: false })
+			.order("id", { ascending: false })
+			.range(from, to);
+		if (q) {
+			const safe = q.replace(/[%,]/g, " ").trim();
+			query = query.or(
+				`phone.ilike.%${safe}%,name.ilike.%${safe}%,message.ilike.%${safe}%`,
+			);
+		}
+		if (topic) query = query.eq("topic", topic);
+		if (status) query = query.eq("status", status);
+		if (startISO) query = query.gte("received_at", startISO);
+		return query;
+	};
+	// Semua baris (bukan .limit — PostgREST memotong di 1.000).
+	let data: unknown[];
+	try {
+		data = await fetchAllRows(build, "export leads");
+	} catch (e) {
+		return NextResponse.json(
+			{ error: e instanceof Error ? e.message : String(e) },
+			{ status: 500 },
+		);
 	}
 
 	const rows = (data ?? []) as Array<

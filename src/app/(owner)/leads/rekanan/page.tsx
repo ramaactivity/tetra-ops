@@ -11,6 +11,7 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -47,13 +48,18 @@ export default async function RekananPage() {
 	// Pull every lead belonging to these accounts in one shot, then group by jid.
 	const leadsByJid = new Map<string, LeadRow[]>();
 	if (jids.length) {
-		const { data: leadsData } = await supabase
-			.from("whatsapp_bot_leads")
-			.select("*")
-			.in("wa_jid", jids)
-			.order("received_at", { ascending: false })
-			.limit(10000);
-		for (const l of (leadsData ?? []) as LeadRow[]) {
+		const leadsData = await fetchAllRows<LeadRow>(
+			(from, to) =>
+				supabase
+					.from("whatsapp_bot_leads")
+					.select("*")
+					.in("wa_jid", jids)
+					.order("received_at", { ascending: false })
+					.order("id", { ascending: false })
+					.range(from, to),
+			"leads rekanan",
+		);
+		for (const l of leadsData) {
 			const arr = leadsByJid.get(l.wa_jid);
 			if (arr) arr.push(l);
 			else leadsByJid.set(l.wa_jid, [l]);

@@ -23,6 +23,7 @@ import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -91,25 +92,22 @@ export default async function LeadsPage({
 	// per-status pill counts. PostgREST caps one response at 1.000 rows, so
 	// page through all of them (dulu .limit(10000) diam-diam terpotong di
 	// 1.000: Total Lead tampil 1.000 padahal 1.871, lead unik 183 padahal 510).
-	async function fetchAgg() {
-		const rows: Array<{
+	const fetchAgg = async () => ({
+		data: await fetchAllRows<{
 			phone: string;
 			topic: string;
 			received_at: string;
 			status: string;
-		}> = [];
-		for (let from = 0; ; from += 1000) {
-			const { data, error } = await supabase
-				.from("whatsapp_bot_leads")
-				.select("phone, topic, received_at, status")
-				.order("received_at", { ascending: false })
-				.range(from, from + 999);
-			if (error) throw new Error(`leads agregat: ${error.message}`);
-			rows.push(...(data ?? []));
-			if (!data || data.length < 1000) break;
-		}
-		return { data: rows };
-	}
+		}>(
+			(from, to) =>
+				supabase
+					.from("whatsapp_bot_leads")
+					.select("phone, topic, received_at, status")
+					.order("received_at", { ascending: false })
+					.range(from, to),
+			"leads agregat",
+		),
+	});
 
 	const [listResult, aggResult] = await Promise.all([listQuery, fetchAgg()]);
 
