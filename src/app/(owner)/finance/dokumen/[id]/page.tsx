@@ -15,6 +15,7 @@ import {
 	loadDocument,
 	loadEventForPdfById,
 } from "@/lib/documents/load";
+import { loadPendingApprovals } from "@/lib/documents/pending-approval";
 import type { BillToMode } from "@/lib/documents/types";
 import { formatPhoneLocal } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
@@ -31,16 +32,25 @@ export default async function DocumentPage({
 	if (!doc) notFound();
 
 	const supabase = await createClient();
-	const ev = doc.event_id
-		? await loadEventForPdfById(supabase, doc.event_id)
-		: null;
+	const [ev, pendingApproval] = await Promise.all([
+		doc.event_id ? loadEventForPdfById(supabase, doc.event_id) : null,
+		loadPendingApprovals(supabase, doc.id),
+	]);
+	const approval =
+		pendingApproval.length > 0
+			? { fromBot: doc.origin?.jenis === "wa_bot" }
+			: null;
 
 	// Kuitansi / Nota Lunas / BAST = potret saat terbit — tidak diedit.
 	if (doc.doc_type !== "quotation" && doc.doc_type !== "invoice") {
 		return (
 			<Container size="lg" className="space-y-3 pb-6">
 				<TopbarEntityPortal name={doc.doc_number} />
-				<DocumentViewer doc={doc} eventProjectId={ev?.project_id ?? null} />
+				<DocumentViewer
+					doc={doc}
+					eventProjectId={ev?.project_id ?? null}
+					approval={approval}
+				/>
 			</Container>
 		);
 	}
@@ -143,6 +153,7 @@ export default async function DocumentPage({
 					at: doc.delivered_at ?? null,
 					via: doc.delivered_via ?? null,
 				}}
+				approval={approval}
 				paymentsPanel={
 					doc.doc_type === "invoice" && doc.event_id ? (
 						<InvoicePaymentsPanel eventId={doc.event_id} />

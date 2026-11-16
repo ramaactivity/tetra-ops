@@ -10,6 +10,10 @@ import {
 } from "@/lib/telegram/client";
 import { isOwnerTg } from "./approval-auth";
 import { issuePaidDocCore } from "./invoice";
+import {
+	notifyApprovalNeeded,
+	resolveApprovalNotifications,
+} from "./pending-approval";
 import { sendDocumentCore } from "./send";
 import { computeTotals } from "./totals";
 import { DOC_TYPE_LABEL, type DocumentRow, pendingAdminItems } from "./types";
@@ -56,6 +60,8 @@ export async function offerSendToOwner(
 			console.error("[approval] request:", error?.message);
 			return { requestId: null };
 		}
+		// Sama di aplikasi: lonceng + antrean "Perlu persetujuan" di Dokumen.
+		await notifyApprovalNeeded(req.id as string, opts.documentIds);
 		if (!isTelegramConfigured()) return { requestId: req.id as string };
 		const { chatId } = await ownerGroupChatId(supabase);
 		if (!chatId) return { requestId: req.id as string };
@@ -201,6 +207,7 @@ export async function handleDocSendTap(
 		};
 	}
 
+	await resolveApprovalNotifications(requestId);
 	return {
 		reply: `⏳ Mengirim ${docs.map((d) => d.doc_number).join(" + ")} ke klien lewat bot WA…`,
 		followUp: async () => {
@@ -301,13 +308,18 @@ export async function buildBastReadyOffer(
 			.eq("id", bast.id)
 			.maybeSingle();
 		if (doc?.delivered_at) continue;
-		const { data: pending } = await supabase
+		const { data: prior } = await supabase
 			.from("doc_send_requests")
-			.select("id")
-			.contains("document_ids", [bast.id])
-			.is("handled_at", null)
-			.limit(1)
-			.maybeSingle();
+			.select("id, handled_at, result")
+			.contains("document_ids", [bast.id]);
+		// Owner menekan "Abaikan" di aplikasi → jangan ditawarkan lagi tiap pagi.
+		if (
+			(prior ?? []).some(
+				(r) => (r.result as { how?: string } | null)?.how === "dismissed",
+			)
+		)
+			continue;
+		const pending = (prior ?? []).find((r) => !r.handled_at);
 		let requestId = (pending?.id as string | undefined) ?? null;
 		if (!requestId) {
 			const { data: req } = await supabase

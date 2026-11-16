@@ -15,6 +15,7 @@ import {
 	syncDocClientsFromEvent,
 } from "@/lib/documents/invoice";
 import { loadDocument, loadEventForPdfById } from "@/lib/documents/load";
+import { closePendingSends } from "@/lib/documents/pending-approval";
 import { sendDocumentCore } from "@/lib/documents/send";
 import {
 	addDays,
@@ -744,7 +745,7 @@ export async function sendDocumentToClient(
 export async function markDeliveredManual(
 	id: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	await requireOwnerLevel();
+	const me = await requireOwnerLevel();
 	const supabase = await createClient();
 	const { error } = await supabase
 		.from("documents")
@@ -752,6 +753,16 @@ export async function markDeliveredManual(
 		.eq("id", id)
 		.neq("status", "void");
 	if (error) return { ok: false, error: error.message };
+	await closePendingSends(id, "manual", me.profile.id);
+	revalidatePath(`/finance/dokumen/${id}`);
+	revalidatePath("/finance/dokumen");
+	return { ok: true };
+}
+
+/** "Abaikan" di antrean persetujuan: dokumen tidak perlu dikirim bot. */
+export async function dismissSendApproval(id: string): Promise<{ ok: true }> {
+	const me = await requireOwnerLevel();
+	await closePendingSends(id, "dismissed", me.profile.id);
 	revalidatePath(`/finance/dokumen/${id}`);
 	revalidatePath("/finance/dokumen");
 	return { ok: true };

@@ -9,12 +9,24 @@ import {
 	type InvoiceEventOption,
 	NewInvoiceDialog,
 } from "@/components/documents/new-invoice-dialog";
+import {
+	ApprovalQueue,
+	type ApprovalQueueRow,
+} from "@/components/documents/send-to-client";
 import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TabNav } from "@/components/ui/tab-nav";
 import { getCurrentUser } from "@/lib/auth/get-user";
-import { DOC_TYPE_LABEL, DOC_TYPES, type DocType } from "@/lib/documents/types";
+import { loadPendingApprovals } from "@/lib/documents/pending-approval";
+import { computeTotals } from "@/lib/documents/totals";
+import {
+	DOC_TYPE_LABEL,
+	DOC_TYPES,
+	type DocType,
+	type DocumentRow,
+	pendingAdminItems,
+} from "@/lib/documents/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -85,7 +97,9 @@ export default async function DokumenPage({
 		);
 	}
 
-	const [{ data: docs }, { data: counts }, { data: events }] =
+	// Antrean persetujuan hanya di tab Semua tanpa filter (daftar kerja harian).
+	const showQueue = !type && !q && !status && !month;
+	const [{ data: docs }, { data: counts }, { data: events }, approvalRows] =
 		await Promise.all([
 			query,
 			supabase.from("documents").select("doc_type").neq("status", "void"),
@@ -97,6 +111,7 @@ export default async function DokumenPage({
 				.eq("is_migrated_legacy", false)
 				.order("event_date", { ascending: false })
 				.limit(150),
+			showQueue ? loadApprovalRows(supabase) : [],
 		]);
 
 	const rows: DocumentListRow[] = (docs ?? []).map((d) => {
@@ -165,6 +180,8 @@ export default async function DokumenPage({
 				}
 			/>
 
+			<ApprovalQueue rows={approvalRows} />
+
 			<TabNav
 				aria-label="Jenis dokumen"
 				items={[
@@ -203,4 +220,41 @@ export default async function DokumenPage({
 			)}
 		</Container>
 	);
+}
+
+async function loadApprovalRows(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<ApprovalQueueRow[]> {
+	const pending = await loadPendingApprovals(supabase);
+	if (pending.length === 0) return [];
+	const { data } = await supabase
+		.from("documents")
+		.select(
+			"id, doc_type, doc_number, client, items, discount, gross_up_enabled, gross_up_rate, origin",
+		)
+		.in(
+			"id",
+			pending.map((p) => p.documentId),
+		);
+	const byId = new Map(
+		((data ?? []) as DocumentRow[]).map((d) => [d.id, d] as const),
+	);
+	return pending.flatMap(({ documentId }) => {
+		const d = byId.get(documentId);
+		if (!d) return [];
+		return [
+			{
+				id: d.id,
+				doc_type: d.doc_type,
+				doc_number: d.doc_number,
+				client_name: d.client.name ?? "",
+				total: computeTotals(d.items, d.discount, {
+					enabled: d.gross_up_enabled,
+					ratePct: d.gross_up_rate,
+				}).total,
+				blockedBy: pendingAdminItems(d.items),
+				fromBot: d.origin?.jenis === "wa_bot",
+			},
+		];
+	});
 }

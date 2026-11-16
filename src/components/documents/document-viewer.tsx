@@ -22,7 +22,11 @@ import {
 import { formatDateID } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { DocStatusBadge } from "./document-status-badge";
-import { DeliveredInfo, SendToClientButton } from "./send-to-client";
+import {
+	ApprovalBanner,
+	DeliveredInfo,
+	SendToClientButton,
+} from "./send-to-client";
 
 /**
  * Dokumen turunan (kuitansi / nota lunas / BAST) tidak diedit — isinya
@@ -32,9 +36,12 @@ import { DeliveredInfo, SendToClientButton } from "./send-to-client";
 export function DocumentViewer({
 	doc,
 	eventProjectId,
+	approval,
 }: {
 	doc: DocumentRow;
 	eventProjectId: string | null;
+	/** Ada permintaan kirim yang menunggu persetujuan owner. */
+	approval?: { fromBot: boolean } | null;
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -133,6 +140,13 @@ export function DocumentViewer({
 					) : null}
 				</div>
 			</div>
+			{approval ? (
+				<ApprovalBanner
+					documentId={doc.id}
+					fromBot={approval.fromBot}
+					blockedBy={pendingAdminItems(doc.items)}
+				/>
+			) : null}
 			<div className="overflow-hidden rounded-2xl border border-border-subtle bg-[#5b5b57] shadow-[var(--shadow-level-2)]">
 				<iframe
 					title={`${label} ${doc.doc_number}`}

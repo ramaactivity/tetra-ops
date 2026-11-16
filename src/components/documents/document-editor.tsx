@@ -91,7 +91,11 @@ import { ClientPicker } from "./client-picker";
 import { DocStatusBadge } from "./document-status-badge";
 import { IncludeList } from "./include-list";
 import { PdfPreview } from "./pdf-preview";
-import { DeliveredInfo, SendToClientButton } from "./send-to-client";
+import {
+	ApprovalBanner,
+	DeliveredInfo,
+	SendToClientButton,
+} from "./send-to-client";
 import { SignerDialog } from "./signer-settings";
 import { StandaloneInvoicePanel } from "./standalone-invoice-panel";
 
@@ -186,6 +190,7 @@ export function DocumentEditor({
 	venues = [],
 	vendors = [],
 	delivery,
+	approval,
 }: {
 	initial: EditorDoc;
 	packages: PackageOption[];
@@ -201,6 +206,8 @@ export function DocumentEditor({
 	paymentsPanel?: React.ReactNode;
 	/** Benar-benar sampai ke klien (bot WA / tandai manual). */
 	delivery?: { at: string | null; via: string | null };
+	/** Ada permintaan kirim (bot/pembayaran) yang menunggu persetujuan owner. */
+	approval?: { fromBot: boolean } | null;
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -795,6 +802,16 @@ export function DocumentEditor({
 					</DropdownMenu>
 				</div>
 			</div>
+
+			{approval && doc.id ? (
+				<ApprovalBanner
+					documentId={doc.id}
+					fromBot={approval.fromBot}
+					blockedBy={pendingAdminItems(doc.items)}
+					ensureSaved={async () => (await ensureSaved())?.id ?? null}
+					disabled={saving || readOnly}
+				/>
+			) : null}
 
 			{/* ── Toggle Isi / Preview (mobile) ── */}
 			<div className="inline-flex h-9 items-center gap-0.5 rounded-full border border-border-subtle bg-card p-1 shadow-[var(--shadow-level-1)] xl:hidden">

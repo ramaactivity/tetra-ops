@@ -6,6 +6,7 @@ import { OwnerTopBar } from "@/components/layouts/owner-topbar";
 import { BotDownBanner } from "@/components/leads/bot-down-banner";
 import type { Theme } from "@/lib/actions/theme";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { loadPendingApprovals } from "@/lib/documents/pending-approval";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OwnerLayout({
@@ -33,6 +34,7 @@ export default async function OwnerLayout({
 		{ count: portalCek },
 		{ count: portalReq },
 		{ count: designQueue },
+		approvals,
 	] = await Promise.all([
 		supabase
 			.from("bot_status")
@@ -59,6 +61,8 @@ export default async function OwnerLayout({
 			.from("design_requests")
 			.select("id", { count: "exact", head: true })
 			.in("stage", ["dikerjakan", "revisi"]),
+		// Badge "Dokumen": dokumen yang menunggu persetujuan kirim ke klien.
+		loadPendingApprovals(supabase),
 	]);
 
 	return (
@@ -70,6 +74,7 @@ export default async function OwnerLayout({
 					"/operations/booking-masuk": inboxBaru ?? 0,
 					"/operations/portal": (portalCek ?? 0) + (portalReq ?? 0),
 					"/design/portal": designQueue ?? 0,
+					"/finance/dokumen": approvals.length,
 				}}
 			/>
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on

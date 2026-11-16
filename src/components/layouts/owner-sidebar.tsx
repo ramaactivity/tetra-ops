@@ -104,7 +104,18 @@ const NAV_SECTIONS: NavSection[] = [
 					},
 				],
 			},
-			{ href: "/billing", label: "Billing", icon: Receipt },
+			// Billing jadi grup (permintaan owner 16 Nov 2026): Dokumen klien
+			// (quotation → invoice → kuitansi → nota → BAST) keluar dari Finance
+			// supaya dekat dengan tagihan. URL /finance/dokumen tidak berubah.
+			{
+				href: "/billing",
+				label: "Billing",
+				icon: Receipt,
+				children: [
+					{ href: "/billing", label: "Tagihan", icon: Receipt },
+					{ href: "/finance/dokumen", label: "Dokumen", icon: FileText },
+				],
+			},
 			// Finance dipecah dua (permintaan owner 23 Sep 2026: 13 sub-menu bikin
 			// bingung): "Finance" = uang keluar-masuk sehari-hari, "Akuntansi" =
 			// pembukuan & laporan. URL tidak berubah.
@@ -123,11 +134,6 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/buku-kas",
 						label: "Buku Kas",
 						icon: NotebookText,
-					},
-					{
-						href: "/finance/dokumen",
-						label: "Dokumen",
-						icon: FileText,
 					},
 					{
 						href: "/finance/arsip-nota",

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { signedPdfQuery } from "@/lib/documents/pdf-link";
+import { closePendingSends } from "@/lib/documents/pending-approval";
 import {
 	DOC_TYPE_LABEL,
 	type DocumentRow,
@@ -138,7 +139,10 @@ export async function sendDocumentCore(
 			.maybeSingle();
 		if (!st || st.status === "pending") continue;
 		const ok = st.status === "done";
-		if (ok) await markDelivered(supabase, r, opts, cmd.id as string);
+		if (ok) {
+			await markDelivered(supabase, r, opts, cmd.id as string);
+			await closePendingSends(r.doc.id, "sent", opts.actorId);
+		}
 		return {
 			status: ok ? "terkirim" : "gagal",
 			hasil: st.result,
@@ -146,6 +150,8 @@ export async function sendDocumentCore(
 			command_id: cmd.id as string,
 		};
 	}
+	// Sudah di antrean bot → jangan ditawarkan lagi (cegah kirim dobel).
+	await closePendingSends(r.doc.id, "sent", opts.actorId);
 	return {
 		status: "antre",
 		hasil:
