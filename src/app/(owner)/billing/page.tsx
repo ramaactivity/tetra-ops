@@ -72,6 +72,9 @@ export default async function BillingPage({
 		listQuery = listQuery.gte("event_date", startISO).lte("event_date", endISO);
 	}
 
+	// Acara batal tidak punya tagihan → keluar dari tab belum lunas/telat.
+	if (tab === "unpaid" || tab === "dp_partial" || tab === "overdue")
+		listQuery = listQuery.neq("status", "cancelled");
 	if (tab === "unpaid") listQuery = listQuery.eq("payment_status", "unpaid");
 	else if (tab === "dp_partial")
 		listQuery = listQuery.in("payment_status", ["dp", "partial"]);
@@ -105,6 +108,7 @@ export default async function BillingPage({
 			.select("remaining_balance")
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
+			.neq("status", "cancelled")
 			.neq("payment_status", "paid")
 			.gt("remaining_balance", 0),
 		// Overdue specifically (juga exclude legacy, konsisten dgn hanging).
@@ -114,6 +118,7 @@ export default async function BillingPage({
 			.select("remaining_balance")
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
+			.neq("status", "cancelled")
 			.lt("due_date", todayISO)
 			.gt("remaining_balance", 0)
 			.neq("payment_status", "paid"),
@@ -134,7 +139,7 @@ export default async function BillingPage({
 		// Tab counts
 		supabase
 			.from("events")
-			.select("payment_status, due_date, remaining_balance")
+			.select("status, payment_status, due_date, remaining_balance")
 			.is("deleted_at", null),
 		// WhatsApp templates
 		supabase
@@ -186,6 +191,7 @@ export default async function BillingPage({
 	for (const row of tabCountsResult.data ?? []) {
 		const ps = row.payment_status as string;
 		tabCounts.all++;
+		if (row.status === "cancelled") continue; // tidak ditagih
 		if (ps === "unpaid") tabCounts.unpaid++;
 		else if (ps === "dp" || ps === "partial") tabCounts.dp_partial++;
 		else if (ps === "paid") tabCounts.paid++;

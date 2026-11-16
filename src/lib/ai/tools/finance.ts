@@ -160,6 +160,7 @@ export const piutang: AiTool = {
 			.gt("remaining_balance", 0)
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
+			.neq("status", "cancelled")
 			.neq("payment_status", "paid")
 			.order("event_date", { ascending: true });
 		if (error) return { error: error.message };

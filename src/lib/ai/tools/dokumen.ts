@@ -398,6 +398,7 @@ export const tagihanJatuhTempo: AiTool = {
 			.eq("is_migrated_legacy", false)
 			.lt("due_date", ctx.todayISO)
 			.gt("remaining_balance", 0)
+			.neq("status", "cancelled")
 			.neq("payment_status", "paid")
 			.order("due_date", { ascending: true })
 			.limit(50);
