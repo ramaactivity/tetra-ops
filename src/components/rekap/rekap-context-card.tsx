@@ -36,7 +36,7 @@ export function RekapContextCard({
 			<div className="flex items-center gap-2">
 				<Info className="h-4 w-4 text-sky-700 dark:text-sky-300" />
 				<h3 className="text-sm font-semibold tracking-tight text-sky-900 dark:text-sky-100">
-					Konteks Event
+					Info acara
 				</h3>
 			</div>
 
@@ -143,8 +143,8 @@ export function RekapContextCard({
 						))}
 					</ul>
 					<p className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
-						Pastikan sudah dikasih ke klien hari-H. Stok bonus akan
-						auto-deduct saat owner approve rekap.
+						Pastikan sudah dikasih ke klien hari-H. Stok bonus akan auto-deduct
+						saat owner approve rekap.
 					</p>
 				</div>
 			)}

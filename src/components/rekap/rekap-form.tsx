@@ -1130,7 +1130,7 @@ export function RekapForm({
 						<NumberedSection
 							step={1}
 							title="Cetak"
-							description="Cuma isi total cetak — mediaset + sleeve auto-hitung dari mapping per frame size."
+							description="Cukup isi total cetak — mediaset & sleeve dihitung otomatis."
 						>
 							{unitCount > 1 ? (
 								<SpotCetak
@@ -1183,7 +1183,7 @@ export function RekapForm({
 							<div className="border-t border-border-subtle pt-4">
 								<p className="text-fluid-caption text-muted-foreground">
 									{isCrew ? (
-										"Mediaset & sleeve dihitung otomatis dari total cetak — kamu nggak perlu isi."
+										"Angka di bawah terisi sendiri dari total cetak."
 									) : (
 										<>
 											Auto-dihitung dari total cetak — klik{" "}
@@ -1323,8 +1323,8 @@ export function RekapForm({
 													Terpakai flashdisk
 												</span>
 												<span className="block text-fluid-caption text-muted-foreground">
-													1 flashdisk = flashdisk + box + pouch — ketiganya
-													otomatis ke-deduct.
+													1 flashdisk = flashdisk + box + pouch, stok ketiganya
+													berkurang otomatis.
 												</span>
 											</span>
 										</button>
@@ -1409,7 +1409,7 @@ export function RekapForm({
 				<NumberedSection
 					step={3}
 					title="Add-on"
-					description="Photomagnet / keychain — jumlah yang dipakai (paid + bonus)."
+					description="Photomagnet / keychain — jumlah yang dipakai (berbayar + bonus)."
 					defaultOpen={addonSectionOpen}
 				>
 					<div className="grid gap-4 sm:grid-cols-2">
