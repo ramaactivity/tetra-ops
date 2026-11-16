@@ -27,6 +27,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Fab } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { listMissingFields } from "@/lib/events/tbc";
 import { formatRupiahCompact } from "@/lib/format";
@@ -239,7 +240,7 @@ export default async function OperationsListPage({
 		// memperhitungkan potongan langsung vendor).
 		supabase
 			.from("events")
-			.select("total_paid, remaining_balance")
+			.select("total_paid, remaining_balance, due_date")
 			.is("deleted_at", null)
 			.neq("status", "cancelled")
 			.gte("event_date", ymStart)
@@ -460,19 +461,40 @@ export default async function OperationsListPage({
 	const thisYearCount = thisYearCountResult.count ?? 0;
 	const awaitingCount = awaitingCountResult.count ?? 0;
 	const completedCount = completedCountResult.count ?? 0;
+	// Yang belum masuk dipilah: sudah lewat jatuh tempo (harus ditagih) vs
+	// belum waktunya — plus jatuh tempo terdekat supaya tahu siapa berikutnya.
+	const todayIso = todayWIB();
 	const monthMoney = (
 		(monthMoneyResult.data ?? []) as Array<{
 			total_paid: number | null;
 			remaining_balance: number | null;
+			due_date: string | null;
 		}>
 	).reduce(
 		(t, e) => {
 			const paid = Number(e.total_paid ?? 0);
 			const left = Math.max(0, Number(e.remaining_balance ?? 0));
-			return { paid: t.paid + paid, billed: t.billed + paid + left };
+			const late = left > 0 && !!e.due_date && e.due_date < todayIso;
+			const upcoming = left > 0 && !!e.due_date && e.due_date >= todayIso;
+			return {
+				paid: t.paid + paid,
+				billed: t.billed + paid + left,
+				late: t.late + (late ? left : 0),
+				nextDue:
+					upcoming && (!t.nextDue || (e.due_date as string) < t.nextDue)
+						? (e.due_date as string)
+						: t.nextDue,
+			};
 		},
-		{ paid: 0, billed: 0 },
+		{ paid: 0, billed: 0, late: 0, nextDue: null as string | null },
 	);
+	const nextDueLabel = monthMoney.nextDue
+		? new Date(`${monthMoney.nextDue}T00:00:00`).toLocaleDateString("id-ID", {
+				weekday: "short",
+				day: "numeric",
+				month: "short",
+			})
+		: null;
 	const monthShort = new Date(kpiY, kpiM - 1, 1).toLocaleDateString("id-ID", {
 		month: "long",
 	});
@@ -575,11 +597,17 @@ export default async function OperationsListPage({
 					value={formatRupiahCompact(monthMoney.paid)}
 					hint={
 						monthMoney.billed > monthMoney.paid
-							? `belum masuk ${formatRupiahCompact(monthMoney.billed - monthMoney.paid)}`
+							? `belum masuk ${formatRupiahCompact(monthMoney.billed - monthMoney.paid)}${nextDueLabel ? ` · jatuh tempo terdekat ${nextDueLabel}` : ""}`
 							: monthMoney.billed > 0
 								? "semua sudah masuk"
 								: "belum ada tagihan"
 					}
+					badge={
+						monthMoney.late > 0
+							? `telat ${formatRupiahCompact(monthMoney.late)}`
+							: undefined
+					}
+					badgeTone="red"
 					icon={Wallet}
 					accent="emerald"
 					progress={
