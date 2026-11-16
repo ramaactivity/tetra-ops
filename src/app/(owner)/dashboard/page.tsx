@@ -161,120 +161,41 @@ export default async function DashboardPage() {
 							</p>
 						</div>
 						<div className="flex items-center gap-2 border-t border-border-subtle pt-3">
-							<span className="inline-flex h-[22px] items-center rounded-full bg-amber-300 px-2.5 text-[11.5px] font-medium text-amber-950 dark:bg-amber-500/25 dark:text-amber-200">
+							<span className="inline-flex h-[22px] shrink-0 items-center whitespace-nowrap rounded-full bg-amber-300 px-2.5 text-[11.5px] font-medium text-amber-950 dark:bg-amber-500/25 dark:text-amber-200">
 								{awaitingCount} nunggu settle
 							</span>
 							<span className="text-[12px] text-muted-foreground">
-								event selesai, belum di-settle
+								acara selesai, belum di-settle
 							</span>
 						</div>
 					</div>
 				</div>
 			</section>
 
-			{isOwnerLevel && (
-				<section className="rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
-					<HutangPiutangOwner
-						owners={talanganOwners}
-						list={talangan}
-						cashAccounts={talanganAccounts}
-					/>
-				</section>
-			)}
+			{/* Aksi cepat — satu baris pill (dulu kolom 5 kotak yang membuat kolom
+			    agenda di sebelahnya kosong melompong) */}
+			<nav aria-label="Aksi cepat" className="flex flex-wrap gap-2">
+				<QuickAction href="/operations/new" icon={PlusCircle} primary>
+					Booking baru
+				</QuickAction>
+				<QuickAction href="/operations/packages/new" icon={Package}>
+					Paket baru
+				</QuickAction>
+				<QuickAction href="/settings/crew" icon={Users}>
+					Master crew
+				</QuickAction>
+				<QuickAction href="/finance/bank-accounts" icon={Receipt}>
+					Rekening bank
+				</QuickAction>
+				<QuickAction href="/settings" icon={SettingsIcon}>
+					Pengaturan
+				</QuickAction>
+			</nav>
 
-			{/* Target */}
-			<section className="space-y-3">
-				<p className="eyebrow px-5">Target capaian</p>
-				<div className="grid grid-cols-2 gap-3">
-					<TargetProgressCard
-						label="Target Bulanan"
-						current={monthCount}
-						target={targets.monthly}
-						icon={Target}
-					/>
-					<TargetProgressCard
-						label="Target Tahunan"
-						current={yearCount}
-						target={targets.yearly}
-						icon={Target}
-					/>
-				</div>
-			</section>
-
-			{/* Status breakdowns — segmented bars (no more overlapping mini-stats) */}
-			<section className="space-y-3">
-				<p className="eyebrow px-5">Status</p>
-				<div className="grid gap-3 sm:grid-cols-2">
-					<SegmentedBar
-						title="Status Invoice"
-						icon={<FileText aria-hidden />}
-						segments={[
-							{ label: "Lunas", value: invoicePaid, tone: "emerald" },
-							{ label: "DP", value: invoicePartial, tone: "amber" },
-							{ label: "Belum bayar", value: invoiceUnpaid, tone: "rose" },
-						]}
-					/>
-					<SegmentedBar
-						title="Status Operasional"
-						icon={<Activity aria-hidden />}
-						segments={[
-							{ label: "Mendatang", value: monthUpcoming, tone: "teal" },
-							{
-								label: "Selesai",
-								value: completedThisMonthCount,
-								tone: "emerald",
-							},
-							{ label: "Batal", value: monthCancelled, tone: "rose" },
-						]}
-					/>
-				</div>
-			</section>
-
-			{/* Pipeline */}
-			<section className="space-y-3">
-				<SectionHead
-					eyebrow="Pipeline"
-					title="Pipeline Event"
-					href="/operations"
-				/>
-				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-					<PipelineCard
-						label="7 Hari ke Depan"
-						count={upcoming7dCount}
-						href="/operations?status=upcoming"
-						icon={CalendarClock}
-						accent="emerald"
-					/>
-					<PipelineCard
-						label="Berlangsung"
-						count={inProgressCount}
-						href="/operations?status=in_progress"
-						icon={CalendarCheck}
-						accent="sky"
-					/>
-					<PipelineCard
-						label="Menunggu Settle"
-						count={awaitingCount}
-						href="/operations?status=awaiting_settlement"
-						icon={Hourglass}
-						accent="amber"
-					/>
-					<PipelineCard
-						label="Selesai Bln Ini"
-						count={completedThisMonthCount}
-						href="/operations?status=completed"
-						icon={CheckCircle2}
-						accent="primary"
-					/>
-				</div>
-			</section>
-
-			<AnomalyRadarWidget userId={userResult.profile.id} />
-
-			<div className="grid gap-3 lg:grid-cols-3">
+			<div>
 				{/* Agenda */}
-				<section className="space-y-3 lg:col-span-2">
-					<SectionHead eyebrow="Agenda" title="Hari Ini & Besok" />
+				<section className="space-y-3">
+					<SectionHead title="Hari ini & besok" />
 					{nextEvents.length === 0 ? (
 						<div className="flex items-center gap-3 rounded-[16px] border border-dashed border-border-default bg-card/60 p-4">
 							<span className="grid size-9 shrink-0 place-items-center rounded-[16px] bg-surface-3 text-muted-foreground">
@@ -282,7 +203,7 @@ export default async function DashboardPage() {
 							</span>
 							<div className="min-w-0">
 								<p className="type-body-strong">
-									Tidak ada event hari ini / besok
+									Tidak ada acara hari ini / besok
 								</p>
 								<p className="type-caption">
 									Free time — booking baru muncul di sini otomatis.
@@ -338,66 +259,111 @@ export default async function DashboardPage() {
 						</div>
 					)}
 				</section>
-
-				{/* Aksi Cepat */}
-				<section className="space-y-3">
-					<SectionHead eyebrow="Pintasan" title="Aksi Cepat" />
-					<div className="grid grid-cols-2 gap-3">
-						<QuickActionTile
-							href="/operations/new"
-							icon={PlusCircle}
-							label="Booking Baru"
-							hint="Buat event baru"
-							primary
-						/>
-						<QuickActionTile
-							href="/operations/packages/new"
-							icon={Package}
-							label="Paket Baru"
-							hint="Tambah pricelist"
-						/>
-						<QuickActionTile
-							href="/settings/crew"
-							icon={Users}
-							label="Master Crew"
-							hint="Approve & atur tim"
-						/>
-						<QuickActionTile
-							href="/finance/bank-accounts"
-							icon={Receipt}
-							label="Rekening Bank"
-							hint="Penerima transfer"
-						/>
-						<QuickActionTile
-							href="/settings"
-							icon={SettingsIcon}
-							label="Pengaturan"
-							hint="Konfigurasi sistem"
-						/>
-					</div>
-				</section>
 			</div>
+			<AnomalyRadarWidget userId={userResult.profile.id} />
+
+			{/* Pipeline */}
+			<section className="space-y-3">
+				<SectionHead title="Acara" href="/operations" />
+				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+					<PipelineCard
+						label="7 hari ke depan"
+						count={upcoming7dCount}
+						href="/operations?status=upcoming"
+						icon={CalendarClock}
+						accent="emerald"
+					/>
+					<PipelineCard
+						label="Berlangsung"
+						count={inProgressCount}
+						href="/operations?status=in_progress"
+						icon={CalendarCheck}
+						accent="sky"
+					/>
+					<PipelineCard
+						label="Menunggu settle"
+						count={awaitingCount}
+						href="/operations?status=awaiting_settlement"
+						icon={Hourglass}
+						accent="amber"
+					/>
+					<PipelineCard
+						label="Selesai bulan ini"
+						count={completedThisMonthCount}
+						href="/operations?status=completed"
+						icon={CheckCircle2}
+						accent="primary"
+					/>
+				</div>
+			</section>
+
+			{/* Target */}
+			<section className="space-y-3">
+				<h2 className="type-heading px-5">Target</h2>
+				<div className="grid grid-cols-2 gap-3">
+					<TargetProgressCard
+						label="Target bulan ini"
+						current={monthCount}
+						target={targets.monthly}
+						icon={Target}
+					/>
+					<TargetProgressCard
+						label="Target tahun ini"
+						current={yearCount}
+						target={targets.yearly}
+						icon={Target}
+					/>
+				</div>
+			</section>
+
+			{/* Status breakdowns — segmented bars (no more overlapping mini-stats) */}
+			<section className="space-y-3">
+				<h2 className="type-heading px-5">Status</h2>
+				<div className="grid gap-3 sm:grid-cols-2">
+					<SegmentedBar
+						title="Pembayaran"
+						icon={<FileText aria-hidden />}
+						segments={[
+							{ label: "Lunas", value: invoicePaid, tone: "emerald" },
+							{ label: "DP", value: invoicePartial, tone: "amber" },
+							{ label: "Belum bayar", value: invoiceUnpaid, tone: "rose" },
+						]}
+					/>
+					<SegmentedBar
+						title="Acara bulan ini"
+						icon={<Activity aria-hidden />}
+						segments={[
+							{ label: "Mendatang", value: monthUpcoming, tone: "teal" },
+							{
+								label: "Selesai",
+								value: completedThisMonthCount,
+								tone: "emerald",
+							},
+							{ label: "Batal", value: monthCancelled, tone: "rose" },
+						]}
+					/>
+				</div>
+			</section>
+
+			{isOwnerLevel && (
+				<section className="rounded-[16px] border border-border-subtle bg-card p-5 shadow-[var(--shadow-level-2)]">
+					<HutangPiutangOwner
+						owners={talanganOwners}
+						list={talangan}
+						cashAccounts={talanganAccounts}
+					/>
+				</section>
+			)}
 		</Container>
 	);
 }
 
 /* ───────────────────────── small page-local helpers ───────────────────────── */
 
-function SectionHead({
-	eyebrow,
-	title,
-	href,
-}: {
-	eyebrow: string;
-	title: string;
-	href?: string;
-}) {
+function SectionHead({ title, href }: { title: string; href?: string }) {
 	return (
 		<div className="flex items-end justify-between gap-3 px-5">
-			<div className="min-w-0">
-				<p className="eyebrow">{eyebrow}</p>
-				<h2 className="type-heading mt-0.5">{title}</h2>
-			</div>
+			<h2 className="type-heading min-w-0">{title}</h2>
 			{href ? (
 				<Link
 					href={href}
@@ -410,43 +376,29 @@ function SectionHead({
 	);
 }
 
-function QuickActionTile({
+function QuickAction({
 	href,
 	icon: Icon,
-	label,
-	hint,
 	primary = false,
+	children,
 }: {
 	href: string;
 	icon: typeof PlusCircle;
-	label: string;
-	hint: string;
 	primary?: boolean;
+	children: React.ReactNode;
 }) {
 	return (
 		<Link
 			href={href}
 			className={cn(
-				"press tap group flex items-center gap-3 rounded-[16px] border p-3.5 shadow-[var(--shadow-soft)] transition-colors",
+				"inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-medium transition-[transform,background-color] duration-150 ease-out active:scale-[0.97]",
 				primary
-					? "col-span-2 border-emerald-600/20 bg-emerald-50/70 active:bg-emerald-100/60 dark:bg-emerald-500/10"
-					: "border-border-default bg-card active:bg-surface-3",
+					? "bg-primary text-primary-foreground hover:bg-primary/90"
+					: "border border-border-default bg-card text-foreground hover:bg-secondary",
 			)}
 		>
-			<span
-				className={cn(
-					"grid size-9 shrink-0 place-items-center rounded-[16px]",
-					primary
-						? "bg-primary text-white dark:bg-primary"
-						: "bg-surface-3 text-muted-foreground",
-				)}
-			>
-				<Icon className="size-4" aria-hidden />
-			</span>
-			<span className="min-w-0 flex-1">
-				<span className="type-label block truncate">{label}</span>
-				<span className="type-caption block truncate">{hint}</span>
-			</span>
+			<Icon className="size-4" aria-hidden />
+			{children}
 		</Link>
 	);
 }

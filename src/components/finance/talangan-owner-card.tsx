@@ -475,8 +475,8 @@ export function HutangPiutangOwner({
 				<div className="min-w-0 flex-1 basis-60">
 					<h3 className="type-heading">Hutang-piutang owner</h3>
 					<p className="type-secondary mt-0.5">
-						Antara Tetra dan owner: uang jalan, biaya yang dibayarin owner,
-						pinjaman. Dilunasi sekaligus atau dicicil.
+						Uang jalan, biaya yang dibayarin owner, dan pinjaman antara Tetra &
+						owner.
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
@@ -489,11 +489,17 @@ export function HutangPiutangOwner({
 					<CatatTalanganOwner owners={owners} cashAccounts={cashAccounts} />
 				</div>
 			</div>
-			{list.length > 0 ? (
-				<TalanganOwnerCard owners={list} cashAccounts={cashAccounts} />
+			{/* Yang sudah lunas tidak perlu kartu (pembatalannya tetap ada di
+			    Riwayat & detail) — dulu kartu "Rp 0 · Lunas" + catatan panjang
+			    memenuhi Dashboard & Keuangan. */}
+			{list.some((o) => o.saldo !== 0) ? (
+				<TalanganOwnerCard
+					owners={list.filter((o) => o.saldo !== 0)}
+					cashAccounts={cashAccounts}
+				/>
 			) : (
 				<p className="rounded-xl bg-secondary/60 px-3 py-2.5 text-[13px] text-muted-foreground">
-					Tidak ada hutang-piutang dengan owner.
+					Semua lunas.
 				</p>
 			)}
 		</div>

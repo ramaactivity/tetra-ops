@@ -48,7 +48,7 @@ export function SegmentedBar({
 						{icon}
 					</span>
 				) : null}
-				<h3 className="eyebrow">{title}</h3>
+				<h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
 			</div>
 
 			{/* Gapped, rounded segments so adjacent colours stay distinct */}
@@ -73,7 +73,9 @@ export function SegmentedBar({
 					<div key={s.label} className="flex items-center gap-1.5">
 						<span className={cn("size-2 shrink-0 rounded-full", DOT[s.tone])} />
 						<span className="type-caption text-foreground">{s.label}</span>
-						<span className={cn("type-num text-[13px] font-semibold", TEXT[s.tone])}>
+						<span
+							className={cn("type-num text-[13px] font-semibold", TEXT[s.tone])}
+						>
 							{s.value}
 						</span>
 					</div>

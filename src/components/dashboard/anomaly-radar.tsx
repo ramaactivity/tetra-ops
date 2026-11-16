@@ -64,20 +64,21 @@ const SEVERITY_RANK: Record<Severity, number> = {
 
 export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 	const supabase = await createClient();
-	const { data, count } = await supabase
+	const { data } = await supabase
 		.from("notifications")
 		.select(
-			"id, severity, category, title, body, action_url, created_at",
-			{ count: "exact" },
+			"id, severity, category, title, body, action_url, created_at, entity_type, entity_id",
 		)
 		.eq("user_id", userId)
 		.eq("is_dismissed", false)
 		.eq("is_read", false)
+		.eq("is_resolved", false)
+		.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
 		.order("severity", { ascending: true })
 		.order("created_at", { ascending: false })
-		.limit(5);
+		.limit(30);
 
-	const items = (data ?? []) as Array<{
+	const rows = (data ?? []) as Array<{
 		id: string;
 		severity: Severity;
 		category: string;
@@ -85,7 +86,45 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 		body: string;
 		action_url: string | null;
 		created_at: string;
+		entity_type: string | null;
+		entity_id: string | null;
 	}>;
+	// Peringatan acara tidak pernah ditandai beres otomatis (mis. "H-1 desain
+	// belum ACC" tetap ada setelah acaranya lewat & di-settle). Yang acaranya
+	// sudah lewat / selesai / batal tidak perlu ditindak lagi — jangan tampil.
+	const eventIds = [
+		...new Set(
+			rows
+				.filter((r) => r.entity_type === "event" && r.entity_id)
+				.map((r) => r.entity_id as string),
+		),
+	];
+	const todayWib = new Date(Date.now() + 7 * 3600_000)
+		.toISOString()
+		.slice(0, 10);
+	const stale = new Set<string>();
+	if (eventIds.length > 0) {
+		const { data: evs } = await supabase
+			.from("events")
+			.select("id, event_date, status")
+			.in("id", eventIds);
+		for (const e of (evs ?? []) as Array<{
+			id: string;
+			event_date: string | null;
+			status: string | null;
+		}>) {
+			if (
+				e.status === "completed" ||
+				e.status === "cancelled" ||
+				(e.event_date !== null && e.event_date < todayWib)
+			)
+				stale.add(e.id);
+		}
+	}
+	const items = rows.filter(
+		(r) =>
+			!(r.entity_type === "event" && r.entity_id && stale.has(r.entity_id)),
+	);
 
 	items.sort((a, b) => {
 		const r = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
@@ -93,22 +132,11 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 		return b.created_at.localeCompare(a.created_at);
 	});
 	const top = items.slice(0, 3);
-	const total = count ?? 0;
 
 	return (
 		<section className="space-y-2.5">
 			<div className="flex items-end justify-between gap-3 px-5">
-				<div className="min-w-0">
-					<p className="eyebrow">Radar</p>
-					<h2 className="type-heading mt-0.5">
-						Anomaly radar
-						{total > 0 && (
-							<span className="ml-2 tabular text-fluid-caption font-normal text-muted-foreground">
-								{total} unread
-							</span>
-						)}
-					</h2>
-				</div>
+				<h2 className="type-heading min-w-0">Perlu perhatian</h2>
 				<Link
 					href="/notifications"
 					className="type-caption shrink-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -139,9 +167,7 @@ export async function AnomalyRadarWidget({ userId }: { userId: string }) {
 						const card = (
 							<div
 								className={`group flex items-start gap-3 rounded-[16px] border border-border-subtle bg-card p-3.5 shadow-[var(--shadow-level-2)] transition-colors hover:bg-surface-3 ${
-									n.severity === "alert"
-										? "ring-1 ring-rose-500/20"
-										: ""
+									n.severity === "alert" ? "ring-1 ring-rose-500/20" : ""
 								}`}
 							>
 								<div

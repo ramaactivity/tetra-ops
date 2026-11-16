@@ -60,7 +60,7 @@ export function PipelineCard({
 				<div className="tabular text-fluid-h1 font-semibold text-foreground">
 					{count.toLocaleString("id-ID")}
 				</div>
-				<div className="text-fluid-caption font-medium uppercase tracking-wider text-muted-foreground">
+				<div className="text-[12.5px] font-medium text-muted-foreground">
 					{label}
 				</div>
 			</div>
