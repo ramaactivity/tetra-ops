@@ -2,6 +2,7 @@
 
 import { Calendar } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export function LedgerDateFilter({
 	defaultFrom,
@@ -32,18 +33,18 @@ export function LedgerDateFilter({
 		<div className="flex flex-wrap items-center gap-2 rounded-md border border-border-default bg-card p-2 text-fluid-caption">
 			<Calendar className="size-3.5 text-muted-foreground" />
 			<span className="text-muted-foreground">Periode:</span>
-			<input
-				type="date"
-				defaultValue={defaultFrom ?? ""}
-				onChange={(e) => update("from", e.target.value)}
-				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+			<DatePicker
+				aria-label="Dari tanggal"
+				value={defaultFrom ?? ""}
+				onValueChange={(v) => update("from", v)}
+				className="h-8 w-auto rounded-full px-3 text-[12.5px]"
 			/>
 			<span className="text-muted-foreground">→</span>
-			<input
-				type="date"
-				defaultValue={defaultTo ?? ""}
-				onChange={(e) => update("to", e.target.value)}
-				className="h-8 rounded-md border border-border-default bg-surface-1 px-2 text-[12px] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+			<DatePicker
+				aria-label="Sampai tanggal"
+				value={defaultTo ?? ""}
+				onValueChange={(v) => update("to", v)}
+				className="h-8 w-auto rounded-full px-3 text-[12.5px]"
 			/>
 			{hasFilter && (
 				<button

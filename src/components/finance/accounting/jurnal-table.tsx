@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useId, useMemo, useRef, useState } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
@@ -208,20 +209,18 @@ export function JurnalTable({
 				<div className="flex flex-wrap items-center gap-2">
 					<div className="inline-flex h-8 items-center gap-2 rounded-md border border-border-default bg-card px-2.5 text-[12px]">
 						<Calendar className="size-3.5 text-muted-foreground" aria-hidden />
-						<input
-							type="date"
-							defaultValue={defaultFrom ?? ""}
-							onChange={(e) => updateDate("from", e.target.value)}
+						<DatePicker
 							aria-label="Dari tanggal"
-							className="h-8 bg-transparent text-[12px] focus:outline-none"
+							value={defaultFrom ?? ""}
+							onValueChange={(v) => updateDate("from", v)}
+							className="h-7 w-auto rounded-full border-0 bg-transparent px-1.5 text-[12px] shadow-none hover:bg-secondary"
 						/>
 						<span className="text-muted-foreground/50">→</span>
-						<input
-							type="date"
-							defaultValue={defaultTo ?? ""}
-							onChange={(e) => updateDate("to", e.target.value)}
+						<DatePicker
 							aria-label="Sampai tanggal"
-							className="h-8 bg-transparent text-[12px] focus:outline-none"
+							value={defaultTo ?? ""}
+							onValueChange={(v) => updateDate("to", v)}
+							className="h-7 w-auto rounded-full border-0 bg-transparent px-1.5 text-[12px] shadow-none hover:bg-secondary"
 						/>
 						{hasDateFilter && (
 							<button

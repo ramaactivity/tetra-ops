@@ -4,6 +4,7 @@ import { BookOpen, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -18,6 +19,7 @@ import {
 	createManualJournalEntry,
 	type ManualEntryFormState,
 } from "@/lib/actions/journal-entries";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 
 export type CoaOption = {
@@ -177,13 +179,12 @@ export function NewJournalEntryButton({ coa }: { coa: CoaOption[] }) {
 							<div className="eyebrow mb-2">Header entry</div>
 							<div className="grid gap-3 lg:grid-cols-[180px_240px_1fr]">
 								<Field label="Tanggal Entry" name="entry_date" required>
-									<input
-										type="date"
+									<DatePicker
 										id="entry_date"
 										name="entry_date"
-										defaultValue={new Date().toISOString().slice(0, 10)}
 										required
-										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+										defaultValue={todayWIB()}
+										className="h-10"
 									/>
 								</Field>
 								<Field label="Tipe Entry" name="entry_type" required>

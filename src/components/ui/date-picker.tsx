@@ -49,6 +49,10 @@ interface DatePickerProps {
 	className?: string;
 	min?: string; // yyyy-MM-dd
 	max?: string;
+	/** Ikut terkirim di <form> (hidden input) — pengganti <input type="date" name>. */
+	name?: string;
+	/** Wajib diisi: tombol "Bersihkan" disembunyikan. */
+	required?: boolean;
 	"aria-invalid"?: boolean;
 	"aria-label"?: string;
 }
@@ -65,6 +69,8 @@ export function DatePicker({
 	className,
 	min,
 	max,
+	name,
+	required,
 	...ariaProps
 }: DatePickerProps) {
 	const [open, setOpen] = useState(false);
@@ -98,6 +104,7 @@ export function DatePicker({
 
 	return (
 		<PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+			{name ? <input type="hidden" name={name} value={current ?? ""} /> : null}
 			<PopoverPrimitive.Trigger
 				render={
 					<Button
@@ -223,7 +230,7 @@ export function DatePicker({
 									Kemarin
 								</Button>
 							</div>
-							{current ? (
+							{current && !required ? (
 								<Button
 									variant="ghost"
 									size="sm"

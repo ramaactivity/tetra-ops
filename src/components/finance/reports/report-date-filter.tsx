@@ -2,6 +2,7 @@
 
 import { Calendar } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export function ReportDateFilter({
 	mode,
@@ -64,8 +65,7 @@ export function ReportDateFilter({
 	// Gaya filter-toolbar global: kontrol h-8 pill (rounded-full) text-[13px].
 	// Tanpa wrapper card sendiri — komponen ini di-embed di body toolbar card
 	// halaman Laporan (header judul + hairline di atasnya).
-	const inputCls =
-		"h-8 rounded-full border border-border-default bg-card px-3 text-[13px] tabular focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40";
+	const inputCls = "tabular h-8 w-auto rounded-full px-3 text-[13px]";
 	const buttonCls =
 		"press-down inline-flex h-8 items-center rounded-full border border-border-default bg-card px-3 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground";
 
@@ -74,10 +74,10 @@ export function ReportDateFilter({
 			<div className="flex flex-wrap items-center gap-2 text-fluid-caption">
 				<Calendar className="size-3.5 text-muted-foreground" />
 				<span className="text-muted-foreground">Per tanggal:</span>
-				<input
-					type="date"
-					defaultValue={defaultAsOf ?? ""}
-					onChange={(e) => update("asOf", e.target.value)}
+				<DatePicker
+					aria-label="Per tanggal"
+					value={defaultAsOf ?? ""}
+					onValueChange={(v) => update("asOf", v)}
 					className={inputCls}
 				/>
 				<span className="text-[11px] text-muted-foreground">
@@ -100,17 +100,17 @@ export function ReportDateFilter({
 		<div className="flex flex-wrap items-center gap-2 text-fluid-caption">
 			<Calendar className="size-3.5 text-muted-foreground" />
 			<span className="text-muted-foreground">Periode:</span>
-			<input
-				type="date"
-				defaultValue={defaultFrom ?? ""}
-				onChange={(e) => update("from", e.target.value)}
+			<DatePicker
+				aria-label="Dari tanggal"
+				value={defaultFrom ?? ""}
+				onValueChange={(v) => update("from", v)}
 				className={inputCls}
 			/>
 			<span className="text-muted-foreground">→</span>
-			<input
-				type="date"
-				defaultValue={defaultTo ?? ""}
-				onChange={(e) => update("to", e.target.value)}
+			<DatePicker
+				aria-label="Sampai tanggal"
+				value={defaultTo ?? ""}
+				onValueChange={(v) => update("to", v)}
 				className={inputCls}
 			/>
 			<div className="ml-2 flex items-center gap-1.5">

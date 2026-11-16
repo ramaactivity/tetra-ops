@@ -22,6 +22,7 @@ import {
 	useState,
 } from "react";
 import { Combobox } from "@/components/ui/combobox";
+import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/form-fields";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
@@ -31,6 +32,7 @@ import {
 	type QuickRecordFormState,
 	recordQuickTransaction,
 } from "@/lib/actions/journal-entries";
+import { todayWIB } from "@/lib/dates";
 import {
 	type CatatDirection,
 	categoriesFor,
@@ -54,9 +56,9 @@ const DIR_ICON: Record<CatatDirection, typeof ArrowDownLeft> = {
 	transfer: ArrowLeftRight,
 };
 
-function todayIso(): string {
-	return new Date().toISOString().slice(0, 10);
-}
+// Tanggal WIB — dulu toISOString (UTC): jam 00.00–07.00 WIB "Hari ini" jatuh
+// ke tanggal kemarin dan batas max ikut mundur sehari.
+const todayIso = todayWIB;
 
 // Default rekening sumber (Dari) = saldo terbesar, bukan urutan pertama.
 // Kas Tunai sering Rp 0 dan jadi default lama → user harus ganti manual tiap
@@ -1112,12 +1114,13 @@ export function QuickRecordCore({
 						>
 							Hari ini
 						</button>
-						<input
-							type="date"
+						<DatePicker
+							aria-label="Tanggal"
+							required
 							value={date}
 							max={todayIso()}
-							onChange={(e) => setDate(e.target.value)}
-							className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
+							onValueChange={setDate}
+							className="h-9 w-auto rounded-full px-3 text-[13px]"
 						/>
 					</div>
 					{eventField}
@@ -1181,12 +1184,13 @@ export function QuickRecordCore({
 				>
 					Hari ini
 				</button>
-				<input
-					type="date"
+				<DatePicker
+					aria-label="Tanggal"
+					required
 					value={date}
 					max={todayIso()}
-					onChange={(e) => setDate(e.target.value)}
-					className="h-9 rounded-md border border-border-default bg-background px-2.5 text-[13px] text-foreground"
+					onValueChange={setDate}
+					className="h-9 w-auto rounded-full px-3 text-[13px]"
 				/>
 			</div>
 			{eventField}

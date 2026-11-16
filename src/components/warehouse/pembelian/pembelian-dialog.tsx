@@ -4,6 +4,7 @@ import { Paperclip, Plus, ShoppingCart, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Combobox } from "@/components/ui/combobox";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -19,6 +20,7 @@ import {
 	recordPurchaseBatch,
 } from "@/lib/actions/purchases";
 import { compressImage } from "@/lib/crew/image-compression";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 import {
 	listPurchaseUnits,
@@ -126,9 +128,7 @@ export function PembelianDialog({
 	const [topDays, setTopDays] = useState<string>("0");
 	// Biaya admin/transfer bank (opsional, cash only). String supaya kosong = 0.
 	const [adminFee, setAdminFee] = useState<string>("");
-	const [purchaseDate, setPurchaseDate] = useState<string>(() =>
-		new Date().toISOString().slice(0, 10),
-	);
+	const [purchaseDate, setPurchaseDate] = useState<string>(todayWIB);
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 	const [lines, setLines] = useState<LineRow[]>([newLine()]);
@@ -187,7 +187,7 @@ export function PembelianDialog({
 		setAdminFee("");
 		setSinkingFundId("");
 		setPhoto(null);
-		setPurchaseDate(new Date().toISOString().slice(0, 10));
+		setPurchaseDate(todayWIB());
 		router.refresh();
 
 		// Nota menyusul dengan kabarnya sendiri — termasuk alasan asli dari
@@ -360,14 +360,13 @@ export function PembelianDialog({
 							</div>
 							<div className="grid gap-3 lg:grid-cols-4">
 								<Field label="Tanggal Pembelian" name="purchase_date" required>
-									<input
-										type="date"
+									<DatePicker
 										id="purchase_date"
 										name="purchase_date"
-										value={purchaseDate}
-										onChange={(e) => setPurchaseDate(e.target.value)}
 										required
-										className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-[#059669] focus:outline-none focus:ring-1 focus:ring-primary/40"
+										value={purchaseDate}
+										onValueChange={setPurchaseDate}
+										className="h-10"
 									/>
 								</Field>
 								<Field

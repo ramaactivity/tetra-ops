@@ -4,6 +4,7 @@ import { Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Combobox } from "@/components/ui/combobox";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -15,6 +16,7 @@ import {
 import { NumberField, TextareaField } from "@/components/ui/form-fields";
 import { toast } from "@/components/ui/toaster";
 import { recordPayablePayment } from "@/lib/actions/payables";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 import type { CashAccountOption, PayableRow } from "./payables-table";
 
@@ -98,13 +100,12 @@ export function PayDialog({
 						{/* Form */}
 						<div className="space-y-3">
 							<Field label="Tanggal Bayar" name="payment_date" required>
-								<input
-									type="date"
+								<DatePicker
 									id="payment_date"
 									name="payment_date"
-									defaultValue={new Date().toISOString().slice(0, 10)}
 									required
-									className="h-10 w-full rounded-md border border-border-default bg-surface-1 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
+									defaultValue={todayWIB()}
+									className="h-10"
 								/>
 							</Field>
 
@@ -131,7 +132,8 @@ export function PayDialog({
 										onClick={() => setAmount(String(payable.remaining))}
 										className="press-down rounded-md border border-border-default bg-surface-2 px-2 py-0.5 font-medium text-muted-foreground hover:bg-surface-3 hover:text-foreground"
 									>
-										Bayar penuh (<span data-nominal>{formatRupiah(payable.remaining)}</span>)
+										Bayar penuh (
+										<span data-nominal>{formatRupiah(payable.remaining)}</span>)
 									</button>
 									{payable.remaining > 1 && (
 										<button
@@ -174,8 +176,8 @@ export function PayDialog({
 											{formatRupiah(selectedAcct?.balance ?? 0)}
 										</span>
 										) untuk keluar{" "}
-										<span data-nominal>{formatRupiah(cashOut)}</span> — pilih rekening
-										lain.
+										<span data-nominal>{formatRupiah(cashOut)}</span> — pilih
+										rekening lain.
 									</p>
 								)}
 								<input

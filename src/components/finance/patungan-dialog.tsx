@@ -2,6 +2,7 @@
 
 import { HandCoins, Loader2 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
 	Dialog,
 	DialogContent,
@@ -16,6 +17,7 @@ import {
 	type PatunganFormState,
 	recordOwnerPatungan,
 } from "@/lib/actions/owner-patungan";
+import { todayWIB } from "@/lib/dates";
 import { formatRupiah } from "@/lib/format";
 
 /** Beban yang lazim ditanggung patungan owner. */
@@ -51,8 +53,7 @@ export function PatunganDialog({ ownerCount }: { ownerCount: number }) {
 	const [open, setOpen] = useState(false);
 	const [coa, setCoa] = useState("5-260");
 	const [perOwner, setPerOwner] = useState("100000");
-	const today = new Date();
-	const [date, setDate] = useState(today.toISOString().slice(0, 10));
+	const [date, setDate] = useState(todayWIB);
 	const [state, formAction, pending] = useActionState<
 		PatunganFormState,
 		FormData
@@ -61,7 +62,9 @@ export function PatunganDialog({ ownerCount }: { ownerCount: number }) {
 	const per = Number(perOwner.replace(/[^\d]/g, "")) || 0;
 	const total = per * ownerCount;
 	const label = EXPENSE_OPTIONS.find((o) => o.value === coa)?.label ?? "";
-	const defaultDesc = `Patungan ${label.toLowerCase()} ${ID_MONTHS[today.getMonth()]} ${today.getFullYear()}`;
+	// Bulan mengikuti tanggal yang dipilih (dulu selalu bulan berjalan).
+	const [yy, mm] = date.split("-").map(Number);
+	const defaultDesc = `Patungan ${label.toLowerCase()} ${ID_MONTHS[(mm || 1) - 1]} ${yy}`;
 
 	useEffect(() => {
 		if (state?.ok) {
@@ -112,12 +115,12 @@ export function PatunganDialog({ ownerCount }: { ownerCount: number }) {
 							<input type="hidden" name="per_owner" value={per} />
 						</Field>
 						<Field label="Tanggal" required>
-							<input
-								type="date"
+							<DatePicker
 								name="date"
+								required
 								value={date}
-								onChange={(e) => setDate(e.target.value)}
-								className="h-10 w-full rounded-xl border border-border-default bg-background px-3.5 text-[0.9375rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								onValueChange={setDate}
+								className="h-10 rounded-xl px-3.5 text-[0.9375rem]"
 							/>
 						</Field>
 					</div>

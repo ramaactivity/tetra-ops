@@ -9,7 +9,9 @@ import {
 	X,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import { DatePicker } from "@/components/ui/date-picker";
 import { NativeSelect } from "@/components/ui/native-select";
+import { todayWIB } from "@/lib/dates";
 import {
 	type CashAccountOption,
 	defaultCashAccount,
@@ -157,11 +159,11 @@ export function ItemOriginSection({
 
 					<div className="grid gap-3 sm:grid-cols-2">
 						<Field label={origin === "purchase" ? "Tanggal beli" : "Tanggal"}>
-							<input
-								type="date"
+							<DatePicker
 								name="buy_date"
-								defaultValue={new Date().toISOString().slice(0, 10)}
-								className={inputCls}
+								required
+								defaultValue={todayWIB()}
+								className="h-10"
 							/>
 						</Field>
 						{origin === "purchase" && (
