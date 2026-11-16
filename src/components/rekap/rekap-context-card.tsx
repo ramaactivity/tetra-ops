@@ -143,8 +143,8 @@ export function RekapContextCard({
 						))}
 					</ul>
 					<p className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
-						Pastikan sudah dikasih ke klien hari-H. Stok bonus akan auto-deduct
-						saat owner approve rekap.
+						Pastikan sudah dikasih ke klien hari-H. Stok bonus berkurang
+						otomatis saat owner approve rekap.
 					</p>
 				</div>
 			)}

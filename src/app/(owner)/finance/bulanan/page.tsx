@@ -20,7 +20,7 @@ import {
 	monthLabel,
 	monthLabelShort,
 } from "@/lib/finance/monthly-data";
-import { formatDateID, formatRupiah } from "@/lib/format";
+import { formatDateID, formatRupiah, formatSignedRupiah } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -208,7 +208,7 @@ export default async function FinanceMonthlyPage({
 						label="Biaya"
 						value={m.expense}
 						tone="rose"
-						hint="Beda dgn “uang keluar” — lihat rincian di bawah"
+						hint="beda dengan uang keluar — rincian di bawah"
 					/>
 					<FlowStat
 						label="Untung bulan ini"
@@ -237,21 +237,12 @@ export default async function FinanceMonthlyPage({
 						}
 					/>
 				</dl>
-				<div className="border-border-subtle text-muted-foreground space-y-1.5 border-t px-4 py-2.5 text-[11.5px] leading-relaxed">
-					<p>
-						<b className="text-foreground">Biaya</b> ≠{" "}
-						<b className="text-foreground">uang keluar</b>. Beli stok = uang
-						keluar, tapi baru jadi biaya saat stoknya dipakai di event. Bayar
-						utang & ambil bagi hasil juga uang keluar yang bukan biaya.
-					</p>
-					<p>
-						<b className="text-foreground">Untung bulan ini</b> memotret
-						periode: semua pemasukan dikurangi semua biaya yang jatuh di{" "}
-						{m.label}. <b className="text-foreground">Laba event ditutup</b>{" "}
-						memotret per-event: untung tiap acara yang bukunya ditutup bulan ini
-						— uangnya bisa saja masuk bulan lain. Wajar kalau keduanya beda.
-					</p>
-				</div>
+				{/* Satu kalimat; "biaya ≠ uang keluar" sudah dijelaskan di Alur uang. */}
+				<p className="border-border-subtle text-muted-foreground border-t px-4 py-2.5 text-[12px] leading-relaxed">
+					<b className="text-foreground">Laba event ditutup</b> = untung acara
+					yang di-settle bulan ini (uangnya bisa masuk bulan lain), jadi wajar
+					beda dengan untung bulan ini.
+				</p>
 			</SectionCard>
 
 			{/* ── 3. Transaksi terbesar ────────────────────────────────────── */}
@@ -431,7 +422,7 @@ export default async function FinanceMonthlyPage({
 												: "text-rose-600 dark:text-rose-400",
 										)}
 									>
-										{formatRupiah(row.profitBook)}
+										{formatSignedRupiah(row.profitBook)}
 									</td>
 								</tr>
 							))}
@@ -575,7 +566,7 @@ function FlowStat({
 				: "text-foreground";
 	return (
 		<div className="space-y-1 px-4 py-3">
-			<dt className="text-muted-foreground flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider">
+			<dt className="text-muted-foreground flex items-center gap-1 text-[12.5px] font-medium">
 				{Icon && <Icon className="size-3.5" />}
 				{label}
 			</dt>
@@ -587,15 +578,15 @@ function FlowStat({
 				)}
 			>
 				{sign && value !== 0 ? sign : ""}
-				{formatRupiah(value)}
+				{sign ? formatRupiah(value) : formatSignedRupiah(value)}
 			</dd>
 			{delta && delta.value !== 0 && (
-				<p className="text-muted-foreground tabular text-[10.5px]">
+				<p className="text-muted-foreground tabular text-[11.5px]">
 					{delta.value > 0 ? "↑" : "↓"} {formatRupiah(Math.abs(delta.value))}{" "}
 					dari {delta.prevLabel}
 				</p>
 			)}
-			{hint && <p className="text-muted-foreground text-[10.5px]">{hint}</p>}
+			{hint && <p className="text-muted-foreground text-[11.5px]">{hint}</p>}
 		</div>
 	);
 }
