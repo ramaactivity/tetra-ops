@@ -4,6 +4,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toaster";
 import {
 	addAssemblyComponent,
@@ -102,25 +103,22 @@ export function AssemblyEditor({
 					</div>
 					{/* Add component row */}
 					<div className="flex flex-wrap items-center gap-2 border-t border-border-subtle bg-secondary/30 p-3 sm:px-4">
-						<select
+						<NativeSelect
+							aria-label="Tambah item"
 							value={addSku[g.field] ?? ""}
 							disabled={pending}
-							onChange={(e) =>
-								setAddSku((p) => ({ ...p, [g.field]: e.target.value }))
-							}
-							className={cn(INPUT, "min-w-0 flex-1")}
-						>
-							<option value="">+ tambah item…</option>
-							{items
+							onValueChange={(v) => setAddSku((p) => ({ ...p, [g.field]: v }))}
+							placeholder="+ tambah item…"
+							options={items
 								.filter(
 									(it) => !g.components.some((c) => c.component_sku === it.sku),
 								)
-								.map((it) => (
-									<option key={it.sku} value={it.sku}>
-										{it.sku} · {it.name}
-									</option>
-								))}
-						</select>
+								.map((it) => ({
+									value: it.sku,
+									label: `${it.sku} · ${it.name}`,
+								}))}
+							className="h-9 min-w-0 flex-1"
+						/>
 						<input
 							type="number"
 							min={0.0001}

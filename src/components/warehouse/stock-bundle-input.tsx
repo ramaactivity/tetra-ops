@@ -2,6 +2,7 @@
 
 import { Plus, X } from "lucide-react";
 import { useId } from "react";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
 	type Bundle,
 	listInputUnits,
@@ -85,18 +86,17 @@ export function StockBundleInput({
 							placeholder="0"
 							className="h-9 w-24 rounded-md bg-background/60 px-2 text-right text-sm tabular font-medium focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
 						/>
-						<select
+						<NativeSelect
+							aria-label="Satuan"
 							value={b.unit}
-							onChange={(e) => update(idx, { unit: e.target.value })}
+							onValueChange={(v) => update(idx, { unit: v })}
 							disabled={disabled}
-							className="h-9 min-w-[100px] rounded-md bg-background/60 px-2 text-sm focus:bg-background focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
-						>
-							{units.map(({ code, def }) => (
-								<option key={code} value={code}>
-									{def.label || code}
-								</option>
-							))}
-						</select>
+							options={units.map(({ code, def }) => ({
+								value: code,
+								label: def.label || code,
+							}))}
+							className="h-9 min-w-[100px]"
+						/>
 						{!isBase && baseQty > 0 && (
 							<span className="text-[11px] tabular text-muted-foreground">
 								={" "}
