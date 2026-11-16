@@ -1,6 +1,6 @@
 import { Activity } from "lucide-react";
 import Link from "next/link";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatSignedRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -72,12 +72,13 @@ export function EventHealth({
 	const pOps = ((operasional + lain) / uangMasuk) * 100;
 	const pUntung = (untung / uangMasuk) * 100;
 
-	// Patokan ditulis per Rp100.000 — satuan yang sama dengan batangnya, jadi
-	// angka & batas idealnya bisa dibandingkan langsung tanpa hitung persen.
+	// Angka = rupiah asli acara ini + porsinya dari total yang dibayar klien.
+	// (Dulu "per Rp100.000" — terbaca seolah biaya bahannya cuma Rp8.100.)
 	const rows: Array<{
 		key: string;
 		label: string;
 		title: string;
+		amount: number;
 		pct: number;
 		ideal: string;
 		status: Status;
@@ -88,8 +89,9 @@ export function EventHealth({
 			key: "bahan",
 			label: "Bahan",
 			title: "Biaya bahan",
+			amount: bahan,
 			pct: pBahan,
-			ideal: "Ideal di bawah Rp25.000",
+			ideal: "Ideal di bawah 25%",
 			status: costStatus(pBahan, 25, 35),
 			tip: "Cetakan banyak untuk harga paket ini. Cek apakah paket unlimited terlalu murah, atau ada cetak ulang/gagal cetak.",
 			cls: "bg-amber-400",
@@ -98,8 +100,9 @@ export function EventHealth({
 			key: "ops",
 			label: "Crew & jalan",
 			title: "Biaya crew & jalan",
+			amount: operasional + lain,
 			pct: pOps,
-			ideal: "Ideal di bawah Rp35.000",
+			ideal: "Ideal di bawah 35%",
 			status: costStatus(pOps, 35, 45),
 			tip: "Biaya orang & perjalanan makan porsi besar. Biasanya karena lokasi jauh, crew kebanyakan, atau komisi besar — pertimbangkan biaya transport/jarak di harga.",
 			cls: "bg-sky-400",
@@ -108,8 +111,9 @@ export function EventHealth({
 			key: "untung",
 			label: "Untung",
 			title: "Untung bersih",
+			amount: untung,
 			pct: pUntung,
-			ideal: "Ideal Rp35.000 ke atas",
+			ideal: "Ideal 35% ke atas",
 			status: pUntung >= 35 ? "baik" : pUntung >= 20 ? "cek" : "buruk",
 			tip: "Dari untung ini masih harus bayar biaya bulanan (kost, cicilan alat, perawatan), jadi di bawah 20% gampang jadi rugi.",
 			cls: "bg-emerald-500",
@@ -127,7 +131,7 @@ export function EventHealth({
 			? "Biaya wajar dan untungnya bagus — harga ini layak dipertahankan."
 			: `Perlu diperhatikan: ${worstRow?.title.toLowerCase()} (${pctText(worstRow?.pct ?? 0)}). ${worstRow?.tip}`;
 
-	// Batang "tiap Rp100.000": porsi tidak boleh negatif (rugi = untung 0).
+	// Porsi batang tidak boleh negatif (rugi = untung 0).
 	const segTotal = rows.reduce((s, r) => s + Math.max(0, r.pct), 0) || 1;
 
 	return (
@@ -164,11 +168,14 @@ export function EventHealth({
 				</div>
 			</div>
 
-			{/* Tiap Rp100.000 dari klien dipakai untuk apa */}
+			{/* Uang dari klien untuk acara ini dipakai untuk apa */}
 			<div className="space-y-2">
 				<p className="text-[12px] text-muted-foreground">
-					Dari tiap <span className="tabular">Rp100.000</span> yang dibayar
-					klien:
+					Dari{" "}
+					<span className="tabular font-medium text-foreground" data-nominal>
+						{formatRupiah(uangMasuk)}
+					</span>{" "}
+					yang dibayar klien:
 				</p>
 				<div className="flex h-2.5 overflow-hidden rounded-full bg-card">
 					{rows.map((r) => (
@@ -183,17 +190,23 @@ export function EventHealth({
 					{rows.map((r) => (
 						<li
 							key={r.key}
-							className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5"
+							className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-start gap-x-2 gap-y-0.5"
 						>
-							<span className={cn("size-2 rounded-full", r.cls)} aria-hidden />
+							<span
+								className={cn("mt-[6px] size-2 rounded-full", r.cls)}
+								aria-hidden
+							/>
 							<span className="flex flex-wrap items-center gap-x-1.5">
 								<span className="text-foreground">{r.label}</span>
 								<b
 									className="tabular font-semibold text-foreground"
 									data-nominal
 								>
-									{formatRupiah(Math.round(Math.max(0, r.pct) * 1000))}
+									{formatSignedRupiah(r.amount)}
 								</b>
+								<span className="tabular text-muted-foreground">
+									({pctText(r.pct)})
+								</span>
 								{r.status !== "baik" ? <StatusChip status={r.status} /> : null}
 							</span>
 							<span className="col-start-2 text-[12px] text-muted-foreground">
