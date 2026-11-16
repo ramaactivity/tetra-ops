@@ -93,9 +93,10 @@ export function RichTextarea({
 
 	// Length tracked for the counter; works for typing AND programmatic edits
 	// (toolbar) because those dispatch a bubbling `input` event we read here.
-	const [length, setLength] = useState(
-		(isControlled ? value : (defaultValue ?? "")).length,
-	);
+	const [typedLength, setLength] = useState((defaultValue ?? "").length);
+	// Controlled: read the value itself, so text filled in from outside (e.g. a
+	// message loaded after the dialog opens) is counted too, not only typing.
+	const length = isControlled ? value.length : typedLength;
 	const [showEmoji, setShowEmoji] = useState(false);
 
 	function autosize() {
