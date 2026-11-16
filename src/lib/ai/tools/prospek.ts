@@ -17,6 +17,7 @@ import {
 	sapaLinks,
 } from "@/lib/prospek";
 import { KATEGORI_B2B, ringkasRetensi } from "@/lib/retensi";
+import { fetchAllResult } from "@/lib/supabase/fetch-all";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 import { cariGaleri, kirimTim, pengingatTim } from "./tim";
 
@@ -211,10 +212,15 @@ function bersihkan(raw: Record<string, unknown>) {
 // ponytail: baca seluruh nama+website tiap simpan; cukup sampai ribuan baris,
 // pindah ke kolom kunci ber-index kalau daftar prospek membengkak.
 async function kunciTercatat(ctx: AiToolContext): Promise<Set<string>> {
-	const { data } = await ctx.supabase
-		.from("prospek")
-		.select("nama, website")
-		.limit(10000);
+	const { data } = await fetchAllResult(
+		(from, to) =>
+			ctx.supabase
+				.from("prospek")
+				.select("nama, website")
+				.order("id")
+				.range(from, to),
+		"tools prospek",
+	);
 	return new Set((data ?? []).flatMap((r) => kunciProspek(r.nama, r.website)));
 }
 
@@ -1212,12 +1218,17 @@ export const prospekStatistik: AiTool = {
 		const akhir = new Date(
 			Date.parse(`${sampai}T00:00:00+07:00`) + 86_400_000,
 		).toISOString();
-		const { data, error } = await ctx.supabase
-			.from("prospek")
-			.select("segmen, status, sumber, email, telepon, catatan")
-			.gte("created_at", new Date(`${dari}T00:00:00+07:00`).toISOString())
-			.lt("created_at", akhir)
-			.limit(5000);
+		const { data, error } = await fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("prospek")
+					.select("segmen, status, sumber, email, telepon, catatan")
+					.gte("created_at", new Date(`${dari}T00:00:00+07:00`).toISOString())
+					.lt("created_at", akhir)
+					.order("id")
+					.range(from, to),
+			"tools prospek",
+		);
 		if (error) return { error: error.message };
 		return { sejak: dari, sampai, ...ringkasStatistik(data ?? []) };
 	},
@@ -1268,11 +1279,16 @@ export const klienLama: AiTool = {
 			.order("event_date", { ascending: false })
 			.limit(1000);
 		if (error) return { error: error.message };
-		const { data: pr } = await ctx.supabase
-			.from("prospek")
-			.select("telepon")
-			.not("telepon", "is", null)
-			.limit(10000);
+		const { data: pr } = await fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("prospek")
+					.select("telepon")
+					.not("telepon", "is", null)
+					.order("id")
+					.range(from, to),
+			"tools prospek",
+		);
 		const sudah = new Set((pr ?? []).map((r) => toWaPhone(String(r.telepon))));
 
 		const perKlien = new Map<
@@ -1482,14 +1498,19 @@ export const klienRetensi: AiTool = {
 	scope: "ops",
 	parameters: { type: "OBJECT", properties: {} },
 	async run(_args, ctx) {
-		const { data, error } = await ctx.supabase
-			.from("events")
-			.select(
-				"client_wa, client_org, client_name, pic_name, event_category, event_date, status, channel",
-			)
-			.in("event_category", [...KATEGORI_B2B])
-			.is("deleted_at", null)
-			.limit(10000);
+		const { data, error } = await fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("events")
+					.select(
+						"client_wa, client_org, client_name, pic_name, event_category, event_date, status, channel",
+					)
+					.in("event_category", [...KATEGORI_B2B])
+					.is("deleted_at", null)
+					.order("id")
+					.range(from, to),
+			"tools prospek",
+		);
 		if (error) return { error: error.message };
 		const r = ringkasRetensi(data ?? [], ctx.todayISO);
 		return {
@@ -1516,24 +1537,38 @@ export const klienRetensi: AiTool = {
  */
 export async function kontakDikenal(ctx: AiToolContext) {
 	const [{ data: kontak }, { data: ev }, { data: lead }] = await Promise.all([
-		ctx.supabase
-			.from("contacts")
-			.select("name, type, phone, default_pic_name, default_pic_contact")
-			.eq("is_active", true)
-			.limit(10000),
-		ctx.supabase
-			.from("events")
-			.select(
-				"client_org, client_name, pic_name, client_wa, event_date, event_category",
-			)
-			.is("deleted_at", null)
-			.order("event_date", { ascending: false })
-			.limit(10000),
-		ctx.supabase
-			.from("prospek")
-			.select("id, nama, segmen, status, telepon, pic")
-			.in("status", PROSPEK_TERLIBAT)
-			.limit(10000),
+		fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("contacts")
+					.select("name, type, phone, default_pic_name, default_pic_contact")
+					.eq("is_active", true)
+					.order("id")
+					.range(from, to),
+			"tools prospek",
+		),
+		fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("events")
+					.select(
+						"client_org, client_name, pic_name, client_wa, event_date, event_category",
+					)
+					.is("deleted_at", null)
+					.order("event_date", { ascending: false })
+					.range(from, to),
+			"tools prospek",
+		),
+		fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("prospek")
+					.select("id, nama, segmen, status, telepon, pic")
+					.in("status", PROSPEK_TERLIBAT)
+					.order("id")
+					.range(from, to),
+			"tools prospek",
+		),
 	]);
 	const daftar: {
 		nama: string;
@@ -1654,12 +1689,17 @@ export const waKirimKontak: AiTool = {
 		const nomor = toWaPhone(String(args.nomor));
 		const kenal = (await kontakDikenal(ctx)).find((k) => k.wa === nomor);
 		if (!kenal) {
-			const { data: blokir } = await ctx.supabase
-				.from("prospek")
-				.select("nama, status, telepon")
-				.in("status", ["tolak", "jangan_hubungi"])
-				.not("telepon", "is", null)
-				.limit(10000);
+			const { data: blokir } = await fetchAllResult(
+				(from, to) =>
+					ctx.supabase
+						.from("prospek")
+						.select("nama, status, telepon")
+						.in("status", ["tolak", "jangan_hubungi"])
+						.not("telepon", "is", null)
+						.order("id")
+						.range(from, to),
+				"tools prospek",
+			);
 			const b = (blokir ?? []).find((p) => waHp(p.telepon) === nomor);
 			return {
 				error: b
@@ -1737,17 +1777,35 @@ export const kontakCekNomor: AiTool = {
 		const sama = (t: unknown) => waHp(t) === nomor;
 		const db = ctx.supabase;
 		const [pr, kt, ev, bk, cmd, orang] = await Promise.all([
-			db
-				.from("prospek")
-				.select("id, nama, status, sumber, telepon, created_at")
-				.not("telepon", "is", null)
-				.limit(10000),
-			db.from("contacts").select("phone, default_pic_contact").limit(10000),
-			db
-				.from("events")
-				.select("id, event_date, created_at, client_wa, pic_wa")
-				.is("deleted_at", null)
-				.limit(10000),
+			fetchAllResult(
+				(from, to) =>
+					db
+						.from("prospek")
+						.select("id, nama, status, sumber, telepon, created_at")
+						.not("telepon", "is", null)
+						.order("id")
+						.range(from, to),
+				"tools prospek",
+			),
+			fetchAllResult(
+				(from, to) =>
+					db
+						.from("contacts")
+						.select("phone, default_pic_contact")
+						.order("id")
+						.range(from, to),
+				"tools prospek",
+			),
+			fetchAllResult(
+				(from, to) =>
+					db
+						.from("events")
+						.select("id, event_date, created_at, client_wa, pic_wa")
+						.is("deleted_at", null)
+						.order("id")
+						.range(from, to),
+				"tools prospek",
+			),
 			db.from("basis_kontak").select("id").eq("wa", nomor).limit(1),
 			db
 				.from("bot_commands")

@@ -24,3 +24,25 @@ export async function fetchAllRows<T>(
 	}
 	return rows;
 }
+
+/**
+ * Sama dengan fetchAllRows, tapi bentuk hasilnya `{ data, error }` seperti
+ * query Supabase biasa — supaya pemakai lama cukup ganti query-nya saja.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: setara baris tanpa tipe dari query Supabase biasa (pemakai lama meng-cast sendiri).
+export async function fetchAllResult<T = any>(
+	page: (
+		from: number,
+		to: number,
+	) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+	label: string,
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+	try {
+		return { data: await fetchAllRows<T>(page, label), error: null };
+	} catch (e) {
+		return {
+			data: null,
+			error: { message: e instanceof Error ? e.message : String(e) },
+		};
+	}
+}

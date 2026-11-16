@@ -12,6 +12,7 @@ import {
 	type KlienRetensi,
 	ringkasRetensi,
 } from "@/lib/retensi";
+import { fetchAllResult } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -108,14 +109,19 @@ function TabelKlien({
 export default async function RetensiPage() {
 	const supabase = await createClient();
 	const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
-	const { data } = await supabase
-		.from("events")
-		.select(
-			"client_wa, client_org, client_name, pic_name, event_category, event_date, status, channel",
-		)
-		.in("event_category", [...KATEGORI_B2B])
-		.is("deleted_at", null)
-		.limit(10000);
+	const { data } = await fetchAllResult(
+		(from, to) =>
+			supabase
+				.from("events")
+				.select(
+					"client_wa, client_org, client_name, pic_name, event_category, event_date, status, channel",
+				)
+				.in("event_category", [...KATEGORI_B2B])
+				.is("deleted_at", null)
+				.order("id")
+				.range(from, to),
+		"retensi acara",
+	);
 	const r = ringkasRetensi(data ?? [], today);
 	const s = r.per_status;
 	const rawat = r.klien
