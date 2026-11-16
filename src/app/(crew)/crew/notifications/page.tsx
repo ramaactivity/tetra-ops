@@ -14,6 +14,7 @@ import {
 import { PushPrompt } from "@/components/push/push-prompt";
 import { AppHeader, AppScreen } from "@/components/ui/mobile";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { timeAgo } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -54,17 +55,6 @@ const TONES: Record<
 		ring: "border-emerald-300/60 dark:border-emerald-900/70",
 	},
 };
-
-const RELATIVE = new Intl.RelativeTimeFormat("id-ID", { numeric: "auto" });
-
-function timeAgo(iso: string): string {
-	const diffMs = Date.parse(iso) - Date.now();
-	const mins = Math.round(diffMs / 60000);
-	if (Math.abs(mins) < 60) return RELATIVE.format(mins, "minute");
-	const hours = Math.round(mins / 60);
-	if (Math.abs(hours) < 24) return RELATIVE.format(hours, "hour");
-	return RELATIVE.format(Math.round(hours / 24), "day");
-}
 
 export default async function CrewNotificationsPage() {
 	const me = await getCurrentUser();

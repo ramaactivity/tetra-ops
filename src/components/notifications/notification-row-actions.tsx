@@ -22,6 +22,8 @@ export function MarkAllReadButton({ disabled }: { disabled?: boolean }) {
 			type="button"
 			onClick={handle}
 			disabled={pending || disabled}
+			aria-label="Tandai semua dibaca"
+			title="Tandai semua dibaca"
 			className="border-border-default bg-card text-foreground hover:bg-secondary disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium"
 		>
 			{pending ? (
@@ -29,7 +31,7 @@ export function MarkAllReadButton({ disabled }: { disabled?: boolean }) {
 			) : (
 				<CheckCheck className="h-3.5 w-3.5" />
 			)}
-			Mark all read
+			<span className="hidden sm:inline">Tandai semua dibaca</span>
 		</button>
 	);
 }
@@ -47,8 +49,9 @@ export function MarkReadButton({ id }: { id: string }) {
 			type="button"
 			onClick={handle}
 			disabled={pending}
-			title="Mark as read"
-			className="text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 inline-flex h-7 w-7 items-center justify-center rounded-md"
+			title="Tandai dibaca"
+			aria-label="Tandai dibaca"
+			className="text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 inline-flex size-8 items-center justify-center rounded-full"
 		>
 			{pending ? (
 				<Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -72,8 +75,9 @@ export function DismissButton({ id }: { id: string }) {
 			type="button"
 			onClick={handle}
 			disabled={pending}
-			title="Dismiss"
-			className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-muted disabled:opacity-50 inline-flex h-7 w-7 items-center justify-center rounded-md"
+			title="Sembunyikan"
+			aria-label="Sembunyikan"
+			className="text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-muted disabled:opacity-50 inline-flex size-8 items-center justify-center rounded-full"
 		>
 			{pending ? (
 				<Loader2 className="h-3.5 w-3.5 animate-spin" />

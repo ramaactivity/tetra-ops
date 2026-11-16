@@ -73,11 +73,11 @@ export function PushPrompt({
 				</span>
 				<div className="space-y-0.5">
 					<p className="text-foreground text-sm font-medium">
-						Aktifkan push notification
+						Nyalakan pemberitahuan
 					</p>
 					<p className="text-muted-foreground text-xs leading-relaxed">
-						Dapat alert OS-level (lockscreen Android, macOS, dll) saat anomaly
-						fires — tanpa perlu buka app.
+						Muncul di layar HP atau laptop waktu ada yang perlu dicek, tanpa
+						buka aplikasi.
 					</p>
 				</div>
 			</div>
@@ -101,7 +101,7 @@ export function PushPrompt({
 	return (
 		<div
 			role="dialog"
-			aria-label="Aktifkan push notification"
+			aria-label="Nyalakan pemberitahuan"
 			className="reveal fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-[26rem] -translate-x-1/2 rounded-2xl border border-border-subtle bg-card p-4 pr-10 shadow-[var(--shadow-level-4)] md:bottom-6 md:left-auto md:right-6 md:w-[24rem] md:translate-x-0"
 		>
 			<button

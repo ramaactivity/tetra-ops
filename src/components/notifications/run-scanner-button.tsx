@@ -1,50 +1,46 @@
 "use client";
 
 import { Loader2, ScanSearch } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
+import { toast } from "@/components/ui/toaster";
 import { runAnomalyScanner } from "@/lib/actions/anomaly-scanner";
 
 export function RunScannerButton() {
 	const [pending, startTransition] = useTransition();
-	const [summary, setSummary] = useState<string | null>(null);
 
 	const handle = () => {
-		setSummary(null);
 		startTransition(async () => {
 			try {
 				const r = await runAnomalyScanner();
-				const errorPart = r.errors.length ? ` · ${r.errors.length} error` : "";
-				setSummary(
-					`Scan selesai: ${r.created} notifikasi baru, ${r.resolved} yang sudah beres dibersihkan.${errorPart}`,
-				);
+				const msg = `Selesai: ${r.created} baru, ${r.resolved} yang sudah beres ditutup.`;
+				if (r.errors.length)
+					toast.error(`${msg} ${r.errors.length} pengecekan gagal.`);
+				else toast.success(msg);
 			} catch (err) {
-				setSummary(
-					`Scan gagal: ${err instanceof Error ? err.message : "unknown"}`,
+				toast.error(
+					`Gagal mengecek: ${err instanceof Error ? err.message : "unknown"}`,
 				);
 			}
 		});
 	};
 
 	return (
-		<div className="flex flex-col items-end gap-1">
-			<button
-				type="button"
-				onClick={handle}
-				disabled={pending}
-				className="border-border-default bg-card text-foreground hover:bg-secondary disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium"
-			>
-				{pending ? (
-					<Loader2 className="h-3.5 w-3.5 animate-spin" />
-				) : (
-					<ScanSearch className="h-3.5 w-3.5" />
-				)}
-				{pending ? "Scanning…" : "Run scan"}
-			</button>
-			{summary && (
-				<p className="text-muted-foreground text-right text-[10px]">
-					{summary}
-				</p>
+		<button
+			type="button"
+			onClick={handle}
+			disabled={pending}
+			aria-label="Cek ulang"
+			title="Cek ulang notifikasi"
+			className="border-border-default bg-card text-foreground hover:bg-secondary disabled:opacity-50 inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium"
+		>
+			{pending ? (
+				<Loader2 className="h-3.5 w-3.5 animate-spin" />
+			) : (
+				<ScanSearch className="h-3.5 w-3.5" />
 			)}
-		</div>
+			<span className="hidden sm:inline">
+				{pending ? "Mengecek…" : "Cek ulang"}
+			</span>
+		</button>
 	);
 }

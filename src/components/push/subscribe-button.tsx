@@ -244,10 +244,10 @@ export function PushSubscribeButton({
 				)}
 			>
 				<div className="inline-flex items-center gap-2">
-					<BellOff className="h-3.5 w-3.5" /> Notifikasi diblok
+					<BellOff className="h-3.5 w-3.5" /> Pemberitahuan diblokir browser
 				</div>
 				<span className="text-muted-foreground">
-					Aktifkan dari setting browser
+					Izinkan dari pengaturan situs di browser
 				</span>
 			</div>
 		);
@@ -262,27 +262,27 @@ export function PushSubscribeButton({
 							type="button"
 							onClick={handleUnsubscribe}
 							disabled={pending}
-							className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50"
+							className="border-border-default bg-surface-2 hover:bg-muted text-foreground inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium disabled:opacity-50"
 						>
 							{pending ? (
 								<Loader2 className="h-3.5 w-3.5 animate-spin" />
 							) : (
 								<BellOff className="h-3.5 w-3.5" />
 							)}
-							Disable push
+							Matikan
 						</button>
 						<button
 							type="button"
 							onClick={handleTestPush}
 							disabled={pending}
-							className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:opacity-50"
+							className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium disabled:opacity-50"
 						>
 							<Send className="h-3.5 w-3.5" />
-							Test push
+							Coba kirim
 						</button>
 						<span className="text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1 text-xs">
 							<Bell className="h-3.5 w-3.5" />
-							Aktif di device ini
+							Aktif di perangkat ini
 						</span>
 					</>
 				) : (
@@ -290,14 +290,14 @@ export function PushSubscribeButton({
 						type="button"
 						onClick={handleSubscribe}
 						disabled={pending || !vapidPublicKey}
-						className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:opacity-50"
+						className="bg-[#059669] text-white hover:bg-[#047857] inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium disabled:opacity-50"
 					>
 						{pending ? (
 							<Loader2 className="h-3.5 w-3.5 animate-spin" />
 						) : (
 							<Bell className="h-3.5 w-3.5" />
 						)}
-						Aktifkan push notif
+						Nyalakan
 					</button>
 				)}
 			</div>

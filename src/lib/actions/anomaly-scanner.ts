@@ -5,6 +5,7 @@ import { computeForecast } from "@/lib/actions/forecast";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { revalidateDashboard } from "@/lib/dashboard/stats";
 import { spotsWithoutLead, unitCountOf } from "@/lib/events/spots";
+import { formatDateID } from "@/lib/format";
 import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
@@ -121,7 +122,8 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 					matches = await checkHMinusNoDP(admin, addDays(today, 7));
 					break;
 				case "invoice_overdue_1d":
-					matches = await checkInvoiceOverdue(admin, todayISO, 1);
+					// 1–6 hari; mulai hari ke-7 diambil alih aturan 7d (satu cerita).
+					matches = await checkInvoiceOverdue(admin, todayISO, 1, 7);
 					break;
 				case "invoice_overdue_7d":
 					matches = await checkInvoiceOverdue(admin, todayISO, 7);
@@ -218,7 +220,7 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 			const userIds = Array.from(new Set(recipients.map((u) => u.id)));
 			const { data: existingDups } = await admin
 				.from("notifications")
-				.select("user_id, entity_id, anomaly_rule_id")
+				.select("id, user_id, entity_id, title, body")
 				.eq("anomaly_rule_id", rule.id)
 				.eq("is_dismissed", false)
 				.eq("is_read", false)
@@ -227,17 +229,34 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 
 			const dupKey = (userId: string, entityId: string) =>
 				`${userId}::${entityId}`;
-			const dupSet = new Set(
+			const dupMap = new Map(
 				(
 					(existingDups ?? []) as Array<{
+						id: string;
 						user_id: string;
 						entity_id: string;
+						title: string;
+						body: string;
 					}>
-				).map((d) => dupKey(d.user_id, d.entity_id)),
+				).map((d) => [dupKey(d.user_id, d.entity_id), d]),
 			);
 
+			// Notifikasi yang masih terbuka ikut diperbarui angkanya. Dulu teksnya
+			// beku sejak dibuat ("butuh 12 pcs untuk 12 event" berbulan-bulan),
+			// bertentangan dengan notifikasi baru di halaman yang sama.
+			for (const p of proposed) {
+				const d = dupMap.get(dupKey(p.user_id, p.entity_id));
+				if (!d || (d.title === p.title && d.body === p.body)) continue;
+				const { error: refreshErr } = await admin
+					.from("notifications")
+					.update({ title: p.title, body: p.body })
+					.eq("id", d.id);
+				if (refreshErr)
+					result.errors.push(`${rule.code} (perbarui): ${refreshErr.message}`);
+			}
+
 			const toInsert = proposed.filter(
-				(p) => !dupSet.has(dupKey(p.user_id, p.entity_id)),
+				(p) => !dupMap.has(dupKey(p.user_id, p.entity_id)),
 			);
 			result.skipped += proposed.length - toInsert.length;
 
@@ -718,7 +737,7 @@ async function checkHMinusNoCrew(
 					noLead.length > 0
 						? `Event H-2 ${noLead.map((n) => `spot ${n}`).join(", ")} belum ada lead: ${e.client_name}`
 						: `Event H-2 belum ada crew: ${e.client_name}`,
-				body: `${e.event_date} · ${e.venue_name} — assign crew sekarang sebelum hari H.`,
+				body: `${formatDateID(e.event_date)} · ${e.venue_name} — atur crew sebelum hari H.`,
 				action_url: `/operations/${e.project_id}/crew`,
 			};
 		});
@@ -738,6 +757,7 @@ async function checkHMinusNoDesign(
 			.eq("event_date", dateISO)
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
+			.neq("status", "cancelled")
 			.is("design_approved_at", null),
 		"events",
 	);
@@ -753,7 +773,7 @@ async function checkHMinusNoDesign(
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Event H-1 desain belum ACC: ${e.client_name}`,
-		body: `${e.event_date} · ${e.venue_name} — approve desain sekarang.`,
+		body: `${formatDateID(e.event_date)} · ${e.venue_name} — ACC desain sekarang.`,
 		action_url: `/operations/${e.project_id}`,
 	}));
 }
@@ -770,6 +790,7 @@ async function checkHMinusNotPaid(
 			.eq("event_date", dateISO)
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
+			.neq("status", "cancelled")
 			.gt("remaining_balance", 0),
 		"events",
 	);
@@ -785,7 +806,7 @@ async function checkHMinusNotPaid(
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Event H-3 belum lunas: ${e.client_name}`,
-		body: `Sisa Rp ${e.remaining_balance.toLocaleString("id-ID")} · ${e.event_date}`,
+		body: `Sisa Rp ${e.remaining_balance.toLocaleString("id-ID")} · acara ${formatDateID(e.event_date)}`,
 		action_url: `/operations/${e.project_id}/payments`,
 	}));
 }
@@ -802,6 +823,7 @@ async function checkHMinusNoDP(
 			.eq("event_date", dateISO)
 			.is("deleted_at", null)
 			.eq("is_migrated_legacy", false)
+			.neq("status", "cancelled")
 			.eq("total_paid", 0),
 		"events",
 	);
@@ -816,7 +838,7 @@ async function checkHMinusNoDP(
 		entity_type: "event",
 		entity_id: e.id,
 		title: `Event H-7 belum DP: ${e.client_name}`,
-		body: `${e.event_date} — chase DP atau pertimbangkan cancel.`,
+		body: `Acara ${formatDateID(e.event_date)} — tagih DP atau pertimbangkan batal.`,
 		action_url: `/operations/${e.project_id}`,
 	}));
 }
@@ -825,22 +847,27 @@ async function checkInvoiceOverdue(
 	admin: AdminClient,
 	todayISO: string,
 	daysAfter: number,
+	/** Batas atas (eksklusif): telat ≥ ini diserahkan ke aturan berikutnya. */
+	untilDays?: number,
 ): Promise<Match[]> {
-	const cutoff = isoDate(addDays(new Date(`${todayISO}T00:00:00`), -daysAfter));
-	const events = must(
-		await admin
-			.from("events")
-			.select(
-				"id, project_id, client_name, due_date, remaining_balance, payment_status",
-			)
-			.is("deleted_at", null)
-			.eq("is_migrated_legacy", false)
-			.neq("payment_status", "paid")
-			.gt("remaining_balance", 0)
-			.lte("due_date", cutoff)
-			.not("due_date", "is", null),
-		"events",
-	);
+	const daysAgo = (n: number) =>
+		isoDate(addDays(new Date(`${todayISO}T00:00:00`), -n));
+	let q = admin
+		.from("events")
+		.select(
+			"id, project_id, client_name, due_date, remaining_balance, payment_status",
+		)
+		.is("deleted_at", null)
+		.eq("is_migrated_legacy", false)
+		// Acara batal tidak punya tagihan (Captain Barbershop 14 Sep: batal,
+		// tapi tercatat "telat bayar Rp2,25jt" dua bulan).
+		.neq("status", "cancelled")
+		.neq("payment_status", "paid")
+		.gt("remaining_balance", 0)
+		.lte("due_date", daysAgo(daysAfter))
+		.not("due_date", "is", null);
+	if (untilDays) q = q.gt("due_date", daysAgo(untilDays));
+	const events = must(await q, "events");
 	return (
 		(events ?? []) as Array<{
 			id: string;
@@ -852,8 +879,8 @@ async function checkInvoiceOverdue(
 	).map((e) => ({
 		entity_type: "event",
 		entity_id: e.id,
-		title: `Invoice overdue ${daysAfter}d: ${e.client_name}`,
-		body: `Due ${e.due_date} · sisa Rp ${e.remaining_balance.toLocaleString("id-ID")}`,
+		title: `Tagihan lewat jatuh tempo ${daysAfter} hari: ${e.client_name}`,
+		body: `Jatuh tempo ${formatDateID(e.due_date)} · sisa Rp ${e.remaining_balance.toLocaleString("id-ID")}`,
 		action_url: `/operations/${e.project_id}/payments`,
 	}));
 }
@@ -890,7 +917,7 @@ async function checkLossEvent(admin: AdminClient): Promise<Match[]> {
 				entity_type: "event",
 				entity_id: ev.id,
 				title: `Event rugi: ${ev.client_name}`,
-				body: `Net profit Rp ${s.net_profit.toLocaleString("id-ID")} · review settlement.`,
+				body: `Rugi Rp ${Math.abs(s.net_profit).toLocaleString("id-ID")} · cek hasil settle-nya.`,
 				action_url: `/operations/${ev.project_id}`,
 			} as Match;
 		})
@@ -918,8 +945,8 @@ async function checkPendingUser24h(admin: AdminClient): Promise<Match[]> {
 	).map((u) => ({
 		entity_type: "user",
 		entity_id: u.id,
-		title: `Pending approval >24h: ${u.full_name}`,
-		body: `${u.email} — review di /settings/crew`,
+		title: `Akun baru menunggu disetujui >24 jam: ${u.full_name}`,
+		body: `${u.email} — setujui atau tolak di Pengaturan › Crew.`,
 		action_url: `/settings/crew`,
 	}));
 }
@@ -975,7 +1002,7 @@ async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 				entity_type: "inventory_item",
 				entity_id: item.id,
 				title: `Stok kritis: ${item.name}`,
-				body: `Sisa ${current} (min ${item.min_stock_alert}) · SKU ${item.sku}`,
+				body: `Sisa ${current.toLocaleString("id-ID", { maximumFractionDigits: 2 })} (min ${item.min_stock_alert}) · SKU ${item.sku}`,
 				action_url: `/warehouse`,
 			});
 		}
@@ -1108,7 +1135,7 @@ async function checkStockZero(admin: AdminClient): Promise<Match[]> {
 				entity_type: "inventory_item",
 				entity_id: item.id,
 				title: `Stok habis: ${item.name}`,
-				body: `SKU ${item.sku} — restock segera.`,
+				body: `SKU ${item.sku} — beli lagi segera.`,
 				action_url: `/warehouse`,
 			});
 		}
@@ -1194,7 +1221,7 @@ async function checkCrewDoubleBooked(admin: AdminClient): Promise<Match[]> {
 		matches.push({
 			entity_type: "crew_assignment",
 			entity_id: `${userId}-${date}`,
-			title: `Crew double-booked: ${name} · ${date}`,
+			title: `Crew dobel jadwal: ${name} · ${formatDateID(date)}`,
 			body: events.map((e) => `${e.client_name} (${e.project_id})`).join(" + "),
 			action_url: firstEvent
 				? `/operations/${firstEvent.project_id}/crew`
@@ -1255,7 +1282,7 @@ async function checkEquipmentMissing(
 				entity_type: "inventory_item",
 				entity_id: i.id,
 				title: `Alat belum kembali: ${i.name}`,
-				body: `Last seen di event "${ev.client_name}" tgl ${ev.event_date} — check-in di /operations/${ev.project_id}/equipment.`,
+				body: `Terakhir dibawa ke "${ev.client_name}" (${formatDateID(ev.event_date)}) — tandai sudah kembali di halaman alat acaranya.`,
 				action_url: `/operations/${ev.project_id}/equipment`,
 			} as Match;
 		})
