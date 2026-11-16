@@ -17,7 +17,12 @@ import {
 import { sapaKlien, teksQuotation } from "./pesan-klien";
 import { sendDocumentCore } from "./send";
 import { computeTotals } from "./totals";
-import { DOC_TYPE_LABEL, type DocumentRow, pendingAdminItems } from "./types";
+import {
+	DOC_TYPE_LABEL,
+	type DocumentRow,
+	isRevision,
+	pendingAdminItems,
+} from "./types";
 
 /**
  * Persetujuan 1 tap di Telegram (B2/B4): dokumen yang berisi uang tidak pernah
@@ -90,6 +95,7 @@ export async function defaultClientMessage(
 	const acara = doc.event_info?.date
 		? ` untuk acara ${formatDateID(doc.event_info.date)}`
 		: "";
+	const revisi = isRevision(doc);
 	if (doc.doc_type === "quotation") {
 		const total = computeTotals(doc.items, doc.discount, {
 			enabled: doc.gross_up_enabled,
@@ -102,6 +108,7 @@ export async function defaultClientMessage(
 				: null,
 			total: formatRupiah(total),
 			berlakuSampai: doc.valid_until ? formatDateID(doc.valid_until) : null,
+			revisi,
 		});
 	}
 	// Dokumen kedua dalam satu kiriman cukup kalimat pendek.
@@ -135,7 +142,9 @@ export async function defaultClientMessage(
 	if (doc.doc_type === "bast")
 		return `Halo ${nama}, terlampir Berita Acara Serah Terima (BAST) *${doc.doc_number}*${acara}. Terima kasih sudah memakai Tetra Photobooth 🙏`;
 	return [
-		`Halo ${nama}, berikut ${jenis.toLowerCase()} *${doc.doc_number}* dari Tetra Photobooth${acara}.`,
+		revisi
+			? `Halo ${nama}, ini ${jenis.toLowerCase()} *${doc.doc_number}* yang sudah kami revisi${acara}.`
+			: `Halo ${nama}, berikut ${jenis.toLowerCase()} *${doc.doc_number}* dari Tetra Photobooth${acara}.`,
 		sisa && sisa > 0
 			? `Sisa tagihan ${formatRupiah(sisa)}${due ? `, paling lambat ${formatDateID(due)}` : ""}.`
 			: "",

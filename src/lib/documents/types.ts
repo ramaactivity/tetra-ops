@@ -432,6 +432,19 @@ export function billTo(ev: BillToSource): {
 
 /** "Invoice INV-TP-01-23092026 - PT Gratama.pdf" — satu aturan untuk unduhan,
  *  viewer & lampiran WA bot. */
+/**
+ * Quotation/invoice yang sudah pernah sampai ke klien lalu dikirim lagi =
+ * revisi (dua jenis ini yang bisa diedit). Dipakai teks WA & nama file.
+ */
+export function isRevision(
+	doc: Pick<DocumentRow, "doc_type" | "delivered_at">,
+): boolean {
+	return (
+		Boolean(doc.delivered_at) &&
+		(doc.doc_type === "quotation" || doc.doc_type === "invoice")
+	);
+}
+
 export function docFilename(
 	docType: DocType,
 	docNumber: string,

@@ -24,10 +24,14 @@ export function teksQuotation(input: {
 	tanggalAcara: string | null;
 	total: string;
 	berlakuSampai: string | null;
+	/** Sudah pernah sampai ke klien → ini kiriman revisi. */
+	revisi?: boolean;
 }): string {
 	const acara = input.tanggalAcara ? ` untuk acara ${input.tanggalAcara}` : "";
 	return [
-		`Halo ${sapaKlien(input.client)}, berikut quotation-nya${acara} ya.`,
+		input.revisi
+			? `Halo ${sapaKlien(input.client)}, ini quotation yang sudah kami revisi${acara} ya.`
+			: `Halo ${sapaKlien(input.client)}, berikut quotation-nya${acara} ya.`,
 		`Totalnya ${input.total}${input.berlakuSampai ? `, berlaku sampai ${input.berlakuSampai}` : ""}. Tanggalnya terkunci setelah DP minimal Rp 500.000.`,
 	].join("\n");
 }

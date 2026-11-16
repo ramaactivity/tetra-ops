@@ -98,8 +98,8 @@ export function SendToClientButton({
 					<DialogHeader>
 						<DialogTitle>Kirim ke klien via WA</DialogTitle>
 						<DialogDescription>
-							Bot WA Tetra mengirim pesan ini + PDF dokumen ke klien. Periksa
-							dulu isinya.
+							Perubahan disimpan dulu, lalu bot WA Tetra mengirim pesan ini +
+							PDF versi terbaru ke klien. Periksa dulu isinya.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3">

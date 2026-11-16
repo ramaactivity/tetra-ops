@@ -16,6 +16,20 @@ test("quotation ke klien: sapa Kak + nama orang, istilah quotation, tanpa penawa
 	assert.doesNotMatch(t, /penawaran|Kabari kami|🙏/);
 });
 
+test("quotation yang sudah pernah terkirim lalu direvisi: bilang revisi", () => {
+	const t = teksQuotation({
+		client: { name: "Riska", attn: null },
+		tanggalAcara: "10 Jan 2027",
+		total: "Rp 2.750.000",
+		berlakuSampai: "30 Nov 2026",
+		revisi: true,
+	});
+	assert.equal(
+		t,
+		"Halo Kak Riska, ini quotation yang sudah kami revisi untuk acara 10 Jan 2027 ya.\nTotalnya Rp 2.750.000, berlaku sampai 30 Nov 2026. Tanggalnya terkunci setelah DP minimal Rp 500.000.",
+	);
+});
+
 test("sapaan: u.p. dipakai, nama lembaga tidak, sapaan bawaan tidak dobel", () => {
 	assert.equal(
 		sapaKlien({

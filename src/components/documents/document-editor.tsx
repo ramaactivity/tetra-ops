@@ -715,6 +715,8 @@ export function DocumentEditor({
 							blockedBy={pendingAdminItems(doc.items)}
 							ensureSaved={async () => (await ensureSaved())?.id ?? null}
 							disabled={saving || readOnly}
+							// Sudah pernah sampai ke klien → kiriman berikutnya = revisi.
+							label={delivery?.at ? "Kirim revisi ke klien" : undefined}
 						/>
 					</span>
 					{isQuotation ? (

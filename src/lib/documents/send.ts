@@ -7,6 +7,7 @@ import {
 	DOC_TYPE_LABEL,
 	type DocumentRow,
 	docFilename,
+	isRevision,
 	pendingAdminItems,
 } from "@/lib/documents/types";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
@@ -78,7 +79,11 @@ export async function resolveSendDocument(
 		doc,
 		nomor,
 		pesan,
-		namaFile: docFilename(doc.doc_type, doc.doc_number, doc.client.name),
+		namaFile: docFilename(
+			doc.doc_type,
+			doc.doc_number,
+			doc.client.name,
+		).replace(/\.pdf$/, isRevision(doc) ? " (revisi).pdf" : ".pdf"),
 		ringkasan: `Kirim ${jenis} ${doc.doc_number} (${doc.client.name}) ke WA +${nomor} lewat bot Tetra, dengan pesan di bawah + PDF terlampir.`,
 	};
 }
