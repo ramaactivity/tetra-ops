@@ -15,7 +15,7 @@ export function RunScannerButton() {
 				const r = await runAnomalyScanner();
 				const errorPart = r.errors.length ? ` · ${r.errors.length} error` : "";
 				setSummary(
-					`Scan ${r.scanned} rule, match ${r.matched} entity, bikin ${r.created} notif baru, skip ${r.skipped} (sudah ada).${errorPart}`,
+					`Scan selesai: ${r.created} notifikasi baru, ${r.resolved} yang sudah beres dibersihkan.${errorPart}`,
 				);
 			} catch (err) {
 				setSummary(

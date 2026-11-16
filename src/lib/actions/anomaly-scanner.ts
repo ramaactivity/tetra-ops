@@ -7,6 +7,7 @@ import { revalidateDashboard } from "@/lib/dashboard/stats";
 import { spotsWithoutLead, unitCountOf } from "@/lib/events/spots";
 import { dispatchPushToMany, isVapidConfigured } from "@/lib/push/web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 type Severity = "alert" | "warning" | "info" | "success";
 type Category = "operational" | "financial" | "inventory" | "system";
@@ -36,6 +37,8 @@ type ScanResult = {
 	matched: number;
 	created: number;
 	skipped: number;
+	/** Notifikasi lama yang ditandai beres karena masalahnya sudah hilang. */
+	resolved: number;
 	errors: string[];
 	byRule: Array<{ code: string; matched: number; created: number }>;
 };
@@ -75,6 +78,7 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 		matched: 0,
 		created: 0,
 		skipped: 0,
+		resolved: 0,
 		errors: [],
 		byRule: [],
 	};
@@ -155,6 +159,17 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 			}
 
 			result.matched += matches.length;
+
+			// Notifikasi lama yang masalahnya sudah beres → is_resolved. Dulu tidak
+			// pernah ditandai beres: "H-1 desain belum ACC" tetap muncul setelah
+			// acaranya lewat & di-settle (122 belum dibaca, kebanyakan basi).
+			try {
+				result.resolved += await resolveCleared(admin, rule, matches, todayISO);
+			} catch (e) {
+				result.errors.push(
+					`${rule.code} (tandai beres): ${e instanceof Error ? e.message : String(e)}`,
+				);
+			}
 
 			if (matches.length === 0) {
 				result.byRule.push({ code: rule.code, matched: 0, created: 0 });
@@ -344,6 +359,15 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 	revalidateDashboard();
 	revalidatePath("/operations");
 	revalidatePath("/finance");
+
+	// Notifikasi alur kerja (bukan dari aturan) yang sudah basi.
+	try {
+		result.resolved += await housekeepFeed(admin);
+	} catch (e) {
+		result.errors.push(
+			`bersih-bersih notifikasi: ${e instanceof Error ? e.message : String(e)}`,
+		);
+	}
 	return result;
 }
 
@@ -353,26 +377,278 @@ export async function runAnomalyScannerInternal(): Promise<ScanResult> {
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
+/** Aturan H-n: hanya cocok di SATU tanggal — "tidak ketemu lagi" ≠ beres. */
+const WINDOWED_RULES = new Set([
+	"h_minus_2_no_crew",
+	"h_minus_1_no_design",
+	"h_minus_3_not_paid",
+	"h_minus_7_no_dp",
+]);
+/** Aturan yang mengecek kondisi saat ini — tidak ketemu lagi = sudah beres. */
+const STATE_RULES = new Set([
+	"invoice_overdue_1d",
+	"invoice_overdue_7d",
+	"loss_event",
+	"pending_user_24h",
+	"stock_critical",
+	"stock_zero",
+	"opname_overdue",
+	"asset_check_overdue",
+	"crew_double_booked",
+	"equipment_missing",
+]);
+
+/**
+ * Tandai beres notifikasi terbuka dari aturan ini yang masalahnya sudah
+ * hilang. Aturan H-n: beres kalau syaratnya terpenuhi (crew ada, desain ACC,
+ * lunas, DP masuk) ATAU acaranya sudah lewat / selesai / batal / dihapus.
+ * Aturan kondisi: beres kalau entitasnya tidak ada lagi di temuan scan ini
+ * (check-nya melempar error kalau query gagal, jadi kosong = memang kosong).
+ * Aturan lain (mis. prakiraan stok) dilewati.
+ */
+async function resolveCleared(
+	admin: AdminClient,
+	rule: Rule,
+	matches: Match[],
+	todayISO: string,
+): Promise<number> {
+	const windowed = WINDOWED_RULES.has(rule.code);
+	if (!windowed && !STATE_RULES.has(rule.code)) return 0;
+
+	const open = await fetchAllRows<{ id: string; entity_id: string }>(
+		(from, to) =>
+			admin
+				.from("notifications")
+				.select("id, entity_id")
+				.eq("anomaly_rule_id", rule.id)
+				.eq("is_resolved", false)
+				.eq("is_dismissed", false)
+				.order("id", { ascending: true })
+				.range(from, to),
+		"notifikasi terbuka",
+	);
+	if (open.length === 0) return 0;
+
+	let cleared: Set<string>;
+	if (!windowed) {
+		const still = new Set(matches.map((m) => m.entity_id));
+		cleared = new Set(
+			open.map((n) => n.entity_id).filter((id) => !still.has(id)),
+		);
+	} else {
+		const ids = [...new Set(open.map((n) => n.entity_id))];
+		cleared = new Set(ids); // acara yang tidak ditemukan (terhapus) = beres
+		for (let i = 0; i < ids.length; i += 200) {
+			const chunk = ids.slice(i, i + 200);
+			const events = (must(
+				await admin
+					.from("events")
+					.select(
+						"id, event_date, status, deleted_at, design_approved_at, remaining_balance, total_paid, unit_count",
+					)
+					.in("id", chunk),
+				"events (tandai beres)",
+			) ?? []) as Array<{
+				id: string;
+				event_date: string | null;
+				status: string | null;
+				deleted_at: string | null;
+				design_approved_at: string | null;
+				remaining_balance: number | null;
+				total_paid: number | null;
+				unit_count: number | null;
+			}>;
+			const crewRows =
+				rule.code === "h_minus_2_no_crew"
+					? ((must(
+							await admin
+								.from("crew_assignments")
+								.select("event_id, role_in_event, spot_no")
+								.in("event_id", chunk),
+							"crew (tandai beres)",
+						) ?? []) as Array<{
+							event_id: string;
+							role_in_event: string;
+							spot_no: number | null;
+						}>)
+					: [];
+			for (const e of events) {
+				const lewat =
+					e.deleted_at !== null ||
+					e.status === "completed" ||
+					e.status === "cancelled" ||
+					(e.event_date !== null && e.event_date < todayISO);
+				let fixed = false;
+				if (rule.code === "h_minus_1_no_design")
+					fixed = e.design_approved_at !== null;
+				else if (rule.code === "h_minus_3_not_paid")
+					fixed = (e.remaining_balance ?? 0) <= 0;
+				else if (rule.code === "h_minus_7_no_dp")
+					fixed = (e.total_paid ?? 0) > 0;
+				else if (rule.code === "h_minus_2_no_crew") {
+					// Sama dengan checkHMinusNoCrew: ada crew & (multi-unit) tiap spot ada lead.
+					const rows = crewRows.filter((a) => a.event_id === e.id);
+					const units = unitCountOf(e);
+					fixed =
+						rows.length > 0 &&
+						(units <= 1 || spotsWithoutLead(units, rows).length === 0);
+				}
+				if (!lewat && !fixed) cleared.delete(e.id);
+			}
+		}
+	}
+
+	const toResolve = open
+		.filter((n) => cleared.has(n.entity_id))
+		.map((n) => n.id);
+	const now = new Date().toISOString();
+	for (let i = 0; i < toResolve.length; i += 200) {
+		const { error } = await admin
+			.from("notifications")
+			// Ikut ditandai dibaca: lonceng menghitung yang belum dibaca, dan
+			// notifikasi yang sudah beres tidak perlu ditindak lagi.
+			.update({
+				is_resolved: true,
+				resolved_at: now,
+				is_read: true,
+				read_at: now,
+			})
+			.in("id", toResolve.slice(i, i + 200));
+		if (error) throw new Error(`update notifikasi: ${error.message}`);
+	}
+	return toResolve.length;
+}
+
+/**
+ * Notifikasi alur kerja (anomaly_rule_id kosong) yang sudah tidak perlu
+ * ditindak, ditandai beres + dibaca (tidak dihapus):
+ * - "Rekap baru / di-approve / diperbarui", "Event selesai" (entity_id = id
+ *   acara) — acaranya sudah selesai/batal/dihapus DAN umurnya > 3 hari (crew
+ *   tetap sempat melihat "Event selesai").
+ * - "Stok menipis untuk N event mendatang" — tiap approve rekap membuat yang
+ *   baru; yang lama per orang sudah tergantikan, sisakan yang terbaru.
+ */
+async function housekeepFeed(admin: AdminClient): Promise<number> {
+	const open = await fetchAllRows<{
+		id: string;
+		user_id: string;
+		entity_type: string | null;
+		entity_id: string | null;
+		title: string;
+		created_at: string;
+	}>(
+		(from, to) =>
+			admin
+				.from("notifications")
+				.select("id, user_id, entity_type, entity_id, title, created_at")
+				.is("anomaly_rule_id", null)
+				.eq("is_resolved", false)
+				.eq("is_dismissed", false)
+				.order("created_at", { ascending: false })
+				.order("id", { ascending: false })
+				.range(from, to),
+		"notifikasi alur kerja",
+	);
+	if (open.length === 0) return 0;
+
+	const resolve = new Set<string>();
+
+	// Peringatan stok: yang terbaru per orang dipertahankan (urut terbaru dulu).
+	const seenStock = new Set<string>();
+	for (const n of open) {
+		if (!n.title.startsWith("Stok menipis untuk")) continue;
+		if (seenStock.has(n.user_id)) resolve.add(n.id);
+		else seenStock.add(n.user_id);
+	}
+
+	// Info rekap/acara untuk acara yang sudah tidak berjalan.
+	const cutoff = Date.now() - 3 * 86_400_000;
+	const feed = open.filter(
+		(n) =>
+			(n.entity_type === "crew_rekap" || n.entity_type === "event") &&
+			n.entity_id &&
+			Date.parse(n.created_at) < cutoff,
+	);
+	const ids = [...new Set(feed.map((n) => n.entity_id as string))];
+	const done = new Set<string>(ids); // acara tidak ditemukan = terhapus
+	for (let i = 0; i < ids.length; i += 200) {
+		const evs = (must(
+			await admin
+				.from("events")
+				.select("id, status, deleted_at")
+				.in("id", ids.slice(i, i + 200)),
+			"events (bersih-bersih)",
+		) ?? []) as Array<{
+			id: string;
+			status: string | null;
+			deleted_at: string | null;
+		}>;
+		for (const e of evs)
+			if (
+				e.deleted_at === null &&
+				e.status !== "completed" &&
+				e.status !== "cancelled"
+			)
+				done.delete(e.id);
+	}
+	for (const n of feed) if (done.has(n.entity_id as string)) resolve.add(n.id);
+
+	const list = [...resolve];
+	const now = new Date().toISOString();
+	for (let i = 0; i < list.length; i += 200) {
+		const { error } = await admin
+			.from("notifications")
+			.update({
+				is_resolved: true,
+				resolved_at: now,
+				is_read: true,
+				read_at: now,
+			})
+			.in("id", list.slice(i, i + 200));
+		if (error) throw new Error(`update notifikasi: ${error.message}`);
+	}
+	return list.length;
+}
+
+/**
+ * Query gagal → lempar error (jangan jadi "0 temuan"). Penting sejak scanner
+ * menandai notifikasi beres saat temuannya hilang: hasil kosong palsu akan
+ * menandai SEMUA notifikasi aturan itu beres.
+ */
+function must<T>(
+	res: { data: T | null; error: { message: string } | null },
+	what: string,
+): T | null {
+	if (res.error) throw new Error(`${what}: ${res.error.message}`);
+	return res.data;
+}
+
 async function checkHMinusNoCrew(
 	admin: AdminClient,
 	targetDate: Date,
 ): Promise<Match[]> {
 	const dateISO = isoDate(targetDate);
-	const { data: events } = await admin
-		.from("events")
-		.select("id, project_id, client_name, event_date, venue_name, unit_count")
-		.eq("event_date", dateISO)
-		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
-		.in("status", ["upcoming", "in_progress"]);
+	const events = must(
+		await admin
+			.from("events")
+			.select("id, project_id, client_name, event_date, venue_name, unit_count")
+			.eq("event_date", dateISO)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.in("status", ["upcoming", "in_progress"]),
+		"events",
+	);
 
 	if (!events || events.length === 0) return [];
 
 	const eventIds = events.map((e) => e.id as string);
-	const { data: assignments } = await admin
-		.from("crew_assignments")
-		.select("event_id, role_in_event, spot_no")
-		.in("event_id", eventIds);
+	const assignments = must(
+		await admin
+			.from("crew_assignments")
+			.select("event_id, role_in_event, spot_no")
+			.in("event_id", eventIds),
+		"assignments",
+	);
 	const rows = (assignments ?? []) as Array<{
 		event_id: string;
 		role_in_event: string;
@@ -421,15 +697,18 @@ async function checkHMinusNoDesign(
 	targetDate: Date,
 ): Promise<Match[]> {
 	const dateISO = isoDate(targetDate);
-	const { data: events } = await admin
-		.from("events")
-		.select(
-			"id, project_id, client_name, event_date, venue_name, design_approved_at",
-		)
-		.eq("event_date", dateISO)
-		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
-		.is("design_approved_at", null);
+	const events = must(
+		await admin
+			.from("events")
+			.select(
+				"id, project_id, client_name, event_date, venue_name, design_approved_at",
+			)
+			.eq("event_date", dateISO)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.is("design_approved_at", null),
+		"events",
+	);
 	return (
 		(events ?? []) as Array<{
 			id: string;
@@ -452,13 +731,16 @@ async function checkHMinusNotPaid(
 	targetDate: Date,
 ): Promise<Match[]> {
 	const dateISO = isoDate(targetDate);
-	const { data: events } = await admin
-		.from("events")
-		.select("id, project_id, client_name, event_date, remaining_balance")
-		.eq("event_date", dateISO)
-		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
-		.gt("remaining_balance", 0);
+	const events = must(
+		await admin
+			.from("events")
+			.select("id, project_id, client_name, event_date, remaining_balance")
+			.eq("event_date", dateISO)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.gt("remaining_balance", 0),
+		"events",
+	);
 	return (
 		(events ?? []) as Array<{
 			id: string;
@@ -481,13 +763,16 @@ async function checkHMinusNoDP(
 	targetDate: Date,
 ): Promise<Match[]> {
 	const dateISO = isoDate(targetDate);
-	const { data: events } = await admin
-		.from("events")
-		.select("id, project_id, client_name, event_date, total_paid")
-		.eq("event_date", dateISO)
-		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
-		.eq("total_paid", 0);
+	const events = must(
+		await admin
+			.from("events")
+			.select("id, project_id, client_name, event_date, total_paid")
+			.eq("event_date", dateISO)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.eq("total_paid", 0),
+		"events",
+	);
 	return (
 		(events ?? []) as Array<{
 			id: string;
@@ -510,17 +795,20 @@ async function checkInvoiceOverdue(
 	daysAfter: number,
 ): Promise<Match[]> {
 	const cutoff = isoDate(addDays(new Date(`${todayISO}T00:00:00`), -daysAfter));
-	const { data: events } = await admin
-		.from("events")
-		.select(
-			"id, project_id, client_name, due_date, remaining_balance, payment_status",
-		)
-		.is("deleted_at", null)
-		.eq("is_migrated_legacy", false)
-		.neq("payment_status", "paid")
-		.gt("remaining_balance", 0)
-		.lte("due_date", cutoff)
-		.not("due_date", "is", null);
+	const events = must(
+		await admin
+			.from("events")
+			.select(
+				"id, project_id, client_name, due_date, remaining_balance, payment_status",
+			)
+			.is("deleted_at", null)
+			.eq("is_migrated_legacy", false)
+			.neq("payment_status", "paid")
+			.gt("remaining_balance", 0)
+			.lte("due_date", cutoff)
+			.not("due_date", "is", null),
+		"events",
+	);
 	return (
 		(events ?? []) as Array<{
 			id: string;
@@ -539,16 +827,19 @@ async function checkInvoiceOverdue(
 }
 
 async function checkLossEvent(admin: AdminClient): Promise<Match[]> {
-	const { data: settlements } = await admin
-		.from("event_settlements")
-		.select(
-			`event_id, net_profit, closed_at,
+	const settlements = must(
+		await admin
+			.from("event_settlements")
+			.select(
+				`event_id, net_profit, closed_at,
 			event:events!inner(id, project_id, client_name, is_compliment)`,
-		)
-		.eq("is_loss", true)
-		.eq("is_reopened", false)
-		// Acara compliment memang "rugi" (hadiah dari Tetra) — bukan anomali.
-		.eq("event.is_compliment", false);
+			)
+			.eq("is_loss", true)
+			.eq("is_reopened", false)
+			// Acara compliment memang "rugi" (hadiah dari Tetra) — bukan anomali.
+			.eq("event.is_compliment", false),
+		"settlements",
+	);
 	return (
 		(settlements ?? []) as Array<{
 			event_id: string;
@@ -577,12 +868,15 @@ async function checkLossEvent(admin: AdminClient): Promise<Match[]> {
 async function checkPendingUser24h(admin: AdminClient): Promise<Match[]> {
 	const cutoff = new Date();
 	cutoff.setHours(cutoff.getHours() - 24);
-	const { data: users } = await admin
-		.from("users")
-		.select("id, full_name, email, created_at")
-		.eq("role", "pending_approval")
-		.is("deleted_at", null)
-		.lte("created_at", cutoff.toISOString());
+	const users = must(
+		await admin
+			.from("users")
+			.select("id, full_name, email, created_at")
+			.eq("role", "pending_approval")
+			.is("deleted_at", null)
+			.lte("created_at", cutoff.toISOString()),
+		"users",
+	);
 	return (
 		(users ?? []) as Array<{
 			id: string;
@@ -605,9 +899,12 @@ async function fetchStockLevels(
 	itemIds: string[],
 ): Promise<Map<string, number>> {
 	if (itemIds.length === 0) return new Map();
-	const { data } = await admin.rpc("get_stock_levels", {
-		p_item_ids: itemIds,
-	});
+	const data = must(
+		await admin.rpc("get_stock_levels", {
+			p_item_ids: itemIds,
+		}),
+		"data",
+	);
 	return new Map(
 		((data ?? []) as Array<{ item_id: string; stock: number }>).map((r) => [
 			r.item_id,
@@ -617,12 +914,15 @@ async function fetchStockLevels(
 }
 
 async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
-	const { data: items } = await admin
-		.from("inventory_items")
-		.select("id, sku, name, min_stock_alert")
-		.eq("category", "inventory")
-		.eq("is_active", true)
-		.gt("min_stock_alert", 0);
+	const items = must(
+		await admin
+			.from("inventory_items")
+			.select("id, sku, name, min_stock_alert")
+			.eq("category", "inventory")
+			.eq("is_active", true)
+			.gt("min_stock_alert", 0),
+		"items",
+	);
 	if (!items) return [];
 
 	const itemRows = items as Array<{
@@ -654,12 +954,15 @@ async function checkStockCritical(admin: AdminClient): Promise<Match[]> {
 async function checkOpnameOverdue(admin: AdminClient): Promise<Match[]> {
 	// Stock accuracy is the foundation the forecast + HPP stand on. Nudge owners
 	// to do a physical count if the last committed stock-take is stale (or never).
-	const { data } = await admin
-		.from("stock_takes")
-		.select("id, committed_at")
-		.eq("status", "committed")
-		.order("committed_at", { ascending: false })
-		.limit(1);
+	const data = must(
+		await admin
+			.from("stock_takes")
+			.select("id, committed_at")
+			.eq("status", "committed")
+			.order("committed_at", { ascending: false })
+			.limit(1),
+		"data",
+	);
 	const last = data?.[0] as
 		| { id: string; committed_at: string | null }
 		| undefined;
@@ -691,12 +994,15 @@ async function checkOpnameOverdue(admin: AdminClient): Promise<Match[]> {
 async function checkAssetCheckOverdue(admin: AdminClient): Promise<Match[]> {
 	// Mirror checkOpnameOverdue untuk aset tetap: nudge cek fisik alat bulanan
 	// (ada/rusak/hilang) kalau cek terakhir >30 hari atau belum pernah.
-	const { data } = await admin
-		.from("asset_checks")
-		.select("id, committed_at")
-		.eq("status", "committed")
-		.order("committed_at", { ascending: false })
-		.limit(1);
+	const data = must(
+		await admin
+			.from("asset_checks")
+			.select("id, committed_at")
+			.eq("status", "committed")
+			.order("committed_at", { ascending: false })
+			.limit(1),
+		"data",
+	);
 	const last = data?.[0] as
 		| { id: string; committed_at: string | null }
 		| undefined;
@@ -739,12 +1045,15 @@ async function checkForecastShortfall(admin: AdminClient): Promise<Match[]> {
 }
 
 async function checkStockZero(admin: AdminClient): Promise<Match[]> {
-	const { data: items } = await admin
-		.from("inventory_items")
-		.select("id, sku, name, min_stock_alert")
-		.eq("category", "inventory")
-		.eq("is_active", true)
-		.gt("min_stock_alert", 0);
+	const items = must(
+		await admin
+			.from("inventory_items")
+			.select("id, sku, name, min_stock_alert")
+			.eq("category", "inventory")
+			.eq("is_active", true)
+			.gt("min_stock_alert", 0),
+		"items",
+	);
 	if (!items) return [];
 
 	const itemRows = items as Array<{
@@ -777,13 +1086,16 @@ async function checkCrewDoubleBooked(admin: AdminClient): Promise<Match[]> {
 	// Find crew_assignments where the same user has 2+ events on the same date
 	// in the upcoming window (today onwards)
 	const todayISO = isoDate(new Date());
-	const { data: assignments } = await admin
-		.from("crew_assignments")
-		.select(
-			`user_id,
+	const assignments = must(
+		await admin
+			.from("crew_assignments")
+			.select(
+				`user_id,
 			event:events!inner(id, project_id, client_name, event_date)`,
-		)
-		.gte("event.event_date", todayISO);
+			)
+			.gte("event.event_date", todayISO),
+		"assignments",
+	);
 
 	if (!assignments) return [];
 
@@ -868,14 +1180,17 @@ async function checkEquipmentMissing(
 
 	// Equipment items with current_event_id pointing to events that have
 	// already passed (event_date <= yesterday)
-	const { data: items } = await admin
-		.from("inventory_items")
-		.select(
-			`id, sku, name, current_event_id,
+	const items = must(
+		await admin
+			.from("inventory_items")
+			.select(
+				`id, sku, name, current_event_id,
 			event:events!inventory_items_current_event_id_fkey(id, project_id, client_name, event_date)`,
-		)
-		.eq("category", "fixed_asset")
-		.not("current_event_id", "is", null);
+			)
+			.eq("category", "fixed_asset")
+			.not("current_event_id", "is", null),
+		"items",
+	);
 
 	return (
 		(items ?? []) as Array<{
