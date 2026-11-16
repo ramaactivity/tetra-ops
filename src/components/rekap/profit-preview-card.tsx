@@ -106,11 +106,21 @@ export function ProfitPreviewCard({
 	)
 		.filter((k) => preview.hpp[k] !== 0)
 		.map((k) => ({ label: HPP_LABELS[k], value: preview.hpp[k] }));
-	const opexLines: Line[] = (
+	// Komisi (vendor/relasi/sales) bukan biaya crew & jalan — kelompok sendiri.
+	const opexKeys = (
 		Object.keys(OPEX_LABELS) as Array<keyof typeof OPEX_LABELS>
-	)
-		.filter((k) => preview.opex[k] !== 0)
-		.map((k) => ({ label: OPEX_LABELS[k], value: preview.opex[k] }));
+	).filter((k) => preview.opex[k] !== 0);
+	const isKomisi = (k: string) => k.startsWith("komisi_");
+	const toLine = (k: keyof typeof OPEX_LABELS): Line => ({
+		label: OPEX_LABELS[k],
+		value: preview.opex[k],
+	});
+	const opexLines = opexKeys.filter((k) => !isKomisi(k)).map(toLine);
+	const komisiLines = opexKeys.filter(isKomisi).map(toLine);
+	const komisiTotal =
+		preview.opex.komisi_vendor +
+		preview.opex.komisi_relasi +
+		preview.opex.komisi_sales;
 	const lainLines: Line[] = [
 		...ex.items
 			.filter((i) => i.direction === "keluar")
@@ -153,7 +163,8 @@ export function ProfitPreviewCard({
 			<EventHealth
 				uangMasuk={uangMasuk}
 				bahan={preview.hpp.total}
-				operasional={preview.opex.total}
+				operasional={preview.opex.total - komisiTotal}
+				komisi={komisiTotal}
 				lain={lainTotal}
 				untung={untung}
 			/>
@@ -180,7 +191,7 @@ export function ProfitPreviewCard({
 					},
 					{
 						title: "Crew & operasional",
-						hint: "bayar crew, ongkos jalan & komisi",
+						hint: "bayar crew & ongkos jalan",
 						lines: opexLines,
 						empty: "Belum ada biaya operasional tercatat",
 						footnote:
@@ -188,6 +199,15 @@ export function ProfitPreviewCard({
 								? `${formatRupiah(preview.opex.owner_paid_total)} yang dibayar owner ada di Pengeluaran lain (supaya tidak dobel).`
 								: undefined,
 					},
+					...(komisiLines.length > 0
+						? [
+								{
+									title: "Komisi",
+									hint: "vendor, relasi & sales",
+									lines: komisiLines,
+								},
+							]
+						: []),
 					...(lainLines.length > 0
 						? [
 								{

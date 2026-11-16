@@ -192,6 +192,10 @@ export function SettleButton(props: Props) {
 			: null;
 
 	const bd = props.breakdown ?? null;
+	// Komisi ditampilkan sebagai kelompok sendiri (bukan crew & jalan).
+	const komisiTotal = bd
+		? bd.opex.komisi_vendor + bd.opex.komisi_relasi + bd.opex.komisi_sales
+		: 0;
 	// Fee crew digabung jadi satu baris: pemisahan lead/asisten/crew C/extra
 	// sudah ada di kartu Fee crew, dan di sini yang dicek "berapa totalnya".
 	const feeCrewTotal = bd
@@ -436,7 +440,7 @@ export function SettleButton(props: Props) {
 									{/* OpEx */}
 									<MoneyGroup
 										title="Crew & operasional"
-										total={props.opexTotal}
+										total={props.opexTotal - komisiTotal}
 										rows={
 											bd
 												? [
@@ -457,24 +461,34 @@ export function SettleButton(props: Props) {
 														{ label: "Parkir", value: bd.opex.parking },
 														{ label: "Konsumsi", value: bd.opex.konsumsi },
 														{ label: "Lain-lain", value: bd.opex.misc },
-														{
-															label: "Komisi vendor",
-															value: bd.opex.komisi_vendor,
-														},
-														{
-															label: "Komisi relasi",
-															value: bd.opex.komisi_relasi,
-														},
-														{
-															label: salesInfo?.payeeName
-																? `Komisi sales ${salesInfo.payeeName}`
-																: "Komisi sales",
-															value: bd.opex.komisi_sales,
-														},
 													]
 												: []
 										}
 									/>
+
+									{/* Komisi — bukan biaya crew & jalan */}
+									{komisiTotal > 0 && bd ? (
+										<MoneyGroup
+											title="Komisi"
+											total={komisiTotal}
+											rows={[
+												{
+													label: "Komisi vendor",
+													value: bd.opex.komisi_vendor,
+												},
+												{
+													label: "Komisi relasi",
+													value: bd.opex.komisi_relasi,
+												},
+												{
+													label: salesInfo?.payeeName
+														? `Komisi sales ${salesInfo.payeeName}`
+														: "Komisi sales",
+													value: bd.opex.komisi_sales,
+												},
+											]}
+										/>
+									) : null}
 
 									{/* Hasil + alokasi */}
 									<div className="space-y-2">

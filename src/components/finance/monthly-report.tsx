@@ -55,8 +55,9 @@ export function MonthlyReport({
 	freeCash: number;
 }) {
 	const pendapatan = pnl.revenue + pnl.otherIncome;
-	const crewJalan = pnl.opex + pnl.eventExtra;
-	const biayaEvent = pnl.hpp + crewJalan;
+	// Komisi (vendor/relasi/sales) bukan biaya crew & jalan — dipisah.
+	const crewJalan = pnl.opex - pnl.komisi + pnl.eventExtra;
+	const biayaEvent = pnl.hpp + crewJalan + pnl.komisi;
 	const totalBiaya = biayaEvent + pnl.overhead;
 	const rugi = pnl.net < 0;
 	const n = pnl.events.length;
@@ -67,6 +68,7 @@ export function MonthlyReport({
 
 	const pBahan = pct(pnl.hpp, pendapatan);
 	const pCrew = pct(crewJalan, pendapatan);
+	const pKomisi = pct(pnl.komisi, pendapatan);
 	const pOver = pct(pnl.overhead, pendapatan);
 	const pNet = pct(pnl.net, pendapatan);
 
@@ -87,12 +89,23 @@ export function MonthlyReport({
 						note: "Kertas, tinta, sleeve, flashdisk & souvenir.",
 					},
 					{
-						title: "Crew, jalan & komisi",
+						title: "Crew & jalan",
 						pct: pCrew,
 						target: "Idealnya di bawah 35%",
 						status: costStatus(pCrew, 35, 45),
-						note: "Fee crew, transport, bensin, tol, makan, komisi.",
+						note: "Fee crew, transport, bensin, tol, makan.",
 					},
+					...(pnl.komisi > 0
+						? [
+								{
+									title: "Komisi",
+									pct: pKomisi,
+									target: "sesuai kesepakatan",
+									status: "baik" as Status,
+									note: "Komisi vendor, relasi & sales.",
+								},
+							]
+						: []),
 					{
 						title: "Biaya bulanan",
 						pct: pOver,
@@ -125,7 +138,10 @@ export function MonthlyReport({
 			hint: "yang keluar karena ada event",
 			lines: [
 				{ label: "Bahan cetak & souvenir", value: pnl.hpp },
-				{ label: "Crew & komisi", value: pnl.opex },
+				{ label: "Crew & jalan", value: pnl.opex - pnl.komisi },
+				...(pnl.komisi
+					? [{ label: "Komisi vendor, relasi & sales", value: pnl.komisi }]
+					: []),
 				...(pnl.eventExtra
 					? [
 							{

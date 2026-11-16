@@ -385,10 +385,13 @@ export default async function EventDetailPage({
 		? (() => {
 				const p = preview.data;
 				const uangMasuk = p.revenue_net + p.extra.incomeTotal;
+				const komisi =
+					p.opex.komisi_vendor + p.opex.komisi_relasi + p.opex.komisi_sales;
 				return {
 					uangMasuk,
 					bahan: p.hpp.total,
-					operasional: p.opex.total,
+					operasional: p.opex.total - komisi,
+					komisi,
 					lain: p.extra.expenseTotal,
 					untung: uangMasuk - p.total_biaya - p.extra.expenseTotal,
 				};

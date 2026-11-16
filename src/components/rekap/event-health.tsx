@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
  * alat, penyusutan — itu justru dibayar dari untung event):
  *   - Bahan (HPP)          : bisnis photobooth umumnya 15–30% dari harga.
  *   - Crew & operasional   : jasa umumnya 35–55%; photobooth yang sehat ≤35%.
+ *   - Komisi (vendor, relasi, sales) dipisah — besarnya hasil kesepakatan,
+ *     bukan biaya crew/jalan, jadi tidak diberi label sehat/tidak.
  *   - Untung bersih event  : photobooth rata-rata 30–45% (jasa umum 15–25%).
  * Sumber: snappic.com, photoboothint.com, bennettfinancials.com (Sep 2026).
  */
@@ -49,6 +51,7 @@ export function EventHealth({
 	uangMasuk,
 	bahan,
 	operasional,
+	komisi = 0,
 	lain,
 	untung,
 	href,
@@ -57,8 +60,10 @@ export function EventHealth({
 	uangMasuk: number;
 	/** HPP — bahan habis pakai. */
 	bahan: number;
-	/** OpEx — crew, perjalanan, komisi. */
+	/** OpEx tanpa komisi — crew & perjalanan. */
 	operasional: number;
+	/** Komisi vendor + relasi + sales (bagian OpEx, ditampilkan terpisah). */
+	komisi?: number;
 	/** Pengeluaran lain (kartu rekap + dibayar owner belum dicatat). */
 	lain: number;
 	untung: number;
@@ -70,6 +75,7 @@ export function EventHealth({
 
 	const pBahan = (bahan / uangMasuk) * 100;
 	const pOps = ((operasional + lain) / uangMasuk) * 100;
+	const pKomisi = (komisi / uangMasuk) * 100;
 	const pUntung = (untung / uangMasuk) * 100;
 
 	// Angka = rupiah asli acara ini + porsinya dari total yang dibayar klien.
@@ -104,9 +110,24 @@ export function EventHealth({
 			pct: pOps,
 			ideal: "Ideal di bawah 35%",
 			status: costStatus(pOps, 35, 45),
-			tip: "Biaya orang & perjalanan makan porsi besar. Biasanya karena lokasi jauh, crew kebanyakan, atau komisi besar — pertimbangkan biaya transport/jarak di harga.",
+			tip: "Biaya orang & perjalanan makan porsi besar. Biasanya karena lokasi jauh atau crew kebanyakan — pertimbangkan biaya transport/jarak di harga.",
 			cls: "bg-sky-400",
 		},
+		...(komisi > 0
+			? [
+					{
+						key: "komisi",
+						label: "Komisi",
+						title: "Komisi",
+						amount: komisi,
+						pct: pKomisi,
+						ideal: "Vendor, relasi & sales — sesuai kesepakatan",
+						status: "baik" as Status,
+						tip: "",
+						cls: "bg-violet-400",
+					},
+				]
+			: []),
 		{
 			key: "untung",
 			label: "Untung",
@@ -186,7 +207,14 @@ export function EventHealth({
 						/>
 					))}
 				</div>
-				<ul className="grid gap-x-4 gap-y-2 text-[12.5px] md:grid-cols-3">
+				<ul
+					className={cn(
+						"grid gap-x-4 gap-y-2 text-[12.5px]",
+						rows.length > 3
+							? "md:grid-cols-2 xl:grid-cols-4"
+							: "md:grid-cols-3",
+					)}
+				>
 					{rows.map((r) => (
 						<li
 							key={r.key}

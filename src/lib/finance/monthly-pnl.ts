@@ -38,6 +38,8 @@ export type PnlEvent = {
 	revenue: number;
 	hpp: number;
 	opex: number;
+	/** Bagian opex yang komisi (vendor + relasi + sales) — ditampilkan terpisah. */
+	komisi: number;
 	extra: number;
 	profit: number;
 };
@@ -60,7 +62,9 @@ export type MonthlyPnl = {
 	}>;
 	revenue: number;
 	hpp: number;
+	/** Termasuk komisi; crew & jalan = opex − komisi. */
 	opex: number;
+	komisi: number;
 	/** Biaya lain event (bersih: keluar − masuk) yang dicatat di luar settle. */
 	eventExtra: number;
 	eventProfit: number;
@@ -105,7 +109,7 @@ export async function getMonthlyPnl(
 		.from("events")
 		.select(
 			`id, project_id, client_name, event_date, grand_total,
-			 settlement:event_settlements(revenue_net, hpp_total, opex_total, net_profit, is_reopened)`,
+			 settlement:event_settlements(revenue_net, hpp_total, opex_total, komisi_vendor, komisi_relasi, komisi_sales_direct, net_profit, is_reopened)`,
 		)
 		.gte("event_date", start)
 		.lte("event_date", end)
@@ -117,6 +121,9 @@ export async function getMonthlyPnl(
 		revenue_net: number;
 		hpp_total: number;
 		opex_total: number;
+		komisi_vendor: number | null;
+		komisi_relasi: number | null;
+		komisi_sales_direct: number | null;
 		is_reopened: boolean;
 	};
 	const settled = new Map<string, PnlEvent>();
@@ -132,6 +139,10 @@ export async function getMonthlyPnl(
 				revenue: Number(s.revenue_net ?? 0),
 				hpp: Number(s.hpp_total ?? 0),
 				opex: Number(s.opex_total ?? 0),
+				komisi:
+					Number(s.komisi_vendor ?? 0) +
+					Number(s.komisi_relasi ?? 0) +
+					Number(s.komisi_sales_direct ?? 0),
 				extra: 0,
 				profit: 0,
 			});
@@ -214,7 +225,7 @@ export async function getMonthlyPnl(
 		...e,
 		profit: e.revenue - e.hpp - e.opex - e.extra,
 	}));
-	const sum = (k: "revenue" | "hpp" | "opex" | "extra" | "profit") =>
+	const sum = (k: "revenue" | "hpp" | "opex" | "komisi" | "extra" | "profit") =>
 		events.reduce((s, e) => s + e[k], 0);
 	const eventProfit = sum("profit");
 
@@ -225,6 +236,7 @@ export async function getMonthlyPnl(
 		revenue: sum("revenue"),
 		hpp: sum("hpp"),
 		opex: sum("opex"),
+		komisi: sum("komisi"),
 		eventExtra: sum("extra"),
 		eventProfit,
 		overhead,
