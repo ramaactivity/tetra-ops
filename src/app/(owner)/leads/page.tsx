@@ -87,15 +87,31 @@ export default async function LeadsPage({
 	const startISO = periodStartISO(period, now);
 	if (startISO) listQuery = listQuery.gte("received_at", startISO);
 
-	// Aggregate query — all-time lightweight rows for KPIs + topic dropdown +
-	// per-status pill counts.
-	const aggQuery = supabase
-		.from("whatsapp_bot_leads")
-		.select("phone, topic, received_at, status")
-		.order("received_at", { ascending: false })
-		.limit(10000);
+	// Aggregate rows — all-time, lightweight — for KPIs + topic dropdown +
+	// per-status pill counts. PostgREST caps one response at 1.000 rows, so
+	// page through all of them (dulu .limit(10000) diam-diam terpotong di
+	// 1.000: Total Lead tampil 1.000 padahal 1.871, lead unik 183 padahal 510).
+	async function fetchAgg() {
+		const rows: Array<{
+			phone: string;
+			topic: string;
+			received_at: string;
+			status: string;
+		}> = [];
+		for (let from = 0; ; from += 1000) {
+			const { data, error } = await supabase
+				.from("whatsapp_bot_leads")
+				.select("phone, topic, received_at, status")
+				.order("received_at", { ascending: false })
+				.range(from, from + 999);
+			if (error) throw new Error(`leads agregat: ${error.message}`);
+			rows.push(...(data ?? []));
+			if (!data || data.length < 1000) break;
+		}
+		return { data: rows };
+	}
 
-	const [listResult, aggResult] = await Promise.all([listQuery, aggQuery]);
+	const [listResult, aggResult] = await Promise.all([listQuery, fetchAgg()]);
 
 	if (listResult.error) {
 		return (
