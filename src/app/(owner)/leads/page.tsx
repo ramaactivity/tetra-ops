@@ -1,4 +1,5 @@
 import {
+	Bot,
 	CalendarClock,
 	CircleCheck,
 	Download,
@@ -32,6 +33,7 @@ import {
 	loadFollowupsByNomor,
 	loadLeadContacts,
 } from "@/lib/leads/contacts";
+import { saldoAiView } from "@/lib/leads/saldo-ai";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -89,14 +91,31 @@ export default async function LeadsPage({
 		return new Set(hits.map((h) => h.wa_jid));
 	};
 
-	const [all, { data: contactsData }, qJids, followupByNomor] =
+	const [all, { data: contactsData }, qJids, followupByNomor, saldoRes] =
 		await Promise.all([
 			loadLeadContacts(supabase),
 			// segment_source untuk SegmentSelect (setelan manual per kontak).
 			supabase.from("whatsapp_bot_contacts").select("*").limit(10000),
 			searchJids(),
 			loadFollowupsByNomor(supabase),
+			// Saldo AI Sumopod dari penjaga Hermes (spek §6) — owner saja.
+			canManage
+				? supabase
+						.from("system_config")
+						.select("value")
+						.eq("key", "saldo_ai")
+						.maybeSingle()
+				: null,
 		]);
+	const saldo = saldoRes
+		? saldoRes.error
+			? {
+					value: "—",
+					hint: `gagal dibaca: ${saldoRes.error.message}`,
+					merah: true,
+				}
+			: saldoAiView(saldoRes.data?.value ?? null)
+		: null;
 	const contactByJid: Record<string, ContactRow> = {};
 	for (const c of (contactsData ?? []) as ContactRow[])
 		contactByJid[c.wa_jid] = c;
@@ -227,7 +246,7 @@ export default async function LeadsPage({
 				}
 			/>
 
-			<KpiRow>
+			<KpiRow className={saldo ? "lg:grid-cols-5" : undefined}>
 				<KpiCard
 					label="Kontak aktif"
 					value={aktif.toLocaleString("id-ID")}
@@ -256,6 +275,17 @@ export default async function LeadsPage({
 					icon={CircleCheck}
 					accent="emerald"
 				/>
+				{saldo ? (
+					<KpiCard
+						label="Saldo AI"
+						value={saldo.value}
+						hint={saldo.hint}
+						icon={Bot}
+						accent={saldo.merah ? "rose" : "emerald"}
+						badge={"badge" in saldo ? saldo.badge : undefined}
+						badgeTone="red"
+					/>
+				) : null}
 			</KpiRow>
 
 			<div className="space-y-3">
