@@ -290,7 +290,9 @@ export function LeadsListTable({
 						Tanpa nama
 					</span>
 				)}
-				<ContactPhone phone={l.phone} waJid={l.wa_jid} />
+				<span className="whitespace-nowrap">
+					<ContactPhone phone={l.phone} waJid={l.wa_jid} />
+				</span>
 			</div>
 		);
 	}
@@ -338,7 +340,7 @@ export function LeadsListTable({
 			<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
 				<table className="w-full table-fixed text-sm">
 					<colgroup>
-						<col style={{ width: "16%" }} />
+						<col style={{ width: "18%" }} />
 						<col style={{ width: "11%" }} />
 						<col style={{ width: "10%" }} />
 						<col />
