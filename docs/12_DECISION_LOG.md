@@ -1358,3 +1358,30 @@ Dokumen uang (quotation dari bot WA/agent, kuitansi/nota setelah bayar, BAST dig
 - Kirim lewat jalur mana pun (`sendDocumentCore`) atau tandai manual mengeluarkan dokumen dari permintaan terbuka; permintaan kosong ditutup → tombol Telegram menjawab "sudah diproses".
 - Lonceng: `offerSendToOwner` membuat notifikasi untuk semua owner/super_admin (`entity_type = doc_send_request`), otomatis selesai saat permintaan ditutup/ditap. Tanpa web push (Telegram sudah memberi tahu HP owner).
 - Menu: Billing jadi grup (Tagihan + Dokumen); Dokumen keluar dari Finance. URL `/finance/dokumen` tetap supaya link lama/Telegram tidak putus.
+
+---
+
+## DR-054: Tagihan rutin — lunas dibaca dari pembukuan, pengingat ke tiga tempat
+
+**Status:** Accepted (owner 2026-11-18: "halaman perihal subscription yang perlu dibayar rutin… supaya gua diberi peringatan… ke grup owner, bukan cuma ke admin"; pilih kirim ke dua grup; VPS DomaiNesia "kalau abis gapapa")
+**Date:** 2026-11-18
+
+### Context
+Pengingat langganan hanya 3 baris (`telegram_renewals`) + teks tanggal 1 yang di-hardcode (kost, wifi, bagi hasil). Jatuh tempo digeser otomatis setiap lewat, walau belum dibayar. Tidak ada halaman, dan banyak tagihan rutin nyata (VPS Sumopod, kost, wifi) tidak tercatat.
+
+### Decision
+- Halaman **Finance › Tagihan rutin**. Sumbernya satu: `src/lib/finance/recurring-bills.ts`, dipakai halaman, digest Telegram, grup WA, lonceng, dan tool Hermes `langganan_app`.
+- **Lunas tidak dicentang manual.** Status dibaca dari jurnal Catat: kategori (akun beban) + kata kunci di keterangan + bulan yang dibayar. Tombol "Catat bayar" membuka Catat yang sudah terisi.
+  - "Tandai sudah dibayar" (`manual_paid_due`) hanya untuk tagihan yang dibayar di luar kas Tetra.
+  - Bagi hasil owner dianggap lunas begitu ada penarikan sejak tanggal jatuh temponya.
+- Periode yang belum dibayar tetap "telat" dan tidak digeser diam-diam.
+- **Jadwal pengingat:** H-3, H-1, hari H, H+1, H+3, lalu seminggu sekali sampai dibayar. Tagihan 3-bulanan/tahunan juga diingatkan H-30 dan H-7.
+- **Tujuan pengingat:**
+  - Digest Telegram grup TETRA BOT.
+  - Grup WA Tetra Photobooth lewat `send-grup-admin`, maks 1 pesan per hari.
+  - Lonceng owner: 1 notifikasi per tagihan per jatuh tempo, otomatis selesai saat lunas. Badge di menu.
+- Teks pengingat tanggal 1 yang di-hardcode dihapus, karena kost/wifi/bagi hasil sekarang jadi baris tagihan.
+- **Migration 20261118c** (aditif):
+  - VPS DomaiNesia dimatikan.
+  - Tagihan baru: Kost (tgl 1), Wifi kantor (tgl 1), VPS Sumopod (tgl 21), Bagi hasil owner (tgl 1).
+  - Claude, Gemini, dan Hostinger Email belum dimasukkan karena tidak ada pembayaran Okt–Nov. Owner menambahkan sendiri kalau masih berlangganan.
