@@ -127,11 +127,23 @@ function AccountCard({
 
 	return (
 		<div className="overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)]">
-			{/* Header — click to expand history */}
-			<button
-				type="button"
+			{/* Header — click to expand history. Bukan <button>: di dalamnya ada
+			    pilihan segmen/status (tombol juga) — tombol bersarang = HTML tidak
+			    sah → hydration error #418, dan tiap klik pilihan ikut buka-tutup. */}
+			{/* biome-ignore lint/a11y/useSemanticElements: <button> asli tidak boleh berisi tombol pilihan segmen/status */}
+			<div
+				role="button"
+				tabIndex={0}
+				aria-expanded={open}
 				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary/30"
+				onKeyDown={(e) => {
+					if (e.target !== e.currentTarget) return;
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						setOpen((v) => !v);
+					}
+				}}
+				className="flex w-full cursor-pointer items-start gap-3 px-4 py-3.5 text-left transition-colors outline-none hover:bg-secondary/30 focus-visible:ring-2 focus-visible:ring-[#059669]/40"
 			>
 				<span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground">
 					<Building2 className="size-4" aria-hidden />
@@ -143,7 +155,12 @@ function AccountCard({
 							{title}
 						</span>
 					</div>
-					<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: hanya menahan klik agar kartu tidak ikut buka-tutup */}
+					{/* biome-ignore lint/a11y/useKeyWithClickEvents: idem — bukan aksi sendiri */}
+					<div
+						className="flex flex-wrap items-center gap-x-2 gap-y-1"
+						onClick={(e) => e.stopPropagation()}
+					>
 						<SegmentSelect
 							waJid={account.wa_jid}
 							segment={account.segment}
@@ -179,7 +196,7 @@ function AccountCard({
 					)}
 					aria-hidden
 				/>
-			</button>
+			</div>
 
 			{/* Expanded — lead / event history */}
 			{open ? (
