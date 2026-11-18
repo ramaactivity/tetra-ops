@@ -38,11 +38,10 @@ import {
 	KELUAR_CATEGORIES,
 } from "@/lib/finance/quick-record-categories";
 import type { CatatData } from "@/lib/finance/quick-record-data";
-import {
-	type BillCycle,
-	type BillRow,
-	type BillStatus,
-	dueLabel,
+import type {
+	BillCycle,
+	BillRow,
+	BillStatus,
 } from "@/lib/finance/recurring-bills";
 import { cn } from "@/lib/utils";
 
@@ -59,10 +58,11 @@ function jadwal(b: BillRow): string {
 	return b.cycle === "yearly" ? `tiap tahun, ${d}` : `tiap 3 bulan, ${d}`;
 }
 
-function StatusPill({ s }: { s: BillStatus }) {
+function StatusPill({ s, today }: { s: BillStatus; today: string }) {
+	const chip = "shrink-0 whitespace-nowrap";
 	if (s.urgency === "telat")
 		return (
-			<StatusChip tone="rose">
+			<StatusChip tone="rose" className={chip}>
 				{s.bill.kind === "bagi_hasil"
 					? "Belum diambil"
 					: `Telat ${-s.daysLeft} hari`}
@@ -70,7 +70,7 @@ function StatusPill({ s }: { s: BillStatus }) {
 		);
 	if (s.urgency === "segera")
 		return (
-			<StatusChip tone="amber">
+			<StatusChip tone="amber" className={chip}>
 				{s.daysLeft === 0
 					? "Hari ini"
 					: s.daysLeft === 1
@@ -78,11 +78,19 @@ function StatusPill({ s }: { s: BillStatus }) {
 						: `${s.daysLeft} hari lagi`}
 			</StatusChip>
 		);
+	// "Lunas" hanya kalau periode BULAN INI sudah dibayar — kalau yang lunas baru
+	// bulan lalu, tampilkan tanggal jatuh tempo berikutnya (jangan menenangkan palsu).
+	const lunasBulanIni =
+		s.lastPaid && s.lastPaid.due.slice(0, 7) >= today.slice(0, 7);
 	return (
-		<StatusChip tone={s.lastPaid ? "emerald" : "neutral"}>
-			{s.lastPaid
+		<StatusChip tone={lunasBulanIni ? "emerald" : "neutral"} className={chip}>
+			{lunasBulanIni && s.lastPaid
 				? `Lunas ${tgl(s.lastPaid.due, { month: "short" })}`
-				: tgl(s.due, { day: "numeric", month: "short" })}
+				: tgl(s.due, {
+						day: "numeric",
+						month: "short",
+						...(s.daysLeft > 45 ? { year: "numeric" } : {}),
+					})}
 		</StatusChip>
 	);
 }
@@ -91,10 +99,13 @@ export function TagihanRutinView({
 	active,
 	inactive,
 	catatData,
+	today,
 }: {
 	active: BillStatus[];
 	inactive: BillRow[];
 	catatData: CatatData;
+	/** Hari ini (WIB) dari server — supaya status sama dengan cron/Telegram. */
+	today: string;
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -168,11 +179,14 @@ export function TagihanRutinView({
 				<div className="min-w-0 flex-1 basis-[220px]">
 					<div className="flex items-center gap-2">
 						<span className="truncate text-[14px] font-semibold">{b.name}</span>
-						<StatusPill s={s} />
+						<StatusPill s={s} today={today} />
 					</div>
 					<p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
 						{jadwal(b)}
-						{urgent ? ` · ${dueLabel(s)}` : ""}
+						{/* Sisa hari sudah di chip — di sini cukup sejak kapan telatnya. */}
+						{s.urgency === "telat"
+							? ` · sejak ${tgl(s.due, { day: "numeric", month: "short" })}`
+							: ""}
 						{s.lastPaid && urgent
 							? ` · terakhir dibayar ${tgl(s.lastPaid.date, { day: "numeric", month: "short" })}`
 							: ""}

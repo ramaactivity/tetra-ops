@@ -4,6 +4,7 @@ import { Container } from "@/components/layout/container";
 import { SectionHeader } from "@/components/layout/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { resolveBillNotifications } from "@/lib/finance/bill-reminders";
 import { loadCatatData } from "@/lib/finance/quick-record-data";
 import { loadBillStatuses } from "@/lib/finance/recurring-bills";
@@ -25,8 +26,9 @@ export default async function TagihanRutinPage() {
 		);
 
 	const supabase = await createClient();
+	const today = todayWIB();
 	const [{ active, inactive }, catatData] = await Promise.all([
-		loadBillStatuses(supabase),
+		loadBillStatuses(supabase, today),
 		loadCatatData(),
 	]);
 	// Baru saja dibayar lewat Catat → lonceng & badge menu ikut beres sekarang,
@@ -40,6 +42,7 @@ export default async function TagihanRutinPage() {
 				active={active}
 				inactive={inactive}
 				catatData={catatData}
+				today={today}
 			/>
 		</Container>
 	);
