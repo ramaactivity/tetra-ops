@@ -9,6 +9,7 @@ import {
 	fetchVenueCandidates,
 } from "@/lib/events/booking-candidates";
 import { createClient } from "@/lib/supabase/server";
+import { BANNER_PRICING_KEYS, bannerPricingFromConfig } from "./banner-price";
 import { loadSigners } from "./load";
 import { parseGrossUpRate } from "./types";
 
@@ -22,6 +23,7 @@ export async function loadEditorData() {
 		{ data: cfg },
 		venues,
 		vendors,
+		{ data: bannerCfg },
 	] = await Promise.all([
 		supabase
 			.from("packages")
@@ -47,6 +49,10 @@ export async function loadEditorData() {
 			.maybeSingle(),
 		fetchVenueCandidates(supabase),
 		fetchVendorCandidates(supabase),
+		supabase
+			.from("system_config")
+			.select("key, value")
+			.in("key", Object.keys(BANNER_PRICING_KEYS)),
 	]);
 	const grossupRate = parseGrossUpRate(cfg?.value);
 	return {
@@ -54,6 +60,7 @@ export async function loadEditorData() {
 		addons: (addons ?? []) as AddonOption[],
 		signers,
 		grossupRate,
+		bannerPricing: bannerPricingFromConfig(bannerCfg ?? []),
 		venues: venues.map((v) => ({
 			name: v.name,
 			address: v.address,

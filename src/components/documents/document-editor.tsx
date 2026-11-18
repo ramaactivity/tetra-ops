@@ -65,6 +65,13 @@ import {
 	saveDocument,
 	setDocumentStatus,
 } from "@/lib/actions/documents";
+import {
+	BANNER_PRICING_DEFAULT,
+	type BannerPricing,
+	bannerIncludes,
+	isBannerItem,
+	parseBannerSize,
+} from "@/lib/documents/banner-price";
 import { teksDokumen } from "@/lib/documents/pesan-klien";
 import { computeTotals } from "@/lib/documents/totals";
 import {
@@ -88,6 +95,7 @@ import {
 import { formatDateID, formatPhoneLocal, formatRupiah } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { whatsappUrl } from "@/lib/whatsapp";
+import { BannerSizer } from "./banner-sizer";
 import { ClientPicker } from "./client-picker";
 import { DocStatusBadge } from "./document-status-badge";
 import { IncludeList } from "./include-list";
@@ -192,6 +200,7 @@ export function DocumentEditor({
 	vendors = [],
 	delivery,
 	approval,
+	bannerPricing = BANNER_PRICING_DEFAULT,
 }: {
 	initial: EditorDoc;
 	packages: PackageOption[];
@@ -209,6 +218,8 @@ export function DocumentEditor({
 	delivery?: { at: string | null; via: string | null };
 	/** Ada permintaan kirim (bot/pembayaran) yang menunggu persetujuan owner. */
 	approval?: { fromBot: boolean } | null;
+	/** Rumus harga banner ukuran bebas (system_config kategori pricing). */
+	bannerPricing?: BannerPricing;
 }) {
 	const router = useRouter();
 	const confirm = useConfirm();
@@ -467,11 +478,18 @@ export function DocumentEditor({
 	const addAddon = (id: string) => {
 		const a = addons.find((x) => x.id === id);
 		if (!a) return;
+		// Banner: rincian standar (bukan sekadar satuan "lembar"); ukuran &
+		// harga diatur di BannerSizer di bawah barisnya.
+		const size = isBannerItem(a.name) ? parseBannerSize(a.name) : null;
 		setItems((it) => [
 			...it,
 			{
 				name: a.name,
-				includes: a.unit ? [a.unit] : [],
+				includes: size
+					? bannerIncludes(size.w, size.h)
+					: a.unit
+						? [a.unit]
+						: [],
 				qty: 1,
 				unit_price: a.price,
 				addon_id: a.id,
@@ -1172,6 +1190,15 @@ export function DocumentEditor({
 											</div>
 										</div>
 										<div className="px-2 pb-2 sm:pl-9">
+											{isBannerItem(it.name) ? (
+												<BannerSizer
+													name={it.name}
+													includes={it.includes}
+													unitPrice={it.unit_price}
+													pricing={bannerPricing}
+													onApply={(p) => updateItem(i, p)}
+												/>
+											) : null}
 											<IncludeList
 												value={it.includes}
 												onChange={(v) => updateItem(i, { includes: v })}
