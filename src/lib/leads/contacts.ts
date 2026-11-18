@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LeadStage } from "@/components/leads/leads-shared";
+import {
+	type LeadStage,
+	STAGE_META,
+	segmentLabel,
+	topicLabel,
+} from "@/components/leads/leads-shared";
+import { formatDateID } from "@/lib/format";
+import type { FollowupState } from "@/lib/leads/followup-types";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
 /**
@@ -189,6 +196,48 @@ export function contactStage(
 
 export type LeadContactWithStage = LeadContact & ContactStage;
 
+const hariSejak = (fromISO: string, toISO: string) =>
+	Math.round(
+		(new Date(`${toISO.slice(0, 10)}T00:00:00Z`).getTime() -
+			new Date(`${fromISO.slice(0, 10)}T00:00:00Z`).getTime()) /
+			86_400_000,
+	);
+
+/**
+ * Bahan permintaan follow-up ke Hermes: `alasan` = fakta singkat (Hermes
+ * membacanya sebagai FAKTA), `konteks` = data pendukung. Bukan kalimat ke
+ * klien — kalimatnya ditulis Hermes cs-wa.
+ */
+export function followupBrief(
+	c: LeadContactWithStage,
+	today: string,
+): { alasan: string; konteks: string } {
+	const lalu = hariSejak(c.lastAt, today);
+	const chat =
+		lalu <= 0 ? "chat terakhir hari ini" : `chat terakhir ${lalu} hari lalu`;
+	const h = c.eventDate ? hariSejak(today, c.eventDate) : -1;
+	const doc = c.ref?.label.startsWith("Lihat") ? null : c.ref?.label;
+	let alasan: string;
+	if (h >= 0 && c.stage !== "booking" && c.stage !== "batal")
+		alasan = `tanya acara ${formatDateID(c.eventDate as string)} (H-${h}), belum booking; ${chat}`;
+	else if (c.stage === "quotation")
+		alasan = `quotation ${doc ?? ""} terkirim, belum ada keputusan; ${chat}`;
+	else if (c.stage === "invoice")
+		alasan = `${doc ? `${doc} terkirim` : "acara sudah dibuat"}, belum DP; ${chat}`;
+	else alasan = `${chat}, belum ada quotation`;
+	const konteks = [
+		`Kontak WA bot: ${c.name ?? "tanpa nama"} (${segmentLabel(c.segment)}).`,
+		`${c.count} pesan sejak ${formatDateID(c.firstAt)}; topik: ${c.topics.map(topicLabel).join(", ")}.`,
+		`Tahap di Tetra Ops: ${STAGE_META[c.stage].label}${doc ? ` (${doc})` : ""}.`,
+		c.eventDate
+			? `Tanggal acara yang ditanyakan: ${formatDateID(c.eventDate)}.`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" ");
+	return { alasan: alasan.replace(/\s+/g, " ").trim(), konteks };
+}
+
 /**
  * Semua kontak + tahapnya, terbaru dulu.
  * ponytail: memuat semua baris pesan (tanpa isi pesan) lalu dikelompokkan di
@@ -280,4 +329,65 @@ export async function loadLeadContacts(
 	}
 
 	return contacts.map((c) => ({ ...c, ...contactStage(c, events, docs) }));
+}
+
+/** Permintaan follow-up terakhir per nomor (N hari) → status tombol Follow-up. */
+export async function loadFollowupsByNomor(
+	supabase: SupabaseClient,
+	days = 30,
+): Promise<Map<string, FollowupState>> {
+	const { data, error } = await supabase
+		.from("followup_requests")
+		.select("id, nomor, status, draf, pesan, hasil, created_at, updated_at")
+		.gte("created_at", new Date(Date.now() - days * 86_400_000).toISOString())
+		.order("created_at", { ascending: false })
+		.limit(1000);
+	if (error) throw new Error(`Gagal membaca follow-up: ${error.message}`);
+	const out = new Map<string, FollowupState>();
+	for (const f of data ?? [])
+		if (!out.has(f.nomor))
+			out.set(f.nomor, {
+				id: f.id,
+				status: f.status,
+				draf: f.draf,
+				pesan: f.pesan,
+				hasil: f.hasil,
+				createdAt: f.created_at,
+				updatedAt: f.updated_at,
+			});
+	return out;
+}
+
+/**
+ * Kapan terakhir bot mengirim pesan ke nomor ini (sapaan Bruno = send-text,
+ * relasi = send-relasi, follow-up = send-followup) — supaya klien lama tidak
+ * disapa dobel.
+ */
+export async function loadRecentSapaan(
+	supabase: SupabaseClient,
+	days = 60,
+): Promise<Map<string, string>> {
+	const rows = await fetchAllRows<{ command: string; created_at: string }>(
+		(from, to) =>
+			supabase
+				.from("bot_commands")
+				.select("command, created_at")
+				.eq("status", "done")
+				.or(
+					"command.like.send-text:%,command.like.send-relasi:%,command.like.send-followup:%",
+				)
+				.gte(
+					"created_at",
+					new Date(Date.now() - days * 86_400_000).toISOString(),
+				)
+				.order("created_at", { ascending: false })
+				.range(from, to),
+		"sapaan bot",
+	);
+	const out = new Map<string, string>();
+	for (const r of rows) {
+		const nomor = r.command.match(/"nomor"\s*:\s*"(\d+)"/)?.[1];
+		if (nomor && !out.has(nomor)) out.set(nomor, r.created_at);
+	}
+	return out;
 }

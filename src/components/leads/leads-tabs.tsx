@@ -42,7 +42,7 @@ export function LeadsTabs({
 					icon: <BarChart3 className="size-3.5" aria-hidden />,
 				},
 				{
-					label: "Retensi",
+					label: "Klien lama",
 					href: "/leads/retensi",
 					active: active === "retensi",
 					icon: <HeartHandshake className="size-3.5" aria-hidden />,

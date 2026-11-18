@@ -64,7 +64,7 @@ function bulanAntara(dariISO: string, keISO: string): number {
 	);
 }
 
-function kunciKlien(e: EventRetensi): string | null {
+export function kunciKlien(e: EventRetensi): string | null {
 	if (isLikelyWaPhone(e.client_wa))
 		return `wa:${toWaPhone(String(e.client_wa))}`;
 	const nama = (e.client_org || e.client_name || "").trim().toLowerCase();

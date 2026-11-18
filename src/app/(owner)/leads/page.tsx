@@ -24,9 +24,14 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TabNav } from "@/components/ui/tab-nav";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isoDateWIB, shiftISODate, todayWIB } from "@/lib/dates";
-import { loadLeadContacts } from "@/lib/leads/contacts";
+import {
+	followupBrief,
+	loadFollowupsByNomor,
+	loadLeadContacts,
+} from "@/lib/leads/contacts";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -45,6 +50,7 @@ export default async function LeadsPage({
 		segment?: string;
 		stage?: string;
 		page?: string;
+		view?: string;
 	}>;
 }) {
 	const params = await searchParams;
@@ -54,6 +60,8 @@ export default async function LeadsPage({
 	const segment = params.segment?.trim() ?? "";
 	const stage = (params.stage?.trim() ?? "") as LeadStage | "";
 	const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+	const view =
+		params.view === "menunggu" || params.view === "acara" ? params.view : "";
 
 	const supabase = await createClient();
 	const me = await getCurrentUser();
@@ -81,12 +89,14 @@ export default async function LeadsPage({
 		return new Set(hits.map((h) => h.wa_jid));
 	};
 
-	const [all, { data: contactsData }, qJids] = await Promise.all([
-		loadLeadContacts(supabase),
-		// segment_source untuk SegmentSelect (setelan manual per kontak).
-		supabase.from("whatsapp_bot_contacts").select("*").limit(10000),
-		searchJids(),
-	]);
+	const [all, { data: contactsData }, qJids, followupByNomor] =
+		await Promise.all([
+			loadLeadContacts(supabase),
+			// segment_source untuk SegmentSelect (setelan manual per kontak).
+			supabase.from("whatsapp_bot_contacts").select("*").limit(10000),
+			searchJids(),
+			loadFollowupsByNomor(supabase),
+		]);
 	const contactByJid: Record<string, ContactRow> = {};
 	for (const c of (contactsData ?? []) as ContactRow[])
 		contactByJid[c.wa_jid] = c;
@@ -96,17 +106,16 @@ export default async function LeadsPage({
 	const in30 = shiftISODate(today, 30);
 	const thisMonth = today.slice(0, 7);
 	const aktif = all.filter((c) => c.lastAt >= since30).length;
-	const menunggu = all.filter(
-		(c) => c.stage === "quotation" || c.stage === "invoice",
-	).length;
-	const mendekat = all.filter(
-		(c) =>
-			c.eventDate &&
-			c.eventDate >= today &&
-			c.eventDate <= in30 &&
-			c.stage !== "booking" &&
-			c.stage !== "batal",
-	).length;
+	const isMenunggu = (c: (typeof all)[number]) =>
+		c.stage === "quotation" || c.stage === "invoice";
+	const isMendekat = (c: (typeof all)[number]) =>
+		Boolean(c.eventDate) &&
+		(c.eventDate as string) >= today &&
+		(c.eventDate as string) <= in30 &&
+		c.stage !== "booking" &&
+		c.stage !== "batal";
+	const menunggu = all.filter(isMenunggu).length;
+	const mendekat = all.filter(isMendekat).length;
 	const bookingBulanIni = all.filter(
 		(c) =>
 			c.convertedAt &&
@@ -117,6 +126,8 @@ export default async function LeadsPage({
 	const startISO = periodStartISO(period, now);
 	const scoped = all.filter(
 		(c) =>
+			(view !== "menunggu" || isMenunggu(c)) &&
+			(view !== "acara" || isMendekat(c)) &&
 			(!qJids || qJids.has(c.jid)) &&
 			(!startISO || c.lastAt >= startISO) &&
 			(!topic || c.topics.includes(topic)) &&
@@ -126,6 +137,11 @@ export default async function LeadsPage({
 	for (const c of scoped)
 		stageCounts[c.stage] = (stageCounts[c.stage] ?? 0) + 1;
 	const filtered = stage ? scoped.filter((c) => c.stage === stage) : scoped;
+	// Acara mendekat: yang paling dekat dulu.
+	if (view === "acara")
+		filtered.sort((a, b) =>
+			(a.eventDate ?? "").localeCompare(b.eventDate ?? ""),
+		);
 	const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	const cur = Math.min(page, pages);
 	const pageRows = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
@@ -169,7 +185,7 @@ export default async function LeadsPage({
 
 	const pageHref = (n: number) => {
 		const sp = new URLSearchParams();
-		for (const [k, v] of Object.entries({ q, topic, segment, stage }))
+		for (const [k, v] of Object.entries({ q, topic, segment, stage, view }))
 			if (v) sp.set(k, v);
 		if (period !== "all") sp.set("period", period);
 		if (n > 1) sp.set("page", String(n));
@@ -243,6 +259,27 @@ export default async function LeadsPage({
 			</KpiRow>
 
 			<div className="space-y-3">
+				<TabNav
+					aria-label="Kelompok kontak"
+					items={[
+						{ label: "Semua kontak", value: "", count: all.length },
+						{ label: "Menunggu keputusan", value: "menunggu", count: menunggu },
+						{ label: "Acara mendekat", value: "acara", count: mendekat },
+					].map((t) => {
+						const sp = new URLSearchParams();
+						for (const [k, v] of Object.entries({ q, topic, segment }))
+							if (v) sp.set(k, v);
+						if (period !== "all") sp.set("period", period);
+						if (t.value) sp.set("view", t.value);
+						const qs = sp.toString();
+						return {
+							label: t.label,
+							count: t.count,
+							href: qs ? `/leads?${qs}` : "/leads",
+							active: view === t.value,
+						};
+					})}
+				/>
 				<LeadsFilterBar
 					defaultQ={q}
 					period={period}
@@ -269,6 +306,10 @@ export default async function LeadsPage({
 						<LeadsListTable
 							contacts={pageRows.map((c) => ({
 								...c,
+								...followupBrief(c, today),
+								followup: c.phone
+									? (followupByNomor.get(c.phone) ?? null)
+									: null,
 								messages: msgsByJid.get(c.jid) ?? [],
 							}))}
 							contactByJid={contactByJid}

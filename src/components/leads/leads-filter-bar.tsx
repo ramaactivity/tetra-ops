@@ -166,7 +166,11 @@ export function LeadsFilterBar({
 
 			{hasFilters && (
 				<Link
-					href="/leads"
+					href={
+						searchParams.get("view")
+							? `/leads?view=${searchParams.get("view")}`
+							: "/leads"
+					}
 					className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:ml-auto"
 				>
 					<X className="size-3.5" aria-hidden />

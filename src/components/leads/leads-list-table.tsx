@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { LeadContactWithStage } from "@/lib/leads/contacts";
+import type { FollowupState } from "@/lib/leads/followup-types";
 import { ContactPhone } from "./contact-phone";
+import { FollowupButton } from "./followup-button";
 import {
 	type ContactRow,
 	type LeadRow,
@@ -71,6 +73,10 @@ function ReplyReceipt({
 /** Satu kontak (sudah dikelompokkan di server) + pesannya, terbaru dulu. */
 export type ContactWithMessages = LeadContactWithStage & {
 	messages: LeadRow[];
+	/** Bahan follow-up untuk Hermes (followupBrief). */
+	alasan: string;
+	konteks: string;
+	followup: FollowupState | null;
 };
 
 type Convo = ContactWithMessages & { key: string; latest: LeadRow };
@@ -188,6 +194,20 @@ export function LeadsListTable({
 			/>
 		);
 	}
+	/** Follow-up hanya untuk kontak bernomor HP yang belum booking/batal. */
+	function followupCell(c: Convo) {
+		if (!c.phone || c.stage === "booking" || c.stage === "batal") return null;
+		return (
+			<FollowupButton
+				jid={c.jid}
+				nomor={c.phone}
+				nama={c.name ?? "kontak ini"}
+				alasan={c.alasan}
+				konteks={c.konteks}
+				latest={c.followup}
+			/>
+		);
+	}
 	function contactCell(c: Convo, big = false) {
 		const l = c.latest;
 		return (
@@ -247,7 +267,7 @@ export function LeadsListTable({
 						<col />
 						<col style={{ width: "11%" }} />
 						<col style={{ width: "10%" }} />
-						{canManage ? <col style={{ width: "9%" }} /> : null}
+						{canManage ? <col style={{ width: "12%" }} /> : null}
 					</colgroup>
 					<thead className="border-b border-border-default">
 						<tr className="text-left text-[12px] font-semibold text-muted-foreground">
@@ -310,10 +330,13 @@ export function LeadsListTable({
 									</td>
 									{canManage ? (
 										<td className="px-4 py-3 text-right align-top">
-											<PauseContactButton
-												waJid={l.wa_jid}
-												name={l.name || l.phone}
-											/>
+											<div className="flex flex-col items-end gap-1">
+												{followupCell(c)}
+												<PauseContactButton
+													waJid={l.wa_jid}
+													name={l.name || l.phone}
+												/>
+											</div>
 										</td>
 									) : null}
 								</tr>
@@ -370,7 +393,8 @@ export function LeadsListTable({
 								<OlderMessages messages={c.messages.slice(1)} />
 							) : null}
 							{canManage ? (
-								<div className="flex justify-end border-t border-border-subtle pt-2">
+								<div className="flex items-center justify-end gap-1 border-t border-border-subtle pt-2">
+									{followupCell(c)}
 									<PauseContactButton
 										waJid={l.wa_jid}
 										name={l.name || l.phone}

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	contactStage,
+	followupBrief,
 	groupLeadRows,
 	type LeadAggRow,
 	type StageDoc,
@@ -126,4 +127,30 @@ test("contactStage: urutan tahap", () => {
 	});
 	const [ign] = groupLeadRows([row({ status: "ignored" })]);
 	assert.equal(contactStage(ign, none, [quo]).stage, "batal");
+});
+
+test("followupBrief: alasan faktual per tahap", () => {
+	const [c] = groupLeadRows([
+		row({ received_at: "2026-11-16T03:00:00Z", event_date: "2026-11-21" }),
+		row({ received_at: "2026-11-10T03:00:00Z" }),
+	]);
+	const base = { ...c, ref: null };
+	assert.equal(
+		followupBrief({ ...base, stage: "ngobrol" }, "2026-11-18").alasan,
+		"tanya acara 21 Nov 2026 (H-3), belum booking; chat terakhir 2 hari lalu",
+	);
+	const q = {
+		...base,
+		eventDate: null,
+		stage: "quotation" as const,
+		ref: { label: "QUO-TP-02", href: "/x" },
+	};
+	assert.equal(
+		followupBrief(q, "2026-11-18").alasan,
+		"quotation QUO-TP-02 terkirim, belum ada keputusan; chat terakhir 2 hari lalu",
+	);
+	assert.match(
+		followupBrief(q, "2026-11-18").konteks,
+		/Tahap di Tetra Ops: Quotation \(QUO-TP-02\)/,
+	);
 });
