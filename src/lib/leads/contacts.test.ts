@@ -78,7 +78,7 @@ test("contactStage: urutan tahap", () => {
 	};
 	assert.deepEqual(contactStage(c, none, [quo]), {
 		stage: "quotation",
-		ref: { label: "QUO-1", href: "/finance/dokumen/q1" },
+		ref: { label: "QUO-1", href: "/finance/dokumen/q1", sentAt: null },
 	});
 	assert.equal(
 		contactStage(c, none, [{ ...quo, status: "accepted" }]).stage,
@@ -137,7 +137,7 @@ test("followupBrief: alasan faktual per tahap", () => {
 	const base = { ...c, ref: null };
 	assert.equal(
 		followupBrief({ ...base, stage: "ngobrol" }, "2026-11-18").alasan,
-		"tanya acara 21 Nov 2026 (H-3), belum booking; chat terakhir 2 hari lalu",
+		"tanya acara 21 Nov 2026 (H-3), belum ada quotation; chat terakhir 2 hari lalu",
 	);
 	const q = {
 		...base,
@@ -147,7 +147,19 @@ test("followupBrief: alasan faktual per tahap", () => {
 	};
 	assert.equal(
 		followupBrief(q, "2026-11-18").alasan,
-		"quotation QUO-TP-02 terkirim, belum ada keputusan; chat terakhir 2 hari lalu",
+		"quotation QUO-TP-02 terkirim, belum ada keputusan/DP; chat terakhir 2 hari lalu",
+	);
+	// Riska 18 Nov: quotation sudah sampai + tanggal acara → quotation duluan.
+	assert.equal(
+		followupBrief(
+			{
+				...q,
+				eventDate: "2027-01-10",
+				ref: { ...q.ref, sentAt: "2026-11-16T03:39:22Z" },
+			},
+			"2026-11-18",
+		).alasan,
+		"quotation QUO-TP-02 terkirim 2 hari lalu (16 Nov 2026), belum ada keputusan/DP; chat terakhir 2 hari lalu; acara 10 Jan 2027 (H-53)",
 	);
 	assert.match(
 		followupBrief(q, "2026-11-18").konteks,

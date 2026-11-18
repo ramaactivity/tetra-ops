@@ -28,6 +28,19 @@ import {
 import { cn } from "@/lib/utils";
 
 const POLL_MS = 3000;
+
+/** Pesan Hermes saat menolak/gagal — tanpa label "[DIAM]" & kurung kosong. */
+function gagalText(hasil: string | null | undefined): string {
+	const bersih = (hasil ?? "")
+		.replace(/\[DIAM\]:?/g, "")
+		.replace(/\(\s*\)/g, "")
+		.replace(/\s+/g, " ")
+		.trim()
+		.replace(/\.$/, "");
+	if (hasil?.includes("[DIAM]"))
+		return `${bersih || "Hermes menilai belum perlu menghubungi kontak ini sekarang"}. Kalau tetap perlu, minta draf lagi atau chat langsung.`;
+	return `Belum bisa: ${bersih || "tanpa keterangan"}`;
+}
 /** Setelah ini berhenti menunggu di dialog; status tetap tersimpan di tombol. */
 const DRAF_SABAR_MS = 90_000;
 
@@ -224,10 +237,7 @@ export function FollowupButton({
 						</p>
 					) : status === "gagal" ? (
 						<p className="rounded-2xl bg-secondary px-3.5 py-3 text-[13px] leading-relaxed text-foreground/80">
-							{state?.hasil?.includes("[DIAM]")
-								? "Hermes menilai belum ada alasan baru untuk menghubungi kontak ini: "
-								: "Belum bisa: "}
-							{state?.hasil?.replace("[DIAM]", "").trim() || "tanpa keterangan"}
+							{gagalText(state?.hasil)}
 						</p>
 					) : null}
 
@@ -252,6 +262,20 @@ export function FollowupButton({
 								</Button>
 								<Button variant="outline" onClick={() => setOpen(false)}>
 									Tutup
+								</Button>
+							</>
+						) : status === "gagal" ? (
+							<>
+								<Button variant="ghost" onClick={() => setOpen(false)}>
+									Tutup
+								</Button>
+								<Button onClick={mulai} disabled={pending}>
+									{pending ? (
+										<Loader2 className="animate-spin" />
+									) : (
+										<MessageSquareReply />
+									)}
+									Minta draf lagi
 								</Button>
 							</>
 						) : (

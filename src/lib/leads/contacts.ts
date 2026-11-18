@@ -64,13 +64,15 @@ export type StageDoc = {
 	status: string;
 	event_id: string | null;
 	created_at: string;
+	delivered_at?: string | null;
 	jid: string | null;
 	tail: string | null;
 };
 
 export type ContactStage = {
 	stage: LeadStage;
-	ref: { label: string; href: string } | null;
+	/** sentAt = kapan dokumennya sampai ke klien (delivered_at), kalau tercatat. */
+	ref: { label: string; href: string; sentAt?: string | null } | null;
 };
 
 const LEAD_SEGMENT_KEY: Record<string, string> = {
@@ -182,14 +184,22 @@ export function contactStage(
 		if (e) return eventStage(e);
 		return {
 			stage: "invoice",
-			ref: { label: inv.doc_number, href: `/finance/dokumen/${inv.id}` },
+			ref: {
+				label: inv.doc_number,
+				href: `/finance/dokumen/${inv.id}`,
+				sentAt: inv.delivered_at ?? null,
+			},
 		};
 	}
 	const quo = mine.find((d) => d.doc_type === "quotation");
 	if (quo)
 		return {
 			stage: quo.status === "accepted" ? "invoice" : "quotation",
-			ref: { label: quo.doc_number, href: `/finance/dokumen/${quo.id}` },
+			ref: {
+				label: quo.doc_number,
+				href: `/finance/dokumen/${quo.id}`,
+				sentAt: quo.delivered_at ?? null,
+			},
 		};
 	return { stage: c.count > 1 ? "ngobrol" : "baru", ref: null };
 }
@@ -217,13 +227,24 @@ export function followupBrief(
 		lalu <= 0 ? "chat terakhir hari ini" : `chat terakhir ${lalu} hari lalu`;
 	const h = c.eventDate ? hariSejak(today, c.eventDate) : -1;
 	const doc = c.ref?.label.startsWith("Lihat") ? null : c.ref?.label;
+	// Fakta terpenting duluan: dokumen yang sudah sampai ke klien + kapan. Dulu
+	// tanggal acara didahulukan, jadi Hermes tidak tahu ada quotation menunggu
+	// keputusan dan menjawab [DIAM] (Riska, 18 Nov).
+	const sentAt = c.ref?.sentAt ?? null;
+	const lalu2 = sentAt ? hariSejak(sentAt, today) : null;
+	const terkirim =
+		sentAt && lalu2 !== null
+			? `terkirim ${lalu2 <= 0 ? "hari ini" : `${lalu2} hari lalu`} (${formatDateID(sentAt.slice(0, 10))})`
+			: "terkirim";
+	const acara =
+		h >= 0 ? `; acara ${formatDateID(c.eventDate as string)} (H-${h})` : "";
 	let alasan: string;
-	if (h >= 0 && c.stage !== "booking" && c.stage !== "batal")
-		alasan = `tanya acara ${formatDateID(c.eventDate as string)} (H-${h}), belum booking; ${chat}`;
-	else if (c.stage === "quotation")
-		alasan = `quotation ${doc ?? ""} terkirim, belum ada keputusan; ${chat}`;
+	if (c.stage === "quotation")
+		alasan = `quotation ${doc ?? ""} ${terkirim}, belum ada keputusan/DP; ${chat}${acara}`;
 	else if (c.stage === "invoice")
-		alasan = `${doc ? `${doc} terkirim` : "acara sudah dibuat"}, belum DP; ${chat}`;
+		alasan = `${doc ? `invoice ${doc} ${terkirim}` : "acara sudah dibuat"}, belum DP; ${chat}${acara}`;
+	else if (h >= 0 && c.stage !== "booking" && c.stage !== "batal")
+		alasan = `tanya acara ${formatDateID(c.eventDate as string)} (H-${h}), belum ada quotation; ${chat}`;
 	else alasan = `${chat}, belum ada quotation`;
 	const konteks = [
 		`Kontak WA bot: ${c.name ?? "tanpa nama"} (${segmentLabel(c.segment)}).`,
@@ -276,6 +297,7 @@ export async function loadLeadContacts(
 			status: string;
 			event_id: string | null;
 			created_at: string;
+			delivered_at: string | null;
 			origin: { wa_jid?: string | null } | null;
 			client: { phone?: string | null } | null;
 		}>(
@@ -283,7 +305,7 @@ export async function loadLeadContacts(
 				supabase
 					.from("documents")
 					.select(
-						"id, doc_type, doc_number, status, event_id, created_at, origin, client",
+						"id, doc_type, doc_number, status, event_id, created_at, delivered_at, origin, client",
 					)
 					.in("doc_type", ["quotation", "invoice"])
 					.in("status", ["sent", "accepted"])
@@ -306,6 +328,7 @@ export async function loadLeadContacts(
 		status: d.status,
 		event_id: d.event_id,
 		created_at: d.created_at,
+		delivered_at: d.delivered_at ?? null,
 		jid: d.origin?.wa_jid ?? null,
 		tail: phoneTail(d.client?.phone),
 	}));
