@@ -157,11 +157,11 @@ export function FollowupButton({
 	if (jedaAktif)
 		return (
 			<span
-				title={state?.pesan ?? undefined}
-				className="inline-flex items-center gap-1 text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400"
+				title={`Di-follow-up ${timeAgo(state?.updatedAt ?? "")}${state?.pesan ? `: ${state.pesan}` : ""}`}
+				className="inline-flex items-center gap-1 whitespace-nowrap px-2 text-[12px] font-medium text-emerald-700 dark:text-emerald-400"
 			>
 				<CheckCheck className="size-3.5" aria-hidden />
-				Di-follow-up {timeAgo(state?.updatedAt ?? "")}
+				Di-follow-up
 			</span>
 		);
 
