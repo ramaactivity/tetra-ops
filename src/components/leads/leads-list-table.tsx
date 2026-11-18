@@ -1,16 +1,17 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import type { LeadContactWithStage } from "@/lib/leads/contacts";
 import { ContactPhone } from "./contact-phone";
 import {
 	type ContactRow,
 	type LeadRow,
 	REPLY_STATUS_META,
 	type ReplyStatus,
-	STATUS_BADGE,
-	statusLabel,
+	STAGE_META,
 	topicLabel,
 } from "./leads-shared";
 import { PauseContactButton } from "./pause-contact-button";
@@ -67,38 +68,65 @@ function ReplyReceipt({
 	);
 }
 
-/** Status paling maju dalam satu percakapan (closing menang atas baru). */
-const STATUS_PRIORITY = ["converted", "contacted", "new", "ignored"];
-
-type Convo = {
-	key: string;
-	latest: LeadRow;
+/** Satu kontak (sudah dikelompokkan di server) + pesannya, terbaru dulu. */
+export type ContactWithMessages = LeadContactWithStage & {
 	messages: LeadRow[];
-	status: string;
 };
 
-/**
- * Satu baris per kontak (dulu satu baris per pesan — satu kontak bisa muncul
- * puluhan kali berturut-turut). `leads` sudah urut terbaru dulu.
- */
-function groupByContact(leads: LeadRow[]): Convo[] {
-	const out: Convo[] = [];
-	const byKey = new Map<string, Convo>();
-	for (const l of leads) {
-		const key = l.wa_jid || l.phone;
-		let c = byKey.get(key);
-		if (!c) {
-			c = { key, latest: l, messages: [], status: l.status };
-			byKey.set(key, c);
-			out.push(c);
-		}
-		c.messages.push(l);
-	}
-	for (const c of out)
-		c.status =
-			STATUS_PRIORITY.find((st) => c.messages.some((m) => m.status === st)) ??
-			c.latest.status;
-	return out;
+type Convo = ContactWithMessages & { key: string; latest: LeadRow };
+
+/** Tanggal acara yang ditanyakan: "Sab, 20 Des · 32 hari lagi". */
+function eventDateLabel(iso: string, today: string) {
+	const d = new Date(`${iso}T00:00:00+07:00`);
+	const days = Math.round(
+		(d.getTime() - new Date(`${today}T00:00:00+07:00`).getTime()) / 86_400_000,
+	);
+	const date = d.toLocaleDateString("id-ID", {
+		weekday: "short",
+		day: "numeric",
+		month: "short",
+		timeZone: "Asia/Jakarta",
+	});
+	const rel =
+		days < 0 ? "sudah lewat" : days === 0 ? "hari ini" : `${days} hari lagi`;
+	return { date, rel, soon: days >= 0 && days <= 30, past: days < 0 };
+}
+
+function StageCell({ c }: { c: Convo }) {
+	const meta = STAGE_META[c.stage];
+	return (
+		<div className="flex flex-col items-start gap-1">
+			<Badge variant={meta.badge}>{meta.label}</Badge>
+			{c.ref ? (
+				<Link
+					href={c.ref.href}
+					className="text-[11.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+				>
+					{c.ref.label}
+				</Link>
+			) : null}
+		</div>
+	);
+}
+
+function EventDateCell({ iso, today }: { iso: string | null; today: string }) {
+	if (!iso)
+		return <span className="text-[12.5px] text-muted-foreground/60">—</span>;
+	const e = eventDateLabel(iso, today);
+	return (
+		<div className="flex flex-col gap-0.5">
+			<span
+				className={`tabular text-[12.5px] ${e.past ? "text-muted-foreground" : "text-foreground"}`}
+			>
+				{e.date}
+			</span>
+			<span
+				className={`text-[11px] ${e.soon ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+			>
+				{e.rel}
+			</span>
+		</div>
+	);
 }
 
 function OlderMessages({ messages }: { messages: LeadRow[] }) {
@@ -121,17 +149,22 @@ function OlderMessages({ messages }: { messages: LeadRow[] }) {
 }
 
 export function LeadsListTable({
-	leads,
+	contacts,
 	contactByJid = {},
 	canManage = false,
+	today,
 }: {
-	leads: LeadRow[];
-	/** wa_jid → contact row (segment lives on the contact, not the lead). */
+	contacts: ContactWithMessages[];
+	/** wa_jid → contact row (setelan segmen manual). */
 	contactByJid?: Record<string, ContactRow>;
 	/** Owner / super_admin → show the per-contact pause action. */
 	canManage?: boolean;
+	/** YYYY-MM-DD WIB, untuk "N hari lagi". */
+	today: string;
 }) {
-	const convos = groupByContact(leads);
+	const convos: Convo[] = contacts
+		.filter((c) => c.messages.length > 0)
+		.map((c) => ({ ...c, key: c.jid, latest: c.messages[0] }));
 	const [open, setOpen] = useState<Set<string>>(new Set());
 	const toggle = (key: string) =>
 		setOpen((prev) => {
@@ -141,12 +174,13 @@ export function LeadsListTable({
 			return next;
 		});
 
-	function segmentCell(l: LeadRow) {
+	function segmentCell(cv: Convo) {
+		const l = cv.latest;
 		const c = contactByJid[l.wa_jid];
 		return (
 			<SegmentSelect
 				waJid={l.wa_jid}
-				segment={c?.segment ?? "private"}
+				segment={c?.segment ?? cv.segment}
 				source={c?.segment_source ?? "auto"}
 				phone={l.phone}
 				name={l.name}
@@ -203,30 +237,26 @@ export function LeadsListTable({
 
 	return (
 		<>
-			<p className="px-1 text-[12px] text-muted-foreground">
-				{convos.length} kontak · dari {leads.length} pesan terbaru
-			</p>
-
 			{/* DESKTOP — one row per contact */}
 			<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
 				<table className="w-full table-fixed text-sm">
 					<colgroup>
 						<col style={{ width: "19%" }} />
-						<col style={{ width: "12%" }} />
-						<col style={{ width: "10%" }} />
-						<col />
-						<col style={{ width: "12%" }} />
 						<col style={{ width: "11%" }} />
-						{canManage ? <col style={{ width: "10%" }} /> : null}
+						<col style={{ width: "12%" }} />
+						<col />
+						<col style={{ width: "11%" }} />
+						<col style={{ width: "10%" }} />
+						{canManage ? <col style={{ width: "9%" }} /> : null}
 					</colgroup>
 					<thead className="border-b border-border-default">
 						<tr className="text-left text-[12px] font-semibold text-muted-foreground">
 							<th className="px-4 py-2.5">Kontak</th>
 							<th className="px-4 py-2.5">Segmen</th>
-							<th className="px-4 py-2.5">Topik</th>
+							<th className="px-4 py-2.5">Tahap</th>
 							<th className="px-4 py-2.5">Pesan terakhir</th>
-							<th className="px-4 py-2.5">Waktu</th>
-							<th className="px-4 py-2.5">Status</th>
+							<th className="px-4 py-2.5">Tanggal acara</th>
+							<th className="px-4 py-2.5">Chat terakhir</th>
 							{canManage ? (
 								<th className="px-4 py-2.5 text-right">Aksi</th>
 							) : null}
@@ -241,11 +271,14 @@ export function LeadsListTable({
 									className="transition-colors hover:bg-secondary/30"
 								>
 									<td className="px-4 py-3 align-top">{contactCell(c)}</td>
-									<td className="px-4 py-3 align-top">{segmentCell(l)}</td>
+									<td className="px-4 py-3 align-top">{segmentCell(c)}</td>
 									<td className="px-4 py-3 align-top">
-										<TopicTag topic={l.topic} />
+										<StageCell c={c} />
 									</td>
 									<td className="px-4 py-3 align-top">
+										<div className="mb-1">
+											<TopicTag topic={l.topic} />
+										</div>
 										<p className="line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">
 											{l.message?.trim() || "—"}
 										</p>
@@ -257,7 +290,10 @@ export function LeadsListTable({
 										) : null}
 									</td>
 									<td className="px-4 py-3 align-top">
-										<div className="flex flex-col gap-0.5">
+										<EventDateCell iso={c.eventDate} today={today} />
+									</td>
+									<td className="px-4 py-3 align-top">
+										<div className="flex flex-col items-start gap-1">
 											<span className="tabular text-[12.5px] text-muted-foreground">
 												{formatReceived(l.received_at)}
 											</span>
@@ -266,13 +302,6 @@ export function LeadsListTable({
 													luar jam
 												</span>
 											) : null}
-										</div>
-									</td>
-									<td className="px-4 py-3 align-top">
-										<div className="flex flex-col items-start gap-1">
-											<Badge variant={STATUS_BADGE[c.status] ?? "neutral"}>
-												{statusLabel(c.status)}
-											</Badge>
 											<ReplyReceipt
 												status={l.reply_status}
 												at={l.reply_status_at}
@@ -305,18 +334,12 @@ export function LeadsListTable({
 						>
 							<div className="flex items-start justify-between gap-3">
 								{contactCell(c, true)}
-								<div className="flex flex-col items-end gap-1">
-									<Badge variant={STATUS_BADGE[c.status] ?? "neutral"}>
-										{statusLabel(c.status)}
-									</Badge>
-									<ReplyReceipt
-										status={l.reply_status}
-										at={l.reply_status_at}
-									/>
+								<div className="flex shrink-0 flex-col items-end gap-1 text-right">
+									<StageCell c={c} />
 								</div>
 							</div>
 							<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-								{segmentCell(l)}
+								{segmentCell(c)}
 								<TopicTag topic={l.topic} />
 								<span className="tabular text-[12px] text-muted-foreground">
 									{formatReceived(l.received_at)}
@@ -326,7 +349,17 @@ export function LeadsListTable({
 										· luar jam
 									</span>
 								) : null}
+								<ReplyReceipt status={l.reply_status} at={l.reply_status_at} />
 							</div>
+							{c.eventDate ? (
+								<p className="text-[12.5px] text-muted-foreground">
+									Acara{" "}
+									<span className="tabular text-foreground">
+										{eventDateLabel(c.eventDate, today).date}
+									</span>{" "}
+									· {eventDateLabel(c.eventDate, today).rel}
+								</p>
+							) : null}
 							{l.message?.trim() ? (
 								<p className="line-clamp-3 text-[12.5px] leading-snug text-muted-foreground">
 									{l.message.trim()}

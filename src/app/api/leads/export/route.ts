@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { type LeadRow, periodStartISO } from "@/components/leads/leads-shared";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { todayWIB } from "@/lib/dates";
+import { segmentKey } from "@/lib/leads/contacts";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 
@@ -9,7 +10,7 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/leads/export — stream the WhatsApp bot leads as CSV, honoring the
- * same filters as the /leads page (q, period, topic, status). Reads via the
+ * same filters as the /leads page (q, period, topic, segment). Reads via the
  * session client (RLS SELECT = any authenticated user), so it never exposes
  * the service_role key. Opens directly in Excel.
  */
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
 	const period = sp.get("period")?.trim() ?? "all";
 	const topic = sp.get("topic")?.trim() ?? "";
 	const status = sp.get("status")?.trim() ?? "";
+	const segment = sp.get("segment")?.trim() ?? "";
 
 	const supabase = await createClient();
 
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
 		let query = supabase
 			.from("whatsapp_bot_leads")
 			.select(
-				"phone, name, topic, message, is_after_hours, status, received_at",
+				"wa_jid, phone, name, topic, message, is_after_hours, status, received_at, segment",
 			)
 			.order("received_at", { ascending: false })
 			.order("id", { ascending: false })
@@ -70,6 +72,26 @@ export async function GET(req: NextRequest) {
 	let data: unknown[];
 	try {
 		data = await fetchAllRows(build, "export leads");
+		if (segment) {
+			// Segmen = setelan kontak bot (manual) kalau ada, selain itu tebakan
+			// bot di baris lead — sama dengan filter di halaman /leads.
+			const contacts = await fetchAllRows<{
+				wa_jid: string;
+				segment: string | null;
+			}>(
+				(from, to) =>
+					supabase
+						.from("whatsapp_bot_contacts")
+						.select("wa_jid, segment")
+						.order("wa_jid")
+						.range(from, to),
+				"export kontak bot",
+			);
+			const seg = new Map(contacts.map((c) => [c.wa_jid, c.segment]));
+			data = (data as Array<{ wa_jid: string; segment: string | null }>).filter(
+				(r) => segmentKey(r.segment, seg.get(r.wa_jid)) === segment,
+			);
+		}
 	} catch (e) {
 		return NextResponse.json(
 			{ error: e instanceof Error ? e.message : String(e) },

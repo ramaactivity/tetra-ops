@@ -99,6 +99,54 @@ export const STATUS_OPTIONS: ReadonlyArray<{
 	{ value: "ignored", label: "Diabaikan" },
 ];
 
+// ── Tahap kontak (diturunkan otomatis, lihat src/lib/leads/contacts.ts) ──────
+
+export type LeadStage =
+	| "baru"
+	| "ngobrol"
+	| "quotation"
+	| "invoice"
+	| "booking"
+	| "batal";
+
+export const STAGE_OPTIONS: ReadonlyArray<{
+	value: LeadStage;
+	label: string;
+	dot: string;
+	badge: "warning" | "info" | "success" | "neutral" | "danger";
+}> = [
+	{ value: "baru", label: "Baru tanya", dot: "bg-amber-500", badge: "warning" },
+	{ value: "ngobrol", label: "Ngobrol", dot: "bg-sky-500", badge: "info" },
+	{
+		value: "quotation",
+		label: "Quotation",
+		dot: "bg-violet-500",
+		badge: "info",
+	},
+	{
+		value: "invoice",
+		label: "Tunggu DP",
+		dot: "bg-orange-500",
+		badge: "warning",
+	},
+	{
+		value: "booking",
+		label: "Booking",
+		dot: "bg-emerald-500",
+		badge: "success",
+	},
+	{
+		value: "batal",
+		label: "Batal",
+		dot: "bg-muted-foreground/50",
+		badge: "neutral",
+	},
+];
+
+export const STAGE_META = Object.fromEntries(
+	STAGE_OPTIONS.map((o) => [o.value, o]),
+) as Record<LeadStage, (typeof STAGE_OPTIONS)[number]>;
+
 // ── Segmentation (B2B / Rekanan) — mirrors whatsapp_bot_contacts ──────────────
 // Contract: do NOT rename values without agreeing with the bot maintainer.
 // See WHATSAPP_BOT_SEGMENTASI_HANDOVER §2 +

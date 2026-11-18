@@ -11,13 +11,12 @@ import { cn } from "@/lib/utils";
 import {
 	PERIOD_OPTIONS,
 	SEGMENT_OPTIONS,
-	STATUS_DOT,
-	STATUS_OPTIONS,
+	STAGE_OPTIONS,
 	topicLabel,
 } from "./leads-shared";
 
 /**
- * <LeadsFilterBar /> — search + period + topic + segment + status pills.
+ * <LeadsFilterBar /> — search + period + topic + segment + pil tahap kontak.
  * Export lives in the topbar action slot (see leads/page.tsx).
  * Built on the shared <FilterBar> shell; the status pills mirror the Asset &
  * Design page exactly (green = active, hairline = idle, colored dot + count).
@@ -28,33 +27,34 @@ export function LeadsFilterBar({
 	period,
 	topic,
 	segment,
-	status,
+	stage,
 	topics,
 	totalScoped,
-	statusCounts,
+	stageCounts,
 }: {
 	defaultQ: string;
 	period: string;
 	topic: string;
 	segment: string;
-	status: string;
+	stage: string;
 	/** Distinct topics present in the data, for the topic dropdown. */
 	topics: string[];
-	/** Lead count in the current period+topic scope (drives the "Semua" pill). */
+	/** Kontak dalam filter aktif (minus tahap) — angka pil "Semua". */
 	totalScoped: number;
-	/** Per-status counts in the current period+topic scope. */
-	statusCounts: Record<string, number>;
+	/** Jumlah kontak per tahap dalam filter aktif. */
+	stageCounts: Record<string, number>;
 }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [q, setQ] = useState(defaultQ);
 
 	const hasFilters = Boolean(
-		defaultQ || (period && period !== "all") || topic || segment || status,
+		defaultQ || (period && period !== "all") || topic || segment || stage,
 	);
 
 	function buildHref(updates: Record<string, string>) {
 		const params = new URLSearchParams(searchParams.toString());
+		params.delete("page");
 		for (const [k, v] of Object.entries(updates)) {
 			if (v) params.set(k, v);
 			else params.delete(k);
@@ -130,35 +130,35 @@ export function LeadsFilterBar({
 				triggerClassName="rounded-full"
 			/>
 
-			{/* Status pills — flow inline (no wrapper) so the whole toolbar packs
-			    onto one row like every other list page. */}
+			{/* Pil tahap — inline (tanpa wrapper) supaya toolbar tetap satu baris
+			    seperti halaman daftar lain. */}
 			<Link
-				href={buildHref({ status: "" })}
-				aria-current={!status ? "true" : undefined}
-				className={chipClass(!status)}
+				href={buildHref({ stage: "" })}
+				aria-current={!stage ? "true" : undefined}
+				className={chipClass(!stage)}
 			>
 				Semua
 				<span className="tabular text-[11px] opacity-70">{totalScoped}</span>
 			</Link>
-			{STATUS_OPTIONS.map((s) => {
-				const active = status === s.value;
+			{STAGE_OPTIONS.map((s) => {
+				const active = stage === s.value;
 				return (
 					<Link
 						key={s.value}
-						href={buildHref({ status: s.value })}
+						href={buildHref({ stage: s.value })}
 						aria-current={active ? "true" : undefined}
 						className={chipClass(active)}
 					>
 						<span
 							className={cn(
 								"size-2 rounded-full",
-								active ? "bg-white/90" : STATUS_DOT[s.value],
+								active ? "bg-white/90" : s.dot,
 							)}
 							aria-hidden
 						/>
 						{s.label}
 						<span className="tabular text-[11px] opacity-70">
-							{statusCounts[s.value] ?? 0}
+							{stageCounts[s.value] ?? 0}
 						</span>
 					</Link>
 				);

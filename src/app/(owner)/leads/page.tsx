@@ -1,9 +1,10 @@
 import {
-	Clock,
+	CalendarClock,
+	CircleCheck,
 	Download,
+	FileText,
 	MessageCircle,
 	Settings2,
-	Tag,
 	Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -14,8 +15,9 @@ import { LeadsListTable } from "@/components/leads/leads-list-table";
 import {
 	type ContactRow,
 	type LeadRow,
+	type LeadStage,
 	periodStartISO,
-	topicLabel,
+	STAGE_OPTIONS,
 } from "@/components/leads/leads-shared";
 import { LeadsTabs } from "@/components/leads/leads-tabs";
 import { KpiRow } from "@/components/operations/_shared/kpi-row";
@@ -23,10 +25,15 @@ import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { isoDateWIB, shiftISODate, todayWIB } from "@/lib/dates";
+import { loadLeadContacts } from "@/lib/leads/contacts";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 export default async function LeadsPage({
 	searchParams,
@@ -36,7 +43,8 @@ export default async function LeadsPage({
 		period?: string;
 		topic?: string;
 		segment?: string;
-		status?: string;
+		stage?: string;
+		page?: string;
 	}>;
 }) {
 	const params = await searchParams;
@@ -44,148 +52,136 @@ export default async function LeadsPage({
 	const period = params.period?.trim() ?? "all";
 	const topic = params.topic?.trim() ?? "";
 	const segment = params.segment?.trim() ?? "";
-	const status = params.status?.trim() ?? "";
+	const stage = (params.stage?.trim() ?? "") as LeadStage | "";
+	const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
 
 	const supabase = await createClient();
 	const me = await getCurrentUser();
 	const canManage =
 		me?.profile.role === "owner" || me?.profile.role === "super_admin";
 	const now = new Date();
+	const today = todayWIB();
 
-	// Contacts carry the segment (a contact property, not a per-chat one). Fetch
-	// them up-front so the segment filter can scope the lead query by wa_jid.
-	const { data: contactsData } = await supabase
-		.from("whatsapp_bot_contacts")
-		.select("*")
-		.limit(10000);
-	const contacts = (contactsData ?? []) as ContactRow[];
-	const contactByJid: Record<string, ContactRow> = {};
-	for (const c of contacts) contactByJid[c.wa_jid] = c;
-
-	// List query — filtered, capped at 200 most-recent.
-	let listQuery = supabase
-		.from("whatsapp_bot_leads")
-		.select("*")
-		.order("received_at", { ascending: false })
-		.limit(200);
-
-	if (q) {
-		const safe = q.replace(/[%,]/g, " ").trim();
-		listQuery = listQuery.or(
-			`phone.ilike.%${safe}%,name.ilike.%${safe}%,message.ilike.%${safe}%`,
-		);
-	}
-	if (topic) listQuery = listQuery.eq("topic", topic);
-	if (status) listQuery = listQuery.eq("status", status);
-	if (segment) {
-		// Scope to the wa_jids whose contact carries the chosen segment. Empty list
-		// → a sentinel so the `.in()` returns nothing instead of everything.
-		const jids = contacts
-			.filter((c) => c.segment === segment)
-			.map((c) => c.wa_jid);
-		listQuery = listQuery.in("wa_jid", jids.length ? jids : ["__none__"]);
-	}
-	const startISO = periodStartISO(period, now);
-	if (startISO) listQuery = listQuery.gte("received_at", startISO);
-
-	// Aggregate rows — all-time, lightweight — for KPIs + topic dropdown +
-	// per-status pill counts. PostgREST caps one response at 1.000 rows, so
-	// page through all of them (dulu .limit(10000) diam-diam terpotong di
-	// 1.000: Total Lead tampil 1.000 padahal 1.871, lead unik 183 padahal 510).
-	const fetchAgg = async () => ({
-		data: await fetchAllRows<{
-			phone: string;
-			topic: string;
-			received_at: string;
-			status: string;
-		}>(
+	// Cari juga di isi pesan (bukan cuma nama/nomor) → kumpulan wa_jid yang cocok.
+	const searchJids = async () => {
+		if (!q) return null;
+		const safe = q.replace(/[%,()]/g, " ").trim();
+		const hits = await fetchAllRows<{ wa_jid: string }>(
 			(from, to) =>
 				supabase
 					.from("whatsapp_bot_leads")
-					.select("phone, topic, received_at, status")
-					.order("received_at", { ascending: false })
+					.select("wa_jid")
+					.or(
+						`phone.ilike.%${safe}%,name.ilike.%${safe}%,message.ilike.%${safe}%`,
+					)
+					.order("id")
 					.range(from, to),
-			"leads agregat",
-		),
-	});
-
-	const [listResult, aggResult] = await Promise.all([listQuery, fetchAgg()]);
-
-	if (listResult.error) {
-		return (
-			<Container size="xl">
-				<div className="rounded-md border border-destructive bg-destructive/10 p-4">
-					<p className="text-fluid-body font-medium text-destructive">
-						Gagal memuat leads: {listResult.error.message}
-					</p>
-				</div>
-			</Container>
+			"cari leads",
 		);
-	}
+		return new Set(hits.map((h) => h.wa_jid));
+	};
 
-	const leads = (listResult.data ?? []) as LeadRow[];
-	const agg = (aggResult.data ?? []) as Array<{
-		phone: string;
-		topic: string;
-		received_at: string;
-		status: string;
-	}>;
+	const [all, { data: contactsData }, qJids] = await Promise.all([
+		loadLeadContacts(supabase),
+		// segment_source untuk SegmentSelect (setelan manual per kontak).
+		supabase.from("whatsapp_bot_contacts").select("*").limit(10000),
+		searchJids(),
+	]);
+	const contactByJid: Record<string, ContactRow> = {};
+	for (const c of (contactsData ?? []) as ContactRow[])
+		contactByJid[c.wa_jid] = c;
 
-	// KPIs (all-time)
-	const totalLeads = agg.length;
-	const uniquePhones = new Set(agg.map((r) => r.phone)).size;
-	const todayStart = new Date(now);
-	todayStart.setHours(0, 0, 0, 0);
-	const todayCount = agg.filter(
-		(r) => new Date(r.received_at) >= todayStart,
+	// KPI per kontak, semua waktu (tidak ikut filter).
+	const since30 = new Date(now.getTime() - 30 * 86_400_000).toISOString();
+	const in30 = shiftISODate(today, 30);
+	const thisMonth = today.slice(0, 7);
+	const aktif = all.filter((c) => c.lastAt >= since30).length;
+	const menunggu = all.filter(
+		(c) => c.stage === "quotation" || c.stage === "invoice",
+	).length;
+	const mendekat = all.filter(
+		(c) =>
+			c.eventDate &&
+			c.eventDate >= today &&
+			c.eventDate <= in30 &&
+			c.stage !== "booking" &&
+			c.stage !== "batal",
+	).length;
+	const bookingBulanIni = all.filter(
+		(c) =>
+			c.convertedAt &&
+			isoDateWIB(new Date(c.convertedAt)).startsWith(thisMonth),
 	).length;
 
-	const topicCounts = new Map<string, number>();
-	for (const r of agg) {
-		topicCounts.set(r.topic, (topicCounts.get(r.topic) ?? 0) + 1);
-	}
-	let topTopic = "";
-	let topTopicCount = 0;
-	for (const [t, c] of topicCounts) {
-		if (c > topTopicCount) {
-			topTopic = t;
-			topTopicCount = c;
-		}
-	}
-	const topics = [...topicCounts.keys()].sort();
+	// Filter tetap (cari, periode, topik, segmen) → hitungan pil tahap → pil tahap.
+	const startISO = periodStartISO(period, now);
+	const scoped = all.filter(
+		(c) =>
+			(!qJids || qJids.has(c.jid)) &&
+			(!startISO || c.lastAt >= startISO) &&
+			(!topic || c.topics.includes(topic)) &&
+			(!segment || c.segment === segment),
+	);
+	const stageCounts: Record<string, number> = {};
+	for (const c of scoped)
+		stageCounts[c.stage] = (stageCounts[c.stage] ?? 0) + 1;
+	const filtered = stage ? scoped.filter((c) => c.stage === stage) : scoped;
+	const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+	const cur = Math.min(page, pages);
+	const pageRows = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
 
-	// B2B accounts (segment ≠ private) — count for the Rekanan tab badge.
-	const b2bCount = contacts.filter((c) => c.segment !== "private").length;
+	// Isi pesan hanya untuk kontak di halaman ini.
+	const pageJids = pageRows.map((c) => c.jid);
+	const messages = pageJids.length
+		? await fetchAllRows<LeadRow>(
+				(from, to) =>
+					supabase
+						.from("whatsapp_bot_leads")
+						.select("*")
+						.in("wa_jid", pageJids)
+						.order("received_at", { ascending: false })
+						.order("id", { ascending: false })
+						.range(from, to),
+				"pesan leads",
+			)
+		: [];
+	const msgsByJid = new Map<string, LeadRow[]>();
+	for (const m of messages) {
+		const list = msgsByJid.get(m.wa_jid) ?? [];
+		list.push(m);
+		msgsByJid.set(m.wa_jid, list);
+	}
 
-	// Export href mirrors the active filters (the route honors q/period/topic/status).
+	const topics = [...new Set(all.flatMap((c) => c.topics))].sort();
+	const b2bCount = Object.values(contactByJid).filter(
+		(c) => c.segment !== "private",
+	).length;
+
 	const exportParams = new URLSearchParams();
 	if (q) exportParams.set("q", q);
 	if (period && period !== "all") exportParams.set("period", period);
 	if (topic) exportParams.set("topic", topic);
-	if (status) exportParams.set("status", status);
+	if (segment) exportParams.set("segment", segment);
 	const exportQs = exportParams.toString();
 	const exportHref = exportQs
 		? `/api/leads/export?${exportQs}`
 		: "/api/leads/export";
 
-	// Status-pill counts — scoped to the persistent filters (period + topic) so
-	// the pills reflect what's filterable, then the status pill narrows further.
-	const scoped = agg.filter((r) => {
-		if (startISO && new Date(r.received_at) < new Date(startISO)) return false;
-		if (topic && r.topic !== topic) return false;
-		return true;
-	});
-	const totalScoped = scoped.length;
-	const statusCounts: Record<string, number> = {};
-	for (const r of scoped) {
-		statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1;
-	}
+	const pageHref = (n: number) => {
+		const sp = new URLSearchParams();
+		for (const [k, v] of Object.entries({ q, topic, segment, stage }))
+			if (v) sp.set(k, v);
+		if (period !== "all") sp.set("period", period);
+		if (n > 1) sp.set("page", String(n));
+		const s = sp.toString();
+		return s ? `/leads?${s}` : "/leads";
+	};
 
 	return (
 		<Container size="xl" className="space-y-3">
 			<SectionHeader
 				title="Leads"
-				description="Lead WhatsApp yang ditangkap otomatis oleh bot Tetra. Follow-up internal saja — jangan untuk blast."
+				description="Calon klien yang chat bot WhatsApp Tetra, satu baris per kontak. Tahapnya terisi otomatis dari quotation, invoice, dan acara."
 				actions={
 					<>
 						<LeadsTabs active="leads" rekananCount={b2bCount} />
@@ -217,32 +213,32 @@ export default async function LeadsPage({
 
 			<KpiRow>
 				<KpiCard
-					label="Total Lead"
-					value={totalLeads.toLocaleString("id-ID")}
-					hint="Semua interaksi tercatat"
-					icon={MessageCircle}
-					accent="primary"
-				/>
-				<KpiCard
-					label="Lead Unik"
-					value={uniquePhones.toLocaleString("id-ID")}
-					hint="Nomor berbeda"
+					label="Kontak aktif"
+					value={aktif.toLocaleString("id-ID")}
+					hint={`chat 30 hari terakhir · ${all.length.toLocaleString("id-ID")} kontak total`}
 					icon={Users}
 					accent="sky"
 				/>
 				<KpiCard
-					label="Hari Ini"
-					value={todayCount.toLocaleString("id-ID")}
-					hint="Lead masuk hari ini"
-					icon={Clock}
-					accent="emerald"
+					label="Menunggu keputusan"
+					value={menunggu.toLocaleString("id-ID")}
+					hint="sudah dapat quotation/invoice, belum DP"
+					icon={FileText}
+					accent="amber"
 				/>
 				<KpiCard
-					label="Topik Terpopuler"
-					value={topTopic ? topicLabel(topTopic) : "—"}
-					hint={topTopic ? `${topTopicCount} lead` : "Belum ada data"}
-					icon={Tag}
-					accent="amber"
+					label="Acara mendekat"
+					value={mendekat.toLocaleString("id-ID")}
+					hint="tanggal yang ditanyakan ≤30 hari lagi, belum booking"
+					icon={CalendarClock}
+					accent="rose"
+				/>
+				<KpiCard
+					label="Booking bulan ini"
+					value={bookingBulanIni.toLocaleString("id-ID")}
+					hint="kontak chat bot yang jadi acara"
+					icon={CircleCheck}
+					accent="emerald"
 				/>
 			</KpiRow>
 
@@ -252,28 +248,70 @@ export default async function LeadsPage({
 					period={period}
 					topic={topic}
 					segment={segment}
-					status={status}
+					stage={stage}
 					topics={topics}
-					totalScoped={totalScoped}
-					statusCounts={statusCounts}
+					totalScoped={scoped.length}
+					stageCounts={stageCounts}
 				/>
 
-				{leads.length === 0 ? (
+				{pageRows.length === 0 ? (
 					<EmptyState
 						icon={MessageCircle}
-						title="Belum ada lead"
+						title="Belum ada kontak"
 						description={
-							q || topic || segment || status || period !== "all"
+							q || topic || segment || stage || period !== "all"
 								? "Coba ubah filter atau hapus pencarian."
-								: "Lead akan muncul otomatis di sini saat bot WhatsApp membalas calon customer."
+								: "Kontak muncul otomatis di sini saat ada yang chat bot WhatsApp Tetra."
 						}
 					/>
 				) : (
-					<LeadsListTable
-						leads={leads}
-						contactByJid={contactByJid}
-						canManage={canManage}
-					/>
+					<>
+						<LeadsListTable
+							contacts={pageRows.map((c) => ({
+								...c,
+								messages: msgsByJid.get(c.jid) ?? [],
+							}))}
+							contactByJid={contactByJid}
+							canManage={canManage}
+							today={today}
+						/>
+						<div className="flex items-center justify-between gap-3 px-1 text-[12.5px] text-muted-foreground">
+							<span className="tabular">
+								{(cur - 1) * PAGE_SIZE + 1}–
+								{(cur - 1) * PAGE_SIZE + pageRows.length} dari{" "}
+								{filtered.length.toLocaleString("id-ID")} kontak
+								{stage
+									? ` · ${STAGE_OPTIONS.find((s) => s.value === stage)?.label}`
+									: ""}
+							</span>
+							{pages > 1 ? (
+								<div className="flex gap-2">
+									<Link
+										href={pageHref(cur - 1)}
+										aria-disabled={cur <= 1}
+										className={cn(
+											buttonVariants({ variant: "secondary", size: "sm" }),
+											"rounded-full",
+											cur <= 1 && "pointer-events-none opacity-40",
+										)}
+									>
+										Sebelumnya
+									</Link>
+									<Link
+										href={pageHref(cur + 1)}
+										aria-disabled={cur >= pages}
+										className={cn(
+											buttonVariants({ variant: "secondary", size: "sm" }),
+											"rounded-full",
+											cur >= pages && "pointer-events-none opacity-40",
+										)}
+									>
+										Berikutnya
+									</Link>
+								</div>
+							) : null}
+						</div>
+					</>
 				)}
 			</div>
 		</Container>

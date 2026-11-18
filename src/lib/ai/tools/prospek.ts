@@ -19,7 +19,7 @@ import {
 import { KATEGORI_B2B, ringkasRetensi } from "@/lib/retensi";
 import { fetchAllResult } from "@/lib/supabase/fetch-all";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
-import { cariGaleri, kirimTim, pengingatTim } from "./tim";
+import { cariGaleri, kirimTim, nomorTim, pengingatTim } from "./tim";
 
 /**
  * Tool agent sales (Hermes profil `sales`, token MCP_SALES_TOKEN). Agent
@@ -1532,11 +1532,20 @@ export const klienRetensi: AiTool = {
 
 /**
  * Nomor WA kontak yang dikenal Tetra: kontak (klien/booker/PIC/vendor) + nomor klien di event
- * + lead prospek yang sudah membalas (telepon = nomor PIC kalau sudah dialihkan). Urutan = prioritas:
- * pencarian pakai yang pertama, jadi klien/vendor didahulukan dari lead bernomor sama.
+ * + lead prospek yang sudah membalas (telepon = nomor PIC kalau sudah dialihkan) + orang yang
+ * pernah chat bot WA Tetra (whatsapp_bot_leads; tanpa nomor tim & prospek tolak/jangan_hubungi).
+ * Urutan = prioritas: pencarian pakai yang pertama, jadi klien/vendor didahulukan dari lead
+ * bernomor sama.
  */
 export async function kontakDikenal(ctx: AiToolContext) {
-	const [{ data: kontak }, { data: ev }, { data: lead }] = await Promise.all([
+	const [
+		{ data: kontak },
+		{ data: ev },
+		{ data: lead },
+		{ data: chat },
+		{ data: blokir },
+		tim,
+	] = await Promise.all([
 		fetchAllResult(
 			(from, to) =>
 				ctx.supabase
@@ -1569,6 +1578,26 @@ export async function kontakDikenal(ctx: AiToolContext) {
 					.range(from, to),
 			"tools prospek",
 		),
+		fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("whatsapp_bot_leads")
+					.select("phone, name, segment, received_at")
+					.order("received_at", { ascending: false })
+					.range(from, to),
+			"tools prospek",
+		),
+		fetchAllResult(
+			(from, to) =>
+				ctx.supabase
+					.from("prospek")
+					.select("telepon")
+					.in("status", ["tolak", "jangan_hubungi"])
+					.order("id")
+					.range(from, to),
+			"tools prospek",
+		),
+		nomorTim(ctx.supabase),
 	]);
 	const daftar: {
 		nama: string;
@@ -1616,6 +1645,24 @@ export async function kontakDikenal(ctx: AiToolContext) {
 			prospek_id: p.id,
 		});
 	}
+	// Pernah chat bot = dikenal (18 Nov: balasan SPARK ditolak "nomor asing").
+	// Baris terbaru dulu → satu entri per nomor dengan nama & tanggal terakhir.
+	const tolak = new Set<string>([
+		...(blokir ?? []).map((b) => waHp(b.telepon)).filter(Boolean),
+		...tim.map((t) => toWaPhone(t.nomor)),
+	] as string[]);
+	const sudah = new Set<string>();
+	for (const c of chat ?? []) {
+		const wa = waHp(c.phone);
+		if (!wa || tolak.has(wa) || sudah.has(wa)) continue;
+		sudah.add(wa);
+		daftar.push({
+			nama: c.name ? String(c.name) : wa,
+			jenis: "chat_bot",
+			wa,
+			info: `${c.segment ?? "chat"} · chat terakhir ${String(c.received_at).slice(0, 10)}`,
+		});
+	}
 	return daftar;
 }
 
@@ -1623,7 +1670,8 @@ export const kontakCari: AiTool = {
 	name: "kontak_cari",
 	description:
 		"Cari nomor WA klien/vendor/PIC yang sudah dikenal Tetra (tabel kontak + data event) dari potongan nama, " +
-		"mis. 'Evi', 'Kipina'. Juga mencari lead prospek yang SUDAH membalas (jenis 'lead'). Pakai sebelum wa_kirim_kontak.",
+		"mis. 'Evi', 'Kipina'. Juga mencari lead prospek yang SUDAH membalas (jenis 'lead') dan orang yang pernah chat " +
+		"bot WA Tetra (jenis 'chat_bot'). Pakai sebelum wa_kirim_kontak.",
 	scope: "ops",
 	parameters: {
 		type: "OBJECT",
@@ -1652,7 +1700,7 @@ export const kontakCari: AiTool = {
 export const waKirimKontak: AiTool = {
 	name: "wa_kirim_kontak",
 	description:
-		"Kirim WA ke klien/vendor/PIC yang SUDAH dikenal Tetra (nomor wajib tercatat di kontak atau data event; nomor asing ditolak). " +
+		"Kirim WA ke klien/vendor/PIC yang SUDAH dikenal Tetra (nomor wajib tercatat di kontak, data event, atau pernah chat bot WA; nomor asing ditolak). " +
 		"Untuk ucapan setelah acara, kabar, follow-up relasi — BUKAN sapaan prospek baru (itu prospek_tambah / prospek_kirim_wa). " +
 		"Boleh juga ke lead yang SUDAH membalas (jenis 'lead' di kontak_cari), hanya atas perintah Rama dengan nama lead yang jelas; " +
 		"isinya dicatat ke catatan prospek. " +
@@ -1704,7 +1752,7 @@ export const waKirimKontak: AiTool = {
 			return {
 				error: b
 					? `${b.nama} berstatus ${b.status}; tidak dihubungi lagi, tidak dikirim.`
-					: `${nomor} tidak tercatat sebagai klien/vendor/PIC atau lead yang sudah membalas di Tetra Ops; tidak dikirim. Cari dulu dengan kontak_cari.`,
+					: `${nomor} tidak tercatat sebagai klien/vendor/PIC, lead yang sudah membalas, atau orang yang pernah chat bot di Tetra Ops; tidak dikirim. Cari dulu dengan kontak_cari.`,
 			};
 		}
 		// Status lead bisa berubah sejak daftar dimuat; cek ulang tepat sebelum kirim.

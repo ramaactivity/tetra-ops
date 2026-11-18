@@ -160,6 +160,58 @@ test("kontakDikenal: hanya lead yang sudah membalas dan bernomor HP", async () =
 	);
 });
 
+test("kontakDikenal: pernah chat bot = dikenal, kecuali nomor tim & prospek tolak", async () => {
+	const db = fakeDb({
+		contacts: [],
+		events: [],
+		prospek: prospek(),
+		system_config: [
+			{ key: "tim_wa", value: [{ nomor: "0811-0000-1111", nama: "Iqbal" }] },
+		],
+		// urut terbaru dulu, seperti query asli
+		whatsapp_bot_leads: [
+			{
+				phone: "6281300001111",
+				name: "SPARK",
+				segment: "Corporate",
+				received_at: "2026-11-18T03:00:00Z",
+			},
+			{
+				phone: "6281300001111",
+				name: "Spark lama",
+				segment: "Pribadi",
+				received_at: "2026-11-01T03:00:00Z",
+			},
+			{
+				phone: "6281100001111",
+				name: "Iqbal",
+				segment: "Pribadi",
+				received_at: "2026-11-10T03:00:00Z",
+			},
+			{
+				phone: "6281255556666",
+				name: "Tolak Hall",
+				segment: "Venue",
+				received_at: "2026-11-09T03:00:00Z",
+			},
+			{
+				phone: "144439901184133",
+				name: "LID",
+				segment: "Pribadi",
+				received_at: "2026-11-08T03:00:00Z",
+			},
+		],
+	});
+	const { kontakDikenal } = await tools();
+	const chat = (await kontakDikenal(ctxDari(db))).filter(
+		(k) => k.jenis === "chat_bot",
+	);
+	assert.deepEqual(
+		chat.map((k) => [k.nama, k.wa, k.info]),
+		[["SPARK", "6281300001111", "Corporate · chat terakhir 2026-11-18"]],
+	);
+});
+
 test("kontak_cari('violetta') menemukan lead; klien bernomor sama didahulukan", async () => {
 	const db = fakeDb({
 		contacts: [
@@ -235,9 +287,10 @@ test("wa_kirim_kontak: status lead berubah setelah daftar dimuat → ditolak", a
 	const ctx = ctxDari(db);
 	const asli = db.from.bind(db);
 	let n = 0;
-	// Ubah status p1 setelah daftar dimuat, sebelum cek ulang (query prospek ke-2).
+	// Ubah status p1 setelah daftar dimuat, sebelum cek ulang. kontakDikenal
+	// membaca prospek 2× (terlibat + tolak), jadi cek ulang = query ke-3.
 	db.from = (t: string) => {
-		if (t === "prospek" && ++n === 2)
+		if (t === "prospek" && ++n === 3)
 			(db.tables.prospek[0] as Row).status = "jangan_hubungi";
 		return asli(t);
 	};
