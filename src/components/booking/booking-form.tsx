@@ -22,6 +22,7 @@ import { SummaryRail } from "@/components/operations/_shared/summary-rail";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MoneyInput } from "@/components/ui/form-fields";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -213,7 +214,12 @@ export type VendorOption = {
 	commission_rate?: number | null;
 };
 
-export type AddonSelection = { addon_id: string; quantity: number };
+export type AddonSelection = {
+	addon_id: string;
+	quantity: number;
+	/** Harga kesepakatan (quotation / banner ukuran lain). Kosong = harga master. */
+	unit_price?: number;
+};
 export type BonusSelection = {
 	addon_id: string;
 	quantity: number;
@@ -739,24 +745,38 @@ export function BookingForm({
 	}, [defaults?.addons]);
 	const [selectedAddons, setSelectedAddons] =
 		useState<Record<string, number>>(initialAddons);
+	// Harga kesepakatan per add-on (dari quotation yang di-deal, harga khusus
+	// event lama, atau diketik di sini). Dulu selalu harga master → break time
+	// Rp300rb di quotation jadi Rp150rb di booking.
+	const [addonPrices, setAddonPrices] = useState<Record<string, number>>(() => {
+		const map: Record<string, number> = {};
+		for (const a of defaults?.addons ?? [])
+			if (typeof a.unit_price === "number") map[a.addon_id] = a.unit_price;
+		return map;
+	});
+	const priceOf = (a: AddonOption) => addonPrices[a.id] ?? a.price;
 
 	const addonsTotal = useMemo(() => {
 		let sum = 0;
 		for (const a of addons) {
 			const qty = selectedAddons[a.id];
-			if (qty) sum += a.price * qty;
+			if (qty) sum += (addonPrices[a.id] ?? a.price) * qty;
 		}
 		return sum;
-	}, [addons, selectedAddons]);
+	}, [addons, selectedAddons, addonPrices]);
 
 	const addonsJson = useMemo(
 		() =>
 			JSON.stringify(
 				Object.entries(selectedAddons)
 					.filter(([, qty]) => qty > 0)
-					.map(([addon_id, quantity]) => ({ addon_id, quantity })),
+					.map(([addon_id, quantity]) =>
+						addonPrices[addon_id] !== undefined
+							? { addon_id, quantity, unit_price: addonPrices[addon_id] }
+							: { addon_id, quantity },
+					),
 			),
-		[selectedAddons],
+		[selectedAddons, addonPrices],
 	);
 
 	// === Bonus (item gratis untuk klien, internal-only)
@@ -1217,11 +1237,15 @@ export function BookingForm({
 		for (const a of addons) {
 			const qty = selectedAddons[a.id];
 			if (qty && qty > 0) {
-				lines.push({ name: a.name, qty, total: a.price * qty });
+				lines.push({
+					name: a.name,
+					qty,
+					total: (addonPrices[a.id] ?? a.price) * qty,
+				});
 			}
 		}
 		return lines.sort((x, y) => y.total - x.total);
-	}, [addons, selectedAddons]);
+	}, [addons, selectedAddons, addonPrices]);
 
 	function addBonusRow(addonId: string) {
 		setBonusRows((prev) => {
@@ -1428,10 +1452,33 @@ export function BookingForm({
 					<div className="text-[12px] text-muted-foreground">
 						<span data-nominal>{formatRupiah(addon.price)}</span> per{" "}
 						{addon.unit}
+						{enabled && addonPrices[addon.id] !== undefined ? (
+							<span className="text-amber-700"> · harga kesepakatan</span>
+						) : null}
 					</div>
 				</div>
 				{enabled ? (
 					<>
+						{/* Harga satuan bisa diubah (kesepakatan / banner ukuran lain). */}
+						{/* biome-ignore lint/a11y/noStaticElementInteractions: hanya menahan klik agar checkbox label tidak ikut */}
+						<span
+							onClick={(e) => e.preventDefault()}
+							onKeyDown={(e) => e.stopPropagation()}
+						>
+							<MoneyInput
+								value={priceOf(addon)}
+								onValueChange={(v) =>
+									setAddonPrices((prev) => {
+										const next = { ...prev };
+										if (v === addon.price) delete next[addon.id];
+										else next[addon.id] = v;
+										return next;
+									})
+								}
+								className="h-8 w-28 shrink-0"
+								aria-label={`Harga ${addon.name}`}
+							/>
+						</span>
 						<input
 							type="number"
 							min={1}
@@ -1445,7 +1492,7 @@ export function BookingForm({
 							className="tabular shrink-0 text-right text-[13px] font-medium text-foreground"
 							data-nominal
 						>
-							{formatRupiah(addon.price * qty)}
+							{formatRupiah(priceOf(addon) * qty)}
 						</span>
 					</>
 				) : null}

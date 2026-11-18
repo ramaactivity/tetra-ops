@@ -86,7 +86,13 @@ export function quotationToBookingDefaults(
 		venue_city: q.event_info.city ?? "",
 		addons: q.items
 			.filter((i) => i.addon_id)
-			.map((i) => ({ addon_id: i.addon_id as string, quantity: i.qty })),
+			// Harga ikut quotation (bisa beda dari master: break time, banner
+			// ukuran lain) — dulu hilang saat deal, total booking ≠ quotation.
+			.map((i) => ({
+				addon_id: i.addon_id as string,
+				quantity: i.qty,
+				unit_price: i.unit_price,
+			})),
 		discount_amount: Math.max(0, q.discount - vendorCut),
 		gross_up_pph_amount: totals.grossUp,
 		// crew_notes sengaja kosong: dulu diisi "Dari quotation <nomor>" dan

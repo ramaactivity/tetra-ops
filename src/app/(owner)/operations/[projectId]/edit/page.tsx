@@ -57,7 +57,7 @@ export default async function EditBookingPage({
 				pic_name, pic_wa, extra_pics, bill_to_mode,
 				backdrop_id, vendor_decor_markup, include_flashdisk_pouch, guest_card_design,
 				base_price, discount_amount, gross_up_pph_amount, crew_notes,
-				event_addons(addon_id, quantity),
+				event_addons(addon_id, quantity, unit_price, addon:addons(price)),
 				event_bonuses(addon_id, quantity, notes)`,
 			)
 			.eq("project_id", projectId)
@@ -232,11 +232,24 @@ export default async function EditBookingPage({
 							(event.event_addons ?? []) as Array<{
 								addon_id: string;
 								quantity: number;
+								unit_price: number | null;
+								addon: { price: number } | Array<{ price: number }> | null;
 							}>
-						).map((a) => ({
-							addon_id: a.addon_id,
-							quantity: a.quantity,
-						})),
+						).map((a) => {
+							// Harga yang tersimpan beda dari master (kesepakatan / master
+							// berubah sejak booking) → dipertahankan saat booking diedit.
+							const master = Array.isArray(a.addon)
+								? a.addon[0]?.price
+								: a.addon?.price;
+							const saved = Number(a.unit_price ?? 0);
+							return saved > 0 && saved !== Number(master)
+								? {
+										addon_id: a.addon_id,
+										quantity: a.quantity,
+										unit_price: saved,
+									}
+								: { addon_id: a.addon_id, quantity: a.quantity };
+						}),
 						bonuses: (
 							(event.event_bonuses ?? []) as Array<{
 								addon_id: string;

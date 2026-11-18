@@ -446,6 +446,8 @@ const AddonInputSchema = z.array(
 	z.object({
 		addon_id: z.uuid(),
 		quantity: z.coerce.number().int().positive().max(99),
+		/** Harga kesepakatan (owner) — kosong = harga master. */
+		unit_price: z.coerce.number().int().min(1).max(100_000_000).optional(),
 	}),
 );
 
@@ -479,7 +481,7 @@ function parseBonusesJson(formData: FormData) {
 
 async function snapshotAddons(
 	supabase: Awaited<ReturnType<typeof createClient>>,
-	raw: Array<{ addon_id: string; quantity: number }>,
+	raw: Array<{ addon_id: string; quantity: number; unit_price?: number }>,
 ): Promise<{
 	rows: Array<{
 		addon_id: string;
@@ -499,8 +501,11 @@ async function snapshotAddons(
 		(data ?? []).map((a) => [a.id as string, Number(a.price)]),
 	);
 	const rows = raw
+		// Add-on harus ada di master; harga kesepakatan (owner) menang atas
+		// harga master.
+		.filter((r) => priceMap.has(r.addon_id))
 		.map((r) => {
-			const unit_price = priceMap.get(r.addon_id) ?? 0;
+			const unit_price = r.unit_price ?? priceMap.get(r.addon_id) ?? 0;
 			return {
 				addon_id: r.addon_id,
 				quantity: r.quantity,
