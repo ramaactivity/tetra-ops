@@ -338,12 +338,12 @@ export function LeadsListTable({
 			<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
 				<table className="w-full table-fixed text-sm">
 					<colgroup>
-						<col style={{ width: "17%" }} />
+						<col style={{ width: "16%" }} />
 						<col style={{ width: "11%" }} />
 						<col style={{ width: "10%" }} />
 						<col />
-						<col style={{ width: "11%" }} />
-						<col style={{ width: "11%" }} />
+						<col style={{ width: "10%" }} />
+						<col style={{ width: "13%" }} />
 						{canManage ? <col style={{ width: "15%" }} /> : null}
 					</colgroup>
 					<thead className="border-b border-border-default">
