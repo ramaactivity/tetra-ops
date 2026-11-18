@@ -15,7 +15,8 @@ import { sendToOwnerGroup } from "@/lib/telegram/notify";
 /**
  * Kabar singkat ke grup WA admin "Tetra Photobooth" lewat bot (`send-grup-admin`,
  * bot menambahkan awalan "pesan otomatis"). Owner hanya mau: booking baru dari
- * wizard, bukti bayar diunggah, pembayaran diterima — JANGAN dipakai untuk hal lain.
+ * wizard, bukti bayar diunggah, pembayaran diterima, dan pengingat tagihan rutin
+ * (owner 18 Nov 2026, maks 1 pesan/hari) — JANGAN dipakai untuk hal lain.
  * Best-effort, tidak pernah throw.
  */
 export async function notifyAdminWaGroup(lines: string[]): Promise<void> {

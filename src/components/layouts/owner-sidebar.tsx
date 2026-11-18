@@ -33,6 +33,7 @@ import {
 	Palette,
 	PiggyBank,
 	Receipt,
+	Repeat,
 	Scale,
 	Settings,
 	ShoppingCart,
@@ -135,6 +136,11 @@ const NAV_SECTIONS: NavSection[] = [
 						href: "/finance/buku-kas",
 						label: "Buku Kas",
 						icon: NotebookText,
+					},
+					{
+						href: "/finance/tagihan-rutin",
+						label: "Tagihan rutin",
+						icon: Repeat,
 					},
 					{
 						href: "/finance/arsip-nota",

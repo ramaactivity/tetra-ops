@@ -12,6 +12,7 @@ import {
 	withUnits,
 } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
+import { loadBillStatuses, reminderLine } from "@/lib/finance/recurring-bills";
 import {
 	formatScheduleInline,
 	hasBreak,
@@ -555,63 +556,28 @@ async function gatherRutinLines(
 	return lines;
 }
 
-// ── Langganan (VPS, hosting) — telegram_renewals ─────────────────────────
-// Diingatkan H-7 / H-3 / H-1 / hari-H. Lewat jatuh tempo → next_due digeser
-// otomatis ke periode berikutnya (monthly/yearly).
-
-const RENEWAL_REMIND_DAYS = new Set([7, 3, 1, 0]);
-
-function advanceDue(dueISO: string, cycle: string, todayISO: string): string {
-	const d = new Date(`${dueISO}T00:00:00Z`);
-	const today = new Date(`${todayISO}T00:00:00Z`);
-	while (d < today) {
-		if (cycle === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
-		else if (cycle === "quarterly") d.setUTCMonth(d.getUTCMonth() + 3);
-		else d.setUTCMonth(d.getUTCMonth() + 1);
-	}
-	return isoDateUTC(d);
-}
+// ── Tagihan rutin (kost, wifi, Telkomsel, VPS, domain, bagi hasil) ──────────
+// Satu sumber dengan halaman Finance › Tagihan rutin (recurring-bills.ts):
+// diingatkan H-3/H-1/hari-H lalu H+1/H+3/H+7 selama BELUM dibayar. Tidak lagi
+// menggeser jatuh tempo otomatis — tagihan yang belum dibayar tetap "telat".
 
 async function gatherRenewalLines(
 	admin: ReturnType<typeof createAdminClient>,
 	todayISO: string,
 ): Promise<string[]> {
-	const lines: string[] = [];
 	try {
-		const { data, error } = await admin
-			.from("telegram_renewals")
-			.select("id, name, next_due, cycle")
-			.eq("is_enabled", true)
-			.not("next_due", "is", null);
-		if (error) throw new Error(error.message);
-		for (const r of (data ?? []) as Array<{
-			id: string;
-			name: string;
-			next_due: string;
-			cycle: string;
-		}>) {
-			let due = r.next_due;
-			if (due < todayISO) {
-				// sudah lewat → roll ke periode berikutnya, simpan balik
-				due = advanceDue(due, r.cycle, todayISO);
-				await admin
-					.from("telegram_renewals")
-					.update({ next_due: due, updated_at: new Date().toISOString() })
-					.eq("id", r.id);
-			}
-			const days = daysUntil(todayISO, due);
-			if (RENEWAL_REMIND_DAYS.has(days)) {
-				lines.push(
-					days === 0
-						? `🚨 ${tgEscape(r.name)} jatuh tempo HARI INI — perpanjang sekarang`
-						: `🔔 ${tgEscape(r.name)} jatuh tempo ${days} hari lagi (${dateLabel(due)})`,
-				);
-			}
-		}
-	} catch {
-		// tabel belum ada / error → skip
+		const { active } = await loadBillStatuses(admin, todayISO);
+		return active
+			.filter((s) => s.remindToday)
+			.map(
+				(s) => `${s.daysLeft <= 0 ? "🚨" : "🔔"} ${tgEscape(reminderLine(s))}`,
+			);
+	} catch (e) {
+		// Jangan batalkan seluruh digest, tapi juga jangan diam: tampilkan.
+		return [
+			`⚠️ Tagihan rutin gagal dibaca: ${tgEscape(e instanceof Error ? e.message : String(e))}`,
+		];
 	}
-	return lines;
 }
 
 // ── Issue derivation per event ───────────────────────────────────────────
@@ -1004,7 +970,7 @@ export function composeDigest(data: GatheredData): string | null {
 
 	if (renewalLines.length > 0) {
 		parts.push(
-			`\n🔔 <b>Langganan</b>\n${renewalLines.map((s) => `      • ${s}`).join("\n")}`,
+			`\n🔔 <b>Tagihan rutin</b>\n${renewalLines.map((s) => `      • ${s}`).join("\n")}${process.env.NEXT_PUBLIC_APP_URL ? `\n      ${process.env.NEXT_PUBLIC_APP_URL}/finance/tagihan-rutin` : ""}`,
 		);
 	}
 
@@ -1162,34 +1128,23 @@ const CYCLE_LABEL: Record<string, string> = {
 export async function buildRenewalsText(): Promise<string> {
 	const admin = createAdminClient();
 	const todayISO = isoDateUTC(wibNow());
-	const { data } = await admin
-		.from("telegram_renewals")
-		.select("name, next_due, cycle, is_enabled, notes")
-		.order("next_due", { ascending: true, nullsFirst: false });
-	const rows = (data ?? []) as Array<{
-		name: string;
-		next_due: string | null;
-		cycle: string;
-		is_enabled: boolean;
-		notes: string | null;
-	}>;
-	if (rows.length === 0) return "Belum ada langganan yang terdaftar.";
-	const lines: string[] = ["🔔 <b>LANGGANAN & TAGIHAN RUTIN</b>", ""];
-	for (const r of rows) {
-		if (!r.is_enabled || !r.next_due) {
-			lines.push(`⏸ ${tgEscape(r.name)} — belum aktif`);
-			continue;
-		}
-		const days = daysUntil(todayISO, r.next_due);
-		const sisa =
-			days === 0 ? "🚨 HARI INI" : days < 0 ? "terlewat" : `${days} hari lagi`;
+	const { active } = await loadBillStatuses(admin, todayISO);
+	if (active.length === 0) return "Belum ada tagihan rutin yang terdaftar.";
+	const icon = { telat: "🚨", segera: "🔔", nanti: "•" } as const;
+	const lines: string[] = ["🔔 <b>TAGIHAN RUTIN</b>", ""];
+	for (const s of active) {
+		const lunas = s.lastPaid
+			? ` · terakhir dibayar ${dateLabel(s.lastPaid.date, true)}`
+			: "";
 		lines.push(
-			`• ${tgEscape(r.name)} — ${dateLabel(r.next_due, true)} (${sisa}) · ${CYCLE_LABEL[r.cycle] ?? r.cycle}`,
+			`${icon[s.urgency]} ${tgEscape(reminderLine(s))} · ${CYCLE_LABEL[s.bill.cycle] ?? s.bill.cycle}${lunas}`,
 		);
 	}
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 	lines.push(
 		"",
-		"Reminder otomatis: H-7, H-3, H-1, dan hari-H di digest pagi.",
+		"Lunas otomatis begitu dibayar lewat Catat (kategori + nama tagihan di keterangan).",
+		...(appUrl ? [`Atur di ${appUrl}/finance/tagihan-rutin`] : []),
 	);
 	return lines.join("\n");
 }
@@ -1268,12 +1223,6 @@ function composeAssetUpload(ev: AssetUploadReminder): string {
 // ── Reminder bulanan (tanggal 1) ─────────────────────────────────────────
 // Tagihan rutin & ritual keuangan owner. Hardcoded by design: daftarnya
 // pendek, jarang berubah, dan mengubahnya = edit satu array ini.
-
-const MONTHLY_ITEMS = [
-	"🏠 Bayar kosan",
-	"🌐 Bayar internet / WiFi",
-	"💸 Withdraw / transfer bagi hasil owner bulan lalu",
-];
 
 /** Rekap bisnis bulan LALU — dikirim tanggal 1 bersama reminder bulanan. */
 async function composeMonthlyBusinessRecap(
@@ -1386,20 +1335,6 @@ async function composeBusinessRecapRange(
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 	if (appUrl) lines.push(`\nDetail: ${appUrl}/finance`);
 	return lines.join("\n");
-}
-
-function composeMonthlyReminder(todayISO: string): string | null {
-	if (!todayISO.endsWith("-01")) return null;
-	const d = new Date(`${todayISO}T00:00:00Z`);
-	const bulan = BULAN_FULL[d.getUTCMonth()];
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-	return [
-		`📅 <b>AWAL BULAN — ${bulan} ${d.getUTCFullYear()}</b>`,
-		"Rutinitas tanggal 1, jangan kelewat:",
-		"",
-		...MONTHLY_ITEMS.map((i) => `      • ${i}`),
-		...(appUrl ? [`\nBagi hasil: ${appUrl}/finance`] : []),
-	].join("\n");
 }
 
 // ── Orchestrator ─────────────────────────────────────────────────────────
@@ -1546,29 +1481,7 @@ export async function runTelegramDigestInternal(opts?: {
 		);
 	}
 
-	// 2. Reminder bulanan tiap tanggal 1 (kosan, wifi, bagi hasil owner)
-	try {
-		const monthly = composeMonthlyReminder(data.todayISO);
-		if (monthly) {
-			const monthKey = data.todayISO.slice(0, 7); // YYYY-MM
-			const r = await sendWithClaim(
-				admin,
-				chatId,
-				"monthly",
-				monthKey,
-				opts?.force ?? false,
-				monthly,
-			);
-			if (r.status === "sent") result.sent.push("monthly");
-			else if (r.status === "skipped")
-				result.skipped.push("monthly: sudah terkirim bulan ini");
-			else result.errors.push(`monthly: ${r.error}`);
-		}
-	} catch (err) {
-		result.errors.push(
-			`monthly: ${err instanceof Error ? err.message : "unknown"}`,
-		);
-	}
+	// (Pengingat tanggal 1 kost/wifi/bagi hasil kini bagian Tagihan rutin di digest.)
 
 	// 2b. Rekap bisnis bulan lalu — juga tanggal 1
 	try {

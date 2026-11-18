@@ -4,6 +4,7 @@ import { runAnomalyScannerInternal } from "@/lib/actions/anomaly-scanner";
 import { runReconciliationCheckInternal } from "@/lib/actions/reconciliation-check";
 import { runTbcReminderInternal } from "@/lib/actions/tbc-reminder";
 import { isAuthorizedCron } from "@/lib/cron-auth";
+import { runBillReminders } from "@/lib/finance/bill-reminders";
 import { runTelegramDigestInternal } from "@/lib/telegram/digest";
 
 // Vercel Cron triggers this daily — see vercel.json. Manually trigger via
@@ -51,11 +52,13 @@ export async function GET(request: Request) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 	const ranAt = new Date().toISOString();
-	const [anomaly, tbc, recon, telegram] = await Promise.allSettled([
+	const [anomaly, tbc, recon, telegram, bills] = await Promise.allSettled([
 		runAnomalyScannerInternal(),
 		runTbcReminderInternal(),
 		runReconciliationCheckInternal(),
 		runTelegramDigestInternal(),
+		// Tagihan rutin → grup WA + lonceng (Telegram ikut digest di atas).
+		runBillReminders(),
 	]);
 	return NextResponse.json({
 		// SEMUA job harus sukses. Sebelumnya `anomaly || tbc`: `recon` dan
@@ -66,7 +69,8 @@ export async function GET(request: Request) {
 			anomaly.status === "fulfilled" &&
 			tbc.status === "fulfilled" &&
 			recon.status === "fulfilled" &&
-			telegram.status === "fulfilled",
+			telegram.status === "fulfilled" &&
+			bills.status === "fulfilled",
 		ranAt,
 		// Retensi audit_log — membuang derau admin_exec_sql lama. Sengaja TIDAK
 		// ikut menentukan `ok`: ini housekeeping, kegagalannya tidak boleh
@@ -88,5 +92,9 @@ export async function GET(request: Request) {
 			telegram.status === "fulfilled"
 				? telegram.value
 				: { error: telegram.reason?.message ?? "telegram digest failed" },
+		bills:
+			bills.status === "fulfilled"
+				? bills.value
+				: { error: bills.reason?.message ?? "bill reminders failed" },
 	});
 }

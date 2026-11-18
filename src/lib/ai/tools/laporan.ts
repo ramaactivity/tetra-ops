@@ -69,8 +69,9 @@ export const rekapBulan: AiTool = {
 export const langgananApp: AiTool = {
 	name: "langganan_app",
 	description:
-		"Daftar langganan aplikasi/layanan (Canva, domain, hosting, dll) beserta tanggal jatuh tempo " +
-		"berikutnya. Pakai untuk 'langganan apa yang segera habis', 'kapan bayar Canva'.",
+		"Tagihan rutin Tetra (kost, wifi, Telkomsel, VPS, domain, langganan app, bagi hasil owner): " +
+		"jatuh tempo berikutnya, sudah/belum dibayar (dibaca dari pembukuan), dan yang telat. " +
+		"Pakai untuk 'tagihan apa yang belum dibayar', 'kapan bayar kost', 'langganan apa yang segera habis'.",
 	scope: "finance",
 	parameters: { type: "OBJECT", properties: {} },
 	async run() {

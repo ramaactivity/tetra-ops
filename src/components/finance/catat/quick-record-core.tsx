@@ -86,6 +86,8 @@ export type QuickRecordPrefill = {
 	note?: string;
 	/** Event asal biaya — ditulis ke journal_entries.source_event_id. */
 	eventId?: string;
+	/** Bulan yang dibayar (yyyy-MM) untuk biaya rutin — dari Tagihan rutin. */
+	periodMonth?: string;
 };
 
 const BULAN_ID = [
@@ -166,8 +168,8 @@ export function QuickRecordCore({
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 	// Biaya rutin: bulan yang DIBAYAR, bukan tanggal transaksinya. Default bulan
 	// berjalan; owner tinggal mundur satu kalau membayar tagihan bulan lalu.
-	const [periodMonth, setPeriodMonth] = useState<string>(() =>
-		new Date().toISOString().slice(0, 7),
+	const [periodMonth, setPeriodMonth] = useState<string>(
+		() => prefill?.periodMonth ?? todayWIB().slice(0, 7),
 	);
 	// Pecah transaksi (uang keluar): baris TAMBAHAN di luar kategori utama.
 	// pick = "cat:<id>" | "coa:<kode>"; kategori utama otomatis dapat sisanya.

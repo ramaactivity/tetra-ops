@@ -35,6 +35,7 @@ export default async function OwnerLayout({
 		{ count: portalReq },
 		{ count: designQueue },
 		approvals,
+		{ count: billAlerts },
 	] = await Promise.all([
 		supabase
 			.from("bot_status")
@@ -63,6 +64,13 @@ export default async function OwnerLayout({
 			.in("stage", ["dikerjakan", "revisi"]),
 		// Badge "Dokumen": dokumen yang menunggu persetujuan kirim ke klien.
 		loadPendingApprovals(supabase),
+		// Badge "Tagihan rutin": pengingat tagihan yang belum beres (lonceng).
+		supabase
+			.from("notifications")
+			.select("id", { count: "exact", head: true })
+			.eq("user_id", profile.id)
+			.eq("entity_type", "recurring_bill")
+			.eq("is_resolved", false),
 	]);
 
 	return (
@@ -75,6 +83,7 @@ export default async function OwnerLayout({
 					"/operations/portal": (portalCek ?? 0) + (portalReq ?? 0),
 					"/design/portal": designQueue ?? 0,
 					"/finance/dokumen": approvals.length,
+					"/finance/tagihan-rutin": billAlerts ?? 0,
 				}}
 			/>
 			{/* min-w-0 so the flex item shrinks below intrinsic content width on
