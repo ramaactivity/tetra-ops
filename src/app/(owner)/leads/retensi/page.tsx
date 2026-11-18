@@ -87,8 +87,13 @@ function TabelKlien({
 				<thead>
 					<tr className="text-left text-[12px] text-muted-foreground">
 						<th className="px-1 py-1.5 font-medium">Klien</th>
-						<th className="px-1 py-1.5 font-medium">Kategori</th>
-						<th className="px-1 py-1.5 text-right font-medium">Event</th>
+						{/* HP: kategori pindah ke bawah nama supaya kolom Follow-up muat. */}
+						<th className="hidden px-1 py-1.5 font-medium sm:table-cell">
+							Kategori
+						</th>
+						<th className="hidden px-1 py-1.5 text-right font-medium sm:table-cell">
+							Event
+						</th>
 						<th className="px-1 py-1.5 font-medium">Terakhir</th>
 						{aksi ? <th className="px-1 py-1.5" /> : null}
 					</tr>
@@ -100,16 +105,20 @@ function TabelKlien({
 								<span className="font-medium text-foreground">
 									{k.nama || "-"}
 								</span>
-								{k.pic ? (
-									<span className="block text-[12px] text-muted-foreground">
-										{k.pic}
+								<span className="block text-[12px] text-muted-foreground">
+									{k.pic}
+									<span className="sm:hidden">
+										{k.pic ? " · " : ""}
+										{LABEL_KATEGORI[k.kategori] ?? k.kategori}
 									</span>
-								) : null}
+								</span>
 							</td>
-							<td className="px-1 py-2">
+							<td className="hidden px-1 py-2 sm:table-cell">
 								{LABEL_KATEGORI[k.kategori] ?? k.kategori}
 							</td>
-							<td className="tabular px-1 py-2 text-right">{k.jumlah_event}</td>
+							<td className="tabular hidden px-1 py-2 text-right sm:table-cell">
+								{k.jumlah_event}
+							</td>
 							<td className="px-1 py-2 whitespace-nowrap">
 								{tanggal(k.terakhir)}
 								<span className="block text-[12px] text-muted-foreground">
