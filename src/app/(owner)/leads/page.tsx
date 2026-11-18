@@ -25,7 +25,6 @@ import { KpiRow } from "@/components/operations/_shared/kpi-row";
 import { KpiCard } from "@/components/operations/kpi-card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { TabNav } from "@/components/ui/tab-nav";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { isoDateWIB, shiftISODate, todayWIB } from "@/lib/dates";
 import {
@@ -202,6 +201,15 @@ export default async function LeadsPage({
 		? `/api/leads/export?${exportQs}`
 		: "/api/leads/export";
 
+	const viewHref = (v: string) => {
+		const sp = new URLSearchParams();
+		for (const [k, val] of Object.entries({ q, topic, segment }))
+			if (val) sp.set(k, val);
+		if (period !== "all") sp.set("period", period);
+		if (v) sp.set("view", v);
+		const qs = sp.toString();
+		return qs ? `/leads?${qs}` : "/leads";
+	};
 	const pageHref = (n: number) => {
 		const sp = new URLSearchParams();
 		for (const [k, v] of Object.entries({ q, topic, segment, stage, view }))
@@ -246,32 +254,61 @@ export default async function LeadsPage({
 				}
 			/>
 
+			{/* Kartu angka = pilihan tampilan (dulu ada baris tab terpisah dengan
+			    angka yang sama — owner 18 Nov: "bertumpuk-tumpuk"). */}
 			<KpiRow className={saldo ? "lg:grid-cols-5" : undefined}>
-				<KpiCard
-					label="Kontak aktif"
-					value={aktif.toLocaleString("id-ID")}
-					hint={`chat 30 hari terakhir · ${all.length.toLocaleString("id-ID")} kontak total`}
-					icon={Users}
-					accent="sky"
-				/>
-				<KpiCard
-					label="Menunggu keputusan"
-					value={menunggu.toLocaleString("id-ID")}
-					hint="sudah dapat quotation/invoice, belum DP"
-					icon={FileText}
-					accent="amber"
-				/>
-				<KpiCard
-					label="Acara mendekat"
-					value={mendekat.toLocaleString("id-ID")}
-					hint="tanggal yang ditanyakan ≤30 hari lagi, belum booking"
-					icon={CalendarClock}
-					accent="rose"
-				/>
+				{(
+					[
+						{
+							v: "",
+							label: "Semua kontak",
+							value: all.length,
+							hint: `${aktif.toLocaleString("id-ID")} chat 30 hari terakhir`,
+							icon: Users,
+							accent: "sky",
+						},
+						{
+							v: "menunggu",
+							label: "Menunggu keputusan",
+							value: menunggu,
+							hint: "quotation/invoice, belum DP",
+							icon: FileText,
+							accent: "amber",
+						},
+						{
+							v: "acara",
+							label: "Acara mendekat",
+							value: mendekat,
+							hint: "≤ 30 hari, belum booking",
+							icon: CalendarClock,
+							accent: "rose",
+						},
+					] as const
+				).map((k) => (
+					<Link
+						key={k.v || "semua"}
+						href={viewHref(k.v)}
+						aria-current={view === k.v ? "page" : undefined}
+						className="block rounded-[16px] outline-none focus-visible:ring-2 focus-visible:ring-[#059669]/40"
+					>
+						<KpiCard
+							label={k.label}
+							value={k.value.toLocaleString("id-ID")}
+							hint={k.hint}
+							icon={k.icon}
+							accent={k.accent}
+							className={cn(
+								"h-full hover:border-border-default",
+								view === k.v &&
+									"border-[#059669] ring-1 ring-[#059669] hover:border-[#059669]",
+							)}
+						/>
+					</Link>
+				))}
 				<KpiCard
 					label="Booking bulan ini"
 					value={bookingBulanIni.toLocaleString("id-ID")}
-					hint="kontak chat bot yang jadi acara"
+					hint="dari chat bot"
 					icon={CircleCheck}
 					accent="emerald"
 				/>
@@ -289,27 +326,6 @@ export default async function LeadsPage({
 			</KpiRow>
 
 			<div className="space-y-3">
-				<TabNav
-					aria-label="Kelompok kontak"
-					items={[
-						{ label: "Semua kontak", value: "", count: all.length },
-						{ label: "Menunggu keputusan", value: "menunggu", count: menunggu },
-						{ label: "Acara mendekat", value: "acara", count: mendekat },
-					].map((t) => {
-						const sp = new URLSearchParams();
-						for (const [k, v] of Object.entries({ q, topic, segment }))
-							if (v) sp.set(k, v);
-						if (period !== "all") sp.set("period", period);
-						if (t.value) sp.set("view", t.value);
-						const qs = sp.toString();
-						return {
-							label: t.label,
-							count: t.count,
-							href: qs ? `/leads?${qs}` : "/leads",
-							active: view === t.value,
-						};
-					})}
-				/>
 				<LeadsFilterBar
 					defaultQ={q}
 					period={period}

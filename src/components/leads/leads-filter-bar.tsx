@@ -7,7 +7,6 @@ import { useState } from "react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { cn } from "@/lib/utils";
 import {
 	PERIOD_OPTIONS,
 	SEGMENT_OPTIONS,
@@ -16,7 +15,7 @@ import {
 } from "./leads-shared";
 
 /**
- * <LeadsFilterBar /> — search + period + topic + segment + pil tahap kontak.
+ * <LeadsFilterBar /> — search + period + topic + segment + tahap (satu baris).
  * Export lives in the topbar action slot (see leads/page.tsx).
  * Built on the shared <FilterBar> shell; the status pills mirror the Asset &
  * Design page exactly (green = active, hairline = idle, colored dot + count).
@@ -78,16 +77,6 @@ export function LeadsFilterBar({
 		...SEGMENT_OPTIONS.map((s) => ({ value: s.value, label: s.label })),
 	];
 
-	// Status pill chrome — identical spec to DesignFilterBar so the two pages
-	// read as one system: 32px tall, rounded-full, green when active.
-	const chipClass = (active: boolean) =>
-		cn(
-			"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors",
-			active
-				? "border-[#059669] bg-[#059669] text-white"
-				: "border-border-default bg-card text-foreground/70 hover:bg-secondary hover:text-foreground",
-		);
-
 	return (
 		<FilterBar
 			search={
@@ -130,39 +119,21 @@ export function LeadsFilterBar({
 				triggerClassName="rounded-full"
 			/>
 
-			{/* Pil tahap — inline (tanpa wrapper) supaya toolbar tetap satu baris
-			    seperti halaman daftar lain. */}
-			<Link
-				href={buildHref({ stage: "" })}
-				aria-current={!stage ? "true" : undefined}
-				className={chipClass(!stage)}
-			>
-				Semua
-				<span className="tabular text-[11px] opacity-70">{totalScoped}</span>
-			</Link>
-			{STAGE_OPTIONS.map((s) => {
-				const active = stage === s.value;
-				return (
-					<Link
-						key={s.value}
-						href={buildHref({ stage: s.value })}
-						aria-current={active ? "true" : undefined}
-						className={chipClass(active)}
-					>
-						<span
-							className={cn(
-								"size-2 rounded-full",
-								active ? "bg-white/90" : s.dot,
-							)}
-							aria-hidden
-						/>
-						{s.label}
-						<span className="tabular text-[11px] opacity-70">
-							{stageCounts[s.value] ?? 0}
-						</span>
-					</Link>
-				);
-			})}
+			{/* Tahap = dropdown (dulu 7 pil yang pecah jadi dua baris). */}
+			<NativeSelect
+				value={stage}
+				onValueChange={(v) => router.push(buildHref({ stage: v }))}
+				options={[
+					{ value: "", label: `Semua tahap · ${totalScoped}` },
+					...STAGE_OPTIONS.map((s) => ({
+						value: s.value,
+						label: `${s.label} · ${stageCounts[s.value] ?? 0}`,
+					})),
+				]}
+				placeholder="Semua tahap"
+				aria-label="Filter tahap"
+				triggerClassName="rounded-full"
+			/>
 
 			{hasFilters && (
 				<Link
@@ -174,7 +145,7 @@ export function LeadsFilterBar({
 					className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:ml-auto"
 				>
 					<X className="size-3.5" aria-hidden />
-					Clear
+					Hapus filter
 				</Link>
 			)}
 		</FilterBar>

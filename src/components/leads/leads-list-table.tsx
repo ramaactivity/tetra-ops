@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { CheckCheck, ChevronDown, Eye } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { LeadContactWithStage } from "@/lib/leads/contacts";
 import type { FollowupState } from "@/lib/leads/followup-types";
@@ -14,7 +14,6 @@ import {
 	REPLY_STATUS_META,
 	type ReplyStatus,
 	STAGE_META,
-	topicLabel,
 } from "./leads-shared";
 import { PauseContactButton } from "./pause-contact-button";
 import { SegmentSelect } from "./segment-select";
@@ -22,10 +21,13 @@ import { SegmentSelect } from "./segment-select";
 /**
  * <LeadsListTable /> — desktop <table> / mobile record-cards.
  *
- * Chrome + typography locked to the Asset & Design table so the two list pages
- * read as one system: rounded-2xl card, hairline-divided rows, eyebrow headers,
- * and a strict type scale — 13/medium primary · 12.5 secondary · 11 tertiary.
+ * Tiap kontak maksimal dua tingkat teks (owner 18 Nov: "bertumpuk-tumpuk ga
+ * jelas"). Satu fakta satu tempat: jumlah pesan = tombol buka riwayat, nomor
+ * dokumen = tooltip/tautan di chip tahap, Pause = ikon di samping Follow-up.
+ * Riwayat dibuka selebar tabel dan dibaca seperti chat (lama → baru, per hari).
  */
+
+const TZ = "Asia/Jakarta"; // server Vercel = UTC → tanpa ini hydration error #418
 
 function formatReceived(iso: string): string {
 	return new Date(iso).toLocaleString("id-ID", {
@@ -33,21 +35,29 @@ function formatReceived(iso: string): string {
 		month: "short",
 		hour: "2-digit",
 		minute: "2-digit",
-		// Server Vercel = UTC; tanpa ini jam beda dengan browser (WIB) → hydration error #418.
-		timeZone: "Asia/Jakarta",
+		timeZone: TZ,
 	});
 }
 
-function TopicTag({ topic }: { topic: string }) {
-	return (
-		<span className="inline-flex h-[22px] items-center rounded-full bg-secondary px-2.5 text-[11.5px] font-medium text-foreground/80">
-			{topicLabel(topic)}
-		</span>
-	);
-}
+const timeOnly = (iso: string) =>
+	new Date(iso).toLocaleTimeString("id-ID", {
+		hour: "2-digit",
+		minute: "2-digit",
+		timeZone: TZ,
+	});
 
-/** Tanda-terima balasan auto-reply ke customer (✓✓ Terkirim / 👁️ Dibaca).
- *  Tidak dirender saat status belum diketahui (null). */
+const dayKey = (iso: string) =>
+	new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
+
+const dayLabel = (iso: string) =>
+	new Date(iso).toLocaleDateString("id-ID", {
+		weekday: "long",
+		day: "numeric",
+		month: "short",
+		timeZone: TZ,
+	});
+
+/** Tanda-terima balasan bot (sampai / dibaca) — ikon saja, label di tooltip. */
 function ReplyReceipt({
 	status,
 	at,
@@ -57,17 +67,19 @@ function ReplyReceipt({
 }) {
 	const meta = status ? REPLY_STATUS_META[status as ReplyStatus] : undefined;
 	if (!meta) return null;
-	const tone =
-		meta.badge === "success"
-			? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-			: "bg-secondary text-muted-foreground";
+	const label = `Balasan bot ${meta.label.toLowerCase()}${at ? ` ${formatReceived(at)}` : ""}`;
+	const Icon = status === "read" ? Eye : CheckCheck;
 	return (
 		<span
-			title={at ? `${meta.label} ${formatReceived(at)}` : meta.label}
-			className={`inline-flex h-[20px] w-fit items-center gap-1 rounded-full px-2 text-[11px] font-medium ${tone}`}
+			title={label}
+			className={
+				status === "read"
+					? "inline-flex text-emerald-700 dark:text-emerald-400"
+					: "inline-flex text-muted-foreground"
+			}
 		>
-			<span aria-hidden>{meta.icon}</span>
-			{meta.label}
+			<Icon className="size-3.5" aria-hidden />
+			<span className="sr-only">{label}</span>
 		</span>
 	);
 }
@@ -83,7 +95,7 @@ export type ContactWithMessages = LeadContactWithStage & {
 
 type Convo = ContactWithMessages & { key: string; latest: LeadRow };
 
-/** Tanggal acara yang ditanyakan: "Sab, 20 Des · 32 hari lagi". */
+/** Tanggal acara yang ditanyakan: "Sab, 20 Des" + "32 hari lagi". */
 function eventDateLabel(iso: string, today: string) {
 	const d = new Date(`${iso}T00:00:00+07:00`);
 	const days = Math.round(
@@ -93,27 +105,27 @@ function eventDateLabel(iso: string, today: string) {
 		weekday: "short",
 		day: "numeric",
 		month: "short",
-		timeZone: "Asia/Jakarta",
+		timeZone: TZ,
 	});
 	const rel =
 		days < 0 ? "sudah lewat" : days === 0 ? "hari ini" : `${days} hari lagi`;
 	return { date, rel, soon: days >= 0 && days <= 30, past: days < 0 };
 }
 
+/** Chip tahap; kalau ada dokumen, chip-nya jadi tautan ke dokumen itu. */
 function StageCell({ c }: { c: Convo }) {
 	const meta = STAGE_META[c.stage];
+	const chip = <Badge variant={meta.badge}>{meta.label}</Badge>;
+	if (!c.ref) return chip;
 	return (
-		<div className="flex flex-col items-start gap-1">
-			<Badge variant={meta.badge}>{meta.label}</Badge>
-			{c.ref ? (
-				<Link
-					href={c.ref.href}
-					className="text-[11.5px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-				>
-					{c.ref.label}
-				</Link>
-			) : null}
-		</div>
+		<Link
+			href={c.ref.href}
+			title={`Buka ${c.ref.label}`}
+			className="inline-flex rounded-full outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[#059669]/40"
+		>
+			{chip}
+			<span className="sr-only">{c.ref.label}</span>
+		</Link>
 	);
 }
 
@@ -122,14 +134,14 @@ function EventDateCell({ iso, today }: { iso: string | null; today: string }) {
 		return <span className="text-[12.5px] text-muted-foreground/60">—</span>;
 	const e = eventDateLabel(iso, today);
 	return (
-		<div className="flex flex-col gap-0.5">
+		<div className="flex flex-col gap-0.5 whitespace-nowrap">
 			<span
 				className={`tabular text-[12.5px] ${e.past ? "text-muted-foreground" : "text-foreground"}`}
 			>
 				{e.date}
 			</span>
 			<span
-				className={`text-[11px] ${e.soon ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
+				className={`text-[11.5px] ${e.soon ? "font-medium text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}
 			>
 				{e.rel}
 			</span>
@@ -137,22 +149,66 @@ function EventDateCell({ iso, today }: { iso: string | null; today: string }) {
 	);
 }
 
-function OlderMessages({ messages }: { messages: LeadRow[] }) {
+/**
+ * Riwayat dibaca seperti chat: lama → baru, dikelompokkan per hari, gelembung
+ * per pesan. Dibuka di posisi pesan terbaru (bawah).
+ */
+function ChatHistory({
+	messages,
+	name,
+}: {
+	messages: LeadRow[];
+	name: string;
+}) {
+	const scroller = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const el = scroller.current;
+		if (el) el.scrollTop = el.scrollHeight;
+	}, []);
+	const asc = [...messages].sort((a, b) =>
+		a.received_at.localeCompare(b.received_at),
+	);
+	const days: Array<{ key: string; label: string; items: LeadRow[] }> = [];
+	for (const m of asc) {
+		const k = dayKey(m.received_at);
+		const last = days[days.length - 1];
+		if (last?.key === k) last.items.push(m);
+		else days.push({ key: k, label: dayLabel(m.received_at), items: [m] });
+	}
 	return (
-		<ul className="space-y-1.5 border-l-2 border-border-subtle pl-3">
-			{messages.map((m) => (
-				<li key={m.id} className="text-[12.5px] leading-snug">
-					<span className="tabular text-muted-foreground">
-						{formatReceived(m.received_at)}
-					</span>
-					<span className="text-muted-foreground/60">
-						{" "}
-						· {topicLabel(m.topic)} ·{" "}
-					</span>
-					<span className="text-foreground/80">{m.message?.trim() || "—"}</span>
-				</li>
-			))}
-		</ul>
+		<div className="space-y-2">
+			<p className="text-[12px] text-muted-foreground">
+				{messages.length} pesan dari {name} · balasan bot tidak tersimpan di
+				sini
+			</p>
+			<div
+				ref={scroller}
+				className="max-h-[360px] space-y-3 overflow-y-auto overscroll-contain rounded-xl bg-secondary/40 p-3"
+			>
+				{days.map((d) => (
+					<div key={d.key} className="space-y-1.5">
+						<div className="flex justify-center">
+							<span className="rounded-full bg-card px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground shadow-[var(--shadow-level-1)]">
+								{d.label}
+							</span>
+						</div>
+						{d.items.map((m) => (
+							<div key={m.id} className="flex">
+								<div className="max-w-[min(68ch,88%)] rounded-2xl rounded-tl-md bg-card px-3 py-2 shadow-[var(--shadow-level-1)]">
+									<p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-foreground">
+										{m.message?.trim() || "—"}
+									</p>
+									<p className="tabular mt-0.5 text-right text-[11px] text-muted-foreground">
+										{timeOnly(m.received_at)}
+										{m.is_after_hours ? " · luar jam" : ""}
+									</p>
+								</div>
+							</div>
+						))}
+					</div>
+				))}
+			</div>
+		</div>
 	);
 }
 
@@ -196,47 +252,50 @@ export function LeadsListTable({
 			/>
 		);
 	}
-	/** Follow-up hanya untuk kontak bernomor HP yang belum booking/batal. */
-	function followupCell(c: Convo) {
-		if (!c.phone || c.stage === "booking" || c.stage === "batal") return null;
+	/** Follow-up (kontak bernomor HP, belum booking/batal) + Pause, satu baris. */
+	function actions(c: Convo) {
+		const l = c.latest;
 		return (
-			<FollowupButton
-				jid={c.jid}
-				nomor={c.phone}
-				nama={c.name ?? "kontak ini"}
-				alasan={c.alasan}
-				konteks={c.konteks}
-				latest={c.followup}
-			/>
+			<div className="flex items-center justify-end gap-0.5">
+				{c.phone && c.stage !== "booking" && c.stage !== "batal" ? (
+					<FollowupButton
+						jid={c.jid}
+						nomor={c.phone}
+						nama={c.name ?? "kontak ini"}
+						alasan={c.alasan}
+						konteks={c.konteks}
+						latest={c.followup}
+					/>
+				) : null}
+				<PauseContactButton
+					waJid={l.wa_jid}
+					name={l.name || l.phone}
+					iconOnly
+				/>
+			</div>
 		);
 	}
 	function contactCell(c: Convo, big = false) {
 		const l = c.latest;
 		return (
 			<div className="flex min-w-0 flex-col gap-0.5">
-				<span className="flex min-w-0 items-baseline gap-1.5">
-					{l.name ? (
-						<span
-							className={`truncate font-medium text-foreground ${big ? "text-[14px] font-semibold" : "text-[13px]"}`}
-						>
-							{l.name}
-						</span>
-					) : (
-						<span className="text-[13px] text-muted-foreground/70">
-							Tanpa nama
-						</span>
-					)}
-					{c.messages.length > 1 ? (
-						<span className="tabular shrink-0 text-[11.5px] text-muted-foreground">
-							{c.messages.length} pesan
-						</span>
-					) : null}
-				</span>
+				{l.name ? (
+					<span
+						className={`truncate font-medium text-foreground ${big ? "text-[14px] font-semibold" : "text-[13px]"}`}
+					>
+						{l.name}
+					</span>
+				) : (
+					<span className="text-[13px] text-muted-foreground/70">
+						Tanpa nama
+					</span>
+				)}
 				<ContactPhone phone={l.phone} waJid={l.wa_jid} />
 			</div>
 		);
 	}
-	function moreButton(c: Convo) {
+	/** Jumlah pesan = tombol buka riwayat (bukan teks terpisah). */
+	function historyToggle(c: Convo) {
 		if (c.messages.length < 2) return null;
 		const isOpen = open.has(c.key);
 		return (
@@ -244,11 +303,9 @@ export function LeadsListTable({
 				type="button"
 				onClick={() => toggle(c.key)}
 				aria-expanded={isOpen}
-				className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground hover:text-foreground"
+				className="tabular inline-flex items-center gap-1 rounded-full text-[12px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#059669]/40"
 			>
-				{isOpen
-					? "Sembunyikan"
-					: `Lihat ${c.messages.length - 1} pesan sebelumnya`}
+				{isOpen ? "Tutup riwayat" : `${c.messages.length} pesan`}
 				<ChevronDown
 					className={`size-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
 					aria-hidden
@@ -256,6 +313,24 @@ export function LeadsListTable({
 			</button>
 		);
 	}
+	function lastChat(c: Convo) {
+		const l = c.latest;
+		return (
+			<div className="flex flex-col gap-0.5 whitespace-nowrap">
+				<span className="tabular inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+					{formatReceived(l.received_at)}
+					<ReplyReceipt status={l.reply_status} at={l.reply_status_at} />
+				</span>
+				{l.is_after_hours ? (
+					<span className="text-[11.5px] text-amber-700 dark:text-amber-500">
+						luar jam
+					</span>
+				) : null}
+			</div>
+		);
+	}
+
+	const cols = canManage ? 7 : 6;
 
 	return (
 		<>
@@ -263,13 +338,13 @@ export function LeadsListTable({
 			<div className="hidden overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[var(--shadow-level-2)] md:block">
 				<table className="w-full table-fixed text-sm">
 					<colgroup>
-						<col style={{ width: "19%" }} />
-						<col style={{ width: "11%" }} />
-						<col style={{ width: "12%" }} />
-						<col />
+						<col style={{ width: "18%" }} />
 						<col style={{ width: "11%" }} />
 						<col style={{ width: "10%" }} />
-						{canManage ? <col style={{ width: "12%" }} /> : null}
+						<col />
+						<col style={{ width: "11%" }} />
+						<col style={{ width: "12%" }} />
+						{canManage ? <col style={{ width: "13%" }} /> : null}
 					</colgroup>
 					<thead className="border-b border-border-default">
 						<tr className="text-left text-[12px] font-semibold text-muted-foreground">
@@ -277,7 +352,7 @@ export function LeadsListTable({
 							<th className="px-4 py-2.5">Segmen</th>
 							<th className="px-4 py-2.5">Tahap</th>
 							<th className="px-4 py-2.5">Pesan terakhir</th>
-							<th className="px-4 py-2.5">Tanggal acara</th>
+							<th className="px-4 py-2.5">Acara</th>
 							<th className="px-4 py-2.5">Chat terakhir</th>
 							{canManage ? (
 								<th className="px-4 py-2.5 text-right">Aksi</th>
@@ -287,61 +362,40 @@ export function LeadsListTable({
 					<tbody className="divide-y divide-border-subtle">
 						{convos.map((c) => {
 							const l = c.latest;
+							const isOpen = open.has(c.key);
 							return (
-								<tr
-									key={c.key}
-									className="transition-colors hover:bg-secondary/30"
-								>
-									<td className="px-4 py-3 align-top">{contactCell(c)}</td>
-									<td className="px-4 py-3 align-top">{segmentCell(c)}</td>
-									<td className="px-4 py-3 align-top">
-										<StageCell c={c} />
-									</td>
-									<td className="px-4 py-3 align-top">
-										<div className="mb-1">
-											<TopicTag topic={l.topic} />
-										</div>
-										<p className="line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">
-											{l.message?.trim() || "—"}
-										</p>
-										{moreButton(c)}
-										{open.has(c.key) ? (
-											<div className="mt-2">
-												<OlderMessages messages={c.messages.slice(1)} />
-											</div>
-										) : null}
-									</td>
-									<td className="px-4 py-3 align-top">
-										<EventDateCell iso={c.eventDate} today={today} />
-									</td>
-									<td className="px-4 py-3 align-top">
-										<div className="flex flex-col items-start gap-1">
-											<span className="tabular text-[12.5px] text-muted-foreground">
-												{formatReceived(l.received_at)}
-											</span>
-											{l.is_after_hours ? (
-												<span className="text-[11px] text-amber-600 dark:text-amber-500">
-													luar jam
-												</span>
-											) : null}
-											<ReplyReceipt
-												status={l.reply_status}
-												at={l.reply_status_at}
-											/>
-										</div>
-									</td>
-									{canManage ? (
-										<td className="px-4 py-3 text-right align-top">
-											<div className="flex flex-col items-end gap-1">
-												{followupCell(c)}
-												<PauseContactButton
-													waJid={l.wa_jid}
-													name={l.name || l.phone}
-												/>
-											</div>
+								<Fragment key={c.key}>
+									<tr className="transition-colors hover:bg-secondary/30">
+										<td className="px-4 py-3 align-top">{contactCell(c)}</td>
+										<td className="px-4 py-3 align-top">{segmentCell(c)}</td>
+										<td className="px-4 py-3 align-top">
+											<StageCell c={c} />
 										</td>
+										<td className="px-4 py-3 align-top">
+											<p className="line-clamp-2 text-[13px] leading-snug text-foreground/80">
+												{l.message?.trim() || "—"}
+											</p>
+											<div className="mt-1">{historyToggle(c)}</div>
+										</td>
+										<td className="px-4 py-3 align-top">
+											<EventDateCell iso={c.eventDate} today={today} />
+										</td>
+										<td className="px-4 py-3 align-top">{lastChat(c)}</td>
+										{canManage ? (
+											<td className="px-3 py-2.5 align-top">{actions(c)}</td>
+										) : null}
+									</tr>
+									{isOpen ? (
+										<tr>
+											<td colSpan={cols} className="px-4 pb-4 pt-0">
+												<ChatHistory
+													messages={c.messages}
+													name={l.name || "kontak ini"}
+												/>
+											</td>
+										</tr>
 									) : null}
-								</tr>
+								</Fragment>
 							);
 						})}
 					</tbody>
@@ -352,57 +406,59 @@ export function LeadsListTable({
 			<div className="space-y-2.5 md:hidden">
 				{convos.map((c) => {
 					const l = c.latest;
+					const ev = c.eventDate ? eventDateLabel(c.eventDate, today) : null;
 					return (
 						<div
 							key={c.key}
-							className="space-y-2.5 rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]"
+							className="space-y-2 rounded-2xl border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-2)]"
 						>
 							<div className="flex items-start justify-between gap-3">
 								{contactCell(c, true)}
-								<div className="flex shrink-0 flex-col items-end gap-1 text-right">
+								<div className="shrink-0">
 									<StageCell c={c} />
 								</div>
 							</div>
 							<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 								{segmentCell(c)}
-								<TopicTag topic={l.topic} />
-								<span className="tabular text-[12px] text-muted-foreground">
+								<span className="tabular inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
 									{formatReceived(l.received_at)}
+									<ReplyReceipt
+										status={l.reply_status}
+										at={l.reply_status_at}
+									/>
 								</span>
-								{l.is_after_hours ? (
-									<span className="text-[11px] text-amber-600 dark:text-amber-500">
-										· luar jam
-									</span>
-								) : null}
-								<ReplyReceipt status={l.reply_status} at={l.reply_status_at} />
 							</div>
-							{c.eventDate ? (
+							{ev ? (
 								<p className="text-[12.5px] text-muted-foreground">
 									Acara{" "}
-									<span className="tabular text-foreground">
-										{eventDateLabel(c.eventDate, today).date}
-									</span>{" "}
-									· {eventDateLabel(c.eventDate, today).rel}
+									<span className="tabular text-foreground">{ev.date}</span>
+									{" · "}
+									<span
+										className={
+											ev.soon
+												? "font-medium text-rose-600 dark:text-rose-400"
+												: ""
+										}
+									>
+										{ev.rel}
+									</span>
 								</p>
 							) : null}
 							{l.message?.trim() ? (
-								<p className="line-clamp-3 text-[12.5px] leading-snug text-muted-foreground">
+								<p className="line-clamp-2 text-[13px] leading-snug text-foreground/80">
 									{l.message.trim()}
 								</p>
 							) : null}
-							{moreButton(c)}
 							{open.has(c.key) ? (
-								<OlderMessages messages={c.messages.slice(1)} />
+								<ChatHistory
+									messages={c.messages}
+									name={l.name || "kontak ini"}
+								/>
 							) : null}
-							{canManage ? (
-								<div className="flex items-center justify-end gap-1 border-t border-border-subtle pt-2">
-									{followupCell(c)}
-									<PauseContactButton
-										waJid={l.wa_jid}
-										name={l.name || l.phone}
-									/>
-								</div>
-							) : null}
+							<div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
+								{historyToggle(c) ?? <span />}
+								{canManage ? actions(c) : null}
+							</div>
 						</div>
 					);
 				})}

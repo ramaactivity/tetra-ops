@@ -43,7 +43,7 @@ export function saldoAiView(raw: unknown, now = Date.now()): SaldoAiView {
 	const cukup =
 		s.hari_tersisa != null
 			? `cukup ±${Math.max(0, Math.round(s.hari_tersisa))} hari`
-			: "laju pemakaian belum terbaca";
+			: "laju belum terbaca";
 	return {
 		value:
 			s.sisa_usd != null

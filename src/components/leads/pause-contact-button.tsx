@@ -13,9 +13,12 @@ import { pauseContact } from "@/lib/actions/bot-control";
 export function PauseContactButton({
 	waJid,
 	name,
+	iconOnly = false,
 }: {
 	waJid: string;
 	name: string;
+	/** Tabel padat: ikon saja (label tetap terbaca screen reader & tooltip). */
+	iconOnly?: boolean;
 }) {
 	const [pending, start] = useTransition();
 
@@ -39,10 +42,15 @@ export function PauseContactButton({
 			}}
 			disabled={pending}
 			title="Pause bot untuk kontak ini"
-			className="press-down inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-60"
+			aria-label={iconOnly ? `Pause bot untuk ${name}` : undefined}
+			className={
+				iconOnly
+					? "press-down inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-60"
+					: "press-down inline-flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground disabled:opacity-60"
+			}
 		>
-			<PauseCircle className="size-3.5" aria-hidden />
-			{pending ? "…" : "Pause"}
+			<PauseCircle className={iconOnly ? "size-4" : "size-3.5"} aria-hidden />
+			{iconOnly ? null : pending ? "…" : "Pause"}
 		</button>
 	);
 }
