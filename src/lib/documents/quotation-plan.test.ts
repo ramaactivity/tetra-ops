@@ -216,7 +216,12 @@ test("isian admin: transport Magazine, luar Jabodetabek, Luxury → blokir kirim
 	const tanpaKota = ok(
 		plan({ layanan: [{ kategori: "videobooth_360", jam: 4 }], acara: {} }),
 	);
-	assert.deepEqual(tanpaKota.butuh_isian_admin, ["Transport"]);
+	// Owner 18 Nov: kota belum diketahui → tidak ada baris transport "Diisi admin" di quotation.
+	assert.deepEqual(tanpaKota.butuh_isian_admin, []);
+	assert.equal(
+		tanpaKota.items.some((i) => i.name === "Transport"),
+		false,
+	);
 	const lux = ok(
 		plan({
 			layanan: [{ kategori: "videobooth_360", jam: 4 }],

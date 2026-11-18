@@ -439,16 +439,15 @@ export function planQuotation(
 
 	// Transport: gratis se-Jabodetabek kecuali Magazine Box; luar area = admin.
 	const magazine = [...categories].some((c) => MAGAZINE.has(c));
-	const kota = r.acara.kota;
-	const luar = !isJabodetabek(kota);
+	// Kota belum diketahui BUKAN berarti luar Jabodetabek (owner 18 Nov: baris "Transport — Diisi admin · kota acara
+	// belum diketahui" jangan tampil di quotation). Paket sudah mencantumkan transport area Jabodetabek dan syarat
+	// menyebut luar area dihitung terpisah.
+	const kota = r.acara.kota?.trim() || null;
+	const luar = kota !== null && !isJabodetabek(kota);
 	if (magazine || luar) {
 		const why = [
 			magazine ? "Magazine Box" : null,
-			luar
-				? kota
-					? `luar Jabodetabek (${kota})`
-					: "kota acara belum diketahui"
-				: null,
+			luar ? `luar Jabodetabek (${kota})` : null,
 		]
 			.filter(Boolean)
 			.join(" · ");
