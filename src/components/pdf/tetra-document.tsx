@@ -37,6 +37,7 @@ import {
 	PDF_COLORS,
 	PDF_STYLES,
 	PdfBottom,
+	PdfContinuation,
 	PdfFooter,
 	PdfHeader,
 	PdfPageNumber,
@@ -409,6 +410,9 @@ function Shell({
 			{bottom}
 			<PdfFooter thanks={THANKS[d.docType]} />
 			<PdfPageNumber docNumber={d.docNumber} />
+			<PdfContinuation
+				label={`${DOC_TITLE[d.docType]} ${d.docNumber} · ${d.client.name}`}
+			/>
 		</Page>
 	);
 }
@@ -418,9 +422,11 @@ function Shell({
 function BillingPage({
 	d,
 	variant,
+	flow,
 }: {
 	d: PdfDocData;
 	variant: HeaderVariant;
+	flow: boolean;
 }) {
 	const paid = isPaid(d);
 	const payment = d.payment;
@@ -479,19 +485,41 @@ function BillingPage({
 	// Rekening selalu tampil (owner, 30 Sep 2026) — juga saat lunas & di
 	// quotation, sama dengan preview Claude Design.
 
+	const totals = <Totals lines={billingTotals(d)} notes={d.notes} />;
+	const bigFigure = (
+		<BigFigure label={big.label} sub={big.sub} value={big.value} />
+	);
+	const bottom = (
+		<PdfBottom
+			bank={d.bank}
+			terms={termLines(d)}
+			signer={d.signer}
+			flow={flow}
+		/>
+	);
+	// Mode alir (dokumen 2 halaman): Subtotal/Total tetap menempel di bawah
+	// tabel; angka total besar ikut blok bawah sebagai pembuka halaman 2,
+	// supaya halaman 2 tidak berisi blok pembayaran sendirian.
 	return (
 		<Shell
 			d={d}
 			variant={variant}
 			bottom={
-				<PdfBottom bank={d.bank} terms={termLines(d)} signer={d.signer} />
+				flow ? (
+					<View wrap={false}>
+						{bigFigure}
+						{bottom}
+					</View>
+				) : (
+					bottom
+				)
 			}
 		>
 			<MetaRow cells={meta} />
 			<PartyRow d={d} label={d.docType === "quotation" ? "Untuk" : "Kepada"} />
 			<PriceTable d={d} />
-			<Totals lines={billingTotals(d)} notes={d.notes} />
-			<BigFigure label={big.label} sub={big.sub} value={big.value} />
+			{totals}
+			{flow ? null : bigFigure}
 		</Shell>
 	);
 }
@@ -499,9 +527,11 @@ function BillingPage({
 function ReceiptPage({
 	d,
 	variant,
+	flow,
 }: {
 	d: PdfDocData;
 	variant: HeaderVariant;
+	flow: boolean;
 }) {
 	const r = d.receipt;
 	if (!r) return null;
@@ -529,7 +559,12 @@ function ReceiptPage({
 			d={d}
 			variant={variant}
 			bottom={
-				<PdfBottom bank={d.bank} terms={termLines(d)} signer={d.signer} />
+				<PdfBottom
+					bank={d.bank}
+					terms={termLines(d)}
+					signer={d.signer}
+					flow={flow}
+				/>
 			}
 		>
 			<MetaRow
@@ -572,7 +607,15 @@ function ReceiptPage({
 	);
 }
 
-function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
+function BastPage({
+	d,
+	variant,
+	flow,
+}: {
+	d: PdfDocData;
+	variant: HeaderVariant;
+	flow: boolean;
+}) {
 	const b = d.bast;
 	const picName = b?.picName ?? d.client.name;
 	// Jam sesi saja ("16.30–19.30"), tanpa "Setup …" — gaya referensi.
@@ -613,7 +656,7 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 			bottom={
 				<>
 					{/* Dua tanda tangan: Pihak Kedua kiri (kosong), Pihak Pertama kanan. */}
-					<PinnedBottom>
+					<PinnedBottom flow={flow}>
 						<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
 							<Col span={2}>
 								<Text style={S.blockTitle}>Pihak Kedua, penerima</Text>
@@ -689,20 +732,23 @@ function BastPage({ d, variant }: { d: PdfDocData; variant: HeaderVariant }) {
 export function TetraDocument({
 	data,
 	variant = "a",
+	flow = false,
 }: {
 	data: PdfDocData;
 	/** Varian header: a putih (default) · b hitam · c merah. */
 	variant?: HeaderVariant;
+	/** true = dokumen tidak muat 1 halaman (lihat renderTetraPdf). */
+	flow?: boolean;
 }) {
 	const title = `${DOC_TITLE[data.docType]} ${data.docNumber} — ${data.client.name}`;
 	return (
 		<Document title={title} author={COMPANY.name} creator="Tetra Ops">
 			{data.docType === "receipt" ? (
-				<ReceiptPage d={data} variant={variant} />
+				<ReceiptPage d={data} variant={variant} flow={flow} />
 			) : data.docType === "bast" ? (
-				<BastPage d={data} variant={variant} />
+				<BastPage d={data} variant={variant} flow={flow} />
 			) : (
-				<BillingPage d={data} variant={variant} />
+				<BillingPage d={data} variant={variant} flow={flow} />
 			)}
 		</Document>
 	);

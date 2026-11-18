@@ -1,12 +1,11 @@
-import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
-import { TetraDocument } from "@/components/pdf/tetra-document";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { loadPdfData } from "@/lib/documents/load";
 import { verifyPdfSignature } from "@/lib/documents/pdf-link";
 import { docFilename } from "@/lib/documents/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PdfDocData } from "./pdf-data";
+import { renderTetraPdf } from "./pdf-render";
 
 /** "Invoice INV-TP-01-23092026 - 20th Anniversary PT Gratama Finance Indonesia.pdf" */
 export function pdfFilename(data: PdfDocData): string {
@@ -61,7 +60,7 @@ export async function pdfDocumentResponse(
 		return NextResponse.redirect(target, 307);
 	}
 
-	const buffer = await renderToBuffer(<TetraDocument data={data} />);
+	const buffer = await renderTetraPdf(data);
 	// filename* (RFC 5987) untuk nama non-ASCII; filename biasa sebagai cadangan.
 	const ascii = filename.replace(/[^\x20-\x7e]/g, "");
 	return new Response(new Uint8Array(buffer), {

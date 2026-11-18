@@ -1,10 +1,9 @@
-import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
-import { TetraDocument } from "@/components/pdf/tetra-document";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { todayWIB } from "@/lib/dates";
 import { buildPdfContext } from "@/lib/documents/load";
 import { buildPdfData } from "@/lib/documents/pdf-data";
+import { renderTetraPdf } from "@/lib/documents/pdf-render";
 import { type DocumentRow, GROSS_UP_RATE_DEFAULT } from "@/lib/documents/types";
 
 /**
@@ -50,9 +49,7 @@ export async function POST(request: Request) {
 		status: body.status ?? "draft",
 	};
 	const ctx = await buildPdfContext(doc);
-	const buffer = await renderToBuffer(
-		<TetraDocument data={buildPdfData(doc, ctx)} />,
-	);
+	const buffer = await renderTetraPdf(buildPdfData(doc, ctx));
 	return new Response(new Uint8Array(buffer), {
 		headers: { "Content-Type": "application/pdf", "Cache-Control": "no-store" },
 	});

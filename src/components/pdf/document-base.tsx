@@ -459,7 +459,26 @@ export function PdfSignature({
  * `flexGrow` menghabiskan sisa ruang — tanpa posisi absolut, jadi react-pdf
  * tetap memindahkan blok ke halaman baru bila ruangnya tidak cukup.
  */
-export function PinnedBottom({ children }: { children: ReactNode }) {
+export function PinnedBottom({
+	children,
+	flow = false,
+}: {
+	children: ReactNode;
+	/**
+	 * Mode alir — dokumen tidak muat satu halaman (pdf-render.tsx merender
+	 * ulang). Blok tidak dipaku ke dasar halaman: dulu ia pindah sendirian ke
+	 * dasar halaman 2 dan menyisakan halaman kosong di atasnya. (Props, bukan
+	 * React context: modul ini juga dipakai route server — createContext
+	 * ditolak bundler Next di graf server.)
+	 */
+	flow?: boolean;
+}) {
+	if (flow)
+		return (
+			<View style={{ marginTop: 14 }} wrap={false}>
+				{children}
+			</View>
+		);
 	return (
 		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
 			<View style={{ marginTop: 14 }}>{children}</View>
@@ -473,7 +492,9 @@ export function PdfBottom({
 	terms,
 	signer,
 	signLabel,
+	flow,
 }: {
+	flow?: boolean;
 	bank: {
 		bankName: string;
 		accountHolder: string;
@@ -494,7 +515,7 @@ export function PdfBottom({
 		<Text style={[S.blockTitle, { marginBottom: 4.5 }]}>Ketentuan</Text>
 	);
 	return (
-		<PinnedBottom>
+		<PinnedBottom flow={flow}>
 			<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
 				<Col span={2}>
 					{bank ? (
@@ -527,6 +548,28 @@ export function PdfBottom({
 				</Col>
 			</Row>
 		</PinnedBottom>
+	);
+}
+
+/**
+ * Kepala kecil di halaman 2 dst.: "Quotation QUO-… · Nama klien (lanjutan)".
+ * Absolut di margin atas (tidak makan ruang isi); kosong di halaman 1. Harus
+ * anak langsung <Page> supaya `render` dipanggil.
+ */
+export function PdfContinuation({ label }: { label: string }) {
+	return (
+		<Text
+			fixed
+			style={{
+				position: "absolute",
+				top: 12,
+				left: GRID.padX,
+				right: GRID.padX,
+				fontSize: FS.small,
+				color: C.muted,
+			}}
+			render={({ pageNumber }) => (pageNumber > 1 ? `${label} (lanjutan)` : "")}
+		/>
 	);
 }
 
