@@ -13,7 +13,7 @@ const base = {
 
 test("saldo AI: sehat → dolar, perkiraan rupiah, sisa hari", () => {
 	assert.deepEqual(saldoAiView(base, now), {
-		value: "$9.28",
+		value: "$9,28",
 		hint: "≈ Rp165.594 · cukup ±6 hari",
 		merah: false,
 	});

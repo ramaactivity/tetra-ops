@@ -45,7 +45,10 @@ export function saldoAiView(raw: unknown, now = Date.now()): SaldoAiView {
 			? `cukup ±${Math.max(0, Math.round(s.hari_tersisa))} hari`
 			: "laju pemakaian belum terbaca";
 	return {
-		value: s.sisa_usd != null ? `$${s.sisa_usd.toFixed(2)}` : "—",
+		value:
+			s.sisa_usd != null
+				? `$${s.sisa_usd.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+				: "—",
 		hint: basi
 			? "data lebih dari 3 jam — penjaga Hermes mungkin mati"
 			: [rp, cukup].filter(Boolean).join(" · "),
