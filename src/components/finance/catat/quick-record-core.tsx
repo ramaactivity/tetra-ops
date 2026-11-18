@@ -11,6 +11,7 @@ import {
 	Repeat2,
 	X,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
 	useActionState,
@@ -23,7 +24,7 @@ import {
 } from "react";
 import { Combobox } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { MoneyInput } from "@/components/ui/form-fields";
+import { MoneyInput, TextField } from "@/components/ui/form-fields";
 import { MonthPicker } from "@/components/ui/month-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import { toast } from "@/components/ui/toaster";
@@ -38,6 +39,7 @@ import {
 	categoriesFor,
 	DIRECTION_LABEL,
 	findCategory,
+	suggestCategory,
 } from "@/lib/finance/quick-record-categories";
 import type {
 	CashAccount,
@@ -154,6 +156,11 @@ export function QuickRecordCore({
 	// hasil (bukan uang masuk). 0 = tidak ada patungan.
 	const [patunganPerOwner, setPatunganPerOwner] = useState(0);
 	const [note, setNote] = useState(prefill?.note ?? "");
+	// "Beli apa?" — teks bebas untuk menebak kategori (tidak disimpan sendiri;
+	// mengisi keterangan selama owner belum mengetik keterangannya sendiri).
+	const [beliApa, setBeliApa] = useState("");
+	const autoNoteRef = useRef("");
+	const beliSuggestion = useMemo(() => suggestCategory(beliApa), [beliApa]);
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 	// Biaya rutin: bulan yang DIBAYAR, bukan tanggal transaksinya. Default bulan
@@ -229,7 +236,14 @@ export function QuickRecordCore({
 	}, [data]);
 
 	const cats = categoriesFor(direction);
-	const visibleCats = showAllCats ? cats : cats.slice(0, 8);
+	// Kategori terpilih (mis. hasil tebakan "Beli apa?") selalu kelihatan,
+	// walau letaknya di balik "Lihat semua".
+	const visibleCats = showAllCats
+		? cats
+		: [
+				...cats.slice(0, 8),
+				...cats.slice(8).filter((c) => c.id === categoryId),
+			];
 	const sourceAcct = data.cashAccounts.find((a) => a.code === accountCode);
 
 	const counterpartName =
@@ -397,6 +411,7 @@ export function QuickRecordCore({
 		setCategoryId(null);
 		setCoaOverride("");
 		setSplits([]);
+		setBeliApa("");
 		if (d === "masuk") setAdminFee(0);
 	}
 	function applyRecent(r: RecentTxn) {
@@ -408,6 +423,23 @@ export function QuickRecordCore({
 		else {
 			setCategoryId(r.categoryId);
 			setCoaOverride(r.categoryId ? "" : r.counterpartCode);
+		}
+	}
+	function onBeliApa(text: string) {
+		setBeliApa(text);
+		const sug = suggestCategory(text);
+		if (sug?.kind === "category" && sug.categoryId !== categoryId) {
+			haptic("select");
+			setCategoryId(sug.categoryId);
+			setCoaOverride("");
+		}
+		// Keterangan ikut teks ini (atau nama layanan) selama owner belum
+		// menulis keterangannya sendiri.
+		if (!note || note === autoNoteRef.current) {
+			const next =
+				sug?.kind === "category" && sug.preset ? sug.preset : text.trim();
+			autoNoteRef.current = next;
+			setNote(next);
 		}
 	}
 	function swapTransfer() {
@@ -608,9 +640,52 @@ export function QuickRecordCore({
 			</div>
 		);
 
+	const beliHint =
+		beliSuggestion?.kind === "pembelian" ? (
+			<div className="rounded-xl border border-amber-300/70 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+				<p className="text-[12px] leading-relaxed text-amber-900 dark:text-amber-200">
+					{beliSuggestion.keyword} termasuk barang yang habis ke klien — catat
+					lewat Pembelian supaya masuk stok dan modal per acara benar.
+				</p>
+				<Link
+					href="/warehouse/purchases"
+					className="mt-1.5 inline-flex text-[12.5px] font-semibold text-amber-900 underline underline-offset-2 dark:text-amber-200"
+				>
+					Buka Pembelian
+				</Link>
+			</div>
+		) : beliSuggestion?.kind === "category" ? (
+			<p className="text-[12px] text-muted-foreground">
+				Kategori:{" "}
+				<span className="font-medium text-foreground">
+					{findCategory(beliSuggestion.categoryId)?.label}
+				</span>
+				{beliSuggestion.aset
+					? " — kalau harganya di atas Rp1,5 juta dan awet ≥ 2 tahun, catat lewat Pembelian (aset)."
+					: null}
+			</p>
+		) : beliApa.trim().length >= 3 ? (
+			<p className="text-[12px] text-muted-foreground">
+				Belum kenal — pilih kategori di bawah, atau "Operasional lain".
+			</p>
+		) : null;
+
 	const categoryField =
 		direction !== "transfer" ? (
 			<div className="space-y-2.5">
+				{direction === "keluar" ? (
+					<div className="space-y-1.5">
+						<span className="eyebrow">Beli apa?</span>
+						<TextField
+							value={beliApa}
+							onChange={(e) => onBeliApa(e.target.value)}
+							placeholder="mis. gunting, token AI, bensin, makan rapat"
+							aria-label="Beli apa"
+							autoComplete="off"
+						/>
+						{beliHint}
+					</div>
+				) : null}
 				<div className="flex items-center justify-between">
 					<span className="eyebrow">Kategori</span>
 					{cats.length > 8 ? (

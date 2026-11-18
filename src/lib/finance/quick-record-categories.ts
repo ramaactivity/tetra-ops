@@ -444,3 +444,214 @@ export const REKAP_EXPENSE_CATEGORY: Record<string, string> = {
 	konsumsi: "konsumsi",
 	misc: "operasional-lain",
 };
+
+// ── "Beli apa?" — tebak kategori dari nama barang/layanan ──────────────────
+// Owner sering bingung memilih pos beban (owner 18 Nov 2026). Kotak "Beli apa?"
+// di form Catat mengetik nama barang → kategori terpilih otomatis. Frasa yang
+// lebih panjang menang ("token listrik" ≠ "token" AI).
+
+/** Barang yang habis ke klien → wajib lewat Pembelian (masuk stok + HPP). */
+const PEMBELIAN_KEYWORDS = [
+	"flashdisk",
+	"flash disk",
+	"keychain",
+	"gantungan kunci",
+	"ganci",
+	"sleeve",
+	"media set",
+	"mediaset",
+	"kertas foto",
+	"ribbon",
+	"pouch",
+	"box flashdisk",
+	"box foto",
+];
+
+/** Alat mahal: bisa jadi aset tetap kalau > Rp1,5 jt & awet ≥ 2 tahun. */
+const ASET_KEYWORDS = [
+	"kamera",
+	"camera",
+	"printer",
+	"laptop",
+	"lensa",
+	"monitor",
+	"tv",
+	"ipad",
+	"tablet",
+	"lighting",
+];
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+	"konsumsi-rapat": [
+		"rapat",
+		"meeting",
+		"makan rapat",
+		"snack rapat",
+		"ngopi rapat",
+	],
+	konsumsi: ["makan crew", "konsumsi crew", "konsumsi event", "nasi box"],
+	entertain: ["jamu klien", "traktir klien", "entertain"],
+	"beli-alat": [
+		"gunting",
+		"kabel",
+		"tripod",
+		"obeng",
+		"lakban",
+		"isolasi",
+		"solasi",
+		"double tape",
+		"baterai",
+		"batre",
+		"stopkontak",
+		"colokan",
+		"terminal listrik",
+		"lampu",
+		"properti",
+		"atk",
+		"alat tulis",
+		"pulpen",
+		"spidol",
+		"cutter",
+		"tali",
+		"hanger",
+		"rak",
+		"meja",
+		"kursi",
+		"tas",
+		"koper",
+		"kipas",
+		...ASET_KEYWORDS,
+	],
+	"transport-bbm": ["bensin", "bbm", "pertalite", "pertamax", "solar"],
+	"transport-online": [
+		"gojek",
+		"grab",
+		"maxim",
+		"ojol",
+		"ojek",
+		"gocar",
+		"taksi",
+		"taxi",
+	],
+	"sewa-mobil": ["sewa mobil", "rental mobil"],
+	toll: ["tol", "toll"],
+	parkir: ["parkir"],
+	platform: [
+		"token ai",
+		"token",
+		"sumopod",
+		"vps",
+		"server",
+		"claude",
+		"chatgpt",
+		"openai",
+		"gemini",
+		"google drive",
+		"canva",
+		"capcut",
+		"hosting",
+		"hostinger",
+		"domain",
+		"langganan",
+	],
+	"bayar-internet": [
+		"wifi",
+		"internet",
+		"indihome",
+		"biznet",
+		"telkomsel",
+		"pascabayar",
+		"pulsa",
+		"kuota",
+		"paket data",
+	],
+	"bayar-kost": ["kost", "kos", "kosan", "sewa tempat"],
+	"sewa-alat": ["sewa alat", "sewa lampu", "sewa tv", "rental alat"],
+	perawatan: [
+		"servis",
+		"service",
+		"perbaikan",
+		"benerin",
+		"reparasi",
+		"head cleaning",
+	],
+	marketing: [
+		"iklan",
+		"ads",
+		"boost",
+		"endorse",
+		"kol",
+		"influencer",
+		"promosi",
+	],
+	expo: ["pameran", "expo", "bazar"],
+	"admin-bank": ["admin bank", "biaya admin", "fee transfer"],
+	"bonus-klien": ["bonus klien", "hadiah klien"],
+	"operasional-lain": ["token listrik", "listrik", "pln", "air pdam"],
+};
+
+/** Kata kunci → chip Layanan (isi keterangan) untuk kategori berpreset. */
+const PRESET_KEYWORDS: Array<[string, string]> = [
+	["token ai", "Token AI"],
+	["token", "Token AI"],
+	["sumopod", "VPS Sumopod"],
+	["vps", "VPS Sumopod"],
+	["claude", "Claude"],
+	["gemini", "Google Gemini"],
+	["google drive", "Google Drive"],
+	["chatgpt", "ChatGPT"],
+	["canva", "Canva"],
+	["capcut", "CapCut"],
+	["domain", "Hostinger Domain"],
+	["email bisnis", "Hostinger Email Bisnis"],
+	["wifi", "Wifi kantor"],
+	["telkomsel", "Telkomsel admin"],
+	["meta ads", "Meta Ads"],
+	["tiktok ads", "TikTok Ads"],
+	["google ads", "Google Ads"],
+];
+
+export type BeliApaSuggestion =
+	| { kind: "category"; categoryId: string; preset?: string; aset?: boolean }
+	| { kind: "pembelian"; keyword: string }
+	| null;
+
+// Kata kunci pendek (≤ 4 huruf: tol, kos, tas, tv) harus satu kata utuh supaya
+// "tolong"/"kosmetik"/"tasik" tidak ikut; yang lebih panjang cukup awal kata
+// ("guntingnya" tetap cocok dengan "gunting").
+const startsWord = (text: string, kw: string) =>
+	kw.length <= 4
+		? ` ${text} `.includes(` ${kw} `)
+		: ` ${text}`.includes(` ${kw}`);
+
+/** Tebak kategori Catat dari teks bebas ("gunting shopee", "token ai sumopod"). */
+export function suggestCategory(raw: string): BeliApaSuggestion {
+	const text = raw
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.trim();
+	if (text.length < 2) return null;
+	const pembelian = PEMBELIAN_KEYWORDS.find((kw) => startsWord(text, kw));
+	if (pembelian) return { kind: "pembelian", keyword: pembelian };
+	let best: { id: string; kw: string } | null = null;
+	for (const [id, kws] of Object.entries(CATEGORY_KEYWORDS))
+		for (const kw of kws)
+			if (startsWord(text, kw) && (!best || kw.length > best.kw.length))
+				best = { id, kw };
+	if (!best) return null;
+	const cat = findCategory(best.id);
+	const preset = cat?.presets
+		? PRESET_KEYWORDS.find(
+				([kw, name]) => startsWord(text, kw) && cat.presets?.includes(name),
+			)?.[1]
+		: undefined;
+	return {
+		kind: "category",
+		categoryId: best.id,
+		...(preset ? { preset } : {}),
+		...(best.id === "beli-alat" &&
+		ASET_KEYWORDS.some((kw) => startsWord(text, kw))
+			? { aset: true }
+			: {}),
+	};
+}
