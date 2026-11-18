@@ -65,6 +65,7 @@ import {
 	saveDocument,
 	setDocumentStatus,
 } from "@/lib/actions/documents";
+import { teksDokumen } from "@/lib/documents/pesan-klien";
 import { computeTotals } from "@/lib/documents/totals";
 import {
 	addDays,
@@ -367,14 +368,11 @@ export function DocumentEditor({
 		const id = saved.id;
 		const phone = doc.client.phone?.trim();
 		const when = doc.event_info?.date ?? linkedEvent?.event_date;
-		const msg = [
-			`Halo ${doc.client.name},`,
-			"",
-			`Berikut ${typeLabel.toLowerCase()} *${saved.number}* dari Tetra Photobooth${when ? ` untuk acara ${formatDateID(when)}` : ""}.`,
-			`Total: *${formatRupiah(totals.total)}*`,
-			"",
-			"File PDF terlampir. Terima kasih 🙏",
-		].join("\n");
+		const msg = teksDokumen({
+			client: doc.client,
+			jenis: typeLabel,
+			tanggalAcara: when ? formatDateID(when) : null,
+		});
 		window.open(`/api/pdf/document/${id}?download=1`, "_blank");
 		if (phone) {
 			window.open(whatsappUrl(phone, msg), "_blank");

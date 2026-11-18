@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import { setDocumentStatus } from "@/lib/actions/documents";
+import { teksDokumen } from "@/lib/documents/pesan-klien";
 import {
 	DOC_TYPE_LABEL,
 	type DocumentRow,
@@ -50,13 +51,13 @@ export function DocumentViewer({
 	const pdf = `/api/pdf/document/${doc.id}`;
 
 	function sendWa() {
-		const msg = [
-			`Halo ${doc.client.name},`,
-			"",
-			`Berikut ${label.toLowerCase()} *${doc.doc_number}* dari Tetra Photobooth.`,
-			"",
-			"File PDF terlampir. Terima kasih 🙏",
-		].join("\n");
+		const msg = teksDokumen({
+			client: doc.client,
+			jenis: label,
+			tanggalAcara: doc.event_info?.date
+				? formatDateID(doc.event_info.date)
+				: null,
+		});
 		window.open(`${pdf}?download=1`, "_blank");
 		if (doc.client.phone)
 			window.open(whatsappUrl(doc.client.phone, msg), "_blank");

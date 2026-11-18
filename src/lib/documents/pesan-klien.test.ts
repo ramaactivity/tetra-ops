@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { sapaKlien, teksQuotation } from "./pesan-klien";
+import { sapaKlien, teksDokumen, teksQuotation } from "./pesan-klien";
 
 test("quotation ke klien: sapa Kak + nama orang, istilah quotation, tanpa penawaran/basa-basi (owner 16 Nov, Riska)", () => {
 	const t = teksQuotation({
@@ -40,4 +40,26 @@ test("sapaan: u.p. dipakai, nama lembaga tidak, sapaan bawaan tidak dobel", () =
 	);
 	assert.equal(sapaKlien({ name: "PT BIPO", attn: null }), "Kak");
 	assert.equal(sapaKlien({ name: "Bu Ani", attn: null }), "Bu Ani");
+});
+
+test("invoice ke klien: kalimat owner 18 Nov, tanpa nomor dokumen", () => {
+	const t = teksDokumen({
+		client: { name: "Yessi", attn: null },
+		jenis: "Invoice",
+		tanggalAcara: "2 Des 2026",
+	});
+	assert.equal(
+		t,
+		"Halo Kak Yessi, berikut untuk invoice acara 2 Des 2026.\nFile PDF terlampir. Silahkan dicek terlebih dahulu. Terima kasih 🙏",
+	);
+	assert.doesNotMatch(t, /INV-|\*/);
+	assert.equal(
+		teksDokumen({
+			client: { name: "Yessi" },
+			jenis: "Invoice",
+			tanggalAcara: null,
+			revisi: true,
+		}).split("\n")[0],
+		"Halo Kak Yessi, berikut untuk invoice-nya yang sudah kami revisi.",
+	);
 });

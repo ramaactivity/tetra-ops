@@ -14,7 +14,7 @@ import {
 	notifyApprovalNeeded,
 	resolveApprovalNotifications,
 } from "./pending-approval";
-import { sapaKlien, teksQuotation } from "./pesan-klien";
+import { sapaKlien, teksDokumen, teksQuotation } from "./pesan-klien";
 import { sendDocumentCore } from "./send";
 import { computeTotals } from "./totals";
 import {
@@ -113,7 +113,7 @@ export async function defaultClientMessage(
 	}
 	// Dokumen kedua dalam satu kiriman cukup kalimat pendek.
 	if (index > 0)
-		return `Terlampir juga ${jenis.toLowerCase()} ${doc.doc_number}. Terima kasih 🙏`;
+		return `Terlampir juga ${jenis.toLowerCase()}-nya. Terima kasih 🙏`;
 
 	let sisa: number | null = null;
 	let due: string | null = null;
@@ -129,7 +129,7 @@ export async function defaultClientMessage(
 	if (doc.doc_type === "receipt") {
 		return [
 			`Halo ${nama}, terima kasih 🙏 Pembayaran sudah kami terima.`,
-			`Terlampir kuitansi *${doc.doc_number}*${acara}.`,
+			`Terlampir kuitansi${acara}.`,
 			sisa && sisa > 0
 				? `Sisa tagihan ${formatRupiah(sisa)}${due ? `, paling lambat ${formatDateID(due)}` : ""}.`
 				: "",
@@ -138,20 +138,17 @@ export async function defaultClientMessage(
 			.join("\n");
 	}
 	if (doc.doc_type === "nota_lunas")
-		return `Halo ${nama}, pembayaran${acara} sudah lunas 🙏 Terlampir nota lunas *${doc.doc_number}*. Terima kasih atas kepercayaannya!`;
+		return `Halo ${nama}, pembayaran${acara} sudah lunas 🙏 Terlampir nota lunasnya. Terima kasih atas kepercayaannya!`;
 	if (doc.doc_type === "bast")
-		return `Halo ${nama}, terlampir Berita Acara Serah Terima (BAST) *${doc.doc_number}*${acara}. Terima kasih sudah memakai Tetra Photobooth 🙏`;
-	return [
-		revisi
-			? `Halo ${nama}, ini ${jenis.toLowerCase()} *${doc.doc_number}* yang sudah kami revisi${acara}.`
-			: `Halo ${nama}, berikut ${jenis.toLowerCase()} *${doc.doc_number}* dari Tetra Photobooth${acara}.`,
-		sisa && sisa > 0
-			? `Sisa tagihan ${formatRupiah(sisa)}${due ? `, paling lambat ${formatDateID(due)}` : ""}.`
-			: "",
-		"File PDF terlampir. Terima kasih 🙏",
-	]
-		.filter(Boolean)
-		.join("\n");
+		return `Halo ${nama}, terlampir Berita Acara Serah Terima (BAST)${acara}. Terima kasih sudah memakai Tetra Photobooth 🙏`;
+	return teksDokumen({
+		client: doc.client,
+		jenis,
+		tanggalAcara: doc.event_info?.date
+			? formatDateID(doc.event_info.date)
+			: null,
+		revisi,
+	});
 }
 
 export type TapOutcome = {
