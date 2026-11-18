@@ -221,11 +221,15 @@ const HEADER_THEME: Record<
 export function PdfHeader({
 	title,
 	variant = "a",
+	compact = false,
 }: {
 	title: string;
 	variant?: HeaderVariant;
+	/** Versi ringkas untuk memuatkan dokumen di satu halaman (pdf-render). */
+	compact?: boolean;
 }) {
 	const t = HEADER_THEME[variant];
+	const titleSize = compact ? 56 : FS.title;
 	const bleed = t.bg
 		? {
 				backgroundColor: t.bg,
@@ -272,11 +276,11 @@ export function PdfHeader({
 				style={[
 					S.bold,
 					{
-						marginTop: 18,
-						fontSize: FS.title,
+						marginTop: compact ? 12 : 18,
+						fontSize: titleSize,
 						lineHeight: 0.8,
-						letterSpacing: -4.6,
-						marginLeft: -4.5,
+						letterSpacing: -4.6 * (titleSize / FS.title),
+						marginLeft: -4.5 * (titleSize / FS.title),
 						// react-pdf memotong glyph di atas baseline bila lineHeight < 1;
 						// ruang kecil di atas mengompensasi.
 						paddingTop: 4,
@@ -315,13 +319,17 @@ export function LabelBlock({
 /** Baris meta: No. · tanggal · status/referensi. */
 export function MetaRow({
 	cells,
+	compact = false,
 }: {
 	cells: Array<{ k: string; v: string; span: 1 | 2 | 3 | 4 }>;
+	compact?: boolean;
 }) {
 	return (
 		// 30 (bukan 21 handoff): kotak judul react-pdf lebih tinggi dari
 		// lineHeight 0.8 desain, judul dinaikkan 9pt → jarak dikembalikan di sini.
-		<Row style={[S.ruleThin, { marginTop: 32.75, paddingTop: 7.5 }]}>
+		<Row
+			style={[S.ruleThin, { marginTop: compact ? 24 : 32.75, paddingTop: 7.5 }]}
+		>
 			{cells.map((c) => (
 				<Col key={c.k} span={c.span}>
 					<LabelBlock label={c.k} lines={[c.v]} />
@@ -339,15 +347,23 @@ export function BigFigure({
 	label,
 	sub,
 	value,
+	compact = false,
 }: {
 	label: string;
 	sub?: string | null;
 	value: string;
+	compact?: boolean;
 }) {
 	// Helvetica-Bold ≈ 0.55em per karakter setelah letterSpacing −0.05em.
-	const fit = Math.min(FS.big, GRID.span[4] / (value.length * 0.55));
+	const fit = Math.min(
+		compact ? 46 : FS.big,
+		GRID.span[4] / (value.length * 0.55),
+	);
 	return (
-		<Row style={[S.ruleThick, { marginTop: 21, paddingTop: 9 }]} wrap={false}>
+		<Row
+			style={[S.ruleThick, { marginTop: compact ? 14 : 21, paddingTop: 9 }]}
+			wrap={false}
+		>
 			<Col span={2}>
 				<LabelBlock label={label} lines={[sub]} />
 			</Col>
@@ -462,8 +478,11 @@ export function PdfSignature({
 export function PinnedBottom({
 	children,
 	flow = false,
+	compact = false,
 }: {
 	children: ReactNode;
+	/** Versi ringkas (pdf-render): jarak ke atas dirapatkan. */
+	compact?: boolean;
 	/**
 	 * Mode alir — dokumen tidak muat satu halaman (pdf-render.tsx merender
 	 * ulang). Blok tidak dipaku ke dasar halaman: dulu ia pindah sendirian ke
@@ -481,7 +500,7 @@ export function PinnedBottom({
 		);
 	return (
 		<View style={{ flexGrow: 1, justifyContent: "flex-end" }} wrap={false}>
-			<View style={{ marginTop: 14 }}>{children}</View>
+			<View style={{ marginTop: compact ? 8 : 14 }}>{children}</View>
 		</View>
 	);
 }
@@ -493,8 +512,11 @@ export function PdfBottom({
 	signer,
 	signLabel,
 	flow,
+	compact = false,
 }: {
 	flow?: boolean;
+	/** Versi ringkas: ketentuan lebih rapat supaya muat satu halaman. */
+	compact?: boolean;
 	bank: {
 		bankName: string;
 		accountHolder: string;
@@ -506,7 +528,13 @@ export function PdfBottom({
 }) {
 	const termList = (list: string[], from: number) =>
 		list.map((t, i) => (
-			<View key={t} style={{ flexDirection: "row", marginBottom: 2.25 }}>
+			<View
+				key={t}
+				style={{
+					flexDirection: "row",
+					marginBottom: compact ? 0.75 : 2.25,
+				}}
+			>
 				<Text style={{ width: 10.5 }}>{from + i + 1}</Text>
 				<Text style={{ flex: 1 }}>{t}</Text>
 			</View>
@@ -515,8 +543,15 @@ export function PdfBottom({
 		<Text style={[S.blockTitle, { marginBottom: 4.5 }]}>Ketentuan</Text>
 	);
 	return (
-		<PinnedBottom flow={flow}>
-			<Row style={[S.ruleThin, S.small, { paddingTop: 9 }]}>
+		<PinnedBottom flow={flow} compact={compact}>
+			<Row
+				style={[
+					S.ruleThin,
+					S.small,
+					{ paddingTop: compact ? 6 : 9 },
+					compact ? { lineHeight: 1.35 } : {},
+				]}
+			>
 				<Col span={2}>
 					{bank ? (
 						<>

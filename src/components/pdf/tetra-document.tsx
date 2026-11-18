@@ -103,14 +103,27 @@ function methodLabel(bank: string | null) {
 /* ───────────────────────── blok bersama ───────────────────────── */
 
 /** Pihak (kiri) & Acara (kanan), dua kolom span 3. */
-function PartyRow({ d, label }: { d: PdfDocData; label: string }) {
+function PartyRow({
+	d,
+	label,
+	compact = false,
+}: {
+	d: PdfDocData;
+	label: string;
+	compact?: boolean;
+}) {
 	const c = d.client;
 	const venue = [d.event.venue, d.event.city].filter(Boolean).join(", ");
 	const title =
 		d.event.title && d.event.title !== c.name ? d.event.title : null;
 	const hasEvent = Boolean(title || d.event.date || venue);
 	return (
-		<Row style={[S.ruleThin, { marginTop: 13.5, paddingTop: 7.5 }]}>
+		<Row
+			style={[
+				S.ruleThin,
+				{ marginTop: compact ? 9 : 13.5, paddingTop: compact ? 6 : 7.5 },
+			]}
+		>
 			<Col span={3}>
 				<LabelBlock
 					label={label}
@@ -185,20 +198,22 @@ function ItemDesc({
 	i,
 	name,
 	includes,
+	compact = false,
 }: {
 	i: number;
 	name: string;
 	includes: readonly string[];
+	compact?: boolean;
 }) {
 	const { fixed, pending } = splitIncludes(includes);
 	return (
 		<Numbered n={i + 1}>
 			<Text>{name}</Text>
-			<Bullets lines={fixed} />
+			<Bullets lines={fixed} compact={compact} />
 			{pending.length > 0 ? (
-				<View style={{ marginTop: 4 }}>
+				<View style={{ marginTop: compact ? 2.5 : 4 }}>
 					<Text style={[S.bold, { color: C.warn }]}>Belum ditentukan</Text>
-					<Bullets lines={pending} />
+					<Bullets lines={pending} compact={compact} />
 				</View>
 			) : null}
 		</Numbered>
@@ -206,12 +221,27 @@ function ItemDesc({
 }
 
 /** Poin rincian, satu per baris. */
-function Bullets({ lines }: { lines: readonly string[] }) {
+function Bullets({
+	lines,
+	compact = false,
+}: {
+	lines: readonly string[];
+	compact?: boolean;
+}) {
 	return (
 		<>
 			{lines.map((s, k) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: urutan rincian stabil
-				<Text key={k} style={[S.muted, { paddingLeft: 7, textIndent: -7 }]}>
+				<Text
+					// biome-ignore lint/suspicious/noArrayIndexKey: urutan rincian stabil
+					key={k}
+					style={[
+						S.muted,
+						{ paddingLeft: 7, textIndent: -7 },
+						// fontSize wajib di node yang sama: react-pdf menghitung
+						// lineHeight tanpa satuan dari fontSize node ini (default 18).
+						compact ? { fontSize: FS.body, lineHeight: 1.3 } : {},
+					]}
+				>
 					{`– ${s}`}
 				</Text>
 			))}
@@ -219,9 +249,15 @@ function Bullets({ lines }: { lines: readonly string[] }) {
 	);
 }
 
-function PriceTable({ d }: { d: PdfDocData }) {
+function PriceTable({
+	d,
+	compact = false,
+}: {
+	d: PdfDocData;
+	compact?: boolean;
+}) {
 	return (
-		<View style={{ marginTop: 21 }}>
+		<View style={{ marginTop: compact ? 14 : 21 }}>
 			<TableHead
 				cells={[
 					{ t: "Deskripsi", span: 3 },
@@ -236,11 +272,20 @@ function PriceTable({ d }: { d: PdfDocData }) {
 					<Row
 						// biome-ignore lint/suspicious/noArrayIndexKey: urutan item stabil saat render
 						key={i}
-						style={rowLine}
+						style={
+							compact
+								? { ...rowLine, paddingTop: 4, paddingBottom: 4.5 }
+								: rowLine
+						}
 						wrap={false}
 					>
 						<Col span={3}>
-							<ItemDesc i={i} name={it.name} includes={it.includes} />
+							<ItemDesc
+								i={i}
+								name={it.name}
+								includes={it.includes}
+								compact={compact}
+							/>
 						</Col>
 						<Col span={1}>
 							{/* Draft: harga belum diisi admin — dokumen tak bisa dikirim. */}
@@ -395,16 +440,22 @@ function Shell({
 	variant,
 	children,
 	bottom,
+	compact = false,
 }: {
 	d: PdfDocData;
 	variant: HeaderVariant;
 	children: React.ReactNode;
 	bottom: React.ReactNode;
+	compact?: boolean;
 }) {
 	return (
 		<Page size="A4" style={S.page}>
 			<View style={S.content}>
-				<PdfHeader title={SWISS_TITLE[d.docType]} variant={variant} />
+				<PdfHeader
+					title={SWISS_TITLE[d.docType]}
+					variant={variant}
+					compact={compact}
+				/>
 				{children}
 			</View>
 			{bottom}
@@ -423,10 +474,12 @@ function BillingPage({
 	d,
 	variant,
 	flow,
+	compact,
 }: {
 	d: PdfDocData;
 	variant: HeaderVariant;
 	flow: boolean;
+	compact: boolean;
 }) {
 	const paid = isPaid(d);
 	const payment = d.payment;
@@ -487,7 +540,12 @@ function BillingPage({
 
 	const totals = <Totals lines={billingTotals(d)} notes={d.notes} />;
 	const bigFigure = (
-		<BigFigure label={big.label} sub={big.sub} value={big.value} />
+		<BigFigure
+			label={big.label}
+			sub={big.sub}
+			value={big.value}
+			compact={compact}
+		/>
 	);
 	const bottom = (
 		<PdfBottom
@@ -495,6 +553,7 @@ function BillingPage({
 			terms={termLines(d)}
 			signer={d.signer}
 			flow={flow}
+			compact={compact}
 		/>
 	);
 	// Mode alir (dokumen 2 halaman): Subtotal/Total tetap menempel di bawah
@@ -504,6 +563,7 @@ function BillingPage({
 		<Shell
 			d={d}
 			variant={variant}
+			compact={compact}
 			bottom={
 				flow ? (
 					<View wrap={false}>
@@ -515,9 +575,13 @@ function BillingPage({
 				)
 			}
 		>
-			<MetaRow cells={meta} />
-			<PartyRow d={d} label={d.docType === "quotation" ? "Untuk" : "Kepada"} />
-			<PriceTable d={d} />
+			<MetaRow cells={meta} compact={compact} />
+			<PartyRow
+				d={d}
+				label={d.docType === "quotation" ? "Untuk" : "Kepada"}
+				compact={compact}
+			/>
+			<PriceTable d={d} compact={compact} />
 			{totals}
 			{flow ? null : bigFigure}
 		</Shell>
@@ -733,12 +797,15 @@ export function TetraDocument({
 	data,
 	variant = "a",
 	flow = false,
+	compact = false,
 }: {
 	data: PdfDocData;
 	/** Varian header: a putih (default) · b hitam · c merah. */
 	variant?: HeaderVariant;
 	/** true = dokumen tidak muat 1 halaman (lihat renderTetraPdf). */
 	flow?: boolean;
+	/** Versi ringkas — percobaan memuatkan di 1 halaman sebelum mode alir. */
+	compact?: boolean;
 }) {
 	const title = `${DOC_TITLE[data.docType]} ${data.docNumber} — ${data.client.name}`;
 	return (
@@ -748,7 +815,7 @@ export function TetraDocument({
 			) : data.docType === "bast" ? (
 				<BastPage d={data} variant={variant} flow={flow} />
 			) : (
-				<BillingPage d={data} variant={variant} flow={flow} />
+				<BillingPage d={data} variant={variant} flow={flow} compact={compact} />
 			)}
 		</Document>
 	);

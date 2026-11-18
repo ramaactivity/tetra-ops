@@ -12,13 +12,18 @@ export function pdfPageCount(buf: Uint8Array): number {
 }
 
 /**
- * Render PDF dokumen. Muat satu halaman → blok bawah dipaku di dasar halaman
- * (tampilan biasa). Tidak muat → render ulang dalam mode alir: bagian
- * penutup (total, pembayaran, ketentuan, tanda tangan) langsung menyambung di
- * halaman 2, bukan sendirian di dasar halaman kosong.
+ * Render PDF dokumen — owner: "sebisa mungkin 1 halaman dulu; kalau terpaksa
+ * lebih, halaman 1 dan 2 tetap harus bagus". Berurutan:
+ *  1. tampilan biasa (blok bawah dipaku di dasar halaman);
+ *  2. tidak muat → versi ringkas (judul & angka besar lebih kecil, jarak
+ *     lebih rapat) yang tetap 1 halaman;
+ *  3. masih tidak muat → mode alir 2 halaman: Subtotal/Total di bawah tabel,
+ *     angka besar + pembayaran/ketentuan/tanda tangan membuka halaman 2.
  */
 export async function renderTetraPdf(data: PdfDocData): Promise<Buffer> {
-	const first = await renderToBuffer(<TetraDocument data={data} />);
-	if (pdfPageCount(first) <= 1) return first;
+	const normal = await renderToBuffer(<TetraDocument data={data} />);
+	if (pdfPageCount(normal) <= 1) return normal;
+	const compact = await renderToBuffer(<TetraDocument data={data} compact />);
+	if (pdfPageCount(compact) <= 1) return compact;
 	return renderToBuffer(<TetraDocument data={data} flow />);
 }
