@@ -7,9 +7,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { PdfDocData } from "./pdf-data";
 import { renderTetraPdf } from "./pdf-render";
 
-/** "Invoice INV-TP-01-23092026 - 20th Anniversary PT Gratama Finance Indonesia.pdf" */
+/** "Invoice - 20th Anniversary PT Gratama Finance Indonesia - 23 September 2026.pdf" */
 export function pdfFilename(data: PdfDocData): string {
-	return docFilename(data.docType, data.docNumber, data.client.name);
+	return docFilename(data.docType, {
+		title: data.event.title,
+		clientName: data.client.name,
+		issuedAt: data.issuedAt,
+	});
 }
 
 /**

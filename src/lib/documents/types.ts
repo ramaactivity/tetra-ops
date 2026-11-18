@@ -4,6 +4,8 @@
  * client component maupun server action.
  */
 
+import { ID_MONTH_NAMES } from "@/lib/dates";
+
 export const DOC_TYPES = [
 	"quotation",
 	"invoice",
@@ -445,16 +447,36 @@ export function isRevision(
 	);
 }
 
+/**
+ * Nama file PDF — pola owner di Canva ("Invoice_TetraPhotobooth_Lampu
+ * Imaji_28072026"), dirapikan (owner 18 Nov 2026: tanpa nomor dokumen):
+ * Jenis_Tetra Photobooth_Acara atau klien_18 Nov 2026.pdf
+ * Nama brand ikut supaya di WA klien langsung tahu dari siapa; tanggal terbit
+ * pakai nama bulan (tidak tertukar hari/bulan). Satu sumber untuk unduhan,
+ * lampiran WA, dan link bertanda tangan.
+ */
 export function docFilename(
 	docType: DocType,
-	docNumber: string,
-	clientName: string | null | undefined,
+	p: {
+		title?: string | null;
+		clientName?: string | null;
+		/** Tanggal terbit YYYY-MM-DD. */
+		issuedAt?: string | null;
+	},
 ): string {
-	const client = (clientName ?? "")
-		.replace(/[^\w\s-]+/g, "")
-		.trim()
-		.replace(/\s+/g, " ");
-	return `${DOC_TYPE_LABEL[docType]} ${docNumber}${client ? ` - ${client}` : ""}.pdf`;
+	// Buang karakter terlarang di nama file Mac/Windows/WA (dan "_" pemisah);
+	// huruf non-Latin & tanda baca biasa (&, ., ') tetap.
+	const clean = (s?: string | null) =>
+		(s ?? "")
+			.replace(/[\\/:*?"<>|_]+/g, " ")
+			.replace(/\s+/g, " ")
+			.trim();
+	const subject = clean(p.title) || clean(p.clientName);
+	const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(p.issuedAt ?? "");
+	const date = m
+		? `${Number(m[3])} ${ID_MONTH_NAMES[Number(m[2]) - 1].slice(0, 3)} ${m[1]}`
+		: null;
+	return `${[DOC_TYPE_LABEL[docType], COMPANY.name, subject, date].filter(Boolean).join("_")}.pdf`;
 }
 
 /**

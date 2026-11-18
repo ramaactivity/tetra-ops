@@ -79,11 +79,11 @@ export async function resolveSendDocument(
 		doc,
 		nomor,
 		pesan,
-		namaFile: docFilename(
-			doc.doc_type,
-			doc.doc_number,
-			doc.client.name,
-		).replace(/\.pdf$/, isRevision(doc) ? " (revisi).pdf" : ".pdf"),
+		namaFile: docFilename(doc.doc_type, {
+			title: doc.event_info?.title,
+			clientName: doc.client.name,
+			issuedAt: doc.issued_at,
+		}).replace(/\.pdf$/, isRevision(doc) ? " (revisi).pdf" : ".pdf"),
 		ringkasan: `Kirim ${jenis} ${doc.doc_number} (${doc.client.name}) ke WA +${nomor} lewat bot Tetra, ${pesan ? "dengan pesan di bawah + PDF terlampir" : "PDF saja tanpa pesan"}.`,
 	};
 }
