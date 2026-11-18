@@ -49,6 +49,8 @@ function formatWhen(iso: string | null): string | null {
 		month: "short",
 		hour: "2-digit",
 		minute: "2-digit",
+		// Server Vercel = UTC; tanpa ini jam beda dengan browser (WIB) → hydration error #418.
+		timeZone: "Asia/Jakarta",
 	});
 }
 

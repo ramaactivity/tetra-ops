@@ -40,6 +40,8 @@ function formatDate(iso: string): string {
 		day: "numeric",
 		month: "short",
 		year: "numeric",
+		// Server Vercel = UTC; tanpa ini jam beda dengan browser (WIB) → hydration error #418.
+		timeZone: "Asia/Jakarta",
 	});
 }
 
@@ -49,6 +51,8 @@ function formatDateTime(iso: string): string {
 		month: "short",
 		hour: "2-digit",
 		minute: "2-digit",
+		// Server Vercel = UTC; tanpa ini jam beda dengan browser (WIB) → hydration error #418.
+		timeZone: "Asia/Jakarta",
 	});
 }
 
