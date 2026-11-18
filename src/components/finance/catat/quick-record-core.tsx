@@ -160,6 +160,7 @@ export function QuickRecordCore({
 	// mengisi keterangan selama owner belum mengetik keterangannya sendiri).
 	const [beliApa, setBeliApa] = useState("");
 	const autoNoteRef = useRef("");
+	const autoCatRef = useRef<string | null>(null);
 	const beliSuggestion = useMemo(() => suggestCategory(beliApa), [beliApa]);
 	const [photo, setPhoto] = useState<File | null>(null);
 	const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -432,6 +433,16 @@ export function QuickRecordCore({
 			haptic("select");
 			setCategoryId(sug.categoryId);
 			setCoaOverride("");
+			autoCatRef.current = sug.categoryId;
+		} else if (
+			sug?.kind === "pembelian" &&
+			categoryId &&
+			categoryId === autoCatRef.current
+		) {
+			// Bahan jual bukan beban Catat — lepas tebakan sebelumnya supaya tidak
+			// telanjur tersimpan di pos yang salah.
+			setCategoryId(null);
+			autoCatRef.current = null;
 		}
 		// Keterangan ikut teks ini (atau nama layanan) selama owner belum
 		// menulis keterangannya sendiri.
