@@ -29,6 +29,7 @@ import { EventDriveCard } from "@/components/drive/event-drive-card";
 import { DesignCard } from "@/components/event-design/design-card";
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
+import { FollowupButton } from "@/components/leads/followup-button";
 import { EventActivityFeed } from "@/components/operations/activity-feed";
 import { ClientDashboardCard } from "@/components/operations/client-dashboard-card";
 import { EventTransportPlan } from "@/components/operations/event-transport-plan";
@@ -64,13 +65,14 @@ import {
 	formatRupiah,
 	SERVICE_TYPE_LABELS,
 } from "@/lib/format";
+import { loadFollowupsByNomor } from "@/lib/leads/contacts";
 import { payerFromCommissionMode } from "@/lib/portal/core";
 import { portalUrl } from "@/lib/portal/notify";
 import { previewUrl } from "@/lib/portal/preview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-import { waLink } from "@/lib/whatsapp";
+import { isLikelyWaPhone, toWaPhone, waLink } from "@/lib/whatsapp";
 
 export default async function EventDetailPage({
 	params,
@@ -275,6 +277,15 @@ export default async function EventDetailPage({
 					spots: event.spots,
 				})
 			: [];
+	// Tombol "Minta data ke klien": Hermes menulis draf dari daftar di atas
+	// (bot membacanya lewat /api/bot/klien), owner memeriksa lalu Kirim.
+	const waKlien =
+		canEdit && missingInfo.length > 0 && isLikelyWaPhone(event.client_wa)
+			? toWaPhone(event.client_wa as string)
+			: null;
+	const followupKlien = waKlien?.startsWith("628")
+		? ((await loadFollowupsByNomor(supabase)).get(waKlien) ?? null)
+		: null;
 	const eventAddons = (event.event_addons ?? []) as Array<{
 		quantity: number;
 		unit_price: number;
@@ -774,15 +785,34 @@ export default async function EventDetailPage({
 							Telegram akan terus diingatkan tiap pagi.
 						</p>
 					</div>
-					<Link
-						href={`/operations/${event.project_id}/edit`}
-						className={cn(
-							buttonVariants({ variant: "outline", size: "sm" }),
-							"shrink-0 border-amber-500/50 bg-card",
+					<div className="flex shrink-0 flex-wrap items-center gap-2">
+						{waKlien?.startsWith("628") && (
+							<FollowupButton
+								jid={null}
+								nomor={waKlien}
+								nama={event.client_name}
+								alasan="kelengkapan data acara"
+								deskripsi={`Hermes menyusun pesan WhatsApp untuk melengkapi: ${missingInfo.join(", ")}. Urutannya mengikuti yang paling dibutuhkan crew.`}
+								eventId={event.id}
+								pilihMode
+								label="Minta data ke klien"
+								latest={followupKlien}
+								className={cn(
+									buttonVariants({ variant: "outline", size: "sm" }),
+									"border-amber-500/50 bg-card",
+								)}
+							/>
 						)}
-					>
-						Lengkapi sekarang
-					</Link>
+						<Link
+							href={`/operations/${event.project_id}/edit`}
+							className={cn(
+								buttonVariants({ variant: "outline", size: "sm" }),
+								"border-amber-500/50 bg-card",
+							)}
+						>
+							Lengkapi sekarang
+						</Link>
+					</div>
 				</div>
 			)}
 

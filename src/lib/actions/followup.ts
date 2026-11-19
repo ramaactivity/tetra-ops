@@ -53,6 +53,13 @@ export async function mintaFollowup(input: {
 	nomor: string;
 	alasan: string;
 	konteks?: string | null;
+	/**
+	 * Tombol "Minta data ke klien" di detail event (konsultasi Hermes
+	 * t_49b6d8e5): bot mengambil daftar yang kurang sendiri dari
+	 * /api/bot/klien; owner hanya memilih cara bertanya.
+	 */
+	eventId?: string | null;
+	mode?: "bertahap" | "sekaligus" | null;
 }): Promise<{ ok: true; state: FollowupState } | { ok: false; error: string }> {
 	try {
 		const me = await requireOwner();
@@ -110,6 +117,10 @@ export async function mintaFollowup(input: {
 					nomor,
 					alasan,
 					konteks: input.konteks?.trim().slice(0, 800) || null,
+					...(input.eventId && {
+						event_id: input.eventId,
+						mode: input.mode === "sekaligus" ? "sekaligus" : "bertahap",
+					}),
 				})}`,
 				status: "pending",
 			})

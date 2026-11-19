@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { loadDataKlien } from "@/lib/booking-inbox/client-docs";
 import { isAuthorizedBot } from "@/lib/bot-auth";
+import { listMissingFields } from "@/lib/events/tbc";
 import { type EventTagihan, tagihanEvent } from "@/lib/finance/tagihan";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -52,6 +53,9 @@ function tagihanBot(e: EventTagihan) {
  * terbayar, sisa — rumus checkPayment) supaya bot tidak menebak pelunasan
  * (audit Hermes t_2557c8f2, Syifa 19 Nov); null untuk acara lewat vendor
  * (harga klien akhir = harga vendor, bukan tagihan Tetra) dan event tanpa harga.
+ * `kurang` = listMissingFields (urutan "paling menghambat lapangan dulu", sama
+ * dengan banner owner & crew) + `event_id`, untuk tombol "Minta data ke klien"
+ * (konsultasi Hermes t_49b6d8e5).
  * Kontrak: docs/06_API_SPEC.md §21.
  */
 export async function POST(req: NextRequest) {
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
 	const { data, error } = await createAdminClient()
 		.from("events")
 		.select(
-			"client_name, client_wa, pic_wa, event_date, start_time, end_time, venue_name, venue_city, status, payment_status, channel, grand_total, total_paid, vendor_commission_mode, vendor_commission_amount, package:packages(name)",
+			"id, client_name, client_wa, pic_wa, event_date, start_time, end_time, venue_name, venue_city, status, payment_status, channel, grand_total, total_paid, vendor_commission_mode, vendor_commission_amount, event_date_is_estimate, frame_size, backdrop_id, pic_name, pic_contact_id, pending_package_hours, unit_count, spots, package:packages(name, frame_size, category)",
 		)
 		.is("deleted_at", null)
 		.eq("is_demo", false)
@@ -86,16 +90,29 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ ok: false, error: "gagal" }, { status: 500 });
 	const booking = (data ?? [])
 		.filter((e) => [e.client_wa, e.pic_wa].some((n) => phoneTail(n) === tail))
-		.map((e) => ({
-			tanggal: e.event_date,
-			jam_mulai: e.start_time?.slice(0, 5) ?? null,
-			jam_selesai: e.end_time?.slice(0, 5) ?? null,
-			paket: (e.package as { name?: string } | null)?.name ?? null,
-			venue: [e.venue_name, e.venue_city].filter(Boolean).join(", ") || null,
-			nama_acara: e.client_name,
-			status_bayar: STATUS_BAYAR[e.payment_status] ?? "dp",
-			lewat_vendor: e.channel === "vendor",
-			tagihan: e.channel === "vendor" ? null : tagihanBot(e),
-		}));
+		.map((e) => {
+			const pkg = (Array.isArray(e.package) ? e.package[0] : e.package) as {
+				name?: string;
+				frame_size?: string | null;
+				category?: string | null;
+			} | null;
+			return {
+				event_id: e.id,
+				tanggal: e.event_date,
+				jam_mulai: e.start_time?.slice(0, 5) ?? null,
+				jam_selesai: e.end_time?.slice(0, 5) ?? null,
+				paket: pkg?.name ?? null,
+				venue: [e.venue_name, e.venue_city].filter(Boolean).join(", ") || null,
+				nama_acara: e.client_name,
+				status_bayar: STATUS_BAYAR[e.payment_status] ?? "dp",
+				lewat_vendor: e.channel === "vendor",
+				tagihan: e.channel === "vendor" ? null : tagihanBot(e),
+				kurang: listMissingFields({
+					...e,
+					package_frame_size: pkg?.frame_size ?? null,
+					package_category: pkg?.category ?? null,
+				}),
+			};
+		});
 	return NextResponse.json({ ok: true, booking });
 }

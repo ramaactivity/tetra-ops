@@ -1452,3 +1452,21 @@ Klien Hilmi & Syifa minta 2 jam → 3 jam. Di app cukup Edit booking (invoice ik
 
 ### Efek samping yang disengaja
 - Edit booking kini mempertahankan `discount_type` (dulu tidak dipetakan ke form → terhapus tiap edit).
+
+---
+
+## DR-058: Tombol "Minta data ke klien" — Hermes menulis draf dari daftar data yang kurang
+
+**Status:** Accepted (permintaan Rama 19 Nov; rancangan Hermes t_49b6d8e5; milestone 1)
+**Date:** 2026-11-19
+
+### Context
+Rama: event yang datanya belum lengkap butuh satu tombol untuk meminta Hermes menanyakannya ke klien — bertahap atau sekaligus, urut prioritas — karena data itu dipakai manusia (owner memutuskan, crew menyiapkan), bukan sekadar isi database.
+
+### Decision
+- Banner "Data event belum lengkap" di detail event dapat tombol **Minta data ke klien** (owner, nomor klien 628…). Dialog memilih **Satu per satu** / **Sekaligus**, lalu memakai jalur Follow-up Leads yang sudah ada: `followup-draf` (+ `event_id`, `mode`) → cs-wa menulis draf → owner ubah → **Kirim** (`send-followup`). Klik Kirim = izin untuk pesan itu saja; jeda 48 jam & blokir nomor tetap berlaku.
+- Daftar & urutan = `listMissingFields` (satu sumber dengan banner, crew, reminder). Bot mengambilnya sendiri dari `POST /api/bot/klien` (`kurang`, `event_id`), tidak lewat `konteks`, supaya tidak ada dua sumber fakta.
+- Kalimat ke klien, urutan menurut H-berapa, dan cara bertanya = skill Hermes (`mode-kontak-khusus`), bukan Tetra Ops.
+- Bot tetap tidak menulis `events`. Jawaban klien dilaporkan ke owner; revisi lewat aplikasi atau `revisi_event_usulan` (DR-057).
+- Milestone 2 (menyusul): item baru untuk crew (alamat + Maps, jam setup/selesai, jumlah tamu, listrik/akses, teks frame) + kolom yang dibutuhkan.
+

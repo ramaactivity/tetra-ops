@@ -19,6 +19,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { RichTextarea } from "@/components/ui/rich-textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toaster";
 import {
 	batalFollowup,
@@ -50,6 +51,14 @@ function gagalText(hasil: string | null | undefined): string {
 /** Setelah ini berhenti menunggu di dialog; status tetap tersimpan di tombol. */
 const DRAF_SABAR_MS = 90_000;
 
+type Mode = "bertahap" | "sekaligus";
+const MODE_INFO: Record<Mode, string> = {
+	bertahap:
+		"Hermes menanyakan satu hal paling penting dulu. Klien lebih gampang menjawab; sisanya ditanyakan di permintaan berikutnya.",
+	sekaligus:
+		"Semua yang kurang ditanyakan dalam satu pesan. Cocok kalau acaranya sudah dekat atau klien biasa cepat membalas.",
+};
+
 /**
  * Follow-up sekali klik: minta draf ke Hermes (lewat bot) → periksa/ubah →
  * Kirim. Klik Kirim = izin untuk pesan ini saja (aturan sejak insiden 6 Okt).
@@ -63,6 +72,11 @@ export function FollowupButton({
 	latest,
 	compact = false,
 	blokir = null,
+	eventId = null,
+	pilihMode = false,
+	label: labelAwal = "Follow-up",
+	deskripsi,
+	className,
 }: {
 	jid: string | null;
 	nomor: string;
@@ -76,6 +90,14 @@ export function FollowupButton({
 	compact?: boolean;
 	/** Prospek berstatus tolak/jangan_hubungi/berhenti → tombol mati + alasannya. */
 	blokir?: string | null;
+	/** Kelengkapan data event: bot membaca daftar yang kurang dari Tetra Ops. */
+	eventId?: string | null;
+	/** Owner memilih "Satu per satu" / "Sekaligus" sebelum draf diminta. */
+	pilihMode?: boolean;
+	label?: string;
+	/** Teks penjelas di dialog (bawaan: `alasan`). */
+	deskripsi?: string;
+	className?: string;
 }) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -83,6 +105,8 @@ export function FollowupButton({
 	const [pesan, setPesan] = useState(latest?.draf ?? "");
 	const [pending, start] = useTransition();
 	const [lama, setLama] = useState(false);
+	const [memilih, setMemilih] = useState(false);
+	const [mode, setMode] = useState<Mode>("bertahap");
 	const startedAt = useRef(0);
 
 	const status = state?.status;
@@ -122,12 +146,25 @@ export function FollowupButton({
 			setOpen(true);
 			return;
 		}
+		if (pilihMode && !memilih) {
+			setMemilih(true);
+			setOpen(true);
+			return;
+		}
 		start(async () => {
-			const res = await mintaFollowup({ jid, nomor, alasan, konteks });
+			const res = await mintaFollowup({
+				jid,
+				nomor,
+				alasan,
+				konteks,
+				eventId,
+				mode: pilihMode ? mode : null,
+			});
 			if (!res.ok) {
 				toast.error(res.error);
 				return;
 			}
+			setMemilih(false);
 			setState(res.state);
 			setPesan(res.state.draf ?? "");
 			startedAt.current = Date.now();
@@ -192,7 +229,7 @@ export function FollowupButton({
 				? "Menunggu draf"
 				: status === "mengirim"
 					? "Antre kirim"
-					: "Follow-up";
+					: labelAwal;
 
 	return (
 		<>
@@ -207,6 +244,7 @@ export function FollowupButton({
 						? "bg-[#059669] text-white hover:bg-[#047857]"
 						: "text-foreground/80 hover:bg-surface-3 hover:text-foreground",
 					compact && "px-2",
+					className,
 				)}
 			>
 				{pending ? (
@@ -217,14 +255,37 @@ export function FollowupButton({
 				{label}
 			</button>
 
-			<Dialog open={open} onOpenChange={setOpen}>
+			<Dialog
+				open={open}
+				onOpenChange={(o) => {
+					setOpen(o);
+					if (!o) setMemilih(false);
+				}}
+			>
 				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
-						<DialogTitle>Follow-up {nama}</DialogTitle>
-						<DialogDescription>{alasan}</DialogDescription>
+						<DialogTitle>
+							{labelAwal === "Follow-up"
+								? `Follow-up ${nama}`
+								: `${labelAwal}: ${nama}`}
+						</DialogTitle>
+						<DialogDescription>{deskripsi ?? alasan}</DialogDescription>
 					</DialogHeader>
 
-					{status === "menunggu_draf" ? (
+					{memilih ? (
+						<div className="space-y-2.5">
+							<Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+								<TabsList variant="segmented">
+									<TabsTrigger value="bertahap">Satu per satu</TabsTrigger>
+									<TabsTrigger value="sekaligus">Sekaligus</TabsTrigger>
+								</TabsList>
+							</Tabs>
+							<p className="text-[13px] leading-relaxed text-muted-foreground">
+								{MODE_INFO[mode]} Draf tampil di sini dulu — tidak ada yang
+								terkirim sebelum kamu klik Kirim.
+							</p>
+						</div>
+					) : status === "menunggu_draf" ? (
 						<p className="flex items-start gap-2 rounded-2xl bg-secondary px-3.5 py-3 text-[13px] leading-relaxed text-muted-foreground">
 							<Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
 							{lama
@@ -262,7 +323,21 @@ export function FollowupButton({
 					) : null}
 
 					<DialogFooter>
-						{status === "draf" ? (
+						{memilih ? (
+							<>
+								<Button variant="ghost" onClick={() => setOpen(false)}>
+									Batal
+								</Button>
+								<Button onClick={mulai} disabled={pending}>
+									{pending ? (
+										<Loader2 className="animate-spin" />
+									) : (
+										<MessageSquareReply />
+									)}
+									Minta draf
+								</Button>
+							</>
+						) : status === "draf" ? (
 							<>
 								<Button variant="ghost" onClick={batal} disabled={pending}>
 									Batal
