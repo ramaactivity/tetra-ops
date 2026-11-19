@@ -1,5 +1,6 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
@@ -398,18 +399,22 @@ function mergeVendorPic(
 	];
 }
 
-export async function ensureVendorContact(input: {
-	name: string;
-	pic_name?: string | null;
-	pic_contact?: string | null;
-	commission_mode?: VendorCommissionMode | null;
-	commission_value_type?: VendorCommissionValueType | null;
-	commission_value?: number | null;
-}): Promise<string | null> {
+export async function ensureVendorContact(
+	input: {
+		name: string;
+		pic_name?: string | null;
+		pic_contact?: string | null;
+		commission_mode?: VendorCommissionMode | null;
+		commission_value_type?: VendorCommissionValueType | null;
+		commission_value?: number | null;
+	},
+	client?: SupabaseClient,
+): Promise<string | null> {
 	const name = input.name?.trim();
 	if (!name) return null;
 
-	const supabase = await createClient();
+	// Agent MCP tak punya cookie login → memakai client pemanggil.
+	const supabase = client ?? (await createClient());
 
 	// Try find existing (case-insensitive)
 	const { data: existing } = await supabase

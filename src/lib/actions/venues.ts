@@ -1,5 +1,6 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -39,11 +40,13 @@ const clean = (v: string | null | undefined): string | null => {
  */
 export async function ensureVenue(
 	input: EnsureVenueInput,
+	client?: SupabaseClient,
 ): Promise<string | null> {
 	const name = clean(input.name);
 	if (!name) return null;
 
-	const supabase = await createClient();
+	// Agent MCP tak punya cookie login → memakai client pemanggil.
+	const supabase = client ?? (await createClient());
 
 	const { data: existing } = await supabase
 		.from("venues")

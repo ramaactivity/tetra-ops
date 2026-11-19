@@ -1349,3 +1349,47 @@ curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
 - `external_id` baru (bot: `wa:<jid>:<mulai>` per tahap) **ditempel ke record klien yang sama** (wa_jid atau 9 digit `client_wa`, ≤180 hari, bukan dibatalkan): tanggal sama menang; kalau salah satu belum bertanggal → record yang masih baru/diproses. Tanggal beda dua-duanya terisi = acara lain → record baru.
 - Kunci `data` tambahan diterima & tampil di Booking Masuk: `jenis`, `instansi`, `logo`, `tema`, `pose`.
 - Kolom yang masih kosong diisi dari quotation/invoice klien (isian bot/admin tidak pernah ditimpa). Sebaliknya, quotation/invoice yang disimpan/dibuat mengisi kolom kosong Booking Masuk klien yang masih baru/diproses.
+
+---
+
+## 23. Tool MCP `revisi_event` — revisi event & invoice dari agent (kasus Hilmi & Syifa, 19 Nov 2026)
+
+Pasangan tool di `POST /api/mcp` (Bearer `MCP_API_TOKEN`), pola tool tulis biasa (§ mcp.ts):
+- `revisi_event_usulan` — pratinjau, `readOnlyHint: true`, **tidak menyimpan apa pun**.
+- `revisi_event` — menyimpan, wajib `konfirmasi: true` setelah owner menyetujui ringkasan usulan.
+
+Satu jalur dengan tombol **Simpan perubahan** di Edit booking: keduanya memanggil `updateBookingCore` (`src/lib/actions/bookings.ts`); event dibaca lewat `bookingDefaultsFromEvent` yang sama dengan halaman Edit (`src/lib/events/booking-defaults.ts`), lalu hanya kolom yang direvisi diganti (`applyRevisi`, `src/lib/events/revisi.ts`). Pratinjau = perhitungan yang sama dengan `dryRun`, jadi angka pratinjau = angka yang tersimpan.
+
+**Argumen** (`project_id` wajib, minimal satu yang lain):
+```json
+{
+  "project_id": "PRJ-20261122-9433",
+  "durasi_jam": 3,
+  "jam_mulai": "11:00",
+  "jam_selesai": "14:00",
+  "addons": [{ "addon": "Break Time", "jumlah": 1 }]
+}
+```
+- `durasi_jam` → paket pricelist berdurasi itu dengan **ukuran frame yang sama** (paket sementara "ukuran menyusul" → harga terendah durasi itu). Harga paket lama ditimpa harga pricelist × jumlah unit. Kalau durasi berubah, `jam_mulai`/`jam_selesai` **wajib** (agent tidak menebak).
+- Klien menambah jam sebelum acara = `durasi_jam`, bukan add-on "Tambahan Durasi".
+- `addons[]` hanya yang berubah; `jumlah` = jumlah akhir, `0` = hapus. Nama atau id. Add-on baru memakai harga katalog; harga kesepakatan add-on lama dipertahankan.
+- Tidak bisa lewat agent (ditolak, ubah di app): tanggal, lokasi, diskon, harga manual/nego, komisi, paket custom, jam acara berjeda, add-on tanpa harga katalog, event selesai/dibatalkan/sudah settle.
+
+**Output `revisi_event_usulan`:**
+```json
+{
+  "event": "Hilmi & Syifa · PRJ-20261122-9433 · 2026-11-22",
+  "perubahan": ["⏰ Jam: 11:00–13:00 → 11:00–14:00", "📦 Paket: 4R Unlimited 2 Jam → 4R Unlimited 3 Jam", "💰 Total: Rp 2.000.000 → Rp 2.500.000"],
+  "total_lama": "Rp 2.000.000", "total_baru": "Rp 2.500.000",
+  "sudah_dibayar": "Rp 500.000",
+  "sisa_tagihan_lama": "Rp 1.500.000", "sisa_tagihan_baru": "Rp 2.000.000",
+  "dokumen_ikut_diperbarui": ["INV-TP-26-11112026 (invoice, nomor tetap)"],
+  "peringatan": ["…hanya ada kalau perlu perhatian owner (harga nego, gross-up dihitung ulang, jam ≠ durasi, kelebihan bayar, add-on Tambahan Durasi dobel)"],
+  "catatan": "Belum tersimpan dan tidak ada yang terkirim ke klien. Tunjukkan ke owner dulu."
+}
+```
+`revisi_event` mengembalikan kunci yang sama + `"tersimpan": true` + `langkah_berikut` (nomor invoice untuk `kirim_dokumen_usulan`).
+
+**Efek simpan:** event, add-on, invoice & nota lunas aktif (nomor sama, `syncDocNumbersFromEvent`), notif perubahan ke grup Telegram owner, sinyal Booth — persis Edit booking. **Tidak pernah mengirim ke klien**; invoice revisi dikirim lewat `kirim_dokumen` (owner setujui per pesan). Label "(revisi)" hanya muncul kalau invoice pernah tercatat terkirim (`delivered_at`).
+
+**Error** (`{"error": "…"}`, aman diulang): tak ada perubahan (mis. revisi sudah tersimpan), durasi tak ada di pricelist (disertai daftar durasi), add-on tidak ditemukan/ambigu (disertai pilihan), validasi form Edit booking.

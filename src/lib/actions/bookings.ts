@@ -1474,29 +1474,47 @@ export async function updateBooking(
 	formData: FormData,
 ): Promise<BookingFormState> {
 	await requireOwnerLevel();
+	const res = await updateBookingCore(await createClient(), id, formData);
+	if (!res.ok) return { errors: res.errors, values: snapshotValues(formData) };
+	return { ok: true, projectId: res.projectId, isUpdate: true };
+}
 
+export type UpdateBookingCoreResult =
+	| { ok: false; errors: BookingErrors }
+	| {
+			ok: true;
+			projectId: string;
+			/** Baris perubahan (HTML Telegram) — sama dengan notif grup owner. */
+			changes: string[];
+			before: { grand_total: number; total_paid: number };
+			after: ReturnType<typeof buildEventPayload>;
+	  };
+
+/**
+ * Inti Edit booking tanpa cookie login — dipakai form Edit booking dan agent
+ * MCP (revisi_event). `dryRun` = hitung semua angka & baris perubahan persis
+ * seperti saat menyimpan, tanpa menulis apa pun (pratinjau agent).
+ */
+export async function updateBookingCore(
+	supabase: Awaited<ReturnType<typeof createClient>>,
+	id: string,
+	formData: FormData,
+	opts: { dryRun?: boolean } = {},
+): Promise<UpdateBookingCoreResult> {
 	const parsed = parseFormData(formData);
 	if (!parsed.success) {
 		return {
+			ok: false,
 			errors: parsed.error.flatten().fieldErrors as BookingErrors,
-			values: snapshotValues(formData),
 		};
 	}
 
-	const supabase = await createClient();
 	// Gerbang frame↔paket — sama seperti createBooking, supaya edit tidak bisa
 	// mengembalikan event ke keadaan "paket 2R, ukuran menyusul".
 	const selection = await resolvePackageSelection(supabase, parsed.data);
-	if (!selection.ok) {
-		return { errors: selection.errors, values: snapshotValues(formData) };
-	}
+	if (!selection.ok) return { ok: false, errors: selection.errors };
 	const backdropErr = await checkBackdropStock(supabase, parsed.data, id);
-	if (backdropErr) {
-		return {
-			errors: { backdrop_id: [backdropErr] },
-			values: snapshotValues(formData),
-		};
-	}
+	if (backdropErr) return { ok: false, errors: { backdrop_id: [backdropErr] } };
 	// Unit dikurangi padahal masih ada crew di spot yang hilang → crew itu tak
 	// terlihat di slot tapi tetap dibayar & dikabari. Minta dipindah dulu.
 	const { count: orphanCrew } = await supabase
@@ -1506,12 +1524,12 @@ export async function updateBooking(
 		.gt("spot_no", parsed.data.unit_count);
 	if (orphanCrew) {
 		return {
+			ok: false,
 			errors: {
 				_form: [
 					`Masih ada ${orphanCrew} crew di spot ${parsed.data.unit_count + 1}+. Hapus atau pindahkan dulu di halaman Crew sebelum mengurangi jumlah unit.`,
 				],
 			},
-			values: snapshotValues(formData),
 		};
 	}
 	const basePrice = await resolveBasePrice(supabase, parsed.data);
@@ -1525,30 +1543,6 @@ export async function updateBooking(
 		parsed.data,
 	);
 
-	// Resolve vendor master FK (same pattern as createBooking)
-	let vendorContactId: string | null = null;
-	if (parsed.data.channel === "vendor" && parsed.data.vendor_name) {
-		vendorContactId = await ensureVendorContact({
-			name: parsed.data.vendor_name,
-			pic_name: parsed.data.vendor_pic_name,
-			pic_contact: parsed.data.vendor_contact,
-			commission_mode: parsed.data.vendor_commission_mode,
-			commission_value_type: parsed.data.vendor_commission_value_type,
-			commission_value: parsed.data.vendor_commission_value,
-		});
-	}
-
-	// Master venue — sama polanya dengan vendor: yang sudah ada dipakai ulang,
-	// yang baru dibuat otomatis, dan kolom yang masih kosong di master ikut
-	// terisi dari booking ini.
-	const venueId = await ensureVenue({
-		name: parsed.data.venue_name ?? "",
-		address: parsed.data.venue_address,
-		city: parsed.data.venue_city,
-		province: parsed.data.venue_province,
-		google_maps_url: parsed.data.google_maps_url,
-	});
-
 	// Pembayaran yang sudah masuk — supaya remaining_balance tidak ke-reset ke
 	// grand_total saat edit (membuang progres DP yang sudah dibayar).
 	// Field lain di-select sebagai snapshot "sebelum" untuk notifikasi
@@ -1556,7 +1550,7 @@ export async function updateBooking(
 	const { data: curEvent, error: curEventErr } = await supabase
 		.from("events")
 		.select(
-			`total_paid, status, is_migrated_legacy,
+			`project_id, total_paid, status, is_migrated_legacy,
 			client_name, event_date, event_date_is_estimate, setup_time,
 			start_time, end_time, session_segments, venue_name, venue_city,
 			package_id, pending_package_hours, backdrop_id, frame_size,
@@ -1572,12 +1566,12 @@ export async function updateBooking(
 	// Status lifecycle di bawah juga ikut salah kalau curEvent null.
 	if (curEventErr) {
 		return {
+			ok: false,
 			errors: {
 				_form: [
 					`Gagal membaca data pembayaran event: ${curEventErr.message}. Perubahan dibatalkan supaya progres DP tidak hilang.`,
 				],
 			},
-			values: snapshotValues(formData),
 		};
 	}
 
@@ -1606,14 +1600,69 @@ export async function updateBooking(
 		.select("addon_id, quantity")
 		.eq("event_id", id);
 
+	// Pratinjau: vendor/venue master belum di-upsert (FK tidak memengaruhi
+	// angka), jadi null di sini — tak ada yang ditulis.
 	const payload = buildEventPayload(
 		parsed.data,
 		basePrice,
 		addonsTotal,
 		backdropContribution,
-		vendorContactId,
+		null,
 		selection.value,
 		Number(curEvent?.total_paid ?? 0),
+	);
+	const bonusesRaw = parseBonusesJson(formData);
+	const changeLines = () =>
+		curEvent
+			? buildBookingChangeLines(supabase, curEvent, payload, {
+					oldAddons: oldAddonRows ?? [],
+					newAddons: addonRows,
+					oldBonuses: oldBonusRows ?? [],
+					newBonuses: bonusesRaw,
+				})
+			: Promise.resolve([]);
+	const before = {
+		grand_total: Number(curEvent?.grand_total ?? 0),
+		total_paid: Number(curEvent?.total_paid ?? 0),
+	};
+
+	if (opts.dryRun) {
+		return {
+			ok: true,
+			projectId: (curEvent?.project_id as string) ?? "",
+			changes: await changeLines(),
+			before,
+			after: payload,
+		};
+	}
+
+	// Resolve vendor master FK (same pattern as createBooking)
+	if (parsed.data.channel === "vendor" && parsed.data.vendor_name) {
+		payload.vendor_contact_id = await ensureVendorContact(
+			{
+				name: parsed.data.vendor_name,
+				pic_name: parsed.data.vendor_pic_name,
+				pic_contact: parsed.data.vendor_contact,
+				commission_mode: parsed.data.vendor_commission_mode,
+				commission_value_type: parsed.data.vendor_commission_value_type,
+				commission_value: parsed.data.vendor_commission_value,
+			},
+			supabase,
+		);
+	}
+
+	// Master venue — sama polanya dengan vendor: yang sudah ada dipakai ulang,
+	// yang baru dibuat otomatis, dan kolom yang masih kosong di master ikut
+	// terisi dari booking ini.
+	const venueId = await ensureVenue(
+		{
+			name: parsed.data.venue_name ?? "",
+			address: parsed.data.venue_address,
+			city: parsed.data.venue_city,
+			province: parsed.data.venue_province,
+			google_maps_url: parsed.data.google_maps_url,
+		},
+		supabase,
 	);
 
 	const { data: updated, error } = await supabase
@@ -1627,12 +1676,7 @@ export async function updateBooking(
 		.select("project_id")
 		.single();
 
-	if (error) {
-		return {
-			errors: { _form: [error.message] },
-			values: snapshotValues(formData),
-		};
-	}
+	if (error) return { ok: false, errors: { _form: [error.message] } };
 
 	// Replace existing addons with the current selection.
 	const { error: deleteError } = await supabase
@@ -1641,10 +1685,10 @@ export async function updateBooking(
 		.eq("event_id", id);
 	if (deleteError) {
 		return {
+			ok: false,
 			errors: {
 				_form: [`Gagal menghapus add-ons lama: ${deleteError.message}`],
 			},
-			values: snapshotValues(formData),
 		};
 	}
 	if (addonRows.length > 0) {
@@ -1653,10 +1697,10 @@ export async function updateBooking(
 			.insert(addonRows.map((r) => ({ event_id: id, ...r })));
 		if (addonsError) {
 			return {
+				ok: false,
 				errors: {
 					_form: [`Gagal menyimpan add-ons baru: ${addonsError.message}`],
 				},
-				values: snapshotValues(formData),
 			};
 		}
 	}
@@ -1668,13 +1712,12 @@ export async function updateBooking(
 		.eq("event_id", id);
 	if (deleteBonusError) {
 		return {
+			ok: false,
 			errors: {
 				_form: [`Gagal menghapus bonus lama: ${deleteBonusError.message}`],
 			},
-			values: snapshotValues(formData),
 		};
 	}
-	const bonusesRaw = parseBonusesJson(formData);
 	if (bonusesRaw.length > 0) {
 		const { error: bonusError } = await supabase.from("event_bonuses").insert(
 			bonusesRaw.map((b) => ({
@@ -1686,10 +1729,10 @@ export async function updateBooking(
 		);
 		if (bonusError) {
 			return {
+				ok: false,
 				errors: {
 					_form: [`Gagal menyimpan bonus baru: ${bonusError.message}`],
 				},
-				values: snapshotValues(formData),
 			};
 		}
 	}
@@ -1702,19 +1745,10 @@ export async function updateBooking(
 	// ganti paket, pindah lokasi, add-on berubah, dst). Event legacy di-skip —
 	// backfill data lama tidak perlu meramaikan grup. Gagal kirim tidak boleh
 	// menggagalkan edit yang sudah tersimpan.
+	let changes: string[] = [];
 	if (curEvent && !curEvent.is_migrated_legacy) {
 		try {
-			const changes = await buildBookingChangeLines(
-				supabase,
-				curEvent,
-				payload,
-				{
-					oldAddons: oldAddonRows ?? [],
-					newAddons: addonRows,
-					oldBonuses: oldBonusRows ?? [],
-					newBonuses: bonusesRaw,
-				},
-			);
+			changes = await changeLines();
 			if (changes.length > 0) {
 				await notifyTelegramEventUpdated(id, changes);
 				await emitBoothEvent("booking.updated", id);
@@ -1731,7 +1765,13 @@ export async function updateBooking(
 
 	revalidatePath("/operations");
 	revalidatePath(`/operations/${updated.project_id}`);
-	return { ok: true, projectId: updated.project_id, isUpdate: true };
+	return {
+		ok: true,
+		projectId: updated.project_id,
+		changes,
+		before,
+		after: payload,
+	};
 }
 
 export type DeleteEventResult =

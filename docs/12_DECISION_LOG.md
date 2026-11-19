@@ -1431,3 +1431,24 @@ Chat Syifa & Hilmi 19 Nov: klien minta total pelunasan, bot menjawab "Kalau DP-n
 - `null` untuk acara lewat vendor: klien akhir membayar harga vendor, angka Tetra tidak boleh terbaca ke mereka. `null` juga untuk event tanpa harga.
 - Bot (Node `klienBooking.js`) menulis satu baris TAGIHAN di blok "KLIEN SUDAH BOOKING"; tanpa `tagihan` tidak ada baris (aman untuk bot lama). Cara memakainya di skill Hermes `cara-balas-wa`.
 - Revisi invoice harus ikut mengubah event (grand_total) supaya angka ini benar; per 19 Nov event Syifa masih 2.000.000.
+
+---
+
+## DR-057: Agent Hermes boleh merevisi event — satu jalur dengan Edit booking
+
+**Status:** Accepted (owner 2026-11-19, "sesuai rekomendasi lu")
+**Date:** 2026-11-19
+
+### Context
+Klien Hilmi & Syifa minta 2 jam → 3 jam. Di app cukup Edit booking (invoice ikut diperbarui di tempat, nomor sama, lalu dikirim sebagai revisi), tapi Hermes belum punya tool, dan bot sempat menebak sisa tagihan karena tidak tahu DP yang sudah tercatat.
+
+### Decision
+1. Tool MCP berpasangan `revisi_event_usulan` (pratinjau) + `revisi_event` (simpan, gerbang konfirmasi owner). Kontrak di `docs/06_API_SPEC.md` §23.
+2. **Satu jalur:** `updateBooking` dipecah jadi `updateBookingCore` (+ `dryRun`) yang dipakai form Edit booking dan agent; pemetaan event → isian form satu fungsi (`bookingDefaultsFromEvent`). Pratinjau = perhitungan yang sama dengan simpan.
+3. Lingkup versi pertama: durasi paket (ukuran frame tetap), jam acara, add-on. **Tanggal & lokasi tidak** — pindah tanggal perlu cek bentrok unit, tetap lewat app.
+4. Harga selalu dari pricelist Paket / katalog Add-on. Harga paket lama hasil nego → **pakai pricelist + peringatan** di pratinjau; owner yang memutuskan saat menyetujui. Selisih nego tidak diubah jadi diskon otomatis.
+5. Pratinjau wajib memuat total baru, sudah dibayar, dan sisa tagihan (permintaan sesi hermes-15), dihitung dengan `tagihanEvent()` (DR-056) — rumus yang sama dengan guard pembayaran dan /api/bot/klien.
+6. Tidak pernah mengirim ke klien; invoice revisi dikirim lewat `kirim_dokumen` dengan persetujuan per pesan.
+
+### Efek samping yang disengaja
+- Edit booking kini mempertahankan `discount_type` (dulu tidak dipetakan ke form → terhapus tiap edit).

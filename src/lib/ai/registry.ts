@@ -31,6 +31,7 @@ import {
 	vendorRelasi,
 } from "@/lib/ai/tools/laporan";
 import { dataKlien, leadsWa } from "@/lib/ai/tools/leads";
+import { revisiEvent } from "@/lib/ai/tools/revisi-event";
 import {
 	cariEvent,
 	cekKetersediaan,
@@ -74,6 +75,7 @@ const ALL_TOOLS: AiTool[] = [
 	kirimDokumen,
 	buatQuotation,
 	catatPembayaran,
+	revisiEvent,
 ];
 
 /**
@@ -135,6 +137,7 @@ export const TOOL_LABELS: Record<string, string> = {
 	kirim_dokumen: "kirim dokumen ke klien",
 	buat_quotation: "quotation",
 	catat_pembayaran: "catat pembayaran",
+	revisi_event: "revisi event",
 	tagihan_jatuh_tempo: "tagihan jatuh tempo",
 };
 
