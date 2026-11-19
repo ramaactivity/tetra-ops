@@ -2,6 +2,7 @@ import "server-only";
 
 import type { UpdateBookingCoreResult } from "@/lib/actions/bookings";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
+import { offerSendToOwner } from "@/lib/documents/approval";
 import { parseGrossUpRate } from "@/lib/documents/types";
 import {
 	BOOKING_EDIT_SELECT,
@@ -11,6 +12,7 @@ import {
 import { applyRevisi, parseRevisiArgs } from "@/lib/events/revisi";
 import { type EventTagihan, tagihanEvent } from "@/lib/finance/tagihan";
 import { formatRupiah as rp } from "@/lib/format";
+import { tgEscape } from "@/lib/telegram/format";
 
 /**
  * revisi_event: ubah durasi paket / jam / add-on event yang sudah ada, lalu
@@ -21,6 +23,7 @@ import { formatRupiah as rp } from "@/lib/format";
 
 type Ok<T> = Exclude<T, { ok: false }>;
 type Doc = {
+	id: string;
 	doc_number: string;
 	doc_type: string;
 	delivered_at: string | null;
@@ -92,7 +95,7 @@ async function prepare(
 			.maybeSingle(),
 		ctx.supabase
 			.from("documents")
-			.select("doc_number, doc_type, delivered_at")
+			.select("id, doc_number, doc_type, delivered_at")
 			.eq("event_id", ev.id)
 			.in("doc_type", ["invoice", "nota_lunas"])
 			.neq("status", "void"),
@@ -195,7 +198,7 @@ export const revisiEvent: AiTool = {
 		"Klien menambah jam sebelum acara = durasi_jam (paket diganti, mis. 2 jam → 3 jam), bukan add-on 'Tambahan Durasi' — add-on itu khusus extend di hari H saat acara sudah berjalan. " +
 		"Harga otomatis dari pricelist Paket/Add-on (jangan menyebut harga sendiri). Invoice & nota aktif ikut " +
 		"diperbarui dengan NOMOR SAMA. Pratinjau menunjukkan total baru, sudah dibayar, dan sisa tagihan. " +
-		"TIDAK mengirim apa pun ke klien — kirim invoice revisi lewat kirim_dokumen_usulan setelahnya. " +
+		"TIDAK mengirim apa pun ke klien — invoice yang berubah otomatis ditawarkan ke owner (tombol 'Kirim ke klien' di Telegram + app); jangan kirim sendiri. " +
 		"Tanggal, lokasi, diskon, dan harga nego diubah owner lewat app.",
 	scope: "finance",
 	mutates: true,
@@ -264,12 +267,23 @@ export const revisiEvent: AiTool = {
 		);
 		if (!res.ok) return { error: formErrors(res.errors) };
 		const inv = p.docs.find((d) => d.doc_type === "invoice");
+		const out = summary(p, res, dry.changes);
+		// Sama dengan buat_quotation/catat_pembayaran: dokumen yang berubah
+		// ditawarkan ke owner (tombol Telegram + "Perlu persetujuan" di app).
+		const offered = inv
+			? await offerSendToOwner(ctx.supabase, {
+					documentIds: [inv.id],
+					headerHtml: `✏️ <b>${tgEscape(String(p.ev.client_name))}</b> direvisi lewat agent:\n${dry.changes.join("\n")}\nInvoice <b>${inv.doc_number}</b> diperbarui (nomor sama) · sisa ${out.sisa_tagihan_baru}. Kirim ke klien?`,
+				})
+			: null;
 		return {
 			tersimpan: true,
-			...summary(p, res, dry.changes),
-			langkah_berikut: inv
-				? `Kalau mau dikirim ke klien: kirim_dokumen_usulan dengan document_id ${inv.doc_number}, tunggu owner setuju.`
-				: "Event ini belum punya invoice — owner membuatnya dari halaman event.",
+			...out,
+			langkah_berikut: !inv
+				? "Event ini belum punya invoice — owner membuatnya dari halaman event."
+				: offered?.requestId
+					? `Invoice ${inv.doc_number} sudah ditawarkan ke owner (tombol "Kirim ke klien" di grup Telegram + "Perlu persetujuan" di app). Jangan kirim sendiri.`
+					: `Kalau mau dikirim ke klien: kirim_dokumen_usulan dengan document_id ${inv.doc_number}, tunggu owner setuju.`,
 		};
 	},
 };

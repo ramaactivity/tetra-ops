@@ -1388,8 +1388,8 @@ Satu jalur dengan tombol **Simpan perubahan** di Edit booking: keduanya memanggi
   "catatan": "Belum tersimpan dan tidak ada yang terkirim ke klien. Tunjukkan ke owner dulu."
 }
 ```
-`revisi_event` mengembalikan kunci yang sama + `"tersimpan": true` + `langkah_berikut` (nomor invoice untuk `kirim_dokumen_usulan`).
+`revisi_event` mengembalikan kunci yang sama + `"tersimpan": true` + `langkah_berikut`. Invoice yang berubah langsung **ditawarkan ke owner** (`offerSendToOwner`: tombol "Kirim ke klien" di grup Telegram, lonceng, kotak "Perlu persetujuan" di Dokumen) — sama dengan `buat_quotation`/`catat_pembayaran`; agent tidak perlu memanggil `kirim_dokumen` lagi kecuali owner minta pesan khusus.
 
-**Efek simpan:** event, add-on, invoice & nota lunas aktif (nomor sama, `syncDocNumbersFromEvent`), notif perubahan ke grup Telegram owner, sinyal Booth — persis Edit booking. **Tidak pernah mengirim ke klien**; invoice revisi dikirim lewat `kirim_dokumen` (owner setujui per pesan). Label "(revisi)" hanya muncul kalau invoice pernah tercatat terkirim (`delivered_at`).
+**Efek simpan:** event, add-on, invoice & nota lunas aktif (nomor sama, `syncDocNumbersFromEvent`), notif perubahan ke grup Telegram owner, sinyal Booth — persis Edit booking. **Tidak pernah mengirim ke klien**; invoice revisi terkirim hanya setelah owner tap "Kirim ke klien" / menyetujui di app. Label "(revisi)" hanya muncul kalau invoice pernah tercatat terkirim (`delivered_at`).
 
 **Error** (`{"error": "…"}`, aman diulang): tak ada perubahan (mis. revisi sudah tersimpan), durasi tak ada di pricelist (disertai daftar durasi), add-on tidak ditemukan/ambigu (disertai pilihan), validasi form Edit booking.
