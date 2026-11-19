@@ -1,15 +1,17 @@
 "use client";
 
-import { CalendarPlus, Check, Loader2, XCircle } from "lucide-react";
+import { CalendarPlus, Check, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toast } from "@/components/ui/toaster";
 import {
 	ackInboxChanges,
 	cancelInbox,
+	checkInboxRefresh,
 	markInboxProcessing,
+	requestInboxRefresh,
 } from "@/lib/actions/booking-inbox";
 
 /** Buat Event (→ form booking terisi) + Tandai batal. */
@@ -80,6 +82,56 @@ export function InboxAckButton({ id }: { id: string }) {
 		>
 			{pending ? <Loader2 className="animate-spin" /> : <Check />} Sudah saya
 			sesuaikan
+		</Button>
+	);
+}
+
+const POLL_MS = 2500;
+const POLL_MAX = 40; // ±100 detik
+
+/**
+ * "Perbarui dari chat" — bot membaca ulang seluruh chat lalu mengisi ulang
+ * isian (merge; nilai bot menimpa isian dari dokumen). Tanpa pesan ke klien.
+ */
+export function InboxRefreshButton({ id }: { id: string }) {
+	const router = useRouter();
+	const [busy, setBusy] = useState(false);
+
+	async function run() {
+		setBusy(true);
+		try {
+			const res = await requestInboxRefresh(id);
+			if (!res.ok) {
+				toast.error(res.error);
+				return;
+			}
+			for (let i = 0; i < POLL_MAX; i++) {
+				await new Promise((r) => setTimeout(r, POLL_MS));
+				const st = await checkInboxRefresh(res.commandId);
+				if (st.status === "done") {
+					toast.success(st.result || "Isian diperbarui dari chat");
+					router.refresh();
+					return;
+				}
+				if (st.status === "error") {
+					toast.error(st.result || "Bot gagal membaca chat");
+					return;
+				}
+			}
+			toast.error(
+				"Bot belum menjawab. Isian akan berubah sendiri setelah bot selesai — muat ulang halaman nanti.",
+			);
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Gagal meminta bot");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<Button variant="outline" onClick={run} disabled={busy}>
+			{busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+			{busy ? "Membaca chat…" : "Perbarui dari chat"}
 		</Button>
 	);
 }

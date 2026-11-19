@@ -9,6 +9,7 @@ import type {
 import {
 	InboxAckButton,
 	InboxOpenActions,
+	InboxRefreshButton,
 } from "@/components/booking-inbox/inbox-actions";
 import { InboxStatusBadge } from "@/components/booking-inbox/inbox-status-badge";
 import { Container } from "@/components/layout/container";
@@ -107,6 +108,9 @@ export default async function BookingMasukDetailPage({
 
 				<div className="flex flex-wrap items-center gap-2">
 					{open ? <InboxOpenActions id={item.id} /> : null}
+					{item.status !== "dibatalkan" ? (
+						<InboxRefreshButton id={item.id} />
+					) : null}
 					{event ? (
 						<Link
 							href={`/operations/${event.project_id}`}
