@@ -33,6 +33,8 @@ import {
 	loadLeadContacts,
 } from "@/lib/leads/contacts";
 import { saldoAiView } from "@/lib/leads/saldo-ai";
+import { phoneTail } from "@/lib/portal/vendor-signup-core";
+import { loadProspekBlokir } from "@/lib/prospek-blokir";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -90,22 +92,30 @@ export default async function LeadsPage({
 		return new Set(hits.map((h) => h.wa_jid));
 	};
 
-	const [all, { data: contactsData }, qJids, followupByNomor, saldoRes] =
-		await Promise.all([
-			loadLeadContacts(supabase),
-			// segment_source untuk SegmentSelect (setelan manual per kontak).
-			supabase.from("whatsapp_bot_contacts").select("*").limit(10000),
-			searchJids(),
-			loadFollowupsByNomor(supabase),
-			// Saldo AI Sumopod dari penjaga Hermes (spek §6) — owner saja.
-			canManage
-				? supabase
-						.from("system_config")
-						.select("value")
-						.eq("key", "saldo_ai")
-						.maybeSingle()
-				: null,
-		]);
+	const [
+		all,
+		{ data: contactsData },
+		qJids,
+		followupByNomor,
+		saldoRes,
+		blokir,
+	] = await Promise.all([
+		loadLeadContacts(supabase),
+		// segment_source untuk SegmentSelect (setelan manual per kontak).
+		supabase.from("whatsapp_bot_contacts").select("*").limit(10000),
+		searchJids(),
+		loadFollowupsByNomor(supabase),
+		// Saldo AI Sumopod dari penjaga Hermes (spek §6) — owner saja.
+		canManage
+			? supabase
+					.from("system_config")
+					.select("value")
+					.eq("key", "saldo_ai")
+					.maybeSingle()
+			: null,
+		// Prospek berhenti/tolak/jangan_hubungi → tombol Follow-up mati.
+		loadProspekBlokir(supabase),
+	]);
 	const saldo = saldoRes
 		? saldoRes.error
 			? {
@@ -356,6 +366,7 @@ export default async function LeadsPage({
 								followup: c.phone
 									? (followupByNomor.get(c.phone) ?? null)
 									: null,
+								blokir: blokir.get(phoneTail(c.phone))?.label ?? null,
 								messages: msgsByJid.get(c.jid) ?? [],
 							}))}
 							contactByJid={contactByJid}

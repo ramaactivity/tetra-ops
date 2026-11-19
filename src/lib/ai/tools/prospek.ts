@@ -4,10 +4,13 @@ import { kpiKonversiWa } from "@/lib/ai/tools/kpi-wa";
 import type { AiTool, AiToolContext } from "@/lib/ai/types";
 import { appUrl } from "@/lib/app-url";
 import {
+	ALASAN_BERHENTI,
 	alasanTolakDmIg,
 	DM_IG_MAKS_HARIAN,
 	emailValid,
 	kunciProspek,
+	labelBlokir,
+	PROSPEK_BLOKIR,
 	type Prospek,
 	periksaDraf,
 	ringkasStatistik,
@@ -16,6 +19,7 @@ import {
 	sapaHref,
 	sapaLinks,
 } from "@/lib/prospek";
+import { blokirNomor } from "@/lib/prospek-blokir";
 import { KATEGORI_B2B, ringkasRetensi } from "@/lib/retensi";
 import { fetchAllResult } from "@/lib/supabase/fetch-all";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
@@ -727,6 +731,12 @@ export const prospekUbah: AiTool = {
 		properties: {
 			id: { type: "STRING" },
 			status: { type: "STRING", enum: [...STATUS_PROSPEK] },
+			alasan_berhenti: {
+				type: "STRING",
+				enum: Object.keys(ALASAN_BERHENTI),
+				description:
+					"Wajib kalau status = berhenti (terminal, tidak di-follow-up lagi). tak_dibalas_3x = 3x tidak dibalas.",
+			},
 			email: { type: "STRING" },
 			telepon: { type: "STRING" },
 			pic: { type: "STRING" },
@@ -751,6 +761,14 @@ export const prospekUbah: AiTool = {
 			patch.status = args.status;
 			if (args.status === "disapa" || args.status === "follow_up")
 				patch.disapa_at = patch.updated_at;
+			if (args.status === "berhenti") {
+				if (!(String(args.alasan_berhenti) in ALASAN_BERHENTI))
+					return {
+						error: `status berhenti butuh alasan_berhenti: ${Object.keys(ALASAN_BERHENTI).join(" | ")}`,
+					};
+				patch.alasan_berhenti = args.alasan_berhenti;
+				patch.berhenti_at = patch.updated_at;
+			}
 		}
 		if (args.email !== undefined) {
 			if (!emailValid(args.email)) return { error: "email tidak valid" };
@@ -853,6 +871,12 @@ export const prospekKirimWa: AiTool = {
 				error: `${p.nama} tidak punya nomor HP (telepon kantor bukan WA).`,
 			};
 		const nomor = new URL(href).pathname.slice(1);
+		// Nomor yang sama bisa ada di baris prospek lain yang sudah berhenti/tolak.
+		const blok = await blokirNomor(ctx.supabase, nomor);
+		if (blok)
+			return {
+				error: `Nomor ini milik ${blok.nama} yang berstatus ${blok.label}; tidak dihubungi lagi.`,
+			};
 
 		const { data: cmd, error } = await ctx.supabase
 			.from("bot_commands")
@@ -1222,7 +1246,9 @@ export const prospekStatistik: AiTool = {
 			(from, to) =>
 				ctx.supabase
 					.from("prospek")
-					.select("segmen, status, sumber, email, telepon, catatan")
+					.select(
+						"segmen, status, sumber, email, telepon, catatan, alasan_berhenti",
+					)
 					.gte("created_at", new Date(`${dari}T00:00:00+07:00`).toISOString())
 					.lt("created_at", akhir)
 					.order("id")
@@ -1399,13 +1425,15 @@ export const prospekAlihkan: AiTool = {
 			};
 		const { data: p } = await ctx.supabase
 			.from("prospek")
-			.select("id, nama, status, telepon, email, pic, website, catatan")
+			.select(
+				"id, nama, status, alasan_berhenti, telepon, email, pic, website, catatan",
+			)
 			.eq("id", id)
 			.maybeSingle();
 		if (!p) return { error: `prospek ${id} tidak ditemukan` };
-		if (["jangan_hubungi", "tolak"].includes(p.status))
+		if ((PROSPEK_BLOKIR as readonly string[]).includes(p.status))
 			return {
-				error: `${p.nama} berstatus ${p.status}; tidak dihubungi lagi.`,
+				error: `${p.nama} berstatus ${labelBlokir(p.status, p.alasan_berhenti)}; tidak dihubungi lagi.`,
 			};
 		const kunci = nomor ?? email;
 		if ((p.catatan ?? "").includes(`dialihkan ke ${kunci}`))
@@ -1592,7 +1620,7 @@ export async function kontakDikenal(ctx: AiToolContext) {
 				ctx.supabase
 					.from("prospek")
 					.select("telepon")
-					.in("status", ["tolak", "jangan_hubungi"])
+					.in("status", [...PROSPEK_BLOKIR])
 					.order("id")
 					.range(from, to),
 			"tools prospek",
@@ -1742,7 +1770,7 @@ export const waKirimKontak: AiTool = {
 					ctx.supabase
 						.from("prospek")
 						.select("nama, status, telepon")
-						.in("status", ["tolak", "jangan_hubungi"])
+						.in("status", [...PROSPEK_BLOKIR])
 						.not("telepon", "is", null)
 						.order("id")
 						.range(from, to),

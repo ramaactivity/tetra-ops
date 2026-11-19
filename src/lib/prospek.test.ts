@@ -104,8 +104,24 @@ test("statistik: per kueri dari catatan, kontak & status dihitung", () => {
 		berkontak: 1,
 		disapa: 1,
 		membalas: 0,
+		berhenti: 0,
 	});
 	assert.equal(r.per_kueri["(tanpa kueri)"].membalas, 1);
+	// berhenti = sudah dihubungi (masuk disapa) + dihitung per alasan.
+	const b = ringkasStatistik([
+		{
+			segmen: "venue",
+			status: "berhenti",
+			alasan_berhenti: "tak_dibalas_3x",
+			sumber: "places",
+			email: null,
+			telepon: null,
+			catatan: null,
+		},
+	]);
+	assert.equal(b.per_kueri["(tanpa kueri)"].disapa, 1);
+	assert.equal(b.per_kueri["(tanpa kueri)"].berhenti, 1);
+	assert.deepEqual(b.per_alasan_berhenti, { tak_dibalas_3x: 1 });
 });
 
 test("periksaDraf: gerbang terakhir sebelum antre", () => {
@@ -284,4 +300,66 @@ test("periksaDraf: sapaan tidak boleh menyebut nama agent Bruno", () => {
 		"Halo Ibu Aurel, saya Bruno dari Tetra Photobooth. Kontak Ibu kami dapat dari tim Ibis.";
 	assert.ok(periksaDraf({ isi: wa }).some((x) => x.includes("Bruno")));
 	assert.deepEqual(periksaDraf({ isi: wa.replace("Bruno", "Rama") }), []);
+});
+
+test("tandai berhenti: tolak/jangan_hubungi tetap, idempoten, catatan ditambah", async () => {
+	const { planBerhenti, labelBlokir } = await import("./prospek");
+	const rows = [
+		{
+			id: "a",
+			nama: "PT A",
+			status: "follow_up",
+			alasan_berhenti: null,
+			catatan: "kueri: kantor",
+		},
+		{
+			id: "b",
+			nama: "PT B",
+			status: "tolak",
+			alasan_berhenti: null,
+			catatan: null,
+		},
+		{
+			id: "c",
+			nama: "PT C",
+			status: "berhenti",
+			alasan_berhenti: "tak_dibalas_3x",
+			catatan: null,
+		},
+		{
+			id: "d",
+			nama: "PT D",
+			status: "jangan_hubungi",
+			alasan_berhenti: null,
+			catatan: null,
+		},
+	];
+	const p = planBerhenti(
+		rows,
+		"tak_dibalas_3x",
+		"3 follow-up sejak 1 Nov",
+		"2026-11-19",
+	);
+	assert.deepEqual(
+		p.ubah.map((u) => u.id),
+		["a"],
+	);
+	assert.equal(
+		p.ubah[0].patch.catatan,
+		"kueri: kantor\nBerhenti 2026-11-19: tak dibalas 3x — 3 follow-up sejak 1 Nov",
+	);
+	assert.deepEqual(
+		p.tetap.map((t) => t.id),
+		["b", "c", "d"],
+	);
+	// Alasan lain pada yang sudah berhenti → diperbarui.
+	assert.equal(
+		planBerhenti([rows[2]], "menolak", null, "2026-11-19").ubah.length,
+		1,
+	);
+	assert.equal(
+		labelBlokir("berhenti", "tak_dibalas_3x"),
+		"berhenti (tak dibalas 3x)",
+	);
+	assert.equal(labelBlokir("jangan_hubungi"), "jangan dihubungi");
 });

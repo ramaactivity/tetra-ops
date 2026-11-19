@@ -21,7 +21,39 @@ export const STATUS_PROSPEK = [
 	"deal",
 	"tolak",
 	"jangan_hubungi",
+	/** Terminal, keputusan kita (3x tak dibalas dll.) — lihat ALASAN_BERHENTI. */
+	"berhenti",
 ] as const;
+
+/**
+ * Status yang TIDAK boleh dihubungi lagi (follow-up, sapa ulang, kirim WA).
+ * Satu daftar untuk tombol Follow-up, send-followup, dan semua tool MCP.
+ */
+export const PROSPEK_BLOKIR = ["tolak", "jangan_hubungi", "berhenti"] as const;
+
+/** Rama 19 Nov: "kalau udah 3x ga dibalas yaudah jangan di followup lagi". */
+export const ALASAN_BERHENTI = {
+	tak_dibalas_3x: "tak dibalas 3x",
+	menolak: "menolak",
+	ooo_lama: "lama di luar kantor",
+	intake_bukan_pic: "nomor intake, bukan PIC",
+} as const;
+export type AlasanBerhenti = keyof typeof ALASAN_BERHENTI;
+
+/** Keterangan blokir untuk ditampilkan: "berhenti (tak dibalas 3x)". */
+export function labelBlokir(status: string, alasan?: string | null): string {
+	const a = alasan ? ALASAN_BERHENTI[alasan as AlasanBerhenti] : null;
+	if (status === "berhenti") return a ? `berhenti (${a})` : "berhenti";
+	return status === "jangan_hubungi" ? "jangan dihubungi" : status;
+}
+
+/**
+ * Tandai berhenti: tolak / jangan_hubungi tidak diturunkan (keputusan klien
+ * lebih kuat); berhenti → berhenti tetap idempoten (alasan terbaru dipakai).
+ */
+export function bolehBerhenti(status: string): boolean {
+	return status !== "tolak" && status !== "jangan_hubungi";
+}
 
 export type Prospek = {
 	id: string;
@@ -99,6 +131,7 @@ type BarisStatistik = {
 	email: string | null;
 	telepon: string | null;
 	catatan: string | null;
+	alasan_berhenti?: string | null;
 };
 
 /** Ringkasan untuk tinjauan mingguan Bruno; kueri asal dibaca dari catatan "kueri: …". */
@@ -110,8 +143,15 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 	const perStatus: Record<string, number> = {};
 	const perKueri: Record<
 		string,
-		{ total: number; berkontak: number; disapa: number; membalas: number }
+		{
+			total: number;
+			berkontak: number;
+			disapa: number;
+			membalas: number;
+			berhenti: number;
+		}
 	> = {};
+	const perAlasanBerhenti: Record<string, number> = {};
 	let berkontak = 0;
 	let waDititipkan = 0;
 	for (const r of rows) {
@@ -126,13 +166,26 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 				?.trim()
 				.toLowerCase() ?? "(tanpa kueri)";
 		if (!perKueri[kueri])
-			perKueri[kueri] = { total: 0, berkontak: 0, disapa: 0, membalas: 0 };
+			perKueri[kueri] = {
+				total: 0,
+				berkontak: 0,
+				disapa: 0,
+				membalas: 0,
+				berhenti: 0,
+			};
 		const k = perKueri[kueri];
 		k.total++;
 		if (ada) k.berkontak++;
-		if (["disapa", "follow_up", "membalas", "deal"].includes(r.status))
+		// berhenti = sudah dihubungi lalu dihentikan → tetap hasil sapaan.
+		if (
+			["disapa", "follow_up", "membalas", "deal", "berhenti"].includes(r.status)
+		)
 			k.disapa++;
 		if (["membalas", "deal"].includes(r.status)) k.membalas++;
+		if (r.status === "berhenti") {
+			k.berhenti++;
+			hitung(perAlasanBerhenti, r.alasan_berhenti ?? "(tanpa alasan)");
+		}
 	}
 	return {
 		total: rows.length,
@@ -141,6 +194,7 @@ export function ringkasStatistik(rows: BarisStatistik[]) {
 		per_segmen: perSegmen,
 		per_status: perStatus,
 		per_kueri: perKueri,
+		per_alasan_berhenti: perAlasanBerhenti,
 	};
 }
 
@@ -270,4 +324,55 @@ export function alasanTolakDmIg(a: {
 	)
 		return `jatah DM vendor sebelum 15.00 WIB habis (${DM_IG_MAKS_VENDOR}); sisanya dibuka untuk vendor mulai 15.00.`;
 	return null;
+}
+
+export type BarisBerhenti = {
+	id: string;
+	nama: string;
+	status: string;
+	alasan_berhenti: string | null;
+	catatan: string | null;
+};
+
+/**
+ * Rencana tandai berhenti untuk baris prospek bernomor sama. tolak /
+ * jangan_hubungi tetap; berhenti dengan alasan sama = idempoten (tak diubah).
+ * Catatan lama dipertahankan, satu baris ditambahkan di akhir.
+ */
+export function planBerhenti(
+	rows: BarisBerhenti[],
+	alasan: AlasanBerhenti,
+	catatan: string | null,
+	tanggal: string,
+) {
+	const ubah: Array<{
+		id: string;
+		nama: string;
+		patch: {
+			status: "berhenti";
+			alasan_berhenti: AlasanBerhenti;
+			catatan: string;
+		};
+	}> = [];
+	const tetap: Array<{ id: string; nama: string; status: string }> = [];
+	for (const r of rows) {
+		if (
+			!bolehBerhenti(r.status) ||
+			(r.status === "berhenti" && r.alasan_berhenti === alasan)
+		) {
+			tetap.push({ id: r.id, nama: r.nama, status: r.status });
+			continue;
+		}
+		const baris = `Berhenti ${tanggal}: ${ALASAN_BERHENTI[alasan]}${catatan ? ` — ${catatan}` : ""}`;
+		ubah.push({
+			id: r.id,
+			nama: r.nama,
+			patch: {
+				status: "berhenti",
+				alasan_berhenti: alasan,
+				catatan: [r.catatan, baris].filter(Boolean).join("\n"),
+			},
+		});
+	}
+	return { ubah, tetap };
 }

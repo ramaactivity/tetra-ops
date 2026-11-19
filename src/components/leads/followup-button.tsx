@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckCheck, Loader2, MessageSquareReply, Send } from "lucide-react";
+import {
+	Ban,
+	CheckCheck,
+	Loader2,
+	MessageSquareReply,
+	Send,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -56,6 +62,7 @@ export function FollowupButton({
 	konteks,
 	latest,
 	compact = false,
+	blokir = null,
 }: {
 	jid: string | null;
 	nomor: string;
@@ -67,6 +74,8 @@ export function FollowupButton({
 	/** Permintaan terakhir ke nomor ini (30 hari). */
 	latest: FollowupState | null;
 	compact?: boolean;
+	/** Prospek berstatus tolak/jangan_hubungi/berhenti → tombol mati + alasannya. */
+	blokir?: string | null;
 }) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -153,6 +162,17 @@ export function FollowupButton({
 			router.refresh();
 		});
 	}
+
+	if (blokir)
+		return (
+			<span
+				title={`Tidak di-follow-up lagi: ${blokir}`}
+				className="inline-flex items-center gap-1 whitespace-nowrap px-2 text-[12px] font-medium text-muted-foreground"
+			>
+				<Ban className="size-3.5" aria-hidden />
+				{blokir.startsWith("berhenti") ? "Berhenti" : "Jangan dihubungi"}
+			</span>
+		);
 
 	if (jedaAktif)
 		return (

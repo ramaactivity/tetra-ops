@@ -91,6 +91,8 @@ export type ContactWithMessages = LeadContactWithStage & {
 	alasan: string;
 	konteks: string;
 	followup: FollowupState | null;
+	/** Label blokir prospek (berhenti/tolak/jangan_hubungi) → tombol mati. */
+	blokir?: string | null;
 };
 
 type Convo = ContactWithMessages & { key: string; latest: LeadRow };
@@ -265,6 +267,7 @@ export function LeadsListTable({
 						alasan={c.alasan}
 						konteks={c.konteks}
 						latest={c.followup}
+						blokir={c.blokir}
 					/>
 				) : null}
 				<PauseContactButton

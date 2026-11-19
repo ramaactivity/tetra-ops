@@ -7,6 +7,7 @@ import {
 	type FollowupState,
 	type FollowupStatus,
 } from "@/lib/leads/followup-types";
+import { blokirNomor } from "@/lib/prospek-blokir";
 import { createClient } from "@/lib/supabase/server";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 
@@ -94,19 +95,11 @@ export async function mintaFollowup(input: {
 
 		if ((await nomorTim(supabase)).some((t) => toWaPhone(t.nomor) === nomor))
 			return { ok: false, error: "Ini nomor tim Tetra, bukan klien" };
-		const { data: blokir, error: blokirErr } = await supabase
-			.from("prospek")
-			.select("nama, telepon")
-			.in("status", ["tolak", "jangan_hubungi"])
-			.not("telepon", "is", null);
-		if (blokirErr) return { ok: false, error: blokirErr.message };
-		const b = (blokir ?? []).find(
-			(p) => isLikelyWaPhone(p.telepon) && toWaPhone(p.telepon) === nomor,
-		);
+		const b = await blokirNomor(supabase, nomor);
 		if (b)
 			return {
 				ok: false,
-				error: `${b.nama} minta tidak dihubungi lagi — tidak di-follow-up`,
+				error: `${b.nama} berstatus ${b.label} — tidak di-follow-up lagi`,
 			};
 
 		const { data: cmd, error: cmdErr } = await supabase
@@ -222,6 +215,18 @@ export async function kirimFollowup(
 		if (claimErr) return { ok: false, error: claimErr.message };
 		if (!claimed)
 			return { ok: false, error: "Draf ini sudah dikirim atau dibatalkan" };
+		// Status bisa berubah (berhenti/tolak) setelah draf dibuat → cek lagi.
+		const b = await blokirNomor(supabase, claimed.nomor);
+		if (b) {
+			await supabase
+				.from("followup_requests")
+				.update({ status: "batal", updated_at: new Date().toISOString() })
+				.eq("id", id);
+			return {
+				ok: false,
+				error: `${b.nama} berstatus ${b.label} — follow-up dibatalkan, tidak dikirim`,
+			};
+		}
 		const { data: cmd, error: cmdErr } = await supabase
 			.from("bot_commands")
 			.insert({

@@ -10,6 +10,8 @@ import { KpiCard } from "@/components/operations/kpi-card";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { shiftISODate, timeAgo, todayWIB } from "@/lib/dates";
 import { loadFollowupsByNomor, loadRecentSapaan } from "@/lib/leads/contacts";
+import { phoneTail } from "@/lib/portal/vendor-signup-core";
+import { loadProspekBlokir } from "@/lib/prospek-blokir";
 import {
 	BULAN_HILANG,
 	BULAN_RAWAT,
@@ -144,7 +146,7 @@ export default async function RetensiPage() {
 	const canManage =
 		me?.profile.role === "owner" || me?.profile.role === "super_admin";
 	const today = todayWIB();
-	const [{ data, error }, followups, sapaan] = await Promise.all([
+	const [{ data, error }, followups, sapaan, blokir] = await Promise.all([
 		fetchAllResult<EventKlien>(
 			(from, to) =>
 				supabase
@@ -160,6 +162,9 @@ export default async function RetensiPage() {
 		),
 		canManage ? loadFollowupsByNomor(supabase) : new Map(),
 		canManage ? loadRecentSapaan(supabase) : new Map<string, string>(),
+		canManage
+			? loadProspekBlokir(supabase)
+			: new Map<string, { label: string }>(),
 	]);
 	if (error) throw new Error(error.message);
 	const r = ringkasRetensi(data ?? [], today);
@@ -225,6 +230,7 @@ export default async function RetensiPage() {
 								alasan={alasan}
 								konteks={konteks}
 								latest={followups.get(k.wa) ?? null}
+								blokir={blokir.get(phoneTail(k.wa))?.label ?? null}
 							/>
 							{disapa ? (
 								<span className="whitespace-nowrap text-[11px] text-muted-foreground">
