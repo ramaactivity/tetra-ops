@@ -30,7 +30,7 @@ import {
 	rekapBulan,
 	vendorRelasi,
 } from "@/lib/ai/tools/laporan";
-import { leadsWa } from "@/lib/ai/tools/leads";
+import { dataKlien, leadsWa } from "@/lib/ai/tools/leads";
 import {
 	cariEvent,
 	cekKetersediaan,
@@ -61,6 +61,7 @@ const ALL_TOOLS: AiTool[] = [
 	komisiVendor,
 	bukuBulanan,
 	leadsWa,
+	dataKlien,
 	kpiKonversiWa,
 	daftarCrew,
 	akunKategoriCatat,
@@ -124,6 +125,7 @@ export const TOOL_LABELS: Record<string, string> = {
 	komisi_vendor: "komisi vendor",
 	buku_bulanan: "buku bulanan",
 	leads_wa: "leads WhatsApp",
+	data_klien: "data klien",
 	daftar_crew: "daftar crew",
 	akun_kategori_catat: "akun & kategori catat",
 	catat_transaksi: "catat transaksi",

@@ -30,6 +30,9 @@ const txt = z
 
 export const INBOX_DATA_KEYS = [
 	"nama_acara",
+	/** Jenis acara dari bot (6 grup Hermes: wedding, keluarga, korporat, …). */
+	"jenis",
+	"instansi",
 	"tanggal",
 	"tanggal_iso",
 	"jam",
@@ -46,6 +49,11 @@ export const INBOX_DATA_KEYS = [
 	"orientasi",
 	"desain_frame",
 	"teks_frame",
+	"tema",
+	/** Teks: "ada" / nama file logo. */
+	"logo",
+	/** Jumlah pose/layout frame. */
+	"pose",
 	"backdrop",
 	"catatan",
 ] as const;
@@ -54,6 +62,8 @@ export type InboxData = Partial<Record<InboxDataKey, string | null>>;
 
 export const INBOX_DATA_LABEL: Record<InboxDataKey, string> = {
 	nama_acara: "Nama acara",
+	jenis: "Jenis acara",
+	instansi: "Instansi",
 	tanggal: "Tanggal",
 	tanggal_iso: "Tanggal (ISO)",
 	jam: "Jam",
@@ -69,6 +79,9 @@ export const INBOX_DATA_LABEL: Record<InboxDataKey, string> = {
 	orientasi: "Orientasi",
 	desain_frame: "Desain frame",
 	teks_frame: "Teks frame",
+	tema: "Tema",
+	logo: "Logo",
+	pose: "Jumlah pose",
 	backdrop: "Backdrop",
 	catatan: "Catatan",
 };
@@ -107,7 +120,8 @@ export const BotBookingSchema = z.object({
 	sumber: z.enum(["bukti-transfer", "admin"]).nullish(),
 	dp_dilaporkan_at: z.iso.datetime({ offset: true }).nullish(),
 	bukti_url: z.url().max(1000).nullish(),
-	lengkap: z.boolean().default(false),
+	/** Tidak dikirim = pertahankan nilai lama (bot hanya mengirim yang terisi). */
+	lengkap: z.boolean().nullish(),
 	data: z
 		.object(
 			Object.fromEntries(
@@ -141,37 +155,63 @@ export type InboxRow = {
 
 type Writable = Omit<InboxRow, "id" | "created_at" | "updated_at">;
 
+/** Isian dari dokumen resmi (quotation/invoice) — hanya mengisi yang kosong. */
+export type InboxFill = {
+	data: InboxData;
+	client_wa?: string | null;
+	client_name?: string | null;
+};
+
+const filled = (v: unknown) =>
+	typeof v === "string" ? v.trim() !== "" : v != null;
+
+/** Kolom yang masih kosong di `data` diisi dari `fill`; yang terisi tidak disentuh. */
+export function fillEmpty(data: InboxData, fill: InboxData): InboxData {
+	const out = { ...data };
+	for (const k of INBOX_DATA_KEYS)
+		if (!filled(out[k]) && filled(fill[k])) out[k] = fill[k];
+	return out;
+}
+
 /**
- * Aturan upsert per external_id:
+ * Aturan upsert (record = per external_id, atau record klien yang cocok):
  *  - belum ada → insert status `baru`
  *  - `dibatalkan` → abaikan (status tetap)
- *  - `jadi_event` → simpan data terbaru + tandai berubah_setelah_event bila isinya
- *    memang beda; event TIDAK disentuh
- *  - lainnya → perbarui isi, status dipertahankan (diproses tetap diproses)
+ *  - lainnya → MERGE: kolom yang null/tidak dikirim bot tidak menimpa isi lama
+ *    (bot hanya mengirim yang terisi); status dipertahankan
+ *  - `jadi_event` → sama + tandai berubah_setelah_event bila isinya memang
+ *    beda; event TIDAK disentuh
+ *  - `fill` (dokumen resmi klien) mengisi kolom yang masih kosong sesudahnya
  */
 export function planUpsert(
 	existing: InboxRow | null,
 	body: BotBookingInput,
+	fill?: InboxFill | null,
 ):
 	| { action: "insert"; row: Writable }
 	| { action: "update"; patch: Partial<Writable> }
 	| { action: "ignore" } {
-	const fields = {
-		wa_jid: body.wa_jid,
+	const incoming = Object.fromEntries(
+		Object.entries(body.data).filter(([, v]) => filled(v)),
+	) as InboxData;
+	const top = {
 		client_wa: body.client_wa ?? null,
 		client_name: body.client_name ?? null,
 		sumber: body.sumber ?? null,
 		dp_dilaporkan_at: body.dp_dilaporkan_at ?? null,
 		bukti_url: body.bukti_url ?? null,
-		data: body.data as InboxData,
-		lengkap: body.lengkap,
 	};
 	if (!existing) {
 		return {
 			action: "insert",
 			row: {
 				external_id: body.external_id,
-				...fields,
+				wa_jid: body.wa_jid,
+				...top,
+				client_wa: top.client_wa ?? fill?.client_wa ?? null,
+				client_name: top.client_name ?? fill?.client_name ?? null,
+				data: fillEmpty(incoming, fill?.data ?? {}),
+				lengkap: body.lengkap ?? false,
 				status: "baru",
 				event_id: null,
 				berubah_setelah_event: false,
@@ -179,18 +219,49 @@ export function planUpsert(
 		};
 	}
 	if (existing.status === "dibatalkan") return { action: "ignore" };
-	// Bot mengirim ulang isi yang sama (idempoten) → jangan ubah bukti lama yang
-	// sudah ada dengan null.
+	const data = fillEmpty(
+		{ ...(existing.data ?? {}), ...incoming },
+		fill?.data ?? {},
+	);
 	const patch: Partial<Writable> = {
-		...fields,
-		bukti_url: fields.bukti_url ?? existing.bukti_url,
-		dp_dilaporkan_at: fields.dp_dilaporkan_at ?? existing.dp_dilaporkan_at,
+		wa_jid: body.wa_jid,
+		client_wa: top.client_wa ?? existing.client_wa ?? fill?.client_wa ?? null,
+		client_name:
+			top.client_name ?? existing.client_name ?? fill?.client_name ?? null,
+		sumber: top.sumber ?? existing.sumber,
+		dp_dilaporkan_at: top.dp_dilaporkan_at ?? existing.dp_dilaporkan_at,
+		bukti_url: top.bukti_url ?? existing.bukti_url,
+		data,
+		lengkap: body.lengkap ?? existing.lengkap,
 	};
 	if (existing.status === "jadi_event") {
-		const changed = !sameData(existing.data, fields.data);
+		const changed = !sameData(existing.data, data);
 		patch.berubah_setelah_event = existing.berubah_setelah_event || changed;
 	}
 	return { action: "update", patch };
+}
+
+/**
+ * Bot membuat external_id baru tiap tahap (`wa:<jid>:<mulai>`). Record klien
+ * yang sudah ada (jid / nomor sama) dipakai lagi: tanggal sama menang; kalau
+ * salah satu belum bertanggal, record yang masih terbuka. `rows` urut terbaru.
+ */
+export function pickClientMatch(
+	rows: InboxRow[],
+	tanggalIso: string | null | undefined,
+): InboxRow | null {
+	const live = rows.filter((r) => r.status !== "dibatalkan");
+	return (
+		(tanggalIso
+			? live.find((r) => r.data?.tanggal_iso === tanggalIso)
+			: undefined) ??
+		live.find(
+			(r) =>
+				(r.status === "baru" || r.status === "diproses") &&
+				(!tanggalIso || !r.data?.tanggal_iso),
+		) ??
+		null
+	);
 }
 
 function sameData(a: InboxData, b: InboxData): boolean {
@@ -200,6 +271,17 @@ function sameData(a: InboxData, b: InboxData): boolean {
 /** Penyimpanan yang disuntikkan ke handler (Supabase di route, Map di tes). */
 export type InboxStore = {
 	findByExternalId(externalId: string): Promise<InboxRow | null>;
+	/** Record klien yang sama (wa_jid atau 9 digit nomor), terbaru dulu. */
+	findForClient?(q: {
+		wa_jid: string;
+		client_wa: string | null;
+	}): Promise<InboxRow[]>;
+	/** Isian dari quotation/invoice klien ini (null = tak ada dokumen). */
+	docFill?(q: {
+		wa_jid: string;
+		client_wa: string | null;
+		tanggal_iso: string | null;
+	}): Promise<InboxFill | null>;
 	insert(row: Writable): Promise<InboxRow>;
 	update(id: string, patch: Partial<Writable>): Promise<InboxRow>;
 };
@@ -228,8 +310,23 @@ export async function handleBotBooking(params: {
 		};
 	}
 	const body = parsed.data;
-	const existing = await params.store.findByExternalId(body.external_id);
-	const plan = planUpsert(existing, body);
+	const { store } = params;
+	const existing =
+		(await store.findByExternalId(body.external_id)) ??
+		pickClientMatch(
+			(await store.findForClient?.({
+				wa_jid: body.wa_jid,
+				client_wa: body.client_wa ?? null,
+			})) ?? [],
+			body.data.tanggal_iso,
+		);
+	const fill =
+		(await store.docFill?.({
+			wa_jid: body.wa_jid,
+			client_wa: body.client_wa ?? existing?.client_wa ?? null,
+			tanggal_iso: body.data.tanggal_iso ?? existing?.data?.tanggal_iso ?? null,
+		})) ?? null;
+	const plan = planUpsert(existing, body, fill);
 	const row =
 		plan.action === "insert"
 			? await params.store.insert(plan.row)

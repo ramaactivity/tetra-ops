@@ -447,6 +447,39 @@ export function isRevision(
 	);
 }
 
+const tail9 = (p?: string | null) => (p ?? "").replace(/\D/g, "").slice(-9);
+
+/**
+ * Quotation yang sudah diganti invoice — dijadikan invoice (source_document_id
+ * / status accepted), atau invoice terbit untuk nomor klien + tanggal acara
+ * yang sama. Tidak perlu disetujui/dikirim lagi (kasus Yessi 19 Nov: QUO-TP-03
+ * tetap di antrean padahal INV-TP-34 sudah terkirim). Hasil: nomor invoice
+ * pengganti, "invoice" kalau tak ketemu tapi status accepted, atau null.
+ */
+export function supersededBy(
+	q: Pick<DocumentRow, "id" | "doc_type" | "status" | "client" | "event_info">,
+	invoices: ReadonlyArray<
+		Pick<
+			DocumentRow,
+			"doc_number" | "source_document_id" | "client" | "event_info" | "status"
+		>
+	>,
+): string | null {
+	if (q.doc_type !== "quotation") return null;
+	const t = tail9(q.client?.phone);
+	const date = q.event_info?.date;
+	const inv = invoices.find(
+		(i) =>
+			i.status !== "void" &&
+			(i.source_document_id === q.id ||
+				(t.length === 9 &&
+					Boolean(date) &&
+					tail9(i.client?.phone) === t &&
+					i.event_info?.date === date)),
+	);
+	return inv?.doc_number ?? (q.status === "accepted" ? "invoice" : null);
+}
+
 /**
  * Nama file PDF — pola owner di Canva ("Invoice_TetraPhotobooth_Lampu
  * Imaji_28072026"), dirapikan (owner 18 Nov 2026: tanpa nomor dokumen):

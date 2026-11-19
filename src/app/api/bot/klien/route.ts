@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { loadDataKlien } from "@/lib/booking-inbox/client-docs";
 import { isAuthorizedBot } from "@/lib/bot-auth";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,6 +8,33 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STATUS_BAYAR: Record<string, string> = { paid: "lunas", unpaid: "belum" };
+
+/**
+ * GET /api/bot/klien?wa=<digit> — data klien dari quotation/invoice + Booking
+ * Masuk, untuk bot mengisi form booking sebelum dikirim (konsultasi Hermes
+ * t_8843a9c1). Kunci sama dengan kontrak POST /api/bot/quotation; TANPA
+ * nominal uang. Bentuk: src/lib/booking-inbox/klien-data.ts (DataKlien).
+ */
+export async function GET(req: NextRequest) {
+	if (!isAuthorizedBot(req))
+		return NextResponse.json(
+			{ ok: false, error: "unauthorized" },
+			{ status: 401 },
+		);
+	const wa = req.nextUrl.searchParams.get("wa") ?? "";
+	if (phoneTail(wa).length !== 9)
+		return NextResponse.json(
+			{ ok: false, error: "nomor_tidak_valid" },
+			{ status: 400 },
+		);
+	try {
+		const data = await loadDataKlien(createAdminClient(), { wa });
+		return NextResponse.json({ ok: true, ...data });
+	} catch (e) {
+		console.error("[api/bot/klien GET]", e);
+		return NextResponse.json({ ok: false, error: "gagal" }, { status: 500 });
+	}
+}
 
 /**
  * POST /api/bot/klien {phone} — bot WA mengecek apakah lawan bicara sudah

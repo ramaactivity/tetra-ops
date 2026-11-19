@@ -2,7 +2,41 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DOC_TYPE_LABEL, type DocType } from "./types";
+import {
+	DOC_TYPE_LABEL,
+	type DocType,
+	type DocumentRow,
+	supersededBy,
+} from "./types";
+
+type SupersedeDoc = Pick<
+	DocumentRow,
+	"id" | "doc_type" | "status" | "client" | "event_info"
+>;
+type InvoiceLite = Pick<
+	DocumentRow,
+	"doc_number" | "source_document_id" | "client" | "event_info" | "status"
+>;
+
+/** Invoice pembanding untuk supersededBy (hanya dimuat kalau ada quotation). */
+export async function loadSupersedingInvoices(
+	supabase: SupabaseClient,
+	docs: ReadonlyArray<Pick<DocumentRow, "doc_type">>,
+): Promise<InvoiceLite[]> {
+	if (!docs.some((d) => d.doc_type === "quotation")) return [];
+	const { data, error } = await supabase
+		.from("documents")
+		.select("doc_number, source_document_id, client, event_info, status")
+		.eq("doc_type", "invoice")
+		.neq("status", "void")
+		.gte("created_at", new Date(Date.now() - 90 * 864e5).toISOString());
+	if (error) {
+		// Gagal memuat pembanding → quotation tetap tampil (fail-open), dicatat.
+		console.error("[pending-approval] invoices:", error.message);
+		return [];
+	}
+	return (data ?? []) as InvoiceLite[];
+}
 
 /**
  * Antrean "perlu persetujuan" di aplikasi — pasangan tombol Telegram
@@ -42,7 +76,7 @@ export async function loadPendingApprovals(
 	if (ids.length === 0) return [];
 	const { data: docs, error: docErr } = await supabase
 		.from("documents")
-		.select("id")
+		.select("id, doc_type, status, client, event_info")
 		.in("id", ids)
 		.is("delivered_at", null)
 		.neq("status", "void");
@@ -50,7 +84,12 @@ export async function loadPendingApprovals(
 		console.error("[pending-approval] documents:", docErr.message);
 		return [];
 	}
-	const open = new Set((docs ?? []).map((d) => d.id as string));
+	const rows = (docs ?? []) as SupersedeDoc[];
+	const invoices = await loadSupersedingInvoices(supabase, rows);
+	// Quotation yang sudah diganti invoice tidak perlu persetujuan lagi.
+	const open = new Set(
+		rows.filter((d) => !supersededBy(d, invoices)).map((d) => d.id),
+	);
 	const seen = new Set<string>();
 	const out: PendingApproval[] = [];
 	for (const r of reqs ?? [])
@@ -89,7 +128,7 @@ export async function resolveApprovalNotifications(requestId: string) {
  */
 export async function closePendingSends(
 	documentId: string,
-	how: "sent" | "manual" | "dismissed",
+	how: "sent" | "manual" | "dismissed" | "superseded",
 	actorId: string | null,
 ) {
 	try {

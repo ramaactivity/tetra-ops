@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ensureVenue } from "@/lib/actions/venues";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { syncInboxFromDocument } from "@/lib/booking-inbox/client-docs";
 import { defaultClientMessage } from "@/lib/documents/approval";
 import {
 	allocateNumber,
@@ -242,6 +243,7 @@ export async function saveDocument(
 			if (error) return { ok: false, error: error.message };
 			await syncEventDueDate(supabase, d);
 			await syncEventBillTo(supabase, d);
+			await syncInboxFromDocument(data.id as string);
 			revalidateDocs(await projectIdOf(supabase, d.event_id ?? null));
 			return {
 				ok: true,
@@ -263,6 +265,7 @@ export async function saveDocument(
 			return { ok: false, error: error.message };
 		}
 		await syncEventDueDate(supabase, d);
+		await syncInboxFromDocument(data.id as string);
 		revalidateDocs(await projectIdOf(supabase, d.event_id ?? null));
 		return {
 			ok: true,
@@ -560,6 +563,9 @@ export async function createInvoiceFromQuotation(
 			.from("documents")
 			.update({ status: "accepted" })
 			.eq("id", q.id);
+		// Quotation sudah jadi invoice → keluar dari antrean persetujuan.
+		await closePendingSends(q.id, "superseded", me.profile.id);
+		await syncInboxFromDocument(data.id as string);
 		revalidateDocs(ev?.project_id);
 		return { ok: true, id: data.id as string, created: true };
 	} catch (e) {

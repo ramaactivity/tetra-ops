@@ -11,6 +11,7 @@ import {
 import { isOwnerTg } from "./approval-auth";
 import { issuePaidDocCore } from "./invoice";
 import {
+	loadSupersedingInvoices,
 	notifyApprovalNeeded,
 	resolveApprovalNotifications,
 } from "./pending-approval";
@@ -22,6 +23,7 @@ import {
 	type DocumentRow,
 	isRevision,
 	pendingAdminItems,
+	supersededBy,
 } from "./types";
 
 /**
@@ -191,9 +193,30 @@ export async function handleDocSendTap(
 		.select("*")
 		.in("id", req.document_ids as string[]);
 	const byId = new Map(((rows ?? []) as DocumentRow[]).map((d) => [d.id, d]));
-	const docs = (req.document_ids as string[])
+	const all = (req.document_ids as string[])
 		.map((id) => byId.get(id))
 		.filter((d): d is DocumentRow => Boolean(d));
+	// Tombol lama untuk quotation yang sudah jadi invoice → jangan kirim
+	// penawaran basi ke klien.
+	const invoices = await loadSupersedingInvoices(supabase, all);
+	const skipped = all
+		.map((d) => ({ d, by: supersededBy(d, invoices) }))
+		.filter((x) => x.by);
+	const docs = all.filter((d) => !skipped.some((x) => x.d.id === d.id));
+	const skipNote = skipped
+		.map(
+			(x) =>
+				`ℹ️ ${x.d.doc_number} tidak dikirim — sudah diganti ${x.by === "invoice" ? "invoice" : x.by}.`,
+		)
+		.join("\n");
+	if (docs.length === 0) {
+		await supabase
+			.from("doc_send_requests")
+			.update({ result: { via: "telegram", how: "superseded" } })
+			.eq("id", requestId);
+		await resolveApprovalNotifications(requestId);
+		return { reply: skipNote || "ℹ️ Tidak ada dokumen yang perlu dikirim." };
+	}
 
 	const blocked = docs
 		.map((d) => ({ d, pending: pendingAdminItems(d.items) }))
@@ -216,7 +239,7 @@ export async function handleDocSendTap(
 
 	await resolveApprovalNotifications(requestId);
 	return {
-		reply: `⏳ Mengirim ${docs.map((d) => d.doc_number).join(" + ")} ke klien lewat bot WA…`,
+		reply: `${skipNote ? `${skipNote}\n` : ""}⏳ Mengirim ${docs.map((d) => d.doc_number).join(" + ")} ke klien lewat bot WA…`,
 		followUp: async () => {
 			const lines: string[] = [];
 			for (const [i, d] of docs.entries()) {

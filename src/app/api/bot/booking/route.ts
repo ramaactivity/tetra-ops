@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
+	findInboxForClient,
+	inboxDocFill,
+} from "@/lib/booking-inbox/client-docs";
+import {
 	handleBotBooking,
 	type InboxRow,
 	type InboxStore,
@@ -12,8 +16,10 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/bot/booking — bot WA mengirim booking yang sudah DP ke kotak
- * "Booking Masuk". Upsert idempoten per `external_id`; tidak pernah membuat
- * event atau mencatat pembayaran. Auth sama dengan /api/availability.
+ * "Booking Masuk". Upsert idempoten per `external_id`, atau ditempel ke record
+ * klien yang sama (jid / nomor + tanggal); MERGE: kolom null tidak menimpa.
+ * Kolom kosong diisi dari quotation/invoice klien. Tidak pernah membuat event
+ * atau mencatat pembayaran. Auth sama dengan /api/availability.
  * Logika & kontrak: src/lib/booking-inbox/core.ts.
  */
 export async function POST(req: NextRequest) {
@@ -30,6 +36,20 @@ export async function POST(req: NextRequest) {
 				.maybeSingle();
 			if (error) throw new Error(error.message);
 			return (data as InboxRow | null) ?? null;
+		},
+		// Pencocokan klien & isian dokumen = pelengkap: gagal → booking tetap
+		// masuk (record baru / tanpa isian dokumen), error dicatat.
+		async findForClient(q) {
+			return findInboxForClient(supabase, q).catch((e) => {
+				console.error("[api/bot/booking] cocokkan klien:", e);
+				return [];
+			});
+		},
+		async docFill(q) {
+			return inboxDocFill(supabase, q).catch((e) => {
+				console.error("[api/bot/booking] isian dokumen:", e);
+				return null;
+			});
 		},
 		async insert(row) {
 			const { data, error } = await supabase

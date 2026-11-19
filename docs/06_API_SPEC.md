@@ -1315,3 +1315,35 @@ curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
 - `lewat_vendor: true` → nomor cocok dengan event lewat vendor (bisa PIC rekanan).
 
 **Error:** 400 `nomor_tidak_valid` (kurang dari 9 digit), 401 `unauthorized`, 500 `gagal` (aman diulang).
+
+## 22. API bot WA — data klien untuk isi form booking (konsultasi Hermes t_8843a9c1, 19 Nov 2026)
+
+`GET /api/bot/klien?wa=<digit>` — data acara klien dari quotation/invoice (non-void) + Booking Masuk, supaya bot mengisi form booking sebelum dikirim dan tidak menanyakan ulang. Hanya baca. **Tanpa nominal uang.** Tool MCP `data_klien` (argumen `wa` atau `nama`, readOnlyHint) mengembalikan bentuk yang sama — satu fungsi: `loadDataKlien` (`src/lib/booking-inbox/client-docs.ts`), pemetaan murni di `klien-data.ts`.
+
+**Auth:** sama dengan §21. **Pencocokan:** 9 digit terakhir `client.phone` dokumen, lalu `origin.wa_jid` quotation bot yang ketemu (LID ↔ nomor asli).
+
+**Output 200:**
+```json
+{
+  "ok": true, "ditemukan": true,
+  "klien": { "nama": "Yessi", "instansi": null, "attn": null, "email": null },
+  "acara": { "judul": null, "jenis": "event", "tanggal": "2026-12-02", "jam_mulai": "16:00", "jam_selesai": "21:00",
+             "venue": "Grand Wisata", "kota": "Bekasi", "jumlah_tamu": null },
+  "layanan": [{ "kategori": "photobooth_classic", "jam": 2, "qty": 1, "format": null, "nama": "Photobooth Classic Unlimited 2 Jam" }],
+  "addons": [{ "nama": "Break Time 3 Jam (jeda 17.00–20.00)", "qty": 1 }],
+  "backdrop": "Cetak Backdrop Banner 230×230 (desain dari klien)",
+  "dokumen": [{ "jenis": "invoice", "nomor": "INV-TP-34-18112026", "tanggal": "2026-11-18" }],
+  "booking_masuk": { "id": "50eb0686-…", "status": "diproses", "terisi": ["catatan"] }
+}
+```
+- Kunci sama dengan kontrak `POST /api/bot/quotation` (`klien.nama/organisasi→instansi/attn`, `acara.*`, `layanan[]`, `addons[]`, `backdrop`); `layanan[].nama` = tambahan (nama item di dokumen).
+- Dokumen acuan: invoice > quotation, yang bertanggal > tanpa tanggal, terbaru. `format: null` = format cetak belum dipilih. "Tambahan durasi" dilipat ke `jam`.
+- Tidak ada dokumen & booking → `ditemukan: false`, `klien`/`acara`/`booking_masuk` null, array kosong.
+
+**Error:** 400 `nomor_tidak_valid`, 401 `unauthorized`, 500 `gagal` (aman diulang).
+
+### `POST /api/bot/booking` — MERGE (perubahan 19 Nov 2026)
+- Kolom `null`/tidak dikirim **tidak menimpa** isi lama (data & kolom atas: `client_wa`, `client_name`, `sumber`, `bukti_url`, `dp_dilaporkan_at`, `lengkap`).
+- `external_id` baru (bot: `wa:<jid>:<mulai>` per tahap) **ditempel ke record klien yang sama** (wa_jid atau 9 digit `client_wa`, ≤180 hari, bukan dibatalkan): tanggal sama menang; kalau salah satu belum bertanggal → record yang masih baru/diproses. Tanggal beda dua-duanya terisi = acara lain → record baru.
+- Kunci `data` tambahan diterima & tampil di Booking Masuk: `jenis`, `instansi`, `logo`, `tema`, `pose`.
+- Kolom yang masih kosong diisi dari quotation/invoice klien (isian bot/admin tidak pernah ditimpa). Sebaliknya, quotation/invoice yang disimpan/dibuat mengisi kolom kosong Booking Masuk klien yang masih baru/diproses.

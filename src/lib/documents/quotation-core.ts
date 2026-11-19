@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { syncInboxFromDocument } from "@/lib/booking-inbox/client-docs";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { tgEscape } from "@/lib/telegram/client";
 import { editorUrl, offerSendToOwner } from "./approval";
@@ -232,6 +233,7 @@ export async function createQuotationCore(
 		return { error: error.message };
 	}
 	const id = data.id as string;
+	await syncInboxFromDocument(id);
 
 	await offerSendToOwner(supabase, {
 		documentIds: [id],

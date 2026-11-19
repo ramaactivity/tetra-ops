@@ -13,6 +13,16 @@ function memStore() {
 		async findByExternalId(ext) {
 			return [...rows.values()].find((r) => r.external_id === ext) ?? null;
 		},
+		async findForClient(q) {
+			const tail = (x: string | null) => (x ?? "").slice(-9);
+			return [...rows.values()]
+				.filter(
+					(r) =>
+						r.wa_jid === q.wa_jid ||
+						(q.client_wa && tail(r.client_wa) === tail(q.client_wa)),
+				)
+				.reverse();
+		},
 		async insert(row) {
 			const r = {
 				...row,
@@ -75,9 +85,79 @@ test("kolom data kosong/null/tak dikenal tidak ditolak", async () => {
 	});
 	assert.equal(res.status, 200);
 	const row = [...rows.values()][0];
-	assert.equal(row.data.jam, null);
-	assert.equal(row.data.tanggal_iso, null);
+	assert.equal(row.data.jam ?? null, null);
+	assert.equal(row.data.tanggal_iso ?? null, null);
 	assert.ok(!("ngawur" in row.data));
+});
+
+test("MERGE: kolom null/tidak dikirim tidak menimpa isi lama", async () => {
+	const { rows, store } = memStore();
+	await call(store, body);
+	await call(store, {
+		...body,
+		client_name: null,
+		lengkap: undefined,
+		data: { jam: null, lokasi: "Sentul", jenis: "wedding", tema: "rustic" },
+	});
+	const row = rows.get("id-1") as InboxRow;
+	assert.equal(row.data.nama_acara, "Rizky & Nadia");
+	assert.equal(row.data.jam, "11.00 - 14.00");
+	assert.equal(row.data.lokasi, "Sentul");
+	assert.equal(row.data.jenis, "wedding");
+	assert.equal(row.data.tema, "rustic");
+	assert.equal(row.client_name, "Nadia");
+	assert.equal(row.lengkap, false);
+});
+
+test("external_id baru tiap tahap → ditempel ke record klien yang sama", async () => {
+	const { rows, store } = memStore();
+	await call(store, { ...body, data: { catatan: "DP masuk" } }); // tanpa tanggal
+	// Tahap berikutnya: external_id baru, sekarang bertanggal → record yang sama.
+	await call(store, { ...body, external_id: "wa:x:2" });
+	assert.equal(rows.size, 1);
+	const row = rows.get("id-1") as InboxRow;
+	assert.equal(row.data.catatan, "DP masuk");
+	assert.equal(row.data.tanggal_iso, "2026-12-05");
+	// Tanggal sama dari nomor yang sama (jid lain) → tetap record yang sama.
+	await call(store, {
+		...body,
+		external_id: "wa:x:3",
+		wa_jid: "999@lid",
+		data: { jam: "13.00 - 16.00" },
+	});
+	assert.equal(rows.size, 1);
+	// Acara lain (tanggal beda, dua-duanya bertanggal) → record baru.
+	await call(store, {
+		...body,
+		external_id: "wa:x:4",
+		data: { tanggal_iso: "2027-01-10" },
+	});
+	assert.equal(rows.size, 2);
+});
+
+test("isian dokumen hanya mengisi kolom kosong; isian bot menang", async () => {
+	const { rows, store } = memStore();
+	store.docFill = async () => ({
+		data: {
+			jam: "16:00–21:00",
+			lokasi: "Grand Wisata, Bekasi",
+			paket: "Classic 2 Jam",
+		},
+		client_wa: "6281298116793",
+		client_name: "Yessi",
+	});
+	await call(store, {
+		...body,
+		client_wa: null,
+		client_name: null,
+		data: { jam: "11.00 - 14.00" },
+	});
+	const row = rows.get("id-1") as InboxRow;
+	assert.equal(row.data.jam, "11.00 - 14.00");
+	assert.equal(row.data.lokasi, "Grand Wisata, Bekasi");
+	assert.equal(row.data.paket, "Classic 2 Jam");
+	assert.equal(row.client_wa, "6281298116793");
+	assert.equal(row.client_name, "Yessi");
 });
 
 test("upsert idempoten per external_id + url", async () => {

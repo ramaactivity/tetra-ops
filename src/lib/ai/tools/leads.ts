@@ -1,6 +1,48 @@
 import "server-only";
 
 import type { AiTool } from "@/lib/ai/types";
+import { loadDataKlien } from "@/lib/booking-inbox/client-docs";
+
+/**
+ * Data klien dari quotation/invoice + Booking Masuk (sama persis dengan
+ * GET /api/bot/klien). Untuk agent cs-wa: klien mengoreksi data sesudah form
+ * dikirim, atau bertanya "data saya sudah masuk belum". Tanpa nominal uang.
+ */
+export const dataKlien: AiTool = {
+	name: "data_klien",
+	description:
+		"Data acara klien yang sudah tercatat di dokumen resmi Tetra (quotation/invoice) dan Booking Masuk: " +
+		"nama, instansi, tanggal, jam, venue, layanan/paket, add-on, backdrop, nomor dokumen, dan kolom booking yang sudah terisi. " +
+		"Tanpa harga. Cari pakai nomor WA klien (paling tepat) atau nama. Pakai sebelum menanyakan ulang data ke klien.",
+	scope: "ops",
+	parameters: {
+		type: "OBJECT",
+		properties: {
+			wa: {
+				type: "STRING",
+				description: "Nomor WA klien, format bebas (08…, 62…, +62…).",
+			},
+			nama: {
+				type: "STRING",
+				description:
+					"Nama klien/instansi (minimal 3 huruf) kalau nomor tidak ada.",
+			},
+		},
+	},
+	async run(args, ctx) {
+		const wa = typeof args.wa === "string" ? args.wa : null;
+		const nama = typeof args.nama === "string" ? args.nama : null;
+		if (!wa?.replace(/\D/g, "") && (nama?.trim().length ?? 0) < 3)
+			return { error: "Isi wa (nomor klien) atau nama (minimal 3 huruf)." };
+		try {
+			return await loadDataKlien(ctx.supabase, { wa, nama });
+		} catch (e) {
+			return {
+				error: e instanceof Error ? e.message : "Gagal membaca data klien",
+			};
+		}
+	},
+};
 
 /**
  * Leads dari bot WhatsApp (tabel whatsapp_bot_leads). Status yang dipakai
