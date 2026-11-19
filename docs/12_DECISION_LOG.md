@@ -1385,3 +1385,33 @@ Pengingat langganan hanya 3 baris (`telegram_renewals`) + teks tanggal 1 yang di
   - VPS DomaiNesia dimatikan.
   - Tagihan baru: Kost (tgl 1), Wifi kantor (tgl 1), VPS Sumopod (tgl 21), Bagi hasil owner (tgl 1).
   - Claude, Gemini, dan Hostinger Email belum dimasukkan karena tidak ada pembayaran Okt–Nov. Owner menambahkan sendiri kalau masih berlangganan.
+
+## DR-055: Bukti DP dari WA jadi draft — masuk buku saat event dibuat
+
+**Status:** Accepted (owner 2026-11-19, via AskUserQuestion; flow designed by Hermes card t_5c804dee and passed on by session hermes-15)
+**Date:** 2026-11-19
+
+### Context
+Klien mengirim foto bukti transfer DP di WA, lalu admin membalas "DP sudah masuk". Sesudah itu Rama harus mengetik ulang nominal, mengunduh bukti, mencatat pembayaran, dan menyiapkan kuitansi. Hermes mengusulkan supaya bot membaca bukti (vision) lalu mengirim draft ke Tetra Ops.
+
+Masalahnya, model pembayaran Tetra Ops mewajibkan setiap pembayaran menempel ke **event**. Akun pendapatan dipilih dari service_type event, total/status bayar dihitung per event, dan kuitansi serta settle juga per event. Padahal DP biasanya masuk sebelum event dibuat (Yessi: Booking Masuk + invoice lepas INV-TP-34).
+
+### Decision
+1. **Draft terpisah dari payments** (tabel `payment_drafts`). Draft tidak pernah menyentuh buku, saldo, atau piutang.
+   - Status: menunggu → disetujui → tercatat, atau dibatalkan (tidak pernah dihapus).
+   - Idempoten per `pesan_id_wa`.
+   - Draft ditempel ke Booking Masuk + dokumen tagihan klien itu.
+2. **Masuk buku saat event ada.** Kalau booking sudah punya event, draft yang disetujui langsung diposting lewat `logPaymentCore`. Kalau belum, draft diposting otomatis ketika event dibuat (dari invoice atau Booking Masuk).
+   - Baris draft yang sama mendapat event_id + payment_id. Tidak ada salinan dan tidak ada event hantu.
+   - `payment_date` = waktu transfer (cadangan: waktu bukti diterima), jadi tanggal jurnal tetap benar. Yang telat hanya saldo di aplikasi sampai event dibuat.
+   - Opsi "langsung masuk buku tanpa event" ditolak: harus mengubah inti pembayaran.
+3. **Lebih bayar ditahan.** Nominal > sisa tagihan tidak bisa dicatat sampai dikoreksi (guard `checkPayment` tetap berlaku). Saat konfirmasi sudah diperingatkan lebih dulu.
+4. **Konfirmasi otomatis dari WA (syarat ketat).** Bot mengirim `auto_confirm=true` hanya kalau admin yang membalas di WA (dijaga bot). Tetra Ops menaikkan draft ke disetujui hanya kalau semua syarat ini lolos:
+   - nominal > 0;
+   - rekening tujuan cocok dengan rekening Tetra yang aktif (digit nomor rekening);
+   - nominal ≤ sisa tagihan;
+   - AI yakin dengan bacaannya (confidence ≥ ambang).
+   Gagal satu syarat → tetap menunggu klik Konfirmasi.
+5. **Nama pengirim wajib & terlihat.** Rama mencocokkan mutasi bank lewat nama pengirim. Nama pengirim disimpan terpisah, tampil di tabel, bisa dicari, dan tercetak di kuitansi: "Telah terima dari: <klien>, transfer dari rek. a.n. <pengirim>".
+6. **Bukti disimpan privat** di Google Drive (jalur yang sama dengan bukti pembayaran lain dan Arsip Nota). Tidak ada URL publik.
+7. **Kuitansi tidak pernah terkirim otomatis.** Pembayaran yang berasal dari draft memanggil webhook Hermes (dengan retry) untuk usulan kirim, dan Rama tetap menyetujui per pesan. Kalau webhook gagal → tandai "kuitansi belum disiapkan" dan pakai tawaran Telegram sebagai cadangan.

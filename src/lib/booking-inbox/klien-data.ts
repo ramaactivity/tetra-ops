@@ -48,6 +48,7 @@ export type DocLike = {
 	}> | null;
 	notes?: string | null;
 	origin?: { wa_jid?: string | null; jenis_acara?: string | null } | null;
+	event_id?: string | null;
 };
 
 export type PackageLite = {

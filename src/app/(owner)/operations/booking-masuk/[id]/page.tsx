@@ -15,6 +15,10 @@ import { InboxStatusBadge } from "@/components/booking-inbox/inbox-status-badge"
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import {
+	DpDraftsSection,
+	type DraftView,
+} from "@/components/payment-drafts/dp-drafts-section";
+import {
 	INBOX_DATA_KEYS,
 	INBOX_DATA_LABEL,
 	INBOX_REQUIRED,
@@ -22,6 +26,7 @@ import {
 } from "@/lib/booking-inbox/core";
 import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
 import { formatDateID, formatPhoneLocal } from "@/lib/format";
+import { loadDraftsForBooking } from "@/lib/payment-drafts/server";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { whatsappUrl } from "@/lib/whatsapp";
@@ -72,6 +77,48 @@ export default async function BookingMasukDetailPage({
 				.maybeSingle()
 		: { data: null };
 	const event = ev as EventSnap | null;
+
+	// Bukti DP dari WA (DR-055) + rekening penerima untuk tombol Konfirmasi.
+	const [drafts, { data: bankRows }] = await Promise.all([
+		loadDraftsForBooking(supabase, item.id),
+		supabase
+			.from("bank_accounts")
+			.select("id, bank_name, account_name, account_number")
+			.eq("is_active", true)
+			.neq("account_kind", "emoney")
+			.order("account_name"),
+	]);
+	const wib = (iso: string) =>
+		new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+	const draftViews: DraftView[] = drafts.map((r) => {
+		const tanggal = wib(r.waktu_transfer ?? r.waktu_pesan ?? r.created_at);
+		return {
+			id: r.id,
+			status: r.status,
+			nominal: r.nominal,
+			nama_pengirim: r.nama_pengirim,
+			bank_pengirim: r.bank_pengirim,
+			bank_tujuan: r.bank_tujuan,
+			bank_account_id: r.bank_account_id,
+			tanggal,
+			tanggalLabel: new Date(`${tanggal}T00:00:00Z`).toLocaleDateString(
+				"id-ID",
+				{ day: "numeric", month: "short", timeZone: "UTC" },
+			),
+			hasBukti: Boolean(r.bukti_file_id),
+			alasanBelumOtomatis: r.sumber === "admin_wa" ? (r.gerbang ?? []) : [],
+			disetujuiVia: r.disetujui_via,
+		};
+	});
+	const bankOptions = (bankRows ?? []).map((b) => ({
+		value: b.id as string,
+		label: [
+			b.account_name,
+			b.account_number ? `…${String(b.account_number).slice(-4)}` : null,
+		]
+			.filter(Boolean)
+			.join(" "),
+	}));
 
 	const diffs =
 		event && item.berubah_setelah_event ? await diffWithEvent(item, event) : [];
@@ -216,6 +263,14 @@ export default async function BookingMasukDetailPage({
 					})}
 				</dl>
 			</section>
+
+			{draftViews.length > 0 ? (
+				<DpDraftsSection
+					drafts={draftViews}
+					banks={bankOptions}
+					hasEvent={Boolean(item.event_id)}
+				/>
+			) : null}
 
 			<section className={cn(CARD, "space-y-2")}>
 				<h2 className="text-[15px] font-semibold">Bukti transfer</h2>

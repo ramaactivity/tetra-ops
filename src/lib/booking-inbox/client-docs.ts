@@ -20,7 +20,7 @@ import {
  */
 
 const DOC_COLS =
-	"id, doc_type, doc_number, status, issued_at, created_at, client, event_info, items, notes, origin";
+	"id, doc_type, doc_number, status, issued_at, created_at, client, event_info, items, notes, origin, event_id";
 
 /** Nilai di filter .or() PostgREST: buang karakter yang memecah sintaksnya. */
 const clean = (s: string) => s.replace(/[,()"*\\%]/g, " ").trim();
@@ -104,7 +104,7 @@ export async function findInboxForClient(
  * Booking Masuk (bukan dibatalkan) untuk semua nomor & jid yang muncul di
  * dokumen klien, tanpa dobel, terbaru dulu.
  */
-async function inboxForDocs(
+export async function inboxForDocs(
 	supabase: SupabaseClient,
 	docs: DocLike[],
 	extraPhone?: string | null,

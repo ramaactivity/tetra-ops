@@ -211,10 +211,18 @@ export async function ensureEventTree(event: {
 export async function ensureManualNotaMonthFolder(
 	uploadDate: Date = new Date(),
 ): Promise<CreatedFolder> {
+	return ensureArchiveMonthFolder("Arsip Nota Manual", uploadDate);
+}
+
+/** Parent / <rootName> / <Year> / <MM - Month> (mis. "Bukti DP WA"). */
+export async function ensureArchiveMonthFolder(
+	rootName: string,
+	uploadDate: Date = new Date(),
+): Promise<CreatedFolder> {
 	const parent = getParentFolderId();
 	if (!parent) throw new Error("GOOGLE_DRIVE_PARENT_FOLDER_ID missing");
 
-	const root = await ensureFolder("Arsip Nota Manual", parent);
+	const root = await ensureFolder(rootName, parent);
 	const yearFolder = await ensureFolder(
 		String(uploadDate.getFullYear()),
 		root.id,
@@ -260,6 +268,8 @@ export async function uploadFileToFolder(
 	fileName: string,
 	mimeType: string,
 	body: Buffer,
+	/** publicLink false = tanpa "siapa pun dengan link" (data finansial klien). */
+	opts: { publicLink?: boolean } = {},
 ): Promise<UploadedFile> {
 	const drive = await getDriveClient();
 
@@ -286,22 +296,43 @@ export async function uploadFileToFolder(
 	}
 
 	// Make link-accessible (anyone with link → reader)
-	try {
-		await drive.permissions.create({
-			fileId: id,
-			requestBody: { role: "reader", type: "anyone" },
-			supportsAllDrives: true,
-		});
-	} catch {
-		// Permissions failure non-fatal — file still uploaded; URL works for
-		// authenticated Drive users. Client can manually share later.
-	}
+	if (opts.publicLink !== false)
+		try {
+			await drive.permissions.create({
+				fileId: id,
+				requestBody: { role: "reader", type: "anyone" },
+				supportsAllDrives: true,
+			});
+		} catch {
+			// Permissions failure non-fatal — file still uploaded; URL works for
+			// authenticated Drive users. Client can manually share later.
+		}
 
 	return {
 		id,
 		name: resolvedName,
 		webViewLink,
 		mimeType: resolvedMime ?? mimeType,
+	};
+}
+
+/** Isi file Drive (untuk dibuka owner lewat route ber-sesi, tanpa link publik). */
+export async function downloadDriveFile(
+	fileId: string,
+): Promise<{ body: Buffer; mimeType: string }> {
+	const drive = await getDriveClient();
+	const meta = await drive.files.get({
+		fileId,
+		fields: "mimeType",
+		supportsAllDrives: true,
+	});
+	const res = await drive.files.get(
+		{ fileId, alt: "media", supportsAllDrives: true },
+		{ responseType: "arraybuffer" },
+	);
+	return {
+		body: Buffer.from(res.data as ArrayBuffer),
+		mimeType: meta.data.mimeType ?? "application/octet-stream",
 	};
 }
 
