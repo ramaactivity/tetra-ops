@@ -65,6 +65,7 @@ export async function draftViewsAndBanks(
 			disetujuiVia: r.disetujui_via,
 			catatanPosting: r.catatan_posting,
 			kuitansi: r.payment_id ? (receiptOf.get(r.payment_id) ?? null) : null,
+			kuitansiStatus: r.kuitansi_status ?? null,
 		};
 	});
 	const banks = (bankRows ?? []).map((b) => ({

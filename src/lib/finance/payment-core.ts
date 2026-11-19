@@ -138,6 +138,11 @@ export async function logPaymentCore(
 	supabase: SupabaseClient,
 	input: PaymentCoreInput,
 	actorId: string,
+	/**
+	 * skipOwnerOffer: pemanggil sendiri yang menawarkan kuitansi (DP dari WA →
+	 * webhook Hermes, Telegram hanya cadangan) supaya owner tidak dapat dua tawaran.
+	 */
+	opts: { skipOwnerOffer?: boolean } = {},
 ): Promise<PaymentCoreResult> {
 	const guard = await checkPayment(supabase, input);
 	if (!guard.ok) return guard;
@@ -195,7 +200,7 @@ export async function logPaymentCore(
 	);
 
 	// Tawaran kirim ke klien lewat grup owner (1 tap) — setelah respons.
-	if (issued) {
+	if (issued && !opts.skipOwnerOffer) {
 		after(() =>
 			offerPaymentDocsToOwner(
 				input.eventId,
@@ -258,7 +263,7 @@ export async function issuePaymentDocs(
 }
 
 /** Tawarkan dokumen yang baru terbit ke grup owner (kirim ke klien 1 tap). */
-async function offerPaymentDocsToOwner(
+export async function offerPaymentDocsToOwner(
 	eventId: string,
 	issued: Awaited<ReturnType<typeof issuePaymentDocs>>,
 	paymentType: PaymentType,

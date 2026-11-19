@@ -1,6 +1,8 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
+import { HERMES_URL_CONFIG_KEY } from "@/lib/ai/hermes";
 import { resolveOwnerActorId } from "@/lib/auth/owner-actor";
 import { inboxForDocs, loadClientDocs } from "@/lib/booking-inbox/client-docs";
 import { pickPrimaryDoc } from "@/lib/booking-inbox/klien-data";
@@ -12,7 +14,12 @@ import {
 	uploadFileToFolder,
 } from "@/lib/drive/client";
 import { safeSegment } from "@/lib/drive/naming";
-import { checkPayment, logPaymentCore } from "@/lib/finance/payment-core";
+import {
+	checkPayment,
+	logPaymentCore,
+	offerPaymentDocsToOwner,
+	type PaymentType,
+} from "@/lib/finance/payment-core";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -21,6 +28,7 @@ import {
 	type DraftRow,
 	planDraftUpsert,
 } from "./core";
+import { type PembayaranTercatat, signedRequest, webhookUrl } from "./webhook";
 
 /**
  * Draft bukti DP (DR-055) — I/O: cari tagihan klien, hitung sisa, simpan
@@ -457,7 +465,7 @@ async function postDraft(
 		.select("id")
 		.maybeSingle();
 	if (!claimed) return "skip";
-	const paymentType =
+	const paymentType: PaymentType =
 		g.sisaSesudah <= 0
 			? "pelunasan"
 			: g.billable - g.sisaSebelum <= 0
@@ -477,6 +485,8 @@ async function postDraft(
 				senderName: d.nama_pengirim,
 			},
 			actorId,
+			// Kuitansi ditawarkan lewat Hermes (Telegram hanya cadangan) — lihat kabariHermes.
+			{ skipOwnerOffer: true },
 		);
 		if (!res.ok) {
 			await admin
@@ -489,6 +499,12 @@ async function postDraft(
 			.from("payment_drafts")
 			.update({ payment_id: res.paymentId })
 			.eq("id", d.id);
+		const posted = { ...res, paymentType, nominal: d.nominal };
+		after(() =>
+			kabariHermes(d, eventId, posted).catch((e) =>
+				console.error("[payment-drafts] kabari Hermes:", e),
+			),
+		);
 		return "posted";
 	} catch (e) {
 		// Tidak tahu apakah jurnal sudah tertulis → JANGAN dikembalikan ke
@@ -612,4 +628,121 @@ export async function searchSender(
 		});
 	}
 	return out.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+}
+
+/**
+ * Kirim webhook "pembayaran tercatat" ke Hermes dengan coba ulang. Alamat
+ * dibaca ulang tiap percobaan (quick tunnel bisa berganti). 400/401 = isi /
+ * tanda tangan salah → tidak diulang.
+ */
+export async function kirimWebhookPembayaran(
+	admin: SupabaseClient,
+	payload: PembayaranTercatat,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const secret = process.env.WEBHOOK_PEMBAYARAN_SECRET?.trim();
+	if (!secret)
+		return { ok: false, error: "WEBHOOK_PEMBAYARAN_SECRET belum diisi" };
+	let last = "";
+	for (const wait of [0, 2000, 5000]) {
+		if (wait) await new Promise((r) => setTimeout(r, wait));
+		const { data } = await admin
+			.from("system_config")
+			.select("value")
+			.eq("key", HERMES_URL_CONFIG_KEY)
+			.maybeSingle();
+		const url = webhookUrl(data?.value);
+		if (!url) {
+			last = "alamat Hermes belum terdaftar";
+			continue;
+		}
+		try {
+			const req = signedRequest(secret, payload);
+			const r = await fetch(url, {
+				method: "POST",
+				headers: req.headers,
+				body: req.body,
+				signal: AbortSignal.timeout(10_000),
+			});
+			if (r.ok) return { ok: true };
+			last = `Hermes menjawab ${r.status}: ${(await r.text()).slice(0, 160)}`;
+			if (r.status === 400 || r.status === 401) break;
+		} catch (e) {
+			last = `Hermes tidak terjangkau: ${e instanceof Error ? e.message : String(e)}`;
+		}
+	}
+	return { ok: false, error: last };
+}
+
+/**
+ * Setelah DP dari draft tercatat: kabari Hermes (usulan kuitansi ke Rama).
+ * Gagal → tandai "kuitansi belum disiapkan" + cadangan tawaran Telegram 1-tap.
+ * Kuitansi tidak pernah terkirim ke klien dari sini.
+ */
+async function kabariHermes(
+	d: DraftRow,
+	eventId: string,
+	res: {
+		paymentId: string;
+		docs: Array<{ id: string; docType: string; docNumber: string }>;
+		lunas: boolean;
+		sisaSesudah: number;
+		paymentType: PaymentType;
+		nominal: number;
+	},
+) {
+	const admin = createAdminClient();
+	const receipt = res.docs.find((x) => x.docType === "receipt") ?? null;
+	const [{ data: ev }, { data: doc }] = await Promise.all([
+		admin
+			.from("events")
+			.select("project_id, client_name")
+			.eq("id", eventId)
+			.maybeSingle(),
+		d.document_id
+			? admin
+					.from("documents")
+					.select("doc_number")
+					.eq("id", d.document_id)
+					.maybeSingle()
+			: Promise.resolve({ data: null as { doc_number: string } | null }),
+	]);
+	const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+	const r = await kirimWebhookPembayaran(admin, {
+		draft_id: d.id,
+		nama_klien: (ev?.client_name as string | null) ?? d.nama_klien,
+		client_wa: d.client_wa,
+		nominal: res.nominal,
+		nama_pengirim: d.nama_pengirim,
+		invoice_no:
+			(doc?.doc_number as string | undefined) ??
+			d.invoice_no ??
+			res.docs.find((x) => x.docType === "invoice")?.docNumber ??
+			null,
+		booking_inbox_id: d.booking_inbox_id,
+		event_id: eventId,
+		project_id: (ev?.project_id as string | null) ?? null,
+		payment_id: res.paymentId,
+		kuitansi_no: receipt?.docNumber ?? null,
+		kuitansi_url:
+			receipt && appUrl ? `${appUrl}/finance/dokumen/${receipt.id}` : null,
+	});
+	await admin
+		.from("payment_drafts")
+		.update(
+			r.ok
+				? { kuitansi_status: "dikabarkan_ke_hermes", kuitansi_catatan: null }
+				: { kuitansi_status: "belum_disiapkan", kuitansi_catatan: r.error },
+		)
+		.eq("id", d.id);
+	if (!r.ok && res.docs.length > 0)
+		await offerPaymentDocsToOwner(
+			eventId,
+			{
+				docs: res.docs as Parameters<typeof offerPaymentDocsToOwner>[1]["docs"],
+				lunas: res.lunas,
+				remaining: res.sisaSesudah,
+			},
+			res.paymentType,
+			res.nominal,
+		);
 }
