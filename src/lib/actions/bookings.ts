@@ -35,6 +35,7 @@ import {
 	windowsOverlap,
 } from "@/lib/events/spots";
 import { SERVICE_TYPE_LABELS } from "@/lib/format";
+import { postApprovedDrafts } from "@/lib/payment-drafts/server";
 import { releasePromoForEvent } from "@/lib/promo";
 import {
 	formatScheduleInline,
@@ -1447,6 +1448,13 @@ export async function createBooking(
 			}
 			revalidatePath("/operations/booking-masuk");
 		}
+
+		// DR-055: bukti DP dari WA yang sudah disetujui masuk buku sekarang
+		// (event baru ada). Gagal tidak membatalkan booking; alasannya tampil
+		// di Booking Masuk.
+		const dp = await postApprovedDrafts(eventId, me.profile.id);
+		if (dp.failed.length)
+			console.error("[createBooking] DP dari WA:", dp.failed);
 	}
 
 	revalidatePath("/operations");

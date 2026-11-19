@@ -607,7 +607,16 @@ function ReceiptPage({
 		.filter(Boolean)
 		.join(" · ");
 	const rows: Array<{ k: string; v: string; fs: number }> = [
-		{ k: "Telah terima dari", v: d.client.name, fs: FS.para },
+		{
+			k: "Telah terima dari",
+			// DR-055: klien tetap yang tercetak; pemilik rekening pengirim sebagai keterangan.
+			v:
+				r.transferFrom &&
+				r.transferFrom.toLowerCase() !== d.client.name.toLowerCase()
+					? `${d.client.name}, transfer dari rek. a.n. ${r.transferFrom}`
+					: d.client.name,
+			fs: FS.para,
+		},
 		{ k: "Uang sejumlah", v: terbilangRupiah(r.amount), fs: 13.5 },
 		{ k: "Untuk pembayaran", v: purpose, fs: FS.para },
 		{

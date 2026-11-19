@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/get-user";
 import type { DraftRow } from "@/lib/payment-drafts/core";
 import {
 	hasDuplicate,
+	postIfEventExists,
 	receivingBanks,
 	sisaTagihan,
 	uploadBuktiPrivat,
@@ -18,7 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 type Result =
-	| { ok: true }
+	| { ok: true; tercatat?: boolean }
 	| { ok: false; error: string; warning?: undefined }
 	| { ok: false; warning: string; error?: undefined };
 
@@ -112,8 +113,10 @@ export async function konfirmasiDraft(
 		.eq("id", d.id)
 		.eq("status", "menunggu");
 	if (error) return { ok: false, error: error.message };
+	// Booking sudah punya event → langsung masuk buku (DR-055).
+	const tercatat = await postIfEventExists(admin, d, me.profile.id);
 	revalidate(d);
-	return { ok: true };
+	return { ok: true, tercatat };
 }
 
 export type DraftEdit = {

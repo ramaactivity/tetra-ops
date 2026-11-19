@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { handleMcpRequest } from "@/lib/ai/mcp";
 import { toolsForRole } from "@/lib/ai/registry";
 import { SALES_TOOLS } from "@/lib/ai/tools/prospek";
+import { resolveOwnerActorId } from "@/lib/auth/owner-actor";
 import { isAuthorizedBearer } from "@/lib/bot-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isoDateUTC, wibNow } from "@/lib/telegram/digest";
@@ -25,20 +26,6 @@ export const maxDuration = 60;
  * Pelaku tulisan dari agent: owner ber-email MCP_ACTOR_EMAIL, atau kalau env
  * itu kosong, owner aktif tertua (pola yang sama dengan cron depresiasi).
  */
-async function resolveActorId(
-	supabase: ReturnType<typeof createAdminClient>,
-): Promise<string | null> {
-	const email = process.env.MCP_ACTOR_EMAIL?.trim();
-	let q = supabase
-		.from("users")
-		.select("id")
-		.in("role", ["owner", "super_admin"])
-		.eq("is_active", true);
-	q = email ? q.eq("email", email) : q.order("created_at");
-	const { data } = await q.limit(1).maybeSingle();
-	return (data?.id as string | undefined) ?? null;
-}
-
 export async function POST(req: NextRequest) {
 	// MCP_SALES_TOKEN (agent sales Hermes) hanya membuka SALES_TOOLS:
 	// prospek outbound, tanpa data klien/keuangan dan tanpa hak tulis owner.
@@ -71,7 +58,7 @@ export async function POST(req: NextRequest) {
 			todayISO: isoDateUTC(wibNow()),
 			surface: "mcp",
 			actorId: owner
-				? ((await resolveActorId(supabase)) ?? undefined)
+				? ((await resolveOwnerActorId(supabase)) ?? undefined)
 				: undefined,
 		},
 	);

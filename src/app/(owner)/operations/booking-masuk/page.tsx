@@ -8,19 +8,29 @@ import {
 import Link from "next/link";
 import { InboxStatusBadge } from "@/components/booking-inbox/inbox-status-badge";
 import { Container } from "@/components/layout/container";
+import { DpDraftsSection } from "@/components/payment-drafts/dp-drafts-section";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FilterSearchInput } from "@/components/ui/filter-search-input";
 import {
 	INBOX_DATA_LABEL,
 	type InboxRow,
 	missingFields,
 } from "@/lib/booking-inbox/core";
 import { formatDateID } from "@/lib/format";
+import type { DraftRow } from "@/lib/payment-drafts/core";
+import { type SenderHit, searchSender } from "@/lib/payment-drafts/server";
+import { draftViewsAndBanks } from "@/lib/payment-drafts/view";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 /** Booking yang sudah DP dari bot WA, menunggu owner membuat event-nya. */
-export default async function BookingMasukPage() {
+export default async function BookingMasukPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ q?: string }>;
+}) {
+	const { q = "" } = await searchParams;
 	const supabase = await createClient();
 	const { data, error } = await supabase
 		.from("booking_inbox")
@@ -28,6 +38,34 @@ export default async function BookingMasukPage() {
 		.order("created_at", { ascending: false })
 		.limit(200);
 	const items = (data ?? []) as InboxRow[];
+
+	// Bukti DP dari WA (DR-055): hitungan per booking + yang belum tertaut
+	// booking mana pun (kalau tidak ditampilkan di sini, tak terlihat di mana-mana).
+	const { data: openDrafts, error: draftErr } = await supabase
+		.from("payment_drafts")
+		.select("*")
+		.in("status", ["menunggu", "disetujui"])
+		.order("created_at", { ascending: false });
+	const drafts = (openDrafts ?? []) as DraftRow[];
+	const dpWaiting = new Map<string, number>();
+	for (const d of drafts)
+		if (d.status === "menunggu" && d.booking_inbox_id)
+			dpWaiting.set(
+				d.booking_inbox_id,
+				(dpWaiting.get(d.booking_inbox_id) ?? 0) + 1,
+			);
+	const orphans = drafts.filter((d) => !d.booking_inbox_id);
+	// Cari nama pengirim (mutasi bank → klien mana).
+	let hits: SenderHit[] = [];
+	let searchErr: string | null = null;
+	if (q.trim().length >= 3)
+		hits = await searchSender(supabase, q).catch((e) => {
+			searchErr = e instanceof Error ? e.message : String(e);
+			return [];
+		});
+	const orphanView = orphans.length
+		? await draftViewsAndBanks(supabase, orphans)
+		: null;
 
 	return (
 		<Container size="lg" className="space-y-3 pb-6">
@@ -40,6 +78,37 @@ export default async function BookingMasukPage() {
 					event-nya — form booking sudah terisi.
 				</p>
 			</div>
+
+			<form method="get" className="max-w-md">
+				<FilterSearchInput
+					name="q"
+					defaultValue={q}
+					placeholder="Cari nama pengirim transfer (dari mutasi bank)…"
+					className="w-full"
+				/>
+			</form>
+			{q.trim().length >= 3 ? (
+				<SenderResults q={q} hits={hits} error={searchErr} />
+			) : null}
+
+			{draftErr ? (
+				<p className="rounded-xl bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
+					Bukti DP gagal dimuat: {draftErr.message}
+				</p>
+			) : null}
+			{orphanView ? (
+				<div className="space-y-1.5">
+					<p className="text-[13px] text-muted-foreground">
+						Bukti DP yang belum tertaut ke booking mana pun — cocokkan klien
+						lewat nama pengirim, lalu konfirmasi atau batalkan.
+					</p>
+					<DpDraftsSection
+						drafts={orphanView.views}
+						banks={orphanView.banks}
+						hasEvent={false}
+					/>
+				</div>
+			) : null}
 
 			{error ? (
 				<p className="rounded-xl bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
@@ -54,7 +123,11 @@ export default async function BookingMasukPage() {
 			) : (
 				<ul className="space-y-2">
 					{items.map((it) => (
-						<InboxCard key={it.id} item={it} />
+						<InboxCard
+							key={it.id}
+							item={it}
+							dpWaiting={dpWaiting.get(it.id) ?? 0}
+						/>
 					))}
 				</ul>
 			)}
@@ -62,7 +135,7 @@ export default async function BookingMasukPage() {
 	);
 }
 
-function InboxCard({ item }: { item: InboxRow }) {
+function InboxCard({ item, dpWaiting }: { item: InboxRow; dpWaiting: number }) {
 	const d = item.data ?? {};
 	const missing = missingFields(d);
 	const open = item.status === "baru" || item.status === "diproses";
@@ -86,6 +159,13 @@ function InboxCard({ item }: { item: InboxRow }) {
 					</div>
 					<div className="flex shrink-0 flex-col items-end gap-1">
 						<InboxStatusBadge status={item.status} />
+						{dpWaiting > 0 ? (
+							<span className="inline-flex h-6 items-center rounded-full bg-amber-100 px-2.5 text-[12px] font-semibold text-amber-800">
+								{dpWaiting > 1
+									? `${dpWaiting} bukti DP menunggu`
+									: "Bukti DP menunggu"}
+							</span>
+						) : null}
 						{item.berubah_setelah_event ? (
 							<span className="inline-flex h-6 items-center rounded-full bg-orange-100 px-2.5 text-[12px] font-semibold text-orange-800">
 								Ada perubahan
@@ -122,5 +202,56 @@ function InboxCard({ item }: { item: InboxRow }) {
 				) : null}
 			</Link>
 		</li>
+	);
+}
+
+const rpOf = (n: number | null) => (n ? `Rp${n.toLocaleString("id-ID")}` : "—");
+
+function SenderResults({
+	q,
+	hits,
+	error,
+}: {
+	q: string;
+	hits: SenderHit[];
+	error: string | null;
+}) {
+	return (
+		<section className="space-y-1.5 rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-1)]">
+			<h2 className="text-[15px] font-semibold">Nama pengirim “{q.trim()}”</h2>
+			{error ? (
+				<p className="text-[13px] text-rose-700">Gagal mencari: {error}</p>
+			) : hits.length === 0 ? (
+				<p className="text-[13px] text-muted-foreground">
+					Tidak ada bukti DP atau pembayaran dengan nama pengirim ini.
+				</p>
+			) : (
+				<ul className="divide-y divide-border-subtle">
+					{hits.map((h) => (
+						<li key={h.key}>
+							<Link
+								href={h.href}
+								className="flex items-baseline justify-between gap-3 py-2 hover:text-link"
+							>
+								<span className="min-w-0 truncate text-[14px]">
+									<span className="font-medium">{h.nama}</span>
+									<span className="text-muted-foreground"> → </span>
+									<span className="font-semibold">{h.klien}</span>
+									<span className="block truncate text-[12.5px] text-muted-foreground">
+										{formatDateID(h.tanggal)} · {h.keterangan}
+									</span>
+								</span>
+								<span
+									data-nominal
+									className="tabular shrink-0 text-[14px] font-semibold"
+								>
+									{rpOf(h.nominal)}
+								</span>
+							</Link>
+						</li>
+					))}
+				</ul>
+			)}
+		</section>
 	);
 }

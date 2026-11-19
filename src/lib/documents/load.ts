@@ -189,7 +189,7 @@ export async function buildPdfContext(
 		const { data: p } = await supabase
 			.from("payments")
 			.select(
-				"amount, payment_type, payment_date, created_at, bank:bank_accounts(bank_name)",
+				"amount, payment_type, payment_date, created_at, sender_name, bank:bank_accounts(bank_name)",
 			)
 			.eq("id", doc.payment_id)
 			.maybeSingle();
@@ -217,6 +217,7 @@ export async function buildPdfContext(
 				payment_date: p.payment_date as string,
 				bank: (bank as { bank_name: string } | null)?.bank_name ?? null,
 				paidThrough,
+				sender: (p.sender_name as string | null)?.trim() || null,
 			};
 		}
 	}

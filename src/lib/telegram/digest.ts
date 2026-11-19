@@ -220,6 +220,8 @@ type GatheredData = {
 	stockLines: string[]; // sudah diformat, 🚨/⚠️ prefix
 	rutinLines: string[]; // opname / cek alat overdue
 	renewalLines: string[]; // langganan VPS/hosting mendekati jatuh tempo
+	/** Bukti DP dari WA yang menunggu konfirmasi owner (DR-055). */
+	dpLines?: string[];
 	/** Event H-8..H-30 yang datanya masih menyusul (di luar jendela 7 hari). */
 	tbcAheadLines: string[];
 	/** Mention PIC desain & PIC alat di grup, mis. <a href="tg://user?id=…">Iqbal</a>. */
@@ -386,6 +388,7 @@ async function gatherData(
 
 	const rutinLines = await gatherRutinLines(admin);
 	const renewalLines = await gatherRenewalLines(admin, todayISO);
+	const dpLines = await gatherDpDraftLines(admin);
 	const tbcAheadLines = await gatherTbcAheadLines(admin, todayISO);
 	const mentions = await getPicMentions(admin);
 
@@ -397,6 +400,7 @@ async function gatherData(
 		stockLines,
 		rutinLines,
 		renewalLines,
+		dpLines,
 		tbcAheadLines,
 		mentions,
 	};
@@ -560,6 +564,39 @@ async function gatherRutinLines(
 // Satu sumber dengan halaman Finance › Tagihan rutin (recurring-bills.ts):
 // diingatkan H-3/H-1/hari-H lalu H+1/H+3/H+7 selama BELUM dibayar. Tidak lagi
 // menggeser jatuh tempo otomatis — tagihan yang belum dibayar tetap "telat".
+
+/**
+ * "N bukti DP menunggu konfirmasi — Yessi Rp700.000 (sejak 19 Nov)". Lebih dari
+ * 24 jam = 🚨. Gagal baca ditampilkan, bukan dibuang.
+ */
+async function gatherDpDraftLines(
+	admin: ReturnType<typeof createAdminClient>,
+): Promise<string[]> {
+	const { data, error } = await admin
+		.from("payment_drafts")
+		.select(
+			"nama_klien, nominal, created_at, booking:booking_inbox(client_name)",
+		)
+		.eq("status", "menunggu")
+		.order("created_at");
+	if (error) return [`⚠️ Bukti DP gagal dibaca: ${tgEscape(error.message)}`];
+	const now = Date.now();
+	return (data ?? []).map((d) => {
+		// to-one embed (FK booking_inbox_id) = objek, bukan array.
+		const b = d.booking as { client_name?: string | null } | null;
+		const nama = b?.client_name || d.nama_klien || "Klien";
+		const lama = now - new Date(d.created_at as string).getTime() > 86_400_000;
+		const sejak = new Date(d.created_at as string).toLocaleDateString("id-ID", {
+			day: "numeric",
+			month: "short",
+			timeZone: "Asia/Jakarta",
+		});
+		const rp = d.nominal
+			? `Rp${Number(d.nominal).toLocaleString("id-ID")}`
+			: "nominal belum terbaca";
+		return `${lama ? "🚨" : "💵"} ${tgEscape(nama)} ${rp} (sejak ${sejak}${lama ? ", lebih dari 24 jam" : ""})`;
+	});
+}
 
 async function gatherRenewalLines(
 	admin: ReturnType<typeof createAdminClient>,
@@ -833,6 +870,7 @@ export function composeDigest(data: GatheredData): string | null {
 		stockLines,
 		rutinLines,
 		renewalLines,
+		dpLines = [],
 		tbcAheadLines,
 		mentions,
 	} = data;
@@ -905,6 +943,7 @@ export function composeDigest(data: GatheredData): string | null {
 		allCritical.length === 0 &&
 		rutinLines.length === 0 &&
 		renewalLines.length === 0 &&
+		dpLines.length === 0 &&
 		tbcAheadLines.length === 0;
 	if (nothingToSay) return null; // tidak ada event, stok aman, rutinitas beres → diam
 
@@ -971,6 +1010,12 @@ export function composeDigest(data: GatheredData): string | null {
 	if (renewalLines.length > 0) {
 		parts.push(
 			`\n🔔 <b>Tagihan rutin</b>\n${renewalLines.map((s) => `      • ${s}`).join("\n")}${process.env.NEXT_PUBLIC_APP_URL ? `\n      ${process.env.NEXT_PUBLIC_APP_URL}/finance/tagihan-rutin` : ""}`,
+		);
+	}
+
+	if (dpLines.length > 0) {
+		parts.push(
+			`\n💵 <b>${dpLines.length} bukti DP menunggu konfirmasi</b>\n${dpLines.map((s) => `      • ${s}`).join("\n")}${process.env.NEXT_PUBLIC_APP_URL ? `\n      ${process.env.NEXT_PUBLIC_APP_URL}/operations/booking-masuk` : ""}`,
 		);
 	}
 

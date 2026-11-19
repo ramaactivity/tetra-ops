@@ -43,6 +43,10 @@ export type DraftView = {
 	/** Admin sudah membalas di WA tapi syarat otomatis tidak lolos. */
 	alasanBelumOtomatis: string[];
 	disetujuiVia: "admin_wa" | "app" | null;
+	/** Alasan terakhir gagal masuk buku (lebih bayar, cutoff, …). */
+	catatanPosting: string | null;
+	/** Kuitansi pembayaran ini (setelah tercatat). */
+	kuitansi: { id: string; nomor: string } | null;
 };
 
 export type BankOption = { value: string; label: string };
@@ -222,9 +226,28 @@ function DraftRow({
 					{d.alasanBelumOtomatis.join("; ")}.
 				</p>
 			) : null}
-			{d.status === "disetujui" && !hasEvent ? (
+			{d.catatanPosting && d.status !== "dibatalkan" ? (
+				<p className="mt-1 text-[12.5px] text-red-700 md:col-span-6 md:mt-0">
+					Belum masuk buku: {d.catatanPosting}
+				</p>
+			) : d.status === "disetujui" && !hasEvent ? (
 				<p className="mt-1 text-[12.5px] text-muted-foreground md:col-span-6 md:mt-0">
 					Masuk buku otomatis saat event dibuat.
+				</p>
+			) : null}
+			{d.status === "tercatat" ? (
+				<p className="mt-1 text-[12.5px] text-muted-foreground md:col-span-6 md:mt-0">
+					Masuk buku.{" "}
+					{d.kuitansi ? (
+						<a
+							href={`/finance/dokumen/${d.kuitansi.id}`}
+							className="font-medium text-link hover:underline"
+						>
+							Kuitansi {d.kuitansi.nomor}
+						</a>
+					) : (
+						"Kuitansi belum terbit — terbitkan dari halaman pembayaran event."
+					)}
 				</p>
 			) : null}
 			{open ? (
@@ -325,9 +348,11 @@ function KonfirmasiDialog({
 			}
 			if (!res.ok) return void toast.error(res.error ?? res.warning);
 			toast.success(
-				hasEvent
-					? "DP disetujui"
-					: "DP disetujui — masuk buku saat event dibuat",
+				res.tercatat
+					? "DP disetujui dan masuk buku — kuitansi sudah terbit (belum dikirim)"
+					: hasEvent
+						? "DP disetujui"
+						: "DP disetujui — masuk buku saat event dibuat",
 			);
 			onClose();
 			router.refresh();

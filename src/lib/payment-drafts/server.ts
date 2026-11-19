@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveOwnerActorId } from "@/lib/auth/owner-actor";
 import { inboxForDocs, loadClientDocs } from "@/lib/booking-inbox/client-docs";
 import { pickPrimaryDoc } from "@/lib/booking-inbox/klien-data";
 import { todayWIB } from "@/lib/dates";
@@ -11,7 +12,7 @@ import {
 	uploadFileToFolder,
 } from "@/lib/drive/client";
 import { safeSegment } from "@/lib/drive/naming";
-import { checkPayment } from "@/lib/finance/payment-core";
+import { checkPayment, logPaymentCore } from "@/lib/finance/payment-core";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -316,7 +317,7 @@ export async function handleBotDraft(
 		// Dua kiriman bot balapan: yang kalah membaca baris pemenang.
 		if (error?.code === "23505") return handleBotDraft(json, appUrl);
 		if (error) throw new Error(error.message);
-		return reply(data as DraftRow);
+		return reply(await afterApproval(admin, data as DraftRow));
 	}
 	const { data, error } = await admin
 		.from("payment_drafts")
@@ -326,7 +327,196 @@ export async function handleBotDraft(
 		.select("*")
 		.maybeSingle();
 	if (error) throw new Error(error.message);
-	return reply((data ?? existing) as DraftRow);
+	return reply(await afterApproval(admin, (data ?? existing) as DraftRow));
+}
+
+/** Disetujui lewat WA + booking sudah punya event → langsung masuk buku. */
+async function afterApproval(
+	admin: SupabaseClient,
+	r: DraftRow,
+): Promise<DraftRow> {
+	if (r.status !== "disetujui") return r;
+	if (!(await postIfEventExists(admin, r, null))) return r;
+	const { data } = await admin
+		.from("payment_drafts")
+		.select("*")
+		.eq("id", r.id)
+		.maybeSingle();
+	return (data as DraftRow | null) ?? r;
+}
+
+const wibDate = (iso: string) =>
+	new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+
+/** Event yang sekarang memiliki draft: miliknya, Booking Masuk-nya, atau dokumennya. */
+export async function eventOfDraft(
+	admin: SupabaseClient,
+	d: Pick<DraftRow, "event_id" | "booking_inbox_id" | "document_id">,
+): Promise<string | null> {
+	if (d.event_id) return d.event_id;
+	if (d.booking_inbox_id) {
+		const { data } = await admin
+			.from("booking_inbox")
+			.select("event_id")
+			.eq("id", d.booking_inbox_id)
+			.maybeSingle();
+		if (data?.event_id) return data.event_id as string;
+	}
+	if (d.document_id) {
+		const { data } = await admin
+			.from("documents")
+			.select("event_id")
+			.eq("id", d.document_id)
+			.maybeSingle();
+		if (data?.event_id) return data.event_id as string;
+	}
+	return null;
+}
+
+/**
+ * Draft yang DISETUJUI milik event ini (langsung, lewat Booking Masuk, atau
+ * lewat invoice/quotation-nya) → masuk buku lewat logPaymentCore — semua guard
+ * ikut (cutoff, lebih bayar, jurnal atomik). Dipanggil saat event dibuat dan
+ * saat draft disetujui untuk booking yang sudah punya event (DR-055).
+ * Gagal = draft tetap disetujui + alasan di catatan_posting.
+ */
+export async function postApprovedDrafts(
+	eventId: string,
+	actorId: string,
+): Promise<{ posted: number; failed: string[] }> {
+	const admin = createAdminClient();
+	const [{ data: docs }, { data: inbox }] = await Promise.all([
+		admin
+			.from("documents")
+			.select("id, source_document_id")
+			.eq("event_id", eventId),
+		admin.from("booking_inbox").select("id").eq("event_id", eventId),
+	]);
+	const docIds = [
+		...new Set(
+			(docs ?? [])
+				.flatMap((d) => [d.id as string, d.source_document_id as string | null])
+				.filter((x): x is string => Boolean(x)),
+		),
+	];
+	const inboxIds = (inbox ?? []).map((r) => r.id as string);
+	const ors = [`event_id.eq.${eventId}`];
+	if (docIds.length) ors.push(`document_id.in.(${docIds.join(",")})`);
+	if (inboxIds.length) ors.push(`booking_inbox_id.in.(${inboxIds.join(",")})`);
+	const { data, error } = await admin
+		.from("payment_drafts")
+		.select("*")
+		.eq("status", "disetujui")
+		.or(ors.join(","))
+		.order("created_at");
+	if (error) {
+		console.error("[payment-drafts] posting:", error.message);
+		return { posted: 0, failed: [error.message] };
+	}
+	let posted = 0;
+	const failed: string[] = [];
+	for (const d of (data ?? []) as DraftRow[]) {
+		const r = await postDraft(admin, d, eventId, actorId);
+		if (r === "posted") posted++;
+		else if (r !== "skip") failed.push(r);
+	}
+	return { posted, failed };
+}
+
+async function postDraft(
+	admin: SupabaseClient,
+	d: DraftRow,
+	eventId: string,
+	actorId: string,
+): Promise<"posted" | "skip" | string> {
+	const note = async (msg: string) => {
+		await admin
+			.from("payment_drafts")
+			.update({ catatan_posting: msg, event_id: eventId })
+			.eq("id", d.id)
+			.eq("status", "disetujui");
+		return msg;
+	};
+	if (!d.nominal) return note("Nominal kosong.");
+	if (!d.bank_account_id) return note("Rekening tujuan belum dipilih.");
+	const paymentDate = wibDate(
+		d.waktu_transfer ?? d.waktu_pesan ?? d.created_at,
+	);
+	const g = await checkPayment(admin, {
+		eventId,
+		amount: d.nominal,
+		paymentDate,
+	});
+	if (!g.ok) return note(g.error);
+	// Klaim atomik: hanya satu jalur (buat event / konfirmasi / bot) yang memposting.
+	const { data: claimed } = await admin
+		.from("payment_drafts")
+		.update({ status: "tercatat", event_id: eventId, catatan_posting: null })
+		.eq("id", d.id)
+		.eq("status", "disetujui")
+		.select("id")
+		.maybeSingle();
+	if (!claimed) return "skip";
+	const paymentType =
+		g.sisaSesudah <= 0
+			? "pelunasan"
+			: g.billable - g.sisaSebelum <= 0
+				? "dp"
+				: "partial";
+	try {
+		const res = await logPaymentCore(
+			admin,
+			{
+				eventId,
+				amount: d.nominal,
+				paymentDate,
+				bankAccountId: d.bank_account_id,
+				paymentType,
+				proofUrl: d.bukti_url,
+				notes: "Dari bukti transfer WA",
+				senderName: d.nama_pengirim,
+			},
+			actorId,
+		);
+		if (!res.ok) {
+			await admin
+				.from("payment_drafts")
+				.update({ status: "disetujui", catatan_posting: res.error })
+				.eq("id", d.id);
+			return res.error;
+		}
+		await admin
+			.from("payment_drafts")
+			.update({ payment_id: res.paymentId })
+			.eq("id", d.id);
+		return "posted";
+	} catch (e) {
+		// Tidak tahu apakah jurnal sudah tertulis → JANGAN dikembalikan ke
+		// disetujui (bisa tercatat dobel); tandai untuk dicek owner.
+		const msg = `Error saat mencatat — cek pembayaran event sebelum mengulang: ${e instanceof Error ? e.message : String(e)}`;
+		console.error("[payment-drafts] posting:", e);
+		await admin
+			.from("payment_drafts")
+			.update({ catatan_posting: msg })
+			.eq("id", d.id);
+		return msg;
+	}
+}
+
+/** Disetujui untuk booking yang sudah punya event → langsung posting. */
+export async function postIfEventExists(
+	admin: SupabaseClient,
+	d: Pick<DraftRow, "event_id" | "booking_inbox_id" | "document_id">,
+	actorId: string | null,
+): Promise<boolean> {
+	const ev = await eventOfDraft(admin, d);
+	if (!ev) return false;
+	const actor = actorId ?? (await resolveOwnerActorId(admin));
+	if (!actor) {
+		console.error("[payment-drafts] posting: owner pelaku tidak ditemukan");
+		return false;
+	}
+	return (await postApprovedDrafts(ev, actor)).posted > 0;
 }
 
 /** Draft milik satu Booking Masuk (terbaru dulu). `supabase` ber-RLS owner. */
@@ -341,4 +531,85 @@ export async function loadDraftsForBooking(
 		.order("created_at", { ascending: false });
 	if (error) throw new Error(`payment_drafts: ${error.message}`);
 	return (data ?? []) as DraftRow[];
+}
+
+export type SenderHit = {
+	key: string;
+	nama: string;
+	klien: string;
+	nominal: number | null;
+	tanggal: string;
+	keterangan: string;
+	href: string;
+};
+
+/**
+ * Cari nama pemilik rekening pengirim (mutasi bank → klien mana). Draft yang
+ * belum masuk buku + pembayaran tercatat (sender_name / payer_name).
+ */
+export async function searchSender(
+	supabase: SupabaseClient,
+	raw: string,
+): Promise<SenderHit[]> {
+	const q = raw.replace(/[,()*%\\]/g, " ").trim();
+	if (q.length < 3) return [];
+	const [drafts, pays] = await Promise.all([
+		supabase
+			.from("payment_drafts")
+			.select(
+				"id, nama_pengirim, nama_klien, nominal, status, created_at, waktu_transfer, booking_inbox_id, booking:booking_inbox(client_name)",
+			)
+			.ilike("nama_pengirim", `%${q}%`)
+			.neq("status", "tercatat")
+			.order("created_at", { ascending: false })
+			.limit(20),
+		supabase
+			.from("payments")
+			.select(
+				"id, amount, payment_date, sender_name, payer_name, event:events(project_id, client_name)",
+			)
+			.or(`sender_name.ilike.*${q}*,payer_name.ilike.*${q}*`)
+			.eq("is_reversed", false)
+			.order("payment_date", { ascending: false })
+			.limit(20),
+	]);
+	if (drafts.error) throw new Error(`payment_drafts: ${drafts.error.message}`);
+	if (pays.error) throw new Error(`payments: ${pays.error.message}`);
+	const out: SenderHit[] = [];
+	for (const d of drafts.data ?? []) {
+		// to-one embed = objek.
+		const b = d.booking as { client_name?: string | null } | null;
+		out.push({
+			key: `d-${d.id}`,
+			nama: d.nama_pengirim as string,
+			klien:
+				b?.client_name ||
+				(d.nama_klien as string | null) ||
+				"Klien belum diketahui",
+			nominal: (d.nominal as number | null) ?? null,
+			tanggal: ((d.waktu_transfer ?? d.created_at) as string).slice(0, 10),
+			keterangan:
+				d.status === "dibatalkan"
+					? "Bukti DP dibatalkan"
+					: "Bukti DP belum masuk buku",
+			href: d.booking_inbox_id
+				? `/operations/booking-masuk/${d.booking_inbox_id}`
+				: "/operations/booking-masuk",
+		});
+	}
+	for (const p of pays.data ?? []) {
+		const ev = p.event as { project_id?: string; client_name?: string } | null;
+		out.push({
+			key: `p-${p.id}`,
+			nama: ((p.sender_name ?? p.payer_name) as string) || q,
+			klien: ev?.client_name ?? "—",
+			nominal: p.amount as number,
+			tanggal: p.payment_date as string,
+			keterangan: "Pembayaran tercatat",
+			href: ev?.project_id
+				? `/operations/${ev.project_id}/payments`
+				: "/billing",
+		});
+	}
+	return out.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
 }

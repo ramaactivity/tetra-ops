@@ -65,6 +65,8 @@ export type PdfDocData = {
 		paidBefore: number;
 		remainingAfter: number;
 		billable: number;
+		/** Pemilik rekening pengirim (DR-055) → "transfer dari rek. a.n. …". */
+		transferFrom: string | null;
 	} | null;
 	/** BAST */
 	bast: {
@@ -92,6 +94,8 @@ export type PdfBuildContext = {
 		bank: string | null;
 		/** total terbayar SETELAH pembayaran ini (termasuk) */
 		paidThrough: number;
+		/** payments.sender_name — pemilik rekening pengirim. */
+		sender?: string | null;
 	} | null;
 	signer: Pick<DocumentSigner, "name" | "position" | "signature_data"> | null;
 	/** Nomor invoice aktif event ini (untuk referensi dokumen turunan). */
@@ -184,6 +188,7 @@ export function buildPdfData(
 						0,
 						(ev?.billable_total ?? totals.total) - rp.paidThrough,
 					),
+					transferFrom: rp.sender ?? null,
 				}
 			: null;
 

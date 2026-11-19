@@ -36,6 +36,7 @@ export default async function OwnerLayout({
 		{ count: designQueue },
 		approvals,
 		{ count: billAlerts },
+		{ count: dpWaiting },
 	] = await Promise.all([
 		supabase
 			.from("bot_status")
@@ -71,6 +72,11 @@ export default async function OwnerLayout({
 			.eq("user_id", profile.id)
 			.eq("entity_type", "recurring_bill")
 			.eq("is_resolved", false),
+		// + bukti DP dari WA yang menunggu konfirmasi (DR-055).
+		supabase
+			.from("payment_drafts")
+			.select("id", { count: "exact", head: true })
+			.eq("status", "menunggu"),
 	]);
 
 	return (
@@ -79,7 +85,7 @@ export default async function OwnerLayout({
 		<div className="flex min-h-dvh gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
 			<OwnerSidebar
 				badges={{
-					"/operations/booking-masuk": inboxBaru ?? 0,
+					"/operations/booking-masuk": (inboxBaru ?? 0) + (dpWaiting ?? 0),
 					"/operations/portal": (portalCek ?? 0) + (portalReq ?? 0),
 					"/design/portal": designQueue ?? 0,
 					"/finance/dokumen": approvals.length,

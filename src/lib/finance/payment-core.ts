@@ -39,6 +39,11 @@ export type PaymentCoreInput = {
 	notes: string | null;
 	/** Nama pengirim / pemilik rekening → "Telah terima dari" di kuitansi. */
 	payerName?: string | null;
+	/**
+	 * Pemilik rekening pengirim dari bukti transfer (DR-055). Tidak mengganti
+	 * "Telah terima dari"; kuitansi menambah "transfer dari rek. a.n. …".
+	 */
+	senderName?: string | null;
 };
 
 export type PaymentGuard =
@@ -153,12 +158,15 @@ export async function logPaymentCore(
 	}
 
 	// Sebelum kuitansi terbit (di bawah) supaya "Telah terima dari" = pengirim.
-	if (input.payerName) {
+	if (input.payerName || input.senderName) {
 		const { error: payerErr } = await supabase
 			.from("payments")
-			.update({ payer_name: input.payerName })
+			.update({
+				...(input.payerName ? { payer_name: input.payerName } : {}),
+				...(input.senderName ? { sender_name: input.senderName } : {}),
+			})
 			.eq("id", paymentId as string);
-		if (payerErr) console.error("[logPaymentCore] payer_name:", payerErr);
+		if (payerErr) console.error("[logPaymentCore] payer/sender:", payerErr);
 	}
 
 	// Best-effort: kabari grup owner ada uang masuk.
