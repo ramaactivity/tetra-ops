@@ -15,7 +15,12 @@ export type BackdropRow = {
 	id: string;
 	code: string;
 	name: string;
-	type: "basic_included" | "rental_owned" | "vendor_decor";
+	type:
+		| "basic_included"
+		| "rental_owned"
+		| "vendor_decor"
+		| "client_provided"
+		| "cetak_banner";
 	rental_price: number;
 	is_active: boolean;
 	display_order: number;
@@ -27,6 +32,8 @@ const TYPE_LABEL: Record<string, string> = {
 	basic_included: "Basic Included",
 	rental_owned: "Rental Owned",
 	vendor_decor: "Vendor Decor",
+	client_provided: "Dari Klien",
+	cetak_banner: "Cetak Banner",
 };
 
 type TypeVariant = "default" | "info" | "warning";

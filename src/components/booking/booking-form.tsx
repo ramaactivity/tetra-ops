@@ -175,7 +175,12 @@ export type BackdropOption = {
 	id: string;
 	code: string;
 	name: string;
-	type: "basic_included" | "rental_owned" | "vendor_decor" | "client_provided";
+	type:
+		| "basic_included"
+		| "rental_owned"
+		| "vendor_decor"
+		| "client_provided"
+		| "cetak_banner";
 	rental_price: number;
 };
 
@@ -1377,7 +1382,9 @@ export function BookingForm({
 		const bOk = Boolean(eventCategory && eventDate);
 		// C: Service Package (service + package)
 		const cErrN = errCount("service_type", "package_id");
-		const cOk = Boolean(serviceType && packageId);
+		// Durasi tanpa ukuran = sudah lengkap: harga sama untuk semua ukuran
+		// (Rama 19 Nov) — ukuran boleh menyusul.
+		const cOk = Boolean(serviceType && (packageId || pendingHours));
 		// D: Contact & Pricing (client_wa + basePrice)
 		const dErrN = errCount("client_name", "client_wa", "base_price");
 		const dOk = Boolean(clientName && clientWa && basePrice > 0);
@@ -3262,7 +3269,9 @@ export function BookingForm({
 													? "Klien bawa vendor dekorasi sendiri — Tetra cuma execute, tanpa markup."
 													: selectedBackdrop?.type === "basic_included"
 														? "Backdrop standar Tetra (gratis bundled di paket)"
-														: undefined
+														: selectedBackdrop?.type === "cetak_banner"
+															? "Banner dicetak Tetra dari desain klien — pastikan add-on Cetak Backdrop Banner ikut di daftar add-on."
+															: undefined
 									}
 								>
 									<Combobox
@@ -3278,6 +3287,7 @@ export function BookingForm({
 												.sort((a, b) => {
 													const order: Record<string, number> = {
 														client_provided: 0,
+														cetak_banner: 0.5,
 														basic_included: 1,
 														vendor_decor: 2,
 														rental_owned: 3,

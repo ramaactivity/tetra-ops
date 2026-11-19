@@ -94,7 +94,8 @@ export const INBOX_REQUIRED: InboxDataKey[] = [
 	"lokasi",
 	"paket",
 	"pic",
-	"ukuran_frame",
+	// ukuran_frame sengaja TIDAK wajib (Rama 19 Nov): harga sama untuk semua
+	// ukuran selama durasinya sama — ukuran boleh menyusul.
 	"backdrop",
 ];
 

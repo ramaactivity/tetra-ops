@@ -6,7 +6,13 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { createClient } from "@/lib/supabase/server";
 
-const TYPES = ["basic_included", "rental_owned", "vendor_decor"] as const;
+const TYPES = [
+	"basic_included",
+	"rental_owned",
+	"vendor_decor",
+	"client_provided",
+	"cetak_banner",
+] as const;
 
 const BackdropInputSchema = z
 	.object({

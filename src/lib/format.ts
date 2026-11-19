@@ -58,6 +58,7 @@ export const BACKDROP_TYPE_LABELS: Record<string, string> = {
 	rental_owned: "sewa dari Tetra",
 	client_provided: "disiapkan klien",
 	vendor_decor: "dekor vendor",
+	cetak_banner: "banner dicetak Tetra",
 };
 
 /**

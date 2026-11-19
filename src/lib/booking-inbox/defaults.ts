@@ -10,6 +10,22 @@ import type { InboxData, InboxRow } from "./core";
 /** Jam dari teks bebas: "11.00 - 14.00" → [11:00, 14:00]; "19.00" → [19:00, ""]. */
 export const parseInboxTime = parseTimeRange;
 
+/**
+ * "16.00-17.00 dan 20.00-21.00" → dua sesi (acara dengan jeda). Kurang dari
+ * dua rentang → [] (jam biasa, pakai parseInboxTime).
+ */
+export function parseSessions(
+	raw: string | null | undefined,
+): Array<{ start: string; end: string }> {
+	const pad = (h: string, mm: string) => `${h.padStart(2, "0")}:${mm}`;
+	const out = [
+		...(raw ?? "").matchAll(
+			/(\d{1,2})[:.](\d{2})\s*[–\-—]\s*(\d{1,2})[:.](\d{2})/g,
+		),
+	].map((m) => ({ start: pad(m[1], m[2]), end: pad(m[3], m[4]) }));
+	return out.length >= 2 ? out : [];
+}
+
 /** "4R" / "polaroid" / "2r landscape" → enum FRAME_SIZES; tak jelas → "". */
 export function parseFrameSize(raw: string | null | undefined): string {
 	const s = (raw ?? "").toLowerCase();
@@ -29,6 +45,9 @@ function packageCategory(paket: string): string {
 }
 
 const BACKDROP_WORDS: Array<[RegExp, string]> = [
+	// Banner dicetak Tetra (desain klien) — dicek dulu: teksnya sering memuat
+	// "dari klien" (Yessi 19 Nov jatuh ke Dari Klien).
+	[/cetak|banner|print/, "BG-CETAK-BANNER"],
 	[/dekor|dari klien|\bklien\b|vendor|sendiri/, "CLIENT-PROVIDED"],
 	[/putih|white/, "BG-BASIC-WHITE"],
 	[/merah|red/, "BG-BASIC-RED"],
@@ -45,6 +64,8 @@ export function matchBackdrop(
 ): string {
 	const s = (raw ?? "").toLowerCase();
 	if (!s) return "";
+	// Klien belum memutuskan ("masih dibahas: silver atau banner") → jangan menebak.
+	if (/masih|belum|\batau\b|\bor\b/.test(s)) return "";
 	const hit = BACKDROP_WORDS.find(([re]) => re.test(s));
 	return (hit && backdrops.find((b) => b.code === hit[1])?.id) || "";
 }
@@ -117,7 +138,11 @@ export function inboxToBookingDefaults(
 	const category = guessCategory(d);
 	const namaAcara = d.nama_acara?.trim() ?? "";
 	const chatName = item.client_name?.trim() ?? "";
-	const [start, end] = parseInboxTime(d.jam);
+	const [start1, end1] = parseInboxTime(d.jam);
+	// Jeda: sesi pertama → sesi terakhir jadi jam acara, sesi masuk toggle jeda.
+	const sessions = parseSessions(d.jam);
+	const start = sessions[0]?.start ?? start1;
+	const end = sessions.at(-1)?.end ?? end1;
 	const frame = parseFrameSize(d.ukuran_frame);
 	const pic = parsePic(d.pic);
 	const units = parseUnitCount(d.jumlah_unit);
@@ -164,6 +189,7 @@ export function inboxToBookingDefaults(
 		event_date_is_estimate: isEstimate ? "on" : "",
 		start_time: start,
 		end_time: end,
+		session_segments: sessions.length ? JSON.stringify(sessions) : "",
 		venue_name: cityPart
 			? lokasi.slice(0, lokasi.lastIndexOf(",")).trim()
 			: lokasi,
@@ -183,4 +209,42 @@ export function inboxToBookingDefaults(
 		pic_wa: pic.wa,
 		crew_notes: notes.length ? `Dari bot WA:\n${notes.join("\n")}` : "",
 	};
+}
+
+/** Kolom yang lebih dipercaya dari chat (Booking Masuk) daripada dokumen. */
+const INBOX_WINS = [
+	"session_segments",
+	"start_time",
+	"end_time",
+	"pic_name",
+	"pic_wa",
+	"crew_notes",
+	"event_category",
+	"event_title",
+	"google_maps_url",
+	"backdrop_id",
+] as const;
+
+const isFilled = (v: unknown) =>
+	v !== undefined &&
+	v !== null &&
+	v !== "" &&
+	v !== 0 &&
+	!(Array.isArray(v) && v.length === 0);
+
+/**
+ * Buat Event dari Booking Masuk yang kliennya sudah punya invoice/quotation:
+ * harga, paket, add-on, diskon, tenggat & identitas klien dari DOKUMEN (yang
+ * sudah dijanjikan ke klien); jam/sesi jeda, PIC, catatan, nama acara, maps &
+ * backdrop dari CHAT (koreksi klien terbaru). Kasus Yessi 19 Nov: jalur
+ * Booking Masuk saja kehilangan banner + break time (Rp2jt vs invoice Rp2,7jt).
+ */
+export function mergeDocAndInbox(
+	doc: BookingFormDefaults,
+	inbox: BookingFormDefaults,
+): BookingFormDefaults {
+	const out: Record<string, unknown> = { ...inbox };
+	for (const [k, v] of Object.entries(doc)) if (isFilled(v)) out[k] = v;
+	for (const k of INBOX_WINS) if (isFilled(inbox[k])) out[k] = inbox[k];
+	return out as BookingFormDefaults;
 }

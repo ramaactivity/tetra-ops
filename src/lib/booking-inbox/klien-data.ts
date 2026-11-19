@@ -286,3 +286,23 @@ export function docToInboxFill(
 		client_name: k?.nama ?? null,
 	};
 }
+
+/**
+ * Dokumen yang jadi dasar "Buat Event" dari Booking Masuk: invoice tanpa event
+ * didahulukan, lalu quotation yang masih terbuka (belum diterima/ditolak),
+ * untuk tanggal acara yang sama. `docs` urut terbaru dulu.
+ */
+export function openSourceDoc(
+	docs: DocLike[],
+	date?: string | null,
+): DocLike | null {
+	const ok = docs.filter(
+		(d) =>
+			!d.event_id &&
+			d.status !== "void" &&
+			(d.doc_type === "invoice" ||
+				(d.status !== "accepted" && d.status !== "rejected")) &&
+			(!date || !d.event_info?.date || d.event_info.date === date),
+	);
+	return ok.find((d) => d.doc_type === "invoice") ?? ok[0] ?? null;
+}

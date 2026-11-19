@@ -570,7 +570,13 @@ async function checkBackdropStock(
 		.in("id", [...used.keys()]);
 	for (const b of data ?? []) {
 		// Dekorasi dari klien / vendor bukan barang Tetra — tidak dibatasi pcs.
-		if (b.type === "client_provided" || b.type === "vendor_decor") continue;
+		// Banner cetak dibuat per acara — juga tidak dibatasi pcs.
+		if (
+			b.type === "client_provided" ||
+			b.type === "vendor_decor" ||
+			b.type === "cetak_banner"
+		)
+			continue;
 		const stock = Number(b.stock_qty ?? 1);
 		const mine = used.get(b.id as string) ?? 0;
 		if (mine > stock)

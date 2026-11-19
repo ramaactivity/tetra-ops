@@ -35,6 +35,18 @@ export function quotationToBookingDefaults(
 	const pkg = pkgItem
 		? packages.find((p) => p.id === pkgItem.package_id)
 		: undefined;
+	// Format cetak belum dipilih → item paket tanpa package_id ("Photobooth
+	// Classic Unlimited 2 Jam"). Harga sama untuk semua ukuran (Rama 19 Nov),
+	// jadi durasi + harga tetap terbawa; ukuran menyusul.
+	const classicItem = pkgItem
+		? undefined
+		: q.items.find((i) =>
+				/^Photobooth Classic Unlimited (\d+) Jam/i.test(i.name),
+			);
+	const classicHours = classicItem
+		? Number(/(\d+) Jam/i.exec(classicItem.name)?.[1] ?? 0)
+		: 0;
+	const svcItem = pkgItem ?? classicItem;
 	const [start, end] = parseTimeRange(q.event_info.time);
 	const totals = computeTotals(q.items, q.discount, {
 		enabled: q.gross_up_enabled,
@@ -71,12 +83,13 @@ export function quotationToBookingDefaults(
 		// Tipe acara belum diketahui dari quotation — tebakan aman yang bisa
 		// diganti di form: ada instansi/perusahaan → corporate, selain itu event.
 		event_category: org ? "corporate" : "event",
-		service_type: pkg?.category ?? "",
+		service_type: pkg?.category ?? (classicItem ? "photobooth_classic" : ""),
 		package_id: pkg?.id ?? "",
+		pending_package_hours: classicHours || "",
 		frame_size: pkg?.frame_size ?? "",
 		// Qty paket di quotation = jumlah unit/booth (event multi-unit, maks 3).
-		unit_count: pkgItem ? Math.min(3, Math.max(1, pkgItem.qty)) : 1,
-		base_price: pkgItem ? pkgItem.unit_price * pkgItem.qty : 0,
+		unit_count: svcItem ? Math.min(3, Math.max(1, svcItem.qty)) : 1,
+		base_price: svcItem ? svcItem.unit_price * svcItem.qty : 0,
 		event_date: q.event_info.date ?? "",
 		// Invoice DP membawa jatuh tempo yang sudah disepakati.
 		due_date: q.due_date ?? "",

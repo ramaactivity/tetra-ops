@@ -15,6 +15,7 @@ import { InboxStatusBadge } from "@/components/booking-inbox/inbox-status-badge"
 import { Container } from "@/components/layout/container";
 import { TopbarEntityPortal } from "@/components/layouts/topbar-entity-portal";
 import { DpDraftsSection } from "@/components/payment-drafts/dp-drafts-section";
+import { loadClientDocs } from "@/lib/booking-inbox/client-docs";
 import {
 	INBOX_DATA_KEYS,
 	INBOX_DATA_LABEL,
@@ -22,6 +23,7 @@ import {
 	type InboxRow,
 } from "@/lib/booking-inbox/core";
 import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
+import { openSourceDoc } from "@/lib/booking-inbox/klien-data";
 import { formatDateID, formatPhoneLocal } from "@/lib/format";
 import { loadDraftsForBooking } from "@/lib/payment-drafts/server";
 import { draftViewsAndBanks } from "@/lib/payment-drafts/view";
@@ -76,6 +78,25 @@ export default async function BookingMasukDetailPage({
 		: { data: null };
 	const event = ev as EventSnap | null;
 
+	// Invoice/quotation klien yang belum punya event → dasar "Buat Event"
+	// (harga + add-on dari dokumen, jam/PIC dari chat). Gagal baca = tombol
+	// biasa (tanpa dokumen), dicatat.
+	const src = open
+		? openSourceDoc(
+				await loadClientDocs(supabase, {
+					jid: item.wa_jid,
+					wa: item.client_wa,
+				}).catch((e) => {
+					console.error("[booking-masuk] dokumen klien:", e);
+					return [];
+				}),
+				d.tanggal_iso ?? null,
+			)
+		: null;
+	const sourceDoc = src
+		? { id: src.id, type: src.doc_type, number: src.doc_number }
+		: null;
+
 	// Bukti DP dari WA (DR-055) + rekening penerima untuk tombol Konfirmasi.
 	const { views: draftViews, banks: bankOptions } = await draftViewsAndBanks(
 		supabase,
@@ -116,7 +137,9 @@ export default async function BookingMasukDetailPage({
 				</div>
 
 				<div className="flex flex-wrap items-center gap-2">
-					{open ? <InboxOpenActions id={item.id} /> : null}
+					{open ? (
+						<InboxOpenActions id={item.id} sourceDoc={sourceDoc} />
+					) : null}
 					{item.status !== "dibatalkan" ? (
 						<InboxRefreshButton id={item.id} />
 					) : null}

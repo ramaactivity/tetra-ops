@@ -20,7 +20,12 @@ import {
 } from "@/lib/actions/backdrops";
 import { cn } from "@/lib/utils";
 
-type BackdropType = "basic_included" | "rental_owned" | "vendor_decor";
+type BackdropType =
+	| "basic_included"
+	| "rental_owned"
+	| "vendor_decor"
+	| "client_provided"
+	| "cetak_banner";
 
 type Defaults = {
 	code: string;
@@ -63,6 +68,16 @@ const TYPE_OPTIONS: Array<{
 		value: "vendor_decor",
 		label: "Vendor Decor",
 		hint: "Klien pakai vendor decor — Tetra ambil markup di booking form",
+	},
+	{
+		value: "client_provided",
+		label: "Dari Klien",
+		hint: "Klien bawa backdrop / dekor sendiri — Tetra cuma pasang booth",
+	},
+	{
+		value: "cetak_banner",
+		label: "Cetak Banner",
+		hint: "Banner dicetak Tetra dari desain klien — harga lewat add-on, tanpa batas stok",
 	},
 ];
 

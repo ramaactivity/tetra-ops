@@ -173,3 +173,81 @@ test("jumlah_unit → unit_count & harga × unit", () => {
 	assert.equal(two.unit_count, 2);
 	assert.equal(Number(two.base_price), Number(one.base_price) * 2);
 });
+
+test("Yessi 19 Nov: dua sesi jeda, backdrop cetak banner (bukan Dari Klien)", async () => {
+	const { parseSessions } = await import("./defaults");
+	assert.deepEqual(parseSessions("16.00-17.00 dan 20.00-21.00"), [
+		{ start: "16:00", end: "17:00" },
+		{ start: "20:00", end: "21:00" },
+	]);
+	assert.deepEqual(parseSessions("16:00–21:00"), []);
+	const d = inboxToBookingDefaults(
+		item({
+			jam: "16.00-17.00 dan 20.00-21.00",
+			backdrop: "Cetak Backdrop Banner 230×230 (desain dari klien)",
+		}),
+		packages,
+		[...backdrops, { id: "banner", code: "BG-CETAK-BANNER" }],
+	);
+	assert.equal(d.start_time, "16:00");
+	assert.equal(d.end_time, "21:00");
+	assert.deepEqual(JSON.parse(String(d.session_segments)), [
+		{ start: "16:00", end: "17:00" },
+		{ start: "20:00", end: "21:00" },
+	]);
+	assert.equal(d.backdrop_id, "banner");
+});
+
+test("gabung invoice + chat: harga & add-on dari invoice, jam/PIC/catatan dari chat", async () => {
+	const { mergeDocAndInbox } = await import("./defaults");
+	const m = mergeDocAndInbox(
+		{
+			client_org: "Yessi",
+			service_type: "photobooth_classic",
+			pending_package_hours: 2,
+			base_price: 2_000_000,
+			addons: [{ addon_id: "banner", quantity: 1, unit_price: 400_000 }],
+			start_time: "16:00",
+			end_time: "21:00",
+			event_category: "event",
+			event_title: "",
+			due_date: "2026-12-01",
+		},
+		{
+			client_org: "Yessi WA",
+			start_time: "16:00",
+			end_time: "21:00",
+			session_segments:
+				'[{"start":"16:00","end":"17:00"},{"start":"20:00","end":"21:00"}]',
+			event_category: "keagamaan",
+			event_title: "Acara Natal",
+			pic_name: "Bu Yessi",
+			backdrop_id: "banner",
+			base_price: 0,
+			crew_notes: "Dari bot WA:\n- Catatan: DP sudah masuk",
+		},
+	);
+	assert.equal(m.base_price, 2_000_000);
+	assert.equal(m.addons?.length, 1);
+	assert.equal(m.client_org, "Yessi");
+	assert.equal(m.due_date, "2026-12-01");
+	assert.ok(String(m.session_segments).includes("20:00"));
+	assert.equal(m.event_title, "Acara Natal");
+	assert.equal(m.event_category, "keagamaan");
+	assert.equal(m.pic_name, "Bu Yessi");
+	assert.equal(m.backdrop_id, "banner");
+});
+
+test("backdrop yang masih dibahas tidak ditebak", async () => {
+	const { matchBackdrop } = await import("./defaults");
+	const bds = [...backdrops, { id: "banner", code: "BG-CETAK-BANNER" }];
+	assert.equal(
+		matchBackdrop(
+			"Masih dibahas: backdrop basic silver/gold (free) atau banner custom 230x230",
+			bds,
+		),
+		"",
+	);
+	assert.equal(matchBackdrop("dekorasi dari klien", bds), "client");
+	assert.equal(matchBackdrop("cetak banner desain klien", bds), "banner");
+});

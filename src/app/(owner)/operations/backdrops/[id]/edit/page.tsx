@@ -28,7 +28,12 @@ export default async function EditBackdropPage({
 	const defaults = {
 		code: bg.code,
 		name: bg.name,
-		type: bg.type as "basic_included" | "rental_owned" | "vendor_decor",
+		type: bg.type as
+			| "basic_included"
+			| "rental_owned"
+			| "vendor_decor"
+			| "client_provided"
+			| "cetak_banner",
 		rental_price: String(bg.rental_price ?? 0),
 		stock_qty: String(bg.stock_qty ?? 1),
 		display_order: String(bg.display_order ?? 0),

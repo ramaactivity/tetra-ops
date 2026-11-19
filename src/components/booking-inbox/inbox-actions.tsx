@@ -14,8 +14,18 @@ import {
 	requestInboxRefresh,
 } from "@/lib/actions/booking-inbox";
 
-/** Buat Event (→ form booking terisi) + Tandai batal. */
-export function InboxOpenActions({ id }: { id: string }) {
+/**
+ * Buat Event (→ form booking terisi) + Tandai batal. sourceDoc = invoice /
+ * quotation klien yang belum punya event → form digabung (harga dari dokumen,
+ * jam/PIC dari chat) dan dokumennya tertaut ke event (nomor tetap).
+ */
+export function InboxOpenActions({
+	id,
+	sourceDoc,
+}: {
+	id: string;
+	sourceDoc?: { id: string; type: string; number: string } | null;
+}) {
 	const router = useRouter();
 	const confirm = useConfirm();
 	const [pending, start] = useTransition();
@@ -23,7 +33,10 @@ export function InboxOpenActions({ id }: { id: string }) {
 	function buatEvent() {
 		start(async () => {
 			await markInboxProcessing(id);
-			router.push(`/operations/new?fromInbox=${id}`);
+			const doc = sourceDoc
+				? `&${sourceDoc.type === "invoice" ? "fromInvoice" : "fromQuotation"}=${sourceDoc.id}`
+				: "";
+			router.push(`/operations/new?fromInbox=${id}${doc}`);
 		});
 	}
 	async function batal() {
@@ -50,7 +63,7 @@ export function InboxOpenActions({ id }: { id: string }) {
 		<div className="flex flex-wrap gap-2">
 			<Button onClick={buatEvent} disabled={pending}>
 				{pending ? <Loader2 className="animate-spin" /> : <CalendarPlus />}
-				Buat Event
+				{sourceDoc ? `Buat Event dari ${sourceDoc.number}` : "Buat Event"}
 			</Button>
 			<Button variant="outline" onClick={batal} disabled={pending}>
 				<XCircle /> Tandai batal

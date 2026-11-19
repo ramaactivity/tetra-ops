@@ -14,8 +14,12 @@ import {
 import { Container } from "@/components/layout/container";
 import { PageHeader } from "@/components/operations/_shared/page-header";
 import { createBooking } from "@/lib/actions/bookings";
+import { getCurrentUser } from "@/lib/auth/get-user";
 import type { InboxRow } from "@/lib/booking-inbox/core";
-import { inboxToBookingDefaults } from "@/lib/booking-inbox/defaults";
+import {
+	inboxToBookingDefaults,
+	mergeDocAndInbox,
+} from "@/lib/booking-inbox/defaults";
 import { fetchGuestCards } from "@/lib/booth-sync";
 import { quotationToBookingDefaults } from "@/lib/documents/booking-defaults";
 import { loadDocument } from "@/lib/documents/load";
@@ -114,18 +118,51 @@ export default async function NewBookingPage({
 		: { data: null };
 	const inboxItem = inboxRaw as InboxRow | null;
 
-	const sourceDefaults = validSource
+	const docDefaults = validSource
 		? quotationToBookingDefaults(
 				validSource,
 				(packages ?? []) as PackageOption[],
 			)
-		: inboxItem
-			? inboxToBookingDefaults(
-					inboxItem,
-					(packages ?? []) as PackageOption[],
-					(backdrops ?? []) as BackdropOption[],
-				)
-			: undefined;
+		: undefined;
+	const inboxDefaults = inboxItem
+		? inboxToBookingDefaults(
+				inboxItem,
+				(packages ?? []) as PackageOption[],
+				(backdrops ?? []) as BackdropOption[],
+			)
+		: undefined;
+	// Dokumen + Booking Masuk sekaligus → gabungan (harga dari dokumen, jam/PIC
+	// dari chat). Booking dari bot WA = direct lewat nomor WA Tetra yang
+	// dipegang owner → sales default = owner yang membuat event (Rama 19 Nov).
+	const merged =
+		docDefaults && inboxDefaults
+			? mergeDocAndInbox(docDefaults, inboxDefaults)
+			: (docDefaults ?? inboxDefaults);
+	// Dokumen yang disepakati memuat add-on cetak banner → backdrop Cetak Banner
+	// (kalau belum ditentukan). Kasus Yessi: jatuh ke "Dari Klien".
+	if (merged && !merged.backdrop_id) {
+		const bannerAddon = (addons ?? []).find((a) =>
+			/banner/i.test(a.name as string),
+		);
+		const bannerBg = (backdrops ?? []).find(
+			(b) => b.code === "BG-CETAK-BANNER",
+		);
+		if (
+			bannerAddon &&
+			bannerBg &&
+			merged.addons?.some((a) => a.addon_id === bannerAddon.id)
+		)
+			merged.backdrop_id = bannerBg.id as string;
+	}
+	const me = inboxItem ? await getCurrentUser() : null;
+	const sourceDefaults =
+		merged && me && merged.channel === "direct" && !merged.sales_user_id
+			? {
+					...merged,
+					sales_user_id: me.profile.id,
+					direct_sales_commission: 100_000,
+				}
+			: merged;
 
 	// Pilihan dokumen yang belum punya event: invoice DP & quotation terbuka.
 	const { data: openDocs } =
@@ -160,6 +197,9 @@ export default async function NewBookingPage({
 					Diisi dari{" "}
 					{validSource.doc_type === "invoice" ? "invoice" : "quotation"}{" "}
 					<span className="font-semibold">{validSource.doc_number}</span>.{" "}
+					{inboxItem
+						? "Harga, paket & add-on dari dokumen; jam/sesi, PIC & catatan dari Booking Masuk bot WA. "
+						: ""}
 					{validSource.doc_type === "invoice"
 						? "Lengkapi yang kurang lalu simpan — invoice ini akan tertaut ke event (nomor tetap)."
 						: "Lengkapi yang kurang lalu simpan — invoice dibuat otomatis dari quotation ini."}

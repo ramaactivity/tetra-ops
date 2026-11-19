@@ -216,3 +216,12 @@ test("quotation yang sudah diganti invoice keluar dari antrean", () => {
 	);
 	assert.equal(supersededBy(q, []), null);
 });
+
+test("Buat Event dari Booking Masuk memakai invoice lepas, bukan quotation yang sudah diterima", async () => {
+	const { openSourceDoc } = await import("./klien-data");
+	assert.equal(openSourceDoc([inv, quo])?.id, "i1");
+	assert.equal(openSourceDoc([quo])?.id, undefined); // quotation accepted → bukan sumber
+	assert.equal(openSourceDoc([{ ...quo, status: "sent" }])?.id, "q1");
+	assert.equal(openSourceDoc([{ ...inv, event_id: "ev" }]), null);
+	assert.equal(openSourceDoc([inv], "2027-01-01"), null);
+});
