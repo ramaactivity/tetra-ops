@@ -318,6 +318,9 @@ async function resolveBayar(args: Record<string, unknown>, ctx: AiToolContext) {
 				? str(args.bukti_url)
 				: null,
 			notes: str(args.catatan) || null,
+			// Pemilik rekening pengirim dari bukti → "transfer dari rek. a.n." di
+			// kuitansi & bisa dicari saat mencocokkan mutasi (DR-055).
+			senderName: str(args.nama_pengirim) || null,
 		},
 	};
 }
@@ -339,6 +342,9 @@ export const catatPembayaran: AiTool = {
 			bank_account_id: S("Default: rekening penerima utama."),
 			bukti_url: S("URL bukti transfer."),
 			catatan: S("Catatan."),
+			nama_pengirim: S(
+				"Nama pemilik rekening pengirim persis seperti di bukti transfer.",
+			),
 		},
 		required: ["project_id", "jenis", "nominal"],
 	},
@@ -346,7 +352,7 @@ export const catatPembayaran: AiTool = {
 		const r = await resolveBayar(args, ctx);
 		if ("error" in r) return r;
 		return {
-			ringkasan: `Catat ${PAYMENT_TYPE_LABEL[r.input.paymentType]} ${formatRupiah(r.input.amount)} dari ${r.ev.client_name} [${r.ev.project_id}] tgl ${formatDateID(r.input.paymentDate)} ke ${r.bank.bank_name} ${r.bank.account_name}.`,
+			ringkasan: `Catat ${PAYMENT_TYPE_LABEL[r.input.paymentType]} ${formatRupiah(r.input.amount)} dari ${r.ev.client_name} [${r.ev.project_id}] tgl ${formatDateID(r.input.paymentDate)} ke ${r.bank.bank_name} ${r.bank.account_name}${r.input.senderName ? ` (pengirim: ${r.input.senderName})` : ""}.`,
 			sisa_sebelum: r.guard.sisaSebelum,
 			sisa_sesudah: r.guard.sisaSesudah,
 			lunas_setelahnya: r.guard.sisaSesudah <= 0,
