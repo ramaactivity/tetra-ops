@@ -52,6 +52,7 @@ import { getAssignableCrew } from "@/lib/crew/assignable";
 import { applyDateTransitions } from "@/lib/event-status-transition";
 import { extraHoursOf } from "@/lib/events/extra-hours";
 import { parseExtraPics } from "@/lib/events/extra-pics";
+import { penerimaKelengkapan } from "@/lib/events/penerima";
 import { spotsWithoutLead, withUnits } from "@/lib/events/spots";
 import { listMissingFields } from "@/lib/events/tbc";
 import { toEventForWA, type WaEventRow } from "@/lib/events/wa-event";
@@ -72,7 +73,7 @@ import { previewUrl } from "@/lib/portal/preview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-import { isLikelyWaPhone, toWaPhone, waLink } from "@/lib/whatsapp";
+import { waLink } from "@/lib/whatsapp";
 
 export default async function EventDetailPage({
 	params,
@@ -277,15 +278,19 @@ export default async function EventDetailPage({
 					spots: event.spots,
 				})
 			: [];
-	// Tombol "Minta data ke klien": Hermes menulis draf dari daftar di atas
-	// (bot membacanya lewat /api/bot/klien), owner memeriksa lalu Kirim.
-	const waKlien =
-		canEdit && missingInfo.length > 0 && isLikelyWaPhone(event.client_wa)
-			? toWaPhone(event.client_wa as string)
-			: null;
-	const followupKlien = waKlien?.startsWith("628")
-		? ((await loadFollowupsByNomor(supabase)).get(waKlien) ?? null)
+	// Tombol "Minta data": Hermes menulis draf dari daftar di atas (bot
+	// membacanya lewat /api/bot/klien per event), owner memilih penerima —
+	// yang booking dulu (WO/EO, pemesan, klien, PIC) — lalu Kirim.
+	const penerimaData =
+		canEdit && missingInfo.length > 0 ? penerimaKelengkapan(event) : [];
+	const followupMap = penerimaData.length
+		? await loadFollowupsByNomor(supabase)
 		: null;
+	const followupData =
+		penerimaData
+			.map((p) => followupMap?.get(p.nomor) ?? null)
+			.filter((f) => f !== null)
+			.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 	const eventAddons = (event.event_addons ?? []) as Array<{
 		quantity: number;
 		unit_price: number;
@@ -775,7 +780,7 @@ export default async function EventDetailPage({
 						className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-500"
 						aria-hidden
 					/>
-					<div className="min-w-0 flex-1 space-y-1">
+					<div className="min-w-0 flex-1 basis-56 space-y-1">
 						<p className="text-[14px] font-semibold text-amber-900 dark:text-amber-200">
 							Data event belum lengkap — {missingInfo.length} hal masih menyusul
 						</p>
@@ -786,17 +791,18 @@ export default async function EventDetailPage({
 						</p>
 					</div>
 					<div className="flex shrink-0 flex-wrap items-center gap-2">
-						{waKlien?.startsWith("628") && (
+						{penerimaData.length > 0 && (
 							<FollowupButton
 								jid={null}
-								nomor={waKlien}
+								nomor={penerimaData[0].nomor}
 								nama={event.client_name}
 								alasan="kelengkapan data acara"
 								deskripsi={`Hermes menyusun pesan WhatsApp untuk melengkapi: ${missingInfo.join(", ")}. Urutannya mengikuti yang paling dibutuhkan crew.`}
 								eventId={event.id}
 								pilihMode
-								label="Minta data ke klien"
-								latest={followupKlien}
+								penerima={penerimaData}
+								label="Minta data"
+								latest={followupData}
 								className={cn(
 									buttonVariants({ variant: "outline", size: "sm" }),
 									"border-amber-500/50 bg-card",

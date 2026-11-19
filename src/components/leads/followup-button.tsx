@@ -28,6 +28,7 @@ import {
 	mintaFollowup,
 } from "@/lib/actions/followup";
 import { timeAgo } from "@/lib/dates";
+import type { Penerima } from "@/lib/events/penerima";
 import {
 	FOLLOWUP_JEDA_JAM,
 	type FollowupState,
@@ -54,9 +55,9 @@ const DRAF_SABAR_MS = 90_000;
 type Mode = "bertahap" | "sekaligus";
 const MODE_INFO: Record<Mode, string> = {
 	bertahap:
-		"Hermes menanyakan satu hal paling penting dulu. Klien lebih gampang menjawab; sisanya ditanyakan di permintaan berikutnya.",
+		"Hermes menanyakan satu hal paling penting dulu, jadi lebih gampang dijawab; sisanya ditanyakan di permintaan berikutnya.",
 	sekaligus:
-		"Semua yang kurang ditanyakan dalam satu pesan. Cocok kalau acaranya sudah dekat atau klien biasa cepat membalas.",
+		"Semua yang kurang ditanyakan dalam satu pesan. Cocok kalau acaranya sudah dekat atau penerimanya biasa cepat membalas.",
 };
 
 /**
@@ -77,6 +78,7 @@ export function FollowupButton({
 	label: labelAwal = "Follow-up",
 	deskripsi,
 	className,
+	penerima,
 }: {
 	jid: string | null;
 	nomor: string;
@@ -98,6 +100,8 @@ export function FollowupButton({
 	/** Teks penjelas di dialog (bawaan: `alasan`). */
 	deskripsi?: string;
 	className?: string;
+	/** Pilihan penerima (yang pertama = bawaan); nomor terpilih menggantikan `nomor`. */
+	penerima?: Penerima[];
 }) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -107,6 +111,8 @@ export function FollowupButton({
 	const [lama, setLama] = useState(false);
 	const [memilih, setMemilih] = useState(false);
 	const [mode, setMode] = useState<Mode>("bertahap");
+	const [pilihan, setPilihan] = useState(0);
+	const tujuan = penerima?.[pilihan] ?? null;
 	const startedAt = useRef(0);
 
 	const status = state?.status;
@@ -153,12 +159,13 @@ export function FollowupButton({
 		}
 		start(async () => {
 			const res = await mintaFollowup({
-				jid,
-				nomor,
+				jid: tujuan ? null : jid,
+				nomor: tujuan?.nomor ?? nomor,
 				alasan,
 				konteks,
 				eventId,
 				mode: pilihMode ? mode : null,
+				penerima: tujuan ? { peran: tujuan.peran, nama: tujuan.nama } : null,
 			});
 			if (!res.ok) {
 				toast.error(res.error);
@@ -273,7 +280,43 @@ export function FollowupButton({
 					</DialogHeader>
 
 					{memilih ? (
-						<div className="space-y-2.5">
+						<div className="space-y-3">
+							{penerima && penerima.length > 0 && (
+								<fieldset className="space-y-1.5">
+									<legend className="mb-1.5 text-[13px] font-medium">
+										Kirim ke
+									</legend>
+									<div className="grid gap-1.5">
+										{penerima.map((p, i) => (
+											<button
+												key={p.nomor}
+												type="button"
+												aria-pressed={i === pilihan}
+												onClick={() => setPilihan(i)}
+												className={cn(
+													"press-down flex items-center justify-between gap-3 rounded-2xl border px-3.5 py-2.5 text-left text-[13px] transition-[border-color,background-color] duration-150",
+													i === pilihan
+														? "border-foreground bg-secondary"
+														: "border-border-subtle hover:bg-surface-3",
+												)}
+											>
+												<span className="min-w-0 truncate">
+													<span className="font-medium">{p.label}</span>
+													{p.nama && (
+														<span className="text-muted-foreground">
+															{" "}
+															· {p.nama}
+														</span>
+													)}
+												</span>
+												<span className="tabular shrink-0 text-muted-foreground">
+													{p.nomor.replace(/^62/, "0")}
+												</span>
+											</button>
+										))}
+									</div>
+								</fieldset>
+							)}
 							<Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
 								<TabsList variant="segmented">
 									<TabsTrigger value="bertahap">Satu per satu</TabsTrigger>

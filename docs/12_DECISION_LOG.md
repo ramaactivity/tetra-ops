@@ -1470,5 +1470,6 @@ Rama: event yang datanya belum lengkap butuh satu tombol untuk meminta Hermes me
 - Daftar & urutan = `listMissingFields` (satu sumber dengan banner, crew, reminder). Bot mengambilnya sendiri dari `POST /api/bot/klien` (`kurang`, `event_id`), tidak lewat `konteks`, supaya tidak ada dua sumber fakta.
 - Kalimat ke klien, urutan menurut H-berapa, dan cara bertanya = skill Hermes (`mode-kontak-khusus`), bukan Tetra Ops.
 - Bot tetap tidak menulis `events`. Jawaban klien dilaporkan ke owner; revisi lewat aplikasi atau `revisi_event_usulan` (DR-057).
+- **Penerima mengikuti siapa yang booking** (Rama 19 Nov: "ada yang chat langsung ke kliennya, ada yang ke wonya, ada yang ke eonya, ada yang ke picnya"): dialog "Kirim ke" dari `penerimaKelengkapan` (`src/lib/events/penerima.ts`) — WO/EO (event lewat vendor, `vendor_contact`) → pemesan (kalau beda nomor dari klien) → klien → PIC lapangan; yang pertama jadi bawaan. Perintah `followup-draf` membawa `penerima` + `penerima_nama`; bot membaca acaranya lewat `event_id`.
 - Milestone 2 (menyusul): item baru untuk crew (alamat + Maps, jam setup/selesai, jumlah tamu, listrik/akses, teks frame) + kolom yang dibutuhkan.
 

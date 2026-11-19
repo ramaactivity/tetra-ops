@@ -60,6 +60,8 @@ export async function mintaFollowup(input: {
 	 */
 	eventId?: string | null;
 	mode?: "bertahap" | "sekaligus" | null;
+	/** Siapa yang dihubungi (lib/events/penerima.ts) — WO/EO, pemesan, klien, PIC. */
+	penerima?: { peran: string; nama: string | null } | null;
 }): Promise<{ ok: true; state: FollowupState } | { ok: false; error: string }> {
 	try {
 		const me = await requireOwner();
@@ -120,6 +122,8 @@ export async function mintaFollowup(input: {
 					...(input.eventId && {
 						event_id: input.eventId,
 						mode: input.mode === "sekaligus" ? "sekaligus" : "bertahap",
+						penerima: input.penerima?.peran ?? "klien",
+						penerima_nama: input.penerima?.nama?.slice(0, 80) ?? null,
 					}),
 				})}`,
 				status: "pending",

@@ -56,6 +56,8 @@ function tagihanBot(e: EventTagihan) {
  * `kurang` = listMissingFields (urutan "paling menghambat lapangan dulu", sama
  * dengan banner owner & crew) + `event_id`, untuk tombol "Minta data ke klien"
  * (konsultasi Hermes t_49b6d8e5).
+ * `{event_id}` (tanpa phone) = satu acara itu saja: tombol "Minta data" bisa
+ * dikirim ke WO/EO/pemesan yang nomornya bukan client_wa/pic_wa event.
  * Kontrak: docs/06_API_SPEC.md §21.
  */
 export async function POST(req: NextRequest) {
@@ -66,9 +68,11 @@ export async function POST(req: NextRequest) {
 		);
 	const body = (await req.json().catch(() => null)) as {
 		phone?: unknown;
+		event_id?: unknown;
 	} | null;
+	const eventId = typeof body?.event_id === "string" ? body.event_id : null;
 	const tail = phoneTail(String(body?.phone ?? ""));
-	if (tail.length !== 9)
+	if (!eventId && tail.length !== 9)
 		return NextResponse.json(
 			{ ok: false, error: "nomor_tidak_valid" },
 			{ status: 400 },
@@ -89,7 +93,11 @@ export async function POST(req: NextRequest) {
 	if (error)
 		return NextResponse.json({ ok: false, error: "gagal" }, { status: 500 });
 	const booking = (data ?? [])
-		.filter((e) => [e.client_wa, e.pic_wa].some((n) => phoneTail(n) === tail))
+		.filter((e) =>
+			eventId
+				? e.id === eventId
+				: [e.client_wa, e.pic_wa].some((n) => phoneTail(n) === tail),
+		)
 		.map((e) => {
 			const pkg = (Array.isArray(e.package) ? e.package[0] : e.package) as {
 				name?: string;
