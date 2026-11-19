@@ -719,6 +719,7 @@ async function kabariHermes(
 			res.docs.find((x) => x.docType === "invoice")?.docNumber ??
 			null,
 		booking_inbox_id: d.booking_inbox_id,
+		booking_id: d.booking_inbox_id,
 		event_id: eventId,
 		project_id: (ev?.project_id as string | null) ?? null,
 		payment_id: res.paymentId,

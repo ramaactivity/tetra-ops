@@ -28,6 +28,7 @@ test("permintaan bertanda tangan: body yang ditandatangani = body yang dikirim",
 			nama_pengirim: "AGRET ANGGRAINI",
 			invoice_no: "INV-TP-34-18112026",
 			booking_inbox_id: "b",
+			booking_id: "b",
 			event_id: "e",
 			project_id: "PRJ-1",
 			payment_id: "p",
@@ -42,6 +43,7 @@ test("permintaan bertanda tangan: body yang ditandatangani = body yang dikirim",
 		signatureV2("s", 1795060000, r.body),
 	);
 	assert.equal(JSON.parse(r.body).nominal, 700000);
+	assert.equal(JSON.parse(r.body).booking_id, "b");
 });
 
 test("URL webhook dibangun dari alamat terdaftar, bukan hardcode", () => {

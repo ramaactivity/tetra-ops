@@ -42,6 +42,8 @@ export type PembayaranTercatat = {
 	nama_pengirim: string | null;
 	invoice_no: string | null;
 	booking_inbox_id: string | null;
+	/** Sama dengan booking_inbox_id — placeholder {booking_id} di route Hermes. */
+	booking_id: string | null;
 	event_id: string;
 	project_id: string | null;
 	payment_id: string;
