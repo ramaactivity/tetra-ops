@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	BanknoteArrowDown,
 	Bell,
 	Briefcase,
 	Ellipsis,
@@ -61,6 +62,7 @@ const MORE: NavItem[] = [
 	{ href: "/notifications", label: "Notifications", icon: Bell },
 	{ href: "/design", label: "Design", icon: Palette },
 	{ href: "/finance/dokumen", label: "Dokumen", icon: FileText },
+	{ href: "/billing/uang-masuk", label: "Uang Masuk", icon: BanknoteArrowDown },
 	{ href: "/finance", label: "Finance", icon: Wallet },
 	{ href: "/finance/buku-kas", label: "Buku Kas", icon: NotebookText },
 	{ href: "/finance/tagihan-rutin", label: "Tagihan rutin", icon: Repeat },

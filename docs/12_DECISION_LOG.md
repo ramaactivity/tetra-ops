@@ -1473,3 +1473,22 @@ Rama: event yang datanya belum lengkap butuh satu tombol untuk meminta Hermes me
 - **Penerima mengikuti siapa yang booking** (Rama 19 Nov: "ada yang chat langsung ke kliennya, ada yang ke wonya, ada yang ke eonya, ada yang ke picnya"): dialog "Kirim ke" dari `penerimaKelengkapan` (`src/lib/events/penerima.ts`) — WO/EO (event lewat vendor, `vendor_contact`) → pemesan (kalau beda nomor dari klien) → klien → PIC lapangan; yang pertama jadi bawaan. Perintah `followup-draf` membawa `penerima` + `penerima_nama`; bot membaca acaranya lewat `event_id`.
 - Milestone 2 (menyusul): item baru untuk crew (alamat + Maps, jam setup/selesai, jumlah tamu, listrik/akses, teks frame) + kolom yang dibutuhkan.
 
+
+---
+
+## DR-059: Billing › Uang Masuk — bukti transfer dicek & dikonfirmasi satu tap
+
+**Status:** Accepted (owner 2026-11-19, "sesuai rekomendasi lu gua setuju")
+**Date:** 2026-11-19
+
+### Context
+DP Yessi dan pelunasan Syifa & Hilmi (19 Nov) masuk lewat WA tapi tidak tercatat otomatis; Rama mengetik manual. Draft bukti transfer (DR-055) hanya terlihat di Booking Masuk dan digest pagi, padahal pelunasan biasanya untuk event yang sudah ada.
+
+### Decision
+1. Menu baru **Billing › Uang Masuk** (`/billing/uang-masuk`): semua bukti transfer dari WA lintas klien (DP & pelunasan) — "Perlu dicek" + "Sudah diproses · 14 hari". Badge = jumlah menunggu (pindah dari Booking Masuk supaya tidak dobel). Baris & aksi = `DpDraftsSection` yang sama, ditambah "untuk klien siapa" dan sisa tagihan sebelum → sesudah.
+2. Event sudah ada → dialog punya **Konfirmasi & kirim terima kasih** (satu tap: masuk buku → kuitansi, atau nota lunas kalau lunas, terkirim dengan pesan bawaan) dan **Konfirmasi saja**. Mode kirim langsung tidak mengabari Hermes supaya tidak ada usulan kiriman ganda; gagal kirim → cadangan tawaran 1-tap ke grup owner.
+3. Rekening penerima utama terisi otomatis.
+4. Pesan klien: kalimat Rama untuk kuitansi & nota lunas; nama bulan **ditulis lengkap** di pesan dan nama file PDF ("2 Desember 2026").
+
+### Menyusul
+Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.

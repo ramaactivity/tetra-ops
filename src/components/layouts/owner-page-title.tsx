@@ -3,6 +3,7 @@
 import {
 	AlertTriangle,
 	Archive,
+	BanknoteArrowDown,
 	Bell,
 	BookOpen,
 	Box,
@@ -66,6 +67,7 @@ const ROUTES: Array<[string, string, LucideIcon]> = [
 	["/design/portal", "Antrean Desain", Brush],
 	["/design/templates", "Template Frame", LayoutTemplate],
 	["/design", "Asset & Design", Palette],
+	["/billing/uang-masuk", "Uang Masuk", BanknoteArrowDown],
 	["/billing", "Billing", Receipt],
 	["/warehouse/purchases", "Pembelian", ShoppingCart],
 	["/warehouse/suppliers", "Supplier", Truck],

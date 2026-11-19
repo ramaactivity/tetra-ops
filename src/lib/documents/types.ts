@@ -483,7 +483,8 @@ export function supersededBy(
 /**
  * Nama file PDF — pola owner di Canva ("Invoice_TetraPhotobooth_Lampu
  * Imaji_28072026"), dirapikan (owner 18 Nov 2026: tanpa nomor dokumen):
- * Jenis_Tetra Photobooth_Acara atau klien_18 Nov 2026.pdf
+ * Jenis_Tetra Photobooth_Acara atau klien_18 November 2026.pdf
+ * (bulan ditulis lengkap — owner 19 Nov 2026).
  * Nama brand ikut supaya di WA klien langsung tahu dari siapa; tanggal terbit
  * pakai nama bulan (tidak tertukar hari/bulan). Satu sumber untuk unduhan,
  * lampiran WA, dan link bertanda tangan.
@@ -507,7 +508,7 @@ export function docFilename(
 	const subject = clean(p.title) || clean(p.clientName);
 	const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(p.issuedAt ?? "");
 	const date = m
-		? `${Number(m[3])} ${ID_MONTH_NAMES[Number(m[2]) - 1].slice(0, 3)} ${m[1]}`
+		? `${Number(m[3])} ${ID_MONTH_NAMES[Number(m[2]) - 1]} ${m[1]}`
 		: null;
 	return `${[DOC_TYPE_LABEL[docType], COMPANY.name, subject, date].filter(Boolean).join("_")}.pdf`;
 }

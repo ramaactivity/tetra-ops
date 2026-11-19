@@ -45,6 +45,7 @@ async function loadOpen(id: string): Promise<DraftRow | string> {
 }
 
 function revalidate(d: Pick<DraftRow, "booking_inbox_id">) {
+	revalidatePath("/billing/uang-masuk");
 	revalidatePath("/operations/booking-masuk");
 	if (d.booking_inbox_id)
 		revalidatePath(`/operations/booking-masuk/${d.booking_inbox_id}`);
@@ -55,11 +56,14 @@ const rp = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
 /**
  * Konfirmasi di Tetra Ops → disetujui. Lebih bayar ditahan (keputusan Rama);
  * nominal sama dalam 24 jam = peringatan (force untuk tetap lanjut).
+ * `kirim` = tombol "Konfirmasi & kirim terima kasih": kalau event sudah ada,
+ * kuitansi/nota lunas langsung terkirim ke klien setelah masuk buku.
  */
 export async function konfirmasiDraft(
 	id: string,
 	bankAccountId: string,
 	force = false,
+	kirim = false,
 ): Promise<Result> {
 	const me = await requireOwnerLevel();
 	const d = await loadOpen(id);
@@ -114,7 +118,9 @@ export async function konfirmasiDraft(
 		.eq("status", "menunggu");
 	if (error) return { ok: false, error: error.message };
 	// Booking sudah punya event → langsung masuk buku (DR-055).
-	const tercatat = await postIfEventExists(admin, d, me.profile.id);
+	const tercatat = await postIfEventExists(admin, d, me.profile.id, {
+		kirimLangsung: kirim,
+	});
 	revalidate(d);
 	return { ok: true, tercatat };
 }

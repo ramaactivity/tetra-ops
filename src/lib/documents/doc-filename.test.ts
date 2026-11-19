@@ -5,7 +5,7 @@ import { docFilename } from "./types";
 test("nama file: Jenis_Tetra Photobooth_Acara/Klien_tanggal, tanpa nomor", () => {
 	assert.equal(
 		docFilename("quotation", { clientName: "Yessi", issuedAt: "2026-11-18" }),
-		"Quotation_Tetra Photobooth_Yessi_18 Nov 2026.pdf",
+		"Quotation_Tetra Photobooth_Yessi_18 November 2026.pdf",
 	);
 	assert.equal(
 		docFilename("invoice", {
@@ -13,7 +13,7 @@ test("nama file: Jenis_Tetra Photobooth_Acara/Klien_tanggal, tanpa nomor", () =>
 			clientName: "Rini",
 			issuedAt: "2026-07-28",
 		}),
-		"Invoice_Tetra Photobooth_Lampu Imaji_28 Jul 2026.pdf",
+		"Invoice_Tetra Photobooth_Lampu Imaji_28 Juli 2026.pdf",
 	);
 	// karakter terlarang & "_" dibuang, & tetap; tanpa tanggal tetap rapi
 	assert.equal(

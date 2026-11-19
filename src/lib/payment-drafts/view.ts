@@ -28,7 +28,7 @@ export async function draftViewsAndBanks(
 			: Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
 		supabase
 			.from("bank_accounts")
-			.select("id, account_name, account_number")
+			.select("id, account_name, account_number, is_default_receive")
 			.eq("is_active", true)
 			.neq("account_kind", "emoney")
 			.order("account_name"),
@@ -41,6 +41,9 @@ export async function draftViewsAndBanks(
 	);
 	const wib = (iso: string) =>
 		new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+	// Rekening penerima utama terisi otomatis → Konfirmasi cukup satu tap.
+	const defaultBank =
+		(bankRows ?? []).find((b) => b.is_default_receive)?.id ?? null;
 	const views: DraftView[] = drafts.map((r) => {
 		const tanggal = wib(r.waktu_transfer ?? r.waktu_pesan ?? r.created_at);
 		return {
@@ -50,7 +53,7 @@ export async function draftViewsAndBanks(
 			nama_pengirim: r.nama_pengirim,
 			bank_pengirim: r.bank_pengirim,
 			bank_tujuan: r.bank_tujuan,
-			bank_account_id: r.bank_account_id,
+			bank_account_id: r.bank_account_id ?? (defaultBank as string | null),
 			tanggal,
 			tanggalLabel: new Date(`${tanggal}T00:00:00Z`).toLocaleDateString(
 				"id-ID",

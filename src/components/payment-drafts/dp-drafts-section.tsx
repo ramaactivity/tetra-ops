@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ImageUp, Loader2, Pencil, XCircle } from "lucide-react";
+import { Check, ImageUp, Loader2, Pencil, Send, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,12 @@ export type DraftView = {
 	kuitansi: { id: string; nomor: string } | null;
 	/** Usulan kuitansi lewat Hermes (null = belum dicoba). */
 	kuitansiStatus: "dikabarkan_ke_hermes" | "belum_disiapkan" | null;
+	/** Halaman Uang Masuk (lintas klien): untuk siapa bukti ini. */
+	klien?: { nama: string; href: string | null } | null;
+	/** Event klien sudah ada → konfirmasi langsung masuk buku. */
+	adaEvent?: boolean;
+	/** Sisa tagihan sebelum → sesudah bukti ini dicatat. */
+	sisa?: { sebelum: number; sesudah: number } | null;
 };
 
 export type BankOption = { value: string; label: string };
@@ -76,16 +82,18 @@ export function DpDraftsSection({
 	drafts,
 	banks,
 	hasEvent,
+	title = "Bukti DP dari WA",
 }: {
 	drafts: DraftView[];
 	banks: BankOption[];
 	hasEvent: boolean;
+	title?: string;
 }) {
 	const waiting = drafts.filter((d) => d.status === "menunggu").length;
 	return (
 		<section className="space-y-2 rounded-[16px] border border-border-subtle bg-card p-4 shadow-[var(--shadow-level-1)]">
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
-				<h2 className="text-[15px] font-semibold">Bukti DP dari WA</h2>
+				<h2 className="text-[15px] font-semibold">{title}</h2>
 				<p className="text-[12.5px] text-muted-foreground">
 					{waiting > 0
 						? `${waiting} menunggu konfirmasi`
@@ -104,7 +112,12 @@ export function DpDraftsSection({
 			</div>
 			<ul className="divide-y divide-border-subtle">
 				{drafts.map((d) => (
-					<DraftRow key={d.id} d={d} banks={banks} hasEvent={hasEvent} />
+					<DraftRow
+						key={d.id}
+						d={d}
+						banks={banks}
+						hasEvent={d.adaEvent ?? hasEvent}
+					/>
 				))}
 			</ul>
 		</section>
@@ -222,6 +235,43 @@ function DraftRow({
 					</a>
 				) : null}
 			</div>
+			{d.klien || d.sisa ? (
+				<p className="mt-1 text-[12.5px] text-muted-foreground md:col-span-6 md:mt-0 md:truncate">
+					{d.klien ? (
+						<>
+							Untuk{" "}
+							{d.klien.href ? (
+								<a
+									href={d.klien.href}
+									className="font-medium text-foreground hover:underline"
+								>
+									{d.klien.nama}
+								</a>
+							) : (
+								<span className="font-medium text-foreground">
+									{d.klien.nama}
+								</span>
+							)}
+						</>
+					) : null}
+					{d.klien && d.sisa ? " · " : null}
+					{d.sisa ? (
+						<>
+							sisa tagihan{" "}
+							<span data-nominal className="tabular">
+								{rp(d.sisa.sebelum)}
+							</span>{" "}
+							→{" "}
+							<span
+								data-nominal
+								className="tabular font-medium text-foreground"
+							>
+								{d.sisa.sesudah > 0 ? rp(d.sisa.sesudah) : "lunas"}
+							</span>
+						</>
+					) : null}
+				</p>
+			) : null}
 			{d.status === "menunggu" && d.alasanBelumOtomatis.length > 0 ? (
 				<p className="mt-1 text-[12.5px] text-amber-800 md:col-span-6 md:mt-0">
 					Admin sudah membalas di WA, tapi belum otomatis:{" "}
@@ -344,10 +394,14 @@ function KonfirmasiDialog({
 	const confirm = useConfirm();
 	const [bank, setBank] = useState(d.bank_account_id ?? "");
 	const [pending, start] = useTransition();
+	const [kirimDipilih, setKirimDipilih] = useState(false);
+	const lunas = d.sisa ? d.sisa.sesudah <= 0 : false;
+	const dokumen = lunas ? "nota lunas" : "kuitansi";
 
-	function submit() {
+	function submit(kirim: boolean) {
+		setKirimDipilih(kirim);
 		start(async () => {
-			let res = await konfirmasiDraft(d.id, bank);
+			let res = await konfirmasiDraft(d.id, bank, false, kirim);
 			if (!res.ok && res.warning) {
 				const lanjut = await confirm({
 					title: "Mungkin bukti dobel",
@@ -355,15 +409,17 @@ function KonfirmasiDialog({
 					confirmLabel: "Tetap konfirmasi",
 				});
 				if (!lanjut) return;
-				res = await konfirmasiDraft(d.id, bank, true);
+				res = await konfirmasiDraft(d.id, bank, true, kirim);
 			}
 			if (!res.ok) return void toast.error(res.error ?? res.warning);
 			toast.success(
 				res.tercatat
-					? "DP disetujui dan masuk buku — kuitansi sudah terbit (belum dikirim)"
+					? kirim
+						? `Masuk buku — ${dokumen} + ucapan terima kasih sedang dikirim ke klien`
+						: `Masuk buku — ${dokumen} sudah terbit (belum dikirim)`
 					: hasEvent
-						? "DP disetujui"
-						: "DP disetujui — masuk buku saat event dibuat",
+						? "Pembayaran disetujui"
+						: "Disetujui — masuk buku saat event dibuat",
 			);
 			onClose();
 			router.refresh();
@@ -374,10 +430,30 @@ function KonfirmasiDialog({
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Konfirmasi DP {rp(d.nominal)}</DialogTitle>
+					<DialogTitle>
+						Konfirmasi{" "}
+						<span data-nominal className="tabular">
+							{rp(d.nominal)}
+						</span>
+					</DialogTitle>
 					<DialogDescription>
-						Dari rek. a.n. <b>{d.nama_pengirim ?? "—"}</b> · {d.tanggalLabel}.
-						Cocokkan dengan mutasi bank dulu.
+						Dari rek. a.n. <b>{d.nama_pengirim ?? "—"}</b> · {d.tanggalLabel}
+						{d.klien ? ` · untuk ${d.klien.nama}` : ""}. Cocokkan dengan mutasi
+						bank dulu.
+						{d.sisa ? (
+							<>
+								{" "}
+								Sisa tagihan{" "}
+								<span data-nominal className="tabular">
+									{rp(d.sisa.sebelum)}
+								</span>{" "}
+								→{" "}
+								<span data-nominal className="tabular">
+									{lunas ? "lunas" : rp(d.sisa.sesudah)}
+								</span>
+								.
+							</>
+						) : null}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-1.5">
@@ -391,23 +467,60 @@ function KonfirmasiDialog({
 					/>
 				</div>
 				<DialogFooter>
-					<Button
-						variant="outline"
-						className="rounded-full"
-						onClick={onClose}
-						disabled={pending}
-					>
-						Batal
-					</Button>
-					<Button
-						className="rounded-full"
-						onClick={submit}
-						disabled={pending || !bank || !d.nominal}
-					>
-						{pending ? <Loader2 className="animate-spin" /> : <Check />}{" "}
-						Konfirmasi
-					</Button>
+					{hasEvent ? null : (
+						<Button
+							variant="outline"
+							className="rounded-full"
+							onClick={onClose}
+							disabled={pending}
+						>
+							Batal
+						</Button>
+					)}
+					{hasEvent ? (
+						<>
+							<Button
+								variant="outline"
+								className="rounded-full"
+								onClick={() => submit(false)}
+								disabled={pending || !bank || !d.nominal}
+							>
+								{pending && !kirimDipilih ? (
+									<Loader2 className="animate-spin" />
+								) : null}
+								Konfirmasi saja
+							</Button>
+							<Button
+								className="rounded-full"
+								onClick={() => submit(true)}
+								disabled={pending || !bank || !d.nominal}
+							>
+								{pending && kirimDipilih ? (
+									<Loader2 className="animate-spin" />
+								) : (
+									<Send />
+								)}{" "}
+								Konfirmasi & kirim terima kasih
+							</Button>
+						</>
+					) : (
+						<Button
+							className="rounded-full"
+							onClick={() => submit(false)}
+							disabled={pending || !bank || !d.nominal}
+						>
+							{pending ? <Loader2 className="animate-spin" /> : <Check />}{" "}
+							Konfirmasi
+						</Button>
+					)}
 				</DialogFooter>
+				{hasEvent ? (
+					<p className="text-[12.5px] text-muted-foreground">
+						“Kirim terima kasih” = setelah masuk buku, {dokumen} langsung
+						terkirim ke WA klien dengan pesan bahwa pembayarannya sudah kami
+						terima.
+					</p>
+				) : null}
 			</DialogContent>
 		</Dialog>
 	);

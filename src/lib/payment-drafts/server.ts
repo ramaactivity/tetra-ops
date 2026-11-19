@@ -7,8 +7,10 @@ import { resolveOwnerActorId } from "@/lib/auth/owner-actor";
 import { inboxForDocs, loadClientDocs } from "@/lib/booking-inbox/client-docs";
 import { pickPrimaryDoc } from "@/lib/booking-inbox/klien-data";
 import { todayWIB } from "@/lib/dates";
+import { defaultClientMessage } from "@/lib/documents/approval";
+import { sendDocumentCore } from "@/lib/documents/send";
 import { computeTotals } from "@/lib/documents/totals";
-import type { DocItem } from "@/lib/documents/types";
+import type { DocItem, DocumentRow } from "@/lib/documents/types";
 import {
 	ensureArchiveMonthFolder,
 	uploadFileToFolder,
@@ -388,9 +390,18 @@ export async function eventOfDraft(
  * saat draft disetujui untuk booking yang sudah punya event (DR-055).
  * Gagal = draft tetap disetujui + alasan di catatan_posting.
  */
+/**
+ * `kirimLangsung` (tombol "Konfirmasi & kirim terima kasih", owner 19 Nov
+ * 2026): setelah masuk buku, kuitansi — atau nota lunas kalau lunas — langsung
+ * terkirim ke klien dengan pesan bawaan; Hermes tidak diminta mengusulkan
+ * kiriman yang sama.
+ */
+export type PostOpts = { kirimLangsung?: boolean };
+
 export async function postApprovedDrafts(
 	eventId: string,
 	actorId: string,
+	opts: PostOpts = {},
 ): Promise<{ posted: number; failed: string[] }> {
 	const admin = createAdminClient();
 	const [{ data: docs }, { data: inbox }] = await Promise.all([
@@ -424,7 +435,7 @@ export async function postApprovedDrafts(
 	let posted = 0;
 	const failed: string[] = [];
 	for (const d of (data ?? []) as DraftRow[]) {
-		const r = await postDraft(admin, d, eventId, actorId);
+		const r = await postDraft(admin, d, eventId, actorId, opts);
 		if (r === "posted") posted++;
 		else if (r !== "skip") failed.push(r);
 	}
@@ -436,6 +447,7 @@ async function postDraft(
 	d: DraftRow,
 	eventId: string,
 	actorId: string,
+	opts: PostOpts,
 ): Promise<"posted" | "skip" | string> {
 	const note = async (msg: string) => {
 		await admin
@@ -501,9 +513,10 @@ async function postDraft(
 			.eq("id", d.id);
 		const posted = { ...res, paymentType, nominal: d.nominal };
 		after(() =>
-			kabariHermes(d, eventId, posted).catch((e) =>
-				console.error("[payment-drafts] kabari Hermes:", e),
-			),
+			(opts.kirimLangsung
+				? kirimTerimaKasih(eventId, posted, actorId)
+				: kabariHermes(d, eventId, posted)
+			).catch((e) => console.error("[payment-drafts] setelah posting:", e)),
 		);
 		return "posted";
 	} catch (e) {
@@ -524,6 +537,7 @@ export async function postIfEventExists(
 	admin: SupabaseClient,
 	d: Pick<DraftRow, "event_id" | "booking_inbox_id" | "document_id">,
 	actorId: string | null,
+	opts: PostOpts = {},
 ): Promise<boolean> {
 	const ev = await eventOfDraft(admin, d);
 	if (!ev) return false;
@@ -532,7 +546,7 @@ export async function postIfEventExists(
 		console.error("[payment-drafts] posting: owner pelaku tidak ditemukan");
 		return false;
 	}
-	return (await postApprovedDrafts(ev, actor)).posted > 0;
+	return (await postApprovedDrafts(ev, actor, opts)).posted > 0;
 }
 
 /** Draft milik satu Booking Masuk (terbaru dulu). `supabase` ber-RLS owner. */
@@ -673,23 +687,69 @@ export async function kirimWebhookPembayaran(
 	return { ok: false, error: last };
 }
 
+type Posted = {
+	paymentId: string;
+	docs: Array<{ id: string; docType: string; docNumber: string }>;
+	lunas: boolean;
+	sisaSesudah: number;
+	paymentType: PaymentType;
+	nominal: number;
+};
+
+/**
+ * Owner menekan "Konfirmasi & kirim terima kasih": nota lunas (kalau lunas)
+ * atau kuitansi terkirim dengan pesan bawaan ("terima kasih, pembayaran sudah
+ * kami terima"). Gagal kirim → cadangan tawaran 1-tap ke grup owner.
+ */
+async function kirimTerimaKasih(eventId: string, res: Posted, actorId: string) {
+	const admin = createAdminClient();
+	const pick =
+		(res.lunas && res.docs.find((x) => x.docType === "nota_lunas")) ||
+		res.docs.find((x) => x.docType === "receipt");
+	let sent = false;
+	if (pick) {
+		const { data: doc } = await admin
+			.from("documents")
+			.select("*")
+			.eq("id", pick.id)
+			.maybeSingle();
+		if (doc) {
+			const r = await sendDocumentCore(
+				admin,
+				{
+					documentId: pick.id,
+					pesan: await defaultClientMessage(admin, doc as DocumentRow),
+					nomor: null,
+				},
+				{ actorId },
+			);
+			sent = !("error" in r) && r.status !== "gagal";
+			if (!sent)
+				console.error(
+					"[payment-drafts] kirim terima kasih:",
+					JSON.stringify(r),
+				);
+		}
+	}
+	if (!sent && res.docs.length > 0)
+		await offerPaymentDocsToOwner(
+			eventId,
+			{
+				docs: res.docs as Parameters<typeof offerPaymentDocsToOwner>[1]["docs"],
+				lunas: res.lunas,
+				remaining: res.sisaSesudah,
+			},
+			res.paymentType,
+			res.nominal,
+		);
+}
+
 /**
  * Setelah DP dari draft tercatat: kabari Hermes (usulan kuitansi ke Rama).
  * Gagal → tandai "kuitansi belum disiapkan" + cadangan tawaran Telegram 1-tap.
  * Kuitansi tidak pernah terkirim ke klien dari sini.
  */
-async function kabariHermes(
-	d: DraftRow,
-	eventId: string,
-	res: {
-		paymentId: string;
-		docs: Array<{ id: string; docType: string; docNumber: string }>;
-		lunas: boolean;
-		sisaSesudah: number;
-		paymentType: PaymentType;
-		nominal: number;
-	},
-) {
+async function kabariHermes(d: DraftRow, eventId: string, res: Posted) {
 	const admin = createAdminClient();
 	const receipt = res.docs.find((x) => x.docType === "receipt") ?? null;
 	const [{ data: ev }, { data: doc }] = await Promise.all([

@@ -87,6 +87,15 @@ export async function offerSendToOwner(
 }
 
 /** Pesan WA standar per dokumen — disusun saat kirim supaya angkanya terbaru. */
+/** Tanggal di pesan klien: nama bulan lengkap ("2 Desember 2026") — owner 19 Nov 2026. */
+const tglKlien = (iso: string) =>
+	new Date(iso).toLocaleDateString("id-ID", {
+		day: "numeric",
+		month: "long",
+		year: "numeric",
+		timeZone: "UTC",
+	});
+
 export async function defaultClientMessage(
 	supabase: SupabaseClient,
 	doc: DocumentRow,
@@ -95,7 +104,7 @@ export async function defaultClientMessage(
 	const nama = sapaKlien(doc.client);
 	const jenis = DOC_TYPE_LABEL[doc.doc_type];
 	const acara = doc.event_info?.date
-		? ` untuk acara ${formatDateID(doc.event_info.date)}`
+		? ` untuk acara ${tglKlien(doc.event_info.date)}`
 		: "";
 	const revisi = isRevision(doc);
 	if (doc.doc_type === "quotation") {
@@ -105,11 +114,9 @@ export async function defaultClientMessage(
 		}).total;
 		return teksQuotation({
 			client: doc.client,
-			tanggalAcara: doc.event_info?.date
-				? formatDateID(doc.event_info.date)
-				: null,
+			tanggalAcara: doc.event_info?.date ? tglKlien(doc.event_info.date) : null,
 			total: formatRupiah(total),
-			berlakuSampai: doc.valid_until ? formatDateID(doc.valid_until) : null,
+			berlakuSampai: doc.valid_until ? tglKlien(doc.valid_until) : null,
 			revisi,
 		});
 	}
@@ -117,27 +124,9 @@ export async function defaultClientMessage(
 	if (index > 0)
 		return `Terlampir juga ${jenis.toLowerCase()}-nya. Terima kasih 🙏`;
 
-	let sisa: number | null = null;
-	let due: string | null = null;
-	if (doc.event_id) {
-		const { data: ev } = await supabase
-			.from("events")
-			.select("remaining_balance, due_date")
-			.eq("id", doc.event_id)
-			.maybeSingle();
-		sisa = ev ? Number(ev.remaining_balance) : null;
-		due = (ev?.due_date as string | null) ?? null;
-	}
 	if (doc.doc_type === "receipt") {
-		return [
-			`Halo ${nama}, terima kasih 🙏 Pembayaran sudah kami terima.`,
-			`Terlampir kuitansi${acara}.`,
-			sisa && sisa > 0
-				? `Sisa tagihan ${formatRupiah(sisa)}${due ? `, paling lambat ${formatDateID(due)}` : ""}.`
-				: "",
-		]
-			.filter(Boolean)
-			.join("\n");
+		// Kalimat owner 19 Nov 2026 (kuitansi DP Yessi).
+		return `Halo ${nama}, terima kasih 🙏 Pembayaran sudah kami terima. Untuk kuitansinya terlampir ya kak.`;
 	}
 	if (doc.doc_type === "nota_lunas")
 		// Kalimat owner 19 Nov 2026 (Hilmi & Syifa): klien perlu tahu uangnya
@@ -148,9 +137,7 @@ export async function defaultClientMessage(
 	return teksDokumen({
 		client: doc.client,
 		jenis,
-		tanggalAcara: doc.event_info?.date
-			? formatDateID(doc.event_info.date)
-			: null,
+		tanggalAcara: doc.event_info?.date ? tglKlien(doc.event_info.date) : null,
 		revisi,
 	});
 }

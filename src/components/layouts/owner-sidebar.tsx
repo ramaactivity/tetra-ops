@@ -3,6 +3,7 @@
 import {
 	AlertTriangle,
 	Archive,
+	BanknoteArrowDown,
 	Bell,
 	BookOpen,
 	Box,
@@ -116,6 +117,12 @@ const NAV_SECTIONS: NavSection[] = [
 				children: [
 					{ href: "/billing", label: "Tagihan", icon: Receipt },
 					{ href: "/finance/dokumen", label: "Dokumen", icon: FileText },
+					// Bukti transfer dari WA dicek & dikonfirmasi di sini (owner 19 Nov 2026).
+					{
+						href: "/billing/uang-masuk",
+						label: "Uang Masuk",
+						icon: BanknoteArrowDown,
+					},
 				],
 			},
 			// Finance dipecah dua (permintaan owner 23 Sep 2026: 13 sub-menu bikin
