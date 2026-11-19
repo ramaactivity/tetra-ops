@@ -1371,7 +1371,7 @@ Satu jalur dengan tombol **Simpan perubahan** di Edit booking: keduanya memanggi
 }
 ```
 - `durasi_jam` → paket pricelist berdurasi itu dengan **ukuran frame yang sama** (paket sementara "ukuran menyusul" → harga terendah durasi itu). Harga paket lama ditimpa harga pricelist × jumlah unit. Kalau durasi berubah, `jam_mulai`/`jam_selesai` **wajib** (agent tidak menebak).
-- Klien menambah jam sebelum acara = `durasi_jam`, bukan add-on "Tambahan Durasi".
+- Klien menambah jam sebelum acara = `durasi_jam` (paket diganti), bukan add-on "Tambahan Durasi" — add-on itu khusus extend di hari H saat acara berjalan (Rama, 19 Nov).
 - `addons[]` hanya yang berubah; `jumlah` = jumlah akhir, `0` = hapus. Nama atau id. Add-on baru memakai harga katalog; harga kesepakatan add-on lama dipertahankan.
 - Tidak bisa lewat agent (ditolak, ubah di app): tanggal, lokasi, diskon, harga manual/nego, komisi, paket custom, jam acara berjeda, add-on tanpa harga katalog, event selesai/dibatalkan/sudah settle.
 

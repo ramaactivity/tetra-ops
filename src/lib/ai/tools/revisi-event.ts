@@ -192,7 +192,7 @@ export const revisiEvent: AiTool = {
 	name: "revisi_event",
 	description:
 		"Revisi event yang sudah ada: ganti durasi paket (ukuran frame tetap), jam acara, atau add-on. " +
-		"Klien menambah jam sebelum acara = durasi_jam (paket baru), bukan add-on 'Tambahan Durasi'. " +
+		"Klien menambah jam sebelum acara = durasi_jam (paket diganti, mis. 2 jam → 3 jam), bukan add-on 'Tambahan Durasi' — add-on itu khusus extend di hari H saat acara sudah berjalan. " +
 		"Harga otomatis dari pricelist Paket/Add-on (jangan menyebut harga sendiri). Invoice & nota aktif ikut " +
 		"diperbarui dengan NOMOR SAMA. Pratinjau menunjukkan total baru, sudah dibayar, dan sisa tagihan. " +
 		"TIDAK mengirim apa pun ke klien — kirim invoice revisi lewat kirim_dokumen_usulan setelahnya. " +
