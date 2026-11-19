@@ -8,6 +8,7 @@ import {
 	issuePaidDocCore,
 	issueReceiptCore,
 } from "@/lib/documents/invoice";
+import { tagihanEvent } from "@/lib/finance/tagihan";
 import { formatDateID, formatRupiah } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tgEscape } from "@/lib/telegram/client";
@@ -95,13 +96,7 @@ export async function checkPayment(
 			error: `Sebelum cutoff keuangan (${formatDateID(cutoff)}). Uang yang masuk sebelum cutoff sudah termasuk di saldo awal — kalau dicatat lagi kas jadi dobel.`,
 		};
 	// Tagihan efektif: potongan langsung vendor dipotong di muka.
-	const grand = Number(ev.grand_total) || 0;
-	const vendorCut =
-		ev.vendor_commission_mode === "upfront_cut"
-			? Number(ev.vendor_commission_amount) || 0
-			: 0;
-	const billable = Math.max(0, grand - vendorCut);
-	const sisa = Math.max(0, billable - (Number(ev.total_paid) || 0));
+	const { billable, sisa } = tagihanEvent(ev);
 	if (billable > 0 && input.amount > sisa)
 		return {
 			ok: false,

@@ -1415,3 +1415,19 @@ Masalahnya, model pembayaran Tetra Ops mewajibkan setiap pembayaran menempel ke 
 5. **Nama pengirim wajib & terlihat.** Rama mencocokkan mutasi bank lewat nama pengirim. Nama pengirim disimpan terpisah, tampil di tabel, bisa dicari, dan tercetak di kuitansi: "Telah terima dari: <klien>, transfer dari rek. a.n. <pengirim>".
 6. **Bukti disimpan privat** di Google Drive (jalur yang sama dengan bukti pembayaran lain dan Arsip Nota). Tidak ada URL publik.
 7. **Kuitansi tidak pernah terkirim otomatis.** Pembayaran yang berasal dari draft memanggil webhook Hermes (dengan retry) untuk usulan kirim, dan Rama tetap menyetujui per pesan. Kalau webhook gagal → tandai "kuitansi belum disiapkan" dan pakai tawaran Telegram sebagai cadangan.
+
+---
+
+## DR-056: Bot WA menerima angka tagihan klien yang sudah booking
+
+**Status:** Accepted (rancangan Hermes t_2557c8f2, 2026-11-19; dikerjakan sesi HERMES atas arahan Rama: "kontrak Node … Claude yang menulis")
+**Date:** 2026-11-19
+
+### Context
+Chat Syifa & Hilmi 19 Nov: klien minta total pelunasan, bot menjawab "Kalau DP-nya Rp 500.000, sisa Rp 1.500.000" — menebak, padahal DP sudah tercatat. Penyebab: DR-052 sengaja tanpa nominal, jadi bot hanya tahu `status_bayar: dp`.
+
+### Decision
+- `POST /api/bot/klien` menambah `tagihan: { total, terbayar, sisa, status }` per acara. Angka dihitung di server dengan rumus yang sama dengan guard pembayaran (`tagihanEvent`, dipakai juga `checkPayment`), bukan oleh bot atau model.
+- `null` untuk acara lewat vendor: klien akhir membayar harga vendor, angka Tetra tidak boleh terbaca ke mereka. `null` juga untuk event tanpa harga.
+- Bot (Node `klienBooking.js`) menulis satu baris TAGIHAN di blok "KLIEN SUDAH BOOKING"; tanpa `tagihan` tidak ada baris (aman untuk bot lama). Cara memakainya di skill Hermes `cara-balas-wa`.
+- Revisi invoice harus ikut mengubah event (grand_total) supaya angka ini benar; per 19 Nov event Syifa masih 2.000.000.

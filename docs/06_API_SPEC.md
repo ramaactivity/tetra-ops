@@ -1306,12 +1306,14 @@ curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
   "ok": true,
   "booking": [
     { "tanggal": "2026-11-28", "jam_mulai": "18:00", "jam_selesai": "22:00", "paket": "Unlimited Photobooth 4 Jam",
-      "venue": "Gedung X, Bogor", "nama_acara": "Aisy & Raka", "status_bayar": "dp", "lewat_vendor": false }
+      "venue": "Gedung X, Bogor", "nama_acara": "Aisy & Raka", "status_bayar": "dp", "lewat_vendor": false,
+      "tagihan": { "total": 2000000, "terbayar": 500000, "sisa": 1500000, "status": "dp" } }
   ]
 }
 ```
 - Hanya acara hari ini & mendatang (WIB), tidak dibatalkan, bukan demo; urut tanggal. Tidak ada booking → `booking: []`.
-- `status_bayar`: `belum` / `dp` / `lunas`. Tidak ada nominal uang.
+- `status_bayar`: `belum` / `dp` / `lunas` (dari `payment_status`, dipertahankan untuk bot lama).
+- `tagihan` (DR-056): rupiah bulat, rumus sama dengan guard `checkPayment` (`src/lib/finance/tagihan.ts`): `total` = grand_total dikurangi potongan vendor di muka, `terbayar` = total_paid, `sisa` = max(0, total − terbayar), `status` dihitung dari angka (`lunas` sisa 0 / `dp` / `belum`). `null` untuk acara lewat vendor (harga klien akhir = harga vendor) dan event tanpa harga.
 - `lewat_vendor: true` → nomor cocok dengan event lewat vendor (bisa PIC rekanan).
 
 **Error:** 400 `nomor_tidak_valid` (kurang dari 9 digit), 401 `unauthorized`, 500 `gagal` (aman diulang).
