@@ -4,10 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import type { DraftRow } from "@/lib/payment-drafts/core";
 import {
-	hasDuplicate,
-	postIfEventExists,
-	receivingBanks,
-	sisaTagihan,
+	batalCore,
+	konfirmasiCore,
 	uploadBuktiPrivat,
 } from "@/lib/payment-drafts/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -51,8 +49,6 @@ function revalidate(d: Pick<DraftRow, "booking_inbox_id">) {
 		revalidatePath(`/operations/booking-masuk/${d.booking_inbox_id}`);
 }
 
-const rp = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
-
 /**
  * Konfirmasi di Tetra Ops → disetujui. Lebih bayar ditahan (keputusan Rama);
  * nominal sama dalam 24 jam = peringatan (force untuk tetap lanjut).
@@ -68,61 +64,18 @@ export async function konfirmasiDraft(
 	const me = await requireOwnerLevel();
 	const d = await loadOpen(id);
 	if (typeof d === "string") return { ok: false, error: d };
-	if (d.status === "disetujui") return { ok: true };
-	if (!d.nominal) return { ok: false, error: "Isi nominal yang masuk dulu." };
-	const admin = createAdminClient();
-	const banks = await receivingBanks(admin);
-	if (!banks.some((b) => b.id === bankAccountId))
-		return { ok: false, error: "Pilih rekening tujuan yang menerima uang." };
-	const target = {
-		booking_inbox_id: d.booking_inbox_id,
-		document_id: d.document_id,
-		event_id: d.event_id,
-	};
-	const sisa = await sisaTagihan(admin, target, d.id);
-	if (sisa == null)
-		return {
-			ok: false,
-			error:
-				"Tagihan klien ini belum ketemu (belum ada invoice/quotation). Buat invoice dulu supaya sisa tagihan bisa dicek.",
-		};
-	if (d.nominal > sisa)
-		return {
-			ok: false,
-			error: `Nominal ${rp(d.nominal)} melebihi sisa tagihan ${rp(sisa)}. Koreksi nominal atau tagihannya dulu.`,
-		};
-	if (
-		!force &&
-		(await hasDuplicate(admin, {
-			draftId: d.id,
-			nominal: d.nominal,
-			target,
-			client_wa: d.client_wa,
-		}))
-	)
-		return {
-			ok: false,
-			warning: `Sudah ada bukti/pembayaran ${rp(d.nominal)} untuk klien ini dalam 24 jam terakhir. Mungkin bukti yang sama terkirim dua kali.`,
-		};
-	const { error } = await admin
-		.from("payment_drafts")
-		.update({
-			status: "disetujui",
-			bank_account_id: bankAccountId,
-			disetujui_at: new Date().toISOString(),
-			disetujui_via: "app",
-			disetujui_oleh: me.profile.id,
-			updated_by: me.profile.id,
-		})
-		.eq("id", d.id)
-		.eq("status", "menunggu");
-	if (error) return { ok: false, error: error.message };
-	// Booking sudah punya event → langsung masuk buku (DR-055).
-	const tercatat = await postIfEventExists(admin, d, me.profile.id, {
-		kirimLangsung: kirim,
-	});
-	revalidate(d);
-	return { ok: true, tercatat };
+	const res = await konfirmasiCore(
+		createAdminClient(),
+		d,
+		bankAccountId,
+		me.profile.id,
+		{
+			force,
+			kirim,
+		},
+	);
+	if (res.ok) revalidate(d);
+	return res;
 }
 
 export type DraftEdit = {
@@ -232,17 +185,7 @@ export async function batalkanDraft(id: string): Promise<Result> {
 	const me = await requireOwnerLevel();
 	const d = await loadOpen(id);
 	if (typeof d === "string") return { ok: false, error: d };
-	const { error } = await createAdminClient()
-		.from("payment_drafts")
-		.update({
-			status: "dibatalkan",
-			dibatalkan_at: new Date().toISOString(),
-			dibatalkan_oleh: me.profile.id,
-			updated_by: me.profile.id,
-		})
-		.eq("id", d.id)
-		.in("status", ["menunggu", "disetujui"]);
-	if (error) return { ok: false, error: error.message };
-	revalidate(d);
-	return { ok: true };
+	const res = await batalCore(createAdminClient(), d, me.profile.id);
+	if (res.ok) revalidate(d);
+	return res;
 }

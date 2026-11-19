@@ -1,7 +1,11 @@
 import { after, NextResponse } from "next/server";
 import { buildAiAnswer } from "@/lib/ai/telegram-ask";
 import { clearKeyboard, handleDocSendTap } from "@/lib/documents/approval";
-import { parseDocSendCallback } from "@/lib/documents/approval-auth";
+import {
+	parseDocSendCallback,
+	parseDraftCallback,
+} from "@/lib/documents/approval-auth";
+import { handleDraftTap } from "@/lib/payment-drafts/tap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
 	answerCallbackQuery,
@@ -382,6 +386,22 @@ export async function POST(request: Request) {
 					}
 				});
 			}
+			return NextResponse.json({ ok: true });
+		}
+		// Kartu bukti transfer (Billing › Uang Masuk): catat & kirim / catat / tolak.
+		const draftTap = parseDraftCallback(cb?.data);
+		if (cb && draftTap) {
+			await answerCallbackQuery(cb.id);
+			const chat = cb.message?.chat;
+			if (!chat) return NextResponse.json({ ok: true });
+			const out = await handleDraftTap(
+				createAdminClient(),
+				draftTap,
+				cb.from?.id ?? null,
+			);
+			if (out.clear && cb.message)
+				await clearKeyboard(chat.id, cb.message.message_id);
+			await sendTelegramMessage(chat.id, out.reply);
 			return NextResponse.json({ ok: true });
 		}
 		if (cb) {

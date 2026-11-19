@@ -7,7 +7,10 @@ import { resolveOwnerActorId } from "@/lib/auth/owner-actor";
 import { inboxForDocs, loadClientDocs } from "@/lib/booking-inbox/client-docs";
 import { pickPrimaryDoc } from "@/lib/booking-inbox/klien-data";
 import { todayWIB } from "@/lib/dates";
-import { defaultClientMessage } from "@/lib/documents/approval";
+import {
+	defaultClientMessage,
+	ownerGroupChatId,
+} from "@/lib/documents/approval";
 import { sendDocumentCore } from "@/lib/documents/send";
 import { computeTotals } from "@/lib/documents/totals";
 import type { DocItem, DocumentRow } from "@/lib/documents/types";
@@ -24,6 +27,11 @@ import {
 } from "@/lib/finance/payment-core";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+	isTelegramConfigured,
+	sendTelegramMessage,
+} from "@/lib/telegram/client";
+import { tgEscape } from "@/lib/telegram/format";
 import {
 	type BankLite,
 	BotDraftSchema,
@@ -327,7 +335,14 @@ export async function handleBotDraft(
 		// Dua kiriman bot balapan: yang kalah membaca baris pemenang.
 		if (error?.code === "23505") return handleBotDraft(json, appUrl);
 		if (error) throw new Error(error.message);
-		return reply(await afterApproval(admin, data as DraftRow));
+		const row = await afterApproval(admin, data as DraftRow);
+		// Bukti baru → kartu Telegram + lonceng owner, tanpa menahan balasan bot.
+		after(() =>
+			offerDraftToOwner(row).catch((e) =>
+				console.error("[payment-drafts] kartu owner:", e),
+			),
+		);
+		return reply(row);
 	}
 	const { data, error } = await admin
 		.from("payment_drafts")
@@ -530,6 +545,252 @@ async function postDraft(
 			.eq("id", d.id);
 		return msg;
 	}
+}
+
+export type KonfirmasiResult =
+	| { ok: true; tercatat?: boolean }
+	| { ok: false; error: string; warning?: undefined }
+	| { ok: false; warning: string; error?: undefined };
+
+const rpx = (n: number) => `Rp${n.toLocaleString("id-ID")}`;
+
+/**
+ * Owner menyetujui bukti (app: Uang Masuk/Booking Masuk, atau tap kartu
+ * Telegram). Lebih bayar ditahan (keputusan Rama); nominal sama dalam 24 jam =
+ * peringatan (`force` untuk tetap lanjut). `kirim` = langsung kirim kuitansi +
+ * terima kasih setelah masuk buku (DR-059).
+ */
+export async function konfirmasiCore(
+	admin: SupabaseClient,
+	d: DraftRow,
+	bankAccountId: string,
+	actorId: string,
+	opts: { force?: boolean; kirim?: boolean } = {},
+): Promise<KonfirmasiResult> {
+	if (d.status === "disetujui") return { ok: true };
+	if (!d.nominal) return { ok: false, error: "Isi nominal yang masuk dulu." };
+	const banks = await receivingBanks(admin);
+	if (!banks.some((b) => b.id === bankAccountId))
+		return { ok: false, error: "Pilih rekening tujuan yang menerima uang." };
+	const target = {
+		booking_inbox_id: d.booking_inbox_id,
+		document_id: d.document_id,
+		event_id: d.event_id,
+	};
+	const sisa = await sisaTagihan(admin, target, d.id);
+	if (sisa == null)
+		return {
+			ok: false,
+			error:
+				"Tagihan klien ini belum ketemu (belum ada invoice/quotation). Buat invoice dulu supaya sisa tagihan bisa dicek.",
+		};
+	if (d.nominal > sisa)
+		return {
+			ok: false,
+			error: `Nominal ${rpx(d.nominal)} melebihi sisa tagihan ${rpx(sisa)}. Koreksi nominal atau tagihannya dulu.`,
+		};
+	if (
+		!opts.force &&
+		(await hasDuplicate(admin, {
+			draftId: d.id,
+			nominal: d.nominal,
+			target,
+			client_wa: d.client_wa,
+		}))
+	)
+		return {
+			ok: false,
+			warning: `Sudah ada bukti/pembayaran ${rpx(d.nominal)} untuk klien ini dalam 24 jam terakhir. Mungkin bukti yang sama terkirim dua kali.`,
+		};
+	const { error } = await admin
+		.from("payment_drafts")
+		.update({
+			status: "disetujui",
+			bank_account_id: bankAccountId,
+			disetujui_at: new Date().toISOString(),
+			disetujui_via: "app",
+			disetujui_oleh: actorId,
+			updated_by: actorId,
+		})
+		.eq("id", d.id)
+		.eq("status", "menunggu");
+	if (error) return { ok: false, error: error.message };
+	// Booking sudah punya event → langsung masuk buku (DR-055).
+	const tercatat = await postIfEventExists(admin, d, actorId, {
+		kirimLangsung: opts.kirim,
+	});
+	await resolveDraftNotifications(admin, d.id);
+	return { ok: true, tercatat };
+}
+
+/** Tolak/batalkan bukti — tetap tersimpan sebagai jejak, tidak masuk buku. */
+export async function batalCore(
+	admin: SupabaseClient,
+	d: DraftRow,
+	actorId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const { error } = await admin
+		.from("payment_drafts")
+		.update({
+			status: "dibatalkan",
+			dibatalkan_at: new Date().toISOString(),
+			dibatalkan_oleh: actorId,
+			updated_by: actorId,
+		})
+		.eq("id", d.id)
+		.in("status", ["menunggu", "disetujui"]);
+	if (error) return { ok: false, error: error.message };
+	await resolveDraftNotifications(admin, d.id);
+	return { ok: true };
+}
+
+/** Lonceng "bukti transfer masuk" selesai begitu bukti ditangani. */
+export async function resolveDraftNotifications(
+	admin: SupabaseClient,
+	draftId: string,
+) {
+	const now = new Date().toISOString();
+	const { error } = await admin
+		.from("notifications")
+		.update({
+			is_read: true,
+			read_at: now,
+			is_resolved: true,
+			resolved_at: now,
+		})
+		.eq("entity_type", "payment_draft")
+		.eq("entity_id", draftId)
+		.eq("is_resolved", false);
+	if (error) console.error("[payment-drafts] resolve notif:", error.message);
+}
+
+/**
+ * Bukti transfer baru dari bot → kartu di grup owner Telegram + lonceng app
+ * (DR-059). Tombol: catat & kirim terima kasih / catat saja / tolak — diproses
+ * `handleDraftTap` (hanya owner terdaftar). Yang sudah tercatat otomatis cukup
+ * dikabarkan.
+ */
+export async function offerDraftToOwner(d: DraftRow): Promise<void> {
+	if (d.status === "dibatalkan") return;
+	const admin = createAdminClient();
+	const evId = await eventOfDraft(admin, d);
+	const [{ data: ev }, { data: ib }] = await Promise.all([
+		evId
+			? admin
+					.from("events")
+					.select("project_id, client_name")
+					.eq("id", evId)
+					.maybeSingle()
+			: Promise.resolve({ data: null }),
+		d.booking_inbox_id
+			? admin
+					.from("booking_inbox")
+					.select("client_name")
+					.eq("id", d.booking_inbox_id)
+					.maybeSingle()
+			: Promise.resolve({ data: null }),
+	]);
+	const klien =
+		(ev?.client_name as string | undefined) ??
+		(ib?.client_name as string | undefined) ??
+		d.nama_klien ??
+		"klien belum dikenali";
+	const sisa =
+		d.status === "menunggu"
+			? await sisaTagihan(
+					admin,
+					{
+						booking_inbox_id: d.booking_inbox_id,
+						document_id: d.document_id,
+						event_id: evId,
+					},
+					d.id,
+				)
+			: null;
+	const nominal = d.nominal ? rpx(d.nominal) : "nominal belum terbaca";
+	const bank =
+		[d.bank_pengirim, d.bank_tujuan].filter(Boolean).join(" → ") || "bank ?";
+	const lines = [
+		`💸 <b>Bukti transfer masuk</b> — ${tgEscape(klien)}${ev ? ` (${ev.project_id})` : ""}`,
+		`<b>${nominal}</b> · ${tgEscape(bank)}`,
+		`Pengirim: ${tgEscape(d.nama_pengirim ?? "—")}`,
+	];
+	if (sisa != null && d.nominal)
+		lines.push(
+			`Sisa tagihan: ${rpx(sisa)} → ${sisa - d.nominal <= 0 ? "lunas" : rpx(sisa - d.nominal)}`,
+		);
+	lines.push(
+		d.status === "tercatat"
+			? "✅ Sudah tercatat otomatis (admin konfirmasi di WA + syarat lolos)."
+			: d.status === "disetujui"
+				? "✅ Disetujui otomatis — masuk buku saat event dibuat."
+				: evId
+					? "Cocokkan dengan mutasi bank, lalu pilih:"
+					: "Event belum dibuat — yang disetujui masuk buku saat event dibuat.",
+	);
+
+	const app = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+	type Btn = { text: string; callback_data?: string; url?: string };
+	const rows: Btn[][] = [];
+	if (d.status === "menunggu" && d.nominal) {
+		if (evId) {
+			rows.push([
+				{
+					text: "✅ Masuk — catat & kirim terima kasih",
+					callback_data: `dp:k:${d.id}`,
+				},
+			]);
+			rows.push([
+				{ text: "📝 Catat saja", callback_data: `dp:c:${d.id}` },
+				{ text: "❌ Tolak", callback_data: `dp:x:${d.id}` },
+			]);
+		} else
+			rows.push([
+				{ text: "✅ Setujui", callback_data: `dp:c:${d.id}` },
+				{ text: "❌ Tolak", callback_data: `dp:x:${d.id}` },
+			]);
+	}
+	if (app.startsWith("https://"))
+		rows.push([
+			...(d.bukti_file_id
+				? [
+						{
+							text: "🧾 Lihat bukti",
+							url: `${app}/api/payment-drafts/${d.id}/bukti`,
+						},
+					]
+				: []),
+			{ text: "Buka Uang Masuk", url: `${app}/billing/uang-masuk` },
+		]);
+
+	if (isTelegramConfigured()) {
+		const { chatId } = await ownerGroupChatId(admin);
+		if (chatId)
+			await sendTelegramMessage(chatId, lines.join("\n"), {
+				replyMarkup: rows as never,
+			});
+	}
+	if (d.status !== "menunggu") return;
+	const { data: owners } = await admin
+		.from("users")
+		.select("id")
+		.eq("is_active", true)
+		.is("deleted_at", null)
+		.in("role", ["owner", "super_admin"]);
+	if (!owners?.length) return;
+	const { error } = await admin.from("notifications").insert(
+		owners.map((u) => ({
+			user_id: u.id,
+			severity: "warning",
+			category: "financial",
+			title: `Bukti transfer masuk: ${nominal} dari ${klien}`,
+			body: "Cocokkan dengan mutasi bank, lalu konfirmasi di Uang Masuk.",
+			entity_type: "payment_draft",
+			entity_id: d.id,
+			action_url: "/billing/uang-masuk",
+		})),
+	);
+	if (error) console.error("[payment-drafts] notif:", error.message);
 }
 
 /** Disetujui untuk booking yang sudah punya event → langsung posting. */

@@ -38,7 +38,7 @@ const appUrl = () => process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
 
 export const editorUrl = (id: string) => `${appUrl()}/finance/dokumen/${id}`;
 
-async function ownerGroupChatId(supabase: SupabaseClient) {
+export async function ownerGroupChatId(supabase: SupabaseClient) {
 	const { data } = await supabase
 		.from("telegram_settings")
 		.select("group_chat_id, owner_tg_ids")
@@ -97,7 +97,8 @@ const tglKlien = (iso: string) =>
 	});
 
 export async function defaultClientMessage(
-	supabase: SupabaseClient,
+	// Dulu membaca sisa tagihan; pesan kini kalimat owner tanpa angka.
+	_supabase: SupabaseClient,
 	doc: DocumentRow,
 	index = 0,
 ): Promise<string> {
