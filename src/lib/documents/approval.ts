@@ -140,7 +140,9 @@ export async function defaultClientMessage(
 			.join("\n");
 	}
 	if (doc.doc_type === "nota_lunas")
-		return `Halo ${nama}, pembayaran${acara} sudah lunas 🙏 Terlampir nota lunasnya. Terima kasih atas kepercayaannya!`;
+		// Kalimat owner 19 Nov 2026 (Hilmi & Syifa): klien perlu tahu uangnya
+		// sudah masuk, bukan cuma statusnya lunas.
+		return `Halo ${nama}, pembayaran${acara} sudah masuk dan lunas ya 🙏 Terlampir nota lunasnya. Terima kasih banyak atas kepercayaannya!`;
 	if (doc.doc_type === "bast")
 		return `Halo ${nama}, terlampir Berita Acara Serah Terima (BAST)${acara}. Terima kasih sudah memakai Tetra Photobooth 🙏`;
 	return teksDokumen({
