@@ -1452,6 +1452,8 @@ Klien Hilmi & Syifa minta 2 jam → 3 jam. Di app cukup Edit booking (invoice ik
 
 ### Efek samping yang disengaja
 - Edit booking kini mempertahankan `discount_type` (dulu tidak dipetakan ke form → terhapus tiap edit).
+- Invoice revisi (angka berubah lewat Edit booking, ACC desain, atau `revisi_event`): **tanggal terbit = hari revisi, nomor tetap** (owner 19 Nov; PDF & nama file Syifa masih "11 Nov"). Nota lunas tidak ikut. Perbandingan item kini tak peka urutan kunci jsonb — dulu setiap edit menulis ulang invoice walau angkanya sama.
+- Invoice yang berubah lewat `revisi_event` langsung ditawarkan ke owner (`offerSendToOwner`), sama dengan `buat_quotation`/`catat_pembayaran`.
 
 ---
 

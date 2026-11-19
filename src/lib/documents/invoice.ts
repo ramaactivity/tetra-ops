@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { todayWIB } from "@/lib/dates";
 import {
 	discountFromEvent,
 	eventInfoFromEvent,
@@ -136,7 +137,27 @@ function numbersFromEvent(ev: EventForPdf, curItems: DocItem[]) {
 /**
  * Setelah event diubah (form booking): invoice & nota lunas aktif ikut angka
  * event. Kuitansi tidak perlu — jumlahnya = pembayaran, sisanya dibaca live.
+ * Invoice yang angkanya berubah = invoice revisi: tanggal terbit ikut hari
+ * revisi, nomor tetap (owner 19 Nov 2026, kasus Hilmi & Syifa — PDF & nama
+ * file sebelumnya masih tanggal invoice pertama). Nota lunas tidak.
  */
+/**
+ * jsonb menyimpan kunci objek dengan urutan sendiri → JSON.stringify biasa
+ * selalu "berbeda" dan setiap edit event menulis ulang (dan kini memajukan
+ * tanggal) invoice walau angkanya sama. Bandingkan tanpa peduli urutan kunci.
+ */
+const sameJson = (a: unknown, b: unknown) => {
+	const canon = (v: unknown) =>
+		JSON.stringify(v, (_k, x) =>
+			x && typeof x === "object" && !Array.isArray(x)
+				? Object.fromEntries(
+						Object.entries(x).sort(([p], [q]) => (p < q ? -1 : 1)),
+					)
+				: x,
+		);
+	return canon(a) === canon(b);
+};
+
 export async function syncDocNumbersFromEvent(
 	supabase: SupabaseClient,
 	eventId: string,
@@ -145,7 +166,7 @@ export async function syncDocNumbersFromEvent(
 	if (!ev) return;
 	const { data: docs } = await supabase
 		.from("documents")
-		.select("id, items, discount, gross_up_enabled")
+		.select("id, doc_type, items, discount, gross_up_enabled")
 		.eq("event_id", eventId)
 		.in("doc_type", ["invoice", "nota_lunas"])
 		.neq("status", "void");
@@ -154,12 +175,14 @@ export async function syncDocNumbersFromEvent(
 		if (
 			next.discount === Number(d.discount) &&
 			next.gross_up_enabled === d.gross_up_enabled &&
-			JSON.stringify(next.items) === JSON.stringify(d.items)
+			sameJson(next.items, d.items)
 		)
 			continue;
 		const { error } = await supabase
 			.from("documents")
-			.update(next)
+			.update(
+				d.doc_type === "invoice" ? { ...next, issued_at: todayWIB() } : next,
+			)
 			.eq("id", d.id);
 		if (error) console.error("[syncDocNumbersFromEvent]", d.id, error.message);
 	}
