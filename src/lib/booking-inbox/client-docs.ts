@@ -100,6 +100,33 @@ export async function findInboxForClient(
 	return (data ?? []) as InboxRow[];
 }
 
+/**
+ * Booking Masuk (bukan dibatalkan) untuk semua nomor & jid yang muncul di
+ * dokumen klien, tanpa dobel, terbaru dulu.
+ */
+async function inboxForDocs(
+	supabase: SupabaseClient,
+	docs: DocLike[],
+	extraPhone?: string | null,
+): Promise<InboxRow[]> {
+	const tails = new Set(
+		[extraPhone, ...docs.map((d) => d.client?.phone)]
+			.map(phoneTail)
+			.filter((t) => t.length === 9),
+	);
+	const jids = new Set(
+		docs.map((d) => d.origin?.wa_jid).filter((j): j is string => Boolean(j)),
+	);
+	const lists = await Promise.all([
+		...[...tails].map((t) => findInboxForClient(supabase, { client_wa: t })),
+		...[...jids].map((j) => findInboxForClient(supabase, { wa_jid: j })),
+	]);
+	const byId = new Map(lists.flat().map((r) => [r.id, r]));
+	return [...byId.values()]
+		.filter((r) => r.status !== "dibatalkan")
+		.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
 /** Isian Booking Masuk dari dokumen acuan klien (untuk tanggal itu). */
 export async function inboxDocFill(
 	supabase: SupabaseClient,
@@ -128,12 +155,13 @@ export async function syncInboxFromDocument(documentId: string) {
 			.maybeSingle();
 		const d = doc as DocLike | null;
 		if (!d || !["quotation", "invoice"].includes(d.doc_type)) return;
-		const rows = (
-			await findInboxForClient(admin, {
-				wa_jid: d.origin?.wa_jid,
-				client_wa: d.client?.phone,
-			})
-		).filter(
+		// Semua dokumen klien ini: invoice manual hanya bernomor HP, sedangkan
+		// Booking Masuk bisa hanya ber-jid LID dari quotation bot (Yessi).
+		const docs = await loadClientDocs(admin, {
+			jid: d.origin?.wa_jid,
+			wa: d.client?.phone,
+		});
+		const rows = (await inboxForDocs(admin, [d, ...docs])).filter(
 			(r) =>
 				(r.status === "baru" || r.status === "diproses") &&
 				(!r.data?.tanggal_iso ||
@@ -179,21 +207,7 @@ export async function loadDataKlien(
 	q: { wa?: string | null; nama?: string | null },
 ): Promise<DataKlien> {
 	const docs = await loadClientDocs(supabase, q);
-	const phones = [q.wa, ...docs.map((d) => d.client?.phone)];
-	const jids = docs.map((d) => d.origin?.wa_jid).filter(Boolean) as string[];
-	const inboxRows = (
-		await Promise.all([
-			...[...new Set(phones.map(phoneTail).filter((t) => t.length === 9))].map(
-				(t) => findInboxForClient(supabase, { client_wa: t }),
-			),
-			...[...new Set(jids)].map((j) =>
-				findInboxForClient(supabase, { wa_jid: j }),
-			),
-		])
-	)
-		.flat()
-		.filter((r) => r.status !== "dibatalkan")
-		.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+	const inboxRows = await inboxForDocs(supabase, docs, q.wa);
 	return buildDataKlien(
 		docs,
 		inboxRows[0] ?? null,
