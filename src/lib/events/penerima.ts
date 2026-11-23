@@ -1,3 +1,4 @@
+import { phoneTail } from "@/lib/portal/vendor-signup-core";
 import { isLikelyWaPhone, toWaPhone } from "@/lib/whatsapp";
 
 /**
@@ -81,4 +82,34 @@ export function penerimaKelengkapan(ev: EventPenerima): Penerima[] {
 		out.push({ ...k, nomor: k.nomor });
 	}
 	return out;
+}
+
+/**
+ * Nomor lawan bicara bot cocok sebagai apa di event ini (POST /api/bot/klien).
+ * Audit Hermes t_288da914 (23 Nov): WO (vendor_contact) tidak pernah dapat fakta
+ * acara, dan klien yang chat dari nomor selain client_wa/pic_wa (Shella: tercatat
+ * nomor pemesan) dianggap calon klien. WO didahulukan pada event lewat vendor —
+ * nomor WO sering juga tercatat sebagai pemesan/PIC.
+ */
+export type CocokNomor =
+	| "vendor"
+	| "client_wa"
+	| "pic_wa"
+	| "pemesan"
+	| "extra_pic";
+export function cocokNomor(
+	ev: EventPenerima & { extra_pics?: unknown },
+	tail: string,
+): CocokNomor | null {
+	if (tail.length !== 9) return null;
+	const sama = (n: string | null | undefined) => phoneTail(n) === tail;
+	if (ev.channel === "vendor" && sama(ev.vendor_contact)) return "vendor";
+	if (sama(ev.client_wa)) return "client_wa";
+	if (sama(ev.pic_wa) || sama(satu(ev.pic_contact)?.phone)) return "pic_wa";
+	if (sama(satu(ev.booker_contact)?.phone)) return "pemesan";
+	const extra = Array.isArray(ev.extra_pics)
+		? (ev.extra_pics as Array<{ wa?: string | null }>)
+		: [];
+	if (extra.some((x) => sama(x?.wa))) return "extra_pic";
+	return null;
 }

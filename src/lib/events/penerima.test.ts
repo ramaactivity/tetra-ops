@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { penerimaKelengkapan } from "./penerima";
+import { cocokNomor, penerimaKelengkapan } from "./penerima";
 
 test("event lewat WO: WO dulu, nomor kembar sekali saja", () => {
 	const p = penerimaKelengkapan({
@@ -44,4 +44,29 @@ test("event langsung: pemesan = klien tampil sebagai Klien; pemesan lain didahul
 		beda.map((x) => x.peran),
 		["pemesan", "klien"],
 	);
+});
+
+test("cocokNomor: WO didahulukan di event vendor; pemesan & PIC cadangan ikut", () => {
+	const wo = {
+		channel: "vendor",
+		client_wa: "081211112222",
+		vendor_contact: "081233334444",
+		booker_contact: { phone: "6281233334444" },
+		pic_wa: "081233334444",
+	};
+	assert.equal(cocokNomor(wo, "233334444"), "vendor");
+	assert.equal(cocokNomor(wo, "211112222"), "client_wa");
+	const langsung = {
+		channel: "direct",
+		client_wa: "8131313944",
+		booker_contact: [{ phone: "08131313944" }],
+		extra_pics: [{ name: "Shella", wa: "0812-1676-4696" }],
+	};
+	assert.equal(cocokNomor(langsung, "216764696"), "extra_pic");
+	assert.equal(
+		cocokNomor({ ...langsung, client_wa: null }, "131313944"),
+		"pemesan",
+	);
+	assert.equal(cocokNomor(langsung, "999999999"), null);
+	assert.equal(cocokNomor(langsung, "12"), null);
 });

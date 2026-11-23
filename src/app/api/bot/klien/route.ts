@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { loadDataKlien } from "@/lib/booking-inbox/client-docs";
 import { isAuthorizedBot } from "@/lib/bot-auth";
+import { cocokNomor } from "@/lib/events/penerima";
 import { listMissingFields } from "@/lib/events/tbc";
 import { type EventTagihan, tagihanEvent } from "@/lib/finance/tagihan";
 import { phoneTail } from "@/lib/portal/vendor-signup-core";
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
 	const { data, error } = await createAdminClient()
 		.from("events")
 		.select(
-			"id, client_name, client_wa, pic_wa, event_date, start_time, end_time, venue_name, venue_city, status, payment_status, channel, grand_total, total_paid, vendor_commission_mode, vendor_commission_amount, event_date_is_estimate, frame_size, backdrop_id, pic_name, pic_contact_id, pending_package_hours, unit_count, spots, package:packages(name, frame_size, category)",
+			"id, client_name, client_wa, pic_wa, event_date, start_time, end_time, venue_name, venue_city, status, payment_status, channel, grand_total, total_paid, vendor_commission_mode, vendor_commission_amount, event_date_is_estimate, frame_size, backdrop_id, pic_name, pic_contact_id, pending_package_hours, unit_count, spots, vendor_contact, extra_pics, booker_contact:contacts!events_booker_contact_id_fkey(phone), pic_contact:contacts!events_pic_contact_id_fkey(phone), package:packages(name, frame_size, category)",
 		)
 		.is("deleted_at", null)
 		.eq("is_demo", false)
@@ -93,11 +94,13 @@ export async function POST(req: NextRequest) {
 	if (error)
 		return NextResponse.json({ ok: false, error: "gagal" }, { status: 500 });
 	const booking = (data ?? [])
-		.filter((e) =>
-			eventId
-				? e.id === eventId
-				: [e.client_wa, e.pic_wa].some((n) => phoneTail(n) === tail),
-		)
+		.map((e) => ({
+			...e,
+			cocok: eventId
+				? null
+				: cocokNomor(e as Parameters<typeof cocokNomor>[0], tail),
+		}))
+		.filter((e) => (eventId ? e.id === eventId : e.cocok !== null))
 		.map((e) => {
 			const pkg = (Array.isArray(e.package) ? e.package[0] : e.package) as {
 				name?: string;
@@ -106,6 +109,8 @@ export async function POST(req: NextRequest) {
 			} | null;
 			return {
 				event_id: e.id,
+				// Nomor cocok sebagai apa (audit Hermes t_288da914): vendor | client_wa | pic_wa | pemesan | extra_pic.
+				matched_by: e.cocok,
 				tanggal: e.event_date,
 				jam_mulai: e.start_time?.slice(0, 5) ?? null,
 				jam_selesai: e.end_time?.slice(0, 5) ?? null,
@@ -114,7 +119,8 @@ export async function POST(req: NextRequest) {
 				nama_acara: e.client_name,
 				status_bayar: STATUS_BAYAR[e.payment_status] ?? "dp",
 				lewat_vendor: e.channel === "vendor",
-				tagihan: e.channel === "vendor" ? null : tagihanBot(e),
+				tagihan:
+					e.channel === "vendor" || e.cocok === "vendor" ? null : tagihanBot(e),
 				kurang: listMissingFields({
 					...e,
 					package_frame_size: pkg?.frame_size ?? null,

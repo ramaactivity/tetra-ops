@@ -1315,6 +1315,7 @@ curl -X POST https://booking.tetraphoto.com/api/bot/undang-vendor \
 - `status_bayar`: `belum` / `dp` / `lunas` (dari `payment_status`, dipertahankan untuk bot lama).
 - `tagihan` (DR-056): rupiah bulat, rumus sama dengan guard `checkPayment` (`src/lib/finance/tagihan.ts`): `total` = grand_total dikurangi potongan vendor di muka, `terbayar` = total_paid, `sisa` = max(0, total − terbayar), `status` dihitung dari angka (`lunas` sisa 0 / `dp` / `belum`). `null` untuk acara lewat vendor (harga klien akhir = harga vendor) dan event tanpa harga.
 - `event_id` + `kurang` (DR-058): `kurang` = `listMissingFields` (`src/lib/events/tbc.ts`) — daftar label yang sama dengan banner "Data event belum lengkap", chip daftar event, crew, dan reminder H-7/H-3, urut "paling menghambat lapangan dulu". `[]` = lengkap. Dipakai bot untuk tombol "Minta data" dan saat klien membalas.
+- `matched_by` (audit Hermes t_288da914, 23 Nov): nomor cocok sebagai `vendor` (event lewat vendor & `vendor_contact`, didahulukan) · `client_wa` · `pic_wa` (termasuk telepon kontak PIC) · `pemesan` (telepon kontak pemesan) · `extra_pic` (`extra_pics[].wa`). Untuk `vendor`, `tagihan` selalu `null`; bot menyusun blok "ACARA LEWAT VENDOR/WO INI".
 - **Input alternatif `{ "event_id": "<uuid>" }`** (tanpa `phone`): satu acara itu saja (mendatang, tidak batal). Dipakai tombol "Minta data" bila penerimanya WO/EO/pemesan yang nomornya bukan `client_wa`/`pic_wa` event.
 - `lewat_vendor: true` → nomor cocok dengan event lewat vendor (bisa PIC rekanan).
 
