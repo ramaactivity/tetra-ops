@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/rekap-notifications";
 import { alertRestockAfterCommit } from "@/lib/actions/restock-alert";
 import { getCurrentUser } from "@/lib/auth/get-user";
+import { todayWIB } from "@/lib/dates";
 import { cetakPerUkuran, eventSpots } from "@/lib/events/spots";
 import {
 	normalizePayer,
@@ -24,11 +25,28 @@ import {
 	projectEventLinesFromSpec,
 } from "@/lib/rekap/project-demand";
 import { bucketHpp, type HppBreakdown, roundQty } from "@/lib/rekap/recipe";
+import { syncUangJalanDariLaporan } from "@/lib/rekap/uang-jalan-core";
 import { REKAP_FIELDS, type RekapField } from "@/lib/rekap-mapping/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const NonNegInt = z.coerce.number().int().nonnegative().default(0);
+/** Uang jalan diterima per pemberi (crew mengisi; dibukukan otomatis). */
+const UjRincianSchema = z
+	.array(
+		z.object({
+			owner_id: z.uuid(),
+			amount: z.coerce.number().int().positive().max(50_000_000),
+			method: z.enum(["tunai", "transfer"]),
+			tanggal: z
+				.string()
+				.regex(/^\d{4}-\d{2}-\d{2}$/)
+				.nullish(),
+			bukti_url: z.url().max(1000).nullish(),
+		}),
+	)
+	.max(6);
+
 const NonNegMoney = z.coerce.number().nonnegative().default(0);
 
 // preprocess null → undefined: formData.get() mengembalikan null saat field
@@ -281,6 +299,23 @@ const RekapInputSchema = z.object({
 	uj_bukti_url: NullableUrlSchema,
 	uj_kembali_metode: z.enum(["tunai", "transfer"]).nullish().catch(null),
 	uj_kembali_bukti_url: NullableUrlSchema,
+	/** Rincian per pemberi (owner 24 Nov 2026) — JSON, lihat UjRincianSchema. */
+	uj_rincian: z
+		.string()
+		.nullish()
+		.transform((raw, ctx) => {
+			if (!raw) return [] as z.infer<typeof UjRincianSchema>;
+			try {
+				return UjRincianSchema.parse(JSON.parse(raw));
+			} catch {
+				ctx.addIssue({
+					code: "custom",
+					message:
+						"Rincian uang jalan belum lengkap — tiap pemberi wajib dipilih dan jumlahnya diisi.",
+				});
+				return z.NEVER;
+			}
+		}),
 });
 
 export type RekapInput = z.infer<typeof RekapInputSchema>;
@@ -420,6 +455,8 @@ export type RekapContext = {
 	uangJalan: {
 		meId: string;
 		given: Array<{ user_id: string; amount: number; method: string | null }>;
+		/** Bawaan tanggal terima di laporan crew. */
+		eventDate: string | null;
 	};
 };
 
@@ -446,7 +483,7 @@ export async function getRekapContext(
 	const { data: event, error: evErr } = await supabase
 		.from("events")
 		.select(
-			`id, include_flashdisk_pouch, frame_size, unit_count, spots,
+			`id, event_date, include_flashdisk_pouch, frame_size, unit_count, spots,
 			transport_mode, transport_vehicle,
 			package:packages(name, duration_hours, bundle_id,
 			  bundle:item_bundles(id, name, is_active,
@@ -905,6 +942,7 @@ export async function getRekapContext(
 			return {
 				meId: me.profile.id,
 				given: [...by].map(([user_id, v]) => ({ user_id, ...v })),
+				eventDate: (event.event_date as string | null) ?? null,
 			};
 		})(),
 	};
@@ -980,12 +1018,21 @@ export async function submitRekap(
 		uj_bukti_url: formData.get("uj_bukti_url") || null,
 		uj_kembali_metode: formData.get("uj_kembali_metode") || null,
 		uj_kembali_bukti_url: formData.get("uj_kembali_bukti_url") || null,
+		uj_rincian: formData.get("uj_rincian") || null,
 	});
 	if (!parsed.success) {
 		return {
 			errors: parsed.error.flatten().fieldErrors as RekapErrors,
 			values: snapshotValues(formData),
 		};
+	}
+	// Rincian per pemberi (owner 24 Nov 2026) jadi sumber angka uang jalan.
+	const ujRincian = parsed.data.uj_rincian;
+	if (ujRincian.length > 0) {
+		parsed.data.uj_terima = ujRincian.reduce((t, r) => t + r.amount, 0);
+		parsed.data.uj_metode = ujRincian[0].method;
+		parsed.data.uj_bukti_url =
+			ujRincian.find((r) => r.bukti_url)?.bukti_url ?? null;
 	}
 	// Sisa uang jalan dikembalikan lewat transfer → bukti transfer WAJIB (owner 2026-10-10).
 	if (
@@ -1123,6 +1170,8 @@ export async function submitRekap(
 		expense_paid_by: parsed.data.expense_paid_by,
 		expense_nota_urls: parsed.data.expense_nota_urls,
 		uj_terima: parsed.data.uj_terima,
+		uj_rincian:
+			parsed.data.uj_terima > 0 && ujRincian.length > 0 ? ujRincian : null,
 		uj_metode:
 			parsed.data.uj_terima > 0 ? (parsed.data.uj_metode ?? null) : null,
 		uj_holder:
@@ -1242,6 +1291,24 @@ export async function submitRekap(
 				};
 			}
 		}
+	}
+
+	// Laporan uang jalan crew langsung masuk buku (owner 24 Nov 2026) —
+	// gagal tidak menggagalkan rekap; panel owner memperingatkan selisihnya.
+	try {
+		const uj = await syncUangJalanDariLaporan(
+			createAdminClient(),
+			eventId,
+			me.profile.id,
+			todayWIB(),
+		);
+		if (uj.catatan.length)
+			console.error(
+				`[rekap] uang jalan dari laporan (${eventId}):`,
+				uj.catatan,
+			);
+	} catch (e) {
+		console.error(`[rekap] uang jalan dari laporan (${eventId}):`, e);
 	}
 
 	// Biaya yang ditransfer owner tertentu langsung diantre jadi hutang ke owner.

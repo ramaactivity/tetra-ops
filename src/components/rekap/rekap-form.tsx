@@ -28,6 +28,7 @@ import { SingleFileUpload } from "@/components/rekap/single-file-upload";
 import { useRekapDraft } from "@/components/rekap/use-rekap-draft";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { DatePicker } from "@/components/ui/date-picker";
 import { RichTextarea } from "@/components/ui/rich-textarea";
 import type { RekapContext } from "@/lib/actions/rekap";
 import { type RekapFormState, submitRekap } from "@/lib/actions/rekap";
@@ -98,6 +99,8 @@ type Defaults = {
 	uj_bukti_url?: string;
 	uj_kembali_metode?: string;
 	uj_kembali_bukti_url?: string;
+	/** JSON [{owner_id, amount, method, tanggal, bukti_url}] — per pemberi. */
+	uj_rincian?: string;
 };
 
 /**
@@ -481,26 +484,65 @@ export function RekapForm({
 	const [ujAda, setUjAda] = useState(
 		Number(defaults.uj_terima ?? 0) > 0 || ujOwnerTotal > 0,
 	);
-	const [ujTerima, setUjTerima] = useState(
-		Number(defaults.uj_terima ?? 0) > 0
-			? String(defaults.uj_terima)
-			: ujOwnerTotal > 0
-				? String(ujOwnerTotal)
-				: "",
+	// Rincian per pemberi (owner 24 Nov 2026): laporan crew langsung jadi
+	// catatan uang jalan, jadi tiap baris wajib menyebut owner pemberinya.
+	const ujDefaultDate = context.uangJalan?.eventDate ?? "";
+	const [ujRows, setUjRows] = useState<UjRow[]>(() => {
+		try {
+			const arr = JSON.parse(defaults.uj_rincian || "[]") as Array<
+				Partial<UjRow> & { amount?: number | string }
+			>;
+			if (Array.isArray(arr) && arr.length > 0)
+				return arr.map((r) => ({
+					owner_id: r.owner_id ?? "",
+					amount: String(r.amount ?? ""),
+					method: r.method === "transfer" ? "transfer" : "tunai",
+					tanggal: r.tanggal || ujDefaultDate,
+					bukti_url: r.bukti_url ?? null,
+				}));
+		} catch {
+			// rincian rusak → mulai dari angka lama
+		}
+		const lama =
+			Number(defaults.uj_terima ?? 0) > 0
+				? String(defaults.uj_terima)
+				: ujOwnerTotal > 0
+					? String(ujOwnerTotal)
+					: "";
+		return [
+			{
+				owner_id: "",
+				amount: lama,
+				method:
+					(defaults.uj_metode || ujGiven[0]?.method || "tunai") === "transfer"
+						? "transfer"
+						: "tunai",
+				tanggal: ujDefaultDate,
+				bukti_url: defaults.uj_bukti_url || null,
+			},
+		];
+	});
+	const ujTerima = String(
+		ujRows.reduce((t, r) => t + (Number(r.amount) || 0), 0),
 	);
-	const [ujMetode, setUjMetode] = useState<"tunai" | "transfer">(
-		(defaults.uj_metode || ujGiven[0]?.method || "tunai") === "transfer"
-			? "transfer"
-			: "tunai",
+	const ujMetode = ujRows[0]?.method ?? "tunai";
+	const ujBukti = ujRows.find((r) => r.bukti_url)?.bukti_url ?? null;
+	const ujRincianJson = JSON.stringify(
+		ujRows
+			.filter((r) => Number(r.amount) > 0)
+			.map((r) => ({
+				owner_id: r.owner_id,
+				amount: Number(r.amount),
+				method: r.method,
+				tanggal: r.tanggal || null,
+				bukti_url: r.bukti_url,
+			})),
 	);
 	const [ujHolder, setUjHolder] = useState(
 		defaults.uj_holder || ujGiven[0]?.user_id || meId,
 	);
 	const [ujSisa, setUjSisa] = useState<"potong_fee" | "kembalikan">(
 		defaults.uj_sisa === "kembalikan" ? "kembalikan" : "potong_fee",
-	);
-	const [ujBukti, setUjBukti] = useState<string | null>(
-		defaults.uj_bukti_url || null,
 	);
 	const [ujKembaliMetode, setUjKembaliMetode] = useState<"tunai" | "transfer">(
 		defaults.uj_kembali_metode === "transfer" ? "transfer" : "tunai",
@@ -1537,17 +1579,15 @@ export function RekapForm({
 					<UangJalanCard
 						ada={ujAda}
 						onAda={setUjAda}
-						terima={ujTerima}
-						onTerima={setUjTerima}
-						metode={ujMetode}
-						onMetode={setUjMetode}
+						rows={ujRows}
+						onRows={setUjRows}
+						owners={context.owners ?? []}
+						error={err("uj_rincian")?.[0]}
 						holder={ujHolder}
 						onHolder={setUjHolder}
 						crew={context.crew}
 						fromOwner={ujOwnerTotal}
 						projectId={projectId}
-						bukti={ujBukti}
-						onBukti={setUjBukti}
 					/>
 					{planRental ? (
 						<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-[12.5px] leading-relaxed text-foreground/80">
@@ -1973,6 +2013,11 @@ export function RekapForm({
 					value={ujAda ? ujTerima || "0" : "0"}
 				/>
 				<input type="hidden" name="uj_metode" value={ujAda ? ujMetode : ""} />
+				<input
+					type="hidden"
+					name="uj_rincian"
+					value={ujAda ? ujRincianJson : ""}
+				/>
 				<input type="hidden" name="uj_holder" value={ujAda ? ujHolder : ""} />
 				<input
 					type="hidden"
@@ -2750,20 +2795,26 @@ function SpotCetak({
 }
 
 /** Kartu "Uang jalan dari owner" di bagian Transportasi (DR-049). */
+type UjRow = {
+	owner_id: string;
+	amount: string;
+	method: "tunai" | "transfer";
+	tanggal: string;
+	bukti_url: string | null;
+};
+
 function UangJalanCard(p: {
 	ada: boolean;
 	onAda: (v: boolean) => void;
-	terima: string;
-	onTerima: (v: string) => void;
-	metode: "tunai" | "transfer";
-	onMetode: (v: "tunai" | "transfer") => void;
+	rows: UjRow[];
+	onRows: (rows: UjRow[]) => void;
+	owners: Array<{ id: string; name: string }>;
+	error?: string;
 	holder: string;
 	onHolder: (v: string) => void;
 	crew: Array<{ user_id: string; name: string; role: string }>;
 	fromOwner: number;
 	projectId: string;
-	bukti: string | null;
-	onBukti: (u: string | null) => void;
 }) {
 	const chip = (on: boolean) =>
 		`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
@@ -2771,6 +2822,9 @@ function UangJalanCard(p: {
 				? "border-primary bg-primary/10 text-foreground"
 				: "border-border-default bg-surface-3 text-muted-foreground hover:bg-muted"
 		}`;
+	const set = (i: number, patch: Partial<UjRow>) =>
+		p.onRows(p.rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+	const total = p.rows.reduce((t, r) => t + (Number(r.amount) || 0), 0);
 	return (
 		<div className="space-y-3 rounded-xl border border-border-default bg-surface-2 p-3">
 			<div className="flex items-start gap-2">
@@ -2781,13 +2835,14 @@ function UangJalanCard(p: {
 					</p>
 					<p className="text-[12px] text-muted-foreground">
 						Uang yang dikasih owner sebelum berangkat (tunai, transfer, atau
-						top-up GoPay) buat bensin, parkir, tol, transport.
+						top-up GoPay) buat bensin, parkir, tol, transport. Isian ini
+						langsung tercatat di pembukuan, jadi isi sesuai yang diterima.
 					</p>
 				</div>
 			</div>
 			{p.fromOwner > 0 && (
 				<p className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-[12px] text-emerald-800 dark:text-emerald-300">
-					Owner mencatat uang jalan{" "}
+					Sudah tercatat uang jalan{" "}
 					<span className="tabular font-semibold">
 						{formatRupiah(p.fromOwner)}
 					</span>{" "}
@@ -2812,41 +2867,135 @@ function UangJalanCard(p: {
 			</div>
 			{p.ada && (
 				<div className="space-y-3">
-					<div className="flex flex-wrap gap-1.5">
-						{(["tunai", "transfer"] as const).map((m) => (
-							<button
-								key={m}
-								type="button"
-								className={chip(p.metode === m)}
-								onClick={() => p.onMetode(m)}
+					<ul className="space-y-3">
+						{p.rows.map((r, i) => (
+							<li
+								// biome-ignore lint/suspicious/noArrayIndexKey: baris tanpa id, urutan stabil
+								key={i}
+								className="space-y-2.5 rounded-lg border border-border-default bg-background p-3"
 							>
-								{m === "tunai" ? "Tunai" : "Transfer / GoPay"}
-							</button>
+								<div className="space-y-1">
+									<p className="text-[12px] font-medium text-foreground">
+										Dari siapa
+									</p>
+									<div className="flex flex-wrap gap-1.5">
+										{p.owners.map((o) => (
+											<button
+												key={o.id}
+												type="button"
+												className={chip(r.owner_id === o.id)}
+												onClick={() => set(i, { owner_id: o.id })}
+											>
+												{o.name}
+											</button>
+										))}
+									</div>
+									{!r.owner_id && Number(r.amount) > 0 ? (
+										<p className="text-[12px] text-amber-700 dark:text-amber-300">
+											Pilih owner yang memberi uangnya.
+										</p>
+									) : null}
+								</div>
+								<div className="flex flex-wrap gap-1.5">
+									{(["tunai", "transfer"] as const).map((m) => (
+										<button
+											key={m}
+											type="button"
+											className={chip(r.method === m)}
+											onClick={() => set(i, { method: m })}
+										>
+											{m === "tunai" ? "Tunai" : "Transfer / GoPay"}
+										</button>
+									))}
+								</div>
+								<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+									<div className="space-y-1">
+										<label
+											htmlFor={`uj_amount_${i}`}
+											className="text-[12px] font-medium text-foreground"
+										>
+											Jumlah yang diterima
+										</label>
+										<div className="relative">
+											<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
+												Rp
+											</span>
+											<input
+												id={`uj_amount_${i}`}
+												type="text"
+												inputMode="numeric"
+												value={r.amount}
+												onChange={(e) =>
+													set(i, { amount: e.target.value.replace(/\D/g, "") })
+												}
+												placeholder="0"
+												className={`${inputClass} tabular pl-9`}
+											/>
+										</div>
+									</div>
+									<div className="space-y-1">
+										<p className="text-[12px] font-medium text-foreground">
+											Tanggal diterima
+										</p>
+										<DatePicker
+											value={r.tanggal}
+											onValueChange={(v) => set(i, { tanggal: v ?? "" })}
+										/>
+									</div>
+								</div>
+								{r.method === "transfer" ? (
+									<SingleFileUpload
+										projectId={p.projectId}
+										kind="uang_jalan"
+										seq={`terima-${i + 1}`}
+										label="Bukti transfer (screenshot) — upload biar owner tidak perlu mencari"
+										value={r.bukti_url}
+										onChange={(u) => set(i, { bukti_url: u })}
+									/>
+								) : null}
+								{p.rows.length > 1 ? (
+									<button
+										type="button"
+										onClick={() => p.onRows(p.rows.filter((_, k) => k !== i))}
+										className="text-[12.5px] font-medium text-muted-foreground hover:text-foreground"
+									>
+										Hapus pemberi ini
+									</button>
+								) : null}
+							</li>
 						))}
-					</div>
-					<div className="space-y-1.5">
-						<label
-							htmlFor="uj_terima_input"
-							className="text-fluid-body font-medium"
+					</ul>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<button
+							type="button"
+							onClick={() =>
+								p.onRows([
+									...p.rows,
+									{
+										owner_id: "",
+										amount: "",
+										method: "transfer",
+										tanggal: p.rows[0]?.tanggal ?? "",
+										bukti_url: null,
+									},
+								])
+							}
+							className={chip(false)}
 						>
-							Jumlah yang diterima
-						</label>
-						<div className="relative">
-							<span className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fluid-caption">
-								Rp
-							</span>
-							<input
-								id="uj_terima_input"
-								type="number"
-								inputMode="numeric"
-								min={0}
-								value={p.terima}
-								onChange={(e) => p.onTerima(e.target.value)}
-								placeholder="0"
-								className={`${inputClass} tabular pl-9`}
-							/>
-						</div>
+							+ Ada pemberi lain
+						</button>
+						{p.rows.length > 1 ? (
+							<p className="text-[12.5px] text-muted-foreground">
+								Total{" "}
+								<span className="tabular font-semibold text-foreground">
+									{formatRupiah(total)}
+								</span>
+							</p>
+						) : null}
 					</div>
+					{p.error ? (
+						<p className="text-[12.5px] text-rose-700">{p.error}</p>
+					) : null}
 					{p.crew.length > 1 && (
 						<div className="space-y-1">
 							<p className="text-[12px] text-muted-foreground">
@@ -2866,14 +3015,6 @@ function UangJalanCard(p: {
 							</div>
 						</div>
 					)}
-					<SingleFileUpload
-						projectId={p.projectId}
-						kind="uang_jalan"
-						seq="terima"
-						label="Bukti terima (screenshot transfer / top-up, opsional)"
-						value={p.bukti}
-						onChange={p.onBukti}
-					/>
 					<p className="text-[12px] text-muted-foreground">
 						Biaya di bawah yang dibayar pakai uang ini, pilih{" "}
 						<span className="font-medium text-foreground">

@@ -129,6 +129,7 @@ type RekapRow = {
 	uj_bukti_url: string | null;
 	uj_kembali_metode: string | null;
 	uj_kembali_bukti_url: string | null;
+	uj_rincian: unknown;
 	submitted_by: string | null;
 	submitted_by_user: { full_name: string } | null;
 	reviewer: { full_name: string } | null;
@@ -196,7 +197,7 @@ export default async function EventRekapPage({
 					transport_method, transport_cost,
 					transport_proof_berangkat_url, transport_proof_pulang_url,
 					bensin_cost, toll_cost, parking_cost, konsumsi_cost, lainnya_items,
-					expense_paid_by, expense_nota_urls, submitted_by, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url,
+					expense_paid_by, expense_nota_urls, submitted_by, uj_terima, uj_metode, uj_holder, uj_sisa, uj_bukti_url, uj_kembali_metode, uj_kembali_bukti_url, uj_rincian,
 					submitted_by_user:users!crew_rekap_submitted_by_fkey(full_name),
 					reviewer:users!crew_rekap_reviewed_by_fkey(full_name)`,
 				)
@@ -346,7 +347,7 @@ export default async function EventRekapPage({
 	const { data: ujRows } = await supabase
 		.from("uang_jalan")
 		.select(
-			"id, user_id, kind, amount, method, account_code, created_at, is_reversed, proof_url, owner_id",
+			"id, user_id, kind, amount, method, account_code, created_at, is_reversed, proof_url, owner_id, dari_laporan",
 		)
 		.eq("event_id", event.id as string)
 		.order("created_at");
@@ -877,6 +878,7 @@ export default async function EventRekapPage({
 				uj_bukti_url: rekap.uj_bukti_url ?? "",
 				uj_kembali_metode: rekap.uj_kembali_metode ?? "",
 				uj_kembali_bukti_url: rekap.uj_kembali_bukti_url ?? "",
+				uj_rincian: rekap.uj_rincian ? JSON.stringify(rekap.uj_rincian) : "",
 			}
 		: undefined;
 

@@ -221,3 +221,30 @@ export function pegangRekeningTetra(
 		return words.every((w) => holder.includes(` ${w} `));
 	});
 }
+
+/**
+ * Laporan crew per pemberi vs uang jalan yang sudah tercatat → jumlah yang
+ * masih perlu dibukukan per baris laporan. Total yang dibukukan tidak pernah
+ * melebihi selisih total laporan − total tercatat (catatan owner yang lebih
+ * dulu, walau beda pemberi, tidak didobel).
+ */
+export function rencanaDariLaporan(
+	laporan: ReadonlyArray<{ owner_id: string; amount: number }>,
+	tercatat: ReadonlyArray<{ owner_id: string | null; amount: number }>,
+): Array<{ index: number; amount: number }> {
+	const per = new Map<string, number>();
+	for (const t of tercatat)
+		per.set(t.owner_id ?? "", (per.get(t.owner_id ?? "") ?? 0) + t.amount);
+	let gap =
+		laporan.reduce((s, r) => s + r.amount, 0) -
+		tercatat.reduce((s, t) => s + t.amount, 0);
+	const out: Array<{ index: number; amount: number }> = [];
+	laporan.forEach((r, index) => {
+		const amt = Math.min(r.amount - (per.get(r.owner_id) ?? 0), gap);
+		if (amt <= 0) return;
+		out.push({ index, amount: amt });
+		gap -= amt;
+		per.set(r.owner_id, (per.get(r.owner_id) ?? 0) + amt);
+	});
+	return out;
+}

@@ -4,6 +4,7 @@ import {
 	isiSisa,
 	pegangRekeningTetra,
 	potongFee,
+	rencanaDariLaporan,
 	rincianTerbuka,
 	ringkasUangJalan,
 	saldoTalanganOwner,
@@ -210,4 +211,56 @@ test("uraiPelunasan: label antrean '(belum settle)' tidak ikut ke catatan peluna
 		250_000,
 	);
 	assert.equal(urai, "14 Nov · Transport — Iqbal & Indri 250.000");
+});
+
+test("laporan crew → yang masih perlu dibukukan (tanpa dobel)", () => {
+	const R = "rama";
+	const A = "adit";
+	// belum ada catatan → semua dibukukan
+	assert.deepEqual(rencanaDariLaporan([{ owner_id: R, amount: 250_000 }], []), [
+		{ index: 0, amount: 250_000 },
+	]);
+	// owner sudah catat sama persis → tidak ada
+	assert.deepEqual(
+		rencanaDariLaporan(
+			[{ owner_id: R, amount: 250_000 }],
+			[{ owner_id: R, amount: 250_000 }],
+		),
+		[],
+	);
+	// owner catat sebagian → sisanya saja
+	assert.deepEqual(
+		rencanaDariLaporan(
+			[{ owner_id: R, amount: 250_000 }],
+			[{ owner_id: R, amount: 100_000 }],
+		),
+		[{ index: 0, amount: 150_000 }],
+	);
+	// owner catat atas nama pemberi lain dengan total sama → tidak didobel
+	assert.deepEqual(
+		rencanaDariLaporan(
+			[{ owner_id: A, amount: 250_000 }],
+			[{ owner_id: R, amount: 250_000 }],
+		),
+		[],
+	);
+	// dua pemberi, satu sudah tercatat
+	assert.deepEqual(
+		rencanaDariLaporan(
+			[
+				{ owner_id: R, amount: 200_000 },
+				{ owner_id: A, amount: 100_000 },
+			],
+			[{ owner_id: R, amount: 200_000 }],
+		),
+		[{ index: 1, amount: 100_000 }],
+	);
+	// laporan turun di bawah catatan → tidak ada (owner yang memutuskan)
+	assert.deepEqual(
+		rencanaDariLaporan(
+			[{ owner_id: R, amount: 100_000 }],
+			[{ owner_id: R, amount: 250_000 }],
+		),
+		[],
+	);
 });

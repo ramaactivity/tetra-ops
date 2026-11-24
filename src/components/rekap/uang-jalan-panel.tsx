@@ -12,6 +12,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import {
 	batalUangJalan,
 	beriUangJalan,
+	lampirBuktiUangJalan,
 	terimaSisaUangJalan,
 } from "@/lib/actions/uang-jalan";
 import { formatRupiah } from "@/lib/format";
@@ -35,6 +36,8 @@ export type UangJalanLedgerRow = {
 	is_reversed: boolean;
 	proof_url?: string | null;
 	owner_id?: string | null;
+	/** Dicatat otomatis dari laporan crew di rekap. */
+	dari_laporan?: boolean;
 };
 
 const KIND: Record<UangJalanLedgerRow["kind"], string> = {
@@ -340,7 +343,8 @@ export function UangJalanPanel({
 					<span className="tabular" data-nominal>
 						{formatRupiah(given(reportHolder as string))}
 					</span>{" "}
-					yang tercatat.{" "}
+					yang tercatat — laporannya belum menyebut owner pemberi, atau saldo
+					rekening tidak cukup.{" "}
 					<button
 						type="button"
 						className="font-semibold underline"
@@ -766,7 +770,14 @@ export function UangJalanPanel({
 														day: "numeric",
 														month: "short",
 													})}
+													{l.dari_laporan ? " · dari laporan crew" : ""}
 												</span>
+												{l.kind === "beri" &&
+												!l.is_reversed &&
+												!l.proof_url &&
+												l.method === "transfer" ? (
+													<TambahBukti id={l.id} projectId={projectId} />
+												) : null}
 												{l.proof_url && (
 													<a
 														href={l.proof_url}
@@ -893,5 +904,40 @@ export function UangJalanPanel({
 				</div>
 			)}
 		</section>
+	);
+}
+
+/** Owner melengkapi bukti transfer kalau crew lupa mengunggah. */
+function TambahBukti({ id, projectId }: { id: string; projectId: string }) {
+	const router = useRouter();
+	const [open, setOpen] = useState(false);
+	if (!open)
+		return (
+			<button
+				type="button"
+				onClick={() => setOpen(true)}
+				className="ml-2 text-[12px] font-medium text-amber-800 underline underline-offset-2 dark:text-amber-300"
+			>
+				Tambah bukti
+			</button>
+		);
+	return (
+		<div className="mt-1.5">
+			<SingleFileUpload
+				projectId={projectId}
+				kind="uang_jalan"
+				seq={`owner-${id.slice(0, 8)}`}
+				label="Bukti transfer uang jalan"
+				value={null}
+				onChange={async (url) => {
+					if (!url) return;
+					const r = await lampirBuktiUangJalan(id, projectId, url);
+					if (!r.ok) return void toast.error(r.error);
+					toast.success("Bukti tersimpan");
+					setOpen(false);
+					router.refresh();
+				}}
+			/>
+		</div>
 	);
 }

@@ -1492,3 +1492,17 @@ DP Yessi dan pelunasan Syifa & Hilmi (19 Nov) masuk lewat WA tapi tidak tercatat
 
 ### Menyusul
 Kartu Telegram + lonceng begitu bukti baru masuk, dengan tombol yang sama.
+
+---
+
+## DR-060: Uang jalan crew tercatat dari laporan crew — owner hanya melengkapi
+
+**Status:** Accepted (owner 2026-11-24: "kalau crew input gua juga input sebagai owner buat apa")
+**Date:** 2026-11-24
+**Mengganti:** aturan DR-049 "laporan crew = klaim, hanya owner yang mencatat".
+
+### Decision
+1. Form rekap crew mengisi uang jalan **per pemberi**: dari siapa (owner), cara (tunai/transfer), jumlah, tanggal diterima, bukti transfer (`crew_rekap.uj_rincian`). Bisa lebih dari satu pemberi.
+2. Saat rekap disimpan, laporan langsung dibukukan (`syncUangJalanDariLaporan`, `uang_jalan.dari_laporan = true`). Sumber dana ikut aturan 14 Nov: owner pemegang rekening Tetra → rekening Tetra; owner lain → uang pribadi (hutang Tetra 2-310).
+3. Tidak dobel: yang dibukukan hanya selisih laporan vs catatan **manual** owner (`rencanaDariLaporan`). Catatan otomatis mengikuti laporan terbaru — owner memperbaiki pemberi/nominal lewat **Koreksi rekap**; catatan otomatis lama dibalik (jurnal pembalik) lalu dicatat ulang. Yang sudah terpotong fee/dikembalikan tidak disusun ulang (panel minta koreksi manual).
+4. Owner tetap bisa **Catat uang jalan** manual (crew lupa lapor) dan **Tambah bukti** di catatan transfer tanpa bukti.
